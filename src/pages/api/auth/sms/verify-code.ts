@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
+import { parseWithSchema } from "../../../../lib/forms/parsing";
 import { createSupabaseServerClient } from "../../../../lib/supabase";
 import { createUserService } from "../../../../lib/users";
-import { parseWithSchema } from "../../form-utils";
 import { checkVerification } from "./verify-utils";
 
 interface SmsVerifyCodeDependencies {
@@ -28,7 +28,7 @@ export function createVerifyCodeHandler(
 		const user = await userService.getCurrentUser();
 		if (!user) {
 			console.error("SMS verification attempt without authenticated user");
-			return redirect("/?error=unauthorized&returnTo=/dashboard");
+			return redirect("/signin?error=unauthorized");
 		}
 
 		try {
@@ -75,7 +75,9 @@ export function createVerifyCodeHandler(
 				phone_verified: true,
 			});
 
-			return redirect("/dashboard?success=phone_verified");
+			return redirect(
+				"/dashboard?success=phone_verified#notification-preferences",
+			);
 		} catch (error) {
 			console.error(
 				"Verify code error:",

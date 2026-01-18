@@ -1,16 +1,58 @@
 ---
 import Navigation from "../../components/layout/Navigation.astro";
 import Layout from "../../layouts/Layout.astro";
+
+const search = Astro.url.searchParams;
+const token = search.get("token");
+const type = search.get("type");
+const error = search.get("error");
+
+let message = "";
+let showResetLink = false;
+
+const hasValidToken = Boolean(token) && type === "recovery";
+let showForm = hasValidToken;
+
+if (!hasValidToken) {
+	message = "This password reset link is invalid.";
+	showResetLink = true;
+	showForm = false;
+} else if (error) {
+	switch (error) {
+		case "invalid_form":
+			message = "Please check the form and try again.";
+			break;
+		case "password_mismatch":
+			message = "Passwords do not match.";
+			break;
+		case "weak_password":
+			message =
+				"Password does not meet security requirements. Please choose a stronger password.";
+			break;
+		case "expired":
+			message = "This password reset link has expired.";
+			showResetLink = true;
+			showForm = false;
+			break;
+		case "invalid_token":
+			message = "This password reset link is invalid.";
+			showResetLink = true;
+			showForm = false;
+			break;
+		default:
+			message = "Failed to update password. Please try again.";
+	}
+}
 ---
 
-<Layout title="Reset Password">
+<Layout title="Reset Password" description="Set a new password for your account.">
   <div class="min-h-screen bg-gray-50">
     <Navigation />
 
     <div class="max-w-3xl mx-auto px-6 py-12">
       <div class="mb-6">
         <a
-          href="/"
+          href="/signin"
           class="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 font-medium"
         >
           <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -24,195 +66,62 @@ import Layout from "../../layouts/Layout.astro";
         <h1 class="text-2xl font-bold text-gray-900 mb-2">Set a new password</h1>
         <p class="text-sm text-gray-600 mb-6">Choose a strong password for your account.</p>
 
-        <form id="reset-form" class="space-y-4">
-          <div>
-            <label for="password" class="block text-sm font-medium text-gray-700 mb-2">New password</label>
-            <input 
-              type="password" 
-              name="password" 
-              id="password" 
-              required 
-              autocomplete="new-password"
-              class="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
-              placeholder="••••••••"
-              minlength="8"
-            />
-            <p class="text-sm text-gray-500 mt-1">Minimum 8 characters required</p>
+        {message && (
+          <div class="mb-4 rounded-md p-4 bg-red-50 text-red-700" role="alert">
+            {message}
           </div>
-          <div>
-            <label for="confirm" class="block text-sm font-medium text-gray-700 mb-2">Confirm password</label>
-            <input 
-              type="password" 
-              name="confirm" 
-              id="confirm" 
-              required 
-              autocomplete="new-password"
-              class="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
-              placeholder="••••••••"
-              minlength="8"
-            />
-            <p class="text-sm text-gray-500 mt-1">Minimum 8 characters required</p>
-          </div>
-          <button 
-            type="submit" 
-            class="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md font-medium transition-colors cursor-pointer"
-          >
-            Update password
-          </button>
-        </form>
+        )}
 
-        <div id="message" class="hidden mt-4 p-4 rounded-md"></div>
+        {showForm && (
+          <form id="reset-form" class="space-y-4" action="/api/auth/update-password" method="post">
+            <input type="hidden" name="token" value={token ?? ""} />
+            <input type="hidden" name="type" value={type ?? ""} />
+            <div>
+              <label for="password" class="block text-sm font-medium text-gray-700 mb-2">New password</label>
+              <input
+                type="password"
+                name="password"
+                id="password"
+                required
+                autocomplete="new-password"
+                class="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="••••••••"
+                minlength="8"
+              />
+              <p class="text-sm text-gray-500 mt-1">Minimum 8 characters required</p>
+            </div>
+            <div>
+              <label for="confirm" class="block text-sm font-medium text-gray-700 mb-2">Confirm password</label>
+              <input
+                type="password"
+                name="confirm"
+                id="confirm"
+                required
+                autocomplete="new-password"
+                class="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="••••••••"
+                minlength="8"
+              />
+              <p class="text-sm text-gray-500 mt-1">Minimum 8 characters required</p>
+            </div>
+            <button
+              type="submit"
+              class="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md font-medium transition-colors cursor-pointer"
+            >
+              Update password
+            </button>
+          </form>
+        )}
+
+        {showResetLink && (
+          <div class="mt-6 text-center">
+            <a href="/auth/forgot" class="text-sm font-medium text-blue-600 hover:text-blue-500">
+              Request a new password reset
+            </a>
+          </div>
+        )}
       </div>
     </div>
   </div>
 </Layout>
-
-<script>
-  import { createClient } from '@supabase/supabase-js';
-
-  const supabase = createClient(
-    import.meta.env.PUBLIC_SUPABASE_URL,
-    import.meta.env.PUBLIC_SUPABASE_ANON_KEY
-  );
-
-  // Get DOM elements first
-  const form = document.getElementById('reset-form') as HTMLFormElement;
-  const messageDiv = document.getElementById('message') as HTMLDivElement;
-
-  // Check for error parameters in URL hash (from Supabase redirect)
-  const hashParams = new URLSearchParams(window.location.hash.substring(1));
-  const error = hashParams.get('error');
-  const errorCode = hashParams.get('error_code');
-  
-  if (error === 'access_denied' && errorCode === 'otp_expired') {
-    showMessage('This password reset link has expired.', 'error', true);
-    // Hide the form since the token is invalid
-    if (form) {
-      form.style.display = 'none';
-    }
-  } else {
-    // Handle normal token verification from query parameters
-    const search = new URLSearchParams(window.location.search);
-    const token = search.get('token');
-    const type = search.get('type');
-
-    if (token && type === 'recovery') {
-      (async () => {
-        // Disable form and controls before verification
-        const passwordInput = document.getElementById('password') as HTMLInputElement;
-        const confirmInput = document.getElementById('confirm') as HTMLInputElement;
-        const submitButton = form?.querySelector('button[type="submit"]') as HTMLButtonElement;
-        
-        if (form) {
-          form.classList.add('busy');
-          form.setAttribute('aria-busy', 'true');
-        }
-        if (passwordInput) {
-          passwordInput.disabled = true;
-        }
-        if (confirmInput) {
-          confirmInput.disabled = true;
-        }
-        if (submitButton) {
-          submitButton.disabled = true;
-        }
-
-        const { error } = await supabase.auth.verifyOtp({
-          token_hash: token,
-          type: 'recovery'
-        });
-
-        if (error) {
-          console.error('Token verification failed:', error);
-          showMessage('Invalid or expired reset link.', 'error', true);
-          // Hide the form since the token is invalid (form remains disabled)
-          if (form) {
-            form.style.display = 'none';
-            form.removeAttribute('aria-busy');
-          }
-        } else {
-          // Re-enable form and controls on success
-          if (form) {
-            form.classList.remove('busy');
-            form.removeAttribute('aria-busy');
-          }
-          if (passwordInput) {
-            passwordInput.disabled = false;
-          }
-          if (confirmInput) {
-            confirmInput.disabled = false;
-          }
-          if (submitButton) {
-            submitButton.disabled = false;
-          }
-        }
-      })();
-    }
-  }
-
-  form?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
-    const passwordInput = document.getElementById('password') as HTMLInputElement;
-    const confirmInput = document.getElementById('confirm') as HTMLInputElement;
-
-    if (passwordInput.value !== confirmInput.value) {
-      showMessage('Passwords do not match', 'error');
-      return;
-    }
-
-    submitButton.disabled = true;
-    submitButton.textContent = 'Updating...';
-
-    const { error } = await supabase.auth.updateUser({ password: passwordInput.value });
-    
-    submitButton.disabled = false;
-    submitButton.textContent = 'Update password';
-
-    if (error) {
-      console.error('Password update failed:', error);
-      
-      let userMessage = 'Failed to update password. Please try again.';
-      if (error.code === 'weak_password') {
-        userMessage = 'Password does not meet security requirements. Please choose a stronger password.';
-      }
-      
-      showMessage(userMessage, 'error');
-      return;
-    }
-
-    window.location.href = '/?success=password_reset';
-  });
-
-  function showMessage(text: string, type: 'success' | 'error', showForgotLink = false) {
-    if (!messageDiv) return;
-    
-    messageDiv.innerHTML = '';
-    
-    if (showForgotLink) {
-      const container = document.createElement('div');
-      container.className = 'bg-red-50 text-red-700 p-4 rounded-md';
-      container.setAttribute('role', 'alert');
-      
-      const textDiv = document.createElement('div');
-      textDiv.className = 'mb-2';
-      textDiv.textContent = text;
-      
-      const link = document.createElement('a');
-      link.href = '/auth/forgot';
-      link.className = 'inline-flex items-center text-sm font-medium text-red-700 hover:text-red-800 underline';
-      link.textContent = 'Request a new password reset';
-      
-      container.appendChild(textDiv);
-      container.appendChild(link);
-      messageDiv.appendChild(container);
-    } else {
-      messageDiv.textContent = text;
-      messageDiv.className = `mt-4 p-4 rounded-md ${type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`;
-      messageDiv.setAttribute('role', 'alert');
-    }
-    
-    messageDiv.classList.remove('hidden');
-  }
-</script>
 

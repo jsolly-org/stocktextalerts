@@ -1,15 +1,24 @@
 ---
 import { readFile } from "node:fs/promises";
-import DashboardPreferencesForm from "../components/dashboard/DashboardPreferencesForm.astro";
+import PreviewNotifications from "../components/dashboard/PreviewNotifications.astro";
+import NotificationPreferencesCard from "../components/dashboard/preferences/NotificationPreferencesCard.astro";
+import ScheduledNotificationsCard from "../components/dashboard/preferences/ScheduledNotificationsCard.astro";
 import SetupRequiredBanner from "../components/dashboard/SetupRequiredBanner.astro";
+import TrackedStocksPanel from "../components/dashboard/stocks/TrackedStocksPanel.vue";
 import Navigation from "../components/layout/Navigation.astro";
+import TimezoneMismatchBanner from "../components/TimezoneMismatchBanner.astro";
 import Layout from "../layouts/Layout.astro";
 import { formatMessage } from "../lib/format";
 import type { Stock } from "../lib/stocks";
 import { getUserStocks } from "../lib/stocks";
 import { createSupabaseServerClient } from "../lib/supabase";
-import { getTimezoneOptions } from "../lib/timezones";
+import { getTimezoneOptions } from "../lib/timezones/timezones";
 import { createUserService } from "../lib/users";
+
+interface StockOption {
+	value: string;
+	label: string;
+}
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
@@ -36,12 +45,32 @@ const stocksFileUrl = new URL("../../scripts/us-stocks.json", import.meta.url);
 const stocksFileContents = await readFile(stocksFileUrl, "utf-8");
 const { data: allStocks } = JSON.parse(stocksFileContents) as { data: Stock[] };
 
-const [userStocks, timezones] = await Promise.all([
-	getUserStocks(supabase, authUser.id),
-	getTimezoneOptions(supabase),
-]);
+const userStocks = await getUserStocks(supabase, authUser.id);
 
-const stockOptions = allStocks.map((stock) => ({
+let timezones: Awaited<ReturnType<typeof getTimezoneOptions>>;
+let timezoneLoadError = false;
+
+try {
+	timezones = await getTimezoneOptions(supabase, {
+		includeValues: [user.timezone],
+	});
+} catch (error) {
+	console.error("Failed to load timezone options:", error);
+	timezoneLoadError = true;
+	timezones = user.timezone
+		? [
+				{
+					value: user.timezone,
+					label: user.timezone.replace(/_/g, " "),
+					display_order: 0,
+				},
+			]
+		: [];
+}
+
+const initialSymbols = userStocks.map((stock) => stock.symbol);
+
+const stockOptions: StockOption[] = allStocks.map((stock) => ({
 	value: stock.symbol,
 	label: `${stock.symbol} - ${stock.name}`,
 }));
@@ -50,12 +79,19 @@ const url = new URL(Astro.request.url);
 const successMessage = url.searchParams.get("success");
 const errorMessage = url.searchParams.get("error");
 const isEditingPhone = url.searchParams.get("change_phone") === "1";
+
+const isSmsFullyConfigured =
+	user.sms_notifications_enabled &&
+	!user.sms_opted_out &&
+	user.phone_verified &&
+	Boolean(user.phone_country_code) &&
+	Boolean(user.phone_number);
 ---
 
 <Layout title="Dashboard" description="Review and manage your stock notifications">
 	<div class="min-h-screen bg-gray-50">
 		<Navigation user={authUser} />
-		
+
 		<div class="max-w-4xl mx-auto px-6 py-12">
 			<div class="mb-8">
 				<h1 class="text-4xl font-bold text-gray-900 mb-2">Dashboard</h1>
@@ -74,19 +110,149 @@ const isEditingPhone = url.searchParams.get("change_phone") === "1";
 			</div>
 		)}
 
+		{timezoneLoadError && (
+			<div class="mb-6 p-4 rounded-md bg-yellow-50 border border-yellow-200 text-yellow-700" role="alert">
+				Unable to load all timezone options. Only your current timezone is available. Please refresh the page to try again.
+			</div>
+		)}
+
+		<TimezoneMismatchBanner
+			savedTimezone={user.timezone}
+			allowedTimezones={timezones.map((tz) => tz.value)}
+		/>
+
 		<!-- Section 1: Setup Required Banner -->
 		<SetupRequiredBanner user={user} />
 
 		<!-- Section 2: Preferences form (stocks + notification settings) -->
-		<DashboardPreferencesForm
-			user={user}
-			timezones={timezones}
-			stockOptions={stockOptions}
-			initialSymbols={userStocks.map((stock) => stock.symbol)}
-			isEditingPhone={isEditingPhone}
+		<form
+			id="dashboard-preferences-form"
+			method="POST"
+			action="/api/preferences"
+			class="space-y-6"
+		>
+			<TrackedStocksPanel
+				client:load
+				stockOptions={stockOptions}
+				initialSymbols={initialSymbols}
+			/>
+
+			<NotificationPreferencesCard
+				user={user}
+				timezones={timezones}
+				timezoneLoadError={timezoneLoadError}
+				isEditingPhone={isEditingPhone}
+				formId="dashboard-preferences-form"
+			/>
+
+			<ScheduledNotificationsCard user={user} formId="dashboard-preferences-form" />
+
+			<button
+				type="submit"
+				id="save-button"
+				class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer disabled:bg-gray-400 disabled:cursor-not-allowed"
+				disabled
+			>
+				Save Preferences
+			</button>
+		</form>
+		<!-- Section 3: Preview Notifications -->
+		<PreviewNotifications
+			emailEnabled={user.email_notifications_enabled}
+			smsEnabled={isSmsFullyConfigured}
 		/>
 		</div>
 	</div>
 </Layout>
+
+<script>
+	import { readFormValues, setupFormNavigationWarning } from "../lib/forms/navigation-warning";
+
+	function setupDashboardPreferencesForm() {
+		const formElement = document.getElementById("dashboard-preferences-form");
+		if (!(formElement instanceof HTMLFormElement)) {
+			return;
+		}
+
+		const form = formElement;
+		let initialValues = readFormValues(form);
+
+		function checkIfDirty() {
+			const currentValues = readFormValues(form);
+			const keys = new Set([...initialValues.keys(), ...currentValues.keys()]);
+			for (const key of keys) {
+				if (initialValues.get(key) !== currentValues.get(key)) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		function isTimezoneValid() {
+			const timezoneSelect = document.getElementById("timezone");
+			if (!(timezoneSelect instanceof HTMLSelectElement)) {
+				return true;
+			}
+
+			if (timezoneSelect.disabled && !timezoneSelect.value) {
+				return false;
+			}
+
+			return true;
+		}
+
+		setupFormNavigationWarning({
+			formId: "dashboard-preferences-form",
+			saveButtonId: "save-button",
+			customSaveButtonCheck: () => {
+				return checkIfDirty() && isTimezoneValid();
+			},
+		});
+
+		form.addEventListener("submit:success", () => {
+			initialValues = readFormValues(form);
+		});
+	}
+
+	if (document.readyState === "loading") {
+		document.addEventListener(
+			"DOMContentLoaded",
+			setupDashboardPreferencesForm,
+		);
+	} else {
+		setupDashboardPreferencesForm();
+	}
+</script>
+
+<script>
+	import { setupTimezoneMismatchBanner } from "../lib/timezones/timezone-banner";
+
+	function setupDashboardTimezoneMismatchBanner() {
+		const banner = document.getElementById("timezone-mismatch-banner");
+		if (!(banner instanceof HTMLElement)) {
+			return;
+		}
+
+		const savedTimezone = banner.dataset.savedTimezone ?? "";
+		let allowedTimezones: string[] = [];
+		try {
+			allowedTimezones = JSON.parse(banner.dataset.allowedTimezones ?? "[]");
+		} catch {
+			console.warn("Failed to parse allowedTimezones from banner dataset");
+			allowedTimezones = [];
+		}
+
+		setupTimezoneMismatchBanner({ savedTimezone, allowedTimezones });
+	}
+
+	if (document.readyState === "loading") {
+		document.addEventListener(
+			"DOMContentLoaded",
+			setupDashboardTimezoneMismatchBanner,
+		);
+	} else {
+		setupDashboardTimezoneMismatchBanner();
+	}
+</script>
 
 

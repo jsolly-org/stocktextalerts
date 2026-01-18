@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { clearAuthCookies } from "../../../lib/auth-cookies";
 import {
 	createSupabaseAdminClient,
 	createSupabaseServerClient,
@@ -10,13 +11,9 @@ export const POST: APIRoute = async ({ cookies, redirect }) => {
 	const users = createUserService(supabase, cookies);
 	const authUser = await users.getCurrentUser();
 
-	const clearAuthCookies = () => {
-		cookies.delete("sb-access-token", { path: "/" });
-		cookies.delete("sb-refresh-token", { path: "/" });
-	};
-
 	if (!authUser) {
 		console.error("Delete account requested without authenticated user");
+		clearAuthCookies(cookies);
 		return redirect("/");
 	}
 
@@ -55,7 +52,7 @@ export const POST: APIRoute = async ({ cookies, redirect }) => {
 				return redirect("/profile?error=delete_orphaned_auth_failed");
 			}
 
-			clearAuthCookies();
+			clearAuthCookies(cookies);
 
 			return redirect("/?success=account_deleted");
 		}
@@ -86,11 +83,11 @@ export const POST: APIRoute = async ({ cookies, redirect }) => {
 					error: dbError,
 				},
 			);
-			clearAuthCookies();
+			clearAuthCookies(cookies);
 			return redirect("/profile?error=delete_partial");
 		}
 
-		clearAuthCookies();
+		clearAuthCookies(cookies);
 
 		return redirect("/?success=account_deleted");
 	} catch (err) {

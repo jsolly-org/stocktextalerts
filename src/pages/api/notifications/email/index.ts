@@ -1,17 +1,18 @@
-import type { DeliveryResult, UserRecord } from "../shared";
+import type { DeliveryResult, EmailUser } from "../shared";
 import type { EmailSender } from "./utils";
 
 export async function sendUserEmail(
-	user: UserRecord,
+	user: EmailUser,
 	subject: string,
-	body: string,
+	message: { text: string; html: string },
 	sendEmail: EmailSender,
 ): Promise<DeliveryResult> {
 	try {
 		return await sendEmail({
 			to: user.email,
 			subject,
-			body,
+			body: message.text,
+			html: message.html,
 		});
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);

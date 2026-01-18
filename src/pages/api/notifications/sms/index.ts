@@ -1,8 +1,8 @@
-import type { DeliveryResult, UserRecord } from "../shared";
+import type { DeliveryResult, SmsUser, UserRecord } from "../shared";
 import type { SmsSender } from "./twilio-utils";
 
 export async function sendUserSms(
-	user: UserRecord,
+	user: SmsUser,
 	message: string,
 	sendSms: SmsSender,
 ): Promise<DeliveryResult> {

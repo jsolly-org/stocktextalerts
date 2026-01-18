@@ -1,11 +1,25 @@
 ---
+import HCaptcha from "../../components/HCaptcha.astro";
 import Navigation from "../../components/layout/Navigation.astro";
 import Layout from "../../layouts/Layout.astro";
+import { createSupabaseServerClient } from "../../lib/supabase";
+import { getTimezoneOptions } from "../../lib/timezones/timezones";
 
 const search = Astro.url.searchParams;
 const error = search.get("error");
 
 let message = "";
+let showSignInLink = false;
+
+const supabase = createSupabaseServerClient();
+let timezones: Awaited<ReturnType<typeof getTimezoneOptions>> = [];
+let timezoneLoadError = false;
+try {
+	timezones = await getTimezoneOptions(supabase);
+} catch (loadError) {
+	console.error("Failed to load timezone options:", loadError);
+	timezoneLoadError = true;
+}
 
 if (error) {
 	switch (error) {
@@ -15,9 +29,16 @@ if (error) {
 		case "failed":
 			message = "Failed to register account. Please try again.";
 			break;
+		case "user_already_exists":
+			message = "An account with this email already exists.";
+			showSignInLink = true;
+			break;
 		case "profile_creation_failed":
 			message =
 				"Failed to create user profile. Please try again or contact support.";
+			break;
+		case "captcha_required":
+			message = "Please complete the CAPTCHA and try again.";
 			break;
 		default:
 			message = "An unexpected error occurred. Please try again.";
@@ -46,7 +67,7 @@ if (error) {
         <div>
           <h1 class="mt-6 text-center text-3xl font-extrabold text-gray-900">Register</h1>
           <p class="mt-2 text-center text-sm text-gray-600">
-            Already have an account? <a href="/" class="font-medium text-blue-600 hover:text-blue-500">Sign in</a>
+            Already have an account? <a href="/signin" class="font-medium text-blue-600 hover:text-blue-500">Sign in</a>
           </p>
         </div>
 
@@ -54,9 +75,20 @@ if (error) {
           <div class="rounded-md bg-red-50 p-4" role="alert">
             <div class="flex">
               <div class="ml-0">
-                <h3 class="text-sm font-medium text-red-800">{message}</h3>
+                <h3 class="text-sm font-medium text-red-800">
+                  {message}
+                  {showSignInLink && (
+                    <> <a href="/signin" class="font-bold underline hover:text-red-900">Sign in</a>.</>
+                  )}
+                </h3>
               </div>
             </div>
+          </div>
+        )}
+
+        {timezoneLoadError && (
+          <div class="p-4 rounded-md bg-yellow-50 border border-yellow-200 text-yellow-700" role="alert">
+            Unable to load timezone options. You can set your timezone later in your profile.
           </div>
         )}
 
@@ -70,7 +102,7 @@ if (error) {
                 id="email" 
                 required 
                 autocomplete="email"
-                class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm" 
+                class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed" 
                 placeholder="Email address"
               />
             </div>
@@ -82,19 +114,52 @@ if (error) {
                 id="password" 
                 required 
                 autocomplete="new-password"
-                class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm" 
+                class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed" 
                 placeholder="Password"
               />
             </div>
           </div>
           
-          <!-- Hidden timezone and time format fields -->
-          <input type="hidden" name="timezone" id="timezone" value="" />
-          <input type="hidden" name="time_format" id="time_format" value="" />
+          <div>
+            <label for="timezone" class="block text-sm font-medium text-slate-700 mb-1">
+              Timezone
+            </label>
+            <p class="text-sm text-slate-600 mb-2">
+              We auto-detected this, but you can change it if it’s wrong.
+            </p>
+            <select
+              id="timezone"
+              name="timezone"
+              class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed"
+              disabled={timezoneLoadError}
+            >
+              <option value="">
+                Select your timezone (optional)
+              </option>
+              {timezones.map((tz) => (
+                <option value={tz.value}>{tz.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <HCaptcha
+              tokenInputId="register_captcha_token"
+              callbackName="onRegisterHCaptchaSuccess"
+              errorCallback="onRegisterHCaptchaError"
+              expiredCallback="onRegisterHCaptchaExpired"
+            />
+          </div>
+          <div
+            id="register-captcha-status"
+            class="mt-2 hidden rounded-md bg-red-50 p-3 text-sm text-red-700"
+            role="status"
+            aria-live="polite"
+          ></div>
           <div>
             <button 
               type="submit" 
-              class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer"
+              class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               Register
             </button>
@@ -106,53 +171,67 @@ if (error) {
 </Layout>
 
 <script>
+	import { setupDetectedTimezoneOption } from "../../lib/timezones/timezone-select";
+	import { DEFAULT_TIMEZONE } from "../../lib/timezones/timezone-constants";
+
 	document.addEventListener('DOMContentLoaded', () => {
-		const form = document.getElementById('register-form');
-		const timezoneInput = document.getElementById('timezone');
-		const timeFormatInput = document.getElementById('time_format');
-		
-		if (!(form instanceof HTMLFormElement) 
-			|| !(timezoneInput instanceof HTMLInputElement) 
-			|| !(timeFormatInput instanceof HTMLInputElement)) {
-			console.error('Registration form elements not found');
-			return;
-		}
+		const emailInputElement = document.getElementById('email');
 
-		// Detect timezone and time format
-
-		function detectAndSetTimezone() {
-			// Detect user's timezone and time format
-			if (Intl && Intl.DateTimeFormat && timezoneInput instanceof HTMLInputElement && timeFormatInput instanceof HTMLInputElement) {
-				try {
-					// Detect timezone
-					const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-					timezoneInput.value = detectedTimezone;
-
-					// Detect time format preference
-					const formatter = new Intl.DateTimeFormat(navigator.language, {
-						hour: 'numeric'
-					});
-					const hour12 = formatter.resolvedOptions().hour12;
-					timeFormatInput.value = hour12 === undefined ? '12h' : (hour12 ? '12h' : '24h');
-				} catch (error) {
-					console.error('Timezone detection failed:', error);
-				}
-			} else {
-				console.error('Intl or DateTimeFormat not available');
-			}
-		}
-
-		// Initial detection
-		detectAndSetTimezone();
-
-		// Re-detect on form submission if values are empty
-		form.addEventListener('submit', () => {
-			// If values are empty, try to detect again
-			// Server-side validation will handle missing values
-			if (timezoneInput instanceof HTMLInputElement && timeFormatInput instanceof HTMLInputElement && (!timezoneInput.value || !timeFormatInput.value)) {
-				detectAndSetTimezone();
+		// Strip all whitespace on any input (typing or paste)
+		emailInputElement.addEventListener('input', () => {
+			const stripped = emailInputElement.value.replace(/\s/g, '');
+			if (stripped !== emailInputElement.value) {
+				const cursorPos = emailInputElement.selectionStart ?? 0;
+				const removedBeforeCursor = emailInputElement.value.slice(0, cursorPos).replace(/\s/g, '').length;
+				emailInputElement.value = stripped;
+				emailInputElement.setSelectionRange(removedBeforeCursor, removedBeforeCursor);
 			}
 		});
+
+		setupDetectedTimezoneOption({ defaultTimezone: DEFAULT_TIMEZONE });
+
 	});
 </script>
 
+<script>
+	import {
+		createCaptchaStatusHelpers,
+		initializeHCaptchaForm,
+		setupHCaptchaCallback,
+		setupHCaptchaErrorCallback,
+		setupHCaptchaExpiredCallback,
+	} from "../../lib/hcaptcha-utils";
+
+	const captchaStatus = createCaptchaStatusHelpers("register-captcha-status");
+
+	initializeHCaptchaForm("register-form", "register_captcha_token");
+	setupHCaptchaCallback(
+		"onRegisterHCaptchaSuccess",
+		"register_captcha_token",
+		"register-form",
+	);
+
+	setupHCaptchaErrorCallback("onRegisterHCaptchaError", (errorCode) => {
+		console.error("hCaptcha error:", errorCode);
+		captchaStatus.show("CAPTCHA failed to load. Please refresh and try again.");
+	});
+
+	setupHCaptchaExpiredCallback(
+		"onRegisterHCaptchaExpired",
+		"register_captcha_token",
+		() => {
+			captchaStatus.show("CAPTCHA expired. Please complete it again.");
+		},
+	);
+
+	document.addEventListener("DOMContentLoaded", () => {
+		const captchaTokenInput = document.getElementById("register_captcha_token");
+		if (captchaTokenInput instanceof HTMLInputElement) {
+			captchaTokenInput.addEventListener("input", () => {
+				if (captchaTokenInput.value.trim().length > 0) {
+					captchaStatus.hide();
+				}
+			});
+		}
+	});
+</script>

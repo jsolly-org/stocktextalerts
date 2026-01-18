@@ -5,11 +5,11 @@ A stock notification application that sends scheduled SMS and email updates abou
 ## Features
 
 - 📊 **Stock Tracking** - Search and track your favorite stocks (AAPL, MSFT, GOOGL, etc.)
-- 📧 **Email Notifications** - Receive scheduled email updates about your tracked stocks
-- 📱 **SMS Notifications** - Optional SMS messages via Twilio
-- 📞 **Phone Verification** - Secure phone verification with rate limiting (3 attempts/hour)
+- 📧 **Email Notifications** - Receive daily digest email updates about your tracked stocks
+- 📱 **SMS Notifications** - Optional daily digest SMS messages via Twilio
+- 📞 **Phone Verification** - Secure phone verification via Twilio Verify
 - 🌍 **Timezone Support** - All US timezones with browser auto-detection
-- ⏰ **Notification Windows** - Configure start/end hours for delivery
+- ⏰ **Daily Digest Scheduling** - Choose the time for your daily digest
 - 🔕 **SMS Opt-out** - Users can reply STOP to opt out of SMS
 
 ## Tech Stack
@@ -26,7 +26,8 @@ A stock notification application that sends scheduled SMS and email updates abou
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js (see `.nvmrc` for the required version)
+- Docker (Docker Desktop or Docker Engine)
 - Supabase account
 - Twilio account with Verify API enabled
 - Vercel account (for deployment and cron jobs)
@@ -47,6 +48,24 @@ npm install
 1. Go to [supabase.com](https://supabase.com) and create a new project
 2. Choose a project name, database password, and region
 3. Wait for the project to finish provisioning
+
+**Supabase Auth CAPTCHA (hCaptcha):**
+1. Create a site in the hCaptcha dashboard and copy the **Sitekey** + **Secret Key**
+2. In Supabase Dashboard, enable CAPTCHA protection: Project Settings → Auth → Bot and Abuse Protection → **Enable CAPTCHA protection**
+3. Select **hCaptcha** and paste the **Secret Key**
+4. **For local development:** Use hCaptcha's test keys (recommended) or create a test sitekey:
+   - **Option A (Recommended):** Use hCaptcha's official test keys that always pass:
+     - Site Key: `10000000-ffff-ffff-ffff-000000000001`
+     - Secret Key: `0x0000000000000000000000000000000000000000`
+     - **Note:** hCaptcha prohibits `localhost` and `127.0.0.1` per their developer guide. To use test keys locally, either:
+       - Map `127.0.0.1` to a hosts-file alias (e.g., `test.localhost`) in `/etc/hosts`
+       - Run against a non-local host or configured test domain
+     - Production sitekey/secret must be used in Vercel/production environments
+   - **Option B:** Create a separate test sitekey in hCaptcha dashboard:
+     - Create a new site (e.g., "StockTextAlerts - Local Dev")
+     - Add `127.0.0.1` to allowed domains (note: `localhost` may not be accepted)
+     - Use this test sitekey/secret in your `.env.local` file
+   - Use your production sitekey/secret in production environment variables (Vercel)
 
 **Twilio:**
 1. Go to [twilio.com](https://www.twilio.com) and create an account
@@ -87,6 +106,13 @@ CRON_SECRET=your-random-secret-string
 # Resend Configuration
 RESEND_API_KEY=re_123456789
 EMAIL_FROM=notifications@updates.example.com
+
+# hCaptcha (site key is public; secret key is server-only)
+PUBLIC_HCAPTCHA_SITE_KEY=your-hcaptcha-site-key
+HCAPTCHA_SECRET_KEY=your-hcaptcha-secret-key
+
+# Seed Data (Local Development)
+DEFAULT_PASSWORD=your-strong-local-seed-password
 ```
 
 **Where to find these:**
@@ -96,29 +122,69 @@ EMAIL_FROM=notifications@updates.example.com
 - Twilio credentials: Twilio Console → Account Dashboard
 - `CRON_SECRET`: Generate a random string (e.g., `openssl rand -hex 32`)
 - Resend credentials: Resend Dashboard → API Keys
+- hCaptcha secret: hCaptcha Dashboard → Settings → **Secret key**
 
 **Security Note:** The `SUPABASE_SERVICE_ROLE_KEY` bypasses Row Level Security. Never expose it on the client side. The `.env.local` file (and all `.env*` files) are already excluded from version control via `.gitignore`; keep secrets only in environment files or your deployment platform, not in committed code.
 
-### 4. Start Local Development
+### 4. Generate Seed File
 
-Start the local Supabase instance and the Astro development server:
+The `db:generate-seed` script requires a running Supabase instance because `scripts/generate-seed.ts` calls `supabase.auth.admin.listUsers()`.
+
+Start Supabase first:
 
 ```bash
 # Start Supabase (requires Docker)
 npx supabase start
+```
 
+Then generate the seed file (this uses your `DEFAULT_PASSWORD` from `.env.local`):
+
+```bash
+npm run db:generate-seed
+```
+
+This creates `supabase/seed.sql` with test user data.
+
+**Important Notes:**
+- `supabase/seed.sql` is **auto-generated** by `scripts/generate-seed.ts` and is **gitignored** (not committed to source control)
+- The seed file includes test user passwords that are generated from the `DEFAULT_PASSWORD` environment variable
+- SQL files cannot access environment variables directly, which is why we use the generation script
+- Always regenerate `seed.sql` using `npm run db:generate-seed` after updating `scripts/users.json` or `scripts/us-stocks.json`
+- Each developer should generate their own `seed.sql` using their local `DEFAULT_PASSWORD` from `.env.local`
+- To add test users, copy `scripts/sample-users.json` to `scripts/users.json` and update with your test data (do not include passwords - they will use `DEFAULT_PASSWORD` from `.env.local`)
+
+### 5. Start Local Development
+
+After generating `supabase/seed.sql`, reset Supabase to load the seed:
+
+```bash
+npx supabase db reset
+```
+
+Start the Astro development server:
+
+```bash
 # Start Astro dev server
 npm run dev
 ```
 
-`supabase start` will automatically:
-1. Spin up local Supabase services (Postgres, Auth, etc.)
-2. Apply database migrations from `supabase/migrations`
-3. Seed the database with stock data from `supabase/seed.sql`
+`supabase db reset` will:
+1. Re-apply database migrations from `supabase/migrations`
+2. Re-seed the database from `supabase/seed.sql`
 
 Visit <http://localhost:4321> to see the application.
 
-### 5. (Optional) Update Stock Tickers
+**Email Testing (Mail Pit):**
+
+When running Supabase locally, all emails (verification emails, password resets, etc.) are intercepted by Mail Pit instead of being sent. You can view these emails at <http://localhost:54324/>.
+
+This is useful for:
+- Testing email verification flows
+- Viewing password reset links
+- Inspecting email content and formatting
+- Testing without sending real emails
+
+### 6. (Optional) Update Stock Tickers
 
 The database is pre-seeded with stock data. If you need to update the list of available stocks:
 
@@ -137,10 +203,10 @@ The database is pre-seeded with stock data. If you need to update the list of av
 ### User Flow
 
 1. **Register** - Create an account with email
-2. **Set Settings** - Configure timezone and notification window
+2. **Set Settings** - Configure timezone and daily digest time
 3. **Add Stocks** - Search and add stocks to track
 4. **Enable SMS** (optional) - Add phone number and verify via SMS code
-5. **Receive Notifications** - Get scheduled updates during your configured time window
+5. **Receive Notifications** - Get your daily digest via email and/or SMS
 
 ### API Endpoints
 
@@ -148,16 +214,17 @@ The database is pre-seeded with stock data. If you need to update the list of av
 - `POST /api/auth/email/register` - User registration
 - `POST /api/auth/email/forgot-password` - Request password reset
 - `POST /api/auth/email/resend-verification` - Resend verification email
-- `POST /api/auth/signin` - User login
-- `POST /api/auth/signout` - User logout
+- `POST /api/auth/signin` - User signin
+- `POST /api/auth/signout` - User signout
 - `POST /api/auth/delete-account` - Delete user account
+- `POST /api/auth/update-password` - Update password from reset link
 - `POST /api/auth/sms/send-verification` - Send SMS verification code
 - `POST /api/auth/sms/verify-code` - Verify SMS code
 
 **Notifications & Preferences:**
 - `POST /api/preferences` - Update notification preferences and tracked stocks
 - `POST /api/notifications/scheduled` - Cron endpoint (protected by CRON_SECRET)
-- `POST /api/notifications/inbound-sms` - Twilio webhook for STOP/START/HELP keywords
+- `POST /api/notifications/sms/inbound` - Twilio webhook for STOP/START/HELP keywords
 
 ## Deployment to Vercel
 
@@ -192,17 +259,18 @@ Push to your main branch or click "Redeploy" in Vercel. The application will aut
 After deployment, configure the Twilio webhook for incoming SMS:
 1. Go to Twilio Console → Phone Numbers → Manage → Active numbers
 2. Select your phone number
-3. Under "Messaging", set the webhook URL to: `https://yourdomain.com/api/notifications/inbound-sms`
+3. Under "Messaging", set the webhook URL to: `https://yourdomain.com/api/notifications/sms/inbound`
 4. Save changes
 
 ### 4. Verify Cron Job
 
 The `vercel.json` file configures a scheduled cron job that runs at minute 0 of every hour.
 
-Vercel will automatically call `/api/notifications/scheduled` with the `x-vercel-cron-secret` header.
+The cron job calls `/api/notifications/scheduled` and must include:
+- `Authorization: Bearer <CRON_SECRET>`
 
 The cron job:
-1. Queries users who need notifications based on their timezone and time window
+1. Queries users who need notifications based on their timezone and daily digest time
 2. Fetches their tracked stocks
 3. Sends via email and/or SMS based on settings
 4. Logs all notification attempts to `notification_log` table
@@ -210,73 +278,143 @@ The cron job:
 ## Project Structure
 
 ```text
-/
-├── public/
-│   └── favicons/           # Favicon files
+.
 ├── src/
 │   ├── components/
-│   │   ├── dashboard/      # Dashboard components for managing preferences
-│   │   │   ├── DashboardPreferencesForm.astro
-│   │   │   ├── PhoneInput.vue      # Phone input with validation
+│   │   ├── dashboard/
+│   │   │   ├── preferences/
+│   │   │   │   ├── NotificationChannelsSection.astro
+│   │   │   │   ├── NotificationPreferencesCard.astro
+│   │   │   │   └── ScheduledNotificationsCard.astro
+│   │   │   ├── stocks/
+│   │   │   │   ├── StockInput.vue
+│   │   │   │   └── TrackedStocksPanel.vue
 │   │   │   ├── SetupRequiredBanner.astro
-│   │   │   ├── StockInput.vue      # Fuzzy search stock selector
-│   │   │   └── TrackedStocksPanel.vue
-│   │   ├── landing/        # Landing page components
+│   │   │   └── TestNotifications.astro
+│   │   ├── landing/
 │   │   │   ├── CTA.astro
 │   │   │   ├── Features.astro
-│   │   │   └── Hero.astro
+│   │   │   ├── Hero.astro
+│   │   │   └── SignInCard.astro
 │   │   ├── layout/
 │   │   │   └── Navigation.astro
-│   │   └── profile/        # Profile page components
-│   │       ├── AccountManagement.astro
-│   │       └── DangerZone.astro
+│   │   ├── profile/
+│   │   │   ├── AccountManagement.astro
+│   │   │   ├── DangerZone.astro
+│   │   │   └── ProfilePreferences.astro
+│   │   ├── PhoneInput.vue
+│   │   ├── HCaptcha.astro
+│   │   ├── TimezoneMismatchBanner.astro
 │   ├── layouts/
-│   │   └── Layout.astro    # Main layout with meta tags
-│   ├── lib/                # Services and utilities
-│   │   ├── format.ts       # Formatting utilities
-│   │   ├── supabase.ts     # Supabase client configuration
-│   │   └── users.ts        # User service functions
-│   ├── pages/              # File-based routing
-│   │   ├── dashboard.astro # Authenticated dashboard experience
-│   │   ├── api/            # API endpoints
-│   │   │   ├── auth/       # Authentication endpoints
+│   │   └── Layout.astro
+│   ├── lib/
+│   │   ├── auth.ts
+│   │   ├── env.ts
+│   │   ├── format.ts
+│   │   ├── phone-format.ts
+│   │   ├── stocks.ts
+│   │   ├── supabase.ts
+│   │   ├── timezone-banner.ts
+│   │   ├── timezone-select.ts
+│   │   ├── timezones.ts
+│   │   ├── timezones.test.ts
+│   │   ├── hcaptcha-utils.ts
+│   │   ├── hcaptcha.ts
+│   │   └── users.ts
+│   ├── pages/
+│   │   ├── api/
+│   │   │   ├── auth/
+│   │   │   │   ├── email/
+│   │   │   │   │   ├── forgot-password.ts
+│   │   │   │   │   ├── register.ts
+│   │   │   │   │   └── resend-verification.ts
+│   │   │   │   ├── sms/
+│   │   │   │   │   ├── send-verification.ts
+│   │   │   │   │   ├── verify-code.ts
+│   │   │   │   │   └── verify-utils.ts
+│   │   │   │   ├── delete-account.ts
+│   │   │   │   ├── signin.ts
+│   │   │   │   └── signout.ts
 │   │   │   ├── notifications/
-│   │   │   │   ├── shared.ts       # Shared logic
-│   │   │   │   ├── sms/            # SMS logic
-│   │   │   │   ├── email/          # Email logic
-│   │   │   │   ├── scheduled.ts    # Cron job endpoint
-│   │   │   │   └── instant.ts      # Instant notifications endpoint
-│   │   │   └── preferences/
-│   │   │       └── index.ts        # Update prefs and manage tracked stocks
+│   │   │   │   ├── email/
+│   │   │   │   │   ├── index.ts
+│   │   │   │   │   └── utils.ts
+│   │   │   │   ├── sms/
+│   │   │   │   │   ├── inbound.ts
+│   │   │   │   │   ├── inbound-utils.ts
+│   │   │   │   │   ├── index.ts
+│   │   │   │   │   └── twilio-utils.ts
+│   │   │   │   ├── processing.ts
+│   │   │   │   ├── scheduled.ts
+│   │   │   │   ├── shared.ts
+│   │   │   │   └── test.ts
+│   │   │   ├── preferences/
+│   │   │   │   ├── index.ts
+│   │   │   │   └── stocks.ts
+│   │   │   ├── profile/
+│   │   │   │   └── preferences.ts
+│   │   │   ├── form-utils.ts
+│   │   │   └── timezone.ts
 │   │   ├── auth/
 │   │   │   ├── forgot.astro
 │   │   │   ├── recover.astro
 │   │   │   ├── register.astro
-│   │   │   └── unconfirmed.astro
-│   │   ├── index.astro     # Landing page
-│   │   └── profile.astro   # User profile page
+│   │   │   ├── unconfirmed.astro
+│   │   │   └── verified.astro
+│   │   ├── dashboard.astro
+│   │   ├── index.astro
+│   │   ├── profile.astro
+│   │   └── signin.astro
+│   ├── types/
+│   │   ├── env.d.ts
+│   │   └── libphonenumber-examples.d.ts
 │   ├── global.css
-│   └── env.d.ts
-├── supabase/               # Supabase configuration
-│   ├── migrations/         # Database migrations
-│   ├── seed.sql            # Initial data (generated)
-│   └── config.toml         # Local config
-├── scripts/                # Utility scripts
-│   ├── generate-seed.ts    # Script to generate seed.sql
-│   └── us-stocks.json      # US stock ticker data
-├── tests/                  # Vitest unit tests
-├── astro.config.ts         # Astro + Vercel + Vue config
-├── vercel.json             # Cron job configuration
-├── biome.jsonc             # Linter/formatter config
+│   └── middleware.ts
+├── supabase/
+│   ├── migrations/
+│   │   └── 20250101000000_initial_schema.sql
+│   └── config.toml
+├── scripts/
+│   ├── generate-seed.ts
+│   ├── sample-users.json
+│   ├── seed-sql.ts
+│   ├── us-stocks.json
+│   └── users.json
+├── tests/
+│   ├── pages/
+│   │   └── api/
+│   │       ├── auth/
+│   │       │   ├── register.test.ts
+│   │       │   └── signin.test.ts
+│   │       ├── notifications/
+│   │       │   └── email.test.ts
+│   │       ├── preferences/
+│   │       │   ├── index.test.ts
+│   │       │   └── stocks.test.ts
+│   │       └── timezone.test.ts
+│   ├── setup.ts
+│   └── utils.ts
+├── public/
+│   └── favicons/
+│       ├── android-chrome-192x192.png
+│       ├── android-chrome-512x512.png
+│       ├── apple-touch-icon.png
+│       ├── favicon-16x16.png
+│       ├── favicon-32x32.png
+│       ├── favicon.ico
+│       └── site.webmanifest
+├── astro.config.ts
+├── biome.jsonc
+├── package.json
 ├── tsconfig.json
-├── env.example             # Environment variables template
-└── package.json
+├── vercel.json
+└── vitest.config.ts
 ```
 
 ## Security Features
 
 - ✅ Row Level Security (RLS) on all database tables
-- ✅ Rate limiting on phone verification (3 attempts/hour)
+- ✅ CAPTCHA protection for anonymous auth flows (Supabase Auth + hCaptcha)
 - ✅ Cron endpoint protected by secret header
 - ✅ Phone verification via Twilio Verify API
 - ✅ SMS opt-out support (STOP keyword compliance)

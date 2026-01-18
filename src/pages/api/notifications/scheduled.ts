@@ -1,23 +1,119 @@
 import { timingSafeEqual } from "node:crypto";
 import type { APIRoute } from "astro";
-
-import { truncateSms } from "../../../lib/format";
+import type { Database } from "../../../lib/generated/database.types";
 import { createSupabaseAdminClient } from "../../../lib/supabase";
-import { sendUserEmail } from "./email";
-import { createEmailSender, formatEmailMessage } from "./email/utils";
+import { createEmailSender } from "./email/utils";
+import { processEmailUpdate, processSmsUpdate } from "./processing";
 import {
+	calculateNextSendAt,
 	type DeliveryMethod,
 	loadUserStocks,
 	recordNotification,
-	shouldNotifyUser,
+	type ScheduledNotificationType,
 	type UserRecord,
 } from "./shared";
-import { sendUserSms, shouldSendSms } from "./sms";
+import { shouldSendSms } from "./sms";
 import {
 	createSmsSender,
 	createTwilioClient,
 	readTwilioConfig,
 } from "./sms/twilio-utils";
+
+const MAX_NOTIFICATION_RETRIES = 3;
+
+function getLocalDateString(timezone: string, date: Date): string | null {
+	try {
+		const formatter = new Intl.DateTimeFormat("en-CA", {
+			timeZone: timezone,
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit",
+		});
+		return formatter.format(date);
+	} catch {
+		console.error("Failed to format local date for timezone", { timezone });
+		return null;
+	}
+}
+
+async function updateScheduledNotificationRow(options: {
+	supabase: ReturnType<typeof createSupabaseAdminClient>;
+	userId: string;
+	notificationType: ScheduledNotificationType;
+	scheduledDate: string;
+	channel: DeliveryMethod;
+	status: Extract<
+		Database["public"]["Enums"]["scheduled_notification_status"],
+		"sent" | "failed"
+	>;
+	error?: string;
+}) {
+	const update: Database["public"]["Tables"]["scheduled_notifications"]["Update"] =
+		options.status === "sent"
+			? { status: "sent", sent_at: new Date().toISOString(), error: null }
+			: { status: "failed", error: options.error ?? "Unknown error" };
+
+	const { error } = await options.supabase
+		.from("scheduled_notifications")
+		.update(update)
+		.eq("user_id", options.userId)
+		.eq("notification_type", options.notificationType)
+		.eq("scheduled_date", options.scheduledDate)
+		.eq("channel", options.channel);
+
+	if (error) {
+		console.error("Failed to update scheduled_notifications row", {
+			userId: options.userId,
+			channel: options.channel,
+			error,
+		});
+	}
+}
+
+async function logRetriesExhausted(options: {
+	supabase: ReturnType<typeof createSupabaseAdminClient>;
+	userId: string;
+	notificationType: ScheduledNotificationType;
+	scheduledDate: string;
+	channel: DeliveryMethod;
+}) {
+	const { data, error } = await options.supabase
+		.from("scheduled_notifications")
+		.select("attempt_count,status")
+		.eq("user_id", options.userId)
+		.eq("notification_type", options.notificationType)
+		.eq("scheduled_date", options.scheduledDate)
+		.eq("channel", options.channel)
+		.maybeSingle();
+
+	if (error) {
+		console.error("Failed to fetch scheduled_notifications row", {
+			userId: options.userId,
+			channel: options.channel,
+			error,
+		});
+		return;
+	}
+
+	if (!data || data.status === "sent") {
+		return;
+	}
+
+	if (data.attempt_count >= MAX_NOTIFICATION_RETRIES) {
+		console.warn(
+			`Retries exhausted for user ${options.userId} (${options.channel}); will retry next local day`,
+		);
+
+		await recordNotification(options.supabase, {
+			userId: options.userId,
+			type: "scheduled_update",
+			deliveryMethod: options.channel,
+			messageDelivered: false,
+			message: "Retries exhausted; will retry next local day",
+			error: `scheduled_notifications attempt_count >= ${MAX_NOTIFICATION_RETRIES}`,
+		});
+	}
+}
 
 export const POST: APIRoute = async ({ request }) => {
 	const authHeader = request.headers.get("authorization");
@@ -57,7 +153,6 @@ export const POST: APIRoute = async ({ request }) => {
 		const sendEmail = createEmailSender();
 
 		const currentTime = new Date();
-		const getCurrentTime = () => currentTime;
 
 		const { data: users, error: usersError } = await supabase
 			.from("users")
@@ -70,12 +165,16 @@ export const POST: APIRoute = async ({ request }) => {
 			phone_verified,
 			sms_opted_out,
 			timezone,
-			notification_start_hour,
-			notification_end_hour,
+			daily_digest_enabled,
+			daily_digest_notification_time,
+			next_send_at,
 			email_notifications_enabled,
 			sms_notifications_enabled
 		`,
 			)
+			.eq("daily_digest_enabled", true)
+			.not("next_send_at", "is", null)
+			.lte("next_send_at", currentTime.toISOString())
 			.or(
 				"email_notifications_enabled.eq.true,sms_notifications_enabled.eq.true",
 			);
@@ -127,86 +226,207 @@ export const POST: APIRoute = async ({ request }) => {
 			let attemptedDeliveryMethod: DeliveryMethod | null = null;
 
 			try {
-				if (!shouldNotifyUser(user, getCurrentTime)) {
+				if (!user.timezone) {
+					stats.skipped++;
+					return stats;
+				}
+
+				const dueAt = user.next_send_at ? new Date(user.next_send_at) : null;
+				if (!dueAt || Number.isNaN(dueAt.getTime())) {
+					console.warn("Invalid next_send_at for user; skipping notification", {
+						userId: user.id,
+						next_send_at: user.next_send_at,
+					});
+					stats.skipped++;
+					return stats;
+				}
+
+				const scheduledDate = getLocalDateString(user.timezone, dueAt);
+				if (!scheduledDate) {
 					stats.skipped++;
 					return stats;
 				}
 
 				const userStocks = await loadUserStocks(supabase, user.id);
-				if (userStocks === null) {
-					stats.skipped++;
-					return stats;
-				}
 
 				const stocksList =
 					userStocks.length === 0
 						? "You don't have any tracked stocks"
-						: userStocks.map((stock) => stock.symbol).join(", ");
+						: userStocks
+								.map((stock) => `${stock.symbol} - ${stock.name}`)
+								.join(", ");
 
 				// Process Email
 				if (user.email_notifications_enabled) {
 					attemptedDeliveryMethod = "email";
-					const message = formatEmailMessage(userStocks, stocksList);
-					const result = await sendUserEmail(
-						user,
-						"Your Stock Update",
-						message,
-						sendEmail,
+					const { data: claimed, error: claimError } = await supabase.rpc(
+						"claim_scheduled_notification",
+						{
+							p_user_id: user.id,
+							p_notification_type: "daily_digest",
+							p_scheduled_date: scheduledDate,
+							p_channel: "email",
+						},
 					);
 
-					if (result.success) stats.emailsSent++;
-					else stats.emailsFailed++;
+					if (claimError) {
+						console.error("Failed to claim scheduled notification (email)", {
+							userId: user.id,
+							error: claimError.message,
+						});
+						stats.emailsFailed++;
+					} else if (!claimed) {
+						await logRetriesExhausted({
+							supabase,
+							userId: user.id,
+							notificationType: "daily_digest",
+							scheduledDate,
+							channel: "email",
+						});
+						stats.skipped++;
+					} else {
+						const { sent, logged, error } = await processEmailUpdate(
+							supabase,
+							user,
+							userStocks,
+							stocksList,
+							sendEmail,
+						);
 
-					const logged = await recordNotification(supabase, {
-						userId: user.id,
-						type: "scheduled_update",
-						deliveryMethod: "email",
-						messageDelivered: result.success,
-						message: message,
-						error: result.success ? undefined : result.error,
-						errorCode: result.success ? undefined : result.errorCode,
-					});
-					if (!logged) stats.logFailures++;
+						if (sent) stats.emailsSent++;
+						else stats.emailsFailed++;
+
+						if (!logged) stats.logFailures++;
+
+						await updateScheduledNotificationRow({
+							supabase,
+							userId: user.id,
+							notificationType: "daily_digest",
+							scheduledDate,
+							channel: "email",
+							status: sent ? "sent" : "failed",
+							error,
+						});
+					}
 				}
 
 				// Process SMS
 				if (shouldSendSms(user)) {
 					attemptedDeliveryMethod = "sms";
-					const { sender: smsSender, error: smsError } = getSmsSender();
-					if (!smsSender) {
-						stats.smsFailed++;
-						const logged = await recordNotification(supabase, {
-							userId: user.id,
-							type: "scheduled_update",
-							deliveryMethod: "sms",
-							messageDelivered: false,
-							message: "SMS service unavailable",
-							error: smsError || "Twilio client not initialized",
-						});
-						if (!logged) stats.logFailures++;
-						return stats;
-					}
-
-					const smsMessage = truncateSms(
-						`${userStocks.length > 0 ? "Tracked: " : ""}${stocksList}. Reply STOP to opt out.`,
+					const { data: claimed, error: claimError } = await supabase.rpc(
+						"claim_scheduled_notification",
+						{
+							p_user_id: user.id,
+							p_notification_type: "daily_digest",
+							p_scheduled_date: scheduledDate,
+							p_channel: "sms",
+						},
 					);
 
-					const result = await sendUserSms(user, smsMessage, smsSender);
+					if (claimError) {
+						console.error("Failed to claim scheduled notification (sms)", {
+							userId: user.id,
+							error: claimError.message,
+						});
+						stats.smsFailed++;
+					} else if (!claimed) {
+						await logRetriesExhausted({
+							supabase,
+							userId: user.id,
+							notificationType: "daily_digest",
+							scheduledDate,
+							channel: "sms",
+						});
+						stats.skipped++;
+					} else {
+						const { sender: smsSender, error: smsError } = getSmsSender();
+						if (!smsSender) {
+							stats.smsFailed++;
+							await updateScheduledNotificationRow({
+								supabase,
+								userId: user.id,
+								notificationType: "daily_digest",
+								scheduledDate,
+								channel: "sms",
+								status: "failed",
+								error: smsError || "Twilio client not initialized",
+							});
+							const logged = await recordNotification(supabase, {
+								userId: user.id,
+								type: "scheduled_update",
+								deliveryMethod: "sms",
+								messageDelivered: false,
+								message: "SMS service unavailable",
+								error: smsError || "Twilio client not initialized",
+							});
+							if (!logged) stats.logFailures++;
+							// Continue to next_send_at calculation/update so this user
+							// doesn't get stuck retrying immediately on next cron run.
+						} else {
+							const { sent, logged, error } = await processSmsUpdate(
+								supabase,
+								user,
+								userStocks,
+								stocksList,
+								smsSender,
+							);
 
-					if (result.success) stats.smsSent++;
-					else stats.smsFailed++;
+							if (sent) stats.smsSent++;
+							else stats.smsFailed++;
 
-					const logged = await recordNotification(supabase, {
-						userId: user.id,
-						type: "scheduled_update",
-						deliveryMethod: "sms",
-						messageDelivered: result.success,
-						message: smsMessage,
-						error: result.success ? undefined : result.error,
-						errorCode: result.success ? undefined : result.errorCode,
-					});
-					if (!logged) stats.logFailures++;
+							if (!logged) stats.logFailures++;
+
+							await updateScheduledNotificationRow({
+								supabase,
+								userId: user.id,
+								notificationType: "daily_digest",
+								scheduledDate,
+								channel: "sms",
+								status: sent ? "sent" : "failed",
+								error,
+							});
+						}
+					}
 				}
+
+				const nextSendAt = calculateNextSendAt(
+					user.daily_digest_notification_time,
+					user.timezone,
+					() => currentTime,
+				);
+				if (nextSendAt) {
+					const { error: updateError } = await supabase
+						.from("users")
+						.update({ next_send_at: nextSendAt.toISOString() })
+						.eq("id", user.id);
+
+					if (updateError) {
+						console.error("Failed to update users.next_send_at", {
+							userId: user.id,
+							nextSendAt: nextSendAt.toISOString(),
+							error: updateError,
+						});
+					}
+				} else {
+					console.warn("calculateNextSendAt returned null", {
+						userId: user.id,
+						daily_digest_notification_time: user.daily_digest_notification_time,
+						timezone: user.timezone,
+					});
+
+					const { error: updateError } = await supabase
+						.from("users")
+						.update({ next_send_at: null })
+						.eq("id", user.id);
+
+					if (updateError) {
+						console.error("Failed to clear users.next_send_at", {
+							userId: user.id,
+							error: updateError,
+						});
+					}
+				}
+
 				return stats;
 			} catch (error) {
 				stats.skipped++;

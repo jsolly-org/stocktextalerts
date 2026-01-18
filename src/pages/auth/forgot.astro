@@ -1,4 +1,5 @@
 ---
+import HCaptcha from "../../components/HCaptcha.astro";
 import Navigation from "../../components/layout/Navigation.astro";
 import Layout from "../../layouts/Layout.astro";
 
@@ -18,16 +19,13 @@ if (success === "true") {
 } else if (error) {
 	messageType = "error";
 	switch (error) {
-		case "email_required":
-			message = "Email is required";
-			break;
-		case "server_error":
-			message = "Server configuration error. Please try again later.";
-			break;
 		case "rate_limit":
 			message = seconds
 				? `For security purposes, you must wait ${seconds} more seconds before requesting to reset your password`
 				: "You've made too many password reset requests. Please try again later";
+			break;
+		case "captcha_required":
+			message = "Please complete the CAPTCHA and try again.";
 			break;
 		case "failed":
 			message = "Failed to request password reset. Please try again.";
@@ -38,14 +36,14 @@ if (success === "true") {
 }
 ---
 
-<Layout title="Forgot Password">
+<Layout title="Forgot Password" description="Request a password reset email.">
   <div class="min-h-screen bg-gray-50">
     <Navigation />
 
     <div class="max-w-3xl mx-auto px-6 py-12">
       <div class="mb-6">
         <a
-          href="/"
+          href="/signin"
           class="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 font-medium"
         >
           <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -65,7 +63,7 @@ if (success === "true") {
           </div>
         )}
 
-        <form class="space-y-4" action="/api/auth/email/forgot-password" method="post">
+        <form class="space-y-4" action="/api/auth/email/forgot-password" method="post" id="forgot-form">
           <div>
             <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
             <input 
@@ -78,6 +76,20 @@ if (success === "true") {
               placeholder="you@example.com"
             />
           </div>
+          <div>
+            <HCaptcha
+              tokenInputId="forgot_captcha_token"
+              callbackName="onForgotHCaptchaSuccess"
+              errorCallback="onForgotHCaptchaError"
+              expiredCallback="onForgotHCaptchaExpired"
+            />
+          </div>
+          <div
+            id="forgot-captcha-status"
+            class="mt-2 hidden rounded-md bg-red-50 p-3 text-sm text-red-700"
+            role="status"
+            aria-live="polite"
+          ></div>
           <button 
             type="submit"
             class="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md font-medium transition-colors cursor-pointer"
@@ -89,4 +101,57 @@ if (success === "true") {
     </div>
   </div>
 </Layout>
+
+<script>
+	import {
+		createCaptchaStatusHelpers,
+		initializeHCaptchaForm,
+		setupHCaptchaCallback,
+		setupHCaptchaErrorCallback,
+		setupHCaptchaExpiredCallback,
+	} from "../../lib/hcaptcha-utils";
+	import { setupEmailInputHandlers } from "../../lib/forms/utils";
+
+	const captchaStatus = createCaptchaStatusHelpers("forgot-captcha-status");
+
+	document.addEventListener("DOMContentLoaded", () => {
+		const emailInput = document.getElementById("email");
+		if (!emailInput) {
+			return;
+		}
+		const inputEl = emailInput as HTMLInputElement;
+		setupEmailInputHandlers(inputEl);
+
+		const captchaTokenInput = document.getElementById(
+			"forgot_captcha_token",
+		) as HTMLInputElement | null;
+		if (captchaTokenInput) {
+			captchaTokenInput.addEventListener("input", () => {
+				if (captchaTokenInput.value.trim().length > 0) {
+					captchaStatus.hide();
+				}
+			});
+		}
+	});
+
+	initializeHCaptchaForm("forgot-form", "forgot_captcha_token");
+	setupHCaptchaCallback(
+		"onForgotHCaptchaSuccess",
+		"forgot_captcha_token",
+		"forgot-form",
+	);
+
+	setupHCaptchaErrorCallback("onForgotHCaptchaError", (errorCode) => {
+		console.error("hCaptcha error:", errorCode);
+		captchaStatus.show("CAPTCHA failed to load. Please refresh and try again.");
+	});
+
+	setupHCaptchaExpiredCallback(
+		"onForgotHCaptchaExpired",
+		"forgot_captcha_token",
+		() => {
+			captchaStatus.show("CAPTCHA expired. Please complete it again.");
+		},
+	);
+</script>
 

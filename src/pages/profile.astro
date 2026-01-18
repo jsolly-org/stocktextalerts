@@ -3,9 +3,12 @@ import Navigation from "../components/layout/Navigation.astro";
 import AccountManagement from "../components/profile/AccountManagement.astro";
 import DangerZone from "../components/profile/DangerZone.astro";
 import ProfilePreferences from "../components/profile/ProfilePreferences.astro";
+import TimezoneMismatchBanner from "../components/TimezoneMismatchBanner.astro";
 import Layout from "../layouts/Layout.astro";
 import { getAuthErrorMessage } from "../lib/auth";
+import { formatMessage } from "../lib/format";
 import { createSupabaseServerClient } from "../lib/supabase";
+import { getTimezoneOptions } from "../lib/timezones/timezones";
 import { createUserService } from "../lib/users";
 
 const supabase = createSupabaseServerClient();
@@ -29,9 +32,32 @@ if (!user) {
 	return Astro.redirect("/?error=user_not_found");
 }
 
+let timezones: Awaited<ReturnType<typeof getTimezoneOptions>>;
+let timezoneLoadError = false;
+
+try {
+	timezones = await getTimezoneOptions(supabase, {
+		includeValues: [user.timezone],
+	});
+} catch (error) {
+	console.error("Failed to load timezone options:", error);
+	timezoneLoadError = true;
+	timezones = user.timezone
+		? [
+				{
+					value: user.timezone,
+					label: user.timezone.replace(/_/g, " "),
+					display_order: 0,
+				},
+			]
+		: [];
+}
+
 const search = Astro.url.searchParams;
 const error = search.get("error");
+const success = search.get("success");
 const errorMessage = getAuthErrorMessage(error);
+const successMessage = formatMessage(success);
 ---
 
 <Layout title="Profile" description="Edit your profile">
@@ -53,16 +79,28 @@ const errorMessage = getAuthErrorMessage(error);
       </div>
     
       <div class="space-y-6">
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-          <h1 class="text-3xl font-bold text-gray-900 mb-2">Profile</h1>
-          <p class="text-gray-600 mb-6">View your account information</p>
+        {errorMessage && (
+          <div class="p-4 rounded-md bg-red-50 border border-red-200 text-red-700" role="alert">
+            {errorMessage}
+          </div>
+        )}
 
-          {errorMessage && (
-            <div class="p-4 rounded-md bg-red-50 border border-red-200 text-red-700" role="alert">
-              {errorMessage}
-            </div>
-          )}
-        </div>
+        {successMessage && (
+          <div class="p-4 rounded-md bg-green-50 border border-green-200 text-green-700" role="alert">
+            {successMessage}
+          </div>
+        )}
+
+        {timezoneLoadError && (
+          <div class="p-4 rounded-md bg-yellow-50 border border-yellow-200 text-yellow-700" role="alert">
+            Unable to load all timezone options. Only your current timezone is available. Please refresh the page to try again.
+          </div>
+        )}
+
+				<TimezoneMismatchBanner
+					savedTimezone={user.timezone}
+					allowedTimezones={timezones.map((tz) => tz.value)}
+				/>
 
         <AccountManagement
           email={user.email}
@@ -73,7 +111,8 @@ const errorMessage = getAuthErrorMessage(error);
 
         <ProfilePreferences
           timezone={user.timezone}
-          timeFormat={user.time_format}
+          timezones={timezones}
+          timezoneLoadError={timezoneLoadError}
         />
       </div>
 
@@ -83,3 +122,41 @@ const errorMessage = getAuthErrorMessage(error);
     </div>
   </div>
 </Layout>
+
+<script>
+	import { setupTimezoneMismatchBanner } from "../lib/timezones/timezone-banner";
+	import { setupFormNavigationWarning } from "../lib/forms/navigation-warning";
+
+	function setupProfileTimezoneMismatchBanner() {
+		const banner = document.getElementById("timezone-mismatch-banner");
+		if (!(banner instanceof HTMLElement)) {
+			return;
+		}
+
+		const savedTimezone = banner.dataset.savedTimezone ?? "";
+		let allowedTimezones: string[] = [];
+		try {
+			allowedTimezones = JSON.parse(banner.dataset.allowedTimezones ?? "[]");
+		} catch {
+			allowedTimezones = [];
+		}
+
+		setupTimezoneMismatchBanner({ savedTimezone, allowedTimezones });
+	}
+
+	if (document.readyState === "loading") {
+		document.addEventListener("DOMContentLoaded", () => {
+			setupProfileTimezoneMismatchBanner();
+			setupFormNavigationWarning({
+				formId: "profile-preferences-form",
+				saveButtonId: "save-profile-preferences-button",
+			});
+		});
+	} else {
+		setupProfileTimezoneMismatchBanner();
+		setupFormNavigationWarning({
+			formId: "profile-preferences-form",
+			saveButtonId: "save-profile-preferences-button",
+		});
+	}
+</script>

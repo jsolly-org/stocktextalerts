@@ -1,5 +1,5 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
+import type { AppSupabaseClient } from "../../../../lib/supabase";
 
 export interface InboundSmsDependencies {
 	authToken: string;
@@ -9,7 +9,7 @@ export interface InboundSmsDependencies {
 		url: string,
 		params: Record<string, string | undefined>,
 	) => boolean;
-	supabase: SupabaseClient;
+	supabase: AppSupabaseClient;
 }
 
 export interface InboundSmsRequest {

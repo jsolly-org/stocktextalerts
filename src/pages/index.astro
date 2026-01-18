@@ -2,10 +2,8 @@
 import CTA from "../components/landing/CTA.astro";
 import Features from "../components/landing/Features.astro";
 import Hero from "../components/landing/Hero.astro";
-import SignInCard from "../components/landing/SignInCard.astro";
 import Navigation from "../components/layout/Navigation.astro";
 import Layout from "../layouts/Layout.astro";
-import { getAuthErrorMessage, getAuthSuccessMessage } from "../lib/auth";
 import { createSupabaseServerClient } from "../lib/supabase";
 import { createUserService } from "../lib/users";
 
@@ -14,11 +12,6 @@ const users = createUserService(supabase, Astro.cookies);
 const user = await users.getCurrentUser();
 const isAuthenticated = !!user;
 const search = Astro.url.searchParams;
-const errorCode = search.get("error");
-const errorMessage = getAuthErrorMessage(errorCode);
-const successCode = search.get("success");
-const successMessage = getAuthSuccessMessage(successCode);
-const emailPrefill = search.get("email") ?? "";
 
 // Handle password reset redirects
 const token = search.get("token");
@@ -31,22 +24,12 @@ if (token && type === "recovery") {
 }
 ---
 
-<Layout title="Stock Text Alerts" description="Get price alerts, breaking news, and trend shifts for your stocks—delivered straight to your phone via SMS.">
+<Layout title="Stock Text Alerts" description="Get a daily digest for your tracked stocks—delivered via email and optional SMS.">
   <div class="min-h-screen bg-white">
     <Navigation user={user || undefined} />
     
     <Hero isAuthenticated={isAuthenticated} />
 
-    {!isAuthenticated && (
-      <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-16 sm:mt-20 md:mt-24 lg:mt-32">
-        <SignInCard
-          emailPrefill={emailPrefill}
-          errorMessage={errorMessage}
-          successMessage={successMessage}
-        />
-      </section>
-    )}
-    
     <Features />
     <CTA isAuthenticated={isAuthenticated} />
   </div>

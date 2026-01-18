@@ -1,13 +1,11 @@
 <template>
 	<div class="relative" ref="containerRef">
-		<label for="stock_search" class="block text-sm font-medium text-slate-700 mb-1">
-			Search Stocks
-		</label>
 	<input ref="inputRef" type="text" id="stock_search" v-model="rawSearchQuery" @input="handleInput"
 		@keydown="handleKeydown" placeholder="Search by symbol or company name..." autocomplete="off" role="combobox"
 		aria-haspopup="listbox" :aria-expanded="showDropdown" aria-controls="stock_dropdown" aria-autocomplete="list"
 		:aria-activedescendant="highlightedIndex >= 0 ? `stock_option_${highlightedIndex}` : undefined"
-		class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+		:disabled="props.disabled"
+		class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
 		@focus="showDropdown = true" />
 
 	<div id="stock_dropdown" v-show="showDropdown && (searchQuery.length >= 1 || filteredStocks.length > 0)" role="listbox"
@@ -43,6 +41,7 @@ export interface StockOption {
 
 interface Props {
 	stockOptions: StockOption[];
+	disabled?: boolean;
 }
 
 interface FuseResult {
@@ -57,7 +56,9 @@ type KeyActions = {
 	Enter: () => void;
 };
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+	disabled: false,
+});
 const emit = defineEmits<{
 	(e: "select", symbol: string): void;
 }>();
@@ -153,15 +154,17 @@ const handleKeydown = (e: KeyboardEvent) => {
 					: Math.max(highlightedIndex.value - 1, 0);
 		},
 		Enter: () => {
-			if (filteredStocks.value.length > 0) {
-				const safeIndex = Math.min(
-					Math.max(0, highlightedIndex.value),
-					filteredStocks.value.length - 1
-				);
-				if (safeIndex >= 0) {
-					selectStock(filteredStocks.value[safeIndex]);
-				}
-			}
+			const stocks = filteredStocks.value;
+			if (!stocks || stocks.length === 0) return;
+
+			const safeIndex = Math.min(
+				Math.max(0, highlightedIndex.value),
+				stocks.length - 1
+			);
+			const selected = stocks[safeIndex];
+			if (!selected) return;
+
+			selectStock(selected);
 		},
 	};
 

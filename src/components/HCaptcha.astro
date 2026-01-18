@@ -1,0 +1,44 @@
+---
+interface Props {
+	tokenInputId: string;
+	callbackName: string;
+	widgetClasses?: string;
+	errorCallback?: string;
+	expiredCallback?: string;
+}
+
+const {
+	tokenInputId,
+	callbackName,
+	widgetClasses = "",
+	errorCallback,
+	expiredCallback,
+} = Astro.props;
+
+const hcaptchaSiteKey = import.meta.env.PUBLIC_HCAPTCHA_SITE_KEY;
+
+if (!hcaptchaSiteKey) {
+	throw new Error(
+		"HCaptcha: PUBLIC_HCAPTCHA_SITE_KEY is not configured. This is a required environment variable.",
+	);
+}
+---
+
+<input type="hidden" name="captcha_token" id={tokenInputId} value="" />
+<div
+	class={`h-captcha ${widgetClasses}`}
+	data-sitekey={hcaptchaSiteKey}
+	data-callback={callbackName}
+	{...(errorCallback ? { "data-error-callback": errorCallback } : {})}
+	{...(expiredCallback ? { "data-expired-callback": expiredCallback } : {})}
+></div>
+
+<script is:inline>
+	if (!window.hcaptcha && !document.querySelector('script[src*="hcaptcha.com"]')) {
+		const s = document.createElement('script');
+		s.src = 'https://js.hcaptcha.com/1/api.js';
+		s.async = true;
+		s.onerror = () => console.error('Failed to load hCaptcha script');
+		document.head.appendChild(s);
+	}
+</script>

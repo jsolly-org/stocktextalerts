@@ -1,4 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "./generated/database.types";
 
 const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
@@ -37,21 +38,23 @@ const SUPABASE_CLIENT_OPTIONS = {
 	},
 };
 
-export function createSupabaseServerClient() {
+export type AppSupabaseClient = SupabaseClient<Database>;
+
+export function createSupabaseServerClient(): AppSupabaseClient {
 	const credentials = requireServerCredentials();
 
-	return createClient(
+	return createClient<Database>(
 		credentials.supabaseUrl,
 		credentials.supabaseAnonKey,
 		SUPABASE_CLIENT_OPTIONS,
 	);
 }
 
-export function createSupabaseAdminClient() {
+export function createSupabaseAdminClient(): AppSupabaseClient {
 	const credentials = requireServerCredentials();
 	const serviceRoleKey = requireServiceRoleCredentials();
 
-	return createClient(
+	return createClient<Database>(
 		credentials.supabaseUrl,
 		serviceRoleKey,
 		SUPABASE_CLIENT_OPTIONS,

@@ -64,8 +64,24 @@ const phoneStatus = hasPhone
 			</div>
 			<p class="mt-2 text-sm text-gray-500">
 				{hasPhone
-					? "Manage your phone number from the dashboard."
-					: "Add your phone number from the dashboard to receive SMS notifications."}
+					? (
+						<>
+							Manage your phone number from the{" "}
+							<a href="/dashboard" class="text-blue-600 hover:text-blue-700 underline">
+								dashboard
+							</a>
+							.
+						</>
+					)
+					: (
+						<>
+							Add your phone number from the{" "}
+							<a href="/dashboard" class="text-blue-600 hover:text-blue-700 underline">
+								dashboard
+							</a>
+							{" "}to receive SMS notifications.
+						</>
+					)}
 			</p>
 		</div>
 	</div>

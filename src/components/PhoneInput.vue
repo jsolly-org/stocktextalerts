@@ -36,11 +36,11 @@
 					@blur="handleBlur"
 					:aria-describedby="showError ? 'phone-error' : undefined"
 					:aria-invalid="showError ? 'true' : undefined"
+					:data-phone-is-valid="isValid ? 'true' : 'false'"
 					class="w-full rounded-r-lg py-2 px-3 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none"
 					:placeholder="computedPlaceholder"
 					name="phone"
 					:required="isRequired"
-					:disabled="isDisabled"
 					inputmode="tel"
 					autocomplete="tel-national"
 				/>
@@ -51,7 +51,6 @@
 				</div>
 			</div>
 		</div>
-		<input type="hidden" name="phone_is_valid" :value="isValid ? 'true' : 'false'" ref="validField" />
 		<p v-if="showError" id="phone-error" role="alert" class="mt-1 text-sm text-red-600">Please enter a valid phone number</p>
 	</div>
 </template>
@@ -60,14 +59,13 @@
 import { CheckCircleIcon, ExclamationCircleIcon } from "@heroicons/vue/24/solid";
 import { AsYouType, getCountryCallingCode, getExampleNumber, isValidPhoneNumber } from "libphonenumber-js";
 import examples from "libphonenumber-js/examples.mobile.json";
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 
 type Country = "US";
 
 const props = defineProps<{
 	formSubmitted?: boolean;
 	required?: boolean;
-	disabled?: boolean;
 	/**
 	 * Server-provided national number digits (no country code),
 	 * e.g. "5555550123". Used to rehydrate the phone field after
@@ -76,22 +74,23 @@ const props = defineProps<{
 	initialNationalNumber?: string | null;
 }>();
 
-const phoneNumber = ref("");
 const country = ref<Country>("US");
 const showError = ref(false);
 const touched = ref(false);
-const actualDisabled = ref(props.disabled ?? false);
 
 const isRequired = computed(() => props.required ?? false);
-const isDisabled = computed(() => actualDisabled.value);
 
 function formatPhone(digits: string): string {
 	return new AsYouType(country.value).input(digits);
 }
 
-const lastDigits = ref("");
-const validField = ref<HTMLInputElement | null>(null);
-let fieldsetObserver: MutationObserver | null = null;
+const initialDigits =
+	typeof props.initialNationalNumber === "string"
+		? props.initialNationalNumber.replace(/\D/g, "")
+		: "";
+
+const lastDigits = ref(initialDigits);
+const phoneNumber = ref(initialDigits ? formatPhone(initialDigits) : "");
 
 watch(country, () => {
 	if (phoneNumber.value) {
@@ -108,15 +107,63 @@ const computedPlaceholder = computed(() => {
 
 function handlePhoneInput(e: Event) {
 	touched.value = true;
-	const input = e.target as HTMLInputElement;
-	const ev = e as InputEvent;
+	if (!(e.target instanceof HTMLInputElement)) {
+		return;
+	}
+
+	const input = e.target;
 	const previousDigits = lastDigits.value;
-	const previousFormatted = formatPhone(previousDigits);
 
 	let newDigits = input.value.replace(/\D/g, "");
 
-	if (ev.inputType === "deleteContentBackward" && newDigits.length === previousDigits.length) {
-		newDigits = previousDigits.slice(0, -1);
+	const inputType = (e as InputEvent).inputType;
+	if (inputType === "deleteContentBackward" && newDigits.length === previousDigits.length) {
+		const selectionStart = input.selectionStart ?? input.value.length;
+		const selectionEnd = input.selectionEnd ?? input.value.length;
+		const isCaretSelectionCollapsed = selectionStart === selectionEnd;
+
+		const isCaretAtEnd = selectionStart === input.value.length;
+		if (!isCaretSelectionCollapsed || isCaretAtEnd) {
+			newDigits = previousDigits.slice(0, -1);
+		} else {
+			const digitsBeforeCaret = input.value
+				.slice(0, selectionStart)
+				.replace(/\D/g, "").length;
+
+			if (digitsBeforeCaret > 0) {
+				newDigits =
+					previousDigits.slice(0, digitsBeforeCaret - 1) +
+					previousDigits.slice(digitsBeforeCaret);
+
+				const formatted = formatPhone(newDigits);
+				const targetDigitsBeforeCaret = digitsBeforeCaret - 1;
+
+				// We format the value ourselves and set it on the input synchronously so
+				// Vue sees the same value and doesn't need to patch the DOM input value.
+				// That avoids timing workarounds (setTimeout/nextTick/requestAnimationFrame)
+				// for caret management.
+				input.value = formatted;
+
+				if (targetDigitsBeforeCaret <= 0) {
+					input.setSelectionRange(0, 0);
+				} else {
+					let seenDigits = 0;
+					const foundIndex = Array.from(formatted).findIndex((char) => {
+						if (/\d/.test(char)) {
+							seenDigits++;
+						}
+						return seenDigits === targetDigitsBeforeCaret;
+					});
+					const caretPos =
+						foundIndex >= 0 ? foundIndex + 1 : formatted.length;
+					input.setSelectionRange(caretPos, caretPos);
+				}
+
+				phoneNumber.value = formatted;
+				lastDigits.value = newDigits;
+				return; // early return to skip duplicate formatting below
+			}
+		}
 	}
 
 	const formatted = formatPhone(newDigits);
@@ -132,6 +179,20 @@ const isValid = computed(() => {
 	return phoneNumber.value ? isValidPhoneNumber(phoneNumber.value, country.value) : false;
 });
 
+watch(
+	isValid,
+	(valid) => {
+		if (typeof document !== "undefined") {
+			const event = new CustomEvent("phone-validity-changed", {
+				bubbles: true,
+				detail: { isValid: valid },
+			});
+			document.dispatchEvent(event);
+		}
+	},
+	{ immediate: true },
+);
+
 function validate() {
 	if (phoneNumber.value) {
 		showError.value = !isValidPhoneNumber(phoneNumber.value, country.value);
@@ -145,17 +206,6 @@ function handleBlur() {
 }
 
 watch(
-	() => isValid.value,
-	(val) => {
-		if (validField.value) {
-			validField.value.value = val ? "true" : "false";
-			// notify parent listeners (Astro form script) that validity changed
-			validField.value.dispatchEvent(new Event("input", { bubbles: true }));
-		}
-	},
-);
-
-watch(
 	() => props.formSubmitted,
 	(submitted) => {
 		if (submitted) {
@@ -163,51 +213,5 @@ watch(
 		}
 	},
 );
-
-watch(
-	() => props.disabled,
-	(disabled) => {
-		actualDisabled.value = disabled ?? false;
-	},
-);
-
-onMounted(() => {
-	if (props.initialNationalNumber && !phoneNumber.value) {
-		const digits = props.initialNationalNumber.replace(/\D/g, "");
-		if (digits) {
-			lastDigits.value = digits;
-			phoneNumber.value = formatPhone(digits);
-		}
-	}
-
-	const fieldset = document.getElementById(
-		"phone-verification-fieldset",
-	) as HTMLFieldSetElement | null;
-
-	if (fieldset) {
-		actualDisabled.value = fieldset.disabled;
-
-		fieldsetObserver = new MutationObserver(() => {
-			actualDisabled.value = fieldset.disabled;
-		});
-
-		fieldsetObserver.observe(fieldset, {
-			attributes: true,
-			attributeFilter: ["disabled"],
-		});
-	}
-	// initialize hidden validity field and notify listeners
-	if (validField.value) {
-		validField.value.value = isValid.value ? "true" : "false";
-		validField.value.dispatchEvent(new Event("input", { bubbles: true }));
-	}
-});
-
-onUnmounted(() => {
-	if (fieldsetObserver) {
-		fieldsetObserver.disconnect();
-		fieldsetObserver = null;
-	}
-});
 </script>
 

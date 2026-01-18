@@ -1,0 +1,56 @@
+---
+import SignInCard from "../components/landing/SignInCard.astro";
+import Layout from "../layouts/Layout.astro";
+import { getAuthErrorMessage, getAuthSuccessMessage } from "../lib/auth";
+import { createSupabaseServerClient } from "../lib/supabase";
+import { createUserService } from "../lib/users";
+
+const supabase = createSupabaseServerClient();
+const users = createUserService(supabase, Astro.cookies);
+const user = await users.getCurrentUser();
+
+if (user) {
+	return Astro.redirect("/dashboard");
+}
+
+const search = Astro.url.searchParams;
+const errorCode = search.get("error");
+const errorMessage = getAuthErrorMessage(errorCode);
+const successCode = search.get("success");
+const successMessage = getAuthSuccessMessage(successCode);
+const emailPrefill = search.get("email") ?? "";
+---
+
+<Layout title="Sign In" description="Sign in to your Stock Text Alerts account.">
+  <div class="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div class="sm:mx-auto sm:w-full sm:max-w-md">
+      <div class="flex justify-center">
+        <a href="/" class="flex items-center gap-2 group">
+          <div class="bg-blue-600 text-white p-1.5 rounded-lg group-hover:bg-blue-700 transition-colors shadow-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.307a11.95 11.95 0 0 1 5.814-5.519l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
+            </svg>
+          </div>
+        </a>
+      </div>
+      <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+        Sign in to your account
+      </h2>
+      <p class="mt-2 text-center text-sm text-gray-600">
+        Or
+        <a href="/auth/register" class="font-medium text-blue-600 hover:text-blue-500">
+          start tracking for free
+        </a>
+      </p>
+    </div>
+
+    <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+      <SignInCard
+        emailPrefill={emailPrefill}
+        errorMessage={errorMessage}
+        successMessage={successMessage}
+      />
+    </div>
+  </div>
+</Layout>
+

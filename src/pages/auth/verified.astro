@@ -1,0 +1,110 @@
+---
+import type { EmailOtpType } from "@supabase/supabase-js";
+import Layout from "../../layouts/Layout.astro";
+import { createSupabaseServerClient } from "../../lib/supabase";
+import { createUserService } from "../../lib/users";
+
+const supabase = createSupabaseServerClient();
+const userService = createUserService(supabase, Astro.cookies);
+
+// Check for token_hash in query params (PKCE flow for SSR)
+const tokenHash = Astro.url.searchParams.get("token_hash");
+const typeParam = Astro.url.searchParams.get("type");
+const type: EmailOtpType | null =
+	typeParam === "signup" ||
+	typeParam === "invite" ||
+	typeParam === "magiclink" ||
+	typeParam === "recovery" ||
+	typeParam === "email_change"
+		? typeParam
+		: null;
+
+// If token_hash is present but type is invalid/missing, treat link as invalid and
+// immediately remove the raw token from the URL.
+if (tokenHash && type === null) {
+	const cleanedUrl = new URL(Astro.url);
+	cleanedUrl.searchParams.delete("token_hash");
+	return Astro.redirect(
+		`${cleanedUrl.pathname}${cleanedUrl.search}${cleanedUrl.hash}`,
+	);
+}
+
+// If token_hash is provided, verify it
+if (tokenHash && type) {
+	const { data, error } = await supabase.auth.verifyOtp({
+		token_hash: tokenHash,
+		type,
+	});
+
+	if (error || !data.user) {
+		console.error("Email verification token validation failed:", error);
+		return Astro.redirect("/signin?error=invalid_verification");
+	}
+
+	// Verify the user's email is actually confirmed
+	if (!data.user.email_confirmed_at) {
+		console.error("User email not confirmed after token verification");
+		return Astro.redirect("/signin?error=verification_failed");
+	}
+
+	// Clean up URL to prevent token reuse attempts on refresh
+	return Astro.redirect("/auth/verified");
+} else {
+	// If no token_hash, check if user has a valid session with confirmed email
+	// This handles cases where Supabase already verified the token before redirect
+	const user = await userService.getCurrentUser();
+	if (!user || !user.email_confirmed_at) {
+		console.error("No valid session or email not confirmed");
+		return Astro.redirect("/signin?error=invalid_verification");
+	}
+}
+
+const title = "Email Verified";
+const description = "Your email has been successfully verified.";
+---
+
+<Layout title={title} description={description}>
+  <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8">
+      <div class="text-center">
+        <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-green-100">
+          <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          Email Verified!
+        </h2>
+        <p class="mt-2 text-center text-sm text-gray-600">
+          Your email address has been successfully verified.
+        </p>
+      </div>
+
+      <div class="mt-8">
+        <div class="rounded-md bg-green-50 p-4">
+          <div class="flex">
+            <div class="shrink-0">
+              <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <div class="ml-3">
+              <p class="text-sm font-medium text-green-800">
+                You're all set. <span class="font-normal text-green-700">You can now sign in to your account.</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6">
+          <a
+            href="/signin"
+            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            Sign In
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>

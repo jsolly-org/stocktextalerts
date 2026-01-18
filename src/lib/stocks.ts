@@ -1,18 +1,14 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "./generated/database.types";
+import type { AppSupabaseClient } from "./supabase";
 
-export interface Stock {
-	symbol: string;
-	name: string;
-	exchange: string;
-}
+type DbStockRow = Database["public"]["Tables"]["stocks"]["Row"];
+type DbUserStockRow = Database["public"]["Tables"]["user_stocks"]["Row"];
 
-export interface UserStock {
-	symbol: string;
-	created_at: string;
-}
+export type Stock = DbStockRow;
+export type UserStock = Pick<DbUserStockRow, "symbol" | "created_at">;
 
 export async function getUserStocks(
-	supabase: SupabaseClient,
+	supabase: AppSupabaseClient,
 	userId: string,
 ): Promise<UserStock[]> {
 	const { data, error } = await supabase

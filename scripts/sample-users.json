@@ -1,0 +1,10 @@
+[
+  {
+    "email": "dev@example.com",
+    "timezone": "America/New_York",
+    "email_notifications_enabled": false,
+    "sms_notifications_enabled": false,
+    "daily_digest_notification_time": 540,
+    "tracked_stocks": []
+  }
+]

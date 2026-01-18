@@ -2,7 +2,7 @@
 	"crons": [
 		{
 			"path": "/api/notifications/scheduled",
-			"schedule": "0 * * * *"
+			"schedule": "*/15 * * * *"
 		}
 	]
 }

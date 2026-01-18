@@ -1,0 +1,347 @@
+---
+import type { User } from "../../../lib/users";
+import PhoneInput from "../../PhoneInput.vue";
+
+interface Props {
+	user: User;
+	isEditingPhone: boolean;
+	formId: string;
+}
+
+const { user, isEditingPhone, formId } = Astro.props;
+
+const emailNotificationsEnabledId = `${formId}-email_notifications_enabled`;
+const smsNotificationsEnabledId = `${formId}-sms_notifications_enabled`;
+const phoneVerificationSectionId = `${formId}-phone-verification-section`;
+const phoneVerificationFieldsetId = `${formId}-phone-verification-fieldset`;
+const sendVerificationButtonId = `${formId}-send-verification-button`;
+const smsVerificationCodeId = `${formId}-sms-verification-code`;
+---
+
+<div
+	class="space-y-4"
+	data-notification-channels="true"
+	data-form-id={formId}
+	data-email-notifications-enabled-id={emailNotificationsEnabledId}
+	data-sms-notifications-enabled-id={smsNotificationsEnabledId}
+	data-phone-verification-section-id={phoneVerificationSectionId}
+	data-phone-verification-fieldset-id={phoneVerificationFieldsetId}
+	data-send-verification-button-id={sendVerificationButtonId}
+>
+	<label class="block text-sm font-medium text-slate-700 mb-2">
+		Notification Channels
+	</label>
+	<div class="space-y-4">
+		<label class="flex items-center cursor-pointer">
+			<input
+				type="hidden"
+				name="email_notifications_enabled"
+				value={user.email_notifications_enabled ? "on" : "off"}
+			/>
+			<input
+				type="checkbox"
+				id={emailNotificationsEnabledId}
+				class="mr-2 cursor-pointer"
+				checked={user.email_notifications_enabled}
+			/>
+			<span>Email Notifications</span>
+		</label>
+
+		<label class="flex items-center cursor-pointer">
+			<input
+				type="hidden"
+				name="sms_notifications_enabled"
+				value={user.sms_notifications_enabled ? "on" : "off"}
+			/>
+			<input
+				type="checkbox"
+				id={smsNotificationsEnabledId}
+				class="mr-2 cursor-pointer"
+				checked={user.sms_notifications_enabled}
+			/>
+			<span>SMS Notifications</span>
+		</label>
+
+		{user.sms_opted_out && (
+			<div class="ml-6 bg-red-50 border border-red-200 rounded-lg p-4">
+				<p class="text-red-800 text-sm">
+					You have opted out of SMS notifications. To re-enable, reply START to
+					any message from us or update your settings below.
+				</p>
+			</div>
+		)}
+
+		{!user.sms_opted_out && (
+			<div
+				id={phoneVerificationSectionId}
+				class={`ml-6 space-y-4 ${user.sms_notifications_enabled ? "" : "hidden"}`}
+			>
+				{user.phone_verified ? (
+					<div class="bg-green-50 border border-green-200 rounded-lg p-4">
+						<p class="text-green-800 text-sm">
+							<span aria-hidden="true">✓ </span>
+							Phone verified: {user.phone_country_code} {user.phone_number}
+						</p>
+					</div>
+				) : (
+					<fieldset
+						id={phoneVerificationFieldsetId}
+						class="space-y-4"
+						disabled={!user.sms_notifications_enabled}
+					>
+						<legend class="sr-only">Phone Verification</legend>
+
+						{(!user.phone_country_code || !user.phone_number || isEditingPhone) && (
+							<>
+								<PhoneInput
+									client:load
+									required={true}
+									initialNationalNumber={user.phone_number}
+								/>
+								<button
+									type="submit"
+									formaction="/api/auth/sms/send-verification"
+									formmethod="post"
+									id={sendVerificationButtonId}
+									disabled={true}
+									class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm mt-4 cursor-pointer disabled:bg-gray-400 disabled:cursor-not-allowed"
+								>
+									Send Verification Code
+								</button>
+							</>
+						)}
+
+						{user.phone_country_code &&
+							user.phone_number &&
+							!user.phone_verified &&
+							!isEditingPhone && (
+								<>
+									<div class="space-y-2">
+										<p class="text-sm text-slate-700">
+											We sent a code to{" "}
+											<span class="font-medium">
+												{user.phone_country_code} {user.phone_number}
+											</span>
+											.
+										</p>
+										<div class="flex items-center gap-4">
+											<button
+												type="submit"
+												formaction="/api/auth/sms/send-verification"
+												formmethod="post"
+												class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm cursor-pointer"
+											>
+												Resend Verification Code
+											</button>
+											<a
+												href="/dashboard?change_phone=1"
+												class="text-sm text-blue-600 hover:underline"
+											>
+												Change number
+											</a>
+										</div>
+									</div>
+
+									<input
+										type="hidden"
+										name="phone_country_code"
+										value={user.phone_country_code}
+									/>
+									<input
+										type="hidden"
+										name="phone_national_number"
+										value={user.phone_number}
+									/>
+
+									<div class="space-y-4 mt-4">
+										<div>
+											<label
+												for={smsVerificationCodeId}
+												class="block text-sm font-medium text-slate-700 mb-2"
+											>
+												Enter Verification Code
+											</label>
+											<input
+												type="text"
+												id={smsVerificationCodeId}
+												name="code"
+												required={true}
+												autocomplete="one-time-code"
+												maxlength="6"
+												pattern="[0-9]{6}"
+												inputmode="numeric"
+												class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+												placeholder="123456"
+											/>
+										</div>
+										<button
+											type="submit"
+											formaction="/api/auth/sms/verify-code"
+											formmethod="post"
+											class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm mt-4 cursor-pointer"
+										>
+											Verify Code
+										</button>
+									</div>
+								</>
+							)}
+					</fieldset>
+				)}
+			</div>
+		)}
+	</div>
+</div>
+
+<script type="module">
+	function setupNotificationChannelsUI(root) {
+		if (!(root instanceof HTMLElement)) {
+			return;
+		}
+
+		const formId = root.dataset.formId;
+		const emailNotificationsEnabledId = root.dataset.emailNotificationsEnabledId;
+		const smsNotificationsEnabledId = root.dataset.smsNotificationsEnabledId;
+		const phoneVerificationSectionId = root.dataset.phoneVerificationSectionId;
+		const phoneVerificationFieldsetId = root.dataset.phoneVerificationFieldsetId;
+		const sendVerificationButtonId = root.dataset.sendVerificationButtonId;
+
+		if (
+			!formId ||
+			!emailNotificationsEnabledId ||
+			!smsNotificationsEnabledId ||
+			!phoneVerificationSectionId ||
+			!phoneVerificationFieldsetId ||
+			!sendVerificationButtonId
+		) {
+			return;
+		}
+
+		const formElement = document.getElementById(formId);
+		if (!(formElement instanceof HTMLFormElement)) {
+			return;
+		}
+		const form = formElement;
+
+		const emailCheckbox = form.querySelector(
+			`[id="${emailNotificationsEnabledId}"]`,
+		);
+		const emailHidden = form.querySelector(
+			'input[type="hidden"][name="email_notifications_enabled"]',
+		);
+
+		const smsCheckbox = form.querySelector(
+			`[id="${smsNotificationsEnabledId}"]`,
+		);
+		const smsHidden = form.querySelector(
+			'input[type="hidden"][name="sms_notifications_enabled"]',
+		);
+
+		const phoneVerificationSection = document.getElementById(
+			phoneVerificationSectionId,
+		);
+		const phoneVerificationFieldset = document.getElementById(
+			phoneVerificationFieldsetId,
+		);
+
+		function syncEmail() {
+			if (
+				!(emailCheckbox instanceof HTMLInputElement) ||
+				!(emailHidden instanceof HTMLInputElement)
+			) {
+				return;
+			}
+
+			emailHidden.value = emailCheckbox.checked ? "on" : "off";
+			form.dispatchEvent(new Event("input", { bubbles: true }));
+		}
+
+		function updateSmsUI() {
+			if (
+				!(smsCheckbox instanceof HTMLInputElement) ||
+				!(smsHidden instanceof HTMLInputElement)
+			) {
+				return;
+			}
+
+			const enabled = smsCheckbox.checked;
+			smsHidden.value = enabled ? "on" : "off";
+			form.dispatchEvent(new Event("input", { bubbles: true }));
+
+			if (phoneVerificationSection instanceof HTMLElement) {
+				phoneVerificationSection.classList.toggle("hidden", !enabled);
+			}
+			if (phoneVerificationFieldset instanceof HTMLFieldSetElement) {
+				phoneVerificationFieldset.disabled = !enabled;
+			}
+		}
+
+		if (emailCheckbox instanceof HTMLInputElement) {
+			syncEmail();
+			emailCheckbox.addEventListener("input", syncEmail);
+		}
+
+		if (smsCheckbox instanceof HTMLInputElement) {
+			updateSmsUI();
+			smsCheckbox.addEventListener("input", updateSmsUI);
+		}
+
+		const sendVerificationButton = document.getElementById(
+			sendVerificationButtonId,
+		);
+		if (sendVerificationButton instanceof HTMLButtonElement) {
+			const phoneInput = form.querySelector<HTMLInputElement>('input[type="tel"]#phone');
+			if (phoneInput && phoneInput.hasAttribute("data-phone-is-valid")) {
+				const initialValid = phoneInput.dataset.phoneIsValid === "true";
+				sendVerificationButton.disabled = !initialValid;
+			}
+
+			function handlePhoneValidityChanged(event) {
+				if (!(event instanceof CustomEvent)) {
+					return;
+				}
+				const button = document.getElementById(sendVerificationButtonId);
+				if (!(button instanceof HTMLButtonElement)) {
+					return;
+				}
+				const isValid = event.detail?.isValid === true;
+				button.disabled = !isValid;
+			}
+
+			document.addEventListener("phone-validity-changed", handlePhoneValidityChanged);
+
+			const parentElement = root.parentElement;
+			if (parentElement) {
+				const observer = new MutationObserver(() => {
+					if (!document.body.contains(root)) {
+						document.removeEventListener(
+							"phone-validity-changed",
+							handlePhoneValidityChanged,
+						);
+						observer.disconnect();
+					}
+				});
+
+				observer.observe(parentElement, {
+					childList: true,
+				});
+			}
+		}
+	}
+
+	if (document.readyState === "loading") {
+		document.addEventListener("DOMContentLoaded", () => {
+			for (const root of document.querySelectorAll(
+				'[data-notification-channels="true"]',
+			)) {
+				setupNotificationChannelsUI(root);
+			}
+		});
+	} else {
+		for (const root of document.querySelectorAll(
+			'[data-notification-channels="true"]',
+		)) {
+			setupNotificationChannelsUI(root);
+		}
+	}
+</script>
+

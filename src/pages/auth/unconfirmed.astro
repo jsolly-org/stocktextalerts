@@ -1,4 +1,5 @@
 ---
+import HCaptcha from "../../components/HCaptcha.astro";
 import Layout from "../../layouts/Layout.astro";
 
 const search = Astro.url.searchParams;
@@ -20,6 +21,9 @@ if (success === "true") {
 			break;
 		case "failed":
 			message = "Failed to send email. Please try again.";
+			break;
+		case "captcha_required":
+			message = "Please complete the CAPTCHA and try again.";
 			break;
 		default:
 			message = "An unexpected error occurred. Please try again.";
@@ -50,7 +54,7 @@ if (success === "true") {
       <div class="mt-8 space-y-6">
         <div class="rounded-md bg-blue-50 p-4">
           <div class="flex">
-            <div class="flex-shrink-0">
+            <div class="shrink-0">
               <svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
               </svg>
@@ -79,6 +83,19 @@ if (success === "true") {
         <div class="space-y-4">
           <form id="resend-form" action="/api/auth/email/resend-verification" method="post">
             <input type="hidden" name="email" value={email || ""} />
+						<HCaptcha
+							tokenInputId="unconfirmed_captcha_token"
+							callbackName="onUnconfirmedHCaptchaSuccess"
+							widgetClasses="mb-4"
+							errorCallback="onUnconfirmedHCaptchaError"
+							expiredCallback="onUnconfirmedHCaptchaExpired"
+						/>
+					<div
+						id="unconfirmed-captcha-status"
+						class="mt-2 hidden rounded-md bg-red-50 p-3 text-sm text-red-700"
+						role="status"
+						aria-live="polite"
+					></div>
             <button
               id="resend-btn"
               type="submit"
@@ -90,10 +107,10 @@ if (success === "true") {
           
           <div class="text-center">
             <a
-              href="/"
+              href="/signin"
               class="font-medium text-blue-600 hover:text-blue-500"
             >
-              Back to home
+              Back to sign in
             </a>
           </div>
         </div>
@@ -103,70 +120,134 @@ if (success === "true") {
 </Layout>
 
 <script>
-  const resendBtn = document.getElementById('resend-btn') as HTMLButtonElement;
-  const resendForm = document.getElementById('resend-form') as HTMLFormElement;
-  const email = new URLSearchParams(window.location.search).get('email');
-  let cooldownTimer: ReturnType<typeof setInterval> | null = null;
+	import {
+		createCaptchaStatusHelpers,
+		setupHCaptchaCallback,
+		setupHCaptchaErrorCallback,
+		setupHCaptchaExpiredCallback,
+	} from "../../lib/hcaptcha-utils";
 
-  const COOLDOWN_KEY = 'resend-verification-cooldown';
-  const COOLDOWN_DURATION = 30;
+	(function setupResendVerification() {
+		const resendBtn = document.getElementById("resend-btn");
+		const resendForm = document.getElementById("resend-form");
+		const captchaTokenInput = document.getElementById("unconfirmed_captcha_token");
 
-  function initializeCooldown() {
-    try {
-      const lastSentStr = localStorage.getItem(COOLDOWN_KEY);
-      
-      if (!lastSentStr) {
-        // no prior send; leave button enabled
-        return;
-      }
+		if (
+			!(resendBtn instanceof HTMLButtonElement) ||
+			!(resendForm instanceof HTMLFormElement) ||
+			!(captchaTokenInput instanceof HTMLInputElement)
+		) {
+			return;
+		}
 
-      const lastSent = Number.parseInt(lastSentStr, 10);
-      const elapsed = Math.floor((Date.now() - lastSent) / 1000);
-      const remaining = COOLDOWN_DURATION - elapsed;
+		setupResendVerificationElements(resendBtn, resendForm, captchaTokenInput);
+	})();
 
-      if (remaining > 0) {
-        setButtonCooldown(remaining);
-      }
-    } catch (err) {
-      console.error('Failed to access localStorage for cooldown:', err);
-      // leave button enabled on error
-    }
-  }
+	function setupResendVerificationElements(
+		resendBtn: HTMLButtonElement,
+		resendForm: HTMLFormElement,
+		captchaTokenInput: HTMLInputElement,
+	) {
+		const captchaStatus = createCaptchaStatusHelpers("unconfirmed-captcha-status");
+		let cooldownTimer: ReturnType<typeof setInterval> | null = null;
 
-  resendForm?.addEventListener('submit', () => {
-    try {
-      localStorage.setItem(COOLDOWN_KEY, Date.now().toString());
-    } catch (err) {
-      console.error('Failed to save cooldown timestamp to localStorage:', err);
-    }
-  });
+		const COOLDOWN_KEY = "resend-verification-cooldown";
+		const COOLDOWN_DURATION = 30;
 
-  function setButtonCooldown(seconds: number) {
-    if (cooldownTimer) {
-      clearInterval(cooldownTimer);
-    }
+		function getRemainingCooldownSeconds(): number {
+			try {
+				const lastSentStr = localStorage.getItem(COOLDOWN_KEY);
+				if (!lastSentStr) return 0;
+				const elapsed = Math.floor(
+					(Date.now() - Number.parseInt(lastSentStr, 10)) / 1000,
+				);
+				return Math.max(0, COOLDOWN_DURATION - elapsed);
+			} catch {
+				return 0;
+			}
+		}
 
-    resendBtn.disabled = true;
-    let remaining = seconds;
+		function canResendNow(): boolean {
+			return getRemainingCooldownSeconds() === 0;
+		}
 
-    const updateButton = () => {
-      if (remaining > 0) {
-        resendBtn.textContent = `Resend verification email (${remaining}s)`;
-        remaining--;
-      } else {
-        resendBtn.disabled = false;
-        resendBtn.textContent = 'Resend verification email';
-        if (cooldownTimer) {
-          clearInterval(cooldownTimer);
-          cooldownTimer = null;
-        }
-      }
-    };
+		function updateResendDisabledState() {
+			const hasCaptchaToken = captchaTokenInput.value.trim().length > 0;
+			resendBtn.disabled = !hasCaptchaToken || !canResendNow();
+		}
 
-    updateButton();
-    cooldownTimer = setInterval(updateButton, 1000);
-  }
+		function initializeCooldown() {
+			const remaining = getRemainingCooldownSeconds();
 
-  initializeCooldown();
+			if (remaining > 0) {
+				setButtonCooldown(remaining);
+				return;
+			}
+
+			updateResendDisabledState();
+		}
+
+		resendForm.addEventListener("submit", () => {
+			try {
+				localStorage.setItem(COOLDOWN_KEY, Date.now().toString());
+			} catch (err) {
+				console.error("Failed to save cooldown timestamp to localStorage:", err);
+			}
+		});
+
+		function setButtonCooldown(seconds: number) {
+			if (cooldownTimer) {
+				clearInterval(cooldownTimer);
+			}
+
+			resendBtn.disabled = true;
+			let remaining = seconds;
+
+			const updateButton = () => {
+				if (remaining > 0) {
+					resendBtn.textContent = `Resend verification email (${remaining}s)`;
+					remaining--;
+					return;
+				}
+
+				updateResendDisabledState();
+				resendBtn.textContent = "Resend verification email";
+				if (cooldownTimer) {
+					clearInterval(cooldownTimer);
+					cooldownTimer = null;
+				}
+			};
+
+			updateButton();
+			cooldownTimer = setInterval(updateButton, 1000);
+		}
+
+		setupHCaptchaCallback(
+			"onUnconfirmedHCaptchaSuccess",
+			"unconfirmed_captcha_token",
+		);
+
+		setupHCaptchaErrorCallback("onUnconfirmedHCaptchaError", (errorCode) => {
+			console.error("hCaptcha error:", errorCode);
+			captchaStatus.show("CAPTCHA failed to load. Please refresh and try again.");
+		});
+
+		setupHCaptchaExpiredCallback(
+			"onUnconfirmedHCaptchaExpired",
+			"unconfirmed_captcha_token",
+			() => {
+				captchaStatus.show("CAPTCHA expired. Please complete it again.");
+			},
+		);
+
+		captchaTokenInput.addEventListener("input", () => {
+			updateResendDisabledState();
+			if (captchaTokenInput.value.trim().length > 0) {
+				captchaStatus.hide();
+			}
+		});
+
+		initializeCooldown();
+	}
 </script>
 

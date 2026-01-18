@@ -1,6 +1,11 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { Temporal } from "@js-temporal/polyfill";
+import type { Database } from "../../../lib/generated/database.types";
+import type { AppSupabaseClient } from "../../../lib/supabase";
+import type { User } from "../../../lib/users";
 
-export type DeliveryMethod = "email" | "sms";
+export type DeliveryMethod = Database["public"]["Enums"]["delivery_method"];
+export type ScheduledNotificationType =
+	Database["public"]["Enums"]["scheduled_notification_type"];
 
 export type DeliveryResult =
 	| { success: true; messageSid?: string }
@@ -16,118 +21,109 @@ export interface NotificationLogEntry {
 	errorCode?: string;
 }
 
-export interface UserRecord {
-	id: string;
-	email: string;
-	phone_country_code: string | null;
-	phone_number: string | null;
-	phone_verified: boolean;
-	sms_opted_out: boolean;
-	timezone: string | null;
-	notification_start_hour: number;
-	notification_end_hour: number;
-	email_notifications_enabled: boolean;
-	sms_notifications_enabled: boolean;
-}
+export type UserRecord = Pick<
+	User,
+	| "id"
+	| "email"
+	| "phone_country_code"
+	| "phone_number"
+	| "phone_verified"
+	| "sms_opted_out"
+	| "timezone"
+	| "daily_digest_enabled"
+	| "daily_digest_notification_time"
+	| "next_send_at"
+	| "email_notifications_enabled"
+	| "sms_notifications_enabled"
+>;
+
+export type EmailUser = Pick<UserRecord, "id" | "email">;
+export type SmsUser = Pick<
+	UserRecord,
+	"id" | "phone_country_code" | "phone_number"
+>;
 
 export interface UserStockRow {
 	symbol: string;
+	name: string;
 }
 
-export function shouldNotifyUser(
-	user: UserRecord,
-	getCurrentTime: () => Date,
-): boolean {
-	if (!user.timezone) {
-		return false;
-	}
-
-	const currentHour = getCurrentHourInTimezone(user.timezone, getCurrentTime);
-
-	if (currentHour === null) {
-		console.error("Unable to determine current hour for user timezone", {
-			userId: user.id,
-			timezone: user.timezone,
-		});
-		return false;
-	}
-
-	const withinWindow: boolean = isHourWithinWindow(
-		currentHour,
-		user.notification_start_hour,
-		user.notification_end_hour,
-	);
-
-	return withinWindow;
-}
-
-export function getCurrentHourInTimezone(
+export function calculateNextSendAt(
+	localMinutes: number,
 	timezone: string,
 	getCurrentTime: () => Date,
-): number | null {
+): Date | null {
 	try {
-		const formatter = new Intl.DateTimeFormat("en-US", {
-			hour: "numeric",
-			hourCycle: "h23",
-			timeZone: timezone,
-		});
-		const parts = formatter.formatToParts(getCurrentTime());
-		const hourPart = parts.find((part) => part.type === "hour");
-
-		if (!hourPart) {
+		if (!Number.isFinite(localMinutes)) {
 			return null;
 		}
 
-		const hour = Number.parseInt(hourPart.value, 10);
-		return Number.isNaN(hour) ? null : hour;
-	} catch {
-		console.error("Failed to parse hour from timezone", { timezone });
-		return null;
-	}
-}
+		const hours = Math.floor(localMinutes / 60);
+		const minutes = localMinutes % 60;
+		if (
+			!Number.isInteger(hours) ||
+			!Number.isInteger(minutes) ||
+			hours < 0 ||
+			hours > 23 ||
+			minutes < 0 ||
+			minutes > 59
+		) {
+			return null;
+		}
 
-export function isHourWithinWindow(
-	hour: number,
-	start: number,
-	end: number,
-): boolean {
-	if (start === end) {
-		return hour === start;
-	}
+		if (timezone.trim() === "") {
+			return null;
+		}
 
-	if (start < end) {
-		return hour >= start && hour <= end;
-	}
+		const now = getCurrentTime();
+		const nowInstant = Temporal.Instant.from(now.toISOString());
+		const nowZoned = nowInstant.toZonedDateTimeISO(timezone);
 
-	return hour >= start || hour <= end;
-}
+		let candidate = nowZoned.with({
+			hour: hours,
+			minute: minutes,
+			second: 0,
+			millisecond: 0,
+			microsecond: 0,
+			nanosecond: 0,
+		});
 
-export async function loadUserStocks(
-	supabase: SupabaseClient,
-	userId: string,
-): Promise<UserStockRow[] | null> {
-	const { data: stocks, error } = await supabase
-		.from("user_stocks")
-		.select("symbol")
-		.eq("user_id", userId);
+		if (Temporal.ZonedDateTime.compare(candidate, nowZoned) <= 0) {
+			candidate = candidate.add({ days: 1 });
+		}
 
-	if (error) {
-		console.error("Failed to load user stocks", {
-			userId,
-			error,
+		return new Date(candidate.toInstant().epochMilliseconds);
+	} catch (error) {
+		console.error("Failed to calculate next_send_at", {
+			localMinutes,
+			timezone,
+			error: error instanceof Error ? error.message : String(error),
 		});
 		return null;
 	}
+}
 
-	if (!stocks || stocks.length === 0) {
-		return [];
+export async function loadUserStocks(
+	supabase: AppSupabaseClient,
+	userId: string,
+): Promise<UserStockRow[]> {
+	const { data: stocks, error } = await supabase
+		.from("user_stocks")
+		.select("symbol, stocks!inner(name)")
+		.eq("user_id", userId);
+
+	if (error) {
+		throw error;
 	}
 
-	return stocks;
+	return (stocks ?? []).map((stock) => ({
+		symbol: stock.symbol,
+		name: stock.stocks.name,
+	}));
 }
 
 export async function recordNotification(
-	supabase: SupabaseClient,
+	supabase: AppSupabaseClient,
 	entry: NotificationLogEntry,
 ): Promise<boolean> {
 	const { error } = await supabase.from("notification_log").insert({
