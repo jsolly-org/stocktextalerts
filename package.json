@@ -32,7 +32,7 @@
 		"@heroicons/vue": "^2.2.0",
 		"@js-temporal/polyfill": "^0.5.1",
 		"@supabase/supabase-js": "^2.90.0",
-		"@vueuse/core": "^13.9.0",
+		"@vueuse/core": "^14.1.0",
 		"fuse.js": "^7.1.0",
 		"libphonenumber-js": "^1.12.24",
 		"resend": "^6.6.0",
