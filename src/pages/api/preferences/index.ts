@@ -167,7 +167,9 @@ export function createPreferencesHandler(
 					p_daily_digest_enabled: finalDailyDigestEnabled,
 					p_daily_digest_notification_time: finalDailyDigestNotificationTime,
 					p_next_send_at: finalNextSendAt,
-				},
+				} as unknown as Parameters<
+					typeof supabase.rpc<"update_user_preferences_and_stocks">
+				>[1],
 			);
 
 			if (error) {

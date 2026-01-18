@@ -7,6 +7,7 @@
 - **Clarify ambiguity**: Ask up to 3 targeted questions about scope, constraints, and edge cases.
 - **Offer alternatives**: Provide 2-3 approaches with pros/cons and a recommendation with justification.
 - **Database migrations**: Do NOT create new migration files. Only modify the initial migration in `supabase/migrations`. This is a new app with no users, so destructive schema changes are OK.
+- **Generated files**: Do NOT modify `src/lib/generated/database.types.ts` directly. This file is auto-generated from the Supabase schema. If type issues arise, use type assertions in application code or regenerate the types using the Supabase CLI.
 
 ## Supabase Auth
 - **Email identity provider_id**: For email providers in `auth.identities`, `provider_id` must be set to the user's UUID from `auth.users`, NOT the email address. For OAuth/SAML providers, `provider_id` uses the provider's unique ID. This is a critical requirement—using the email for email providers will break authentication.

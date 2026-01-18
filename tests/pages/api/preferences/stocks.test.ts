@@ -184,9 +184,15 @@ describe("POST /api/preferences (tracked stocks)", () => {
 			trackedStocks: ["AAPL"],
 		});
 
-		await adminClient.auth.admin.updateUserById(testUser.id, {
-			email_confirm: true,
-		});
+		const { error: confirmError } = await adminClient.auth.admin.updateUserById(
+			testUser.id,
+			{
+				email_confirm: true,
+			},
+		);
+		if (confirmError) {
+			throw new Error(`Failed to confirm user: ${confirmError.message}`);
+		}
 
 		const cookies = await createAuthenticatedCookies(
 			testUser.email,

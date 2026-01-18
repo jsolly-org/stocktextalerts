@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import type { TablesInsert } from "../src/lib/generated/database.types";
 import { adminClient } from "./setup";
@@ -9,6 +9,10 @@ export interface CreateTestUserOptions {
 	timezone?: string;
 	emailNotificationsEnabled?: boolean;
 	smsNotificationsEnabled?: boolean;
+	phoneCountryCode?: string | null;
+	phoneNumber?: string | null;
+	phoneVerified?: boolean;
+	smsOptedOut?: boolean;
 	dailyDigestEnabled?: boolean;
 	dailyDigestNotificationTime?: number;
 	trackedStocks?: string[];
@@ -32,6 +36,25 @@ export async function createTestUser(
 		`test-${randomUUID()}@resend.dev`;
 	const password = options.password || "TestPassword123!";
 	const timezone = options.timezone || "America/New_York";
+	const smsNotificationsEnabled = options.smsNotificationsEnabled ?? false;
+
+	const defaultPhoneCountryCode = "+1";
+	const defaultPhoneNumber = `500555${String(randomInt(0, 10000)).padStart(4, "0")}`;
+
+	const phoneCountryCode =
+		options.phoneCountryCode ??
+		(smsNotificationsEnabled ? defaultPhoneCountryCode : null);
+	const phoneNumber =
+		options.phoneNumber ??
+		(smsNotificationsEnabled ? defaultPhoneNumber : null);
+	const phoneVerified = options.phoneVerified ?? false;
+	const smsOptedOut = options.smsOptedOut ?? false;
+
+	if (smsNotificationsEnabled && (!phoneCountryCode || !phoneNumber)) {
+		throw new Error(
+			"Invalid test user: smsNotificationsEnabled requires phoneCountryCode and phoneNumber",
+		);
+	}
 
 	// Create in Auth
 	const { data: authUser, error: authError } = await adminClient.auth.signUp({
@@ -77,9 +100,13 @@ export async function createTestUser(
 	const profile: DbUserInsert = {
 		id: userId,
 		email,
+		phone_country_code: phoneCountryCode,
+		phone_number: phoneNumber,
+		phone_verified: phoneVerified,
+		sms_opted_out: smsOptedOut,
 		timezone,
 		email_notifications_enabled: options.emailNotificationsEnabled ?? false,
-		sms_notifications_enabled: options.smsNotificationsEnabled ?? false,
+		sms_notifications_enabled: smsNotificationsEnabled,
 		daily_digest_enabled: dailyDigestEnabled,
 		daily_digest_notification_time: alignedDailyDigestNotificationTime,
 		next_send_at: nextSendAt,

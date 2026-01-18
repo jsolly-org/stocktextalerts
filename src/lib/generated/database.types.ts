@@ -307,7 +307,7 @@ export type Database = {
 					p_daily_digest_enabled: boolean;
 					p_daily_digest_notification_time: number;
 					p_email_notifications_enabled: boolean;
-					p_next_send_at: string | null;
+					p_next_send_at: string;
 					p_sms_notifications_enabled: boolean;
 					p_symbols: string[];
 					p_timezone: string;

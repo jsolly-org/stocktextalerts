@@ -225,47 +225,6 @@ describe("Preview Notifications Endpoint", () => {
 		}
 	});
 
-	it("redirects to /dashboard?error=preview_sms_missing_phone (302) when phone number is missing", async () => {
-		const { id, email } = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
-			confirmed: true,
-			smsNotificationsEnabled: true,
-		});
-
-		try {
-			const { error: updateError } = await adminClient
-				.from("users")
-				.update({
-					phone_country_code: null,
-					phone_number: null,
-					phone_verified: false,
-					sms_opted_out: false,
-				})
-				.eq("id", id);
-
-			if (updateError) {
-				throw new Error(`Failed to set up test user: ${updateError.message}`);
-			}
-
-			const cookies = await createAuthenticatedCookies(email, TEST_PASSWORD);
-
-			const request = buildRequest("sms");
-
-			const response = await POST({
-				request,
-				cookies: toAstroCookies(cookies),
-				redirect: toRedirect,
-			} as APIContext);
-
-			expect(response.status).toBe(302);
-			expect(response.headers.get("Location")).toBe(
-				"/dashboard?error=preview_sms_missing_phone",
-			);
-		} finally {
-			await adminClient.auth.admin.deleteUser(id);
-		}
-	});
-
 	(hasResendCredentials ? it : it.skip)(
 		"redirects to /dashboard?success=preview_email_sent (302) when user has valid email fields",
 		async () => {

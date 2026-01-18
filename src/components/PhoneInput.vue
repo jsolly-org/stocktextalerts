@@ -182,11 +182,13 @@ const isValid = computed(() => {
 watch(
 	isValid,
 	(valid) => {
-		const event = new CustomEvent("phone-validity-changed", {
-			bubbles: true,
-			detail: { isValid: valid },
-		});
-		document.dispatchEvent(event);
+		if (typeof document !== "undefined") {
+			const event = new CustomEvent("phone-validity-changed", {
+				bubbles: true,
+				detail: { isValid: valid },
+			});
+			document.dispatchEvent(event);
+		}
 	},
 	{ immediate: true },
 );
