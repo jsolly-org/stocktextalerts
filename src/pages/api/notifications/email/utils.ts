@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { getSiteUrl } from "../../../../lib/env";
+import { getSiteUrl } from "../../../../lib/db/env";
 import type { DeliveryResult, UserStockRow } from "../shared";
 
 function escapeHtml(value: string): string {
@@ -16,6 +16,8 @@ export interface EmailRequest {
 	subject: string;
 	body: string;
 	html?: string;
+	idempotencyKey?: string;
+	replyTo?: string;
 }
 
 export type EmailSender = (request: EmailRequest) => Promise<DeliveryResult>;
@@ -23,6 +25,7 @@ export type EmailSender = (request: EmailRequest) => Promise<DeliveryResult>;
 export function createEmailSender(): EmailSender {
 	const apiKey = import.meta.env.RESEND_API_KEY;
 	const fromEmail = import.meta.env.EMAIL_FROM;
+	const defaultReplyTo = import.meta.env.EMAIL_REPLY_TO;
 
 	if (!apiKey) {
 		console.warn("RESEND_API_KEY is not set. Emails will not be sent.");
@@ -41,19 +44,49 @@ export function createEmailSender(): EmailSender {
 
 	const resend = new Resend(apiKey);
 
-	return async ({ to, subject, body, html }) => {
+	return async ({ to, subject, body, html, idempotencyKey, replyTo }) => {
 		try {
-			const { data, error } = await resend.emails.send({
+			const replyToValue = replyTo || defaultReplyTo;
+			const emailPayload = {
 				from: fromEmail || "notifications@updates.stocktextalerts.com",
 				to,
 				subject,
 				text: body,
 				html: html ?? escapeHtml(body),
-			});
+				...(replyToValue ? { reply_to: replyToValue } : {}),
+			};
+			const sendOptions = idempotencyKey ? { idempotencyKey } : undefined;
+			const { data, error } = await resend.emails.send(
+				emailPayload,
+				sendOptions,
+			);
 
 			if (error) {
-				console.error("Resend error:", error);
-				return { success: false, error: error.message };
+				// Resend SDK returns structured errors with 'type' field for error codes.
+				// Common error types: 'validation_error', 'invalid_api_key', 'rate_limit_exceeded',
+				// 'monthly_quota_exceeded', 'daily_quota_exceeded', 'invalid_from_address', etc.
+				// Error objects also have 'message' and 'status' fields.
+				console.error("Resend error:", {
+					type:
+						typeof error === "object" && "type" in error
+							? error.type
+							: undefined,
+					message:
+						typeof error === "object" && "message" in error
+							? error.message
+							: undefined,
+					status:
+						typeof error === "object" && "status" in error
+							? error.status
+							: undefined,
+				});
+				const errorMessage =
+					typeof error === "object" &&
+					"message" in error &&
+					typeof error.message === "string"
+						? error.message
+						: "Failed to send email";
+				return { success: false, error: errorMessage };
 			}
 
 			return { success: true, messageSid: data?.id };

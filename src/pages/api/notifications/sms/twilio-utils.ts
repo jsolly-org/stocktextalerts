@@ -2,7 +2,7 @@
 Twilio SMS
 ============= */
 
-import twilio from "twilio";
+import twilio, { type RestException } from "twilio";
 
 import type { DeliveryResult } from "../shared";
 
@@ -59,18 +59,24 @@ export function createSmsSender(
 		} catch (error) {
 			console.error("Twilio SMS send error:", error);
 
+			// Twilio SDK throws RestException for API errors (HTTP 400-5xx).
+			// RestException has: status (HTTP status), code (numeric Twilio error code),
+			// message, and moreInfo.
+			if (error instanceof Error && "status" in error && "code" in error) {
+				const twilioError = error as RestException;
+				return {
+					success: false,
+					error: twilioError.message,
+					errorCode: twilioError.code ? String(twilioError.code) : undefined,
+				};
+			}
+
 			const errorMessage =
 				error instanceof Error ? error.message : "Failed to send SMS";
-
-			const twilioError = error as {
-				code?: string | number;
-				moreInfo?: string;
-			};
 
 			return {
 				success: false,
 				error: errorMessage,
-				errorCode: twilioError.code ? String(twilioError.code) : undefined,
 			};
 		}
 	};

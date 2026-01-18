@@ -5,11 +5,11 @@ import DangerZone from "../components/profile/DangerZone.astro";
 import ProfilePreferences from "../components/profile/ProfilePreferences.astro";
 import TimezoneMismatchBanner from "../components/TimezoneMismatchBanner.astro";
 import Layout from "../layouts/Layout.astro";
-import { getAuthErrorMessage } from "../lib/auth";
-import { formatMessage } from "../lib/format";
-import { createSupabaseServerClient } from "../lib/supabase";
-import { getTimezoneOptions } from "../lib/timezones/timezones";
-import { createUserService } from "../lib/users";
+import { getAuthErrorMessage } from "../lib/auth/messages";
+import { createSupabaseServerClient } from "../lib/db/supabase";
+import { createUserService } from "../lib/db/users";
+import { formatMessage } from "../lib/status-messages";
+import { getTimezoneOptions } from "../lib/timezones/cache";
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
@@ -124,8 +124,8 @@ const successMessage = formatMessage(success);
 </Layout>
 
 <script>
-	import { setupTimezoneMismatchBanner } from "../lib/timezones/timezone-banner";
-	import { setupFormNavigationWarning } from "../lib/forms/navigation-warning";
+	import { setupTimezoneMismatchBanner } from "../lib/timezones/banner";
+	import { setupFormNavigationWarning } from "../lib/forms/dom/navigation-warning";
 
 	function setupProfileTimezoneMismatchBanner() {
 		const banner = document.getElementById("timezone-mismatch-banner");

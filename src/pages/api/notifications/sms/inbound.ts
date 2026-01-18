@@ -1,8 +1,8 @@
 import type { APIRoute } from "astro";
 import twilio from "twilio";
-import { parseWithSchema } from "../../../../lib/forms/parsing";
+import { createSupabaseAdminClient } from "../../../../lib/db/supabase";
+import { parseWithSchema } from "../../../../lib/forms/parse";
 import type { FormSchema } from "../../../../lib/forms/schema";
-import { createSupabaseAdminClient } from "../../../../lib/supabase";
 import { handleInboundSms } from "./inbound-utils";
 import { readTwilioConfig } from "./twilio-utils";
 
@@ -44,6 +44,21 @@ function buildInboundSmsSchema(): FormSchema {
 
 const INBOUND_SMS_SCHEMA = buildInboundSmsSchema();
 
+function reconstructUrl(request: Request): string {
+	const url = new URL(request.url);
+
+	const forwardedProto = request.headers.get("x-forwarded-proto") ?? "";
+	const forwardedHost = request.headers.get("x-forwarded-host") ?? "";
+
+	const protocol = forwardedProto.split(",")[0]?.trim();
+	const host = forwardedHost.split(",")[0]?.trim();
+	if (protocol && host && (protocol === "http" || protocol === "https")) {
+		return `${protocol}://${host}${url.pathname}${url.search}`;
+	}
+
+	return request.url;
+}
+
 export const POST: APIRoute = async ({ request }) => {
 	try {
 		const signatureHeader = request.headers.get("x-twilio-signature");
@@ -69,9 +84,11 @@ export const POST: APIRoute = async ({ request }) => {
 		const supabase = createSupabaseAdminClient();
 		const twilioConfig = readTwilioConfig();
 
+		const webhookUrl = reconstructUrl(request);
+
 		const result = await handleInboundSms(
 			{
-				url: request.url,
+				url: webhookUrl,
 				signature,
 				params,
 			},

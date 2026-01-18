@@ -4,21 +4,17 @@ import PreviewNotifications from "../components/dashboard/PreviewNotifications.a
 import NotificationPreferencesCard from "../components/dashboard/preferences/NotificationPreferencesCard.astro";
 import ScheduledNotificationsCard from "../components/dashboard/preferences/ScheduledNotificationsCard.astro";
 import SetupRequiredBanner from "../components/dashboard/SetupRequiredBanner.astro";
+import type { StockOption } from "../components/dashboard/stocks/StockInput.vue";
 import TrackedStocksPanel from "../components/dashboard/stocks/TrackedStocksPanel.vue";
 import Navigation from "../components/layout/Navigation.astro";
 import TimezoneMismatchBanner from "../components/TimezoneMismatchBanner.astro";
 import Layout from "../layouts/Layout.astro";
-import { formatMessage } from "../lib/format";
-import type { Stock } from "../lib/stocks";
-import { getUserStocks } from "../lib/stocks";
-import { createSupabaseServerClient } from "../lib/supabase";
-import { getTimezoneOptions } from "../lib/timezones/timezones";
-import { createUserService } from "../lib/users";
-
-interface StockOption {
-	value: string;
-	label: string;
-}
+import type { Stock } from "../lib/db/stocks";
+import { getUserStocks } from "../lib/db/stocks";
+import { createSupabaseServerClient } from "../lib/db/supabase";
+import { createUserService } from "../lib/db/users";
+import { formatMessage } from "../lib/status-messages";
+import { getTimezoneOptions } from "../lib/timezones/cache";
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
@@ -166,7 +162,11 @@ const isSmsFullyConfigured =
 </Layout>
 
 <script>
-	import { readFormValues, setupFormNavigationWarning } from "../lib/forms/navigation-warning";
+	import {
+		readFormValues,
+		setupFormNavigationWarning,
+	} from "../lib/forms/dom/navigation-warning";
+	import { onDOMReady } from "../lib/ui/dom-ready";
 
 	function setupDashboardPreferencesForm() {
 		const formElement = document.getElementById("dashboard-preferences-form");
@@ -214,18 +214,12 @@ const isSmsFullyConfigured =
 		});
 	}
 
-	if (document.readyState === "loading") {
-		document.addEventListener(
-			"DOMContentLoaded",
-			setupDashboardPreferencesForm,
-		);
-	} else {
-		setupDashboardPreferencesForm();
-	}
+	onDOMReady(setupDashboardPreferencesForm);
 </script>
 
 <script>
-	import { setupTimezoneMismatchBanner } from "../lib/timezones/timezone-banner";
+	import { setupTimezoneMismatchBanner } from "../lib/timezones/banner";
+	import { onDOMReady } from "../lib/ui/dom-ready";
 
 	function setupDashboardTimezoneMismatchBanner() {
 		const banner = document.getElementById("timezone-mismatch-banner");
@@ -245,14 +239,7 @@ const isSmsFullyConfigured =
 		setupTimezoneMismatchBanner({ savedTimezone, allowedTimezones });
 	}
 
-	if (document.readyState === "loading") {
-		document.addEventListener(
-			"DOMContentLoaded",
-			setupDashboardTimezoneMismatchBanner,
-		);
-	} else {
-		setupDashboardTimezoneMismatchBanner();
-	}
+	onDOMReady(setupDashboardTimezoneMismatchBanner);
 </script>
 
 

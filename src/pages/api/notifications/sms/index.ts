@@ -18,18 +18,18 @@ export async function sendUserSms(
 			body: message,
 		});
 	} catch (error) {
-		const errorMessage = error instanceof Error ? error.message : String(error);
-		console.error("Failed to send SMS", {
+		// sendSms (from createSmsSender) already catches Twilio RestException errors
+		// and returns a DeliveryResult, so this catch block only handles unexpected
+		// errors like network failures, timeouts, or implementation errors.
+		console.error("Unexpected error sending SMS", {
 			userId: user.id,
 			error,
 		});
 
-		const twilioError = error as { code?: string | number };
-
+		const errorMessage = error instanceof Error ? error.message : String(error);
 		return {
 			success: false,
 			error: errorMessage,
-			errorCode: twilioError.code ? String(twilioError.code) : undefined,
 		};
 	}
 }

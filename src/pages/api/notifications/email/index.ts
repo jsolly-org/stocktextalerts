@@ -6,6 +6,7 @@ export async function sendUserEmail(
 	subject: string,
 	message: { text: string; html: string },
 	sendEmail: EmailSender,
+	idempotencyKey?: string,
 ): Promise<DeliveryResult> {
 	try {
 		return await sendEmail({
@@ -13,6 +14,7 @@ export async function sendUserEmail(
 			subject,
 			body: message.text,
 			html: message.html,
+			idempotencyKey,
 		});
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);

@@ -1,9 +1,12 @@
 ---
 import SignInCard from "../components/landing/SignInCard.astro";
 import Layout from "../layouts/Layout.astro";
-import { getAuthErrorMessage, getAuthSuccessMessage } from "../lib/auth";
-import { createSupabaseServerClient } from "../lib/supabase";
-import { createUserService } from "../lib/users";
+import {
+	getAuthErrorMessage,
+	getAuthSuccessMessage,
+} from "../lib/auth/messages";
+import { createSupabaseServerClient } from "../lib/db/supabase";
+import { createUserService } from "../lib/db/users";
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);

@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
-import { parseWithSchema } from "../../../../lib/forms/parsing";
-import { createSupabaseServerClient } from "../../../../lib/supabase";
-import { createUserService } from "../../../../lib/users";
+import { createSupabaseServerClient } from "../../../../lib/db/supabase";
+import { createUserService } from "../../../../lib/db/users";
+import { parseWithSchema } from "../../../../lib/forms/parse";
 import { sendVerification } from "./verify-utils";
 
 interface SmsSendVerificationDependencies {

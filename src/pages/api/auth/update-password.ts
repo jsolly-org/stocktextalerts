@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
-import { parseWithSchema } from "../../../lib/forms/parsing";
 import {
 	createSupabaseAdminClient,
 	createSupabaseServerClient,
-} from "../../../lib/supabase";
+} from "../../../lib/db/supabase";
+import { parseWithSchema } from "../../../lib/forms/parse";
 
 const MIN_PASSWORD_LENGTH = 8;
 

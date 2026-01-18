@@ -1,5 +1,5 @@
 import { parsePhoneNumberFromString } from "libphonenumber-js";
-import type { AppSupabaseClient } from "../../../../lib/supabase";
+import type { AppSupabaseClient } from "../../../../lib/db/supabase";
 
 export interface InboundSmsDependencies {
 	authToken: string;
@@ -24,7 +24,7 @@ export interface InboundSmsResponse {
 	contentType?: string;
 }
 
-const STOP_RE = /\b(STOP|STOPALL|UNSUBSCRIBE|CANCEL|END|QUIT)\b/;
+const STOP_RE = /\b(STOP|STOPALL|UNSUBSCRIBE|CANCEL|END|QUIT|REVOKE|OPTOUT)\b/;
 const START_RE = /\b(START|SUBSCRIBE|YES|UNSTOP)\b/;
 const HELP_RE = /\b(HELP|INFO)\b/;
 

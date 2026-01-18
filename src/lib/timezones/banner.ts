@@ -34,6 +34,10 @@ export function setupTimezoneMismatchBanner(options: {
 	}
 
 	const saved = savedTimezone ?? "";
+	if (!saved || detected === saved) {
+		return;
+	}
+
 	const dismissalKey = `timezone_mismatch_banner_dismissed:${saved}:${detected}`;
 	let dismissed = false;
 	try {
@@ -42,10 +46,6 @@ export function setupTimezoneMismatchBanner(options: {
 		dismissed = false;
 	}
 	if (dismissed) {
-		return;
-	}
-
-	if (!saved || detected === saved) {
 		return;
 	}
 

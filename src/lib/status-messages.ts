@@ -1,4 +1,4 @@
-const MESSAGE_ALLOWLIST: Record<string, string> = {
+const MESSAGE_ALLOWLIST = {
 	stock_added: "Stock added successfully",
 	stock_removed: "Stock removed successfully",
 	stocks_updated: "Tracked stocks updated successfully",
@@ -29,20 +29,11 @@ const MESSAGE_ALLOWLIST: Record<string, string> = {
 		"Verify your phone number before sending SMS previews.",
 	preview_failed: "Failed to send preview notification. Please try again.",
 	no_updates: "No changes were made to your preferences.",
-};
+} as const;
 
-type MessageKey = keyof typeof MESSAGE_ALLOWLIST;
+export type MessageKey = keyof typeof MESSAGE_ALLOWLIST;
 
 export function formatMessage(message: MessageKey | null): string {
 	if (!message) return "";
 	return MESSAGE_ALLOWLIST[message] ?? "";
-}
-
-export function truncateSms(message: string, maxLength = 160): string {
-	if (message.length <= maxLength) {
-		return message;
-	}
-
-	const shortened = message.substring(0, maxLength - 3);
-	return `${shortened}...`;
 }

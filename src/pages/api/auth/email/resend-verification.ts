@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
-import { getSiteUrl } from "../../../../lib/env";
-import { parseWithSchema } from "../../../../lib/forms/parsing";
-import { createSupabaseServerClient } from "../../../../lib/supabase";
+import { getSiteUrl } from "../../../../lib/db/env";
+import { createSupabaseServerClient } from "../../../../lib/db/supabase";
+import { parseWithSchema } from "../../../../lib/forms/parse";
 
 export const POST: APIRoute = async ({ request, redirect }) => {
 	const supabase = createSupabaseServerClient();
@@ -25,13 +25,6 @@ export const POST: APIRoute = async ({ request, redirect }) => {
 	// when users request verification resends with emails that have leading/trailing whitespace.
 	const email = parsed.data.email.trim();
 	const captchaToken = parsed.data.captcha_token;
-
-	if (/\s/.test(email)) {
-		console.error("Resend verification rejected: email contains whitespace", {
-			email,
-		});
-		return redirect("/auth/unconfirmed?error=invalid_form");
-	}
 
 	const origin = getSiteUrl();
 	const emailRedirectTo = `${origin}/auth/verified`;

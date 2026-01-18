@@ -1,5 +1,5 @@
 ---
-import type { TimezoneOption } from "../../lib/timezones/timezones";
+import type { TimezoneOption } from "../../lib/timezones/cache";
 
 interface Props {
 	timezone: string;
@@ -58,9 +58,9 @@ const { timezone, timezones, timezoneLoadError = false } = Astro.props;
 </div>
 
 <script>
-	import { setupDetectedTimezoneOption } from "../../lib/timezones/timezone-select";
-	import { DEFAULT_TIMEZONE } from "../../lib/timezones/timezone-constants";
-	import { setupFormChangeDetection } from "../../lib/forms/change-detection";
+	import { setupDetectedTimezoneOption } from "../../lib/timezones/select";
+	import { DEFAULT_TIMEZONE } from "../../lib/timezones/constants";
+	import { setupFormChangeDetection } from "../../lib/forms/dom/change-detection";
 
 	function initializeFormState() {
 		const formElement = document.getElementById("profile-preferences-form");

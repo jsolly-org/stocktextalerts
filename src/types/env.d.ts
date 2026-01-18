@@ -9,6 +9,7 @@ interface ImportMetaEnv {
 	readonly SUPABASE_SERVICE_ROLE_KEY: string;
 	readonly RESEND_API_KEY: string;
 	readonly EMAIL_FROM: string;
+	readonly EMAIL_REPLY_TO?: string;
 	readonly CRON_SECRET: string;
 	readonly TIMEZONE_CACHE_BUSTER?: string;
 }

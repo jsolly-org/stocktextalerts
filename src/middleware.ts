@@ -1,5 +1,5 @@
 import { defineMiddleware } from "astro:middleware";
-import { validateEnv } from "./lib/env";
+import { validateEnv } from "./lib/db/env";
 
 // Lazy validation flag - only validate once on first request
 let envValidated = false;

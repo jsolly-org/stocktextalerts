@@ -1,5 +1,6 @@
-import { processFields, readRawSchemaData } from "./coercion";
+import { readRawSchemaData } from "./form-data";
 import type { FormSchema, InferSchema, ParseOutcome } from "./schema";
+import { processFields } from "./validate";
 
 export function parseWithSchema<TSchema extends FormSchema>(
 	formData: FormData,
@@ -39,10 +40,27 @@ export function parseWithSchema<TSchema extends FormSchema, TResult>(
 	}
 
 	const baseResult = output as InferSchema<TSchema>;
-	const transformed = transform ? transform(baseResult) : baseResult;
-
-	return {
-		ok: true,
-		data: transformed,
-	};
+	try {
+		const transformed = transform ? transform(baseResult) : baseResult;
+		return {
+			ok: true,
+			data: transformed,
+		};
+	} catch (error) {
+		return {
+			ok: false,
+			error: {
+				reason: "transform_failed",
+				key: "",
+				message: error instanceof Error ? error.message : String(error),
+			},
+			allErrors: [
+				{
+					reason: "transform_failed",
+					key: "",
+					message: error instanceof Error ? error.message : String(error),
+				},
+			],
+		};
+	}
 }

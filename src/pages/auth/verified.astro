@@ -1,8 +1,8 @@
 ---
 import type { EmailOtpType } from "@supabase/supabase-js";
 import Layout from "../../layouts/Layout.astro";
-import { createSupabaseServerClient } from "../../lib/supabase";
-import { createUserService } from "../../lib/users";
+import { createSupabaseServerClient } from "../../lib/db/supabase";
+import { createUserService } from "../../lib/db/users";
 
 const supabase = createSupabaseServerClient();
 const userService = createUserService(supabase, Astro.cookies);

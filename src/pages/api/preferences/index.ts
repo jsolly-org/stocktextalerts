@@ -1,14 +1,13 @@
 import type { APIRoute } from "astro";
 import {
-	isSmsRequiresPhoneError,
 	isStocksLimitError,
 	isStocksRequiredError,
-} from "../../../lib/database-errors";
-import { coerceWithSchema } from "../../../lib/forms/coercion";
+} from "../../../lib/db/database-errors";
+import { omitUndefined } from "../../../lib/db/objects";
+import { createSupabaseServerClient } from "../../../lib/db/supabase";
+import { createUserService } from "../../../lib/db/users";
+import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
-import { omitUndefined } from "../../../lib/forms/utils";
-import { createSupabaseServerClient } from "../../../lib/supabase";
-import { createUserService } from "../../../lib/users";
 import { calculateNextSendAt } from "../notifications/shared";
 
 interface PreferencesDependencies {
@@ -47,7 +46,7 @@ export function createPreferencesHandler(
 			tracked_stocks: { type: "json_string_array", required: true },
 		} as const satisfies FormSchema;
 
-		const parsed = coerceWithSchema(formData, shape);
+		const parsed = parseWithSchema(formData, shape);
 
 		if (!parsed.ok) {
 			console.error("Preferences update rejected due to invalid form", {
@@ -57,6 +56,14 @@ export function createPreferencesHandler(
 		}
 
 		const { tracked_stocks: trackedSymbols, ...preferenceData } = parsed.data;
+
+		if (trackedSymbols.length > 50) {
+			console.error("Tracked stocks limit exceeded", {
+				userId: user.id,
+				count: trackedSymbols.length,
+			});
+			return redirect("/dashboard?error=stocks_limit");
+		}
 
 		const safePreferenceUpdates: Parameters<typeof userService.update>[1] =
 			omitUndefined({
@@ -149,6 +156,14 @@ export function createPreferencesHandler(
 				safePreferenceUpdates.daily_digest_notification_time ??
 				dbUser.daily_digest_notification_time;
 
+			if (finalSmsNotificationsEnabled && !dbUser.phone_number) {
+				console.error("SMS preferences enabled without phone", {
+					userId: user.id,
+					email: user.email ?? "unknown",
+				});
+				return redirect("/dashboard?error=phone_not_set");
+			}
+
 			const finalNextSendAt = Object.hasOwn(
 				safePreferenceUpdates,
 				"next_send_at",
@@ -186,15 +201,11 @@ export function createPreferencesHandler(
 				error: errorMessage,
 			});
 
-			if (isSmsRequiresPhoneError(errorMessage)) {
-				return redirect("/dashboard?error=phone_not_set");
-			}
-
-			if (isStocksLimitError(errorMessage)) {
+			if (isStocksLimitError(error)) {
 				return redirect("/dashboard?error=stocks_limit");
 			}
 
-			if (isStocksRequiredError(errorMessage)) {
+			if (isStocksRequiredError(error)) {
 				return redirect("/dashboard?error=invalid_form");
 			}
 

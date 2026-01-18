@@ -2,8 +2,8 @@
 import HCaptcha from "../../components/HCaptcha.astro";
 import Navigation from "../../components/layout/Navigation.astro";
 import Layout from "../../layouts/Layout.astro";
-import { createSupabaseServerClient } from "../../lib/supabase";
-import { getTimezoneOptions } from "../../lib/timezones/timezones";
+import { createSupabaseServerClient } from "../../lib/db/supabase";
+import { getTimezoneOptions } from "../../lib/timezones/cache";
 
 const search = Astro.url.searchParams;
 const error = search.get("error");
@@ -171,8 +171,8 @@ if (error) {
 </Layout>
 
 <script>
-	import { setupDetectedTimezoneOption } from "../../lib/timezones/timezone-select";
-	import { DEFAULT_TIMEZONE } from "../../lib/timezones/timezone-constants";
+	import { setupDetectedTimezoneOption } from "../../lib/timezones/select";
+	import { DEFAULT_TIMEZONE } from "../../lib/timezones/constants";
 
 	document.addEventListener('DOMContentLoaded', () => {
 		const emailInputElement = document.getElementById('email');
@@ -200,7 +200,7 @@ if (error) {
 		setupHCaptchaCallback,
 		setupHCaptchaErrorCallback,
 		setupHCaptchaExpiredCallback,
-	} from "../../lib/hcaptcha-utils";
+	} from "../../lib/auth/hcaptcha";
 
 	const captchaStatus = createCaptchaStatusHelpers("register-captcha-status");
 

@@ -1,6 +1,6 @@
 ---
-import type { TimezoneOption } from "../../../lib/timezones/timezones";
-import type { User } from "../../../lib/users";
+import type { User } from "../../../lib/db/users";
+import type { TimezoneOption } from "../../../lib/timezones/cache";
 import NotificationChannelsSection from "./NotificationChannelsSection.astro";
 
 interface Props {
@@ -56,8 +56,8 @@ const {
 </div>
 
 <script>
-	import { setupDetectedTimezoneOption } from "../../../lib/timezones/timezone-select";
-	import { DEFAULT_TIMEZONE } from "../../../lib/timezones/timezone-constants";
+	import { setupDetectedTimezoneOption } from "../../../lib/timezones/select";
+	import { DEFAULT_TIMEZONE } from "../../../lib/timezones/constants";
 
 	if (document.readyState === "loading") {
 		document.addEventListener("DOMContentLoaded", () => {

@@ -14,13 +14,13 @@ export function setupDetectedTimezoneOption(options?: {
 		return;
 	}
 
-	const detected = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
+	const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 	const knownValues = new Set(
 		Array.from(select.options).map((option) => option.value),
 	);
 
-	if (detected && detected !== "" && knownValues.has(detected)) {
+	if (knownValues.has(detected)) {
 		select.value = detected;
 		return;
 	}

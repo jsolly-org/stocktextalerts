@@ -1,8 +1,8 @@
 import type { APIRoute } from "astro";
-import { redirect } from "../../../lib/api-utils";
-import { coerceWithSchema } from "../../../lib/forms/coercion";
-import { createSupabaseServerClient } from "../../../lib/supabase";
-import { createUserService } from "../../../lib/users";
+import { createSupabaseServerClient } from "../../../lib/db/supabase";
+import { createUserService } from "../../../lib/db/users";
+import { parseWithSchema } from "../../../lib/forms/parse";
+import { redirect } from "../../../lib/ui/redirect";
 
 export const POST: APIRoute = async ({ request, cookies }) => {
 	const supabase = createSupabaseServerClient();
@@ -15,7 +15,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 	}
 
 	const formData = await request.formData();
-	const parsed = coerceWithSchema(formData, {
+	const parsed = parseWithSchema(formData, {
 		timezone: { type: "timezone", required: true },
 	} as const);
 

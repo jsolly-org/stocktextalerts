@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { APIRoute } from "astro";
-import type { Database } from "../../../lib/generated/database.types";
-import { createSupabaseAdminClient } from "../../../lib/supabase";
+import type { Database } from "../../../lib/db/generated/database.types";
+import { createSupabaseAdminClient } from "../../../lib/db/supabase";
 import { createEmailSender } from "./email/utils";
 import { processEmailUpdate, processSmsUpdate } from "./processing";
 import {
@@ -9,6 +9,7 @@ import {
 	type DeliveryMethod,
 	loadUserStocks,
 	recordNotification,
+	type ScheduledNotificationStatus,
 	type ScheduledNotificationType,
 	type UserRecord,
 } from "./shared";
@@ -42,10 +43,7 @@ async function updateScheduledNotificationRow(options: {
 	notificationType: ScheduledNotificationType;
 	scheduledDate: string;
 	channel: DeliveryMethod;
-	status: Extract<
-		Database["public"]["Enums"]["scheduled_notification_status"],
-		"sent" | "failed"
-	>;
+	status: Extract<ScheduledNotificationStatus, "sent" | "failed">;
 	error?: string;
 }) {
 	const update: Database["public"]["Tables"]["scheduled_notifications"]["Update"] =
@@ -105,10 +103,10 @@ async function logRetriesExhausted(options: {
 		);
 
 		await recordNotification(options.supabase, {
-			userId: options.userId,
+			user_id: options.userId,
 			type: "scheduled_update",
-			deliveryMethod: options.channel,
-			messageDelivered: false,
+			delivery_method: options.channel,
+			message_delivered: false,
 			message: "Retries exhausted; will retry next local day",
 			error: `scheduled_notifications attempt_count >= ${MAX_NOTIFICATION_RETRIES}`,
 		});
@@ -285,12 +283,14 @@ export const POST: APIRoute = async ({ request }) => {
 						});
 						stats.skipped++;
 					} else {
+						const emailIdempotencyKey = `daily-digest/${user.id}/${scheduledDate}/email`;
 						const { sent, logged, error } = await processEmailUpdate(
 							supabase,
 							user,
 							userStocks,
 							stocksList,
 							sendEmail,
+							emailIdempotencyKey,
 						);
 
 						if (sent) stats.emailsSent++;
@@ -352,10 +352,10 @@ export const POST: APIRoute = async ({ request }) => {
 								error: smsError || "Twilio client not initialized",
 							});
 							const logged = await recordNotification(supabase, {
-								userId: user.id,
+								user_id: user.id,
 								type: "scheduled_update",
-								deliveryMethod: "sms",
-								messageDelivered: false,
+								delivery_method: "sms",
+								message_delivered: false,
 								message: "SMS service unavailable",
 								error: smsError || "Twilio client not initialized",
 							});
@@ -437,10 +437,10 @@ export const POST: APIRoute = async ({ request }) => {
 						attemptedDeliveryMethod ??
 						(user.email_notifications_enabled ? "email" : "sms");
 					await recordNotification(supabase, {
-						userId: user.id,
+						user_id: user.id,
 						type: "scheduled_update",
-						deliveryMethod,
-						messageDelivered: false,
+						delivery_method: deliveryMethod,
+						message_delivered: false,
 						message: "Error processing notification",
 						error: error instanceof Error ? error.message : String(error),
 					});

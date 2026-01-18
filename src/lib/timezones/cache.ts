@@ -1,6 +1,6 @@
-import type { Database } from "../generated/database.types";
-import type { AppSupabaseClient } from "../supabase";
-import { DEFAULT_TIMEZONE } from "./timezone-constants";
+import type { Database } from "../db/generated/database.types";
+import type { AppSupabaseClient } from "../db/supabase";
+import { DEFAULT_TIMEZONE } from "./constants";
 
 type DbTimezoneRow = Database["public"]["Tables"]["timezones"]["Row"];
 

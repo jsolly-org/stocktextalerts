@@ -1,4 +1,5 @@
 import type { AstroCookies } from "astro";
+import { setAuthCookies } from "../auth/cookies";
 import type { Database } from "./generated/database.types";
 import type { AppSupabaseClient } from "./supabase";
 
@@ -22,20 +23,28 @@ export function createUserService(
 				return null;
 			}
 
-			try {
-				const { data, error } = await supabase.auth.setSession({
-					refresh_token: refreshToken.value,
-					access_token: accessToken.value,
-				});
+			// Set session on client for RLS to work. This ensures subsequent queries
+			// (like getById) can access user data via RLS policies.
+			const sessionResponse = await supabase.auth.setSession({
+				access_token: accessToken.value,
+				refresh_token: refreshToken.value,
+			});
 
-				if (error || !data.user) {
-					return null;
-				}
-
-				return data.user;
-			} catch {
+			if (sessionResponse.error || !sessionResponse.data.session) {
 				return null;
 			}
+
+			// Update cookies with refreshed tokens if they changed
+			const newAccessToken = sessionResponse.data.session.access_token;
+			const newRefreshToken = sessionResponse.data.session.refresh_token;
+			if (
+				newAccessToken !== accessToken.value ||
+				newRefreshToken !== refreshToken.value
+			) {
+				setAuthCookies(cookies, newAccessToken, newRefreshToken);
+			}
+
+			return sessionResponse.data.user ?? null;
 		},
 
 		async getById(id: string): Promise<User | null> {

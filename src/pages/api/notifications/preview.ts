@@ -1,10 +1,10 @@
 import type { APIRoute } from "astro";
-import { coerceWithSchema } from "../../../lib/forms/coercion";
 import {
 	createSupabaseAdminClient,
 	createSupabaseServerClient,
-} from "../../../lib/supabase";
-import { createUserService } from "../../../lib/users";
+} from "../../../lib/db/supabase";
+import { createUserService } from "../../../lib/db/users";
+import { parseWithSchema } from "../../../lib/forms/parse";
 import { createEmailSender } from "./email/utils";
 import { processEmailUpdate, processSmsUpdate } from "./processing";
 import { loadUserStocks, type UserStockRow } from "./shared";
@@ -26,7 +26,7 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
 	}
 
 	const formData = await request.formData();
-	const parsed = coerceWithSchema(formData, {
+	const parsed = parseWithSchema(formData, {
 		type: { type: "enum", values: ["email", "sms"] as const, required: true },
 	} as const);
 
@@ -126,12 +126,14 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
 			}
 
 			const sendEmail = createEmailSender();
+			const emailIdempotencyKey = `preview/${authUser.id}/${new Date().toISOString()}`;
 			const result = await processEmailUpdate(
 				adminSupabase,
 				user,
 				userStocks,
 				stocksList,
 				sendEmail,
+				emailIdempotencyKey,
 			);
 			sent = result.sent;
 			errorDetails = result.error;

@@ -1,28 +1,19 @@
 import { Temporal } from "@js-temporal/polyfill";
-import type { Database } from "../../../lib/generated/database.types";
-import type { AppSupabaseClient } from "../../../lib/supabase";
-import type { User } from "../../../lib/users";
+import type { Database } from "../../../lib/db/generated/database.types";
+import type { AppSupabaseClient } from "../../../lib/db/supabase";
 
 export type DeliveryMethod = Database["public"]["Enums"]["delivery_method"];
 export type ScheduledNotificationType =
 	Database["public"]["Enums"]["scheduled_notification_type"];
+export type ScheduledNotificationStatus =
+	Database["public"]["Enums"]["scheduled_notification_status"];
 
 export type DeliveryResult =
 	| { success: true; messageSid?: string }
 	| { success: false; error: string; errorCode?: string };
 
-export interface NotificationLogEntry {
-	userId: string;
-	type: string;
-	deliveryMethod: DeliveryMethod;
-	messageDelivered: boolean;
-	message?: string;
-	error?: string;
-	errorCode?: string;
-}
-
 export type UserRecord = Pick<
-	User,
+	Database["public"]["Tables"]["users"]["Row"],
 	| "id"
 	| "email"
 	| "phone_country_code"
@@ -37,16 +28,21 @@ export type UserRecord = Pick<
 	| "sms_notifications_enabled"
 >;
 
-export type EmailUser = Pick<UserRecord, "id" | "email">;
+export type EmailUser = Pick<
+	Database["public"]["Tables"]["users"]["Row"],
+	"id" | "email"
+>;
 export type SmsUser = Pick<
-	UserRecord,
+	Database["public"]["Tables"]["users"]["Row"],
 	"id" | "phone_country_code" | "phone_number"
 >;
 
-export interface UserStockRow {
-	symbol: string;
-	name: string;
-}
+export type UserStockRow = Pick<
+	Database["public"]["Tables"]["user_stocks"]["Row"],
+	"symbol"
+> & {
+	name: Database["public"]["Tables"]["stocks"]["Row"]["name"];
+};
 
 export function calculateNextSendAt(
 	localMinutes: number,
@@ -124,17 +120,9 @@ export async function loadUserStocks(
 
 export async function recordNotification(
 	supabase: AppSupabaseClient,
-	entry: NotificationLogEntry,
+	insert: Database["public"]["Tables"]["notification_log"]["Insert"],
 ): Promise<boolean> {
-	const { error } = await supabase.from("notification_log").insert({
-		user_id: entry.userId,
-		type: entry.type,
-		delivery_method: entry.deliveryMethod,
-		message_delivered: entry.messageDelivered,
-		message: entry.message,
-		error: entry.error,
-		error_code: entry.errorCode,
-	});
+	const { error } = await supabase.from("notification_log").insert(insert);
 
 	if (error) {
 		console.error("Failed to record notification:", error);

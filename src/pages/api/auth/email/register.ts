@@ -1,12 +1,30 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { APIRoute } from "astro";
-import { redirect } from "../../../../lib/api-utils";
-import { getSiteUrl } from "../../../../lib/env";
-import { parseWithSchema } from "../../../../lib/forms/parsing";
+import { getSiteUrl } from "../../../../lib/db/env";
 import {
 	createSupabaseAdminClient,
 	createSupabaseServerClient,
-} from "../../../../lib/supabase";
-import { resolveTimezone } from "../../../../lib/timezones/timezones";
+} from "../../../../lib/db/supabase";
+import { parseWithSchema } from "../../../../lib/forms/parse";
+import { resolveTimezone } from "../../../../lib/timezones/cache";
+import { redirect } from "../../../../lib/ui/redirect";
+
+async function cleanupOrphanedAuthUser(
+	adminSupabase: SupabaseClient,
+	userId: string,
+): Promise<void> {
+	const { error: deleteError } =
+		await adminSupabase.auth.admin.deleteUser(userId);
+	if (deleteError) {
+		console.error(
+			"Failed to cleanup orphaned auth user after profile creation failure",
+			{
+				userId,
+				error: deleteError,
+			},
+		);
+	}
+}
 
 export const POST: APIRoute = async ({ request }) => {
 	const supabase = createSupabaseServerClient();
@@ -79,20 +97,6 @@ export const POST: APIRoute = async ({ request }) => {
 		// Use admin client to bypass RLS for user profile creation
 		const adminSupabase = createSupabaseAdminClient();
 
-		async function cleanupOrphanedAuthUser(userId: string): Promise<void> {
-			const { error: deleteError } =
-				await adminSupabase.auth.admin.deleteUser(userId);
-			if (deleteError) {
-				console.error(
-					"Failed to cleanup orphaned auth user after profile creation failure",
-					{
-						userId,
-						error: deleteError,
-					},
-				);
-			}
-		}
-
 		const userProfileData = {
 			id: data.user.id,
 			email,
@@ -109,13 +113,13 @@ export const POST: APIRoute = async ({ request }) => {
 
 		if (profileError) {
 			console.error("Failed to create user profile:", profileError);
-			await cleanupOrphanedAuthUser(data.user.id);
+			await cleanupOrphanedAuthUser(adminSupabase, data.user.id);
 			return redirect("/auth/register?error=profile_creation_failed");
 		}
 
 		if (!profile) {
 			console.error("Profile creation returned no data");
-			await cleanupOrphanedAuthUser(data.user.id);
+			await cleanupOrphanedAuthUser(adminSupabase, data.user.id);
 			return redirect("/auth/register?error=profile_creation_failed");
 		}
 	}

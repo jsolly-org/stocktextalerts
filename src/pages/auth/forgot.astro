@@ -109,8 +109,8 @@ if (success === "true") {
 		setupHCaptchaCallback,
 		setupHCaptchaErrorCallback,
 		setupHCaptchaExpiredCallback,
-	} from "../../lib/hcaptcha-utils";
-	import { setupEmailInputHandlers } from "../../lib/forms/utils";
+	} from "../../lib/auth/hcaptcha";
+	import { setupEmailInputHandlers } from "../../lib/forms/dom/email-input";
 
 	const captchaStatus = createCaptchaStatusHelpers("forgot-captcha-status");
 

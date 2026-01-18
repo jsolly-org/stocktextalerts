@@ -1,6 +1,6 @@
 <template>
 	<div class="relative" ref="containerRef">
-	<input ref="inputRef" type="text" id="stock_search" v-model="rawSearchQuery" @input="handleInput"
+	<input type="text" id="stock_search" v-model="rawSearchQuery" @input="handleInput"
 		@keydown="handleKeydown" placeholder="Search by symbol or company name..." autocomplete="off" role="combobox"
 		aria-haspopup="listbox" :aria-expanded="showDropdown" aria-controls="stock_dropdown" aria-autocomplete="list"
 		:aria-activedescendant="highlightedIndex >= 0 ? `stock_option_${highlightedIndex}` : undefined"
@@ -46,8 +46,6 @@ interface Props {
 
 interface FuseResult {
 	item: StockOption;
-	refIndex: number;
-	score?: number;
 }
 
 type KeyActions = {
@@ -92,7 +90,6 @@ const filteredStocks = computed(() => {
 });
 
 const containerRef = ref<HTMLElement | null>(null);
-const inputRef = ref<HTMLInputElement | null>(null);
 
 const resetDropdown = () => {
 	showDropdown.value = false;
