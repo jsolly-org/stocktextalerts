@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
+import { createUserService } from "../../../../lib/db";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
-import { createUserService } from "../../../../lib/db/users";
 import { parseWithSchema } from "../../../../lib/forms/parse";
 import { sendVerification } from "./verify-utils";
 

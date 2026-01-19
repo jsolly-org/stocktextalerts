@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { Client } from "pg";
 import { beforeAll } from "vitest";
+import { EXPECTED_DB_SCHEMA_VERSION } from "./schema-version";
 
 const supabaseUrl = process.env.PUBLIC_SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -88,15 +89,17 @@ async function verifyDatabaseSchemaUpToDate() {
 	const client = new Client({ connectionString: databaseUrl });
 	await client.connect();
 	try {
-		const { rows } = await client.query(
-			"select to_regproc('public.update_user_preferences_and_stocks') as update_prefs_rpc;",
+		const { rows } = await client.query<{ value: string }>(
+			"select value from public.app_metadata where key = 'schema_version'",
 		);
-		const rpc = rows[0]?.update_prefs_rpc as string | null | undefined;
 
-		if (!rpc) {
+		const version = rows[0]?.value;
+		if (version !== EXPECTED_DB_SCHEMA_VERSION) {
 			throw new Error(
 				[
-					"Database schema is missing required RPC: public.update_user_preferences_and_stocks",
+					"Database schema version mismatch.",
+					`expected: ${EXPECTED_DB_SCHEMA_VERSION}`,
+					`actual: ${version ?? "MISSING"}`,
 					"This usually means your local Supabase DB has not been reset since the migration changed.",
 					"Fix: run `npm run db:reset` (or `supabase db reset`) to re-apply migrations, then re-run `npm test`.",
 				].join("\n"),

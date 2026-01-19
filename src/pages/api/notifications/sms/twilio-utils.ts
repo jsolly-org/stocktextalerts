@@ -27,10 +27,6 @@ export function readTwilioConfig(): TwilioConfig {
 	const authToken = import.meta.env.TWILIO_AUTH_TOKEN;
 	const phoneNumber = import.meta.env.TWILIO_PHONE_NUMBER;
 
-	if (!accountSid || !authToken || !phoneNumber) {
-		throw new Error("Missing Twilio configuration in environment variables");
-	}
-
 	return { accountSid, authToken, phoneNumber };
 }
 

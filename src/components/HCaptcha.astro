@@ -16,12 +16,6 @@ const {
 } = Astro.props;
 
 const hcaptchaSiteKey = import.meta.env.PUBLIC_HCAPTCHA_SITE_KEY;
-
-if (!hcaptchaSiteKey) {
-	throw new Error(
-		"HCaptcha: PUBLIC_HCAPTCHA_SITE_KEY is not configured. This is a required environment variable.",
-	);
-}
 ---
 
 <input type="hidden" name="captcha_token" id={tokenInputId} value="" />

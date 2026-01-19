@@ -54,11 +54,6 @@ export function validateEnv(): void {
 
 export function getSiteUrl(): string {
 	const vercelUrl = import.meta.env.VERCEL_URL;
-	if (!vercelUrl) {
-		throw new Error(
-			"VERCEL_URL is not configured. VERCEL_URL is automatically set by Vercel. For local development, set VERCEL_URL=http://localhost:4321 in your .env.local file.",
-		);
-	}
 
 	// VERCEL_URL from Vercel is just the hostname (e.g., "stocktextalerts.com")
 	// Locally, it should include the protocol (e.g., "http://localhost:4321")

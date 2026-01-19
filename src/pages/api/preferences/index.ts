@@ -1,12 +1,12 @@
 import type { APIRoute } from "astro";
+import { createUserService, omitUndefined } from "../../../lib/db";
 import {
 	isStocksLimitError,
 	isStocksRequiredError,
+	isStocksWhitespaceError,
 	MAX_TRACKED_STOCKS,
 } from "../../../lib/db/database-errors";
-import { omitUndefined } from "../../../lib/db/objects";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
-import { createUserService } from "../../../lib/db/users";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
 import { calculateNextSendAt } from "../notifications/shared";
@@ -206,7 +206,7 @@ export function createPreferencesHandler(
 				return redirect("/dashboard?error=stocks_limit");
 			}
 
-			if (isStocksRequiredError(error)) {
+			if (isStocksRequiredError(error) || isStocksWhitespaceError(error)) {
 				return redirect("/dashboard?error=invalid_form");
 			}
 

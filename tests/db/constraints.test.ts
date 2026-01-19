@@ -1,0 +1,106 @@
+import { randomUUID } from "node:crypto";
+import { Client } from "pg";
+import { describe, expect, it } from "vitest";
+
+function createDbClient(): Client {
+	const databaseUrl = process.env.DATABASE_URL;
+	if (!databaseUrl) {
+		throw new Error("Missing DATABASE_URL");
+	}
+	return new Client({ connectionString: databaseUrl });
+}
+
+describe("database constraints and validation functions", () => {
+	it("public.has_no_whitespace returns expected results", async () => {
+		const client = createDbClient();
+		await client.connect();
+		try {
+			const { rows } = await client.query<{
+				ok_simple: boolean;
+				ok_space: boolean;
+				ok_tab: boolean;
+			}>(
+				[
+					"select",
+					"  public.has_no_whitespace('ABC') as ok_simple,",
+					"  public.has_no_whitespace('A B') as ok_space,",
+					"  public.has_no_whitespace(E'A\\tB') as ok_tab",
+				].join("\n"),
+			);
+
+			expect(rows[0]).toEqual({
+				ok_simple: true,
+				ok_space: false,
+				ok_tab: false,
+			});
+		} finally {
+			await client.end();
+		}
+	});
+
+	it("rejects stocks.symbol containing whitespace (stocks_symbol_no_whitespace)", async () => {
+		const client = createDbClient();
+		await client.connect();
+		try {
+			await expect(
+				client.query(
+					"insert into public.stocks (symbol, name, exchange) values ($1, $2, $3)",
+					["A A", "Test Stock", "NASDAQ"],
+				),
+			).rejects.toMatchObject({
+				code: "23514",
+				constraint: "stocks_symbol_no_whitespace",
+				table: "stocks",
+			});
+		} finally {
+			await client.end();
+		}
+	});
+
+	it("rejects users.email containing whitespace (users_email_no_whitespace)", async () => {
+		const client = createDbClient();
+		await client.connect();
+		try {
+			await expect(
+				client.query("insert into public.users (id, email) values ($1, $2)", [
+					randomUUID(),
+					"has space@resend.dev",
+				]),
+			).rejects.toMatchObject({
+				code: "23514",
+				constraint: "users_email_no_whitespace",
+				table: "users",
+			});
+		} finally {
+			await client.end();
+		}
+	});
+
+	it("replace_user_stocks rejects any whitespace in symbols (check_violation)", async () => {
+		const client = createDbClient();
+		await client.connect();
+		try {
+			const userId = randomUUID();
+			await client.query(
+				"insert into public.users (id, email) values ($1, $2)",
+				[userId, `test-${randomUUID()}@resend.dev`],
+			);
+
+			await client.query(
+				"insert into public.stocks (symbol, name, exchange) values ($1, $2, $3) on conflict (symbol) do nothing",
+				["AAPL", "Apple Inc.", "NASDAQ"],
+			);
+
+			await expect(
+				client.query(
+					"select public.replace_user_stocks($1::uuid, $2::text[])",
+					[userId, ["AAPL "]],
+				),
+			).rejects.toMatchObject({
+				code: "23514",
+			});
+		} finally {
+			await client.end();
+		}
+	});
+});

@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { verifySupabaseOtp } from "../../../lib/auth/supabase-otp";
 import {
 	createSupabaseAdminClient,
 	createSupabaseServerClient,
@@ -76,7 +77,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
 
 	const supabase = createSupabaseServerClient();
 
-	const { data, error } = await supabase.auth.verifyOtp({
+	const { data, error } = await verifySupabaseOtp(supabase, {
 		token_hash: token,
 		type: "recovery",
 	});

@@ -3,10 +3,27 @@ import { setAuthCookies } from "../auth/cookies";
 import type { Database } from "./generated/database.types";
 import type { AppSupabaseClient } from "./supabase";
 
+/* =============
+Row Types
+============= */
+
 type DbUserRow = Database["public"]["Tables"]["users"]["Row"];
 type DbUserUpdate = Database["public"]["Tables"]["users"]["Update"];
 
+type DbStockRow = Database["public"]["Tables"]["stocks"]["Row"];
+type DbUserStockRow = Database["public"]["Tables"]["user_stocks"]["Row"];
+
+/* =============
+Public Types
+============= */
+
 export type User = DbUserRow;
+export type Stock = DbStockRow;
+export type UserStock = Pick<DbUserStockRow, "symbol" | "created_at">;
+
+/* =============
+Users
+============= */
 
 type UserUpdateInput = DbUserUpdate;
 
@@ -87,4 +104,40 @@ export function createUserService(
 			return data;
 		},
 	};
+}
+
+/* =============
+Stocks
+============= */
+
+export async function getUserStocks(
+	supabase: AppSupabaseClient,
+	userId: string,
+): Promise<UserStock[]> {
+	const { data, error } = await supabase
+		.from("user_stocks")
+		.select("symbol, created_at")
+		.eq("user_id", userId)
+		.order("created_at", { ascending: false });
+
+	if (error) throw error;
+
+	return data || [];
+}
+
+/* =============
+Objects
+============= */
+
+type NonUndefined<T> = {
+	[K in keyof T]: Exclude<T[K], undefined>;
+};
+
+export function omitUndefined<T extends Record<string, unknown | undefined>>(
+	input: T,
+) {
+	const entries = Object.entries(input).filter(
+		([, value]) => value !== undefined,
+	);
+	return Object.fromEntries(entries) as Partial<NonUndefined<T>>;
 }

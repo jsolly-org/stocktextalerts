@@ -198,10 +198,6 @@ export async function verifyHCaptchaToken({
 	const secret = import.meta.env.HCAPTCHA_SECRET_KEY;
 	const siteKey = import.meta.env.PUBLIC_HCAPTCHA_SITE_KEY;
 
-	if (!secret) {
-		throw new Error("HCAPTCHA_SECRET_KEY is not configured");
-	}
-
 	const payload = new URLSearchParams();
 	payload.set("secret", secret);
 	payload.set("response", trimmedToken);

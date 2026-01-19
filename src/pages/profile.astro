@@ -6,8 +6,8 @@ import ProfilePreferences from "../components/profile/ProfilePreferences.astro";
 import TimezoneMismatchBanner from "../components/TimezoneMismatchBanner.astro";
 import Layout from "../layouts/Layout.astro";
 import { getAuthErrorMessage } from "../lib/auth/messages";
+import { createUserService } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
-import { createUserService } from "../lib/db/users";
 import { formatMessage } from "../lib/status-messages";
 import { getTimezoneOptions } from "../lib/timezones/cache";
 
@@ -105,7 +105,6 @@ const successMessage = formatMessage(success);
         <AccountManagement
           email={user.email}
           phone={user.phone_number}
-          phoneCountryCode={user.phone_country_code}
           phoneVerified={user.phone_verified}
         />
 
@@ -126,7 +125,14 @@ const successMessage = formatMessage(success);
 <script>
 	import { setupTimezoneMismatchBanner } from "../lib/timezones/banner";
 	import { setupFormNavigationWarning } from "../lib/forms/dom/navigation-warning";
-	import { onDOMReady } from "../lib/ui/dom-ready";
+
+	function onDOMReady(callback: () => void) {
+		if (document.readyState === "loading") {
+			document.addEventListener("DOMContentLoaded", callback, { once: true });
+		} else {
+			callback();
+		}
+	}
 
 	function setupProfileTimezoneMismatchBanner() {
 		const banner = document.getElementById("timezone-mismatch-banner");

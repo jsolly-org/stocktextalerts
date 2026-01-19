@@ -1,17 +1,24 @@
 ---
-import { formatPhoneForDisplay } from "../../lib/ui/phone-format";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 interface Props {
 	email: string;
 	phone: string | null | undefined;
-	phoneCountryCode?: string | null | undefined;
 	phoneVerified: boolean;
 }
 
-const { email, phone, phoneCountryCode = "+1", phoneVerified } = Astro.props;
+const { email, phone, phoneVerified } = Astro.props;
 
-const formattedPhone =
-	formatPhoneForDisplay(phone, { countryCode: phoneCountryCode }) ?? null;
+function formatPhoneForDisplay(phoneNumber: string | null | undefined) {
+	if (!phoneNumber) {
+		return null;
+	}
+
+	const parsed = parsePhoneNumberFromString(phoneNumber);
+	return parsed ? parsed.formatNational() : phoneNumber;
+}
+
+const formattedPhone = formatPhoneForDisplay(phone);
 
 const hasPhone = Boolean(formattedPhone);
 

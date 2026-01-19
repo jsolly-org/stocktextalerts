@@ -1,7 +1,6 @@
 import type { APIRoute } from "astro";
-import { omitUndefined } from "../../../lib/db/objects";
+import { createUserService, omitUndefined } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
-import { createUserService } from "../../../lib/db/users";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
 

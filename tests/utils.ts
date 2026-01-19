@@ -1,6 +1,6 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
-import type { TablesInsert } from "../src/lib/generated/database.types";
+import type { TablesInsert } from "../src/lib/db/generated/database.types";
 import { adminClient } from "./setup";
 
 export interface CreateTestUserOptions {
@@ -125,7 +125,7 @@ export async function createTestUser(
 		// Ensure stocks exist in the stocks table first
 		const uniqueSymbols = [...new Set(options.trackedStocks)];
 		const stockRecords = uniqueSymbols.map((symbol) => ({
-			symbol: symbol.toUpperCase().trim(),
+			symbol,
 			name: `${symbol} Test Stock`,
 			exchange: "NASDAQ",
 		}));
@@ -141,7 +141,7 @@ export async function createTestUser(
 		const stockInserts: DbUserStockInsert[] = options.trackedStocks.map(
 			(symbol) => ({
 				user_id: userId,
-				symbol: symbol.toUpperCase().trim(),
+				symbol,
 			}),
 		);
 

@@ -27,11 +27,6 @@ export function createEmailSender(): EmailSender {
 	const fromEmail = import.meta.env.EMAIL_FROM;
 	const defaultReplyTo = import.meta.env.EMAIL_REPLY_TO;
 
-	if (!apiKey) {
-		console.warn("RESEND_API_KEY is not set. Emails will not be sent.");
-		return async () => ({ success: false, error: "RESEND_API_KEY missing" });
-	}
-
 	if (!apiKey.startsWith("re_")) {
 		console.warn(
 			"RESEND_API_KEY has invalid format. Expected key starting with 're_'.",
@@ -48,7 +43,7 @@ export function createEmailSender(): EmailSender {
 		try {
 			const replyToValue = replyTo || defaultReplyTo;
 			const emailPayload = {
-				from: fromEmail || "notifications@updates.stocktextalerts.com",
+				from: fromEmail,
 				to,
 				subject,
 				text: body,

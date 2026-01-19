@@ -4,7 +4,7 @@ This file captures the non-negotiables for this repo. It is a new app, so we opt
 ## Principles & Standards
 
 ### Core principles
-- **Refactor-first over compatibility**: Prefer clean redesigns that simplify the system, even if breaking. Remove legacy code instead of preserving it. Do not keep backwards compatibility when it increases complexity.
+- **Refactor-first over compatibility**: Prefer aggressively simplifying redesigns, even if breaking. Remove legacy code instead of preserving it. Do not keep backwards compatibility when it increases complexity.
 - **Demand specificity**: Refuse to proceed without concrete, measurable requirements and clear acceptance criteria.
 
 ### Coding standards
@@ -23,6 +23,7 @@ This file captures the non-negotiables for this repo. It is a new app, so we opt
   - **Error handling**: Let errors propagate naturally; avoid defensive programming when the type system/constraints guarantee safety (e.g., strict TypeScript, non-nullable DB columns). Add null/undefined checks when values can legitimately be missing (e.g., parsed JSON, nullable columns, third-party payloads). Handle errors at boundaries (API endpoints, user-facing code) where appropriate.
   - **Deterministic error checking**: Avoid using `.includes()` or other string matching methods to detect error types. Use structured error properties (e.g., `error.code`, `error.status`) or verify conditions before operations (e.g., verify captcha tokens before API calls) rather than parsing error messages.
   - **Avoid fallbacks in error scenarios**: Don't use silent fallbacks or default values when encountering unexpected conditions or errors. Fail fast and explicitly. If you *must* introduce a fallback/retry for operational resilience, make it intentional and observable: gate it on structured error properties (e.g., `error.code`/`error.status`) and log it with enough context to diagnose production behavior.
+  - **Environment variable validation**: Do NOT add presence checks for required environment variables in source files. All required env vars are validated in `src/middleware.ts` on every request. Only validate format/type (e.g., `RESEND_API_KEY` must start with "re_") or handle optional env vars (e.g., `EMAIL_REPLY_TO`, `TIMEZONE_CACHE_BUSTER`).
 - **Logging**
   - **Log unexpected redirects**: When a user is redirected due to an error or unexpected condition, log the error with context (user ID, path, reason) to help diagnose issues in production.
   - **PII logging**: Do not mask or omit PII (personally identifiable information) in logs. Log email addresses, phone numbers, and other identifiers as needed for debugging and error tracking (ensure log access is restricted and retention is managed appropriately).

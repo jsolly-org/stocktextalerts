@@ -1,9 +1,5 @@
 import twilio, { type RestException } from "twilio";
 
-type VerificationClientResult =
-	| { client: ReturnType<typeof twilio>; serviceSid: string; error?: never }
-	| { client: null; serviceSid: null; error: string };
-
 function handleTwilioError(
 	error: unknown,
 	defaultMessage: string,
@@ -39,18 +35,13 @@ function handleTwilioError(
 	};
 }
 
-function createVerificationClient(): VerificationClientResult {
+function createVerificationClient(): {
+	client: ReturnType<typeof twilio>;
+	serviceSid: string;
+} {
 	const twilioAccountSid = import.meta.env.TWILIO_ACCOUNT_SID;
 	const twilioAuthToken = import.meta.env.TWILIO_AUTH_TOKEN;
 	const twilioVerifyServiceSid = import.meta.env.TWILIO_VERIFY_SERVICE_SID;
-
-	if (!twilioAccountSid || !twilioAuthToken || !twilioVerifyServiceSid) {
-		return {
-			client: null,
-			serviceSid: null,
-			error: "Missing Twilio configuration in environment variables",
-		};
-	}
 
 	return {
 		client: twilio(twilioAccountSid, twilioAuthToken),
@@ -61,14 +52,8 @@ function createVerificationClient(): VerificationClientResult {
 export async function sendVerification(
 	fullPhone: string,
 ): Promise<{ success: boolean; error?: string }> {
-	const { client, serviceSid, error } = createVerificationClient();
-
-	if (!client || !serviceSid || error) {
-		console.error("Verification client creation failed:", error);
-		return { success: false, error };
-	}
-
 	try {
+		const { client, serviceSid } = createVerificationClient();
 		await client.verify.v2
 			.services(serviceSid)
 			.verifications.create({ to: fullPhone, channel: "sms" });
@@ -87,14 +72,8 @@ export async function checkVerification(
 	fullPhone: string,
 	code: string,
 ): Promise<{ success: boolean; error?: string }> {
-	const { client, serviceSid, error } = createVerificationClient();
-
-	if (!client || !serviceSid || error) {
-		console.error("Verification client creation failed:", error);
-		return { success: false, error };
-	}
-
 	try {
+		const { client, serviceSid } = createVerificationClient();
 		const verificationCheck = await client.verify.v2
 			.services(serviceSid)
 			.verificationChecks.create({ to: fullPhone, code });

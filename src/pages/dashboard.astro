@@ -9,10 +9,8 @@ import TrackedStocksPanel from "../components/dashboard/stocks/TrackedStocksPane
 import Navigation from "../components/layout/Navigation.astro";
 import TimezoneMismatchBanner from "../components/TimezoneMismatchBanner.astro";
 import Layout from "../layouts/Layout.astro";
-import type { Stock } from "../lib/db/stocks";
-import { getUserStocks } from "../lib/db/stocks";
+import { createUserService, getUserStocks, type Stock } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
-import { createUserService } from "../lib/db/users";
 import { formatMessage } from "../lib/status-messages";
 import { getTimezoneOptions } from "../lib/timezones/cache";
 
@@ -166,7 +164,15 @@ const isSmsFullyConfigured =
 		readFormValues,
 		setupFormNavigationWarning,
 	} from "../lib/forms/dom/navigation-warning";
-	import { onDOMReady } from "../lib/ui/dom-ready";
+	import { setupTimezoneMismatchBanner } from "../lib/timezones/banner";
+
+	function onDOMReady(callback: () => void) {
+		if (document.readyState === "loading") {
+			document.addEventListener("DOMContentLoaded", callback, { once: true });
+		} else {
+			callback();
+		}
+	}
 
 	function setupDashboardPreferencesForm() {
 		const formElement = document.getElementById("dashboard-preferences-form");
@@ -214,13 +220,6 @@ const isSmsFullyConfigured =
 		});
 	}
 
-	onDOMReady(setupDashboardPreferencesForm);
-</script>
-
-<script>
-	import { setupTimezoneMismatchBanner } from "../lib/timezones/banner";
-	import { onDOMReady } from "../lib/ui/dom-ready";
-
 	function setupDashboardTimezoneMismatchBanner() {
 		const banner = document.getElementById("timezone-mismatch-banner");
 		if (!(banner instanceof HTMLElement)) {
@@ -239,7 +238,10 @@ const isSmsFullyConfigured =
 		setupTimezoneMismatchBanner({ savedTimezone, allowedTimezones });
 	}
 
-	onDOMReady(setupDashboardTimezoneMismatchBanner);
+	onDOMReady(() => {
+		setupDashboardPreferencesForm();
+		setupDashboardTimezoneMismatchBanner();
+	});
 </script>
 
 

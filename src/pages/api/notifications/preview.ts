@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
+import { createUserService } from "../../../lib/db";
 import {
 	createSupabaseAdminClient,
 	createSupabaseServerClient,
 } from "../../../lib/db/supabase";
-import { createUserService } from "../../../lib/db/users";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { createEmailSender } from "./email/utils";
 import { processEmailUpdate, processSmsUpdate } from "./processing";

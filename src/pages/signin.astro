@@ -5,8 +5,8 @@ import {
 	getAuthErrorMessage,
 	getAuthSuccessMessage,
 } from "../lib/auth/messages";
+import { createUserService } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
-import { createUserService } from "../lib/db/users";
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);

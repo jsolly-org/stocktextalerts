@@ -6,8 +6,8 @@ import {
 	createSupabaseServerClient,
 } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
+import { redirect } from "../../../../lib/http/redirect";
 import { resolveTimezone } from "../../../../lib/timezones/cache";
-import { redirect } from "../../../../lib/ui/redirect";
 
 async function cleanupOrphanedAuthUser(
 	adminSupabase: SupabaseClient,

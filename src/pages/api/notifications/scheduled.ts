@@ -117,11 +117,6 @@ export const POST: APIRoute = async ({ request }) => {
 	const authHeader = request.headers.get("authorization");
 	const envCronSecret = import.meta.env.CRON_SECRET;
 
-	if (!envCronSecret) {
-		console.error("CRON_SECRET environment variable is not configured");
-		return new Response("Server misconfigured", { status: 500 });
-	}
-
 	if (!authHeader || !authHeader.startsWith("Bearer ")) {
 		return new Response("Unauthorized", { status: 401 });
 	}

@@ -1,8 +1,11 @@
 ---
-import type { EmailOtpType } from "@supabase/supabase-js";
 import Layout from "../../layouts/Layout.astro";
+import {
+	type SupabaseEmailOtpType,
+	verifySupabaseOtp,
+} from "../../lib/auth/supabase-otp";
+import { createUserService } from "../../lib/db";
 import { createSupabaseServerClient } from "../../lib/db/supabase";
-import { createUserService } from "../../lib/db/users";
 
 const supabase = createSupabaseServerClient();
 const userService = createUserService(supabase, Astro.cookies);
@@ -10,7 +13,7 @@ const userService = createUserService(supabase, Astro.cookies);
 // Check for token_hash in query params (PKCE flow for SSR)
 const tokenHash = Astro.url.searchParams.get("token_hash");
 const typeParam = Astro.url.searchParams.get("type");
-const type: EmailOtpType | null =
+const type: SupabaseEmailOtpType | null =
 	typeParam === "signup" ||
 	typeParam === "invite" ||
 	typeParam === "magiclink" ||
@@ -31,7 +34,7 @@ if (tokenHash && type === null) {
 
 // If token_hash is provided, verify it
 if (tokenHash && type) {
-	const { data, error } = await supabase.auth.verifyOtp({
+	const { data, error } = await verifySupabaseOtp(supabase, {
 		token_hash: tokenHash,
 		type,
 	});
