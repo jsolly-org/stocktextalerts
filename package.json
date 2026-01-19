@@ -7,8 +7,7 @@
 		"node": ">=22.17.1"
 	},
 	"scripts": {
-		"predev": "node -e \"require('node:fs').mkdirSync('logs', { recursive: true })\"",
-		"dev": "astro dev 2>&1 | tee logs/dev.log",
+		"dev": "astro dev",
 		"build": "astro build",
 		"preview": "astro preview",
 		"prepare": "if [ -z \"$CI\" ]; then husky; fi",

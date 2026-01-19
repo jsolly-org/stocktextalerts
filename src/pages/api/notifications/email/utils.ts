@@ -53,7 +53,7 @@ export function createEmailSender(): EmailSender {
 				subject,
 				text: body,
 				html: html ?? escapeHtml(body),
-				...(replyToValue ? { reply_to: replyToValue } : {}),
+				...(replyToValue ? { replyTo: replyToValue } : {}),
 			};
 			const sendOptions = idempotencyKey ? { idempotencyKey } : undefined;
 			const { data, error } = await resend.emails.send(
@@ -66,18 +66,19 @@ export function createEmailSender(): EmailSender {
 				// Common error types: 'validation_error', 'invalid_api_key', 'rate_limit_exceeded',
 				// 'monthly_quota_exceeded', 'daily_quota_exceeded', 'invalid_from_address', etc.
 				// Error objects also have 'message' and 'status' fields.
-				const isErrorObject = typeof error === "object" && error !== null;
+				const err = error as {
+					type?: string;
+					message?: string;
+					status?: number;
+				};
 				console.error("Resend error:", {
-					type: isErrorObject && "type" in error ? error.type : undefined,
-					message:
-						isErrorObject && "message" in error ? error.message : undefined,
-					status: isErrorObject && "status" in error ? error.status : undefined,
+					type: err.type,
+					message: err.message,
+					status: err.status,
 				});
 				const errorMessage =
-					isErrorObject &&
-					"message" in error &&
-					typeof error.message === "string"
-						? error.message
+					typeof err.message === "string"
+						? err.message
 						: "Failed to send email";
 				return { success: false, error: errorMessage };
 			}

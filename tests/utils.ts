@@ -122,10 +122,26 @@ export async function createTestUser(
 
 	// Add Tracked Stocks if provided
 	if (options.trackedStocks && options.trackedStocks.length > 0) {
+		// Ensure stocks exist in the stocks table first
+		const uniqueSymbols = [...new Set(options.trackedStocks)];
+		const stockRecords = uniqueSymbols.map((symbol) => ({
+			symbol: symbol.toUpperCase().trim(),
+			name: `${symbol} Test Stock`,
+			exchange: "NASDAQ",
+		}));
+
+		const { error: stocksTableError } = await adminClient
+			.from("stocks")
+			.upsert(stockRecords, { onConflict: "symbol" });
+
+		if (stocksTableError) {
+			throw new Error(`Stocks table setup failed: ${stocksTableError.message}`);
+		}
+
 		const stockInserts: DbUserStockInsert[] = options.trackedStocks.map(
 			(symbol) => ({
 				user_id: userId,
-				symbol,
+				symbol: symbol.toUpperCase().trim(),
 			}),
 		);
 
