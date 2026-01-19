@@ -116,12 +116,7 @@ export function createPreferencesHandler(
 		const finalEnabled =
 			safePreferenceUpdates.daily_digest_enabled ?? dbUser.daily_digest_enabled;
 
-		if (
-			(timezoneChanged || timeChanged || enabledChanged) &&
-			finalEnabled &&
-			finalTimezone &&
-			typeof finalTime === "number"
-		) {
+		if ((timezoneChanged || timeChanged || enabledChanged) && finalEnabled) {
 			const nextSendAt = calculateNextSendAt(
 				finalTime,
 				finalTimezone,
@@ -144,12 +139,10 @@ export function createPreferencesHandler(
 		try {
 			const finalEmailNotificationsEnabled =
 				safePreferenceUpdates.email_notifications_enabled ??
-				dbUser.email_notifications_enabled ??
-				false;
+				dbUser.email_notifications_enabled;
 			const finalSmsNotificationsEnabled =
 				safePreferenceUpdates.sms_notifications_enabled ??
-				dbUser.sms_notifications_enabled ??
-				false;
+				dbUser.sms_notifications_enabled;
 			const finalDailyDigestEnabled =
 				safePreferenceUpdates.daily_digest_enabled ??
 				dbUser.daily_digest_enabled;

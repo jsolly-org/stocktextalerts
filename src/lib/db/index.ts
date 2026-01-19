@@ -122,7 +122,7 @@ export async function getUserStocks(
 
 	if (error) throw error;
 
-	return data || [];
+	return data;
 }
 
 /* =============

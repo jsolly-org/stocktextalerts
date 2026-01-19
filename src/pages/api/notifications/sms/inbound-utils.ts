@@ -111,7 +111,7 @@ export async function handleInboundSms(
 		};
 	}
 
-	if (!users || users.length === 0) {
+	if (users.length === 0) {
 		return {
 			status: 200,
 			body: wrapInTwiml(""),

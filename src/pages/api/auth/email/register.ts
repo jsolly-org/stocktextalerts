@@ -103,7 +103,7 @@ export const POST: APIRoute = async ({ request }) => {
 			timezone: userTimezone,
 		};
 
-		const { data: profile, error: profileError } = await adminSupabase
+		const { error: profileError } = await adminSupabase
 			.from("users")
 			.upsert(userProfileData, {
 				onConflict: "id",
@@ -113,12 +113,6 @@ export const POST: APIRoute = async ({ request }) => {
 
 		if (profileError) {
 			console.error("Failed to create user profile:", profileError);
-			await cleanupOrphanedAuthUser(adminSupabase, data.user.id);
-			return redirect("/auth/register?error=profile_creation_failed");
-		}
-
-		if (!profile) {
-			console.error("Profile creation returned no data");
 			await cleanupOrphanedAuthUser(adminSupabase, data.user.id);
 			return redirect("/auth/register?error=profile_creation_failed");
 		}

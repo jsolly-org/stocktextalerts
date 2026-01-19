@@ -67,10 +67,6 @@ export function calculateNextSendAt(
 			return null;
 		}
 
-		if (timezone === "") {
-			return null;
-		}
-
 		const now = getCurrentTime();
 		const nowInstant = Temporal.Instant.from(now.toISOString());
 		const nowZoned = nowInstant.toZonedDateTimeISO(timezone);
@@ -112,7 +108,7 @@ export async function loadUserStocks(
 		throw error;
 	}
 
-	return (stocks ?? []).map((stock) => ({
+	return stocks.map((stock) => ({
 		symbol: stock.symbol,
 		name: stock.stocks.name,
 	}));

@@ -28,7 +28,7 @@ export function setupTimezoneMismatchBanner(options: {
 		return;
 	}
 
-	const allowedTimezoneSet = new Set(allowedTimezones ?? []);
+	const allowedTimezoneSet = new Set(allowedTimezones);
 	if (!allowedTimezoneSet.has(detected)) {
 		return;
 	}

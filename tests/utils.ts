@@ -94,7 +94,7 @@ export async function createTestUser(
 	);
 	const alignedDailyDigestNotificationTime =
 		Math.floor(dailyDigestNotificationTime / 15) * 15;
-	const dailyDigestEnabled = options.dailyDigestEnabled ?? true;
+	const dailyDigestEnabled = options.dailyDigestEnabled ?? false;
 	const nextSendAt = dailyDigestEnabled ? new Date().toISOString() : null;
 
 	const profile: DbUserInsert = {

@@ -219,21 +219,8 @@ export const POST: APIRoute = async ({ request }) => {
 			let attemptedDeliveryMethod: DeliveryMethod | null = null;
 
 			try {
-				if (!user.timezone) {
-					stats.skipped++;
-					return stats;
-				}
-
-				const dueAt = user.next_send_at ? new Date(user.next_send_at) : null;
-				if (!dueAt || Number.isNaN(dueAt.getTime())) {
-					console.warn("Invalid next_send_at for user; skipping notification", {
-						userId: user.id,
-						next_send_at: user.next_send_at,
-					});
-					stats.skipped++;
-					return stats;
-				}
-
+				// Query filters out null next_send_at with .not("next_send_at", "is", null)
+				const dueAt = new Date(user.next_send_at as string);
 				const scheduledDate = getLocalDateString(user.timezone, dueAt);
 				if (!scheduledDate) {
 					stats.skipped++;
@@ -451,7 +438,7 @@ export const POST: APIRoute = async ({ request }) => {
 			}
 		};
 
-		const results = await Promise.all((users ?? []).map(processUser));
+		const results = await Promise.all(users.map(processUser));
 
 		const totals = results.reduce(
 			(acc, curr) => ({

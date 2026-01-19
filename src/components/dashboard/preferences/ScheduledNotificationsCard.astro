@@ -243,28 +243,12 @@ const currentTime = minutesToTimeInputValue(
 		return hours * 60 + minutes;
 	}
 
-	function formatSecondsUntil(secondsUntil) {
+	function formatTimeRemaining(secondsUntil) {
 		if (secondsUntil < 60) {
 			return `${secondsUntil} second${secondsUntil === 1 ? "" : "s"}`;
 		}
 
 		const totalMinutes = Math.floor(secondsUntil / 60);
-		const hours = Math.floor(totalMinutes / 60);
-		const minutes = totalMinutes % 60;
-
-		const parts = [];
-		if (hours > 0) {
-			parts.push(`${hours} hour${hours === 1 ? "" : "s"}`);
-		}
-		if (minutes > 0 || hours === 0) {
-			parts.push(`${minutes} minute${minutes === 1 ? "" : "s"}`);
-		}
-
-		return parts.join(" ");
-	}
-
-	function formatHoursMinutes(secondsUntil) {
-		const totalMinutes = Math.ceil(secondsUntil / 60);
 		const hours = Math.floor(totalMinutes / 60);
 		const minutes = totalMinutes % 60;
 
@@ -433,7 +417,7 @@ const currentTime = minutesToTimeInputValue(
 		}
 
 		function openSkipModal(dueInSeconds) {
-			skipModalDueIn.textContent = formatHoursMinutes(dueInSeconds);
+			skipModalDueIn.textContent = formatTimeRemaining(dueInSeconds);
 			skipModal.classList.remove("hidden");
 		}
 
@@ -503,6 +487,7 @@ const currentTime = minutesToTimeInputValue(
 
 			const dueInSeconds = getSecondsUntilNextDigest();
 			const shouldPrompt =
+				typeof nextSendAtIso === "string" &&
 				typeof dueInSeconds === "number" &&
 				dueInSeconds > 0 &&
 				dueInSeconds < 24 * 60 * 60;

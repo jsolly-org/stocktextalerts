@@ -67,85 +67,34 @@ export const POST: APIRoute = async ({ cookies, request, redirect }) => {
 
 		const originalNextSendAt = user.next_send_at;
 		if (skipNext) {
-			let dueAt: Date | null = null;
-
 			if (typeof originalNextSendAt === "string") {
-				const parsed = new Date(originalNextSendAt);
-				if (Number.isNaN(parsed.getTime())) {
-					console.error("Invalid next_send_at; cannot skip next digest", {
-						userId: user.id,
-						next_send_at: originalNextSendAt,
-					});
-					return redirect("/dashboard?error=daily_digest_skip_failed");
-				}
-				dueAt = parsed;
-			} else {
-				if (!user.timezone || user.timezone === "") {
-					console.error(
-						"User timezone is null or empty; cannot compute dueAt",
-						{
-							userId: user.id,
-							daily_digest_notification_time:
-								user.daily_digest_notification_time,
-							timezone: user.timezone,
-						},
-					);
-					return redirect("/dashboard?error=daily_digest_skip_failed");
-				}
-
-				const computedDueAt = calculateNextSendAt(
+				const dueAt = new Date(originalNextSendAt);
+				const advancedNextSendAt = calculateNextSendAt(
 					user.daily_digest_notification_time,
 					user.timezone,
-					() => new Date(),
+					() => new Date(dueAt.getTime() + 1000),
 				);
-				if (!computedDueAt) {
-					console.error("Cannot compute dueAt for skip_next request", {
+				if (!advancedNextSendAt) {
+					console.error("Failed to calculate advanced next_send_at", {
 						userId: user.id,
 						daily_digest_notification_time: user.daily_digest_notification_time,
 						timezone: user.timezone,
 					});
 					return redirect("/dashboard?error=daily_digest_skip_failed");
 				}
-				dueAt = computedDueAt;
-			}
 
-			if (!user.timezone || user.timezone === "") {
-				console.error(
-					"User timezone is null or empty; cannot calculate advanced next_send_at",
-					{
+				const { error: advanceError } = await supabaseAdmin
+					.from("users")
+					.update({ next_send_at: advancedNextSendAt.toISOString() })
+					.eq("id", user.id);
+
+				if (advanceError) {
+					console.error("Failed to advance next_send_at for skip", {
 						userId: user.id,
-						daily_digest_notification_time: user.daily_digest_notification_time,
-						timezone: user.timezone,
-					},
-				);
-				return redirect("/dashboard?error=daily_digest_skip_failed");
-			}
-
-			const advancedNextSendAt = calculateNextSendAt(
-				user.daily_digest_notification_time,
-				user.timezone,
-				() => new Date(dueAt.getTime() + 1000),
-			);
-			if (!advancedNextSendAt) {
-				console.error("Failed to calculate advanced next_send_at", {
-					userId: user.id,
-					daily_digest_notification_time: user.daily_digest_notification_time,
-					timezone: user.timezone,
-				});
-				return redirect("/dashboard?error=daily_digest_skip_failed");
-			}
-
-			const { error: advanceError } = await supabaseAdmin
-				.from("users")
-				.update({ next_send_at: advancedNextSendAt.toISOString() })
-				.eq("id", user.id);
-
-			if (advanceError) {
-				console.error("Failed to advance next_send_at for skip", {
-					userId: user.id,
-					error: advanceError.message,
-				});
-				return redirect("/dashboard?error=daily_digest_skip_failed");
+						error: advanceError.message,
+					});
+					return redirect("/dashboard?error=daily_digest_skip_failed");
+				}
 			}
 		}
 
@@ -172,19 +121,6 @@ export const POST: APIRoute = async ({ cookies, request, redirect }) => {
 		);
 
 		if (!result.sent) {
-			if (skipNext) {
-				const { error: revertError } = await supabaseAdmin
-					.from("users")
-					.update({ next_send_at: originalNextSendAt })
-					.eq("id", user.id);
-				if (revertError) {
-					console.error("Failed to revert next_send_at after send failure", {
-						userId: user.id,
-						error: revertError.message,
-					});
-				}
-			}
-
 			console.error("Manual daily digest send failed", {
 				userId: user.id,
 				error: result.error ?? "unknown",

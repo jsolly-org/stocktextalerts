@@ -47,10 +47,9 @@ async function loadAllTimezones(
 			throw new Error(`Failed to load timezones: ${error.message}`);
 		}
 
-		const page = data ?? [];
-		rows.push(...page);
+		rows.push(...data);
 
-		if (page.length < pageSize) {
+		if (data.length < pageSize) {
 			break;
 		}
 	}
@@ -153,9 +152,9 @@ export async function resolveTimezone(options: {
 }): Promise<string> {
 	const { supabase, detectedTimezone, allTimezoneValues } = options;
 
-	const rows = allTimezoneValues ? null : await getAllTimezonesCached(supabase);
-	const values =
-		allTimezoneValues ?? rows?.map((timezone) => timezone.value) ?? [];
+	const values = allTimezoneValues
+		? allTimezoneValues
+		: (await getAllTimezonesCached(supabase)).map((timezone) => timezone.value);
 
 	if (detectedTimezone && detectedTimezone !== "") {
 		const byValue = new Set(values);

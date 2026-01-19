@@ -182,8 +182,8 @@ const isValid = computed(() => {
 });
 
 watch(
-	isValid,
-	(valid) => {
+	[isValid, rootElement],
+	([valid]) => {
 		if (rootElement.value) {
 			const event = new CustomEvent("phone-validity-changed", {
 				bubbles: true,
