@@ -126,6 +126,7 @@ const successMessage = formatMessage(success);
 <script>
 	import { setupTimezoneMismatchBanner } from "../lib/timezones/banner";
 	import { setupFormNavigationWarning } from "../lib/forms/dom/navigation-warning";
+	import { onDOMReady } from "../lib/ui/dom-ready";
 
 	function setupProfileTimezoneMismatchBanner() {
 		const banner = document.getElementById("timezone-mismatch-banner");
@@ -138,25 +139,20 @@ const successMessage = formatMessage(success);
 		try {
 			allowedTimezones = JSON.parse(banner.dataset.allowedTimezones ?? "[]");
 		} catch {
+			console.warn("Failed to parse allowedTimezones from banner dataset");
 			allowedTimezones = [];
 		}
 
 		setupTimezoneMismatchBanner({ savedTimezone, allowedTimezones });
 	}
 
-	if (document.readyState === "loading") {
-		document.addEventListener("DOMContentLoaded", () => {
-			setupProfileTimezoneMismatchBanner();
-			setupFormNavigationWarning({
-				formId: "profile-preferences-form",
-				saveButtonId: "save-profile-preferences-button",
-			});
-		});
-	} else {
+	function setupProfilePage() {
 		setupProfileTimezoneMismatchBanner();
 		setupFormNavigationWarning({
 			formId: "profile-preferences-form",
 			saveButtonId: "save-profile-preferences-button",
 		});
 	}
+
+	onDOMReady(setupProfilePage);
 </script>

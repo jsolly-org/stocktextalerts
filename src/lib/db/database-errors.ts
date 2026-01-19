@@ -22,12 +22,18 @@ Constraint Names
 export const CONSTRAINT_SMS_REQUIRES_PHONE = "users_sms_requires_phone";
 
 /* =============
+Database Limits
+============= */
+
+export const MAX_TRACKED_STOCKS = 50;
+
+/* =============
 Error Message Text
 ============= */
 
 /*
  * Error message from replace_user_stocks function (line 249 in migration).
- * Raised when user attempts to track more than 50 stocks.
+ * Raised when user attempts to track more than MAX_TRACKED_STOCKS stocks.
  */
 export const MESSAGE_STOCKS_LIMIT_EXCEEDED = "Tracked stocks limit exceeded";
 
@@ -57,18 +63,12 @@ function isPostgrestError(error: unknown): error is PostgrestError {
 	);
 }
 
-function isCustomException(error: PostgrestError) {
-	return error.code === "P0001";
-}
-
 export function isStocksLimitError(error: unknown): boolean {
 	if (!isPostgrestError(error)) {
 		return false;
 	}
 
-	return (
-		isCustomException(error) && error.message === MESSAGE_STOCKS_LIMIT_EXCEEDED
-	);
+	return error.message === MESSAGE_STOCKS_LIMIT_EXCEEDED;
 }
 
 export function isStocksRequiredError(error: unknown): boolean {
@@ -76,5 +76,5 @@ export function isStocksRequiredError(error: unknown): boolean {
 		return false;
 	}
 
-	return isCustomException(error) && error.message === MESSAGE_STOCKS_REQUIRED;
+	return error.message === MESSAGE_STOCKS_REQUIRED;
 }

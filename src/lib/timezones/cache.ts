@@ -162,6 +162,10 @@ export async function resolveTimezone(options: {
 		if (byValue.has(detectedTimezone)) {
 			return detectedTimezone;
 		}
+
+		console.warn("Detected timezone not found in database", {
+			detectedTimezone,
+		});
 	}
 
 	return DEFAULT_TIMEZONE;

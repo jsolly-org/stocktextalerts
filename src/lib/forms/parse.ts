@@ -47,20 +47,15 @@ export function parseWithSchema<TSchema extends FormSchema, TResult>(
 			data: transformed,
 		};
 	} catch (error) {
+		const parseError = {
+			reason: "transform_failed" as const,
+			key: "",
+			message: error instanceof Error ? error.message : String(error),
+		};
 		return {
 			ok: false,
-			error: {
-				reason: "transform_failed",
-				key: "",
-				message: error instanceof Error ? error.message : String(error),
-			},
-			allErrors: [
-				{
-					reason: "transform_failed",
-					key: "",
-					message: error instanceof Error ? error.message : String(error),
-				},
-			],
+			error: parseError,
+			allErrors: [parseError],
 		};
 	}
 }

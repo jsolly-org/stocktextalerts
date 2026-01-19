@@ -50,9 +50,14 @@ function reconstructUrl(request: Request): string {
 	const forwardedProto = request.headers.get("x-forwarded-proto") ?? "";
 	const forwardedHost = request.headers.get("x-forwarded-host") ?? "";
 
-	const protocol = forwardedProto.split(",")[0]?.trim();
-	const host = forwardedHost.split(",")[0]?.trim();
-	if (protocol && host && (protocol === "http" || protocol === "https")) {
+	// Trim to normalize whitespace in proxy headers (can contain spaces from multiple proxy chains)
+	const protocol = forwardedProto.split(",")[0]?.trim() ?? "";
+	const host = forwardedHost.split(",")[0]?.trim() ?? "";
+	if (
+		protocol.length > 0 &&
+		host.length > 0 &&
+		(protocol === "http" || protocol === "https")
+	) {
 		return `${protocol}://${host}${url.pathname}${url.search}`;
 	}
 

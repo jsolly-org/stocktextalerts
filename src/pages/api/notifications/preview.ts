@@ -126,14 +126,12 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
 			}
 
 			const sendEmail = createEmailSender();
-			const emailIdempotencyKey = `preview/${authUser.id}/${new Date().toISOString()}`;
 			const result = await processEmailUpdate(
 				adminSupabase,
 				user,
 				userStocks,
 				stocksList,
 				sendEmail,
-				emailIdempotencyKey,
 			);
 			sent = result.sent;
 			errorDetails = result.error;

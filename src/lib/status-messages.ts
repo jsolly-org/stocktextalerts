@@ -1,3 +1,5 @@
+import { MAX_TRACKED_STOCKS } from "./db/database-errors";
+
 const MESSAGE_ALLOWLIST = {
 	stock_added: "Stock added successfully",
 	stock_removed: "Stock removed successfully",
@@ -16,7 +18,7 @@ const MESSAGE_ALLOWLIST = {
 	phone_not_set: "Phone number not set",
 	sms_opted_out: "SMS notifications are disabled for this number",
 	user_not_found: "User not found",
-	stocks_limit: "Maximum 50 stocks allowed",
+	stocks_limit: `Maximum ${MAX_TRACKED_STOCKS} stocks allowed`,
 	preview_email_sent: "Preview email sent successfully",
 	preview_sms_sent: "Preview SMS sent successfully",
 	preview_rate_limited: "Too many preview requests. Please try again later.",
@@ -33,7 +35,13 @@ const MESSAGE_ALLOWLIST = {
 
 export type MessageKey = keyof typeof MESSAGE_ALLOWLIST;
 
-export function formatMessage(message: MessageKey | null): string {
+export function formatMessage(message: string | null): string {
 	if (!message) return "";
-	return MESSAGE_ALLOWLIST[message] ?? "";
+
+	if (message in MESSAGE_ALLOWLIST) {
+		return MESSAGE_ALLOWLIST[message as MessageKey];
+	}
+
+	console.warn(`Unknown status message key: ${message}`);
+	return "";
 }

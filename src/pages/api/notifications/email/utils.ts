@@ -66,22 +66,15 @@ export function createEmailSender(): EmailSender {
 				// Common error types: 'validation_error', 'invalid_api_key', 'rate_limit_exceeded',
 				// 'monthly_quota_exceeded', 'daily_quota_exceeded', 'invalid_from_address', etc.
 				// Error objects also have 'message' and 'status' fields.
+				const isErrorObject = typeof error === "object" && error !== null;
 				console.error("Resend error:", {
-					type:
-						typeof error === "object" && "type" in error
-							? error.type
-							: undefined,
+					type: isErrorObject && "type" in error ? error.type : undefined,
 					message:
-						typeof error === "object" && "message" in error
-							? error.message
-							: undefined,
-					status:
-						typeof error === "object" && "status" in error
-							? error.status
-							: undefined,
+						isErrorObject && "message" in error ? error.message : undefined,
+					status: isErrorObject && "status" in error ? error.status : undefined,
 				});
 				const errorMessage =
-					typeof error === "object" &&
+					isErrorObject &&
 					"message" in error &&
 					typeof error.message === "string"
 						? error.message

@@ -177,9 +177,11 @@ export async function verifyHCaptchaToken({
 	token: string;
 	remoteIp?: string | null;
 }): Promise<HCaptchaVerifyResult> {
-	// Trim to handle whitespace-only tokens (e.g., accidental spaces in form inputs)
-	// External input from hCaptcha widget should not have whitespace, but we validate defensively
-	if (!token || token.trim().length === 0) {
+	// Trim to handle whitespace-only tokens (e.g., accidental spaces in form inputs).
+	// External input from hCaptcha widget should not have whitespace, but we normalize before sending
+	// because this input cannot be constrained at the DB layer.
+	const trimmedToken = token.trim();
+	if (trimmedToken.length === 0) {
 		return {
 			success: false,
 			errorCodes: ["missing-input-response"],
@@ -202,7 +204,7 @@ export async function verifyHCaptchaToken({
 
 	const payload = new URLSearchParams();
 	payload.set("secret", secret);
-	payload.set("response", token);
+	payload.set("response", trimmedToken);
 
 	if (remoteIp) {
 		payload.set("remoteip", remoteIp);
@@ -264,6 +266,10 @@ export async function verifyHCaptchaToken({
 						errorWithStatus.status >= 500)));
 
 		if (!isRetryableError) {
+			console.error(
+				"hCaptcha verification non-retryable error:",
+				errorWithStatus,
+			);
 			throw error;
 		}
 
@@ -308,7 +314,7 @@ export async function verifyHCaptchaToken({
 		});
 		return {
 			success: false,
-			errorCodes: [error instanceof Error ? error.message : String(error)],
+			errorCodes: ["invalid-json-response"],
 		};
 	}
 

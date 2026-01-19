@@ -60,8 +60,8 @@ export function getSiteUrl(): string {
 		);
 	}
 
-	// VERCEL_URL from Vercel is just the hostname (e.g., \"stocktextalerts.com\")
-	// Locally, it should include the protocol (e.g., \"http://localhost:4321\")
+	// VERCEL_URL from Vercel is just the hostname (e.g., "stocktextalerts.com")
+	// Locally, it should include the protocol (e.g., "http://localhost:4321")
 	if (vercelUrl.startsWith("http://") || vercelUrl.startsWith("https://")) {
 		return vercelUrl;
 	}

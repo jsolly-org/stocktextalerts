@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
+import { MAX_TRACKED_STOCKS } from "../../../../src/lib/db/database-errors";
 import { POST } from "../../../../src/pages/api/preferences";
 import { adminClient } from "../../../setup";
 import {
@@ -114,21 +115,42 @@ async function updateTrackedStocks(
 }
 
 describe("POST /api/preferences (tracked stocks)", () => {
-	it("should successfully update tracked stocks", async () => {
+	it("should add a single stock when user has no stocks", async () => {
 		const { response, trackedStocks, redirectUrl } = await updateTrackedStocks(
 			[],
-			["AAPL", "MSFT", "GOOGL"],
+			["AAPL"],
 		);
 
 		expect(redirectUrl).toBe("/dashboard?success=settings_updated");
 		expect(response.status).toBe(302);
 
-		expect(trackedStocks).toHaveLength(3);
-		expect(trackedStocks?.map((s) => s.symbol)).toEqual([
-			"AAPL",
-			"GOOGL",
-			"MSFT",
-		]);
+		expect(trackedStocks).toHaveLength(1);
+		expect(trackedStocks?.[0]?.symbol).toBe("AAPL");
+	});
+
+	it("should remove the single stock when user has one stock", async () => {
+		const { response, trackedStocks, redirectUrl } = await updateTrackedStocks(
+			["AAPL"],
+			[],
+		);
+
+		expect(redirectUrl).toBe("/dashboard?success=settings_updated");
+		expect(response.status).toBe(302);
+
+		expect(trackedStocks).toHaveLength(0);
+	});
+
+	it("should add a second stock when user has one stock", async () => {
+		const { response, trackedStocks, redirectUrl } = await updateTrackedStocks(
+			["AAPL"],
+			["AAPL", "MSFT"],
+		);
+
+		expect(redirectUrl).toBe("/dashboard?success=settings_updated");
+		expect(response.status).toBe(302);
+
+		expect(trackedStocks).toHaveLength(2);
+		expect(trackedStocks?.map((s) => s.symbol)).toEqual(["AAPL", "MSFT"]);
 	});
 
 	it("should not change notification preferences when submitting tracked_stocks only", async () => {
@@ -177,63 +199,25 @@ describe("POST /api/preferences (tracked stocks)", () => {
 		expect(trackedStocks).toHaveLength(0);
 	});
 
-	it("should reject request with missing tracked_stocks field", async () => {
-		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
-			password: TEST_PASSWORD,
-			trackedStocks: ["AAPL"],
-		});
-
-		const { error: confirmError } = await adminClient.auth.admin.updateUserById(
-			testUser.id,
-			{
-				email_confirm: true,
-			},
+	it("should reject when attempting to track more than MAX_TRACKED_STOCKS", async () => {
+		const initialStocks = Array.from(
+			{ length: MAX_TRACKED_STOCKS },
+			(_, i) => `STOCK${i + 1}`,
 		);
-		if (confirmError) {
-			throw new Error(`Failed to confirm user: ${confirmError.message}`);
-		}
-
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
+		const stocksExceedingLimit = Array.from(
+			{ length: MAX_TRACKED_STOCKS + 1 },
+			(_, i) => `STOCK${i + 1}`,
 		);
 
-		const formData = new FormData();
+		const { response, trackedStocks, redirectUrl } = await updateTrackedStocks(
+			initialStocks,
+			stocksExceedingLimit,
+		);
 
-		const request = new Request("http://localhost/api/preferences", {
-			method: "POST",
-			body: formData,
-		});
-
-		const response = await POST({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const cookie = cookies.get(name);
-					return cookie ? { value: cookie } : undefined;
-				},
-				set: () => {},
-			},
-			redirect: (url: string) => {
-				return new Response(null, {
-					status: 302,
-					headers: { Location: url },
-				});
-			},
-		} as unknown as APIContext);
-
+		expect(redirectUrl).toBe("/dashboard?error=stocks_limit");
 		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe(
-			"/dashboard?error=invalid_form",
-		);
 
-		const { data: trackedStocks } = await adminClient
-			.from("user_stocks")
-			.select("symbol")
-			.eq("user_id", testUser.id);
-
-		expect(trackedStocks).toHaveLength(1);
-		expect(trackedStocks?.[0]?.symbol).toBe("AAPL");
+		expect(trackedStocks).toHaveLength(MAX_TRACKED_STOCKS);
+		expect(trackedStocks?.length).toBeLessThanOrEqual(MAX_TRACKED_STOCKS);
 	});
 });

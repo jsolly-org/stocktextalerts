@@ -26,10 +26,12 @@ export async function sendUserSms(
 			error,
 		});
 
+		const twilioError = error as { code?: string | number };
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		return {
 			success: false,
 			error: errorMessage,
+			errorCode: twilioError.code ? String(twilioError.code) : undefined,
 		};
 	}
 }

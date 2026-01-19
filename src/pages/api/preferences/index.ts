@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import {
 	isStocksLimitError,
 	isStocksRequiredError,
+	MAX_TRACKED_STOCKS,
 } from "../../../lib/db/database-errors";
 import { omitUndefined } from "../../../lib/db/objects";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
@@ -57,7 +58,7 @@ export function createPreferencesHandler(
 
 		const { tracked_stocks: trackedSymbols, ...preferenceData } = parsed.data;
 
-		if (trackedSymbols.length > 50) {
+		if (trackedSymbols.length > MAX_TRACKED_STOCKS) {
 			console.error("Tracked stocks limit exceeded", {
 				userId: user.id,
 				count: trackedSymbols.length,

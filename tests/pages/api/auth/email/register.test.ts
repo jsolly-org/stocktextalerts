@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_TIMEZONE } from "../../../../../src/lib/timezones/constants";
 import { POST } from "../../../../../src/pages/api/auth/email/register";
 import { adminClient } from "../../../../setup";
@@ -54,7 +54,11 @@ describe("POST /api/auth/email/register", () => {
 		expect(authUserData.user.email).toBe(payload.email);
 	});
 
-	it("fallback timezone is used if a detected timezone does not exist in the database and no valid offset is provided", async () => {
+	it("fallback timezone is used if a detected timezone does not exist in the database", async () => {
+		const consoleWarnSpy = vi
+			.spyOn(console, "warn")
+			.mockImplementation(() => {});
+
 		const payload = {
 			email: `test-fallback-${randomUUID()}@resend.dev`,
 			password: "TestPassword123!",
@@ -78,6 +82,14 @@ describe("POST /api/auth/email/register", () => {
 			encodeURIComponent(payload.email),
 		);
 
+		// Verify warning was logged for invalid timezone
+		expect(consoleWarnSpy).toHaveBeenCalledWith(
+			expect.stringContaining("Detected timezone not found in database"),
+			expect.objectContaining({
+				detectedTimezone: payload.timezone,
+			}),
+		);
+
 		// Verify user was created with fallback timezone
 		const { data: users, error: usersError } = await adminClient
 			.from("users")
@@ -90,6 +102,8 @@ describe("POST /api/auth/email/register", () => {
 		const user = users[0];
 		expect(user.email).toBe(payload.email);
 		expect(user.timezone).toBe(DEFAULT_TIMEZONE);
+
+		consoleWarnSpy.mockRestore();
 	});
 
 	it("correctly matches a user with a timezone in the database", async () => {

@@ -77,7 +77,9 @@ export const POST: APIRoute = async ({ request, redirect }) => {
 				const match = error.message?.match(RATE_LIMIT_SECONDS_PATTERN);
 				const parsedSeconds = match ? Number.parseInt(match[1], 10) : null;
 				const seconds =
-					parsedSeconds && Number.isFinite(parsedSeconds) && parsedSeconds >= 0
+					parsedSeconds !== null &&
+					Number.isFinite(parsedSeconds) &&
+					parsedSeconds > 0
 						? parsedSeconds
 						: DEFAULT_PASSWORD_RESET_RATE_LIMIT_SECONDS;
 

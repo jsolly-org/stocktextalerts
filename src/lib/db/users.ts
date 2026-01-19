@@ -31,6 +31,23 @@ export function createUserService(
 			});
 
 			if (sessionResponse.error || !sessionResponse.data.session) {
+				if (sessionResponse.error) {
+					const data = sessionResponse.data;
+					const user = data?.user;
+					console.error("session lookup failed", {
+						error: sessionResponse.error.message || sessionResponse.error,
+						code: sessionResponse.error.code,
+						status: sessionResponse.error.status,
+						userId:
+							user && typeof user === "object" && "id" in user
+								? (user as { id: string }).id
+								: undefined,
+						email:
+							user && typeof user === "object" && "email" in user
+								? (user as { email: string }).email
+								: undefined,
+					});
+				}
 				return null;
 			}
 

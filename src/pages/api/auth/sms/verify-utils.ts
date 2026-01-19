@@ -4,6 +4,41 @@ type VerificationClientResult =
 	| { client: ReturnType<typeof twilio>; serviceSid: string; error?: never }
 	| { client: null; serviceSid: null; error: string };
 
+function handleTwilioError(
+	error: unknown,
+	defaultMessage: string,
+	logPrefix: string,
+): { success: false; error: string } {
+	// Twilio SDK throws RestException for API errors (HTTP 400-5xx).
+	// RestException has: status (HTTP status), code (numeric Twilio error code),
+	// message, and moreInfo.
+	if (error instanceof Error && "status" in error && "code" in error) {
+		const twilioError = error as RestException;
+		console.error(`${logPrefix}:`, {
+			message: twilioError.message,
+			code: twilioError.code,
+			status: twilioError.status,
+			moreInfo: twilioError.moreInfo,
+		});
+		return {
+			success: false,
+			error: twilioError.message || defaultMessage,
+		};
+	}
+
+	const errorMessage = error instanceof Error ? error.message : defaultMessage;
+	const errorType = error?.constructor?.name || typeof error;
+	console.error(`${logPrefix}:`, {
+		error,
+		errorType,
+		message: errorMessage,
+	});
+	return {
+		success: false,
+		error: errorMessage,
+	};
+}
+
 function createVerificationClient(): VerificationClientResult {
 	const twilioAccountSid = import.meta.env.TWILIO_ACCOUNT_SID;
 	const twilioAuthToken = import.meta.env.TWILIO_AUTH_TOKEN;
@@ -40,30 +75,11 @@ export async function sendVerification(
 
 		return { success: true };
 	} catch (error) {
-		// Twilio SDK throws RestException for API errors (HTTP 400-5xx).
-		// RestException has: status (HTTP status), code (numeric Twilio error code),
-		// message, and moreInfo.
-		if (error instanceof Error && "status" in error && "code" in error) {
-			const twilioError = error as RestException;
-			console.error("Verification send error:", {
-				message: twilioError.message,
-				code: twilioError.code,
-				status: twilioError.status,
-				moreInfo: twilioError.moreInfo,
-			});
-			return {
-				success: false,
-				error: twilioError.message || "Failed to send verification",
-			};
-		}
-
-		const errorMessage =
-			error instanceof Error ? error.message : "Failed to send verification";
-		console.error("Verification send error:", error);
-		return {
-			success: false,
-			error: errorMessage,
-		};
+		return handleTwilioError(
+			error,
+			"Failed to send verification",
+			"Verification send error",
+		);
 	}
 }
 
@@ -89,29 +105,10 @@ export async function checkVerification(
 
 		return { success: false, error: "Invalid verification code" };
 	} catch (error) {
-		// Twilio SDK throws RestException for API errors (HTTP 400-5xx).
-		// RestException has: status (HTTP status), code (numeric Twilio error code),
-		// message, and moreInfo.
-		if (error instanceof Error && "status" in error && "code" in error) {
-			const twilioError = error as RestException;
-			console.error("Verification check error:", {
-				message: twilioError.message,
-				code: twilioError.code,
-				status: twilioError.status,
-				moreInfo: twilioError.moreInfo,
-			});
-			return {
-				success: false,
-				error: twilioError.message || "Verification failed",
-			};
-		}
-
-		const errorMessage =
-			error instanceof Error ? error.message : "Verification failed";
-		console.error("Verification check error:", error);
-		return {
-			success: false,
-			error: errorMessage,
-		};
+		return handleTwilioError(
+			error,
+			"Failed to check verification",
+			"Verification check error",
+		);
 	}
 }
