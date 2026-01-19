@@ -57,6 +57,8 @@ export async function handleInboundSms(
 	}
 
 	const from = request.params.From;
+	// Twilio can deliver `Body` as whitespace-only (e.g. "   "), which is truthy.
+	// Trim first so whitespace-only messages hit the missing-parameter 400 path.
 	const body = request.params.Body?.trim().toUpperCase();
 
 	if (!from || !body) {

@@ -67,7 +67,7 @@ export function calculateNextSendAt(
 			return null;
 		}
 
-		if (timezone.trim() === "") {
+		if (timezone === "") {
 			return null;
 		}
 

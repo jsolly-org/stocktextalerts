@@ -19,6 +19,10 @@ VALUES ('schema_version', '20250101000000_initial_schema@v2')
 ON CONFLICT (key) DO UPDATE SET
   value = EXCLUDED.value;
 
+ALTER TABLE public.app_metadata ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.app_metadata FROM anon, authenticated;
+GRANT SELECT ON TABLE public.app_metadata TO service_role;
+
 /* =============
 Validation Functions
 ============= */
@@ -263,6 +267,8 @@ DECLARE
   sanitized_symbols text[];
   sanitized_count integer;
   symbol_with_whitespace text;
+  symbol_not_uppercase text;
+  duplicate_symbol text;
 BEGIN
   DELETE FROM user_stocks WHERE user_stocks.user_id = replace_user_stocks.user_id;
 
@@ -281,8 +287,35 @@ BEGIN
       USING ERRCODE = 'check_violation';
   END IF;
 
+  -- Reject symbols that are not uppercase
+  SELECT entry INTO symbol_not_uppercase
+  FROM unnest(symbols) AS raw(entry)
+  WHERE entry <> '' AND entry <> UPPER(entry)
+  LIMIT 1;
+
+  IF symbol_not_uppercase IS NOT NULL THEN
+    RAISE EXCEPTION 'Stock symbol is not uppercase: %', symbol_not_uppercase
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  -- Reject duplicate symbols
+  SELECT entry INTO duplicate_symbol
+  FROM (
+    SELECT entry, COUNT(*) as cnt
+    FROM unnest(symbols) AS raw(entry)
+    WHERE entry <> ''
+    GROUP BY entry
+    HAVING COUNT(*) > 1
+    LIMIT 1
+  ) duplicates;
+
+  IF duplicate_symbol IS NOT NULL THEN
+    RAISE EXCEPTION 'Duplicate stock symbol: %', duplicate_symbol
+      USING ERRCODE = 'check_violation';
+  END IF;
+
   SELECT ARRAY(
-    SELECT DISTINCT UPPER(entry) AS symbol
+    SELECT entry AS symbol
     FROM unnest(symbols) AS raw(entry)
     WHERE entry <> ''
   ) INTO sanitized_symbols;

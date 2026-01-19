@@ -94,7 +94,7 @@ describe("Preview Notifications Endpoint", () => {
 		}
 	});
 
-	it("redirects to /dashboard?error=preview_email_disabled (302) when email notifications are disabled", async () => {
+	it("redirects to /dashboard?error=email_notifications_disabled (302) when email notifications are disabled", async () => {
 		const { id, email } = await createTestUser({
 			email: `test-${randomUUID()}@resend.dev`,
 			confirmed: true,
@@ -114,14 +114,14 @@ describe("Preview Notifications Endpoint", () => {
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toBe(
-				"/dashboard?error=preview_email_disabled",
+				"/dashboard?error=email_notifications_disabled",
 			);
 		} finally {
 			await adminClient.auth.admin.deleteUser(id);
 		}
 	});
 
-	it("redirects to /dashboard?error=preview_sms_disabled (302) when SMS notifications are disabled", async () => {
+	it("redirects to /dashboard?error=sms_notifications_disabled (302) when SMS notifications are disabled", async () => {
 		const { id, email } = await createTestUser({
 			email: `test-${randomUUID()}@resend.dev`,
 			confirmed: true,
@@ -141,14 +141,14 @@ describe("Preview Notifications Endpoint", () => {
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toBe(
-				"/dashboard?error=preview_sms_disabled",
+				"/dashboard?error=sms_notifications_disabled",
 			);
 		} finally {
 			await adminClient.auth.admin.deleteUser(id);
 		}
 	});
 
-	it("redirects to /dashboard?error=preview_sms_opted_out (302) when user has opted out of SMS notifications", async () => {
+	it("redirects to /dashboard?error=sms_opted_out (302) when user has opted out of SMS notifications", async () => {
 		const { id, email } = await createTestUser({
 			email: `test-${randomUUID()}@resend.dev`,
 			confirmed: true,
@@ -177,7 +177,7 @@ describe("Preview Notifications Endpoint", () => {
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toBe(
-				"/dashboard?error=preview_sms_opted_out",
+				"/dashboard?error=sms_opted_out",
 			);
 		} finally {
 			await adminClient.auth.admin.deleteUser(id);

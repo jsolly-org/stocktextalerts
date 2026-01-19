@@ -17,20 +17,22 @@ const MESSAGE_ALLOWLIST = {
 	server_error: "An error occurred. Please try again",
 	phone_not_set: "Phone number not set",
 	sms_opted_out: "SMS notifications are disabled for this number",
+	sms_notifications_disabled: "SMS notifications are disabled.",
 	user_not_found: "User not found",
 	stocks_limit: `Maximum ${MAX_TRACKED_STOCKS} stocks allowed`,
 	preview_email_sent: "Preview email sent successfully",
 	preview_sms_sent: "Preview SMS sent successfully",
 	preview_rate_limited: "Too many preview requests. Please try again later.",
-	preview_email_disabled: "Email notifications are disabled.",
-	preview_sms_disabled: "SMS notifications are disabled.",
-	preview_sms_opted_out:
-		"SMS notifications are disabled because you opted out.",
 	preview_sms_missing_phone: "Add a phone number before sending SMS previews.",
 	preview_sms_unverified:
 		"Verify your phone number before sending SMS previews.",
 	preview_failed: "Failed to send preview notification. Please try again.",
-	no_updates: "No changes were made to your preferences.",
+	email_notifications_disabled: "Email notifications are disabled.",
+	daily_digest_sent: "Daily digest sent.",
+	daily_digest_disabled: "Daily digest is disabled.",
+	daily_digest_send_failed: "Failed to send daily digest. Please try again.",
+	daily_digest_skip_failed:
+		"Failed to skip the next daily digest. Please try again.",
 } as const;
 
 export type MessageKey = keyof typeof MESSAGE_ALLOWLIST;

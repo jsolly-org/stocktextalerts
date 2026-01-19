@@ -1,5 +1,6 @@
 ---
 import type { User } from "../../../lib/db";
+import TimePicker from "../TimePicker.vue";
 
 interface Props {
 	user: User;
@@ -7,6 +8,13 @@ interface Props {
 }
 
 const { user, formId } = Astro.props;
+const phoneVerificationSectionId = `${formId}-phone-verification-section`;
+
+const needsChannelSelection =
+	!user.email_notifications_enabled && !user.sms_notifications_enabled;
+const needsPhoneVerification =
+	user.sms_notifications_enabled && !user.sms_opted_out && !user.phone_verified;
+const needsSetup = needsChannelSelection || needsPhoneVerification;
 
 function minutesToTimeInputValue(minutes: number): string {
 	const hours = Math.floor(minutes / 60);
@@ -20,68 +28,257 @@ const currentTime = minutesToTimeInputValue(
 ---
 
 <div class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-	<h2 class="text-2xl font-bold text-gray-900 mb-4">
-		Scheduled Notifications
-	</h2>
-
-	<div class="space-y-6">
+	<div class="flex items-start justify-between gap-4">
 		<div>
-			<div class="flex items-baseline justify-between gap-4">
-				<h3 class="text-base font-semibold text-gray-900">Daily Digest</h3>
-				<span class="text-xs text-gray-500">Once per day</span>
-			</div>
+			<h2 class="text-2xl font-bold text-gray-900">
+				Scheduled Notifications
+			</h2>
 			<p class="text-sm text-gray-600 mt-1">
-				A summary of your tracked stocks, delivered using your selected
-				notification channels.
+				Configure when scheduled notifications are delivered.
 			</p>
+		</div>
+		<div class="shrink-0 text-xs text-gray-700 bg-gray-100 border border-gray-200 rounded-full px-3 py-1">
+			<span class="text-gray-600">It is now</span>{" "}
+			<span id="daily-digest-current-time" class="font-medium tabular-nums"></span>
+		</div>
+	</div>
 
-			<div class="mt-4 space-y-3">
-				<label class="flex items-center cursor-pointer">
-					<input
-						type="hidden"
-						name="daily_digest_enabled"
-						value={user.daily_digest_enabled ? "on" : "off"}
-					/>
-					<input
-						type="checkbox"
-						id="daily_digest_enabled"
-						class="mr-2 cursor-pointer"
-						checked={user.daily_digest_enabled}
-					/>
-					<span class="text-sm font-medium text-slate-700">
-						Enable Daily Digest
+	<div class="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
+		<div class="flex items-start justify-between gap-4">
+			<div>
+				<div class="flex items-center gap-3">
+					<h3 class="text-base font-semibold text-gray-900">Daily Digest</h3>
+					<span class="inline-flex items-center rounded-full bg-white border border-gray-200 px-2 py-0.5 text-xs text-gray-600">
+						Once per day
 					</span>
-				</label>
-
-				<div id="daily-digest-settings" class="ml-6 space-y-2">
-					<label
-						for="daily_digest_notification_time"
-						class="block text-sm font-medium text-slate-700"
-					>
-						Daily digest time
-					</label>
-					<input
-						type="time"
-						id="daily_digest_notification_time"
-						name="daily_digest_notification_time"
-						value={currentTime}
-						min="00:00"
-						max="23:45"
-						step="900"
-						class="w-full max-w-xs px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
-						disabled={!user.daily_digest_enabled}
-					/>
-					<p class="text-xs text-gray-500">
-						This uses your configured timezone. Delivery runs every 15 minutes,
-						so it may arrive a little after the selected time.
-					</p>
 				</div>
+				<p class="text-sm text-gray-600 mt-1">
+					A summary of your tracked stocks, delivered using your selected
+					notification channels.
+				</p>
+			</div>
+
+			<label class="inline-flex items-center gap-2 cursor-pointer select-none">
+				<input
+					type="hidden"
+					name="daily_digest_enabled"
+					value={user.daily_digest_enabled ? "on" : "off"}
+				/>
+				<input
+					type="checkbox"
+					id="daily_digest_enabled"
+					class="h-4 w-4 cursor-pointer"
+					checked={user.daily_digest_enabled}
+				/>
+				<span class="text-sm font-medium text-slate-700">
+					Enabled
+				</span>
+			</label>
+		</div>
+
+		{needsSetup && (
+			<div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+				<p class="text-sm font-medium text-amber-900">Setup required</p>
+				<ul class="mt-2 space-y-1 text-sm text-amber-800">
+					{needsChannelSelection && (
+						<li>
+							Enable at least one notification channel in{" "}
+							<a
+								href="#notification-preferences"
+								class="font-medium text-amber-900 underline"
+							>
+								notification preferences
+							</a>
+							.
+						</li>
+					)}
+					{needsPhoneVerification && (
+						<li>
+							Verify your phone number in{" "}
+							<a
+								href={`#${phoneVerificationSectionId}`}
+								class="font-medium text-amber-900 underline"
+							>
+								SMS settings
+							</a>
+							{" "}to enable SMS deliveries.
+						</li>
+					)}
+				</ul>
+			</div>
+		)}
+
+		<div id="daily-digest-settings" class="mt-4 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+			<div>
+				<label
+					for="daily_digest_notification_time"
+					class="block text-sm font-medium text-slate-700 mb-1"
+				>
+					Delivery time
+				</label>
+				<TimePicker
+					client:idle
+					inputId="daily_digest_notification_time"
+					inputName="daily_digest_notification_time"
+					initialTime={currentTime}
+					disabled={!user.daily_digest_enabled}
+				/>
+			</div>
+
+			<div class="sm:text-right">
+				<button
+					type="button"
+					id="daily-digest-send-now"
+					class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors cursor-pointer disabled:bg-gray-400 disabled:cursor-not-allowed"
+				>
+					Send now
+				</button>
+			</div>
+
+			<div id="daily-digest-live-details" class="sm:col-span-2">
+				<p class="text-xs text-gray-600">
+					Your next daily digest will arrive in{" "}
+					<span id="daily-digest-countdown" class="font-medium tabular-nums"></span>.
+					{" "}If you want to change your timezone, please select a new one in{" "}
+					<a href="#notification-preferences" class="text-blue-600 hover:text-blue-700 underline">
+						notification preferences
+					</a>.
+				</p>
 			</div>
 		</div>
 	</div>
 </div>
 
-<script define:vars={{ formId }}>
+<div
+	id="daily-digest-skip-modal"
+	class="fixed inset-0 z-50 hidden"
+	role="dialog"
+	aria-modal="true"
+	aria-labelledby="daily-digest-skip-modal-title"
+>
+	<button
+		type="button"
+		id="daily-digest-skip-modal-backdrop"
+		class="absolute inset-0 bg-black/40"
+		aria-label="Close"
+	></button>
+	<div class="relative mx-auto mt-24 w-[min(92vw,28rem)] rounded-xl bg-white shadow-lg border border-gray-200 p-5">
+		<h3
+			id="daily-digest-skip-modal-title"
+			class="text-base font-semibold text-gray-900"
+		>
+			Send daily digest now
+		</h3>
+		<p class="mt-2 text-sm text-gray-700">
+			Your next notification is due to send in{" "}
+			<span id="daily-digest-skip-modal-due-in" class="font-medium"></span>. Would
+			you like to skip the next notification?
+		</p>
+
+		<div class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+			<button
+				type="button"
+				id="daily-digest-skip-modal-send-no-skip"
+				class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50 cursor-pointer"
+			>
+				Send now
+			</button>
+			<button
+				type="button"
+				id="daily-digest-skip-modal-send-and-skip"
+				class="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 cursor-pointer"
+			>
+				Send now & skip next
+			</button>
+		</div>
+	</div>
+</div>
+
+<script define:vars={{ formId, timezone: user.timezone, nextSendAtIso: user.next_send_at, emailNotificationsEnabled: user.email_notifications_enabled, smsNotificationsEnabled: user.sms_notifications_enabled, smsOptedOut: user.sms_opted_out, phoneVerified: user.phone_verified }}>
+
+	function getNowInTimezone() {
+		const formatter = new Intl.DateTimeFormat(undefined, {
+			timeZone: timezone,
+			hour: "numeric",
+			minute: "2-digit",
+			hour12: true,
+		});
+
+		return formatter.format(new Date());
+	}
+
+	function getNowSecondsInTimezone() {
+		const parts = new Intl.DateTimeFormat(undefined, {
+			timeZone: timezone,
+			hour: "2-digit",
+			minute: "2-digit",
+			second: "2-digit",
+			hour12: false,
+		}).formatToParts(new Date());
+
+		const hourPart = parts.find((p) => p.type === "hour")?.value ?? "0";
+		const minutePart = parts.find((p) => p.type === "minute")?.value ?? "0";
+		const secondPart = parts.find((p) => p.type === "second")?.value ?? "0";
+
+		const hours = Number.parseInt(hourPart, 10);
+		const minutes = Number.parseInt(minutePart, 10);
+		const seconds = Number.parseInt(secondPart, 10);
+
+		if (Number.isNaN(hours) || Number.isNaN(minutes) || Number.isNaN(seconds)) {
+			return null;
+		}
+
+		return hours * 60 * 60 + minutes * 60 + seconds;
+	}
+
+	function parseTimeToMinutes(value) {
+		const [hoursPart, minutesPart] = value.split(":");
+		const hours = Number.parseInt(hoursPart ?? "", 10);
+		const minutes = Number.parseInt(minutesPart ?? "", 10);
+
+		if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+			return null;
+		}
+
+		return hours * 60 + minutes;
+	}
+
+	function formatSecondsUntil(secondsUntil) {
+		if (secondsUntil < 60) {
+			return `${secondsUntil} second${secondsUntil === 1 ? "" : "s"}`;
+		}
+
+		const totalMinutes = Math.floor(secondsUntil / 60);
+		const hours = Math.floor(totalMinutes / 60);
+		const minutes = totalMinutes % 60;
+
+		const parts = [];
+		if (hours > 0) {
+			parts.push(`${hours} hour${hours === 1 ? "" : "s"}`);
+		}
+		if (minutes > 0 || hours === 0) {
+			parts.push(`${minutes} minute${minutes === 1 ? "" : "s"}`);
+		}
+
+		return parts.join(" ");
+	}
+
+	function formatHoursMinutes(secondsUntil) {
+		const totalMinutes = Math.ceil(secondsUntil / 60);
+		const hours = Math.floor(totalMinutes / 60);
+		const minutes = totalMinutes % 60;
+
+		const parts = [];
+		if (hours > 0) {
+			parts.push(`${hours} hour${hours === 1 ? "" : "s"}`);
+		}
+		if (minutes > 0 || hours === 0) {
+			parts.push(`${minutes} minute${minutes === 1 ? "" : "s"}`);
+		}
+
+		return parts.join(" ");
+	}
+
 	function setupDailyDigestUI() {
 		const formElement = document.getElementById(formId);
 		if (!(formElement instanceof HTMLFormElement)) {
@@ -92,24 +289,257 @@ const currentTime = minutesToTimeInputValue(
 		const enabledHidden = formElement.querySelector(
 			'input[type="hidden"][name="daily_digest_enabled"]',
 		);
-		const timeInput = formElement.querySelector(
-			'input[name="daily_digest_notification_time"]',
+		const settingsContainer = formElement.querySelector("#daily-digest-settings");
+		const currentTimeDisplay = document.getElementById(
+			"daily-digest-current-time",
+		);
+		const countdownDisplay = document.getElementById("daily-digest-countdown");
+		const sendNowButton = document.getElementById("daily-digest-send-now");
+		const liveDetails = document.getElementById("daily-digest-live-details");
+		const skipModal = document.getElementById("daily-digest-skip-modal");
+		const skipModalBackdrop = document.getElementById(
+			"daily-digest-skip-modal-backdrop",
+		);
+		const skipModalDueIn = document.getElementById(
+			"daily-digest-skip-modal-due-in",
+		);
+		const skipModalSendAndSkip = document.getElementById(
+			"daily-digest-skip-modal-send-and-skip",
+		);
+		const skipModalSendNoSkip = document.getElementById(
+			"daily-digest-skip-modal-send-no-skip",
 		);
 
 		if (
 			!(enabledCheckbox instanceof HTMLInputElement) ||
 			!(enabledHidden instanceof HTMLInputElement) ||
-			!(timeInput instanceof HTMLInputElement)
+			!(sendNowButton instanceof HTMLButtonElement) ||
+			!(skipModal instanceof HTMLElement) ||
+			!(skipModalBackdrop instanceof HTMLButtonElement) ||
+			!(skipModalDueIn instanceof HTMLElement) ||
+			!(skipModalSendAndSkip instanceof HTMLButtonElement) ||
+			!(skipModalSendNoSkip instanceof HTMLButtonElement)
 		) {
 			return;
+		}
+
+		function getTimeInput() {
+			return formElement.querySelector(
+				'input[name="daily_digest_notification_time"]',
+			);
+		}
+
+		function getSecondsUntilNextDigest() {
+			if (typeof nextSendAtIso === "string") {
+				const nextSendAtMs = new Date(nextSendAtIso).getTime();
+				const diffSeconds = Math.ceil((nextSendAtMs - Date.now()) / 1000);
+				if (Number.isFinite(diffSeconds) && diffSeconds > 0) {
+					return diffSeconds;
+				}
+			}
+
+			const timeInput = getTimeInput();
+			if (!(timeInput instanceof HTMLInputElement)) {
+				return null;
+			}
+
+			const nowSeconds = getNowSecondsInTimezone();
+			const deliveryMinutes = parseTimeToMinutes(timeInput.value);
+
+			if (nowSeconds === null || deliveryMinutes === null) {
+				return null;
+			}
+
+			const deliverySeconds = deliveryMinutes * 60;
+			let secondsUntil = deliverySeconds - nowSeconds;
+			if (secondsUntil <= 0) {
+				secondsUntil += 24 * 60 * 60;
+			}
+			return secondsUntil;
+		}
+
+		function updateNowAndCountdown() {
+			if (currentTimeDisplay) {
+				currentTimeDisplay.textContent = getNowInTimezone();
+			}
+
+			if (!countdownDisplay) {
+				return;
+			}
+
+			const enabled = enabledCheckbox.checked;
+
+			const emailEnabled = emailNotificationsEnabled === true;
+			const smsEnabled = smsNotificationsEnabled === true;
+
+			const smsReady = smsEnabled && smsOptedOut !== true && phoneVerified === true;
+			const hasNotificationChannel = emailEnabled || smsReady;
+
+			if (!enabled || !hasNotificationChannel) {
+				if (liveDetails instanceof HTMLElement) {
+					liveDetails.classList.add("hidden");
+				}
+
+				countdownDisplay.textContent = "";
+				sendNowButton.disabled = true;
+				return;
+			}
+
+			if (liveDetails instanceof HTMLElement) {
+				liveDetails.classList.remove("hidden");
+			}
+
+			const secondsUntil = getSecondsUntilNextDigest();
+			if (typeof secondsUntil !== "number") {
+				countdownDisplay.textContent = "";
+				sendNowButton.disabled = true;
+				return;
+			}
+
+			countdownDisplay.textContent = formatSecondsUntil(secondsUntil);
+			sendNowButton.disabled = false;
 		}
 
 		const update = () => {
 			const enabled = enabledCheckbox.checked;
 			enabledHidden.value = enabled ? "on" : "off";
-			timeInput.disabled = !enabled;
+			const timeInput = getTimeInput();
+			if (timeInput instanceof HTMLInputElement) {
+				timeInput.disabled = !enabled;
+			}
+
+			document.dispatchEvent(
+				new CustomEvent("daily-digest-enabled-changed", {
+					detail: { enabled },
+				}),
+			);
 			formElement.dispatchEvent(new Event("input", { bubbles: true }));
+			updateNowAndCountdown();
 		};
+
+		const handleTimeInputEvent = (event) => {
+			const target = event.target;
+			if (
+				target instanceof HTMLInputElement &&
+				target.name === "daily_digest_notification_time"
+			) {
+				updateNowAndCountdown();
+			}
+		};
+
+		if (settingsContainer instanceof HTMLElement) {
+			settingsContainer.addEventListener("input", handleTimeInputEvent);
+			settingsContainer.addEventListener("change", handleTimeInputEvent);
+		}
+
+		function openSkipModal(dueInSeconds) {
+			skipModalDueIn.textContent = formatHoursMinutes(dueInSeconds);
+			skipModal.classList.remove("hidden");
+		}
+
+		function closeSkipModal() {
+			skipModal.classList.add("hidden");
+		}
+
+		skipModalBackdrop.addEventListener("click", closeSkipModal);
+
+		function handleKeydown(event) {
+			if (event.key === "Escape") {
+				closeSkipModal();
+			}
+		}
+
+		document.addEventListener("keydown", handleKeydown);
+
+		const skipPromptSuppressKey = "daily_digest_skip_prompt_suppress_once";
+
+		async function sendNow(options) {
+			const previousLabel = sendNowButton.textContent;
+			sendNowButton.disabled = true;
+			sendNowButton.textContent = "Sending…";
+
+			try {
+				const url = options?.skipNext
+					? "/api/notifications/daily-digest-now?skip_next=1"
+					: "/api/notifications/daily-digest-now";
+				const response = await fetch(url, {
+					method: "POST",
+					credentials: "same-origin",
+					signal: AbortSignal.timeout(10_000),
+				});
+
+				if (response.redirected) {
+					window.location.assign(response.url);
+					return;
+				}
+
+				if (response.ok) {
+					window.location.assign("/dashboard?success=daily_digest_sent");
+					return;
+				}
+
+				window.location.assign("/dashboard?error=daily_digest_send_failed");
+			} catch (error) {
+				console.error("Failed to send daily digest now", error);
+				window.location.assign("/dashboard?error=daily_digest_send_failed");
+			} finally {
+				if (document.visibilityState === "visible") {
+					sendNowButton.textContent = previousLabel;
+				}
+			}
+		}
+
+		sendNowButton.addEventListener("click", async () => {
+			if (sendNowButton.disabled) {
+				return;
+			}
+
+			const suppressOnce = sessionStorage.getItem(skipPromptSuppressKey) === "1";
+			if (suppressOnce) {
+				sessionStorage.removeItem(skipPromptSuppressKey);
+				await sendNow({ skipNext: false });
+				return;
+			}
+
+			const dueInSeconds = getSecondsUntilNextDigest();
+			const shouldPrompt =
+				typeof dueInSeconds === "number" &&
+				dueInSeconds > 0 &&
+				dueInSeconds < 24 * 60 * 60;
+
+			if (!shouldPrompt) {
+				await sendNow({ skipNext: false });
+				return;
+			}
+
+			openSkipModal(dueInSeconds);
+		});
+
+		skipModalSendAndSkip.addEventListener("click", async () => {
+			closeSkipModal();
+			sessionStorage.setItem(skipPromptSuppressKey, "1");
+			await sendNow({ skipNext: true });
+		});
+
+		skipModalSendNoSkip.addEventListener("click", async () => {
+			closeSkipModal();
+			await sendNow({ skipNext: false });
+		});
+
+		updateNowAndCountdown();
+		const intervalId = window.setInterval(updateNowAndCountdown, 1_000);
+		window.addEventListener(
+			"pagehide",
+			() => {
+				window.clearInterval(intervalId);
+				document.removeEventListener("keydown", handleKeydown);
+				if (settingsContainer instanceof HTMLElement) {
+					settingsContainer.removeEventListener("input", handleTimeInputEvent);
+					settingsContainer.removeEventListener("change", handleTimeInputEvent);
+				}
+			},
+			{ once: true },
+		);
 
 		update();
 		enabledCheckbox.addEventListener("input", update);
@@ -121,4 +551,3 @@ const currentTime = minutesToTimeInputValue(
 		setupDailyDigestUI();
 	}
 </script>
-

@@ -139,7 +139,8 @@ export function setupFormNavigationWarning(options: {
 			return false;
 		}
 
-		if (!checkIfDirty()) {
+		const dirty = checkIfDirty();
+		if (!dirty) {
 			return false;
 		}
 
@@ -178,14 +179,9 @@ export function setupFormNavigationWarning(options: {
 			return;
 		}
 
-		if (
-			!confirm(
-				"You have unsaved changes. Are you sure you want to leave this page?",
-			)
-		) {
-			event.preventDefault();
-			event.stopPropagation();
-		}
+		// We intentionally rely on the browser's native beforeunload prompt for
+		// full-page navigations. Showing a custom confirm here causes a double prompt
+		// (custom confirm + native "changes may not be saved") on most browsers.
 	}
 
 	document.addEventListener("click", handleDocumentClick, true);

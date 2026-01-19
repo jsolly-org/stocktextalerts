@@ -18,14 +18,26 @@ const {
 	formId,
 	timezoneLoadError = false,
 } = Astro.props;
+
+const saveHintId = `${formId}-save-preferences-hint`;
 ---
 
-<div class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+<div
+	class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+	data-notification-preferences-card
+	data-form-id={formId}
+	data-save-hint-id={saveHintId}
+>
 	<h2 id="notification-preferences" class="text-2xl font-bold text-gray-900 mb-4">
 		Notification Preferences
 	</h2>
 
 	<div class="space-y-6">
+		<p id={saveHintId} class="text-sm text-amber-700 hidden">
+			Changes aren’t saved until you click{" "}
+			<span class="font-medium">Save Preferences</span> at the bottom of the page.
+		</p>
+
 		<div>
 			<label
 				for="timezone"
@@ -56,15 +68,8 @@ const {
 </div>
 
 <script>
-	import { setupDetectedTimezoneOption } from "../../../lib/timezones/select";
-	import { DEFAULT_TIMEZONE } from "../../../lib/timezones/constants";
+	import { initNotificationPreferencesCards } from "./NotificationPreferencesCard.client.ts";
 
-	if (document.readyState === "loading") {
-		document.addEventListener("DOMContentLoaded", () => {
-			setupDetectedTimezoneOption({ defaultTimezone: DEFAULT_TIMEZONE });
-		});
-	} else {
-		setupDetectedTimezoneOption({ defaultTimezone: DEFAULT_TIMEZONE });
-	}
+	initNotificationPreferencesCards();
 </script>
 

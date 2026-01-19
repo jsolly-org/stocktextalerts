@@ -3,7 +3,6 @@ import { readFile } from "node:fs/promises";
 import PreviewNotifications from "../components/dashboard/PreviewNotifications.astro";
 import NotificationPreferencesCard from "../components/dashboard/preferences/NotificationPreferencesCard.astro";
 import ScheduledNotificationsCard from "../components/dashboard/preferences/ScheduledNotificationsCard.astro";
-import SetupRequiredBanner from "../components/dashboard/SetupRequiredBanner.astro";
 import type { StockOption } from "../components/dashboard/stocks/StockInput.vue";
 import TrackedStocksPanel from "../components/dashboard/stocks/TrackedStocksPanel.vue";
 import Navigation from "../components/layout/Navigation.astro";
@@ -87,9 +86,11 @@ const isSmsFullyConfigured =
 		<Navigation user={authUser} />
 
 		<div class="max-w-4xl mx-auto px-6 py-12">
-			<div class="mb-8">
-				<h1 class="text-4xl font-bold text-gray-900 mb-2">Dashboard</h1>
-				<p class="text-lg text-gray-600">Configure your notification preferences and track stocks</p>
+			<div class="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+				<h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
+				<p class="mt-1 text-gray-600">
+					Configure your notification preferences and track stocks.
+				</p>
 			</div>
 
 		{successMessage && (
@@ -114,9 +115,6 @@ const isSmsFullyConfigured =
 			savedTimezone={user.timezone}
 			allowedTimezones={timezones.map((tz) => tz.value)}
 		/>
-
-		<!-- Section 1: Setup Required Banner -->
-		<SetupRequiredBanner user={user} />
 
 		<!-- Section 2: Preferences form (stocks + notification settings) -->
 		<form

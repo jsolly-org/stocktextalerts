@@ -174,22 +174,8 @@ if (error) {
 	import { setupDetectedTimezoneOption } from "../../lib/timezones/select";
 	import { DEFAULT_TIMEZONE } from "../../lib/timezones/constants";
 
-	document.addEventListener('DOMContentLoaded', () => {
-		const emailInputElement = document.getElementById('email');
-
-		// Strip all whitespace on any input (typing or paste)
-		emailInputElement.addEventListener('input', () => {
-			const stripped = emailInputElement.value.replace(/\s/g, '');
-			if (stripped !== emailInputElement.value) {
-				const cursorPos = emailInputElement.selectionStart ?? 0;
-				const removedBeforeCursor = emailInputElement.value.slice(0, cursorPos).replace(/\s/g, '').length;
-				emailInputElement.value = stripped;
-				emailInputElement.setSelectionRange(removedBeforeCursor, removedBeforeCursor);
-			}
-		});
-
+	document.addEventListener("DOMContentLoaded", () => {
 		setupDetectedTimezoneOption({ defaultTimezone: DEFAULT_TIMEZONE });
-
 	});
 </script>
 

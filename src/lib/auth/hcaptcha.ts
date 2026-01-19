@@ -120,11 +120,11 @@ export function initializeHCaptchaForm(formId: string, tokenInputId: string) {
 }
 
 export function createCaptchaStatusHelpers(statusElementId: string) {
-	const statusElement = document.getElementById(statusElementId);
-
 	return {
 		show: (message: string) => {
+			const statusElement = document.getElementById(statusElementId);
 			if (!(statusElement instanceof HTMLElement)) {
+				console.warn(`hCaptcha status element not found: ${statusElementId}`);
 				return;
 			}
 
@@ -132,7 +132,9 @@ export function createCaptchaStatusHelpers(statusElementId: string) {
 			statusElement.classList.remove("hidden");
 		},
 		hide: () => {
+			const statusElement = document.getElementById(statusElementId);
 			if (!(statusElement instanceof HTMLElement)) {
+				console.warn(`hCaptcha status element not found: ${statusElementId}`);
 				return;
 			}
 
@@ -211,7 +213,7 @@ export async function verifyHCaptchaToken({
 	}
 
 	const attemptFetch = async (): Promise<Response> => {
-		const response = await fetch("https://api.hcaptcha.com/siteverify", {
+		return fetch("https://api.hcaptcha.com/siteverify", {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/x-www-form-urlencoded",
@@ -219,8 +221,6 @@ export async function verifyHCaptchaToken({
 			body: payload,
 			signal: AbortSignal.timeout(10_000),
 		});
-
-		return response;
 	};
 
 	let response: Response;

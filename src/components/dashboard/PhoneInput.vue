@@ -1,5 +1,5 @@
 <template>
-	<div>
+	<div ref="rootElement">
 		<label for="phone" class="block text-sm font-medium text-slate-700 mb-1">
 			Phone Number
 		</label>
@@ -73,6 +73,8 @@ const props = defineProps<{
 	 */
 	initialNationalNumber?: string | null;
 }>();
+
+const rootElement = ref<HTMLElement>();
 
 const country = ref<Country>("US");
 const showError = ref(false);
@@ -182,12 +184,12 @@ const isValid = computed(() => {
 watch(
 	isValid,
 	(valid) => {
-		if (typeof document !== "undefined") {
+		if (rootElement.value) {
 			const event = new CustomEvent("phone-validity-changed", {
 				bubbles: true,
 				detail: { isValid: valid },
 			});
-			document.dispatchEvent(event);
+			rootElement.value.dispatchEvent(event);
 		}
 	},
 	{ immediate: true },

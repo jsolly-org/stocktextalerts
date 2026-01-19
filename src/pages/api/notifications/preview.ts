@@ -122,7 +122,7 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
 			}
 
 			if (!user.email_notifications_enabled) {
-				return redirect("/dashboard?error=preview_email_disabled");
+				return redirect("/dashboard?error=email_notifications_disabled");
 			}
 
 			const sendEmail = createEmailSender();
@@ -161,11 +161,11 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
 			}
 
 			if (!user.sms_notifications_enabled) {
-				return redirect("/dashboard?error=preview_sms_disabled");
+				return redirect("/dashboard?error=sms_notifications_disabled");
 			}
 
 			if (user.sms_opted_out) {
-				return redirect("/dashboard?error=preview_sms_opted_out");
+				return redirect("/dashboard?error=sms_opted_out");
 			}
 
 			if (!user.phone_country_code || !user.phone_number) {

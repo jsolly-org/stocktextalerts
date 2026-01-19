@@ -103,4 +103,60 @@ describe("database constraints and validation functions", () => {
 			await client.end();
 		}
 	});
+
+	it("replace_user_stocks rejects symbols that are not uppercase (check_violation)", async () => {
+		const client = createDbClient();
+		await client.connect();
+		try {
+			const userId = randomUUID();
+			await client.query(
+				"insert into public.users (id, email) values ($1, $2)",
+				[userId, `test-${randomUUID()}@resend.dev`],
+			);
+
+			await client.query(
+				"insert into public.stocks (symbol, name, exchange) values ($1, $2, $3) on conflict (symbol) do nothing",
+				["aapl", "Apple Inc.", "NASDAQ"],
+			);
+
+			await expect(
+				client.query(
+					"select public.replace_user_stocks($1::uuid, $2::text[])",
+					[userId, ["aapl"]],
+				),
+			).rejects.toMatchObject({
+				code: "23514",
+			});
+		} finally {
+			await client.end();
+		}
+	});
+
+	it("replace_user_stocks rejects duplicate symbols (check_violation)", async () => {
+		const client = createDbClient();
+		await client.connect();
+		try {
+			const userId = randomUUID();
+			await client.query(
+				"insert into public.users (id, email) values ($1, $2)",
+				[userId, `test-${randomUUID()}@resend.dev`],
+			);
+
+			await client.query(
+				"insert into public.stocks (symbol, name, exchange) values ($1, $2, $3), ($4, $5, $6) on conflict (symbol) do nothing",
+				["AAPL", "Apple Inc.", "NASDAQ", "MSFT", "Microsoft Corp.", "NASDAQ"],
+			);
+
+			await expect(
+				client.query(
+					"select public.replace_user_stocks($1::uuid, $2::text[])",
+					[userId, ["AAPL", "MSFT", "AAPL"]],
+				),
+			).rejects.toMatchObject({
+				code: "23514",
+			});
+		} finally {
+			await client.end();
+		}
+	});
 });

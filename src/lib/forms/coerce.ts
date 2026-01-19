@@ -75,14 +75,7 @@ export function coerceValue(
 			if (raw === "") {
 				return { value: undefined };
 			}
-			// Trim timezone values from form submissions (untrusted external input) to ensure
-			// consistency with database constraint (users_timezone_no_whitespace CHECK).
-			// This prevents validation failures when the value reaches the database.
-			const trimmed = raw.trim();
-			if (trimmed === "") {
-				return { value: undefined };
-			}
-			return { value: trimmed };
+			return { value: raw };
 		}
 		case "integer": {
 			if (raw === "") {

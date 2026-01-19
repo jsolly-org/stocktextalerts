@@ -1,34 +1,9 @@
 ---
-import { parsePhoneNumberFromString } from "libphonenumber-js";
-
 interface Props {
 	email: string;
-	phone: string | null | undefined;
-	phoneVerified: boolean;
 }
 
-const { email, phone, phoneVerified } = Astro.props;
-
-function formatPhoneForDisplay(phoneNumber: string | null | undefined) {
-	if (!phoneNumber) {
-		return null;
-	}
-
-	const parsed = parsePhoneNumberFromString(phoneNumber);
-	return parsed ? parsed.formatNational() : phoneNumber;
-}
-
-const formattedPhone = formatPhoneForDisplay(phone);
-
-const hasPhone = Boolean(formattedPhone);
-
-const phoneDisplay = hasPhone ? formattedPhone : "Not provided yet";
-
-const phoneStatus = hasPhone
-	? phoneVerified
-		? { label: "Verified", className: "bg-green-100 text-green-700" }
-		: { label: "Needs verification", className: "bg-amber-100 text-amber-700" }
-	: { label: "Not provided", className: "bg-gray-100 text-gray-600" };
+const { email } = Astro.props;
 ---
 
 <div class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -47,48 +22,12 @@ const phoneStatus = hasPhone
 				disabled
 				class="w-full px-4 py-3 border border-gray-300 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
 			/>
-			<p class="mt-2 text-sm text-gray-500">Email cannot be changed. Contact support if you need to update your email address.</p>
-		</div>
-
-		<div>
-			<label for="phone" class="block text-sm font-medium text-gray-700 mb-2">
-				Phone
-			</label>
-			<div class="relative">
-				<input
-					type="text"
-					id="phone"
-					name="phone"
-					value={phoneDisplay}
-					disabled
-					class="w-full px-4 py-3 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed"
-				/>
-				<span
-					class={`absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${phoneStatus.className}`}
-				>
-					{phoneStatus.label}
-				</span>
-			</div>
 			<p class="mt-2 text-sm text-gray-500">
-				{hasPhone
-					? (
-						<>
-							Manage your phone number from the{" "}
-							<a href="/dashboard" class="text-blue-600 hover:text-blue-700 underline">
-								dashboard
-							</a>
-							.
-						</>
-					)
-					: (
-						<>
-							Add your phone number from the{" "}
-							<a href="/dashboard" class="text-blue-600 hover:text-blue-700 underline">
-								dashboard
-							</a>
-							{" "}to receive SMS notifications.
-						</>
-					)}
+				Email cannot be changed.{" "}
+				<a href="mailto:support@stocktextalerts.com" class="text-blue-600 hover:text-blue-700 underline">
+					Contact support
+				</a>
+				{" "}if you need to update your email address.
 			</p>
 		</div>
 	</div>

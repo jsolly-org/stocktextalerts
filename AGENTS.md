@@ -16,6 +16,7 @@ This file captures the non-negotiables for this repo. It is a new app, so we opt
   - **Prefer functional patterns**: Use classes only when clearly warranted; question class-based approaches.
   - **Avoid one-line functions**: Either inline simple logic or expand to meaningful functions.
   - **Self-documenting code**: Write clear, descriptive names and structure; avoid TSDoc/JSDoc comments.
+  - **Comment deviations from guidelines**: When implementing code that appears to contradict these guidelines (e.g., trimming third-party webhook input, adding a compatibility layer), add an inline comment explaining why the deviation is necessary and justified.
   - **DRY principle**: Check for similar code in other files before implementing; extract shared logic to utilities.
 - **Imports**
   - **Clean imports**: Use relative paths (not '@' style); delete unused imports.

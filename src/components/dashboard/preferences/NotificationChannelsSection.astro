@@ -1,6 +1,6 @@
 ---
 import type { User } from "../../../lib/db";
-import PhoneInput from "../../PhoneInput.vue";
+import PhoneInput from "../PhoneInput.vue";
 
 interface Props {
 	user: User;
@@ -307,13 +307,13 @@ const smsVerificationCodeId = `${formId}-sms-verification-code`;
 				button.disabled = !isValid;
 			}
 
-			document.addEventListener("phone-validity-changed", handlePhoneValidityChanged);
+			form.addEventListener("phone-validity-changed", handlePhoneValidityChanged);
 
 			const parentElement = root.parentElement;
 			if (parentElement) {
 				const observer = new MutationObserver(() => {
 					if (!document.body.contains(root)) {
-						document.removeEventListener(
+						form.removeEventListener(
 							"phone-validity-changed",
 							handlePhoneValidityChanged,
 						);

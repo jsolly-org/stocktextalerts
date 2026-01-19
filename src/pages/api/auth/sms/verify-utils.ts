@@ -18,7 +18,7 @@ function handleTwilioError(
 		});
 		return {
 			success: false,
-			error: twilioError.message || defaultMessage,
+			error: twilioError.message,
 		};
 	}
 

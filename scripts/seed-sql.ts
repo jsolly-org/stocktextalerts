@@ -166,7 +166,7 @@ export function buildUserStocksSql(userId: string, trackedStocks: string[]): str
   if (trackedStocks.length === 0) return '';
 
   const stocksValues = trackedStocks
-    .map((symbol) => `UPPER(TRIM('${escapeSql(symbol)}'))`)
+    .map((symbol) => `'${escapeSql(symbol)}'`)
     .join(', ');
 
   return `
@@ -175,7 +175,7 @@ SELECT
   '${userId}'::uuid,
   s.symbol
 FROM (
-  SELECT symbol FROM public.stocks WHERE UPPER(TRIM(symbol)) IN (${stocksValues})
+  SELECT symbol FROM public.stocks WHERE symbol IN (${stocksValues})
 ) s
 ON CONFLICT (user_id, symbol) DO NOTHING;
 `;
