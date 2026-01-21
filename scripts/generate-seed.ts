@@ -47,6 +47,15 @@ const ERROR_HINTS: Partial<Record<SeedErrorCode, string[]>> = {
     "   - Verify PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set",
     "   - For local development, run: supabase start",
   ],
+  invalid_supabase_url: [
+    "\n💡 Hint: PUBLIC_SUPABASE_URL is malformed.",
+    "   - Verify the URL format (e.g., http://localhost:54321)",
+  ],
+  non_local_supabase_url: [
+    "\n💡 Hint: Seed script is blocked from running against non-local Supabase.",
+    "   - Use a local Supabase instance for seeding",
+    "   - Set SEED_ENV=local only if you understand the risks",
+  ],
   default_password_missing: [
     "\n💡 Hint: DEFAULT_PASSWORD is required in .env.local",
     "   - Add DEFAULT_PASSWORD=your-password to .env.local",
@@ -261,25 +270,29 @@ async function generateUsersSql(
     let trackedStocks: string[] = [];
     if (user.tracked_stocks !== undefined && user.tracked_stocks !== null) {
       if (!Array.isArray(user.tracked_stocks)) {
-        throw new Error(
+        throw new SeedError(
+          "users_parse_failed",
           `Invalid seed user: tracked_stocks must be an array, null, or undefined. Received: ${typeof user.tracked_stocks}. User data: ${JSON.stringify(user)}`,
         );
       }
       for (let i = 0; i < user.tracked_stocks.length; i++) {
         const stock = user.tracked_stocks[i];
         if (typeof stock !== "string") {
-          throw new Error(
+          throw new SeedError(
+            "users_parse_failed",
             `Invalid seed user: tracked_stocks[${i}] must be a string. Received: ${typeof stock}. User data: ${JSON.stringify(user)}`,
           );
         }
         const trimmed = stock.trim();
         if (!trimmed) {
-          throw new Error(
+          throw new SeedError(
+            "users_parse_failed",
             `Invalid seed user: tracked_stocks[${i}] cannot be empty or whitespace-only. User data: ${JSON.stringify(user)}`,
           );
         }
         if (/\s/.test(trimmed)) {
-          throw new Error(
+          throw new SeedError(
+            "users_parse_failed",
             `Invalid seed user: tracked_stocks[${i}] cannot contain whitespace. Received: "${trimmed}". User data: ${JSON.stringify(user)}`,
           );
         }
