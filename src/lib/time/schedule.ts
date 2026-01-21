@@ -76,14 +76,7 @@ export function calculateNextSendAt(
 	if (candidate <= current) {
 		candidate = candidate.plus({ days: 1 });
 		if (!candidate.isValid) {
-			let normalized = candidate;
-			for (let step = 0; step < 6 && !normalized.isValid; step += 1) {
-				normalized = normalized.plus({ hours: 1 });
-			}
-			if (!normalized.isValid) {
-				return null;
-			}
-			candidate = normalized;
+			return null;
 		}
 	}
 

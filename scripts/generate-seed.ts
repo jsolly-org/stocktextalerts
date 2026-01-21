@@ -243,10 +243,16 @@ async function generateUsersSql(
   for (const user of users) {
     const userEmailRaw = (user.email || '').trim();
     if (!userEmailRaw) {
-      throw new Error(`Invalid seed user: email cannot be empty. User data: ${JSON.stringify(user)}`);
+      throw new SeedError(
+        "users_parse_failed",
+        `Invalid seed user: email cannot be empty. User data: ${JSON.stringify(user)}`,
+      );
     }
     if (!isProbablyEmail(userEmailRaw)) {
-      throw new Error(`Invalid seed user: email is not a valid format: "${userEmailRaw}". User data: ${JSON.stringify(user)}`);
+      throw new SeedError(
+        "users_parse_failed",
+        `Invalid seed user: email is not a valid format: "${userEmailRaw}". User data: ${JSON.stringify(user)}`,
+      );
     }
 
     const userEmailLookup = userEmailRaw.toLowerCase();
@@ -351,7 +357,38 @@ async function main() {
     );
   }
 
-  const stocks = stocksData.data || [];
+  if (stocksData === null || typeof stocksData !== "object" || Array.isArray(stocksData)) {
+    throw new SeedError(
+      "stocks_read_failed",
+      `${STOCKS_FILE} must contain a JSON object with a 'data' property; received ${stocksData === null ? "null" : Array.isArray(stocksData) ? "array" : typeof stocksData}`,
+    );
+  }
+
+  const stocksRaw = stocksData.data;
+  if (!Array.isArray(stocksRaw)) {
+    throw new SeedError(
+      "stocks_read_failed",
+      `${STOCKS_FILE}: 'data' property must be an array; received ${typeof stocksRaw}`,
+    );
+  }
+
+  for (let i = 0; i < stocksRaw.length; i++) {
+    const stock = stocksRaw[i];
+    if (stock === null || typeof stock !== "object" || Array.isArray(stock)) {
+      throw new SeedError(
+        "stocks_read_failed",
+        `${STOCKS_FILE}: stocks[${i}] must be an object. Received: ${stock === null ? "null" : Array.isArray(stock) ? "array" : typeof stock}`,
+      );
+    }
+    if (typeof stock.symbol !== "string" || typeof stock.name !== "string" || typeof stock.exchange !== "string") {
+      throw new SeedError(
+        "stocks_read_failed",
+        `${STOCKS_FILE}: stocks[${i}] must have string properties 'symbol', 'name', and 'exchange'. Received: ${JSON.stringify(stock)}`,
+      );
+    }
+  }
+
+  const stocks = stocksRaw as Stock[];
 
   // 2. Read Users Data
   let users: SeedUser[] = [];

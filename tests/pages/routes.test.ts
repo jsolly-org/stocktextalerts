@@ -2,7 +2,7 @@ import { loadRenderers } from "astro:container";
 import { randomUUID } from "node:crypto";
 import { getContainerRenderer as getVueRenderer } from "@astrojs/vue";
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { rootLogger } from "../../src/lib/logging";
 import AuthForgotPage from "../../src/pages/auth/forgot.astro";
 import AuthRecoverPage from "../../src/pages/auth/recover.astro";
@@ -13,7 +13,7 @@ import DashboardPage from "../../src/pages/dashboard.astro";
 import IndexPage from "../../src/pages/index.astro";
 import ProfilePage from "../../src/pages/profile.astro";
 import SignInPage from "../../src/pages/signin.astro";
-import { adminClient } from "../setup";
+import { adminClient, allowConsoleWarnings, errorSpy, warnSpy } from "../setup";
 import { createAuthenticatedCookies, createTestUser } from "../utils";
 
 const TEST_PASSWORD = "TestPassword123!";
@@ -37,6 +37,56 @@ describe("Page routes render without unexpected logs", () => {
 
 	beforeAll(async () => {
 		renderers = await loadRenderers([getVueRenderer()]);
+	});
+
+	afterEach(() => {
+		const unexpectedWarns: string[] = [];
+		const unexpectedErrors: string[] = [];
+
+		for (const call of warnSpy.mock.calls) {
+			const [raw] = call;
+			try {
+				const log = JSON.parse(raw as string) as {
+					level: string;
+					message: string;
+				};
+				if (log.level === "warn" && !log.message.startsWith("Cleanup failed")) {
+					unexpectedWarns.push(log.message);
+				}
+			} catch {
+				unexpectedWarns.push(String(raw));
+			}
+		}
+
+		for (const call of errorSpy.mock.calls) {
+			const [raw] = call;
+			try {
+				const log = JSON.parse(raw as string) as {
+					level: string;
+					message: string;
+				};
+				if (log.level === "error") {
+					unexpectedErrors.push(log.message);
+				}
+			} catch {
+				unexpectedErrors.push(String(raw));
+			}
+		}
+
+		if (unexpectedWarns.length > 0 || unexpectedErrors.length > 0) {
+			const messages: string[] = [];
+			if (unexpectedWarns.length > 0) {
+				messages.push(`Unexpected warnings: ${unexpectedWarns.join(", ")}`);
+			}
+			if (unexpectedErrors.length > 0) {
+				messages.push(`Unexpected errors: ${unexpectedErrors.join(", ")}`);
+			}
+			throw new Error(messages.join("; "));
+		}
+
+		if (warnSpy.mock.calls.length > 0) {
+			allowConsoleWarnings();
+		}
 	});
 
 	it("renders the landing page", async () => {

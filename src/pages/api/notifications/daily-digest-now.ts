@@ -256,12 +256,13 @@ export const POST: APIRoute = async ({
 				.eq("id", user.id);
 
 			if (advanceError) {
-				logger.error(
-					"Failed to advance next_send_at for skip",
-					{ userId: user.id },
+				logger.warn("Failed to advance next_send_at for skip", {
+					userId: user.id,
 					advanceError,
+				});
+				return redirect(
+					"/dashboard?success=daily_digest_sent&warning=skip_update_failed",
 				);
-				return redirect("/dashboard?error=daily_digest_skip_failed");
 			}
 		}
 
