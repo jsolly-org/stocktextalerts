@@ -150,12 +150,10 @@ export async function createTestUser(
 			throw new Error(`Stocks table setup failed: ${stocksTableError.message}`);
 		}
 
-		const stockInserts: DbUserStockInsert[] = options.trackedStocks.map(
-			(symbol) => ({
-				user_id: userId,
-				symbol,
-			}),
-		);
+		const stockInserts: DbUserStockInsert[] = uniqueSymbols.map((symbol) => ({
+			user_id: userId,
+			symbol,
+		}));
 
 		const { error: stockError } = await adminClient
 			.from("user_stocks")

@@ -38,24 +38,23 @@ function maskPiiInContext(
 			masked[key] = value;
 			continue;
 		}
+		const lowerKey = key.toLowerCase();
+		const isPhoneKey =
+			lowerKey.includes("phone") ||
+			lowerKey === "countrycode" ||
+			lowerKey === "country_code";
+		let looksLikePhone = false;
 		if (typeof value === "string") {
-			const lowerKey = key.toLowerCase();
-			const looksLikePhone =
-				lowerKey === "from" && PHONE_CANDIDATE_RE.test(value);
-			PHONE_CANDIDATE_RE.lastIndex = 0; // Reset global regex
-			if (
-				lowerKey.includes("phone") ||
-				lowerKey === "countrycode" ||
-				lowerKey === "country_code" ||
-				looksLikePhone
-			) {
-				masked[key] = "[REDACTED]";
-			} else {
-				masked[key] = value;
-			}
-		} else {
-			masked[key] = value;
+			looksLikePhone = PHONE_CANDIDATE_RE.test(value);
+			PHONE_CANDIDATE_RE.lastIndex = 0;
 		}
+
+		if (isPhoneKey || looksLikePhone) {
+			masked[key] = "[REDACTED]";
+			continue;
+		}
+
+		masked[key] = value;
 	}
 	return masked as LogContext;
 }

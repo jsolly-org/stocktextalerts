@@ -115,7 +115,7 @@ export function coerceValue(
 			}
 
 			const parsedValue = Number.parseFloat(raw);
-			if (Number.isNaN(parsedValue)) {
+			if (!Number.isFinite(parsedValue)) {
 				return {
 					value: undefined,
 					error: { reason: "invalid_number", key: "", value: raw },

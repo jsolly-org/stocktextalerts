@@ -58,7 +58,8 @@ const ERROR_HINTS: Partial<Record<SeedErrorCode, string[]>> = {
   ],
   users_parse_failed: [
     "\n💡 Hint: File read error.",
-    "   - Check that us-stocks.json exists in scripts/",
+    "   - Check that users.json exists in scripts/",
+    "   - Ensure the file is named users.json (not sample-users.json)",
     "   - Verify file permissions and JSON format",
   ],
   network_failed: [

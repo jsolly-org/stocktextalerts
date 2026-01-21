@@ -112,11 +112,36 @@ function parseTimeString(value: string | null | undefined): TimeModel | null {
 		return null;
 	}
 
-	const [hoursPart, minutesPart] = value.split(":");
+	const trimmed = value.trim();
+	if (!trimmed) {
+		return null;
+	}
+
+	const parts = trimmed.split(":");
+	if (parts.length !== 2) {
+		return null;
+	}
+
+	const [hoursPart, minutesPart] = parts;
+	if (!hoursPart || !minutesPart) {
+		return null;
+	}
+
+	if (!/^\d+$/.test(hoursPart) || !/^\d+$/.test(minutesPart)) {
+		return null;
+	}
+
 	const hours = Number.parseInt(hoursPart, 10);
 	const minutes = Number.parseInt(minutesPart, 10);
 
-	if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+	if (
+		!Number.isInteger(hours) ||
+		!Number.isInteger(minutes) ||
+		hours < 0 ||
+		hours > 23 ||
+		minutes < 0 ||
+		minutes > 59
+	) {
 		return null;
 	}
 	return { hours, minutes, seconds: 0 };

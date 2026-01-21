@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
+import { calculateNextSendAt } from "../../../../src/lib/time/schedule";
 import { POST } from "../../../../src/pages/api/notifications/daily-digest-now";
 import { adminClient } from "../../../setup";
 import { createAuthenticatedCookies, createTestUser } from "../../../utils";
@@ -250,13 +251,15 @@ describe("User requests to send daily digest immediately", () => {
 					const advanced = DateTime.fromISO(userAfter.next_send_at, {
 						zone: "utc",
 					});
-					const deltaMs = advanced.toMillis() - original.toMillis();
-					const expectedMs = 24 * 60 * 60 * 1000;
-					const toleranceMs = 5 * 60 * 1000;
-					expect(Math.abs(deltaMs - expectedMs)).toBeLessThanOrEqual(
-						toleranceMs,
+					const expectedNextSendAt = calculateNextSendAt(
+						540,
+						"America/New_York",
+						original.plus({ seconds: 1 }),
 					);
-					expect(deltaMs).toBeGreaterThan(0);
+					if (!expectedNextSendAt) {
+						throw new Error("Failed to calculate expected next_send_at");
+					}
+					expect(advanced.toMillis()).toBe(expectedNextSendAt.toMillis());
 				}
 			} finally {
 				await adminClient.auth.admin.deleteUser(id);

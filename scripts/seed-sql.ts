@@ -24,6 +24,11 @@ function sqlNullableString(value: string | null | undefined): string {
   return `'${escapeSql(trimmed)}'`;
 }
 
+function sqlString(value: string): string {
+  const trimmed = value.trim();
+  return `'${escapeSql(trimmed)}'`;
+}
+
 function validateOptionalString(
   value: unknown,
   fieldName: string,
@@ -240,7 +245,7 @@ export function buildPublicUserSql(userId: string, user: SeedUser): string {
 
   if (phoneCountryCode !== null && phoneNumber !== null) {
     insertColumns.push("phone_country_code", "phone_number");
-    insertValues.push(sqlNullableString(phoneCountryCode), sqlNullableString(phoneNumber));
+    insertValues.push(sqlString(phoneCountryCode), sqlString(phoneNumber));
     updateFields.push("phone_country_code = EXCLUDED.phone_country_code", "phone_number = EXCLUDED.phone_number");
   }
 

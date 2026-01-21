@@ -394,46 +394,37 @@ export const POST: APIRoute = async ({ request, locals }) => {
 					user.timezone,
 					currentTime,
 				);
-				if (nextSendAt) {
-					const nextSendAtIso = nextSendAt.toISO();
-					if (!nextSendAtIso) {
-						logger.error("Failed to format next_send_at ISO string", {
-							userId: user.id,
-							timezone: user.timezone,
-						});
-						return stats;
-					}
-					const { error: updateError } = await supabase
-						.from("users")
-						.update({ next_send_at: nextSendAtIso })
-						.eq("id", user.id);
-
-					if (updateError) {
-						logger.error(
-							"Failed to update users.next_send_at",
-							{ userId: user.id, nextSendAt: nextSendAtIso },
-							updateError,
-						);
-					}
-				} else {
+				const nextSendAtIso = nextSendAt ? nextSendAt.toISO() : null;
+				if (nextSendAt && !nextSendAtIso) {
+					logger.error("Failed to format next_send_at ISO string", {
+						userId: user.id,
+						timezone: user.timezone,
+					});
+				}
+				if (!nextSendAt) {
 					logger.warn("calculateNextSendAt returned null", {
 						userId: user.id,
 						daily_digest_notification_time: user.daily_digest_notification_time,
 						timezone: user.timezone,
 					});
+				}
 
-					const { error: updateError } = await supabase
-						.from("users")
-						.update({ next_send_at: null })
-						.eq("id", user.id);
+				const { error: updateError } = await supabase
+					.from("users")
+					.update({ next_send_at: nextSendAtIso })
+					.eq("id", user.id);
 
-					if (updateError) {
-						logger.error(
-							"Failed to clear users.next_send_at",
-							{ userId: user.id },
-							updateError,
-						);
-					}
+				if (updateError) {
+					logger.error(
+						nextSendAtIso
+							? "Failed to update users.next_send_at"
+							: "Failed to clear users.next_send_at",
+						{
+							userId: user.id,
+							nextSendAt: nextSendAtIso ?? undefined,
+						},
+						updateError,
+					);
 				}
 
 				return stats;

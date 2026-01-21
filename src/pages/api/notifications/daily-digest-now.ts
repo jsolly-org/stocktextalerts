@@ -9,7 +9,7 @@ import { createLogger } from "../../../lib/logging";
 import { calculateNextSendAt } from "../../../lib/time/schedule";
 import { createEmailSender } from "./email/utils";
 import { processEmailUpdate, processSmsUpdate } from "./processing";
-import { loadUserStocks } from "./shared";
+import { loadUserStocks, type UserStockRow } from "./shared";
 import { shouldSendSms } from "./sms";
 import {
 	createSmsSender,
@@ -166,7 +166,17 @@ export const POST: APIRoute = async ({
 			}
 		}
 
-		const userStocks = await loadUserStocks(supabaseAdmin, user.id);
+		let userStocks: UserStockRow[];
+		try {
+			userStocks = await loadUserStocks(supabaseAdmin, user.id);
+		} catch (error) {
+			logger.error(
+				"Failed to load user stocks for manual daily digest",
+				{ userId: user.id },
+				error,
+			);
+			return redirect("/dashboard?error=daily_digest_send_failed");
+		}
 
 		const stocksList =
 			userStocks.length === 0

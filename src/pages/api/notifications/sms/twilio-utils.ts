@@ -41,10 +41,23 @@ export function createSmsSender(
 ): SmsSender {
 	// In test mode, return a mock sender that always succeeds without making API calls
 	if (import.meta.env.MODE === "test") {
-		return async () => ({
-			success: true,
-			messageSid: "test",
-		});
+		const behavior = import.meta.env.SMS_TEST_BEHAVIOR ?? "success";
+		const testMessageSid = import.meta.env.SMS_TEST_MESSAGE_SID ?? "test";
+		const testError = import.meta.env.SMS_TEST_ERROR ?? "Test SMS failure";
+		const testErrorCode = import.meta.env.SMS_TEST_ERROR_CODE;
+		return async () => {
+			if (behavior === "fail") {
+				return {
+					success: false,
+					error: testError,
+					errorCode: testErrorCode,
+				};
+			}
+			return {
+				success: true,
+				messageSid: testMessageSid,
+			};
+		};
 	}
 
 	return async (request: SmsRequest): Promise<DeliveryResult> => {

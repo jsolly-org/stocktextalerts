@@ -36,8 +36,7 @@ const MESSAGE_ALLOWLIST = {
 	daily_digest_send_failed: "Failed to send daily digest. Please try again.",
 	daily_digest_rate_limited:
 		"Too many manual digest requests. You can send up to 1 per hour. Please try again later.",
-	daily_digest_timed_out:
-		"Daily digest request timed out. Please try again.",
+	daily_digest_timed_out: "Daily digest request timed out. Please try again.",
 	daily_digest_skip_failed:
 		"Failed to skip the next daily digest. Please try again.",
 } as const;
@@ -47,7 +46,7 @@ export type MessageKey = keyof typeof MESSAGE_ALLOWLIST;
 export function formatMessage(message: string | null): string {
 	if (!message) return "";
 
-	if (message in MESSAGE_ALLOWLIST) {
+	if (Object.hasOwn(MESSAGE_ALLOWLIST, message)) {
 		return MESSAGE_ALLOWLIST[message as MessageKey];
 	}
 

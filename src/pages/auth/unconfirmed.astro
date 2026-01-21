@@ -120,7 +120,6 @@ if (success === "true") {
 </Layout>
 
 <script>
-	import { DateTime } from "luxon";
 	import {
 		createCaptchaStatusHelpers,
 		setupHCaptchaCallback,
@@ -191,7 +190,7 @@ if (success === "true") {
 
 		resendForm.addEventListener("submit", () => {
 			try {
-				localStorage.setItem(COOLDOWN_KEY, DateTime.now().toMillis().toString());
+				localStorage.setItem(COOLDOWN_KEY, Date.now().toString());
 			} catch (err) {
 				rootLogger.error("Failed to save cooldown timestamp to localStorage", undefined, err);
 			}

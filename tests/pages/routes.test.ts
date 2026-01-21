@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { getContainerRenderer as getVueRenderer } from "@astrojs/vue";
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import { beforeAll, describe, expect, it } from "vitest";
+import { rootLogger } from "../../src/lib/logging";
 import AuthForgotPage from "../../src/pages/auth/forgot.astro";
 import AuthRecoverPage from "../../src/pages/auth/recover.astro";
 import AuthRegisterPage from "../../src/pages/auth/register.astro";
@@ -75,7 +76,27 @@ describe("Page routes render without unexpected logs", () => {
 			);
 			return await callback(user, cookies);
 		} finally {
-			await adminClient.auth.admin.deleteUser(user.id);
+			const { error: userStocksError } = await adminClient
+				.from("user_stocks")
+				.delete()
+				.eq("user_id", user.id);
+			if (userStocksError) {
+				rootLogger.warn("Cleanup failed (user_stocks)", {
+					error: userStocksError,
+				});
+			}
+			const { error: userRowError } = await adminClient
+				.from("users")
+				.delete()
+				.eq("id", user.id);
+			if (userRowError) {
+				rootLogger.warn("Cleanup failed (users)", { error: userRowError });
+			}
+			const { error: authDeleteError } =
+				await adminClient.auth.admin.deleteUser(user.id);
+			if (authDeleteError) {
+				rootLogger.warn("Cleanup failed (auth)", { error: authDeleteError });
+			}
 		}
 	}
 

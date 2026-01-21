@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { MAX_TRACKED_STOCKS } from "../../../../src/lib/db/database-errors";
+import { rootLogger } from "../../../../src/lib/logging";
 import { POST } from "../../../../src/pages/api/preferences";
 import { adminClient } from "../../../setup";
 import {
@@ -200,31 +201,62 @@ describe("POST /api/preferences (tracked stocks)", () => {
 	});
 
 	it("should reject when attempting to track more than MAX_TRACKED_STOCKS", async () => {
-		const { data: stockRows, error: stockError } = await adminClient
+		const uniqueId = randomUUID().slice(0, 4).toUpperCase();
+		const seedSymbols = Array.from(
+			{ length: MAX_TRACKED_STOCKS + 1 },
+			(_, index) => `T${uniqueId}${String(index).padStart(3, "0")}`,
+		);
+		const seedRecords = seedSymbols.map((symbol) => ({
+			symbol,
+			name: `${symbol} Test Stock`,
+			exchange: "NASDAQ",
+		}));
+		let testUserForCleanup: TestUser | undefined;
+
+		const { error: insertError } = await adminClient
 			.from("stocks")
-			.select("symbol")
-			.order("symbol")
-			.limit(MAX_TRACKED_STOCKS + 1);
-		expect(stockError).toBeNull();
-		const realStockSymbols = (stockRows ?? []).map((row) => row.symbol);
-		expect(realStockSymbols.length).toBeGreaterThanOrEqual(
-			MAX_TRACKED_STOCKS + 1,
-		);
+			.insert(seedRecords);
+		expect(insertError).toBeNull();
 
-		const initialStocks = realStockSymbols.slice(0, MAX_TRACKED_STOCKS);
-		const stocksExceedingLimit = realStockSymbols.slice(
-			0,
-			MAX_TRACKED_STOCKS + 1,
-		);
+		try {
+			const initialStocks = seedSymbols.slice(0, MAX_TRACKED_STOCKS);
+			const stocksExceedingLimit = seedSymbols.slice(0, MAX_TRACKED_STOCKS + 1);
 
-		const { response, trackedStocks, redirectUrl } = await updateTrackedStocks(
-			initialStocks,
-			stocksExceedingLimit,
-		);
+			const { response, trackedStocks, redirectUrl, testUser } =
+				await updateTrackedStocks(initialStocks, stocksExceedingLimit);
+			testUserForCleanup = testUser;
 
-		expect(redirectUrl).toBe("/dashboard?error=stocks_limit");
-		expect(response.status).toBe(302);
+			expect(redirectUrl).toBe("/dashboard?error=stocks_limit");
+			expect(response.status).toBe(302);
 
-		expect(trackedStocks).toHaveLength(MAX_TRACKED_STOCKS);
+			expect(trackedStocks).toHaveLength(MAX_TRACKED_STOCKS);
+		} finally {
+			if (testUserForCleanup) {
+				const { error: userStocksError } = await adminClient
+					.from("user_stocks")
+					.delete()
+					.eq("user_id", testUserForCleanup.id);
+				if (userStocksError) {
+					rootLogger.warn("Cleanup failed (user_stocks)", {
+						error: userStocksError,
+					});
+				}
+
+				const { error: userRowError } = await adminClient
+					.from("users")
+					.delete()
+					.eq("id", testUserForCleanup.id);
+				if (userRowError) {
+					rootLogger.warn("Cleanup failed (users)", { error: userRowError });
+				}
+
+				const { error: authDeleteError } =
+					await adminClient.auth.admin.deleteUser(testUserForCleanup.id);
+				if (authDeleteError) {
+					rootLogger.warn("Cleanup failed (auth)", { error: authDeleteError });
+				}
+			}
+			await adminClient.from("stocks").delete().in("symbol", seedSymbols);
+		}
 	});
 });
