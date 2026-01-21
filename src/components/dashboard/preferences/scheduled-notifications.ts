@@ -315,7 +315,7 @@ function initializeDailyDigestUI(options: {
 
 			window.location.assign("/dashboard?error=daily_digest_send_failed");
 		} catch (error) {
-			if (error instanceof Error && error.name === "AbortError") {
+			if (error instanceof Error && error.name === "TimeoutError") {
 				rootLogger.error(
 					"Daily digest send request timed out",
 					undefined,
