@@ -200,60 +200,16 @@ describe("POST /api/preferences (tracked stocks)", () => {
 	});
 
 	it("should reject when attempting to track more than MAX_TRACKED_STOCKS", async () => {
-		// Use real stock symbols that exist in the database
-		const realStockSymbols = [
-			"A",
-			"AA",
-			"AACB",
-			"AACBR",
-			"AACBU",
-			"AACG",
-			"AAL",
-			"AAM",
-			"AAME",
-			"AAMI",
-			"AAOI",
-			"AAON",
-			"AAP",
-			"AAPG",
-			"AAPL",
-			"AARD",
-			"AAT",
-			"AAUC",
-			"AAV",
-			"AB",
-			"ABB",
-			"ABBV",
-			"ABC",
-			"ABCB",
-			"ABCL",
-			"ABCM",
-			"ABEO",
-			"ABEV",
-			"ABG",
-			"ABIO",
-			"ABM",
-			"ABMD",
-			"ABNB",
-			"ABOS",
-			"ABR",
-			"ABSI",
-			"ABST",
-			"ABT",
-			"ABUS",
-			"ABVC",
-			"AC",
-			"ACA",
-			"ACAB",
-			"ACAD",
-			"ACAH",
-			"ACAHU",
-			"ACAHW",
-			"ACB",
-			"ACBA",
-			"ACBAU",
-			"ACBAW",
-		];
+		const { data: stockRows, error: stockError } = await adminClient
+			.from("stocks")
+			.select("symbol")
+			.order("symbol")
+			.limit(MAX_TRACKED_STOCKS + 1);
+		expect(stockError).toBeNull();
+		const realStockSymbols = (stockRows ?? []).map((row) => row.symbol);
+		expect(realStockSymbols.length).toBeGreaterThanOrEqual(
+			MAX_TRACKED_STOCKS + 1,
+		);
 
 		const initialStocks = realStockSymbols.slice(0, MAX_TRACKED_STOCKS);
 		const stocksExceedingLimit = realStockSymbols.slice(

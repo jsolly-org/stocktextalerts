@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { createUserService } from "../../../../lib/db";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
+import { createLogger } from "../../../../lib/logging";
 import { checkVerification } from "./verify-utils";
 
 interface SmsVerifyCodeDependencies {
@@ -21,13 +22,19 @@ export function createVerifyCodeHandler(
 ): APIRoute {
 	const dependencies = { ...defaultDependencies, ...overrides };
 
-	return async ({ request, cookies, redirect }) => {
+	return async ({ request, cookies, redirect, locals }) => {
+		const url = new URL(request.url);
+		const logger = createLogger({
+			requestId: locals?.requestId,
+			path: url.pathname,
+			method: request.method,
+		});
 		const supabase = dependencies.createSupabaseServerClient();
 		const userService = dependencies.createUserService(supabase, cookies);
 
 		const user = await userService.getCurrentUser();
 		if (!user) {
-			console.error("SMS verification attempt without authenticated user");
+			logger.error("SMS verification attempt without authenticated user");
 			return redirect("/signin?error=unauthorized");
 		}
 
@@ -38,7 +45,7 @@ export function createVerifyCodeHandler(
 			} as const);
 
 			if (!parsed.ok) {
-				console.error(
+				logger.error(
 					"SMS verification code form rejected due to invalid fields",
 					{
 						errors: parsed.allErrors,
@@ -51,13 +58,14 @@ export function createVerifyCodeHandler(
 
 			const userData = await userService.getById(user.id);
 			if (!userData) {
-				console.error(
-					`Auth user exists but database user record missing - ID: ${user.id}, email: ${user.email}, endpoint: sms/verify-code`,
-				);
+				logger.error("Auth user exists but database user record missing", {
+					userId: user.id,
+					endpoint: "sms/verify-code",
+				});
 				return redirect("/dashboard?error=user_not_found");
 			}
 			if (!userData.phone_country_code || !userData.phone_number) {
-				console.error("SMS verification requested but phone details missing", {
+				logger.error("SMS verification requested but phone details missing", {
 					userId: user.id,
 				});
 				return redirect("/dashboard?error=phone_not_set");
@@ -67,7 +75,7 @@ export function createVerifyCodeHandler(
 			const result = await dependencies.checkVerification(fullPhone, code);
 
 			if (!result.success) {
-				console.error("Verification failed:", result.error);
+				logger.error("Verification failed", { error: result.error });
 				return redirect("/dashboard?error=invalid_code");
 			}
 
@@ -79,10 +87,7 @@ export function createVerifyCodeHandler(
 				"/dashboard?success=phone_verified#notification-preferences",
 			);
 		} catch (error) {
-			console.error(
-				"Verify code error:",
-				error instanceof Error ? error.message : "Unknown error",
-			);
+			logger.error("Verify code error", undefined, error);
 			return redirect("/dashboard?error=server_error");
 		}
 	};

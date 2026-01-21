@@ -1,5 +1,5 @@
-import { DEFAULT_TIMEZONE } from "../../../lib/timezones/constants";
-import { setupDetectedTimezoneOption } from "../../../lib/timezones/select";
+import { setupDetectedTimezoneOption } from "../../../lib/time/banner";
+import { DEFAULT_TIMEZONE } from "../../../lib/time/constants";
 
 function onDOMReady(callback: () => void) {
 	if (document.readyState === "loading") {
@@ -21,7 +21,9 @@ function setupSaveHint(options: { formId: string; saveHintId: string }) {
 		return;
 	}
 
-	const timezoneSelect = formElement.querySelector("#timezone");
+	const timezoneSelect = formElement.querySelector(
+		`#${options.formId}-timezone`,
+	);
 	const emailCheckbox = formElement.querySelector(
 		`#${options.formId}-email_notifications_enabled`,
 	);
@@ -71,8 +73,6 @@ function setupSaveHint(options: { formId: string; saveHintId: string }) {
 
 export function initNotificationPreferencesCards() {
 	onDOMReady(() => {
-		setupDetectedTimezoneOption({ defaultTimezone: DEFAULT_TIMEZONE });
-
 		const cards = document.querySelectorAll<HTMLElement>(
 			"[data-notification-preferences-card]",
 		);
@@ -89,6 +89,12 @@ export function initNotificationPreferencesCards() {
 			if (!formId || !saveHintId) {
 				continue;
 			}
+
+			const timezoneSelectId = `${formId}-timezone`;
+			setupDetectedTimezoneOption({
+				selectId: timezoneSelectId,
+				defaultTimezone: DEFAULT_TIMEZONE,
+			});
 
 			setupSaveHint({ formId, saveHintId });
 		}

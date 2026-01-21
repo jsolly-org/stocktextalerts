@@ -3,6 +3,7 @@ Twilio SMS
 ============= */
 
 import twilio, { type RestException } from "twilio";
+import { rootLogger } from "../../../../lib/logging";
 
 import type { DeliveryResult } from "../shared";
 
@@ -38,6 +39,14 @@ export function createSmsSender(
 	client: TwilioClient,
 	defaultFromNumber: string,
 ): SmsSender {
+	// In test mode, return a mock sender that always succeeds without making API calls
+	if (import.meta.env.MODE === "test") {
+		return async () => ({
+			success: true,
+			messageSid: "test",
+		});
+	}
+
 	return async (request: SmsRequest): Promise<DeliveryResult> => {
 		const from = request.from ?? defaultFromNumber;
 
@@ -53,7 +62,7 @@ export function createSmsSender(
 				messageSid: message.sid,
 			};
 		} catch (error) {
-			console.error("Twilio SMS send error:", error);
+			rootLogger.error("Twilio SMS send error", undefined, error);
 
 			// Twilio SDK throws RestException for API errors (HTTP 400-5xx).
 			// RestException has: status (HTTP status), code (numeric Twilio error code),

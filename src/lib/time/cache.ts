@@ -1,5 +1,6 @@
 import type { Database } from "../db/generated/database.types";
 import type { AppSupabaseClient } from "../db/supabase";
+import { rootLogger } from "../logging";
 import { DEFAULT_TIMEZONE } from "./constants";
 
 type DbTimezoneRow = Database["public"]["Tables"]["timezones"]["Row"];
@@ -85,7 +86,7 @@ async function getAllTimezonesCached(
 			return rows;
 		})
 		.catch((error) => {
-			console.error("Failed to load timezones cache:", error);
+			rootLogger.error("Failed to load timezones cache", undefined, error);
 			// Only invalidate cache on error if a cache bust was explicitly requested
 			// (i.e., cacheBuster changed). This preserves valid cached data during
 			// transient fetch errors.
@@ -162,7 +163,7 @@ export async function resolveTimezone(options: {
 			return detectedTimezone;
 		}
 
-		console.warn("Detected timezone not found in database", {
+		rootLogger.info("Detected timezone not found in database", {
 			detectedTimezone,
 		});
 	}

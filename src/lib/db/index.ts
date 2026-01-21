@@ -1,5 +1,6 @@
 import type { AstroCookies } from "astro";
 import { setAuthCookies } from "../auth/cookies";
+import { rootLogger } from "../logging";
 import type { Database } from "./generated/database.types";
 import type { AppSupabaseClient } from "./supabase";
 
@@ -49,21 +50,26 @@ export function createUserService(
 
 			if (sessionResponse.error || !sessionResponse.data.session) {
 				if (sessionResponse.error) {
-					const data = sessionResponse.data;
-					const user = data?.user;
-					console.error("session lookup failed", {
-						error: sessionResponse.error.message || sessionResponse.error,
-						code: sessionResponse.error.code,
-						status: sessionResponse.error.status,
-						userId:
-							user && typeof user === "object" && "id" in user
-								? (user as { id: string }).id
-								: undefined,
-						email:
-							user && typeof user === "object" && "email" in user
-								? (user as { email: string }).email
-								: undefined,
-					});
+					// Only log unexpected errors (server errors, network issues)
+					// Status 400/401 are expected for invalid/expired tokens
+					const status = sessionResponse.error.status;
+					const isExpectedAuthFailure =
+						status === 400 || status === 401 || status === 403;
+
+					if (!isExpectedAuthFailure) {
+						const userId =
+							sessionResponse.data?.user &&
+							typeof sessionResponse.data.user === "object" &&
+							"id" in sessionResponse.data.user
+								? (sessionResponse.data.user as { id: string }).id
+								: undefined;
+						rootLogger.error("session lookup failed", {
+							error: sessionResponse.error.message,
+							code: sessionResponse.error.code,
+							status: sessionResponse.error.status,
+							userId,
+						});
+					}
 				}
 				return null;
 			}

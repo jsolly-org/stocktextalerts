@@ -1,6 +1,7 @@
+import { rootLogger } from "../logging";
 import type { FormIssue, FormSchema } from "./schema";
 
-type RawSchemaData = {
+export type RawSchemaData = {
 	keys: readonly string[];
 	rawData: Record<string, string | null>;
 	validationErrors: FormIssue[];
@@ -25,8 +26,13 @@ export function readRawSchemaData(
 			continue;
 		}
 
+		const spec = schema[key];
 		if (seen.has(key)) {
-			console.error("readRawSchemaData rejected duplicate key", { key });
+			if (spec?.type === "boolean" && typeof value === "string") {
+				rawData[key] = value;
+				continue;
+			}
+			rootLogger.error("readRawSchemaData rejected duplicate key", { key });
 			validationErrors.push({
 				reason: "duplicate_key",
 				key,
@@ -36,7 +42,7 @@ export function readRawSchemaData(
 
 		if (typeof value !== "string") {
 			const valueType = typeof value;
-			console.error("readRawSchemaData rejected non-string value", {
+			rootLogger.error("readRawSchemaData rejected non-string value", {
 				key,
 				valueType,
 			});

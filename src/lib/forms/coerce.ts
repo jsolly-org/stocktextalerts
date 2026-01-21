@@ -89,7 +89,18 @@ export function coerceValue(
 				};
 			}
 
-			return { value: Number.parseInt(raw, 10) };
+			const parsedValue = Number.parseInt(raw, 10);
+			const rawBigInt = BigInt(raw);
+			const maxSafe = BigInt(Number.MAX_SAFE_INTEGER);
+			const minSafe = BigInt(Number.MIN_SAFE_INTEGER);
+			if (rawBigInt > maxSafe || rawBigInt < minSafe) {
+				return {
+					value: undefined,
+					error: { reason: "integer_out_of_range", key: "", value: raw },
+				};
+			}
+
+			return { value: parsedValue };
 		}
 		case "number": {
 			if (raw === "") {
@@ -147,8 +158,8 @@ export function coerceValue(
 			}
 		}
 		default: {
-			console.error("Unexpected field type:", spec);
-			return { value: raw };
+			const specType = (spec as { type?: string }).type ?? "unknown";
+			throw new Error(`Unexpected field type "${specType}" in form schema`);
 		}
 	}
 }

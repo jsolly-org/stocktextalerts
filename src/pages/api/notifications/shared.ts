@@ -1,6 +1,6 @@
-import { Temporal } from "@js-temporal/polyfill";
 import type { Database } from "../../../lib/db/generated/database.types";
 import type { AppSupabaseClient } from "../../../lib/db/supabase";
+import { rootLogger } from "../../../lib/logging";
 
 export type DeliveryMethod = Database["public"]["Enums"]["delivery_method"];
 export type ScheduledNotificationType =
@@ -44,57 +44,6 @@ export type UserStockRow = Pick<
 	name: Database["public"]["Tables"]["stocks"]["Row"]["name"];
 };
 
-export function calculateNextSendAt(
-	localMinutes: number,
-	timezone: string,
-	getCurrentTime: () => Date,
-): Date | null {
-	try {
-		if (!Number.isFinite(localMinutes)) {
-			return null;
-		}
-
-		const hours = Math.floor(localMinutes / 60);
-		const minutes = localMinutes % 60;
-		if (
-			!Number.isInteger(hours) ||
-			!Number.isInteger(minutes) ||
-			hours < 0 ||
-			hours > 23 ||
-			minutes < 0 ||
-			minutes > 59
-		) {
-			return null;
-		}
-
-		const now = getCurrentTime();
-		const nowInstant = Temporal.Instant.from(now.toISOString());
-		const nowZoned = nowInstant.toZonedDateTimeISO(timezone);
-
-		let candidate = nowZoned.with({
-			hour: hours,
-			minute: minutes,
-			second: 0,
-			millisecond: 0,
-			microsecond: 0,
-			nanosecond: 0,
-		});
-
-		if (Temporal.ZonedDateTime.compare(candidate, nowZoned) <= 0) {
-			candidate = candidate.add({ days: 1 });
-		}
-
-		return new Date(candidate.toInstant().epochMilliseconds);
-	} catch (error) {
-		console.error("Failed to calculate next_send_at", {
-			localMinutes,
-			timezone,
-			error: error instanceof Error ? error.message : String(error),
-		});
-		return null;
-	}
-}
-
 export async function loadUserStocks(
 	supabase: AppSupabaseClient,
 	userId: string,
@@ -121,7 +70,11 @@ export async function recordNotification(
 	const { error } = await supabase.from("notification_log").insert(insert);
 
 	if (error) {
-		console.error("Failed to record notification:", error);
+		rootLogger.error(
+			"Failed to record notification",
+			{ user_id: insert.user_id ?? null },
+			error,
+		);
 		return false;
 	}
 

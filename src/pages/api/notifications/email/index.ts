@@ -1,3 +1,4 @@
+import { rootLogger } from "../../../../lib/logging";
 import type { DeliveryResult, EmailUser } from "../shared";
 import type { EmailSender } from "./utils";
 
@@ -18,10 +19,7 @@ export async function sendUserEmail(
 		});
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
-		console.error("Failed to send email", {
-			userId: user.id,
-			error,
-		});
+		rootLogger.error("Failed to send email", { userId: user.id }, error);
 		return { success: false, error: errorMessage };
 	}
 }

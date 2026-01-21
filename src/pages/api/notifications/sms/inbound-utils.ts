@@ -1,5 +1,6 @@
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import type { AppSupabaseClient } from "../../../../lib/db/supabase";
+import { rootLogger } from "../../../../lib/logging";
 
 export interface InboundSmsDependencies {
 	authToken: string;
@@ -35,7 +36,7 @@ export async function handleInboundSms(
 	const { authToken, validateRequest, supabase } = deps;
 
 	if (!authToken) {
-		console.error("Missing TWILIO_AUTH_TOKEN for webhook validation");
+		rootLogger.error("Missing TWILIO_AUTH_TOKEN for webhook validation");
 		return {
 			status: 500,
 			body: "Server misconfigured",
@@ -85,7 +86,8 @@ export async function handleInboundSms(
 		countryCode = `+${parsed.countryCallingCode}`;
 		phoneNumber = parsed.nationalNumber;
 	} catch {
-		console.error("Failed to parse phone number:", from);
+		// PII masking (phone numbers) is handled automatically by the logger
+		rootLogger.error("Failed to parse phone number", { from });
 		return {
 			status: 400,
 			body: "Invalid phone format",
@@ -99,11 +101,15 @@ export async function handleInboundSms(
 		.eq("phone_number", phoneNumber);
 
 	if (error) {
-		console.error("Inbound SMS user lookup failed", {
+		// PII masking (phone numbers) is handled automatically by the logger
+		rootLogger.error(
+			"Inbound SMS user lookup failed",
+			{
+				countryCode,
+				phoneNumber,
+			},
 			error,
-			countryCode,
-			phoneNumber,
-		});
+		);
 		return {
 			status: 200,
 			body: wrapInTwiml(""),
@@ -139,7 +145,7 @@ export async function handleInboundSms(
 			.eq("id", userId);
 
 		if (updateError) {
-			console.error("Failed to opt out user:", updateError);
+			rootLogger.error("Failed to opt out user", undefined, updateError);
 			return {
 				status: 500,
 				body: "Failed to update preferences",
@@ -162,7 +168,7 @@ export async function handleInboundSms(
 			.eq("id", userId);
 
 		if (updateError) {
-			console.error("Failed to opt in user:", updateError);
+			rootLogger.error("Failed to opt in user", undefined, updateError);
 			return {
 				status: 500,
 				body: "Failed to update preferences",

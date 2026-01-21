@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { getSiteUrl } from "../../../../lib/db/env";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
+import { createLogger } from "../../../../lib/logging";
 
 /*
  * Regex pattern to extract seconds from Supabase Auth rate limit error messages.
@@ -24,7 +25,31 @@ const RATE_LIMIT_SECONDS_PATTERN = /\b(\d+)\s+seconds?\b/i;
  */
 const DEFAULT_PASSWORD_RESET_RATE_LIMIT_SECONDS = 60;
 
-export const POST: APIRoute = async ({ request, redirect }) => {
+function parseRateLimitSeconds(message: string | undefined): number | null {
+	if (!message) {
+		return null;
+	}
+
+	const match = message.match(RATE_LIMIT_SECONDS_PATTERN);
+	if (!match) {
+		return null;
+	}
+
+	const parsedSeconds = Number.parseInt(match[1], 10);
+	if (!Number.isFinite(parsedSeconds) || parsedSeconds <= 0) {
+		return null;
+	}
+
+	return parsedSeconds;
+}
+
+export const POST: APIRoute = async ({ request, redirect, locals }) => {
+	const url = new URL(request.url);
+	const logger = createLogger({
+		requestId: locals?.requestId,
+		path: url.pathname,
+		method: request.method,
+	});
 	const supabase = createSupabaseServerClient();
 
 	try {
@@ -36,7 +61,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
 
 		if (!parsed.ok) {
 			const errors = parsed.allErrors;
-			console.error("Password reset request rejected due to invalid form", {
+			logger.info("Password reset request rejected due to invalid form", {
 				errors,
 			});
 			return redirect("/auth/forgot?error=invalid_form");
@@ -57,8 +82,6 @@ export const POST: APIRoute = async ({ request, redirect }) => {
 		});
 
 		if (error) {
-			console.error("Password reset request failed:", error);
-
 			if (error.code === "captcha_failed") {
 				return redirect("/auth/forgot?error=captcha_required");
 			}
@@ -74,24 +97,20 @@ export const POST: APIRoute = async ({ request, redirect }) => {
 			) {
 				// Attempt to extract retry seconds from error message.
 				// Supabase Auth errors don't expose Retry-After header, so we parse the message.
-				const match = error.message?.match(RATE_LIMIT_SECONDS_PATTERN);
-				const parsedSeconds = match ? Number.parseInt(match[1], 10) : null;
 				const seconds =
-					parsedSeconds !== null &&
-					Number.isFinite(parsedSeconds) &&
-					parsedSeconds > 0
-						? parsedSeconds
-						: DEFAULT_PASSWORD_RESET_RATE_LIMIT_SECONDS;
+					parseRateLimitSeconds(error.message) ??
+					DEFAULT_PASSWORD_RESET_RATE_LIMIT_SECONDS;
 
 				return redirect(`/auth/forgot?error=rate_limit&seconds=${seconds}`);
 			}
 
+			logger.error("Password reset request failed", {}, error);
 			return redirect("/auth/forgot?error=failed");
 		}
 
 		return redirect("/auth/forgot?success=true");
 	} catch (error) {
-		console.error("Password reset request failed:", error);
+		logger.error("Password reset request failed", undefined, error);
 		return redirect("/auth/forgot?error=failed");
 	}
 };

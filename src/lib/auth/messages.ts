@@ -1,3 +1,5 @@
+import { rootLogger } from "../logging";
+
 export function getAuthErrorMessage(error: string | null): string {
 	if (!error) return "";
 
@@ -47,7 +49,7 @@ export function getAuthSuccessMessage(code: string | null): string {
 		case "account_deleted":
 			return "Your account has been permanently deleted.";
 		default:
-			console.warn(`Unknown auth success code: ${code}`);
+			rootLogger.warn("Unknown auth success code", { code });
 			return "";
 	}
 }

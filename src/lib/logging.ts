@@ -1,0 +1,209 @@
+type LogLevel = "debug" | "info" | "warn" | "error";
+
+export type LogContext = Record<string, unknown> & {
+	requestId?: string;
+};
+
+type LogEntry = {
+	timestamp: string;
+	level: LogLevel;
+	message: string;
+	context?: Record<string, unknown>;
+	requestId?: string;
+	error?: {
+		name?: string;
+		message: string;
+		stack?: string;
+		raw?: unknown;
+		cause?: unknown;
+	};
+};
+
+const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+// Require separators or a country code to reduce false positives (may miss bare digits).
+// Matches: +1 (415) 555-1234, (415) 555-1234, 415-555-1234, etc.
+const PHONE_CANDIDATE_RE =
+	/(?:\+\d{1,3}[\s().-]*)?\(?\d{3}\)?[\s().-]*\d{3}[\s().-]*\d{4}/g;
+
+function maskPiiInContext(
+	context: LogContext,
+	maskPiiEnabled: boolean,
+): LogContext {
+	if (!maskPiiEnabled) {
+		return context;
+	}
+	const masked: Record<string, unknown> = {};
+	for (const [key, value] of Object.entries(context)) {
+		if (key === "requestId") {
+			masked[key] = value;
+			continue;
+		}
+		if (typeof value === "string") {
+			const lowerKey = key.toLowerCase();
+			const looksLikePhone =
+				lowerKey === "from" && PHONE_CANDIDATE_RE.test(value);
+			PHONE_CANDIDATE_RE.lastIndex = 0; // Reset global regex
+			if (
+				lowerKey.includes("phone") ||
+				lowerKey === "countrycode" ||
+				lowerKey === "country_code" ||
+				looksLikePhone
+			) {
+				masked[key] = "[REDACTED]";
+			} else {
+				masked[key] = value;
+			}
+		} else {
+			masked[key] = value;
+		}
+	}
+	return masked as LogContext;
+}
+
+function maskPiiInString(value: string, maskPiiEnabled: boolean): string {
+	if (!maskPiiEnabled) {
+		return value;
+	}
+	const maskedEmail = value.replace(EMAIL_RE, "[REDACTED]");
+	return maskedEmail.replace(PHONE_CANDIDATE_RE, (match) => {
+		const digits = match.replace(/\D/g, "");
+		if (digits.length < 10) {
+			return match;
+		}
+		return "[REDACTED]";
+	});
+}
+
+function serializeError(error: unknown): LogEntry["error"] {
+	if (error instanceof Error) {
+		return {
+			name: error.name,
+			message: error.message,
+			stack: error.stack,
+			cause: error.cause,
+		};
+	}
+
+	if (typeof error === "string") {
+		return { message: error };
+	}
+
+	return {
+		message: "Non-Error thrown",
+		raw: error,
+	};
+}
+
+function safeJsonStringify(value: unknown, maskPiiEnabled: boolean): string {
+	const seen = new WeakSet<object>();
+	return JSON.stringify(value, (_key, entry) => {
+		if (typeof entry === "bigint") {
+			return entry.toString();
+		}
+		if (entry instanceof Error) {
+			return serializeError(entry);
+		}
+		if (typeof entry === "string") {
+			return maskPiiInString(entry, maskPiiEnabled);
+		}
+		if (typeof entry === "object" && entry !== null) {
+			if (seen.has(entry)) {
+				return "[Circular]";
+			}
+			seen.add(entry);
+		}
+		return entry;
+	});
+}
+
+function buildEntry(
+	level: LogLevel,
+	message: string,
+	context?: LogContext,
+	error?: unknown,
+): LogEntry {
+	const logMaskPiiValue =
+		typeof import.meta !== "undefined" && import.meta.env
+			? import.meta.env.LOG_MASK_PII
+			: process.env.LOG_MASK_PII;
+	const maskPiiEnabled = logMaskPiiValue?.toLowerCase() !== "false";
+	const maskedContext = context
+		? maskPiiInContext(context, maskPiiEnabled)
+		: undefined;
+	const { requestId, ...rest } = maskedContext ?? {};
+	const entry: LogEntry = {
+		timestamp: new Date().toISOString(),
+		level,
+		message,
+	};
+
+	if (requestId) {
+		entry.requestId = requestId;
+	}
+	if (Object.keys(rest).length > 0) {
+		entry.context = rest;
+	}
+	if (error !== undefined) {
+		entry.error = serializeError(error);
+	}
+
+	return entry;
+}
+
+function writeLog(
+	level: LogLevel,
+	message: string,
+	context?: LogContext,
+	error?: unknown,
+) {
+	const entry = buildEntry(level, message, context, error);
+	const logMaskPiiValue =
+		typeof import.meta !== "undefined" && import.meta.env
+			? import.meta.env.LOG_MASK_PII
+			: process.env.LOG_MASK_PII;
+	const output = safeJsonStringify(
+		entry,
+		logMaskPiiValue?.toLowerCase() !== "false",
+	);
+
+	switch (level) {
+		case "debug":
+			console.debug(output);
+			break;
+		case "info":
+			console.info(output);
+			break;
+		case "warn":
+			console.warn(output);
+			break;
+		case "error":
+			console.error(output);
+			break;
+	}
+}
+
+export type Logger = {
+	debug: (message: string, context?: LogContext) => void;
+	info: (message: string, context?: LogContext) => void;
+	warn: (message: string, context?: LogContext) => void;
+	error: (message: string, context?: LogContext, error?: unknown) => void;
+};
+
+export function createLogger(baseContext: LogContext = {}): Logger {
+	return {
+		debug(message, context) {
+			writeLog("debug", message, { ...baseContext, ...context });
+		},
+		info(message, context) {
+			writeLog("info", message, { ...baseContext, ...context });
+		},
+		warn(message, context) {
+			writeLog("warn", message, { ...baseContext, ...context });
+		},
+		error(message, context, error) {
+			writeLog("error", message, { ...baseContext, ...context }, error);
+		},
+	};
+}
+
+export const rootLogger = createLogger();

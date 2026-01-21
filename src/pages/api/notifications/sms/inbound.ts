@@ -3,6 +3,7 @@ import twilio from "twilio";
 import { createSupabaseAdminClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
 import type { FormSchema } from "../../../../lib/forms/schema";
+import { createLogger } from "../../../../lib/logging";
 import { handleInboundSms } from "./inbound-utils";
 import { readTwilioConfig } from "./twilio-utils";
 
@@ -44,9 +45,7 @@ function buildInboundSmsSchema(): FormSchema {
 
 const INBOUND_SMS_SCHEMA = buildInboundSmsSchema();
 
-function reconstructUrl(request: Request): string {
-	const url = new URL(request.url);
-
+function reconstructUrl(request: Request, url: URL): string {
 	const forwardedProto = request.headers.get("x-forwarded-proto") ?? "";
 	const forwardedHost = request.headers.get("x-forwarded-host") ?? "";
 
@@ -64,12 +63,18 @@ function reconstructUrl(request: Request): string {
 	return request.url;
 }
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
+	const url = new URL(request.url);
+	const logger = createLogger({
+		requestId: locals?.requestId,
+		path: url.pathname,
+		method: request.method,
+	});
 	try {
 		const signatureHeader = request.headers.get("x-twilio-signature");
 
 		if (!signatureHeader) {
-			console.error("Inbound SMS request missing x-twilio-signature header");
+			logger.error("Inbound SMS request missing x-twilio-signature header");
 			return new Response("Missing Twilio signature", { status: 401 });
 		}
 
@@ -78,7 +83,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const parsed = parseWithSchema(formData, INBOUND_SMS_SCHEMA);
 
 		if (!parsed.ok) {
-			console.error("Inbound SMS rejected due to invalid form data", {
+			logger.warn("Inbound SMS rejected due to invalid form data", {
 				errors: parsed.allErrors,
 			});
 			return new Response("Invalid form submission", { status: 400 });
@@ -89,7 +94,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const supabase = createSupabaseAdminClient();
 		const twilioConfig = readTwilioConfig();
 
-		const webhookUrl = reconstructUrl(request);
+		const webhookUrl = reconstructUrl(request, url);
 
 		const result = await handleInboundSms(
 			{
@@ -114,7 +119,7 @@ export const POST: APIRoute = async ({ request }) => {
 			headers,
 		});
 	} catch (error) {
-		console.error("SMS webhook error:", error);
+		logger.error("SMS webhook error", undefined, error);
 		return new Response("Internal server error", { status: 500 });
 	}
 };

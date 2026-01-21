@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { DateTime } from "luxon";
 import { createUserService, omitUndefined } from "../../../lib/db";
 import {
 	isStocksLimitError,
@@ -9,7 +10,8 @@ import {
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
-import { calculateNextSendAt } from "../notifications/shared";
+import { createLogger } from "../../../lib/logging";
+import { calculateNextSendAt } from "../../../lib/time/schedule";
 
 interface PreferencesDependencies {
 	createSupabaseServerClient: typeof createSupabaseServerClient;
@@ -26,13 +28,19 @@ export function createPreferencesHandler(
 ): APIRoute {
 	const dependencies = { ...defaultDependencies, ...overrides };
 
-	return async ({ request, cookies, redirect }) => {
+	return async ({ request, cookies, redirect, locals }) => {
+		const url = new URL(request.url);
+		const logger = createLogger({
+			requestId: locals?.requestId,
+			path: url.pathname,
+			method: request.method,
+		});
 		const supabase = dependencies.createSupabaseServerClient();
 		const userService = dependencies.createUserService(supabase, cookies);
 
 		const user = await userService.getCurrentUser();
 		if (!user) {
-			console.error("Preferences update attempt without authenticated user");
+			logger.info("Preferences update attempt without authenticated user");
 			return redirect("/signin?error=unauthorized");
 		}
 
@@ -50,7 +58,7 @@ export function createPreferencesHandler(
 		const parsed = parseWithSchema(formData, shape);
 
 		if (!parsed.ok) {
-			console.error("Preferences update rejected due to invalid form", {
+			logger.info("Preferences update rejected due to invalid form", {
 				errors: parsed.allErrors,
 			});
 			return redirect("/dashboard?error=invalid_form");
@@ -59,7 +67,7 @@ export function createPreferencesHandler(
 		const { tracked_stocks: trackedSymbols, ...preferenceData } = parsed.data;
 
 		if (trackedSymbols.length > MAX_TRACKED_STOCKS) {
-			console.error("Tracked stocks limit exceeded", {
+			logger.info("Tracked stocks limit exceeded", {
 				userId: user.id,
 				count: trackedSymbols.length,
 			});
@@ -93,7 +101,7 @@ export function createPreferencesHandler(
 
 		const dbUser = await userService.getById(user.id);
 		if (!dbUser) {
-			console.error("User not found", { userId: user.id });
+			logger.error("User not found", { userId: user.id });
 			return redirect("/signin?error=user_not_found");
 		}
 
@@ -120,12 +128,21 @@ export function createPreferencesHandler(
 			const nextSendAt = calculateNextSendAt(
 				finalTime,
 				finalTimezone,
-				() => new Date(),
+				DateTime.utc(),
 			);
 			if (nextSendAt) {
-				safePreferenceUpdates.next_send_at = nextSendAt.toISOString();
+				const nextSendAtIso = nextSendAt.toISO();
+				if (!nextSendAtIso) {
+					logger.warn("Failed to format next_send_at ISO for preferences", {
+						userId: user.id,
+						finalTime,
+						finalTimezone,
+					});
+				} else {
+					safePreferenceUpdates.next_send_at = nextSendAtIso;
+				}
 			} else {
-				console.warn("calculateNextSendAt returned null for valid inputs", {
+				logger.warn("calculateNextSendAt returned null for valid inputs", {
 					userId: user.id,
 					finalTime,
 					finalTimezone,
@@ -151,9 +168,8 @@ export function createPreferencesHandler(
 				dbUser.daily_digest_notification_time;
 
 			if (finalSmsNotificationsEnabled && !dbUser.phone_number) {
-				console.error("SMS preferences enabled without phone", {
+				logger.error("SMS preferences enabled without phone", {
 					userId: user.id,
-					email: user.email ?? "unknown",
 				});
 				return redirect("/dashboard?error=phone_not_set");
 			}
@@ -188,12 +204,27 @@ export function createPreferencesHandler(
 			const errorMessage =
 				error instanceof Error ? error.message : String(error);
 
-			console.error("Failed to update user preferences/tracked stocks", {
-				userId: user.id,
-				preferences: safePreferenceUpdates,
-				symbols: trackedSymbols,
-				error: errorMessage,
-			});
+			if (
+				isStocksLimitError(error) ||
+				isStocksRequiredError(error) ||
+				isStocksWhitespaceError(error)
+			) {
+				logger.info("Preferences update rejected due to invalid input", {
+					userId: user.id,
+					error: errorMessage,
+				});
+			} else {
+				logger.error(
+					"Failed to update user preferences/tracked stocks",
+					{
+						userId: user.id,
+						preferences: safePreferenceUpdates,
+						symbols: trackedSymbols,
+						error: errorMessage,
+					},
+					error,
+				);
+			}
 
 			if (isStocksLimitError(error)) {
 				return redirect("/dashboard?error=stocks_limit");

@@ -5,59 +5,46 @@ import {
 	createSupabaseServerClient,
 } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
+import { createLogger } from "../../../lib/logging";
 
 const MIN_PASSWORD_LENGTH = 8;
 
-function buildRecoverRedirect(
-	error: string,
-	token?: string | null,
-	type?: string | null,
-) {
-	const params = new URLSearchParams({ error });
+function buildRecoverRedirect(error: string, token?: string | null) {
+	const params = new URLSearchParams({ error, type: "recovery" });
 	if (token) {
 		params.set("token", token);
-	}
-	if (type) {
-		params.set("type", type);
 	}
 	return `/auth/recover?${params.toString()}`;
 }
 
-export const POST: APIRoute = async ({ request, redirect }) => {
+export const POST: APIRoute = async ({ request, redirect, locals }) => {
+	const url = new URL(request.url);
+	const logger = createLogger({
+		requestId: locals?.requestId,
+		path: url.pathname,
+		method: request.method,
+	});
 	const formData = await request.formData();
 	const parsed = parseWithSchema(formData, {
 		password: { type: "string", required: true, trim: false },
 		confirm: { type: "string", required: true, trim: false },
 		token: { type: "string", required: true },
-		type: { type: "string", required: true },
 	} as const);
 
 	if (!parsed.ok) {
-		console.error("Password reset rejected due to invalid form", {
+		logger.info("Password reset rejected due to invalid form", {
 			errors: parsed.allErrors,
 		});
 		return redirect(buildRecoverRedirect("invalid_form"), 303);
 	}
 
-	const { password, confirm, token, type } = parsed.data;
+	const { password, confirm, token } = parsed.data;
 
 	if (password !== confirm) {
-		console.error("Password reset rejected: password mismatch", {
-			tokenProvided: !!token,
-			type,
-		});
-		return redirect(
-			buildRecoverRedirect("password_mismatch", token, type),
-			303,
-		);
-	}
-
-	if (type !== "recovery") {
-		console.error("Password reset rejected: invalid type", {
-			type,
+		logger.info("Password reset rejected: password mismatch", {
 			tokenProvided: !!token,
 		});
-		return redirect(buildRecoverRedirect("invalid_token", token, type), 303);
+		return redirect(buildRecoverRedirect("password_mismatch", token), 303);
 	}
 
 	// Validate password strength before consuming the token
@@ -67,12 +54,12 @@ export const POST: APIRoute = async ({ request, redirect }) => {
 	// updateUserById to fail with weak_password after the token is consumed.
 	// See supabase/config.toml for the configured password policy.
 	if (password.length < MIN_PASSWORD_LENGTH) {
-		console.error("Password reset rejected: password too short", {
+		logger.info("Password reset rejected: password too short", {
 			passwordLength: password.length,
 			minLength: MIN_PASSWORD_LENGTH,
 			tokenProvided: !!token,
 		});
-		return redirect(buildRecoverRedirect("weak_password", token, type), 303);
+		return redirect(buildRecoverRedirect("weak_password", token), 303);
 	}
 
 	const supabase = createSupabaseServerClient();
@@ -84,16 +71,16 @@ export const POST: APIRoute = async ({ request, redirect }) => {
 
 	if (error || !data.user) {
 		const errorCode = error?.code ?? "unknown";
-		console.error("Password reset token verification failed", {
+		logger.error("Password reset token verification failed", {
 			error: error?.message ?? "unknown_error",
 			errorCode,
 		});
 
 		if (errorCode === "otp_expired") {
-			return redirect(buildRecoverRedirect("expired", token, type), 303);
+			return redirect(buildRecoverRedirect("expired", token), 303);
 		}
 
-		return redirect(buildRecoverRedirect("invalid_token", token, type), 303);
+		return redirect(buildRecoverRedirect("invalid_token", token), 303);
 	}
 
 	const adminClient = createSupabaseAdminClient();
@@ -105,7 +92,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
 	);
 
 	if (updateError) {
-		console.error("Password update failed", {
+		logger.error("Password update failed", {
 			error: updateError.message,
 			errorCode: updateError.code,
 		});
@@ -113,16 +100,10 @@ export const POST: APIRoute = async ({ request, redirect }) => {
 		// If update fails with weak_password, the token is already consumed
 		// We redirect without the token since it can't be reused
 		if (updateError.code === "weak_password") {
-			return redirect(
-				buildRecoverRedirect("weak_password", undefined, type),
-				303,
-			);
+			return redirect(buildRecoverRedirect("weak_password"), 303);
 		}
 
-		return redirect(
-			buildRecoverRedirect("update_failed", undefined, type),
-			303,
-		);
+		return redirect(buildRecoverRedirect("update_failed"), 303);
 	}
 
 	return redirect("/signin?success=password_reset", 303);

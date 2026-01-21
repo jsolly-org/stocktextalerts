@@ -57,10 +57,6 @@ export function setupFormNavigationWarning(options: {
 
 	let isSubmitting = false;
 
-	function clearSubmittingState() {
-		isSubmitting = false;
-	}
-
 	let initialValues = readFormValues(form);
 
 	function resetInitialValues() {
@@ -69,7 +65,7 @@ export function setupFormNavigationWarning(options: {
 	}
 
 	function handleSubmitSuccess() {
-		clearSubmittingState();
+		isSubmitting = false;
 		resetInitialValues();
 	}
 
@@ -96,22 +92,14 @@ export function setupFormNavigationWarning(options: {
 		}
 	}
 
-	function handleFormChange() {
-		updateSaveButtonState();
-	}
-
 	function handleSubmit(event: SubmitEvent) {
 		isSubmitting = true;
 
 		queueMicrotask(() => {
 			if (event.defaultPrevented) {
-				clearSubmittingState();
+				isSubmitting = false;
 			}
 		});
-	}
-
-	function handleInvalid() {
-		clearSubmittingState();
 	}
 
 	function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -126,11 +114,17 @@ export function setupFormNavigationWarning(options: {
 		}
 	}
 
-	form.addEventListener("input", handleFormChange);
-	form.addEventListener("change", handleFormChange);
+	form.addEventListener("input", updateSaveButtonState);
+	form.addEventListener("change", updateSaveButtonState);
 	form.addEventListener("submit", handleSubmit);
 	form.addEventListener("submit:success", handleSubmitSuccess);
-	form.addEventListener("submit:error", clearSubmittingState);
+	const handleSubmitError = () => {
+		isSubmitting = false;
+	};
+	form.addEventListener("submit:error", handleSubmitError);
+	const handleInvalid = () => {
+		isSubmitting = false;
+	};
 	form.addEventListener("invalid", handleInvalid, true);
 	window.addEventListener("beforeunload", handleBeforeUnload);
 
@@ -189,11 +183,11 @@ export function setupFormNavigationWarning(options: {
 	updateSaveButtonState();
 
 	return () => {
-		form.removeEventListener("input", handleFormChange);
-		form.removeEventListener("change", handleFormChange);
+		form.removeEventListener("input", updateSaveButtonState);
+		form.removeEventListener("change", updateSaveButtonState);
 		form.removeEventListener("submit", handleSubmit);
 		form.removeEventListener("submit:success", handleSubmitSuccess);
-		form.removeEventListener("submit:error", clearSubmittingState);
+		form.removeEventListener("submit:error", handleSubmitError);
 		form.removeEventListener("invalid", handleInvalid, true);
 		window.removeEventListener("beforeunload", handleBeforeUnload);
 		document.removeEventListener("click", handleDocumentClick, true);

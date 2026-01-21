@@ -1,6 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+	afterAll,
+	afterEach,
+	beforeAll,
+	beforeEach,
+	describe,
+	expect,
+	it,
+} from "vitest";
 
 function createDbClient(): Client {
 	const databaseUrl = process.env.DATABASE_URL;
@@ -16,6 +24,14 @@ describe("database constraints and validation functions", () => {
 	beforeAll(async () => {
 		client = createDbClient();
 		await client.connect();
+	});
+
+	beforeEach(async () => {
+		await client.query("BEGIN");
+	});
+
+	afterEach(async () => {
+		await client.query("ROLLBACK");
 	});
 
 	afterAll(async () => {

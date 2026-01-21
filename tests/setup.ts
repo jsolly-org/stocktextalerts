@@ -1,7 +1,45 @@
 import { createClient } from "@supabase/supabase-js";
 import { Client } from "pg";
-import { beforeAll } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, vi } from "vitest";
 import { EXPECTED_DB_SCHEMA_VERSION } from "./schema-version";
+
+export const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+export const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+let allowWarnings = false;
+let allowErrors = false;
+
+export function allowConsoleWarnings() {
+	allowWarnings = true;
+}
+
+export function allowConsoleErrors() {
+	allowErrors = true;
+}
+
+export function resetConsoleAssertions() {
+	allowWarnings = false;
+	allowErrors = false;
+}
+
+afterEach(() => {
+	try {
+		if (!allowWarnings) {
+			expect(warnSpy.mock.calls, "Unexpected console.warn").toEqual([]);
+		}
+		if (!allowErrors) {
+			expect(errorSpy.mock.calls, "Unexpected console.error").toEqual([]);
+		}
+	} finally {
+		warnSpy.mockClear();
+		errorSpy.mockClear();
+		resetConsoleAssertions();
+	}
+});
+
+afterAll(() => {
+	warnSpy.mockRestore();
+	errorSpy.mockRestore();
+});
 
 const supabaseUrl = process.env.PUBLIC_SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -73,13 +111,14 @@ export async function resetDatabase() {
 			authUsers.map(async (user) => {
 				const { error } = await adminClient.auth.admin.deleteUser(user.id);
 				if (error) {
-					console.warn(`Failed to cleanup user ${user.id}:`, error.message);
+					throw new Error(
+						`Failed to cleanup auth user ${user.id}: ${error.message}`,
+					);
 				}
 			}),
 		);
 	} catch (error) {
-		console.error("Database reset failed:", error);
-		throw error;
+		throw new Error("Database reset failed", { cause: error });
 	} finally {
 		await client.end();
 	}

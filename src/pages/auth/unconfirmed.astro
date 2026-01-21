@@ -120,12 +120,14 @@ if (success === "true") {
 </Layout>
 
 <script>
+	import { DateTime } from "luxon";
 	import {
 		createCaptchaStatusHelpers,
 		setupHCaptchaCallback,
 		setupHCaptchaErrorCallback,
 		setupHCaptchaExpiredCallback,
 	} from "../../lib/auth/hcaptcha";
+	import { rootLogger } from "../../lib/logging";
 
 	(function setupResendVerification() {
 		const resendBtn = document.getElementById("resend-btn");
@@ -189,9 +191,9 @@ if (success === "true") {
 
 		resendForm.addEventListener("submit", () => {
 			try {
-				localStorage.setItem(COOLDOWN_KEY, Date.now().toString());
+				localStorage.setItem(COOLDOWN_KEY, DateTime.now().toMillis().toString());
 			} catch (err) {
-				console.error("Failed to save cooldown timestamp to localStorage:", err);
+				rootLogger.error("Failed to save cooldown timestamp to localStorage", undefined, err);
 			}
 		});
 
@@ -228,7 +230,7 @@ if (success === "true") {
 		);
 
 		setupHCaptchaErrorCallback("onUnconfirmedHCaptchaError", (errorCode) => {
-			console.error("hCaptcha error:", errorCode);
+			rootLogger.error("hCaptcha error", { errorCode });
 			captchaStatus.show("CAPTCHA failed to load. Please refresh and try again.");
 		});
 

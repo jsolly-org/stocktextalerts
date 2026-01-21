@@ -47,7 +47,9 @@ export const MESSAGE_STOCKS_REQUIRED = "Tracked stocks required";
  * Error message from replace_user_stocks function.
  * Raised when a stock symbol contains whitespace.
  */
-export const MESSAGE_STOCKS_WHITESPACE = "Stock symbol contains whitespace:";
+export const MESSAGE_STOCKS_WHITESPACE = "Stock symbol contains whitespace";
+
+const POSTGRES_RAISE_CODE = "P0001";
 
 /* =============
 Error Detection Helpers
@@ -74,7 +76,10 @@ export function isStocksLimitError(error: unknown): boolean {
 		return false;
 	}
 
-	return error.message === MESSAGE_STOCKS_LIMIT_EXCEEDED;
+	return (
+		error.code === POSTGRES_RAISE_CODE &&
+		error.message === MESSAGE_STOCKS_LIMIT_EXCEEDED
+	);
 }
 
 export function isStocksRequiredError(error: unknown): boolean {
@@ -82,7 +87,10 @@ export function isStocksRequiredError(error: unknown): boolean {
 		return false;
 	}
 
-	return error.message === MESSAGE_STOCKS_REQUIRED;
+	return (
+		error.code === POSTGRES_RAISE_CODE &&
+		error.message === MESSAGE_STOCKS_REQUIRED
+	);
 }
 
 export function isStocksWhitespaceError(error: unknown): boolean {
@@ -90,5 +98,8 @@ export function isStocksWhitespaceError(error: unknown): boolean {
 		return false;
 	}
 
-	return error.message.startsWith(MESSAGE_STOCKS_WHITESPACE);
+	return (
+		error.code === POSTGRES_RAISE_CODE &&
+		error.message === MESSAGE_STOCKS_WHITESPACE
+	);
 }

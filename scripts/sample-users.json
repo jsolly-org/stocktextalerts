@@ -6,5 +6,32 @@
     "sms_notifications_enabled": false,
     "daily_digest_notification_time": 540,
     "tracked_stocks": []
+  },
+  {
+    "email": "sms-user@example.com",
+    "timezone": "America/Chicago",
+    "email_notifications_enabled": false,
+    "phone_country_code": "+1",
+    "phone_number": "4155551234",
+    "phone_verified": true,
+    "sms_notifications_enabled": true,
+    "tracked_stocks": ["AAPL", "MSFT"]
+  },
+  {
+    "email": "nullable-fields@example.com",
+    "timezone": "America/Los_Angeles",
+    "phone_country_code": null,
+    "phone_number": null,
+    "phone_verified": null,
+    "sms_opted_out": null,
+    "daily_digest_enabled": null,
+    "email_notifications_enabled": null,
+    "sms_notifications_enabled": null,
+    "tracked_stocks": ["TSLA"]
+  },
+  {
+    "email": "defaults-only@example.com",
+    "timezone": null,
+    "tracked_stocks": []
   }
 ]

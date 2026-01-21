@@ -1,11 +1,17 @@
 import { timingSafeEqual } from "node:crypto";
 import type { APIRoute } from "astro";
+import { DateTime } from "luxon";
 import type { Database } from "../../../lib/db/generated/database.types";
 import { createSupabaseAdminClient } from "../../../lib/db/supabase";
+import { createLogger, type Logger } from "../../../lib/logging";
+import { getUtcIso } from "../../../lib/time/format";
+import {
+	calculateNextSendAt,
+	getLocalDateString,
+} from "../../../lib/time/schedule";
 import { createEmailSender } from "./email/utils";
 import { processEmailUpdate, processSmsUpdate } from "./processing";
 import {
-	calculateNextSendAt,
 	type DeliveryMethod,
 	loadUserStocks,
 	recordNotification,
@@ -22,21 +28,6 @@ import {
 
 const MAX_NOTIFICATION_RETRIES = 3;
 
-function getLocalDateString(timezone: string, date: Date): string | null {
-	try {
-		const formatter = new Intl.DateTimeFormat("en-CA", {
-			timeZone: timezone,
-			year: "numeric",
-			month: "2-digit",
-			day: "2-digit",
-		});
-		return formatter.format(date);
-	} catch {
-		console.error("Failed to format local date for timezone", { timezone });
-		return null;
-	}
-}
-
 async function updateScheduledNotificationRow(options: {
 	supabase: ReturnType<typeof createSupabaseAdminClient>;
 	userId: string;
@@ -45,10 +36,11 @@ async function updateScheduledNotificationRow(options: {
 	channel: DeliveryMethod;
 	status: Extract<ScheduledNotificationStatus, "sent" | "failed">;
 	error?: string;
+	logger: Logger;
 }) {
 	const update: Database["public"]["Tables"]["scheduled_notifications"]["Update"] =
 		options.status === "sent"
-			? { status: "sent", sent_at: new Date().toISOString(), error: null }
+			? { status: "sent", sent_at: getUtcIso(), error: null }
 			: { status: "failed", error: options.error ?? "Unknown error" };
 
 	const { error } = await options.supabase
@@ -60,7 +52,7 @@ async function updateScheduledNotificationRow(options: {
 		.eq("channel", options.channel);
 
 	if (error) {
-		console.error("Failed to update scheduled_notifications row", {
+		options.logger.error("Failed to update scheduled_notifications row", {
 			userId: options.userId,
 			channel: options.channel,
 			error,
@@ -74,6 +66,7 @@ async function logRetriesExhausted(options: {
 	notificationType: ScheduledNotificationType;
 	scheduledDate: string;
 	channel: DeliveryMethod;
+	logger: Logger;
 }) {
 	const { data, error } = await options.supabase
 		.from("scheduled_notifications")
@@ -85,7 +78,7 @@ async function logRetriesExhausted(options: {
 		.maybeSingle();
 
 	if (error) {
-		console.error("Failed to fetch scheduled_notifications row", {
+		options.logger.error("Failed to fetch scheduled_notifications row", {
 			userId: options.userId,
 			channel: options.channel,
 			error,
@@ -98,9 +91,10 @@ async function logRetriesExhausted(options: {
 	}
 
 	if (data.attempt_count >= MAX_NOTIFICATION_RETRIES) {
-		console.warn(
-			`Retries exhausted for user ${options.userId} (${options.channel}); will retry next local day`,
-		);
+		options.logger.warn("Retries exhausted; will retry next local day", {
+			userId: options.userId,
+			channel: options.channel,
+		});
 
 		await recordNotification(options.supabase, {
 			user_id: options.userId,
@@ -113,7 +107,13 @@ async function logRetriesExhausted(options: {
 	}
 }
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
+	const url = new URL(request.url);
+	const logger = createLogger({
+		requestId: locals?.requestId,
+		path: url.pathname,
+		method: request.method,
+	});
 	const authHeader = request.headers.get("authorization");
 	const envCronSecret = import.meta.env.CRON_SECRET;
 
@@ -131,7 +131,7 @@ export const POST: APIRoute = async ({ request }) => {
 				Buffer.from(envCronSecret),
 			);
 		} catch (error) {
-			console.error("Failed to compare cron secrets securely", error);
+			logger.error("Failed to compare cron secrets securely", undefined, error);
 			return new Response("Internal server error", { status: 500 });
 		}
 	}
@@ -145,7 +145,8 @@ export const POST: APIRoute = async ({ request }) => {
 	try {
 		const sendEmail = createEmailSender();
 
-		const currentTime = new Date();
+		const currentTime = DateTime.utc();
+		const currentTimeIso = getUtcIso(currentTime);
 
 		const { data: users, error: usersError } = await supabase
 			.from("users")
@@ -167,7 +168,7 @@ export const POST: APIRoute = async ({ request }) => {
 			)
 			.eq("daily_digest_enabled", true)
 			.not("next_send_at", "is", null)
-			.lte("next_send_at", currentTime.toISOString())
+			.lte("next_send_at", currentTimeIso)
 			.or(
 				"email_notifications_enabled.eq.true,sms_notifications_enabled.eq.true",
 			);
@@ -202,7 +203,7 @@ export const POST: APIRoute = async ({ request }) => {
 				return { sender: sendSms };
 			} catch (error) {
 				const errorMsg = error instanceof Error ? error.message : String(error);
-				console.error("Failed to initialize Twilio client:", errorMsg);
+				logger.error("Failed to initialize Twilio client", { error: errorMsg });
 				return { sender: null, error: errorMsg };
 			}
 		};
@@ -220,7 +221,17 @@ export const POST: APIRoute = async ({ request }) => {
 
 			try {
 				// Query filters out null next_send_at with .not("next_send_at", "is", null)
-				const dueAt = new Date(user.next_send_at as string);
+				const dueAt = DateTime.fromISO(user.next_send_at as string, {
+					zone: "utc",
+				});
+				if (!dueAt.isValid) {
+					logger.error("Invalid next_send_at timestamp", {
+						userId: user.id,
+						next_send_at: user.next_send_at,
+					});
+					stats.skipped++;
+					return stats;
+				}
 				const scheduledDate = getLocalDateString(user.timezone, dueAt);
 				if (!scheduledDate) {
 					stats.skipped++;
@@ -250,10 +261,11 @@ export const POST: APIRoute = async ({ request }) => {
 					);
 
 					if (claimError) {
-						console.error("Failed to claim scheduled notification (email)", {
-							userId: user.id,
-							error: claimError.message,
-						});
+						logger.error(
+							"Failed to claim scheduled notification (email)",
+							{ userId: user.id },
+							claimError,
+						);
 						stats.emailsFailed++;
 					} else if (!claimed) {
 						await logRetriesExhausted({
@@ -262,6 +274,7 @@ export const POST: APIRoute = async ({ request }) => {
 							notificationType: "daily_digest",
 							scheduledDate,
 							channel: "email",
+							logger,
 						});
 						stats.skipped++;
 					} else {
@@ -288,6 +301,7 @@ export const POST: APIRoute = async ({ request }) => {
 							channel: "email",
 							status: sent ? "sent" : "failed",
 							error,
+							logger,
 						});
 					}
 				}
@@ -306,10 +320,11 @@ export const POST: APIRoute = async ({ request }) => {
 					);
 
 					if (claimError) {
-						console.error("Failed to claim scheduled notification (sms)", {
-							userId: user.id,
-							error: claimError.message,
-						});
+						logger.error(
+							"Failed to claim scheduled notification (sms)",
+							{ userId: user.id },
+							claimError,
+						);
 						stats.smsFailed++;
 					} else if (!claimed) {
 						await logRetriesExhausted({
@@ -318,6 +333,7 @@ export const POST: APIRoute = async ({ request }) => {
 							notificationType: "daily_digest",
 							scheduledDate,
 							channel: "sms",
+							logger,
 						});
 						stats.skipped++;
 					} else {
@@ -332,6 +348,7 @@ export const POST: APIRoute = async ({ request }) => {
 								channel: "sms",
 								status: "failed",
 								error: smsError || "Twilio client not initialized",
+								logger,
 							});
 							const logged = await recordNotification(supabase, {
 								user_id: user.id,
@@ -366,6 +383,7 @@ export const POST: APIRoute = async ({ request }) => {
 								channel: "sms",
 								status: sent ? "sent" : "failed",
 								error,
+								logger,
 							});
 						}
 					}
@@ -374,23 +392,31 @@ export const POST: APIRoute = async ({ request }) => {
 				const nextSendAt = calculateNextSendAt(
 					user.daily_digest_notification_time,
 					user.timezone,
-					() => currentTime,
+					currentTime,
 				);
 				if (nextSendAt) {
+					const nextSendAtIso = nextSendAt.toISO();
+					if (!nextSendAtIso) {
+						logger.error("Failed to format next_send_at ISO string", {
+							userId: user.id,
+							timezone: user.timezone,
+						});
+						return stats;
+					}
 					const { error: updateError } = await supabase
 						.from("users")
-						.update({ next_send_at: nextSendAt.toISOString() })
+						.update({ next_send_at: nextSendAtIso })
 						.eq("id", user.id);
 
 					if (updateError) {
-						console.error("Failed to update users.next_send_at", {
-							userId: user.id,
-							nextSendAt: nextSendAt.toISOString(),
-							error: updateError,
-						});
+						logger.error(
+							"Failed to update users.next_send_at",
+							{ userId: user.id, nextSendAt: nextSendAtIso },
+							updateError,
+						);
 					}
 				} else {
-					console.warn("calculateNextSendAt returned null", {
+					logger.warn("calculateNextSendAt returned null", {
 						userId: user.id,
 						daily_digest_notification_time: user.daily_digest_notification_time,
 						timezone: user.timezone,
@@ -402,17 +428,18 @@ export const POST: APIRoute = async ({ request }) => {
 						.eq("id", user.id);
 
 					if (updateError) {
-						console.error("Failed to clear users.next_send_at", {
-							userId: user.id,
-							error: updateError,
-						});
+						logger.error(
+							"Failed to clear users.next_send_at",
+							{ userId: user.id },
+							updateError,
+						);
 					}
 				}
 
 				return stats;
 			} catch (error) {
 				stats.skipped++;
-				console.error(`Error processing user ${user.id}:`, error);
+				logger.error("Error processing user", { userId: user.id }, error);
 
 				try {
 					const deliveryMethod: DeliveryMethod =
@@ -427,8 +454,9 @@ export const POST: APIRoute = async ({ request }) => {
 						error: error instanceof Error ? error.message : String(error),
 					});
 				} catch (logError) {
-					console.error(
-						`Failed to record notification for user ${user.id}:`,
+					logger.error(
+						"Failed to record notification for user",
+						{ userId: user.id },
 						logError,
 					);
 					stats.logFailures++;
@@ -464,7 +492,7 @@ export const POST: APIRoute = async ({ request }) => {
 			headers: { "Content-Type": "application/json" },
 		});
 	} catch (error) {
-		console.error("Cron job error:", error);
+		logger.error("Cron job error", undefined, error);
 		return new Response("Internal server error", { status: 500 });
 	}
 };

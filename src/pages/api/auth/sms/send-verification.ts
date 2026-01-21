@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { createUserService } from "../../../../lib/db";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
+import { createLogger } from "../../../../lib/logging";
 import { sendVerification } from "./verify-utils";
 
 interface SmsSendVerificationDependencies {
@@ -21,13 +22,19 @@ export function createSendVerificationHandler(
 ): APIRoute {
 	const dependencies = { ...defaultDependencies, ...overrides };
 
-	return async ({ request, cookies, redirect }) => {
+	return async ({ request, cookies, redirect, locals }) => {
+		const url = new URL(request.url);
+		const logger = createLogger({
+			requestId: locals?.requestId,
+			path: url.pathname,
+			method: request.method,
+		});
 		const supabase = dependencies.createSupabaseServerClient();
 		const userService = dependencies.createUserService(supabase, cookies);
 
 		const user = await userService.getCurrentUser();
 		if (!user) {
-			console.error("SMS verification send attempt without authenticated user");
+			logger.error("SMS verification send attempt without authenticated user");
 			return redirect("/signin?error=unauthorized");
 		}
 
@@ -40,7 +47,7 @@ export function createSendVerificationHandler(
 			} as const);
 
 			if (!parsed.ok) {
-				console.error("SMS verification form rejected due to invalid fields", {
+				logger.error("SMS verification form rejected due to invalid fields", {
 					errors: parsed.allErrors,
 				});
 				return redirect("/dashboard?error=invalid_form");
@@ -53,13 +60,14 @@ export function createSendVerificationHandler(
 
 			const dbUser = await userService.getById(user.id);
 			if (!dbUser) {
-				console.error(
-					`Auth user exists but database user record missing - ID: ${user.id}, email: ${user.email}, endpoint: sms/send-verification`,
-				);
+				logger.error("Auth user exists but database user record missing", {
+					userId: user.id,
+					endpoint: "sms/send-verification",
+				});
 				return redirect("/dashboard?error=user_not_found");
 			}
 			if (dbUser.sms_opted_out) {
-				console.error("SMS verification send blocked due to opt-out", {
+				logger.error("SMS verification send blocked due to opt-out", {
 					userId: user.id,
 				});
 				return redirect("/dashboard?error=sms_opted_out");
@@ -74,7 +82,7 @@ export function createSendVerificationHandler(
 
 			const result = await dependencies.sendVerification(fullPhone);
 			if (!result.success) {
-				console.error("SMS verification failed:", result.error);
+				logger.error("SMS verification failed", { error: result.error });
 				return redirect("/dashboard?error=verification_failed");
 			}
 
@@ -82,7 +90,7 @@ export function createSendVerificationHandler(
 				"/dashboard?success=verification_sent#notification-preferences",
 			);
 		} catch (error) {
-			console.error("Send verification error:", error);
+			logger.error("Send verification error", { userId: user.id }, error);
 			return redirect("/dashboard?error=server_error");
 		}
 	};

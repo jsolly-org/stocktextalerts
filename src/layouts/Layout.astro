@@ -7,12 +7,16 @@ interface Props {
 
 const { title, description }: Props = Astro.props;
 
+// Astro.site may be undefined when using AstroContainer (container-based tests),
+// even if 'site' is configured in vitest.config.ts. Without this fallback,
+// new URL(Astro.url.pathname, undefined) would throw a TypeError.
+const canonicalBase = Astro.site ?? Astro.url;
+const canonicalURL = new URL(Astro.url.pathname, canonicalBase);
 // Replace with your own image
 const socialImageURL = new URL(
 	"/images/astro-logo-light-gradient.png",
-	Astro.url,
+	canonicalBase,
 );
-const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 ---
 
 <!DOCTYPE html>

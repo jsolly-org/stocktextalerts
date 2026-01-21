@@ -1,6 +1,8 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { DateTime } from "luxon";
 import type { TablesInsert } from "../src/lib/db/generated/database.types";
+import { calculateNextSendAt } from "../src/lib/time/schedule";
 import { adminClient } from "./setup";
 
 export interface CreateTestUserOptions {
@@ -95,7 +97,17 @@ export async function createTestUser(
 	const alignedDailyDigestNotificationTime =
 		Math.floor(dailyDigestNotificationTime / 15) * 15;
 	const dailyDigestEnabled = options.dailyDigestEnabled ?? false;
-	const nextSendAt = dailyDigestEnabled ? new Date().toISOString() : null;
+	const nextSendAt = dailyDigestEnabled
+		? calculateNextSendAt(
+				alignedDailyDigestNotificationTime,
+				timezone,
+				DateTime.utc(),
+			)
+		: null;
+	const nextSendAtIso = nextSendAt?.toISO() ?? null;
+	if (dailyDigestEnabled && !nextSendAtIso) {
+		throw new Error("Failed to generate next_send_at timestamp");
+	}
 
 	const profile: DbUserInsert = {
 		id: userId,
@@ -109,7 +121,7 @@ export async function createTestUser(
 		sms_notifications_enabled: smsNotificationsEnabled,
 		daily_digest_enabled: dailyDigestEnabled,
 		daily_digest_notification_time: alignedDailyDigestNotificationTime,
-		next_send_at: nextSendAt,
+		next_send_at: nextSendAtIso,
 	};
 
 	const { error: profileError } = await adminClient

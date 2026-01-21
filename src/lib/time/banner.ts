@@ -1,3 +1,6 @@
+import { DateTime } from "luxon";
+import { rootLogger } from "../logging";
+
 export function setupTimezoneMismatchBanner(options: {
 	savedTimezone: string;
 	allowedTimezones: string[];
@@ -18,13 +21,13 @@ export function setupTimezoneMismatchBanner(options: {
 		!(timezoneInput instanceof HTMLInputElement) ||
 		!(dismissButton instanceof HTMLButtonElement)
 	) {
-		console.warn("TimezoneMismatchBanner: Required DOM elements not found");
+		rootLogger.warn("TimezoneMismatchBanner: Required DOM elements not found");
 		return;
 	}
 
-	const detected = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
+	const detected = DateTime.local().zoneName ?? "";
 
-	if (!detected || detected === "") {
+	if (!detected) {
 		return;
 	}
 
@@ -33,12 +36,11 @@ export function setupTimezoneMismatchBanner(options: {
 		return;
 	}
 
-	const saved = savedTimezone ?? "";
-	if (!saved || detected === saved) {
+	if (!savedTimezone || detected === savedTimezone) {
 		return;
 	}
 
-	const dismissalKey = `timezone_mismatch_banner_dismissed:${saved}:${detected}`;
+	const dismissalKey = `timezone_mismatch_banner_dismissed:${savedTimezone}:${detected}`;
 	let dismissed = false;
 	try {
 		dismissed = sessionStorage.getItem(dismissalKey) === "1";
@@ -50,7 +52,7 @@ export function setupTimezoneMismatchBanner(options: {
 	}
 
 	detectedSpan.textContent = detected;
-	savedSpan.textContent = saved;
+	savedSpan.textContent = savedTimezone;
 	timezoneInput.value = detected;
 
 	dismissButton.addEventListener(
@@ -67,4 +69,36 @@ export function setupTimezoneMismatchBanner(options: {
 	);
 
 	banner.classList.remove("hidden");
+}
+
+export function setupDetectedTimezoneOption(options?: {
+	selectId?: string;
+	defaultTimezone?: string;
+}) {
+	const selectId = options?.selectId ?? "timezone";
+	const defaultTimezone = options?.defaultTimezone ?? "";
+
+	const select = document.getElementById(selectId);
+	if (!(select instanceof HTMLSelectElement)) {
+		return;
+	}
+
+	if (select.value !== "") {
+		return;
+	}
+
+	const detected = DateTime.local().zoneName ?? "";
+
+	const knownValues = new Set(
+		Array.from(select.options).map((option) => option.value),
+	);
+
+	if (detected !== "" && knownValues.has(detected)) {
+		select.value = detected;
+		return;
+	}
+
+	if (defaultTimezone !== "" && knownValues.has(defaultTimezone)) {
+		select.value = defaultTimezone;
+	}
 }

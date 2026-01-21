@@ -283,8 +283,9 @@ BEGIN
   LIMIT 1;
 
   IF symbol_with_whitespace IS NOT NULL THEN
-    RAISE EXCEPTION 'Stock symbol contains whitespace: %', symbol_with_whitespace
-      USING ERRCODE = 'check_violation';
+    RAISE EXCEPTION 'Stock symbol contains whitespace'
+      USING ERRCODE = 'check_violation',
+            DETAIL = symbol_with_whitespace;
   END IF;
 
   -- Reject symbols that are not uppercase

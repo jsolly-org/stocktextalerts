@@ -117,4 +117,33 @@ describe("POST /api/auth/signin", () => {
 			await adminClient.auth.admin.deleteUser(testUser.id);
 		}
 	});
+
+	it("redirects with invalid_form when form validation fails", async () => {
+		const request = new Request("http://localhost/api/auth/signin", {
+			method: "POST",
+			body: new URLSearchParams({
+				// Email provided but empty; password missing
+				email: "",
+				captcha_token: "test-captcha-token",
+			}),
+		});
+
+		const response = await POST({
+			request,
+			cookies: {
+				set: () => {},
+			},
+			redirect: (url: string) => {
+				return new Response(null, {
+					status: 302,
+					headers: { Location: url },
+				});
+			},
+		} as unknown as APIContext);
+
+		expect(response.status).toBe(302);
+		expect(response.headers.get("Location")).toContain(
+			"/signin?error=invalid_form",
+		);
+	});
 });

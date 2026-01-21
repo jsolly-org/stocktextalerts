@@ -7,26 +7,32 @@ import {
 } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
 import { redirect } from "../../../../lib/http/redirect";
-import { resolveTimezone } from "../../../../lib/timezones/cache";
+import { createLogger, type Logger } from "../../../../lib/logging";
+import { resolveTimezone } from "../../../../lib/time/cache";
 
 async function cleanupOrphanedAuthUser(
 	adminSupabase: SupabaseClient,
 	userId: string,
+	logger: Logger,
 ): Promise<void> {
 	const { error: deleteError } =
 		await adminSupabase.auth.admin.deleteUser(userId);
 	if (deleteError) {
-		console.error(
+		logger.error(
 			"Failed to cleanup orphaned auth user after profile creation failure",
-			{
-				userId,
-				error: deleteError,
-			},
+			{ userId },
+			deleteError,
 		);
 	}
 }
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
+	const url = new URL(request.url);
+	const logger = createLogger({
+		requestId: locals?.requestId,
+		path: url.pathname,
+		method: request.method,
+	});
 	const supabase = createSupabaseServerClient();
 
 	const formData = await request.formData();
@@ -38,7 +44,7 @@ export const POST: APIRoute = async ({ request }) => {
 	} as const);
 
 	if (!parsed.ok) {
-		console.error("Registration attempt rejected due to invalid form", {
+		logger.info("Registration attempt rejected due to invalid form", {
 			errors: parsed.allErrors,
 		});
 		return redirect("/auth/register?error=invalid_form");
@@ -76,20 +82,20 @@ export const POST: APIRoute = async ({ request }) => {
 
 	if (error) {
 		if (error.code === "captcha_failed") {
-			console.error("User registration blocked due to captcha", {
+			logger.error("User registration blocked due to captcha", {
 				code: error.code,
 				status: error.status,
 			});
-			return redirect("/auth/register?error=captcha_required");
+			return redirect("/auth/register?error=captcha_failed");
 		}
 
 		if (error.code === "user_already_exists") {
-			console.error("User registration rejected: user already exists", {
-				email,
+			logger.info("User registration rejected: user already exists", {
+				userAlreadyExists: true,
 			});
 			return redirect("/auth/register?error=user_already_exists");
 		}
-		console.error("User registration failed:", error);
+		logger.error("User registration failed", undefined, error);
 		return redirect("/auth/register?error=failed");
 	}
 
@@ -107,13 +113,11 @@ export const POST: APIRoute = async ({ request }) => {
 			.from("users")
 			.upsert(userProfileData, {
 				onConflict: "id",
-			})
-			.select()
-			.single();
+			});
 
 		if (profileError) {
-			console.error("Failed to create user profile:", profileError);
-			await cleanupOrphanedAuthUser(adminSupabase, data.user.id);
+			logger.error("Failed to create user profile", undefined, profileError);
+			await cleanupOrphanedAuthUser(adminSupabase, data.user.id, logger);
 			return redirect("/auth/register?error=profile_creation_failed");
 		}
 	}

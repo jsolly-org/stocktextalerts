@@ -1,4 +1,5 @@
 import type { APIContext } from "astro";
+import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../../../../src/pages/api/notifications/scheduled";
 import { adminClient } from "../../../setup";
@@ -7,7 +8,7 @@ import { createTestUser } from "../../../utils";
 describe("Scheduled Notifications Integration", () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
-		vi.setSystemTime(new Date("2026-01-12T15:00:00.000Z"));
+		vi.setSystemTime(DateTime.fromISO("2026-01-12T15:00:00.000Z").toJSDate());
 	});
 
 	afterEach(() => {
@@ -16,30 +17,17 @@ describe("Scheduled Notifications Integration", () => {
 
 	it("sends email notifications to eligible users via Resend", async () => {
 		const timezone = "America/New_York";
-		const formatter = new Intl.DateTimeFormat("en-US", {
-			hour: "numeric",
-			minute: "numeric",
-			hourCycle: "h23",
-			timeZone: timezone,
-		});
-		const parts = formatter.formatToParts(new Date());
-		const hourPart = parts.find((part) => part.type === "hour");
-		const minutePart = parts.find((part) => part.type === "minute");
-		if (!hourPart || !minutePart) {
-			throw new Error("Missing hour or minute part for timezone formatter");
+		const nowLocal = DateTime.now().setZone(timezone);
+		if (!nowLocal.isValid) {
+			throw new Error("Invalid timezone for test formatter");
 		}
-		const hours = Number.parseInt(hourPart.value, 10);
-		const minutes = Number.parseInt(minutePart.value, 10);
-		if (Number.isNaN(hours) || Number.isNaN(minutes)) {
-			throw new Error("Invalid hour or minute for timezone formatter");
-		}
-		const dailyDigestNotificationTime = hours * 60 + minutes;
+		const dailyDigestNotificationTime = nowLocal.hour * 60 + nowLocal.minute;
 
 		// 1. Create User
 		const { id } = await createTestUser({
 			email:
 				process.env.TEST_EMAIL_RECIPIENT ||
-				`test-notification-${Date.now()}@resend.dev`,
+				`test-notification-${DateTime.utc().toMillis()}@resend.dev`,
 			timezone,
 			emailNotificationsEnabled: true,
 			smsNotificationsEnabled: false,
@@ -49,6 +37,12 @@ describe("Scheduled Notifications Integration", () => {
 		});
 
 		try {
+			const { error: updateError } = await adminClient
+				.from("users")
+				.update({ next_send_at: DateTime.utc().toISO() })
+				.eq("id", id);
+			expect(updateError).toBeNull();
+
 			// 2. Execute Scheduled Job
 			const cronSecret = process.env.CRON_SECRET;
 			if (!cronSecret) {
@@ -123,25 +117,26 @@ describe("Scheduled Notifications Integration", () => {
 				expect(log.error).toBeTruthy();
 			}
 		} finally {
+			const cleanupErrors: string[] = [];
 			const { error: deleteUserError } = await adminClient
 				.from("users")
 				.delete()
 				.eq("id", id);
 			if (deleteUserError) {
-				console.warn("Failed to cleanup test user from public.users", {
-					id,
-					error: deleteUserError.message,
-				});
+				cleanupErrors.push(
+					`Failed to cleanup test user from public.users (${id}): ${deleteUserError.message}`,
+				);
 			}
 
 			const { error: deleteAuthUserError } =
 				await adminClient.auth.admin.deleteUser(id);
 			if (deleteAuthUserError) {
-				console.warn("Failed to cleanup test user from auth.users", {
-					id,
-					error: deleteAuthUserError.message,
-				});
+				cleanupErrors.push(
+					`Failed to cleanup test user from auth.users (${id}): ${deleteAuthUserError.message}`,
+				);
 			}
+
+			expect(cleanupErrors, "Test user cleanup failed").toEqual([]);
 		}
 	});
 });

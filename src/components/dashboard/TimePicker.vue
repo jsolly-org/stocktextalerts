@@ -15,7 +15,6 @@
 			:min-time="minTime"
 			:max-time="maxTime"
 			:minutes-grid-increment="minutesIncrement"
-			:clearable="false"
 			:disabled="isDisabled"
 			:format="displayFormat"
 			:input-attrs="inputAttributes"
@@ -67,6 +66,9 @@ const inputAttributes = computed(() => {
 		id: props.inputId,
 		class:
 			"w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed",
+		// vue-datepicker v12 clear button is controlled by inputAttrs, not a top-level prop.
+		clearable: false,
+		alwaysClearable: false,
 	};
 });
 
@@ -75,10 +77,6 @@ const hiddenInputId = computed(() => {
 });
 
 const formattedTime = computed(() => {
-	if (!selectedTime.value) {
-		return "";
-	}
-
 	const parsedHours =
 		typeof selectedTime.value.hours === "string"
 			? Number.parseInt(selectedTime.value.hours, 10)
@@ -88,8 +86,8 @@ const formattedTime = computed(() => {
 			? Number.parseInt(selectedTime.value.minutes, 10)
 			: selectedTime.value.minutes;
 
-	const hours = Number.isNaN(parsedHours) ? 0 : parsedHours;
-	const minutes = Number.isNaN(parsedMinutes) ? 0 : parsedMinutes;
+	const hours = parsedHours;
+	const minutes = parsedMinutes;
 
 	return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 });
@@ -97,9 +95,7 @@ const formattedTime = computed(() => {
 watch(
 	() => props.disabled,
 	(value) => {
-		if (typeof value === "boolean") {
-			isDisabled.value = value;
-		}
+		isDisabled.value = value ?? false;
 	},
 );
 
@@ -117,8 +113,8 @@ function parseTimeString(value: string | null | undefined): TimeModel | null {
 	}
 
 	const [hoursPart, minutesPart] = value.split(":");
-	const hours = Number.parseInt(hoursPart ?? "", 10);
-	const minutes = Number.parseInt(minutesPart ?? "", 10);
+	const hours = Number.parseInt(hoursPart, 10);
+	const minutes = Number.parseInt(minutesPart, 10);
 
 	if (Number.isNaN(hours) || Number.isNaN(minutes)) {
 		return null;
@@ -127,34 +123,14 @@ function parseTimeString(value: string | null | undefined): TimeModel | null {
 }
 
 function resolveIs24(): boolean {
-	const resolved = new Intl.DateTimeFormat(undefined, {
-		hour: "numeric",
-	}).resolvedOptions();
-
-	if (resolved.hourCycle) {
-		return resolved.hourCycle === "h23" || resolved.hourCycle === "h24";
-	}
-
-	if (typeof resolved.hour12 === "boolean") {
-		return !resolved.hour12;
-	}
-
-	return true;
+	const formatter = new Intl.DateTimeFormat(undefined, { hour: "numeric" });
+	const options = formatter.resolvedOptions();
+	return options.hourCycle === "h23" || options.hourCycle === "h24";
 }
 
 function handleDailyDigestToggle(event: Event) {
-	if (!(event instanceof CustomEvent)) {
-		return;
-	}
-
-	const detail = event.detail as { enabled?: boolean } | null;
-	if (!detail) {
-		return;
-	}
-
-	if (typeof detail.enabled === "boolean") {
-		isDisabled.value = !detail.enabled;
-	}
+	const customEvent = event as CustomEvent<{ enabled: boolean }>;
+	isDisabled.value = !customEvent.detail.enabled;
 }
 
 onMounted(() => {

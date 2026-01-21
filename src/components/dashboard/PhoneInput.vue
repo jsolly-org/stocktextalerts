@@ -32,8 +32,8 @@
 					id="phone"
 					v-model="phoneNumber"
 					@input="handlePhoneInput"
-					@focus="handleFocus"
-					@blur="handleBlur"
+					@focus="touched = true"
+					@blur="validate"
 					:aria-describedby="showError ? 'phone-error' : undefined"
 					:aria-invalid="showError ? 'true' : undefined"
 					:data-phone-is-valid="isValid ? 'true' : 'false'"
@@ -173,10 +173,6 @@ function handlePhoneInput(e: Event) {
 	lastDigits.value = newDigits;
 }
 
-function handleFocus() {
-	touched.value = true;
-}
-
 const isValid = computed(() => {
 	return phoneNumber.value ? isValidPhoneNumber(phoneNumber.value, country.value) : false;
 });
@@ -201,10 +197,6 @@ function validate() {
 	} else {
 		showError.value = touched.value || props.formSubmitted === true;
 	}
-}
-
-function handleBlur() {
-	validate();
 }
 
 watch(

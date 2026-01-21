@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { getSiteUrl } from "../../../../lib/db/env";
+import { rootLogger } from "../../../../lib/logging";
 import type { DeliveryResult, UserStockRow } from "../shared";
 
 function escapeHtml(value: string): string {
@@ -27,8 +28,16 @@ export function createEmailSender(): EmailSender {
 	const fromEmail = import.meta.env.EMAIL_FROM;
 	const defaultReplyTo = import.meta.env.EMAIL_REPLY_TO;
 
+	// In test mode, return a mock sender that always succeeds without making API calls
+	if (import.meta.env.MODE === "test") {
+		return async () => ({
+			success: true,
+			messageSid: "test",
+		});
+	}
+
 	if (!apiKey.startsWith("re_")) {
-		console.warn(
+		rootLogger.warn(
 			"RESEND_API_KEY has invalid format. Expected key starting with 're_'.",
 		);
 		return async () => ({
@@ -66,7 +75,7 @@ export function createEmailSender(): EmailSender {
 					message?: string;
 					status?: number;
 				};
-				console.error("Resend error:", {
+				rootLogger.error("Resend error", {
 					type: err.type,
 					message: err.message,
 					status: err.status,
@@ -80,7 +89,7 @@ export function createEmailSender(): EmailSender {
 
 			return { success: true, messageSid: data?.id };
 		} catch (error) {
-			console.error("Unexpected error sending email:", error);
+			rootLogger.error("Unexpected error sending email", undefined, error);
 			return {
 				success: false,
 				error: error instanceof Error ? error.message : String(error),

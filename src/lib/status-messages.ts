@@ -1,4 +1,5 @@
 import { MAX_TRACKED_STOCKS } from "./db/database-errors";
+import { rootLogger } from "./logging";
 
 const MESSAGE_ALLOWLIST = {
 	stock_added: "Stock added successfully",
@@ -18,6 +19,8 @@ const MESSAGE_ALLOWLIST = {
 	phone_not_set: "Phone number not set",
 	sms_opted_out: "SMS notifications are disabled for this number",
 	sms_notifications_disabled: "SMS notifications are disabled.",
+	notifications_not_configured:
+		"Enable at least one notification channel to send a daily digest.",
 	user_not_found: "User not found",
 	stocks_limit: `Maximum ${MAX_TRACKED_STOCKS} stocks allowed`,
 	preview_email_sent: "Preview email sent successfully",
@@ -31,6 +34,8 @@ const MESSAGE_ALLOWLIST = {
 	daily_digest_sent: "Daily digest sent.",
 	daily_digest_disabled: "Daily digest is disabled.",
 	daily_digest_send_failed: "Failed to send daily digest. Please try again.",
+	daily_digest_rate_limited:
+		"Too many manual digest requests. You can send up to 3 per hour. Please try again later.",
 	daily_digest_skip_failed:
 		"Failed to skip the next daily digest. Please try again.",
 } as const;
@@ -44,6 +49,6 @@ export function formatMessage(message: string | null): string {
 		return MESSAGE_ALLOWLIST[message as MessageKey];
 	}
 
-	console.warn(`Unknown status message key: ${message}`);
+	rootLogger.warn("Unknown status message key", { message });
 	return "";
 }

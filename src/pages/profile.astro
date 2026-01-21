@@ -6,6 +6,7 @@ import Layout from "../layouts/Layout.astro";
 import { getAuthErrorMessage } from "../lib/auth/messages";
 import { createUserService } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
+import { rootLogger } from "../lib/logging";
 import { formatMessage } from "../lib/status-messages";
 
 const supabase = createSupabaseServerClient();
@@ -14,18 +15,17 @@ const users = createUserService(supabase, Astro.cookies);
 const authUser = await users.getCurrentUser();
 
 if (!authUser) {
-	console.error("Profile access attempted without authenticated user");
+	rootLogger.error("Profile access attempted without authenticated user");
 	return Astro.redirect("/");
 }
 
 const user = await users.getById(authUser.id);
 
 if (!user) {
-	console.error(
-		`Auth user exists but database user record missing - ID: ${authUser.id}, email: ${
-			authUser.email ?? "none"
-		}, page: profile`,
-	);
+	rootLogger.error("Auth user exists but database user record missing", {
+		userId: authUser.id,
+		page: "profile",
+	});
 	return Astro.redirect("/?error=user_not_found");
 }
 

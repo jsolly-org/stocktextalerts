@@ -1,9 +1,8 @@
 import type { AppSupabaseClient } from "../db/supabase";
 
 export type SupabaseEmailOtpType =
-	| "signup"
+	| "email"
 	| "invite"
-	| "magiclink"
 	| "recovery"
 	| "email_change";
 
@@ -33,5 +32,5 @@ export async function verifySupabaseOtp(
 		verifyOtp: (p: VerifyOtpParams) => Promise<VerifyOtpResult>;
 	};
 
-	return await auth.verifyOtp(params);
+	return auth.verifyOtp(params);
 }

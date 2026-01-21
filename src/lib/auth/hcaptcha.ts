@@ -2,6 +2,8 @@
 hCaptcha Utility Functions
 ============= */
 
+import { rootLogger } from "../logging";
+
 type CallbackWindow<T> = Window & {
 	[key: string]: T | undefined;
 };
@@ -50,7 +52,7 @@ export function setupHCaptchaErrorCallback(
 	const cb =
 		handler ||
 		((errorCode: string) => {
-			console.error("hCaptcha error:", errorCode);
+			rootLogger.error("hCaptcha error", { errorCode });
 		});
 	setWindowCallback<(errorCode: string) => void>(callbackName, cb);
 }
@@ -124,7 +126,9 @@ export function createCaptchaStatusHelpers(statusElementId: string) {
 		show: (message: string) => {
 			const statusElement = document.getElementById(statusElementId);
 			if (!(statusElement instanceof HTMLElement)) {
-				console.warn(`hCaptcha status element not found: ${statusElementId}`);
+				rootLogger.warn("hCaptcha status element not found", {
+					statusElementId,
+				});
 				return;
 			}
 
@@ -134,7 +138,9 @@ export function createCaptchaStatusHelpers(statusElementId: string) {
 		hide: () => {
 			const statusElement = document.getElementById(statusElementId);
 			if (!(statusElement instanceof HTMLElement)) {
-				console.warn(`hCaptcha status element not found: ${statusElementId}`);
+				rootLogger.warn("hCaptcha status element not found", {
+					statusElementId,
+				});
 				return;
 			}
 
@@ -262,9 +268,10 @@ export async function verifyHCaptchaToken({
 						errorWithStatus.status >= 500)));
 
 		if (!isRetryableError) {
-			console.error(
-				"hCaptcha verification non-retryable error:",
-				errorWithStatus,
+			rootLogger.error(
+				"hCaptcha verification non-retryable error",
+				undefined,
+				error,
 			);
 			throw error;
 		}
@@ -283,13 +290,21 @@ export async function verifyHCaptchaToken({
 			}
 		} catch (retryError) {
 			// If retry also fails, log both errors before throwing the original
-			console.error(
-				"hCaptcha retry failed:",
+			rootLogger.error(
+				"hCaptcha retry failed",
+				{ originalError: lastError },
 				retryError,
-				"Original error:",
-				lastError,
 			);
-			throw lastError;
+			const retryMessage =
+				retryError instanceof Error
+					? retryError.message
+					: "Unknown retry error";
+			throw new Error(
+				`hCaptcha verification failed after retry: ${retryMessage}`,
+				{
+					cause: { originalError: lastError, retryError },
+				},
+			);
 		}
 	}
 
@@ -305,9 +320,7 @@ export async function verifyHCaptchaToken({
 		};
 	} catch (error) {
 		// Handle malformed or truncated JSON responses from hCaptcha API
-		console.error("Failed to parse hCaptcha response", {
-			error: error instanceof Error ? error.message : String(error),
-		});
+		rootLogger.error("Failed to parse hCaptcha response", undefined, error);
 		return {
 			success: false,
 			errorCodes: ["invalid-json-response"],

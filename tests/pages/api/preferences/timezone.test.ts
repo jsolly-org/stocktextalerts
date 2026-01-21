@@ -114,9 +114,7 @@ describe("POST /api/preferences/timezone", () => {
 describe("resolveTimezone caching", () => {
 	it("reuses cached timezone values within TTL", async () => {
 		vi.resetModules();
-		const { resolveTimezone } = await import(
-			"../../../../src/lib/timezones/cache"
-		);
+		const { resolveTimezone } = await import("../../../../src/lib/time/cache");
 
 		const stub = createSupabaseTimezonesStub({
 			rows: [{ value: "Etc/UTC" }],
@@ -138,9 +136,7 @@ describe("resolveTimezone caching", () => {
 
 	it("dedupes concurrent loads (single in-flight query)", async () => {
 		vi.resetModules();
-		const { resolveTimezone } = await import(
-			"../../../../src/lib/timezones/cache"
-		);
+		const { resolveTimezone } = await import("../../../../src/lib/time/cache");
 
 		const stub = createSupabaseTimezonesStub({
 			rows: [{ value: "Etc/UTC" }],
@@ -168,7 +164,7 @@ describe("getTimezoneOptions caching", () => {
 	it("reuses cached timezones within TTL", async () => {
 		vi.resetModules();
 		const { getTimezoneOptions } = await import(
-			"../../../../src/lib/timezones/cache"
+			"../../../../src/lib/time/cache"
 		);
 
 		const stub = createSupabaseTimezonesStub({
@@ -204,7 +200,7 @@ describe("getTimezoneOptions caching", () => {
 	it("dedupes concurrent loads (single in-flight query)", async () => {
 		vi.resetModules();
 		const { getTimezoneOptions } = await import(
-			"../../../../src/lib/timezones/cache"
+			"../../../../src/lib/time/cache"
 		);
 
 		const stub = createSupabaseTimezonesStub({

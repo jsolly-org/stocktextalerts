@@ -1,3 +1,4 @@
+import { rootLogger } from "../../../../lib/logging";
 import type { DeliveryResult, SmsUser, UserRecord } from "../shared";
 import type { SmsSender } from "./twilio-utils";
 
@@ -21,17 +22,18 @@ export async function sendUserSms(
 		// sendSms (from createSmsSender) already catches Twilio RestException errors
 		// and returns a DeliveryResult, so this catch block only handles unexpected
 		// errors like network failures, timeouts, or implementation errors.
-		console.error("Unexpected error sending SMS", {
-			userId: user.id,
+		rootLogger.error(
+			"Unexpected error sending SMS",
+			{ userId: user.id },
 			error,
-		});
+		);
 
-		const twilioError = error as { code?: string | number };
 		const errorMessage = error instanceof Error ? error.message : String(error);
+		const errorCode = (error as { code?: string | number })?.code;
 		return {
 			success: false,
 			error: errorMessage,
-			errorCode: twilioError.code ? String(twilioError.code) : undefined,
+			errorCode: errorCode ? String(errorCode) : undefined,
 		};
 	}
 }

@@ -1,4 +1,5 @@
 import twilio, { type RestException } from "twilio";
+import { rootLogger } from "../../../../lib/logging";
 
 function handleTwilioError(
 	error: unknown,
@@ -10,7 +11,7 @@ function handleTwilioError(
 	// message, and moreInfo.
 	if (error instanceof Error && "status" in error && "code" in error) {
 		const twilioError = error as RestException;
-		console.error(`${logPrefix}:`, {
+		rootLogger.error(logPrefix, {
 			message: twilioError.message,
 			code: twilioError.code,
 			status: twilioError.status,
@@ -24,7 +25,7 @@ function handleTwilioError(
 
 	const errorMessage = error instanceof Error ? error.message : defaultMessage;
 	const errorType = error?.constructor?.name || typeof error;
-	console.error(`${logPrefix}:`, {
+	rootLogger.error(logPrefix, {
 		error,
 		errorType,
 		message: errorMessage,

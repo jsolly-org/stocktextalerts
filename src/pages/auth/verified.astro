@@ -6,6 +6,7 @@ import {
 } from "../../lib/auth/supabase-otp";
 import { createUserService } from "../../lib/db";
 import { createSupabaseServerClient } from "../../lib/db/supabase";
+import { rootLogger } from "../../lib/logging";
 
 const supabase = createSupabaseServerClient();
 const userService = createUserService(supabase, Astro.cookies);
@@ -40,13 +41,17 @@ if (tokenHash && type) {
 	});
 
 	if (error || !data.user) {
-		console.error("Email verification token validation failed:", error);
+		rootLogger.error(
+			"Email verification token validation failed",
+			undefined,
+			error,
+		);
 		return Astro.redirect("/signin?error=invalid_verification");
 	}
 
 	// Verify the user's email is actually confirmed
 	if (!data.user.email_confirmed_at) {
-		console.error("User email not confirmed after token verification");
+		rootLogger.error("User email not confirmed after token verification");
 		return Astro.redirect("/signin?error=verification_failed");
 	}
 
@@ -57,7 +62,7 @@ if (tokenHash && type) {
 	// This handles cases where Supabase already verified the token before redirect
 	const user = await userService.getCurrentUser();
 	if (!user || !user.email_confirmed_at) {
-		console.error("No valid session or email not confirmed");
+		rootLogger.error("No valid session or email not confirmed");
 		return Astro.redirect("/signin?error=invalid_verification");
 	}
 }

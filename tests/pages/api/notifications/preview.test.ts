@@ -1,6 +1,6 @@
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { POST } from "../../../../src/pages/api/notifications/preview";
 import { adminClient } from "../../../setup";
 import { createAuthenticatedCookies, createTestUser } from "../../../utils";
@@ -8,26 +8,6 @@ import { createAuthenticatedCookies, createTestUser } from "../../../utils";
 const TEST_PASSWORD = "TestPassword123!";
 
 describe("Preview Notifications Endpoint", () => {
-	const hasResendCredentials = Boolean(process.env.RESEND_API_KEY);
-	const hasTwilioCredentials = Boolean(
-		process.env.TWILIO_ACCOUNT_SID &&
-			process.env.TWILIO_AUTH_TOKEN &&
-			process.env.TWILIO_PHONE_NUMBER,
-	);
-
-	beforeAll(() => {
-		if (!hasResendCredentials) {
-			console.warn(
-				"Skipping email preview integration test: missing RESEND_API_KEY",
-			);
-		}
-		if (!hasTwilioCredentials) {
-			console.warn(
-				"Skipping SMS preview integration test: missing TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, or TWILIO_PHONE_NUMBER",
-			);
-		}
-	});
-
 	const toAstroCookies = (
 		cookies: Map<string, string>,
 	): APIContext["cookies"] =>
@@ -225,85 +205,82 @@ describe("Preview Notifications Endpoint", () => {
 		}
 	});
 
-	(hasResendCredentials ? it : it.skip)(
-		"redirects to /dashboard?success=preview_email_sent (302) when user has valid email fields",
-		async () => {
-			const { id, email } = await createTestUser({
-				email:
-					process.env.TEST_EMAIL_RECIPIENT || `test-${randomUUID()}@resend.dev`,
-				confirmed: true,
-				emailNotificationsEnabled: true,
-				trackedStocks: ["AAPL"],
-			});
+	it("redirects to /dashboard?success=preview_email_sent (302) when user has valid email fields", async () => {
+		const { id, email } = await createTestUser({
+			email:
+				process.env.TEST_EMAIL_RECIPIENT || `test-${randomUUID()}@resend.dev`,
+			confirmed: true,
+			emailNotificationsEnabled: true,
+			trackedStocks: ["AAPL"],
+		});
 
-			try {
-				const cookies = await createAuthenticatedCookies(email, TEST_PASSWORD);
+		try {
+			const cookies = await createAuthenticatedCookies(email, TEST_PASSWORD);
 
-				const request = buildRequest("email");
+			const request = buildRequest("email");
 
-				const response = await POST({
-					request,
-					cookies: toAstroCookies(cookies),
-					redirect: toRedirect,
-				} as APIContext);
+			const response = await POST({
+				request,
+				cookies: toAstroCookies(cookies),
+				redirect: toRedirect,
+			} as APIContext);
 
-				expect(response.status).toBe(302);
-				expect(response.headers.get("Location")).toBe(
-					"/dashboard?success=preview_email_sent",
+			expect(response.status).toBe(302);
+			expect(response.headers.get("Location")).toBe(
+				"/dashboard?success=preview_email_sent",
+			);
+		} finally {
+			await adminClient.auth.admin.deleteUser(id);
+		}
+	});
+
+	it("redirects to /dashboard?success=preview_sms_sent (302) when user has valid SMS fields", async () => {
+		const { id, email } = await createTestUser({
+			email: `test-${randomUUID()}@resend.dev`,
+			confirmed: true,
+			smsNotificationsEnabled: true,
+			trackedStocks: ["AAPL"],
+		});
+
+		try {
+			// Use a unique phone number to avoid duplicate key constraint
+			// Twilio test credentials accept any number, so we use random digits for uniqueness
+			const uniquePhoneNumber = `50${String(randomInt(0, 10 ** 8)).padStart(
+				8,
+				"0",
+			)}`;
+			const { error: updateError } = await adminClient
+				.from("users")
+				.update({
+					phone_country_code: "+1",
+					phone_number: uniquePhoneNumber,
+					phone_verified: true,
+					sms_opted_out: false,
+				})
+				.eq("id", id);
+
+			if (updateError) {
+				throw new Error(
+					`Failed to set up test user phone: ${updateError.message}`,
 				);
-			} finally {
-				await adminClient.auth.admin.deleteUser(id);
 			}
-		},
-	);
 
-	(hasTwilioCredentials ? it : it.skip)(
-		"redirects to /dashboard?success=preview_sms_sent (302) when user has valid SMS fields",
-		async () => {
-			const { id, email } = await createTestUser({
-				email: `test-${randomUUID()}@resend.dev`,
-				confirmed: true,
-				smsNotificationsEnabled: true,
-				trackedStocks: ["AAPL"],
-			});
+			const cookies = await createAuthenticatedCookies(email, TEST_PASSWORD);
 
-			try {
-				// Use a unique phone number to avoid duplicate key constraint
-				// Twilio test credentials accept any number, so we can use a timestamp-based one
-				const uniquePhoneNumber = `500555${String(Date.now()).slice(-4)}`;
-				const { error: updateError } = await adminClient
-					.from("users")
-					.update({
-						phone_country_code: "+1",
-						phone_number: uniquePhoneNumber,
-						phone_verified: true,
-						sms_opted_out: false,
-					})
-					.eq("id", id);
+			const request = buildRequest("sms");
 
-				if (updateError) {
-					throw new Error(
-						`Failed to set up test user phone: ${updateError.message}`,
-					);
-				}
+			const response = await POST({
+				request,
+				cookies: toAstroCookies(cookies),
+				redirect: toRedirect,
+			} as APIContext);
 
-				const cookies = await createAuthenticatedCookies(email, TEST_PASSWORD);
-
-				const request = buildRequest("sms");
-
-				const response = await POST({
-					request,
-					cookies: toAstroCookies(cookies),
-					redirect: toRedirect,
-				} as APIContext);
-
-				expect(response.status).toBe(302);
-				expect(response.headers.get("Location")).toBe(
-					"/dashboard?success=preview_sms_sent",
-				);
-			} finally {
-				await adminClient.auth.admin.deleteUser(id);
-			}
-		},
-	);
+			expect(response.status).toBe(302);
+			expect(response.headers.get("Location")).toBe(
+				"/dashboard?success=preview_sms_sent",
+			);
+		} finally {
+			await adminClient.auth.admin.deleteUser(id);
+		}
+	});
 });
