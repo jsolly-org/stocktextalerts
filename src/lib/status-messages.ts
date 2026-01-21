@@ -35,7 +35,9 @@ const MESSAGE_ALLOWLIST = {
 	daily_digest_disabled: "Daily digest is disabled.",
 	daily_digest_send_failed: "Failed to send daily digest. Please try again.",
 	daily_digest_rate_limited:
-		"Too many manual digest requests. You can send up to 3 per hour. Please try again later.",
+		"Too many manual digest requests. You can send up to 1 per hour. Please try again later.",
+	daily_digest_timed_out:
+		"Daily digest request timed out. Please try again.",
 	daily_digest_skip_failed:
 		"Failed to skip the next daily digest. Please try again.",
 } as const;
