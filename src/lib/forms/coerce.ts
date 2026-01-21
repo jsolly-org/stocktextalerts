@@ -66,7 +66,12 @@ export function coerceValue(
 			if (!spec.values.includes(raw)) {
 				return {
 					value: undefined,
-					error: { reason: "invalid_enum", key: "", values: spec.values },
+					error: {
+						reason: "invalid_enum",
+						key: "",
+						value: raw,
+						values: spec.values,
+					},
 				};
 			}
 			return { value: raw };

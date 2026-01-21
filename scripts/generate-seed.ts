@@ -57,7 +57,7 @@ const ERROR_HINTS: Partial<Record<SeedErrorCode, string[]>> = {
     "   - Verify file permissions and JSON format",
   ],
   users_parse_failed: [
-    "\n💡 Hint: File read error.",
+    "\n💡 Hint: File parse error.",
     "   - Check that users.json exists in scripts/",
     "   - Ensure the file is named users.json (not sample-users.json)",
     "   - Verify file permissions and JSON format",

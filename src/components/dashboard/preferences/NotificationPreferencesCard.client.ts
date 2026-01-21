@@ -1,14 +1,6 @@
 import { setupDetectedTimezoneOption } from "../../../lib/time/banner";
 import { DEFAULT_TIMEZONE } from "../../../lib/time/constants";
-
-function onDOMReady(callback: () => void) {
-	if (document.readyState === "loading") {
-		document.addEventListener("DOMContentLoaded", callback, { once: true });
-		return;
-	}
-
-	callback();
-}
+import { onDOMReady } from "../../../lib/ui/dom-ready";
 
 function setupSaveHint(options: { formId: string; saveHintId: string }) {
 	const hint = document.getElementById(options.saveHintId);

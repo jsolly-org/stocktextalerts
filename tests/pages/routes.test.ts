@@ -153,7 +153,7 @@ describe("Page routes render without unexpected logs", () => {
 		);
 	});
 
-	it("renders dashboard and profile for authenticated users", async () => {
+	it("renders dashboard for authenticated users", async () => {
 		await withTestUser(
 			{
 				email: `test-${randomUUID()}@resend.dev`,
@@ -170,6 +170,19 @@ describe("Page routes render without unexpected logs", () => {
 					},
 				);
 				expect(dashboardResponse.status).toBe(200);
+			},
+		);
+	});
+
+	it("renders profile for authenticated users", async () => {
+		await withTestUser(
+			{
+				email: `test-${randomUUID()}@resend.dev`,
+				password: TEST_PASSWORD,
+				confirmed: true,
+			},
+			async (_user, cookies) => {
+				const container = await AstroContainer.create({ renderers });
 
 				const profileResponse = await container.renderToResponse(ProfilePage, {
 					request: buildRequest("/profile", cookies),

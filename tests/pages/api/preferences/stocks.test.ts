@@ -256,7 +256,13 @@ describe("POST /api/preferences (tracked stocks)", () => {
 					rootLogger.warn("Cleanup failed (auth)", { error: authDeleteError });
 				}
 			}
-			await adminClient.from("stocks").delete().in("symbol", seedSymbols);
+			const { error: stockDeleteError } = await adminClient
+				.from("stocks")
+				.delete()
+				.in("symbol", seedSymbols);
+			if (stockDeleteError) {
+				rootLogger.warn("Cleanup failed (stocks)", { error: stockDeleteError });
+			}
 		}
 	});
 });

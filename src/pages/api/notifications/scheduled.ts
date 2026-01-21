@@ -27,6 +27,7 @@ import {
 } from "./sms/twilio-utils";
 
 const MAX_NOTIFICATION_RETRIES = 3;
+const USER_PROCESS_BATCH_SIZE = 5;
 
 async function updateScheduledNotificationRow(options: {
 	supabase: ReturnType<typeof createSupabaseAdminClient>;
@@ -457,7 +458,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			}
 		};
 
-		const results = await Promise.all(users.map(processUser));
+		const results: Awaited<ReturnType<typeof processUser>>[] = [];
+		for (
+			let index = 0;
+			index < users.length;
+			index += USER_PROCESS_BATCH_SIZE
+		) {
+			const batch = users.slice(index, index + USER_PROCESS_BATCH_SIZE);
+			const batchResults = await Promise.all(batch.map(processUser));
+			results.push(...batchResults);
+		}
 
 		const totals = results.reduce(
 			(acc, curr) => ({

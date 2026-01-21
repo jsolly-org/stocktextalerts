@@ -123,46 +123,31 @@ export const POST: APIRoute = async ({
 		}
 
 		const skipNext = url.searchParams.get("skip_next") === "1";
-
 		const originalNextSendAt = user.next_send_at;
-		if (skipNext) {
-			if (typeof originalNextSendAt === "string") {
-				const dueAt = DateTime.fromISO(originalNextSendAt, { zone: "utc" });
-				const advancedNextSendAt = calculateNextSendAt(
-					user.daily_digest_notification_time,
-					user.timezone,
-					dueAt.plus({ seconds: 1 }),
-				);
-				if (!advancedNextSendAt) {
-					logger.error("Failed to calculate advanced next_send_at", {
-						userId: user.id,
-						daily_digest_notification_time: user.daily_digest_notification_time,
-						timezone: user.timezone,
-					});
-					return redirect("/dashboard?error=daily_digest_skip_failed");
-				}
+		let advancedNextSendAtIso: string | null = null;
 
-				const advancedNextSendAtIso = advancedNextSendAt.toISO();
-				if (!advancedNextSendAtIso) {
-					logger.error("Failed to format advanced next_send_at ISO", {
-						userId: user.id,
-					});
-					return redirect("/dashboard?error=daily_digest_skip_failed");
-				}
+		if (skipNext && typeof originalNextSendAt === "string") {
+			const dueAt = DateTime.fromISO(originalNextSendAt, { zone: "utc" });
+			const advancedNextSendAt = calculateNextSendAt(
+				user.daily_digest_notification_time,
+				user.timezone,
+				dueAt.plus({ seconds: 1 }),
+			);
+			if (!advancedNextSendAt) {
+				logger.error("Failed to calculate advanced next_send_at", {
+					userId: user.id,
+					daily_digest_notification_time: user.daily_digest_notification_time,
+					timezone: user.timezone,
+				});
+				return redirect("/dashboard?error=daily_digest_skip_failed");
+			}
 
-				const { error: advanceError } = await supabaseAdmin
-					.from("users")
-					.update({ next_send_at: advancedNextSendAtIso })
-					.eq("id", user.id);
-
-				if (advanceError) {
-					logger.error(
-						"Failed to advance next_send_at for skip",
-						{ userId: user.id },
-						advanceError,
-					);
-					return redirect("/dashboard?error=daily_digest_skip_failed");
-				}
+			advancedNextSendAtIso = advancedNextSendAt.toISO();
+			if (!advancedNextSendAtIso) {
+				logger.error("Failed to format advanced next_send_at ISO", {
+					userId: user.id,
+				});
+				return redirect("/dashboard?error=daily_digest_skip_failed");
 			}
 		}
 
@@ -262,6 +247,22 @@ export const POST: APIRoute = async ({
 
 		if (!anySent) {
 			return redirect("/dashboard?error=daily_digest_send_failed");
+		}
+
+		if (advancedNextSendAtIso) {
+			const { error: advanceError } = await supabaseAdmin
+				.from("users")
+				.update({ next_send_at: advancedNextSendAtIso })
+				.eq("id", user.id);
+
+			if (advanceError) {
+				logger.error(
+					"Failed to advance next_send_at for skip",
+					{ userId: user.id },
+					advanceError,
+				);
+				return redirect("/dashboard?error=daily_digest_skip_failed");
+			}
 		}
 
 		return redirect("/dashboard?success=daily_digest_sent");
