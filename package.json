@@ -27,7 +27,7 @@
 		]
 	},
 	"dependencies": {
-		"@astrojs/vercel": "^9.0.2",
+		"@astrojs/vercel": "^9.0.4",
 		"@heroicons/vue": "^2.2.0",
 		"@supabase/supabase-js": "^2.91.0",
 		"@vuepic/vue-datepicker": "^12.1.0",
