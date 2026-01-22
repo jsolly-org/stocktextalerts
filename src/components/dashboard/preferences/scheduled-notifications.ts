@@ -350,7 +350,7 @@ function initializeDailyDigestUI(options: {
 			} catch {
 				// Ignore sessionStorage errors (SecurityError / QuotaExceededError)
 			}
-			await sendNow({ skipNext: false });
+			await sendNow({ skipNext: true });
 			return;
 		}
 
