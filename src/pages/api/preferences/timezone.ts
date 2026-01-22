@@ -1,26 +1,33 @@
 import type { APIRoute } from "astro";
-import { redirect } from "../../../lib/api-utils";
-import { coerceWithSchema } from "../../../lib/forms/coercion";
-import { createSupabaseServerClient } from "../../../lib/supabase";
-import { createUserService } from "../../../lib/users";
+import { createUserService } from "../../../lib/db";
+import { createSupabaseServerClient } from "../../../lib/db/supabase";
+import { parseWithSchema } from "../../../lib/forms/parse";
+import { redirect } from "../../../lib/http/redirect";
+import { createLogger } from "../../../lib/logging";
 
-export const POST: APIRoute = async ({ request, cookies }) => {
+export const POST: APIRoute = async ({ request, cookies, locals }) => {
+	const url = new URL(request.url);
+	const logger = createLogger({
+		requestId: locals?.requestId,
+		path: url.pathname,
+		method: request.method,
+	});
 	const supabase = createSupabaseServerClient();
 	const users = createUserService(supabase, cookies);
 
 	const authUser = await users.getCurrentUser();
 	if (!authUser) {
-		console.error("Timezone update attempt without authenticated user");
+		logger.error("Timezone update attempt without authenticated user");
 		return redirect("/signin?error=unauthorized");
 	}
 
 	const formData = await request.formData();
-	const parsed = coerceWithSchema(formData, {
+	const parsed = parseWithSchema(formData, {
 		timezone: { type: "timezone", required: true },
 	} as const);
 
 	if (!parsed.ok) {
-		console.error("Timezone update rejected due to invalid form", {
+		logger.error("Timezone update rejected due to invalid form", {
 			errors: parsed.allErrors,
 		});
 		return redirect("/dashboard?error=invalid_form");
@@ -32,7 +39,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 		});
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
-		console.error("Failed to update timezone", {
+		logger.error("Failed to update timezone", {
 			userId: authUser.id,
 			timezone: parsed.data.timezone,
 			error: errorMessage,

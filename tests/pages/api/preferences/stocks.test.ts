@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
+import { MAX_TRACKED_STOCKS } from "../../../../src/lib/db/database-errors";
+import { rootLogger } from "../../../../src/lib/logging";
 import { POST } from "../../../../src/pages/api/preferences";
 import { adminClient } from "../../../setup";
 import {
@@ -114,21 +116,42 @@ async function updateTrackedStocks(
 }
 
 describe("POST /api/preferences (tracked stocks)", () => {
-	it("should successfully update tracked stocks", async () => {
+	it("should add a single stock when user has no stocks", async () => {
 		const { response, trackedStocks, redirectUrl } = await updateTrackedStocks(
 			[],
-			["AAPL", "MSFT", "GOOGL"],
+			["AAPL"],
 		);
 
 		expect(redirectUrl).toBe("/dashboard?success=settings_updated");
 		expect(response.status).toBe(302);
 
-		expect(trackedStocks).toHaveLength(3);
-		expect(trackedStocks?.map((s) => s.symbol)).toEqual([
-			"AAPL",
-			"GOOGL",
-			"MSFT",
-		]);
+		expect(trackedStocks).toHaveLength(1);
+		expect(trackedStocks?.[0]?.symbol).toBe("AAPL");
+	});
+
+	it("should remove the single stock when user has one stock", async () => {
+		const { response, trackedStocks, redirectUrl } = await updateTrackedStocks(
+			["AAPL"],
+			[],
+		);
+
+		expect(redirectUrl).toBe("/dashboard?success=settings_updated");
+		expect(response.status).toBe(302);
+
+		expect(trackedStocks).toHaveLength(0);
+	});
+
+	it("should add a second stock when user has one stock", async () => {
+		const { response, trackedStocks, redirectUrl } = await updateTrackedStocks(
+			["AAPL"],
+			["AAPL", "MSFT"],
+		);
+
+		expect(redirectUrl).toBe("/dashboard?success=settings_updated");
+		expect(response.status).toBe(302);
+
+		expect(trackedStocks).toHaveLength(2);
+		expect(trackedStocks?.map((s) => s.symbol)).toEqual(["AAPL", "MSFT"]);
 	});
 
 	it("should not change notification preferences when submitting tracked_stocks only", async () => {
@@ -177,63 +200,69 @@ describe("POST /api/preferences (tracked stocks)", () => {
 		expect(trackedStocks).toHaveLength(0);
 	});
 
-	it("should reject request with missing tracked_stocks field", async () => {
-		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
-			password: TEST_PASSWORD,
-			trackedStocks: ["AAPL"],
-		});
-
-		const { error: confirmError } = await adminClient.auth.admin.updateUserById(
-			testUser.id,
-			{
-				email_confirm: true,
-			},
+	it("should reject when attempting to track more than MAX_TRACKED_STOCKS", async () => {
+		const uniqueId = randomUUID().slice(0, 4).toUpperCase();
+		const seedSymbols = Array.from(
+			{ length: MAX_TRACKED_STOCKS + 1 },
+			(_, index) => `T${uniqueId}${String(index).padStart(3, "0")}`,
 		);
-		if (confirmError) {
-			throw new Error(`Failed to confirm user: ${confirmError.message}`);
+		const seedRecords = seedSymbols.map((symbol) => ({
+			symbol,
+			name: `${symbol} Test Stock`,
+			exchange: "NASDAQ",
+		}));
+		let testUserForCleanup: TestUser | undefined;
+
+		const { error: insertError } = await adminClient
+			.from("stocks")
+			.insert(seedRecords);
+		expect(insertError).toBeNull();
+
+		try {
+			const initialStocks = seedSymbols.slice(0, MAX_TRACKED_STOCKS);
+			const stocksExceedingLimit = seedSymbols.slice(0, MAX_TRACKED_STOCKS + 1);
+
+			const { response, trackedStocks, redirectUrl, testUser } =
+				await updateTrackedStocks(initialStocks, stocksExceedingLimit);
+			testUserForCleanup = testUser;
+
+			expect(redirectUrl).toBe("/dashboard?error=stocks_limit");
+			expect(response.status).toBe(302);
+
+			expect(trackedStocks).toHaveLength(MAX_TRACKED_STOCKS);
+		} finally {
+			if (testUserForCleanup) {
+				const { error: userStocksError } = await adminClient
+					.from("user_stocks")
+					.delete()
+					.eq("user_id", testUserForCleanup.id);
+				if (userStocksError) {
+					rootLogger.warn("Cleanup failed (user_stocks)", {
+						error: userStocksError,
+					});
+				}
+
+				const { error: userRowError } = await adminClient
+					.from("users")
+					.delete()
+					.eq("id", testUserForCleanup.id);
+				if (userRowError) {
+					rootLogger.warn("Cleanup failed (users)", { error: userRowError });
+				}
+
+				const { error: authDeleteError } =
+					await adminClient.auth.admin.deleteUser(testUserForCleanup.id);
+				if (authDeleteError) {
+					rootLogger.warn("Cleanup failed (auth)", { error: authDeleteError });
+				}
+			}
+			const { error: stockDeleteError } = await adminClient
+				.from("stocks")
+				.delete()
+				.in("symbol", seedSymbols);
+			if (stockDeleteError) {
+				rootLogger.warn("Cleanup failed (stocks)", { error: stockDeleteError });
+			}
 		}
-
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
-
-		const formData = new FormData();
-
-		const request = new Request("http://localhost/api/preferences", {
-			method: "POST",
-			body: formData,
-		});
-
-		const response = await POST({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const cookie = cookies.get(name);
-					return cookie ? { value: cookie } : undefined;
-				},
-				set: () => {},
-			},
-			redirect: (url: string) => {
-				return new Response(null, {
-					status: 302,
-					headers: { Location: url },
-				});
-			},
-		} as unknown as APIContext);
-
-		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe(
-			"/dashboard?error=invalid_form",
-		);
-
-		const { data: trackedStocks } = await adminClient
-			.from("user_stocks")
-			.select("symbol")
-			.eq("user_id", testUser.id);
-
-		expect(trackedStocks).toHaveLength(1);
-		expect(trackedStocks?.[0]?.symbol).toBe("AAPL");
 	});
 });

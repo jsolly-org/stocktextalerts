@@ -1,9 +1,21 @@
 import type { APIRoute } from "astro";
-import { setAuthCookies } from "../../../lib/auth-cookies";
-import { parseWithSchema } from "../../../lib/forms/parsing";
-import { createSupabaseServerClient } from "../../../lib/supabase";
+import { setAuthCookies } from "../../../lib/auth/cookies";
+import { createSupabaseServerClient } from "../../../lib/db/supabase";
+import { parseWithSchema } from "../../../lib/forms/parse";
+import { createLogger } from "../../../lib/logging";
 
-export const POST: APIRoute = async ({ request, cookies, redirect }) => {
+export const POST: APIRoute = async ({
+	request,
+	cookies,
+	redirect,
+	locals,
+}) => {
+	const url = new URL(request.url);
+	const logger = createLogger({
+		requestId: locals?.requestId,
+		path: url.pathname,
+		method: request.method,
+	});
 	const supabase = createSupabaseServerClient();
 
 	const formData = await request.formData();
@@ -14,7 +26,7 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
 	} as const);
 
 	if (!parsed.ok) {
-		console.error("Sign-in attempt rejected due to invalid form", {
+		logger.info("Sign-in attempt rejected due to invalid form", {
 			errors: parsed.allErrors,
 		});
 		const email = formData.get("email");
@@ -41,7 +53,7 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
 
 	if (error) {
 		if (error.code === "captcha_failed") {
-			console.error("Sign-in blocked due to captcha", {
+			logger.info("Sign-in blocked due to captcha", {
 				code: error.code,
 				status: error.status,
 			});
@@ -51,16 +63,24 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
 		}
 
 		if (error.code === "email_not_confirmed") {
-			console.error("Sign-in blocked due to unconfirmed email", {
-				email,
-			});
+			logger.info("Sign-in blocked due to unconfirmed email");
 			return redirect(`/auth/unconfirmed?email=${encodeURIComponent(email)}`);
 		}
 
-		console.error("Sign-in failed", {
-			email,
-			message: error.message,
-		});
+		const shouldLogError =
+			typeof error.status === "number" && error.status >= 500;
+		if (shouldLogError) {
+			logger.error(
+				"Sign-in failed",
+				{ code: error.code, status: error.status },
+				error,
+			);
+		} else {
+			logger.info("Sign-in failed", {
+				code: error.code,
+				status: error.status,
+			});
+		}
 
 		return redirect(
 			`/signin?error=invalid_credentials&email=${encodeURIComponent(email)}`,
@@ -68,7 +88,7 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
 	}
 
 	if (!data.session) {
-		console.error("Sign-in succeeded but no session was returned", { email });
+		logger.error("Sign-in succeeded but no session was returned");
 		return redirect(
 			`/signin?error=no_session&email=${encodeURIComponent(email)}`,
 		);

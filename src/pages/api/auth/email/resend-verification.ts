@@ -1,9 +1,16 @@
 import type { APIRoute } from "astro";
-import { getSiteUrl } from "../../../../lib/env";
-import { parseWithSchema } from "../../../../lib/forms/parsing";
-import { createSupabaseServerClient } from "../../../../lib/supabase";
+import { getSiteUrl } from "../../../../lib/db/env";
+import { createSupabaseServerClient } from "../../../../lib/db/supabase";
+import { parseWithSchema } from "../../../../lib/forms/parse";
+import { createLogger } from "../../../../lib/logging";
 
-export const POST: APIRoute = async ({ request, redirect }) => {
+export const POST: APIRoute = async ({ request, redirect, locals }) => {
+	const url = new URL(request.url);
+	const logger = createLogger({
+		requestId: locals?.requestId,
+		path: url.pathname,
+		method: request.method,
+	});
 	const supabase = createSupabaseServerClient();
 
 	const formData = await request.formData();
@@ -13,7 +20,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
 	} as const);
 
 	if (!parsed.ok) {
-		console.error("Resend verification request rejected due to invalid form", {
+		logger.warn("Resend verification request rejected due to invalid form", {
 			errors: parsed.allErrors,
 		});
 		return redirect("/auth/unconfirmed?error=invalid_form");
@@ -25,13 +32,6 @@ export const POST: APIRoute = async ({ request, redirect }) => {
 	// when users request verification resends with emails that have leading/trailing whitespace.
 	const email = parsed.data.email.trim();
 	const captchaToken = parsed.data.captcha_token;
-
-	if (/\s/.test(email)) {
-		console.error("Resend verification rejected: email contains whitespace", {
-			email,
-		});
-		return redirect("/auth/unconfirmed?error=invalid_form");
-	}
 
 	const origin = getSiteUrl();
 	const emailRedirectTo = `${origin}/auth/verified`;
@@ -47,7 +47,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
 
 	if (error) {
 		if (error.code === "captcha_failed") {
-			console.error("Resend verification blocked due to captcha", {
+			logger.error("Resend verification blocked due to captcha", {
 				code: error.code,
 				status: error.status,
 			});
@@ -56,7 +56,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
 			);
 		}
 
-		console.error("Resend verification email failed:", error);
+		logger.error("Resend verification email failed", undefined, error);
 		return redirect(
 			`/auth/unconfirmed?email=${encodeURIComponent(email)}&error=failed`,
 		);

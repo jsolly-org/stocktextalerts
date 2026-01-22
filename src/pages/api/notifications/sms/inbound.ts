@@ -1,8 +1,9 @@
 import type { APIRoute } from "astro";
 import twilio from "twilio";
-import { parseWithSchema } from "../../../../lib/forms/parsing";
+import { createSupabaseAdminClient } from "../../../../lib/db/supabase";
+import { parseWithSchema } from "../../../../lib/forms/parse";
 import type { FormSchema } from "../../../../lib/forms/schema";
-import { createSupabaseAdminClient } from "../../../../lib/supabase";
+import { createLogger } from "../../../../lib/logging";
 import { handleInboundSms } from "./inbound-utils";
 import { readTwilioConfig } from "./twilio-utils";
 
@@ -44,12 +45,36 @@ function buildInboundSmsSchema(): FormSchema {
 
 const INBOUND_SMS_SCHEMA = buildInboundSmsSchema();
 
-export const POST: APIRoute = async ({ request }) => {
+function reconstructUrl(request: Request, url: URL): string {
+	const forwardedProto = request.headers.get("x-forwarded-proto") ?? "";
+	const forwardedHost = request.headers.get("x-forwarded-host") ?? "";
+
+	// Trim to normalize whitespace in proxy headers (can contain spaces from multiple proxy chains)
+	const protocol = forwardedProto.split(",")[0]?.trim() ?? "";
+	const host = forwardedHost.split(",")[0]?.trim() ?? "";
+	if (
+		protocol.length > 0 &&
+		host.length > 0 &&
+		(protocol === "http" || protocol === "https")
+	) {
+		return `${protocol}://${host}${url.pathname}${url.search}`;
+	}
+
+	return request.url;
+}
+
+export const POST: APIRoute = async ({ request, locals }) => {
+	const url = new URL(request.url);
+	const logger = createLogger({
+		requestId: locals?.requestId,
+		path: url.pathname,
+		method: request.method,
+	});
 	try {
 		const signatureHeader = request.headers.get("x-twilio-signature");
 
 		if (!signatureHeader) {
-			console.error("Inbound SMS request missing x-twilio-signature header");
+			logger.error("Inbound SMS request missing x-twilio-signature header");
 			return new Response("Missing Twilio signature", { status: 401 });
 		}
 
@@ -58,7 +83,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const parsed = parseWithSchema(formData, INBOUND_SMS_SCHEMA);
 
 		if (!parsed.ok) {
-			console.error("Inbound SMS rejected due to invalid form data", {
+			logger.warn("Inbound SMS rejected due to invalid form data", {
 				errors: parsed.allErrors,
 			});
 			return new Response("Invalid form submission", { status: 400 });
@@ -69,9 +94,11 @@ export const POST: APIRoute = async ({ request }) => {
 		const supabase = createSupabaseAdminClient();
 		const twilioConfig = readTwilioConfig();
 
+		const webhookUrl = reconstructUrl(request, url);
+
 		const result = await handleInboundSms(
 			{
-				url: request.url,
+				url: webhookUrl,
 				signature,
 				params,
 			},
@@ -92,7 +119,7 @@ export const POST: APIRoute = async ({ request }) => {
 			headers,
 		});
 	} catch (error) {
-		console.error("SMS webhook error:", error);
+		logger.error("SMS webhook error", undefined, error);
 		return new Response("Internal server error", { status: 500 });
 	}
 };

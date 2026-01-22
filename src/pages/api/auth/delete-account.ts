@@ -1,18 +1,30 @@
 import type { APIRoute } from "astro";
-import { clearAuthCookies } from "../../../lib/auth-cookies";
+import { clearAuthCookies } from "../../../lib/auth/cookies";
+import { createUserService } from "../../../lib/db";
 import {
 	createSupabaseAdminClient,
 	createSupabaseServerClient,
-} from "../../../lib/supabase";
-import { createUserService } from "../../../lib/users";
+} from "../../../lib/db/supabase";
+import { createLogger } from "../../../lib/logging";
 
-export const POST: APIRoute = async ({ cookies, redirect }) => {
+export const POST: APIRoute = async ({
+	cookies,
+	redirect,
+	request,
+	locals,
+}) => {
+	const url = new URL(request.url);
+	const logger = createLogger({
+		requestId: locals?.requestId,
+		path: url.pathname,
+		method: request.method,
+	});
 	const supabase = createSupabaseServerClient();
 	const users = createUserService(supabase, cookies);
 	const authUser = await users.getCurrentUser();
 
 	if (!authUser) {
-		console.error("Delete account requested without authenticated user");
+		logger.error("Delete account requested without authenticated user");
 		clearAuthCookies(cookies);
 		return redirect("/");
 	}
@@ -28,10 +40,11 @@ export const POST: APIRoute = async ({ cookies, redirect }) => {
 			.maybeSingle();
 
 		if (fetchError) {
-			console.error("Failed to load user before deletion", {
-				userId: authUser.id,
-				error: fetchError,
-			});
+			logger.error(
+				"Failed to load user before deletion",
+				{ userId: authUser.id },
+				fetchError,
+			);
 			return redirect("/profile?error=delete_failed");
 		}
 
@@ -42,12 +55,10 @@ export const POST: APIRoute = async ({ cookies, redirect }) => {
 			);
 
 			if (authError) {
-				console.error(
+				logger.error(
 					"Failed to delete auth user when DB user already missing",
-					{
-						userId: authUser.id,
-						error: authError,
-					},
+					{ userId: authUser.id },
+					authError,
 				);
 				return redirect("/profile?error=delete_orphaned_auth_failed");
 			}
@@ -63,10 +74,11 @@ export const POST: APIRoute = async ({ cookies, redirect }) => {
 		);
 
 		if (authError) {
-			console.error("Failed to delete auth user before DB deletion", {
-				userId: authUser.id,
-				error: authError,
-			});
+			logger.error(
+				"Failed to delete auth user before DB deletion",
+				{ userId: authUser.id },
+				authError,
+			);
 			return redirect("/profile?error=delete_failed");
 		}
 
@@ -76,12 +88,10 @@ export const POST: APIRoute = async ({ cookies, redirect }) => {
 			.eq("id", authUser.id);
 
 		if (dbError) {
-			console.error(
+			logger.error(
 				"CRITICAL: Failed to delete user row after auth deletion; orphaned record requires manual cleanup",
-				{
-					userId: authUser.id,
-					error: dbError,
-				},
+				{ userId: authUser.id },
+				dbError,
 			);
 			clearAuthCookies(cookies);
 			return redirect("/profile?error=delete_partial");
@@ -91,10 +101,7 @@ export const POST: APIRoute = async ({ cookies, redirect }) => {
 
 		return redirect("/?success=account_deleted");
 	} catch (err) {
-		console.error("Failed to delete user account", {
-			userId: authUser.id,
-			error: err,
-		});
+		logger.error("Failed to delete user account", { userId: authUser.id }, err);
 		return redirect("/profile?error=delete_failed");
 	}
 };

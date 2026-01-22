@@ -1,10 +1,11 @@
 import type { APIRoute } from "astro";
-import { coerceWithSchema } from "../../../lib/forms/coercion";
+import { createUserService } from "../../../lib/db";
 import {
 	createSupabaseAdminClient,
 	createSupabaseServerClient,
-} from "../../../lib/supabase";
-import { createUserService } from "../../../lib/users";
+} from "../../../lib/db/supabase";
+import { parseWithSchema } from "../../../lib/forms/parse";
+import { createLogger } from "../../../lib/logging";
 import { createEmailSender } from "./email/utils";
 import { processEmailUpdate, processSmsUpdate } from "./processing";
 import { loadUserStocks, type UserStockRow } from "./shared";
@@ -15,23 +16,34 @@ import {
 	type TwilioConfig,
 } from "./sms/twilio-utils";
 
-export const POST: APIRoute = async ({ request, cookies, redirect }) => {
+export const POST: APIRoute = async ({
+	request,
+	cookies,
+	redirect,
+	locals,
+}) => {
+	const url = new URL(request.url);
+	const logger = createLogger({
+		requestId: locals?.requestId,
+		path: url.pathname,
+		method: request.method,
+	});
 	const supabase = createSupabaseServerClient();
 	const userService = createUserService(supabase, cookies);
 	const authUser = await userService.getCurrentUser();
 
 	if (!authUser) {
-		console.error("Preview notification attempt without authenticated user");
+		logger.info("Preview notification attempt without authenticated user");
 		return redirect("/signin?error=unauthorized");
 	}
 
 	const formData = await request.formData();
-	const parsed = coerceWithSchema(formData, {
+	const parsed = parseWithSchema(formData, {
 		type: { type: "enum", values: ["email", "sms"] as const, required: true },
 	} as const);
 
 	if (!parsed.ok) {
-		console.error("Preview notification rejected due to invalid form", {
+		logger.info("Preview notification rejected due to invalid form", {
 			errors: parsed.allErrors,
 		});
 		return redirect("/dashboard?error=invalid_form");
@@ -58,7 +70,7 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
 		});
 
 	if (rateLimitError) {
-		console.error("Rate limit check failed", {
+		logger.error("Rate limit check failed", {
 			userId: authUser.id,
 			error: rateLimitError,
 		});
@@ -66,12 +78,12 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
 	}
 
 	if (rateLimitAllowed === false) {
-		console.warn("User rate-limited", { userId: authUser.id });
+		logger.info("User rate-limited", { userId: authUser.id });
 		return redirect("/dashboard?error=preview_rate_limited");
 	}
 
 	if (rateLimitAllowed !== true) {
-		console.error(
+		logger.error(
 			"Preview notification rate limit check returned unexpected value",
 			{
 				userId: authUser.id,
@@ -85,7 +97,7 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
 	try {
 		userStocks = await loadUserStocks(adminSupabase, authUser.id);
 	} catch (error) {
-		console.error("Failed to load user stocks", { userId: authUser.id, error });
+		logger.error("Failed to load user stocks", { userId: authUser.id }, error);
 		return redirect("/dashboard?error=preview_failed");
 	}
 
@@ -107,7 +119,7 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
 				.maybeSingle();
 
 			if (userError) {
-				console.error("Failed to load user for email preview", {
+				logger.error("Failed to load user for email preview", {
 					userId: authUser.id,
 					error: userError,
 				});
@@ -115,14 +127,14 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
 			}
 
 			if (!user) {
-				console.error("User not found for email preview", {
+				logger.error("User not found for email preview", {
 					userId: authUser.id,
 				});
 				return redirect("/dashboard?error=user_not_found");
 			}
 
 			if (!user.email_notifications_enabled) {
-				return redirect("/dashboard?error=preview_email_disabled");
+				return redirect("/dashboard?error=email_notifications_disabled");
 			}
 
 			const sendEmail = createEmailSender();
@@ -146,7 +158,7 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
 				.maybeSingle();
 
 			if (userError) {
-				console.error("Failed to load user for SMS preview", {
+				logger.error("Failed to load user for SMS preview", {
 					userId: authUser.id,
 					error: userError,
 				});
@@ -154,18 +166,18 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
 			}
 
 			if (!user) {
-				console.error("User not found for SMS preview", {
+				logger.error("User not found for SMS preview", {
 					userId: authUser.id,
 				});
 				return redirect("/dashboard?error=user_not_found");
 			}
 
 			if (!user.sms_notifications_enabled) {
-				return redirect("/dashboard?error=preview_sms_disabled");
+				return redirect("/dashboard?error=sms_notifications_disabled");
 			}
 
 			if (user.sms_opted_out) {
-				return redirect("/dashboard?error=preview_sms_opted_out");
+				return redirect("/dashboard?error=sms_opted_out");
 			}
 
 			if (!user.phone_country_code || !user.phone_number) {
@@ -180,10 +192,11 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
 			try {
 				twilioConfig = readTwilioConfig();
 			} catch (error) {
-				console.error("Failed to read Twilio config for SMS preview", {
-					userId: authUser.id,
-					error: error instanceof Error ? error.message : String(error),
-				});
+				logger.error(
+					"Failed to read Twilio config for SMS preview",
+					{ userId: authUser.id },
+					error,
+				);
 				return redirect("/dashboard?error=preview_sms_unavailable");
 			}
 			const twilioClient = createTwilioClient(twilioConfig);
@@ -202,7 +215,7 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
 		}
 
 		if (!sent) {
-			console.error("Preview notification failed to send", {
+			logger.error("Preview notification failed to send", {
 				userId: authUser.id,
 				type,
 				errorDetails,
@@ -213,7 +226,11 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
 
 		return redirect(`/dashboard?success=${successKey}`);
 	} catch (error) {
-		console.error("Notification preview error:", error);
+		logger.error(
+			"Notification preview error",
+			{ userId: authUser.id, type },
+			error,
+		);
 		return redirect("/dashboard?error=preview_failed");
 	}
 };

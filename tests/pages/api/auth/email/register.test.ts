@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
+import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TIMEZONE } from "../../../../../src/lib/timezones/timezone-constants";
+import { DEFAULT_TIMEZONE } from "../../../../../src/lib/time/constants";
 import { POST } from "../../../../../src/pages/api/auth/email/register";
 import { adminClient } from "../../../../setup";
 
@@ -54,7 +55,7 @@ describe("POST /api/auth/email/register", () => {
 		expect(authUserData.user.email).toBe(payload.email);
 	});
 
-	it("fallback timezone is used if a detected timezone does not exist in the database and no valid offset is provided", async () => {
+	it("fallback timezone is used if a detected timezone does not exist in the database", async () => {
 		const payload = {
 			email: `test-fallback-${randomUUID()}@resend.dev`,
 			password: "TestPassword123!",
@@ -186,6 +187,6 @@ describe("POST /api/auth/email/register", () => {
 		if (!confirmedAt) {
 			throw new Error("Missing email_confirmed_at");
 		}
-		expect(new Date(confirmedAt).getTime()).not.toBeNaN();
+		expect(DateTime.fromISO(confirmedAt).toMillis()).not.toBeNaN();
 	});
 });

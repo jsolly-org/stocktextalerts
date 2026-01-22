@@ -9,6 +9,11 @@ interface ImportMetaEnv {
 	readonly SUPABASE_SERVICE_ROLE_KEY: string;
 	readonly RESEND_API_KEY: string;
 	readonly EMAIL_FROM: string;
+	readonly EMAIL_REPLY_TO?: string;
 	readonly CRON_SECRET: string;
 	readonly TIMEZONE_CACHE_BUSTER?: string;
+	readonly SMS_TEST_BEHAVIOR?: "success" | "fail";
+	readonly SMS_TEST_MESSAGE_SID?: string;
+	readonly SMS_TEST_ERROR?: string;
+	readonly SMS_TEST_ERROR_CODE?: string;
 }

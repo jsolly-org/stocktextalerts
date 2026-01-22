@@ -2,7 +2,8 @@
 Twilio SMS
 ============= */
 
-import twilio from "twilio";
+import twilio, { type RestException } from "twilio";
+import { rootLogger } from "../../../../lib/logging";
 
 import type { DeliveryResult } from "../shared";
 
@@ -27,10 +28,6 @@ export function readTwilioConfig(): TwilioConfig {
 	const authToken = import.meta.env.TWILIO_AUTH_TOKEN;
 	const phoneNumber = import.meta.env.TWILIO_PHONE_NUMBER;
 
-	if (!accountSid || !authToken || !phoneNumber) {
-		throw new Error("Missing Twilio configuration in environment variables");
-	}
-
 	return { accountSid, authToken, phoneNumber };
 }
 
@@ -42,6 +39,27 @@ export function createSmsSender(
 	client: TwilioClient,
 	defaultFromNumber: string,
 ): SmsSender {
+	// In test mode, return a mock sender that always succeeds without making API calls
+	if (import.meta.env.MODE === "test") {
+		const behavior = import.meta.env.SMS_TEST_BEHAVIOR ?? "success";
+		const testMessageSid = import.meta.env.SMS_TEST_MESSAGE_SID ?? "test";
+		const testError = import.meta.env.SMS_TEST_ERROR ?? "Test SMS failure";
+		const testErrorCode = import.meta.env.SMS_TEST_ERROR_CODE;
+		return async () => {
+			if (behavior === "fail") {
+				return {
+					success: false,
+					error: testError,
+					errorCode: testErrorCode,
+				};
+			}
+			return {
+				success: true,
+				messageSid: testMessageSid,
+			};
+		};
+	}
+
 	return async (request: SmsRequest): Promise<DeliveryResult> => {
 		const from = request.from ?? defaultFromNumber;
 
@@ -57,20 +75,26 @@ export function createSmsSender(
 				messageSid: message.sid,
 			};
 		} catch (error) {
-			console.error("Twilio SMS send error:", error);
+			rootLogger.error("Twilio SMS send error", undefined, error);
+
+			// Twilio SDK throws RestException for API errors (HTTP 400-5xx).
+			// RestException has: status (HTTP status), code (numeric Twilio error code),
+			// message, and moreInfo.
+			if (error instanceof Error && "status" in error && "code" in error) {
+				const twilioError = error as RestException;
+				return {
+					success: false,
+					error: twilioError.message,
+					errorCode: twilioError.code ? String(twilioError.code) : undefined,
+				};
+			}
 
 			const errorMessage =
 				error instanceof Error ? error.message : "Failed to send SMS";
 
-			const twilioError = error as {
-				code?: string | number;
-				moreInfo?: string;
-			};
-
 			return {
 				success: false,
 				error: errorMessage,
-				errorCode: twilioError.code ? String(twilioError.code) : undefined,
 			};
 		}
 	};

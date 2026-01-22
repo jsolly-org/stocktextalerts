@@ -3,22 +3,16 @@ import { readFile } from "node:fs/promises";
 import PreviewNotifications from "../components/dashboard/PreviewNotifications.astro";
 import NotificationPreferencesCard from "../components/dashboard/preferences/NotificationPreferencesCard.astro";
 import ScheduledNotificationsCard from "../components/dashboard/preferences/ScheduledNotificationsCard.astro";
-import SetupRequiredBanner from "../components/dashboard/SetupRequiredBanner.astro";
+import type { StockOption } from "../components/dashboard/stocks/StockInput.vue";
 import TrackedStocksPanel from "../components/dashboard/stocks/TrackedStocksPanel.vue";
 import Navigation from "../components/layout/Navigation.astro";
 import TimezoneMismatchBanner from "../components/TimezoneMismatchBanner.astro";
 import Layout from "../layouts/Layout.astro";
-import { formatMessage } from "../lib/format";
-import type { Stock } from "../lib/stocks";
-import { getUserStocks } from "../lib/stocks";
-import { createSupabaseServerClient } from "../lib/supabase";
-import { getTimezoneOptions } from "../lib/timezones/timezones";
-import { createUserService } from "../lib/users";
-
-interface StockOption {
-	value: string;
-	label: string;
-}
+import { createUserService, getUserStocks, type Stock } from "../lib/db";
+import { createSupabaseServerClient } from "../lib/db/supabase";
+import { rootLogger } from "../lib/logging";
+import { formatMessage } from "../lib/status-messages";
+import { getTimezoneOptions } from "../lib/time/cache";
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
@@ -26,18 +20,17 @@ const users = createUserService(supabase, Astro.cookies);
 const authUser = await users.getCurrentUser();
 
 if (!authUser) {
-	console.error("Dashboard access attempted without authenticated user");
+	rootLogger.error("Dashboard access attempted without authenticated user");
 	return Astro.redirect("/");
 }
 
 const user = await users.getById(authUser.id);
 
 if (!user) {
-	console.error(
-		`Auth user exists but database user record missing - ID: ${authUser.id}, email: ${
-			authUser.email ?? "none"
-		}, page: dashboard`,
-	);
+	rootLogger.error("Auth user exists but database user record missing", {
+		userId: authUser.id,
+		page: "dashboard",
+	});
 	return Astro.redirect("/?error=user_not_found");
 }
 
@@ -55,7 +48,7 @@ try {
 		includeValues: [user.timezone],
 	});
 } catch (error) {
-	console.error("Failed to load timezone options:", error);
+	rootLogger.error("Failed to load timezone options", undefined, error);
 	timezoneLoadError = true;
 	timezones = user.timezone
 		? [
@@ -93,9 +86,11 @@ const isSmsFullyConfigured =
 		<Navigation user={authUser} />
 
 		<div class="max-w-4xl mx-auto px-6 py-12">
-			<div class="mb-8">
-				<h1 class="text-4xl font-bold text-gray-900 mb-2">Dashboard</h1>
-				<p class="text-lg text-gray-600">Configure your notification preferences and track stocks</p>
+			<div class="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+				<h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
+				<p class="mt-1 text-gray-600">
+					Configure your notification preferences and track stocks.
+				</p>
 			</div>
 
 		{successMessage && (
@@ -120,9 +115,6 @@ const isSmsFullyConfigured =
 			savedTimezone={user.timezone}
 			allowedTimezones={timezones.map((tz) => tz.value)}
 		/>
-
-		<!-- Section 1: Setup Required Banner -->
-		<SetupRequiredBanner user={user} />
 
 		<!-- Section 2: Preferences form (stocks + notification settings) -->
 		<form
@@ -166,7 +158,13 @@ const isSmsFullyConfigured =
 </Layout>
 
 <script>
-	import { readFormValues, setupFormNavigationWarning } from "../lib/forms/navigation-warning";
+	import { onDOMReady } from "../lib/ui/dom-ready";
+	import { logWarn } from "../lib/logging";
+	import {
+		readFormValues,
+		setupFormNavigationWarning,
+	} from "../lib/forms/dom/navigation-warning";
+	import { setupTimezoneMismatchBanner } from "../lib/time/banner";
 
 	function setupDashboardPreferencesForm() {
 		const formElement = document.getElementById("dashboard-preferences-form");
@@ -189,7 +187,7 @@ const isSmsFullyConfigured =
 		}
 
 		function isTimezoneValid() {
-			const timezoneSelect = document.getElementById("timezone");
+			const timezoneSelect = document.getElementById("dashboard-preferences-form-timezone");
 			if (!(timezoneSelect instanceof HTMLSelectElement)) {
 				return true;
 			}
@@ -214,19 +212,6 @@ const isSmsFullyConfigured =
 		});
 	}
 
-	if (document.readyState === "loading") {
-		document.addEventListener(
-			"DOMContentLoaded",
-			setupDashboardPreferencesForm,
-		);
-	} else {
-		setupDashboardPreferencesForm();
-	}
-</script>
-
-<script>
-	import { setupTimezoneMismatchBanner } from "../lib/timezones/timezone-banner";
-
 	function setupDashboardTimezoneMismatchBanner() {
 		const banner = document.getElementById("timezone-mismatch-banner");
 		if (!(banner instanceof HTMLElement)) {
@@ -238,21 +223,17 @@ const isSmsFullyConfigured =
 		try {
 			allowedTimezones = JSON.parse(banner.dataset.allowedTimezones ?? "[]");
 		} catch {
-			console.warn("Failed to parse allowedTimezones from banner dataset");
+			rootLogger.warn("Failed to parse allowedTimezones from banner dataset");
 			allowedTimezones = [];
 		}
 
 		setupTimezoneMismatchBanner({ savedTimezone, allowedTimezones });
 	}
 
-	if (document.readyState === "loading") {
-		document.addEventListener(
-			"DOMContentLoaded",
-			setupDashboardTimezoneMismatchBanner,
-		);
-	} else {
+	onDOMReady(() => {
+		setupDashboardPreferencesForm();
 		setupDashboardTimezoneMismatchBanner();
-	}
+	});
 </script>
 
 

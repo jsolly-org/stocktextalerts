@@ -2,8 +2,9 @@
 import HCaptcha from "../../components/HCaptcha.astro";
 import Navigation from "../../components/layout/Navigation.astro";
 import Layout from "../../layouts/Layout.astro";
-import { createSupabaseServerClient } from "../../lib/supabase";
-import { getTimezoneOptions } from "../../lib/timezones/timezones";
+import { createSupabaseServerClient } from "../../lib/db/supabase";
+import { rootLogger } from "../../lib/logging";
+import { getTimezoneOptions } from "../../lib/time/cache";
 
 const search = Astro.url.searchParams;
 const error = search.get("error");
@@ -17,7 +18,7 @@ let timezoneLoadError = false;
 try {
 	timezones = await getTimezoneOptions(supabase);
 } catch (loadError) {
-	console.error("Failed to load timezone options:", loadError);
+	rootLogger.error("Failed to load timezone options", undefined, loadError);
 	timezoneLoadError = true;
 }
 
@@ -37,7 +38,7 @@ if (error) {
 			message =
 				"Failed to create user profile. Please try again or contact support.";
 			break;
-		case "captcha_required":
+		case "captcha_failed":
 			message = "Please complete the CAPTCHA and try again.";
 			break;
 		default:
@@ -171,25 +172,11 @@ if (error) {
 </Layout>
 
 <script>
-	import { setupDetectedTimezoneOption } from "../../lib/timezones/timezone-select";
-	import { DEFAULT_TIMEZONE } from "../../lib/timezones/timezone-constants";
+	import { setupDetectedTimezoneOption } from "../../lib/time/banner";
+	import { DEFAULT_TIMEZONE } from "../../lib/time/constants";
 
-	document.addEventListener('DOMContentLoaded', () => {
-		const emailInputElement = document.getElementById('email');
-
-		// Strip all whitespace on any input (typing or paste)
-		emailInputElement.addEventListener('input', () => {
-			const stripped = emailInputElement.value.replace(/\s/g, '');
-			if (stripped !== emailInputElement.value) {
-				const cursorPos = emailInputElement.selectionStart ?? 0;
-				const removedBeforeCursor = emailInputElement.value.slice(0, cursorPos).replace(/\s/g, '').length;
-				emailInputElement.value = stripped;
-				emailInputElement.setSelectionRange(removedBeforeCursor, removedBeforeCursor);
-			}
-		});
-
+	document.addEventListener("DOMContentLoaded", () => {
 		setupDetectedTimezoneOption({ defaultTimezone: DEFAULT_TIMEZONE });
-
 	});
 </script>
 
@@ -200,7 +187,8 @@ if (error) {
 		setupHCaptchaCallback,
 		setupHCaptchaErrorCallback,
 		setupHCaptchaExpiredCallback,
-	} from "../../lib/hcaptcha-utils";
+	} from "../../lib/auth/hcaptcha";
+	import { logError } from "../../lib/logging";
 
 	const captchaStatus = createCaptchaStatusHelpers("register-captcha-status");
 
@@ -212,7 +200,7 @@ if (error) {
 	);
 
 	setupHCaptchaErrorCallback("onRegisterHCaptchaError", (errorCode) => {
-		console.error("hCaptcha error:", errorCode);
+		rootLogger.error("hCaptcha error", { errorCode });
 		captchaStatus.show("CAPTCHA failed to load. Please refresh and try again.");
 	});
 

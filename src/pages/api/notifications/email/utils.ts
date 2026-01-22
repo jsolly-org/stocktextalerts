@@ -1,5 +1,6 @@
 import { Resend } from "resend";
-import { getSiteUrl } from "../../../../lib/env";
+import { getSiteUrl } from "../../../../lib/db/env";
+import { rootLogger } from "../../../../lib/logging";
 import type { DeliveryResult, UserStockRow } from "../shared";
 
 function escapeHtml(value: string): string {
@@ -16,6 +17,8 @@ export interface EmailRequest {
 	subject: string;
 	body: string;
 	html?: string;
+	idempotencyKey?: string;
+	replyTo?: string;
 }
 
 export type EmailSender = (request: EmailRequest) => Promise<DeliveryResult>;
@@ -23,14 +26,18 @@ export type EmailSender = (request: EmailRequest) => Promise<DeliveryResult>;
 export function createEmailSender(): EmailSender {
 	const apiKey = import.meta.env.RESEND_API_KEY;
 	const fromEmail = import.meta.env.EMAIL_FROM;
+	const defaultReplyTo = import.meta.env.EMAIL_REPLY_TO;
 
-	if (!apiKey) {
-		console.warn("RESEND_API_KEY is not set. Emails will not be sent.");
-		return async () => ({ success: false, error: "RESEND_API_KEY missing" });
+	// In test mode, return a mock sender that always succeeds without making API calls
+	if (import.meta.env.MODE === "test") {
+		return async () => ({
+			success: true,
+			messageSid: "test",
+		});
 	}
 
 	if (!apiKey.startsWith("re_")) {
-		console.warn(
+		rootLogger.warn(
 			"RESEND_API_KEY has invalid format. Expected key starting with 're_'.",
 		);
 		return async () => ({
@@ -41,24 +48,48 @@ export function createEmailSender(): EmailSender {
 
 	const resend = new Resend(apiKey);
 
-	return async ({ to, subject, body, html }) => {
+	return async ({ to, subject, body, html, idempotencyKey, replyTo }) => {
 		try {
-			const { data, error } = await resend.emails.send({
-				from: fromEmail || "notifications@updates.stocktextalerts.com",
+			const replyToValue = replyTo || defaultReplyTo;
+			const emailPayload = {
+				from: fromEmail,
 				to,
 				subject,
 				text: body,
 				html: html ?? escapeHtml(body),
-			});
+				...(replyToValue ? { replyTo: replyToValue } : {}),
+			};
+			const sendOptions = idempotencyKey ? { idempotencyKey } : undefined;
+			const { data, error } = await resend.emails.send(
+				emailPayload,
+				sendOptions,
+			);
 
 			if (error) {
-				console.error("Resend error:", error);
-				return { success: false, error: error.message };
+				// Resend SDK returns structured errors with 'type' field for error codes.
+				// Common error types: 'validation_error', 'invalid_api_key', 'rate_limit_exceeded',
+				// 'monthly_quota_exceeded', 'daily_quota_exceeded', 'invalid_from_address', etc.
+				// Error objects also have 'message' and 'status' fields.
+				const err = error as {
+					type?: string;
+					message?: string;
+					status?: number;
+				};
+				rootLogger.error("Resend error", {
+					type: err.type,
+					message: err.message,
+					status: err.status,
+				});
+				const errorMessage =
+					typeof err.message === "string"
+						? err.message
+						: "Failed to send email";
+				return { success: false, error: errorMessage };
 			}
 
 			return { success: true, messageSid: data?.id };
 		} catch (error) {
-			console.error("Unexpected error sending email:", error);
+			rootLogger.error("Unexpected error sending email", undefined, error);
 			return {
 				success: false,
 				error: error instanceof Error ? error.message : String(error),

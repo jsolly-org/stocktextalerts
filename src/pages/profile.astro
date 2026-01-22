@@ -2,14 +2,12 @@
 import Navigation from "../components/layout/Navigation.astro";
 import AccountManagement from "../components/profile/AccountManagement.astro";
 import DangerZone from "../components/profile/DangerZone.astro";
-import ProfilePreferences from "../components/profile/ProfilePreferences.astro";
-import TimezoneMismatchBanner from "../components/TimezoneMismatchBanner.astro";
 import Layout from "../layouts/Layout.astro";
-import { getAuthErrorMessage } from "../lib/auth";
-import { formatMessage } from "../lib/format";
-import { createSupabaseServerClient } from "../lib/supabase";
-import { getTimezoneOptions } from "../lib/timezones/timezones";
-import { createUserService } from "../lib/users";
+import { getAuthErrorMessage } from "../lib/auth/messages";
+import { createUserService } from "../lib/db";
+import { createSupabaseServerClient } from "../lib/db/supabase";
+import { rootLogger } from "../lib/logging";
+import { formatMessage } from "../lib/status-messages";
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
@@ -17,40 +15,18 @@ const users = createUserService(supabase, Astro.cookies);
 const authUser = await users.getCurrentUser();
 
 if (!authUser) {
-	console.error("Profile access attempted without authenticated user");
+	rootLogger.error("Profile access attempted without authenticated user");
 	return Astro.redirect("/");
 }
 
 const user = await users.getById(authUser.id);
 
 if (!user) {
-	console.error(
-		`Auth user exists but database user record missing - ID: ${authUser.id}, email: ${
-			authUser.email ?? "none"
-		}, page: profile`,
-	);
-	return Astro.redirect("/?error=user_not_found");
-}
-
-let timezones: Awaited<ReturnType<typeof getTimezoneOptions>>;
-let timezoneLoadError = false;
-
-try {
-	timezones = await getTimezoneOptions(supabase, {
-		includeValues: [user.timezone],
+	rootLogger.error("Auth user exists but database user record missing", {
+		userId: authUser.id,
+		page: "profile",
 	});
-} catch (error) {
-	console.error("Failed to load timezone options:", error);
-	timezoneLoadError = true;
-	timezones = user.timezone
-		? [
-				{
-					value: user.timezone,
-					label: user.timezone.replace(/_/g, " "),
-					display_order: 0,
-				},
-			]
-		: [];
+	return Astro.redirect("/?error=user_not_found");
 }
 
 const search = Astro.url.searchParams;
@@ -65,18 +41,23 @@ const successMessage = formatMessage(success);
     <Navigation user={authUser} />
     
     <div class="max-w-3xl mx-auto px-6 py-12">
-      
-      <div class="mb-6">
-        <a
-          href="/dashboard"
-          class="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 font-medium"
-        >
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-          </svg>
-          Back to Dashboard
-        </a>
-      </div>
+			<div class="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+				<div class="flex items-start justify-between gap-4">
+					<div>
+						<h1 class="text-3xl font-bold text-gray-900">Profile</h1>
+						<p class="mt-1 text-gray-600">Review your account and manage deletion.</p>
+					</div>
+					<a
+						href="/dashboard"
+						class="shrink-0 inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium text-gray-900 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+					>
+						<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+						</svg>
+						Dashboard
+					</a>
+				</div>
+			</div>
     
       <div class="space-y-6">
         {errorMessage && (
@@ -91,72 +72,14 @@ const successMessage = formatMessage(success);
           </div>
         )}
 
-        {timezoneLoadError && (
-          <div class="p-4 rounded-md bg-yellow-50 border border-yellow-200 text-yellow-700" role="alert">
-            Unable to load all timezone options. Only your current timezone is available. Please refresh the page to try again.
-          </div>
-        )}
-
-				<TimezoneMismatchBanner
-					savedTimezone={user.timezone}
-					allowedTimezones={timezones.map((tz) => tz.value)}
-				/>
-
         <AccountManagement
           email={user.email}
-          phone={user.phone_number}
-          phoneCountryCode={user.phone_country_code}
-          phoneVerified={user.phone_verified}
-        />
-
-        <ProfilePreferences
-          timezone={user.timezone}
-          timezones={timezones}
-          timezoneLoadError={timezoneLoadError}
         />
       </div>
 
-      <div class="mt-6">
-        <DangerZone />
-      </div>
+			<div class="mt-6">
+				<DangerZone />
+			</div>
     </div>
   </div>
 </Layout>
-
-<script>
-	import { setupTimezoneMismatchBanner } from "../lib/timezones/timezone-banner";
-	import { setupFormNavigationWarning } from "../lib/forms/navigation-warning";
-
-	function setupProfileTimezoneMismatchBanner() {
-		const banner = document.getElementById("timezone-mismatch-banner");
-		if (!(banner instanceof HTMLElement)) {
-			return;
-		}
-
-		const savedTimezone = banner.dataset.savedTimezone ?? "";
-		let allowedTimezones: string[] = [];
-		try {
-			allowedTimezones = JSON.parse(banner.dataset.allowedTimezones ?? "[]");
-		} catch {
-			allowedTimezones = [];
-		}
-
-		setupTimezoneMismatchBanner({ savedTimezone, allowedTimezones });
-	}
-
-	if (document.readyState === "loading") {
-		document.addEventListener("DOMContentLoaded", () => {
-			setupProfileTimezoneMismatchBanner();
-			setupFormNavigationWarning({
-				formId: "profile-preferences-form",
-				saveButtonId: "save-profile-preferences-button",
-			});
-		});
-	} else {
-		setupProfileTimezoneMismatchBanner();
-		setupFormNavigationWarning({
-			formId: "profile-preferences-form",
-			saveButtonId: "save-profile-preferences-button",
-		});
-	}
-</script>

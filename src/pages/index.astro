@@ -4,24 +4,13 @@ import Features from "../components/landing/Features.astro";
 import Hero from "../components/landing/Hero.astro";
 import Navigation from "../components/layout/Navigation.astro";
 import Layout from "../layouts/Layout.astro";
-import { createSupabaseServerClient } from "../lib/supabase";
-import { createUserService } from "../lib/users";
+import { createUserService } from "../lib/db";
+import { createSupabaseServerClient } from "../lib/db/supabase";
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
 const user = await users.getCurrentUser();
 const isAuthenticated = !!user;
-const search = Astro.url.searchParams;
-
-// Handle password reset redirects
-const token = search.get("token");
-const type = search.get("type");
-if (token && type === "recovery") {
-	// Redirect to recover page with the token
-	return Astro.redirect(
-		`/auth/recover?token=${encodeURIComponent(token)}&type=${encodeURIComponent(type)}`,
-	);
-}
 ---
 
 <Layout title="Stock Text Alerts" description="Get a daily digest for your tracked stocks—delivered via email and optional SMS.">

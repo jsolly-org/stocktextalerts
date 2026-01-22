@@ -109,8 +109,9 @@ if (success === "true") {
 		setupHCaptchaCallback,
 		setupHCaptchaErrorCallback,
 		setupHCaptchaExpiredCallback,
-	} from "../../lib/hcaptcha-utils";
-	import { setupEmailInputHandlers } from "../../lib/forms/utils";
+	} from "../../lib/auth/hcaptcha";
+	import { setupEmailInputHandlers } from "../../lib/forms/dom/email-input";
+	import { rootLogger } from "../../lib/logging";
 
 	const captchaStatus = createCaptchaStatusHelpers("forgot-captcha-status");
 
@@ -142,7 +143,7 @@ if (success === "true") {
 	);
 
 	setupHCaptchaErrorCallback("onForgotHCaptchaError", (errorCode) => {
-		console.error("hCaptcha error:", errorCode);
+		rootLogger.error("hCaptcha error", { errorCode });
 		captchaStatus.show("CAPTCHA failed to load. Please refresh and try again.");
 	});
 

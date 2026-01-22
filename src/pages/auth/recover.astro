@@ -75,7 +75,6 @@ if (!hasValidToken) {
         {showForm && (
           <form id="reset-form" class="space-y-4" action="/api/auth/update-password" method="post">
             <input type="hidden" name="token" value={token ?? ""} />
-            <input type="hidden" name="type" value={type ?? ""} />
             <div>
               <label for="password" class="block text-sm font-medium text-gray-700 mb-2">New password</label>
               <input

@@ -1,0 +1,94 @@
+import { setupDetectedTimezoneOption } from "../../../lib/time/banner";
+import { DEFAULT_TIMEZONE } from "../../../lib/time/constants";
+import { onDOMReady } from "../../../lib/ui/dom-ready";
+
+function setupSaveHint(options: { formId: string; saveHintId: string }) {
+	const hint = document.getElementById(options.saveHintId);
+	if (!(hint instanceof HTMLElement)) {
+		return;
+	}
+
+	const formElement = document.getElementById(options.formId);
+	if (!(formElement instanceof HTMLFormElement)) {
+		return;
+	}
+
+	const timezoneSelect = formElement.querySelector(
+		`#${options.formId}-timezone`,
+	);
+	const emailCheckbox = formElement.querySelector(
+		`#${options.formId}-email_notifications_enabled`,
+	);
+	const smsCheckbox = formElement.querySelector(
+		`#${options.formId}-sms_notifications_enabled`,
+	);
+
+	if (
+		!(timezoneSelect instanceof HTMLSelectElement) ||
+		!(emailCheckbox instanceof HTMLInputElement) ||
+		!(smsCheckbox instanceof HTMLInputElement)
+	) {
+		return;
+	}
+
+	const initial = {
+		timezone: timezoneSelect.value,
+		emailEnabled: emailCheckbox.checked,
+		smsEnabled: smsCheckbox.checked,
+	};
+
+	const update = () => {
+		const isDirty =
+			timezoneSelect.value !== initial.timezone ||
+			emailCheckbox.checked !== initial.emailEnabled ||
+			smsCheckbox.checked !== initial.smsEnabled;
+
+		hint.classList.toggle("hidden", !isDirty);
+	};
+
+	update();
+	timezoneSelect.addEventListener("change", update);
+	emailCheckbox.addEventListener("input", update);
+	smsCheckbox.addEventListener("input", update);
+
+	const cleanup = () => {
+		timezoneSelect.removeEventListener("change", update);
+		emailCheckbox.removeEventListener("input", update);
+		smsCheckbox.removeEventListener("input", update);
+		window.removeEventListener("pagehide", cleanup);
+		window.removeEventListener("beforeunload", cleanup);
+	};
+
+	window.addEventListener("pagehide", cleanup, { once: true });
+	window.addEventListener("beforeunload", cleanup, { once: true });
+}
+
+export function initNotificationPreferencesCards() {
+	onDOMReady(() => {
+		const cards = document.querySelectorAll<HTMLElement>(
+			"[data-notification-preferences-card]",
+		);
+
+		for (const card of cards) {
+			if (card.dataset.initialized === "1") {
+				continue;
+			}
+
+			card.dataset.initialized = "1";
+
+			const formId = card.dataset.formId ?? "";
+			const saveHintId = card.dataset.saveHintId ?? "";
+			if (!formId || !saveHintId) {
+				continue;
+			}
+
+			const timezoneSelectId = `${formId}-timezone`;
+			setupDetectedTimezoneOption({
+				selectId: timezoneSelectId,
+				defaultTimezone: DEFAULT_TIMEZONE,
+			});
+
+			setupSaveHint({ formId, saveHintId });
+		}
+	});
+}

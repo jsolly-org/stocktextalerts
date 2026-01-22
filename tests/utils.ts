@@ -1,6 +1,8 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
-import type { TablesInsert } from "../src/lib/generated/database.types";
+import { DateTime } from "luxon";
+import type { TablesInsert } from "../src/lib/db/generated/database.types";
+import { calculateNextSendAt } from "../src/lib/time/schedule";
 import { adminClient } from "./setup";
 
 export interface CreateTestUserOptions {
@@ -94,8 +96,18 @@ export async function createTestUser(
 	);
 	const alignedDailyDigestNotificationTime =
 		Math.floor(dailyDigestNotificationTime / 15) * 15;
-	const dailyDigestEnabled = options.dailyDigestEnabled ?? true;
-	const nextSendAt = dailyDigestEnabled ? new Date().toISOString() : null;
+	const dailyDigestEnabled = options.dailyDigestEnabled ?? false;
+	const nextSendAt = dailyDigestEnabled
+		? calculateNextSendAt(
+				alignedDailyDigestNotificationTime,
+				timezone,
+				DateTime.utc(),
+			)
+		: null;
+	const nextSendAtIso = nextSendAt?.toISO() ?? null;
+	if (dailyDigestEnabled && !nextSendAtIso) {
+		throw new Error("Failed to generate next_send_at timestamp");
+	}
 
 	const profile: DbUserInsert = {
 		id: userId,
@@ -109,7 +121,7 @@ export async function createTestUser(
 		sms_notifications_enabled: smsNotificationsEnabled,
 		daily_digest_enabled: dailyDigestEnabled,
 		daily_digest_notification_time: alignedDailyDigestNotificationTime,
-		next_send_at: nextSendAt,
+		next_send_at: nextSendAtIso,
 	};
 
 	const { error: profileError } = await adminClient
@@ -122,12 +134,26 @@ export async function createTestUser(
 
 	// Add Tracked Stocks if provided
 	if (options.trackedStocks && options.trackedStocks.length > 0) {
-		const stockInserts: DbUserStockInsert[] = options.trackedStocks.map(
-			(symbol) => ({
-				user_id: userId,
-				symbol,
-			}),
-		);
+		// Ensure stocks exist in the stocks table first
+		const uniqueSymbols = [...new Set(options.trackedStocks)];
+		const stockRecords = uniqueSymbols.map((symbol) => ({
+			symbol,
+			name: `${symbol} Test Stock`,
+			exchange: "NASDAQ",
+		}));
+
+		const { error: stocksTableError } = await adminClient
+			.from("stocks")
+			.upsert(stockRecords, { onConflict: "symbol" });
+
+		if (stocksTableError) {
+			throw new Error(`Stocks table setup failed: ${stocksTableError.message}`);
+		}
+
+		const stockInserts: DbUserStockInsert[] = uniqueSymbols.map((symbol) => ({
+			user_id: userId,
+			symbol,
+		}));
 
 		const { error: stockError } = await adminClient
 			.from("user_stocks")

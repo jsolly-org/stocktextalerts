@@ -1,0 +1,167 @@
+import { DateTime, Duration } from "luxon";
+import { calculateNextSendAt } from "./schedule";
+
+export function parseTimeToMinutes(value: string): number | null {
+	const parts = value.split(":");
+	if (parts.length !== 2) {
+		return null;
+	}
+
+	const hours = Number.parseInt(parts[0] ?? "", 10);
+	const minutes = Number.parseInt(parts[1] ?? "", 10);
+
+	if (
+		Number.isNaN(hours) ||
+		Number.isNaN(minutes) ||
+		hours < 0 ||
+		hours > 23 ||
+		minutes < 0 ||
+		minutes > 59
+	) {
+		return null;
+	}
+
+	return hours * 60 + minutes;
+}
+
+export function getNowInTimezone(timezone: string): string | null {
+	const now = DateTime.now().setZone(timezone);
+	if (!now.isValid) {
+		return null;
+	}
+
+	return now.toLocaleString(DateTime.TIME_SIMPLE);
+}
+
+export function formatTimeRemaining(secondsUntil: number): string {
+	const safeSeconds = Math.max(secondsUntil, 0);
+	const duration = Duration.fromObject({ seconds: safeSeconds });
+	if (safeSeconds < 60) {
+		return duration.toHuman();
+	}
+
+	const { hours, minutes } = duration
+		.shiftTo("hours", "minutes")
+		.normalize()
+		.toObject();
+	const safeHours = Math.trunc(hours ?? 0);
+	const safeMinutes = Math.trunc(minutes ?? 0);
+
+	if (safeHours > 0 && safeMinutes > 0) {
+		return Duration.fromObject({
+			hours: safeHours,
+			minutes: safeMinutes,
+		}).toHuman({
+			listStyle: "long",
+		});
+	}
+
+	if (safeHours > 0) {
+		return Duration.fromObject({ hours: safeHours }).toHuman();
+	}
+
+	return Duration.fromObject({ minutes: safeMinutes }).toHuman();
+}
+
+export function formatArrivalTime(
+	secondsUntil: number,
+	timezone: string,
+): string {
+	const now = DateTime.now().setZone(timezone);
+	const arrival = now.plus({ seconds: secondsUntil });
+
+	if (!arrival.isValid || !now.isValid) {
+		return "";
+	}
+
+	const diffDays = Math.floor(
+		arrival.startOf("day").diff(now.startOf("day"), "days").days,
+	);
+
+	let dayLabel = "";
+	if (diffDays === 0) {
+		dayLabel = "today";
+	} else if (diffDays === 1) {
+		dayLabel = "tomorrow";
+	} else if (diffDays === 2) {
+		dayLabel = "the day after tomorrow";
+	} else {
+		dayLabel = arrival.toFormat("cccc").toLowerCase();
+	}
+
+	const timeStr = arrival.toLocaleString(DateTime.TIME_SIMPLE);
+
+	return `, ${dayLabel} at ${timeStr}`;
+}
+
+export function formatTimezone(secondsUntil: number, timezone: string): string {
+	const arrival = DateTime.now()
+		.setZone(timezone)
+		.plus({ seconds: secondsUntil });
+
+	if (!arrival.isValid) {
+		return "";
+	}
+
+	return arrival.toFormat("ZZZZ");
+}
+
+export function getUtcIso(now: DateTime = DateTime.utc()): string {
+	const iso = now.toISO();
+	if (!iso) {
+		throw new Error("Failed to format UTC ISO string");
+	}
+	return iso;
+}
+
+export function getSecondsUntilNextSend(options: {
+	timezone: string;
+	nextSendAtIso?: string | null;
+	timeInput?: string | null;
+	now?: DateTime;
+}): number | null {
+	const now = options.now ?? DateTime.now();
+
+	if (
+		typeof options.nextSendAtIso === "string" &&
+		options.nextSendAtIso !== ""
+	) {
+		const nextSendAt = DateTime.fromISO(options.nextSendAtIso, { zone: "utc" });
+		if (!nextSendAt.isValid) {
+			return null;
+		}
+		const diffSeconds = Math.ceil(
+			nextSendAt.diff(now.toUTC(), "seconds").seconds,
+		);
+		if (!Number.isFinite(diffSeconds) || diffSeconds <= 0) {
+			return null;
+		}
+		return diffSeconds;
+	}
+
+	if (typeof options.timeInput === "string" && options.timeInput !== "") {
+		const deliveryMinutes = parseTimeToMinutes(options.timeInput);
+		if (deliveryMinutes === null) {
+			return null;
+		}
+
+		const nextSendAt = calculateNextSendAt(
+			deliveryMinutes,
+			options.timezone,
+			now,
+		);
+		if (!nextSendAt) {
+			return null;
+		}
+
+		const diffSeconds = Math.ceil(
+			nextSendAt.diff(now.toUTC(), "seconds").seconds,
+		);
+		if (!Number.isFinite(diffSeconds) || diffSeconds <= 0) {
+			return null;
+		}
+		return diffSeconds;
+	}
+
+	return null;
+}

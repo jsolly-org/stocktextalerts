@@ -22,10 +22,12 @@ const { action = "/api/auth/delete-account" } = Astro.props;
 	</form>
 </div>
 
-<script>
+<script type="module">
+	import { rootLogger } from "../../lib/logging";
+
 	const forms = document.querySelectorAll('[data-profile-delete-form]');
 	if (forms.length === 0) {
-		console.error("Delete account form not found");
+		rootLogger.error("Delete account form not found");
 	}
 
 	forms.forEach((form) => {

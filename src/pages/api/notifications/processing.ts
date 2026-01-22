@@ -1,4 +1,4 @@
-import type { AppSupabaseClient } from "../../../lib/supabase";
+import type { AppSupabaseClient } from "../../../lib/db/supabase";
 import { sendUserEmail } from "./email";
 import { type EmailSender, formatEmailMessage } from "./email/utils";
 import {
@@ -23,6 +23,7 @@ export async function processEmailUpdate(
 	userStocks: UserStockRow[],
 	stocksList: string,
 	sendEmail: EmailSender,
+	idempotencyKey?: string,
 ): Promise<ProcessingStats> {
 	const message = formatEmailMessage(userStocks, stocksList);
 	const result = await sendUserEmail(
@@ -30,16 +31,17 @@ export async function processEmailUpdate(
 		"Your Stock Update",
 		message,
 		sendEmail,
+		idempotencyKey,
 	);
 
 	const logged = await recordNotification(supabase, {
-		userId: user.id,
+		user_id: user.id,
 		type: "scheduled_update",
-		deliveryMethod: "email",
-		messageDelivered: result.success,
+		delivery_method: "email",
+		message_delivered: result.success,
 		message: message.text,
 		error: result.success ? undefined : result.error,
-		errorCode: result.success ? undefined : result.errorCode,
+		error_code: result.success ? undefined : result.errorCode,
 	});
 
 	return {
@@ -75,13 +77,13 @@ export async function processSmsUpdate(
 	const result = await sendUserSms(user, smsMessage, sendSms);
 
 	const logged = await recordNotification(supabase, {
-		userId: user.id,
+		user_id: user.id,
 		type: "scheduled_update",
-		deliveryMethod: "sms",
-		messageDelivered: result.success,
+		delivery_method: "sms",
+		message_delivered: result.success,
 		message: smsMessage,
 		error: result.success ? undefined : result.error,
-		errorCode: result.success ? undefined : result.errorCode,
+		error_code: result.success ? undefined : result.errorCode,
 	});
 
 	return {

@@ -20,10 +20,7 @@
 			"recommended": true,
 			"suspicious": {
 				"noConsole": {
-					"level": "error",
-					"options": {
-						"allow": ["assert", "error", "info", "warn"]
-					}
+					"level": "error"
 				}
 			}
 		}
@@ -49,6 +46,18 @@
 				"rules": {
 					"correctness": {
 						"noUnusedVariables": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["src/lib/logging.ts"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsole": {
+							"level": "off"
+						}
 					}
 				}
 			}

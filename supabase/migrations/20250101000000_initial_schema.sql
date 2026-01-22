@@ -6,6 +6,45 @@ Domains and Extensions
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 /* =============
+Schema Version (test + ops sanity check)
+============= */
+
+CREATE TABLE IF NOT EXISTS public.app_metadata (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+INSERT INTO public.app_metadata (key, value)
+VALUES ('schema_version', '20250101000000_initial_schema@v2')
+ON CONFLICT (key) DO UPDATE SET
+  value = EXCLUDED.value;
+
+ALTER TABLE public.app_metadata ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.app_metadata FROM anon, authenticated;
+GRANT SELECT ON TABLE public.app_metadata TO service_role;
+
+/* =============
+Validation Functions
+============= */
+
+/*
+ * Checks if a text value contains any whitespace characters.
+ * Returns true if the value has no whitespace, false otherwise.
+ *
+ * Notes:
+ * - Marked IMMUTABLE so it can be used in CHECK constraints.
+ * - Marked STRICT so NULL inputs return NULL (and CHECK constraints treat NULL as passing).
+ */
+CREATE OR REPLACE FUNCTION public.has_no_whitespace(value text)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+STRICT
+AS $$
+  SELECT value !~ '\s';
+$$;
+
+/* =============
 Enums for Stronger DB Types
 ============= */
 
@@ -165,7 +204,7 @@ CREATE TABLE IF NOT EXISTS users (
   phone_verified BOOLEAN DEFAULT false NOT NULL,
   sms_opted_out BOOLEAN DEFAULT false NOT NULL,
   timezone TEXT DEFAULT 'America/New_York' REFERENCES timezones(value) NOT NULL,
-  daily_digest_enabled BOOLEAN DEFAULT true NOT NULL,
+  daily_digest_enabled BOOLEAN DEFAULT false NOT NULL,
   daily_digest_notification_time INTEGER DEFAULT 540 NOT NULL CHECK (daily_digest_notification_time >= 0 AND daily_digest_notification_time <= 1439 AND daily_digest_notification_time % 15 = 0),
   next_send_at TIMESTAMP WITH TIME ZONE,
   email_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
@@ -183,11 +222,11 @@ CREATE TABLE IF NOT EXISTS users (
     sms_notifications_enabled = false OR
     (phone_country_code IS NOT NULL AND phone_number IS NOT NULL)
   ),
-  CONSTRAINT users_email_no_whitespace CHECK (email = btrim(email) AND email !~ E'\\s'),
+  CONSTRAINT users_email_no_whitespace CHECK (public.has_no_whitespace(email)),
   CONSTRAINT users_email_non_empty CHECK (email <> ''),
-  CONSTRAINT users_timezone_no_whitespace CHECK (timezone = btrim(timezone)),
-  CONSTRAINT users_phone_country_code_no_whitespace CHECK (phone_country_code IS NULL OR phone_country_code = btrim(phone_country_code)),
-  CONSTRAINT users_phone_number_no_whitespace CHECK (phone_number IS NULL OR phone_number = btrim(phone_number))
+  CONSTRAINT users_timezone_no_whitespace CHECK (public.has_no_whitespace(timezone)),
+  CONSTRAINT users_phone_country_code_no_whitespace CHECK (public.has_no_whitespace(phone_country_code)),
+  CONSTRAINT users_phone_number_no_whitespace CHECK (public.has_no_whitespace(phone_number))
 );
 
 /* =============
@@ -198,7 +237,7 @@ CREATE TABLE IF NOT EXISTS stocks (
   symbol VARCHAR(10) PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   exchange VARCHAR(50) NOT NULL,
-  CONSTRAINT stocks_symbol_no_whitespace CHECK (symbol = btrim(symbol))
+  CONSTRAINT stocks_symbol_no_whitespace CHECK (public.has_no_whitespace(symbol))
 );
 
 /* =============
@@ -227,6 +266,9 @@ AS $$
 DECLARE
   sanitized_symbols text[];
   sanitized_count integer;
+  symbol_with_whitespace text;
+  symbol_not_uppercase text;
+  duplicate_symbol text;
 BEGIN
   DELETE FROM user_stocks WHERE user_stocks.user_id = replace_user_stocks.user_id;
 
@@ -234,10 +276,49 @@ BEGIN
     RETURN;
   END IF;
 
-  SELECT ARRAY(
-    SELECT DISTINCT UPPER(TRIM(BOTH FROM entry)) AS symbol
+  -- Reject symbols with any whitespace
+  SELECT entry INTO symbol_with_whitespace
+  FROM unnest(symbols) AS raw(entry)
+  WHERE NOT public.has_no_whitespace(entry)
+  LIMIT 1;
+
+  IF symbol_with_whitespace IS NOT NULL THEN
+    RAISE EXCEPTION 'Stock symbol contains whitespace'
+      USING ERRCODE = 'check_violation',
+            DETAIL = symbol_with_whitespace;
+  END IF;
+
+  -- Reject symbols that are not uppercase
+  SELECT entry INTO symbol_not_uppercase
+  FROM unnest(symbols) AS raw(entry)
+  WHERE entry <> '' AND entry <> UPPER(entry)
+  LIMIT 1;
+
+  IF symbol_not_uppercase IS NOT NULL THEN
+    RAISE EXCEPTION 'Stock symbol is not uppercase: %', symbol_not_uppercase
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  -- Reject duplicate symbols
+  SELECT entry INTO duplicate_symbol
+  FROM (
+    SELECT entry, COUNT(*) as cnt
     FROM unnest(symbols) AS raw(entry)
-    WHERE TRIM(BOTH FROM entry) <> ''
+    WHERE entry <> ''
+    GROUP BY entry
+    HAVING COUNT(*) > 1
+    LIMIT 1
+  ) duplicates;
+
+  IF duplicate_symbol IS NOT NULL THEN
+    RAISE EXCEPTION 'Duplicate stock symbol: %', duplicate_symbol
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  SELECT ARRAY(
+    SELECT entry AS symbol
+    FROM unnest(symbols) AS raw(entry)
+    WHERE entry <> ''
   ) INTO sanitized_symbols;
 
   IF sanitized_symbols IS NULL OR array_length(sanitized_symbols, 1) IS NULL THEN
