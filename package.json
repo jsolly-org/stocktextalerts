@@ -33,7 +33,7 @@
 		"@vuepic/vue-datepicker": "^12.1.0",
 		"@vueuse/core": "^14.1.0",
 		"fuse.js": "^7.1.0",
-		"libphonenumber-js": "^1.12.24",
+		"libphonenumber-js": "^1.12.35",
 		"luxon": "^3.7.2",
 		"resend": "^6.6.0",
 		"twilio": "^5.11.2",
