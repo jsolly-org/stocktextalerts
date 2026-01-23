@@ -60,6 +60,36 @@ export async function verifySupabaseAdminAccess() {
 	);
 }
 
+export async function cleanupTestUser(userId: string): Promise<void> {
+	const errors: string[] = [];
+
+	const { error: userStocksError } = await adminClient
+		.from("user_stocks")
+		.delete()
+		.eq("user_id", userId);
+	if (userStocksError) {
+		errors.push(`user_stocks: ${userStocksError.message}`);
+	}
+
+	const { error: userRowError } = await adminClient
+		.from("users")
+		.delete()
+		.eq("id", userId);
+	if (userRowError) {
+		errors.push(`users: ${userRowError.message}`);
+	}
+
+	const { error: authDeleteError } =
+		await adminClient.auth.admin.deleteUser(userId);
+	if (authDeleteError) {
+		errors.push(`auth: ${authDeleteError.message}`);
+	}
+
+	if (errors.length > 0) {
+		throw new Error(`Test cleanup failed: ${errors.join("; ")}`);
+	}
+}
+
 export async function resetDatabase() {
 	const client = new Client({ connectionString: databaseUrl });
 	await client.connect();
@@ -92,11 +122,12 @@ export async function resetDatabase() {
 
 		await Promise.all(
 			authUsers.map(async (user) => {
-				const { error } = await adminClient.auth.admin.deleteUser(user.id);
-				if (error) {
-					throw new Error(
-						`Failed to cleanup auth user ${user.id}: ${error.message}`,
-					);
+				try {
+					await cleanupTestUser(user.id);
+				} catch (error) {
+					throw new Error(`Failed to cleanup auth user ${user.id}`, {
+						cause: error,
+					});
 				}
 			}),
 		);

@@ -3,8 +3,8 @@ import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { test } from "@playwright/test";
 import {
-	adminClient,
 	createAuthenticatedCookies,
+	cleanupTestUser,
 	createTestUser,
 } from "../utils";
 
@@ -71,36 +71,6 @@ async function collectRoutes(): Promise<string[]> {
 		.filter((route): route is string => Boolean(route));
 
 	return [...new Set(routes)].sort();
-}
-
-async function cleanupTestUser(userId: string): Promise<void> {
-	const errors: string[] = [];
-
-	const { error: userStocksError } = await adminClient
-		.from("user_stocks")
-		.delete()
-		.eq("user_id", userId);
-	if (userStocksError) {
-		errors.push(`user_stocks: ${userStocksError.message}`);
-	}
-
-	const { error: userRowError } = await adminClient
-		.from("users")
-		.delete()
-		.eq("id", userId);
-	if (userRowError) {
-		errors.push(`users: ${userRowError.message}`);
-	}
-
-	const { error: authDeleteError } =
-		await adminClient.auth.admin.deleteUser(userId);
-	if (authDeleteError) {
-		errors.push(`auth: ${authDeleteError.message}`);
-	}
-
-	if (errors.length > 0) {
-		throw new Error(`Test cleanup failed: ${errors.join("; ")}`);
-	}
 }
 
 test("visits all routes without unexpected console output", async ({

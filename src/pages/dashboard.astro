@@ -219,7 +219,7 @@ const isSmsFullyConfigured =
 		}
 
 		const savedTimezone = banner.dataset.savedTimezone ?? "";
-		let allowedTimezones = [];
+		let allowedTimezones: string[] = [];
 		try {
 			allowedTimezones = JSON.parse(banner.dataset.allowedTimezones ?? "[]");
 		} catch {
