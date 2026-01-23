@@ -122,11 +122,11 @@ export async function resetDatabase() {
 
 		await Promise.all(
 			authUsers.map(async (user) => {
-				try {
-					await cleanupTestUser(user.id);
-				} catch (error) {
-					throw new Error(`Failed to cleanup auth user ${user.id}`, {
-						cause: error,
+				const { error: deleteError } =
+					await adminClient.auth.admin.deleteUser(user.id);
+				if (deleteError) {
+					throw new Error(`Failed to delete auth user ${user.id}`, {
+						cause: deleteError,
 					});
 				}
 			}),

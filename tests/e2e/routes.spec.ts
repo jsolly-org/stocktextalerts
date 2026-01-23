@@ -217,8 +217,10 @@ test("visits all routes without unexpected console output", async ({
 	}
 
 	if (cleanupError) {
-		if (caughtError instanceof Error) {
-			throw new Error(`${caughtError.message}; ${cleanupError.message}`, {
+		if (caughtError) {
+			const caughtMessage =
+				caughtError instanceof Error ? caughtError.message : String(caughtError);
+			throw new Error(`${caughtMessage}; ${cleanupError.message}`, {
 				cause: caughtError,
 			});
 		}
