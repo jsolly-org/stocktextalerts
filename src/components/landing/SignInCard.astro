@@ -112,10 +112,13 @@ const {
 		}
 
 		form.addEventListener("submit", (event) => {
+			const captchaResponseInput = form.querySelector(
+				"input[name='h-captcha-response']",
+			);
 			const captchaResponse =
-				form.querySelector<HTMLInputElement>(
-					"input[name='h-captcha-response']",
-				)?.value ?? "";
+				captchaResponseInput instanceof HTMLInputElement
+					? captchaResponseInput.value
+					: "";
 
 			const existingToken = captchaTokenInput.value.trim();
 			const trimmedCaptchaResponse = captchaResponse.trim();

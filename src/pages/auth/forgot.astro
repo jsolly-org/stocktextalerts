@@ -1,6 +1,6 @@
 ---
 import HCaptcha from "../../components/HCaptcha.astro";
-import Navigation from "../../components/layout/Navigation.astro";
+import Navigation from "../../components/Navigation.astro";
 import Layout from "../../layouts/Layout.astro";
 
 const search = Astro.url.searchParams;
@@ -117,16 +117,12 @@ if (success === "true") {
 
 	document.addEventListener("DOMContentLoaded", () => {
 		const emailInput = document.getElementById("email");
-		if (!emailInput) {
-			return;
+		if (emailInput instanceof HTMLInputElement) {
+			setupEmailInputHandlers(emailInput);
 		}
-		const inputEl = emailInput as HTMLInputElement;
-		setupEmailInputHandlers(inputEl);
 
-		const captchaTokenInput = document.getElementById(
-			"forgot_captcha_token",
-		) as HTMLInputElement | null;
-		if (captchaTokenInput) {
+		const captchaTokenInput = document.getElementById("forgot_captcha_token");
+		if (captchaTokenInput instanceof HTMLInputElement) {
 			captchaTokenInput.addEventListener("input", () => {
 				if (captchaTokenInput.value.trim().length > 0) {
 					captchaStatus.hide();

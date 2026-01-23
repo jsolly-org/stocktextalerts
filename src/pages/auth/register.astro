@@ -1,6 +1,6 @@
 ---
 import HCaptcha from "../../components/HCaptcha.astro";
-import Navigation from "../../components/layout/Navigation.astro";
+import Navigation from "../../components/Navigation.astro";
 import Layout from "../../layouts/Layout.astro";
 import { createSupabaseServerClient } from "../../lib/db/supabase";
 import { rootLogger } from "../../lib/logging";
@@ -188,7 +188,7 @@ if (error) {
 		setupHCaptchaErrorCallback,
 		setupHCaptchaExpiredCallback,
 	} from "../../lib/auth/hcaptcha";
-	import { logError } from "../../lib/logging";
+	import { rootLogger } from "../../lib/logging";
 
 	const captchaStatus = createCaptchaStatusHelpers("register-captcha-status");
 

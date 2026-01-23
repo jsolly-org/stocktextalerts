@@ -27,7 +27,17 @@ const currentTime = minutesToTimeInputValue(
 );
 ---
 
-<div class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+<div
+	class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+	data-scheduled-notifications
+	data-form-id={formId}
+	data-timezone={user.timezone}
+	data-next-send-at-iso={user.next_send_at ?? ""}
+	data-email-notifications-enabled={user.email_notifications_enabled ? "true" : "false"}
+	data-sms-notifications-enabled={user.sms_notifications_enabled ? "true" : "false"}
+	data-sms-opted-out={user.sms_opted_out ? "true" : "false"}
+	data-phone-verified={user.phone_verified ? "true" : "false"}
+>
 	<div class="flex items-start justify-between gap-4">
 		<div>
 			<h2 class="text-2xl font-bold text-gray-900">
@@ -208,36 +218,8 @@ const currentTime = minutesToTimeInputValue(
 	</div>
 </div>
 
-<script define:vars={{ formId, timezone: user.timezone, nextSendAtIso: user.next_send_at, emailNotificationsEnabled: user.email_notifications_enabled, smsNotificationsEnabled: user.sms_notifications_enabled, smsOptedOut: user.sms_opted_out, phoneVerified: user.phone_verified }}>
-	import { setupScheduledNotifications } from "./scheduled-notifications";
+<script>
+	import { initScheduledNotificationsCards } from "./scheduled-notifications";
 
-	setupScheduledNotifications({
-		formId,
-		timezone,
-		nextSendAtIso,
-		emailNotificationsEnabled,
-		smsNotificationsEnabled,
-		smsOptedOut,
-		phoneVerified,
-	});
-
-	const form = document.getElementById(formId);
-	if (form instanceof HTMLFormElement) {
-		const checkbox = form.querySelector("#daily_digest_enabled");
-		const hiddenInput = form.querySelector(
-			"input[type='hidden'][name='daily_digest_enabled']",
-		);
-		if (checkbox instanceof HTMLInputElement && hiddenInput instanceof HTMLInputElement) {
-			const syncHiddenValue = () => {
-				hiddenInput.value = checkbox.checked ? "on" : "off";
-			};
-			syncHiddenValue();
-			checkbox.addEventListener("change", syncHiddenValue);
-			window.addEventListener(
-				"pagehide",
-				() => checkbox.removeEventListener("change", syncHiddenValue),
-				{ once: true },
-			);
-		}
-	}
+	initScheduledNotificationsCards();
 </script>

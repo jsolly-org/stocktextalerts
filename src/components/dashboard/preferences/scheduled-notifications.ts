@@ -7,6 +7,7 @@ import {
 	getNowInTimezone,
 	getSecondsUntilNextSend,
 } from "../../../lib/time/format";
+import { onDOMReady } from "../../../lib/ui/dom-ready";
 
 type ScheduledNotificationsOptions = {
 	formId: string;
@@ -486,9 +487,7 @@ function setupSaveHint(options: { formId: string }) {
 	window.addEventListener("pagehide", cleanup, { once: true });
 }
 
-export function setupScheduledNotifications(
-	options: ScheduledNotificationsOptions,
-) {
+function setupScheduledNotifications(options: ScheduledNotificationsOptions) {
 	if (document.readyState === "loading") {
 		document.addEventListener(
 			"DOMContentLoaded",
@@ -503,4 +502,68 @@ export function setupScheduledNotifications(
 
 	setupDailyDigestUI(options);
 	setupSaveHint({ formId: options.formId });
+}
+
+function setupDailyDigestHiddenInput(formId: string) {
+	const formElement = document.getElementById(formId);
+	if (!(formElement instanceof HTMLFormElement)) {
+		return;
+	}
+
+	const checkbox = formElement.querySelector("#daily_digest_enabled");
+	const hiddenInput = formElement.querySelector(
+		"input[type='hidden'][name='daily_digest_enabled']",
+	);
+	if (
+		!(checkbox instanceof HTMLInputElement) ||
+		!(hiddenInput instanceof HTMLInputElement)
+	) {
+		return;
+	}
+
+	const syncHiddenValue = () => {
+		hiddenInput.value = checkbox.checked ? "on" : "off";
+	};
+	syncHiddenValue();
+	checkbox.addEventListener("change", syncHiddenValue);
+	window.addEventListener(
+		"pagehide",
+		() => checkbox.removeEventListener("change", syncHiddenValue),
+		{ once: true },
+	);
+}
+
+export function initScheduledNotificationsCards() {
+	onDOMReady(() => {
+		const cards = document.querySelectorAll<HTMLElement>(
+			"[data-scheduled-notifications]",
+		);
+
+		for (const card of cards) {
+			if (card.dataset.initialized === "1") {
+				continue;
+			}
+
+			card.dataset.initialized = "1";
+
+			const formId = card.dataset.formId ?? "";
+			const timezone = card.dataset.timezone ?? "";
+			if (!formId || !timezone) {
+				continue;
+			}
+
+			setupScheduledNotifications({
+				formId,
+				timezone,
+				nextSendAtIso: card.dataset.nextSendAtIso || null,
+				emailNotificationsEnabled:
+					card.dataset.emailNotificationsEnabled === "true",
+				smsNotificationsEnabled:
+					card.dataset.smsNotificationsEnabled === "true",
+				smsOptedOut: card.dataset.smsOptedOut === "true",
+				phoneVerified: card.dataset.phoneVerified === "true",
+			});
+			setupDailyDigestHiddenInput(formId);
+		}
+	});
 }
