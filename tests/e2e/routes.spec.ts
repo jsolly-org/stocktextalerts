@@ -3,8 +3,8 @@ import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { test } from "@playwright/test";
 import {
-	createAuthenticatedCookies,
 	cleanupTestUser,
+	createAuthenticatedCookies,
 	createTestUser,
 } from "../utils";
 
@@ -76,16 +76,16 @@ async function collectRoutes(): Promise<string[]> {
 test("visits all routes without unexpected console output", async ({
 	page,
 }) => {
-	const testUser = await createTestUser({
-		email: `test-${randomUUID()}@resend.dev`,
-		password: TEST_PASSWORD,
-		confirmed: true,
-	});
-
+	let testUser: { id: string; email: string } | null = null;
 	let caughtError: unknown = null;
 	let cleanupError: Error | null = null;
 
 	try {
+		testUser = await createTestUser({
+			email: `test-${randomUUID()}@resend.dev`,
+			password: TEST_PASSWORD,
+			confirmed: true,
+		});
 		await page.route("**/*hcaptcha.com/**", (route) =>
 			route.fulfill({
 				status: 200,
@@ -94,9 +94,12 @@ test("visits all routes without unexpected console output", async ({
 			}),
 		);
 
+		// Extract baseOrigin from Playwright's baseURL by navigating to a route
+		await page.goto("/", { waitUntil: "domcontentloaded" });
+		const baseOrigin = new URL(page.url()).origin;
+
 		const consoleIssues: ConsoleIssue[] = [];
 		let activeRoute = "";
-		const baseOrigin = "http://localhost:4321";
 
 		page.on("console", (message) => {
 			const type = message.type();
@@ -164,12 +167,12 @@ test("visits all routes without unexpected console output", async ({
 			{
 				name: "sb-access-token",
 				value: authCookies.get("sb-access-token") ?? "",
-				url: "http://localhost:4321",
+				url: baseOrigin,
 			},
 			{
 				name: "sb-refresh-token",
 				value: authCookies.get("sb-refresh-token") ?? "",
-				url: "http://localhost:4321",
+				url: baseOrigin,
 			},
 		]);
 
@@ -209,17 +212,21 @@ test("visits all routes without unexpected console output", async ({
 	} catch (error) {
 		caughtError = error;
 	} finally {
-		try {
-			await cleanupTestUser(testUser.id);
-		} catch (error) {
-			cleanupError = error as Error;
+		if (testUser) {
+			try {
+				await cleanupTestUser(testUser.id);
+			} catch (error) {
+				cleanupError = error as Error;
+			}
 		}
 	}
 
 	if (cleanupError) {
 		if (caughtError) {
 			const caughtMessage =
-				caughtError instanceof Error ? caughtError.message : String(caughtError);
+				caughtError instanceof Error
+					? caughtError.message
+					: String(caughtError);
 			throw new Error(`${caughtMessage}; ${cleanupError.message}`, {
 				cause: caughtError,
 			});
