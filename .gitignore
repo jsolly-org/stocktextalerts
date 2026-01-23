@@ -26,6 +26,9 @@ node_modules/
 # Other
 /.cursor/
 
+# Test results
+test-results/
+
 # Generated seed file (contains passwords from DEFAULT_PASSWORD env var)
 supabase/seed.sql
 

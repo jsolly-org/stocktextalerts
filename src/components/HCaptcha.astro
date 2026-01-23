@@ -27,11 +27,12 @@ const hcaptchaSiteKey = import.meta.env.PUBLIC_HCAPTCHA_SITE_KEY;
 	{...(expiredCallback ? { "data-expired-callback": expiredCallback } : {})}
 ></div>
 
-<script type="module">
+<script>
 	import { rootLogger } from "../lib/logging";
 
+	const typedWindow = window as Window & { hcaptcha?: unknown };
 	if (
-		!window.hcaptcha &&
+		!typedWindow.hcaptcha &&
 		!document.querySelector('script[src*="hcaptcha.com"]')
 	) {
 		const s = document.createElement("script");

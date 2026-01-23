@@ -5,7 +5,7 @@ import NotificationPreferencesCard from "../components/dashboard/preferences/Not
 import ScheduledNotificationsCard from "../components/dashboard/preferences/ScheduledNotificationsCard.astro";
 import type { StockOption } from "../components/dashboard/stocks/StockInput.vue";
 import TrackedStocksPanel from "../components/dashboard/stocks/TrackedStocksPanel.vue";
-import Navigation from "../components/layout/Navigation.astro";
+import Navigation from "../components/Navigation.astro";
 import TimezoneMismatchBanner from "../components/TimezoneMismatchBanner.astro";
 import Layout from "../layouts/Layout.astro";
 import { createUserService, getUserStocks, type Stock } from "../lib/db";
@@ -159,7 +159,7 @@ const isSmsFullyConfigured =
 
 <script>
 	import { onDOMReady } from "../lib/ui/dom-ready";
-	import { logWarn } from "../lib/logging";
+	import { rootLogger } from "../lib/logging";
 	import {
 		readFormValues,
 		setupFormNavigationWarning,
@@ -219,7 +219,7 @@ const isSmsFullyConfigured =
 		}
 
 		const savedTimezone = banner.dataset.savedTimezone ?? "";
-		let allowedTimezones: string[] = [];
+		let allowedTimezones = [];
 		try {
 			allowedTimezones = JSON.parse(banner.dataset.allowedTimezones ?? "[]");
 		} catch {
