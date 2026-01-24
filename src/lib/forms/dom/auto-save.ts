@@ -147,13 +147,14 @@ export function setupAutoSavePreferences(options: AutoSaveOptions) {
 	}
 
 	function handleChange() {
+		if (debounceHandle) {
+			window.clearTimeout(debounceHandle);
+			debounceHandle = null;
+		}
+
 		const currentSnapshot = snapshot(new FormData(form));
 		if (!hasSnapshotChanged(currentSnapshot, initialSnapshot)) {
 			return;
-		}
-
-		if (debounceHandle) {
-			window.clearTimeout(debounceHandle);
 		}
 
 		// Debounce autosave to batch rapid user input intentionally.
