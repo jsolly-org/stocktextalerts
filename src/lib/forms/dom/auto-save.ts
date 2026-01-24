@@ -37,6 +37,17 @@ function resolveActionPath(
 	return resolved.pathname;
 }
 
+function formDataFromSnapshot(values: Map<string, string>) {
+	const formData = new FormData();
+	for (const [name, serializedValue] of values.entries()) {
+		const parts = serializedValue.split("\u0000");
+		for (const part of parts) {
+			formData.append(name, part);
+		}
+	}
+	return formData;
+}
+
 export function setupAutoSavePreferences(options: AutoSaveOptions) {
 	const formElement = document.getElementById(options.formId);
 	if (!(formElement instanceof HTMLFormElement)) {
@@ -75,9 +86,10 @@ export function setupAutoSavePreferences(options: AutoSaveOptions) {
 		setStatus(null);
 
 		try {
+			const submittedFormData = formDataFromSnapshot(submittedSnapshot);
 			const response = await fetch(form.action, {
 				method: "POST",
-				body: new FormData(form),
+				body: submittedFormData,
 				credentials: "same-origin",
 				headers: { Accept: "application/json" },
 				signal: AbortSignal.timeout(10_000),

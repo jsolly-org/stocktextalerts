@@ -42,7 +42,7 @@
 
 <script lang="ts" setup>
 import { DateTime } from "luxon";
-import { computed, nextTick, onMounted, ref, toRefs, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
 
 import type { User } from "../../../lib/db";
 import { findFormElement } from "../../../lib/forms/dom/form-discovery";
@@ -80,6 +80,7 @@ const panelRef = ref<HTMLElement | null>(null);
 const formElement = ref<HTMLFormElement | null>(null);
 const sendVerificationDisabled = ref(true);
 const isClient = ref(false);
+let cleanupNavigationWarning: (() => void) | undefined;
 
 const timezoneSelectId = computed(() => `${formId.value}-timezone`);
 const emailNotificationsEnabledId = computed(
@@ -125,17 +126,42 @@ const hasPendingSmsChanges = computed(() => {
 });
 
 function savePendingSmsState() {
-	if (hasPendingSmsChanges.value) {
-		sessionStorage.setItem(PENDING_SMS_STORAGE_KEY, "true");
-	} else {
-		sessionStorage.removeItem(PENDING_SMS_STORAGE_KEY);
+	try {
+		if (hasPendingSmsChanges.value) {
+			sessionStorage.setItem(PENDING_SMS_STORAGE_KEY, "true");
+		} else {
+			sessionStorage.removeItem(PENDING_SMS_STORAGE_KEY);
+		}
+	} catch (error) {
+		console.warn(
+			`Unable to update session storage for ${PENDING_SMS_STORAGE_KEY}.`,
+			error,
+		);
 	}
 }
 
 function restorePendingSmsState() {
-	if (user.value.phone_verified && sessionStorage.getItem(PENDING_SMS_STORAGE_KEY) === "true") {
+	let pendingSmsState: string | null = null;
+	try {
+		pendingSmsState = sessionStorage.getItem(PENDING_SMS_STORAGE_KEY);
+	} catch (error) {
+		console.warn(
+			`Unable to read session storage for ${PENDING_SMS_STORAGE_KEY}.`,
+			error,
+		);
+		return;
+	}
+
+	if (user.value.phone_verified && pendingSmsState === "true") {
 		smsEnabled.value = true;
-		sessionStorage.removeItem(PENDING_SMS_STORAGE_KEY);
+		try {
+			sessionStorage.removeItem(PENDING_SMS_STORAGE_KEY);
+		} catch (error) {
+			console.warn(
+				`Unable to clear session storage for ${PENDING_SMS_STORAGE_KEY}.`,
+				error,
+			);
+		}
 		emitFormInput();
 	}
 }
@@ -206,26 +232,28 @@ onMounted(() => {
 
 	resolveDefaultTimezone();
 
-	restorePendingSmsState();
-
-	if (!formElement.value) {
-		return;
-	}
-
 	if (user.value.phone_verified && smsEnabled.value) {
-		sessionStorage.removeItem(PENDING_SMS_STORAGE_KEY);
+		try {
+			sessionStorage.removeItem(PENDING_SMS_STORAGE_KEY);
+		} catch (error) {
+			console.warn(
+				`Unable to clear session storage for ${PENDING_SMS_STORAGE_KEY}.`,
+				error,
+			);
+		}
 	}
 
 	watch(
 		() => user.value.phone_verified,
 		(isVerified) => {
-			if (isVerified && sessionStorage.getItem(PENDING_SMS_STORAGE_KEY) === "true") {
+			if (isVerified) {
 				restorePendingSmsState();
 			}
 		},
+		{ immediate: true },
 	);
 
-	let cleanupNavigationWarning = setupNavigationWarning();
+	cleanupNavigationWarning = setupNavigationWarning();
 	watch(hasPendingSmsChanges, (hasPending) => {
 		if (cleanupNavigationWarning) {
 			cleanupNavigationWarning();
@@ -237,6 +265,10 @@ onMounted(() => {
 		}
 	});
 
+	if (!formElement.value) {
+		return;
+	}
+
 	syncChannelState();
 
 	nextTick(() => {
@@ -247,6 +279,12 @@ onMounted(() => {
 				user.value.dismiss_timezone_mismatch_prompts ?? false,
 		});
 	});
+});
+
+onUnmounted(() => {
+	if (cleanupNavigationWarning) {
+		cleanupNavigationWarning();
+	}
 });
 
 </script>
