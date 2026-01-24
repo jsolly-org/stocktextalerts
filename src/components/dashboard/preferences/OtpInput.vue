@@ -151,13 +151,17 @@ function handleFocus(index: number) {
 
 function validateOtp() {
 	const isComplete = code.value.length === CODE_LENGTH;
+	const isEmpty = code.value.length === 0;
 	const firstInput = inputRefs.value[0];
 
 	if (!firstInput) {
 		return;
 	}
 
-	const shouldShowError = !isComplete && (props.formSubmitted === true || props.required);
+	const shouldValidate = props.formSubmitted === true;
+	const shouldShowError =
+		shouldValidate &&
+		(props.required === true ? !isComplete : !isEmpty && !isComplete);
 	showError.value = shouldShowError;
 
 	if (shouldShowError) {

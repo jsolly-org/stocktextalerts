@@ -107,7 +107,7 @@ async function handleSendNow() {
 			const dueAtMs = Date.parse(nextSendAt);
 			if (!Number.isNaN(dueAtMs)) {
 				const nowMs = Date.now();
-				const dueSoonMs = 30 * 60 * 1000;
+				const dueSoonMs = 24 * 60 * 60 * 1000;
 				if (dueAtMs <= nowMs + dueSoonMs) {
 					const shouldSkipNext = window.confirm(
 						"Your next daily digest is scheduled soon. Click OK to send now and skip the next scheduled digest, or Cancel to send now without skipping.",
