@@ -24,8 +24,9 @@ export async function processEmailUpdate(
 	stocksList: string,
 	sendEmail: EmailSender,
 	idempotencyKey?: string,
+	isPreview = false,
 ): Promise<ProcessingStats> {
-	const message = formatEmailMessage(userStocks, stocksList);
+	const message = formatEmailMessage(userStocks, stocksList, isPreview);
 	const result = await sendUserEmail(
 		user,
 		"Your Stock Update",
@@ -58,10 +59,25 @@ export async function processSmsUpdate(
 	userStocks: UserStockRow[],
 	stocksList: string,
 	sendSms: SmsSender,
+	isPreview = false,
 ): Promise<ProcessingStats> {
+	const senderName = "Stock Text Alerts";
+	const previewPrefix = isPreview ? "[PREVIEW] " : "";
 	const messagePrefix = userStocks.length > 0 ? "Tracked: " : "";
 	const optOutSuffix = ". Reply STOP to opt out.";
-	const maxStocksListLength = 160 - messagePrefix.length - optOutSuffix.length;
+	const previewSuffix = isPreview
+		? ` From ${senderName}. Preview only, not scheduled.`
+		: "";
+
+	// Calculate available length for stocks list
+	// 160 is SMS character limit, but we need space for all prefixes and suffixes
+	const fixedLength =
+		previewPrefix.length +
+		messagePrefix.length +
+		optOutSuffix.length +
+		previewSuffix.length;
+	const maxStocksListLength = 160 - fixedLength;
+
 	let truncatedStocksList = stocksList;
 	if (stocksList.length > maxStocksListLength) {
 		// Truncate at the last comma boundary to avoid cutting mid-word or mid-symbol
@@ -72,7 +88,7 @@ export async function processSmsUpdate(
 				? `${stocksList.substring(0, cutoff)}...`
 				: `${stocksList.substring(0, maxStocksListLength - 3)}...`;
 	}
-	const smsMessage = `${messagePrefix}${truncatedStocksList}${optOutSuffix}`;
+	const smsMessage = `${previewPrefix}${messagePrefix}${truncatedStocksList}${optOutSuffix}${previewSuffix}`;
 
 	const result = await sendUserSms(user, smsMessage, sendSms);
 

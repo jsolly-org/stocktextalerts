@@ -233,6 +233,7 @@ export type Database = {
 					created_at: string;
 					daily_digest_enabled: boolean;
 					daily_digest_notification_time: number;
+					dismiss_timezone_mismatch_prompts: boolean;
 					email: string;
 					email_notifications_enabled: boolean;
 					full_phone: string | null;
@@ -250,6 +251,7 @@ export type Database = {
 					created_at?: string;
 					daily_digest_enabled?: boolean;
 					daily_digest_notification_time?: number;
+					dismiss_timezone_mismatch_prompts?: boolean;
 					email: string;
 					email_notifications_enabled?: boolean;
 					full_phone?: string | null;
@@ -267,6 +269,7 @@ export type Database = {
 					created_at?: string;
 					daily_digest_enabled?: boolean;
 					daily_digest_notification_time?: number;
+					dismiss_timezone_mismatch_prompts?: boolean;
 					email?: string;
 					email_notifications_enabled?: boolean;
 					full_phone?: string | null;

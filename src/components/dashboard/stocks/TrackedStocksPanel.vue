@@ -9,9 +9,6 @@
 				:stock-options="stockOptions"
 				@select="handleSelect"
 			/>
-			<p v-if="hasUnsavedChanges" class="mt-3 text-sm text-amber-700">
-				Changes aren’t saved until you click <span class="font-medium">Save Preferences</span> at the bottom of the page.
-			</p>
 		</div>
 
 		<div>
@@ -42,6 +39,7 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref, watch } from "vue";
 
+import { findFormElement } from "../../../lib/forms/dom/form-discovery";
 import StockInput, { type StockOption } from "./StockInput.vue";
 
 interface Props {
@@ -54,12 +52,6 @@ const props = defineProps<Props>();
 const draftSymbols = ref([...props.initialSymbols]);
 const panelRef = ref<HTMLElement | null>(null);
 const formElement = ref<HTMLFormElement | null>(null);
-
-const hasUnsavedChanges = computed(() => {
-	if (draftSymbols.value.length !== props.initialSymbols.length) return true;
-	const initialSet = new Set(props.initialSymbols);
-	return draftSymbols.value.some((symbol) => !initialSet.has(symbol));
-});
 
 const trackedStocksValue = computed(() =>
 	JSON.stringify(draftSymbols.value),
@@ -92,13 +84,9 @@ const removeSymbol = (symbol: string) => {
 };
 
 onMounted(() => {
-	if (!panelRef.value) {
-		return;
-	}
-	const closestForm = panelRef.value.closest("form");
-	if (closestForm instanceof HTMLFormElement) {
-		formElement.value = closestForm;
-	}
+	formElement.value = findFormElement({
+		fallbackElement: panelRef.value,
+	});
 });
 </script>
 

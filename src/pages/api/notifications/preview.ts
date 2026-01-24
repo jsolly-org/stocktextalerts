@@ -144,6 +144,8 @@ export const POST: APIRoute = async ({
 				userStocks,
 				stocksList,
 				sendEmail,
+				undefined,
+				true,
 			);
 			sent = result.sent;
 			errorDetails = result.error;
@@ -208,6 +210,7 @@ export const POST: APIRoute = async ({
 				userStocks,
 				stocksList,
 				sendSms,
+				true,
 			);
 			sent = result.sent;
 			errorDetails = result.error;

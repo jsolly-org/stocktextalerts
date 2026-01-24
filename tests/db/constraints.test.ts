@@ -9,6 +9,7 @@ import {
 	expect,
 	it,
 } from "vitest";
+import { getStockData } from "../utils";
 
 function createDbClient(): Client {
 	const databaseUrl = process.env.DATABASE_URL;
@@ -60,10 +61,11 @@ describe("database constraints and validation functions", () => {
 	});
 
 	it("rejects stocks.symbol containing whitespace (stocks_symbol_no_whitespace)", async () => {
+		const realStock = getStockData("AAPL");
 		await expect(
 			client.query(
 				"insert into public.stocks (symbol, name, exchange) values ($1, $2, $3)",
-				["A A", "Test Stock", "NASDAQ"],
+				["A A", realStock.name, realStock.exchange],
 			),
 		).rejects.toMatchObject({
 			code: "23514",
@@ -92,9 +94,10 @@ describe("database constraints and validation functions", () => {
 			`test-${randomUUID()}@resend.dev`,
 		]);
 
+		const aaplStock = getStockData("AAPL");
 		await client.query(
 			"insert into public.stocks (symbol, name, exchange) values ($1, $2, $3) on conflict (symbol) do nothing",
-			["AAPL", "Apple Inc.", "NASDAQ"],
+			["AAPL", aaplStock.name, aaplStock.exchange],
 		);
 
 		await expect(
@@ -114,9 +117,10 @@ describe("database constraints and validation functions", () => {
 			`test-${randomUUID()}@resend.dev`,
 		]);
 
+		const aaplStock = getStockData("AAPL");
 		await client.query(
 			"insert into public.stocks (symbol, name, exchange) values ($1, $2, $3) on conflict (symbol) do nothing",
-			["aapl", "Apple Inc.", "NASDAQ"],
+			["aapl", aaplStock.name, aaplStock.exchange],
 		);
 
 		await expect(
@@ -136,9 +140,18 @@ describe("database constraints and validation functions", () => {
 			`test-${randomUUID()}@resend.dev`,
 		]);
 
+		const aaplStock = getStockData("AAPL");
+		const msftStock = getStockData("MSFT");
 		await client.query(
 			"insert into public.stocks (symbol, name, exchange) values ($1, $2, $3), ($4, $5, $6) on conflict (symbol) do nothing",
-			["AAPL", "Apple Inc.", "NASDAQ", "MSFT", "Microsoft Corp.", "NASDAQ"],
+			[
+				"AAPL",
+				aaplStock.name,
+				aaplStock.exchange,
+				"MSFT",
+				msftStock.name,
+				msftStock.exchange,
+			],
 		);
 
 		await expect(

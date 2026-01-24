@@ -283,9 +283,9 @@ The cron job:
 │   ├── components/
 │   │   ├── dashboard/
 │   │   │   ├── preferences/
-│   │   │   │   ├── NotificationChannelsSection.astro
-│   │   │   │   ├── NotificationPreferencesCard.astro
-│   │   │   │   └── ScheduledNotificationsCard.astro
+│   │   │   │   ├── OtpInput.vue
+│   │   │   │   ├── PhoneInput.vue
+│   │   │   │   └── PreferencesPanel.vue
 │   │   │   ├── stocks/
 │   │   │   │   ├── StockInput.vue
 │   │   │   │   └── TrackedStocksPanel.vue
@@ -304,7 +304,6 @@ The cron job:
 │   │   │   └── ProfilePreferences.astro
 │   │   ├── PhoneInput.vue
 │   │   ├── HCaptcha.astro
-│   │   ├── TimezoneMismatchBanner.astro
 │   ├── layouts/
 │   │   └── Layout.astro
 │   ├── lib/

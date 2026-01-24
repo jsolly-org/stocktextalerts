@@ -1,4 +1,7 @@
 import { randomInt, randomUUID } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { DateTime } from "luxon";
 import { Client } from "pg";
@@ -50,6 +53,71 @@ const databaseUrl = testEnv.databaseUrl;
 
 export const PRESERVED_USER_ID = "00000000-0000-0000-0000-000000000000";
 export const TEST_USER_EMAIL = "test@jsolly.com";
+
+type StockData = {
+	symbol: string;
+	name: string;
+	exchange: string;
+};
+
+let stockDataCache: Map<string, StockData> | null = null;
+
+function loadStockData(): Map<string, StockData> {
+	if (stockDataCache) {
+		return stockDataCache;
+	}
+
+	const __dirname = path.dirname(fileURLToPath(import.meta.url));
+	const stocksFile = path.join(__dirname, "..", "scripts", "us-stocks.json");
+
+	let stocksData: { data: StockData[] };
+	try {
+		stocksData = JSON.parse(fs.readFileSync(stocksFile, "utf-8"));
+	} catch (error) {
+		throw new Error(
+			`Failed to load stock data from ${stocksFile}: ${error instanceof Error ? error.message : String(error)}`,
+		);
+	}
+
+	if (!Array.isArray(stocksData.data)) {
+		throw new Error(
+			`Invalid stock data format: expected array in 'data' property`,
+		);
+	}
+
+	stockDataCache = new Map(
+		stocksData.data.map((stock) => [stock.symbol.toUpperCase(), stock]),
+	);
+
+	return stockDataCache;
+}
+
+export function getStockData(symbol: string): StockData {
+	const stockData = loadStockData();
+	const normalizedSymbol = symbol.toUpperCase();
+	const stock = stockData.get(normalizedSymbol);
+
+	if (!stock) {
+		throw new Error(
+			`Stock symbol "${symbol}" (normalized: "${normalizedSymbol}") not found in stock data. Use a valid stock symbol from the us-stocks.json dataset.`,
+		);
+	}
+
+	return stock;
+}
+
+export function getRealStockSymbols(count: number): string[] {
+	const stockData = loadStockData();
+	const symbols = Array.from(stockData.keys());
+
+	if (symbols.length < count) {
+		throw new Error(
+			`Requested ${count} stock symbols but only ${symbols.length} available in stock data`,
+		);
+	}
+
+	return symbols.slice(0, count);
+}
 
 export async function verifySupabaseAdminAccess() {
 	const { error } = await adminClient.auth.admin.listUsers({
@@ -303,11 +371,14 @@ export async function createTestUser(
 		if (options.trackedStocks && options.trackedStocks.length > 0) {
 			// Ensure stocks exist in the stocks table first
 			const uniqueSymbols = [...new Set(options.trackedStocks)];
-			const stockRecords = uniqueSymbols.map((symbol) => ({
-				symbol,
-				name: `${symbol} Test Stock`,
-				exchange: "NASDAQ",
-			}));
+			const stockRecords = uniqueSymbols.map((symbol) => {
+				const stockData = getStockData(symbol);
+				return {
+					symbol: stockData.symbol,
+					name: stockData.name,
+					exchange: stockData.exchange,
+				};
+			});
 
 			const { error: stocksTableError } = await adminClient
 				.from("stocks")
@@ -319,9 +390,9 @@ export async function createTestUser(
 				);
 			}
 
-			const stockInserts: DbUserStockInsert[] = uniqueSymbols.map((symbol) => ({
+			const stockInserts: DbUserStockInsert[] = stockRecords.map((stock) => ({
 				user_id: userId,
-				symbol,
+				symbol: stock.symbol,
 			}));
 
 			const { error: stockError } = await adminClient

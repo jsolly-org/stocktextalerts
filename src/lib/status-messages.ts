@@ -8,6 +8,7 @@ const MESSAGE_ALLOWLIST = {
 	phone_verified: "Phone number verified successfully",
 	settings_updated: "Settings updated successfully",
 	timezone_updated: "Timezone updated successfully",
+	timezone_banner_dismissed: "Timezone banner dismissed",
 	invalid_form:
 		"There was a problem with your submission. Please check the form and try again.",
 	verification_sent: "Verification code sent",
@@ -23,7 +24,8 @@ const MESSAGE_ALLOWLIST = {
 		"Enable at least one notification channel to send a daily digest.",
 	user_not_found: "User not found",
 	stocks_limit: `Maximum ${MAX_TRACKED_STOCKS} stocks allowed`,
-	preview_email_sent: "Preview email sent successfully",
+	preview_email_sent:
+		"Preview email sent successfully. Please check your email inbox and spam folder.",
 	preview_sms_sent: "Preview SMS sent successfully",
 	preview_rate_limited: "Too many preview requests. Please try again later.",
 	preview_sms_missing_phone: "Add a phone number before sending SMS previews.",

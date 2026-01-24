@@ -9,6 +9,8 @@ import {
 	type CreateTestUserOptions,
 	createAuthenticatedCookies,
 	createTestUser,
+	getRealStockSymbols,
+	getStockData,
 	type TestUser,
 } from "../../../utils";
 
@@ -201,21 +203,20 @@ describe("POST /api/preferences (tracked stocks)", () => {
 	});
 
 	it("should reject when attempting to track more than MAX_TRACKED_STOCKS", async () => {
-		const uniqueId = randomUUID().slice(0, 4).toUpperCase();
-		const seedSymbols = Array.from(
-			{ length: MAX_TRACKED_STOCKS + 1 },
-			(_, index) => `T${uniqueId}${String(index).padStart(3, "0")}`,
-		);
-		const seedRecords = seedSymbols.map((symbol) => ({
-			symbol,
-			name: `${symbol} Test Stock`,
-			exchange: "NASDAQ",
-		}));
+		const seedSymbols = getRealStockSymbols(MAX_TRACKED_STOCKS + 1);
+		const seedRecords = seedSymbols.map((symbol) => {
+			const stockData = getStockData(symbol);
+			return {
+				symbol: stockData.symbol,
+				name: stockData.name,
+				exchange: stockData.exchange,
+			};
+		});
 		let testUserForCleanup: TestUser | undefined;
 
 		const { error: insertError } = await adminClient
 			.from("stocks")
-			.insert(seedRecords);
+			.upsert(seedRecords, { onConflict: "symbol" });
 		expect(insertError).toBeNull();
 
 		try {

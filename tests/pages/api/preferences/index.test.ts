@@ -117,4 +117,65 @@ describe("POST /api/preferences", () => {
 
 		expect(updatedUser.daily_digest_notification_time).toBe(720);
 	});
+
+	it("should return JSON when Accept header requests it", async () => {
+		const testUser = await createTestUser({
+			email: `test-${randomUUID()}@resend.dev`,
+			password: "TestPassword123!",
+			confirmed: true,
+		});
+
+		const cookies = await createAuthenticatedCookies(
+			testUser.email,
+			"TestPassword123!",
+		);
+
+		const formData = new FormData();
+		formData.append("email_notifications_enabled", "true");
+		formData.append("sms_notifications_enabled", "false");
+		formData.append("timezone", "America/Los_Angeles");
+		formData.append("daily_digest_enabled", "true");
+		formData.append("daily_digest_notification_time", "08:00");
+		formData.append("tracked_stocks", JSON.stringify([]));
+
+		const request = new Request("http://localhost/api/preferences", {
+			method: "POST",
+			body: formData,
+			headers: { Accept: "application/json" },
+		});
+
+		const response = await POST({
+			request,
+			cookies: {
+				get: (name: string) => {
+					const cookie = cookies.get(name);
+					return cookie ? { value: cookie } : undefined;
+				},
+				set: () => {},
+			},
+		} as APIContext);
+
+		expect(response.status).toBe(200);
+
+		const payload = (await response.json()) as {
+			ok: boolean;
+			message: string;
+			preferences: {
+				email_notifications_enabled: boolean;
+				sms_notifications_enabled: boolean;
+				timezone: string;
+				daily_digest_enabled: boolean;
+				daily_digest_notification_time: number;
+				next_send_at: string | null;
+			};
+		};
+
+		expect(payload.ok).toBe(true);
+		expect(payload.message).toBe("settings_updated");
+		expect(payload.preferences.email_notifications_enabled).toBe(true);
+		expect(payload.preferences.sms_notifications_enabled).toBe(false);
+		expect(payload.preferences.timezone).toBe("America/Los_Angeles");
+		expect(payload.preferences.daily_digest_enabled).toBe(true);
+		expect(payload.preferences.daily_digest_notification_time).toBe(480);
+	});
 });

@@ -25,7 +25,7 @@
 <script lang="ts" setup>
 import "@vuepic/vue-datepicker/dist/main.css";
 import { VueDatePicker } from "@vuepic/vue-datepicker";
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 
 type TimeModel = {
 	hours: number | string;
@@ -153,22 +153,9 @@ function resolveIs24(): boolean {
 	return options.hourCycle === "h23" || options.hourCycle === "h24";
 }
 
-function handleDailyDigestToggle(event: Event) {
-	const customEvent = event as CustomEvent<{ enabled: boolean }>;
-	isDisabled.value = !customEvent.detail.enabled;
-}
-
 onMounted(() => {
 	isMounted.value = true;
 	is24.value = resolveIs24();
-	document.addEventListener("daily-digest-enabled-changed", handleDailyDigestToggle);
-});
-
-onBeforeUnmount(() => {
-	document.removeEventListener(
-		"daily-digest-enabled-changed",
-		handleDailyDigestToggle,
-	);
 });
 </script>
 

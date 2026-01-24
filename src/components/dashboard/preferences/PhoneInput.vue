@@ -1,5 +1,5 @@
 <template>
-	<div ref="rootElement">
+	<div>
 		<label for="phone" class="block text-sm font-medium text-slate-700 mb-1">
 			Phone Number
 		</label>
@@ -36,7 +36,6 @@
 					@blur="validate"
 					:aria-describedby="showError ? 'phone-error' : undefined"
 					:aria-invalid="showError ? 'true' : undefined"
-					:data-phone-is-valid="isValid ? 'true' : 'false'"
 					class="w-full rounded-r-lg py-2 px-3 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none"
 					:placeholder="computedPlaceholder"
 					name="phone"
@@ -74,7 +73,9 @@ const props = defineProps<{
 	initialNationalNumber?: string | null;
 }>();
 
-const rootElement = ref<HTMLElement>();
+const emit = defineEmits<{
+	(event: "validity-changed", value: boolean): void;
+}>();
 
 const country = ref<Country>("US");
 const showError = ref(false);
@@ -178,15 +179,9 @@ const isValid = computed(() => {
 });
 
 watch(
-	[isValid, rootElement],
-	([valid]) => {
-		if (rootElement.value) {
-			const event = new CustomEvent("phone-validity-changed", {
-				bubbles: true,
-				detail: { isValid: valid },
-			});
-			rootElement.value.dispatchEvent(event);
-		}
+	isValid,
+	(valid) => {
+		emit("validity-changed", valid);
 	},
 	{ immediate: true },
 );
