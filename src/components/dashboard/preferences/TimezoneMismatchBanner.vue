@@ -216,6 +216,7 @@ async function handleDismissPermanently() {
 		if (bannerRef.value) {
 			bannerRef.value.dataset.dismissTimezoneMismatchPrompts = "true";
 		}
+		localDismissTimezoneMismatchPrompts.value = true;
 		isVisible.value = false;
 	} catch (error) {
 		rootLogger.error(
