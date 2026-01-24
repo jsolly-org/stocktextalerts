@@ -63,6 +63,12 @@ function createSupabaseTimezonesStub(options: {
 describe("POST /api/preferences/timezone", () => {
 	const TEST_PASSWORD = "TestPassword123!";
 
+	const toRedirect = (url: string) =>
+		new Response(null, {
+			status: 302,
+			headers: { Location: url },
+		});
+
 	it("updates the current user's timezone and redirects back", async () => {
 		const testUser = await createTestUser({
 			email: `test-timezone-${randomUUID()}@resend.dev`,
@@ -93,6 +99,7 @@ describe("POST /api/preferences/timezone", () => {
 				},
 				set: () => {},
 			},
+			redirect: toRedirect,
 		} as unknown as APIContext);
 
 		expect(response.status).toBe(302);
@@ -114,6 +121,12 @@ describe("POST /api/preferences/timezone", () => {
 
 describe("POST /api/preferences/dismiss-timezone-banner", () => {
 	const TEST_PASSWORD = "TestPassword123!";
+
+	const toRedirect = (url: string) =>
+		new Response(null, {
+			status: 302,
+			headers: { Location: url },
+		});
 
 	it("sets dismiss_timezone_mismatch_prompts to true and redirects back", async () => {
 		const testUser = await createTestUser({
@@ -144,6 +157,7 @@ describe("POST /api/preferences/dismiss-timezone-banner", () => {
 				},
 				set: () => {},
 			},
+			redirect: toRedirect,
 		} as unknown as APIContext);
 
 		expect(response.status).toBe(302);
@@ -194,6 +208,7 @@ describe("POST /api/preferences/dismiss-timezone-banner", () => {
 				},
 				set: () => {},
 			},
+			redirect: toRedirect,
 		} as unknown as APIContext);
 
 		expect(response.status).toBe(200);
@@ -227,6 +242,7 @@ describe("POST /api/preferences/dismiss-timezone-banner", () => {
 				get: () => undefined,
 				set: () => {},
 			},
+			redirect: toRedirect,
 		} as unknown as APIContext);
 
 		expect(response.status).toBe(302);

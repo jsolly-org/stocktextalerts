@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, expect, vi } from "vitest";
 import {
 	adminClient,
+	getRealStockSymbols,
 	resetDatabase,
 	verifyDatabaseSchemaUpToDate,
 	verifySupabaseAdminAccess,
@@ -51,4 +52,6 @@ beforeAll(async () => {
 	await verifySupabaseAdminAccess();
 	await verifyDatabaseSchemaUpToDate();
 	await resetDatabase();
+	// Preload stock data once for all tests (cached after first load)
+	getRealStockSymbols(1);
 });

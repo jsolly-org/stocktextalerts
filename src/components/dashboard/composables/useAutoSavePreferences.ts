@@ -1,0 +1,290 @@
+import { onUnmounted, type Ref, ref, watch } from "vue";
+
+import { rootLogger } from "../../../lib/logging";
+
+type PreferencesResponse = {
+	ok: boolean;
+	message: string;
+	preferences?: {
+		email_notifications_enabled: boolean;
+		sms_notifications_enabled: boolean;
+		sms_opted_out: boolean;
+		phone_verified: boolean;
+		timezone: string;
+		daily_digest_enabled: boolean;
+		daily_digest_notification_time: number;
+		next_send_at: string | null;
+		dismiss_timezone_mismatch_prompts: boolean;
+	};
+};
+
+type AutoSaveOptions = {
+	formRef: Ref<HTMLFormElement | null>;
+	debounceMs?: number;
+};
+
+function resolveActionPath(
+	form: HTMLFormElement,
+	submitter: HTMLElement | null,
+) {
+	const submitAction =
+		(submitter instanceof HTMLButtonElement ||
+			submitter instanceof HTMLInputElement) &&
+		submitter.formAction
+			? submitter.formAction
+			: form.action;
+	const resolved = new URL(submitAction, window.location.href);
+	return resolved.pathname;
+}
+
+function snapshot(fd: FormData) {
+	const values = new Map<string, string>();
+	const keys = new Set<string>();
+	for (const [name] of fd.entries()) keys.add(String(name));
+	for (const name of keys) {
+		values.set(
+			name,
+			fd
+				.getAll(name)
+				.map((item) =>
+					item instanceof File
+						? `${item.name}:${item.size}:${item.lastModified}`
+						: String(item),
+				)
+				.join("\u0000"),
+		);
+	}
+	return values;
+}
+
+function hasSnapshotChanged(
+	current: Map<string, string>,
+	initial: Map<string, string>,
+): boolean {
+	if (current.size !== initial.size) {
+		return true;
+	}
+	for (const [name, value] of current.entries()) {
+		if (value !== initial.get(name)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+function formDataFromSnapshot(values: Map<string, string>) {
+	const formData = new FormData();
+	for (const [name, serializedValue] of values.entries()) {
+		const parts = serializedValue.split("\u0000");
+		for (const part of parts) {
+			formData.append(name, part);
+		}
+	}
+	return formData;
+}
+
+export function useAutoSavePreferences(options: AutoSaveOptions) {
+	const statusMessage = ref<string | null>(null);
+	const statusTone = ref<"error" | "info">("info");
+	const isSaving = ref(false);
+
+	const debounceMs = options.debounceMs ?? 450;
+	let queued = false;
+	let pendingSnapshot: Map<string, string> | null = null;
+	let initialSnapshot: Map<string, string> | null = null;
+	let debounceHandle: number | null = null;
+	let cleanupListeners: (() => void) | null = null;
+
+	function setStatus(message: string | null, tone: "error" | "info" = "info") {
+		statusMessage.value = message;
+		if (message) {
+			statusTone.value = tone;
+		}
+	}
+
+	async function sendUpdate(
+		form: HTMLFormElement,
+		submittedSnapshot: Map<string, string>,
+	) {
+		isSaving.value = true;
+		setStatus("Saving...", "info");
+
+		try {
+			const submittedFormData = formDataFromSnapshot(submittedSnapshot);
+			const response = await fetch(form.action, {
+				method: "POST",
+				body: submittedFormData,
+				credentials: "same-origin",
+				headers: { Accept: "application/json" },
+				signal: AbortSignal.timeout(10_000),
+			});
+
+			const payload = (await response.json()) as PreferencesResponse;
+
+			if (!response.ok || !payload.ok) {
+				const errorMessage =
+					payload &&
+					typeof payload.message === "string" &&
+					payload.message.trim()
+						? payload.message
+						: "Could not save changes. Please try again.";
+				setStatus(errorMessage, "error");
+				return;
+			}
+
+			initialSnapshot = submittedSnapshot;
+			setStatus(null);
+			document.dispatchEvent(
+				new CustomEvent("preferences-updated", {
+					detail: payload,
+				}),
+			);
+		} catch (error) {
+			if (error instanceof Error && error.name === "TimeoutError") {
+				setStatus("Save timed out. Please try again.", "error");
+			} else {
+				setStatus("Could not save changes. Please try again.", "error");
+			}
+			rootLogger.error(
+				"Autosave failed for dashboard preferences",
+				undefined,
+				error,
+			);
+		} finally {
+			isSaving.value = false;
+			if (queued) {
+				queued = false;
+				const currentForm = options.formRef.value;
+				const snapshotToSave =
+					pendingSnapshot ??
+					(currentForm ? snapshot(new FormData(currentForm)) : null);
+				pendingSnapshot = null;
+				if (currentForm && snapshotToSave) {
+					void triggerSave(currentForm, snapshotToSave);
+				}
+			}
+		}
+	}
+
+	async function triggerSave(
+		form: HTMLFormElement,
+		currentSnapshot: Map<string, string>,
+	) {
+		if (!initialSnapshot) {
+			initialSnapshot = currentSnapshot;
+		}
+		if (!hasSnapshotChanged(currentSnapshot, initialSnapshot)) {
+			return;
+		}
+
+		if (isSaving.value) {
+			queued = true;
+			pendingSnapshot = currentSnapshot;
+			return;
+		}
+
+		await sendUpdate(form, currentSnapshot);
+	}
+
+	function scheduleSave(form: HTMLFormElement) {
+		const currentSnapshot = snapshot(new FormData(form));
+		if (!initialSnapshot) {
+			initialSnapshot = currentSnapshot;
+		}
+		if (!hasSnapshotChanged(currentSnapshot, initialSnapshot)) {
+			return;
+		}
+
+		if (isSaving.value) {
+			queued = true;
+			pendingSnapshot = currentSnapshot;
+			return;
+		}
+
+		if (debounceHandle) {
+			window.clearTimeout(debounceHandle);
+			debounceHandle = null;
+		}
+
+		// Debounce autosave to batch rapid user input intentionally.
+		debounceHandle = window.setTimeout(() => {
+			void triggerSave(form, currentSnapshot);
+		}, debounceMs);
+	}
+
+	function notifyChange() {
+		const currentForm = options.formRef.value;
+		if (!currentForm) {
+			return;
+		}
+		scheduleSave(currentForm);
+	}
+
+	function registerForm(form: HTMLFormElement) {
+		initialSnapshot = snapshot(new FormData(form));
+
+		const handleChange = () => {
+			scheduleSave(form);
+		};
+
+		const handleSubmit = (event: SubmitEvent) => {
+			const submitter = event.submitter ?? null;
+			const path = resolveActionPath(form, submitter);
+			if (path !== "/api/preferences") {
+				return;
+			}
+
+			event.preventDefault();
+			const currentSnapshot = snapshot(new FormData(form));
+			void triggerSave(form, currentSnapshot);
+		};
+
+		form.addEventListener("input", handleChange);
+		form.addEventListener("change", handleChange);
+		form.addEventListener("submit", handleSubmit);
+
+		return () => {
+			form.removeEventListener("input", handleChange);
+			form.removeEventListener("change", handleChange);
+			form.removeEventListener("submit", handleSubmit);
+			if (debounceHandle) {
+				window.clearTimeout(debounceHandle);
+				debounceHandle = null;
+			}
+		};
+	}
+
+	watch(
+		() => options.formRef.value,
+		(form, previousForm) => {
+			if (cleanupListeners) {
+				cleanupListeners();
+				cleanupListeners = null;
+			}
+			if (previousForm && form !== previousForm) {
+				initialSnapshot = null;
+				pendingSnapshot = null;
+				queued = false;
+			}
+			if (form) {
+				cleanupListeners = registerForm(form);
+			}
+		},
+		{ immediate: true },
+	);
+
+	onUnmounted(() => {
+		if (cleanupListeners) {
+			cleanupListeners();
+			cleanupListeners = null;
+		}
+	});
+
+	return {
+		isSaving,
+		notifyChange,
+		statusMessage,
+		statusTone,
+		triggerSave,
+	};
+}

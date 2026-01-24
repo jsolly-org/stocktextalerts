@@ -58,11 +58,53 @@ const smsReady = computed(
 );
 const showSection = computed(() => emailEnabled.value || smsReady.value);
 
-function submitEmail() {
+async function submitEmail(event: SubmitEvent) {
+	event.preventDefault();
 	emailSubmitting.value = true;
+
+	try {
+		const formData = new FormData(event.target as HTMLFormElement);
+		const response = await fetch("/api/notifications/preview", {
+			method: "POST",
+			body: formData,
+		});
+
+		if (response.redirected) {
+			window.location.href = response.url;
+		} else if (!response.ok) {
+			window.location.href = "/dashboard?error=preview_failed";
+		} else {
+			window.location.href = "/dashboard?success=preview_email_sent";
+		}
+	} catch (error) {
+		window.location.href = "/dashboard?error=preview_failed";
+	} finally {
+		emailSubmitting.value = false;
+	}
 }
 
-function submitSms() {
+async function submitSms(event: SubmitEvent) {
+	event.preventDefault();
 	smsSubmitting.value = true;
+
+	try {
+		const formData = new FormData(event.target as HTMLFormElement);
+		const response = await fetch("/api/notifications/preview", {
+			method: "POST",
+			body: formData,
+		});
+
+		if (response.redirected) {
+			window.location.href = response.url;
+		} else if (!response.ok) {
+			window.location.href = "/dashboard?error=preview_failed";
+		} else {
+			window.location.href = "/dashboard?success=preview_sms_sent";
+		}
+	} catch (error) {
+		window.location.href = "/dashboard?error=preview_failed";
+	} finally {
+		smsSubmitting.value = false;
+	}
 }
 </script>

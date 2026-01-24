@@ -2,10 +2,14 @@ import type { APIRoute } from "astro";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
-import { redirect } from "../../../lib/http/redirect";
 import { createLogger } from "../../../lib/logging";
 
-export const POST: APIRoute = async ({ request, cookies, locals }) => {
+export const POST: APIRoute = async ({
+	request,
+	cookies,
+	redirect,
+	locals,
+}) => {
 	const url = new URL(request.url);
 	const logger = createLogger({
 		requestId: locals?.requestId,

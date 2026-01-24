@@ -32,7 +32,6 @@
 			type="hidden"
 			:name="name"
 			:value="code"
-			:required="required"
 		/>
 	</div>
 </template>
@@ -45,6 +44,10 @@ const props = defineProps<{
 	name?: string;
 	required?: boolean;
 	formSubmitted?: boolean;
+}>();
+
+const emit = defineEmits<{
+	(event: "input"): void;
 }>();
 
 const CODE_LENGTH = 6;
@@ -88,7 +91,8 @@ function handleInput(index: number, event: Event) {
 		});
 	}
 
-	showError.value = false;
+	emit("input");
+	validateOtp();
 }
 
 function handleKeydown(index: number, event: KeyboardEvent) {
@@ -133,6 +137,8 @@ function handlePaste(event: ClipboardEvent) {
 		if (input) {
 			input.focus();
 		}
+		emit("input");
+		validateOtp();
 	});
 }
 
@@ -143,9 +149,33 @@ function handleFocus(index: number) {
 	}
 }
 
-function validate() {
+function validateOtp() {
 	const isComplete = code.value.length === CODE_LENGTH;
-	showError.value = !isComplete && (props.formSubmitted === true);
+	const firstInput = inputRefs.value[0];
+
+	if (!firstInput) {
+		return;
+	}
+
+	const shouldShowError = !isComplete && (props.formSubmitted === true || props.required);
+	showError.value = shouldShowError;
+
+	if (shouldShowError) {
+		firstInput.setCustomValidity("Please enter the complete verification code");
+	} else {
+		firstInput.setCustomValidity("");
+	}
+}
+
+function validate() {
+	const firstInput = inputRefs.value[0];
+
+	if (!firstInput) {
+		return;
+	}
+
+	validateOtp();
+	firstInput.reportValidity();
 }
 
 watch(
@@ -158,8 +188,6 @@ watch(
 );
 
 watch(code, () => {
-	if (showError.value && code.value.length === CODE_LENGTH) {
-		showError.value = false;
-	}
+	validateOtp();
 });
 </script>

@@ -116,7 +116,14 @@ export function getRealStockSymbols(count: number): string[] {
 		);
 	}
 
-	return symbols.slice(0, count);
+	// Shuffle array using Fisher-Yates algorithm for varied test data
+	const shuffled = [...symbols];
+	for (let i = shuffled.length - 1; i > 0; i--) {
+		const j = randomInt(0, i + 1);
+		[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+	}
+
+	return shuffled.slice(0, count);
 }
 
 export async function verifySupabaseAdminAccess() {

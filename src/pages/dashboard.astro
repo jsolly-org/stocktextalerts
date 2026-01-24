@@ -35,7 +35,7 @@ if (!dbUser) {
 	return Astro.redirect("/?error=user_not_found");
 }
 
-const user = dbUser as User & { dismiss_timezone_mismatch_prompts: boolean };
+const user = dbUser;
 
 const stocksFileUrl = new URL("../../scripts/us-stocks.json", import.meta.url);
 const stocksFileContents = await readFile(stocksFileUrl, "utf-8");
@@ -125,16 +125,4 @@ const statusId = "dashboard-preferences-save-status";
 		</div>
 	</div>
 </Layout>
-
-<script>
-	import { onDOMReady } from "../lib/ui/dom-ready";
-	import { setupAutoSavePreferences } from "../lib/forms/dom/auto-save";
-
-	onDOMReady(() => {
-		const formId = "dashboard-preferences-form";
-		const statusId = "dashboard-preferences-save-status";
-		setupAutoSavePreferences({ formId, statusId });
-	});
-</script>
-
 

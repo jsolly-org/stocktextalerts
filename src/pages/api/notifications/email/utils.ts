@@ -146,8 +146,10 @@ export function formatEmailMessage(
 	}
 
 	const text = `Your tracked stocks: ${stocksList}${previewDisclaimer}`;
-	const stocksArray = stocksList.split(", ").map((stock) => escapeHtml(stock));
-	const escapedStocksListHtml = stocksArray.join("<br>");
+	// Use userStocks directly instead of parsing stocksList to avoid dependency on string format
+	const escapedStocksListHtml = userStocks
+		.map((stock) => escapeHtml(`${stock.symbol} - ${stock.name}`))
+		.join("<br>");
 	const html = `
 <!DOCTYPE html>
 <html>

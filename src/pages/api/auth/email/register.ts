@@ -6,7 +6,6 @@ import {
 	createSupabaseServerClient,
 } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
-import { redirect } from "../../../../lib/http/redirect";
 import { createLogger, type Logger } from "../../../../lib/logging";
 import { resolveTimezone } from "../../../../lib/time/cache";
 
@@ -26,7 +25,7 @@ async function cleanupOrphanedAuthUser(
 	}
 }
 
-export const POST: APIRoute = async ({ request, locals }) => {
+export const POST: APIRoute = async ({ request, redirect, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({
 		requestId: locals?.requestId,

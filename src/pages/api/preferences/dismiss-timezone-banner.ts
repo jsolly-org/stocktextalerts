@@ -1,10 +1,14 @@
 import type { APIRoute } from "astro";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
-import { redirect } from "../../../lib/http/redirect";
 import { createLogger } from "../../../lib/logging";
 
-export const POST: APIRoute = async ({ request, cookies, locals }) => {
+export const POST: APIRoute = async ({
+	request,
+	cookies,
+	redirect,
+	locals,
+}) => {
 	const url = new URL(request.url);
 	const logger = createLogger({
 		requestId: locals?.requestId,
@@ -32,11 +36,13 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			dismiss_timezone_mismatch_prompts: true,
 		});
 	} catch (error) {
-		const errorMessage = error instanceof Error ? error.message : String(error);
-		logger.error("Failed to dismiss timezone banner", {
-			userId: authUser.id,
-			error: errorMessage,
-		});
+		logger.error(
+			"Failed to dismiss timezone banner",
+			{
+				userId: authUser.id,
+			},
+			error instanceof Error ? error : new Error(String(error)),
+		);
 		if (wantsJson) {
 			return Response.json(
 				{ ok: false, message: "update_failed" },

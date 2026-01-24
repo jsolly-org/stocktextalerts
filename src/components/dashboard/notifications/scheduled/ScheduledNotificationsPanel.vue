@@ -1,8 +1,5 @@
 <template>
-	<div
-		ref="panelRef"
-		class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6"
-	>
+	<div class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
 		<div class="flex items-start justify-between gap-4">
 			<div>
 				<h2 class="text-2xl font-bold text-gray-900">
@@ -34,10 +31,9 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref, toRefs, watch } from "vue";
+import { computed, ref, toRefs, watch } from "vue";
 
 import type { User } from "../../../../lib/db";
-import { findFormElement } from "../../../../lib/forms/dom/form-discovery";
 import { rootLogger } from "../../../../lib/logging";
 import { minutesToTimeInputValue } from "../../../../lib/time/format";
 import DailyDigestControls from "./DailyDigestControls.vue";
@@ -50,14 +46,19 @@ interface Props {
 	smsEnabled: boolean;
 	smsOptedOut: boolean;
 	phoneVerified: boolean;
+	onFormChanged: () => void;
 }
 
 const props = defineProps<Props>();
-const { user, formId, emailEnabled, smsEnabled, smsOptedOut, phoneVerified } =
-	toRefs(props);
-
-const panelRef = ref<HTMLElement | null>(null);
-const formElement = ref<HTMLFormElement | null>(null);
+const {
+	user,
+	formId,
+	emailEnabled,
+	smsEnabled,
+	smsOptedOut,
+	phoneVerified,
+	onFormChanged,
+} = toRefs(props);
 
 const dailyDigestEnabled = ref(user.value.daily_digest_enabled);
 const dailyDigestTimeMinutes = ref(user.value.daily_digest_notification_time);
@@ -88,8 +89,9 @@ const sendNowDisabled = computed(
 	() => isSending.value || needsChannelSelection.value || !dailyDigestEnabled.value,
 );
 
-function emitFormInput() {
-	formElement.value?.dispatchEvent(new Event("input", { bubbles: true }));
+function notifyFormChanged() {
+	const handler = onFormChanged.value;
+	handler();
 }
 
 async function handleSendNow() {
@@ -152,13 +154,6 @@ async function handleSendNow() {
 }
 
 watch(dailyDigestEnabled, () => {
-	emitFormInput();
-});
-
-onMounted(() => {
-	formElement.value = findFormElement({
-		formId: formId.value,
-		fallbackElement: panelRef.value,
-	});
+	notifyFormChanged();
 });
 </script>

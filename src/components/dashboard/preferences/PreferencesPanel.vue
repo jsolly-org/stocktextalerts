@@ -1,6 +1,5 @@
 <template>
 	<div
-		ref="panelRef"
 		class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6"
 		data-notification-preferences-card
 		:data-form-id="formId"
@@ -15,10 +14,15 @@
 				v-model="selectedTimezone"
 				:timezones="timezones"
 				:disabled="timezoneLoadError"
-				@change="emitFormInput"
+				@change="notifyFormChanged"
 			/>
 
-			<TimezoneMismatchBanner :is-client="isClient" />
+			<TimezoneMismatchBanner
+				:is-client="isClient"
+				:saved-timezone="user.timezone ?? ''"
+				:allowed-timezones="timezones.map((tz) => tz.value)"
+				:dismiss-timezone-mismatch-prompts="user.dismiss_timezone_mismatch_prompts ?? false"
+			/>
 
 			<NotificationChannelsSection
 				v-model:email-enabled="emailEnabled"
@@ -42,11 +46,9 @@
 
 <script lang="ts" setup>
 import { DateTime } from "luxon";
-import { computed, nextTick, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
 
 import type { User } from "../../../lib/db";
-import { findFormElement } from "../../../lib/forms/dom/form-discovery";
-import { setupTimezoneMismatchBanner } from "../../../lib/time/banner";
 import type { TimezoneOption } from "../../../lib/time/cache";
 import { DEFAULT_TIMEZONE } from "../../../lib/time/constants";
 import NotificationChannelsSection from "./NotificationChannelsSection.vue";
@@ -60,6 +62,7 @@ interface Props {
 	formId: string;
 	emailEnabled: boolean;
 	smsEnabled: boolean;
+	onFormChanged: () => void;
 	timezoneLoadError?: boolean;
 	successMessage?: string | null;
 }
@@ -68,16 +71,23 @@ const props = withDefaults(defineProps<Props>(), {
 	timezoneLoadError: false,
 	successMessage: null,
 });
-const { emailEnabled: emailEnabledProp, formId, isEditingPhone, successMessage, timezones, timezoneLoadError, user, smsEnabled: smsEnabledProp } =
-	toRefs(props);
+const {
+	emailEnabled: emailEnabledProp,
+	formId,
+	isEditingPhone,
+	onFormChanged,
+	successMessage,
+	timezones,
+	timezoneLoadError,
+	user,
+	smsEnabled: smsEnabledProp,
+} = toRefs(props);
 
 const emit = defineEmits<{
 	(event: "update:emailEnabled", value: boolean): void;
 	(event: "update:smsEnabled", value: boolean): void;
 }>();
 
-const panelRef = ref<HTMLElement | null>(null);
-const formElement = ref<HTMLFormElement | null>(null);
 const sendVerificationDisabled = ref(true);
 const isClient = ref(false);
 let cleanupNavigationWarning: (() => void) | undefined;
@@ -104,6 +114,10 @@ const smsVerificationCodeId = computed(
 
 const PENDING_SMS_STORAGE_KEY = "pending_sms_enabled";
 
+const pendingSmsStorageKey = computed(() => {
+	return `${PENDING_SMS_STORAGE_KEY}:${user.value.id}`;
+});
+
 const emailEnabled = computed({
 	get: () => emailEnabledProp.value,
 	set: (value: boolean) => emit("update:emailEnabled", value),
@@ -128,13 +142,13 @@ const hasPendingSmsChanges = computed(() => {
 function savePendingSmsState() {
 	try {
 		if (hasPendingSmsChanges.value) {
-			sessionStorage.setItem(PENDING_SMS_STORAGE_KEY, "true");
+			sessionStorage.setItem(pendingSmsStorageKey.value, "true");
 		} else {
-			sessionStorage.removeItem(PENDING_SMS_STORAGE_KEY);
+			sessionStorage.removeItem(pendingSmsStorageKey.value);
 		}
 	} catch (error) {
 		console.warn(
-			`Unable to update session storage for ${PENDING_SMS_STORAGE_KEY}.`,
+			`Unable to update session storage for ${pendingSmsStorageKey.value}.`,
 			error,
 		);
 	}
@@ -143,10 +157,10 @@ function savePendingSmsState() {
 function restorePendingSmsState() {
 	let pendingSmsState: string | null = null;
 	try {
-		pendingSmsState = sessionStorage.getItem(PENDING_SMS_STORAGE_KEY);
+		pendingSmsState = sessionStorage.getItem(pendingSmsStorageKey.value);
 	} catch (error) {
 		console.warn(
-			`Unable to read session storage for ${PENDING_SMS_STORAGE_KEY}.`,
+			`Unable to read session storage for ${pendingSmsStorageKey.value}.`,
 			error,
 		);
 		return;
@@ -155,14 +169,14 @@ function restorePendingSmsState() {
 	if (user.value.phone_verified && pendingSmsState === "true") {
 		smsEnabled.value = true;
 		try {
-			sessionStorage.removeItem(PENDING_SMS_STORAGE_KEY);
+			sessionStorage.removeItem(pendingSmsStorageKey.value);
 		} catch (error) {
 			console.warn(
-				`Unable to clear session storage for ${PENDING_SMS_STORAGE_KEY}.`,
+				`Unable to clear session storage for ${pendingSmsStorageKey.value}.`,
 				error,
 			);
 		}
-		emitFormInput();
+		notifyFormChanged();
 	}
 }
 
@@ -184,12 +198,13 @@ function resolveDefaultTimezone() {
 	}
 }
 
-function emitFormInput() {
-	formElement.value?.dispatchEvent(new Event("input", { bubbles: true }));
+function notifyFormChanged() {
+	const handler = onFormChanged.value;
+	handler();
 }
 
 function syncChannelState() {
-	emitFormInput();
+	notifyFormChanged();
 }
 
 watch([emailEnabled, smsEnabled], () => {
@@ -225,19 +240,14 @@ function setupNavigationWarning() {
 
 onMounted(() => {
 	isClient.value = true;
-	formElement.value = findFormElement({
-		formId: formId.value,
-		fallbackElement: panelRef.value,
-	});
-
 	resolveDefaultTimezone();
 
 	if (user.value.phone_verified && smsEnabled.value) {
 		try {
-			sessionStorage.removeItem(PENDING_SMS_STORAGE_KEY);
+			sessionStorage.removeItem(pendingSmsStorageKey.value);
 		} catch (error) {
 			console.warn(
-				`Unable to clear session storage for ${PENDING_SMS_STORAGE_KEY}.`,
+				`Unable to clear session storage for ${pendingSmsStorageKey.value}.`,
 				error,
 			);
 		}
@@ -265,20 +275,7 @@ onMounted(() => {
 		}
 	});
 
-	if (!formElement.value) {
-		return;
-	}
-
 	syncChannelState();
-
-	nextTick(() => {
-		setupTimezoneMismatchBanner({
-			savedTimezone: user.value.timezone ?? "",
-			allowedTimezones: timezones.value.map((timezone) => timezone.value),
-			dismissTimezoneMismatchPrompts:
-				user.value.dismiss_timezone_mismatch_prompts ?? false,
-		});
-	});
 });
 
 onUnmounted(() => {

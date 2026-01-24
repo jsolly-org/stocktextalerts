@@ -1,5 +1,5 @@
 <template>
-	<div ref="panelRef" class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+	<div class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
 		<h2 class="text-2xl font-bold text-gray-900 mb-4">Tracked Stocks</h2>
 		<input type="hidden" name="tracked_stocks" :value="trackedStocksValue" />
 
@@ -37,21 +37,19 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref, watch } from "vue";
-
-import { findFormElement } from "../../../lib/forms/dom/form-discovery";
+import { computed, ref, toRefs, watch } from "vue";
 import StockInput, { type StockOption } from "./StockInput.vue";
 
 interface Props {
 	stockOptions: StockOption[];
 	initialSymbols: string[];
+	onFormChanged: () => void;
 }
 
 const props = defineProps<Props>();
+const { onFormChanged } = toRefs(props);
 
 const draftSymbols = ref([...props.initialSymbols]);
-const panelRef = ref<HTMLElement | null>(null);
-const formElement = ref<HTMLFormElement | null>(null);
 
 const trackedStocksValue = computed(() =>
 	JSON.stringify(draftSymbols.value),
@@ -60,7 +58,8 @@ const trackedStocksValue = computed(() =>
 watch(
 	draftSymbols,
 	() => {
-	formElement.value?.dispatchEvent(new Event("input", { bubbles: true }));
+		const handler = onFormChanged.value;
+		handler();
 	},
 	{ flush: "post" },
 );
@@ -83,11 +82,6 @@ const removeSymbol = (symbol: string) => {
 	);
 };
 
-onMounted(() => {
-	formElement.value = findFormElement({
-		fallbackElement: panelRef.value,
-	});
-});
 </script>
 
 
