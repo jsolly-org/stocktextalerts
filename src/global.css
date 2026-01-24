@@ -15,11 +15,3 @@ html {
 body {
 	color: var(--text-slate-800);
 }
-
-p[data-tone="error"] {
-	color: #b91c1c; /* red-700 */
-}
-
-p[data-tone="info"] {
-	color: #1d4ed8; /* blue-700 */
-}

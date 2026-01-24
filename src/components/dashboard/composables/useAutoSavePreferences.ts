@@ -1,4 +1,4 @@
-import { onUnmounted, type Ref, ref, watch } from "vue";
+import { type Ref, ref, watch } from "vue";
 
 import { rootLogger } from "../../../lib/logging";
 
@@ -87,13 +87,13 @@ export function useAutoSavePreferences(options: AutoSaveOptions) {
 	const statusMessage = ref<string | null>(null);
 	const statusTone = ref<"error" | "info">("info");
 	const isSaving = ref(false);
+	const savedPreferences = ref<PreferencesResponse["preferences"] | null>(null);
 
 	const debounceMs = options.debounceMs ?? 450;
 	let queued = false;
 	let pendingSnapshot: Map<string, string> | null = null;
 	let initialSnapshot: Map<string, string> | null = null;
 	let debounceHandle: number | null = null;
-	let cleanupListeners: (() => void) | null = null;
 
 	function setStatus(message: string | null, tone: "error" | "info" = "info") {
 		statusMessage.value = message;
@@ -132,13 +132,14 @@ export function useAutoSavePreferences(options: AutoSaveOptions) {
 				return;
 			}
 
+			if (debounceHandle) {
+				window.clearTimeout(debounceHandle);
+				debounceHandle = null;
+			}
+
 			initialSnapshot = submittedSnapshot;
 			setStatus(null);
-			document.dispatchEvent(
-				new CustomEvent("preferences-updated", {
-					detail: payload,
-				}),
-			);
+			savedPreferences.value = payload.preferences ?? null;
 		} catch (error) {
 			if (error instanceof Error && error.name === "TimeoutError") {
 				setStatus("Save timed out. Please try again.", "error");
@@ -224,69 +225,61 @@ export function useAutoSavePreferences(options: AutoSaveOptions) {
 		scheduleSave(currentForm);
 	}
 
-	function registerForm(form: HTMLFormElement) {
-		initialSnapshot = snapshot(new FormData(form));
+	function handleFormInput() {
+		const form = options.formRef.value;
+		if (!form) {
+			return;
+		}
+		scheduleSave(form);
+	}
 
-		const handleChange = () => {
-			scheduleSave(form);
-		};
+	function handleFormChange() {
+		const form = options.formRef.value;
+		if (!form) {
+			return;
+		}
+		scheduleSave(form);
+	}
 
-		const handleSubmit = (event: SubmitEvent) => {
-			const submitter = event.submitter ?? null;
-			const path = resolveActionPath(form, submitter);
-			if (path !== "/api/preferences") {
-				return;
-			}
+	function handleFormSubmit(event: SubmitEvent) {
+		const form = options.formRef.value;
+		if (!form) {
+			return;
+		}
 
-			event.preventDefault();
-			const currentSnapshot = snapshot(new FormData(form));
-			void triggerSave(form, currentSnapshot);
-		};
+		const submitter = event.submitter ?? null;
+		const path = resolveActionPath(form, submitter);
+		if (path !== "/api/preferences") {
+			return;
+		}
 
-		form.addEventListener("input", handleChange);
-		form.addEventListener("change", handleChange);
-		form.addEventListener("submit", handleSubmit);
-
-		return () => {
-			form.removeEventListener("input", handleChange);
-			form.removeEventListener("change", handleChange);
-			form.removeEventListener("submit", handleSubmit);
-			if (debounceHandle) {
-				window.clearTimeout(debounceHandle);
-				debounceHandle = null;
-			}
-		};
+		event.preventDefault();
+		const currentSnapshot = snapshot(new FormData(form));
+		void triggerSave(form, currentSnapshot);
 	}
 
 	watch(
 		() => options.formRef.value,
 		(form, previousForm) => {
-			if (cleanupListeners) {
-				cleanupListeners();
-				cleanupListeners = null;
-			}
 			if (previousForm && form !== previousForm) {
 				initialSnapshot = null;
 				pendingSnapshot = null;
 				queued = false;
 			}
-			if (form) {
-				cleanupListeners = registerForm(form);
+			if (form && !initialSnapshot) {
+				initialSnapshot = snapshot(new FormData(form));
 			}
 		},
 		{ immediate: true },
 	);
 
-	onUnmounted(() => {
-		if (cleanupListeners) {
-			cleanupListeners();
-			cleanupListeners = null;
-		}
-	});
-
 	return {
+		handleFormChange,
+		handleFormInput,
+		handleFormSubmit,
 		isSaving,
 		notifyChange,
+		savedPreferences,
 		statusMessage,
 		statusTone,
 		triggerSave,

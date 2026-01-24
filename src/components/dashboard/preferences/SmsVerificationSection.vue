@@ -2,7 +2,7 @@
 	<div
 		v-if="!user.sms_opted_out"
 		:id="phoneVerificationSectionId"
-		:class="`ml-6 space-y-4 ${smsEnabled ? '' : 'hidden'}`"
+		:class="['ml-6 space-y-4', { hidden: !smsEnabled }]"
 	>
 		<div v-if="user.phone_verified" class="bg-green-50 border border-green-200 rounded-lg p-4">
 			<p class="text-green-800 text-sm">
@@ -77,7 +77,6 @@
 					@input="formSubmitted = false"
 				/>
 				<button
-					ref="verifyCodeButtonRef"
 					type="submit"
 					formaction="/api/auth/sms/verify-code"
 					formmethod="post"
@@ -92,7 +91,7 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, onUnmounted, ref } from "vue";
+import { ref, watch } from "vue";
 import type { User } from "../../../lib/db";
 import { formatMessage } from "../../../lib/status-messages";
 import OtpInput from "./OtpInput.vue";
@@ -108,10 +107,12 @@ interface Props {
 	phoneVerificationFieldsetId: string;
 	sendVerificationButtonId: string;
 	smsVerificationCodeId: string;
+	isVerifyingCode?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
 	successMessage: null,
+	isVerifyingCode: false,
 });
 
 const emit = defineEmits<{
@@ -119,35 +120,17 @@ const emit = defineEmits<{
 }>();
 
 const formSubmitted = ref(false);
-const verifyCodeButtonRef = ref<HTMLButtonElement | null>(null);
-let formElement: HTMLFormElement | null = null;
 
 function handleValidityChanged(isValid: boolean) {
 	emit("phone-validity-changed", isValid);
 }
 
-function handleFormSubmit(event: SubmitEvent) {
-	const submitter = event.submitter;
-	if (
-		submitter === verifyCodeButtonRef.value ||
-		(submitter instanceof HTMLElement &&
-			submitter.getAttribute("formaction") === "/api/auth/sms/verify-code")
-	) {
-		formSubmitted.value = true;
-	}
-}
-
-onMounted(() => {
-	const fieldset = document.getElementById(props.phoneVerificationFieldsetId);
-	if (fieldset instanceof HTMLFieldSetElement && fieldset.form) {
-		formElement = fieldset.form;
-		formElement.addEventListener("submit", handleFormSubmit);
-	}
-});
-
-onUnmounted(() => {
-	if (formElement) {
-		formElement.removeEventListener("submit", handleFormSubmit);
-	}
-});
+watch(
+	() => props.isVerifyingCode,
+	(isVerifying) => {
+		if (isVerifying) {
+			formSubmitted.value = true;
+		}
+	},
+);
 </script>

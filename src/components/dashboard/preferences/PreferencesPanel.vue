@@ -22,6 +22,7 @@
 				:saved-timezone="user.timezone ?? ''"
 				:allowed-timezones="timezones.map((tz) => tz.value)"
 				:dismiss-timezone-mismatch-prompts="user.dismiss_timezone_mismatch_prompts ?? false"
+				:saved-preferences="savedPreferences"
 			/>
 
 			<NotificationChannelsSection
@@ -38,6 +39,7 @@
 				:is-editing-phone="isEditingPhone"
 				:send-verification-disabled="sendVerificationDisabled"
 				:success-message="successMessage"
+				:is-verifying-code="isVerifyingCode"
 				@phone-validity-changed="handlePhoneValidityChanged"
 			/>
 		</div>
@@ -65,6 +67,18 @@ interface Props {
 	onFormChanged: () => void;
 	timezoneLoadError?: boolean;
 	successMessage?: string | null;
+	savedPreferences?: {
+		email_notifications_enabled: boolean;
+		sms_notifications_enabled: boolean;
+		sms_opted_out: boolean;
+		phone_verified: boolean;
+		timezone: string;
+		daily_digest_enabled: boolean;
+		daily_digest_notification_time: number;
+		next_send_at: string | null;
+		dismiss_timezone_mismatch_prompts: boolean;
+	} | null;
+	isVerifyingCode?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -73,14 +87,16 @@ const props = withDefaults(defineProps<Props>(), {
 });
 const {
 	emailEnabled: emailEnabledProp,
+	smsEnabled: smsEnabledProp,
 	formId,
 	isEditingPhone,
+	isVerifyingCode,
 	onFormChanged,
+	savedPreferences,
 	successMessage,
 	timezones,
 	timezoneLoadError,
 	user,
-	smsEnabled: smsEnabledProp,
 } = toRefs(props);
 
 const emit = defineEmits<{
@@ -203,12 +219,8 @@ function notifyFormChanged() {
 	handler();
 }
 
-function syncChannelState() {
-	notifyFormChanged();
-}
-
 watch([emailEnabled, smsEnabled], () => {
-	syncChannelState();
+	notifyFormChanged();
 	savePendingSmsState();
 });
 
@@ -275,7 +287,7 @@ onMounted(() => {
 		}
 	});
 
-	syncChannelState();
+	notifyFormChanged();
 });
 
 onUnmounted(() => {

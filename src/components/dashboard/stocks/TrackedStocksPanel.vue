@@ -37,7 +37,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, toRefs, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import StockInput, { type StockOption } from "./StockInput.vue";
 
 interface Props {
@@ -47,7 +47,6 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-const { onFormChanged } = toRefs(props);
 
 const draftSymbols = ref([...props.initialSymbols]);
 
@@ -58,8 +57,7 @@ const trackedStocksValue = computed(() =>
 watch(
 	draftSymbols,
 	() => {
-		const handler = onFormChanged.value;
-		handler();
+		props.onFormChanged();
 	},
 	{ flush: "post" },
 );

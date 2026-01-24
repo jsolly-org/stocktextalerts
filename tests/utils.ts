@@ -107,6 +107,10 @@ export function getStockData(symbol: string): StockData {
 }
 
 export function getRealStockSymbols(count: number): string[] {
+	if (count < 0) {
+		throw new Error(`Requested negative symbol count: ${count}`);
+	}
+
 	const stockData = loadStockData();
 	const symbols = Array.from(stockData.keys());
 

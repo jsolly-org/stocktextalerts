@@ -7,6 +7,12 @@ import { POST } from "../../../../src/pages/api/preferences/timezone";
 import { adminClient, allowConsoleErrors } from "../../../setup";
 import { createAuthenticatedCookies, createTestUser } from "../../../utils";
 
+const toRedirect = (url: string) =>
+	new Response(null, {
+		status: 302,
+		headers: { Location: url },
+	});
+
 function createSupabaseTimezonesStub(options: {
 	rows: Array<{
 		value: string;
@@ -63,12 +69,6 @@ function createSupabaseTimezonesStub(options: {
 describe("POST /api/preferences/timezone", () => {
 	const TEST_PASSWORD = "TestPassword123!";
 
-	const toRedirect = (url: string) =>
-		new Response(null, {
-			status: 302,
-			headers: { Location: url },
-		});
-
 	it("updates the current user's timezone and redirects back", async () => {
 		const testUser = await createTestUser({
 			email: `test-timezone-${randomUUID()}@resend.dev`,
@@ -121,12 +121,6 @@ describe("POST /api/preferences/timezone", () => {
 
 describe("POST /api/preferences/dismiss-timezone-banner", () => {
 	const TEST_PASSWORD = "TestPassword123!";
-
-	const toRedirect = (url: string) =>
-		new Response(null, {
-			status: 302,
-			headers: { Location: url },
-		});
 
 	it("sets dismiss_timezone_mismatch_prompts to true and redirects back", async () => {
 		const testUser = await createTestUser({

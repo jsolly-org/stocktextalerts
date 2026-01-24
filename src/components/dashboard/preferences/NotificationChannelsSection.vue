@@ -53,6 +53,7 @@
 				:phone-verification-fieldset-id="phoneVerificationFieldsetId"
 				:send-verification-button-id="sendVerificationButtonId"
 				:sms-verification-code-id="smsVerificationCodeId"
+				:is-verifying-code="isVerifyingCode"
 				@phone-validity-changed="handlePhoneValidityChanged"
 			/>
 		</div>
@@ -79,6 +80,7 @@ interface Props {
 	isEditingPhone: boolean;
 	sendVerificationDisabled: boolean;
 	successMessage?: string | null;
+	isVerifyingCode?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {

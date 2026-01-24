@@ -41,6 +41,10 @@ const props = defineProps<{
 	disabled?: boolean;
 }>();
 
+const emit = defineEmits<{
+	(event: "time-change", value: string): void;
+}>();
+
 const minutesIncrement = 15;
 const minTime: TimeModel = { hours: 0, minutes: 0, seconds: 0 };
 const maxTime: TimeModel = { hours: 23, minutes: 45, seconds: 0 };
@@ -131,6 +135,10 @@ watch(
 		});
 	},
 );
+
+watch(formattedTime, (newValue) => {
+	emit("time-change", newValue);
+});
 
 function parseTimeString(value: string | null | undefined): TimeModel | null {
 	if (!value) {

@@ -58,9 +58,13 @@ const smsReady = computed(
 );
 const showSection = computed(() => emailEnabled.value || smsReady.value);
 
-async function submitEmail(event: SubmitEvent) {
+async function submitPreview(
+	event: SubmitEvent,
+	successRedirect: string,
+	setSubmitting: (value: boolean) => void,
+) {
 	event.preventDefault();
-	emailSubmitting.value = true;
+	setSubmitting(true);
 
 	try {
 		const formData = new FormData(event.target as HTMLFormElement);
@@ -74,37 +78,24 @@ async function submitEmail(event: SubmitEvent) {
 		} else if (!response.ok) {
 			window.location.href = "/dashboard?error=preview_failed";
 		} else {
-			window.location.href = "/dashboard?success=preview_email_sent";
+			window.location.href = successRedirect;
 		}
 	} catch (error) {
 		window.location.href = "/dashboard?error=preview_failed";
 	} finally {
-		emailSubmitting.value = false;
+		setSubmitting(false);
 	}
 }
 
+async function submitEmail(event: SubmitEvent) {
+	await submitPreview(event, "/dashboard?success=preview_email_sent", (value) => {
+		emailSubmitting.value = value;
+	});
+}
+
 async function submitSms(event: SubmitEvent) {
-	event.preventDefault();
-	smsSubmitting.value = true;
-
-	try {
-		const formData = new FormData(event.target as HTMLFormElement);
-		const response = await fetch("/api/notifications/preview", {
-			method: "POST",
-			body: formData,
-		});
-
-		if (response.redirected) {
-			window.location.href = response.url;
-		} else if (!response.ok) {
-			window.location.href = "/dashboard?error=preview_failed";
-		} else {
-			window.location.href = "/dashboard?success=preview_sms_sent";
-		}
-	} catch (error) {
-		window.location.href = "/dashboard?error=preview_failed";
-	} finally {
-		smsSubmitting.value = false;
-	}
+	await submitPreview(event, "/dashboard?success=preview_sms_sent", (value) => {
+		smsSubmitting.value = value;
+	});
 }
 </script>

@@ -42,12 +42,16 @@ export const POST: APIRoute = async ({
 			timezone: parsed.data.timezone,
 		});
 	} catch (error) {
-		const errorMessage = error instanceof Error ? error.message : String(error);
-		logger.error("Failed to update timezone", {
-			userId: authUser.id,
-			timezone: parsed.data.timezone,
-			error: errorMessage,
-		});
+		const errorObject =
+			error instanceof Error ? error : new Error(String(error));
+		logger.error(
+			"Failed to update timezone",
+			{
+				userId: authUser.id,
+				timezone: parsed.data.timezone,
+			},
+			errorObject,
+		);
 		return redirect("/dashboard?error=update_failed");
 	}
 

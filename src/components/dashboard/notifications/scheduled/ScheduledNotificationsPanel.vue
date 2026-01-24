@@ -18,6 +18,7 @@
 			:timePickerDisabled="timePickerDisabled"
 			:sendNowDisabled="sendNowDisabled"
 			@send-now="handleSendNow"
+			@time-change="handleTimeChange"
 		>
 			<template #setup>
 				<SetupRequiredNotice
@@ -156,4 +157,8 @@ async function handleSendNow() {
 watch(dailyDigestEnabled, () => {
 	notifyFormChanged();
 });
+
+function handleTimeChange() {
+	notifyFormChanged();
+}
 </script>

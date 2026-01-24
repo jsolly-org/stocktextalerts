@@ -54,6 +54,7 @@ const CODE_LENGTH = 6;
 const digits = ref<string[]>(Array(CODE_LENGTH).fill(""));
 const inputRefs = ref<(HTMLInputElement | null)[]>([]);
 const showError = ref(false);
+const touched = ref(false);
 
 function setInputRef(el: unknown, index: number) {
 	if (el instanceof HTMLInputElement) {
@@ -68,6 +69,7 @@ function handleInput(index: number, event: Event) {
 		return;
 	}
 
+	touched.value = true;
 	const input = event.target;
 	let value = input.value;
 
@@ -120,6 +122,7 @@ function handleKeydown(index: number, event: KeyboardEvent) {
 
 function handlePaste(event: ClipboardEvent) {
 	event.preventDefault();
+	touched.value = true;
 	const pastedData = event.clipboardData?.getData("text") || "";
 	const digitsOnly = pastedData.replace(/\D/g, "").slice(0, CODE_LENGTH);
 
@@ -145,6 +148,7 @@ function handlePaste(event: ClipboardEvent) {
 function handleFocus(index: number) {
 	const input = inputRefs.value[index];
 	if (input) {
+		touched.value = true;
 		input.select();
 	}
 }
@@ -158,7 +162,7 @@ function validateOtp() {
 		return;
 	}
 
-	const shouldValidate = props.formSubmitted === true;
+	const shouldValidate = props.formSubmitted === true || touched.value;
 	const shouldShowError =
 		shouldValidate &&
 		(props.required === true ? !isComplete : !isEmpty && !isComplete);

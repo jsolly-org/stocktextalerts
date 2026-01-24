@@ -57,6 +57,7 @@
 					inputName="daily_digest_notification_time"
 					:initialTime="dailyDigestTime"
 					:disabled="timePickerDisabled"
+					@time-change="emitTimeChange"
 				/>
 			</div>
 
@@ -92,6 +93,7 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
 	(event: "update:enabled", value: boolean): void;
 	(event: "send-now"): void;
+	(event: "time-change", value: string): void;
 }>();
 
 const enabledValue = computed({
@@ -101,5 +103,9 @@ const enabledValue = computed({
 
 function emitSendNow() {
 	emit("send-now");
+}
+
+function emitTimeChange(value: string) {
+	emit("time-change", value);
 }
 </script>

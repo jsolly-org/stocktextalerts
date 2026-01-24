@@ -1,3 +1,8 @@
+<!--
+	This component uses v-if="isClient" which renders nothing on the server but content on the client.
+	To avoid SSR hydration mismatches, this component must be used within a parent component that
+	has client:load or client:only directive (e.g., DashboardPanels with client:load).
+-->
 <template>
 	<div
 		v-if="isClient"
@@ -56,7 +61,7 @@
 
 <script lang="ts" setup>
 import { DateTime } from "luxon";
-import { onMounted, onUnmounted, ref, toRefs, watch } from "vue";
+import { ref, toRefs, watch } from "vue";
 
 import { rootLogger } from "../../../lib/logging";
 
@@ -65,6 +70,17 @@ interface Props {
 	savedTimezone: string;
 	allowedTimezones: string[];
 	dismissTimezoneMismatchPrompts: boolean;
+	savedPreferences?: {
+		email_notifications_enabled: boolean;
+		sms_notifications_enabled: boolean;
+		sms_opted_out: boolean;
+		phone_verified: boolean;
+		timezone: string;
+		daily_digest_enabled: boolean;
+		daily_digest_notification_time: number;
+		next_send_at: string | null;
+		dismiss_timezone_mismatch_prompts: boolean;
+	} | null;
 }
 
 const props = defineProps<Props>();
@@ -211,25 +227,6 @@ async function handleDismissPermanently() {
 	}
 }
 
-function handlePreferencesUpdated(event: Event) {
-	if (!(event instanceof CustomEvent)) {
-		return;
-	}
-
-	const preferences = event.detail?.preferences;
-	if (!preferences) {
-		return;
-	}
-
-	if (typeof preferences.timezone === "string") {
-		localSavedTimezone.value = preferences.timezone;
-	}
-	if (typeof preferences.dismiss_timezone_mismatch_prompts === "boolean") {
-		localDismissTimezoneMismatchPrompts.value =
-			preferences.dismiss_timezone_mismatch_prompts;
-	}
-}
-
 watch(
 	() => props.savedTimezone,
 	(newValue) => {
@@ -247,6 +244,24 @@ watch(
 );
 
 watch(
+	() => props.savedPreferences,
+	(preferences) => {
+		if (!preferences) {
+			return;
+		}
+
+		if (typeof preferences.timezone === "string") {
+			localSavedTimezone.value = preferences.timezone;
+		}
+		if (typeof preferences.dismiss_timezone_mismatch_prompts === "boolean") {
+			localDismissTimezoneMismatchPrompts.value =
+				preferences.dismiss_timezone_mismatch_prompts;
+		}
+	},
+	{ immediate: true },
+);
+
+watch(
 	[localSavedTimezone, allowedTimezones, localDismissTimezoneMismatchPrompts, bannerRef, detectedSpanRef, savedSpanRef, timezoneInputRef],
 	() => {
 		updateVisibility();
@@ -254,11 +269,4 @@ watch(
 	{ immediate: true },
 );
 
-onMounted(() => {
-	document.addEventListener("preferences-updated", handlePreferencesUpdated);
-});
-
-onUnmounted(() => {
-	document.removeEventListener("preferences-updated", handlePreferencesUpdated);
-});
 </script>
