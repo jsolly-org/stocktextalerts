@@ -37,23 +37,25 @@ import { computed, ref, toRefs, watch } from "vue";
 import type { User } from "../../../../lib/db";
 import { rootLogger } from "../../../../lib/logging";
 import { minutesToTimeInputValue } from "../../../../lib/time/format";
+import { DASHBOARD_FORM_ID } from "../../constants";
 import DailyDigestControls from "./DailyDigestControls.vue";
 import SetupRequiredNotice from "./SetupRequiredNotice.vue";
 
 interface Props {
 	user: User;
-	formId: string;
 	emailEnabled: boolean;
 	smsEnabled: boolean;
 	smsOptedOut: boolean;
 	phoneVerified: boolean;
 	onFormChanged: () => void;
+	savedPreferences?: {
+		next_send_at: string | null;
+	} | null;
 }
 
 const props = defineProps<Props>();
 const {
 	user,
-	formId,
 	emailEnabled,
 	smsEnabled,
 	smsOptedOut,
@@ -65,9 +67,7 @@ const dailyDigestEnabled = ref(user.value.daily_digest_enabled);
 const dailyDigestTimeMinutes = ref(user.value.daily_digest_notification_time);
 const isSending = ref(false);
 
-const phoneVerificationSectionId = computed(
-	() => `${formId.value}-phone-verification-section`,
-);
+const phoneVerificationSectionId = `${DASHBOARD_FORM_ID}-phone-verification-section`;
 
 const dailyDigestTime = computed(() =>
 	minutesToTimeInputValue(dailyDigestTimeMinutes.value),
@@ -103,7 +103,8 @@ async function handleSendNow() {
 
 	try {
 		let url = "/api/notifications/daily-digest-now";
-		const nextSendAt = user.value.next_send_at;
+		const nextSendAt =
+			props.savedPreferences?.next_send_at ?? user.value.next_send_at;
 		if (typeof nextSendAt === "string") {
 			const dueAtMs = Date.parse(nextSendAt);
 			if (!Number.isNaN(dueAtMs)) {

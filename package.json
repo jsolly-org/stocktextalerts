@@ -30,10 +30,10 @@
 	},
 	"dependencies": {
 		"@astrojs/vercel": "^9.0.4",
-		"@heroicons/vue": "^2.2.0",
 		"@supabase/supabase-js": "^2.91.0",
 		"@vuepic/vue-datepicker": "^12.1.0",
 		"@vueuse/core": "^14.1.0",
+		"astro-icon": "^1.1.5",
 		"fuse.js": "^7.1.0",
 		"libphonenumber-js": "^1.12.35",
 		"luxon": "^3.7.2",

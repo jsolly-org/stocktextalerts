@@ -44,8 +44,8 @@
 					autocomplete="tel-national"
 				/>
 					<div v-if="phoneNumber" class="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-						<CheckCircleIcon v-if="isValid" class="h-5 w-5 text-green-500" aria-hidden="true" />
-						<ExclamationCircleIcon v-else class="h-5 w-5 text-red-500" aria-hidden="true" />
+						<Icon v-if="isValid" name="check-circle-24" class="h-5 w-5 text-green-500" />
+						<Icon v-else name="exclamation-circle-24" class="h-5 w-5 text-red-500" />
 					</div>
 				</div>
 			</div>
@@ -55,10 +55,10 @@
 </template>
 
 <script lang="ts" setup>
-import { CheckCircleIcon, ExclamationCircleIcon } from "@heroicons/vue/24/solid";
 import { AsYouType, getCountryCallingCode, getExampleNumber, isValidPhoneNumber } from "libphonenumber-js";
 import examples from "libphonenumber-js/examples.mobile.json";
 import { computed, ref, watch } from "vue";
+import { Icon } from "astro-icon/components";
 
 type Country = "US";
 

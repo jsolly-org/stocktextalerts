@@ -12,11 +12,13 @@
 				:key="index"
 				:ref="(el) => setInputRef(el, index)"
 				:id="`${id}-${index}`"
+				:aria-label="`Verification code digit ${index + 1}`"
 				type="text"
 				inputmode="numeric"
 				pattern="[0-9]"
 				maxlength="1"
 				autocomplete="one-time-code"
+				:required="required && index === 0"
 				:value="digit"
 				@input="handleInput(index, $event)"
 				@keydown="handleKeydown(index, $event)"
@@ -38,7 +40,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 
 const props = defineProps<{
 	id: string;
@@ -228,6 +230,12 @@ watch(
 );
 
 watch(code, () => {
+	validateOtp();
+});
+
+// Ensure validation runs on mount to set initial custom validity.
+// This prevents form submission with empty OTP even if the user never touches the field.
+onMounted(() => {
 	validateOtp();
 });
 </script>

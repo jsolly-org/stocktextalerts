@@ -17,7 +17,7 @@ A stock notification app that sends scheduled SMS and email updates about tracke
 
 - **Framework**: Astro 5 with SSR
 - **UI**: Vue 3 components with Tailwind CSS
-- **Icons**: Heroicons (`@heroicons/vue`)
+- **Icons**: Astro Icon (`astro-icon`) with local SVGs in `/src/icons`
 - **Database**: Supabase (PostgreSQL)
 - **Email**: Resend
 - **SMS**: Twilio Verify API + Messaging API

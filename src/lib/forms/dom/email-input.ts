@@ -1,14 +1,16 @@
 export function setupEmailInputHandlers(emailInput: HTMLInputElement) {
-	emailInput.addEventListener("keydown", (e) => {
-		if (e.key === " ") {
-			e.preventDefault();
+	const handleKeydown = (event: KeyboardEvent) => {
+		if (event.key === " ") {
+			event.preventDefault();
 		}
-	});
+	};
 
-	emailInput.addEventListener("paste", (e) => {
-		if (!e.clipboardData) return;
-		e.preventDefault();
-		const paste = e.clipboardData.getData("text").replace(/\s/g, "");
+	const handlePaste = (event: ClipboardEvent) => {
+		if (!event.clipboardData) {
+			return;
+		}
+		event.preventDefault();
+		const paste = event.clipboardData.getData("text").replace(/\s/g, "");
 
 		const currentValue = emailInput.value;
 		const selectionStart = emailInput.selectionStart ?? currentValue.length;
@@ -22,5 +24,13 @@ export function setupEmailInputHandlers(emailInput: HTMLInputElement) {
 		const caretPosition = selectionStart + paste.length;
 		emailInput.selectionStart = caretPosition;
 		emailInput.selectionEnd = caretPosition;
-	});
+	};
+
+	emailInput.addEventListener("keydown", handleKeydown);
+	emailInput.addEventListener("paste", handlePaste);
+
+	return () => {
+		emailInput.removeEventListener("keydown", handleKeydown);
+		emailInput.removeEventListener("paste", handlePaste);
+	};
 }

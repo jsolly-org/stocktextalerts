@@ -2,7 +2,7 @@
 	<div
 		class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6"
 		data-notification-preferences-card
-		:data-form-id="formId"
+		:data-form-id="DASHBOARD_FORM_ID"
 	>
 		<h2 id="notification-preferences" class="text-2xl font-bold text-gray-900 mb-4">
 			Notification Preferences
@@ -10,7 +10,7 @@
 
 		<div class="space-y-6">
 			<TimezoneSelect
-				:id="timezoneSelectId"
+				:id="`${DASHBOARD_FORM_ID}-timezone`"
 				v-model="selectedTimezone"
 				:timezones="timezones"
 				:disabled="timezoneLoadError"
@@ -30,12 +30,6 @@
 				v-model:sms-enabled="smsEnabled"
 				:user="user"
 				:can-save-sms-enabled="canSaveSmsEnabled"
-				:email-notifications-enabled-id="emailNotificationsEnabledId"
-				:sms-notifications-enabled-id="smsNotificationsEnabledId"
-				:phone-verification-section-id="phoneVerificationSectionId"
-				:phone-verification-fieldset-id="phoneVerificationFieldsetId"
-				:send-verification-button-id="sendVerificationButtonId"
-				:sms-verification-code-id="smsVerificationCodeId"
 				:is-editing-phone="isEditingPhone"
 				:send-verification-disabled="sendVerificationDisabled"
 				:success-message="successMessage"
@@ -53,6 +47,7 @@ import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
 import type { User } from "../../../lib/db";
 import type { TimezoneOption } from "../../../lib/time/cache";
 import { DEFAULT_TIMEZONE } from "../../../lib/time/constants";
+import { DASHBOARD_FORM_ID } from "../constants";
 import NotificationChannelsSection from "./NotificationChannelsSection.vue";
 import TimezoneMismatchBanner from "./TimezoneMismatchBanner.vue";
 import TimezoneSelect from "./TimezoneSelect.vue";
@@ -61,7 +56,6 @@ interface Props {
 	user: User;
 	timezones: TimezoneOption[];
 	isEditingPhone: boolean;
-	formId: string;
 	emailEnabled: boolean;
 	smsEnabled: boolean;
 	onFormChanged: () => void;
@@ -88,7 +82,6 @@ const props = withDefaults(defineProps<Props>(), {
 const {
 	emailEnabled: emailEnabledProp,
 	smsEnabled: smsEnabledProp,
-	formId,
 	isEditingPhone,
 	isVerifyingCode,
 	onFormChanged,
@@ -107,26 +100,6 @@ const emit = defineEmits<{
 const sendVerificationDisabled = ref(true);
 const isClient = ref(false);
 let cleanupNavigationWarning: (() => void) | undefined;
-
-const timezoneSelectId = computed(() => `${formId.value}-timezone`);
-const emailNotificationsEnabledId = computed(
-	() => `${formId.value}-email_notifications_enabled`,
-);
-const smsNotificationsEnabledId = computed(
-	() => `${formId.value}-sms_notifications_enabled`,
-);
-const phoneVerificationSectionId = computed(
-	() => `${formId.value}-phone-verification-section`,
-);
-const phoneVerificationFieldsetId = computed(
-	() => `${formId.value}-phone-verification-fieldset`,
-);
-const sendVerificationButtonId = computed(
-	() => `${formId.value}-send-verification-button`,
-);
-const smsVerificationCodeId = computed(
-	() => `${formId.value}-sms-verification-code`,
-);
 
 const PENDING_SMS_STORAGE_KEY = "pending_sms_enabled";
 

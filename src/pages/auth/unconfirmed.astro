@@ -1,6 +1,5 @@
 ---
-import { InformationCircleIcon } from "@heroicons/vue/20/solid";
-import { EnvelopeIcon } from "@heroicons/vue/24/outline";
+import { Icon } from "astro-icon/components";
 import HCaptcha from "../../components/HCaptcha.astro";
 import Layout from "../../layouts/Layout.astro";
 
@@ -38,7 +37,7 @@ if (success === "true") {
     <div class="max-w-md w-full space-y-8">
       <div class="text-center">
         <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-blue-100">
-          <EnvelopeIcon class="h-6 w-6 text-blue-600" aria-hidden="true" />
+          <Icon name="envelope" class="h-6 w-6 text-blue-600" aria-hidden="true" />
         </div>
         <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
           Check Your Email
@@ -55,7 +54,7 @@ if (success === "true") {
         <div class="rounded-md bg-blue-50 p-4">
           <div class="flex">
             <div class="shrink-0">
-              <InformationCircleIcon class="h-5 w-5 text-blue-400" aria-hidden="true" />
+              <Icon name="information-circle-20" class="h-5 w-5 text-blue-400" aria-hidden="true" />
             </div>
             <div class="ml-3">
               <h3 class="text-sm font-medium text-blue-800">

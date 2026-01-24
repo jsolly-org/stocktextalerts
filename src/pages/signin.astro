@@ -1,5 +1,5 @@
 ---
-import { PresentationChartLineIcon } from "@heroicons/vue/24/outline";
+import { Icon } from "astro-icon/components";
 import SignInCard from "../components/landing/SignInCard.astro";
 import Layout from "../layouts/Layout.astro";
 import {
@@ -31,7 +31,7 @@ const emailPrefill = search.get("email") ?? "";
       <div class="flex justify-center">
         <a href="/" class="flex items-center gap-2 group">
           <div class="bg-blue-600 text-white p-1.5 rounded-lg group-hover:bg-blue-700 transition-colors shadow-sm">
-            <PresentationChartLineIcon class="size-8" aria-hidden="true" />
+            <Icon name="presentation-chart-line" class="size-8" aria-hidden="true" />
           </div>
         </a>
       </div>

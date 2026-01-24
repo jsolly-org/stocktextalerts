@@ -3,7 +3,6 @@
 		<input
 			type="hidden"
 			:id="hiddenInputId"
-			ref="hiddenInputRef"
 			:name="inputName"
 			:value="formattedTime"
 			:disabled="isDisabled"
@@ -26,7 +25,7 @@
 <script lang="ts" setup>
 import "@vuepic/vue-datepicker/dist/main.css";
 import { VueDatePicker } from "@vuepic/vue-datepicker";
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 
 type TimeModel = {
 	hours: number | string;
@@ -51,10 +50,9 @@ const maxTime: TimeModel = { hours: 23, minutes: 45, seconds: 0 };
 const defaultTime: TimeModel = { hours: 9, minutes: 0, seconds: 0 };
 
 const isMounted = ref(false);
-const hiddenInputRef = ref<HTMLInputElement | null>(null);
-let isSyncingFromProps = false;
+const lastSyncedValue = ref<string | null>(null);
 const selectedTime = ref<TimeModel>(parseTimeString(props.initialTime) ?? defaultTime);
-const isDisabled = ref(props.disabled ?? false);
+const isDisabled = computed(() => props.disabled ?? false);
 const is24 = ref(true);
 
 const displayFormat = computed(() => {
@@ -102,34 +100,24 @@ const formattedTime = computed(() => {
 watch(
 	formattedTime,
 	(newValue) => {
-		if (isMounted.value && !isSyncingFromProps) {
-			const hiddenInput = hiddenInputRef.value;
-			if (hiddenInput) {
-				hiddenInput.dispatchEvent(new Event("input", { bubbles: true }));
-				hiddenInput.dispatchEvent(new Event("change", { bubbles: true }));
-			}
-			emit("time-change", newValue);
+		if (!isMounted.value) {
+			return;
 		}
+		if (newValue === lastSyncedValue.value) {
+			return;
+		}
+		emit("time-change", newValue);
 	},
 	{ flush: "post" },
-);
-
-watch(
-	() => props.disabled,
-	(value) => {
-		isDisabled.value = value ?? false;
-	},
 );
 
 watch(
 	() => props.initialTime,
 	(value) => {
 		const parsed = parseTimeString(value);
-		isSyncingFromProps = true;
-		selectedTime.value = parsed ?? defaultTime;
-		nextTick(() => {
-			isSyncingFromProps = false;
-		});
+		const resolved = parsed ?? defaultTime;
+		selectedTime.value = resolved;
+		lastSyncedValue.value = formatTimeValue(resolved);
 	},
 );
 
@@ -172,6 +160,13 @@ function parseTimeString(value: string | null | undefined): TimeModel | null {
 		return null;
 	}
 	return { hours, minutes, seconds: 0 };
+}
+
+function formatTimeValue(value: TimeModel): string {
+	const hours = typeof value.hours === "string" ? Number(value.hours) : value.hours;
+	const minutes =
+		typeof value.minutes === "string" ? Number(value.minutes) : value.minutes;
+	return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
 function resolveIs24(): boolean {

@@ -5,7 +5,6 @@ This file captures the non-negotiables for this repo. It is a new app, so we opt
 
 ### Core principles
 - **Refactor-first over compatibility**: Prefer aggressively simplifying redesigns, even if breaking. Remove legacy code instead of preserving it. Do not keep backwards compatibility when it increases complexity.
-- **Demand specificity**: Refuse to proceed without concrete, measurable requirements and clear acceptance criteria.
 
 ### Coding standards
 - **Compatibility**
@@ -36,11 +35,6 @@ This file captures the non-negotiables for this repo. It is a new app, so we opt
 - **Timing**
   - **Timing hacks**: Avoid setTimeout, nextTick, requestAnimationFrame, and similar timing workarounds. These are usually signs of race conditions or architectural issues. Fix the root cause instead of adding delays.
 
-## Development Approach
-- **Start simple**: Design from first principles; add complexity only as needed.
-- **Clarify ambiguity**: Ask up to 3 targeted questions about scope, constraints, and edge cases.
-- **Offer alternatives**: Provide 2-3 approaches with pros/cons and a recommendation with justification.
-
 ## Repo Constraints
 - **Database migrations**: Do NOT create new migration files. Only modify the initial migration in `supabase/migrations`. This is a new app with no users, so destructive schema changes are OK.
 - **Generated files**: Do NOT modify `src/lib/db/generated/database.types.ts` directly. This file is auto-generated from the Supabase schema. If type issues arise, use type assertions in application code or regenerate the types using the Supabase CLI.
@@ -53,7 +47,6 @@ This file captures the non-negotiables for this repo. It is a new app, so we opt
 - **Testing**: Vitest only; happy path coverage only. Do not use Jest.
 - **Linting/Formatting**: Biome only (No Prettier or ESLint)
 - **Styling**: Tailwind utilities preferred over custom CSS
-- **Icons**: `@heroicons/vue` for UI icons
 
 ## Export Pattern
 - Functions: `export function name(...)` directly where defined

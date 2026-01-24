@@ -49,10 +49,6 @@
 				:is-editing-phone="isEditingPhone"
 				:success-message="successMessage"
 				:send-verification-disabled="sendVerificationDisabled"
-				:phone-verification-section-id="phoneVerificationSectionId"
-				:phone-verification-fieldset-id="phoneVerificationFieldsetId"
-				:send-verification-button-id="sendVerificationButtonId"
-				:sms-verification-code-id="smsVerificationCodeId"
 				:is-verifying-code="isVerifyingCode"
 				@phone-validity-changed="handlePhoneValidityChanged"
 			/>
@@ -64,6 +60,7 @@
 import { computed } from "vue";
 
 import type { User } from "../../../lib/db";
+import { DASHBOARD_FORM_ID } from "../constants";
 import SmsVerificationSection from "./SmsVerificationSection.vue";
 
 interface Props {
@@ -71,12 +68,6 @@ interface Props {
 	emailEnabled: boolean;
 	smsEnabled: boolean;
 	canSaveSmsEnabled: boolean;
-	emailNotificationsEnabledId: string;
-	smsNotificationsEnabledId: string;
-	phoneVerificationSectionId: string;
-	phoneVerificationFieldsetId: string;
-	sendVerificationButtonId: string;
-	smsVerificationCodeId: string;
 	isEditingPhone: boolean;
 	sendVerificationDisabled: boolean;
 	successMessage?: string | null;
@@ -102,6 +93,9 @@ const smsEnabledValue = computed({
 	get: () => props.smsEnabled,
 	set: (value: boolean) => emit("update:smsEnabled", value),
 });
+
+const emailNotificationsEnabledId = `${DASHBOARD_FORM_ID}-email_notifications_enabled`;
+const smsNotificationsEnabledId = `${DASHBOARD_FORM_ID}-sms_notifications_enabled`;
 
 function handlePhoneValidityChanged(isValid: boolean) {
 	emit("phone-validity-changed", isValid);

@@ -1,6 +1,6 @@
 ---
-import { PresentationChartLineIcon } from "@heroicons/vue/24/outline";
 import type { User } from "@supabase/supabase-js";
+import { Icon } from "astro-icon/components";
 
 interface Props {
 	user?: User;
@@ -18,7 +18,7 @@ const isLanding = currentPage === "/";
         <!-- Logo -->
         <a href="/" class="flex items-center gap-2 group">
           <div class="bg-blue-600 text-white p-1.5 rounded-lg group-hover:bg-blue-700 transition-colors shadow-sm">
-            <PresentationChartLineIcon class="size-5" aria-hidden="true" />
+            <Icon name="presentation-chart-line" class="size-5" aria-hidden="true" />
           </div>
           <span class="text-xl font-bold text-gray-900 tracking-tight group-hover:text-blue-600 transition-colors hidden sm:block">StockTextAlerts</span>
         </a>

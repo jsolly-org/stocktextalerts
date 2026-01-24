@@ -1,6 +1,7 @@
 import sitemap from "@astrojs/sitemap";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "astro/config";
+import icon from "astro-icon";
 import vercel from "@astrojs/vercel";
 import vue from "@astrojs/vue";
 import { loadEnv } from "vite";
@@ -41,6 +42,7 @@ export default defineConfig({
 
 	integrations: [
 		sitemap({}),
+		icon(),
 		vue(),
 	],
 

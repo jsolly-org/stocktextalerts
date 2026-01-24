@@ -66,8 +66,8 @@ const rawSearchQuery = ref("");
 const searchQuery = refDebounced(rawSearchQuery, 300);
 const isSearching = ref(false);
 
-watch(rawSearchQuery, (newValue, oldValue) => {
-	if (newValue !== oldValue && newValue.length >= 1) {
+watch(rawSearchQuery, (newValue) => {
+	if (newValue.length >= 1) {
 		isSearching.value = true;
 	}
 });
@@ -118,7 +118,7 @@ const handleInput = () => {
 };
 
 const handleKeydown = (e: KeyboardEvent) => {
-	if (e.key === 'Escape') {
+	if (e.key === "Escape") {
 		e.preventDefault();
 		resetDropdown();
 		return;
@@ -135,8 +135,8 @@ const handleKeydown = (e: KeyboardEvent) => {
 				return;
 			}
 			highlightedIndex.value = Math.min(
-				(highlightedIndex.value < 0 ? -1 : highlightedIndex.value) + 1,
-				maxIndex
+				Math.max(highlightedIndex.value + 1, 0),
+				maxIndex,
 			);
 		},
 		ArrowUp: () => {
@@ -156,7 +156,7 @@ const handleKeydown = (e: KeyboardEvent) => {
 
 			const safeIndex = Math.min(
 				Math.max(0, highlightedIndex.value),
-				stocks.length - 1
+				stocks.length - 1,
 			);
 			const selected = stocks[safeIndex];
 			if (!selected) return;
@@ -165,7 +165,7 @@ const handleKeydown = (e: KeyboardEvent) => {
 		},
 	};
 
-	if (actions[e.key as keyof KeyActions]) {
+	if (e.key in actions) {
 		e.preventDefault();
 		actions[e.key as keyof KeyActions]();
 	}

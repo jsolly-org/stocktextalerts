@@ -1,6 +1,9 @@
 <template>
 	<div
-		:class="`mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4 ${needsChannelSelection ? 'opacity-60' : ''}`"
+		:class="[
+			'mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4',
+			{ 'opacity-60': needsChannelSelection },
+		]"
 		:aria-disabled="needsChannelSelection ? 'true' : 'false'"
 	>
 		<div class="flex items-start justify-between gap-4">
@@ -20,9 +23,10 @@
 			</div>
 
 			<label
-				:class="`inline-flex items-center gap-2 select-none ${
-					needsChannelSelection ? 'cursor-not-allowed' : 'cursor-pointer'
-				}`"
+				:class="[
+					'inline-flex items-center gap-2 select-none',
+					needsChannelSelection ? 'cursor-not-allowed' : 'cursor-pointer',
+				]"
 			>
 				<input
 					type="hidden"
@@ -57,7 +61,7 @@
 					inputName="daily_digest_notification_time"
 					:initialTime="dailyDigestTime"
 					:disabled="timePickerDisabled"
-					@time-change="emitTimeChange"
+					@time-change="emit('time-change', $event)"
 				/>
 			</div>
 
@@ -66,7 +70,7 @@
 					type="button"
 					class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors cursor-pointer disabled:bg-gray-400 disabled:cursor-not-allowed"
 					:disabled="sendNowDisabled"
-					@click="emitSendNow"
+					@click="emit('send-now')"
 				>
 					Send now
 				</button>
@@ -101,11 +105,4 @@ const enabledValue = computed({
 	set: (value: boolean) => emit("update:enabled", value),
 });
 
-function emitSendNow() {
-	emit("send-now");
-}
-
-function emitTimeChange(value: string) {
-	emit("time-change", value);
-}
 </script>

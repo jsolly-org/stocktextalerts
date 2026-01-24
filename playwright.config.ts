@@ -11,9 +11,8 @@ export default defineConfig({
 		command: "npm run dev -- --port 4321",
 		url: "http://localhost:4321/",
 		timeout: 120 * 1000,
-		// Always reuse existing server if one is already running on port 4321.
-		// This allows developers to run `npm run dev` manually and have Playwright
-		// use that instance, avoiding port conflicts and reducing startup time.
-		reuseExistingServer: true,
+		// Reuse existing server if one is already running on port 4321 (dev experience).
+		// In CI, always start fresh to ensure clean state.
+		reuseExistingServer: !process.env.CI,
 	},
 });

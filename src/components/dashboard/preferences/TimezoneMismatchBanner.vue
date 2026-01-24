@@ -5,32 +5,25 @@
 -->
 <template>
 	<div
-		v-if="isClient"
-		id="timezone-mismatch-banner"
+		v-if="isClient && isVisible"
 		class="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-yellow-900"
-		:class="{ hidden: !isVisible }"
 		role="alert"
 	>
 		<div class="space-y-3">
 			<div>
 				<p class="font-medium">
 					We detected your timezone is
-					<span id="detected-timezone" class="font-mono">{{ detectedTimezone }}</span>,
+					<span class="font-mono">{{ detectedTimezone }}</span>,
 					but your account is set to
-					<span id="saved-timezone" class="font-mono">{{ localSavedTimezone }}</span>.
+					<span class="font-mono">{{ savedTimezoneValue }}</span>.
 				</p>
 				<p class="text-sm text-yellow-800 mt-1">
 					Would you like to update your default timezone?
 				</p>
 			</div>
 			<div class="flex flex-wrap items-center gap-2">
-				<form method="POST" action="/api/preferences/timezone">
-					<input
-						type="hidden"
-						name="timezone"
-						id="timezone-update-value"
-						:value="detectedTimezone"
-					/>
+				<form @submit.prevent="handleUpdateTimezone">
+					<input type="hidden" name="timezone" :value="detectedTimezone" />
 					<button
 						type="submit"
 						class="px-3 py-1.5 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors cursor-pointer"
@@ -53,13 +46,16 @@
 					Don't ask me again
 				</button>
 			</div>
+			<p v-if="errorMessage" class="text-sm text-yellow-800">
+				{{ errorMessage }}
+			</p>
 		</div>
 	</div>
 </template>
 
 <script lang="ts" setup>
 import { DateTime } from "luxon";
-import { ref, toRefs, watch } from "vue";
+import { computed, ref, toRefs, watch } from "vue";
 
 import { rootLogger } from "../../../lib/logging";
 
@@ -82,15 +78,21 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-const { allowedTimezones } = toRefs(props);
+const { allowedTimezones, dismissTimezoneMismatchPrompts, savedPreferences, savedTimezone } =
+	toRefs(props);
 
-const localSavedTimezone = ref(props.savedTimezone);
-const localDismissTimezoneMismatchPrompts = ref(props.dismissTimezoneMismatchPrompts);
+const detectedTimezone = computed(() => DateTime.local().zoneName ?? "");
+const savedTimezoneValue = computed(
+	() => savedPreferences.value?.timezone ?? savedTimezone.value,
+);
+const dismissPromptsValue = computed(
+	() =>
+		savedPreferences.value?.dismiss_timezone_mismatch_prompts ??
+		dismissTimezoneMismatchPrompts.value,
+);
 
-const isVisible = ref(false);
-const detectedTimezone = ref<string>("");
-
-const detected = DateTime.local().zoneName ?? "";
+const dismissedForSession = ref(false);
+const errorMessage = ref<string | null>(null);
 
 function getDismissalKey(savedTimezone: string, detectedTimezone: string): string {
 	return `timezone_mismatch_banner_dismissed:${savedTimezone}:${detectedTimezone}`;
@@ -114,67 +116,81 @@ function setDismissed(savedTimezone: string, detectedTimezone: string): void {
 	}
 }
 
-function shouldShowBanner(
-	detected: string,
-	savedTimezone: string,
-	allowedTimezones: string[],
-	dismissTimezoneMismatchPrompts: boolean,
-): boolean {
-	if (!detected) {
+const allowedTimezoneSet = computed(
+	() => new Set(allowedTimezones.value),
+);
+
+const dismissalKey = computed(() => {
+	if (!savedTimezoneValue.value || !detectedTimezone.value) {
+		return null;
+	}
+	return getDismissalKey(savedTimezoneValue.value, detectedTimezone.value);
+});
+
+const isVisible = computed(() => {
+	if (!props.isClient) {
 		return false;
 	}
-
-	const allowedTimezoneSet = new Set(allowedTimezones);
-	if (!allowedTimezoneSet.has(detected)) {
+	if (!detectedTimezone.value) {
 		return false;
 	}
-
-	if (dismissTimezoneMismatchPrompts) {
+	if (!allowedTimezoneSet.value.has(detectedTimezone.value)) {
 		return false;
 	}
-
-	if (!savedTimezone || detected === savedTimezone) {
+	if (dismissPromptsValue.value) {
 		return false;
 	}
-
-	if (isDismissed(savedTimezone, detected)) {
+	if (!savedTimezoneValue.value || detectedTimezone.value === savedTimezoneValue.value) {
 		return false;
 	}
-
-	return true;
-}
-
-function updateVisibility() {
-	if (!detected) {
-		isVisible.value = false;
-		detectedTimezone.value = "";
-		return;
+	if (dismissedForSession.value) {
+		return false;
 	}
-
-	detectedTimezone.value = detected;
-
-	const allowedTimezoneSet = new Set(allowedTimezones.value);
-	if (!allowedTimezoneSet.has(detected)) {
-		isVisible.value = false;
-		return;
-	}
-
-	const shouldShow = shouldShowBanner(
-		detected,
-		localSavedTimezone.value,
-		allowedTimezones.value,
-		localDismissTimezoneMismatchPrompts.value,
-	);
-
-	isVisible.value = shouldShow;
-}
+	return !isDismissed(savedTimezoneValue.value, detectedTimezone.value);
+});
 
 function handleDismiss() {
-	setDismissed(localSavedTimezone.value, detected);
-	isVisible.value = false;
+	if (!savedTimezoneValue.value || !detectedTimezone.value) {
+		return;
+	}
+	setDismissed(savedTimezoneValue.value, detectedTimezone.value);
+	dismissedForSession.value = true;
+	errorMessage.value = null;
+}
+
+async function handleUpdateTimezone() {
+	if (!detectedTimezone.value) {
+		return;
+	}
+	errorMessage.value = null;
+
+	try {
+		const formData = new FormData();
+		formData.set("timezone", detectedTimezone.value);
+		const response = await fetch("/api/preferences/timezone", {
+			method: "POST",
+			body: formData,
+			credentials: "same-origin",
+			headers: { Accept: "application/json" },
+			signal: AbortSignal.timeout(10_000),
+		});
+
+		if (response.redirected) {
+			window.location.assign(response.url);
+			return;
+		}
+
+		if (!response.ok) {
+			errorMessage.value = "Failed to update timezone. Please try again.";
+		}
+	} catch (error) {
+		rootLogger.error("Failed to update timezone from banner", undefined, error);
+		errorMessage.value = "Failed to update timezone. Please try again.";
+	}
 }
 
 async function handleDismissPermanently() {
+	errorMessage.value = null;
 	try {
 		const response = await fetch("/api/preferences/dismiss-timezone-banner", {
 			method: "POST",
@@ -185,62 +201,23 @@ async function handleDismissPermanently() {
 
 		if (!response.ok) {
 			rootLogger.error("Failed to dismiss timezone banner permanently");
-			window.alert("Failed to dismiss banner. Please try again.");
+			errorMessage.value = "Failed to dismiss banner. Please try again.";
 			return;
 		}
 
-		localDismissTimezoneMismatchPrompts.value = true;
-		isVisible.value = false;
+		dismissedForSession.value = true;
 	} catch (error) {
 		rootLogger.error(
 			"Failed to dismiss timezone banner permanently",
 			undefined,
 			error,
 		);
-		window.alert("Failed to dismiss banner. Please try again.");
+		errorMessage.value = "Failed to dismiss banner. Please try again.";
 	}
 }
 
-watch(
-	() => props.savedTimezone,
-	(newValue) => {
-		localSavedTimezone.value = newValue;
-	},
-	{ immediate: true },
-);
-
-watch(
-	() => props.dismissTimezoneMismatchPrompts,
-	(newValue) => {
-		localDismissTimezoneMismatchPrompts.value = newValue;
-	},
-	{ immediate: true },
-);
-
-watch(
-	() => props.savedPreferences,
-	(preferences) => {
-		if (!preferences) {
-			return;
-		}
-
-		if (typeof preferences.timezone === "string") {
-			localSavedTimezone.value = preferences.timezone;
-		}
-		if (typeof preferences.dismiss_timezone_mismatch_prompts === "boolean") {
-			localDismissTimezoneMismatchPrompts.value =
-				preferences.dismiss_timezone_mismatch_prompts;
-		}
-	},
-	{ immediate: true },
-);
-
-watch(
-	[localSavedTimezone, allowedTimezones, localDismissTimezoneMismatchPrompts],
-	() => {
-		updateVisibility();
-	},
-	{ immediate: true },
-);
+watch(dismissalKey, () => {
+	dismissedForSession.value = false;
+});
 
 </script>

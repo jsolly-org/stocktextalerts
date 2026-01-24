@@ -75,9 +75,6 @@ const url = new URL(Astro.request.url);
 const successMessage = url.searchParams.get("success");
 const errorMessage = url.searchParams.get("error");
 const isEditingPhone = url.searchParams.get("change_phone") === "1";
-
-const formId = "dashboard-preferences-form";
-const statusId = "dashboard-preferences-save-status";
 ---
 
 <Layout title="Dashboard" description="Review and manage your stock notifications">
@@ -116,8 +113,6 @@ const statusId = "dashboard-preferences-save-status";
 			timezones={timezones}
 			timezoneLoadError={timezoneLoadError}
 			isEditingPhone={isEditingPhone}
-			formId={formId}
-			statusId={statusId}
 			successMessage={successMessage}
 			stockOptions={stockOptions}
 			initialSymbols={initialSymbols}

@@ -1,5 +1,5 @@
 ---
-import { ArrowLeftIcon } from "@heroicons/vue/24/outline";
+import { Icon } from "astro-icon/components";
 import HCaptcha from "../../components/HCaptcha.astro";
 import Navigation from "../../components/Navigation.astro";
 import Layout from "../../layouts/Layout.astro";
@@ -58,7 +58,7 @@ if (error) {
           href="/"
           class="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 font-medium"
         >
-          <ArrowLeftIcon class="w-4 h-4 mr-2" aria-hidden="true" />
+          <Icon name="arrow-left" class="w-4 h-4 mr-2" aria-hidden="true" />
           Back to Home
         </a>
       </div>

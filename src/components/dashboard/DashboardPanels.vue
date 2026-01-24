@@ -1,7 +1,7 @@
 <template>
 	<form
 		ref="formElement"
-		:id="formId"
+		:id="DASHBOARD_FORM_ID"
 		method="POST"
 		action="/api/preferences"
 		class="space-y-6"
@@ -11,21 +11,19 @@
 		@submit="handleFormSubmitWrapper"
 	>
 		<p
-			:id="statusId"
+			v-if="statusMessage"
+			:id="DASHBOARD_STATUS_ID"
 			class="text-sm flex items-center gap-2"
-			:class="[
-				statusMessage ? '' : 'hidden',
-				statusTone === 'error' ? 'text-red-700' : 'text-blue-700',
-			]"
+			:class="[statusTone === 'error' ? 'text-red-700' : 'text-blue-700']"
 			role="status"
 			aria-live="polite"
 			:aria-busy="isSaving"
 			:data-tone="statusTone"
 		>
-			<ArrowPathIcon
+			<Icon
 				v-show="isSaving"
+				name="arrow-path"
 				class="animate-spin size-4 shrink-0"
-				aria-hidden="true"
 			/>
 			{{ statusMessage }}
 		</p>
@@ -41,7 +39,6 @@
 			:timezones="timezones"
 			:timezoneLoadError="timezoneLoadError"
 			:isEditingPhone="isEditingPhone"
-			:formId="formId"
 			:successMessage="successMessage"
 			:emailEnabled="emailEnabled"
 			:smsEnabled="smsEnabled"
@@ -54,12 +51,12 @@
 
 		<ScheduledNotificationsPanel
 			:user="user"
-			:formId="formId"
 			:emailEnabled="emailEnabled"
 			:smsEnabled="smsEnabled"
 			:smsOptedOut="smsOptedOut"
 			:phoneVerified="phoneVerified"
 			:onFormChanged="notifyChange"
+			:savedPreferences="savedPreferences"
 		/>
 	</form>
 
@@ -72,12 +69,13 @@
 </template>
 
 <script lang="ts" setup>
-import { ArrowPathIcon } from "@heroicons/vue/24/outline";
 import { computed, ref, toRefs, watch } from "vue";
 
 import type { User } from "../../lib/db";
 import type { TimezoneOption } from "../../lib/time/cache";
 import type { StockOption } from "./stocks/StockInput.vue";
+import { Icon } from "astro-icon/components";
+import { DASHBOARD_FORM_ID, DASHBOARD_STATUS_ID } from "./constants";
 import { useAutoSavePreferences } from "./composables/useAutoSavePreferences";
 import ScheduledNotificationsPanel from "./notifications/scheduled/ScheduledNotificationsPanel.vue";
 import PreferencesPanel from "./preferences/PreferencesPanel.vue";
@@ -90,8 +88,6 @@ interface Props {
 	stockOptions: StockOption[];
 	initialSymbols: string[];
 	isEditingPhone: boolean;
-	formId: string;
-	statusId: string;
 	timezoneLoadError?: boolean;
 	successMessage?: string | null;
 }
@@ -102,10 +98,8 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const {
-	formId,
 	initialSymbols,
 	isEditingPhone,
-	statusId,
 	stockOptions,
 	successMessage,
 	timezones,

@@ -1,5 +1,5 @@
 ---
-import { ArrowLeftIcon } from "@heroicons/vue/24/outline";
+import { Icon } from "astro-icon/components";
 import Navigation from "../components/Navigation.astro";
 import AccountManagement from "../components/profile/AccountManagement.astro";
 import DangerZone from "../components/profile/DangerZone.astro";
@@ -52,7 +52,7 @@ const successMessage = formatMessage(success);
 						href="/dashboard"
 						class="shrink-0 inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium text-gray-900 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
 					>
-						<ArrowLeftIcon class="w-4 h-4 mr-2" aria-hidden="true" />
+						<Icon name="arrow-left" class="w-4 h-4 mr-2" aria-hidden="true" />
 						Dashboard
 					</a>
 				</div>

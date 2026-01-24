@@ -1,6 +1,7 @@
 <template>
 	<div
-		:class="`bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-8 ${showSection ? '' : 'hidden'}`"
+		v-if="showSection"
+		class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-8"
 	>
 		<h2 class="text-2xl font-bold text-gray-900 mb-4">Preview Notifications</h2>
 		<p class="text-gray-600 mb-6">
@@ -9,7 +10,7 @@
 		</p>
 
 		<div class="flex gap-4">
-			<div :class="emailEnabled ? '' : 'hidden'">
+			<div v-if="emailEnabled">
 				<form method="POST" action="/api/notifications/preview" @submit="submitEmail">
 					<input type="hidden" name="type" value="email" />
 					<button
@@ -21,7 +22,7 @@
 					</button>
 				</form>
 			</div>
-			<div :class="smsReady ? '' : 'hidden'">
+			<div v-if="smsReady">
 				<form method="POST" action="/api/notifications/preview" @submit="submitSms">
 					<input type="hidden" name="type" value="sms" />
 					<button
