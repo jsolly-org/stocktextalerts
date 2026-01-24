@@ -3,6 +3,7 @@
 		<input
 			type="hidden"
 			:id="hiddenInputId"
+			ref="hiddenInputRef"
 			:name="inputName"
 			:value="formattedTime"
 			:disabled="isDisabled"
@@ -46,6 +47,8 @@ const maxTime: TimeModel = { hours: 23, minutes: 45, seconds: 0 };
 const defaultTime: TimeModel = { hours: 9, minutes: 0, seconds: 0 };
 
 const isMounted = ref(false);
+const hiddenInputRef = ref<HTMLInputElement | null>(null);
+let isSyncingFromProps = false;
 const selectedTime = ref<TimeModel>(parseTimeString(props.initialTime) ?? defaultTime);
 const isDisabled = ref(props.disabled ?? false);
 const is24 = ref(true);
@@ -93,6 +96,24 @@ const formattedTime = computed(() => {
 });
 
 watch(
+	formattedTime,
+	() => {
+		if (!isMounted.value || isSyncingFromProps) {
+			return;
+		}
+
+		const hiddenInput = hiddenInputRef.value;
+		if (!hiddenInput) {
+			return;
+		}
+
+		hiddenInput.dispatchEvent(new Event("input", { bubbles: true }));
+		hiddenInput.dispatchEvent(new Event("change", { bubbles: true }));
+	},
+	{ flush: "post" },
+);
+
+watch(
 	() => props.disabled,
 	(value) => {
 		isDisabled.value = value ?? false;
@@ -103,7 +124,11 @@ watch(
 	() => props.initialTime,
 	(value) => {
 		const parsed = parseTimeString(value);
+		isSyncingFromProps = true;
 		selectedTime.value = parsed ?? defaultTime;
+		queueMicrotask(() => {
+			isSyncingFromProps = false;
+		});
 	},
 );
 

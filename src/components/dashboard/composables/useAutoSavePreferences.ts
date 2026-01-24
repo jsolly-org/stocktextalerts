@@ -192,6 +192,10 @@ export function useAutoSavePreferences(options: AutoSaveOptions) {
 			initialSnapshot = currentSnapshot;
 		}
 		if (!hasSnapshotChanged(currentSnapshot, initialSnapshot)) {
+			if (debounceHandle) {
+				window.clearTimeout(debounceHandle);
+				debounceHandle = null;
+			}
 			return;
 		}
 
