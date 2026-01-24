@@ -192,7 +192,6 @@ function restorePendingSmsState() {
 				error,
 			);
 		}
-		notifyFormChanged();
 	}
 }
 

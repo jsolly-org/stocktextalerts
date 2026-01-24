@@ -22,6 +22,7 @@
 				@keydown="handleKeydown(index, $event)"
 				@paste="handlePaste($event)"
 				@focus="handleFocus(index)"
+				@blur="handleBlur($event)"
 				class="w-12 h-12 text-center text-lg font-semibold border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 				:class="{
 					'border-red-500 ring-2 ring-red-500': showError,
@@ -37,7 +38,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 
 const props = defineProps<{
 	id: string;
@@ -55,6 +56,7 @@ const digits = ref<string[]>(Array(CODE_LENGTH).fill(""));
 const inputRefs = ref<(HTMLInputElement | null)[]>([]);
 const showError = ref(false);
 const touched = ref(false);
+const hasBlurred = ref(false);
 
 function setInputRef(el: unknown, index: number) {
 	if (el instanceof HTMLInputElement) {
@@ -85,12 +87,10 @@ function handleInput(index: number, event: Event) {
 	digits.value[index] = value;
 
 	if (value && index < CODE_LENGTH - 1) {
-		nextTick(() => {
-			const nextInput = inputRefs.value[index + 1];
-			if (nextInput) {
-				nextInput.focus();
-			}
-		});
+		const nextInput = inputRefs.value[index + 1];
+		if (nextInput) {
+			nextInput.focus();
+		}
 	}
 
 	emit("input");
@@ -135,14 +135,12 @@ function handlePaste(event: ClipboardEvent) {
 	}
 
 	const focusIndex = Math.min(digitsOnly.length, CODE_LENGTH - 1);
-	nextTick(() => {
-		const input = inputRefs.value[focusIndex];
-		if (input) {
-			input.focus();
-		}
-		emit("input");
-		validateOtp();
-	});
+	const input = inputRefs.value[focusIndex];
+	if (input) {
+		input.focus();
+	}
+	emit("input");
+	validateOtp();
 }
 
 function handleFocus(index: number) {
@@ -151,6 +149,19 @@ function handleFocus(index: number) {
 		touched.value = true;
 		input.select();
 	}
+}
+
+function handleBlur(event: FocusEvent) {
+	const nextTarget = event.relatedTarget;
+	if (nextTarget instanceof HTMLElement) {
+		const isNextInput = inputRefs.value.some((input) => input === nextTarget);
+		if (isNextInput) {
+			return;
+		}
+	}
+
+	hasBlurred.value = true;
+	validateOtp();
 }
 
 function validateOtp() {
@@ -162,7 +173,7 @@ function validateOtp() {
 		return;
 	}
 
-	const shouldValidate = props.formSubmitted === true || touched.value;
+	const shouldValidate = props.formSubmitted === true || hasBlurred.value;
 	const shouldShowError =
 		shouldValidate &&
 		(props.required === true ? !isComplete : !isEmpty && !isComplete);

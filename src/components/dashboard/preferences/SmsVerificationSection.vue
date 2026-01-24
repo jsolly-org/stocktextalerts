@@ -68,23 +68,23 @@
 				<input type="hidden" name="phone_country_code" :value="user.phone_country_code" />
 				<input type="hidden" name="phone_national_number" :value="user.phone_number" />
 
-			<div class="space-y-4 mt-4">
-				<OtpInput
-					:id="smsVerificationCodeId"
-					name="code"
-					required
-					:formSubmitted="formSubmitted"
-					@input="formSubmitted = false"
-				/>
-				<button
-					type="submit"
-					formaction="/api/auth/sms/verify-code"
-					formmethod="post"
-					class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm mt-4 cursor-pointer"
-				>
-					Verify Code
-				</button>
-			</div>
+				<div class="space-y-4 mt-4">
+					<OtpInput
+						:id="smsVerificationCodeId"
+						name="code"
+						required
+						:formSubmitted="formSubmitted"
+						@input="formSubmitted = false"
+					/>
+					<button
+						type="submit"
+						formaction="/api/auth/sms/verify-code"
+						formmethod="post"
+						class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm mt-4 cursor-pointer"
+					>
+						Verify Code
+					</button>
+				</div>
 			</template>
 		</fieldset>
 	</div>

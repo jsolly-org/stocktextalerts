@@ -6,7 +6,6 @@
 <template>
 	<div
 		v-if="isClient"
-		ref="bannerRef"
 		id="timezone-mismatch-banner"
 		class="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-yellow-900"
 		:class="{ hidden: !isVisible }"
@@ -16,9 +15,9 @@
 			<div>
 				<p class="font-medium">
 					We detected your timezone is
-					<span ref="detectedSpanRef" id="detected-timezone" class="font-mono"></span>,
+					<span id="detected-timezone" class="font-mono">{{ detectedTimezone }}</span>,
 					but your account is set to
-					<span ref="savedSpanRef" id="saved-timezone" class="font-mono"></span>.
+					<span id="saved-timezone" class="font-mono">{{ localSavedTimezone }}</span>.
 				</p>
 				<p class="text-sm text-yellow-800 mt-1">
 					Would you like to update your default timezone?
@@ -27,7 +26,6 @@
 			<div class="flex flex-wrap items-center gap-2">
 				<form method="POST" action="/api/preferences/timezone">
 					<input
-						ref="timezoneInputRef"
 						type="hidden"
 						name="timezone"
 						id="timezone-update-value"
@@ -89,10 +87,6 @@ const { allowedTimezones } = toRefs(props);
 const localSavedTimezone = ref(props.savedTimezone);
 const localDismissTimezoneMismatchPrompts = ref(props.dismissTimezoneMismatchPrompts);
 
-const bannerRef = ref<HTMLElement | null>(null);
-const detectedSpanRef = ref<HTMLElement | null>(null);
-const savedSpanRef = ref<HTMLElement | null>(null);
-const timezoneInputRef = ref<HTMLInputElement | null>(null);
 const isVisible = ref(false);
 const detectedTimezone = ref<string>("");
 
@@ -172,29 +166,11 @@ function updateVisibility() {
 		localDismissTimezoneMismatchPrompts.value,
 	);
 
-	if (shouldShow) {
-		if (detectedSpanRef.value) {
-			detectedSpanRef.value.textContent = detected;
-		}
-		if (savedSpanRef.value) {
-			savedSpanRef.value.textContent = localSavedTimezone.value;
-		}
-		if (timezoneInputRef.value) {
-			timezoneInputRef.value.value = detected;
-		}
-		if (bannerRef.value) {
-			bannerRef.value.dataset.savedTimezone = localSavedTimezone.value;
-		}
-		isVisible.value = true;
-	} else {
-		isVisible.value = false;
-	}
+	isVisible.value = shouldShow;
 }
 
 function handleDismiss() {
-	const currentSavedTimezone =
-		bannerRef.value?.dataset.savedTimezone ?? localSavedTimezone.value;
-	setDismissed(currentSavedTimezone, detected);
+	setDismissed(localSavedTimezone.value, detected);
 	isVisible.value = false;
 }
 
@@ -213,9 +189,6 @@ async function handleDismissPermanently() {
 			return;
 		}
 
-		if (bannerRef.value) {
-			bannerRef.value.dataset.dismissTimezoneMismatchPrompts = "true";
-		}
 		localDismissTimezoneMismatchPrompts.value = true;
 		isVisible.value = false;
 	} catch (error) {
@@ -263,7 +236,7 @@ watch(
 );
 
 watch(
-	[localSavedTimezone, allowedTimezones, localDismissTimezoneMismatchPrompts, bannerRef, detectedSpanRef, savedSpanRef, timezoneInputRef],
+	[localSavedTimezone, allowedTimezones, localDismissTimezoneMismatchPrompts],
 	() => {
 		updateVisibility();
 	},

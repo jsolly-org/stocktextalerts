@@ -101,18 +101,16 @@ const formattedTime = computed(() => {
 
 watch(
 	formattedTime,
-	() => {
-		if (!isMounted.value || isSyncingFromProps) {
-			return;
+	(newValue) => {
+		if (isMounted.value && !isSyncingFromProps) {
+			const hiddenInput = hiddenInputRef.value;
+			if (hiddenInput) {
+				hiddenInput.dispatchEvent(new Event("input", { bubbles: true }));
+				hiddenInput.dispatchEvent(new Event("change", { bubbles: true }));
+			}
 		}
 
-		const hiddenInput = hiddenInputRef.value;
-		if (!hiddenInput) {
-			return;
-		}
-
-		hiddenInput.dispatchEvent(new Event("input", { bubbles: true }));
-		hiddenInput.dispatchEvent(new Event("change", { bubbles: true }));
+		emit("time-change", newValue);
 	},
 	{ flush: "post" },
 );
@@ -136,9 +134,6 @@ watch(
 	},
 );
 
-watch(formattedTime, (newValue) => {
-	emit("time-change", newValue);
-});
 
 function parseTimeString(value: string | null | undefined): TimeModel | null {
 	if (!value) {

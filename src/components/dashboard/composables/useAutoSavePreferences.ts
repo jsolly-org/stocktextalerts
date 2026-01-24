@@ -1,6 +1,7 @@
 import { type Ref, ref, watch } from "vue";
 
 import { rootLogger } from "../../../lib/logging";
+import { formatMessage } from "../../../lib/status-messages";
 
 type PreferencesResponse = {
 	ok: boolean;
@@ -122,12 +123,12 @@ export function useAutoSavePreferences(options: AutoSaveOptions) {
 			const payload = (await response.json()) as PreferencesResponse;
 
 			if (!response.ok || !payload.ok) {
+				const formattedMessage =
+					payload && typeof payload.message === "string"
+						? formatMessage(payload.message.trim())
+						: "";
 				const errorMessage =
-					payload &&
-					typeof payload.message === "string" &&
-					payload.message.trim()
-						? payload.message
-						: "Could not save changes. Please try again.";
+					formattedMessage || "Could not save changes. Please try again.";
 				setStatus(errorMessage, "error");
 				return;
 			}
@@ -241,7 +242,7 @@ export function useAutoSavePreferences(options: AutoSaveOptions) {
 		scheduleSave(form);
 	}
 
-	function handleFormSubmit(event: SubmitEvent) {
+	async function handleFormSubmit(event: SubmitEvent): Promise<void> {
 		const form = options.formRef.value;
 		if (!form) {
 			return;
@@ -255,7 +256,7 @@ export function useAutoSavePreferences(options: AutoSaveOptions) {
 
 		event.preventDefault();
 		const currentSnapshot = snapshot(new FormData(form));
-		void triggerSave(form, currentSnapshot);
+		await triggerSave(form, currentSnapshot);
 	}
 
 	watch(

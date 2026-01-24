@@ -124,17 +124,20 @@ const {
 	formRef: formElement,
 });
 
-function handleFormSubmitWrapper(event: SubmitEvent) {
+async function handleFormSubmitWrapper(event: SubmitEvent) {
 	const submitter = event.submitter;
-	if (
+	const isVerifyCodeSubmission =
 		submitter instanceof HTMLElement &&
-		submitter.getAttribute("formaction") === "/api/auth/sms/verify-code"
-	) {
+		submitter.getAttribute("formaction") === "/api/auth/sms/verify-code";
+
+	if (isVerifyCodeSubmission) {
 		isVerifyingCode.value = true;
-		setTimeout(() => {
-			isVerifyingCode.value = false;
-		}, 100);
 	}
-	handleFormSubmit(event);
+
+	await handleFormSubmit(event);
+
+	if (isVerifyCodeSubmission) {
+		isVerifyingCode.value = false;
+	}
 }
 </script>
