@@ -73,7 +73,7 @@ function handleInput(index: number, event: Event) {
 
 	touched.value = true;
 	const input = event.target;
-	let value = input.value;
+	const value = input.value;
 
 	if (!/^\d*$/.test(value)) {
 		input.value = digits.value[index];
@@ -81,7 +81,23 @@ function handleInput(index: number, event: Event) {
 	}
 
 	if (value.length > 1) {
-		value = value.slice(-1);
+		const chars = value.slice(0, CODE_LENGTH - index).split("");
+		for (let i = 0; i < chars.length; i++) {
+			const idx = index + i;
+			digits.value[idx] = chars[i];
+			const el = inputRefs.value[idx];
+			if (el) {
+				el.value = chars[i];
+			}
+		}
+		const lastIdx = index + chars.length - 1;
+		const lastInput = inputRefs.value[lastIdx];
+		if (lastInput) {
+			lastInput.focus();
+		}
+		emit("input");
+		validateOtp();
+		return;
 	}
 
 	digits.value[index] = value;
@@ -179,7 +195,12 @@ function validateOtp() {
 		(props.required === true ? !isComplete : !isEmpty && !isComplete);
 	showError.value = shouldShowError;
 
-	if (shouldShowError) {
+	// Custom validity should always reflect actual completeness when required,
+	// regardless of whether we show the error visually. This ensures browser
+	// validation prevents form submission with incomplete codes.
+	const isInvalid =
+		props.required === true ? !isComplete : !isEmpty && !isComplete;
+	if (isInvalid) {
 		firstInput.setCustomValidity("Please enter the complete verification code");
 	} else {
 		firstInput.setCustomValidity("");

@@ -5,21 +5,28 @@
 		method="POST"
 		action="/api/preferences"
 		class="space-y-6"
+		:aria-busy="isSaving"
 		@input="handleFormInput"
 		@change="handleFormChange"
 		@submit="handleFormSubmitWrapper"
 	>
 		<p
 			:id="statusId"
-			class="text-sm"
+			class="text-sm flex items-center gap-2"
 			:class="[
 				statusMessage ? '' : 'hidden',
 				statusTone === 'error' ? 'text-red-700' : 'text-blue-700',
 			]"
 			role="status"
 			aria-live="polite"
+			:aria-busy="isSaving"
 			:data-tone="statusTone"
 		>
+			<ArrowPathIcon
+				v-show="isSaving"
+				class="animate-spin size-4 shrink-0"
+				aria-hidden="true"
+			/>
 			{{ statusMessage }}
 		</p>
 
@@ -65,6 +72,7 @@
 </template>
 
 <script lang="ts" setup>
+import { ArrowPathIcon } from "@heroicons/vue/24/outline";
 import { computed, ref, toRefs, watch } from "vue";
 
 import type { User } from "../../lib/db";
@@ -116,6 +124,7 @@ const {
 	handleFormChange,
 	handleFormInput,
 	handleFormSubmit,
+	isSaving,
 	notifyChange,
 	savedPreferences,
 	statusMessage,

@@ -3,6 +3,7 @@ import { type Ref, ref, watch } from "vue";
 import { rootLogger } from "../../../lib/logging";
 import { formatMessage } from "../../../lib/status-messages";
 
+/* ============= Types ============= */
 type PreferencesResponse = {
 	ok: boolean;
 	message: string;
@@ -24,6 +25,7 @@ type AutoSaveOptions = {
 	debounceMs?: number;
 };
 
+/* ============= Helpers ============= */
 function resolveActionPath(
 	form: HTMLFormElement,
 	submitter: HTMLElement | null,
@@ -84,6 +86,7 @@ function formDataFromSnapshot(values: Map<string, string>) {
 	return formData;
 }
 
+/* ============= Composable ============= */
 export function useAutoSavePreferences(options: AutoSaveOptions) {
 	const statusMessage = ref<string | null>(null);
 	const statusTone = ref<"error" | "info">("info");
@@ -283,6 +286,5 @@ export function useAutoSavePreferences(options: AutoSaveOptions) {
 		savedPreferences,
 		statusMessage,
 		statusTone,
-		triggerSave,
 	};
 }

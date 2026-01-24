@@ -53,12 +53,19 @@ This file captures the non-negotiables for this repo. It is a new app, so we opt
 - **Testing**: Vitest only; happy path coverage only. Do not use Jest.
 - **Linting/Formatting**: Biome only (No Prettier or ESLint)
 - **Styling**: Tailwind utilities preferred over custom CSS
+- **Icons**: `@heroicons/vue` for UI icons
 
 ## Export Pattern
 - Functions: `export function name(...)` directly where defined
 - Classes: Define first, then `export { ClassName }` at bottom
 
 ## Section Comments
+Use section comments to organize larger modules. For section headers, use the single-line format:
+```txt
+/* ============= Section Title ============= */
+```
+
+For longer multi-line comments, use:
 ```txt
 /* =============
 Comment Title

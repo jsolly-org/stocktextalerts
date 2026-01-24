@@ -26,7 +26,7 @@
 <script lang="ts" setup>
 import "@vuepic/vue-datepicker/dist/main.css";
 import { VueDatePicker } from "@vuepic/vue-datepicker";
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 
 type TimeModel = {
 	hours: number | string;
@@ -108,9 +108,8 @@ watch(
 				hiddenInput.dispatchEvent(new Event("input", { bubbles: true }));
 				hiddenInput.dispatchEvent(new Event("change", { bubbles: true }));
 			}
+			emit("time-change", newValue);
 		}
-
-		emit("time-change", newValue);
 	},
 	{ flush: "post" },
 );
@@ -128,7 +127,7 @@ watch(
 		const parsed = parseTimeString(value);
 		isSyncingFromProps = true;
 		selectedTime.value = parsed ?? defaultTime;
-		queueMicrotask(() => {
+		nextTick(() => {
 			isSyncingFromProps = false;
 		});
 	},
