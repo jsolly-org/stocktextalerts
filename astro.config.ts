@@ -35,11 +35,11 @@ if (!vercelUrl) {
 
 // https://astro.build/config
 export default defineConfig({
-    output: "server",
-    adapter: vercel({
-        // Enable if you later use edge middleware helpers; keep serverless for Supabase SSR consistency
-        edgeMiddleware: false,
-    }),
+	output: "server",
+	adapter: vercel({
+		// Enable if you later use edge middleware helpers; keep serverless for Supabase SSR consistency
+		edgeMiddleware: false,
+	}),
 
 	site,
 
@@ -53,7 +53,7 @@ export default defineConfig({
 		plugins: [tailwindcss()],
 		// Pre-bundle Vue and dashboard deps so SSR/client resolve them without issues.
 		optimizeDeps: {
-			include: ['vue', '@vueuse/core', 'fuse.js', 'libphonenumber-js'],
+			include: ["vue", "@vueuse/core", "fuse.js", "libphonenumber-js"],
 		},
 	},
 });
