@@ -216,16 +216,26 @@ jobs:
           LIMIT=$((NOW - 3600))
 
           # Get workflow ID from the workflow file name
-          WORKFLOW_ID=$(gh api "repos/$REPO/actions/workflows" --jq ".workflows[] | select(.path == \".github/workflows/$WORKFLOW_FILE\") | .id")
+          WORKFLOW_ID=$(gh api "repos/$REPO/actions/workflows" --jq ".workflows[] | select(.path == \".github/workflows/$WORKFLOW_FILE\") | .id" 2>&1)
+          WORKFLOW_ID_EXIT=$?
           
-          if [[ -z "$WORKFLOW_ID" ]]; then
+          if [[ $WORKFLOW_ID_EXIT -ne 0 ]] || [[ -z "$WORKFLOW_ID" ]]; then
             echo "Warning: Could not find workflow ID for $WORKFLOW_FILE, skipping rate limit check"
             exit 0
           fi
 
-          RUNS_JSON=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs?per_page=100")
+          # Query workflow runs with error handling - if permissions are insufficient, skip rate limiting
+          RUNS_JSON=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs?per_page=100" 2>&1)
+          RUNS_EXIT=$?
+          
+          if [[ $RUNS_EXIT -ne 0 ]]; then
+            echo "Warning: Could not query workflow runs (permissions may be insufficient), skipping rate limit check"
+            echo "API error: $RUNS_JSON"
+            exit 0
+          fi
+
           COUNT=$(echo "$RUNS_JSON" | jq --argjson limit "$LIMIT" --arg pr "$PR_NUMBER" \
-            '[.workflow_runs[] | select(.created_at | fromdateiso8601 >= $limit) | select((.pull_requests // []) | any(.number == ($pr|tonumber))) ] | length')
+            '[.workflow_runs[] | select(.created_at | fromdateiso8601 >= $limit) | select((.pull_requests // []) | any(.number == ($pr|tonumber))) ] | length' 2>&1)
 
           if [[ "$COUNT" -ge 60 ]]; then
             gh pr comment "$PR_NUMBER" \

@@ -19,16 +19,9 @@ jobs:
           fetch-depth: 0
 
       - name: Install Cursor CLI
-        env:
-          CURSOR_BUILD_ID: ${{ inputs.cursor_build_id || vars.CURSOR_BUILD_ID || 'latest' }}
         run: |
-          if [[ "$CURSOR_BUILD_ID" == "latest" ]]; then
-            echo "Error: CURSOR_BUILD_ID must be set to a specific build ID for reproducible builds"
-            exit 1
-          fi
-          INSTALL_URL="https://cursor.com/install/$CURSOR_BUILD_ID"
-          if ! curl "$INSTALL_URL" -fsS | bash; then
-            echo "Error: Failed to install Cursor CLI from pinned build $CURSOR_BUILD_ID at $INSTALL_URL"
+          if ! curl "https://cursor.com/install" -fsS | bash; then
+            echo "Error: Failed to install Cursor CLI"
             exit 1
           fi
           echo "$HOME/.cursor/bin" >> $GITHUB_PATH
