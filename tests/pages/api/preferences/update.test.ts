@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
-import { POST } from "../../../../src/pages/api/preferences";
+import { POST } from "../../../../src/pages/api/preferences/update";
 import { adminClient } from "../../../setup";
 import { createAuthenticatedCookies, createTestUser } from "../../../utils";
 
-describe("POST /api/preferences", () => {
+describe("POST /api/preferences/update", () => {
 	it("should successfully update user preferences", async () => {
 		const testUser = await createTestUser({
 			email: `test-${randomUUID()}@resend.dev`,
@@ -23,9 +23,8 @@ describe("POST /api/preferences", () => {
 		formData.append("sms_notifications_enabled", "false");
 		formData.append("timezone", "America/Los_Angeles");
 		formData.append("daily_digest_notification_time", "08:00");
-		formData.append("tracked_stocks", JSON.stringify([]));
 
-		const request = new Request("http://localhost/api/preferences", {
+		const request = new Request("http://localhost/api/preferences/update", {
 			method: "POST",
 			body: formData,
 		});
@@ -80,9 +79,8 @@ describe("POST /api/preferences", () => {
 		formData.append("email_notifications_enabled", "true");
 		formData.append("sms_notifications_enabled", "false");
 		formData.append("daily_digest_notification_time", "12:00");
-		formData.append("tracked_stocks", JSON.stringify([]));
 
-		const request = new Request("http://localhost/api/preferences", {
+		const request = new Request("http://localhost/api/preferences/update", {
 			method: "POST",
 			body: formData,
 		});
@@ -136,9 +134,8 @@ describe("POST /api/preferences", () => {
 		formData.append("timezone", "America/Los_Angeles");
 		formData.append("daily_digest_enabled", "true");
 		formData.append("daily_digest_notification_time", "08:00");
-		formData.append("tracked_stocks", JSON.stringify([]));
 
-		const request = new Request("http://localhost/api/preferences", {
+		const request = new Request("http://localhost/api/preferences/update", {
 			method: "POST",
 			body: formData,
 			headers: { Accept: "application/json" },

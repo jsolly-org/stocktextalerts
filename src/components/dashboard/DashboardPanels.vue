@@ -1,39 +1,35 @@
 <template>
 	<form
-		ref="formElement"
+		ref="preferencesFormElement"
 		:id="DASHBOARD_FORM_ID"
 		method="POST"
-		action="/api/preferences"
+		action="/api/preferences/update"
 		class="space-y-6"
-		:aria-busy="isSaving"
-		@input="handleFormInput"
-		@change="handleFormChange"
-		@submit="handleFormSubmitWrapper"
+		:aria-busy="isPreferencesSaving"
+		@input="handlePreferencesFormInput"
+		@change="handlePreferencesFormChange"
+		@submit="handlePreferencesFormSubmitWrapper"
 	>
 		<p
-			v-if="statusMessage"
+			v-if="preferencesStatusMessage"
 			:id="DASHBOARD_STATUS_ID"
 			class="text-sm flex items-center gap-2"
-			:class="[statusTone === 'error' ? 'text-red-700' : 'text-blue-700']"
+			:class="[
+				preferencesStatusTone === 'error' ? 'text-red-700' : 'text-blue-700',
+			]"
 			role="status"
 			aria-live="polite"
-			:aria-busy="isSaving"
-			:data-tone="statusTone"
+			:aria-busy="isPreferencesSaving"
+			:data-tone="preferencesStatusTone"
 		>
 			<Icon
-				v-show="isSaving"
+				v-show="isPreferencesSaving"
 				name="arrow-path"
 				class="animate-spin size-4 shrink-0"
 				aria-hidden="true"
 			/>
-			{{ statusMessage }}
+			{{ preferencesStatusMessage }}
 		</p>
-
-		<TrackedStocksPanel
-			:stockOptions="stockOptions"
-			:initialSymbols="initialSymbols"
-			:onFormChanged="notifyChange"
-		/>
 
 		<PreferencesPanel
 			:user="user"
@@ -43,7 +39,7 @@
 			:successMessage="successMessage"
 			:emailEnabled="emailEnabled"
 			:smsEnabled="smsEnabled"
-			:onFormChanged="notifyChange"
+			:onFormChanged="notifyPreferencesChange"
 			:savedPreferences="savedPreferences"
 			:is-verifying-code="isVerifyingCode"
 			@update:emailEnabled="emailEnabled = $event"
@@ -56,8 +52,47 @@
 			:smsEnabled="smsEnabled"
 			:smsOptedOut="smsOptedOut"
 			:phoneVerified="phoneVerified"
-			:onFormChanged="notifyChange"
+			:onFormChanged="notifyPreferencesChange"
 			:savedPreferences="savedPreferences"
+		/>
+	</form>
+
+	<form
+		ref="stocksFormElement"
+		:id="DASHBOARD_STOCKS_FORM_ID"
+		method="POST"
+		action="/api/stocks/update"
+		class="space-y-6"
+		:aria-busy="isStocksSaving"
+		@input="handleStocksFormInput"
+		@change="handleStocksFormChange"
+		@submit="handleStocksFormSubmit"
+	>
+		<p
+			v-if="stocksStatusMessage"
+			:id="DASHBOARD_STOCKS_STATUS_ID"
+			class="text-sm flex items-center gap-2"
+			:class="[
+				stocksStatusTone === 'error' ? 'text-red-700' : 'text-blue-700',
+			]"
+			role="status"
+			aria-live="polite"
+			:aria-busy="isStocksSaving"
+			:data-tone="stocksStatusTone"
+		>
+			<Icon
+				v-show="isStocksSaving"
+				name="arrow-path"
+				class="animate-spin size-4 shrink-0"
+				aria-hidden="true"
+			/>
+			{{ stocksStatusMessage }}
+		</p>
+
+		<TrackedStocksPanel
+			:stockOptions="stockOptions"
+			:initialSymbols="initialSymbols"
+			:onFormChanged="notifyStocksChange"
 		/>
 	</form>
 
@@ -76,8 +111,16 @@ import { Icon } from "astro-icon/components";
 import type { User } from "../../lib/db";
 import type { TimezoneOption } from "../../lib/time/cache";
 import type { StockOption } from "./stocks/StockInput.vue";
-import { DASHBOARD_FORM_ID, DASHBOARD_STATUS_ID } from "./constants";
-import { useAutoSavePreferences } from "./composables/useAutoSavePreferences";
+import {
+	DASHBOARD_FORM_ID,
+	DASHBOARD_STATUS_ID,
+	DASHBOARD_STOCKS_FORM_ID,
+	DASHBOARD_STOCKS_STATUS_ID,
+} from "./constants";
+import {
+	useAutoSaveForm,
+	type PreferencesData,
+} from "./composables/useAutoSavePreferences";
 import ScheduledNotificationsPanel from "./notifications/scheduled/ScheduledNotificationsPanel.vue";
 import PreferencesPanel from "./preferences/PreferencesPanel.vue";
 import PreviewPanel from "./PreviewPanel.vue";
@@ -127,22 +170,37 @@ watch(
 	},
 );
 
-const formElement = ref<HTMLFormElement | null>(null);
+const preferencesFormElement = ref<HTMLFormElement | null>(null);
+const stocksFormElement = ref<HTMLFormElement | null>(null);
 const isVerifyingCode = ref(false);
 const {
-	handleFormChange,
-	handleFormInput,
-	handleFormSubmit,
-	isSaving,
-	notifyChange,
-	savedPreferences,
-	statusMessage,
-	statusTone,
-} = useAutoSavePreferences({
-	formRef: formElement,
+	handleFormChange: handlePreferencesFormChange,
+	handleFormInput: handlePreferencesFormInput,
+	handleFormSubmit: handlePreferencesFormSubmit,
+	isSaving: isPreferencesSaving,
+	notifyChange: notifyPreferencesChange,
+	savedData: savedPreferencesData,
+	statusMessage: preferencesStatusMessage,
+	statusTone: preferencesStatusTone,
+} = useAutoSaveForm<PreferencesData>({
+	formRef: preferencesFormElement,
 });
 
-async function handleFormSubmitWrapper(event: SubmitEvent) {
+const savedPreferences = savedPreferencesData;
+
+const {
+	handleFormChange: handleStocksFormChange,
+	handleFormInput: handleStocksFormInput,
+	handleFormSubmit: handleStocksFormSubmit,
+	isSaving: isStocksSaving,
+	notifyChange: notifyStocksChange,
+	statusMessage: stocksStatusMessage,
+	statusTone: stocksStatusTone,
+} = useAutoSaveForm({
+	formRef: stocksFormElement,
+});
+
+async function handlePreferencesFormSubmitWrapper(event: SubmitEvent) {
 	const submitter = event.submitter;
 	const isVerifyCodeSubmission =
 		submitter instanceof HTMLElement &&
@@ -152,7 +210,7 @@ async function handleFormSubmitWrapper(event: SubmitEvent) {
 		isVerifyingCode.value = true;
 	}
 	try {
-		await handleFormSubmit(event);
+		await handlePreferencesFormSubmit(event);
 	} finally {
 		if (isVerifyCodeSubmission) {
 			isVerifyingCode.value = false;

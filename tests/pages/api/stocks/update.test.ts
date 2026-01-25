@@ -3,7 +3,7 @@ import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { MAX_TRACKED_STOCKS } from "../../../../src/lib/db/database-errors";
 import { rootLogger } from "../../../../src/lib/logging";
-import { POST } from "../../../../src/pages/api/preferences";
+import { POST } from "../../../../src/pages/api/stocks/update";
 import { adminClient } from "../../../setup";
 import {
 	type CreateTestUserOptions,
@@ -69,7 +69,7 @@ async function updateTrackedStocks(
 	const formData = new FormData();
 	formData.append("tracked_stocks", JSON.stringify(stocksToUpdate));
 
-	const request = new Request("http://localhost/api/preferences", {
+	const request = new Request("http://localhost/api/stocks/update", {
 		method: "POST",
 		body: formData,
 	});
@@ -117,14 +117,14 @@ async function updateTrackedStocks(
 	};
 }
 
-describe("POST /api/preferences (tracked stocks)", () => {
+describe("POST /api/stocks/update", () => {
 	it("should add a single stock when user has no stocks", async () => {
 		const { response, trackedStocks, redirectUrl } = await updateTrackedStocks(
 			[],
 			["AAPL"],
 		);
 
-		expect(redirectUrl).toBe("/dashboard?success=settings_updated");
+		expect(redirectUrl).toBe("/dashboard?success=stocks_updated");
 		expect(response.status).toBe(302);
 
 		expect(trackedStocks).toHaveLength(1);
@@ -137,7 +137,7 @@ describe("POST /api/preferences (tracked stocks)", () => {
 			[],
 		);
 
-		expect(redirectUrl).toBe("/dashboard?success=settings_updated");
+		expect(redirectUrl).toBe("/dashboard?success=stocks_updated");
 		expect(response.status).toBe(302);
 
 		expect(trackedStocks).toHaveLength(0);
@@ -149,7 +149,7 @@ describe("POST /api/preferences (tracked stocks)", () => {
 			["AAPL", "MSFT"],
 		);
 
-		expect(redirectUrl).toBe("/dashboard?success=settings_updated");
+		expect(redirectUrl).toBe("/dashboard?success=stocks_updated");
 		expect(response.status).toBe(302);
 
 		expect(trackedStocks).toHaveLength(2);
@@ -169,7 +169,7 @@ describe("POST /api/preferences (tracked stocks)", () => {
 			dailyDigestNotificationTime: 600,
 		});
 
-		expect(redirectUrl).toBe("/dashboard?success=settings_updated");
+		expect(redirectUrl).toBe("/dashboard?success=stocks_updated");
 		expect(response.status).toBe(302);
 
 		expect(userPreferencesBefore).not.toBeNull();
@@ -183,7 +183,7 @@ describe("POST /api/preferences (tracked stocks)", () => {
 			["AAPL", "MSFT"],
 		);
 
-		expect(redirectUrl).toBe("/dashboard?success=settings_updated");
+		expect(redirectUrl).toBe("/dashboard?success=stocks_updated");
 		expect(response.status).toBe(302);
 
 		expect(trackedStocks).toHaveLength(2);
@@ -196,7 +196,7 @@ describe("POST /api/preferences (tracked stocks)", () => {
 			[],
 		);
 
-		expect(redirectUrl).toBe("/dashboard?success=settings_updated");
+		expect(redirectUrl).toBe("/dashboard?success=stocks_updated");
 		expect(response.status).toBe(302);
 
 		expect(trackedStocks).toHaveLength(0);

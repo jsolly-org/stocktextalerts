@@ -1,28 +1,31 @@
-import { type Ref, ref, watch } from "vue";
+import { onBeforeUnmount, type Ref, ref, watch } from "vue";
 
 import { rootLogger } from "../../../lib/logging";
 import { formatMessage } from "../../../lib/status-messages";
 
 /* ============= Types ============= */
-type PreferencesResponse = {
+type FormSaveResponse<T = unknown> = {
 	ok: boolean;
 	message: string;
-	preferences?: {
-		email_notifications_enabled: boolean;
-		sms_notifications_enabled: boolean;
-		sms_opted_out: boolean;
-		phone_verified: boolean;
-		timezone: string;
-		daily_digest_enabled: boolean;
-		daily_digest_notification_time: number;
-		next_send_at: string | null;
-		dismiss_timezone_mismatch_prompts: boolean;
-	};
+	preferences?: T;
+};
+
+export type PreferencesData = {
+	email_notifications_enabled: boolean;
+	sms_notifications_enabled: boolean;
+	sms_opted_out: boolean;
+	phone_verified: boolean;
+	timezone: string;
+	daily_digest_enabled: boolean;
+	daily_digest_notification_time: number;
+	next_send_at: string | null;
+	dismiss_timezone_mismatch_prompts: boolean;
 };
 
 type AutoSaveOptions = {
 	formRef: Ref<HTMLFormElement | null>;
 	debounceMs?: number;
+	expectedActionPath?: string;
 };
 
 /* ============= Helpers ============= */
@@ -40,64 +43,31 @@ function resolveActionPath(
 	return resolved.pathname;
 }
 
-function snapshot(fd: FormData) {
-	const values = new Map<string, string>();
-	const keys = new Set<string>();
-	for (const [name] of fd.entries()) keys.add(String(name));
-	for (const name of keys) {
-		values.set(
-			name,
-			fd
-				.getAll(name)
-				.map((item) =>
-					item instanceof File
-						? `${item.name}:${item.size}:${item.lastModified}`
-						: String(item),
-				)
-				.join("\u0000"),
-		);
+function serializeFormData(formData: FormData): string {
+	const entries: string[] = [];
+	for (const [name, value] of formData.entries()) {
+		const serializedValue =
+			value instanceof File
+				? `${value.name}:${value.size}:${value.lastModified}`
+				: String(value);
+		entries.push(`${name}=${serializedValue}`);
 	}
-	return values;
-}
-
-function hasSnapshotChanged(
-	current: Map<string, string>,
-	initial: Map<string, string>,
-): boolean {
-	if (current.size !== initial.size) {
-		return true;
-	}
-	for (const [name, value] of current.entries()) {
-		if (value !== initial.get(name)) {
-			return true;
-		}
-	}
-	return false;
-}
-
-function formDataFromSnapshot(values: Map<string, string>) {
-	const formData = new FormData();
-	for (const [name, serializedValue] of values.entries()) {
-		const parts = serializedValue.split("\u0000");
-		for (const part of parts) {
-			formData.append(name, part);
-		}
-	}
-	return formData;
+	entries.sort();
+	return entries.join("&");
 }
 
 /* ============= Composable ============= */
-export function useAutoSavePreferences(options: AutoSaveOptions) {
+export function useAutoSaveForm<T = unknown>(options: AutoSaveOptions) {
 	const statusMessage = ref<string | null>(null);
 	const statusTone = ref<"error" | "info">("info");
 	const isSaving = ref(false);
-	const savedPreferences = ref<PreferencesResponse["preferences"] | null>(null);
+	const savedData = ref<T | null>(null);
 
 	const debounceMs = options.debounceMs ?? 450;
-	let queued = false;
-	let pendingSnapshot: Map<string, string> | null = null;
-	let initialSnapshot: Map<string, string> | null = null;
 	let debounceHandle: number | null = null;
+	let pendingSave = false;
+	const lastSavedSignature = ref<string | null>(null);
+	const dirtySignal = ref(0);
 
 	function setStatus(message: string | null, tone: "error" | "info" = "info") {
 		statusMessage.value = message;
@@ -108,22 +78,22 @@ export function useAutoSavePreferences(options: AutoSaveOptions) {
 
 	async function sendUpdate(
 		form: HTMLFormElement,
-		submittedSnapshot: Map<string, string>,
+		formData: FormData,
+		submittedSignature: string,
 	) {
 		isSaving.value = true;
 		setStatus("Saving...", "info");
 
 		try {
-			const submittedFormData = formDataFromSnapshot(submittedSnapshot);
 			const response = await fetch(form.action, {
 				method: "POST",
-				body: submittedFormData,
+				body: formData,
 				credentials: "same-origin",
 				headers: { Accept: "application/json" },
 				signal: AbortSignal.timeout(10_000),
 			});
 
-			const payload = (await response.json()) as PreferencesResponse;
+			const payload = (await response.json()) as FormSaveResponse<T>;
 
 			if (!response.ok || !payload.ok) {
 				const formattedMessage =
@@ -136,80 +106,43 @@ export function useAutoSavePreferences(options: AutoSaveOptions) {
 				return;
 			}
 
-			if (debounceHandle) {
-				window.clearTimeout(debounceHandle);
-				debounceHandle = null;
-			}
-
-			initialSnapshot = submittedSnapshot;
+			lastSavedSignature.value = submittedSignature;
 			setStatus(null);
-			savedPreferences.value = payload.preferences ?? null;
+			savedData.value = (payload.preferences ?? null) as T | null;
 		} catch (error) {
 			if (error instanceof Error && error.name === "TimeoutError") {
 				setStatus("Save timed out. Please try again.", "error");
 			} else {
 				setStatus("Could not save changes. Please try again.", "error");
 			}
-			rootLogger.error(
-				"Autosave failed for dashboard preferences",
-				undefined,
-				error,
-			);
+			rootLogger.error("Autosave failed for dashboard form", undefined, error);
 		} finally {
 			isSaving.value = false;
-			if (queued) {
-				queued = false;
+			if (pendingSave) {
+				pendingSave = false;
 				const currentForm = options.formRef.value;
-				const snapshotToSave =
-					pendingSnapshot ??
-					(currentForm ? snapshot(new FormData(currentForm)) : null);
-				pendingSnapshot = null;
-				if (currentForm && snapshotToSave) {
-					void triggerSave(currentForm, snapshotToSave);
+				if (currentForm) {
+					void triggerSave(currentForm);
 				}
 			}
 		}
 	}
 
-	async function triggerSave(
-		form: HTMLFormElement,
-		currentSnapshot: Map<string, string>,
-	) {
-		if (!initialSnapshot) {
-			initialSnapshot = currentSnapshot;
-		}
-		if (!hasSnapshotChanged(currentSnapshot, initialSnapshot)) {
+	async function triggerSave(form: HTMLFormElement) {
+		const formData = new FormData(form);
+		const currentSignature = serializeFormData(formData);
+		if (currentSignature === lastSavedSignature.value) {
 			return;
 		}
-
 		if (isSaving.value) {
-			queued = true;
-			pendingSnapshot = currentSnapshot;
+			pendingSave = true;
 			return;
 		}
 
-		await sendUpdate(form, currentSnapshot);
+		await sendUpdate(form, formData, currentSignature);
 	}
 
 	function scheduleSave(form: HTMLFormElement) {
-		const currentSnapshot = snapshot(new FormData(form));
-		if (!initialSnapshot) {
-			initialSnapshot = currentSnapshot;
-		}
-		if (!hasSnapshotChanged(currentSnapshot, initialSnapshot)) {
-			if (debounceHandle) {
-				window.clearTimeout(debounceHandle);
-				debounceHandle = null;
-			}
-			return;
-		}
-
-		if (isSaving.value) {
-			queued = true;
-			pendingSnapshot = currentSnapshot;
-			return;
-		}
-
 		if (debounceHandle) {
 			window.clearTimeout(debounceHandle);
 			debounceHandle = null;
@@ -217,32 +150,20 @@ export function useAutoSavePreferences(options: AutoSaveOptions) {
 
 		// Debounce autosave to batch rapid user input intentionally.
 		debounceHandle = window.setTimeout(() => {
-			void triggerSave(form, currentSnapshot);
+			void triggerSave(form);
 		}, debounceMs);
 	}
 
 	function notifyChange() {
-		const currentForm = options.formRef.value;
-		if (!currentForm) {
-			return;
-		}
-		scheduleSave(currentForm);
+		dirtySignal.value += 1;
 	}
 
 	function handleFormInput() {
-		const form = options.formRef.value;
-		if (!form) {
-			return;
-		}
-		scheduleSave(form);
+		dirtySignal.value += 1;
 	}
 
 	function handleFormChange() {
-		const form = options.formRef.value;
-		if (!form) {
-			return;
-		}
-		scheduleSave(form);
+		dirtySignal.value += 1;
 	}
 
 	async function handleFormSubmit(event: SubmitEvent): Promise<void> {
@@ -253,29 +174,41 @@ export function useAutoSavePreferences(options: AutoSaveOptions) {
 
 		const submitter = event.submitter ?? null;
 		const path = resolveActionPath(form, submitter);
-		if (path !== "/api/preferences") {
+		const expectedPath =
+			options.expectedActionPath ??
+			new URL(form.action, window.location.href).pathname;
+		if (path !== expectedPath) {
 			return;
 		}
 
 		event.preventDefault();
-		const currentSnapshot = snapshot(new FormData(form));
-		await triggerSave(form, currentSnapshot);
+		await triggerSave(form);
 	}
+
+	watch(dirtySignal, () => {
+		const form = options.formRef.value;
+		if (!form) {
+			return;
+		}
+		scheduleSave(form);
+	});
 
 	watch(
 		() => options.formRef.value,
-		(form, previousForm) => {
-			if (previousForm && form !== previousForm) {
-				initialSnapshot = null;
-				pendingSnapshot = null;
-				queued = false;
+		(form) => {
+			if (!form) {
+				return;
 			}
-			if (form && !initialSnapshot) {
-				initialSnapshot = snapshot(new FormData(form));
-			}
+			lastSavedSignature.value = serializeFormData(new FormData(form));
 		},
 		{ immediate: true },
 	);
+
+	onBeforeUnmount(() => {
+		if (debounceHandle) {
+			window.clearTimeout(debounceHandle);
+		}
+	});
 
 	return {
 		handleFormChange,
@@ -283,7 +216,7 @@ export function useAutoSavePreferences(options: AutoSaveOptions) {
 		handleFormSubmit,
 		isSaving,
 		notifyChange,
-		savedPreferences,
+		savedData,
 		statusMessage,
 		statusTone,
 	};
