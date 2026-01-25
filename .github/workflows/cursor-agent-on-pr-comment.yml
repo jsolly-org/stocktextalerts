@@ -21,6 +21,8 @@ jobs:
     env:
       INTERNAL_MARKER: "<!-- cursor-agent-workflow:internal -->"
       WORKFLOW_FILE: cursor-agent-on-pr-comment.yml
+      CURSOR_AGENT_NAME: "Cursor Agent"
+      CURSOR_AGENT_EMAIL: "cursoragent@cursor.com"
     steps:
       - name: Check if should skip
         id: should_skip
@@ -36,42 +38,17 @@ jobs:
             SKIP="true"
           fi
           
-          # Check for bot users
-          case "$COMMENT_USER" in
-            cursor-bugbot|cursor-bugbot[bot]|cursor[bot])
-              echo "Skipping bugbot comment: $COMMENT_USER"
+          # Skip Vercel deployment status updates (status tables, preview links, deployment notifications).
+          # Process Vercel Agent review comments (actual code review comments without status markers).
+          if [[ "$COMMENT_USER" == "vercel" ]] || [[ "$COMMENT_USER" == "vercel[bot]" ]]; then
+            if [[ "$COMMENT_BODY" == *"The latest updates on your projects"* ]] || \
+               [[ "$COMMENT_BODY" == *"[vc]:"* ]] || \
+               [[ "$COMMENT_BODY" == *"<!-- vercel:"* ]] || \
+               [[ "$COMMENT_BODY" =~ ^\[vc\]: ]]; then
+              echo "Skipping Vercel status update: $COMMENT_USER"
               SKIP="true"
-              ;;
-            vercel|vercel[bot])
-              # Skip Vercel deployment status updates (status tables, preview links, deployment notifications).
-              # Process Vercel Agent review comments (actual code review comments without status markers).
-              if [[ "$COMMENT_BODY" == *"The latest updates on your projects"* ]] || \
-                 [[ "$COMMENT_BODY" == *"[vc]:"* ]] || \
-                 [[ "$COMMENT_BODY" == *"<!-- vercel:"* ]] || \
-                 [[ "$COMMENT_BODY" =~ ^\[vc\]: ]]; then
-                echo "Skipping Vercel status update: $COMMENT_USER"
-                SKIP="true"
-              else
-                echo "Processing Vercel Agent review comment: $COMMENT_USER"
-              fi
-              ;;
-            coderabbitai[bot])
-              echo "Skipping CodeRabbit comment: $COMMENT_USER"
-              SKIP="true"
-              ;;
-            copilot-pull-request-reviewer|copilot[bot])
-              echo "Skipping Copilot review comment: $COMMENT_USER"
-              SKIP="true"
-              ;;
-            dependabot[bot])
-              echo "Skipping Dependabot comment: $COMMENT_USER"
-              SKIP="true"
-              ;;
-            github-actions[bot])
-              echo "Skipping GitHub Actions comment: $COMMENT_USER"
-              SKIP="true"
-              ;;
-          esac
+            fi
+          fi
           
           echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
 
@@ -85,34 +62,26 @@ jobs:
           EVENT_NAME="${{ github.event_name }}"
           COMMENT_ID="${{ github.event.comment.id }}"
           COMMENT_USER="${{ github.event.comment.user.login }}"
-          IS_PR="false"
-
+          
           if [[ "$EVENT_NAME" == "issue_comment" ]]; then
-            ISSUE_NUMBER="${{ github.event.issue.number }}"
-            # Check if issue is actually a PR
-            ISSUE_JSON=$(gh api "repos/$REPO/issues/$ISSUE_NUMBER")
-            PULL_REQUEST_URL=$(echo "$ISSUE_JSON" | jq -r '.pull_request.url // empty')
-            
-            if [[ -n "$PULL_REQUEST_URL" && "$PULL_REQUEST_URL" != "null" ]]; then
-              IS_PR="true"
-              PR_NUMBER="$ISSUE_NUMBER"
-              PR_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
-              HEAD_REPO=$(echo "$PR_JSON" | jq -r '.head.repo.full_name')
-              HEAD_REF=$(echo "$PR_JSON" | jq -r '.head.ref')
-              HEAD_SHA=$(echo "$PR_JSON" | jq -r '.head.sha')
-            else
-              echo "Issue $ISSUE_NUMBER is not a pull request. Skipping."
-              PR_NUMBER=""
-              HEAD_REPO=""
-              HEAD_REF=""
-              HEAD_SHA=""
-            fi
+            PR_NUMBER="${{ github.event.issue.number }}"
+            # github.event.issue.pull_request.url is only present when the issue is a PR
+            PULL_REQUEST_URL="${{ github.event.issue.pull_request.url }}"
+            IS_PR=$([[ -n "$PULL_REQUEST_URL" && "$PULL_REQUEST_URL" != "null" ]] && echo "true" || echo "false")
           else
-            IS_PR="true"
             PR_NUMBER="${{ github.event.pull_request.number }}"
-            HEAD_REPO="${{ github.event.pull_request.head.repo.full_name }}"
-            HEAD_REF="${{ github.event.pull_request.head.ref }}"
-            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+            IS_PR="true"
+          fi
+          
+          if [[ "$IS_PR" == "true" ]]; then
+            PR_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
+            HEAD_REPO=$(echo "$PR_JSON" | jq -r '.head.repo.full_name')
+            HEAD_REF=$(echo "$PR_JSON" | jq -r '.head.ref')
+            HEAD_SHA=$(echo "$PR_JSON" | jq -r '.head.sha')
+          else
+            HEAD_REPO=""
+            HEAD_REF=""
+            HEAD_SHA=""
           fi
 
           {
@@ -126,16 +95,8 @@ jobs:
             echo "is_pr=$IS_PR"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Block forked PRs
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.head_repo != github.repository
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh pr comment "${{ steps.pr.outputs.pr_number }}" \
-            --body "Automatic Cursor agent runs are disabled for forked PRs. $INTERNAL_MARKER"
-
       - name: Rate limit check
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.head_repo == github.repository
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -155,7 +116,7 @@ jobs:
           fi
 
       - name: Checkout PR head
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.head_repo == github.repository
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true'
         uses: actions/checkout@v6
         with:
           repository: ${{ steps.pr.outputs.head_repo }}
@@ -163,7 +124,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install Cursor CLI
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.head_repo == github.repository
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true'
         run: |
           # Note: Cursor CLI installer doesn't support version pinning yet.
           # Consider checking for a specific release URL or checksum verification when available.
@@ -171,13 +132,13 @@ jobs:
           echo "$HOME/.cursor/bin" >> $GITHUB_PATH
 
       - name: Configure git identity
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.head_repo == github.repository
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true'
         run: |
-          git config user.name "Cursor Agent"
-          git config user.email "cursoragent@cursor.com"
+          git config user.name "$CURSOR_AGENT_NAME"
+          git config user.email "$CURSOR_AGENT_EMAIL"
 
       - name: Run Cursor agent
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.head_repo == github.repository
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true'
         id: agent
         continue-on-error: true
         env:
@@ -189,58 +150,47 @@ jobs:
           COMMENT_BODY: ${{ github.event.comment.body }}
           HEAD_REF: ${{ steps.pr.outputs.head_ref }}
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          REPO: ${{ github.repository }}
         run: |
-          PROMPT=$(python - <<'PY'
-          import os
+          PROMPT=$(cat <<PROMPT_END
+You are operating in a GitHub Actions runner.
 
-          comment_body = os.environ.get("COMMENT_BODY", "")
-          comment_event = os.environ.get("COMMENT_EVENT", "")
-          comment_id = os.environ.get("COMMENT_ID", "")
-          pr_number = os.environ.get("PR_NUMBER", "")
-          head_ref = os.environ.get("HEAD_REF", "")
-          repo = os.environ.get("GITHUB_REPOSITORY", "")
+You have access to git and the GitHub CLI. You MUST NOT post PR comments.
 
-          prompt = f"""You are operating in a GitHub Actions runner.
+Context:
+- Repo: $REPO
+- PR Number: $PR_NUMBER
+- Head Branch: $HEAD_REF
+- Trigger Event: $COMMENT_EVENT
+- Trigger Comment ID: $COMMENT_ID
 
-          You have access to git and the GitHub CLI. You MUST NOT post PR comments.
+Comment body:
+$COMMENT_BODY
 
-          Context:
-          - Repo: {repo}
-          - PR Number: {pr_number}
-          - Head Branch: {head_ref}
-          - Trigger Event: {comment_event}
-          - Trigger Comment ID: {comment_id}
-
-          Comment body:
-          {comment_body}
-
-          Requirements:
-          1) Analyze the comment and make the necessary code changes.
-          2) Commit the changes and push directly to the PR head branch.
-          3) Include the PR number and comment ID in the commit message for traceability.
-          4) After a successful commit and push, mark the comment as resolved:
-             - If the event is pull_request_review_comment, resolve the review thread using GraphQL:
-               The comment ID {comment_id} needs to be converted to a GraphQL node ID. Use this approach:
-               1. Get the comment via REST API to check if it has thread information:
-                  COMMENT_JSON=$(gh api "repos/{repo}/pulls/{pr_number}/comments/{comment_id}")
-               2. Query the comment via GraphQL to get its thread ID. The node ID format is "PRRC_" followed by base64-encoded comment ID:
-                  COMMENT_NODE_ID="PRRC_$(echo -n "{comment_id}" | base64)"
-                  THREAD_QUERY='query{node(id:"'$COMMENT_NODE_ID'"){... on PullRequestReviewComment{thread{id}}}}'
-                  THREAD_ID=$(gh api graphql -f query="$THREAD_QUERY" -q '.data.node.thread.id')
-               3. Resolve the thread:
-                  RESOLVE_MUTATION='mutation{resolveReviewThread(input:{threadId:"'$THREAD_ID'"}){thread{isResolved}}}'
-                  gh api graphql -f query="$RESOLVE_MUTATION"
-             - If the event is issue_comment, add a reaction:
-               gh api -X POST /repos/{repo}/issues/comments/{comment_id}/reactions -f content=eyes
-          """
-
-          print(prompt)
-          PY
+Requirements:
+1) Analyze the comment and make the necessary code changes.
+2) Commit the changes and push directly to the PR head branch.
+3) Include the PR number and comment ID in the commit message for traceability.
+4) After a successful commit and push, mark the comment as resolved:
+   - If the event is pull_request_review_comment, resolve the review thread using GraphQL:
+     The comment ID $COMMENT_ID needs to be converted to a GraphQL node ID. Use this approach:
+     1. Get the comment via REST API to check if it has thread information:
+        COMMENT_JSON=\$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID")
+     2. Query the comment via GraphQL to get its thread ID. The node ID format is "PRRC_" followed by base64-encoded comment ID:
+        COMMENT_NODE_ID="PRRC_\$(echo -n "$COMMENT_ID" | base64)"
+        THREAD_QUERY='query{node(id:"'\$COMMENT_NODE_ID'"){... on PullRequestReviewComment{thread{id}}}}'
+        THREAD_ID=\$(gh api graphql -f query="\$THREAD_QUERY" -q '.data.node.thread.id')
+     3. Resolve the thread:
+        RESOLVE_MUTATION='mutation{resolveReviewThread(input:{threadId:"'\$THREAD_ID'"}){thread{isResolved}}}'
+        gh api graphql -f query="\$RESOLVE_MUTATION"
+   - If the event is issue_comment, add a reaction:
+     gh api -X POST /repos/$REPO/issues/comments/$COMMENT_ID/reactions -f content=eyes
+PROMPT_END
           )
           agent -p "$PROMPT" --model gpt-5.2 --output-format=text
 
       - name: Report agent failure
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.head_repo == github.repository && steps.agent.outcome == 'failure'
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.agent.outcome == 'failure'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
