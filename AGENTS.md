@@ -55,6 +55,9 @@ This file captures the non-negotiables for this repo. It is a new app, so we opt
 ## Available CLI Tools
 The following CLI tools are available: Biome CLI, Cursor CLI, CodeRabbit CLI, Vercel CLI, GitHub CLI, Supabase CLI.
 
+## GitHub Actions Workflows
+- **Cursor Agent on PR Comment** (`.github/workflows/cursor-agent-on-pr-comment.yml`): Processes PR comments from trusted agents (Cursor, CodeRabbit, Copilot) and executes code changes. Comment body is not sanitized because this is a private repository with trusted agents. If this workflow is used in a public repository or with untrusted commenters, sanitization should be re-added to prevent prompt injection.
+
 ## Design System
 - **Semantic tokens live in `src/global.css`** via Tailwind v4 `@theme` variables (primary, success, warning, error, info).
 - **Status UI is standardized**: use `StatusMessage.astro` / `StatusMessage.vue` or `status-tone-*` classes instead of custom color blocks.

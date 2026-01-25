@@ -360,10 +360,6 @@ async function handlePreferencesFormSubmitWrapper(event: SubmitEvent) {
 }
 
 async function handlePreferencesUpdated() {
-	const form = preferencesFormElement.value;
-	if (!form) {
-		return;
-	}
 	try {
 		const response = await fetch("/api/preferences/current", {
 			method: "GET",

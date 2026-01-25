@@ -163,58 +163,22 @@ jobs:
             echo "is_pr=$IS_PR"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Sanitize comment body
+      - name: Pass through comment body
         id: sanitize_comment
         if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true'
         env:
           COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
-          # Remove control sequences and special characters that could be used for prompt injection
-          # Remove null bytes and ANSI escape sequences
-          SANITIZED=$(printf '%s' "$COMMENT_BODY" | \
-            tr -d '\000' | \
-            sed 's/\x1b\[[0-9;]*m//g')
-          
-          # Remove HTML/XML tags and comments that could contain injection attempts
-          SANITIZED=$(printf '%s' "$SANITIZED" | \
-            sed 's/<!--[^>]*-->//g' | \
-            sed 's/<[^>]*>//g')
-          
-          # Remove code blocks (triple backticks) that could contain system directives
-          SANITIZED=$(printf '%s' "$SANITIZED" | \
-            sed ':a;N;$!ba;s/```[^`]*```/[CODE_BLOCK_REMOVED]/g')
-          
-          # Remove inline code (single backticks) that could contain injection
-          SANITIZED=$(printf '%s' "$SANITIZED" | \
-            sed 's/`[^`]*`/[CODE_REMOVED]/g')
-          
-          # Remove system-like directives and command patterns (case-insensitive)
-          SANITIZED=$(printf '%s' "$SANITIZED" | \
-            sed -E 's/^[[:space:]]*(system|exec|eval|run|command|execute)[[:space:]]*:.*$//gi' | \
-            sed -E 's/^[[:space:]]*(ignore|skip|override)[[:space:]]*previous[[:space:]]*instructions.*$//gi' | \
-            sed -E 's/^[[:space:]]*\[INST\].*\[\/INST\].*$//gi' | \
-            sed -E 's/^[[:space:]]*<\|.*\|>.*$//gi')
-          
-          # Remove variable substitution patterns that could be exploited
-          SANITIZED=$(printf '%s' "$SANITIZED" | \
-            sed 's/\$\$[^$]*\$\$//g' | \
-            sed 's/\${[^}]*}//g')
-          
-          # Prevent delimiter injection by escaping delimiter markers
-          # Replace any attempts to inject the delimiter strings with escaped versions
-          SANITIZED=$(printf '%s' "$SANITIZED" | \
-            sed 's/---SYSTEM_INSTRUCTIONS_START---/[DELIMITER_ESCAPED]/g' | \
-            sed 's/---SYSTEM_INSTRUCTIONS_END---/[DELIMITER_ESCAPED]/g' | \
-            sed 's/---USER_INPUT_START---/[DELIMITER_ESCAPED]/g' | \
-            sed 's/---USER_INPUT_END---/[DELIMITER_ESCAPED]/g')
-          
-          # Limit length to prevent extremely long inputs (10KB max)
-          SANITIZED=$(printf '%s' "$SANITIZED" | head -c 10000)
-          
-          # Output sanitized comment using multiline format
+          # No sanitization: This is a private repository with trusted agents (Cursor, CodeRabbit, Copilot)
+          # writing comments. Sanitization was previously removing code blocks and inline code, which
+          # stripped important context from comments. We trust the agents to write appropriate comments
+          # without prompt injection attempts. If this workflow is used in a public repository or
+          # with untrusted commenters, sanitization should be re-added.
+          #
+          # Output comment body using multiline format for safe handling of special characters
           {
             echo "sanitized<<EOF" >> "$GITHUB_OUTPUT"
-            printf '%s' "$SANITIZED" >> "$GITHUB_OUTPUT"
+            printf '%s' "$COMMENT_BODY" >> "$GITHUB_OUTPUT"
             echo "" >> "$GITHUB_OUTPUT"
             echo "EOF" >> "$GITHUB_OUTPUT"
           }
