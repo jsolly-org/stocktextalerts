@@ -74,14 +74,18 @@ jobs:
           # GitHub Copilot posts review comments as github-copilot[bot], which also
           # shows up as permission=none. Allowlist it so Copilot review comments can trigger the workflow.
           IS_COPILOT_BOT=$([[ "$COMMENT_USER" == "github-copilot[bot]" ]] && echo "true" || echo "false")
+
+          # CodeRabbit posts review comments as coderabbitai[bot], which also shows up
+          # as permission=none. Allowlist it so CodeRabbit review comments can trigger the workflow.
+          IS_CODERABBIT_BOT=$([[ "$COMMENT_USER" == "coderabbitai[bot]" ]] && echo "true" || echo "false")
           
           # Allow admin, write, or owner
           # Note: 'maintain' permission is also write-level access
-          if [[ "$PERMISSION" == "admin" ]] || [[ "$PERMISSION" == "write" ]] || [[ "$PERMISSION" == "maintain" ]] || [[ "$IS_OWNER" == "true" ]] || [[ "$IS_CURSOR_BOT" == "true" ]] || [[ "$IS_COPILOT_BOT" == "true" ]]; then
-            echo "Authorization granted: permission=$PERMISSION, is_owner=$IS_OWNER, is_cursor_bot=$IS_CURSOR_BOT, is_copilot_bot=$IS_COPILOT_BOT"
+          if [[ "$PERMISSION" == "admin" ]] || [[ "$PERMISSION" == "write" ]] || [[ "$PERMISSION" == "maintain" ]] || [[ "$IS_OWNER" == "true" ]] || [[ "$IS_CURSOR_BOT" == "true" ]] || [[ "$IS_COPILOT_BOT" == "true" ]] || [[ "$IS_CODERABBIT_BOT" == "true" ]]; then
+            echo "Authorization granted: permission=$PERMISSION, is_owner=$IS_OWNER, is_cursor_bot=$IS_CURSOR_BOT, is_copilot_bot=$IS_COPILOT_BOT, is_coderabbit_bot=$IS_CODERABBIT_BOT"
             echo "authorized=true" >> "$GITHUB_OUTPUT"
           else
-            echo "Skipping: permission=$PERMISSION, is_owner=$IS_OWNER, is_cursor_bot=$IS_CURSOR_BOT, is_copilot_bot=$IS_COPILOT_BOT"
+            echo "Skipping: permission=$PERMISSION, is_owner=$IS_OWNER, is_cursor_bot=$IS_CURSOR_BOT, is_copilot_bot=$IS_COPILOT_BOT, is_coderabbit_bot=$IS_CODERABBIT_BOT"
             echo "User $COMMENT_USER does not have admin, write, or maintain permissions"
             echo "authorized=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -244,8 +248,58 @@ jobs:
             exit 0
           fi
 
-          COUNT=$(echo "$RUNS_JSON" | jq --argjson limit "$LIMIT" --arg pr "$PR_NUMBER" \
-            '[.workflow_runs[] | select(.created_at | fromdateiso8601 >= $limit) | select((.pull_requests // []) | any(.number == ($pr|tonumber))) ] | length' 2>&1)
+          # Filter runs from the last hour
+          # For issue_comment-triggered runs, pull_requests is empty, so we need to check head_sha associations
+          RECENT_RUNS=$(echo "$RUNS_JSON" | jq --argjson limit "$LIMIT" \
+            '[.workflow_runs[] | select(.created_at | fromdateiso8601 >= $limit)]' 2>&1)
+
+          COUNT=0
+          RUN_COUNT=$(echo "$RECENT_RUNS" | jq 'length' 2>&1)
+          
+          # Ensure RUN_COUNT is a valid number
+          if ! [[ "$RUN_COUNT" =~ ^[0-9]+$ ]]; then
+            echo "Warning: Could not determine run count, skipping rate limit check"
+            exit 0
+          fi
+          
+          for ((i=0; i<RUN_COUNT; i++)); do
+            RUN=$(echo "$RECENT_RUNS" | jq ".[$i]" 2>&1)
+            
+            # First, try the pull_requests field (works for pull_request triggered runs)
+            PR_MATCH=$(echo "$RUN" | jq --arg pr "$PR_NUMBER" \
+              'if (.pull_requests // []) | any(.number == ($pr|tonumber)) then 1 else 0 end' 2>&1)
+            
+            if [[ "$PR_MATCH" == "1" ]]; then
+              COUNT=$((COUNT + 1))
+              continue
+            fi
+            
+            # If pull_requests is empty, check head_sha association via commits API
+            # This handles issue_comment-triggered runs
+            HEAD_SHA=$(echo "$RUN" | jq -r '.head_sha // ""' 2>&1)
+            
+            if [[ -z "$HEAD_SHA" ]] || [[ "$HEAD_SHA" == "null" ]]; then
+              continue
+            fi
+            
+            # Check if this head_sha is associated with the PR via commits API
+            COMMITS_PULLS=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" 2>&1)
+            COMMITS_EXIT=$?
+            
+            if [[ $COMMITS_EXIT -ne 0 ]]; then
+              # If API call fails, skip this run (mirror existing RUNS_EXIT logic)
+              echo "Warning: Could not check commits/$HEAD_SHA/pulls, skipping this run"
+              continue
+            fi
+            
+            # Check if any associated PR matches our PR number
+            PR_MATCH=$(echo "$COMMITS_PULLS" | jq --arg pr "$PR_NUMBER" \
+              '[.[] | select(.number == ($pr|tonumber))] | length' 2>&1)
+            
+            if [[ "$PR_MATCH" -gt 0 ]]; then
+              COUNT=$((COUNT + 1))
+            fi
+          done
 
           if [[ "$COUNT" -ge 60 ]]; then
             gh pr comment "$PR_NUMBER" \
@@ -264,45 +318,8 @@ jobs:
       - name: Install Cursor CLI
         if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true'
         run: |
-          # Download installer to temporary file instead of piping directly to bash
-          INSTALLER_TMP=$(mktemp)
-          trap "rm -f $INSTALLER_TMP" EXIT
-          
-          # Download with error handling
-          if ! curl -fsSL https://cursor.com/install -o "$INSTALLER_TMP"; then
-            echo "Failed to download Cursor CLI installer"
-            exit 1
-          fi
-          
-          # Verify file was downloaded and is not empty
-          if [[ ! -s "$INSTALLER_TMP" ]]; then
-            echo "Downloaded installer file is empty"
-            exit 1
-          fi
-          
-          # Integrity checks: verify file size is within reasonable bounds (1KB - 10MB)
-          FILE_SIZE=$(stat -f%z "$INSTALLER_TMP" 2>/dev/null || stat -c%s "$INSTALLER_TMP" 2>/dev/null || echo "0")
-          MIN_SIZE=1024
-          MAX_SIZE=10485760
-          if [[ "$FILE_SIZE" -lt "$MIN_SIZE" ]] || [[ "$FILE_SIZE" -gt "$MAX_SIZE" ]]; then
-            echo "Downloaded installer file size ($FILE_SIZE bytes) is outside expected range ($MIN_SIZE-$MAX_SIZE bytes)"
-            exit 1
-          fi
-          
-          # Verify file appears to be a shell script (starts with shebang)
-          if ! head -n 1 "$INSTALLER_TMP" | grep -qE '^#!/bin/(bash|sh)'; then
-            echo "Downloaded installer does not appear to be a valid shell script"
-            exit 1
-          fi
-          
-          # Note: Cursor CLI installer doesn't support checksum verification yet.
-          # When available, verify checksum here before execution.
-          # Example: echo "$EXPECTED_CHECKSUM  $INSTALLER_TMP" | sha256sum -c
-          
-          # Execute verified installer
-          bash "$INSTALLER_TMP"
-          
-          # Add to PATH only after successful installation
+          # Per Cursor docs: https://cursor.com/install
+          curl https://cursor.com/install -fsS | bash
           echo "$HOME/.cursor/bin" >> $GITHUB_PATH
 
       - name: Configure git identity

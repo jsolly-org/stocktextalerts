@@ -28,20 +28,19 @@
 					needsChannelSelection ? 'cursor-not-allowed' : 'cursor-pointer',
 				]"
 			>
-				<input
-					type="hidden"
-					name="daily_digest_enabled"
-					:value="enabledValue ? 'on' : 'off'"
-				/>
-				<input
-					type="checkbox"
-					name="daily_digest_enabled"
-					value="on"
-					id="daily_digest_enabled"
-					class="h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
-					v-model="enabledValue"
-					:disabled="needsChannelSelection"
-				/>
+			<input
+				type="hidden"
+				name="daily_digest_enabled"
+				:value="enabledValue ? 'on' : 'off'"
+			/>
+			<input
+				type="checkbox"
+				value="on"
+				id="daily_digest_enabled"
+				class="h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
+				v-model="enabledValue"
+				:disabled="needsChannelSelection"
+			/>
 				<span class="text-sm font-medium text-gray-700">Enabled</span>
 			</label>
 		</div>
