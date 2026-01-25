@@ -26,9 +26,12 @@ jobs:
 
       - name: Install Cursor CLI
         run: |
-          # Note: Cursor CLI installer doesn't support version pinning yet.
-          # Consider checking for a specific release URL or checksum verification when available.
-          curl https://cursor.com/install -fsS | bash
+          # Download installer script to file first (safer than piping directly to bash)
+          # Note: Cursor CLI installer doesn't support version pinning or checksum verification yet.
+          # Consider adding checksum verification when Cursor provides it.
+          curl https://cursor.com/install -fsS -o /tmp/cursor-install.sh
+          bash /tmp/cursor-install.sh
+          rm -f /tmp/cursor-install.sh
           echo "$HOME/.cursor/bin" >> $GITHUB_PATH
 
       - name: Configure git identity

@@ -10,6 +10,7 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
+  actions: read
 
 jobs:
   run-agent:
@@ -23,8 +24,35 @@ jobs:
       CURSOR_AGENT_NAME: "Cursor Agent"
       CURSOR_AGENT_EMAIL: "cursoragent@cursor.com"
     steps:
+      - name: Check commenter authorization
+        id: check_auth
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_USER: ${{ github.event.comment.user.login }}
+        run: |
+          REPO="${{ github.repository }}"
+          
+          # Check repository permission level for the commenter
+          PERMISSION=$(gh api "repos/$REPO/collaborators/$COMMENT_USER/permission" -q '.permission' 2>/dev/null || echo "none")
+          
+          # Also check if user is the repository owner
+          OWNER=$(echo "$REPO" | cut -d'/' -f1)
+          IS_OWNER=$([[ "$COMMENT_USER" == "$OWNER" ]] && echo "true" || echo "false")
+          
+          # Allow admin, write, or owner
+          if [[ "$PERMISSION" == "admin" ]] || [[ "$PERMISSION" == "write" ]] || [[ "$IS_OWNER" == "true" ]]; then
+            echo "Authorization granted: permission=$PERMISSION, is_owner=$IS_OWNER"
+            echo "authorized=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Authorization denied: permission=$PERMISSION, is_owner=$IS_OWNER"
+            echo "User $COMMENT_USER does not have admin or write permissions"
+            echo "authorized=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
       - name: Check if should skip
         id: should_skip
+        if: steps.check_auth.outputs.authorized == 'true'
         env:
           COMMENT_BODY: ${{ github.event.comment.body }}
           COMMENT_USER: ${{ github.event.comment.user.login }}
@@ -53,7 +81,7 @@ jobs:
 
       - name: Extract PR metadata
         id: pr
-        if: steps.should_skip.outputs.skip != 'true'
+        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -94,8 +122,56 @@ jobs:
             echo "is_pr=$IS_PR"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Sanitize comment body
+        id: sanitize_comment
+        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true'
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          # Remove control sequences and special characters that could be used for prompt injection
+          # Remove null bytes and ANSI escape sequences
+          SANITIZED=$(printf '%s' "$COMMENT_BODY" | \
+            tr -d '\000' | \
+            sed 's/\x1b\[[0-9;]*m//g')
+          
+          # Remove HTML/XML tags and comments that could contain injection attempts
+          SANITIZED=$(printf '%s' "$SANITIZED" | \
+            sed 's/<!--[^>]*-->//g' | \
+            sed 's/<[^>]*>//g')
+          
+          # Remove code blocks (triple backticks) that could contain system directives
+          SANITIZED=$(printf '%s' "$SANITIZED" | \
+            sed ':a;N;$!ba;s/```[^`]*```/[CODE_BLOCK_REMOVED]/g')
+          
+          # Remove inline code (single backticks) that could contain injection
+          SANITIZED=$(printf '%s' "$SANITIZED" | \
+            sed 's/`[^`]*`/[CODE_REMOVED]/g')
+          
+          # Remove system-like directives and command patterns (case-insensitive)
+          SANITIZED=$(printf '%s' "$SANITIZED" | \
+            sed -E 's/^[[:space:]]*(system|exec|eval|run|command|execute)[[:space:]]*:.*$//gi' | \
+            sed -E 's/^[[:space:]]*(ignore|skip|override)[[:space:]]*previous[[:space:]]*instructions.*$//gi' | \
+            sed -E 's/^[[:space:]]*\[INST\].*\[\/INST\].*$//gi' | \
+            sed -E 's/^[[:space:]]*<\|.*\|>.*$//gi')
+          
+          # Remove variable substitution patterns that could be exploited
+          SANITIZED=$(printf '%s' "$SANITIZED" | \
+            sed 's/\$\$[^$]*\$\$//g' | \
+            sed 's/\${[^}]*}//g')
+          
+          # Limit length to prevent extremely long inputs (10KB max)
+          SANITIZED=$(printf '%s' "$SANITIZED" | head -c 10000)
+          
+          # Output sanitized comment using multiline format
+          {
+            echo "sanitized<<EOF" >> "$GITHUB_OUTPUT"
+            printf '%s' "$SANITIZED" >> "$GITHUB_OUTPUT"
+            echo "" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+          }
+
       - name: Rate limit check
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true'
+        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -115,7 +191,7 @@ jobs:
           fi
 
       - name: Checkout PR head
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true'
+        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true'
         uses: actions/checkout@v6
         with:
           repository: ${{ steps.pr.outputs.head_repo }}
@@ -123,21 +199,57 @@ jobs:
           fetch-depth: 0
 
       - name: Install Cursor CLI
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true'
+        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true'
         run: |
-          # Note: Cursor CLI installer doesn't support version pinning yet.
-          # Consider checking for a specific release URL or checksum verification when available.
-          curl https://cursor.com/install -fsS | bash
+          # Download installer to temporary file instead of piping directly to bash
+          INSTALLER_TMP=$(mktemp)
+          trap "rm -f $INSTALLER_TMP" EXIT
+          
+          # Download with error handling
+          if ! curl -fsSL https://cursor.com/install -o "$INSTALLER_TMP"; then
+            echo "Failed to download Cursor CLI installer"
+            exit 1
+          fi
+          
+          # Verify file was downloaded and is not empty
+          if [[ ! -s "$INSTALLER_TMP" ]]; then
+            echo "Downloaded installer file is empty"
+            exit 1
+          fi
+          
+          # Integrity checks: verify file size is within reasonable bounds (1KB - 10MB)
+          FILE_SIZE=$(stat -f%z "$INSTALLER_TMP" 2>/dev/null || stat -c%s "$INSTALLER_TMP" 2>/dev/null || echo "0")
+          MIN_SIZE=1024
+          MAX_SIZE=10485760
+          if [[ "$FILE_SIZE" -lt "$MIN_SIZE" ]] || [[ "$FILE_SIZE" -gt "$MAX_SIZE" ]]; then
+            echo "Downloaded installer file size ($FILE_SIZE bytes) is outside expected range ($MIN_SIZE-$MAX_SIZE bytes)"
+            exit 1
+          fi
+          
+          # Verify file appears to be a shell script (starts with shebang)
+          if ! head -n 1 "$INSTALLER_TMP" | grep -qE '^#!/bin/(bash|sh)'; then
+            echo "Downloaded installer does not appear to be a valid shell script"
+            exit 1
+          fi
+          
+          # Note: Cursor CLI installer doesn't support checksum verification yet.
+          # When available, verify checksum here before execution.
+          # Example: echo "$EXPECTED_CHECKSUM  $INSTALLER_TMP" | sha256sum -c
+          
+          # Execute verified installer
+          bash "$INSTALLER_TMP"
+          
+          # Add to PATH only after successful installation
           echo "$HOME/.cursor/bin" >> $GITHUB_PATH
 
       - name: Configure git identity
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true'
+        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true'
         run: |
           git config user.name "$CURSOR_AGENT_NAME"
           git config user.email "$CURSOR_AGENT_EMAIL"
 
       - name: Run Cursor agent
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true'
+        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true'
         id: agent
         continue-on-error: true
         env:
@@ -146,12 +258,15 @@ jobs:
           PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
           COMMENT_ID: ${{ steps.pr.outputs.comment_id }}
           COMMENT_EVENT: ${{ steps.pr.outputs.event_name }}
-          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_BODY: ${{ steps.sanitize_comment.outputs.sanitized }}
           HEAD_REF: ${{ steps.pr.outputs.head_ref }}
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
           REPO: ${{ github.repository }}
         run: |
-          agent -p "You are operating in a GitHub Actions runner.
+          # Use structured format with clear delimiters to prevent prompt injection
+          # The delimiters ensure user input cannot override system instructions
+          agent -p "---SYSTEM_INSTRUCTIONS_START---
+          You are operating in a GitHub Actions runner.
 
           You have access to git and the GitHub CLI. You MUST NOT post PR comments.
 
@@ -162,20 +277,16 @@ jobs:
           - Trigger Event: $COMMENT_EVENT
           - Trigger Comment ID: $COMMENT_ID
 
-          Comment body:
-          $COMMENT_BODY
-
           Requirements:
-          1) Analyze the comment and make the necessary code changes.
+          1) Analyze the user comment below and make the necessary code changes.
           2) Commit the changes and push directly to the PR head branch.
           3) Include the PR number and comment ID in the commit message for traceability.
           4) After a successful commit and push, mark the comment as resolved:
              - If the event is pull_request_review_comment, resolve the review thread using GraphQL:
-               The comment ID $COMMENT_ID needs to be converted to a GraphQL node ID. Use this approach:
-               1. Get the comment via REST API to check if it has thread information:
+               1. Get the comment via REST API to extract its node_id:
                   COMMENT_JSON=\$(gh api \"repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID\")
-               2. Query the comment via GraphQL to get its thread ID. The node ID format is \"PRRC_\" followed by base64-encoded comment ID:
-                  COMMENT_NODE_ID=\"PRRC_\$(echo -n $COMMENT_ID | base64)\"
+                  COMMENT_NODE_ID=\$(echo \"\$COMMENT_JSON\" | jq -r '.node_id')
+               2. Query the comment via GraphQL to get its thread ID:
                   THREAD_QUERY='query{node(id:\"'\"\$COMMENT_NODE_ID\"'\"){... on PullRequestReviewComment{thread{id}}}}'
                   THREAD_ID=\$(gh api graphql -f query=\"\$THREAD_QUERY\" -q '.data.node.thread.id')
                3. Resolve the thread:
@@ -183,10 +294,16 @@ jobs:
                   gh api graphql -f query=\"\$RESOLVE_MUTATION\"
              - If the event is issue_comment, add a reaction:
                gh api -X POST /repos/$REPO/issues/comments/$COMMENT_ID/reactions -f content=eyes
+
+          ---SYSTEM_INSTRUCTIONS_END---
+
+          ---USER_INPUT_START---
+          $COMMENT_BODY
+          ---USER_INPUT_END---
           " --model gpt-5.2 --output-format=text
 
       - name: Report agent failure
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.agent.outcome == 'failure'
+        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true' && steps.agent.outcome == 'failure'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
