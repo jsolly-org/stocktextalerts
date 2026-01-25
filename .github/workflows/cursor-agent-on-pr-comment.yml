@@ -122,6 +122,23 @@ jobs:
             fi
           fi
 
+          # Skip comments that mention @coderabbitai (unless it's CodeRabbit itself responding).
+          if [[ "$COMMENT_BODY" =~ @[Cc]oderabbitai ]]; then
+            if [[ "$COMMENT_USER" != "coderabbitai[bot]" ]]; then
+              echo "Skipping comment that mentions @coderabbitai from $COMMENT_USER"
+              SKIP="true"
+            fi
+          fi
+
+          # Skip Copilot comments that have no meaningful content.
+          # These are empty responses that say "generated no new comments".
+          if [[ "$COMMENT_USER" == "github-copilot[bot]" ]]; then
+            if [[ "$COMMENT_BODY" =~ [Gg]enerated[[:space:]]+no[[:space:]]+new[[:space:]]+comments ]]; then
+              echo "Skipping Copilot comment with no meaningful feedback (generated no new comments)"
+              SKIP="true"
+            fi
+          fi
+
           echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
 
       - name: Extract PR metadata
