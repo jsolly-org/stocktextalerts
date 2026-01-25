@@ -170,19 +170,27 @@ export function setupCaptchaTokenInputListener(
 	tokenInputId: string,
 	handler: (token: string) => void,
 ) {
-	const input = resolveElement(tokenInputId, isInputElement);
-	if (!input) {
-		return () => {};
-	}
+	let teardown: (() => void) | null = null;
+	let cancelled = false;
 
-	const handleInput = () => {
-		handler(input.value);
-	};
-
-	input.addEventListener("input", handleInput);
+	onDomReady(() => {
+		if (cancelled) {
+			return;
+		}
+		const input = resolveElement(tokenInputId, isInputElement);
+		if (!input) {
+			return;
+		}
+		const handleInput = () => handler(input.value);
+		input.addEventListener("input", handleInput);
+		teardown = () => {
+			input.removeEventListener("input", handleInput);
+		};
+	});
 
 	return () => {
-		input.removeEventListener("input", handleInput);
+		cancelled = true;
+		teardown?.();
 	};
 }
 

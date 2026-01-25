@@ -24,10 +24,81 @@ export function parseTimeToMinutes(value: string): number | null {
 	return hours * 60 + minutes;
 }
 
+export type ParsedTime = {
+	hours: number;
+	minutes: number;
+	seconds: number;
+};
+
+export function parseTimeString(
+	value: string | null | undefined,
+): ParsedTime | null {
+	if (!value) {
+		return null;
+	}
+
+	const trimmed = value.trim();
+	if (!trimmed) {
+		return null;
+	}
+
+	const parts = trimmed.split(":");
+	if (parts.length !== 2) {
+		return null;
+	}
+
+	const [hoursPart, minutesPart] = parts;
+	if (!hoursPart || !minutesPart) {
+		return null;
+	}
+
+	if (!/^\d+$/.test(hoursPart) || !/^\d+$/.test(minutesPart)) {
+		return null;
+	}
+
+	const hours = Number.parseInt(hoursPart, 10);
+	const minutes = Number.parseInt(minutesPart, 10);
+
+	if (
+		!Number.isInteger(hours) ||
+		!Number.isInteger(minutes) ||
+		hours < 0 ||
+		hours > 23 ||
+		minutes < 0 ||
+		minutes > 59
+	) {
+		return null;
+	}
+	return { hours, minutes, seconds: 0 };
+}
+
 export function minutesToTimeInputValue(minutes: number): string {
 	const hours = Math.floor(minutes / 60);
 	const mins = minutes % 60;
 	return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+}
+
+export type TimeValue = {
+	hours: number | string;
+	minutes: number | string;
+};
+
+export function formatTimeValue(value: TimeValue): string {
+	const hours =
+		typeof value.hours === "string"
+			? Number.parseInt(value.hours, 10)
+			: value.hours;
+	const minutes =
+		typeof value.minutes === "string"
+			? Number.parseInt(value.minutes, 10)
+			: value.minutes;
+	return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+export function resolveIs24(): boolean {
+	const formatter = new Intl.DateTimeFormat(undefined, { hour: "numeric" });
+	const options = formatter.resolvedOptions();
+	return options.hourCycle === "h23" || options.hourCycle === "h24";
 }
 
 export function getNowInTimezone(timezone: string): string | null {

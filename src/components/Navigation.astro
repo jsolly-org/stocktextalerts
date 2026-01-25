@@ -41,15 +41,6 @@ const isLanding = currentPage === "/";
               >
                 Dashboard
               </a>
-              <a 
-                href="/profile" 
-                class:list={[
-                  "text-sm font-medium transition-colors",
-                  currentPage === "/profile" ? "text-blue-600" : "text-gray-600 hover:text-gray-900"
-                ]}
-              >
-                Settings
-              </a>
             </>
           )}
         </div>
@@ -59,6 +50,23 @@ const isLanding = currentPage === "/";
       <div class="flex items-center gap-4">
         {user ? (
           <div class="flex items-center gap-4">
+            <a
+              href="/profile"
+              aria-label="Profile"
+              class:list={[
+                "group rounded-full p-1 bg-gray-100 hover:bg-gray-200 transition-colors",
+                currentPage === "/profile" ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-white" : ""
+              ]}
+            >
+              <Icon
+                name="user-circle"
+                class:list={[
+                  "size-8",
+                  currentPage === "/profile" ? "text-blue-600" : "text-gray-500 group-hover:text-gray-700"
+                ]}
+                aria-hidden="true"
+              />
+            </a>
             <span class="text-sm text-gray-500 hidden md:block font-medium truncate max-w-[200px]">{user.email}</span>
             <div class="h-4 w-px bg-gray-200 hidden md:block"></div>
             <form action="/api/auth/signout" method="post" class="flex">

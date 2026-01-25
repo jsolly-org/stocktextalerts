@@ -47,6 +47,7 @@ This file captures the non-negotiables for this repo. It is a new app, so we opt
 - **Testing**: Vitest only; happy path coverage only. Do not use Jest.
 - **Linting/Formatting**: Biome only (No Prettier or ESLint)
 - **Styling**: Tailwind utilities preferred over custom CSS
+- **CI/CD**: GitHub Actions for continuous integration and deployment
 
 ## Export Pattern
 - Functions: `export function name(...)` directly where defined
