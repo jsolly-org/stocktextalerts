@@ -383,8 +383,8 @@ async function handlePreferencesUpdated() {
 		}
 	} catch (error) {
 		// Silently fail - preferences will refresh on next form change
-		rootLogger.warn("Failed to refresh preferences after banner dismissal", {
-			action: "refresh_preferences_after_banner_dismissal",
+		rootLogger.warn("Failed to refresh preferences", {
+			action: "refresh_preferences",
 			error,
 		});
 	}

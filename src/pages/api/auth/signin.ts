@@ -35,7 +35,7 @@ export const POST: APIRoute = async ({
 		return redirect(`/signin?error=invalid_form${emailParam}`);
 	}
 
-	const email = parsed.data.email;
+	const email = parsed.data.email.trim();
 	const password = parsed.data.password;
 	const captchaToken = parsed.data.captcha_token;
 

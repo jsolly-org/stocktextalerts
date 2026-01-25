@@ -5,23 +5,27 @@ import DashboardPanels from "../components/dashboard/DashboardPanels.vue";
 import type { StockOption } from "../components/dashboard/stocks/StockInput.vue";
 import Navigation from "../components/Navigation.astro";
 import Layout from "../layouts/Layout.astro";
-import { createUserService, getUserStocks, type Stock } from "../lib/db";
+import { createUserService, getUserStocks } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 import { rootLogger } from "../lib/logging";
 import { getTimezoneOptions } from "../lib/time/cache";
 
 /* ============= Precomputed Stock Options ============= */
-const stockOptions: StockOption[] = (stocksData as { data: Stock[] }).data.map(
-	(stock) => ({
-		value: stock.symbol,
-		label: `${stock.symbol} - ${stock.name}`,
-	}),
-);
+type StockJsonItem = {
+	symbol: string;
+	name: string;
+};
+const stockOptions: StockOption[] = (
+	stocksData as { data: StockJsonItem[] }
+).data.map((stock) => ({
+	value: stock.symbol,
+	label: `${stock.symbol} - ${stock.name}`,
+}));
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
 const authUser = await users.getCurrentUser();
 if (!authUser) {
-	rootLogger.error("Dashboard access attempted without authenticated user", {
+	rootLogger.info("Dashboard access attempted without authenticated user", {
 		page: "dashboard",
 		reason: "unauthenticated",
 	});

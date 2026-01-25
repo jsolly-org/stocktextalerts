@@ -9,8 +9,6 @@
 </template>
 
 <script lang="ts" setup>
-import { toRefs } from "vue";
-
 type StatusTone = "success" | "error" | "warning" | "info";
 
 const props = withDefaults(
@@ -22,8 +20,6 @@ const props = withDefaults(
 		tone: "info",
 	},
 );
-
-const { message, tone } = toRefs(props);
 
 const toneClasses: Record<StatusTone, string> = {
 	success: "status-tone-success",

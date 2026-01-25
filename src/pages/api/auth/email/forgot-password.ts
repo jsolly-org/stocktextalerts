@@ -5,10 +5,15 @@ import { parseWithSchema } from "../../../../lib/forms/parse";
 import { createLogger } from "../../../../lib/logging";
 
 /*
- * Default wait time for password reset rate limits.
+ * Wait time for password reset rate limits.
  * Supabase defaults to 60 seconds between password reset requests for the same email.
+ * Can be overridden via PASSWORD_RESET_RATE_LIMIT_SECONDS env var.
  */
-const DEFAULT_PASSWORD_RESET_RATE_LIMIT_SECONDS = 60;
+const PASSWORD_RESET_RATE_LIMIT_SECONDS =
+	Number.parseInt(
+		import.meta.env.PASSWORD_RESET_RATE_LIMIT_SECONDS ?? "60",
+		10,
+	) || 60;
 
 export const POST: APIRoute = async ({ request, redirect, locals }) => {
 	const url = new URL(request.url);
@@ -34,7 +39,7 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 			return redirect("/auth/forgot?error=invalid_form");
 		}
 
-		const email = parsed.data.email;
+		const email = parsed.data.email.trim();
 		const captchaToken = parsed.data.captcha_token;
 
 		const redirectTo = new URL("/auth/recover", getSiteUrl()).toString();
@@ -65,7 +70,7 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 					errorStatus: error.status,
 				});
 				return redirect(
-					`/auth/forgot?error=rate_limit&seconds=${DEFAULT_PASSWORD_RESET_RATE_LIMIT_SECONDS}`,
+					`/auth/forgot?error=rate_limit&seconds=${PASSWORD_RESET_RATE_LIMIT_SECONDS}`,
 				);
 			}
 

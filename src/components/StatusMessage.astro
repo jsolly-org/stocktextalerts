@@ -1,11 +1,13 @@
 ---
 type StatusTone = "success" | "error" | "warning" | "info";
 
-const { message, tone = "info", class: className } = Astro.props as {
+interface Props {
 	message?: string;
 	tone?: StatusTone;
 	class?: string;
-};
+}
+
+const { message, tone = "info", class: className } = Astro.props;
 
 const toneClasses: Record<StatusTone, string> = {
 	success: "status-tone-success",

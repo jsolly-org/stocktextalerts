@@ -35,7 +35,7 @@
 		</div>
 
 		<input type="hidden" name="phone_country_code" :value="user.phone_country_code" />
-		<input type="hidden" name="phone_national_number" :value="user.phone_number" />
+		<input type="hidden" name="phone_number" :value="user.phone_number" />
 
 		<div class="space-y-4 mt-4">
 			<OtpInput

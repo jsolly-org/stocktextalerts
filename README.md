@@ -17,7 +17,7 @@ A stock notification app that sends scheduled SMS and email updates about tracke
 
 - **Framework**: Astro 5 with SSR
 - **UI**: Vue 3 components with Tailwind CSS
-- **Icons**: Astro Icon (`astro-icon`) with local SVGs in `/src/icons`
+- **Icons**: Local SVGs in `/src/icons` loaded via `astro-icon` in `.astro` files; Vue components import SVGs via `vite-svg-loader` using the `?component` suffix
 - **Database**: Supabase (PostgreSQL)
 - **Email**: Resend
 - **SMS**: Twilio Verify API + Messaging API
@@ -211,7 +211,10 @@ npm run fix
 - `POST /api/auth/sms/verify-code`
 
 **Notifications & Preferences:**
-- `POST /api/preferences`
+- `GET /api/preferences/current`
+- `POST /api/preferences/update`
+- `POST /api/preferences/timezone`
+- `POST /api/preferences/dismiss-timezone-banner`
 - `POST /api/notifications/scheduled` (cron, protected by `CRON_SECRET`)
 - `POST /api/notifications/sms/inbound` (Twilio webhook for STOP/START/HELP)
 
@@ -269,7 +272,7 @@ The cron job:
 - Phone verification via Twilio Verify API
 - SMS opt-out support (STOP keyword compliance)
 - Service role key never exposed to client
-- Traditional form submissions (no client-side state)
+- Traditional form submissions (some UI components like Vue dashboard panels and autosave maintain client-side state)
 
 ## Adding More Stocks
 

@@ -52,7 +52,7 @@ export function createSendVerificationHandler(
 
 			const parsed = parseWithSchema(formData, {
 				phone_country_code: { type: "string", required: true },
-				phone_national_number: { type: "string", required: true },
+				phone_number: { type: "string", required: true },
 			} as const);
 
 			if (!parsed.ok) {
@@ -64,7 +64,7 @@ export function createSendVerificationHandler(
 			}
 
 			const phoneCountryCode = parsed.data.phone_country_code;
-			const phoneNationalNumber = parsed.data.phone_national_number;
+			const phoneNationalNumber = parsed.data.phone_number;
 
 			const fullPhone = `${phoneCountryCode}${phoneNationalNumber}`;
 

@@ -39,9 +39,8 @@ export function resolveDashboardSectionFromHash(
 	hash: string,
 ): DashboardSection | null {
 	if (!hash) return null;
-	if (hash === DASHBOARD_SECTION_HASHES.preferences) return "preferences";
-	if (hash === DASHBOARD_SECTION_HASHES.stocks) return "stocks";
-	if (hash === DASHBOARD_SECTION_HASHES.scheduled) return "scheduled";
-	if (hash === DASHBOARD_SECTION_HASHES.preview) return "preview";
-	return null;
+	const section = Object.entries(DASHBOARD_SECTION_HASHES).find(
+		([, sectionHash]) => sectionHash === hash,
+	)?.[0] as DashboardSection | undefined;
+	return section ?? null;
 }

@@ -1,0 +1,148 @@
+name: Fix CI Failures
+
+on:
+  workflow_run:
+    workflows: ["No Deploy (Test and Build)", "Deploy Website"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: read
+  actions: read
+
+jobs:
+  attempt-fix:
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.name != 'Fix CI Failures' }}
+    runs-on: ubuntu-latest
+    env:
+      CURSOR_AGENT_EMAIL: cursoragent@cursor.com
+      CURSOR_AGENT_NAME: Cursor Agent
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install Cursor CLI
+        run: |
+          # Note: Cursor CLI installer doesn't support version pinning yet.
+          # Consider checking for a specific release URL or checksum verification when available.
+          curl https://cursor.com/install -fsS | bash
+          echo "$HOME/.cursor/bin" >> $GITHUB_PATH
+
+      - name: Configure git identity
+        run: |
+          git config user.name "$CURSOR_AGENT_NAME"
+          git config user.email "$CURSOR_AGENT_EMAIL"
+
+      - name: Find branch and fix CI failure
+        env:
+          CURSOR_SECRET_KEY: ${{ secrets.CURSOR_SECRET_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+          WORKFLOW_RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          REPO="${{ github.repository }}"
+          
+          # Get workflow run details
+          RUN_JSON=$(gh api "repos/$REPO/actions/runs/$WORKFLOW_RUN_ID")
+          HEAD_BRANCH=$(echo "$RUN_JSON" | jq -r '.head_branch // empty')
+          HEAD_SHA=$(echo "$RUN_JSON" | jq -r '.head_sha')
+          
+          # Check commit author to prevent infinite retry loops
+          COMMIT_AUTHOR_NAME=$(git log -1 --format='%an' "$HEAD_SHA" 2>/dev/null || echo "")
+          COMMIT_AUTHOR_EMAIL=$(git log -1 --format='%ae' "$HEAD_SHA" 2>/dev/null || echo "")
+          COMMIT_MESSAGE=$(git log -1 --format='%B' "$HEAD_SHA" 2>/dev/null || echo "")
+          
+          if [[ "$COMMIT_AUTHOR_NAME" == "$CURSOR_AGENT_NAME" ]] || [[ "$COMMIT_AUTHOR_EMAIL" == "$CURSOR_AGENT_EMAIL" ]]; then
+            echo "Commit is from autofix agent. Skipping to prevent infinite retry loop."
+            exit 0
+          fi
+          
+          if [[ "$COMMIT_MESSAGE" == *"[skip-autofix]"* ]]; then
+            echo "Commit message contains [skip-autofix] marker. Skipping."
+            exit 0
+          fi
+          
+          if [[ -z "$HEAD_BRANCH" ]]; then
+            echo "Could not determine branch from workflow run. Skipping."
+            exit 0
+          fi
+          
+          # Try to find associated PR (may not exist for direct pushes)
+          PR_JSON=$(echo "$RUN_JSON" | jq -r '.pull_requests[0] // empty')
+          
+          # Check if PR exists and is from a fork
+          if [[ "$PR_JSON" != "null" && -n "$PR_JSON" ]]; then
+            PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number')
+            # Fetch full PR details to get head.repo.full_name
+            FULL_PR_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER" || echo "")
+            if [[ -n "$FULL_PR_JSON" ]]; then
+              HEAD_REPO=$(echo "$FULL_PR_JSON" | jq -r '.head.repo.full_name // empty')
+              if [[ -n "$HEAD_REPO" && "$HEAD_REPO" != "$REPO" ]]; then
+                echo "PR is from a fork. Skipping automatic fixes."
+                exit 0
+              fi
+            fi
+          else
+            PR_NUMBER=""
+          fi
+          
+          # Checkout the branch
+          git fetch origin "$HEAD_BRANCH"
+          git checkout "$HEAD_BRANCH"
+          
+          # Download workflow run logs to understand the failure
+          gh run view "$WORKFLOW_RUN_ID" --log > /tmp/workflow-logs.txt 2>&1 || true
+          
+          PROMPT=$(cat <<PROMPT_END
+You are operating in a GitHub Actions runner.
+
+The GitHub CLI is available as \`gh\` and authenticated via \`GH_TOKEN\`. Git is available. You have write access to repository contents.
+
+# Context:
+- Repo: $REPO
+- Branch: $HEAD_BRANCH
+- Commit SHA: $HEAD_SHA
+- Workflow Run ID: $WORKFLOW_RUN_ID
+- Workflow Run URL: $WORKFLOW_RUN_URL
+PROMPT_END
+          )
+          
+          if [[ -n "$PR_NUMBER" ]]; then
+            PROMPT="$PROMPT"$'\n'"- PR Number: $PR_NUMBER"
+          fi
+          
+          PROMPT="$PROMPT"$(cat <<PROMPT_END
+
+# Goal:
+Fix the CI failure by making minimal, targeted edits consistent with the repo's style. Commit and push directly to the branch.
+
+# Requirements:
+1) Review the workflow logs to understand what failed (available in /tmp/workflow-logs.txt).
+2) Make minimal, targeted fixes to resolve the CI failure.
+3) Keep changes scoped and safe - only fix what's necessary.
+4) Commit the changes with a clear message describing the fix.
+5) Push directly to the branch ($HEAD_BRANCH).
+
+# Important:
+- Do NOT create a PR or branch - commit directly to $HEAD_BRANCH
+- Do NOT post comments to the PR (if one exists)
+- If no actionable fix is possible, exit without making changes
+PROMPT_END
+          )
+          
+          export REPO
+          export HEAD_BRANCH
+          export HEAD_SHA
+          export WORKFLOW_RUN_ID
+          export WORKFLOW_RUN_URL
+          if [[ -n "$PR_NUMBER" ]]; then
+            export PR_NUMBER
+          fi
+          
+          agent -p "$PROMPT" --model gpt-5.2 --output-format=text || {
+            echo "Cursor agent failed or could not fix the issue"
+            exit 0
+          }

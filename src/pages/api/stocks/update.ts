@@ -84,6 +84,36 @@ export const POST: APIRoute = async ({
 		);
 	}
 
+	function extractErrorMessage(error: unknown): string {
+		if (error instanceof Error) {
+			return error.message;
+		}
+		if (
+			typeof error === "object" &&
+			error !== null &&
+			"message" in error &&
+			typeof error.message === "string"
+		) {
+			return error.message;
+		}
+		return String(error);
+	}
+
+	function createErrorForLogging(error: unknown): Error | unknown {
+		if (error instanceof Error) {
+			return error;
+		}
+		if (
+			typeof error === "object" &&
+			error !== null &&
+			"message" in error &&
+			typeof error.message === "string"
+		) {
+			return new Error(error.message);
+		}
+		return error;
+	}
+
 	try {
 		const { error } = await supabase.rpc("replace_user_stocks", {
 			user_id: user.id,
@@ -93,15 +123,7 @@ export const POST: APIRoute = async ({
 			throw error;
 		}
 	} catch (error) {
-		const errorMessage =
-			error instanceof Error
-				? error.message
-				: typeof error === "object" &&
-						error !== null &&
-						"message" in error &&
-						typeof error.message === "string"
-					? error.message
-					: String(error);
+		const errorMessage = extractErrorMessage(error);
 
 		if (isStocksLimitError(error) || isStocksWhitespaceError(error)) {
 			logger.info("Tracked stocks update rejected due to invalid input", {
@@ -109,15 +131,6 @@ export const POST: APIRoute = async ({
 				error: errorMessage,
 			});
 		} else {
-			const errorForLogging =
-				error instanceof Error
-					? error
-					: typeof error === "object" &&
-							error !== null &&
-							"message" in error &&
-							typeof error.message === "string"
-						? new Error(error.message)
-						: error;
 			logger.error(
 				"Failed to update tracked stocks",
 				{
@@ -125,7 +138,7 @@ export const POST: APIRoute = async ({
 					symbols: trackedSymbols,
 					error: errorMessage,
 				},
-				errorForLogging,
+				createErrorForLogging(error),
 			);
 		}
 

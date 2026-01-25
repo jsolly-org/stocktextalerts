@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
 import { buildDashboardRedirect } from "../../../lib/dashboard/sections";
-import { createUserService, omitUndefined } from "../../../lib/db";
+import { createUserService, omitUndefined, type User } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
@@ -92,9 +92,32 @@ export const POST: APIRoute = async ({
 				: {}),
 		});
 
-	const dbUser = await userService.getById(user.id);
+	let dbUser: User | null;
+	try {
+		dbUser = await userService.getById(user.id);
+	} catch (error) {
+		logger.error(
+			"Failed to fetch user for preferences update",
+			{
+				userId: user.id,
+			},
+			error,
+		);
+		if (wantsJson) {
+			return Response.json(
+				{ ok: false, message: "server_error" },
+				{ status: 500 },
+			);
+		}
+		return redirect(
+			buildDashboardRedirect({
+				error: "failed_to_update_settings",
+				section: "preferences",
+			}),
+		);
+	}
 	if (!dbUser) {
-		logger.error("User not found", { userId: user.id });
+		logger.info("User not found for preferences update", { userId: user.id });
 		if (wantsJson) {
 			return Response.json(
 				{ ok: false, message: "user_not_found" },
@@ -163,8 +186,11 @@ export const POST: APIRoute = async ({
 			safePreferenceUpdates.sms_notifications_enabled !== undefined
 				? safePreferenceUpdates.sms_notifications_enabled
 				: dbUser.sms_notifications_enabled;
-		if (finalSmsNotificationsEnabled && !dbUser.phone_number) {
-			logger.error("SMS preferences enabled without phone", {
+		if (
+			finalSmsNotificationsEnabled &&
+			(!dbUser.phone_country_code || !dbUser.phone_number)
+		) {
+			logger.info("SMS preferences enabled without phone", {
 				userId: user.id,
 			});
 			if (wantsJson) {

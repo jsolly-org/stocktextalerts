@@ -50,11 +50,13 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 	}
 
 	const {
-		email,
+		email: rawEmail,
 		password,
 		timezone,
 		captcha_token: captchaToken,
 	} = parsed.data;
+
+	const trimmedEmail = rawEmail.trim();
 
 	const userTimezone = await resolveTimezone({
 		supabase,
@@ -65,7 +67,7 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 	const emailRedirectTo = `${origin}/auth/verified`;
 
 	const { data, error } = await supabase.auth.signUp({
-		email,
+		email: trimmedEmail,
 		password,
 		options: {
 			emailRedirectTo,
@@ -92,7 +94,7 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 		}
 		logger.error(
 			"User registration failed",
-			{ email, errorCode: error.code, errorStatus: error.status },
+			{ email: trimmedEmail, errorCode: error.code, errorStatus: error.status },
 			error,
 		);
 		return redirect("/auth/register?error=failed");
@@ -104,7 +106,7 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 
 		const userProfileData = {
 			id: data.user.id,
-			email,
+			email: trimmedEmail,
 			timezone: userTimezone,
 		};
 
@@ -117,7 +119,7 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 		if (profileError) {
 			logger.error(
 				"Failed to create user profile",
-				{ userId: data.user.id, email },
+				{ userId: data.user.id, email: trimmedEmail },
 				profileError,
 			);
 			await cleanupOrphanedAuthUser(adminSupabase, data.user.id, logger);
@@ -125,5 +127,7 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 		}
 	}
 
-	return redirect(`/auth/unconfirmed?email=${encodeURIComponent(email)}`);
+	return redirect(
+		`/auth/unconfirmed?email=${encodeURIComponent(trimmedEmail)}`,
+	);
 };
