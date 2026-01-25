@@ -8,7 +8,6 @@ import Layout from "../layouts/Layout.astro";
 import { createUserService, getUserStocks, type Stock } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 import { rootLogger } from "../lib/logging";
-import { formatMessage } from "../lib/status-messages";
 import { getTimezoneOptions } from "../lib/time/cache";
 
 /* ============= Precomputed Stock Options ============= */
@@ -67,6 +66,7 @@ const initialSymbols = userStocks.map((stock) => stock.symbol);
 const url = new URL(Astro.request.url);
 const successMessage = url.searchParams.get("success");
 const errorMessage = url.searchParams.get("error");
+const warningMessage = url.searchParams.get("warning");
 const isEditingPhone = url.searchParams.get("change_phone") === "1";
 ---
 <Layout title="Dashboard" description="Review and manage your stock notifications">
@@ -81,24 +81,6 @@ const isEditingPhone = url.searchParams.get("change_phone") === "1";
 				</p>
 			</div>
 
-		{successMessage && successMessage !== "verification_sent" && (
-			<div class="mb-6 bg-green-50 border border-green-200 rounded-lg p-4" role="alert">
-				<p class="text-green-800">{formatMessage(successMessage)}</p>
-			</div>
-		)}
-
-		{errorMessage && (
-			<div class="mb-6 bg-red-50 border border-red-200 rounded-lg p-4" role="alert">
-				<p class="text-red-800">{formatMessage(errorMessage)}</p>
-			</div>
-		)}
-
-		{timezoneLoadError && (
-			<div class="mb-6 p-4 rounded-md bg-yellow-50 border border-yellow-200 text-yellow-700" role="alert">
-				Unable to load all timezone options. Only your current timezone is available. Please refresh the page to try again.
-			</div>
-		)}
-
 		<DashboardPanels
 			client:load
 			user={user}
@@ -106,6 +88,8 @@ const isEditingPhone = url.searchParams.get("change_phone") === "1";
 			timezoneLoadError={timezoneLoadError}
 			isEditingPhone={isEditingPhone}
 			successMessage={successMessage}
+			errorMessage={errorMessage}
+			warningMessage={warningMessage}
 			stockOptions={stockOptions}
 			initialSymbols={initialSymbols}
 		/>

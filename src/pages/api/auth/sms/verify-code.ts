@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { buildDashboardRedirect } from "../../../../lib/dashboard/sections";
 import { createUserService } from "../../../../lib/db";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
@@ -31,6 +32,11 @@ export function createVerifyCodeHandler(
 		});
 		const supabase = dependencies.createSupabaseServerClient();
 		const userService = dependencies.createUserService(supabase, cookies);
+		const preferencesRedirect = (params: {
+			success?: string;
+			error?: string;
+			warning?: string;
+		}) => buildDashboardRedirect({ ...params, section: "preferences" });
 
 		const user = await userService.getCurrentUser();
 		if (!user) {
@@ -53,7 +59,7 @@ export function createVerifyCodeHandler(
 					"SMS verification code form rejected due to invalid fields",
 					{ errors: parsed.allErrors },
 				);
-				return redirect("/dashboard?error=invalid_form");
+				return redirect(preferencesRedirect({ error: "invalid_form" }));
 			}
 
 			const code = parsed.data.code;
@@ -64,13 +70,13 @@ export function createVerifyCodeHandler(
 					userId: user.id,
 					endpoint: "sms/verify-code",
 				});
-				return redirect("/dashboard?error=user_not_found");
+				return redirect(preferencesRedirect({ error: "user_not_found" }));
 			}
 			if (!userData.phone_country_code || !userData.phone_number) {
 				logger.error("SMS verification requested but phone details missing", {
 					userId: user.id,
 				});
-				return redirect("/dashboard?error=phone_not_set");
+				return redirect(preferencesRedirect({ error: "phone_not_set" }));
 			}
 
 			const fullPhone = `${userData.phone_country_code}${userData.phone_number}`;
@@ -78,23 +84,21 @@ export function createVerifyCodeHandler(
 
 			if (!result.success) {
 				logger.error("Verification failed", { error: result.error });
-				return redirect("/dashboard?error=invalid_code");
+				return redirect(preferencesRedirect({ error: "invalid_code" }));
 			}
 
 			await userService.update(user.id, {
 				phone_verified: true,
 			});
 
-			return redirect(
-				"/dashboard?success=phone_verified#notification-preferences",
-			);
+			return redirect(preferencesRedirect({ success: "phone_verified" }));
 		} catch (error) {
 			logger.error(
 				"Verify code error",
 				{ userId: user.id, action: "verify_sms_code" },
 				error,
 			);
-			return redirect("/dashboard?error=server_error");
+			return redirect(preferencesRedirect({ error: "server_error" }));
 		}
 	};
 }

@@ -4,18 +4,34 @@ import CTA from "../components/landing/CTA.astro";
 import Features from "../components/landing/Features.astro";
 import Hero from "../components/landing/Hero.astro";
 import Navigation from "../components/Navigation.astro";
+import StatusMessage from "../components/StatusMessage.astro";
 import Layout from "../layouts/Layout.astro";
 import { createUserService } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
+import { formatMessage } from "../lib/status-messages";
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
 const user = await users.getCurrentUser();
 const isAuthenticated = !!user;
+const search = Astro.url.searchParams;
+const errorMessage = formatMessage(search.get("error"));
+const successMessage = formatMessage(search.get("success"));
 ---
 <Layout title="Stock Text Alerts" description="Get a daily digest for your tracked stocks—delivered via email and optional SMS.">
   <div class="min-h-screen bg-white">
     <Navigation user={user || undefined} />
+
+    {(errorMessage || successMessage) && (
+      <div class="max-w-5xl mx-auto px-6 pt-6">
+        {errorMessage && (
+          <StatusMessage class="mb-4" tone="error" message={errorMessage} />
+        )}
+        {successMessage && (
+          <StatusMessage class="mb-4" tone="success" message={successMessage} />
+        )}
+      </div>
+    )}
     
     <Hero isAuthenticated={isAuthenticated} />
 

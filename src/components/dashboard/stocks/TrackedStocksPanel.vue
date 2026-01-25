@@ -1,6 +1,51 @@
 <template>
 	<div class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-		<h2 class="text-2xl font-bold text-gray-900 mb-4">Tracked Stocks</h2>
+		<h2
+			:id="DASHBOARD_SECTION_IDS.stocks"
+			class="text-2xl font-bold text-gray-900 mb-2"
+		>
+			Tracked Stocks
+		</h2>
+
+		<div v-if="flashMessages.length" class="space-y-2 mb-4">
+			<StatusMessage
+				v-for="(flash, index) in flashMessages"
+				:key="index"
+				:tone="flash.tone"
+			>
+				{{ flash.message }}
+			</StatusMessage>
+		</div>
+
+		<div class="min-h-5 mb-4">
+			<Transition
+				enter-active-class="transition-opacity duration-150"
+				enter-from-class="opacity-0"
+				enter-to-class="opacity-100"
+				leave-active-class="transition-opacity duration-150"
+				leave-from-class="opacity-100"
+				leave-to-class="opacity-0"
+			>
+				<p
+					v-if="statusMessage"
+					:id="DASHBOARD_STOCKS_STATUS_ID"
+					class="text-sm flex items-center gap-2"
+					:class="[statusTone === 'error' ? 'text-error-text' : 'text-info-text']"
+					role="status"
+					aria-live="polite"
+					:aria-busy="isSaving"
+					:data-tone="statusTone"
+				>
+					<ArrowPathIcon
+						v-show="isSaving"
+						class="animate-spin size-4 shrink-0"
+						aria-hidden="true"
+					/>
+					{{ statusMessage }}
+				</p>
+			</Transition>
+		</div>
+
 		<input type="hidden" name="tracked_stocks" :value="trackedStocksValue" />
 
 		<div class="mb-6">
@@ -25,7 +70,7 @@
 					<span class="font-medium text-gray-900">{{ symbol }}</span>
 					<button
 						type="button"
-						class="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+						class="px-3 py-1 text-sm bg-error-bg text-error-text rounded hover:bg-error-border transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
 						@click="removeSymbol(symbol)"
 					>
 						Remove
@@ -37,7 +82,12 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, watch } from "vue";
+import { computed, ref, toRefs, watch } from "vue";
+// ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
+import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
+import { DASHBOARD_SECTION_IDS } from "../../../lib/dashboard/sections";
+import StatusMessage from "../../StatusMessage.vue";
+import { DASHBOARD_STOCKS_STATUS_ID } from "../constants";
 import type { StockOption } from "./StockInput.vue";
 import StockInput from "./StockInput.vue";
 
@@ -45,9 +95,20 @@ interface Props {
 	stockOptions: StockOption[];
 	initialSymbols: string[];
 	onFormChanged: () => void;
+	flashMessages?: { tone: "success" | "error" | "warning"; message: string }[];
+	statusMessage?: string | null;
+	statusTone?: "error" | "info";
+	isSaving?: boolean;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+	flashMessages: () => [],
+	statusMessage: null,
+	statusTone: "info",
+	isSaving: false,
+});
+
+const { flashMessages, isSaving, statusMessage, statusTone } = toRefs(props);
 
 const draftSymbols = ref([...props.initialSymbols]);
 

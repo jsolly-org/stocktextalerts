@@ -1,38 +1,46 @@
 <template>
-	<div v-if="smsEnabled" :id="phoneVerificationSectionId" class="ml-6 space-y-4">
-		<div v-if="user.phone_verified" class="bg-green-50 border border-green-200 rounded-lg p-4">
-			<p class="text-green-800 text-sm">
+	<Transition name="sms-verification-expand">
+		<div
+			v-if="smsEnabled"
+			:id="phoneVerificationSectionId"
+			class="ml-6 space-y-4"
+		>
+			<StatusMessage v-if="user.phone_verified" tone="success">
 				<span aria-hidden="true">✓ </span>
 				Phone verified: {{ user.phone_country_code }} {{ user.phone_number }}
-			</p>
+			</StatusMessage>
+			<fieldset v-else :id="phoneVerificationFieldsetId" class="space-y-4">
+				<legend class="sr-only">Phone Verification</legend>
+
+				<SmsPhoneSetup
+					v-if="isPhoneSetup"
+					:user="user"
+					:send-verification-disabled="sendVerificationDisabled"
+					:send-verification-button-id="sendVerificationButtonId"
+					:is-sending-verification="isSendingVerification"
+					@phone-validity-changed="handleValidityChanged"
+				/>
+
+				<SmsCodeVerification
+					v-else-if="shouldShowVerification"
+					:user="user"
+					:success-message="successMessage"
+					:sms-verification-code-id="smsVerificationCodeId"
+					:form-submitted="formSubmitted"
+					:is-sending-verification="isSendingVerification"
+					:is-verifying-code="isVerifyingCode"
+					@otp-input="formSubmitted = false"
+				/>
+			</fieldset>
 		</div>
-		<fieldset v-else :id="phoneVerificationFieldsetId" class="space-y-4" :disabled="!smsEnabled">
-			<legend class="sr-only">Phone Verification</legend>
-
-			<SmsPhoneSetup
-				v-if="isPhoneSetup"
-				:user="user"
-				:send-verification-disabled="sendVerificationDisabled"
-				:send-verification-button-id="sendVerificationButtonId"
-				@phone-validity-changed="handleValidityChanged"
-			/>
-
-			<SmsCodeVerification
-				v-else-if="shouldShowVerification"
-				:user="user"
-				:success-message="successMessage"
-				:sms-verification-code-id="smsVerificationCodeId"
-				:form-submitted="formSubmitted"
-				@otp-input="formSubmitted = false"
-			/>
-		</fieldset>
-	</div>
+	</Transition>
 </template>
 
 <script lang="ts" setup>
 import { computed, ref, watch } from "vue";
 
 import type { User } from "../../../lib/db";
+import StatusMessage from "../../StatusMessage.vue";
 import { DASHBOARD_FORM_ID } from "../constants";
 import SmsCodeVerification from "./SmsCodeVerification.vue";
 import SmsPhoneSetup from "./SmsPhoneSetup.vue";
@@ -44,11 +52,13 @@ interface Props {
 	successMessage?: string | null;
 	sendVerificationDisabled: boolean;
 	isVerifyingCode?: boolean;
+	isSendingVerification?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
 	successMessage: null,
 	isVerifyingCode: false,
+	isSendingVerification: false,
 });
 
 const emit =
@@ -86,3 +96,29 @@ watch(
 	},
 );
 </script>
+
+<style scoped>
+.sms-verification-expand-enter-active,
+.sms-verification-expand-leave-active {
+	overflow: hidden;
+	transition:
+		max-height 180ms ease,
+		opacity 180ms ease,
+		transform 180ms ease;
+}
+
+.sms-verification-expand-enter-from,
+.sms-verification-expand-leave-to {
+	max-height: 0;
+	opacity: 0;
+	transform: translateY(-2px);
+}
+
+.sms-verification-expand-enter-to,
+.sms-verification-expand-leave-from {
+	/* Large enough to cover the tallest verification UI state. */
+	max-height: 640px;
+	opacity: 1;
+	transform: translateY(0);
+}
+</style>

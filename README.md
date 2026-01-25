@@ -27,6 +27,12 @@ A stock notification app that sends scheduled SMS and email updates about tracke
 - **Linting**: Biome (no ESLint or Prettier)
 - **Testing**: Vitest + Playwright
 
+## Design System
+
+- **Tokens**: Semantic color tokens live in `src/global.css` via Tailwind v4 `@theme`.
+- **Status UI**: Use `StatusMessage.astro` / `StatusMessage.vue` or the `status-tone-*` classes for alerts.
+- **Neutrals**: Prefer `gray-*` utilities for borders, text, and surfaces.
+
 ## Prerequisites
 
 - Node.js (see `.nvmrc` for the required version)
@@ -108,7 +114,7 @@ TWILIO_VERIFY_SERVICE_SID=your-verify-service-sid
 CRON_SECRET=your-random-secret-string
 
 # Resend
-RESEND_API_KEY=re_123456789
+RESEND_API_KEY=REPLACE_WITH_YOUR_API_KEY
 EMAIL_FROM=notifications@updates.example.com
 
 # Logging

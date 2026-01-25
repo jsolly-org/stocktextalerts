@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { buildDashboardRedirect } from "../../../lib/dashboard/sections";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
@@ -36,9 +37,12 @@ export const POST: APIRoute = async ({
 	if (!parsed.ok) {
 		// Expected rejection (often bots); info to avoid inflating error metrics.
 		logger.info("Timezone update rejected due to invalid form", {
+			userId: authUser.id,
 			errors: parsed.allErrors,
 		});
-		return redirect("/dashboard?error=invalid_form");
+		return redirect(
+			buildDashboardRedirect({ error: "invalid_form", section: "preferences" }),
+		);
 	}
 
 	try {
@@ -56,8 +60,18 @@ export const POST: APIRoute = async ({
 			},
 			errorObject,
 		);
-		return redirect("/dashboard?error=update_failed");
+		return redirect(
+			buildDashboardRedirect({
+				error: "failed_to_update_timezone",
+				section: "preferences",
+			}),
+		);
 	}
 
-	return redirect("/dashboard?success=timezone_updated");
+	return redirect(
+		buildDashboardRedirect({
+			success: "timezone_updated",
+			section: "preferences",
+		}),
+	);
 };

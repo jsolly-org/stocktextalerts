@@ -16,10 +16,10 @@ const isLanding = currentPage === "/";
       <div class="flex items-center gap-4 sm:gap-8">
         <!-- Logo -->
         <a href="/" class="flex items-center gap-2 group">
-          <div class="bg-blue-600 text-white p-1.5 rounded-lg group-hover:bg-blue-700 transition-colors shadow-sm">
+          <div class="bg-primary text-white p-1.5 rounded-lg group-hover:bg-primary-strong transition-colors shadow-sm">
             <Icon name="presentation-chart-line" class="size-5" aria-hidden="true" />
           </div>
-          <span class="text-xl font-bold text-gray-900 tracking-tight group-hover:text-blue-600 transition-colors hidden sm:block">StockTextAlerts</span>
+          <span class="text-xl font-bold text-gray-900 tracking-tight group-hover:text-primary transition-colors hidden sm:block">StockTextAlerts</span>
         </a>
 
         <!-- Main Nav Links -->
@@ -35,7 +35,7 @@ const isLanding = currentPage === "/";
                 href="/dashboard" 
                 class:list={[
                   "text-sm font-medium transition-colors",
-                  currentPage === "/dashboard" ? "text-blue-600" : "text-gray-600 hover:text-gray-900"
+                  currentPage === "/dashboard" ? "text-primary" : "text-gray-600 hover:text-gray-900"
                 ]}
               >
                 Dashboard
@@ -54,14 +54,14 @@ const isLanding = currentPage === "/";
               aria-label="Profile"
               class:list={[
                 "group rounded-full p-1 bg-gray-100 hover:bg-gray-200 transition-colors",
-                currentPage === "/profile" ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-white" : ""
+                currentPage === "/profile" ? "ring-2 ring-primary ring-offset-2 ring-offset-white" : ""
               ]}
             >
               <Icon
                 name="user-circle"
                 class:list={[
                   "size-8",
-                  currentPage === "/profile" ? "text-blue-600" : "text-gray-500 group-hover:text-gray-700"
+                  currentPage === "/profile" ? "text-primary" : "text-gray-500 group-hover:text-gray-700"
                 ]}
                 aria-hidden="true"
               />
@@ -71,7 +71,7 @@ const isLanding = currentPage === "/";
             <form action="/api/auth/signout" method="post" class="flex">
               <button 
                 type="submit" 
-                class="text-sm font-medium text-gray-500 hover:text-red-600 transition-colors cursor-pointer"
+                class="text-sm font-medium text-gray-500 hover:text-error-strong transition-colors cursor-pointer"
               >
                 Sign Out
               </button>
@@ -82,7 +82,7 @@ const isLanding = currentPage === "/";
             <a href="/signin" class="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2">Sign in</a>
             <a 
               href="/auth/register" 
-              class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm hover:shadow-md active:transform active:scale-95 whitespace-nowrap"
+              class="bg-primary hover:bg-primary-strong text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm hover:shadow-md active:transform active:scale-95 whitespace-nowrap"
             >
               Start Tracking
             </a>

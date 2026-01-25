@@ -104,7 +104,7 @@ describe("POST /api/preferences/timezone", () => {
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toBe(
-			"/dashboard?success=timezone_updated",
+			"/dashboard?success=timezone_updated#notification-preferences",
 		);
 
 		const { data: updatedUser, error } = await adminClient
@@ -156,7 +156,7 @@ describe("POST /api/preferences/dismiss-timezone-banner", () => {
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toBe(
-			"/dashboard?success=timezone_banner_dismissed",
+			"/dashboard?success=timezone_banner_dismissed#notification-preferences",
 		);
 
 		const { data: updatedUser, error } = await adminClient

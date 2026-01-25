@@ -1,14 +1,14 @@
 <template>
 	<div>
-		<label for="phone" class="block text-sm font-medium text-slate-700 mb-1">
+		<label for="phone" class="block text-sm font-medium text-gray-700 mb-1">
 			Phone Number
 		</label>
 		<div class="flex">
 			<div
-				class="group relative flex w-full rounded-lg border border-slate-300 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500"
+				class="group relative flex w-full rounded-lg border border-gray-300 focus-within:ring-2 focus-within:ring-primary focus-within:border-primary"
 				:class="{
-					'border-red-500 ring-2 ring-red-500': showError,
-					'border-green-500 ring-2 ring-green-500': isValid && phoneNumber,
+					'border-error-strong ring-2 ring-error-strong': showError,
+					'border-success-strong ring-2 ring-success-strong': isValid && phoneNumber,
 				}"
 			>
 			<div class="relative w-24">
@@ -18,12 +18,15 @@
 					v-model="country"
 					autocomplete="country"
 					aria-label="Country"
-					class="w-full appearance-none rounded-l-lg py-2 pl-3 pr-8 text-base text-gray-500 focus:outline-none border-r border-slate-300 bg-white"
+					class="w-full appearance-none rounded-l-lg py-2 pl-3 pr-8 text-base text-gray-500 focus:outline-none border-r border-gray-300 bg-white"
 				>
 					<option value="US">+1</option>
 				</select>
 				<div class="absolute inset-y-0 right-1 flex items-center pointer-events-none">
-					<Icon name="chevron-down" class="h-5 w-5 text-gray-500" />
+					<ChevronDownIcon
+						class="h-5 w-5 text-gray-500"
+						aria-hidden="true"
+					/>
 				</div>
 					<input type="hidden" name="phone_country_code" :value="`+${getCountryCallingCode(country)}`" />
 					<input type="hidden" name="phone_national_number" :value="lastDigits" />
@@ -46,28 +49,25 @@
 					autocomplete="tel-national"
 				/>
 					<div v-if="phoneNumber" class="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-						<Icon
+						<CheckCircleIcon
 							v-if="isValid"
-							name="check-circle-24"
-							class="h-5 w-5 text-green-500"
+							class="h-5 w-5 text-success-text"
 							aria-hidden="true"
 						/>
-						<Icon
+						<ExclamationCircleIcon
 							v-else
-							name="exclamation-circle-24"
-							class="h-5 w-5 text-red-500"
+							class="h-5 w-5 text-error-text"
 							aria-hidden="true"
 						/>
 					</div>
 				</div>
 			</div>
 		</div>
-		<p v-if="showError" id="phone-error" role="alert" class="mt-1 text-sm text-red-600">Please enter a valid phone number</p>
+		<p v-if="showError" id="phone-error" role="alert" class="mt-1 text-sm text-error-text">Please enter a valid phone number</p>
 	</div>
 </template>
 
 <script lang="ts" setup>
-import { Icon } from "astro-icon/components";
 import {
 	AsYouType,
 	getCountryCallingCode,
@@ -76,6 +76,9 @@ import {
 } from "libphonenumber-js";
 import examples from "libphonenumber-js/examples.mobile.json";
 import { computed, ref, watch } from "vue";
+import CheckCircleIcon from "../../../icons/check-circle-24.svg?component";
+import ChevronDownIcon from "../../../icons/chevron-down.svg?component";
+import ExclamationCircleIcon from "../../../icons/exclamation-circle-24.svg?component";
 
 type Country = "US";
 

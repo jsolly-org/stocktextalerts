@@ -2,7 +2,9 @@
 
 import { Icon } from "astro-icon/components";
 import Navigation from "../../components/Navigation.astro";
+import StatusMessage from "../../components/StatusMessage.astro";
 import Layout from "../../layouts/Layout.astro";
+import { formatMessage } from "../../lib/status-messages";
 
 const search = Astro.url.searchParams;
 const token = search.get("token");
@@ -20,27 +22,17 @@ function setInvalidLinkState(msg: string) {
 }
 
 if (!hasValidToken) {
-	setInvalidLinkState("This password reset link is invalid.");
+	setInvalidLinkState(formatMessage("invalid_token"));
 } else if (error) {
 	switch (error) {
-		case "invalid_form":
-			message = "Please check the form and try again.";
-			break;
-		case "password_mismatch":
-			message = "Passwords do not match.";
-			break;
-		case "weak_password":
-			message =
-				"Password does not meet security requirements. Please choose a stronger password.";
-			break;
 		case "expired":
-			setInvalidLinkState("This password reset link has expired.");
+			setInvalidLinkState(formatMessage("expired"));
 			break;
 		case "invalid_token":
-			setInvalidLinkState("This password reset link is invalid.");
+			setInvalidLinkState(formatMessage("invalid_token"));
 			break;
 		default:
-			message = "Failed to update password. Please try again.";
+			message = formatMessage(error);
 	}
 }
 ---
@@ -64,9 +56,7 @@ if (!hasValidToken) {
         <p class="text-sm text-gray-600 mb-6">Choose a strong password for your account.</p>
 
         {message && (
-          <div class="mb-4 rounded-md p-4 bg-red-50 text-red-700" role="alert">
-            {message}
-          </div>
+          <StatusMessage class="mb-4" tone="error" message={message} />
         )}
 
         {showForm && (
@@ -80,7 +70,7 @@ if (!hasValidToken) {
                 id="password"
                 required
                 autocomplete="new-password"
-                class="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                class="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-primary"
                 placeholder="••••••••"
                 minlength="8"
               />
@@ -94,7 +84,7 @@ if (!hasValidToken) {
                 id="confirm"
                 required
                 autocomplete="new-password"
-                class="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                class="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-primary"
                 placeholder="••••••••"
                 minlength="8"
               />
@@ -102,7 +92,7 @@ if (!hasValidToken) {
             </div>
             <button
               type="submit"
-              class="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md font-medium transition-colors cursor-pointer"
+              class="w-full bg-primary hover:bg-primary-strong text-white px-6 py-3 rounded-md font-medium transition-colors cursor-pointer"
             >
               Update password
             </button>
@@ -111,7 +101,7 @@ if (!hasValidToken) {
 
         {showResetLink && (
           <div class="mt-6 text-center">
-            <a href="/auth/forgot" class="text-sm font-medium text-blue-600 hover:text-blue-500">
+            <a href="/auth/forgot" class="text-sm font-medium text-primary hover:text-primary-strong">
               Request a new password reset
             </a>
           </div>

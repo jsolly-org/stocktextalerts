@@ -4,9 +4,56 @@
 		data-notification-preferences-card
 		:data-form-id="DASHBOARD_FORM_ID"
 	>
-		<h2 id="notification-preferences" class="text-2xl font-bold text-gray-900 mb-4">
+		<h2
+			:id="DASHBOARD_SECTION_IDS.preferences"
+			class="text-2xl font-bold text-gray-900 mb-2"
+		>
 			Notification Preferences
 		</h2>
+
+		<div v-if="flashMessages.length" class="space-y-2 mb-4">
+			<StatusMessage
+				v-for="(flash, index) in flashMessages"
+				:key="index"
+				:tone="flash.tone"
+			>
+				{{ flash.message }}
+			</StatusMessage>
+		</div>
+
+		<StatusMessage v-if="timezoneLoadError" tone="warning" class="mb-4">
+			Unable to load all timezone options. Only your current timezone is
+			available. Please refresh the page to try again.
+		</StatusMessage>
+
+		<div class="min-h-5 mb-4">
+			<Transition
+				enter-active-class="transition-opacity duration-150"
+				enter-from-class="opacity-0"
+				enter-to-class="opacity-100"
+				leave-active-class="transition-opacity duration-150"
+				leave-from-class="opacity-100"
+				leave-to-class="opacity-0"
+			>
+				<p
+					v-if="statusMessage"
+					:id="DASHBOARD_STATUS_ID"
+					class="text-sm flex items-center gap-2"
+					:class="[statusTone === 'error' ? 'text-error-text' : 'text-info-text']"
+					role="status"
+					aria-live="polite"
+					:aria-busy="isSaving"
+					:data-tone="statusTone"
+				>
+					<ArrowPathIcon
+						v-show="isSaving"
+						class="animate-spin size-4 shrink-0"
+						aria-hidden="true"
+					/>
+					{{ statusMessage }}
+				</p>
+			</Transition>
+		</div>
 
 		<div class="space-y-6">
 			<TimezoneSelect
@@ -36,6 +83,7 @@
 				:send-verification-disabled="sendVerificationDisabled"
 				:success-message="successMessage"
 				:is-verifying-code="isVerifyingCode"
+				:is-sending-verification="isSendingVerification"
 				@phone-validity-changed="handlePhoneValidityChanged"
 			/>
 		</div>
@@ -45,12 +93,15 @@
 <script lang="ts" setup>
 import { DateTime } from "luxon";
 import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
-
+// ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
+import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
+import { DASHBOARD_SECTION_IDS } from "../../../lib/dashboard/sections";
 import type { User } from "../../../lib/db";
 import { rootLogger } from "../../../lib/logging";
 import type { TimezoneOption } from "../../../lib/time/cache";
 import { DEFAULT_TIMEZONE } from "../../../lib/time/constants";
-import { DASHBOARD_FORM_ID } from "../constants";
+import StatusMessage from "../../StatusMessage.vue";
+import { DASHBOARD_FORM_ID, DASHBOARD_STATUS_ID } from "../constants";
 import NotificationChannelsSection from "./NotificationChannelsSection.vue";
 import TimezoneMismatchBanner from "./TimezoneMismatchBanner.vue";
 import TimezoneSelect from "./TimezoneSelect.vue";
@@ -64,6 +115,10 @@ interface Props {
 	onFormChanged: () => void;
 	timezoneLoadError?: boolean;
 	successMessage?: string | null;
+	flashMessages?: { tone: "success" | "error" | "warning"; message: string }[];
+	statusMessage?: string | null;
+	statusTone?: "error" | "info";
+	isSaving?: boolean;
 	savedPreferences?: {
 		email_notifications_enabled: boolean;
 		sms_notifications_enabled: boolean;
@@ -76,19 +131,31 @@ interface Props {
 		dismiss_timezone_mismatch_prompts: boolean;
 	} | null;
 	isVerifyingCode?: boolean;
+	isSendingVerification?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
 	timezoneLoadError: false,
 	successMessage: null,
+	flashMessages: () => [],
+	statusMessage: null,
+	statusTone: "info",
+	isSaving: false,
+	isVerifyingCode: false,
+	isSendingVerification: false,
 });
 const {
 	emailEnabled: emailEnabledProp,
 	smsEnabled: smsEnabledProp,
 	isEditingPhone,
 	isVerifyingCode,
+	isSendingVerification,
 	onFormChanged,
 	savedPreferences,
+	flashMessages,
+	statusMessage,
+	statusTone,
+	isSaving,
 	successMessage,
 	timezones,
 	timezoneLoadError,
@@ -270,16 +337,17 @@ onMounted(() => {
 	}
 
 	cleanupNavigationWarning = setupNavigationWarning();
-	watch(hasPendingSmsChanges, (hasPending) => {
-		if (cleanupNavigationWarning) {
-			cleanupNavigationWarning();
-		}
-		if (hasPending) {
-			cleanupNavigationWarning = setupNavigationWarning();
-		} else {
-			cleanupNavigationWarning = undefined;
-		}
-	});
+});
+
+watch(hasPendingSmsChanges, (hasPending) => {
+	if (cleanupNavigationWarning) {
+		cleanupNavigationWarning();
+	}
+	if (hasPending) {
+		cleanupNavigationWarning = setupNavigationWarning();
+	} else {
+		cleanupNavigationWarning = undefined;
+	}
 });
 
 onUnmounted(() => {

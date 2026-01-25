@@ -3,7 +3,23 @@
 		v-if="showSection"
 		class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-8"
 	>
-		<h2 class="text-2xl font-bold text-gray-900 mb-4">Preview Notifications</h2>
+		<h2
+			:id="DASHBOARD_SECTION_IDS.preview"
+			class="text-2xl font-bold text-gray-900 mb-2"
+		>
+			Preview Notifications
+		</h2>
+
+		<div v-if="flashMessages.length" class="space-y-2 mb-4">
+			<StatusMessage
+				v-for="(flash, index) in flashMessages"
+				:key="index"
+				:tone="flash.tone"
+			>
+				{{ flash.message }}
+			</StatusMessage>
+		</div>
+
 		<p class="text-gray-600 mb-6">
 			Send a preview notification to verify your settings. These will be sent
 			immediately, regardless of your daily digest schedule.
@@ -15,10 +31,16 @@
 					<input type="hidden" name="type" value="email" />
 					<button
 						type="submit"
-						class="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+						class="inline-flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
 						:disabled="emailSubmitting"
+						:aria-busy="emailSubmitting"
 					>
-						Send Preview Email
+						<ArrowPathIcon
+							v-if="emailSubmitting"
+							class="animate-spin size-4 shrink-0"
+							aria-hidden="true"
+						/>
+						<span>{{ emailSubmitting ? "Sending..." : "Send Preview Email" }}</span>
 					</button>
 				</form>
 			</div>
@@ -27,10 +49,16 @@
 					<input type="hidden" name="type" value="sms" />
 					<button
 						type="submit"
-						class="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+						class="inline-flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
 						:disabled="smsSubmitting"
+						:aria-busy="smsSubmitting"
 					>
-						Send Preview SMS
+						<ArrowPathIcon
+							v-if="smsSubmitting"
+							class="animate-spin size-4 shrink-0"
+							aria-hidden="true"
+						/>
+						<span>{{ smsSubmitting ? "Sending..." : "Send Preview SMS" }}</span>
 					</button>
 				</form>
 			</div>
@@ -41,15 +69,24 @@
 <script lang="ts" setup>
 import { computed, ref, toRefs } from "vue";
 
+// ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
+import ArrowPathIcon from "../../icons/arrow-path.svg?component";
+import { buildDashboardRedirect, DASHBOARD_SECTION_IDS } from "../../lib/dashboard/sections";
+import StatusMessage from "../StatusMessage.vue";
+
 interface Props {
 	emailEnabled: boolean;
 	smsEnabled: boolean;
 	smsOptedOut: boolean;
 	phoneVerified: boolean;
+	flashMessages?: { tone: "success" | "error" | "warning"; message: string }[];
 }
 
-const props = defineProps<Props>();
-const { emailEnabled, phoneVerified, smsEnabled, smsOptedOut } = toRefs(props);
+const props = withDefaults(defineProps<Props>(), {
+	flashMessages: () => [],
+});
+const { emailEnabled, phoneVerified, smsEnabled, smsOptedOut, flashMessages } =
+	toRefs(props);
 
 const emailSubmitting = ref(false);
 const smsSubmitting = ref(false);
@@ -58,6 +95,18 @@ const smsReady = computed(
 	() => smsEnabled.value && !smsOptedOut.value && phoneVerified.value,
 );
 const showSection = computed(() => emailEnabled.value || smsReady.value);
+const previewErrorRedirect = buildDashboardRedirect({
+	error: "preview_failed",
+	section: "preview",
+});
+const previewEmailSuccessRedirect = buildDashboardRedirect({
+	success: "preview_email_sent",
+	section: "preview",
+});
+const previewSmsSuccessRedirect = buildDashboardRedirect({
+	success: "preview_sms_sent",
+	section: "preview",
+});
 
 async function submitPreview(
 	event: SubmitEvent,
@@ -77,12 +126,12 @@ async function submitPreview(
 		if (response.redirected) {
 			window.location.href = response.url;
 		} else if (!response.ok) {
-			window.location.href = "/dashboard?error=preview_failed";
+			window.location.href = previewErrorRedirect;
 		} else {
 			window.location.href = successRedirect;
 		}
 	} catch (_error) {
-		window.location.href = "/dashboard?error=preview_failed";
+		window.location.href = previewErrorRedirect;
 	} finally {
 		setSubmitting(false);
 	}
@@ -91,7 +140,7 @@ async function submitPreview(
 async function submitEmail(event: SubmitEvent) {
 	await submitPreview(
 		event,
-		"/dashboard?success=preview_email_sent",
+		previewEmailSuccessRedirect,
 		(value) => {
 			emailSubmitting.value = value;
 		},
@@ -99,8 +148,12 @@ async function submitEmail(event: SubmitEvent) {
 }
 
 async function submitSms(event: SubmitEvent) {
-	await submitPreview(event, "/dashboard?success=preview_sms_sent", (value) => {
-		smsSubmitting.value = value;
-	});
+	await submitPreview(
+		event,
+		previewSmsSuccessRedirect,
+		(value) => {
+			smsSubmitting.value = value;
+		},
+	);
 }
 </script>

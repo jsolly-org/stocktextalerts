@@ -67,7 +67,7 @@ describe("Preview Notifications Endpoint", () => {
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toBe(
-				"/dashboard?error=invalid_form",
+				"/dashboard?error=invalid_form#preview-notifications",
 			);
 		} finally {
 			await adminClient.auth.admin.deleteUser(id);
@@ -94,7 +94,7 @@ describe("Preview Notifications Endpoint", () => {
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toBe(
-				"/dashboard?error=email_notifications_disabled",
+				"/dashboard?error=email_notifications_disabled#preview-notifications",
 			);
 		} finally {
 			await adminClient.auth.admin.deleteUser(id);
@@ -121,7 +121,7 @@ describe("Preview Notifications Endpoint", () => {
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toBe(
-				"/dashboard?error=sms_notifications_disabled",
+				"/dashboard?error=sms_notifications_disabled#preview-notifications",
 			);
 		} finally {
 			await adminClient.auth.admin.deleteUser(id);
@@ -157,7 +157,7 @@ describe("Preview Notifications Endpoint", () => {
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toBe(
-				"/dashboard?error=sms_opted_out",
+				"/dashboard?error=sms_opted_out#preview-notifications",
 			);
 		} finally {
 			await adminClient.auth.admin.deleteUser(id);
@@ -198,7 +198,7 @@ describe("Preview Notifications Endpoint", () => {
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toBe(
-				"/dashboard?error=preview_sms_unverified",
+				"/dashboard?error=preview_sms_unverified#preview-notifications",
 			);
 		} finally {
 			await adminClient.auth.admin.deleteUser(id);
@@ -227,7 +227,7 @@ describe("Preview Notifications Endpoint", () => {
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toBe(
-				"/dashboard?success=preview_email_sent",
+				"/dashboard?success=preview_email_sent#preview-notifications",
 			);
 		} finally {
 			await adminClient.auth.admin.deleteUser(id);
@@ -277,7 +277,7 @@ describe("Preview Notifications Endpoint", () => {
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toBe(
-				"/dashboard?success=preview_sms_sent",
+				"/dashboard?success=preview_sms_sent#preview-notifications",
 			);
 		} finally {
 			await adminClient.auth.admin.deleteUser(id);

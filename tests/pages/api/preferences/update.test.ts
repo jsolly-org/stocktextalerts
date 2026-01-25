@@ -48,7 +48,7 @@ describe("POST /api/preferences/update", () => {
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toBe(
-			"/dashboard?success=settings_updated",
+			"/dashboard?success=settings_updated#notification-preferences",
 		);
 
 		const { data: updatedUser } = await adminClient
@@ -104,7 +104,7 @@ describe("POST /api/preferences/update", () => {
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toBe(
-			"/dashboard?success=settings_updated",
+			"/dashboard?success=settings_updated#notification-preferences",
 		);
 
 		const { data: updatedUser } = await adminClient

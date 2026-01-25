@@ -18,7 +18,7 @@ export function escapeSql(str: string): string {
 }
 
 // Seed inputs come from local JSON; normalize whitespace since DB constraints
-// do not apply to auth.users and the seed file is generated outside the app.
+// do not apply to auth.users and the seed data is sourced from external JSON.
 function sqlNullableString(value: string | null | undefined): string {
   if (value === null || value === undefined) return 'NULL';
   const trimmed = value.trim();

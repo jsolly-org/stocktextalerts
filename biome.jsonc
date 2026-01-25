@@ -66,6 +66,14 @@
 					}
 				}
 			}
+		},
+		{
+			"includes": ["src/global.css"],
+			"css": {
+				"parser": {
+					"tailwindDirectives": true
+				}
+			}
 		}
 	]
 }

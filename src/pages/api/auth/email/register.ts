@@ -50,17 +50,11 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 	}
 
 	const {
-		email: rawEmail,
+		email,
 		password,
 		timezone,
 		captcha_token: captchaToken,
 	} = parsed.data;
-
-	// Trim email to ensure consistency between Supabase Auth (auth.users) and our database
-	// (public.users). This cannot be enforced at the database level because Supabase Auth
-	// stores emails in its own auth.users table which doesn't have our whitespace constraint.
-	// We must trim here to prevent registration failures when inserting into public.users.
-	const email = rawEmail.trim();
 
 	const userTimezone = await resolveTimezone({
 		supabase,
@@ -82,10 +76,11 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 	if (error) {
 		if (error.code === "captcha_failed") {
 			// Expected rejection (often bots); info to avoid inflating error metrics.
-			logger.info("User registration blocked due to captcha", {
-				code: error.code,
-				status: error.status,
-			});
+			logger.info(
+				"User registration blocked due to captcha",
+				{ code: error.code, status: error.status },
+				error,
+			);
 			return redirect("/auth/register?error=captcha_failed");
 		}
 

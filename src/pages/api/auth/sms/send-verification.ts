@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { buildDashboardRedirect } from "../../../../lib/dashboard/sections";
 import { createUserService } from "../../../../lib/db";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
@@ -31,6 +32,11 @@ export function createSendVerificationHandler(
 		});
 		const supabase = dependencies.createSupabaseServerClient();
 		const userService = dependencies.createUserService(supabase, cookies);
+		const preferencesRedirect = (params: {
+			success?: string;
+			error?: string;
+			warning?: string;
+		}) => buildDashboardRedirect({ ...params, section: "preferences" });
 
 		const user = await userService.getCurrentUser();
 		if (!user) {
@@ -54,7 +60,7 @@ export function createSendVerificationHandler(
 				logger.info("SMS verification form rejected due to invalid fields", {
 					errors: parsed.allErrors,
 				});
-				return redirect("/dashboard?error=invalid_form");
+				return redirect(preferencesRedirect({ error: "invalid_form" }));
 			}
 
 			const phoneCountryCode = parsed.data.phone_country_code;
@@ -68,13 +74,13 @@ export function createSendVerificationHandler(
 					userId: user.id,
 					endpoint: "sms/send-verification",
 				});
-				return redirect("/dashboard?error=user_not_found");
+				return redirect(preferencesRedirect({ error: "user_not_found" }));
 			}
 			if (dbUser.sms_opted_out) {
 				logger.error("SMS verification send blocked due to opt-out", {
 					userId: user.id,
 				});
-				return redirect("/dashboard?error=sms_opted_out");
+				return redirect(preferencesRedirect({ error: "sms_opted_out" }));
 			}
 
 			await userService.update(user.id, {
@@ -87,15 +93,13 @@ export function createSendVerificationHandler(
 			const result = await dependencies.sendVerification(fullPhone);
 			if (!result.success) {
 				logger.error("SMS verification failed", { error: result.error });
-				return redirect("/dashboard?error=verification_failed");
+				return redirect(preferencesRedirect({ error: "verification_failed" }));
 			}
 
-			return redirect(
-				"/dashboard?success=verification_sent#notification-preferences",
-			);
+			return redirect(preferencesRedirect({ success: "verification_sent" }));
 		} catch (error) {
 			logger.error("Send verification error", { userId: user.id }, error);
-			return redirect("/dashboard?error=server_error");
+			return redirect(preferencesRedirect({ error: "server_error" }));
 		}
 	};
 }

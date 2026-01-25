@@ -2,8 +2,11 @@
 
 import { Icon } from "astro-icon/components";
 import HCaptcha from "../../components/HCaptcha.astro";
+import EmailInput from "../../components/forms/EmailInput.vue";
 import Navigation from "../../components/Navigation.astro";
+import StatusMessage from "../../components/StatusMessage.astro";
 import Layout from "../../layouts/Layout.astro";
+import { formatMessage } from "../../lib/status-messages";
 const search = Astro.url.searchParams;
 const success = search.get("success");
 const error = search.get("error");
@@ -13,7 +16,7 @@ const seconds =
 let message = "";
 let messageType: "success" | "error" | null = null;
 if (success === "true") {
-	message = "If an account exists for that email, a reset link has been sent.";
+	message = formatMessage("password_reset_sent");
 	messageType = "success";
 } else if (error) {
 	messageType = "error";
@@ -21,16 +24,10 @@ if (success === "true") {
 		case "rate_limit":
 			message = seconds
 				? `For security purposes, you must wait ${seconds} more seconds before requesting to reset your password`
-				: "You've made too many password reset requests. Please try again later";
-			break;
-		case "captcha_required":
-			message = "Please complete the CAPTCHA and try again.";
-			break;
-		case "failed":
-			message = "Failed to request password reset. Please try again.";
+				: formatMessage("rate_limit");
 			break;
 		default:
-			message = "An unexpected error occurred. Please try again.";
+			message = formatMessage(error) || formatMessage("failed");
 	}
 }
 ---
@@ -53,22 +50,25 @@ if (success === "true") {
         <h1 class="text-2xl font-bold text-gray-900 mb-2">Forgot your password?</h1>
         <p class="text-sm text-gray-600 mb-6">Enter your email and we'll send you a link to reset your password.</p>
 
-        {message && (
-          <div class={`mb-4 p-4 rounded-md ${messageType === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`} role="alert">
-            {message}
-          </div>
+        {message && messageType && (
+          <StatusMessage
+            class="mb-4"
+            tone={messageType === "success" ? "success" : "error"}
+            message={message}
+          />
         )}
 
         <form class="space-y-4" action="/api/auth/email/forgot-password" method="post" id="forgot-form">
           <div>
             <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-            <input 
-              type="email" 
-              name="email" 
-              id="email" 
-              required 
+            <EmailInput
+              client:load
+              type="email"
+              name="email"
+              id="email"
+              required
               autocomplete="email"
-              class="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+              class="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-primary"
               placeholder="you@example.com"
             />
           </div>
@@ -82,13 +82,13 @@ if (success === "true") {
           </div>
           <div
             id="forgot-captcha-status"
-            class="mt-2 hidden rounded-md bg-red-50 p-3 text-sm text-red-700"
+            class="mt-2 hidden rounded-lg border p-3 text-sm status-tone-error"
             role="status"
             aria-live="polite"
           ></div>
           <button 
             type="submit"
-            class="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md font-medium transition-colors cursor-pointer"
+            class="w-full bg-primary hover:bg-primary-strong text-white px-6 py-3 rounded-md font-medium transition-colors cursor-pointer"
           >
             Send reset link
           </button>
@@ -107,15 +107,9 @@ if (success === "true") {
 		setupHCaptchaErrorCallback,
 		setupHCaptchaExpiredCallback,
 	} from "../../lib/auth/hcaptcha";
-	import { setupEmailInputHandlers } from "../../lib/forms/dom/email-input";
 	import { rootLogger } from "../../lib/logging";
 
 	const captchaStatus = createCaptchaStatusHelpers("forgot-captcha-status");
-
-	const emailInput = document.getElementById("email");
-	if (emailInput instanceof HTMLInputElement) {
-		setupEmailInputHandlers(emailInput);
-	}
 
 	setupCaptchaTokenInputListener("forgot_captcha_token", (token) => {
 		if (token.trim().length > 0) {

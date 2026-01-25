@@ -5,6 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "astro/config";
 import icon from "astro-icon";
 import { loadEnv } from "vite";
+import svgLoader from "vite-svg-loader";
 
 // Config runs before Vite loads .env*; loadEnv makes .env / .env.local available here.
 const mode = process.env.NODE_ENV || process.env.MODE || "development";
@@ -49,7 +50,16 @@ export default defineConfig({
 	integrations: [sitemap({}), icon(), vue()],
 
 	vite: {
-		plugins: [tailwindcss()],
+		plugins: [
+			// Astro Icon's <Icon> component cannot be used in Vue components (Astro-only, server-rendered).
+			// For Vue components, import SVGs with ?component suffix to get Vue components with render functions.
+			(() => {
+				const plugin = svgLoader();
+				plugin.enforce = "pre";
+				return plugin;
+			})(),
+			tailwindcss(),
+		],
 		// Pre-bundle Vue and dashboard deps so SSR/client resolve them without issues.
 		optimizeDeps: {
 			include: ["vue", "@vueuse/core", "fuse.js", "libphonenumber-js"],

@@ -15,8 +15,9 @@ This file captures the non-negotiables for this repo. It is a new app, so we opt
   - **Prefer functional patterns**: Use classes only when clearly warranted; question class-based approaches.
   - **Avoid one-line functions**: Either inline simple logic or expand to meaningful functions.
   - **Self-documenting code**: Write clear, descriptive names and structure; avoid TSDoc/JSDoc comments.
-  - **Comment deviations from guidelines**: When implementing code that appears to contradict these guidelines (e.g., trimming third-party webhook input, adding a compatibility layer), add an inline comment explaining why the deviation is necessary and justified.
+  - **Inline comments for non-obvious code**: Add inline comments when code is non-obvious or when it's important to clarify why a choice was made (e.g., architectural constraints, framework limitations, trade-offs). Focus on explaining the "why" (the constraint or reasoning) rather than restating what the code does. Examples: `?component` suffix required because Astro Icon cannot run in Vue; trimming third-party webhook input because external services don't enforce our database constraints.
   - **DRY principle**: Check for similar code in other files before implementing; extract shared logic to utilities.
+  - **Avoid tuple/array indexing for types**: Don't use tuple indexing (e.g., `Parameters<T>[0]`, `ReturnType<T>[0]`) or array indexing to extract types. Prefer direct type annotations or utility types that express intent clearly. For example, use `export const POST: APIRoute = async ({ ... }) => {` instead of `export async function POST({ ... }: Parameters<APIRoute>[0]): Promise<Response> {`.
 - **Imports**
   - **Clean imports**: Use relative paths (not '@' style); delete unused imports.
 - **Errors**
@@ -45,7 +46,16 @@ This file captures the non-negotiables for this repo. It is a new app, so we opt
 - **Testing**: Vitest only; happy path coverage only. Do not use Jest.
 - **Linting/Formatting**: Biome only (No Prettier or ESLint)
 - **Styling**: Tailwind utilities preferred over custom CSS
+- **Icons**:
+  - **Astro files (`.astro`)**: Use `Icon` from `astro-icon/components` (e.g., `<Icon name="arrow-left" class="w-4 h-4" />`). Icons load from `src/icons/*.svg`.
+  - **Vue files (`.vue`)**: Do **not** import `astro-icon/components` (Astro components can’t run in the browser). Instead, import SVGs from `src/icons/` as Vue components (via `vite-svg-loader`) (e.g., `import ChevronDownIcon from "../../../icons/chevron-down.svg"` then `<ChevronDownIcon class="h-5 w-5" />`).
+  - Store all icon SVGs in `src/icons/`. Avoid inline `<svg>` markup in templates.
 - **CI/CD**: GitHub Actions for continuous integration and deployment
+
+## Design System
+- **Semantic tokens live in `src/global.css`** via Tailwind v4 `@theme` variables (primary, success, warning, error, info).
+- **Status UI is standardized**: use `StatusMessage.astro` / `StatusMessage.vue` or `status-tone-*` classes instead of custom color blocks.
+- **Neutral palette**: prefer `gray-*` utilities for UI surfaces/text/borders.
 
 ## Section Comments
 Use section comments to organize larger modules. For section headers, use the single-line format:

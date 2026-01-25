@@ -124,7 +124,9 @@ describe("POST /api/stocks/update", () => {
 			["AAPL"],
 		);
 
-		expect(redirectUrl).toBe("/dashboard?success=stocks_updated");
+		expect(redirectUrl).toBe(
+			"/dashboard?success=stocks_updated#tracked-stocks",
+		);
 		expect(response.status).toBe(302);
 
 		expect(trackedStocks).toHaveLength(1);
@@ -137,7 +139,9 @@ describe("POST /api/stocks/update", () => {
 			[],
 		);
 
-		expect(redirectUrl).toBe("/dashboard?success=stocks_updated");
+		expect(redirectUrl).toBe(
+			"/dashboard?success=stocks_updated#tracked-stocks",
+		);
 		expect(response.status).toBe(302);
 
 		expect(trackedStocks).toHaveLength(0);
@@ -149,7 +153,9 @@ describe("POST /api/stocks/update", () => {
 			["AAPL", "MSFT"],
 		);
 
-		expect(redirectUrl).toBe("/dashboard?success=stocks_updated");
+		expect(redirectUrl).toBe(
+			"/dashboard?success=stocks_updated#tracked-stocks",
+		);
 		expect(response.status).toBe(302);
 
 		expect(trackedStocks).toHaveLength(2);
@@ -169,7 +175,9 @@ describe("POST /api/stocks/update", () => {
 			dailyDigestNotificationTime: 600,
 		});
 
-		expect(redirectUrl).toBe("/dashboard?success=stocks_updated");
+		expect(redirectUrl).toBe(
+			"/dashboard?success=stocks_updated#tracked-stocks",
+		);
 		expect(response.status).toBe(302);
 
 		expect(userPreferencesBefore).not.toBeNull();
@@ -183,7 +191,9 @@ describe("POST /api/stocks/update", () => {
 			["AAPL", "MSFT"],
 		);
 
-		expect(redirectUrl).toBe("/dashboard?success=stocks_updated");
+		expect(redirectUrl).toBe(
+			"/dashboard?success=stocks_updated#tracked-stocks",
+		);
 		expect(response.status).toBe(302);
 
 		expect(trackedStocks).toHaveLength(2);
@@ -196,7 +206,9 @@ describe("POST /api/stocks/update", () => {
 			[],
 		);
 
-		expect(redirectUrl).toBe("/dashboard?success=stocks_updated");
+		expect(redirectUrl).toBe(
+			"/dashboard?success=stocks_updated#tracked-stocks",
+		);
 		expect(response.status).toBe(302);
 
 		expect(trackedStocks).toHaveLength(0);
@@ -227,7 +239,7 @@ describe("POST /api/stocks/update", () => {
 				await updateTrackedStocks(initialStocks, stocksExceedingLimit);
 			testUserForCleanup = testUser;
 
-			expect(redirectUrl).toBe("/dashboard?error=stocks_limit");
+			expect(redirectUrl).toBe("/dashboard?error=stocks_limit#tracked-stocks");
 			expect(response.status).toBe(302);
 
 			expect(trackedStocks).toHaveLength(MAX_TRACKED_STOCKS);

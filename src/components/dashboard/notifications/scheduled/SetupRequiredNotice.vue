@@ -1,15 +1,15 @@
 <template>
 	<div
 		v-if="needsSetup"
-		class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4"
+		class="mt-4 rounded-lg border border-warning-border bg-warning-bg p-4"
 	>
-		<p class="text-sm font-medium text-amber-900">Setup required</p>
-		<ul class="mt-2 space-y-1 text-sm text-amber-800">
+		<p class="text-sm font-medium text-warning-text">Setup required</p>
+		<ul class="mt-2 space-y-1 text-sm text-warning-text">
 			<li v-if="needsChannelSelection">
 				Enable at least one notification channel in
 				<a
-					href="#notification-preferences"
-					class="font-medium text-amber-900 underline"
+					:href="DASHBOARD_SECTION_HASHES.preferences"
+					class="font-medium text-warning-text underline"
 				>
 					notification preferences
 				</a>
@@ -19,7 +19,7 @@
 				Verify your phone number in
 				<a
 					:href="`#${phoneVerificationSectionId}`"
-					class="font-medium text-amber-900 underline"
+					class="font-medium text-warning-text underline"
 				>
 					SMS settings
 				</a>
@@ -31,6 +31,7 @@
 
 <script lang="ts" setup>
 import { computed } from "vue";
+import { DASHBOARD_SECTION_HASHES } from "../../../../lib/dashboard/sections";
 
 interface Props {
 	needsChannelSelection: boolean;

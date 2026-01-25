@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
+import { buildDashboardRedirect } from "../../../lib/dashboard/sections";
 import { createUserService, omitUndefined } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
@@ -53,6 +54,7 @@ export const POST: APIRoute = async ({
 
 	if (!parsed.ok) {
 		logger.info("Preferences update rejected due to invalid form", {
+			userId: user.id,
 			errors: parsed.allErrors,
 		});
 		if (wantsJson) {
@@ -61,7 +63,9 @@ export const POST: APIRoute = async ({
 				{ status: 400 },
 			);
 		}
-		return redirect("/dashboard?error=invalid_form");
+		return redirect(
+			buildDashboardRedirect({ error: "invalid_form", section: "preferences" }),
+		);
 	}
 
 	const safePreferenceUpdates: Parameters<typeof userService.update>[1] =
@@ -148,6 +152,7 @@ export const POST: APIRoute = async ({
 				finalTimezone,
 			});
 			// Preserve existing next_send_at value when calculation fails
+			// Do not set next_send_at to null to avoid disabling scheduled notifications
 		}
 	} else if (enabledChanged && !finalEnabled) {
 		safePreferenceUpdates.next_send_at = null;
@@ -168,7 +173,12 @@ export const POST: APIRoute = async ({
 					{ status: 400 },
 				);
 			}
-			return redirect("/dashboard?error=phone_not_set");
+			return redirect(
+				buildDashboardRedirect({
+					error: "phone_not_set",
+					section: "preferences",
+				}),
+			);
 		}
 
 		const updatedUser = await userService.update(
@@ -205,7 +215,12 @@ export const POST: APIRoute = async ({
 				},
 			});
 		}
-		return redirect("/dashboard?success=settings_updated");
+		return redirect(
+			buildDashboardRedirect({
+				success: "settings_updated",
+				section: "preferences",
+			}),
+		);
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		logger.error(
@@ -220,10 +235,15 @@ export const POST: APIRoute = async ({
 
 		if (wantsJson) {
 			return Response.json(
-				{ ok: false, message: "update_failed" },
+				{ ok: false, message: "failed_to_update_settings" },
 				{ status: 500 },
 			);
 		}
-		return redirect("/dashboard?error=update_failed");
+		return redirect(
+			buildDashboardRedirect({
+				error: "failed_to_update_settings",
+				section: "preferences",
+			}),
+		);
 	}
 };

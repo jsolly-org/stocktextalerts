@@ -10,27 +10,6 @@
 		@change="handlePreferencesFormChange"
 		@submit="handlePreferencesFormSubmitWrapper"
 	>
-		<p
-			v-if="preferencesStatusMessage"
-			:id="DASHBOARD_STATUS_ID"
-			class="text-sm flex items-center gap-2"
-			:class="[
-				preferencesStatusTone === 'error' ? 'text-red-700' : 'text-blue-700',
-			]"
-			role="status"
-			aria-live="polite"
-			:aria-busy="isPreferencesSaving"
-			:data-tone="preferencesStatusTone"
-		>
-			<Icon
-				v-show="isPreferencesSaving"
-				name="arrow-path"
-				class="animate-spin size-4 shrink-0"
-				aria-hidden="true"
-			/>
-			{{ preferencesStatusMessage }}
-		</p>
-
 		<PreferencesPanel
 			:user="user"
 			:timezones="timezones"
@@ -41,7 +20,12 @@
 			:smsEnabled="smsEnabled"
 			:onFormChanged="notifyPreferencesChange"
 			:savedPreferences="savedPreferences"
+			:flash-messages="preferencesFlashMessages"
+			:status-message="preferencesStatusMessage"
+			:status-tone="preferencesStatusTone"
+			:is-saving="isPreferencesSaving"
 			:is-verifying-code="isVerifyingCode"
+			:is-sending-verification="isSendingVerification"
 			@update:emailEnabled="emailEnabled = $event"
 			@update:smsEnabled="smsEnabled = $event"
 			@preferences-updated="handlePreferencesUpdated"
@@ -55,6 +39,7 @@
 			:phoneVerified="phoneVerified"
 			:onFormChanged="notifyPreferencesChange"
 			:savedPreferences="savedPreferences"
+			:flash-messages="scheduledFlashMessages"
 		/>
 	</form>
 
@@ -69,31 +54,14 @@
 		@change="handleStocksFormChange"
 		@submit="handleStocksFormSubmit"
 	>
-		<p
-			v-if="stocksStatusMessage"
-			:id="DASHBOARD_STOCKS_STATUS_ID"
-			class="text-sm flex items-center gap-2"
-			:class="[
-				stocksStatusTone === 'error' ? 'text-red-700' : 'text-blue-700',
-			]"
-			role="status"
-			aria-live="polite"
-			:aria-busy="isStocksSaving"
-			:data-tone="stocksStatusTone"
-		>
-			<Icon
-				v-show="isStocksSaving"
-				name="arrow-path"
-				class="animate-spin size-4 shrink-0"
-				aria-hidden="true"
-			/>
-			{{ stocksStatusMessage }}
-		</p>
-
 		<TrackedStocksPanel
 			:stockOptions="stockOptions"
 			:initialSymbols="initialSymbols"
 			:onFormChanged="notifyStocksChange"
+			:flash-messages="stocksFlashMessages"
+			:status-message="stocksStatusMessage"
+			:status-tone="stocksStatusTone"
+			:is-saving="isStocksSaving"
 		/>
 	</form>
 
@@ -102,15 +70,18 @@
 		:smsEnabled="smsEnabled"
 		:smsOptedOut="smsOptedOut"
 		:phoneVerified="phoneVerified"
+		:flash-messages="previewFlashMessages"
 	/>
 </template>
 
 <script lang="ts" setup>
-import { Icon } from "astro-icon/components";
 import { computed, ref, toRefs, watch } from "vue";
-
+import {
+	resolveDashboardSectionFromHash,
+} from "../../lib/dashboard/sections";
 import type { User } from "../../lib/db";
 import { rootLogger } from "../../lib/logging";
+import { formatMessage } from "../../lib/status-messages";
 import type { TimezoneOption } from "../../lib/time/cache";
 import {
 	type PreferencesData,
@@ -118,9 +89,7 @@ import {
 } from "./composables/useAutoSavePreferences";
 import {
 	DASHBOARD_FORM_ID,
-	DASHBOARD_STATUS_ID,
 	DASHBOARD_STOCKS_FORM_ID,
-	DASHBOARD_STOCKS_STATUS_ID,
 } from "./constants";
 import ScheduledNotificationsPanel from "./notifications/scheduled/ScheduledNotificationsPanel.vue";
 import PreviewPanel from "./PreviewPanel.vue";
@@ -136,11 +105,15 @@ interface Props {
 	isEditingPhone: boolean;
 	timezoneLoadError?: boolean;
 	successMessage?: string | null;
+	errorMessage?: string | null;
+	warningMessage?: string | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
 	timezoneLoadError: false,
 	successMessage: null,
+	errorMessage: null,
+	warningMessage: null,
 });
 
 const {
@@ -148,6 +121,8 @@ const {
 	isEditingPhone,
 	stockOptions,
 	successMessage,
+	errorMessage,
+	warningMessage,
 	timezones,
 	timezoneLoadError,
 	user,
@@ -175,6 +150,7 @@ watch(
 const preferencesFormElement = ref<HTMLFormElement | null>(null);
 const stocksFormElement = ref<HTMLFormElement | null>(null);
 const isVerifyingCode = ref(false);
+const isSendingVerification = ref(false);
 const {
 	handleFormChange: handlePreferencesFormChange,
 	handleFormInput: handlePreferencesFormInput,
@@ -190,6 +166,167 @@ const {
 
 const savedPreferences = savedPreferencesData;
 
+type FlashTone = "success" | "error" | "warning";
+type FlashMessage = { tone: FlashTone; message: string };
+
+function createFlashMessage(
+	tone: FlashTone,
+	messageKey: string | null,
+): FlashMessage | null {
+	if (!messageKey) {
+		return null;
+	}
+	const message = formatMessage(messageKey);
+	if (!message) {
+		return null;
+	}
+	return { tone, message };
+}
+
+type FlashSection = "preferences" | "stocks" | "scheduled" | "preview";
+
+const explicitSection = (() => {
+	const hash = typeof window !== "undefined" ? window.location.hash : "";
+	return resolveDashboardSectionFromHash(hash);
+})();
+
+const PREFERENCES_KEYS = new Set([
+	"settings_updated",
+	"timezone_updated",
+	"timezone_banner_dismissed",
+	"phone_verified",
+	"verification_failed",
+	"invalid_code",
+	"phone_not_set",
+	"failed_to_update_settings",
+	"failed_to_update_timezone",
+	"failed_to_dismiss_timezone_banner",
+]);
+const STOCKS_KEYS = new Set([
+	"stocks_updated",
+	"stocks_limit",
+	"failed_to_update_stocks",
+]);
+const SCHEDULED_KEYS = new Set([
+	"daily_digest_sent",
+	"daily_digest_disabled",
+	"daily_digest_send_failed",
+	"daily_digest_rate_limited",
+	"daily_digest_timed_out",
+	"daily_digest_skip_failed",
+	"daily_digest_skip_update_failed",
+	"notifications_not_configured",
+]);
+const PREVIEW_KEYS = new Set([
+	"preview_email_sent",
+	"preview_sms_sent",
+	"preview_rate_limited",
+	"preview_rate_limit_unexpected",
+	"preview_sms_missing_phone",
+	"preview_sms_unverified",
+	"preview_sms_unavailable",
+	"preview_failed",
+	"email_notifications_disabled",
+	"sms_notifications_disabled",
+	"sms_opted_out",
+]);
+
+function resolveSectionFromKey(messageKey: string | null): FlashSection | null {
+	if (!messageKey) {
+		return null;
+	}
+	if (PREFERENCES_KEYS.has(messageKey)) return "preferences";
+	if (STOCKS_KEYS.has(messageKey)) return "stocks";
+	if (SCHEDULED_KEYS.has(messageKey)) return "scheduled";
+	if (PREVIEW_KEYS.has(messageKey)) return "preview";
+	if (messageKey === "invalid_form") return "preferences";
+	if (messageKey === "server_error") return "preferences";
+	if (messageKey === "update_failed") return "preferences";
+	return null;
+}
+
+const preferencesFlashMessages = computed<FlashMessage[]>(() => {
+	const messages: FlashMessage[] = [];
+
+	const successKey =
+		successMessage.value === "verification_sent" ? null : successMessage.value;
+	const successFlash = createFlashMessage("success", successKey);
+	const errorFlash = createFlashMessage("error", errorMessage.value);
+	const warningFlash = createFlashMessage("warning", warningMessage.value);
+
+	const successSection =
+		explicitSection ?? resolveSectionFromKey(successKey ?? null);
+	const errorSection = explicitSection ?? resolveSectionFromKey(errorMessage.value);
+	const warningSection =
+		explicitSection ?? resolveSectionFromKey(warningMessage.value);
+
+	if (successFlash && successSection === "preferences") messages.push(successFlash);
+	if (warningFlash && warningSection === "preferences") messages.push(warningFlash);
+	if (errorFlash && errorSection === "preferences") messages.push(errorFlash);
+
+	return messages;
+});
+
+const stocksFlashMessages = computed<FlashMessage[]>(() => {
+	const messages: FlashMessage[] = [];
+
+	const successFlash = createFlashMessage("success", successMessage.value);
+	const errorFlash = createFlashMessage("error", errorMessage.value);
+	const warningFlash = createFlashMessage("warning", warningMessage.value);
+
+	const successSection =
+		explicitSection ?? resolveSectionFromKey(successMessage.value);
+	const errorSection = explicitSection ?? resolveSectionFromKey(errorMessage.value);
+	const warningSection =
+		explicitSection ?? resolveSectionFromKey(warningMessage.value);
+
+	if (successFlash && successSection === "stocks") messages.push(successFlash);
+	if (warningFlash && warningSection === "stocks") messages.push(warningFlash);
+	if (errorFlash && errorSection === "stocks") messages.push(errorFlash);
+
+	return messages;
+});
+
+const scheduledFlashMessages = computed<FlashMessage[]>(() => {
+	const messages: FlashMessage[] = [];
+
+	const successFlash = createFlashMessage("success", successMessage.value);
+	const errorFlash = createFlashMessage("error", errorMessage.value);
+	const warningFlash = createFlashMessage("warning", warningMessage.value);
+
+	const successSection =
+		explicitSection ?? resolveSectionFromKey(successMessage.value);
+	const errorSection = explicitSection ?? resolveSectionFromKey(errorMessage.value);
+	const warningSection =
+		explicitSection ?? resolveSectionFromKey(warningMessage.value);
+
+	if (successFlash && successSection === "scheduled") messages.push(successFlash);
+	if (warningFlash && warningSection === "scheduled") messages.push(warningFlash);
+	if (errorFlash && errorSection === "scheduled") messages.push(errorFlash);
+
+	return messages;
+});
+
+const previewFlashMessages = computed<FlashMessage[]>(() => {
+	const messages: FlashMessage[] = [];
+
+	const successFlash = createFlashMessage("success", successMessage.value);
+	const errorFlash = createFlashMessage("error", errorMessage.value);
+	const warningFlash = createFlashMessage("warning", warningMessage.value);
+
+	const successSection =
+		explicitSection ?? resolveSectionFromKey(successMessage.value);
+	const errorSection = explicitSection ?? resolveSectionFromKey(errorMessage.value);
+	const warningSection =
+		explicitSection ?? resolveSectionFromKey(warningMessage.value);
+
+	if (successFlash && successSection === "preview") messages.push(successFlash);
+	if (warningFlash && warningSection === "preview") messages.push(warningFlash);
+	if (errorFlash && errorSection === "preview") messages.push(errorFlash);
+
+	return messages;
+});
+
 const {
 	handleFormChange: handleStocksFormChange,
 	handleFormInput: handleStocksFormInput,
@@ -204,20 +341,22 @@ const {
 
 async function handlePreferencesFormSubmitWrapper(event: SubmitEvent) {
 	const submitter = event.submitter;
-	const isVerifyCodeSubmission =
-		submitter instanceof HTMLElement &&
-		submitter.getAttribute("formaction") === "/api/auth/sms/verify-code";
+	const action =
+		submitter instanceof HTMLElement ? submitter.getAttribute("formaction") : null;
+	const isVerifyCodeSubmission = action === "/api/auth/sms/verify-code";
+	const isSendVerificationSubmission = action === "/api/auth/sms/send-verification";
 
 	if (isVerifyCodeSubmission) {
 		isVerifyingCode.value = true;
+		return;
 	}
-	try {
-		await handlePreferencesFormSubmit(event);
-	} finally {
-		if (isVerifyCodeSubmission) {
-			isVerifyingCode.value = false;
-		}
+
+	if (isSendVerificationSubmission) {
+		isSendingVerification.value = true;
+		return;
 	}
+
+	await handlePreferencesFormSubmit(event);
 }
 
 async function handlePreferencesUpdated() {

@@ -199,42 +199,53 @@ export function setupCaptchaSubmitGuard(
 	tokenInputId: string,
 	showStatus: (message: string) => void,
 ) {
-	const form = resolveElement(formId, isFormElement);
-	const tokenInput = resolveElement(tokenInputId, isInputElement);
-	if (!form || !tokenInput) {
-		return () => {};
-	}
+	let teardown: (() => void) | null = null;
 
-	const handleSubmit = (event: SubmitEvent) => {
-		const captchaResponseInput = form.querySelector(
-			"input[name='h-captcha-response']",
-		);
-		const captchaResponse =
-			captchaResponseInput instanceof HTMLInputElement
-				? captchaResponseInput.value
-				: "";
-
-		const existingToken = tokenInput.value.trim();
-		const trimmedCaptchaResponse = captchaResponse.trim();
-
-		if (existingToken.length === 0 && trimmedCaptchaResponse.length === 0) {
-			event.preventDefault();
-			showStatus("Please complete the CAPTCHA verification.");
+	onDomReady(() => {
+		const form = resolveElement(formId, isFormElement);
+		const tokenInput = resolveElement(tokenInputId, isInputElement);
+		if (!form || !tokenInput) {
 			return;
 		}
 
-		if (existingToken.length === 0 && trimmedCaptchaResponse.length > 0) {
-			tokenInput.value = trimmedCaptchaResponse;
-		}
-	};
+		const handleSubmit = (event: SubmitEvent) => {
+			const captchaResponseInput = form.querySelector(
+				"input[name='h-captcha-response']",
+			);
+			const captchaResponse =
+				captchaResponseInput instanceof HTMLInputElement
+					? captchaResponseInput.value
+					: "";
 
-	form.addEventListener("submit", handleSubmit);
+			const existingToken = tokenInput.value.trim();
+			const trimmedCaptchaResponse = captchaResponse.trim();
+
+			if (existingToken.length === 0 && trimmedCaptchaResponse.length === 0) {
+				event.preventDefault();
+				showStatus("Please complete the CAPTCHA verification.");
+				return;
+			}
+
+			if (existingToken.length === 0 && trimmedCaptchaResponse.length > 0) {
+				tokenInput.value = trimmedCaptchaResponse;
+			}
+		};
+
+		form.addEventListener("submit", handleSubmit);
+
+		teardown = () => {
+			form.removeEventListener("submit", handleSubmit);
+		};
+	});
 
 	return () => {
-		form.removeEventListener("submit", handleSubmit);
+		teardown?.();
 	};
 }
 
+// Returns status helpers for hCaptcha. Callers must ensure DOM readiness
+// before calling this function, or the helpers will be no-ops if the element
+// doesn't exist yet.
 export function createCaptchaStatusHelpers(statusElementId: string) {
 	const statusElement = resolveElement(statusElementId, isHtmlElement);
 	if (!statusElement) {

@@ -1,6 +1,8 @@
 ---
 
 import HCaptcha from "../HCaptcha.astro";
+import StatusMessage from "../StatusMessage.astro";
+import EmailInput from "../forms/EmailInput.vue";
 
 interface Props {
 	emailPrefill?: string;
@@ -25,25 +27,22 @@ const SIGNIN_CAPTCHA_STATUS_ID = "signin-captcha-status";
 >
   <h2 class="text-2xl font-bold text-gray-900 mb-6 text-center">Sign in to your account</h2>
   {successMessage && (
-    <div class="mb-4 rounded-md bg-green-50 p-4" role="alert">
-      <p class="text-sm font-medium text-green-800">{successMessage}</p>
-    </div>
+    <StatusMessage class="mb-4" tone="success" message={successMessage} />
   )}
   {errorMessage && (
-    <div class="mb-4 rounded-md bg-red-50 p-4" role="alert">
-      <p class="text-sm font-medium text-red-800">{errorMessage}</p>
-    </div>
+    <StatusMessage class="mb-4" tone="error" message={errorMessage} />
   )}
   <form class="space-y-6" action="/api/auth/signin" method="post" id={SIGNIN_FORM_ID}>
     <div>
       <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-      <input 
-        type="email" 
-        name="email" 
-        id="email" 
-        required 
+      <EmailInput
+        client:load
+        type="email"
+        name="email"
+        id="email"
+        required
         autocomplete="email"
-        class="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+        class="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-primary"
         placeholder="you@example.com"
         value={emailPrefill}
       />
@@ -56,7 +55,7 @@ const SIGNIN_CAPTCHA_STATUS_ID = "signin-captcha-status";
         id="password" 
         required 
         autocomplete="current-password"
-        class="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+        class="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-primary" 
         placeholder="••••••••"
       />
     </div>
@@ -69,25 +68,25 @@ const SIGNIN_CAPTCHA_STATUS_ID = "signin-captcha-status";
 			/>
 			<div
 				id={SIGNIN_CAPTCHA_STATUS_ID}
-				class="mt-2 hidden rounded-md bg-red-50 p-3 text-sm text-red-700"
+				class="mt-2 hidden rounded-lg border p-3 text-sm status-tone-error"
 				role="status"
 				aria-live="polite"
 			></div>
 		</div>
     <div class="flex items-center justify-between">
       <div class="text-sm">
-        <a href="/auth/forgot" class="font-medium text-blue-600 hover:text-blue-500">Forgot your password?</a>
+        <a href="/auth/forgot" class="font-medium text-primary hover:text-primary-strong">Forgot your password?</a>
       </div>
     </div>
     <button 
       type="submit" 
-      class="w-full text-white px-6 py-3 rounded-md font-medium transition-colors bg-blue-600 hover:bg-blue-700 cursor-pointer"
+      class="w-full text-white px-6 py-3 rounded-md font-medium transition-colors bg-primary hover:bg-primary-strong cursor-pointer"
     >
       Sign In
     </button>
   </form>
   <p class="mt-6 text-center text-sm text-gray-600">
-    New here? <a href="/auth/register" class="font-medium text-blue-600 hover:text-blue-500">Create an account</a>
+    New here? <a href="/auth/register" class="font-medium text-primary hover:text-primary-strong">Create an account</a>
   </p>
 </div>
 
@@ -101,7 +100,6 @@ const SIGNIN_CAPTCHA_STATUS_ID = "signin-captcha-status";
 		setupHCaptchaErrorCallback,
 		setupHCaptchaExpiredCallback,
 	} from "../../lib/auth/hcaptcha";
-	import { setupEmailInputHandlers } from "../../lib/forms/dom/email-input";
 
 	const container = document.querySelector('[data-signin-form-id]');
 	if (!container) {
@@ -124,11 +122,6 @@ const SIGNIN_CAPTCHA_STATUS_ID = "signin-captcha-status";
 	}
 
 	const captchaStatus = createCaptchaStatusHelpers(SIGNIN_CAPTCHA_STATUS_ID);
-
-	const emailInput = document.getElementById("email");
-	if (emailInput instanceof HTMLInputElement) {
-		setupEmailInputHandlers(emailInput);
-	}
 
 	setupCaptchaSubmitGuard(SIGNIN_FORM_ID, SIGNIN_CAPTCHA_TOKEN_ID, (message) => {
 		captchaStatus.show(message);

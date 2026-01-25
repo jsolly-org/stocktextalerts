@@ -6,9 +6,9 @@ import { DEFAULT_TIMEZONE } from "../../../../../src/lib/time/constants";
 import { POST } from "../../../../../src/pages/api/auth/email/register";
 import { adminClient } from "../../../../setup";
 
-const toRedirect = (url: string) =>
+const toRedirect = (url: string, status = 302) =>
 	new Response(null, {
-		status: 302,
+		status,
 		headers: { Location: url },
 	});
 

@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { buildDashboardRedirect } from "../../../lib/dashboard/sections";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
@@ -23,7 +24,11 @@ export const POST: APIRoute = async ({
 		// Expected rejection (often bots); info to avoid inflating error metrics.
 		logger.info(
 			"Timezone banner dismissal attempt without authenticated user",
-			{ reason: "unauthenticated" },
+			{
+				event: "unauthorized_timezone_banner_dismissal",
+				reason: "no_authenticated_user",
+				path: url.pathname,
+			},
 		);
 		return redirect("/signin?error=unauthorized");
 	}
@@ -47,16 +52,26 @@ export const POST: APIRoute = async ({
 		);
 		if (wantsJson) {
 			return Response.json(
-				{ ok: false, message: "update_failed" },
+				{ ok: false, message: "failed_to_dismiss_timezone_banner" },
 				{ status: 500 },
 			);
 		}
-		return redirect("/dashboard?error=update_failed");
+		return redirect(
+			buildDashboardRedirect({
+				error: "failed_to_dismiss_timezone_banner",
+				section: "preferences",
+			}),
+		);
 	}
 
 	if (wantsJson) {
 		return Response.json({ ok: true });
 	}
 
-	return redirect("/dashboard?success=timezone_banner_dismissed");
+	return redirect(
+		buildDashboardRedirect({
+			success: "timezone_banner_dismissed",
+			section: "preferences",
+		}),
+	);
 };

@@ -10,15 +10,23 @@
 			formaction="/api/auth/sms/send-verification"
 			formmethod="post"
 			:id="sendVerificationButtonId"
-			:disabled="sendVerificationDisabled"
-			class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm mt-4 cursor-pointer disabled:bg-gray-400 disabled:cursor-not-allowed"
+		:disabled="sendVerificationDisabled || isSendingVerification"
+		:aria-busy="isSendingVerification"
+		class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-strong transition-colors text-sm mt-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
 		>
-			Send Verification Code
+		<ArrowPathIcon
+			v-if="isSendingVerification"
+			class="animate-spin size-4 shrink-0"
+			aria-hidden="true"
+		/>
+		<span>{{ isSendingVerification ? "Sending..." : "Send Verification Code" }}</span>
 		</button>
 	</div>
 </template>
 
 <script lang="ts" setup>
+// ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
+import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import type { User } from "../../../lib/db";
 import PhoneInput from "./PhoneInput.vue";
 
@@ -26,6 +34,7 @@ interface Props {
 	user: User;
 	sendVerificationDisabled: boolean;
 	sendVerificationButtonId: string;
+	isSendingVerification: boolean;
 }
 
 defineProps<Props>();

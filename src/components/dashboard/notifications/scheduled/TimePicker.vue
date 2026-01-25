@@ -2,7 +2,6 @@
 	<div class="w-full max-w-xs">
 		<input
 			type="hidden"
-			:id="hiddenInputId"
 			:name="inputName"
 			:value="formattedTime"
 			:disabled="isDisabled"
@@ -75,15 +74,11 @@ const inputAttributes = computed(() => {
 	return {
 		id: props.inputId,
 		class:
-			"w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed",
+			"w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed",
 		// vue-datepicker v12 clear button is controlled by inputAttrs, not a top-level prop.
 		clearable: false,
 		alwaysClearable: false,
 	};
-});
-
-const hiddenInputId = computed(() => {
-	return `${props.inputId}-value`;
 });
 
 const formattedTime = computed(() => formatTimeValue(selectedTime.value));

@@ -4,11 +4,7 @@
 	has client:load or client:only directive (e.g., DashboardPanels with client:load).
 -->
 <template>
-	<div
-		v-if="isClient && isVisible"
-		class="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-yellow-900"
-		role="alert"
-	>
+	<StatusMessage v-if="isClient && isVisible" tone="warning">
 		<div class="space-y-3">
 			<div>
 				<p class="font-medium">
@@ -17,7 +13,7 @@
 					but your account is set to
 					<span class="font-mono">{{ savedTimezoneValue }}</span>.
 				</p>
-				<p class="text-sm text-yellow-800 mt-1">
+				<p class="text-sm mt-1">
 					Would you like to update your default timezone?
 				</p>
 			</div>
@@ -26,7 +22,7 @@
 					<input type="hidden" name="timezone" :value="detectedTimezone" />
 					<button
 						type="submit"
-						class="px-3 py-1.5 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors cursor-pointer"
+						class="px-3 py-1.5 bg-warning-strong text-white rounded-md hover:bg-warning-strong-hover transition-colors cursor-pointer"
 					>
 						Update timezone
 					</button>
@@ -34,23 +30,23 @@
 				<button
 					type="button"
 					@click="handleDismiss"
-					class="px-3 py-1.5 bg-white border border-yellow-300 text-yellow-900 rounded-md hover:bg-yellow-100 transition-colors cursor-pointer"
+					class="px-3 py-1.5 bg-white border border-warning-border text-warning-text rounded-md hover:bg-warning-bg transition-colors cursor-pointer"
 				>
 					Not now
 				</button>
 				<button
 					type="button"
 					@click="handleDismissPermanently"
-					class="px-3 py-1.5 bg-white border border-yellow-300 text-yellow-900 rounded-md hover:bg-yellow-100 transition-colors cursor-pointer"
+					class="px-3 py-1.5 bg-white border border-warning-border text-warning-text rounded-md hover:bg-warning-bg transition-colors cursor-pointer"
 				>
 					Don't ask me again
 				</button>
 			</div>
-			<p v-if="errorMessage" class="text-sm text-yellow-800">
+			<p v-if="errorMessage" class="text-sm text-error-text">
 				{{ errorMessage }}
 			</p>
 		</div>
-	</div>
+	</StatusMessage>
 </template>
 
 <script lang="ts" setup>
@@ -58,6 +54,7 @@ import { DateTime } from "luxon";
 import { computed, ref, toRefs, watch } from "vue";
 
 import { rootLogger } from "../../../lib/logging";
+import StatusMessage from "../../StatusMessage.vue";
 
 interface Props {
 	isClient: boolean;
@@ -149,7 +146,7 @@ const isVisible = computed(() => {
 	if (!allowedTimezoneSet.value.has(detectedTimezone.value)) {
 		return false;
 	}
-	if (dismissPromptsValue.value) {
+	if (dismissPromptsValue.value || permanentlyDismissed.value) {
 		return false;
 	}
 	if (
@@ -215,6 +212,8 @@ async function handleUpdateTimezone() {
 	}
 }
 
+const permanentlyDismissed = ref(false);
+
 async function handleDismissPermanently() {
 	errorMessage.value = null;
 	try {
@@ -234,6 +233,7 @@ async function handleDismissPermanently() {
 			return;
 		}
 
+		permanentlyDismissed.value = true;
 		dismissedForSession.value = true;
 		emit("preferences-updated");
 	} catch (error) {
@@ -247,6 +247,8 @@ async function handleDismissPermanently() {
 }
 
 watch(dismissalKey, () => {
-	dismissedForSession.value = false;
+	if (!permanentlyDismissed.value) {
+		dismissedForSession.value = false;
+	}
 });
 </script>

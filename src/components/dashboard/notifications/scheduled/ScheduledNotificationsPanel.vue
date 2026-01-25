@@ -2,7 +2,10 @@
 	<div class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
 		<div class="flex items-start justify-between gap-4">
 			<div>
-				<h2 class="text-2xl font-bold text-gray-900">
+				<h2
+					:id="DASHBOARD_SECTION_IDS.scheduled"
+					class="text-2xl font-bold text-gray-900"
+				>
 					Scheduled Notifications
 				</h2>
 				<p class="text-sm text-gray-600 mt-1">
@@ -11,12 +14,23 @@
 			</div>
 		</div>
 
+		<div v-if="flashMessages.length" class="space-y-2 mt-4">
+			<StatusMessage
+				v-for="(flash, index) in flashMessages"
+				:key="index"
+				:tone="flash.tone"
+			>
+				{{ flash.message }}
+			</StatusMessage>
+		</div>
+
 		<DailyDigestControls
 			v-model:enabled="dailyDigestEnabled"
 			:dailyDigestTime="dailyDigestTime"
 			:needsChannelSelection="needsChannelSelection"
 			:timePickerDisabled="timePickerDisabled"
 			:sendNowDisabled="sendNowDisabled"
+			:isSending="isSending"
 			@send-now="handleSendNow"
 			@time-change="handleTimeChange"
 		>
@@ -33,10 +47,11 @@
 
 <script lang="ts" setup>
 import { computed, ref, toRefs, watch } from "vue";
-
+import { buildDashboardRedirect, DASHBOARD_SECTION_IDS } from "../../../../lib/dashboard/sections";
 import type { User } from "../../../../lib/db";
 import { rootLogger } from "../../../../lib/logging";
 import { minutesToTimeInputValue } from "../../../../lib/time/format";
+import StatusMessage from "../../../StatusMessage.vue";
 import { DASHBOARD_FORM_ID } from "../../constants";
 import DailyDigestControls from "./DailyDigestControls.vue";
 import SetupRequiredNotice from "./SetupRequiredNotice.vue";
@@ -48,12 +63,15 @@ interface Props {
 	smsOptedOut: boolean;
 	phoneVerified: boolean;
 	onFormChanged: () => void;
+	flashMessages?: { tone: "success" | "error" | "warning"; message: string }[];
 	savedPreferences?: {
 		next_send_at: string | null;
 	} | null;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+	flashMessages: () => [],
+});
 const {
 	user,
 	emailEnabled,
@@ -61,6 +79,7 @@ const {
 	smsOptedOut,
 	phoneVerified,
 	onFormChanged,
+	flashMessages,
 } = toRefs(props);
 
 const dailyDigestEnabled = ref(user.value.daily_digest_enabled);
@@ -90,6 +109,12 @@ const sendNowDisabled = computed(
 	() =>
 		isSending.value || needsChannelSelection.value || !dailyDigestEnabled.value,
 );
+
+const scheduledRedirect = (params: {
+	success?: string;
+	error?: string;
+	warning?: string;
+}) => buildDashboardRedirect({ ...params, section: "scheduled" });
 
 function notifyFormChanged() {
 	const handler = onFormChanged.value;
@@ -134,11 +159,15 @@ async function handleSendNow() {
 		}
 
 		if (response.ok) {
-			window.location.assign("/dashboard?success=daily_digest_sent");
+			window.location.assign(
+				scheduledRedirect({ success: "daily_digest_sent" }),
+			);
 			return;
 		}
 
-		window.location.assign("/dashboard?error=daily_digest_send_failed");
+		window.location.assign(
+			scheduledRedirect({ error: "daily_digest_send_failed" }),
+		);
 	} catch (error) {
 		if (error instanceof Error && error.name === "TimeoutError") {
 			rootLogger.error(
@@ -146,14 +175,18 @@ async function handleSendNow() {
 				{ action: "send_daily_digest_now", reason: "timeout" },
 				error,
 			);
-			window.location.assign("/dashboard?error=daily_digest_timed_out");
+			window.location.assign(
+				scheduledRedirect({ error: "daily_digest_timed_out" }),
+			);
 		} else {
 			rootLogger.error(
 				"Failed to send daily digest now",
 				{ action: "send_daily_digest_now" },
 				error,
 			);
-			window.location.assign("/dashboard?error=daily_digest_send_failed");
+			window.location.assign(
+				scheduledRedirect({ error: "daily_digest_send_failed" }),
+			);
 		}
 	} finally {
 		isSending.value = false;

@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { buildDashboardRedirect } from "../../../lib/dashboard/sections";
 import { createUserService } from "../../../lib/db";
 import {
 	isStocksLimitError,
@@ -61,7 +62,9 @@ export const POST: APIRoute = async ({
 				{ status: 400 },
 			);
 		}
-		return redirect("/dashboard?error=invalid_form");
+		return redirect(
+			buildDashboardRedirect({ error: "invalid_form", section: "stocks" }),
+		);
 	}
 
 	const trackedSymbols = parsed.data.tracked_stocks;
@@ -76,7 +79,9 @@ export const POST: APIRoute = async ({
 				{ status: 400 },
 			);
 		}
-		return redirect("/dashboard?error=stocks_limit");
+		return redirect(
+			buildDashboardRedirect({ error: "stocks_limit", section: "stocks" }),
+		);
 	}
 
 	try {
@@ -88,7 +93,15 @@ export const POST: APIRoute = async ({
 			throw error;
 		}
 	} catch (error) {
-		const errorMessage = error instanceof Error ? error.message : String(error);
+		const errorMessage =
+			error instanceof Error
+				? error.message
+				: typeof error === "object" &&
+						error !== null &&
+						"message" in error &&
+						typeof error.message === "string"
+					? error.message
+					: String(error);
 
 		if (isStocksLimitError(error) || isStocksWhitespaceError(error)) {
 			logger.info("Tracked stocks update rejected due to invalid input", {
@@ -96,6 +109,15 @@ export const POST: APIRoute = async ({
 				error: errorMessage,
 			});
 		} else {
+			const errorForLogging =
+				error instanceof Error
+					? error
+					: typeof error === "object" &&
+							error !== null &&
+							"message" in error &&
+							typeof error.message === "string"
+						? new Error(error.message)
+						: error;
 			logger.error(
 				"Failed to update tracked stocks",
 				{
@@ -103,7 +125,7 @@ export const POST: APIRoute = async ({
 					symbols: trackedSymbols,
 					error: errorMessage,
 				},
-				error instanceof Error ? error : new Error(String(error)),
+				errorForLogging,
 			);
 		}
 
@@ -114,7 +136,9 @@ export const POST: APIRoute = async ({
 					{ status: 400 },
 				);
 			}
-			return redirect("/dashboard?error=stocks_limit");
+			return redirect(
+				buildDashboardRedirect({ error: "stocks_limit", section: "stocks" }),
+			);
 		}
 
 		if (isStocksWhitespaceError(error)) {
@@ -124,21 +148,30 @@ export const POST: APIRoute = async ({
 					{ status: 400 },
 				);
 			}
-			return redirect("/dashboard?error=invalid_form");
+			return redirect(
+				buildDashboardRedirect({ error: "invalid_form", section: "stocks" }),
+			);
 		}
 
 		if (wantsJson) {
 			return Response.json(
-				{ ok: false, message: "update_failed" },
+				{ ok: false, message: "failed_to_update_stocks" },
 				{ status: 500 },
 			);
 		}
-		return redirect("/dashboard?error=update_failed");
+		return redirect(
+			buildDashboardRedirect({
+				error: "failed_to_update_stocks",
+				section: "stocks",
+			}),
+		);
 	}
 
 	if (wantsJson) {
 		return Response.json({ ok: true, message: "stocks_updated" });
 	}
 
-	return redirect("/dashboard?success=stocks_updated");
+	return redirect(
+		buildDashboardRedirect({ success: "stocks_updated", section: "stocks" }),
+	);
 };

@@ -2,7 +2,7 @@
 	<div>
 		<label
 			:for="`${id}-0`"
-			class="block text-sm font-medium text-slate-700 mb-2"
+			class="block text-sm font-medium text-gray-700 mb-2"
 		>
 			Enter Verification Code
 		</label>
@@ -25,9 +25,9 @@
 				@paste="handlePaste($event)"
 				@focus="handleFocus(index)"
 				@blur="handleBlur($event)"
-				class="w-12 h-12 text-center text-lg font-semibold border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+				class="w-12 h-12 text-center text-lg font-semibold border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
 				:class="{
-					'border-red-500 ring-2 ring-red-500': showError,
+					'border-error-strong ring-2 ring-error-strong': showError,
 				}"
 			/>
 		</div>
