@@ -245,86 +245,66 @@ function resolveSectionFromKey(messageKey: string | null): FlashSection | null {
 	return null;
 }
 
-const preferencesFlashMessages = computed<FlashMessage[]>(() => {
+function getFlashMessagesForSection(
+	targetSection: FlashSection,
+	successKey: string | null,
+	errorKey: string | null,
+	warningKey: string | null,
+): FlashMessage[] {
 	const messages: FlashMessage[] = [];
 
-	const successKey =
-		successMessage.value === "verification_sent" ? null : successMessage.value;
 	const successFlash = createFlashMessage("success", successKey);
-	const errorFlash = createFlashMessage("error", errorMessage.value);
-	const warningFlash = createFlashMessage("warning", warningMessage.value);
+	const errorFlash = createFlashMessage("error", errorKey);
+	const warningFlash = createFlashMessage("warning", warningKey);
 
 	const successSection =
 		explicitSection ?? resolveSectionFromKey(successKey ?? null);
-	const errorSection = explicitSection ?? resolveSectionFromKey(errorMessage.value);
-	const warningSection =
-		explicitSection ?? resolveSectionFromKey(warningMessage.value);
+	const errorSection = explicitSection ?? resolveSectionFromKey(errorKey);
+	const warningSection = explicitSection ?? resolveSectionFromKey(warningKey);
 
-	if (successFlash && successSection === "preferences") messages.push(successFlash);
-	if (warningFlash && warningSection === "preferences") messages.push(warningFlash);
-	if (errorFlash && errorSection === "preferences") messages.push(errorFlash);
+	if (successFlash && successSection === targetSection) messages.push(successFlash);
+	if (warningFlash && warningSection === targetSection) messages.push(warningFlash);
+	if (errorFlash && errorSection === targetSection) messages.push(errorFlash);
 
 	return messages;
+}
+
+const preferencesFlashMessages = computed<FlashMessage[]>(() => {
+	const successKey =
+		successMessage.value === "verification_sent" ? null : successMessage.value;
+	return getFlashMessagesForSection(
+		"preferences",
+		successKey,
+		errorMessage.value,
+		warningMessage.value,
+	);
 });
 
 const stocksFlashMessages = computed<FlashMessage[]>(() => {
-	const messages: FlashMessage[] = [];
-
-	const successFlash = createFlashMessage("success", successMessage.value);
-	const errorFlash = createFlashMessage("error", errorMessage.value);
-	const warningFlash = createFlashMessage("warning", warningMessage.value);
-
-	const successSection =
-		explicitSection ?? resolveSectionFromKey(successMessage.value);
-	const errorSection = explicitSection ?? resolveSectionFromKey(errorMessage.value);
-	const warningSection =
-		explicitSection ?? resolveSectionFromKey(warningMessage.value);
-
-	if (successFlash && successSection === "stocks") messages.push(successFlash);
-	if (warningFlash && warningSection === "stocks") messages.push(warningFlash);
-	if (errorFlash && errorSection === "stocks") messages.push(errorFlash);
-
-	return messages;
+	return getFlashMessagesForSection(
+		"stocks",
+		successMessage.value,
+		errorMessage.value,
+		warningMessage.value,
+	);
 });
 
 const scheduledFlashMessages = computed<FlashMessage[]>(() => {
-	const messages: FlashMessage[] = [];
-
-	const successFlash = createFlashMessage("success", successMessage.value);
-	const errorFlash = createFlashMessage("error", errorMessage.value);
-	const warningFlash = createFlashMessage("warning", warningMessage.value);
-
-	const successSection =
-		explicitSection ?? resolveSectionFromKey(successMessage.value);
-	const errorSection = explicitSection ?? resolveSectionFromKey(errorMessage.value);
-	const warningSection =
-		explicitSection ?? resolveSectionFromKey(warningMessage.value);
-
-	if (successFlash && successSection === "scheduled") messages.push(successFlash);
-	if (warningFlash && warningSection === "scheduled") messages.push(warningFlash);
-	if (errorFlash && errorSection === "scheduled") messages.push(errorFlash);
-
-	return messages;
+	return getFlashMessagesForSection(
+		"scheduled",
+		successMessage.value,
+		errorMessage.value,
+		warningMessage.value,
+	);
 });
 
 const previewFlashMessages = computed<FlashMessage[]>(() => {
-	const messages: FlashMessage[] = [];
-
-	const successFlash = createFlashMessage("success", successMessage.value);
-	const errorFlash = createFlashMessage("error", errorMessage.value);
-	const warningFlash = createFlashMessage("warning", warningMessage.value);
-
-	const successSection =
-		explicitSection ?? resolveSectionFromKey(successMessage.value);
-	const errorSection = explicitSection ?? resolveSectionFromKey(errorMessage.value);
-	const warningSection =
-		explicitSection ?? resolveSectionFromKey(warningMessage.value);
-
-	if (successFlash && successSection === "preview") messages.push(successFlash);
-	if (warningFlash && warningSection === "preview") messages.push(warningFlash);
-	if (errorFlash && errorSection === "preview") messages.push(errorFlash);
-
-	return messages;
+	return getFlashMessagesForSection(
+		"preview",
+		successMessage.value,
+		errorMessage.value,
+		warningMessage.value,
+	);
 });
 
 const {

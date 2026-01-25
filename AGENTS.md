@@ -48,9 +48,10 @@ This file captures the non-negotiables for this repo. It is a new app, so we opt
 - **Styling**: Tailwind utilities preferred over custom CSS
 - **Icons**:
   - **Astro files (`.astro`)**: Use `Icon` from `astro-icon/components` (e.g., `<Icon name="arrow-left" class="w-4 h-4" />`). Icons load from `src/icons/*.svg`.
-  - **Vue files (`.vue`)**: Do **not** import `astro-icon/components` (Astro components can’t run in the browser). Instead, import SVGs from `src/icons/` as Vue components (via `vite-svg-loader`) (e.g., `import ChevronDownIcon from "../../../icons/chevron-down.svg"` then `<ChevronDownIcon class="h-5 w-5" />`).
+  - **Vue files (`.vue`)**: Do **not** import `astro-icon/components` (Astro components can’t run in the browser). Instead, import SVGs from `src/icons/` as Vue components (via `vite-svg-loader`) (e.g., `import ChevronDownIcon from "../../../icons/chevron-down.svg?component"` then `<ChevronDownIcon class="h-5 w-5" />`). Vue imports must use `?component` to match the repo's vite-svg-loader configuration and existing components like PhoneInput.vue and PreviewPanel.vue.
   - Store all icon SVGs in `src/icons/`. Avoid inline `<svg>` markup in templates.
 - **CI/CD**: GitHub Actions for continuous integration and deployment
+- **Security**: Astro v5 enables CSRF protection by default via `security.checkOrigin: true` (see [Astro v5 upgrade guide](https://docs.astro.build/en/guides/upgrade-to/v5/#csrf-protection-is-now-set-by-default)). This protection applies to on-demand rendered pages for POST/PATCH/DELETE/PUT requests with form content types. The scope of protection for API routes (`src/pages/api/*.ts`) is not explicitly documented; verify behavior if implementing additional CSRF measures.
 
 ## Available CLI Tools
 The following CLI tools are available: Biome CLI, Cursor CLI, CodeRabbit CLI, Vercel CLI, GitHub CLI, Supabase CLI.

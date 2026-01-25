@@ -39,30 +39,7 @@ jobs:
             exit 0
           fi
           
-          # Check repository permission level for the commenter
-          # This endpoint returns the permission level (admin, write, read, none)
-          # It also works for organization members with inherited permissions
-          PERMISSION_RESPONSE=$(gh api "repos/$REPO/collaborators/$COMMENT_USER/permission" 2>&1)
-          PERMISSION_EXIT_CODE=$?
-          
-          if [[ $PERMISSION_EXIT_CODE -ne 0 ]]; then
-            # If API call fails, check if user is the repository owner as fallback
-            OWNER=$(echo "$REPO" | cut -d'/' -f1)
-            if [[ "$COMMENT_USER" == "$OWNER" ]]; then
-              echo "Authorization granted: user is repository owner"
-              echo "authorized=true" >> "$GITHUB_OUTPUT"
-              exit 0
-            else
-              echo "Skipping: failed to check permissions and user is not repository owner"
-              echo "API error: $PERMISSION_RESPONSE"
-              echo "authorized=false" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-          fi
-          
-          PERMISSION=$(echo "$PERMISSION_RESPONSE" | jq -r '.permission // "none"')
-          
-          # Also check if user is the repository owner
+          # Compute bot and owner flags before API call to allow early short-circuit
           OWNER=$(echo "$REPO" | cut -d'/' -f1)
           IS_OWNER=$([[ "$COMMENT_USER" == "$OWNER" ]] && echo "true" || echo "false")
 
@@ -79,13 +56,35 @@ jobs:
           # as permission=none. Allowlist it so CodeRabbit review comments can trigger the workflow.
           IS_CODERABBIT_BOT=$([[ "$COMMENT_USER" == "coderabbitai[bot]" ]] && echo "true" || echo "false")
           
-          # Allow admin, write, or owner
+          # Short-circuit if user is owner or trusted bot
+          if [[ "$IS_OWNER" == "true" ]] || [[ "$IS_CURSOR_BOT" == "true" ]] || [[ "$IS_COPILOT_BOT" == "true" ]] || [[ "$IS_CODERABBIT_BOT" == "true" ]]; then
+            echo "Authorization granted: is_owner=$IS_OWNER, is_cursor_bot=$IS_CURSOR_BOT, is_copilot_bot=$IS_COPILOT_BOT, is_coderabbit_bot=$IS_CODERABBIT_BOT"
+            echo "authorized=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          
+          # Check repository permission level for the commenter
+          # This endpoint returns the permission level (admin, write, read, none)
+          # It also works for organization members with inherited permissions
+          PERMISSION_RESPONSE=$(gh api "repos/$REPO/collaborators/$COMMENT_USER/permission" 2>&1)
+          PERMISSION_EXIT_CODE=$?
+          
+          if [[ $PERMISSION_EXIT_CODE -ne 0 ]]; then
+            echo "Skipping: failed to check permissions"
+            echo "API error: $PERMISSION_RESPONSE"
+            echo "authorized=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          
+          PERMISSION=$(echo "$PERMISSION_RESPONSE" | jq -r '.permission // "none"')
+          
+          # Allow admin, write, or maintain
           # Note: 'maintain' permission is also write-level access
-          if [[ "$PERMISSION" == "admin" ]] || [[ "$PERMISSION" == "write" ]] || [[ "$PERMISSION" == "maintain" ]] || [[ "$IS_OWNER" == "true" ]] || [[ "$IS_CURSOR_BOT" == "true" ]] || [[ "$IS_COPILOT_BOT" == "true" ]] || [[ "$IS_CODERABBIT_BOT" == "true" ]]; then
-            echo "Authorization granted: permission=$PERMISSION, is_owner=$IS_OWNER, is_cursor_bot=$IS_CURSOR_BOT, is_copilot_bot=$IS_COPILOT_BOT, is_coderabbit_bot=$IS_CODERABBIT_BOT"
+          if [[ "$PERMISSION" == "admin" ]] || [[ "$PERMISSION" == "write" ]] || [[ "$PERMISSION" == "maintain" ]]; then
+            echo "Authorization granted: permission=$PERMISSION"
             echo "authorized=true" >> "$GITHUB_OUTPUT"
           else
-            echo "Skipping: permission=$PERMISSION, is_owner=$IS_OWNER, is_cursor_bot=$IS_CURSOR_BOT, is_copilot_bot=$IS_COPILOT_BOT, is_coderabbit_bot=$IS_CODERABBIT_BOT"
+            echo "Skipping: permission=$PERMISSION"
             echo "User $COMMENT_USER does not have admin, write, or maintain permissions"
             echo "authorized=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -175,12 +174,19 @@ jobs:
           # without prompt injection attempts. If this workflow is used in a public repository or
           # with untrusted commenters, sanitization should be re-added.
           #
-          # Output comment body using multiline format for safe handling of special characters
+          # Output comment body using multiline format with unique delimiter to safely handle any content
+          # including EOF, special characters, newlines, etc. Use cryptographically-random delimiter to prevent
+          # comment content from accidentally matching the delimiter and terminating the heredoc.
+          DELIM=$(openssl rand -hex 32 2>/dev/null || uuidgen 2>/dev/null || echo "$(date +%s)_$$_$(openssl rand -hex 16 2>/dev/null || echo $RANDOM$RANDOM$RANDOM)")
+          if [[ -z "$DELIM" ]]; then
+            echo "Error: Failed to generate delimiter"
+            exit 1
+          fi
           {
-            echo "sanitized<<EOF" >> "$GITHUB_OUTPUT"
+            echo "sanitized<<$DELIM" >> "$GITHUB_OUTPUT"
             printf '%s' "$COMMENT_BODY" >> "$GITHUB_OUTPUT"
             echo "" >> "$GITHUB_OUTPUT"
-            echo "EOF" >> "$GITHUB_OUTPUT"
+            echo "$DELIM" >> "$GITHUB_OUTPUT"
           }
 
       - name: Rate limit check
@@ -283,6 +289,8 @@ jobs:
         if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true'
         run: |
           # Per Cursor docs: https://cursor.com/install
+          # Supply-chain risk: piping a remote script to bash. We accept this for the official
+          # installer. Cursor does not currently publish checksums or versioned release artifacts.
           curl https://cursor.com/install -fsS | bash
           echo "$HOME/.cursor/bin" >> $GITHUB_PATH
 
