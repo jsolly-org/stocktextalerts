@@ -326,13 +326,36 @@ async function handlePreferencesFormSubmitWrapper(event: SubmitEvent) {
 	const isVerifyCodeSubmission = action === "/api/auth/sms/verify-code";
 	const isSendVerificationSubmission = action === "/api/auth/sms/send-verification";
 
-	if (isVerifyCodeSubmission) {
-		isVerifyingCode.value = true;
-		return;
-	}
-
-	if (isSendVerificationSubmission) {
-		isSendingVerification.value = true;
+	if (isVerifyCodeSubmission || isSendVerificationSubmission) {
+		event.preventDefault();
+		if (isVerifyCodeSubmission) {
+			isVerifyingCode.value = true;
+		} else {
+			isSendingVerification.value = true;
+		}
+		try {
+			const form = event.target as HTMLFormElement;
+			const formData = new FormData(form);
+			const res = await fetch(action as string, {
+				method: "POST",
+				body: formData,
+				credentials: "same-origin",
+				redirect: "manual",
+			});
+			if (
+				res.type === "opaqueredirect" ||
+				res.status === 301 ||
+				res.status === 302
+			) {
+				const loc = res.headers.get("Location");
+				if (loc) {
+					window.location.href = new URL(loc, window.location.href).href;
+				}
+			}
+		} finally {
+			isVerifyingCode.value = false;
+			isSendingVerification.value = false;
+		}
 		return;
 	}
 

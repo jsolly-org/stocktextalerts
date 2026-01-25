@@ -11,7 +11,7 @@
 <script lang="ts" setup>
 type StatusTone = "success" | "error" | "warning" | "info";
 
-const props = withDefaults(
+withDefaults(
 	defineProps<{
 		message?: string;
 		tone?: StatusTone;

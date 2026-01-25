@@ -308,40 +308,45 @@ jobs:
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
           REPO: ${{ github.repository }}
         run: |
-          agent --prompt="---SYSTEM_INSTRUCTIONS_START---
-          You are running in GitHub Actions. You can use git and gh. Do not post PR comments.
+          PROMPT="$(
+            cat <<EOF
+            ---SYSTEM_INSTRUCTIONS_START---
+            You are running in GitHub Actions. You can use git and gh. Do not post PR comments.
 
-          Context:
-          - Repo: $REPO
-          - PR Number: $PR_NUMBER
-          - Head Branch: $HEAD_REF
-          - Trigger Event: $COMMENT_EVENT
-          - Trigger Comment ID: $COMMENT_ID
+            Context:
+            - Repo: $REPO
+            - PR Number: $PR_NUMBER
+            - Head Branch: $HEAD_REF
+            - Trigger Event: $COMMENT_EVENT
+            - Trigger Comment ID: $COMMENT_ID
 
-          Do this:
-          1) Make the necessary code changes requested in the user comment below.
-          2) Commit and push directly to the PR head branch.
-          3) Include the PR number and comment ID in the commit message.
-          4) After a successful push, mark the comment as resolved:
-             - If the event is pull_request_review_comment, resolve the review thread using GraphQL:
-               1. Get the comment via REST API to extract its node_id:
-                  COMMENT_JSON=\$(gh api \"repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID\")
-                  NODE_ID=\$(echo \"\$COMMENT_JSON\" | jq -r '.node_id')
-               2. Query the comment via GraphQL to get its thread ID:
-                  THREAD_QUERY='query{node(id:\"'\"\$NODE_ID\"'\"){... on PullRequestReviewComment{thread{id}}}}'
-                  THREAD_ID=\$(gh api graphql -f query=\"\$THREAD_QUERY\" -q '.data.node.thread.id')
-               3. Resolve the thread:
-                  RESOLVE_MUTATION='mutation{resolveReviewThread(input:{threadId:\"'\"\$THREAD_ID\"'\"}){thread{isResolved}}}'
-                  gh api graphql -f query=\"\$RESOLVE_MUTATION\"
-             - If the event is issue_comment, add a reaction:
-               gh api -X POST /repos/$REPO/issues/comments/$COMMENT_ID/reactions -f content=eyes
+            Do this:
+            1) Make the necessary code changes requested in the user comment below.
+            2) Commit and push directly to the PR head branch.
+            3) Include the PR number and comment ID in the commit message.
+            4) After a successful push, mark the comment as resolved:
+               - If the event is pull_request_review_comment, resolve the review thread using GraphQL:
+                 1. Get the comment via REST API to extract its node_id:
+                    COMMENT_JSON=\$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID")
+                    NODE_ID=\$(echo "\$COMMENT_JSON" | jq -r '.node_id')
+                 2. Query the comment via GraphQL to get its thread ID:
+                    THREAD_QUERY='query{node(id:"'"'"'"\$NODE_ID"'"'"'"){... on PullRequestReviewComment{thread{id}}}}'
+                    THREAD_ID=\$(gh api graphql -f query="\$THREAD_QUERY" -q '.data.node.thread.id')
+                 3. Resolve the thread:
+                    RESOLVE_MUTATION='mutation{resolveReviewThread(input:{threadId:"'"'"'"\$THREAD_ID"'"'"'"}){thread{isResolved}}}'
+                    gh api graphql -f query="\$RESOLVE_MUTATION"
+               - If the event is issue_comment, add a reaction:
+                 gh api -X POST /repos/$REPO/issues/comments/$COMMENT_ID/reactions -f content=eyes
 
-          ---SYSTEM_INSTRUCTIONS_END---
+            ---SYSTEM_INSTRUCTIONS_END---
 
-          ---USER_INPUT_START---
-          $COMMENT_BODY
-          ---USER_INPUT_END---
-          " --model gpt-5.2 --output-format=text
+            ---USER_INPUT_START---
+            $COMMENT_BODY
+            ---USER_INPUT_END---
+          EOF
+          )"
+
+          agent --prompt "$PROMPT" --model gpt-5.2 --output-format=text
 
       - name: Report agent failure
         if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true' && steps.agent.outcome == 'failure'

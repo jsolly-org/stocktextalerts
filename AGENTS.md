@@ -45,6 +45,7 @@ This file captures the non-negotiables for this repo. It is a new app, so we opt
 ## Tech Stack
 - **Testing**: Vitest only; happy path coverage only. Do not use Jest.
 - **Linting/Formatting**: Biome only (No Prettier or ESLint)
+  - **Astro files excluded from Biome**: Astro files (`.astro`) are excluded from Biome's `files.includes` pattern in `biome.jsonc` because Biome's formatter repeatedly adds blank lines after frontmatter `---` delimiters when `html.experimentalFullSupportEnabled` is true. Formatter overrides don't prevent this behavior. Astro files are not linted or formatted by Biome as a result. The `package.json` lint-staged config includes `astro` for consistency, but Biome will ignore those files.
 - **Styling**: Tailwind utilities preferred over custom CSS
 - **Icons**:
   - **Astro files (`.astro`)**: Use `Icon` from `astro-icon/components` (e.g., `<Icon name="arrow-left" class="w-4 h-4" />`). Icons load from `src/icons/*.svg`.
@@ -52,6 +53,7 @@ This file captures the non-negotiables for this repo. It is a new app, so we opt
   - Store all icon SVGs in `src/icons/`. Avoid inline `<svg>` markup in templates.
 - **CI/CD**: GitHub Actions for continuous integration and deployment
 - **Security**: Astro v5 enables CSRF protection by default via `security.checkOrigin: true` (see [Astro v5 upgrade guide](https://docs.astro.build/en/guides/upgrade-to/v5/#csrf-protection-is-now-set-by-default)). This protection applies to on-demand rendered pages for POST/PATCH/DELETE/PUT requests with form content types. The scope of protection for API routes (`src/pages/api/*.ts`) is not explicitly documented; verify behavior if implementing additional CSRF measures.
+- **Supabase Auth – OTP / verification types**: `resend({ type: "signup" })` is correct when resending the signup confirmation email. The verification link in that email and `verifyOtp()` use `type: "email"` for sign-up; Supabase deprecates `signup` for verifyOtp. Whitelist only the verifyOtp types (`email`, `invite`, `magiclink`, `recovery`, `email_change`) in `verified.astro` and `SupabaseEmailOtpType`. Do not add `signup` as a verification type—review bots often suggest this incorrectly.
 
 ## Available CLI Tools
 The following CLI tools are available: Biome CLI, Cursor CLI, CodeRabbit CLI, Vercel CLI, GitHub CLI, Supabase CLI.
