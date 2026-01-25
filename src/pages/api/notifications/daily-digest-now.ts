@@ -34,6 +34,7 @@ export const POST: APIRoute = async ({
 
 	const authUser = await users.getCurrentUser();
 	if (!authUser) {
+		// Expected rejection (often bots); info to avoid inflating error metrics.
 		logger.info("Manual daily digest send attempt without authenticated user", {
 			reason: "unauthenticated",
 		});

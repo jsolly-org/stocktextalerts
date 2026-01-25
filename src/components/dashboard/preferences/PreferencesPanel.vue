@@ -219,6 +219,16 @@ watch(hasPendingSmsChanges, () => {
 	savePendingSmsState();
 });
 
+watch(
+	[isClient, () => user.value.phone_verified],
+	([client, isVerified]) => {
+		if (client && isVerified) {
+			restorePendingSmsState();
+		}
+	},
+	{ immediate: true },
+);
+
 function handlePhoneValidityChanged(isValid: boolean) {
 	sendVerificationDisabled.value = !isValid;
 }
@@ -258,16 +268,6 @@ onMounted(() => {
 			);
 		}
 	}
-
-	watch(
-		() => user.value.phone_verified,
-		(isVerified) => {
-			if (isVerified) {
-				restorePendingSmsState();
-			}
-		},
-		{ immediate: true },
-	);
 
 	cleanupNavigationWarning = setupNavigationWarning();
 	watch(hasPendingSmsChanges, (hasPending) => {

@@ -20,8 +20,10 @@ export const POST: APIRoute = async ({
 
 	const authUser = await users.getCurrentUser();
 	if (!authUser) {
-		logger.error(
+		// Expected rejection (often bots); info to avoid inflating error metrics.
+		logger.info(
 			"Timezone banner dismissal attempt without authenticated user",
+			{ reason: "unauthenticated" },
 		);
 		return redirect("/signin?error=unauthorized");
 	}

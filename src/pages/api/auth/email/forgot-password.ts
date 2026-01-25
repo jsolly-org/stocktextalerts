@@ -62,7 +62,8 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 				error.code === "over_request_rate_limit" ||
 				error.code === "over_email_send_rate_limit"
 			) {
-				logger.warn("Password reset rate limit hit", {
+				// Expected rejection (rate limit); info to avoid inflating error metrics.
+				logger.info("Password reset rate limit hit", {
 					email,
 					errorCode: error.code,
 					errorStatus: error.status,

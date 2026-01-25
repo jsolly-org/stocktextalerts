@@ -81,7 +81,8 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 
 	if (error) {
 		if (error.code === "captcha_failed") {
-			logger.error("User registration blocked due to captcha", {
+			// Expected rejection (often bots); info to avoid inflating error metrics.
+			logger.info("User registration blocked due to captcha", {
 				code: error.code,
 				status: error.status,
 			});

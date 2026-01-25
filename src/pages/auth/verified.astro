@@ -33,23 +33,23 @@ if (tokenHash && type === null) {
 	);
 }
 // If token_hash is provided, verify it
-if (tokenHash && type) {
-	const { data, error } = await verifySupabaseOtp(supabase, {
-		token_hash: tokenHash,
-		type,
-	});
-	if (error || !data.user) {
-		rootLogger.error(
-			"Email verification token validation failed",
-			{
-				tokenHashPresent: true,
-				type,
-				hasUser: Boolean(data.user),
-			},
-			error,
-		);
-		return Astro.redirect("/signin?error=invalid_verification");
-	}
+	if (tokenHash && type) {
+		const { data, error } = await verifySupabaseOtp(supabase, {
+			token_hash: tokenHash,
+			type,
+		});
+		if (error || !data?.user) {
+			rootLogger.error(
+				"Email verification token validation failed",
+				{
+					tokenHashPresent: true,
+					type,
+					hasUser: Boolean(data?.user),
+				},
+				error,
+			);
+			return Astro.redirect("/signin?error=invalid_verification");
+		}
 	// Verify the user's email is actually confirmed
 	if (!data.user.email_confirmed_at) {
 		rootLogger.error("User email not confirmed after token verification", {

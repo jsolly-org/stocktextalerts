@@ -71,7 +71,8 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 
 	if (error || !data.user) {
 		const errorCode = error?.code ?? "unknown";
-		logger.error("Password reset token verification failed", {
+		// Expected rejection (expired/invalid token, old links, etc.); info to avoid inflating error metrics.
+		logger.info("Password reset token verification failed", {
 			error: error?.message ?? "unknown_error",
 			errorCode,
 		});

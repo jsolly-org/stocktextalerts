@@ -147,7 +147,7 @@ export const POST: APIRoute = async ({
 				finalTime,
 				finalTimezone,
 			});
-			safePreferenceUpdates.next_send_at = null;
+			// Preserve existing next_send_at value when calculation fails
 		}
 	} else if (enabledChanged && !finalEnabled) {
 		safePreferenceUpdates.next_send_at = null;

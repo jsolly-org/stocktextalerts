@@ -20,7 +20,8 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 	} as const);
 
 	if (!parsed.ok) {
-		logger.warn("Resend verification request rejected due to invalid form", {
+		// Expected rejection (often bots); info to avoid inflating error metrics.
+		logger.info("Resend verification request rejected due to invalid form", {
 			errors: parsed.allErrors,
 		});
 		return redirect("/auth/unconfirmed?error=invalid_form");
@@ -47,7 +48,8 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 
 	if (error) {
 		if (error.code === "captcha_failed") {
-			logger.error("Resend verification blocked due to captcha", {
+			// Expected rejection (often bots); info to avoid inflating error metrics.
+			logger.info("Resend verification blocked due to captcha", {
 				code: error.code,
 				status: error.status,
 			});

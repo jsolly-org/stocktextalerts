@@ -34,7 +34,8 @@ export function createSendVerificationHandler(
 
 		const user = await userService.getCurrentUser();
 		if (!user) {
-			logger.error("SMS verification send attempt without authenticated user", {
+			// Expected rejection (often bots); info to avoid inflating error metrics.
+			logger.info("SMS verification send attempt without authenticated user", {
 				reason: "unauthenticated",
 			});
 			return redirect("/signin?error=unauthorized");
@@ -49,7 +50,8 @@ export function createSendVerificationHandler(
 			} as const);
 
 			if (!parsed.ok) {
-				logger.error("SMS verification form rejected due to invalid fields", {
+				// Expected rejection (often bots); info to avoid inflating error metrics.
+				logger.info("SMS verification form rejected due to invalid fields", {
 					errors: parsed.allErrors,
 				});
 				return redirect("/dashboard?error=invalid_form");

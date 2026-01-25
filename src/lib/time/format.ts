@@ -38,11 +38,11 @@ export function parseTimeString(
 	}
 
 	const parts = value.split(":");
-	if (parts.length !== 2) {
+	if (parts.length !== 2 && parts.length !== 3) {
 		return null;
 	}
 
-	const [hoursPart, minutesPart] = parts;
+	const [hoursPart, minutesPart, secondsPart] = parts;
 	if (!hoursPart || !minutesPart) {
 		return null;
 	}
@@ -64,7 +64,19 @@ export function parseTimeString(
 	) {
 		return null;
 	}
-	return { hours, minutes, seconds: 0 };
+
+	if (parts.length === 2) {
+		return { hours, minutes, seconds: 0 };
+	}
+
+	if (!secondsPart || !/^\d+$/.test(secondsPart)) {
+		return null;
+	}
+	const seconds = Number.parseInt(secondsPart, 10);
+	if (!Number.isInteger(seconds) || seconds < 0 || seconds > 59) {
+		return null;
+	}
+	return { hours, minutes, seconds };
 }
 
 export function minutesToTimeInputValue(minutes: number): string {

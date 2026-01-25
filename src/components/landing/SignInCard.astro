@@ -117,36 +117,40 @@ const SIGNIN_CAPTCHA_STATUS_ID = "signin-captcha-status";
 	}
 
 	const form = document.getElementById(SIGNIN_FORM_ID);
-	if (form instanceof HTMLFormElement) {
-		const captchaStatus = createCaptchaStatusHelpers(SIGNIN_CAPTCHA_STATUS_ID);
-
-		const emailInput = document.getElementById("email");
-		if (emailInput instanceof HTMLInputElement) {
-			setupEmailInputHandlers(emailInput);
-		}
-
-		setupCaptchaSubmitGuard(SIGNIN_FORM_ID, SIGNIN_CAPTCHA_TOKEN_ID, (message) => {
-			captchaStatus.show(message);
-		});
-		setupCaptchaTokenInputListener(SIGNIN_CAPTCHA_TOKEN_ID, (token) => {
-			if (token.trim().length > 0) {
-				captchaStatus.hide();
-			}
-		});
-
-		initializeHCaptchaForm(SIGNIN_FORM_ID, SIGNIN_CAPTCHA_TOKEN_ID);
-		setupHCaptchaCallback(
-			"onSignInHCaptchaSuccess",
-			SIGNIN_CAPTCHA_TOKEN_ID,
-			SIGNIN_FORM_ID,
-			() => {
-				captchaStatus.hide();
-			},
-		);
-		setupHCaptchaErrorCallback("onSignInHCaptchaError");
-		setupHCaptchaExpiredCallback(
-			"onSignInHCaptchaExpired",
-			SIGNIN_CAPTCHA_TOKEN_ID,
+	if (!(form instanceof HTMLFormElement)) {
+		throw new Error(
+			`SignInCard form not found: no element with id "${SIGNIN_FORM_ID}" or element is not a form`,
 		);
 	}
+
+	const captchaStatus = createCaptchaStatusHelpers(SIGNIN_CAPTCHA_STATUS_ID);
+
+	const emailInput = document.getElementById("email");
+	if (emailInput instanceof HTMLInputElement) {
+		setupEmailInputHandlers(emailInput);
+	}
+
+	setupCaptchaSubmitGuard(SIGNIN_FORM_ID, SIGNIN_CAPTCHA_TOKEN_ID, (message) => {
+		captchaStatus.show(message);
+	});
+	setupCaptchaTokenInputListener(SIGNIN_CAPTCHA_TOKEN_ID, (token) => {
+		if (token.trim().length > 0) {
+			captchaStatus.hide();
+		}
+	});
+
+	initializeHCaptchaForm(SIGNIN_FORM_ID, SIGNIN_CAPTCHA_TOKEN_ID);
+	setupHCaptchaCallback(
+		"onSignInHCaptchaSuccess",
+		SIGNIN_CAPTCHA_TOKEN_ID,
+		SIGNIN_FORM_ID,
+		() => {
+			captchaStatus.hide();
+		},
+	);
+	setupHCaptchaErrorCallback("onSignInHCaptchaError");
+	setupHCaptchaExpiredCallback(
+		"onSignInHCaptchaExpired",
+		SIGNIN_CAPTCHA_TOKEN_ID,
+	);
 </script>

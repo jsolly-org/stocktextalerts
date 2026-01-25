@@ -21,7 +21,8 @@ export const POST: APIRoute = async ({
 
 	const authUser = await users.getCurrentUser();
 	if (!authUser) {
-		logger.error("Timezone update attempt without authenticated user", {
+		// Expected rejection (often bots); info to avoid inflating error metrics.
+		logger.info("Timezone update attempt without authenticated user", {
 			reason: "unauthenticated",
 		});
 		return redirect("/signin?error=unauthorized");
@@ -33,7 +34,8 @@ export const POST: APIRoute = async ({
 	} as const);
 
 	if (!parsed.ok) {
-		logger.error("Timezone update rejected due to invalid form", {
+		// Expected rejection (often bots); info to avoid inflating error metrics.
+		logger.info("Timezone update rejected due to invalid form", {
 			errors: parsed.allErrors,
 		});
 		return redirect("/dashboard?error=invalid_form");

@@ -34,7 +34,8 @@ export function createVerifyCodeHandler(
 
 		const user = await userService.getCurrentUser();
 		if (!user) {
-			logger.error("SMS verification attempt without authenticated user", {
+			// Expected rejection (often bots); info to avoid inflating error metrics.
+			logger.info("SMS verification attempt without authenticated user", {
 				reason: "unauthenticated",
 			});
 			return redirect("/signin?error=unauthorized");
@@ -47,11 +48,10 @@ export function createVerifyCodeHandler(
 			} as const);
 
 			if (!parsed.ok) {
-				logger.error(
+				// Expected rejection (often bots); info to avoid inflating error metrics.
+				logger.info(
 					"SMS verification code form rejected due to invalid fields",
-					{
-						errors: parsed.allErrors,
-					},
+					{ errors: parsed.allErrors },
 				);
 				return redirect("/dashboard?error=invalid_form");
 			}
