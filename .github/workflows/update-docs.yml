@@ -19,6 +19,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install Cursor CLI
+        # Note: Cursor CLI cannot be pinned to a specific version. The installer always installs the latest version.
         run: |
           if ! curl "https://cursor.com/install" -fsS | bash; then
             echo "Error: Failed to install Cursor CLI"
