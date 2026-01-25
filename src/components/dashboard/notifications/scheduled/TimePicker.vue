@@ -107,6 +107,7 @@ watch(
 			return;
 		}
 		emit("time-change", newValue);
+		lastSyncedValue.value = newValue;
 	},
 	{ flush: "post" },
 );

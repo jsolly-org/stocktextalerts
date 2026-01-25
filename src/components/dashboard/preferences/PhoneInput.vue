@@ -44,8 +44,34 @@
 					autocomplete="tel-national"
 				/>
 					<div v-if="phoneNumber" class="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-						<Icon v-if="isValid" name="check-circle-24" class="h-5 w-5 text-green-500" />
-						<Icon v-else name="exclamation-circle-24" class="h-5 w-5 text-red-500" />
+						<svg
+							v-if="isValid"
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="currentColor"
+							class="h-5 w-5 text-green-500"
+							aria-hidden="true"
+						>
+							<path
+								fill-rule="evenodd"
+								d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z"
+								clip-rule="evenodd"
+							/>
+						</svg>
+						<svg
+							v-else
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="currentColor"
+							class="h-5 w-5 text-red-500"
+							aria-hidden="true"
+						>
+							<path
+								fill-rule="evenodd"
+								d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z"
+								clip-rule="evenodd"
+							/>
+						</svg>
 					</div>
 				</div>
 			</div>
@@ -58,7 +84,6 @@
 import { AsYouType, getCountryCallingCode, getExampleNumber, isValidPhoneNumber } from "libphonenumber-js";
 import examples from "libphonenumber-js/examples.mobile.json";
 import { computed, ref, watch } from "vue";
-import { Icon } from "astro-icon/components";
 
 type Country = "US";
 
