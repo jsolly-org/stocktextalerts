@@ -147,6 +147,12 @@ jobs:
             fi
           fi
 
+          # Skip all comments from Cursor bot (autofix and other automated comments).
+          if [[ "$COMMENT_USER" == "cursor[bot]" ]]; then
+            echo "Skipping Cursor bot comment (autofix enabled)"
+            SKIP="true"
+          fi
+
           echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
 
       - name: Extract PR metadata
