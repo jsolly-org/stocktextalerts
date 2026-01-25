@@ -313,6 +313,8 @@ jobs:
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
           REPO: ${{ github.repository }}
         run: |
+          BEFORE_SHA="$(git rev-parse HEAD)"
+
           PROMPT="$(
             cat <<EOF
             ---SYSTEM_INSTRUCTIONS_START---
@@ -351,7 +353,18 @@ jobs:
           EOF
           )"
 
-          agent -p "$PROMPT" --model gpt-5.2 --output-format=text
+          # Use --print for non-interactive runs (enables tool access) and pass the prompt as the
+          # positional argument, per Cursor CLI docs.
+          # --force is required so the agent can actually execute commands (git/gh) in CI.
+          agent --print --model gpt-5.2 --output-format=text --force "$PROMPT"
+
+          # Treat "no pushed commits" as a failure so we get a visible signal + failure comment.
+          git fetch origin "$HEAD_REF"
+          AFTER_SHA="$(git rev-parse "origin/$HEAD_REF")"
+          if [[ "$AFTER_SHA" == "$BEFORE_SHA" ]]; then
+            echo "Agent completed but did not push any commits (branch unchanged at $AFTER_SHA)."
+            exit 1
+          fi
 
       - name: Report agent failure
         if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true' && steps.agent.outcome == 'failure'
@@ -360,3 +373,7 @@ jobs:
         run: |
           gh pr comment "${{ steps.pr.outputs.pr_number }}" \
             --body "Cursor agent failed to process the comment. $INTERNAL_MARKER"
+
+      - name: Fail job if agent failed
+        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true' && steps.agent.outcome == 'failure'
+        run: exit 1
