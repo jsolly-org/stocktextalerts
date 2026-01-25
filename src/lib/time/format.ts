@@ -37,12 +37,7 @@ export function parseTimeString(
 		return null;
 	}
 
-	const trimmed = value.trim();
-	if (!trimmed) {
-		return null;
-	}
-
-	const parts = trimmed.split(":");
+	const parts = value.split(":");
 	if (parts.length !== 2) {
 		return null;
 	}

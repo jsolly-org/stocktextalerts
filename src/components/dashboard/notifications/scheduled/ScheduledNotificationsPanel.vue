@@ -87,7 +87,8 @@ const timePickerDisabled = computed(
 	() => needsChannelSelection.value || !dailyDigestEnabled.value,
 );
 const sendNowDisabled = computed(
-	() => isSending.value || needsChannelSelection.value || !dailyDigestEnabled.value,
+	() =>
+		isSending.value || needsChannelSelection.value || !dailyDigestEnabled.value,
 );
 
 function notifyFormChanged() {
@@ -140,11 +141,7 @@ async function handleSendNow() {
 		window.location.assign("/dashboard?error=daily_digest_send_failed");
 	} catch (error) {
 		if (error instanceof Error && error.name === "TimeoutError") {
-			rootLogger.error(
-				"Daily digest send request timed out",
-				undefined,
-				error,
-			);
+			rootLogger.error("Daily digest send request timed out", undefined, error);
 			window.location.assign("/dashboard?error=daily_digest_timed_out");
 		} else {
 			rootLogger.error("Failed to send daily digest now", undefined, error);

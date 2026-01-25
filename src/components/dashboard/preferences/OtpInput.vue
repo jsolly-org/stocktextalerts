@@ -49,9 +49,7 @@ const props = defineProps<{
 	formSubmitted?: boolean;
 }>();
 
-const emit = defineEmits<{
-	(event: "input"): void;
-}>();
+const emit = defineEmits<(event: "input") => void>();
 
 const CODE_LENGTH = 6;
 const digits = ref<string[]>(Array(CODE_LENGTH).fill(""));

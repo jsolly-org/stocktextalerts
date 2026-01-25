@@ -1,19 +1,17 @@
 ---
+
 import { Icon } from "astro-icon/components";
 import HCaptcha from "../../components/HCaptcha.astro";
 import Navigation from "../../components/Navigation.astro";
 import Layout from "../../layouts/Layout.astro";
-
 const search = Astro.url.searchParams;
 const success = search.get("success");
 const error = search.get("error");
 const secondsNum = Number.parseInt(search.get("seconds") ?? "", 10);
 const seconds =
 	Number.isFinite(secondsNum) && secondsNum >= 0 ? String(secondsNum) : null;
-
 let message = "";
 let messageType: "success" | "error" | null = null;
-
 if (success === "true") {
 	message = "If an account exists for that email, a reset link has been sent.";
 	messageType = "success";
@@ -36,7 +34,6 @@ if (success === "true") {
 	}
 }
 ---
-
 <Layout title="Forgot Password" description="Request a password reset email.">
   <div class="min-h-screen bg-gray-50">
     <Navigation />

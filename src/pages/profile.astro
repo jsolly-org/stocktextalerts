@@ -1,4 +1,5 @@
 ---
+
 import { Icon } from "astro-icon/components";
 import Navigation from "../components/Navigation.astro";
 import AccountManagement from "../components/profile/AccountManagement.astro";
@@ -12,16 +13,12 @@ import { formatMessage } from "../lib/status-messages";
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
-
 const authUser = await users.getCurrentUser();
-
 if (!authUser) {
 	rootLogger.error("Profile access attempted without authenticated user");
 	return Astro.redirect("/");
 }
-
 const user = await users.getById(authUser.id);
-
 if (!user) {
 	rootLogger.error("Auth user exists but database user record missing", {
 		userId: authUser.id,
@@ -29,14 +26,12 @@ if (!user) {
 	});
 	return Astro.redirect("/?error=user_not_found");
 }
-
 const search = Astro.url.searchParams;
 const error = search.get("error");
 const success = search.get("success");
 const errorMessage = getAuthErrorMessage(error);
 const successMessage = formatMessage(success);
 ---
-
 <Layout title="Profile" description="Edit your profile">
   <div class="min-h-screen bg-gray-50">
     <Navigation user={authUser} />

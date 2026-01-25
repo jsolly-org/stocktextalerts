@@ -250,6 +250,7 @@ async function generateUsersSql(
   let sql = '';
 
   for (const user of users) {
+    // Normalize seed input since JSON files aren't constrained and auth.users is external.
     const userEmailRaw = (user.email || '').trim();
     if (!userEmailRaw) {
       throw new SeedError(
@@ -283,6 +284,7 @@ async function generateUsersSql(
             `Invalid seed user: tracked_stocks[${i}] must be a string. Received: ${typeof stock}. User data: ${JSON.stringify(user)}`,
           );
         }
+        // Normalize seed input; whitespace is common in CSV/JSON exports.
         const trimmed = stock.trim();
         if (!trimmed) {
           throw new SeedError(
@@ -323,6 +325,7 @@ async function main() {
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const seedEnv = process.env.SEED_ENV;
 
+  // Seed scripts run outside middleware, so env validation lives here.
   if (!supabaseUrl || !supabaseServiceRoleKey) {
     throw new SeedError(
       "missing_env",

@@ -1,4 +1,5 @@
 ---
+
 import { Icon } from "astro-icon/components";
 import HCaptcha from "../../components/HCaptcha.astro";
 import Layout from "../../layouts/Layout.astro";
@@ -7,10 +8,8 @@ const search = Astro.url.searchParams;
 const email = search.get("email");
 const success = search.get("success");
 const error = search.get("error");
-
 let message = "";
 let messageType: "success" | "error" | null = null;
-
 if (success === "true") {
 	message = "Verification email sent! Check your inbox.";
 	messageType = "success";
@@ -31,7 +30,6 @@ if (success === "true") {
 	}
 }
 ---
-
 <Layout title="Verify Your Email" description="Please verify your email address to continue">
   <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-md w-full space-y-8">

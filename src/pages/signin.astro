@@ -1,4 +1,5 @@
 ---
+
 import { Icon } from "astro-icon/components";
 import SignInCard from "../components/landing/SignInCard.astro";
 import Layout from "../layouts/Layout.astro";
@@ -12,11 +13,9 @@ import { createSupabaseServerClient } from "../lib/db/supabase";
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
 const user = await users.getCurrentUser();
-
 if (user) {
 	return Astro.redirect("/dashboard");
 }
-
 const search = Astro.url.searchParams;
 const errorCode = search.get("error");
 const errorMessage = getAuthErrorMessage(errorCode);
@@ -24,7 +23,6 @@ const successCode = search.get("success");
 const successMessage = getAuthSuccessMessage(successCode);
 const emailPrefill = search.get("email") ?? "";
 ---
-
 <Layout title="Sign In" description="Sign in to your Stock Text Alerts account.">
   <div class="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
     <div class="sm:mx-auto sm:w-full sm:max-w-md">

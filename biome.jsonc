@@ -9,10 +9,14 @@
 	"files": {
 		"ignoreUnknown": true,
 		"includes": [
-			"src/**/*.{ts,tsx,json,css,html,md,astro}",
+			"src/**/*.{ts,tsx,json,css,html,md,vue}",
 			"tests/**/*.{ts,tsx,json}",
-			"{package.json,tsconfig.json,biome.jsonc,vitest.config.ts,vite.config.ts,*.md}"
+			"{package.json,tsconfig.json,biome.jsonc,vitest.config.ts,vite.config.ts,*.md}",
+			"!!**/*.astro"
 		]
+	},
+	"html": {
+		"experimentalFullSupportEnabled": false
 	},
 	"linter": {
 		"enabled": true,
@@ -25,17 +29,18 @@
 			}
 		}
 	},
+	"formatter": {
+		"enabled": true,
+		"formatWithErrors": false
+	},
 	"overrides": [
 		{
-			"includes": ["**/*.astro"],
+			"includes": ["**/*.vue"],
 			"linter": {
 				"rules": {
 					"correctness": {
 						"noUnusedVariables": "off",
 						"noUnusedImports": "off"
-					},
-					"suspicious": {
-						"noExplicitAny": "warn"
 					}
 				}
 			}

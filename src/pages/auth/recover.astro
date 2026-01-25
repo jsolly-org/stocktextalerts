@@ -1,4 +1,5 @@
 ---
+
 import { Icon } from "astro-icon/components";
 import Navigation from "../../components/Navigation.astro";
 import Layout from "../../layouts/Layout.astro";
@@ -7,13 +8,10 @@ const search = Astro.url.searchParams;
 const token = search.get("token");
 const type = search.get("type");
 const error = search.get("error");
-
 let message = "";
 let showResetLink = false;
-
 const hasValidToken = Boolean(token) && type === "recovery";
 let showForm = hasValidToken;
-
 if (!hasValidToken) {
 	message = "This password reset link is invalid.";
 	showResetLink = true;
@@ -45,7 +43,6 @@ if (!hasValidToken) {
 	}
 }
 ---
-
 <Layout title="Reset Password" description="Set a new password for your account.">
   <div class="min-h-screen bg-gray-50">
     <Navigation />

@@ -19,10 +19,11 @@
 
 			<TimezoneMismatchBanner
 				:is-client="isClient"
-				:saved-timezone="user.timezone ?? ''"
+				:saved-timezone="user.timezone"
 				:allowed-timezones="timezones.map((tz) => tz.value)"
-				:dismiss-timezone-mismatch-prompts="user.dismiss_timezone_mismatch_prompts ?? false"
+				:dismiss-timezone-mismatch-prompts="user.dismiss_timezone_mismatch_prompts"
 				:saved-preferences="savedPreferences"
+				@timezone-updated="handleTimezoneUpdated"
 			/>
 
 			<NotificationChannelsSection
@@ -45,6 +46,7 @@ import { DateTime } from "luxon";
 import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
 
 import type { User } from "../../../lib/db";
+import { rootLogger } from "../../../lib/logging";
 import type { TimezoneOption } from "../../../lib/time/cache";
 import { DEFAULT_TIMEZONE } from "../../../lib/time/constants";
 import { DASHBOARD_FORM_ID } from "../constants";
@@ -115,7 +117,7 @@ const smsEnabled = computed({
 	get: () => smsEnabledProp.value,
 	set: (value: boolean) => emit("update:smsEnabled", value),
 });
-const selectedTimezone = ref(user.value.timezone ?? "");
+const selectedTimezone = ref(user.value.timezone);
 
 const canSaveSmsEnabled = computed(() => {
 	if (!smsEnabled.value) {
@@ -136,9 +138,12 @@ function savePendingSmsState() {
 			sessionStorage.removeItem(pendingSmsStorageKey.value);
 		}
 	} catch (error) {
-		console.warn(
-			`Unable to update session storage for ${pendingSmsStorageKey.value}.`,
-			error,
+		rootLogger.warn(
+			"Unable to update session storage for pending SMS changes.",
+			{
+				storageKey: pendingSmsStorageKey.value,
+				error,
+			},
 		);
 	}
 }
@@ -148,10 +153,10 @@ function restorePendingSmsState() {
 	try {
 		pendingSmsState = sessionStorage.getItem(pendingSmsStorageKey.value);
 	} catch (error) {
-		console.warn(
-			`Unable to read session storage for ${pendingSmsStorageKey.value}.`,
+		rootLogger.warn("Unable to read session storage for pending SMS changes.", {
+			storageKey: pendingSmsStorageKey.value,
 			error,
-		);
+		});
 		return;
 	}
 
@@ -160,20 +165,25 @@ function restorePendingSmsState() {
 		try {
 			sessionStorage.removeItem(pendingSmsStorageKey.value);
 		} catch (error) {
-			console.warn(
-				`Unable to clear session storage for ${pendingSmsStorageKey.value}.`,
-				error,
+			rootLogger.warn(
+				"Unable to clear session storage for pending SMS changes.",
+				{
+					storageKey: pendingSmsStorageKey.value,
+					error,
+				},
 			);
 		}
 	}
 }
 
 function resolveDefaultTimezone() {
-	if (selectedTimezone.value !== "") {
+	if (selectedTimezone.value) {
 		return;
 	}
 
-	const knownValues = new Set(timezones.value.map((timezone) => timezone.value));
+	const knownValues = new Set(
+		timezones.value.map((timezone) => timezone.value),
+	);
 	const detected = DateTime.local().zoneName ?? "";
 
 	if (detected && knownValues.has(detected)) {
@@ -191,6 +201,10 @@ function notifyFormChanged() {
 	handler();
 }
 
+function handleTimezoneUpdated(newTimezone: string) {
+	selectedTimezone.value = newTimezone;
+}
+
 watch([emailEnabled, smsEnabled], () => {
 	notifyFormChanged();
 	savePendingSmsState();
@@ -200,9 +214,9 @@ watch(hasPendingSmsChanges, () => {
 	savePendingSmsState();
 });
 
-const handlePhoneValidityChanged = (isValid: boolean) => {
+function handlePhoneValidityChanged(isValid: boolean) {
 	sendVerificationDisabled.value = !isValid;
-};
+}
 
 function setupNavigationWarning() {
 	if (!hasPendingSmsChanges.value) {
@@ -230,9 +244,12 @@ onMounted(() => {
 		try {
 			sessionStorage.removeItem(pendingSmsStorageKey.value);
 		} catch (error) {
-			console.warn(
-				`Unable to clear session storage for ${pendingSmsStorageKey.value}.`,
-				error,
+			rootLogger.warn(
+				"Unable to clear session storage for pending SMS changes.",
+				{
+					storageKey: pendingSmsStorageKey.value,
+					error,
+				},
 			);
 		}
 	}
@@ -267,5 +284,4 @@ onUnmounted(() => {
 		cleanupNavigationWarning();
 	}
 });
-
 </script>

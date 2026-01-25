@@ -68,7 +68,12 @@
 
 <script lang="ts" setup>
 import { Icon } from "astro-icon/components";
-import { AsYouType, getCountryCallingCode, getExampleNumber, isValidPhoneNumber } from "libphonenumber-js";
+import {
+	AsYouType,
+	getCountryCallingCode,
+	getExampleNumber,
+	isValidPhoneNumber,
+} from "libphonenumber-js";
 import examples from "libphonenumber-js/examples.mobile.json";
 import { computed, ref, watch } from "vue";
 
@@ -85,9 +90,7 @@ const props = defineProps<{
 	initialNationalNumber?: string | null;
 }>();
 
-const emit = defineEmits<{
-	(event: "validity-changed", value: boolean): void;
-}>();
+const emit = defineEmits<(event: "validity-changed", value: boolean) => void>();
 
 const country = ref<Country>("US");
 const showError = ref(false);
@@ -132,7 +135,10 @@ function handlePhoneInput(e: Event) {
 	let newDigits = input.value.replace(/\D/g, "");
 
 	const inputType = (e as InputEvent).inputType;
-	if (inputType === "deleteContentBackward" && newDigits.length === previousDigits.length) {
+	if (
+		inputType === "deleteContentBackward" &&
+		newDigits.length === previousDigits.length
+	) {
 		const selectionStart = input.selectionStart ?? input.value.length;
 		const selectionEnd = input.selectionEnd ?? input.value.length;
 		const isCaretSelectionCollapsed = selectionStart === selectionEnd;
@@ -169,8 +175,7 @@ function handlePhoneInput(e: Event) {
 						}
 						return seenDigits === targetDigitsBeforeCaret;
 					});
-					const caretPos =
-						foundIndex >= 0 ? foundIndex + 1 : formatted.length;
+					const caretPos = foundIndex >= 0 ? foundIndex + 1 : formatted.length;
 					input.setSelectionRange(caretPos, caretPos);
 				}
 

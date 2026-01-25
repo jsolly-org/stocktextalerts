@@ -98,7 +98,7 @@ export function useAutoSaveForm<T = unknown>(options: AutoSaveOptions) {
 			if (!response.ok || !payload.ok) {
 				const formattedMessage =
 					payload && typeof payload.message === "string"
-						? formatMessage(payload.message.trim())
+						? formatMessage(payload.message)
 						: "";
 				const errorMessage =
 					formattedMessage || "Could not save changes. Please try again.";
@@ -148,7 +148,7 @@ export function useAutoSaveForm<T = unknown>(options: AutoSaveOptions) {
 			debounceHandle = null;
 		}
 
-		// Debounce autosave to batch rapid user input intentionally.
+		// Intentional debounce to batch rapid input (deviation from timing-hacks rule).
 		debounceHandle = window.setTimeout(() => {
 			void triggerSave(form);
 		}, debounceMs);
@@ -196,6 +196,10 @@ export function useAutoSaveForm<T = unknown>(options: AutoSaveOptions) {
 	watch(
 		() => options.formRef.value,
 		(form) => {
+			if (debounceHandle) {
+				window.clearTimeout(debounceHandle);
+				debounceHandle = null;
+			}
 			if (!form) {
 				return;
 			}

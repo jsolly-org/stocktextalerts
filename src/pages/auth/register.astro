@@ -1,4 +1,5 @@
 ---
+
 import { Icon } from "astro-icon/components";
 import HCaptcha from "../../components/HCaptcha.astro";
 import Navigation from "../../components/Navigation.astro";
@@ -9,10 +10,8 @@ import { getTimezoneOptions } from "../../lib/time/cache";
 
 const search = Astro.url.searchParams;
 const error = search.get("error");
-
 let message = "";
 let showSignInLink = false;
-
 const supabase = createSupabaseServerClient();
 let timezones: Awaited<ReturnType<typeof getTimezoneOptions>> = [];
 let timezoneLoadError = false;
@@ -22,7 +21,6 @@ try {
 	rootLogger.error("Failed to load timezone options", undefined, loadError);
 	timezoneLoadError = true;
 }
-
 if (error) {
 	switch (error) {
 		case "missing_fields":
@@ -47,7 +45,6 @@ if (error) {
 	}
 }
 ---
-
 <Layout title="Register" description="Create a new account">
   <div class="min-h-screen bg-gray-50">
     <Navigation />
@@ -171,8 +168,8 @@ if (error) {
 </Layout>
 
 <script>
-	import { setupDetectedTimezoneOption } from "../../lib/time/detected-timezone";
 	import { DEFAULT_TIMEZONE } from "../../lib/time/constants";
+	import { setupDetectedTimezoneOption } from "../../lib/time/detected-timezone";
 
 	setupDetectedTimezoneOption({ defaultTimezone: DEFAULT_TIMEZONE });
 </script>

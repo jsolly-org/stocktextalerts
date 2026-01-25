@@ -1,4 +1,5 @@
 ---
+
 import stocksData from "../../scripts/us-stocks.json";
 import DashboardPanels from "../components/dashboard/DashboardPanels.vue";
 import type { StockOption } from "../components/dashboard/stocks/StockInput.vue";
@@ -17,22 +18,17 @@ const stockOptions: StockOption[] = (stocksData as { data: Stock[] }).data.map(
 		label: `${stock.symbol} - ${stock.name}`,
 	}),
 );
-
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
-
 const authUser = await users.getCurrentUser();
-
 if (!authUser) {
 	rootLogger.error("Dashboard access attempted without authenticated user");
 	return Astro.redirect("/");
 }
-
 const [dbUser, userStocks] = await Promise.all([
 	users.getById(authUser.id),
 	getUserStocks(supabase, authUser.id),
 ]);
-
 if (!dbUser) {
 	rootLogger.error("Auth user exists but database user record missing", {
 		userId: authUser.id,
@@ -40,12 +36,9 @@ if (!dbUser) {
 	});
 	return Astro.redirect("/?error=user_not_found");
 }
-
 const user = dbUser;
-
 let timezones: Awaited<ReturnType<typeof getTimezoneOptions>>;
 let timezoneLoadError = false;
-
 try {
 	timezones = await getTimezoneOptions(supabase, {
 		includeValues: [user.timezone],
@@ -63,15 +56,12 @@ try {
 			]
 		: [];
 }
-
 const initialSymbols = userStocks.map((stock) => stock.symbol);
-
 const url = new URL(Astro.request.url);
 const successMessage = url.searchParams.get("success");
 const errorMessage = url.searchParams.get("error");
 const isEditingPhone = url.searchParams.get("change_phone") === "1";
 ---
-
 <Layout title="Dashboard" description="Review and manage your stock notifications">
 	<div class="min-h-screen bg-gray-50">
 		<Navigation user={authUser} />

@@ -1,4 +1,5 @@
 ---
+
 import { Icon } from "astro-icon/components";
 import Layout from "../../layouts/Layout.astro";
 import {
@@ -11,7 +12,6 @@ import { rootLogger } from "../../lib/logging";
 
 const supabase = createSupabaseServerClient();
 const userService = createUserService(supabase, Astro.cookies);
-
 // Check for token_hash in query params (PKCE flow for SSR)
 const tokenHash = Astro.url.searchParams.get("token_hash");
 const typeParam = Astro.url.searchParams.get("type");
@@ -23,7 +23,6 @@ const type: SupabaseEmailOtpType | null =
 	typeParam === "email_change"
 		? typeParam
 		: null;
-
 // If token_hash is present but type is invalid/missing, treat link as invalid and
 // immediately remove the raw token from the URL.
 if (tokenHash && type === null) {
@@ -33,14 +32,12 @@ if (tokenHash && type === null) {
 		`${cleanedUrl.pathname}${cleanedUrl.search}${cleanedUrl.hash}`,
 	);
 }
-
 // If token_hash is provided, verify it
 if (tokenHash && type) {
 	const { data, error } = await verifySupabaseOtp(supabase, {
 		token_hash: tokenHash,
 		type,
 	});
-
 	if (error || !data.user) {
 		rootLogger.error(
 			"Email verification token validation failed",
@@ -49,13 +46,11 @@ if (tokenHash && type) {
 		);
 		return Astro.redirect("/signin?error=invalid_verification");
 	}
-
 	// Verify the user's email is actually confirmed
 	if (!data.user.email_confirmed_at) {
 		rootLogger.error("User email not confirmed after token verification");
 		return Astro.redirect("/signin?error=verification_failed");
 	}
-
 	// Clean up URL to prevent token reuse attempts on refresh
 	return Astro.redirect("/auth/verified");
 } else {
@@ -67,11 +62,9 @@ if (tokenHash && type) {
 		return Astro.redirect("/signin?error=invalid_verification");
 	}
 }
-
 const title = "Email Verified";
 const description = "Your email has been successfully verified.";
 ---
-
 <Layout title={title} description={description}>
   <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-md w-full space-y-8">

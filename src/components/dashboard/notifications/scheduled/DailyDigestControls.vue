@@ -81,7 +81,6 @@
 
 <script lang="ts" setup>
 import { computed } from "vue";
-
 import TimePicker from "./TimePicker.vue";
 
 interface Props {
@@ -104,5 +103,4 @@ const enabledValue = computed({
 	get: () => props.enabled,
 	set: (value: boolean) => emit("update:enabled", value),
 });
-
 </script>

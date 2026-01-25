@@ -22,6 +22,7 @@ function getTestEnv(): TestEnv {
 	const databaseUrl = process.env.DATABASE_URL;
 	const supabaseAnonKey = process.env.PUBLIC_SUPABASE_ANON_KEY;
 
+	// Tests run outside the request pipeline, so middleware env validation doesn't apply.
 	if (
 		!supabaseUrl ||
 		!supabaseServiceRoleKey ||

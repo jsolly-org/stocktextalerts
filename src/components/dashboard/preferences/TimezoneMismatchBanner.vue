@@ -78,23 +78,34 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-const { allowedTimezones, dismissTimezoneMismatchPrompts, savedPreferences, savedTimezone } =
-	toRefs(props);
+const {
+	allowedTimezones,
+	dismissTimezoneMismatchPrompts,
+	savedPreferences,
+	savedTimezone,
+} = toRefs(props);
+
+const emit = defineEmits<(event: "timezone-updated", value: string) => void>();
 
 const detectedTimezone = computed(() => DateTime.local().zoneName ?? "");
-const savedTimezoneValue = computed(
-	() => savedPreferences.value?.timezone ?? savedTimezone.value,
+const savedTimezoneValue = computed(() =>
+	savedPreferences.value
+		? savedPreferences.value.timezone
+		: savedTimezone.value,
 );
-const dismissPromptsValue = computed(
-	() =>
-		savedPreferences.value?.dismiss_timezone_mismatch_prompts ??
-		dismissTimezoneMismatchPrompts.value,
+const dismissPromptsValue = computed(() =>
+	savedPreferences.value
+		? savedPreferences.value.dismiss_timezone_mismatch_prompts
+		: dismissTimezoneMismatchPrompts.value,
 );
 
 const dismissedForSession = ref(false);
 const errorMessage = ref<string | null>(null);
 
-function getDismissalKey(savedTimezone: string, detectedTimezone: string): string {
+function getDismissalKey(
+	savedTimezone: string,
+	detectedTimezone: string,
+): string {
 	return `timezone_mismatch_banner_dismissed:${savedTimezone}:${detectedTimezone}`;
 }
 
@@ -116,9 +127,7 @@ function setDismissed(savedTimezone: string, detectedTimezone: string): void {
 	}
 }
 
-const allowedTimezoneSet = computed(
-	() => new Set(allowedTimezones.value),
-);
+const allowedTimezoneSet = computed(() => new Set(allowedTimezones.value));
 
 const dismissalKey = computed(() => {
 	if (!savedTimezoneValue.value || !detectedTimezone.value) {
@@ -140,7 +149,10 @@ const isVisible = computed(() => {
 	if (dismissPromptsValue.value) {
 		return false;
 	}
-	if (!savedTimezoneValue.value || detectedTimezone.value === savedTimezoneValue.value) {
+	if (
+		!savedTimezoneValue.value ||
+		detectedTimezone.value === savedTimezoneValue.value
+	) {
 		return false;
 	}
 	if (dismissedForSession.value) {
@@ -186,6 +198,7 @@ async function handleUpdateTimezone() {
 		}
 
 		dismissedForSession.value = true;
+		emit("timezone-updated", detectedTimezone.value);
 	} catch (error) {
 		rootLogger.error("Failed to update timezone from banner", undefined, error);
 		errorMessage.value = "Failed to update timezone. Please try again.";
@@ -222,5 +235,4 @@ async function handleDismissPermanently() {
 watch(dismissalKey, () => {
 	dismissedForSession.value = false;
 });
-
 </script>

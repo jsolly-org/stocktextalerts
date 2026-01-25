@@ -24,7 +24,7 @@
 		"db:generate-seed": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/generate-seed.ts"
 	},
 	"lint-staged": {
-		"**/*.{ts,tsx,json,css,md,astro,html}": [
+		"**/*.{ts,tsx,json,css,md,astro,html,vue}": [
 			"biome check --write --no-errors-on-unmatched"
 		]
 	},

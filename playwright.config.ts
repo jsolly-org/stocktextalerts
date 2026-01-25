@@ -2,9 +2,11 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
 	testDir: "./tests/e2e",
+	// Run e2e sequentially; parallel workers can race on shared DB/auth state.
 	workers: 1,
 	use: {
 		baseURL: "http://localhost:4322",
+		// Keep traces only when a test fails; reduces output and helps debug.
 		trace: "retain-on-failure",
 	},
 	webServer: {

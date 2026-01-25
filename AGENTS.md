@@ -33,25 +33,17 @@ This file captures the non-negotiables for this repo. It is a new app, so we opt
   - **Trust database values**: Do not add defensive checks (null checks, type checks, fallback values) for data coming from the database when schema constraints guarantee correctness. NOT NULL columns will have values; CHECK constraints ensure valid ranges; foreign keys ensure referential integrity. Supabase query results return arrays (never null) on success. Use type assertions when TypeScript types don't reflect query filters (e.g., `user.next_send_at as string` after filtering out nulls).
   - **External service data normalization**: When passing data to external services that don't enforce our database constraints (e.g., Supabase Auth's `auth.users` table), trim/normalize at the application level before sending. Add comments explaining why this cannot be enforced at the DB level (because the external service owns its storage/constraints). This prevents mismatches between external service data and our database constraints.
 - **Timing**
-  - **Timing hacks**: Avoid setTimeout, nextTick, requestAnimationFrame, and similar timing workarounds. These are usually signs of race conditions or architectural issues. Fix the root cause instead of adding delays.
+  - **Timing hacks**: Avoid setTimeout, nextTick, requestAnimationFrame, and similar timing workarounds when used to paper over race conditions or architectural issues. Fix the root cause instead of adding delays. Legitimate uses (e.g., debouncing, throttling) are fine.
 
 ## Repo Constraints
 - **Database migrations**: Do NOT create new migration files. Only modify the initial migration in `supabase/migrations`. This is a new app with no users, so destructive schema changes are OK.
 - **Generated files**: Do NOT modify `src/lib/db/generated/database.types.ts` directly. This file is auto-generated from the Supabase schema. If type issues arise, use type assertions in application code or regenerate the types using the Supabase CLI.
-
-## Supabase Auth
-- **Email identity provider_id**: For email providers in `auth.identities`, `provider_id` must be set to the user's UUID from `auth.users`, NOT the email address. For OAuth/SAML providers, `provider_id` uses the provider's unique ID. This is a critical requirement—using the email for email providers will break authentication.
-- **CAPTCHA + resend verification (supabase-js v2.90.0)**: `supabase.auth.resend(...)` supports `options.captchaToken`. When CAPTCHA verification fails, Supabase may return `error.code === "captcha_failed"` (see `src/pages/api/auth/email/resend-verification.ts`).
 
 ## Tech Stack
 - **Testing**: Vitest only; happy path coverage only. Do not use Jest.
 - **Linting/Formatting**: Biome only (No Prettier or ESLint)
 - **Styling**: Tailwind utilities preferred over custom CSS
 - **CI/CD**: GitHub Actions for continuous integration and deployment
-
-## Export Pattern
-- Functions: `export function name(...)` directly where defined
-- Classes: Define first, then `export { ClassName }` at bottom
 
 ## Section Comments
 Use section comments to organize larger modules. For section headers, use the single-line format:

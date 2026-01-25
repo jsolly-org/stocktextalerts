@@ -1,13 +1,13 @@
 <template>
 	<div class="space-y-4">
 		<div
-			v-if="successMessage === 'verification_sent'"
+			v-if="props.successMessage === 'verification_sent'"
 			class="bg-green-50 border border-green-200 rounded-lg p-4"
 			role="alert"
 		>
 			<p class="text-green-800 text-sm">
 				<span aria-hidden="true">✓ </span>
-				{{ formatMessage(successMessage) }}
+				{{ formatMessage(props.successMessage) }}
 			</p>
 		</div>
 		<div class="space-y-2">
@@ -72,9 +72,7 @@ const props = withDefaults(defineProps<Props>(), {
 	successMessage: null,
 });
 
-const emit = defineEmits<{
-	(event: "otp-input"): void;
-}>();
+const emit = defineEmits<(event: "otp-input") => void>();
 
 function emitOtpInput() {
 	emit("otp-input");

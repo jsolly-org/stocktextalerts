@@ -30,9 +30,8 @@ interface Props {
 
 defineProps<Props>();
 
-const emit = defineEmits<{
-	(event: "phone-validity-changed", value: boolean): void;
-}>();
+const emit =
+	defineEmits<(event: "phone-validity-changed", value: boolean) => void>();
 
 function handleValidityChanged(isValid: boolean) {
 	emit("phone-validity-changed", isValid);

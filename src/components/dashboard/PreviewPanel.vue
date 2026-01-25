@@ -81,7 +81,7 @@ async function submitPreview(
 		} else {
 			window.location.href = successRedirect;
 		}
-	} catch (error) {
+	} catch (_error) {
 		window.location.href = "/dashboard?error=preview_failed";
 	} finally {
 		setSubmitting(false);
@@ -89,9 +89,13 @@ async function submitPreview(
 }
 
 async function submitEmail(event: SubmitEvent) {
-	await submitPreview(event, "/dashboard?success=preview_email_sent", (value) => {
-		emailSubmitting.value = value;
-	});
+	await submitPreview(
+		event,
+		"/dashboard?success=preview_email_sent",
+		(value) => {
+			emailSubmitting.value = value;
+		},
+	);
 }
 
 async function submitSms(event: SubmitEvent) {

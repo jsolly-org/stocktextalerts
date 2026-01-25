@@ -51,9 +51,8 @@ const props = withDefaults(defineProps<Props>(), {
 	isVerifyingCode: false,
 });
 
-const emit = defineEmits<{
-	(event: "phone-validity-changed", value: boolean): void;
-}>();
+const emit =
+	defineEmits<(event: "phone-validity-changed", value: boolean) => void>();
 
 const phoneVerificationSectionId = `${DASHBOARD_FORM_ID}-phone-verification-section`;
 const phoneVerificationFieldsetId = `${DASHBOARD_FORM_ID}-phone-verification-fieldset`;

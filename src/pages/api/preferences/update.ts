@@ -109,12 +109,18 @@ export const POST: APIRoute = async ({
 		safePreferenceUpdates.daily_digest_enabled !== undefined &&
 		safePreferenceUpdates.daily_digest_enabled !== dbUser.daily_digest_enabled;
 
-	const finalTimezone = safePreferenceUpdates.timezone ?? dbUser.timezone;
+	const finalTimezone =
+		safePreferenceUpdates.timezone !== undefined
+			? safePreferenceUpdates.timezone
+			: dbUser.timezone;
 	const finalTime =
-		safePreferenceUpdates.daily_digest_notification_time ??
-		dbUser.daily_digest_notification_time;
+		safePreferenceUpdates.daily_digest_notification_time !== undefined
+			? safePreferenceUpdates.daily_digest_notification_time
+			: dbUser.daily_digest_notification_time;
 	const finalEnabled =
-		safePreferenceUpdates.daily_digest_enabled ?? dbUser.daily_digest_enabled;
+		safePreferenceUpdates.daily_digest_enabled !== undefined
+			? safePreferenceUpdates.daily_digest_enabled
+			: dbUser.daily_digest_enabled;
 
 	if ((timezoneChanged || timeChanged || enabledChanged) && finalEnabled) {
 		const nextSendAt = calculateNextSendAt(
@@ -147,8 +153,9 @@ export const POST: APIRoute = async ({
 
 	try {
 		const finalSmsNotificationsEnabled =
-			safePreferenceUpdates.sms_notifications_enabled ??
-			dbUser.sms_notifications_enabled;
+			safePreferenceUpdates.sms_notifications_enabled !== undefined
+				? safePreferenceUpdates.sms_notifications_enabled
+				: dbUser.sms_notifications_enabled;
 		if (finalSmsNotificationsEnabled && !dbUser.phone_number) {
 			logger.error("SMS preferences enabled without phone", {
 				userId: user.id,
@@ -162,7 +169,40 @@ export const POST: APIRoute = async ({
 			return redirect("/dashboard?error=phone_not_set");
 		}
 
-		await userService.update(user.id, safePreferenceUpdates);
+		const updatedUser = await userService.update(
+			user.id,
+			safePreferenceUpdates,
+		);
+		if (!updatedUser) {
+			logger.error("User update returned null", { userId: user.id });
+			if (wantsJson) {
+				return Response.json(
+					{ ok: false, message: "user_not_found" },
+					{ status: 404 },
+				);
+			}
+			return redirect("/signin?error=user_not_found");
+		}
+
+		if (wantsJson) {
+			return Response.json({
+				ok: true,
+				message: "settings_updated",
+				preferences: {
+					email_notifications_enabled: updatedUser.email_notifications_enabled,
+					sms_notifications_enabled: updatedUser.sms_notifications_enabled,
+					sms_opted_out: updatedUser.sms_opted_out,
+					phone_verified: updatedUser.phone_verified,
+					timezone: updatedUser.timezone,
+					daily_digest_enabled: updatedUser.daily_digest_enabled,
+					daily_digest_notification_time:
+						updatedUser.daily_digest_notification_time,
+					next_send_at: updatedUser.next_send_at,
+					dismiss_timezone_mismatch_prompts:
+						updatedUser.dismiss_timezone_mismatch_prompts,
+				},
+			});
+		}
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		logger.error(
@@ -182,35 +222,6 @@ export const POST: APIRoute = async ({
 			);
 		}
 		return redirect("/dashboard?error=update_failed");
-	}
-
-	if (wantsJson) {
-		const updatedUser = await userService.getById(user.id);
-		if (!updatedUser) {
-			logger.error("User not found after update", { userId: user.id });
-			return Response.json(
-				{ ok: false, message: "user_not_found" },
-				{ status: 404 },
-			);
-		}
-
-		return Response.json({
-			ok: true,
-			message: "settings_updated",
-			preferences: {
-				email_notifications_enabled: updatedUser.email_notifications_enabled,
-				sms_notifications_enabled: updatedUser.sms_notifications_enabled,
-				sms_opted_out: updatedUser.sms_opted_out,
-				phone_verified: updatedUser.phone_verified,
-				timezone: updatedUser.timezone,
-				daily_digest_enabled: updatedUser.daily_digest_enabled,
-				daily_digest_notification_time:
-					updatedUser.daily_digest_notification_time,
-				next_send_at: updatedUser.next_send_at,
-				dismiss_timezone_mismatch_prompts:
-					updatedUser.dismiss_timezone_mismatch_prompts,
-			},
-		});
 	}
 
 	return redirect("/dashboard?success=settings_updated");

@@ -50,6 +50,7 @@ export const POST: APIRoute = async ({
 
 	if (!parsed.ok) {
 		logger.info("Tracked stocks update rejected due to invalid form", {
+			userId: user.id,
 			errors: parsed.allErrors,
 		});
 		if (wantsJson) {

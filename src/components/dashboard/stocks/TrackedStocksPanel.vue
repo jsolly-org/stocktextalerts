@@ -38,7 +38,8 @@
 
 <script lang="ts" setup>
 import { computed, ref, watch } from "vue";
-import StockInput, { type StockOption } from "./StockInput.vue";
+import type { StockOption } from "./StockInput.vue";
+import StockInput from "./StockInput.vue";
 
 interface Props {
 	stockOptions: StockOption[];
@@ -50,9 +51,7 @@ const props = defineProps<Props>();
 
 const draftSymbols = ref([...props.initialSymbols]);
 
-const trackedStocksValue = computed(() =>
-	JSON.stringify(draftSymbols.value),
-);
+const trackedStocksValue = computed(() => JSON.stringify(draftSymbols.value));
 
 watch(
 	draftSymbols,
@@ -62,7 +61,7 @@ watch(
 	{ flush: "post" },
 );
 
-const handleSelect = (symbol: string) => {
+function handleSelect(symbol: string) {
 	if (!symbol) {
 		return;
 	}
@@ -72,14 +71,13 @@ const handleSelect = (symbol: string) => {
 	}
 
 	draftSymbols.value = [...draftSymbols.value, symbol];
-};
+}
 
-const removeSymbol = (symbol: string) => {
+function removeSymbol(symbol: string) {
 	draftSymbols.value = draftSymbols.value.filter(
 		(current) => current !== symbol,
 	);
-};
-
+}
 </script>
 
 

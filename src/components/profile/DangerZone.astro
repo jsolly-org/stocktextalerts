@@ -1,11 +1,10 @@
 ---
+
 interface Props {
 	action?: string;
 }
-
 const { action = "/api/auth/delete-account" } = Astro.props;
 ---
-
 <div class="bg-white rounded-lg shadow-sm border border-red-200 p-8">
 	<h2 class="text-xl font-bold text-red-600 mb-2">Danger Zone</h2>
 	<p class="text-gray-600 mb-6">

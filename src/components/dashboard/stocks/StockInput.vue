@@ -57,9 +57,7 @@ type KeyActions = {
 const props = withDefaults(defineProps<Props>(), {
 	disabled: false,
 });
-const emit = defineEmits<{
-	(e: "select", symbol: string): void;
-}>();
+const emit = defineEmits<(e: "select", symbol: string) => void>();
 
 const selectedStock = ref<string | null>(null);
 const rawSearchQuery = ref("");
@@ -79,10 +77,13 @@ watch(searchQuery, () => {
 const showDropdown = ref(false);
 const highlightedIndex = ref(-1);
 
-const fuse = computed(() => new Fuse<StockOption>(props.stockOptions, {
-	keys: ["label", "value"],
-	threshold: 0.3,
-}));
+const fuse = computed(
+	() =>
+		new Fuse<StockOption>(props.stockOptions, {
+			keys: ["label", "value"],
+			threshold: 0.3,
+		}),
+);
 
 const filteredStocks = computed(() => {
 	if (searchQuery.value.length < 1) return [];
@@ -109,7 +110,9 @@ const selectStock = (result: FuseResult) => {
 };
 
 const handleInput = () => {
-	const current = props.stockOptions.find((s) => s.value === selectedStock.value);
+	const current = props.stockOptions.find(
+		(s) => s.value === selectedStock.value,
+	);
 	if (!current || rawSearchQuery.value !== current.label) {
 		selectedStock.value = null;
 		showDropdown.value = true;
@@ -124,7 +127,8 @@ const handleKeydown = (e: KeyboardEvent) => {
 		return;
 	}
 
-	if (rawSearchQuery.value.length < 1 || filteredStocks.value.length === 0) return;
+	if (rawSearchQuery.value.length < 1 || filteredStocks.value.length === 0)
+		return;
 
 	const maxIndex = filteredStocks.value.length - 1;
 	const actions: KeyActions = {

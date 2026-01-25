@@ -105,25 +105,25 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, toRefs, watch } from "vue";
 import { Icon } from "astro-icon/components";
+import { computed, ref, toRefs, watch } from "vue";
 
 import type { User } from "../../lib/db";
 import type { TimezoneOption } from "../../lib/time/cache";
-import type { StockOption } from "./stocks/StockInput.vue";
+import {
+	type PreferencesData,
+	useAutoSaveForm,
+} from "./composables/useAutoSavePreferences";
 import {
 	DASHBOARD_FORM_ID,
 	DASHBOARD_STATUS_ID,
 	DASHBOARD_STOCKS_FORM_ID,
 	DASHBOARD_STOCKS_STATUS_ID,
 } from "./constants";
-import {
-	useAutoSaveForm,
-	type PreferencesData,
-} from "./composables/useAutoSavePreferences";
 import ScheduledNotificationsPanel from "./notifications/scheduled/ScheduledNotificationsPanel.vue";
-import PreferencesPanel from "./preferences/PreferencesPanel.vue";
 import PreviewPanel from "./PreviewPanel.vue";
+import PreferencesPanel from "./preferences/PreferencesPanel.vue";
+import type { StockOption } from "./stocks/StockInput.vue";
 import TrackedStocksPanel from "./stocks/TrackedStocksPanel.vue";
 
 interface Props {

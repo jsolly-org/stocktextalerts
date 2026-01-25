@@ -25,12 +25,12 @@
 <script lang="ts" setup>
 import "@vuepic/vue-datepicker/dist/main.css";
 import { VueDatePicker } from "@vuepic/vue-datepicker";
+import { computed, onMounted, ref, watch } from "vue";
 import {
 	formatTimeValue,
 	parseTimeString,
 	resolveIs24,
 } from "../../../../lib/time/format";
-import { computed, onMounted, ref, watch } from "vue";
 
 type TimeModel = {
 	hours: number | string;
@@ -45,9 +45,7 @@ const props = defineProps<{
 	disabled?: boolean;
 }>();
 
-const emit = defineEmits<{
-	(event: "time-change", value: string): void;
-}>();
+const emit = defineEmits<(event: "time-change", value: string) => void>();
 
 const minutesIncrement = 15;
 const minTime: TimeModel = { hours: 0, minutes: 0, seconds: 0 };
@@ -56,7 +54,9 @@ const defaultTime: TimeModel = { hours: 9, minutes: 0, seconds: 0 };
 
 const isMounted = ref(false);
 const lastSyncedValue = ref<string | null>(null);
-const selectedTime = ref<TimeModel>(parseTimeString(props.initialTime) ?? defaultTime);
+const selectedTime = ref<TimeModel>(
+	parseTimeString(props.initialTime) ?? defaultTime,
+);
 const isDisabled = computed(() => props.disabled ?? false);
 const is24 = ref(true);
 
