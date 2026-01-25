@@ -139,6 +139,14 @@ jobs:
             fi
           fi
 
+          # Skip CodeRabbit acknowledgment comments when a full review is triggered.
+          if [[ "$COMMENT_USER" == "coderabbitai[bot]" ]]; then
+            if [[ "$COMMENT_BODY" =~ [Ff]ull[[:space:]]+review[[:space:]]+triggered ]]; then
+              echo "Skipping CodeRabbit acknowledgment comment (Full review triggered)"
+              SKIP="true"
+            fi
+          fi
+
           echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
 
       - name: Extract PR metadata
