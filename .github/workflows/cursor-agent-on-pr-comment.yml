@@ -346,7 +346,7 @@ jobs:
           EOF
           )"
 
-          agent --prompt "$PROMPT" --model gpt-5.2 --output-format=text
+          agent -p "$PROMPT" --model gpt-5.2 --output-format=text
 
       - name: Report agent failure
         if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true' && steps.agent.outcome == 'failure'
