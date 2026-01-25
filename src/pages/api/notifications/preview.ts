@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { buildDashboardRedirect } from "../../../lib/dashboard/sections";
 import { createUserService } from "../../../lib/db";
 import {
 	createSupabaseAdminClient,
@@ -33,7 +34,9 @@ export const POST: APIRoute = async ({
 	const authUser = await userService.getCurrentUser();
 
 	if (!authUser) {
-		logger.info("Preview notification attempt without authenticated user");
+		logger.info("Preview notification attempt without authenticated user", {
+			reason: "unauthenticated",
+		});
 		return redirect("/signin?error=unauthorized");
 	}
 
@@ -42,11 +45,18 @@ export const POST: APIRoute = async ({
 		type: { type: "enum", values: ["email", "sms"] as const, required: true },
 	} as const);
 
+	const previewRedirect = (params: {
+		success?: string;
+		error?: string;
+		warning?: string;
+	}) => buildDashboardRedirect({ ...params, section: "preview" });
+
 	if (!parsed.ok) {
 		logger.info("Preview notification rejected due to invalid form", {
+			userId: authUser.id,
 			errors: parsed.allErrors,
 		});
-		return redirect("/dashboard?error=invalid_form");
+		return redirect(previewRedirect({ error: "invalid_form" }));
 	}
 	const { type } = parsed.data;
 
@@ -74,12 +84,12 @@ export const POST: APIRoute = async ({
 			userId: authUser.id,
 			error: rateLimitError,
 		});
-		return redirect("/dashboard?error=preview_failed");
+		return redirect(previewRedirect({ error: "preview_failed" }));
 	}
 
 	if (rateLimitAllowed === false) {
 		logger.info("User rate-limited", { userId: authUser.id });
-		return redirect("/dashboard?error=preview_rate_limited");
+		return redirect(previewRedirect({ error: "preview_rate_limited" }));
 	}
 
 	if (rateLimitAllowed !== true) {
@@ -90,7 +100,9 @@ export const POST: APIRoute = async ({
 				rateLimitAllowed,
 			},
 		);
-		return redirect("/dashboard?error=preview_rate_limit_unexpected");
+		return redirect(
+			previewRedirect({ error: "preview_rate_limit_unexpected" }),
+		);
 	}
 
 	let userStocks: UserStockRow[];
@@ -98,7 +110,7 @@ export const POST: APIRoute = async ({
 		userStocks = await loadUserStocks(adminSupabase, authUser.id);
 	} catch (error) {
 		logger.error("Failed to load user stocks", { userId: authUser.id }, error);
-		return redirect("/dashboard?error=preview_failed");
+		return redirect(previewRedirect({ error: "preview_failed" }));
 	}
 
 	const stocksList =
@@ -123,18 +135,20 @@ export const POST: APIRoute = async ({
 					userId: authUser.id,
 					error: userError,
 				});
-				return redirect("/dashboard?error=preview_failed");
+				return redirect(previewRedirect({ error: "preview_failed" }));
 			}
 
 			if (!user) {
 				logger.error("User not found for email preview", {
 					userId: authUser.id,
 				});
-				return redirect("/dashboard?error=user_not_found");
+				return redirect(previewRedirect({ error: "user_not_found" }));
 			}
 
 			if (!user.email_notifications_enabled) {
-				return redirect("/dashboard?error=email_notifications_disabled");
+				return redirect(
+					previewRedirect({ error: "email_notifications_disabled" }),
+				);
 			}
 
 			const sendEmail = createEmailSender();
@@ -144,6 +158,8 @@ export const POST: APIRoute = async ({
 				userStocks,
 				stocksList,
 				sendEmail,
+				undefined,
+				true,
 			);
 			sent = result.sent;
 			errorDetails = result.error;
@@ -162,30 +178,34 @@ export const POST: APIRoute = async ({
 					userId: authUser.id,
 					error: userError,
 				});
-				return redirect("/dashboard?error=preview_failed");
+				return redirect(previewRedirect({ error: "preview_failed" }));
 			}
 
 			if (!user) {
 				logger.error("User not found for SMS preview", {
 					userId: authUser.id,
 				});
-				return redirect("/dashboard?error=user_not_found");
+				return redirect(previewRedirect({ error: "user_not_found" }));
 			}
 
 			if (!user.sms_notifications_enabled) {
-				return redirect("/dashboard?error=sms_notifications_disabled");
+				return redirect(
+					previewRedirect({ error: "sms_notifications_disabled" }),
+				);
 			}
 
 			if (user.sms_opted_out) {
-				return redirect("/dashboard?error=sms_opted_out");
+				return redirect(previewRedirect({ error: "sms_opted_out" }));
 			}
 
 			if (!user.phone_country_code || !user.phone_number) {
-				return redirect("/dashboard?error=preview_sms_missing_phone");
+				return redirect(
+					previewRedirect({ error: "preview_sms_missing_phone" }),
+				);
 			}
 
 			if (!user.phone_verified) {
-				return redirect("/dashboard?error=preview_sms_unverified");
+				return redirect(previewRedirect({ error: "preview_sms_unverified" }));
 			}
 
 			let twilioConfig: TwilioConfig;
@@ -197,7 +217,7 @@ export const POST: APIRoute = async ({
 					{ userId: authUser.id },
 					error,
 				);
-				return redirect("/dashboard?error=preview_sms_unavailable");
+				return redirect(previewRedirect({ error: "preview_sms_unavailable" }));
 			}
 			const twilioClient = createTwilioClient(twilioConfig);
 			const sendSms = createSmsSender(twilioClient, twilioConfig.phoneNumber);
@@ -208,6 +228,7 @@ export const POST: APIRoute = async ({
 				userStocks,
 				stocksList,
 				sendSms,
+				true,
 			);
 			sent = result.sent;
 			errorDetails = result.error;
@@ -221,16 +242,16 @@ export const POST: APIRoute = async ({
 				errorDetails,
 				errorCode,
 			});
-			return redirect("/dashboard?error=preview_failed");
+			return redirect(previewRedirect({ error: "preview_failed" }));
 		}
 
-		return redirect(`/dashboard?success=${successKey}`);
+		return redirect(previewRedirect({ success: successKey }));
 	} catch (error) {
 		logger.error(
 			"Notification preview error",
 			{ userId: authUser.id, type },
 			error,
 		);
-		return redirect("/dashboard?error=preview_failed");
+		return redirect(previewRedirect({ error: "preview_failed" }));
 	}
 };

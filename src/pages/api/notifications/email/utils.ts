@@ -89,7 +89,11 @@ export function createEmailSender(): EmailSender {
 
 			return { success: true, messageSid: data?.id };
 		} catch (error) {
-			rootLogger.error("Unexpected error sending email", undefined, error);
+			rootLogger.error(
+				"Unexpected error sending email",
+				{ action: "send_email_notification" },
+				error,
+			);
 			return {
 				success: false,
 				error: error instanceof Error ? error.message : String(error),
@@ -101,12 +105,19 @@ export function createEmailSender(): EmailSender {
 export function formatEmailMessage(
 	userStocks: UserStockRow[],
 	stocksList: string,
+	isPreview = false,
 ): { text: string; html: string } {
 	const dashboardUrl = `${getSiteUrl()}/dashboard`;
 	const escapedDashboardUrl = escapeHtml(dashboardUrl);
+	const previewDisclaimer = isPreview
+		? "\n\n⚠️ This is a preview notification, not a scheduled update."
+		: "";
+	const previewDisclaimerHtml = isPreview
+		? '<div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; margin-bottom: 20px; border-radius: 4px;"><p style="color: #92400e; font-size: 14px; margin: 0; font-weight: 500;">⚠️ This is a preview notification, not a scheduled update.</p></div>'
+		: "";
 
 	if (userStocks.length === 0) {
-		const text = `You don't have any tracked stocks yet.\n\nVisit your dashboard to add stocks to track: ${dashboardUrl}`;
+		const text = `You don't have any tracked stocks yet.\n\nVisit your dashboard to add stocks to track: ${dashboardUrl}${previewDisclaimer}`;
 		const html = `
 <!DOCTYPE html>
 <html>
@@ -119,6 +130,7 @@ export function formatEmailMessage(
 		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">📈 Stock Text Alerts</h1>
 	</div>
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+		${previewDisclaimerHtml}
 		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Get Started Tracking Stocks</h2>
 		<p style="color: #4b5563; font-size: 16px; margin-bottom: 30px;">
 			You don't have any tracked stocks yet. Start tracking your favorite stocks to receive regular updates!
@@ -137,8 +149,11 @@ export function formatEmailMessage(
 		return { text, html };
 	}
 
-	const text = `Your tracked stocks: ${stocksList}`;
-	const escapedStocksList = escapeHtml(stocksList);
+	const text = `Your tracked stocks: ${stocksList}${previewDisclaimer}`;
+	// Use userStocks directly instead of parsing stocksList to avoid dependency on string format
+	const escapedStocksListHtml = userStocks
+		.map((stock) => escapeHtml(`${stock.symbol} - ${stock.name}`))
+		.join("<br>");
 	const html = `
 <!DOCTYPE html>
 <html>
@@ -151,10 +166,11 @@ export function formatEmailMessage(
 		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">📈 Stock Text Alerts</h1>
 	</div>
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+		${previewDisclaimerHtml}
 		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Your Stock Update</h2>
 		<div style="background: #f9fafb; padding: 20px; border-radius: 6px; margin-bottom: 30px;">
 			<p style="color: #1f2937; font-size: 18px; font-weight: 600; margin: 0; font-family: 'Courier New', monospace;">
-				${escapedStocksList}
+				${escapedStocksListHtml}
 			</p>
 		</div>
 		<div style="text-align: center; margin-top: 30px;">

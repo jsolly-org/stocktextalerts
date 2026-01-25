@@ -1,9 +1,31 @@
 @import "tailwindcss";
 
-:root {
-	--primary: #2563eb; /* blue-600 */
-	--primary-light: #60a5fa; /* blue-400 */
-	--primary-dark: #1d4ed8; /* blue-700 */
+@theme {
+	--color-primary: var(--color-blue-600);
+	--color-primary-strong: var(--color-blue-700);
+	--color-primary-soft: var(--color-blue-400);
+
+	--color-success-bg: var(--color-green-50);
+	--color-success-border: var(--color-green-200);
+	--color-success-text: var(--color-green-900);
+	--color-success-strong: var(--color-green-600);
+	--color-success-strong-hover: var(--color-green-700);
+
+	--color-warning-bg: var(--color-yellow-50);
+	--color-warning-border: var(--color-yellow-200);
+	--color-warning-text: var(--color-yellow-900);
+	--color-warning-strong: var(--color-yellow-600);
+	--color-warning-strong-hover: var(--color-yellow-700);
+
+	--color-error-bg: var(--color-red-50);
+	--color-error-border: var(--color-red-200);
+	--color-error-text: var(--color-red-900);
+	--color-error-strong: var(--color-red-600);
+	--color-error-strong-hover: var(--color-red-700);
+
+	--color-info-bg: var(--color-blue-50);
+	--color-info-border: var(--color-blue-200);
+	--color-info-text: var(--color-blue-900);
 }
 /* scroll padding is used to compensate for the fixed header */
 html {
@@ -13,5 +35,21 @@ html {
 }
 
 body {
-	color: var(--text-slate-800);
+	color: var(--color-slate-800);
+}
+
+.status-tone-success {
+	@apply bg-success-bg border-success-border text-success-text;
+}
+
+.status-tone-warning {
+	@apply bg-warning-bg border-warning-border text-warning-text;
+}
+
+.status-tone-error {
+	@apply bg-error-bg border-error-border text-error-text;
+}
+
+.status-tone-info {
+	@apply bg-info-bg border-info-border text-info-text;
 }

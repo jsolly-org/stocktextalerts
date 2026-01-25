@@ -86,7 +86,11 @@ async function getAllTimezonesCached(
 			return rows;
 		})
 		.catch((error) => {
-			rootLogger.error("Failed to load timezones cache", undefined, error);
+			rootLogger.error(
+				"Failed to load timezones cache",
+				{ action: "load_timezones_cache", cacheBuster },
+				error,
+			);
 			// Only invalidate cache on error if a cache bust was explicitly requested
 			// (i.e., cacheBuster changed). This preserves valid cached data during
 			// transient fetch errors.

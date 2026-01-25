@@ -183,8 +183,8 @@ function writeLog(
 
 export type Logger = {
 	debug: (message: string, context?: LogContext) => void;
-	info: (message: string, context?: LogContext) => void;
-	warn: (message: string, context?: LogContext) => void;
+	info: (message: string, context?: LogContext, error?: unknown) => void;
+	warn: (message: string, context?: LogContext, error?: unknown) => void;
 	error: (message: string, context?: LogContext, error?: unknown) => void;
 };
 
@@ -193,11 +193,11 @@ export function createLogger(baseContext: LogContext = {}): Logger {
 		debug(message, context) {
 			writeLog("debug", message, { ...baseContext, ...context });
 		},
-		info(message, context) {
-			writeLog("info", message, { ...baseContext, ...context });
+		info(message, context, error) {
+			writeLog("info", message, { ...baseContext, ...context }, error);
 		},
-		warn(message, context) {
-			writeLog("warn", message, { ...baseContext, ...context });
+		warn(message, context, error) {
+			writeLog("warn", message, { ...baseContext, ...context }, error);
 		},
 		error(message, context, error) {
 			writeLog("error", message, { ...baseContext, ...context }, error);

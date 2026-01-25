@@ -35,10 +35,6 @@ export const POST: APIRoute = async ({
 		return redirect(`/signin?error=invalid_form${emailParam}`);
 	}
 
-	// Trim email to ensure consistency with Supabase Auth. This cannot be enforced at the
-	// database level because Supabase Auth stores emails in its own auth.users table which
-	// doesn't have our whitespace constraint. Trimming prevents authentication mismatches
-	// when users sign in with emails that have leading/trailing whitespace.
 	const email = parsed.data.email.trim();
 	const password = parsed.data.password;
 	const captchaToken = parsed.data.captcha_token;
@@ -63,7 +59,7 @@ export const POST: APIRoute = async ({
 		}
 
 		if (error.code === "email_not_confirmed") {
-			logger.info("Sign-in blocked due to unconfirmed email");
+			logger.info("Sign-in blocked due to unconfirmed email", { email });
 			return redirect(`/auth/unconfirmed?email=${encodeURIComponent(email)}`);
 		}
 
@@ -88,7 +84,10 @@ export const POST: APIRoute = async ({
 	}
 
 	if (!data.session) {
-		logger.error("Sign-in succeeded but no session was returned");
+		logger.error("Sign-in succeeded but no session was returned", {
+			email,
+			reason: "missing_session",
+		});
 		return redirect(
 			`/signin?error=no_session&email=${encodeURIComponent(email)}`,
 		);

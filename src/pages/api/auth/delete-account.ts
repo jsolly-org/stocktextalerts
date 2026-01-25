@@ -24,7 +24,10 @@ export const POST: APIRoute = async ({
 	const authUser = await users.getCurrentUser();
 
 	if (!authUser) {
-		logger.error("Delete account requested without authenticated user");
+		// Expected rejection (often bots); info to avoid inflating error metrics.
+		logger.info("Delete account requested without authenticated user", {
+			reason: "unauthenticated",
+		});
 		clearAuthCookies(cookies);
 		return redirect("/");
 	}

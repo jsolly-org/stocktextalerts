@@ -1,11 +1,16 @@
 import type { APIRoute } from "astro";
+import { buildDashboardRedirect } from "../../../lib/dashboard/sections";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
-import { redirect } from "../../../lib/http/redirect";
 import { createLogger } from "../../../lib/logging";
 
-export const POST: APIRoute = async ({ request, cookies, locals }) => {
+export const POST: APIRoute = async ({
+	request,
+	cookies,
+	redirect,
+	locals,
+}) => {
 	const url = new URL(request.url);
 	const logger = createLogger({
 		requestId: locals?.requestId,
@@ -17,7 +22,10 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 
 	const authUser = await users.getCurrentUser();
 	if (!authUser) {
-		logger.error("Timezone update attempt without authenticated user");
+		// Expected rejection (often bots); info to avoid inflating error metrics.
+		logger.info("Timezone update attempt without authenticated user", {
+			reason: "unauthenticated",
+		});
 		return redirect("/signin?error=unauthorized");
 	}
 
@@ -27,10 +35,14 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	} as const);
 
 	if (!parsed.ok) {
-		logger.error("Timezone update rejected due to invalid form", {
+		// Expected rejection (often bots); info to avoid inflating error metrics.
+		logger.info("Timezone update rejected due to invalid form", {
+			userId: authUser.id,
 			errors: parsed.allErrors,
 		});
-		return redirect("/dashboard?error=invalid_form");
+		return redirect(
+			buildDashboardRedirect({ error: "invalid_form", section: "preferences" }),
+		);
 	}
 
 	try {
@@ -38,14 +50,28 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			timezone: parsed.data.timezone,
 		});
 	} catch (error) {
-		const errorMessage = error instanceof Error ? error.message : String(error);
-		logger.error("Failed to update timezone", {
-			userId: authUser.id,
-			timezone: parsed.data.timezone,
-			error: errorMessage,
-		});
-		return redirect("/dashboard?error=update_failed");
+		const errorObject =
+			error instanceof Error ? error : new Error(String(error));
+		logger.error(
+			"Failed to update timezone",
+			{
+				userId: authUser.id,
+				timezone: parsed.data.timezone,
+			},
+			errorObject,
+		);
+		return redirect(
+			buildDashboardRedirect({
+				error: "failed_to_update_timezone",
+				section: "preferences",
+			}),
+		);
 	}
 
-	return redirect("/dashboard?success=timezone_updated");
+	return redirect(
+		buildDashboardRedirect({
+			success: "timezone_updated",
+			section: "preferences",
+		}),
+	);
 };

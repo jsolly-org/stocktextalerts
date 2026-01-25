@@ -1,0 +1,73 @@
+name: Update Docs
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  docs:
+    if: ${{ github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install Cursor CLI
+        run: |
+          # Per Cursor docs: https://cursor.com/install
+          curl https://cursor.com/install -fsS | bash
+          echo "$HOME/.cursor/bin" >> $GITHUB_PATH
+
+      - name: Configure git
+        run: |
+          git config user.name "Cursor Agent"
+          git config user.email "cursoragent@cursor.com"
+
+      - name: Update docs
+        env:
+          MODEL: gpt-5.2
+          CURSOR_SECRET_KEY: ${{ secrets.CURSOR_SECRET_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH_PREFIX: docs
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          agent -p "You are operating in a GitHub Actions runner.
+
+          The GitHub CLI is available as \`gh\` and authenticated via \`GH_TOKEN\`. Git is available. You have write access to repository contents and can comment on pull requests, but you must not create or edit PRs.
+
+          # Context:
+          - Repo: ${{ github.repository }}
+          - Owner: ${{ github.repository_owner }}
+          - PR Number: ${{ github.event.pull_request.number }}
+          - Base Ref: ${{ github.event.pull_request.base.ref }}
+          - Head Ref: ${PR_HEAD_REF}
+          - Base SHA: ${{ github.event.pull_request.base.sha }}
+          - Head SHA: ${{ github.event.pull_request.head.sha }}
+          - Merge Commit SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          - Docs Branch Prefix: ${{ env.BRANCH_PREFIX }}
+
+          # Goal:
+          - Implement an end-to-end README.md update flow driven by the merged PR changes.
+
+          # Requirements:
+          1) Determine what changed in the merged PR using \`gh pr diff ${{ github.event.pull_request.number }}\` (or \`git diff BASE_SHA HEAD_SHA\` with the PR base and head SHAs from Context). This inspects the full set of PR commits, including rebase merges; do NOT use merge-commit-vs-parent diff.
+          2) Update only README.md based on those changes. Do NOT update any other documentation files.
+          3) Maintain the persistent docs branch for this PR using the Docs Branch Prefix from Context. Create it if missing, update it otherwise, and push changes to origin.
+          4) You do NOT have permission to create PRs. Instead, post or update a single natural-language PR comment (1–2 sentences) that briefly explains the README updates and includes an inline compare link to quick-create a PR. The compare link format should be: https://github.com/${{ github.repository }}/compare/main...\${ENCODED_BRANCH_NAME}?quick_pull=1&title=Update%20README where ENCODED_BRANCH_NAME is the URL-encoded version of the branch name (use proper URL encoding for special characters).
+
+          # Inputs and conventions:
+          - Use \`gh pr diff <PR_NUMBER>\` or \`git diff <BASE_SHA> <HEAD_SHA>\` (with PR base/head from Context) to obtain the PR-level diff. Use that diff to detect changes; do not use merge-commit-vs-parent comparison.
+          - Only update README.md. Do not modify any other files.
+          - Do not attempt to create or edit PRs directly. Use the compare link format above.
+          - Keep changes minimal and consistent with repo style. If no README updates are necessary, make no changes and post no comment.
+
+          # Deliverables when updates occur:
+          - Pushed commits to the persistent docs branch for this PR containing only README.md changes.
+          - A single natural-language PR comment on the original PR that includes the inline compare link above. Avoid posting duplicates; update a previous bot comment if present.
+          " --force --model "$MODEL" --output-format=text

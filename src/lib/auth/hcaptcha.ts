@@ -8,6 +8,55 @@ type CallbackWindow<T> = Window & {
 	[key: string]: T | undefined;
 };
 
+const isInputElement = (element: Element): element is HTMLInputElement =>
+	element instanceof HTMLInputElement;
+
+const isFormElement = (element: Element): element is HTMLFormElement =>
+	element instanceof HTMLFormElement;
+
+const isHtmlElement = (element: Element): element is HTMLElement =>
+	element instanceof HTMLElement;
+
+function resolveElement<T extends HTMLElement>(
+	id: string,
+	guard: (element: Element) => element is T,
+) {
+	const element = document.getElementById(id);
+	if (!element || !guard(element)) {
+		return null;
+	}
+	return element;
+}
+
+function resolveSubmitButton(
+	form: HTMLFormElement,
+): HTMLButtonElement | HTMLInputElement | null {
+	const buttonSubmit = form.querySelector("button[type='submit']");
+	if (buttonSubmit instanceof HTMLButtonElement) {
+		return buttonSubmit;
+	}
+
+	const defaultButton = form.querySelector("button:not([type])");
+	if (defaultButton instanceof HTMLButtonElement) {
+		return defaultButton;
+	}
+
+	const inputSubmit = form.querySelector("input[type='submit']");
+	if (inputSubmit instanceof HTMLInputElement) {
+		return inputSubmit;
+	}
+
+	return null;
+}
+
+function onDomReady(callback: () => void) {
+	if (document.readyState === "loading") {
+		document.addEventListener("DOMContentLoaded", callback, { once: true });
+		return;
+	}
+	callback();
+}
+
 function setWindowCallback<T>(callbackName: string, callback: T) {
 	const typedWindow = window as unknown as CallbackWindow<T>;
 	typedWindow[callbackName] = callback;
@@ -20,8 +69,8 @@ export function setupHCaptchaCallback(
 	handler?: (token: string) => void,
 ) {
 	setWindowCallback<(token: string) => void>(callbackName, (token: string) => {
-		const input = document.getElementById(tokenInputId);
-		if (!(input instanceof HTMLInputElement)) {
+		const input = resolveElement(tokenInputId, isInputElement);
+		if (!input) {
 			return;
 		}
 
@@ -30,13 +79,13 @@ export function setupHCaptchaCallback(
 		handler?.(token);
 
 		if (formId) {
-			const form = document.getElementById(formId);
-			if (!(form instanceof HTMLFormElement)) {
+			const form = resolveElement(formId, isFormElement);
+			if (!form) {
 				return;
 			}
 
-			const submitButton = form.querySelector("button[type='submit']");
-			if (!(submitButton instanceof HTMLButtonElement)) {
+			const submitButton = resolveSubmitButton(form);
+			if (!submitButton) {
 				return;
 			}
 
@@ -63,8 +112,8 @@ export function setupHCaptchaExpiredCallback(
 	handler?: () => void,
 ) {
 	setWindowCallback<() => void>(callbackName, () => {
-		const input = document.getElementById(tokenInputId);
-		if (input instanceof HTMLInputElement) {
+		const input = resolveElement(tokenInputId, isInputElement);
+		if (input) {
 			input.value = "";
 			input.dispatchEvent(new Event("input", { bubbles: true }));
 		}
@@ -77,13 +126,13 @@ const captchaFormCleanups = new WeakMap<HTMLInputElement, () => void>();
 
 export function initializeHCaptchaForm(formId: string, tokenInputId: string) {
 	const setup = () => {
-		const form = document.getElementById(formId);
-		if (!(form instanceof HTMLFormElement)) {
+		const form = resolveElement(formId, isFormElement);
+		if (!form) {
 			return;
 		}
 
-		const captchaTokenInput = document.getElementById(tokenInputId);
-		if (!(captchaTokenInput instanceof HTMLInputElement)) {
+		const captchaTokenInput = resolveElement(tokenInputId, isInputElement);
+		if (!captchaTokenInput) {
 			return;
 		}
 
@@ -92,8 +141,8 @@ export function initializeHCaptchaForm(formId: string, tokenInputId: string) {
 			existingCleanup();
 		}
 
-		const submitButton = form.querySelector("button[type='submit']");
-		if (!(submitButton instanceof HTMLButtonElement)) {
+		const submitButton = resolveSubmitButton(form);
+		if (!submitButton) {
 			return;
 		}
 
@@ -114,36 +163,107 @@ export function initializeHCaptchaForm(formId: string, tokenInputId: string) {
 		captchaFormCleanups.set(captchaTokenInput, cleanup);
 	};
 
-	if (document.readyState === "loading") {
-		document.addEventListener("DOMContentLoaded", setup);
-	} else {
-		setup();
-	}
+	onDomReady(setup);
 }
 
-export function createCaptchaStatusHelpers(statusElementId: string) {
-	return {
-		show: (message: string) => {
-			const statusElement = document.getElementById(statusElementId);
-			if (!(statusElement instanceof HTMLElement)) {
-				rootLogger.warn("hCaptcha status element not found", {
-					statusElementId,
-				});
+export function setupCaptchaTokenInputListener(
+	tokenInputId: string,
+	handler: (token: string) => void,
+) {
+	let teardown: (() => void) | null = null;
+	let cancelled = false;
+
+	onDomReady(() => {
+		if (cancelled) {
+			return;
+		}
+		const input = resolveElement(tokenInputId, isInputElement);
+		if (!input) {
+			return;
+		}
+		const handleInput = () => handler(input.value);
+		input.addEventListener("input", handleInput);
+		teardown = () => {
+			input.removeEventListener("input", handleInput);
+		};
+	});
+
+	return () => {
+		cancelled = true;
+		teardown?.();
+	};
+}
+
+export function setupCaptchaSubmitGuard(
+	formId: string,
+	tokenInputId: string,
+	showStatus: (message: string) => void,
+) {
+	let teardown: (() => void) | null = null;
+
+	onDomReady(() => {
+		const form = resolveElement(formId, isFormElement);
+		const tokenInput = resolveElement(tokenInputId, isInputElement);
+		if (!form || !tokenInput) {
+			return;
+		}
+
+		const handleSubmit = (event: SubmitEvent) => {
+			const captchaResponseInput = form.querySelector(
+				"input[name='h-captcha-response']",
+			);
+			const captchaResponse =
+				captchaResponseInput instanceof HTMLInputElement
+					? captchaResponseInput.value
+					: "";
+
+			const existingToken = tokenInput.value.trim();
+			const trimmedCaptchaResponse = captchaResponse.trim();
+
+			if (existingToken.length === 0 && trimmedCaptchaResponse.length === 0) {
+				event.preventDefault();
+				showStatus("Please complete the CAPTCHA verification.");
 				return;
 			}
 
+			if (existingToken.length === 0 && trimmedCaptchaResponse.length > 0) {
+				tokenInput.value = trimmedCaptchaResponse;
+			}
+		};
+
+		form.addEventListener("submit", handleSubmit);
+
+		teardown = () => {
+			form.removeEventListener("submit", handleSubmit);
+		};
+	});
+
+	return () => {
+		teardown?.();
+	};
+}
+
+// Returns status helpers for hCaptcha. Callers must ensure DOM readiness
+// before calling this function, or the helpers will be no-ops if the element
+// doesn't exist yet.
+export function createCaptchaStatusHelpers(statusElementId: string) {
+	const statusElement = resolveElement(statusElementId, isHtmlElement);
+	if (!statusElement) {
+		rootLogger.warn("hCaptcha status element not found", {
+			statusElementId,
+		});
+		return {
+			show: (_message: string) => {},
+			hide: () => {},
+		};
+	}
+
+	return {
+		show: (message: string) => {
 			statusElement.textContent = message;
 			statusElement.classList.remove("hidden");
 		},
 		hide: () => {
-			const statusElement = document.getElementById(statusElementId);
-			if (!(statusElement instanceof HTMLElement)) {
-				rootLogger.warn("hCaptcha status element not found", {
-					statusElementId,
-				});
-				return;
-			}
-
 			statusElement.textContent = "";
 			statusElement.classList.add("hidden");
 		},

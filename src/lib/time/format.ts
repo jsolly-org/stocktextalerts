@@ -24,6 +24,97 @@ export function parseTimeToMinutes(value: string): number | null {
 	return hours * 60 + minutes;
 }
 
+export type ParsedTime = {
+	hours: number;
+	minutes: number;
+	seconds: number;
+};
+
+export function parseTimeString(
+	value: string | null | undefined,
+): ParsedTime | null {
+	if (!value) {
+		return null;
+	}
+
+	const parts = value.split(":");
+	if (parts.length !== 2 && parts.length !== 3) {
+		return null;
+	}
+
+	const [hoursPart, minutesPart, secondsPart] = parts;
+	if (!hoursPart || !minutesPart) {
+		return null;
+	}
+
+	if (!/^\d+$/.test(hoursPart) || !/^\d+$/.test(minutesPart)) {
+		return null;
+	}
+
+	const hours = Number.parseInt(hoursPart, 10);
+	const minutes = Number.parseInt(minutesPart, 10);
+
+	if (
+		!Number.isInteger(hours) ||
+		!Number.isInteger(minutes) ||
+		hours < 0 ||
+		hours > 23 ||
+		minutes < 0 ||
+		minutes > 59
+	) {
+		return null;
+	}
+
+	if (parts.length === 2) {
+		return { hours, minutes, seconds: 0 };
+	}
+
+	if (!secondsPart || !/^\d+$/.test(secondsPart)) {
+		return null;
+	}
+	const seconds = Number.parseInt(secondsPart, 10);
+	if (!Number.isInteger(seconds) || seconds < 0 || seconds > 59) {
+		return null;
+	}
+	return { hours, minutes, seconds };
+}
+
+export function minutesToTimeInputValue(minutes: number): string {
+	const clamped = Math.max(0, Math.min(1439, Math.floor(minutes)));
+	const hours = Math.floor(clamped / 60);
+	const mins = clamped % 60;
+	return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+}
+
+export type TimeValue = {
+	hours: number | string;
+	minutes: number | string;
+};
+
+export function formatTimeValue(value: TimeValue): string {
+	const hours =
+		typeof value.hours === "string"
+			? Number.parseInt(value.hours, 10)
+			: value.hours;
+	const minutes =
+		typeof value.minutes === "string"
+			? Number.parseInt(value.minutes, 10)
+			: value.minutes;
+	const h = Number.isNaN(hours)
+		? 0
+		: Math.max(0, Math.min(23, Math.floor(hours)));
+	const m = Number.isNaN(minutes)
+		? 0
+		: Math.max(0, Math.min(59, Math.floor(minutes)));
+	return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+export function resolveIs24(): boolean {
+	const formatter = new Intl.DateTimeFormat(undefined, { hour: "numeric" });
+	const options = formatter.resolvedOptions();
+	return options.hourCycle === "h23" || options.hourCycle === "h24";
+}
+
 export function getNowInTimezone(timezone: string): string | null {
 	const now = DateTime.now().setZone(timezone);
 	if (!now.isValid) {

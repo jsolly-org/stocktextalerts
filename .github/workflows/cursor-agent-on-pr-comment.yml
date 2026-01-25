@@ -1,0 +1,357 @@
+name: Cursor Agent on PR Comment
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: cursor-agent-pr-${{ github.event.issue.number || github.event.pull_request.number }}
+      cancel-in-progress: true
+    env:
+      INTERNAL_MARKER: "<!-- cursor-agent-workflow:internal -->"
+      WORKFLOW_FILE: cursor-agent-on-pr-comment.yml
+      CURSOR_AGENT_NAME: "Cursor Agent"
+      CURSOR_AGENT_EMAIL: "cursoragent@cursor.com"
+    steps:
+      - name: Check commenter authorization
+        id: check_auth
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_USER: ${{ github.event.comment.user.login }}
+        run: |
+          REPO="${{ github.repository }}"
+
+          # Validate commenter username is not empty
+          if [[ -z "$COMMENT_USER" ]]; then
+            echo "Skipping: commenter username is empty"
+            echo "authorized=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Compute bot and owner flags before API call to allow early short-circuit
+          OWNER=$(echo "$REPO" | cut -d'/' -f1)
+          IS_OWNER=$([[ "$COMMENT_USER" == "$OWNER" ]] && echo "true" || echo "false")
+
+          # Cursor’s GitHub integration posts trigger comments as cursor[bot], which
+          # shows up as permission=none in the collaborators permission API.
+          # Allowlist it explicitly so slash-commands from Cursor can run.
+          IS_CURSOR_BOT=$([[ "$COMMENT_USER" == "cursor[bot]" ]] && echo "true" || echo "false")
+
+          # GitHub Copilot posts review comments as github-copilot[bot], which also
+          # shows up as permission=none. Allowlist it so Copilot review comments can trigger the workflow.
+          IS_COPILOT_BOT=$([[ "$COMMENT_USER" == "github-copilot[bot]" ]] && echo "true" || echo "false")
+
+          # CodeRabbit posts review comments as coderabbitai[bot], which also shows up
+          # as permission=none. Allowlist it so CodeRabbit review comments can trigger the workflow.
+          IS_CODERABBIT_BOT=$([[ "$COMMENT_USER" == "coderabbitai[bot]" ]] && echo "true" || echo "false")
+
+          # Short-circuit if user is owner or trusted bot
+          if [[ "$IS_OWNER" == "true" ]] || [[ "$IS_CURSOR_BOT" == "true" ]] || [[ "$IS_COPILOT_BOT" == "true" ]] || [[ "$IS_CODERABBIT_BOT" == "true" ]]; then
+            echo "Authorization granted: is_owner=$IS_OWNER, is_cursor_bot=$IS_CURSOR_BOT, is_copilot_bot=$IS_COPILOT_BOT, is_coderabbit_bot=$IS_CODERABBIT_BOT"
+            echo "authorized=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Check repository permission level for the commenter
+          # This endpoint returns the permission level (admin, write, read, none)
+          # It also works for organization members with inherited permissions
+          PERMISSION_RESPONSE=$(gh api "repos/$REPO/collaborators/$COMMENT_USER/permission" 2>&1)
+          PERMISSION_EXIT_CODE=$?
+
+          if [[ $PERMISSION_EXIT_CODE -ne 0 ]]; then
+            echo "Skipping: failed to check permissions"
+            echo "API error: $PERMISSION_RESPONSE"
+            echo "authorized=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          PERMISSION=$(echo "$PERMISSION_RESPONSE" | jq -r '.permission // "none"')
+
+          # Allow admin, write, or maintain
+          # Note: 'maintain' permission is also write-level access
+          if [[ "$PERMISSION" == "admin" ]] || [[ "$PERMISSION" == "write" ]] || [[ "$PERMISSION" == "maintain" ]]; then
+            echo "Authorization granted: permission=$PERMISSION"
+            echo "authorized=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipping: permission=$PERMISSION"
+            echo "User $COMMENT_USER does not have admin, write, or maintain permissions"
+            echo "authorized=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+      - name: Check if should skip
+        id: should_skip
+        if: steps.check_auth.outputs.authorized == 'true'
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_USER: ${{ github.event.comment.user.login }}
+        run: |
+          SKIP="false"
+
+          # Check for internal marker
+          if [[ "$COMMENT_BODY" == *"$INTERNAL_MARKER"* ]]; then
+            echo "Skipping internal workflow comment."
+            SKIP="true"
+          fi
+
+          # Skip Vercel deployment status updates (status tables, preview links, deployment notifications).
+          # Process Vercel Agent review comments (actual code review comments without status markers).
+          if [[ "$COMMENT_USER" == "vercel" ]] || [[ "$COMMENT_USER" == "vercel[bot]" ]]; then
+            if [[ "$COMMENT_BODY" == *"The latest updates on your projects"* ]] || \
+               [[ "$COMMENT_BODY" == *"[vc]:"* ]] || \
+               [[ "$COMMENT_BODY" == *"<!-- vercel:"* ]] || \
+               [[ "$COMMENT_BODY" =~ ^\[vc\]: ]]; then
+              echo "Skipping Vercel status update: $COMMENT_USER"
+              SKIP="true"
+            fi
+          fi
+
+          echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
+
+      - name: Extract PR metadata
+        id: pr
+        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO="${{ github.repository }}"
+          EVENT_NAME="${{ github.event_name }}"
+          COMMENT_ID="${{ github.event.comment.id }}"
+          COMMENT_USER="${{ github.event.comment.user.login }}"
+
+          if [[ "$EVENT_NAME" == "issue_comment" ]]; then
+            PR_NUMBER="${{ github.event.issue.number }}"
+            # github.event.issue.pull_request.url is only present when the issue is a PR
+            PULL_REQUEST_URL="${{ github.event.issue.pull_request.url }}"
+            IS_PR=$([[ -n "$PULL_REQUEST_URL" && "$PULL_REQUEST_URL" != "null" ]] && echo "true" || echo "false")
+          else
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            IS_PR="true"
+          fi
+
+          if [[ "$IS_PR" == "true" ]]; then
+            PR_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
+            HEAD_REPO=$(echo "$PR_JSON" | jq -r '.head.repo.full_name')
+            HEAD_REF=$(echo "$PR_JSON" | jq -r '.head.ref')
+            HEAD_SHA=$(echo "$PR_JSON" | jq -r '.head.sha')
+          else
+            HEAD_REPO=""
+            HEAD_REF=""
+            HEAD_SHA=""
+          fi
+
+          {
+            echo "pr_number=$PR_NUMBER"
+            echo "head_repo=$HEAD_REPO"
+            echo "head_ref=$HEAD_REF"
+            echo "head_sha=$HEAD_SHA"
+            echo "comment_id=$COMMENT_ID"
+            echo "comment_user=$COMMENT_USER"
+            echo "event_name=$EVENT_NAME"
+            echo "is_pr=$IS_PR"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Pass through comment body
+        id: sanitize_comment
+        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true'
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          # Pass comment body through as a multiline output (preserves formatting).
+          DELIM=$(openssl rand -hex 32 2>/dev/null || uuidgen 2>/dev/null || echo "$(date +%s)_$$_$(openssl rand -hex 16 2>/dev/null || echo $RANDOM$RANDOM$RANDOM)")
+          if [[ -z "$DELIM" ]]; then
+            echo "Error: Failed to generate delimiter"
+            exit 1
+          fi
+          {
+            echo "sanitized<<$DELIM" >> "$GITHUB_OUTPUT"
+            printf '%s' "$COMMENT_BODY" >> "$GITHUB_OUTPUT"
+            echo "" >> "$GITHUB_OUTPUT"
+            echo "$DELIM" >> "$GITHUB_OUTPUT"
+          }
+
+      - name: Rate limit check
+        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ steps.pr.outputs.pr_number }}"
+          REPO="${{ github.repository }}"
+          NOW=$(date -u +%s)
+          LIMIT=$((NOW - 3600))
+
+          # Get workflow ID from the workflow file name
+          WORKFLOW_ID=$(gh api "repos/$REPO/actions/workflows" --jq ".workflows[] | select(.path == \".github/workflows/$WORKFLOW_FILE\") | .id" 2>&1)
+          WORKFLOW_ID_EXIT=$?
+
+          if [[ $WORKFLOW_ID_EXIT -ne 0 ]] || [[ -z "$WORKFLOW_ID" ]]; then
+            echo "Warning: Could not find workflow ID for $WORKFLOW_FILE, skipping rate limit check"
+            exit 0
+          fi
+
+          # Query workflow runs with error handling - if permissions are insufficient, skip rate limiting
+          RUNS_JSON=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs?per_page=100" 2>&1)
+          RUNS_EXIT=$?
+
+          if [[ $RUNS_EXIT -ne 0 ]]; then
+            echo "Warning: Could not query workflow runs (permissions may be insufficient), skipping rate limit check"
+            echo "API error: $RUNS_JSON"
+            exit 0
+          fi
+
+          # Filter runs from the last hour
+          # For issue_comment-triggered runs, pull_requests is empty, so we need to check head_sha associations
+          RECENT_RUNS=$(echo "$RUNS_JSON" | jq --argjson limit "$LIMIT" \
+            '[.workflow_runs[] | select(.created_at | fromdateiso8601 >= $limit)]' 2>&1)
+
+          COUNT=0
+          RUN_COUNT=$(echo "$RECENT_RUNS" | jq 'length' 2>&1)
+
+          # Ensure RUN_COUNT is a valid number
+          if ! [[ "$RUN_COUNT" =~ ^[0-9]+$ ]]; then
+            echo "Warning: Could not determine run count, skipping rate limit check"
+            exit 0
+          fi
+
+          for ((i=0; i<RUN_COUNT; i++)); do
+            RUN=$(echo "$RECENT_RUNS" | jq ".[$i]" 2>&1)
+            
+            # First, try the pull_requests field (works for pull_request triggered runs)
+            PR_MATCH=$(echo "$RUN" | jq --arg pr "$PR_NUMBER" \
+              'if (.pull_requests // []) | any(.number == ($pr|tonumber)) then 1 else 0 end' 2>&1)
+            
+            if [[ "$PR_MATCH" == "1" ]]; then
+              COUNT=$((COUNT + 1))
+              continue
+            fi
+            
+            # If pull_requests is empty, check head_sha association via commits API
+            # This handles issue_comment-triggered runs
+            HEAD_SHA=$(echo "$RUN" | jq -r '.head_sha // ""' 2>&1)
+            
+            if [[ -z "$HEAD_SHA" ]] || [[ "$HEAD_SHA" == "null" ]]; then
+              continue
+            fi
+            
+            # Check if this head_sha is associated with the PR via commits API
+            COMMITS_PULLS=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" 2>&1)
+            COMMITS_EXIT=$?
+            
+            if [[ $COMMITS_EXIT -ne 0 ]]; then
+              # If API call fails, skip this run (mirror existing RUNS_EXIT logic)
+              echo "Warning: Could not check commits/$HEAD_SHA/pulls, skipping this run"
+              continue
+            fi
+            
+            # Check if any associated PR matches our PR number
+            PR_MATCH=$(echo "$COMMITS_PULLS" | jq --arg pr "$PR_NUMBER" \
+              '[.[] | select(.number == ($pr|tonumber))] | length' 2>&1)
+            
+            if [[ "$PR_MATCH" -gt 0 ]]; then
+              COUNT=$((COUNT + 1))
+            fi
+          done
+
+          if [[ "$COUNT" -ge 60 ]]; then
+            gh pr comment "$PR_NUMBER" \
+              --body "Rate limit reached: max 60 runs/hour for this PR. $INTERNAL_MARKER"
+            exit 0
+          fi
+
+      - name: Checkout PR head
+        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true'
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ steps.pr.outputs.head_repo }}
+          ref: ${{ steps.pr.outputs.head_ref }}
+          fetch-depth: 0
+
+      - name: Install Cursor CLI
+        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true'
+        run: |
+          # Per Cursor docs: https://cursor.com/install
+          # Supply-chain risk: piping a remote script to bash. We accept this for the official
+          # installer because it runs in an ephemeral GitHub Actions runner. Cursor does not
+          # currently publish checksums or versioned release artifacts.
+          curl https://cursor.com/install -fsS | bash
+          echo "$HOME/.cursor/bin" >> $GITHUB_PATH
+
+      - name: Configure git identity
+        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true'
+        run: |
+          git config user.name "$CURSOR_AGENT_NAME"
+          git config user.email "$CURSOR_AGENT_EMAIL"
+
+      - name: Run Cursor agent
+        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true'
+        id: agent
+        continue-on-error: true
+        env:
+          CURSOR_SECRET_KEY: ${{ secrets.CURSOR_SECRET_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+          COMMENT_ID: ${{ steps.pr.outputs.comment_id }}
+          COMMENT_EVENT: ${{ steps.pr.outputs.event_name }}
+          COMMENT_BODY: ${{ steps.sanitize_comment.outputs.sanitized }}
+          HEAD_REF: ${{ steps.pr.outputs.head_ref }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          PROMPT="$(
+            cat <<EOF
+            ---SYSTEM_INSTRUCTIONS_START---
+            You are running in GitHub Actions. You can use git and gh. Do not post PR comments.
+
+            Context:
+            - Repo: $REPO
+            - PR Number: $PR_NUMBER
+            - Head Branch: $HEAD_REF
+            - Trigger Event: $COMMENT_EVENT
+            - Trigger Comment ID: $COMMENT_ID
+
+            Do this:
+            1) Make the necessary code changes requested in the user comment below.
+            2) Commit and push directly to the PR head branch.
+            3) Include the PR number and comment ID in the commit message.
+            4) After a successful push, mark the comment as resolved:
+               - If the event is pull_request_review_comment, resolve the review thread using GraphQL:
+                 1. Get the comment via REST API to extract its node_id:
+                    COMMENT_JSON=\$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID")
+                    NODE_ID=\$(echo "\$COMMENT_JSON" | jq -r '.node_id')
+                 2. Query the comment via GraphQL to get its thread ID:
+                    THREAD_QUERY='query{node(id:"'"'"'"\$NODE_ID"'"'"'"){... on PullRequestReviewComment{thread{id}}}}'
+                    THREAD_ID=\$(gh api graphql -f query="\$THREAD_QUERY" -q '.data.node.thread.id')
+                 3. Resolve the thread:
+                    RESOLVE_MUTATION='mutation{resolveReviewThread(input:{threadId:"'"'"'"\$THREAD_ID"'"'"'"}){thread{isResolved}}}'
+                    gh api graphql -f query="\$RESOLVE_MUTATION"
+               - If the event is issue_comment, add a reaction:
+                 gh api -X POST /repos/$REPO/issues/comments/$COMMENT_ID/reactions -f content=eyes
+
+            ---SYSTEM_INSTRUCTIONS_END---
+
+            ---USER_INPUT_START---
+            $COMMENT_BODY
+            ---USER_INPUT_END---
+          EOF
+          )"
+
+          agent --prompt "$PROMPT" --model gpt-5.2 --output-format=text
+
+      - name: Report agent failure
+        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true' && steps.agent.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment "${{ steps.pr.outputs.pr_number }}" \
+            --body "Cursor agent failed to process the comment. $INTERNAL_MARKER"

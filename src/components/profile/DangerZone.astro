@@ -1,13 +1,12 @@
 ---
+
 interface Props {
 	action?: string;
 }
-
 const { action = "/api/auth/delete-account" } = Astro.props;
 ---
-
-<div class="bg-white rounded-lg shadow-sm border border-red-200 p-8">
-	<h2 class="text-xl font-bold text-red-600 mb-2">Danger Zone</h2>
+<div class="bg-white rounded-lg shadow-sm border border-error-border p-8">
+	<h2 class="text-xl font-bold text-error-strong mb-2">Danger Zone</h2>
 	<p class="text-gray-600 mb-6">
 		Once you delete your account, there is no going back. Please be certain.
 	</p>
@@ -15,7 +14,7 @@ const { action = "/api/auth/delete-account" } = Astro.props;
 	<form data-profile-delete-form action={action} method="post">
 		<button
 			type="submit"
-			class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-md text-sm font-medium transition-colors cursor-pointer"
+			class="bg-error-strong hover:bg-error-strong-hover text-white px-6 py-3 rounded-md text-sm font-medium transition-colors cursor-pointer"
 		>
 			Delete Account
 		</button>
@@ -27,7 +26,9 @@ const { action = "/api/auth/delete-account" } = Astro.props;
 
 	const forms = document.querySelectorAll('[data-profile-delete-form]');
 	if (forms.length === 0) {
-		rootLogger.error("Delete account form not found");
+		rootLogger.error("Delete account form not found", {
+			selector: "[data-profile-delete-form]",
+		});
 	}
 
 	forms.forEach((form) => {

@@ -209,6 +209,7 @@ CREATE TABLE IF NOT EXISTS users (
   next_send_at TIMESTAMP WITH TIME ZONE,
   email_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
   sms_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
+  dismiss_timezone_mismatch_prompts BOOLEAN DEFAULT false NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   CONSTRAINT phone_country_code_format CHECK (phone_country_code ~ '^\+[0-9]{1,4}$'),

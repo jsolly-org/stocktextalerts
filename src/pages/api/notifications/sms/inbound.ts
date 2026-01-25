@@ -74,7 +74,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		const signatureHeader = request.headers.get("x-twilio-signature");
 
 		if (!signatureHeader) {
-			logger.error("Inbound SMS request missing x-twilio-signature header");
+			// Expected rejection (probes, non-Twilio); info to avoid inflating error metrics.
+			logger.info("Inbound SMS request missing x-twilio-signature header", {
+				header: "x-twilio-signature",
+			});
 			return new Response("Missing Twilio signature", { status: 401 });
 		}
 
@@ -83,7 +86,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		const parsed = parseWithSchema(formData, INBOUND_SMS_SCHEMA);
 
 		if (!parsed.ok) {
-			logger.warn("Inbound SMS rejected due to invalid form data", {
+			// Expected rejection (malformed webhooks, etc.); info to avoid inflating error metrics.
+			logger.info("Inbound SMS rejected due to invalid form data", {
 				errors: parsed.allErrors,
 			});
 			return new Response("Invalid form submission", { status: 400 });
@@ -119,7 +123,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			headers,
 		});
 	} catch (error) {
-		logger.error("SMS webhook error", undefined, error);
+		logger.error("SMS webhook error", { action: "inbound_sms_webhook" }, error);
 		return new Response("Internal server error", { status: 500 });
 	}
 };

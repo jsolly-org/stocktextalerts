@@ -4,7 +4,7 @@ import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
 import { calculateNextSendAt } from "../../../../src/lib/time/schedule";
 import { POST } from "../../../../src/pages/api/notifications/daily-digest-now";
-import { adminClient } from "../../../setup";
+import { adminClient, allowConsoleErrors } from "../../../setup";
 import { createAuthenticatedCookies, createTestUser } from "../../../utils";
 
 const TEST_PASSWORD = "TestPassword123!";
@@ -40,6 +40,7 @@ describe("User requests to send daily digest immediately", () => {
 	};
 
 	it("redirects to /signin?error=unauthorized (302) when unauthenticated user attempts to send daily digest now", async () => {
+		allowConsoleErrors();
 		const response = await POST({
 			request: buildRequest(),
 			cookies: toAstroCookies(new Map()),
@@ -70,7 +71,7 @@ describe("User requests to send daily digest immediately", () => {
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toBe(
-				"/dashboard?error=daily_digest_disabled",
+				"/dashboard?error=daily_digest_disabled#scheduled-notifications",
 			);
 		} finally {
 			await adminClient.auth.admin.deleteUser(id);
@@ -97,7 +98,7 @@ describe("User requests to send daily digest immediately", () => {
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toBe(
-				"/dashboard?error=notifications_not_configured",
+				"/dashboard?error=notifications_not_configured#scheduled-notifications",
 			);
 		} finally {
 			await adminClient.auth.admin.deleteUser(id);
@@ -137,7 +138,7 @@ describe("User requests to send daily digest immediately", () => {
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toBe(
-				"/dashboard?error=daily_digest_rate_limited",
+				"/dashboard?error=daily_digest_rate_limited#scheduled-notifications",
 			);
 		} finally {
 			await adminClient.auth.admin.deleteUser(id);
@@ -165,7 +166,7 @@ describe("User requests to send daily digest immediately", () => {
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toBe(
-				"/dashboard?success=daily_digest_sent",
+				"/dashboard?success=daily_digest_sent#scheduled-notifications",
 			);
 		} finally {
 			await adminClient.auth.admin.deleteUser(id);
@@ -195,7 +196,7 @@ describe("User requests to send daily digest immediately", () => {
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toBe(
-				"/dashboard?success=daily_digest_sent",
+				"/dashboard?success=daily_digest_sent#scheduled-notifications",
 			);
 		} finally {
 			await adminClient.auth.admin.deleteUser(id);
@@ -234,7 +235,7 @@ describe("User requests to send daily digest immediately", () => {
 
 				expect(response.status).toBe(302);
 				expect(response.headers.get("Location")).toBe(
-					"/dashboard?success=daily_digest_sent",
+					"/dashboard?success=daily_digest_sent#scheduled-notifications",
 				);
 
 				const { data: userAfter } = await adminClient
@@ -294,7 +295,7 @@ describe("User requests to send daily digest immediately", () => {
 
 				expect(response.status).toBe(302);
 				expect(response.headers.get("Location")).toBe(
-					"/dashboard?success=daily_digest_sent",
+					"/dashboard?success=daily_digest_sent#scheduled-notifications",
 				);
 
 				const { data: userAfter } = await adminClient

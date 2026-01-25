@@ -1,6 +1,51 @@
 <template>
-	<div ref="panelRef" class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-		<h2 class="text-2xl font-bold text-gray-900 mb-4">Tracked Stocks</h2>
+	<div class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+		<h2
+			:id="DASHBOARD_SECTION_IDS.stocks"
+			class="text-2xl font-bold text-gray-900 mb-2"
+		>
+			Tracked Stocks
+		</h2>
+
+		<div v-if="flashMessages.length" class="space-y-2 mb-4">
+			<StatusMessage
+				v-for="(flash, index) in flashMessages"
+				:key="index"
+				:tone="flash.tone"
+			>
+				{{ flash.message }}
+			</StatusMessage>
+		</div>
+
+		<div class="min-h-5 mb-4">
+			<Transition
+				enter-active-class="transition-opacity duration-150"
+				enter-from-class="opacity-0"
+				enter-to-class="opacity-100"
+				leave-active-class="transition-opacity duration-150"
+				leave-from-class="opacity-100"
+				leave-to-class="opacity-0"
+			>
+				<p
+					v-if="statusMessage"
+					:id="DASHBOARD_STOCKS_STATUS_ID"
+					class="text-sm flex items-center gap-2"
+					:class="[statusTone === 'error' ? 'text-error-text' : 'text-info-text']"
+					role="status"
+					aria-live="polite"
+					:aria-busy="isSaving"
+					:data-tone="statusTone"
+				>
+					<ArrowPathIcon
+						v-show="isSaving"
+						class="animate-spin size-4 shrink-0"
+						aria-hidden="true"
+					/>
+					{{ statusMessage }}
+				</p>
+			</Transition>
+		</div>
+
 		<input type="hidden" name="tracked_stocks" :value="trackedStocksValue" />
 
 		<div class="mb-6">
@@ -9,9 +54,6 @@
 				:stock-options="stockOptions"
 				@select="handleSelect"
 			/>
-			<p v-if="hasUnsavedChanges" class="mt-3 text-sm text-amber-700">
-				Changes aren’t saved until you click <span class="font-medium">Save Preferences</span> at the bottom of the page.
-			</p>
 		</div>
 
 		<div>
@@ -28,7 +70,7 @@
 					<span class="font-medium text-gray-900">{{ symbol }}</span>
 					<button
 						type="button"
-						class="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+						class="px-3 py-1 text-sm bg-error-bg text-error-text rounded hover:bg-error-border transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
 						@click="removeSymbol(symbol)"
 					>
 						Remove
@@ -40,40 +82,47 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref, watch } from "vue";
-
-import StockInput, { type StockOption } from "./StockInput.vue";
+import { computed, ref, toRefs, watch } from "vue";
+// ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
+import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
+import { DASHBOARD_SECTION_IDS } from "../../../lib/dashboard/sections";
+import StatusMessage from "../../StatusMessage.vue";
+import { DASHBOARD_STOCKS_STATUS_ID } from "../constants";
+import type { StockOption } from "./StockInput.vue";
+import StockInput from "./StockInput.vue";
 
 interface Props {
 	stockOptions: StockOption[];
 	initialSymbols: string[];
+	onFormChanged: () => void;
+	flashMessages?: { tone: "success" | "error" | "warning"; message: string }[];
+	statusMessage?: string | null;
+	statusTone?: "error" | "info";
+	isSaving?: boolean;
 }
 
-const props = defineProps<Props>();
-
-const draftSymbols = ref([...props.initialSymbols]);
-const panelRef = ref<HTMLElement | null>(null);
-const formElement = ref<HTMLFormElement | null>(null);
-
-const hasUnsavedChanges = computed(() => {
-	if (draftSymbols.value.length !== props.initialSymbols.length) return true;
-	const initialSet = new Set(props.initialSymbols);
-	return draftSymbols.value.some((symbol) => !initialSet.has(symbol));
+const props = withDefaults(defineProps<Props>(), {
+	flashMessages: () => [],
+	statusMessage: null,
+	statusTone: "info",
+	isSaving: false,
 });
 
-const trackedStocksValue = computed(() =>
-	JSON.stringify(draftSymbols.value),
-);
+const { flashMessages, isSaving, statusMessage, statusTone } = toRefs(props);
+
+const draftSymbols = ref([...props.initialSymbols]);
+
+const trackedStocksValue = computed(() => JSON.stringify(draftSymbols.value));
 
 watch(
 	draftSymbols,
 	() => {
-	formElement.value?.dispatchEvent(new Event("input", { bubbles: true }));
+		props.onFormChanged();
 	},
 	{ flush: "post" },
 );
 
-const handleSelect = (symbol: string) => {
+function handleSelect(symbol: string) {
 	if (!symbol) {
 		return;
 	}
@@ -83,23 +132,13 @@ const handleSelect = (symbol: string) => {
 	}
 
 	draftSymbols.value = [...draftSymbols.value, symbol];
-};
+}
 
-const removeSymbol = (symbol: string) => {
+function removeSymbol(symbol: string) {
 	draftSymbols.value = draftSymbols.value.filter(
 		(current) => current !== symbol,
 	);
-};
-
-onMounted(() => {
-	if (!panelRef.value) {
-		return;
-	}
-	const closestForm = panelRef.value.closest("form");
-	if (closestForm instanceof HTMLFormElement) {
-		formElement.value = closestForm;
-	}
-});
+}
 </script>
 
 

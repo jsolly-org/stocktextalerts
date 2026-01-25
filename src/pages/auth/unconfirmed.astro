@@ -1,44 +1,31 @@
 ---
+
+import { Icon } from "astro-icon/components";
 import HCaptcha from "../../components/HCaptcha.astro";
+import StatusMessage from "../../components/StatusMessage.astro";
 import Layout from "../../layouts/Layout.astro";
+import { formatMessage } from "../../lib/status-messages";
 
 const search = Astro.url.searchParams;
 const email = search.get("email");
 const success = search.get("success");
 const error = search.get("error");
-
 let message = "";
 let messageType: "success" | "error" | null = null;
-
 if (success === "true") {
-	message = "Verification email sent! Check your inbox.";
+	message = formatMessage("verification_email_sent");
 	messageType = "success";
 } else if (error) {
 	messageType = "error";
-	switch (error) {
-		case "email_required":
-			message = "No email address found";
-			break;
-		case "failed":
-			message = "Failed to send email. Please try again.";
-			break;
-		case "captcha_required":
-			message = "Please complete the CAPTCHA and try again.";
-			break;
-		default:
-			message = "An unexpected error occurred. Please try again.";
-	}
+	message = formatMessage(error) || formatMessage("failed");
 }
 ---
-
 <Layout title="Verify Your Email" description="Please verify your email address to continue">
   <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-md w-full space-y-8">
       <div class="text-center">
-        <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-blue-100">
-          <svg class="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
+        <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-info-bg">
+          <Icon name="envelope" class="h-6 w-6 text-info-text" aria-hidden="true" />
         </div>
         <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
           Check Your Email
@@ -52,18 +39,16 @@ if (success === "true") {
       </div>
 
       <div class="mt-8 space-y-6">
-        <div class="rounded-md bg-blue-50 p-4">
+        <div class="rounded-md border p-4 status-tone-info">
           <div class="flex">
             <div class="shrink-0">
-              <svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-              </svg>
+              <Icon name="information-circle-20" class="h-5 w-5 text-info-text" aria-hidden="true" />
             </div>
             <div class="ml-3">
-              <h3 class="text-sm font-medium text-blue-800">
+              <h3 class="text-sm font-medium">
                 What's next?
               </h3>
-              <div class="mt-2 text-sm text-blue-700">
+              <div class="mt-2 text-sm">
                 <ul class="list-disc pl-5 space-y-1">
                   <li>Check your email inbox (and spam folder)</li>
                   <li>Click the verification link in the email</li>
@@ -74,10 +59,11 @@ if (success === "true") {
           </div>
         </div>
 
-        {message && (
-          <div class={`p-4 rounded-md ${messageType === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`} role="alert">
-            {message}
-          </div>
+        {message && messageType && (
+          <StatusMessage
+            tone={messageType === "success" ? "success" : "error"}
+            message={message}
+          />
         )}
 
         <div class="space-y-4">
@@ -92,14 +78,14 @@ if (success === "true") {
 						/>
 					<div
 						id="unconfirmed-captcha-status"
-						class="mt-2 hidden rounded-md bg-red-50 p-3 text-sm text-red-700"
+						class="mt-2 hidden rounded-lg border p-3 text-sm status-tone-error"
 						role="status"
 						aria-live="polite"
 					></div>
             <button
               id="resend-btn"
               type="submit"
-              class="group relative w-full flex justify-center py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              class="group relative w-full flex justify-center py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Resend verification email
             </button>
@@ -108,7 +94,7 @@ if (success === "true") {
           <div class="text-center">
             <a
               href="/signin"
-              class="font-medium text-blue-600 hover:text-blue-500"
+              class="font-medium text-primary hover:text-primary-strong"
             >
               Back to sign in
             </a>
@@ -122,6 +108,7 @@ if (success === "true") {
 <script>
 	import {
 		createCaptchaStatusHelpers,
+		setupCaptchaTokenInputListener,
 		setupHCaptchaCallback,
 		setupHCaptchaErrorCallback,
 		setupHCaptchaExpiredCallback,
@@ -192,7 +179,14 @@ if (success === "true") {
 			try {
 				localStorage.setItem(COOLDOWN_KEY, Date.now().toString());
 			} catch (err) {
-				rootLogger.error("Failed to save cooldown timestamp to localStorage", undefined, err);
+				rootLogger.error(
+					"Failed to save cooldown timestamp to localStorage",
+					{
+						action: "persist_resend_cooldown",
+						storageKey: COOLDOWN_KEY,
+					},
+					err,
+				);
 			}
 		});
 
@@ -241,9 +235,9 @@ if (success === "true") {
 			},
 		);
 
-		captchaTokenInput.addEventListener("input", () => {
+		setupCaptchaTokenInputListener("unconfirmed_captcha_token", (token) => {
 			updateResendDisabledState();
-			if (captchaTokenInput.value.trim().length > 0) {
+			if (token.trim().length > 0) {
 				captchaStatus.hide();
 			}
 		});

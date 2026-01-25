@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
+import { buildDashboardRedirect } from "../../../lib/dashboard/sections";
 import { createUserService } from "../../../lib/db";
 import {
 	createSupabaseAdminClient,
@@ -32,9 +33,19 @@ export const POST: APIRoute = async ({
 	const supabase = createSupabaseServerClient();
 	const users = createUserService(supabase, cookies);
 
+	const scheduledRedirect = (params: {
+		success?: string;
+		error?: string;
+		warning?: string;
+	}) => buildDashboardRedirect({ ...params, section: "scheduled" });
+
 	const authUser = await users.getCurrentUser();
 	if (!authUser) {
-		logger.info("Manual daily digest send attempt without authenticated user");
+		// Expected rejection (expired session, crawler, etc.); log at info so we don't inflate error metrics.
+		logger.info("Manual daily digest send attempt without authenticated user", {
+			reason: "unauthenticated",
+			path: url.pathname,
+		});
 		return redirect("/signin?error=unauthorized");
 	}
 
@@ -67,23 +78,25 @@ export const POST: APIRoute = async ({
 			{ userId: authUser.id },
 			userError,
 		);
-		return redirect("/dashboard?error=server_error");
+		return redirect(scheduledRedirect({ error: "server_error" }));
 	}
 
 	if (!user) {
 		logger.error("Manual daily digest send attempted but user not found", {
 			userId: authUser.id,
 		});
-		return redirect("/dashboard?error=user_not_found");
+		return redirect(scheduledRedirect({ error: "user_not_found" }));
 	}
 
 	if (!user.daily_digest_enabled) {
-		return redirect("/dashboard?error=daily_digest_disabled");
+		return redirect(scheduledRedirect({ error: "daily_digest_disabled" }));
 	}
 
 	const smsReady = shouldSendSms(user);
 	if (!user.email_notifications_enabled && !smsReady) {
-		return redirect("/dashboard?error=notifications_not_configured");
+		return redirect(
+			scheduledRedirect({ error: "notifications_not_configured" }),
+		);
 	}
 
 	try {
@@ -101,14 +114,16 @@ export const POST: APIRoute = async ({
 				{ userId: user.id },
 				rateLimitError,
 			);
-			return redirect("/dashboard?error=daily_digest_send_failed");
+			return redirect(scheduledRedirect({ error: "daily_digest_send_failed" }));
 		}
 
 		if (rateLimitAllowed === false) {
 			logger.info("User rate-limited for manual daily digest send", {
 				userId: user.id,
 			});
-			return redirect("/dashboard?error=daily_digest_rate_limited");
+			return redirect(
+				scheduledRedirect({ error: "daily_digest_rate_limited" }),
+			);
 		}
 
 		if (rateLimitAllowed !== true) {
@@ -119,7 +134,7 @@ export const POST: APIRoute = async ({
 					rateLimitAllowed,
 				},
 			);
-			return redirect("/dashboard?error=daily_digest_send_failed");
+			return redirect(scheduledRedirect({ error: "daily_digest_send_failed" }));
 		}
 
 		const skipNext = url.searchParams.get("skip_next") === "1";
@@ -139,7 +154,9 @@ export const POST: APIRoute = async ({
 					daily_digest_notification_time: user.daily_digest_notification_time,
 					timezone: user.timezone,
 				});
-				return redirect("/dashboard?error=daily_digest_skip_failed");
+				return redirect(
+					scheduledRedirect({ error: "daily_digest_skip_failed" }),
+				);
 			}
 
 			advancedNextSendAtIso = advancedNextSendAt.toISO();
@@ -147,7 +164,9 @@ export const POST: APIRoute = async ({
 				logger.error("Failed to format advanced next_send_at ISO", {
 					userId: user.id,
 				});
-				return redirect("/dashboard?error=daily_digest_skip_failed");
+				return redirect(
+					scheduledRedirect({ error: "daily_digest_skip_failed" }),
+				);
 			}
 		}
 
@@ -160,7 +179,7 @@ export const POST: APIRoute = async ({
 				{ userId: user.id },
 				error,
 			);
-			return redirect("/dashboard?error=daily_digest_send_failed");
+			return redirect(scheduledRedirect({ error: "daily_digest_send_failed" }));
 		}
 
 		const stocksList =
@@ -246,7 +265,7 @@ export const POST: APIRoute = async ({
 		});
 
 		if (!anySent) {
-			return redirect("/dashboard?error=daily_digest_send_failed");
+			return redirect(scheduledRedirect({ error: "daily_digest_send_failed" }));
 		}
 
 		if (advancedNextSendAtIso) {
@@ -261,18 +280,21 @@ export const POST: APIRoute = async ({
 					advanceError,
 				});
 				return redirect(
-					"/dashboard?success=daily_digest_sent&warning=skip_update_failed",
+					scheduledRedirect({
+						success: "daily_digest_sent",
+						warning: "daily_digest_skip_update_failed",
+					}),
 				);
 			}
 		}
 
-		return redirect("/dashboard?success=daily_digest_sent");
+		return redirect(scheduledRedirect({ success: "daily_digest_sent" }));
 	} catch (error) {
 		logger.error(
 			"Unexpected error sending manual daily digest",
 			{ userId: user.id },
 			error,
 		);
-		return redirect("/dashboard?error=daily_digest_send_failed");
+		return redirect(scheduledRedirect({ error: "daily_digest_send_failed" }));
 	}
 };

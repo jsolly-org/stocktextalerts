@@ -6,7 +6,6 @@ interface Props {
 	errorCallback?: string;
 	expiredCallback?: string;
 }
-
 const {
 	tokenInputId,
 	callbackName,
@@ -14,10 +13,8 @@ const {
 	errorCallback,
 	expiredCallback,
 } = Astro.props;
-
 const hcaptchaSiteKey = import.meta.env.PUBLIC_HCAPTCHA_SITE_KEY;
 ---
-
 <input type="hidden" name="captcha_token" id={tokenInputId} value="" />
 <div
 	class={`h-captcha ${widgetClasses}`}
@@ -38,7 +35,11 @@ const hcaptchaSiteKey = import.meta.env.PUBLIC_HCAPTCHA_SITE_KEY;
 		const s = document.createElement("script");
 		s.src = "https://js.hcaptcha.com/1/api.js";
 		s.async = true;
-		s.onerror = () => rootLogger.error("Failed to load hCaptcha script");
+		s.onerror = () =>
+			rootLogger.error("Failed to load hCaptcha script", {
+				action: "load_hcaptcha_script",
+				src: s.src,
+			});
 		document.head.appendChild(s);
 	}
 </script>

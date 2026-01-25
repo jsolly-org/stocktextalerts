@@ -1,12 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { APIRoute } from "astro";
+import type { APIContext } from "astro";
 import { getSiteUrl } from "../../../../lib/db/env";
 import {
 	createSupabaseAdminClient,
 	createSupabaseServerClient,
 } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
-import { redirect } from "../../../../lib/http/redirect";
 import { createLogger, type Logger } from "../../../../lib/logging";
 import { resolveTimezone } from "../../../../lib/time/cache";
 
@@ -26,7 +25,11 @@ async function cleanupOrphanedAuthUser(
 	}
 }
 
-export const POST: APIRoute = async ({ request, locals }) => {
+export async function POST({
+	request,
+	redirect,
+	locals,
+}: APIContext): Promise<Response> {
 	const url = new URL(request.url);
 	const logger = createLogger({
 		requestId: locals?.requestId,
@@ -57,11 +60,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		captcha_token: captchaToken,
 	} = parsed.data;
 
-	// Trim email to ensure consistency between Supabase Auth (auth.users) and our database
-	// (public.users). This cannot be enforced at the database level because Supabase Auth
-	// stores emails in its own auth.users table which doesn't have our whitespace constraint.
-	// We must trim here to prevent registration failures when inserting into public.users.
-	const email = rawEmail.trim();
+	// Trim email to satisfy our database constraints (no leading/trailing whitespace).
+	// Supabase Auth doesn't enforce this constraint (external service owns its storage/constraints),
+	// so we normalize at the application level before sending.
+	const trimmedEmail = rawEmail.trim();
 
 	const userTimezone = await resolveTimezone({
 		supabase,
@@ -72,7 +74,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 	const emailRedirectTo = `${origin}/auth/verified`;
 
 	const { data, error } = await supabase.auth.signUp({
-		email,
+		email: trimmedEmail,
 		password,
 		options: {
 			emailRedirectTo,
@@ -82,10 +84,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
 	if (error) {
 		if (error.code === "captcha_failed") {
-			logger.error("User registration blocked due to captcha", {
-				code: error.code,
-				status: error.status,
-			});
+			// Expected rejection (often bots); info to avoid inflating error metrics.
+			logger.info(
+				"User registration blocked due to captcha",
+				{ code: error.code, status: error.status },
+				error,
+			);
 			return redirect("/auth/register?error=captcha_failed");
 		}
 
@@ -95,7 +99,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			});
 			return redirect("/auth/register?error=user_already_exists");
 		}
-		logger.error("User registration failed", undefined, error);
+		logger.error(
+			"User registration failed",
+			{ email: trimmedEmail, errorCode: error.code, errorStatus: error.status },
+			error,
+		);
 		return redirect("/auth/register?error=failed");
 	}
 
@@ -105,7 +113,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
 		const userProfileData = {
 			id: data.user.id,
-			email,
+			email: trimmedEmail,
 			timezone: userTimezone,
 		};
 
@@ -116,11 +124,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			});
 
 		if (profileError) {
-			logger.error("Failed to create user profile", undefined, profileError);
+			logger.error(
+				"Failed to create user profile",
+				{ userId: data.user.id, email: trimmedEmail },
+				profileError,
+			);
 			await cleanupOrphanedAuthUser(adminSupabase, data.user.id, logger);
 			return redirect("/auth/register?error=profile_creation_failed");
 		}
 	}
 
-	return redirect(`/auth/unconfirmed?email=${encodeURIComponent(email)}`);
-};
+	return redirect(
+		`/auth/unconfirmed?email=${encodeURIComponent(trimmedEmail)}`,
+	);
+}

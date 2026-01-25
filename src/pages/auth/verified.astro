@@ -1,4 +1,6 @@
 ---
+
+import { Icon } from "astro-icon/components";
 import Layout from "../../layouts/Layout.astro";
 import {
 	type SupabaseEmailOtpType,
@@ -10,19 +12,17 @@ import { rootLogger } from "../../lib/logging";
 
 const supabase = createSupabaseServerClient();
 const userService = createUserService(supabase, Astro.cookies);
-
 // Check for token_hash in query params (PKCE flow for SSR)
 const tokenHash = Astro.url.searchParams.get("token_hash");
 const typeParam = Astro.url.searchParams.get("type");
 const type: SupabaseEmailOtpType | null =
-	typeParam === "signup" ||
+	typeParam === "email" ||
 	typeParam === "invite" ||
 	typeParam === "magiclink" ||
 	typeParam === "recovery" ||
 	typeParam === "email_change"
 		? typeParam
 		: null;
-
 // If token_hash is present but type is invalid/missing, treat link as invalid and
 // immediately remove the raw token from the URL.
 if (tokenHash && type === null) {
@@ -32,29 +32,31 @@ if (tokenHash && type === null) {
 		`${cleanedUrl.pathname}${cleanedUrl.search}${cleanedUrl.hash}`,
 	);
 }
-
 // If token_hash is provided, verify it
-if (tokenHash && type) {
-	const { data, error } = await verifySupabaseOtp(supabase, {
-		token_hash: tokenHash,
-		type,
-	});
-
-	if (error || !data.user) {
-		rootLogger.error(
-			"Email verification token validation failed",
-			undefined,
-			error,
-		);
-		return Astro.redirect("/signin?error=invalid_verification");
-	}
-
+	if (tokenHash && type) {
+		const { data, error } = await verifySupabaseOtp(supabase, {
+			token_hash: tokenHash,
+			type,
+		});
+		if (error || !data?.user) {
+			rootLogger.error(
+				"Email verification token validation failed",
+				{
+					tokenHashPresent: true,
+					type,
+					hasUser: Boolean(data?.user),
+				},
+				error,
+			);
+			return Astro.redirect("/signin?error=invalid_verification");
+		}
 	// Verify the user's email is actually confirmed
 	if (!data.user.email_confirmed_at) {
-		rootLogger.error("User email not confirmed after token verification");
+		rootLogger.error("User email not confirmed after token verification", {
+			userId: data.user.id,
+		});
 		return Astro.redirect("/signin?error=verification_failed");
 	}
-
 	// Clean up URL to prevent token reuse attempts on refresh
 	return Astro.redirect("/auth/verified");
 } else {
@@ -62,23 +64,22 @@ if (tokenHash && type) {
 	// This handles cases where Supabase already verified the token before redirect
 	const user = await userService.getCurrentUser();
 	if (!user || !user.email_confirmed_at) {
-		rootLogger.error("No valid session or email not confirmed");
+		rootLogger.error("No valid session or email not confirmed", {
+			hasSession: Boolean(user),
+			emailConfirmed: Boolean(user?.email_confirmed_at),
+		});
 		return Astro.redirect("/signin?error=invalid_verification");
 	}
 }
-
 const title = "Email Verified";
 const description = "Your email has been successfully verified.";
 ---
-
 <Layout title={title} description={description}>
   <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-md w-full space-y-8">
       <div class="text-center">
-        <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-green-100">
-          <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-          </svg>
+        <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-success-bg">
+          <Icon name="check" class="h-6 w-6 text-success-text" aria-hidden="true" />
         </div>
         <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
           Email Verified!
@@ -89,16 +90,14 @@ const description = "Your email has been successfully verified.";
       </div>
 
       <div class="mt-8">
-        <div class="rounded-md bg-green-50 p-4">
+        <div class="rounded-md border p-4 status-tone-success">
           <div class="flex">
             <div class="shrink-0">
-              <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-              </svg>
+              <Icon name="check-circle-20" class="h-5 w-5 text-success-text" aria-hidden="true" />
             </div>
             <div class="ml-3">
-              <p class="text-sm font-medium text-green-800">
-                You're all set. <span class="font-normal text-green-700">You can now sign in to your account.</span>
+              <p class="text-sm font-medium">
+                You're all set. <span class="font-normal">You can now sign in to your account.</span>
               </p>
             </div>
           </div>
@@ -107,7 +106,7 @@ const description = "Your email has been successfully verified.";
         <div class="mt-6">
           <a
             href="/signin"
-            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-strong focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
           >
             Sign In
           </a>

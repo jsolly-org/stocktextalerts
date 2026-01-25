@@ -1,7 +1,10 @@
 ---
+
+import { Icon } from "astro-icon/components";
 import Navigation from "../components/Navigation.astro";
 import AccountManagement from "../components/profile/AccountManagement.astro";
 import DangerZone from "../components/profile/DangerZone.astro";
+import StatusMessage from "../components/StatusMessage.astro";
 import Layout from "../layouts/Layout.astro";
 import { getAuthErrorMessage } from "../lib/auth/messages";
 import { createUserService } from "../lib/db";
@@ -11,16 +14,15 @@ import { formatMessage } from "../lib/status-messages";
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
-
 const authUser = await users.getCurrentUser();
-
 if (!authUser) {
-	rootLogger.error("Profile access attempted without authenticated user");
+	rootLogger.error("Profile access attempted without authenticated user", {
+		page: "profile",
+		reason: "unauthenticated",
+	});
 	return Astro.redirect("/");
 }
-
 const user = await users.getById(authUser.id);
-
 if (!user) {
 	rootLogger.error("Auth user exists but database user record missing", {
 		userId: authUser.id,
@@ -28,14 +30,12 @@ if (!user) {
 	});
 	return Astro.redirect("/?error=user_not_found");
 }
-
 const search = Astro.url.searchParams;
 const error = search.get("error");
 const success = search.get("success");
 const errorMessage = getAuthErrorMessage(error);
 const successMessage = formatMessage(success);
 ---
-
 <Layout title="Profile" description="Edit your profile">
   <div class="min-h-screen bg-gray-50">
     <Navigation user={authUser} />
@@ -51,9 +51,7 @@ const successMessage = formatMessage(success);
 						href="/dashboard"
 						class="shrink-0 inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium text-gray-900 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
 					>
-						<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-						</svg>
+						<Icon name="arrow-left" class="w-4 h-4 mr-2" aria-hidden="true" />
 						Dashboard
 					</a>
 				</div>
@@ -61,15 +59,11 @@ const successMessage = formatMessage(success);
     
       <div class="space-y-6">
         {errorMessage && (
-          <div class="p-4 rounded-md bg-red-50 border border-red-200 text-red-700" role="alert">
-            {errorMessage}
-          </div>
+          <StatusMessage tone="error" message={errorMessage} />
         )}
 
         {successMessage && (
-          <div class="p-4 rounded-md bg-green-50 border border-green-200 text-green-700" role="alert">
-            {successMessage}
-          </div>
+          <StatusMessage tone="success" message={successMessage} />
         )}
 
         <AccountManagement

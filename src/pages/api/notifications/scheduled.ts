@@ -132,7 +132,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
 				Buffer.from(envCronSecret),
 			);
 		} catch (error) {
-			logger.error("Failed to compare cron secrets securely", undefined, error);
+			logger.error(
+				"Failed to compare cron secrets securely",
+				{ action: "compare_cron_secret" },
+				error,
+			);
 			return new Response("Internal server error", { status: 500 });
 		}
 	}
@@ -493,7 +497,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			headers: { "Content-Type": "application/json" },
 		});
 	} catch (error) {
-		logger.error("Cron job error", undefined, error);
+		logger.error(
+			"Cron job error",
+			{ action: "scheduled_notifications_job" },
+			error,
+		);
 		return new Response("Internal server error", { status: 500 });
 	}
 };

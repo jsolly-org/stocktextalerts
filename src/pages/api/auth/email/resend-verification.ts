@@ -20,16 +20,16 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 	} as const);
 
 	if (!parsed.ok) {
-		logger.warn("Resend verification request rejected due to invalid form", {
+		// Expected rejection (often bots); info to avoid inflating error metrics.
+		logger.info("Resend verification request rejected due to invalid form", {
 			errors: parsed.allErrors,
 		});
 		return redirect("/auth/unconfirmed?error=invalid_form");
 	}
 
-	// Trim email to ensure consistency with Supabase Auth. This cannot be enforced at the
-	// database level because Supabase Auth stores emails in its own auth.users table which
-	// doesn't have our whitespace constraint. Trimming prevents authentication mismatches
-	// when users request verification resends with emails that have leading/trailing whitespace.
+	// Trim email to satisfy our database constraints (no leading/trailing whitespace).
+	// Supabase Auth doesn't enforce this constraint (external service owns its storage/constraints),
+	// so we normalize at the application level before sending.
 	const email = parsed.data.email.trim();
 	const captchaToken = parsed.data.captcha_token;
 
@@ -47,7 +47,8 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 
 	if (error) {
 		if (error.code === "captcha_failed") {
-			logger.error("Resend verification blocked due to captcha", {
+			// Expected rejection (often bots); info to avoid inflating error metrics.
+			logger.info("Resend verification blocked due to captcha", {
 				code: error.code,
 				status: error.status,
 			});
@@ -56,7 +57,11 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 			);
 		}
 
-		logger.error("Resend verification email failed", undefined, error);
+		logger.error(
+			"Resend verification email failed",
+			{ email, errorCode: error.code, errorStatus: error.status },
+			error,
+		);
 		return redirect(
 			`/auth/unconfirmed?email=${encodeURIComponent(email)}&error=failed`,
 		);

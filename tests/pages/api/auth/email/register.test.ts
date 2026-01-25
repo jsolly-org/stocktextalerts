@@ -6,6 +6,12 @@ import { DEFAULT_TIMEZONE } from "../../../../../src/lib/time/constants";
 import { POST } from "../../../../../src/pages/api/auth/email/register";
 import { adminClient } from "../../../../setup";
 
+const toRedirect = (url: string, status = 302) =>
+	new Response(null, {
+		status,
+		headers: { Location: url },
+	});
+
 describe("POST /api/auth/email/register", () => {
 	it("can register a user", async () => {
 		const payload = {
@@ -22,6 +28,7 @@ describe("POST /api/auth/email/register", () => {
 
 		const response = await POST({
 			request,
+			redirect: toRedirect,
 		} as APIContext);
 
 		// Verify redirect to unconfirmed email page
@@ -70,6 +77,7 @@ describe("POST /api/auth/email/register", () => {
 
 		const response = await POST({
 			request,
+			redirect: toRedirect,
 		} as APIContext);
 
 		// Verify redirect to unconfirmed email page
@@ -108,6 +116,7 @@ describe("POST /api/auth/email/register", () => {
 
 		const response = await POST({
 			request,
+			redirect: toRedirect,
 		} as APIContext);
 
 		// Verify redirect to unconfirmed email page
@@ -146,6 +155,7 @@ describe("POST /api/auth/email/register", () => {
 
 		const response = await POST({
 			request,
+			redirect: toRedirect,
 		} as APIContext);
 
 		// Verify registration succeeded
