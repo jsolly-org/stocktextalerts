@@ -56,9 +56,14 @@ jobs:
           # as permission=none. Allowlist it so CodeRabbit review comments can trigger the workflow.
           IS_CODERABBIT_BOT=$([[ "$COMMENT_USER" == "coderabbitai[bot]" ]] && echo "true" || echo "false")
 
+          # Vercel posts deployment updates (permission=none) and Vercel Agent review comments.
+          # Allowlist vercel[bot] so we can process review comments; "Check if should skip" filters
+          # out status updates (preview links, [vc]:, etc.) and only runs the agent for real reviews.
+          IS_VERCEL_BOT=$([[ "$COMMENT_USER" == "vercel[bot]" ]] && echo "true" || echo "false")
+
           # Short-circuit if user is owner or trusted bot
-          if [[ "$IS_OWNER" == "true" ]] || [[ "$IS_CURSOR_BOT" == "true" ]] || [[ "$IS_COPILOT_BOT" == "true" ]] || [[ "$IS_CODERABBIT_BOT" == "true" ]]; then
-            echo "Authorization granted: is_owner=$IS_OWNER, is_cursor_bot=$IS_CURSOR_BOT, is_copilot_bot=$IS_COPILOT_BOT, is_coderabbit_bot=$IS_CODERABBIT_BOT"
+          if [[ "$IS_OWNER" == "true" ]] || [[ "$IS_CURSOR_BOT" == "true" ]] || [[ "$IS_COPILOT_BOT" == "true" ]] || [[ "$IS_CODERABBIT_BOT" == "true" ]] || [[ "$IS_VERCEL_BOT" == "true" ]]; then
+            echo "Authorization granted: is_owner=$IS_OWNER, is_cursor_bot=$IS_CURSOR_BOT, is_copilot_bot=$IS_COPILOT_BOT, is_coderabbit_bot=$IS_CODERABBIT_BOT, is_vercel_bot=$IS_VERCEL_BOT"
             echo "authorized=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
