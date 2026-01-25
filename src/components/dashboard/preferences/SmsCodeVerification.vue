@@ -49,16 +49,16 @@
 				type="submit"
 				formaction="/api/auth/sms/verify-code"
 				formmethod="post"
-			:disabled="isVerifyingCode"
-			:aria-busy="isVerifyingCode"
-			class="inline-flex items-center gap-2 px-4 py-2 bg-success-strong text-white rounded-lg hover:bg-success-strong-hover transition-colors text-sm mt-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+				:disabled="isVerifyingCode"
+				:aria-busy="isVerifyingCode"
+				class="inline-flex items-center gap-2 px-4 py-2 bg-success-strong text-white rounded-lg hover:bg-success-strong-hover transition-colors text-sm mt-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
 			>
-			<ArrowPathIcon
-				v-if="isVerifyingCode"
-				class="animate-spin size-4 shrink-0"
-				aria-hidden="true"
-			/>
-			<span>{{ isVerifyingCode ? "Verifying..." : "Verify Code" }}</span>
+				<ArrowPathIcon
+					v-if="isVerifyingCode"
+					class="animate-spin size-4 shrink-0"
+					aria-hidden="true"
+				/>
+				<span>{{ isVerifyingCode ? "Verifying..." : "Verify Code" }}</span>
 			</button>
 		</div>
 	</div>
@@ -77,8 +77,8 @@ interface Props {
 	successMessage?: string | null;
 	smsVerificationCodeId: string;
 	formSubmitted: boolean;
-	isSendingVerification: boolean;
-	isVerifyingCode: boolean;
+	isSendingVerification?: boolean;
+	isVerifyingCode?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {

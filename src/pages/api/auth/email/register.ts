@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { APIRoute } from "astro";
+import type { APIContext } from "astro";
 import { getSiteUrl } from "../../../../lib/db/env";
 import {
 	createSupabaseAdminClient,
@@ -25,7 +25,11 @@ async function cleanupOrphanedAuthUser(
 	}
 }
 
-export const POST: APIRoute = async ({ request, redirect, locals }) => {
+export async function POST({
+	request,
+	redirect,
+	locals,
+}: APIContext): Promise<Response> {
 	const url = new URL(request.url);
 	const logger = createLogger({
 		requestId: locals?.requestId,
@@ -56,6 +60,9 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 		captcha_token: captchaToken,
 	} = parsed.data;
 
+	// Trim email to satisfy our database constraints (no leading/trailing whitespace).
+	// Supabase Auth doesn't enforce this constraint (external service owns its storage/constraints),
+	// so we normalize at the application level before sending.
 	const trimmedEmail = rawEmail.trim();
 
 	const userTimezone = await resolveTimezone({
@@ -104,6 +111,9 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 		// Use admin client to bypass RLS for user profile creation
 		const adminSupabase = createSupabaseAdminClient();
 
+		// Trim email to satisfy our database constraints (no leading/trailing whitespace).
+		// Supabase Auth doesn't enforce this constraint (external service owns its storage/constraints),
+		// so we normalize at the application level before sending.
 		const userProfileData = {
 			id: data.user.id,
 			email: trimmedEmail,
@@ -130,4 +140,4 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 	return redirect(
 		`/auth/unconfirmed?email=${encodeURIComponent(trimmedEmail)}`,
 	);
-};
+}
