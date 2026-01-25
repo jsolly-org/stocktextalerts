@@ -10,21 +10,55 @@ permissions:
 
 jobs:
   docs:
-    if: ${{ github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' }}
+    if: ${{ github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Install Cursor CLI
-        # Note: Cursor CLI cannot be pinned to a specific version. The installer always installs the latest version.
         run: |
-          if ! curl "https://cursor.com/install" -fsS | bash; then
-            echo "Error: Failed to install Cursor CLI"
+          # Download installer to temporary file instead of piping directly to bash
+          INSTALLER_TMP=$(mktemp)
+          trap "rm -f $INSTALLER_TMP" EXIT
+          
+          # Download with error handling
+          if ! curl -fsSL https://cursor.com/install -o "$INSTALLER_TMP"; then
+            echo "Failed to download Cursor CLI installer"
             exit 1
           fi
+          
+          # Verify file was downloaded and is not empty
+          if [[ ! -s "$INSTALLER_TMP" ]]; then
+            echo "Downloaded installer file is empty"
+            exit 1
+          fi
+          
+          # Integrity checks: verify file size is within reasonable bounds (1KB - 10MB)
+          FILE_SIZE=$(stat -f%z "$INSTALLER_TMP" 2>/dev/null || stat -c%s "$INSTALLER_TMP" 2>/dev/null || echo "0")
+          MIN_SIZE=1024
+          MAX_SIZE=10485760
+          if [[ "$FILE_SIZE" -lt "$MIN_SIZE" ]] || [[ "$FILE_SIZE" -gt "$MAX_SIZE" ]]; then
+            echo "Downloaded installer file size ($FILE_SIZE bytes) is outside expected range ($MIN_SIZE-$MAX_SIZE bytes)"
+            exit 1
+          fi
+          
+          # Verify file appears to be a shell script (starts with shebang)
+          if ! head -n 1 "$INSTALLER_TMP" | grep -qE '^#!/bin/(bash|sh)'; then
+            echo "Downloaded installer does not appear to be a valid shell script"
+            exit 1
+          fi
+          
+          # Note: Cursor CLI installer doesn't support checksum verification yet.
+          # When available, verify checksum here before execution.
+          # Example: echo "$EXPECTED_CHECKSUM  $INSTALLER_TMP" | sha256sum -c
+          
+          # Execute verified installer
+          bash "$INSTALLER_TMP"
+          
+          # Add to PATH only after successful installation
           echo "$HOME/.cursor/bin" >> $GITHUB_PATH
 
       - name: Configure git
@@ -50,6 +84,8 @@ jobs:
           - PR Number: ${{ github.event.pull_request.number }}
           - Base Ref: ${{ github.event.pull_request.base.ref }}
           - Head Ref: ${PR_HEAD_REF}
+          - Base SHA: ${{ github.event.pull_request.base.sha }}
+          - Head SHA: ${{ github.event.pull_request.head.sha }}
           - Merge Commit SHA: ${{ github.event.pull_request.merge_commit_sha }}
           - Docs Branch Prefix: ${{ env.BRANCH_PREFIX }}
 
@@ -57,13 +93,13 @@ jobs:
           - Implement an end-to-end README.md update flow driven by the merged PR changes.
 
           # Requirements:
-          1) Determine what changed in the merged PR by comparing the merge commit to its parent.
+          1) Determine what changed in the merged PR using \`gh pr diff ${{ github.event.pull_request.number }}\` (or \`git diff BASE_SHA HEAD_SHA\` with the PR base and head SHAs from Context). This inspects the full set of PR commits, including rebase merges; do NOT use merge-commit-vs-parent diff.
           2) Update only README.md based on those changes. Do NOT update any other documentation files.
           3) Maintain the persistent docs branch for this PR using the Docs Branch Prefix from Context. Create it if missing, update it otherwise, and push changes to origin.
           4) You do NOT have permission to create PRs. Instead, post or update a single natural-language PR comment (1–2 sentences) that briefly explains the README updates and includes an inline compare link to quick-create a PR. The compare link format should be: https://github.com/${{ github.repository }}/compare/main...\${ENCODED_BRANCH_NAME}?quick_pull=1&title=Update%20README where ENCODED_BRANCH_NAME is the URL-encoded version of the branch name (use proper URL encoding for special characters).
 
           # Inputs and conventions:
-          - Use \`git diff\` to compare the merge commit with its parent to detect changes.
+          - Use \`gh pr diff <PR_NUMBER>\` or \`git diff <BASE_SHA> <HEAD_SHA>\` (with PR base/head from Context) to obtain the PR-level diff. Use that diff to detect changes; do not use merge-commit-vs-parent comparison.
           - Only update README.md. Do not modify any other files.
           - Do not attempt to create or edit PRs directly. Use the compare link format above.
           - Keep changes minimal and consistent with repo style. If no README updates are necessary, make no changes and post no comment.

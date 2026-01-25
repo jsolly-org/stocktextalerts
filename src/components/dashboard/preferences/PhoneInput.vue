@@ -213,7 +213,7 @@ function validate() {
 	if (phoneNumber.value) {
 		showError.value = !isValidPhoneNumber(phoneNumber.value, country.value);
 	} else {
-		showError.value = touched.value || props.formSubmitted === true;
+		showError.value = isRequired.value;
 	}
 }
 

@@ -111,9 +111,6 @@ export async function POST({
 		// Use admin client to bypass RLS for user profile creation
 		const adminSupabase = createSupabaseAdminClient();
 
-		// Trim email to satisfy our database constraints (no leading/trailing whitespace).
-		// Supabase Auth doesn't enforce this constraint (external service owns its storage/constraints),
-		// so we normalize at the application level before sending.
 		const userProfileData = {
 			id: data.user.id,
 			email: trimmedEmail,

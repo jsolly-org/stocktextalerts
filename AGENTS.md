@@ -52,6 +52,9 @@ This file captures the non-negotiables for this repo. It is a new app, so we opt
   - Store all icon SVGs in `src/icons/`. Avoid inline `<svg>` markup in templates.
 - **CI/CD**: GitHub Actions for continuous integration and deployment
 
+## Available CLI Tools
+The following CLI tools are available: Biome CLI, Cursor CLI, CodeRabbit CLI, Vercel CLI, GitHub CLI, Supabase CLI.
+
 ## Design System
 - **Semantic tokens live in `src/global.css`** via Tailwind v4 `@theme` variables (primary, success, warning, error, info).
 - **Status UI is standardized**: use `StatusMessage.astro` / `StatusMessage.vue` or `status-tone-*` classes instead of custom color blocks.

@@ -1,7 +1,12 @@
 import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
 import { buildDashboardRedirect } from "../../../lib/dashboard/sections";
-import { createUserService, omitUndefined, type User } from "../../../lib/db";
+import {
+	createUserService,
+	omitUndefined,
+	type User,
+	type UserUpdateInput,
+} from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
@@ -68,29 +73,27 @@ export const POST: APIRoute = async ({
 		);
 	}
 
-	const safePreferenceUpdates: Parameters<typeof userService.update>[1] =
-		omitUndefined({
-			timezone: parsed.data.timezone,
-			daily_digest_notification_time:
-				parsed.data.daily_digest_notification_time,
-			...(formData.has("email_notifications_enabled")
-				? {
-						email_notifications_enabled:
-							parsed.data.email_notifications_enabled ?? false,
-					}
-				: {}),
-			...(formData.has("sms_notifications_enabled")
-				? {
-						sms_notifications_enabled:
-							parsed.data.sms_notifications_enabled ?? false,
-					}
-				: {}),
-			...(formData.has("daily_digest_enabled")
-				? {
-						daily_digest_enabled: parsed.data.daily_digest_enabled ?? false,
-					}
-				: {}),
-		});
+	const safePreferenceUpdates: UserUpdateInput = omitUndefined({
+		timezone: parsed.data.timezone,
+		daily_digest_notification_time: parsed.data.daily_digest_notification_time,
+		...(formData.has("email_notifications_enabled")
+			? {
+					email_notifications_enabled:
+						parsed.data.email_notifications_enabled ?? false,
+				}
+			: {}),
+		...(formData.has("sms_notifications_enabled")
+			? {
+					sms_notifications_enabled:
+						parsed.data.sms_notifications_enabled ?? false,
+				}
+			: {}),
+		...(formData.has("daily_digest_enabled")
+			? {
+					daily_digest_enabled: parsed.data.daily_digest_enabled ?? false,
+				}
+			: {}),
+	});
 
 	let dbUser: User | null;
 	try {

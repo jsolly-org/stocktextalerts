@@ -26,7 +26,7 @@ export type UserStock = Pick<DbUserStockRow, "symbol" | "created_at">;
 Users
 ============= */
 
-type UserUpdateInput = DbUserUpdate;
+export type UserUpdateInput = DbUserUpdate;
 
 export function createUserService(
 	supabase: AppSupabaseClient,

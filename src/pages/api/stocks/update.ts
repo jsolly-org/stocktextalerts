@@ -52,7 +52,29 @@ export const POST: APIRoute = async ({
 		return redirect("/signin?error=unauthorized");
 	}
 
-	const formData = await request.formData();
+	let formData: FormData;
+	try {
+		formData = await request.formData();
+	} catch (error) {
+		logger.info(
+			"Tracked stocks update rejected due to malformed request body",
+			{
+				userId: user.id,
+				error: extractErrorMessage(error),
+				contentType: request.headers.get("content-type"),
+			},
+			createErrorForLogging(error),
+		);
+		if (wantsJson) {
+			return Response.json(
+				{ ok: false, message: "invalid_form" },
+				{ status: 400 },
+			);
+		}
+		return redirect(
+			buildDashboardRedirect({ error: "invalid_form", section: "stocks" }),
+		);
+	}
 	const parsed = parseWithSchema(formData, STOCKS_SCHEMA);
 
 	if (!parsed.ok) {
