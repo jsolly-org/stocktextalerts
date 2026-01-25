@@ -26,8 +26,11 @@ jobs:
 
       - name: Install Cursor CLI
         run: |
-          # Per Cursor docs: https://cursor.com/install
+          # NOTE: This uses Cursor's official installer (https://cursor.com/install) via `curl | bash`.
+          # Cursor does not publish signed artifacts/checksums for this install flow, so this is an
+          # explicit supply-chain risk we accept for this workflow (ephemeral GitHub Actions runner).
           curl https://cursor.com/install -fsS | bash
+          # Cursor installs to `$HOME/.cursor/bin`; expose it via GITHUB_PATH for later steps.
           echo "$HOME/.cursor/bin" >> $GITHUB_PATH
 
       - name: Configure git identity
@@ -46,6 +49,20 @@ jobs:
           
           # Get workflow run details
           RUN_JSON=$(gh api "repos/$REPO/actions/runs/$WORKFLOW_RUN_ID")
+          
+          # Bail out early for workflow runs from forks/external repos.
+          # Fork runs won't have permissions to push fixes back, and external repos are untrusted inputs.
+          HEAD_REPO_FORK=$(echo "$RUN_JSON" | jq -r '.head_repository.fork // false')
+          HEAD_REPO=$(echo "$RUN_JSON" | jq -r '.head_repository.full_name // empty')
+          if [[ "$HEAD_REPO_FORK" == "true" ]]; then
+            echo "Workflow run is from a fork. Skipping automatic fixes."
+            exit 0
+          fi
+          if [[ -n "$HEAD_REPO" && "$HEAD_REPO" != "$REPO" ]]; then
+            echo "Workflow run head repository ($HEAD_REPO) differs from expected repo ($REPO). Skipping automatic fixes."
+            exit 0
+          fi
+          
           HEAD_BRANCH=$(echo "$RUN_JSON" | jq -r '.head_branch // empty')
           HEAD_SHA=$(echo "$RUN_JSON" | jq -r '.head_sha')
           
@@ -71,22 +88,7 @@ jobs:
           
           # Try to find associated PR (may not exist for direct pushes)
           PR_JSON=$(echo "$RUN_JSON" | jq -r '.pull_requests[0] // empty')
-          
-          # Check if PR exists and is from a fork
-          if [[ "$PR_JSON" != "null" && -n "$PR_JSON" ]]; then
-            PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number')
-            # Fetch full PR details to get head.repo.full_name
-            FULL_PR_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER" || echo "")
-            if [[ -n "$FULL_PR_JSON" ]]; then
-              HEAD_REPO=$(echo "$FULL_PR_JSON" | jq -r '.head.repo.full_name // empty')
-              if [[ -n "$HEAD_REPO" && "$HEAD_REPO" != "$REPO" ]]; then
-                echo "PR is from a fork. Skipping automatic fixes."
-                exit 0
-              fi
-            fi
-          else
-            PR_NUMBER=""
-          fi
+          PR_NUMBER=$(echo "$RUN_JSON" | jq -r '.pull_requests[0].number // empty')
           
           # Checkout the branch
           git fetch origin "$HEAD_BRANCH"

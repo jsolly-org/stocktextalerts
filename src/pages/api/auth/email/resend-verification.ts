@@ -27,7 +27,10 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 		return redirect("/auth/unconfirmed?error=invalid_form");
 	}
 
-	const email = parsed.data.email;
+	// Trim email to satisfy our database constraints (no leading/trailing whitespace).
+	// Supabase Auth doesn't enforce this constraint (external service owns its storage/constraints),
+	// so we normalize at the application level before sending.
+	const email = parsed.data.email.trim();
 	const captchaToken = parsed.data.captcha_token;
 
 	const origin = getSiteUrl();
