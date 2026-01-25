@@ -187,18 +187,20 @@ async function handleUpdateTimezone() {
 			signal: AbortSignal.timeout(10_000),
 		});
 
-		if (response.redirected) {
-			window.location.assign(response.url);
+		if (!response.ok) {
+			errorMessage.value = "Failed to update timezone. Please try again.";
 			return;
 		}
 
-		if (!response.ok) {
+		const payload = (await response.json()) as { ok: boolean };
+		if (!payload.ok) {
 			errorMessage.value = "Failed to update timezone. Please try again.";
 			return;
 		}
 
 		dismissedForSession.value = true;
 		emit("timezone-updated", detectedTimezone.value);
+		emit("preferences-updated");
 	} catch (error) {
 		rootLogger.error(
 			"Failed to update timezone from banner",

@@ -75,7 +75,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, toRefs, watch } from "vue";
+import { computed, onMounted, ref, toRefs, watch } from "vue";
 import {
 	resolveDashboardSectionFromHash,
 } from "../../lib/dashboard/sections";
@@ -132,6 +132,22 @@ const emailEnabled = ref(user.value.email_notifications_enabled);
 const smsEnabled = ref(user.value.sms_notifications_enabled);
 const smsOptedOut = computed(() => user.value.sms_opted_out);
 const phoneVerified = computed(() => user.value.phone_verified);
+
+onMounted(() => {
+	const current = new URL(window.location.href);
+	const hasFlash =
+		current.searchParams.has("success") ||
+		current.searchParams.has("error") ||
+		current.searchParams.has("warning");
+	if (!hasFlash) {
+		return;
+	}
+
+	current.searchParams.delete("success");
+	current.searchParams.delete("error");
+	current.searchParams.delete("warning");
+	window.history.replaceState({}, "", current.toString());
+});
 
 watch(
 	() => user.value.email_notifications_enabled,

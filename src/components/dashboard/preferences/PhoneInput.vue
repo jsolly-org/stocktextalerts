@@ -1,5 +1,5 @@
 <template>
-	<div>
+	<div data-autosave-ignore>
 		<label for="phone" class="block text-sm font-medium text-gray-700 mb-1">
 			Phone Number
 		</label>

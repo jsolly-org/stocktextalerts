@@ -56,6 +56,13 @@ function serializeFormData(formData: FormData): string {
 	return entries.join("&");
 }
 
+function isAutosaveIgnoredEvent(event: Event): boolean {
+	if (!(event.target instanceof Element)) {
+		return false;
+	}
+	return Boolean(event.target.closest("[data-autosave-ignore]"));
+}
+
 /* ============= Composable ============= */
 export function useAutoSaveForm<T = unknown>(options: AutoSaveOptions) {
 	const statusMessage = ref<string | null>(null);
@@ -166,11 +173,17 @@ export function useAutoSaveForm<T = unknown>(options: AutoSaveOptions) {
 		dirtySignal.value += 1;
 	}
 
-	function handleFormInput() {
+	function handleFormInput(event: Event) {
+		if (isAutosaveIgnoredEvent(event)) {
+			return;
+		}
 		dirtySignal.value += 1;
 	}
 
-	function handleFormChange() {
+	function handleFormChange(event: Event) {
+		if (isAutosaveIgnoredEvent(event)) {
+			return;
+		}
 		dirtySignal.value += 1;
 	}
 
