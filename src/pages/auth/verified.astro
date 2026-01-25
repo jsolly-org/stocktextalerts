@@ -16,7 +16,7 @@ const userService = createUserService(supabase, Astro.cookies);
 const tokenHash = Astro.url.searchParams.get("token_hash");
 const typeParam = Astro.url.searchParams.get("type");
 const type: SupabaseEmailOtpType | null =
-	typeParam === "signup" ||
+	typeParam === "email" ||
 	typeParam === "invite" ||
 	typeParam === "magiclink" ||
 	typeParam === "recovery" ||

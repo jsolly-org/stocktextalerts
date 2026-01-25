@@ -3,6 +3,8 @@ name: Cursor Agent on PR Comment
 on:
   issue_comment:
     types: [created]
+  pull_request_review_comment:
+    types: [created]
 
 permissions:
   contents: write
@@ -14,7 +16,7 @@ jobs:
   run-agent:
     runs-on: ubuntu-latest
     concurrency:
-      group: cursor-agent-pr-${{ github.event.issue.number }}
+      group: cursor-agent-pr-${{ github.event.issue.number || github.event.pull_request.number }}
       cancel-in-progress: true
     env:
       INTERNAL_MARKER: "<!-- cursor-agent-workflow:internal -->"
@@ -69,13 +71,17 @@ jobs:
           # Allowlist it explicitly so slash-commands from Cursor can run.
           IS_CURSOR_BOT=$([[ "$COMMENT_USER" == "cursor[bot]" ]] && echo "true" || echo "false")
           
+          # GitHub Copilot posts review comments as github-copilot[bot], which also
+          # shows up as permission=none. Allowlist it so Copilot review comments can trigger the workflow.
+          IS_COPILOT_BOT=$([[ "$COMMENT_USER" == "github-copilot[bot]" ]] && echo "true" || echo "false")
+          
           # Allow admin, write, or owner
           # Note: 'maintain' permission is also write-level access
-          if [[ "$PERMISSION" == "admin" ]] || [[ "$PERMISSION" == "write" ]] || [[ "$PERMISSION" == "maintain" ]] || [[ "$IS_OWNER" == "true" ]] || [[ "$IS_CURSOR_BOT" == "true" ]]; then
-            echo "Authorization granted: permission=$PERMISSION, is_owner=$IS_OWNER, is_cursor_bot=$IS_CURSOR_BOT"
+          if [[ "$PERMISSION" == "admin" ]] || [[ "$PERMISSION" == "write" ]] || [[ "$PERMISSION" == "maintain" ]] || [[ "$IS_OWNER" == "true" ]] || [[ "$IS_CURSOR_BOT" == "true" ]] || [[ "$IS_COPILOT_BOT" == "true" ]]; then
+            echo "Authorization granted: permission=$PERMISSION, is_owner=$IS_OWNER, is_cursor_bot=$IS_CURSOR_BOT, is_copilot_bot=$IS_COPILOT_BOT"
             echo "authorized=true" >> "$GITHUB_OUTPUT"
           else
-            echo "Skipping: permission=$PERMISSION, is_owner=$IS_OWNER, is_cursor_bot=$IS_CURSOR_BOT"
+            echo "Skipping: permission=$PERMISSION, is_owner=$IS_OWNER, is_cursor_bot=$IS_CURSOR_BOT, is_copilot_bot=$IS_COPILOT_BOT"
             echo "User $COMMENT_USER does not have admin, write, or maintain permissions"
             echo "authorized=false" >> "$GITHUB_OUTPUT"
             exit 0

@@ -1,7 +1,7 @@
 import type { AppSupabaseClient } from "../db/supabase";
 
 export type SupabaseEmailOtpType =
-	| "signup"
+	| "email"
 	| "invite"
 	| "magiclink"
 	| "recovery"
