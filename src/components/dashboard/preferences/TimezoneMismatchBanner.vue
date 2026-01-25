@@ -182,7 +182,10 @@ async function handleUpdateTimezone() {
 
 		if (!response.ok) {
 			errorMessage.value = "Failed to update timezone. Please try again.";
+			return;
 		}
+
+		dismissedForSession.value = true;
 	} catch (error) {
 		rootLogger.error("Failed to update timezone from banner", undefined, error);
 		errorMessage.value = "Failed to update timezone. Please try again.";
