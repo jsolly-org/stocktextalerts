@@ -34,8 +34,9 @@ jobs:
           
           # Validate commenter username is not empty
           if [[ -z "$COMMENT_USER" ]]; then
-            echo "Error: Commenter username is empty"
-            exit 1
+            echo "Skipping: commenter username is empty"
+            echo "authorized=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           
           # Check repository permission level for the commenter
@@ -52,10 +53,10 @@ jobs:
               echo "authorized=true" >> "$GITHUB_OUTPUT"
               exit 0
             else
-              echo "Authorization denied: failed to check permissions and user is not repository owner"
+              echo "Skipping: failed to check permissions and user is not repository owner"
               echo "API error: $PERMISSION_RESPONSE"
               echo "authorized=false" >> "$GITHUB_OUTPUT"
-              exit 1
+              exit 0
             fi
           fi
           
@@ -71,10 +72,10 @@ jobs:
             echo "Authorization granted: permission=$PERMISSION, is_owner=$IS_OWNER"
             echo "authorized=true" >> "$GITHUB_OUTPUT"
           else
-            echo "Authorization denied: permission=$PERMISSION, is_owner=$IS_OWNER"
+            echo "Skipping: permission=$PERMISSION, is_owner=$IS_OWNER"
             echo "User $COMMENT_USER does not have admin, write, or maintain permissions"
             echo "authorized=false" >> "$GITHUB_OUTPUT"
-            exit 1
+            exit 0
           fi
 
       - name: Check if should skip
