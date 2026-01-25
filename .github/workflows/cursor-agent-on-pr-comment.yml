@@ -298,7 +298,8 @@ jobs:
         id: agent
         continue-on-error: true
         env:
-          CURSOR_SECRET_KEY: ${{ secrets.CURSOR_SECRET_KEY }}
+          # Cursor CLI reads the API key from CURSOR_API_KEY (per docs).
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
           COMMENT_ID: ${{ steps.pr.outputs.comment_id }}
@@ -346,7 +347,8 @@ jobs:
           EOF
           )"
 
-          agent --prompt "$PROMPT" --model gpt-5.2 --output-format=text
+          # Prompt is a positional argument; --print enables non-interactive runs.
+          agent --print --output-format=text --model gpt-5 "$PROMPT"
 
       - name: Report agent failure
         if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true' && steps.agent.outcome == 'failure'
