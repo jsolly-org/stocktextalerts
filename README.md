@@ -1,4 +1,4 @@
-# StockTextAlerts
+# StockTextAlerts.com
 
 A stock notification app that sends scheduled SMS and email updates about tracked stocks. Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database.
 
