@@ -32,7 +32,7 @@ jobs:
       - name: Update docs
         env:
           MODEL: gpt-5.2
-          CURSOR_SECRET_KEY: ${{ secrets.CURSOR_SECRET_KEY }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH_PREFIX: docs
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
