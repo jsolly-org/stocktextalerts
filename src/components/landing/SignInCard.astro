@@ -87,72 +87,45 @@ const {
 	import {
 		createCaptchaStatusHelpers,
 		initializeHCaptchaForm,
+		setupCaptchaSubmitGuard,
+		setupCaptchaTokenInputListener,
 		setupHCaptchaCallback,
 		setupHCaptchaErrorCallback,
 		setupHCaptchaExpiredCallback,
 	} from "../../lib/auth/hcaptcha";
 	import { setupEmailInputHandlers } from "../../lib/forms/dom/email-input";
 
-	const captchaStatus = createCaptchaStatusHelpers("signin-captcha-status");
-
-	document.addEventListener("DOMContentLoaded", () => {
-		const form = document.getElementById("signin-form");
-		if (!(form instanceof HTMLFormElement)) {
-			return;
-		}
+	const form = document.getElementById("signin-form");
+	if (form instanceof HTMLFormElement) {
+		const captchaStatus = createCaptchaStatusHelpers("signin-captcha-status");
 
 		const emailInput = document.getElementById("email");
 		if (emailInput instanceof HTMLInputElement) {
 			setupEmailInputHandlers(emailInput);
 		}
 
-		const captchaTokenInput = document.getElementById("signin_captcha_token");
-		if (!(captchaTokenInput instanceof HTMLInputElement)) {
-			return;
-		}
-
-		form.addEventListener("submit", (event) => {
-			const captchaResponseInput = form.querySelector(
-				"input[name='h-captcha-response']",
-			);
-			const captchaResponse =
-				captchaResponseInput instanceof HTMLInputElement
-					? captchaResponseInput.value
-					: "";
-
-			const existingToken = captchaTokenInput.value.trim();
-			const trimmedCaptchaResponse = captchaResponse.trim();
-
-			if (existingToken.length === 0 && trimmedCaptchaResponse.length === 0) {
-				event.preventDefault();
-				captchaStatus.show("Please complete the CAPTCHA verification.");
-				return;
-			}
-
-			if (existingToken.length === 0 && trimmedCaptchaResponse.length > 0) {
-				captchaTokenInput.value = trimmedCaptchaResponse;
-			}
+		setupCaptchaSubmitGuard("signin-form", "signin_captcha_token", (message) => {
+			captchaStatus.show(message);
 		});
-
-		captchaTokenInput.addEventListener("input", () => {
-			if (captchaTokenInput.value.trim().length > 0) {
+		setupCaptchaTokenInputListener("signin_captcha_token", (token) => {
+			if (token.trim().length > 0) {
 				captchaStatus.hide();
 			}
 		});
-	});
 
-	initializeHCaptchaForm("signin-form", "signin_captcha_token");
-	setupHCaptchaCallback(
-		"onSignInHCaptchaSuccess",
-		"signin_captcha_token",
-		"signin-form",
-		() => {
-			captchaStatus.hide();
-		},
-	);
-	setupHCaptchaErrorCallback("onSignInHCaptchaError");
-	setupHCaptchaExpiredCallback(
-		"onSignInHCaptchaExpired",
-		"signin_captcha_token",
-	);
+		initializeHCaptchaForm("signin-form", "signin_captcha_token");
+		setupHCaptchaCallback(
+			"onSignInHCaptchaSuccess",
+			"signin_captcha_token",
+			"signin-form",
+			() => {
+				captchaStatus.hide();
+			},
+		);
+		setupHCaptchaErrorCallback("onSignInHCaptchaError");
+		setupHCaptchaExpiredCallback(
+			"onSignInHCaptchaExpired",
+			"signin_captcha_token",
+		);
+	}
 </script>

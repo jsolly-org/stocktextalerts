@@ -105,6 +105,7 @@ if (success === "true") {
 	import {
 		createCaptchaStatusHelpers,
 		initializeHCaptchaForm,
+		setupCaptchaTokenInputListener,
 		setupHCaptchaCallback,
 		setupHCaptchaErrorCallback,
 		setupHCaptchaExpiredCallback,
@@ -114,19 +115,14 @@ if (success === "true") {
 
 	const captchaStatus = createCaptchaStatusHelpers("forgot-captcha-status");
 
-	document.addEventListener("DOMContentLoaded", () => {
-		const emailInput = document.getElementById("email");
-		if (emailInput instanceof HTMLInputElement) {
-			setupEmailInputHandlers(emailInput);
-		}
+	const emailInput = document.getElementById("email");
+	if (emailInput instanceof HTMLInputElement) {
+		setupEmailInputHandlers(emailInput);
+	}
 
-		const captchaTokenInput = document.getElementById("forgot_captcha_token");
-		if (captchaTokenInput instanceof HTMLInputElement) {
-			captchaTokenInput.addEventListener("input", () => {
-				if (captchaTokenInput.value.trim().length > 0) {
-					captchaStatus.hide();
-				}
-			});
+	setupCaptchaTokenInputListener("forgot_captcha_token", (token) => {
+		if (token.trim().length > 0) {
+			captchaStatus.hide();
 		}
 	});
 

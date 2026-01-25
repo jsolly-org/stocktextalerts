@@ -28,12 +28,25 @@ function resolveElement<T extends HTMLElement>(
 	return element;
 }
 
-function resolveSubmitButton(form: HTMLFormElement) {
-	const submitButton = form.querySelector("button[type='submit']");
-	if (!(submitButton instanceof HTMLButtonElement)) {
-		return null;
+function resolveSubmitButton(
+	form: HTMLFormElement,
+): HTMLButtonElement | HTMLInputElement | null {
+	const buttonSubmit = form.querySelector("button[type='submit']");
+	if (buttonSubmit instanceof HTMLButtonElement) {
+		return buttonSubmit;
 	}
-	return submitButton;
+
+	const defaultButton = form.querySelector("button:not([type])");
+	if (defaultButton instanceof HTMLButtonElement) {
+		return defaultButton;
+	}
+
+	const inputSubmit = form.querySelector("input[type='submit']");
+	if (inputSubmit instanceof HTMLInputElement) {
+		return inputSubmit;
+	}
+
+	return null;
 }
 
 function onDomReady(callback: () => void) {
@@ -151,6 +164,67 @@ export function initializeHCaptchaForm(formId: string, tokenInputId: string) {
 	};
 
 	onDomReady(setup);
+}
+
+export function setupCaptchaTokenInputListener(
+	tokenInputId: string,
+	handler: (token: string) => void,
+) {
+	const input = resolveElement(tokenInputId, isInputElement);
+	if (!input) {
+		return () => {};
+	}
+
+	const handleInput = () => {
+		handler(input.value);
+	};
+
+	input.addEventListener("input", handleInput);
+
+	return () => {
+		input.removeEventListener("input", handleInput);
+	};
+}
+
+export function setupCaptchaSubmitGuard(
+	formId: string,
+	tokenInputId: string,
+	showStatus: (message: string) => void,
+) {
+	const form = resolveElement(formId, isFormElement);
+	const tokenInput = resolveElement(tokenInputId, isInputElement);
+	if (!form || !tokenInput) {
+		return () => {};
+	}
+
+	const handleSubmit = (event: SubmitEvent) => {
+		const captchaResponseInput = form.querySelector(
+			"input[name='h-captcha-response']",
+		);
+		const captchaResponse =
+			captchaResponseInput instanceof HTMLInputElement
+				? captchaResponseInput.value
+				: "";
+
+		const existingToken = tokenInput.value.trim();
+		const trimmedCaptchaResponse = captchaResponse.trim();
+
+		if (existingToken.length === 0 && trimmedCaptchaResponse.length === 0) {
+			event.preventDefault();
+			showStatus("Please complete the CAPTCHA verification.");
+			return;
+		}
+
+		if (existingToken.length === 0 && trimmedCaptchaResponse.length > 0) {
+			tokenInput.value = trimmedCaptchaResponse;
+		}
+	};
+
+	form.addEventListener("submit", handleSubmit);
+
+	return () => {
+		form.removeEventListener("submit", handleSubmit);
+	};
 }
 
 export function createCaptchaStatusHelpers(statusElementId: string) {

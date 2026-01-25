@@ -122,6 +122,20 @@ const smsEnabled = ref(user.value.sms_notifications_enabled);
 const smsOptedOut = computed(() => user.value.sms_opted_out);
 const phoneVerified = computed(() => user.value.phone_verified);
 
+watch(
+	() => user.value.email_notifications_enabled,
+	(newValue) => {
+		emailEnabled.value = newValue;
+	},
+);
+
+watch(
+	() => user.value.sms_notifications_enabled,
+	(newValue) => {
+		smsEnabled.value = newValue;
+	},
+);
+
 const formElement = ref<HTMLFormElement | null>(null);
 const isVerifyingCode = ref(false);
 const {
@@ -146,11 +160,12 @@ async function handleFormSubmitWrapper(event: SubmitEvent) {
 	if (isVerifyCodeSubmission) {
 		isVerifyingCode.value = true;
 	}
-
-	await handleFormSubmit(event);
-
-	if (isVerifyCodeSubmission) {
-		isVerifyingCode.value = false;
+	try {
+		await handleFormSubmit(event);
+	} finally {
+		if (isVerifyCodeSubmission) {
+			isVerifyingCode.value = false;
+		}
 	}
 }
 </script>

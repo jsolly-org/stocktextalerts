@@ -1,19 +1,22 @@
 ---
-import { readFile } from "node:fs/promises";
+import stocksData from "../../scripts/us-stocks.json";
 import DashboardPanels from "../components/dashboard/DashboardPanels.vue";
 import type { StockOption } from "../components/dashboard/stocks/StockInput.vue";
 import Navigation from "../components/Navigation.astro";
 import Layout from "../layouts/Layout.astro";
-import {
-	createUserService,
-	getUserStocks,
-	type Stock,
-	type User,
-} from "../lib/db";
+import { createUserService, getUserStocks, type Stock } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 import { rootLogger } from "../lib/logging";
 import { formatMessage } from "../lib/status-messages";
 import { getTimezoneOptions } from "../lib/time/cache";
+
+/* ============= Precomputed Stock Options ============= */
+const stockOptions: StockOption[] = (stocksData as { data: Stock[] }).data.map(
+	(stock) => ({
+		value: stock.symbol,
+		label: `${stock.symbol} - ${stock.name}`,
+	}),
+);
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
@@ -25,7 +28,10 @@ if (!authUser) {
 	return Astro.redirect("/");
 }
 
-const dbUser = await users.getById(authUser.id);
+const [dbUser, userStocks] = await Promise.all([
+	users.getById(authUser.id),
+	getUserStocks(supabase, authUser.id),
+]);
 
 if (!dbUser) {
 	rootLogger.error("Auth user exists but database user record missing", {
@@ -36,12 +42,6 @@ if (!dbUser) {
 }
 
 const user = dbUser;
-
-const stocksFileUrl = new URL("../../scripts/us-stocks.json", import.meta.url);
-const stocksFileContents = await readFile(stocksFileUrl, "utf-8");
-const { data: allStocks } = JSON.parse(stocksFileContents) as { data: Stock[] };
-
-const userStocks = await getUserStocks(supabase, authUser.id);
 
 let timezones: Awaited<ReturnType<typeof getTimezoneOptions>>;
 let timezoneLoadError = false;
@@ -65,11 +65,6 @@ try {
 }
 
 const initialSymbols = userStocks.map((stock) => stock.symbol);
-
-const stockOptions: StockOption[] = allStocks.map((stock) => ({
-	value: stock.symbol,
-	label: `${stock.symbol} - ${stock.name}`,
-}));
 
 const url = new URL(Astro.request.url);
 const successMessage = url.searchParams.get("success");

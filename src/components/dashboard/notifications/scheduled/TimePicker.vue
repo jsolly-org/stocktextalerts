@@ -164,9 +164,14 @@ function parseTimeString(value: string | null | undefined): TimeModel | null {
 }
 
 function formatTimeValue(value: TimeModel): string {
-	const hours = typeof value.hours === "string" ? Number(value.hours) : value.hours;
+	const hours =
+		typeof value.hours === "string"
+			? Number.parseInt(value.hours, 10)
+			: value.hours;
 	const minutes =
-		typeof value.minutes === "string" ? Number(value.minutes) : value.minutes;
+		typeof value.minutes === "string"
+			? Number.parseInt(value.minutes, 10)
+			: value.minutes;
 	return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 

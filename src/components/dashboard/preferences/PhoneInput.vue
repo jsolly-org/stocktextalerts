@@ -11,18 +11,20 @@
 					'border-green-500 ring-2 ring-green-500': isValid && phoneNumber,
 				}"
 			>
-				<div class="relative w-24">
-					<select
-						id="country"
-						name="country"
-						v-model="country"
-						autocomplete="country"
-						aria-label="Country"
-						class="w-full appearance-none rounded-l-lg py-2 pl-3 pr-8 text-base text-gray-500 focus:outline-none border-r border-slate-300 bg-white bg-no-repeat"
-						style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%208l3%203%203-3%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E'); background-position: right 0.25rem center; background-size: 1.25em 1.25em;"
-					>
-						<option value="US">+1</option>
-					</select>
+			<div class="relative w-24">
+				<select
+					id="country"
+					name="country"
+					v-model="country"
+					autocomplete="country"
+					aria-label="Country"
+					class="w-full appearance-none rounded-l-lg py-2 pl-3 pr-8 text-base text-gray-500 focus:outline-none border-r border-slate-300 bg-white"
+				>
+					<option value="US">+1</option>
+				</select>
+				<div class="absolute inset-y-0 right-1 flex items-center pointer-events-none">
+					<Icon name="chevron-down" class="h-5 w-5 text-gray-500" />
+				</div>
 					<input type="hidden" name="phone_country_code" :value="`+${getCountryCallingCode(country)}`" />
 					<input type="hidden" name="phone_national_number" :value="lastDigits" />
 				</div>

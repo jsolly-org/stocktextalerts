@@ -174,15 +174,14 @@ if (error) {
 	import { setupDetectedTimezoneOption } from "../../lib/time/detected-timezone";
 	import { DEFAULT_TIMEZONE } from "../../lib/time/constants";
 
-	document.addEventListener("DOMContentLoaded", () => {
-		setupDetectedTimezoneOption({ defaultTimezone: DEFAULT_TIMEZONE });
-	});
+	setupDetectedTimezoneOption({ defaultTimezone: DEFAULT_TIMEZONE });
 </script>
 
 <script>
 	import {
 		createCaptchaStatusHelpers,
 		initializeHCaptchaForm,
+		setupCaptchaTokenInputListener,
 		setupHCaptchaCallback,
 		setupHCaptchaErrorCallback,
 		setupHCaptchaExpiredCallback,
@@ -211,14 +210,9 @@ if (error) {
 		},
 	);
 
-	document.addEventListener("DOMContentLoaded", () => {
-		const captchaTokenInput = document.getElementById("register_captcha_token");
-		if (captchaTokenInput instanceof HTMLInputElement) {
-			captchaTokenInput.addEventListener("input", () => {
-				if (captchaTokenInput.value.trim().length > 0) {
-					captchaStatus.hide();
-				}
-			});
+	setupCaptchaTokenInputListener("register_captcha_token", (token) => {
+		if (token.trim().length > 0) {
+			captchaStatus.hide();
 		}
 	});
 </script>

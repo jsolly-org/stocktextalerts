@@ -119,6 +119,7 @@ if (success === "true") {
 <script>
 	import {
 		createCaptchaStatusHelpers,
+		setupCaptchaTokenInputListener,
 		setupHCaptchaCallback,
 		setupHCaptchaErrorCallback,
 		setupHCaptchaExpiredCallback,
@@ -238,9 +239,9 @@ if (success === "true") {
 			},
 		);
 
-		captchaTokenInput.addEventListener("input", () => {
+		setupCaptchaTokenInputListener("unconfirmed_captcha_token", (token) => {
 			updateResendDisabledState();
-			if (captchaTokenInput.value.trim().length > 0) {
+			if (token.trim().length > 0) {
 				captchaStatus.hide();
 			}
 		});
