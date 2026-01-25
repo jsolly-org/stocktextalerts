@@ -151,42 +151,39 @@ jobs:
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
           REPO: ${{ github.repository }}
         run: |
-          PROMPT=$(cat <<PROMPT_END
-You are operating in a GitHub Actions runner.
+          agent -p "You are operating in a GitHub Actions runner.
 
-You have access to git and the GitHub CLI. You MUST NOT post PR comments.
+          You have access to git and the GitHub CLI. You MUST NOT post PR comments.
 
-Context:
-- Repo: $REPO
-- PR Number: $PR_NUMBER
-- Head Branch: $HEAD_REF
-- Trigger Event: $COMMENT_EVENT
-- Trigger Comment ID: $COMMENT_ID
+          Context:
+          - Repo: $REPO
+          - PR Number: $PR_NUMBER
+          - Head Branch: $HEAD_REF
+          - Trigger Event: $COMMENT_EVENT
+          - Trigger Comment ID: $COMMENT_ID
 
-Comment body:
-$COMMENT_BODY
+          Comment body:
+          $COMMENT_BODY
 
-Requirements:
-1) Analyze the comment and make the necessary code changes.
-2) Commit the changes and push directly to the PR head branch.
-3) Include the PR number and comment ID in the commit message for traceability.
-4) After a successful commit and push, mark the comment as resolved:
-   - If the event is pull_request_review_comment, resolve the review thread using GraphQL:
-     The comment ID $COMMENT_ID needs to be converted to a GraphQL node ID. Use this approach:
-     1. Get the comment via REST API to check if it has thread information:
-        COMMENT_JSON=\$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID")
-     2. Query the comment via GraphQL to get its thread ID. The node ID format is "PRRC_" followed by base64-encoded comment ID:
-        COMMENT_NODE_ID="PRRC_\$(echo -n "$COMMENT_ID" | base64)"
-        THREAD_QUERY='query{node(id:"'\$COMMENT_NODE_ID'"){... on PullRequestReviewComment{thread{id}}}}'
-        THREAD_ID=\$(gh api graphql -f query="\$THREAD_QUERY" -q '.data.node.thread.id')
-     3. Resolve the thread:
-        RESOLVE_MUTATION='mutation{resolveReviewThread(input:{threadId:"'\$THREAD_ID'"}){thread{isResolved}}}'
-        gh api graphql -f query="\$RESOLVE_MUTATION"
-   - If the event is issue_comment, add a reaction:
-     gh api -X POST /repos/$REPO/issues/comments/$COMMENT_ID/reactions -f content=eyes
-PROMPT_END
-          )
-          agent -p "$PROMPT" --model gpt-5.2 --output-format=text
+          Requirements:
+          1) Analyze the comment and make the necessary code changes.
+          2) Commit the changes and push directly to the PR head branch.
+          3) Include the PR number and comment ID in the commit message for traceability.
+          4) After a successful commit and push, mark the comment as resolved:
+             - If the event is pull_request_review_comment, resolve the review thread using GraphQL:
+               The comment ID $COMMENT_ID needs to be converted to a GraphQL node ID. Use this approach:
+               1. Get the comment via REST API to check if it has thread information:
+                  COMMENT_JSON=\$(gh api \"repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID\")
+               2. Query the comment via GraphQL to get its thread ID. The node ID format is \"PRRC_\" followed by base64-encoded comment ID:
+                  COMMENT_NODE_ID=\"PRRC_\$(echo -n $COMMENT_ID | base64)\"
+                  THREAD_QUERY='query{node(id:\"'\"\$COMMENT_NODE_ID\"'\"){... on PullRequestReviewComment{thread{id}}}}'
+                  THREAD_ID=\$(gh api graphql -f query=\"\$THREAD_QUERY\" -q '.data.node.thread.id')
+               3. Resolve the thread:
+                  RESOLVE_MUTATION='mutation{resolveReviewThread(input:{threadId:\"'\"\$THREAD_ID\"'\"}){thread{isResolved}}}'
+                  gh api graphql -f query=\"\$RESOLVE_MUTATION\"
+             - If the event is issue_comment, add a reaction:
+               gh api -X POST /repos/$REPO/issues/comments/$COMMENT_ID/reactions -f content=eyes
+          " --model gpt-5.2 --output-format=text
 
       - name: Report agent failure
         if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.agent.outcome == 'failure'
