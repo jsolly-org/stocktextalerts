@@ -31,14 +31,14 @@ jobs:
           COMMENT_USER: ${{ github.event.comment.user.login }}
         run: |
           REPO="${{ github.repository }}"
-          
+
           # Validate commenter username is not empty
           if [[ -z "$COMMENT_USER" ]]; then
             echo "Skipping: commenter username is empty"
             echo "authorized=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          
+
           # Compute bot and owner flags before API call to allow early short-circuit
           OWNER=$(echo "$REPO" | cut -d'/' -f1)
           IS_OWNER=$([[ "$COMMENT_USER" == "$OWNER" ]] && echo "true" || echo "false")
@@ -47,7 +47,7 @@ jobs:
           # shows up as permission=none in the collaborators permission API.
           # Allowlist it explicitly so slash-commands from Cursor can run.
           IS_CURSOR_BOT=$([[ "$COMMENT_USER" == "cursor[bot]" ]] && echo "true" || echo "false")
-          
+
           # GitHub Copilot posts review comments as github-copilot[bot], which also
           # shows up as permission=none. Allowlist it so Copilot review comments can trigger the workflow.
           IS_COPILOT_BOT=$([[ "$COMMENT_USER" == "github-copilot[bot]" ]] && echo "true" || echo "false")
@@ -55,29 +55,29 @@ jobs:
           # CodeRabbit posts review comments as coderabbitai[bot], which also shows up
           # as permission=none. Allowlist it so CodeRabbit review comments can trigger the workflow.
           IS_CODERABBIT_BOT=$([[ "$COMMENT_USER" == "coderabbitai[bot]" ]] && echo "true" || echo "false")
-          
+
           # Short-circuit if user is owner or trusted bot
           if [[ "$IS_OWNER" == "true" ]] || [[ "$IS_CURSOR_BOT" == "true" ]] || [[ "$IS_COPILOT_BOT" == "true" ]] || [[ "$IS_CODERABBIT_BOT" == "true" ]]; then
             echo "Authorization granted: is_owner=$IS_OWNER, is_cursor_bot=$IS_CURSOR_BOT, is_copilot_bot=$IS_COPILOT_BOT, is_coderabbit_bot=$IS_CODERABBIT_BOT"
             echo "authorized=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          
+
           # Check repository permission level for the commenter
           # This endpoint returns the permission level (admin, write, read, none)
           # It also works for organization members with inherited permissions
           PERMISSION_RESPONSE=$(gh api "repos/$REPO/collaborators/$COMMENT_USER/permission" 2>&1)
           PERMISSION_EXIT_CODE=$?
-          
+
           if [[ $PERMISSION_EXIT_CODE -ne 0 ]]; then
             echo "Skipping: failed to check permissions"
             echo "API error: $PERMISSION_RESPONSE"
             echo "authorized=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          
+
           PERMISSION=$(echo "$PERMISSION_RESPONSE" | jq -r '.permission // "none"')
-          
+
           # Allow admin, write, or maintain
           # Note: 'maintain' permission is also write-level access
           if [[ "$PERMISSION" == "admin" ]] || [[ "$PERMISSION" == "write" ]] || [[ "$PERMISSION" == "maintain" ]]; then
@@ -98,13 +98,13 @@ jobs:
           COMMENT_USER: ${{ github.event.comment.user.login }}
         run: |
           SKIP="false"
-          
+
           # Check for internal marker
           if [[ "$COMMENT_BODY" == *"$INTERNAL_MARKER"* ]]; then
             echo "Skipping internal workflow comment."
             SKIP="true"
           fi
-          
+
           # Skip Vercel deployment status updates (status tables, preview links, deployment notifications).
           # Process Vercel Agent review comments (actual code review comments without status markers).
           if [[ "$COMMENT_USER" == "vercel" ]] || [[ "$COMMENT_USER" == "vercel[bot]" ]]; then
@@ -116,7 +116,7 @@ jobs:
               SKIP="true"
             fi
           fi
-          
+
           echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
 
       - name: Extract PR metadata
@@ -129,7 +129,7 @@ jobs:
           EVENT_NAME="${{ github.event_name }}"
           COMMENT_ID="${{ github.event.comment.id }}"
           COMMENT_USER="${{ github.event.comment.user.login }}"
-          
+
           if [[ "$EVENT_NAME" == "issue_comment" ]]; then
             PR_NUMBER="${{ github.event.issue.number }}"
             # github.event.issue.pull_request.url is only present when the issue is a PR
@@ -139,7 +139,7 @@ jobs:
             PR_NUMBER="${{ github.event.pull_request.number }}"
             IS_PR="true"
           fi
-          
+
           if [[ "$IS_PR" == "true" ]]; then
             PR_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
             HEAD_REPO=$(echo "$PR_JSON" | jq -r '.head.repo.full_name')
@@ -168,15 +168,7 @@ jobs:
         env:
           COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
-          # No sanitization: This is a private repository with trusted agents (Cursor, CodeRabbit, Copilot)
-          # writing comments. Sanitization was previously removing code blocks and inline code, which
-          # stripped important context from comments. We trust the agents to write appropriate comments
-          # without prompt injection attempts. If this workflow is used in a public repository or
-          # with untrusted commenters, sanitization should be re-added.
-          #
-          # Output comment body using multiline format with unique delimiter to safely handle any content
-          # including EOF, special characters, newlines, etc. Use cryptographically-random delimiter to prevent
-          # comment content from accidentally matching the delimiter and terminating the heredoc.
+          # Pass comment body through as a multiline output (preserves formatting).
           DELIM=$(openssl rand -hex 32 2>/dev/null || uuidgen 2>/dev/null || echo "$(date +%s)_$$_$(openssl rand -hex 16 2>/dev/null || echo $RANDOM$RANDOM$RANDOM)")
           if [[ -z "$DELIM" ]]; then
             echo "Error: Failed to generate delimiter"
@@ -202,7 +194,7 @@ jobs:
           # Get workflow ID from the workflow file name
           WORKFLOW_ID=$(gh api "repos/$REPO/actions/workflows" --jq ".workflows[] | select(.path == \".github/workflows/$WORKFLOW_FILE\") | .id" 2>&1)
           WORKFLOW_ID_EXIT=$?
-          
+
           if [[ $WORKFLOW_ID_EXIT -ne 0 ]] || [[ -z "$WORKFLOW_ID" ]]; then
             echo "Warning: Could not find workflow ID for $WORKFLOW_FILE, skipping rate limit check"
             exit 0
@@ -211,7 +203,7 @@ jobs:
           # Query workflow runs with error handling - if permissions are insufficient, skip rate limiting
           RUNS_JSON=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs?per_page=100" 2>&1)
           RUNS_EXIT=$?
-          
+
           if [[ $RUNS_EXIT -ne 0 ]]; then
             echo "Warning: Could not query workflow runs (permissions may be insufficient), skipping rate limit check"
             echo "API error: $RUNS_JSON"
@@ -225,13 +217,13 @@ jobs:
 
           COUNT=0
           RUN_COUNT=$(echo "$RECENT_RUNS" | jq 'length' 2>&1)
-          
+
           # Ensure RUN_COUNT is a valid number
           if ! [[ "$RUN_COUNT" =~ ^[0-9]+$ ]]; then
             echo "Warning: Could not determine run count, skipping rate limit check"
             exit 0
           fi
-          
+
           for ((i=0; i<RUN_COUNT; i++)); do
             RUN=$(echo "$RECENT_RUNS" | jq ".[$i]" 2>&1)
             
@@ -315,12 +307,8 @@ jobs:
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
           REPO: ${{ github.repository }}
         run: |
-          # Use structured format with clear delimiters to prevent prompt injection
-          # The delimiters ensure user input cannot override system instructions
-          agent -p "---SYSTEM_INSTRUCTIONS_START---
-          You are operating in a GitHub Actions runner.
-
-          You have access to git and the GitHub CLI. You MUST NOT post PR comments.
+          agent --prompt="---SYSTEM_INSTRUCTIONS_START---
+          You are running in GitHub Actions. You can use git and gh. Do not post PR comments.
 
           Context:
           - Repo: $REPO
@@ -329,11 +317,11 @@ jobs:
           - Trigger Event: $COMMENT_EVENT
           - Trigger Comment ID: $COMMENT_ID
 
-          Requirements:
-          1) Analyze the user comment below and make the necessary code changes.
-          2) Commit the changes and push directly to the PR head branch.
-          3) Include the PR number and comment ID in the commit message for traceability.
-          4) After a successful commit and push, mark the comment as resolved:
+          Do this:
+          1) Make the necessary code changes requested in the user comment below.
+          2) Commit and push directly to the PR head branch.
+          3) Include the PR number and comment ID in the commit message.
+          4) After a successful push, mark the comment as resolved:
              - If the event is pull_request_review_comment, resolve the review thread using GraphQL:
                1. Get the comment via REST API to extract its node_id:
                   COMMENT_JSON=\$(gh api \"repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID\")
