@@ -282,7 +282,8 @@ jobs:
         run: |
           # Per Cursor docs: https://cursor.com/install
           # Supply-chain risk: piping a remote script to bash. We accept this for the official
-          # installer. Cursor does not currently publish checksums or versioned release artifacts.
+          # installer because it runs in an ephemeral GitHub Actions runner. Cursor does not
+          # currently publish checksums or versioned release artifacts.
           curl https://cursor.com/install -fsS | bash
           echo "$HOME/.cursor/bin" >> $GITHUB_PATH
 
