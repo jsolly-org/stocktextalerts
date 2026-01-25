@@ -63,14 +63,19 @@ jobs:
           # Also check if user is the repository owner
           OWNER=$(echo "$REPO" | cut -d'/' -f1)
           IS_OWNER=$([[ "$COMMENT_USER" == "$OWNER" ]] && echo "true" || echo "false")
+
+          # Cursor’s GitHub integration posts trigger comments as cursor[bot], which
+          # shows up as permission=none in the collaborators permission API.
+          # Allowlist it explicitly so slash-commands from Cursor can run.
+          IS_CURSOR_BOT=$([[ "$COMMENT_USER" == "cursor[bot]" ]] && echo "true" || echo "false")
           
           # Allow admin, write, or owner
           # Note: 'maintain' permission is also write-level access
-          if [[ "$PERMISSION" == "admin" ]] || [[ "$PERMISSION" == "write" ]] || [[ "$PERMISSION" == "maintain" ]] || [[ "$IS_OWNER" == "true" ]]; then
-            echo "Authorization granted: permission=$PERMISSION, is_owner=$IS_OWNER"
+          if [[ "$PERMISSION" == "admin" ]] || [[ "$PERMISSION" == "write" ]] || [[ "$PERMISSION" == "maintain" ]] || [[ "$IS_OWNER" == "true" ]] || [[ "$IS_CURSOR_BOT" == "true" ]]; then
+            echo "Authorization granted: permission=$PERMISSION, is_owner=$IS_OWNER, is_cursor_bot=$IS_CURSOR_BOT"
             echo "authorized=true" >> "$GITHUB_OUTPUT"
           else
-            echo "Skipping: permission=$PERMISSION, is_owner=$IS_OWNER"
+            echo "Skipping: permission=$PERMISSION, is_owner=$IS_OWNER, is_cursor_bot=$IS_CURSOR_BOT"
             echo "User $COMMENT_USER does not have admin, write, or maintain permissions"
             echo "authorized=false" >> "$GITHUB_OUTPUT"
             exit 0
