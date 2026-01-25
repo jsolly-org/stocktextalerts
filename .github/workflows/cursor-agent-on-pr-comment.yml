@@ -32,20 +32,47 @@ jobs:
         run: |
           REPO="${{ github.repository }}"
           
+          # Validate commenter username is not empty
+          if [[ -z "$COMMENT_USER" ]]; then
+            echo "Error: Commenter username is empty"
+            exit 1
+          fi
+          
           # Check repository permission level for the commenter
-          PERMISSION=$(gh api "repos/$REPO/collaborators/$COMMENT_USER/permission" -q '.permission' 2>/dev/null || echo "none")
+          # This endpoint returns the permission level (admin, write, read, none)
+          # It also works for organization members with inherited permissions
+          PERMISSION_RESPONSE=$(gh api "repos/$REPO/collaborators/$COMMENT_USER/permission" 2>&1)
+          PERMISSION_EXIT_CODE=$?
+          
+          if [[ $PERMISSION_EXIT_CODE -ne 0 ]]; then
+            # If API call fails, check if user is the repository owner as fallback
+            OWNER=$(echo "$REPO" | cut -d'/' -f1)
+            if [[ "$COMMENT_USER" == "$OWNER" ]]; then
+              echo "Authorization granted: user is repository owner"
+              echo "authorized=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            else
+              echo "Authorization denied: failed to check permissions and user is not repository owner"
+              echo "API error: $PERMISSION_RESPONSE"
+              echo "authorized=false" >> "$GITHUB_OUTPUT"
+              exit 1
+            fi
+          fi
+          
+          PERMISSION=$(echo "$PERMISSION_RESPONSE" | jq -r '.permission // "none"')
           
           # Also check if user is the repository owner
           OWNER=$(echo "$REPO" | cut -d'/' -f1)
           IS_OWNER=$([[ "$COMMENT_USER" == "$OWNER" ]] && echo "true" || echo "false")
           
           # Allow admin, write, or owner
-          if [[ "$PERMISSION" == "admin" ]] || [[ "$PERMISSION" == "write" ]] || [[ "$IS_OWNER" == "true" ]]; then
+          # Note: 'maintain' permission is also write-level access
+          if [[ "$PERMISSION" == "admin" ]] || [[ "$PERMISSION" == "write" ]] || [[ "$PERMISSION" == "maintain" ]] || [[ "$IS_OWNER" == "true" ]]; then
             echo "Authorization granted: permission=$PERMISSION, is_owner=$IS_OWNER"
             echo "authorized=true" >> "$GITHUB_OUTPUT"
           else
             echo "Authorization denied: permission=$PERMISSION, is_owner=$IS_OWNER"
-            echo "User $COMMENT_USER does not have admin or write permissions"
+            echo "User $COMMENT_USER does not have admin, write, or maintain permissions"
             echo "authorized=false" >> "$GITHUB_OUTPUT"
             exit 1
           fi
@@ -159,6 +186,14 @@ jobs:
             sed 's/\$\$[^$]*\$\$//g' | \
             sed 's/\${[^}]*}//g')
           
+          # Prevent delimiter injection by escaping delimiter markers
+          # Replace any attempts to inject the delimiter strings with escaped versions
+          SANITIZED=$(printf '%s' "$SANITIZED" | \
+            sed 's/---SYSTEM_INSTRUCTIONS_START---/[DELIMITER_ESCAPED]/g' | \
+            sed 's/---SYSTEM_INSTRUCTIONS_END---/[DELIMITER_ESCAPED]/g' | \
+            sed 's/---USER_INPUT_START---/[DELIMITER_ESCAPED]/g' | \
+            sed 's/---USER_INPUT_END---/[DELIMITER_ESCAPED]/g')
+          
           # Limit length to prevent extremely long inputs (10KB max)
           SANITIZED=$(printf '%s' "$SANITIZED" | head -c 10000)
           
@@ -180,7 +215,15 @@ jobs:
           NOW=$(date -u +%s)
           LIMIT=$((NOW - 3600))
 
-          RUNS_JSON=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_FILE/runs?per_page=100")
+          # Get workflow ID from the workflow file name
+          WORKFLOW_ID=$(gh api "repos/$REPO/actions/workflows" --jq ".workflows[] | select(.path == \".github/workflows/$WORKFLOW_FILE\") | .id")
+          
+          if [[ -z "$WORKFLOW_ID" ]]; then
+            echo "Warning: Could not find workflow ID for $WORKFLOW_FILE, skipping rate limit check"
+            exit 0
+          fi
+
+          RUNS_JSON=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs?per_page=100")
           COUNT=$(echo "$RUNS_JSON" | jq --argjson limit "$LIMIT" --arg pr "$PR_NUMBER" \
             '[.workflow_runs[] | select(.created_at | fromdateiso8601 >= $limit) | select((.pull_requests // []) | any(.number == ($pr|tonumber))) ] | length')
 
@@ -285,9 +328,9 @@ jobs:
              - If the event is pull_request_review_comment, resolve the review thread using GraphQL:
                1. Get the comment via REST API to extract its node_id:
                   COMMENT_JSON=\$(gh api \"repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID\")
-                  COMMENT_NODE_ID=\$(echo \"\$COMMENT_JSON\" | jq -r '.node_id')
+                  NODE_ID=\$(echo \"\$COMMENT_JSON\" | jq -r '.node_id')
                2. Query the comment via GraphQL to get its thread ID:
-                  THREAD_QUERY='query{node(id:\"'\"\$COMMENT_NODE_ID\"'\"){... on PullRequestReviewComment{thread{id}}}}'
+                  THREAD_QUERY='query{node(id:\"'\"\$NODE_ID\"'\"){... on PullRequestReviewComment{thread{id}}}}'
                   THREAD_ID=\$(gh api graphql -f query=\"\$THREAD_QUERY\" -q '.data.node.thread.id')
                3. Resolve the thread:
                   RESOLVE_MUTATION='mutation{resolveReviewThread(input:{threadId:\"'\"\$THREAD_ID\"'\"}){thread{isResolved}}}'
