@@ -26,9 +26,45 @@ jobs:
 
       - name: Install Cursor CLI
         run: |
-          # Note: Cursor CLI installer doesn't support version pinning yet.
-          # Consider checking for a specific release URL or checksum verification when available.
-          curl https://cursor.com/install -fsS | bash
+          # Download installer to temporary file instead of piping directly to bash
+          INSTALLER_TMP=$(mktemp)
+          trap "rm -f $INSTALLER_TMP" EXIT
+          
+          # Download with error handling
+          if ! curl -fsSL https://cursor.com/install -o "$INSTALLER_TMP"; then
+            echo "Failed to download Cursor CLI installer"
+            exit 1
+          fi
+          
+          # Verify file was downloaded and is not empty
+          if [[ ! -s "$INSTALLER_TMP" ]]; then
+            echo "Downloaded installer file is empty"
+            exit 1
+          fi
+          
+          # Integrity checks: verify file size is within reasonable bounds (1KB - 10MB)
+          FILE_SIZE=$(stat -f%z "$INSTALLER_TMP" 2>/dev/null || stat -c%s "$INSTALLER_TMP" 2>/dev/null || echo "0")
+          MIN_SIZE=1024
+          MAX_SIZE=10485760
+          if [[ "$FILE_SIZE" -lt "$MIN_SIZE" ]] || [[ "$FILE_SIZE" -gt "$MAX_SIZE" ]]; then
+            echo "Downloaded installer file size ($FILE_SIZE bytes) is outside expected range ($MIN_SIZE-$MAX_SIZE bytes)"
+            exit 1
+          fi
+          
+          # Verify file appears to be a shell script (starts with shebang)
+          if ! head -n 1 "$INSTALLER_TMP" | grep -qE '^#!/bin/(bash|sh)'; then
+            echo "Downloaded installer does not appear to be a valid shell script"
+            exit 1
+          fi
+          
+          # Note: Cursor CLI installer doesn't support checksum verification yet.
+          # When available, verify checksum here before execution.
+          # Example: echo "$EXPECTED_CHECKSUM  $INSTALLER_TMP" | sha256sum -c
+          
+          # Execute verified installer
+          bash "$INSTALLER_TMP"
+          
+          # Add to PATH only after successful installation
           echo "$HOME/.cursor/bin" >> $GITHUB_PATH
 
       - name: Configure git identity
@@ -96,36 +132,38 @@ jobs:
           # Download workflow run logs to understand the failure
           gh run view "$WORKFLOW_RUN_ID" --log > /tmp/workflow-logs.txt 2>&1 || true
           
-          BASE="You are operating in a GitHub Actions runner.
+          PROMPT=$(cat <<-PROMPT_END
+            You are operating in a GitHub Actions runner.
 
-          The GitHub CLI is available as \`gh\` and authenticated via \`GH_TOKEN\`. Git is available. You have write access to repository contents.
+            The GitHub CLI is available as \`gh\` and authenticated via \`GH_TOKEN\`. Git is available. You have write access to repository contents.
 
-          # Context:
-          - Repo: $REPO
-          - Branch: $HEAD_BRANCH
-          - Commit SHA: $HEAD_SHA
-          - Workflow Run ID: $WORKFLOW_RUN_ID
-          - Workflow Run URL: $WORKFLOW_RUN_URL
-          "
-          [[ -n "$PR_NUMBER" ]] && BASE="$BASE"$'\n'"- PR Number: $PR_NUMBER"
-          REST="
+            # Context:
+            - Repo: $REPO
+            - Branch: $HEAD_BRANCH
+            - Commit SHA: $HEAD_SHA
+            - Workflow Run ID: $WORKFLOW_RUN_ID
+            - Workflow Run URL: $WORKFLOW_RUN_URL
+          PROMPT_END
+          )
+          [[ -n "$PR_NUMBER" ]] && PROMPT="$PROMPT"$'\n'"- PR Number: $PR_NUMBER"
+          PROMPT="$PROMPT"$(cat <<-PROMPT_END
 
-          # Goal:
-          Fix the CI failure by making minimal, targeted edits consistent with the repo's style. Commit and push directly to the branch.
+            # Goal:
+            Fix the CI failure by making minimal, targeted edits consistent with the repo's style. Commit and push directly to the branch.
 
-          # Requirements:
-          1) Review the workflow logs to understand what failed (available in /tmp/workflow-logs.txt).
-          2) Make minimal, targeted fixes to resolve the CI failure.
-          3) Keep changes scoped and safe - only fix what's necessary.
-          4) Commit the changes with a clear message describing the fix.
-          5) Push directly to the branch ($HEAD_BRANCH).
+            # Requirements:
+            1) Review the workflow logs to understand what failed (available in /tmp/workflow-logs.txt).
+            2) Make minimal, targeted fixes to resolve the CI failure.
+            3) Keep changes scoped and safe - only fix what's necessary.
+            4) Commit the changes with a clear message describing the fix.
+            5) Push directly to the branch ($HEAD_BRANCH).
 
-          # Important:
-          - Do NOT create a PR or branch - commit directly to $HEAD_BRANCH
-          - Do NOT post comments to the PR (if one exists)
-          - If no actionable fix is possible, exit without making changes
-          "
-          PROMPT="$BASE$REST"
+            # Important:
+            - Do NOT create a PR or branch - commit directly to $HEAD_BRANCH
+            - Do NOT post comments to the PR (if one exists)
+            - If no actionable fix is possible, exit without making changes
+          PROMPT_END
+          )
           
           export REPO
           export HEAD_BRANCH

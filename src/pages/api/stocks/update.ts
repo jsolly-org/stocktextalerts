@@ -7,6 +7,10 @@ import {
 	MAX_TRACKED_STOCKS,
 } from "../../../lib/db/database-errors";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
+import {
+	createErrorForLogging,
+	extractErrorMessage,
+} from "../../../lib/errors";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
 import { createLogger } from "../../../lib/logging";
@@ -82,36 +86,6 @@ export const POST: APIRoute = async ({
 		return redirect(
 			buildDashboardRedirect({ error: "stocks_limit", section: "stocks" }),
 		);
-	}
-
-	function extractErrorMessage(error: unknown): string {
-		if (error instanceof Error) {
-			return error.message;
-		}
-		if (
-			typeof error === "object" &&
-			error !== null &&
-			"message" in error &&
-			typeof error.message === "string"
-		) {
-			return error.message;
-		}
-		return String(error);
-	}
-
-	function createErrorForLogging(error: unknown): Error | unknown {
-		if (error instanceof Error) {
-			return error;
-		}
-		if (
-			typeof error === "object" &&
-			error !== null &&
-			"message" in error &&
-			typeof error.message === "string"
-		) {
-			return new Error(error.message);
-		}
-		return error;
 	}
 
 	try {

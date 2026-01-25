@@ -19,10 +19,18 @@ jobs:
           fetch-depth: 0
 
       - name: Install Cursor CLI
+        env:
+          CURSOR_BUILD_ID: ${{ inputs.cursor_build_id || vars.CURSOR_BUILD_ID || 'latest' }}
         run: |
-          # Note: Cursor CLI installer doesn't support version pinning yet.
-          # Consider checking for a specific release URL or checksum verification when available.
-          curl https://cursor.com/install -fsS | bash
+          if [[ "$CURSOR_BUILD_ID" == "latest" ]]; then
+            echo "Error: CURSOR_BUILD_ID must be set to a specific build ID for reproducible builds"
+            exit 1
+          fi
+          INSTALL_URL="https://cursor.com/install/$CURSOR_BUILD_ID"
+          if ! curl "$INSTALL_URL" -fsS | bash; then
+            echo "Error: Failed to install Cursor CLI from pinned build $CURSOR_BUILD_ID at $INSTALL_URL"
+            exit 1
+          fi
           echo "$HOME/.cursor/bin" >> $GITHUB_PATH
 
       - name: Configure git
@@ -36,6 +44,7 @@ jobs:
           CURSOR_SECRET_KEY: ${{ secrets.CURSOR_SECRET_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH_PREFIX: docs
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           agent -p "You are operating in a GitHub Actions runner.
 
@@ -46,7 +55,7 @@ jobs:
           - Owner: ${{ github.repository_owner }}
           - PR Number: ${{ github.event.pull_request.number }}
           - Base Ref: ${{ github.event.pull_request.base.ref }}
-          - Head Ref: ${{ github.event.pull_request.head.ref }}
+          - Head Ref: ${PR_HEAD_REF}
           - Merge Commit SHA: ${{ github.event.pull_request.merge_commit_sha }}
           - Docs Branch Prefix: ${{ env.BRANCH_PREFIX }}
 
