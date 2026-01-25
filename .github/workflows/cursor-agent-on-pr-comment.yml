@@ -32,6 +32,10 @@ jobs:
         run: |
           REPO="${{ github.repository }}"
 
+          # Debug: log the commenter username for troubleshooting
+          echo "Commenter username: '$COMMENT_USER'"
+          echo "Event name: ${{ github.event_name }}"
+
           # Validate commenter username is not empty
           if [[ -z "$COMMENT_USER" ]]; then
             echo "Skipping: commenter username is empty"
@@ -42,24 +46,27 @@ jobs:
           # Compute bot and owner flags before API call to allow early short-circuit
           OWNER=$(echo "$REPO" | cut -d'/' -f1)
           IS_OWNER=$([[ "$COMMENT_USER" == "$OWNER" ]] && echo "true" || echo "false")
+          # Normalize username to lowercase for comparison (GitHub usernames are case-insensitive)
+          COMMENT_USER_LOWER=$(echo "$COMMENT_USER" | tr '[:upper:]' '[:lower:]')
 
           # Cursor’s GitHub integration posts trigger comments as cursor[bot], which
           # shows up as permission=none in the collaborators permission API.
           # Allowlist it explicitly so slash-commands from Cursor can run.
-          IS_CURSOR_BOT=$([[ "$COMMENT_USER" == "cursor[bot]" ]] && echo "true" || echo "false")
+          IS_CURSOR_BOT=$([[ "$COMMENT_USER_LOWER" == "cursor[bot]" ]] && echo "true" || echo "false")
 
           # GitHub Copilot posts review comments as github-copilot[bot], which also
           # shows up as permission=none. Allowlist it so Copilot review comments can trigger the workflow.
-          IS_COPILOT_BOT=$([[ "$COMMENT_USER" == "github-copilot[bot]" ]] && echo "true" || echo "false")
+          # Use case-insensitive comparison to handle variations like GitHub-Copilot[bot].
+          IS_COPILOT_BOT=$([[ "$COMMENT_USER_LOWER" == "github-copilot[bot]" ]] && echo "true" || echo "false")
 
           # CodeRabbit posts review comments as coderabbitai[bot], which also shows up
           # as permission=none. Allowlist it so CodeRabbit review comments can trigger the workflow.
-          IS_CODERABBIT_BOT=$([[ "$COMMENT_USER" == "coderabbitai[bot]" ]] && echo "true" || echo "false")
+          IS_CODERABBIT_BOT=$([[ "$COMMENT_USER_LOWER" == "coderabbitai[bot]" ]] && echo "true" || echo "false")
 
           # Vercel posts deployment updates (permission=none) and Vercel Agent review comments.
           # Allowlist vercel[bot] so we can process review comments; "Check if should skip" filters
           # out status updates (preview links, [vc]:, etc.) and only runs the agent for real reviews.
-          IS_VERCEL_BOT=$([[ "$COMMENT_USER" == "vercel[bot]" ]] && echo "true" || echo "false")
+          IS_VERCEL_BOT=$([[ "$COMMENT_USER_LOWER" == "vercel[bot]" ]] && echo "true" || echo "false")
 
           # Short-circuit if user is owner or trusted bot
           if [[ "$IS_OWNER" == "true" ]] || [[ "$IS_CURSOR_BOT" == "true" ]] || [[ "$IS_COPILOT_BOT" == "true" ]] || [[ "$IS_CODERABBIT_BOT" == "true" ]] || [[ "$IS_VERCEL_BOT" == "true" ]]; then
@@ -145,6 +152,12 @@ jobs:
               echo "Skipping CodeRabbit acknowledgment comment (Full review triggered)"
               SKIP="true"
             fi
+          fi
+
+          # Skip all comments from Cursor bot (autofix and other automated comments).
+          if [[ "$COMMENT_USER" == "cursor[bot]" ]]; then
+            echo "Skipping Cursor bot comment (autofix enabled)"
+            SKIP="true"
           fi
 
           echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
