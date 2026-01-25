@@ -75,7 +75,11 @@ export function createSmsSender(
 				messageSid: message.sid,
 			};
 		} catch (error) {
-			rootLogger.error("Twilio SMS send error", undefined, error);
+			rootLogger.error(
+				"Twilio SMS send error",
+				{ action: "send_sms", from, to: request.to },
+				error,
+			);
 
 			// Twilio SDK throws RestException for API errors (HTTP 400-5xx).
 			// RestException has: status (HTTP status), code (numeric Twilio error code),

@@ -36,7 +36,9 @@ export const POST: APIRoute = async ({
 
 	const user = await userService.getCurrentUser();
 	if (!user) {
-		logger.info("Preferences update attempt without authenticated user");
+		logger.info("Preferences update attempt without authenticated user", {
+			reason: "unauthenticated",
+		});
 		if (wantsJson) {
 			return Response.json(
 				{ ok: false, message: "unauthorized" },
@@ -203,6 +205,7 @@ export const POST: APIRoute = async ({
 				},
 			});
 		}
+		return redirect("/dashboard?success=settings_updated");
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		logger.error(
@@ -223,6 +226,4 @@ export const POST: APIRoute = async ({
 		}
 		return redirect("/dashboard?error=update_failed");
 	}
-
-	return redirect("/dashboard?success=settings_updated");
 };

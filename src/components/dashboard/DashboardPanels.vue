@@ -44,6 +44,7 @@
 			:is-verifying-code="isVerifyingCode"
 			@update:emailEnabled="emailEnabled = $event"
 			@update:smsEnabled="smsEnabled = $event"
+			@preferences-updated="handlePreferencesUpdated"
 		/>
 
 		<ScheduledNotificationsPanel
@@ -109,6 +110,7 @@ import { Icon } from "astro-icon/components";
 import { computed, ref, toRefs, watch } from "vue";
 
 import type { User } from "../../lib/db";
+import { rootLogger } from "../../lib/logging";
 import type { TimezoneOption } from "../../lib/time/cache";
 import {
 	type PreferencesData,
@@ -215,6 +217,37 @@ async function handlePreferencesFormSubmitWrapper(event: SubmitEvent) {
 		if (isVerifyCodeSubmission) {
 			isVerifyingCode.value = false;
 		}
+	}
+}
+
+async function handlePreferencesUpdated() {
+	const form = preferencesFormElement.value;
+	if (!form) {
+		return;
+	}
+	try {
+		const response = await fetch("/api/preferences/current", {
+			method: "GET",
+			credentials: "same-origin",
+			headers: { Accept: "application/json" },
+			signal: AbortSignal.timeout(10_000),
+		});
+
+		if (response.ok) {
+			const payload = (await response.json()) as {
+				ok: boolean;
+				preferences?: PreferencesData;
+			};
+			if (payload.preferences) {
+				savedPreferencesData.value = payload.preferences;
+			}
+		}
+	} catch (error) {
+		// Silently fail - preferences will refresh on next form change
+		rootLogger.warn("Failed to refresh preferences after banner dismissal", {
+			action: "refresh_preferences_after_banner_dismissal",
+			error,
+		});
 	}
 }
 </script>

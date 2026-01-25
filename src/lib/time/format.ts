@@ -68,8 +68,9 @@ export function parseTimeString(
 }
 
 export function minutesToTimeInputValue(minutes: number): string {
-	const hours = Math.floor(minutes / 60);
-	const mins = minutes % 60;
+	const clamped = Math.max(0, Math.min(1439, Math.floor(minutes)));
+	const hours = Math.floor(clamped / 60);
+	const mins = clamped % 60;
 	return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
 }
 
@@ -87,7 +88,13 @@ export function formatTimeValue(value: TimeValue): string {
 		typeof value.minutes === "string"
 			? Number.parseInt(value.minutes, 10)
 			: value.minutes;
-	return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+	const h = Number.isNaN(hours)
+		? 0
+		: Math.max(0, Math.min(23, Math.floor(hours)));
+	const m = Number.isNaN(minutes)
+		? 0
+		: Math.max(0, Math.min(59, Math.floor(minutes)));
+	return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
 export function resolveIs24(): boolean {

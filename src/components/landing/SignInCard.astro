@@ -12,8 +12,17 @@ const {
 	errorMessage = null,
 	successMessage = null,
 } = Astro.props;
+
+const SIGNIN_FORM_ID = "signin-form";
+const SIGNIN_CAPTCHA_TOKEN_ID = "signin_captcha_token";
+const SIGNIN_CAPTCHA_STATUS_ID = "signin-captcha-status";
 ---
-<div class="max-w-md mx-auto bg-white rounded-lg shadow-lg border border-gray-200 p-8 mb-20">
+<div 
+	class="max-w-md mx-auto bg-white rounded-lg shadow-lg border border-gray-200 p-8 mb-20"
+	data-signin-form-id={SIGNIN_FORM_ID}
+	data-signin-captcha-token-id={SIGNIN_CAPTCHA_TOKEN_ID}
+	data-signin-captcha-status-id={SIGNIN_CAPTCHA_STATUS_ID}
+>
   <h2 class="text-2xl font-bold text-gray-900 mb-6 text-center">Sign in to your account</h2>
   {successMessage && (
     <div class="mb-4 rounded-md bg-green-50 p-4" role="alert">
@@ -25,7 +34,7 @@ const {
       <p class="text-sm font-medium text-red-800">{errorMessage}</p>
     </div>
   )}
-  <form class="space-y-6" action="/api/auth/signin" method="post" id="signin-form">
+  <form class="space-y-6" action="/api/auth/signin" method="post" id={SIGNIN_FORM_ID}>
     <div>
       <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
       <input 
@@ -53,13 +62,13 @@ const {
     </div>
 		<div>
 			<HCaptcha
-				tokenInputId="signin_captcha_token"
+				tokenInputId={SIGNIN_CAPTCHA_TOKEN_ID}
 				callbackName="onSignInHCaptchaSuccess"
 				errorCallback="onSignInHCaptchaError"
 				expiredCallback="onSignInHCaptchaExpired"
 			/>
 			<div
-				id="signin-captcha-status"
+				id={SIGNIN_CAPTCHA_STATUS_ID}
 				class="mt-2 hidden rounded-md bg-red-50 p-3 text-sm text-red-700"
 				role="status"
 				aria-live="polite"
@@ -94,29 +103,42 @@ const {
 	} from "../../lib/auth/hcaptcha";
 	import { setupEmailInputHandlers } from "../../lib/forms/dom/email-input";
 
-	const form = document.getElementById("signin-form");
+	const container = document.querySelector('[data-signin-form-id]');
+	if (!container) {
+		throw new Error("SignInCard container not found");
+	}
+
+	const SIGNIN_FORM_ID = container.getAttribute("data-signin-form-id");
+	const SIGNIN_CAPTCHA_TOKEN_ID = container.getAttribute("data-signin-captcha-token-id");
+	const SIGNIN_CAPTCHA_STATUS_ID = container.getAttribute("data-signin-captcha-status-id");
+
+	if (!SIGNIN_FORM_ID || !SIGNIN_CAPTCHA_TOKEN_ID || !SIGNIN_CAPTCHA_STATUS_ID) {
+		throw new Error("Missing required data attributes on SignInCard container");
+	}
+
+	const form = document.getElementById(SIGNIN_FORM_ID);
 	if (form instanceof HTMLFormElement) {
-		const captchaStatus = createCaptchaStatusHelpers("signin-captcha-status");
+		const captchaStatus = createCaptchaStatusHelpers(SIGNIN_CAPTCHA_STATUS_ID);
 
 		const emailInput = document.getElementById("email");
 		if (emailInput instanceof HTMLInputElement) {
 			setupEmailInputHandlers(emailInput);
 		}
 
-		setupCaptchaSubmitGuard("signin-form", "signin_captcha_token", (message) => {
+		setupCaptchaSubmitGuard(SIGNIN_FORM_ID, SIGNIN_CAPTCHA_TOKEN_ID, (message) => {
 			captchaStatus.show(message);
 		});
-		setupCaptchaTokenInputListener("signin_captcha_token", (token) => {
+		setupCaptchaTokenInputListener(SIGNIN_CAPTCHA_TOKEN_ID, (token) => {
 			if (token.trim().length > 0) {
 				captchaStatus.hide();
 			}
 		});
 
-		initializeHCaptchaForm("signin-form", "signin_captcha_token");
+		initializeHCaptchaForm(SIGNIN_FORM_ID, SIGNIN_CAPTCHA_TOKEN_ID);
 		setupHCaptchaCallback(
 			"onSignInHCaptchaSuccess",
-			"signin_captcha_token",
-			"signin-form",
+			SIGNIN_CAPTCHA_TOKEN_ID,
+			SIGNIN_FORM_ID,
 			() => {
 				captchaStatus.hide();
 			},
@@ -124,7 +146,7 @@ const {
 		setupHCaptchaErrorCallback("onSignInHCaptchaError");
 		setupHCaptchaExpiredCallback(
 			"onSignInHCaptchaExpired",
-			"signin_captcha_token",
+			SIGNIN_CAPTCHA_TOKEN_ID,
 		);
 	}
 </script>

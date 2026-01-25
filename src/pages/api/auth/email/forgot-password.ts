@@ -62,18 +62,35 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 				error.code === "over_request_rate_limit" ||
 				error.code === "over_email_send_rate_limit"
 			) {
+				logger.warn("Password reset rate limit hit", {
+					email,
+					errorCode: error.code,
+					errorStatus: error.status,
+				});
 				return redirect(
 					`/auth/forgot?error=rate_limit&seconds=${DEFAULT_PASSWORD_RESET_RATE_LIMIT_SECONDS}`,
 				);
 			}
 
-			logger.error("Password reset request failed", {}, error);
+			logger.error(
+				"Password reset request failed",
+				{
+					email,
+					errorCode: error.code,
+					errorStatus: error.status,
+				},
+				error,
+			);
 			return redirect("/auth/forgot?error=failed");
 		}
 
 		return redirect("/auth/forgot?success=true");
 	} catch (error) {
-		logger.error("Password reset request failed", undefined, error);
+		logger.error(
+			"Password reset request failed",
+			{ reason: "password_reset_exception" },
+			error,
+		);
 		return redirect("/auth/forgot?error=failed");
 	}
 };

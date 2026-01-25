@@ -56,7 +56,11 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 			);
 		}
 
-		logger.error("Resend verification email failed", undefined, error);
+		logger.error(
+			"Resend verification email failed",
+			{ email, errorCode: error.code, errorStatus: error.status },
+			error,
+		);
 		return redirect(
 			`/auth/unconfirmed?email=${encodeURIComponent(email)}&error=failed`,
 		);

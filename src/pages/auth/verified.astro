@@ -41,14 +41,20 @@ if (tokenHash && type) {
 	if (error || !data.user) {
 		rootLogger.error(
 			"Email verification token validation failed",
-			undefined,
+			{
+				tokenHashPresent: true,
+				type,
+				hasUser: Boolean(data.user),
+			},
 			error,
 		);
 		return Astro.redirect("/signin?error=invalid_verification");
 	}
 	// Verify the user's email is actually confirmed
 	if (!data.user.email_confirmed_at) {
-		rootLogger.error("User email not confirmed after token verification");
+		rootLogger.error("User email not confirmed after token verification", {
+			userId: data.user.id,
+		});
 		return Astro.redirect("/signin?error=verification_failed");
 	}
 	// Clean up URL to prevent token reuse attempts on refresh
@@ -58,7 +64,10 @@ if (tokenHash && type) {
 	// This handles cases where Supabase already verified the token before redirect
 	const user = await userService.getCurrentUser();
 	if (!user || !user.email_confirmed_at) {
-		rootLogger.error("No valid session or email not confirmed");
+		rootLogger.error("No valid session or email not confirmed", {
+			hasSession: Boolean(user),
+			emailConfirmed: Boolean(user?.email_confirmed_at),
+		});
 		return Astro.redirect("/signin?error=invalid_verification");
 	}
 }

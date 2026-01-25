@@ -36,7 +36,9 @@ export async function handleInboundSms(
 	const { authToken, validateRequest, supabase } = deps;
 
 	if (!authToken) {
-		rootLogger.error("Missing TWILIO_AUTH_TOKEN for webhook validation");
+		rootLogger.error("Missing TWILIO_AUTH_TOKEN for webhook validation", {
+			envVar: "TWILIO_AUTH_TOKEN",
+		});
 		return {
 			status: 500,
 			body: "Server misconfigured",
@@ -145,7 +147,11 @@ export async function handleInboundSms(
 			.eq("id", userId);
 
 		if (updateError) {
-			rootLogger.error("Failed to opt out user", undefined, updateError);
+			rootLogger.error(
+				"Failed to opt out user",
+				{ userId, action: "sms_opt_out" },
+				updateError,
+			);
 			return {
 				status: 500,
 				body: "Failed to update preferences",
@@ -168,7 +174,11 @@ export async function handleInboundSms(
 			.eq("id", userId);
 
 		if (updateError) {
-			rootLogger.error("Failed to opt in user", undefined, updateError);
+			rootLogger.error(
+				"Failed to opt in user",
+				{ userId, action: "sms_opt_in" },
+				updateError,
+			);
 			return {
 				status: 500,
 				body: "Failed to update preferences",

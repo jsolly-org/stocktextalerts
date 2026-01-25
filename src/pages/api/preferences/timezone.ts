@@ -21,7 +21,9 @@ export const POST: APIRoute = async ({
 
 	const authUser = await users.getCurrentUser();
 	if (!authUser) {
-		logger.error("Timezone update attempt without authenticated user");
+		logger.error("Timezone update attempt without authenticated user", {
+			reason: "unauthenticated",
+		});
 		return redirect("/signin?error=unauthorized");
 	}
 

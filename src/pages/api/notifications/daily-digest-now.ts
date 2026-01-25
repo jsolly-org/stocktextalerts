@@ -34,7 +34,9 @@ export const POST: APIRoute = async ({
 
 	const authUser = await users.getCurrentUser();
 	if (!authUser) {
-		logger.info("Manual daily digest send attempt without authenticated user");
+		logger.info("Manual daily digest send attempt without authenticated user", {
+			reason: "unauthenticated",
+		});
 		return redirect("/signin?error=unauthorized");
 	}
 

@@ -15,7 +15,10 @@ const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
 const authUser = await users.getCurrentUser();
 if (!authUser) {
-	rootLogger.error("Profile access attempted without authenticated user");
+	rootLogger.error("Profile access attempted without authenticated user", {
+		page: "profile",
+		reason: "unauthenticated",
+	});
 	return Astro.redirect("/");
 }
 const user = await users.getById(authUser.id);

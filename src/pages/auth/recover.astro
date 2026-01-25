@@ -12,10 +12,15 @@ let message = "";
 let showResetLink = false;
 const hasValidToken = Boolean(token) && type === "recovery";
 let showForm = hasValidToken;
-if (!hasValidToken) {
-	message = "This password reset link is invalid.";
+
+function setInvalidLinkState(msg: string) {
+	message = msg;
 	showResetLink = true;
 	showForm = false;
+}
+
+if (!hasValidToken) {
+	setInvalidLinkState("This password reset link is invalid.");
 } else if (error) {
 	switch (error) {
 		case "invalid_form":
@@ -29,14 +34,10 @@ if (!hasValidToken) {
 				"Password does not meet security requirements. Please choose a stronger password.";
 			break;
 		case "expired":
-			message = "This password reset link has expired.";
-			showResetLink = true;
-			showForm = false;
+			setInvalidLinkState("This password reset link has expired.");
 			break;
 		case "invalid_token":
-			message = "This password reset link is invalid.";
-			showResetLink = true;
-			showForm = false;
+			setInvalidLinkState("This password reset link is invalid.");
 			break;
 		default:
 			message = "Failed to update password. Please try again.";

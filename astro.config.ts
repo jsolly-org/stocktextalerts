@@ -1,9 +1,9 @@
 import sitemap from "@astrojs/sitemap";
+import vercel from "@astrojs/vercel";
+import vue from "@astrojs/vue";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "astro/config";
 import icon from "astro-icon";
-import vercel from "@astrojs/vercel";
-import vue from "@astrojs/vue";
 import { loadEnv } from "vite";
 
 // Config runs before Vite loads .env*; loadEnv makes .env / .env.local available here.
@@ -27,7 +27,10 @@ if (!vercelUrl) {
 			"VERCEL_URL is not configured. VERCEL_URL is automatically set by Vercel. For local development, set VERCEL_URL=http://localhost:4321 in your .env.local file.",
 		);
 	}
-} else if (vercelUrl.startsWith("http://") || vercelUrl.startsWith("https://")) {
+} else if (
+	vercelUrl.startsWith("http://") ||
+	vercelUrl.startsWith("https://")
+) {
 	site = vercelUrl;
 } else {
 	site = `https://${vercelUrl}`;
@@ -43,11 +46,7 @@ export default defineConfig({
 
 	site,
 
-	integrations: [
-		sitemap({}),
-		icon(),
-		vue(),
-	],
+	integrations: [sitemap({}), icon(), vue()],
 
 	vite: {
 		plugins: [tailwindcss()],

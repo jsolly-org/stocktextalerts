@@ -74,7 +74,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		const signatureHeader = request.headers.get("x-twilio-signature");
 
 		if (!signatureHeader) {
-			logger.error("Inbound SMS request missing x-twilio-signature header");
+			logger.error("Inbound SMS request missing x-twilio-signature header", {
+				header: "x-twilio-signature",
+			});
 			return new Response("Missing Twilio signature", { status: 401 });
 		}
 
@@ -119,7 +121,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			headers,
 		});
 	} catch (error) {
-		logger.error("SMS webhook error", undefined, error);
+		logger.error("SMS webhook error", { action: "inbound_sms_webhook" }, error);
 		return new Response("Internal server error", { status: 500 });
 	}
 };

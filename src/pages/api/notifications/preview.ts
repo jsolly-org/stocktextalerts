@@ -33,7 +33,9 @@ export const POST: APIRoute = async ({
 	const authUser = await userService.getCurrentUser();
 
 	if (!authUser) {
-		logger.info("Preview notification attempt without authenticated user");
+		logger.info("Preview notification attempt without authenticated user", {
+			reason: "unauthenticated",
+		});
 		return redirect("/signin?error=unauthorized");
 	}
 

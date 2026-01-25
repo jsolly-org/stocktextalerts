@@ -63,7 +63,7 @@ export const POST: APIRoute = async ({
 		}
 
 		if (error.code === "email_not_confirmed") {
-			logger.info("Sign-in blocked due to unconfirmed email");
+			logger.info("Sign-in blocked due to unconfirmed email", { email });
 			return redirect(`/auth/unconfirmed?email=${encodeURIComponent(email)}`);
 		}
 
@@ -88,7 +88,10 @@ export const POST: APIRoute = async ({
 	}
 
 	if (!data.session) {
-		logger.error("Sign-in succeeded but no session was returned");
+		logger.error("Sign-in succeeded but no session was returned", {
+			email,
+			reason: "missing_session",
+		});
 		return redirect(
 			`/signin?error=no_session&email=${encodeURIComponent(email)}`,
 		);

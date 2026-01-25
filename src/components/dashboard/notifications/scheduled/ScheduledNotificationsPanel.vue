@@ -141,10 +141,18 @@ async function handleSendNow() {
 		window.location.assign("/dashboard?error=daily_digest_send_failed");
 	} catch (error) {
 		if (error instanceof Error && error.name === "TimeoutError") {
-			rootLogger.error("Daily digest send request timed out", undefined, error);
+			rootLogger.error(
+				"Daily digest send request timed out",
+				{ action: "send_daily_digest_now", reason: "timeout" },
+				error,
+			);
 			window.location.assign("/dashboard?error=daily_digest_timed_out");
 		} else {
-			rootLogger.error("Failed to send daily digest now", undefined, error);
+			rootLogger.error(
+				"Failed to send daily digest now",
+				{ action: "send_daily_digest_now" },
+				error,
+			);
 			window.location.assign("/dashboard?error=daily_digest_send_failed");
 		}
 	} finally {

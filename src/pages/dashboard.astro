@@ -22,7 +22,10 @@ const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
 const authUser = await users.getCurrentUser();
 if (!authUser) {
-	rootLogger.error("Dashboard access attempted without authenticated user");
+	rootLogger.error("Dashboard access attempted without authenticated user", {
+		page: "dashboard",
+		reason: "unauthenticated",
+	});
 	return Astro.redirect("/");
 }
 const [dbUser, userStocks] = await Promise.all([
@@ -44,7 +47,11 @@ try {
 		includeValues: [user.timezone],
 	});
 } catch (error) {
-	rootLogger.error("Failed to load timezone options", undefined, error);
+	rootLogger.error(
+		"Failed to load timezone options",
+		{ userId: user.id, action: "load_timezone_options" },
+		error,
+	);
 	timezoneLoadError = true;
 	timezones = user.timezone
 		? [

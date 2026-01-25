@@ -35,7 +35,9 @@ export const POST: APIRoute = async ({
 
 	const user = await userService.getCurrentUser();
 	if (!user) {
-		logger.info("Tracked stocks update attempt without authenticated user");
+		logger.info("Tracked stocks update attempt without authenticated user", {
+			reason: "unauthenticated",
+		});
 		if (wantsJson) {
 			return Response.json(
 				{ ok: false, message: "unauthorized" },

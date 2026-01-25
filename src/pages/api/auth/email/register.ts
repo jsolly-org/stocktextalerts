@@ -94,7 +94,11 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 			});
 			return redirect("/auth/register?error=user_already_exists");
 		}
-		logger.error("User registration failed", undefined, error);
+		logger.error(
+			"User registration failed",
+			{ email, errorCode: error.code, errorStatus: error.status },
+			error,
+		);
 		return redirect("/auth/register?error=failed");
 	}
 
@@ -115,7 +119,11 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 			});
 
 		if (profileError) {
-			logger.error("Failed to create user profile", undefined, profileError);
+			logger.error(
+				"Failed to create user profile",
+				{ userId: data.user.id, email },
+				profileError,
+			);
 			await cleanupOrphanedAuthUser(adminSupabase, data.user.id, logger);
 			return redirect("/auth/register?error=profile_creation_failed");
 		}

@@ -85,7 +85,10 @@ const {
 	savedTimezone,
 } = toRefs(props);
 
-const emit = defineEmits<(event: "timezone-updated", value: string) => void>();
+const emit = defineEmits<{
+	(event: "timezone-updated", value: string): void;
+	(event: "preferences-updated"): void;
+}>();
 
 const detectedTimezone = computed(() => DateTime.local().zoneName ?? "");
 const savedTimezoneValue = computed(() =>
@@ -200,7 +203,14 @@ async function handleUpdateTimezone() {
 		dismissedForSession.value = true;
 		emit("timezone-updated", detectedTimezone.value);
 	} catch (error) {
-		rootLogger.error("Failed to update timezone from banner", undefined, error);
+		rootLogger.error(
+			"Failed to update timezone from banner",
+			{
+				action: "update_timezone_from_banner",
+				detectedTimezone: detectedTimezone.value,
+			},
+			error,
+		);
 		errorMessage.value = "Failed to update timezone. Please try again.";
 	}
 }
@@ -216,16 +226,20 @@ async function handleDismissPermanently() {
 		});
 
 		if (!response.ok) {
-			rootLogger.error("Failed to dismiss timezone banner permanently");
+			rootLogger.error("Failed to dismiss timezone banner permanently", {
+				action: "dismiss_timezone_banner_permanently",
+				status: response.status,
+			});
 			errorMessage.value = "Failed to dismiss banner. Please try again.";
 			return;
 		}
 
 		dismissedForSession.value = true;
+		emit("preferences-updated");
 	} catch (error) {
 		rootLogger.error(
 			"Failed to dismiss timezone banner permanently",
-			undefined,
+			{ action: "dismiss_timezone_banner_permanently" },
 			error,
 		);
 		errorMessage.value = "Failed to dismiss banner. Please try again.";

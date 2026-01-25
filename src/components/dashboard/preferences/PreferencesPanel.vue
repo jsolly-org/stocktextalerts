@@ -24,6 +24,7 @@
 				:dismiss-timezone-mismatch-prompts="user.dismiss_timezone_mismatch_prompts"
 				:saved-preferences="savedPreferences"
 				@timezone-updated="handleTimezoneUpdated"
+				@preferences-updated="handlePreferencesUpdated"
 			/>
 
 			<NotificationChannelsSection
@@ -97,6 +98,7 @@ const {
 const emit = defineEmits<{
 	(event: "update:emailEnabled", value: boolean): void;
 	(event: "update:smsEnabled", value: boolean): void;
+	(event: "preferences-updated"): void;
 }>();
 
 const sendVerificationDisabled = ref(true);
@@ -177,15 +179,15 @@ function restorePendingSmsState() {
 }
 
 function resolveDefaultTimezone() {
-	if (selectedTimezone.value) {
-		return;
-	}
-
 	const knownValues = new Set(
 		timezones.value.map((timezone) => timezone.value),
 	);
-	const detected = DateTime.local().zoneName ?? "";
+	const selectedValue = selectedTimezone.value;
+	if (selectedValue && knownValues.has(selectedValue)) {
+		return;
+	}
 
+	const detected = DateTime.local().zoneName ?? "";
 	if (detected && knownValues.has(detected)) {
 		selectedTimezone.value = detected;
 		return;
@@ -205,9 +207,12 @@ function handleTimezoneUpdated(newTimezone: string) {
 	selectedTimezone.value = newTimezone;
 }
 
+function handlePreferencesUpdated() {
+	emit("preferences-updated");
+}
+
 watch([emailEnabled, smsEnabled], () => {
 	notifyFormChanged();
-	savePendingSmsState();
 });
 
 watch(hasPendingSmsChanges, () => {
@@ -275,8 +280,6 @@ onMounted(() => {
 			cleanupNavigationWarning = undefined;
 		}
 	});
-
-	notifyFormChanged();
 });
 
 onUnmounted(() => {

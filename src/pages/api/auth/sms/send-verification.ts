@@ -34,7 +34,9 @@ export function createSendVerificationHandler(
 
 		const user = await userService.getCurrentUser();
 		if (!user) {
-			logger.error("SMS verification send attempt without authenticated user");
+			logger.error("SMS verification send attempt without authenticated user", {
+				reason: "unauthenticated",
+			});
 			return redirect("/signin?error=unauthorized");
 		}
 

@@ -110,12 +110,20 @@ export function useAutoSaveForm<T = unknown>(options: AutoSaveOptions) {
 			setStatus(null);
 			savedData.value = (payload.preferences ?? null) as T | null;
 		} catch (error) {
-			if (error instanceof Error && error.name === "TimeoutError") {
+			const reason =
+				error instanceof Error && error.name === "TimeoutError"
+					? "timeout"
+					: "request_failed";
+			if (reason === "timeout") {
 				setStatus("Save timed out. Please try again.", "error");
 			} else {
 				setStatus("Could not save changes. Please try again.", "error");
 			}
-			rootLogger.error("Autosave failed for dashboard form", undefined, error);
+			rootLogger.error(
+				"Autosave failed for dashboard form",
+				{ action: "autosave_preferences", reason },
+				error,
+			);
 		} finally {
 			isSaving.value = false;
 			if (pendingSave) {

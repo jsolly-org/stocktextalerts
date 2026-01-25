@@ -27,6 +27,7 @@ This file captures the non-negotiables for this repo. It is a new app, so we opt
 - **Logging**
   - **Log unexpected redirects**: When a user is redirected due to an error or unexpected condition, log the error with context (user ID, path, reason) to help diagnose issues in production.
   - **Structured logger**: Use `src/lib/logging.ts` (`createLogger`, `logInfo`, `logWarn`, `logError`) which writes JSON entries to `console.*` with `timestamp`, `level`, `message`, optional `context`, and optional `error` (serialized). `requestId` is lifted out of context into its own top-level field.
+  - **Named context objects**: Always pass a named context object for log calls (avoid `{}`/`undefined`/omitting context). Keep the error as the third argument to `error()` when available.
   - **PII masking**: All string fields in log output are passed through `safeJsonStringify`, which masks email/phone patterns when `LOG_MASK_PII` is unset/empty or not `"false"` (default ON). This also handles bigint, Error serialization, and circular references.
 - **Validation & normalization**
   - **Validation**: Minimize trimming/normalization. All client/user input is untrusted; front-end validation is UX-only. Prefer enforcing correctness via database constraints (the primary integrity layer) and handling constraint failures at boundaries; only add application-level validation when inputs do not flow through a constrained database write (e.g., third-party webhooks).

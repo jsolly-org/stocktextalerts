@@ -18,7 +18,11 @@ let timezoneLoadError = false;
 try {
 	timezones = await getTimezoneOptions(supabase);
 } catch (loadError) {
-	rootLogger.error("Failed to load timezone options", undefined, loadError);
+	rootLogger.error(
+		"Failed to load timezone options",
+		{ action: "load_timezone_options", page: "register" },
+		loadError,
+	);
 	timezoneLoadError = true;
 }
 if (error) {

@@ -34,7 +34,9 @@ export function createVerifyCodeHandler(
 
 		const user = await userService.getCurrentUser();
 		if (!user) {
-			logger.error("SMS verification attempt without authenticated user");
+			logger.error("SMS verification attempt without authenticated user", {
+				reason: "unauthenticated",
+			});
 			return redirect("/signin?error=unauthorized");
 		}
 
@@ -87,7 +89,11 @@ export function createVerifyCodeHandler(
 				"/dashboard?success=phone_verified#notification-preferences",
 			);
 		} catch (error) {
-			logger.error("Verify code error", undefined, error);
+			logger.error(
+				"Verify code error",
+				{ userId: user.id, action: "verify_sms_code" },
+				error,
+			);
 			return redirect("/dashboard?error=server_error");
 		}
 	};

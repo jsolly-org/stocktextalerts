@@ -188,7 +188,14 @@ if (success === "true") {
 			try {
 				localStorage.setItem(COOLDOWN_KEY, Date.now().toString());
 			} catch (err) {
-				rootLogger.error("Failed to save cooldown timestamp to localStorage", undefined, err);
+				rootLogger.error(
+					"Failed to save cooldown timestamp to localStorage",
+					{
+						action: "persist_resend_cooldown",
+						storageKey: COOLDOWN_KEY,
+					},
+					err,
+				);
 			}
 		});
 

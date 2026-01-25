@@ -467,7 +467,11 @@ ${sections.join('\n\n')}
 }
 
 main().catch((error) => {
-  rootLogger.error("\n❌ Error generating seed file:", undefined, error);
+  rootLogger.error(
+    "\n❌ Error generating seed file:",
+    { action: "generate_seed_file", seedFile: SEED_FILE },
+    error,
+  );
 
   if (error instanceof SeedError) {
     const hints = ERROR_HINTS[error.code];

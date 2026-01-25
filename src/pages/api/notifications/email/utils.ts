@@ -89,7 +89,11 @@ export function createEmailSender(): EmailSender {
 
 			return { success: true, messageSid: data?.id };
 		} catch (error) {
-			rootLogger.error("Unexpected error sending email", undefined, error);
+			rootLogger.error(
+				"Unexpected error sending email",
+				{ action: "send_email_notification" },
+				error,
+			);
 			return {
 				success: false,
 				error: error instanceof Error ? error.message : String(error),
