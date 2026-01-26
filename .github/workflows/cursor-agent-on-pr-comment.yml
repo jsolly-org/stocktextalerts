@@ -300,6 +300,8 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           BEFORE_SHA="$(git rev-parse HEAD)"
+          AGENT_OUTPUT_FILE=$(mktemp)
+          AGENT_ERROR_FILE=$(mktemp)
 
           PROMPT="$(
             cat <<EOF
@@ -343,28 +345,62 @@ jobs:
           # Use --print for non-interactive runs (enables tool access) and pass the prompt as the
           # positional argument, per Cursor CLI docs.
           # --force is required so the agent can actually execute commands (git/gh) in CI.
-          agent --print --model gpt-5.2 --output-format=text --force "$PROMPT"
+          # Capture both stdout and stderr for better error reporting.
+          echo "Running Cursor agent..."
+          if ! agent --print --model gpt-5.2 --output-format=text --force "$PROMPT" > "$AGENT_OUTPUT_FILE" 2> "$AGENT_ERROR_FILE"; then
+            AGENT_EXIT_CODE=$?
+            echo "##[error]Agent command failed with exit code $AGENT_EXIT_CODE"
+            echo "=== Agent stdout ==="
+            cat "$AGENT_OUTPUT_FILE" || true
+            echo ""
+            echo "=== Agent stderr ==="
+            cat "$AGENT_ERROR_FILE" || true
+            rm -f "$AGENT_OUTPUT_FILE" "$AGENT_ERROR_FILE"
+            exit $AGENT_EXIT_CODE
+          fi
+
+          # Log agent output for debugging
+          echo "=== Agent output ==="
+          cat "$AGENT_OUTPUT_FILE" || true
+          if [[ -s "$AGENT_ERROR_FILE" ]]; then
+            echo "=== Agent stderr ==="
+            cat "$AGENT_ERROR_FILE" || true
+          fi
+
+          # Save agent output for failure reporting
+          AGENT_OUTPUT=$(cat "$AGENT_OUTPUT_FILE" || echo "")
+          rm -f "$AGENT_OUTPUT_FILE" "$AGENT_ERROR_FILE"
 
           # Check for local commits that weren't pushed
           LOCAL_COMMITS=$(git log "$BEFORE_SHA"..HEAD --oneline 2>/dev/null || echo "")
           if [[ -n "$LOCAL_COMMITS" ]]; then
-            echo "Warning: Agent created local commits but may not have pushed them:"
+            echo "##[warning]Agent created local commits but may not have pushed them:"
             echo "$LOCAL_COMMITS"
             echo "Attempting to push local commits..."
-            git push origin "$HEAD_REF" || {
-              echo "Error: Failed to push local commits. This may be a fork PR where GITHUB_TOKEN cannot push."
+            if ! git push origin "$HEAD_REF"; then
+              echo "##[error]Failed to push local commits. This may be a fork PR where GITHUB_TOKEN cannot push."
+              echo "Push error details:"
+              git push origin "$HEAD_REF" 2>&1 || true
               exit 1
-            }
+            fi
           fi
 
           # Treat "no pushed commits" as a failure so we get a visible signal + failure comment.
           git fetch origin "$HEAD_REF"
           AFTER_SHA="$(git rev-parse "origin/$HEAD_REF")"
           if [[ "$AFTER_SHA" == "$BEFORE_SHA" ]]; then
-            echo "Agent completed but did not push any commits (branch unchanged at $AFTER_SHA)."
+            echo "##[error]Agent completed but did not push any commits (branch unchanged at $AFTER_SHA)."
             echo "Before SHA: $BEFORE_SHA"
             echo "After SHA: $AFTER_SHA"
             echo "Local commits: $LOCAL_COMMITS"
+            echo ""
+            echo "Possible reasons:"
+            echo "1. Agent determined the fix was already applied"
+            echo "2. Agent could not make the requested changes"
+            echo "3. Agent encountered an error that prevented committing"
+            echo ""
+            echo "Last 50 lines of agent output:"
+            echo "$AGENT_OUTPUT" | tail -50 || echo "(no agent output captured)"
             exit 1
           fi
 
@@ -373,8 +409,27 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Get the workflow run logs URL for this run
+          RUN_ID="${{ github.run_id }}"
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/$RUN_ID"
+          
+          # Create a more informative failure message
+          FAILURE_BODY=$(cat <<EOF
+          ## ❌ Cursor Agent Failed
+          
+          The Cursor agent failed to process the comment. Check the [workflow logs]($RUN_URL) for details.
+          
+          **Common reasons:**
+          - The requested fix was already applied
+          - The agent could not make the requested changes
+          - An error occurred during execution
+          
+          $INTERNAL_MARKER
+          EOF
+          )
+          
           gh pr comment "${{ steps.pr.outputs.pr_number }}" \
-            --body "Cursor agent failed to process the comment. $INTERNAL_MARKER"
+            --body "$FAILURE_BODY"
 
       - name: Fail job if agent failed
         if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && steps.agent.outcome == 'failure'
