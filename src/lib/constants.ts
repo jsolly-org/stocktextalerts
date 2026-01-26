@@ -91,6 +91,7 @@ type DashboardRedirectOptions = {
 	section?: DashboardSection;
 };
 
+/** Builds a dashboard URL with flash params and an optional section hash. */
 export function buildDashboardRedirect({
 	success,
 	error,
@@ -105,6 +106,7 @@ export function buildDashboardRedirect({
 	return `${url.pathname}${url.search}${hash}`;
 }
 
+/** Maps a `#hash` to a known dashboard section (or `null` if unknown). */
 export function resolveDashboardSectionFromHash(
 	hash: string,
 ): DashboardSection | null {
@@ -268,6 +270,7 @@ export const MESSAGE_ALLOWLIST = {
 
 export type MessageKey = keyof typeof MESSAGE_ALLOWLIST;
 
+/** Returns a human-friendly message for allowlisted keys; otherwise logs and returns empty. */
 export function formatMessage(message: string | null): string {
 	if (!message) return "";
 

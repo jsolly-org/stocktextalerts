@@ -1,6 +1,7 @@
 import twilio, { type RestException } from "twilio";
 import { rootLogger } from "../../../../lib/logging";
 
+/** Normalizes Twilio SDK errors into a user-safe message while logging structured details. */
 function handleTwilioError(
 	error: unknown,
 	defaultMessage: string,
@@ -36,6 +37,7 @@ function handleTwilioError(
 	};
 }
 
+/** Creates a Twilio Verify client using environment-provided credentials. */
 function createVerificationClient(): {
 	client: ReturnType<typeof twilio>;
 	serviceSid: string;
@@ -50,6 +52,7 @@ function createVerificationClient(): {
 	};
 }
 
+/** Requests Twilio Verify to send a new SMS verification code to the phone number. */
 export async function sendVerification(
 	fullPhone: string,
 ): Promise<{ success: boolean; error?: string }> {
@@ -69,6 +72,7 @@ export async function sendVerification(
 	}
 }
 
+/** Checks a submitted SMS code against Twilio Verify and returns approval status. */
 export async function checkVerification(
 	fullPhone: string,
 	code: string,

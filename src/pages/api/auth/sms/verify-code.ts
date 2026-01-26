@@ -21,6 +21,7 @@ const defaultDependencies: SmsVerifyCodeDependencies = {
 	checkVerification,
 };
 
+/** Builds the SMS verification "verify code" API route handler (dependency-injectable for tests). */
 export function createVerifyCodeHandler(
 	overrides: Partial<SmsVerifyCodeDependencies> = {},
 ): APIRoute {
@@ -120,4 +121,5 @@ export function createVerifyCodeHandler(
 	};
 }
 
+/** Astro `POST` handler for verifying a submitted SMS code. */
 export const POST = createVerifyCodeHandler();
