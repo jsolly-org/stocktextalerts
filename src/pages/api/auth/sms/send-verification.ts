@@ -97,7 +97,6 @@ export function createSendVerificationHandler(
 						phone_country_code: phoneCountryCode,
 						phone_number: phoneNationalNumber,
 						phone_verified: false,
-						verification_sent_at: new Date().toISOString(),
 					})
 					.eq("id", dbUser.id)
 					.or(`verification_sent_at.is.null,verification_sent_at.lt.${cutoff}`)
@@ -122,6 +121,10 @@ export function createSendVerificationHandler(
 				logger.error("SMS verification failed", { error: result.error });
 				return redirect(preferencesRedirect({ error: "verification_failed" }));
 			}
+
+			await userService.update(user.id, {
+				verification_sent_at: new Date().toISOString(),
+			});
 
 			return redirect(preferencesRedirect({ success: "verification_sent" }));
 		} catch (error) {
