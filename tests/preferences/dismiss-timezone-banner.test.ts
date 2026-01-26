@@ -22,6 +22,7 @@ describe("POST /api/preferences/dismiss-timezone-banner", () => {
 			timezone: "America/New_York",
 		});
 
+		let cleanupError: Error | undefined;
 		try {
 			const cookies = await createAuthenticatedCookies(
 				testUser.email,
@@ -67,9 +68,13 @@ describe("POST /api/preferences/dismiss-timezone-banner", () => {
 				.delete()
 				.eq("id", testUser.id);
 			if (error) {
-				throw new Error(`Failed to delete test user: ${error.message}`);
+				cleanupError = new Error(
+					`Failed to delete test user: ${error.message}`,
+				);
 			}
 		}
+
+		if (cleanupError) throw cleanupError;
 	});
 
 	it("returns JSON response when Accept header includes application/json", async () => {
@@ -80,6 +85,7 @@ describe("POST /api/preferences/dismiss-timezone-banner", () => {
 			timezone: "America/New_York",
 		});
 
+		let cleanupError: Error | undefined;
 		try {
 			const cookies = await createAuthenticatedCookies(
 				testUser.email,
@@ -127,9 +133,13 @@ describe("POST /api/preferences/dismiss-timezone-banner", () => {
 				.delete()
 				.eq("id", testUser.id);
 			if (error) {
-				throw new Error(`Failed to delete test user: ${error.message}`);
+				cleanupError = new Error(
+					`Failed to delete test user: ${error.message}`,
+				);
 			}
 		}
+
+		if (cleanupError) throw cleanupError;
 	});
 
 	it("redirects to /signin?error=unauthorized when user is not authenticated", async () => {

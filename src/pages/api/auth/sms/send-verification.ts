@@ -104,12 +104,14 @@ export function createSendVerificationHandler(
 
 			if (cooldownUpdateError) throw cooldownUpdateError;
 
-			if (cooldownUpdate.length !== 1) {
+			const rowsAffected = cooldownUpdate.length;
+			if (rowsAffected !== 1) {
 				// Expected rejection (often bots); info to avoid inflating error metrics.
 				logger.info("SMS verification resend blocked due to cooldown", {
 					userId: user.id,
 					sentAt: dbUser.verification_sent_at,
 					cooldownMs: VERIFICATION_RESEND_COOLDOWN_MS,
+					rowsAffected,
 				});
 				return redirect(
 					preferencesRedirect({ warning: "verification_recently_sent" }),
