@@ -1,5 +1,8 @@
 import type { APIRoute } from "astro";
-import { buildDashboardRedirect } from "../../../../lib/constants";
+import {
+	buildDashboardRedirect,
+	VERIFICATION_RESEND_COOLDOWN_MS,
+} from "../../../../lib/constants";
 import { createUserService } from "../../../../lib/db";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
@@ -81,6 +84,22 @@ export function createSendVerificationHandler(
 					userId: user.id,
 				});
 				return redirect(preferencesRedirect({ error: "sms_opted_out" }));
+			}
+
+			if (dbUser.verification_sent_at) {
+				const sentAtMs = new Date(dbUser.verification_sent_at).getTime();
+				const nowMs = Date.now();
+				if (nowMs - sentAtMs < VERIFICATION_RESEND_COOLDOWN_MS) {
+					// Expected rejection (often bots); info to avoid inflating error metrics.
+					logger.info("SMS verification resend blocked due to cooldown", {
+						userId: user.id,
+						sentAt: dbUser.verification_sent_at,
+						cooldownMs: VERIFICATION_RESEND_COOLDOWN_MS,
+					});
+					return redirect(
+						preferencesRedirect({ warning: "verification_recently_sent" }),
+					);
+				}
 			}
 
 			await userService.update(user.id, {

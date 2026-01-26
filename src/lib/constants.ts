@@ -35,6 +35,24 @@ export const STATUS_TONE_CLASSES: Record<StatusTone, string> = {
 };
 
 /* =============
+Time Defaults
+============= */
+
+export const DEFAULT_TIMEZONE = "America/New_York";
+
+/* =============
+SMS Verification Timing
+============= */
+
+export const VERIFICATION_EXPIRATION_MINUTES = 10;
+export const VERIFICATION_EXPIRATION_MS =
+	VERIFICATION_EXPIRATION_MINUTES * 60 * 1000;
+
+export const VERIFICATION_RESEND_COOLDOWN_SECONDS = 60;
+export const VERIFICATION_RESEND_COOLDOWN_MS =
+	VERIFICATION_RESEND_COOLDOWN_SECONDS * 1000;
+
+/* =============
 Card Gradient Accents
 ============= */
 
@@ -105,6 +123,7 @@ const PREFERENCES_KEYS = new Set([
 	"verification_failed",
 	"invalid_code",
 	"code_expired",
+	"verification_recently_sent",
 	"phone_not_set",
 	"failed_to_update_settings",
 	"failed_to_update_timezone",
@@ -200,6 +219,8 @@ export const MESSAGE_ALLOWLIST = {
 		"Password updated successfully! You can now sign in with your new password.",
 	account_deleted: "Your account has been permanently deleted.",
 	verification_sent: "Verification code sent",
+	verification_recently_sent:
+		"A verification code was just sent. Please wait a minute and try again.",
 	verification_failed: "Verification failed. Please try again.",
 	invalid_code: "Invalid verification code. Please try again.",
 	code_expired: "Verification code has expired. Please request a new code.",
