@@ -24,90 +24,30 @@ jobs:
       CURSOR_AGENT_NAME: "Cursor Agent"
       CURSOR_AGENT_EMAIL: "cursoragent@cursor.com"
     steps:
-      - name: Check commenter authorization
-        id: check_auth
+      - name: Check if should skip
+        id: should_skip
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
           COMMENT_USER: ${{ github.event.comment.user.login }}
         run: |
+          SKIP="false"
           REPO="${{ github.repository }}"
 
           # Debug: log the commenter username for troubleshooting
           echo "Commenter username: '$COMMENT_USER'"
           echo "Event name: ${{ github.event_name }}"
 
-          # Validate commenter username is not empty
-          if [[ -z "$COMMENT_USER" ]]; then
-            echo "Skipping: commenter username is empty"
-            echo "authorized=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Compute bot and owner flags before API call to allow early short-circuit
+          # Skip if commenter is not in the allowlist
           OWNER=$(echo "$REPO" | cut -d'/' -f1)
           IS_OWNER=$([[ "$COMMENT_USER" == "$OWNER" ]] && echo "true" || echo "false")
-          # Normalize username to lowercase for comparison (GitHub usernames are case-insensitive)
-          COMMENT_USER_LOWER=$(echo "$COMMENT_USER" | tr '[:upper:]' '[:lower:]')
+          IS_COPILOT_BOT=$([[ "$COMMENT_USER" == "Copilot" ]] && echo "true" || echo "false")
+          IS_CODERABBIT_BOT=$([[ "$COMMENT_USER" == "coderabbitai[bot]" ]] && echo "true" || echo "false")
+          IS_VERCEL_BOT=$([[ "$COMMENT_USER" == "vercel[bot]" ]] && echo "true" || echo "false")
 
-          # Cursor’s GitHub integration posts trigger comments as cursor[bot], which
-          # shows up as permission=none in the collaborators permission API.
-          # Allowlist it explicitly so slash-commands from Cursor can run.
-          IS_CURSOR_BOT=$([[ "$COMMENT_USER_LOWER" == "cursor[bot]" ]] && echo "true" || echo "false")
-
-          # Copilot posts review comments as "Copilot" (permission=none). Allowlist so those can trigger the workflow.
-          IS_COPILOT_BOT=$([[ "$COMMENT_USER_LOWER" == "copilot" ]] && echo "true" || echo "false")
-
-          # CodeRabbit posts review comments as coderabbitai[bot], which also shows up
-          # as permission=none. Allowlist it so CodeRabbit review comments can trigger the workflow.
-          IS_CODERABBIT_BOT=$([[ "$COMMENT_USER_LOWER" == "coderabbitai[bot]" ]] && echo "true" || echo "false")
-
-          # Vercel posts deployment updates (permission=none) and Vercel Agent review comments.
-          # Allowlist vercel[bot] so we can process review comments; "Check if should skip" filters
-          # out status updates (preview links, [vc]:, etc.) and only runs the agent for real reviews.
-          IS_VERCEL_BOT=$([[ "$COMMENT_USER_LOWER" == "vercel[bot]" ]] && echo "true" || echo "false")
-
-          # Short-circuit if user is owner or trusted bot
-          if [[ "$IS_OWNER" == "true" ]] || [[ "$IS_CURSOR_BOT" == "true" ]] || [[ "$IS_COPILOT_BOT" == "true" ]] || [[ "$IS_CODERABBIT_BOT" == "true" ]] || [[ "$IS_VERCEL_BOT" == "true" ]]; then
-            echo "Authorization granted: is_owner=$IS_OWNER, is_cursor_bot=$IS_CURSOR_BOT, is_copilot_bot=$IS_COPILOT_BOT, is_coderabbit_bot=$IS_CODERABBIT_BOT, is_vercel_bot=$IS_VERCEL_BOT"
-            echo "authorized=true" >> "$GITHUB_OUTPUT"
-            exit 0
+          if [[ "$IS_OWNER" != "true" ]] && [[ "$IS_COPILOT_BOT" != "true" ]] && [[ "$IS_CODERABBIT_BOT" != "true" ]] && [[ "$IS_VERCEL_BOT" != "true" ]]; then
+            echo "Skipping: commenter is not in the allowlist"
+            SKIP="true"
           fi
-
-          # Check repository permission level for the commenter
-          # This endpoint returns the permission level (admin, write, read, none)
-          # It also works for organization members with inherited permissions
-          PERMISSION_RESPONSE=$(gh api "repos/$REPO/collaborators/$COMMENT_USER/permission" 2>&1)
-          PERMISSION_EXIT_CODE=$?
-
-          if [[ $PERMISSION_EXIT_CODE -ne 0 ]]; then
-            echo "Skipping: failed to check permissions"
-            echo "API error: $PERMISSION_RESPONSE"
-            echo "authorized=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          PERMISSION=$(echo "$PERMISSION_RESPONSE" | jq -r '.permission // "none"')
-
-          # Allow admin, write, or maintain
-          # Note: 'maintain' permission is also write-level access
-          if [[ "$PERMISSION" == "admin" ]] || [[ "$PERMISSION" == "write" ]] || [[ "$PERMISSION" == "maintain" ]]; then
-            echo "Authorization granted: permission=$PERMISSION"
-            echo "authorized=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "Skipping: permission=$PERMISSION"
-            echo "User $COMMENT_USER does not have admin, write, or maintain permissions"
-            echo "authorized=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-      - name: Check if should skip
-        id: should_skip
-        if: steps.check_auth.outputs.authorized == 'true'
-        env:
-          COMMENT_BODY: ${{ github.event.comment.body }}
-          COMMENT_USER: ${{ github.event.comment.user.login }}
-        run: |
-          SKIP="false"
 
           # Check for internal marker
           if [[ "$COMMENT_BODY" == *"$INTERNAL_MARKER"* ]]; then
@@ -128,6 +68,7 @@ jobs:
           fi
 
           # Skip comments that mention @coderabbitai (unless it's CodeRabbit itself responding).
+          # The owner uses @coderabbitai to request reviews; ignore those replies here.
           if [[ "$COMMENT_BODY" =~ @[Cc]oderabbitai ]]; then
             if [[ "$COMMENT_USER" != "coderabbitai[bot]" ]]; then
               echo "Skipping comment that mentions @coderabbitai from $COMMENT_USER"
@@ -152,17 +93,11 @@ jobs:
             fi
           fi
 
-          # Skip all comments from Cursor bot (autofix and other automated comments).
-          if [[ "$COMMENT_USER" == "cursor[bot]" ]]; then
-            echo "Skipping Cursor bot comment (autofix enabled)"
-            SKIP="true"
-          fi
-
           echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
 
       - name: Extract PR metadata
         id: pr
-        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true'
+        if: steps.should_skip.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -186,10 +121,14 @@ jobs:
             HEAD_REPO=$(echo "$PR_JSON" | jq -r '.head.repo.full_name')
             HEAD_REF=$(echo "$PR_JSON" | jq -r '.head.ref')
             HEAD_SHA=$(echo "$PR_JSON" | jq -r '.head.sha')
+            PR_AUTHOR=$(echo "$PR_JSON" | jq -r '.user.login // ""')
+            IS_AUTHOR=$([[ "$PR_AUTHOR" == "jsolly" ]] && echo "true" || echo "false")
           else
             HEAD_REPO=""
             HEAD_REF=""
             HEAD_SHA=""
+            PR_AUTHOR=""
+            IS_AUTHOR="false"
           fi
 
           {
@@ -201,29 +140,12 @@ jobs:
             echo "comment_user=$COMMENT_USER"
             echo "event_name=$EVENT_NAME"
             echo "is_pr=$IS_PR"
+            echo "pr_author=$PR_AUTHOR"
+            echo "is_author=$IS_AUTHOR"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Pass through comment body
-        id: sanitize_comment
-        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true'
-        env:
-          COMMENT_BODY: ${{ github.event.comment.body }}
-        run: |
-          # Pass comment body through as a multiline output (preserves formatting).
-          DELIM=$(openssl rand -hex 32 2>/dev/null || uuidgen 2>/dev/null || echo "$(date +%s)_$$_$(openssl rand -hex 16 2>/dev/null || echo $RANDOM$RANDOM$RANDOM)")
-          if [[ -z "$DELIM" ]]; then
-            echo "Error: Failed to generate delimiter"
-            exit 1
-          fi
-          {
-            echo "sanitized<<$DELIM" >> "$GITHUB_OUTPUT"
-            printf '%s' "$COMMENT_BODY" >> "$GITHUB_OUTPUT"
-            echo "" >> "$GITHUB_OUTPUT"
-            echo "$DELIM" >> "$GITHUB_OUTPUT"
-          }
-
       - name: Rate limit check
-        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true'
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -311,7 +233,7 @@ jobs:
           fi
 
       - name: Checkout PR head
-        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true'
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
         uses: actions/checkout@v6
         with:
           repository: ${{ steps.pr.outputs.head_repo }}
@@ -319,7 +241,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install Cursor CLI
-        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true'
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
         run: |
           # Per Cursor docs: https://cursor.com/install
           # Supply-chain risk: piping a remote script to bash. We accept this for the official
@@ -329,13 +251,13 @@ jobs:
           echo "$HOME/.cursor/bin" >> $GITHUB_PATH
 
       - name: Configure git identity
-        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true'
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
         run: |
           git config user.name "$CURSOR_AGENT_NAME"
           git config user.email "$CURSOR_AGENT_EMAIL"
 
       - name: Configure git remote for pushing
-        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true'
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HEAD_REPO: ${{ steps.pr.outputs.head_repo }}
@@ -346,7 +268,7 @@ jobs:
           git remote set-url origin "$REMOTE_URL"
 
       - name: Run Cursor agent
-        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true'
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
         id: agent
         continue-on-error: true
         env:
@@ -355,7 +277,7 @@ jobs:
           PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
           COMMENT_ID: ${{ steps.pr.outputs.comment_id }}
           COMMENT_EVENT: ${{ steps.pr.outputs.event_name }}
-          COMMENT_BODY: ${{ steps.sanitize_comment.outputs.sanitized }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
           HEAD_REF: ${{ steps.pr.outputs.head_ref }}
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
           REPO: ${{ github.repository }}
@@ -429,7 +351,7 @@ jobs:
           fi
 
       - name: Report agent failure
-        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true' && steps.agent.outcome == 'failure'
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && steps.agent.outcome == 'failure'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -437,5 +359,5 @@ jobs:
             --body "Cursor agent failed to process the comment. $INTERNAL_MARKER"
 
       - name: Fail job if agent failed
-        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true' && steps.agent.outcome == 'failure'
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && steps.agent.outcome == 'failure'
         run: exit 1
