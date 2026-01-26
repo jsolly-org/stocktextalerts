@@ -46,10 +46,10 @@ jobs:
           WORKFLOW_RUN_URL: ${{ github.event.workflow_run.html_url }}
         run: |
           REPO="${{ github.repository }}"
-          
+
           # Get workflow run details
           RUN_JSON=$(gh api "repos/$REPO/actions/runs/$WORKFLOW_RUN_ID")
-          
+
           # Bail out early for workflow runs from forks/external repos.
           # Fork runs won't have permissions to push fixes back, and external repos are untrusted inputs.
           HEAD_REPO_FORK=$(echo "$RUN_JSON" | jq -r '.head_repository.fork // false')
@@ -66,41 +66,41 @@ jobs:
             echo "Workflow run head repository ($HEAD_REPO) differs from expected repo ($REPO). Skipping automatic fixes."
             exit 0
           fi
-          
+
           HEAD_BRANCH=$(echo "$RUN_JSON" | jq -r '.head_branch // empty')
           HEAD_SHA=$(echo "$RUN_JSON" | jq -r '.head_sha')
-          
+
           # Check commit author to prevent infinite retry loops
           COMMIT_AUTHOR_NAME=$(git log -1 --format='%an' "$HEAD_SHA" 2>/dev/null || echo "")
           COMMIT_AUTHOR_EMAIL=$(git log -1 --format='%ae' "$HEAD_SHA" 2>/dev/null || echo "")
           COMMIT_MESSAGE=$(git log -1 --format='%B' "$HEAD_SHA" 2>/dev/null || echo "")
-          
+
           if [[ "$COMMIT_AUTHOR_NAME" == "$CURSOR_AGENT_NAME" ]] || [[ "$COMMIT_AUTHOR_EMAIL" == "$CURSOR_AGENT_EMAIL" ]]; then
             echo "Commit is from autofix agent. Skipping to prevent infinite retry loop."
             exit 0
           fi
-          
+
           if [[ "$COMMIT_MESSAGE" == *"[skip-autofix]"* ]]; then
             echo "Commit message contains [skip-autofix] marker. Skipping."
             exit 0
           fi
-          
+
           if [[ -z "$HEAD_BRANCH" ]]; then
             echo "Could not determine branch from workflow run. Skipping."
             exit 0
           fi
-          
+
           # Try to find associated PR (may not exist for direct pushes)
           PR_JSON=$(echo "$RUN_JSON" | jq -r '.pull_requests[0] // empty')
           PR_NUMBER=$(echo "$RUN_JSON" | jq -r '.pull_requests[0].number // empty')
-          
+
           # Checkout the branch
           git fetch origin "$HEAD_BRANCH"
           git checkout "$HEAD_BRANCH"
-          
+
           # Download workflow run logs to understand the failure
           gh run view "$WORKFLOW_RUN_ID" --log > /tmp/workflow-logs.txt 2>&1 || true
-          
+
           PROMPT=$(cat <<-PROMPT_END
             You are operating in a GitHub Actions runner.
 
@@ -133,7 +133,7 @@ jobs:
             - If no actionable fix is possible, exit without making changes
           PROMPT_END
           )
-          
+
           export REPO
           export HEAD_BRANCH
           export HEAD_SHA
@@ -142,7 +142,7 @@ jobs:
           if [[ -n "$PR_NUMBER" ]]; then
             export PR_NUMBER
           fi
-          
+
           agent -p "$PROMPT" --model gpt-5.2 --output-format=text || {
             echo "Cursor agent failed or could not fix the issue"
             exit 0

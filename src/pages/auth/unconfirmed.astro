@@ -4,7 +4,7 @@ import { Icon } from "astro-icon/components";
 import HCaptcha from "../../components/HCaptcha.astro";
 import StatusMessage from "../../components/StatusMessage.astro";
 import Layout from "../../layouts/Layout.astro";
-import { formatMessage } from "../../lib/status-messages";
+import { formatMessage } from "../../lib/constants";
 
 const search = Astro.url.searchParams;
 const email = search.get("email");

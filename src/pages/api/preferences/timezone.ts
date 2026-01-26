@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { buildDashboardRedirect } from "../../../lib/dashboard/sections";
+import { buildDashboardRedirect } from "../../../lib/constants";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
@@ -11,6 +11,10 @@ export const POST: APIRoute = async ({
 	redirect,
 	locals,
 }) => {
+	const wantsJson = request.headers
+		.get("accept")
+		?.toLowerCase()
+		.includes("application/json");
 	const url = new URL(request.url);
 	const logger = createLogger({
 		requestId: locals?.requestId,
@@ -26,6 +30,12 @@ export const POST: APIRoute = async ({
 		logger.info("Timezone update attempt without authenticated user", {
 			reason: "unauthenticated",
 		});
+		if (wantsJson) {
+			return Response.json(
+				{ ok: false, message: "unauthorized" },
+				{ status: 401 },
+			);
+		}
 		return redirect("/signin?error=unauthorized");
 	}
 
@@ -40,6 +50,12 @@ export const POST: APIRoute = async ({
 			userId: authUser.id,
 			errors: parsed.allErrors,
 		});
+		if (wantsJson) {
+			return Response.json(
+				{ ok: false, message: "invalid_form" },
+				{ status: 400 },
+			);
+		}
 		return redirect(
 			buildDashboardRedirect({ error: "invalid_form", section: "preferences" }),
 		);
@@ -60,6 +76,12 @@ export const POST: APIRoute = async ({
 			},
 			errorObject,
 		);
+		if (wantsJson) {
+			return Response.json(
+				{ ok: false, message: "failed_to_update_timezone" },
+				{ status: 500 },
+			);
+		}
 		return redirect(
 			buildDashboardRedirect({
 				error: "failed_to_update_timezone",
@@ -68,6 +90,9 @@ export const POST: APIRoute = async ({
 		);
 	}
 
+	if (wantsJson) {
+		return Response.json({ ok: true, message: "timezone_updated" });
+	}
 	return redirect(
 		buildDashboardRedirect({
 			success: "timezone_updated",

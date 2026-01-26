@@ -5,6 +5,7 @@ import DashboardPanels from "../components/dashboard/DashboardPanels.vue";
 import type { StockOption } from "../components/dashboard/stocks/StockInput.vue";
 import Navigation from "../components/Navigation.astro";
 import Layout from "../layouts/Layout.astro";
+import { CARD_GRADIENT_ACCENTS } from "../lib/constants";
 import { createUserService, getUserStocks } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 import { rootLogger } from "../lib/logging";
@@ -78,11 +79,14 @@ const isEditingPhone = url.searchParams.get("change_phone") === "1";
 		<Navigation user={authUser} />
 
 		<div class="max-w-4xl mx-auto px-6 py-12">
-			<div class="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-				<h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
-				<p class="mt-1 text-gray-600">
-					Configure your notification preferences and track stocks.
-				</p>
+			<div class="mb-8 bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+				<div class={`h-1 ${CARD_GRADIENT_ACCENTS.primary}`}></div>
+				<div class="p-6">
+					<h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
+					<p class="mt-1 text-gray-600">
+						Configure your notification preferences and track stocks.
+					</p>
+				</div>
 			</div>
 
 		<DashboardPanels

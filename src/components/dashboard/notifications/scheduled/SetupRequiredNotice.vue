@@ -31,7 +31,7 @@
 
 <script lang="ts" setup>
 import { computed } from "vue";
-import { DASHBOARD_SECTION_HASHES } from "../../../../lib/dashboard/sections";
+import { DASHBOARD_SECTION_HASHES } from "../../../../lib/constants";
 
 interface Props {
 	needsChannelSelection: boolean;

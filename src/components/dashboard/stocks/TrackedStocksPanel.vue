@@ -1,5 +1,7 @@
 <template>
-	<div class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+	<div class="mb-6 bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+		<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.teal}`"></div>
+		<div class="p-6">
 		<h2
 			:id="DASHBOARD_SECTION_IDS.stocks"
 			class="text-2xl font-bold text-gray-900 mb-2"
@@ -58,9 +60,13 @@
 
 		<div>
 			<h3 class="text-lg font-semibold text-gray-900 mb-3">Your Stocks</h3>
-			<p v-if="draftSymbols.length === 0" class="text-gray-500">
-				No stocks tracked yet. Add your first stock above.
-			</p>
+			<div v-if="draftSymbols.length === 0" class="text-center py-8 px-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+				<ChartBarIcon class="mx-auto h-12 w-12 text-gray-400" aria-hidden="true" />
+				<h4 class="mt-4 text-sm font-semibold text-gray-900">No stocks tracked yet</h4>
+				<p class="mt-1 text-sm text-gray-500">
+					Get started by adding your first stock ticker above.
+				</p>
+			</div>
 			<div v-else class="space-y-2">
 				<div
 					v-for="symbol in draftSymbols"
@@ -78,16 +84,21 @@
 				</div>
 			</div>
 		</div>
+		</div>
 	</div>
 </template>
 
 <script lang="ts" setup>
 import { computed, ref, toRefs, watch } from "vue";
-// ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
+// ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles these to Vue components.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
-import { DASHBOARD_SECTION_IDS } from "../../../lib/dashboard/sections";
+import ChartBarIcon from "../../../icons/chart-bar.svg?component";
+import {
+	CARD_GRADIENT_ACCENTS,
+	DASHBOARD_SECTION_IDS,
+	DASHBOARD_STOCKS_STATUS_ID,
+} from "../../../lib/constants";
 import StatusMessage from "../../StatusMessage.vue";
-import { DASHBOARD_STOCKS_STATUS_ID } from "../constants";
 import type { StockOption } from "./StockInput.vue";
 import StockInput from "./StockInput.vue";
 

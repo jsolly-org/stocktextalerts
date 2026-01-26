@@ -246,6 +246,7 @@ export type Database = {
 					sms_opted_out: boolean;
 					timezone: string;
 					updated_at: string;
+					verification_sent_at: string | null;
 				};
 				Insert: {
 					created_at?: string;
@@ -264,6 +265,7 @@ export type Database = {
 					sms_opted_out?: boolean;
 					timezone?: string;
 					updated_at?: string;
+					verification_sent_at?: string | null;
 				};
 				Update: {
 					created_at?: string;
@@ -282,6 +284,7 @@ export type Database = {
 					sms_opted_out?: boolean;
 					timezone?: string;
 					updated_at?: string;
+					verification_sent_at?: string | null;
 				};
 				Relationships: [
 					{

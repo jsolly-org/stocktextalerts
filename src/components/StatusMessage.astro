@@ -1,5 +1,6 @@
 ---
-type StatusTone = "success" | "error" | "warning" | "info";
+import { Icon } from "astro-icon/components";
+import { type StatusTone, STATUS_TONE_CLASSES } from "../lib/constants";
 
 interface Props {
 	message?: string;
@@ -9,17 +10,18 @@ interface Props {
 
 const { message, tone = "info", class: className } = Astro.props;
 
-const toneClasses: Record<StatusTone, string> = {
-	success: "status-tone-success",
-	error: "status-tone-error",
-	warning: "status-tone-warning",
-	info: "status-tone-info",
+const toneIcons: Record<StatusTone, string> = {
+	success: "check-circle-24",
+	error: "exclamation-circle-24",
+	warning: "exclamation-triangle-24",
+	info: "information-circle-20",
 };
 ---
 
 <div
-	class={`rounded-lg border p-4 text-sm font-medium ${toneClasses[tone]} ${className ?? ""}`}
+	class={`rounded-lg border p-4 text-sm font-medium flex items-start gap-3 ${STATUS_TONE_CLASSES[tone]} ${className ?? ""}`}
 	role="alert"
 >
-	{Astro.slots.default ? <slot /> : message}
+	<Icon name={toneIcons[tone]} class="size-5 shrink-0 mt-0.5" aria-hidden="true" />
+	<span>{Astro.slots.default ? <slot /> : message}</span>
 </div>

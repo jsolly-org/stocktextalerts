@@ -1,7 +1,168 @@
 import { MAX_TRACKED_STOCKS } from "./db/database-errors";
 import { rootLogger } from "./logging";
 
-const MESSAGE_ALLOWLIST = {
+/* =============
+Dashboard Form IDs
+============= */
+
+export const DASHBOARD_FORM_ID = "dashboard-preferences-form";
+export const DASHBOARD_STATUS_ID = "dashboard-preferences-save-status";
+export const DASHBOARD_STOCKS_FORM_ID = "dashboard-stocks-form";
+export const DASHBOARD_STOCKS_STATUS_ID = "dashboard-stocks-save-status";
+
+/* =============
+Flash Message Parameters
+============= */
+
+export const FLASH_PARAM_KEYS = [
+	"success",
+	"error",
+	"warning",
+	"change_phone",
+] as const;
+
+/* =============
+Status Message Colors
+============= */
+
+export type StatusTone = "success" | "error" | "warning" | "info";
+
+export const STATUS_TONE_CLASSES: Record<StatusTone, string> = {
+	success: "status-tone-success",
+	error: "status-tone-error",
+	warning: "status-tone-warning",
+	info: "status-tone-info",
+};
+
+/* =============
+Card Gradient Accents
+============= */
+
+export const CARD_GRADIENT_ACCENTS = {
+	primary: "bg-gradient-to-r from-primary via-blue-500 to-primary-soft",
+	success:
+		"bg-gradient-to-r from-success-strong via-green-400 to-success-strong",
+	teal: "bg-gradient-to-r from-teal-500 via-teal-400 to-teal-500",
+	gray: "bg-gradient-to-r from-gray-300 via-gray-400 to-gray-300",
+} as const;
+
+/* =============
+Dashboard Sections
+============= */
+
+export const DASHBOARD_SECTION_IDS = {
+	preferences: "notification-preferences",
+	stocks: "tracked-stocks",
+	scheduled: "scheduled-notifications",
+	preview: "preview-notifications",
+} as const;
+
+export type DashboardSection = keyof typeof DASHBOARD_SECTION_IDS;
+
+export const DASHBOARD_SECTION_HASHES: Record<DashboardSection, string> = {
+	preferences: `#${DASHBOARD_SECTION_IDS.preferences}`,
+	stocks: `#${DASHBOARD_SECTION_IDS.stocks}`,
+	scheduled: `#${DASHBOARD_SECTION_IDS.scheduled}`,
+	preview: `#${DASHBOARD_SECTION_IDS.preview}`,
+};
+
+type DashboardRedirectOptions = {
+	success?: string;
+	error?: string;
+	warning?: string;
+	section?: DashboardSection;
+};
+
+export function buildDashboardRedirect({
+	success,
+	error,
+	warning,
+	section,
+}: DashboardRedirectOptions): string {
+	const url = new URL("/dashboard", "http://localhost");
+	if (success) url.searchParams.set("success", success);
+	if (error) url.searchParams.set("error", error);
+	if (warning) url.searchParams.set("warning", warning);
+	const hash = section ? DASHBOARD_SECTION_HASHES[section] : "";
+	return `${url.pathname}${url.search}${hash}`;
+}
+
+export function resolveDashboardSectionFromHash(
+	hash: string,
+): DashboardSection | null {
+	if (!hash) return null;
+	const section = Object.entries(DASHBOARD_SECTION_HASHES).find(
+		([, sectionHash]) => sectionHash === hash,
+	)?.[0] as DashboardSection | undefined;
+	return section ?? null;
+}
+
+const PREFERENCES_KEYS = new Set([
+	"settings_updated",
+	"timezone_updated",
+	"timezone_banner_dismissed",
+	"phone_verified",
+	"verification_failed",
+	"invalid_code",
+	"code_expired",
+	"phone_not_set",
+	"failed_to_update_settings",
+	"failed_to_update_timezone",
+	"failed_to_dismiss_timezone_banner",
+]);
+
+const STOCKS_KEYS = new Set([
+	"stocks_updated",
+	"stocks_limit",
+	"failed_to_update_stocks",
+]);
+
+const SCHEDULED_KEYS = new Set([
+	"daily_digest_sent",
+	"daily_digest_disabled",
+	"daily_digest_send_failed",
+	"daily_digest_rate_limited",
+	"daily_digest_timed_out",
+	"daily_digest_skip_failed",
+	"daily_digest_skip_update_failed",
+	"notifications_not_configured",
+]);
+
+const PREVIEW_KEYS = new Set([
+	"preview_email_sent",
+	"preview_sms_sent",
+	"preview_rate_limited",
+	"preview_rate_limit_unexpected",
+	"preview_sms_missing_phone",
+	"preview_sms_unverified",
+	"preview_sms_unavailable",
+	"preview_failed",
+	"email_notifications_disabled",
+	"sms_notifications_disabled",
+	"sms_opted_out",
+]);
+
+export function resolveSectionFromKey(
+	messageKey: string | null,
+): DashboardSection | null {
+	if (!messageKey) {
+		return null;
+	}
+	if (PREFERENCES_KEYS.has(messageKey)) return "preferences";
+	if (STOCKS_KEYS.has(messageKey)) return "stocks";
+	if (SCHEDULED_KEYS.has(messageKey)) return "scheduled";
+	if (PREVIEW_KEYS.has(messageKey)) return "preview";
+	if (messageKey === "invalid_form") return "preferences";
+	if (messageKey === "server_error") return "preferences";
+	if (messageKey === "update_failed") return "preferences";
+	return null;
+}
+
+/* =============
+Status Messages
+============= */
+
+export const MESSAGE_ALLOWLIST = {
 	stock_added: "Stock added successfully",
 	stock_removed: "Stock removed successfully",
 	stocks_updated: "Tracked stocks updated successfully",
@@ -41,6 +202,7 @@ const MESSAGE_ALLOWLIST = {
 	verification_sent: "Verification code sent",
 	verification_failed: "Verification failed. Please try again.",
 	invalid_code: "Invalid verification code. Please try again.",
+	code_expired: "Verification code has expired. Please request a new code.",
 	failed_to_add_stock: "Failed to add stock",
 	failed_to_remove_stock: "Failed to remove stock",
 	failed_to_update_stocks: "Failed to update tracked stocks. Please try again.",

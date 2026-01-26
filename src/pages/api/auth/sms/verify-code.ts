@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { buildDashboardRedirect } from "../../../../lib/dashboard/sections";
+import { buildDashboardRedirect } from "../../../../lib/constants";
 import { createUserService } from "../../../../lib/db";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
@@ -79,6 +79,21 @@ export function createVerifyCodeHandler(
 				return redirect(preferencesRedirect({ error: "phone_not_set" }));
 			}
 
+			// Check if verification code has expired (10 minutes)
+			if (userData.verification_sent_at) {
+				const sentAt = new Date(userData.verification_sent_at);
+				const now = new Date();
+				const expirationMinutes = 10;
+				const expirationMs = expirationMinutes * 60 * 1000;
+				if (now.getTime() - sentAt.getTime() > expirationMs) {
+					logger.info("SMS verification code expired", {
+						userId: user.id,
+						sentAt: userData.verification_sent_at,
+					});
+					return redirect(preferencesRedirect({ error: "code_expired" }));
+				}
+			}
+
 			const fullPhone = `${userData.phone_country_code}${userData.phone_number}`;
 			const result = await dependencies.checkVerification(fullPhone, code);
 
@@ -89,6 +104,7 @@ export function createVerifyCodeHandler(
 
 			await userService.update(user.id, {
 				phone_verified: true,
+				verification_sent_at: null,
 			});
 
 			return redirect(preferencesRedirect({ success: "phone_verified" }));

@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
-import { buildDashboardRedirect } from "../../../lib/dashboard/sections";
+import { buildDashboardRedirect } from "../../../lib/constants";
 import {
 	createUserService,
 	omitUndefined,

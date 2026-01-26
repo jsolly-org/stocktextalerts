@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { buildDashboardRedirect } from "../../../lib/dashboard/sections";
+import { buildDashboardRedirect } from "../../../lib/constants";
 import { createUserService } from "../../../lib/db";
 import {
 	isStocksLimitError,
@@ -7,13 +7,13 @@ import {
 	MAX_TRACKED_STOCKS,
 } from "../../../lib/db/database-errors";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
-import {
-	createErrorForLogging,
-	extractErrorMessage,
-} from "../../../lib/errors";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
 import { createLogger } from "../../../lib/logging";
+import {
+	createErrorForLogging,
+	extractErrorMessage,
+} from "../../../lib/logging/errors";
 
 const STOCKS_SCHEMA = {
 	tracked_stocks: { type: "json_string_array", required: true },

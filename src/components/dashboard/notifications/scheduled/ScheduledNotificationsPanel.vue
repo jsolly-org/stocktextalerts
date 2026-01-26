@@ -1,5 +1,7 @@
 <template>
-	<div class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+	<div class="mb-6 bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+		<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.success}`"></div>
+		<div class="p-6">
 		<div class="flex items-start justify-between gap-4">
 			<div>
 				<h2
@@ -42,6 +44,7 @@
 				/>
 			</template>
 		</DailyDigestControls>
+		</div>
 	</div>
 
 	<SendEarlyModal
@@ -55,13 +58,16 @@
 
 <script lang="ts" setup>
 import { computed, ref, toRefs, watch } from "vue";
-import { buildDashboardRedirect, DASHBOARD_SECTION_IDS } from "../../../../lib/dashboard/sections";
+import {
+	buildDashboardRedirect,
+	CARD_GRADIENT_ACCENTS,
+	DASHBOARD_FORM_ID,
+	DASHBOARD_SECTION_IDS,formatMessage 
+} from "../../../../lib/constants";
 import type { User } from "../../../../lib/db";
 import { rootLogger } from "../../../../lib/logging";
-import { formatMessage } from "../../../../lib/status-messages";
 import { minutesToTimeInputValue } from "../../../../lib/time/format";
 import StatusMessage from "../../../StatusMessage.vue";
-import { DASHBOARD_FORM_ID } from "../../constants";
 import DailyDigestControls from "./DailyDigestControls.vue";
 import SendEarlyModal from "./SendEarlyModal.vue";
 import SetupRequiredNotice from "./SetupRequiredNotice.vue";
