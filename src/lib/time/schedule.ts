@@ -22,6 +22,15 @@ function buildLocalDateTime(options: {
 	);
 }
 
+function pickLaterOffset(candidate: DateTime): DateTime {
+	const possibleOffsets = candidate.getPossibleOffsets();
+	if (possibleOffsets.length <= 1) {
+		return candidate;
+	}
+
+	return possibleOffsets[possibleOffsets.length - 1];
+}
+
 export function getLocalDateString(
 	timezone: string,
 	date: DateTime,
@@ -68,6 +77,7 @@ export function calculateNextSendAt(
 		hour: hours,
 		minute: minutes,
 	});
+	candidate = pickLaterOffset(candidate);
 
 	if (!candidate.isValid) {
 		return null;
@@ -75,6 +85,7 @@ export function calculateNextSendAt(
 
 	if (candidate <= current) {
 		candidate = candidate.plus({ days: 1 });
+		candidate = pickLaterOffset(candidate);
 		if (!candidate.isValid) {
 			return null;
 		}

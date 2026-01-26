@@ -42,7 +42,10 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 		const email = parsed.data.email.trim();
 		const captchaToken = parsed.data.captcha_token;
 
-		const redirectTo = new URL("/auth/recover", getSiteUrl()).toString();
+		const redirectTo = new URL(
+			"/auth/recover?type=recovery",
+			getSiteUrl(),
+		).toString();
 
 		const { error } = await supabase.auth.resetPasswordForEmail(email, {
 			redirectTo,

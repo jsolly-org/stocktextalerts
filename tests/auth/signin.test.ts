@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
-import { POST } from "../../../../src/pages/api/auth/signin";
-import { adminClient } from "../../../setup";
-import { createTestUser } from "../../../utils";
+import { POST } from "../../src/pages/api/auth/signin";
+import { adminClient } from "../setup";
+import { createTestUser } from "../utils";
 
 describe("POST /api/auth/signin", () => {
 	it("should successfully sign in with correct email and password", async () => {

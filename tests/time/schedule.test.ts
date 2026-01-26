@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
-import { calculateNextSendAt } from "../../../../src/lib/time/schedule";
+import { calculateNextSendAt } from "../../src/lib/time/schedule";
 
 function formatLocalParts(
 	date: DateTime,
