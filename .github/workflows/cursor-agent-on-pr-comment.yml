@@ -18,7 +18,7 @@ jobs:
   run-agent:
     runs-on: ubuntu-latest
     concurrency:
-      group: cursor-agent-pr-${{ github.event.issue.number || github.event.pull_request.number }}
+      group: cursor-agent-on-pr-comment-${{ github.repository_id }}-pr-${{ github.event.issue.number || github.event.pull_request.number }}
       cancel-in-progress: false
     env:
       INTERNAL_MARKER: "<!-- cursor-agent-workflow:internal -->"
@@ -283,6 +283,14 @@ jobs:
           # Extract owner and repo from HEAD_REPO (format: owner/repo)
           REMOTE_URL="https://${GH_TOKEN}@github.com/${HEAD_REPO}.git"
           git remote set-url origin "$REMOTE_URL"
+
+      - name: Sync to latest head
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
+        env:
+          HEAD_REF: ${{ steps.pr.outputs.head_ref }}
+        run: |
+          git fetch origin "$HEAD_REF"
+          git reset --hard "origin/$HEAD_REF"
 
       - name: Run Cursor agent
         if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
