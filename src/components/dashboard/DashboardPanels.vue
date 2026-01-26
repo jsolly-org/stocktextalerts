@@ -193,6 +193,12 @@ function updateIsEditingPhoneFromUrl() {
 				// Silently fail - PreferencesPanel will handle it
 			}
 		}
+		// Reset the allowChangePhoneNavigation flag when exiting change_phone mode
+		if (!newValue) {
+			(
+				window as Window & { __allowChangePhoneNavigation?: boolean }
+			).__allowChangePhoneNavigation = false;
+		}
 	}
 }
 
