@@ -708,7 +708,7 @@ All hooks should be added to `.cursor/hooks.json` in the following format:
 **Required Formats:**
 - Single-line: `/* ============= Section Title ============= */`
 - Multi-line:
-  ```
+  ```text
   /* =============
   Comment Title
   ============= */

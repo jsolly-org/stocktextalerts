@@ -3,7 +3,7 @@ import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST as POSTDismissBanner } from "../../src/pages/api/preferences/dismiss-timezone-banner";
 import { adminClient, allowConsoleErrors } from "../setup";
-import { cleanupTestUser, createAuthenticatedCookies, createTestUser } from "../utils";
+import { createAuthenticatedCookies, createTestUser } from "../utils";
 
 const toRedirect = (url: string) =>
 	new Response(null, {
@@ -62,7 +62,13 @@ describe("POST /api/preferences/dismiss-timezone-banner", () => {
 			expect(updatedUser).not.toBeNull();
 			expect(updatedUser.dismiss_timezone_mismatch_prompts).toBe(true);
 		} finally {
-			await cleanupTestUser(testUser.id);
+			const { error } = await adminClient
+				.from("users")
+				.delete()
+				.eq("id", testUser.id);
+			if (error) {
+				throw new Error(`Failed to delete test user: ${error.message}`);
+			}
 		}
 	});
 
@@ -116,7 +122,13 @@ describe("POST /api/preferences/dismiss-timezone-banner", () => {
 			expect(updatedUser).not.toBeNull();
 			expect(updatedUser.dismiss_timezone_mismatch_prompts).toBe(true);
 		} finally {
-			await cleanupTestUser(testUser.id);
+			const { error } = await adminClient
+				.from("users")
+				.delete()
+				.eq("id", testUser.id);
+			if (error) {
+				throw new Error(`Failed to delete test user: ${error.message}`);
+			}
 		}
 	});
 
