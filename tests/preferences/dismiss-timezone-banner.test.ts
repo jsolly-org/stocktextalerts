@@ -3,7 +3,7 @@ import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST as POSTDismissBanner } from "../../src/pages/api/preferences/dismiss-timezone-banner";
 import { adminClient, allowConsoleErrors } from "../setup";
-import { createAuthenticatedCookies, createTestUser } from "../utils";
+import { cleanupTestUser, createAuthenticatedCookies, createTestUser } from "../utils";
 
 const toRedirect = (url: string) =>
 	new Response(null, {
@@ -22,44 +22,48 @@ describe("POST /api/preferences/dismiss-timezone-banner", () => {
 			timezone: "America/New_York",
 		});
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		try {
+			const cookies = await createAuthenticatedCookies(
+				testUser.email,
+				TEST_PASSWORD,
+			);
 
-		const request = new Request(
-			"http://localhost/api/preferences/dismiss-timezone-banner",
-			{
-				method: "POST",
-			},
-		);
-
-		const response = await POSTDismissBanner({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const cookie = cookies.get(name);
-					return cookie ? { value: cookie } : undefined;
+			const request = new Request(
+				"http://localhost/api/preferences/dismiss-timezone-banner",
+				{
+					method: "POST",
 				},
-				set: () => {},
-			},
-			redirect: toRedirect,
-		} as unknown as APIContext);
+			);
 
-		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe(
-			"/dashboard?success=timezone_banner_dismissed#notification-preferences",
-		);
+			const response = await POSTDismissBanner({
+				request,
+				cookies: {
+					get: (name: string) => {
+						const cookie = cookies.get(name);
+						return cookie ? { value: cookie } : undefined;
+					},
+					set: () => {},
+				},
+				redirect: toRedirect,
+			} as unknown as APIContext);
 
-		const { data: updatedUser, error } = await adminClient
-			.from("users")
-			.select("dismiss_timezone_mismatch_prompts")
-			.eq("id", testUser.id)
-			.single();
+			expect(response.status).toBe(302);
+			expect(response.headers.get("Location")).toBe(
+				"/dashboard?success=timezone_banner_dismissed#notification-preferences",
+			);
 
-		expect(error).toBeNull();
-		expect(updatedUser).not.toBeNull();
-		expect(updatedUser.dismiss_timezone_mismatch_prompts).toBe(true);
+			const { data: updatedUser, error } = await adminClient
+				.from("users")
+				.select("dismiss_timezone_mismatch_prompts")
+				.eq("id", testUser.id)
+				.single();
+
+			expect(error).toBeNull();
+			expect(updatedUser).not.toBeNull();
+			expect(updatedUser.dismiss_timezone_mismatch_prompts).toBe(true);
+		} finally {
+			await cleanupTestUser(testUser.id);
+		}
 	});
 
 	it("returns JSON response when Accept header includes application/json", async () => {
@@ -70,46 +74,50 @@ describe("POST /api/preferences/dismiss-timezone-banner", () => {
 			timezone: "America/New_York",
 		});
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		try {
+			const cookies = await createAuthenticatedCookies(
+				testUser.email,
+				TEST_PASSWORD,
+			);
 
-		const request = new Request(
-			"http://localhost/api/preferences/dismiss-timezone-banner",
-			{
-				method: "POST",
-				headers: {
-					Accept: "application/json",
+			const request = new Request(
+				"http://localhost/api/preferences/dismiss-timezone-banner",
+				{
+					method: "POST",
+					headers: {
+						Accept: "application/json",
+					},
 				},
-			},
-		);
+			);
 
-		const response = await POSTDismissBanner({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const cookie = cookies.get(name);
-					return cookie ? { value: cookie } : undefined;
+			const response = await POSTDismissBanner({
+				request,
+				cookies: {
+					get: (name: string) => {
+						const cookie = cookies.get(name);
+						return cookie ? { value: cookie } : undefined;
+					},
+					set: () => {},
 				},
-				set: () => {},
-			},
-			redirect: toRedirect,
-		} as unknown as APIContext);
+				redirect: toRedirect,
+			} as unknown as APIContext);
 
-		expect(response.status).toBe(200);
-		const json = await response.json();
-		expect(json).toEqual({ ok: true });
+			expect(response.status).toBe(200);
+			const json = await response.json();
+			expect(json).toEqual({ ok: true });
 
-		const { data: updatedUser, error } = await adminClient
-			.from("users")
-			.select("dismiss_timezone_mismatch_prompts")
-			.eq("id", testUser.id)
-			.single();
+			const { data: updatedUser, error } = await adminClient
+				.from("users")
+				.select("dismiss_timezone_mismatch_prompts")
+				.eq("id", testUser.id)
+				.single();
 
-		expect(error).toBeNull();
-		expect(updatedUser).not.toBeNull();
-		expect(updatedUser.dismiss_timezone_mismatch_prompts).toBe(true);
+			expect(error).toBeNull();
+			expect(updatedUser).not.toBeNull();
+			expect(updatedUser.dismiss_timezone_mismatch_prompts).toBe(true);
+		} finally {
+			await cleanupTestUser(testUser.id);
+		}
 	});
 
 	it("redirects to /signin?error=unauthorized when user is not authenticated", async () => {
