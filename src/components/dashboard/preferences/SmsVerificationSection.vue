@@ -38,10 +38,9 @@
 
 <script lang="ts" setup>
 import { computed, ref, watch } from "vue";
-
+import { DASHBOARD_FORM_ID } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 import StatusMessage from "../../StatusMessage.vue";
-import { DASHBOARD_FORM_ID } from "../constants";
 import SmsCodeVerification from "./SmsCodeVerification.vue";
 import SmsPhoneSetup from "./SmsPhoneSetup.vue";
 

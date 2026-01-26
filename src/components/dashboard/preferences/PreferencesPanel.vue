@@ -1,9 +1,11 @@
 <template>
 	<div
-		class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+		class="mb-6 bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden"
 		data-notification-preferences-card
 		:data-form-id="DASHBOARD_FORM_ID"
 	>
+		<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.primary}`"></div>
+		<div class="p-6">
 		<h2
 			:id="DASHBOARD_SECTION_IDS.preferences"
 			class="text-2xl font-bold text-gray-900 mb-2"
@@ -87,6 +89,7 @@
 				@phone-validity-changed="handlePhoneValidityChanged"
 			/>
 		</div>
+		</div>
 	</div>
 </template>
 
@@ -95,13 +98,17 @@ import { DateTime } from "luxon";
 import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
-import { DASHBOARD_SECTION_IDS } from "../../../lib/dashboard/sections";
+import {
+	CARD_GRADIENT_ACCENTS,
+	DASHBOARD_FORM_ID,
+	DASHBOARD_SECTION_IDS,
+	DASHBOARD_STATUS_ID,
+} from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 import { rootLogger } from "../../../lib/logging";
 import type { TimezoneOption } from "../../../lib/time/cache";
 import { DEFAULT_TIMEZONE } from "../../../lib/time/constants";
 import StatusMessage from "../../StatusMessage.vue";
-import { DASHBOARD_FORM_ID, DASHBOARD_STATUS_ID } from "../constants";
 import NotificationChannelsSection from "./NotificationChannelsSection.vue";
 import TimezoneMismatchBanner from "./TimezoneMismatchBanner.vue";
 import TimezoneSelect from "./TimezoneSelect.vue";

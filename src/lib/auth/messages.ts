@@ -1,4 +1,4 @@
-import { formatMessage } from "../status-messages";
+import { formatMessage } from "../constants";
 
 export function getAuthErrorMessage(error: string | null): string {
 	return formatMessage(error);

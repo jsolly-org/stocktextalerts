@@ -115,18 +115,22 @@ describe("User requests to send daily digest immediately", () => {
 		});
 
 		try {
-			const { data: allowed, error } = await adminClient.rpc(
-				"check_rate_limit",
-				{
-					p_user_id: id,
-					p_endpoint: "daily_digest_now",
-					p_max_requests: 1,
-					p_window_minutes: 60,
-				},
-			);
+			// Exhaust the rate limit by making 5 successful requests (max_requests: 5)
+			// The 6th request (via POST below) should be rate limited
+			for (let i = 0; i < 5; i++) {
+				const { data: allowed, error } = await adminClient.rpc(
+					"check_rate_limit",
+					{
+						p_user_id: id,
+						p_endpoint: "daily_digest_now",
+						p_max_requests: 5,
+						p_window_minutes: 60,
+					},
+				);
 
-			expect(error).toBeNull();
-			expect(allowed).toBe(true);
+				expect(error).toBeNull();
+				expect(allowed).toBe(true);
+			}
 
 			const cookies = await createAuthenticatedCookies(email, TEST_PASSWORD);
 

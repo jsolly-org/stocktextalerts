@@ -8,7 +8,7 @@ import StatusMessage from "../components/StatusMessage.astro";
 import Layout from "../layouts/Layout.astro";
 import { createUserService } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
-import { formatMessage } from "../lib/status-messages";
+import { formatMessage } from "../lib/constants";
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);

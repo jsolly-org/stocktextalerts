@@ -77,20 +77,21 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref, toRefs, watch } from "vue";
 import {
+	DASHBOARD_FORM_ID,
+	DASHBOARD_STOCKS_FORM_ID,
+	type DashboardSection,
+	FLASH_PARAM_KEYS,
+	formatMessage,
 	resolveDashboardSectionFromHash,
-} from "../../lib/dashboard/sections";
+	resolveSectionFromKey,
+} from "../../lib/constants";
 import type { User } from "../../lib/db";
 import { rootLogger } from "../../lib/logging";
-import { formatMessage } from "../../lib/status-messages";
 import type { TimezoneOption } from "../../lib/time/cache";
 import {
 	type PreferencesData,
 	useAutoSaveForm,
 } from "./composables/useAutoSavePreferences";
-import {
-	DASHBOARD_FORM_ID,
-	DASHBOARD_STOCKS_FORM_ID,
-} from "./constants";
 import ScheduledNotificationsPanel from "./notifications/scheduled/ScheduledNotificationsPanel.vue";
 import PreviewPanel from "./PreviewPanel.vue";
 import PreferencesPanel from "./preferences/PreferencesPanel.vue";
@@ -125,29 +126,21 @@ const {
 	warningMessage,
 	timezones,
 	timezoneLoadError,
-	user,
+	user: userProp,
 } = toRefs(props);
+
+// Local reactive copy of user that can be updated after sending verification
+const user = ref<User>({ ...userProp.value });
+
+// Sync with prop changes (e.g., after page reload)
+watch(userProp, (newUser) => {
+	user.value = { ...newUser };
+}, { deep: true });
 
 const emailEnabled = ref(user.value.email_notifications_enabled);
 const smsEnabled = ref(user.value.sms_notifications_enabled);
 const smsOptedOut = computed(() => user.value.sms_opted_out);
 const phoneVerified = computed(() => user.value.phone_verified);
-
-onMounted(() => {
-	const current = new URL(window.location.href);
-	const hasFlash =
-		current.searchParams.has("success") ||
-		current.searchParams.has("error") ||
-		current.searchParams.has("warning");
-	if (!hasFlash) {
-		return;
-	}
-
-	current.searchParams.delete("success");
-	current.searchParams.delete("error");
-	current.searchParams.delete("warning");
-	window.history.replaceState({}, "", current.toString());
-});
 
 watch(
 	() => user.value.email_notifications_enabled,
@@ -162,8 +155,6 @@ watch(
 		smsEnabled.value = newValue;
 	},
 );
-
-const FLASH_PARAM_KEYS = ["success", "error", "warning", "change_phone"] as const;
 
 onMounted(() => {
 	const url = new URL(window.location.href);
@@ -199,6 +190,22 @@ const {
 
 const savedPreferences = savedPreferencesData;
 
+// Update user state when preferences are refreshed
+watch(
+	() => savedPreferencesData.value,
+	(newPreferences) => {
+		if (newPreferences) {
+			user.value = {
+				...user.value,
+				email_notifications_enabled: newPreferences.email_notifications_enabled,
+				sms_notifications_enabled: newPreferences.sms_notifications_enabled,
+				sms_opted_out: newPreferences.sms_opted_out,
+				phone_verified: newPreferences.phone_verified,
+			};
+		}
+	},
+);
+
 type FlashTone = "success" | "error" | "warning";
 type FlashMessage = { tone: FlashTone; message: string };
 
@@ -216,70 +223,13 @@ function createFlashMessage(
 	return { tone, message };
 }
 
-type FlashSection = "preferences" | "stocks" | "scheduled" | "preview";
-
 const explicitSection = (() => {
 	const hash = typeof window !== "undefined" ? window.location.hash : "";
 	return resolveDashboardSectionFromHash(hash);
 })();
 
-const PREFERENCES_KEYS = new Set([
-	"settings_updated",
-	"timezone_updated",
-	"timezone_banner_dismissed",
-	"phone_verified",
-	"verification_failed",
-	"invalid_code",
-	"phone_not_set",
-	"failed_to_update_settings",
-	"failed_to_update_timezone",
-	"failed_to_dismiss_timezone_banner",
-]);
-const STOCKS_KEYS = new Set([
-	"stocks_updated",
-	"stocks_limit",
-	"failed_to_update_stocks",
-]);
-const SCHEDULED_KEYS = new Set([
-	"daily_digest_sent",
-	"daily_digest_disabled",
-	"daily_digest_send_failed",
-	"daily_digest_rate_limited",
-	"daily_digest_timed_out",
-	"daily_digest_skip_failed",
-	"daily_digest_skip_update_failed",
-	"notifications_not_configured",
-]);
-const PREVIEW_KEYS = new Set([
-	"preview_email_sent",
-	"preview_sms_sent",
-	"preview_rate_limited",
-	"preview_rate_limit_unexpected",
-	"preview_sms_missing_phone",
-	"preview_sms_unverified",
-	"preview_sms_unavailable",
-	"preview_failed",
-	"email_notifications_disabled",
-	"sms_notifications_disabled",
-	"sms_opted_out",
-]);
-
-function resolveSectionFromKey(messageKey: string | null): FlashSection | null {
-	if (!messageKey) {
-		return null;
-	}
-	if (PREFERENCES_KEYS.has(messageKey)) return "preferences";
-	if (STOCKS_KEYS.has(messageKey)) return "stocks";
-	if (SCHEDULED_KEYS.has(messageKey)) return "scheduled";
-	if (PREVIEW_KEYS.has(messageKey)) return "preview";
-	if (messageKey === "invalid_form") return "preferences";
-	if (messageKey === "server_error") return "preferences";
-	if (messageKey === "update_failed") return "preferences";
-	return null;
-}
-
 function getFlashMessagesForSection(
-	targetSection: FlashSection,
+	targetSection: DashboardSection,
 	successKey: string | null,
 	errorKey: string | null,
 	warningKey: string | null,
@@ -380,6 +330,22 @@ async function handlePreferencesFormSubmitWrapper(event: SubmitEvent) {
 				res.status === 301 ||
 				res.status === 302
 			) {
+				// After successfully sending verification, update local user state
+				// so the UI switches to the OTP interface immediately
+				if (isSendVerificationSubmission) {
+					const phoneCountryCode = formData.get("phone_country_code") as string;
+					const phoneNumber = formData.get("phone_number") as string;
+					if (phoneCountryCode && phoneNumber) {
+						user.value = {
+							...user.value,
+							phone_country_code: phoneCountryCode,
+							phone_number: phoneNumber,
+							phone_verified: false,
+							sms_notifications_enabled: true,
+							verification_sent_at: new Date().toISOString(),
+						} as User & { verification_sent_at: string };
+					}
+				}
 				const loc = res.headers.get("Location");
 				if (loc) {
 					window.location.href = new URL(loc, window.location.href).href;

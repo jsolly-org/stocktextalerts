@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { buildDashboardRedirect } from "../../../../lib/dashboard/sections";
+import { buildDashboardRedirect } from "../../../../lib/constants";
 import { createUserService } from "../../../../lib/db";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
@@ -88,6 +88,7 @@ export function createSendVerificationHandler(
 				phone_country_code: phoneCountryCode,
 				phone_number: phoneNationalNumber,
 				phone_verified: false,
+				verification_sent_at: new Date().toISOString(),
 			});
 
 			const result = await dependencies.sendVerification(fullPhone);

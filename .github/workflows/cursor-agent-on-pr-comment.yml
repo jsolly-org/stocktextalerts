@@ -54,10 +54,8 @@ jobs:
           # Allowlist it explicitly so slash-commands from Cursor can run.
           IS_CURSOR_BOT=$([[ "$COMMENT_USER_LOWER" == "cursor[bot]" ]] && echo "true" || echo "false")
 
-          # GitHub Copilot posts review comments as github-copilot[bot], which also
-          # shows up as permission=none. Allowlist it so Copilot review comments can trigger the workflow.
-          # Use case-insensitive comparison to handle variations like GitHub-Copilot[bot].
-          IS_COPILOT_BOT=$([[ "$COMMENT_USER_LOWER" == "github-copilot[bot]" ]] && echo "true" || echo "false")
+          # Copilot posts review comments as "Copilot" (permission=none). Allowlist so those can trigger the workflow.
+          IS_COPILOT_BOT=$([[ "$COMMENT_USER_LOWER" == "copilot" ]] && echo "true" || echo "false")
 
           # CodeRabbit posts review comments as coderabbitai[bot], which also shows up
           # as permission=none. Allowlist it so CodeRabbit review comments can trigger the workflow.
@@ -139,7 +137,7 @@ jobs:
 
           # Skip Copilot comments that have no meaningful content.
           # These are empty responses that say "generated no new comments".
-          if [[ "$COMMENT_USER" == "github-copilot[bot]" ]]; then
+          if [[ "$COMMENT_USER" == "Copilot" ]]; then
             if [[ "$COMMENT_BODY" =~ [Gg]enerated[[:space:]]+no[[:space:]]+new[[:space:]]+comments ]]; then
               echo "Skipping Copilot comment with no meaningful feedback (generated no new comments)"
               SKIP="true"

@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { buildDashboardRedirect } from "../../../lib/dashboard/sections";
+import { buildDashboardRedirect } from "../../../lib/constants";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";

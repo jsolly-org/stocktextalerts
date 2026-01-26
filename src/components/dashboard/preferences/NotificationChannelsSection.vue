@@ -57,10 +57,9 @@
 
 <script lang="ts" setup>
 import { computed } from "vue";
-
+import { DASHBOARD_FORM_ID } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 import StatusMessage from "../../StatusMessage.vue";
-import { DASHBOARD_FORM_ID } from "../constants";
 import SmsVerificationSection from "./SmsVerificationSection.vue";
 
 interface Props {

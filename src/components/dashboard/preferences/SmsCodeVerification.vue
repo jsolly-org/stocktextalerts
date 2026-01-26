@@ -17,7 +17,7 @@
 					type="submit"
 					formaction="/api/auth/sms/send-verification"
 					formmethod="post"
-					:disabled="isSendingVerification"
+					:disabled="isSendingVerification || !countdown.canResend"
 					:aria-busy="isSendingVerification"
 					class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-strong transition-colors text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
 				>
@@ -28,6 +28,9 @@
 					/>
 					<span>{{ isSendingVerification ? "Sending..." : "Resend Verification Code" }}</span>
 				</button>
+				<span v-if="!countdown.canResend && !countdown.isExpired" class="text-sm text-gray-600">
+					Resend available in {{ countdown.formattedTime }}
+				</span>
 				<a href="/dashboard?change_phone=1" class="text-sm text-primary hover:underline">
 					Change number
 				</a>
@@ -67,9 +70,10 @@
 <script lang="ts" setup>
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
+import { formatMessage } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
-import { formatMessage } from "../../../lib/status-messages";
 import StatusMessage from "../../StatusMessage.vue";
+import { useVerificationCountdown } from "../composables/useVerificationCountdown";
 import OtpInput from "./OtpInput.vue";
 
 interface Props {
@@ -88,6 +92,11 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<(event: "otp-input") => void>();
+
+// verification_sent_at will be available after database types are regenerated
+const verificationSentAt = (props.user as User & { verification_sent_at?: string | null })
+	.verification_sent_at;
+const countdown = useVerificationCountdown(verificationSentAt);
 
 function emitOtpInput() {
 	emit("otp-input");

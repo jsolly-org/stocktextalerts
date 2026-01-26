@@ -56,7 +56,7 @@
 			}
 		},
 		{
-			"includes": ["src/lib/logging.ts"],
+			"includes": ["src/lib/logging/**/*.ts"],
 			"linter": {
 				"rules": {
 					"suspicious": {

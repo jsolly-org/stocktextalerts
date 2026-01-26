@@ -71,7 +71,7 @@ import { computed, ref, toRefs } from "vue";
 
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../icons/arrow-path.svg?component";
-import { buildDashboardRedirect, DASHBOARD_SECTION_IDS } from "../../lib/dashboard/sections";
+import { buildDashboardRedirect, DASHBOARD_SECTION_IDS } from "../../lib/constants";
 import StatusMessage from "../StatusMessage.vue";
 
 interface Props {
