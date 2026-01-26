@@ -14,9 +14,9 @@
 			</div>
 		</div>
 
-		<div v-if="flashMessages.length" class="space-y-2 mt-4">
+		<div v-if="allFlashMessages.length" class="space-y-2 mt-4">
 			<StatusMessage
-				v-for="(flash, index) in flashMessages"
+				v-for="(flash, index) in allFlashMessages"
 				:key="index"
 				:tone="flash.tone"
 			>
@@ -43,6 +43,14 @@
 			</template>
 		</DailyDigestControls>
 	</div>
+
+	<SendEarlyModal
+		:is-open="sendNowModalOpen"
+		:is-sending="isSending"
+		@close="closeSendNowModal"
+		@send-and-skip-next="sendNowAndSkipNext"
+		@send-without-skipping="sendNowWithoutSkipping"
+	/>
 </template>
 
 <script lang="ts" setup>
@@ -50,10 +58,12 @@ import { computed, ref, toRefs, watch } from "vue";
 import { buildDashboardRedirect, DASHBOARD_SECTION_IDS } from "../../../../lib/dashboard/sections";
 import type { User } from "../../../../lib/db";
 import { rootLogger } from "../../../../lib/logging";
+import { formatMessage } from "../../../../lib/status-messages";
 import { minutesToTimeInputValue } from "../../../../lib/time/format";
 import StatusMessage from "../../../StatusMessage.vue";
 import { DASHBOARD_FORM_ID } from "../../constants";
 import DailyDigestControls from "./DailyDigestControls.vue";
+import SendEarlyModal from "./SendEarlyModal.vue";
 import SetupRequiredNotice from "./SetupRequiredNotice.vue";
 
 interface Props {
@@ -85,6 +95,10 @@ const {
 const dailyDigestEnabled = ref(user.value.daily_digest_enabled);
 const dailyDigestTimeMinutes = ref(user.value.daily_digest_notification_time);
 const isSending = ref(false);
+const sendNowModalOpen = ref(false);
+const localFlashMessages = ref<
+	{ tone: "success" | "error" | "warning"; message: string }[]
+>([]);
 
 const phoneVerificationSectionId = `${DASHBOARD_FORM_ID}-phone-verification-section`;
 
@@ -110,6 +124,11 @@ const sendNowDisabled = computed(
 		isSending.value || needsChannelSelection.value || !dailyDigestEnabled.value,
 );
 
+const allFlashMessages = computed(() => [
+	...flashMessages.value,
+	...localFlashMessages.value,
+]);
+
 const scheduledRedirect = (params: {
 	success?: string;
 	error?: string;
@@ -121,53 +140,106 @@ function notifyFormChanged() {
 	handler();
 }
 
-async function handleSendNow() {
+function closeSendNowModal() {
+	sendNowModalOpen.value = false;
+}
+
+function isNextSendDueSoon(): boolean {
+	const nextSendAt = props.savedPreferences?.next_send_at ?? user.value.next_send_at;
+	if (typeof nextSendAt !== "string") {
+		return false;
+	}
+
+	const dueAtMs = Date.parse(nextSendAt);
+	if (Number.isNaN(dueAtMs)) {
+		return false;
+	}
+
+	const nowMs = Date.now();
+	const dueSoonMs = 24 * 60 * 60 * 1000;
+	return dueAtMs <= nowMs + dueSoonMs;
+}
+
+function showFlashMessage(
+	tone: "success" | "error" | "warning",
+	messageKey: string,
+) {
+	const message = formatMessage(messageKey);
+	if (!message) {
+		return;
+	}
+
+	const existingIndex = localFlashMessages.value.findIndex(
+		(f) => f.tone === tone,
+	);
+	const newMessage = { tone, message };
+
+	if (existingIndex >= 0) {
+		localFlashMessages.value[existingIndex] = newMessage;
+	} else {
+		localFlashMessages.value.push(newMessage);
+	}
+
+	const url = new URL(window.location.href);
+	url.searchParams.set(tone, messageKey);
+	url.hash = "#scheduled";
+	window.history.pushState(window.history.state, document.title, url.toString());
+
+	setTimeout(() => {
+		const index = localFlashMessages.value.findIndex((f) => f.tone === tone);
+		if (index >= 0) {
+			localFlashMessages.value.splice(index, 1);
+		}
+	}, 5000);
+}
+
+async function sendDailyDigestNow(params: { skipNext: boolean }) {
 	if (sendNowDisabled.value) {
 		return;
 	}
+
 	isSending.value = true;
+	closeSendNowModal();
 
 	try {
-		let url = "/api/notifications/daily-digest-now";
-		const nextSendAt =
-			props.savedPreferences?.next_send_at ?? user.value.next_send_at;
-		if (typeof nextSendAt === "string") {
-			const dueAtMs = Date.parse(nextSendAt);
-			if (!Number.isNaN(dueAtMs)) {
-				const nowMs = Date.now();
-				const dueSoonMs = 24 * 60 * 60 * 1000;
-				if (dueAtMs <= nowMs + dueSoonMs) {
-					const shouldSkipNext = window.confirm(
-						"Your next daily digest is scheduled soon. Click OK to send now and skip the next scheduled digest, or Cancel to send now without skipping.",
-					);
-					if (shouldSkipNext) {
-						url = `${url}?skip_next=1`;
-					}
-				}
-			}
-		}
+		const url = params.skipNext
+			? "/api/notifications/daily-digest-now?skip_next=1"
+			: "/api/notifications/daily-digest-now";
 
 		const response = await fetch(url, {
 			method: "POST",
 			credentials: "same-origin",
 			signal: AbortSignal.timeout(10_000),
+			redirect: "manual",
 		});
 
-		if (response.redirected) {
-			window.location.assign(response.url);
-			return;
+		if (response.status >= 300 && response.status < 400) {
+			const location = response.headers.get("Location");
+			if (location) {
+				const redirectUrl = new URL(location, window.location.origin);
+				const successKey = redirectUrl.searchParams.get("success");
+				const errorKey = redirectUrl.searchParams.get("error");
+				const warningKey = redirectUrl.searchParams.get("warning");
+
+				if (successKey) {
+					showFlashMessage("success", successKey);
+				}
+				if (warningKey) {
+					showFlashMessage("warning", warningKey);
+				}
+				if (errorKey) {
+					showFlashMessage("error", errorKey);
+				}
+				return;
+			}
 		}
 
 		if (response.ok) {
-			window.location.assign(
-				scheduledRedirect({ success: "daily_digest_sent" }),
-			);
+			showFlashMessage("success", "daily_digest_sent");
 			return;
 		}
 
-		window.location.assign(
-			scheduledRedirect({ error: "daily_digest_send_failed" }),
-		);
+		showFlashMessage("error", "daily_digest_send_failed");
 	} catch (error) {
 		if (error instanceof Error && error.name === "TimeoutError") {
 			rootLogger.error(
@@ -175,22 +247,39 @@ async function handleSendNow() {
 				{ action: "send_daily_digest_now", reason: "timeout" },
 				error,
 			);
-			window.location.assign(
-				scheduledRedirect({ error: "daily_digest_timed_out" }),
-			);
+			showFlashMessage("error", "daily_digest_timed_out");
 		} else {
 			rootLogger.error(
 				"Failed to send daily digest now",
 				{ action: "send_daily_digest_now" },
 				error,
 			);
-			window.location.assign(
-				scheduledRedirect({ error: "daily_digest_send_failed" }),
-			);
+			showFlashMessage("error", "daily_digest_send_failed");
 		}
 	} finally {
 		isSending.value = false;
 	}
+}
+
+async function sendNowAndSkipNext() {
+	await sendDailyDigestNow({ skipNext: true });
+}
+
+async function sendNowWithoutSkipping() {
+	await sendDailyDigestNow({ skipNext: false });
+}
+
+async function handleSendNow() {
+	if (sendNowDisabled.value) {
+		return;
+	}
+
+	if (isNextSendDueSoon()) {
+		sendNowModalOpen.value = true;
+		return;
+	}
+
+	await sendDailyDigestNow({ skipNext: false });
 }
 
 watch(dailyDigestEnabled, () => {

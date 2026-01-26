@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     concurrency:
       group: cursor-agent-pr-${{ github.event.issue.number || github.event.pull_request.number }}
-      cancel-in-progress: true
+      cancel-in-progress: false
     env:
       INTERNAL_MARKER: "<!-- cursor-agent-workflow:internal -->"
       WORKFLOW_FILE: cursor-agent-on-pr-comment.yml
@@ -336,6 +336,17 @@ jobs:
           git config user.name "$CURSOR_AGENT_NAME"
           git config user.email "$CURSOR_AGENT_EMAIL"
 
+      - name: Configure git remote for pushing
+        if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_REPO: ${{ steps.pr.outputs.head_repo }}
+        run: |
+          # Configure remote URL with token for pushing
+          # Extract owner and repo from HEAD_REPO (format: owner/repo)
+          REMOTE_URL="https://${GH_TOKEN}@github.com/${HEAD_REPO}.git"
+          git remote set-url origin "$REMOTE_URL"
+
       - name: Run Cursor agent
         if: steps.should_skip.outputs.skip != 'true' && steps.check_auth.outputs.authorized == 'true' && steps.pr.outputs.is_pr == 'true'
         id: agent
@@ -396,11 +407,26 @@ jobs:
           # --force is required so the agent can actually execute commands (git/gh) in CI.
           agent --print --model gpt-5.2 --output-format=text --force "$PROMPT"
 
+          # Check for local commits that weren't pushed
+          LOCAL_COMMITS=$(git log "$BEFORE_SHA"..HEAD --oneline 2>/dev/null || echo "")
+          if [[ -n "$LOCAL_COMMITS" ]]; then
+            echo "Warning: Agent created local commits but may not have pushed them:"
+            echo "$LOCAL_COMMITS"
+            echo "Attempting to push local commits..."
+            git push origin "$HEAD_REF" || {
+              echo "Error: Failed to push local commits. This may be a fork PR where GITHUB_TOKEN cannot push."
+              exit 1
+            }
+          fi
+
           # Treat "no pushed commits" as a failure so we get a visible signal + failure comment.
           git fetch origin "$HEAD_REF"
           AFTER_SHA="$(git rev-parse "origin/$HEAD_REF")"
           if [[ "$AFTER_SHA" == "$BEFORE_SHA" ]]; then
             echo "Agent completed but did not push any commits (branch unchanged at $AFTER_SHA)."
+            echo "Before SHA: $BEFORE_SHA"
+            echo "After SHA: $AFTER_SHA"
+            echo "Local commits: $LOCAL_COMMITS"
             exit 1
           fi
 

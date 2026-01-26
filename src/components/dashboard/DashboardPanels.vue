@@ -163,6 +163,23 @@ watch(
 	},
 );
 
+const FLASH_PARAM_KEYS = ["success", "error", "warning", "change_phone"] as const;
+
+onMounted(() => {
+	const url = new URL(window.location.href);
+	for (const key of FLASH_PARAM_KEYS) {
+		url.searchParams.delete(key);
+	}
+	const current = url;
+	if (current.toString() !== window.location.href) {
+		window.history.replaceState(
+			window.history.state,
+			document.title,
+			current.toString(),
+		);
+	}
+});
+
 const preferencesFormElement = ref<HTMLFormElement | null>(null);
 const stocksFormElement = ref<HTMLFormElement | null>(null);
 const isVerifyingCode = ref(false);

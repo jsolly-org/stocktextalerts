@@ -58,7 +58,11 @@ jobs:
             echo "Workflow run is from a fork. Skipping automatic fixes."
             exit 0
           fi
-          if [[ -n "$HEAD_REPO" && "$HEAD_REPO" != "$REPO" ]]; then
+          if [[ -z "$HEAD_REPO" ]]; then
+            echo "Workflow run is missing head repository info. Skipping automatic fixes."
+            exit 0
+          fi
+          if [[ "$HEAD_REPO" != "$REPO" ]]; then
             echo "Workflow run head repository ($HEAD_REPO) differs from expected repo ($REPO). Skipping automatic fixes."
             exit 0
           fi
