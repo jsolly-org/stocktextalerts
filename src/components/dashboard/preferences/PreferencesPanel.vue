@@ -102,12 +102,11 @@ import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_FORM_ID,
 	DASHBOARD_SECTION_IDS,
-	DASHBOARD_STATUS_ID,
+	DASHBOARD_STATUS_ID,DEFAULT_TIMEZONE 
 } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 import { rootLogger } from "../../../lib/logging";
 import type { TimezoneOption } from "../../../lib/time/cache";
-import { DEFAULT_TIMEZONE } from "../../../lib/time/constants";
 import StatusMessage from "../../StatusMessage.vue";
 import NotificationChannelsSection from "./NotificationChannelsSection.vue";
 import TimezoneMismatchBanner from "./TimezoneMismatchBanner.vue";

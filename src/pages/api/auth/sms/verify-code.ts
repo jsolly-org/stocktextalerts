@@ -1,5 +1,8 @@
 import type { APIRoute } from "astro";
-import { buildDashboardRedirect } from "../../../../lib/constants";
+import {
+	buildDashboardRedirect,
+	VERIFICATION_EXPIRATION_MS,
+} from "../../../../lib/constants";
 import { createUserService } from "../../../../lib/db";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
@@ -18,6 +21,7 @@ const defaultDependencies: SmsVerifyCodeDependencies = {
 	checkVerification,
 };
 
+/** Builds the SMS verification "verify code" API route handler (dependency-injectable for tests). */
 export function createVerifyCodeHandler(
 	overrides: Partial<SmsVerifyCodeDependencies> = {},
 ): APIRoute {
@@ -79,13 +83,11 @@ export function createVerifyCodeHandler(
 				return redirect(preferencesRedirect({ error: "phone_not_set" }));
 			}
 
-			// Check if verification code has expired (10 minutes)
+			// Check if verification code has expired.
 			if (userData.verification_sent_at) {
 				const sentAt = new Date(userData.verification_sent_at);
 				const now = new Date();
-				const expirationMinutes = 10;
-				const expirationMs = expirationMinutes * 60 * 1000;
-				if (now.getTime() - sentAt.getTime() > expirationMs) {
+				if (now.getTime() - sentAt.getTime() > VERIFICATION_EXPIRATION_MS) {
 					logger.info("SMS verification code expired", {
 						userId: user.id,
 						sentAt: userData.verification_sent_at,
@@ -119,4 +121,5 @@ export function createVerifyCodeHandler(
 	};
 }
 
+/** Astro `POST` handler for verifying a submitted SMS code. */
 export const POST = createVerifyCodeHandler();

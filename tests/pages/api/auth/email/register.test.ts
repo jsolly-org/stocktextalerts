@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TIMEZONE } from "../../../../../src/lib/time/constants";
+import { DEFAULT_TIMEZONE } from "../../../../../src/lib/constants";
 import { POST } from "../../../../../src/pages/api/auth/email/register";
 import { adminClient } from "../../../../setup";
 

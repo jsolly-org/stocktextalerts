@@ -1,9 +1,9 @@
 import type { APIContext } from "astro";
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { POST } from "../../../../src/pages/api/notifications/scheduled";
-import { adminClient } from "../../../setup";
-import { createTestUser } from "../../../utils";
+import { POST } from "../../src/pages/api/notifications/scheduled";
+import { adminClient } from "../setup";
+import { createTestUser } from "../utils";
 
 describe("Scheduled Notifications Integration", () => {
 	beforeEach(() => {

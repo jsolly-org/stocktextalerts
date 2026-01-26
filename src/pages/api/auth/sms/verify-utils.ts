@@ -11,12 +11,15 @@ function handleTwilioError(
 	// message, and moreInfo.
 	if (error instanceof Error && "status" in error && "code" in error) {
 		const twilioError = error as RestException;
-		rootLogger.error(logPrefix, {
-			message: twilioError.message,
-			code: twilioError.code,
-			status: twilioError.status,
-			moreInfo: twilioError.moreInfo,
-		});
+		rootLogger.error(
+			logPrefix,
+			{
+				code: twilioError.code,
+				status: twilioError.status,
+				moreInfo: twilioError.moreInfo,
+			},
+			twilioError,
+		);
 		return {
 			success: false,
 			error: twilioError.message,
@@ -25,11 +28,14 @@ function handleTwilioError(
 
 	const errorMessage = error instanceof Error ? error.message : defaultMessage;
 	const errorType = error?.constructor?.name || typeof error;
-	rootLogger.error(logPrefix, {
-		error,
-		errorType,
-		message: errorMessage,
-	});
+	rootLogger.error(
+		logPrefix,
+		{
+			errorType,
+			message: errorMessage,
+		},
+		error instanceof Error ? error : undefined,
+	);
 	return {
 		success: false,
 		error: errorMessage,

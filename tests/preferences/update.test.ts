@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
-import { POST } from "../../../../src/pages/api/preferences/update";
-import { adminClient } from "../../../setup";
-import { createAuthenticatedCookies, createTestUser } from "../../../utils";
+import { POST } from "../../src/pages/api/preferences/update";
+import { adminClient } from "../setup";
+import { createAuthenticatedCookies, createTestUser } from "../utils";
 
 describe("POST /api/preferences/update", () => {
 	it("should successfully update user preferences", async () => {

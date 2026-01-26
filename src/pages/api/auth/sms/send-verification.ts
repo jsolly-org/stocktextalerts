@@ -1,5 +1,8 @@
 import type { APIRoute } from "astro";
-import { buildDashboardRedirect } from "../../../../lib/constants";
+import {
+	buildDashboardRedirect,
+	VERIFICATION_RESEND_COOLDOWN_MS,
+} from "../../../../lib/constants";
 import { createUserService } from "../../../../lib/db";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
@@ -83,19 +86,47 @@ export function createSendVerificationHandler(
 				return redirect(preferencesRedirect({ error: "sms_opted_out" }));
 			}
 
-			await userService.update(user.id, {
-				sms_notifications_enabled: true,
-				phone_country_code: phoneCountryCode,
-				phone_number: phoneNationalNumber,
-				phone_verified: false,
-				verification_sent_at: new Date().toISOString(),
-			});
+			const cutoff = new Date(
+				Date.now() - VERIFICATION_RESEND_COOLDOWN_MS,
+			).toISOString();
+			const { data: cooldownUpdate, error: cooldownUpdateError } =
+				await supabase
+					.from("users")
+					.update({
+						sms_notifications_enabled: true,
+						phone_country_code: phoneCountryCode,
+						phone_number: phoneNationalNumber,
+						phone_verified: false,
+					})
+					.eq("id", dbUser.id)
+					.or(`verification_sent_at.is.null,verification_sent_at.lt.${cutoff}`)
+					.select("id");
+
+			if (cooldownUpdateError) throw cooldownUpdateError;
+
+			const rowsAffected = cooldownUpdate.length;
+			if (rowsAffected !== 1) {
+				// Expected rejection (often bots); info to avoid inflating error metrics.
+				logger.info("SMS verification resend blocked due to cooldown", {
+					userId: user.id,
+					sentAt: dbUser.verification_sent_at,
+					cooldownMs: VERIFICATION_RESEND_COOLDOWN_MS,
+					rowsAffected,
+				});
+				return redirect(
+					preferencesRedirect({ warning: "verification_recently_sent" }),
+				);
+			}
 
 			const result = await dependencies.sendVerification(fullPhone);
 			if (!result.success) {
 				logger.error("SMS verification failed", { error: result.error });
 				return redirect(preferencesRedirect({ error: "verification_failed" }));
 			}
+
+			await userService.update(user.id, {
+				verification_sent_at: new Date().toISOString(),
+			});
 
 			return redirect(preferencesRedirect({ success: "verification_sent" }));
 		} catch (error) {

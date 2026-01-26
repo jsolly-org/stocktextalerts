@@ -2,10 +2,10 @@ import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
-import { calculateNextSendAt } from "../../../../src/lib/time/schedule";
-import { POST } from "../../../../src/pages/api/notifications/daily-digest-now";
-import { adminClient, allowConsoleErrors } from "../../../setup";
-import { createAuthenticatedCookies, createTestUser } from "../../../utils";
+import { calculateNextSendAt } from "../../src/lib/time/schedule";
+import { POST } from "../../src/pages/api/notifications/daily-digest-now";
+import { adminClient, allowConsoleErrors } from "../setup";
+import { createAuthenticatedCookies, createTestUser } from "../utils";
 
 const TEST_PASSWORD = "TestPassword123!";
 

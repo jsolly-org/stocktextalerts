@@ -9,10 +9,10 @@ import { createLogger } from "../../../lib/logging";
 
 const MIN_PASSWORD_LENGTH = 8;
 
-function buildRecoverRedirect(error: string, token?: string | null) {
+function buildRecoverRedirect(error: string, tokenHash?: string | null) {
 	const params = new URLSearchParams({ error, type: "recovery" });
-	if (token) {
-		params.set("token", token);
+	if (tokenHash) {
+		params.set("token_hash", tokenHash);
 	}
 	return `/auth/recover?${params.toString()}`;
 }
@@ -28,7 +28,7 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 	const parsed = parseWithSchema(formData, {
 		password: { type: "string", required: true, trim: false },
 		confirm: { type: "string", required: true, trim: false },
-		token: { type: "string", required: true },
+		token_hash: { type: "string", required: true },
 	} as const);
 
 	if (!parsed.ok) {
@@ -38,13 +38,13 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 		return redirect(buildRecoverRedirect("invalid_form"), 303);
 	}
 
-	const { password, confirm, token } = parsed.data;
+	const { password, confirm, token_hash: tokenHash } = parsed.data;
 
 	if (password !== confirm) {
 		logger.info("Password reset rejected: password mismatch", {
-			tokenProvided: !!token,
+			tokenProvided: !!tokenHash,
 		});
-		return redirect(buildRecoverRedirect("password_mismatch", token), 303);
+		return redirect(buildRecoverRedirect("password_mismatch", tokenHash), 303);
 	}
 
 	// Validate password strength before consuming the token
@@ -57,15 +57,15 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 		logger.info("Password reset rejected: password too short", {
 			passwordLength: password.length,
 			minLength: MIN_PASSWORD_LENGTH,
-			tokenProvided: !!token,
+			tokenProvided: !!tokenHash,
 		});
-		return redirect(buildRecoverRedirect("weak_password", token), 303);
+		return redirect(buildRecoverRedirect("weak_password", tokenHash), 303);
 	}
 
 	const supabase = createSupabaseServerClient();
 
 	const { data, error } = await verifySupabaseOtp(supabase, {
-		token_hash: token,
+		token_hash: tokenHash,
 		type: "recovery",
 	});
 
@@ -78,10 +78,10 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 		});
 
 		if (errorCode === "otp_expired") {
-			return redirect(buildRecoverRedirect("expired", token), 303);
+			return redirect(buildRecoverRedirect("expired", tokenHash), 303);
 		}
 
-		return redirect(buildRecoverRedirect("invalid_token", token), 303);
+		return redirect(buildRecoverRedirect("invalid_token", tokenHash), 303);
 	}
 
 	const adminClient = createSupabaseAdminClient();

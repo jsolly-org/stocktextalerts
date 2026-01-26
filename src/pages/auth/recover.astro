@@ -7,12 +7,12 @@ import Layout from "../../layouts/Layout.astro";
 import { formatMessage } from "../../lib/constants";
 
 const search = Astro.url.searchParams;
-const token = search.get("token");
+const tokenHash = search.get("token_hash");
 const type = search.get("type");
 const error = search.get("error");
 let message = "";
 let showResetLink = false;
-const hasValidToken = Boolean(token) && type === "recovery";
+const hasValidToken = Boolean(tokenHash) && type === "recovery";
 let showForm = hasValidToken;
 
 function setInvalidLinkState(msg: string) {
@@ -32,7 +32,7 @@ if (!hasValidToken) {
 			setInvalidLinkState(formatMessage("invalid_token"));
 			break;
 		default:
-			message = formatMessage(error);
+			message = formatMessage(error) || formatMessage("failed");
 	}
 }
 ---
@@ -61,7 +61,7 @@ if (!hasValidToken) {
 
         {showForm && (
           <form id="reset-form" class="space-y-4" action="/api/auth/update-password" method="post">
-            <input type="hidden" name="token" value={token ?? ""} />
+            <input type="hidden" name="token_hash" value={tokenHash ?? ""} />
             <div>
               <label for="password" class="block text-sm font-medium text-gray-700 mb-2">New password</label>
               <input

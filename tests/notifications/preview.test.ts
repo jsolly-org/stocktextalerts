@@ -1,9 +1,9 @@
 import { randomInt, randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
-import { POST } from "../../../../src/pages/api/notifications/preview";
-import { adminClient } from "../../../setup";
-import { createAuthenticatedCookies, createTestUser } from "../../../utils";
+import { POST } from "../../src/pages/api/notifications/preview";
+import { adminClient } from "../setup";
+import { createAuthenticatedCookies, createTestUser } from "../utils";
 
 const TEST_PASSWORD = "TestPassword123!";
 

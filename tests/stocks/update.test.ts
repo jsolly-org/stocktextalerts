@@ -1,20 +1,33 @@
 import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
-import { describe, expect, it } from "vitest";
-import { MAX_TRACKED_STOCKS } from "../../../../src/lib/db/database-errors";
-import { rootLogger } from "../../../../src/lib/logging";
-import { POST } from "../../../../src/pages/api/stocks/update";
-import { adminClient } from "../../../setup";
+import { afterEach, describe, expect, it } from "vitest";
+import { MAX_TRACKED_STOCKS } from "../../src/lib/db/database-errors";
+import { rootLogger } from "../../src/lib/logging";
+import { POST } from "../../src/pages/api/stocks/update";
+import { adminClient } from "../setup";
 import {
 	type CreateTestUserOptions,
+	cleanupTestUser,
 	createAuthenticatedCookies,
 	createTestUser,
 	getRealStockSymbols,
 	getStockData,
 	type TestUser,
-} from "../../../utils";
+} from "../utils";
 
 const TEST_PASSWORD = "TestPassword123!";
+const createdUserIds: string[] = [];
+
+afterEach(async () => {
+	if (createdUserIds.length === 0) {
+		return;
+	}
+
+	const userIds = createdUserIds.splice(0, createdUserIds.length);
+	for (const userId of userIds) {
+		await cleanupTestUser(userId);
+	}
+});
 
 type UserNotificationPreferences = {
 	email_notifications_enabled: boolean;
@@ -42,6 +55,7 @@ async function updateTrackedStocks(
 		trackedStocks: initialStocks,
 		...userOverrides,
 	});
+	createdUserIds.push(testUser.id);
 
 	const { error: confirmError } = await adminClient.auth.admin.updateUserById(
 		testUser.id,
@@ -224,7 +238,6 @@ describe("POST /api/stocks/update", () => {
 				exchange: stockData.exchange,
 			};
 		});
-		let testUserForCleanup: TestUser | undefined;
 
 		const { error: insertError } = await adminClient
 			.from("stocks")
@@ -235,40 +248,14 @@ describe("POST /api/stocks/update", () => {
 			const initialStocks = seedSymbols.slice(0, MAX_TRACKED_STOCKS);
 			const stocksExceedingLimit = seedSymbols.slice(0, MAX_TRACKED_STOCKS + 1);
 
-			const { response, trackedStocks, redirectUrl, testUser } =
+			const { response, trackedStocks, redirectUrl } =
 				await updateTrackedStocks(initialStocks, stocksExceedingLimit);
-			testUserForCleanup = testUser;
 
 			expect(redirectUrl).toBe("/dashboard?error=stocks_limit#tracked-stocks");
 			expect(response.status).toBe(302);
 
 			expect(trackedStocks).toHaveLength(MAX_TRACKED_STOCKS);
 		} finally {
-			if (testUserForCleanup) {
-				const { error: userStocksError } = await adminClient
-					.from("user_stocks")
-					.delete()
-					.eq("user_id", testUserForCleanup.id);
-				if (userStocksError) {
-					rootLogger.warn("Cleanup failed (user_stocks)", {
-						error: userStocksError,
-					});
-				}
-
-				const { error: userRowError } = await adminClient
-					.from("users")
-					.delete()
-					.eq("id", testUserForCleanup.id);
-				if (userRowError) {
-					rootLogger.warn("Cleanup failed (users)", { error: userRowError });
-				}
-
-				const { error: authDeleteError } =
-					await adminClient.auth.admin.deleteUser(testUserForCleanup.id);
-				if (authDeleteError) {
-					rootLogger.warn("Cleanup failed (auth)", { error: authDeleteError });
-				}
-			}
 			const { error: stockDeleteError } = await adminClient
 				.from("stocks")
 				.delete()
