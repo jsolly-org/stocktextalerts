@@ -77,8 +77,11 @@
 						class="animate-spin size-4 shrink-0"
 						aria-hidden="true"
 					/>
-					<span>{{ isSending ? "Sending..." : "Send now" }}</span>
+					<span>{{ isSending ? "Sending..." : "Send early" }}</span>
 				</button>
+				<p class="mt-1 text-xs text-gray-600">
+					Sends an extra digest immediately (earlier than your scheduled time).
+				</p>
 			</div>
 		</div>
 	</div>

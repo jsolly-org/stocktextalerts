@@ -104,7 +104,7 @@ export const POST: APIRoute = async ({
 			await supabaseAdmin.rpc("check_rate_limit", {
 				p_user_id: user.id,
 				p_endpoint: "daily_digest_now",
-				p_max_requests: 1,
+				p_max_requests: 5,
 				p_window_minutes: 60,
 			});
 
