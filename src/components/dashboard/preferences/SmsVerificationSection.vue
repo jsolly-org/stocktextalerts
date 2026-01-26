@@ -13,6 +13,7 @@
 				<legend class="sr-only">Phone Verification</legend>
 
 				<SmsPhoneSetup
+					ref="phoneSetupRef"
 					v-if="isPhoneSetup"
 					:user="user"
 					:send-verification-disabled="sendVerificationDisabled"
@@ -37,7 +38,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { DASHBOARD_FORM_ID } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 import StatusMessage from "../../StatusMessage.vue";
@@ -69,6 +70,7 @@ const sendVerificationButtonId = `${DASHBOARD_FORM_ID}-send-verification-button`
 const smsVerificationCodeId = `${DASHBOARD_FORM_ID}-sms-verification-code`;
 
 const formSubmitted = ref(false);
+const phoneSetupRef = ref<{ focus: () => void } | null>(null);
 
 const isPhoneSetup = computed(() => {
 	return (
@@ -91,6 +93,20 @@ watch(
 	(isVerifying) => {
 		if (isVerifying) {
 			formSubmitted.value = true;
+		}
+	},
+);
+
+// Focus phone input when entering change phone mode
+watch(
+	() => props.isEditingPhone,
+	async (isEditing) => {
+		if (isEditing && isPhoneSetup.value) {
+			// Wait for transition and component to render
+			await nextTick();
+			setTimeout(() => {
+				phoneSetupRef.value?.focus();
+			}, 250);
 		}
 	},
 );

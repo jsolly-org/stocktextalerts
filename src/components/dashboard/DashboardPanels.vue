@@ -75,7 +75,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref, toRefs, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
 import {
 	DASHBOARD_FORM_ID,
 	DASHBOARD_STOCKS_FORM_ID,
@@ -119,7 +119,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const {
 	initialSymbols,
-	isEditingPhone,
+	isEditingPhone: isEditingPhoneProp,
 	stockOptions,
 	successMessage,
 	errorMessage,
@@ -128,6 +128,9 @@ const {
 	timezoneLoadError,
 	user: userProp,
 } = toRefs(props);
+
+// Local reactive state for isEditingPhone that can be updated from URL changes
+const isEditingPhone = ref(isEditingPhoneProp.value);
 
 // Local reactive copy of user that can be updated after sending verification
 const user = ref<User>({ ...userProp.value });
@@ -138,6 +141,7 @@ watch(userProp, (newUser) => {
 }, { deep: true });
 
 const emailEnabled = ref(user.value.email_notifications_enabled);
+// Initialize smsEnabled, but allow PreferencesPanel to restore pending state
 const smsEnabled = ref(user.value.sms_notifications_enabled);
 const smsOptedOut = computed(() => user.value.sms_opted_out);
 const phoneVerified = computed(() => user.value.phone_verified);
@@ -149,12 +153,48 @@ watch(
 	},
 );
 
+// Track if we've restored pending SMS state to avoid overwriting it
+let hasRestoredPendingSms = false;
+
 watch(
 	() => user.value.sms_notifications_enabled,
 	(newValue) => {
+		// Don't overwrite if we've restored pending state and the new value is false
+		// (this means the server has false because phone isn't verified, but we want to keep it enabled)
+		if (hasRestoredPendingSms && !newValue && smsEnabled.value) {
+			return;
+		}
 		smsEnabled.value = newValue;
 	},
 );
+
+// Watch for when PreferencesPanel restores pending SMS state
+watch(smsEnabled, (newValue) => {
+	if (newValue && !user.value.phone_verified) {
+		hasRestoredPendingSms = true;
+	}
+});
+
+function updateIsEditingPhoneFromUrl() {
+	const url = new URL(window.location.href);
+	const newValue = url.searchParams.get("change_phone") === "1";
+	if (isEditingPhone.value !== newValue) {
+		isEditingPhone.value = newValue;
+		// Restore pending SMS state if entering change phone mode
+		if (newValue && !user.value.phone_verified) {
+			try {
+				const storageKey = `pending_sms_enabled:${user.value.id}`;
+				const pendingSmsState = sessionStorage.getItem(storageKey);
+				if (pendingSmsState === "true") {
+					smsEnabled.value = true;
+					hasRestoredPendingSms = true;
+				}
+			} catch (error) {
+				// Silently fail - PreferencesPanel will handle it
+			}
+		}
+	}
+}
 
 onMounted(() => {
 	const url = new URL(window.location.href);
@@ -169,6 +209,19 @@ onMounted(() => {
 			current.toString(),
 		);
 	}
+
+	// Listen for URL changes from client-side navigation
+	window.addEventListener("dashboard-url-changed", updateIsEditingPhoneFromUrl);
+	// Also listen for browser back/forward navigation
+	window.addEventListener("popstate", updateIsEditingPhoneFromUrl);
+
+	// Initial check for pending SMS state
+	updateIsEditingPhoneFromUrl();
+});
+
+onUnmounted(() => {
+	window.removeEventListener("dashboard-url-changed", updateIsEditingPhoneFromUrl);
+	window.removeEventListener("popstate", updateIsEditingPhoneFromUrl);
 });
 
 const preferencesFormElement = ref<HTMLFormElement | null>(null);

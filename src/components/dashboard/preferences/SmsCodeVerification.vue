@@ -26,12 +26,21 @@
 						class="animate-spin size-4 shrink-0"
 						aria-hidden="true"
 					/>
-					<span>{{ isSendingVerification ? "Sending..." : "Resend Verification Code" }}</span>
+					<span>
+						{{
+							isSendingVerification
+								? "Sending..."
+								: !canResend
+									? `Resend (${formattedResendTime})`
+									: "Resend Verification Code"
+						}}
+					</span>
 				</button>
-				<span v-if="!canResend" class="text-sm text-gray-600">
-					Resend available in {{ formattedResendTime }}
-				</span>
-				<a href="/dashboard?change_phone=1" class="text-sm text-primary hover:underline">
+				<a
+					href="/dashboard?change_phone=1"
+					class="text-sm text-primary hover:underline"
+					@click.prevent="handleChangeNumberClick"
+				>
 					Change number
 				</a>
 			</div>
@@ -179,5 +188,27 @@ onUnmounted(() => {
 
 function emitOtpInput() {
 	emit("otp-input");
+}
+
+function handleChangeNumberClick() {
+	// Ensure pending SMS state is saved before navigation
+	// The state should already be saved via watch(hasPendingSmsChanges), but ensure it's persisted
+	try {
+		const storageKey = `pending_sms_enabled:${props.user.id}`;
+		const hasPending = !props.user.phone_verified; // Simplified check - if phone not verified and SMS enabled, there's pending state
+		if (hasPending) {
+			sessionStorage.setItem(storageKey, "true");
+		}
+	} catch (error) {
+		// Silently fail - state should already be saved
+	}
+	// Set flag to allow navigation without beforeunload warning
+	(window as Window & { __allowChangePhoneNavigation?: boolean }).__allowChangePhoneNavigation = true;
+	// Update URL using pushState for client-side navigation (no page reload)
+	const url = new URL(window.location.href);
+	url.searchParams.set("change_phone", "1");
+	window.history.pushState(window.history.state, document.title, url.toString());
+	// Dispatch a custom event to notify DashboardPanels to update isEditingPhone state
+	window.dispatchEvent(new CustomEvent("dashboard-url-changed"));
 }
 </script>

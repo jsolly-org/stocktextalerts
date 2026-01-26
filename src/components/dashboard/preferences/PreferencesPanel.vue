@@ -248,6 +248,9 @@ function restorePendingSmsState() {
 				},
 			);
 		}
+	} else if (isEditingPhone.value && pendingSmsState === "true") {
+		// Restore pending SMS state when entering change phone mode
+		smsEnabled.value = true;
 	}
 }
 
@@ -293,9 +296,9 @@ watch(hasPendingSmsChanges, () => {
 });
 
 watch(
-	[isClient, () => user.value.phone_verified],
-	([client, isVerified]) => {
-		if (client && isVerified) {
+	[isClient, () => user.value.phone_verified, isEditingPhone],
+	([client, isVerified, editingPhone]) => {
+		if (client && (isVerified || editingPhone)) {
 			restorePendingSmsState();
 		}
 	},
@@ -312,6 +315,11 @@ function setupNavigationWarning() {
 	}
 
 	function handleBeforeUnload(event: BeforeUnloadEvent) {
+		// Allow navigation to change_phone=1 without warning
+		const allowChangePhone = (window as Window & { __allowChangePhoneNavigation?: boolean }).__allowChangePhoneNavigation;
+		if (allowChangePhone) {
+			return;
+		}
 		event.preventDefault();
 		event.returnValue = "";
 		return "";
