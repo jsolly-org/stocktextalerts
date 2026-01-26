@@ -178,8 +178,19 @@ watch(smsEnabled, (newValue) => {
 function updateIsEditingPhoneFromUrl() {
 	const url = new URL(window.location.href);
 	const newValue = url.searchParams.get("change_phone") === "1";
+
+	// Reset the allowChangePhoneNavigation flag when exiting change_phone mode.
+	// This intentionally happens even if `isEditingPhone` is already `false` so the
+	// bypass can't persist across unrelated URL changes.
+	if (!newValue) {
+		(
+			window as Window & { __allowChangePhoneNavigation?: boolean }
+		).__allowChangePhoneNavigation = false;
+	}
+
 	if (isEditingPhone.value !== newValue) {
 		isEditingPhone.value = newValue;
+
 		// Restore pending SMS state if entering change phone mode
 		if (newValue && !user.value.phone_verified) {
 			try {
@@ -192,12 +203,6 @@ function updateIsEditingPhoneFromUrl() {
 			} catch (error) {
 				// Silently fail - PreferencesPanel will handle it
 			}
-		}
-		// Reset the allowChangePhoneNavigation flag when exiting change_phone mode
-		if (!newValue) {
-			(
-				window as Window & { __allowChangePhoneNavigation?: boolean }
-			).__allowChangePhoneNavigation = false;
 		}
 	}
 }
