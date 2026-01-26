@@ -5,6 +5,8 @@ on:
     types: [created]
   pull_request_review_comment:
     types: [created]
+  pull_request_review:
+    types: [submitted]
 
 permissions:
   contents: write
@@ -27,8 +29,8 @@ jobs:
       - name: Check if should skip
         id: should_skip
         env:
-          COMMENT_BODY: ${{ github.event.comment.body }}
-          COMMENT_USER: ${{ github.event.comment.user.login }}
+          COMMENT_BODY: ${{ github.event.comment.body || github.event.review.body }}
+          COMMENT_USER: ${{ github.event.comment.user.login || github.event.review.user.login }}
         run: |
           SKIP="false"
           REPO="${{ github.repository }}"
@@ -93,6 +95,14 @@ jobs:
             fi
           fi
 
+          # Skip pull_request_review events without a body (approvals/rejections with no comment).
+          if [[ "${{ github.event_name }}" == "pull_request_review" ]]; then
+            if [[ -z "$COMMENT_BODY" ]] || [[ "$COMMENT_BODY" == "null" ]]; then
+              echo "Skipping review without body (approval/rejection with no comment)"
+              SKIP="true"
+            fi
+          fi
+
           echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
 
       - name: Extract PR metadata
@@ -103,15 +113,22 @@ jobs:
         run: |
           REPO="${{ github.repository }}"
           EVENT_NAME="${{ github.event_name }}"
-          COMMENT_ID="${{ github.event.comment.id }}"
-          COMMENT_USER="${{ github.event.comment.user.login }}"
-
-          if [[ "$EVENT_NAME" == "issue_comment" ]]; then
+          
+          if [[ "$EVENT_NAME" == "pull_request_review" ]]; then
+            COMMENT_ID="${{ github.event.review.id }}"
+            COMMENT_USER="${{ github.event.review.user.login }}"
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            IS_PR="true"
+          elif [[ "$EVENT_NAME" == "issue_comment" ]]; then
+            COMMENT_ID="${{ github.event.comment.id }}"
+            COMMENT_USER="${{ github.event.comment.user.login }}"
             PR_NUMBER="${{ github.event.issue.number }}"
             # github.event.issue.pull_request.url is only present when the issue is a PR
             PULL_REQUEST_URL="${{ github.event.issue.pull_request.url }}"
             IS_PR=$([[ -n "$PULL_REQUEST_URL" && "$PULL_REQUEST_URL" != "null" ]] && echo "true" || echo "false")
           else
+            COMMENT_ID="${{ github.event.comment.id }}"
+            COMMENT_USER="${{ github.event.comment.user.login }}"
             PR_NUMBER="${{ github.event.pull_request.number }}"
             IS_PR="true"
           fi
@@ -277,7 +294,7 @@ jobs:
           PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
           COMMENT_ID: ${{ steps.pr.outputs.comment_id }}
           COMMENT_EVENT: ${{ steps.pr.outputs.event_name }}
-          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_BODY: ${{ github.event.comment.body || github.event.review.body }}
           HEAD_REF: ${{ steps.pr.outputs.head_ref }}
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
           REPO: ${{ github.repository }}
@@ -311,6 +328,7 @@ jobs:
                  3. Resolve the thread:
                     RESOLVE_MUTATION='mutation{resolveReviewThread(input:{threadId:"'"'"'"\$THREAD_ID"'"'"'"}){thread{isResolved}}}'
                     gh api graphql -f query="\$RESOLVE_MUTATION"
+               - If the event is pull_request_review, no action needed (review stands as submitted).
                - If the event is issue_comment, add a reaction:
                  gh api -X POST /repos/$REPO/issues/comments/$COMMENT_ID/reactions -f content=eyes
 
