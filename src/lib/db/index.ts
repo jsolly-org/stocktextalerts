@@ -89,6 +89,7 @@ export function createUserService(
 
 		async getById(id: string): Promise<User | null> {
 			const { data, error } = await supabase
+				.schema("public")
 				.from("users")
 				.select("*")
 				.eq("id", id)
@@ -100,6 +101,7 @@ export function createUserService(
 
 		async update(id: string, updates: UserUpdateInput): Promise<User> {
 			const { data, error } = await supabase
+				.schema("public")
 				.from("users")
 				.update(updates)
 				.eq("id", id)

@@ -5,18 +5,15 @@
 			{{ formatMessage(props.successMessage) }}
 		</StatusMessage>
 		<div class="space-y-2">
-			<p class="text-sm text-gray-700">
-				We sent a code to
-				<span class="font-medium">
-					{{ user.phone_country_code }} {{ user.phone_number }}
-				</span>
-				.
+			<p v-if="!isExpired" class="text-sm text-gray-700">
+				We sent a verification code to your phone.
 			</p>
 			<div class="flex items-center gap-4">
 				<button
 					type="submit"
 					formaction="/api/auth/sms/send-verification"
 					formmethod="post"
+					formnovalidate
 					:disabled="isSendingVerification || !canResend"
 					:aria-busy="isSendingVerification"
 					class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-strong transition-colors text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
@@ -36,13 +33,18 @@
 						}}
 					</span>
 				</button>
-				<a
-					href="/dashboard?change_phone=1"
-					class="text-sm text-primary hover:underline"
-					@click.prevent="handleChangeNumberClick"
-				>
-					Change number
-				</a>
+				<div class="flex items-center gap-2">
+					<span class="text-sm text-gray-700">
+						{{ user.phone_country_code }} {{ user.phone_number }}
+					</span>
+					<a
+						href="/dashboard?change_phone=1"
+						class="text-sm text-primary hover:underline"
+						@click.prevent="handleChangeNumberClick"
+					>
+						Change number
+					</a>
+				</div>
 			</div>
 			<p v-if="verificationSentAt && !isExpired" class="text-sm text-gray-600">
 				Code expires in {{ formattedExpirationTime }}.
@@ -61,29 +63,31 @@
 				name="code"
 				required
 				:formSubmitted="formSubmitted"
-				@input="emitOtpInput"
+				@input="handleOtpInput"
 			/>
+			<p v-if="isVerifyingCode" class="text-sm text-gray-700 flex items-center gap-2">
+				<ArrowPathIcon class="animate-spin size-4 shrink-0" aria-hidden="true" />
+				<span>Verifying…</span>
+			</p>
+
+			<!-- Hidden submit button so we can programmatically submit with a submitter (for DashboardPanels interception). -->
 			<button
+				ref="verifySubmitRef"
 				type="submit"
 				formaction="/api/auth/sms/verify-code"
 				formmethod="post"
-				:disabled="isVerifyingCode"
-				:aria-busy="isVerifyingCode"
-				class="inline-flex items-center gap-2 px-4 py-2 bg-success-strong text-white rounded-lg hover:bg-success-strong-hover transition-colors text-sm mt-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+				class="sr-only"
+				tabindex="-1"
+				aria-hidden="true"
 			>
-				<ArrowPathIcon
-					v-if="isVerifyingCode"
-					class="animate-spin size-4 shrink-0"
-					aria-hidden="true"
-				/>
-				<span>{{ isVerifyingCode ? "Verifying..." : "Verify Code" }}</span>
+				Verify Code
 			</button>
 		</div>
 	</div>
 </template>
 
 <script lang="ts" setup>
-import { computed, onUnmounted, ref } from "vue";
+import { computed, nextTick, onUnmounted, ref, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import { formatMessage, 
@@ -110,33 +114,46 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<(event: "otp-input") => void>();
 
-// verification_sent_at will be available after database types are regenerated
-const verificationSentAt = (props.user as User & { verification_sent_at?: string | null })
-	.verification_sent_at;
+const verifySubmitRef = ref<HTMLButtonElement | null>(null);
+const otpCode = ref("");
+const lastAutoSubmittedCode = ref<string | null>(null);
+
 const now = ref(Date.now());
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
-const startTime = verificationSentAt
-	? new Date(verificationSentAt).getTime()
-	: null;
-const expirationTime = startTime ? startTime + VERIFICATION_EXPIRATION_MS : null;
-const resendAvailableTime = startTime
-	? startTime + VERIFICATION_RESEND_COOLDOWN_MS
-	: null;
+// verification_sent_at may not be present in generated types yet, but it *is* in the DB.
+const verificationSentAt = computed(() => {
+	const value = (props.user as User & { verification_sent_at?: string | null })
+		.verification_sent_at;
+	return value ?? null;
+});
+
+const startTime = computed(() => {
+	const sentAt = verificationSentAt.value;
+	return sentAt ? new Date(sentAt).getTime() : null;
+});
+const expirationTime = computed(() => {
+	const start = startTime.value;
+	return start ? start + VERIFICATION_EXPIRATION_MS : null;
+});
+const resendAvailableTime = computed(() => {
+	const start = startTime.value;
+	return start ? start + VERIFICATION_RESEND_COOLDOWN_MS : null;
+});
 
 const expirationRemaining = computed(() => {
-	if (!expirationTime) {
+	if (!expirationTime.value) {
 		return 0;
 	}
-	const remaining = expirationTime - now.value;
+	const remaining = expirationTime.value - now.value;
 	return Math.max(0, remaining);
 });
 
 const resendRemaining = computed(() => {
-	if (!resendAvailableTime) {
+	if (!resendAvailableTime.value) {
 		return 0;
 	}
-	const remaining = resendAvailableTime - now.value;
+	const remaining = resendAvailableTime.value - now.value;
 	return Math.max(0, remaining);
 });
 
@@ -166,29 +183,91 @@ const formattedResendTime = computed(() => {
 	return formatRemaining(resendRemaining.value);
 });
 
-if (
-	verificationSentAt &&
-	((expirationTime && expirationTime > Date.now()) ||
-		(resendAvailableTime && resendAvailableTime > Date.now()))
-) {
+function clearTimer() {
+	if (!intervalId) return;
+	clearInterval(intervalId);
+	intervalId = null;
+}
+
+function ensureTimer() {
+	clearTimer();
+	now.value = Date.now();
+
+	if (!verificationSentAt.value) {
+		return;
+	}
+
+	const expiresAt = expirationTime.value;
+	const resendAt = resendAvailableTime.value;
+	const shouldTick =
+		(expiresAt && expiresAt > Date.now()) || (resendAt && resendAt > Date.now());
+
+	if (!shouldTick) {
+		return;
+	}
+
 	intervalId = setInterval(() => {
 		now.value = Date.now();
-		if (isExpired.value && canResend.value && intervalId) {
-			clearInterval(intervalId);
-			intervalId = null;
+		if (isExpired.value && canResend.value) {
+			clearTimer();
 		}
 	}, 1000);
 }
 
+watch(
+	verificationSentAt,
+	() => {
+		ensureTimer();
+	},
+	{ immediate: true },
+);
+
 onUnmounted(() => {
-	if (intervalId) {
-		clearInterval(intervalId);
-	}
+	clearTimer();
 });
 
 function emitOtpInput() {
 	emit("otp-input");
 }
+
+function handleOtpInput(code: string) {
+	otpCode.value = code;
+	emitOtpInput();
+}
+
+watch(
+	() => [otpCode.value, props.isVerifyingCode] as const,
+	async ([code, isVerifying]) => {
+		if (isVerifying) {
+			return;
+		}
+		if (code.length !== 6) {
+			return;
+		}
+		if (lastAutoSubmittedCode.value === code) {
+			return;
+		}
+		const button = verifySubmitRef.value;
+		const form = button?.form;
+		if (!button || !form) {
+			return;
+		}
+
+		lastAutoSubmittedCode.value = code;
+
+		// Vue may not have flushed the hidden input's :value binding yet. Wait one tick
+		// so the submitted FormData includes the OTP (Safari autofill is especially prone
+		// to this timing issue with multi-input OTP UIs).
+		await nextTick();
+
+		const domCodeInput = form.querySelector('input[name="code"]');
+		if (domCodeInput instanceof HTMLInputElement && domCodeInput.value !== code) {
+			domCodeInput.value = code;
+		}
+
+		form.requestSubmit(button);
+	},
+);
 
 function handleChangeNumberClick() {
 	// Ensure pending SMS state is saved before navigation
@@ -203,12 +282,18 @@ function handleChangeNumberClick() {
 		// Silently fail - state should already be saved
 	}
 	// Set flag to allow navigation without beforeunload warning
-	(window as Window & { __allowChangePhoneNavigation?: boolean }).__allowChangePhoneNavigation = true;
-	// Update URL using pushState for client-side navigation (no page reload)
-	const url = new URL(window.location.href);
-	url.searchParams.set("change_phone", "1");
-	window.history.pushState(window.history.state, document.title, url.toString());
-	// Dispatch a custom event to notify DashboardPanels to update isEditingPhone state
-	window.dispatchEvent(new CustomEvent("dashboard-url-changed"));
+	const win = window as Window & { __allowChangePhoneNavigation?: boolean };
+	win.__allowChangePhoneNavigation = true;
+	try {
+		// Update URL using pushState for client-side navigation (no page reload)
+		const url = new URL(window.location.href);
+		url.searchParams.set("change_phone", "1");
+		window.history.pushState(window.history.state, document.title, url.toString());
+		// Dispatch a custom event to notify DashboardPanels to update isEditingPhone state
+		window.dispatchEvent(new CustomEvent("dashboard-url-changed"));
+	} finally {
+		// Always reset the flag, even if navigation throws
+		win.__allowChangePhoneNavigation = false;
+	}
 }
 </script>

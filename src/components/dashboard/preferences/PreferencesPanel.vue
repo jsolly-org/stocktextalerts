@@ -316,8 +316,9 @@ function setupNavigationWarning() {
 
 	function handleBeforeUnload(event: BeforeUnloadEvent) {
 		// Allow navigation to change_phone=1 without warning
-		const allowChangePhone = (window as Window & { __allowChangePhoneNavigation?: boolean }).__allowChangePhoneNavigation;
-		if (allowChangePhone) {
+		const win = window as Window & { __allowChangePhoneNavigation?: boolean };
+		if (win.__allowChangePhoneNavigation) {
+			delete win.__allowChangePhoneNavigation;
 			return;
 		}
 		event.preventDefault();

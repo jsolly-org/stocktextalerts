@@ -49,7 +49,7 @@ const props = defineProps<{
 	formSubmitted?: boolean;
 }>();
 
-const emit = defineEmits<(event: "input") => void>();
+const emit = defineEmits<(event: "input", value: string) => void>();
 
 const CODE_LENGTH = 6;
 const digits = ref<string[]>(Array(CODE_LENGTH).fill(""));
@@ -95,7 +95,7 @@ function handleInput(index: number, event: Event) {
 		if (lastInput) {
 			lastInput.focus();
 		}
-		emit("input");
+		emit("input", code.value);
 		validateOtp();
 		return;
 	}
@@ -109,7 +109,7 @@ function handleInput(index: number, event: Event) {
 		}
 	}
 
-	emit("input");
+	emit("input", code.value);
 	validateOtp();
 }
 
@@ -155,7 +155,7 @@ function handlePaste(event: ClipboardEvent) {
 	if (input) {
 		input.focus();
 	}
-	emit("input");
+	emit("input", code.value);
 	validateOtp();
 }
 

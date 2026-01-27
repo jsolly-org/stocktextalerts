@@ -124,6 +124,7 @@ const PREFERENCES_KEYS = new Set([
 	"invalid_code",
 	"code_expired",
 	"verification_recently_sent",
+	"verification_rate_limited",
 	"phone_not_set",
 	"failed_to_update_settings",
 	"failed_to_update_timezone",
@@ -222,6 +223,8 @@ export const MESSAGE_ALLOWLIST = {
 	verification_recently_sent:
 		"A verification code was just sent. Please wait a minute and try again.",
 	verification_failed: "Verification failed. Please try again.",
+	verification_rate_limited:
+		"Too many verification attempts. Please wait 15 minutes and try again.",
 	invalid_code: "Invalid verification code. Please try again.",
 	code_expired: "Verification code has expired. Please request a new code.",
 	failed_to_add_stock: "Failed to add stock",

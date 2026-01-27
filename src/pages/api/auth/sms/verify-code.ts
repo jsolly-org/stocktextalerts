@@ -4,7 +4,10 @@ import {
 	VERIFICATION_EXPIRATION_MS,
 } from "../../../../lib/constants";
 import { createUserService } from "../../../../lib/db";
-import { createSupabaseServerClient } from "../../../../lib/db/supabase";
+import {
+	createSupabaseAdminClient,
+	createSupabaseServerClient,
+} from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
 import { createLogger } from "../../../../lib/logging";
 import { checkVerification } from "./verify-utils";
@@ -94,6 +97,44 @@ export function createVerifyCodeHandler(
 					});
 					return redirect(preferencesRedirect({ error: "code_expired" }));
 				}
+			}
+
+			// Rate limit verification attempts to prevent brute force attacks
+			const adminSupabase = createSupabaseAdminClient();
+			const { data: rateLimitAllowed, error: rateLimitError } =
+				await adminSupabase.rpc("check_rate_limit", {
+					p_user_id: user.id,
+					p_endpoint: "sms_verify_code",
+					p_max_requests: 10,
+					p_window_minutes: 15,
+				});
+
+			if (rateLimitError) {
+				logger.error("Rate limit check failed for SMS verification", {
+					userId: user.id,
+					error: rateLimitError,
+				});
+				return redirect(preferencesRedirect({ error: "server_error" }));
+			}
+
+			if (rateLimitAllowed === false) {
+				logger.info("User rate-limited for SMS verification attempts", {
+					userId: user.id,
+				});
+				return redirect(
+					preferencesRedirect({ error: "verification_rate_limited" }),
+				);
+			}
+
+			if (rateLimitAllowed !== true) {
+				logger.error(
+					"SMS verification rate limit check returned unexpected value",
+					{
+						userId: user.id,
+						rateLimitAllowed,
+					},
+				);
+				return redirect(preferencesRedirect({ error: "server_error" }));
 			}
 
 			const fullPhone = `${userData.phone_country_code}${userData.phone_number}`;

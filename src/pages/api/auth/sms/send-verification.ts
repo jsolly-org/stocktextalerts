@@ -86,11 +86,32 @@ export function createSendVerificationHandler(
 				return redirect(preferencesRedirect({ error: "sms_opted_out" }));
 			}
 
-			const cutoff = new Date(
-				Date.now() - VERIFICATION_RESEND_COOLDOWN_MS,
-			).toISOString();
+			// App-side cooldown check (avoids `.or(...)` on UPDATE, which is currently throwing 42703 at runtime)
+			const dbUserWithVerificationSentAt = dbUser as typeof dbUser & {
+				verification_sent_at?: string | null;
+			};
+
+			if (dbUserWithVerificationSentAt.verification_sent_at) {
+				const sentAtMs = new Date(
+					dbUserWithVerificationSentAt.verification_sent_at,
+				).getTime();
+				const cutoffMs = Date.now() - VERIFICATION_RESEND_COOLDOWN_MS;
+
+				if (Number.isFinite(sentAtMs) && sentAtMs > cutoffMs) {
+					// Expected rejection (often bots); info to avoid inflating error metrics.
+					logger.info("SMS verification resend blocked due to cooldown", {
+						userId: user.id,
+						sentAt: dbUserWithVerificationSentAt.verification_sent_at,
+						cooldownMs: VERIFICATION_RESEND_COOLDOWN_MS,
+					});
+					return redirect(
+						preferencesRedirect({ warning: "verification_recently_sent" }),
+					);
+				}
+			}
 			const { data: cooldownUpdate, error: cooldownUpdateError } =
 				await supabase
+					.schema("public")
 					.from("users")
 					.update({
 						sms_notifications_enabled: true,
@@ -99,23 +120,20 @@ export function createSendVerificationHandler(
 						phone_verified: false,
 					})
 					.eq("id", dbUser.id)
-					.or(`verification_sent_at.is.null,verification_sent_at.lt.${cutoff}`)
 					.select("id");
 
 			if (cooldownUpdateError) throw cooldownUpdateError;
 
 			const rowsAffected = cooldownUpdate.length;
 			if (rowsAffected !== 1) {
-				// Expected rejection (often bots); info to avoid inflating error metrics.
-				logger.info("SMS verification resend blocked due to cooldown", {
-					userId: user.id,
-					sentAt: dbUser.verification_sent_at,
-					cooldownMs: VERIFICATION_RESEND_COOLDOWN_MS,
-					rowsAffected,
-				});
-				return redirect(
-					preferencesRedirect({ warning: "verification_recently_sent" }),
+				logger.error(
+					"Unexpected row count updating user for SMS verification",
+					{
+						userId: user.id,
+						rowsAffected,
+					},
 				);
+				return redirect(preferencesRedirect({ error: "server_error" }));
 			}
 
 			const result = await dependencies.sendVerification(fullPhone);

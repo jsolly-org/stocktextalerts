@@ -1,5 +1,5 @@
 <template>
-	<Transition name="sms-verification-expand">
+	<Transition name="sms-verification-expand" @after-enter="onSectionAfterEnter">
 		<div
 			v-if="smsEnabled"
 			:id="phoneVerificationSectionId"
@@ -7,7 +7,7 @@
 		>
 			<StatusMessage v-if="user.phone_verified" tone="success">
 				<span aria-hidden="true">✓ </span>
-				Phone verified: {{ user.phone_country_code }} {{ user.phone_number }}
+				Phone verified: {{ formattedVerifiedPhone }}
 			</StatusMessage>
 			<fieldset v-else :id="phoneVerificationFieldsetId" class="space-y-4">
 				<legend class="sr-only">Phone Verification</legend>
@@ -38,6 +38,7 @@
 </template>
 
 <script lang="ts" setup>
+import { AsYouType } from "libphonenumber-js";
 import { computed, nextTick, ref, watch } from "vue";
 import { DASHBOARD_FORM_ID } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
@@ -84,8 +85,30 @@ const shouldShowVerification = computed(() => {
 	return !props.user.phone_verified && !props.isEditingPhone;
 });
 
+const formattedVerifiedPhone = computed(() => {
+	const countryCode = props.user.phone_country_code ?? "";
+	const national = props.user.phone_number ?? "";
+	if (!countryCode || !national) {
+		return "";
+	}
+
+	// SMS phone input is US-only today; format the national digits nicely.
+	// If the digits aren't a clean US national number, fall back to raw display.
+	if (countryCode === "+1" && /^\d{10}$/.test(national)) {
+		const formattedNational = new AsYouType("US").input(national);
+		return `${countryCode} ${formattedNational}`;
+	}
+	return `${countryCode} ${national}`;
+});
+
 function handleValidityChanged(isValid: boolean) {
 	emit("phone-validity-changed", isValid);
+}
+
+function onSectionAfterEnter() {
+	if (isPhoneSetup.value) {
+		phoneSetupRef.value?.focus();
+	}
 }
 
 watch(
@@ -97,16 +120,13 @@ watch(
 	},
 );
 
-// Focus phone input when entering change phone mode
+// Focus phone input when entering change phone mode (no transition; nextTick suffices)
 watch(
 	() => props.isEditingPhone,
 	async (isEditing) => {
 		if (isEditing && isPhoneSetup.value) {
-			// Wait for transition and component to render
 			await nextTick();
-			setTimeout(() => {
-				phoneSetupRef.value?.focus();
-			}, 250);
+			phoneSetupRef.value?.focus();
 		}
 	},
 );

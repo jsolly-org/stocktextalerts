@@ -26,7 +26,7 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, ref } from "vue";
+import { ref } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import type { User } from "../../../lib/db";
@@ -49,14 +49,6 @@ const phoneInputRef = ref<{ focus: () => void } | null>(null);
 function handleValidityChanged(isValid: boolean) {
 	emit("phone-validity-changed", isValid);
 }
-
-// Focus the phone input when component mounts (e.g., when entering change phone mode)
-onMounted(() => {
-	// Use nextTick to ensure the input is rendered after the transition
-	setTimeout(() => {
-		phoneInputRef.value?.focus();
-	}, 200);
-});
 
 // Expose focus method for parent components
 defineExpose({
