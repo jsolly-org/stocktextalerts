@@ -411,6 +411,9 @@ async function handlePreferencesFormSubmitWrapper(event: SubmitEvent) {
 				// Update local error/warning state from redirect URL for immediate feedback
 				if (error) {
 					localErrorMessage.value = error;
+					if (!warning) {
+						localWarningMessage.value = null;
+					}
 				} else if (success) {
 					// Clear error on success
 					localErrorMessage.value = null;

@@ -10,13 +10,14 @@
 			</p>
 			<div class="flex items-center gap-4">
 				<button
-					type="submit"
+					type="button"
 					formaction="/api/auth/sms/send-verification"
 					formmethod="post"
 					formnovalidate
 					:disabled="isSendingVerification || !canResend"
 					:aria-busy="isSendingVerification"
 					class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-strong transition-colors text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+					@click="handleResendClick"
 				>
 					<ArrowPathIcon
 						v-if="isSendingVerification"
@@ -242,6 +243,7 @@ watch(
 			return;
 		}
 		if (code.length !== 6) {
+			lastAutoSubmittedCode.value = null;
 			return;
 		}
 		if (lastAutoSubmittedCode.value === code) {
@@ -268,6 +270,18 @@ watch(
 		form.requestSubmit(button);
 	},
 );
+
+function handleResendClick(event: MouseEvent) {
+	const button = event.currentTarget;
+	if (!(button instanceof HTMLButtonElement)) {
+		return;
+	}
+	const form = button.form;
+	if (!form) {
+		return;
+	}
+	form.requestSubmit(button);
+}
 
 function handleChangeNumberClick() {
 	// Ensure pending SMS state is saved before navigation
