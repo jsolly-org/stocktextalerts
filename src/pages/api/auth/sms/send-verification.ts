@@ -90,6 +90,8 @@ export function createSendVerificationHandler(
 			const dbUserWithVerificationSentAt = dbUser as typeof dbUser & {
 				verification_sent_at?: string | null;
 			};
+			const previousVerificationSentAt =
+				dbUserWithVerificationSentAt.verification_sent_at ?? null;
 
 			// `reserve_sms_verification` may not be present in generated types yet, but it *is* in the DB.
 			const supabaseWithUntrackedRpc = supabase as unknown as {
@@ -131,8 +133,59 @@ export function createSendVerificationHandler(
 				return redirect(preferencesRedirect({ error: "server_error" }));
 			}
 
+			const dbUserAfterReserve = await userService.getById(user.id);
+			if (!dbUserAfterReserve) {
+				logger.error(
+					"Database user record missing after SMS verification reservation",
+					{
+						userId: user.id,
+						endpoint: "sms/send-verification",
+					},
+				);
+				return redirect(preferencesRedirect({ error: "server_error" }));
+			}
+
+			const reservedVerificationSentAt = (
+				dbUserAfterReserve as typeof dbUserAfterReserve & {
+					verification_sent_at?: string | null;
+				}
+			).verification_sent_at;
+
+			if (!reservedVerificationSentAt) {
+				logger.error(
+					"SMS verification reservation succeeded but verification_sent_at was not set",
+					{
+						userId: user.id,
+					},
+				);
+				return redirect(preferencesRedirect({ error: "server_error" }));
+			}
+
 			const result = await dependencies.sendVerification(fullPhone);
 			if (!result.success) {
+				const { data: rolledBack, error: rollbackError } =
+					await supabaseWithUntrackedRpc.rpc(
+						"rollback_sms_verification_reservation",
+						{
+							p_user_id: dbUser.id,
+							p_expected_verification_sent_at: reservedVerificationSentAt,
+							p_restore_verification_sent_at: previousVerificationSentAt,
+						},
+					);
+
+				if (rollbackError || rolledBack !== true) {
+					logger.error(
+						"Failed to rollback SMS verification reservation after send failure",
+						{
+							userId: user.id,
+							rolledBack,
+							reservedVerificationSentAt,
+							previousVerificationSentAt,
+						},
+						rollbackError ?? undefined,
+					);
+				}
+
 				logger.error("SMS verification failed", { error: result.error });
 				return redirect(preferencesRedirect({ error: "verification_failed" }));
 			}

@@ -442,5 +442,13 @@ describe("POST /api/auth/sms/send-verification", () => {
 		const location = response.headers.get("Location");
 		expect(location).toContain("/dashboard?error=verification_failed");
 		expect(location).toContain("#notification-preferences");
+
+		const { data: updatedUser } = await adminClient
+			.from("users")
+			.select("verification_sent_at")
+			.eq("id", testUser.id)
+			.single();
+
+		expect(updatedUser.verification_sent_at).toBeNull();
 	});
 });

@@ -626,6 +626,48 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.reserve_sms_verification(uuid, text, text, integer) TO authenticated, service_role;
 
+/* =============
+SMS Verification Cooldown Reservation Rollback
+============= */
+
+CREATE OR REPLACE FUNCTION public.rollback_sms_verification_reservation(
+  p_user_id uuid,
+  p_expected_verification_sent_at timestamptz,
+  p_restore_verification_sent_at timestamptz
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  rolled_back boolean;
+  lock_key bigint;
+BEGIN
+  IF NULLIF(current_setting('request.jwt.claims', true), '')::json->>'role' = 'authenticated'
+     AND p_user_id <> (SELECT auth.uid()) THEN
+    RAISE EXCEPTION 'Cannot rollback SMS verification reservation for another user';
+  END IF;
+
+  IF p_expected_verification_sent_at IS NULL THEN
+    RAISE EXCEPTION 'invalid rollback parameter: p_expected_verification_sent_at must not be NULL'
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+
+  lock_key := pg_catalog.hashtext(p_user_id::text || '|reserve_sms_verification');
+  PERFORM pg_advisory_xact_lock(lock_key);
+
+  UPDATE public.users
+  SET verification_sent_at = p_restore_verification_sent_at
+  WHERE id = p_user_id
+    AND verification_sent_at = p_expected_verification_sent_at
+  RETURNING true INTO rolled_back;
+
+  RETURN COALESCE(rolled_back, false);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.rollback_sms_verification_reservation(uuid, timestamptz, timestamptz) TO authenticated, service_role;
+
 ALTER TABLE rate_limit_log ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can manage own rate limit records" ON rate_limit_log
