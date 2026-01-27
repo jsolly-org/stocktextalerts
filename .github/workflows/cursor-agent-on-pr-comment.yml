@@ -40,11 +40,10 @@ jobs:
           # Skip if commenter is not in the allowlist
           OWNER=$(echo "$REPO" | cut -d'/' -f1)
           IS_OWNER=$([[ "$COMMENT_USER" == "$OWNER" ]] && echo "true" || echo "false")
-          IS_COPILOT_BOT=$([[ "$COMMENT_USER" == "Copilot" ]] && echo "true" || echo "false")
           IS_CODERABBIT_BOT=$([[ "$COMMENT_USER" == "coderabbitai[bot]" ]] && echo "true" || echo "false")
           IS_VERCEL_BOT=$([[ "$COMMENT_USER" == "vercel[bot]" ]] && echo "true" || echo "false")
 
-          if [[ "$IS_OWNER" != "true" ]] && [[ "$IS_COPILOT_BOT" != "true" ]] && [[ "$IS_CODERABBIT_BOT" != "true" ]] && [[ "$IS_VERCEL_BOT" != "true" ]]; then
+          if [[ "$IS_OWNER" != "true" ]] && [[ "$IS_CODERABBIT_BOT" != "true" ]] && [[ "$IS_VERCEL_BOT" != "true" ]]; then
             echo "Skipping: commenter is not in the allowlist"
             SKIP="true"
           fi
@@ -72,15 +71,6 @@ jobs:
           if [[ "$COMMENT_BODY" =~ @[Cc]oderabbitai ]]; then
             if [[ "$COMMENT_USER" != "coderabbitai[bot]" ]]; then
               echo "Skipping comment that mentions @coderabbitai from $COMMENT_USER"
-              SKIP="true"
-            fi
-          fi
-
-          # Skip Copilot comments that have no meaningful content.
-          # These are empty responses that say "generated no new comments".
-          if [[ "$COMMENT_USER" == "Copilot" ]]; then
-            if [[ "$COMMENT_BODY" =~ [Gg]enerated[[:space:]]+no[[:space:]]+new[[:space:]]+comments ]]; then
-              echo "Skipping Copilot comment with no meaningful feedback (generated no new comments)"
               SKIP="true"
             fi
           fi
