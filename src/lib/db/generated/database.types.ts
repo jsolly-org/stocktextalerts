@@ -324,6 +324,23 @@ export type Database = {
 				Args: { symbols: string[]; user_id: string };
 				Returns: undefined;
 			};
+			reserve_sms_verification: {
+				Args: {
+					p_cooldown_ms: number;
+					p_phone_country_code: string;
+					p_phone_number: string;
+					p_user_id: string;
+				};
+				Returns: boolean;
+			};
+			rollback_sms_verification_reservation: {
+				Args: {
+					p_expected_verification_sent_at: string;
+					p_restore_verification_sent_at: string;
+					p_user_id: string;
+				};
+				Returns: boolean;
+			};
 			update_user_preferences_and_stocks: {
 				Args: {
 					p_daily_digest_enabled: boolean;
