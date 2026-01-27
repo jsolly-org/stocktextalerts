@@ -136,6 +136,18 @@ jobs:
             IS_AUTHOR="false"
           fi
 
+          # Construct comment URL based on event type
+          if [[ "$EVENT_NAME" == "pull_request_review_comment" ]]; then
+            COMMENT_URL="https://github.com/$REPO/pull/$PR_NUMBER#discussion_r$COMMENT_ID"
+          elif [[ "$EVENT_NAME" == "issue_comment" ]]; then
+            COMMENT_URL="https://github.com/$REPO/pull/$PR_NUMBER#issuecomment-$COMMENT_ID"
+          elif [[ "$EVENT_NAME" == "pull_request_review" ]]; then
+            # Reviews don't have a direct comment anchor, but we can link to the review
+            COMMENT_URL="https://github.com/$REPO/pull/$PR_NUMBER#pullrequestreview-$COMMENT_ID"
+          else
+            COMMENT_URL=""
+          fi
+
           {
             echo "pr_number=$PR_NUMBER"
             echo "head_repo=$HEAD_REPO"
@@ -147,6 +159,7 @@ jobs:
             echo "is_pr=$IS_PR"
             echo "pr_author=$PR_AUTHOR"
             echo "is_author=$IS_AUTHOR"
+            echo "comment_url=$COMMENT_URL"
           } >> "$GITHUB_OUTPUT"
 
       - name: Wait for earlier agent runs (per PR)
@@ -461,15 +474,69 @@ jobs:
             exit 0
           fi
 
+          # Commits were pushed successfully
+          echo "changes_pushed=true" >> "$GITHUB_OUTPUT"
+          echo "before_sha=$BEFORE_SHA" >> "$GITHUB_OUTPUT"
+          echo "after_sha=$AFTER_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Report agent success
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && steps.agent.outputs.changes_pushed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_URL: ${{ steps.pr.outputs.comment_url }}
+          BEFORE_SHA: ${{ steps.agent.outputs.before_sha }}
+          AFTER_SHA: ${{ steps.agent.outputs.after_sha }}
+          HEAD_REF: ${{ steps.pr.outputs.head_ref }}
+        run: |
+          # Fetch latest refs to ensure we have the pushed commits
+          git fetch origin "$HEAD_REF" || true
+          
+          if [[ -n "$COMMENT_URL" ]]; then
+            REFERENCE="In response to [this comment]($COMMENT_URL)."
+          else
+            REFERENCE=""
+          fi
+          
+          # Get commit messages for the pushed commits
+          COMMITS=$(git log "$BEFORE_SHA".."$AFTER_SHA" --oneline --no-decorate 2>/dev/null || echo "")
+          
+          SUCCESS_BODY=$(cat <<EOF
+          ## ✅ Cursor Agent: Changes applied
+          
+          The agent has successfully applied the requested changes and pushed commits to this branch.
+          
+          $REFERENCE
+          
+          **Commits pushed:**
+          \`\`\`
+          $COMMITS
+          \`\`\`
+          
+          $INTERNAL_MARKER
+          EOF
+          )
+          
+          gh pr comment "${{ steps.pr.outputs.pr_number }}" \
+            --body "$SUCCESS_BODY"
+
       - name: Report agent no-op
         if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && steps.agent.outputs.noop == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_URL: ${{ steps.pr.outputs.comment_url }}
         run: |
+          if [[ -n "$COMMENT_URL" ]]; then
+            REFERENCE="In response to [this comment]($COMMENT_URL)."
+          else
+            REFERENCE=""
+          fi
+          
           NOOP_BODY=$(cat <<EOF
           ## ✅ Cursor Agent: No changes needed
           
           The agent reviewed the comment but did not apply code changes (no commit was pushed).
+          
+          $REFERENCE
           
           $INTERNAL_MARKER
           EOF
@@ -482,16 +549,25 @@ jobs:
         if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && steps.agent.outcome == 'failure'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_URL: ${{ steps.pr.outputs.comment_url }}
         run: |
           # Get the workflow run logs URL for this run
           RUN_ID="${{ github.run_id }}"
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/$RUN_ID"
+          
+          if [[ -n "$COMMENT_URL" ]]; then
+            REFERENCE="In response to [this comment]($COMMENT_URL)."
+          else
+            REFERENCE=""
+          fi
           
           # Create a more informative failure message
           FAILURE_BODY=$(cat <<EOF
           ## ❌ Cursor Agent Failed
           
           The Cursor agent failed to process the comment. Check the [workflow logs]($RUN_URL) for details.
+          
+          $REFERENCE
           
           **Common reasons:**
           - The requested fix was already applied
