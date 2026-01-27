@@ -91,9 +91,11 @@
 import { computed, nextTick, onUnmounted, ref, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
-import { formatMessage, 
+import {
+	formatMessage,
 	VERIFICATION_EXPIRATION_MS,
-	VERIFICATION_RESEND_COOLDOWN_MS,} from "../../../lib/constants";
+	VERIFICATION_RESEND_COOLDOWN_MS,
+} from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 import StatusMessage from "../../StatusMessage.vue";
 import OtpInput from "./OtpInput.vue";
