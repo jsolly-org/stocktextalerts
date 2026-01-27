@@ -1,4 +1,5 @@
 name: Cursor Agent on PR Comment
+run-name: cursor-agent pr-${{ github.event.issue.number || github.event.pull_request.number }} comment-${{ github.event.comment.id || github.event.review.id }}
 
 on:
   issue_comment:
@@ -17,9 +18,6 @@ permissions:
 jobs:
   run-agent:
     runs-on: ubuntu-latest
-    concurrency:
-      group: cursor-agent-on-pr-comment-${{ github.repository_id }}-pr-${{ github.event.issue.number || github.event.pull_request.number }}
-      cancel-in-progress: false
     env:
       INTERNAL_MARKER: "<!-- cursor-agent-workflow:internal -->"
       WORKFLOW_FILE: cursor-agent-on-pr-comment.yml
@@ -160,6 +158,69 @@ jobs:
             echo "pr_author=$PR_AUTHOR"
             echo "is_author=$IS_AUTHOR"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Wait for earlier agent runs (per PR)
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+        run: |
+          REPO="${{ github.repository }}"
+          CURRENT_RUN_ID="${{ github.run_id }}"
+
+          # GitHub Actions concurrency only keeps one pending run per group; additional triggers
+          # cancel older pending runs. We want strict FIFO per PR instead, so we implement an
+          # explicit queue by waiting until all *earlier* runs for this PR complete.
+
+          WORKFLOW_ID=$(gh api "repos/$REPO/actions/workflows" --jq ".workflows[] | select(.path == \".github/workflows/$WORKFLOW_FILE\") | .id" 2>&1)
+          WORKFLOW_ID_EXIT=$?
+          if [[ $WORKFLOW_ID_EXIT -ne 0 ]] || [[ -z "$WORKFLOW_ID" ]]; then
+            echo "Error: Could not find workflow ID for $WORKFLOW_FILE"
+            exit 1
+          fi
+
+          PR_MARKER="pr-$PR_NUMBER"
+          START_TS=$(date +%s)
+          MAX_WAIT_SECONDS=$((60 * 60)) # 1 hour
+
+          while true; do
+            NOW_TS=$(date +%s)
+            ELAPSED=$((NOW_TS - START_TS))
+            if [[ "$ELAPSED" -ge "$MAX_WAIT_SECONDS" ]]; then
+              echo "Error: Timed out waiting for earlier agent runs for $PR_MARKER"
+              exit 1
+            fi
+
+            RUNS_JSON=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs?per_page=100" 2>&1)
+            RUNS_EXIT=$?
+            if [[ $RUNS_EXIT -ne 0 ]]; then
+              echo "Error: Could not query workflow runs:"
+              echo "$RUNS_JSON"
+              exit 1
+            fi
+
+            # We use run-name to reliably tag each run with pr-<number>.
+            # Wait for any earlier run IDs for this PR that are not completed.
+            BLOCKERS=$(echo "$RUNS_JSON" | jq --arg marker "$PR_MARKER" --argjson current "$CURRENT_RUN_ID" -r '
+              [.workflow_runs[]
+                | select((.display_title // "") | contains($marker))
+                | select((.id // 0) < $current)
+                | select((.status // "") != "completed")
+                | {id, status, html_url}
+              ]
+              | sort_by(.id)
+            ')
+
+            BLOCKER_COUNT=$(echo "$BLOCKERS" | jq 'length')
+            if [[ "$BLOCKER_COUNT" -eq 0 ]]; then
+              echo "No earlier agent runs for $PR_MARKER are active; proceeding."
+              exit 0
+            fi
+
+            OLDEST=$(echo "$BLOCKERS" | jq -r '.[0].id')
+            echo "Waiting for $BLOCKER_COUNT earlier agent run(s) for $PR_MARKER to complete (oldest blocking run_id=$OLDEST)."
+            sleep 20
+          done
 
       - name: Rate limit check
         if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
