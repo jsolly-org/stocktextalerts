@@ -10,7 +10,7 @@
 			</p>
 			<div class="flex items-center gap-4">
 				<button
-					type="button"
+					type="submit"
 					formaction="/api/auth/sms/send-verification"
 					formmethod="post"
 					formnovalidate
@@ -272,6 +272,7 @@ watch(
 );
 
 function handleResendClick(event: MouseEvent) {
+	event.preventDefault();
 	const button = event.currentTarget;
 	if (!(button instanceof HTMLButtonElement)) {
 		return;
