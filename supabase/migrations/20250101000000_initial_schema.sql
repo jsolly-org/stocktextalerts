@@ -591,6 +591,7 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   reserved boolean;
+  lock_key bigint;
 BEGIN
   IF NULLIF(current_setting('request.jwt.claims', true), '')::json->>'role' = 'authenticated'
      AND p_user_id <> (SELECT auth.uid()) THEN
@@ -601,6 +602,9 @@ BEGIN
     RAISE EXCEPTION 'invalid cooldown parameter: p_cooldown_ms must be > 0'
       USING ERRCODE = 'invalid_parameter_value';
   END IF;
+
+  lock_key := pg_catalog.hashtext(p_user_id::text || '|reserve_sms_verification');
+  PERFORM pg_advisory_xact_lock(lock_key);
 
   UPDATE public.users
   SET
