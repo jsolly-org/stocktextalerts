@@ -1,18 +1,26 @@
 <template>
-	<Transition name="sms-verification-expand">
+	<Transition name="sms-verification-expand" @after-enter="onSectionAfterEnter">
 		<div
 			v-if="smsEnabled"
 			:id="phoneVerificationSectionId"
 			class="ml-6 space-y-4"
 		>
-			<StatusMessage v-if="user.phone_verified" tone="success">
+			<StatusMessage v-if="user.phone_verified && !isEditingPhone" tone="success">
 				<span aria-hidden="true">✓ </span>
-				Phone verified: {{ user.phone_country_code }} {{ user.phone_number }}
+				Phone verified: {{ formattedVerifiedPhone }}
+				<button
+					type="button"
+					class="ml-2 text-sm text-primary hover:underline cursor-pointer"
+					@click="handleChangeNumberClick"
+				>
+					Change number
+				</button>
 			</StatusMessage>
 			<fieldset v-else :id="phoneVerificationFieldsetId" class="space-y-4">
 				<legend class="sr-only">Phone Verification</legend>
 
 				<SmsPhoneSetup
+					ref="phoneSetupRef"
 					v-if="isPhoneSetup"
 					:user="user"
 					:send-verification-disabled="sendVerificationDisabled"
@@ -30,6 +38,7 @@
 					:is-sending-verification="isSendingVerification"
 					:is-verifying-code="isVerifyingCode"
 					@otp-input="formSubmitted = false"
+					@change-number="handleChangeNumberClick"
 				/>
 			</fieldset>
 		</div>
@@ -37,7 +46,8 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, watch } from "vue";
+import { AsYouType } from "libphonenumber-js";
+import { computed, nextTick, onUnmounted, ref, watch } from "vue";
 import { DASHBOARD_FORM_ID } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 import StatusMessage from "../../StatusMessage.vue";
@@ -69,6 +79,7 @@ const sendVerificationButtonId = `${DASHBOARD_FORM_ID}-send-verification-button`
 const smsVerificationCodeId = `${DASHBOARD_FORM_ID}-sms-verification-code`;
 
 const formSubmitted = ref(false);
+const phoneSetupRef = ref<{ focus: () => void } | null>(null);
 
 const isPhoneSetup = computed(() => {
 	return (
@@ -82,8 +93,58 @@ const shouldShowVerification = computed(() => {
 	return !props.user.phone_verified && !props.isEditingPhone;
 });
 
+const formattedVerifiedPhone = computed(() => {
+	const countryCode = props.user.phone_country_code ?? "";
+	const national = props.user.phone_number ?? "";
+	if (!countryCode || !national) {
+		return "";
+	}
+
+	// SMS phone input is US-only today; format the national digits nicely.
+	// If the digits aren't a clean US national number, fall back to raw display.
+	if (countryCode === "+1" && /^\d{10}$/.test(national)) {
+		const formattedNational = new AsYouType("US").input(national);
+		return `${countryCode} ${formattedNational}`;
+	}
+	return `${countryCode} ${national}`;
+});
+
 function handleValidityChanged(isValid: boolean) {
 	emit("phone-validity-changed", isValid);
+}
+
+function handleChangeNumberClick() {
+	// Ensure pending SMS state is saved before navigation.
+	// The state should already be saved via watch(hasPendingSmsChanges), but ensure it's persisted.
+	try {
+		const storageKey = `pending_sms_enabled:${props.user.id}`;
+		const hasPending = props.smsEnabled && !props.user.phone_verified;
+		if (hasPending === true) {
+			sessionStorage.setItem(storageKey, "true");
+		} else {
+			// If SMS is disabled, remove any persisted pending flag so it can't be restored and
+			// re-enable SMS unexpectedly.
+			sessionStorage.removeItem(storageKey);
+		}
+	} catch (error) {
+		// Silently fail - state should already be saved.
+	}
+	// Set flag to allow navigation without beforeunload warning.
+	// The flag will be reset by DashboardPanels.updateIsEditingPhoneFromUrl() when exiting change phone mode.
+	const win = window as Window & { __allowChangePhoneNavigation?: boolean };
+	win.__allowChangePhoneNavigation = true;
+	// Update URL using pushState for client-side navigation (no page reload).
+	const url = new URL(window.location.href);
+	url.searchParams.set("change_phone", "1");
+	window.history.pushState(window.history.state, document.title, url.toString());
+	// Dispatch a custom event to notify DashboardPanels to update isEditingPhone state.
+	window.dispatchEvent(new CustomEvent("dashboard-url-changed"));
+}
+
+function onSectionAfterEnter() {
+	if (isPhoneSetup.value) {
+		phoneSetupRef.value?.focus();
+	}
 }
 
 watch(
@@ -94,6 +155,23 @@ watch(
 		}
 	},
 );
+
+// Focus phone input when entering change phone mode (no transition; nextTick suffices)
+watch(
+	() => props.isEditingPhone,
+	async (isEditing) => {
+		if (isEditing && isPhoneSetup.value) {
+			await nextTick();
+			phoneSetupRef.value?.focus();
+		}
+	},
+);
+
+onUnmounted(() => {
+	// Ensure this one-off bypass can't leak to unrelated pages during SPA navigation.
+	const win = window as Window & { __allowChangePhoneNavigation?: boolean };
+	delete win.__allowChangePhoneNavigation;
+});
 </script>
 
 <style scoped>

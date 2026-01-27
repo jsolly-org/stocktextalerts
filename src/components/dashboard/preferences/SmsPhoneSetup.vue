@@ -1,6 +1,7 @@
 <template>
 	<div class="space-y-4">
 		<PhoneInput
+			ref="phoneInputRef"
 			required
 			:initial-national-number="user.phone_number"
 			@validity-changed="handleValidityChanged"
@@ -25,6 +26,7 @@
 </template>
 
 <script lang="ts" setup>
+import { ref } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import type { User } from "../../../lib/db";
@@ -37,12 +39,21 @@ interface Props {
 	isSendingVerification: boolean;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 
 const emit =
 	defineEmits<(event: "phone-validity-changed", value: boolean) => void>();
 
+const phoneInputRef = ref<{ focus: () => void } | null>(null);
+
 function handleValidityChanged(isValid: boolean) {
 	emit("phone-validity-changed", isValid);
 }
+
+// Expose focus method for parent components
+defineExpose({
+	focus: () => {
+		phoneInputRef.value?.focus();
+	},
+});
 </script>

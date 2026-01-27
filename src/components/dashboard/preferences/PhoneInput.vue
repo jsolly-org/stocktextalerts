@@ -33,6 +33,7 @@
 				</div>
 				<div class="flex-1 relative">
 				<input
+					ref="phoneInputRef"
 					type="tel"
 					id="phone"
 					v-model="phoneNumber"
@@ -79,6 +80,14 @@ import { computed, ref, watch } from "vue";
 import CheckCircleIcon from "../../../icons/check-circle-24.svg?component";
 import ChevronDownIcon from "../../../icons/chevron-down.svg?component";
 import ExclamationCircleIcon from "../../../icons/exclamation-circle-24.svg?component";
+
+const phoneInputRef = ref<HTMLInputElement | null>(null);
+
+defineExpose({
+	focus: () => {
+		phoneInputRef.value?.focus();
+	},
+});
 
 type Country = "US";
 

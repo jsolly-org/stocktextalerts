@@ -86,47 +86,109 @@ export function createSendVerificationHandler(
 				return redirect(preferencesRedirect({ error: "sms_opted_out" }));
 			}
 
-			const cutoff = new Date(
-				Date.now() - VERIFICATION_RESEND_COOLDOWN_MS,
-			).toISOString();
-			const { data: cooldownUpdate, error: cooldownUpdateError } =
-				await supabase
-					.from("users")
-					.update({
-						sms_notifications_enabled: true,
-						phone_country_code: phoneCountryCode,
-						phone_number: phoneNationalNumber,
-						phone_verified: false,
-					})
-					.eq("id", dbUser.id)
-					.or(`verification_sent_at.is.null,verification_sent_at.lt.${cutoff}`)
-					.select("id");
+			// `verification_sent_at` may not be present in generated types yet, but it *is* in the DB.
+			const dbUserWithVerificationSentAt = dbUser as typeof dbUser & {
+				verification_sent_at?: string | null;
+			};
+			const previousVerificationSentAt =
+				dbUserWithVerificationSentAt.verification_sent_at ?? null;
 
-			if (cooldownUpdateError) throw cooldownUpdateError;
+			// `reserve_sms_verification` may not be present in generated types yet, but it *is* in the DB.
+			const supabaseWithUntrackedRpc = supabase as unknown as {
+				rpc: (
+					fn: string,
+					args: Record<string, unknown>,
+				) => Promise<{ data: unknown; error: unknown }>;
+			};
+			const { data: reserved, error: reserveError } =
+				await supabaseWithUntrackedRpc.rpc("reserve_sms_verification", {
+					p_user_id: dbUser.id,
+					p_phone_country_code: phoneCountryCode,
+					p_phone_number: phoneNationalNumber,
+					p_cooldown_ms: VERIFICATION_RESEND_COOLDOWN_MS,
+				});
 
-			const rowsAffected = cooldownUpdate.length;
-			if (rowsAffected !== 1) {
+			if (reserveError) throw reserveError;
+
+			if (reserved === false) {
 				// Expected rejection (often bots); info to avoid inflating error metrics.
 				logger.info("SMS verification resend blocked due to cooldown", {
 					userId: user.id,
-					sentAt: dbUser.verification_sent_at,
+					sentAt: dbUserWithVerificationSentAt.verification_sent_at ?? null,
 					cooldownMs: VERIFICATION_RESEND_COOLDOWN_MS,
-					rowsAffected,
 				});
 				return redirect(
 					preferencesRedirect({ warning: "verification_recently_sent" }),
 				);
 			}
 
+			if (reserved !== true) {
+				logger.error(
+					"SMS verification cooldown reservation returned unexpected value",
+					{
+						userId: user.id,
+						reserved,
+					},
+				);
+				return redirect(preferencesRedirect({ error: "server_error" }));
+			}
+
+			const dbUserAfterReserve = await userService.getById(user.id);
+			if (!dbUserAfterReserve) {
+				logger.error(
+					"Database user record missing after SMS verification reservation",
+					{
+						userId: user.id,
+						endpoint: "sms/send-verification",
+					},
+				);
+				return redirect(preferencesRedirect({ error: "server_error" }));
+			}
+
+			const reservedVerificationSentAt = (
+				dbUserAfterReserve as typeof dbUserAfterReserve & {
+					verification_sent_at?: string | null;
+				}
+			).verification_sent_at;
+
+			if (!reservedVerificationSentAt) {
+				logger.error(
+					"SMS verification reservation succeeded but verification_sent_at was not set",
+					{
+						userId: user.id,
+					},
+				);
+				return redirect(preferencesRedirect({ error: "server_error" }));
+			}
+
 			const result = await dependencies.sendVerification(fullPhone);
 			if (!result.success) {
+				const { data: rolledBack, error: rollbackError } =
+					await supabaseWithUntrackedRpc.rpc(
+						"rollback_sms_verification_reservation",
+						{
+							p_user_id: dbUser.id,
+							p_expected_verification_sent_at: reservedVerificationSentAt,
+							p_restore_verification_sent_at: previousVerificationSentAt,
+						},
+					);
+
+				if (rollbackError || rolledBack !== true) {
+					logger.error(
+						"Failed to rollback SMS verification reservation after send failure",
+						{
+							userId: user.id,
+							rolledBack,
+							reservedVerificationSentAt,
+							previousVerificationSentAt,
+						},
+						rollbackError ?? undefined,
+					);
+				}
+
 				logger.error("SMS verification failed", { error: result.error });
 				return redirect(preferencesRedirect({ error: "verification_failed" }));
 			}
-
-			await userService.update(user.id, {
-				verification_sent_at: new Date().toISOString(),
-			});
 
 			return redirect(preferencesRedirect({ success: "verification_sent" }));
 		} catch (error) {

@@ -75,7 +75,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref, toRefs, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
 import {
 	DASHBOARD_FORM_ID,
 	DASHBOARD_STOCKS_FORM_ID,
@@ -119,7 +119,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const {
 	initialSymbols,
-	isEditingPhone,
+	isEditingPhone: isEditingPhoneProp,
 	stockOptions,
 	successMessage,
 	errorMessage,
@@ -128,6 +128,21 @@ const {
 	timezoneLoadError,
 	user: userProp,
 } = toRefs(props);
+
+// Local reactive state for isEditingPhone that can be updated from URL changes
+const isEditingPhone = ref(isEditingPhoneProp.value);
+
+// Local reactive state for error/warning messages that can be updated from client-side redirects
+const localErrorMessage = ref<string | null>(errorMessage.value);
+const localWarningMessage = ref<string | null>(warningMessage.value);
+
+// Sync with prop changes (e.g., after page reload)
+watch(errorMessage, (newValue) => {
+	localErrorMessage.value = newValue;
+});
+watch(warningMessage, (newValue) => {
+	localWarningMessage.value = newValue;
+});
 
 // Local reactive copy of user that can be updated after sending verification
 const user = ref<User>({ ...userProp.value });
@@ -138,6 +153,7 @@ watch(userProp, (newUser) => {
 }, { deep: true });
 
 const emailEnabled = ref(user.value.email_notifications_enabled);
+// Initialize smsEnabled, but allow PreferencesPanel to restore pending state
 const smsEnabled = ref(user.value.sms_notifications_enabled);
 const smsOptedOut = computed(() => user.value.sms_opted_out);
 const phoneVerified = computed(() => user.value.phone_verified);
@@ -149,12 +165,58 @@ watch(
 	},
 );
 
+// Track if we've restored pending SMS state to avoid overwriting it
+let hasRestoredPendingSms = false;
+
 watch(
 	() => user.value.sms_notifications_enabled,
 	(newValue) => {
+		// Don't overwrite if we've restored pending state and the new value is false
+		// (this means the server has false because phone isn't verified, but we want to keep it enabled)
+		if (hasRestoredPendingSms && !newValue && smsEnabled.value) {
+			return;
+		}
 		smsEnabled.value = newValue;
 	},
 );
+
+// Watch for when PreferencesPanel restores pending SMS state
+watch(smsEnabled, (newValue) => {
+	if (newValue && !user.value.phone_verified) {
+		hasRestoredPendingSms = true;
+	} else if (!newValue || user.value.phone_verified) {
+		// Reset flag when SMS is disabled or phone becomes verified
+		hasRestoredPendingSms = false;
+	}
+});
+
+// Reset flag when phone becomes verified
+watch(
+	() => user.value.phone_verified,
+	(newValue) => {
+		if (newValue) {
+			hasRestoredPendingSms = false;
+		}
+	},
+);
+
+function updateIsEditingPhoneFromUrl() {
+	const url = new URL(window.location.href);
+	const newValue = url.searchParams.get("change_phone") === "1";
+
+	// Reset the allowChangePhoneNavigation flag when exiting change_phone mode.
+	// This intentionally happens even if `isEditingPhone` is already `false` so the
+	// bypass can't persist across unrelated URL changes.
+	if (!newValue) {
+		(
+			window as Window & { __allowChangePhoneNavigation?: boolean }
+		).__allowChangePhoneNavigation = false;
+	}
+
+	if (isEditingPhone.value !== newValue) {
+		isEditingPhone.value = newValue;
+	}
+}
 
 onMounted(() => {
 	const url = new URL(window.location.href);
@@ -169,6 +231,19 @@ onMounted(() => {
 			current.toString(),
 		);
 	}
+
+	// Listen for URL changes from client-side navigation
+	window.addEventListener("dashboard-url-changed", updateIsEditingPhoneFromUrl);
+	// Also listen for browser back/forward navigation
+	window.addEventListener("popstate", updateIsEditingPhoneFromUrl);
+
+	// Initial check for pending SMS state
+	updateIsEditingPhoneFromUrl();
+});
+
+onUnmounted(() => {
+	window.removeEventListener("dashboard-url-changed", updateIsEditingPhoneFromUrl);
+	window.removeEventListener("popstate", updateIsEditingPhoneFromUrl);
 });
 
 const preferencesFormElement = ref<HTMLFormElement | null>(null);
@@ -258,8 +333,8 @@ const preferencesFlashMessages = computed<FlashMessage[]>(() => {
 	return getFlashMessagesForSection(
 		"preferences",
 		successKey,
-		errorMessage.value,
-		warningMessage.value,
+		localErrorMessage.value,
+		localWarningMessage.value,
 	);
 });
 
@@ -267,8 +342,8 @@ const stocksFlashMessages = computed<FlashMessage[]>(() => {
 	return getFlashMessagesForSection(
 		"stocks",
 		successMessage.value,
-		errorMessage.value,
-		warningMessage.value,
+		localErrorMessage.value,
+		localWarningMessage.value,
 	);
 });
 
@@ -276,8 +351,8 @@ const scheduledFlashMessages = computed<FlashMessage[]>(() => {
 	return getFlashMessagesForSection(
 		"scheduled",
 		successMessage.value,
-		errorMessage.value,
-		warningMessage.value,
+		localErrorMessage.value,
+		localWarningMessage.value,
 	);
 });
 
@@ -285,8 +360,8 @@ const previewFlashMessages = computed<FlashMessage[]>(() => {
 	return getFlashMessagesForSection(
 		"preview",
 		successMessage.value,
-		errorMessage.value,
-		warningMessage.value,
+		localErrorMessage.value,
+		localWarningMessage.value,
 	);
 });
 
@@ -316,23 +391,46 @@ async function handlePreferencesFormSubmitWrapper(event: SubmitEvent) {
 		} else {
 			isSendingVerification.value = true;
 		}
+
 		try {
 			const form = event.target as HTMLFormElement;
 			const formData = new FormData(form);
+
 			const res = await fetch(action as string, {
 				method: "POST",
 				body: formData,
 				credentials: "same-origin",
-				redirect: "manual",
 			});
-			if (
-				res.type === "opaqueredirect" ||
-				res.status === 301 ||
-				res.status === 302
-			) {
+
+			if (res.redirected && res.url) {
+				const redirectedUrl = new URL(res.url);
+				const success = redirectedUrl.searchParams.get("success");
+				const error = redirectedUrl.searchParams.get("error");
+				const warning = redirectedUrl.searchParams.get("warning");
+
+				// Update local error/warning state from redirect URL for immediate feedback
+				if (error) {
+					localErrorMessage.value = error;
+					if (!warning) {
+						localWarningMessage.value = null;
+					}
+				} else if (success) {
+					// Clear error on success
+					localErrorMessage.value = null;
+				}
+				if (warning) {
+					localWarningMessage.value = warning;
+				} else if (success) {
+					// Clear warning on success
+					localWarningMessage.value = null;
+				}
+
 				// After successfully sending verification, update local user state
 				// so the UI switches to the OTP interface immediately
-				if (isSendVerificationSubmission) {
+				if (isSendVerificationSubmission && success === "verification_sent") {
+					// Clear any previous error messages when sending a new verification
+					localErrorMessage.value = null;
+					localWarningMessage.value = null;
 					const phoneCountryCode = formData.get("phone_country_code") as string;
 					const phoneNumber = formData.get("phone_number") as string;
 					if (phoneCountryCode && phoneNumber) {
@@ -346,11 +444,56 @@ async function handlePreferencesFormSubmitWrapper(event: SubmitEvent) {
 						} as User & { verification_sent_at: string };
 					}
 				}
-				const loc = res.headers.get("Location");
-				if (loc) {
-					window.location.href = new URL(loc, window.location.href).href;
+
+				// After successfully verifying the code, update local user state so the UI
+				// shows "Phone verified" without requiring a refresh.
+				if (isVerifyCodeSubmission && success === "phone_verified") {
+					user.value = {
+						...user.value,
+						phone_verified: true,
+						verification_sent_at: null,
+					} as User & { verification_sent_at: null };
 				}
+
+				// Avoid full page navigation: it triggers beforeunload warnings and isn't needed
+				// since we keep local `user` state in sync for the SMS flows.
+				window.history.replaceState(
+					window.history.state,
+					document.title,
+					redirectedUrl.toString(),
+				);
+				if (redirectedUrl.hash) {
+					window.location.hash = redirectedUrl.hash;
+				}
+
+				// Keep preferences state in sync after verification (server may update more fields).
+				if (isVerifyCodeSubmission && success === "phone_verified") {
+					await handlePreferencesUpdated();
+				}
+
+				// Focus the first OTP digit after sending the verification code so the user
+				// can immediately type/paste without extra clicks.
+				if (isSendVerificationSubmission && success === "verification_sent") {
+					await nextTick();
+					const firstOtpInputId = `${DASHBOARD_FORM_ID}-sms-verification-code-0`;
+					const otp0 = document.getElementById(firstOtpInputId);
+
+					if (otp0 instanceof HTMLInputElement) {
+						otp0.focus();
+						otp0.select();
+					}
+				}
+				return;
 			}
+
+			if (!res.ok) {
+				localErrorMessage.value = "failed";
+				localWarningMessage.value = null;
+				return;
+			}
+		} catch {
+			localErrorMessage.value = "failed";
+			localWarningMessage.value = null;
 		} finally {
 			isVerifyingCode.value = false;
 			isSendingVerification.value = false;
