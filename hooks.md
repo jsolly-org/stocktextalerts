@@ -525,18 +525,14 @@ exit 0
 1. **High Priority (Implement First):**
    - Generated file protection (#4)
    - Migration file constraints (#5)
-   - Testing framework enforcement (#8)
-   - Linting/formatting enforcement (#9)
    - Migration command blocking (#18)
 
 2. **Medium Priority:**
-   - Data massaging detection (#2)
    - Import path enforcement (#7)
    - Error checking patterns (#10)
    - Logging enforcement (#11)
    - Environment variable validation (#12)
-   - File size limits (#6)
-   - Defensive programming detection (#3)
+   - Prompt validation (#19)
 
 3. **Low Priority:**
    - Browser polyfill detection (#13)
@@ -545,4 +541,3 @@ exit 0
    - Type annotation patterns (#16)
    - Section comment format (#17)
    - Empty folder cleanup (#1)
-   - Prompt validation (#19)
