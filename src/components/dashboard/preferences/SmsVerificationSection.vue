@@ -47,7 +47,7 @@
 
 <script lang="ts" setup>
 import { AsYouType } from "libphonenumber-js";
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, onUnmounted, ref, watch } from "vue";
 import { DASHBOARD_FORM_ID } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 import StatusMessage from "../../StatusMessage.vue";
@@ -118,7 +118,8 @@ function handleChangeNumberClick() {
 	// The state should already be saved via watch(hasPendingSmsChanges), but ensure it's persisted.
 	try {
 		const storageKey = `pending_sms_enabled:${props.user.id}`;
-		const hasPending = !props.user.phone_verified;
+		const hasPending =
+			!props.user.phone_verified && props.user.sms_notifications_enabled;
 		if (hasPending) {
 			sessionStorage.setItem(storageKey, "true");
 		}
@@ -162,6 +163,12 @@ watch(
 		}
 	},
 );
+
+onUnmounted(() => {
+	// Ensure this one-off bypass can't leak to unrelated pages during SPA navigation.
+	const win = window as Window & { __allowChangePhoneNavigation?: boolean };
+	delete win.__allowChangePhoneNavigation;
+});
 </script>
 
 <style scoped>

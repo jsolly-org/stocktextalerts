@@ -1,4 +1,4 @@
-g<template>
+<template>
 	<div class="space-y-4">
 		<StatusMessage v-if="props.successMessage === 'verification_sent'" tone="success">
 			<span aria-hidden="true">✓ </span>
