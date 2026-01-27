@@ -24,7 +24,7 @@
 						class="animate-spin size-4 shrink-0"
 						aria-hidden="true"
 					/>
-					<span>
+					<span aria-live="polite">
 						{{
 							isSendingVerification
 								? "Sending..."
@@ -40,8 +40,8 @@
 					</span>
 					<a
 						href="/dashboard?change_phone=1"
-						class="text-sm text-primary hover:underline"
-						@click.prevent="handleChangeNumberClick"
+						class="text-sm text-primary hover:underline cursor-pointer"
+						@click.prevent="emitChangeNumber"
 					>
 						Change number
 					</a>
@@ -113,7 +113,10 @@ const props = withDefaults(defineProps<Props>(), {
 	isVerifyingCode: false,
 });
 
-const emit = defineEmits<(event: "otp-input") => void>();
+const emit = defineEmits<{
+	(event: "otp-input"): void;
+	(event: "change-number"): void;
+}>();
 
 const verifySubmitRef = ref<HTMLButtonElement | null>(null);
 const otpCode = ref("");
@@ -231,6 +234,10 @@ function emitOtpInput() {
 	emit("otp-input");
 }
 
+function emitChangeNumber() {
+	emit("change-number");
+}
+
 function handleOtpInput(code: string) {
 	otpCode.value = code;
 	emitOtpInput();
@@ -282,36 +289,5 @@ function handleResendClick(event: MouseEvent) {
 		return;
 	}
 	form.requestSubmit(button);
-}
-
-function handleChangeNumberClick() {
-	// Ensure pending SMS state is saved before navigation
-	// The state should already be saved via watch(hasPendingSmsChanges), but ensure it's persisted
-	try {
-		const storageKey = `pending_sms_enabled:${props.user.id}`;
-		const hasPending =
-			props.user.sms_notifications_enabled && !props.user.phone_verified;
-		if (hasPending) {
-			sessionStorage.setItem(storageKey, "true");
-		} else {
-			sessionStorage.removeItem(storageKey);
-		}
-	} catch (error) {
-		// Silently fail - state should already be saved
-	}
-	// Set flag to allow navigation without beforeunload warning
-	const win = window as Window & { __allowChangePhoneNavigation?: boolean };
-	win.__allowChangePhoneNavigation = true;
-	try {
-		// Update URL using pushState for client-side navigation (no page reload)
-		const url = new URL(window.location.href);
-		url.searchParams.set("change_phone", "1");
-		window.history.pushState(window.history.state, document.title, url.toString());
-		// Dispatch a custom event to notify DashboardPanels to update isEditingPhone state
-		window.dispatchEvent(new CustomEvent("dashboard-url-changed"));
-	} finally {
-		// Always reset the flag, even if navigation throws
-		win.__allowChangePhoneNavigation = false;
-	}
 }
 </script>

@@ -90,6 +90,76 @@ describe("POST /api/auth/sms/send-verification", () => {
 		expect(updatedUser.verification_sent_at).toBeTruthy();
 	});
 
+	it("should reset verification when changing a verified phone number", async () => {
+		const testUser = await createTestUser({
+			email: `test-${randomUUID()}@resend.dev`,
+			password: "TestPassword123!",
+			confirmed: true,
+		});
+
+		const existingPhoneNumber = generateUniquePhoneNumber();
+		await adminClient
+			.from("users")
+			.update({
+				phone_country_code: "+1",
+				phone_number: existingPhoneNumber,
+				phone_verified: true,
+				sms_notifications_enabled: true,
+			})
+			.eq("id", testUser.id);
+
+		const cookies = await createAuthenticatedCookies(
+			testUser.email,
+			"TestPassword123!",
+		);
+
+		sendVerificationMock.mockResolvedValue({ success: true });
+
+		const newPhoneNumber = generateUniquePhoneNumber();
+		const formData = new FormData();
+		formData.append("phone_country_code", "+1");
+		formData.append("phone_number", newPhoneNumber);
+
+		const request = new Request(
+			"http://localhost/api/auth/sms/send-verification",
+			{
+				method: "POST",
+				body: formData,
+			},
+		);
+
+		const handler = createSendVerificationHandler();
+		const response = await handler({
+			request,
+			cookies: {
+				get: (name: string) => {
+					const cookie = cookies.get(name);
+					return cookie ? { value: cookie } : undefined;
+				},
+				set: () => {},
+			},
+			redirect: toRedirect,
+		} as APIContext);
+
+		expect(response.status).toBe(302);
+		const location = response.headers.get("Location");
+		expect(location).toContain("/dashboard?success=verification_sent");
+		expect(location).toContain("#notification-preferences");
+
+		expect(sendVerificationMock).toHaveBeenCalledWith(`+1${newPhoneNumber}`);
+
+		const { data: updatedUser } = await adminClient
+			.from("users")
+			.select("*")
+			.eq("id", testUser.id)
+			.single();
+
+		expect(updatedUser.phone_country_code).toBe("+1");
+		expect(updatedUser.phone_number).toBe(newPhoneNumber);
+		expect(updatedUser.phone_verified).toBe(false);
+		expect(updatedUser.verification_sent_at).toBeTruthy();
+	});
+
 	it("should block resend when verification was recently sent (cooldown)", async () => {
 		const testUser = await createTestUser({
 			email: `test-${randomUUID()}@resend.dev`,

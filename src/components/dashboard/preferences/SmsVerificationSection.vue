@@ -5,9 +5,16 @@
 			:id="phoneVerificationSectionId"
 			class="ml-6 space-y-4"
 		>
-			<StatusMessage v-if="user.phone_verified" tone="success">
+			<StatusMessage v-if="user.phone_verified && !isEditingPhone" tone="success">
 				<span aria-hidden="true">✓ </span>
 				Phone verified: {{ formattedVerifiedPhone }}
+				<button
+					type="button"
+					class="ml-2 text-sm text-primary hover:underline cursor-pointer"
+					@click="handleChangeNumberClick"
+				>
+					Change number
+				</button>
 			</StatusMessage>
 			<fieldset v-else :id="phoneVerificationFieldsetId" class="space-y-4">
 				<legend class="sr-only">Phone Verification</legend>
@@ -31,6 +38,7 @@
 					:is-sending-verification="isSendingVerification"
 					:is-verifying-code="isVerifyingCode"
 					@otp-input="formSubmitted = false"
+					@change-number="handleChangeNumberClick"
 				/>
 			</fieldset>
 		</div>
@@ -103,6 +111,30 @@ const formattedVerifiedPhone = computed(() => {
 
 function handleValidityChanged(isValid: boolean) {
 	emit("phone-validity-changed", isValid);
+}
+
+function handleChangeNumberClick() {
+	// Ensure pending SMS state is saved before navigation.
+	// The state should already be saved via watch(hasPendingSmsChanges), but ensure it's persisted.
+	try {
+		const storageKey = `pending_sms_enabled:${props.user.id}`;
+		const hasPending = !props.user.phone_verified;
+		if (hasPending) {
+			sessionStorage.setItem(storageKey, "true");
+		}
+	} catch (error) {
+		// Silently fail - state should already be saved.
+	}
+	// Set flag to allow navigation without beforeunload warning.
+	// The flag will be reset by DashboardPanels.updateIsEditingPhoneFromUrl() when exiting change phone mode.
+	const win = window as Window & { __allowChangePhoneNavigation?: boolean };
+	win.__allowChangePhoneNavigation = true;
+	// Update URL using pushState for client-side navigation (no page reload).
+	const url = new URL(window.location.href);
+	url.searchParams.set("change_phone", "1");
+	window.history.pushState(window.history.state, document.title, url.toString());
+	// Dispatch a custom event to notify DashboardPanels to update isEditingPhone state.
+	window.dispatchEvent(new CustomEvent("dashboard-url-changed"));
 }
 
 function onSectionAfterEnter() {
