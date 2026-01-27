@@ -118,10 +118,13 @@ function handleChangeNumberClick() {
 	// The state should already be saved via watch(hasPendingSmsChanges), but ensure it's persisted.
 	try {
 		const storageKey = `pending_sms_enabled:${props.user.id}`;
-		const hasPending =
-			!props.user.phone_verified && props.user.sms_notifications_enabled;
-		if (hasPending) {
+		const hasPending = props.smsEnabled && !props.user.phone_verified;
+		if (hasPending === true) {
 			sessionStorage.setItem(storageKey, "true");
+		} else {
+			// If SMS is disabled, remove any persisted pending flag so it can't be restored and
+			// re-enable SMS unexpectedly.
+			sessionStorage.removeItem(storageKey);
 		}
 	} catch (error) {
 		// Silently fail - state should already be saved.
