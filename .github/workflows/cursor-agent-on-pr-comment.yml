@@ -40,11 +40,10 @@ jobs:
           # Skip if commenter is not in the allowlist
           OWNER=$(echo "$REPO" | cut -d'/' -f1)
           IS_OWNER=$([[ "$COMMENT_USER" == "$OWNER" ]] && echo "true" || echo "false")
-          IS_COPILOT_BOT=$([[ "$COMMENT_USER" == "Copilot" ]] && echo "true" || echo "false")
           IS_CODERABBIT_BOT=$([[ "$COMMENT_USER" == "coderabbitai[bot]" ]] && echo "true" || echo "false")
           IS_VERCEL_BOT=$([[ "$COMMENT_USER" == "vercel[bot]" ]] && echo "true" || echo "false")
 
-          if [[ "$IS_OWNER" != "true" ]] && [[ "$IS_COPILOT_BOT" != "true" ]] && [[ "$IS_CODERABBIT_BOT" != "true" ]] && [[ "$IS_VERCEL_BOT" != "true" ]]; then
+          if [[ "$IS_OWNER" != "true" ]] && [[ "$IS_CODERABBIT_BOT" != "true" ]] && [[ "$IS_VERCEL_BOT" != "true" ]]; then
             echo "Skipping: commenter is not in the allowlist"
             SKIP="true"
           fi
@@ -72,15 +71,6 @@ jobs:
           if [[ "$COMMENT_BODY" =~ @[Cc]oderabbitai ]]; then
             if [[ "$COMMENT_USER" != "coderabbitai[bot]" ]]; then
               echo "Skipping comment that mentions @coderabbitai from $COMMENT_USER"
-              SKIP="true"
-            fi
-          fi
-
-          # Skip Copilot comments that have no meaningful content.
-          # These are empty responses that say "generated no new comments".
-          if [[ "$COMMENT_USER" == "Copilot" ]]; then
-            if [[ "$COMMENT_BODY" =~ [Gg]enerated[[:space:]]+no[[:space:]]+new[[:space:]]+comments ]]; then
-              echo "Skipping Copilot comment with no meaningful feedback (generated no new comments)"
               SKIP="true"
             fi
           fi
@@ -371,6 +361,7 @@ jobs:
           BEFORE_SHA="$(git rev-parse HEAD)"
           AGENT_OUTPUT_FILE=$(mktemp)
           AGENT_ERROR_FILE=$(mktemp)
+          echo "noop=false" >> "$GITHUB_OUTPUT"
 
           PROMPT="$(
             cat <<EOF
@@ -386,8 +377,8 @@ jobs:
 
             Do this:
             1) Make the necessary code changes requested in the user comment below.
-            2) Commit and push directly to the PR head branch.
-            3) Include the PR number and comment ID in the commit message.
+            2) If you made changes, commit and push directly to the PR head branch. If no changes are needed, do not commit.
+            3) If you commit, include the PR number and comment ID in the commit message.
             4) After a successful push, mark the comment as resolved:
                - If the event is pull_request_review_comment, resolve the review thread using GraphQL:
                  1. Get the comment via REST API to extract its node_id:
@@ -454,24 +445,38 @@ jobs:
             fi
           fi
 
-          # Treat "no pushed commits" as a failure so we get a visible signal + failure comment.
+          # If no commits were pushed, treat it as a successful no-op (the agent may have
+          # determined no changes were needed).
           git fetch origin "$HEAD_REF"
           AFTER_SHA="$(git rev-parse "origin/$HEAD_REF")"
           if [[ "$AFTER_SHA" == "$BEFORE_SHA" ]]; then
-            echo "##[error]Agent completed but did not push any commits (branch unchanged at $AFTER_SHA)."
+            echo "##[warning]Agent completed with no changes (branch unchanged at $AFTER_SHA)."
             echo "Before SHA: $BEFORE_SHA"
             echo "After SHA: $AFTER_SHA"
             echo "Local commits: $LOCAL_COMMITS"
             echo ""
-            echo "Possible reasons:"
-            echo "1. Agent determined the fix was already applied"
-            echo "2. Agent could not make the requested changes"
-            echo "3. Agent encountered an error that prevented committing"
-            echo ""
             echo "Last 50 lines of agent output:"
             echo "$AGENT_OUTPUT" | tail -50 || echo "(no agent output captured)"
-            exit 1
+            echo "noop=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+
+      - name: Report agent no-op
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && steps.agent.outputs.noop == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NOOP_BODY=$(cat <<EOF
+          ## ✅ Cursor Agent: No changes needed
+          
+          The agent reviewed the comment but did not apply code changes (no commit was pushed).
+          
+          $INTERNAL_MARKER
+          EOF
+          )
+          
+          gh pr comment "${{ steps.pr.outputs.pr_number }}" \
+            --body "$NOOP_BODY"
 
       - name: Report agent failure
         if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && steps.agent.outcome == 'failure'
