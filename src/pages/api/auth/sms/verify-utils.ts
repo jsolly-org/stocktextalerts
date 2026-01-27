@@ -81,7 +81,6 @@ export async function checkVerification(
 ): Promise<{ success: boolean; error?: string }> {
 	try {
 		const { client, serviceSid } = createVerificationClient();
-
 		const verificationCheck = await client.verify.v2
 			.services(serviceSid)
 			.verificationChecks.create({ to: fullPhone, code });
