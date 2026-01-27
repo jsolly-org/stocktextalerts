@@ -110,10 +110,11 @@ export function createVerifyCodeHandler(
 				});
 
 			if (rateLimitError) {
-				logger.error("Rate limit check failed for SMS verification", {
-					userId: user.id,
-					error: rateLimitError,
-				});
+				logger.error(
+					"Rate limit check failed for SMS verification",
+					{ userId: user.id },
+					rateLimitError,
+				);
 				return redirect(preferencesRedirect({ error: "server_error" }));
 			}
 
