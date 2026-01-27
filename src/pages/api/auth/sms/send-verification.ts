@@ -91,29 +91,24 @@ export function createSendVerificationHandler(
 				verification_sent_at?: string | null;
 			};
 
-			const reservedAt = new Date().toISOString();
-			const cutoff = new Date(
-				Date.now() - VERIFICATION_RESEND_COOLDOWN_MS,
-			).toISOString();
+			// `reserve_sms_verification` may not be present in generated types yet, but it *is* in the DB.
+			const supabaseWithUntrackedRpc = supabase as unknown as {
+				rpc: (
+					fn: string,
+					args: Record<string, unknown>,
+				) => Promise<{ data: unknown; error: unknown }>;
+			};
+			const { data: reserved, error: reserveError } =
+				await supabaseWithUntrackedRpc.rpc("reserve_sms_verification", {
+					p_user_id: dbUser.id,
+					p_phone_country_code: phoneCountryCode,
+					p_phone_number: phoneNationalNumber,
+					p_cooldown_ms: VERIFICATION_RESEND_COOLDOWN_MS,
+				});
 
-			const { data: reserveUpdate, error: reserveUpdateError } = await supabase
-				.schema("public")
-				.from("users")
-				.update({
-					sms_notifications_enabled: true,
-					phone_country_code: phoneCountryCode,
-					phone_number: phoneNationalNumber,
-					phone_verified: false,
-					verification_sent_at: reservedAt,
-				})
-				.eq("id", dbUser.id)
-				.or(`verification_sent_at.is.null,verification_sent_at.lte.${cutoff}`)
-				.select("id");
+			if (reserveError) throw reserveError;
 
-			if (reserveUpdateError) throw reserveUpdateError;
-
-			// If no row matched, the cooldown window is still active.
-			if (reserveUpdate.length !== 1) {
+			if (reserved === false) {
 				// Expected rejection (often bots); info to avoid inflating error metrics.
 				logger.info("SMS verification resend blocked due to cooldown", {
 					userId: user.id,
@@ -123,6 +118,17 @@ export function createSendVerificationHandler(
 				return redirect(
 					preferencesRedirect({ warning: "verification_recently_sent" }),
 				);
+			}
+
+			if (reserved !== true) {
+				logger.error(
+					"SMS verification cooldown reservation returned unexpected value",
+					{
+						userId: user.id,
+						reserved,
+					},
+				);
+				return redirect(preferencesRedirect({ error: "server_error" }));
 			}
 
 			const result = await dependencies.sendVerification(fullPhone);

@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.app_metadata (
 );
 
 INSERT INTO public.app_metadata (key, value)
-VALUES ('schema_version', '20250101000000_initial_schema@v2')
+VALUES ('schema_version', '20250101000000_initial_schema@v3')
 ON CONFLICT (key) DO UPDATE SET
   value = EXCLUDED.value;
 
@@ -574,6 +574,53 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.check_rate_limit(uuid, text, integer, integer) TO authenticated, service_role;
+
+/* =============
+SMS Verification Cooldown Reservation
+============= */
+
+CREATE OR REPLACE FUNCTION public.reserve_sms_verification(
+  p_user_id uuid,
+  p_phone_country_code text,
+  p_phone_number text,
+  p_cooldown_ms integer
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  reserved boolean;
+BEGIN
+  IF NULLIF(current_setting('request.jwt.claims', true), '')::json->>'role' = 'authenticated'
+     AND p_user_id <> (SELECT auth.uid()) THEN
+    RAISE EXCEPTION 'Cannot reserve SMS verification for another user';
+  END IF;
+
+  IF p_cooldown_ms IS NULL OR p_cooldown_ms <= 0 THEN
+    RAISE EXCEPTION 'invalid cooldown parameter: p_cooldown_ms must be > 0'
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+
+  UPDATE public.users
+  SET
+    sms_notifications_enabled = true,
+    phone_country_code = p_phone_country_code,
+    phone_number = p_phone_number,
+    phone_verified = false,
+    verification_sent_at = pg_catalog.now()
+  WHERE id = p_user_id
+    AND (
+      verification_sent_at IS NULL
+      OR verification_sent_at <= pg_catalog.now() - (p_cooldown_ms || ' milliseconds')::interval
+    )
+  RETURNING true INTO reserved;
+
+  RETURN COALESCE(reserved, false);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.reserve_sms_verification(uuid, text, text, integer) TO authenticated, service_role;
 
 ALTER TABLE rate_limit_log ENABLE ROW LEVEL SECURITY;
 
