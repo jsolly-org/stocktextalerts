@@ -153,13 +153,11 @@ watch(
 );
 watch(
 	hasNotificationChannel,
-	(hasChannel) => {
-		if (hasChannel && !dailyDigestEnabled.value) {
+	(hasChannel, previousHasChannel) => {
+		if (previousHasChannel === false && hasChannel && !dailyDigestEnabled.value) {
 			dailyDigestEnabled.value = true;
-			onFormChanged.value();
 		}
 	},
-	{ immediate: true },
 );
 
 const nextSendAt = computed(

@@ -21,6 +21,7 @@ export function useFlashMessages(options: {
 	flashMessages: Ref<FlashMessage[]>;
 }) {
 	const localFlashMessages = ref<FlashMessage[]>([]);
+	const timers = new Map<FlashTone, number>();
 
 	const allFlashMessages = computed(() => [
 		...options.flashMessages.value,
@@ -31,6 +32,12 @@ export function useFlashMessages(options: {
 		const message = formatMessage(messageKey);
 		if (!message) {
 			return;
+		}
+
+		const existingTimerId = timers.get(tone);
+		if (existingTimerId !== undefined) {
+			clearTimeout(existingTimerId);
+			timers.delete(tone);
 		}
 
 		const existingIndex = localFlashMessages.value.findIndex(
@@ -44,13 +51,27 @@ export function useFlashMessages(options: {
 			localFlashMessages.value.push(newMessage);
 		}
 
-		setTimeout(() => {
+		const timeoutId = window.setTimeout(() => {
+			const currentTimerId = timers.get(tone);
+			if (currentTimerId !== timeoutId) {
+				return;
+			}
+			timers.delete(tone);
+
 			const index = localFlashMessages.value.findIndex((f) => f.tone === tone);
 			if (index >= 0) {
 				localFlashMessages.value.splice(index, 1);
 			}
 		}, 5000);
+		timers.set(tone, timeoutId);
 	}
+
+	onUnmounted(() => {
+		for (const timeoutId of timers.values()) {
+			clearTimeout(timeoutId);
+		}
+		timers.clear();
+	});
 
 	return { allFlashMessages, showFlashMessage };
 }
