@@ -77,6 +77,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	});
 	if (rawTimeValue === "") {
 		safePreferenceUpdates.daily_digest_notification_time = null;
+		safePreferenceUpdates.daily_digest_enabled = false;
 	}
 
 	let dbUser: User | null;

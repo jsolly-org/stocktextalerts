@@ -63,7 +63,7 @@
 			/>
 		</fieldset>
 		<p class="mt-3 text-sm text-gray-600">
-			<template v-if="countdownText">
+			<template v-if="isHydrated && countdownText">
 				(Will be sent {{ countdownText }}). Want to receive it earlier?
 			</template>
 			<template v-else>
@@ -88,7 +88,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed } from "vue";
+import { computed, onMounted, ref } from "vue";
 
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../../icons/arrow-path.svg?component";
@@ -107,11 +107,17 @@ interface Props {
 
 const props = defineProps<Props>();
 
+const isHydrated = ref(false);
+
 const emit = defineEmits<{
 	(event: "update:enabled", value: boolean): void;
 	(event: "send-now"): void;
 	(event: "time-change", value: string): void;
 }>();
+
+onMounted(() => {
+	isHydrated.value = true;
+});
 
 const enabledValue = computed({
 	get: () => props.enabled,

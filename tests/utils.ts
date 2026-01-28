@@ -337,7 +337,9 @@ export async function createTestUser(
 		const rawNotificationTime = options.dailyDigestNotificationTime ?? null;
 		const alignedDailyDigestNotificationTime =
 			rawNotificationTime == null
-				? null
+				? dailyDigestEnabled
+					? 540
+					: null
 				: Math.floor(Math.max(0, Math.min(1439, rawNotificationTime)) / 15) *
 					15;
 		const nextSendAt =
