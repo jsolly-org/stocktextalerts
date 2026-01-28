@@ -94,6 +94,7 @@ export function createSendVerificationHandler(
 			if (dbUser.sms_opted_out) {
 				logger.info("SMS verification send blocked due to opt-out", {
 					userId: user.id,
+					reason: "sms_opted_out",
 				});
 				return jsonResponse(400, {
 					ok: false,
