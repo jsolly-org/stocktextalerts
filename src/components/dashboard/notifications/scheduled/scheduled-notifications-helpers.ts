@@ -28,15 +28,29 @@ export function useFlashMessages(options: {
 		...localFlashMessages.value,
 	]);
 
+	function clearToneTimeout(tone: FlashTone) {
+		const existingTimerId = timers.get(tone);
+		if (existingTimerId === undefined) {
+			return;
+		}
+		clearTimeout(existingTimerId);
+		timers.delete(tone);
+	}
+
+	function dismissFlashMessage(tone: FlashTone) {
+		clearToneTimeout(tone);
+
+		const index = localFlashMessages.value.findIndex((f) => f.tone === tone);
+		if (index >= 0) {
+			localFlashMessages.value.splice(index, 1);
+		}
+	}
+
 	function showFlashMessage(tone: FlashTone, messageKey: string) {
 		const formatted = formatMessage(messageKey);
 		const message = formatted !== "" ? formatted : messageKey;
 
-		const existingTimerId = timers.get(tone);
-		if (existingTimerId !== undefined) {
-			clearTimeout(existingTimerId);
-			timers.delete(tone);
-		}
+		clearToneTimeout(tone);
 
 		const existingIndex = localFlashMessages.value.findIndex(
 			(f) => f.tone === tone,
@@ -55,11 +69,7 @@ export function useFlashMessages(options: {
 				return;
 			}
 			timers.delete(tone);
-
-			const index = localFlashMessages.value.findIndex((f) => f.tone === tone);
-			if (index >= 0) {
-				localFlashMessages.value.splice(index, 1);
-			}
+			dismissFlashMessage(tone);
 		}, 5000);
 		timers.set(tone, timeoutId);
 	}
@@ -71,7 +81,7 @@ export function useFlashMessages(options: {
 		timers.clear();
 	});
 
-	return { allFlashMessages, showFlashMessage };
+	return { allFlashMessages, dismissFlashMessage, showFlashMessage };
 }
 
 export function useScheduledDigestTiming(options: {
