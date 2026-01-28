@@ -93,19 +93,11 @@ export async function fetchCurrentPreferences(): Promise<PreferencesSnapshot | n
 				reason: "preferences_missing",
 				payload,
 			});
-			const error = new Error("Missing preferences in successful response");
-			error.name = "PreferencesContractViolationError";
-			throw error;
+			return null;
 		}
 
 		return payload.preferences;
 	} catch (error) {
-		if (
-			error instanceof Error &&
-			error.name === "PreferencesContractViolationError"
-		) {
-			throw error;
-		}
 		rootLogger.warn(
 			"Failed to refresh preferences: unexpected error",
 			{ action: "refresh_preferences" },

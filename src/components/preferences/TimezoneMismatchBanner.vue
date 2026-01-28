@@ -55,6 +55,7 @@ import { computed, ref, toRefs, watch } from "vue";
 
 import type { PreferencesSnapshot } from "../../lib/db";
 import { rootLogger } from "../../lib/logging";
+import { updateTimezonePreference } from "../../lib/preferences/update-timezone";
 import StatusMessage from "../StatusMessage.vue";
 
 interface Props {
@@ -168,23 +169,8 @@ async function handleUpdateTimezone() {
 	errorMessage.value = null;
 
 	try {
-		const formData = new FormData();
-		formData.set("timezone", detectedTimezone.value);
-		const response = await fetch("/api/preferences/timezone", {
-			method: "POST",
-			body: formData,
-			credentials: "same-origin",
-			headers: { Accept: "application/json" },
-			signal: AbortSignal.timeout(10_000),
-		});
-
-		if (!response.ok) {
-			errorMessage.value = "Failed to update timezone. Please try again.";
-			return;
-		}
-
-		const payload = (await response.json()) as { ok: boolean };
-		if (!payload.ok) {
+		const prefs = await updateTimezonePreference(detectedTimezone.value);
+		if (!prefs) {
 			errorMessage.value = "Failed to update timezone. Please try again.";
 			return;
 		}

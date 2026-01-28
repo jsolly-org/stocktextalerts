@@ -20,7 +20,7 @@ export const onRequest = defineMiddleware(async (_context, next) => {
 		"base-uri 'self'",
 		"object-src 'none'",
 		"frame-ancestors 'none'",
-		"frame-src 'self' https://newassets.hcaptcha.com",
+		"frame-src 'self' https://newassets.hcaptcha.com https://hcaptcha.com https://*.hcaptcha.com",
 		"img-src 'self' data: https:",
 		"script-src 'self' 'unsafe-inline' https://js.hcaptcha.com",
 		"style-src 'self' 'unsafe-inline'",

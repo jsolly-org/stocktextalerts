@@ -51,6 +51,7 @@ import { CARD_GRADIENT_ACCENTS, DEFAULT_TIMEZONE } from "../../lib/constants";
 import type { PreferencesSnapshot, User } from "../../lib/db";
 import { rootLogger } from "../../lib/logging";
 import { fetchCurrentPreferences } from "../../lib/preferences/fetch-current";
+import { updateTimezonePreference } from "../../lib/preferences/update-timezone";
 import type { TimezoneOption } from "../../lib/time/cache";
 import TimezoneMismatchBanner from "../preferences/TimezoneMismatchBanner.vue";
 import TimezoneSelect from "../preferences/TimezoneSelect.vue";
@@ -131,27 +132,8 @@ async function saveTimezone(nextTimezone: string) {
 	isSaving.value = true;
 
 	try {
-		const formData = new FormData();
-		formData.set("timezone", nextTimezone);
-		const response = await fetch("/api/preferences/timezone", {
-			method: "POST",
-			body: formData,
-			credentials: "same-origin",
-			headers: { Accept: "application/json" },
-			signal: AbortSignal.timeout(10_000),
-		});
-
-		if (!response.ok) {
-			statusMessage.value = "Failed to update timezone. Please try again.";
-			statusTone.value = "error";
-			return;
-		}
-
-		const payload = (await response.json()) as {
-			ok: boolean;
-			preferences?: { timezone?: string; next_send_at?: string | null };
-		};
-		if (!payload.ok) {
+		const prefs = await updateTimezonePreference(nextTimezone);
+		if (!prefs) {
 			statusMessage.value = "Failed to update timezone. Please try again.";
 			statusTone.value = "error";
 			return;
@@ -159,28 +141,21 @@ async function saveTimezone(nextTimezone: string) {
 
 		statusMessage.value = "Timezone updated.";
 		statusTone.value = "success";
-		const prefs = payload.preferences;
-		if (prefs) {
-			savedPreferences.value = savedPreferences.value
-				? {
-						...savedPreferences.value,
-						...(prefs.timezone != null && { timezone: prefs.timezone }),
-						...(prefs.next_send_at !== undefined && {
-							next_send_at: prefs.next_send_at,
-						}),
-					}
-				: buildSavedPreferences({
-						...user.value,
-						...(prefs.timezone != null && { timezone: prefs.timezone }),
-						...(prefs.next_send_at !== undefined && {
-							next_send_at: prefs.next_send_at,
-						}),
-					});
-		} else {
-			savedPreferences.value = savedPreferences.value
-				? { ...savedPreferences.value, timezone: nextTimezone }
-				: buildSavedPreferences({ ...user.value, timezone: nextTimezone });
-		}
+		savedPreferences.value = savedPreferences.value
+			? {
+					...savedPreferences.value,
+					timezone: prefs.timezone ?? nextTimezone,
+					...(prefs.next_send_at !== undefined && {
+						next_send_at: prefs.next_send_at,
+					}),
+				}
+			: buildSavedPreferences({
+					...user.value,
+					timezone: prefs.timezone ?? nextTimezone,
+					...(prefs.next_send_at !== undefined && {
+						next_send_at: prefs.next_send_at,
+					}),
+				});
 	} catch (error) {
 		rootLogger.error(
 			"Failed to update timezone from profile",
