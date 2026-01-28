@@ -445,28 +445,29 @@ jobs:
           AGENT_OUTPUT=$(cat "$AGENT_OUTPUT_FILE" || echo "")
           rm -f "$AGENT_OUTPUT_FILE" "$AGENT_ERROR_FILE"
 
-          # Check for local commits that weren't pushed
-          LOCAL_COMMITS=$(git log "$BEFORE_SHA"..HEAD --oneline 2>/dev/null || echo "")
-          if [[ -n "$LOCAL_COMMITS" ]]; then
-            echo "##[warning]Agent created local commits but may not have pushed them:"
-            echo "$LOCAL_COMMITS"
-            echo "Attempting to push local commits..."
+          # Fetch first so we can distinguish "unpushed" vs "already pushed" using remote as source of truth.
+          git fetch origin "$HEAD_REF"
+          AFTER_SHA="$(git rev-parse "origin/$HEAD_REF")"
+          UNPUSHED=$(git log "origin/$HEAD_REF"..HEAD --oneline 2>/dev/null || echo "")
+
+          if [[ -n "$UNPUSHED" ]]; then
+            echo "Agent created local commits that are not on the remote; pushing..."
+            echo "$UNPUSHED"
             if ! git push origin "$HEAD_REF"; then
               echo "##[error]Failed to push local commits. This may be a fork PR where GITHUB_TOKEN cannot push."
               echo "Push error details:"
               git push origin "$HEAD_REF" 2>&1 || true
               exit 1
             fi
+            git fetch origin "$HEAD_REF"
+            AFTER_SHA="$(git rev-parse "origin/$HEAD_REF")"
           fi
 
-          # If no commits were pushed, treat it as a successful no-op (the agent may have
-          # determined no changes were needed).
-          git fetch origin "$HEAD_REF"
-          AFTER_SHA="$(git rev-parse "origin/$HEAD_REF")"
           if [[ "$AFTER_SHA" == "$BEFORE_SHA" ]]; then
             echo "##[warning]Agent completed with no changes (branch unchanged at $AFTER_SHA)."
             echo "Before SHA: $BEFORE_SHA"
             echo "After SHA: $AFTER_SHA"
+            LOCAL_COMMITS=$(git log "$BEFORE_SHA"..HEAD --oneline 2>/dev/null || echo "")
             echo "Local commits: $LOCAL_COMMITS"
             echo ""
             echo "Last 50 lines of agent output:"
