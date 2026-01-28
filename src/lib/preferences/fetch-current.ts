@@ -95,12 +95,13 @@ export async function fetchCurrentPreferences(): Promise<CurrentPreferences | nu
 		}
 
 		if (payload.preferences == null) {
-			rootLogger.error("Preferences API returned ok without preferences", {
+			rootLogger.error("Failed to refresh preferences", {
 				action: "refresh_preferences",
 				method,
 				url,
 				status: response.status,
 				statusText: response.statusText,
+				reason: "preferences_missing",
 				payload,
 			});
 			const error = new Error("Missing preferences in successful response");
