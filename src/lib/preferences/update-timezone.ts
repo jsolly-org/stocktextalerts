@@ -29,5 +29,9 @@ export async function updateTimezonePreference(
 		return null;
 	}
 
-	return payload.preferences ?? {};
+	if (!payload.preferences) {
+		return null;
+	}
+
+	return payload.preferences;
 }
