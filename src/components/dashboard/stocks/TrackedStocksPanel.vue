@@ -103,11 +103,7 @@ import {
 import StatusMessage from "../../StatusMessage.vue";
 import type { StockOption } from "./StockInput.vue";
 import StockInput from "./StockInput.vue";
-
-interface InitialStock {
-	symbol: string;
-	name: string;
-}
+import type { InitialStock } from "./types";
 
 interface Props {
 	stockOptions: StockOption[];

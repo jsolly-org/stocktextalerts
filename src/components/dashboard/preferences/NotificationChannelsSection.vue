@@ -53,7 +53,7 @@
 
 		<StatusMessage v-if="user.sms_opted_out" tone="error">
 			You have opted out of SMS notifications. To re-enable, reply START to any
-			message from us or update your settings below.
+			message from us or update your notification settings in your account.
 		</StatusMessage>
 
 		<SmsVerificationSection

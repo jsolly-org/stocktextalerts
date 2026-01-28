@@ -94,11 +94,7 @@ import PreviewPanel from "./PreviewPanel.vue";
 import PreferencesPanel from "./preferences/PreferencesPanel.vue";
 import type { StockOption } from "./stocks/StockInput.vue";
 import TrackedStocksPanel from "./stocks/TrackedStocksPanel.vue";
-
-interface InitialStock {
-	symbol: string;
-	name: string;
-}
+import type { InitialStock } from "./stocks/types";
 
 interface Props {
 	user: User;
