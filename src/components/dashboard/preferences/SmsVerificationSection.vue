@@ -3,7 +3,7 @@
 		<div
 			v-if="smsEnabled"
 			:id="phoneVerificationSectionId"
-			class="ml-6 space-y-4"
+			class="pl-9 pt-2 space-y-4 border-l border-gray-200"
 		>
 			<StatusMessage v-if="user.phone_verified && !isEditingPhone" tone="success">
 				<span aria-hidden="true">✓ </span>

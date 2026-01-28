@@ -1,5 +1,27 @@
 <template>
 	<form
+		ref="stocksFormElement"
+		:id="DASHBOARD_STOCKS_FORM_ID"
+		method="POST"
+		action="/api/stocks/update"
+		class="space-y-6"
+		:aria-busy="isStocksSaving"
+		@input="handleStocksFormInput"
+		@change="handleStocksFormChange"
+		@submit="handleStocksFormSubmit"
+	>
+		<TrackedStocksPanel
+			:stockOptions="stockOptions"
+			:initialSymbols="initialSymbols"
+			:onFormChanged="notifyStocksChange"
+			:flash-messages="stocksFlashMessages"
+			:status-message="stocksStatusMessage"
+			:status-tone="stocksStatusTone"
+			:is-saving="isStocksSaving"
+		/>
+	</form>
+
+	<form
 		ref="preferencesFormElement"
 		:id="DASHBOARD_FORM_ID"
 		method="POST"
@@ -12,8 +34,6 @@
 	>
 		<PreferencesPanel
 			:user="user"
-			:timezones="timezones"
-			:timezoneLoadError="timezoneLoadError"
 			:isEditingPhone="isEditingPhone"
 			:successMessage="successMessage"
 			:emailEnabled="emailEnabled"
@@ -43,28 +63,6 @@
 		/>
 	</form>
 
-	<form
-		ref="stocksFormElement"
-		:id="DASHBOARD_STOCKS_FORM_ID"
-		method="POST"
-		action="/api/stocks/update"
-		class="space-y-6"
-		:aria-busy="isStocksSaving"
-		@input="handleStocksFormInput"
-		@change="handleStocksFormChange"
-		@submit="handleStocksFormSubmit"
-	>
-		<TrackedStocksPanel
-			:stockOptions="stockOptions"
-			:initialSymbols="initialSymbols"
-			:onFormChanged="notifyStocksChange"
-			:flash-messages="stocksFlashMessages"
-			:status-message="stocksStatusMessage"
-			:status-tone="stocksStatusTone"
-			:is-saving="isStocksSaving"
-		/>
-	</form>
-
 	<PreviewPanel
 		:emailEnabled="emailEnabled"
 		:smsEnabled="smsEnabled"
@@ -87,7 +85,6 @@ import {
 } from "../../lib/constants";
 import type { User } from "../../lib/db";
 import { rootLogger } from "../../lib/logging";
-import type { TimezoneOption } from "../../lib/time/cache";
 import {
 	type PreferencesData,
 	useAutoSaveForm,
@@ -100,18 +97,15 @@ import TrackedStocksPanel from "./stocks/TrackedStocksPanel.vue";
 
 interface Props {
 	user: User;
-	timezones: TimezoneOption[];
 	stockOptions: StockOption[];
 	initialSymbols: string[];
 	isEditingPhone: boolean;
-	timezoneLoadError?: boolean;
 	successMessage?: string | null;
 	errorMessage?: string | null;
 	warningMessage?: string | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-	timezoneLoadError: false,
 	successMessage: null,
 	errorMessage: null,
 	warningMessage: null,
@@ -124,8 +118,6 @@ const {
 	successMessage,
 	errorMessage,
 	warningMessage,
-	timezones,
-	timezoneLoadError,
 	user: userProp,
 } = toRefs(props);
 

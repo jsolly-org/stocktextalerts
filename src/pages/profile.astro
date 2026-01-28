@@ -4,6 +4,7 @@ import { Icon } from "astro-icon/components";
 import Navigation from "../components/Navigation.astro";
 import AccountManagement from "../components/profile/AccountManagement.astro";
 import DangerZone from "../components/profile/DangerZone.astro";
+import TimezoneSection from "../components/profile/TimezoneSection.vue";
 import StatusMessage from "../components/StatusMessage.astro";
 import Layout from "../layouts/Layout.astro";
 import { getAuthErrorMessage } from "../lib/auth/messages";
@@ -12,6 +13,7 @@ import { createUserService } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 import { rootLogger } from "../lib/logging";
 import { formatMessage } from "../lib/constants";
+import { getTimezoneOptions } from "../lib/time/cache";
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
@@ -30,6 +32,29 @@ if (!user) {
 		page: "profile",
 	});
 	return Astro.redirect("/?error=user_not_found");
+}
+let timezones: Awaited<ReturnType<typeof getTimezoneOptions>>;
+let timezoneLoadError = false;
+try {
+	timezones = await getTimezoneOptions(supabase, {
+		includeValues: [user.timezone],
+	});
+} catch (error) {
+	rootLogger.error(
+		"Failed to load timezone options",
+		{ userId: user.id, action: "load_timezone_options" },
+		error,
+	);
+	timezoneLoadError = true;
+	timezones = user.timezone
+		? [
+				{
+					value: user.timezone,
+					label: user.timezone.replace(/_/g, " "),
+					display_order: 0,
+				},
+			]
+		: [];
 }
 const search = Astro.url.searchParams;
 const error = search.get("error");
@@ -73,6 +98,13 @@ const successMessage = formatMessage(success);
         <AccountManagement
           email={user.email}
         />
+
+				<TimezoneSection
+					client:load
+					user={user}
+					timezones={timezones}
+					timezoneLoadError={timezoneLoadError}
+				/>
       </div>
 
 			<div class="mt-6">

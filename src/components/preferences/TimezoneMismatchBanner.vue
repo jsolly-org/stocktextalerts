@@ -1,7 +1,7 @@
 <!--
 	This component uses v-if="isClient" which renders nothing on the server but content on the client.
 	To avoid SSR hydration mismatches, this component must be used within a parent component that
-	has client:load or client:only directive (e.g., DashboardPanels with client:load).
+	has client:load or client:only directive.
 -->
 <template>
 	<StatusMessage v-if="isClient && isVisible" tone="warning">
@@ -53,8 +53,8 @@
 import { DateTime } from "luxon";
 import { computed, ref, toRefs, watch } from "vue";
 
-import { rootLogger } from "../../../lib/logging";
-import StatusMessage from "../../StatusMessage.vue";
+import { rootLogger } from "../../lib/logging";
+import StatusMessage from "../StatusMessage.vue";
 
 interface Props {
 	isClient: boolean;

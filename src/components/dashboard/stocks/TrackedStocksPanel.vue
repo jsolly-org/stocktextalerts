@@ -1,13 +1,45 @@
 <template>
-	<div class="mb-6 bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+	<div class="relative mb-6 bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+		<Transition
+			enter-active-class="transition-opacity duration-150"
+			enter-from-class="opacity-0"
+			enter-to-class="opacity-100"
+			leave-active-class="transition-opacity duration-150"
+			leave-from-class="opacity-100"
+			leave-to-class="opacity-0"
+		>
+			<div
+				v-if="statusMessage"
+				:id="DASHBOARD_STOCKS_STATUS_ID"
+				class="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium z-10"
+				:class="[statusTone === 'error' ? 'bg-error-bg text-error-text' : 'bg-info-bg text-info-text']"
+				role="status"
+				aria-live="polite"
+				:aria-busy="isSaving"
+				:data-tone="statusTone"
+			>
+				<ArrowPathIcon
+					v-show="isSaving"
+					class="animate-spin size-3 shrink-0"
+					aria-hidden="true"
+				/>
+				{{ statusMessage }}
+			</div>
+		</Transition>
+
 		<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.teal}`"></div>
 		<div class="p-6">
-		<h2
-			:id="DASHBOARD_SECTION_IDS.stocks"
-			class="text-2xl font-bold text-gray-900 mb-2"
-		>
-			Tracked Stocks
-		</h2>
+		<div class="mb-4">
+			<h2
+				:id="DASHBOARD_SECTION_IDS.stocks"
+				class="text-2xl font-bold text-gray-900"
+			>
+				Tracked Stocks
+			</h2>
+			<p class="text-sm text-gray-600 mt-1">
+				Select stocks to include in your daily digest.
+			</p>
+		</div>
 
 		<div v-if="flashMessages.length" class="space-y-2 mb-4">
 			<StatusMessage
@@ -19,39 +51,9 @@
 			</StatusMessage>
 		</div>
 
-		<div class="min-h-5 mb-4">
-			<Transition
-				enter-active-class="transition-opacity duration-150"
-				enter-from-class="opacity-0"
-				enter-to-class="opacity-100"
-				leave-active-class="transition-opacity duration-150"
-				leave-from-class="opacity-100"
-				leave-to-class="opacity-0"
-			>
-				<p
-					v-if="statusMessage"
-					:id="DASHBOARD_STOCKS_STATUS_ID"
-					class="text-sm flex items-center gap-2"
-					:class="[statusTone === 'error' ? 'text-error-text' : 'text-info-text']"
-					role="status"
-					aria-live="polite"
-					:aria-busy="isSaving"
-					:data-tone="statusTone"
-				>
-					<ArrowPathIcon
-						v-show="isSaving"
-						class="animate-spin size-4 shrink-0"
-						aria-hidden="true"
-					/>
-					{{ statusMessage }}
-				</p>
-			</Transition>
-		</div>
-
 		<input type="hidden" name="tracked_stocks" :value="trackedStocksValue" />
 
 		<div class="mb-6">
-			<h3 class="text-lg font-semibold text-gray-900 mb-3">Add Stock</h3>
 			<StockInput
 				:stock-options="stockOptions"
 				@select="handleSelect"

@@ -1,10 +1,15 @@
 <template>
-	<div class="space-y-4">
-		<label class="block text-sm font-medium text-gray-700 mb-2">
-			Notification Channels
-		</label>
-		<div class="space-y-4">
-			<label class="flex items-center cursor-pointer">
+	<div class="space-y-3">
+		<div>
+			<h2 class="text-2xl font-bold text-gray-900">
+				Notification Channels
+			</h2>
+			<p class="text-sm text-gray-600 mt-1">
+				Choose how you want to receive alerts.
+			</p>
+		</div>
+		<div class="rounded-md border border-gray-200 divide-y divide-gray-200">
+			<label class="flex items-start gap-3 p-3 cursor-pointer">
 				<input
 					type="hidden"
 					name="email_notifications_enabled"
@@ -13,13 +18,18 @@
 				<input
 					type="checkbox"
 					:id="emailNotificationsEnabledId"
-					class="mr-2 cursor-pointer"
+					class="mt-0.5 cursor-pointer"
 					v-model="emailEnabledValue"
 				/>
-				<span>Email Notifications</span>
+				<span class="text-sm">
+					<span class="font-medium text-gray-900">Email Notifications</span>
+					<span class="block text-gray-500">
+						Notifications are sent to the email you registered with.
+					</span>
+				</span>
 			</label>
 
-			<label class="flex items-center cursor-pointer">
+			<label class="flex items-start gap-3 p-3 cursor-pointer">
 				<input
 					v-if="canSaveSmsEnabled"
 					type="hidden"
@@ -29,29 +39,34 @@
 				<input
 					type="checkbox"
 					:id="smsNotificationsEnabledId"
-					class="mr-2 cursor-pointer"
+					class="mt-0.5 cursor-pointer"
 					v-model="smsEnabledValue"
 				/>
-				<span>SMS Notifications</span>
+				<span class="text-sm">
+					<span class="font-medium text-gray-900">SMS Notifications</span>
+					<span class="block text-gray-500">
+						Notifications will be sent to a phone number you provide.
+					</span>
+				</span>
 			</label>
-
-			<StatusMessage v-if="user.sms_opted_out" tone="error" class="ml-6">
-				You have opted out of SMS notifications. To re-enable, reply START to
-				any message from us or update your settings below.
-			</StatusMessage>
-
-			<SmsVerificationSection
-				v-if="!user.sms_opted_out"
-				:user="user"
-				:sms-enabled="smsEnabledValue"
-				:is-editing-phone="isEditingPhone"
-				:success-message="successMessage"
-				:send-verification-disabled="sendVerificationDisabled"
-				:is-verifying-code="isVerifyingCode"
-				:is-sending-verification="isSendingVerification"
-				@phone-validity-changed="handlePhoneValidityChanged"
-			/>
 		</div>
+
+		<StatusMessage v-if="user.sms_opted_out" tone="error">
+			You have opted out of SMS notifications. To re-enable, reply START to any
+			message from us or update your settings below.
+		</StatusMessage>
+
+		<SmsVerificationSection
+			v-if="!user.sms_opted_out"
+			:user="user"
+			:sms-enabled="smsEnabledValue"
+			:is-editing-phone="isEditingPhone"
+			:success-message="successMessage"
+			:send-verification-disabled="sendVerificationDisabled"
+			:is-verifying-code="isVerifyingCode"
+			:is-sending-verification="isSendingVerification"
+			@phone-validity-changed="handlePhoneValidityChanged"
+		/>
 	</div>
 </template>
 

@@ -20,7 +20,7 @@
 						Send daily digest early?
 					</h3>
 					<p class="mt-1 text-sm text-gray-600">
-						This sends an extra digest immediately (earlier than your scheduled
+						This sends a daily digest immediately (earlier than your scheduled
 						time). Your next digest is scheduled soon&mdash;do you want to skip it?
 					</p>
 				</div>

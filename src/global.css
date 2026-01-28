@@ -30,6 +30,7 @@
 /* scroll padding is used to compensate for the fixed header */
 html {
 	font-family: "Open Sans", sans-serif;
+	font-size: 112.5%;
 	scroll-behavior: smooth;
 	scroll-padding-top: 4rem;
 }
