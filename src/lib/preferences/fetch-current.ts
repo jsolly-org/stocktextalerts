@@ -1,18 +1,7 @@
+import type { PreferencesSnapshot } from "../db";
 import { rootLogger } from "../logging";
 
-export type CurrentPreferences = {
-	email_notifications_enabled: boolean;
-	sms_notifications_enabled: boolean;
-	sms_opted_out: boolean;
-	phone_verified: boolean;
-	timezone: string;
-	daily_digest_enabled: boolean;
-	daily_digest_notification_time: number;
-	next_send_at: string | null;
-	dismiss_timezone_mismatch_prompts: boolean;
-};
-
-export async function fetchCurrentPreferences(): Promise<CurrentPreferences | null> {
+export async function fetchCurrentPreferences(): Promise<PreferencesSnapshot | null> {
 	try {
 		const method = "GET";
 		const url = "/api/preferences/current";
@@ -79,7 +68,7 @@ export async function fetchCurrentPreferences(): Promise<CurrentPreferences | nu
 
 		const payload = (await response.json()) as {
 			ok: boolean;
-			preferences?: CurrentPreferences;
+			preferences?: PreferencesSnapshot;
 		};
 
 		if (!payload.ok) {
