@@ -86,15 +86,6 @@ interface Props {
 	statusMessage?: string | null;
 	statusTone?: "error" | "info";
 	isSaving?: boolean;
-	savedPreferences?: {
-		email_notifications_enabled: boolean;
-		sms_notifications_enabled: boolean;
-		sms_opted_out: boolean;
-		phone_verified: boolean;
-		daily_digest_enabled: boolean;
-		daily_digest_notification_time: number;
-		next_send_at: string | null;
-	} | null;
 	isVerifyingCode?: boolean;
 	isSendingVerification?: boolean;
 }
@@ -115,7 +106,6 @@ const {
 	isVerifyingCode,
 	isSendingVerification,
 	onFormChanged,
-	savedPreferences,
 	flashMessages,
 	statusMessage,
 	statusTone,

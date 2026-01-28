@@ -108,7 +108,11 @@ describe("POST /api/preferences/timezone", () => {
 
 			expect(response.status).toBe(200);
 			const json = await response.json();
-			expect(json).toEqual({ ok: true, message: "timezone_updated" });
+			expect(json.ok).toBe(true);
+			expect(json.message).toBe("timezone_updated");
+			expect(json.preferences).toBeDefined();
+			expect(json.preferences.timezone).toBe("Etc/UTC");
+			expect(json.preferences).toHaveProperty("next_send_at");
 
 			const { data: updatedUser, error } = await adminClient
 				.from("users")

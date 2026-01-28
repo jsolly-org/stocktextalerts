@@ -39,7 +39,6 @@
 			:emailEnabled="emailEnabled"
 			:smsEnabled="smsEnabled"
 			:onFormChanged="notifyPreferencesChange"
-			:savedPreferences="savedPreferences"
 			:flash-messages="preferencesFlashMessages"
 			:status-message="preferencesStatusMessage"
 			:status-tone="preferencesStatusTone"
@@ -84,7 +83,7 @@ import {
 	resolveSectionFromKey,
 } from "../../lib/constants";
 import type { User } from "../../lib/db";
-import { rootLogger } from "../../lib/logging";
+import { fetchCurrentPreferences } from "../../lib/preferences/fetch-current";
 import {
 	type PreferencesData,
 	useAutoSaveForm,
@@ -498,29 +497,9 @@ async function handlePreferencesFormSubmitWrapper(event: SubmitEvent) {
 }
 
 async function handlePreferencesUpdated() {
-	try {
-		const response = await fetch("/api/preferences/current", {
-			method: "GET",
-			credentials: "same-origin",
-			headers: { Accept: "application/json" },
-			signal: AbortSignal.timeout(10_000),
-		});
-
-		if (response.ok) {
-			const payload = (await response.json()) as {
-				ok: boolean;
-				preferences?: PreferencesData;
-			};
-			if (payload.preferences) {
-				savedPreferencesData.value = payload.preferences;
-			}
-		}
-	} catch (error) {
-		// Silently fail - preferences will refresh on next form change
-		rootLogger.warn("Failed to refresh preferences", {
-			action: "refresh_preferences",
-			error,
-		});
+	const prefs = await fetchCurrentPreferences();
+	if (prefs) {
+		savedPreferencesData.value = prefs;
 	}
 }
 </script>

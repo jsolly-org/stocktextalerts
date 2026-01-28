@@ -48,8 +48,9 @@ import { DateTime } from "luxon";
 import { onMounted, ref, toRefs, watch } from "vue";
 
 import { CARD_GRADIENT_ACCENTS, DEFAULT_TIMEZONE } from "../../lib/constants";
-import type { User } from "../../lib/db";
+import type { PreferencesSnapshot, User } from "../../lib/db";
 import { rootLogger } from "../../lib/logging";
+import { fetchCurrentPreferences } from "../../lib/preferences/fetch-current";
 import type { TimezoneOption } from "../../lib/time/cache";
 import TimezoneMismatchBanner from "../preferences/TimezoneMismatchBanner.vue";
 import TimezoneSelect from "../preferences/TimezoneSelect.vue";
@@ -66,18 +67,6 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const { user, timezones, timezoneLoadError } = toRefs(props);
-
-type PreferencesSnapshot = {
-	email_notifications_enabled: boolean;
-	sms_notifications_enabled: boolean;
-	sms_opted_out: boolean;
-	phone_verified: boolean;
-	timezone: string;
-	daily_digest_enabled: boolean;
-	daily_digest_notification_time: number;
-	next_send_at: string | null;
-	dismiss_timezone_mismatch_prompts: boolean;
-};
 
 function buildSavedPreferences(sourceUser: User): PreferencesSnapshot {
 	return {
@@ -101,6 +90,7 @@ const savedPreferences = ref<PreferencesSnapshot | null>(
 const selectedTimezone = ref(user.value.timezone);
 const isClient = ref(false);
 const isSaving = ref(false);
+const pendingTimezoneSave = ref<string | null>(null);
 const statusMessage = ref<string | null>(null);
 const statusTone = ref<"success" | "error" | "warning" | "info">("info");
 
@@ -125,30 +115,9 @@ function resolveDefaultTimezone() {
 }
 
 async function refreshPreferences() {
-	try {
-		const response = await fetch("/api/preferences/current", {
-			method: "GET",
-			credentials: "same-origin",
-			headers: { Accept: "application/json" },
-			signal: AbortSignal.timeout(10_000),
-		});
-
-		if (!response.ok) {
-			return;
-		}
-
-		const payload = (await response.json()) as {
-			ok: boolean;
-			preferences?: PreferencesSnapshot;
-		};
-		if (payload.preferences) {
-			savedPreferences.value = payload.preferences;
-		}
-	} catch (error) {
-		rootLogger.warn("Failed to refresh preferences", {
-			action: "refresh_preferences",
-			error,
-		});
+	const prefs = await fetchCurrentPreferences();
+	if (prefs) {
+		savedPreferences.value = prefs;
 	}
 }
 
@@ -178,7 +147,10 @@ async function saveTimezone(nextTimezone: string) {
 			return;
 		}
 
-		const payload = (await response.json()) as { ok: boolean };
+		const payload = (await response.json()) as {
+			ok: boolean;
+			preferences?: { timezone?: string; next_send_at?: string | null };
+		};
 		if (!payload.ok) {
 			statusMessage.value = "Failed to update timezone. Please try again.";
 			statusTone.value = "error";
@@ -187,9 +159,28 @@ async function saveTimezone(nextTimezone: string) {
 
 		statusMessage.value = "Timezone updated.";
 		statusTone.value = "success";
-		savedPreferences.value = savedPreferences.value
-			? { ...savedPreferences.value, timezone: nextTimezone }
-			: buildSavedPreferences({ ...user.value, timezone: nextTimezone });
+		const prefs = payload.preferences;
+		if (prefs) {
+			savedPreferences.value = savedPreferences.value
+				? {
+						...savedPreferences.value,
+						...(prefs.timezone != null && { timezone: prefs.timezone }),
+						...(prefs.next_send_at !== undefined && {
+							next_send_at: prefs.next_send_at,
+						}),
+					}
+				: buildSavedPreferences({
+						...user.value,
+						...(prefs.timezone != null && { timezone: prefs.timezone }),
+						...(prefs.next_send_at !== undefined && {
+							next_send_at: prefs.next_send_at,
+						}),
+					});
+		} else {
+			savedPreferences.value = savedPreferences.value
+				? { ...savedPreferences.value, timezone: nextTimezone }
+				: buildSavedPreferences({ ...user.value, timezone: nextTimezone });
+		}
 	} catch (error) {
 		rootLogger.error(
 			"Failed to update timezone from profile",
@@ -203,11 +194,20 @@ async function saveTimezone(nextTimezone: string) {
 		statusTone.value = "error";
 	} finally {
 		isSaving.value = false;
+		const next = pendingTimezoneSave.value;
+		if (next != null) {
+			pendingTimezoneSave.value = null;
+			void saveTimezone(next);
+		}
 	}
 }
 
 function handleTimezoneChange() {
-	if (timezoneLoadError.value || isSaving.value) {
+	if (timezoneLoadError.value) {
+		return;
+	}
+	if (isSaving.value) {
+		pendingTimezoneSave.value = selectedTimezone.value;
 		return;
 	}
 	void saveTimezone(selectedTimezone.value);

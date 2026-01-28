@@ -53,6 +53,7 @@
 import { DateTime } from "luxon";
 import { computed, ref, toRefs, watch } from "vue";
 
+import type { PreferencesSnapshot } from "../../lib/db";
 import { rootLogger } from "../../lib/logging";
 import StatusMessage from "../StatusMessage.vue";
 
@@ -61,17 +62,7 @@ interface Props {
 	savedTimezone: string;
 	allowedTimezones: string[];
 	dismissTimezoneMismatchPrompts: boolean;
-	savedPreferences?: {
-		email_notifications_enabled: boolean;
-		sms_notifications_enabled: boolean;
-		sms_opted_out: boolean;
-		phone_verified: boolean;
-		timezone: string;
-		daily_digest_enabled: boolean;
-		daily_digest_notification_time: number;
-		next_send_at: string | null;
-		dismiss_timezone_mismatch_prompts: boolean;
-	} | null;
+	savedPreferences?: PreferencesSnapshot | null;
 }
 
 const props = defineProps<Props>();
