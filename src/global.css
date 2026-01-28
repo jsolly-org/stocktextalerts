@@ -5,6 +5,10 @@
 	--color-primary-strong: var(--color-blue-700);
 	--color-primary-soft: var(--color-blue-200);
 
+	--color-feature-phone: var(--color-indigo-600);
+	--color-feature-track: var(--color-teal-600);
+	--color-feature-secure: var(--color-rose-600);
+
 	--color-success-bg: var(--color-green-50);
 	--color-success-border: var(--color-green-200);
 	--color-success-text: var(--color-green-900);
