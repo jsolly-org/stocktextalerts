@@ -62,7 +62,7 @@
 
 		<div>
 			<h3 class="text-lg font-semibold text-gray-900 mb-3">Your Stocks</h3>
-			<div v-if="draftSymbols.length === 0" class="text-center py-8 px-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+			<div v-if="draftStocks.length === 0" class="text-center py-8 px-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
 				<ChartBarIcon class="mx-auto h-12 w-12 text-gray-400" aria-hidden="true" />
 				<h4 class="mt-4 text-sm font-semibold text-gray-900">No stocks tracked yet</h4>
 				<p class="mt-1 text-sm text-gray-500">
@@ -71,15 +71,15 @@
 			</div>
 			<div v-else class="space-y-2">
 				<div
-					v-for="symbol in draftSymbols"
-					:key="symbol"
+					v-for="stock in draftStocks"
+					:key="stock.symbol"
 					class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
 				>
-					<span class="font-medium text-gray-900">{{ symbol }}</span>
+					<span class="font-medium text-gray-900">{{ stock.symbol }} - {{ stock.name }}</span>
 					<button
 						type="button"
 						class="px-3 py-1 text-sm bg-error-bg text-error-text rounded hover:bg-error-border transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-						@click="removeSymbol(symbol)"
+						@click="removeSymbol(stock.symbol)"
 					>
 						Remove
 					</button>
@@ -104,9 +104,14 @@ import StatusMessage from "../../StatusMessage.vue";
 import type { StockOption } from "./StockInput.vue";
 import StockInput from "./StockInput.vue";
 
+interface InitialStock {
+	symbol: string;
+	name: string;
+}
+
 interface Props {
 	stockOptions: StockOption[];
-	initialSymbols: string[];
+	initialStocks: InitialStock[];
 	onFormChanged: () => void;
 	flashMessages?: { tone: "success" | "error" | "warning"; message: string }[];
 	statusMessage?: string | null;
@@ -123,34 +128,45 @@ const props = withDefaults(defineProps<Props>(), {
 
 const { flashMessages, isSaving, statusMessage, statusTone } = toRefs(props);
 
-const draftSymbols = ref([...props.initialSymbols]);
+const draftStocks = ref<InitialStock[]>([...props.initialStocks]);
 
-const trackedStocksValue = computed(() => JSON.stringify(draftSymbols.value));
+const trackedStocksValue = computed(() =>
+	JSON.stringify(draftStocks.value.map((s) => s.symbol)),
+);
 
 watch(
-	draftSymbols,
+	draftStocks,
 	() => {
 		props.onFormChanged();
 	},
-	{ flush: "post" },
+	{ flush: "post", deep: true },
 );
+
+function nameForSymbol(symbol: string): string {
+	const option = props.stockOptions.find((o) => o.value === symbol);
+	if (!option?.label.includes(" - ")) {
+		return symbol;
+	}
+	return option.label.split(" - ").slice(1).join(" - ");
+}
 
 function handleSelect(symbol: string) {
 	if (!symbol) {
 		return;
 	}
 
-	if (draftSymbols.value.includes(symbol)) {
+	if (draftStocks.value.some((s) => s.symbol === symbol)) {
 		return;
 	}
 
-	draftSymbols.value = [...draftSymbols.value, symbol];
+	draftStocks.value = [
+		...draftStocks.value,
+		{ symbol, name: nameForSymbol(symbol) },
+	];
 }
 
 function removeSymbol(symbol: string) {
-	draftSymbols.value = draftSymbols.value.filter(
-		(current) => current !== symbol,
-	);
+	draftStocks.value = draftStocks.value.filter((s) => s.symbol !== symbol);
 }
 </script>
 

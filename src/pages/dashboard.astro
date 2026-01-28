@@ -42,7 +42,7 @@ if (!dbUser) {
 	return Astro.redirect("/?error=user_not_found");
 }
 const user = dbUser;
-const initialSymbols = userStocks.map((stock) => stock.symbol);
+const initialStocks = userStocks.map((stock) => ({ symbol: stock.symbol, name: stock.name }));
 const url = new URL(Astro.request.url);
 const successMessage = url.searchParams.get("success");
 const errorMessage = url.searchParams.get("error");
@@ -62,7 +62,7 @@ const isEditingPhone = url.searchParams.get("change_phone") === "1";
 			errorMessage={errorMessage}
 			warningMessage={warningMessage}
 			stockOptions={stockOptions}
-			initialSymbols={initialSymbols}
+			initialStocks={initialStocks}
 		/>
 		</div>
 	</div>

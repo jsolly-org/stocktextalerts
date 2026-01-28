@@ -20,7 +20,9 @@ Public Types
 
 export type User = DbUserRow;
 export type Stock = DbStockRow;
-export type UserStock = Pick<DbUserStockRow, "symbol" | "created_at">;
+export type UserStock = Pick<DbUserStockRow, "symbol" | "created_at"> & {
+	name: DbStockRow["name"];
+};
 
 /* =============
 Users
@@ -122,13 +124,17 @@ export async function getUserStocks(
 ): Promise<UserStock[]> {
 	const { data, error } = await supabase
 		.from("user_stocks")
-		.select("symbol, created_at")
+		.select("symbol, created_at, stocks!inner(name)")
 		.eq("user_id", userId)
 		.order("created_at", { ascending: false });
 
 	if (error) throw error;
 
-	return data;
+	return data.map((row) => ({
+		symbol: row.symbol,
+		created_at: row.created_at,
+		name: (row as { stocks: { name: string } }).stocks.name,
+	}));
 }
 
 /* =============

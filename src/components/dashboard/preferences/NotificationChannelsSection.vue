@@ -18,13 +18,13 @@
 				<input
 					type="checkbox"
 					:id="emailNotificationsEnabledId"
-					class="mt-0.5 cursor-pointer"
+					class="mt-0.5 h-5 w-5 cursor-pointer"
 					v-model="emailEnabledValue"
 				/>
 				<span class="text-sm">
 					<span class="font-medium text-gray-900">Email Notifications</span>
 					<span class="block text-gray-500">
-						Notifications are sent to the email you registered with.
+						Notifications are sent to your registered email.
 					</span>
 				</span>
 			</label>
@@ -39,7 +39,7 @@
 				<input
 					type="checkbox"
 					:id="smsNotificationsEnabledId"
-					class="mt-0.5 cursor-pointer"
+					class="mt-0.5 h-5 w-5 cursor-pointer"
 					v-model="smsEnabledValue"
 				/>
 				<span class="text-sm">

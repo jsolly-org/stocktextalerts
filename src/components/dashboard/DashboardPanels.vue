@@ -12,7 +12,7 @@
 	>
 		<TrackedStocksPanel
 			:stockOptions="stockOptions"
-			:initialSymbols="initialSymbols"
+			:initialStocks="initialStocks"
 			:onFormChanged="notifyStocksChange"
 			:flash-messages="stocksFlashMessages"
 			:status-message="stocksStatusMessage"
@@ -95,10 +95,15 @@ import PreferencesPanel from "./preferences/PreferencesPanel.vue";
 import type { StockOption } from "./stocks/StockInput.vue";
 import TrackedStocksPanel from "./stocks/TrackedStocksPanel.vue";
 
+interface InitialStock {
+	symbol: string;
+	name: string;
+}
+
 interface Props {
 	user: User;
 	stockOptions: StockOption[];
-	initialSymbols: string[];
+	initialStocks: InitialStock[];
 	isEditingPhone: boolean;
 	successMessage?: string | null;
 	errorMessage?: string | null;
@@ -112,7 +117,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const {
-	initialSymbols,
+	initialStocks,
 	isEditingPhone: isEditingPhoneProp,
 	stockOptions,
 	successMessage,

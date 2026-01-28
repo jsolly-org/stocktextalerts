@@ -328,7 +328,7 @@ BEGIN
   END IF;
 
   SELECT array_length(sanitized_symbols, 1) INTO sanitized_count;
-  IF sanitized_count > 50 THEN
+  IF sanitized_count > 10 THEN
     RAISE EXCEPTION 'Tracked stocks limit exceeded'
       USING ERRCODE = 'check_violation',
         CONSTRAINT = 'user_stocks_max_limit';

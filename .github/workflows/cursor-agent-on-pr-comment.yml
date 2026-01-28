@@ -308,8 +308,9 @@ jobs:
           done
 
           if [[ "$COUNT" -ge 60 ]]; then
+            RUN_URL="https://github.com/$REPO/actions/runs/${{ github.run_id }}"
             gh pr comment "$PR_NUMBER" \
-              --body "Rate limit reached: max 60 runs/hour for this PR. $INTERNAL_MARKER"
+              --body "Rate limit reached: max 60 runs/hour for this PR. [Workflow run]($RUN_URL) $INTERNAL_MARKER"
             exit 0
           fi
 
@@ -487,6 +488,7 @@ jobs:
           BEFORE_SHA: ${{ steps.agent.outputs.before_sha }}
           AFTER_SHA: ${{ steps.agent.outputs.after_sha }}
           HEAD_REF: ${{ steps.pr.outputs.head_ref }}
+          RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
           # Fetch latest refs to ensure we have the pushed commits
           git fetch origin "$HEAD_REF" || true
@@ -512,6 +514,8 @@ jobs:
           $COMMITS
           \`\`\`
           
+          [Workflow run]($RUN_URL)
+          
           $INTERNAL_MARKER
           EOF
           )
@@ -524,6 +528,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COMMENT_URL: ${{ steps.pr.outputs.comment_url }}
+          RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
           if [[ -n "$COMMENT_URL" ]]; then
             REFERENCE="In response to [this comment]($COMMENT_URL)."
@@ -537,6 +542,8 @@ jobs:
           The agent reviewed the comment but did not apply code changes (no commit was pushed).
           
           $REFERENCE
+          
+          [Workflow run]($RUN_URL)
           
           $INTERNAL_MARKER
           EOF
@@ -565,7 +572,7 @@ jobs:
           FAILURE_BODY=$(cat <<EOF
           ## ❌ Cursor Agent Failed
           
-          The Cursor agent failed to process the comment. Check the [workflow logs]($RUN_URL) for details.
+          The Cursor agent failed to process the comment. Check the [workflow run]($RUN_URL) for details.
           
           $REFERENCE
           
