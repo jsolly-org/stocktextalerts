@@ -10,12 +10,15 @@ const { user } = Astro.props;
 const currentPage = Astro.url.pathname;
 const isLanding = currentPage === "/";
 ---
-<nav class="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
+<nav
+  aria-label="Main navigation"
+  class="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50"
+>
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="flex justify-between h-16">
       <div class="flex items-center gap-4 sm:gap-8">
         <!-- Logo -->
-        <a href="/" class="flex items-center gap-2 group">
+        <a href="/" class="flex items-center gap-2 group" aria-label="StockTextAlerts home">
           <div class="bg-primary text-white p-1.5 rounded-lg group-hover:bg-primary-strong transition-colors shadow-sm">
             <Icon name="presentation-chart-line" class="size-5" aria-hidden="true" />
           </div>
@@ -23,16 +26,19 @@ const isLanding = currentPage === "/";
         </a>
 
         <!-- Main Nav Links -->
-        <div class="flex items-center gap-4 sm:gap-6">
+        <ul class="flex items-center gap-4 sm:gap-6">
           {!user && isLanding && (
-            <div class="hidden md:flex items-center gap-6">
-              <a href="#features" class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Features</a>
-            </div>
+            <li class="hidden md:block">
+              <a href="#features" class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
+                Features
+              </a>
+            </li>
           )}
           {user && (
-            <>
+            <li>
               <a 
-                href="/dashboard" 
+                href="/dashboard"
+                aria-current={currentPage === "/dashboard" ? "page" : undefined}
                 class:list={[
                   "text-sm font-medium transition-colors",
                   currentPage === "/dashboard" ? "text-primary" : "text-gray-600 hover:text-gray-900"
@@ -40,9 +46,9 @@ const isLanding = currentPage === "/";
               >
                 Dashboard
               </a>
-            </>
+            </li>
           )}
-        </div>
+        </ul>
       </div>
 
       <!-- Right Actions -->
@@ -52,6 +58,7 @@ const isLanding = currentPage === "/";
             <a
               href="/profile"
               aria-label="Profile"
+              aria-current={currentPage === "/profile" ? "page" : undefined}
               class:list={[
                 "group rounded-full p-1 bg-gray-100 hover:bg-gray-200 transition-colors",
                 currentPage === "/profile" ? "ring-2 ring-primary ring-offset-2 ring-offset-white" : ""

@@ -46,16 +46,18 @@ const initialStocks = userStocks.map((stock) => ({ symbol: stock.symbol, name: s
 ---
 <Layout title="Dashboard" description="Review and manage your stock notifications">
 	<div class="min-h-screen bg-gray-50">
-		<Navigation user={authUser} />
+		<header>
+			<Navigation user={authUser} />
+		</header>
 
-		<div class="max-w-4xl mx-auto px-6 py-12">
-		<DashboardPanels
-			client:load
-			user={user}
-			stockOptions={stockOptions}
-			initialStocks={initialStocks}
-		/>
-		</div>
+		<main id="main-content" class="max-w-4xl mx-auto px-6 py-12">
+			<DashboardPanels
+				client:load
+				user={user}
+				stockOptions={stockOptions}
+				initialStocks={initialStocks}
+			/>
+		</main>
 	</div>
 </Layout>
 

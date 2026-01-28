@@ -16,12 +16,20 @@ const toneIcons: Record<StatusTone, string> = {
 	warning: "exclamation-triangle-24",
 	info: "information-circle-20",
 };
+const toneLive = {
+	success: { role: "status", ariaLive: "polite" },
+	error: { role: "alert", ariaLive: "assertive" },
+	warning: { role: "alert", ariaLive: "assertive" },
+	info: { role: "status", ariaLive: "polite" },
+} satisfies Record<StatusTone, { role: "alert" | "status"; ariaLive: "assertive" | "polite" }>;
 ---
 
 <div
 	class={`rounded-lg border p-4 text-sm font-medium flex items-start gap-3 ${STATUS_TONE_CLASSES[tone]} ${className ?? ""}`}
-	role="alert"
+	role={toneLive[tone].role}
+	aria-live={toneLive[tone].ariaLive}
+	aria-atomic="true"
 >
 	<Icon name={toneIcons[tone]} class="size-5 shrink-0 mt-0.5" aria-hidden="true" />
-	<span>{Astro.slots.default ? <slot /> : message}</span>
+	<p>{Astro.slots.default ? <slot /> : message}</p>
 </div>

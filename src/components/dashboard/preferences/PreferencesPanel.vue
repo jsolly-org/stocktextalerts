@@ -1,5 +1,5 @@
 <template>
-	<div
+	<section
 		class="relative mb-6 bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden"
 		data-notification-preferences-card
 		:data-form-id="DASHBOARD_FORM_ID"
@@ -59,7 +59,7 @@
 			@phone-editing-changed="handlePhoneEditingChanged"
 		/>
 		</div>
-	</div>
+	</section>
 </template>
 
 <script lang="ts" setup>

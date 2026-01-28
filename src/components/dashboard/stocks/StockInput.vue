@@ -8,24 +8,24 @@
 		class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
 		@focus="showDropdown = true" />
 
-	<div id="stock_dropdown" v-show="showDropdown && (searchQuery.length >= 1 || filteredStocks.length > 0)" role="listbox"
+	<ul id="stock_dropdown" v-show="showDropdown && (searchQuery.length >= 1 || filteredStocks.length > 0)" role="listbox"
 			class="absolute z-50 w-full mt-1 bg-white shadow-lg rounded-lg border border-gray-200 max-h-60 overflow-auto">
-			<div v-if="isSearching" class="px-4 py-2 text-sm text-gray-500">
+			<li v-if="isSearching" class="px-4 py-2 text-sm text-gray-500" role="option" aria-disabled="true">
 				Searching...
-			</div>
-			<div v-else-if="filteredStocks.length === 0 && searchQuery.length >= 1"
-				class="px-4 py-2 text-sm text-gray-500">
+			</li>
+			<li v-else-if="filteredStocks.length === 0 && searchQuery.length >= 1"
+				class="px-4 py-2 text-sm text-gray-500" role="option" aria-disabled="true">
 				No stocks found
-			</div>
-		<div v-for="(result, index) in filteredStocks" :key="result.item.value" role="option"
+			</li>
+		<li v-for="(result, index) in filteredStocks" :key="result.item.value" role="option"
 			:id="`stock_option_${index}`"
 			:aria-selected="highlightedIndex === index" :data-highlighted="highlightedIndex === index"
 			@click="selectStock(result)"
 			class="w-full px-4 py-2 text-left hover:bg-info-bg focus:bg-info-bg focus:outline-none cursor-pointer"
 			:class="{ 'bg-info-border': highlightedIndex === index }">
 			{{ result.item.label }}
-		</div>
-	</div>
+		</li>
+	</ul>
 </div>
 </template>
 

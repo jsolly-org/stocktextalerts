@@ -34,9 +34,11 @@ if (error === "user_already_exists") {
 ---
 <Layout title="Register" description="Create a new account">
   <div class="min-h-screen bg-gray-50">
-    <Navigation />
+    <header>
+      <Navigation />
+    </header>
     
-    <div class="max-w-3xl mx-auto px-6 py-12">
+    <main id="main-content" class="max-w-3xl mx-auto px-6 py-12">
       <div class="mb-6">
         <a
           href="/"
@@ -48,12 +50,12 @@ if (error === "user_already_exists") {
       </div>
 
       <div class="max-w-md mx-auto space-y-8">
-        <div>
+        <header>
           <h1 class="mt-6 text-center text-3xl font-extrabold text-gray-900">Register</h1>
           <p class="mt-2 text-center text-sm text-gray-600">
             Already have an account? <a href="/signin" class="font-medium text-primary hover:text-primary-strong">Sign in</a>
           </p>
-        </div>
+        </header>
 
         {message && (
           <StatusMessage class="mb-4" tone="error">
@@ -71,7 +73,8 @@ if (error === "user_already_exists") {
         )}
 
         <form class="mt-8 space-y-6" action="/api/auth/email/register" method="post" id="register-form">
-          <div class="rounded-md shadow-sm -space-y-px">
+          <fieldset class="rounded-md shadow-sm -space-y-px">
+            <legend class="sr-only">Account information</legend>
             <div>
               <label for="email" class="sr-only">Email</label>
               <EmailInput
@@ -97,9 +100,10 @@ if (error === "user_already_exists") {
                 placeholder="Password"
               />
             </div>
-          </div>
+          </fieldset>
           
-          <div>
+          <fieldset>
+            <legend class="sr-only">Timezone</legend>
             <label for="timezone" class="block text-sm font-medium text-gray-700 mb-1">
               Timezone
             </label>
@@ -119,16 +123,18 @@ if (error === "user_already_exists") {
                 <option value={tz.value}>{tz.label}</option>
               ))}
             </select>
-          </div>
+          </fieldset>
 
-          <div>
+          <fieldset>
+            <legend class="sr-only">Security check</legend>
             <HCaptcha
               tokenInputId="register_captcha_token"
               callbackName="onRegisterHCaptchaSuccess"
               errorCallback="onRegisterHCaptchaError"
               expiredCallback="onRegisterHCaptchaExpired"
+              ariaLabel="Complete the CAPTCHA verification"
             />
-          </div>
+          </fieldset>
           <div
             id="register-captcha-status"
             class="mt-2 hidden rounded-lg border p-3 text-sm status-tone-error"
@@ -145,7 +151,7 @@ if (error === "user_already_exists") {
           </div>
         </form>
       </div>
-    </div>
+    </main>
   </div>
 </Layout>
 

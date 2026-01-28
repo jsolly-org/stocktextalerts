@@ -1,11 +1,12 @@
 <template>
-	<div
+	<fieldset
 		:class="[
 			'mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4',
 			{ 'opacity-60': needsChannelSelection },
 		]"
 		:aria-disabled="needsChannelSelection ? 'true' : 'false'"
 	>
+		<legend class="sr-only">Daily digest settings</legend>
 		<div>
 			<div class="flex items-start gap-3">
 				<label
@@ -49,23 +50,18 @@
 
 		<slot name="setup" />
 
-		<div class="mt-4 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
-			<div>
-				<label
-					for="daily_digest_notification_time"
-					class="block text-sm font-medium text-gray-700 mb-1"
-				>
-					Delivery time
-				</label>
-				<TimePicker
-					inputId="daily_digest_notification_time"
-					inputName="daily_digest_notification_time"
-					:initialTime="dailyDigestTime"
-					:disabled="timePickerDisabled"
-					@time-change="emit('time-change', $event)"
-				/>
-			</div>
-		</div>
+		<fieldset class="mt-4 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+			<legend class="block text-sm font-medium text-gray-700 mb-1">
+				Delivery time
+			</legend>
+			<TimePicker
+				inputId="daily_digest_notification_time"
+				inputName="daily_digest_notification_time"
+				:initialTime="dailyDigestTime"
+				:disabled="timePickerDisabled"
+				@time-change="emit('time-change', $event)"
+			/>
+		</fieldset>
 		<p class="mt-3 text-sm text-gray-600">
 			<template v-if="countdownText">
 				(Will be sent {{ countdownText }}). Want to receive it earlier?
@@ -88,7 +84,7 @@
 				{{ isSending ? "sending…" : "send digest notification now" }}
 			</button>.
 		</p>
-	</div>
+	</fieldset>
 </template>
 
 <script lang="ts" setup>

@@ -1,6 +1,6 @@
 <template>
 	<Transition name="sms-verification-expand" @after-enter="onSectionAfterEnter">
-		<div
+		<section
 			v-if="smsEnabled"
 			:id="phoneVerificationSectionId"
 			class="pl-9 pt-2 space-y-4 border-l border-gray-200"
@@ -41,7 +41,7 @@
 					@change-number="handleChangeNumberClick"
 				/>
 			</fieldset>
-		</div>
+		</section>
 	</Transition>
 </template>
 

@@ -2,10 +2,12 @@
 	<div
 		class="rounded-lg border p-4 text-sm font-medium flex items-start gap-3"
 		:class="STATUS_TONE_CLASSES[tone]"
-		role="alert"
+		:role="toneLive[tone].role"
+		:aria-live="toneLive[tone].ariaLive"
+		aria-atomic="true"
 	>
 		<component :is="toneIcons[tone]" class="size-5 shrink-0 mt-0.5" aria-hidden="true" />
-		<span><slot>{{ message }}</slot></span>
+		<p><slot>{{ message }}</slot></p>
 	</div>
 </template>
 
@@ -35,4 +37,13 @@ const toneIcons: Record<StatusTone, Component> = {
 	warning: ExclamationTriangleIcon,
 	info: InformationCircleIcon,
 };
+const toneLive = {
+	success: { role: "status", ariaLive: "polite" },
+	error: { role: "alert", ariaLive: "assertive" },
+	warning: { role: "alert", ariaLive: "assertive" },
+	info: { role: "status", ariaLive: "polite" },
+} satisfies Record<
+	StatusTone,
+	{ role: "alert" | "status"; ariaLive: "assertive" | "polite" }
+>;
 </script>

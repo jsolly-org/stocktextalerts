@@ -1,8 +1,11 @@
 <template>
-	<div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+	<section
+		class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden"
+		aria-labelledby="timezone-heading"
+	>
 		<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.gray}`"></div>
 		<div class="p-6">
-			<h2 class="text-2xl font-bold text-gray-900 mb-2">Timezone</h2>
+			<h2 id="timezone-heading" class="text-2xl font-bold text-gray-900 mb-2">Timezone</h2>
 			<p class="text-gray-600 text-sm mb-4">
 				Set the timezone used for scheduling notifications.
 			</p>
@@ -20,7 +23,7 @@
 				{{ statusMessage }}
 			</StatusMessage>
 
-			<div class="space-y-6">
+			<div class="space-y-6" role="group" aria-label="Timezone settings">
 				<TimezoneSelect
 					id="profile-timezone"
 					v-model="selectedTimezone"
@@ -40,7 +43,7 @@
 				/>
 			</div>
 		</div>
-	</div>
+	</section>
 </template>
 
 <script lang="ts" setup>

@@ -20,22 +20,26 @@ const successMessage = formatMessage(search.get("success"));
 ---
 <Layout title="Stock Text Alerts" description="Get a daily digest for your tracked stocks—delivered via email and optional SMS.">
   <div class="min-h-screen bg-white">
-    <Navigation user={user || undefined} />
+    <header>
+      <Navigation user={user || undefined} />
+    </header>
 
-    {(errorMessage || successMessage) && (
-      <div class="max-w-5xl mx-auto px-6 pt-6">
-        {errorMessage && (
-          <StatusMessage class="mb-4" tone="error" message={errorMessage} />
-        )}
-        {successMessage && (
-          <StatusMessage class="mb-4" tone="success" message={successMessage} />
-        )}
-      </div>
-    )}
-    
-    <Hero isAuthenticated={isAuthenticated} />
+    <main id="main-content">
+      {(errorMessage || successMessage) && (
+        <div class="max-w-5xl mx-auto px-6 pt-6">
+          {errorMessage && (
+            <StatusMessage class="mb-4" tone="error" message={errorMessage} />
+          )}
+          {successMessage && (
+            <StatusMessage class="mb-4" tone="success" message={successMessage} />
+          )}
+        </div>
+      )}
+      
+      <Hero isAuthenticated={isAuthenticated} />
 
-    <Features />
-    <CTA isAuthenticated={isAuthenticated} />
+      <Features />
+      <CTA isAuthenticated={isAuthenticated} />
+    </main>
   </div>
 </Layout>

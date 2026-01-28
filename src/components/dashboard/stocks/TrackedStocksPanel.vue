@@ -1,5 +1,5 @@
 <template>
-	<div class="relative mb-6 bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+	<section class="relative mb-6 bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
 		<Transition
 			enter-active-class="transition-opacity duration-150"
 			enter-from-class="opacity-0"
@@ -29,7 +29,7 @@
 
 		<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.teal}`"></div>
 		<div class="p-6">
-		<div class="mb-4">
+		<header class="mb-4">
 			<h2
 				:id="DASHBOARD_SECTION_IDS.stocks"
 				class="text-2xl font-bold text-gray-900"
@@ -39,7 +39,7 @@
 			<p class="text-sm text-gray-600 mt-1">
 				Select stocks to include in your daily digest.
 			</p>
-		</div>
+		</header>
 
 		<div v-if="flashMessages.length" class="space-y-2 mb-4">
 			<StatusMessage
@@ -53,15 +53,16 @@
 
 		<input type="hidden" name="tracked_stocks" :value="trackedStocksValue" />
 
-		<div class="mb-6">
+		<fieldset class="mb-6">
+			<legend class="sr-only">Stock selection</legend>
 			<StockInput
 				:stock-options="stockOptions"
 				@select="handleSelect"
 			/>
-		</div>
+		</fieldset>
 
-		<div>
-			<h3 class="text-lg font-semibold text-gray-900 mb-3">Your Stocks</h3>
+		<section aria-labelledby="tracked-stocks-list-heading">
+			<h3 id="tracked-stocks-list-heading" class="text-lg font-semibold text-gray-900 mb-3">Your Stocks</h3>
 			<div v-if="draftStocks.length === 0" class="text-center py-8 px-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
 				<ChartBarIcon class="mx-auto h-12 w-12 text-gray-400" aria-hidden="true" />
 				<h4 class="mt-4 text-sm font-semibold text-gray-900">No stocks tracked yet</h4>
@@ -69,8 +70,8 @@
 					Get started by adding your first stock ticker above.
 				</p>
 			</div>
-			<div v-else class="space-y-2">
-				<div
+			<ul v-else class="space-y-2">
+				<li
 					v-for="stock in draftStocks"
 					:key="stock.symbol"
 					class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
@@ -83,11 +84,11 @@
 					>
 						Remove
 					</button>
-				</div>
-			</div>
+				</li>
+			</ul>
+		</section>
 		</div>
-		</div>
-	</div>
+	</section>
 </template>
 
 <script lang="ts" setup>

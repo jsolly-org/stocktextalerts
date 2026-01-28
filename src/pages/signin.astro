@@ -24,8 +24,8 @@ const successMessage = getAuthSuccessMessage(successCode);
 const emailPrefill = search.get("email") ?? "";
 ---
 <Layout title="Sign In" description="Sign in to your Stock Text Alerts account.">
-  <div class="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-    <div class="sm:mx-auto sm:w-full sm:max-w-md">
+  <main id="main-content" class="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <header class="sm:mx-auto sm:w-full sm:max-w-md">
       <div class="flex justify-center">
         <a href="/" class="flex items-center gap-2 group" aria-label="Home">
           <div class="bg-primary text-white p-1.5 rounded-lg group-hover:bg-primary-strong transition-colors shadow-sm">
@@ -42,7 +42,7 @@ const emailPrefill = search.get("email") ?? "";
           start tracking for free
         </a>
       </p>
-    </div>
+    </header>
 
     <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
       <SignInCard
@@ -51,6 +51,6 @@ const emailPrefill = search.get("email") ?? "";
         successMessage={successMessage}
       />
     </div>
-  </div>
+  </main>
 </Layout>
 

@@ -75,9 +75,9 @@ const title = "Email Verified";
 const description = "Your email has been successfully verified.";
 ---
 <Layout title={title} description={description}>
-  <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+  <main id="main-content" class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-md w-full space-y-8">
-      <div class="text-center">
+      <header class="text-center">
         <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-success-bg">
           <Icon name="check" class="h-6 w-6 text-success-text" aria-hidden="true" />
         </div>
@@ -87,16 +87,16 @@ const description = "Your email has been successfully verified.";
         <p class="mt-2 text-center text-sm text-gray-600">
           Your email address has been successfully verified.
         </p>
-      </div>
+      </header>
 
-      <div class="mt-8">
+      <section class="mt-8" aria-labelledby="verified-message-heading">
         <div class="rounded-md border p-4 status-tone-success">
           <div class="flex">
             <div class="shrink-0">
               <Icon name="check-circle-20" class="h-5 w-5 text-success-text" aria-hidden="true" />
             </div>
             <div class="ml-3">
-              <p class="text-sm font-medium">
+              <p id="verified-message-heading" class="text-sm font-medium">
                 You're all set. <span class="font-normal">You can now sign in to your account.</span>
               </p>
             </div>
@@ -111,7 +111,7 @@ const description = "Your email has been successfully verified.";
             Sign In
           </a>
         </div>
-      </div>
+      </section>
     </div>
-  </div>
+  </main>
 </Layout>

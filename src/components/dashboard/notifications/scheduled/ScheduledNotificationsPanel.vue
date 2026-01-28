@@ -1,8 +1,8 @@
 <template>
-	<div class="mb-6 bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+	<section class="mb-6 bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
 		<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.success}`"></div>
 		<div class="p-6">
-		<div class="flex items-start justify-between gap-4">
+		<header class="flex items-start justify-between gap-4">
 			<div>
 				<h2
 					:id="DASHBOARD_SECTION_IDS.scheduled"
@@ -20,7 +20,7 @@
 					</a>
 				</p>
 			</div>
-		</div>
+		</header>
 
 		<div v-if="allFlashMessages.length" class="space-y-2 mt-4">
 			<StatusMessage
@@ -53,7 +53,7 @@
 			</template>
 		</DailyDigestControls>
 		</div>
-	</div>
+	</section>
 
 </template>
 

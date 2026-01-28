@@ -5,21 +5,24 @@ interface Props {
 }
 const { action = "/api/auth/delete-account" } = Astro.props;
 ---
-<div class="bg-white rounded-lg shadow-sm border border-error-border p-8">
-	<h2 class="text-xl font-bold text-error-strong mb-2">Danger Zone</h2>
+<section class="bg-white rounded-lg shadow-sm border border-error-border p-8" aria-labelledby="danger-zone-heading">
+	<h2 id="danger-zone-heading" class="text-xl font-bold text-error-strong mb-2">Danger Zone</h2>
 	<p class="text-gray-600 mb-6">
 		Once you delete your account, there is no going back. Please be certain.
 	</p>
 
 	<form data-profile-delete-form action={action} method="post">
-		<button
-			type="submit"
-			class="bg-error-strong hover:bg-error-strong-hover text-white px-6 py-3 rounded-md text-sm font-medium transition-colors cursor-pointer"
-		>
-			Delete Account
-		</button>
+		<fieldset>
+			<legend class="sr-only">Delete account</legend>
+			<button
+				type="submit"
+				class="bg-error-strong hover:bg-error-strong-hover text-white px-6 py-3 rounded-md text-sm font-medium transition-colors cursor-pointer"
+			>
+				Delete Account
+			</button>
+		</fieldset>
 	</form>
-</div>
+</section>
 
 <script>
 	import { rootLogger } from "../../lib/logging";

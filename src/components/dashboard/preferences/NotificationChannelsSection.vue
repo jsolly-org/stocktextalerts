@@ -1,14 +1,15 @@
 <template>
-	<div :id="DASHBOARD_SECTION_IDS.notificationChannels" class="space-y-3">
-		<div>
+	<section :id="DASHBOARD_SECTION_IDS.notificationChannels" class="space-y-3">
+		<header>
 			<h2 class="text-2xl font-bold text-gray-900">
 				Notification Channels
 			</h2>
 			<p class="text-sm text-gray-600 mt-1">
 				Choose how you want to receive alerts.
 			</p>
-		</div>
-		<div class="rounded-md border border-gray-200 divide-y divide-gray-200">
+		</header>
+		<fieldset class="rounded-md border border-gray-200 divide-y divide-gray-200">
+			<legend class="sr-only">Notification channels</legend>
 			<label class="flex items-start gap-3 p-3 cursor-pointer">
 				<input
 					type="hidden"
@@ -49,7 +50,7 @@
 					</span>
 				</span>
 			</label>
-		</div>
+		</fieldset>
 
 		<StatusMessage v-if="showTimeReminder" tone="warning">
 			Choose a
@@ -78,7 +79,7 @@
 			@phone-validity-changed="emit('phone-validity-changed', $event)"
 			@phone-editing-changed="emit('phone-editing-changed', $event)"
 		/>
-	</div>
+	</section>
 </template>
 
 <script lang="ts" setup>
