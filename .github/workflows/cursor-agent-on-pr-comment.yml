@@ -473,6 +473,8 @@ jobs:
             echo ""
             echo "Last 50 lines of agent output:"
             echo "$AGENT_OUTPUT" | tail -50 || echo "(no agent output captured)"
+            # Persist truncated agent output for the no-op PR comment (so you can see why no commits were pushed)
+            echo "$AGENT_OUTPUT" | tail -80 > agent-noop-output.txt 2>/dev/null || true
             echo "noop=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -517,8 +519,25 @@ jobs:
             REFERENCE=""
           fi
           
-          # Get commit messages for the pushed commits
-          COMMITS=$(git log "$BEFORE_SHA".."$AFTER_SHA" --oneline --no-decorate 2>/dev/null || echo "")
+          # Build commit links: get SHA and first line of message, format as markdown links
+          COMMIT_LINKS=""
+          REPO="${{ github.repository }}"
+          while IFS= read -r line; do
+            if [[ -n "$line" ]]; then
+              SHA=$(echo "$line" | cut -d' ' -f1)
+              MSG=$(echo "$line" | cut -d' ' -f2-)
+              COMMIT_URL="https://github.com/$REPO/commit/$SHA"
+              if [[ -z "$COMMIT_LINKS" ]]; then
+                COMMIT_LINKS="- [\`${SHA:0:7}\`]($COMMIT_URL) $MSG"
+              else
+                COMMIT_LINKS="$COMMIT_LINKS"$'\n'"- [\`${SHA:0:7}\`]($COMMIT_URL) $MSG"
+              fi
+            fi
+          done < <(git log "$BEFORE_SHA".."$AFTER_SHA" --format="%H %s" 2>/dev/null || true)
+          
+          if [[ -z "$COMMIT_LINKS" ]]; then
+            COMMIT_LINKS="(no commits found)"
+          fi
           
           SUCCESS_BODY=$(cat <<EOF
           ## ✅ Cursor Agent: Changes applied
@@ -528,9 +547,7 @@ jobs:
           $REFERENCE
           
           **Commits pushed:**
-          \`\`\`
-          $COMMITS
-          \`\`\`
+          $COMMIT_LINKS
           
           [Workflow run]($RUN_URL)
           
@@ -554,13 +571,21 @@ jobs:
             REFERENCE=""
           fi
           
+          # Include truncated agent output so you can see why no commits were pushed (optional; sometimes no-op is expected)
+          OUTPUT_SECTION=""
+          if [[ -f agent-noop-output.txt ]] && [[ -s agent-noop-output.txt ]]; then
+            # Escape for HTML inside <pre> so the comment renders safely
+            ESCAPED=$(sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' agent-noop-output.txt)
+            OUTPUT_SECTION=$'\n\n<details><summary>Agent output (last 80 lines)</summary>\n\n<pre>'"$ESCAPED"'</pre>\n</details>\n'
+          fi
+          
           NOOP_BODY=$(cat <<EOF
           ## ✅ Cursor Agent: No changes needed
           
           The agent reviewed the comment but did not apply code changes (no commit was pushed).
           
           $REFERENCE
-          
+          $OUTPUT_SECTION
           [Workflow run]($RUN_URL)
           
           $INTERNAL_MARKER
