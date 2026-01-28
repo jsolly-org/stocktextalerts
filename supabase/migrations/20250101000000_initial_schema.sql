@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.app_metadata (
 );
 
 INSERT INTO public.app_metadata (key, value)
-VALUES ('schema_version', '20250101000000_initial_schema@v3')
+VALUES ('schema_version', '20250101000000_initial_schema@v4')
 ON CONFLICT (key) DO UPDATE SET
   value = EXCLUDED.value;
 
@@ -206,7 +206,7 @@ CREATE TABLE IF NOT EXISTS users (
   sms_opted_out BOOLEAN DEFAULT false NOT NULL,
   timezone TEXT DEFAULT 'America/New_York' REFERENCES timezones(value) NOT NULL,
   daily_digest_enabled BOOLEAN DEFAULT true NOT NULL,
-  daily_digest_notification_time INTEGER CHECK (
+  daily_digest_notification_time INTEGER DEFAULT 540 CHECK (
     daily_digest_notification_time IS NULL OR
     (daily_digest_notification_time >= 0 AND daily_digest_notification_time <= 1439 AND daily_digest_notification_time % 15 = 0)
   ),
@@ -231,7 +231,10 @@ CREATE TABLE IF NOT EXISTS users (
   CONSTRAINT users_email_non_empty CHECK (email <> ''),
   CONSTRAINT users_timezone_no_whitespace CHECK (public.has_no_whitespace(timezone)),
   CONSTRAINT users_phone_country_code_no_whitespace CHECK (public.has_no_whitespace(phone_country_code)),
-  CONSTRAINT users_phone_number_no_whitespace CHECK (public.has_no_whitespace(phone_number))
+  CONSTRAINT users_phone_number_no_whitespace CHECK (public.has_no_whitespace(phone_number)),
+  CONSTRAINT users_daily_digest_requires_time CHECK (
+    daily_digest_enabled = false OR daily_digest_notification_time IS NOT NULL
+  )
 );
 
 /* =============

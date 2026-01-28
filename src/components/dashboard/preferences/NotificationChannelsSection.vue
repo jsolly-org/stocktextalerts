@@ -75,8 +75,8 @@
 			:send-verification-disabled="sendVerificationDisabled"
 			:is-verifying-code="isVerifyingCode"
 			:is-sending-verification="isSendingVerification"
-			@phone-validity-changed="handlePhoneValidityChanged"
-			@phone-editing-changed="handlePhoneEditingChanged"
+			@phone-validity-changed="emit('phone-validity-changed', $event)"
+			@phone-editing-changed="emit('phone-editing-changed', $event)"
 		/>
 	</div>
 </template>
@@ -124,14 +124,6 @@ const smsEnabledValue = computed({
 
 const emailNotificationsEnabledId = `${DASHBOARD_FORM_ID}-email_notifications_enabled`;
 const smsNotificationsEnabledId = `${DASHBOARD_FORM_ID}-sms_notifications_enabled`;
-
-function handlePhoneValidityChanged(isValid: boolean) {
-	emit("phone-validity-changed", isValid);
-}
-
-function handlePhoneEditingChanged(value: boolean) {
-	emit("phone-editing-changed", value);
-}
 
 function scrollToScheduled() {
 	const el = document.getElementById(DASHBOARD_SECTION_IDS.scheduled);

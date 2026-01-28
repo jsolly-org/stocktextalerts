@@ -92,7 +92,7 @@ export function createSendVerificationHandler(
 				});
 			}
 			if (dbUser.sms_opted_out) {
-				logger.error("SMS verification send blocked due to opt-out", {
+				logger.info("SMS verification send blocked due to opt-out", {
 					userId: user.id,
 				});
 				return jsonResponse(400, {
@@ -216,7 +216,11 @@ export function createSendVerificationHandler(
 					);
 				}
 
-				logger.error("SMS verification failed", { error: result.error });
+				logger.error(
+					"SMS verification failed",
+					{ message: "verification_failed", tone: "error" },
+					result.error,
+				);
 				return jsonResponse(500, {
 					ok: false,
 					message: "verification_failed",

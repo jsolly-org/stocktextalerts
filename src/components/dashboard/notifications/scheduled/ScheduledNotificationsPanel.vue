@@ -58,7 +58,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onUnmounted, ref, toRefs, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_FORM_ID,
@@ -115,14 +115,24 @@ const localFlashMessages = ref<
 >([]);
 
 const tick = ref(Date.now());
-const tickInterval = setInterval(() => {
-	tick.value = Date.now();
-}, 1000);
-onUnmounted(() => clearInterval(tickInterval));
+const intervalId = ref<number | null>(null);
+onMounted(() => {
+	intervalId.value = window.setInterval(() => {
+		tick.value = Date.now();
+	}, 1000);
+});
+onUnmounted(() => {
+	if (intervalId.value === null) {
+		return;
+	}
+	clearInterval(intervalId.value);
+	intervalId.value = null;
+});
 
 const phoneVerificationSectionId = `${DASHBOARD_FORM_ID}-phone-verification-section`;
 
 const currentTimeInTimezone = computed(() => {
+	// Touch tick to recompute every second for the live clock.
 	tick.value;
 	const tz = props.user.timezone;
 	return typeof tz === "string" && tz !== "" ? getNowInTimezone(tz) : null;
@@ -198,6 +208,7 @@ const nextSendFormatted = computed(() => {
 	return formatted === "" ? null : formatted;
 });
 const countdownText = computed(() => {
+	// Touch tick to recompute every second for the countdown.
 	tick.value;
 	if (!dailyDigestEnabled.value) {
 		return null;

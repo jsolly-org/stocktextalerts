@@ -48,7 +48,7 @@
 			@update:emailEnabled="emailEnabled = $event"
 			@update:smsEnabled="smsEnabled = $event"
 			@preferences-updated="handlePreferencesUpdated"
-			@phone-editing-changed="handlePhoneEditingChanged"
+			@phone-editing-changed="isEditingPhone = $event"
 		/>
 
 		<ScheduledNotificationsPanel
@@ -65,7 +65,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, nextTick, ref, toRefs, watch } from "vue";
+import { computed, ref, toRefs, watch } from "vue";
 import {
 	DASHBOARD_FORM_ID,
 	DASHBOARD_STOCKS_FORM_ID,
@@ -77,6 +77,7 @@ import {
 	type PreferencesData,
 	useAutoSaveForm,
 } from "./composables/useAutoSavePreferences";
+import { useSmsVerificationSubmission } from "./composables/useSmsVerificationSubmission";
 import ScheduledNotificationsPanel from "./notifications/scheduled/ScheduledNotificationsPanel.vue";
 import PreferencesPanel from "./preferences/PreferencesPanel.vue";
 import type { StockOption } from "./stocks/StockInput.vue";
@@ -167,8 +168,6 @@ watch(
 
 const preferencesFormElement = ref<HTMLFormElement | null>(null);
 const stocksFormElement = ref<HTMLFormElement | null>(null);
-const isVerifyingCode = ref(false);
-const isSendingVerification = ref(false);
 const {
 	handleFormChange: handlePreferencesFormChange,
 	handleFormInput: handlePreferencesFormInput,
@@ -251,6 +250,17 @@ function setPreferencesFlashMessage(tone: FlashTone, messageKey: string) {
 	upsertFlashMessage(preferencesFlashMessages, tone, messageKey);
 }
 
+const { handleSmsVerificationSubmit, isSendingVerification, isVerifyingCode } =
+	useSmsVerificationSubmission({
+		isEditingPhone,
+		user,
+		smsSuccessMessage,
+		setPreferencesFlashMessage,
+		clearPreferencesFlashTone: (tone) =>
+			clearFlashTone(preferencesFlashMessages, tone),
+		handlePreferencesUpdated,
+	});
+
 const {
 	handleFormChange: handleStocksFormChange,
 	handleFormInput: handleStocksFormInput,
@@ -264,118 +274,8 @@ const {
 });
 
 async function handlePreferencesFormSubmitWrapper(event: SubmitEvent) {
-	const submitter = event.submitter;
-	const action =
-		submitter instanceof HTMLElement ? submitter.getAttribute("formaction") : null;
-	const isVerifyCodeSubmission = action === "/api/auth/sms/verify-code";
-	const isSendVerificationSubmission = action === "/api/auth/sms/send-verification";
-
-	if (isVerifyCodeSubmission || isSendVerificationSubmission) {
-		event.preventDefault();
-		if (isVerifyCodeSubmission) {
-			isVerifyingCode.value = true;
-		} else {
-			isSendingVerification.value = true;
-		}
-
-		try {
-			const form = event.target as HTMLFormElement;
-			const formData = new FormData(form);
-
-			const res = await fetch(action as string, {
-				method: "POST",
-				body: formData,
-				credentials: "same-origin",
-				headers: { Accept: "application/json" },
-			});
-
-			let payload: { ok: boolean; message?: string; tone?: FlashTone } | null =
-				null;
-			try {
-				payload = (await res.json()) as {
-					ok: boolean;
-					message?: string;
-					tone?: FlashTone;
-				};
-			} catch {
-				payload = null;
-			}
-
-			if (!payload || typeof payload.message !== "string") {
-				setPreferencesFlashMessage("error", "failed");
-				smsSuccessMessage.value = null;
-				return;
-			}
-
-			const messageKey = payload.message;
-			const tone = payload.tone ?? (payload.ok ? "success" : "error");
-
-			if (messageKey === "verification_sent") {
-				smsSuccessMessage.value = "verification_sent";
-				clearFlashTone(preferencesFlashMessages, "error");
-				clearFlashTone(preferencesFlashMessages, "warning");
-				isEditingPhone.value = false;
-			} else {
-				smsSuccessMessage.value = null;
-				setPreferencesFlashMessage(tone, messageKey);
-			}
-
-			// After successfully sending verification, update local user state
-			// so the UI switches to the OTP interface immediately
-			if (isSendVerificationSubmission && messageKey === "verification_sent") {
-				const phoneCountryCode = formData.get("phone_country_code") as string;
-				const phoneNumber = formData.get("phone_number") as string;
-				if (phoneCountryCode && phoneNumber) {
-					user.value = {
-						...user.value,
-						phone_country_code: phoneCountryCode,
-						phone_number: phoneNumber,
-						phone_verified: false,
-						sms_notifications_enabled: true,
-						verification_sent_at: new Date().toISOString(),
-					} as User & { verification_sent_at: string };
-				}
-			}
-
-			// After successfully verifying the code, update local user state so the UI
-			// shows "Phone verified" without requiring a refresh.
-			if (isVerifyCodeSubmission && messageKey === "phone_verified") {
-				user.value = {
-					...user.value,
-					phone_verified: true,
-					verification_sent_at: null,
-				} as User & { verification_sent_at: null };
-				isEditingPhone.value = false;
-			}
-
-			// Keep preferences state in sync after verification (server may update more fields).
-			if (isVerifyCodeSubmission && messageKey === "phone_verified") {
-				await handlePreferencesUpdated();
-			}
-
-			// Focus the first OTP digit after sending the verification code so the user
-			// can immediately type/paste without extra clicks.
-			if (isSendVerificationSubmission && messageKey === "verification_sent") {
-				await nextTick();
-				const firstOtpInputId = `${DASHBOARD_FORM_ID}-sms-verification-code-0`;
-				const otp0 = document.getElementById(firstOtpInputId);
-
-				if (otp0 instanceof HTMLInputElement) {
-					otp0.focus();
-					otp0.select();
-				}
-			}
-			return;
-		} catch {
-			setPreferencesFlashMessage("error", "failed");
-			smsSuccessMessage.value = null;
-		} finally {
-			isVerifyingCode.value = false;
-			isSendingVerification.value = false;
-		}
-		return;
-	}
-
+	const handled = await handleSmsVerificationSubmit(event);
+	if (handled) return;
 	await handlePreferencesFormSubmit(event);
 }
 
@@ -384,9 +284,5 @@ async function handlePreferencesUpdated() {
 	if (prefs) {
 		savedPreferencesData.value = prefs;
 	}
-}
-
-function handlePhoneEditingChanged(value: boolean) {
-	isEditingPhone.value = value;
 }
 </script>

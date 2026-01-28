@@ -154,7 +154,6 @@ export function formatTimeRemaining(secondsUntil: number): string {
 	return Duration.fromObject({ minutes: safeMinutes }).toHuman();
 }
 
-/** Human-readable countdown with hours, minutes, and seconds (e.g. "2 hours, 15 minutes, 30 seconds"). */
 export function formatCountdownWithSeconds(secondsUntil: number): string {
 	const safeSeconds = Math.max(secondsUntil, 0);
 	const duration = Duration.fromObject({ seconds: safeSeconds });
@@ -276,7 +275,6 @@ export function getSecondsUntilNextSend(options: {
 	return null;
 }
 
-/** Format next send ISO timestamp in user timezone as "January 28 at 14:00:00". */
 export function formatNextSendDateTime(
 	nextSendAtIso: string,
 	timezone: string,

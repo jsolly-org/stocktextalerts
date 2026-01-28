@@ -250,14 +250,14 @@ describe("User requests to send daily digest immediately", () => {
 				.eq("id", id)
 				.single();
 
-			expect(userAfter?.next_send_at).toBeTruthy();
-			if (userAfter?.next_send_at) {
-				const expected = DateTime.fromISO(nextSendAt, { zone: "utc" });
-				const actual = DateTime.fromISO(userAfter.next_send_at, {
-					zone: "utc",
-				});
-				expect(actual.toMillis()).toBe(expected.toMillis());
+			const nextSendAtAfter = userAfter?.next_send_at;
+			expect(nextSendAtAfter).toBeTruthy();
+			if (typeof nextSendAtAfter !== "string") {
+				throw new Error("Expected next_send_at to be set after test setup");
 			}
+			const expected = DateTime.fromISO(nextSendAt, { zone: "utc" });
+			const actual = DateTime.fromISO(nextSendAtAfter, { zone: "utc" });
+			expect(actual.toMillis()).toBe(expected.toMillis());
 		} finally {
 			await adminClient.auth.admin.deleteUser(id);
 		}
