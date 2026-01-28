@@ -216,11 +216,10 @@ export function createSendVerificationHandler(
 					);
 				}
 
-				logger.error(
-					"SMS verification failed",
-					{ message: "verification_failed", tone: "error" },
-					result.error,
+				const sendError = new Error(
+					result.error ?? "Failed to send verification",
 				);
+				logger.error("SMS verification failed", { userId: user.id }, sendError);
 				return jsonResponse(500, {
 					ok: false,
 					message: "verification_failed",
