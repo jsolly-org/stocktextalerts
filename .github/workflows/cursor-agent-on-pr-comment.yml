@@ -349,6 +349,14 @@ jobs:
           REMOTE_URL="https://${GH_TOKEN}@github.com/${HEAD_REPO}.git"
           git remote set-url origin "$REMOTE_URL"
 
+      - name: Setup Node.js
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
       - name: Sync to latest head
         if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
         env:

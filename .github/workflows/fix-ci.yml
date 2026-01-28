@@ -28,6 +28,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
       - name: Install Cursor CLI
         run: |
           # NOTE: This uses Cursor's official installer (https://cursor.com/install) via `curl | bash`.
