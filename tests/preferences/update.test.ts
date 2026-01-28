@@ -38,18 +38,12 @@ describe("POST /api/preferences/update", () => {
 				},
 				set: () => {},
 			},
-			redirect: (url: string) => {
-				return new Response(null, {
-					status: 302,
-					headers: { Location: url },
-				});
-			},
 		} as APIContext);
 
-		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe(
-			"/dashboard?success=settings_updated#notification-preferences",
-		);
+		expect(response.status).toBe(200);
+		const payload = (await response.json()) as { ok: boolean; message: string };
+		expect(payload.ok).toBe(true);
+		expect(payload.message).toBe("settings_updated");
 
 		const { data: updatedUser } = await adminClient
 			.from("users")
@@ -94,18 +88,12 @@ describe("POST /api/preferences/update", () => {
 				},
 				set: () => {},
 			},
-			redirect: (url: string) => {
-				return new Response(null, {
-					status: 302,
-					headers: { Location: url },
-				});
-			},
 		} as APIContext);
 
-		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe(
-			"/dashboard?success=settings_updated#notification-preferences",
-		);
+		expect(response.status).toBe(200);
+		const payload = (await response.json()) as { ok: boolean; message: string };
+		expect(payload.ok).toBe(true);
+		expect(payload.message).toBe("settings_updated");
 
 		const { data: updatedUser } = await adminClient
 			.from("users")
@@ -162,7 +150,7 @@ describe("POST /api/preferences/update", () => {
 				sms_notifications_enabled: boolean;
 				timezone: string;
 				daily_digest_enabled: boolean;
-				daily_digest_notification_time: number;
+				daily_digest_notification_time: number | null;
 				next_send_at: string | null;
 			};
 		};
@@ -174,5 +162,55 @@ describe("POST /api/preferences/update", () => {
 		expect(payload.preferences.timezone).toBe("America/Los_Angeles");
 		expect(payload.preferences.daily_digest_enabled).toBe(true);
 		expect(payload.preferences.daily_digest_notification_time).toBe(480);
+	});
+
+	it("should clear daily digest time when empty string submitted", async () => {
+		const testUser = await createTestUser({
+			email: `test-${randomUUID()}@resend.dev`,
+			password: "TestPassword123!",
+			confirmed: true,
+			dailyDigestEnabled: true,
+			dailyDigestNotificationTime: 480,
+		});
+
+		const cookies = await createAuthenticatedCookies(
+			testUser.email,
+			"TestPassword123!",
+		);
+
+		const formData = new FormData();
+		formData.append("daily_digest_notification_time", "");
+
+		const request = new Request("http://localhost/api/preferences/update", {
+			method: "POST",
+			body: formData,
+			headers: { Accept: "application/json" },
+		});
+
+		const response = await POST({
+			request,
+			cookies: {
+				get: (name: string) => {
+					const cookie = cookies.get(name);
+					return cookie ? { value: cookie } : undefined;
+				},
+				set: () => {},
+			},
+		} as APIContext);
+
+		expect(response.status).toBe(200);
+		const payload = (await response.json()) as {
+			ok: boolean;
+			message: string;
+			preferences: {
+				daily_digest_notification_time: number | null;
+				next_send_at: string | null;
+			};
+		};
+
+		expect(payload.ok).toBe(true);
+		expect(payload.message).toBe("settings_updated");
+		expect(payload.preferences.daily_digest_notification_time).toBeNull();
+		expect(payload.preferences.next_send_at).toBeNull();
 	});
 });

@@ -262,7 +262,7 @@ export interface CreateTestUserOptions {
 	phoneVerified?: boolean;
 	smsOptedOut?: boolean;
 	dailyDigestEnabled?: boolean;
-	dailyDigestNotificationTime?: number;
+	dailyDigestNotificationTime?: number | null;
 	trackedStocks?: string[];
 	confirmed?: boolean;
 }
@@ -333,27 +333,26 @@ export async function createTestUser(
 		}
 
 		// Create Profile in 'users' table
-		// Default to 9:00 AM (540 minutes from midnight)
-		const defaultNotificationTime = 540;
-		const rawNotificationTime =
-			options.dailyDigestNotificationTime ?? defaultNotificationTime;
-		const dailyDigestNotificationTime = Math.max(
-			0,
-			Math.min(1439, rawNotificationTime),
-		);
+		const dailyDigestEnabled = options.dailyDigestEnabled ?? true;
+		const rawNotificationTime = options.dailyDigestNotificationTime ?? null;
 		const alignedDailyDigestNotificationTime =
-			Math.floor(dailyDigestNotificationTime / 15) * 15;
-		const dailyDigestEnabled = options.dailyDigestEnabled ?? false;
-		const nextSendAt = dailyDigestEnabled
-			? calculateNextSendAt(
-					alignedDailyDigestNotificationTime,
-					timezone,
-					DateTime.utc(),
-				)
-			: null;
+			rawNotificationTime == null
+				? null
+				: Math.floor(Math.max(0, Math.min(1439, rawNotificationTime)) / 15) *
+					15;
+		const nextSendAt =
+			dailyDigestEnabled && alignedDailyDigestNotificationTime !== null
+				? calculateNextSendAt(
+						alignedDailyDigestNotificationTime,
+						timezone,
+						DateTime.utc(),
+					)
+				: null;
 		const nextSendAtIso = nextSendAt?.toISO() ?? null;
-		if (dailyDigestEnabled && !nextSendAtIso) {
-			throw new Error("Failed to generate next_send_at timestamp");
+		if (dailyDigestEnabled && alignedDailyDigestNotificationTime !== null) {
+			if (!nextSendAtIso) {
+				throw new Error("Failed to generate next_send_at timestamp");
+			}
 		}
 
 		const profile: DbUserInsert = {

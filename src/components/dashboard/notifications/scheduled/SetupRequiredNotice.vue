@@ -8,10 +8,10 @@
 			<li v-if="needsChannelSelection">
 				Enable at least one notification channel in
 				<a
-					:href="DASHBOARD_SECTION_HASHES.preferences"
+					:href="DASHBOARD_SECTION_HASHES.notificationChannels"
 					class="font-medium text-warning-text underline"
 				>
-					notification preferences
+					notification channels
 				</a>
 				.
 			</li>

@@ -46,10 +46,10 @@
 </template>
 
 <script lang="ts" setup>
-import { AsYouType } from "libphonenumber-js";
-import { computed, nextTick, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { DASHBOARD_FORM_ID } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
+import { formatPhoneForDisplay } from "../../../lib/format-phone";
 import StatusMessage from "../../StatusMessage.vue";
 import SmsCodeVerification from "./SmsCodeVerification.vue";
 import SmsPhoneSetup from "./SmsPhoneSetup.vue";
@@ -70,8 +70,10 @@ const props = withDefaults(defineProps<Props>(), {
 	isSendingVerification: false,
 });
 
-const emit =
-	defineEmits<(event: "phone-validity-changed", value: boolean) => void>();
+const emit = defineEmits<{
+	(event: "phone-validity-changed", value: boolean): void;
+	(event: "phone-editing-changed", value: boolean): void;
+}>();
 
 const phoneVerificationSectionId = `${DASHBOARD_FORM_ID}-phone-verification-section`;
 const phoneVerificationFieldsetId = `${DASHBOARD_FORM_ID}-phone-verification-fieldset`;
@@ -93,21 +95,12 @@ const shouldShowVerification = computed(() => {
 	return !props.user.phone_verified && !props.isEditingPhone;
 });
 
-const formattedVerifiedPhone = computed(() => {
-	const countryCode = props.user.phone_country_code ?? "";
-	const national = props.user.phone_number ?? "";
-	if (!countryCode || !national) {
-		return "";
-	}
-
-	// SMS phone input is US-only today; format the national digits nicely.
-	// If the digits aren't a clean US national number, fall back to raw display.
-	if (countryCode === "+1" && /^\d{10}$/.test(national)) {
-		const formattedNational = new AsYouType("US").input(national);
-		return `${countryCode} ${formattedNational}`;
-	}
-	return `${countryCode} ${national}`;
-});
+const formattedVerifiedPhone = computed(() =>
+	formatPhoneForDisplay(
+		props.user.phone_country_code ?? "",
+		props.user.phone_number ?? "",
+	),
+);
 
 function handleValidityChanged(isValid: boolean) {
 	emit("phone-validity-changed", isValid);
@@ -129,16 +122,7 @@ function handleChangeNumberClick() {
 	} catch (error) {
 		// Silently fail - state should already be saved.
 	}
-	// Set flag to allow navigation without beforeunload warning.
-	// The flag will be reset by DashboardPanels.updateIsEditingPhoneFromUrl() when exiting change phone mode.
-	const win = window as Window & { __allowChangePhoneNavigation?: boolean };
-	win.__allowChangePhoneNavigation = true;
-	// Update URL using pushState for client-side navigation (no page reload).
-	const url = new URL(window.location.href);
-	url.searchParams.set("change_phone", "1");
-	window.history.pushState(window.history.state, document.title, url.toString());
-	// Dispatch a custom event to notify DashboardPanels to update isEditingPhone state.
-	window.dispatchEvent(new CustomEvent("dashboard-url-changed"));
+emit("phone-editing-changed", true);
 }
 
 function onSectionAfterEnter() {
@@ -167,11 +151,6 @@ watch(
 	},
 );
 
-onUnmounted(() => {
-	// Ensure this one-off bypass can't leak to unrelated pages during SPA navigation.
-	const win = window as Window & { __allowChangePhoneNavigation?: boolean };
-	delete win.__allowChangePhoneNavigation;
-});
 </script>
 
 <style scoped>

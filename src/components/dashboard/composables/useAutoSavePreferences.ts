@@ -15,7 +15,7 @@ export type PreferencesData = {
 	sms_opted_out: boolean;
 	phone_verified: boolean;
 	daily_digest_enabled: boolean;
-	daily_digest_notification_time: number;
+	daily_digest_notification_time: number | null;
 	next_send_at: string | null;
 };
 

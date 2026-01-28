@@ -154,6 +154,25 @@ export function formatTimeRemaining(secondsUntil: number): string {
 	return Duration.fromObject({ minutes: safeMinutes }).toHuman();
 }
 
+/** Human-readable countdown with hours, minutes, and seconds (e.g. "2 hours, 15 minutes, 30 seconds"). */
+export function formatCountdownWithSeconds(secondsUntil: number): string {
+	const safeSeconds = Math.max(secondsUntil, 0);
+	const duration = Duration.fromObject({ seconds: safeSeconds });
+	const {
+		hours = 0,
+		minutes = 0,
+		seconds = 0,
+	} = duration.shiftTo("hours", "minutes", "seconds").normalize().toObject();
+	const h = Math.trunc(hours);
+	const m = Math.trunc(minutes);
+	const s = Math.trunc(seconds);
+	const parts: string[] = [];
+	if (h > 0) parts.push(`${h} ${h === 1 ? "hour" : "hours"}`);
+	if (m > 0) parts.push(`${m} ${m === 1 ? "minute" : "minutes"}`);
+	parts.push(`${s} ${s === 1 ? "second" : "seconds"}`);
+	return parts.join(", ");
+}
+
 export function formatArrivalTime(
 	secondsUntil: number,
 	timezone: string,
@@ -255,4 +274,16 @@ export function getSecondsUntilNextSend(options: {
 	}
 
 	return null;
+}
+
+/** Format next send ISO timestamp in user timezone as "January 28 at 14:00:00". */
+export function formatNextSendDateTime(
+	nextSendAtIso: string,
+	timezone: string,
+): string {
+	const dt = DateTime.fromISO(nextSendAtIso, { zone: "utc" }).setZone(timezone);
+	if (!dt.isValid) {
+		return "";
+	}
+	return dt.toFormat("MMMM d 'at' HH:mm:ss");
 }

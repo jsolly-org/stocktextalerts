@@ -40,7 +40,7 @@ type TimeModel = {
 const props = defineProps<{
 	inputId: string;
 	inputName: string;
-	initialTime: string;
+	initialTime: string | null;
 	disabled?: boolean;
 }>();
 
@@ -49,12 +49,10 @@ const emit = defineEmits<(event: "time-change", value: string) => void>();
 const minutesIncrement = 15;
 const minTime: TimeModel = { hours: 0, minutes: 0, seconds: 0 };
 const maxTime: TimeModel = { hours: 23, minutes: 45, seconds: 0 };
-const defaultTime: TimeModel = { hours: 9, minutes: 0, seconds: 0 };
-
 const isMounted = ref(false);
 const lastSyncedValue = ref<string | null>(null);
-const selectedTime = ref<TimeModel>(
-	parseTimeString(props.initialTime) ?? defaultTime,
+const selectedTime = ref<TimeModel | null>(
+	parseTimeString(props.initialTime) ?? null,
 );
 const isDisabled = computed(() => props.disabled ?? false);
 const is24 = ref(true);
@@ -67,6 +65,7 @@ const timeConfig = computed(() => {
 	return {
 		is24: is24.value,
 		minutesIncrement,
+		startTime: { hours: 9, minutes: 0, seconds: 0 },
 	};
 });
 
@@ -81,7 +80,12 @@ const inputAttributes = computed(() => {
 	};
 });
 
-const formattedTime = computed(() => formatTimeValue(selectedTime.value));
+const formattedTime = computed(() => {
+	if (!selectedTime.value) {
+		return "";
+	}
+	return formatTimeValue(selectedTime.value);
+});
 
 watch(
 	formattedTime,
@@ -102,9 +106,8 @@ watch(
 	() => props.initialTime,
 	(value) => {
 		const parsed = parseTimeString(value);
-		const resolved = parsed ?? defaultTime;
-		selectedTime.value = resolved;
-		lastSyncedValue.value = formatTimeValue(resolved);
+		selectedTime.value = parsed ?? null;
+		lastSyncedValue.value = parsed ? formatTimeValue(parsed) : "";
 	},
 );
 

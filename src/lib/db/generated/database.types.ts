@@ -232,7 +232,7 @@ export type Database = {
 				Row: {
 					created_at: string;
 					daily_digest_enabled: boolean;
-					daily_digest_notification_time: number;
+					daily_digest_notification_time: number | null;
 					dismiss_timezone_mismatch_prompts: boolean;
 					email: string;
 					email_notifications_enabled: boolean;
@@ -251,7 +251,7 @@ export type Database = {
 				Insert: {
 					created_at?: string;
 					daily_digest_enabled?: boolean;
-					daily_digest_notification_time?: number;
+					daily_digest_notification_time?: number | null;
 					dismiss_timezone_mismatch_prompts?: boolean;
 					email: string;
 					email_notifications_enabled?: boolean;
@@ -270,7 +270,7 @@ export type Database = {
 				Update: {
 					created_at?: string;
 					daily_digest_enabled?: boolean;
-					daily_digest_notification_time?: number;
+					daily_digest_notification_time?: number | null;
 					dismiss_timezone_mismatch_prompts?: boolean;
 					email?: string;
 					email_notifications_enabled?: boolean;

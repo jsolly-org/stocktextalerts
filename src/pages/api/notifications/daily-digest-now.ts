@@ -1,13 +1,11 @@
 import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
-import { buildDashboardRedirect } from "../../../lib/constants";
 import { createUserService } from "../../../lib/db";
 import {
 	createSupabaseAdminClient,
 	createSupabaseServerClient,
 } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
-import { calculateNextSendAt } from "../../../lib/time/schedule";
 import { createEmailSender } from "./email/utils";
 import { processEmailUpdate, processSmsUpdate } from "./processing";
 import { loadUserStocks, type UserStockRow } from "./shared";
@@ -18,12 +16,7 @@ import {
 	readTwilioConfig,
 } from "./sms/twilio-utils";
 
-export const POST: APIRoute = async ({
-	cookies,
-	request,
-	redirect,
-	locals,
-}) => {
+export const POST: APIRoute = async ({ cookies, request, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({
 		requestId: locals?.requestId,
@@ -33,11 +26,14 @@ export const POST: APIRoute = async ({
 	const supabase = createSupabaseServerClient();
 	const users = createUserService(supabase, cookies);
 
-	const scheduledRedirect = (params: {
-		success?: string;
-		error?: string;
-		warning?: string;
-	}) => buildDashboardRedirect({ ...params, section: "scheduled" });
+	const jsonResponse = (
+		status: number,
+		payload: {
+			ok: boolean;
+			message: string;
+			tone?: "success" | "error" | "warning";
+		},
+	) => Response.json(payload, { status });
 
 	const authUser = await users.getCurrentUser();
 	if (!authUser) {
@@ -46,7 +42,11 @@ export const POST: APIRoute = async ({
 			reason: "unauthenticated",
 			path: url.pathname,
 		});
-		return redirect("/signin?error=unauthorized");
+		return jsonResponse(401, {
+			ok: false,
+			message: "unauthorized",
+			tone: "error",
+		});
 	}
 
 	const supabaseAdmin = createSupabaseAdminClient();
@@ -78,25 +78,39 @@ export const POST: APIRoute = async ({
 			{ userId: authUser.id },
 			userError,
 		);
-		return redirect(scheduledRedirect({ error: "server_error" }));
+		return jsonResponse(500, {
+			ok: false,
+			message: "server_error",
+			tone: "error",
+		});
 	}
 
 	if (!user) {
 		logger.error("Manual daily digest send attempted but user not found", {
 			userId: authUser.id,
 		});
-		return redirect(scheduledRedirect({ error: "user_not_found" }));
+		return jsonResponse(404, {
+			ok: false,
+			message: "user_not_found",
+			tone: "error",
+		});
 	}
 
 	if (!user.daily_digest_enabled) {
-		return redirect(scheduledRedirect({ error: "daily_digest_disabled" }));
+		return jsonResponse(400, {
+			ok: false,
+			message: "daily_digest_disabled",
+			tone: "error",
+		});
 	}
 
 	const smsReady = shouldSendSms(user);
 	if (!user.email_notifications_enabled && !smsReady) {
-		return redirect(
-			scheduledRedirect({ error: "notifications_not_configured" }),
-		);
+		return jsonResponse(400, {
+			ok: false,
+			message: "notifications_not_configured",
+			tone: "error",
+		});
 	}
 
 	try {
@@ -114,16 +128,22 @@ export const POST: APIRoute = async ({
 				{ userId: user.id },
 				rateLimitError,
 			);
-			return redirect(scheduledRedirect({ error: "daily_digest_send_failed" }));
+			return jsonResponse(500, {
+				ok: false,
+				message: "daily_digest_send_failed",
+				tone: "error",
+			});
 		}
 
 		if (rateLimitAllowed === false) {
 			logger.info("User rate-limited for manual daily digest send", {
 				userId: user.id,
 			});
-			return redirect(
-				scheduledRedirect({ error: "daily_digest_rate_limited" }),
-			);
+			return jsonResponse(429, {
+				ok: false,
+				message: "daily_digest_rate_limited",
+				tone: "error",
+			});
 		}
 
 		if (rateLimitAllowed !== true) {
@@ -134,40 +154,11 @@ export const POST: APIRoute = async ({
 					rateLimitAllowed,
 				},
 			);
-			return redirect(scheduledRedirect({ error: "daily_digest_send_failed" }));
-		}
-
-		const skipNext = url.searchParams.get("skip_next") === "1";
-		const originalNextSendAt = user.next_send_at;
-		let advancedNextSendAtIso: string | null = null;
-
-		if (skipNext && typeof originalNextSendAt === "string") {
-			const dueAt = DateTime.fromISO(originalNextSendAt, { zone: "utc" });
-			const advancedNextSendAt = calculateNextSendAt(
-				user.daily_digest_notification_time,
-				user.timezone,
-				dueAt.plus({ seconds: 1 }),
-			);
-			if (!advancedNextSendAt) {
-				logger.error("Failed to calculate advanced next_send_at", {
-					userId: user.id,
-					daily_digest_notification_time: user.daily_digest_notification_time,
-					timezone: user.timezone,
-				});
-				return redirect(
-					scheduledRedirect({ error: "daily_digest_skip_failed" }),
-				);
-			}
-
-			advancedNextSendAtIso = advancedNextSendAt.toISO();
-			if (!advancedNextSendAtIso) {
-				logger.error("Failed to format advanced next_send_at ISO", {
-					userId: user.id,
-				});
-				return redirect(
-					scheduledRedirect({ error: "daily_digest_skip_failed" }),
-				);
-			}
+			return jsonResponse(500, {
+				ok: false,
+				message: "daily_digest_send_failed",
+				tone: "error",
+			});
 		}
 
 		let userStocks: UserStockRow[];
@@ -179,7 +170,11 @@ export const POST: APIRoute = async ({
 				{ userId: user.id },
 				error,
 			);
-			return redirect(scheduledRedirect({ error: "daily_digest_send_failed" }));
+			return jsonResponse(500, {
+				ok: false,
+				message: "daily_digest_send_failed",
+				tone: "error",
+			});
 		}
 
 		const stocksList =
@@ -265,36 +260,28 @@ export const POST: APIRoute = async ({
 		});
 
 		if (!anySent) {
-			return redirect(scheduledRedirect({ error: "daily_digest_send_failed" }));
+			return jsonResponse(500, {
+				ok: false,
+				message: "daily_digest_send_failed",
+				tone: "error",
+			});
 		}
 
-		if (advancedNextSendAtIso) {
-			const { error: advanceError } = await supabaseAdmin
-				.from("users")
-				.update({ next_send_at: advancedNextSendAtIso })
-				.eq("id", user.id);
-
-			if (advanceError) {
-				logger.warn("Failed to advance next_send_at for skip", {
-					userId: user.id,
-					advanceError,
-				});
-				return redirect(
-					scheduledRedirect({
-						success: "daily_digest_sent",
-						warning: "daily_digest_skip_update_failed",
-					}),
-				);
-			}
-		}
-
-		return redirect(scheduledRedirect({ success: "daily_digest_sent" }));
+		return jsonResponse(200, {
+			ok: true,
+			message: "daily_digest_sent",
+			tone: "success",
+		});
 	} catch (error) {
 		logger.error(
 			"Unexpected error sending manual daily digest",
 			{ userId: user.id },
 			error,
 		);
-		return redirect(scheduledRedirect({ error: "daily_digest_send_failed" }));
+		return jsonResponse(500, {
+			ok: false,
+			message: "daily_digest_send_failed",
+			tone: "error",
+		});
 	}
 };

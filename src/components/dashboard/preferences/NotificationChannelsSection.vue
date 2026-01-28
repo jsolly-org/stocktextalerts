@@ -1,5 +1,5 @@
 <template>
-	<div class="space-y-3">
+	<div :id="DASHBOARD_SECTION_IDS.notificationChannels" class="space-y-3">
 		<div>
 			<h2 class="text-2xl font-bold text-gray-900">
 				Notification Channels
@@ -51,6 +51,16 @@
 			</label>
 		</div>
 
+		<StatusMessage v-if="showTimeReminder" tone="warning">
+			Choose a
+			<button
+				type="button"
+				class="underline cursor-pointer hover:text-warning-text/80"
+				@click="scrollToScheduled"
+			>delivery time</button>
+			to start sending your daily digest.
+		</StatusMessage>
+
 		<StatusMessage v-if="user.sms_opted_out" tone="error">
 			You have opted out of SMS notifications. To re-enable, reply START to any
 			message from us or update your notification settings in your account.
@@ -66,13 +76,14 @@
 			:is-verifying-code="isVerifyingCode"
 			:is-sending-verification="isSendingVerification"
 			@phone-validity-changed="handlePhoneValidityChanged"
+			@phone-editing-changed="handlePhoneEditingChanged"
 		/>
 	</div>
 </template>
 
 <script lang="ts" setup>
 import { computed } from "vue";
-import { DASHBOARD_FORM_ID } from "../../../lib/constants";
+import { DASHBOARD_FORM_ID, DASHBOARD_SECTION_IDS } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 import StatusMessage from "../../StatusMessage.vue";
 import SmsVerificationSection from "./SmsVerificationSection.vue";
@@ -87,6 +98,7 @@ interface Props {
 	successMessage?: string | null;
 	isVerifyingCode?: boolean;
 	isSendingVerification?: boolean;
+	showTimeReminder: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -97,6 +109,7 @@ const emit = defineEmits<{
 	(event: "update:emailEnabled", value: boolean): void;
 	(event: "update:smsEnabled", value: boolean): void;
 	(event: "phone-validity-changed", value: boolean): void;
+	(event: "phone-editing-changed", value: boolean): void;
 }>();
 
 const emailEnabledValue = computed({
@@ -114,5 +127,16 @@ const smsNotificationsEnabledId = `${DASHBOARD_FORM_ID}-sms_notifications_enable
 
 function handlePhoneValidityChanged(isValid: boolean) {
 	emit("phone-validity-changed", isValid);
+}
+
+function handlePhoneEditingChanged(value: boolean) {
+	emit("phone-editing-changed", value);
+}
+
+function scrollToScheduled() {
+	const el = document.getElementById(DASHBOARD_SECTION_IDS.scheduled);
+	if (el) {
+		el.scrollIntoView({ behavior: "smooth" });
+	}
 }
 </script>

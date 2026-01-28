@@ -11,7 +11,13 @@
 					Scheduled Notifications
 				</h2>
 				<p class="text-sm text-gray-600 mt-1">
-					Configure when scheduled notifications are delivered.
+					Current time: {{ currentTimeInTimezone ?? "—" }}.
+					<a
+						href="/profile"
+						class="font-medium text-primary hover:text-primary-strong underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 rounded"
+					>
+						Change timezone
+					</a>
 				</p>
 			</div>
 		</div>
@@ -33,6 +39,8 @@
 			:timePickerDisabled="timePickerDisabled"
 			:sendNowDisabled="sendNowDisabled"
 			:isSending="isSending"
+			:nextSendFormatted="nextSendFormatted"
+			:countdownText="countdownText"
 			@send-now="handleSendNow"
 			@time-change="handleTimeChange"
 		>
@@ -47,29 +55,28 @@
 		</div>
 	</div>
 
-	<SendEarlyModal
-		:is-open="sendNowModalOpen"
-		:is-sending="isSending"
-		@close="closeSendNowModal"
-		@send-and-skip-next="sendNowAndSkipNext"
-		@send-without-skipping="sendNowWithoutSkipping"
-	/>
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, toRefs, watch } from "vue";
+import { computed, onUnmounted, ref, toRefs, watch } from "vue";
 import {
-	buildDashboardRedirect,
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_FORM_ID,
-	DASHBOARD_SECTION_IDS,formatMessage 
+	DASHBOARD_SECTION_IDS,
+	formatMessage,
 } from "../../../../lib/constants";
 import type { User } from "../../../../lib/db";
 import { rootLogger } from "../../../../lib/logging";
-import { minutesToTimeInputValue } from "../../../../lib/time/format";
+import {
+	formatCountdownWithSeconds,
+	formatNextSendDateTime,
+	getNowInTimezone,
+	getSecondsUntilNextSend,
+	minutesToTimeInputValue,
+	parseTimeToMinutes,
+} from "../../../../lib/time/format";
 import StatusMessage from "../../../StatusMessage.vue";
 import DailyDigestControls from "./DailyDigestControls.vue";
-import SendEarlyModal from "./SendEarlyModal.vue";
 import SetupRequiredNotice from "./SetupRequiredNotice.vue";
 
 interface Props {
@@ -99,18 +106,34 @@ const {
 } = toRefs(props);
 
 const dailyDigestEnabled = ref(user.value.daily_digest_enabled);
-const dailyDigestTimeMinutes = ref(user.value.daily_digest_notification_time);
+const dailyDigestTimeMinutes = ref<number | null>(
+	user.value.daily_digest_notification_time ?? null,
+);
 const isSending = ref(false);
-const sendNowModalOpen = ref(false);
 const localFlashMessages = ref<
 	{ tone: "success" | "error" | "warning"; message: string }[]
 >([]);
 
+const tick = ref(Date.now());
+const tickInterval = setInterval(() => {
+	tick.value = Date.now();
+}, 1000);
+onUnmounted(() => clearInterval(tickInterval));
+
 const phoneVerificationSectionId = `${DASHBOARD_FORM_ID}-phone-verification-section`;
 
-const dailyDigestTime = computed(() =>
-	minutesToTimeInputValue(dailyDigestTimeMinutes.value),
-);
+const currentTimeInTimezone = computed(() => {
+	tick.value;
+	const tz = props.user.timezone;
+	return typeof tz === "string" && tz !== "" ? getNowInTimezone(tz) : null;
+});
+
+const dailyDigestTime = computed(() => {
+	if (dailyDigestTimeMinutes.value === null) {
+		return null;
+	}
+	return minutesToTimeInputValue(dailyDigestTimeMinutes.value);
+});
 
 const smsReady = computed(
 	() => smsEnabled.value && !smsOptedOut.value && phoneVerified.value,
@@ -135,35 +158,73 @@ const allFlashMessages = computed(() => [
 	...localFlashMessages.value,
 ]);
 
-const scheduledRedirect = (params: {
-	success?: string;
-	error?: string;
-	warning?: string;
-}) => buildDashboardRedirect({ ...params, section: "scheduled" });
+watch(
+	() => user.value.daily_digest_enabled,
+	(value) => {
+		dailyDigestEnabled.value = value;
+	},
+);
+watch(
+	() => user.value.daily_digest_notification_time,
+	(value) => {
+		dailyDigestTimeMinutes.value = value ?? null;
+	},
+);
+watch(
+	hasNotificationChannel,
+	(hasChannel) => {
+		if (hasChannel && !dailyDigestEnabled.value) {
+			dailyDigestEnabled.value = true;
+			notifyFormChanged();
+		}
+	},
+	{ immediate: true },
+);
+
+const nextSendAt = computed(
+	() =>
+		props.savedPreferences?.next_send_at ?? props.user.next_send_at ?? null,
+);
+const nextSendFormatted = computed(() => {
+	if (!dailyDigestEnabled.value) {
+		return null;
+	}
+	const at = nextSendAt.value;
+	const tz = props.user.timezone;
+	if (typeof at !== "string" || at === "" || typeof tz !== "string") {
+		return null;
+	}
+	const formatted = formatNextSendDateTime(at, tz);
+	return formatted === "" ? null : formatted;
+});
+const countdownText = computed(() => {
+	tick.value;
+	if (!dailyDigestEnabled.value) {
+		return null;
+	}
+	const at = nextSendAt.value;
+	const tz = props.user.timezone;
+	const timeInput = dailyDigestTime.value;
+	if (typeof tz !== "string") {
+		return null;
+	}
+	const secondsUntil = getSecondsUntilNextSend({
+		nextSendAtIso: typeof at === "string" && at !== "" ? at : null,
+		timeInput,
+		timezone: tz,
+	});
+	if (secondsUntil === null) {
+		return null;
+	}
+	if (secondsUntil <= 0) {
+		return "Your next digest is due soon.";
+	}
+	return `in ${formatCountdownWithSeconds(secondsUntil)}`;
+});
 
 function notifyFormChanged() {
 	const handler = onFormChanged.value;
 	handler();
-}
-
-function closeSendNowModal() {
-	sendNowModalOpen.value = false;
-}
-
-function isNextSendDueSoon(): boolean {
-	const nextSendAt = props.savedPreferences?.next_send_at ?? user.value.next_send_at;
-	if (typeof nextSendAt !== "string") {
-		return false;
-	}
-
-	const dueAtMs = Date.parse(nextSendAt);
-	if (Number.isNaN(dueAtMs)) {
-		return false;
-	}
-
-	const nowMs = Date.now();
-	const dueSoonMs = 24 * 60 * 60 * 1000;
-	return dueAtMs <= nowMs + dueSoonMs;
 }
 
 function showFlashMessage(
@@ -186,11 +247,6 @@ function showFlashMessage(
 		localFlashMessages.value.push(newMessage);
 	}
 
-	const url = new URL(window.location.href);
-	url.searchParams.set(tone, messageKey);
-	url.hash = "#scheduled";
-	window.history.pushState(window.history.state, document.title, url.toString());
-
 	setTimeout(() => {
 		const index = localFlashMessages.value.findIndex((f) => f.tone === tone);
 		if (index >= 0) {
@@ -199,49 +255,30 @@ function showFlashMessage(
 	}, 5000);
 }
 
-async function sendDailyDigestNow(params: { skipNext: boolean }) {
+async function sendDailyDigestNow() {
 	if (sendNowDisabled.value) {
 		return;
 	}
 
 	isSending.value = true;
-	closeSendNowModal();
 
 	try {
-		const url = params.skipNext
-			? "/api/notifications/daily-digest-now?skip_next=1"
-			: "/api/notifications/daily-digest-now";
-
-		const response = await fetch(url, {
+		const response = await fetch("/api/notifications/daily-digest-now", {
 			method: "POST",
 			credentials: "same-origin",
+			headers: { Accept: "application/json" },
 			signal: AbortSignal.timeout(10_000),
-			redirect: "manual",
 		});
 
-		if (response.status >= 300 && response.status < 400) {
-			const location = response.headers.get("Location");
-			if (location) {
-				const redirectUrl = new URL(location, window.location.origin);
-				const successKey = redirectUrl.searchParams.get("success");
-				const errorKey = redirectUrl.searchParams.get("error");
-				const warningKey = redirectUrl.searchParams.get("warning");
+		const payload = (await response.json()) as {
+			ok: boolean;
+			message?: string;
+			tone?: "success" | "error" | "warning";
+		};
 
-				if (successKey) {
-					showFlashMessage("success", successKey);
-				}
-				if (warningKey) {
-					showFlashMessage("warning", warningKey);
-				}
-				if (errorKey) {
-					showFlashMessage("error", errorKey);
-				}
-				return;
-			}
-		}
-
-		if (response.ok) {
-			showFlashMessage("success", "daily_digest_sent");
+		if (payload?.message) {
+			const tone = payload.tone ?? (payload.ok ? "success" : "error");
+			showFlashMessage(tone, payload.message);
 			return;
 		}
 
@@ -267,32 +304,22 @@ async function sendDailyDigestNow(params: { skipNext: boolean }) {
 	}
 }
 
-async function sendNowAndSkipNext() {
-	await sendDailyDigestNow({ skipNext: true });
-}
-
-async function sendNowWithoutSkipping() {
-	await sendDailyDigestNow({ skipNext: false });
-}
-
 async function handleSendNow() {
 	if (sendNowDisabled.value) {
 		return;
 	}
 
-	if (isNextSendDueSoon()) {
-		sendNowModalOpen.value = true;
-		return;
-	}
-
-	await sendDailyDigestNow({ skipNext: false });
+	await sendDailyDigestNow();
 }
 
 watch(dailyDigestEnabled, () => {
 	notifyFormChanged();
 });
 
-function handleTimeChange() {
+function handleTimeChange(value: string) {
+	const parsedMinutes = parseTimeToMinutes(value);
+	dailyDigestTimeMinutes.value =
+		parsedMinutes === null ? null : parsedMinutes;
 	notifyFormChanged();
 }
 </script>

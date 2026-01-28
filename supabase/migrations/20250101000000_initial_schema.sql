@@ -205,8 +205,11 @@ CREATE TABLE IF NOT EXISTS users (
   verification_sent_at TIMESTAMP WITH TIME ZONE,
   sms_opted_out BOOLEAN DEFAULT false NOT NULL,
   timezone TEXT DEFAULT 'America/New_York' REFERENCES timezones(value) NOT NULL,
-  daily_digest_enabled BOOLEAN DEFAULT false NOT NULL,
-  daily_digest_notification_time INTEGER DEFAULT 540 NOT NULL CHECK (daily_digest_notification_time >= 0 AND daily_digest_notification_time <= 1439 AND daily_digest_notification_time % 15 = 0),
+  daily_digest_enabled BOOLEAN DEFAULT true NOT NULL,
+  daily_digest_notification_time INTEGER CHECK (
+    daily_digest_notification_time IS NULL OR
+    (daily_digest_notification_time >= 0 AND daily_digest_notification_time <= 1439 AND daily_digest_notification_time % 15 = 0)
+  ),
   next_send_at TIMESTAMP WITH TIME ZONE,
   email_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
   sms_notifications_enabled BOOLEAN DEFAULT false NOT NULL,

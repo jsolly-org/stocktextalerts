@@ -35,7 +35,7 @@
 		<PreferencesPanel
 			:user="user"
 			:isEditingPhone="isEditingPhone"
-			:successMessage="successMessage"
+			:successMessage="smsSuccessMessage"
 			:emailEnabled="emailEnabled"
 			:smsEnabled="smsEnabled"
 			:onFormChanged="notifyPreferencesChange"
@@ -48,6 +48,7 @@
 			@update:emailEnabled="emailEnabled = $event"
 			@update:smsEnabled="smsEnabled = $event"
 			@preferences-updated="handlePreferencesUpdated"
+			@phone-editing-changed="handlePhoneEditingChanged"
 		/>
 
 		<ScheduledNotificationsPanel
@@ -61,26 +62,14 @@
 			:flash-messages="scheduledFlashMessages"
 		/>
 	</form>
-
-	<PreviewPanel
-		:emailEnabled="emailEnabled"
-		:smsEnabled="smsEnabled"
-		:smsOptedOut="smsOptedOut"
-		:phoneVerified="phoneVerified"
-		:flash-messages="previewFlashMessages"
-	/>
 </template>
 
 <script lang="ts" setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
+import { computed, nextTick, ref, toRefs, watch } from "vue";
 import {
 	DASHBOARD_FORM_ID,
 	DASHBOARD_STOCKS_FORM_ID,
-	type DashboardSection,
-	FLASH_PARAM_KEYS,
 	formatMessage,
-	resolveDashboardSectionFromHash,
-	resolveSectionFromKey,
 } from "../../lib/constants";
 import type { User } from "../../lib/db";
 import { fetchCurrentPreferences } from "../../lib/preferences/fetch-current";
@@ -89,7 +78,6 @@ import {
 	useAutoSaveForm,
 } from "./composables/useAutoSavePreferences";
 import ScheduledNotificationsPanel from "./notifications/scheduled/ScheduledNotificationsPanel.vue";
-import PreviewPanel from "./PreviewPanel.vue";
 import PreferencesPanel from "./preferences/PreferencesPanel.vue";
 import type { StockOption } from "./stocks/StockInput.vue";
 import TrackedStocksPanel from "./stocks/TrackedStocksPanel.vue";
@@ -99,42 +87,17 @@ interface Props {
 	user: User;
 	stockOptions: StockOption[];
 	initialStocks: InitialStock[];
-	isEditingPhone: boolean;
-	successMessage?: string | null;
-	errorMessage?: string | null;
-	warningMessage?: string | null;
 }
 
-const props = withDefaults(defineProps<Props>(), {
-	successMessage: null,
-	errorMessage: null,
-	warningMessage: null,
-});
+const props = defineProps<Props>();
 
 const {
 	initialStocks,
-	isEditingPhone: isEditingPhoneProp,
 	stockOptions,
-	successMessage,
-	errorMessage,
-	warningMessage,
 	user: userProp,
 } = toRefs(props);
 
-// Local reactive state for isEditingPhone that can be updated from URL changes
-const isEditingPhone = ref(isEditingPhoneProp.value);
-
-// Local reactive state for error/warning messages that can be updated from client-side redirects
-const localErrorMessage = ref<string | null>(errorMessage.value);
-const localWarningMessage = ref<string | null>(warningMessage.value);
-
-// Sync with prop changes (e.g., after page reload)
-watch(errorMessage, (newValue) => {
-	localErrorMessage.value = newValue;
-});
-watch(warningMessage, (newValue) => {
-	localWarningMessage.value = newValue;
-});
+const isEditingPhone = ref(false);
 
 // Local reactive copy of user that can be updated after sending verification
 const user = ref<User>({ ...userProp.value });
@@ -192,51 +155,15 @@ watch(
 	},
 );
 
-function updateIsEditingPhoneFromUrl() {
-	const url = new URL(window.location.href);
-	const newValue = url.searchParams.get("change_phone") === "1";
+watch(
+	() => user.value.phone_verified,
+	(isVerified) => {
+		if (isVerified) {
+			isEditingPhone.value = false;
+		}
+	},
+);
 
-	// Reset the allowChangePhoneNavigation flag when exiting change_phone mode.
-	// This intentionally happens even if `isEditingPhone` is already `false` so the
-	// bypass can't persist across unrelated URL changes.
-	if (!newValue) {
-		(
-			window as Window & { __allowChangePhoneNavigation?: boolean }
-		).__allowChangePhoneNavigation = false;
-	}
-
-	if (isEditingPhone.value !== newValue) {
-		isEditingPhone.value = newValue;
-	}
-}
-
-onMounted(() => {
-	const url = new URL(window.location.href);
-	for (const key of FLASH_PARAM_KEYS) {
-		url.searchParams.delete(key);
-	}
-	const current = url;
-	if (current.toString() !== window.location.href) {
-		window.history.replaceState(
-			window.history.state,
-			document.title,
-			current.toString(),
-		);
-	}
-
-	// Listen for URL changes from client-side navigation
-	window.addEventListener("dashboard-url-changed", updateIsEditingPhoneFromUrl);
-	// Also listen for browser back/forward navigation
-	window.addEventListener("popstate", updateIsEditingPhoneFromUrl);
-
-	// Initial check for pending SMS state
-	updateIsEditingPhoneFromUrl();
-});
-
-onUnmounted(() => {
-	window.removeEventListener("dashboard-url-changed", updateIsEditingPhoneFromUrl);
-	window.removeEventListener("popstate", updateIsEditingPhoneFromUrl);
-});
 
 const preferencesFormElement = ref<HTMLFormElement | null>(null);
 const stocksFormElement = ref<HTMLFormElement | null>(null);
@@ -268,6 +195,10 @@ watch(
 				sms_notifications_enabled: newPreferences.sms_notifications_enabled,
 				sms_opted_out: newPreferences.sms_opted_out,
 				phone_verified: newPreferences.phone_verified,
+				daily_digest_enabled: newPreferences.daily_digest_enabled,
+				daily_digest_notification_time:
+					newPreferences.daily_digest_notification_time,
+				next_send_at: newPreferences.next_send_at,
 			};
 		}
 	},
@@ -276,86 +207,49 @@ watch(
 type FlashTone = "success" | "error" | "warning";
 type FlashMessage = { tone: FlashTone; message: string };
 
-function createFlashMessage(
+const preferencesFlashMessages = ref<FlashMessage[]>([]);
+const stocksFlashMessages = ref<FlashMessage[]>([]);
+const scheduledFlashMessages = ref<FlashMessage[]>([]);
+const smsSuccessMessage = ref<string | null>(null);
+
+function upsertFlashMessage(
+	target: typeof preferencesFlashMessages,
 	tone: FlashTone,
-	messageKey: string | null,
-): FlashMessage | null {
-	if (!messageKey) {
-		return null;
-	}
+	messageKey: string,
+) {
 	const message = formatMessage(messageKey);
 	if (!message) {
-		return null;
+		return;
 	}
-	return { tone, message };
+	const existingIndex = target.value.findIndex((item) => item.tone === tone);
+	const newMessage = { tone, message };
+	if (existingIndex >= 0) {
+		target.value.splice(existingIndex, 1, newMessage);
+	} else {
+		target.value.push(newMessage);
+	}
 }
 
-const explicitSection = (() => {
-	const hash = typeof window !== "undefined" ? window.location.hash : "";
-	return resolveDashboardSectionFromHash(hash);
-})();
-
-function getFlashMessagesForSection(
-	targetSection: DashboardSection,
-	successKey: string | null,
-	errorKey: string | null,
-	warningKey: string | null,
-): FlashMessage[] {
-	const messages: FlashMessage[] = [];
-
-	const successFlash = createFlashMessage("success", successKey);
-	const errorFlash = createFlashMessage("error", errorKey);
-	const warningFlash = createFlashMessage("warning", warningKey);
-
-	const successSection =
-		explicitSection ?? resolveSectionFromKey(successKey ?? null);
-	const errorSection = explicitSection ?? resolveSectionFromKey(errorKey);
-	const warningSection = explicitSection ?? resolveSectionFromKey(warningKey);
-
-	if (successFlash && successSection === targetSection) messages.push(successFlash);
-	if (warningFlash && warningSection === targetSection) messages.push(warningFlash);
-	if (errorFlash && errorSection === targetSection) messages.push(errorFlash);
-
-	return messages;
+function clearFlashTone(
+	target: typeof preferencesFlashMessages,
+	tone: FlashTone,
+) {
+	target.value = target.value.filter((item) => item.tone !== tone);
 }
 
-const preferencesFlashMessages = computed<FlashMessage[]>(() => {
-	const successKey =
-		successMessage.value === "verification_sent" ? null : successMessage.value;
-	return getFlashMessagesForSection(
-		"preferences",
-		successKey,
-		localErrorMessage.value,
-		localWarningMessage.value,
-	);
-});
-
-const stocksFlashMessages = computed<FlashMessage[]>(() => {
-	return getFlashMessagesForSection(
-		"stocks",
-		successMessage.value,
-		localErrorMessage.value,
-		localWarningMessage.value,
-	);
-});
-
-const scheduledFlashMessages = computed<FlashMessage[]>(() => {
-	return getFlashMessagesForSection(
-		"scheduled",
-		successMessage.value,
-		localErrorMessage.value,
-		localWarningMessage.value,
-	);
-});
-
-const previewFlashMessages = computed<FlashMessage[]>(() => {
-	return getFlashMessagesForSection(
-		"preview",
-		successMessage.value,
-		localErrorMessage.value,
-		localWarningMessage.value,
-	);
-});
+function setPreferencesFlashMessage(tone: FlashTone, messageKey: string) {
+	if (tone === "success") {
+		clearFlashTone(preferencesFlashMessages, "error");
+		clearFlashTone(preferencesFlashMessages, "warning");
+	} else if (tone === "warning") {
+		clearFlashTone(preferencesFlashMessages, "error");
+		clearFlashTone(preferencesFlashMessages, "success");
+	} else {
+		clearFlashTone(preferencesFlashMessages, "success");
+		clearFlashTone(preferencesFlashMessages, "warning");
+	}
+	upsertFlashMessage(preferencesFlashMessages, tone, messageKey);
+}
 
 const {
 	handleFormChange: handleStocksFormChange,
@@ -392,100 +286,89 @@ async function handlePreferencesFormSubmitWrapper(event: SubmitEvent) {
 				method: "POST",
 				body: formData,
 				credentials: "same-origin",
+				headers: { Accept: "application/json" },
 			});
 
-			if (res.redirected && res.url) {
-				const redirectedUrl = new URL(res.url);
-				const success = redirectedUrl.searchParams.get("success");
-				const error = redirectedUrl.searchParams.get("error");
-				const warning = redirectedUrl.searchParams.get("warning");
+			let payload: { ok: boolean; message?: string; tone?: FlashTone } | null =
+				null;
+			try {
+				payload = (await res.json()) as {
+					ok: boolean;
+					message?: string;
+					tone?: FlashTone;
+				};
+			} catch {
+				payload = null;
+			}
 
-				// Update local error/warning state from redirect URL for immediate feedback
-				if (error) {
-					localErrorMessage.value = error;
-					if (!warning) {
-						localWarningMessage.value = null;
-					}
-				} else if (success) {
-					// Clear error on success
-					localErrorMessage.value = null;
-				}
-				if (warning) {
-					localWarningMessage.value = warning;
-				} else if (success) {
-					// Clear warning on success
-					localWarningMessage.value = null;
-				}
+			if (!payload || typeof payload.message !== "string") {
+				setPreferencesFlashMessage("error", "failed");
+				smsSuccessMessage.value = null;
+				return;
+			}
 
-				// After successfully sending verification, update local user state
-				// so the UI switches to the OTP interface immediately
-				if (isSendVerificationSubmission && success === "verification_sent") {
-					// Clear any previous error messages when sending a new verification
-					localErrorMessage.value = null;
-					localWarningMessage.value = null;
-					const phoneCountryCode = formData.get("phone_country_code") as string;
-					const phoneNumber = formData.get("phone_number") as string;
-					if (phoneCountryCode && phoneNumber) {
-						user.value = {
-							...user.value,
-							phone_country_code: phoneCountryCode,
-							phone_number: phoneNumber,
-							phone_verified: false,
-							sms_notifications_enabled: true,
-							verification_sent_at: new Date().toISOString(),
-						} as User & { verification_sent_at: string };
-					}
-				}
+			const messageKey = payload.message;
+			const tone = payload.tone ?? (payload.ok ? "success" : "error");
 
-				// After successfully verifying the code, update local user state so the UI
-				// shows "Phone verified" without requiring a refresh.
-				if (isVerifyCodeSubmission && success === "phone_verified") {
+			if (messageKey === "verification_sent") {
+				smsSuccessMessage.value = "verification_sent";
+				clearFlashTone(preferencesFlashMessages, "error");
+				clearFlashTone(preferencesFlashMessages, "warning");
+				isEditingPhone.value = false;
+			} else {
+				smsSuccessMessage.value = null;
+				setPreferencesFlashMessage(tone, messageKey);
+			}
+
+			// After successfully sending verification, update local user state
+			// so the UI switches to the OTP interface immediately
+			if (isSendVerificationSubmission && messageKey === "verification_sent") {
+				const phoneCountryCode = formData.get("phone_country_code") as string;
+				const phoneNumber = formData.get("phone_number") as string;
+				if (phoneCountryCode && phoneNumber) {
 					user.value = {
 						...user.value,
-						phone_verified: true,
-						verification_sent_at: null,
-					} as User & { verification_sent_at: null };
+						phone_country_code: phoneCountryCode,
+						phone_number: phoneNumber,
+						phone_verified: false,
+						sms_notifications_enabled: true,
+						verification_sent_at: new Date().toISOString(),
+					} as User & { verification_sent_at: string };
 				}
-
-				// Avoid full page navigation: it triggers beforeunload warnings and isn't needed
-				// since we keep local `user` state in sync for the SMS flows.
-				window.history.replaceState(
-					window.history.state,
-					document.title,
-					redirectedUrl.toString(),
-				);
-				if (redirectedUrl.hash) {
-					window.location.hash = redirectedUrl.hash;
-				}
-
-				// Keep preferences state in sync after verification (server may update more fields).
-				if (isVerifyCodeSubmission && success === "phone_verified") {
-					await handlePreferencesUpdated();
-				}
-
-				// Focus the first OTP digit after sending the verification code so the user
-				// can immediately type/paste without extra clicks.
-				if (isSendVerificationSubmission && success === "verification_sent") {
-					await nextTick();
-					const firstOtpInputId = `${DASHBOARD_FORM_ID}-sms-verification-code-0`;
-					const otp0 = document.getElementById(firstOtpInputId);
-
-					if (otp0 instanceof HTMLInputElement) {
-						otp0.focus();
-						otp0.select();
-					}
-				}
-				return;
 			}
 
-			if (!res.ok) {
-				localErrorMessage.value = "failed";
-				localWarningMessage.value = null;
-				return;
+			// After successfully verifying the code, update local user state so the UI
+			// shows "Phone verified" without requiring a refresh.
+			if (isVerifyCodeSubmission && messageKey === "phone_verified") {
+				user.value = {
+					...user.value,
+					phone_verified: true,
+					verification_sent_at: null,
+				} as User & { verification_sent_at: null };
+				isEditingPhone.value = false;
 			}
+
+			// Keep preferences state in sync after verification (server may update more fields).
+			if (isVerifyCodeSubmission && messageKey === "phone_verified") {
+				await handlePreferencesUpdated();
+			}
+
+			// Focus the first OTP digit after sending the verification code so the user
+			// can immediately type/paste without extra clicks.
+			if (isSendVerificationSubmission && messageKey === "verification_sent") {
+				await nextTick();
+				const firstOtpInputId = `${DASHBOARD_FORM_ID}-sms-verification-code-0`;
+				const otp0 = document.getElementById(firstOtpInputId);
+
+				if (otp0 instanceof HTMLInputElement) {
+					otp0.focus();
+					otp0.select();
+				}
+			}
+			return;
 		} catch {
-			localErrorMessage.value = "failed";
-			localWarningMessage.value = null;
+			setPreferencesFlashMessage("error", "failed");
+			smsSuccessMessage.value = null;
 		} finally {
 			isVerifyingCode.value = false;
 			isSendingVerification.value = false;
@@ -501,5 +384,9 @@ async function handlePreferencesUpdated() {
 	if (prefs) {
 		savedPreferencesData.value = prefs;
 	}
+}
+
+function handlePhoneEditingChanged(value: boolean) {
+	isEditingPhone.value = value;
 }
 </script>

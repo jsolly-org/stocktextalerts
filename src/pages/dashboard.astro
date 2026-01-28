@@ -43,11 +43,6 @@ if (!dbUser) {
 }
 const user = dbUser;
 const initialStocks = userStocks.map((stock) => ({ symbol: stock.symbol, name: stock.name }));
-const url = new URL(Astro.request.url);
-const successMessage = url.searchParams.get("success");
-const errorMessage = url.searchParams.get("error");
-const warningMessage = url.searchParams.get("warning");
-const isEditingPhone = url.searchParams.get("change_phone") === "1";
 ---
 <Layout title="Dashboard" description="Review and manage your stock notifications">
 	<div class="min-h-screen bg-gray-50">
@@ -57,10 +52,6 @@ const isEditingPhone = url.searchParams.get("change_phone") === "1";
 		<DashboardPanels
 			client:load
 			user={user}
-			isEditingPhone={isEditingPhone}
-			successMessage={successMessage}
-			errorMessage={errorMessage}
-			warningMessage={warningMessage}
 			stockOptions={stockOptions}
 			initialStocks={initialStocks}
 		/>

@@ -1,6 +1,5 @@
 import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
-import { buildDashboardRedirect } from "../../../lib/constants";
 import {
 	createUserService,
 	omitUndefined,
@@ -21,16 +20,7 @@ const PREFERENCES_SCHEMA = {
 	daily_digest_notification_time: { type: "time" },
 } as const satisfies FormSchema;
 
-export const POST: APIRoute = async ({
-	request,
-	cookies,
-	redirect,
-	locals,
-}) => {
-	const wantsJson = request.headers
-		.get("accept")
-		?.toLowerCase()
-		.includes("application/json");
+export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({
 		requestId: locals?.requestId,
@@ -39,22 +29,21 @@ export const POST: APIRoute = async ({
 	});
 	const supabase = createSupabaseServerClient();
 	const userService = createUserService(supabase, cookies);
+	const jsonResponse = (
+		status: number,
+		payload: { ok: boolean; message: string; preferences?: unknown },
+	) => Response.json(payload, { status });
 
 	const user = await userService.getCurrentUser();
 	if (!user) {
 		logger.info("Preferences update attempt without authenticated user", {
 			reason: "unauthenticated",
 		});
-		if (wantsJson) {
-			return Response.json(
-				{ ok: false, message: "unauthorized" },
-				{ status: 401 },
-			);
-		}
-		return redirect("/signin?error=unauthorized");
+		return jsonResponse(401, { ok: false, message: "unauthorized" });
 	}
 
 	const formData = await request.formData();
+	const rawTimeValue = formData.get("daily_digest_notification_time");
 	const parsed = parseWithSchema(formData, PREFERENCES_SCHEMA);
 
 	if (!parsed.ok) {
@@ -62,15 +51,7 @@ export const POST: APIRoute = async ({
 			userId: user.id,
 			errors: parsed.allErrors,
 		});
-		if (wantsJson) {
-			return Response.json(
-				{ ok: false, message: "invalid_form" },
-				{ status: 400 },
-			);
-		}
-		return redirect(
-			buildDashboardRedirect({ error: "invalid_form", section: "preferences" }),
-		);
+		return jsonResponse(400, { ok: false, message: "invalid_form" });
 	}
 
 	const safePreferenceUpdates: UserUpdateInput = omitUndefined({
@@ -94,6 +75,9 @@ export const POST: APIRoute = async ({
 				}
 			: {}),
 	});
+	if (rawTimeValue === "") {
+		safePreferenceUpdates.daily_digest_notification_time = null;
+	}
 
 	let dbUser: User | null;
 	try {
@@ -106,28 +90,14 @@ export const POST: APIRoute = async ({
 			},
 			error,
 		);
-		if (wantsJson) {
-			return Response.json(
-				{ ok: false, message: "server_error" },
-				{ status: 500 },
-			);
-		}
-		return redirect(
-			buildDashboardRedirect({
-				error: "failed_to_update_settings",
-				section: "preferences",
-			}),
-		);
+		return jsonResponse(500, {
+			ok: false,
+			message: "failed_to_update_settings",
+		});
 	}
 	if (!dbUser) {
 		logger.info("User not found for preferences update", { userId: user.id });
-		if (wantsJson) {
-			return Response.json(
-				{ ok: false, message: "user_not_found" },
-				{ status: 404 },
-			);
-		}
-		return redirect("/signin?error=user_not_found");
+		return jsonResponse(404, { ok: false, message: "user_not_found" });
 	}
 
 	const timezoneChanged =
@@ -155,30 +125,34 @@ export const POST: APIRoute = async ({
 			: dbUser.daily_digest_enabled;
 
 	if ((timezoneChanged || timeChanged || enabledChanged) && finalEnabled) {
-		const nextSendAt = calculateNextSendAt(
-			finalTime,
-			finalTimezone,
-			DateTime.utc(),
-		);
-		if (nextSendAt) {
-			const nextSendAtIso = nextSendAt.toISO();
-			if (!nextSendAtIso) {
-				logger.warn("Failed to format next_send_at ISO for preferences", {
+		if (finalTime == null) {
+			safePreferenceUpdates.next_send_at = null;
+		} else {
+			const nextSendAt = calculateNextSendAt(
+				finalTime,
+				finalTimezone,
+				DateTime.utc(),
+			);
+			if (nextSendAt) {
+				const nextSendAtIso = nextSendAt.toISO();
+				if (!nextSendAtIso) {
+					logger.warn("Failed to format next_send_at ISO for preferences", {
+						userId: user.id,
+						finalTime,
+						finalTimezone,
+					});
+				} else {
+					safePreferenceUpdates.next_send_at = nextSendAtIso;
+				}
+			} else {
+				logger.warn("calculateNextSendAt returned null for valid inputs", {
 					userId: user.id,
 					finalTime,
 					finalTimezone,
 				});
-			} else {
-				safePreferenceUpdates.next_send_at = nextSendAtIso;
+				// Preserve existing next_send_at value when calculation fails
+				// Do not set next_send_at to null to avoid disabling scheduled notifications
 			}
-		} else {
-			logger.warn("calculateNextSendAt returned null for valid inputs", {
-				userId: user.id,
-				finalTime,
-				finalTimezone,
-			});
-			// Preserve existing next_send_at value when calculation fails
-			// Do not set next_send_at to null to avoid disabling scheduled notifications
 		}
 	} else if (enabledChanged && !finalEnabled) {
 		safePreferenceUpdates.next_send_at = null;
@@ -196,18 +170,7 @@ export const POST: APIRoute = async ({
 			logger.info("SMS preferences enabled without phone", {
 				userId: user.id,
 			});
-			if (wantsJson) {
-				return Response.json(
-					{ ok: false, message: "phone_not_set" },
-					{ status: 400 },
-				);
-			}
-			return redirect(
-				buildDashboardRedirect({
-					error: "phone_not_set",
-					section: "preferences",
-				}),
-			);
+			return jsonResponse(400, { ok: false, message: "phone_not_set" });
 		}
 
 		const updatedUser = await userService.update(
@@ -216,40 +179,26 @@ export const POST: APIRoute = async ({
 		);
 		if (!updatedUser) {
 			logger.error("User update returned null", { userId: user.id });
-			if (wantsJson) {
-				return Response.json(
-					{ ok: false, message: "user_not_found" },
-					{ status: 404 },
-				);
-			}
-			return redirect("/signin?error=user_not_found");
+			return jsonResponse(404, { ok: false, message: "user_not_found" });
 		}
 
-		if (wantsJson) {
-			return Response.json({
-				ok: true,
-				message: "settings_updated",
-				preferences: {
-					email_notifications_enabled: updatedUser.email_notifications_enabled,
-					sms_notifications_enabled: updatedUser.sms_notifications_enabled,
-					sms_opted_out: updatedUser.sms_opted_out,
-					phone_verified: updatedUser.phone_verified,
-					timezone: updatedUser.timezone,
-					daily_digest_enabled: updatedUser.daily_digest_enabled,
-					daily_digest_notification_time:
-						updatedUser.daily_digest_notification_time,
-					next_send_at: updatedUser.next_send_at,
-					dismiss_timezone_mismatch_prompts:
-						updatedUser.dismiss_timezone_mismatch_prompts,
-				},
-			});
-		}
-		return redirect(
-			buildDashboardRedirect({
-				success: "settings_updated",
-				section: "preferences",
-			}),
-		);
+		return jsonResponse(200, {
+			ok: true,
+			message: "settings_updated",
+			preferences: {
+				email_notifications_enabled: updatedUser.email_notifications_enabled,
+				sms_notifications_enabled: updatedUser.sms_notifications_enabled,
+				sms_opted_out: updatedUser.sms_opted_out,
+				phone_verified: updatedUser.phone_verified,
+				timezone: updatedUser.timezone,
+				daily_digest_enabled: updatedUser.daily_digest_enabled,
+				daily_digest_notification_time:
+					updatedUser.daily_digest_notification_time,
+				next_send_at: updatedUser.next_send_at,
+				dismiss_timezone_mismatch_prompts:
+					updatedUser.dismiss_timezone_mismatch_prompts,
+			},
+		});
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		logger.error(
@@ -262,17 +211,9 @@ export const POST: APIRoute = async ({
 			error instanceof Error ? error : new Error(String(error)),
 		);
 
-		if (wantsJson) {
-			return Response.json(
-				{ ok: false, message: "failed_to_update_settings" },
-				{ status: 500 },
-			);
-		}
-		return redirect(
-			buildDashboardRedirect({
-				error: "failed_to_update_settings",
-				section: "preferences",
-			}),
-		);
+		return jsonResponse(500, {
+			ok: false,
+			message: "failed_to_update_settings",
+		});
 	}
 };

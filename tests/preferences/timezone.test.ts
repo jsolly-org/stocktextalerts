@@ -9,16 +9,10 @@ import {
 	createTestUser,
 } from "../utils";
 
-const toRedirect = (url: string) =>
-	new Response(null, {
-		status: 302,
-		headers: { Location: url },
-	});
-
 describe("POST /api/preferences/timezone", () => {
 	const TEST_PASSWORD = "TestPassword123!";
 
-	it("updates the current user's timezone and redirects back", async () => {
+	it("updates the current user's timezone", async () => {
 		const testUser = await createTestUser({
 			email: `test-timezone-${randomUUID()}@resend.dev`,
 			password: TEST_PASSWORD,
@@ -49,13 +43,13 @@ describe("POST /api/preferences/timezone", () => {
 					},
 					set: () => {},
 				},
-				redirect: toRedirect,
 			} as unknown as APIContext);
 
-			expect(response.status).toBe(302);
-			expect(response.headers.get("Location")).toBe(
-				"/dashboard?success=timezone_updated#notification-preferences",
-			);
+			expect(response.status).toBe(200);
+			const json = await response.json();
+			expect(json.ok).toBe(true);
+			expect(json.message).toBe("timezone_updated");
+			expect(json.preferences.timezone).toBe("Etc/UTC");
 
 			const { data: updatedUser, error } = await adminClient
 				.from("users")
@@ -71,7 +65,7 @@ describe("POST /api/preferences/timezone", () => {
 		}
 	});
 
-	it("returns JSON response when Accept header includes application/json", async () => {
+	it("returns JSON response with preferences", async () => {
 		const testUser = await createTestUser({
 			email: `test-timezone-json-${randomUUID()}@resend.dev`,
 			password: TEST_PASSWORD,
@@ -103,7 +97,6 @@ describe("POST /api/preferences/timezone", () => {
 					},
 					set: () => {},
 				},
-				redirect: toRedirect,
 			} as unknown as APIContext);
 
 			expect(response.status).toBe(200);

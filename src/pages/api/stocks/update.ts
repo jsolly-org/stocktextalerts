@@ -1,5 +1,4 @@
 import type { APIRoute } from "astro";
-import { buildDashboardRedirect } from "../../../lib/constants";
 import { createUserService } from "../../../lib/db";
 import {
 	isStocksLimitError,
@@ -19,16 +18,7 @@ const STOCKS_SCHEMA = {
 	tracked_stocks: { type: "json_string_array", required: true },
 } as const satisfies FormSchema;
 
-export const POST: APIRoute = async ({
-	request,
-	cookies,
-	redirect,
-	locals,
-}) => {
-	const wantsJson = request.headers
-		.get("accept")
-		?.toLowerCase()
-		.includes("application/json");
+export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({
 		requestId: locals?.requestId,
@@ -37,19 +27,17 @@ export const POST: APIRoute = async ({
 	});
 	const supabase = createSupabaseServerClient();
 	const userService = createUserService(supabase, cookies);
+	const jsonResponse = (
+		status: number,
+		payload: { ok: boolean; message: string },
+	) => Response.json(payload, { status });
 
 	const user = await userService.getCurrentUser();
 	if (!user) {
 		logger.info("Tracked stocks update attempt without authenticated user", {
 			reason: "unauthenticated",
 		});
-		if (wantsJson) {
-			return Response.json(
-				{ ok: false, message: "unauthorized" },
-				{ status: 401 },
-			);
-		}
-		return redirect("/signin?error=unauthorized");
+		return jsonResponse(401, { ok: false, message: "unauthorized" });
 	}
 
 	let formData: FormData;
@@ -65,15 +53,7 @@ export const POST: APIRoute = async ({
 			},
 			createErrorForLogging(error),
 		);
-		if (wantsJson) {
-			return Response.json(
-				{ ok: false, message: "invalid_form" },
-				{ status: 400 },
-			);
-		}
-		return redirect(
-			buildDashboardRedirect({ error: "invalid_form", section: "stocks" }),
-		);
+		return jsonResponse(400, { ok: false, message: "invalid_form" });
 	}
 	const parsed = parseWithSchema(formData, STOCKS_SCHEMA);
 
@@ -82,15 +62,7 @@ export const POST: APIRoute = async ({
 			userId: user.id,
 			errors: parsed.allErrors,
 		});
-		if (wantsJson) {
-			return Response.json(
-				{ ok: false, message: "invalid_form" },
-				{ status: 400 },
-			);
-		}
-		return redirect(
-			buildDashboardRedirect({ error: "invalid_form", section: "stocks" }),
-		);
+		return jsonResponse(400, { ok: false, message: "invalid_form" });
 	}
 
 	const trackedSymbols = parsed.data.tracked_stocks;
@@ -99,15 +71,7 @@ export const POST: APIRoute = async ({
 			userId: user.id,
 			count: trackedSymbols.length,
 		});
-		if (wantsJson) {
-			return Response.json(
-				{ ok: false, message: "stocks_limit" },
-				{ status: 400 },
-			);
-		}
-		return redirect(
-			buildDashboardRedirect({ error: "stocks_limit", section: "stocks" }),
-		);
+		return jsonResponse(400, { ok: false, message: "stocks_limit" });
 	}
 
 	try {
@@ -139,48 +103,15 @@ export const POST: APIRoute = async ({
 		}
 
 		if (isStocksLimitError(error)) {
-			if (wantsJson) {
-				return Response.json(
-					{ ok: false, message: "stocks_limit" },
-					{ status: 400 },
-				);
-			}
-			return redirect(
-				buildDashboardRedirect({ error: "stocks_limit", section: "stocks" }),
-			);
+			return jsonResponse(400, { ok: false, message: "stocks_limit" });
 		}
 
 		if (isStocksWhitespaceError(error)) {
-			if (wantsJson) {
-				return Response.json(
-					{ ok: false, message: "invalid_form" },
-					{ status: 400 },
-				);
-			}
-			return redirect(
-				buildDashboardRedirect({ error: "invalid_form", section: "stocks" }),
-			);
+			return jsonResponse(400, { ok: false, message: "invalid_form" });
 		}
 
-		if (wantsJson) {
-			return Response.json(
-				{ ok: false, message: "failed_to_update_stocks" },
-				{ status: 500 },
-			);
-		}
-		return redirect(
-			buildDashboardRedirect({
-				error: "failed_to_update_stocks",
-				section: "stocks",
-			}),
-		);
+		return jsonResponse(500, { ok: false, message: "failed_to_update_stocks" });
 	}
 
-	if (wantsJson) {
-		return Response.json({ ok: true, message: "stocks_updated" });
-	}
-
-	return redirect(
-		buildDashboardRedirect({ success: "stocks_updated", section: "stocks" }),
-	);
+	return jsonResponse(200, { ok: true, message: "stocks_updated" });
 };

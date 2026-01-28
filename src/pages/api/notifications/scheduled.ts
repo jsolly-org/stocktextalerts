@@ -173,6 +173,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			)
 			.eq("daily_digest_enabled", true)
 			.not("next_send_at", "is", null)
+			.not("daily_digest_notification_time", "is", null)
 			.lte("next_send_at", currentTimeIso)
 			.or(
 				"email_notifications_enabled.eq.true,sms_notifications_enabled.eq.true",
@@ -394,8 +395,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
 					}
 				}
 
+				// Query filters out null daily_digest_notification_time with .not()
 				const nextSendAt = calculateNextSendAt(
-					user.daily_digest_notification_time,
+					user.daily_digest_notification_time as number,
 					user.timezone,
 					currentTime,
 				);

@@ -54,7 +54,9 @@
 			:success-message="successMessage"
 			:is-verifying-code="isVerifyingCode"
 			:is-sending-verification="isSendingVerification"
+			:show-time-reminder="showTimeReminder"
 			@phone-validity-changed="handlePhoneValidityChanged"
+			@phone-editing-changed="handlePhoneEditingChanged"
 		/>
 		</div>
 	</div>
@@ -118,6 +120,7 @@ const emit = defineEmits<{
 	(event: "update:emailEnabled", value: boolean): void;
 	(event: "update:smsEnabled", value: boolean): void;
 	(event: "preferences-updated"): void;
+	(event: "phone-editing-changed", value: boolean): void;
 }>();
 
 const sendVerificationDisabled = ref(true);
@@ -142,6 +145,15 @@ const canSaveSmsEnabled = computed(() => {
 		return true;
 	}
 	return user.value.phone_verified === true;
+});
+const showTimeReminder = computed(() => {
+	if (!emailEnabled.value && !smsEnabled.value) {
+		return false;
+	}
+	if (!user.value.daily_digest_enabled) {
+		return false;
+	}
+	return user.value.daily_digest_notification_time == null;
 });
 
 const hasPendingSmsChanges = computed(() => {
@@ -230,18 +242,16 @@ function handlePhoneValidityChanged(isValid: boolean) {
 	sendVerificationDisabled.value = !isValid;
 }
 
+function handlePhoneEditingChanged(value: boolean) {
+	emit("phone-editing-changed", value);
+}
+
 function setupNavigationWarning() {
 	if (!hasPendingSmsChanges.value) {
 		return;
 	}
 
 	function handleBeforeUnload(event: BeforeUnloadEvent) {
-		// Allow navigation to change_phone=1 without warning
-		const win = window as Window & { __allowChangePhoneNavigation?: boolean };
-		if (win.__allowChangePhoneNavigation) {
-			delete win.__allowChangePhoneNavigation;
-			return;
-		}
 		event.preventDefault();
 		event.returnValue = "";
 		return "";

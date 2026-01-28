@@ -5,16 +5,10 @@ import { POST as POSTDismissBanner } from "../../src/pages/api/preferences/dismi
 import { adminClient, allowConsoleErrors } from "../setup";
 import { createAuthenticatedCookies, createTestUser } from "../utils";
 
-const toRedirect = (url: string) =>
-	new Response(null, {
-		status: 302,
-		headers: { Location: url },
-	});
-
 describe("POST /api/preferences/dismiss-timezone-banner", () => {
 	const TEST_PASSWORD = "TestPassword123!";
 
-	it("sets dismiss_timezone_mismatch_prompts to true and redirects back", async () => {
+	it("sets dismiss_timezone_mismatch_prompts to true", async () => {
 		const testUser = await createTestUser({
 			email: `test-dismiss-banner-${randomUUID()}@resend.dev`,
 			password: TEST_PASSWORD,
@@ -45,13 +39,12 @@ describe("POST /api/preferences/dismiss-timezone-banner", () => {
 					},
 					set: () => {},
 				},
-				redirect: toRedirect,
 			} as unknown as APIContext);
 
-			expect(response.status).toBe(302);
-			expect(response.headers.get("Location")).toBe(
-				"/dashboard?success=timezone_banner_dismissed#notification-preferences",
-			);
+			expect(response.status).toBe(200);
+			const json = await response.json();
+			expect(json.ok).toBe(true);
+			expect(json.message).toBe("timezone_banner_dismissed");
 
 			const { data: updatedUser, error } = await adminClient
 				.from("users")
@@ -77,7 +70,7 @@ describe("POST /api/preferences/dismiss-timezone-banner", () => {
 		if (cleanupError) throw cleanupError;
 	});
 
-	it("returns JSON response when Accept header includes application/json", async () => {
+	it("returns JSON response when dismissing banner", async () => {
 		const testUser = await createTestUser({
 			email: `test-dismiss-banner-json-${randomUUID()}@resend.dev`,
 			password: TEST_PASSWORD,
@@ -111,12 +104,12 @@ describe("POST /api/preferences/dismiss-timezone-banner", () => {
 					},
 					set: () => {},
 				},
-				redirect: toRedirect,
 			} as unknown as APIContext);
 
 			expect(response.status).toBe(200);
 			const json = await response.json();
-			expect(json).toEqual({ ok: true });
+			expect(json.ok).toBe(true);
+			expect(json.message).toBe("timezone_banner_dismissed");
 
 			const { data: updatedUser, error } = await adminClient
 				.from("users")
@@ -142,7 +135,7 @@ describe("POST /api/preferences/dismiss-timezone-banner", () => {
 		if (cleanupError) throw cleanupError;
 	});
 
-	it("redirects to /signin?error=unauthorized when user is not authenticated", async () => {
+	it("returns unauthorized when user is not authenticated", async () => {
 		allowConsoleErrors();
 
 		const request = new Request(
@@ -158,10 +151,11 @@ describe("POST /api/preferences/dismiss-timezone-banner", () => {
 				get: () => undefined,
 				set: () => {},
 			},
-			redirect: toRedirect,
 		} as unknown as APIContext);
 
-		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe("/signin?error=unauthorized");
+		expect(response.status).toBe(401);
+		const json = await response.json();
+		expect(json.ok).toBe(false);
+		expect(json.message).toBe("unauthorized");
 	});
 });

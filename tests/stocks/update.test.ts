@@ -33,7 +33,7 @@ type UserNotificationPreferences = {
 	email_notifications_enabled: boolean;
 	sms_notifications_enabled: boolean;
 	daily_digest_enabled: boolean;
-	daily_digest_notification_time: number;
+	daily_digest_notification_time: number | null;
 	next_send_at: string | null;
 };
 
@@ -45,7 +45,7 @@ async function updateTrackedStocks(
 	response: Response;
 	testUser: TestUser;
 	trackedStocks: Array<{ symbol: string }> | null;
-	redirectUrl: string | null;
+	payload: { ok: boolean; message: string };
 	userPreferencesBefore: UserNotificationPreferences | null;
 	userPreferencesAfter: UserNotificationPreferences | null;
 }> {
@@ -88,7 +88,6 @@ async function updateTrackedStocks(
 		body: formData,
 	});
 
-	let redirectUrl: string | null = null;
 	const response = await POST({
 		request,
 		cookies: {
@@ -98,14 +97,8 @@ async function updateTrackedStocks(
 			},
 			set: () => {},
 		},
-		redirect: (url: string) => {
-			redirectUrl = url;
-			return new Response(null, {
-				status: 302,
-				headers: { Location: url },
-			});
-		},
 	} as unknown as APIContext);
+	const payload = (await response.json()) as { ok: boolean; message: string };
 
 	const { data: trackedStocks } = await adminClient
 		.from("user_stocks")
@@ -125,7 +118,7 @@ async function updateTrackedStocks(
 		response,
 		testUser,
 		trackedStocks,
-		redirectUrl,
+		payload,
 		userPreferencesBefore,
 		userPreferencesAfter,
 	};
@@ -133,66 +126,58 @@ async function updateTrackedStocks(
 
 describe("POST /api/stocks/update", () => {
 	it("should add a single stock when user has no stocks", async () => {
-		const { response, trackedStocks, redirectUrl } = await updateTrackedStocks(
+		const { response, trackedStocks, payload } = await updateTrackedStocks(
 			[],
 			["AAPL"],
 		);
 
-		expect(redirectUrl).toBe(
-			"/dashboard?success=stocks_updated#tracked-stocks",
-		);
-		expect(response.status).toBe(302);
+		expect(response.status).toBe(200);
+		expect(payload.ok).toBe(true);
+		expect(payload.message).toBe("stocks_updated");
 
 		expect(trackedStocks).toHaveLength(1);
 		expect(trackedStocks?.[0]?.symbol).toBe("AAPL");
 	});
 
 	it("should remove the single stock when user has one stock", async () => {
-		const { response, trackedStocks, redirectUrl } = await updateTrackedStocks(
+		const { response, trackedStocks, payload } = await updateTrackedStocks(
 			["AAPL"],
 			[],
 		);
 
-		expect(redirectUrl).toBe(
-			"/dashboard?success=stocks_updated#tracked-stocks",
-		);
-		expect(response.status).toBe(302);
+		expect(response.status).toBe(200);
+		expect(payload.ok).toBe(true);
+		expect(payload.message).toBe("stocks_updated");
 
 		expect(trackedStocks).toHaveLength(0);
 	});
 
 	it("should add a second stock when user has one stock", async () => {
-		const { response, trackedStocks, redirectUrl } = await updateTrackedStocks(
+		const { response, trackedStocks, payload } = await updateTrackedStocks(
 			["AAPL"],
 			["AAPL", "MSFT"],
 		);
 
-		expect(redirectUrl).toBe(
-			"/dashboard?success=stocks_updated#tracked-stocks",
-		);
-		expect(response.status).toBe(302);
+		expect(response.status).toBe(200);
+		expect(payload.ok).toBe(true);
+		expect(payload.message).toBe("stocks_updated");
 
 		expect(trackedStocks).toHaveLength(2);
 		expect(trackedStocks?.map((s) => s.symbol)).toEqual(["AAPL", "MSFT"]);
 	});
 
 	it("should not change notification preferences when submitting tracked_stocks only", async () => {
-		const {
-			userPreferencesAfter,
-			userPreferencesBefore,
-			redirectUrl,
-			response,
-		} = await updateTrackedStocks(["AAPL"], ["AAPL", "MSFT"], {
-			emailNotificationsEnabled: true,
-			smsNotificationsEnabled: false,
-			dailyDigestEnabled: false,
-			dailyDigestNotificationTime: 600,
-		});
+		const { userPreferencesAfter, userPreferencesBefore, payload, response } =
+			await updateTrackedStocks(["AAPL"], ["AAPL", "MSFT"], {
+				emailNotificationsEnabled: true,
+				smsNotificationsEnabled: false,
+				dailyDigestEnabled: false,
+				dailyDigestNotificationTime: 600,
+			});
 
-		expect(redirectUrl).toBe(
-			"/dashboard?success=stocks_updated#tracked-stocks",
-		);
-		expect(response.status).toBe(302);
+		expect(response.status).toBe(200);
+		expect(payload.ok).toBe(true);
+		expect(payload.message).toBe("stocks_updated");
 
 		expect(userPreferencesBefore).not.toBeNull();
 		expect(userPreferencesAfter).not.toBeNull();
@@ -200,30 +185,28 @@ describe("POST /api/stocks/update", () => {
 	});
 
 	it("should successfully replace existing tracked stocks", async () => {
-		const { response, trackedStocks, redirectUrl } = await updateTrackedStocks(
+		const { response, trackedStocks, payload } = await updateTrackedStocks(
 			["TSLA", "NVDA"],
 			["AAPL", "MSFT"],
 		);
 
-		expect(redirectUrl).toBe(
-			"/dashboard?success=stocks_updated#tracked-stocks",
-		);
-		expect(response.status).toBe(302);
+		expect(response.status).toBe(200);
+		expect(payload.ok).toBe(true);
+		expect(payload.message).toBe("stocks_updated");
 
 		expect(trackedStocks).toHaveLength(2);
 		expect(trackedStocks?.map((s) => s.symbol)).toEqual(["AAPL", "MSFT"]);
 	});
 
 	it("should successfully clear all tracked stocks", async () => {
-		const { response, trackedStocks, redirectUrl } = await updateTrackedStocks(
+		const { response, trackedStocks, payload } = await updateTrackedStocks(
 			["AAPL", "MSFT", "GOOGL"],
 			[],
 		);
 
-		expect(redirectUrl).toBe(
-			"/dashboard?success=stocks_updated#tracked-stocks",
-		);
-		expect(response.status).toBe(302);
+		expect(response.status).toBe(200);
+		expect(payload.ok).toBe(true);
+		expect(payload.message).toBe("stocks_updated");
 
 		expect(trackedStocks).toHaveLength(0);
 	});
@@ -248,11 +231,14 @@ describe("POST /api/stocks/update", () => {
 			const initialStocks = seedSymbols.slice(0, MAX_TRACKED_STOCKS);
 			const stocksExceedingLimit = seedSymbols.slice(0, MAX_TRACKED_STOCKS + 1);
 
-			const { response, trackedStocks, redirectUrl } =
-				await updateTrackedStocks(initialStocks, stocksExceedingLimit);
+			const { response, trackedStocks, payload } = await updateTrackedStocks(
+				initialStocks,
+				stocksExceedingLimit,
+			);
 
-			expect(redirectUrl).toBe("/dashboard?error=stocks_limit#tracked-stocks");
-			expect(response.status).toBe(302);
+			expect(response.status).toBe(400);
+			expect(payload.ok).toBe(false);
+			expect(payload.message).toBe("stocks_limit");
 
 			expect(trackedStocks).toHaveLength(MAX_TRACKED_STOCKS);
 		} finally {
