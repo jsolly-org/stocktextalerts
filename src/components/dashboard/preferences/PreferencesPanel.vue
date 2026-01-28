@@ -149,6 +149,7 @@ const hasPendingSmsChanges = computed(() => {
 });
 
 function savePendingSmsState() {
+	if (typeof window === "undefined") return;
 	try {
 		if (hasPendingSmsChanges.value) {
 			sessionStorage.setItem(pendingSmsStorageKey.value, "true");
@@ -167,6 +168,7 @@ function savePendingSmsState() {
 }
 
 function restorePendingSmsState() {
+	if (typeof window === "undefined") return;
 	let pendingSmsState: string | null = null;
 	try {
 		pendingSmsState = sessionStorage.getItem(pendingSmsStorageKey.value);
