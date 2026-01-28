@@ -122,7 +122,7 @@ function handleChangeNumberClick() {
 	} catch (error) {
 		// Silently fail - state should already be saved.
 	}
-emit("phone-editing-changed", true);
+	emit("phone-editing-changed", true);
 }
 
 function onSectionAfterEnter() {

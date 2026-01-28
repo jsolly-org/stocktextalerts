@@ -2,82 +2,81 @@
 	<section class="mb-6 bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
 		<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.success}`"></div>
 		<div class="p-6">
-		<header class="flex items-start justify-between gap-4">
-			<div>
-				<h2
-					:id="DASHBOARD_SECTION_IDS.scheduled"
-					class="text-2xl font-bold text-gray-900"
-				>
-					Scheduled Notifications
-				</h2>
-				<p class="text-sm text-gray-600 mt-1">
-					Current time: {{ currentTimeInTimezone ?? "—" }}.
-					<a
-						href="/profile"
-						class="font-medium text-primary hover:text-primary-strong underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 rounded"
+			<header class="flex items-start justify-between gap-4">
+				<div>
+					<h2
+						:id="DASHBOARD_SECTION_IDS.scheduled"
+						class="text-2xl font-bold text-gray-900"
 					>
-						Change timezone
-					</a>
-				</p>
+						Scheduled Notifications
+					</h2>
+					<p class="text-sm text-gray-600 mt-1">
+						Current time: {{ currentTimeInTimezone ?? "—" }}.
+						<a
+							href="/profile"
+							class="font-medium text-primary hover:text-primary-strong underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 rounded"
+						>
+							Change timezone
+						</a>
+					</p>
+				</div>
+			</header>
+
+			<div v-if="allFlashMessages.length" class="space-y-2 mt-4">
+				<StatusMessage
+					v-for="(flash, index) in allFlashMessages"
+					:key="index"
+					:tone="flash.tone"
+				>
+					{{ flash.message }}
+				</StatusMessage>
 			</div>
-		</header>
 
-		<div v-if="allFlashMessages.length" class="space-y-2 mt-4">
-			<StatusMessage
-				v-for="(flash, index) in allFlashMessages"
-				:key="index"
-				:tone="flash.tone"
+			<DailyDigestControls
+				v-model:enabled="dailyDigestEnabled"
+				:dailyDigestTime="dailyDigestTime"
+				:needsChannelSelection="needsChannelSelection"
+				:timePickerDisabled="timePickerDisabled"
+				:sendNowDisabled="sendNowDisabled"
+				:isSending="isSending"
+				:nextSendFormatted="nextSendFormatted"
+				:countdownText="countdownText"
+				@send-now="handleSendNow"
+				@time-change="handleTimeChange"
 			>
-				{{ flash.message }}
-			</StatusMessage>
-		</div>
-
-		<DailyDigestControls
-			v-model:enabled="dailyDigestEnabled"
-			:dailyDigestTime="dailyDigestTime"
-			:needsChannelSelection="needsChannelSelection"
-			:timePickerDisabled="timePickerDisabled"
-			:sendNowDisabled="sendNowDisabled"
-			:isSending="isSending"
-			:nextSendFormatted="nextSendFormatted"
-			:countdownText="countdownText"
-			@send-now="handleSendNow"
-			@time-change="handleTimeChange"
-		>
-			<template #setup>
-				<SetupRequiredNotice
-					:needsChannelSelection="needsChannelSelection"
-					:needsPhoneVerification="needsPhoneVerification"
-					:phoneVerificationSectionId="phoneVerificationSectionId"
-				/>
-			</template>
-		</DailyDigestControls>
+				<template #setup>
+					<SetupRequiredNotice
+						:needsChannelSelection="needsChannelSelection"
+						:needsPhoneVerification="needsPhoneVerification"
+						:phoneVerificationSectionId="phoneVerificationSectionId"
+					/>
+				</template>
+			</DailyDigestControls>
 		</div>
 	</section>
 
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
+import { computed, ref, toRefs, watch } from "vue";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_FORM_ID,
 	DASHBOARD_SECTION_IDS,
-	formatMessage,
 } from "../../../../lib/constants";
 import type { User } from "../../../../lib/db";
 import { rootLogger } from "../../../../lib/logging";
 import {
-	formatCountdownWithSeconds,
-	formatNextSendDateTime,
-	getNowInTimezone,
-	getSecondsUntilNextSend,
 	minutesToTimeInputValue,
 	parseTimeToMinutes,
 } from "../../../../lib/time/format";
 import StatusMessage from "../../../StatusMessage.vue";
 import DailyDigestControls from "./DailyDigestControls.vue";
 import SetupRequiredNotice from "./SetupRequiredNotice.vue";
+import {
+	useFlashMessages,
+	useScheduledDigestTiming,
+} from "./scheduled-notifications-helpers";
 
 interface Props {
 	user: User;
@@ -110,33 +109,8 @@ const dailyDigestTimeMinutes = ref<number | null>(
 	user.value.daily_digest_notification_time ?? null,
 );
 const isSending = ref(false);
-const localFlashMessages = ref<
-	{ tone: "success" | "error" | "warning"; message: string }[]
->([]);
-
-const tick = ref(Date.now());
-const intervalId = ref<number | null>(null);
-onMounted(() => {
-	intervalId.value = window.setInterval(() => {
-		tick.value = Date.now();
-	}, 1000);
-});
-onUnmounted(() => {
-	if (intervalId.value === null) {
-		return;
-	}
-	clearInterval(intervalId.value);
-	intervalId.value = null;
-});
 
 const phoneVerificationSectionId = `${DASHBOARD_FORM_ID}-phone-verification-section`;
-
-const currentTimeInTimezone = computed(() => {
-	// Touch tick to recompute every second for the live clock.
-	tick.value;
-	const tz = props.user.timezone;
-	return typeof tz === "string" && tz !== "" ? getNowInTimezone(tz) : null;
-});
 
 const dailyDigestTime = computed(() => {
 	if (dailyDigestTimeMinutes.value === null) {
@@ -144,6 +118,8 @@ const dailyDigestTime = computed(() => {
 	}
 	return minutesToTimeInputValue(dailyDigestTimeMinutes.value);
 });
+
+const timezone = computed(() => props.user.timezone ?? "");
 
 const smsReady = computed(
 	() => smsEnabled.value && !smsOptedOut.value && phoneVerified.value,
@@ -163,11 +139,6 @@ const sendNowDisabled = computed(
 		isSending.value || needsChannelSelection.value || !dailyDigestEnabled.value,
 );
 
-const allFlashMessages = computed(() => [
-	...flashMessages.value,
-	...localFlashMessages.value,
-]);
-
 watch(
 	() => user.value.daily_digest_enabled,
 	(value) => {
@@ -185,7 +156,7 @@ watch(
 	(hasChannel) => {
 		if (hasChannel && !dailyDigestEnabled.value) {
 			dailyDigestEnabled.value = true;
-			notifyFormChanged();
+			onFormChanged.value();
 		}
 	},
 	{ immediate: true },
@@ -195,76 +166,16 @@ const nextSendAt = computed(
 	() =>
 		props.savedPreferences?.next_send_at ?? props.user.next_send_at ?? null,
 );
-const nextSendFormatted = computed(() => {
-	if (!dailyDigestEnabled.value) {
-		return null;
-	}
-	const at = nextSendAt.value;
-	const tz = props.user.timezone;
-	if (typeof at !== "string" || at === "" || typeof tz !== "string") {
-		return null;
-	}
-	const formatted = formatNextSendDateTime(at, tz);
-	return formatted === "" ? null : formatted;
+const { allFlashMessages, showFlashMessage } = useFlashMessages({
+	flashMessages: flashMessages,
 });
-const countdownText = computed(() => {
-	// Touch tick to recompute every second for the countdown.
-	tick.value;
-	if (!dailyDigestEnabled.value) {
-		return null;
-	}
-	const at = nextSendAt.value;
-	const tz = props.user.timezone;
-	const timeInput = dailyDigestTime.value;
-	if (typeof tz !== "string") {
-		return null;
-	}
-	const secondsUntil = getSecondsUntilNextSend({
-		nextSendAtIso: typeof at === "string" && at !== "" ? at : null,
-		timeInput,
-		timezone: tz,
+const { currentTimeInTimezone, nextSendFormatted, countdownText } =
+	useScheduledDigestTiming({
+		timezone,
+		dailyDigestEnabled,
+		nextSendAtIso: nextSendAt,
+		timeInput: dailyDigestTime,
 	});
-	if (secondsUntil === null) {
-		return null;
-	}
-	if (secondsUntil <= 0) {
-		return "Your next digest is due soon.";
-	}
-	return `in ${formatCountdownWithSeconds(secondsUntil)}`;
-});
-
-function notifyFormChanged() {
-	const handler = onFormChanged.value;
-	handler();
-}
-
-function showFlashMessage(
-	tone: "success" | "error" | "warning",
-	messageKey: string,
-) {
-	const message = formatMessage(messageKey);
-	if (!message) {
-		return;
-	}
-
-	const existingIndex = localFlashMessages.value.findIndex(
-		(f) => f.tone === tone,
-	);
-	const newMessage = { tone, message };
-
-	if (existingIndex >= 0) {
-		localFlashMessages.value[existingIndex] = newMessage;
-	} else {
-		localFlashMessages.value.push(newMessage);
-	}
-
-	setTimeout(() => {
-		const index = localFlashMessages.value.findIndex((f) => f.tone === tone);
-		if (index >= 0) {
-			localFlashMessages.value.splice(index, 1);
-		}
-	}, 5000);
-}
 
 async function sendDailyDigestNow() {
 	if (sendNowDisabled.value) {
@@ -324,13 +235,13 @@ async function handleSendNow() {
 }
 
 watch(dailyDigestEnabled, () => {
-	notifyFormChanged();
+	onFormChanged.value();
 });
 
 function handleTimeChange(value: string) {
 	const parsedMinutes = parseTimeToMinutes(value);
 	dailyDigestTimeMinutes.value =
 		parsedMinutes === null ? null : parsedMinutes;
-	notifyFormChanged();
+	onFormChanged.value();
 }
 </script>
