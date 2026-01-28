@@ -24,6 +24,13 @@ export async function fetchCurrentPreferences(): Promise<CurrentPreferences | nu
 		});
 
 		if (!response.ok) {
+			const isExpectedRejection =
+				response.status === 401 ||
+				response.status === 403 ||
+				response.status === 422 ||
+				response.status === 429;
+			const log = isExpectedRejection ? rootLogger.info : rootLogger.warn;
+
 			const contentType = response.headers.get("content-type") ?? "";
 			let responseBodyText: string | undefined;
 			let responseBodyJson: unknown | undefined;
@@ -41,7 +48,7 @@ export async function fetchCurrentPreferences(): Promise<CurrentPreferences | nu
 					}
 				}
 			} catch (error) {
-				rootLogger.warn(
+				log(
 					"Failed to refresh preferences",
 					{
 						action: "refresh_preferences",
@@ -57,7 +64,7 @@ export async function fetchCurrentPreferences(): Promise<CurrentPreferences | nu
 				return null;
 			}
 
-			rootLogger.warn("Failed to refresh preferences", {
+			log("Failed to refresh preferences", {
 				action: "refresh_preferences",
 				method,
 				url,
@@ -86,8 +93,29 @@ export async function fetchCurrentPreferences(): Promise<CurrentPreferences | nu
 			});
 			return null;
 		}
-		return payload.preferences ?? null;
+
+		if (payload.preferences == null) {
+			rootLogger.error("Preferences API returned ok without preferences", {
+				action: "refresh_preferences",
+				method,
+				url,
+				status: response.status,
+				statusText: response.statusText,
+				payload,
+			});
+			const error = new Error("Missing preferences in successful response");
+			error.name = "PreferencesContractViolationError";
+			throw error;
+		}
+
+		return payload.preferences;
 	} catch (error) {
+		if (
+			error instanceof Error &&
+			error.name === "PreferencesContractViolationError"
+		) {
+			throw error;
+		}
 		rootLogger.warn(
 			"Failed to refresh preferences",
 			{ action: "refresh_preferences" },
