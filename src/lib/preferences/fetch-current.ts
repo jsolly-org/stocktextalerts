@@ -14,6 +14,8 @@ export type CurrentPreferences = {
 
 export async function fetchCurrentPreferences(): Promise<CurrentPreferences | null> {
 	try {
+		const method = "GET";
+		const url = "/api/preferences/current";
 		const response = await fetch("/api/preferences/current", {
 			method: "GET",
 			credentials: "same-origin",
@@ -22,6 +24,49 @@ export async function fetchCurrentPreferences(): Promise<CurrentPreferences | nu
 		});
 
 		if (!response.ok) {
+			const contentType = response.headers.get("content-type") ?? "";
+			let responseBodyText: string | undefined;
+			let responseBodyJson: unknown | undefined;
+			try {
+				const rawBody = await response.text();
+				if (rawBody) {
+					if (contentType.toLowerCase().includes("application/json")) {
+						try {
+							responseBodyJson = JSON.parse(rawBody) as unknown;
+						} catch {
+							responseBodyText = rawBody;
+						}
+					} else {
+						responseBodyText = rawBody;
+					}
+				}
+			} catch (error) {
+				rootLogger.warn(
+					"Failed to refresh preferences",
+					{
+						action: "refresh_preferences",
+						method,
+						url,
+						status: response.status,
+						statusText: response.statusText,
+						contentType,
+						reason: "response_body_read_failed",
+					},
+					error,
+				);
+				return null;
+			}
+
+			rootLogger.warn("Failed to refresh preferences", {
+				action: "refresh_preferences",
+				method,
+				url,
+				status: response.status,
+				statusText: response.statusText,
+				contentType,
+				responseBodyText,
+				responseBodyJson,
+			});
 			return null;
 		}
 
@@ -29,6 +74,18 @@ export async function fetchCurrentPreferences(): Promise<CurrentPreferences | nu
 			ok: boolean;
 			preferences?: CurrentPreferences;
 		};
+
+		if (!payload.ok) {
+			rootLogger.warn("Failed to refresh preferences", {
+				action: "refresh_preferences",
+				method,
+				url,
+				status: response.status,
+				statusText: response.statusText,
+				payload,
+			});
+			return null;
+		}
 		return payload.preferences ?? null;
 	} catch (error) {
 		rootLogger.warn("Failed to refresh preferences", {
