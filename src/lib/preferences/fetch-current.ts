@@ -88,10 +88,11 @@ export async function fetchCurrentPreferences(): Promise<CurrentPreferences | nu
 		}
 		return payload.preferences ?? null;
 	} catch (error) {
-		rootLogger.warn("Failed to refresh preferences", {
-			action: "refresh_preferences",
+		rootLogger.warn(
+			"Failed to refresh preferences",
+			{ action: "refresh_preferences" },
 			error,
-		});
+		);
 		return null;
 	}
 }
