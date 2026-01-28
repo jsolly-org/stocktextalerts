@@ -391,9 +391,10 @@ jobs:
 
             Do this:
             1) Make the necessary code changes requested in the user comment below.
-            2) If you made changes, commit and push directly to the PR head branch. If no changes are needed, do not commit.
-            3) If you commit, include the PR number and comment ID in the commit message.
-            4) After a successful push, mark the comment as resolved:
+            2) Before committing, run the same checks as the pre-commit hook so CI does not fail: install deps with \`npm ci\`, then run \`npx biome ci .\` and \`npm run check:ts\`. If either fails, fix the issues and re-run until both pass. Only then commit and push.
+            3) If you made changes, commit and push directly to the PR head branch. If no changes are needed, do not commit.
+            4) If you commit, include the PR number and comment ID in the commit message.
+            5) After a successful push, mark the comment as resolved:
                - If the event is pull_request_review_comment, resolve the review thread using GraphQL:
                  1. Get the comment via REST API to extract its node_id:
                     COMMENT_JSON=\$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID")
@@ -481,8 +482,24 @@ jobs:
           echo "before_sha=$BEFORE_SHA" >> "$GITHUB_OUTPUT"
           echo "after_sha=$AFTER_SHA" >> "$GITHUB_OUTPUT"
 
-      - name: Report agent success
+      - name: Setup Node (for pre-commit checks)
         if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && steps.agent.outputs.changes_pushed == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Run pre-commit checks (lint + type-check)
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && steps.agent.outputs.changes_pushed == 'true'
+        id: precommit_checks
+        run: |
+          npm ci
+          npx biome ci .
+          npm run check:ts
+
+      - name: Report agent success
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && steps.agent.outputs.changes_pushed == 'true' && steps.precommit_checks.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COMMENT_URL: ${{ steps.pr.outputs.comment_url }}
@@ -552,6 +569,32 @@ jobs:
           
           gh pr comment "${{ steps.pr.outputs.pr_number }}" \
             --body "$NOOP_BODY"
+
+      - name: Report agent pushed but checks failed
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && steps.agent.outputs.changes_pushed == 'true' && steps.precommit_checks.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_URL: ${{ steps.pr.outputs.comment_url }}
+          RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        run: |
+          if [[ -n "$COMMENT_URL" ]]; then
+            REFERENCE="In response to [this comment]($COMMENT_URL)."
+          else
+            REFERENCE=""
+          fi
+          CHECKS_FAILED_BODY=$(cat <<EOF
+          ## ⚠️ Cursor Agent: Changes pushed but lint/type-check failed
+
+          The agent pushed commits, but the same checks as the pre-commit hook (Biome + TypeScript) failed on the branch.
+
+          $REFERENCE
+
+          Please fix lint/type errors locally (e.g. \`npm run fix\` or \`npx lint-staged\` and \`npm run check:ts\`) and push, or review the [workflow run]($RUN_URL) for details.
+
+          $INTERNAL_MARKER
+          EOF
+          )
+          gh pr comment "${{ steps.pr.outputs.pr_number }}" --body "$CHECKS_FAILED_BODY"
 
       - name: Report agent failure
         if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && steps.agent.outcome == 'failure'
