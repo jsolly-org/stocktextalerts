@@ -16,8 +16,8 @@ export async function fetchCurrentPreferences(): Promise<CurrentPreferences | nu
 	try {
 		const method = "GET";
 		const url = "/api/preferences/current";
-		const response = await fetch("/api/preferences/current", {
-			method: "GET",
+		const response = await fetch(url, {
+			method,
 			credentials: "same-origin",
 			headers: { Accept: "application/json" },
 			signal: AbortSignal.timeout(10_000),
@@ -29,11 +29,11 @@ export async function fetchCurrentPreferences(): Promise<CurrentPreferences | nu
 				response.status === 403 ||
 				response.status === 422 ||
 				response.status === 429;
-			const log = isExpectedRejection ? rootLogger.info : rootLogger.warn;
+			const log = isExpectedRejection ? rootLogger.info : rootLogger.error;
 
 			const contentType = response.headers.get("content-type") ?? "";
 			let responseBodyText: string | undefined;
-			let responseBodyJson: unknown | undefined;
+			let responseBodyJson: unknown;
 			try {
 				const rawBody = await response.text();
 				if (rawBody) {
@@ -49,7 +49,7 @@ export async function fetchCurrentPreferences(): Promise<CurrentPreferences | nu
 				}
 			} catch (error) {
 				log(
-					"Failed to refresh preferences",
+					"Failed to refresh preferences: HTTP response body read failed",
 					{
 						action: "refresh_preferences",
 						method,
@@ -64,7 +64,7 @@ export async function fetchCurrentPreferences(): Promise<CurrentPreferences | nu
 				return null;
 			}
 
-			log("Failed to refresh preferences", {
+			log("Failed to refresh preferences: non-OK HTTP response", {
 				action: "refresh_preferences",
 				method,
 				url,
@@ -83,7 +83,7 @@ export async function fetchCurrentPreferences(): Promise<CurrentPreferences | nu
 		};
 
 		if (!payload.ok) {
-			rootLogger.warn("Failed to refresh preferences", {
+			rootLogger.error("Failed to refresh preferences: payload.ok is false", {
 				action: "refresh_preferences",
 				method,
 				url,
@@ -118,7 +118,7 @@ export async function fetchCurrentPreferences(): Promise<CurrentPreferences | nu
 			throw error;
 		}
 		rootLogger.warn(
-			"Failed to refresh preferences",
+			"Failed to refresh preferences: unexpected error",
 			{ action: "refresh_preferences" },
 			error,
 		);
