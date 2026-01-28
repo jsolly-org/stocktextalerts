@@ -29,10 +29,8 @@ export function useFlashMessages(options: {
 	]);
 
 	function showFlashMessage(tone: FlashTone, messageKey: string) {
-		const message = formatMessage(messageKey);
-		if (!message) {
-			return;
-		}
+		const formatted = formatMessage(messageKey);
+		const message = formatted !== "" ? formatted : messageKey;
 
 		const existingTimerId = timers.get(tone);
 		if (existingTimerId !== undefined) {
