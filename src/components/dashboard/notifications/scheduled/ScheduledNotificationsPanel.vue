@@ -1,7 +1,7 @@
 <template>
-	<section class="mb-6 bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+	<section class="card mb-6">
 		<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.success}`"></div>
-		<div class="p-6">
+		<div class="card-body">
 			<header class="flex items-start justify-between gap-4">
 				<div>
 					<h2

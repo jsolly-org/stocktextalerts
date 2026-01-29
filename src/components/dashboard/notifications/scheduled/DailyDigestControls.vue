@@ -62,9 +62,9 @@
 				@time-change="emit('time-change', $event)"
 			/>
 		</fieldset>
-		<p class="mt-3 text-sm text-gray-600">
+		<p v-if="!needsChannelSelection" class="mt-3 text-sm text-gray-600">
 			<template v-if="isHydrated && countdownText">
-				(Will be sent {{ countdownText }}). Want to receive it earlier?
+				Will be sent {{ countdownText }}. Want to receive it earlier?
 			</template>
 			<template v-else>
 				Want to receive it earlier?

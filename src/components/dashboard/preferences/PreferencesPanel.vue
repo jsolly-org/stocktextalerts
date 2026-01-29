@@ -1,6 +1,6 @@
 <template>
 	<section
-		class="relative mb-6 bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden"
+		class="card relative mb-6"
 		data-notification-preferences-card
 		:data-form-id="DASHBOARD_FORM_ID"
 	>
@@ -32,7 +32,7 @@
 		</Transition>
 
 		<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.primary}`"></div>
-		<div class="p-6" :id="DASHBOARD_SECTION_IDS.preferences">
+		<div class="card-body" :id="DASHBOARD_SECTION_IDS.preferences">
 
 		<div v-if="flashMessages.length" class="space-y-2 mb-4">
 			<StatusMessage

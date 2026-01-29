@@ -58,3 +58,74 @@ body {
 .status-tone-info {
 	@apply bg-info-bg border-info-border text-info-text;
 }
+
+/* ============= Button Utilities ============= */
+
+.btn {
+	@apply inline-flex items-center justify-center font-medium rounded-lg transition-all duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+/* Button sizes */
+.btn-sm {
+	@apply px-3 py-1.5 text-sm;
+}
+.btn-md {
+	@apply px-4 py-2 text-sm;
+}
+.btn-lg {
+	@apply px-6 py-3 text-base;
+}
+
+/* Button variants */
+.btn-primary {
+	@apply bg-primary text-white shadow-sm hover:bg-primary-strong hover:shadow-md focus:ring-primary active:scale-[0.98];
+}
+.btn-secondary {
+	@apply bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-gray-300;
+}
+.btn-danger {
+	@apply bg-error-strong text-white hover:bg-error-strong-hover focus:ring-error-strong;
+}
+.btn-ghost {
+	@apply bg-transparent text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:ring-gray-300;
+}
+
+/* ============= Card Utilities ============= */
+
+.card {
+	@apply bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden;
+}
+
+.card-accent-primary {
+	@apply before:block before:h-1 before:bg-gradient-to-r before:from-primary before:via-blue-500 before:to-primary-soft;
+}
+.card-accent-success {
+	@apply before:block before:h-1 before:bg-gradient-to-r before:from-success-strong before:via-green-400 before:to-success-strong;
+}
+.card-accent-teal {
+	@apply before:block before:h-1 before:bg-gradient-to-r before:from-teal-500 before:via-teal-400 before:to-teal-500;
+}
+.card-accent-gray {
+	@apply before:block before:h-1 before:bg-gradient-to-r before:from-gray-300 before:via-gray-400 before:to-gray-300;
+}
+
+.card-body {
+	@apply p-6;
+}
+
+/* ============= Animation Utilities ============= */
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.animate-fade-in {
+	animation: fadeIn 0.3s ease-out;
+}

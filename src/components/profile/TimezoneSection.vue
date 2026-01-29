@@ -1,10 +1,10 @@
 <template>
 	<section
-		class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden"
+		class="card"
 		aria-labelledby="timezone-heading"
 	>
 		<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.gray}`"></div>
-		<div class="p-6">
+		<div class="card-body">
 			<h2 id="timezone-heading" class="text-2xl font-bold text-gray-900 mb-2">Timezone</h2>
 			<p class="text-gray-600 text-sm mb-4">
 				Set the timezone used for scheduling notifications.
