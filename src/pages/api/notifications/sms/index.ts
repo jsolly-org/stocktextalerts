@@ -38,7 +38,16 @@ export async function sendUserSms(
 	}
 }
 
-export function shouldSendSms(user: UserRecord): boolean {
+export function shouldSendSms(
+	user: Pick<
+		UserRecord,
+		| "sms_notifications_enabled"
+		| "sms_opted_out"
+		| "phone_verified"
+		| "phone_country_code"
+		| "phone_number"
+	>,
+): boolean {
 	const hasOptedIn = user.sms_notifications_enabled && !user.sms_opted_out;
 	const hasVerifiedPhone =
 		user.phone_verified &&

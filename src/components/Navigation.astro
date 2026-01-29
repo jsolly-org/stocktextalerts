@@ -20,7 +20,7 @@ const isLanding = currentPage === "/";
         <!-- Logo -->
         <a href="/" class="flex items-center gap-2 group" aria-label="StockTextAlerts home">
           <div class="bg-primary text-white p-1.5 rounded-lg group-hover:bg-primary-strong transition-colors shadow-sm">
-            <Icon name="presentation-chart-line" class="size-5" aria-hidden="true" />
+            <Icon name="presentation-chart-line" class="size-5" aria-hidden="true" focusable="false" />
           </div>
           <span class="text-xl font-bold text-gray-900 tracking-tight group-hover:text-primary transition-colors hidden sm:block">StockTextAlerts</span>
         </a>
@@ -60,8 +60,8 @@ const isLanding = currentPage === "/";
               aria-label="Profile"
               aria-current={currentPage === "/profile" ? "page" : undefined}
               class:list={[
-                "group rounded-full p-1 bg-gray-100 hover:bg-gray-200 transition-colors",
-                currentPage === "/profile" ? "ring-2 ring-primary ring-offset-2 ring-offset-white" : ""
+                "group rounded-full p-1 transition-colors",
+                currentPage === "/profile" ? "bg-primary/10" : "bg-gray-100 hover:bg-gray-200"
               ]}
             >
               <Icon
@@ -71,6 +71,7 @@ const isLanding = currentPage === "/";
                   currentPage === "/profile" ? "text-primary" : "text-gray-500 group-hover:text-gray-700"
                 ]}
                 aria-hidden="true"
+                focusable="false"
               />
             </a>
             <span class="text-sm text-gray-500 hidden md:block font-medium truncate max-w-[200px]">{user.email}</span>
@@ -78,7 +79,7 @@ const isLanding = currentPage === "/";
             <form action="/api/auth/signout" method="post" class="flex">
               <button 
                 type="submit" 
-                class="text-sm font-medium text-gray-500 hover:text-error-strong transition-colors cursor-pointer"
+                class="btn btn-sm btn-ghost text-error-strong hover:text-error-strong"
               >
                 Sign Out
               </button>

@@ -187,8 +187,8 @@ watch(
 				sms_opted_out: newPreferences.sms_opted_out,
 				phone_verified: newPreferences.phone_verified,
 				daily_digest_enabled: newPreferences.daily_digest_enabled,
-				daily_digest_notification_time:
-					newPreferences.daily_digest_notification_time,
+				daily_digest_notification_times:
+					newPreferences.daily_digest_notification_times,
 				next_send_at: newPreferences.next_send_at,
 			};
 		}

@@ -22,7 +22,7 @@
 					<input type="hidden" name="timezone" :value="detectedTimezone" />
 					<button
 						type="submit"
-						class="px-3 py-1.5 bg-warning-strong text-white rounded-md hover:bg-warning-strong-hover transition-colors cursor-pointer"
+						class="btn btn-sm btn-warning"
 					>
 						Update timezone
 					</button>
@@ -30,14 +30,14 @@
 				<button
 					type="button"
 					@click="handleDismiss"
-					class="px-3 py-1.5 bg-white border border-warning-border text-warning-text rounded-md hover:bg-warning-bg transition-colors cursor-pointer"
+					class="btn btn-sm btn-warning-outline"
 				>
 					Not now
 				</button>
 				<button
 					type="button"
 					@click="handleDismissPermanently"
-					class="px-3 py-1.5 bg-white border border-warning-border text-warning-text rounded-md hover:bg-warning-bg transition-colors cursor-pointer"
+					class="btn btn-sm btn-warning-outline"
 				>
 					Don't ask me again
 				</button>

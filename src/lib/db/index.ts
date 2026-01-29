@@ -18,7 +18,9 @@ type DbUserStockRow = Database["public"]["Tables"]["user_stocks"]["Row"];
 Public Types
 ============= */
 
-export type User = DbUserRow;
+export type User = Omit<DbUserRow, "daily_digest_notification_time"> & {
+	daily_digest_notification_times: number[] | null;
+};
 export type Stock = DbStockRow;
 export type UserStock = Pick<DbUserStockRow, "symbol" | "created_at"> & {
 	name: DbStockRow["name"];
@@ -32,7 +34,7 @@ export type PreferencesSnapshot = Pick<
 	| "phone_verified"
 	| "timezone"
 	| "daily_digest_enabled"
-	| "daily_digest_notification_time"
+	| "daily_digest_notification_times"
 	| "next_send_at"
 	| "dismiss_timezone_mismatch_prompts"
 >;
@@ -41,7 +43,12 @@ export type PreferencesSnapshot = Pick<
 Users
 ============= */
 
-export type UserUpdateInput = DbUserUpdate;
+export type UserUpdateInput = Omit<
+	DbUserUpdate,
+	"daily_digest_notification_time"
+> & {
+	daily_digest_notification_times?: number[] | null;
+};
 
 export function createUserService(
 	supabase: AppSupabaseClient,

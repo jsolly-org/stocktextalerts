@@ -12,8 +12,10 @@ export type DeliveryResult =
 	| { success: true; messageSid?: string }
 	| { success: false; error: string; errorCode?: string };
 
+type DbUserRow = Database["public"]["Tables"]["users"]["Row"];
+
 export type UserRecord = Pick<
-	Database["public"]["Tables"]["users"]["Row"],
+	DbUserRow,
 	| "id"
 	| "email"
 	| "phone_country_code"
@@ -22,11 +24,12 @@ export type UserRecord = Pick<
 	| "sms_opted_out"
 	| "timezone"
 	| "daily_digest_enabled"
-	| "daily_digest_notification_time"
 	| "next_send_at"
 	| "email_notifications_enabled"
 	| "sms_notifications_enabled"
->;
+> & {
+	daily_digest_notification_times: number[] | null;
+};
 
 export type EmailUser = Pick<
 	Database["public"]["Tables"]["users"]["Row"],

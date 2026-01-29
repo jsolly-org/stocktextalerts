@@ -14,7 +14,7 @@
 						Current time: {{ currentTimeInTimezone ?? "—" }}.
 						<a
 							href="/profile"
-							class="font-medium text-primary hover:text-primary-strong underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 rounded"
+							class="link-primary"
 						>
 							Change timezone
 						</a>
@@ -34,14 +34,17 @@
 
 			<DailyDigestControls
 				v-model:enabled="dailyDigestEnabled"
-				:dailyDigestTime="dailyDigestTime"
+				:dailyDigestTimes="dailyDigestTimes"
 				:needsChannelSelection="needsChannelSelection"
 				:timePickerDisabled="timePickerDisabled"
+				:canAddTime="canAddTime"
 				:sendNowDisabled="sendNowDisabled"
 				:isSending="isSending"
 				:countdownText="countdownText"
 				@send-now="handleSendNow"
 				@time-change="handleTimeChange"
+				@add-time="handleAddTime"
+				@remove-time="handleRemoveTime"
 			>
 				<template #setup>
 					<SetupRequiredNotice
@@ -104,19 +107,36 @@ const {
 } = toRefs(props);
 
 const dailyDigestEnabled = ref(user.value.daily_digest_enabled);
-const dailyDigestTimeMinutes = ref<number | null>(
-	user.value.daily_digest_notification_time ?? null,
+
+const MAX_DAILY_DIGEST_MINUTES = 23 * 60 + 45;
+const DIGEST_INCREMENT_MINUTES = 15;
+const ADD_DIGEST_OFFSET_MINUTES = 180;
+
+function normalizeDigestTimes(times: number[]): number[] {
+	const filtered = times.filter(
+		(value) =>
+			Number.isFinite(value) &&
+			value >= 0 &&
+			value <= MAX_DAILY_DIGEST_MINUTES &&
+			value % DIGEST_INCREMENT_MINUTES === 0,
+	);
+	return [...new Set(filtered)].sort((a, b) => a - b);
+}
+
+const dailyDigestTimesMinutes = ref<number[]>(
+	normalizeDigestTimes(user.value.daily_digest_notification_times ?? []),
 );
 const isSending = ref(false);
 
+if (dailyDigestEnabled.value && dailyDigestTimesMinutes.value.length === 0) {
+	dailyDigestTimesMinutes.value = [540];
+}
+
 const phoneVerificationSectionId = `${DASHBOARD_FORM_ID}-phone-verification-section`;
 
-const dailyDigestTime = computed(() => {
-	if (dailyDigestTimeMinutes.value === null) {
-		return null;
-	}
-	return minutesToTimeInputValue(dailyDigestTimeMinutes.value);
-});
+const dailyDigestTimes = computed(() =>
+	dailyDigestTimesMinutes.value.map((value) => minutesToTimeInputValue(value)),
+);
 
 const timezone = computed(() => props.user.timezone ?? "");
 
@@ -137,6 +157,17 @@ const sendNowDisabled = computed(
 	() =>
 		isSending.value || needsChannelSelection.value || !dailyDigestEnabled.value,
 );
+const canAddTime = computed(() => {
+	if (timePickerDisabled.value) {
+		return false;
+	}
+	const times = normalizeDigestTimes(dailyDigestTimesMinutes.value);
+	if (times.length === 0) {
+		return true;
+	}
+	const nextMinutes = times[times.length - 1] + ADD_DIGEST_OFFSET_MINUTES;
+	return nextMinutes <= MAX_DAILY_DIGEST_MINUTES;
+});
 
 watch(
 	() => user.value.daily_digest_enabled,
@@ -145,9 +176,9 @@ watch(
 	},
 );
 watch(
-	() => user.value.daily_digest_notification_time,
+	() => user.value.daily_digest_notification_times,
 	(value) => {
-		dailyDigestTimeMinutes.value = value ?? null;
+		dailyDigestTimesMinutes.value = normalizeDigestTimes(value ?? []);
 	},
 );
 // Only auto-enable daily digest when user gains their first channel (transition
@@ -173,7 +204,7 @@ const { currentTimeInTimezone, countdownText } = useScheduledDigestTiming({
 	timezone,
 	dailyDigestEnabled,
 	nextSendAtIso: nextSendAt,
-	timeInput: dailyDigestTime,
+	timeInputs: dailyDigestTimes,
 });
 
 async function sendDailyDigestNow() {
@@ -234,13 +265,48 @@ async function handleSendNow() {
 }
 
 watch(dailyDigestEnabled, () => {
+	if (dailyDigestEnabled.value && dailyDigestTimesMinutes.value.length === 0) {
+		dailyDigestTimesMinutes.value = [540];
+	}
 	onFormChanged.value();
 });
 
-function handleTimeChange(value: string) {
+function handleTimeChange(index: number, value: string) {
 	const parsedMinutes = parseTimeToMinutes(value);
-	dailyDigestTimeMinutes.value =
-		parsedMinutes === null ? null : parsedMinutes;
+	if (parsedMinutes === null) {
+		return;
+	}
+	const updated = [...dailyDigestTimesMinutes.value];
+	updated[index] = parsedMinutes;
+	dailyDigestTimesMinutes.value = normalizeDigestTimes(updated);
+	onFormChanged.value();
+}
+
+function handleAddTime() {
+	if (!canAddTime.value) {
+		return;
+	}
+	const times = normalizeDigestTimes(dailyDigestTimesMinutes.value);
+	const baseTimes = times.length === 0 ? [540] : times;
+	const nextMinutes =
+		baseTimes[baseTimes.length - 1] + ADD_DIGEST_OFFSET_MINUTES;
+	if (nextMinutes > MAX_DAILY_DIGEST_MINUTES) {
+		return;
+	}
+	dailyDigestTimesMinutes.value = normalizeDigestTimes([
+		...baseTimes,
+		nextMinutes,
+	]);
+	onFormChanged.value();
+}
+
+function handleRemoveTime(index: number) {
+	if (dailyDigestTimesMinutes.value.length <= 1) {
+		return;
+	}
+	const updated = [...dailyDigestTimesMinutes.value];
+	updated.splice(index, 1);
+	dailyDigestTimesMinutes.value = normalizeDigestTimes(updated);
 	onFormChanged.value();
 }
 </script>

@@ -11,15 +11,44 @@ import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
 import { createLogger } from "../../../lib/logging";
-import { calculateNextSendAt } from "../../../lib/time/schedule";
+import { parseTimeToMinutes } from "../../../lib/time/format";
+import { calculateNextSendAtFromTimes } from "../../../lib/time/schedule";
 
 const PREFERENCES_SCHEMA = {
 	email_notifications_enabled: { type: "boolean" },
 	sms_notifications_enabled: { type: "boolean" },
 	timezone: { type: "timezone" },
 	daily_digest_enabled: { type: "boolean" },
-	daily_digest_notification_time: { type: "time" },
+	daily_digest_notification_times: { type: "json_string_array" },
 } as const satisfies FormSchema;
+
+type DigestTimesParseResult =
+	| { ok: true; times: number[] }
+	| { ok: false; reason: string };
+
+function parseDigestTimes(values: string[]): DigestTimesParseResult {
+	const minutes: number[] = [];
+	for (const value of values) {
+		const parsed = parseTimeToMinutes(value);
+		if (parsed === null) {
+			return { ok: false, reason: "invalid_time" };
+		}
+		if (parsed % 15 !== 0) {
+			return { ok: false, reason: "invalid_time_increment" };
+		}
+		minutes.push(parsed);
+	}
+
+	const unique = [...new Set(minutes)].sort((a, b) => a - b);
+	return { ok: true, times: unique };
+}
+
+function serializeTimes(times: number[] | null | undefined): string {
+	if (!times || times.length === 0) {
+		return "";
+	}
+	return [...times].sort((a, b) => a - b).join(",");
+}
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
@@ -53,7 +82,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		);
 		return jsonResponse(400, { ok: false, message: "invalid_form" });
 	}
-	const rawTimeValue = formData.get("daily_digest_notification_time");
+	const rawTimesValue = formData.get("daily_digest_notification_times");
 	const parsed = parseWithSchema(formData, PREFERENCES_SCHEMA);
 
 	if (!parsed.ok) {
@@ -64,9 +93,31 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		return jsonResponse(400, { ok: false, message: "invalid_form" });
 	}
 
+	let parsedTimes: number[] | null | undefined;
+	if (rawTimesValue === "") {
+		parsedTimes = [];
+	} else if (parsed.data.daily_digest_notification_times !== undefined) {
+		const result = parseDigestTimes(
+			parsed.data.daily_digest_notification_times,
+		);
+		if (!result.ok) {
+			logger.info("Preferences update rejected due to invalid digest times", {
+				userId: user.id,
+				reason: result.reason,
+			});
+			return jsonResponse(400, { ok: false, message: "invalid_form" });
+		}
+		parsedTimes = result.times;
+	}
+
+	let normalizedTimes: number[] | null | undefined = parsedTimes;
+	if (normalizedTimes && normalizedTimes.length === 0) {
+		normalizedTimes = null;
+	}
+
 	const safePreferenceUpdates: UserUpdateInput = omitUndefined({
 		timezone: parsed.data.timezone,
-		daily_digest_notification_time: parsed.data.daily_digest_notification_time,
+		daily_digest_notification_times: normalizedTimes,
 		...(formData.has("email_notifications_enabled")
 			? {
 					email_notifications_enabled:
@@ -85,8 +136,8 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 				}
 			: {}),
 	});
-	if (rawTimeValue === "") {
-		safePreferenceUpdates.daily_digest_notification_time = null;
+	if (normalizedTimes === null) {
+		safePreferenceUpdates.daily_digest_notification_times = null;
 		safePreferenceUpdates.daily_digest_enabled = false;
 	}
 
@@ -115,9 +166,9 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		safePreferenceUpdates.timezone !== undefined &&
 		safePreferenceUpdates.timezone !== dbUser.timezone;
 	const timeChanged =
-		safePreferenceUpdates.daily_digest_notification_time !== undefined &&
-		safePreferenceUpdates.daily_digest_notification_time !==
-			dbUser.daily_digest_notification_time;
+		safePreferenceUpdates.daily_digest_notification_times !== undefined &&
+		serializeTimes(safePreferenceUpdates.daily_digest_notification_times) !==
+			serializeTimes(dbUser.daily_digest_notification_times ?? null);
 	const enabledChanged =
 		safePreferenceUpdates.daily_digest_enabled !== undefined &&
 		safePreferenceUpdates.daily_digest_enabled !== dbUser.daily_digest_enabled;
@@ -126,21 +177,21 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		safePreferenceUpdates.timezone !== undefined
 			? safePreferenceUpdates.timezone
 			: dbUser.timezone;
-	const finalTime =
-		safePreferenceUpdates.daily_digest_notification_time !== undefined
-			? safePreferenceUpdates.daily_digest_notification_time
-			: dbUser.daily_digest_notification_time;
+	const finalTimes =
+		safePreferenceUpdates.daily_digest_notification_times !== undefined
+			? safePreferenceUpdates.daily_digest_notification_times
+			: dbUser.daily_digest_notification_times;
 	const finalEnabled =
 		safePreferenceUpdates.daily_digest_enabled !== undefined
 			? safePreferenceUpdates.daily_digest_enabled
 			: dbUser.daily_digest_enabled;
 
 	if ((timezoneChanged || timeChanged || enabledChanged) && finalEnabled) {
-		if (finalTime == null) {
+		if (!finalTimes || finalTimes.length === 0) {
 			safePreferenceUpdates.next_send_at = null;
 		} else {
-			const nextSendAt = calculateNextSendAt(
-				finalTime,
+			const nextSendAt = calculateNextSendAtFromTimes(
+				finalTimes,
 				finalTimezone,
 				DateTime.utc(),
 			);
@@ -149,16 +200,16 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 				if (!nextSendAtIso) {
 					logger.warn("Failed to format next_send_at ISO for preferences", {
 						userId: user.id,
-						finalTime,
+						finalTimes,
 						finalTimezone,
 					});
 				} else {
 					safePreferenceUpdates.next_send_at = nextSendAtIso;
 				}
 			} else {
-				logger.warn("calculateNextSendAt returned null for valid inputs", {
+				logger.warn("calculateNextSendAtFromTimes returned null", {
 					userId: user.id,
-					finalTime,
+					finalTimes,
 					finalTimezone,
 				});
 				// Preserve existing next_send_at value when calculation fails
@@ -203,8 +254,8 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 				phone_verified: updatedUser.phone_verified,
 				timezone: updatedUser.timezone,
 				daily_digest_enabled: updatedUser.daily_digest_enabled,
-				daily_digest_notification_time:
-					updatedUser.daily_digest_notification_time,
+				daily_digest_notification_times:
+					updatedUser.daily_digest_notification_times,
 				next_send_at: updatedUser.next_send_at,
 				dismiss_timezone_mismatch_prompts:
 					updatedUser.dismiss_timezone_mismatch_prompts,

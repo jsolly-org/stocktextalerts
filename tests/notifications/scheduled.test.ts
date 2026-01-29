@@ -32,7 +32,7 @@ describe("Scheduled Notifications Integration", () => {
 			emailNotificationsEnabled: true,
 			smsNotificationsEnabled: false,
 			dailyDigestEnabled: true,
-			dailyDigestNotificationTime,
+			dailyDigestNotificationTimes: [dailyDigestNotificationTime],
 			trackedStocks: ["AAPL"],
 		});
 
@@ -95,6 +95,7 @@ describe("Scheduled Notifications Integration", () => {
 				.select("status,attempt_count")
 				.eq("user_id", id)
 				.eq("notification_type", "daily_digest")
+				.eq("scheduled_minutes", dailyDigestNotificationTime)
 				.eq("channel", "email")
 				.maybeSingle();
 

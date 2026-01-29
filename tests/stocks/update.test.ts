@@ -33,7 +33,7 @@ type UserNotificationPreferences = {
 	email_notifications_enabled: boolean;
 	sms_notifications_enabled: boolean;
 	daily_digest_enabled: boolean;
-	daily_digest_notification_time: number | null;
+	daily_digest_notification_times: number[] | null;
 	next_send_at: string | null;
 };
 
@@ -70,7 +70,7 @@ async function updateTrackedStocks(
 	const { data: userPreferencesBefore } = await adminClient
 		.from("users")
 		.select(
-			"email_notifications_enabled,sms_notifications_enabled,daily_digest_enabled,daily_digest_notification_time,next_send_at",
+			"email_notifications_enabled,sms_notifications_enabled,daily_digest_enabled,daily_digest_notification_times,next_send_at",
 		)
 		.eq("id", testUser.id)
 		.maybeSingle();
@@ -109,7 +109,7 @@ async function updateTrackedStocks(
 	const { data: userPreferencesAfter } = await adminClient
 		.from("users")
 		.select(
-			"email_notifications_enabled,sms_notifications_enabled,daily_digest_enabled,daily_digest_notification_time,next_send_at",
+			"email_notifications_enabled,sms_notifications_enabled,daily_digest_enabled,daily_digest_notification_times,next_send_at",
 		)
 		.eq("id", testUser.id)
 		.maybeSingle();
@@ -172,7 +172,7 @@ describe("POST /api/stocks/update", () => {
 				emailNotificationsEnabled: true,
 				smsNotificationsEnabled: false,
 				dailyDigestEnabled: false,
-				dailyDigestNotificationTime: 600,
+				dailyDigestNotificationTimes: [600],
 			});
 
 		expect(response.status).toBe(200);

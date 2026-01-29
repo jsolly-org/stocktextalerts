@@ -153,7 +153,8 @@ const showTimeReminder = computed(() => {
 	if (!user.value.daily_digest_enabled) {
 		return false;
 	}
-	return user.value.daily_digest_notification_time == null;
+		const times = user.value.daily_digest_notification_times;
+		return !times || times.length === 0;
 });
 
 const hasPendingSmsChanges = computed(() => {

@@ -11,6 +11,6 @@ echo "Ensuring staged files are linted/formatted..."
 npx lint-staged
 
 echo "Running checks..."
-npm run fix
+npm run check:biome && npm run check:ts && npm run test
 
 exit 0

@@ -5,7 +5,7 @@
 		aria-haspopup="listbox" :aria-expanded="showDropdown" aria-controls="stock_dropdown" aria-autocomplete="list"
 		:aria-activedescendant="highlightedIndex >= 0 ? `stock_option_${highlightedIndex}` : undefined"
 		:disabled="props.disabled"
-		class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+		class="input disabled:text-gray-500"
 		@focus="showDropdown = true" />
 
 	<ul id="stock_dropdown" v-show="showDropdown && (searchQuery.length >= 1 || filteredStocks.length > 0)" role="listbox"

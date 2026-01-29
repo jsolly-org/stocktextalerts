@@ -1,5 +1,5 @@
 import { DateTime, Duration } from "luxon";
-import { calculateNextSendAt } from "./schedule";
+import { calculateNextSendAt, calculateNextSendAtFromTimes } from "./schedule";
 
 export function parseTimeToMinutes(value: string): number | null {
 	const parts = value.split(":");
@@ -121,7 +121,7 @@ export function getNowInTimezone(timezone: string): string | null {
 		return null;
 	}
 
-	return now.toLocaleString(DateTime.TIME_SIMPLE);
+	return now.toLocaleString(DateTime.TIME_WITH_SECONDS);
 }
 
 export function formatTimeRemaining(secondsUntil: number): string {
@@ -227,6 +227,7 @@ export function getSecondsUntilNextSend(options: {
 	timezone: string;
 	nextSendAtIso?: string | null;
 	timeInput?: string | null;
+	timeInputs?: string[] | null;
 	now?: DateTime;
 }): number | null {
 	const now = options.now ?? DateTime.now();
@@ -239,6 +240,33 @@ export function getSecondsUntilNextSend(options: {
 		if (!nextSendAt.isValid) {
 			return null;
 		}
+		const diffSeconds = Math.ceil(
+			nextSendAt.diff(now.toUTC(), "seconds").seconds,
+		);
+		if (Number.isFinite(diffSeconds) && diffSeconds > 0) {
+			return diffSeconds;
+		}
+		// next_send_at is in the past (e.g. digest just sent); fall back to
+		// delivery times so the UI can show countdown to the next occurrence.
+	}
+
+	if (Array.isArray(options.timeInputs) && options.timeInputs.length > 0) {
+		const minutes = options.timeInputs
+			.map((value) => parseTimeToMinutes(value))
+			.filter((value): value is number => value !== null);
+		if (minutes.length === 0) {
+			return null;
+		}
+
+		const nextSendAt = calculateNextSendAtFromTimes(
+			minutes,
+			options.timezone,
+			now,
+		);
+		if (!nextSendAt) {
+			return null;
+		}
+
 		const diffSeconds = Math.ceil(
 			nextSendAt.diff(now.toUTC(), "seconds").seconds,
 		);

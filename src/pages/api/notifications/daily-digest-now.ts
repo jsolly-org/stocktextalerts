@@ -10,7 +10,6 @@ import { createLogger } from "../../../lib/logging";
 import { createEmailSender } from "./email/utils";
 import { processEmailUpdate, processSmsUpdate } from "./processing";
 import { loadUserStocks, type UserStockRow } from "./shared";
-import { shouldSendSms } from "./sms";
 import {
 	createSmsSender,
 	createTwilioClient,
@@ -55,7 +54,6 @@ export const POST: APIRoute = async ({ cookies, request, locals }) => {
 				sms_opted_out,
 				timezone,
 				daily_digest_enabled,
-				daily_digest_notification_time,
 				next_send_at,
 				email_notifications_enabled,
 				sms_notifications_enabled
@@ -96,7 +94,12 @@ export const POST: APIRoute = async ({ cookies, request, locals }) => {
 		});
 	}
 
-	const smsReady = shouldSendSms(user);
+	const smsReady =
+		user.sms_notifications_enabled &&
+		!user.sms_opted_out &&
+		user.phone_verified &&
+		Boolean(user.phone_country_code) &&
+		Boolean(user.phone_number);
 	if (!user.email_notifications_enabled && !smsReady) {
 		return jsonResponse(400, {
 			ok: false,

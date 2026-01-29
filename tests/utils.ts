@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import { DateTime } from "luxon";
 import { Client } from "pg";
 import type { TablesInsert } from "../src/lib/db/generated/database.types";
-import { calculateNextSendAt } from "../src/lib/time/schedule";
+import { calculateNextSendAtFromTimes } from "../src/lib/time/schedule";
 import { EXPECTED_DB_SCHEMA_VERSION } from "./schema-version";
 
 type TestEnv = {
@@ -262,7 +262,7 @@ export interface CreateTestUserOptions {
 	phoneVerified?: boolean;
 	smsOptedOut?: boolean;
 	dailyDigestEnabled?: boolean;
-	dailyDigestNotificationTime?: number | null;
+	dailyDigestNotificationTimes?: number[] | null;
 	trackedStocks?: string[];
 	confirmed?: boolean;
 }
@@ -272,7 +272,12 @@ export interface TestUser {
 	email: string;
 }
 
-type DbUserInsert = TablesInsert<"users">;
+type DbUserInsert = Omit<
+	TablesInsert<"users">,
+	"daily_digest_notification_time"
+> & {
+	daily_digest_notification_times?: number[] | null;
+};
 type DbUserStockInsert = TablesInsert<"user_stocks">;
 
 export async function createTestUser(
@@ -334,24 +339,38 @@ export async function createTestUser(
 
 		// Create Profile in 'users' table
 		const dailyDigestEnabled = options.dailyDigestEnabled ?? true;
-		const rawNotificationTime = options.dailyDigestNotificationTime ?? null;
-		const alignedDailyDigestNotificationTime =
-			rawNotificationTime == null
+		const rawNotificationTimes = options.dailyDigestNotificationTimes ?? null;
+		const normalizedTimes =
+			rawNotificationTimes == null
 				? dailyDigestEnabled
-					? 540
+					? [540]
 					: null
-				: Math.floor(Math.max(0, Math.min(1439, rawNotificationTime)) / 15) *
-					15;
+				: [
+						...new Set(
+							rawNotificationTimes
+								.filter((value) => Number.isFinite(value))
+								.map(
+									(value) =>
+										Math.floor(Math.max(0, Math.min(1439, value)) / 15) * 15,
+								),
+						),
+					].sort((a, b) => a - b);
+		const finalDailyDigestTimes =
+			dailyDigestEnabled && normalizedTimes && normalizedTimes.length > 0
+				? normalizedTimes
+				: dailyDigestEnabled
+					? [540]
+					: null;
 		const nextSendAt =
-			dailyDigestEnabled && alignedDailyDigestNotificationTime !== null
-				? calculateNextSendAt(
-						alignedDailyDigestNotificationTime,
+			dailyDigestEnabled && finalDailyDigestTimes
+				? calculateNextSendAtFromTimes(
+						finalDailyDigestTimes,
 						timezone,
 						DateTime.utc(),
 					)
 				: null;
 		const nextSendAtIso = nextSendAt?.toISO() ?? null;
-		if (dailyDigestEnabled && alignedDailyDigestNotificationTime !== null) {
+		if (dailyDigestEnabled && finalDailyDigestTimes) {
 			if (!nextSendAtIso) {
 				throw new Error("Failed to generate next_send_at timestamp");
 			}
@@ -368,7 +387,7 @@ export async function createTestUser(
 			email_notifications_enabled: options.emailNotificationsEnabled ?? false,
 			sms_notifications_enabled: smsNotificationsEnabled,
 			daily_digest_enabled: dailyDigestEnabled,
-			daily_digest_notification_time: alignedDailyDigestNotificationTime,
+			daily_digest_notification_times: finalDailyDigestTimes,
 			next_send_at: nextSendAtIso,
 		};
 

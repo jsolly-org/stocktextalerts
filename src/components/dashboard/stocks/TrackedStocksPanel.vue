@@ -22,6 +22,7 @@
 					v-show="isSaving"
 					class="animate-spin size-3 shrink-0"
 					aria-hidden="true"
+					focusable="false"
 				/>
 				{{ statusMessage }}
 			</div>
@@ -65,7 +66,7 @@
 			<h3 id="tracked-stocks-list-heading" class="text-lg font-semibold text-gray-900 mb-3">Your Stocks</h3>
 			<div v-if="draftStocks.length === 0" class="text-center py-12 px-6 bg-gradient-to-b from-gray-50 to-white rounded-xl border-2 border-dashed border-gray-200">
 				<div class="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-gray-100">
-					<ChartBarIcon class="h-8 w-8 text-gray-400" aria-hidden="true" />
+					<ChartBarIcon class="h-8 w-8 text-gray-400" aria-hidden="true" focusable="false" />
 				</div>
 				<h4 class="mt-4 text-base font-semibold text-gray-900">No stocks tracked yet</h4>
 				<p class="mt-2 text-sm text-gray-500 max-w-xs mx-auto">

@@ -5,7 +5,7 @@ import { createUserService, type User } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { createLogger } from "../../../lib/logging";
-import { calculateNextSendAt } from "../../../lib/time/schedule";
+import { calculateNextSendAtFromTimes } from "../../../lib/time/schedule";
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
@@ -66,11 +66,14 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		timezone: parsed.data.timezone,
 	};
 	if (timezoneChanged && dbUser.daily_digest_enabled) {
-		if (dbUser.daily_digest_notification_time == null) {
+		if (
+			!dbUser.daily_digest_notification_times ||
+			dbUser.daily_digest_notification_times.length === 0
+		) {
 			updatePayload.next_send_at = null;
 		} else {
-			const nextSendAt = calculateNextSendAt(
-				dbUser.daily_digest_notification_time,
+			const nextSendAt = calculateNextSendAtFromTimes(
+				dbUser.daily_digest_notification_times,
 				parsed.data.timezone,
 				DateTime.utc(),
 			);

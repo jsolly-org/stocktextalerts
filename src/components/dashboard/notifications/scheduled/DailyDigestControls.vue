@@ -37,7 +37,7 @@
 						<span
 							class="inline-flex items-center rounded-full bg-white border border-gray-200 px-2 py-0.5 text-xs text-gray-600"
 						>
-							Once per day
+							Up to multiple times per day
 						</span>
 					</div>
 					<p class="text-sm text-gray-600 mt-1">
@@ -50,17 +50,50 @@
 
 		<slot name="setup" />
 
-		<fieldset class="mt-4 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+		<fieldset class="mt-4 grid gap-3">
 			<legend class="block text-sm font-medium text-gray-700 mb-1">
-				Delivery time
+				Delivery times
 			</legend>
-			<TimePicker
-				inputId="daily_digest_notification_time"
-				inputName="daily_digest_notification_time"
-				:initialTime="dailyDigestTime"
-				:disabled="timePickerDisabled"
-				@time-change="emit('time-change', $event)"
+			<input
+				type="hidden"
+				name="daily_digest_notification_times"
+				:value="serializedTimes"
 			/>
+			<div class="space-y-3">
+				<div
+					v-for="(time, index) in dailyDigestTimes"
+					:key="`${index}-${time}`"
+					class="flex items-center gap-2"
+				>
+					<TimePicker
+						:inputId="`daily_digest_notification_time_${index}`"
+						:inputName="`daily_digest_notification_time_${index}`"
+						:initialTime="time"
+						:disabled="timePickerDisabled"
+						@time-change="emit('time-change', index, $event)"
+					/>
+					<button
+						v-if="dailyDigestTimes.length > 1"
+						type="button"
+						class="btn btn-sm btn-ghost text-error-text hover:bg-error-bg hover:text-error-text shrink-0"
+						:aria-label="`Remove delivery time ${index + 1}`"
+						@click="emit('remove-time', index)"
+					>
+						Remove
+					</button>
+				</div>
+			</div>
+			<div class="flex justify-start">
+				<button
+					type="button"
+					class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+					:disabled="!canAddTime"
+					@click="emit('add-time')"
+				>
+					<PlusIcon class="size-4 shrink-0" aria-hidden="true" />
+					Add time
+				</button>
+			</div>
 		</fieldset>
 		<p v-if="!needsChannelSelection" class="mt-3 text-sm text-gray-600">
 			<template v-if="isHydrated && countdownText">
@@ -71,7 +104,7 @@
 			</template>
 			<button
 				type="button"
-				class="font-medium text-primary hover:text-primary-strong underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 rounded disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline"
+				class="link-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline"
 				:disabled="sendNowDisabled"
 				:aria-busy="isSending"
 				@click="emit('send-now')"
@@ -92,13 +125,15 @@ import { computed, onMounted, ref } from "vue";
 
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../../icons/arrow-path.svg?component";
+import PlusIcon from "../../../../icons/plus.svg?component";
 import TimePicker from "./TimePicker.vue";
 
 interface Props {
 	enabled: boolean;
-	dailyDigestTime: string | null;
+	dailyDigestTimes: string[];
 	needsChannelSelection: boolean;
 	timePickerDisabled: boolean;
+	canAddTime: boolean;
 	sendNowDisabled: boolean;
 	isSending: boolean;
 	countdownText: string | null;
@@ -111,7 +146,9 @@ const isHydrated = ref(false);
 const emit = defineEmits<{
 	(event: "update:enabled", value: boolean): void;
 	(event: "send-now"): void;
-	(event: "time-change", value: string): void;
+	(event: "time-change", index: number, value: string): void;
+	(event: "add-time"): void;
+	(event: "remove-time", index: number): void;
 }>();
 
 onMounted(() => {
@@ -122,4 +159,6 @@ const enabledValue = computed({
 	get: () => props.enabled,
 	set: (value: boolean) => emit("update:enabled", value),
 });
+
+const serializedTimes = computed(() => JSON.stringify(props.dailyDigestTimes));
 </script>

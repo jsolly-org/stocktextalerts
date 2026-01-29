@@ -93,3 +93,41 @@ export function calculateNextSendAt(
 
 	return candidate.toUTC();
 }
+
+export function calculateNextSendAtFromTimes(
+	localMinutesList: number[],
+	timezone: string,
+	now: DateTime,
+): DateTime | null {
+	if (!Array.isArray(localMinutesList) || localMinutesList.length === 0) {
+		return null;
+	}
+
+	let nextSend: DateTime | null = null;
+	for (const localMinutes of localMinutesList) {
+		if (!Number.isFinite(localMinutes)) {
+			continue;
+		}
+		const candidate = calculateNextSendAt(localMinutes, timezone, now);
+		if (!candidate) {
+			continue;
+		}
+		if (!nextSend || candidate < nextSend) {
+			nextSend = candidate;
+		}
+	}
+
+	return nextSend;
+}
+
+export function getLocalMinutesFromDateTime(
+	timezone: string,
+	date: DateTime,
+): number | null {
+	const local = date.setZone(timezone);
+	if (!local.isValid) {
+		return null;
+	}
+
+	return local.hour * 60 + local.minute;
+}

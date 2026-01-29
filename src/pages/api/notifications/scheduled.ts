@@ -6,8 +6,9 @@ import { createSupabaseAdminClient } from "../../../lib/db/supabase";
 import { createLogger, type Logger } from "../../../lib/logging";
 import { getUtcIso } from "../../../lib/time/format";
 import {
-	calculateNextSendAt,
+	calculateNextSendAtFromTimes,
 	getLocalDateString,
+	getLocalMinutesFromDateTime,
 } from "../../../lib/time/schedule";
 import { createEmailSender } from "./email/utils";
 import { processEmailUpdate, processSmsUpdate } from "./processing";
@@ -34,6 +35,7 @@ async function updateScheduledNotificationRow(options: {
 	userId: string;
 	notificationType: ScheduledNotificationType;
 	scheduledDate: string;
+	scheduledMinutes: number;
 	channel: DeliveryMethod;
 	status: Extract<ScheduledNotificationStatus, "sent" | "failed">;
 	error?: string;
@@ -50,6 +52,7 @@ async function updateScheduledNotificationRow(options: {
 		.eq("user_id", options.userId)
 		.eq("notification_type", options.notificationType)
 		.eq("scheduled_date", options.scheduledDate)
+		.eq("scheduled_minutes", options.scheduledMinutes)
 		.eq("channel", options.channel);
 
 	if (error) {
@@ -66,6 +69,7 @@ async function logRetriesExhausted(options: {
 	userId: string;
 	notificationType: ScheduledNotificationType;
 	scheduledDate: string;
+	scheduledMinutes: number;
 	channel: DeliveryMethod;
 	logger: Logger;
 }) {
@@ -75,6 +79,7 @@ async function logRetriesExhausted(options: {
 		.eq("user_id", options.userId)
 		.eq("notification_type", options.notificationType)
 		.eq("scheduled_date", options.scheduledDate)
+		.eq("scheduled_minutes", options.scheduledMinutes)
 		.eq("channel", options.channel)
 		.maybeSingle();
 
@@ -153,7 +158,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		const currentTime = DateTime.utc();
 		const currentTimeIso = getUtcIso(currentTime);
 
-		const { data: users, error: usersError } = await supabase
+		const { data, error: usersError } = await supabase
 			.from("users")
 			.select(
 				`
@@ -165,7 +170,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			sms_opted_out,
 			timezone,
 			daily_digest_enabled,
-			daily_digest_notification_time,
+			daily_digest_notification_times,
 			next_send_at,
 			email_notifications_enabled,
 			sms_notifications_enabled
@@ -173,7 +178,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			)
 			.eq("daily_digest_enabled", true)
 			.not("next_send_at", "is", null)
-			.not("daily_digest_notification_time", "is", null)
+			.not("daily_digest_notification_times", "is", null)
 			.lte("next_send_at", currentTimeIso)
 			.or(
 				"email_notifications_enabled.eq.true,sms_notifications_enabled.eq.true",
@@ -186,6 +191,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 					: JSON.stringify(usersError);
 			throw new Error(`Failed to fetch users: ${errorMsg}`);
 		}
+		const users = (data ?? []) as UserRecord[];
 
 		let twilioConfig: ReturnType<typeof readTwilioConfig> | null = null;
 		let sendSms: ReturnType<typeof createSmsSender> | null = null;
@@ -243,6 +249,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
 					stats.skipped++;
 					return stats;
 				}
+				const scheduledMinutes = getLocalMinutesFromDateTime(
+					user.timezone,
+					dueAt,
+				);
+				if (scheduledMinutes === null) {
+					stats.skipped++;
+					return stats;
+				}
 
 				const userStocks = await loadUserStocks(supabase, user.id);
 
@@ -262,6 +276,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 							p_user_id: user.id,
 							p_notification_type: "daily_digest",
 							p_scheduled_date: scheduledDate,
+							p_scheduled_minutes: scheduledMinutes,
 							p_channel: "email",
 						},
 					);
@@ -279,12 +294,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
 							userId: user.id,
 							notificationType: "daily_digest",
 							scheduledDate,
+							scheduledMinutes,
 							channel: "email",
 							logger,
 						});
 						stats.skipped++;
 					} else {
-						const emailIdempotencyKey = `daily-digest/${user.id}/${scheduledDate}/email`;
+						const emailIdempotencyKey = `daily-digest/${user.id}/${scheduledDate}/${scheduledMinutes}/email`;
 						const { sent, logged, error } = await processEmailUpdate(
 							supabase,
 							user,
@@ -304,6 +320,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 							userId: user.id,
 							notificationType: "daily_digest",
 							scheduledDate,
+							scheduledMinutes,
 							channel: "email",
 							status: sent ? "sent" : "failed",
 							error,
@@ -321,6 +338,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 							p_user_id: user.id,
 							p_notification_type: "daily_digest",
 							p_scheduled_date: scheduledDate,
+							p_scheduled_minutes: scheduledMinutes,
 							p_channel: "sms",
 						},
 					);
@@ -338,6 +356,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 							userId: user.id,
 							notificationType: "daily_digest",
 							scheduledDate,
+							scheduledMinutes,
 							channel: "sms",
 							logger,
 						});
@@ -351,6 +370,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 								userId: user.id,
 								notificationType: "daily_digest",
 								scheduledDate,
+								scheduledMinutes,
 								channel: "sms",
 								status: "failed",
 								error: smsError || "Twilio client not initialized",
@@ -386,6 +406,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 								userId: user.id,
 								notificationType: "daily_digest",
 								scheduledDate,
+								scheduledMinutes,
 								channel: "sms",
 								status: sent ? "sent" : "failed",
 								error,
@@ -395,9 +416,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
 					}
 				}
 
-				// Query filters out null daily_digest_notification_time with .not()
-				const nextSendAt = calculateNextSendAt(
-					user.daily_digest_notification_time as number,
+				// Query filters out null daily_digest_notification_times with .not()
+				const nextSendAt = calculateNextSendAtFromTimes(
+					user.daily_digest_notification_times ?? [],
 					user.timezone,
 					currentTime,
 				);
@@ -409,9 +430,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
 					});
 				}
 				if (!nextSendAt) {
-					logger.warn("calculateNextSendAt returned null", {
+					logger.warn("calculateNextSendAtFromTimes returned null", {
 						userId: user.id,
-						daily_digest_notification_time: user.daily_digest_notification_time,
+						daily_digest_notification_times:
+							user.daily_digest_notification_times,
 						timezone: user.timezone,
 					});
 				}

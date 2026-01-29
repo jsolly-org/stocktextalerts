@@ -9,7 +9,6 @@ import {
 import { formatMessage } from "../../../../lib/constants";
 import {
 	formatCountdownWithSeconds,
-	formatNextSendDateTime,
 	getNowInTimezone,
 	getSecondsUntilNextSend,
 } from "../../../../lib/time/format";
@@ -81,14 +80,14 @@ export function useFlashMessages(options: {
 		timers.clear();
 	});
 
-	return { allFlashMessages, dismissFlashMessage, showFlashMessage };
+	return { allFlashMessages, showFlashMessage };
 }
 
 export function useScheduledDigestTiming(options: {
 	timezone: ComputedRef<string>;
 	dailyDigestEnabled: Ref<boolean>;
 	nextSendAtIso: ComputedRef<string | null>;
-	timeInput: ComputedRef<string | null>;
+	timeInputs: ComputedRef<string[]>;
 }) {
 	const tick = ref(Date.now());
 	const intervalId = ref<number | null>(null);
@@ -113,19 +112,6 @@ export function useScheduledDigestTiming(options: {
 		return tz !== "" ? getNowInTimezone(tz) : null;
 	});
 
-	const nextSendFormatted = computed(() => {
-		if (!options.dailyDigestEnabled.value) {
-			return null;
-		}
-		const at = options.nextSendAtIso.value;
-		const tz = options.timezone.value;
-		if (typeof at !== "string" || at === "" || tz === "") {
-			return null;
-		}
-		const formatted = formatNextSendDateTime(at, tz);
-		return formatted === "" ? null : formatted;
-	});
-
 	const countdownText = computed(() => {
 		// Touch tick to recompute every second for the countdown.
 		tick.value;
@@ -135,17 +121,17 @@ export function useScheduledDigestTiming(options: {
 		const tz = options.timezone.value;
 		const secondsUntil = getSecondsUntilNextSend({
 			nextSendAtIso: options.nextSendAtIso.value,
-			timeInput: options.timeInput.value,
+			timeInputs: options.timeInputs.value,
 			timezone: tz,
 		});
 		if (secondsUntil === null) {
 			return null;
 		}
 		if (secondsUntil <= 0) {
-			return "Your next digest is due soon.";
+			return "Your next digest is due soon";
 		}
 		return `in ${formatCountdownWithSeconds(secondsUntil)}`;
 	});
 
-	return { currentTimeInTimezone, nextSendFormatted, countdownText };
+	return { currentTimeInTimezone, countdownText };
 }
