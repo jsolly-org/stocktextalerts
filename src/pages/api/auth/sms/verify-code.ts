@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { jsonResponse } from "../../../../lib/api/json-response";
 import { VERIFICATION_EXPIRATION_MS } from "../../../../lib/constants";
 import { createUserService } from "../../../../lib/db";
 import {
@@ -35,14 +36,6 @@ export function createVerifyCodeHandler(
 		});
 		const supabase = dependencies.createSupabaseServerClient();
 		const userService = dependencies.createUserService(supabase, cookies);
-		const jsonResponse = (
-			status: number,
-			payload: {
-				ok: boolean;
-				message: string;
-				tone?: "success" | "error" | "warning";
-			},
-		) => Response.json(payload, { status });
 
 		const user = await userService.getCurrentUser();
 		if (!user) {

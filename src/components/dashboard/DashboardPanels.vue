@@ -146,20 +146,12 @@ watch(smsEnabled, (newValue) => {
 	}
 });
 
-// Reset flag when phone becomes verified
-watch(
-	() => user.value.phone_verified,
-	(newValue) => {
-		if (newValue) {
-			hasRestoredPendingSms = false;
-		}
-	},
-);
-
+// When phone becomes verified: clear pending-SMS restore flag and exit phone-edit mode
 watch(
 	() => user.value.phone_verified,
 	(isVerified) => {
 		if (isVerified) {
+			hasRestoredPendingSms = false;
 			isEditingPhone.value = false;
 		}
 	},

@@ -101,7 +101,6 @@ interface Props {
 	timePickerDisabled: boolean;
 	sendNowDisabled: boolean;
 	isSending: boolean;
-	nextSendFormatted: string | null;
 	countdownText: string | null;
 }
 

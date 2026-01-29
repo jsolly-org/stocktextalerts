@@ -39,7 +39,6 @@
 				:timePickerDisabled="timePickerDisabled"
 				:sendNowDisabled="sendNowDisabled"
 				:isSending="isSending"
-				:nextSendFormatted="nextSendFormatted"
 				:countdownText="countdownText"
 				@send-now="handleSendNow"
 				@time-change="handleTimeChange"
@@ -151,11 +150,15 @@ watch(
 		dailyDigestTimeMinutes.value = value ?? null;
 	},
 );
+// Only auto-enable daily digest when user gains their first channel (transition
+// from no channel to has channel). Do not run on mount: that would overwrite
+// a saved preference of daily_digest_enabled = false when they already have a channel.
 watch(
 	hasNotificationChannel,
 	(hasChannel, previousHasChannel) => {
 		if (previousHasChannel === false && hasChannel && !dailyDigestEnabled.value) {
 			dailyDigestEnabled.value = true;
+			notifyFormChanged();
 		}
 	},
 );
@@ -167,13 +170,12 @@ const nextSendAt = computed(
 const { allFlashMessages, showFlashMessage } = useFlashMessages({
 	flashMessages: flashMessages,
 });
-const { currentTimeInTimezone, nextSendFormatted, countdownText } =
-	useScheduledDigestTiming({
-		timezone,
-		dailyDigestEnabled,
-		nextSendAtIso: nextSendAt,
-		timeInput: dailyDigestTime,
-	});
+const { currentTimeInTimezone, countdownText } = useScheduledDigestTiming({
+	timezone,
+	dailyDigestEnabled,
+	nextSendAtIso: nextSendAt,
+	timeInput: dailyDigestTime,
+});
 
 async function sendDailyDigestNow() {
 	if (sendNowDisabled.value) {

@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
+import { jsonResponse } from "../../../lib/api/json-response";
 import { createUserService } from "../../../lib/db";
 import {
 	createSupabaseAdminClient,
@@ -25,15 +26,6 @@ export const POST: APIRoute = async ({ cookies, request, locals }) => {
 	});
 	const supabase = createSupabaseServerClient();
 	const users = createUserService(supabase, cookies);
-
-	const jsonResponse = (
-		status: number,
-		payload: {
-			ok: boolean;
-			message: string;
-			tone?: "success" | "error" | "warning";
-		},
-	) => Response.json(payload, { status });
 
 	const authUser = await users.getCurrentUser();
 	if (!authUser) {

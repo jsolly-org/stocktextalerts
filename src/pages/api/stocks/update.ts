@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { jsonResponse } from "../../../lib/api/json-response";
 import { createUserService } from "../../../lib/db";
 import {
 	isStocksLimitError,
@@ -27,10 +28,6 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	});
 	const supabase = createSupabaseServerClient();
 	const userService = createUserService(supabase, cookies);
-	const jsonResponse = (
-		status: number,
-		payload: { ok: boolean; message: string },
-	) => Response.json(payload, { status });
 
 	const user = await userService.getCurrentUser();
 	if (!user) {
