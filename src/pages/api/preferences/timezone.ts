@@ -95,10 +95,14 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 					updatePayload.next_send_at = null;
 				}
 			} else {
-				logger.warn("Failed to calculate next_send_at after timezone change", {
-					userId: authUser.id,
-					timezone: parsed.data.timezone,
-				});
+				logger.warn(
+					"calculateNextSendAtFromTimes returned null despite having times",
+					{
+						userId: authUser.id,
+						timezone: parsed.data.timezone,
+						timesCount: dbUser.daily_digest_notification_times.length,
+					},
+				);
 				updatePayload.next_send_at = null;
 			}
 		}
