@@ -39,7 +39,20 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		return jsonResponse(401, { ok: false, message: "unauthorized" });
 	}
 
-	const formData = await request.formData();
+	let formData: FormData;
+	try {
+		formData = await request.formData();
+	} catch (error) {
+		logger.info(
+			"Preferences update rejected due to malformed request body",
+			{
+				userId: user.id,
+				contentType: request.headers.get("content-type"),
+			},
+			error,
+		);
+		return jsonResponse(400, { ok: false, message: "invalid_form" });
+	}
 	const rawTimeValue = formData.get("daily_digest_notification_time");
 	const parsed = parseWithSchema(formData, PREFERENCES_SCHEMA);
 
