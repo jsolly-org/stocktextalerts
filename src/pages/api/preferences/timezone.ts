@@ -81,6 +81,18 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 				const nextSendAtIso = nextSendAt.toISO();
 				if (nextSendAtIso) {
 					updatePayload.next_send_at = nextSendAtIso;
+				} else {
+					logger.warn(
+						"Failed to convert next_send_at to ISO after timezone change",
+						{
+							userId: authUser.id,
+							timezone: parsed.data.timezone,
+							nextSendAt: nextSendAt.toString(),
+							nextSendAtIsValid: nextSendAt.isValid,
+							nextSendAtInvalidReason: nextSendAt.invalidReason,
+						},
+					);
+					updatePayload.next_send_at = null;
 				}
 			}
 		}
