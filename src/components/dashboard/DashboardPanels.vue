@@ -14,7 +14,6 @@
 			:stockOptions="stockOptions"
 			:initialStocks="initialStocks"
 			:onFormChanged="notifyStocksChange"
-			:flash-messages="stocksFlashMessages"
 			:status-message="stocksStatusMessage"
 			:status-tone="stocksStatusTone"
 			:is-saving="isStocksSaving"
@@ -59,7 +58,6 @@
 			:phoneVerified="phoneVerified"
 			:onFormChanged="notifyPreferencesChange"
 			:savedPreferences="savedPreferences"
-			:flash-messages="scheduledFlashMessages"
 		/>
 	</form>
 </template>
@@ -199,8 +197,6 @@ type FlashTone = "success" | "error" | "warning";
 type FlashMessage = { tone: FlashTone; message: string };
 
 const preferencesFlashMessages = ref<FlashMessage[]>([]);
-const stocksFlashMessages = ref<FlashMessage[]>([]);
-const scheduledFlashMessages = ref<FlashMessage[]>([]);
 const smsSuccessMessage = ref<string | null>(null);
 
 function upsertFlashMessage(
