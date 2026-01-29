@@ -36,8 +36,9 @@ if (!user) {
 let timezones: Awaited<ReturnType<typeof getTimezoneOptions>>;
 let timezoneLoadError = false;
 try {
+	const includeValues = user.timezone ? [user.timezone] : [];
 	timezones = await getTimezoneOptions(supabase, {
-		includeValues: [user.timezone],
+		includeValues,
 	});
 } catch (error) {
 	rootLogger.error(
