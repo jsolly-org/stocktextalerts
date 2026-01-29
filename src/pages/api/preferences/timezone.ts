@@ -94,6 +94,12 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 					);
 					updatePayload.next_send_at = null;
 				}
+			} else {
+				logger.warn("Failed to calculate next_send_at after timezone change", {
+					userId: authUser.id,
+					timezone: parsed.data.timezone,
+				});
+				updatePayload.next_send_at = null;
 			}
 		}
 	}

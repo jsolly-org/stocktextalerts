@@ -202,7 +202,7 @@ AS $$
       AND NOT EXISTS (
         SELECT 1
         FROM unnest(times) AS entry
-        WHERE entry < 0 OR entry > 1439 OR entry % 15 <> 0
+        WHERE entry IS NULL OR entry < 0 OR entry > 1439 OR entry % 15 <> 0
       )
     );
 $$;
