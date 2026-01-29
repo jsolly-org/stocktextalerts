@@ -158,7 +158,6 @@ watch(
 	(hasChannel, previousHasChannel) => {
 		if (previousHasChannel === false && hasChannel && !dailyDigestEnabled.value) {
 			dailyDigestEnabled.value = true;
-			notifyFormChanged();
 		}
 	},
 );
