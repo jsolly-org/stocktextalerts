@@ -198,7 +198,7 @@ IMMUTABLE
 AS $$
   SELECT
     times IS NULL OR (
-      array_length(times, 1) >= 1
+      COALESCE(array_length(times, 1), 0) >= 1
       AND NOT EXISTS (
         SELECT 1
         FROM unnest(times) AS entry
@@ -253,7 +253,7 @@ CREATE TABLE IF NOT EXISTS users (
     daily_digest_enabled = false
     OR (
       daily_digest_notification_times IS NOT NULL
-      AND array_length(daily_digest_notification_times, 1) >= 1
+      AND COALESCE(array_length(daily_digest_notification_times, 1), 0) >= 1
     )
   )
 );
