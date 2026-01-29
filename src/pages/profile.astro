@@ -69,13 +69,13 @@ const successMessage = formatMessage(success);
       <Navigation user={authUser} />
     </header>
     
-    <main id="main-content" class="max-w-3xl mx-auto px-6 py-12">
+    <main id="main-content" class="max-w-3xl mx-auto px-4 py-8 sm:px-6 sm:py-12">
 			<header class="card mb-8">
 				<div class={`h-1 ${CARD_GRADIENT_ACCENTS.primary}`}></div>
 				<div class="card-body">
-					<div class="flex items-start justify-between gap-4">
+					<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 						<div>
-							<h1 class="text-3xl font-bold text-gray-900">Profile</h1>
+							<h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Profile</h1>
 							<p class="mt-1 text-gray-600">Review and update account settings.</p>
 						</div>
 						<a href="/dashboard" class="link-primary inline-flex items-center gap-2">

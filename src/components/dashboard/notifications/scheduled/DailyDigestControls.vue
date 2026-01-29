@@ -1,5 +1,6 @@
 <template>
 	<fieldset
+		data-autosave-ignore
 		:class="[
 			'mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4',
 			{ 'opacity-60': needsChannelSelection },
@@ -8,10 +9,10 @@
 	>
 		<legend class="sr-only">Daily digest settings</legend>
 		<div>
-			<div class="flex items-start gap-3">
+			<div class="flex flex-col gap-3 sm:flex-row sm:items-start">
 				<label
 					:class="[
-						'inline-flex items-center select-none mt-0.5',
+						'inline-flex items-center select-none mt-0.5 -m-2 p-2',
 						needsChannelSelection ? 'cursor-not-allowed' : 'cursor-pointer',
 					]"
 					for="daily_digest_enabled"
@@ -25,22 +26,18 @@
 						type="checkbox"
 						value="on"
 						id="daily_digest_enabled"
-						class="h-5 w-5 cursor-pointer disabled:cursor-not-allowed"
+						class="h-6 w-6 cursor-pointer disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
 						v-model="enabledValue"
 						:disabled="needsChannelSelection"
 						aria-labelledby="daily_digest_label"
+						aria-describedby="daily_digest_description"
 					/>
 				</label>
 				<div>
 					<div class="flex items-center gap-3">
 						<h3 id="daily_digest_label" class="text-base font-semibold text-gray-900">Daily Digest</h3>
-						<span
-							class="inline-flex items-center rounded-full bg-white border border-gray-200 px-2 py-0.5 text-xs text-gray-600"
-						>
-							Up to multiple times per day
-						</span>
 					</div>
-					<p class="text-sm text-gray-600 mt-1">
+					<p id="daily_digest_description" class="text-sm text-gray-600 mt-1">
 						A summary of your tracked stocks, delivered using your selected
 						notification channels.
 					</p>
@@ -63,19 +60,20 @@
 				<div
 					v-for="(time, index) in dailyDigestTimes"
 					:key="`${index}-${time}`"
-					class="flex items-center gap-2"
+					class="flex flex-col gap-2 sm:flex-row sm:items-center"
 				>
 					<TimePicker
 						:inputId="`daily_digest_notification_time_${index}`"
 						:inputName="`daily_digest_notification_time_${index}`"
 						:initialTime="time"
+						:inputAriaLabel="`Delivery time ${index + 1}`"
 						:disabled="timePickerDisabled"
 						@time-change="emit('time-change', index, $event)"
 					/>
 					<button
 						v-if="dailyDigestTimes.length > 1"
 						type="button"
-						class="btn btn-sm btn-ghost text-error-text hover:bg-error-bg hover:text-error-text shrink-0"
+						class="btn btn-sm btn-ghost text-error-text hover:bg-error-bg hover:text-error-text shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 self-start sm:self-auto"
 						:aria-label="`Remove delivery time ${index + 1}`"
 						@click="emit('remove-time', index)"
 					>
@@ -86,37 +84,39 @@
 			<div class="flex justify-start">
 				<button
 					type="button"
-					class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+					class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
 					:disabled="!canAddTime"
+					aria-label="Add an additional delivery time"
 					@click="emit('add-time')"
 				>
 					<PlusIcon class="size-4 shrink-0" aria-hidden="true" />
-					Add time
+					Add an additional delivery time
 				</button>
 			</div>
 		</fieldset>
-		<p v-if="!needsChannelSelection" class="mt-3 text-sm text-gray-600">
-			<template v-if="isHydrated && countdownText">
-				Will be sent {{ countdownText }}. Want to receive it earlier?
-			</template>
-			<template v-else>
-				Want to receive it earlier?
-			</template>
+		<div class="mt-4 flex flex-wrap items-center gap-3">
 			<button
-				type="button"
-				class="link-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline"
-				:disabled="sendNowDisabled"
-				:aria-busy="isSending"
-				@click="emit('send-now')"
+				type="submit"
+				class="btn btn-sm btn-primary"
+				:disabled="saveDisabled"
+				:aria-busy="isSaving"
 			>
 				<ArrowPathIcon
-					v-if="isSending"
-					class="animate-spin size-4 shrink-0 inline align-middle"
+					v-if="isSaving"
+					class="animate-spin size-4 shrink-0"
 					aria-hidden="true"
 				/>
-				{{ isSending ? "sending…" : "send digest notification now" }}
-			</button>.
-		</p>
+				{{ isSaving ? "Saving…" : "Save schedule" }}
+			</button>
+			<p class="text-xs text-gray-500">
+				Changes are only saved when you click save.
+			</p>
+		</div>
+		<div v-if="!needsChannelSelection" class="mt-4 border-t border-gray-200 pt-4">
+			<p v-if="isHydrated && countdownText" class="text-sm text-gray-600">
+				Next delivery {{ countdownText }}.
+			</p>
+		</div>
 	</fieldset>
 </template>
 
@@ -134,8 +134,8 @@ interface Props {
 	needsChannelSelection: boolean;
 	timePickerDisabled: boolean;
 	canAddTime: boolean;
-	sendNowDisabled: boolean;
-	isSending: boolean;
+	saveDisabled: boolean;
+	isSaving: boolean;
 	countdownText: string | null;
 }
 
@@ -145,7 +145,6 @@ const isHydrated = ref(false);
 
 const emit = defineEmits<{
 	(event: "update:enabled", value: boolean): void;
-	(event: "send-now"): void;
 	(event: "time-change", index: number, value: string): void;
 	(event: "add-time"): void;
 	(event: "remove-time", index: number): void;

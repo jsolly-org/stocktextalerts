@@ -25,7 +25,7 @@ export async function processEmailUpdate(
 	sendEmail: EmailSender,
 	idempotencyKey?: string,
 ): Promise<ProcessingStats> {
-	const message = formatEmailMessage(userStocks, stocksList);
+	const message = formatEmailMessage(user, userStocks, stocksList);
 	const result = await sendUserEmail(
 		user,
 		"Your Stock Update",

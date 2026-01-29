@@ -33,12 +33,12 @@
 		<header class="mb-4">
 			<h2
 				:id="DASHBOARD_SECTION_IDS.stocks"
-				class="text-2xl font-bold text-gray-900"
+				class="text-xl sm:text-2xl font-bold text-gray-900"
 			>
-				Tracked Stocks
+				Your Tracked Stocks
 			</h2>
 			<p class="text-sm text-gray-600 mt-1">
-				Select stocks to include in your daily digest.
+				Select stock tickers to include in your daily digest.
 			</p>
 		</header>
 
@@ -56,15 +56,31 @@
 
 		<fieldset class="mb-6">
 			<legend class="sr-only">Stock selection</legend>
-			<StockInput
-				:stock-options="stockOptions"
-				@select="handleSelect"
-			/>
+			<div class="space-y-2">
+				<label for="stock_search" class="text-sm font-medium text-gray-700">
+					Search stocks
+				</label>
+				<p id="stock_search_help" class="text-xs text-gray-500">
+					Type a symbol or company name, then press Enter to select.
+				</p>
+				<StockInput
+					:stock-options="stockOptions"
+					inputAriaDescribedBy="stock_search_help"
+					@select="handleSelect"
+				/>
+			</div>
 		</fieldset>
 
 		<section aria-labelledby="tracked-stocks-list-heading">
-			<h3 id="tracked-stocks-list-heading" class="text-lg font-semibold text-gray-900 mb-3">Your Stocks</h3>
-			<div v-if="draftStocks.length === 0" class="text-center py-12 px-6 bg-gradient-to-b from-gray-50 to-white rounded-xl border-2 border-dashed border-gray-200">
+			<div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+				<h3 id="tracked-stocks-list-heading" class="text-base sm:text-lg font-semibold text-gray-900">
+					Your Stocks
+				</h3>
+				<p class="text-xs font-medium text-gray-500">
+					{{ draftStocks.length }} {{ draftStocks.length === 1 ? "tracked stock" : "tracked stocks" }}
+				</p>
+			</div>
+			<div v-if="draftStocks.length === 0" class="text-center py-10 px-4 sm:py-12 sm:px-6 bg-linear-to-b from-gray-50 to-white rounded-xl border-2 border-dashed border-gray-200">
 				<div class="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-gray-100">
 					<ChartBarIcon class="h-8 w-8 text-gray-400" aria-hidden="true" focusable="false" />
 				</div>
@@ -77,15 +93,16 @@
 				<li
 					v-for="stock in draftStocks"
 					:key="stock.symbol"
-					class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+					class="flex flex-col gap-2 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors sm:flex-row sm:items-center sm:justify-between"
 				>
-					<span class="font-medium text-gray-900">{{ stock.symbol }} - {{ stock.name }}</span>
+					<span class="min-w-0 font-medium text-gray-900 wrap-break-word">{{ stock.symbol }} - {{ stock.name }}</span>
 					<button
 						type="button"
-						class="btn btn-sm btn-ghost text-error-text hover:bg-error-bg hover:text-error-text"
+						class="btn btn-sm btn-ghost text-error-text hover:bg-error-bg hover:text-error-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 self-start sm:self-auto"
+						:aria-label="`Remove stock ${stock.symbol}`"
 						@click="removeSymbol(stock.symbol)"
 					>
-						Remove
+						Remove stock
 					</button>
 				</li>
 			</ul>

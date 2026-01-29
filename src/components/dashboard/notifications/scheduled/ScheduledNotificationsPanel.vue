@@ -2,19 +2,25 @@
 	<section class="card mb-6">
 		<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.success}`"></div>
 		<div class="card-body">
-			<header class="flex items-start justify-between gap-4">
-				<div>
+			<header class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+				<div class="min-w-0">
 					<h2
 						:id="DASHBOARD_SECTION_IDS.scheduled"
-						class="text-2xl font-bold text-gray-900"
+						class="text-xl sm:text-2xl font-bold text-gray-900"
 					>
 						Scheduled Notifications
 					</h2>
-					<p class="text-sm text-gray-600 mt-1">
-						Current time: {{ currentTimeInTimezone ?? "—" }}.
+					<p class="text-sm text-gray-600 mt-1 flex flex-wrap items-center gap-2">
+						<span class="text-gray-700">
+							Local time:
+							<span class="font-medium text-gray-900">
+								{{ currentTimeInTimezone ?? "—" }}
+							</span>
+						</span>
 						<a
 							href="/profile"
-							class="link-primary"
+							class="link-primary rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+							aria-label="Change timezone in profile settings"
 						>
 							Change timezone
 						</a>
@@ -38,10 +44,9 @@
 				:needsChannelSelection="needsChannelSelection"
 				:timePickerDisabled="timePickerDisabled"
 				:canAddTime="canAddTime"
-				:sendNowDisabled="sendNowDisabled"
-				:isSending="isSending"
+				:saveDisabled="saveDisabled"
+				:isSaving="isSaving ?? false"
 				:countdownText="countdownText"
-				@send-now="handleSendNow"
 				@time-change="handleTimeChange"
 				@add-time="handleAddTime"
 				@remove-time="handleRemoveTime"
@@ -67,7 +72,6 @@ import {
 	DASHBOARD_SECTION_IDS,
 } from "../../../../lib/constants";
 import type { User } from "../../../../lib/db";
-import { rootLogger } from "../../../../lib/logging";
 import {
 	minutesToTimeInputValue,
 	parseTimeToMinutes,
@@ -86,7 +90,7 @@ interface Props {
 	smsEnabled: boolean;
 	smsOptedOut: boolean;
 	phoneVerified: boolean;
-	onFormChanged: () => void;
+	isSaving?: boolean;
 	flashMessages?: { tone: "success" | "error" | "warning"; message: string }[];
 	savedPreferences?: {
 		next_send_at: string | null;
@@ -102,8 +106,8 @@ const {
 	smsEnabled,
 	smsOptedOut,
 	phoneVerified,
-	onFormChanged,
 	flashMessages,
+	isSaving,
 } = toRefs(props);
 
 const dailyDigestEnabled = ref(user.value.daily_digest_enabled);
@@ -126,7 +130,6 @@ function normalizeDigestTimes(times: number[]): number[] {
 const dailyDigestTimesMinutes = ref<number[]>(
 	normalizeDigestTimes(user.value.daily_digest_notification_times ?? []),
 );
-const isSending = ref(false);
 
 if (dailyDigestEnabled.value && dailyDigestTimesMinutes.value.length === 0) {
 	dailyDigestTimesMinutes.value = [540];
@@ -152,10 +155,6 @@ const needsPhoneVerification = computed(
 );
 const timePickerDisabled = computed(
 	() => needsChannelSelection.value || !dailyDigestEnabled.value,
-);
-const sendNowDisabled = computed(
-	() =>
-		isSending.value || needsChannelSelection.value || !dailyDigestEnabled.value,
 );
 const canAddTime = computed(() => {
 	if (timePickerDisabled.value) {
@@ -197,7 +196,7 @@ const nextSendAt = computed(
 	() =>
 		props.savedPreferences?.next_send_at ?? props.user.next_send_at ?? null,
 );
-const { allFlashMessages, showFlashMessage } = useFlashMessages({
+const { allFlashMessages } = useFlashMessages({
 	flashMessages: flashMessages,
 });
 const { currentTimeInTimezone, countdownText } = useScheduledDigestTiming({
@@ -207,69 +206,33 @@ const { currentTimeInTimezone, countdownText } = useScheduledDigestTiming({
 	timeInputs: dailyDigestTimes,
 });
 
-async function sendDailyDigestNow() {
-	if (sendNowDisabled.value) {
-		return;
-	}
-
-	isSending.value = true;
-
-	try {
-		const response = await fetch("/api/notifications/daily-digest-now", {
-			method: "POST",
-			credentials: "same-origin",
-			headers: { Accept: "application/json" },
-			signal: AbortSignal.timeout(10_000),
-		});
-
-		const payload = (await response.json()) as {
-			ok: boolean;
-			message?: string;
-			tone?: "success" | "error" | "warning";
-		};
-
-		if (payload?.message) {
-			const tone = payload.tone ?? (payload.ok ? "success" : "error");
-			showFlashMessage(tone, payload.message);
-			return;
-		}
-
-		showFlashMessage("error", "daily_digest_send_failed");
-	} catch (error) {
-		if (error instanceof Error && error.name === "TimeoutError") {
-			rootLogger.error(
-				"Daily digest send request timed out",
-				{ action: "send_daily_digest_now", reason: "timeout" },
-				error,
-			);
-			showFlashMessage("error", "daily_digest_timed_out");
-		} else {
-			rootLogger.error(
-				"Failed to send daily digest now",
-				{ action: "send_daily_digest_now" },
-				error,
-			);
-			showFlashMessage("error", "daily_digest_send_failed");
-		}
-	} finally {
-		isSending.value = false;
-	}
-}
-
-async function handleSendNow() {
-	if (sendNowDisabled.value) {
-		return;
-	}
-
-	await sendDailyDigestNow();
-}
-
 watch(dailyDigestEnabled, () => {
 	if (dailyDigestEnabled.value && dailyDigestTimesMinutes.value.length === 0) {
 		dailyDigestTimesMinutes.value = [540];
 	}
-	onFormChanged.value();
 });
+
+const baselineTimes = computed(() =>
+	normalizeDigestTimes(user.value.daily_digest_notification_times ?? []),
+);
+const hasPendingScheduleChanges = computed(() => {
+	if (dailyDigestEnabled.value !== user.value.daily_digest_enabled) {
+		return true;
+	}
+	const currentTimes = normalizeDigestTimes(dailyDigestTimesMinutes.value);
+	if (currentTimes.length !== baselineTimes.value.length) {
+		return true;
+	}
+	return currentTimes.some(
+		(value, index) => value !== baselineTimes.value[index],
+	);
+});
+const saveDisabled = computed(
+	() =>
+		!hasPendingScheduleChanges.value ||
+		needsChannelSelection.value ||
+		Boolean(isSaving?.value),
+);
 
 function handleTimeChange(index: number, value: string) {
 	const parsedMinutes = parseTimeToMinutes(value);
@@ -279,7 +242,6 @@ function handleTimeChange(index: number, value: string) {
 	const updated = [...dailyDigestTimesMinutes.value];
 	updated[index] = parsedMinutes;
 	dailyDigestTimesMinutes.value = normalizeDigestTimes(updated);
-	onFormChanged.value();
 }
 
 function handleAddTime() {
@@ -297,7 +259,6 @@ function handleAddTime() {
 		...baseTimes,
 		nextMinutes,
 	]);
-	onFormChanged.value();
 }
 
 function handleRemoveTime(index: number) {
@@ -307,6 +268,5 @@ function handleRemoveTime(index: number) {
 	const updated = [...dailyDigestTimesMinutes.value];
 	updated.splice(index, 1);
 	dailyDigestTimesMinutes.value = normalizeDigestTimes(updated);
-	onFormChanged.value();
 }
 </script>

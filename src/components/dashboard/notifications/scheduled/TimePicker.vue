@@ -1,5 +1,5 @@
 <template>
-	<div class="w-full max-w-xs">
+	<div class="w-full sm:max-w-xs">
 		<input
 			type="hidden"
 			:name="inputName"
@@ -42,6 +42,7 @@ const props = defineProps<{
 	inputName: string;
 	initialTime: string | null;
 	disabled?: boolean;
+	inputAriaLabel?: string;
 }>();
 
 const emit = defineEmits<(event: "time-change", value: string) => void>();
@@ -74,6 +75,7 @@ const inputAttributes = computed(() => {
 		id: props.inputId,
 		class:
 			"input cursor-pointer",
+		"aria-label": props.inputAriaLabel,
 		// vue-datepicker v12 clear button is controlled by inputAttrs, not a top-level prop.
 		clearable: false,
 		alwaysClearable: false,

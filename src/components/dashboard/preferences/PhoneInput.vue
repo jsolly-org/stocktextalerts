@@ -11,14 +11,14 @@
 					'border-success-strong ring-2 ring-success-strong': isValid && phoneNumber,
 				}"
 			>
-			<div class="relative w-24">
+			<div class="relative w-20 sm:w-24">
 				<select
 					id="country"
 					name="country"
 					v-model="country"
 					autocomplete="country"
 					aria-label="Country"
-					class="w-full appearance-none rounded-l-lg py-2 pl-3 pr-8 text-base text-gray-500 focus:outline-none border-r border-gray-300 bg-white"
+					class="w-full appearance-none rounded-l-lg py-2.5 pl-3 pr-8 text-base text-gray-500 focus:outline-none border-r border-gray-300 bg-white"
 				>
 					<option value="US">+1</option>
 				</select>
@@ -31,7 +31,7 @@
 					<input type="hidden" name="phone_country_code" :value="`+${getCountryCallingCode(country)}`" />
 					<input type="hidden" name="phone_number" :value="lastDigits" />
 				</div>
-				<div class="flex-1 relative">
+				<div class="flex-1 relative min-w-0">
 				<input
 					ref="phoneInputRef"
 					type="tel"
@@ -42,7 +42,7 @@
 					@blur="validate"
 					:aria-describedby="showError ? 'phone-error' : undefined"
 					:aria-invalid="showError ? 'true' : undefined"
-					class="w-full rounded-r-lg py-2 px-3 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none"
+					class="w-full min-w-0 rounded-r-lg py-2.5 px-3 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none"
 					:placeholder="computedPlaceholder"
 					name="phone"
 					:required="isRequired"

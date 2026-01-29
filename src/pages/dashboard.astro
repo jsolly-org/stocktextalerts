@@ -50,7 +50,13 @@ const initialStocks = userStocks.map((stock) => ({ symbol: stock.symbol, name: s
 			<Navigation user={authUser} />
 		</header>
 
-		<main id="main-content" class="max-w-4xl mx-auto px-6 py-12">
+		<main id="main-content" class="max-w-4xl mx-auto px-4 py-8 sm:px-6 sm:py-12">
+			<header class="mb-8">
+				<h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
+				<p class="mt-2 text-sm text-gray-600">
+					Manage your alert channels, tracked stocks, and delivery schedule.
+				</p>
+			</header>
 			<DashboardPanels
 				client:load
 				user={user}

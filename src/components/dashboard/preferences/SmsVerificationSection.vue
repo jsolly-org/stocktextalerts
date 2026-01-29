@@ -173,7 +173,7 @@ watch(
 .sms-verification-expand-enter-to,
 .sms-verification-expand-leave-from {
 	/* Large enough to cover the tallest verification UI state. */
-	max-height: 640px;
+	max-height: min(640px, 80vh);
 	opacity: 1;
 	transform: translateY(0);
 }

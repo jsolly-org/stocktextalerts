@@ -67,7 +67,7 @@ body {
 
 /* Button sizes */
 .btn-sm {
-	@apply px-3 py-1.5 text-sm;
+	@apply px-3 py-2 text-sm sm:py-1.5;
 }
 .btn-md {
 	@apply px-4 py-2 text-sm;
@@ -131,7 +131,7 @@ body {
 }
 
 .card-body {
-	@apply p-6;
+	@apply p-4 sm:p-6;
 }
 
 /* ============= Animation Utilities ============= */

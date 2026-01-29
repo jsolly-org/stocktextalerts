@@ -1,7 +1,7 @@
 <template>
 	<section :id="DASHBOARD_SECTION_IDS.notificationChannels" class="space-y-3">
 		<header>
-			<h2 class="text-2xl font-bold text-gray-900">
+			<h2 class="text-xl sm:text-2xl font-bold text-gray-900">
 				Notification Channels
 			</h2>
 			<p class="text-sm text-gray-600 mt-1">
@@ -10,7 +10,7 @@
 		</header>
 		<fieldset class="rounded-md border border-gray-200 divide-y divide-gray-200">
 			<legend class="sr-only">Notification channels</legend>
-			<label class="flex items-start gap-3 p-3 cursor-pointer">
+			<label class="flex items-start gap-3 p-3 cursor-pointer transition-colors hover:bg-gray-50">
 				<input
 					type="hidden"
 					name="email_notifications_enabled"
@@ -19,7 +19,7 @@
 				<input
 					type="checkbox"
 					:id="emailNotificationsEnabledId"
-					class="mt-0.5 h-5 w-5 cursor-pointer"
+					class="mt-0.5 h-6 w-6 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
 					v-model="emailEnabledValue"
 				/>
 				<span class="text-sm">
@@ -30,7 +30,7 @@
 				</span>
 			</label>
 
-			<label class="flex items-start gap-3 p-3 cursor-pointer">
+			<label class="flex items-start gap-3 p-3 cursor-pointer transition-colors hover:bg-gray-50">
 				<input
 					v-if="canSaveSmsEnabled"
 					type="hidden"
@@ -40,7 +40,7 @@
 				<input
 					type="checkbox"
 					:id="smsNotificationsEnabledId"
-					class="mt-0.5 h-5 w-5 cursor-pointer"
+					class="mt-0.5 h-6 w-6 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
 					v-model="smsEnabledValue"
 				/>
 				<span class="text-sm">
@@ -56,9 +56,11 @@
 			Choose a
 			<button
 				type="button"
-				class="underline cursor-pointer hover:text-warning-text/80"
+				class="underline cursor-pointer hover:text-warning-text/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning focus-visible:ring-offset-2"
 				@click="scrollToScheduled"
-			>delivery time</button>
+			>
+				delivery time
+			</button>
 			to start sending your daily digest.
 		</StatusMessage>
 

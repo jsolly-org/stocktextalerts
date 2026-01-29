@@ -24,7 +24,7 @@ const successMessage = getAuthSuccessMessage(successCode);
 const emailPrefill = search.get("email") ?? "";
 ---
 <Layout title="Sign In" description="Sign in to your Stock Text Alerts account.">
-  <main id="main-content" class="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+  <main id="main-content" class="min-h-screen bg-gray-50 flex flex-col justify-center px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
     <header class="sm:mx-auto sm:w-full sm:max-w-md">
       <div class="flex justify-center">
         <a href="/" class="flex items-center gap-2 group" aria-label="Home">
@@ -33,7 +33,7 @@ const emailPrefill = search.get("email") ?? "";
           </div>
         </a>
       </div>
-      <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+      <h2 class="mt-6 text-center text-2xl sm:text-3xl font-extrabold text-gray-900">
         Sign in to your account
       </h2>
       <p class="mt-2 text-center text-sm text-gray-600">

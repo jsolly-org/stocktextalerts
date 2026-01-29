@@ -1,7 +1,9 @@
 import { Resend } from "resend";
+import { DASHBOARD_SECTION_HASHES } from "../../../../lib/constants";
 import { getSiteUrl } from "../../../../lib/db/env";
 import { rootLogger } from "../../../../lib/logging";
-import type { DeliveryResult, UserStockRow } from "../shared";
+import { createEmailUnsubscribeUrl } from "../../../../lib/notifications/email-unsubscribe";
+import type { DeliveryResult, EmailUser, UserStockRow } from "../shared";
 
 function escapeHtml(value: string): string {
 	return value
@@ -103,14 +105,29 @@ export function createEmailSender(): EmailSender {
 }
 
 export function formatEmailMessage(
+	user: EmailUser,
 	userStocks: UserStockRow[],
 	stocksList: string,
 ): { text: string; html: string } {
 	const dashboardUrl = `${getSiteUrl()}/dashboard`;
 	const escapedDashboardUrl = escapeHtml(dashboardUrl);
+	const scheduleUrl = `${dashboardUrl}${DASHBOARD_SECTION_HASHES.scheduled}`;
+	const escapedScheduleUrl = escapeHtml(scheduleUrl);
+	const unsubscribeUrl = createEmailUnsubscribeUrl({
+		userId: user.id,
+		email: user.email,
+	});
+	const escapedUnsubscribeUrl = escapeHtml(unsubscribeUrl);
+	const textFooter = `\n\nManage your delivery schedule: ${scheduleUrl}\nUnsubscribe from email notifications: ${unsubscribeUrl}`;
+	const htmlFooter = `
+		<p style="color: #6b7280; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+			<a href="${escapedScheduleUrl}" style="color: #667eea; text-decoration: none;">Adjust delivery schedule</a>
+			<span style="color: #d1d5db; padding: 0 8px;">•</span>
+			<a href="${escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe from email</a>
+		</p>`;
 
 	if (userStocks.length === 0) {
-		const text = `You don't have any tracked stocks yet.\n\nVisit your dashboard to add stocks to track: ${dashboardUrl}`;
+		const text = `You don't have any tracked stocks yet.\n\nVisit your dashboard to add stocks to track: ${dashboardUrl}${textFooter}`;
 		const html = `
 <!DOCTYPE html>
 <html>
@@ -135,13 +152,14 @@ export function formatEmailMessage(
 		<p style="color: #6b7280; font-size: 14px; margin-top: 30px; padding-top: 30px; border-top: 1px solid #e5e7eb;">
 			Once you add stocks to your dashboard, you'll receive regular updates about them during your configured notification window.
 		</p>
+		${htmlFooter}
 	</div>
 </body>
 </html>`;
 		return { text, html };
 	}
 
-	const text = `Your tracked stocks: ${stocksList}`;
+	const text = `Your tracked stocks: ${stocksList}${textFooter}`;
 	// Use userStocks directly instead of parsing stocksList to avoid dependency on string format
 	const escapedStocksListHtml = userStocks
 		.map((stock) => escapeHtml(`${stock.symbol} - ${stock.name}`))
@@ -169,6 +187,7 @@ export function formatEmailMessage(
 				Manage your stocks →
 			</a>
 		</div>
+		${htmlFooter}
 	</div>
 </body>
 </html>`;

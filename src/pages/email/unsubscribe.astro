@@ -1,0 +1,94 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import StatusMessage from "../../components/StatusMessage.astro";
+import { createSupabaseAdminClient } from "../../lib/db/supabase";
+import { createLogger } from "../../lib/logging";
+import { verifyEmailUnsubscribeToken } from "../../lib/notifications/email-unsubscribe";
+
+const logger = createLogger({
+	requestId: Astro.locals?.requestId,
+	path: Astro.url.pathname,
+	method: Astro.request.method,
+});
+
+const userId = Astro.url.searchParams.get("user");
+const token = Astro.url.searchParams.get("token");
+
+let tone: "success" | "error" = "error";
+let message =
+	"This unsubscribe link is invalid or has expired. Please sign in to manage your email preferences.";
+
+if (userId && token) {
+	const supabase = createSupabaseAdminClient();
+	const { data: user, error } = await supabase
+		.from("users")
+		.select("id,email,email_notifications_enabled")
+		.eq("id", userId)
+		.maybeSingle();
+
+	if (error) {
+		logger.error(
+			"Failed to load user for email unsubscribe",
+			{ userId },
+			error,
+		);
+	} else if (!user) {
+		logger.info("Email unsubscribe rejected: user not found", { userId });
+	} else {
+		const verification = verifyEmailUnsubscribeToken({
+			userId: user.id,
+			email: user.email,
+			token,
+		});
+
+		if (!verification.ok) {
+			logger.info("Email unsubscribe rejected: invalid token", {
+				userId,
+				reason: verification.reason,
+			});
+		} else {
+			const { error: updateError } = await supabase
+				.from("users")
+				.update({ email_notifications_enabled: false })
+				.eq("id", user.id);
+
+			if (updateError) {
+				logger.error(
+					"Failed to disable email notifications via unsubscribe",
+					{ userId },
+					updateError,
+				);
+			} else {
+				tone = "success";
+				message =
+					"Email notifications are now turned off. You can sign in anytime to adjust your delivery schedule.";
+			}
+		}
+	}
+}
+---
+<Layout title="Email Unsubscribe" description="Update your email notifications">
+	<main
+		id="main-content"
+		class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8"
+	>
+		<div class="max-w-md w-full space-y-6">
+			<header class="text-center">
+				<h1 class="text-2xl sm:text-3xl font-bold text-gray-900">
+					Email Notifications
+				</h1>
+				<p class="mt-2 text-sm text-gray-600">
+					Manage your email delivery preferences.
+				</p>
+			</header>
+
+			<StatusMessage tone={tone}>{message}</StatusMessage>
+
+			<div>
+				<a href="/signin" class="btn btn-md btn-primary w-full">
+					Sign in to adjust schedule
+				</a>
+			</div>
+		</div>
+	</main>
+</Layout>

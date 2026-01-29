@@ -8,7 +8,7 @@
 			<p v-if="!isExpired" class="text-sm text-gray-700">
 				We sent a verification code to your phone.
 			</p>
-			<div class="flex items-center gap-4">
+			<div class="flex flex-col gap-3 sm:flex-row sm:items-center">
 				<button
 					type="submit"
 					formaction="/api/auth/sms/send-verification"

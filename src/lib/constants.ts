@@ -139,14 +139,6 @@ export const MESSAGE_ALLOWLIST = {
 	delete_orphaned_auth_failed:
 		"Failed to complete account deletion. Please try again.",
 	stocks_limit: `Maximum ${MAX_TRACKED_STOCKS} stocks allowed`,
-	daily_digest_sent: "Daily digest sent.",
-	daily_digest_disabled: "Daily digest is disabled.",
-	daily_digest_send_failed: "Failed to send daily digest. Please try again.",
-	daily_digest_rate_limited:
-		"Too many manual digest requests. Please try again later.",
-	daily_digest_quota_exceeded:
-		"Manual daily digest quota exceeded. Please try again later.",
-	daily_digest_timed_out: "Daily digest request timed out. Please try again.",
 } as const;
 
 export type MessageKey = keyof typeof MESSAGE_ALLOWLIST;
