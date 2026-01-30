@@ -11,6 +11,7 @@ runs:
       with:
         version: 2.3.13
     - name: Run Biome
+      shell: bash
       run: biome ci .
     - name: Setup Node.js
       uses: actions/setup-node@v6
@@ -19,16 +20,20 @@ runs:
         cache: npm
         cache-dependency-path: package-lock.json
     - name: Install dependencies
+      shell: bash
       run: npm ci
     - name: Deep Type check
+      shell: bash
       run: npm run check:ts
     - name: Setup Supabase CLI
       uses: supabase/setup-cli@v1
       with:
         version: "2.58.5"
     - name: Start Supabase
+      shell: bash
       run: supabase start
     - name: Wait for Supabase
+      shell: bash
       run: |
         echo "Waiting for Supabase services to be ready..."
         for i in $(seq 1 30); do
@@ -45,6 +50,7 @@ runs:
         echo "Supabase failed to become ready"
         exit 1
     - name: Load Supabase env
+      shell: bash
       run: |
         supabase status -o json > /tmp/sb-status.json
         jq -r '
@@ -64,6 +70,8 @@ runs:
         echo "CRON_SECRET=ci-cron-secret" >> $GITHUB_ENV
         echo "VERCEL_URL=http://localhost:4321" >> $GITHUB_ENV
     - name: Test
+      shell: bash
       run: npm test
     - name: Build application
+      shell: bash
       run: npm run build
