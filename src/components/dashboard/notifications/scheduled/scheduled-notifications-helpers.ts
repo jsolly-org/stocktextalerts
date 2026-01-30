@@ -36,14 +36,14 @@ export function useScheduledDigestTiming(options: {
 
 	const currentTimeInTimezone = computed(() => {
 		// Touch tick to recompute every second for the live clock.
-		tick.value;
+		void tick.value;
 		const tz = options.timezone.value;
 		return tz !== "" ? getNowInTimezone(tz) : null;
 	});
 
 	const countdownText = computed(() => {
 		// Touch tick to recompute every second for the countdown.
-		tick.value;
+		void tick.value;
 		if (!options.dailyDigestEnabled.value) {
 			return null;
 		}

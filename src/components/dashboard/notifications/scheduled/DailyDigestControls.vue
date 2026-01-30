@@ -94,7 +94,7 @@
 				</button>
 			</div>
 		</fieldset>
-		<div class="mt-4 flex flex-wrap items-center gap-3">
+		<div class="mt-4 flex flex-wrap items-center justify-end gap-3">
 			<button
 				type="submit"
 				class="btn btn-sm btn-primary"

@@ -28,9 +28,9 @@
 				</div>
 			</header>
 
-			<div v-if="allFlashMessages.length" class="space-y-2 mt-4">
+			<div v-if="flashMessages.length" class="space-y-2 mt-4">
 				<StatusMessage
-					v-for="(flash, index) in allFlashMessages"
+					v-for="(flash, index) in flashMessages"
 					:key="index"
 					:tone="flash.tone"
 				>
@@ -115,6 +115,7 @@ const dailyDigestEnabled = ref(user.value.daily_digest_enabled);
 const MAX_DAILY_DIGEST_MINUTES = 23 * 60 + 45;
 const DIGEST_INCREMENT_MINUTES = 15;
 const ADD_DIGEST_OFFSET_MINUTES = 180;
+const DEFAULT_DIGEST_TIME_MINUTES = 9 * 60; // 9:00 AM
 
 function normalizeDigestTimes(times: number[]): number[] {
 	const filtered = times.filter(
@@ -132,7 +133,7 @@ const dailyDigestTimesMinutes = ref<number[]>(
 );
 
 if (dailyDigestEnabled.value && dailyDigestTimesMinutes.value.length === 0) {
-	dailyDigestTimesMinutes.value = [540];
+	dailyDigestTimesMinutes.value = [DEFAULT_DIGEST_TIME_MINUTES];
 }
 
 const phoneVerificationSectionId = `${DASHBOARD_FORM_ID}-phone-verification-section`;
@@ -187,6 +188,9 @@ watch(
 	hasNotificationChannel,
 	(hasChannel, previousHasChannel) => {
 		if (previousHasChannel === false && hasChannel && !dailyDigestEnabled.value) {
+			if (dailyDigestTimesMinutes.value.length === 0) {
+				dailyDigestTimesMinutes.value = [540];
+			}
 			dailyDigestEnabled.value = true;
 			onFormChanged.value?.();
 		}
@@ -197,7 +201,6 @@ const nextSendAt = computed(
 	() =>
 		props.savedPreferences?.next_send_at ?? props.user.next_send_at ?? null,
 );
-const allFlashMessages = flashMessages;
 const { currentTimeInTimezone, countdownText } = useScheduledDigestTiming({
 	timezone,
 	dailyDigestEnabled,
@@ -207,7 +210,7 @@ const { currentTimeInTimezone, countdownText } = useScheduledDigestTiming({
 
 watch(dailyDigestEnabled, () => {
 	if (dailyDigestEnabled.value && dailyDigestTimesMinutes.value.length === 0) {
-		dailyDigestTimesMinutes.value = [540];
+		dailyDigestTimesMinutes.value = [DEFAULT_DIGEST_TIME_MINUTES];
 	}
 });
 
@@ -241,6 +244,7 @@ function handleTimeChange(index: number, value: string) {
 	const updated = [...dailyDigestTimesMinutes.value];
 	updated[index] = parsedMinutes;
 	dailyDigestTimesMinutes.value = normalizeDigestTimes(updated);
+	onFormChanged.value?.();
 }
 
 function handleAddTime() {
@@ -248,7 +252,7 @@ function handleAddTime() {
 		return;
 	}
 	const times = normalizeDigestTimes(dailyDigestTimesMinutes.value);
-	const baseTimes = times.length === 0 ? [540] : times;
+	const baseTimes = times.length === 0 ? [DEFAULT_DIGEST_TIME_MINUTES] : times;
 	const nextMinutes =
 		baseTimes[baseTimes.length - 1] + ADD_DIGEST_OFFSET_MINUTES;
 	if (nextMinutes > MAX_DAILY_DIGEST_MINUTES) {
@@ -258,6 +262,7 @@ function handleAddTime() {
 		...baseTimes,
 		nextMinutes,
 	]);
+	onFormChanged.value?.();
 }
 
 function handleRemoveTime(index: number) {
@@ -267,5 +272,6 @@ function handleRemoveTime(index: number) {
 	const updated = [...dailyDigestTimesMinutes.value];
 	updated.splice(index, 1);
 	dailyDigestTimesMinutes.value = normalizeDigestTimes(updated);
+	onFormChanged.value?.();
 }
 </script>
