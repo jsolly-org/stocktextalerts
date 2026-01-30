@@ -55,7 +55,8 @@ jobs:
             "PUBLIC_SUPABASE_ANON_KEY=\(.ANON_KEY)",
             "SUPABASE_SERVICE_ROLE_KEY=\(.SERVICE_ROLE_KEY)",
             "DATABASE_URL=\(.DB_URL)",
-            "CRON_SECRET=ci-cron-secret"
+            "CRON_SECRET=ci-cron-secret",
+            "VERCEL_URL=http://localhost:4321"
           ' /tmp/sb-status.json > .env.local
           jq -r '
             "PUBLIC_SUPABASE_URL=\(.API_URL)",
@@ -64,6 +65,7 @@ jobs:
             "DATABASE_URL=\(.DB_URL)"
           ' /tmp/sb-status.json >> $GITHUB_ENV
           echo "CRON_SECRET=ci-cron-secret" >> $GITHUB_ENV
+          echo "VERCEL_URL=http://localhost:4321" >> $GITHUB_ENV
       - name: Test
         run: npm test
       - name: Build application
