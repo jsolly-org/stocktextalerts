@@ -6,19 +6,11 @@ import {
 	type Ref,
 	ref,
 } from "vue";
-import type { FlashMessage } from "../../../../lib/constants";
 import {
 	formatCountdownWithSeconds,
 	getNowInTimezone,
 	getSecondsUntilNextSend,
 } from "../../../../lib/time/format";
-
-export function useFlashMessages(options: {
-	flashMessages: Ref<FlashMessage[]>;
-}) {
-	const allFlashMessages = computed(() => options.flashMessages.value);
-	return { allFlashMessages };
-}
 
 export function useScheduledDigestTiming(options: {
 	timezone: ComputedRef<string>;

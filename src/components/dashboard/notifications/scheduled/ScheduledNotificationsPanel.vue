@@ -80,10 +80,7 @@ import {
 import StatusMessage from "../../../StatusMessage.vue";
 import DailyDigestControls from "./DailyDigestControls.vue";
 import SetupRequiredNotice from "./SetupRequiredNotice.vue";
-import {
-	useFlashMessages,
-	useScheduledDigestTiming,
-} from "./scheduled-notifications-helpers";
+import { useScheduledDigestTiming } from "./scheduled-notifications-helpers";
 
 interface Props {
 	user: User;
@@ -200,9 +197,7 @@ const nextSendAt = computed(
 	() =>
 		props.savedPreferences?.next_send_at ?? props.user.next_send_at ?? null,
 );
-const { allFlashMessages } = useFlashMessages({
-	flashMessages: flashMessages,
-});
+const allFlashMessages = flashMessages;
 const { currentTimeInTimezone, countdownText } = useScheduledDigestTiming({
 	timezone,
 	dailyDigestEnabled,
