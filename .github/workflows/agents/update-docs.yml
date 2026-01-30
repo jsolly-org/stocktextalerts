@@ -27,7 +27,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Setup Cursor CLI
-        uses: ./.github/shared/setup-cursor
+        uses: ./.github/actions/setup-cursor
 
       - name: Update docs
         env:

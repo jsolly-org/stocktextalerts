@@ -324,7 +324,7 @@ jobs:
 
       - name: Setup Cursor CLI
         if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
-        uses: ./.github/shared/setup-cursor
+        uses: ./.github/actions/setup-cursor
         with:
           git_name: ${{ env.CURSOR_AGENT_NAME }}
           git_email: ${{ env.CURSOR_AGENT_EMAIL }}
