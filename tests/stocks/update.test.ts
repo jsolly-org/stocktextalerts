@@ -10,6 +10,7 @@ import {
 	cleanupTestUser,
 	createAuthenticatedCookies,
 	createTestUser,
+	ensureStocksExist,
 	getRealStockSymbols,
 	getStockData,
 	type TestUser,
@@ -79,6 +80,8 @@ async function updateTrackedStocks(
 		testUser.email,
 		TEST_PASSWORD,
 	);
+
+	await ensureStocksExist(stocksToUpdate);
 
 	const formData = new FormData();
 	formData.append("tracked_stocks", JSON.stringify(stocksToUpdate));

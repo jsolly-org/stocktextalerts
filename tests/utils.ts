@@ -109,6 +109,25 @@ export function getStockData(symbol: string): StockData {
 	return stock;
 }
 
+export async function ensureStocksExist(symbols: string[]): Promise<void> {
+	if (symbols.length === 0) return;
+	const uniqueSymbols = [...new Set(symbols)];
+	const stockRecords = uniqueSymbols.map((symbol) => {
+		const stockData = getStockData(symbol);
+		return {
+			symbol: stockData.symbol,
+			name: stockData.name,
+			exchange: stockData.exchange,
+		};
+	});
+	const { error } = await adminClient
+		.from("stocks")
+		.upsert(stockRecords, { onConflict: "symbol" });
+	if (error) {
+		throw new Error(`Failed to ensure stocks exist: ${error.message}`);
+	}
+}
+
 export function getRealStockSymbols(count: number): string[] {
 	if (count < 0) {
 		throw new Error(`Requested negative symbol count: ${count}`);
