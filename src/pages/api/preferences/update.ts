@@ -203,6 +203,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 						finalTimes,
 						finalTimezone,
 					});
+					safePreferenceUpdates.next_send_at = null;
 				} else {
 					safePreferenceUpdates.next_send_at = nextSendAtIso;
 				}
