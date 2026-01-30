@@ -5,4 +5,4 @@ on:
 
 jobs:
   testAndBuild:
-    uses: ./.github/shared/ci.yml
+    uses: ./.github/workflows/ci.yml

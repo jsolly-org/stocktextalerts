@@ -12,4 +12,4 @@ permissions:
 
 jobs:
   deploy:
-    uses: ./.github/shared/ci.yml
+    uses: ./.github/workflows/ci.yml
