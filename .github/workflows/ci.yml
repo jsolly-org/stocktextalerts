@@ -31,16 +31,30 @@ jobs:
           version: 2.74.3
       - name: Start Supabase
         run: supabase start
+      - name: Wait for Supabase
+        run: |
+          echo "Waiting for Supabase services to be ready..."
+          for i in $(seq 1 30); do
+            if supabase status -o json > /tmp/supabase-status.json 2>/dev/null; then
+              API_URL=$(jq -r '.API_URL // empty' /tmp/supabase-status.json)
+              if [[ -n "$API_URL" ]]; then
+                echo "Supabase ready (attempt $i)"
+                exit 0
+              fi
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+          echo "Supabase failed to become ready"
+          exit 1
       - name: Load Supabase env
         run: |
-          supabase status -o env | sed 's/^export //' > supabase.env
-          set -a
-          . ./supabase.env
-          set +a
-          echo "PUBLIC_SUPABASE_URL=$API_URL" >> $GITHUB_ENV
-          echo "PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY" >> $GITHUB_ENV
-          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> $GITHUB_ENV
-          echo "DATABASE_URL=$DB_URL" >> $GITHUB_ENV
+          supabase status -o json | jq -r '
+            "PUBLIC_SUPABASE_URL=\(.API_URL)",
+            "PUBLIC_SUPABASE_ANON_KEY=\(.ANON_KEY)",
+            "SUPABASE_SERVICE_ROLE_KEY=\(.SERVICE_ROLE_KEY)",
+            "DATABASE_URL=\(.DB_URL)"
+          ' >> $GITHUB_ENV
           echo "CRON_SECRET=ci-cron-secret" >> $GITHUB_ENV
       - name: Test
         run: npm test
