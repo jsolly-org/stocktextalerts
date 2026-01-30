@@ -212,8 +212,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 					finalTimes,
 					finalTimezone,
 				});
-				// Preserve existing next_send_at value when calculation fails
-				// Do not set next_send_at to null to avoid disabling scheduled notifications
+				safePreferenceUpdates.next_send_at = null;
 			}
 		}
 	} else if (enabledChanged && !finalEnabled) {
