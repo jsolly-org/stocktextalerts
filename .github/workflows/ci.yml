@@ -25,17 +25,13 @@ jobs:
         run: npm ci
       - name: Deep Type check
         run: npm run check:ts
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: 2.74.3
       - name: Start Supabase
-        run: supabase start
+        run: npx supabase start
       - name: Wait for Supabase
         run: |
           echo "Waiting for Supabase services to be ready..."
           for i in $(seq 1 30); do
-            if supabase status -o json > /tmp/supabase-status.json 2>/dev/null; then
+            if npx supabase status -o json > /tmp/supabase-status.json 2>/dev/null; then
               API_URL=$(jq -r '.API_URL // empty' /tmp/supabase-status.json)
               if [[ -n "$API_URL" ]]; then
                 echo "Supabase ready (attempt $i)"
@@ -49,7 +45,7 @@ jobs:
           exit 1
       - name: Load Supabase env
         run: |
-          supabase status -o json > /tmp/sb-status.json
+          npx supabase status -o json > /tmp/sb-status.json
           jq -r '
             "PUBLIC_SUPABASE_URL=\(.API_URL)",
             "PUBLIC_SUPABASE_ANON_KEY=\(.ANON_KEY)",
