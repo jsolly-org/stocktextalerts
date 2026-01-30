@@ -49,12 +49,20 @@ jobs:
           exit 1
       - name: Load Supabase env
         run: |
-          supabase status -o json | jq -r '
+          supabase status -o json > /tmp/sb-status.json
+          jq -r '
+            "PUBLIC_SUPABASE_URL=\(.API_URL)",
+            "PUBLIC_SUPABASE_ANON_KEY=\(.ANON_KEY)",
+            "SUPABASE_SERVICE_ROLE_KEY=\(.SERVICE_ROLE_KEY)",
+            "DATABASE_URL=\(.DB_URL)",
+            "CRON_SECRET=ci-cron-secret"
+          ' /tmp/sb-status.json > .env.local
+          jq -r '
             "PUBLIC_SUPABASE_URL=\(.API_URL)",
             "PUBLIC_SUPABASE_ANON_KEY=\(.ANON_KEY)",
             "SUPABASE_SERVICE_ROLE_KEY=\(.SERVICE_ROLE_KEY)",
             "DATABASE_URL=\(.DB_URL)"
-          ' >> $GITHUB_ENV
+          ' /tmp/sb-status.json >> $GITHUB_ENV
           echo "CRON_SECRET=ci-cron-secret" >> $GITHUB_ENV
       - name: Test
         run: npm test
