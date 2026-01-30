@@ -189,7 +189,7 @@ watch(
 	(hasChannel, previousHasChannel) => {
 		if (previousHasChannel === false && hasChannel && !dailyDigestEnabled.value) {
 			if (dailyDigestTimesMinutes.value.length === 0) {
-				dailyDigestTimesMinutes.value = [540];
+				dailyDigestTimesMinutes.value = [DEFAULT_DIGEST_TIME_MINUTES];
 			}
 			dailyDigestEnabled.value = true;
 			onFormChanged.value?.();
