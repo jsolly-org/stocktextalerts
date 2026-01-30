@@ -8,7 +8,7 @@
 			v-model="selectedValue"
 			name="timezone"
 			required
-			class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed"
+			class="input cursor-pointer"
 			:disabled="disabled"
 			@change="handleChange"
 		>
@@ -25,7 +25,7 @@
 <script lang="ts" setup>
 import { computed } from "vue";
 
-import type { TimezoneOption } from "../../../lib/time/cache";
+import type { TimezoneOption } from "../../lib/time/cache";
 
 interface Props {
 	id: string;

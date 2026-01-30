@@ -11,6 +11,7 @@ This file captures the non-negotiables for this repo. It is a new app, so we opt
   - **No compatibility layers**: Avoid shims, adapters, deprecations, or re-exports for legacy behavior.
   - **No browser polyfills or legacy fallbacks**: Don't add try-catch blocks, feature detection, or polyfills for old browsers (IE11, etc.). Modern browser APIs like `fetch`, `URL`, `AbortController`, `TextEncoder`/`TextDecoder`, `crypto.randomUUID()`, etc. are well-supported and generally won't throw in supported environments. Only handle legitimate error cases (e.g., `sessionStorage` throwing `SecurityError` in private browsing modes). Server-side polyfills (e.g., `@js-temporal/polyfill` for Node.js) are acceptable when the API isn't available in the runtime environment.
 - **Code structure**
+  - **No single-file folders**: Do not create a folder that contains only one file. Only create a folder when there are at least two files in it; otherwise keep the file in the parent directory.
   - **Keep files focused**: ≤300 lines; extract utilities to maintain DRY principles.
   - **Prefer functional patterns**: Use classes only when clearly warranted; question class-based approaches.
   - **Avoid one-line functions**: Either inline simple logic or expand to meaningful functions.
@@ -57,9 +58,6 @@ This file captures the non-negotiables for this repo. It is a new app, so we opt
 
 ## Available CLI Tools
 The following CLI tools are available: Biome CLI, Cursor CLI, CodeRabbit CLI, Vercel CLI, GitHub CLI, Supabase CLI.
-
-## GitHub Actions Workflows
-- **Cursor Agent on PR Comment** (`.github/workflows/cursor-agent-on-pr-comment.yml`): Processes PR comments from trusted agents (Cursor, CodeRabbit, Copilot) and executes code changes. Comment body is not sanitized because this is a private repository with trusted agents. If this workflow is used in a public repository or with untrusted commenters, sanitization should be re-added to prevent prompt injection.
 
 ## Design System
 - **Semantic tokens live in `src/global.css`** via Tailwind v4 `@theme` variables (primary, success, warning, error, info).

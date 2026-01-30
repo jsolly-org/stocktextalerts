@@ -7,7 +7,10 @@ import {
 	verifySupabaseOtp,
 } from "../../lib/auth/supabase-otp";
 import { createUserService } from "../../lib/db";
-import { createSupabaseServerClient } from "../../lib/db/supabase";
+import {
+	createSupabaseAdminClient,
+	createSupabaseServerClient,
+} from "../../lib/db/supabase";
 import { rootLogger } from "../../lib/logging";
 
 const supabase = createSupabaseServerClient();
@@ -57,6 +60,43 @@ if (tokenHash && type === null) {
 		});
 		return Astro.redirect("/signin?error=verification_failed");
 	}
+
+	if (type === "email_change") {
+		const adminClient = createSupabaseAdminClient();
+		const { data: authData, error: authError } =
+			await adminClient.auth.admin.getUserById(data.user.id);
+		if (authError || !authData?.user?.email) {
+			rootLogger.error(
+				"Failed to load updated auth email after verification",
+				{
+					userId: data.user.id,
+					hasEmail: Boolean(authData?.user?.email),
+				},
+				authError ?? undefined,
+			);
+			return Astro.redirect("/profile?error=email_change_failed");
+		}
+
+		// Trim email to satisfy our database constraints (no leading/trailing whitespace).
+		// Supabase Auth doesn't enforce this constraint (external service owns its storage/constraints).
+		const normalizedEmail = authData.user.email.trim();
+		const { error: updateError } = await adminClient
+			.from("users")
+			.update({ email: normalizedEmail })
+			.eq("id", data.user.id);
+
+		if (updateError) {
+			rootLogger.error(
+				"Failed to sync updated email to user profile",
+				{ userId: data.user.id, email: normalizedEmail },
+				updateError,
+			);
+			return Astro.redirect("/profile?error=email_change_failed");
+		}
+
+		return Astro.redirect("/profile?success=email_updated");
+	}
+
 	// Clean up URL to prevent token reuse attempts on refresh
 	return Astro.redirect("/auth/verified");
 } else {
@@ -75,28 +115,28 @@ const title = "Email Verified";
 const description = "Your email has been successfully verified.";
 ---
 <Layout title={title} description={description}>
-  <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+  <main id="main-content" class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-md w-full space-y-8">
-      <div class="text-center">
+      <header class="text-center">
         <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-success-bg">
           <Icon name="check" class="h-6 w-6 text-success-text" aria-hidden="true" />
         </div>
-        <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+        <h2 class="mt-6 text-center text-2xl sm:text-3xl font-extrabold text-gray-900">
           Email Verified!
         </h2>
         <p class="mt-2 text-center text-sm text-gray-600">
           Your email address has been successfully verified.
         </p>
-      </div>
+      </header>
 
-      <div class="mt-8">
+      <section class="mt-8" aria-labelledby="verified-message-heading">
         <div class="rounded-md border p-4 status-tone-success">
           <div class="flex">
             <div class="shrink-0">
               <Icon name="check-circle-20" class="h-5 w-5 text-success-text" aria-hidden="true" />
             </div>
             <div class="ml-3">
-              <p class="text-sm font-medium">
+              <p id="verified-message-heading" class="text-sm font-medium">
                 You're all set. <span class="font-normal">You can now sign in to your account.</span>
               </p>
             </div>
@@ -106,12 +146,12 @@ const description = "Your email has been successfully verified.";
         <div class="mt-6">
           <a
             href="/signin"
-            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-strong focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+            class="btn btn-md btn-primary w-full"
           >
             Sign In
           </a>
         </div>
-      </div>
+      </section>
     </div>
-  </div>
+  </main>
 </Layout>

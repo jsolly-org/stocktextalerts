@@ -1,8 +1,6 @@
 import type { APIRoute } from "astro";
-import {
-	buildDashboardRedirect,
-	VERIFICATION_EXPIRATION_MS,
-} from "../../../../lib/constants";
+import { jsonResponse } from "../../../../lib/api/json-response";
+import { VERIFICATION_EXPIRATION_MS } from "../../../../lib/constants";
 import { createUserService } from "../../../../lib/db";
 import {
 	createSupabaseAdminClient,
@@ -24,13 +22,12 @@ const defaultDependencies: SmsVerifyCodeDependencies = {
 	checkVerification,
 };
 
-/** Builds the SMS verification "verify code" API route handler (dependency-injectable for tests). */
 export function createVerifyCodeHandler(
 	overrides: Partial<SmsVerifyCodeDependencies> = {},
 ): APIRoute {
 	const dependencies = { ...defaultDependencies, ...overrides };
 
-	return async ({ request, cookies, redirect, locals }) => {
+	return async ({ request, cookies, locals }) => {
 		const url = new URL(request.url);
 		const logger = createLogger({
 			requestId: locals?.requestId,
@@ -39,11 +36,6 @@ export function createVerifyCodeHandler(
 		});
 		const supabase = dependencies.createSupabaseServerClient();
 		const userService = dependencies.createUserService(supabase, cookies);
-		const preferencesRedirect = (params: {
-			success?: string;
-			error?: string;
-			warning?: string;
-		}) => buildDashboardRedirect({ ...params, section: "preferences" });
 
 		const user = await userService.getCurrentUser();
 		if (!user) {
@@ -51,7 +43,11 @@ export function createVerifyCodeHandler(
 			logger.info("SMS verification attempt without authenticated user", {
 				reason: "unauthenticated",
 			});
-			return redirect("/signin?error=unauthorized");
+			return jsonResponse(401, {
+				ok: false,
+				message: "unauthorized",
+				tone: "error",
+			});
 		}
 
 		try {
@@ -66,7 +62,11 @@ export function createVerifyCodeHandler(
 					"SMS verification code form rejected due to invalid fields",
 					{ errors: parsed.allErrors },
 				);
-				return redirect(preferencesRedirect({ error: "invalid_form" }));
+				return jsonResponse(400, {
+					ok: false,
+					message: "invalid_form",
+					tone: "error",
+				});
 			}
 
 			const code = parsed.data.code;
@@ -77,13 +77,21 @@ export function createVerifyCodeHandler(
 					userId: user.id,
 					endpoint: "sms/verify-code",
 				});
-				return redirect(preferencesRedirect({ error: "user_not_found" }));
+				return jsonResponse(404, {
+					ok: false,
+					message: "user_not_found",
+					tone: "error",
+				});
 			}
 			if (!userData.phone_country_code || !userData.phone_number) {
 				logger.error("SMS verification requested but phone details missing", {
 					userId: user.id,
 				});
-				return redirect(preferencesRedirect({ error: "phone_not_set" }));
+				return jsonResponse(400, {
+					ok: false,
+					message: "phone_not_set",
+					tone: "error",
+				});
 			}
 
 			// Check if verification code has expired.
@@ -95,7 +103,11 @@ export function createVerifyCodeHandler(
 						userId: user.id,
 						sentAt: userData.verification_sent_at,
 					});
-					return redirect(preferencesRedirect({ error: "code_expired" }));
+					return jsonResponse(400, {
+						ok: false,
+						message: "code_expired",
+						tone: "error",
+					});
 				}
 			}
 
@@ -115,16 +127,22 @@ export function createVerifyCodeHandler(
 					{ userId: user.id },
 					rateLimitError,
 				);
-				return redirect(preferencesRedirect({ error: "server_error" }));
+				return jsonResponse(500, {
+					ok: false,
+					message: "server_error",
+					tone: "error",
+				});
 			}
 
 			if (rateLimitAllowed === false) {
 				logger.info("User rate-limited for SMS verification attempts", {
 					userId: user.id,
 				});
-				return redirect(
-					preferencesRedirect({ error: "verification_rate_limited" }),
-				);
+				return jsonResponse(429, {
+					ok: false,
+					message: "verification_rate_limited",
+					tone: "error",
+				});
 			}
 
 			if (rateLimitAllowed !== true) {
@@ -135,15 +153,23 @@ export function createVerifyCodeHandler(
 						rateLimitAllowed,
 					},
 				);
-				return redirect(preferencesRedirect({ error: "server_error" }));
+				return jsonResponse(500, {
+					ok: false,
+					message: "server_error",
+					tone: "error",
+				});
 			}
 
 			const fullPhone = `${userData.phone_country_code}${userData.phone_number}`;
 			const result = await dependencies.checkVerification(fullPhone, code);
 
 			if (!result.success) {
-				logger.error("Verification failed", { error: result.error });
-				return redirect(preferencesRedirect({ error: "invalid_code" }));
+				logger.info("Verification failed", { error: result.error });
+				return jsonResponse(400, {
+					ok: false,
+					message: "invalid_code",
+					tone: "error",
+				});
 			}
 
 			await userService.update(user.id, {
@@ -151,17 +177,24 @@ export function createVerifyCodeHandler(
 				verification_sent_at: null,
 			});
 
-			return redirect(preferencesRedirect({ success: "phone_verified" }));
+			return jsonResponse(200, {
+				ok: true,
+				message: "phone_verified",
+				tone: "success",
+			});
 		} catch (error) {
 			logger.error(
 				"Verify code error",
 				{ userId: user.id, action: "verify_sms_code" },
 				error,
 			);
-			return redirect(preferencesRedirect({ error: "server_error" }));
+			return jsonResponse(500, {
+				ok: false,
+				message: "server_error",
+				tone: "error",
+			});
 		}
 	};
 }
 
-/** Astro `POST` handler for verifying a submitted SMS code. */
 export const POST = createVerifyCodeHandler();

@@ -12,27 +12,4 @@ permissions:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Setup Biome
-        uses: biomejs/setup-biome@v2
-        with:
-          version: 2.3.13
-      - name: Run Biome
-        run: biome ci .
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - name: Install dependencies
-        run: npm ci
-      - name: Deep Type check
-        run: npm run check:ts
-      # - name: Test
-      #   run: npm run test:unit
-      - name: Build application
-        run: npm run build
+    uses: ./.github/shared/ci.yml

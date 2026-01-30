@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.app_metadata (
 );
 
 INSERT INTO public.app_metadata (key, value)
-VALUES ('schema_version', '20250101000000_initial_schema@v3')
+VALUES ('schema_version', '20250101000000_initial_schema@v4')
 ON CONFLICT (key) DO UPDATE SET
   value = EXCLUDED.value;
 
@@ -189,6 +189,24 @@ ON CONFLICT (value) DO UPDATE SET
 Users
 ============= */
 
+CREATE OR REPLACE FUNCTION public.is_valid_digest_times(
+  times integer[]
+)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT
+    times IS NULL OR (
+      COALESCE(array_length(times, 1), 0) >= 1
+      AND NOT EXISTS (
+        SELECT 1
+        FROM unnest(times) AS entry
+        WHERE entry IS NULL OR entry < 0 OR entry > 1439 OR entry % 15 <> 0
+      )
+    );
+$$;
+
 CREATE TABLE IF NOT EXISTS users (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
@@ -205,8 +223,10 @@ CREATE TABLE IF NOT EXISTS users (
   verification_sent_at TIMESTAMP WITH TIME ZONE,
   sms_opted_out BOOLEAN DEFAULT false NOT NULL,
   timezone TEXT DEFAULT 'America/New_York' REFERENCES timezones(value) NOT NULL,
-  daily_digest_enabled BOOLEAN DEFAULT false NOT NULL,
-  daily_digest_notification_time INTEGER DEFAULT 540 NOT NULL CHECK (daily_digest_notification_time >= 0 AND daily_digest_notification_time <= 1439 AND daily_digest_notification_time % 15 = 0),
+  daily_digest_enabled BOOLEAN DEFAULT true NOT NULL,
+  daily_digest_notification_times INTEGER[] DEFAULT ARRAY[540] CHECK (
+    public.is_valid_digest_times(daily_digest_notification_times)
+  ),
   next_send_at TIMESTAMP WITH TIME ZONE,
   email_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
   sms_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
@@ -228,7 +248,14 @@ CREATE TABLE IF NOT EXISTS users (
   CONSTRAINT users_email_non_empty CHECK (email <> ''),
   CONSTRAINT users_timezone_no_whitespace CHECK (public.has_no_whitespace(timezone)),
   CONSTRAINT users_phone_country_code_no_whitespace CHECK (public.has_no_whitespace(phone_country_code)),
-  CONSTRAINT users_phone_number_no_whitespace CHECK (public.has_no_whitespace(phone_number))
+  CONSTRAINT users_phone_number_no_whitespace CHECK (public.has_no_whitespace(phone_number)),
+  CONSTRAINT users_daily_digest_requires_time CHECK (
+    daily_digest_enabled = false
+    OR (
+      daily_digest_notification_times IS NOT NULL
+      AND COALESCE(array_length(daily_digest_notification_times, 1), 0) >= 1
+    )
+  )
 );
 
 /* =============
@@ -328,7 +355,7 @@ BEGIN
   END IF;
 
   SELECT array_length(sanitized_symbols, 1) INTO sanitized_count;
-  IF sanitized_count > 50 THEN
+  IF sanitized_count > 10 THEN
     RAISE EXCEPTION 'Tracked stocks limit exceeded'
       USING ERRCODE = 'check_violation',
         CONSTRAINT = 'user_stocks_max_limit';
@@ -349,7 +376,7 @@ CREATE OR REPLACE FUNCTION public.update_user_preferences_and_stocks(
   p_sms_notifications_enabled boolean,
   p_timezone text,
   p_daily_digest_enabled boolean,
-  p_daily_digest_notification_time integer,
+  p_daily_digest_notification_times integer[],
   p_next_send_at timestamp with time zone
 )
 RETURNS void
@@ -376,7 +403,7 @@ BEGIN
     sms_notifications_enabled = p_sms_notifications_enabled,
     timezone = p_timezone,
     daily_digest_enabled = p_daily_digest_enabled,
-    daily_digest_notification_time = p_daily_digest_notification_time,
+    daily_digest_notification_times = p_daily_digest_notification_times,
     next_send_at = p_next_send_at
   WHERE id = p_user_id;
 
@@ -393,7 +420,7 @@ GRANT EXECUTE ON FUNCTION public.update_user_preferences_and_stocks(
   boolean,
   text,
   boolean,
-  integer,
+  integer[],
   timestamp with time zone
 ) TO authenticated, service_role;
 
@@ -422,6 +449,11 @@ CREATE TABLE IF NOT EXISTS scheduled_notifications (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   notification_type public.scheduled_notification_type NOT NULL,
   scheduled_date DATE NOT NULL,
+  scheduled_minutes INTEGER NOT NULL CHECK (
+    scheduled_minutes >= 0
+    AND scheduled_minutes <= 1439
+    AND scheduled_minutes % 15 = 0
+  ),
   channel public.delivery_method NOT NULL,
   status public.scheduled_notification_status NOT NULL,
   attempt_count INTEGER DEFAULT 0 NOT NULL CHECK (attempt_count >= 0),
@@ -430,7 +462,7 @@ CREATE TABLE IF NOT EXISTS scheduled_notifications (
   error TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-  PRIMARY KEY (user_id, notification_type, scheduled_date, channel)
+  PRIMARY KEY (user_id, notification_type, scheduled_date, scheduled_minutes, channel)
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_next_send_at
@@ -446,6 +478,7 @@ CREATE OR REPLACE FUNCTION public.claim_scheduled_notification(
   p_user_id uuid,
   p_notification_type public.scheduled_notification_type,
   p_scheduled_date date,
+  p_scheduled_minutes integer,
   p_channel public.delivery_method
 )
 RETURNS boolean
@@ -459,6 +492,7 @@ BEGIN
     user_id,
     notification_type,
     scheduled_date,
+    scheduled_minutes,
     channel,
     status,
     attempt_count,
@@ -469,13 +503,14 @@ BEGIN
     p_user_id,
     p_notification_type,
     p_scheduled_date,
+    p_scheduled_minutes,
     p_channel,
     'sending',
     1,
     pg_catalog.now(),
     NULL
   )
-  ON CONFLICT (user_id, notification_type, scheduled_date, channel) DO UPDATE
+  ON CONFLICT (user_id, notification_type, scheduled_date, scheduled_minutes, channel) DO UPDATE
     SET status = 'sending',
         attempt_count = scheduled_notifications.attempt_count + 1,
         last_attempt_at = pg_catalog.now(),
@@ -502,6 +537,7 @@ GRANT EXECUTE ON FUNCTION public.claim_scheduled_notification(
   uuid,
   public.scheduled_notification_type,
   date,
+  integer,
   public.delivery_method
 ) TO service_role;
 

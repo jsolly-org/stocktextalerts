@@ -2,8 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../src/pages/api/auth/signin";
-import { adminClient } from "../setup";
-import { createTestUser } from "../utils";
+import { cleanupTestUser, createTestUser } from "../utils";
 
 describe("POST /api/auth/signin", () => {
 	it("should successfully sign in with correct email and password", async () => {
@@ -20,6 +19,7 @@ describe("POST /api/auth/signin", () => {
 					email: testUser.email,
 					password: "TestPassword123!",
 					captcha_token: "test-captcha-token",
+					redirect: "/profile",
 				}),
 			});
 
@@ -40,11 +40,49 @@ describe("POST /api/auth/signin", () => {
 			} as unknown as APIContext);
 
 			expect(response.status).toBe(302);
-			expect(response.headers.get("Location")).toBe("/dashboard");
+			expect(response.headers.get("Location")).toBe("/profile");
 			expect(cookies.get("sb-access-token")).toBeDefined();
 			expect(cookies.get("sb-refresh-token")).toBeDefined();
 		} finally {
-			await adminClient.auth.admin.deleteUser(testUser.id);
+			await cleanupTestUser(testUser.id);
+		}
+	});
+
+	it("falls back to the default redirect for unsafe redirect values", async () => {
+		const testUser = await createTestUser({
+			email: `test-${randomUUID()}@resend.dev`,
+			password: "TestPassword123!",
+			confirmed: true,
+		});
+
+		try {
+			const request = new Request("http://localhost/api/auth/signin", {
+				method: "POST",
+				body: new URLSearchParams({
+					email: testUser.email,
+					password: "TestPassword123!",
+					captcha_token: "test-captcha-token",
+					redirect: "https://example.com/evil",
+				}),
+			});
+
+			const response = await POST({
+				request,
+				cookies: {
+					set: () => {},
+				},
+				redirect: (url: string) => {
+					return new Response(null, {
+						status: 302,
+						headers: { Location: url },
+					});
+				},
+			} as unknown as APIContext);
+
+			expect(response.status).toBe(302);
+			expect(response.headers.get("Location")).toBe("/dashboard");
+		} finally {
+			await cleanupTestUser(testUser.id);
 		}
 	});
 
@@ -114,7 +152,7 @@ describe("POST /api/auth/signin", () => {
 			expect(location).toContain("/signin?error=invalid_credentials");
 			expect(location).toContain(encodeURIComponent(testUser.email));
 		} finally {
-			await adminClient.auth.admin.deleteUser(testUser.id);
+			await cleanupTestUser(testUser.id);
 		}
 	});
 

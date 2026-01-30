@@ -1,10 +1,16 @@
 <template>
-	<div class="space-y-4">
-		<label class="block text-sm font-medium text-gray-700 mb-2">
-			Notification Channels
-		</label>
-		<div class="space-y-4">
-			<label class="flex items-center cursor-pointer">
+	<section :id="DASHBOARD_SECTION_IDS.notificationChannels" class="space-y-3">
+		<header>
+			<h2 class="text-xl sm:text-2xl font-bold text-gray-900">
+				Notification Channels
+			</h2>
+			<p class="text-sm text-gray-600 mt-1">
+				Choose how you want to receive alerts.
+			</p>
+		</header>
+		<fieldset class="rounded-md border border-gray-200 divide-y divide-gray-200">
+			<legend class="sr-only">Notification channels</legend>
+			<label class="flex items-start gap-3 p-3 cursor-pointer transition-colors hover:bg-gray-50">
 				<input
 					type="hidden"
 					name="email_notifications_enabled"
@@ -13,13 +19,18 @@
 				<input
 					type="checkbox"
 					:id="emailNotificationsEnabledId"
-					class="mr-2 cursor-pointer"
+					class="mt-0.5 h-6 w-6 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
 					v-model="emailEnabledValue"
 				/>
-				<span>Email Notifications</span>
+				<span class="text-sm">
+					<span class="font-medium text-gray-900">Email Notifications</span>
+					<span class="block text-gray-500">
+						Notifications are sent to your registered email.
+					</span>
+				</span>
 			</label>
 
-			<label class="flex items-center cursor-pointer">
+			<label class="flex items-start gap-3 p-3 cursor-pointer transition-colors hover:bg-gray-50">
 				<input
 					v-if="canSaveSmsEnabled"
 					type="hidden"
@@ -29,35 +40,53 @@
 				<input
 					type="checkbox"
 					:id="smsNotificationsEnabledId"
-					class="mr-2 cursor-pointer"
+					class="mt-0.5 h-6 w-6 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
 					v-model="smsEnabledValue"
 				/>
-				<span>SMS Notifications</span>
+				<span class="text-sm">
+					<span class="font-medium text-gray-900">SMS Notifications</span>
+					<span class="block text-gray-500">
+						Notifications will be sent to a phone number you provide.
+					</span>
+				</span>
 			</label>
+		</fieldset>
 
-			<StatusMessage v-if="user.sms_opted_out" tone="error" class="ml-6">
-				You have opted out of SMS notifications. To re-enable, reply START to
-				any message from us or update your settings below.
-			</StatusMessage>
+		<StatusMessage v-if="showTimeReminder" tone="warning">
+			Choose a
+			<button
+				type="button"
+				class="underline cursor-pointer hover:text-warning-text/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning focus-visible:ring-offset-2"
+				@click="scrollToScheduled"
+			>
+				delivery time
+			</button>
+			to start sending your daily digest.
+		</StatusMessage>
 
-			<SmsVerificationSection
-				v-if="!user.sms_opted_out"
-				:user="user"
-				:sms-enabled="smsEnabledValue"
-				:is-editing-phone="isEditingPhone"
-				:success-message="successMessage"
-				:send-verification-disabled="sendVerificationDisabled"
-				:is-verifying-code="isVerifyingCode"
-				:is-sending-verification="isSendingVerification"
-				@phone-validity-changed="handlePhoneValidityChanged"
-			/>
-		</div>
-	</div>
+		<StatusMessage v-if="user.sms_opted_out" tone="error">
+			You have opted out of SMS notifications. To re-enable, reply START to any
+			message from us or update your notification settings in your account.
+		</StatusMessage>
+
+		<SmsVerificationSection
+			v-if="!user.sms_opted_out"
+			:user="user"
+			:sms-enabled="smsEnabledValue"
+			:is-editing-phone="isEditingPhone"
+			:success-message="successMessage"
+			:send-verification-disabled="sendVerificationDisabled"
+			:is-verifying-code="isVerifyingCode"
+			:is-sending-verification="isSendingVerification"
+			@phone-validity-changed="emit('phone-validity-changed', $event)"
+			@phone-editing-changed="emit('phone-editing-changed', $event)"
+		/>
+	</section>
 </template>
 
 <script lang="ts" setup>
 import { computed } from "vue";
-import { DASHBOARD_FORM_ID } from "../../../lib/constants";
+import { DASHBOARD_FORM_ID, DASHBOARD_SECTION_IDS } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 import StatusMessage from "../../StatusMessage.vue";
 import SmsVerificationSection from "./SmsVerificationSection.vue";
@@ -72,6 +101,7 @@ interface Props {
 	successMessage?: string | null;
 	isVerifyingCode?: boolean;
 	isSendingVerification?: boolean;
+	showTimeReminder: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -82,6 +112,7 @@ const emit = defineEmits<{
 	(event: "update:emailEnabled", value: boolean): void;
 	(event: "update:smsEnabled", value: boolean): void;
 	(event: "phone-validity-changed", value: boolean): void;
+	(event: "phone-editing-changed", value: boolean): void;
 }>();
 
 const emailEnabledValue = computed({
@@ -97,7 +128,10 @@ const smsEnabledValue = computed({
 const emailNotificationsEnabledId = `${DASHBOARD_FORM_ID}-email_notifications_enabled`;
 const smsNotificationsEnabledId = `${DASHBOARD_FORM_ID}-sms_notifications_enabled`;
 
-function handlePhoneValidityChanged(isValid: boolean) {
-	emit("phone-validity-changed", isValid);
+function scrollToScheduled() {
+	const el = document.getElementById(DASHBOARD_SECTION_IDS.scheduled);
+	if (el) {
+		el.scrollIntoView({ behavior: "smooth" });
+	}
 }
 </script>

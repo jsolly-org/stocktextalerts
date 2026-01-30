@@ -25,7 +25,7 @@ export const CONSTRAINT_SMS_REQUIRES_PHONE = "users_sms_requires_phone";
 Database Limits
 ============= */
 
-export const MAX_TRACKED_STOCKS = 50;
+export const MAX_TRACKED_STOCKS = 10;
 
 /* =============
 Error Message Text

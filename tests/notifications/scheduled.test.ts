@@ -3,7 +3,7 @@ import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../../src/pages/api/notifications/scheduled";
 import { adminClient } from "../setup";
-import { createTestUser } from "../utils";
+import { cleanupTestUser, createTestUser } from "../utils";
 
 describe("Scheduled Notifications Integration", () => {
 	beforeEach(() => {
@@ -25,14 +25,11 @@ describe("Scheduled Notifications Integration", () => {
 
 		// 1. Create User
 		const { id } = await createTestUser({
-			email:
-				process.env.TEST_EMAIL_RECIPIENT ||
-				`test-notification-${DateTime.utc().toMillis()}@resend.dev`,
 			timezone,
 			emailNotificationsEnabled: true,
 			smsNotificationsEnabled: false,
 			dailyDigestEnabled: true,
-			dailyDigestNotificationTime,
+			dailyDigestNotificationTimes: [dailyDigestNotificationTime],
 			trackedStocks: ["AAPL"],
 		});
 
@@ -95,6 +92,7 @@ describe("Scheduled Notifications Integration", () => {
 				.select("status,attempt_count")
 				.eq("user_id", id)
 				.eq("notification_type", "daily_digest")
+				.eq("scheduled_minutes", dailyDigestNotificationTime)
 				.eq("channel", "email")
 				.maybeSingle();
 
@@ -117,26 +115,7 @@ describe("Scheduled Notifications Integration", () => {
 				expect(log.error).toBeTruthy();
 			}
 		} finally {
-			const cleanupErrors: string[] = [];
-			const { error: deleteUserError } = await adminClient
-				.from("users")
-				.delete()
-				.eq("id", id);
-			if (deleteUserError) {
-				cleanupErrors.push(
-					`Failed to cleanup test user from public.users (${id}): ${deleteUserError.message}`,
-				);
-			}
-
-			const { error: deleteAuthUserError } =
-				await adminClient.auth.admin.deleteUser(id);
-			if (deleteAuthUserError) {
-				cleanupErrors.push(
-					`Failed to cleanup test user from auth.users (${id}): ${deleteAuthUserError.message}`,
-				);
-			}
-
-			expect(cleanupErrors, "Test user cleanup failed").toEqual([]);
+			await cleanupTestUser(id);
 		}
 	});
 });

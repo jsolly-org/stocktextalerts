@@ -1,5 +1,5 @@
 <template>
-	<div class="w-full max-w-xs">
+	<div class="w-full sm:max-w-xs">
 		<input
 			type="hidden"
 			:name="inputName"
@@ -40,8 +40,9 @@ type TimeModel = {
 const props = defineProps<{
 	inputId: string;
 	inputName: string;
-	initialTime: string;
+	initialTime: string | null;
 	disabled?: boolean;
+	inputAriaLabel?: string;
 }>();
 
 const emit = defineEmits<(event: "time-change", value: string) => void>();
@@ -49,12 +50,10 @@ const emit = defineEmits<(event: "time-change", value: string) => void>();
 const minutesIncrement = 15;
 const minTime: TimeModel = { hours: 0, minutes: 0, seconds: 0 };
 const maxTime: TimeModel = { hours: 23, minutes: 45, seconds: 0 };
-const defaultTime: TimeModel = { hours: 9, minutes: 0, seconds: 0 };
-
 const isMounted = ref(false);
 const lastSyncedValue = ref<string | null>(null);
-const selectedTime = ref<TimeModel>(
-	parseTimeString(props.initialTime) ?? defaultTime,
+const selectedTime = ref<TimeModel | null>(
+	parseTimeString(props.initialTime) ?? null,
 );
 const isDisabled = computed(() => props.disabled ?? false);
 const is24 = ref(true);
@@ -67,6 +66,7 @@ const timeConfig = computed(() => {
 	return {
 		is24: is24.value,
 		minutesIncrement,
+		startTime: { hours: 9, minutes: 0, seconds: 0 },
 	};
 });
 
@@ -74,14 +74,20 @@ const inputAttributes = computed(() => {
 	return {
 		id: props.inputId,
 		class:
-			"w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed",
+			"input cursor-pointer",
+		"aria-label": props.inputAriaLabel,
 		// vue-datepicker v12 clear button is controlled by inputAttrs, not a top-level prop.
 		clearable: false,
 		alwaysClearable: false,
 	};
 });
 
-const formattedTime = computed(() => formatTimeValue(selectedTime.value));
+const formattedTime = computed(() => {
+	if (!selectedTime.value) {
+		return "";
+	}
+	return formatTimeValue(selectedTime.value);
+});
 
 watch(
 	formattedTime,
@@ -102,9 +108,8 @@ watch(
 	() => props.initialTime,
 	(value) => {
 		const parsed = parseTimeString(value);
-		const resolved = parsed ?? defaultTime;
-		selectedTime.value = resolved;
-		lastSyncedValue.value = formatTimeValue(resolved);
+		selectedTime.value = parsed ?? null;
+		lastSyncedValue.value = parsed ? formatTimeValue(parsed) : "";
 	},
 );
 

@@ -115,6 +115,7 @@ export type Database = {
 					last_attempt_at: string | null;
 					notification_type: Database["public"]["Enums"]["scheduled_notification_type"];
 					scheduled_date: string;
+					scheduled_minutes: number;
 					sent_at: string | null;
 					status: Database["public"]["Enums"]["scheduled_notification_status"];
 					updated_at: string;
@@ -128,6 +129,7 @@ export type Database = {
 					last_attempt_at?: string | null;
 					notification_type: Database["public"]["Enums"]["scheduled_notification_type"];
 					scheduled_date: string;
+					scheduled_minutes: number;
 					sent_at?: string | null;
 					status: Database["public"]["Enums"]["scheduled_notification_status"];
 					updated_at?: string;
@@ -141,6 +143,7 @@ export type Database = {
 					last_attempt_at?: string | null;
 					notification_type?: Database["public"]["Enums"]["scheduled_notification_type"];
 					scheduled_date?: string;
+					scheduled_minutes?: number;
 					sent_at?: string | null;
 					status?: Database["public"]["Enums"]["scheduled_notification_status"];
 					updated_at?: string;
@@ -232,7 +235,7 @@ export type Database = {
 				Row: {
 					created_at: string;
 					daily_digest_enabled: boolean;
-					daily_digest_notification_time: number;
+					daily_digest_notification_times: number[] | null;
 					dismiss_timezone_mismatch_prompts: boolean;
 					email: string;
 					email_notifications_enabled: boolean;
@@ -251,7 +254,7 @@ export type Database = {
 				Insert: {
 					created_at?: string;
 					daily_digest_enabled?: boolean;
-					daily_digest_notification_time?: number;
+					daily_digest_notification_times?: number[] | null;
 					dismiss_timezone_mismatch_prompts?: boolean;
 					email: string;
 					email_notifications_enabled?: boolean;
@@ -270,7 +273,7 @@ export type Database = {
 				Update: {
 					created_at?: string;
 					daily_digest_enabled?: boolean;
-					daily_digest_notification_time?: number;
+					daily_digest_notification_times?: number[] | null;
 					dismiss_timezone_mismatch_prompts?: boolean;
 					email?: string;
 					email_notifications_enabled?: boolean;
@@ -315,11 +318,13 @@ export type Database = {
 					p_channel: Database["public"]["Enums"]["delivery_method"];
 					p_notification_type: Database["public"]["Enums"]["scheduled_notification_type"];
 					p_scheduled_date: string;
+					p_scheduled_minutes: number;
 					p_user_id: string;
 				};
 				Returns: boolean;
 			};
 			has_no_whitespace: { Args: { value: string }; Returns: boolean };
+			is_valid_digest_times: { Args: { times: number[] }; Returns: boolean };
 			replace_user_stocks: {
 				Args: { symbols: string[]; user_id: string };
 				Returns: undefined;
@@ -344,7 +349,7 @@ export type Database = {
 			update_user_preferences_and_stocks: {
 				Args: {
 					p_daily_digest_enabled: boolean;
-					p_daily_digest_notification_time: number;
+					p_daily_digest_notification_times: number[];
 					p_email_notifications_enabled: boolean;
 					p_next_send_at: string;
 					p_sms_notifications_enabled: boolean;

@@ -5,6 +5,7 @@ interface Props {
 	widgetClasses?: string;
 	errorCallback?: string;
 	expiredCallback?: string;
+	ariaLabel?: string;
 }
 const {
 	tokenInputId,
@@ -12,6 +13,7 @@ const {
 	widgetClasses = "",
 	errorCallback,
 	expiredCallback,
+	ariaLabel,
 } = Astro.props;
 const hcaptchaSiteKey = import.meta.env.PUBLIC_HCAPTCHA_SITE_KEY;
 ---
@@ -22,6 +24,7 @@ const hcaptchaSiteKey = import.meta.env.PUBLIC_HCAPTCHA_SITE_KEY;
 	data-callback={callbackName}
 	{...(errorCallback ? { "data-error-callback": errorCallback } : {})}
 	{...(expiredCallback ? { "data-expired-callback": expiredCallback } : {})}
+	{...(ariaLabel ? { "aria-label": ariaLabel } : {})}
 ></div>
 
 <script>

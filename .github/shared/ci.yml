@@ -1,0 +1,46 @@
+name: Shared CI
+
+on:
+  workflow_call:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Biome
+        uses: biomejs/setup-biome@v2
+        with:
+          version: 2.3.13
+      - name: Run Biome
+        run: biome ci .
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Deep Type check
+        run: npm run check:ts
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+      - name: Start Supabase
+        run: supabase start
+      - name: Load Supabase env
+        run: |
+          supabase status -o env | sed 's/^export //' > supabase.env
+          cat supabase.env >> $GITHUB_ENV
+          set -a
+          . ./supabase.env
+          set +a
+          echo "PUBLIC_SUPABASE_URL=$SUPABASE_URL" >> $GITHUB_ENV
+          echo "PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> $GITHUB_ENV
+          echo "DATABASE_URL=$SUPABASE_DB_URL" >> $GITHUB_ENV
+          echo "CRON_SECRET=ci-cron-secret" >> $GITHUB_ENV
+      - name: Test
+        run: npm test
+      - name: Build application
+        run: npm run build

@@ -45,7 +45,7 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 				phone_verified: dbUser.phone_verified,
 				timezone: dbUser.timezone,
 				daily_digest_enabled: dbUser.daily_digest_enabled,
-				daily_digest_notification_time: dbUser.daily_digest_notification_time,
+				daily_digest_notification_times: dbUser.daily_digest_notification_times,
 				next_send_at: dbUser.next_send_at,
 				dismiss_timezone_mismatch_prompts:
 					dbUser.dismiss_timezone_mismatch_prompts,

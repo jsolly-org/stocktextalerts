@@ -1,7 +1,7 @@
 <!--
 	This component uses v-if="isClient" which renders nothing on the server but content on the client.
 	To avoid SSR hydration mismatches, this component must be used within a parent component that
-	has client:load or client:only directive (e.g., DashboardPanels with client:load).
+	has client:load or client:only directive.
 -->
 <template>
 	<StatusMessage v-if="isClient && isVisible" tone="warning">
@@ -22,7 +22,7 @@
 					<input type="hidden" name="timezone" :value="detectedTimezone" />
 					<button
 						type="submit"
-						class="px-3 py-1.5 bg-warning-strong text-white rounded-md hover:bg-warning-strong-hover transition-colors cursor-pointer"
+						class="btn btn-sm btn-warning"
 					>
 						Update timezone
 					</button>
@@ -30,14 +30,14 @@
 				<button
 					type="button"
 					@click="handleDismiss"
-					class="px-3 py-1.5 bg-white border border-warning-border text-warning-text rounded-md hover:bg-warning-bg transition-colors cursor-pointer"
+					class="btn btn-sm btn-warning-outline"
 				>
 					Not now
 				</button>
 				<button
 					type="button"
 					@click="handleDismissPermanently"
-					class="px-3 py-1.5 bg-white border border-warning-border text-warning-text rounded-md hover:bg-warning-bg transition-colors cursor-pointer"
+					class="btn btn-sm btn-warning-outline"
 				>
 					Don't ask me again
 				</button>
@@ -53,25 +53,17 @@
 import { DateTime } from "luxon";
 import { computed, ref, toRefs, watch } from "vue";
 
-import { rootLogger } from "../../../lib/logging";
-import StatusMessage from "../../StatusMessage.vue";
+import type { PreferencesSnapshot } from "../../lib/db";
+import { rootLogger } from "../../lib/logging";
+import { updateTimezonePreference } from "../../lib/preferences/update-timezone";
+import StatusMessage from "../StatusMessage.vue";
 
 interface Props {
 	isClient: boolean;
 	savedTimezone: string;
 	allowedTimezones: string[];
 	dismissTimezoneMismatchPrompts: boolean;
-	savedPreferences?: {
-		email_notifications_enabled: boolean;
-		sms_notifications_enabled: boolean;
-		sms_opted_out: boolean;
-		phone_verified: boolean;
-		timezone: string;
-		daily_digest_enabled: boolean;
-		daily_digest_notification_time: number;
-		next_send_at: string | null;
-		dismiss_timezone_mismatch_prompts: boolean;
-	} | null;
+	savedPreferences?: PreferencesSnapshot | null;
 }
 
 const props = defineProps<Props>();
@@ -177,23 +169,8 @@ async function handleUpdateTimezone() {
 	errorMessage.value = null;
 
 	try {
-		const formData = new FormData();
-		formData.set("timezone", detectedTimezone.value);
-		const response = await fetch("/api/preferences/timezone", {
-			method: "POST",
-			body: formData,
-			credentials: "same-origin",
-			headers: { Accept: "application/json" },
-			signal: AbortSignal.timeout(10_000),
-		});
-
-		if (!response.ok) {
-			errorMessage.value = "Failed to update timezone. Please try again.";
-			return;
-		}
-
-		const payload = (await response.json()) as { ok: boolean };
-		if (!payload.ok) {
+		const prefs = await updateTimezonePreference(detectedTimezone.value);
+		if (!prefs) {
 			errorMessage.value = "Failed to update timezone. Please try again.";
 			return;
 		}

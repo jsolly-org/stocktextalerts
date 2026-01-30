@@ -1,5 +1,4 @@
 import { loadRenderers } from "astro:container";
-import { randomUUID } from "node:crypto";
 import { getContainerRenderer as getVueRenderer } from "@astrojs/vue";
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
@@ -13,8 +12,13 @@ import DashboardPage from "../../src/pages/dashboard.astro";
 import IndexPage from "../../src/pages/index.astro";
 import ProfilePage from "../../src/pages/profile.astro";
 import SignInPage from "../../src/pages/signin.astro";
-import { adminClient, allowConsoleWarnings, errorSpy, warnSpy } from "../setup";
-import { createAuthenticatedCookies, createTestUser } from "../utils";
+import { allowConsoleWarnings, errorSpy, warnSpy } from "../setup";
+import {
+	cleanupTestUser,
+	createAuthenticatedCookies,
+	createTestEmail,
+	createTestUser,
+} from "../utils";
 
 const TEST_PASSWORD = "TestPassword123!";
 
@@ -107,6 +111,18 @@ describe("Page routes render without unexpected logs", () => {
 		expect(response.status).toBe(200);
 	});
 
+	it("redirects to signin with return path when dashboard accessed unauthenticated", async () => {
+		const container = await AstroContainer.create({ renderers });
+		const response = await container.renderToResponse(DashboardPage, {
+			request: buildRequest("/dashboard"),
+		});
+
+		expect(response.status).toBe(302);
+		expect(response.headers.get("Location")).toBe(
+			"/signin?redirect=%2Fdashboard",
+		);
+	});
+
 	async function withTestUser<T>(
 		options: {
 			email: string;
@@ -126,26 +142,10 @@ describe("Page routes render without unexpected logs", () => {
 			);
 			return await callback(user, cookies);
 		} finally {
-			const { error: userStocksError } = await adminClient
-				.from("user_stocks")
-				.delete()
-				.eq("user_id", user.id);
-			if (userStocksError) {
-				rootLogger.warn("Cleanup failed (user_stocks)", {
-					error: userStocksError,
-				});
-			}
-			const { error: userRowError } = await adminClient
-				.from("users")
-				.delete()
-				.eq("id", user.id);
-			if (userRowError) {
-				rootLogger.warn("Cleanup failed (users)", { error: userRowError });
-			}
-			const { error: authDeleteError } =
-				await adminClient.auth.admin.deleteUser(user.id);
-			if (authDeleteError) {
-				rootLogger.warn("Cleanup failed (auth)", { error: authDeleteError });
+			try {
+				await cleanupTestUser(user.id);
+			} catch (error) {
+				rootLogger.warn("Cleanup failed", { error });
 			}
 		}
 	}
@@ -153,7 +153,7 @@ describe("Page routes render without unexpected logs", () => {
 	it("redirects from sign-in when authenticated", async () => {
 		await withTestUser(
 			{
-				email: `test-${randomUUID()}@resend.dev`,
+				email: createTestEmail("test"),
 				password: TEST_PASSWORD,
 				confirmed: true,
 			},
@@ -161,6 +161,25 @@ describe("Page routes render without unexpected logs", () => {
 				const container = await AstroContainer.create({ renderers });
 				const response = await container.renderToResponse(SignInPage, {
 					request: buildRequest("/signin", cookies),
+				});
+
+				expect(response.status).toBe(302);
+				expect(response.headers.get("Location")).toBe("/dashboard");
+			},
+		);
+	});
+
+	it("redirects to return path from sign-in when authenticated with redirect param", async () => {
+		await withTestUser(
+			{
+				email: createTestEmail("test"),
+				password: TEST_PASSWORD,
+				confirmed: true,
+			},
+			async (_user, cookies) => {
+				const container = await AstroContainer.create({ renderers });
+				const response = await container.renderToResponse(SignInPage, {
+					request: buildRequest("/signin?redirect=/dashboard", cookies),
 				});
 
 				expect(response.status).toBe(302);
@@ -188,7 +207,7 @@ describe("Page routes render without unexpected logs", () => {
 	it("renders verified page for authenticated user", async () => {
 		await withTestUser(
 			{
-				email: `test-${randomUUID()}@resend.dev`,
+				email: createTestEmail("test"),
 				password: TEST_PASSWORD,
 				confirmed: true,
 			},
@@ -206,7 +225,7 @@ describe("Page routes render without unexpected logs", () => {
 	it("renders dashboard for authenticated users", async () => {
 		await withTestUser(
 			{
-				email: `test-${randomUUID()}@resend.dev`,
+				email: createTestEmail("test"),
 				password: TEST_PASSWORD,
 				confirmed: true,
 			},
@@ -227,7 +246,7 @@ describe("Page routes render without unexpected logs", () => {
 	it("renders profile for authenticated users", async () => {
 		await withTestUser(
 			{
-				email: `test-${randomUUID()}@resend.dev`,
+				email: createTestEmail("test"),
 				password: TEST_PASSWORD,
 				confirmed: true,
 			},

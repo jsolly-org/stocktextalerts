@@ -5,11 +5,10 @@ import DashboardPanels from "../components/dashboard/DashboardPanels.vue";
 import type { StockOption } from "../components/dashboard/stocks/StockInput.vue";
 import Navigation from "../components/Navigation.astro";
 import Layout from "../layouts/Layout.astro";
-import { CARD_GRADIENT_ACCENTS } from "../lib/constants";
+import { buildSigninRedirectUrl } from "../lib/auth/redirects";
 import { createUserService, getUserStocks } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 import { rootLogger } from "../lib/logging";
-import { getTimezoneOptions } from "../lib/time/cache";
 
 /* ============= Precomputed Stock Options ============= */
 type StockJsonItem = {
@@ -30,7 +29,8 @@ if (!authUser) {
 		page: "dashboard",
 		reason: "unauthenticated",
 	});
-	return Astro.redirect("/");
+	const returnTo = `${Astro.url.pathname}${Astro.url.search}`;
+	return Astro.redirect(buildSigninRedirectUrl(returnTo));
 }
 const [dbUser, userStocks] = await Promise.all([
 	users.getById(authUser.id),
@@ -44,64 +44,28 @@ if (!dbUser) {
 	return Astro.redirect("/?error=user_not_found");
 }
 const user = dbUser;
-let timezones: Awaited<ReturnType<typeof getTimezoneOptions>>;
-let timezoneLoadError = false;
-try {
-	timezones = await getTimezoneOptions(supabase, {
-		includeValues: [user.timezone],
-	});
-} catch (error) {
-	rootLogger.error(
-		"Failed to load timezone options",
-		{ userId: user.id, action: "load_timezone_options" },
-		error,
-	);
-	timezoneLoadError = true;
-	timezones = user.timezone
-		? [
-				{
-					value: user.timezone,
-					label: user.timezone.replace(/_/g, " "),
-					display_order: 0,
-				},
-			]
-		: [];
-}
-const initialSymbols = userStocks.map((stock) => stock.symbol);
-const url = new URL(Astro.request.url);
-const successMessage = url.searchParams.get("success");
-const errorMessage = url.searchParams.get("error");
-const warningMessage = url.searchParams.get("warning");
-const isEditingPhone = url.searchParams.get("change_phone") === "1";
+const initialStocks = userStocks.map((stock) => ({ symbol: stock.symbol, name: stock.name }));
 ---
 <Layout title="Dashboard" description="Review and manage your stock notifications">
 	<div class="min-h-screen bg-gray-50">
-		<Navigation user={authUser} />
+		<header>
+			<Navigation user={authUser} />
+		</header>
 
-		<div class="max-w-4xl mx-auto px-6 py-12">
-			<div class="mb-8 bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
-				<div class={`h-1 ${CARD_GRADIENT_ACCENTS.primary}`}></div>
-				<div class="p-6">
-					<h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
-					<p class="mt-1 text-gray-600">
-						Configure your notification preferences and track stocks.
-					</p>
-				</div>
-			</div>
-
-		<DashboardPanels
-			client:load
-			user={user}
-			timezones={timezones}
-			timezoneLoadError={timezoneLoadError}
-			isEditingPhone={isEditingPhone}
-			successMessage={successMessage}
-			errorMessage={errorMessage}
-			warningMessage={warningMessage}
-			stockOptions={stockOptions}
-			initialSymbols={initialSymbols}
-		/>
-		</div>
+		<main id="main-content" class="max-w-4xl mx-auto px-4 py-8 sm:px-6 sm:py-12">
+			<header class="mb-8">
+				<h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
+				<p class="mt-2 text-sm text-gray-600">
+					Manage your alert channels, tracked stocks, and delivery schedule.
+				</p>
+			</header>
+			<DashboardPanels
+				client:load
+				user={user}
+				stockOptions={stockOptions}
+				initialStocks={initialStocks}
+			/>
+		</main>
 	</div>
 </Layout>
 

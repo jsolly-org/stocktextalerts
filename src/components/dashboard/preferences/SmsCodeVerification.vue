@@ -8,7 +8,7 @@
 			<p v-if="!isExpired" class="text-sm text-gray-700">
 				We sent a verification code to your phone.
 			</p>
-			<div class="flex items-center gap-4">
+			<div class="flex flex-col gap-3 sm:flex-row sm:items-center">
 				<button
 					type="submit"
 					formaction="/api/auth/sms/send-verification"
@@ -36,10 +36,10 @@
 				</button>
 				<div class="flex items-center gap-2">
 					<span class="text-sm text-gray-700">
-						{{ user.phone_country_code }} {{ user.phone_number }}
+						{{ formattedPhone }}
 					</span>
 					<a
-						href="/dashboard?change_phone=1"
+						href="/dashboard#notification-channels"
 						class="text-sm text-primary hover:underline cursor-pointer"
 						@click.prevent="emitChangeNumber"
 					>
@@ -97,6 +97,7 @@ import {
 	VERIFICATION_RESEND_COOLDOWN_MS,
 } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
+import { formatPhoneForDisplay } from "../../../lib/format-phone";
 import StatusMessage from "../../StatusMessage.vue";
 import OtpInput from "./OtpInput.vue";
 
@@ -170,6 +171,13 @@ const isExpired = computed(() => {
 const canResend = computed(() => {
 	return resendRemaining.value === 0;
 });
+
+const formattedPhone = computed(() =>
+	formatPhoneForDisplay(
+		props.user.phone_country_code ?? "",
+		props.user.phone_number ?? "",
+	),
+);
 
 const formatRemaining = (remaining: number) => {
 	if (remaining === 0) {

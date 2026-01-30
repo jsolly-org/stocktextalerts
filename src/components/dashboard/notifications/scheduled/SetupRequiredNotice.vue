@@ -2,16 +2,18 @@
 	<div
 		v-if="needsSetup"
 		class="mt-4 rounded-lg border border-warning-border bg-warning-bg p-4"
+		role="status"
+		aria-live="polite"
 	>
 		<p class="text-sm font-medium text-warning-text">Setup required</p>
 		<ul class="mt-2 space-y-1 text-sm text-warning-text">
 			<li v-if="needsChannelSelection">
 				Enable at least one notification channel in
 				<a
-					:href="DASHBOARD_SECTION_HASHES.preferences"
+					:href="DASHBOARD_SECTION_HASHES.notificationChannels"
 					class="font-medium text-warning-text underline"
 				>
-					notification preferences
+					notification channels
 				</a>
 				.
 			</li>

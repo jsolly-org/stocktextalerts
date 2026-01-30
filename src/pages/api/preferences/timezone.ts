@@ -1,20 +1,13 @@
 import type { APIRoute } from "astro";
-import { buildDashboardRedirect } from "../../../lib/constants";
-import { createUserService } from "../../../lib/db";
+import { DateTime } from "luxon";
+import { jsonResponse } from "../../../lib/api/json-response";
+import { createUserService, type User } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { createLogger } from "../../../lib/logging";
+import { calculateNextSendAtFromTimes } from "../../../lib/time/schedule";
 
-export const POST: APIRoute = async ({
-	request,
-	cookies,
-	redirect,
-	locals,
-}) => {
-	const wantsJson = request.headers
-		.get("accept")
-		?.toLowerCase()
-		.includes("application/json");
+export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({
 		requestId: locals?.requestId,
@@ -30,13 +23,7 @@ export const POST: APIRoute = async ({
 		logger.info("Timezone update attempt without authenticated user", {
 			reason: "unauthenticated",
 		});
-		if (wantsJson) {
-			return Response.json(
-				{ ok: false, message: "unauthorized" },
-				{ status: 401 },
-			);
-		}
-		return redirect("/signin?error=unauthorized");
+		return jsonResponse(401, { ok: false, message: "unauthorized" });
 	}
 
 	const formData = await request.formData();
@@ -50,21 +37,80 @@ export const POST: APIRoute = async ({
 			userId: authUser.id,
 			errors: parsed.allErrors,
 		});
-		if (wantsJson) {
-			return Response.json(
-				{ ok: false, message: "invalid_form" },
-				{ status: 400 },
-			);
-		}
-		return redirect(
-			buildDashboardRedirect({ error: "invalid_form", section: "preferences" }),
-		);
+		return jsonResponse(400, { ok: false, message: "invalid_form" });
 	}
 
+	let dbUser: User | null;
 	try {
-		await users.update(authUser.id, {
-			timezone: parsed.data.timezone,
+		dbUser = await users.getById(authUser.id);
+	} catch (error) {
+		const errorObject =
+			error instanceof Error ? error : new Error(String(error));
+		logger.error(
+			"Failed to fetch user for timezone update",
+			{ userId: authUser.id },
+			errorObject,
+		);
+		return jsonResponse(500, {
+			ok: false,
+			message: "failed_to_update_timezone",
 		});
+	}
+	if (!dbUser) {
+		logger.info("User not found for timezone update", { userId: authUser.id });
+		return jsonResponse(404, { ok: false, message: "user_not_found" });
+	}
+
+	const timezoneChanged = parsed.data.timezone !== dbUser.timezone;
+	const updatePayload: { timezone: string; next_send_at?: string | null } = {
+		timezone: parsed.data.timezone,
+	};
+	if (timezoneChanged && dbUser.daily_digest_enabled) {
+		if (
+			!dbUser.daily_digest_notification_times ||
+			dbUser.daily_digest_notification_times.length === 0
+		) {
+			updatePayload.next_send_at = null;
+		} else {
+			const nextSendAt = calculateNextSendAtFromTimes(
+				dbUser.daily_digest_notification_times,
+				parsed.data.timezone,
+				DateTime.utc(),
+			);
+			if (nextSendAt) {
+				const nextSendAtIso = nextSendAt.toISO();
+				if (nextSendAtIso) {
+					updatePayload.next_send_at = nextSendAtIso;
+				} else {
+					logger.warn(
+						"Failed to convert next_send_at to ISO after timezone change",
+						{
+							userId: authUser.id,
+							timezone: parsed.data.timezone,
+							nextSendAt: nextSendAt.toString(),
+							nextSendAtIsValid: nextSendAt.isValid,
+							nextSendAtInvalidReason: nextSendAt.invalidReason,
+						},
+					);
+					updatePayload.next_send_at = null;
+				}
+			} else {
+				logger.warn(
+					"calculateNextSendAtFromTimes returned null despite having times",
+					{
+						userId: authUser.id,
+						timezone: parsed.data.timezone,
+						timesCount: dbUser.daily_digest_notification_times.length,
+					},
+				);
+				updatePayload.next_send_at = null;
+			}
+		}
+	}
+
+	let updatedUser: User;
+	try {
+		updatedUser = await users.update(authUser.id, updatePayload);
 	} catch (error) {
 		const errorObject =
 			error instanceof Error ? error : new Error(String(error));
@@ -76,27 +122,22 @@ export const POST: APIRoute = async ({
 			},
 			errorObject,
 		);
-		if (wantsJson) {
-			return Response.json(
-				{ ok: false, message: "failed_to_update_timezone" },
-				{ status: 500 },
-			);
-		}
-		return redirect(
-			buildDashboardRedirect({
-				error: "failed_to_update_timezone",
-				section: "preferences",
-			}),
-		);
+		return jsonResponse(500, {
+			ok: false,
+			message: "failed_to_update_timezone",
+		});
+	}
+	if (!updatedUser) {
+		logger.error("User update returned null", { userId: authUser.id });
+		return jsonResponse(404, { ok: false, message: "user_not_found" });
 	}
 
-	if (wantsJson) {
-		return Response.json({ ok: true, message: "timezone_updated" });
-	}
-	return redirect(
-		buildDashboardRedirect({
-			success: "timezone_updated",
-			section: "preferences",
-		}),
-	);
+	return jsonResponse(200, {
+		ok: true,
+		message: "timezone_updated",
+		preferences: {
+			timezone: updatedUser.timezone,
+			next_send_at: updatedUser.next_send_at,
+		},
+	});
 };

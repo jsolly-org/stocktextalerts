@@ -16,12 +16,6 @@ vi.mock("../../src/pages/api/auth/sms/verify-utils", () => ({
 	sendVerification: sendVerificationMock,
 }));
 
-const toRedirect = (url: string, status = 302) =>
-	new Response(null, {
-		status,
-		headers: { Location: url },
-	});
-
 function generateUniquePhoneNumber(): string {
 	return `555${String(randomInt(1000000, 9999999))}`;
 }
@@ -67,13 +61,12 @@ describe("POST /api/auth/sms/send-verification", () => {
 				},
 				set: () => {},
 			},
-			redirect: toRedirect,
 		} as APIContext);
 
-		expect(response.status).toBe(302);
-		const location = response.headers.get("Location");
-		expect(location).toContain("/dashboard?success=verification_sent");
-		expect(location).toContain("#notification-preferences");
+		expect(response.status).toBe(200);
+		const payload = (await response.json()) as { ok: boolean; message: string };
+		expect(payload.ok).toBe(true);
+		expect(payload.message).toBe("verification_sent");
 
 		expect(sendVerificationMock).toHaveBeenCalledWith(`+1${phoneNumber}`);
 
@@ -138,13 +131,12 @@ describe("POST /api/auth/sms/send-verification", () => {
 				},
 				set: () => {},
 			},
-			redirect: toRedirect,
 		} as APIContext);
 
-		expect(response.status).toBe(302);
-		const location = response.headers.get("Location");
-		expect(location).toContain("/dashboard?success=verification_sent");
-		expect(location).toContain("#notification-preferences");
+		expect(response.status).toBe(200);
+		const payload = (await response.json()) as { ok: boolean; message: string };
+		expect(payload.ok).toBe(true);
+		expect(payload.message).toBe("verification_sent");
 
 		expect(sendVerificationMock).toHaveBeenCalledWith(`+1${newPhoneNumber}`);
 
@@ -205,13 +197,17 @@ describe("POST /api/auth/sms/send-verification", () => {
 				},
 				set: () => {},
 			},
-			redirect: toRedirect,
 		} as APIContext);
 
-		expect(response.status).toBe(302);
-		const location = response.headers.get("Location");
-		expect(location).toContain("/dashboard?warning=verification_recently_sent");
-		expect(location).toContain("#notification-preferences");
+		expect(response.status).toBe(429);
+		const payload = (await response.json()) as {
+			ok: boolean;
+			message: string;
+			tone?: string;
+		};
+		expect(payload.ok).toBe(false);
+		expect(payload.message).toBe("verification_recently_sent");
+		expect(payload.tone).toBe("warning");
 
 		// Should not call sendVerification when cooldown is active
 		expect(sendVerificationMock).not.toHaveBeenCalled();
@@ -264,18 +260,17 @@ describe("POST /api/auth/sms/send-verification", () => {
 				},
 				set: () => {},
 			},
-			redirect: toRedirect,
 		} as APIContext);
 
-		expect(response.status).toBe(302);
-		const location = response.headers.get("Location");
-		expect(location).toContain("/dashboard?success=verification_sent");
-		expect(location).toContain("#notification-preferences");
+		expect(response.status).toBe(200);
+		const payload = (await response.json()) as { ok: boolean; message: string };
+		expect(payload.ok).toBe(true);
+		expect(payload.message).toBe("verification_sent");
 
 		expect(sendVerificationMock).toHaveBeenCalledWith(`+1${phoneNumber}`);
 	});
 
-	it("should redirect unauthenticated users to signin", async () => {
+	it("returns unauthorized for unauthenticated users", async () => {
 		const phoneNumber = generateUniquePhoneNumber();
 		const formData = new FormData();
 		formData.append("phone_country_code", "+1");
@@ -296,11 +291,12 @@ describe("POST /api/auth/sms/send-verification", () => {
 				get: () => undefined,
 				set: () => {},
 			},
-			redirect: toRedirect,
 		} as APIContext);
 
-		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe("/signin?error=unauthorized");
+		expect(response.status).toBe(401);
+		const payload = (await response.json()) as { ok: boolean; message: string };
+		expect(payload.ok).toBe(false);
+		expect(payload.message).toBe("unauthorized");
 		expect(sendVerificationMock).not.toHaveBeenCalled();
 	});
 
@@ -337,13 +333,12 @@ describe("POST /api/auth/sms/send-verification", () => {
 				},
 				set: () => {},
 			},
-			redirect: toRedirect,
 		} as APIContext);
 
-		expect(response.status).toBe(302);
-		const location = response.headers.get("Location");
-		expect(location).toContain("/dashboard?error=invalid_form");
-		expect(location).toContain("#notification-preferences");
+		expect(response.status).toBe(400);
+		const payload = (await response.json()) as { ok: boolean; message: string };
+		expect(payload.ok).toBe(false);
+		expect(payload.message).toBe("invalid_form");
 		expect(sendVerificationMock).not.toHaveBeenCalled();
 	});
 
@@ -384,13 +379,12 @@ describe("POST /api/auth/sms/send-verification", () => {
 				},
 				set: () => {},
 			},
-			redirect: toRedirect,
 		} as APIContext);
 
-		expect(response.status).toBe(302);
-		const location = response.headers.get("Location");
-		expect(location).toContain("/dashboard?error=sms_opted_out");
-		expect(location).toContain("#notification-preferences");
+		expect(response.status).toBe(400);
+		const payload = (await response.json()) as { ok: boolean; message: string };
+		expect(payload.ok).toBe(false);
+		expect(payload.message).toBe("sms_opted_out");
 		expect(sendVerificationMock).not.toHaveBeenCalled();
 	});
 
@@ -435,13 +429,12 @@ describe("POST /api/auth/sms/send-verification", () => {
 				},
 				set: () => {},
 			},
-			redirect: toRedirect,
 		} as APIContext);
 
-		expect(response.status).toBe(302);
-		const location = response.headers.get("Location");
-		expect(location).toContain("/dashboard?error=verification_failed");
-		expect(location).toContain("#notification-preferences");
+		expect(response.status).toBe(500);
+		const payload = (await response.json()) as { ok: boolean; message: string };
+		expect(payload.ok).toBe(false);
+		expect(payload.message).toBe("verification_failed");
 
 		const { data: updatedUser } = await adminClient
 			.from("users")

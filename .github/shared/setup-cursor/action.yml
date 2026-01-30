@@ -1,0 +1,30 @@
+name: Setup Cursor CLI
+description: Install Cursor CLI and configure git identity.
+
+inputs:
+  git_name:
+    description: Git user.name for commits
+    required: false
+    default: Cursor Agent
+  git_email:
+    description: Git user.email for commits
+    required: false
+    default: cursoragent@cursor.com
+
+runs:
+  using: composite
+  steps:
+    - name: Install Cursor CLI
+      shell: bash
+      run: |
+        # Per Cursor docs: https://cursor.com/install
+        # Supply-chain risk: piping a remote script to bash. We accept this for the official
+        # installer because it runs in an ephemeral GitHub Actions runner. Cursor does not
+        # currently publish checksums or versioned release artifacts.
+        curl https://cursor.com/install -fsS | bash
+        echo "$HOME/.cursor/bin" >> $GITHUB_PATH
+    - name: Configure git identity
+      shell: bash
+      run: |
+        git config user.name "${{ inputs.git_name }}"
+        git config user.email "${{ inputs.git_email }}"

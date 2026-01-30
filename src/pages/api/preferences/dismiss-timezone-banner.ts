@@ -1,15 +1,10 @@
 import type { APIRoute } from "astro";
-import { buildDashboardRedirect } from "../../../lib/constants";
+import { jsonResponse } from "../../../lib/api/json-response";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 
-export const POST: APIRoute = async ({
-	request,
-	cookies,
-	redirect,
-	locals,
-}) => {
+export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({
 		requestId: locals?.requestId,
@@ -30,13 +25,8 @@ export const POST: APIRoute = async ({
 				path: url.pathname,
 			},
 		);
-		return redirect("/signin?error=unauthorized");
+		return jsonResponse(401, { ok: false, message: "unauthorized" });
 	}
-
-	const wantsJson = request.headers
-		.get("accept")
-		?.toLowerCase()
-		.includes("application/json");
 
 	try {
 		await users.update(authUser.id, {
@@ -50,28 +40,11 @@ export const POST: APIRoute = async ({
 			},
 			error instanceof Error ? error : new Error(String(error)),
 		);
-		if (wantsJson) {
-			return Response.json(
-				{ ok: false, message: "failed_to_dismiss_timezone_banner" },
-				{ status: 500 },
-			);
-		}
-		return redirect(
-			buildDashboardRedirect({
-				error: "failed_to_dismiss_timezone_banner",
-				section: "preferences",
-			}),
-		);
+		return jsonResponse(500, {
+			ok: false,
+			message: "failed_to_dismiss_timezone_banner",
+		});
 	}
 
-	if (wantsJson) {
-		return Response.json({ ok: true });
-	}
-
-	return redirect(
-		buildDashboardRedirect({
-			success: "timezone_banner_dismissed",
-			section: "preferences",
-		}),
-	);
+	return jsonResponse(200, { ok: true, message: "timezone_banner_dismissed" });
 };

@@ -14,11 +14,9 @@ export type PreferencesData = {
 	sms_notifications_enabled: boolean;
 	sms_opted_out: boolean;
 	phone_verified: boolean;
-	timezone: string;
 	daily_digest_enabled: boolean;
-	daily_digest_notification_time: number;
+	daily_digest_notification_times: number[] | null;
 	next_send_at: string | null;
-	dismiss_timezone_mismatch_prompts: boolean;
 };
 
 type AutoSaveOptions = {

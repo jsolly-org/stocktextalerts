@@ -21,13 +21,13 @@ if (success === "true") {
 }
 ---
 <Layout title="Verify Your Email" description="Please verify your email address to continue">
-  <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+  <main id="main-content" class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-md w-full space-y-8">
-      <div class="text-center">
+      <header class="text-center">
         <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-info-bg">
           <Icon name="envelope" class="h-6 w-6 text-info-text" aria-hidden="true" />
         </div>
-        <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+        <h2 class="mt-6 text-center text-2xl sm:text-3xl font-extrabold text-gray-900">
           Check Your Email
         </h2>
         <p class="mt-2 text-center text-sm text-gray-600">
@@ -36,16 +36,16 @@ if (success === "true") {
         <p class="mt-1 text-center text-sm font-medium text-gray-900">
           {email || "your email address"}
         </p>
-      </div>
+      </header>
 
       <div class="mt-8 space-y-6">
-        <div class="rounded-md border p-4 status-tone-info">
+        <section class="rounded-md border p-4 status-tone-info" aria-labelledby="next-steps-heading">
           <div class="flex">
             <div class="shrink-0">
               <Icon name="information-circle-20" class="h-5 w-5 text-info-text" aria-hidden="true" />
             </div>
             <div class="ml-3">
-              <h3 class="text-sm font-medium">
+              <h3 id="next-steps-heading" class="text-sm font-medium">
                 What's next?
               </h3>
               <div class="mt-2 text-sm">
@@ -57,7 +57,7 @@ if (success === "true") {
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
         {message && messageType && (
           <StatusMessage
@@ -69,40 +69,42 @@ if (success === "true") {
         <div class="space-y-4">
           <form id="resend-form" action="/api/auth/email/resend-verification" method="post">
             <input type="hidden" name="email" value={email || ""} />
-						<HCaptcha
-							tokenInputId="unconfirmed_captcha_token"
-							callbackName="onUnconfirmedHCaptchaSuccess"
-							widgetClasses="mb-4"
-							errorCallback="onUnconfirmedHCaptchaError"
-							expiredCallback="onUnconfirmedHCaptchaExpired"
-						/>
-					<div
-						id="unconfirmed-captcha-status"
-						class="mt-2 hidden rounded-lg border p-3 text-sm status-tone-error"
-						role="status"
-						aria-live="polite"
-					></div>
+            <fieldset>
+              <legend class="sr-only">Resend verification email</legend>
+              <HCaptcha
+                tokenInputId="unconfirmed_captcha_token"
+                callbackName="onUnconfirmedHCaptchaSuccess"
+                widgetClasses="mb-4"
+                errorCallback="onUnconfirmedHCaptchaError"
+                expiredCallback="onUnconfirmedHCaptchaExpired"
+                ariaLabel="Complete the CAPTCHA verification"
+              />
+            </fieldset>
+            <div
+              id="unconfirmed-captcha-status"
+              class="mt-2 hidden rounded-lg border p-3 text-sm status-tone-error"
+              role="status"
+              aria-live="polite"
+            ></div>
             <button
               id="resend-btn"
               type="submit"
-              class="group relative w-full flex justify-center py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              class="btn btn-md btn-secondary w-full"
             >
               Resend verification email
             </button>
           </form>
           
           <div class="text-center">
-            <a
-              href="/signin"
-              class="font-medium text-primary hover:text-primary-strong"
-            >
+            <a href="/signin" class="link-primary inline-flex items-center gap-2">
+              <Icon name="arrow-left" class="size-4" aria-hidden="true" />
               Back to sign in
             </a>
           </div>
         </div>
       </div>
     </div>
-  </div>
+  </main>
 </Layout>
 
 <script>

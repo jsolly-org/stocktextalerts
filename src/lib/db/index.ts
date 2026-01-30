@@ -18,15 +18,37 @@ type DbUserStockRow = Database["public"]["Tables"]["user_stocks"]["Row"];
 Public Types
 ============= */
 
-export type User = DbUserRow;
+export type User = Omit<DbUserRow, "daily_digest_notification_time"> & {
+	daily_digest_notification_times: number[] | null;
+};
 export type Stock = DbStockRow;
-export type UserStock = Pick<DbUserStockRow, "symbol" | "created_at">;
+export type UserStock = Pick<DbUserStockRow, "symbol" | "created_at"> & {
+	name: DbStockRow["name"];
+};
+
+export type PreferencesSnapshot = Pick<
+	User,
+	| "email_notifications_enabled"
+	| "sms_notifications_enabled"
+	| "sms_opted_out"
+	| "phone_verified"
+	| "timezone"
+	| "daily_digest_enabled"
+	| "daily_digest_notification_times"
+	| "next_send_at"
+	| "dismiss_timezone_mismatch_prompts"
+>;
 
 /* =============
 Users
 ============= */
 
-export type UserUpdateInput = DbUserUpdate;
+export type UserUpdateInput = Omit<
+	DbUserUpdate,
+	"daily_digest_notification_time"
+> & {
+	daily_digest_notification_times?: number[] | null;
+};
 
 export function createUserService(
 	supabase: AppSupabaseClient,
@@ -122,13 +144,17 @@ export async function getUserStocks(
 ): Promise<UserStock[]> {
 	const { data, error } = await supabase
 		.from("user_stocks")
-		.select("symbol, created_at")
+		.select("symbol, created_at, stocks!inner(name)")
 		.eq("user_id", userId)
 		.order("created_at", { ascending: false });
 
 	if (error) throw error;
 
-	return data;
+	return data.map((row) => ({
+		symbol: row.symbol,
+		created_at: row.created_at,
+		name: (row as { stocks: { name: string } }).stocks.name,
+	}));
 }
 
 /* =============

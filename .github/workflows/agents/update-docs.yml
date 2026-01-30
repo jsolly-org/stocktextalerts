@@ -26,16 +26,8 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Install Cursor CLI
-        run: |
-          # Per Cursor docs: https://cursor.com/install
-          curl https://cursor.com/install -fsS | bash
-          echo "$HOME/.cursor/bin" >> $GITHUB_PATH
-
-      - name: Configure git
-        run: |
-          git config user.name "Cursor Agent"
-          git config user.email "cursoragent@cursor.com"
+      - name: Setup Cursor CLI
+        uses: ./.github/shared/setup-cursor
 
       - name: Update docs
         env:

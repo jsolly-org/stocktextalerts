@@ -1,7 +1,9 @@
 import { Resend } from "resend";
+import { DASHBOARD_SECTION_HASHES } from "../../../../lib/constants";
 import { getSiteUrl } from "../../../../lib/db/env";
 import { rootLogger } from "../../../../lib/logging";
-import type { DeliveryResult, UserStockRow } from "../shared";
+import { createEmailUnsubscribeUrl } from "../../../../lib/notifications/email-unsubscribe";
+import type { DeliveryResult, EmailUser, UserStockRow } from "../shared";
 
 function escapeHtml(value: string): string {
 	return value
@@ -103,21 +105,29 @@ export function createEmailSender(): EmailSender {
 }
 
 export function formatEmailMessage(
+	user: EmailUser,
 	userStocks: UserStockRow[],
 	stocksList: string,
-	isPreview = false,
 ): { text: string; html: string } {
 	const dashboardUrl = `${getSiteUrl()}/dashboard`;
 	const escapedDashboardUrl = escapeHtml(dashboardUrl);
-	const previewDisclaimer = isPreview
-		? "\n\n⚠️ This is a preview notification, not a scheduled update."
-		: "";
-	const previewDisclaimerHtml = isPreview
-		? '<div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; margin-bottom: 20px; border-radius: 4px;"><p style="color: #92400e; font-size: 14px; margin: 0; font-weight: 500;">⚠️ This is a preview notification, not a scheduled update.</p></div>'
-		: "";
+	const scheduleUrl = `${dashboardUrl}${DASHBOARD_SECTION_HASHES.scheduled}`;
+	const escapedScheduleUrl = escapeHtml(scheduleUrl);
+	const unsubscribeUrl = createEmailUnsubscribeUrl({
+		userId: user.id,
+		email: user.email,
+	});
+	const escapedUnsubscribeUrl = escapeHtml(unsubscribeUrl);
+	const textFooter = `\n\nManage your delivery schedule: ${scheduleUrl}\nUnsubscribe from email notifications: ${unsubscribeUrl}`;
+	const htmlFooter = `
+		<p style="color: #6b7280; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+			<a href="${escapedScheduleUrl}" style="color: #667eea; text-decoration: none;">Adjust delivery schedule</a>
+			<span style="color: #d1d5db; padding: 0 8px;">•</span>
+			<a href="${escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe from email</a>
+		</p>`;
 
 	if (userStocks.length === 0) {
-		const text = `You don't have any tracked stocks yet.\n\nVisit your dashboard to add stocks to track: ${dashboardUrl}${previewDisclaimer}`;
+		const text = `You don't have any tracked stocks yet.\n\nVisit your dashboard to add stocks to track: ${dashboardUrl}${textFooter}`;
 		const html = `
 <!DOCTYPE html>
 <html>
@@ -130,7 +140,6 @@ export function formatEmailMessage(
 		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">📈 Stock Text Alerts</h1>
 	</div>
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-		${previewDisclaimerHtml}
 		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Get Started Tracking Stocks</h2>
 		<p style="color: #4b5563; font-size: 16px; margin-bottom: 30px;">
 			You don't have any tracked stocks yet. Start tracking your favorite stocks to receive regular updates!
@@ -143,13 +152,14 @@ export function formatEmailMessage(
 		<p style="color: #6b7280; font-size: 14px; margin-top: 30px; padding-top: 30px; border-top: 1px solid #e5e7eb;">
 			Once you add stocks to your dashboard, you'll receive regular updates about them during your configured notification window.
 		</p>
+		${htmlFooter}
 	</div>
 </body>
 </html>`;
 		return { text, html };
 	}
 
-	const text = `Your tracked stocks: ${stocksList}${previewDisclaimer}`;
+	const text = `Your tracked stocks: ${stocksList}${textFooter}`;
 	// Use userStocks directly instead of parsing stocksList to avoid dependency on string format
 	const escapedStocksListHtml = userStocks
 		.map((stock) => escapeHtml(`${stock.symbol} - ${stock.name}`))
@@ -166,7 +176,6 @@ export function formatEmailMessage(
 		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">📈 Stock Text Alerts</h1>
 	</div>
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-		${previewDisclaimerHtml}
 		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Your Stock Update</h2>
 		<div style="background: #f9fafb; padding: 20px; border-radius: 6px; margin-bottom: 30px;">
 			<p style="color: #1f2937; font-size: 18px; font-weight: 600; margin: 0; font-family: 'Courier New', monospace;">
@@ -178,6 +187,7 @@ export function formatEmailMessage(
 				Manage your stocks →
 			</a>
 		</div>
+		${htmlFooter}
 	</div>
 </body>
 </html>`;

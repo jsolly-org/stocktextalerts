@@ -1,6 +1,8 @@
 import type { TablesInsert } from "../src/lib/db/generated/database.types";
 
-type DbUserInsert = TablesInsert<"users">;
+type DbUserInsert = Omit<TablesInsert<"users">, "daily_digest_notification_time"> & {
+  daily_digest_notification_times?: number[] | null;
+};
 
 export type SeedUser = Omit<Partial<DbUserInsert>, "email"> & {
   email: DbUserInsert["email"];
@@ -126,6 +128,26 @@ function validateOptionalNumber(
     throw new Error(
       `Seed user: ${fieldName} must be a finite number. Received: ${value}`,
     );
+  }
+  return value;
+}
+
+function validateOptionalNumberArray(
+  value: unknown,
+  fieldName: string,
+): number[] | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (!Array.isArray(value)) {
+    throw new Error(
+      `Seed user: ${fieldName} must be an array, null, or undefined. Received: ${typeof value}`,
+    );
+  }
+  for (const entry of value) {
+    if (typeof entry !== "number" || Number.isNaN(entry) || !Number.isFinite(entry)) {
+      throw new Error(
+        `Seed user: ${fieldName} must contain only finite numbers. Received: ${String(entry)}`,
+      );
+    }
   }
   return value;
 }
@@ -275,23 +297,28 @@ export function buildPublicUserSql(userId: string, user: SeedUser): string {
     updateFields.push("daily_digest_enabled = EXCLUDED.daily_digest_enabled");
   }
 
-  const dailyDigestNotificationTime = validateOptionalNumber(
-    user.daily_digest_notification_time,
-    "daily_digest_notification_time",
+  const dailyDigestNotificationTimes = validateOptionalNumberArray(
+    user.daily_digest_notification_times,
+    "daily_digest_notification_times",
   );
-  if (dailyDigestNotificationTime !== undefined) {
-    if (
-      dailyDigestNotificationTime < 0 ||
-      dailyDigestNotificationTime > 1439 ||
-      dailyDigestNotificationTime % 15 !== 0
-    ) {
+  if (dailyDigestNotificationTimes !== undefined) {
+    if (dailyDigestNotificationTimes.length === 0) {
       throw new Error(
-        `Seed user: daily_digest_notification_time must be between 0 and 1439 and divisible by 15. Received: ${dailyDigestNotificationTime}`,
+        "Seed user: daily_digest_notification_times cannot be an empty array.",
       );
     }
-    insertColumns.push("daily_digest_notification_time");
-    insertValues.push(String(dailyDigestNotificationTime));
-    updateFields.push("daily_digest_notification_time = EXCLUDED.daily_digest_notification_time");
+    for (const entry of dailyDigestNotificationTimes) {
+      if (entry < 0 || entry > 1439 || entry % 15 !== 0) {
+        throw new Error(
+          `Seed user: daily_digest_notification_times entries must be between 0 and 1439 and divisible by 15. Received: ${entry}`,
+        );
+      }
+    }
+    insertColumns.push("daily_digest_notification_times");
+    insertValues.push(`ARRAY[${dailyDigestNotificationTimes.join(", ")}]`);
+    updateFields.push(
+      "daily_digest_notification_times = EXCLUDED.daily_digest_notification_times",
+    );
   }
 
   const emailNotificationsEnabled = validateOptionalBoolean(

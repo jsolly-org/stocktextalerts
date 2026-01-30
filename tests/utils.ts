@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import { DateTime } from "luxon";
 import { Client } from "pg";
 import type { TablesInsert } from "../src/lib/db/generated/database.types";
-import { calculateNextSendAt } from "../src/lib/time/schedule";
+import { calculateNextSendAtFromTimes } from "../src/lib/time/schedule";
 import { EXPECTED_DB_SCHEMA_VERSION } from "./schema-version";
 
 type TestEnv = {
@@ -38,6 +38,8 @@ function getTestEnv(): TestEnv {
 }
 
 const testEnv = getTestEnv();
+
+const TEST_RUN_ID = process.env.TEST_RUN_ID ?? randomUUID();
 
 export const adminClient = createClient(
 	testEnv.supabaseUrl,
@@ -129,6 +131,31 @@ export function getRealStockSymbols(count: number): string[] {
 	}
 
 	return shuffled.slice(0, count);
+}
+
+export function getTestRunId(): string {
+	return TEST_RUN_ID;
+}
+
+export function createTestEmail(prefix = "test"): string {
+	const safePrefix = prefix
+		.trim()
+		.replace(/[^a-zA-Z0-9-]+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.toLowerCase();
+	const normalizedPrefix = safePrefix.length > 0 ? safePrefix : "test";
+	return `${normalizedPrefix}-${TEST_RUN_ID}-${randomUUID()}@resend.dev`;
+}
+
+function tagEmailAddress(baseEmail: string): string {
+	const atIndex = baseEmail.indexOf("@");
+	if (atIndex === -1) {
+		return createTestEmail(baseEmail || "test");
+	}
+
+	const localPart = baseEmail.slice(0, atIndex);
+	const domain = baseEmail.slice(atIndex + 1);
+	return `${localPart}+${TEST_RUN_ID}-${randomUUID()}@${domain}`;
 }
 
 export async function verifySupabaseAdminAccess() {
@@ -262,7 +289,7 @@ export interface CreateTestUserOptions {
 	phoneVerified?: boolean;
 	smsOptedOut?: boolean;
 	dailyDigestEnabled?: boolean;
-	dailyDigestNotificationTime?: number;
+	dailyDigestNotificationTimes?: number[] | null;
 	trackedStocks?: string[];
 	confirmed?: boolean;
 }
@@ -272,16 +299,22 @@ export interface TestUser {
 	email: string;
 }
 
-type DbUserInsert = TablesInsert<"users">;
+type DbUserInsert = Omit<
+	TablesInsert<"users">,
+	"daily_digest_notification_time"
+> & {
+	daily_digest_notification_times?: number[] | null;
+};
 type DbUserStockInsert = TablesInsert<"user_stocks">;
 
 export async function createTestUser(
 	options: CreateTestUserOptions = {},
 ): Promise<TestUser> {
 	const email =
-		options.email ||
-		process.env.TEST_EMAIL_RECIPIENT ||
-		`test-${randomUUID()}@resend.dev`;
+		options.email ??
+		(process.env.TEST_EMAIL_RECIPIENT
+			? tagEmailAddress(process.env.TEST_EMAIL_RECIPIENT)
+			: createTestEmail("test"));
 	const password = options.password || "TestPassword123!";
 	const timezone = options.timezone || "America/New_York";
 	const smsNotificationsEnabled = options.smsNotificationsEnabled ?? false;
@@ -333,27 +366,42 @@ export async function createTestUser(
 		}
 
 		// Create Profile in 'users' table
-		// Default to 9:00 AM (540 minutes from midnight)
-		const defaultNotificationTime = 540;
-		const rawNotificationTime =
-			options.dailyDigestNotificationTime ?? defaultNotificationTime;
-		const dailyDigestNotificationTime = Math.max(
-			0,
-			Math.min(1439, rawNotificationTime),
-		);
-		const alignedDailyDigestNotificationTime =
-			Math.floor(dailyDigestNotificationTime / 15) * 15;
-		const dailyDigestEnabled = options.dailyDigestEnabled ?? false;
-		const nextSendAt = dailyDigestEnabled
-			? calculateNextSendAt(
-					alignedDailyDigestNotificationTime,
-					timezone,
-					DateTime.utc(),
-				)
-			: null;
+		const dailyDigestEnabled = options.dailyDigestEnabled ?? true;
+		const rawNotificationTimes = options.dailyDigestNotificationTimes ?? null;
+		const normalizedTimes =
+			rawNotificationTimes == null
+				? dailyDigestEnabled
+					? [540]
+					: null
+				: [
+						...new Set(
+							rawNotificationTimes
+								.filter((value) => Number.isFinite(value))
+								.map(
+									(value) =>
+										Math.floor(Math.max(0, Math.min(1439, value)) / 15) * 15,
+								),
+						),
+					].sort((a, b) => a - b);
+		const finalDailyDigestTimes =
+			dailyDigestEnabled && normalizedTimes && normalizedTimes.length > 0
+				? normalizedTimes
+				: dailyDigestEnabled
+					? [540]
+					: null;
+		const nextSendAt =
+			dailyDigestEnabled && finalDailyDigestTimes
+				? calculateNextSendAtFromTimes(
+						finalDailyDigestTimes,
+						timezone,
+						DateTime.utc(),
+					)
+				: null;
 		const nextSendAtIso = nextSendAt?.toISO() ?? null;
-		if (dailyDigestEnabled && !nextSendAtIso) {
-			throw new Error("Failed to generate next_send_at timestamp");
+		if (dailyDigestEnabled && finalDailyDigestTimes) {
+			if (!nextSendAtIso) {
+				throw new Error("Failed to generate next_send_at timestamp");
+			}
 		}
 
 		const profile: DbUserInsert = {
@@ -367,7 +415,7 @@ export async function createTestUser(
 			email_notifications_enabled: options.emailNotificationsEnabled ?? false,
 			sms_notifications_enabled: smsNotificationsEnabled,
 			daily_digest_enabled: dailyDigestEnabled,
-			daily_digest_notification_time: alignedDailyDigestNotificationTime,
+			daily_digest_notification_times: finalDailyDigestTimes,
 			next_send_at: nextSendAtIso,
 		};
 

@@ -11,21 +11,13 @@ export const DASHBOARD_STOCKS_FORM_ID = "dashboard-stocks-form";
 export const DASHBOARD_STOCKS_STATUS_ID = "dashboard-stocks-save-status";
 
 /* =============
-Flash Message Parameters
-============= */
-
-export const FLASH_PARAM_KEYS = [
-	"success",
-	"error",
-	"warning",
-	"change_phone",
-] as const;
-
-/* =============
 Status Message Colors
 ============= */
 
 export type StatusTone = "success" | "error" | "warning" | "info";
+
+export type FlashTone = Extract<StatusTone, "success" | "error" | "warning">;
+export type FlashMessage = { tone: FlashTone; message: string };
 
 export const STATUS_TONE_CLASSES: Record<StatusTone, string> = {
 	success: "status-tone-success",
@@ -70,113 +62,19 @@ Dashboard Sections
 
 export const DASHBOARD_SECTION_IDS = {
 	preferences: "notification-preferences",
+	notificationChannels: "notification-channels",
 	stocks: "tracked-stocks",
 	scheduled: "scheduled-notifications",
-	preview: "preview-notifications",
 } as const;
 
 export type DashboardSection = keyof typeof DASHBOARD_SECTION_IDS;
 
 export const DASHBOARD_SECTION_HASHES: Record<DashboardSection, string> = {
 	preferences: `#${DASHBOARD_SECTION_IDS.preferences}`,
+	notificationChannels: `#${DASHBOARD_SECTION_IDS.notificationChannels}`,
 	stocks: `#${DASHBOARD_SECTION_IDS.stocks}`,
 	scheduled: `#${DASHBOARD_SECTION_IDS.scheduled}`,
-	preview: `#${DASHBOARD_SECTION_IDS.preview}`,
 };
-
-type DashboardRedirectOptions = {
-	success?: string;
-	error?: string;
-	warning?: string;
-	section?: DashboardSection;
-};
-
-export function buildDashboardRedirect({
-	success,
-	error,
-	warning,
-	section,
-}: DashboardRedirectOptions): string {
-	const url = new URL("/dashboard", "http://localhost");
-	if (success) url.searchParams.set("success", success);
-	if (error) url.searchParams.set("error", error);
-	if (warning) url.searchParams.set("warning", warning);
-	const hash = section ? DASHBOARD_SECTION_HASHES[section] : "";
-	return `${url.pathname}${url.search}${hash}`;
-}
-
-export function resolveDashboardSectionFromHash(
-	hash: string,
-): DashboardSection | null {
-	if (!hash) return null;
-	const section = Object.entries(DASHBOARD_SECTION_HASHES).find(
-		([, sectionHash]) => sectionHash === hash,
-	)?.[0] as DashboardSection | undefined;
-	return section ?? null;
-}
-
-const PREFERENCES_KEYS = new Set([
-	"settings_updated",
-	"timezone_updated",
-	"timezone_banner_dismissed",
-	"phone_verified",
-	"verification_failed",
-	"invalid_code",
-	"code_expired",
-	"verification_recently_sent",
-	"verification_rate_limited",
-	"phone_not_set",
-	"failed_to_update_settings",
-	"failed_to_update_timezone",
-	"failed_to_dismiss_timezone_banner",
-]);
-
-const STOCKS_KEYS = new Set([
-	"stocks_updated",
-	"stocks_limit",
-	"failed_to_update_stocks",
-]);
-
-const SCHEDULED_KEYS = new Set([
-	"daily_digest_sent",
-	"daily_digest_disabled",
-	"daily_digest_send_failed",
-	"daily_digest_rate_limited",
-	"daily_digest_timed_out",
-	"daily_digest_skip_failed",
-	"daily_digest_skip_update_failed",
-	"notifications_not_configured",
-]);
-
-const PREVIEW_KEYS = new Set([
-	"preview_email_sent",
-	"preview_sms_sent",
-	"preview_rate_limited",
-	"preview_rate_limit_unexpected",
-	"preview_sms_missing_phone",
-	"preview_sms_unverified",
-	"preview_sms_unavailable",
-	"preview_failed",
-	"email_notifications_disabled",
-	"sms_notifications_disabled",
-	"sms_opted_out",
-]);
-
-export function resolveSectionFromKey(
-	messageKey: string | null,
-): DashboardSection | null {
-	if (!messageKey) {
-		return null;
-	}
-	if (PREFERENCES_KEYS.has(messageKey)) return "preferences";
-	if (STOCKS_KEYS.has(messageKey)) return "stocks";
-	if (SCHEDULED_KEYS.has(messageKey)) return "scheduled";
-	if (PREVIEW_KEYS.has(messageKey)) return "preview";
-	if (messageKey === "invalid_form") return "preferences";
-	if (messageKey === "server_error") return "preferences";
-	if (messageKey === "update_failed") return "preferences";
-	return null;
-}
 
 /* =============
 Status Messages
@@ -216,6 +114,10 @@ export const MESSAGE_ALLOWLIST = {
 	password_reset_sent:
 		"If an account exists for that email, a reset link has been sent.",
 	verification_email_sent: "Verification email sent! Check your inbox.",
+	email_change_requested:
+		"Check your old and new inboxes to confirm the email change.",
+	email_updated: "Email updated successfully.",
+	email_change_failed: "Email update failed. Please try again.",
 	password_reset:
 		"Password updated successfully! You can now sign in with your new password.",
 	account_deleted: "Your account has been permanently deleted.",
@@ -244,29 +146,6 @@ export const MESSAGE_ALLOWLIST = {
 	delete_orphaned_auth_failed:
 		"Failed to complete account deletion. Please try again.",
 	stocks_limit: `Maximum ${MAX_TRACKED_STOCKS} stocks allowed`,
-	preview_email_sent:
-		"Preview email sent successfully. Please check your email inbox and spam folder.",
-	preview_sms_sent: "Preview SMS sent successfully",
-	preview_rate_limited: "Too many preview requests. Please try again later.",
-	preview_sms_missing_phone: "Add a phone number before sending SMS previews.",
-	preview_sms_unverified:
-		"Verify your phone number before sending SMS previews.",
-	preview_sms_unavailable:
-		"SMS previews are currently unavailable. Please try again later.",
-	preview_failed: "Failed to send preview notification. Please try again.",
-	email_notifications_disabled: "Email notifications are disabled.",
-	daily_digest_sent: "Daily digest sent.",
-	daily_digest_disabled: "Daily digest is disabled.",
-	daily_digest_send_failed: "Failed to send daily digest. Please try again.",
-	daily_digest_rate_limited:
-		"Too many manual digest requests. Please try again later.",
-	daily_digest_timed_out: "Daily digest request timed out. Please try again.",
-	daily_digest_skip_failed:
-		"Failed to skip the next daily digest. Please try again.",
-	daily_digest_skip_update_failed:
-		"Daily digest was sent, but we couldn't update your next scheduled digest. Please try again.",
-	preview_rate_limit_unexpected:
-		"Preview request could not be processed. Please try again.",
 } as const;
 
 export type MessageKey = keyof typeof MESSAGE_ALLOWLIST;

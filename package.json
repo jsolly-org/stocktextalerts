@@ -9,7 +9,7 @@
 	"scripts": {
 		"dev": "astro dev",
 		"build": "astro build",
-		"preview": "astro preview",
+		"preview": "npm run build && vercel deploy --prebuilt",
 		"prepare": "if [ -z \"$CI\" ]; then husky; fi",
 		"test": "node --env-file-if-exists=.env.local ./node_modules/.bin/vitest --no-watch",
 		"test:e2e": "node --env-file-if-exists=.env.local ./node_modules/.bin/playwright test",
@@ -25,7 +25,7 @@
 	},
 	"lint-staged": {
 		"**/*.{ts,tsx,json,css,md,astro,html,vue}": [
-			"biome check --write --no-errors-on-unmatched"
+			"biome check --write --no-errors-on-unmatched --files-ignore-unknown=true"
 		]
 	},
 	"dependencies": {

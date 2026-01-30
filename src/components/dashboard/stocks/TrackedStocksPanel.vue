@@ -1,13 +1,46 @@
 <template>
-	<div class="mb-6 bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
-		<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.teal}`"></div>
-		<div class="p-6">
-		<h2
-			:id="DASHBOARD_SECTION_IDS.stocks"
-			class="text-2xl font-bold text-gray-900 mb-2"
+	<section class="card relative mb-6">
+		<Transition
+			enter-active-class="transition-opacity duration-150"
+			enter-from-class="opacity-0"
+			enter-to-class="opacity-100"
+			leave-active-class="transition-opacity duration-150"
+			leave-from-class="opacity-100"
+			leave-to-class="opacity-0"
 		>
-			Tracked Stocks
-		</h2>
+			<div
+				v-if="statusMessage"
+				:id="DASHBOARD_STOCKS_STATUS_ID"
+				class="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium z-10"
+				:class="[statusTone === 'error' ? 'bg-error-bg text-error-text' : 'bg-info-bg text-info-text']"
+				role="status"
+				aria-live="polite"
+				:aria-busy="isSaving"
+				:data-tone="statusTone"
+			>
+				<ArrowPathIcon
+					v-show="isSaving"
+					class="animate-spin size-3 shrink-0"
+					aria-hidden="true"
+					focusable="false"
+				/>
+				{{ statusMessage }}
+			</div>
+		</Transition>
+
+		<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.teal}`"></div>
+		<div class="card-body">
+		<header class="mb-4">
+			<h2
+				:id="DASHBOARD_SECTION_IDS.stocks"
+				class="text-xl sm:text-2xl font-bold text-gray-900"
+			>
+				Your Tracked Stocks
+			</h2>
+			<p class="text-sm text-gray-600 mt-1">
+				Select stock tickers to include in your daily digest.
+			</p>
+		</header>
 
 		<div v-if="flashMessages.length" class="space-y-2 mb-4">
 			<StatusMessage
@@ -19,73 +52,63 @@
 			</StatusMessage>
 		</div>
 
-		<div class="min-h-5 mb-4">
-			<Transition
-				enter-active-class="transition-opacity duration-150"
-				enter-from-class="opacity-0"
-				enter-to-class="opacity-100"
-				leave-active-class="transition-opacity duration-150"
-				leave-from-class="opacity-100"
-				leave-to-class="opacity-0"
-			>
-				<p
-					v-if="statusMessage"
-					:id="DASHBOARD_STOCKS_STATUS_ID"
-					class="text-sm flex items-center gap-2"
-					:class="[statusTone === 'error' ? 'text-error-text' : 'text-info-text']"
-					role="status"
-					aria-live="polite"
-					:aria-busy="isSaving"
-					:data-tone="statusTone"
-				>
-					<ArrowPathIcon
-						v-show="isSaving"
-						class="animate-spin size-4 shrink-0"
-						aria-hidden="true"
-					/>
-					{{ statusMessage }}
-				</p>
-			</Transition>
-		</div>
-
 		<input type="hidden" name="tracked_stocks" :value="trackedStocksValue" />
 
-		<div class="mb-6">
-			<h3 class="text-lg font-semibold text-gray-900 mb-3">Add Stock</h3>
-			<StockInput
-				:stock-options="stockOptions"
-				@select="handleSelect"
-			/>
-		</div>
+		<fieldset class="mb-6">
+			<legend class="sr-only">Stock selection</legend>
+			<div class="space-y-2">
+				<label for="stock_search" class="text-sm font-medium text-gray-700">
+					Search stocks
+				</label>
+				<p id="stock_search_help" class="text-xs text-gray-500">
+					Type a symbol or company name, then press Enter to select.
+				</p>
+				<StockInput
+					:stock-options="stockOptions"
+					inputAriaDescribedBy="stock_search_help"
+					@select="handleSelect"
+				/>
+			</div>
+		</fieldset>
 
-		<div>
-			<h3 class="text-lg font-semibold text-gray-900 mb-3">Your Stocks</h3>
-			<div v-if="draftSymbols.length === 0" class="text-center py-8 px-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-				<ChartBarIcon class="mx-auto h-12 w-12 text-gray-400" aria-hidden="true" />
-				<h4 class="mt-4 text-sm font-semibold text-gray-900">No stocks tracked yet</h4>
-				<p class="mt-1 text-sm text-gray-500">
-					Get started by adding your first stock ticker above.
+		<section aria-labelledby="tracked-stocks-list-heading">
+			<div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+				<h3 id="tracked-stocks-list-heading" class="text-base sm:text-lg font-semibold text-gray-900">
+					Your Stocks
+				</h3>
+				<p class="text-xs font-medium text-gray-500">
+					{{ draftStocks.length }} {{ draftStocks.length === 1 ? "tracked stock" : "tracked stocks" }}
 				</p>
 			</div>
-			<div v-else class="space-y-2">
-				<div
-					v-for="symbol in draftSymbols"
-					:key="symbol"
-					class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+			<div v-if="draftStocks.length === 0" class="text-center py-10 px-4 sm:py-12 sm:px-6 bg-linear-to-b from-gray-50 to-white rounded-xl border-2 border-dashed border-gray-200">
+				<div class="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-gray-100">
+					<ChartBarIcon class="h-8 w-8 text-gray-400" aria-hidden="true" focusable="false" />
+				</div>
+				<h4 class="mt-4 text-base font-semibold text-gray-900">No stocks tracked yet</h4>
+				<p class="mt-2 text-sm text-gray-500 max-w-xs mx-auto">
+					Search for stocks above to add them to your daily digest.
+				</p>
+			</div>
+			<ul v-else class="space-y-2">
+				<li
+					v-for="stock in draftStocks"
+					:key="stock.symbol"
+					class="flex flex-col gap-2 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors sm:flex-row sm:items-center sm:justify-between"
 				>
-					<span class="font-medium text-gray-900">{{ symbol }}</span>
+					<span class="min-w-0 font-medium text-gray-900 wrap-break-word">{{ stock.symbol }} - {{ stock.name }}</span>
 					<button
 						type="button"
-						class="px-3 py-1 text-sm bg-error-bg text-error-text rounded hover:bg-error-border transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-						@click="removeSymbol(symbol)"
+						class="btn btn-sm btn-ghost text-error-text hover:bg-error-bg hover:text-error-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 self-start sm:self-auto"
+						:aria-label="`Remove stock ${stock.symbol}`"
+						@click="removeSymbol(stock.symbol)"
 					>
-						Remove
+						Remove stock
 					</button>
-				</div>
-			</div>
+				</li>
+			</ul>
+		</section>
 		</div>
-		</div>
-	</div>
+	</section>
 </template>
 
 <script lang="ts" setup>
@@ -97,16 +120,18 @@ import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_SECTION_IDS,
 	DASHBOARD_STOCKS_STATUS_ID,
+	type FlashMessage,
 } from "../../../lib/constants";
 import StatusMessage from "../../StatusMessage.vue";
 import type { StockOption } from "./StockInput.vue";
 import StockInput from "./StockInput.vue";
+import type { InitialStock } from "./types";
 
 interface Props {
 	stockOptions: StockOption[];
-	initialSymbols: string[];
+	initialStocks: InitialStock[];
 	onFormChanged: () => void;
-	flashMessages?: { tone: "success" | "error" | "warning"; message: string }[];
+	flashMessages?: FlashMessage[];
 	statusMessage?: string | null;
 	statusTone?: "error" | "info";
 	isSaving?: boolean;
@@ -121,34 +146,45 @@ const props = withDefaults(defineProps<Props>(), {
 
 const { flashMessages, isSaving, statusMessage, statusTone } = toRefs(props);
 
-const draftSymbols = ref([...props.initialSymbols]);
+const draftStocks = ref<InitialStock[]>([...props.initialStocks]);
 
-const trackedStocksValue = computed(() => JSON.stringify(draftSymbols.value));
+const trackedStocksValue = computed(() =>
+	JSON.stringify(draftStocks.value.map((s) => s.symbol)),
+);
 
 watch(
-	draftSymbols,
+	draftStocks,
 	() => {
 		props.onFormChanged();
 	},
-	{ flush: "post" },
+	{ flush: "post", deep: true },
 );
+
+function nameForSymbol(symbol: string): string {
+	const option = props.stockOptions.find((o) => o.value === symbol);
+	if (!option?.label.includes(" - ")) {
+		return symbol;
+	}
+	return option.label.split(" - ").slice(1).join(" - ");
+}
 
 function handleSelect(symbol: string) {
 	if (!symbol) {
 		return;
 	}
 
-	if (draftSymbols.value.includes(symbol)) {
+	if (draftStocks.value.some((s) => s.symbol === symbol)) {
 		return;
 	}
 
-	draftSymbols.value = [...draftSymbols.value, symbol];
+	draftStocks.value = [
+		...draftStocks.value,
+		{ symbol, name: nameForSymbol(symbol) },
+	];
 }
 
 function removeSymbol(symbol: string) {
-	draftSymbols.value = draftSymbols.value.filter(
-		(current) => current !== symbol,
-	);
+	draftStocks.value = draftStocks.value.filter((s) => s.symbol !== symbol);
 }
 </script>
 

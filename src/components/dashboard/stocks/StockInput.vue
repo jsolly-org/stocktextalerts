@@ -1,32 +1,64 @@
 <template>
 	<div class="relative" ref="containerRef">
-	<input type="text" id="stock_search" v-model="rawSearchQuery" @input="handleInput"
-		@keydown="handleKeydown" placeholder="Search by symbol or company name..." autocomplete="off" role="combobox"
-		aria-haspopup="listbox" :aria-expanded="showDropdown" aria-controls="stock_dropdown" aria-autocomplete="list"
-		:aria-activedescendant="highlightedIndex >= 0 ? `stock_option_${highlightedIndex}` : undefined"
-		:disabled="props.disabled"
-		class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
-		@focus="showDropdown = true" />
+		<input
+			type="text"
+			id="stock_search"
+			v-model="rawSearchQuery"
+			@input="handleInput"
+			@keydown="handleKeydown"
+			placeholder="Search by symbol or company name..."
+			autocomplete="off"
+			role="combobox"
+			aria-haspopup="listbox"
+			:aria-expanded="showDropdown"
+			aria-controls="stock_dropdown"
+			aria-autocomplete="list"
+			:aria-activedescendant="
+				highlightedIndex >= 0 ? `stock_option_${highlightedIndex}` : undefined
+			"
+			:aria-describedby="inputAriaDescribedBy"
+			:disabled="props.disabled"
+			class="input disabled:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+			@focus="showDropdown = true"
+		/>
 
-	<div id="stock_dropdown" v-show="showDropdown && (searchQuery.length >= 1 || filteredStocks.length > 0)" role="listbox"
-			class="absolute z-50 w-full mt-1 bg-white shadow-lg rounded-lg border border-gray-200 max-h-60 overflow-auto">
-			<div v-if="isSearching" class="px-4 py-2 text-sm text-gray-500">
+		<ul
+			id="stock_dropdown"
+			v-show="showDropdown && (searchQuery.length >= 1 || filteredStocks.length > 0)"
+			role="listbox"
+			class="absolute z-50 w-full mt-1 bg-white shadow-lg rounded-lg border border-gray-200 max-h-60 overflow-auto"
+		>
+			<li
+				v-if="isSearching"
+				class="px-4 py-2 text-sm text-gray-500"
+				role="option"
+				aria-disabled="true"
+			>
 				Searching...
-			</div>
-			<div v-else-if="filteredStocks.length === 0 && searchQuery.length >= 1"
-				class="px-4 py-2 text-sm text-gray-500">
+			</li>
+			<li
+				v-else-if="filteredStocks.length === 0 && searchQuery.length >= 1"
+				class="px-4 py-2 text-sm text-gray-500"
+				role="option"
+				aria-disabled="true"
+			>
 				No stocks found
-			</div>
-		<div v-for="(result, index) in filteredStocks" :key="result.item.value" role="option"
-			:id="`stock_option_${index}`"
-			:aria-selected="highlightedIndex === index" :data-highlighted="highlightedIndex === index"
-			@click="selectStock(result)"
-			class="w-full px-4 py-2 text-left hover:bg-info-bg focus:bg-info-bg focus:outline-none cursor-pointer"
-			:class="{ 'bg-info-border': highlightedIndex === index }">
-			{{ result.item.label }}
-		</div>
+			</li>
+			<li
+				v-for="(result, index) in filteredStocks"
+				:key="result.item.value"
+				role="option"
+				:id="`stock_option_${index}`"
+				:aria-selected="highlightedIndex === index"
+				:data-highlighted="highlightedIndex === index"
+				@click="selectStock(result)"
+				class="w-full px-4 py-2 text-left hover:bg-info-bg focus:bg-info-bg focus:outline-none cursor-pointer"
+				:class="{ 'bg-info-border': highlightedIndex === index }"
+			>
+				{{ result.item.label }}
+			</li>
+		</ul>
 	</div>
-</div>
 </template>
 
 <script lang="ts" setup>
@@ -42,6 +74,7 @@ export interface StockOption {
 interface Props {
 	stockOptions: StockOption[];
 	disabled?: boolean;
+	inputAriaDescribedBy?: string;
 }
 
 interface FuseResult {

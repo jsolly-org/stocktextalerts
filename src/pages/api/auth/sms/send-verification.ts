@@ -1,8 +1,6 @@
 import type { APIRoute } from "astro";
-import {
-	buildDashboardRedirect,
-	VERIFICATION_RESEND_COOLDOWN_MS,
-} from "../../../../lib/constants";
+import { jsonResponse } from "../../../../lib/api/json-response";
+import { VERIFICATION_RESEND_COOLDOWN_MS } from "../../../../lib/constants";
 import { createUserService } from "../../../../lib/db";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
@@ -26,7 +24,7 @@ export function createSendVerificationHandler(
 ): APIRoute {
 	const dependencies = { ...defaultDependencies, ...overrides };
 
-	return async ({ request, cookies, redirect, locals }) => {
+	return async ({ request, cookies, locals }) => {
 		const url = new URL(request.url);
 		const logger = createLogger({
 			requestId: locals?.requestId,
@@ -35,11 +33,6 @@ export function createSendVerificationHandler(
 		});
 		const supabase = dependencies.createSupabaseServerClient();
 		const userService = dependencies.createUserService(supabase, cookies);
-		const preferencesRedirect = (params: {
-			success?: string;
-			error?: string;
-			warning?: string;
-		}) => buildDashboardRedirect({ ...params, section: "preferences" });
 
 		const user = await userService.getCurrentUser();
 		if (!user) {
@@ -47,7 +40,11 @@ export function createSendVerificationHandler(
 			logger.info("SMS verification send attempt without authenticated user", {
 				reason: "unauthenticated",
 			});
-			return redirect("/signin?error=unauthorized");
+			return jsonResponse(401, {
+				ok: false,
+				message: "unauthorized",
+				tone: "error",
+			});
 		}
 
 		try {
@@ -63,7 +60,11 @@ export function createSendVerificationHandler(
 				logger.info("SMS verification form rejected due to invalid fields", {
 					errors: parsed.allErrors,
 				});
-				return redirect(preferencesRedirect({ error: "invalid_form" }));
+				return jsonResponse(400, {
+					ok: false,
+					message: "invalid_form",
+					tone: "error",
+				});
 			}
 
 			const phoneCountryCode = parsed.data.phone_country_code;
@@ -77,13 +78,22 @@ export function createSendVerificationHandler(
 					userId: user.id,
 					endpoint: "sms/send-verification",
 				});
-				return redirect(preferencesRedirect({ error: "user_not_found" }));
+				return jsonResponse(404, {
+					ok: false,
+					message: "user_not_found",
+					tone: "error",
+				});
 			}
 			if (dbUser.sms_opted_out) {
-				logger.error("SMS verification send blocked due to opt-out", {
+				logger.info("SMS verification send blocked due to opt-out", {
 					userId: user.id,
+					reason: "sms_opted_out",
 				});
-				return redirect(preferencesRedirect({ error: "sms_opted_out" }));
+				return jsonResponse(400, {
+					ok: false,
+					message: "sms_opted_out",
+					tone: "error",
+				});
 			}
 
 			// `verification_sent_at` may not be present in generated types yet, but it *is* in the DB.
@@ -117,9 +127,11 @@ export function createSendVerificationHandler(
 					sentAt: dbUserWithVerificationSentAt.verification_sent_at ?? null,
 					cooldownMs: VERIFICATION_RESEND_COOLDOWN_MS,
 				});
-				return redirect(
-					preferencesRedirect({ warning: "verification_recently_sent" }),
-				);
+				return jsonResponse(429, {
+					ok: false,
+					message: "verification_recently_sent",
+					tone: "warning",
+				});
 			}
 
 			if (reserved !== true) {
@@ -130,7 +142,11 @@ export function createSendVerificationHandler(
 						reserved,
 					},
 				);
-				return redirect(preferencesRedirect({ error: "server_error" }));
+				return jsonResponse(500, {
+					ok: false,
+					message: "server_error",
+					tone: "error",
+				});
 			}
 
 			const dbUserAfterReserve = await userService.getById(user.id);
@@ -142,7 +158,11 @@ export function createSendVerificationHandler(
 						endpoint: "sms/send-verification",
 					},
 				);
-				return redirect(preferencesRedirect({ error: "server_error" }));
+				return jsonResponse(500, {
+					ok: false,
+					message: "server_error",
+					tone: "error",
+				});
 			}
 
 			const reservedVerificationSentAt = (
@@ -158,7 +178,11 @@ export function createSendVerificationHandler(
 						userId: user.id,
 					},
 				);
-				return redirect(preferencesRedirect({ error: "server_error" }));
+				return jsonResponse(500, {
+					ok: false,
+					message: "server_error",
+					tone: "error",
+				});
 			}
 
 			const result = await dependencies.sendVerification(fullPhone);
@@ -186,14 +210,29 @@ export function createSendVerificationHandler(
 					);
 				}
 
-				logger.error("SMS verification failed", { error: result.error });
-				return redirect(preferencesRedirect({ error: "verification_failed" }));
+				const sendError = new Error(
+					result.error ?? "Failed to send verification",
+				);
+				logger.error("SMS verification failed", { userId: user.id }, sendError);
+				return jsonResponse(500, {
+					ok: false,
+					message: "verification_failed",
+					tone: "error",
+				});
 			}
 
-			return redirect(preferencesRedirect({ success: "verification_sent" }));
+			return jsonResponse(200, {
+				ok: true,
+				message: "verification_sent",
+				tone: "success",
+			});
 		} catch (error) {
 			logger.error("Send verification error", { userId: user.id }, error);
-			return redirect(preferencesRedirect({ error: "server_error" }));
+			return jsonResponse(500, {
+				ok: false,
+				message: "server_error",
+				tone: "error",
+			});
 		}
 	};
 }
