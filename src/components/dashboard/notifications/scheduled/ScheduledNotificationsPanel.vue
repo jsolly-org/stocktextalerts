@@ -70,6 +70,7 @@ import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_FORM_ID,
 	DASHBOARD_SECTION_IDS,
+	type FlashMessage,
 } from "../../../../lib/constants";
 import type { User } from "../../../../lib/db";
 import {
@@ -91,7 +92,7 @@ interface Props {
 	smsOptedOut: boolean;
 	phoneVerified: boolean;
 	isSaving?: boolean;
-	flashMessages?: { tone: "success" | "error" | "warning"; message: string }[];
+	flashMessages?: FlashMessage[];
 	savedPreferences?: {
 		next_send_at: string | null;
 	} | null;

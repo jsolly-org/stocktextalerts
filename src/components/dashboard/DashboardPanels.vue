@@ -67,6 +67,8 @@ import { computed, ref, toRefs, watch } from "vue";
 import {
 	DASHBOARD_FORM_ID,
 	DASHBOARD_STOCKS_FORM_ID,
+	type FlashMessage,
+	type FlashTone,
 	formatMessage,
 } from "../../lib/constants";
 import type { User } from "../../lib/db";
@@ -192,9 +194,6 @@ watch(
 		}
 	},
 );
-
-type FlashTone = "success" | "error" | "warning";
-type FlashMessage = { tone: FlashTone; message: string };
 
 const preferencesFlashMessages = ref<FlashMessage[]>([]);
 const smsSuccessMessage = ref<string | null>(null);

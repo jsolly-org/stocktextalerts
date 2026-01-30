@@ -1,8 +1,6 @@
 import { nextTick, ref } from "vue";
-import { DASHBOARD_FORM_ID } from "../../../lib/constants";
+import { DASHBOARD_FORM_ID, type FlashTone } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
-
-type FlashTone = "success" | "error" | "warning";
 
 type SmsVerificationPayload = {
 	ok: boolean;

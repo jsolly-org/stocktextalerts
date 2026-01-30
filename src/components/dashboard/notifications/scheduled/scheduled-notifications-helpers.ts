@@ -6,81 +6,18 @@ import {
 	type Ref,
 	ref,
 } from "vue";
-import { formatMessage } from "../../../../lib/constants";
+import type { FlashMessage } from "../../../../lib/constants";
 import {
 	formatCountdownWithSeconds,
 	getNowInTimezone,
 	getSecondsUntilNextSend,
 } from "../../../../lib/time/format";
 
-type FlashTone = "success" | "error" | "warning";
-type FlashMessage = { tone: FlashTone; message: string };
-
 export function useFlashMessages(options: {
 	flashMessages: Ref<FlashMessage[]>;
 }) {
-	const localFlashMessages = ref<FlashMessage[]>([]);
-	const timers = new Map<FlashTone, number>();
-
-	const allFlashMessages = computed(() => [
-		...options.flashMessages.value,
-		...localFlashMessages.value,
-	]);
-
-	function clearToneTimeout(tone: FlashTone) {
-		const existingTimerId = timers.get(tone);
-		if (existingTimerId === undefined) {
-			return;
-		}
-		clearTimeout(existingTimerId);
-		timers.delete(tone);
-	}
-
-	function dismissFlashMessage(tone: FlashTone) {
-		clearToneTimeout(tone);
-
-		const index = localFlashMessages.value.findIndex((f) => f.tone === tone);
-		if (index >= 0) {
-			localFlashMessages.value.splice(index, 1);
-		}
-	}
-
-	function showFlashMessage(tone: FlashTone, messageKey: string) {
-		const formatted = formatMessage(messageKey);
-		const message = formatted !== "" ? formatted : messageKey;
-
-		clearToneTimeout(tone);
-
-		const existingIndex = localFlashMessages.value.findIndex(
-			(f) => f.tone === tone,
-		);
-		const newMessage = { tone, message };
-
-		if (existingIndex >= 0) {
-			localFlashMessages.value[existingIndex] = newMessage;
-		} else {
-			localFlashMessages.value.push(newMessage);
-		}
-
-		const timeoutId = window.setTimeout(() => {
-			const currentTimerId = timers.get(tone);
-			if (currentTimerId !== timeoutId) {
-				return;
-			}
-			timers.delete(tone);
-			dismissFlashMessage(tone);
-		}, 5000);
-		timers.set(tone, timeoutId);
-	}
-
-	onUnmounted(() => {
-		for (const timeoutId of timers.values()) {
-			clearTimeout(timeoutId);
-		}
-		timers.clear();
-	});
-
-	return { allFlashMessages, showFlashMessage };
+	const allFlashMessages = computed(() => options.flashMessages.value);
+	return { allFlashMessages };
 }
 
 export function useScheduledDigestTiming(options: {

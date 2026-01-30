@@ -120,6 +120,7 @@ import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_SECTION_IDS,
 	DASHBOARD_STOCKS_STATUS_ID,
+	type FlashMessage,
 } from "../../../lib/constants";
 import StatusMessage from "../../StatusMessage.vue";
 import type { StockOption } from "./StockInput.vue";
@@ -130,7 +131,7 @@ interface Props {
 	stockOptions: StockOption[];
 	initialStocks: InitialStock[];
 	onFormChanged: () => void;
-	flashMessages?: { tone: "success" | "error" | "warning"; message: string }[];
+	flashMessages?: FlashMessage[];
 	statusMessage?: string | null;
 	statusTone?: "error" | "info";
 	isSaving?: boolean;

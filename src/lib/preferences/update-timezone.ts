@@ -1,4 +1,4 @@
-export type TimezoneUpdatePreferences = {
+type TimezoneUpdatePreferences = {
 	timezone?: string;
 	next_send_at?: string | null;
 };

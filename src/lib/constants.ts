@@ -16,6 +16,9 @@ Status Message Colors
 
 export type StatusTone = "success" | "error" | "warning" | "info";
 
+export type FlashTone = Extract<StatusTone, "success" | "error" | "warning">;
+export type FlashMessage = { tone: FlashTone; message: string };
+
 export const STATUS_TONE_CLASSES: Record<StatusTone, string> = {
 	success: "status-tone-success",
 	error: "status-tone-error",

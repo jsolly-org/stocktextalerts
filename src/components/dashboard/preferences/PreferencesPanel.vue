@@ -71,6 +71,7 @@ import {
 	DASHBOARD_FORM_ID,
 	DASHBOARD_SECTION_IDS,
 	DASHBOARD_STATUS_ID,
+	type FlashMessage,
 } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 import { rootLogger } from "../../../lib/logging";
@@ -84,7 +85,7 @@ interface Props {
 	smsEnabled: boolean;
 	onFormChanged: () => void;
 	successMessage?: string | null;
-	flashMessages?: { tone: "success" | "error" | "warning"; message: string }[];
+	flashMessages?: FlashMessage[];
 	statusMessage?: string | null;
 	statusTone?: "error" | "info";
 	isSaving?: boolean;
