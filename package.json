@@ -35,7 +35,7 @@
 		"@vueuse/core": "^14.1.0",
 		"astro-icon": "^1.1.5",
 		"fuse.js": "^7.1.0",
-		"libphonenumber-js": "^1.12.35",
+		"libphonenumber-js": "^1.12.36",
 		"luxon": "^3.7.2",
 		"resend": "^6.9.1",
 		"twilio": "^5.12.0",
