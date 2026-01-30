@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       INTERNAL_MARKER: "<!-- cursor-agent-workflow:internal -->"
-      WORKFLOW_FILE: cursor-agent-on-pr-comment.yml
+      WORKFLOW_FILE: agents/cursor-agent-on-pr-comment.yml
       CURSOR_AGENT_NAME: "Cursor Agent"
       CURSOR_AGENT_EMAIL: "cursoragent@cursor.com"
     steps:
@@ -322,21 +322,12 @@ jobs:
           ref: ${{ steps.pr.outputs.head_ref }}
           fetch-depth: 0
 
-      - name: Install Cursor CLI
+      - name: Setup Cursor CLI
         if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
-        run: |
-          # Per Cursor docs: https://cursor.com/install
-          # Supply-chain risk: piping a remote script to bash. We accept this for the official
-          # installer because it runs in an ephemeral GitHub Actions runner. Cursor does not
-          # currently publish checksums or versioned release artifacts.
-          curl https://cursor.com/install -fsS | bash
-          echo "$HOME/.cursor/bin" >> $GITHUB_PATH
-
-      - name: Configure git identity
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
-        run: |
-          git config user.name "$CURSOR_AGENT_NAME"
-          git config user.email "$CURSOR_AGENT_EMAIL"
+        uses: ./.github/shared/setup-cursor
+        with:
+          git_name: ${{ env.CURSOR_AGENT_NAME }}
+          git_email: ${{ env.CURSOR_AGENT_EMAIL }}
 
       - name: Configure git remote for pushing
         if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'

@@ -106,11 +106,8 @@
 					class="animate-spin size-4 shrink-0"
 					aria-hidden="true"
 				/>
-				{{ isSaving ? "Saving…" : "Save schedule" }}
+				{{ isSaving ? "Saving…" : "Update Delivery Times" }}
 			</button>
-			<p class="text-xs text-gray-500">
-				Changes are only saved when you click save.
-			</p>
 		</div>
 		<div v-if="!needsChannelSelection" class="mt-4 border-t border-gray-200 pt-4">
 			<p v-if="isHydrated && countdownText" class="text-sm text-gray-600">

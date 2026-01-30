@@ -8,6 +8,7 @@ import TimezoneSection from "../components/profile/TimezoneSection.vue";
 import StatusMessage from "../components/StatusMessage.astro";
 import Layout from "../layouts/Layout.astro";
 import { getAuthErrorMessage } from "../lib/auth/messages";
+import { buildSigninRedirectUrl } from "../lib/auth/redirects";
 import { CARD_GRADIENT_ACCENTS } from "../lib/constants";
 import { createUserService } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
@@ -19,11 +20,12 @@ const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
 const authUser = await users.getCurrentUser();
 if (!authUser) {
-	rootLogger.error("Profile access attempted without authenticated user", {
+	rootLogger.info("Profile access attempted without authenticated user", {
 		page: "profile",
 		reason: "unauthenticated",
 	});
-	return Astro.redirect("/");
+	const returnTo = `${Astro.url.pathname}${Astro.url.search}`;
+	return Astro.redirect(buildSigninRedirectUrl(returnTo));
 }
 const user = await users.getById(authUser.id);
 if (!user) {

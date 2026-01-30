@@ -1,8 +1,34 @@
 import type { APIRoute } from "astro";
 import { setAuthCookies } from "../../../lib/auth/cookies";
+import {
+	buildSigninRedirectUrl,
+	getPostSigninRedirect,
+	getSafeRedirectPath,
+} from "../../../lib/auth/redirects";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { createLogger } from "../../../lib/logging";
+
+function buildSigninErrorRedirect(
+	errorCode: string,
+	{
+		email,
+		redirectPath,
+	}: {
+		email?: string;
+		redirectPath?: string | null;
+	},
+): string {
+	const url = new URL(
+		buildSigninRedirectUrl(redirectPath ?? null),
+		"http://internal",
+	);
+	url.searchParams.set("error", errorCode);
+	if (email) {
+		url.searchParams.set("email", email);
+	}
+	return `${url.pathname}${url.search}`;
+}
 
 export const POST: APIRoute = async ({
 	request,
@@ -19,6 +45,10 @@ export const POST: APIRoute = async ({
 	const supabase = createSupabaseServerClient();
 
 	const formData = await request.formData();
+	const redirectParam = formData.get("redirect");
+	const redirectPath = getSafeRedirectPath(
+		typeof redirectParam === "string" ? redirectParam : null,
+	);
 	const parsed = parseWithSchema(formData, {
 		email: { type: "string", required: true },
 		password: { type: "string", required: true, trim: false },
@@ -30,9 +60,13 @@ export const POST: APIRoute = async ({
 			errors: parsed.allErrors,
 		});
 		const email = formData.get("email");
-		const emailParam =
-			typeof email === "string" ? `&email=${encodeURIComponent(email)}` : "";
-		return redirect(`/signin?error=invalid_form${emailParam}`);
+		const emailParam = typeof email === "string" ? email : undefined;
+		return redirect(
+			buildSigninErrorRedirect("invalid_form", {
+				email: emailParam,
+				redirectPath,
+			}),
+		);
 	}
 
 	const email = parsed.data.email.trim();
@@ -54,7 +88,10 @@ export const POST: APIRoute = async ({
 				status: error.status,
 			});
 			return redirect(
-				`/signin?error=captcha_required&email=${encodeURIComponent(email)}`,
+				buildSigninErrorRedirect("captcha_required", {
+					email,
+					redirectPath,
+				}),
 			);
 		}
 
@@ -79,7 +116,10 @@ export const POST: APIRoute = async ({
 		}
 
 		return redirect(
-			`/signin?error=invalid_credentials&email=${encodeURIComponent(email)}`,
+			buildSigninErrorRedirect("invalid_credentials", {
+				email,
+				redirectPath,
+			}),
 		);
 	}
 
@@ -89,11 +129,14 @@ export const POST: APIRoute = async ({
 			reason: "missing_session",
 		});
 		return redirect(
-			`/signin?error=no_session&email=${encodeURIComponent(email)}`,
+			buildSigninErrorRedirect("no_session", {
+				email,
+				redirectPath,
+			}),
 		);
 	}
 
 	const { access_token, refresh_token } = data.session;
 	setAuthCookies(cookies, access_token, refresh_token);
-	return redirect("/dashboard");
+	return redirect(getPostSigninRedirect(redirectPath));
 };

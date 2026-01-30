@@ -2,12 +2,11 @@ import { afterAll, afterEach, beforeAll, expect, vi } from "vitest";
 import {
 	adminClient,
 	getRealStockSymbols,
-	resetDatabase,
 	verifyDatabaseSchemaUpToDate,
 	verifySupabaseAdminAccess,
 } from "./utils";
 
-export { adminClient, resetDatabase };
+export { adminClient };
 
 export const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 export const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -51,7 +50,6 @@ afterAll(() => {
 beforeAll(async () => {
 	await verifySupabaseAdminAccess();
 	await verifyDatabaseSchemaUpToDate();
-	await resetDatabase();
 	// Preload stock data once for all tests (cached after first load)
 	getRealStockSymbols(1);
 });

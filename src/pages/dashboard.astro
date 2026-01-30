@@ -5,6 +5,7 @@ import DashboardPanels from "../components/dashboard/DashboardPanels.vue";
 import type { StockOption } from "../components/dashboard/stocks/StockInput.vue";
 import Navigation from "../components/Navigation.astro";
 import Layout from "../layouts/Layout.astro";
+import { buildSigninRedirectUrl } from "../lib/auth/redirects";
 import { createUserService, getUserStocks } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 import { rootLogger } from "../lib/logging";
@@ -28,7 +29,8 @@ if (!authUser) {
 		page: "dashboard",
 		reason: "unauthenticated",
 	});
-	return Astro.redirect("/");
+	const returnTo = `${Astro.url.pathname}${Astro.url.search}`;
+	return Astro.redirect(buildSigninRedirectUrl(returnTo));
 }
 const [dbUser, userStocks] = await Promise.all([
 	users.getById(authUser.id),

@@ -150,6 +150,21 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		return new Response("Unauthorized", { status: 401 });
 	}
 
+	// Support manual sends: run-scheduled-cron.sh --force sends { force: true } so we
+	// process all digest-enabled users immediately instead of only those with next_send_at <= now.
+	let forceSend = false;
+	try {
+		const contentType = request.headers.get("content-type") ?? "";
+		if (contentType.includes("application/json")) {
+			const body = await request.json();
+			if (body && typeof body === "object" && body.force === true) {
+				forceSend = true;
+			}
+		}
+	} catch {
+		// Ignore invalid or empty body; treat as normal run.
+	}
+
 	const supabase = createSupabaseAdminClient();
 
 	try {
@@ -158,7 +173,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		const currentTime = DateTime.utc();
 		const currentTimeIso = getUtcIso(currentTime);
 
-		const { data, error: usersError } = await supabase
+		let query = supabase
 			.from("users")
 			.select(
 				`
@@ -179,10 +194,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			.eq("daily_digest_enabled", true)
 			.not("next_send_at", "is", null)
 			.not("daily_digest_notification_times", "is", null)
-			.lte("next_send_at", currentTimeIso)
 			.or(
 				"email_notifications_enabled.eq.true,sms_notifications_enabled.eq.true",
 			);
+		// When forceSend (manual send), skip due-time filter so notifications go out immediately.
+		if (!forceSend) {
+			query = query.lte("next_send_at", currentTimeIso);
+		}
+		const { data, error: usersError } = await query;
 
 		if (usersError) {
 			const errorMsg =

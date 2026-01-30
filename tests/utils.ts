@@ -39,6 +39,8 @@ function getTestEnv(): TestEnv {
 
 const testEnv = getTestEnv();
 
+const TEST_RUN_ID = process.env.TEST_RUN_ID ?? randomUUID();
+
 export const adminClient = createClient(
 	testEnv.supabaseUrl,
 	testEnv.supabaseServiceRoleKey,
@@ -129,6 +131,31 @@ export function getRealStockSymbols(count: number): string[] {
 	}
 
 	return shuffled.slice(0, count);
+}
+
+export function getTestRunId(): string {
+	return TEST_RUN_ID;
+}
+
+export function createTestEmail(prefix = "test"): string {
+	const safePrefix = prefix
+		.trim()
+		.replace(/[^a-zA-Z0-9-]+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.toLowerCase();
+	const normalizedPrefix = safePrefix.length > 0 ? safePrefix : "test";
+	return `${normalizedPrefix}-${TEST_RUN_ID}-${randomUUID()}@resend.dev`;
+}
+
+function tagEmailAddress(baseEmail: string): string {
+	const atIndex = baseEmail.indexOf("@");
+	if (atIndex === -1) {
+		return createTestEmail(baseEmail || "test");
+	}
+
+	const localPart = baseEmail.slice(0, atIndex);
+	const domain = baseEmail.slice(atIndex + 1);
+	return `${localPart}+${TEST_RUN_ID}-${randomUUID()}@${domain}`;
 }
 
 export async function verifySupabaseAdminAccess() {
@@ -284,9 +311,10 @@ export async function createTestUser(
 	options: CreateTestUserOptions = {},
 ): Promise<TestUser> {
 	const email =
-		options.email ||
-		process.env.TEST_EMAIL_RECIPIENT ||
-		`test-${randomUUID()}@resend.dev`;
+		options.email ??
+		(process.env.TEST_EMAIL_RECIPIENT
+			? tagEmailAddress(process.env.TEST_EMAIL_RECIPIENT)
+			: createTestEmail("test"));
 	const password = options.password || "TestPassword123!";
 	const timezone = options.timezone || "America/New_York";
 	const smsNotificationsEnabled = options.smsNotificationsEnabled ?? false;

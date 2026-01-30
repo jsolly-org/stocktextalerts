@@ -7,7 +7,10 @@ import {
 	verifySupabaseOtp,
 } from "../../lib/auth/supabase-otp";
 import { createUserService } from "../../lib/db";
-import { createSupabaseServerClient } from "../../lib/db/supabase";
+import {
+	createSupabaseAdminClient,
+	createSupabaseServerClient,
+} from "../../lib/db/supabase";
 import { rootLogger } from "../../lib/logging";
 
 const supabase = createSupabaseServerClient();
@@ -57,6 +60,43 @@ if (tokenHash && type === null) {
 		});
 		return Astro.redirect("/signin?error=verification_failed");
 	}
+
+	if (type === "email_change") {
+		const adminClient = createSupabaseAdminClient();
+		const { data: authData, error: authError } =
+			await adminClient.auth.admin.getUserById(data.user.id);
+		if (authError || !authData?.user?.email) {
+			rootLogger.error(
+				"Failed to load updated auth email after verification",
+				{
+					userId: data.user.id,
+					hasEmail: Boolean(authData?.user?.email),
+				},
+				authError ?? undefined,
+			);
+			return Astro.redirect("/profile?error=email_change_failed");
+		}
+
+		// Trim email to satisfy our database constraints (no leading/trailing whitespace).
+		// Supabase Auth doesn't enforce this constraint (external service owns its storage/constraints).
+		const normalizedEmail = authData.user.email.trim();
+		const { error: updateError } = await adminClient
+			.from("users")
+			.update({ email: normalizedEmail })
+			.eq("id", data.user.id);
+
+		if (updateError) {
+			rootLogger.error(
+				"Failed to sync updated email to user profile",
+				{ userId: data.user.id, email: normalizedEmail },
+				updateError,
+			);
+			return Astro.redirect("/profile?error=email_change_failed");
+		}
+
+		return Astro.redirect("/profile?success=email_updated");
+	}
+
 	// Clean up URL to prevent token reuse attempts on refresh
 	return Astro.redirect("/auth/verified");
 } else {

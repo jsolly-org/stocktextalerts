@@ -182,10 +182,13 @@ When running Supabase locally, emails are intercepted by Mailpit. View them at <
 ## Testing
 
 ```bash
+npm run db:start
 npm run test
 npm run test:e2e
 npm run fix
 ```
+
+Tests use unique identifiers per run instead of assuming a clean database. If you need a clean local DB, run `npm run db:reset` manually.
 
 ## Usage
 

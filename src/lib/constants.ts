@@ -111,6 +111,10 @@ export const MESSAGE_ALLOWLIST = {
 	password_reset_sent:
 		"If an account exists for that email, a reset link has been sent.",
 	verification_email_sent: "Verification email sent! Check your inbox.",
+	email_change_requested:
+		"Check your old and new inboxes to confirm the email change.",
+	email_updated: "Email updated successfully.",
+	email_change_failed: "Email update failed. Please try again.",
 	password_reset:
 		"Password updated successfully! You can now sign in with your new password.",
 	account_deleted: "Your account has been permanently deleted.",

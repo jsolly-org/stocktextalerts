@@ -7,21 +7,26 @@ import {
 	getAuthErrorMessage,
 	getAuthSuccessMessage,
 } from "../lib/auth/messages";
+import {
+	getPostSigninRedirect,
+	getSafeRedirectPath,
+} from "../lib/auth/redirects";
 import { createUserService } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
-const user = await users.getCurrentUser();
-if (user) {
-	return Astro.redirect("/dashboard");
-}
 const search = Astro.url.searchParams;
 const errorCode = search.get("error");
 const errorMessage = getAuthErrorMessage(errorCode);
 const successCode = search.get("success");
 const successMessage = getAuthSuccessMessage(successCode);
 const emailPrefill = search.get("email") ?? "";
+const redirectPath = getSafeRedirectPath(search.get("redirect"));
+const user = await users.getCurrentUser();
+if (user) {
+	return Astro.redirect(getPostSigninRedirect(redirectPath));
+}
 ---
 <Layout title="Sign In" description="Sign in to your Stock Text Alerts account.">
   <main id="main-content" class="min-h-screen bg-gray-50 flex flex-col justify-center px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
@@ -46,6 +51,7 @@ const emailPrefill = search.get("email") ?? "";
         emailPrefill={emailPrefill}
         errorMessage={errorMessage}
         successMessage={successMessage}
+				redirectPath={redirectPath}
       />
     </div>
   </main>

@@ -28,19 +28,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install Cursor CLI
-        run: |
-          # NOTE: This uses Cursor's official installer (https://cursor.com/install) via `curl | bash`.
-          # Cursor does not publish signed artifacts/checksums for this install flow, so this is an
-          # explicit supply-chain risk we accept for this workflow (ephemeral GitHub Actions runner).
-          curl https://cursor.com/install -fsS | bash
-          # Cursor installs to `$HOME/.cursor/bin`; expose it via GITHUB_PATH for later steps.
-          echo "$HOME/.cursor/bin" >> $GITHUB_PATH
-
-      - name: Configure git identity
-        run: |
-          git config user.name "$CURSOR_AGENT_NAME"
-          git config user.email "$CURSOR_AGENT_EMAIL"
+      - name: Setup Cursor CLI
+        uses: ./.github/shared/setup-cursor
+        with:
+          git_name: ${{ env.CURSOR_AGENT_NAME }}
+          git_email: ${{ env.CURSOR_AGENT_EMAIL }}
 
       - name: Find branch and fix CI failure
         env:
