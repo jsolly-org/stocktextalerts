@@ -65,7 +65,7 @@ export function useScheduledDigestTiming(options: {
 			return null;
 		}
 		if (secondsUntil <= 0) {
-			return "Your next digest is due soon";
+			return "is due soon";
 		}
 		return `in ${formatCountdownWithSeconds(secondsUntil)}`;
 	});

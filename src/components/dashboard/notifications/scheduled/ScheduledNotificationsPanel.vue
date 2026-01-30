@@ -91,6 +91,7 @@ interface Props {
 	smsEnabled: boolean;
 	smsOptedOut: boolean;
 	phoneVerified: boolean;
+	onFormChanged?: () => void;
 	isSaving?: boolean;
 	flashMessages?: FlashMessage[];
 	savedPreferences?: {
@@ -107,6 +108,7 @@ const {
 	smsEnabled,
 	smsOptedOut,
 	phoneVerified,
+	onFormChanged,
 	flashMessages,
 	isSaving,
 } = toRefs(props);
@@ -189,6 +191,7 @@ watch(
 	(hasChannel, previousHasChannel) => {
 		if (previousHasChannel === false && hasChannel && !dailyDigestEnabled.value) {
 			dailyDigestEnabled.value = true;
+			onFormChanged.value?.();
 		}
 	},
 );
