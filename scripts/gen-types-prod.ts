@@ -36,10 +36,7 @@ function buildHeader(): string {
 }
 
 function main(): void {
-  const supabaseUrl = process.env.PUBLIC_SUPABASE_URL;
-  if (!supabaseUrl) {
-    throw new Error("PUBLIC_SUPABASE_URL must be set in .env.local");
-  }
+  const supabaseUrl = process.env.PUBLIC_SUPABASE_URL as string;
 
   const projectRef = getProjectRef(supabaseUrl);
   const types = execFileSync(
