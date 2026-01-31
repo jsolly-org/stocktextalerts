@@ -6,6 +6,7 @@ import {
 	type SupabaseEmailOtpType,
 	verifySupabaseOtp,
 } from "../../lib/auth/supabase-otp";
+import { clearAuthCookies } from "../../lib/auth/cookies";
 import { createUserService } from "../../lib/db";
 import {
 	createSupabaseAdminClient,
@@ -94,7 +95,8 @@ if (tokenHash && type === null) {
 			return Astro.redirect("/profile?error=email_change_failed");
 		}
 
-		return Astro.redirect("/profile?success=email_updated");
+		clearAuthCookies(Astro.cookies);
+		return Astro.redirect("/auth/signin?success=email_updated");
 	}
 
 	// Clean up URL to prevent token reuse attempts on refresh
