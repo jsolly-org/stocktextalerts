@@ -138,9 +138,9 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 
 ### 4. Generate Seed File
 
-The `db:generate-seed` script requires a running Supabase instance because `scripts/generate-seed.ts` calls `supabase.auth.admin.listUsers()`.
+The `db:generate-seed` script tries to list existing Supabase Auth users (via `supabase.auth.admin.listUsers()`) so it can reuse IDs when regenerating `supabase/seed.sql`. If Supabase isn't running or Auth isn't ready yet, it will still generate a valid seed file with new UUIDs.
 
-Start Supabase first:
+Start Supabase (recommended):
 
 ```bash
 npx supabase start
@@ -162,10 +162,10 @@ This creates `supabase/seed.sql` with test user data.
 
 ### 5. Start Local Development
 
-After generating `supabase/seed.sql`, reset Supabase to load the seed:
+Reset Supabase to apply migrations and load the seed (this also regenerates `supabase/seed.sql` and database types):
 
 ```bash
-npx supabase db reset
+npm run db:reset
 ```
 
 Start the Astro development server:
@@ -184,11 +184,12 @@ When running Supabase locally, emails are intercepted by Mailpit. View them at <
 ```bash
 npm run db:start
 npm run test
+npm run test:ci
 npm run test:e2e
 npm run fix
 ```
 
-Tests use unique identifiers per run instead of assuming a clean database. If you need a clean local DB, run `npm run db:reset` manually.
+For local development, `npm run test` runs `npm run db:reset` first to ensure your Supabase DB matches the current migrations and seed data. CI uses `npm run test:ci` to skip the automatic reset (faster on fresh runners).
 
 ## Usage
 
