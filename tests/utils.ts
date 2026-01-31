@@ -184,10 +184,16 @@ export async function verifySupabaseAdminAccess() {
 	});
 	if (!error) return;
 
+	const errorDetail =
+		error.message ||
+		(typeof error === "object" && error !== null
+			? JSON.stringify(error)
+			: String(error));
+
 	throw new Error(
 		[
 			"Supabase admin auth failed in tests. This usually means SUPABASE_SERVICE_ROLE_KEY does not match PUBLIC_SUPABASE_URL.",
-			`Error: ${error.message}`,
+			`Error: ${errorDetail}`,
 			"Fix: ensure PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, and DATABASE_URL all point to the same Supabase project (recommended: local `supabase start`, then copy values from `supabase status`).",
 		].join("\n"),
 	);
@@ -220,6 +226,42 @@ export async function cleanupTestUser(userId: string): Promise<void> {
 
 	if (errors.length > 0) {
 		throw new Error(`Test cleanup failed: ${errors.join("; ")}`);
+	}
+}
+
+export async function cleanupAllNonPreservedUsers(): Promise<void> {
+	const client = new Client({ connectionString: databaseUrl });
+	await client.connect();
+
+	try {
+		const preservedUserIds = [PRESERVED_USER_ID];
+
+		// Deleting from users cascades to user_stocks and notification_log
+		await client.query(`DELETE FROM public.users WHERE id != ALL($1::uuid[])`, [
+			preservedUserIds,
+		]);
+
+		const { rows: authUsers } = await client.query(
+			`SELECT id FROM auth.users WHERE id != ALL($1::uuid[])`,
+			[preservedUserIds],
+		);
+
+		await Promise.all(
+			authUsers.map(async (user) => {
+				const { error: deleteError } = await adminClient.auth.admin.deleteUser(
+					user.id,
+				);
+				if (deleteError) {
+					throw new Error(`Failed to delete auth user ${user.id}`, {
+						cause: deleteError,
+					});
+				}
+			}),
+		);
+	} catch (error) {
+		throw new Error("Test user cleanup failed", { cause: error });
+	} finally {
+		await client.end();
 	}
 }
 

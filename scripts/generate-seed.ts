@@ -53,8 +53,8 @@ const ERROR_HINTS: Partial<Record<SeedErrorCode, string[]>> = {
   ],
   non_local_supabase_url: [
     "\n💡 Hint: Seed script is blocked from running against non-local Supabase.",
-    "   - Use a local Supabase instance for seeding",
-    "   - Set SEED_ENV=local only if you understand the risks",
+    "   - Use a local Supabase instance for seeding (see .env.local)",
+    "   - Run npm run db:reset:prod for production",
   ],
   default_password_missing: [
     "\n💡 Hint: DEFAULT_PASSWORD is required in .env.local",
@@ -334,7 +334,7 @@ async function main() {
   // Check for required environment variables
   const supabaseUrl = process.env.PUBLIC_SUPABASE_URL;
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const seedEnv = process.env.SEED_ENV;
+  const allowProd = process.argv.includes("--prod");
 
   // Seed scripts run outside middleware, so env validation lives here.
   if (!supabaseUrl || !supabaseServiceRoleKey) {
@@ -357,10 +357,17 @@ async function main() {
   const isLocalSupabase =
     supabaseHost === 'localhost' || supabaseHost === '127.0.0.1';
 
-  if (!isLocalSupabase && seedEnv !== 'local') {
+  if (!isLocalSupabase && !allowProd) {
     throw new SeedError(
       "non_local_supabase_url",
-      `Refusing to use SUPABASE_SERVICE_ROLE_KEY against non-local Supabase URL (${supabaseUrl}). Set SEED_ENV=local to override.`,
+      `Refusing to use SUPABASE_SERVICE_ROLE_KEY against non-local Supabase URL (${supabaseUrl}). Pass --prod to override.`,
+    );
+  }
+
+  if (!isLocalSupabase && allowProd) {
+    rootLogger.info(
+      "Running against production Supabase (--prod). seed.sql will be applied by db:reset:prod.",
+      { context: { supabaseHost } },
     );
   }
 

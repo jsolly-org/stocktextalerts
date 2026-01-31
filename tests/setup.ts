@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, expect, vi } from "vitest";
 import {
 	adminClient,
+	cleanupAllNonPreservedUsers,
 	getRealStockSymbols,
 	verifyDatabaseSchemaUpToDate,
 	verifySupabaseAdminAccess,
@@ -48,6 +49,7 @@ afterAll(() => {
 });
 
 beforeAll(async () => {
+	await cleanupAllNonPreservedUsers();
 	await verifySupabaseAdminAccess();
 	await verifyDatabaseSchemaUpToDate();
 	// Preload stock data once for all tests (cached after first load)
