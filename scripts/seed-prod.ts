@@ -23,4 +23,9 @@ function main(): void {
   });
 }
 
-main();
+try {
+  main();
+} catch (error) {
+  rootLogger.error("Seed production failed.", { context: { error: String(error) } });
+  process.exit(1);
+}

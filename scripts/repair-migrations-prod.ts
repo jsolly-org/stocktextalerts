@@ -49,4 +49,9 @@ function main(): void {
   );
 }
 
-main();
+try {
+  main();
+} catch (error) {
+  rootLogger.error("Repair migrations failed.", { context: { error: String(error) } });
+  process.exit(1);
+}

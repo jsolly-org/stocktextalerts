@@ -55,4 +55,9 @@ function main(): void {
   });
 }
 
-main();
+try {
+  main();
+} catch (error) {
+  rootLogger.error("Generate production types failed.", { context: { error: String(error) } });
+  process.exit(1);
+}
