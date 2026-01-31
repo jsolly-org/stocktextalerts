@@ -55,6 +55,10 @@ function main(): void {
 try {
   main();
 } catch (error) {
-  rootLogger.error("Generate production types failed.", { context: { error: String(error) } });
+  rootLogger.error(
+    "Generate production types failed.",
+    { context: { outputPath: OUTPUT_PATH } },
+    error instanceof Error ? error : new Error(String(error)),
+  );
   process.exit(1);
 }
