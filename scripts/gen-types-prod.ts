@@ -36,7 +36,7 @@ function buildHeader(): string {
 }
 
 function main(): void {
-  const supabaseUrl = process.env.PUBLIC_SUPABASE_URL as string;
+  const supabaseUrl = process.env.PUBLIC_SUPABASE_URL!;
 
   const projectRef = getProjectRef(supabaseUrl);
   const types = execFileSync(
@@ -58,7 +58,7 @@ try {
   rootLogger.error(
     "Generate production types failed.",
     { context: { outputPath: OUTPUT_PATH } },
-    error instanceof Error ? error : new Error(String(error)),
+    error,
   );
   process.exit(1);
 }

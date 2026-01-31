@@ -9,7 +9,7 @@ const projectRoot = path.join(__dirname, "..");
 const SEED_PATH = path.join(projectRoot, "supabase", "seed.sql");
 
 function main(): void {
-  const databaseUrl = process.env.DATABASE_URL as string;
+  const databaseUrl = process.env.DATABASE_URL!;
 
   rootLogger.info("Applying seed.sql to production via psql.", {
     context: { seedPath: SEED_PATH },
@@ -23,6 +23,6 @@ function main(): void {
 try {
   main();
 } catch (error) {
-  rootLogger.error("Seed production failed.", { context: { error: String(error) } });
+  rootLogger.error("Seed production failed.", { context: { seedPath: SEED_PATH } }, error);
   process.exit(1);
 }
