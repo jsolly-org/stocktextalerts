@@ -7,6 +7,7 @@
 		>
 			<p v-if="user.phone_verified && !isEditingPhone" class="flex items-center gap-1.5 text-sm text-gray-600">
 				<CheckCircleIcon class="size-4 text-success-strong shrink-0" aria-hidden="true" />
+				<span class="sr-only">Phone verified: </span>
 				<span>{{ formattedVerifiedPhone }}</span>
 				<span class="text-gray-400 mx-0.5" aria-hidden="true">·</span>
 				<button
