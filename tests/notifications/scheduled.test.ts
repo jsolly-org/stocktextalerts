@@ -198,8 +198,11 @@ describe("Scheduled Notifications Integration", () => {
 			expect(scheduled.attempt_count).toBe(1);
 			expect(["sent", "failed"]).toContain(scheduled.status);
 		} finally {
-			if (id) await cleanupTestUser(id);
-			vi.unstubAllEnvs();
+			try {
+				if (id) await cleanupTestUser(id);
+			} finally {
+				vi.unstubAllEnvs();
+			}
 		}
 	});
 
