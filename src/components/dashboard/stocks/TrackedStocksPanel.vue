@@ -39,7 +39,7 @@
 			</h2>
 			<span
 				class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700"
-				aria-label="{{ draftStocks.length }} {{ draftStocks.length === 1 ? 'stock' : 'stocks' }} tracked"
+				:aria-label="`${draftStocks.length} ${draftStocks.length === 1 ? 'stock' : 'stocks'} tracked`"
 			>
 				{{ draftStocks.length }}
 			</span>
