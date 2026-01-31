@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       INTERNAL_MARKER: "<!-- cursor-agent-workflow:internal -->"
-      WORKFLOW_FILE: agents/cursor-agent-on-pr-comment.yml
+      WORKFLOW_FILE: .github/workflows/cursor-agent-on-pr-comment.yml
       CURSOR_AGENT_NAME: "Cursor Agent"
       CURSOR_AGENT_EMAIL: "cursoragent@cursor.com"
     steps:
