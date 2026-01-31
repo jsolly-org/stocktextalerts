@@ -246,7 +246,7 @@ export async function cleanupAllNonPreservedUsers(): Promise<void> {
 			[preservedUserIds],
 		);
 
-		await Promise.all(
+		const results = await Promise.allSettled(
 			authUsers.map(async (user) => {
 				const { error: deleteError } = await adminClient.auth.admin.deleteUser(
 					user.id,
@@ -258,6 +258,16 @@ export async function cleanupAllNonPreservedUsers(): Promise<void> {
 				}
 			}),
 		);
+
+		const deleteErrors = results
+			.filter((result) => result.status === 'rejected')
+			.map((result) => result.reason);
+
+		if (deleteErrors.length > 0) {
+			throw deleteErrors.length === 1
+				? deleteErrors[0]
+				: new AggregateError(deleteErrors, 'Multiple user deletions failed');
+		}
 	} catch (error) {
 		throw new Error("Test user cleanup failed", { cause: error });
 	} finally {
