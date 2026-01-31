@@ -220,9 +220,6 @@ watch(dailyDigestEnabled, () => {
 
 function handleDailyDigestEnabledUpdate(value: boolean) {
 	dailyDigestEnabled.value = value;
-	if (value && dailyDigestTimesMinutes.value.length === 0) {
-		dailyDigestTimesMinutes.value = [DEFAULT_DIGEST_TIME_MINUTES];
-	}
 	onFormChanged.value?.();
 }
 
