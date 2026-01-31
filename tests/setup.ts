@@ -49,9 +49,9 @@ afterAll(() => {
 });
 
 beforeAll(async () => {
-	await cleanupAllNonPreservedUsers();
-	await verifySupabaseAdminAccess();
 	await verifyDatabaseSchemaUpToDate();
+	await verifySupabaseAdminAccess();
+	await cleanupAllNonPreservedUsers();
 	// Preload stock data once for all tests (cached after first load)
 	getRealStockSymbols(1);
 });
