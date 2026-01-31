@@ -71,7 +71,7 @@ runs:
         echo "VERCEL_URL=http://localhost:4321" >> $GITHUB_ENV
     - name: Test
       shell: bash
-      run: npm test
+      run: npm run test:ci
     - name: Build application
       shell: bash
       run: npm run build
