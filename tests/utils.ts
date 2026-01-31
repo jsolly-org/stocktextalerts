@@ -260,13 +260,13 @@ export async function cleanupAllNonPreservedUsers(): Promise<void> {
 		);
 
 		const deleteErrors = results
-			.filter((result) => result.status === 'rejected')
+			.filter((result) => result.status === "rejected")
 			.map((result) => result.reason);
 
 		if (deleteErrors.length > 0) {
 			throw deleteErrors.length === 1
 				? deleteErrors[0]
-				: new AggregateError(deleteErrors, 'Multiple user deletions failed');
+				: new AggregateError(deleteErrors, "Multiple user deletions failed");
 		}
 	} catch (error) {
 		throw new Error("Test user cleanup failed", { cause: error });

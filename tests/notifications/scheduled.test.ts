@@ -127,22 +127,24 @@ describe("Scheduled Notifications Integration", () => {
 		}
 		const dailyDigestNotificationTime = nowLocal.hour * 60 + nowLocal.minute;
 
-		vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
-		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-		vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
-
-		const { id } = await createTestUser({
-			timezone,
-			emailNotificationsEnabled: false,
-			smsNotificationsEnabled: true,
-			phoneVerified: true,
-			smsOptedOut: false,
-			dailyDigestEnabled: true,
-			dailyDigestNotificationTimes: [dailyDigestNotificationTime],
-			trackedStocks: ["AAPL"],
-		});
-
+		let id: string | undefined;
 		try {
+			vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
+			vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+			vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
+
+			const user = await createTestUser({
+				timezone,
+				emailNotificationsEnabled: false,
+				smsNotificationsEnabled: true,
+				phoneVerified: true,
+				smsOptedOut: false,
+				dailyDigestEnabled: true,
+				dailyDigestNotificationTimes: [dailyDigestNotificationTime],
+				trackedStocks: ["AAPL"],
+			});
+			id = user.id;
+
 			const { error: updateError } = await adminClient
 				.from("users")
 				.update({ next_send_at: DateTime.utc().toISO() })
@@ -196,7 +198,7 @@ describe("Scheduled Notifications Integration", () => {
 			expect(scheduled.attempt_count).toBe(1);
 			expect(["sent", "failed"]).toContain(scheduled.status);
 		} finally {
-			await cleanupTestUser(id);
+			if (id) await cleanupTestUser(id);
 			vi.unstubAllEnvs();
 		}
 	});
