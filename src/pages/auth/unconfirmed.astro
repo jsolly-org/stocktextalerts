@@ -20,7 +20,7 @@ if (success === "true") {
 	message = formatMessage(error) || formatMessage("failed");
 }
 ---
-<Layout title="Verify Your Email" description="Please verify your email address to continue">
+<Layout title="Verify Your Email" description="Please verify your email address to continue. Check your inbox for the confirmation link from Stock Text Alerts, then sign in to access your account.">
   <main id="main-content" class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-md w-full space-y-8">
       <header class="text-center">
@@ -96,7 +96,7 @@ if (success === "true") {
           </form>
           
           <div class="text-center">
-            <a href="/signin" class="link-primary inline-flex items-center gap-2">
+            <a href="/auth/signin" class="link-primary inline-flex items-center gap-2">
               <Icon name="arrow-left" class="size-4" aria-hidden="true" />
               Back to sign in
             </a>

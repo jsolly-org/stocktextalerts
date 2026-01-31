@@ -6,12 +6,12 @@ import { rootLogger } from "../../src/lib/logging";
 import AuthForgotPage from "../../src/pages/auth/forgot.astro";
 import AuthRecoverPage from "../../src/pages/auth/recover.astro";
 import AuthRegisterPage from "../../src/pages/auth/register.astro";
+import SignInPage from "../../src/pages/auth/signin.astro";
 import AuthUnconfirmedPage from "../../src/pages/auth/unconfirmed.astro";
 import AuthVerifiedPage from "../../src/pages/auth/verified.astro";
 import DashboardPage from "../../src/pages/dashboard.astro";
 import IndexPage from "../../src/pages/index.astro";
 import ProfilePage from "../../src/pages/profile.astro";
-import SignInPage from "../../src/pages/signin.astro";
 import { allowConsoleWarnings, errorSpy, warnSpy } from "../setup";
 import {
 	cleanupTestUser,
@@ -105,7 +105,7 @@ describe("Page routes render without unexpected logs", () => {
 	it("renders the sign-in page when unauthenticated", async () => {
 		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(SignInPage, {
-			request: buildRequest("/signin"),
+			request: buildRequest("/auth/signin"),
 		});
 
 		expect(response.status).toBe(200);
@@ -119,7 +119,7 @@ describe("Page routes render without unexpected logs", () => {
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toBe(
-			"/signin?redirect=%2Fdashboard",
+			"/auth/signin?redirect=%2Fdashboard",
 		);
 	});
 
@@ -160,7 +160,7 @@ describe("Page routes render without unexpected logs", () => {
 			async (_user, cookies) => {
 				const container = await AstroContainer.create({ renderers });
 				const response = await container.renderToResponse(SignInPage, {
-					request: buildRequest("/signin", cookies),
+					request: buildRequest("/auth/signin", cookies),
 				});
 
 				expect(response.status).toBe(302);
@@ -179,7 +179,7 @@ describe("Page routes render without unexpected logs", () => {
 			async (_user, cookies) => {
 				const container = await AstroContainer.create({ renderers });
 				const response = await container.renderToResponse(SignInPage, {
-					request: buildRequest("/signin?redirect=/dashboard", cookies),
+					request: buildRequest("/auth/signin?redirect=/dashboard", cookies),
 				});
 
 				expect(response.status).toBe(302);
@@ -189,6 +189,7 @@ describe("Page routes render without unexpected logs", () => {
 	});
 
 	const authPages = [
+		{ component: SignInPage, path: "/auth/signin" },
 		{ component: AuthRegisterPage, path: "/auth/register" },
 		{ component: AuthForgotPage, path: "/auth/forgot" },
 		{ component: AuthRecoverPage, path: "/auth/recover" },

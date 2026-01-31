@@ -51,14 +51,14 @@ if (tokenHash && type === null) {
 				},
 				error,
 			);
-			return Astro.redirect("/signin?error=invalid_verification");
+			return Astro.redirect("/auth/signin?error=invalid_verification");
 		}
 	// Verify the user's email is actually confirmed
 	if (!data.user.email_confirmed_at) {
 		rootLogger.error("User email not confirmed after token verification", {
 			userId: data.user.id,
 		});
-		return Astro.redirect("/signin?error=verification_failed");
+		return Astro.redirect("/auth/signin?error=verification_failed");
 	}
 
 	if (type === "email_change") {
@@ -108,11 +108,12 @@ if (tokenHash && type === null) {
 			hasSession: Boolean(user),
 			emailConfirmed: Boolean(user?.email_confirmed_at),
 		});
-		return Astro.redirect("/signin?error=invalid_verification");
+		return Astro.redirect("/auth/signin?error=invalid_verification");
 	}
 }
 const title = "Email Verified";
-const description = "Your email has been successfully verified.";
+const description =
+	"Your email has been successfully verified. You can now sign in to Stock Text Alerts to manage your tracked stocks and notification preferences.";
 ---
 <Layout title={title} description={description}>
   <main id="main-content" class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -145,7 +146,7 @@ const description = "Your email has been successfully verified.";
 
         <div class="mt-6">
           <a
-            href="/signin"
+            href="/auth/signin"
             class="btn btn-md btn-primary w-full"
           >
             Sign In

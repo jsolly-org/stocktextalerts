@@ -113,7 +113,7 @@ describe("POST /api/auth/signin", () => {
 
 		expect(response.status).toBe(302);
 		const location = response.headers.get("Location");
-		expect(location).toContain("/signin?error=invalid_credentials");
+		expect(location).toContain("/auth/signin?error=invalid_credentials");
 		expect(location).toContain(encodeURIComponent(nonExistentEmail));
 	});
 
@@ -149,7 +149,7 @@ describe("POST /api/auth/signin", () => {
 
 			expect(response.status).toBe(302);
 			const location = response.headers.get("Location");
-			expect(location).toContain("/signin?error=invalid_credentials");
+			expect(location).toContain("/auth/signin?error=invalid_credentials");
 			expect(location).toContain(encodeURIComponent(testUser.email));
 		} finally {
 			await cleanupTestUser(testUser.id);
@@ -181,7 +181,7 @@ describe("POST /api/auth/signin", () => {
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toContain(
-			"/signin?error=invalid_form",
+			"/auth/signin?error=invalid_form",
 		);
 	});
 });

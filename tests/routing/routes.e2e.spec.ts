@@ -143,9 +143,9 @@ test("visits all routes without unexpected console output", async ({
 			});
 		});
 
-		activeRoute = "/signin";
+		activeRoute = "/auth/signin";
 		const loginIssuesBefore = consoleIssues.length;
-		await page.goto("/signin", { waitUntil: "domcontentloaded" });
+		await page.goto("/auth/signin", { waitUntil: "domcontentloaded" });
 
 		if (consoleIssues.length > loginIssuesBefore) {
 			const newIssues = consoleIssues
@@ -155,7 +155,7 @@ test("visits all routes without unexpected console output", async ({
 						`${issue.type.toUpperCase()}: ${issue.message} (route: ${issue.route || "unknown"})`,
 				);
 			throw new Error(
-				`Unexpected console output on /signin: ${newIssues.join("; ")}`,
+				`Unexpected console output on /auth/signin: ${newIssues.join("; ")}`,
 			);
 		}
 
@@ -192,7 +192,7 @@ test("visits all routes without unexpected console output", async ({
 
 			const finalPath = new URL(page.url()).pathname;
 			const isSigninRedirect =
-				route === "/signin" && finalPath === "/dashboard";
+				route === "/auth/signin" && finalPath === "/dashboard";
 			if (!isSigninRedirect && finalPath !== route) {
 				throw new Error(`Route ${route} redirected to ${finalPath}`);
 			}

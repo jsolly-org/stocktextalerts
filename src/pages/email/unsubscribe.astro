@@ -67,7 +67,7 @@ if (userId && token) {
 	}
 }
 ---
-<Layout title="Email Unsubscribe" description="Update your email notifications">
+<Layout title="Email Unsubscribe" description="Update your email notifications. Unsubscribe from Stock Text Alerts digest emails or adjust your notification preferences using your unique link.">
 	<main
 		id="main-content"
 		class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8"
@@ -85,7 +85,7 @@ if (userId && token) {
 			<StatusMessage tone={tone}>{message}</StatusMessage>
 
 			<div>
-				<a href="/signin" class="btn btn-md btn-primary w-full">
+				<a href="/auth/signin" class="btn btn-md btn-primary w-full">
 					Sign in to adjust schedule
 				</a>
 			</div>

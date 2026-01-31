@@ -26,7 +26,7 @@ export const POST: APIRoute = async ({
 		logger.info("Email change requested without authenticated user", {
 			reason: "unauthenticated",
 		});
-		return redirect("/signin?error=unauthorized");
+		return redirect("/auth/signin?error=unauthorized");
 	}
 
 	const formData = await request.formData();

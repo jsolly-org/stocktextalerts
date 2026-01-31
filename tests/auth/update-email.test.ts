@@ -53,7 +53,9 @@ describe("POST /api/auth/update-email", () => {
 		} as APIContext);
 
 		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe("/signin?error=unauthorized");
+		expect(response.headers.get("Location")).toBe(
+			"/auth/signin?error=unauthorized",
+		);
 	});
 
 	it("redirects to profile after successful request", async () => {

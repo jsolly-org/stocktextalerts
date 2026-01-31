@@ -107,5 +107,5 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 		return redirect(buildRecoverRedirect("update_failed"), 303);
 	}
 
-	return redirect("/signin?success=password_reset", 303);
+	return redirect("/auth/signin?success=password_reset", 303);
 };

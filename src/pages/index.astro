@@ -19,7 +19,7 @@ const search = Astro.url.searchParams;
 const errorMessage = formatMessage(search.get("error"));
 const successMessage = formatMessage(search.get("success"));
 ---
-<Layout title="Stock Text Alerts" description="Get a daily digest for your tracked stocks—delivered via email and optional text messages.">
+<Layout title="Stock Text Alerts" description="Get a daily digest for your tracked stocks—delivered via email and optional text messages. Track US stocks, set your time and timezone, and choose email or SMS alerts.">
   <div class="min-h-screen bg-white">
     <header>
       <Navigation user={user || undefined} />
