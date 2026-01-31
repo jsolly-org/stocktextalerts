@@ -30,10 +30,10 @@ export function getSafeRedirectPath(value: string | null): string | null {
 export function buildSigninRedirectUrl(path: string | null): string {
 	const safePath = getSafeRedirectPath(path);
 	if (!safePath) {
-		return "/signin";
+		return "/auth/signin";
 	}
 
-	const url = new URL("/signin", "http://internal");
+	const url = new URL("/auth/signin", "http://internal");
 	url.searchParams.set("redirect", safePath);
 	return `${url.pathname}${url.search}`;
 }

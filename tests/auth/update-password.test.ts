@@ -161,7 +161,7 @@ describe("POST /api/auth/update-password", () => {
 
 		expect(response.status).toBe(303);
 		expect(response.headers.get("Location")).toBe(
-			"/signin?success=password_reset",
+			"/auth/signin?success=password_reset",
 		);
 	});
 });

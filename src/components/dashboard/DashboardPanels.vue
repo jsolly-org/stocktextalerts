@@ -57,7 +57,6 @@
 			:smsOptedOut="smsOptedOut"
 			:phoneVerified="phoneVerified"
 			:onFormChanged="notifyPreferencesChange"
-			:isSaving="isPreferencesSaving"
 			:savedPreferences="savedPreferences"
 		/>
 	</form>

@@ -32,7 +32,7 @@ if (error === "user_already_exists") {
 	showSignInLink = true;
 }
 ---
-<Layout title="Register" description="Create a new account">
+<Layout title="Register | Stock Text Alerts" description="Create a new Stock Text Alerts account. Sign up to get a daily digest for your tracked US stocks via email and optional text messages.">
   <div class="min-h-screen bg-gray-50">
     <header>
       <Navigation />
@@ -50,7 +50,7 @@ if (error === "user_already_exists") {
         <header>
           <h1 class="mt-6 text-center text-2xl sm:text-3xl font-extrabold text-gray-900">Register</h1>
           <p class="mt-2 text-center text-sm text-gray-600">
-            Already have an account? <a href="/signin" class="link-primary">Sign in</a>
+            Already have an account? <a href="/auth/signin" class="link-primary">Sign in</a>
           </p>
         </header>
 
@@ -58,7 +58,7 @@ if (error === "user_already_exists") {
           <StatusMessage class="mb-4" tone="error">
             <span>{message}</span>
             {showSignInLink && (
-              <> <a href="/signin" class="link-primary">Sign in</a>.</>
+              <> <a href="/auth/signin" class="link-primary">Sign in</a>.</>
             )}
           </StatusMessage>
         )}

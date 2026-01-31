@@ -1,18 +1,18 @@
 ---
 
 import { Icon } from "astro-icon/components";
-import SignInCard from "../components/landing/SignInCard.astro";
-import Layout from "../layouts/Layout.astro";
+import SignInCard from "../../components/landing/SignInCard.astro";
+import Layout from "../../layouts/Layout.astro";
 import {
 	getAuthErrorMessage,
 	getAuthSuccessMessage,
-} from "../lib/auth/messages";
+} from "../../lib/auth/messages";
 import {
 	getPostSigninRedirect,
 	getSafeRedirectPath,
-} from "../lib/auth/redirects";
-import { createUserService } from "../lib/db";
-import { createSupabaseServerClient } from "../lib/db/supabase";
+} from "../../lib/auth/redirects";
+import { createUserService } from "../../lib/db";
+import { createSupabaseServerClient } from "../../lib/db/supabase";
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
@@ -28,7 +28,7 @@ if (user) {
 	return Astro.redirect(getPostSigninRedirect(redirectPath));
 }
 ---
-<Layout title="Sign In" description="Sign in to your Stock Text Alerts account.">
+<Layout title="Sign In | Stock Text Alerts" description="Sign in to your Stock Text Alerts account to manage your tracked stocks, digest schedule, and email or SMS notification preferences.">
   <main id="main-content" class="min-h-screen bg-gray-50 flex flex-col justify-center px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
     <header class="sm:mx-auto sm:w-full sm:max-w-md">
       <div class="flex justify-center">
@@ -38,9 +38,9 @@ if (user) {
           </div>
         </a>
       </div>
-      <h2 class="mt-6 text-center text-2xl sm:text-3xl font-extrabold text-gray-900">
+      <h1 class="mt-6 text-center text-2xl sm:text-3xl font-extrabold text-gray-900">
         Sign in to your account
-      </h2>
+      </h1>
       <p class="mt-2 text-center text-sm text-gray-600">
         Or <a href="/auth/register" class="link-primary">start tracking for free</a>
       </p>
@@ -56,4 +56,3 @@ if (user) {
     </div>
   </main>
 </Layout>
-

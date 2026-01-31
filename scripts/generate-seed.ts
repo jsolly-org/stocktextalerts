@@ -240,7 +240,18 @@ async function generateUsersSql(
     );
   }
 
-  const existingUsers = await listAllAuthUsers(supabase);
+  let existingUsers: AuthUser[];
+  try {
+    existingUsers = await listAllAuthUsers(supabase);
+  } catch (err) {
+    // Supabase may be down or auth not ready (e.g. before first db reset). Proceed with no
+    // existing users so we assign new UUIDs; seed file is still valid and db reset will apply it.
+    rootLogger.info(
+      "Could not list existing auth users; proceeding with new IDs.",
+      { context: { cause: err instanceof Error ? err.message : String(err) } },
+    );
+    existingUsers = [];
+  }
   const existingUserIdByEmail = new Map(
     existingUsers
       .map((u) => [u.email?.toLowerCase(), u.id] as const)
