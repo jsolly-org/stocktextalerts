@@ -6,13 +6,17 @@ import { adminClient } from "../setup";
 import { cleanupTestUser, createTestUser } from "../utils";
 
 describe("Scheduled Notifications Integration", () => {
+	const testCronSecret = "test-cron-secret";
+
 	beforeEach(() => {
 		vi.useFakeTimers();
 		vi.setSystemTime(DateTime.fromISO("2026-01-12T15:00:00.000Z").toJSDate());
+		vi.stubEnv("CRON_SECRET", testCronSecret);
 	});
 
 	afterEach(() => {
 		vi.useRealTimers();
+		vi.unstubAllEnvs();
 	});
 
 	it("sends email notifications to eligible users via Resend", async () => {
@@ -41,15 +45,11 @@ describe("Scheduled Notifications Integration", () => {
 			expect(updateError).toBeNull();
 
 			// 2. Execute Scheduled Job
-			const cronSecret = "test-cron-secret";
-			vi.stubEnv("CRON_SECRET", cronSecret);
-			// Ensure environment matches (mocking request header is enough if app checks env)
-
 			const createRequest = () =>
 				new Request("http://localhost/api/notifications/scheduled", {
 					method: "POST",
 					headers: {
-						Authorization: `Bearer ${cronSecret}`,
+						Authorization: `Bearer ${testCronSecret}`,
 					},
 				});
 
@@ -111,11 +111,7 @@ describe("Scheduled Notifications Integration", () => {
 				expect(log.error).toBeTruthy();
 			}
 		} finally {
-			try {
-				await cleanupTestUser(id);
-			} finally {
-				vi.unstubAllEnvs();
-			}
+			await cleanupTestUser(id);
 		}
 	});
 
@@ -132,8 +128,6 @@ describe("Scheduled Notifications Integration", () => {
 			vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
 			vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
 			vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
-			const cronSecret = "test-cron-secret";
-			vi.stubEnv("CRON_SECRET", cronSecret);
 
 			const user = await createTestUser({
 				timezone,
@@ -157,7 +151,7 @@ describe("Scheduled Notifications Integration", () => {
 				request: new Request("http://localhost/api/notifications/scheduled", {
 					method: "POST",
 					headers: {
-						Authorization: `Bearer ${cronSecret}`,
+						Authorization: `Bearer ${testCronSecret}`,
 					},
 				}),
 			} as APIContext);
@@ -193,11 +187,7 @@ describe("Scheduled Notifications Integration", () => {
 			expect(scheduled.attempt_count).toBe(1);
 			expect(["sent", "failed"]).toContain(scheduled.status);
 		} finally {
-			try {
-				if (id) await cleanupTestUser(id);
-			} finally {
-				vi.unstubAllEnvs();
-			}
+			if (id) await cleanupTestUser(id);
 		}
 	});
 });
