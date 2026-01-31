@@ -324,13 +324,32 @@ export async function resetDatabase() {
 	}
 }
 
+const POSTGRES_UNDEFINED_TABLE = "42P01";
+
 export async function verifyDatabaseSchemaUpToDate() {
 	const client = new Client({ connectionString: databaseUrl });
 	await client.connect();
 	try {
-		const { rows } = await client.query<{ value: string }>(
-			"select value from public.app_metadata where key = 'schema_version'",
-		);
+		let rows: { value: string }[];
+		try {
+			const result = await client.query<{ value: string }>(
+				"select value from public.app_metadata where key = 'schema_version'",
+			);
+			rows = result.rows;
+		} catch (queryError: unknown) {
+			const code = (queryError as { code?: string })?.code;
+			if (code === POSTGRES_UNDEFINED_TABLE) {
+				throw new Error(
+					[
+						"Database schema not applied (public.app_metadata does not exist).",
+						"Ensure Supabase is running (`npm run db:start`) then run `npm run db:reset` to apply migrations.",
+						"Re-run `npm test` after the schema is applied.",
+					].join("\n"),
+					{ cause: queryError },
+				);
+			}
+			throw queryError;
+		}
 
 		const version = rows[0]?.value;
 		if (version !== EXPECTED_DB_SCHEMA_VERSION) {
