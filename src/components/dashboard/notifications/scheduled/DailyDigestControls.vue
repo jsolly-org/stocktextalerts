@@ -91,21 +91,6 @@
 				</button>
 			</div>
 		</fieldset>
-		<div class="mt-4 flex flex-wrap items-center justify-end gap-3">
-			<button
-				type="submit"
-				class="btn btn-sm btn-primary"
-				:disabled="saveDisabled"
-				:aria-busy="isSaving"
-			>
-				<ArrowPathIcon
-					v-if="isSaving"
-					class="animate-spin size-4 shrink-0"
-					aria-hidden="true"
-				/>
-				{{ isSaving ? "Saving…" : "Update Delivery Times" }}
-			</button>
-		</div>
 		<div v-if="!needsChannelSelection" class="mt-4 border-t border-gray-200 pt-4">
 			<p v-if="isHydrated && countdownText" class="inline-flex items-center gap-2 text-sm text-gray-600">
 				<BellAlertIcon class="size-4 shrink-0 text-success-strong" aria-hidden="true" />
@@ -119,7 +104,6 @@
 import { computed, onMounted, ref } from "vue";
 
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
-import ArrowPathIcon from "../../../../icons/arrow-path.svg?component";
 import BellAlertIcon from "../../../../icons/bell-alert.svg?component";
 import PlusIcon from "../../../../icons/plus.svg?component";
 import TimePicker from "./TimePicker.vue";
@@ -130,8 +114,6 @@ interface Props {
 	needsChannelSelection: boolean;
 	timePickerDisabled: boolean;
 	canAddTime: boolean;
-	saveDisabled: boolean;
-	isSaving: boolean;
 	countdownText: string | null;
 }
 

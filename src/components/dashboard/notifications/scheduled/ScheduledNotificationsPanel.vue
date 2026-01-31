@@ -48,8 +48,6 @@
 				:needsChannelSelection="needsChannelSelection"
 				:timePickerDisabled="timePickerDisabled"
 				:canAddTime="canAddTime"
-				:saveDisabled="saveDisabled"
-				:isSaving="isSaving ?? false"
 				:countdownText="countdownText"
 				@time-change="handleTimeChange"
 				@add-time="handleAddTime"
@@ -96,7 +94,6 @@ interface Props {
 	smsOptedOut: boolean;
 	phoneVerified: boolean;
 	onFormChanged?: () => void;
-	isSaving?: boolean;
 	flashMessages?: FlashMessage[];
 	savedPreferences?: {
 		next_send_at: string | null;
@@ -114,7 +111,6 @@ const {
 	phoneVerified,
 	onFormChanged,
 	flashMessages,
-	isSaving,
 } = toRefs(props);
 
 const dailyDigestEnabled = ref(user.value.daily_digest_enabled);
@@ -220,28 +216,6 @@ watch(dailyDigestEnabled, () => {
 		dailyDigestTimesMinutes.value = [DEFAULT_DIGEST_TIME_MINUTES];
 	}
 });
-
-const baselineTimes = computed(() =>
-	normalizeDigestTimes(user.value.daily_digest_notification_times ?? []),
-);
-const hasPendingScheduleChanges = computed(() => {
-	if (dailyDigestEnabled.value !== user.value.daily_digest_enabled) {
-		return true;
-	}
-	const currentTimes = normalizeDigestTimes(dailyDigestTimesMinutes.value);
-	if (currentTimes.length !== baselineTimes.value.length) {
-		return true;
-	}
-	return currentTimes.some(
-		(value, index) => value !== baselineTimes.value[index],
-	);
-});
-const saveDisabled = computed(
-	() =>
-		!hasPendingScheduleChanges.value ||
-		needsChannelSelection.value ||
-		Boolean(isSaving?.value),
-);
 
 function handleTimeChange(index: number, value: string) {
 	const parsedMinutes = parseTimeToMinutes(value);
