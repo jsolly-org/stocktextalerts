@@ -24,7 +24,12 @@ const { email } = Astro.props;
 					class="w-full px-4 py-3 border border-gray-300 rounded-md bg-gray-100 text-gray-500"
 				/>
 			</div>
-			<form class="space-y-3" action="/api/auth/update-email" method="post">
+			<form
+				class="space-y-3"
+				action="/api/auth/update-email"
+				method="post"
+				data-current-email={email}
+			>
 				<div>
 					<label
 						for="new-email"
@@ -40,16 +45,59 @@ const { email } = Astro.props;
 						required
 						class="w-full px-4 py-3 border border-gray-300 rounded-md"
 						placeholder="you@company.com"
+						aria-describedby="email-change-help"
 					/>
-					<p class="mt-2 text-sm text-gray-500">
+					<p id="email-change-help" class="mt-2 text-sm text-gray-500">
 						We will send confirmation links to both your current and new email
 						addresses. The change only completes after both are confirmed.
 					</p>
+					<p
+						id="email-same-feedback"
+						class="mt-2 text-sm text-warning-text hidden"
+						role="status"
+						aria-live="polite"
+					>
+						This is already your current email address.
+					</p>
 				</div>
-				<button class="btn btn-md btn-primary" type="submit">
-					Request email change
+				<button
+					id="save-email-btn"
+					class="btn btn-md btn-primary"
+					type="submit"
+					disabled
+				>
+					Update email
 				</button>
 			</form>
 		</div>
 	</div>
 </section>
+<script>
+	const form = document.querySelector(
+		'form[action="/api/auth/update-email"]',
+	) as HTMLFormElement | null;
+	if (form) {
+		const input = form.querySelector<HTMLInputElement>("#new-email");
+		const submitBtn = form.querySelector<HTMLButtonElement>("#save-email-btn");
+		const sameFeedback = form.querySelector<HTMLParagraphElement>(
+			"#email-same-feedback",
+		);
+		const currentEmail =
+			form.dataset.currentEmail?.trim().toLowerCase() ?? "";
+
+		if (input && submitBtn && sameFeedback) {
+			const updateState = () => {
+				const newEmail = input.value.trim().toLowerCase();
+				const isSame =
+					currentEmail.length > 0 && newEmail.length > 0 && newEmail === currentEmail;
+
+				sameFeedback.classList.toggle("hidden", !isSame);
+				submitBtn.disabled =
+					!input.validity.valid || !input.value.trim() || isSame;
+			};
+			input.addEventListener("input", updateState);
+			input.addEventListener("change", updateState);
+			updateState();
+		}
+	}
+</script>

@@ -1,16 +1,19 @@
 <template>
-	<section :id="DASHBOARD_SECTION_IDS.notificationChannels" class="space-y-3">
+	<section :id="DASHBOARD_SECTION_IDS.notificationChannels" class="space-y-4">
 		<header>
 			<h2 class="text-xl sm:text-2xl font-bold text-gray-900">
 				Notification Channels
 			</h2>
-			<p class="text-sm text-gray-600 mt-1">
+			<p :id="notificationChannelsDescId" class="text-sm text-gray-600 mt-1.5">
 				Choose how you want to receive alerts.
 			</p>
 		</header>
-		<fieldset class="rounded-md border border-gray-200 divide-y divide-gray-200">
+		<fieldset
+			class="rounded-lg border border-gray-200 divide-y divide-gray-200"
+			:aria-describedby="notificationChannelsDescId"
+		>
 			<legend class="sr-only">Notification channels</legend>
-			<label class="flex items-start gap-3 p-3 cursor-pointer transition-colors hover:bg-gray-50">
+			<label class="flex items-start gap-3 p-4 cursor-pointer transition-colors hover:bg-gray-50 focus-within:bg-gray-50">
 				<input
 					type="hidden"
 					name="email_notifications_enabled"
@@ -19,7 +22,7 @@
 				<input
 					type="checkbox"
 					:id="emailNotificationsEnabledId"
-					class="mt-0.5 h-6 w-6 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+					class="mt-0.5 h-6 w-6 rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
 					v-model="emailEnabledValue"
 				/>
 				<span class="text-sm">
@@ -30,33 +33,48 @@
 				</span>
 			</label>
 
-			<label class="flex items-start gap-3 p-3 cursor-pointer transition-colors hover:bg-gray-50">
-				<input
-					v-if="canSaveSmsEnabled"
-					type="hidden"
-					name="sms_notifications_enabled"
-					:value="smsEnabledValue ? 'on' : 'off'"
-				/>
-				<input
-					type="checkbox"
-					:id="smsNotificationsEnabledId"
-					class="mt-0.5 h-6 w-6 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-					v-model="smsEnabledValue"
-				/>
-				<span class="text-sm">
-					<span class="font-medium text-gray-900">SMS Notifications</span>
-					<span class="block text-gray-500">
-						Notifications will be sent to a phone number you provide.
+			<div>
+				<label class="flex items-start gap-3 p-4 cursor-pointer transition-colors hover:bg-gray-50 focus-within:bg-gray-50">
+					<input
+						v-if="canSaveSmsEnabled"
+						type="hidden"
+						name="sms_notifications_enabled"
+						:value="smsEnabledValue ? 'on' : 'off'"
+					/>
+					<input
+						type="checkbox"
+						:id="smsNotificationsEnabledId"
+						class="mt-0.5 h-6 w-6 rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+						v-model="smsEnabledValue"
+					/>
+					<span class="text-sm">
+						<span class="font-medium text-gray-900">SMS Notifications</span>
+						<span class="block text-gray-500">
+							Notifications will be sent to a phone number you provide.
+						</span>
 					</span>
-				</span>
-			</label>
+				</label>
+
+				<SmsVerificationSection
+					v-if="!user.sms_opted_out"
+					:user="user"
+					:sms-enabled="smsEnabledValue"
+					:is-editing-phone="isEditingPhone"
+					:success-message="successMessage"
+					:send-verification-disabled="sendVerificationDisabled"
+					:is-verifying-code="isVerifyingCode"
+					:is-sending-verification="isSendingVerification"
+					@phone-validity-changed="emit('phone-validity-changed', $event)"
+					@phone-editing-changed="emit('phone-editing-changed', $event)"
+				/>
+			</div>
 		</fieldset>
 
 		<StatusMessage v-if="showTimeReminder" tone="warning">
 			Choose a
 			<button
 				type="button"
-				class="underline cursor-pointer hover:text-warning-text/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning focus-visible:ring-offset-2"
+				class="underline rounded cursor-pointer hover:text-warning-text/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning focus-visible:ring-offset-2"
 				@click="scrollToScheduled"
 			>
 				delivery time
@@ -68,19 +86,6 @@
 			You have opted out of SMS notifications. To re-enable, reply START to any
 			message from us or update your notification settings in your account.
 		</StatusMessage>
-
-		<SmsVerificationSection
-			v-if="!user.sms_opted_out"
-			:user="user"
-			:sms-enabled="smsEnabledValue"
-			:is-editing-phone="isEditingPhone"
-			:success-message="successMessage"
-			:send-verification-disabled="sendVerificationDisabled"
-			:is-verifying-code="isVerifyingCode"
-			:is-sending-verification="isSendingVerification"
-			@phone-validity-changed="emit('phone-validity-changed', $event)"
-			@phone-editing-changed="emit('phone-editing-changed', $event)"
-		/>
 	</section>
 </template>
 
@@ -127,6 +132,7 @@ const smsEnabledValue = computed({
 
 const emailNotificationsEnabledId = `${DASHBOARD_FORM_ID}-email_notifications_enabled`;
 const smsNotificationsEnabledId = `${DASHBOARD_FORM_ID}-sms_notifications_enabled`;
+const notificationChannelsDescId = `${DASHBOARD_FORM_ID}-notification-channels-desc`;
 
 function scrollToScheduled() {
 	const el = document.getElementById(DASHBOARD_SECTION_IDS.scheduled);
