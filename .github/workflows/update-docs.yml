@@ -3,6 +3,7 @@ name: Update Docs
 on:
   pull_request:
     types: [closed]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -10,7 +11,7 @@ permissions:
 
 jobs:
   docs:
-    if: ${{ github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login == 'jsolly' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login == 'jsolly') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -42,6 +43,7 @@ jobs:
           # Context:
           - Repo: ${{ github.repository }}
           - Owner: ${{ github.repository_owner }}
+          - Trigger: ${{ github.event_name }}
           - PR Number: ${{ github.event.pull_request.number }}
           - Base Ref: ${{ github.event.pull_request.base.ref }}
           - Head Ref: ${{ github.event.pull_request.head.ref }}
@@ -50,16 +52,16 @@ jobs:
           - Merge Commit SHA: ${{ github.event.pull_request.merge_commit_sha }}
 
           # Goal:
-          - Update \`README.md\` on \`main\` based on the merged PR changes, then commit + push directly to \`main\` (no follow-up PR).
+          - Update \`README.md\` on \`main\`, then commit + push directly to \`main\` (no follow-up PR).
 
           # Requirements:
-          1) Determine what changed in the merged PR using \`gh pr diff ${{ github.event.pull_request.number }}\` (or \`git diff BASE_SHA HEAD_SHA\` with the PR base and head SHAs from Context). This inspects the full set of PR commits, including rebase merges; do NOT use merge-commit-vs-parent diff.
-          2) Update only README.md based on those changes. Do NOT update any other documentation files.
-          3) Commit and push changes directly to \`main\`. Only create a commit if \`README.md\` changed.
-          4) Do NOT create or edit pull requests.
+          1) If Trigger is \`pull_request\` (PR Number and SHAs are set): determine what changed in the merged PR using \`gh pr diff <PR_NUMBER>\` or \`git diff <BASE_SHA> <HEAD_SHA>\` (PR-level diff; do NOT use merge-commit-vs-parent). Update README.md based on those changes.
+          2) If Trigger is \`workflow_dispatch\` (manual run; PR Number/SHAs may be empty): review the current state of the codebase on \`main\` and update README.md to accurately reflect it.
+          3) Update only README.md. Do NOT update any other documentation files.
+          4) Commit and push changes directly to \`main\`. Only create a commit if \`README.md\` changed.
+          5) Do NOT create or edit pull requests.
 
           # Inputs and conventions:
-          - Use \`gh pr diff <PR_NUMBER>\` or \`git diff <BASE_SHA> <HEAD_SHA>\` (with PR base/head from Context) to obtain the PR-level diff. Use that diff to detect changes; do not use merge-commit-vs-parent comparison.
           - Only update README.md. Do not modify any other files.
           - If no README updates are necessary, make no changes and do not commit.
           - Keep changes minimal and consistent with repo style.
@@ -68,7 +70,7 @@ jobs:
           - You are checked out on \`main\`. After updating README.md, run \`git status --porcelain\` to confirm only README.md changed.
           - If README.md changed, run:
             - \`git add README.md\`
-            - \`git commit -m \"docs: update README for PR #${{ github.event.pull_request.number }}\" \`
+            - \`git commit -m \"docs: update README for PR #${{ github.event.pull_request.number }}\" \` when Trigger is \`pull_request\`, or \`git commit -m \"docs: update README (manual trigger)\" \` when Trigger is \`workflow_dispatch\`
             - \`git push origin main\`
 
           # Deliverables when updates occur:
