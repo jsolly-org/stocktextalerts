@@ -30,16 +30,19 @@
 
 		<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.teal}`"></div>
 		<div class="card-body">
-		<header class="mb-4">
+		<header class="flex items-center gap-2 mb-4">
 			<h2
 				:id="DASHBOARD_SECTION_IDS.stocks"
 				class="text-xl sm:text-2xl font-bold text-gray-900"
 			>
-				Your Tracked Stocks
+				Tracked Stocks
 			</h2>
-			<p class="text-sm text-gray-600 mt-1">
-				Select stock tickers to include in your daily digest.
-			</p>
+			<span
+				class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700"
+				:aria-label="`${draftStocks.length} ${draftStocks.length === 1 ? 'stock' : 'stocks'} tracked`"
+			>
+				{{ draftStocks.length }}
+			</span>
 		</header>
 
 		<div v-if="flashMessages.length" class="space-y-2 mb-4">
@@ -55,54 +58,40 @@
 		<input type="hidden" name="tracked_stocks" :value="trackedStocksValue" />
 
 		<fieldset class="mb-6">
-			<legend class="sr-only">Stock selection</legend>
-			<div class="space-y-2">
-				<label for="stock_search" class="text-sm font-medium text-gray-700">
-					Search stocks
-				</label>
-				<p id="stock_search_help" class="text-xs text-gray-500">
-					Type a symbol or company name, then press Enter to select.
-				</p>
+			<legend class="sr-only">Add stocks</legend>
+			<div>
+				<label for="stock_search" class="sr-only">Search by symbol or company name</label>
 				<StockInput
 					:stock-options="stockOptions"
-					inputAriaDescribedBy="stock_search_help"
 					@select="handleSelect"
 				/>
 			</div>
 		</fieldset>
 
-		<section aria-labelledby="tracked-stocks-list-heading">
-			<div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-				<h3 id="tracked-stocks-list-heading" class="text-base sm:text-lg font-semibold text-gray-900">
-					Your Stocks
-				</h3>
-				<p class="text-xs font-medium text-gray-500">
-					{{ draftStocks.length }} {{ draftStocks.length === 1 ? "tracked stock" : "tracked stocks" }}
-				</p>
-			</div>
+		<section :aria-label="`${draftStocks.length} tracked ${draftStocks.length === 1 ? 'stock' : 'stocks'}`">
 			<div v-if="draftStocks.length === 0" class="text-center py-10 px-4 sm:py-12 sm:px-6 bg-linear-to-b from-gray-50 to-white rounded-xl border-2 border-dashed border-gray-200">
-				<div class="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-gray-100">
-					<ChartBarIcon class="h-8 w-8 text-gray-400" aria-hidden="true" focusable="false" />
+				<div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-gray-100">
+					<ChartBarIcon class="h-6 w-6 text-gray-400" aria-hidden="true" focusable="false" />
 				</div>
-				<h4 class="mt-4 text-base font-semibold text-gray-900">No stocks tracked yet</h4>
-				<p class="mt-2 text-sm text-gray-500 max-w-xs mx-auto">
-					Search for stocks above to add them to your daily digest.
-				</p>
+				<p class="mt-3 text-sm text-gray-500">Search above to add stocks.</p>
 			</div>
-			<ul v-else class="space-y-2">
+			<ul v-else class="space-y-2" role="list">
 				<li
 					v-for="stock in draftStocks"
 					:key="stock.symbol"
-					class="flex flex-col gap-2 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors sm:flex-row sm:items-center sm:justify-between"
+					class="group flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
 				>
-					<span class="min-w-0 font-medium text-gray-900 wrap-break-word">{{ stock.symbol }} - {{ stock.name }}</span>
+					<span class="min-w-0 text-sm font-medium text-gray-900 truncate">
+						<span class="font-semibold">{{ stock.symbol }}</span>
+						<span class="text-gray-500"> · {{ stock.name }}</span>
+					</span>
 					<button
 						type="button"
-						class="btn btn-sm btn-ghost text-error-text hover:bg-error-bg hover:text-error-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 self-start sm:self-auto"
-						:aria-label="`Remove stock ${stock.symbol}`"
+						class="shrink-0 rounded p-1.5 text-gray-400 hover:text-error-text hover:bg-error-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 transition-colors"
+						:aria-label="`Remove ${stock.symbol}`"
 						@click="removeSymbol(stock.symbol)"
 					>
-						Remove stock
+						<XMarkIcon class="h-4 w-4" aria-hidden="true" focusable="false" />
 					</button>
 				</li>
 			</ul>
@@ -116,6 +105,7 @@ import { computed, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles these to Vue components.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import ChartBarIcon from "../../../icons/chart-bar.svg?component";
+import XMarkIcon from "../../../icons/x-mark.svg?component";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_SECTION_IDS,

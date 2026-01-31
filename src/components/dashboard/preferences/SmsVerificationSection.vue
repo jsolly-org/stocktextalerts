@@ -3,20 +3,22 @@
 		<section
 			v-if="smsEnabled"
 			:id="phoneVerificationSectionId"
-			class="pl-9 pt-2 space-y-4 border-l border-gray-200"
+			class="pl-12 pr-4 pb-3 space-y-3"
 		>
-			<StatusMessage v-if="user.phone_verified && !isEditingPhone" tone="success">
-				<span aria-hidden="true">✓ </span>
-				Phone verified: {{ formattedVerifiedPhone }}
+			<p v-if="user.phone_verified && !isEditingPhone" class="flex items-center gap-1.5 text-sm text-gray-600">
+				<CheckCircleIcon class="size-4 text-success-strong shrink-0" aria-hidden="true" />
+				<span class="sr-only">Phone verified: </span>
+				<span>{{ formattedVerifiedPhone }}</span>
+				<span class="text-gray-400 mx-0.5" aria-hidden="true">·</span>
 				<button
 					type="button"
-					class="ml-2 text-sm text-primary hover:underline cursor-pointer"
+					class="text-primary hover:underline rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
 					@click="handleChangeNumberClick"
 				>
-					Change number
+					Change
 				</button>
-			</StatusMessage>
-			<fieldset v-else :id="phoneVerificationFieldsetId" class="space-y-4">
+			</p>
+			<fieldset v-else :id="phoneVerificationFieldsetId" class="space-y-3">
 				<legend class="sr-only">Phone Verification</legend>
 
 				<SmsPhoneSetup
@@ -47,10 +49,11 @@
 
 <script lang="ts" setup>
 import { computed, nextTick, ref, watch } from "vue";
+// ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
+import CheckCircleIcon from "../../../icons/check-circle-20.svg?component";
 import { DASHBOARD_FORM_ID } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 import { formatPhoneForDisplay } from "../../../lib/format-phone";
-import StatusMessage from "../../StatusMessage.vue";
 import SmsCodeVerification from "./SmsCodeVerification.vue";
 import SmsPhoneSetup from "./SmsPhoneSetup.vue";
 

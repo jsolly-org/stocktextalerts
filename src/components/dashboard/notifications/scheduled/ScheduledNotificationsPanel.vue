@@ -10,19 +10,23 @@
 					>
 						Scheduled Notifications
 					</h2>
-					<p class="text-sm text-gray-600 mt-1 flex flex-wrap items-center gap-2">
-						<span class="text-gray-700">
-							Local time:
-							<span class="font-medium text-gray-900">
-								{{ currentTimeInTimezone ?? "—" }}
+					<p class="text-sm text-gray-600 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+						<span class="inline-flex items-center gap-1.5">
+							<ClockIcon class="size-4 shrink-0 text-gray-500" aria-hidden="true" />
+							<span class="text-gray-700">
+								Local time:
+								<span class="font-medium text-gray-900">
+									{{ currentTimeInTimezone ?? "—" }}
+								</span>
 							</span>
 						</span>
 						<a
 							href="/profile"
-							class="link-primary rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+							class="inline-flex items-center gap-1 link-primary rounded-sm"
 							aria-label="Change timezone in profile settings"
 						>
 							Change timezone
+							<ArrowTopRightOnSquareIcon class="size-3.5 shrink-0" aria-hidden="true" />
 						</a>
 					</p>
 				</div>
@@ -66,6 +70,9 @@
 
 <script lang="ts" setup>
 import { computed, ref, toRefs, watch } from "vue";
+// ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
+import ArrowTopRightOnSquareIcon from "../../../../icons/arrow-top-right-on-square.svg?component";
+import ClockIcon from "../../../../icons/clock.svg?component";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_FORM_ID,
