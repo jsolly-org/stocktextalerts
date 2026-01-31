@@ -125,7 +125,11 @@ function buildEntry(
 		typeof import.meta !== "undefined" && import.meta.env
 			? import.meta.env.LOG_MASK_PII
 			: process.env.LOG_MASK_PII;
-	const maskPiiEnabled = logMaskPiiValue?.toLowerCase() !== "false";
+	const logMaskPiiNormalized =
+		typeof logMaskPiiValue === "string"
+			? logMaskPiiValue
+			: String(logMaskPiiValue ?? "");
+	const maskPiiEnabled = logMaskPiiNormalized.toLowerCase() !== "false";
 	const maskedContext = context
 		? maskPiiInContext(context, maskPiiEnabled)
 		: undefined;
@@ -160,9 +164,13 @@ function writeLog(
 		typeof import.meta !== "undefined" && import.meta.env
 			? import.meta.env.LOG_MASK_PII
 			: process.env.LOG_MASK_PII;
+	const logMaskPiiNormalized =
+		typeof logMaskPiiValue === "string"
+			? logMaskPiiValue
+			: String(logMaskPiiValue ?? "");
 	const output = safeJsonStringify(
 		entry,
-		logMaskPiiValue?.toLowerCase() !== "false",
+		logMaskPiiNormalized.toLowerCase() !== "false",
 	);
 
 	switch (level) {
