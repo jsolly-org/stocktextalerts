@@ -36,11 +36,14 @@ async function deleteAllAuthUsers(
   const supabase = createAdminClient(supabaseUrl, serviceRoleKey);
 
   const perPage = 1000;
-  let page = 1;
   let deleted = 0;
 
   while (true) {
-    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+    // Always fetch page 1: deleting users shifts pagination offsets.
+    const { data, error } = await supabase.auth.admin.listUsers({
+      page: 1,
+      perPage,
+    });
     if (error) {
       throw error;
     }
@@ -55,9 +58,6 @@ async function deleteAllAuthUsers(
       }
       deleted += 1;
     }
-
-    if (users.length < perPage) break;
-    page += 1;
   }
 
   rootLogger.info("Deleted auth users from production.", {
@@ -165,4 +165,11 @@ async function main(): Promise<void> {
   await deleteAllStorage(supabaseUrl, serviceRoleKey);
 }
 
-main();
+main().catch((error) => {
+  rootLogger.error(
+    "❌ Error wiping production database.",
+    { context: { action: "wipe_prod" } },
+    error,
+  );
+  process.exitCode = 1;
+});
