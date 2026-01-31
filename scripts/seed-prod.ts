@@ -9,10 +9,7 @@ const projectRoot = path.join(__dirname, "..");
 const SEED_PATH = path.join(projectRoot, "supabase", "seed.sql");
 
 function main(): void {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
-    throw new Error("DATABASE_URL must be set in .env.local");
-  }
+  const databaseUrl = process.env.DATABASE_URL as string;
 
   rootLogger.info("Applying seed.sql to production via psql.", {
     context: { seedPath: SEED_PATH },
