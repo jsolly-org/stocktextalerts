@@ -185,6 +185,11 @@ ON CONFLICT (value) DO UPDATE SET
   display_order = EXCLUDED.display_order,
   active = EXCLUDED.active;
 
+ALTER TABLE timezones ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Timezones are readable by anyone" ON timezones
+  FOR SELECT USING (true);
+
 /* =============
 Users
 ============= */
