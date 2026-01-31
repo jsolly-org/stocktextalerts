@@ -43,12 +43,13 @@
 			</div>
 
 			<DailyDigestControls
-				v-model:enabled="dailyDigestEnabled"
+				:enabled="dailyDigestEnabled"
 				:dailyDigestTimes="dailyDigestTimes"
 				:needsChannelSelection="needsChannelSelection"
 				:timePickerDisabled="timePickerDisabled"
 				:canAddTime="canAddTime"
 				:countdownText="countdownText"
+				@update:enabled="handleDailyDigestEnabledUpdate"
 				@time-change="handleTimeChange"
 				@add-time="handleAddTime"
 				@remove-time="handleRemoveTime"
@@ -216,6 +217,14 @@ watch(dailyDigestEnabled, () => {
 		dailyDigestTimesMinutes.value = [DEFAULT_DIGEST_TIME_MINUTES];
 	}
 });
+
+function handleDailyDigestEnabledUpdate(value: boolean) {
+	dailyDigestEnabled.value = value;
+	if (value && dailyDigestTimesMinutes.value.length === 0) {
+		dailyDigestTimesMinutes.value = [DEFAULT_DIGEST_TIME_MINUTES];
+	}
+	onFormChanged.value?.();
+}
 
 function handleTimeChange(index: number, value: string) {
 	const parsedMinutes = parseTimeToMinutes(value);
