@@ -1,27 +1,35 @@
 ---
+import { Icon } from "astro-icon/components";
 
 interface Props {
 	action?: string;
 }
 const { action = "/api/auth/delete-account" } = Astro.props;
 ---
-<section class="bg-error-bg/50 rounded-xl shadow-sm border border-error-border p-8" aria-labelledby="danger-zone-heading">
-	<h2 id="danger-zone-heading" class="text-xl font-bold text-error-strong mb-2">Danger Zone</h2>
-	<p class="text-gray-600 mb-6">
-		Once you delete your account, there is no going back. Please be certain.
-	</p>
+<section class="bg-error-bg/50 rounded-xl shadow-sm border border-error-border p-6 sm:p-8" aria-labelledby="danger-zone-heading">
+	<div class="flex items-start gap-4">
+		<div class="flex items-center justify-center w-10 h-10 rounded-lg bg-error-bg shrink-0">
+			<Icon name="exclamation-triangle-24" class="size-7 text-error-strong" aria-hidden="true" />
+		</div>
+		<div class="flex-1 min-w-0">
+			<h2 id="danger-zone-heading" class="text-xl font-bold text-error-strong mb-1">Danger Zone</h2>
+			<p class="text-gray-600 mb-4">
+				Once you delete your account, there is no going back. Please be certain.
+			</p>
 
-	<form data-profile-delete-form action={action} method="post">
-		<fieldset>
-			<legend class="sr-only">Delete account</legend>
-			<button
-				type="submit"
-				class="btn btn-md btn-danger"
-			>
-				Delete Account
-			</button>
-		</fieldset>
-	</form>
+			<form data-profile-delete-form action={action} method="post">
+				<fieldset>
+					<legend class="sr-only">Delete account</legend>
+					<button
+						type="submit"
+						class="btn btn-md btn-danger"
+					>
+						Delete Account
+					</button>
+				</fieldset>
+			</form>
+		</div>
+	</div>
 </section>
 
 <script>
