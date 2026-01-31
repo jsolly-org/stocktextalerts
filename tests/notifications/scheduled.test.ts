@@ -118,4 +118,96 @@ describe("Scheduled Notifications Integration", () => {
 			await cleanupTestUser(id);
 		}
 	});
+
+	it("sends SMS notifications to eligible users", async () => {
+		const timezone = "America/New_York";
+		const nowLocal = DateTime.now().setZone(timezone);
+		if (!nowLocal.isValid) {
+			throw new Error("Invalid timezone for test formatter");
+		}
+		const dailyDigestNotificationTime = nowLocal.hour * 60 + nowLocal.minute;
+
+		vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
+		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+		vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
+
+		const { id } = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: false,
+			smsNotificationsEnabled: true,
+			phoneVerified: true,
+			smsOptedOut: false,
+			dailyDigestEnabled: true,
+			dailyDigestNotificationTimes: [dailyDigestNotificationTime],
+			trackedStocks: ["AAPL"],
+		});
+
+		try {
+			const { error: updateError } = await adminClient
+				.from("users")
+				.update({ next_send_at: DateTime.utc().toISO() })
+				.eq("id", id);
+			expect(updateError).toBeNull();
+
+			const cronSecret = process.env.CRON_SECRET;
+			if (!cronSecret) {
+				throw new Error(
+					"CRON_SECRET environment variable must be set for this test",
+				);
+			}
+
+			const response = await POST({
+				request: new Request("http://localhost/api/notifications/scheduled", {
+					method: "POST",
+					headers: {
+						Authorization: `Bearer ${cronSecret}`,
+					},
+				}),
+			} as APIContext);
+
+			expect(response.status).toBe(200);
+			const json = await response.json();
+			expect(json.success).toBe(true);
+			expect(json.smsSent + json.smsFailed).toBeGreaterThanOrEqual(1);
+
+			const { data: logs, error: logError } = await adminClient
+				.from("notification_log")
+				.select("*")
+				.eq("user_id", id)
+				.eq("delivery_method", "sms")
+				.eq("type", "scheduled_update")
+				.order("created_at", { ascending: false })
+				.limit(10);
+			expect(logError).toBeNull();
+			expect(logs).toHaveLength(1);
+
+			const { data: scheduled, error: scheduledError } = await adminClient
+				.from("scheduled_notifications")
+				.select("status,attempt_count")
+				.eq("user_id", id)
+				.eq("notification_type", "daily_digest")
+				.eq("scheduled_minutes", dailyDigestNotificationTime)
+				.eq("channel", "sms")
+				.maybeSingle();
+			expect(scheduledError).toBeNull();
+			expect(scheduled).toBeTruthy();
+			if (!scheduled)
+				throw new Error("Expected scheduled_notifications row not found");
+			expect(scheduled.attempt_count).toBe(1);
+			expect(["sent", "failed"]).toContain(scheduled.status);
+		} finally {
+			await cleanupTestUser(id);
+			vi.unstubAllEnvs();
+		}
+	});
+
+	it("rejects requests without the cron secret", async () => {
+		const response = await POST({
+			request: new Request("http://localhost/api/notifications/scheduled", {
+				method: "POST",
+			}),
+		} as APIContext);
+
+		expect(response.status).toBe(401);
+	});
 });

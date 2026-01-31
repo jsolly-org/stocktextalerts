@@ -11,7 +11,9 @@ import AuthUnconfirmedPage from "../../src/pages/auth/unconfirmed.astro";
 import AuthVerifiedPage from "../../src/pages/auth/verified.astro";
 import DashboardPage from "../../src/pages/dashboard.astro";
 import IndexPage from "../../src/pages/index.astro";
+import PrivacyPage from "../../src/pages/privacy.astro";
 import ProfilePage from "../../src/pages/profile.astro";
+import TermsPage from "../../src/pages/terms.astro";
 import { allowConsoleWarnings, errorSpy, warnSpy } from "../setup";
 import {
 	cleanupTestUser,
@@ -196,7 +198,24 @@ describe("Page routes render without unexpected logs", () => {
 		{ component: AuthUnconfirmedPage, path: "/auth/unconfirmed" },
 	];
 
+	const staticPages = [
+		{ component: PrivacyPage, path: "/privacy" },
+		{ component: TermsPage, path: "/terms" },
+	];
+
 	it.each(authPages)("renders auth page $path", async ({ component, path }) => {
+		const container = await AstroContainer.create({ renderers });
+		const response = await container.renderToResponse(component, {
+			request: buildRequest(path),
+		});
+
+		expect(response.status).toBe(200);
+	});
+
+	it.each(staticPages)("renders static page $path", async ({
+		component,
+		path,
+	}) => {
 		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(component, {
 			request: buildRequest(path),
