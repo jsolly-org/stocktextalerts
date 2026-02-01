@@ -68,7 +68,10 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 			} as APIContext);
 
 			expect(response.status).toBe(200);
-			const payload = (await response.json()) as { ok: boolean; message: string };
+			const payload = (await response.json()) as {
+				ok: boolean;
+				message: string;
+			};
 			expect(payload.ok).toBe(true);
 			expect(payload.message).toBe("verification_sent");
 
@@ -206,7 +209,10 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 			} as APIContext);
 
 			expect(response.status).toBe(200);
-			const payload = (await response.json()) as { ok: boolean; message: string };
+			const payload = (await response.json()) as {
+				ok: boolean;
+				message: string;
+			};
 			expect(payload.ok).toBe(true);
 			expect(payload.message).toBe("verification_sent");
 
@@ -277,7 +283,10 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 			} as APIContext);
 
 			expect(response.status).toBe(200);
-			const payload = (await response.json()) as { ok: boolean; message: string };
+			const payload = (await response.json()) as {
+				ok: boolean;
+				message: string;
+			};
 			expect(payload.ok).toBe(true);
 			expect(payload.message).toBe("verification_sent");
 
@@ -353,7 +362,10 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 			} as APIContext);
 
 			expect(response.status).toBe(400);
-			const payload = (await response.json()) as { ok: boolean; message: string };
+			const payload = (await response.json()) as {
+				ok: boolean;
+				message: string;
+			};
 			expect(payload.ok).toBe(false);
 			expect(payload.message).toBe("invalid_form");
 			expect(sendVerificationMock).not.toHaveBeenCalled();
@@ -403,7 +415,10 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 			} as APIContext);
 
 			expect(response.status).toBe(400);
-			const payload = (await response.json()) as { ok: boolean; message: string };
+			const payload = (await response.json()) as {
+				ok: boolean;
+				message: string;
+			};
 			expect(payload.ok).toBe(false);
 			expect(payload.message).toBe("sms_opted_out");
 			expect(sendVerificationMock).not.toHaveBeenCalled();
@@ -457,7 +472,10 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 			} as APIContext);
 
 			expect(response.status).toBe(500);
-			const payload = (await response.json()) as { ok: boolean; message: string };
+			const payload = (await response.json()) as {
+				ok: boolean;
+				message: string;
+			};
 			expect(payload.ok).toBe(false);
 			expect(payload.message).toBe("verification_failed");
 

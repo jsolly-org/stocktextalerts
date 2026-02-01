@@ -3,6 +3,7 @@ import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST as POSTDismissBanner } from "../../src/pages/api/preferences/dismiss-timezone-banner";
 import { POST as POSTTimezone } from "../../src/pages/api/preferences/timezone";
+import { TEST_PASSWORD } from "../constants";
 import { allowConsoleErrors } from "../setup";
 import {
 	adminClient,
@@ -10,10 +11,8 @@ import {
 	createAuthenticatedCookies,
 	createTestUser,
 } from "../shared-utils";
-import { TEST_PASSWORD } from "../constants";
 
 describe("A signed-in user dismisses the timezone mismatch banner.", () => {
-
 	it("The banner dismissal is saved so it no longer appears.", async () => {
 		const testUser = await createTestUser({
 			email: `test-dismiss-banner-${randomUUID()}@resend.dev`,

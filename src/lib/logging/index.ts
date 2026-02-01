@@ -98,8 +98,7 @@ function getMaskPiiEnabled(): boolean {
 		typeof import.meta !== "undefined" && import.meta.env
 			? import.meta.env.LOG_MASK_PII
 			: process.env.LOG_MASK_PII;
-	const normalized =
-		typeof value === "string" ? value : String(value ?? "");
+	const normalized = typeof value === "string" ? value : String(value ?? "");
 	return normalized.toLowerCase() !== "false";
 }
 

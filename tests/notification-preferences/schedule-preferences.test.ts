@@ -81,8 +81,7 @@ async function setupScheduledNotificationTest(options: {
 	if (!nowLocal.isValid) {
 		throw new Error("Invalid timezone for test formatter");
 	}
-	const dailyDigestNotificationTime =
-		nowLocal.hour * 60 + nowLocal.minute;
+	const dailyDigestNotificationTime = nowLocal.hour * 60 + nowLocal.minute;
 
 	const userOptions =
 		options.channel === "email"
