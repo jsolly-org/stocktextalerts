@@ -178,7 +178,7 @@ jobs:
           # cancel older pending runs. We want strict FIFO per PR instead, so we implement an
           # explicit queue by waiting until all *earlier* runs for this PR complete.
 
-          WORKFLOW_ID=$(gh api "repos/$REPO/actions/workflows" --jq '.workflows[] | select(.path == $path) | .id' --arg path "$WORKFLOW_FILE" 2>&1)
+          WORKFLOW_ID=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_FILE" --jq '.id' 2>&1)
           WORKFLOW_ID_EXIT=$?
           if [[ $WORKFLOW_ID_EXIT -ne 0 ]] || [[ -z "$WORKFLOW_ID" ]]; then
             echo "Error: Could not find workflow ID for $WORKFLOW_FILE"
@@ -239,7 +239,7 @@ jobs:
           LIMIT=$((NOW - 3600))
 
           # Get workflow ID from the workflow file name
-          WORKFLOW_ID=$(gh api "repos/$REPO/actions/workflows" --jq '.workflows[] | select(.path == $path) | .id' --arg path "$WORKFLOW_FILE" 2>&1)
+          WORKFLOW_ID=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_FILE" --jq '.id' 2>&1)
           WORKFLOW_ID_EXIT=$?
 
           if [[ $WORKFLOW_ID_EXIT -ne 0 ]] || [[ -z "$WORKFLOW_ID" ]]; then
