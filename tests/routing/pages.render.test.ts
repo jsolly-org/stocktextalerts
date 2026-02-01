@@ -14,15 +14,14 @@ import IndexPage from "../../src/pages/index.astro";
 import PrivacyPage from "../../src/pages/privacy.astro";
 import ProfilePage from "../../src/pages/profile.astro";
 import TermsPage from "../../src/pages/terms.astro";
+import { TEST_PASSWORD } from "../constants";
 import { allowConsoleWarnings, errorSpy, warnSpy } from "../setup";
 import {
 	cleanupTestUser,
 	createAuthenticatedCookies,
 	createTestEmail,
 	createTestUser,
-} from "../utils";
-
-const TEST_PASSWORD = "TestPassword123!";
+} from "../shared-utils";
 
 function buildRequest(path: string, cookies?: Map<string, string>) {
 	const headers = new Headers();
@@ -38,7 +37,7 @@ function buildRequest(path: string, cookies?: Map<string, string>) {
 	return new Request(`http://localhost${path}`, { headers });
 }
 
-describe("Page routes render without unexpected logs", () => {
+describe("Users can load pages without unexpected errors.", () => {
 	let renderers: Awaited<ReturnType<typeof loadRenderers>>;
 
 	beforeAll(async () => {
@@ -95,7 +94,7 @@ describe("Page routes render without unexpected logs", () => {
 		}
 	});
 
-	it("renders the landing page", async () => {
+	it("A visitor can view the landing page.", async () => {
 		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(IndexPage, {
 			request: buildRequest("/"),
@@ -104,7 +103,7 @@ describe("Page routes render without unexpected logs", () => {
 		expect(response.status).toBe(200);
 	});
 
-	it("renders the sign-in page when unauthenticated", async () => {
+	it("A logged-out visitor can view the sign-in page.", async () => {
 		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(SignInPage, {
 			request: buildRequest("/auth/signin"),
@@ -113,7 +112,7 @@ describe("Page routes render without unexpected logs", () => {
 		expect(response.status).toBe(200);
 	});
 
-	it("redirects to signin with return path when dashboard accessed unauthenticated", async () => {
+	it("A logged-out visitor is redirected to sign-in when opening the dashboard, with a return path.", async () => {
 		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(DashboardPage, {
 			request: buildRequest("/dashboard"),
@@ -152,7 +151,7 @@ describe("Page routes render without unexpected logs", () => {
 		}
 	}
 
-	it("redirects from sign-in when authenticated", async () => {
+	it("A signed-in user is redirected away from the sign-in page.", async () => {
 		await withTestUser(
 			{
 				email: createTestEmail("test"),
@@ -171,7 +170,7 @@ describe("Page routes render without unexpected logs", () => {
 		);
 	});
 
-	it("redirects to return path from sign-in when authenticated with redirect param", async () => {
+	it("A signed-in user who visits sign-in with a return path is redirected to that destination.", async () => {
 		await withTestUser(
 			{
 				email: createTestEmail("test"),
@@ -203,16 +202,7 @@ describe("Page routes render without unexpected logs", () => {
 		{ component: TermsPage, path: "/terms" },
 	];
 
-	it.each(authPages)("renders auth page $path", async ({ component, path }) => {
-		const container = await AstroContainer.create({ renderers });
-		const response = await container.renderToResponse(component, {
-			request: buildRequest(path),
-		});
-
-		expect(response.status).toBe(200);
-	});
-
-	it.each(staticPages)("renders static page $path", async ({
+	it.each(authPages)("A visitor can access auth page $path.", async ({
 		component,
 		path,
 	}) => {
@@ -224,7 +214,19 @@ describe("Page routes render without unexpected logs", () => {
 		expect(response.status).toBe(200);
 	});
 
-	it("renders verified page for authenticated user", async () => {
+	it.each(staticPages)("A visitor can access static page $path.", async ({
+		component,
+		path,
+	}) => {
+		const container = await AstroContainer.create({ renderers });
+		const response = await container.renderToResponse(component, {
+			request: buildRequest(path),
+		});
+
+		expect(response.status).toBe(200);
+	});
+
+	it("A signed-in user can view the verified page.", async () => {
 		await withTestUser(
 			{
 				email: createTestEmail("test"),
@@ -242,7 +244,7 @@ describe("Page routes render without unexpected logs", () => {
 		);
 	});
 
-	it("renders dashboard for authenticated users", async () => {
+	it("A signed-in user can access the dashboard.", async () => {
 		await withTestUser(
 			{
 				email: createTestEmail("test"),
@@ -263,7 +265,7 @@ describe("Page routes render without unexpected logs", () => {
 		);
 	});
 
-	it("renders profile for authenticated users", async () => {
+	it("A signed-in user can access their profile.", async () => {
 		await withTestUser(
 			{
 				email: createTestEmail("test"),

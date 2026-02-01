@@ -1,17 +1,16 @@
 import type { APIContext } from "astro";
 import { describe, expect, it, vi } from "vitest";
 import { POST } from "../../src/pages/api/auth/delete-account";
-import { adminClient } from "../setup";
+import { TEST_PASSWORD } from "../constants";
 import {
+	adminClient,
 	cleanupTestUser,
 	createAuthenticatedCookies,
 	createTestUser,
-} from "../utils";
+} from "../shared-utils";
 
-const TEST_PASSWORD = "TestPassword123!";
-
-describe("POST /api/auth/delete-account", () => {
-	it("deletes the current user's account", async () => {
+describe("A signed-in user deletes their account from the profile page.", () => {
+	it("The account is removed, auth cookies are cleared, and the user is redirected home with a success message.", async () => {
 		const testUser = await createTestUser({
 			password: TEST_PASSWORD,
 			confirmed: true,

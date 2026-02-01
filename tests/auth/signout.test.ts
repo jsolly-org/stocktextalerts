@@ -2,8 +2,8 @@ import type { APIContext } from "astro";
 import { describe, expect, it, vi } from "vitest";
 import { POST } from "../../src/pages/api/auth/signout";
 
-describe("POST /api/auth/signout", () => {
-	it("clears auth cookies and redirects home", async () => {
+describe("A signed-in user signs out of the app.", () => {
+	it("The user is logged out, auth cookies are cleared, and they return to the home page.", async () => {
 		const deleteSpy = vi.fn();
 		const response = await POST({
 			cookies: {

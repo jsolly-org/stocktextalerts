@@ -39,6 +39,15 @@ export type PreferencesSnapshot = Pick<
 	| "dismiss_timezone_mismatch_prompts"
 >;
 
+export type UserNotificationPreferences = Pick<
+	User,
+	| "email_notifications_enabled"
+	| "sms_notifications_enabled"
+	| "daily_digest_enabled"
+	| "daily_digest_notification_times"
+	| "next_send_at"
+>;
+
 /* =============
 Users
 ============= */

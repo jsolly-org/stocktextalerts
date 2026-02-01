@@ -4,17 +4,21 @@ import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createEmailUnsubscribeToken } from "../../src/lib/notifications/email-unsubscribe";
 import EmailUnsubscribePage from "../../src/pages/email/unsubscribe.astro";
-import { adminClient } from "../setup";
-import { cleanupTestUser, createTestEmail, createTestUser } from "../utils";
+import {
+	adminClient,
+	cleanupTestUser,
+	createTestEmail,
+	createTestUser,
+} from "../shared-utils";
 
-describe("Email unsubscribe", () => {
+describe("A user clicks the email unsubscribe link.", () => {
 	let renderers: Awaited<ReturnType<typeof loadRenderers>>;
 
 	beforeAll(async () => {
 		renderers = await loadRenderers([getVueRenderer()]);
 	});
 
-	it("disables email notifications without changing digest", async () => {
+	it("Email notifications are disabled while daily digest remains enabled.", async () => {
 		const user = await createTestUser({
 			email: createTestEmail("test"),
 			password: "TestPassword123!",

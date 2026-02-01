@@ -9,7 +9,7 @@ import {
 	expect,
 	it,
 } from "vitest";
-import { getStockData } from "../utils";
+import { getStockData } from "../shared-utils";
 
 function createDbClient(): Client {
 	const databaseUrl = process.env.DATABASE_URL;
@@ -19,7 +19,7 @@ function createDbClient(): Client {
 	return new Client({ connectionString: databaseUrl });
 }
 
-describe("database constraints and validation functions", () => {
+describe("User input is validated against required data format rules.", () => {
 	let client: Client;
 
 	beforeAll(async () => {
@@ -39,7 +39,7 @@ describe("database constraints and validation functions", () => {
 		await client.end();
 	});
 
-	it("public.has_no_whitespace returns expected results", async () => {
+	it("The whitespace validator correctly identifies strings with and without spaces or tabs.", async () => {
 		const { rows } = await client.query<{
 			ok_simple: boolean;
 			ok_space: boolean;
@@ -60,7 +60,7 @@ describe("database constraints and validation functions", () => {
 		});
 	});
 
-	it("rejects stocks.symbol containing whitespace (stocks_symbol_no_whitespace)", async () => {
+	it("A stock symbol with whitespace is rejected when adding it to the database.", async () => {
 		const realStock = getStockData("AAPL");
 		await expect(
 			client.query(
@@ -74,7 +74,7 @@ describe("database constraints and validation functions", () => {
 		});
 	});
 
-	it("rejects users.email containing whitespace (users_email_no_whitespace)", async () => {
+	it("An email address with whitespace is rejected when creating a user.", async () => {
 		await expect(
 			client.query("insert into public.users (id, email) values ($1, $2)", [
 				randomUUID(),
@@ -87,7 +87,7 @@ describe("database constraints and validation functions", () => {
 		});
 	});
 
-	it("replace_user_stocks rejects any whitespace in symbols (check_violation)", async () => {
+	it("A user cannot replace tracked stocks with symbols that include whitespace.", async () => {
 		const userId = randomUUID();
 		await client.query("insert into public.users (id, email) values ($1, $2)", [
 			userId,
@@ -110,7 +110,7 @@ describe("database constraints and validation functions", () => {
 		});
 	});
 
-	it("replace_user_stocks rejects symbols that are not uppercase (check_violation)", async () => {
+	it("A user cannot replace tracked stocks with lowercase symbols.", async () => {
 		const userId = randomUUID();
 		await client.query("insert into public.users (id, email) values ($1, $2)", [
 			userId,
@@ -133,7 +133,7 @@ describe("database constraints and validation functions", () => {
 		});
 	});
 
-	it("replace_user_stocks rejects duplicate symbols (check_violation)", async () => {
+	it("A user cannot replace tracked stocks with duplicate symbols.", async () => {
 		const userId = randomUUID();
 		await client.query("insert into public.users (id, email) values ($1, $2)", [
 			userId,

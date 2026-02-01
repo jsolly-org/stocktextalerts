@@ -4,42 +4,32 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { DateTime } from "luxon";
-import { Client } from "pg";
 import type { TablesInsert } from "../src/lib/db/generated/database.types";
 import { calculateNextSendAtFromTimes } from "../src/lib/time/schedule";
-import { EXPECTED_DB_SCHEMA_VERSION } from "./schema-version";
+import { PRESERVED_TEST_EMAIL, TEST_RUN_ID } from "./constants";
 
 type TestEnv = {
 	supabaseUrl: string;
 	supabaseServiceRoleKey: string;
-	databaseUrl: string;
 	supabaseAnonKey: string;
 };
 
 function getTestEnv(): TestEnv {
 	const supabaseUrl = process.env.PUBLIC_SUPABASE_URL;
 	const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-	const databaseUrl = process.env.DATABASE_URL;
 	const supabaseAnonKey = process.env.PUBLIC_SUPABASE_ANON_KEY;
 
 	// Tests run outside the request pipeline, so middleware env validation doesn't apply.
-	if (
-		!supabaseUrl ||
-		!supabaseServiceRoleKey ||
-		!databaseUrl ||
-		!supabaseAnonKey
-	) {
+	if (!supabaseUrl || !supabaseServiceRoleKey || !supabaseAnonKey) {
 		throw new Error(
-			"Missing required environment variables for tests: PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, PUBLIC_SUPABASE_ANON_KEY, and DATABASE_URL must be set",
+			"Missing required environment variables for tests: PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and PUBLIC_SUPABASE_ANON_KEY must be set",
 		);
 	}
 
-	return { supabaseUrl, supabaseServiceRoleKey, databaseUrl, supabaseAnonKey };
+	return { supabaseUrl, supabaseServiceRoleKey, supabaseAnonKey };
 }
 
 const testEnv = getTestEnv();
-
-const TEST_RUN_ID = process.env.TEST_RUN_ID ?? randomUUID();
 
 export const adminClient = createClient(
 	testEnv.supabaseUrl,
@@ -51,11 +41,6 @@ export const adminClient = createClient(
 		},
 	},
 );
-
-const databaseUrl = testEnv.databaseUrl;
-
-export const PRESERVED_USER_ID = "00000000-0000-0000-0000-000000000000";
-export const TEST_USER_EMAIL = "test@jsolly.com";
 
 type StockData = {
 	symbol: string;
@@ -109,25 +94,6 @@ export function getStockData(symbol: string): StockData {
 	return stock;
 }
 
-export async function ensureStocksExist(symbols: string[]): Promise<void> {
-	if (symbols.length === 0) return;
-	const uniqueSymbols = [...new Set(symbols)];
-	const stockRecords = uniqueSymbols.map((symbol) => {
-		const stockData = getStockData(symbol);
-		return {
-			symbol: stockData.symbol,
-			name: stockData.name,
-			exchange: stockData.exchange,
-		};
-	});
-	const { error } = await adminClient
-		.from("stocks")
-		.upsert(stockRecords, { onConflict: "symbol" });
-	if (error) {
-		throw new Error(`Failed to ensure stocks exist: ${error.message}`);
-	}
-}
-
 export function getRealStockSymbols(count: number): string[] {
 	if (count < 0) {
 		throw new Error(`Requested negative symbol count: ${count}`);
@@ -152,10 +118,6 @@ export function getRealStockSymbols(count: number): string[] {
 	return shuffled.slice(0, count);
 }
 
-export function getTestRunId(): string {
-	return TEST_RUN_ID;
-}
-
 export function createTestEmail(prefix = "test"): string {
 	const safePrefix = prefix
 		.trim()
@@ -177,30 +139,20 @@ function tagEmailAddress(baseEmail: string): string {
 	return `${localPart}+${TEST_RUN_ID}-${randomUUID()}@${domain}`;
 }
 
-export async function verifySupabaseAdminAccess() {
-	const { error } = await adminClient.auth.admin.listUsers({
-		page: 1,
-		perPage: 1,
-	});
-	if (!error) return;
-
-	const errorDetail =
-		error.message ||
-		(typeof error === "object" && error !== null
-			? JSON.stringify(error)
-			: String(error));
-
-	throw new Error(
-		[
-			"Supabase admin auth failed in tests. This usually means SUPABASE_SERVICE_ROLE_KEY does not match PUBLIC_SUPABASE_URL.",
-			`Error: ${errorDetail}`,
-			"Fix: ensure PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, and DATABASE_URL all point to the same Supabase project (recommended: local `supabase start`, then copy values from `supabase status`).",
-		].join("\n"),
-	);
-}
-
 export async function cleanupTestUser(userId: string): Promise<void> {
 	const errors: string[] = [];
+
+	const { data: userRow, error: userFetchError } = await adminClient
+		.from("users")
+		.select("email")
+		.eq("id", userId)
+		.maybeSingle();
+	if (userFetchError) {
+		errors.push(`users_lookup: ${userFetchError.message}`);
+	}
+	if (userRow?.email === PRESERVED_TEST_EMAIL) {
+		return;
+	}
 
 	const { error: userStocksError } = await adminClient
 		.from("user_stocks")
@@ -229,166 +181,6 @@ export async function cleanupTestUser(userId: string): Promise<void> {
 	}
 }
 
-export async function cleanupAllNonPreservedUsers(): Promise<void> {
-	const client = new Client({ connectionString: databaseUrl });
-	await client.connect();
-
-	try {
-		const preservedUserIds = [PRESERVED_USER_ID];
-
-		// Deleting from users cascades to user_stocks and notification_log
-		await client.query(`DELETE FROM public.users WHERE id != ALL($1::uuid[])`, [
-			preservedUserIds,
-		]);
-
-		const { rows: authUsers } = await client.query(
-			`SELECT id FROM auth.users WHERE id != ALL($1::uuid[])`,
-			[preservedUserIds],
-		);
-
-		const results = await Promise.allSettled(
-			authUsers.map(async (user) => {
-				const { error: deleteError } = await adminClient.auth.admin.deleteUser(
-					user.id,
-				);
-				if (deleteError) {
-					throw new Error(`Failed to delete auth user ${user.id}`, {
-						cause: deleteError,
-					});
-				}
-			}),
-		);
-
-		const deleteErrors = results
-			.filter((result) => result.status === "rejected")
-			.map((result) => result.reason);
-
-		if (deleteErrors.length > 0) {
-			throw deleteErrors.length === 1
-				? deleteErrors[0]
-				: new AggregateError(deleteErrors, "Multiple user deletions failed");
-		}
-	} catch (error) {
-		throw new Error("Test user cleanup failed", { cause: error });
-	} finally {
-		await client.end();
-	}
-}
-
-export async function resetDatabase() {
-	const client = new Client({ connectionString: databaseUrl });
-	await client.connect();
-
-	try {
-		// Find the test user by email to preserve them
-		const { rows: testUserRows } = await client.query(
-			"SELECT id FROM auth.users WHERE email = $1",
-			[TEST_USER_EMAIL],
-		);
-		const testUserId = testUserRows[0]?.id;
-
-		// Build list of preserved user IDs
-		const preservedUserIds = [PRESERVED_USER_ID];
-		if (testUserId) {
-			preservedUserIds.push(testUserId);
-		}
-
-		// Clean up public schema tables
-		// Deleting from users cascades to user_stocks and notification_log
-		await client.query(`DELETE FROM public.users WHERE id != ALL($1::uuid[])`, [
-			preservedUserIds,
-		]);
-
-		// Clean up auth.users via Admin API to ensure proper cleanup of sessions/metadata
-		const { rows: authUsers } = await client.query(
-			`SELECT id FROM auth.users WHERE id != ALL($1::uuid[])`,
-			[preservedUserIds],
-		);
-
-		await Promise.all(
-			authUsers.map(async (user) => {
-				const { error: deleteError } = await adminClient.auth.admin.deleteUser(
-					user.id,
-				);
-				if (deleteError) {
-					throw new Error(`Failed to delete auth user ${user.id}`, {
-						cause: deleteError,
-					});
-				}
-			}),
-		);
-	} catch (error) {
-		throw new Error("Database reset failed", { cause: error });
-	} finally {
-		await client.end();
-	}
-}
-
-const POSTGRES_UNDEFINED_TABLE = "42P01";
-
-export async function verifyDatabaseSchemaUpToDate() {
-	const client = new Client({ connectionString: databaseUrl });
-	await client.connect();
-	try {
-		let rows: { value: string }[];
-		try {
-			const result = await client.query<{ value: string }>(
-				"select value from public.app_metadata where key = 'schema_version'",
-			);
-			rows = result.rows;
-		} catch (queryError: unknown) {
-			const code = (queryError as { code?: string })?.code;
-			if (code === POSTGRES_UNDEFINED_TABLE) {
-				throw new Error(
-					[
-						"Database schema not applied (public.app_metadata does not exist).",
-						"Ensure Supabase is running (`npm run db:start`) then run `npm run db:reset` to apply migrations.",
-						"Re-run `npm test` after the schema is applied.",
-					].join("\n"),
-					{ cause: queryError },
-				);
-			}
-			throw queryError;
-		}
-
-		const version = rows[0]?.value;
-		if (version !== EXPECTED_DB_SCHEMA_VERSION) {
-			throw new Error(
-				[
-					"Database schema version mismatch.",
-					`expected: ${EXPECTED_DB_SCHEMA_VERSION}`,
-					`actual: ${version ?? "MISSING"}`,
-					"This usually means your local Supabase DB has not been reset since the migration changed.",
-					"Fix: run `npm run db:reset` (or `supabase db reset`) to re-apply migrations, then re-run `npm test`.",
-				].join("\n"),
-			);
-		}
-	} finally {
-		await client.end();
-	}
-}
-
-export interface CreateTestUserOptions {
-	email?: string;
-	password?: string;
-	timezone?: string;
-	emailNotificationsEnabled?: boolean;
-	smsNotificationsEnabled?: boolean;
-	phoneCountryCode?: string | null;
-	phoneNumber?: string | null;
-	phoneVerified?: boolean;
-	smsOptedOut?: boolean;
-	dailyDigestEnabled?: boolean;
-	dailyDigestNotificationTimes?: number[] | null;
-	trackedStocks?: string[];
-	confirmed?: boolean;
-}
-
-export interface TestUser {
-	id: string;
-	email: string;
-}
-
 type DbUserInsert = Omit<
 	TablesInsert<"users">,
 	"daily_digest_notification_time"
@@ -398,8 +190,22 @@ type DbUserInsert = Omit<
 type DbUserStockInsert = TablesInsert<"user_stocks">;
 
 export async function createTestUser(
-	options: CreateTestUserOptions = {},
-): Promise<TestUser> {
+	options: {
+		email?: string;
+		password?: string;
+		timezone?: string;
+		emailNotificationsEnabled?: boolean;
+		smsNotificationsEnabled?: boolean;
+		phoneCountryCode?: string | null;
+		phoneNumber?: string | null;
+		phoneVerified?: boolean;
+		smsOptedOut?: boolean;
+		dailyDigestEnabled?: boolean;
+		dailyDigestNotificationTimes?: number[] | null;
+		trackedStocks?: string[];
+		confirmed?: boolean;
+	} = {},
+): Promise<{ id: string; email: string }> {
 	const email =
 		options.email ??
 		(process.env.TEST_EMAIL_RECIPIENT

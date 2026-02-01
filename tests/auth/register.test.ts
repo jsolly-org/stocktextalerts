@@ -4,8 +4,7 @@ import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_TIMEZONE } from "../../src/lib/constants";
 import { POST } from "../../src/pages/api/auth/email/register";
-import { adminClient } from "../setup";
-import { cleanupTestUser } from "../utils";
+import { adminClient, cleanupTestUser } from "../shared-utils";
 
 const toRedirect = (url: string, status = 302) =>
 	new Response(null, {
@@ -13,8 +12,8 @@ const toRedirect = (url: string, status = 302) =>
 		headers: { Location: url },
 	});
 
-describe("POST /api/auth/email/register", () => {
-	it("can register a user", async () => {
+describe("A visitor registers for a new account with email and password.", () => {
+	it("The account is created, stored with the chosen timezone, and the user is redirected to the unconfirmed email page.", async () => {
 		const payload = {
 			email: `test-${randomUUID()}@resend.dev`,
 			password: "TestPassword123!",
@@ -71,7 +70,7 @@ describe("POST /api/auth/email/register", () => {
 		}
 	});
 
-	it("fallback timezone is used if a detected timezone does not exist in the database", async () => {
+	it("When the detected timezone is invalid, the account is created with the default timezone.", async () => {
 		const payload = {
 			email: `test-fallback-${randomUUID()}@resend.dev`,
 			password: "TestPassword123!",
@@ -118,12 +117,13 @@ describe("POST /api/auth/email/register", () => {
 		}
 	});
 
-	it("correctly matches a user with a timezone in the database", async () => {
+	it("User's timezone is detected, but they choose a different one. It is saved based on their choice.", async () => {
+		const chosenTimezone = "America/Chicago";
 		const payload = {
-			email: `test-match-${randomUUID()}@resend.dev`,
+			email: `test-chosen-${randomUUID()}@resend.dev`,
 			password: "TestPassword123!",
 			captcha_token: "test-captcha-token",
-			timezone: "America/Los_Angeles",
+			timezone: chosenTimezone,
 		};
 		let userId: string | undefined;
 
@@ -138,14 +138,12 @@ describe("POST /api/auth/email/register", () => {
 				redirect: toRedirect,
 			} as APIContext);
 
-			// Verify redirect to unconfirmed email page
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toContain("/auth/unconfirmed");
 			expect(response.headers.get("Location")).toContain(
 				encodeURIComponent(payload.email),
 			);
 
-			// Verify user was created with the provided timezone
 			const { data: users, error: usersError } = await adminClient
 				.from("users")
 				.select("*")
@@ -157,7 +155,7 @@ describe("POST /api/auth/email/register", () => {
 			const user = users[0];
 			userId = user.id;
 			expect(user.email).toBe(payload.email);
-			expect(user.timezone).toBe(payload.timezone);
+			expect(user.timezone).toBe(chosenTimezone);
 		} finally {
 			if (userId) {
 				await cleanupTestUser(userId);
@@ -165,7 +163,7 @@ describe("POST /api/auth/email/register", () => {
 		}
 	});
 
-	it("verifies email after registration", async () => {
+	it("After registering, the email remains unverified until confirmation is completed.", async () => {
 		const payload = {
 			email: `test-verify-${randomUUID()}@resend.dev`,
 			password: "TestPassword123!",

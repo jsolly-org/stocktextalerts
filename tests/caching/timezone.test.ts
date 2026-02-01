@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { AppSupabaseClient } from "../src/lib/db/supabase";
+import type { AppSupabaseClient } from "../../src/lib/db/supabase";
 
 function createSupabaseTimezonesStub(options: {
 	rows: Array<{
@@ -54,10 +54,10 @@ function createSupabaseTimezonesStub(options: {
 	};
 }
 
-describe("resolveTimezone caching", () => {
-	it("reuses cached timezone values within TTL", async () => {
+describe("A user's detected timezone is resolved consistently.", () => {
+	it("When resolving the same timezone twice, the same result is returned without extra lookups.", async () => {
 		vi.resetModules();
-		const { resolveTimezone } = await import("../src/lib/time/cache");
+		const { resolveTimezone } = await import("../../src/lib/time/cache");
 
 		const stub = createSupabaseTimezonesStub({
 			rows: [{ value: "Etc/UTC" }],
@@ -77,9 +77,9 @@ describe("resolveTimezone caching", () => {
 		expect(stub.getSelectCount()).toBe(1);
 	});
 
-	it("dedupes concurrent loads (single in-flight query)", async () => {
+	it("When resolving concurrently, the same lookup is shared.", async () => {
 		vi.resetModules();
-		const { resolveTimezone } = await import("../src/lib/time/cache");
+		const { resolveTimezone } = await import("../../src/lib/time/cache");
 
 		const stub = createSupabaseTimezonesStub({
 			rows: [{ value: "Etc/UTC" }],
@@ -103,10 +103,10 @@ describe("resolveTimezone caching", () => {
 	});
 });
 
-describe("getTimezoneOptions caching", () => {
-	it("reuses cached timezones within TTL", async () => {
+describe("A user sees available timezone options consistently.", () => {
+	it("When requesting timezone options twice, the same list is returned without extra lookups.", async () => {
 		vi.resetModules();
-		const { getTimezoneOptions } = await import("../src/lib/time/cache");
+		const { getTimezoneOptions } = await import("../../src/lib/time/cache");
 
 		const stub = createSupabaseTimezonesStub({
 			rows: [
@@ -138,9 +138,9 @@ describe("getTimezoneOptions caching", () => {
 		expect(stub.getSelectCount()).toBe(1);
 	});
 
-	it("dedupes concurrent loads (single in-flight query)", async () => {
+	it("When requesting timezone options concurrently, the same lookup is shared.", async () => {
 		vi.resetModules();
-		const { getTimezoneOptions } = await import("../src/lib/time/cache");
+		const { getTimezoneOptions } = await import("../../src/lib/time/cache");
 
 		const stub = createSupabaseTimezonesStub({
 			rows: [

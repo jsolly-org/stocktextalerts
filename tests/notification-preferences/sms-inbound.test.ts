@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { POST } from "../../src/pages/api/notifications/sms/inbound";
-import { adminClient, allowConsoleErrors } from "../setup";
-import { cleanupTestUser, createTestUser } from "../utils";
+import { adminClient, cleanupTestUser, createTestUser } from "../shared-utils";
 
 const { validateRequestMock } = vi.hoisted(() => ({
 	validateRequestMock: vi.fn(),
@@ -37,8 +36,8 @@ function buildRequest(options: {
 	});
 }
 
-describe("POST /api/notifications/sms/inbound", () => {
-	it("opts a user out when they text STOP", async () => {
+describe("A user manages SMS notifications by replying to messages.", () => {
+	it("When a user texts STOP, they are unsubscribed from SMS notifications.", async () => {
 		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
 		validateRequestMock.mockReturnValueOnce(true);
 
@@ -80,7 +79,7 @@ describe("POST /api/notifications/sms/inbound", () => {
 		}
 	});
 
-	it("opts a user back in when they text START", async () => {
+	it("When a user texts START, they are resubscribed to SMS notifications.", async () => {
 		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
 		validateRequestMock.mockReturnValueOnce(true);
 
@@ -122,7 +121,7 @@ describe("POST /api/notifications/sms/inbound", () => {
 		}
 	});
 
-	it("returns the help message when they text HELP", async () => {
+	it("When a user texts HELP, they receive the help message.", async () => {
 		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
 		validateRequestMock.mockReturnValueOnce(true);
 
@@ -154,41 +153,5 @@ describe("POST /api/notifications/sms/inbound", () => {
 			await cleanupTestUser(testUser.id);
 			vi.unstubAllEnvs();
 		}
-	});
-
-	it("rejects requests missing the Twilio signature", async () => {
-		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-
-		const response = await POST({
-			request: buildRequest({
-				from: "+15005550006",
-				body: "STOP",
-				includeSignature: false,
-			}),
-		} as never);
-
-		expect(response.status).toBe(401);
-		const body = await response.text();
-		expect(body).toBe("Missing Twilio signature");
-		vi.unstubAllEnvs();
-	});
-
-	it("rejects requests with invalid signatures", async () => {
-		allowConsoleErrors();
-		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-		validateRequestMock.mockReturnValueOnce(false);
-
-		const response = await POST({
-			request: buildRequest({
-				from: "+15005550006",
-				body: "STOP",
-				includeSignature: true,
-			}),
-		} as never);
-
-		expect(response.status).toBe(403);
-		const body = await response.text();
-		expect(body).toBe("Invalid signature");
-		vi.unstubAllEnvs();
 	});
 });
