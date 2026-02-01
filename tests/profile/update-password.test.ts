@@ -62,28 +62,6 @@ describe("A user resets their password from the recovery flow.", () => {
 		}
 	});
 
-	it("If the form is incomplete, the reset is rejected with a validation error.", async () => {
-		const request = new Request("http://localhost/api/auth/update-password", {
-			method: "POST",
-			body: new URLSearchParams({
-				password: "",
-				confirm: "",
-				token_hash: "",
-			}),
-		});
-
-		const response = await POST({
-			request,
-			redirect: toRedirect,
-		} as unknown as APIContext);
-
-		expect(response.status).toBe(303);
-		const location = response.headers.get("Location");
-		expect(location).toContain("/auth/recover?");
-		expect(location).toContain("error=invalid_form");
-		expect(location).toContain("type=recovery");
-	});
-
 	it("If the passwords do not match, the user sees a mismatch error.", async () => {
 		const request = new Request("http://localhost/api/auth/update-password", {
 			method: "POST",

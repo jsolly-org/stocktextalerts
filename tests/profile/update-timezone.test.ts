@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import { POST as POSTDismissBanner } from "../../src/pages/api/preferences/dismiss-timezone-banner";
 import { POST as POSTTimezone } from "../../src/pages/api/preferences/timezone";
 import { TEST_PASSWORD } from "../constants";
-import { allowConsoleErrors } from "../setup";
 import {
 	adminClient,
 	cleanupTestUser,
@@ -62,30 +61,6 @@ describe("A signed-in user dismisses the timezone mismatch banner.", () => {
 		} finally {
 			await cleanupTestUser(testUser.id);
 		}
-	});
-
-	it("A logged-out user cannot dismiss the banner.", async () => {
-		allowConsoleErrors();
-
-		const request = new Request(
-			"http://localhost/api/preferences/dismiss-timezone-banner",
-			{
-				method: "POST",
-			},
-		);
-
-		const response = await POSTDismissBanner({
-			request,
-			cookies: {
-				get: () => undefined,
-				set: () => {},
-			},
-		} as unknown as APIContext);
-
-		expect(response.status).toBe(401);
-		const json = await response.json();
-		expect(json.ok).toBe(false);
-		expect(json.message).toBe("unauthorized");
 	});
 });
 

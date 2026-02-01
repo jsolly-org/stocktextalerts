@@ -1,6 +1,6 @@
-import { loadRenderers } from "astro:container";
 import { getContainerRenderer as getVueRenderer } from "@astrojs/vue";
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
+import { loadRenderers } from "astro/virtual-modules/container.js";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createEmailUnsubscribeToken } from "../../src/lib/notifications/email-unsubscribe";
 import EmailUnsubscribePage from "../../src/pages/email/unsubscribe.astro";

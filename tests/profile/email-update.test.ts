@@ -41,7 +41,7 @@ describe("A signed-in user updates their email notification preference.", () => 
 				},
 				set: () => {},
 			},
-		} as APIContext);
+		} as unknown as APIContext);
 
 		expect(response.status).toBe(200);
 
@@ -51,6 +51,8 @@ describe("A signed-in user updates their email notification preference.", () => 
 			.eq("id", testUser.id)
 			.single();
 
+		expect(updatedUser).not.toBeNull();
+		if (!updatedUser) throw new Error("expected user row");
 		expect(updatedUser.email_notifications_enabled).toBe(true);
 	});
 
@@ -85,7 +87,7 @@ describe("A signed-in user updates their email notification preference.", () => 
 				},
 				set: () => {},
 			},
-		} as APIContext);
+		} as unknown as APIContext);
 
 		expect(response.status).toBe(200);
 
@@ -95,6 +97,8 @@ describe("A signed-in user updates their email notification preference.", () => 
 			.eq("id", testUser.id)
 			.single();
 
+		expect(updatedUser).not.toBeNull();
+		if (!updatedUser) throw new Error("expected user row");
 		expect(updatedUser.email_notifications_enabled).toBe(false);
 	});
 });

@@ -45,7 +45,7 @@ describe("A signed-in user updates their notification preferences.", () => {
 				},
 				set: () => {},
 			},
-		} as APIContext);
+		} as unknown as APIContext);
 
 		expect(response.status).toBe(200);
 		const payload = (await response.json()) as { ok: boolean; message: string };
@@ -94,7 +94,7 @@ describe("A signed-in user updates their notification preferences.", () => {
 				},
 				set: () => {},
 			},
-		} as APIContext);
+		} as unknown as APIContext);
 
 		expect(response.status).toBe(200);
 
@@ -142,7 +142,7 @@ describe("A signed-in user updates their notification preferences.", () => {
 				},
 				set: () => {},
 			},
-		} as APIContext);
+		} as unknown as APIContext);
 
 		expect(response.status).toBe(200);
 		const payload = (await response.json()) as {

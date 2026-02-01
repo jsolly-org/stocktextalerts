@@ -50,7 +50,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 				get: () => undefined,
 				set: () => {},
 			},
-		} as APIContext);
+		} as unknown as APIContext);
 
 		expect(response.status).toBe(401);
 		const payload = (await response.json()) as { ok: boolean; message: string };
@@ -92,7 +92,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 					},
 					set: () => {},
 				},
-			} as APIContext);
+			} as unknown as APIContext);
 
 			expect(response.status).toBe(400);
 			const payload = (await response.json()) as {
@@ -144,7 +144,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 					},
 					set: () => {},
 				},
-			} as APIContext);
+			} as unknown as APIContext);
 
 			expect(response.status).toBe(400);
 			const payload = (await response.json()) as {
@@ -208,7 +208,7 @@ describe("A signed-in user verifies their phone number with an SMS code.", () =>
 					},
 					set: () => {},
 				},
-			} as APIContext);
+			} as unknown as APIContext);
 
 			expect(response.status).toBe(400);
 			const json = await response.json();
@@ -221,6 +221,8 @@ describe("A signed-in user verifies their phone number with an SMS code.", () =>
 				.eq("id", testUser.id)
 				.single();
 
+			expect(updatedUser).not.toBeNull();
+			if (!updatedUser) throw new Error("expected user row");
 			expect(updatedUser.phone_verified).toBe(false);
 		} finally {
 			await cleanupTestUser(testUser.id);
