@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../../src/pages/api/notifications/sms/inbound";
 import { allowConsoleErrors } from "../setup";
 import { buildSmsInboundRequest } from "../shared-utils";
@@ -14,6 +14,10 @@ vi.mock("twilio", () => ({
 }));
 
 describe("A user manages SMS notifications by replying to messages.", () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
 	it("Requests without a valid signature are rejected before processing.", async () => {
 		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
 
@@ -28,7 +32,6 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		expect(response.status).toBe(401);
 		const body = await response.text();
 		expect(body).toBe("Missing Twilio signature");
-		vi.unstubAllEnvs();
 	});
 
 	it("Requests with an invalid signature are rejected.", async () => {
@@ -47,6 +50,5 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		expect(response.status).toBe(403);
 		const body = await response.text();
 		expect(body).toBe("Invalid signature");
-		vi.unstubAllEnvs();
 	});
 });

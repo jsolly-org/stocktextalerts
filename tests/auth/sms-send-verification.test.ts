@@ -12,19 +12,19 @@ import {
 	generateUniquePhoneNumber,
 } from "../shared-utils";
 
-const { sendVerificationMock, checkVerificationMock } = vi.hoisted(() => ({
+const smsVerifyMocks = vi.hoisted(() => ({
 	sendVerificationMock: vi.fn(),
 	checkVerificationMock: vi.fn(),
 }));
 
 vi.mock("../../src/pages/api/auth/sms/verify-utils", () => ({
-	sendVerification: sendVerificationMock,
-	checkVerification: checkVerificationMock,
+	sendVerification: smsVerifyMocks.sendVerificationMock,
+	checkVerification: smsVerifyMocks.checkVerificationMock,
 }));
 
 describe("A signed-in user verifies their phone number to enable SMS alerts.", () => {
 	afterEach(() => {
-		sendVerificationMock.mockClear();
+		smsVerifyMocks.sendVerificationMock.mockClear();
 	});
 
 	it("A signed-in user requests a verification code for their phone number and receives a confirmation.", async () => {
@@ -40,7 +40,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 				"TestPassword123!",
 			);
 
-			sendVerificationMock.mockResolvedValue({ success: true });
+			smsVerifyMocks.sendVerificationMock.mockResolvedValue({ success: true });
 
 			const phoneNumber = generateUniquePhoneNumber();
 			const formData = new FormData();
@@ -75,7 +75,9 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 			expect(payload.ok).toBe(true);
 			expect(payload.message).toBe("verification_sent");
 
-			expect(sendVerificationMock).toHaveBeenCalledWith(`+1${phoneNumber}`);
+			expect(smsVerifyMocks.sendVerificationMock).toHaveBeenCalledWith(
+				`+1${phoneNumber}`,
+			);
 
 			const { data: updatedUser } = await adminClient
 				.from("users")
@@ -151,7 +153,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 			expect(payload.message).toBe("verification_recently_sent");
 			expect(payload.tone).toBe("warning");
 
-			expect(sendVerificationMock).not.toHaveBeenCalled();
+			expect(smsVerifyMocks.sendVerificationMock).not.toHaveBeenCalled();
 		} finally {
 			await cleanupTestUser(testUser.id);
 		}
@@ -181,7 +183,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 				"TestPassword123!",
 			);
 
-			sendVerificationMock.mockResolvedValue({ success: true });
+			smsVerifyMocks.sendVerificationMock.mockResolvedValue({ success: true });
 
 			const newPhoneNumber = generateUniquePhoneNumber();
 			const formData = new FormData();
@@ -216,7 +218,9 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 			expect(payload.ok).toBe(true);
 			expect(payload.message).toBe("verification_sent");
 
-			expect(sendVerificationMock).toHaveBeenCalledWith(`+1${newPhoneNumber}`);
+			expect(smsVerifyMocks.sendVerificationMock).toHaveBeenCalledWith(
+				`+1${newPhoneNumber}`,
+			);
 
 			const { data: updatedUser } = await adminClient
 				.from("users")
@@ -255,7 +259,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 				"TestPassword123!",
 			);
 
-			sendVerificationMock.mockResolvedValue({ success: true });
+			smsVerifyMocks.sendVerificationMock.mockResolvedValue({ success: true });
 
 			const phoneNumber = generateUniquePhoneNumber();
 			const formData = new FormData();
@@ -290,7 +294,9 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 			expect(payload.ok).toBe(true);
 			expect(payload.message).toBe("verification_sent");
 
-			expect(sendVerificationMock).toHaveBeenCalledWith(`+1${phoneNumber}`);
+			expect(smsVerifyMocks.sendVerificationMock).toHaveBeenCalledWith(
+				`+1${phoneNumber}`,
+			);
 		} finally {
 			await cleanupTestUser(testUser.id);
 		}
@@ -323,7 +329,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 		const payload = (await response.json()) as { ok: boolean; message: string };
 		expect(payload.ok).toBe(false);
 		expect(payload.message).toBe("unauthorized");
-		expect(sendVerificationMock).not.toHaveBeenCalled();
+		expect(smsVerifyMocks.sendVerificationMock).not.toHaveBeenCalled();
 	});
 
 	it("If the form is incomplete, the request is rejected with a validation error.", async () => {
@@ -368,7 +374,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 			};
 			expect(payload.ok).toBe(false);
 			expect(payload.message).toBe("invalid_form");
-			expect(sendVerificationMock).not.toHaveBeenCalled();
+			expect(smsVerifyMocks.sendVerificationMock).not.toHaveBeenCalled();
 		} finally {
 			await cleanupTestUser(testUser.id);
 		}
@@ -421,7 +427,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 			};
 			expect(payload.ok).toBe(false);
 			expect(payload.message).toBe("sms_opted_out");
-			expect(sendVerificationMock).not.toHaveBeenCalled();
+			expect(smsVerifyMocks.sendVerificationMock).not.toHaveBeenCalled();
 		} finally {
 			await cleanupTestUser(testUser.id);
 		}
@@ -441,7 +447,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 				"TestPassword123!",
 			);
 
-			sendVerificationMock.mockResolvedValue({
+			smsVerifyMocks.sendVerificationMock.mockResolvedValue({
 				success: false,
 				error: "Twilio API error",
 			});
