@@ -14,7 +14,7 @@ describe("A signed-in user signs out of the app.", () => {
 					status: 302,
 					headers: { Location: url },
 				}),
-		} as APIContext);
+		} as unknown as APIContext);
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toBe("/");

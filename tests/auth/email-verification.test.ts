@@ -5,7 +5,7 @@ import { POST as emailResendPost } from "../../src/pages/api/auth/email/resend-v
 import { adminClient, cleanupTestUser, toRedirect } from "../shared-utils";
 
 describe("A user resends their email verification from the unconfirmed page.", () => {
-	it("The verification email is resent and the user sees a success confirmation.", async () => {
+	it("A user requests their verification email (first or resend) and sees a success confirmation.", async () => {
 		const testEmail = `test-${randomUUID()}@resend.dev`;
 		const { data, error } = await adminClient.auth.admin.createUser({
 			email: testEmail,
