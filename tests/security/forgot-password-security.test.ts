@@ -1,12 +1,7 @@
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../src/pages/api/auth/email/forgot-password";
-
-const toRedirect = (url: string, status = 302) =>
-	new Response(null, {
-		status,
-		headers: { Location: url },
-	});
+import { toRedirect } from "../shared-utils";
 
 describe("A user requests a password reset email from the forgot password form.", () => {
 	it("The request is rejected when the form is incomplete.", async () => {

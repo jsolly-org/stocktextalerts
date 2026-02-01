@@ -34,12 +34,12 @@ function main(): void {
     .map((row) => row.remote as string);
 
   if (remoteMigrations.length === 0) {
-    rootLogger.info("No remote migrations to repair.", { context: {} });
+    rootLogger.info("No remote migrations to repair.", { count: 0 });
     return;
   }
 
   rootLogger.info("Marking remote migrations as reverted.", {
-    context: { count: remoteMigrations.length },
+    count: remoteMigrations.length,
   });
 
   execFileSync(
@@ -52,6 +52,10 @@ function main(): void {
 try {
   main();
 } catch (error) {
-  rootLogger.error("Repair migrations failed.", { context: { error: String(error) } });
+  rootLogger.error(
+    "Repair migrations failed.",
+    { phase: "repair-migrations" },
+    error,
+  );
   process.exit(1);
 }

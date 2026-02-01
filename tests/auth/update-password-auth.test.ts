@@ -3,13 +3,12 @@ import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../src/pages/api/auth/update-password";
 import { NEW_PASSWORD } from "../constants";
-import { adminClient, cleanupTestUser, createTestUser } from "../shared-utils";
-
-const toRedirect = (url: string, status = 302) =>
-	new Response(null, {
-		status,
-		headers: { Location: url },
-	});
+import {
+	adminClient,
+	cleanupTestUser,
+	createTestUser,
+	toRedirect,
+} from "../shared-utils";
 
 describe("A user resets their password from the recovery flow.", () => {
 	it("With a valid token and password, the user is redirected to the sign-in page.", async () => {
@@ -98,7 +97,7 @@ describe("A user resets their password from the recovery flow.", () => {
 		const response = await POST({
 			request,
 			redirect: toRedirect,
-		} as APIContext);
+		} as unknown as APIContext);
 
 		expect(response.status).toBe(303);
 		const location = response.headers.get("Location");
@@ -119,7 +118,7 @@ describe("A user resets their password from the recovery flow.", () => {
 		const response = await POST({
 			request,
 			redirect: toRedirect,
-		} as APIContext);
+		} as unknown as APIContext);
 
 		expect(response.status).toBe(303);
 		const location = response.headers.get("Location");

@@ -1,4 +1,4 @@
-import { randomInt, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createSendVerificationHandler } from "../../src/pages/api/auth/sms/send-verification";
@@ -9,6 +9,7 @@ import {
 	cleanupTestUser,
 	createAuthenticatedCookies,
 	createTestUser,
+	generateUniquePhoneNumber,
 } from "../shared-utils";
 
 const { sendVerificationMock, checkVerificationMock } = vi.hoisted(() => {
@@ -22,10 +23,6 @@ vi.mock("../../src/pages/api/auth/sms/verify-utils", () => ({
 	sendVerification: sendVerificationMock,
 	checkVerification: checkVerificationMock,
 }));
-
-function generateUniquePhoneNumber(): string {
-	return `555${String(randomInt(1000000, 9999999))}`;
-}
 
 describe("A signed-in user verifies their phone number to enable SMS alerts.", () => {
 	afterEach(() => {
@@ -68,40 +65,43 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 			password: "TestPassword123!",
 			confirmed: true,
 		});
+		try {
+			const cookies = await createAuthenticatedCookies(
+				testUser.email,
+				"TestPassword123!",
+			);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			"TestPassword123!",
-		);
+			const formData = new FormData();
+			// Missing required fields
 
-		const formData = new FormData();
-		// Missing required fields
-
-		const request = new Request(
-			"http://localhost/api/auth/sms/send-verification",
-			{
-				method: "POST",
-				body: formData,
-			},
-		);
-
-		const handler = createSendVerificationHandler();
-		const response = await handler({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const cookie = cookies.get(name);
-					return cookie ? { value: cookie } : undefined;
+			const request = new Request(
+				"http://localhost/api/auth/sms/send-verification",
+				{
+					method: "POST",
+					body: formData,
 				},
-				set: () => {},
-			},
-		} as APIContext);
+			);
 
-		expect(response.status).toBe(400);
-		const payload = (await response.json()) as { ok: boolean; message: string };
-		expect(payload.ok).toBe(false);
-		expect(payload.message).toBe("invalid_form");
-		expect(sendVerificationMock).not.toHaveBeenCalled();
+			const handler = createSendVerificationHandler();
+			const response = await handler({
+				request,
+				cookies: {
+					get: (name: string) => {
+						const cookie = cookies.get(name);
+						return cookie ? { value: cookie } : undefined;
+					},
+					set: () => {},
+				},
+			} as APIContext);
+
+			expect(response.status).toBe(400);
+			const payload = (await response.json()) as { ok: boolean; message: string };
+			expect(payload.ok).toBe(false);
+			expect(payload.message).toBe("invalid_form");
+			expect(sendVerificationMock).not.toHaveBeenCalled();
+		} finally {
+			await cleanupTestUser(testUser.id);
+		}
 	});
 
 	it("A user who opted out of SMS cannot start verification again.", async () => {
@@ -112,42 +112,45 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 			confirmed: true,
 			smsOptedOut: true,
 		});
+		try {
+			const cookies = await createAuthenticatedCookies(
+				testUser.email,
+				"TestPassword123!",
+			);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			"TestPassword123!",
-		);
+			const phoneNumber = generateUniquePhoneNumber();
+			const formData = new FormData();
+			formData.append("phone_country_code", "+1");
+			formData.append("phone_number", phoneNumber);
 
-		const phoneNumber = generateUniquePhoneNumber();
-		const formData = new FormData();
-		formData.append("phone_country_code", "+1");
-		formData.append("phone_number", phoneNumber);
-
-		const request = new Request(
-			"http://localhost/api/auth/sms/send-verification",
-			{
-				method: "POST",
-				body: formData,
-			},
-		);
-
-		const handler = createSendVerificationHandler();
-		const response = await handler({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const cookie = cookies.get(name);
-					return cookie ? { value: cookie } : undefined;
+			const request = new Request(
+				"http://localhost/api/auth/sms/send-verification",
+				{
+					method: "POST",
+					body: formData,
 				},
-				set: () => {},
-			},
-		} as APIContext);
+			);
 
-		expect(response.status).toBe(400);
-		const payload = (await response.json()) as { ok: boolean; message: string };
-		expect(payload.ok).toBe(false);
-		expect(payload.message).toBe("sms_opted_out");
-		expect(sendVerificationMock).not.toHaveBeenCalled();
+			const handler = createSendVerificationHandler();
+			const response = await handler({
+				request,
+				cookies: {
+					get: (name: string) => {
+						const cookie = cookies.get(name);
+						return cookie ? { value: cookie } : undefined;
+					},
+					set: () => {},
+				},
+			} as APIContext);
+
+			expect(response.status).toBe(400);
+			const payload = (await response.json()) as { ok: boolean; message: string };
+			expect(payload.ok).toBe(false);
+			expect(payload.message).toBe("sms_opted_out");
+			expect(sendVerificationMock).not.toHaveBeenCalled();
+		} finally {
+			await cleanupTestUser(testUser.id);
+		}
 	});
 });
 

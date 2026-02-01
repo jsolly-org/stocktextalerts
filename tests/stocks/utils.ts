@@ -8,28 +8,9 @@ import {
 	createAuthenticatedCookies,
 	createTestUser,
 	getStockData,
+	type CreateTestUserOptions,
+	type TestUser,
 } from "../shared-utils";
-
-type CreateTestUserOptions = {
-	email?: string;
-	password?: string;
-	timezone?: string;
-	emailNotificationsEnabled?: boolean;
-	smsNotificationsEnabled?: boolean;
-	phoneCountryCode?: string | null;
-	phoneNumber?: string | null;
-	phoneVerified?: boolean;
-	smsOptedOut?: boolean;
-	dailyDigestEnabled?: boolean;
-	dailyDigestNotificationTimes?: number[] | null;
-	trackedStocks?: string[];
-	confirmed?: boolean;
-};
-
-type TestUser = {
-	id: string;
-	email: string;
-};
 
 async function ensureStocksExist(symbols: string[]): Promise<void> {
 	if (symbols.length === 0) return;

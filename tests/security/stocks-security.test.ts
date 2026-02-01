@@ -2,7 +2,7 @@ import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../src/pages/api/stocks/update";
 
-describe("A signed-in user updates their tracked stocks.", () => {
+describe("A logged-out user cannot update tracked stocks.", () => {
 	it("A logged-out user cannot update tracked stocks.", async () => {
 		const formData = new FormData();
 		formData.append("tracked_stocks", JSON.stringify(["AAPL"]));

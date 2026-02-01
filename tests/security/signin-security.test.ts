@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../src/pages/api/auth/signin";
-import { cleanupTestUser, createTestUser } from "../shared-utils";
+import { cleanupTestUser, createTestUser, toRedirect } from "../shared-utils";
 
 describe("A user signs in with an email and password.", () => {
 	it("If the redirect is unsafe, the user is redirected to the default dashboard.", async () => {
@@ -28,12 +28,7 @@ describe("A user signs in with an email and password.", () => {
 				cookies: {
 					set: () => {},
 				},
-				redirect: (url: string) => {
-					return new Response(null, {
-						status: 302,
-						headers: { Location: url },
-					});
-				},
+				redirect: toRedirect,
 			} as unknown as APIContext);
 
 			expect(response.status).toBe(302);
@@ -58,12 +53,7 @@ describe("A user signs in with an email and password.", () => {
 			cookies: {
 				set: () => {},
 			},
-			redirect: (url: string) => {
-				return new Response(null, {
-					status: 302,
-					headers: { Location: url },
-				});
-			},
+			redirect: toRedirect,
 		} as unknown as APIContext);
 
 		expect(response.status).toBe(302);

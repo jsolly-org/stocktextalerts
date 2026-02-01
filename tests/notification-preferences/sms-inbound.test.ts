@@ -1,6 +1,21 @@
+import type { APIContext } from "astro";
 import { describe, expect, it, vi } from "vitest";
 import { POST } from "../../src/pages/api/notifications/sms/inbound";
-import { adminClient, cleanupTestUser, createTestUser } from "../shared-utils";
+import {
+	adminClient,
+	buildSmsInboundRequest,
+	cleanupTestUser,
+	createTestUser,
+} from "../shared-utils";
+
+async function getTestUserPhone(userId: string): Promise<string> {
+	const { data: user } = await adminClient
+		.from("users")
+		.select("phone_country_code,phone_number")
+		.eq("id", userId)
+		.single();
+	return `${user.phone_country_code}${user.phone_number}`;
+}
 
 const { validateRequestMock } = vi.hoisted(() => ({
 	validateRequestMock: vi.fn(),
@@ -11,30 +26,6 @@ vi.mock("twilio", () => ({
 		validateRequest: validateRequestMock,
 	},
 }));
-
-function buildRequest(options: {
-	from: string;
-	body: string;
-	includeSignature?: boolean;
-}) {
-	const formData = new FormData();
-	formData.append("MessageSid", "SM123");
-	formData.append("AccountSid", "AC123");
-	formData.append("From", options.from);
-	formData.append("To", "+15551234567");
-	formData.append("Body", options.body);
-
-	const headers: Record<string, string> = {};
-	if (options.includeSignature) {
-		headers["x-twilio-signature"] = "test-signature";
-	}
-
-	return new Request("http://localhost/api/notifications/sms/inbound", {
-		method: "POST",
-		body: formData,
-		headers,
-	});
-}
 
 describe("A user manages SMS notifications by replying to messages.", () => {
 	it("When a user texts STOP, they are unsubscribed from SMS notifications.", async () => {
@@ -48,20 +39,15 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		});
 
 		try {
-			const { data: user } = await adminClient
-				.from("users")
-				.select("phone_country_code,phone_number")
-				.eq("id", testUser.id)
-				.single();
-			const from = `${user.phone_country_code}${user.phone_number}`;
+			const from = await getTestUserPhone(testUser.id);
 
 			const response = await POST({
-				request: buildRequest({
+				request: buildSmsInboundRequest({
 					from,
 					body: "STOP",
 					includeSignature: true,
 				}),
-			} as never);
+			} as APIContext);
 
 			expect(response.status).toBe(200);
 			const body = await response.text();
@@ -90,20 +76,15 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		});
 
 		try {
-			const { data: user } = await adminClient
-				.from("users")
-				.select("phone_country_code,phone_number")
-				.eq("id", testUser.id)
-				.single();
-			const from = `${user.phone_country_code}${user.phone_number}`;
+			const from = await getTestUserPhone(testUser.id);
 
 			const response = await POST({
-				request: buildRequest({
+				request: buildSmsInboundRequest({
 					from,
 					body: "START",
 					includeSignature: true,
 				}),
-			} as never);
+			} as APIContext);
 
 			expect(response.status).toBe(200);
 			const body = await response.text();
@@ -131,20 +112,15 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		});
 
 		try {
-			const { data: user } = await adminClient
-				.from("users")
-				.select("phone_country_code,phone_number")
-				.eq("id", testUser.id)
-				.single();
-			const from = `${user.phone_country_code}${user.phone_number}`;
+			const from = await getTestUserPhone(testUser.id);
 
 			const response = await POST({
-				request: buildRequest({
+				request: buildSmsInboundRequest({
 					from,
 					body: "HELP",
 					includeSignature: true,
 				}),
-			} as never);
+			} as APIContext);
 
 			expect(response.status).toBe(200);
 			const body = await response.text();

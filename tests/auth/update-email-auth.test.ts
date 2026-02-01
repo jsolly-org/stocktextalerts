@@ -6,13 +6,8 @@ import {
 	cleanupTestUser,
 	createAuthenticatedCookies,
 	createTestUser,
+	toRedirect,
 } from "../shared-utils";
-
-const toRedirect = (url: string, status = 302) =>
-	new Response(null, {
-		status,
-		headers: { Location: url },
-	});
 
 describe("A signed-in user requests to change their email address.", () => {
 	it("A valid request triggers the email change flow and returns the user to their profile with success.", async () => {

@@ -67,6 +67,66 @@ describe("A user schedules their daily digest notification time.", () => {
 	});
 });
 
+async function setupScheduledNotificationTest(options: {
+	channel: "email" | "sms";
+	cronSecret: string;
+	timezone?: string;
+}): Promise<{
+	userId: string;
+	dailyDigestNotificationTime: number;
+	createRequest: () => Request;
+}> {
+	const timezone = options.timezone ?? "America/New_York";
+	const nowLocal = DateTime.now().setZone(timezone);
+	if (!nowLocal.isValid) {
+		throw new Error("Invalid timezone for test formatter");
+	}
+	const dailyDigestNotificationTime =
+		nowLocal.hour * 60 + nowLocal.minute;
+
+	const userOptions =
+		options.channel === "email"
+			? {
+					timezone,
+					emailNotificationsEnabled: true,
+					smsNotificationsEnabled: false,
+					dailyDigestEnabled: true,
+					dailyDigestNotificationTimes: [dailyDigestNotificationTime],
+					trackedStocks: ["AAPL"],
+				}
+			: {
+					timezone,
+					emailNotificationsEnabled: false,
+					smsNotificationsEnabled: true,
+					phoneVerified: true,
+					smsOptedOut: false,
+					dailyDigestEnabled: true,
+					dailyDigestNotificationTimes: [dailyDigestNotificationTime],
+					trackedStocks: ["AAPL"],
+				};
+	const { id } = await createTestUser(userOptions);
+
+	const { error: updateError } = await adminClient
+		.from("users")
+		.update({ next_send_at: DateTime.utc().toISO() })
+		.eq("id", id);
+	expect(updateError).toBeNull();
+
+	const createRequest = () =>
+		new Request("http://localhost/api/notifications/scheduled", {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${options.cronSecret}`,
+			},
+		});
+
+	return {
+		userId: id,
+		dailyDigestNotificationTime,
+		createRequest,
+	};
+}
+
 describe("Users receive scheduled daily digest notifications.", () => {
 	const testCronSecret = "test-cron-secret";
 
@@ -84,78 +144,45 @@ describe("Users receive scheduled daily digest notifications.", () => {
 	});
 
 	it("Eligible users receive their daily digest by email at the scheduled time.", async () => {
-		const timezone = "America/New_York";
-		const nowLocal = DateTime.now().setZone(timezone);
-		if (!nowLocal.isValid) {
-			throw new Error("Invalid timezone for test formatter");
-		}
-		const dailyDigestNotificationTime = nowLocal.hour * 60 + nowLocal.minute;
-
-		// 1. Create User
-		const { id } = await createTestUser({
-			timezone,
-			emailNotificationsEnabled: true,
-			smsNotificationsEnabled: false,
-			dailyDigestEnabled: true,
-			dailyDigestNotificationTimes: [dailyDigestNotificationTime],
-			trackedStocks: ["AAPL"],
-		});
+		const { userId, dailyDigestNotificationTime, createRequest } =
+			await setupScheduledNotificationTest({
+				channel: "email",
+				cronSecret: testCronSecret,
+			});
 
 		try {
-			const { error: updateError } = await adminClient
-				.from("users")
-				.update({ next_send_at: DateTime.utc().toISO() })
-				.eq("id", id);
-			expect(updateError).toBeNull();
-
-			// 2. Execute Scheduled Job
-			const createRequest = () =>
-				new Request("http://localhost/api/notifications/scheduled", {
-					method: "POST",
-					headers: {
-						Authorization: `Bearer ${testCronSecret}`,
-					},
-				});
-
 			const response = await POST({ request: createRequest() } as APIContext);
 			const response2 = await POST({ request: createRequest() } as APIContext);
 
-			// 3. Assertions
-			// Check Status
 			expect(response.status).toBe(200);
 			expect(response2.status).toBe(200);
 
 			const json = await response.json();
 			const json2 = await response2.json();
-
 			expect(json.success).toBe(true);
 			expect(json2.success).toBe(true);
 
-			// Verify Database Log - notification was attempted once (deduped by DB)
 			const { data: logs, error: logError } = await adminClient
 				.from("notification_log")
 				.select("*")
-				.eq("user_id", id)
+				.eq("user_id", userId)
 				.eq("delivery_method", "email")
 				.eq("type", "scheduled_update")
 				.order("created_at", { ascending: false })
 				.limit(10);
-
 			expect(logError).toBeNull();
 			expect(logs).toHaveLength(1);
 			const log = logs?.[0];
 			if (!log) throw new Error("Expected log entry not found");
 
-			// Verify scheduled_notifications row exists and only attempted once
 			const { data: scheduled, error: scheduledError } = await adminClient
 				.from("scheduled_notifications")
 				.select("status,attempt_count")
-				.eq("user_id", id)
+				.eq("user_id", userId)
 				.eq("notification_type", "daily_digest")
 				.eq("scheduled_minutes", dailyDigestNotificationTime)
 				.eq("channel", "email")
 				.maybeSingle();
-
 			expect(scheduledError).toBeNull();
 			expect(scheduled).toBeTruthy();
 			if (!scheduled)
@@ -163,61 +190,31 @@ describe("Users receive scheduled daily digest notifications.", () => {
 			expect(scheduled.attempt_count).toBe(1);
 			expect(["sent", "failed"]).toContain(scheduled.status);
 
-			// Verify notification was attempted and logged
-			// Note: Email delivery may fail due to invalid API key or rate limits
 			expect(json.emailsSent + json.emailsFailed).toBeGreaterThanOrEqual(1);
-
-			// If email succeeded, message should contain AAPL. If failed, error will be in message
 			if (log.message_delivered) {
 				expect(log.message).toContain("AAPL");
 			} else {
-				// On failure, error is logged - verify the log entry exists
 				expect(log.error).toBeTruthy();
 			}
 		} finally {
-			await cleanupTestUser(id);
+			await cleanupTestUser(userId);
 		}
 	});
 
 	it("Eligible users receive their daily digest by SMS at the scheduled time.", async () => {
-		const timezone = "America/New_York";
-		const nowLocal = DateTime.now().setZone(timezone);
-		if (!nowLocal.isValid) {
-			throw new Error("Invalid timezone for test formatter");
-		}
-		const dailyDigestNotificationTime = nowLocal.hour * 60 + nowLocal.minute;
+		vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
+		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+		vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
 
-		let id: string | undefined;
-		try {
-			vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
-			vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-			vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
-
-			const user = await createTestUser({
-				timezone,
-				emailNotificationsEnabled: false,
-				smsNotificationsEnabled: true,
-				phoneVerified: true,
-				smsOptedOut: false,
-				dailyDigestEnabled: true,
-				dailyDigestNotificationTimes: [dailyDigestNotificationTime],
-				trackedStocks: ["AAPL"],
+		const { userId, dailyDigestNotificationTime, createRequest } =
+			await setupScheduledNotificationTest({
+				channel: "sms",
+				cronSecret: testCronSecret,
 			});
-			id = user.id;
 
-			const { error: updateError } = await adminClient
-				.from("users")
-				.update({ next_send_at: DateTime.utc().toISO() })
-				.eq("id", id);
-			expect(updateError).toBeNull();
-
+		try {
 			const response = await POST({
-				request: new Request("http://localhost/api/notifications/scheduled", {
-					method: "POST",
-					headers: {
-						Authorization: `Bearer ${testCronSecret}`,
-					},
-				}),
+				request: createRequest(),
 			} as APIContext);
 
 			expect(response.status).toBe(200);
@@ -228,7 +225,7 @@ describe("Users receive scheduled daily digest notifications.", () => {
 			const { data: logs, error: logError } = await adminClient
 				.from("notification_log")
 				.select("*")
-				.eq("user_id", id)
+				.eq("user_id", userId)
 				.eq("delivery_method", "sms")
 				.eq("type", "scheduled_update")
 				.order("created_at", { ascending: false })
@@ -242,7 +239,7 @@ describe("Users receive scheduled daily digest notifications.", () => {
 			const { data: scheduled, error: scheduledError } = await adminClient
 				.from("scheduled_notifications")
 				.select("status,attempt_count")
-				.eq("user_id", id)
+				.eq("user_id", userId)
 				.eq("notification_type", "daily_digest")
 				.eq("scheduled_minutes", dailyDigestNotificationTime)
 				.eq("channel", "sms")
@@ -254,7 +251,7 @@ describe("Users receive scheduled daily digest notifications.", () => {
 			expect(scheduled.attempt_count).toBe(1);
 			expect(["sent", "failed"]).toContain(scheduled.status);
 		} finally {
-			if (id) await cleanupTestUser(id);
+			await cleanupTestUser(userId);
 		}
 	});
 });

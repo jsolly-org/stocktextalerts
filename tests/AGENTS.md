@@ -3,7 +3,7 @@ This file captures test-specific rules and guidance for this repo. Tests use the
 
 ## Testing Framework
 - **Vitest only**: Use Vitest for all tests. Do not use Jest.
-- **Happy path coverage only**: Focus on success paths and essential validation; avoid exhaustive edge-case coverage that increases maintenance cost.
+- **Happy path coverage only**: Focus on success paths and essential validation; avoid exhaustive edge-case coverage that increases maintenance cost. Exceptions: security tests may keep negative-path cases when they validate rejection of invalid input (e.g. `tests/security/forgot-password-security.test.ts` describe "A user requests a password reset email from the forgot password form." / it "The request is rejected when the form is incomplete.").
 
 ## Mocking
 - **Do not mock Supabase**: Do not use `vi.mock()` (or similar) on `src/lib/db/supabase` or Supabase client modules. Route tests through the real Supabase client and seeded data using existing helpers (e.g. `createTestUser`, `adminClient`, `shared-utils`).

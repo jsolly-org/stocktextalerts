@@ -80,9 +80,7 @@ describe("Users receive scheduled daily digest notifications.", () => {
 				.limit(10);
 			expect(logError).toBeNull();
 			expect(logs).toHaveLength(1);
-			const log = logs?.[0];
-			if (!log) throw new Error("Expected log entry not found");
-			expect(log.message_delivered).toBe(true);
+			expect(logs[0].message_delivered).toBe(true);
 
 			const { data: scheduled, error: scheduledError } = await adminClient
 				.from("scheduled_notifications")
@@ -94,11 +92,10 @@ describe("Users receive scheduled daily digest notifications.", () => {
 				.maybeSingle();
 			expect(scheduledError).toBeNull();
 			expect(scheduled).toBeTruthy();
-			if (!scheduled)
-				throw new Error("Expected scheduled_notifications row not found");
 			expect(scheduled.attempt_count).toBe(1);
 			expect(["sent", "failed"]).toContain(scheduled.status);
 		} finally {
+			vi.unstubAllEnvs();
 			if (id) await cleanupTestUser(id);
 		}
 	});

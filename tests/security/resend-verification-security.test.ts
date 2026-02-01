@@ -1,12 +1,7 @@
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../src/pages/api/auth/email/resend-verification";
-
-const toRedirect = (url: string, status = 302) =>
-	new Response(null, {
-		status,
-		headers: { Location: url },
-	});
+import { toRedirect } from "../shared-utils";
 
 describe("A user resends their email verification from the unconfirmed page.", () => {
 	it("If the form is incomplete, the user is asked to complete all fields.", async () => {

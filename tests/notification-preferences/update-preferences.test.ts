@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../src/pages/api/preferences/update";
+import { registerTestUserForCleanup } from "../setup";
 import {
 	adminClient,
 	createAuthenticatedCookies,
@@ -15,6 +16,7 @@ describe("A signed-in user updates their notification preferences.", () => {
 			password: "TestPassword123!",
 			confirmed: true,
 		});
+		registerTestUserForCleanup(testUser.id);
 
 		const cookies = await createAuthenticatedCookies(
 			testUser.email,
@@ -65,6 +67,7 @@ describe("A signed-in user updates their notification preferences.", () => {
 			password: "TestPassword123!",
 			confirmed: true,
 		});
+		registerTestUserForCleanup(testUser.id);
 
 		const cookies = await createAuthenticatedCookies(
 			testUser.email,
@@ -114,6 +117,7 @@ describe("A signed-in user updates their notification preferences.", () => {
 			dailyDigestEnabled: true,
 			dailyDigestNotificationTimes: [480],
 		});
+		registerTestUserForCleanup(testUser.id);
 
 		const cookies = await createAuthenticatedCookies(
 			testUser.email,

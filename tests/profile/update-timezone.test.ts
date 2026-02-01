@@ -10,9 +10,9 @@ import {
 	createAuthenticatedCookies,
 	createTestUser,
 } from "../shared-utils";
+import { TEST_PASSWORD } from "../constants";
 
 describe("A signed-in user dismisses the timezone mismatch banner.", () => {
-	const TEST_PASSWORD = "TestPassword123!";
 
 	it("The banner dismissal is saved so it no longer appears.", async () => {
 		const testUser = await createTestUser({
@@ -22,7 +22,6 @@ describe("A signed-in user dismisses the timezone mismatch banner.", () => {
 			timezone: "America/New_York",
 		});
 
-		let cleanupError: Error | undefined;
 		try {
 			const cookies = await createAuthenticatedCookies(
 				testUser.email,
@@ -62,18 +61,8 @@ describe("A signed-in user dismisses the timezone mismatch banner.", () => {
 			expect(updatedUser).not.toBeNull();
 			expect(updatedUser.dismiss_timezone_mismatch_prompts).toBe(true);
 		} finally {
-			const { error } = await adminClient
-				.from("users")
-				.delete()
-				.eq("id", testUser.id);
-			if (error) {
-				cleanupError = new Error(
-					`Failed to delete test user: ${error.message}`,
-				);
-			}
+			await cleanupTestUser(testUser.id);
 		}
-
-		if (cleanupError) throw cleanupError;
 	});
 
 	it("A logged-out user cannot dismiss the banner.", async () => {
@@ -102,8 +91,6 @@ describe("A signed-in user dismisses the timezone mismatch banner.", () => {
 });
 
 describe("A signed-in user updates their timezone.", () => {
-	const TEST_PASSWORD = "TestPassword123!";
-
 	it("The new timezone is saved and the user sees a confirmation.", async () => {
 		const testUser = await createTestUser({
 			email: `test-timezone-${randomUUID()}@resend.dev`,

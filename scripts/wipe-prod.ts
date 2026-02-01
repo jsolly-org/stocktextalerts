@@ -1,11 +1,72 @@
 import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { rootLogger } from "../src/lib/logging";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const projectRoot = path.join(__dirname, "..");
+type ParsedDatabaseUrl = {
+  host: string;
+  port: string;
+  dbname: string;
+  username: string;
+  password: string;
+};
+
+function escapePgpassField(s: string): string {
+  return s.replace(/[:\\]/g, "\\$&");
+}
+
+function parseDatabaseUrl(url: string): ParsedDatabaseUrl {
+  const u = new URL(url);
+  const dbname = u.pathname.slice(1) || "postgres";
+  const port = u.port || "5432";
+  return {
+    host: u.hostname,
+    port,
+    dbname,
+    username: u.username || "postgres",
+    password: u.password,
+  };
+}
+
+function runPsqlWithParsedUrl(parsed: ParsedDatabaseUrl, sql: string): void {
+  const pgpassDir = fs.mkdtempSync(path.join(os.tmpdir(), "wipe-prod-"));
+  const pgpassPath = path.join(pgpassDir, ".pgpass");
+  try {
+    const line = [
+      escapePgpassField(parsed.host),
+      escapePgpassField(parsed.port),
+      escapePgpassField(parsed.dbname),
+      escapePgpassField(parsed.username),
+      escapePgpassField(parsed.password),
+    ].join(":");
+    fs.writeFileSync(pgpassPath, `${line}\n`, { mode: 0o600 });
+    execFileSync(
+      "psql",
+      [
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-h",
+        parsed.host,
+        "-p",
+        parsed.port,
+        "-U",
+        parsed.username,
+        "-d",
+        parsed.dbname,
+        "-c",
+        sql,
+      ],
+      {
+        stdio: "inherit",
+        env: { ...process.env, PGPASSFILE: pgpassPath },
+      },
+    );
+  } finally {
+    fs.rmSync(pgpassDir, { recursive: true });
+  }
+}
 
 const WIPE_PUBLIC_SQL = `
 BEGIN;
@@ -60,9 +121,7 @@ async function deleteAllAuthUsers(
     }
   }
 
-  rootLogger.info("Deleted auth users from production.", {
-    context: { deleted },
-  });
+  rootLogger.info("Deleted auth users from production.", { deleted });
 }
 
 async function listAllObjects(
@@ -134,32 +193,25 @@ async function deleteAllStorage(supabaseUrl: string, serviceRoleKey: string) {
   }
 
   rootLogger.info("Deleted storage buckets from production.", {
-    context: { deletedBuckets, deletedObjects },
+    deletedBuckets,
+    deletedObjects,
   });
 }
 
 async function main(): Promise<void> {
-  const databaseUrl = process.env.DATABASE_URL;
-  const supabaseUrl = process.env.PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!databaseUrl) {
-    throw new Error("DATABASE_URL must be set in .env.local");
-  }
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error(
-      "PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env.local",
-    );
-  }
+  const databaseUrl = process.env.DATABASE_URL!;
+  const supabaseUrl = process.env.PUBLIC_SUPABASE_URL!;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+  new URL(supabaseUrl); // format validation
+
+  const parsed = parseDatabaseUrl(databaseUrl);
 
   rootLogger.info("Wiping production public schema.", {
-    context: { databaseUrlHost: new URL(databaseUrl).host },
+    databaseUrlHost: parsed.host,
   });
 
-  execFileSync(
-    "psql",
-    ["-v", "ON_ERROR_STOP=1", "-c", WIPE_PUBLIC_SQL, databaseUrl],
-    { stdio: "inherit" },
-  );
+  runPsqlWithParsedUrl(parsed, WIPE_PUBLIC_SQL);
 
   await deleteAllAuthUsers(supabaseUrl, serviceRoleKey);
   await deleteAllStorage(supabaseUrl, serviceRoleKey);
@@ -168,7 +220,7 @@ async function main(): Promise<void> {
 main().catch((error) => {
   rootLogger.error(
     "❌ Error wiping production database.",
-    { context: { action: "wipe_prod" } },
+    { action: "wipe_prod" },
     error,
   );
   process.exitCode = 1;

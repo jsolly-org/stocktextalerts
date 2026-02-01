@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { POST } from "../../src/pages/api/notifications/sms/inbound";
 import { allowConsoleErrors } from "../setup";
+import { buildSmsInboundRequest } from "../shared-utils";
 
 const { validateRequestMock } = vi.hoisted(() => ({
 	validateRequestMock: vi.fn(),
@@ -12,36 +13,12 @@ vi.mock("twilio", () => ({
 	},
 }));
 
-function buildRequest(options: {
-	from: string;
-	body: string;
-	includeSignature?: boolean;
-}) {
-	const formData = new FormData();
-	formData.append("MessageSid", "SM123");
-	formData.append("AccountSid", "AC123");
-	formData.append("From", options.from);
-	formData.append("To", "+15551234567");
-	formData.append("Body", options.body);
-
-	const headers: Record<string, string> = {};
-	if (options.includeSignature) {
-		headers["x-twilio-signature"] = "test-signature";
-	}
-
-	return new Request("http://localhost/api/notifications/sms/inbound", {
-		method: "POST",
-		body: formData,
-		headers,
-	});
-}
-
 describe("A user manages SMS notifications by replying to messages.", () => {
 	it("Requests without a valid signature are rejected before processing.", async () => {
 		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
 
 		const response = await POST({
-			request: buildRequest({
+			request: buildSmsInboundRequest({
 				from: "+15005550006",
 				body: "STOP",
 				includeSignature: false,
@@ -60,7 +37,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		validateRequestMock.mockReturnValueOnce(false);
 
 		const response = await POST({
-			request: buildRequest({
+			request: buildSmsInboundRequest({
 				from: "+15005550006",
 				body: "STOP",
 				includeSignature: true,

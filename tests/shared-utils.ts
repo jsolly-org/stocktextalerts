@@ -1,4 +1,57 @@
 import { randomInt, randomUUID } from "node:crypto";
+
+export function toRedirect(url: string, status = 302): Response {
+	return new Response(null, {
+		status,
+		headers: { Location: url },
+	});
+}
+
+export function buildSmsInboundRequest(options: {
+	from: string;
+	body: string;
+	includeSignature?: boolean;
+}): Request {
+	const formData = new FormData();
+	formData.append("MessageSid", "SM123");
+	formData.append("AccountSid", "AC123");
+	formData.append("From", options.from);
+	formData.append("To", "+15551234567");
+	formData.append("Body", options.body);
+
+	const headers: Record<string, string> = {};
+	if (options.includeSignature) {
+		headers["x-twilio-signature"] = "test-signature";
+	}
+
+	return new Request("http://localhost/api/notifications/sms/inbound", {
+		method: "POST",
+		body: formData,
+		headers,
+	});
+}
+
+export function generateUniquePhoneNumber(): string {
+	return `555${String(randomInt(1000000, 9999999))}`;
+}
+
+export type CreateTestUserOptions = {
+	email?: string;
+	password?: string;
+	timezone?: string;
+	emailNotificationsEnabled?: boolean;
+	smsNotificationsEnabled?: boolean;
+	phoneCountryCode?: string | null;
+	phoneNumber?: string | null;
+	phoneVerified?: boolean;
+	smsOptedOut?: boolean;
+	dailyDigestEnabled?: boolean;
+	dailyDigestNotificationTimes?: number[] | null;
+	trackedStocks?: string[];
+	confirmed?: boolean;
+};
+
+export type TestUser = { id: string; email: string };
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -190,22 +243,8 @@ type DbUserInsert = Omit<
 type DbUserStockInsert = TablesInsert<"user_stocks">;
 
 export async function createTestUser(
-	options: {
-		email?: string;
-		password?: string;
-		timezone?: string;
-		emailNotificationsEnabled?: boolean;
-		smsNotificationsEnabled?: boolean;
-		phoneCountryCode?: string | null;
-		phoneNumber?: string | null;
-		phoneVerified?: boolean;
-		smsOptedOut?: boolean;
-		dailyDigestEnabled?: boolean;
-		dailyDigestNotificationTimes?: number[] | null;
-		trackedStocks?: string[];
-		confirmed?: boolean;
-	} = {},
-): Promise<{ id: string; email: string }> {
+	options: CreateTestUserOptions = {},
+): Promise<TestUser> {
 	const email =
 		options.email ??
 		(process.env.TEST_EMAIL_RECIPIENT
