@@ -11,9 +11,9 @@ const CSP = [
 	"frame-ancestors 'none'",
 	"frame-src 'self' https://newassets.hcaptcha.com https://hcaptcha.com https://*.hcaptcha.com",
 	"img-src 'self' data: https:",
-	"script-src 'self' 'unsafe-inline' https://js.hcaptcha.com https://www.ssa.gov https://ajax.googleapis.com", // ANDI: SSA + jQuery
+	"script-src 'self' 'unsafe-inline' https://js.hcaptcha.com https://www.ssa.gov https://ajax.googleapis.com https://vercel.live", // ANDI: SSA + jQuery
 	"style-src 'self' 'unsafe-inline' https://www.ssa.gov", // ANDI stylesheet
-	"connect-src 'self' https:",
+	"connect-src 'self' https: https://vercel.live",
 	"font-src 'self' data:",
 	"form-action 'self'",
 ].join("; ");

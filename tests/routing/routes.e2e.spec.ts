@@ -2,21 +2,18 @@ import { randomUUID } from "node:crypto";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { test } from "@playwright/test";
+import { CONSOLE_ALLOWLIST, ROUTES_DIR, TEST_PASSWORD } from "../constants";
 import {
 	cleanupTestUser,
 	createAuthenticatedCookies,
 	createTestUser,
-} from "../utils";
+} from "../shared-utils";
 
 type ConsoleIssue = {
 	route: string;
 	type: "warning" | "error" | "pageerror";
 	message: string;
 };
-
-const ROUTES_DIR = path.join(process.cwd(), "src", "pages");
-const CONSOLE_ALLOWLIST: Array<string | RegExp> = [];
-const TEST_PASSWORD = "TestPassword123!";
 
 function isAllowedConsoleMessage(message: string): boolean {
 	return CONSOLE_ALLOWLIST.some((pattern) =>
@@ -73,7 +70,7 @@ async function collectRoutes(): Promise<string[]> {
 	return [...new Set(routes)].sort();
 }
 
-test("visits all routes without unexpected console output", async ({
+test("A signed-in user can navigate all routes without console errors.", async ({
 	page,
 }) => {
 	let testUser: { id: string; email: string } | null = null;

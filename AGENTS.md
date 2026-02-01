@@ -44,7 +44,7 @@ This file captures the non-negotiables for this repo. It is a new app, so we opt
 - **Generated files**: Do NOT modify `src/lib/db/generated/database.types.ts` directly. This file is auto-generated from the Supabase schema. If type issues arise, use type assertions in application code or regenerate the types using the Supabase CLI.
 
 ## Tech Stack
-- **Testing**: Vitest only; happy path coverage only. Do not use Jest.
+- **Testing**: See `tests/AGENTS.md` for test framework, mocking, and assertion rules.
 - **Linting/Formatting**: Biome only (No Prettier or ESLint)
   - **Astro files excluded from Biome**: Astro files (`.astro`) are excluded from Biome's `files.includes` pattern in `biome.jsonc` because Biome's formatter repeatedly adds blank lines after frontmatter `---` delimiters when `html.experimentalFullSupportEnabled` is true. Formatter overrides don't prevent this behavior. Astro files are not linted or formatted by Biome as a result. The `package.json` lint-staged config includes `astro` for consistency, but Biome will ignore those files.
 - **Styling**: Tailwind utilities preferred over custom CSS

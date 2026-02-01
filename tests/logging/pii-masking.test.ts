@@ -7,7 +7,7 @@ import {
 	warnSpy,
 } from "../setup";
 
-describe("logging PII masking", () => {
+describe("Sensitive user data is masked in logs.", () => {
 	let infoSpy: ReturnType<typeof vi.spyOn>;
 
 	beforeEach(() => {
@@ -19,7 +19,7 @@ describe("logging PII masking", () => {
 		vi.unstubAllEnvs();
 	});
 
-	it("masks email and phone when LOG_MASK_PII is enabled", () => {
+	it("When masking is enabled, email and phone are redacted in info logs.", () => {
 		vi.stubEnv("LOG_MASK_PII", "true");
 
 		rootLogger.info("Contact test@example.com", { phone: "+1 (415) 555-1234" });
@@ -31,7 +31,7 @@ describe("logging PII masking", () => {
 		expect(payload.context.phone).toBe("[REDACTED]");
 	});
 
-	it("masks email and phone in warnings when LOG_MASK_PII is enabled", () => {
+	it("When masking is enabled, email and phone are redacted in warning logs.", () => {
 		vi.stubEnv("LOG_MASK_PII", "true");
 		allowConsoleWarnings();
 		warnSpy.mockClear();
@@ -45,7 +45,7 @@ describe("logging PII masking", () => {
 		expect(payload.context.phone).toBe("[REDACTED]");
 	});
 
-	it("masks email and phone in errors when LOG_MASK_PII is enabled", () => {
+	it("When masking is enabled, email and phone are redacted in error logs.", () => {
 		vi.stubEnv("LOG_MASK_PII", "true");
 		allowConsoleErrors();
 		errorSpy.mockClear();
@@ -61,7 +61,7 @@ describe("logging PII masking", () => {
 		expect(payload.context.phone).toBe("[REDACTED]");
 	});
 
-	it("leaves PII unchanged when LOG_MASK_PII is false", () => {
+	it("When masking is disabled, email and phone are logged as provided.", () => {
 		vi.stubEnv("LOG_MASK_PII", "false");
 
 		rootLogger.info("Email test@example.com", { phone: "415-555-1234" });
@@ -73,7 +73,7 @@ describe("logging PII masking", () => {
 		expect(payload.context.phone).toBe("415-555-1234");
 	});
 
-	it("masks PII by default when LOG_MASK_PII is not set", () => {
+	it("When masking is not configured, email and phone are redacted by default.", () => {
 		vi.stubEnv("LOG_MASK_PII", "");
 
 		rootLogger.info("Contact test@example.com", { phone: "+1 (415) 555-1234" });
