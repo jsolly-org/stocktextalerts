@@ -183,13 +183,14 @@ When running Supabase locally, emails are intercepted by Mailpit. View them at <
 
 ```bash
 npm run db:start
+npm run db:reset
 npm run test
 npm run test:ci
 npm run test:e2e
 npm run fix
 ```
 
-For local development, `npm run test` runs `npm run db:reset` first to ensure your Supabase DB matches the current migrations and seed data. CI uses `npm run test:ci` to skip the automatic reset (faster on fresh runners).
+For local development, run `npm run db:reset` before `npm run test` to ensure your Supabase DB matches the current migrations and seed data.
 
 ## Usage
 
@@ -344,7 +345,7 @@ Resetting the database (`npm run db:reset`) will:
 - Re-apply the schema
 - Re-seed the database with the updated stock list
 
-This is safe for local development but **do not run this against a production database**.
+This is safe for local development; `db:generate-seed` refuses to run against non-local Supabase unless you explicitly pass `--prod` (used by `npm run db:reset:prod`).
 
 ## License
 
