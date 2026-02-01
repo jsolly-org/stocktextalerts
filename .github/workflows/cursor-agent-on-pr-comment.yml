@@ -138,12 +138,15 @@ jobs:
 
           # Construct comment URL based on event type
           if [[ "$EVENT_NAME" == "pull_request_review_comment" ]]; then
-            COMMENT_URL="https://github.com/$REPO/pull/$PR_NUMBER#discussion_r$COMMENT_ID"
+            # Use a relative anchor so the reply comment doesn't redundantly mention the PR URL.
+            COMMENT_URL="#discussion_r$COMMENT_ID"
           elif [[ "$EVENT_NAME" == "issue_comment" ]]; then
-            COMMENT_URL="https://github.com/$REPO/pull/$PR_NUMBER#issuecomment-$COMMENT_ID"
+            # Use a relative anchor so the reply comment doesn't redundantly mention the PR URL.
+            COMMENT_URL="#issuecomment-$COMMENT_ID"
           elif [[ "$EVENT_NAME" == "pull_request_review" ]]; then
             # Reviews don't have a direct comment anchor, but we can link to the review
-            COMMENT_URL="https://github.com/$REPO/pull/$PR_NUMBER#pullrequestreview-$COMMENT_ID"
+            # Use a relative anchor so the reply comment doesn't redundantly mention the PR URL.
+            COMMENT_URL="#pullrequestreview-$COMMENT_ID"
           else
             COMMENT_URL=""
           fi
@@ -392,21 +395,8 @@ jobs:
             1) Make the necessary code changes requested in the user comment below.
             2) Before committing, run the same checks as the pre-commit hook so CI does not fail: install deps with \`npm ci\`, then run \`npx biome ci .\` and \`npm run check:ts\`. If either fails, fix the issues and re-run until both pass. Only then commit and push.
             3) If you made changes, commit and push directly to the PR head branch. If no changes are needed, do not commit.
-            4) If you commit, include the PR number and comment ID in the commit message.
-            5) After a successful push, mark the comment as resolved:
-               - If the event is pull_request_review_comment, resolve the review thread using GraphQL:
-                 1. Get the comment via REST API to extract its node_id:
-                    COMMENT_JSON=\$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID")
-                    NODE_ID=\$(echo "\$COMMENT_JSON" | jq -r '.node_id')
-                 2. Query the comment via GraphQL to get its thread ID:
-                    THREAD_QUERY='query{node(id:"'"'"'"\$NODE_ID"'"'"'"){... on PullRequestReviewComment{thread{id}}}}'
-                    THREAD_ID=\$(gh api graphql -f query="\$THREAD_QUERY" -q '.data.node.thread.id')
-                 3. Resolve the thread:
-                    RESOLVE_MUTATION='mutation{resolveReviewThread(input:{threadId:"'"'"'"\$THREAD_ID"'"'"'"}){thread{isResolved}}}'
-                    gh api graphql -f query="\$RESOLVE_MUTATION"
-               - If the event is pull_request_review, no action needed (review stands as submitted).
-               - If the event is issue_comment, add a reaction:
-                 gh api -X POST /repos/$REPO/issues/comments/$COMMENT_ID/reactions -f content=eyes
+            4) If you commit, include the triggering comment ID in the commit message (e.g. "(comment $COMMENT_ID)"). Do not include the PR number in commit messages.
+            5) Do not resolve threads or add reactions to the triggering comment. The GitHub Actions workflow will mark the triggering comment as processed once it has either (a) pushed passing changes or (b) determined no changes were needed.
 
             ---SYSTEM_INSTRUCTIONS_END---
 
@@ -525,6 +515,10 @@ jobs:
             if [[ -n "$line" ]]; then
               SHA=$(echo "$line" | cut -d' ' -f1)
               MSG=$(echo "$line" | cut -d' ' -f2-)
+              # Avoid redundantly echoing the PR number in the reply comment, since this is already posted inside the PR.
+              # This is a display-only tweak; the commit subject remains unchanged.
+              MSG=${MSG//(#${{ steps.pr.outputs.pr_number }}, comment ${{ steps.pr.outputs.comment_id }})/}
+              MSG=$(echo "$MSG" | sed -E 's/[[:space:]]+/ /g; s/[[:space:]]+$//')
               COMMIT_URL="https://github.com/$REPO/commit/$SHA"
               if [[ -z "$COMMIT_LINKS" ]]; then
                 COMMIT_LINKS="- [\`${SHA:0:7}\`]($COMMIT_URL) $MSG"
@@ -556,6 +550,51 @@ jobs:
           
           gh pr comment "${{ steps.pr.outputs.pr_number }}" \
             --body "$SUCCESS_BODY"
+
+      - name: Mark triggering comment as processed
+        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && (steps.agent.outputs.noop == 'true' || (steps.agent.outputs.changes_pushed == 'true' && steps.precommit_checks.outcome == 'success'))
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+          COMMENT_ID: ${{ steps.pr.outputs.comment_id }}
+          EVENT_NAME: ${{ steps.pr.outputs.event_name }}
+        run: |
+          if [[ "$EVENT_NAME" == "pull_request_review_comment" ]]; then
+            COMMENT_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID")
+            NODE_ID=$(echo "$COMMENT_JSON" | jq -r '.node_id')
+            if [[ -z "$NODE_ID" || "$NODE_ID" == "null" ]]; then
+              echo "Warning: Could not resolve review thread (missing node_id)."
+              exit 0
+            fi
+
+            THREAD_QUERY='query{node(id:"'"'"'"$NODE_ID"'"'"'"){... on PullRequestReviewComment{thread{id isResolved}}}}'
+            THREAD_JSON=$(gh api graphql -f query="$THREAD_QUERY")
+            THREAD_ID=$(echo "$THREAD_JSON" | jq -r '.data.node.thread.id // empty')
+            THREAD_RESOLVED=$(echo "$THREAD_JSON" | jq -r '.data.node.thread.isResolved // false')
+
+            if [[ -z "$THREAD_ID" ]]; then
+              echo "Warning: Could not resolve review thread (missing thread id)."
+              exit 0
+            fi
+
+            if [[ "$THREAD_RESOLVED" == "true" ]]; then
+              echo "Review thread already resolved."
+              exit 0
+            fi
+
+            RESOLVE_MUTATION='mutation{resolveReviewThread(input:{threadId:"'"'"'"$THREAD_ID"'"'"'"}){thread{isResolved}}}'
+            gh api graphql -f query="$RESOLVE_MUTATION"
+            exit 0
+          fi
+
+          if [[ "$EVENT_NAME" == "issue_comment" ]]; then
+            gh api -X POST "/repos/$REPO/issues/comments/$COMMENT_ID/reactions" -f content=eyes
+            exit 0
+          fi
+
+          # pull_request_review has no specific "resolve" action (the review is already submitted).
+          echo "No comment processing action needed for event: $EVENT_NAME"
 
       - name: Report agent no-op
         if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && steps.agent.outputs.noop == 'true'
