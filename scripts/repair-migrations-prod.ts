@@ -29,22 +29,22 @@ function main(): void {
   });
   const rows = parseMigrationList(output);
 
-  const remoteOnly = rows
-    .filter((row) => !row.local && row.remote)
+  const remoteMigrations = rows
+    .filter((row) => row.remote)
     .map((row) => row.remote as string);
 
-  if (remoteOnly.length === 0) {
-    rootLogger.info("No remote-only migrations to repair.", { context: {} });
+  if (remoteMigrations.length === 0) {
+    rootLogger.info("No remote migrations to repair.", { context: {} });
     return;
   }
 
-  rootLogger.info("Marking remote-only migrations as reverted.", {
-    context: { count: remoteOnly.length },
+  rootLogger.info("Marking remote migrations as reverted.", {
+    context: { count: remoteMigrations.length },
   });
 
   execFileSync(
     "supabase",
-    ["migration", "repair", "--status", "reverted", ...remoteOnly],
+    ["migration", "repair", "--status", "reverted", ...remoteMigrations],
     { stdio: "inherit" },
   );
 }
