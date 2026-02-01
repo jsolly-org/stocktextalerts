@@ -12,13 +12,11 @@ function getTestEnv(): TestEnv {
 	const supabaseAnonKey = process.env.PUBLIC_SUPABASE_ANON_KEY;
 
 	// Tests run outside the request pipeline, so middleware env validation doesn't apply.
-	if (!supabaseUrl || !supabaseServiceRoleKey || !supabaseAnonKey) {
-		throw new Error(
-			"Missing required environment variables for tests: PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and PUBLIC_SUPABASE_ANON_KEY must be set",
-		);
-	}
-
-	return { supabaseUrl, supabaseServiceRoleKey, supabaseAnonKey };
+	return {
+		supabaseUrl: supabaseUrl as string,
+		supabaseServiceRoleKey: supabaseServiceRoleKey as string,
+		supabaseAnonKey: supabaseAnonKey as string,
+	};
 }
 
 const testEnv = getTestEnv();
