@@ -93,6 +93,16 @@ function serializeError(error: unknown): LogEntry["error"] {
 	};
 }
 
+function getMaskPiiEnabled(): boolean {
+	const value =
+		typeof import.meta !== "undefined" && import.meta.env
+			? import.meta.env.LOG_MASK_PII
+			: process.env.LOG_MASK_PII;
+	const normalized =
+		typeof value === "string" ? value : String(value ?? "");
+	return normalized.toLowerCase() !== "false";
+}
+
 function safeJsonStringify(value: unknown, maskPiiEnabled: boolean): string {
 	const seen = new WeakSet<object>();
 	return JSON.stringify(value, (_key, entry) => {
@@ -118,18 +128,10 @@ function safeJsonStringify(value: unknown, maskPiiEnabled: boolean): string {
 function buildEntry(
 	level: LogLevel,
 	message: string,
-	context?: LogContext,
-	error?: unknown,
+	context: LogContext | undefined,
+	error: unknown | undefined,
+	maskPiiEnabled: boolean,
 ): LogEntry {
-	const logMaskPiiValue =
-		typeof import.meta !== "undefined" && import.meta.env
-			? import.meta.env.LOG_MASK_PII
-			: process.env.LOG_MASK_PII;
-	const logMaskPiiNormalized =
-		typeof logMaskPiiValue === "string"
-			? logMaskPiiValue
-			: String(logMaskPiiValue ?? "");
-	const maskPiiEnabled = logMaskPiiNormalized.toLowerCase() !== "false";
 	const maskedContext = context
 		? maskPiiInContext(context, maskPiiEnabled)
 		: undefined;
@@ -159,19 +161,9 @@ function writeLog(
 	context?: LogContext,
 	error?: unknown,
 ) {
-	const entry = buildEntry(level, message, context, error);
-	const logMaskPiiValue =
-		typeof import.meta !== "undefined" && import.meta.env
-			? import.meta.env.LOG_MASK_PII
-			: process.env.LOG_MASK_PII;
-	const logMaskPiiNormalized =
-		typeof logMaskPiiValue === "string"
-			? logMaskPiiValue
-			: String(logMaskPiiValue ?? "");
-	const output = safeJsonStringify(
-		entry,
-		logMaskPiiNormalized.toLowerCase() !== "false",
-	);
+	const maskPiiEnabled = getMaskPiiEnabled();
+	const entry = buildEntry(level, message, context, error, maskPiiEnabled);
+	const output = safeJsonStringify(entry, maskPiiEnabled);
 
 	switch (level) {
 		case "debug":
