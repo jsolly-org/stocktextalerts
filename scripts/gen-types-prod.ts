@@ -36,7 +36,7 @@ function buildHeader(): string {
 }
 
 function main(): void {
-  const supabaseUrl = process.env.PUBLIC_SUPABASE_URL!;
+  const supabaseUrl = process.env.PUBLIC_SUPABASE_URL as string;
 
   const projectRef = getProjectRef(supabaseUrl);
   const types = execFileSync(
