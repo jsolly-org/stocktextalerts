@@ -56,7 +56,7 @@ runs:
         jq -r '
           "PUBLIC_SUPABASE_URL=\(.API_URL)",
           "PUBLIC_SUPABASE_ANON_KEY=\(.ANON_KEY)",
-          "SUPABASE_SERVICE_ROLE_KEY=\(.SERVICE_ROLE_KEY)",
+          "SUPABASE_SECRET_KEY=\(.SERVICE_ROLE_KEY)",
           "DATABASE_URL=\(.DB_URL)",
           "CRON_SECRET=ci-cron-secret",
           "VERCEL_URL=http://localhost:4321"
@@ -64,7 +64,7 @@ runs:
         jq -r '
           "PUBLIC_SUPABASE_URL=\(.API_URL)",
           "PUBLIC_SUPABASE_ANON_KEY=\(.ANON_KEY)",
-          "SUPABASE_SERVICE_ROLE_KEY=\(.SERVICE_ROLE_KEY)",
+          "SUPABASE_SECRET_KEY=\(.SERVICE_ROLE_KEY)",
           "DATABASE_URL=\(.DB_URL)"
         ' /tmp/sb-status.json >> $GITHUB_ENV
         echo "CRON_SECRET=ci-cron-secret" >> $GITHUB_ENV

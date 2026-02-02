@@ -3,7 +3,7 @@ import type { Database } from "./generated/database.types";
 
 const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
-const supabaseServiceRoleKey = import.meta.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseSecretKey = import.meta.env.SUPABASE_SECRET_KEY;
 
 const SUPABASE_CLIENT_OPTIONS = {
 	auth: {
@@ -30,7 +30,7 @@ export function createSupabaseServerClient(): AppSupabaseClient {
 export function createSupabaseAdminClient(): AppSupabaseClient {
 	return createClient<Database>(
 		supabaseUrl,
-		supabaseServiceRoleKey,
+		supabaseSecretKey,
 		SUPABASE_CLIENT_OPTIONS,
 	);
 }

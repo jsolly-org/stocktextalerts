@@ -44,7 +44,7 @@ const ERROR_HINTS: Partial<Record<SeedErrorCode, string[]>> = {
   missing_env: [
     "\n💡 Hint: Missing environment variables.",
     "   - Ensure .env.local exists in the project root",
-    "   - Verify PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set",
+    "   - Verify PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY are set",
     "   - For local development, run: supabase start",
   ],
   invalid_supabase_url: [
@@ -79,8 +79,8 @@ const ERROR_HINTS: Partial<Record<SeedErrorCode, string[]>> = {
   ],
   auth_failed: [
     "\n💡 Hint: Authentication error.",
-    "   - Verify SUPABASE_SERVICE_ROLE_KEY is correct",
-    "   - Check that the service role key matches your Supabase instance",
+    "   - Verify SUPABASE_SECRET_KEY is correct",
+    "   - Check that the secret key matches your Supabase instance",
   ],
   list_users_failed: [
     "\n💡 Hint: Error fetching users from Supabase.",
@@ -333,14 +333,14 @@ async function main() {
 
   // Check for required environment variables
   const supabaseUrl = process.env.PUBLIC_SUPABASE_URL;
-  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
   const allowProd = process.argv.includes("--prod");
 
   // Seed scripts run outside middleware, so env validation lives here.
-  if (!supabaseUrl || !supabaseServiceRoleKey) {
+  if (!supabaseUrl || !supabaseSecretKey) {
     throw new SeedError(
       "missing_env",
-      "Missing required environment variables: PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env.local",
+      "Missing required environment variables: PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY must be set in .env.local",
     );
   }
 
@@ -360,7 +360,7 @@ async function main() {
   if (!isLocalSupabase && !allowProd) {
     throw new SeedError(
       "non_local_supabase_url",
-      `Refusing to use SUPABASE_SERVICE_ROLE_KEY against non-local Supabase URL (${supabaseUrl}). Pass --prod to override.`,
+      `Refusing to use SUPABASE_SECRET_KEY against non-local Supabase URL (${supabaseUrl}). Pass --prod to override.`,
     );
   }
 
@@ -372,7 +372,7 @@ async function main() {
   }
 
   // Create Supabase admin client
-  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
+  const supabase = createClient(supabaseUrl, supabaseSecretKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

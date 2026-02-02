@@ -97,7 +97,7 @@ VERCEL_URL=http://localhost:4321
 # Supabase
 PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_SECRET_KEY=your-secret-key
 DATABASE_URL=postgresql://postgres:password@host:5432/database
 
 # hCaptcha (site key is public)
@@ -126,7 +126,7 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 
 **Where to find these:**
 - `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_ANON_KEY`: Supabase Dashboard → Project Settings → API
-- `SUPABASE_SERVICE_ROLE_KEY`: Supabase Dashboard → Project Settings → API (under "Service role")
+- `SUPABASE_SECRET_KEY`: Supabase Dashboard → Project Settings → API Keys → Secret keys
 - `DATABASE_URL`: Supabase Dashboard → Project Settings → Database → Connection String → Transaction mode (pooler)
 - Twilio credentials: Twilio Console → Account Dashboard
 - `CRON_SECRET`: Generate a random string (e.g., `openssl rand -hex 32`)
@@ -134,7 +134,7 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - hCaptcha secret: hCaptcha Dashboard → Settings → **Secret key**
 - LOG masking: optional, defaults to true
 
-**Security Note:** The `SUPABASE_SERVICE_ROLE_KEY` bypasses Row Level Security. Never expose it on the client side. The `.env.local` file (and all `.env*` files) are excluded from version control via `.gitignore`.
+**Security Note:** The `SUPABASE_SECRET_KEY` bypasses Row Level Security. Never expose it on the client side. The `.env.local` file (and all `.env*` files) are excluded from version control via `.gitignore`.
 
 ### 4. Generate Seed File
 

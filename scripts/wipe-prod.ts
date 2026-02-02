@@ -201,7 +201,7 @@ async function deleteAllStorage(supabaseUrl: string, serviceRoleKey: string) {
 async function main(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL!;
   const supabaseUrl = process.env.PUBLIC_SUPABASE_URL!;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+	const secretKey = process.env.SUPABASE_SECRET_KEY!;
 
   new URL(supabaseUrl); // format validation
 
@@ -213,8 +213,8 @@ async function main(): Promise<void> {
 
   runPsqlWithParsedUrl(parsed, WIPE_PUBLIC_SQL);
 
-  await deleteAllAuthUsers(supabaseUrl, serviceRoleKey);
-  await deleteAllStorage(supabaseUrl, serviceRoleKey);
+	await deleteAllAuthUsers(supabaseUrl, secretKey);
+	await deleteAllStorage(supabaseUrl, secretKey);
 }
 
 main().catch((error) => {
