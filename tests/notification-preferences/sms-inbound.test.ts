@@ -14,6 +14,7 @@ async function getTestUserPhone(userId: string): Promise<string> {
 		.select("phone_country_code,phone_number")
 		.eq("id", userId)
 		.single();
+	if (!user) throw new Error("expected user row");
 	return `${user.phone_country_code}${user.phone_number}`;
 }
 
@@ -58,6 +59,8 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 				.select("sms_opted_out")
 				.eq("id", testUser.id)
 				.single();
+			expect(updated).not.toBeNull();
+			if (!updated) throw new Error("expected user row");
 			expect(updated.sms_opted_out).toBe(true);
 		} finally {
 			await cleanupTestUser(testUser.id);
@@ -95,6 +98,8 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 				.select("sms_opted_out")
 				.eq("id", testUser.id)
 				.single();
+			expect(updated).not.toBeNull();
+			if (!updated) throw new Error("expected user row");
 			expect(updated.sms_opted_out).toBe(false);
 		} finally {
 			await cleanupTestUser(testUser.id);
