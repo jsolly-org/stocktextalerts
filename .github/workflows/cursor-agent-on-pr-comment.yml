@@ -266,24 +266,21 @@ jobs:
           COMMENT_ID: ${{ steps.context.outputs.comment_id }}
           BEFORE_SHA: ${{ steps.agent.outputs.before_sha }}
         run: |
-          # Configure remote URL with token for pushing. Disable credential helper so git
-          # uses the URL-embedded token and does not try to read a password from /dev/tty.
-          git config --local credential.helper ""
+          # Use a tokenized URL inline to avoid persisting credentials in git config.
           REMOTE_URL="https://x-access-token:${GH_TOKEN}@github.com/${HEAD_REPO}.git"
-          git remote set-url origin "$REMOTE_URL"
 
           git add -A
           git commit -m "Cursor: apply requested changes (comment $COMMENT_ID)"
 
-          if ! git push origin "$HEAD_REF" 2> push-error.log; then
+          if ! git push "$REMOTE_URL" "$HEAD_REF" 2> push-error.log; then
             echo "##[error]Failed to push commit. This may be a fork PR where GITHUB_TOKEN cannot push."
             echo "Push error details:"
             cat push-error.log || true
             exit 1
           fi
 
-          git fetch origin "$HEAD_REF"
-          AFTER_SHA="$(git rev-parse "origin/$HEAD_REF")"
+          git fetch "$REMOTE_URL" "$HEAD_REF"
+          AFTER_SHA="$(git rev-parse FETCH_HEAD)"
 
           echo "changes_pushed=true" >> "$GITHUB_OUTPUT"
           echo "before_sha=$BEFORE_SHA" >> "$GITHUB_OUTPUT"
