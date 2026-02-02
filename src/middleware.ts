@@ -4,19 +4,47 @@ import { validateEnv } from "./lib/db/env";
 // Lazy validation flag - only validate once on first request
 let envValidated = false;
 
-const CSP = [
-	"default-src 'self'",
-	"base-uri 'self'",
-	"object-src 'none'",
-	"frame-ancestors 'none'",
-	"frame-src 'self' https://newassets.hcaptcha.com https://hcaptcha.com https://*.hcaptcha.com",
-	"img-src 'self' data: https:",
-	"script-src 'self' 'unsafe-inline' https://js.hcaptcha.com https://www.ssa.gov https://ajax.googleapis.com https://vercel.live", // ANDI: SSA + jQuery
-	"style-src 'self' 'unsafe-inline' https://www.ssa.gov", // ANDI stylesheet
-	"connect-src 'self' https: https://vercel.live",
-	"font-src 'self' data:",
-	"form-action 'self'",
-].join("; ");
+const CSP = (() => {
+	const isVercelPreview =
+		process.env.VERCEL === "1" && process.env.VERCEL_ENV === "preview";
+
+	const frameSrc = [
+		"'self'",
+		"https://newassets.hcaptcha.com",
+		"https://hcaptcha.com",
+		"https://*.hcaptcha.com",
+		...(isVercelPreview ? ["https://vercel.live"] : []),
+	].join(" ");
+
+	const scriptSrc = [
+		"'self'",
+		"'unsafe-inline'",
+		"https://js.hcaptcha.com",
+		"https://www.ssa.gov",
+		"https://ajax.googleapis.com",
+		...(isVercelPreview ? ["https://vercel.live"] : []),
+	].join(" "); // ANDI: SSA + jQuery
+
+	const connectSrc = [
+		"'self'",
+		"https:",
+		...(isVercelPreview ? ["https://vercel.live"] : []),
+	].join(" ");
+
+	return [
+		"default-src 'self'",
+		"base-uri 'self'",
+		"object-src 'none'",
+		"frame-ancestors 'none'",
+		`frame-src ${frameSrc}`,
+		"img-src 'self' data: https:",
+		`script-src ${scriptSrc}`,
+		"style-src 'self' 'unsafe-inline' https://www.ssa.gov", // ANDI stylesheet
+		`connect-src ${connectSrc}`,
+		"font-src 'self' data:",
+		"form-action 'self'",
+	].join("; ");
+})();
 
 const applySecurityHeaders = (headers: Headers, requestId: string) => {
 	headers.set("x-request-id", requestId);
