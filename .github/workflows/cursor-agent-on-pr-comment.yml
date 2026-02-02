@@ -18,371 +18,137 @@ permissions:
 jobs:
   run-agent:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     env:
       INTERNAL_MARKER: "<!-- cursor-agent-workflow:internal -->"
-      WORKFLOW_FILE: .github/workflows/cursor-agent-on-pr-comment.yml
+      # GitHub's workflows API accepts the workflow filename (e.g. "cursor-agent-on-pr-comment.yml"),
+      # not a repo path like ".github/workflows/...".
+      WORKFLOW_FILE: cursor-agent-on-pr-comment.yml
       CURSOR_AGENT_NAME: "Cursor Agent"
       CURSOR_AGENT_EMAIL: "cursoragent@cursor.com"
     steps:
-      - name: Check if should skip
-        id: should_skip
+      - name: Derive comment context
+        id: context
+        uses: ./.github/actions/pr-comment-trigger-context
+        with:
+          repo: ${{ github.repository }}
+          repo_owner: ${{ github.repository_owner }}
+          event_name: ${{ github.event_name }}
+          comment_body: ${{ github.event.comment.body || github.event.review.body }}
+          comment_user: ${{ github.event.comment.user.login || github.event.review.user.login }}
+          comment_id: ${{ github.event.comment.id || github.event.review.id }}
+          pr_number: ${{ github.event.issue.number || github.event.pull_request.number }}
+          issue_pull_request_url: ${{ github.event.issue.pull_request.url }}
+          internal_marker: ${{ env.INTERNAL_MARKER }}
+          gh_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log skip context
+        if: steps.context.outputs.run_agent != 'true'
         env:
-          COMMENT_BODY: ${{ github.event.comment.body || github.event.review.body }}
-          COMMENT_USER: ${{ github.event.comment.user.login || github.event.review.user.login }}
+          SKIP: ${{ steps.context.outputs.skip }}
+          IS_PR: ${{ steps.context.outputs.is_pr }}
+          IS_AUTHOR: ${{ steps.context.outputs.is_author }}
         run: |
-          SKIP="false"
-          REPO="${{ github.repository }}"
-
-          # Debug: log the commenter username for troubleshooting
-          echo "Commenter username: '$COMMENT_USER'"
-          echo "Event name: ${{ github.event_name }}"
-
-          # Skip if commenter is not in the allowlist
-          OWNER=$(echo "$REPO" | cut -d'/' -f1)
-          IS_OWNER=$([[ "$COMMENT_USER" == "$OWNER" ]] && echo "true" || echo "false")
-          IS_CODERABBIT_BOT=$([[ "$COMMENT_USER" == "coderabbitai[bot]" ]] && echo "true" || echo "false")
-          IS_VERCEL_BOT=$([[ "$COMMENT_USER" == "vercel[bot]" ]] && echo "true" || echo "false")
-
-          if [[ "$IS_OWNER" != "true" ]] && [[ "$IS_CODERABBIT_BOT" != "true" ]] && [[ "$IS_VERCEL_BOT" != "true" ]]; then
-            echo "Skipping: commenter is not in the allowlist"
-            SKIP="true"
-          fi
-
-          # Check for internal marker
-          if [[ "$COMMENT_BODY" == *"$INTERNAL_MARKER"* ]]; then
-            echo "Skipping internal workflow comment."
-            SKIP="true"
-          fi
-
-          # Skip Vercel deployment status updates (status tables, preview links, deployment notifications).
-          # Process Vercel Agent review comments (actual code review comments without status markers).
-          if [[ "$COMMENT_USER" == "vercel" ]] || [[ "$COMMENT_USER" == "vercel[bot]" ]]; then
-            if [[ "$COMMENT_BODY" == *"The latest updates on your projects"* ]] || \
-               [[ "$COMMENT_BODY" == *"[vc]:"* ]] || \
-               [[ "$COMMENT_BODY" == *"<!-- vercel:"* ]] || \
-               [[ "$COMMENT_BODY" =~ ^\[vc\]: ]]; then
-              echo "Skipping Vercel status update: $COMMENT_USER"
-              SKIP="true"
-            fi
-          fi
-
-          # Skip comments that mention @coderabbitai (unless it's CodeRabbit itself responding).
-          # The owner uses @coderabbitai to request reviews; ignore those replies here.
-          if [[ "$COMMENT_BODY" =~ @[Cc]oderabbitai ]]; then
-            if [[ "$COMMENT_USER" != "coderabbitai[bot]" ]]; then
-              echo "Skipping comment that mentions @coderabbitai from $COMMENT_USER"
-              SKIP="true"
-            fi
-          fi
-
-          # Skip CodeRabbit acknowledgment comments when a full review is triggered.
-          if [[ "$COMMENT_USER" == "coderabbitai[bot]" ]]; then
-            if [[ "$COMMENT_BODY" =~ [Ff]ull[[:space:]]+review[[:space:]]+triggered ]]; then
-              echo "Skipping CodeRabbit acknowledgment comment (Full review triggered)"
-              SKIP="true"
-            fi
-          fi
-
-          # Skip pull_request_review events without a body (approvals/rejections with no comment).
-          if [[ "${{ github.event_name }}" == "pull_request_review" ]]; then
-            if [[ -z "$COMMENT_BODY" ]] || [[ "$COMMENT_BODY" == "null" ]]; then
-              echo "Skipping review without body (approval/rejection with no comment)"
-              SKIP="true"
-            fi
-          fi
-
-          echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
-
-      - name: Extract PR metadata
-        id: pr
-        if: steps.should_skip.outputs.skip != 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          REPO="${{ github.repository }}"
-          EVENT_NAME="${{ github.event_name }}"
-          
-          if [[ "$EVENT_NAME" == "pull_request_review" ]]; then
-            COMMENT_ID="${{ github.event.review.id }}"
-            COMMENT_USER="${{ github.event.review.user.login }}"
-            PR_NUMBER="${{ github.event.pull_request.number }}"
-            IS_PR="true"
-          elif [[ "$EVENT_NAME" == "issue_comment" ]]; then
-            COMMENT_ID="${{ github.event.comment.id }}"
-            COMMENT_USER="${{ github.event.comment.user.login }}"
-            PR_NUMBER="${{ github.event.issue.number }}"
-            # github.event.issue.pull_request.url is only present when the issue is a PR
-            PULL_REQUEST_URL="${{ github.event.issue.pull_request.url }}"
-            IS_PR=$([[ -n "$PULL_REQUEST_URL" && "$PULL_REQUEST_URL" != "null" ]] && echo "true" || echo "false")
-          else
-            COMMENT_ID="${{ github.event.comment.id }}"
-            COMMENT_USER="${{ github.event.comment.user.login }}"
-            PR_NUMBER="${{ github.event.pull_request.number }}"
-            IS_PR="true"
-          fi
-
-          if [[ "$IS_PR" == "true" ]]; then
-            PR_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
-            HEAD_REPO=$(echo "$PR_JSON" | jq -r '.head.repo.full_name')
-            HEAD_REF=$(echo "$PR_JSON" | jq -r '.head.ref')
-            HEAD_SHA=$(echo "$PR_JSON" | jq -r '.head.sha')
-            PR_AUTHOR=$(echo "$PR_JSON" | jq -r '.user.login // ""')
-            IS_AUTHOR=$([[ "$PR_AUTHOR" == "jsolly" ]] && echo "true" || echo "false")
-          else
-            HEAD_REPO=""
-            HEAD_REF=""
-            HEAD_SHA=""
-            PR_AUTHOR=""
-            IS_AUTHOR="false"
-          fi
-
-          # Construct comment URL based on event type
-          if [[ "$EVENT_NAME" == "pull_request_review_comment" ]]; then
-            # Use a relative anchor so the reply comment doesn't redundantly mention the PR URL.
-            COMMENT_URL="#discussion_r$COMMENT_ID"
-          elif [[ "$EVENT_NAME" == "issue_comment" ]]; then
-            # Use a relative anchor so the reply comment doesn't redundantly mention the PR URL.
-            COMMENT_URL="#issuecomment-$COMMENT_ID"
-          elif [[ "$EVENT_NAME" == "pull_request_review" ]]; then
-            # Reviews don't have a direct comment anchor, but we can link to the review
-            # Use a relative anchor so the reply comment doesn't redundantly mention the PR URL.
-            COMMENT_URL="#pullrequestreview-$COMMENT_ID"
-          else
-            COMMENT_URL=""
-          fi
-
           {
-            echo "pr_number=$PR_NUMBER"
-            echo "head_repo=$HEAD_REPO"
-            echo "head_ref=$HEAD_REF"
-            echo "head_sha=$HEAD_SHA"
-            echo "comment_id=$COMMENT_ID"
-            echo "comment_user=$COMMENT_USER"
-            echo "event_name=$EVENT_NAME"
-            echo "is_pr=$IS_PR"
-            echo "pr_author=$PR_AUTHOR"
-            echo "is_author=$IS_AUTHOR"
-            echo "comment_url=$COMMENT_URL"
-          } >> "$GITHUB_OUTPUT"
+            echo "## Cursor Agent: Skipped"
+            echo ""
+            echo "- **skip**: \`$SKIP\`"
+            echo "- **is_pr**: \`$IS_PR\`"
+            echo "- **is_author**: \`$IS_AUTHOR\`"
+            echo ""
+            echo "Agent was not run (comment filtered, not a PR, or PR author is not repo owner)."
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Wait for earlier agent runs (per PR)
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
+      - name: Log run context
+        if: steps.context.outputs.run_agent == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+          RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
-          REPO="${{ github.repository }}"
-          CURRENT_RUN_ID="${{ github.run_id }}"
+          echo "Event: ${{ steps.context.outputs.event_name }}"
+          echo "Repo: ${{ github.repository }}"
+          echo "PR: #${{ steps.context.outputs.pr_number }}"
+          echo "Head repo: ${{ steps.context.outputs.head_repo }}"
+          echo "Head ref: ${{ steps.context.outputs.head_ref }}"
+          echo "Head sha: ${{ steps.context.outputs.head_sha }}"
+          echo "Trigger user: ${{ steps.context.outputs.comment_user }}"
+          echo "Trigger comment id: ${{ steps.context.outputs.comment_id }}"
+          echo "Run URL: $RUN_URL"
+          {
+            echo "## Cursor Agent workflow context"
+            echo ""
+            echo "- **Event**: \`${{ steps.context.outputs.event_name }}\`"
+            echo "- **PR**: \`#${{ steps.context.outputs.pr_number }}\`"
+            echo "- **Head**: \`${{ steps.context.outputs.head_repo }}@${{ steps.context.outputs.head_ref }}\`"
+            echo "- **Head SHA**: \`${{ steps.context.outputs.head_sha }}\`"
+            echo "- **Trigger**: \`${{ steps.context.outputs.comment_user }}\` (comment \`${{ steps.context.outputs.comment_id }}\`)"
+            echo "- **Run**: $RUN_URL"
+          } >> "$GITHUB_STEP_SUMMARY"
 
-          # GitHub Actions concurrency only keeps one pending run per group; additional triggers
-          # cancel older pending runs. We want strict FIFO per PR instead, so we implement an
-          # explicit queue by waiting until all *earlier* runs for this PR complete.
-
-          WORKFLOW_ID=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_FILE" --jq '.id' 2>&1)
-          WORKFLOW_ID_EXIT=$?
-          if [[ $WORKFLOW_ID_EXIT -ne 0 ]] || [[ -z "$WORKFLOW_ID" ]]; then
-            echo "Error: Could not find workflow ID for $WORKFLOW_FILE"
-            exit 1
-          fi
-
-          PR_MARKER="pr-$PR_NUMBER"
-          START_TS=$(date +%s)
-          MAX_WAIT_SECONDS=$((60 * 60)) # 1 hour
-
-          while true; do
-            NOW_TS=$(date +%s)
-            ELAPSED=$((NOW_TS - START_TS))
-            if [[ "$ELAPSED" -ge "$MAX_WAIT_SECONDS" ]]; then
-              echo "Error: Timed out waiting for earlier agent runs for $PR_MARKER"
-              exit 1
-            fi
-
-            RUNS_JSON=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs?per_page=100" 2>&1)
-            RUNS_EXIT=$?
-            if [[ $RUNS_EXIT -ne 0 ]]; then
-              echo "Error: Could not query workflow runs:"
-              echo "$RUNS_JSON"
-              exit 1
-            fi
-
-            # We use run-name to reliably tag each run with pr-<number>.
-            # Wait for any earlier run IDs for this PR that are not completed.
-            BLOCKERS=$(echo "$RUNS_JSON" | jq --arg marker "$PR_MARKER" --argjson current "$CURRENT_RUN_ID" -r '
-              [.workflow_runs[]
-                | select((.display_title // "") | contains($marker))
-                | select((.id // 0) < $current)
-                | select((.status // "") != "completed")
-                | {id, status, html_url}
-              ]
-              | sort_by(.id)
-            ')
-
-            BLOCKER_COUNT=$(echo "$BLOCKERS" | jq 'length')
-            if [[ "$BLOCKER_COUNT" -eq 0 ]]; then
-              echo "No earlier agent runs for $PR_MARKER are active; proceeding."
-              exit 0
-            fi
-
-            OLDEST=$(echo "$BLOCKERS" | jq -r '.[0].id')
-            echo "Waiting for $BLOCKER_COUNT earlier agent run(s) for $PR_MARKER to complete (oldest blocking run_id=$OLDEST)."
-            sleep 20
-          done
-
-      - name: Rate limit check
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER="${{ steps.pr.outputs.pr_number }}"
-          REPO="${{ github.repository }}"
-          NOW=$(date -u +%s)
-          LIMIT=$((NOW - 3600))
-
-          # Get workflow ID from the workflow file name
-          WORKFLOW_ID=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_FILE" --jq '.id' 2>&1)
-          WORKFLOW_ID_EXIT=$?
-
-          if [[ $WORKFLOW_ID_EXIT -ne 0 ]] || [[ -z "$WORKFLOW_ID" ]]; then
-            echo "Warning: Could not find workflow ID for $WORKFLOW_FILE, skipping rate limit check"
-            exit 0
-          fi
-
-          # Query workflow runs with error handling - if permissions are insufficient, skip rate limiting
-          RUNS_JSON=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs?per_page=100" 2>&1)
-          RUNS_EXIT=$?
-
-          if [[ $RUNS_EXIT -ne 0 ]]; then
-            echo "Warning: Could not query workflow runs (permissions may be insufficient), skipping rate limit check"
-            echo "API error: $RUNS_JSON"
-            exit 0
-          fi
-
-          # Filter runs from the last hour
-          # For issue_comment-triggered runs, pull_requests is empty, so we need to check head_sha associations
-          RECENT_RUNS=$(echo "$RUNS_JSON" | jq --argjson limit "$LIMIT" \
-            '[.workflow_runs[] | select(.created_at | fromdateiso8601 >= $limit)]' 2>&1)
-
-          COUNT=0
-          RUN_COUNT=$(echo "$RECENT_RUNS" | jq 'length' 2>&1)
-
-          # Ensure RUN_COUNT is a valid number
-          if ! [[ "$RUN_COUNT" =~ ^[0-9]+$ ]]; then
-            echo "Warning: Could not determine run count, skipping rate limit check"
-            exit 0
-          fi
-
-          for ((i=0; i<RUN_COUNT; i++)); do
-            RUN=$(echo "$RECENT_RUNS" | jq ".[$i]" 2>&1)
-            
-            # First, try the pull_requests field (works for pull_request triggered runs)
-            PR_MATCH=$(echo "$RUN" | jq --arg pr "$PR_NUMBER" \
-              'if (.pull_requests // []) | any(.number == ($pr|tonumber)) then 1 else 0 end' 2>&1)
-            
-            if [[ "$PR_MATCH" == "1" ]]; then
-              COUNT=$((COUNT + 1))
-              continue
-            fi
-            
-            # If pull_requests is empty, check head_sha association via commits API
-            # This handles issue_comment-triggered runs
-            HEAD_SHA=$(echo "$RUN" | jq -r '.head_sha // ""' 2>&1)
-            
-            if [[ -z "$HEAD_SHA" ]] || [[ "$HEAD_SHA" == "null" ]]; then
-              continue
-            fi
-            
-            # Check if this head_sha is associated with the PR via commits API
-            COMMITS_PULLS=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" 2>&1)
-            COMMITS_EXIT=$?
-            
-            if [[ $COMMITS_EXIT -ne 0 ]]; then
-              # If API call fails, skip this run (mirror existing RUNS_EXIT logic)
-              echo "Warning: Could not check commits/$HEAD_SHA/pulls, skipping this run"
-              continue
-            fi
-            
-            # Check if any associated PR matches our PR number
-            PR_MATCH=$(echo "$COMMITS_PULLS" | jq --arg pr "$PR_NUMBER" \
-              '[.[] | select(.number == ($pr|tonumber))] | length' 2>&1)
-            
-            if [[ "$PR_MATCH" -gt 0 ]]; then
-              COUNT=$((COUNT + 1))
-            fi
-          done
-
-          if [[ "$COUNT" -ge 60 ]]; then
-            RUN_URL="https://github.com/$REPO/actions/runs/${{ github.run_id }}"
-            gh pr comment "$PR_NUMBER" \
-              --body "Rate limit reached: max 60 runs per hour. [Workflow run]($RUN_URL) $INTERNAL_MARKER"
-            exit 0
-          fi
+      - name: Enforce run queue and rate limit
+        if: steps.context.outputs.run_agent == 'true'
+        uses: ./.github/actions/agent-run-queue-and-ratelimit
+        with:
+          repo: ${{ github.repository }}
+          pr_number: ${{ steps.context.outputs.pr_number }}
+          workflow_file: ${{ env.WORKFLOW_FILE }}
+          run_id: ${{ github.run_id }}
+          internal_marker: ${{ env.INTERNAL_MARKER }}
+          gh_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout PR head
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
+        if: steps.context.outputs.run_agent == 'true'
         uses: actions/checkout@v6
         with:
-          repository: ${{ steps.pr.outputs.head_repo }}
-          ref: ${{ steps.pr.outputs.head_ref }}
+          repository: ${{ steps.context.outputs.head_repo }}
+          ref: ${{ steps.context.outputs.head_ref }}
           fetch-depth: 0
+          # Don't persist the token in git config so the agent can't push.
+          persist-credentials: false
 
       - name: Setup Cursor CLI
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
+        if: steps.context.outputs.run_agent == 'true'
         uses: ./.github/actions/setup-cursor
         with:
           git_name: ${{ env.CURSOR_AGENT_NAME }}
           git_email: ${{ env.CURSOR_AGENT_EMAIL }}
 
-      - name: Configure git remote for pushing
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HEAD_REPO: ${{ steps.pr.outputs.head_repo }}
-        run: |
-          # Configure remote URL with token for pushing
-          # Extract owner and repo from HEAD_REPO (format: owner/repo)
-          REMOTE_URL="https://${GH_TOKEN}@github.com/${HEAD_REPO}.git"
-          git remote set-url origin "$REMOTE_URL"
-
-      - name: Setup Node.js
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Sync to latest head
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
-        env:
-          HEAD_REF: ${{ steps.pr.outputs.head_ref }}
-        run: |
-          git fetch origin "$HEAD_REF"
-          git reset --hard "origin/$HEAD_REF"
-
       - name: Run Cursor agent
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true'
+        if: steps.context.outputs.run_agent == 'true'
         id: agent
         continue-on-error: true
         env:
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
-          COMMENT_ID: ${{ steps.pr.outputs.comment_id }}
-          COMMENT_EVENT: ${{ steps.pr.outputs.event_name }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          COMMENT_ID: ${{ steps.context.outputs.comment_id }}
+          COMMENT_EVENT: ${{ steps.context.outputs.event_name }}
           COMMENT_BODY: ${{ github.event.comment.body || github.event.review.body }}
-          HEAD_REF: ${{ steps.pr.outputs.head_ref }}
-          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          HEAD_REF: ${{ steps.context.outputs.head_ref }}
+          HEAD_SHA: ${{ steps.context.outputs.head_sha }}
           REPO: ${{ github.repository }}
+          COMMENT_PATH: ${{ steps.context.outputs.comment_path }}
+          COMMENT_SIDE: ${{ steps.context.outputs.comment_side }}
+          COMMENT_LINE: ${{ steps.context.outputs.comment_line }}
+          COMMENT_START_LINE: ${{ steps.context.outputs.comment_start_line }}
+          COMMENT_DIFF_HUNK: ${{ steps.context.outputs.comment_diff_hunk }}
         run: |
           BEFORE_SHA="$(git rev-parse HEAD)"
           AGENT_OUTPUT_FILE=$(mktemp)
           AGENT_ERROR_FILE=$(mktemp)
+          echo "before_sha=$BEFORE_SHA" >> "$GITHUB_OUTPUT"
           echo "noop=false" >> "$GITHUB_OUTPUT"
+          echo "changes_present=false" >> "$GITHUB_OUTPUT"
 
           PROMPT="$(
             cat <<EOF
             ---SYSTEM_INSTRUCTIONS_START---
-            You are running in GitHub Actions. You can use git and gh. Do not post PR comments.
+            You are running in GitHub Actions on a checked-out PR branch.
+
+            Hard rules:
+            - Do NOT create commits.
+            - Do NOT push.
+            - Do NOT use GitHub APIs or post comments/reactions (no \`gh\`).
 
             Context:
             - Repo: $REPO
@@ -393,10 +159,15 @@ jobs:
 
             Do this:
             1) Make the necessary code changes requested in the user comment below.
-            2) Before committing, run the same checks as the pre-commit hook so CI does not fail: install deps with \`npm ci\`, then run \`npx biome ci .\` and \`npm run check:ts\`. If either fails, fix the issues and re-run until both pass. Only then commit and push.
-            3) If you made changes, commit and push directly to the PR head branch. If no changes are needed, do not commit.
-            4) If you commit, include the triggering comment ID in the commit message (e.g. "(comment $COMMENT_ID)"). Do not include the PR number in commit messages.
-            5) Do not resolve threads or add reactions to the triggering comment. The GitHub Actions workflow will mark the triggering comment as processed once it has either (a) pushed passing changes or (b) determined no changes were needed.
+            2) Leave all changes as uncommitted working tree changes. The workflow will run checks, commit, and push.
+
+            If this was triggered by a PR review comment, use this context to locate the exact spot:
+            - Path: $COMMENT_PATH
+            - Side: $COMMENT_SIDE
+            - Line: $COMMENT_LINE
+            - Start line: $COMMENT_START_LINE
+            - Diff hunk:
+            $COMMENT_DIFF_HUNK
 
             ---SYSTEM_INSTRUCTIONS_END---
 
@@ -408,7 +179,7 @@ jobs:
 
           # Use --print for non-interactive runs (enables tool access) and pass the prompt as the
           # positional argument, per Cursor CLI docs.
-          # --force is required so the agent can actually execute commands (git/gh) in CI.
+          # --force is required so the agent can actually execute commands (git) in CI.
           # Capture both stdout and stderr for better error reporting.
           echo "Running Cursor agent..."
           if ! agent --print --model gpt-5.2 --output-format=text --force "$PROMPT" > "$AGENT_OUTPUT_FILE" 2> "$AGENT_ERROR_FILE"; then
@@ -419,11 +190,15 @@ jobs:
             echo ""
             echo "=== Agent stderr ==="
             cat "$AGENT_ERROR_FILE" || true
+            cp "$AGENT_OUTPUT_FILE" agent-stdout.txt 2>/dev/null || true
+            cp "$AGENT_ERROR_FILE" agent-stderr.txt 2>/dev/null || true
             rm -f "$AGENT_OUTPUT_FILE" "$AGENT_ERROR_FILE"
             exit $AGENT_EXIT_CODE
           fi
 
           # Log agent output for debugging
+          cp "$AGENT_OUTPUT_FILE" agent-stdout.txt 2>/dev/null || true
+          cp "$AGENT_ERROR_FILE" agent-stderr.txt 2>/dev/null || true
           echo "=== Agent output ==="
           cat "$AGENT_OUTPUT_FILE" || true
           if [[ -s "$AGENT_ERROR_FILE" ]]; then
@@ -435,46 +210,33 @@ jobs:
           AGENT_OUTPUT=$(cat "$AGENT_OUTPUT_FILE" || echo "")
           rm -f "$AGENT_OUTPUT_FILE" "$AGENT_ERROR_FILE"
 
-          # Fetch first so we can distinguish "unpushed" vs "already pushed" using remote as source of truth.
-          git fetch origin "$HEAD_REF"
-          AFTER_SHA="$(git rev-parse "origin/$HEAD_REF")"
-          UNPUSHED=$(git log "origin/$HEAD_REF"..HEAD --oneline 2>/dev/null || echo "")
-
-          if [[ -n "$UNPUSHED" ]]; then
-            echo "Agent created local commits that are not on the remote; pushing..."
-            echo "$UNPUSHED"
-            if ! git push origin "$HEAD_REF"; then
-              echo "##[error]Failed to push local commits. This may be a fork PR where GITHUB_TOKEN cannot push."
-              echo "Push error details:"
-              git push origin "$HEAD_REF" 2>&1 || true
-              exit 1
-            fi
-            git fetch origin "$HEAD_REF"
-            AFTER_SHA="$(git rev-parse "origin/$HEAD_REF")"
+          AFTER_HEAD="$(git rev-parse HEAD)"
+          if [[ "$AFTER_HEAD" != "$BEFORE_SHA" ]]; then
+            echo "##[warning]Agent created commits locally; resetting to $BEFORE_SHA and keeping working tree changes."
+            git reset --mixed "$BEFORE_SHA"
           fi
 
-          if [[ "$AFTER_SHA" == "$BEFORE_SHA" ]]; then
-            echo "##[warning]Agent completed with no changes (branch unchanged at $AFTER_SHA)."
-            echo "Before SHA: $BEFORE_SHA"
-            echo "After SHA: $AFTER_SHA"
-            LOCAL_COMMITS=$(git log "$BEFORE_SHA"..HEAD --oneline 2>/dev/null || echo "")
-            echo "Local commits: $LOCAL_COMMITS"
+          CHANGES="$(git status --porcelain)"
+          if [[ -z "$CHANGES" ]]; then
+            echo "##[warning]Agent completed with no changes (working tree clean at $BEFORE_SHA)."
             echo ""
             echo "Last 50 lines of agent output:"
             echo "$AGENT_OUTPUT" | tail -50 || echo "(no agent output captured)"
-            # Persist truncated agent output for the no-op PR comment (so you can see why no commits were pushed)
+            # Persist truncated agent output for the no-op PR comment (so you can see why no changes were made)
             echo "$AGENT_OUTPUT" | tail -80 > agent-noop-output.txt 2>/dev/null || true
             echo "noop=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # Commits were pushed successfully
-          echo "changes_pushed=true" >> "$GITHUB_OUTPUT"
-          echo "before_sha=$BEFORE_SHA" >> "$GITHUB_OUTPUT"
-          echo "after_sha=$AFTER_SHA" >> "$GITHUB_OUTPUT"
+          echo "Changed files:"
+          echo "$CHANGES"
+          git diff --stat > agent-diffstat.txt 2>/dev/null || true
+          git diff --name-only > agent-changed-files.txt 2>/dev/null || true
 
-      - name: Setup Node (for pre-commit checks)
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && steps.agent.outputs.changes_pushed == 'true'
+          echo "changes_present=true" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node.js (for checks)
+        if: steps.context.outputs.run_agent == 'true' && steps.agent.outcome == 'success' && steps.agent.outputs.changes_present == 'true'
         uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
@@ -482,31 +244,82 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Run pre-commit checks (lint + type-check)
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && steps.agent.outputs.changes_pushed == 'true'
+        if: steps.context.outputs.run_agent == 'true' && steps.agent.outcome == 'success' && steps.agent.outputs.changes_present == 'true'
         id: precommit_checks
-        run: |
-          npm ci
-          npx biome ci .
-          npm run check:ts
+        continue-on-error: true
+        uses: ./.github/actions/run-precommit-checks
 
-      - name: Report agent success
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && steps.agent.outputs.changes_pushed == 'true' && steps.precommit_checks.outcome == 'success'
+      - name: Commit and push changes
+        if: steps.context.outputs.run_agent == 'true' && steps.agent.outcome == 'success' && steps.agent.outputs.changes_present == 'true' && steps.precommit_checks.outcome == 'success'
+        id: commit_push
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COMMENT_URL: ${{ steps.pr.outputs.comment_url }}
+          HEAD_REPO: ${{ steps.context.outputs.head_repo }}
+          HEAD_REF: ${{ steps.context.outputs.head_ref }}
+          COMMENT_ID: ${{ steps.context.outputs.comment_id }}
           BEFORE_SHA: ${{ steps.agent.outputs.before_sha }}
-          AFTER_SHA: ${{ steps.agent.outputs.after_sha }}
-          HEAD_REF: ${{ steps.pr.outputs.head_ref }}
+        run: |
+          # Configure remote URL with token for pushing
+          REMOTE_URL="https://${GH_TOKEN}@github.com/${HEAD_REPO}.git"
+          git remote set-url origin "$REMOTE_URL"
+
+          git add -A
+          git commit -m "Cursor: apply requested changes (comment $COMMENT_ID)"
+
+          if ! git push origin "$HEAD_REF" 2> push-error.log; then
+            echo "##[error]Failed to push commit. This may be a fork PR where GITHUB_TOKEN cannot push."
+            echo "Push error details:"
+            cat push-error.log || true
+            exit 1
+          fi
+
+          git fetch origin "$HEAD_REF"
+          AFTER_SHA="$(git rev-parse "origin/$HEAD_REF")"
+
+          echo "changes_pushed=true" >> "$GITHUB_OUTPUT"
+          echo "before_sha=$BEFORE_SHA" >> "$GITHUB_OUTPUT"
+          echo "after_sha=$AFTER_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Upload debug artifacts
+        if: steps.context.outputs.run_agent == 'true' && (steps.agent.outcome == 'failure' || steps.precommit_checks.outcome == 'failure' || steps.commit_push.outcome == 'failure')
+        uses: ./.github/actions/upload-agent-debug
+        with:
+          name: cursor-agent-logs-pr-${{ steps.context.outputs.pr_number }}-run-${{ github.run_id }}
+
+      - name: Report push failure
+        if: steps.context.outputs.run_agent == 'true' && steps.agent.outcome == 'success' && steps.agent.outputs.changes_present == 'true' && steps.precommit_checks.outcome == 'success' && steps.commit_push.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_REFERENCE: ${{ steps.context.outputs.comment_reference }}
+          RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        run: |
+          PUSH_FAILED_BODY=$(cat <<EOF
+          ## ❌ Cursor Agent: Checks passed but push failed
+          
+          The agent made changes and the pre-commit checks passed, but the workflow could not push the commit to the PR branch.
+          
+          $COMMENT_REFERENCE
+          
+          Please review the [workflow run]($RUN_URL) logs for details.
+          
+          $INTERNAL_MARKER
+          EOF
+          )
+          gh pr comment "${{ steps.context.outputs.pr_number }}" --body "$PUSH_FAILED_BODY"
+
+      - name: Report agent success
+        if: steps.context.outputs.run_agent == 'true' && steps.commit_push.outputs.changes_pushed == 'true' && steps.precommit_checks.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_REFERENCE: ${{ steps.context.outputs.comment_reference }}
+          BEFORE_SHA: ${{ steps.commit_push.outputs.before_sha }}
+          AFTER_SHA: ${{ steps.commit_push.outputs.after_sha }}
+          HEAD_REF: ${{ steps.context.outputs.head_ref }}
           RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
           # Fetch latest refs to ensure we have the pushed commits
           git fetch origin "$HEAD_REF" || true
-          
-          if [[ -n "$COMMENT_URL" ]]; then
-            REFERENCE="In response to [this comment]($COMMENT_URL)."
-          else
-            REFERENCE=""
-          fi
           
           # Build commit links: get SHA and first line of message, format as markdown links
           COMMIT_LINKS=""
@@ -517,7 +330,7 @@ jobs:
               MSG=$(echo "$line" | cut -d' ' -f2-)
               # Avoid redundantly echoing the PR number in the reply comment, since this is already posted inside the PR.
               # This is a display-only tweak; the commit subject remains unchanged.
-              MSG=${MSG//(#${{ steps.pr.outputs.pr_number }}, comment ${{ steps.pr.outputs.comment_id }})/}
+              MSG=${MSG//(#${{ steps.context.outputs.pr_number }}, comment ${{ steps.context.outputs.comment_id }})/}
               MSG=$(echo "$MSG" | sed -E 's/[[:space:]]+/ /g; s/[[:space:]]+$//')
               COMMIT_URL="https://github.com/$REPO/commit/$SHA"
               if [[ -z "$COMMIT_LINKS" ]]; then
@@ -537,7 +350,7 @@ jobs:
           
           The agent has successfully applied the requested changes and pushed commits to this branch.
           
-          $REFERENCE
+          $COMMENT_REFERENCE
           
           **Commits pushed:**
           $COMMIT_LINKS
@@ -548,20 +361,20 @@ jobs:
           EOF
           )
           
-          gh pr comment "${{ steps.pr.outputs.pr_number }}" \
+          gh pr comment "${{ steps.context.outputs.pr_number }}" \
             --body "$SUCCESS_BODY"
 
       - name: Mark triggering comment as processed
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && (steps.agent.outputs.noop == 'true' || (steps.agent.outputs.changes_pushed == 'true' && steps.precommit_checks.outcome == 'success'))
+        if: steps.context.outputs.run_agent == 'true' && (steps.agent.outputs.noop == 'true' || (steps.commit_push.outputs.changes_pushed == 'true' && steps.precommit_checks.outcome == 'success'))
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
-          COMMENT_ID: ${{ steps.pr.outputs.comment_id }}
-          EVENT_NAME: ${{ steps.pr.outputs.event_name }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          COMMENT_ID: ${{ steps.context.outputs.comment_id }}
+          EVENT_NAME: ${{ steps.context.outputs.event_name }}
         run: |
           if [[ "$EVENT_NAME" == "pull_request_review_comment" ]]; then
-            COMMENT_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID")
+            COMMENT_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID" 2> /tmp/gh-err.txt) || { echo "##[error]Failed to fetch comment; API stderr:"; cat /tmp/gh-err.txt; exit 0; }
             NODE_ID=$(echo "$COMMENT_JSON" | jq -r '.node_id')
             if [[ -z "$NODE_ID" || "$NODE_ID" == "null" ]]; then
               echo "Warning: Could not resolve review thread (missing node_id)."
@@ -569,12 +382,12 @@ jobs:
             fi
 
             THREAD_QUERY='query{node(id:"'"'"'"$NODE_ID"'"'"'"){... on PullRequestReviewComment{thread{id isResolved}}}}'
-            THREAD_JSON=$(gh api graphql -f query="$THREAD_QUERY")
+            THREAD_JSON=$(gh api graphql -f query="$THREAD_QUERY" 2> /tmp/gh-err.txt) || { echo "##[error]Failed to fetch thread; API stderr:"; cat /tmp/gh-err.txt; exit 0; }
             THREAD_ID=$(echo "$THREAD_JSON" | jq -r '.data.node.thread.id // empty')
             THREAD_RESOLVED=$(echo "$THREAD_JSON" | jq -r '.data.node.thread.isResolved // false')
 
             if [[ -z "$THREAD_ID" ]]; then
-              echo "Warning: Could not resolve review thread (missing thread id)."
+              echo "Warning: Could not resolve review thread (missing thread id). GraphQL response: $THREAD_JSON"
               exit 0
             fi
 
@@ -584,12 +397,20 @@ jobs:
             fi
 
             RESOLVE_MUTATION='mutation{resolveReviewThread(input:{threadId:"'"'"'"$THREAD_ID"'"'"'"}){thread{isResolved}}}'
-            gh api graphql -f query="$RESOLVE_MUTATION"
+            if ! gh api graphql -f query="$RESOLVE_MUTATION" 2> /tmp/gh-err.txt; then
+              echo "##[error]Failed to resolve review thread; API stderr:"
+              cat /tmp/gh-err.txt
+              exit 0
+            fi
             exit 0
           fi
 
           if [[ "$EVENT_NAME" == "issue_comment" ]]; then
-            gh api -X POST "/repos/$REPO/issues/comments/$COMMENT_ID/reactions" -f content=eyes
+            if ! gh api -X POST "/repos/$REPO/issues/comments/$COMMENT_ID/reactions" -f content=eyes 2> /tmp/gh-err.txt; then
+              echo "##[error]Failed to add reaction; API stderr:"
+              cat /tmp/gh-err.txt
+              exit 0
+            fi
             exit 0
           fi
 
@@ -597,18 +418,12 @@ jobs:
           echo "No comment processing action needed for event: $EVENT_NAME"
 
       - name: Report agent no-op
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && steps.agent.outputs.noop == 'true'
+        if: steps.context.outputs.run_agent == 'true' && steps.agent.outputs.noop == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COMMENT_URL: ${{ steps.pr.outputs.comment_url }}
+          COMMENT_REFERENCE: ${{ steps.context.outputs.comment_reference }}
           RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
-          if [[ -n "$COMMENT_URL" ]]; then
-            REFERENCE="In response to [this comment]($COMMENT_URL)."
-          else
-            REFERENCE=""
-          fi
-          
           # Include truncated agent output so you can see why no commits were pushed (optional; sometimes no-op is expected)
           OUTPUT_SECTION=""
           if [[ -f agent-noop-output.txt ]] && [[ -s agent-noop-output.txt ]]; then
@@ -622,7 +437,7 @@ jobs:
           
           The agent reviewed the comment but did not apply code changes (no commit was pushed).
           
-          $REFERENCE
+          $COMMENT_REFERENCE
           $OUTPUT_SECTION
           [Workflow run]($RUN_URL)
           
@@ -630,56 +445,53 @@ jobs:
           EOF
           )
           
-          gh pr comment "${{ steps.pr.outputs.pr_number }}" \
+          gh pr comment "${{ steps.context.outputs.pr_number }}" \
             --body "$NOOP_BODY"
 
       - name: Report agent pushed but checks failed
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && steps.agent.outputs.changes_pushed == 'true' && steps.precommit_checks.outcome == 'failure'
+        if: steps.context.outputs.run_agent == 'true' && steps.agent.outcome == 'success' && steps.agent.outputs.changes_present == 'true' && steps.precommit_checks.outcome == 'failure'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COMMENT_URL: ${{ steps.pr.outputs.comment_url }}
+          COMMENT_REFERENCE: ${{ steps.context.outputs.comment_reference }}
           RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
-          if [[ -n "$COMMENT_URL" ]]; then
-            REFERENCE="In response to [this comment]($COMMENT_URL)."
-          else
-            REFERENCE=""
-          fi
           CHECKS_FAILED_BODY=$(cat <<EOF
-          ## ⚠️ Cursor Agent: Changes pushed but lint/type-check failed
+          ## ⚠️ Cursor Agent: Changes made but lint/type-check failed
 
-          The agent pushed commits, but the same checks as the pre-commit hook (Biome + TypeScript) failed on the branch.
+          The agent made changes locally, but the same checks as the pre-commit hook (Biome + TypeScript) failed. No commit was pushed.
 
-          $REFERENCE
+          $COMMENT_REFERENCE
 
           Please fix lint/type errors locally (e.g. \`npm run fix\` or \`npx lint-staged\` and \`npm run check:ts\`) and push, or review the [workflow run]($RUN_URL) for details.
 
           $INTERNAL_MARKER
           EOF
           )
-          gh pr comment "${{ steps.pr.outputs.pr_number }}" --body "$CHECKS_FAILED_BODY"
+          gh pr comment "${{ steps.context.outputs.pr_number }}" --body "$CHECKS_FAILED_BODY"
 
       - name: Report agent failure
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && steps.agent.outcome == 'failure'
+        if: steps.context.outputs.run_agent == 'true' && steps.agent.outcome == 'failure'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COMMENT_URL: ${{ steps.pr.outputs.comment_url }}
+          COMMENT_REFERENCE: ${{ steps.context.outputs.comment_reference }}
           RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
-          if [[ -n "$COMMENT_URL" ]]; then
-            REFERENCE="In response to [this comment]($COMMENT_URL)."
-          else
-            REFERENCE=""
+          # Include last 20 lines of agent stderr in the comment when available
+          STDERR_SECTION=""
+          if [[ -f agent-stderr.txt ]] && [[ -s agent-stderr.txt ]]; then
+            STDERR_TAIL=$(tail -20 agent-stderr.txt)
+            ESCAPED=$(echo "$STDERR_TAIL" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+            STDERR_SECTION=$'\n\n<details><summary>Agent stderr (last 20 lines)</summary>\n\n<pre>'"$ESCAPED"'</pre>\n</details>\n'
           fi
-          
+
           # Create a more informative failure message
           FAILURE_BODY=$(cat <<EOF
           ## ❌ Cursor Agent Failed
           
           The Cursor agent failed to process the comment. Check the [workflow run]($RUN_URL) for details.
           
-          $REFERENCE
-          
+          $COMMENT_REFERENCE
+          $STDERR_SECTION
           **Common reasons:**
           - The requested fix was already applied
           - The agent could not make the requested changes
@@ -689,9 +501,9 @@ jobs:
           EOF
           )
           
-          gh pr comment "${{ steps.pr.outputs.pr_number }}" \
+          gh pr comment "${{ steps.context.outputs.pr_number }}" \
             --body "$FAILURE_BODY"
 
-      - name: Fail job if agent failed
-        if: steps.should_skip.outputs.skip != 'true' && steps.pr.outputs.is_pr == 'true' && steps.pr.outputs.is_author == 'true' && steps.agent.outcome == 'failure'
+      - name: Fail job if workflow had errors
+        if: steps.context.outputs.run_agent == 'true' && (steps.agent.outcome == 'failure' || steps.precommit_checks.outcome == 'failure' || steps.commit_push.outcome == 'failure')
         run: exit 1

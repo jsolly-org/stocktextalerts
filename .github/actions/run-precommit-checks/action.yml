@@ -1,0 +1,24 @@
+name: Run pre-commit checks
+description: Run npm install, Biome, and TypeScript checks with logs.
+
+runs:
+  using: composite
+  steps:
+    - name: Run pre-commit checks
+      shell: bash
+      run: |
+        set -o pipefail
+
+        run_cmd() {
+          local label="$1"
+          shift
+          echo "::group::$label"
+          "$@" 2>&1 | tee "precommit-$label.log"
+          local rc="${PIPESTATUS[0]}"
+          echo "::endgroup::"
+          return "$rc"
+        }
+
+        run_cmd "npm-ci" npm ci || exit $?
+        run_cmd "biome-ci" npx biome ci . || exit $?
+        run_cmd "check-ts" npm run check:ts || exit $?

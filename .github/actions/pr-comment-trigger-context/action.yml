@@ -1,0 +1,287 @@
+name: PR comment trigger context
+description: Derive PR context and guard for comment-triggered agent runs.
+
+inputs:
+  repo:
+    description: GitHub repo in owner/name form
+    required: true
+  repo_owner:
+    description: Repository owner login
+    required: true
+  event_name:
+    description: GitHub event name
+    required: true
+  comment_body:
+    description: Comment or review body
+    required: false
+    default: ""
+  comment_user:
+    description: Comment author login
+    required: false
+    default: ""
+  comment_id:
+    description: Comment or review ID
+    required: false
+    default: ""
+  pr_number:
+    description: PR or issue number
+    required: false
+    default: ""
+  issue_pull_request_url:
+    description: Issue pull request URL (issue_comment only)
+    required: false
+    default: ""
+  internal_marker:
+    description: Marker for internal workflow comments
+    required: true
+  gh_token:
+    description: GitHub token for API calls
+    required: true
+
+outputs:
+  skip:
+    description: Whether this comment should be skipped
+    value: ${{ steps.should_skip.outputs.skip }}
+  run_agent:
+    description: Whether to run the agent
+    value: ${{ steps.guard.outputs.run_agent }}
+  pr_number:
+    description: PR number
+    value: ${{ steps.pr_meta.outputs.pr_number }}
+  head_repo:
+    description: PR head repo
+    value: ${{ steps.pr_meta.outputs.head_repo }}
+  head_ref:
+    description: PR head ref
+    value: ${{ steps.pr_meta.outputs.head_ref }}
+  head_sha:
+    description: PR head sha
+    value: ${{ steps.pr_meta.outputs.head_sha }}
+  comment_id:
+    description: Comment ID
+    value: ${{ steps.pr_meta.outputs.comment_id }}
+  comment_user:
+    description: Comment author
+    value: ${{ steps.pr_meta.outputs.comment_user }}
+  event_name:
+    description: Event name
+    value: ${{ steps.pr_meta.outputs.event_name }}
+  is_pr:
+    description: Whether the comment is on a PR
+    value: ${{ steps.pr_meta.outputs.is_pr }}
+  pr_author:
+    description: PR author login
+    value: ${{ steps.pr_meta.outputs.pr_author }}
+  is_author:
+    description: Whether the PR author is the repo owner
+    value: ${{ steps.pr_meta.outputs.is_author }}
+  comment_url:
+    description: Comment URL anchor
+    value: ${{ steps.pr_meta.outputs.comment_url }}
+  comment_reference:
+    description: Comment reference markdown
+    value: ${{ steps.pr_meta.outputs.comment_reference }}
+  comment_path:
+    description: Review comment file path
+    value: ${{ steps.review_context.outputs.comment_path }}
+  comment_side:
+    description: Review comment side
+    value: ${{ steps.review_context.outputs.comment_side }}
+  comment_line:
+    description: Review comment line
+    value: ${{ steps.review_context.outputs.comment_line }}
+  comment_start_line:
+    description: Review comment start line
+    value: ${{ steps.review_context.outputs.comment_start_line }}
+  comment_diff_hunk:
+    description: Review comment diff hunk
+    value: ${{ steps.review_context.outputs.comment_diff_hunk }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check if should skip
+      id: should_skip
+      shell: bash
+      env:
+        COMMENT_BODY: ${{ inputs.comment_body }}
+        COMMENT_USER: ${{ inputs.comment_user }}
+        REPO: ${{ inputs.repo }}
+        REPO_OWNER: ${{ inputs.repo_owner }}
+        INTERNAL_MARKER: ${{ inputs.internal_marker }}
+        EVENT_NAME: ${{ inputs.event_name }}
+      run: |
+        SKIP="false"
+
+        # Debug: log the commenter username for troubleshooting
+        echo "Commenter username: '$COMMENT_USER'"
+        echo "Event name: $EVENT_NAME"
+
+        # Skip if commenter is not in the allowlist
+        IS_OWNER=$([[ "$COMMENT_USER" == "$REPO_OWNER" ]] && echo "true" || echo "false")
+        IS_CODERABBIT_BOT=$([[ "$COMMENT_USER" == "coderabbitai[bot]" ]] && echo "true" || echo "false")
+        IS_VERCEL_BOT=$([[ "$COMMENT_USER" == "vercel[bot]" ]] && echo "true" || echo "false")
+
+        if [[ "$IS_OWNER" != "true" ]] && [[ "$IS_CODERABBIT_BOT" != "true" ]] && [[ "$IS_VERCEL_BOT" != "true" ]]; then
+          echo "Skipping: commenter is not in the allowlist"
+          SKIP="true"
+        fi
+
+        # Check for internal marker
+        if [[ "$COMMENT_BODY" == *"$INTERNAL_MARKER"* ]]; then
+          echo "Skipping internal workflow comment."
+          SKIP="true"
+        fi
+
+        # Skip Vercel deployment status updates (status tables, preview links, deployment notifications).
+        # Process Vercel Agent review comments (actual code review comments without status markers).
+        if [[ "$COMMENT_USER" == "vercel" ]] || [[ "$COMMENT_USER" == "vercel[bot]" ]]; then
+          if [[ "$COMMENT_BODY" == *"The latest updates on your projects"* ]] || \
+             [[ "$COMMENT_BODY" == *"[vc]:"* ]] || \
+             [[ "$COMMENT_BODY" == *"<!-- vercel:"* ]] || \
+             [[ "$COMMENT_BODY" =~ ^\[vc\]: ]]; then
+            echo "Skipping Vercel status update: $COMMENT_USER"
+            SKIP="true"
+          fi
+        fi
+
+        # Skip comments that mention @coderabbitai (unless it's CodeRabbit itself responding).
+        # The owner uses @coderabbitai to request reviews; ignore those replies here.
+        if [[ "$COMMENT_BODY" =~ @[Cc]oderabbitai ]]; then
+          if [[ "$COMMENT_USER" != "coderabbitai[bot]" ]]; then
+            echo "Skipping comment that mentions @coderabbitai from $COMMENT_USER"
+            SKIP="true"
+          fi
+        fi
+
+        # Skip CodeRabbit acknowledgment comments when a full review is triggered.
+        if [[ "$COMMENT_USER" == "coderabbitai[bot]" ]]; then
+          if [[ "$COMMENT_BODY" =~ [Ff]ull[[:space:]]+review[[:space:]]+triggered ]]; then
+            echo "Skipping CodeRabbit acknowledgment comment (Full review triggered)"
+            SKIP="true"
+          fi
+        fi
+
+        # Skip pull_request_review events without a body (approvals/rejections with no comment).
+        if [[ "$EVENT_NAME" == "pull_request_review" ]]; then
+          if [[ -z "$COMMENT_BODY" ]] || [[ "$COMMENT_BODY" == "null" ]]; then
+            echo "Skipping review without body (approval/rejection with no comment)"
+            SKIP="true"
+          fi
+        fi
+
+        echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
+
+    - name: Extract PR metadata
+      id: pr_meta
+      if: ${{ steps.should_skip.outputs.skip != 'true' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.gh_token }}
+        REPO: ${{ inputs.repo }}
+        REPO_OWNER: ${{ inputs.repo_owner }}
+        EVENT_NAME: ${{ inputs.event_name }}
+        COMMENT_ID: ${{ inputs.comment_id }}
+        COMMENT_USER: ${{ inputs.comment_user }}
+        PR_NUMBER: ${{ inputs.pr_number }}
+        ISSUE_PR_URL: ${{ inputs.issue_pull_request_url }}
+      run: |
+        IS_PR="false"
+
+        if [[ "$EVENT_NAME" == "pull_request_review" ]] || [[ "$EVENT_NAME" == "pull_request_review_comment" ]]; then
+          IS_PR="true"
+        elif [[ "$EVENT_NAME" == "issue_comment" ]]; then
+          IS_PR=$([[ -n "$ISSUE_PR_URL" && "$ISSUE_PR_URL" != "null" ]] && echo "true" || echo "false")
+        fi
+
+        if [[ "$IS_PR" == "true" ]]; then
+          PR_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
+          HEAD_REPO=$(echo "$PR_JSON" | jq -r '.head.repo.full_name')
+          HEAD_REF=$(echo "$PR_JSON" | jq -r '.head.ref')
+          HEAD_SHA=$(echo "$PR_JSON" | jq -r '.head.sha')
+          PR_AUTHOR=$(echo "$PR_JSON" | jq -r '.user.login // ""')
+          IS_AUTHOR=$([[ "$PR_AUTHOR" == "$REPO_OWNER" ]] && echo "true" || echo "false")
+        else
+          HEAD_REPO=""
+          HEAD_REF=""
+          HEAD_SHA=""
+          PR_AUTHOR=""
+          IS_AUTHOR="false"
+        fi
+
+        # Construct comment URL based on event type
+        if [[ "$EVENT_NAME" == "pull_request_review_comment" ]]; then
+          # Use a relative anchor so the reply comment doesn't redundantly mention the PR URL.
+          COMMENT_URL="#discussion_r$COMMENT_ID"
+        elif [[ "$EVENT_NAME" == "issue_comment" ]]; then
+          # Use a relative anchor so the reply comment doesn't redundantly mention the PR URL.
+          COMMENT_URL="#issuecomment-$COMMENT_ID"
+        elif [[ "$EVENT_NAME" == "pull_request_review" ]]; then
+          # Reviews don't have a direct comment anchor, but we can link to the review
+          # Use a relative anchor so the reply comment doesn't redundantly mention the PR URL.
+          COMMENT_URL="#pullrequestreview-$COMMENT_ID"
+        else
+          COMMENT_URL=""
+        fi
+
+        if [[ -n "$COMMENT_URL" ]]; then
+          COMMENT_REFERENCE="In response to [this comment]($COMMENT_URL)."
+        else
+          COMMENT_REFERENCE=""
+        fi
+
+        {
+          echo "pr_number=$PR_NUMBER"
+          echo "head_repo=$HEAD_REPO"
+          echo "head_ref=$HEAD_REF"
+          echo "head_sha=$HEAD_SHA"
+          echo "comment_id=$COMMENT_ID"
+          echo "comment_user=$COMMENT_USER"
+          echo "event_name=$EVENT_NAME"
+          echo "is_pr=$IS_PR"
+          echo "pr_author=$PR_AUTHOR"
+          echo "is_author=$IS_AUTHOR"
+          echo "comment_url=$COMMENT_URL"
+          echo "comment_reference=$COMMENT_REFERENCE"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Fetch review comment context
+      id: review_context
+      if: ${{ steps.should_skip.outputs.skip != 'true' && steps.pr_meta.outputs.is_pr == 'true' && inputs.event_name == 'pull_request_review_comment' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.gh_token }}
+        REPO: ${{ inputs.repo }}
+        PR_NUMBER: ${{ steps.pr_meta.outputs.pr_number }}
+        COMMENT_ID: ${{ steps.pr_meta.outputs.comment_id }}
+      run: |
+        COMMENT_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID")
+        COMMENT_PATH=$(echo "$COMMENT_JSON" | jq -r '.path // ""')
+        COMMENT_SIDE=$(echo "$COMMENT_JSON" | jq -r '.side // ""')
+        COMMENT_LINE=$(echo "$COMMENT_JSON" | jq -r '.line // ""')
+        COMMENT_START_LINE=$(echo "$COMMENT_JSON" | jq -r '.start_line // ""')
+        COMMENT_DIFF_HUNK=$(echo "$COMMENT_JSON" | jq -r '.diff_hunk // ""')
+
+        {
+          echo "comment_path=$COMMENT_PATH"
+          echo "comment_side=$COMMENT_SIDE"
+          echo "comment_line=$COMMENT_LINE"
+          echo "comment_start_line=$COMMENT_START_LINE"
+          echo "comment_diff_hunk<<EOF"
+          echo "$COMMENT_DIFF_HUNK"
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Set run flags
+      id: guard
+      shell: bash
+      env:
+        SKIP: ${{ steps.should_skip.outputs.skip }}
+        IS_PR: ${{ steps.pr_meta.outputs.is_pr }}
+        IS_AUTHOR: ${{ steps.pr_meta.outputs.is_author }}
+      run: |
+        RUN_AGENT="false"
+        if [[ "$SKIP" != "true" && "$IS_PR" == "true" && "$IS_AUTHOR" == "true" ]]; then
+          RUN_AGENT="true"
+        fi
+        echo "run_agent=$RUN_AGENT" >> "$GITHUB_OUTPUT"
