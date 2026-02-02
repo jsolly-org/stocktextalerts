@@ -29,6 +29,10 @@ node_modules/
 # Test results
 test-results/
 
+# Auto-generated agent and precommit outputs
+agent-*.txt
+precommit-*.log
+
 # Generated seed file (contains passwords from DEFAULT_PASSWORD env var)
 supabase/seed.sql
 
