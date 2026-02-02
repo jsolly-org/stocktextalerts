@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
-import { POST as POSTDismissBanner } from "../../src/pages/api/preferences/dismiss-timezone-banner";
-import { POST as POSTTimezone } from "../../src/pages/api/preferences/timezone";
+import { POST as POSTDismissBanner } from "../../src/pages/api/notification-preferences/dismiss-timezone-banner";
+import { POST as POSTTimezone } from "../../src/pages/api/notification-preferences/timezone";
 import { TEST_PASSWORD } from "../constants";
 import {
 	adminClient,
@@ -27,7 +27,7 @@ describe("A signed-in user dismisses the timezone mismatch banner.", () => {
 			);
 
 			const request = new Request(
-				"http://localhost/api/preferences/dismiss-timezone-banner",
+				"http://localhost/api/notification-preferences/dismiss-timezone-banner",
 				{
 					method: "POST",
 				},
@@ -82,10 +82,13 @@ describe("A signed-in user updates their timezone.", () => {
 			const formData = new FormData();
 			formData.append("timezone", "Etc/UTC");
 
-			const request = new Request("http://localhost/api/preferences/timezone", {
-				method: "POST",
-				body: formData,
-			});
+			const request = new Request(
+				"http://localhost/api/notification-preferences/timezone",
+				{
+					method: "POST",
+					body: formData,
+				},
+			);
 
 			const response = await POSTTimezone({
 				request,
@@ -102,7 +105,7 @@ describe("A signed-in user updates their timezone.", () => {
 			const json = await response.json();
 			expect(json.ok).toBe(true);
 			expect(json.message).toBe("timezone_updated");
-			expect(json.preferences.timezone).toBe("Etc/UTC");
+			expect(json.notificationPreferences.timezone).toBe("Etc/UTC");
 
 			const { data: updatedUser, error } = await adminClient
 				.from("users")

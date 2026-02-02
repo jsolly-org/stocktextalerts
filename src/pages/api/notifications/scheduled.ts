@@ -4,7 +4,6 @@ import { DateTime } from "luxon";
 import type { Database } from "../../../lib/db/generated/database.types";
 import { createSupabaseAdminClient } from "../../../lib/db/supabase";
 import { createLogger, type Logger } from "../../../lib/logging";
-import { getUtcIso } from "../../../lib/time/format";
 import {
 	calculateNextSendAtFromTimes,
 	getLocalDateString,
@@ -43,7 +42,15 @@ async function updateScheduledNotificationRow(options: {
 }) {
 	const update: Database["public"]["Tables"]["scheduled_notifications"]["Update"] =
 		options.status === "sent"
-			? { status: "sent", sent_at: getUtcIso(), error: null }
+			? {
+					status: "sent",
+					sent_at:
+						DateTime.utc().toISO() ??
+						(() => {
+							throw new Error("Failed to format UTC ISO string");
+						})(),
+					error: null,
+				}
 			: { status: "failed", error: options.error ?? "Unknown error" };
 
 	const { error } = await options.supabase
@@ -171,7 +178,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		const sendEmail = createEmailSender();
 
 		const currentTime = DateTime.utc();
-		const currentTimeIso = getUtcIso(currentTime);
+		const currentTimeIso =
+			currentTime.toISO() ??
+			(() => {
+				throw new Error("Failed to format UTC ISO string");
+			})();
 
 		let query = supabase
 			.from("users")
@@ -182,7 +193,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			phone_country_code,
 			phone_number,
 			phone_verified,
-			sms_opted_out,
 			timezone,
 			daily_digest_enabled,
 			daily_digest_notification_times,

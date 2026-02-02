@@ -228,7 +228,6 @@ CREATE TABLE IF NOT EXISTS users (
   ) STORED,
   phone_verified BOOLEAN DEFAULT false NOT NULL,
   verification_sent_at TIMESTAMP WITH TIME ZONE,
-  sms_opted_out BOOLEAN DEFAULT false NOT NULL,
   timezone TEXT DEFAULT 'America/New_York' REFERENCES timezones(value) NOT NULL,
   daily_digest_enabled BOOLEAN DEFAULT true NOT NULL,
   daily_digest_notification_times INTEGER[] DEFAULT ARRAY[540] CHECK (
@@ -376,7 +375,7 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.replace_user_stocks(uuid, text[]) TO authenticated, service_role;
 
-CREATE OR REPLACE FUNCTION public.update_user_preferences_and_stocks(
+CREATE OR REPLACE FUNCTION public.update_notification_preferences_and_stocks(
   p_user_id uuid,
   p_symbols text[],
   p_email_notifications_enabled boolean,
@@ -399,7 +398,7 @@ BEGIN
 
   IF NULLIF(current_setting('request.jwt.claims', true), '')::json->>'role' = 'authenticated'
      AND p_user_id <> (SELECT auth.uid()) THEN
-    RAISE EXCEPTION 'Cannot update preferences for another user';
+    RAISE EXCEPTION 'Cannot update notification-preferences for another user';
   END IF;
 
   PERFORM public.replace_user_stocks(p_user_id, p_symbols);
@@ -420,7 +419,7 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.update_user_preferences_and_stocks(
+GRANT EXECUTE ON FUNCTION public.update_notification_preferences_and_stocks(
   uuid,
   text[],
   boolean,

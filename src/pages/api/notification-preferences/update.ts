@@ -14,7 +14,7 @@ import { createLogger } from "../../../lib/logging";
 import { parseTimeToMinutes } from "../../../lib/time/format";
 import { calculateNextSendAtFromTimes } from "../../../lib/time/schedule";
 
-const PREFERENCES_SCHEMA = {
+const NOTIFICATION_PREFERENCES_SCHEMA = {
 	email_notifications_enabled: { type: "boolean" },
 	sms_notifications_enabled: { type: "boolean" },
 	timezone: { type: "timezone" },
@@ -62,9 +62,12 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 
 	const user = await userService.getCurrentUser();
 	if (!user) {
-		logger.info("Preferences update attempt without authenticated user", {
-			reason: "unauthenticated",
-		});
+		logger.info(
+			"Notification-preferences update attempt without authenticated user",
+			{
+				reason: "unauthenticated",
+			},
+		);
 		return jsonResponse(401, { ok: false, message: "unauthorized" });
 	}
 
@@ -73,7 +76,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		formData = await request.formData();
 	} catch (error) {
 		logger.info(
-			"Preferences update rejected due to malformed request body",
+			"Notification-preferences update rejected due to malformed request body",
 			{
 				userId: user.id,
 				contentType: request.headers.get("content-type"),
@@ -83,13 +86,16 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		return jsonResponse(400, { ok: false, message: "invalid_form" });
 	}
 	const rawTimesValue = formData.get("daily_digest_notification_times");
-	const parsed = parseWithSchema(formData, PREFERENCES_SCHEMA);
+	const parsed = parseWithSchema(formData, NOTIFICATION_PREFERENCES_SCHEMA);
 
 	if (!parsed.ok) {
-		logger.info("Preferences update rejected due to invalid form", {
-			userId: user.id,
-			errors: parsed.allErrors,
-		});
+		logger.info(
+			"Notification-preferences update rejected due to invalid form",
+			{
+				userId: user.id,
+				errors: parsed.allErrors,
+			},
+		);
 		return jsonResponse(400, { ok: false, message: "invalid_form" });
 	}
 
@@ -101,10 +107,13 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			parsed.data.daily_digest_notification_times,
 		);
 		if (!result.ok) {
-			logger.info("Preferences update rejected due to invalid digest times", {
-				userId: user.id,
-				reason: result.reason,
-			});
+			logger.info(
+				"Notification-preferences update rejected due to invalid digest times",
+				{
+					userId: user.id,
+					reason: result.reason,
+				},
+			);
 			return jsonResponse(400, { ok: false, message: "invalid_form" });
 		}
 		parsedTimes = result.times;
@@ -115,7 +124,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		normalizedTimes = null;
 	}
 
-	const safePreferenceUpdates: UserUpdateInput = omitUndefined({
+	const safeNotificationPreferenceUpdates: UserUpdateInput = omitUndefined({
 		timezone: parsed.data.timezone,
 		daily_digest_notification_times: normalizedTimes,
 		...(formData.has("email_notifications_enabled")
@@ -137,8 +146,8 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			: {}),
 	});
 	if (normalizedTimes === null) {
-		safePreferenceUpdates.daily_digest_notification_times = null;
-		safePreferenceUpdates.daily_digest_enabled = false;
+		safeNotificationPreferenceUpdates.daily_digest_notification_times = null;
+		safeNotificationPreferenceUpdates.daily_digest_enabled = false;
 	}
 
 	let dbUser: User | null;
@@ -146,7 +155,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		dbUser = await userService.getById(user.id);
 	} catch (error) {
 		logger.error(
-			"Failed to fetch user for preferences update",
+			"Failed to fetch user for notification-preferences update",
 			{
 				userId: user.id,
 			},
@@ -158,37 +167,43 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		});
 	}
 	if (!dbUser) {
-		logger.info("User not found for preferences update", { userId: user.id });
+		logger.info("User not found for notification-preferences update", {
+			userId: user.id,
+		});
 		return jsonResponse(404, { ok: false, message: "user_not_found" });
 	}
 
 	const timezoneChanged =
-		safePreferenceUpdates.timezone !== undefined &&
-		safePreferenceUpdates.timezone !== dbUser.timezone;
+		safeNotificationPreferenceUpdates.timezone !== undefined &&
+		safeNotificationPreferenceUpdates.timezone !== dbUser.timezone;
 	const timeChanged =
-		safePreferenceUpdates.daily_digest_notification_times !== undefined &&
-		serializeTimes(safePreferenceUpdates.daily_digest_notification_times) !==
-			serializeTimes(dbUser.daily_digest_notification_times ?? null);
+		safeNotificationPreferenceUpdates.daily_digest_notification_times !==
+			undefined &&
+		serializeTimes(
+			safeNotificationPreferenceUpdates.daily_digest_notification_times,
+		) !== serializeTimes(dbUser.daily_digest_notification_times ?? null);
 	const enabledChanged =
-		safePreferenceUpdates.daily_digest_enabled !== undefined &&
-		safePreferenceUpdates.daily_digest_enabled !== dbUser.daily_digest_enabled;
+		safeNotificationPreferenceUpdates.daily_digest_enabled !== undefined &&
+		safeNotificationPreferenceUpdates.daily_digest_enabled !==
+			dbUser.daily_digest_enabled;
 
 	const finalTimezone =
-		safePreferenceUpdates.timezone !== undefined
-			? safePreferenceUpdates.timezone
+		safeNotificationPreferenceUpdates.timezone !== undefined
+			? safeNotificationPreferenceUpdates.timezone
 			: dbUser.timezone;
 	const finalTimes =
-		safePreferenceUpdates.daily_digest_notification_times !== undefined
-			? safePreferenceUpdates.daily_digest_notification_times
+		safeNotificationPreferenceUpdates.daily_digest_notification_times !==
+		undefined
+			? safeNotificationPreferenceUpdates.daily_digest_notification_times
 			: dbUser.daily_digest_notification_times;
 	const finalEnabled =
-		safePreferenceUpdates.daily_digest_enabled !== undefined
-			? safePreferenceUpdates.daily_digest_enabled
+		safeNotificationPreferenceUpdates.daily_digest_enabled !== undefined
+			? safeNotificationPreferenceUpdates.daily_digest_enabled
 			: dbUser.daily_digest_enabled;
 
 	if ((timezoneChanged || timeChanged || enabledChanged) && finalEnabled) {
 		if (!finalTimes || finalTimes.length === 0) {
-			safePreferenceUpdates.next_send_at = null;
+			safeNotificationPreferenceUpdates.next_send_at = null;
 		} else {
 			const nextSendAt = calculateNextSendAtFromTimes(
 				finalTimes,
@@ -198,14 +213,17 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			if (nextSendAt) {
 				const nextSendAtIso = nextSendAt.toISO();
 				if (!nextSendAtIso) {
-					logger.warn("Failed to format next_send_at ISO for preferences", {
-						userId: user.id,
-						finalTimes,
-						finalTimezone,
-					});
-					safePreferenceUpdates.next_send_at = null;
+					logger.warn(
+						"Failed to format next_send_at ISO for notification-preferences",
+						{
+							userId: user.id,
+							finalTimes,
+							finalTimezone,
+						},
+					);
+					safeNotificationPreferenceUpdates.next_send_at = null;
 				} else {
-					safePreferenceUpdates.next_send_at = nextSendAtIso;
+					safeNotificationPreferenceUpdates.next_send_at = nextSendAtIso;
 				}
 			} else {
 				logger.warn("calculateNextSendAtFromTimes returned null", {
@@ -213,23 +231,23 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 					finalTimes,
 					finalTimezone,
 				});
-				safePreferenceUpdates.next_send_at = null;
+				safeNotificationPreferenceUpdates.next_send_at = null;
 			}
 		}
 	} else if (enabledChanged && !finalEnabled) {
-		safePreferenceUpdates.next_send_at = null;
+		safeNotificationPreferenceUpdates.next_send_at = null;
 	}
 
 	try {
 		const finalSmsNotificationsEnabled =
-			safePreferenceUpdates.sms_notifications_enabled !== undefined
-				? safePreferenceUpdates.sms_notifications_enabled
+			safeNotificationPreferenceUpdates.sms_notifications_enabled !== undefined
+				? safeNotificationPreferenceUpdates.sms_notifications_enabled
 				: dbUser.sms_notifications_enabled;
 		if (
 			finalSmsNotificationsEnabled &&
 			(!dbUser.phone_country_code || !dbUser.phone_number)
 		) {
-			logger.info("SMS preferences enabled without phone", {
+			logger.info("SMS notification-preferences enabled without phone number", {
 				userId: user.id,
 			});
 			return jsonResponse(400, { ok: false, message: "phone_not_set" });
@@ -237,7 +255,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 
 		const updatedUser = await userService.update(
 			user.id,
-			safePreferenceUpdates,
+			safeNotificationPreferenceUpdates,
 		);
 		if (!updatedUser) {
 			logger.error("User update returned null", { userId: user.id });
@@ -247,10 +265,9 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		return jsonResponse(200, {
 			ok: true,
 			message: "settings_updated",
-			preferences: {
+			notificationPreferences: {
 				email_notifications_enabled: updatedUser.email_notifications_enabled,
 				sms_notifications_enabled: updatedUser.sms_notifications_enabled,
-				sms_opted_out: updatedUser.sms_opted_out,
 				phone_verified: updatedUser.phone_verified,
 				timezone: updatedUser.timezone,
 				daily_digest_enabled: updatedUser.daily_digest_enabled,
@@ -264,10 +281,10 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		logger.error(
-			"Failed to update user preferences",
+			"Failed to update notification-preferences",
 			{
 				userId: user.id,
-				preferences: safePreferenceUpdates,
+				notificationPreferences: safeNotificationPreferenceUpdates,
 				error: errorMessage,
 			},
 			error instanceof Error ? error : new Error(String(error)),

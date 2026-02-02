@@ -6,10 +6,10 @@ import { rootLogger } from "../../../lib/logging";
 type FormSaveResponse<T = unknown> = {
 	ok: boolean;
 	message: string;
-	preferences?: T;
+	notificationPreferences?: T;
 };
 
-export type PreferencesData = {
+export type NotificationPreferencesData = {
 	email_notifications_enabled: boolean;
 	sms_notifications_enabled: boolean;
 	phone_verified: boolean;
@@ -111,7 +111,7 @@ export function useAutoSaveForm<T = unknown>(options: AutoSaveOptions) {
 
 			lastSavedSignature.value = submittedSignature;
 			setStatus(null);
-			savedData.value = (payload.preferences ?? null) as T | null;
+			savedData.value = (payload.notificationPreferences ?? null) as T | null;
 		} catch (error) {
 			const reason =
 				error instanceof Error && error.name === "TimeoutError"
@@ -124,7 +124,7 @@ export function useAutoSaveForm<T = unknown>(options: AutoSaveOptions) {
 			}
 			rootLogger.error(
 				"Autosave failed for dashboard form",
-				{ action: "autosave_preferences", reason },
+				{ action: "autosave_notification-preferences", reason },
 				error,
 			);
 		} finally {

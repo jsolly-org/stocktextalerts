@@ -18,7 +18,7 @@
 			"
 			:aria-describedby="inputAriaDescribedBy"
 			:disabled="props.disabled"
-			class="input disabled:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+			class="input disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
 			@focus="showDropdown = true"
 		/>
 

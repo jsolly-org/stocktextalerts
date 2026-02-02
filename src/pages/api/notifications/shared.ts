@@ -21,7 +21,6 @@ export type UserRecord = Pick<
 	| "phone_country_code"
 	| "phone_number"
 	| "phone_verified"
-	| "sms_opted_out"
 	| "timezone"
 	| "daily_digest_enabled"
 	| "next_send_at"

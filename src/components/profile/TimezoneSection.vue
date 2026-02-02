@@ -42,9 +42,9 @@
 					:saved-timezone="user.timezone"
 					:allowed-timezones="timezones.map((tz) => tz.value)"
 					:dismiss-timezone-mismatch-prompts="user.dismiss_timezone_mismatch_prompts"
-					:saved-preferences="savedPreferences"
+					:saved-notification-preferences="savedNotificationPreferences"
 					@timezone-updated="handleTimezoneUpdated"
-					@preferences-updated="handlePreferencesUpdated"
+					@notification-preferences-updated="handleNotificationPreferencesUpdated"
 				/>
 			</div>
 		</div>
@@ -57,13 +57,13 @@ import { onMounted, ref, toRefs, watch } from "vue";
 
 import GlobeAltIcon from "../../icons/globe-alt.svg?component";
 import { CARD_GRADIENT_ACCENTS, DEFAULT_TIMEZONE } from "../../lib/constants";
-import type { PreferencesSnapshot, User } from "../../lib/db";
+import type { NotificationPreferencesSnapshot, User } from "../../lib/db";
 import { rootLogger } from "../../lib/logging";
-import { fetchCurrentPreferences } from "../../lib/preferences/fetch-current";
-import { updateTimezonePreference } from "../../lib/preferences/update-timezone";
+import { fetchCurrentNotificationPreferences } from "../../lib/notification-preferences/fetch-current";
+import { updateNotificationTimezonePreference } from "../../lib/notification-preferences/update-timezone";
 import type { TimezoneOption } from "../../lib/time/cache";
-import TimezoneMismatchBanner from "../preferences/TimezoneMismatchBanner.vue";
-import TimezoneSelect from "../preferences/TimezoneSelect.vue";
+import TimezoneMismatchBanner from "../notification-preferences/TimezoneMismatchBanner.vue";
+import TimezoneSelect from "../notification-preferences/TimezoneSelect.vue";
 import StatusMessage from "../StatusMessage.vue";
 
 interface Props {
@@ -78,11 +78,12 @@ const props = withDefaults(defineProps<Props>(), {
 
 const { user, timezones, timezoneLoadError } = toRefs(props);
 
-function buildSavedPreferences(sourceUser: User): PreferencesSnapshot {
+function buildSavedNotificationPreferences(
+	sourceUser: User,
+): NotificationPreferencesSnapshot {
 	return {
 		email_notifications_enabled: sourceUser.email_notifications_enabled,
 		sms_notifications_enabled: sourceUser.sms_notifications_enabled,
-		sms_opted_out: sourceUser.sms_opted_out,
 		phone_verified: sourceUser.phone_verified,
 		timezone: sourceUser.timezone,
 		daily_digest_enabled: sourceUser.daily_digest_enabled,
@@ -94,9 +95,10 @@ function buildSavedPreferences(sourceUser: User): PreferencesSnapshot {
 	};
 }
 
-const savedPreferences = ref<PreferencesSnapshot | null>(
-	buildSavedPreferences(user.value),
-);
+const savedNotificationPreferences =
+	ref<NotificationPreferencesSnapshot | null>(
+		buildSavedNotificationPreferences(user.value),
+	);
 
 const selectedTimezone = ref(user.value.timezone);
 const isClient = ref(false);
@@ -125,10 +127,10 @@ function resolveDefaultTimezone() {
 	}
 }
 
-async function refreshPreferences() {
-	const prefs = await fetchCurrentPreferences();
+async function refreshNotificationPreferences() {
+	const prefs = await fetchCurrentNotificationPreferences();
 	if (prefs) {
-		savedPreferences.value = prefs;
+		savedNotificationPreferences.value = prefs;
 	}
 }
 
@@ -142,7 +144,7 @@ async function saveTimezone(nextTimezone: string) {
 	isSaving.value = true;
 
 	try {
-		const prefs = await updateTimezonePreference(nextTimezone);
+		const prefs = await updateNotificationTimezonePreference(nextTimezone);
 		if (!prefs) {
 			statusMessage.value = "Failed to update timezone. Please try again.";
 			statusTone.value = "error";
@@ -151,15 +153,15 @@ async function saveTimezone(nextTimezone: string) {
 
 		statusMessage.value = "Timezone updated.";
 		statusTone.value = "success";
-		savedPreferences.value = savedPreferences.value
+		savedNotificationPreferences.value = savedNotificationPreferences.value
 			? {
-					...savedPreferences.value,
+					...savedNotificationPreferences.value,
 					timezone: prefs.timezone ?? nextTimezone,
 					...(prefs.next_send_at !== undefined && {
 						next_send_at: prefs.next_send_at,
 					}),
 				}
-			: buildSavedPreferences({
+			: buildSavedNotificationPreferences({
 					...user.value,
 					timezone: prefs.timezone ?? nextTimezone,
 					...(prefs.next_send_at !== undefined && {
@@ -202,13 +204,13 @@ function handleTimezoneUpdated(newTimezone: string) {
 	selectedTimezone.value = newTimezone;
 	statusMessage.value = "Timezone updated.";
 	statusTone.value = "success";
-	savedPreferences.value = savedPreferences.value
-		? { ...savedPreferences.value, timezone: newTimezone }
-		: buildSavedPreferences({ ...user.value, timezone: newTimezone });
+	savedNotificationPreferences.value = savedNotificationPreferences.value
+		? { ...savedNotificationPreferences.value, timezone: newTimezone }
+		: buildSavedNotificationPreferences({ ...user.value, timezone: newTimezone });
 }
 
-function handlePreferencesUpdated() {
-	void refreshPreferences();
+function handleNotificationPreferencesUpdated() {
+	void refreshNotificationPreferences();
 }
 
 watch(timezones, () => {

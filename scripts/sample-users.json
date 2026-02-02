@@ -23,7 +23,6 @@
     "phone_country_code": null,
     "phone_number": null,
     "phone_verified": null,
-    "sms_opted_out": null,
     "daily_digest_enabled": null,
     "email_notifications_enabled": null,
     "sms_notifications_enabled": null,

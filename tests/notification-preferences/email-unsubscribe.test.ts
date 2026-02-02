@@ -24,6 +24,7 @@ describe("A user clicks the email unsubscribe link.", () => {
 			password: "TestPassword123!",
 			confirmed: true,
 			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: true,
 			dailyDigestEnabled: true,
 		});
 
@@ -45,13 +46,56 @@ describe("A user clicks the email unsubscribe link.", () => {
 
 			const { data: updated, error } = await adminClient
 				.from("users")
-				.select("email_notifications_enabled,daily_digest_enabled")
+				.select(
+					"email_notifications_enabled,daily_digest_enabled,sms_notifications_enabled",
+				)
 				.eq("id", user.id)
 				.maybeSingle();
 
 			expect(error).toBeNull();
 			expect(updated?.email_notifications_enabled).toBe(false);
 			expect(updated?.daily_digest_enabled).toBe(true);
+			expect(updated?.sms_notifications_enabled).toBe(true);
+		} finally {
+			await cleanupTestUser(user.id);
+		}
+	});
+
+	it("Email unsubscribe can also disable SMS when requested.", async () => {
+		const user = await createTestUser({
+			email: createTestEmail("sms-unsub"),
+			password: "TestPassword123!",
+			confirmed: true,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: true,
+		});
+
+		try {
+			const token = createEmailUnsubscribeToken({
+				userId: user.id,
+				email: user.email,
+			});
+			const url = new URL("http://localhost/email/unsubscribe");
+			url.searchParams.set("user", user.id);
+			url.searchParams.set("token", token);
+			url.searchParams.set("sms", "true");
+
+			const container = await AstroContainer.create({ renderers });
+			const response = await container.renderToResponse(EmailUnsubscribePage, {
+				request: new Request(url.toString()),
+			});
+
+			expect(response.status).toBe(200);
+
+			const { data: updated, error } = await adminClient
+				.from("users")
+				.select("email_notifications_enabled,sms_notifications_enabled")
+				.eq("id", user.id)
+				.maybeSingle();
+
+			expect(error).toBeNull();
+			expect(updated?.email_notifications_enabled).toBe(false);
+			expect(updated?.sms_notifications_enabled).toBe(false);
 		} finally {
 			await cleanupTestUser(user.id);
 		}

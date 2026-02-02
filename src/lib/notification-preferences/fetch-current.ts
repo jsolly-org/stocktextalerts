@@ -1,10 +1,10 @@
-import type { PreferencesSnapshot } from "../db";
+import type { NotificationPreferencesSnapshot } from "../db";
 import { rootLogger } from "../logging";
 
-export async function fetchCurrentPreferences(): Promise<PreferencesSnapshot | null> {
+export async function fetchCurrentNotificationPreferences(): Promise<NotificationPreferencesSnapshot | null> {
 	try {
 		const method = "GET";
-		const url = "/api/preferences/current";
+		const url = "/api/notification-preferences/current";
 		const response = await fetch(url, {
 			method,
 			credentials: "same-origin",
@@ -38,9 +38,9 @@ export async function fetchCurrentPreferences(): Promise<PreferencesSnapshot | n
 				}
 			} catch (error) {
 				log(
-					"Failed to refresh preferences: HTTP response body read failed",
+					"Failed to refresh notification-preferences: HTTP response body read failed",
 					{
-						action: "refresh_preferences",
+						action: "refresh_notification-preferences",
 						method,
 						url,
 						status: response.status,
@@ -53,8 +53,8 @@ export async function fetchCurrentPreferences(): Promise<PreferencesSnapshot | n
 				return null;
 			}
 
-			log("Failed to refresh preferences: non-OK HTTP response", {
-				action: "refresh_preferences",
+			log("Failed to refresh notification-preferences: non-OK HTTP response", {
+				action: "refresh_notification-preferences",
 				method,
 				url,
 				status: response.status,
@@ -68,39 +68,42 @@ export async function fetchCurrentPreferences(): Promise<PreferencesSnapshot | n
 
 		const payload = (await response.json()) as {
 			ok: boolean;
-			preferences?: PreferencesSnapshot;
+			notificationPreferences?: NotificationPreferencesSnapshot;
 		};
 
 		if (!payload.ok) {
-			rootLogger.error("Failed to refresh preferences: payload.ok is false", {
-				action: "refresh_preferences",
+			rootLogger.error(
+				"Failed to refresh notification-preferences: payload.ok is false",
+				{
+					action: "refresh_notification-preferences",
+					method,
+					url,
+					status: response.status,
+					statusText: response.statusText,
+					payload,
+				},
+			);
+			return null;
+		}
+
+		if (payload.notificationPreferences == null) {
+			rootLogger.error("Failed to refresh notification-preferences", {
+				action: "refresh_notification-preferences",
 				method,
 				url,
 				status: response.status,
 				statusText: response.statusText,
+				reason: "notificationPreferences_missing",
 				payload,
 			});
 			return null;
 		}
 
-		if (payload.preferences == null) {
-			rootLogger.error("Failed to refresh preferences", {
-				action: "refresh_preferences",
-				method,
-				url,
-				status: response.status,
-				statusText: response.statusText,
-				reason: "preferences_missing",
-				payload,
-			});
-			return null;
-		}
-
-		return payload.preferences;
+		return payload.notificationPreferences;
 	} catch (error) {
 		rootLogger.warn(
-			"Failed to refresh preferences: unexpected error",
-			{ action: "refresh_preferences" },
+			"Failed to refresh notification-preferences: unexpected error",
+			{ action: "refresh_notification-preferences" },
 			error,
 		);
 		return null;

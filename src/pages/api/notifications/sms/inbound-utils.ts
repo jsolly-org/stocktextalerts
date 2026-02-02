@@ -1,4 +1,5 @@
 import { parsePhoneNumberFromString } from "libphonenumber-js";
+import { getSiteUrl } from "../../../../lib/db/env";
 import type { AppSupabaseClient } from "../../../../lib/db/supabase";
 import { rootLogger } from "../../../../lib/logging";
 
@@ -25,7 +26,9 @@ export interface InboundSmsResponse {
 	contentType?: string;
 }
 
-const STOP_RE = /\b(STOP|STOPALL|UNSUBSCRIBE|CANCEL|END|QUIT|REVOKE|OPTOUT)\b/;
+const STOP_ALL_RE = /\bSTOP\s*ALL\b|\bSTOPALL\b/;
+const STOP_EMAIL_RE = /\bSTOP\s*EMAIL\b|\bSTOPEMAIL\b/;
+const STOP_RE = /\b(STOP|UNSUBSCRIBE|CANCEL|END|QUIT|REVOKE|OPTOUT)\b/;
 const START_RE = /\b(START|SUBSCRIBE|YES|UNSTOP)\b/;
 const HELP_RE = /\b(HELP|INFO)\b/;
 
@@ -98,7 +101,9 @@ export async function handleInboundSms(
 
 	const { data: users, error } = await supabase
 		.from("users")
-		.select("id, phone_verified")
+		.select(
+			"id, phone_verified, email_notifications_enabled, sms_notifications_enabled",
+		)
 		.eq("phone_country_code", countryCode)
 		.eq("phone_number", phoneNumber);
 
@@ -129,6 +134,11 @@ export async function handleInboundSms(
 
 	const userId = users[0].id;
 	const phoneVerified = users[0].phone_verified;
+	const emailNotificationsEnabled = users[0].email_notifications_enabled;
+	const smsNotificationsEnabled = users[0].sms_notifications_enabled;
+	const hasBothChannelsEnabled =
+		emailNotificationsEnabled && smsNotificationsEnabled;
+	const dashboardUrl = `${getSiteUrl()}/dashboard`;
 
 	if (!phoneVerified) {
 		return {
@@ -140,10 +150,69 @@ export async function handleInboundSms(
 		};
 	}
 
+	if (STOP_ALL_RE.test(body)) {
+		const { error: updateError } = await supabase
+			.from("users")
+			.update({
+				email_notifications_enabled: false,
+				sms_notifications_enabled: false,
+			})
+			.eq("id", userId);
+
+		if (updateError) {
+			rootLogger.error(
+				"Failed to opt out user",
+				{ userId, action: "sms_stop_all" },
+				updateError,
+			);
+			return {
+				status: 500,
+				body: "Failed to update notification-preferences",
+			};
+		}
+
+		return {
+			status: 200,
+			body: wrapInTwiml(
+				`You have been unsubscribed from SMS and email notifications. Manage notification-preferences at ${dashboardUrl}.`,
+			),
+			contentType: "text/xml",
+		};
+	}
+
+	if (STOP_EMAIL_RE.test(body)) {
+		const { error: updateError } = await supabase
+			.from("users")
+			.update({ email_notifications_enabled: false })
+			.eq("id", userId);
+
+		if (updateError) {
+			rootLogger.error(
+				"Failed to opt out user",
+				{ userId, action: "sms_stop_email" },
+				updateError,
+			);
+			return {
+				status: 500,
+				body: "Failed to update notification-preferences",
+			};
+		}
+
+		const stopEmailMessage = hasBothChannelsEnabled
+			? `Email notifications are now off. To stop SMS too, reply STOP ALL or visit ${dashboardUrl}.`
+			: `Email notifications are now off. Manage notification-preferences at ${dashboardUrl}.`;
+
+		return {
+			status: 200,
+			body: wrapInTwiml(stopEmailMessage),
+			contentType: "text/xml",
+		};
+	}
+
 	if (STOP_RE.test(body)) {
 		const { error: updateError } = await supabase
 			.from("users")
-			.update({ sms_opted_out: true })
+			.update({ sms_notifications_enabled: false })
 			.eq("id", userId);
 
 		if (updateError) {
@@ -154,41 +223,26 @@ export async function handleInboundSms(
 			);
 			return {
 				status: 500,
-				body: "Failed to update preferences",
+				body: "Failed to update notification-preferences",
 			};
 		}
 
+		const stopSmsMessage = hasBothChannelsEnabled
+			? `You have been unsubscribed from SMS notifications. To stop email too, reply STOP EMAIL or visit ${dashboardUrl}.`
+			: `You have been unsubscribed from SMS notifications. Manage notification-preferences at ${dashboardUrl}.`;
+
 		return {
 			status: 200,
-			body: wrapInTwiml(
-				"You have been unsubscribed from SMS notifications. Reply START to resume.",
-			),
+			body: wrapInTwiml(stopSmsMessage),
 			contentType: "text/xml",
 		};
 	}
 
 	if (START_RE.test(body)) {
-		const { error: updateError } = await supabase
-			.from("users")
-			.update({ sms_opted_out: false })
-			.eq("id", userId);
-
-		if (updateError) {
-			rootLogger.error(
-				"Failed to opt in user",
-				{ userId, action: "sms_opt_in" },
-				updateError,
-			);
-			return {
-				status: 500,
-				body: "Failed to update preferences",
-			};
-		}
-
 		return {
 			status: 200,
 			body: wrapInTwiml(
-				"You have been subscribed to SMS notifications. Reply STOP to unsubscribe.",
+				`To re-enable SMS notifications, visit your dashboard: ${dashboardUrl}.`,
 			),
 			contentType: "text/xml",
 		};
@@ -198,7 +252,7 @@ export async function handleInboundSms(
 		return {
 			status: 200,
 			body: wrapInTwiml(
-				"StockTextDashboard: Reply STOP to unsubscribe, START to subscribe. Msg & data rates may apply. Help: reply HELP or visit your dashboard.",
+				`StockTextDashboard: Reply STOP to unsubscribe from SMS, STOP EMAIL to unsubscribe from email, STOP ALL to unsubscribe from both. Manage settings at ${dashboardUrl}.`,
 			),
 			contentType: "text/xml",
 		};

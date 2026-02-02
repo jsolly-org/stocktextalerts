@@ -42,13 +42,12 @@ export function shouldSendSms(
 	user: Pick<
 		UserRecord,
 		| "sms_notifications_enabled"
-		| "sms_opted_out"
 		| "phone_verified"
 		| "phone_country_code"
 		| "phone_number"
 	>,
 ): boolean {
-	const hasOptedIn = user.sms_notifications_enabled && !user.sms_opted_out;
+	const hasOptedIn = user.sms_notifications_enabled;
 	const hasVerifiedPhone =
 		user.phone_verified &&
 		Boolean(user.phone_country_code) &&

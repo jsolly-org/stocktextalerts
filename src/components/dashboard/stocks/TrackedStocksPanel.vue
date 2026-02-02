@@ -63,8 +63,17 @@
 				<label for="stock_search" class="sr-only">Search by symbol or company name</label>
 				<StockInput
 					:stock-options="stockOptions"
+					:disabled="isAtStockLimit"
+					:input-aria-described-by="isAtStockLimit ? STOCK_LIMIT_HINT_ID : undefined"
 					@select="handleSelect"
 				/>
+				<p
+					v-if="isAtStockLimit"
+					:id="STOCK_LIMIT_HINT_ID"
+					class="mt-2 text-sm text-warning-text"
+				>
+					You've reached the maximum of {{ MAX_TRACKED_STOCKS }} stocks. Please remove an existing stock to track a new one.
+				</p>
 			</div>
 		</fieldset>
 
@@ -87,7 +96,7 @@
 					</span>
 					<button
 						type="button"
-						class="shrink-0 rounded p-1.5 text-gray-400 hover:text-error-text hover:bg-error-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 transition-colors"
+						class="shrink-0 rounded p-1.5 text-gray-400 hover:text-error-text hover:bg-error-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 transition-colors cursor-pointer"
 						:aria-label="`Remove ${stock.symbol}`"
 						@click="removeSymbol(stock.symbol)"
 					>
@@ -112,6 +121,7 @@ import {
 	DASHBOARD_STOCKS_STATUS_ID,
 	type FlashMessage,
 } from "../../../lib/constants";
+import { MAX_TRACKED_STOCKS } from "../../../lib/db/database-errors";
 import StatusMessage from "../../StatusMessage.vue";
 import type { StockOption } from "./StockInput.vue";
 import StockInput from "./StockInput.vue";
@@ -141,6 +151,12 @@ const draftStocks = ref<InitialStock[]>([...props.initialStocks]);
 const trackedStocksValue = computed(() =>
 	JSON.stringify(draftStocks.value.map((s) => s.symbol)),
 );
+
+const isAtStockLimit = computed(
+	() => draftStocks.value.length >= MAX_TRACKED_STOCKS,
+);
+
+const STOCK_LIMIT_HINT_ID = "stock-limit-hint";
 
 watch(
 	draftStocks,

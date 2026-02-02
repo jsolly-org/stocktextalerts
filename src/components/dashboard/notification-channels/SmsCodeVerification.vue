@@ -29,7 +29,7 @@
 							isSendingVerification
 								? "Sending..."
 								: !canResend
-									? `Resend (${formattedResendTime})`
+									? `Resend (${formatRemaining(resendRemaining)})`
 									: "Resend Verification Code"
 						}}
 					</span>
@@ -41,14 +41,14 @@
 					<a
 						href="/dashboard#notification-channels"
 						class="text-sm text-primary hover:underline cursor-pointer"
-						@click.prevent="emitChangeNumber"
+						@click.prevent="emit('change-number')"
 					>
 						Change number
 					</a>
 				</div>
 			</div>
 			<p v-if="verificationSentAt && !isExpired" class="text-sm text-gray-600">
-				Code expires in {{ formattedExpirationTime }}.
+				Code expires in {{ formatRemaining(expirationRemaining) }}.
 			</p>
 			<p v-else-if="verificationSentAt" class="text-sm text-gray-700">
 				This code has expired. Request a new code to continue.
@@ -189,13 +189,6 @@ const formatRemaining = (remaining: number) => {
 	return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 };
 
-const formattedExpirationTime = computed(() => {
-	return formatRemaining(expirationRemaining.value);
-});
-
-const formattedResendTime = computed(() => {
-	return formatRemaining(resendRemaining.value);
-});
 
 function clearTimer() {
 	if (!intervalId) return;
@@ -240,17 +233,9 @@ onUnmounted(() => {
 	clearTimer();
 });
 
-function emitOtpInput() {
-	emit("otp-input");
-}
-
-function emitChangeNumber() {
-	emit("change-number");
-}
-
 function handleOtpInput(code: string) {
 	otpCode.value = code;
-	emitOtpInput();
+	emit("otp-input");
 }
 
 watch(

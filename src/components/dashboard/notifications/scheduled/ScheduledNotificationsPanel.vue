@@ -74,7 +74,7 @@ import ArrowTopRightOnSquareIcon from "../../../../icons/arrow-top-right-on-squa
 import ClockIcon from "../../../../icons/clock.svg?component";
 import {
 	CARD_GRADIENT_ACCENTS,
-	DASHBOARD_FORM_ID,
+	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 	DASHBOARD_SECTION_IDS,
 	type FlashMessage,
 } from "../../../../lib/constants";
@@ -92,11 +92,10 @@ interface Props {
 	user: User;
 	emailEnabled: boolean;
 	smsEnabled: boolean;
-	smsOptedOut: boolean;
 	phoneVerified: boolean;
 	onFormChanged?: () => void;
 	flashMessages?: FlashMessage[];
-	savedPreferences?: {
+	savedNotificationPreferences?: {
 		next_send_at: string | null;
 	} | null;
 }
@@ -108,7 +107,6 @@ const {
 	user,
 	emailEnabled,
 	smsEnabled,
-	smsOptedOut,
 	phoneVerified,
 	onFormChanged,
 	flashMessages,
@@ -140,7 +138,7 @@ if (dailyDigestEnabled.value && dailyDigestTimesMinutes.value.length === 0) {
 	dailyDigestTimesMinutes.value = [DEFAULT_DIGEST_TIME_MINUTES];
 }
 
-const phoneVerificationSectionId = `${DASHBOARD_FORM_ID}-phone-verification-section`;
+const phoneVerificationSectionId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-phone-verification-section`;
 
 const dailyDigestTimes = computed(() =>
 	dailyDigestTimesMinutes.value.map((value) => minutesToTimeInputValue(value)),
@@ -149,14 +147,14 @@ const dailyDigestTimes = computed(() =>
 const timezone = computed(() => props.user.timezone ?? "");
 
 const smsReady = computed(
-	() => smsEnabled.value && !smsOptedOut.value && phoneVerified.value,
+	() => smsEnabled.value && phoneVerified.value,
 );
 const hasNotificationChannel = computed(
 	() => emailEnabled.value || smsReady.value,
 );
 const needsChannelSelection = computed(() => !hasNotificationChannel.value);
 const needsPhoneVerification = computed(
-	() => smsEnabled.value && !smsOptedOut.value && !phoneVerified.value,
+	() => smsEnabled.value && !phoneVerified.value,
 );
 const timePickerDisabled = computed(
 	() => needsChannelSelection.value || !dailyDigestEnabled.value,
@@ -203,7 +201,9 @@ watch(
 
 const nextSendAt = computed(
 	() =>
-		props.savedPreferences?.next_send_at ?? props.user.next_send_at ?? null,
+		props.savedNotificationPreferences?.next_send_at ??
+			props.user.next_send_at ??
+			null,
 );
 const { currentTimeInTimezone, countdownText } = useScheduledDigestTiming({
 	timezone,

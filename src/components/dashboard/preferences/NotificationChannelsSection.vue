@@ -56,7 +56,6 @@
 				</label>
 
 				<SmsVerificationSection
-					v-if="!user.sms_opted_out"
 					:user="user"
 					:sms-enabled="smsEnabledValue"
 					:is-editing-phone="isEditingPhone"
@@ -82,10 +81,6 @@
 			to start sending your daily digest.
 		</StatusMessage>
 
-		<StatusMessage v-if="user.sms_opted_out" tone="error">
-			You have opted out of SMS notifications. To re-enable, reply START to any
-			message from us or update your notification settings in your account.
-		</StatusMessage>
 	</section>
 </template>
 

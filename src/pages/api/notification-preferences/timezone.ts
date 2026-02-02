@@ -20,9 +20,12 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const authUser = await users.getCurrentUser();
 	if (!authUser) {
 		// Expected rejection (often bots); info to avoid inflating error metrics.
-		logger.info("Timezone update attempt without authenticated user", {
-			reason: "unauthenticated",
-		});
+		logger.info(
+			"Notification-preferences timezone update attempt without authenticated user",
+			{
+				reason: "unauthenticated",
+			},
+		);
 		return jsonResponse(401, { ok: false, message: "unauthorized" });
 	}
 
@@ -33,7 +36,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 
 	if (!parsed.ok) {
 		// Expected rejection (often bots); info to avoid inflating error metrics.
-		logger.info("Timezone update rejected due to invalid form", {
+		logger.info("Notification-preferences timezone update rejected", {
 			userId: authUser.id,
 			errors: parsed.allErrors,
 		});
@@ -47,7 +50,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		const errorObject =
 			error instanceof Error ? error : new Error(String(error));
 		logger.error(
-			"Failed to fetch user for timezone update",
+			"Failed to fetch user for notification-preferences timezone update",
 			{ userId: authUser.id },
 			errorObject,
 		);
@@ -135,7 +138,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	return jsonResponse(200, {
 		ok: true,
 		message: "timezone_updated",
-		preferences: {
+		notificationPreferences: {
 			timezone: updatedUser.timezone,
 			next_send_at: updatedUser.next_send_at,
 		},

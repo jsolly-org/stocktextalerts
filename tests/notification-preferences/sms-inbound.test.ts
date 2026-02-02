@@ -6,6 +6,7 @@ import {
 	buildSmsInboundRequest,
 	cleanupTestUser,
 	createTestUser,
+	generateUniquePhoneNumber,
 } from "../shared-utils";
 
 async function getTestUserPhone(userId: string): Promise<string> {
@@ -35,8 +36,8 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 		const testUser = await createTestUser({
 			smsNotificationsEnabled: true,
+			emailNotificationsEnabled: false,
 			phoneVerified: true,
-			smsOptedOut: false,
 		});
 
 		try {
@@ -56,26 +57,107 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 			const { data: updated } = await adminClient
 				.from("users")
-				.select("sms_opted_out")
+				.select("sms_notifications_enabled")
 				.eq("id", testUser.id)
 				.single();
 			expect(updated).not.toBeNull();
 			if (!updated) throw new Error("expected user row");
-			expect(updated.sms_opted_out).toBe(true);
+			expect(updated.sms_notifications_enabled).toBe(false);
 		} finally {
 			await cleanupTestUser(testUser.id);
 			vi.unstubAllEnvs();
 		}
 	});
 
-	it("When a user texts START, they are resubscribed to SMS notifications.", async () => {
+	it("When a user texts STOP ALL, they are unsubscribed from both channels.", async () => {
 		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
 		validateRequestMock.mockReturnValueOnce(true);
 
 		const testUser = await createTestUser({
 			smsNotificationsEnabled: true,
+			emailNotificationsEnabled: true,
 			phoneVerified: true,
-			smsOptedOut: true,
+		});
+
+		try {
+			const from = await getTestUserPhone(testUser.id);
+
+			const response = await POST({
+				request: buildSmsInboundRequest({
+					from,
+					body: "STOP ALL",
+					includeSignature: true,
+				}),
+			} as APIContext);
+
+			expect(response.status).toBe(200);
+			const body = await response.text();
+			expect(body).toContain("unsubscribed from SMS and email");
+
+			const { data: updated } = await adminClient
+				.from("users")
+				.select("sms_notifications_enabled,email_notifications_enabled")
+				.eq("id", testUser.id)
+				.single();
+			expect(updated).not.toBeNull();
+			if (!updated) throw new Error("expected user row");
+			expect(updated.sms_notifications_enabled).toBe(false);
+			expect(updated.email_notifications_enabled).toBe(false);
+		} finally {
+			await cleanupTestUser(testUser.id);
+			vi.unstubAllEnvs();
+		}
+	});
+
+	it("When a user texts STOP EMAIL, only email notifications are disabled.", async () => {
+		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+		validateRequestMock.mockReturnValueOnce(true);
+
+		const testUser = await createTestUser({
+			smsNotificationsEnabled: true,
+			emailNotificationsEnabled: true,
+			phoneVerified: true,
+		});
+
+		try {
+			const from = await getTestUserPhone(testUser.id);
+
+			const response = await POST({
+				request: buildSmsInboundRequest({
+					from,
+					body: "STOP EMAIL",
+					includeSignature: true,
+				}),
+			} as APIContext);
+
+			expect(response.status).toBe(200);
+			const body = await response.text();
+			expect(body).toContain("Email notifications are now off");
+
+			const { data: updated } = await adminClient
+				.from("users")
+				.select("sms_notifications_enabled,email_notifications_enabled")
+				.eq("id", testUser.id)
+				.single();
+			expect(updated).not.toBeNull();
+			if (!updated) throw new Error("expected user row");
+			expect(updated.sms_notifications_enabled).toBe(true);
+			expect(updated.email_notifications_enabled).toBe(false);
+		} finally {
+			await cleanupTestUser(testUser.id);
+			vi.unstubAllEnvs();
+		}
+	});
+
+	it("When a user texts START, they are instructed to use the dashboard.", async () => {
+		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+		validateRequestMock.mockReturnValueOnce(true);
+
+		const testUser = await createTestUser({
+			smsNotificationsEnabled: false,
+			phoneVerified: true,
+			phoneCountryCode: "+1",
+			phoneNumber: generateUniquePhoneNumber(),
 		});
 
 		try {
@@ -91,16 +173,16 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 			expect(response.status).toBe(200);
 			const body = await response.text();
-			expect(body).toContain("subscribed to SMS notifications");
+			expect(body).toContain("visit your dashboard");
 
 			const { data: updated } = await adminClient
 				.from("users")
-				.select("sms_opted_out")
+				.select("sms_notifications_enabled")
 				.eq("id", testUser.id)
 				.single();
 			expect(updated).not.toBeNull();
 			if (!updated) throw new Error("expected user row");
-			expect(updated.sms_opted_out).toBe(false);
+			expect(updated.sms_notifications_enabled).toBe(false);
 		} finally {
 			await cleanupTestUser(testUser.id);
 			vi.unstubAllEnvs();
@@ -129,7 +211,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 			expect(response.status).toBe(200);
 			const body = await response.text();
-			expect(body).toContain("Reply STOP to unsubscribe");
+			expect(body).toContain("STOP ALL");
 		} finally {
 			await cleanupTestUser(testUser.id);
 			vi.unstubAllEnvs();

@@ -1,5 +1,6 @@
 import { DateTime, Duration } from "luxon";
 import { calculateNextSendAt, calculateNextSendAtFromTimes } from "./schedule";
+import type { ParsedTime, TimeValue } from "./types";
 
 export function parseTimeToMinutes(value: string): number | null {
 	const parts = value.split(":");
@@ -23,12 +24,6 @@ export function parseTimeToMinutes(value: string): number | null {
 
 	return hours * 60 + minutes;
 }
-
-export type ParsedTime = {
-	hours: number;
-	minutes: number;
-	seconds: number;
-};
 
 export function parseTimeString(
 	value: string | null | undefined,
@@ -85,11 +80,6 @@ export function minutesToTimeInputValue(minutes: number): string {
 	const mins = clamped % 60;
 	return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
 }
-
-export type TimeValue = {
-	hours: number | string;
-	minutes: number | string;
-};
 
 export function formatTimeValue(value: TimeValue): string {
 	const hours =
@@ -213,14 +203,6 @@ export function formatTimezone(secondsUntil: number, timezone: string): string {
 	}
 
 	return arrival.toFormat("ZZZZ");
-}
-
-export function getUtcIso(now: DateTime = DateTime.utc()): string {
-	const iso = now.toISO();
-	if (!iso) {
-		throw new Error("Failed to format UTC ISO string");
-	}
-	return iso;
 }
 
 export function getSecondsUntilNextSend(options: {

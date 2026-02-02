@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
-import type { UserNotificationPreferences } from "../../src/lib/db";
+import type { NotificationPreferences } from "../../src/lib/db";
 import { POST as stocksUpdatePost } from "../../src/pages/api/stocks/update";
 import { TEST_PASSWORD } from "../constants";
 import {
@@ -41,8 +41,8 @@ export async function updateTrackedStocks(
 	testUser: TestUser;
 	trackedStocks: Array<{ symbol: string }> | null;
 	payload: { ok: boolean; message: string };
-	userPreferencesBefore: UserNotificationPreferences | null;
-	userPreferencesAfter: UserNotificationPreferences | null;
+	notificationPreferencesBefore: NotificationPreferences | null;
+	notificationPreferencesAfter: NotificationPreferences | null;
 }> {
 	const testUser = await createTestUser({
 		email: `test-${randomUUID()}@resend.dev`,
@@ -62,7 +62,7 @@ export async function updateTrackedStocks(
 		throw new Error(`Failed to confirm user: ${confirmError.message}`);
 	}
 
-	const { data: userPreferencesBefore } = await adminClient
+	const { data: notificationPreferencesBefore } = await adminClient
 		.from("users")
 		.select(
 			"email_notifications_enabled,sms_notifications_enabled,daily_digest_enabled,daily_digest_notification_times,next_send_at",
@@ -103,7 +103,7 @@ export async function updateTrackedStocks(
 		.eq("user_id", testUser.id)
 		.order("symbol");
 
-	const { data: userPreferencesAfter } = await adminClient
+	const { data: notificationPreferencesAfter } = await adminClient
 		.from("users")
 		.select(
 			"email_notifications_enabled,sms_notifications_enabled,daily_digest_enabled,daily_digest_notification_times,next_send_at",
@@ -116,7 +116,7 @@ export async function updateTrackedStocks(
 		testUser,
 		trackedStocks,
 		payload,
-		userPreferencesBefore,
-		userPreferencesAfter,
+		notificationPreferencesBefore,
+		notificationPreferencesAfter,
 	};
 }

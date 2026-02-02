@@ -15,9 +15,12 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 
 	const user = await userService.getCurrentUser();
 	if (!user) {
-		logger.info("Preferences read attempt without authenticated user", {
-			reason: "unauthenticated",
-		});
+		logger.info(
+			"Notification-preferences read attempt without authenticated user",
+			{
+				reason: "unauthenticated",
+			},
+		);
 		return Response.json(
 			{ ok: false, message: "unauthorized" },
 			{ status: 401 },
@@ -27,7 +30,7 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 	try {
 		const dbUser = await userService.getById(user.id);
 		if (!dbUser) {
-			logger.error("Preferences read failed: user not found", {
+			logger.error("Notification-preferences read failed: user not found", {
 				userId: user.id,
 			});
 			return Response.json(
@@ -38,7 +41,7 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 
 		return Response.json({
 			ok: true,
-			preferences: {
+			notificationPreferences: {
 				email_notifications_enabled: dbUser.email_notifications_enabled,
 				sms_notifications_enabled: dbUser.sms_notifications_enabled,
 				phone_verified: dbUser.phone_verified,
@@ -52,8 +55,8 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 		});
 	} catch (error) {
 		logger.error(
-			"Preferences read failed",
-			{ userId: user.id, action: "load_preferences" },
+			"Notification-preferences read failed",
+			{ userId: user.id, action: "load_notification-preferences" },
 			error,
 		);
 		return Response.json(

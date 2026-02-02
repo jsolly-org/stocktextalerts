@@ -1,8 +1,8 @@
 <template>
 	<section
 		class="card relative mb-6"
-		data-notification-preferences-card
-		:data-form-id="DASHBOARD_FORM_ID"
+		data-notification-channels-card
+		:data-form-id="DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID"
 	>
 		<Transition
 			enter-active-class="transition-opacity duration-150"
@@ -14,7 +14,7 @@
 		>
 			<div
 				v-if="statusMessage"
-				:id="DASHBOARD_STATUS_ID"
+				:id="DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID"
 				class="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium z-10"
 				:class="[statusTone === 'error' ? 'bg-error-bg text-error-text' : 'bg-info-bg text-info-text']"
 				role="status"
@@ -32,7 +32,7 @@
 		</Transition>
 
 		<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.primary}`"></div>
-		<div class="card-body" :id="DASHBOARD_SECTION_IDS.preferences">
+		<div class="card-body" :id="DASHBOARD_SECTION_IDS.notificationChannels">
 
 		<div v-if="flashMessages.length" class="space-y-2 mb-4">
 			<StatusMessage
@@ -44,20 +44,89 @@
 			</StatusMessage>
 		</div>
 
-		<NotificationChannelsSection
-			v-model:email-enabled="emailEnabled"
-			v-model:sms-enabled="smsEnabled"
-			:user="user"
-			:can-save-sms-enabled="canSaveSmsEnabled"
-			:is-editing-phone="isEditingPhone"
-			:send-verification-disabled="sendVerificationDisabled"
-			:success-message="successMessage"
-			:is-verifying-code="isVerifyingCode"
-			:is-sending-verification="isSendingVerification"
-			:show-time-reminder="showTimeReminder"
-			@phone-validity-changed="handlePhoneValidityChanged"
-			@phone-editing-changed="handlePhoneEditingChanged"
-		/>
+		<section :id="DASHBOARD_SECTION_IDS.notificationChannels" class="space-y-4">
+			<header>
+				<h2 class="text-xl sm:text-2xl font-bold text-gray-900">
+					Notification Channels
+				</h2>
+				<p :id="notificationChannelsDescId" class="text-sm text-gray-600 mt-1.5">
+					Choose how you want to receive alerts.
+				</p>
+			</header>
+			<fieldset
+				class="rounded-lg border border-gray-200 divide-y divide-gray-200"
+				:aria-describedby="notificationChannelsDescId"
+			>
+				<legend class="sr-only">Notification channels</legend>
+				<label class="flex items-start gap-3 p-4 cursor-pointer transition-colors hover:bg-gray-50 focus-within:bg-gray-50">
+					<input
+						type="hidden"
+						name="email_notifications_enabled"
+						:value="emailEnabled ? 'on' : 'off'"
+					/>
+					<input
+						type="checkbox"
+						:id="emailNotificationsEnabledId"
+						class="mt-0.5 h-6 w-6 rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+						v-model="emailEnabled"
+					/>
+					<span class="text-sm">
+						<span class="font-medium text-gray-900">Email Notifications</span>
+						<span class="block text-gray-500">
+							Notifications are sent to your registered email.
+						</span>
+					</span>
+				</label>
+
+				<div>
+					<label class="flex items-start gap-3 p-4 cursor-pointer transition-colors hover:bg-gray-50 focus-within:bg-gray-50">
+						<input
+							v-if="canSaveSmsEnabled"
+							type="hidden"
+							name="sms_notifications_enabled"
+							:value="smsEnabled ? 'on' : 'off'"
+						/>
+						<input
+							type="checkbox"
+							:id="smsNotificationsEnabledId"
+							class="mt-0.5 h-6 w-6 rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+							v-model="smsEnabled"
+						/>
+						<span class="text-sm">
+							<span class="font-medium text-gray-900">SMS Notifications</span>
+							<span class="block text-gray-500">
+								Notifications will be sent to a phone number you provide.
+							</span>
+						</span>
+					</label>
+
+					<SmsVerificationSection
+						:user="user"
+						:sms-enabled="smsEnabled"
+						:is-editing-phone="isEditingPhone"
+						:success-message="successMessage"
+						:send-verification-disabled="sendVerificationDisabled"
+						:is-verifying-code="isVerifyingCode"
+						:is-sending-verification="isSendingVerification"
+						@phone-validity-changed="handlePhoneValidityChanged"
+						@phone-editing-changed="handlePhoneEditingChanged"
+					/>
+				</div>
+			</fieldset>
+
+			<StatusMessage v-if="showTimeReminder" tone="warning">
+				Choose a
+				<button
+					type="button"
+					class="underline rounded cursor-pointer hover:text-warning-text/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning focus-visible:ring-offset-2"
+					@click="scrollToScheduled"
+				>
+					delivery time
+				</button>
+				to start sending your daily digest.
+			</StatusMessage>
+
+		</section>
 		</div>
 	</section>
 </template>
@@ -68,15 +137,15 @@ import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import {
 	CARD_GRADIENT_ACCENTS,
-	DASHBOARD_FORM_ID,
+	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
+	DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID,
 	DASHBOARD_SECTION_IDS,
-	DASHBOARD_STATUS_ID,
 	type FlashMessage,
 } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 import { rootLogger } from "../../../lib/logging";
 import StatusMessage from "../../StatusMessage.vue";
-import NotificationChannelsSection from "./NotificationChannelsSection.vue";
+import SmsVerificationSection from "./SmsVerificationSection.vue";
 
 interface Props {
 	user: User;
@@ -120,7 +189,7 @@ const {
 const emit = defineEmits<{
 	(event: "update:emailEnabled", value: boolean): void;
 	(event: "update:smsEnabled", value: boolean): void;
-	(event: "preferences-updated"): void;
+	(event: "notification-preferences-updated"): void;
 	(event: "phone-editing-changed", value: boolean): void;
 }>();
 
@@ -132,6 +201,9 @@ const PENDING_SMS_STORAGE_KEY = "pending_sms_enabled";
 const pendingSmsStorageKey = computed(() => {
 	return `${PENDING_SMS_STORAGE_KEY}:${user.value.id}`;
 });
+const emailNotificationsEnabledId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-email_notifications_enabled`;
+const smsNotificationsEnabledId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-sms_notifications_enabled`;
+const notificationChannelsDescId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-notification-channels-desc`;
 
 const emailEnabled = computed({
 	get: () => emailEnabledProp.value,
@@ -218,8 +290,8 @@ function notifyFormChanged() {
 	handler();
 }
 
-function handlePreferencesUpdated() {
-	emit("preferences-updated");
+function handleNotificationPreferencesUpdated() {
+	emit("notification-preferences-updated");
 }
 
 watch([emailEnabled, smsEnabled], () => {
@@ -246,6 +318,13 @@ function handlePhoneValidityChanged(isValid: boolean) {
 
 function handlePhoneEditingChanged(value: boolean) {
 	emit("phone-editing-changed", value);
+}
+
+function scrollToScheduled() {
+	const el = document.getElementById(DASHBOARD_SECTION_IDS.scheduled);
+	if (el) {
+		el.scrollIntoView({ behavior: "smooth" });
+	}
 }
 
 function setupNavigationWarning() {

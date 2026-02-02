@@ -2,13 +2,11 @@ import { DEFAULT_TIMEZONE } from "../constants";
 import type { Database } from "../db/generated/database.types";
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
+import type { TimezoneOption } from "./types";
 
 type DbTimezoneRow = Database["public"]["Tables"]["timezones"]["Row"];
 
-export type TimezoneOption = Pick<
-	DbTimezoneRow,
-	"value" | "label" | "display_order"
->;
+export type { TimezoneOption };
 
 const ALL_TIMEZONES_TTL_MS = 24 * 60 * 60 * 1000;
 

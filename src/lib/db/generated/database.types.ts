@@ -246,7 +246,6 @@ export type Database = {
           phone_number: string | null
           phone_verified: boolean
           sms_notifications_enabled: boolean
-          sms_opted_out: boolean
           timezone: string
           updated_at: string
           verification_sent_at: string | null
@@ -265,7 +264,6 @@ export type Database = {
           phone_number?: string | null
           phone_verified?: boolean
           sms_notifications_enabled?: boolean
-          sms_opted_out?: boolean
           timezone?: string
           updated_at?: string
           verification_sent_at?: string | null
@@ -284,7 +282,6 @@ export type Database = {
           phone_number?: string | null
           phone_verified?: boolean
           sms_notifications_enabled?: boolean
-          sms_opted_out?: boolean
           timezone?: string
           updated_at?: string
           verification_sent_at?: string | null
@@ -346,7 +343,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      update_user_preferences_and_stocks: {
+      update_notification_preferences_and_stocks: {
         Args: {
           p_daily_digest_enabled: boolean
           p_daily_digest_notification_times: number[]

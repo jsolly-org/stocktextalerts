@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
-import { POST } from "../../src/pages/api/preferences/update";
+import { POST } from "../../src/pages/api/notification-preferences/update";
 import { registerTestUserForCleanup } from "../setup";
 import {
 	adminClient,
@@ -27,10 +27,13 @@ describe("A signed-in user updates their email notification preference.", () => 
 		const formData = new FormData();
 		formData.append("email_notifications_enabled", "true");
 
-		const request = new Request("http://localhost/api/preferences/update", {
-			method: "POST",
-			body: formData,
-		});
+		const request = new Request(
+			"http://localhost/api/notification-preferences/update",
+			{
+				method: "POST",
+				body: formData,
+			},
+		);
 
 		const response = await POST({
 			request,
@@ -73,10 +76,13 @@ describe("A signed-in user updates their email notification preference.", () => 
 		const formData = new FormData();
 		formData.append("email_notifications_enabled", "false");
 
-		const request = new Request("http://localhost/api/preferences/update", {
-			method: "POST",
-			body: formData,
-		});
+		const request = new Request(
+			"http://localhost/api/notification-preferences/update",
+			{
+				method: "POST",
+				body: formData,
+			},
+		);
 
 		const response = await POST({
 			request,

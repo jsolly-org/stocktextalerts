@@ -216,11 +216,11 @@ For local development, run `npm run db:reset` before `npm run test` to ensure yo
 - `POST /api/auth/sms/send-verification`
 - `POST /api/auth/sms/verify-code`
 
-**Notifications & Preferences:**
-- `GET /api/preferences/current`
-- `POST /api/preferences/update`
-- `POST /api/preferences/timezone`
-- `POST /api/preferences/dismiss-timezone-banner`
+**Notification settings:**
+- `GET /api/notification-preferences/current`
+- `POST /api/notification-preferences/update`
+- `POST /api/notification-preferences/timezone`
+- `POST /api/notification-preferences/dismiss-timezone-banner`
 - `POST /api/notifications/scheduled` (cron, protected by `CRON_SECRET`)
 - `POST /api/notifications/sms/inbound` (Twilio webhook for STOP/START/HELP)
 
@@ -342,7 +342,7 @@ npm run db:reset
 ### Data Reset Warning
 
 Resetting the database (`npm run db:reset`) will:
-- Delete all existing data (users, preferences, tracked stocks)
+- Delete all existing data (users, notification-preferences, tracked stocks)
 - Re-apply the schema
 - Re-seed the database with the updated stock list
 
