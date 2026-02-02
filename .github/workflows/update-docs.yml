@@ -75,4 +75,13 @@ jobs:
 
           # Deliverables when updates occur:
           - A commit pushed directly to \`main\` that changes only \`README.md\`.
+          - After pushing, print exactly one line so the workflow can log it: \`DOCS_PUSHED_SHA=\$(git rev-parse HEAD)\`
           " --force --model "$MODEL" --output-format=text
+
+      - name: Log latest commit on main
+        run: |
+          git fetch origin main --depth=1
+          echo "---"
+          echo "Latest commit on origin/main after run:"
+          git log -1 origin/main --format="  SHA: %H%n  Subject: %s%n  Author: %an <%ae>%n  Date: %ai"
+          echo "---"
