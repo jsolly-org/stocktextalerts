@@ -266,8 +266,10 @@ jobs:
           COMMENT_ID: ${{ steps.context.outputs.comment_id }}
           BEFORE_SHA: ${{ steps.agent.outputs.before_sha }}
         run: |
-          # Configure remote URL with token for pushing
-          REMOTE_URL="https://${GH_TOKEN}@github.com/${HEAD_REPO}.git"
+          # Configure remote URL with token for pushing. Disable credential helper so git
+          # uses the URL-embedded token and does not try to read a password from /dev/tty.
+          git config --local credential.helper ""
+          REMOTE_URL="https://x-access-token:${GH_TOKEN}@github.com/${HEAD_REPO}.git"
           git remote set-url origin "$REMOTE_URL"
 
           git add -A
