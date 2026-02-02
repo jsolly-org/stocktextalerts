@@ -211,6 +211,7 @@ For local development, run `npm run db:reset` before `npm run test` to ensure yo
 - `POST /api/auth/signin`
 - `POST /api/auth/signout`
 - `POST /api/auth/delete-account`
+- `POST /api/auth/update-email`
 - `POST /api/auth/update-password`
 - `POST /api/auth/sms/send-verification`
 - `POST /api/auth/sms/verify-code`
