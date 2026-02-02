@@ -1,0 +1,28 @@
+name: Upload agent debug artifacts
+description: Upload Cursor agent debug logs and artifacts.
+
+inputs:
+  name:
+    description: Artifact name
+    required: true
+  if_no_files_found:
+    description: Behavior if no files are found
+    required: false
+    default: ignore
+
+runs:
+  using: composite
+  steps:
+    - name: Upload debug artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.name }}
+        if-no-files-found: ${{ inputs.if_no_files_found }}
+        path: |
+          agent-stdout.txt
+          agent-stderr.txt
+          agent-noop-output.txt
+          agent-diffstat.txt
+          agent-changed-files.txt
+          precommit-*.log
+          push-error.log
