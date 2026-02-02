@@ -81,7 +81,7 @@ describe("A signed-in user requests to change their email address.", () => {
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toBe(
-				"/profile?error=email_change_failed",
+				"/profile?error=email_unchanged",
 			);
 		} finally {
 			await cleanupTestUser(testUser.id);

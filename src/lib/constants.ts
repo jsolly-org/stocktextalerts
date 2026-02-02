@@ -118,6 +118,7 @@ export const MESSAGE_ALLOWLIST = {
 		"Check your old and new inboxes to confirm the email change.",
 	email_updated: "Email updated successfully.",
 	email_change_failed: "Email update failed. Please try again.",
+	email_unchanged: "The new email is the same as your current email.",
 	password_reset:
 		"Password updated successfully! You can now sign in with your new password.",
 	account_deleted: "Your account has been permanently deleted.",

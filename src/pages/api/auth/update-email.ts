@@ -53,7 +53,7 @@ export const POST: APIRoute = async ({
 		logger.info("Email change request rejected: same as current email", {
 			userId: authUser.id,
 		});
-		return redirect("/profile?error=email_change_failed");
+		return redirect("/profile?error=email_unchanged");
 	}
 
 	const origin = getSiteUrl();
