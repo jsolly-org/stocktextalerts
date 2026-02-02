@@ -1,0 +1,21 @@
+npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+
+> app-quickstart@0.0.1 prepare
+> if [ -z "$CI" ]; then husky; fi
+
+
+added 814 packages, and audited 815 packages in 11s
+
+275 packages are looking for funding
+  run `npm fund` for details
+
+10 vulnerabilities (6 moderate, 4 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.

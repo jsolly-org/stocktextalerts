@@ -1,0 +1,4 @@
+
+> app-quickstart@0.0.1 check:ts
+> tsc --noEmit --skipLibCheck
+

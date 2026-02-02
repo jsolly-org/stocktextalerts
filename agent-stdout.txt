@@ -1,0 +1,5 @@
+## Done
+
+- **Change**: Added one emoji to the README title.
+- **File updated**: `README.md`
+- **Status**: Left as **uncommitted** working tree change (`M README.md`).
