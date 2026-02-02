@@ -27,9 +27,11 @@ function buildCsp(requestHost?: string): string {
 		...(isVercel ? ["https://vercel.live"] : []),
 	].join(" "); // ANDI: SSA + jQuery
 
+	// https: does not include wss:; Vercel Live/Preview uses Pusher over wss://
 	const connectSrc = [
 		"'self'",
 		"https:",
+		"wss:",
 		...(isVercel ? ["https://vercel.live"] : []),
 	].join(" ");
 
