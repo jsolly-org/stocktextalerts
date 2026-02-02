@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.app_metadata (
 );
 
 INSERT INTO public.app_metadata (key, value)
-VALUES ('schema_version', '20250101000000_initial_schema@v4')
+VALUES ('schema_version', '20250101000000_initial_schema@v5')
 ON CONFLICT (key) DO UPDATE SET
   value = EXCLUDED.value;
 
@@ -189,6 +189,8 @@ ALTER TABLE timezones ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Timezones are readable by anyone" ON timezones
   FOR SELECT USING (true);
+
+GRANT SELECT ON TABLE public.timezones TO anon, authenticated;
 
 /* =============
 Users
