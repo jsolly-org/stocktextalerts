@@ -4,16 +4,18 @@ import { validateEnv } from "./lib/db/env";
 // Lazy validation flag - only validate once on first request
 let envValidated = false;
 
-const CSP = (() => {
-	const isVercelPreview =
-		process.env.VERCEL === "1" && process.env.VERCEL_ENV === "preview";
+function buildCsp(requestHost?: string): string {
+	// Allow vercel.live when on Vercel (env at runtime) or when request host is a Vercel deployment (fallback if env unset).
+	const isVercel =
+		process.env.VERCEL === "1" ||
+		(typeof requestHost === "string" && requestHost.endsWith(".vercel.app"));
 
 	const frameSrc = [
 		"'self'",
 		"https://newassets.hcaptcha.com",
 		"https://hcaptcha.com",
 		"https://*.hcaptcha.com",
-		...(isVercelPreview ? ["https://vercel.live"] : []),
+		...(isVercel ? ["https://vercel.live"] : []),
 	].join(" ");
 
 	const scriptSrc = [
@@ -22,13 +24,13 @@ const CSP = (() => {
 		"https://js.hcaptcha.com",
 		"https://www.ssa.gov",
 		"https://ajax.googleapis.com",
-		...(isVercelPreview ? ["https://vercel.live"] : []),
+		...(isVercel ? ["https://vercel.live"] : []),
 	].join(" "); // ANDI: SSA + jQuery
 
 	const connectSrc = [
 		"'self'",
 		"https:",
-		...(isVercelPreview ? ["https://vercel.live"] : []),
+		...(isVercel ? ["https://vercel.live"] : []),
 	].join(" ");
 
 	return [
@@ -44,11 +46,18 @@ const CSP = (() => {
 		"font-src 'self' data:",
 		"form-action 'self'",
 	].join("; ");
-})();
+}
 
-const applySecurityHeaders = (headers: Headers, requestId: string) => {
+const applySecurityHeaders = (
+	headers: Headers,
+	requestId: string,
+	request?: Request,
+) => {
 	headers.set("x-request-id", requestId);
-	headers.set("content-security-policy", CSP);
+	headers.set(
+		"content-security-policy",
+		buildCsp(request?.url ? new URL(request.url).host : undefined),
+	);
 	headers.set("cross-origin-opener-policy", "same-origin");
 	headers.set("x-frame-options", "DENY");
 	headers.set(
@@ -57,7 +66,7 @@ const applySecurityHeaders = (headers: Headers, requestId: string) => {
 	);
 };
 
-export const onRequest = defineMiddleware(async (_context, next) => {
+export const onRequest = defineMiddleware(async (context, next) => {
 	// Validate environment variables on first request
 	// This ensures validation happens after Vercel injects env vars at runtime
 	if (!envValidated) {
@@ -65,17 +74,17 @@ export const onRequest = defineMiddleware(async (_context, next) => {
 		envValidated = true;
 	}
 	const requestId = crypto.randomUUID();
-	_context.locals.requestId = requestId;
+	context.locals.requestId = requestId;
 
 	const response = await next();
 	// Some platform responses expose immutable headers; if response.headers.set throws,
 	// clone with new Headers(...) and return a new Response with updated headers.
 	try {
-		applySecurityHeaders(response.headers, requestId);
+		applySecurityHeaders(response.headers, requestId, context.request);
 		return response;
 	} catch {
 		const headers = new Headers(response.headers);
-		applySecurityHeaders(headers, requestId);
+		applySecurityHeaders(headers, requestId, context.request);
 		return new Response(response.body, {
 			status: response.status,
 			statusText: response.statusText,

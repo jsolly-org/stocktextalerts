@@ -13,8 +13,14 @@ const canonicalURL = new URL(Astro.url.pathname, canonicalBase);
 // Replace with your own image
 const socialImageURL = new URL("/images/opengraph-image.jpg", canonicalBase);
 const isProd = import.meta.env.PROD;
-const isVercelPreview =
-	process.env.VERCEL === "1" && process.env.VERCEL_ENV === "preview";
+// Omit manifest on Vercel preview to avoid 401 from Deployment Protection; use host fallback if env unset.
+const requestHost = Astro.url.host;
+const isVercelPreviewByHost =
+	requestHost.endsWith(".vercel.app") &&
+	requestHost.split(".")[0].includes("-");
+const omitManifestOnVercel =
+	(process.env.VERCEL === "1" && process.env.VERCEL_ENV !== "production") ||
+	isVercelPreviewByHost;
 ---
 <!DOCTYPE html>
 <html lang="en">
@@ -56,7 +62,7 @@ const isVercelPreview =
         href="/favicons/android-chrome-512x512.png"
     />
     <!-- On protected Vercel Preview deploys, the browser's manifest request can 401 and spam console noise. -->
-    {!isVercelPreview && <link rel="manifest" href="/favicons/site.webmanifest" />}
+    {!omitManifestOnVercel && <link rel="manifest" href="/favicons/site.webmanifest" />}
     {isProd && <link rel="sitemap" href="/sitemap-index.xml" />}
 
     <!-- Open Graph / Meta (formerly Facebook) -->
