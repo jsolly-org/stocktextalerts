@@ -255,7 +255,8 @@ runs:
         PR_NUMBER: ${{ steps.pr_meta.outputs.pr_number }}
         COMMENT_ID: ${{ steps.pr_meta.outputs.comment_id }}
       run: |
-        COMMENT_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID")
+        # Get a single review comment: path is pulls/comments/{id}, not pulls/{pr}/comments/{id}.
+        COMMENT_JSON=$(gh api "repos/$REPO/pulls/comments/$COMMENT_ID")
         COMMENT_PATH=$(echo "$COMMENT_JSON" | jq -r '.path // ""')
         COMMENT_SIDE=$(echo "$COMMENT_JSON" | jq -r '.side // ""')
         COMMENT_LINE=$(echo "$COMMENT_JSON" | jq -r '.line // ""')
