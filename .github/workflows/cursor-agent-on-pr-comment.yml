@@ -510,6 +510,8 @@ jobs:
           gh pr comment "${{ steps.context.outputs.pr_number }}" \
             --body "$FAILURE_BODY"
 
+      # Only fail the job for agent or pre-commit failures. Push failure (e.g. fork PR where
+      # GITHUB_TOKEN cannot push) is reported via "Report push failure" but does not fail the run.
       - name: Fail job if workflow had errors
-        if: steps.context.outputs.run_agent == 'true' && (steps.agent.outcome == 'failure' || steps.precommit_checks.outcome == 'failure' || steps.commit_push.outcome == 'failure')
+        if: steps.context.outputs.run_agent == 'true' && (steps.agent.outcome == 'failure' || steps.precommit_checks.outcome == 'failure')
         run: exit 1
