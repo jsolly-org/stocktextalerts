@@ -20,5 +20,7 @@ runs:
         }
 
         run_cmd "npm-ci" npm ci || exit $?
+        # Apply safe Biome fixes (format + organize imports) so agent runs don't fail on trivial issues.
+        run_cmd "biome-fix" npm run check:biome || exit $?
         run_cmd "biome-ci" npx biome ci . || exit $?
         run_cmd "check-ts" npm run check:ts || exit $?

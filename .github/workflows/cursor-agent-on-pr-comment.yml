@@ -272,12 +272,30 @@ jobs:
           git add -A
           git commit -m "Cursor: apply requested changes (comment $COMMENT_ID)"
 
-          if ! git push "$REMOTE_URL" "$HEAD_REF" 2> push-error.log; then
-            echo "##[error]Failed to push commit. This may be a fork PR where GITHUB_TOKEN cannot push."
-            echo "Push error details:"
+          # The PR branch may advance while this run is executing (e.g. manual pushes).
+          # Rebase our commit(s) onto the latest remote tip so we can fast-forward push without force.
+          MAX_PUSH_ATTEMPTS=3
+          for attempt in $(seq 1 "$MAX_PUSH_ATTEMPTS"); do
+            git fetch "$REMOTE_URL" "$HEAD_REF"
+
+            if ! git rebase FETCH_HEAD; then
+              echo "##[error]Failed to rebase onto latest remote tip for $HEAD_REF."
+              git rebase --abort || true
+              exit 1
+            fi
+
+            if git push "$REMOTE_URL" HEAD:"$HEAD_REF" 2> push-error.log; then
+              break
+            fi
+
+            echo "##[warning]Push attempt $attempt/$MAX_PUSH_ATTEMPTS failed; will retry after fetching latest."
             cat push-error.log || true
-            exit 1
-          fi
+
+            if [[ "$attempt" == "$MAX_PUSH_ATTEMPTS" ]]; then
+              echo "##[error]Failed to push commit. This may be a fork PR where GITHUB_TOKEN cannot push."
+              exit 1
+            fi
+          done
 
           git fetch "$REMOTE_URL" "$HEAD_REF"
           AFTER_SHA="$(git rev-parse FETCH_HEAD)"
