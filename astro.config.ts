@@ -47,7 +47,28 @@ export default defineConfig({
 
 	site,
 
-	integrations: [sitemap({}), icon(), vue()],
+	integrations: [
+		sitemap({
+			// Exclude auth flow, authenticated, and utility pages from sitemap (no SEO value; keep crawlers off).
+			filter: (page) => {
+				const pathname = new URL(page).pathname.replace(/\/$/, "") || "/";
+				const excludedPrefixes = [
+					"/auth/forgot",
+					"/auth/recover",
+					"/auth/unconfirmed",
+					"/auth/verified",
+					"/dashboard",
+					"/email/unsubscribe",
+					"/profile",
+				];
+				return !excludedPrefixes.some(
+					(p) => pathname === p || pathname.startsWith(`${p}/`),
+				);
+			},
+		}),
+		icon(),
+		vue(),
+	],
 
 	vite: {
 		plugins: [
