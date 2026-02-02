@@ -1,6 +1,6 @@
 import { getContainerRenderer as getVueRenderer } from "@astrojs/vue";
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
-import { loadRenderers } from "astro/virtual-modules/container.js";
+import { loadRenderers } from "astro:container";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { rootLogger } from "../../src/lib/logging";
 import AuthForgotPage from "../../src/pages/auth/forgot.astro";
