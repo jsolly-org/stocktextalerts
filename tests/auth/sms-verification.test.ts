@@ -88,6 +88,8 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 				.eq("id", testUser.id)
 				.single();
 
+			expect(updatedUser).not.toBeNull();
+			if (!updatedUser) throw new Error("expected user row");
 			expect(updatedUser.phone_country_code).toBe("+1");
 			expect(updatedUser.phone_number).toBe(phoneNumber);
 			expect(updatedUser.sms_notifications_enabled).toBe(true);
@@ -167,6 +169,8 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 				.eq("id", testUser.id)
 				.single();
 
+			expect(updatedUser).not.toBeNull();
+			if (!updatedUser) throw new Error("expected user row");
 			expect(updatedUser.phone_country_code).toBe("+1");
 			expect(updatedUser.phone_number).toBe(newPhoneNumber);
 			expect(updatedUser.phone_verified).toBe(false);
@@ -378,7 +382,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 				get: () => undefined,
 				set: () => {},
 			},
-		} as APIContext);
+		} as unknown as APIContext);
 
 		expect(response.status).toBe(401);
 		const payload = (await response.json()) as { ok: boolean; message: string };
@@ -420,7 +424,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 					},
 					set: () => {},
 				},
-			} as APIContext);
+			} as unknown as APIContext);
 
 			expect(response.status).toBe(400);
 			const payload = (await response.json()) as {
@@ -477,7 +481,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 					},
 					set: () => {},
 				},
-			} as APIContext);
+			} as unknown as APIContext);
 
 			expect(response.status).toBe(500);
 			const payload = (await response.json()) as {
@@ -493,6 +497,8 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 				.eq("id", testUser.id)
 				.single();
 
+			expect(updatedUser).not.toBeNull();
+			if (!updatedUser) throw new Error("expected user row");
 			expect(updatedUser.verification_sent_at).toBeNull();
 		} finally {
 			await cleanupTestUser(testUser.id);
@@ -561,6 +567,8 @@ describe("A signed-in user verifies their phone number with an SMS code.", () =>
 				.eq("id", testUser.id)
 				.single();
 
+			expect(updatedUser).not.toBeNull();
+			if (!updatedUser) throw new Error("expected user row");
 			expect(updatedUser.phone_verified).toBe(true);
 			expect(updatedUser.verification_sent_at).toBeNull();
 		} finally {
@@ -624,6 +632,8 @@ describe("A signed-in user verifies their phone number with an SMS code.", () =>
 				.eq("id", testUser.id)
 				.single();
 
+			expect(updatedUser).not.toBeNull();
+			if (!updatedUser) throw new Error("expected user row");
 			expect(updatedUser.phone_verified).toBe(false);
 		} finally {
 			await cleanupTestUser(testUser.id);
@@ -694,6 +704,8 @@ describe("A signed-in user verifies their phone number with an SMS code.", () =>
 				.eq("id", testUser.id)
 				.single();
 
+			expect(updatedUser).not.toBeNull();
+			if (!updatedUser) throw new Error("expected user row");
 			expect(updatedUser.phone_verified).toBe(false);
 		} finally {
 			await cleanupTestUser(testUser.id);
