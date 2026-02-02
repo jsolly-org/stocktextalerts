@@ -18,10 +18,13 @@ export function useScheduledDigestTiming(options: {
 	nextSendAtIso: ComputedRef<string | null>;
 	timeInputs: ComputedRef<string[]>;
 }) {
-	const tick = ref(Date.now());
+	const hasMounted = ref(false);
+	const tick = ref(0);
 	const intervalId = ref<number | null>(null);
 
 	onMounted(() => {
+		hasMounted.value = true;
+		tick.value = Date.now();
 		intervalId.value = window.setInterval(() => {
 			tick.value = Date.now();
 		}, 1000);
@@ -34,15 +37,20 @@ export function useScheduledDigestTiming(options: {
 		intervalId.value = null;
 	});
 
+	// Defer live time/countdown until after mount so server and client initial render match (avoids hydration mismatch).
 	const currentTimeInTimezone = computed(() => {
-		// Touch tick to recompute every second for the live clock.
+		if (!hasMounted.value) {
+			return null;
+		}
 		void tick.value;
 		const tz = options.timezone.value;
 		return tz !== "" ? getNowInTimezone(tz) : null;
 	});
 
 	const countdownText = computed(() => {
-		// Touch tick to recompute every second for the countdown.
+		if (!hasMounted.value) {
+			return null;
+		}
 		void tick.value;
 		if (!options.dailyDigestEnabled.value) {
 			return null;

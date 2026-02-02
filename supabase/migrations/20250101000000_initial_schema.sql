@@ -738,6 +738,8 @@ CREATE POLICY "Users can update own profile" ON users
 CREATE POLICY "Users can delete own profile" ON users
   FOR DELETE USING ((SELECT auth.uid()) = id);
 
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.users TO authenticated;
+
 /* =============
 Row Level Security - User Stocks
 ============= */
@@ -753,6 +755,8 @@ CREATE POLICY "Users can insert own stocks" ON user_stocks
 CREATE POLICY "Users can delete own stocks" ON user_stocks
   FOR DELETE USING ((SELECT auth.uid()) = user_id);
 
+GRANT SELECT, INSERT, DELETE ON TABLE public.user_stocks TO authenticated;
+
 /* =============
 Row Level Security - Stocks (Public Read)
 ============= */
@@ -761,6 +765,8 @@ ALTER TABLE stocks ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Anyone can view stocks" ON stocks
   FOR SELECT USING (true);
+
+GRANT SELECT ON TABLE public.stocks TO anon, authenticated;
 
 /* =============
 Row Level Security - Notification Log
