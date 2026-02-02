@@ -1,0 +1,132 @@
+---
+import { Icon } from "astro-icon/components";
+import Navigation from "../components/Navigation.astro";
+import Layout from "../layouts/Layout.astro";
+---
+<Layout title="404 - Page Not Found | Stock Text Alerts" description="The page you're looking for doesn't exist.">
+  <div class="min-h-screen bg-white flex flex-col">
+    <header>
+      <Navigation />
+    </header>
+
+    <main id="main-content" class="flex-1 flex items-center justify-center relative overflow-hidden">
+      <!-- Decorative background elements -->
+      <div class="absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div class="absolute -top-40 -right-32 w-80 h-80 bg-blue-100 rounded-full opacity-50 blur-3xl"></div>
+        <div class="absolute -bottom-40 -left-32 w-80 h-80 bg-primary/10 rounded-full opacity-50 blur-3xl"></div>
+      </div>
+
+      <div class="relative z-10 max-w-lg mx-auto px-4 py-16 text-center animate-fade-in">
+        <!-- Fake stock ticker display -->
+        <div class="mb-8">
+          <div class="inline-flex items-center gap-2 bg-gray-100 rounded-full px-4 py-2 text-sm text-gray-600 mb-6">
+            <Icon name="presentation-chart-line" class="w-4 h-4 text-primary" />
+            <span class="font-medium">PAGE</span>
+            <span class="text-error-strong font-bold">-100%</span>
+          </div>
+        </div>
+
+        <!-- Animated downward chart -->
+        <div class="relative h-32 mb-8" aria-hidden="true">
+          <svg 
+            viewBox="0 0 200 80" 
+            class="w-full h-full"
+            preserveAspectRatio="none"
+          >
+            <!-- Grid lines -->
+            <g class="text-gray-200" stroke="currentColor" stroke-width="0.5">
+              <line x1="0" y1="20" x2="200" y2="20" />
+              <line x1="0" y1="40" x2="200" y2="40" />
+              <line x1="0" y1="60" x2="200" y2="60" />
+            </g>
+            
+            <!-- The "crash" line -->
+            <path 
+              d="M 0 10 L 30 12 L 60 8 L 90 15 L 110 10 L 130 20 L 150 35 L 170 50 L 185 65 L 200 75"
+              fill="none"
+              stroke="url(#crash-gradient)"
+              stroke-width="3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="chart-line"
+            />
+            
+            <!-- Area fill under the line -->
+            <path 
+              d="M 0 10 L 30 12 L 60 8 L 90 15 L 110 10 L 130 20 L 150 35 L 170 50 L 185 65 L 200 75 L 200 80 L 0 80 Z"
+              fill="url(#area-gradient)"
+              class="chart-area"
+            />
+            
+            <defs>
+              <linearGradient id="crash-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#22c55e" />
+                <stop offset="50%" stop-color="#eab308" />
+                <stop offset="100%" stop-color="#ef4444" />
+              </linearGradient>
+              <linearGradient id="area-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#ef4444" stop-opacity="0.2" />
+                <stop offset="100%" stop-color="#ef4444" stop-opacity="0" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+
+        <!-- 404 text -->
+        <h1 class="text-7xl sm:text-8xl font-extrabold text-gray-900 mb-4">
+          <span class="bg-linear-to-r from-error-strong to-red-400 bg-clip-text text-transparent">404</span>
+        </h1>
+        
+        <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">
+          Ticker Not Found
+        </h2>
+        
+        <p class="text-gray-600 text-lg mb-8 max-w-md mx-auto">
+          Looks like this page took a nosedive. The URL you're looking for doesn't exist or has been delisted.
+        </p>
+
+        <!-- Action buttons -->
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <a href="/" class="btn btn-lg btn-primary w-full sm:w-auto">
+            <Icon name="arrow-left" class="w-5 h-5 mr-2" />
+            Back to Home
+          </a>
+          <a href="/dashboard" class="btn btn-lg btn-secondary w-full sm:w-auto">
+            <Icon name="chart-bar" class="w-5 h-5 mr-2" />
+            Go to Dashboard
+          </a>
+        </div>
+
+        <!-- Fun footer note -->
+        <p class="mt-12 text-sm text-gray-400">
+          Don't worry, your real stocks are doing better than this page.
+        </p>
+      </div>
+    </main>
+  </div>
+</Layout>
+
+<style>
+  .chart-line {
+    stroke-dasharray: 400;
+    stroke-dashoffset: 400;
+    animation: draw-line 1.5s ease-out forwards;
+  }
+
+  .chart-area {
+    opacity: 0;
+    animation: fade-in-area 0.5s ease-out 1s forwards;
+  }
+
+  @keyframes draw-line {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes fade-in-area {
+    to {
+      opacity: 1;
+    }
+  }
+</style>

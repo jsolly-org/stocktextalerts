@@ -1,0 +1,136 @@
+---
+import { Icon } from "astro-icon/components";
+import Navigation from "../components/Navigation.astro";
+import Layout from "../layouts/Layout.astro";
+---
+<Layout title="500 - Server Error | Stock Text Alerts" description="Something went wrong on our end.">
+  <div class="min-h-screen bg-white flex flex-col">
+    <header>
+      <Navigation />
+    </header>
+
+    <main id="main-content" class="flex-1 flex items-center justify-center relative overflow-hidden">
+      <!-- Decorative background elements -->
+      <div class="absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div class="absolute -top-40 -right-32 w-80 h-80 bg-red-100 rounded-full opacity-50 blur-3xl"></div>
+        <div class="absolute -bottom-40 -left-32 w-80 h-80 bg-error-strong/10 rounded-full opacity-50 blur-3xl"></div>
+      </div>
+
+      <div class="relative z-10 max-w-lg mx-auto px-4 py-16 text-center animate-fade-in">
+        <!-- Trading halted badge -->
+        <div class="mb-8">
+          <div class="inline-flex items-center gap-2 bg-error-bg border border-error-border rounded-full px-4 py-2 text-sm">
+            <span class="relative flex h-2 w-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-error-strong opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-error-strong"></span>
+            </span>
+            <span class="font-semibold text-error-text">TRADING HALTED</span>
+          </div>
+        </div>
+
+        <!-- Flatline chart -->
+        <div class="relative h-32 mb-8" aria-hidden="true">
+          <svg 
+            viewBox="0 0 200 80" 
+            class="w-full h-full"
+            preserveAspectRatio="none"
+          >
+            <!-- Grid lines -->
+            <g class="text-gray-200" stroke="currentColor" stroke-width="0.5">
+              <line x1="0" y1="20" x2="200" y2="20" />
+              <line x1="0" y1="40" x2="200" y2="40" />
+              <line x1="0" y1="60" x2="200" y2="60" />
+            </g>
+            
+            <!-- Erratic line that flatlines -->
+            <path 
+              d="M 0 40 L 15 35 L 25 45 L 35 30 L 45 50 L 55 25 L 65 55 L 75 20 L 85 60 L 95 15 L 105 65 L 115 40 L 200 40"
+              fill="none"
+              stroke="#ef4444"
+              stroke-width="3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="heartbeat-line"
+            />
+            
+            <!-- Flatline portion highlighted -->
+            <line 
+              x1="115" 
+              y1="40" 
+              x2="200" 
+              y2="40" 
+              stroke="#ef4444" 
+              stroke-width="3"
+              stroke-linecap="round"
+              class="flatline"
+            />
+          </svg>
+        </div>
+
+        <!-- 500 text -->
+        <h1 class="text-7xl sm:text-8xl font-extrabold text-gray-900 mb-4">
+          <span class="bg-linear-to-r from-error-strong to-red-400 bg-clip-text text-transparent">500</span>
+        </h1>
+        
+        <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">
+          Market Meltdown
+        </h2>
+        
+        <p class="text-gray-600 text-lg mb-8 max-w-md mx-auto">
+          Our servers hit a circuit breaker. We're working to get things back online. Please try again in a moment.
+        </p>
+
+        <!-- Action buttons -->
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <button 
+            onclick="window.location.reload()" 
+            class="btn btn-lg btn-primary w-full sm:w-auto"
+          >
+            <Icon name="arrow-path" class="w-5 h-5 mr-2" />
+            Try Again
+          </button>
+          <a href="/" class="btn btn-lg btn-secondary w-full sm:w-auto">
+            <Icon name="arrow-left" class="w-5 h-5 mr-2" />
+            Back to Home
+          </a>
+        </div>
+
+        <!-- Status note -->
+        <div class="mt-12 p-4 bg-gray-50 rounded-lg border border-gray-200 max-w-sm mx-auto">
+          <div class="flex items-start gap-3 text-left">
+            <Icon name="information-circle-20" class="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
+            <p class="text-sm text-gray-500">
+              If this keeps happening, our team has already been notified and is looking into it.
+            </p>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</Layout>
+
+<style>
+  .heartbeat-line {
+    stroke-dasharray: 600;
+    stroke-dashoffset: 600;
+    animation: draw-heartbeat 2s ease-out forwards;
+  }
+
+  .flatline {
+    stroke-dasharray: 85;
+    stroke-dashoffset: 85;
+    animation: draw-flatline 0.5s ease-out 1.5s forwards;
+  }
+
+  @keyframes draw-heartbeat {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes draw-flatline {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+</style>
