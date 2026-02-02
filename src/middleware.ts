@@ -61,7 +61,13 @@ const applySecurityHeaders = (
 		buildCsp(request?.url ? new URL(request.url).host : undefined),
 	);
 	headers.set("cross-origin-opener-policy", "same-origin");
+	headers.set("x-content-type-options", "nosniff");
 	headers.set("x-frame-options", "DENY");
+	headers.set("referrer-policy", "strict-origin-when-cross-origin");
+	headers.set(
+		"permissions-policy",
+		"camera=(), microphone=(), geolocation=(), interest-cohort=()",
+	);
 	headers.set(
 		"strict-transport-security",
 		"max-age=63072000; includeSubDomains; preload",
