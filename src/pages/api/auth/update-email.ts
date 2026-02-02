@@ -46,7 +46,7 @@ export const POST: APIRoute = async ({
 	// so we normalize at the application level before sending.
 	const trimmedEmail = parsed.data.email.trim();
 
-	if (trimmedEmail === authUser.email) {
+	if (trimmedEmail.toLowerCase() === authUser.email.toLowerCase()) {
 		logger.info("Email change request rejected: same as current email", {
 			userId: authUser.id,
 		});
