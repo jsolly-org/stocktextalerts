@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { getSiteUrl } from "../db/env";
+import { getSiteUrl } from "../../db/env";
 
 const DEFAULT_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 

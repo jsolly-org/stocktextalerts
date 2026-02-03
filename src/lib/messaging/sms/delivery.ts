@@ -1,56 +1,8 @@
-import type { AppSupabaseClient } from "../../../lib/db/supabase";
-import { sendUserEmail } from "./email";
-import { type EmailSender, formatEmailMessage } from "./email/utils";
-import {
-	type EmailUser,
-	recordNotification,
-	type SmsUser,
-	type UserStockRow,
-} from "./shared";
-import { sendUserSms } from "./sms";
-import type { SmsSender } from "./sms/twilio-utils";
-
-interface ProcessingStats {
-	sent: boolean;
-	logged: boolean;
-	error?: string;
-	errorCode?: string;
-}
-
-export async function processEmailUpdate(
-	supabase: AppSupabaseClient,
-	user: EmailUser,
-	userStocks: UserStockRow[],
-	stocksList: string,
-	sendEmail: EmailSender,
-	idempotencyKey?: string,
-): Promise<ProcessingStats> {
-	const message = formatEmailMessage(user, userStocks, stocksList);
-	const result = await sendUserEmail(
-		user,
-		"Your Stock Update",
-		message,
-		sendEmail,
-		idempotencyKey,
-	);
-
-	const logged = await recordNotification(supabase, {
-		user_id: user.id,
-		type: "scheduled_update",
-		delivery_method: "email",
-		message_delivered: result.success,
-		message: message.text,
-		error: result.success ? undefined : result.error,
-		error_code: result.success ? undefined : result.errorCode,
-	});
-
-	return {
-		sent: result.success,
-		logged,
-		error: result.success ? undefined : result.error,
-		errorCode: result.success ? undefined : result.errorCode,
-	};
-}
+import type { AppSupabaseClient } from "../../db/supabase";
+import { recordNotification } from "../shared";
+import type { ProcessingStats, SmsUser, UserStockRow } from "../types";
+import { sendUserSms } from "./index";
+import type { SmsSender } from "./twilio-utils";
 
 export async function processSmsUpdate(
 	supabase: AppSupabaseClient,

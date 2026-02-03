@@ -59,8 +59,10 @@ import GlobeAltIcon from "../../icons/globe-alt.svg?component";
 import { CARD_GRADIENT_ACCENTS, DEFAULT_TIMEZONE } from "../../lib/constants";
 import type { NotificationPreferencesSnapshot, User } from "../../lib/db";
 import { rootLogger } from "../../lib/logging";
-import { fetchCurrentNotificationPreferences } from "../../lib/notification-preferences/fetch-current";
-import { updateNotificationTimezonePreference } from "../../lib/notification-preferences/update-timezone";
+import {
+	fetchCurrentNotificationPreferences,
+	updateNotificationTimezonePreference,
+} from "../../lib/notification-preferences/client";
 import type { TimezoneOption } from "../../lib/time/cache";
 import TimezoneMismatchBanner from "../notification-preferences/TimezoneMismatchBanner.vue";
 import TimezoneSelect from "../notification-preferences/TimezoneSelect.vue";

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Manually trigger the scheduled notifications cron job (POST /api/notifications/scheduled).
+# Manually trigger the scheduled notifications cron job (POST /api/schedule).
 # Requires CRON_SECRET. Loads .env.local from project root if present.
 # Usage: ./scripts/run-scheduled-cron.sh [--force]
 #   --force    Process all users with daily digest enabled (ignore next_send_at <= now).
@@ -33,7 +33,7 @@ if [ -z "${CRON_SECRET:-}" ]; then
 fi
 
 BASE_URL="${BASE_URL:-http://localhost:4321}"
-URL="${BASE_URL}/api/notifications/scheduled"
+URL="${BASE_URL}/api/schedule"
 
 if [ -n "$FORCE" ]; then
   echo "POST $URL (force send)"

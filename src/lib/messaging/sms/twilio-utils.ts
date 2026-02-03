@@ -3,9 +3,9 @@ Twilio SMS
 ============= */
 
 import twilio, { type RestException } from "twilio";
-import { rootLogger } from "../../../../lib/logging";
+import { rootLogger } from "../../logging";
 
-import type { DeliveryResult } from "../shared";
+import type { DeliveryResult } from "../types";
 
 export interface TwilioConfig {
 	accountSid: string;

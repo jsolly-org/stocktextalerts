@@ -86,7 +86,10 @@
 
 <script lang="ts" setup>
 import { computed } from "vue";
-import { DASHBOARD_FORM_ID, DASHBOARD_SECTION_IDS } from "../../../lib/constants";
+import {
+	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
+	DASHBOARD_SECTION_IDS,
+} from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 import StatusMessage from "../../StatusMessage.vue";
 import SmsVerificationSection from "./SmsVerificationSection.vue";
@@ -125,9 +128,9 @@ const smsEnabledValue = computed({
 	set: (value: boolean) => emit("update:smsEnabled", value),
 });
 
-const emailNotificationsEnabledId = `${DASHBOARD_FORM_ID}-email_notifications_enabled`;
-const smsNotificationsEnabledId = `${DASHBOARD_FORM_ID}-sms_notifications_enabled`;
-const notificationChannelsDescId = `${DASHBOARD_FORM_ID}-notification-channels-desc`;
+const emailNotificationsEnabledId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-email_notifications_enabled`;
+const smsNotificationsEnabledId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-sms_notifications_enabled`;
+const notificationChannelsDescId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-notification-channels-desc`;
 
 function scrollToScheduled() {
 	const el = document.getElementById(DASHBOARD_SECTION_IDS.scheduled);

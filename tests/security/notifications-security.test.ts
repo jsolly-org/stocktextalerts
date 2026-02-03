@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { POST } from "../../src/pages/api/notifications/sms/inbound";
+import { POST } from "../../src/pages/api/messaging/inbound";
 import { allowConsoleErrors } from "../setup";
 import { buildSmsInboundRequest } from "../shared-utils";
 

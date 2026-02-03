@@ -1,5 +1,5 @@
-import { rootLogger } from "../../../../lib/logging";
-import type { DeliveryResult, SmsUser, UserRecord } from "../shared";
+import { rootLogger } from "../../logging";
+import type { DeliveryResult, SmsUser, UserRecord } from "../types";
 import type { SmsSender } from "./twilio-utils";
 
 export async function sendUserSms(

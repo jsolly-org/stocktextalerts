@@ -1,6 +1,6 @@
 import type { APIContext } from "astro";
 import { describe, expect, it, vi } from "vitest";
-import { POST } from "../../src/pages/api/notifications/sms/inbound";
+import { POST } from "../../src/pages/api/messaging/inbound";
 import {
 	adminClient,
 	buildSmsInboundRequest,

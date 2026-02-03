@@ -1,9 +1,9 @@
 import { Resend } from "resend";
-import { DASHBOARD_SECTION_HASHES } from "../../../../lib/constants";
-import { getSiteUrl } from "../../../../lib/db/env";
-import { rootLogger } from "../../../../lib/logging";
-import { createEmailUnsubscribeUrl } from "../../../../lib/notifications/email-unsubscribe";
-import type { DeliveryResult, EmailUser, UserStockRow } from "../shared";
+import { DASHBOARD_SECTION_HASHES } from "../../constants";
+import { getSiteUrl } from "../../db/env";
+import { rootLogger } from "../../logging";
+import type { DeliveryResult, EmailUser, UserStockRow } from "../types";
+import { createEmailUnsubscribeUrl } from "./email-unsubscribe";
 
 function escapeHtml(value: string): string {
 	return value

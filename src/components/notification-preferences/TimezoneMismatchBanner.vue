@@ -55,7 +55,7 @@ import { computed, ref, toRefs, watch } from "vue";
 
 import type { NotificationPreferencesSnapshot } from "../../lib/db";
 import { rootLogger } from "../../lib/logging";
-import { updateNotificationTimezonePreference } from "../../lib/notification-preferences/update-timezone";
+import { updateNotificationTimezonePreference } from "../../lib/notification-preferences/client";
 import StatusMessage from "../StatusMessage.vue";
 
 interface Props {

@@ -16,7 +16,7 @@ const smsVerifyMocks = vi.hoisted(() => ({
 	checkVerificationMock: vi.fn(),
 }));
 
-vi.mock("../../src/pages/api/auth/sms/verify-utils", () => ({
+vi.mock("../../src/lib/auth/sms-verification", () => ({
 	sendVerification: smsVerifyMocks.sendVerificationMock,
 	checkVerification: smsVerifyMocks.checkVerificationMock,
 }));

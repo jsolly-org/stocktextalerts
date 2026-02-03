@@ -5,12 +5,11 @@ import { POST as stocksUpdatePost } from "../../src/pages/api/stocks/update";
 import { TEST_PASSWORD } from "../constants";
 import {
 	adminClient,
-	type CreateTestUserOptions,
 	createAuthenticatedCookies,
 	createTestUser,
 	getStockData,
-	type TestUser,
 } from "../shared-utils";
+import type { CreateTestUserOptions, TestUser } from "../test-user";
 
 async function ensureStocksExist(symbols: string[]): Promise<void> {
 	if (symbols.length === 0) return;

@@ -1,7 +1,7 @@
 import type { APIContext } from "astro";
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { POST } from "../../../src/pages/api/notifications/scheduled";
+import { POST } from "../../../src/pages/api/schedule";
 import {
 	adminClient,
 	cleanupTestUser,
@@ -51,7 +51,7 @@ describe("Users receive scheduled daily digest notifications.", () => {
 
 			// 2. Execute Scheduled Job
 			const createRequest = () =>
-				new Request("http://localhost/api/notifications/scheduled", {
+				new Request("http://localhost/api/schedule", {
 					method: "POST",
 					headers: {
 						Authorization: `Bearer ${testCronSecret}`,

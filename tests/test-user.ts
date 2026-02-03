@@ -1,7 +1,7 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { DateTime } from "luxon";
 import type { TablesInsert } from "../src/lib/db/generated/database.types";
-import { calculateNextSendAtFromTimes } from "../src/lib/time/schedule";
+import { calculateNextSendAtFromTimes } from "../src/lib/time/digest-times";
 import { PRESERVED_TEST_EMAIL, TEST_RUN_ID } from "./constants";
 import { getStockData } from "./stock-data";
 import { adminClient } from "./test-env";

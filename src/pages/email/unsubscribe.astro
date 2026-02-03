@@ -3,7 +3,7 @@ import Layout from "../../layouts/Layout.astro";
 import StatusMessage from "../../components/StatusMessage.astro";
 import { createSupabaseAdminClient } from "../../lib/db/supabase";
 import { createLogger } from "../../lib/logging";
-import { verifyEmailUnsubscribeToken } from "../../lib/notifications/email-unsubscribe";
+import { verifyEmailUnsubscribeToken } from "../../lib/messaging/email/email-unsubscribe";
 
 const logger = createLogger({
 	requestId: Astro.locals?.requestId,

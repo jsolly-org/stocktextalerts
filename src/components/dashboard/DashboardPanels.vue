@@ -70,7 +70,7 @@ import {
 	formatMessage,
 } from "../../lib/constants";
 import type { User } from "../../lib/db";
-import { fetchCurrentNotificationPreferences } from "../../lib/notification-preferences/fetch-current";
+import { fetchCurrentNotificationPreferences } from "../../lib/notification-preferences/client";
 import {
 	type NotificationPreferencesData,
 	useAutoSaveForm,
