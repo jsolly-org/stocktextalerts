@@ -57,9 +57,13 @@ export async function deleteUserAccount(options: {
 		return { ok: false, redirectError: "delete_failed" };
 	}
 
-	const { error: dbError } = await adminSupabase
+	const {
+		error: dbError,
+		count,
+		data,
+	} = await adminSupabase
 		.from("users")
-		.delete()
+		.delete({ count: "exact" })
 		.eq("id", userId);
 
 	if (dbError) {
@@ -67,6 +71,18 @@ export async function deleteUserAccount(options: {
 			"CRITICAL: Failed to delete user row after auth deletion; orphaned record requires manual cleanup",
 			{ userId },
 			dbError,
+		);
+		return { ok: false, redirectError: "delete_partial" };
+	}
+
+	if (count !== 1) {
+		logger.error(
+			"CRITICAL: User deletion did not delete exactly one row after auth deletion",
+			{
+				userId,
+				count,
+				data,
+			},
 		);
 		return { ok: false, redirectError: "delete_partial" };
 	}

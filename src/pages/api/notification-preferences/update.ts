@@ -109,14 +109,29 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		return jsonResponse(404, { ok: false, message: "user_not_found" });
 	}
 
-	const safeNotificationPreferenceUpdates =
-		buildNotificationPreferencesUpdatePayload({
-			parsedData: parsed.data,
-			formData,
-			rawTimesValue: rawTimesValue as string | null,
-			dbUser,
-			logger,
-		});
+	let safeNotificationPreferenceUpdates: ReturnType<
+		typeof buildNotificationPreferencesUpdatePayload
+	>;
+	try {
+		safeNotificationPreferenceUpdates =
+			buildNotificationPreferencesUpdatePayload({
+				parsedData: parsed.data,
+				formData,
+				rawTimesValue: rawTimesValue as string | null,
+				dbUser,
+				logger,
+			});
+	} catch (error) {
+		logger.info(
+			"Notification-preferences update rejected due to invalid digest times",
+			{
+				userId: user.id,
+				action: "notification_preferences_update",
+			},
+			error,
+		);
+		return jsonResponse(400, { ok: false, message: "invalid_form" });
+	}
 
 	try {
 		const finalSmsNotificationsEnabled =

@@ -55,8 +55,18 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 	} else if (parsedData.daily_digest_notification_times !== undefined) {
 		const result = parseDigestTimes(parsedData.daily_digest_notification_times);
 		if (!result.ok) {
-			// Caller should have validated; treat as empty
-			parsedTimes = [];
+			// This should be validated at the request boundary; fail fast so we
+			// don't silently disable digests by overwriting times with [].
+			if (logger) {
+				logger.info("Invalid daily_digest_notification_times", {
+					action: "notification_preferences_update",
+					userId: dbUser.id,
+					reason: result.reason,
+				});
+			}
+			throw new Error(
+				`Invalid daily_digest_notification_times: ${result.reason}`,
+			);
 		} else {
 			parsedTimes = result.times;
 		}
