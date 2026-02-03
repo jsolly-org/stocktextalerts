@@ -11,6 +11,14 @@ export type DeleteUserAccountResult =
 				| "delete_partial";
 	  };
 
+function isAuthUserNotFoundError(authError: unknown): boolean {
+	if (!authError || typeof authError !== "object") {
+		return false;
+	}
+	const { status, code } = authError as { status?: number; code?: string };
+	return status === 404 || code === "user_not_found";
+}
+
 export async function deleteUserAccount(options: {
 	adminSupabase: AppSupabaseClient;
 	userId: string;
@@ -34,6 +42,14 @@ export async function deleteUserAccount(options: {
 			await adminSupabase.auth.admin.deleteUser(userId);
 
 		if (authError) {
+			if (isAuthUserNotFoundError(authError)) {
+				logger.info(
+					"Auth user already missing during orphaned-account deletion; treating as success",
+					{ userId },
+					authError,
+				);
+				return { ok: true };
+			}
 			logger.error(
 				"Failed to delete auth user when DB user already missing",
 				{ userId },
@@ -49,12 +65,20 @@ export async function deleteUserAccount(options: {
 		await adminSupabase.auth.admin.deleteUser(userId);
 
 	if (authError) {
-		logger.error(
-			"Failed to delete auth user before DB deletion",
-			{ userId },
-			authError,
-		);
-		return { ok: false, redirectError: "delete_failed" };
+		if (isAuthUserNotFoundError(authError)) {
+			logger.info(
+				"Auth user already missing before DB deletion; continuing as idempotent success",
+				{ userId },
+				authError,
+			);
+		} else {
+			logger.error(
+				"Failed to delete auth user before DB deletion",
+				{ userId },
+				authError,
+			);
+			return { ok: false, redirectError: "delete_failed" };
+		}
 	}
 
 	const { error: dbError, count } = await adminSupabase
