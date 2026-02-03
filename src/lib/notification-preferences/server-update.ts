@@ -209,6 +209,7 @@ export function computeTimezoneUpdatePayload(
 					logger.warn(
 						"Failed to convert next_send_at to ISO after timezone change",
 						{
+							userId: dbUser.id,
 							timezone: newTimezone,
 							nextSendAt: nextSendAt.toString(),
 							nextSendAtIsValid: nextSendAt.isValid,
@@ -224,6 +225,7 @@ export function computeTimezoneUpdatePayload(
 					logger.warn(
 						"calculateNextSendAtFromTimes returned null despite having times",
 						{
+							userId: dbUser.id,
 							timezone: newTimezone,
 							timesCount: dbUser.daily_digest_notification_times.length,
 						},
