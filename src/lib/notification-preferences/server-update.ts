@@ -143,30 +143,51 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 				finalTimezone,
 				DateTime.utc(),
 			);
-			if (nextSendAt) {
-				const nextSendAtIso = nextSendAt.toISO();
-				if (!nextSendAtIso && logger) {
-					logger.warn(
-						"Failed to format next_send_at ISO for notification-preferences",
-						{
-							finalTimes,
-							finalTimezone,
-						},
-					);
-					safeNotificationPreferenceUpdates.next_send_at = null;
-				} else {
-					safeNotificationPreferenceUpdates.next_send_at =
-						nextSendAtIso ?? null;
-				}
-			} else {
+			if (!nextSendAt) {
 				if (logger) {
 					logger.warn("calculateNextSendAtFromTimes returned null", {
+						userId: dbUser.id,
 						finalTimes,
 						finalTimezone,
 					});
 				}
-				safeNotificationPreferenceUpdates.next_send_at = null;
+				throw new Error(
+					`Failed to compute next_send_at for digest schedule: ${JSON.stringify(
+						{
+							finalTimes,
+							finalTimezone,
+						},
+					)}`,
+				);
 			}
+
+			const nextSendAtIso = nextSendAt.toISO();
+			if (!nextSendAtIso) {
+				if (logger) {
+					logger.warn(
+						"Failed to format next_send_at ISO for notification-preferences",
+						{
+							userId: dbUser.id,
+							finalTimes,
+							finalTimezone,
+							nextSendAt: nextSendAt.toString(),
+							nextSendAtIsValid: nextSendAt.isValid,
+							nextSendAtInvalidReason: nextSendAt.invalidReason,
+						},
+					);
+				}
+				throw new Error(
+					`Failed to format next_send_at for digest schedule: ${JSON.stringify({
+						finalTimes,
+						finalTimezone,
+						nextSendAt: nextSendAt.toString(),
+						nextSendAtIsValid: nextSendAt.isValid,
+						nextSendAtInvalidReason: nextSendAt.invalidReason,
+					})}`,
+				);
+			}
+
+			safeNotificationPreferenceUpdates.next_send_at = nextSendAtIso;
 		}
 	} else if (enabledChanged && !finalEnabled) {
 		safeNotificationPreferenceUpdates.next_send_at = null;
