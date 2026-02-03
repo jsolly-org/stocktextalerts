@@ -28,6 +28,7 @@ jobs:
       WORKFLOW_FILE: cursor-agent-on-pr-comment.yml
       CURSOR_AGENT_NAME: "Cursor Agent"
       CURSOR_AGENT_EMAIL: "cursoragent@cursor.com"
+      WARNINGS_FILE: /tmp/cursor-agent-warnings.txt
     steps:
       - name: Checkout workflow and actions
         uses: actions/checkout@v6
@@ -341,12 +342,14 @@ jobs:
           HEAD_REF: ${{ steps.context.outputs.head_ref }}
           RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
-          # Fetch latest refs to ensure we have the pushed commits
-          git fetch origin "$HEAD_REF" || true
+          # Fetch latest refs to ensure we have the pushed commits.
+          # Use a tokenized URL so fetch works with persist-credentials: false.
+          REPO="${{ github.repository }}"
+          REMOTE_URL="https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
+          git fetch "$REMOTE_URL" "$HEAD_REF"
           
           # Build commit links: get SHA and first line of message, format as markdown links
           COMMIT_LINKS=""
-          REPO="${{ github.repository }}"
           while IFS= read -r line; do
             if [[ -n "$line" ]]; then
               SHA=$(echo "$line" | cut -d' ' -f1)
@@ -367,6 +370,12 @@ jobs:
           if [[ -z "$COMMIT_LINKS" ]]; then
             COMMIT_LINKS="(no commits found)"
           fi
+
+          WARNINGS_SECTION=""
+          if [[ -f "$WARNINGS_FILE" ]] && [[ -s "$WARNINGS_FILE" ]]; then
+            WARNINGS_LIST=$(sed 's/^/- /' "$WARNINGS_FILE")
+            WARNINGS_SECTION=$'\n\n**Warnings:**\n'"$WARNINGS_LIST"
+          fi
           
           SUCCESS_BODY=$(cat <<EOF
           ## ✅ Cursor Agent: Changes applied
@@ -374,6 +383,7 @@ jobs:
           The agent has successfully applied the requested changes and pushed commits to this branch.
           
           $COMMENT_REFERENCE
+          $WARNINGS_SECTION
           
           **Commits pushed:**
           $COMMIT_LINKS
@@ -396,21 +406,28 @@ jobs:
           COMMENT_ID: ${{ steps.context.outputs.comment_id }}
           EVENT_NAME: ${{ steps.context.outputs.event_name }}
         run: |
+          touch "$WARNINGS_FILE"
+          log_warning() {
+            local msg="$1"
+            echo "##[warning]$msg"
+            echo "$msg" >> "$WARNINGS_FILE"
+          }
+
           if [[ "$EVENT_NAME" == "pull_request_review_comment" ]]; then
-            COMMENT_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID" 2> /tmp/gh-err.txt) || { echo "##[error]Failed to fetch comment; API stderr:"; cat /tmp/gh-err.txt; exit 0; }
+            COMMENT_JSON=$(gh api "repos/$REPO/pulls/comments/$COMMENT_ID" 2> /tmp/gh-err.txt) || { log_warning "Failed to fetch review comment $COMMENT_ID. API stderr: $(cat /tmp/gh-err.txt)"; exit 0; }
             NODE_ID=$(echo "$COMMENT_JSON" | jq -r '.node_id')
             if [[ -z "$NODE_ID" || "$NODE_ID" == "null" ]]; then
-              echo "Warning: Could not resolve review thread (missing node_id)."
+              log_warning "Could not resolve review thread for comment $COMMENT_ID (missing node_id)."
               exit 0
             fi
 
             THREAD_QUERY='query{node(id:"'"'"'"$NODE_ID"'"'"'"){... on PullRequestReviewComment{thread{id isResolved}}}}'
-            THREAD_JSON=$(gh api graphql -f query="$THREAD_QUERY" 2> /tmp/gh-err.txt) || { echo "##[error]Failed to fetch thread; API stderr:"; cat /tmp/gh-err.txt; exit 0; }
+            THREAD_JSON=$(gh api graphql -f query="$THREAD_QUERY" 2> /tmp/gh-err.txt) || { log_warning "Failed to fetch review thread for comment $COMMENT_ID. API stderr: $(cat /tmp/gh-err.txt)"; exit 0; }
             THREAD_ID=$(echo "$THREAD_JSON" | jq -r '.data.node.thread.id // empty')
             THREAD_RESOLVED=$(echo "$THREAD_JSON" | jq -r '.data.node.thread.isResolved // false')
 
             if [[ -z "$THREAD_ID" ]]; then
-              echo "Warning: Could not resolve review thread (missing thread id). GraphQL response: $THREAD_JSON"
+              log_warning "Could not resolve review thread for comment $COMMENT_ID (missing thread id). GraphQL response: $THREAD_JSON"
               exit 0
             fi
 
@@ -421,8 +438,7 @@ jobs:
 
             RESOLVE_MUTATION='mutation{resolveReviewThread(input:{threadId:"'"'"'"$THREAD_ID"'"'"'"}){thread{isResolved}}}'
             if ! gh api graphql -f query="$RESOLVE_MUTATION" 2> /tmp/gh-err.txt; then
-              echo "##[error]Failed to resolve review thread; API stderr:"
-              cat /tmp/gh-err.txt
+              log_warning "Failed to resolve review thread for comment $COMMENT_ID. API stderr: $(cat /tmp/gh-err.txt)"
               exit 0
             fi
             exit 0
@@ -430,8 +446,7 @@ jobs:
 
           if [[ "$EVENT_NAME" == "issue_comment" ]]; then
             if ! gh api -X POST "/repos/$REPO/issues/comments/$COMMENT_ID/reactions" -f content=eyes 2> /tmp/gh-err.txt; then
-              echo "##[error]Failed to add reaction; API stderr:"
-              cat /tmp/gh-err.txt
+              log_warning "Failed to add reaction for issue comment $COMMENT_ID. API stderr: $(cat /tmp/gh-err.txt)"
               exit 0
             fi
             exit 0
@@ -439,6 +454,15 @@ jobs:
 
           # pull_request_review has no specific "resolve" action (the review is already submitted).
           echo "No comment processing action needed for event: $EVENT_NAME"
+
+          if [[ -s "$WARNINGS_FILE" ]]; then
+            {
+              echo "## Cursor Agent warnings"
+              while IFS= read -r line; do
+                echo "- $line"
+              done < "$WARNINGS_FILE"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Report agent no-op
         if: steps.context.outputs.run_agent == 'true' && steps.agent.outputs.noop == 'true'
@@ -454,6 +478,12 @@ jobs:
             ESCAPED=$(sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' agent-noop-output.txt)
             OUTPUT_SECTION=$'\n\n<details><summary>Agent output (last 80 lines)</summary>\n\n<pre>'"$ESCAPED"'</pre>\n</details>\n'
           fi
+
+          WARNINGS_SECTION=""
+          if [[ -f "$WARNINGS_FILE" ]] && [[ -s "$WARNINGS_FILE" ]]; then
+            WARNINGS_LIST=$(sed 's/^/- /' "$WARNINGS_FILE")
+            WARNINGS_SECTION=$'\n\n**Warnings:**\n'"$WARNINGS_LIST"
+          fi
           
           NOOP_BODY=$(cat <<EOF
           ## ✅ Cursor Agent: No changes needed
@@ -461,6 +491,7 @@ jobs:
           The agent reviewed the comment but did not apply code changes (no commit was pushed).
           
           $COMMENT_REFERENCE
+          $WARNINGS_SECTION
           $OUTPUT_SECTION
           [Workflow run]($RUN_URL)
           
