@@ -1,5 +1,8 @@
 import { nextTick, ref } from "vue";
-import { DASHBOARD_FORM_ID, type FlashTone } from "../../../lib/constants";
+import {
+	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
+	type FlashTone,
+} from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 
 type SmsVerificationPayload = {
@@ -12,9 +15,12 @@ export function useSmsVerificationSubmission(options: {
 	user: { value: User };
 	isEditingPhone: { value: boolean };
 	smsSuccessMessage: { value: string | null };
-	setPreferencesFlashMessage: (tone: FlashTone, messageKey: string) => void;
-	clearPreferencesFlashTone: (tone: FlashTone) => void;
-	handlePreferencesUpdated: () => Promise<void>;
+	setNotificationPreferencesFlashMessage: (
+		tone: FlashTone,
+		messageKey: string,
+	) => void;
+	clearNotificationPreferencesFlashTone: (tone: FlashTone) => void;
+	handleNotificationPreferencesUpdated: () => Promise<void>;
 }) {
 	const isVerifyingCode = ref(false);
 	const isSendingVerification = ref(false);
@@ -63,7 +69,7 @@ export function useSmsVerificationSubmission(options: {
 
 	const focusFirstOtpDigit = async () => {
 		await nextTick();
-		const firstOtpInputId = `${DASHBOARD_FORM_ID}-sms-verification-code-0`;
+		const firstOtpInputId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-sms-verification-code-0`;
 		const otp0 = document.getElementById(firstOtpInputId);
 		if (!(otp0 instanceof HTMLInputElement)) {
 			return;
@@ -92,7 +98,7 @@ export function useSmsVerificationSubmission(options: {
 		try {
 			const form = event.target;
 			if (!(form instanceof HTMLFormElement)) {
-				options.setPreferencesFlashMessage("error", "failed");
+				options.setNotificationPreferencesFlashMessage("error", "failed");
 				options.smsSuccessMessage.value = null;
 				return true;
 			}
@@ -107,7 +113,7 @@ export function useSmsVerificationSubmission(options: {
 
 			const payload = await parseResponsePayload(res);
 			if (!payload || typeof payload.message !== "string") {
-				options.setPreferencesFlashMessage("error", "failed");
+				options.setNotificationPreferencesFlashMessage("error", "failed");
 				options.smsSuccessMessage.value = null;
 				return true;
 			}
@@ -117,12 +123,12 @@ export function useSmsVerificationSubmission(options: {
 
 			if (messageKey === "verification_sent") {
 				options.smsSuccessMessage.value = "verification_sent";
-				options.clearPreferencesFlashTone("error");
-				options.clearPreferencesFlashTone("warning");
+				options.clearNotificationPreferencesFlashTone("error");
+				options.clearNotificationPreferencesFlashTone("warning");
 				options.isEditingPhone.value = false;
 			} else {
 				options.smsSuccessMessage.value = null;
-				options.setPreferencesFlashMessage(tone, messageKey);
+				options.setNotificationPreferencesFlashMessage(tone, messageKey);
 			}
 
 			// After successfully sending verification, update local user state so the UI
@@ -137,9 +143,9 @@ export function useSmsVerificationSubmission(options: {
 				updateLocalUserAfterPhoneVerified();
 			}
 
-			// Keep preferences state in sync after verification (server may update more fields).
+			// Keep notification-preferences state in sync after verification.
 			if (isVerifyCodeSubmission && messageKey === "phone_verified") {
-				await options.handlePreferencesUpdated();
+				await options.handleNotificationPreferencesUpdated();
 			}
 
 			// Focus the first OTP digit after sending the verification code so the user
@@ -150,7 +156,7 @@ export function useSmsVerificationSubmission(options: {
 
 			return true;
 		} catch {
-			options.setPreferencesFlashMessage("error", "failed");
+			options.setNotificationPreferencesFlashMessage("error", "failed");
 			options.smsSuccessMessage.value = null;
 			return true;
 		} finally {

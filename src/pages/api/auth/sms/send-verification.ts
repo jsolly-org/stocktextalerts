@@ -84,18 +84,6 @@ export function createSendVerificationHandler(
 					tone: "error",
 				});
 			}
-			if (dbUser.sms_opted_out) {
-				logger.info("SMS verification send blocked due to opt-out", {
-					userId: user.id,
-					reason: "sms_opted_out",
-				});
-				return jsonResponse(400, {
-					ok: false,
-					message: "sms_opted_out",
-					tone: "error",
-				});
-			}
-
 			// `verification_sent_at` may not be present in generated types yet, but it *is* in the DB.
 			const dbUserWithVerificationSentAt = dbUser as typeof dbUser & {
 				verification_sent_at?: string | null;

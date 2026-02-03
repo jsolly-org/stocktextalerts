@@ -65,7 +65,8 @@ async function collectRoutes(): Promise<string[]> {
 	const files = await walk(ROUTES_DIR);
 	const routes = files
 		.map(routeFromFile)
-		.filter((route): route is string => Boolean(route));
+		.filter((route): route is string => Boolean(route))
+		.filter((route) => route !== "/404" && route !== "/500");
 
 	return [...new Set(routes)].sort();
 }

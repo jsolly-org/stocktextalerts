@@ -1,6 +1,6 @@
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
-import { POST as POSTDismissBanner } from "../../src/pages/api/preferences/dismiss-timezone-banner";
+import { POST as POSTDismissBanner } from "../../src/pages/api/notification-preferences/dismiss-timezone-banner";
 import { allowConsoleErrors } from "../setup";
 
 describe("A user requests to dismiss the timezone mismatch banner.", () => {
@@ -8,7 +8,7 @@ describe("A user requests to dismiss the timezone mismatch banner.", () => {
 		allowConsoleErrors();
 
 		const request = new Request(
-			"http://localhost/api/preferences/dismiss-timezone-banner",
+			"http://localhost/api/notification-preferences/dismiss-timezone-banner",
 			{
 				method: "POST",
 			},

@@ -109,7 +109,7 @@ export function formatEmailMessage(
 	userStocks: UserStockRow[],
 	stocksList: string,
 ): { text: string; html: string } {
-	const dashboardUrl = `${getSiteUrl()}/dashboard`;
+	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const escapedDashboardUrl = escapeHtml(dashboardUrl);
 	const scheduleUrl = `${dashboardUrl}${DASHBOARD_SECTION_HASHES.scheduled}`;
 	const escapedScheduleUrl = escapeHtml(scheduleUrl);

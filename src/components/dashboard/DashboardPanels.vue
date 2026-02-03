@@ -21,32 +21,31 @@
 	</form>
 
 	<form
-		ref="preferencesFormElement"
-		:id="DASHBOARD_FORM_ID"
+		ref="notificationPreferencesFormElement"
+		:id="DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID"
 		method="POST"
-		action="/api/preferences/update"
+		action="/api/notification-preferences/update"
 		class="space-y-6"
-		:aria-busy="isPreferencesSaving"
-		@input="handlePreferencesFormInput"
-		@change="handlePreferencesFormChange"
-		@submit="handlePreferencesFormSubmitWrapper"
+		:aria-busy="isNotificationPreferencesSaving"
+		@input="handleNotificationPreferencesFormInput"
+		@change="handleNotificationPreferencesFormChange"
+		@submit="handleNotificationPreferencesFormSubmitWrapper"
 	>
-		<PreferencesPanel
+		<NotificationChannelsPanel
 			:user="user"
 			:isEditingPhone="isEditingPhone"
 			:successMessage="smsSuccessMessage"
 			:emailEnabled="emailEnabled"
 			:smsEnabled="smsEnabled"
-			:onFormChanged="notifyPreferencesChange"
-			:flash-messages="preferencesFlashMessages"
-			:status-message="preferencesStatusMessage"
-			:status-tone="preferencesStatusTone"
-			:is-saving="isPreferencesSaving"
+			:onFormChanged="notifyNotificationPreferencesChange"
+			:flash-messages="notificationPreferencesFlashMessages"
+			:status-message="notificationPreferencesStatusMessage"
+			:status-tone="notificationPreferencesStatusTone"
+			:is-saving="isNotificationPreferencesSaving"
 			:is-verifying-code="isVerifyingCode"
 			:is-sending-verification="isSendingVerification"
 			@update:emailEnabled="emailEnabled = $event"
 			@update:smsEnabled="smsEnabled = $event"
-			@preferences-updated="handlePreferencesUpdated"
 			@phone-editing-changed="isEditingPhone = $event"
 		/>
 
@@ -54,10 +53,9 @@
 			:user="user"
 			:emailEnabled="emailEnabled"
 			:smsEnabled="smsEnabled"
-			:smsOptedOut="smsOptedOut"
 			:phoneVerified="phoneVerified"
-			:onFormChanged="notifyPreferencesChange"
-			:savedPreferences="savedPreferences"
+			:onFormChanged="notifyNotificationPreferencesChange"
+			:savedNotificationPreferences="savedNotificationPreferences"
 		/>
 	</form>
 </template>
@@ -65,21 +63,21 @@
 <script lang="ts" setup>
 import { computed, ref, toRefs, watch } from "vue";
 import {
-	DASHBOARD_FORM_ID,
+	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 	DASHBOARD_STOCKS_FORM_ID,
 	type FlashMessage,
 	type FlashTone,
 	formatMessage,
 } from "../../lib/constants";
 import type { User } from "../../lib/db";
-import { fetchCurrentPreferences } from "../../lib/preferences/fetch-current";
+import { fetchCurrentNotificationPreferences } from "../../lib/notification-preferences/fetch-current";
 import {
-	type PreferencesData,
+	type NotificationPreferencesData,
 	useAutoSaveForm,
-} from "./composables/useAutoSavePreferences";
+} from "./composables/useAutoSaveNotificationPreferences";
 import { useSmsVerificationSubmission } from "./composables/useSmsVerificationSubmission";
+import NotificationChannelsPanel from "./notification-channels/NotificationChannelsPanel.vue";
 import ScheduledNotificationsPanel from "./notifications/scheduled/ScheduledNotificationsPanel.vue";
-import PreferencesPanel from "./preferences/PreferencesPanel.vue";
 import type { StockOption } from "./stocks/StockInput.vue";
 import TrackedStocksPanel from "./stocks/TrackedStocksPanel.vue";
 import type { InitialStock } from "./stocks/types";
@@ -109,9 +107,8 @@ watch(userProp, (newUser) => {
 }, { deep: true });
 
 const emailEnabled = ref(user.value.email_notifications_enabled);
-// Initialize smsEnabled, but allow PreferencesPanel to restore pending state
+// Initialize smsEnabled, but allow NotificationChannelsPanel to restore pending state
 const smsEnabled = ref(user.value.sms_notifications_enabled);
-const smsOptedOut = computed(() => user.value.sms_opted_out);
 const phoneVerified = computed(() => user.value.phone_verified);
 
 watch(
@@ -136,7 +133,7 @@ watch(
 	},
 );
 
-// Watch for when PreferencesPanel restores pending SMS state
+// Watch for when NotificationChannelsPanel restores pending SMS state
 watch(smsEnabled, (newValue) => {
 	if (newValue && !user.value.phone_verified) {
 		hasRestoredPendingSms = true;
@@ -158,48 +155,49 @@ watch(
 );
 
 
-const preferencesFormElement = ref<HTMLFormElement | null>(null);
+const notificationPreferencesFormElement = ref<HTMLFormElement | null>(null);
 const stocksFormElement = ref<HTMLFormElement | null>(null);
 const {
-	handleFormChange: handlePreferencesFormChange,
-	handleFormInput: handlePreferencesFormInput,
-	handleFormSubmit: handlePreferencesFormSubmit,
-	isSaving: isPreferencesSaving,
-	notifyChange: notifyPreferencesChange,
-	savedData: savedPreferencesData,
-	statusMessage: preferencesStatusMessage,
-	statusTone: preferencesStatusTone,
-} = useAutoSaveForm<PreferencesData>({
-	formRef: preferencesFormElement,
+	handleFormChange: handleNotificationPreferencesFormChange,
+	handleFormInput: handleNotificationPreferencesFormInput,
+	handleFormSubmit: handleNotificationPreferencesFormSubmit,
+	isSaving: isNotificationPreferencesSaving,
+	notifyChange: notifyNotificationPreferencesChange,
+	savedData: savedNotificationPreferencesData,
+	statusMessage: notificationPreferencesStatusMessage,
+	statusTone: notificationPreferencesStatusTone,
+} = useAutoSaveForm<NotificationPreferencesData>({
+	formRef: notificationPreferencesFormElement,
 });
 
-const savedPreferences = savedPreferencesData;
+const savedNotificationPreferences = savedNotificationPreferencesData;
 
-// Update user state when preferences are refreshed
+// Update user state when notification-preferences are refreshed
 watch(
-	() => savedPreferencesData.value,
-	(newPreferences) => {
-		if (newPreferences) {
+	() => savedNotificationPreferencesData.value,
+	(newNotificationPreferences) => {
+		if (newNotificationPreferences) {
 			user.value = {
 				...user.value,
-				email_notifications_enabled: newPreferences.email_notifications_enabled,
-				sms_notifications_enabled: newPreferences.sms_notifications_enabled,
-				sms_opted_out: newPreferences.sms_opted_out,
-				phone_verified: newPreferences.phone_verified,
-				daily_digest_enabled: newPreferences.daily_digest_enabled,
+				email_notifications_enabled:
+					newNotificationPreferences.email_notifications_enabled,
+				sms_notifications_enabled:
+					newNotificationPreferences.sms_notifications_enabled,
+				phone_verified: newNotificationPreferences.phone_verified,
+				daily_digest_enabled: newNotificationPreferences.daily_digest_enabled,
 				daily_digest_notification_times:
-					newPreferences.daily_digest_notification_times,
-				next_send_at: newPreferences.next_send_at,
+					newNotificationPreferences.daily_digest_notification_times,
+				next_send_at: newNotificationPreferences.next_send_at,
 			};
 		}
 	},
 );
 
-const preferencesFlashMessages = ref<FlashMessage[]>([]);
+const notificationPreferencesFlashMessages = ref<FlashMessage[]>([]);
 const smsSuccessMessage = ref<string | null>(null);
 
 function upsertFlashMessage(
-	target: typeof preferencesFlashMessages,
+	target: typeof notificationPreferencesFlashMessages,
 	tone: FlashTone,
 	messageKey: string,
 ) {
@@ -217,24 +215,27 @@ function upsertFlashMessage(
 }
 
 function clearFlashTone(
-	target: typeof preferencesFlashMessages,
+	target: typeof notificationPreferencesFlashMessages,
 	tone: FlashTone,
 ) {
 	target.value = target.value.filter((item) => item.tone !== tone);
 }
 
-function setPreferencesFlashMessage(tone: FlashTone, messageKey: string) {
+function setNotificationPreferencesFlashMessage(
+	tone: FlashTone,
+	messageKey: string,
+) {
 	if (tone === "success") {
-		clearFlashTone(preferencesFlashMessages, "error");
-		clearFlashTone(preferencesFlashMessages, "warning");
+		clearFlashTone(notificationPreferencesFlashMessages, "error");
+		clearFlashTone(notificationPreferencesFlashMessages, "warning");
 	} else if (tone === "warning") {
-		clearFlashTone(preferencesFlashMessages, "error");
-		clearFlashTone(preferencesFlashMessages, "success");
+		clearFlashTone(notificationPreferencesFlashMessages, "error");
+		clearFlashTone(notificationPreferencesFlashMessages, "success");
 	} else {
-		clearFlashTone(preferencesFlashMessages, "success");
-		clearFlashTone(preferencesFlashMessages, "warning");
+		clearFlashTone(notificationPreferencesFlashMessages, "success");
+		clearFlashTone(notificationPreferencesFlashMessages, "warning");
 	}
-	upsertFlashMessage(preferencesFlashMessages, tone, messageKey);
+	upsertFlashMessage(notificationPreferencesFlashMessages, tone, messageKey);
 }
 
 const { handleSmsVerificationSubmit, isSendingVerification, isVerifyingCode } =
@@ -242,10 +243,10 @@ const { handleSmsVerificationSubmit, isSendingVerification, isVerifyingCode } =
 		isEditingPhone,
 		user,
 		smsSuccessMessage,
-		setPreferencesFlashMessage,
-		clearPreferencesFlashTone: (tone) =>
-			clearFlashTone(preferencesFlashMessages, tone),
-		handlePreferencesUpdated,
+		setNotificationPreferencesFlashMessage,
+		clearNotificationPreferencesFlashTone: (tone) =>
+			clearFlashTone(notificationPreferencesFlashMessages, tone),
+		handleNotificationPreferencesUpdated,
 	});
 
 const {
@@ -260,16 +261,18 @@ const {
 	formRef: stocksFormElement,
 });
 
-async function handlePreferencesFormSubmitWrapper(event: SubmitEvent) {
+async function handleNotificationPreferencesFormSubmitWrapper(
+	event: SubmitEvent,
+) {
 	const handled = await handleSmsVerificationSubmit(event);
 	if (handled) return;
-	await handlePreferencesFormSubmit(event);
+	await handleNotificationPreferencesFormSubmit(event);
 }
 
-async function handlePreferencesUpdated() {
-	const prefs = await fetchCurrentPreferences();
-	if (prefs) {
-		savedPreferencesData.value = prefs;
+async function handleNotificationPreferencesUpdated() {
+	const notificationPreferences = await fetchCurrentNotificationPreferences();
+	if (notificationPreferences) {
+		savedNotificationPreferencesData.value = notificationPreferences;
 	}
 }
 </script>

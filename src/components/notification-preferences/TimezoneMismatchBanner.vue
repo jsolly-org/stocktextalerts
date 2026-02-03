@@ -53,9 +53,9 @@
 import { DateTime } from "luxon";
 import { computed, ref, toRefs, watch } from "vue";
 
-import type { PreferencesSnapshot } from "../../lib/db";
+import type { NotificationPreferencesSnapshot } from "../../lib/db";
 import { rootLogger } from "../../lib/logging";
-import { updateTimezonePreference } from "../../lib/preferences/update-timezone";
+import { updateNotificationTimezonePreference } from "../../lib/notification-preferences/update-timezone";
 import StatusMessage from "../StatusMessage.vue";
 
 interface Props {
@@ -63,31 +63,31 @@ interface Props {
 	savedTimezone: string;
 	allowedTimezones: string[];
 	dismissTimezoneMismatchPrompts: boolean;
-	savedPreferences?: PreferencesSnapshot | null;
+	savedNotificationPreferences?: NotificationPreferencesSnapshot | null;
 }
 
 const props = defineProps<Props>();
 const {
 	allowedTimezones,
 	dismissTimezoneMismatchPrompts,
-	savedPreferences,
+	savedNotificationPreferences,
 	savedTimezone,
 } = toRefs(props);
 
 const emit = defineEmits<{
 	(event: "timezone-updated", value: string): void;
-	(event: "preferences-updated"): void;
+	(event: "notification-preferences-updated"): void;
 }>();
 
 const detectedTimezone = computed(() => DateTime.local().zoneName ?? "");
 const savedTimezoneValue = computed(() =>
-	savedPreferences.value
-		? savedPreferences.value.timezone
+	savedNotificationPreferences.value
+		? savedNotificationPreferences.value.timezone
 		: savedTimezone.value,
 );
 const dismissPromptsValue = computed(() =>
-	savedPreferences.value
-		? savedPreferences.value.dismiss_timezone_mismatch_prompts
+	savedNotificationPreferences.value
+		? savedNotificationPreferences.value.dismiss_timezone_mismatch_prompts
 		: dismissTimezoneMismatchPrompts.value,
 );
 
@@ -169,7 +169,9 @@ async function handleUpdateTimezone() {
 	errorMessage.value = null;
 
 	try {
-		const prefs = await updateTimezonePreference(detectedTimezone.value);
+		const prefs = await updateNotificationTimezonePreference(
+			detectedTimezone.value,
+		);
 		if (!prefs) {
 			errorMessage.value = "Failed to update timezone. Please try again.";
 			return;
@@ -177,12 +179,12 @@ async function handleUpdateTimezone() {
 
 		dismissedForSession.value = true;
 		emit("timezone-updated", detectedTimezone.value);
-		emit("preferences-updated");
+		emit("notification-preferences-updated");
 	} catch (error) {
 		rootLogger.error(
 			"Failed to update timezone from banner",
 			{
-				action: "update_timezone_from_banner",
+				action: "update_notification_preferences_timezone_from_banner",
 				detectedTimezone: detectedTimezone.value,
 			},
 			error,
@@ -196,12 +198,15 @@ const permanentlyDismissed = ref(false);
 async function handleDismissPermanently() {
 	errorMessage.value = null;
 	try {
-		const response = await fetch("/api/preferences/dismiss-timezone-banner", {
-			method: "POST",
-			credentials: "same-origin",
-			headers: { Accept: "application/json" },
-			signal: AbortSignal.timeout(10_000),
-		});
+		const response = await fetch(
+			"/api/notification-preferences/dismiss-timezone-banner",
+			{
+				method: "POST",
+				credentials: "same-origin",
+				headers: { Accept: "application/json" },
+				signal: AbortSignal.timeout(10_000),
+			},
+		);
 
 		if (!response.ok) {
 			rootLogger.error("Failed to dismiss timezone banner permanently", {
@@ -214,7 +219,7 @@ async function handleDismissPermanently() {
 
 		permanentlyDismissed.value = true;
 		dismissedForSession.value = true;
-		emit("preferences-updated");
+		emit("notification-preferences-updated");
 	} catch (error) {
 		rootLogger.error(
 			"Failed to dismiss timezone banner permanently",

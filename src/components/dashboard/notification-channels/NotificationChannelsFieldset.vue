@@ -4,26 +4,28 @@
 			<h2 class="text-xl sm:text-2xl font-bold text-gray-900">
 				Notification Channels
 			</h2>
-			<p :id="notificationChannelsDescId" class="text-sm text-gray-600 mt-1.5">
+			<p :id="props.notificationChannelsDescId" class="text-sm text-gray-600 mt-1.5">
 				Choose how you want to receive alerts.
 			</p>
 		</header>
+
 		<fieldset
 			class="rounded-lg border border-gray-200 divide-y divide-gray-200"
-			:aria-describedby="notificationChannelsDescId"
+			:aria-describedby="props.notificationChannelsDescId"
 		>
 			<legend class="sr-only">Notification channels</legend>
+
 			<label class="flex items-start gap-3 p-4 cursor-pointer transition-colors hover:bg-gray-50 focus-within:bg-gray-50">
 				<input
 					type="hidden"
 					name="email_notifications_enabled"
-					:value="emailEnabledValue ? 'on' : 'off'"
+					:value="emailEnabled ? 'on' : 'off'"
 				/>
 				<input
 					type="checkbox"
-					:id="emailNotificationsEnabledId"
+					:id="props.emailNotificationsEnabledId"
 					class="mt-0.5 h-6 w-6 rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-					v-model="emailEnabledValue"
+					v-model="emailEnabled"
 				/>
 				<span class="text-sm">
 					<span class="font-medium text-gray-900">Email Notifications</span>
@@ -36,16 +38,16 @@
 			<div>
 				<label class="flex items-start gap-3 p-4 cursor-pointer transition-colors hover:bg-gray-50 focus-within:bg-gray-50">
 					<input
-						v-if="canSaveSmsEnabled"
+						v-if="props.canSaveSmsEnabled"
 						type="hidden"
 						name="sms_notifications_enabled"
-						:value="smsEnabledValue ? 'on' : 'off'"
+						:value="smsEnabled ? 'on' : 'off'"
 					/>
 					<input
 						type="checkbox"
-						:id="smsNotificationsEnabledId"
+						:id="props.smsNotificationsEnabledId"
 						class="mt-0.5 h-6 w-6 rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-						v-model="smsEnabledValue"
+						v-model="smsEnabled"
 					/>
 					<span class="text-sm">
 						<span class="font-medium text-gray-900">SMS Notifications</span>
@@ -56,37 +58,36 @@
 				</label>
 
 				<SmsVerificationSection
-					:user="user"
-					:sms-enabled="smsEnabledValue"
-					:is-editing-phone="isEditingPhone"
-					:success-message="successMessage"
-					:send-verification-disabled="sendVerificationDisabled"
-					:is-verifying-code="isVerifyingCode"
-					:is-sending-verification="isSendingVerification"
-					@phone-validity-changed="emit('phone-validity-changed', $event)"
-					@phone-editing-changed="emit('phone-editing-changed', $event)"
+					:user="props.user"
+					:sms-enabled="smsEnabled"
+					:is-editing-phone="props.isEditingPhone"
+					:success-message="props.successMessage"
+					:send-verification-disabled="props.sendVerificationDisabled"
+					:is-verifying-code="props.isVerifyingCode"
+					:is-sending-verification="props.isSendingVerification"
+					@phone-validity-changed="(value) => emit('phone-validity-changed', value)"
+					@phone-editing-changed="(value) => emit('phone-editing-changed', value)"
 				/>
 			</div>
 		</fieldset>
 
-		<StatusMessage v-if="showTimeReminder" tone="warning">
+		<StatusMessage v-if="props.showTimeReminder" tone="warning">
 			Choose a
 			<button
 				type="button"
 				class="underline rounded cursor-pointer hover:text-warning-text/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning focus-visible:ring-offset-2"
-				@click="scrollToScheduled"
+				@click="emit('scroll-to-scheduled')"
 			>
 				delivery time
 			</button>
 			to start sending your daily digest.
 		</StatusMessage>
-
 	</section>
 </template>
 
 <script lang="ts" setup>
 import { computed } from "vue";
-import { DASHBOARD_FORM_ID, DASHBOARD_SECTION_IDS } from "../../../lib/constants";
+import { DASHBOARD_SECTION_IDS } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 import StatusMessage from "../../StatusMessage.vue";
 import SmsVerificationSection from "./SmsVerificationSection.vue";
@@ -95,17 +96,22 @@ interface Props {
 	user: User;
 	emailEnabled: boolean;
 	smsEnabled: boolean;
-	canSaveSmsEnabled: boolean;
 	isEditingPhone: boolean;
-	sendVerificationDisabled: boolean;
 	successMessage?: string | null;
+	sendVerificationDisabled: boolean;
 	isVerifyingCode?: boolean;
 	isSendingVerification?: boolean;
+	canSaveSmsEnabled: boolean;
 	showTimeReminder: boolean;
+	emailNotificationsEnabledId: string;
+	smsNotificationsEnabledId: string;
+	notificationChannelsDescId: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
 	successMessage: null,
+	isVerifyingCode: false,
+	isSendingVerification: false,
 });
 
 const emit = defineEmits<{
@@ -113,26 +119,15 @@ const emit = defineEmits<{
 	(event: "update:smsEnabled", value: boolean): void;
 	(event: "phone-validity-changed", value: boolean): void;
 	(event: "phone-editing-changed", value: boolean): void;
+	(event: "scroll-to-scheduled"): void;
 }>();
 
-const emailEnabledValue = computed({
+const emailEnabled = computed({
 	get: () => props.emailEnabled,
 	set: (value: boolean) => emit("update:emailEnabled", value),
 });
-
-const smsEnabledValue = computed({
+const smsEnabled = computed({
 	get: () => props.smsEnabled,
 	set: (value: boolean) => emit("update:smsEnabled", value),
 });
-
-const emailNotificationsEnabledId = `${DASHBOARD_FORM_ID}-email_notifications_enabled`;
-const smsNotificationsEnabledId = `${DASHBOARD_FORM_ID}-sms_notifications_enabled`;
-const notificationChannelsDescId = `${DASHBOARD_FORM_ID}-notification-channels-desc`;
-
-function scrollToScheduled() {
-	const el = document.getElementById(DASHBOARD_SECTION_IDS.scheduled);
-	if (el) {
-		el.scrollIntoView({ behavior: "smooth" });
-	}
-}
 </script>

@@ -280,13 +280,6 @@ export function buildPublicUserSql(userId: string, user: SeedUser): string {
     updateFields.push("phone_verified = EXCLUDED.phone_verified");
   }
 
-  const smsOptedOut = validateOptionalBoolean(user.sms_opted_out, "sms_opted_out");
-  if (smsOptedOut !== undefined) {
-    insertColumns.push("sms_opted_out");
-    insertValues.push(String(smsOptedOut));
-    updateFields.push("sms_opted_out = EXCLUDED.sms_opted_out");
-  }
-
   const dailyDigestEnabled = validateOptionalBoolean(
     user.daily_digest_enabled,
     "daily_digest_enabled",

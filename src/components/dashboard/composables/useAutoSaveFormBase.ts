@@ -3,26 +3,18 @@ import { formatMessage } from "../../../lib/constants";
 import { rootLogger } from "../../../lib/logging";
 
 /* ============= Types ============= */
-type FormSaveResponse<T = unknown> = {
+type FormSaveResponse = {
 	ok: boolean;
 	message: string;
-	preferences?: T;
+	[key: string]: unknown;
 };
 
-export type PreferencesData = {
-	email_notifications_enabled: boolean;
-	sms_notifications_enabled: boolean;
-	sms_opted_out: boolean;
-	phone_verified: boolean;
-	daily_digest_enabled: boolean;
-	daily_digest_notification_times: number[] | null;
-	next_send_at: string | null;
-};
-
-type AutoSaveOptions = {
+export type AutoSaveFormOptions = {
 	formRef: Ref<HTMLFormElement | null>;
 	debounceMs?: number;
 	expectedActionPath?: string;
+	payloadKey: string;
+	logAction: string;
 };
 
 /* ============= Helpers ============= */
@@ -61,7 +53,7 @@ function isAutosaveIgnoredEvent(event: Event): boolean {
 }
 
 /* ============= Composable ============= */
-export function useAutoSaveForm<T = unknown>(options: AutoSaveOptions) {
+export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 	const statusMessage = ref<string | null>(null);
 	const statusTone = ref<"error" | "info">("info");
 	const isSaving = ref(false);
@@ -97,7 +89,7 @@ export function useAutoSaveForm<T = unknown>(options: AutoSaveOptions) {
 				signal: AbortSignal.timeout(10_000),
 			});
 
-			const payload = (await response.json()) as FormSaveResponse<T>;
+			const payload = (await response.json()) as FormSaveResponse;
 
 			if (!response.ok || !payload.ok) {
 				const formattedMessage =
@@ -112,7 +104,8 @@ export function useAutoSaveForm<T = unknown>(options: AutoSaveOptions) {
 
 			lastSavedSignature.value = submittedSignature;
 			setStatus(null);
-			savedData.value = (payload.preferences ?? null) as T | null;
+			const payloadData = payload[options.payloadKey] as T | undefined;
+			savedData.value = (payloadData ?? null) as T | null;
 		} catch (error) {
 			const reason =
 				error instanceof Error && error.name === "TimeoutError"
@@ -125,7 +118,7 @@ export function useAutoSaveForm<T = unknown>(options: AutoSaveOptions) {
 			}
 			rootLogger.error(
 				"Autosave failed for dashboard form",
-				{ action: "autosave_preferences", reason },
+				{ action: options.logAction, reason },
 				error,
 			);
 		} finally {

@@ -5,8 +5,10 @@ import { rootLogger } from "./logging";
 Dashboard Form IDs
 ============= */
 
-export const DASHBOARD_FORM_ID = "dashboard-preferences-form";
-export const DASHBOARD_STATUS_ID = "dashboard-preferences-save-status";
+export const DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID =
+	"dashboard-notification-preferences-form";
+export const DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID =
+	"dashboard-notification-preferences-save-status";
 export const DASHBOARD_STOCKS_FORM_ID = "dashboard-stocks-form";
 export const DASHBOARD_STOCKS_STATUS_ID = "dashboard-stocks-save-status";
 
@@ -61,7 +63,6 @@ Dashboard Sections
 ============= */
 
 export const DASHBOARD_SECTION_IDS = {
-	preferences: "notification-preferences",
 	notificationChannels: "notification-channels",
 	stocks: "tracked-stocks",
 	scheduled: "scheduled-notifications",
@@ -70,7 +71,6 @@ export const DASHBOARD_SECTION_IDS = {
 export type DashboardSection = keyof typeof DASHBOARD_SECTION_IDS;
 
 export const DASHBOARD_SECTION_HASHES: Record<DashboardSection, string> = {
-	preferences: `#${DASHBOARD_SECTION_IDS.preferences}`,
 	notificationChannels: `#${DASHBOARD_SECTION_IDS.notificationChannels}`,
 	stocks: `#${DASHBOARD_SECTION_IDS.stocks}`,
 	scheduled: `#${DASHBOARD_SECTION_IDS.scheduled}`,
@@ -136,7 +136,6 @@ export const MESSAGE_ALLOWLIST = {
 	update_failed: "Failed to update. Please try again.",
 	server_error: "An error occurred. Please try again",
 	phone_not_set: "Add a phone number before verifying.",
-	sms_opted_out: "SMS notifications are disabled for this number",
 	sms_notifications_disabled: "SMS notifications are disabled.",
 	notifications_not_configured:
 		"Enable at least one notification channel to send a daily digest.",

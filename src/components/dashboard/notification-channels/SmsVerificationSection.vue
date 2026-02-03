@@ -51,7 +51,7 @@
 import { computed, nextTick, ref, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import CheckCircleIcon from "../../../icons/check-circle-20.svg?component";
-import { DASHBOARD_FORM_ID } from "../../../lib/constants";
+import { DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 import { formatPhoneForDisplay } from "../../../lib/format-phone";
 import SmsCodeVerification from "./SmsCodeVerification.vue";
@@ -78,10 +78,10 @@ const emit = defineEmits<{
 	(event: "phone-editing-changed", value: boolean): void;
 }>();
 
-const phoneVerificationSectionId = `${DASHBOARD_FORM_ID}-phone-verification-section`;
-const phoneVerificationFieldsetId = `${DASHBOARD_FORM_ID}-phone-verification-fieldset`;
-const sendVerificationButtonId = `${DASHBOARD_FORM_ID}-send-verification-button`;
-const smsVerificationCodeId = `${DASHBOARD_FORM_ID}-sms-verification-code`;
+const phoneVerificationSectionId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-phone-verification-section`;
+const phoneVerificationFieldsetId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-phone-verification-fieldset`;
+const sendVerificationButtonId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-send-verification-button`;
+const smsVerificationCodeId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-sms-verification-code`;
 
 const formSubmitted = ref(false);
 const phoneSetupRef = ref<{ focus: () => void } | null>(null);

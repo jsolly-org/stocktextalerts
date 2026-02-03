@@ -15,7 +15,6 @@ export type CreateTestUserOptions = {
 	phoneCountryCode?: string | null;
 	phoneNumber?: string | null;
 	phoneVerified?: boolean;
-	smsOptedOut?: boolean;
 	dailyDigestEnabled?: boolean;
 	dailyDigestNotificationTimes?: number[] | null;
 	trackedStocks?: string[];
@@ -117,8 +116,6 @@ export async function createTestUser(
 		options.phoneNumber ??
 		(smsNotificationsEnabled ? defaultPhoneNumber : null);
 	const phoneVerified = options.phoneVerified ?? false;
-	const smsOptedOut = options.smsOptedOut ?? false;
-
 	if (smsNotificationsEnabled && (!phoneCountryCode || !phoneNumber)) {
 		throw new Error(
 			"Invalid test user: smsNotificationsEnabled requires phoneCountryCode and phoneNumber",
@@ -198,7 +195,6 @@ export async function createTestUser(
 			phone_country_code: phoneCountryCode,
 			phone_number: phoneNumber,
 			phone_verified: phoneVerified,
-			sms_opted_out: smsOptedOut,
 			timezone,
 			email_notifications_enabled: options.emailNotificationsEnabled ?? false,
 			sms_notifications_enabled: smsNotificationsEnabled,

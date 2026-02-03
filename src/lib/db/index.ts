@@ -26,11 +26,10 @@ export type UserStock = Pick<DbUserStockRow, "symbol" | "created_at"> & {
 	name: DbStockRow["name"];
 };
 
-export type PreferencesSnapshot = Pick<
+export type NotificationPreferencesSnapshot = Pick<
 	User,
 	| "email_notifications_enabled"
 	| "sms_notifications_enabled"
-	| "sms_opted_out"
 	| "phone_verified"
 	| "timezone"
 	| "daily_digest_enabled"
@@ -39,7 +38,7 @@ export type PreferencesSnapshot = Pick<
 	| "dismiss_timezone_mismatch_prompts"
 >;
 
-export type UserNotificationPreferences = Pick<
+export type NotificationPreferences = Pick<
 	User,
 	| "email_notifications_enabled"
 	| "sms_notifications_enabled"
