@@ -101,7 +101,15 @@ async function runScheduledNotifications(options: {
 			return { sender: sendSms };
 		} catch (error) {
 			const errorMsg = error instanceof Error ? error.message : String(error);
-			logger.error("Failed to initialize Twilio client", { error: errorMsg });
+			logger.error(
+				"Failed to initialize Twilio client",
+				{
+					phase: "initTwilio",
+					errorMessage: errorMsg,
+					phoneNumber: twilioConfig?.phoneNumber,
+				},
+				error,
+			);
 			return { sender: null, error: errorMsg };
 		}
 	};
