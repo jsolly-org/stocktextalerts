@@ -139,7 +139,7 @@ export async function handleInboundSms(
 	// Use pre-update channel state for STOP copy; reflects prior SMS enablement.
 	const hasBothChannelsEnabled =
 		emailNotificationsEnabled && smsNotificationsEnabled;
-	const dashboardUrl = `${getSiteUrl()}/dashboard`;
+	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 
 	if (!phoneVerified) {
 		return {

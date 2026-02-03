@@ -15,8 +15,8 @@
 			<div
 				v-if="statusMessage"
 				:id="DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID"
-				class="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium z-10"
-				:class="[statusTone === 'error' ? 'bg-error-bg text-error-text' : 'bg-info-bg text-info-text']"
+				class="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium z-10 border"
+				:class="STATUS_TONE_CLASSES[statusTone]"
 				role="status"
 				aria-live="polite"
 				:aria-busy="isSaving"
@@ -44,95 +44,30 @@
 			</StatusMessage>
 		</div>
 
-		<section :id="DASHBOARD_SECTION_IDS.notificationChannels" class="space-y-4">
-			<header>
-				<h2 class="text-xl sm:text-2xl font-bold text-gray-900">
-					Notification Channels
-				</h2>
-				<p :id="notificationChannelsDescId" class="text-sm text-gray-600 mt-1.5">
-					Choose how you want to receive alerts.
-				</p>
-			</header>
-			<fieldset
-				class="rounded-lg border border-gray-200 divide-y divide-gray-200"
-				:aria-describedby="notificationChannelsDescId"
-			>
-				<legend class="sr-only">Notification channels</legend>
-				<label class="flex items-start gap-3 p-4 cursor-pointer transition-colors hover:bg-gray-50 focus-within:bg-gray-50">
-					<input
-						type="hidden"
-						name="email_notifications_enabled"
-						:value="emailEnabled ? 'on' : 'off'"
-					/>
-					<input
-						type="checkbox"
-						:id="emailNotificationsEnabledId"
-						class="mt-0.5 h-6 w-6 rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-						v-model="emailEnabled"
-					/>
-					<span class="text-sm">
-						<span class="font-medium text-gray-900">Email Notifications</span>
-						<span class="block text-gray-500">
-							Notifications are sent to your registered email.
-						</span>
-					</span>
-				</label>
-
-				<div>
-					<label class="flex items-start gap-3 p-4 cursor-pointer transition-colors hover:bg-gray-50 focus-within:bg-gray-50">
-						<input
-							v-if="canSaveSmsEnabled"
-							type="hidden"
-							name="sms_notifications_enabled"
-							:value="smsEnabled ? 'on' : 'off'"
-						/>
-						<input
-							type="checkbox"
-							:id="smsNotificationsEnabledId"
-							class="mt-0.5 h-6 w-6 rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-							v-model="smsEnabled"
-						/>
-						<span class="text-sm">
-							<span class="font-medium text-gray-900">SMS Notifications</span>
-							<span class="block text-gray-500">
-								Notifications will be sent to a phone number you provide.
-							</span>
-						</span>
-					</label>
-
-					<SmsVerificationSection
-						:user="user"
-						:sms-enabled="smsEnabled"
-						:is-editing-phone="isEditingPhone"
-						:success-message="successMessage"
-						:send-verification-disabled="sendVerificationDisabled"
-						:is-verifying-code="isVerifyingCode"
-						:is-sending-verification="isSendingVerification"
-						@phone-validity-changed="handlePhoneValidityChanged"
-						@phone-editing-changed="handlePhoneEditingChanged"
-					/>
-				</div>
-			</fieldset>
-
-			<StatusMessage v-if="showTimeReminder" tone="warning">
-				Choose a
-				<button
-					type="button"
-					class="underline rounded cursor-pointer hover:text-warning-text/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning focus-visible:ring-offset-2"
-					@click="scrollToScheduled"
-				>
-					delivery time
-				</button>
-				to start sending your daily digest.
-			</StatusMessage>
-
-		</section>
+		<NotificationChannelsFieldset
+			v-model:emailEnabled="emailEnabled"
+			v-model:smsEnabled="smsEnabled"
+			:user="user"
+			:is-editing-phone="isEditingPhone"
+			:success-message="successMessage"
+			:send-verification-disabled="sendVerificationDisabled"
+			:is-verifying-code="isVerifyingCode"
+			:is-sending-verification="isSendingVerification"
+			:can-save-sms-enabled="canSaveSmsEnabled"
+			:show-time-reminder="showTimeReminder"
+			:email-notifications-enabled-id="emailNotificationsEnabledId"
+			:sms-notifications-enabled-id="smsNotificationsEnabledId"
+			:notification-channels-desc-id="notificationChannelsDescId"
+			@phone-validity-changed="handlePhoneValidityChanged"
+			@phone-editing-changed="handlePhoneEditingChanged"
+			@scroll-to-scheduled="scrollToScheduled"
+		/>
 		</div>
 	</section>
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
+import { computed, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import {
@@ -141,11 +76,14 @@ import {
 	DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID,
 	DASHBOARD_SECTION_IDS,
 	type FlashMessage,
+	STATUS_TONE_CLASSES,
+	type StatusTone,
 } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 import { rootLogger } from "../../../lib/logging";
 import StatusMessage from "../../StatusMessage.vue";
-import SmsVerificationSection from "./SmsVerificationSection.vue";
+import NotificationChannelsFieldset from "./NotificationChannelsFieldset.vue";
+import { usePendingSmsChanges } from "./pending-sms-changes";
 
 interface Props {
 	user: User;
@@ -156,7 +94,7 @@ interface Props {
 	successMessage?: string | null;
 	flashMessages?: FlashMessage[];
 	statusMessage?: string | null;
-	statusTone?: "error" | "info";
+	statusTone?: StatusTone;
 	isSaving?: boolean;
 	isVerifyingCode?: boolean;
 	isSendingVerification?: boolean;
@@ -194,13 +132,6 @@ const emit = defineEmits<{
 }>();
 
 const sendVerificationDisabled = ref(true);
-let cleanupNavigationWarning: (() => void) | undefined;
-
-const PENDING_SMS_STORAGE_KEY = "pending_sms_enabled";
-
-const pendingSmsStorageKey = computed(() => {
-	return `${PENDING_SMS_STORAGE_KEY}:${user.value.id}`;
-});
 const emailNotificationsEnabledId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-email_notifications_enabled`;
 const smsNotificationsEnabledId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-sms_notifications_enabled`;
 const notificationChannelsDescId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-notification-channels-desc`;
@@ -213,11 +144,14 @@ const smsEnabled = computed({
 	get: () => smsEnabledProp.value,
 	set: (value: boolean) => emit("update:smsEnabled", value),
 });
+
+const phoneVerified = computed(() => user.value.phone_verified === true);
+
 const canSaveSmsEnabled = computed(() => {
 	if (!smsEnabled.value) {
 		return true;
 	}
-	return user.value.phone_verified === true;
+	return phoneVerified.value;
 });
 const showTimeReminder = computed(() => {
 	if (!emailEnabled.value && !smsEnabled.value) {
@@ -226,64 +160,9 @@ const showTimeReminder = computed(() => {
 	if (!user.value.daily_digest_enabled) {
 		return false;
 	}
-		const times = user.value.daily_digest_notification_times;
-		return !times || times.length === 0;
+	const times = user.value.daily_digest_notification_times;
+	return !times || times.length === 0;
 });
-
-const hasPendingSmsChanges = computed(() => {
-	return smsEnabled.value && !user.value.phone_verified;
-});
-
-function savePendingSmsState() {
-	if (typeof window === "undefined") return;
-	try {
-		if (hasPendingSmsChanges.value) {
-			sessionStorage.setItem(pendingSmsStorageKey.value, "true");
-		} else {
-			sessionStorage.removeItem(pendingSmsStorageKey.value);
-		}
-	} catch (error) {
-		rootLogger.warn(
-			"Unable to update session storage for pending SMS changes.",
-			{
-				storageKey: pendingSmsStorageKey.value,
-				error,
-			},
-		);
-	}
-}
-
-function restorePendingSmsState() {
-	if (typeof window === "undefined") return;
-	let pendingSmsState: string | null = null;
-	try {
-		pendingSmsState = sessionStorage.getItem(pendingSmsStorageKey.value);
-	} catch (error) {
-		rootLogger.warn("Unable to read session storage for pending SMS changes.", {
-			storageKey: pendingSmsStorageKey.value,
-			error,
-		});
-		return;
-	}
-
-	if (user.value.phone_verified && pendingSmsState === "true") {
-		smsEnabled.value = true;
-		try {
-			sessionStorage.removeItem(pendingSmsStorageKey.value);
-		} catch (error) {
-			rootLogger.warn(
-				"Unable to clear session storage for pending SMS changes.",
-				{
-					storageKey: pendingSmsStorageKey.value,
-					error,
-				},
-			);
-		}
-	} else if (isEditingPhone.value && pendingSmsState === "true") {
-		// Restore pending SMS state when entering change phone mode
-		smsEnabled.value = true;
-	}
-}
 
 function notifyFormChanged() {
 	const handler = onFormChanged.value;
@@ -294,20 +173,6 @@ watch([emailEnabled, smsEnabled], () => {
 	notifyFormChanged();
 	emit("notification-preferences-updated");
 });
-
-watch(hasPendingSmsChanges, () => {
-	savePendingSmsState();
-});
-
-watch(
-	[() => user.value.phone_verified, isEditingPhone],
-	([isVerified, editingPhone]) => {
-		if (isVerified || editingPhone) {
-			restorePendingSmsState();
-		}
-	},
-	{ immediate: true },
-);
 
 function handlePhoneValidityChanged(isValid: boolean) {
 	sendVerificationDisabled.value = !isValid;
@@ -324,56 +189,11 @@ function scrollToScheduled() {
 	}
 }
 
-function setupNavigationWarning() {
-	if (!hasPendingSmsChanges.value) {
-		return;
-	}
-
-	function handleBeforeUnload(event: BeforeUnloadEvent) {
-		event.preventDefault();
-		event.returnValue = "";
-		return "";
-	}
-
-	window.addEventListener("beforeunload", handleBeforeUnload);
-
-	return () => {
-		window.removeEventListener("beforeunload", handleBeforeUnload);
-	};
-}
-
-onMounted(() => {
-	if (user.value.phone_verified && smsEnabled.value) {
-		try {
-			sessionStorage.removeItem(pendingSmsStorageKey.value);
-		} catch (error) {
-			rootLogger.warn(
-				"Unable to clear session storage for pending SMS changes.",
-				{
-					storageKey: pendingSmsStorageKey.value,
-					error,
-				},
-			);
-		}
-	}
-
-	cleanupNavigationWarning = setupNavigationWarning();
-});
-
-watch(hasPendingSmsChanges, (hasPending) => {
-	if (cleanupNavigationWarning) {
-		cleanupNavigationWarning();
-	}
-	if (hasPending) {
-		cleanupNavigationWarning = setupNavigationWarning();
-	} else {
-		cleanupNavigationWarning = undefined;
-	}
-});
-
-onUnmounted(() => {
-	if (cleanupNavigationWarning) {
-		cleanupNavigationWarning();
-	}
+usePendingSmsChanges({
+	userId: computed(() => user.value.id),
+	smsEnabled,
+	phoneVerified,
+	isEditingPhone,
+	logger: rootLogger,
 });
 </script>
