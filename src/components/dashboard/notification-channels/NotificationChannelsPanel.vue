@@ -127,7 +127,6 @@ const {
 const emit = defineEmits<{
 	(event: "update:emailEnabled", value: boolean): void;
 	(event: "update:smsEnabled", value: boolean): void;
-	(event: "notification-preferences-updated"): void;
 	(event: "phone-editing-changed", value: boolean): void;
 }>();
 
@@ -171,7 +170,6 @@ function notifyFormChanged() {
 
 watch([emailEnabled, smsEnabled], () => {
 	notifyFormChanged();
-	emit("notification-preferences-updated");
 });
 
 function handlePhoneValidityChanged(isValid: boolean) {

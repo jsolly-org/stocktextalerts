@@ -46,7 +46,6 @@
 			:is-sending-verification="isSendingVerification"
 			@update:emailEnabled="emailEnabled = $event"
 			@update:smsEnabled="smsEnabled = $event"
-			@notification-preferences-updated="handleNotificationPreferencesUpdated"
 			@phone-editing-changed="isEditingPhone = $event"
 		/>
 
