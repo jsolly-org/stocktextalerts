@@ -58,18 +58,18 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 			// This should be validated at the request boundary; fail fast so we
 			// don't silently disable digests by overwriting times with [].
 			if (logger) {
-				logger.info("Invalid daily_digest_notification_times", {
-					action: "notification_preferences_update",
-					userId: dbUser.id,
-					reason: result.reason,
-				});
+				logger.warn(
+					"Invalid digest times in notification preferences payload",
+					{
+						action: "notification_preferences_update",
+						userId: dbUser.id,
+						reason: result.reason,
+					},
+				);
 			}
-			throw new Error(
-				`Invalid daily_digest_notification_times: ${result.reason}`,
-			);
-		} else {
-			parsedTimes = result.times;
+			throw new Error(`Invalid digest times: ${result.reason}`);
 		}
+		parsedTimes = result.times;
 	} else {
 		parsedTimes = undefined;
 	}
