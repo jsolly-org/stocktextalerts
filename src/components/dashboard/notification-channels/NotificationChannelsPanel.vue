@@ -32,7 +32,7 @@
 		</Transition>
 
 		<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.primary}`"></div>
-		<div class="card-body" :id="DASHBOARD_SECTION_IDS.notificationChannels">
+		<div class="card-body">
 
 		<div v-if="flashMessages.length" class="space-y-2 mb-4">
 			<StatusMessage
@@ -290,12 +290,9 @@ function notifyFormChanged() {
 	handler();
 }
 
-function handleNotificationPreferencesUpdated() {
-	emit("notification-preferences-updated");
-}
-
 watch([emailEnabled, smsEnabled], () => {
 	notifyFormChanged();
+	emit("notification-preferences-updated");
 });
 
 watch(hasPendingSmsChanges, () => {

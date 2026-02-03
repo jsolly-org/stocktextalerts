@@ -2,6 +2,17 @@ import { DateTime, Duration } from "luxon";
 import { calculateNextSendAt, calculateNextSendAtFromTimes } from "./schedule";
 import type { ParsedTime, TimeValue } from "./types";
 
+export function toIsoOrThrow(
+	dateTime: DateTime,
+	errorMessage = "Failed to format ISO string",
+): string {
+	const iso = dateTime.toISO();
+	if (!iso) {
+		throw new Error(errorMessage);
+	}
+	return iso;
+}
+
 export function parseTimeToMinutes(value: string): number | null {
 	const parts = value.split(":");
 	if (parts.length !== 2) {

@@ -184,7 +184,7 @@ async function handleUpdateTimezone() {
 		rootLogger.error(
 			"Failed to update timezone from banner",
 			{
-				action: "update_notification-preferences_timezone_from_banner",
+				action: "update_notification_preferences_timezone_from_banner",
 				detectedTimezone: detectedTimezone.value,
 			},
 			error,

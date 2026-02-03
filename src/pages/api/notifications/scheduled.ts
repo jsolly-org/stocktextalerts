@@ -4,6 +4,7 @@ import { DateTime } from "luxon";
 import type { Database } from "../../../lib/db/generated/database.types";
 import { createSupabaseAdminClient } from "../../../lib/db/supabase";
 import { createLogger, type Logger } from "../../../lib/logging";
+import { toIsoOrThrow } from "../../../lib/time/format";
 import {
 	calculateNextSendAtFromTimes,
 	getLocalDateString,
@@ -44,11 +45,10 @@ async function updateScheduledNotificationRow(options: {
 		options.status === "sent"
 			? {
 					status: "sent",
-					sent_at:
-						DateTime.utc().toISO() ??
-						(() => {
-							throw new Error("Failed to format UTC ISO string");
-						})(),
+					sent_at: toIsoOrThrow(
+						DateTime.utc(),
+						"Failed to format UTC ISO string",
+					),
 					error: null,
 				}
 			: { status: "failed", error: options.error ?? "Unknown error" };
@@ -178,11 +178,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		const sendEmail = createEmailSender();
 
 		const currentTime = DateTime.utc();
-		const currentTimeIso =
-			currentTime.toISO() ??
-			(() => {
-				throw new Error("Failed to format UTC ISO string");
-			})();
+		const currentTimeIso = toIsoOrThrow(
+			currentTime,
+			"Failed to format UTC ISO string",
+		);
 
 		let query = supabase
 			.from("users")
