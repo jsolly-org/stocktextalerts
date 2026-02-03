@@ -58,7 +58,7 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 			// This should be validated at the request boundary; fail fast so we
 			// don't silently disable digests by overwriting times with [].
 			if (logger) {
-				logger.warn(
+				logger.info(
 					"Invalid digest times in notification preferences payload",
 					{
 						action: "notification_preferences_update",

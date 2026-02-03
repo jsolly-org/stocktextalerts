@@ -71,11 +71,7 @@ async function runScheduledNotifications(options: {
 	const { data, error: usersError } = await query;
 
 	if (usersError) {
-		const errorMsg =
-			usersError instanceof Error
-				? usersError.message
-				: JSON.stringify(usersError);
-		throw new Error(`Failed to fetch users: ${errorMsg}`);
+		throw new Error(`Failed to fetch users: ${usersError.message}`);
 	}
 	const users = (data ?? []) as UserRecord[];
 
@@ -141,6 +137,7 @@ async function runScheduledNotifications(options: {
 			const dueAtLocal = dueAt.setZone(user.timezone);
 			if (!dueAtLocal.isValid) {
 				logger.error("Failed to format local date for timezone", {
+					userId: user.id,
 					timezone: user.timezone,
 				});
 				stats.skipped++;
@@ -152,6 +149,19 @@ async function runScheduledNotifications(options: {
 				dueAt,
 			);
 			if (scheduledMinutes === null) {
+				logger.warn(
+					"scheduledMinutes is null; skipping scheduled notification",
+					{
+						action: "scheduled_notifications_run",
+						phase: "getLocalMinutesFromDateTime",
+						userId: user.id,
+						timezone: user.timezone,
+						next_send_at: user.next_send_at,
+						dueAtUtcIso: dueAt.toISO(),
+						dueAtLocalIso: dueAtLocal.toISO(),
+						scheduledDate,
+					},
+				);
 				stats.skipped++;
 				return stats;
 			}
