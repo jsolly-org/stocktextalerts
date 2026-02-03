@@ -81,11 +81,11 @@ export async function updateScheduledNotificationRow(options: {
 		.eq("channel", options.channel);
 
 	if (error) {
-		options.logger.error("Failed to update scheduled_notifications row", {
-			userId: options.userId,
-			channel: options.channel,
+		options.logger.error(
+			"Failed to update scheduled_notifications row",
+			{ userId: options.userId, channel: options.channel },
 			error,
-		});
+		);
 	}
 }
 
@@ -109,11 +109,11 @@ export async function logRetriesExhausted(options: {
 		.maybeSingle();
 
 	if (error) {
-		options.logger.error("Failed to fetch scheduled_notifications row", {
-			userId: options.userId,
-			channel: options.channel,
+		options.logger.error(
+			"Failed to fetch scheduled_notifications row",
+			{ userId: options.userId, channel: options.channel },
 			error,
-		});
+		);
 		return;
 	}
 
