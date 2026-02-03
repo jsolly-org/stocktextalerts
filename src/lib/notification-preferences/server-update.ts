@@ -25,7 +25,7 @@ export function parseDigestTimes(values: string[]): DigestTimesParseResult {
 	return { ok: true, times: unique };
 }
 
-export function serializeTimes(times: number[] | null | undefined): string {
+function serializeTimes(times: number[] | null | undefined): string {
 	if (!times || times.length === 0) {
 		return "";
 	}
@@ -209,14 +209,16 @@ export function computeTimezoneUpdatePayload(
 				} else {
 					payload.next_send_at = null;
 				}
-			} else if (logger) {
-				logger.warn(
-					"calculateNextSendAtFromTimes returned null despite having times",
-					{
-						timezone: newTimezone,
-						timesCount: dbUser.daily_digest_notification_times.length,
-					},
-				);
+			} else {
+				if (logger) {
+					logger.warn(
+						"calculateNextSendAtFromTimes returned null despite having times",
+						{
+							timezone: newTimezone,
+							timesCount: dbUser.daily_digest_notification_times.length,
+						},
+					);
+				}
 				payload.next_send_at = null;
 			}
 		}
