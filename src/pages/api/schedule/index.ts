@@ -14,12 +14,32 @@ export const POST: APIRoute = async ({ request, locals }) => {
 	const authHeader = request.headers.get("authorization");
 	const envCronSecret = import.meta.env.CRON_SECRET;
 
-	if (!authHeader || !authHeader.startsWith("Bearer ")) {
+	if (!authHeader) {
+		logger.info("Unauthorized cron request", {
+			action: "cron_auth",
+			reason: "missing_authorization_header",
+		});
+		return new Response("Unauthorized", { status: 401 });
+	}
+
+	if (!authHeader.startsWith("Bearer ")) {
+		logger.info("Unauthorized cron request", {
+			action: "cron_auth",
+			reason: "malformed_authorization_header",
+		});
 		return new Response("Unauthorized", { status: 401 });
 	}
 
 	const cronSecret = authHeader.split("Bearer ")[1];
 	let authorized = false;
+
+	if (cronSecret.length !== envCronSecret.length) {
+		logger.info("Unauthorized cron request", {
+			action: "cron_auth",
+			reason: "cron_secret_length_mismatch",
+		});
+		return new Response("Unauthorized", { status: 401 });
+	}
 
 	if (cronSecret.length === envCronSecret.length) {
 		try {
@@ -38,6 +58,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
 	}
 
 	if (!authorized) {
+		logger.info("Unauthorized cron request", {
+			action: "cron_auth",
+			reason: "cron_secret_mismatch",
+		});
 		return new Response("Unauthorized", { status: 401 });
 	}
 
