@@ -149,19 +149,16 @@ async function runScheduledNotifications(options: {
 				dueAt,
 			);
 			if (scheduledMinutes === null) {
-				logger.warn(
-					"scheduledMinutes is null; skipping scheduled notification",
-					{
-						action: "scheduled_notifications_run",
-						phase: "getLocalMinutesFromDateTime",
-						userId: user.id,
-						timezone: user.timezone,
-						next_send_at: user.next_send_at,
-						dueAtUtcIso: dueAt.toISO(),
-						dueAtLocalIso: dueAtLocal.toISO(),
-						scheduledDate,
-					},
-				);
+				logger.error("Failed to calculate scheduled minutes", {
+					action: "scheduled_notifications_run",
+					phase: "getLocalMinutesFromDateTime",
+					userId: user.id,
+					timezone: user.timezone,
+					next_send_at: user.next_send_at,
+					dueAt: dueAt.toISO(),
+					dueAtLocalIso: dueAtLocal.toISO(),
+					scheduledDate,
+				});
 				stats.skipped++;
 				return stats;
 			}
