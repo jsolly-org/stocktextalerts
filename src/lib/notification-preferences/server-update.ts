@@ -201,26 +201,7 @@ export function computeTimezoneUpdatePayload(
 				newTimezone,
 				DateTime.utc(),
 			);
-			if (nextSendAt) {
-				const nextSendAtIso = nextSendAt.toISO();
-				if (nextSendAtIso) {
-					payload.next_send_at = nextSendAtIso;
-				} else if (logger) {
-					logger.warn(
-						"Failed to convert next_send_at to ISO after timezone change",
-						{
-							userId: dbUser.id,
-							timezone: newTimezone,
-							nextSendAt: nextSendAt.toString(),
-							nextSendAtIsValid: nextSendAt.isValid,
-							nextSendAtInvalidReason: nextSendAt.invalidReason,
-						},
-					);
-					payload.next_send_at = null;
-				} else {
-					payload.next_send_at = null;
-				}
-			} else {
+			if (!nextSendAt) {
 				if (logger) {
 					logger.warn(
 						"calculateNextSendAtFromTimes returned null despite having times",
@@ -231,8 +212,46 @@ export function computeTimezoneUpdatePayload(
 						},
 					);
 				}
-				payload.next_send_at = null;
+				throw new Error(
+					`Failed to compute next_send_at after timezone change: ${JSON.stringify(
+						{
+							userId: dbUser.id,
+							timezone: newTimezone,
+							timesCount: dbUser.daily_digest_notification_times.length,
+						},
+					)}`,
+				);
 			}
+
+			const nextSendAtIso = nextSendAt.toISO();
+			if (!nextSendAtIso) {
+				if (logger) {
+					logger.warn(
+						"Failed to convert next_send_at to ISO after timezone change",
+						{
+							userId: dbUser.id,
+							timezone: newTimezone,
+							nextSendAt: nextSendAt.toString(),
+							nextSendAtIsValid: nextSendAt.isValid,
+							nextSendAtInvalidReason: nextSendAt.invalidReason,
+						},
+					);
+				}
+				throw new Error(
+					`Failed to format next_send_at after timezone change: ${JSON.stringify(
+						{
+							userId: dbUser.id,
+							timezone: newTimezone,
+							timesCount: dbUser.daily_digest_notification_times.length,
+							nextSendAt: nextSendAt.toString(),
+							nextSendAtIsValid: nextSendAt.isValid,
+							nextSendAtInvalidReason: nextSendAt.invalidReason,
+						},
+					)}`,
+				);
+			}
+
+			payload.next_send_at = nextSendAtIso;
 		}
 	}
 	return payload;

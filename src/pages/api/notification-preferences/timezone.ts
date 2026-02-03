@@ -61,11 +61,29 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		return jsonResponse(404, { ok: false, message: "user_not_found" });
 	}
 
-	const updatePayload = computeTimezoneUpdatePayload(
-		parsed.data.timezone,
-		dbUser,
-		logger,
-	);
+	let updatePayload: ReturnType<typeof computeTimezoneUpdatePayload>;
+	try {
+		updatePayload = computeTimezoneUpdatePayload(
+			parsed.data.timezone,
+			dbUser,
+			logger,
+		);
+	} catch (error) {
+		const errorObject =
+			error instanceof Error ? error : new Error(String(error));
+		logger.error(
+			"Failed to compute timezone update payload",
+			{
+				userId: authUser.id,
+				timezone: parsed.data.timezone,
+			},
+			errorObject,
+		);
+		return jsonResponse(500, {
+			ok: false,
+			message: "failed_to_update_timezone",
+		});
+	}
 
 	let updatedUser: User;
 	try {
