@@ -64,25 +64,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		try {
 			body = await request.json();
 		} catch (error) {
-			logger.info(
-				"Cron request rejected due to invalid JSON body",
-				{
-					action: "scheduled_notifications_job",
-					phase: "parse_request_json",
-					contentType,
-					contentLength,
-					headers: {
-						"content-type": request.headers.get("content-type"),
-						"content-length": request.headers.get("content-length"),
-						"user-agent": request.headers.get("user-agent"),
-					},
-				},
-				error,
-			);
-			return Response.json(
-				{ ok: false, message: "invalid_json" },
-				{ status: 400 },
-			);
+			logger.info("Invalid cron request body", {
+				action: "cron_body_parse",
+				reason: error instanceof Error ? error.message : String(error),
+				contentType,
+				contentLength,
+				userAgent: request.headers.get("user-agent"),
+			});
+			return new Response("Bad Request", { status: 400 });
 		}
 
 		if (body && typeof body === "object") {
