@@ -280,9 +280,13 @@ jobs:
             git fetch "$REMOTE_URL" "$HEAD_REF"
 
             if ! git rebase FETCH_HEAD; then
-              echo "##[error]Failed to rebase onto latest remote tip for $HEAD_REF."
+              echo "##[warning]Rebase onto latest tip failed for $HEAD_REF. Retrying with conflict auto-resolution."
               git rebase --abort || true
-              exit 1
+              if ! git rebase -X theirs FETCH_HEAD; then
+                echo "##[error]Failed to rebase onto latest remote tip for $HEAD_REF after auto-resolution."
+                git rebase --abort || true
+                exit 1
+              fi
             fi
 
             if git push "$REMOTE_URL" HEAD:"$HEAD_REF" 2> push-error.log; then
@@ -322,6 +326,8 @@ jobs:
           ## ❌ Cursor Agent: Checks passed but push failed
           
           The agent made changes and the pre-commit checks passed, but the workflow could not push the commit to the PR branch.
+
+          The workflow attempted a rebase retry with conflict auto-resolution (favoring agent changes) before failing.
           
           $COMMENT_REFERENCE
           
@@ -421,8 +427,13 @@ jobs:
               exit 0
             fi
 
-            THREAD_QUERY='query{node(id:"'"'"'"$NODE_ID"'"'"'"){... on PullRequestReviewComment{thread{id isResolved}}}}'
-            THREAD_JSON=$(gh api graphql -f query="$THREAD_QUERY" 2> /tmp/gh-err.txt) || { log_warning "Failed to fetch review thread for comment $COMMENT_ID. API stderr: $(cat /tmp/gh-err.txt)"; exit 0; }
+            THREAD_QUERY='query($id:ID!){node(id:$id){... on PullRequestReviewComment{thread{id isResolved}}}}'
+            {
+              echo "### Cursor Agent debug"
+              echo "- Review thread query: \`$THREAD_QUERY\`"
+              echo "- Review comment node id: \`$NODE_ID\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+            THREAD_JSON=$(gh api graphql -f query="$THREAD_QUERY" -f id="$NODE_ID" 2> /tmp/gh-err.txt) || { log_warning "Failed to fetch review thread for comment $COMMENT_ID. API stderr: $(cat /tmp/gh-err.txt)"; exit 0; }
             THREAD_ID=$(echo "$THREAD_JSON" | jq -r '.data.node.thread.id // empty')
             THREAD_RESOLVED=$(echo "$THREAD_JSON" | jq -r '.data.node.thread.isResolved // false')
 
@@ -436,8 +447,8 @@ jobs:
               exit 0
             fi
 
-            RESOLVE_MUTATION='mutation{resolveReviewThread(input:{threadId:"'"'"'"$THREAD_ID"'"'"'"}){thread{isResolved}}}'
-            if ! gh api graphql -f query="$RESOLVE_MUTATION" 2> /tmp/gh-err.txt; then
+            RESOLVE_MUTATION='mutation($threadId:ID!){resolveReviewThread(input:{threadId:$threadId}){thread{isResolved}}}'
+            if ! gh api graphql -f query="$RESOLVE_MUTATION" -f threadId="$THREAD_ID" 2> /tmp/gh-err.txt; then
               log_warning "Failed to resolve review thread for comment $COMMENT_ID. API stderr: $(cat /tmp/gh-err.txt)"
               exit 0
             fi
