@@ -487,7 +487,7 @@ jobs:
           if [[ -f agent-noop-output.txt ]] && [[ -s agent-noop-output.txt ]]; then
             # Escape for HTML inside <pre> so the comment renders safely
             ESCAPED=$(sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' agent-noop-output.txt)
-            OUTPUT_SECTION=$'\n\n<details><summary>Agent output (last 80 lines)</summary>\n\n<pre>'"$ESCAPED"'</pre>\n</details>\n'
+            OUTPUT_SECTION=$'\n\n<details><summary>Agent output (last 80 lines)</summary>\n\n<pre>'"$ESCAPED"$'</pre>\n</details>\n'
           fi
 
           WARNINGS_SECTION=""
@@ -546,7 +546,7 @@ jobs:
           if [[ -f agent-stderr.txt ]] && [[ -s agent-stderr.txt ]]; then
             STDERR_TAIL=$(tail -20 agent-stderr.txt)
             ESCAPED=$(echo "$STDERR_TAIL" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
-            STDERR_SECTION=$'\n\n<details><summary>Agent stderr (last 20 lines)</summary>\n\n<pre>'"$ESCAPED"'</pre>\n</details>\n'
+            STDERR_SECTION=$'\n\n<details><summary>Agent stderr (last 20 lines)</summary>\n\n<pre>'"$ESCAPED"$'</pre>\n</details>\n'
           fi
 
           # Create a more informative failure message
