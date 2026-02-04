@@ -1,4 +1,5 @@
 import type { Logger } from "../logging";
+import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
 import { processEmailUpdate } from "../messaging/email/delivery";
 import type { EmailSender } from "../messaging/email/utils";
 import { recordNotification } from "../messaging/shared";
@@ -165,9 +166,9 @@ export async function processScheduledUserSmsDelivery(options: {
 		smsSenderResult = getSmsSender();
 	} catch (error) {
 		stats.smsFailed++;
-		const errorMessage = error instanceof Error ? error.message : String(error);
+		const errorMessage = extractErrorMessage(error);
 		logger.error(
-			"Failed to initialize SMS sender",
+			"Failed to resolve SMS sender",
 			{
 				userId: user.id,
 				scheduledDate,
@@ -176,7 +177,7 @@ export async function processScheduledUserSmsDelivery(options: {
 				errorMessage,
 				stats,
 			},
-			error,
+			createErrorForLogging(error),
 		);
 		await updateScheduledNotificationRow({
 			supabase,
