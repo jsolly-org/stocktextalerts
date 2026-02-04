@@ -7,6 +7,7 @@ import { jsonResponse } from "../../../lib/json-response";
 import { createLogger } from "../../../lib/logging";
 import {
 	buildNotificationPreferencesUpdatePayload,
+	NotificationPreferencesValidationError,
 	parseDigestTimes,
 } from "../../../lib/notification-preferences/server-update";
 
@@ -122,6 +123,12 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 				logger,
 			});
 	} catch (error) {
+		if (error instanceof NotificationPreferencesValidationError) {
+			return jsonResponse(400, {
+				ok: false,
+				message: "digest_times_required",
+			});
+		}
 		logger.info(
 			"Notification-preferences update rejected due to invalid digest schedule",
 			{

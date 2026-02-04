@@ -4,7 +4,10 @@ import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { jsonResponse } from "../../../lib/json-response";
 import { createLogger } from "../../../lib/logging";
-import { computeTimezoneUpdatePayload } from "../../../lib/notification-preferences/server-update";
+import {
+	computeTimezoneUpdatePayload,
+	NotificationPreferencesValidationError,
+} from "../../../lib/notification-preferences/server-update";
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
@@ -69,6 +72,17 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			logger,
 		);
 	} catch (error) {
+		if (error instanceof NotificationPreferencesValidationError) {
+			logger.info("Timezone update rejected due to missing digest times", {
+				userId: authUser.id,
+				timezone: parsed.data.timezone,
+				reason: error.code,
+			});
+			return jsonResponse(400, {
+				ok: false,
+				message: "digest_times_required",
+			});
+		}
 		const errorObject =
 			error instanceof Error ? error : new Error(String(error));
 		logger.error(

@@ -8,6 +8,18 @@ export type DigestTimesParseResult =
 	| { ok: true; times: number[] }
 	| { ok: false; reason: string };
 
+export class NotificationPreferencesValidationError extends Error {
+	readonly code: "DIGEST_TIMES_REQUIRED";
+	readonly userId?: string;
+
+	constructor(message: string, options: { userId?: string }) {
+		super(message);
+		this.name = "NotificationPreferencesValidationError";
+		this.code = "DIGEST_TIMES_REQUIRED";
+		this.userId = options.userId;
+	}
+}
+
 export function parseDigestTimes(values: string[]): DigestTimesParseResult {
 	const minutes: number[] = [];
 	for (const value of values) {
@@ -40,6 +52,9 @@ export interface ParsedNotificationPreferencesForm {
 	daily_digest_notification_times?: string[];
 }
 
+// Throws NotificationPreferencesValidationError when daily digest is enabled
+// but no digest times are provided, so callers can reject the update instead of
+// persisting an unschedulable state.
 export function buildNotificationPreferencesUpdatePayload(options: {
 	parsedData: ParsedNotificationPreferencesForm;
 	formData: FormData;
@@ -136,7 +151,17 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 
 	if ((timezoneChanged || timeChanged || enabledChanged) && finalEnabled) {
 		if (!finalTimes || finalTimes.length === 0) {
-			safeNotificationPreferenceUpdates.next_send_at = null;
+			if (logger) {
+				logger.info("Daily digest enabled but no digest times provided", {
+					action: "notification_preferences_update",
+					userId: dbUser.id,
+					reason: "digest_times_missing",
+				});
+			}
+			throw new NotificationPreferencesValidationError(
+				"Daily digest is enabled but no notification times were provided",
+				{ userId: dbUser.id },
+			);
 		} else {
 			const nextSendAt = calculateNextSendAtFromTimes(
 				finalTimes,
@@ -203,6 +228,9 @@ export interface TimezoneUpdatePayload {
 	next_send_at?: string | null;
 }
 
+// Throws NotificationPreferencesValidationError when the database is in an
+// invalid state (daily digest enabled but no digest times), so callers can
+// surface the issue instead of silently clearing next_send_at.
 export function computeTimezoneUpdatePayload(
 	newTimezone: string,
 	dbUser: User,
@@ -217,7 +245,21 @@ export function computeTimezoneUpdatePayload(
 			!dbUser.daily_digest_notification_times ||
 			dbUser.daily_digest_notification_times.length === 0
 		) {
-			payload.next_send_at = null;
+			if (logger) {
+				logger.info(
+					"Timezone update rejected: daily digest enabled but no digest times exist",
+					{
+						action: "notification_preferences_timezone_update",
+						userId: dbUser.id,
+						reason: "digest_times_missing",
+						timezone: newTimezone,
+					},
+				);
+			}
+			throw new NotificationPreferencesValidationError(
+				"Daily digest is enabled but no notification times exist for this user",
+				{ userId: dbUser.id },
+			);
 		} else {
 			const nextSendAt = calculateNextSendAtFromTimes(
 				dbUser.daily_digest_notification_times,

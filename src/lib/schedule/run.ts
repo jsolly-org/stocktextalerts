@@ -8,7 +8,8 @@ import {
 	USER_PROCESS_BATCH_SIZE,
 } from "./helpers";
 import { fetchScheduledUsers } from "./run-query";
-import { createSmsSenderProvider, processScheduledUser } from "./run-user";
+import { processScheduledUser } from "./run-user";
+import { createSmsSenderProvider } from "./run-user-sms-sender";
 
 async function runScheduledNotifications(options: {
 	supabase: SupabaseAdminClient;

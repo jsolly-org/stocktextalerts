@@ -57,16 +57,40 @@ export const POST: APIRoute = async ({ request, locals }) => {
 	// Support manual sends: run-scheduled-cron.sh --force sends { force: true } so we
 	// process all digest-enabled users immediately instead of only those with next_send_at <= now.
 	let forceSend = false;
-	try {
-		const contentType = request.headers.get("content-type") ?? "";
-		if (contentType.includes("application/json")) {
-			const body = await request.json();
-			if (body && typeof body === "object" && body.force === true) {
+	const contentType = request.headers.get("content-type") ?? "";
+	const contentLength = request.headers.get("content-length");
+	if (contentType.includes("application/json") && contentLength !== "0") {
+		let body: unknown;
+		try {
+			body = await request.json();
+		} catch (error) {
+			logger.info(
+				"Cron request rejected due to invalid JSON body",
+				{
+					action: "scheduled_notifications_job",
+					phase: "parse_request_json",
+					contentType,
+					contentLength,
+					headers: {
+						"content-type": request.headers.get("content-type"),
+						"content-length": request.headers.get("content-length"),
+						"user-agent": request.headers.get("user-agent"),
+					},
+				},
+				error,
+			);
+			return Response.json(
+				{ ok: false, message: "invalid_json" },
+				{ status: 400 },
+			);
+		}
+
+		if (body && typeof body === "object") {
+			const parsed = body as { force?: unknown };
+			if (parsed.force === true) {
 				forceSend = true;
 			}
 		}
-	} catch {
-		// Ignore invalid or empty body; treat as normal run.
 	}
 
 	const supabase = createSupabaseAdminClient();

@@ -1,69 +1,22 @@
 import { DateTime } from "luxon";
 import type { Logger } from "../logging";
-import { processEmailUpdate } from "../messaging/email/delivery";
 import type { EmailSender } from "../messaging/email/utils";
 import { recordNotification } from "../messaging/shared";
 import { shouldSendSms } from "../messaging/sms";
-import { processSmsUpdate } from "../messaging/sms/delivery";
-import {
-	createSmsSender,
-	createTwilioClient,
-	readTwilioConfig,
-} from "../messaging/sms/twilio-utils";
 import type { UserRecord, UserStockRow } from "../messaging/types";
-import {
-	calculateNextSendAtFromTimes,
-	getLocalMinutesFromDateTime,
-} from "../time/digest-times";
+import { getLocalMinutesFromDateTime } from "../time/digest-times";
 import type {
 	DeliveryMethod,
 	ScheduledNotificationTotals,
 	SupabaseAdminClient,
 } from "./helpers";
+import { loadUserStocks } from "./helpers";
 import {
-	loadUserStocks,
-	logRetriesExhausted,
-	updateScheduledNotificationRow,
-} from "./helpers";
-
-interface SmsSenderResult {
-	sender: ReturnType<typeof createSmsSender> | null;
-	error?: string;
-}
-
-type SmsSenderProvider = () => SmsSenderResult;
-
-export function createSmsSenderProvider(logger: Logger): SmsSenderProvider {
-	let twilioConfig: ReturnType<typeof readTwilioConfig> | null = null;
-	let sendSms: ReturnType<typeof createSmsSender> | null = null;
-
-	return () => {
-		if (sendSms) {
-			return { sender: sendSms };
-		}
-
-		try {
-			if (!twilioConfig) {
-				twilioConfig = readTwilioConfig();
-			}
-			const twilioClient = createTwilioClient(twilioConfig);
-			sendSms = createSmsSender(twilioClient, twilioConfig.phoneNumber);
-			return { sender: sendSms };
-		} catch (error) {
-			const errorMsg = error instanceof Error ? error.message : String(error);
-			logger.error(
-				"Failed to initialize Twilio client",
-				{
-					phase: "initTwilio",
-					errorMessage: errorMsg,
-					phoneNumber: twilioConfig?.phoneNumber,
-				},
-				error,
-			);
-			return { sender: null, error: errorMsg };
-		}
-	};
-}
+	processScheduledUserEmailDelivery,
+	processScheduledUserSmsDelivery,
+} from "./run-user-delivery";
+import { updateUserNextSendAt } from "./run-user-next-send-at";
+import type { SmsSenderProvider } from "./run-user-sms-sender";
 
 function buildStocksList(userStocks: UserStockRow[]): string {
 	if (userStocks.length === 0) {
@@ -151,203 +104,41 @@ export async function processScheduledUser(options: {
 		// Process Email
 		if (user.email_notifications_enabled) {
 			attemptedDeliveryMethod = "email";
-			const { data: claimed, error: claimError } = await supabase.rpc(
-				"claim_scheduled_notification",
-				{
-					p_user_id: user.id,
-					p_notification_type: "daily_digest",
-					p_scheduled_date: scheduledDate,
-					p_scheduled_minutes: scheduledMinutes,
-					p_channel: "email",
-				},
-			);
-
-			if (claimError) {
-				logger.error(
-					"Failed to claim scheduled notification (email)",
-					{ userId: user.id },
-					claimError,
-				);
-				stats.emailsFailed++;
-			} else if (!claimed) {
-				await logRetriesExhausted({
-					supabase,
-					userId: user.id,
-					notificationType: "daily_digest",
-					scheduledDate,
-					scheduledMinutes,
-					channel: "email",
-					logger,
-				});
-				stats.skipped++;
-			} else {
-				const emailIdempotencyKey = `daily-digest/${user.id}/${scheduledDate}/${scheduledMinutes}/email`;
-				const { sent, logged, error } = await processEmailUpdate(
-					supabase,
-					user,
-					userStocks,
-					stocksList,
-					sendEmail,
-					emailIdempotencyKey,
-				);
-
-				if (sent) {
-					stats.emailsSent++;
-				} else {
-					stats.emailsFailed++;
-				}
-
-				if (!logged) {
-					stats.logFailures++;
-				}
-
-				await updateScheduledNotificationRow({
-					supabase,
-					userId: user.id,
-					notificationType: "daily_digest",
-					scheduledDate,
-					scheduledMinutes,
-					channel: "email",
-					status: sent ? "sent" : "failed",
-					error,
-					logger,
-				});
-			}
+			await processScheduledUserEmailDelivery({
+				user,
+				supabase,
+				logger,
+				scheduledDate,
+				scheduledMinutes,
+				userStocks,
+				stocksList,
+				sendEmail,
+				stats,
+			});
 		}
 
 		// Process SMS
 		if (shouldSendSms(user)) {
 			attemptedDeliveryMethod = "sms";
-			const { data: claimed, error: claimError } = await supabase.rpc(
-				"claim_scheduled_notification",
-				{
-					p_user_id: user.id,
-					p_notification_type: "daily_digest",
-					p_scheduled_date: scheduledDate,
-					p_scheduled_minutes: scheduledMinutes,
-					p_channel: "sms",
-				},
-			);
-
-			if (claimError) {
-				logger.error(
-					"Failed to claim scheduled notification (sms)",
-					{ userId: user.id },
-					claimError,
-				);
-				stats.smsFailed++;
-			} else if (!claimed) {
-				await logRetriesExhausted({
-					supabase,
-					userId: user.id,
-					notificationType: "daily_digest",
-					scheduledDate,
-					scheduledMinutes,
-					channel: "sms",
-					logger,
-				});
-				stats.skipped++;
-			} else {
-				const { sender: smsSender, error: smsError } = getSmsSender();
-				if (!smsSender) {
-					stats.smsFailed++;
-					await updateScheduledNotificationRow({
-						supabase,
-						userId: user.id,
-						notificationType: "daily_digest",
-						scheduledDate,
-						scheduledMinutes,
-						channel: "sms",
-						status: "failed",
-						error: smsError || "Twilio client not initialized",
-						logger,
-					});
-					const logged = await recordNotification(supabase, {
-						user_id: user.id,
-						type: "scheduled_update",
-						delivery_method: "sms",
-						message_delivered: false,
-						message: "SMS service unavailable",
-						error: smsError || "Twilio client not initialized",
-					});
-					if (!logged) {
-						stats.logFailures++;
-					}
-					// Continue to next_send_at calculation/update so this user
-					// doesn't get stuck retrying immediately on next cron run.
-				} else {
-					const { sent, logged, error } = await processSmsUpdate(
-						supabase,
-						user,
-						userStocks,
-						stocksList,
-						smsSender,
-					);
-
-					if (sent) {
-						stats.smsSent++;
-					} else {
-						stats.smsFailed++;
-					}
-
-					if (!logged) {
-						stats.logFailures++;
-					}
-
-					await updateScheduledNotificationRow({
-						supabase,
-						userId: user.id,
-						notificationType: "daily_digest",
-						scheduledDate,
-						scheduledMinutes,
-						channel: "sms",
-						status: sent ? "sent" : "failed",
-						error,
-						logger,
-					});
-				}
-			}
+			await processScheduledUserSmsDelivery({
+				user,
+				supabase,
+				logger,
+				scheduledDate,
+				scheduledMinutes,
+				userStocks,
+				stocksList,
+				getSmsSender,
+				stats,
+			});
 		}
 
-		// Query filters out null daily_digest_notification_times with .not()
-		const digestTimes = user.daily_digest_notification_times as number[];
-		const nextSendAt = calculateNextSendAtFromTimes(
-			digestTimes,
-			user.timezone,
+		await updateUserNextSendAt({
+			user,
+			supabase,
+			logger,
 			currentTime,
-		);
-		const nextSendAtIso = nextSendAt ? nextSendAt.toISO() : null;
-		if (nextSendAt && !nextSendAtIso) {
-			logger.error("Failed to format next_send_at ISO string", {
-				userId: user.id,
-				timezone: user.timezone,
-			});
-		}
-		if (!nextSendAt) {
-			logger.warn("calculateNextSendAtFromTimes returned null", {
-				userId: user.id,
-				daily_digest_notification_times: user.daily_digest_notification_times,
-				timezone: user.timezone,
-			});
-		}
-
-		const { error: updateError } = await supabase
-			.from("users")
-			.update({ next_send_at: nextSendAtIso })
-			.eq("id", user.id);
-
-		if (updateError) {
-			logger.error(
-				nextSendAtIso
-					? "Failed to update users.next_send_at"
-					: "Failed to clear users.next_send_at",
-				{
-					userId: user.id,
-					nextSendAt: nextSendAtIso ?? undefined,
-				},
-				updateError,
-			);
-		}
+		});
 
 		return stats;
 	} catch (error) {

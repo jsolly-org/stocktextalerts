@@ -139,6 +139,8 @@ export const MESSAGE_ALLOWLIST = {
 	sms_notifications_disabled: "SMS notifications are disabled.",
 	notifications_not_configured:
 		"Enable at least one notification channel to send a daily digest.",
+	digest_times_required:
+		"Choose at least one daily digest time (or disable daily digests).",
 	user_not_found: "User not found",
 	delete_failed: "Failed to delete account. Please try again.",
 	delete_partial:
