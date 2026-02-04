@@ -166,6 +166,18 @@ export async function processScheduledUserSmsDelivery(options: {
 	} catch (error) {
 		stats.smsFailed++;
 		const errorMessage = error instanceof Error ? error.message : String(error);
+		logger.error(
+			"Failed to initialize SMS sender",
+			{
+				userId: user.id,
+				scheduledDate,
+				scheduledMinutes,
+				channel: "sms",
+				errorMessage,
+				stats,
+			},
+			error,
+		);
 		await updateScheduledNotificationRow({
 			supabase,
 			userId: user.id,
