@@ -1,4 +1,3 @@
-import type { Logger } from "../logging";
 import {
 	createSmsSender,
 	createTwilioClient,
@@ -6,40 +5,26 @@ import {
 } from "../messaging/sms/twilio-utils";
 
 interface SmsSenderResult {
-	sender: ReturnType<typeof createSmsSender> | null;
-	error?: string;
+	sender: ReturnType<typeof createSmsSender>;
 }
 
 export type SmsSenderProvider = () => SmsSenderResult;
 
-export function createSmsSenderProvider(logger: Logger): SmsSenderProvider {
+export function createSmsSenderProvider(): SmsSenderProvider {
 	let twilioConfig: ReturnType<typeof readTwilioConfig> | null = null;
 	let sendSms: ReturnType<typeof createSmsSender> | null = null;
 
 	return () => {
+		// Cache config/sender to avoid per-user Twilio init during scheduler runs.
 		if (sendSms) {
 			return { sender: sendSms };
 		}
 
-		try {
-			if (!twilioConfig) {
-				twilioConfig = readTwilioConfig();
-			}
-			const twilioClient = createTwilioClient(twilioConfig);
-			sendSms = createSmsSender(twilioClient, twilioConfig.phoneNumber);
-			return { sender: sendSms };
-		} catch (error) {
-			const errorMsg = error instanceof Error ? error.message : String(error);
-			logger.error(
-				"Failed to initialize Twilio client",
-				{
-					phase: "initTwilio",
-					errorMessage: errorMsg,
-					phoneNumber: twilioConfig?.phoneNumber,
-				},
-				error,
-			);
-			return { sender: null, error: errorMsg };
+		if (!twilioConfig) {
+			twilioConfig = readTwilioConfig();
 		}
+		const twilioClient = createTwilioClient(twilioConfig);
+		sendSms = createSmsSender(twilioClient, twilioConfig.phoneNumber);
+		return { sender: sendSms };
 	};
 }

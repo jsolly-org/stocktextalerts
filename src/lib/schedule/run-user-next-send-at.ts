@@ -50,5 +50,6 @@ export async function updateUserNextSendAt(options: {
 			},
 			updateError,
 		);
+		throw updateError;
 	}
 }

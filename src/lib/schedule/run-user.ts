@@ -149,7 +149,7 @@ export async function processScheduledUser(options: {
 			const deliveryMethod: DeliveryMethod =
 				attemptedDeliveryMethod ??
 				(user.email_notifications_enabled ? "email" : "sms");
-			await recordNotification(supabase, {
+			const logged = await recordNotification(supabase, {
 				user_id: user.id,
 				type: "scheduled_update",
 				delivery_method: deliveryMethod,
@@ -157,6 +157,9 @@ export async function processScheduledUser(options: {
 				message: "Error processing notification",
 				error: error instanceof Error ? error.message : String(error),
 			});
+			if (!logged) {
+				stats.logFailures++;
+			}
 		} catch (logError) {
 			logger.error(
 				"Failed to record notification for user",

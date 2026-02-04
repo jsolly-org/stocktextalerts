@@ -31,7 +31,7 @@ async function runScheduledNotifications(options: {
 		currentTimeIso,
 	});
 
-	const getSmsSender = createSmsSenderProvider(logger);
+	const getSmsSender = createSmsSenderProvider();
 
 	const results: ScheduledNotificationTotals[] = [];
 	for (let index = 0; index < users.length; index += USER_PROCESS_BATCH_SIZE) {

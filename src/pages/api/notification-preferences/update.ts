@@ -129,7 +129,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 				message: "digest_times_required",
 			});
 		}
-		logger.info(
+		logger.error(
 			"Notification-preferences update rejected due to invalid digest schedule",
 			{
 				userId: user.id,

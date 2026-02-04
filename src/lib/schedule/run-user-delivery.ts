@@ -1,7 +1,6 @@
 import type { Logger } from "../logging";
 import { processEmailUpdate } from "../messaging/email/delivery";
 import type { EmailSender } from "../messaging/email/utils";
-import { recordNotification } from "../messaging/shared";
 import { processSmsUpdate } from "../messaging/sms/delivery";
 import type { UserRecord, UserStockRow } from "../messaging/types";
 import type {
@@ -160,9 +159,12 @@ export async function processScheduledUserSmsDelivery(options: {
 		return;
 	}
 
-	const { sender: smsSender, error: smsError } = getSmsSender();
-	if (!smsSender) {
+	let smsSenderResult: ReturnType<SmsSenderProvider>;
+	try {
+		smsSenderResult = getSmsSender();
+	} catch (error) {
 		stats.smsFailed++;
+		const errorMessage = error instanceof Error ? error.message : String(error);
 		await updateScheduledNotificationRow({
 			supabase,
 			userId: user.id,
@@ -171,22 +173,12 @@ export async function processScheduledUserSmsDelivery(options: {
 			scheduledMinutes,
 			channel: "sms",
 			status: "failed",
-			error: smsError || "Twilio client not initialized",
+			error: errorMessage,
 			logger,
 		});
-		const logged = await recordNotification(supabase, {
-			user_id: user.id,
-			type: "scheduled_update",
-			delivery_method: "sms",
-			message_delivered: false,
-			message: "SMS service unavailable",
-			error: smsError || "Twilio client not initialized",
-		});
-		if (!logged) {
-			stats.logFailures++;
-		}
-		return;
+		throw error;
 	}
+	const smsSender = smsSenderResult.sender;
 
 	const { sent, logged, error } = await processSmsUpdate(
 		supabase,
