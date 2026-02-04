@@ -156,10 +156,12 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 					action: "notification_preferences_update",
 					userId: dbUser.id,
 					reason: "digest_times_missing",
+					finalTimezone,
+					finalTimes,
 				});
 			}
 			throw new NotificationPreferencesValidationError(
-				"Daily digest is enabled but no notification times were provided",
+				`Invalid digest schedule: daily digest enabled but no notification times provided for timezone ${finalTimezone}`,
 				{ userId: dbUser.id },
 			);
 		} else {
