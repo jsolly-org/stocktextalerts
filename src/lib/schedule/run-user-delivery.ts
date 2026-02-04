@@ -1,6 +1,7 @@
 import type { Logger } from "../logging";
 import { processEmailUpdate } from "../messaging/email/delivery";
 import type { EmailSender } from "../messaging/email/utils";
+import { recordNotification } from "../messaging/shared";
 import { processSmsUpdate } from "../messaging/sms/delivery";
 import type { UserRecord, UserStockRow } from "../messaging/types";
 import type {
@@ -176,7 +177,20 @@ export async function processScheduledUserSmsDelivery(options: {
 			error: errorMessage,
 			logger,
 		});
-		throw error;
+
+		const logged = await recordNotification(supabase, {
+			user_id: user.id,
+			type: "scheduled_update",
+			delivery_method: "sms",
+			message_delivered: false,
+			message: "SMS service unavailable",
+			error: errorMessage,
+		});
+		if (!logged) {
+			stats.logFailures++;
+		}
+
+		return;
 	}
 	const smsSender = smsSenderResult.sender;
 
