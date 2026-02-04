@@ -248,8 +248,8 @@ export function computeTimezoneUpdatePayload(
 			dbUser.daily_digest_notification_times.length === 0
 		) {
 			if (logger) {
-				logger.info(
-					"Timezone update rejected: daily digest enabled but no digest times exist",
+				logger.warn(
+					"Digest enabled without notification times on timezone change",
 					{
 						action: "notification_preferences_timezone_update",
 						userId: dbUser.id,
@@ -259,7 +259,7 @@ export function computeTimezoneUpdatePayload(
 				);
 			}
 			throw new NotificationPreferencesValidationError(
-				"Daily digest is enabled but no notification times exist for this user",
+				`Invalid digest schedule: daily digest enabled but no notification times exist for timezone ${newTimezone}`,
 				{ userId: dbUser.id },
 			);
 		} else {
