@@ -280,9 +280,13 @@ jobs:
             git fetch "$REMOTE_URL" "$HEAD_REF"
 
             if ! git rebase FETCH_HEAD; then
-              echo "##[error]Failed to rebase onto latest remote tip for $HEAD_REF."
+              echo "##[warning]Rebase onto latest tip failed for $HEAD_REF. Retrying with conflict auto-resolution."
               git rebase --abort || true
-              exit 1
+              if ! git rebase -X theirs FETCH_HEAD; then
+                echo "##[error]Failed to rebase onto latest remote tip for $HEAD_REF after auto-resolution."
+                git rebase --abort || true
+                exit 1
+              fi
             fi
 
             if git push "$REMOTE_URL" HEAD:"$HEAD_REF" 2> push-error.log; then
@@ -322,6 +326,8 @@ jobs:
           ## ❌ Cursor Agent: Checks passed but push failed
           
           The agent made changes and the pre-commit checks passed, but the workflow could not push the commit to the PR branch.
+
+          The workflow attempted a rebase retry with conflict auto-resolution (favoring agent changes) before failing.
           
           $COMMENT_REFERENCE
           
