@@ -152,7 +152,7 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 					});
 				}
 				throw new Error(
-					`Failed to compute next_send_at for digest schedule: ${JSON.stringify(
+					`Invalid digest schedule: unable to compute next_send_at with ${JSON.stringify(
 						{
 							finalTimes,
 							finalTimezone,
@@ -177,13 +177,15 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 					);
 				}
 				throw new Error(
-					`Failed to format next_send_at for digest schedule: ${JSON.stringify({
-						finalTimes,
-						finalTimezone,
-						nextSendAt: nextSendAt.toString(),
-						nextSendAtIsValid: nextSendAt.isValid,
-						nextSendAtInvalidReason: nextSendAt.invalidReason,
-					})}`,
+					`Invalid digest schedule: unable to format next_send_at with ${JSON.stringify(
+						{
+							finalTimes,
+							finalTimezone,
+							nextSendAt: nextSendAt.toString(),
+							nextSendAtIsValid: nextSendAt.isValid,
+							nextSendAtInvalidReason: nextSendAt.invalidReason,
+						},
+					)}`,
 				);
 			}
 
@@ -239,6 +241,7 @@ export function computeTimezoneUpdatePayload(
 							userId: dbUser.id,
 							timezone: newTimezone,
 							timesCount: dbUser.daily_digest_notification_times.length,
+							nextSendAt: "null",
 						},
 					)}`,
 				);

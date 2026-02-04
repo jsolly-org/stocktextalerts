@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import type { APIRoute } from "astro";
 import { createSupabaseAdminClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
@@ -33,28 +33,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
 	const cronSecret = authHeader.split("Bearer ")[1];
 	let authorized = false;
 
-	if (cronSecret.length !== envCronSecret.length) {
-		logger.info("Unauthorized cron request", {
-			action: "cron_auth",
-			reason: "cron_secret_length_mismatch",
-		});
-		return new Response("Unauthorized", { status: 401 });
-	}
-
-	if (cronSecret.length === envCronSecret.length) {
-		try {
-			authorized = timingSafeEqual(
-				Buffer.from(cronSecret),
-				Buffer.from(envCronSecret),
-			);
-		} catch (error) {
-			logger.error(
-				"Failed to compare cron secrets securely",
-				{ action: "compare_cron_secret" },
-				error,
-			);
-			return new Response("Internal server error", { status: 500 });
-		}
+	try {
+		const suppliedSecret = createHash("sha256").update(cronSecret).digest();
+		const expectedSecret = createHash("sha256").update(envCronSecret).digest();
+		authorized = timingSafeEqual(suppliedSecret, expectedSecret);
+	} catch (error) {
+		logger.error(
+			"Failed to compare cron secrets securely",
+			{ action: "compare_cron_secret" },
+			error,
+		);
+		return new Response("Internal server error", { status: 500 });
 	}
 
 	if (!authorized) {
