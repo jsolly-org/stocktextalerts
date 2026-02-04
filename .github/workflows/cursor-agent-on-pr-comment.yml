@@ -427,15 +427,15 @@ jobs:
               exit 0
             fi
 
-            THREAD_QUERY='query($id:ID!){node(id:$id){... on PullRequestReviewComment{thread{id isResolved}}}}'
+            THREAD_QUERY='query($id:ID!){node(id:$id){... on PullRequestReviewComment{pullRequestReviewThread{id isResolved}}}}'
             {
               echo "### Cursor Agent debug"
               echo "- Review thread query: \`$THREAD_QUERY\`"
               echo "- Review comment node id: \`$NODE_ID\`"
             } >> "$GITHUB_STEP_SUMMARY"
             THREAD_JSON=$(gh api graphql -f query="$THREAD_QUERY" -f id="$NODE_ID" 2> /tmp/gh-err.txt) || { log_warning "Failed to fetch review thread for comment $COMMENT_ID. API stderr: $(cat /tmp/gh-err.txt)"; exit 0; }
-            THREAD_ID=$(echo "$THREAD_JSON" | jq -r '.data.node.thread.id // empty')
-            THREAD_RESOLVED=$(echo "$THREAD_JSON" | jq -r '.data.node.thread.isResolved // false')
+            THREAD_ID=$(echo "$THREAD_JSON" | jq -r '.data.node.pullRequestReviewThread.id // empty')
+            THREAD_RESOLVED=$(echo "$THREAD_JSON" | jq -r '.data.node.pullRequestReviewThread.isResolved // false')
 
             if [[ -z "$THREAD_ID" ]]; then
               log_warning "Could not resolve review thread for comment $COMMENT_ID (missing thread id). GraphQL response: $THREAD_JSON"
