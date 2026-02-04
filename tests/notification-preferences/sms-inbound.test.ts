@@ -173,6 +173,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 			expect(response.status).toBe(200);
 			const body = await response.text();
+			expect(body).toContain("cannot re-enable SMS notifications");
 			expect(body).toContain("visit your dashboard");
 
 			const { data: updated } = await adminClient

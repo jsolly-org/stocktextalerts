@@ -243,7 +243,7 @@ export async function handleInboundSms(
 		return {
 			status: 200,
 			body: wrapInTwiml(
-				`To re-enable SMS notifications, visit your dashboard: ${dashboardUrl}.`,
+				`You cannot re-enable SMS notifications by replying START. To re-enable, visit your dashboard: ${dashboardUrl}.`,
 			),
 			contentType: "text/xml",
 		};
