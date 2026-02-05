@@ -33,7 +33,7 @@
 	},
 	"dependencies": {
 		"@astrojs/vercel": "^9.0.4",
-		"@supabase/supabase-js": "^2.94.0",
+		"@supabase/supabase-js": "^2.94.1",
 		"@vuepic/vue-datepicker": "^12.1.0",
 		"@vueuse/core": "^14.2.0",
 		"astro-icon": "^1.1.5",
@@ -41,7 +41,7 @@
 		"libphonenumber-js": "^1.12.36",
 		"luxon": "^3.7.2",
 		"resend": "^6.9.1",
-		"twilio": "^5.12.0",
+		"twilio": "^5.12.1",
 		"vue": "^3.5.27"
 	},
 	"devDependencies": {
@@ -58,7 +58,7 @@
 		"husky": "^9.1.7",
 		"lint-staged": "^16.2.7",
 		"pg": "^8.18.0",
-		"supabase": "^2.75.3",
+		"supabase": "^2.75.4",
 		"tailwindcss": "^4.1.18",
 		"tsx": "^4.21.0",
 		"typescript": "^5.9.3",
