@@ -1,6 +1,8 @@
 {
   "name": "StockTextAlerts",
   "short_name": "STA",
+  "start_url": "/",
+  "scope": "/",
   "icons": [
     {
       "src": "/favicons/android-chrome-192x192.png",

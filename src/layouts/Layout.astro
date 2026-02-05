@@ -81,7 +81,7 @@ const omitManifestOnVercel =
     <meta property="twitter:image" content={socialImageURL} />
 
     {jsonLd && (
-      <script type="application/ld+json" set:html={JSON.stringify(Array.isArray(jsonLd) ? jsonLd : [jsonLd])} />
+      <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
     )}
   </head>
   <body>
