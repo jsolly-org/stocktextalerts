@@ -1,0 +1,95 @@
+---
+import Footer from '../components/landing/Footer.astro';
+import Navigation from '../components/Navigation.astro';
+import Layout from '../layouts/Layout.astro';
+
+const faqs = [
+	{
+		question: "What is StockTextAlerts?",
+		answer: "StockTextAlerts is a free service that sends you a daily digest of the US stocks you choose to track. You receive a concise summary of price changes delivered via email, SMS, or both."
+	},
+	{
+		question: "How does the daily stock digest work?",
+		answer: "Once you create an account and pick the stock tickers you want to follow, we compile a daily digest with the latest price data for each one. The digest is sent at the time you choose, in your preferred timezone."
+	},
+	{
+		question: "What stocks can I track?",
+		answer: "You can track any US-listed stock. Our database includes thousands of tickers from the NYSE and NASDAQ. Simply search by ticker symbol or company name in your dashboard."
+	},
+	{
+		question: "Is StockTextAlerts free?",
+		answer: "Yes. Creating an account, tracking stocks, and receiving daily email digests are completely free. SMS delivery is also available at no extra cost."
+	},
+	{
+		question: "How do I get stock alerts by text message?",
+		answer: "After signing up, go to your dashboard and enable SMS as a notification channel. Add your phone number, verify it, and your daily digest will be sent as a text message in addition to (or instead of) email."
+	},
+	{
+		question: "When are digests sent?",
+		answer: "You choose the delivery time and timezone from your dashboard. Most users set their digest to arrive before the market opens or after it closes, but you can pick any time that works for you."
+	},
+	{
+		question: "What information is included in the digest?",
+		answer: "Each digest shows the ticker symbol, current price, and daily percentage change for every stock you track. It's designed to be a quick, at-a-glance summary you can read in seconds."
+	},
+	{
+		question: "Do I need to install an app?",
+		answer: "No. StockTextAlerts works entirely through email and SMS. There is nothing to download or install. Manage your settings through our website and receive your digest in your inbox or messaging app."
+	},
+	{
+		question: "How do I add or remove stocks from my watchlist?",
+		answer: "Log in and visit your dashboard. Use the stock search to find tickers and add them to your list. To remove a stock, click the remove button next to its name."
+	},
+	{
+		question: "Is StockTextAlerts investment advice?",
+		answer: "No. StockTextAlerts is an informational service only. The data we provide should not be treated as investment advice. Always consult a qualified financial advisor before making investment decisions."
+	},
+];
+
+const siteUrl = Astro.site?.href ?? Astro.url.origin;
+const jsonLd = {
+	"@context": "https://schema.org",
+	"@type": "FAQPage",
+	"mainEntity": faqs.map(faq => ({
+		"@type": "Question",
+		"name": faq.question,
+		"acceptedAnswer": {
+			"@type": "Answer",
+			"text": faq.answer,
+		},
+	})),
+};
+---
+
+<Layout
+  title="FAQ | Stock Text Alerts"
+  description="Frequently asked questions about StockTextAlerts. Learn how the daily stock digest works, what stocks you can track, how to get alerts by text message, and more."
+  jsonLd={jsonLd}
+>
+  <div class="min-h-screen bg-white">
+    <header>
+      <Navigation />
+    </header>
+    <main id="main-content" class="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+      <h1 class="text-4xl font-bold mb-4">Frequently Asked Questions</h1>
+      <p class="text-lg text-gray-600 mb-10">Everything you need to know about tracking stocks and receiving your daily digest.</p>
+
+      <div class="space-y-8">
+        {faqs.map((faq) => (
+          <section class="border-b border-gray-200 pb-8">
+            <h2 class="text-xl font-semibold text-gray-900 mb-3">{faq.question}</h2>
+            <p class="text-gray-600 leading-relaxed">{faq.answer}</p>
+          </section>
+        ))}
+      </div>
+
+      <div class="mt-12 bg-gray-50 rounded-lg p-6 sm:p-8 border border-gray-200">
+        <h2 class="text-xl font-semibold text-gray-900 mb-2">Still have questions?</h2>
+        <p class="text-gray-600">
+          Reach out to us at <a href="mailto:support@stocktextalerts.com" class="link-primary">support@stocktextalerts.com</a> and we'll get back to you.
+        </p>
+      </div>
+    </main>
+    <Footer />
+  </div>
+</Layout>

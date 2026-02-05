@@ -3,8 +3,9 @@ import "../global.css";
 interface Props {
 	title: string;
 	description: string;
+	jsonLd?: Record<string, unknown> | Record<string, unknown>[];
 }
-const { title, description }: Props = Astro.props;
+const { title, description, jsonLd }: Props = Astro.props;
 // Astro.site may be undefined when using AstroContainer (container-based tests),
 // even if 'site' is configured in vitest.config.ts. Without this fallback,
 // new URL(Astro.url.pathname, undefined) would throw a TypeError.
@@ -78,6 +79,10 @@ const omitManifestOnVercel =
     <meta property="twitter:title" content={title} />
     <meta property="twitter:description" content={description} />
     <meta property="twitter:image" content={socialImageURL} />
+
+    {jsonLd && (
+      <script type="application/ld+json" set:html={JSON.stringify(Array.isArray(jsonLd) ? jsonLd : [jsonLd])} />
+    )}
   </head>
   <body>
     <a

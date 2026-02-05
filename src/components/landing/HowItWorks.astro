@@ -1,0 +1,55 @@
+---
+import { Icon } from "astro-icon/components";
+
+const steps = [
+  {
+    number: "1",
+    icon: "user-circle" as const,
+    title: "Create a free account",
+    description: "Sign up with your email in under a minute. No credit card required.",
+  },
+  {
+    number: "2",
+    icon: "chart-bar" as const,
+    title: "Pick your stocks",
+    description: "Search thousands of US-listed tickers and add them to your watchlist.",
+  },
+  {
+    number: "3",
+    icon: "clock" as const,
+    title: "Set your schedule",
+    description: "Choose when you want your digest delivered and in which timezone.",
+  },
+  {
+    number: "4",
+    icon: "envelope" as const,
+    title: "Get your daily digest",
+    description: "Receive a concise summary via email, SMS, or both at the time you picked.",
+  },
+];
+---
+<section class="py-20 bg-white" aria-labelledby="how-it-works-heading">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <header class="text-center">
+      <h2 id="how-it-works-heading" class="text-3xl leading-10 font-extrabold tracking-tight text-gray-900 sm:text-4xl md:text-5xl">
+        Daily stock alerts via email and SMS in four steps
+      </h2>
+      <p class="mt-6 max-w-2xl text-xl text-gray-500 mx-auto lg:text-2xl lg:leading-relaxed">
+        No apps to install. No noise. Just the stock data you need, delivered on your schedule.
+      </p>
+    </header>
+
+    <ol class="mt-16 grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
+      {steps.map((step) => (
+        <li class="relative text-center group">
+          <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 text-primary mb-5 transition-all duration-300 group-hover:bg-primary group-hover:text-white group-hover:shadow-lg">
+            <Icon name={step.icon} class="h-7 w-7" />
+          </div>
+          <span class="inline-block text-sm font-bold text-primary uppercase tracking-wide mb-2" aria-hidden="true">Step {step.number}</span>
+          <h3 class="text-lg font-semibold text-gray-900 mb-2">{step.title}</h3>
+          <p class="text-gray-500 leading-relaxed">{step.description}</p>
+        </li>
+      ))}
+    </ol>
+  </div>
+</section>
