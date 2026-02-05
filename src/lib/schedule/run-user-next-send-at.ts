@@ -50,6 +50,7 @@ export async function updateUserNextSendAt(options: {
 			},
 			updateError,
 		);
-		throw updateError;
+		// Do not throw: delivery may have already succeeded. Caller would otherwise
+		// treat this as a full failure (stats.skipped, message_delivered: false).
 	}
 }

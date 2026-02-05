@@ -60,6 +60,8 @@ export default defineConfig({
 					"/dashboard",
 					"/email/unsubscribe",
 					"/profile",
+					"/404",
+					"/500",
 				];
 				return !excludedPrefixes.some(
 					(p) => pathname === p || pathname.startsWith(`${p}/`),

@@ -1,75 +1,83 @@
 ---
+import Footer from '../components/landing/Footer.astro';
+import Navigation from '../components/Navigation.astro';
 import Layout from '../layouts/Layout.astro';
 ---
 
 <Layout
-  title="Privacy Policy - StockTextAlerts"
-  description="Read the StockTextAlerts privacy policy."
+  title="Privacy Policy | Stock Text Alerts"
+  description="Learn how StockTextAlerts collects, uses, and protects your personal information including email, phone number, and usage data for stock alert services."
 >
-  <div class="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
-    <h1 class="text-4xl font-bold mb-8">Privacy Policy</h1>
-    
-    <div class="prose prose-sm max-w-none space-y-6">
-      <section>
-        <h2 class="text-2xl font-semibold mb-4">Introduction</h2>
-        <p>StockTextAlerts ("we," "us," "our," or "Company") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website and use our services.</p>
-      </section>
+  <div class="min-h-screen bg-white">
+    <header>
+      <Navigation />
+    </header>
+    <main id="main-content" class="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+      <h1 class="text-4xl font-bold mb-8">Privacy Policy</h1>
 
-      <section>
-        <h2 class="text-2xl font-semibold mb-4">Information We Collect</h2>
-        <p>We may collect information about you in a variety of ways. The information we may collect on the site includes:</p>
-        <ul class="list-disc ml-6 space-y-2">
-          <li><strong>Personal Data:</strong> Email address, phone number, and other information you voluntarily provide when registering for an account</li>
-          <li><strong>Device Information:</strong> Information about your device, including IP address, browser type, and operating system</li>
-          <li><strong>Usage Data:</strong> Information about how you interact with our service, including the features you use and settings you configure</li>
-        </ul>
-      </section>
+      <div class="prose prose-sm max-w-none space-y-6">
+        <section>
+          <h2 class="text-2xl font-semibold mb-4">Introduction</h2>
+          <p>StockTextAlerts ("we," "us," "our," or "Company") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website and use our services.</p>
+        </section>
 
-      <section>
-        <h2 class="text-2xl font-semibold mb-4">How We Use Your Information</h2>
-        <p>StockTextAlerts uses the collected information for various purposes:</p>
-        <ul class="list-disc ml-6 space-y-2">
-          <li>To provide, maintain, and improve our services</li>
-          <li>To send you stock alerts and notifications via SMS or email</li>
-          <li>To communicate with you regarding updates, support, and account information</li>
-          <li>To enforce our terms and conditions and protect against fraudulent activity</li>
-          <li>To comply with legal obligations</li>
-        </ul>
-      </section>
+        <section>
+          <h2 class="text-2xl font-semibold mb-4">Information We Collect</h2>
+          <p>We may collect information about you in a variety of ways. The information we may collect on the site includes:</p>
+          <ul class="list-disc ml-6 space-y-2">
+            <li><strong>Personal Data:</strong> Email address, phone number, and other information you voluntarily provide when registering for an account</li>
+            <li><strong>Device Information:</strong> Information about your device, including IP address, browser type, and operating system</li>
+            <li><strong>Usage Data:</strong> Information about how you interact with our service, including the features you use and settings you configure</li>
+          </ul>
+        </section>
 
-      <section>
-        <h2 class="text-2xl font-semibold mb-4">SMS Communications</h2>
-        <p>When you opt-in to receive SMS notifications, you consent to receive text messages from StockTextAlerts. Standard message and data rates may apply. You can opt-out of SMS communications at any time by adjusting your notification channels in your account settings.</p>
-      </section>
+        <section>
+          <h2 class="text-2xl font-semibold mb-4">How We Use Your Information</h2>
+          <p>StockTextAlerts uses the collected information for various purposes:</p>
+          <ul class="list-disc ml-6 space-y-2">
+            <li>To provide, maintain, and improve our services</li>
+            <li>To send you stock alerts and notifications via SMS or email</li>
+            <li>To communicate with you regarding updates, support, and account information</li>
+            <li>To enforce our terms and conditions and protect against fraudulent activity</li>
+            <li>To comply with legal obligations</li>
+          </ul>
+        </section>
 
-      <section>
-        <h2 class="text-2xl font-semibold mb-4">Data Security</h2>
-        <p>We implement appropriate technical and organizational measures designed to protect your personal information against unauthorized access, alteration, disclosure, or destruction. However, no method of transmission over the internet or electronic storage is 100% secure.</p>
-      </section>
+        <section>
+          <h2 class="text-2xl font-semibold mb-4">SMS Communications</h2>
+          <p>When you opt-in to receive SMS notifications, you consent to receive text messages from StockTextAlerts. Standard message and data rates may apply. You can opt-out of SMS communications at any time by adjusting your notification channels in your account settings.</p>
+        </section>
 
-      <section>
-        <h2 class="text-2xl font-semibold mb-4">Third-Party Services</h2>
-        <p>We may use third-party service providers to assist us in operating our website and conducting our business. These third parties may have access to your personal information to perform tasks on our behalf, but they are obligated to maintain the confidentiality of your information.</p>
-      </section>
+        <section>
+          <h2 class="text-2xl font-semibold mb-4">Data Security</h2>
+          <p>We implement appropriate technical and organizational measures designed to protect your personal information against unauthorized access, alteration, disclosure, or destruction. However, no method of transmission over the internet or electronic storage is 100% secure.</p>
+        </section>
 
-      <section>
-        <h2 class="text-2xl font-semibold mb-4">Your Rights</h2>
-        <p>Depending on your location, you may have certain rights regarding your personal information, including the right to access, correct, update, or delete your data. To exercise these rights, please contact us at the address provided below.</p>
-      </section>
+        <section>
+          <h2 class="text-2xl font-semibold mb-4">Third-Party Services</h2>
+          <p>We may use third-party service providers to assist us in operating our website and conducting our business. These third parties may have access to your personal information to perform tasks on our behalf, but they are obligated to maintain the confidentiality of your information.</p>
+        </section>
 
-      <section>
-        <h2 class="text-2xl font-semibold mb-4">Changes to This Privacy Policy</h2>
-        <p>We may update this Privacy Policy from time to time to reflect changes in our practices or for other operational, legal, or regulatory reasons. We will notify you of any material changes by updating the date of this policy and posting the updated policy on our website.</p>
-      </section>
+        <section>
+          <h2 class="text-2xl font-semibold mb-4">Your Rights</h2>
+          <p>Depending on your location, you may have certain rights regarding your personal information, including the right to access, correct, update, or delete your data. To exercise these rights, please contact us at the address provided below.</p>
+        </section>
 
-      <section>
-        <h2 class="text-2xl font-semibold mb-4">Contact Us</h2>
-        <p>If you have questions about this Privacy Policy or our privacy practices, please contact us.</p>
-      </section>
-    </div>
+        <section>
+          <h2 class="text-2xl font-semibold mb-4">Changes to This Privacy Policy</h2>
+          <p>We may update this Privacy Policy from time to time to reflect changes in our practices or for other operational, legal, or regulatory reasons. We will notify you of any material changes by updating the date of this policy and posting the updated policy on our website.</p>
+        </section>
 
-    <div class="mt-12 text-sm text-gray-500">
-      <p>Last updated: {new Date().toLocaleDateString()}</p>
-    </div>
+        <section>
+          <h2 class="text-2xl font-semibold mb-4">Contact Us</h2>
+          <p>If you have questions about this Privacy Policy or our privacy practices, please contact us.</p>
+        </section>
+      </div>
+
+      <div class="mt-12 text-sm text-gray-500">
+        <p>Last updated: {new Date().toLocaleDateString()}</p>
+      </div>
+    </main>
+    <Footer />
   </div>
 </Layout>
