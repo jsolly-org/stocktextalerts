@@ -41,10 +41,20 @@ async function runScheduledNotifications(options: {
 	let marketOpen = false;
 	if (users.length > 0) {
 		const userIds = users.map((u) => u.id);
-		const { data: allUserStocks } = await supabase
+		const { data: allUserStocks, error } = await supabase
 			.from("user_stocks")
 			.select("symbol")
 			.in("user_id", userIds);
+
+		if (error) {
+			logger.error(
+				"Failed to load user_stocks for scheduled notification price batching",
+				{ userIdsCount: userIds.length },
+				error,
+			);
+			throw error;
+		}
+
 		const uniqueSymbols = [
 			...new Set((allUserStocks ?? []).map((s) => s.symbol)),
 		];
