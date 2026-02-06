@@ -41,18 +41,21 @@ async function runScheduledNotifications(options: {
 	let marketOpen = false;
 	if (users.length > 0) {
 		const userIds = users.map((u) => u.id);
-		const { data: allUserStocks, error } = await supabase
+		const { data: allUserStocks, error: userStocksError } = await supabase
 			.from("user_stocks")
 			.select("symbol")
 			.in("user_id", userIds);
 
-		if (error) {
+		if (userStocksError) {
 			logger.error(
-				"Failed to load user_stocks for scheduled notification price batching",
-				{ userIdsCount: userIds.length },
-				error,
+				"Failed to load user stocks for scheduled notifications",
+				{
+					action: "scheduled_notifications_run",
+					userIdsCount: userIds.length,
+				},
+				userStocksError,
 			);
-			throw error;
+			throw userStocksError;
 		}
 
 		const uniqueSymbols = [
