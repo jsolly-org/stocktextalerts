@@ -25,6 +25,10 @@ async function fetchStockQuote(
 		}
 		const data: unknown = await response.json();
 		if (typeof data !== "object" || data === null) {
+			rootLogger.error("Unexpected Finnhub quote payload", {
+				symbol,
+				payload: data,
+			});
 			return null;
 		}
 
@@ -35,6 +39,10 @@ async function fetchStockQuote(
 			typeof dp !== "number" ||
 			!Number.isFinite(dp)
 		) {
+			rootLogger.error("Unexpected Finnhub quote payload", {
+				symbol,
+				payload: data,
+			});
 			return null;
 		}
 
