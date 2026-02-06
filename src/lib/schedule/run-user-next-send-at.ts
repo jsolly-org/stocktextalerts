@@ -4,9 +4,7 @@ import type { UserRecord } from "../messaging/types";
 import { calculateNextSendAtFromTimes } from "../time/scheduled-times";
 import type { SupabaseAdminClient } from "./helpers";
 
-/*
-Recompute and persist the user's `next_send_at` based on their scheduled times and timezone.
-*/
+/* Recompute and persist the user's `next_send_at` based on their scheduled times and timezone. */
 export async function updateUserNextSendAt(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
