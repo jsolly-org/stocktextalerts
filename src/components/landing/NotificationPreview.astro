@@ -78,7 +78,7 @@ import phoneFrame from "../../assets/phone-frame.svg";
     bottom: 40px;
     border-radius: 28px;
     overflow: hidden;
-    background-color: #f8fafc;
+    background-color: var(--color-slate-50);
   }
 
   .messages-scroll {
@@ -116,14 +116,14 @@ import phoneFrame from "../../assets/phone-frame.svg";
 
   .message-bubble.sent {
     margin-left: auto;
-    background-color: #3b82f6;
+    background-color: var(--color-blue-500);
     color: white;
     border-radius: 0.5rem 0.5rem 0 0.5rem;
   }
 
   .message-bubble.received {
-    background-color: #f1f5f9;
-    color: #1e293b;
+    background-color: var(--color-slate-100);
+    color: var(--color-slate-800);
     border-radius: 0.5rem 0.5rem 0.5rem 0;
   }
 
@@ -193,7 +193,7 @@ import phoneFrame from "../../assets/phone-frame.svg";
 
         setTimeout(() => {
           message.style.display = 'block';
-          void message.offsetWidth; // reflow
+          void message.offsetWidth; // Force reflow so CSS animation triggers after display change
           message.classList.add('visible');
 
           setTimeout(() => {
@@ -231,10 +231,6 @@ import phoneFrame from "../../assets/phone-frame.svg";
     );
 
     observer.observe(container);
-
-    if (container.getBoundingClientRect().top < window.innerHeight) {
-      animateMessages();
-    }
   }
 
   document.addEventListener('DOMContentLoaded', () => {

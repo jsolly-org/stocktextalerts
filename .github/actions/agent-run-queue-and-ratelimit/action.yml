@@ -125,6 +125,9 @@ runs:
           # Try the pull_requests field first (works for pull_request-triggered runs)
           if echo "$RUN" | jq -e --arg pr "$PR_NUMBER" '(.pull_requests // []) | any(.number == ($pr|tonumber))' > /dev/null 2>&1; then
             COUNT=$((COUNT + 1))
+            if [[ "$COUNT" -ge 60 ]]; then
+              break
+            fi
             continue
           fi
 
@@ -134,6 +137,9 @@ runs:
 
           if gh api "repos/$REPO/commits/$HEAD_SHA/pulls" 2>/dev/null | jq -e --arg pr "$PR_NUMBER" 'any(.number == ($pr|tonumber))' > /dev/null 2>&1; then
             COUNT=$((COUNT + 1))
+            if [[ "$COUNT" -ge 60 ]]; then
+              break
+            fi
           fi
         done
 
