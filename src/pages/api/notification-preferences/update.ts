@@ -122,6 +122,10 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			});
 	} catch (error) {
 		if (error instanceof NotificationPreferencesValidationError) {
+			logger.info(
+				"Notification-preferences update rejected due to missing scheduled update times",
+				{ userId: user.id, reason: "missing_scheduled_update_times" },
+			);
 			return jsonResponse(400, {
 				ok: false,
 				message: "update_times_required",

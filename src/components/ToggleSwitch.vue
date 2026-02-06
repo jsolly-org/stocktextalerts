@@ -35,6 +35,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<(event: "update:modelValue", value: boolean) => void>();
 
 function toggle() {
-	emit("update:modelValue", !props.modelValue);
+	const nextValue = !props.modelValue;
+	emit("update:modelValue", nextValue);
 }
 </script>

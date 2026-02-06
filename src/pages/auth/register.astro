@@ -159,6 +159,7 @@ if (error === "user_already_exists") {
 import { DEFAULT_TIMEZONE } from "../../lib/constants";
 	import { setupDetectedTimezoneOption } from "../../lib/time/detected-timezone";
 
+	// Ensure register form preselects a detected timezone even before user profile exists.
 	setupDetectedTimezoneOption({ defaultTimezone: DEFAULT_TIMEZONE });
 </script>
 

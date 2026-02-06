@@ -132,7 +132,7 @@ watch(userProp, (newUser) => {
 
 const isEditingPhone = ref(false);
 
-// --- Auto-save composable ---
+/* ============= Auto-save composable ============= */
 const notificationPreferencesFormElement = ref<HTMLFormElement | null>(null);
 const {
 	handleFormChange,
@@ -147,7 +147,7 @@ const {
 	formRef: notificationPreferencesFormElement,
 });
 
-// --- Flash messages ---
+/* ============= Flash messages ============= */
 const flashMessages = ref<FlashMessage[]>([]);
 const smsSuccessMessage = ref<string | null>(null);
 
@@ -178,7 +178,7 @@ function setFlashMessage(tone: FlashTone, messageKey: string) {
 	}
 }
 
-// --- SMS verification ---
+/* ============= SMS verification ============= */
 async function handleNotificationPreferencesUpdated() {
 	const notificationPreferences = await fetchCurrentNotificationPreferences();
 	if (notificationPreferences) {
@@ -202,7 +202,7 @@ async function handleFormSubmitWrapper(event: SubmitEvent) {
 	await handleFormSubmit(event);
 }
 
-// --- Channel state ---
+/* ============= Channel state ============= */
 const sendVerificationDisabled = ref(true);
 const emailNotificationsEnabledId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-email_notifications_enabled`;
 const smsNotificationsEnabledId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-sms_notifications_enabled`;
@@ -280,7 +280,7 @@ function scrollToScheduled() {
 	}
 }
 
-// --- Pending SMS changes ---
+/* ============= Pending SMS changes ============= */
 usePendingSmsChanges({
 	userId: computed(() => localUser.value.id),
 	smsEnabled,

@@ -80,6 +80,15 @@ const emailEnabled = ref(user.value.email_notifications_enabled);
 const smsEnabled = ref(user.value.sms_notifications_enabled);
 const phoneVerified = computed(() => user.value.phone_verified);
 
+watch(
+	user,
+	(newUser) => {
+		emailEnabled.value = newUser.email_notifications_enabled;
+		smsEnabled.value = newUser.sms_notifications_enabled;
+	},
+	{ deep: true },
+);
+
 function handleUserUpdated(updates: Partial<User>) {
 	user.value = { ...user.value, ...updates };
 }

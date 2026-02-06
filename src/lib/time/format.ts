@@ -12,9 +12,6 @@ export {
 	formatTimezone,
 } from "./format-countdown";
 
-/**
- * Convert a Luxon DateTime to an ISO string or throw with a useful error.
- */
 export function toIsoOrThrow(
 	dateTime: DateTime,
 	errorMessage = "Failed to format ISO string",
@@ -26,9 +23,6 @@ export function toIsoOrThrow(
 	return iso;
 }
 
-/**
- * Parse an `HH:mm` string into minutes since midnight (0..1439).
- */
 export function parseTimeToMinutes(value: string): number | null {
 	const parts = value.split(":");
 	if (parts.length !== 2) {
@@ -52,9 +46,6 @@ export function parseTimeToMinutes(value: string): number | null {
 	return hours * 60 + minutes;
 }
 
-/**
- * Parse a time string (`HH:mm` or `HH:mm:ss`) into numeric parts.
- */
 export function parseTimeString(
 	value: string | null | undefined,
 ): ParsedTime | null {
@@ -104,9 +95,6 @@ export function parseTimeString(
 	return { hours, minutes, seconds };
 }
 
-/**
- * Convert minutes since midnight into a `HH:mm` value suitable for `<input type="time">`.
- */
 export function minutesToTimeInputValue(minutes: number): string {
 	const clamped = Math.max(0, Math.min(1439, Math.floor(minutes)));
 	const hours = Math.floor(clamped / 60);
@@ -114,9 +102,6 @@ export function minutesToTimeInputValue(minutes: number): string {
 	return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
 }
 
-/**
- * Format a time value object into a normalized `HH:mm` string.
- */
 export function formatTimeValue(value: TimeValue): string {
 	const hours =
 		typeof value.hours === "string"
@@ -135,18 +120,12 @@ export function formatTimeValue(value: TimeValue): string {
 	return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-/**
- * Detect whether the runtime locale uses a 24-hour hour cycle.
- */
 export function resolveIs24(): boolean {
 	const formatter = new Intl.DateTimeFormat(undefined, { hour: "numeric" });
 	const options = formatter.resolvedOptions();
 	return options.hourCycle === "h23" || options.hourCycle === "h24";
 }
 
-/**
- * Render the current time in a user's timezone (for UI display).
- */
 export function getNowInTimezone(timezone: string): string | null {
 	const now = DateTime.now().setZone(timezone);
 	if (!now.isValid) {
@@ -156,10 +135,6 @@ export function getNowInTimezone(timezone: string): string | null {
 	return now.toLocaleString(DateTime.TIME_WITH_SECONDS);
 }
 
-/**
- * Compute seconds until the next scheduled send based on either `next_send_at`
- * or the current set of selected delivery times.
- */
 export function getSecondsUntilNextSend(options: {
 	timezone: string;
 	nextSendAtIso?: string | null;
@@ -240,9 +215,6 @@ export function getSecondsUntilNextSend(options: {
 	return null;
 }
 
-/**
- * Format a `next_send_at` timestamp (UTC ISO) for display in a user's timezone.
- */
 export function formatNextSendDateTime(
 	nextSendAtIso: string,
 	timezone: string,
