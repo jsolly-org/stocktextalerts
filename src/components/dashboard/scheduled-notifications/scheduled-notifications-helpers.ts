@@ -10,7 +10,7 @@ import {
 	formatCountdownWithSeconds,
 	getNowInTimezone,
 	getSecondsUntilNextSend,
-} from "../../../../lib/time/format";
+} from "../../../lib/time/format";
 
 /**
  * Keep live "current time" and "next send" countdown labels updated on the schedule panel.

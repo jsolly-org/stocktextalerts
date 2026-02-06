@@ -1,90 +1,124 @@
 <template>
-	<section class="card mb-6">
-		<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.success}`"></div>
-		<div class="card-body">
-			<header class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-				<div class="min-w-0">
-					<h2
-						:id="DASHBOARD_SECTION_IDS.scheduled"
-						class="text-xl sm:text-2xl font-bold text-gray-900"
-					>
-						Scheduled Notifications
-					</h2>
-					<p class="text-sm text-gray-600 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-						<span class="inline-flex items-center gap-1.5">
-							<ClockIcon class="size-4 shrink-0 text-gray-500" aria-hidden="true" />
-							<span class="text-gray-700">
-								Local time:
-								<span class="font-medium text-gray-900">
-									{{ currentTimeInTimezone ?? "—" }}
+	<form
+		ref="scheduledFormElement"
+		:id="DASHBOARD_SCHEDULED_FORM_ID"
+		method="POST"
+		action="/api/notification-preferences/update"
+		class="space-y-6"
+		aria-label="Scheduled notifications"
+		:aria-busy="isSaving"
+		@input="handleFormInput"
+		@change="handleFormChange"
+		@submit="handleFormSubmit"
+	>
+		<section class="card relative mb-6">
+			<Transition
+				enter-active-class="transition-opacity duration-150"
+				enter-from-class="opacity-0"
+				enter-to-class="opacity-100"
+				leave-active-class="transition-opacity duration-150"
+				leave-from-class="opacity-100"
+				leave-to-class="opacity-0"
+			>
+				<div
+					v-if="statusMessage"
+					class="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium z-10 border"
+					:class="STATUS_TONE_CLASSES[statusTone]"
+					role="status"
+					aria-live="polite"
+					:aria-busy="isSaving"
+					:data-tone="statusTone"
+				>
+					<ArrowPathIcon
+						v-show="isSaving"
+						class="animate-spin size-3 shrink-0"
+						aria-hidden="true"
+					/>
+					{{ statusMessage }}
+				</div>
+			</Transition>
+
+			<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.success}`"></div>
+			<div class="card-body">
+				<header class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+					<div class="min-w-0">
+						<h2
+							:id="DASHBOARD_SECTION_IDS.scheduled"
+							class="text-xl sm:text-2xl font-bold text-gray-900"
+						>
+							Scheduled Notifications
+						</h2>
+						<p class="text-sm text-gray-600 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+							<span class="inline-flex items-center gap-1.5">
+								<ClockIcon class="size-4 shrink-0 text-gray-500" aria-hidden="true" />
+								<span class="text-gray-700">
+									Local time:
+									<span class="font-medium text-gray-900">
+										{{ currentTimeInTimezone ?? "—" }}
+									</span>
 								</span>
 							</span>
-						</span>
-						<a
-							href="/profile"
-							class="inline-flex items-center gap-1 link-primary rounded-sm"
-							aria-label="Change timezone in profile settings"
-						>
-							Change timezone
-							<ArrowTopRightOnSquareIcon class="size-3.5 shrink-0" aria-hidden="true" />
-						</a>
-					</p>
-				</div>
-			</header>
+							<a
+								href="/profile"
+								class="inline-flex items-center gap-1 link-primary rounded-sm"
+								aria-label="Change timezone in profile settings"
+							>
+								Change timezone
+								<ArrowTopRightOnSquareIcon class="size-3.5 shrink-0" aria-hidden="true" />
+							</a>
+						</p>
+					</div>
+				</header>
 
-			<div v-if="flashMessages.length" class="space-y-2 mt-4">
-				<StatusMessage
-					v-for="(flash, index) in flashMessages"
-					:key="index"
-					:tone="flash.tone"
+				<ScheduledUpdateControls
+					:enabled="scheduledUpdatesEnabled"
+					:scheduledUpdateTimes="scheduledUpdateTimes"
+					:needsChannelSelection="needsChannelSelection"
+					:timePickerDisabled="timePickerDisabled"
+					:canAddTime="canAddTime"
+					:countdownText="countdownText"
+					@update:enabled="handleScheduledUpdatesEnabledUpdate"
+					@time-change="handleTimeChange"
+					@add-time="handleAddTime"
+					@remove-time="handleRemoveTime"
 				>
-					{{ flash.message }}
-				</StatusMessage>
+					<template #setup>
+						<SetupRequiredNotice
+							:needsChannelSelection="needsChannelSelection"
+							:needsPhoneVerification="needsPhoneVerification"
+							:phoneVerificationSectionId="phoneVerificationSectionId"
+						/>
+					</template>
+				</ScheduledUpdateControls>
 			</div>
-
-			<ScheduledUpdateControls
-				:enabled="scheduledUpdatesEnabled"
-				:scheduledUpdateTimes="scheduledUpdateTimes"
-				:needsChannelSelection="needsChannelSelection"
-				:timePickerDisabled="timePickerDisabled"
-				:canAddTime="canAddTime"
-				:countdownText="countdownText"
-				@update:enabled="handleScheduledUpdatesEnabledUpdate"
-				@time-change="handleTimeChange"
-				@add-time="handleAddTime"
-				@remove-time="handleRemoveTime"
-			>
-				<template #setup>
-					<SetupRequiredNotice
-						:needsChannelSelection="needsChannelSelection"
-						:needsPhoneVerification="needsPhoneVerification"
-						:phoneVerificationSectionId="phoneVerificationSectionId"
-					/>
-				</template>
-			</ScheduledUpdateControls>
-		</div>
-	</section>
+		</section>
+	</form>
 
 </template>
 
 <script lang="ts" setup>
 import { computed, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
-import ArrowTopRightOnSquareIcon from "../../../../icons/arrow-top-right-on-square.svg?component";
-import ClockIcon from "../../../../icons/clock.svg?component";
+import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
+import ArrowTopRightOnSquareIcon from "../../../icons/arrow-top-right-on-square.svg?component";
+import ClockIcon from "../../../icons/clock.svg?component";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
+	DASHBOARD_SCHEDULED_FORM_ID,
 	DASHBOARD_SECTION_IDS,
 	DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES,
-	type FlashMessage,
-} from "../../../../lib/constants";
-import type { User } from "../../../../lib/db";
+	STATUS_TONE_CLASSES,
+} from "../../../lib/constants";
+import type { User } from "../../../lib/db";
 import {
 	minutesToTimeInputValue,
 	parseTimeToMinutes,
-} from "../../../../lib/time/format";
-import StatusMessage from "../../../StatusMessage.vue";
+} from "../../../lib/time/format";
+import {
+	type NotificationPreferencesData,
+	useAutoSaveForm,
+} from "../composables/useAutoSaveNotificationPreferences";
 import ScheduledUpdateControls from "./ScheduledUpdateControls.vue";
 import SetupRequiredNotice from "./SetupRequiredNotice.vue";
 import { useScheduledUpdateTiming } from "./scheduled-notifications-helpers";
@@ -94,24 +128,31 @@ interface Props {
 	emailEnabled: boolean;
 	smsEnabled: boolean;
 	phoneVerified: boolean;
-	onFormChanged?: () => void;
-	flashMessages?: FlashMessage[];
-	savedNotificationPreferences?: {
-		next_send_at: string | null;
-	} | null;
 }
 
-const props = withDefaults(defineProps<Props>(), {
-	flashMessages: () => [],
-});
+const props = defineProps<Props>();
 const {
 	user,
 	emailEnabled,
 	smsEnabled,
 	phoneVerified,
-	onFormChanged,
-	flashMessages,
 } = toRefs(props);
+
+const emit = defineEmits<(event: "user-updated", updates: Partial<User>) => void>();
+
+const scheduledFormElement = ref<HTMLFormElement | null>(null);
+const {
+	handleFormChange,
+	handleFormInput,
+	handleFormSubmit,
+	isSaving,
+	notifyChange,
+	savedData: savedScheduledData,
+	statusMessage,
+	statusTone,
+} = useAutoSaveForm<NotificationPreferencesData>({
+	formRef: scheduledFormElement,
+});
 
 const scheduledUpdatesEnabled = ref(user.value.scheduled_updates_enabled);
 
@@ -194,14 +235,14 @@ watch(
 				scheduledUpdateTimesMinutes.value = [DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES];
 			}
 			scheduledUpdatesEnabled.value = true;
-			onFormChanged.value?.();
+			notifyChange();
 		}
 	},
 );
 
 const nextSendAt = computed(
 	() =>
-		props.savedNotificationPreferences?.next_send_at ??
+		savedScheduledData.value?.next_send_at ??
 			props.user.next_send_at ??
 			null,
 );
@@ -218,9 +259,23 @@ watch(scheduledUpdatesEnabled, () => {
 	}
 });
 
+// Emit user-updated when auto-save response arrives with scheduled fields
+watch(
+	() => savedScheduledData.value,
+	(newData) => {
+		if (newData) {
+			emit("user-updated", {
+				scheduled_updates_enabled: newData.scheduled_updates_enabled,
+				scheduled_update_times: newData.scheduled_update_times,
+				next_send_at: newData.next_send_at,
+			});
+		}
+	},
+);
+
 function handleScheduledUpdatesEnabledUpdate(value: boolean) {
 	scheduledUpdatesEnabled.value = value;
-	onFormChanged.value?.();
+	notifyChange();
 }
 
 function handleTimeChange(index: number, value: string) {
@@ -231,7 +286,7 @@ function handleTimeChange(index: number, value: string) {
 	const updated = [...scheduledUpdateTimesMinutes.value];
 	updated[index] = parsedMinutes;
 	scheduledUpdateTimesMinutes.value = normalizeScheduledTimes(updated);
-	onFormChanged.value?.();
+	notifyChange();
 }
 
 function handleAddTime() {
@@ -249,7 +304,7 @@ function handleAddTime() {
 		...baseTimes,
 		nextMinutes,
 	]);
-	onFormChanged.value?.();
+	notifyChange();
 }
 
 function handleRemoveTime(index: number) {
@@ -259,6 +314,6 @@ function handleRemoveTime(index: number) {
 	const updated = [...scheduledUpdateTimesMinutes.value];
 	updated.splice(index, 1);
 	scheduledUpdateTimesMinutes.value = normalizeScheduledTimes(updated);
-	onFormChanged.value?.();
+	notifyChange();
 }
 </script>

@@ -11,6 +11,7 @@ export const DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID =
 	"dashboard-notification-preferences-save-status";
 export const DASHBOARD_STOCKS_FORM_ID = "dashboard-stocks-form";
 export const DASHBOARD_STOCKS_STATUS_ID = "dashboard-stocks-save-status";
+export const DASHBOARD_SCHEDULED_FORM_ID = "dashboard-scheduled-form";
 export const DASHBOARD_FORMAT_PREFERENCES_FORM_ID =
 	"dashboard-format-preferences-form";
 export const DASHBOARD_FORMAT_PREFERENCES_STATUS_ID =
@@ -36,6 +37,7 @@ export const STATUS_TONE_CLASSES: Record<StatusTone, string> = {
 Time Defaults
 ============= */
 
+/** Must match: users.timezone DEFAULT in initial_schema.sql */
 export const DEFAULT_TIMEZONE = "America/New_York";
 export const DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES = 9 * 60; // 9:00 AM local time (minutes since local midnight)
 

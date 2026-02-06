@@ -105,8 +105,8 @@
 import { computed, onMounted, ref } from "vue";
 
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
-import BellAlertIcon from "../../../../icons/bell-alert.svg?component";
-import PlusIcon from "../../../../icons/plus.svg?component";
+import BellAlertIcon from "../../../icons/bell-alert.svg?component";
+import PlusIcon from "../../../icons/plus.svg?component";
 import TimePicker from "./TimePicker.vue";
 
 interface Props {

@@ -29,7 +29,7 @@ import {
 	formatTimeValue,
 	parseTimeString,
 	resolveIs24,
-} from "../../../../lib/time/format";
+} from "../../../lib/time/format";
 
 type TimeModel = {
 	hours: number | string;
