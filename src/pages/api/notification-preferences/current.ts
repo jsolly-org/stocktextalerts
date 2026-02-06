@@ -3,6 +3,7 @@ import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 
+/* Read the authenticated user's current notification preferences snapshot. */
 export const GET: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({
@@ -46,8 +47,8 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 				sms_notifications_enabled: dbUser.sms_notifications_enabled,
 				phone_verified: dbUser.phone_verified,
 				timezone: dbUser.timezone,
-				daily_digest_enabled: dbUser.daily_digest_enabled,
-				daily_digest_notification_times: dbUser.daily_digest_notification_times,
+				scheduled_updates_enabled: dbUser.scheduled_updates_enabled,
+				scheduled_update_times: dbUser.scheduled_update_times,
 				next_send_at: dbUser.next_send_at,
 				dismiss_timezone_mismatch_prompts:
 					dbUser.dismiss_timezone_mismatch_prompts,

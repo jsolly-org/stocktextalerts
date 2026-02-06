@@ -20,7 +20,7 @@ const search = Astro.url.searchParams;
 const errorMessage = formatMessage(search.get("error"));
 const successMessage = formatMessage(search.get("success"));
 
-const siteUrl = Astro.site?.href ?? Astro.url.origin;
+const siteUrl = (Astro.site?.href ?? Astro.url.origin).replace(/\/$/, "");
 const jsonLd = [
 	{
 		"@context": "https://schema.org",
@@ -34,11 +34,11 @@ const jsonLd = [
 		"name": "StockTextAlerts",
 		"url": siteUrl,
 		"logo": `${siteUrl}/favicons/android-chrome-512x512.png`,
-		"description": "Get a daily digest for your tracked stocks via email and optional SMS. Track US stocks, set your preferred time and timezone.",
+		"description": "Get scheduled updates for your tracked stocks via email and optional SMS. Track US stocks, set your preferred time and timezone.",
 	},
 ];
 ---
-<Layout title="Stock Text Alerts | Daily Stock Digest via Email & SMS" description="Get a daily digest for your tracked stocks via email and optional SMS. Track US stocks, set your preferred time and timezone." jsonLd={jsonLd}>
+<Layout title="Stock Text Alerts | Stock Updates via Email & SMS" description="Get scheduled updates for your tracked stocks via email and optional SMS. Track US stocks, set your preferred time and timezone." jsonLd={jsonLd}>
   <div class="min-h-screen bg-white">
     <header>
       <Navigation user={user || undefined} />

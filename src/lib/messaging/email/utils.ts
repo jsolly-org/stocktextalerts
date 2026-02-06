@@ -3,17 +3,14 @@ import { DASHBOARD_SECTION_HASHES } from "../../constants";
 import { getSiteUrl } from "../../db/env";
 import { rootLogger } from "../../logging";
 import type { StockPriceMap } from "../../price-fetcher";
-import type { DeliveryResult, EmailUser, UserStockRow } from "../types";
+import { escapeHtml, formatStocksHtmlList } from "../stock-formatting";
+import type {
+	DeliveryResult,
+	EmailUser,
+	FormatPreferences,
+	UserStockRow,
+} from "../types";
 import { createEmailUnsubscribeUrl } from "./email-unsubscribe";
-
-function escapeHtml(value: string): string {
-	return value
-		.replaceAll("&", "&amp;")
-		.replaceAll("<", "&lt;")
-		.replaceAll(">", "&gt;")
-		.replaceAll('"', "&quot;")
-		.replaceAll("'", "&#39;");
-}
 
 export interface EmailRequest {
 	to: string;
@@ -112,6 +109,7 @@ export function formatEmailMessage(
 	stocksList: string,
 	priceMap: StockPriceMap,
 	marketOpen: boolean,
+	formatPrefs: FormatPreferences,
 ): { text: string; html: string } {
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const escapedDashboardUrl = escapeHtml(dashboardUrl);
@@ -167,22 +165,11 @@ export function formatEmailMessage(
 		? ""
 		: "\nPrices as of last market close.";
 	const text = `Your tracked stocks:\n${stocksList}${marketDisclaimer}${textFooter}`;
-	const escapedStocksListHtml = userStocks
-		.map((stock) => {
-			const stockInfo = escapeHtml(`${stock.symbol} - ${stock.name}`);
-			const price = priceMap.get(stock.symbol);
-			if (price) {
-				const sign = price.changePercent >= 0 ? "+" : "";
-				const color = price.changePercent >= 0 ? "#16a34a" : "#dc2626";
-				const priceStr = escapeHtml(`$${price.price.toFixed(2)}`);
-				const changeStr = escapeHtml(
-					`(${sign}${price.changePercent.toFixed(2)}%)`,
-				);
-				return `${stockInfo} &mdash; ${priceStr} <span style="color: ${color};">${changeStr}</span>`;
-			}
-			return stockInfo;
-		})
-		.join("<br>");
+	const escapedStocksListHtml = formatStocksHtmlList(
+		userStocks,
+		(symbol) => priceMap.get(symbol) ?? undefined,
+		formatPrefs,
+	);
 	const marketDisclaimerHtml = marketOpen
 		? ""
 		: '<p style="color: #6b7280; font-size: 12px; font-style: italic; margin-top: 8px; margin-bottom: 0;">Prices as of last market close.</p>';

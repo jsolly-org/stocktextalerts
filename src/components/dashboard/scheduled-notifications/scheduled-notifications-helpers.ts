@@ -10,11 +10,12 @@ import {
 	formatCountdownWithSeconds,
 	getNowInTimezone,
 	getSecondsUntilNextSend,
-} from "../../../../lib/time/format";
+} from "../../../lib/time/format";
 
-export function useScheduledDigestTiming(options: {
+// Defers time-dependent rendering until after mount to avoid hydration mismatches.
+export function useScheduledUpdateTiming(options: {
 	timezone: ComputedRef<string>;
-	dailyDigestEnabled: Ref<boolean>;
+	scheduledUpdatesEnabled: Ref<boolean>;
 	nextSendAtIso: ComputedRef<string | null>;
 	timeInputs: ComputedRef<string[]>;
 }) {
@@ -37,7 +38,6 @@ export function useScheduledDigestTiming(options: {
 		intervalId.value = null;
 	});
 
-	// Defer live time/countdown until after mount so server and client initial render match (avoids hydration mismatch).
 	const currentTimeInTimezone = computed(() => {
 		if (!hasMounted.value) {
 			return null;
@@ -52,7 +52,7 @@ export function useScheduledDigestTiming(options: {
 			return null;
 		}
 		void tick.value;
-		if (!options.dailyDigestEnabled.value) {
+		if (!options.scheduledUpdatesEnabled.value) {
 			return null;
 		}
 		const tz = options.timezone.value;

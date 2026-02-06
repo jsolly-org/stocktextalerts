@@ -11,6 +11,9 @@ export const DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID =
 	"dashboard-notification-preferences-save-status";
 export const DASHBOARD_STOCKS_FORM_ID = "dashboard-stocks-form";
 export const DASHBOARD_STOCKS_STATUS_ID = "dashboard-stocks-save-status";
+export const DASHBOARD_SCHEDULED_FORM_ID = "dashboard-scheduled-form";
+export const DASHBOARD_FORMAT_PREFERENCES_FORM_ID =
+	"dashboard-format-preferences-form";
 
 /* =============
 Status Message Colors
@@ -32,8 +35,9 @@ export const STATUS_TONE_CLASSES: Record<StatusTone, string> = {
 Time Defaults
 ============= */
 
+/** Must match: users.timezone DEFAULT in initial_schema.sql */
 export const DEFAULT_TIMEZONE = "America/New_York";
-export const DEFAULT_DAILY_DIGEST_TIME_MINUTES = 9 * 60; // 9:00 AM UTC
+export const DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES = 9 * 60; // 9:00 AM local time (minutes since local midnight)
 
 /* =============
 SMS Verification Timing
@@ -73,6 +77,7 @@ export const DASHBOARD_SECTION_IDS = {
 	notificationChannels: "notification-channels",
 	stocks: "tracked-stocks",
 	scheduled: "scheduled-notifications",
+	preview: "notification-preview",
 } as const;
 
 export type DashboardSection = keyof typeof DASHBOARD_SECTION_IDS;
@@ -81,6 +86,7 @@ export const DASHBOARD_SECTION_HASHES: Record<DashboardSection, string> = {
 	notificationChannels: `#${DASHBOARD_SECTION_IDS.notificationChannels}`,
 	stocks: `#${DASHBOARD_SECTION_IDS.stocks}`,
 	scheduled: `#${DASHBOARD_SECTION_IDS.scheduled}`,
+	preview: `#${DASHBOARD_SECTION_IDS.preview}`,
 };
 
 /* =============
@@ -145,9 +151,9 @@ export const MESSAGE_ALLOWLIST = {
 	phone_not_set: "Add a phone number before verifying.",
 	sms_notifications_disabled: "SMS notifications are disabled.",
 	notifications_not_configured:
-		"Enable at least one notification channel to send a daily digest.",
-	digest_times_required:
-		"Choose at least one daily digest time (or disable daily digests).",
+		"Enable at least one notification channel to send updates.",
+	update_times_required:
+		"Choose at least one delivery time (or disable scheduled updates).",
 	user_not_found: "User not found",
 	delete_failed: "Failed to delete account. Please try again.",
 	delete_partial:

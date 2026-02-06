@@ -1,13 +1,18 @@
 import { DateTime } from "luxon";
 import type { Logger } from "../logging";
-import { calculateNextSendAtFromTimes } from "../time/digest-times";
 import { parseTimeToMinutes } from "../time/format";
+import { calculateNextSendAtFromTimes } from "../time/scheduled-times";
 
-export type DigestTimesParseResult =
+export type ScheduledTimesParseResult =
 	| { ok: true; times: number[] }
 	| { ok: false; reason: string };
 
-export function parseDigestTimes(values: string[]): DigestTimesParseResult {
+/**
+ * Parse scheduled update time strings (HH:mm) into sorted unique minute offsets.
+ */
+export function parseScheduledTimes(
+	values: string[],
+): ScheduledTimesParseResult {
 	const minutes: number[] = [];
 	for (const value of values) {
 		const parsed = parseTimeToMinutes(value);
@@ -24,6 +29,9 @@ export function parseDigestTimes(values: string[]): DigestTimesParseResult {
 	return { ok: true, times: unique };
 }
 
+/**
+ * Serialize minute offsets for DB storage / change detection.
+ */
 export function serializeTimes(times: number[] | null | undefined): string {
 	if (!times || times.length === 0) {
 		return "";
@@ -31,6 +39,10 @@ export function serializeTimes(times: number[] | null | undefined): string {
 	return [...times].sort((a, b) => a - b).join(",");
 }
 
+/**
+ * Compute the next `next_send_at` timestamp (UTC ISO string) from scheduled times.
+ * Throws when the schedule cannot produce a valid next occurrence.
+ */
 export function computeNextSendAtIso(
 	times: number[],
 	timezone: string,

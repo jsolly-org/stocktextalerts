@@ -6,8 +6,8 @@ This file captures test-specific rules and guidance for this repo. Tests use the
 - **Happy path coverage only**: Focus on success paths and essential validation; avoid exhaustive edge-case coverage that increases maintenance cost. Exceptions: security tests may keep negative-path cases when they validate rejection of invalid input (e.g. `tests/security/forgot-password-security.test.ts` describe "A user requests a password reset email from the forgot password form." / it "The request is rejected when the form is incomplete.").
 
 ## Mocking
+- **Integration over isolation**: Prefer integration tests that use real dependencies. Only mock external services that consume paid API allocations (e.g., Resend, Twilio, Finnhub). Everything else — including local Supabase/Postgres — should be real.
 - **Do not mock Supabase**: Do not use `vi.mock()` (or similar) on `src/lib/db/supabase` or Supabase client modules. Route tests through the real Supabase client and seeded data using existing helpers (e.g. `createTestUser`, `adminClient`, `shared-utils`).
-- **Stub outbound notifications only**: To avoid sending real email or SMS in tests, stub only the outbound send methods (e.g. Resend `sendEmail`, Twilio send). Keep SDK modules real; stub at the narrowest point that prevents delivery.
 - **Shared stubs**: Consolidate reusable notification stubs in `tests/shared-utils.ts` and reset between tests so mocks stay minimal and consistent.
 
 ## Assertions

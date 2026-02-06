@@ -13,3 +13,4 @@ export { getRealStockSymbols, getStockData } from "./stock-data";
 /* ============= Test user & env ============= */
 export { adminClient, createAuthenticatedCookies } from "./test-env";
 export { cleanupTestUser, createTestEmail, createTestUser } from "./test-user";
+export { registerTestUserForCleanup } from "./test-user-cleanup";

@@ -1,16 +1,57 @@
-import { DateTime } from "luxon";
+import { DateTime, Duration } from "luxon";
 import {
 	calculateNextSendAt,
 	calculateNextSendAtFromTimes,
-} from "./digest-times";
+} from "./scheduled-times";
 import type { ParsedTime, TimeValue } from "./types";
 
-export {
-	formatArrivalTime,
-	formatCountdownWithSeconds,
-	formatTimeRemaining,
-	formatTimezone,
-} from "./format-countdown";
+export function formatTimeRemaining(secondsUntil: number): string {
+	const safeSeconds = Math.max(secondsUntil, 0);
+	const duration = Duration.fromObject({ seconds: safeSeconds });
+	if (safeSeconds < 60) {
+		return duration.toHuman();
+	}
+
+	const { hours, minutes } = duration
+		.shiftTo("hours", "minutes")
+		.normalize()
+		.toObject();
+	const safeHours = Math.trunc(hours ?? 0);
+	const safeMinutes = Math.trunc(minutes ?? 0);
+
+	if (safeHours > 0 && safeMinutes > 0) {
+		return Duration.fromObject({
+			hours: safeHours,
+			minutes: safeMinutes,
+		}).toHuman({
+			listStyle: "long",
+		});
+	}
+
+	if (safeHours > 0) {
+		return Duration.fromObject({ hours: safeHours }).toHuman();
+	}
+
+	return Duration.fromObject({ minutes: safeMinutes }).toHuman();
+}
+
+export function formatCountdownWithSeconds(secondsUntil: number): string {
+	const safeSeconds = Math.max(secondsUntil, 0);
+	const duration = Duration.fromObject({ seconds: safeSeconds });
+	const {
+		hours = 0,
+		minutes = 0,
+		seconds = 0,
+	} = duration.shiftTo("hours", "minutes", "seconds").normalize().toObject();
+	const h = Math.trunc(hours);
+	const m = Math.trunc(minutes);
+	const s = Math.trunc(seconds);
+	const parts: string[] = [];
+	if (h > 0) parts.push(`${h} ${h === 1 ? "hour" : "hours"}`);
+	if (m > 0) parts.push(`${m} ${m === 1 ? "minute" : "minutes"}`);
+	parts.push(`${s} ${s === 1 ? "second" : "seconds"}`);
+	return parts.join(", ");
+}
 
 export function toIsoOrThrow(
 	dateTime: DateTime,
@@ -158,7 +199,7 @@ export function getSecondsUntilNextSend(options: {
 		if (Number.isFinite(diffSeconds) && diffSeconds > 0) {
 			return diffSeconds;
 		}
-		// next_send_at is in the past (e.g. digest just sent); fall back to
+		// next_send_at is in the past (e.g. update just sent); fall back to
 		// delivery times so the UI can show countdown to the next occurrence.
 	}
 
@@ -213,15 +254,4 @@ export function getSecondsUntilNextSend(options: {
 	}
 
 	return null;
-}
-
-export function formatNextSendDateTime(
-	nextSendAtIso: string,
-	timezone: string,
-): string {
-	const dt = DateTime.fromISO(nextSendAtIso, { zone: "utc" }).setZone(timezone);
-	if (!dt.isValid) {
-		return "";
-	}
-	return dt.toFormat("MMMM d 'at' HH:mm:ss");
 }

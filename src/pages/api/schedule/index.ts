@@ -4,6 +4,10 @@ import { createSupabaseAdminClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 import { runScheduledNotifications } from "../../../lib/schedule/run";
 
+/*
+ * Vercel cron entrypoint. Validates `CRON_SECRET` and triggers scheduled deliveries.
+ * Accepts `{ "force": true }` to run a manual send regardless of `next_send_at`.
+ */
 export const POST: APIRoute = async ({ request, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({
@@ -55,7 +59,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 	}
 
 	// Support manual sends: run-scheduled-cron.sh --force sends { force: true } so we
-	// process all digest-enabled users immediately instead of only those with next_send_at <= now.
+	// process all notification-enabled users immediately instead of only those with next_send_at <= now.
 	let forceSend = false;
 	const contentType = request.headers.get("content-type") ?? "";
 	const contentLength = request.headers.get("content-length");

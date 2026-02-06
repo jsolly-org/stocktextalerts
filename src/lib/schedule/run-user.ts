@@ -3,9 +3,10 @@ import type { Logger } from "../logging";
 import type { EmailSender } from "../messaging/email/utils";
 import { recordNotification } from "../messaging/shared";
 import { shouldSendSms } from "../messaging/sms";
-import type { UserRecord, UserStockRow } from "../messaging/types";
+import { formatStocksTextList } from "../messaging/stock-formatting";
+import type { FormatPreferences, UserRecord } from "../messaging/types";
 import type { StockPriceMap } from "../price-fetcher";
-import { getLocalMinutesFromDateTime } from "../time/digest-times";
+import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
 import type {
 	DeliveryMethod,
 	ScheduledNotificationTotals,
@@ -18,31 +19,6 @@ import {
 } from "./run-user-delivery";
 import { updateUserNextSendAt } from "./run-user-next-send-at";
 import type { SmsSenderProvider } from "./run-user-sms-sender";
-
-function formatStockPrice(price: { price: number; changePercent: number }) {
-	const sign = price.changePercent >= 0 ? "+" : "";
-	return `$${price.price.toFixed(2)} (${sign}${price.changePercent.toFixed(2)}%)`;
-}
-
-function buildStocksList(
-	userStocks: UserStockRow[],
-	priceMap: StockPriceMap,
-): string {
-	if (userStocks.length === 0) {
-		return "You don't have any tracked stocks";
-	}
-
-	return userStocks
-		.map((stock) => {
-			const price = priceMap.get(stock.symbol);
-			const base = `${stock.symbol} - ${stock.name}`;
-			if (price) {
-				return `${base} — ${formatStockPrice(price)}`;
-			}
-			return base;
-		})
-		.join("\n");
-}
 
 export async function processScheduledUser(options: {
 	user: UserRecord;
@@ -78,7 +54,7 @@ export async function processScheduledUser(options: {
 		/* =============
 		Cron vs manual schedule anchoring
 		Normal cron only processes users with next_send_at set; manual sends (--force)
-		may include users without next_send_at (e.g. newly enabled digests). In that case,
+		may include users without next_send_at (e.g. newly enabled scheduled updates). In that case,
 		use "now" as the schedule anchor.
 		============= */
 		const dueAt = user.next_send_at
@@ -130,7 +106,16 @@ export async function processScheduledUser(options: {
 		}
 
 		const userStocks = await loadUserStocks(supabase, user.id);
-		const stocksList = buildStocksList(userStocks, priceMap);
+		const formatPrefs: FormatPreferences = {
+			show_change_percent: user.show_change_percent,
+			show_company_name: user.show_company_name,
+			detailed_format: user.detailed_format,
+		};
+		const stocksList = formatStocksTextList(
+			userStocks,
+			(symbol) => priceMap.get(symbol) ?? undefined,
+			formatPrefs,
+		);
 
 		/* ============= Process Email ============= */
 		if (user.email_notifications_enabled) {
@@ -147,6 +132,7 @@ export async function processScheduledUser(options: {
 				priceMap,
 				marketOpen,
 				stats,
+				formatPrefs,
 			});
 		}
 

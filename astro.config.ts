@@ -11,12 +11,18 @@ import svgLoader from "vite-svg-loader";
 const mode = process.env.NODE_ENV || process.env.MODE || "development";
 const env = loadEnv(mode, process.cwd(), "");
 // Prefer loaded env (.env.local), then process.env (shell, Vercel).
-const vercelUrl = env.VERCEL_URL || process.env.VERCEL_URL;
+// VERCEL_PROJECT_PRODUCTION_URL is the canonical production domain (e.g. "stocktextalerts.com").
+// VERCEL_URL is the per-deployment URL (e.g. "my-app-abc123.vercel.app") which may be
+// blocked by Deployment Protection, breaking OG images and canonical URLs for crawlers.
+const vercelProductionUrl =
+	env.VERCEL_PROJECT_PRODUCTION_URL ||
+	process.env.VERCEL_PROJECT_PRODUCTION_URL;
+const vercelUrl =
+	vercelProductionUrl || env.VERCEL_URL || process.env.VERCEL_URL;
 
 // CI is set by the runner (e.g. GitHub Actions), not .env.local.
 const isCI = process.env.CI === "true";
 
-// VERCEL_URL from Vercel is just the hostname (e.g., "stocktextalerts.com").
 // Locally, use full URL with protocol (e.g., "http://localhost:4321").
 // In CI, VERCEL_URL may be unset (e.g. unit tests); use a placeholder so config still works.
 let site: string;

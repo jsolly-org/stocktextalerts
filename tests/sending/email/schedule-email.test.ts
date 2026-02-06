@@ -4,11 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../../../src/pages/api/schedule";
 import {
 	adminClient,
-	cleanupTestUser,
 	createTestUser,
+	registerTestUserForCleanup,
 } from "../../shared-utils";
 
-describe("Users receive scheduled daily digest notifications.", () => {
+describe("Users receive scheduled stock update notifications.", () => {
 	const testCronSecret = "test-cron-secret";
 
 	beforeEach(() => {
@@ -24,99 +24,96 @@ describe("Users receive scheduled daily digest notifications.", () => {
 		vi.unstubAllEnvs();
 	});
 
-	it("Eligible users receive their daily digest by email at the scheduled time.", async () => {
+	it("Eligible users receive their stock update by email at the scheduled time.", async () => {
 		const timezone = "America/New_York";
 		const nowLocal = DateTime.now().setZone(timezone);
 		if (!nowLocal.isValid) {
 			throw new Error("Invalid timezone for test formatter");
 		}
-		const dailyDigestNotificationTime = nowLocal.hour * 60 + nowLocal.minute;
+		const scheduledUpdateTime = nowLocal.hour * 60 + nowLocal.minute;
 
 		// 1. Create User
 		const { id } = await createTestUser({
 			timezone,
 			emailNotificationsEnabled: true,
 			smsNotificationsEnabled: false,
-			dailyDigestEnabled: true,
-			dailyDigestNotificationTimes: [dailyDigestNotificationTime],
+			scheduledUpdatesEnabled: true,
+			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedStocks: ["AAPL"],
 		});
+		registerTestUserForCleanup(id);
 
-		try {
-			const { error: updateError } = await adminClient
-				.from("users")
-				.update({ next_send_at: DateTime.utc().toISO() })
-				.eq("id", id);
-			expect(updateError).toBeNull();
+		const { error: updateError } = await adminClient
+			.from("users")
+			.update({ next_send_at: DateTime.utc().toISO() })
+			.eq("id", id);
+		expect(updateError).toBeNull();
 
-			// 2. Execute Scheduled Job
-			const createRequest = () =>
-				new Request("http://localhost/api/schedule", {
-					method: "POST",
-					headers: {
-						Authorization: `Bearer ${testCronSecret}`,
-					},
-				});
+		// 2. Execute Scheduled Job
+		const createRequest = () =>
+			new Request("http://localhost/api/schedule", {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${testCronSecret}`,
+				},
+			});
 
-			const response = await POST({ request: createRequest() } as APIContext);
-			const response2 = await POST({ request: createRequest() } as APIContext);
+		const response = await POST({ request: createRequest() } as APIContext);
+		const response2 = await POST({ request: createRequest() } as APIContext);
 
-			// 3. Assertions
-			// Check Status
-			expect(response.status).toBe(200);
-			expect(response2.status).toBe(200);
+		// 3. Assertions
+		// Check Status
+		expect(response.status).toBe(200);
+		expect(response2.status).toBe(200);
 
-			const json = await response.json();
-			const json2 = await response2.json();
+		const json = await response.json();
+		const json2 = await response2.json();
 
-			expect(json.success).toBe(true);
-			expect(json2.success).toBe(true);
+		expect(json.success).toBe(true);
+		expect(json2.success).toBe(true);
 
-			// Verify Database Log - notification was attempted once (deduped by DB)
-			const { data: logs, error: logError } = await adminClient
-				.from("notification_log")
-				.select("*")
-				.eq("user_id", id)
-				.eq("delivery_method", "email")
-				.eq("type", "scheduled_update")
-				.order("created_at", { ascending: false })
-				.limit(10);
+		// Verify Database Log - notification was attempted once (deduped by DB)
+		const { data: logs, error: logError } = await adminClient
+			.from("notification_log")
+			.select("*")
+			.eq("user_id", id)
+			.eq("delivery_method", "email")
+			.eq("type", "scheduled_update")
+			.order("created_at", { ascending: false })
+			.limit(10);
 
-			expect(logError).toBeNull();
-			expect(logs).toHaveLength(1);
-			const log = logs?.[0];
-			if (!log) throw new Error("Expected log entry not found");
+		expect(logError).toBeNull();
+		expect(logs).toHaveLength(1);
+		const log = logs?.[0];
+		if (!log) throw new Error("Expected log entry not found");
 
-			// Verify scheduled_notifications row exists and only attempted once
-			const { data: scheduled, error: scheduledError } = await adminClient
-				.from("scheduled_notifications")
-				.select("status,attempt_count")
-				.eq("user_id", id)
-				.eq("notification_type", "daily_digest")
-				.eq("scheduled_minutes", dailyDigestNotificationTime)
-				.eq("channel", "email")
-				.maybeSingle();
+		// Verify scheduled_notifications row exists and only attempted once
+		const { data: scheduled, error: scheduledError } = await adminClient
+			.from("scheduled_notifications")
+			.select("status,attempt_count")
+			.eq("user_id", id)
+			.eq("notification_type", "scheduled_update")
+			.eq("scheduled_minutes", scheduledUpdateTime)
+			.eq("channel", "email")
+			.maybeSingle();
 
-			expect(scheduledError).toBeNull();
-			expect(scheduled).toBeTruthy();
-			if (!scheduled)
-				throw new Error("Expected scheduled_notifications row not found");
-			expect(scheduled.attempt_count).toBe(1);
-			expect(["sent", "failed"]).toContain(scheduled.status);
+		expect(scheduledError).toBeNull();
+		expect(scheduled).toBeTruthy();
+		if (!scheduled)
+			throw new Error("Expected scheduled_notifications row not found");
+		expect(scheduled.attempt_count).toBe(1);
+		expect(["sent", "failed"]).toContain(scheduled.status);
 
-			// Verify notification was attempted and logged
-			// Note: Email delivery may fail due to invalid API key or rate limits
-			expect(json.emailsSent + json.emailsFailed).toBeGreaterThanOrEqual(1);
+		// Verify notification was attempted and logged
+		// Note: Email delivery may fail due to invalid API key or rate limits
+		expect(json.emailsSent + json.emailsFailed).toBeGreaterThanOrEqual(1);
 
-			// If email succeeded, message should contain AAPL. If failed, error will be in message
-			if (log.message_delivered) {
-				expect(log.message).toContain("AAPL");
-			} else {
-				// On failure, error is logged - verify the log entry exists
-				expect(log.error).toBeTruthy();
-			}
-		} finally {
-			await cleanupTestUser(id);
+		// If email succeeded, message should contain AAPL. If failed, error will be in message
+		if (log.message_delivered) {
+			expect(log.message).toContain("AAPL");
+		} else {
+			// On failure, error is logged - verify the log entry exists
+			expect(log.error).toBeTruthy();
 		}
 	});
 });

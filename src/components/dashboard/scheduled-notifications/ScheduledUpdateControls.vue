@@ -7,35 +7,36 @@
 		]"
 		:aria-disabled="needsChannelSelection ? 'true' : 'false'"
 	>
-		<legend class="sr-only">Daily digest settings</legend>
+		<legend class="sr-only">Scheduled update settings</legend>
 		<div class="flex gap-3 sm:gap-4">
 			<input
 				type="hidden"
-				name="daily_digest_enabled"
+				name="scheduled_updates_enabled"
 				:value="enabledValue ? 'on' : 'off'"
 			/>
 			<input
 				type="checkbox"
 				value="on"
-				id="daily_digest_enabled"
-				class="mt-1 h-5 w-5 shrink-0 cursor-pointer rounded border-gray-300 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-				v-model="enabledValue"
+				id="scheduled_updates_enabled"
+				class="mt-1 h-5 w-5 shrink-0 cursor-pointer rounded border-gray-300 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed"
+				:checked="needsChannelSelection || enabledValue"
 				:disabled="needsChannelSelection"
-				aria-labelledby="daily_digest_label"
-				aria-describedby="daily_digest_description"
+				@change="enabledValue = ($event.target as HTMLInputElement).checked"
+				aria-labelledby="scheduled_updates_label"
+				aria-describedby="scheduled_updates_description"
 			/>
 			<div class="min-w-0">
 				<label
-					id="daily_digest_label"
-					for="daily_digest_enabled"
+					id="scheduled_updates_label"
+					for="scheduled_updates_enabled"
 					:class="[
 						'text-base font-semibold text-gray-900',
 						needsChannelSelection ? 'cursor-not-allowed' : 'cursor-pointer',
 					]"
 				>
-					Daily Digest
+					Scheduled Updates
 				</label>
-				<p id="daily_digest_description" class="text-sm text-gray-600 mt-0.5">
+				<p id="scheduled_updates_description" class="text-sm text-gray-600 mt-0.5">
 					A summary of your tracked stocks, delivered using your selected
 					notification channels.
 				</p>
@@ -50,25 +51,25 @@
 			</legend>
 			<input
 				type="hidden"
-				name="daily_digest_notification_times"
+				name="scheduled_update_times"
 				:value="serializedTimes"
 			/>
 			<div class="space-y-3">
 				<div
-					v-for="(time, index) in dailyDigestTimes"
+					v-for="(time, index) in scheduledUpdateTimes"
 					:key="`${index}-${time}`"
 					class="flex flex-col gap-2 sm:flex-row sm:items-center"
 				>
 					<TimePicker
-						:inputId="`daily_digest_notification_time_${index}`"
-						:inputName="`daily_digest_notification_time_${index}`"
+						:inputId="`scheduled_update_time_${index}`"
+						:inputName="`scheduled_update_time_${index}`"
 						:initialTime="time"
 						:inputAriaLabel="`Delivery time ${index + 1}`"
 						:disabled="timePickerDisabled"
 						@time-change="emit('time-change', index, $event)"
 					/>
 					<button
-						v-if="dailyDigestTimes.length > 1"
+						v-if="scheduledUpdateTimes.length > 1"
 						type="button"
 						class="btn btn-sm btn-ghost text-error-text hover:bg-error-bg hover:text-error-text shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 self-start sm:self-auto"
 						:aria-label="`Remove delivery time ${index + 1}`"
@@ -104,13 +105,13 @@
 import { computed, onMounted, ref } from "vue";
 
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
-import BellAlertIcon from "../../../../icons/bell-alert.svg?component";
-import PlusIcon from "../../../../icons/plus.svg?component";
+import BellAlertIcon from "../../../icons/bell-alert.svg?component";
+import PlusIcon from "../../../icons/plus.svg?component";
 import TimePicker from "./TimePicker.vue";
 
 interface Props {
 	enabled: boolean;
-	dailyDigestTimes: string[];
+	scheduledUpdateTimes: string[];
 	needsChannelSelection: boolean;
 	timePickerDisabled: boolean;
 	canAddTime: boolean;
@@ -137,5 +138,5 @@ const enabledValue = computed({
 	set: (value: boolean) => emit("update:enabled", value),
 });
 
-const serializedTimes = computed(() => JSON.stringify(props.dailyDigestTimes));
+const serializedTimes = computed(() => JSON.stringify(props.scheduledUpdateTimes));
 </script>

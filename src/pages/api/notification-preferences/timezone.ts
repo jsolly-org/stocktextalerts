@@ -9,6 +9,9 @@ import {
 	NotificationPreferencesValidationError,
 } from "../../../lib/notification-preferences/server-update";
 
+/**
+ * Update the authenticated user's timezone and (if enabled) recompute `next_send_at`.
+ */
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({
@@ -73,14 +76,17 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		);
 	} catch (error) {
 		if (error instanceof NotificationPreferencesValidationError) {
-			logger.info("Timezone update rejected due to missing digest times", {
-				userId: authUser.id,
-				timezone: parsed.data.timezone,
-				reason: error.code,
-			});
+			logger.info(
+				"Timezone update rejected due to missing scheduled update times",
+				{
+					userId: authUser.id,
+					timezone: parsed.data.timezone,
+					reason: error.code,
+				},
+			);
 			return jsonResponse(400, {
 				ok: false,
-				message: "digest_times_required",
+				message: "update_times_required",
 			});
 		}
 		const errorObject =

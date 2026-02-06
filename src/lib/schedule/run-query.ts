@@ -1,6 +1,10 @@
 import type { UserRecord } from "../messaging/types";
 import type { SupabaseAdminClient } from "./helpers";
 
+/**
+ * Fetch users eligible for scheduled processing.
+ * In force mode, users without `next_send_at` may be returned (e.g. newly enabled schedules).
+ */
 export async function fetchScheduledUsers(options: {
 	supabase: SupabaseAdminClient;
 	forceSend: boolean;
@@ -16,19 +20,22 @@ export async function fetchScheduledUsers(options: {
 			phone_number,
 			phone_verified,
 			timezone,
-			daily_digest_enabled,
-			daily_digest_notification_times,
+			scheduled_updates_enabled,
+			scheduled_update_times,
 			next_send_at,
 			email_notifications_enabled,
-			sms_notifications_enabled
+			sms_notifications_enabled,
+			show_change_percent,
+			show_company_name,
+			detailed_format
 		`,
 		)
-		.eq("daily_digest_enabled", true)
-		.not("daily_digest_notification_times", "is", null)
+		.eq("scheduled_updates_enabled", true)
+		.not("scheduled_update_times", "is", null)
 		.or(
 			"email_notifications_enabled.eq.true,sms_notifications_enabled.eq.true",
 		);
-	// When forceSend (manual send), include users even if next_send_at is null (e.g. newly enabled digests).
+	// When forceSend (manual send), include users even if next_send_at is null (e.g. newly enabled scheduled updates).
 	// For normal cron, only process users due to send.
 	if (!options.forceSend) {
 		query = query

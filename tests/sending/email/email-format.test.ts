@@ -1,14 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { formatEmailMessage } from "../../../src/lib/messaging/email/utils";
-import type { UserStockRow } from "../../../src/lib/messaging/types";
+import type {
+	FormatPreferences,
+	UserStockRow,
+} from "../../../src/lib/messaging/types";
 import type { StockPriceMap } from "../../../src/lib/price-fetcher";
 
-describe("Email digest includes stock price data.", () => {
+describe("Email scheduled update includes stock price data.", () => {
 	const testUser = { id: "test-user-id", email: "test@example.com" };
 	const testStocks: UserStockRow[] = [
 		{ symbol: "AAPL", name: "Apple Inc." },
 		{ symbol: "MSFT", name: "Microsoft Corporation" },
 	];
+	const defaultPrefs: FormatPreferences = {
+		show_change_percent: true,
+		show_company_name: true,
+		detailed_format: true,
+	};
 
 	beforeEach(() => {
 		vi.stubEnv("CRON_SECRET", "test-secret");
@@ -33,6 +41,7 @@ describe("Email digest includes stock price data.", () => {
 			stocksList,
 			priceMap,
 			true,
+			defaultPrefs,
 		);
 
 		// Plain text includes prices via stocksList
@@ -62,6 +71,7 @@ describe("Email digest includes stock price data.", () => {
 			stocksList,
 			priceMap,
 			false,
+			defaultPrefs,
 		);
 
 		expect(text).toContain("Prices as of last market close");
@@ -80,6 +90,7 @@ describe("Email digest includes stock price data.", () => {
 			stocksList,
 			priceMap,
 			true,
+			defaultPrefs,
 		);
 
 		expect(text).not.toContain("Prices as of last market close");
@@ -100,6 +111,7 @@ describe("Email digest includes stock price data.", () => {
 			stocksList,
 			priceMap,
 			true,
+			defaultPrefs,
 		);
 
 		// AAPL has price in HTML

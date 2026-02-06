@@ -4,7 +4,11 @@ import { processEmailUpdate } from "../messaging/email/delivery";
 import type { EmailSender } from "../messaging/email/utils";
 import { recordNotification } from "../messaging/shared";
 import { processSmsUpdate } from "../messaging/sms/delivery";
-import type { UserRecord, UserStockRow } from "../messaging/types";
+import type {
+	FormatPreferences,
+	UserRecord,
+	UserStockRow,
+} from "../messaging/types";
 import type { StockPriceMap } from "../price-fetcher";
 import type {
 	ScheduledNotificationTotals,
@@ -25,6 +29,7 @@ export async function processScheduledUserEmailDelivery(options: {
 	priceMap: StockPriceMap;
 	marketOpen: boolean;
 	stats: ScheduledNotificationTotals;
+	formatPrefs: FormatPreferences;
 }): Promise<void> {
 	const {
 		user,
@@ -38,13 +43,14 @@ export async function processScheduledUserEmailDelivery(options: {
 		priceMap,
 		marketOpen,
 		stats,
+		formatPrefs,
 	} = options;
 
 	const { data: claimed, error: claimError } = await supabase.rpc(
 		"claim_scheduled_notification",
 		{
 			p_user_id: user.id,
-			p_notification_type: "daily_digest",
+			p_notification_type: "scheduled_update",
 			p_scheduled_date: scheduledDate,
 			p_scheduled_minutes: scheduledMinutes,
 			p_channel: "email",
@@ -65,7 +71,7 @@ export async function processScheduledUserEmailDelivery(options: {
 		await logRetriesExhausted({
 			supabase,
 			userId: user.id,
-			notificationType: "daily_digest",
+			notificationType: "scheduled_update",
 			scheduledDate,
 			scheduledMinutes,
 			channel: "email",
@@ -75,7 +81,7 @@ export async function processScheduledUserEmailDelivery(options: {
 		return;
 	}
 
-	const emailIdempotencyKey = `daily-digest/${user.id}/${scheduledDate}/${scheduledMinutes}/email`;
+	const emailIdempotencyKey = `scheduled-update/${user.id}/${scheduledDate}/${scheduledMinutes}/email`;
 	const { sent, logged, error } = await processEmailUpdate(
 		supabase,
 		user,
@@ -84,6 +90,7 @@ export async function processScheduledUserEmailDelivery(options: {
 		sendEmail,
 		priceMap,
 		marketOpen,
+		formatPrefs,
 		emailIdempotencyKey,
 	);
 
@@ -100,7 +107,7 @@ export async function processScheduledUserEmailDelivery(options: {
 	await updateScheduledNotificationRow({
 		supabase,
 		userId: user.id,
-		notificationType: "daily_digest",
+		notificationType: "scheduled_update",
 		scheduledDate,
 		scheduledMinutes,
 		channel: "email",
@@ -139,7 +146,7 @@ export async function processScheduledUserSmsDelivery(options: {
 		"claim_scheduled_notification",
 		{
 			p_user_id: user.id,
-			p_notification_type: "daily_digest",
+			p_notification_type: "scheduled_update",
 			p_scheduled_date: scheduledDate,
 			p_scheduled_minutes: scheduledMinutes,
 			p_channel: "sms",
@@ -160,7 +167,7 @@ export async function processScheduledUserSmsDelivery(options: {
 		await logRetriesExhausted({
 			supabase,
 			userId: user.id,
-			notificationType: "daily_digest",
+			notificationType: "scheduled_update",
 			scheduledDate,
 			scheduledMinutes,
 			channel: "sms",
@@ -191,7 +198,7 @@ export async function processScheduledUserSmsDelivery(options: {
 		await updateScheduledNotificationRow({
 			supabase,
 			userId: user.id,
-			notificationType: "daily_digest",
+			notificationType: "scheduled_update",
 			scheduledDate,
 			scheduledMinutes,
 			channel: "sms",
@@ -238,7 +245,7 @@ export async function processScheduledUserSmsDelivery(options: {
 	await updateScheduledNotificationRow({
 		supabase,
 		userId: user.id,
-		notificationType: "daily_digest",
+		notificationType: "scheduled_update",
 		scheduledDate,
 		scheduledMinutes,
 		channel: "sms",

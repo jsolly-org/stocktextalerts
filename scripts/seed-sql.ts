@@ -1,7 +1,7 @@
 import type { TablesInsert } from "../src/lib/db/generated/database.types";
 
-type DbUserInsert = Omit<TablesInsert<"users">, "daily_digest_notification_time"> & {
-  daily_digest_notification_times?: number[] | null;
+type DbUserInsert = Omit<TablesInsert<"users">, "scheduled_update_times"> & {
+  scheduled_update_times?: number[] | null;
 };
 
 export type SeedUser = Omit<Partial<DbUserInsert>, "email"> & {
@@ -114,23 +114,6 @@ function validateOptionalBoolean(
   return value;
 }
 
-function validateOptionalNumber(
-  value: unknown,
-  fieldName: string,
-): number | undefined {
-  if (value === null || value === undefined) return undefined;
-  if (typeof value !== "number") {
-    throw new Error(
-      `Seed user: ${fieldName} must be a number, null, or undefined. Received: ${typeof value}`,
-    );
-  }
-  if (Number.isNaN(value) || !Number.isFinite(value)) {
-    throw new Error(
-      `Seed user: ${fieldName} must be a finite number. Received: ${value}`,
-    );
-  }
-  return value;
-}
 
 function validateOptionalNumberArray(
   value: unknown,
@@ -280,37 +263,37 @@ export function buildPublicUserSql(userId: string, user: SeedUser): string {
     updateFields.push("phone_verified = EXCLUDED.phone_verified");
   }
 
-  const dailyDigestEnabled = validateOptionalBoolean(
-    user.daily_digest_enabled,
-    "daily_digest_enabled",
+  const scheduledUpdatesEnabled = validateOptionalBoolean(
+    user.scheduled_updates_enabled,
+    "scheduled_updates_enabled",
   );
-  if (dailyDigestEnabled !== undefined) {
-    insertColumns.push("daily_digest_enabled");
-    insertValues.push(String(dailyDigestEnabled));
-    updateFields.push("daily_digest_enabled = EXCLUDED.daily_digest_enabled");
+  if (scheduledUpdatesEnabled !== undefined) {
+    insertColumns.push("scheduled_updates_enabled");
+    insertValues.push(String(scheduledUpdatesEnabled));
+    updateFields.push("scheduled_updates_enabled = EXCLUDED.scheduled_updates_enabled");
   }
 
-  const dailyDigestNotificationTimes = validateOptionalNumberArray(
-    user.daily_digest_notification_times,
-    "daily_digest_notification_times",
+  const scheduledUpdateTimes = validateOptionalNumberArray(
+    user.scheduled_update_times,
+    "scheduled_update_times",
   );
-  if (dailyDigestNotificationTimes !== undefined) {
-    if (dailyDigestNotificationTimes.length === 0) {
+  if (scheduledUpdateTimes !== undefined) {
+    if (scheduledUpdateTimes.length === 0) {
       throw new Error(
-        "Seed user: daily_digest_notification_times cannot be an empty array.",
+        "Seed user: scheduled_update_times cannot be an empty array.",
       );
     }
-    for (const entry of dailyDigestNotificationTimes) {
+    for (const entry of scheduledUpdateTimes) {
       if (entry < 0 || entry > 1439 || entry % 15 !== 0) {
         throw new Error(
-          `Seed user: daily_digest_notification_times entries must be between 0 and 1439 and divisible by 15. Received: ${entry}`,
+          `Seed user: scheduled_update_times entries must be between 0 and 1439 and divisible by 15. Received: ${entry}`,
         );
       }
     }
-    insertColumns.push("daily_digest_notification_times");
-    insertValues.push(`ARRAY[${dailyDigestNotificationTimes.join(", ")}]`);
+    insertColumns.push("scheduled_update_times");
+    insertValues.push(`ARRAY[${scheduledUpdateTimes.join(", ")}]`);
     updateFields.push(
-      "daily_digest_notification_times = EXCLUDED.daily_digest_notification_times",
+      "scheduled_update_times = EXCLUDED.scheduled_update_times",
     );
   }
 

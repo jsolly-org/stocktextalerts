@@ -38,7 +38,7 @@ Error Message Text
 export const MESSAGE_STOCKS_LIMIT_EXCEEDED = "Tracked stocks limit exceeded";
 
 /*
- * Error message from update_notification_preferences_and_stocks function (line 278 in migration).
+ * Error message from update_user_preferences_and_stocks function.
  * Raised when tracked stocks array is null.
  */
 export const MESSAGE_STOCKS_REQUIRED = "Tracked stocks required";
@@ -57,6 +57,9 @@ Error Detection Helpers
 
 type ErrorWithCode = { code: string | null; message: string };
 
+/**
+ * Narrow an unknown error to a Supabase PostgrestError shape.
+ */
 function isPostgrestError(error: unknown): error is PostgrestError {
 	if (!error || typeof error !== "object") {
 		return false;
@@ -71,6 +74,9 @@ function isPostgrestError(error: unknown): error is PostgrestError {
 	);
 }
 
+/**
+ * Detect the "tracked stocks limit exceeded" error raised by DB functions.
+ */
 export function isStocksLimitError(error: unknown): boolean {
 	if (!isPostgrestError(error)) {
 		return false;
@@ -82,6 +88,9 @@ export function isStocksLimitError(error: unknown): boolean {
 	);
 }
 
+/**
+ * Detect the "tracked stocks required" error raised by DB functions.
+ */
 export function isStocksRequiredError(error: unknown): boolean {
 	if (!isPostgrestError(error)) {
 		return false;
@@ -93,6 +102,9 @@ export function isStocksRequiredError(error: unknown): boolean {
 	);
 }
 
+/**
+ * Detect the "stock symbol contains whitespace" error raised by DB functions.
+ */
 export function isStocksWhitespaceError(error: unknown): boolean {
 	if (!isPostgrestError(error)) {
 		return false;

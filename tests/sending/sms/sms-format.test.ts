@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { formatSmsMessage } from "../../../src/lib/messaging/sms/delivery";
 import type { UserStockRow } from "../../../src/lib/messaging/types";
 
-describe("SMS digest includes stock price data.", () => {
+describe("SMS scheduled update includes stock price data.", () => {
 	const testStocks: UserStockRow[] = [
 		{ symbol: "AAPL", name: "Apple Inc." },
 		{ symbol: "MSFT", name: "Microsoft Corporation" },

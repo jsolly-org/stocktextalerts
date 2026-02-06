@@ -8,7 +8,7 @@ import {
 	createTestUser,
 } from "../../shared-utils";
 
-describe("Users receive scheduled daily digest notifications.", () => {
+describe("Users receive scheduled stock update notifications.", () => {
 	const testCronSecret = "test-cron-secret";
 
 	beforeEach(() => {
@@ -24,13 +24,13 @@ describe("Users receive scheduled daily digest notifications.", () => {
 		vi.unstubAllEnvs();
 	});
 
-	it("Eligible users receive their daily digest by SMS at the scheduled time.", async () => {
+	it("Eligible users receive their stock update by SMS at the scheduled time.", async () => {
 		const timezone = "America/New_York";
 		const nowLocal = DateTime.now().setZone(timezone);
 		if (!nowLocal.isValid) {
 			throw new Error("Invalid timezone for test formatter");
 		}
-		const dailyDigestNotificationTime = nowLocal.hour * 60 + nowLocal.minute;
+		const scheduledUpdateTime = nowLocal.hour * 60 + nowLocal.minute;
 
 		let id: string | undefined;
 		try {
@@ -44,8 +44,8 @@ describe("Users receive scheduled daily digest notifications.", () => {
 				smsNotificationsEnabled: true,
 				phoneVerified: true,
 				smsOptedOut: false,
-				dailyDigestEnabled: true,
-				dailyDigestNotificationTimes: [dailyDigestNotificationTime],
+				scheduledUpdatesEnabled: true,
+				scheduledUpdateTimes: [scheduledUpdateTime],
 				trackedStocks: ["AAPL"],
 			});
 			id = user.id;
@@ -86,8 +86,8 @@ describe("Users receive scheduled daily digest notifications.", () => {
 				.from("scheduled_notifications")
 				.select("status,attempt_count")
 				.eq("user_id", id)
-				.eq("notification_type", "daily_digest")
-				.eq("scheduled_minutes", dailyDigestNotificationTime)
+				.eq("notification_type", "scheduled_update")
+				.eq("scheduled_minutes", scheduledUpdateTime)
 				.eq("channel", "sms")
 				.maybeSingle();
 			expect(scheduledError).toBeNull();

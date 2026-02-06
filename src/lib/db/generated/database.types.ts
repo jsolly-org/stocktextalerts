@@ -234,8 +234,7 @@ export type Database = {
       users: {
         Row: {
           created_at: string
-          daily_digest_enabled: boolean
-          daily_digest_notification_times: number[] | null
+          detailed_format: boolean
           dismiss_timezone_mismatch_prompts: boolean
           email: string
           email_notifications_enabled: boolean
@@ -245,15 +244,19 @@ export type Database = {
           phone_country_code: string | null
           phone_number: string | null
           phone_verified: boolean
+          scheduled_update_times: number[] | null
+          scheduled_updates_enabled: boolean
+          show_change_percent: boolean
+          show_company_name: boolean
           sms_notifications_enabled: boolean
+          sms_opted_out: boolean
           timezone: string
           updated_at: string
           verification_sent_at: string | null
         }
         Insert: {
           created_at?: string
-          daily_digest_enabled?: boolean
-          daily_digest_notification_times?: number[] | null
+          detailed_format?: boolean
           dismiss_timezone_mismatch_prompts?: boolean
           email: string
           email_notifications_enabled?: boolean
@@ -263,15 +266,19 @@ export type Database = {
           phone_country_code?: string | null
           phone_number?: string | null
           phone_verified?: boolean
+          scheduled_update_times?: number[] | null
+          scheduled_updates_enabled?: boolean
+          show_change_percent?: boolean
+          show_company_name?: boolean
           sms_notifications_enabled?: boolean
+          sms_opted_out?: boolean
           timezone?: string
           updated_at?: string
           verification_sent_at?: string | null
         }
         Update: {
           created_at?: string
-          daily_digest_enabled?: boolean
-          daily_digest_notification_times?: number[] | null
+          detailed_format?: boolean
           dismiss_timezone_mismatch_prompts?: boolean
           email?: string
           email_notifications_enabled?: boolean
@@ -281,7 +288,12 @@ export type Database = {
           phone_country_code?: string | null
           phone_number?: string | null
           phone_verified?: boolean
+          scheduled_update_times?: number[] | null
+          scheduled_updates_enabled?: boolean
+          show_change_percent?: boolean
+          show_company_name?: boolean
           sms_notifications_enabled?: boolean
+          sms_opted_out?: boolean
           timezone?: string
           updated_at?: string
           verification_sent_at?: string | null
@@ -321,7 +333,10 @@ export type Database = {
         Returns: boolean
       }
       has_no_whitespace: { Args: { value: string }; Returns: boolean }
-      is_valid_digest_times: { Args: { times: number[] }; Returns: boolean }
+      is_valid_scheduled_update_times: {
+        Args: { times: number[] }
+        Returns: boolean
+      }
       replace_user_stocks: {
         Args: { symbols: string[]; user_id: string }
         Returns: undefined
@@ -343,12 +358,12 @@ export type Database = {
         }
         Returns: boolean
       }
-      update_notification_preferences_and_stocks: {
+      update_user_preferences_and_stocks: {
         Args: {
-          p_daily_digest_enabled: boolean
-          p_daily_digest_notification_times: number[]
           p_email_notifications_enabled: boolean
           p_next_send_at: string
+          p_scheduled_update_times: number[]
+          p_scheduled_updates_enabled: boolean
           p_sms_notifications_enabled: boolean
           p_symbols: string[]
           p_timezone: string
@@ -360,7 +375,7 @@ export type Database = {
     Enums: {
       delivery_method: "email" | "sms"
       scheduled_notification_status: "sending" | "sent" | "failed"
-      scheduled_notification_type: "daily_digest"
+      scheduled_notification_type: "scheduled_update"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -490,7 +505,7 @@ export const Constants = {
     Enums: {
       delivery_method: ["email", "sms"],
       scheduled_notification_status: ["sending", "sent", "failed"],
-      scheduled_notification_type: ["daily_digest"],
+      scheduled_notification_type: ["scheduled_update"],
     },
   },
 } as const

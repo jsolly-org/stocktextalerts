@@ -11,4 +11,7 @@ export const TEST_PASSWORD = "TestPassword123!";
 export const NEW_PASSWORD = "NewPassword123!";
 export const TEST_RUN_ID = process.env.TEST_RUN_ID ?? randomUUID();
 export const ROUTES_DIR = path.join(process.cwd(), "src", "pages");
-export const CONSOLE_ALLOWLIST: Array<string | RegExp> = [];
+export const CONSOLE_ALLOWLIST: Array<string | RegExp> = [
+	// Astro dev toolbar audit may fail to fetch in E2E test environment
+	/Error while running audit's match function: TypeError: Failed to fetch/,
+];

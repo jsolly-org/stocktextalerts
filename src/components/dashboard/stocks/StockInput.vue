@@ -6,7 +6,7 @@
 			v-model="rawSearchQuery"
 			@input="handleInput"
 			@keydown="handleKeydown"
-			placeholder="Search by symbol or company name\u2026"
+			placeholder="Search by symbol or company name…"
 			autocomplete="off"
 			role="combobox"
 			aria-haspopup="listbox"
@@ -34,7 +34,7 @@
 				role="option"
 				aria-disabled="true"
 			>
-				Searching\u2026
+				Searching…
 			</li>
 			<li
 				v-else-if="filteredStocks.length === 0 && searchQuery.length >= 1"

@@ -4,6 +4,7 @@ export function usePendingSmsChanges(options: {
 	userId: Ref<string>;
 	smsEnabled: Ref<boolean>;
 	phoneVerified: Ref<boolean>;
+	serverSmsEnabled: Ref<boolean>;
 	isEditingPhone: Ref<boolean>;
 	logger: {
 		warn: (message: string, context: Record<string, unknown>) => void;
@@ -13,7 +14,14 @@ export function usePendingSmsChanges(options: {
 		return `pending_sms_enabled:${options.userId.value}`;
 	});
 	const hasPendingSmsChanges = computed(() => {
-		return options.smsEnabled.value && !options.phoneVerified.value;
+		// "pending" means the user wants SMS on, but we're not yet in the persisted state.
+		// - If the phone isn't verified yet, the SMS enable can't be saved.
+		// - If the phone is verified but the server still has SMS disabled, keep treating
+		//   this as pending so a refresh doesn't lose the user's intent.
+		return (
+			options.smsEnabled.value &&
+			(!options.phoneVerified.value || !options.serverSmsEnabled.value)
+		);
 	});
 
 	function savePendingSmsState() {
@@ -51,8 +59,17 @@ export function usePendingSmsChanges(options: {
 			return;
 		}
 
-		if (options.phoneVerified.value && pendingSmsState === "true") {
+		if (pendingSmsState !== "true") {
+			return;
+		}
+
+		if (options.phoneVerified.value) {
 			options.smsEnabled.value = true;
+			if (!options.serverSmsEnabled.value) {
+				// Keep sessionStorage until we see the server persist SMS enabled.
+				return;
+			}
+
 			try {
 				sessionStorage.removeItem(pendingSmsStorageKey.value);
 			} catch (error) {
@@ -64,7 +81,10 @@ export function usePendingSmsChanges(options: {
 					},
 				);
 			}
-		} else if (options.isEditingPhone.value && pendingSmsState === "true") {
+			return;
+		}
+
+		if (options.isEditingPhone.value) {
 			// Restore pending SMS state when entering change phone mode
 			options.smsEnabled.value = true;
 		}
@@ -105,7 +125,11 @@ export function usePendingSmsChanges(options: {
 	);
 
 	onMounted(() => {
-		if (options.phoneVerified.value && options.smsEnabled.value) {
+		if (
+			options.phoneVerified.value &&
+			options.smsEnabled.value &&
+			options.serverSmsEnabled.value
+		) {
 			try {
 				sessionStorage.removeItem(pendingSmsStorageKey.value);
 			} catch (error) {

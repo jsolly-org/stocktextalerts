@@ -1,10 +1,18 @@
 import type { AppSupabaseClient } from "../../db/supabase";
 import type { StockPriceMap } from "../../price-fetcher";
 import { recordNotification } from "../shared";
-import type { EmailUser, ProcessingStats, UserStockRow } from "../types";
+import type {
+	EmailUser,
+	FormatPreferences,
+	ProcessingStats,
+	UserStockRow,
+} from "../types";
 import { sendUserEmail } from "./index";
 import { type EmailSender, formatEmailMessage } from "./utils";
 
+/**
+ * Render and send the scheduled update email for a user, then record the delivery attempt.
+ */
 export async function processEmailUpdate(
 	supabase: AppSupabaseClient,
 	user: EmailUser,
@@ -13,6 +21,7 @@ export async function processEmailUpdate(
 	sendEmail: EmailSender,
 	priceMap: StockPriceMap,
 	marketOpen: boolean,
+	formatPrefs: FormatPreferences,
 	idempotencyKey?: string,
 ): Promise<ProcessingStats> {
 	const message = formatEmailMessage(
@@ -21,6 +30,7 @@ export async function processEmailUpdate(
 		stocksList,
 		priceMap,
 		marketOpen,
+		formatPrefs,
 	);
 	const result = await sendUserEmail(
 		user,
