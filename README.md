@@ -10,6 +10,7 @@ A stock market notification app that sends scheduled SMS and email updates about
 - **Phone Verification** - Secure phone verification via Twilio Verify
 - **Timezone Support** - Browser-detected timezones with user overrides
 - **Notification Scheduling** - Choose when to receive your stock updates
+- **Format Preferences** - Customize how your updates look with live SMS/email previews
 - **SMS Opt-out** - Users can reply STOP to opt out of SMS
 - **CAPTCHA Protection** - hCaptcha for auth flows
 
