@@ -39,6 +39,9 @@
 	<NotificationPreviewPanel
 		:user="user"
 		:initialStocks="initialStocks"
+		:emailEnabled="emailEnabled"
+		:smsEnabled="smsEnabled"
+		:phoneVerified="phoneVerified"
 	/>
 </template>
 

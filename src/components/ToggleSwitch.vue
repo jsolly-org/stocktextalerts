@@ -5,7 +5,7 @@
 		:aria-checked="modelValue"
 		:aria-labelledby="ariaLabelledby"
 		:aria-describedby="ariaDescribedby"
-		class="group relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+		class="group relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
 		:class="modelValue ? 'bg-primary' : 'bg-gray-300'"
 		@click="toggle"
 	>

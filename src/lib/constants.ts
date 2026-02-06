@@ -14,8 +14,6 @@ export const DASHBOARD_STOCKS_STATUS_ID = "dashboard-stocks-save-status";
 export const DASHBOARD_SCHEDULED_FORM_ID = "dashboard-scheduled-form";
 export const DASHBOARD_FORMAT_PREFERENCES_FORM_ID =
 	"dashboard-format-preferences-form";
-export const DASHBOARD_FORMAT_PREFERENCES_STATUS_ID =
-	"dashboard-format-preferences-save-status";
 
 /* =============
 Status Message Colors

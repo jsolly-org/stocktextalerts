@@ -20,7 +20,7 @@
 			class="animate-spin size-4 shrink-0"
 			aria-hidden="true"
 		/>
-		<span>{{ isSendingVerification ? "Sending\u2026" : "Send Verification Code" }}</span>
+		<span>{{ isSendingVerification ? "Sending…" : "Send Verification Code" }}</span>
 		</button>
 	</div>
 </template>

@@ -1,5 +1,5 @@
 <template>
-	<fieldset class="divide-y divide-gray-100">
+	<fieldset class="divide-y divide-gray-100" :disabled="disabled">
 		<legend class="sr-only">Format preferences</legend>
 
 		<div class="flex items-center justify-between gap-3 py-3">
@@ -87,6 +87,7 @@ interface Props {
 	showChangePercent: boolean;
 	showCompanyName: boolean;
 	detailedFormat: boolean;
+	disabled?: boolean;
 }
 
 const props = defineProps<Props>();

@@ -13,7 +13,11 @@
 	>
 		<section class="card mb-6">
 			<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.gray}`"></div>
-			<div class="card-body">
+			<div
+				class="card-body"
+				:class="{ 'opacity-60': needsChannelSelection }"
+				:aria-disabled="needsChannelSelection ? 'true' : undefined"
+			>
 				<header class="mb-4">
 					<h2
 						:id="DASHBOARD_SECTION_IDS.preview"
@@ -26,6 +30,12 @@
 					</p>
 				</header>
 
+				<SetupRequiredNotice
+					:needsChannelSelection="needsChannelSelection"
+					:needsPhoneVerification="false"
+					phoneVerificationSectionId=""
+				/>
+
 				<div v-if="statusMessage" class="mb-4">
 					<StatusMessage :tone="statusTone">
 						{{ statusMessage }}
@@ -36,6 +46,7 @@
 					:showChangePercent="showChangePercent"
 					:showCompanyName="showCompanyName"
 					:detailedFormat="detailedFormat"
+					:disabled="needsChannelSelection"
 					@update:showChangePercent="showChangePercent = $event"
 					@update:showCompanyName="showCompanyName = $event"
 					@update:detailedFormat="detailedFormat = $event"
@@ -57,7 +68,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, toRefs } from "vue";
+import { computed, ref, toRefs, watch } from "vue";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_FORMAT_PREFERENCES_FORM_ID,
@@ -70,6 +81,7 @@ import {
 	type FormatPreferencesData,
 	useAutoSaveFormatPreferences,
 } from "../composables/useAutoSaveFormatPreferences";
+import SetupRequiredNotice from "../scheduled-notifications/SetupRequiredNotice.vue";
 import type { InitialStock } from "../stocks/types";
 import EmailPreview from "./EmailPreview.vue";
 import FormatToggles from "./FormatToggles.vue";
@@ -79,11 +91,18 @@ import SmsPreview from "./SmsPreview.vue";
 interface Props {
 	user: User;
 	initialStocks: InitialStock[];
+	emailEnabled: boolean;
+	smsEnabled: boolean;
+	phoneVerified: boolean;
 }
 
 const props = defineProps<Props>();
 
-const { user, initialStocks } = toRefs(props);
+const { user, initialStocks, emailEnabled, smsEnabled, phoneVerified } = toRefs(props);
+
+const smsReady = computed(() => smsEnabled.value && phoneVerified.value);
+const hasNotificationChannel = computed(() => emailEnabled.value || smsReady.value);
+const needsChannelSelection = computed(() => !hasNotificationChannel.value);
 
 const formatPreferencesFormElement = ref<HTMLFormElement | null>(null);
 const {
@@ -91,6 +110,7 @@ const {
 	handleFormInput,
 	handleFormSubmit,
 	isSaving,
+	notifyChange,
 	statusMessage,
 	statusTone,
 } = useAutoSaveFormatPreferences<FormatPreferencesData>({
@@ -100,6 +120,12 @@ const {
 const showChangePercent = ref(user.value.show_change_percent);
 const showCompanyName = ref(user.value.show_company_name);
 const detailedFormat = ref(user.value.detailed_format);
+
+// ToggleSwitch is a <button>, so it does not emit native input/change events.
+// Watch the reactive toggle values and notify the autosave composable directly.
+watch([showChangePercent, showCompanyName, detailedFormat], () => {
+	notifyChange();
+});
 
 const formatPreferences = computed<FormatPreferences>(() => ({
 	show_change_percent: showChangePercent.value,
