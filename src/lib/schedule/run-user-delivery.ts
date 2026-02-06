@@ -17,9 +17,6 @@ import type {
 import { logRetriesExhausted, updateScheduledNotificationRow } from "./helpers";
 import type { SmsSenderProvider } from "./run-user-sms-sender";
 
-/**
- * Attempt scheduled email delivery for a user, including claim/idempotency, logging, and status updates.
- */
 export async function processScheduledUserEmailDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
@@ -120,9 +117,6 @@ export async function processScheduledUserEmailDelivery(options: {
 	});
 }
 
-/**
- * Attempt scheduled SMS delivery for a user, including claim, sender resolution, logging, and status updates.
- */
 export async function processScheduledUserSmsDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
