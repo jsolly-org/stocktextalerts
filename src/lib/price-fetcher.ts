@@ -95,19 +95,20 @@ export async function fetchMarketStatus(): Promise<boolean> {
 		}
 		const data: unknown = await response.json();
 		if (typeof data !== "object" || data === null) {
-			throw new Error(
-				"Unexpected Finnhub market status response: expected an object payload",
-				{ cause: data },
-			);
+			rootLogger.error("Unexpected Finnhub market status payload structure", {
+				payload: data,
+			});
+			return false;
 		}
 
 		const isOpen =
 			"isOpen" in data ? (data as { isOpen?: unknown }).isOpen : undefined;
 		if (typeof isOpen !== "boolean") {
-			throw new Error(
-				"Unexpected Finnhub market status response: expected { isOpen: boolean }",
-				{ cause: data },
-			);
+			rootLogger.error("Invalid Finnhub market status field types", {
+				isOpen,
+				payload: data,
+			});
+			return false;
 		}
 
 		return isOpen;
