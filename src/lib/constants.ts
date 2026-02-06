@@ -37,7 +37,7 @@ Time Defaults
 ============= */
 
 export const DEFAULT_TIMEZONE = "America/New_York";
-export const DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES = 9 * 60; // 9:00 AM UTC
+export const DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES = 9 * 60; // 9:00 AM local time (minutes since local midnight)
 
 /* =============
 SMS Verification Timing

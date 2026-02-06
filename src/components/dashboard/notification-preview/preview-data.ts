@@ -1,8 +1,6 @@
-export interface FormatPreferences {
-	show_change_percent: boolean;
-	show_company_name: boolean;
-	detailed_format: boolean;
-}
+import type { FormatPreferences } from "../../../lib/messaging/types";
+
+export type { FormatPreferences } from "../../../lib/messaging/types";
 
 export interface PreviewStock {
 	symbol: string;
