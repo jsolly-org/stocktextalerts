@@ -281,7 +281,7 @@ function scrollToScheduled() {
 }
 
 // --- Pending SMS changes ---
-const { hasPendingSmsChanges } = usePendingSmsChanges({
+usePendingSmsChanges({
 	userId: computed(() => localUser.value.id),
 	smsEnabled,
 	phoneVerified,
