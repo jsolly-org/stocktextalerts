@@ -51,11 +51,12 @@ import {
 	type StatusTone,
 } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
+import type { FormatPreferences } from "../../../lib/messaging/types";
 import StatusMessage from "../../StatusMessage.vue";
 import type { InitialStock } from "../stocks/types";
 import EmailPreview from "./EmailPreview.vue";
 import FormatToggles from "./FormatToggles.vue";
-import { DEMO_STOCKS, type FormatPreferences, type PreviewStock } from "./preview-data";
+import { DEMO_STOCKS, type PreviewStock } from "./preview-data";
 import SmsPreview from "./SmsPreview.vue";
 
 interface Props {

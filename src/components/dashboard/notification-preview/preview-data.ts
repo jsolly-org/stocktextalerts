@@ -1,7 +1,3 @@
-import type { FormatPreferences } from "../../../lib/messaging/types";
-
-export type { FormatPreferences } from "../../../lib/messaging/types";
-
 export interface PreviewStock {
 	symbol: string;
 	name: string;
@@ -20,12 +16,9 @@ export const DEMO_STOCKS: PreviewStock[] = [
 	},
 ];
 
-/**
- * Format a single demo stock line based on the current preview preferences.
- */
 export function formatPreviewLine(
 	stock: PreviewStock,
-	prefs: FormatPreferences,
+	prefs: import("../../../lib/messaging/types").FormatPreferences,
 ): string {
 	const base = prefs.show_company_name
 		? `${stock.symbol} - ${stock.name}`
@@ -41,12 +34,9 @@ export function formatPreviewLine(
 	return `${base} — ${priceStr}`;
 }
 
-/**
- * Format a multi-line preview string for the current preferences.
- */
 export function formatPreviewStocksList(
 	stocks: PreviewStock[],
-	prefs: FormatPreferences,
+	prefs: import("../../../lib/messaging/types").FormatPreferences,
 ): string {
 	if (stocks.length === 0) {
 		return "You don't have any tracked stocks";
@@ -55,9 +45,6 @@ export function formatPreviewStocksList(
 	return stocks.map((s) => formatPreviewLine(s, prefs)).join(separator);
 }
 
-/**
- * Escape preview strings for safe insertion into HTML.
- */
 function escapeHtml(value: string): string {
 	return value
 		.replaceAll("&", "&amp;")
@@ -67,12 +54,9 @@ function escapeHtml(value: string): string {
 		.replaceAll("'", "&#39;");
 }
 
-/**
- * Produce HTML for the email preview panel, matching the formatting preferences.
- */
 export function formatPreviewEmailHtml(
 	stocks: PreviewStock[],
-	prefs: FormatPreferences,
+	prefs: import("../../../lib/messaging/types").FormatPreferences,
 ): string {
 	if (stocks.length === 0) {
 		return '<p style="color: #4b5563;">You don\'t have any tracked stocks yet.</p>';

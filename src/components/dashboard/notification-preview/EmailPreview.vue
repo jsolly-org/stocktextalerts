@@ -20,8 +20,8 @@
 
 <script lang="ts" setup>
 import { computed } from "vue";
+import type { FormatPreferences } from "../../../lib/messaging/types";
 import {
-	type FormatPreferences,
 	formatPreviewEmailHtml,
 	type PreviewStock,
 } from "./preview-data";
