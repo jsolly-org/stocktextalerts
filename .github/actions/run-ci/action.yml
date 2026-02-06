@@ -53,22 +53,16 @@ runs:
       shell: bash
       run: |
         supabase status -o json > /tmp/sb-status.json
-        jq -r '
-          "PUBLIC_SUPABASE_URL=\(.API_URL)",
-          "PUBLIC_SUPABASE_ANON_KEY=\(.ANON_KEY)",
-          "SUPABASE_SECRET_KEY=\(.SERVICE_ROLE_KEY)",
-          "DATABASE_URL=\(.DB_URL)",
-          "CRON_SECRET=ci-cron-secret",
-          "VERCEL_URL=http://localhost:4321"
-        ' /tmp/sb-status.json > .env.local
-        jq -r '
+        # Extract DB vars once, then write to both .env.local and GITHUB_ENV
+        DB_VARS=$(jq -r '
           "PUBLIC_SUPABASE_URL=\(.API_URL)",
           "PUBLIC_SUPABASE_ANON_KEY=\(.ANON_KEY)",
           "SUPABASE_SECRET_KEY=\(.SERVICE_ROLE_KEY)",
           "DATABASE_URL=\(.DB_URL)"
-        ' /tmp/sb-status.json >> $GITHUB_ENV
-        echo "CRON_SECRET=ci-cron-secret" >> $GITHUB_ENV
-        echo "VERCEL_URL=http://localhost:4321" >> $GITHUB_ENV
+        ' /tmp/sb-status.json)
+        STATIC_VARS=$'CRON_SECRET=ci-cron-secret\nVERCEL_URL=http://localhost:4321'
+        printf '%s\n%s\n' "$DB_VARS" "$STATIC_VARS" > .env.local
+        printf '%s\n%s\n' "$DB_VARS" "$STATIC_VARS" >> $GITHUB_ENV
     - name: Test
       shell: bash
       run: npm run test:ci

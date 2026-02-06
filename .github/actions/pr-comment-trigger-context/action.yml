@@ -111,66 +111,37 @@ runs:
         INTERNAL_MARKER: ${{ inputs.internal_marker }}
         EVENT_NAME: ${{ inputs.event_name }}
       run: |
-        SKIP="false"
+        skip() { echo "Skipping: $1"; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
 
-        # Debug: log the commenter username for troubleshooting
-        echo "Commenter username: '$COMMENT_USER'"
-        echo "Event name: $EVENT_NAME"
+        echo "Commenter: '$COMMENT_USER' | Event: $EVENT_NAME"
 
-        # Skip if commenter is not in the allowlist
-        IS_OWNER=$([[ "$COMMENT_USER" == "$REPO_OWNER" ]] && echo "true" || echo "false")
-        IS_CODERABBIT_BOT=$([[ "$COMMENT_USER" == "coderabbitai[bot]" ]] && echo "true" || echo "false")
-        IS_VERCEL_BOT=$([[ "$COMMENT_USER" == "vercel[bot]" ]] && echo "true" || echo "false")
+        # Allowlist: repo owner, coderabbitai[bot], vercel[bot]
+        case "$COMMENT_USER" in
+          "$REPO_OWNER"|"coderabbitai[bot]"|"vercel[bot]") ;;
+          *) skip "commenter is not in the allowlist" ;;
+        esac
 
-        if [[ "$IS_OWNER" != "true" ]] && [[ "$IS_CODERABBIT_BOT" != "true" ]] && [[ "$IS_VERCEL_BOT" != "true" ]]; then
-          echo "Skipping: commenter is not in the allowlist"
-          SKIP="true"
+        # Internal workflow comments
+        [[ "$COMMENT_BODY" == *"$INTERNAL_MARKER"* ]] && skip "internal workflow comment"
+
+        # Vercel deployment status updates (not code review comments)
+        if [[ "$COMMENT_USER" == "vercel" || "$COMMENT_USER" == "vercel[bot]" ]]; then
+          [[ "$COMMENT_BODY" == *"The latest updates on your projects"* || \
+             "$COMMENT_BODY" == *"[vc]:"* || \
+             "$COMMENT_BODY" == *"<!-- vercel:"* || \
+             "$COMMENT_BODY" =~ ^\[vc\]: ]] && skip "Vercel status update"
         fi
 
-        # Check for internal marker
-        if [[ "$COMMENT_BODY" == *"$INTERNAL_MARKER"* ]]; then
-          echo "Skipping internal workflow comment."
-          SKIP="true"
-        fi
+        # @coderabbitai mentions from non-CodeRabbit users
+        [[ "$COMMENT_BODY" =~ @[Cc]oderabbitai && "$COMMENT_USER" != "coderabbitai[bot]" ]] && skip "comment mentions @coderabbitai from $COMMENT_USER"
 
-        # Skip Vercel deployment status updates (status tables, preview links, deployment notifications).
-        # Process Vercel Agent review comments (actual code review comments without status markers).
-        if [[ "$COMMENT_USER" == "vercel" ]] || [[ "$COMMENT_USER" == "vercel[bot]" ]]; then
-          if [[ "$COMMENT_BODY" == *"The latest updates on your projects"* ]] || \
-             [[ "$COMMENT_BODY" == *"[vc]:"* ]] || \
-             [[ "$COMMENT_BODY" == *"<!-- vercel:"* ]] || \
-             [[ "$COMMENT_BODY" =~ ^\[vc\]: ]]; then
-            echo "Skipping Vercel status update: $COMMENT_USER"
-            SKIP="true"
-          fi
-        fi
+        # CodeRabbit "Full review triggered" acknowledgments
+        [[ "$COMMENT_USER" == "coderabbitai[bot]" && "$COMMENT_BODY" =~ [Ff]ull[[:space:]]+review[[:space:]]+triggered ]] && skip "CodeRabbit acknowledgment"
 
-        # Skip comments that mention @coderabbitai (unless it's CodeRabbit itself responding).
-        # The owner uses @coderabbitai to request reviews; ignore those replies here.
-        if [[ "$COMMENT_BODY" =~ @[Cc]oderabbitai ]]; then
-          if [[ "$COMMENT_USER" != "coderabbitai[bot]" ]]; then
-            echo "Skipping comment that mentions @coderabbitai from $COMMENT_USER"
-            SKIP="true"
-          fi
-        fi
+        # Review events without body text
+        [[ "$EVENT_NAME" == "pull_request_review" && ( -z "$COMMENT_BODY" || "$COMMENT_BODY" == "null" ) ]] && skip "review without body"
 
-        # Skip CodeRabbit acknowledgment comments when a full review is triggered.
-        if [[ "$COMMENT_USER" == "coderabbitai[bot]" ]]; then
-          if [[ "$COMMENT_BODY" =~ [Ff]ull[[:space:]]+review[[:space:]]+triggered ]]; then
-            echo "Skipping CodeRabbit acknowledgment comment (Full review triggered)"
-            SKIP="true"
-          fi
-        fi
-
-        # Skip pull_request_review events without a body (approvals/rejections with no comment).
-        if [[ "$EVENT_NAME" == "pull_request_review" ]]; then
-          if [[ -z "$COMMENT_BODY" ]] || [[ "$COMMENT_BODY" == "null" ]]; then
-            echo "Skipping review without body (approval/rejection with no comment)"
-            SKIP="true"
-          fi
-        fi
-
-        echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
+        echo "skip=false" >> "$GITHUB_OUTPUT"
 
     - name: Extract PR metadata
       id: pr_meta
@@ -209,26 +180,16 @@ runs:
           IS_AUTHOR="false"
         fi
 
-        # Construct comment URL based on event type
-        if [[ "$EVENT_NAME" == "pull_request_review_comment" ]]; then
-          # Use a relative anchor so the reply comment doesn't redundantly mention the PR URL.
-          COMMENT_URL="#discussion_r$COMMENT_ID"
-        elif [[ "$EVENT_NAME" == "issue_comment" ]]; then
-          # Use a relative anchor so the reply comment doesn't redundantly mention the PR URL.
-          COMMENT_URL="#issuecomment-$COMMENT_ID"
-        elif [[ "$EVENT_NAME" == "pull_request_review" ]]; then
-          # Reviews don't have a direct comment anchor, but we can link to the review
-          # Use a relative anchor so the reply comment doesn't redundantly mention the PR URL.
-          COMMENT_URL="#pullrequestreview-$COMMENT_ID"
-        else
-          COMMENT_URL=""
-        fi
+        # Construct relative comment anchor by event type
+        case "$EVENT_NAME" in
+          pull_request_review_comment) COMMENT_URL="#discussion_r$COMMENT_ID" ;;
+          issue_comment)               COMMENT_URL="#issuecomment-$COMMENT_ID" ;;
+          pull_request_review)         COMMENT_URL="#pullrequestreview-$COMMENT_ID" ;;
+          *)                           COMMENT_URL="" ;;
+        esac
 
-        if [[ -n "$COMMENT_URL" ]]; then
-          COMMENT_REFERENCE="In response to [this comment]($COMMENT_URL)."
-        else
-          COMMENT_REFERENCE=""
-        fi
+        COMMENT_REFERENCE=""
+        [[ -n "$COMMENT_URL" ]] && COMMENT_REFERENCE="In response to [this comment]($COMMENT_URL)."
 
         {
           echo "pr_number=$PR_NUMBER"

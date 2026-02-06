@@ -97,9 +97,9 @@ const isLanding = currentPage === "/";
           </div>
         )}
       </div>
-      <details class="relative md:hidden">
+      <details class="relative md:hidden" id="mobile-nav-menu">
         <summary
-          class="list-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+          class="list-none [&::-webkit-details-marker]:hidden rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           aria-label="Open navigation menu"
         >
           Menu
@@ -163,3 +163,20 @@ const isLanding = currentPage === "/";
     </div>
   </div>
 </nav>
+
+<script>
+  const menu = document.getElementById('mobile-nav-menu') as HTMLDetailsElement | null;
+  if (menu) {
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && menu.open) {
+        menu.open = false;
+        menu.querySelector('summary')?.focus();
+      }
+    });
+    document.addEventListener('click', (e) => {
+      if (menu.open && !menu.contains(e.target as Node)) {
+        menu.open = false;
+      }
+    });
+  }
+</script>
