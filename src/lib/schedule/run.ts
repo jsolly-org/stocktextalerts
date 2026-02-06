@@ -2,7 +2,7 @@ import { DateTime } from "luxon";
 import type { Logger } from "../logging";
 import { createEmailSender } from "../messaging/email/utils";
 import {
-	fetchMarketOpen,
+	fetchMarketStatus,
 	fetchStockPrices,
 	type StockPriceMap,
 } from "../price-fetcher";
@@ -52,7 +52,7 @@ async function runScheduledNotifications(options: {
 		if (uniqueSymbols.length > 0) {
 			[priceMap, marketOpen] = await Promise.all([
 				fetchStockPrices(uniqueSymbols),
-				fetchMarketOpen(),
+				fetchMarketStatus(),
 			]);
 		}
 	}

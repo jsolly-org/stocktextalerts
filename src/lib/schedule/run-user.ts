@@ -75,8 +75,12 @@ export async function processScheduledUser(options: {
 	} = options;
 
 	try {
-		// Normal cron only processes users with next_send_at set; manual sends (--force) may include users
-		// without next_send_at (e.g. newly enabled digests). In that case, use "now" as the schedule anchor.
+		/* =============
+		Cron vs manual schedule anchoring
+		Normal cron only processes users with next_send_at set; manual sends (--force)
+		may include users without next_send_at (e.g. newly enabled digests). In that case,
+		use "now" as the schedule anchor.
+		============= */
 		const dueAt = user.next_send_at
 			? DateTime.fromISO(user.next_send_at, { zone: "utc" })
 			: currentTime;
@@ -128,7 +132,7 @@ export async function processScheduledUser(options: {
 		const userStocks = await loadUserStocks(supabase, user.id);
 		const stocksList = buildStocksList(userStocks, priceMap);
 
-		// Process Email
+		/* ============= Process Email ============= */
 		if (user.email_notifications_enabled) {
 			attemptedDeliveryMethod = "email";
 			await processScheduledUserEmailDelivery({
@@ -146,7 +150,7 @@ export async function processScheduledUser(options: {
 			});
 		}
 
-		// Process SMS
+		/* ============= Process SMS ============= */
 		if (shouldSendSms(user)) {
 			attemptedDeliveryMethod = "sms";
 			await processScheduledUserSmsDelivery({
@@ -176,19 +180,30 @@ export async function processScheduledUser(options: {
 		logger.error("Error processing user", { userId: user.id }, error);
 
 		try {
-			const deliveryMethod: DeliveryMethod =
-				attemptedDeliveryMethod ??
-				(user.email_notifications_enabled ? "email" : "sms");
-			const logged = await recordNotification(supabase, {
-				user_id: user.id,
-				type: "scheduled_update",
-				delivery_method: deliveryMethod,
-				message_delivered: false,
-				message: "Error processing notification",
-				error: error instanceof Error ? error.message : String(error),
-			});
-			if (!logged) {
-				stats.logFailures++;
+			const hadAnyDeliveryAttempts =
+				attemptedDeliveryMethod !== null ||
+				stats.emailsSent > 0 ||
+				stats.emailsFailed > 0 ||
+				stats.smsSent > 0 ||
+				stats.smsFailed > 0;
+
+			// Avoid false negatives: if delivery already happened (or was attempted),
+			// a later failure (e.g. updating next_send_at) shouldn't log as undelivered.
+			if (!hadAnyDeliveryAttempts) {
+				const deliveryMethod: DeliveryMethod =
+					attemptedDeliveryMethod ??
+					(user.email_notifications_enabled ? "email" : "sms");
+				const logged = await recordNotification(supabase, {
+					user_id: user.id,
+					type: "scheduled_update",
+					delivery_method: deliveryMethod,
+					message_delivered: false,
+					message: "Error processing notification",
+					error: error instanceof Error ? error.message : String(error),
+				});
+				if (!logged) {
+					stats.logFailures++;
+				}
 			}
 		} catch (logError) {
 			logger.error(

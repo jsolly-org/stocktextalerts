@@ -5,10 +5,10 @@ import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
 import { jsonResponse } from "../../../lib/json-response";
 import { createLogger } from "../../../lib/logging";
+import { parseDigestTimes } from "../../../lib/notification-preferences/digest-times";
 import {
 	buildNotificationPreferencesUpdatePayload,
 	NotificationPreferencesValidationError,
-	parseDigestTimes,
 } from "../../../lib/notification-preferences/server-update";
 
 const NOTIFICATION_PREFERENCES_SCHEMA = {

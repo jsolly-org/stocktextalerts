@@ -42,6 +42,7 @@ export function createEmailSender(): EmailSender {
 	if (!apiKey.startsWith("re_")) {
 		rootLogger.warn(
 			"RESEND_API_KEY has invalid format. Expected key starting with 're_'.",
+			{ action: "create_email_sender" },
 		);
 		return async () => ({
 			success: false,

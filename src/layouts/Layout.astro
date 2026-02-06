@@ -6,6 +6,17 @@ interface Props {
 	jsonLd?: Record<string, unknown> | Record<string, unknown>[];
 }
 const { title, description, jsonLd }: Props = Astro.props;
+
+function escapeJsonForHtml(json: string): string {
+	// JSON-LD is injected via set:html, so we must prevent script-breakout if any
+	// future field contains `</script>` or raw `<`/`&`.
+	return json
+		.replaceAll("&", "\\u0026")
+		.replaceAll("<", "\\u003c")
+		.replaceAll("\\u003c/", "\\u003c\\/");
+}
+
+const jsonLdHtml = jsonLd ? escapeJsonForHtml(JSON.stringify(jsonLd)) : null;
 // Astro.site may be undefined when using AstroContainer (container-based tests),
 // even if 'site' is configured in vitest.config.ts. Without this fallback,
 // new URL(Astro.url.pathname, undefined) would throw a TypeError.
@@ -81,8 +92,8 @@ const omitManifestOnVercel =
     <meta property="twitter:description" content={description} />
     <meta property="twitter:image" content={socialImageURL} />
 
-    {jsonLd && (
-      <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+    {jsonLdHtml && (
+      <script type="application/ld+json" set:html={jsonLdHtml} />
     )}
   </head>
   <body>

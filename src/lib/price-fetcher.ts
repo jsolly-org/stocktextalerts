@@ -67,7 +67,7 @@ export async function fetchStockPrices(
 	return new Map(results);
 }
 
-export async function fetchMarketOpen(): Promise<boolean> {
+export async function fetchMarketStatus(): Promise<boolean> {
 	if (import.meta.env.MODE === "test") {
 		return true;
 	}
@@ -86,7 +86,11 @@ export async function fetchMarketOpen(): Promise<boolean> {
 		const data = await response.json();
 		return data.isOpen === true;
 	} catch (error) {
-		rootLogger.error("Failed to fetch market status", {}, error);
+		rootLogger.error(
+			"Failed to fetch market status",
+			{ component: "price-fetcher", action: "fetchMarketStatus" },
+			error,
+		);
 		// Default to closed (show disclaimer) on error
 		return false;
 	}

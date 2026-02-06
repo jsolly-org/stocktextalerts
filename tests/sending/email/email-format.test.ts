@@ -12,6 +12,7 @@ describe("Email digest includes stock price data.", () => {
 
 	beforeEach(() => {
 		vi.stubEnv("CRON_SECRET", "test-secret");
+		vi.stubEnv("VERCEL_URL", "https://example.com");
 	});
 
 	afterEach(() => {

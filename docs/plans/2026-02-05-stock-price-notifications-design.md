@@ -16,7 +16,7 @@ Add real-time stock pricing to digest email and SMS notifications. Each stock in
 
 ## Data Flow
 
-```
+```text
 Cron fires (/api/schedule, every 15 min)
   ↓
 Query users where next_send_at <= now (existing)
@@ -42,7 +42,7 @@ Send notifications (existing)
 
 With prices (market open):
 
-```
+```text
 AAPL - Apple Inc. — $187.42 (+1.23%)
 MSFT - Microsoft Corporation — $412.10 (-0.31%)
 
@@ -51,7 +51,7 @@ Reply STOP to opt out.
 
 With prices (market closed):
 
-```
+```text
 AAPL - Apple Inc. — $187.42 (+1.23%)
 MSFT - Microsoft Corporation — $412.10 (-0.31%)
 
@@ -60,7 +60,7 @@ Prices as of last market close. Reply STOP to opt out.
 
 With price fetch failure (per-stock fallback):
 
-```
+```text
 AAPL - Apple Inc.
 MSFT - Microsoft Corporation — $412.10 (-0.31%)
 
@@ -76,7 +76,7 @@ Reply STOP to opt out.
 
 ## New Files
 
-- `src/lib/stocks/price-fetcher.ts` — Finnhub API client
+- `src/lib/price-fetcher.ts` — Finnhub API client
   - `fetchStockPrices(symbols: string[]): Promise<Map<string, StockPrice | null>>` — fetches `/quote` for each symbol
   - `fetchMarketStatus(): Promise<boolean>` — calls `/stock/market-status?exchange=US`, returns `true` if market is open
   - `StockPrice` type: `{ price: number, changePercent: number }`
