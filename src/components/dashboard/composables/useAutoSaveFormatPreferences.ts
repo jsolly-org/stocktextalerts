@@ -12,6 +12,9 @@ export type FormatPreferencesData = {
 type AutoSaveOptions = Omit<AutoSaveFormOptions, "payloadKey" | "logAction">;
 
 /* ============= Composable ============= */
+/**
+ * Auto-save wrapper for format preference changes (notification preview toggles).
+ */
 export function useAutoSaveFormatPreferences<T = unknown>(
 	options: AutoSaveOptions,
 ) {

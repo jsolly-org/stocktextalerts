@@ -165,6 +165,9 @@ export const MESSAGE_ALLOWLIST = {
 
 export type MessageKey = keyof typeof MESSAGE_ALLOWLIST;
 
+/**
+ * Convert a server-provided message key into user-facing copy (or empty string if unknown).
+ */
 export function formatMessage(message: string | null): string {
 	if (!message) return "";
 

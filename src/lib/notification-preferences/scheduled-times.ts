@@ -7,6 +7,9 @@ export type ScheduledTimesParseResult =
 	| { ok: true; times: number[] }
 	| { ok: false; reason: string };
 
+/**
+ * Parse scheduled update time strings (HH:mm) into sorted unique minute offsets.
+ */
 export function parseScheduledTimes(
 	values: string[],
 ): ScheduledTimesParseResult {
@@ -26,6 +29,9 @@ export function parseScheduledTimes(
 	return { ok: true, times: unique };
 }
 
+/**
+ * Serialize minute offsets for DB storage / change detection.
+ */
 export function serializeTimes(times: number[] | null | undefined): string {
 	if (!times || times.length === 0) {
 		return "";
@@ -33,6 +39,10 @@ export function serializeTimes(times: number[] | null | undefined): string {
 	return [...times].sort((a, b) => a - b).join(",");
 }
 
+/**
+ * Compute the next `next_send_at` timestamp (UTC ISO string) from scheduled times.
+ * Throws when the schedule cannot produce a valid next occurrence.
+ */
 export function computeNextSendAtIso(
 	times: number[],
 	timezone: string,

@@ -12,6 +12,10 @@ import {
 	getSecondsUntilNextSend,
 } from "../../../../lib/time/format";
 
+/**
+ * Keep live "current time" and "next send" countdown labels updated on the schedule panel.
+ * Defers time-dependent rendering until after mount to avoid hydration mismatches.
+ */
 export function useScheduledUpdateTiming(options: {
 	timezone: ComputedRef<string>;
 	scheduledUpdatesEnabled: Ref<boolean>;

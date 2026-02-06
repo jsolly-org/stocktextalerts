@@ -12,6 +12,9 @@ const FORMAT_PREFERENCES_SCHEMA = {
 	detailed_format: { type: "boolean" },
 } as const satisfies FormSchema;
 
+/**
+ * Persist the user's format preferences used by previews and outgoing messages.
+ */
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({

@@ -22,6 +22,9 @@ export const DEMO_STOCKS: PreviewStock[] = [
 	},
 ];
 
+/**
+ * Format a single demo stock line based on the current preview preferences.
+ */
 export function formatPreviewLine(
 	stock: PreviewStock,
 	prefs: FormatPreferences,
@@ -40,6 +43,9 @@ export function formatPreviewLine(
 	return `${base} — ${priceStr}`;
 }
 
+/**
+ * Format a multi-line preview string for the current preferences.
+ */
 export function formatPreviewStocksList(
 	stocks: PreviewStock[],
 	prefs: FormatPreferences,
@@ -51,6 +57,9 @@ export function formatPreviewStocksList(
 	return stocks.map((s) => formatPreviewLine(s, prefs)).join(separator);
 }
 
+/**
+ * Escape preview strings for safe insertion into HTML.
+ */
 function escapeHtml(value: string): string {
 	return value
 		.replaceAll("&", "&amp;")
@@ -60,6 +69,9 @@ function escapeHtml(value: string): string {
 		.replaceAll("'", "&#39;");
 }
 
+/**
+ * Produce HTML for the email preview panel, matching the formatting preferences.
+ */
 export function formatPreviewEmailHtml(
 	stocks: PreviewStock[],
 	prefs: FormatPreferences,

@@ -4,6 +4,10 @@ import { createSupabaseAdminClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 import { runScheduledNotifications } from "../../../lib/schedule/run";
 
+/**
+ * Vercel cron entrypoint. Validates `CRON_SECRET` and triggers scheduled deliveries.
+ * Accepts `{ "force": true }` to run a manual send regardless of `next_send_at`.
+ */
 export const POST: APIRoute = async ({ request, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({

@@ -31,6 +31,10 @@ export interface ParsedNotificationPreferencesForm {
 // Throws NotificationPreferencesValidationError when scheduled updates are enabled
 // but no notification times are provided, so callers can reject the update instead of
 // persisting an unschedulable state.
+/**
+ * Build a `users` table update payload from the notification-preferences form submission.
+ * Recomputes `next_send_at` when schedule-related fields change and enforces a schedulable state.
+ */
 export function buildNotificationPreferencesUpdatePayload(options: {
 	parsedData: ParsedNotificationPreferencesForm;
 	formData: FormData;
@@ -200,6 +204,10 @@ export interface TimezoneUpdatePayload {
 // Throws NotificationPreferencesValidationError when the database is in an
 // invalid state (updates enabled but no notification times), so callers can
 // surface the issue instead of silently clearing next_send_at.
+/**
+ * Compute a safe update payload when the user's timezone changes.
+ * If scheduled updates are enabled, this recalculates `next_send_at` in the new timezone.
+ */
 export function computeTimezoneUpdatePayload(
 	newTimezone: string,
 	dbUser: User,

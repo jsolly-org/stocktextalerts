@@ -19,6 +19,9 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	scheduled_update_times: { type: "json_string_array" },
 } as const satisfies FormSchema;
 
+/**
+ * Update the authenticated user's notification preferences (channels, schedule, and timezone).
+ */
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({

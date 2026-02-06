@@ -1,6 +1,10 @@
 import type { UserRecord } from "../messaging/types";
 import type { SupabaseAdminClient } from "./helpers";
 
+/**
+ * Fetch users eligible for scheduled processing.
+ * In force mode, users without `next_send_at` may be returned (e.g. newly enabled schedules).
+ */
 export async function fetchScheduledUsers(options: {
 	supabase: SupabaseAdminClient;
 	forceSend: boolean;

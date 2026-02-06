@@ -17,6 +17,9 @@ export type NotificationPreferencesData = {
 type AutoSaveOptions = Omit<AutoSaveFormOptions, "payloadKey" | "logAction">;
 
 /* ============= Composable ============= */
+/**
+ * Auto-save wrapper for the notification preferences form payload.
+ */
 export function useAutoSaveForm<T = unknown>(options: AutoSaveOptions) {
 	return useAutoSaveFormBase<T>({
 		...options,

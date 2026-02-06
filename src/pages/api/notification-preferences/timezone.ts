@@ -9,6 +9,9 @@ import {
 	NotificationPreferencesValidationError,
 } from "../../../lib/notification-preferences/server-update";
 
+/**
+ * Update the authenticated user's timezone and (if enabled) recompute `next_send_at`.
+ */
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({

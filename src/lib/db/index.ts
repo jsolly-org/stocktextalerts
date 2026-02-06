@@ -51,11 +51,17 @@ Users
 
 export type UserUpdateInput = DbUserUpdate;
 
+/**
+ * Create the user data access helpers for a request, including cookie-backed session refresh.
+ */
 export function createUserService(
 	supabase: AppSupabaseClient,
 	cookies: AstroCookies,
 ) {
 	return {
+		/**
+		 * Resolve the current user by restoring the Supabase session from auth cookies.
+		 */
 		async getCurrentUser() {
 			const accessToken = cookies.get("sb-access-token");
 			const refreshToken = cookies.get("sb-refresh-token");
@@ -110,6 +116,9 @@ export function createUserService(
 			return sessionResponse.data.user ?? null;
 		},
 
+		/**
+		 * Fetch a user row by ID (RLS-protected).
+		 */
 		async getById(id: string): Promise<User | null> {
 			const { data, error } = await supabase
 				.from("users")
@@ -121,6 +130,9 @@ export function createUserService(
 			return data;
 		},
 
+		/**
+		 * Update a user row and return the updated record.
+		 */
 		async update(id: string, updates: UserUpdateInput): Promise<User> {
 			const { data, error } = await supabase
 				.from("users")
@@ -139,6 +151,9 @@ export function createUserService(
 Stocks
 ============= */
 
+/**
+ * Fetch the current user's tracked stocks (most recently added first).
+ */
 export async function getUserStocks(
 	supabase: AppSupabaseClient,
 	userId: string,
@@ -166,6 +181,9 @@ type NonUndefined<T> = {
 	[K in keyof T]: Exclude<T[K], undefined>;
 };
 
+/**
+ * Drop keys whose values are `undefined` so partial updates don't overwrite DB columns.
+ */
 export function omitUndefined<T extends Record<string, unknown | undefined>>(
 	input: T,
 ) {

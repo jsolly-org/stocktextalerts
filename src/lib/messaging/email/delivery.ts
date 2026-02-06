@@ -10,6 +10,9 @@ import type {
 import { sendUserEmail } from "./index";
 import { type EmailSender, formatEmailMessage } from "./utils";
 
+/**
+ * Render and send the scheduled update email for a user, then record the delivery attempt.
+ */
 export async function processEmailUpdate(
 	supabase: AppSupabaseClient,
 	user: EmailUser,
