@@ -80,13 +80,18 @@ const emailEnabled = ref(user.value.email_notifications_enabled);
 const smsEnabled = ref(user.value.sms_notifications_enabled);
 const phoneVerified = computed(() => user.value.phone_verified);
 
+// Sync channel flags when user prop changes externally
 watch(
-	user,
-	(newUser) => {
-		emailEnabled.value = newUser.email_notifications_enabled;
-		smsEnabled.value = newUser.sms_notifications_enabled;
+	() => user.value.email_notifications_enabled,
+	(value) => {
+		emailEnabled.value = value;
 	},
-	{ deep: true },
+);
+watch(
+	() => user.value.sms_notifications_enabled,
+	(value) => {
+		smsEnabled.value = value;
+	},
 );
 
 function handleUserUpdated(updates: Partial<User>) {
