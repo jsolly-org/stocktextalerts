@@ -4,32 +4,30 @@ import type { ProcessingStats, SmsUser, UserStockRow } from "../types";
 import { sendUserSms } from "./index";
 import type { SmsSender } from "./twilio-utils";
 
+export function formatSmsMessage(
+	userStocks: UserStockRow[],
+	stocksList: string,
+	marketOpen: boolean,
+): string {
+	const optOutSuffix = "Reply STOP to opt out.";
+	if (userStocks.length === 0) {
+		return `${stocksList}. ${optOutSuffix}`;
+	}
+	const marketDisclaimer = marketOpen
+		? ""
+		: "Prices as of last market close.\n";
+	return `${stocksList}\n\n${marketDisclaimer}${optOutSuffix}`;
+}
+
 export async function processSmsUpdate(
 	supabase: AppSupabaseClient,
 	user: SmsUser,
 	userStocks: UserStockRow[],
 	stocksList: string,
 	sendSms: SmsSender,
+	marketOpen: boolean,
 ): Promise<ProcessingStats> {
-	const messagePrefix = userStocks.length > 0 ? "Tracked: " : "";
-	const optOutSuffix = ". Reply STOP to opt out.";
-
-	// Calculate available length for stocks list
-	// 160 is SMS character limit, but we need space for all prefixes and suffixes
-	const fixedLength = messagePrefix.length + optOutSuffix.length;
-	const maxStocksListLength = 160 - fixedLength;
-
-	let truncatedStocksList = stocksList;
-	if (stocksList.length > maxStocksListLength) {
-		// Truncate at the last comma boundary to avoid cutting mid-word or mid-symbol
-		// (e.g., "AAPL - Apple Inc" should not become "AAPL - App...")
-		const cutoff = stocksList.lastIndexOf(", ", maxStocksListLength - 3);
-		truncatedStocksList =
-			cutoff > 0
-				? `${stocksList.substring(0, cutoff)}...`
-				: `${stocksList.substring(0, maxStocksListLength - 3)}...`;
-	}
-	const smsMessage = `${messagePrefix}${truncatedStocksList}${optOutSuffix}`;
+	const smsMessage = formatSmsMessage(userStocks, stocksList, marketOpen);
 
 	const result = await sendUserSms(user, smsMessage, sendSms);
 

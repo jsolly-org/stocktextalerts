@@ -16,6 +16,7 @@ interface RequiredEnvVars {
 	RESEND_API_KEY: string;
 	EMAIL_FROM: string;
 	VERCEL_URL: string;
+	FINNHUB_API_KEY: string;
 }
 
 const REQUIRED_ENV_VARS: (keyof RequiredEnvVars)[] = [
@@ -32,6 +33,7 @@ const REQUIRED_ENV_VARS: (keyof RequiredEnvVars)[] = [
 	"RESEND_API_KEY",
 	"EMAIL_FROM",
 	"VERCEL_URL",
+	"FINNHUB_API_KEY",
 ];
 
 export function validateEnv(): void {

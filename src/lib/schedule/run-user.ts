@@ -4,6 +4,7 @@ import type { EmailSender } from "../messaging/email/utils";
 import { recordNotification } from "../messaging/shared";
 import { shouldSendSms } from "../messaging/sms";
 import type { UserRecord, UserStockRow } from "../messaging/types";
+import type { StockPriceMap } from "../price-fetcher";
 import { getLocalMinutesFromDateTime } from "../time/digest-times";
 import type {
 	DeliveryMethod,
@@ -18,14 +19,29 @@ import {
 import { updateUserNextSendAt } from "./run-user-next-send-at";
 import type { SmsSenderProvider } from "./run-user-sms-sender";
 
-function buildStocksList(userStocks: UserStockRow[]): string {
+function formatStockPrice(price: { price: number; changePercent: number }) {
+	const sign = price.changePercent >= 0 ? "+" : "";
+	return `$${price.price.toFixed(2)} (${sign}${price.changePercent.toFixed(2)}%)`;
+}
+
+function buildStocksList(
+	userStocks: UserStockRow[],
+	priceMap: StockPriceMap,
+): string {
 	if (userStocks.length === 0) {
 		return "You don't have any tracked stocks";
 	}
 
 	return userStocks
-		.map((stock) => `${stock.symbol} - ${stock.name}`)
-		.join(", ");
+		.map((stock) => {
+			const price = priceMap.get(stock.symbol);
+			const base = `${stock.symbol} - ${stock.name}`;
+			if (price) {
+				return `${base} — ${formatStockPrice(price)}`;
+			}
+			return base;
+		})
+		.join("\n");
 }
 
 export async function processScheduledUser(options: {
@@ -35,6 +51,8 @@ export async function processScheduledUser(options: {
 	currentTime: DateTime;
 	sendEmail: EmailSender;
 	getSmsSender: SmsSenderProvider;
+	priceMap: StockPriceMap;
+	marketOpen: boolean;
 }): Promise<ScheduledNotificationTotals> {
 	const stats: ScheduledNotificationTotals = {
 		skipped: 0,
@@ -45,14 +63,23 @@ export async function processScheduledUser(options: {
 		smsFailed: 0,
 	};
 	let attemptedDeliveryMethod: DeliveryMethod | null = null;
-	const { user, supabase, logger, sendEmail, currentTime, getSmsSender } =
-		options;
+	const {
+		user,
+		supabase,
+		logger,
+		sendEmail,
+		currentTime,
+		getSmsSender,
+		priceMap,
+		marketOpen,
+	} = options;
 
 	try {
-		// Query filters out null next_send_at with .not("next_send_at", "is", null)
-		const dueAt = DateTime.fromISO(user.next_send_at as string, {
-			zone: "utc",
-		});
+		// Normal cron only processes users with next_send_at set; manual sends (--force) may include users
+		// without next_send_at (e.g. newly enabled digests). In that case, use "now" as the schedule anchor.
+		const dueAt = user.next_send_at
+			? DateTime.fromISO(user.next_send_at, { zone: "utc" })
+			: currentTime;
 		if (!dueAt.isValid) {
 			logger.error("Invalid next_send_at timestamp", {
 				userId: user.id,
@@ -99,7 +126,7 @@ export async function processScheduledUser(options: {
 		}
 
 		const userStocks = await loadUserStocks(supabase, user.id);
-		const stocksList = buildStocksList(userStocks);
+		const stocksList = buildStocksList(userStocks, priceMap);
 
 		// Process Email
 		if (user.email_notifications_enabled) {
@@ -113,6 +140,8 @@ export async function processScheduledUser(options: {
 				userStocks,
 				stocksList,
 				sendEmail,
+				priceMap,
+				marketOpen,
 				stats,
 			});
 		}
@@ -129,6 +158,7 @@ export async function processScheduledUser(options: {
 				userStocks,
 				stocksList,
 				getSmsSender,
+				marketOpen,
 				stats,
 			});
 		}

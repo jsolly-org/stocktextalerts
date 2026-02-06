@@ -59,25 +59,28 @@ export const POST: APIRoute = async ({ request, locals }) => {
 	let forceSend = false;
 	const contentType = request.headers.get("content-type") ?? "";
 	const contentLength = request.headers.get("content-length");
-	if (contentType.includes("application/json") && contentLength !== "0") {
-		let body: unknown;
-		try {
-			body = await request.json();
-		} catch (error) {
-			logger.info("Invalid cron request body", {
-				action: "cron_body_parse",
-				reason: error instanceof Error ? error.message : String(error),
-				contentType,
-				contentLength,
-				userAgent: request.headers.get("user-agent"),
-			});
-			return new Response("Bad Request", { status: 400 });
-		}
+	if (contentType.includes("application/json")) {
+		const rawBody = await request.text();
+		if (rawBody.trim().length > 0) {
+			let body: unknown;
+			try {
+				body = JSON.parse(rawBody);
+			} catch (error) {
+				logger.info("Invalid cron request body", {
+					action: "cron_body_parse",
+					reason: error instanceof Error ? error.message : String(error),
+					contentType,
+					contentLength,
+					userAgent: request.headers.get("user-agent"),
+				});
+				return new Response("Bad Request", { status: 400 });
+			}
 
-		if (body && typeof body === "object") {
-			const parsed = body as { force?: unknown };
-			if (parsed.force === true) {
-				forceSend = true;
+			if (body && typeof body === "object") {
+				const parsed = body as { force?: unknown };
+				if (parsed.force === true) {
+					forceSend = true;
+				}
 			}
 		}
 	}

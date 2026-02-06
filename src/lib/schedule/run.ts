@@ -1,6 +1,11 @@
 import { DateTime } from "luxon";
 import type { Logger } from "../logging";
 import { createEmailSender } from "../messaging/email/utils";
+import {
+	fetchMarketOpen,
+	fetchStockPrices,
+	type StockPriceMap,
+} from "../price-fetcher";
 import { toIsoOrThrow } from "../time/format";
 import {
 	type ScheduledNotificationTotals,
@@ -31,6 +36,27 @@ async function runScheduledNotifications(options: {
 		currentTimeIso,
 	});
 
+	// Collect unique stock symbols across all users and fetch prices in batch
+	let priceMap: StockPriceMap = new Map();
+	let marketOpen = false;
+	if (users.length > 0) {
+		const userIds = users.map((u) => u.id);
+		const { data: allUserStocks } = await supabase
+			.from("user_stocks")
+			.select("symbol")
+			.in("user_id", userIds);
+		const uniqueSymbols = [
+			...new Set((allUserStocks ?? []).map((s) => s.symbol)),
+		];
+
+		if (uniqueSymbols.length > 0) {
+			[priceMap, marketOpen] = await Promise.all([
+				fetchStockPrices(uniqueSymbols),
+				fetchMarketOpen(),
+			]);
+		}
+	}
+
 	const getSmsSender = createSmsSenderProvider();
 
 	const results: ScheduledNotificationTotals[] = [];
@@ -45,6 +71,8 @@ async function runScheduledNotifications(options: {
 					currentTime,
 					sendEmail,
 					getSmsSender,
+					priceMap,
+					marketOpen,
 				}),
 			),
 		);

@@ -47,7 +47,6 @@ else
   echo "POST $URL"
   curl -s -X POST "$URL" \
     -H "Authorization: Bearer $CRON_SECRET" \
-    -H "Content-Type: application/json" \
     -w "\nHTTP %{http_code}\n" \
     -o /dev/stdout
 fi

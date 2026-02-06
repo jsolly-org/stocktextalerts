@@ -24,14 +24,16 @@ export async function fetchScheduledUsers(options: {
 		`,
 		)
 		.eq("daily_digest_enabled", true)
-		.not("next_send_at", "is", null)
 		.not("daily_digest_notification_times", "is", null)
 		.or(
 			"email_notifications_enabled.eq.true,sms_notifications_enabled.eq.true",
 		);
-	// When forceSend (manual send), skip due-time filter so notifications go out immediately.
+	// When forceSend (manual send), include users even if next_send_at is null (e.g. newly enabled digests).
+	// For normal cron, only process users due to send.
 	if (!options.forceSend) {
-		query = query.lte("next_send_at", options.currentTimeIso);
+		query = query
+			.not("next_send_at", "is", null)
+			.lte("next_send_at", options.currentTimeIso);
 	}
 	const { data, error } = await query;
 

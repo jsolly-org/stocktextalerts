@@ -5,6 +5,7 @@ import type { EmailSender } from "../messaging/email/utils";
 import { recordNotification } from "../messaging/shared";
 import { processSmsUpdate } from "../messaging/sms/delivery";
 import type { UserRecord, UserStockRow } from "../messaging/types";
+import type { StockPriceMap } from "../price-fetcher";
 import type {
 	ScheduledNotificationTotals,
 	SupabaseAdminClient,
@@ -21,6 +22,8 @@ export async function processScheduledUserEmailDelivery(options: {
 	userStocks: UserStockRow[];
 	stocksList: string;
 	sendEmail: EmailSender;
+	priceMap: StockPriceMap;
+	marketOpen: boolean;
 	stats: ScheduledNotificationTotals;
 }): Promise<void> {
 	const {
@@ -32,6 +35,8 @@ export async function processScheduledUserEmailDelivery(options: {
 		userStocks,
 		stocksList,
 		sendEmail,
+		priceMap,
+		marketOpen,
 		stats,
 	} = options;
 
@@ -77,6 +82,8 @@ export async function processScheduledUserEmailDelivery(options: {
 		userStocks,
 		stocksList,
 		sendEmail,
+		priceMap,
+		marketOpen,
 		emailIdempotencyKey,
 	);
 
@@ -112,6 +119,7 @@ export async function processScheduledUserSmsDelivery(options: {
 	userStocks: UserStockRow[];
 	stocksList: string;
 	getSmsSender: SmsSenderProvider;
+	marketOpen: boolean;
 	stats: ScheduledNotificationTotals;
 }): Promise<void> {
 	const {
@@ -123,6 +131,7 @@ export async function processScheduledUserSmsDelivery(options: {
 		userStocks,
 		stocksList,
 		getSmsSender,
+		marketOpen,
 		stats,
 	} = options;
 
@@ -213,6 +222,7 @@ export async function processScheduledUserSmsDelivery(options: {
 		userStocks,
 		stocksList,
 		smsSender,
+		marketOpen,
 	);
 
 	if (sent) {

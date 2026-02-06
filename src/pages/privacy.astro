@@ -13,7 +13,7 @@ import Layout from '../layouts/Layout.astro';
       <Navigation />
     </header>
     <main id="main-content" class="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
-      <h1 class="text-4xl font-bold mb-8">Privacy Policy</h1>
+      <h1 class="text-4xl font-bold mb-8 text-balance">Privacy Policy</h1>
 
       <div class="prose prose-sm max-w-none space-y-6">
         <section>
@@ -75,7 +75,7 @@ import Layout from '../layouts/Layout.astro';
       </div>
 
       <div class="mt-12 text-sm text-gray-500">
-        <p>Last updated: {new Date().toLocaleDateString()}</p>
+        <p>Last updated: {new Intl.DateTimeFormat("en-US", { dateStyle: "long" }).format(new Date())}</p>
       </div>
     </main>
     <Footer />

@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { DASHBOARD_SECTION_HASHES } from "../../constants";
 import { getSiteUrl } from "../../db/env";
 import { rootLogger } from "../../logging";
+import type { StockPriceMap } from "../../price-fetcher";
 import type { DeliveryResult, EmailUser, UserStockRow } from "../types";
 import { createEmailUnsubscribeUrl } from "./email-unsubscribe";
 
@@ -108,6 +109,8 @@ export function formatEmailMessage(
 	user: EmailUser,
 	userStocks: UserStockRow[],
 	stocksList: string,
+	priceMap: StockPriceMap,
+	marketOpen: boolean,
 ): { text: string; html: string } {
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const escapedDashboardUrl = escapeHtml(dashboardUrl);
@@ -159,11 +162,29 @@ export function formatEmailMessage(
 		return { text, html };
 	}
 
-	const text = `Your tracked stocks: ${stocksList}${textFooter}`;
-	// Use userStocks directly instead of parsing stocksList to avoid dependency on string format
+	const marketDisclaimer = marketOpen
+		? ""
+		: "\nPrices as of last market close.";
+	const text = `Your tracked stocks:\n${stocksList}${marketDisclaimer}${textFooter}`;
 	const escapedStocksListHtml = userStocks
-		.map((stock) => escapeHtml(`${stock.symbol} - ${stock.name}`))
+		.map((stock) => {
+			const stockInfo = escapeHtml(`${stock.symbol} - ${stock.name}`);
+			const price = priceMap.get(stock.symbol);
+			if (price) {
+				const sign = price.changePercent >= 0 ? "+" : "";
+				const color = price.changePercent >= 0 ? "#16a34a" : "#dc2626";
+				const priceStr = escapeHtml(`$${price.price.toFixed(2)}`);
+				const changeStr = escapeHtml(
+					`(${sign}${price.changePercent.toFixed(2)}%)`,
+				);
+				return `${stockInfo} &mdash; ${priceStr} <span style="color: ${color};">${changeStr}</span>`;
+			}
+			return stockInfo;
+		})
 		.join("<br>");
+	const marketDisclaimerHtml = marketOpen
+		? ""
+		: '<p style="color: #6b7280; font-size: 12px; font-style: italic; margin-top: 8px; margin-bottom: 0;">Prices as of last market close.</p>';
 	const html = `
 <!DOCTYPE html>
 <html>
@@ -181,6 +202,7 @@ export function formatEmailMessage(
 			<p style="color: #1f2937; font-size: 18px; font-weight: 600; margin: 0; font-family: 'Courier New', monospace;">
 				${escapedStocksListHtml}
 			</p>
+			${marketDisclaimerHtml}
 		</div>
 		<div style="text-align: center; margin-top: 30px;">
 			<a href="${escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">

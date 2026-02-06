@@ -1,4 +1,5 @@
 import type { AppSupabaseClient } from "../../db/supabase";
+import type { StockPriceMap } from "../../price-fetcher";
 import { recordNotification } from "../shared";
 import type { EmailUser, ProcessingStats, UserStockRow } from "../types";
 import { sendUserEmail } from "./index";
@@ -10,9 +11,17 @@ export async function processEmailUpdate(
 	userStocks: UserStockRow[],
 	stocksList: string,
 	sendEmail: EmailSender,
+	priceMap: StockPriceMap,
+	marketOpen: boolean,
 	idempotencyKey?: string,
 ): Promise<ProcessingStats> {
-	const message = formatEmailMessage(user, userStocks, stocksList);
+	const message = formatEmailMessage(
+		user,
+		userStocks,
+		stocksList,
+		priceMap,
+		marketOpen,
+	);
 	const result = await sendUserEmail(
 		user,
 		"Your Stock Update",
