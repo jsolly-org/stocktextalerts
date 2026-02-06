@@ -180,16 +180,12 @@ export async function processScheduledUser(options: {
 		logger.error("Error processing user", { userId: user.id }, error);
 
 		try {
-			const hadAnyDeliveryAttempts =
-				attemptedDeliveryMethod !== null ||
-				stats.emailsSent > 0 ||
-				stats.emailsFailed > 0 ||
-				stats.smsSent > 0 ||
-				stats.smsFailed > 0;
+			const deliveryAttempts =
+				stats.emailsSent + stats.emailsFailed + stats.smsSent + stats.smsFailed;
 
-			// Avoid false negatives: if delivery already happened (or was attempted),
-			// a later failure (e.g. updating next_send_at) shouldn't log as undelivered.
-			if (!hadAnyDeliveryAttempts) {
+			// Avoid false negatives: if delivery already happened (or was at least recorded as
+			// attempted), a later failure (e.g. updating next_send_at) shouldn't log as undelivered.
+			if (deliveryAttempts === 0) {
 				const deliveryMethod: DeliveryMethod =
 					attemptedDeliveryMethod ??
 					(user.email_notifications_enabled ? "email" : "sms");
