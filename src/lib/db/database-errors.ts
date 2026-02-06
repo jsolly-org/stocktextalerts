@@ -38,7 +38,7 @@ Error Message Text
 export const MESSAGE_STOCKS_LIMIT_EXCEEDED = "Tracked stocks limit exceeded";
 
 /*
- * Error message from update_notification_preferences_and_stocks function (line 278 in migration).
+ * Error message from update_user_preferences_and_stocks function.
  * Raised when tracked stocks array is null.
  */
 export const MESSAGE_STOCKS_REQUIRED = "Tracked stocks required";

@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
-import { calculateNextSendAt } from "../../src/lib/time/digest-times";
+import { calculateNextSendAt } from "../../src/lib/time/scheduled-times";
 
 function formatLocalParts(
 	date: DateTime,
@@ -16,7 +16,7 @@ function formatLocalParts(
 	return { ymd, hm };
 }
 
-describe("A user schedules their daily digest notification time.", () => {
+describe("A user schedules their notification time.", () => {
 	it("When the target time is later today, the next send is scheduled for today.", () => {
 		const timezone = "America/New_York";
 		const now = DateTime.fromISO("2026-01-13T13:00:00.000Z"); // 08:00 local (winter)

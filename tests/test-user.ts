@@ -1,7 +1,7 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { DateTime } from "luxon";
 import type { TablesInsert } from "../src/lib/db/generated/database.types";
-import { calculateNextSendAtFromTimes } from "../src/lib/time/digest-times";
+import { calculateNextSendAtFromTimes } from "../src/lib/time/scheduled-times";
 import { PRESERVED_TEST_EMAIL, TEST_RUN_ID } from "./constants";
 import { getStockData } from "./stock-data";
 import { adminClient } from "./test-env";
@@ -15,8 +15,8 @@ export type CreateTestUserOptions = {
 	phoneCountryCode?: string | null;
 	phoneNumber?: string | null;
 	phoneVerified?: boolean;
-	dailyDigestEnabled?: boolean;
-	dailyDigestNotificationTimes?: number[] | null;
+	scheduledUpdatesEnabled?: boolean;
+	scheduledUpdateTimes?: number[] | null;
 	trackedStocks?: string[];
 	confirmed?: boolean;
 };
@@ -86,11 +86,8 @@ export async function cleanupTestUser(userId: string): Promise<void> {
 	}
 }
 
-type DbUserInsert = Omit<
-	TablesInsert<"users">,
-	"daily_digest_notification_time"
-> & {
-	daily_digest_notification_times?: number[] | null;
+type DbUserInsert = Omit<TablesInsert<"users">, "scheduled_update_time"> & {
+	scheduled_update_times?: number[] | null;
 };
 type DbUserStockInsert = TablesInsert<"user_stocks">;
 
@@ -151,11 +148,11 @@ export async function createTestUser(
 		}
 
 		// Create Profile in 'users' table
-		const dailyDigestEnabled = options.dailyDigestEnabled ?? true;
-		const rawNotificationTimes = options.dailyDigestNotificationTimes ?? null;
+		const scheduledUpdatesEnabled = options.scheduledUpdatesEnabled ?? true;
+		const rawNotificationTimes = options.scheduledUpdateTimes ?? null;
 		const normalizedTimes =
 			rawNotificationTimes == null
-				? dailyDigestEnabled
+				? scheduledUpdatesEnabled
 					? [540]
 					: null
 				: [
@@ -168,22 +165,22 @@ export async function createTestUser(
 								),
 						),
 					].sort((a, b) => a - b);
-		const finalDailyDigestTimes =
-			dailyDigestEnabled && normalizedTimes && normalizedTimes.length > 0
+		const finalScheduledUpdateTimes =
+			scheduledUpdatesEnabled && normalizedTimes && normalizedTimes.length > 0
 				? normalizedTimes
-				: dailyDigestEnabled
+				: scheduledUpdatesEnabled
 					? [540]
 					: null;
 		const nextSendAt =
-			dailyDigestEnabled && finalDailyDigestTimes
+			scheduledUpdatesEnabled && finalScheduledUpdateTimes
 				? calculateNextSendAtFromTimes(
-						finalDailyDigestTimes,
+						finalScheduledUpdateTimes,
 						timezone,
 						DateTime.utc(),
 					)
 				: null;
 		const nextSendAtIso = nextSendAt?.toISO() ?? null;
-		if (dailyDigestEnabled && finalDailyDigestTimes) {
+		if (scheduledUpdatesEnabled && finalScheduledUpdateTimes) {
 			if (!nextSendAtIso) {
 				throw new Error("Failed to generate next_send_at timestamp");
 			}
@@ -198,8 +195,8 @@ export async function createTestUser(
 			timezone,
 			email_notifications_enabled: options.emailNotificationsEnabled ?? false,
 			sms_notifications_enabled: smsNotificationsEnabled,
-			daily_digest_enabled: dailyDigestEnabled,
-			daily_digest_notification_times: finalDailyDigestTimes,
+			scheduled_updates_enabled: scheduledUpdatesEnabled,
+			scheduled_update_times: finalScheduledUpdateTimes,
 			next_send_at: nextSendAtIso,
 		};
 

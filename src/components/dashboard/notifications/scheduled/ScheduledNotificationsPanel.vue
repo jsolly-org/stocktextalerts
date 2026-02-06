@@ -42,14 +42,14 @@
 				</StatusMessage>
 			</div>
 
-			<DailyDigestControls
-				:enabled="dailyDigestEnabled"
-				:dailyDigestTimes="dailyDigestTimes"
+			<ScheduledUpdateControls
+				:enabled="scheduledUpdatesEnabled"
+				:scheduledUpdateTimes="scheduledUpdateTimes"
 				:needsChannelSelection="needsChannelSelection"
 				:timePickerDisabled="timePickerDisabled"
 				:canAddTime="canAddTime"
 				:countdownText="countdownText"
-				@update:enabled="handleDailyDigestEnabledUpdate"
+				@update:enabled="handleScheduledUpdatesEnabledUpdate"
 				@time-change="handleTimeChange"
 				@add-time="handleAddTime"
 				@remove-time="handleRemoveTime"
@@ -61,7 +61,7 @@
 						:phoneVerificationSectionId="phoneVerificationSectionId"
 					/>
 				</template>
-			</DailyDigestControls>
+			</ScheduledUpdateControls>
 		</div>
 	</section>
 
@@ -76,7 +76,7 @@ import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 	DASHBOARD_SECTION_IDS,
-	DEFAULT_DAILY_DIGEST_TIME_MINUTES,
+	DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES,
 	type FlashMessage,
 } from "../../../../lib/constants";
 import type { User } from "../../../../lib/db";
@@ -85,9 +85,9 @@ import {
 	parseTimeToMinutes,
 } from "../../../../lib/time/format";
 import StatusMessage from "../../../StatusMessage.vue";
-import DailyDigestControls from "./DailyDigestControls.vue";
+import ScheduledUpdateControls from "./ScheduledUpdateControls.vue";
 import SetupRequiredNotice from "./SetupRequiredNotice.vue";
-import { useScheduledDigestTiming } from "./scheduled-notifications-helpers";
+import { useScheduledUpdateTiming } from "./scheduled-notifications-helpers";
 
 interface Props {
 	user: User;
@@ -113,35 +113,35 @@ const {
 	flashMessages,
 } = toRefs(props);
 
-const dailyDigestEnabled = ref(user.value.daily_digest_enabled);
+const scheduledUpdatesEnabled = ref(user.value.scheduled_updates_enabled);
 
-const MAX_DAILY_DIGEST_MINUTES = 23 * 60 + 45;
-const DIGEST_INCREMENT_MINUTES = 15;
-const ADD_DIGEST_OFFSET_MINUTES = 180;
+const MAX_SCHEDULED_UPDATE_MINUTES = 23 * 60 + 45;
+const SCHEDULED_UPDATE_INCREMENT_MINUTES = 15;
+const ADD_SCHEDULED_OFFSET_MINUTES = 180;
 
-function normalizeDigestTimes(times: number[]): number[] {
+function normalizeScheduledTimes(times: number[]): number[] {
 	const filtered = times.filter(
 		(value) =>
 			Number.isFinite(value) &&
 			value >= 0 &&
-			value <= MAX_DAILY_DIGEST_MINUTES &&
-			value % DIGEST_INCREMENT_MINUTES === 0,
+			value <= MAX_SCHEDULED_UPDATE_MINUTES &&
+			value % SCHEDULED_UPDATE_INCREMENT_MINUTES === 0,
 	);
 	return [...new Set(filtered)].sort((a, b) => a - b);
 }
 
-const dailyDigestTimesMinutes = ref<number[]>(
-	normalizeDigestTimes(user.value.daily_digest_notification_times ?? []),
+const scheduledUpdateTimesMinutes = ref<number[]>(
+	normalizeScheduledTimes(user.value.scheduled_update_times ?? []),
 );
 
-if (dailyDigestEnabled.value && dailyDigestTimesMinutes.value.length === 0) {
-	dailyDigestTimesMinutes.value = [DEFAULT_DAILY_DIGEST_TIME_MINUTES];
+if (scheduledUpdatesEnabled.value && scheduledUpdateTimesMinutes.value.length === 0) {
+	scheduledUpdateTimesMinutes.value = [DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES];
 }
 
 const phoneVerificationSectionId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-phone-verification-section`;
 
-const dailyDigestTimes = computed(() =>
-	dailyDigestTimesMinutes.value.map((value) => minutesToTimeInputValue(value)),
+const scheduledUpdateTimes = computed(() =>
+	scheduledUpdateTimesMinutes.value.map((value) => minutesToTimeInputValue(value)),
 );
 
 const timezone = computed(() => props.user.timezone ?? "");
@@ -157,43 +157,43 @@ const needsPhoneVerification = computed(
 	() => smsEnabled.value && !phoneVerified.value,
 );
 const timePickerDisabled = computed(
-	() => needsChannelSelection.value || !dailyDigestEnabled.value,
+	() => needsChannelSelection.value || !scheduledUpdatesEnabled.value,
 );
 const canAddTime = computed(() => {
 	if (timePickerDisabled.value) {
 		return false;
 	}
-	const times = normalizeDigestTimes(dailyDigestTimesMinutes.value);
+	const times = normalizeScheduledTimes(scheduledUpdateTimesMinutes.value);
 	if (times.length === 0) {
 		return true;
 	}
-	const nextMinutes = times[times.length - 1] + ADD_DIGEST_OFFSET_MINUTES;
-	return nextMinutes <= MAX_DAILY_DIGEST_MINUTES;
+	const nextMinutes = times[times.length - 1] + ADD_SCHEDULED_OFFSET_MINUTES;
+	return nextMinutes <= MAX_SCHEDULED_UPDATE_MINUTES;
 });
 
 watch(
-	() => user.value.daily_digest_enabled,
+	() => user.value.scheduled_updates_enabled,
 	(value) => {
-		dailyDigestEnabled.value = value;
+		scheduledUpdatesEnabled.value = value;
 	},
 );
 watch(
-	() => user.value.daily_digest_notification_times,
+	() => user.value.scheduled_update_times,
 	(value) => {
-		dailyDigestTimesMinutes.value = normalizeDigestTimes(value ?? []);
+		scheduledUpdateTimesMinutes.value = normalizeScheduledTimes(value ?? []);
 	},
 );
-// Only auto-enable daily digest when user gains their first channel (transition
+// Only auto-enable scheduled updates when user gains their first channel (transition
 // from no channel to has channel). Do not run on mount: that would overwrite
-// a saved preference of daily_digest_enabled = false when they already have a channel.
+// a saved preference of scheduled_updates_enabled = false when they already have a channel.
 watch(
 	hasNotificationChannel,
 	(hasChannel, previousHasChannel) => {
-		if (previousHasChannel === false && hasChannel && !dailyDigestEnabled.value) {
-			if (dailyDigestTimesMinutes.value.length === 0) {
-				dailyDigestTimesMinutes.value = [DEFAULT_DAILY_DIGEST_TIME_MINUTES];
+		if (previousHasChannel === false && hasChannel && !scheduledUpdatesEnabled.value) {
+			if (scheduledUpdateTimesMinutes.value.length === 0) {
+				scheduledUpdateTimesMinutes.value = [DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES];
 			}
-			dailyDigestEnabled.value = true;
+			scheduledUpdatesEnabled.value = true;
 			onFormChanged.value?.();
 		}
 	},
@@ -205,21 +205,21 @@ const nextSendAt = computed(
 			props.user.next_send_at ??
 			null,
 );
-const { currentTimeInTimezone, countdownText } = useScheduledDigestTiming({
+const { currentTimeInTimezone, countdownText } = useScheduledUpdateTiming({
 	timezone,
-	dailyDigestEnabled,
+	scheduledUpdatesEnabled,
 	nextSendAtIso: nextSendAt,
-	timeInputs: dailyDigestTimes,
+	timeInputs: scheduledUpdateTimes,
 });
 
-watch(dailyDigestEnabled, () => {
-	if (dailyDigestEnabled.value && dailyDigestTimesMinutes.value.length === 0) {
-		dailyDigestTimesMinutes.value = [DEFAULT_DAILY_DIGEST_TIME_MINUTES];
+watch(scheduledUpdatesEnabled, () => {
+	if (scheduledUpdatesEnabled.value && scheduledUpdateTimesMinutes.value.length === 0) {
+		scheduledUpdateTimesMinutes.value = [DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES];
 	}
 });
 
-function handleDailyDigestEnabledUpdate(value: boolean) {
-	dailyDigestEnabled.value = value;
+function handleScheduledUpdatesEnabledUpdate(value: boolean) {
+	scheduledUpdatesEnabled.value = value;
 	onFormChanged.value?.();
 }
 
@@ -228,9 +228,9 @@ function handleTimeChange(index: number, value: string) {
 	if (parsedMinutes === null) {
 		return;
 	}
-	const updated = [...dailyDigestTimesMinutes.value];
+	const updated = [...scheduledUpdateTimesMinutes.value];
 	updated[index] = parsedMinutes;
-	dailyDigestTimesMinutes.value = normalizeDigestTimes(updated);
+	scheduledUpdateTimesMinutes.value = normalizeScheduledTimes(updated);
 	onFormChanged.value?.();
 }
 
@@ -238,14 +238,14 @@ function handleAddTime() {
 	if (!canAddTime.value) {
 		return;
 	}
-	const times = normalizeDigestTimes(dailyDigestTimesMinutes.value);
-	const baseTimes = times.length === 0 ? [DEFAULT_DAILY_DIGEST_TIME_MINUTES] : times;
+	const times = normalizeScheduledTimes(scheduledUpdateTimesMinutes.value);
+	const baseTimes = times.length === 0 ? [DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES] : times;
 	const nextMinutes =
-		baseTimes[baseTimes.length - 1] + ADD_DIGEST_OFFSET_MINUTES;
-	if (nextMinutes > MAX_DAILY_DIGEST_MINUTES) {
+		baseTimes[baseTimes.length - 1] + ADD_SCHEDULED_OFFSET_MINUTES;
+	if (nextMinutes > MAX_SCHEDULED_UPDATE_MINUTES) {
 		return;
 	}
-	dailyDigestTimesMinutes.value = normalizeDigestTimes([
+	scheduledUpdateTimesMinutes.value = normalizeScheduledTimes([
 		...baseTimes,
 		nextMinutes,
 	]);
@@ -253,12 +253,12 @@ function handleAddTime() {
 }
 
 function handleRemoveTime(index: number) {
-	if (dailyDigestTimesMinutes.value.length <= 1) {
+	if (scheduledUpdateTimesMinutes.value.length <= 1) {
 		return;
 	}
-	const updated = [...dailyDigestTimesMinutes.value];
+	const updated = [...scheduledUpdateTimesMinutes.value];
 	updated.splice(index, 1);
-	dailyDigestTimesMinutes.value = normalizeDigestTimes(updated);
+	scheduledUpdateTimesMinutes.value = normalizeScheduledTimes(updated);
 	onFormChanged.value?.();
 }
 </script>

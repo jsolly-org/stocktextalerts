@@ -15,47 +15,47 @@
 		>
 			<legend class="sr-only">Notification channels</legend>
 
-			<label class="flex items-start gap-3 p-4 cursor-pointer transition-colors hover:bg-gray-50 focus-within:bg-gray-50">
+			<div class="flex items-center justify-between gap-3 p-4">
 				<input
 					type="hidden"
 					name="email_notifications_enabled"
 					:value="emailEnabled ? 'on' : 'off'"
 				/>
-				<input
-					type="checkbox"
-					:id="props.emailNotificationsEnabledId"
-					class="mt-0.5 h-6 w-6 rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-					v-model="emailEnabled"
-				/>
-				<span class="text-sm">
-					<span class="font-medium text-gray-900">Email Notifications</span>
-					<span class="block text-gray-500">
+				<div>
+					<span :id="`${props.emailNotificationsEnabledId}_label`" class="text-sm font-medium text-gray-900">Email Notifications</span>
+					<span :id="`${props.emailNotificationsEnabledId}_desc`" class="block text-sm text-gray-500">
 						Notifications are sent to your registered email.
 					</span>
-				</span>
-			</label>
+				</div>
+				<ToggleSwitch
+					v-model="emailEnabled"
+					sr-label="Email notifications"
+					:aria-labelledby="`${props.emailNotificationsEnabledId}_label`"
+					:aria-describedby="`${props.emailNotificationsEnabledId}_desc`"
+				/>
+			</div>
 
 			<div>
-				<label class="flex items-start gap-3 p-4 cursor-pointer transition-colors hover:bg-gray-50 focus-within:bg-gray-50">
+				<div class="flex items-center justify-between gap-3 p-4">
 					<input
 						v-if="props.canSaveSmsEnabled"
 						type="hidden"
 						name="sms_notifications_enabled"
 						:value="smsEnabled ? 'on' : 'off'"
 					/>
-					<input
-						type="checkbox"
-						:id="props.smsNotificationsEnabledId"
-						class="mt-0.5 h-6 w-6 rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-						v-model="smsEnabled"
-					/>
-					<span class="text-sm">
-						<span class="font-medium text-gray-900">SMS Notifications</span>
-						<span class="block text-gray-500">
+					<div>
+						<span :id="`${props.smsNotificationsEnabledId}_label`" class="text-sm font-medium text-gray-900">SMS Notifications</span>
+						<span :id="`${props.smsNotificationsEnabledId}_desc`" class="block text-sm text-gray-500">
 							Notifications will be sent to a phone number you provide.
 						</span>
-					</span>
-				</label>
+					</div>
+					<ToggleSwitch
+						v-model="smsEnabled"
+						sr-label="SMS notifications"
+						:aria-labelledby="`${props.smsNotificationsEnabledId}_label`"
+						:aria-describedby="`${props.smsNotificationsEnabledId}_desc`"
+					/>
+				</div>
 
 				<SmsVerificationSection
 					:user="props.user"
@@ -80,7 +80,7 @@
 			>
 				delivery time
 			</button>
-			to start sending your daily digest.
+			to start sending your updates.
 		</StatusMessage>
 	</section>
 </template>
@@ -90,6 +90,7 @@ import { computed } from "vue";
 import { DASHBOARD_SECTION_IDS } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 import StatusMessage from "../../StatusMessage.vue";
+import ToggleSwitch from "../../ToggleSwitch.vue";
 import SmsVerificationSection from "./SmsVerificationSection.vue";
 
 interface Props {

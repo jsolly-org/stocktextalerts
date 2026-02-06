@@ -78,7 +78,7 @@
 			>
 				delivery time
 			</button>
-			to start sending your daily digest.
+			to start sending your updates.
 		</StatusMessage>
 
 	</section>

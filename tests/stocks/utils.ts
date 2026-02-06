@@ -64,7 +64,7 @@ export async function updateTrackedStocks(
 	const { data: notificationPreferencesBefore } = await adminClient
 		.from("users")
 		.select(
-			"email_notifications_enabled,sms_notifications_enabled,daily_digest_enabled,daily_digest_notification_times,next_send_at",
+			"email_notifications_enabled,sms_notifications_enabled,scheduled_updates_enabled,scheduled_update_times,next_send_at",
 		)
 		.eq("id", testUser.id)
 		.maybeSingle();
@@ -105,7 +105,7 @@ export async function updateTrackedStocks(
 	const { data: notificationPreferencesAfter } = await adminClient
 		.from("users")
 		.select(
-			"email_notifications_enabled,sms_notifications_enabled,daily_digest_enabled,daily_digest_notification_times,next_send_at",
+			"email_notifications_enabled,sms_notifications_enabled,scheduled_updates_enabled,scheduled_update_times,next_send_at",
 		)
 		.eq("id", testUser.id)
 		.maybeSingle();

@@ -156,10 +156,10 @@ const showTimeReminder = computed(() => {
 	if (!emailEnabled.value && !smsEnabled.value) {
 		return false;
 	}
-	if (!user.value.daily_digest_enabled) {
+	if (!user.value.scheduled_updates_enabled) {
 		return false;
 	}
-	const times = user.value.daily_digest_notification_times;
+	const times = user.value.scheduled_update_times;
 	return !times || times.length === 0;
 });
 

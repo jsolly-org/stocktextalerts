@@ -73,14 +73,17 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		);
 	} catch (error) {
 		if (error instanceof NotificationPreferencesValidationError) {
-			logger.info("Timezone update rejected due to missing digest times", {
-				userId: authUser.id,
-				timezone: parsed.data.timezone,
-				reason: error.code,
-			});
+			logger.info(
+				"Timezone update rejected due to missing scheduled update times",
+				{
+					userId: authUser.id,
+					timezone: parsed.data.timezone,
+					reason: error.code,
+				},
+			);
 			return jsonResponse(400, {
 				ok: false,
-				message: "digest_times_required",
+				message: "update_times_required",
 			});
 		}
 		const errorObject =

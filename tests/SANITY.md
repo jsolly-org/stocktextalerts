@@ -11,19 +11,19 @@
 
 Validate all major happy-path features end-to-end on production with the shortest possible flow. This plan covers registration, stock tracking, email/SMS notifications, profile management, inbound SMS keywords, and account deletion.
 
-**Estimated Duration:** 30-45 minutes (includes wait time for digest delivery)
+**Estimated Duration:** 30-45 minutes (includes wait time for notification delivery)
 
 ---
 
 ## Prerequisites
 
-- [ ] Test email inbox you control (and can receive verification + digest emails)
+- [ ] Test email inbox you control (and can receive verification + notification emails)
 - [ ] A second email alias you control (for email update test)
 - [ ] Test phone number that can receive SMS (and you can reply to)
 - [ ] Access to the production site
 - [ ] Modern browser (Chrome, Firefox, or Safari)
 - [ ] hCaptcha solver available (not in a headless/bot environment)
-- [ ] Ability to wait a few minutes for the daily digest
+- [ ] Ability to wait a few minutes for the scheduled notification
 
 ---
 
@@ -124,7 +124,7 @@ Verify stock search, selection, and persistence.
 
 ---
 
-## TC-EMAIL-001: User can enable email notifications and receive a digest
+## TC-EMAIL-001: User can enable email notifications and receive an update
 
 **Priority:** P0 (Critical)
 **Type:** Functional / Integration
@@ -132,7 +132,7 @@ Verify stock search, selection, and persistence.
 
 ### Objective
 
-Verify email notification toggle, digest time scheduling, and email delivery.
+Verify email notification toggle, notification time scheduling, and email delivery.
 
 ### Preconditions
 
@@ -145,27 +145,27 @@ Verify email notification toggle, digest time scheduling, and email delivery.
 
 - [ ] Email notifications are turned on/enabled on the dashboard.
 
-**Step 2:** Set the daily digest time to 1 minute in the future (e.g., if it's 10:34 now, set it to 10:45 — the next 15-minute interval). Save, then refresh.
+**Step 2:** Set the notification time to 1 minute in the future (e.g., if it's 10:34 now, set it to 10:45 — the next 15-minute interval). Save, then refresh.
 
-- [ ] Daily digest time persists after refresh.
+- [ ] Notification time persists after refresh.
 - [ ] A countdown to the next notification is displayed.
 
 **Step 3:** Wait 2-3 minutes and check your email inbox.
 
-- [ ] Daily digest email arrives.
-- [ ] The email includes your tracked stock symbols with current prices and daily change percentages.
+- [ ] Stock update email arrives.
+- [ ] The email includes your tracked stock symbols with current prices and change percentages.
 - [ ] Positive changes display in green; negative changes display in red.
 - [ ] If sent outside market hours, a "Prices as of last market close." disclaimer is visible.
-- [ ] The email reflects the chosen digest time/timezone.
+- [ ] The email reflects the chosen notification time/timezone.
 
 ### Notes
 
-- Digest times are in 15-minute intervals. Choose the nearest upcoming interval.
+- Notification times are in 15-minute intervals. Choose the nearest upcoming interval.
 - The cron runs every 15 minutes, so delivery may take up to 15 minutes.
 
 ---
 
-## TC-SMS-001: User can enable SMS notifications and receive a digest
+## TC-SMS-001: User can enable SMS notifications and receive an update
 
 **Priority:** P0 (Critical)
 **Type:** Functional / Integration
@@ -173,7 +173,7 @@ Verify email notification toggle, digest time scheduling, and email delivery.
 
 ### Objective
 
-Verify phone verification, SMS toggle, and SMS digest delivery.
+Verify phone verification, SMS toggle, and SMS notification delivery.
 
 ### Preconditions
 
@@ -189,17 +189,17 @@ Verify phone verification, SMS toggle, and SMS digest delivery.
 - [ ] SMS verification succeeds after entering the code.
 - [ ] SMS notifications are enabled (toggle remains on after save).
 
-**Step 2:** Change the daily digest time again to a time 1 minute in the future (next 15-minute interval). Save, then refresh.
+**Step 2:** Change the notification time again to a time 1 minute in the future (next 15-minute interval). Save, then refresh.
 
-- [ ] Daily digest time persists after refresh.
+- [ ] Notification time persists after refresh.
 
 **Step 3:** Wait 2-3 minutes and check both email and SMS.
 
-- [ ] Daily digest email arrives.
-- [ ] Daily digest SMS arrives.
-- [ ] Both digests include your tracked stock symbols with current prices and daily change percentages.
+- [ ] Stock update email arrives.
+- [ ] Stock update SMS arrives.
+- [ ] Both updates include your tracked stock symbols with current prices and change percentages.
 - [ ] If sent outside market hours, a "Prices as of last market close." disclaimer is visible in both email and SMS.
-- [ ] Both digests reflect the chosen digest time/timezone.
+- [ ] Both updates reflect the chosen notification time/timezone.
 
 ### Notes
 
@@ -220,12 +220,12 @@ Verify the email unsubscribe flow and dashboard state synchronization.
 
 ### Preconditions
 
-- A digest email received (from TC-SMS-001 Step 3)
+- A notification email received (from TC-SMS-001 Step 3)
 - Authenticated session available
 
 ### Test Steps
 
-**Step 1:** From the digest email, click the unsubscribe link.
+**Step 1:** From the notification email, click the unsubscribe link.
 
 - [ ] Unsubscribe page loads and indicates success.
 
@@ -317,7 +317,7 @@ Verify HELP, STOP, and START SMS keyword handling and dashboard state synchroniz
 ### Preconditions
 
 - SMS notifications previously enabled (requires a separate test account or re-registration since TC-DEL-001 deletes the account)
-- Access to the phone that received SMS digests
+- Access to the phone that received SMS notifications
 
 ### Test Steps
 
@@ -351,8 +351,8 @@ The tests above are designed to run sequentially in a single session:
 | 1 | TC-REG-001 | Register new account | - |
 | 2 | TC-TZ-001 | Configure timezone | TC-REG-001 |
 | 3 | TC-STK-001 | Add tracked stocks | TC-REG-001 |
-| 4 | TC-EMAIL-001 | Enable email + receive digest | TC-STK-001 |
-| 5 | TC-SMS-001 | Enable SMS + receive digest | TC-STK-001, TC-EMAIL-001 |
+| 4 | TC-EMAIL-001 | Enable email + receive update | TC-STK-001 |
+| 5 | TC-SMS-001 | Enable SMS + receive update | TC-STK-001, TC-EMAIL-001 |
 | 6 | TC-UNSUB-001 | Unsubscribe via email link | TC-SMS-001 |
 | 7 | TC-PROF-001 | Change password + update email | TC-REG-001 |
 | 8 | TC-DEL-001 | Delete account | TC-REG-001 |
@@ -368,14 +368,14 @@ The tests above are designed to run sequentially in a single session:
 
 **FAIL (block release):**
 - Any TC-REG, TC-STK, TC-EMAIL, or TC-SMS test fails (P0 tests)
-- Digest email or SMS never arrives
+- Notification email or SMS never arrives
 - Account cannot be created or deleted
 - Security issue discovered (e.g., dashboard accessible after deletion)
 
 **CONDITIONAL:**
 - Minor UI inconsistencies (e.g., timezone display quirks)
 - Non-blocking warnings in the console
-- Digest arrives but with minor formatting issues
+- Notification arrives but with minor formatting issues
 
 ---
 
@@ -383,6 +383,6 @@ The tests above are designed to run sequentially in a single session:
 
 - hCaptcha may behave differently across browsers/regions.
 - Twilio SMS delivery can have carrier-dependent delays.
-- Cron runs every 15 minutes, so digest delivery is not instantaneous.
+- Cron runs every 15 minutes, so notification delivery is not instantaneous.
 - SMS messages may span multiple segments when tracking many stocks with price data.
 - Email updates via Supabase Auth may require verifying both old and new addresses depending on configuration.

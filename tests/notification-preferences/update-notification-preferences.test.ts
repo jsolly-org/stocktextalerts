@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_DAILY_DIGEST_TIME_MINUTES } from "../../src/lib/constants";
+import { DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES } from "../../src/lib/constants";
 import { POST } from "../../src/pages/api/notification-preferences/update";
 import { TEST_PASSWORD } from "../constants";
 import { registerTestUserForCleanup } from "../setup";
@@ -12,12 +12,12 @@ import {
 } from "../shared-utils";
 
 describe("A signed-in user updates their notification channels.", () => {
-	it("When the user enables their first notification channel, daily digests are enabled and scheduled at the default time.", async () => {
+	it("When the user enables their first notification channel, scheduled updates are enabled at the default time.", async () => {
 		const testUser = await createTestUser({
 			email: `test-${randomUUID()}@resend.dev`,
 			password: TEST_PASSWORD,
 			confirmed: true,
-			dailyDigestEnabled: false,
+			scheduledUpdatesEnabled: false,
 			emailNotificationsEnabled: false,
 			smsNotificationsEnabled: false,
 		});
@@ -57,35 +57,35 @@ describe("A signed-in user updates their notification channels.", () => {
 			ok: boolean;
 			message: string;
 			notificationPreferences: {
-				daily_digest_enabled: boolean;
-				daily_digest_notification_times: number[] | null;
+				scheduled_updates_enabled: boolean;
+				scheduled_update_times: number[] | null;
 				next_send_at: string | null;
 			};
 		};
 		expect(payload.ok).toBe(true);
 		expect(payload.message).toBe("settings_updated");
-		expect(payload.notificationPreferences.daily_digest_enabled).toBe(true);
-		expect(
-			payload.notificationPreferences.daily_digest_notification_times,
-		).toEqual([DEFAULT_DAILY_DIGEST_TIME_MINUTES]);
+		expect(payload.notificationPreferences.scheduled_updates_enabled).toBe(
+			true,
+		);
+		expect(payload.notificationPreferences.scheduled_update_times).toEqual([
+			DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES,
+		]);
 		expect(payload.notificationPreferences.next_send_at).toBeTruthy();
 
 		const { data: updatedUser } = await adminClient
 			.from("users")
-			.select(
-				"daily_digest_enabled,daily_digest_notification_times,next_send_at",
-			)
+			.select("scheduled_updates_enabled,scheduled_update_times,next_send_at")
 			.eq("id", testUser.id)
 			.single();
 
-		expect(updatedUser.daily_digest_enabled).toBe(true);
-		expect(updatedUser.daily_digest_notification_times).toEqual([
-			DEFAULT_DAILY_DIGEST_TIME_MINUTES,
+		expect(updatedUser.scheduled_updates_enabled).toBe(true);
+		expect(updatedUser.scheduled_update_times).toEqual([
+			DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES,
 		]);
 		expect(updatedUser.next_send_at).toBeTruthy();
 	});
 
-	it("The user updates the daily digest time to a new hour.", async () => {
+	it("The user updates the notification time to a new hour.", async () => {
 		const testUser = await createTestUser({
 			email: `test-${randomUUID()}@resend.dev`,
 			password: TEST_PASSWORD,
@@ -101,10 +101,7 @@ describe("A signed-in user updates their notification channels.", () => {
 		const formData = new FormData();
 		formData.append("email_notifications_enabled", "true");
 		formData.append("sms_notifications_enabled", "false");
-		formData.append(
-			"daily_digest_notification_times",
-			JSON.stringify(["12:00"]),
-		);
+		formData.append("scheduled_update_times", JSON.stringify(["12:00"]));
 
 		const request = new Request(
 			"http://localhost/api/notification-preferences/update",
@@ -136,10 +133,10 @@ describe("A signed-in user updates their notification channels.", () => {
 			.eq("id", testUser.id)
 			.single();
 
-		expect(updatedUser.daily_digest_notification_times).toEqual([720]);
+		expect(updatedUser.scheduled_update_times).toEqual([720]);
 	});
 
-	it("Submitted digest times are cleaned up and stored in order.", async () => {
+	it("Submitted scheduled times are cleaned up and stored in order.", async () => {
 		const testUser = await createTestUser({
 			email: `test-${randomUUID()}@resend.dev`,
 			password: TEST_PASSWORD,
@@ -154,7 +151,7 @@ describe("A signed-in user updates their notification channels.", () => {
 
 		const formData = new FormData();
 		formData.append(
-			"daily_digest_notification_times",
+			"scheduled_update_times",
 			JSON.stringify(["10:00", "08:00", "10:00", "11:00"]),
 		);
 
@@ -185,18 +182,16 @@ describe("A signed-in user updates their notification channels.", () => {
 			.eq("id", testUser.id)
 			.single();
 
-		expect(updatedUser.daily_digest_notification_times).toEqual([
-			480, 600, 660,
-		]);
+		expect(updatedUser.scheduled_update_times).toEqual([480, 600, 660]);
 	});
 
-	it("When all digest times are removed, daily digest scheduling is cleared.", async () => {
+	it("When all notification times are removed, scheduled updates are cleared.", async () => {
 		const testUser = await createTestUser({
 			email: `test-${randomUUID()}@resend.dev`,
 			password: TEST_PASSWORD,
 			confirmed: true,
-			dailyDigestEnabled: true,
-			dailyDigestNotificationTimes: [480],
+			scheduledUpdatesEnabled: true,
+			scheduledUpdateTimes: [480],
 		});
 		registerTestUserForCleanup(testUser.id);
 
@@ -206,7 +201,7 @@ describe("A signed-in user updates their notification channels.", () => {
 		);
 
 		const formData = new FormData();
-		formData.append("daily_digest_notification_times", "[]");
+		formData.append("scheduled_update_times", "[]");
 
 		const request = new Request(
 			"http://localhost/api/notification-preferences/update",
@@ -233,16 +228,14 @@ describe("A signed-in user updates their notification channels.", () => {
 			ok: boolean;
 			message: string;
 			notificationPreferences: {
-				daily_digest_notification_times: number[] | null;
+				scheduled_update_times: number[] | null;
 				next_send_at: string | null;
 			};
 		};
 
 		expect(payload.ok).toBe(true);
 		expect(payload.message).toBe("settings_updated");
-		expect(
-			payload.notificationPreferences.daily_digest_notification_times,
-		).toBeNull();
+		expect(payload.notificationPreferences.scheduled_update_times).toBeNull();
 		expect(payload.notificationPreferences.next_send_at).toBeNull();
 	});
 });

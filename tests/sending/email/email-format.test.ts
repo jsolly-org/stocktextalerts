@@ -3,7 +3,7 @@ import { formatEmailMessage } from "../../../src/lib/messaging/email/utils";
 import type { UserStockRow } from "../../../src/lib/messaging/types";
 import type { StockPriceMap } from "../../../src/lib/price-fetcher";
 
-describe("Email digest includes stock price data.", () => {
+describe("Email scheduled update includes stock price data.", () => {
 	const testUser = { id: "test-user-id", email: "test@example.com" };
 	const testStocks: UserStockRow[] = [
 		{ symbol: "AAPL", name: "Apple Inc." },

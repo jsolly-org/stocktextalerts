@@ -19,14 +19,14 @@ describe("A user clicks the email unsubscribe link.", () => {
 		renderers = await loadRenderers([getVueRenderer()]);
 	});
 
-	it("Email notifications are disabled while daily digest remains enabled.", async () => {
+	it("Email notifications are disabled while scheduled updates remain enabled.", async () => {
 		const user = await createTestUser({
 			email: createTestEmail("test"),
 			password: "TestPassword123!",
 			confirmed: true,
 			emailNotificationsEnabled: true,
 			smsNotificationsEnabled: true,
-			dailyDigestEnabled: true,
+			scheduledUpdatesEnabled: true,
 			phoneCountryCode: "+1",
 			phoneNumber: generateUniquePhoneNumber(),
 		});
@@ -50,14 +50,14 @@ describe("A user clicks the email unsubscribe link.", () => {
 		const { data: updated, error } = await adminClient
 			.from("users")
 			.select(
-				"email_notifications_enabled,daily_digest_enabled,sms_notifications_enabled",
+				"email_notifications_enabled,scheduled_updates_enabled,sms_notifications_enabled",
 			)
 			.eq("id", user.id)
 			.maybeSingle();
 
 		expect(error).toBeNull();
 		expect(updated?.email_notifications_enabled).toBe(false);
-		expect(updated?.daily_digest_enabled).toBe(true);
+		expect(updated?.scheduled_updates_enabled).toBe(true);
 		expect(updated?.sms_notifications_enabled).toBe(true);
 	});
 

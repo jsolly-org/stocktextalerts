@@ -88,9 +88,9 @@ function buildSavedNotificationPreferences(
 		sms_notifications_enabled: sourceUser.sms_notifications_enabled,
 		phone_verified: sourceUser.phone_verified,
 		timezone: sourceUser.timezone,
-		daily_digest_enabled: sourceUser.daily_digest_enabled,
-		daily_digest_notification_times:
-			sourceUser.daily_digest_notification_times,
+		scheduled_updates_enabled: sourceUser.scheduled_updates_enabled,
+		scheduled_update_times:
+			sourceUser.scheduled_update_times,
 		next_send_at: sourceUser.next_send_at,
 		dismiss_timezone_mismatch_prompts:
 			sourceUser.dismiss_timezone_mismatch_prompts,

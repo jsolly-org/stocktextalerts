@@ -46,7 +46,7 @@ if (!dbUser) {
 const user = dbUser;
 const initialStocks = userStocks.map((stock) => ({ symbol: stock.symbol, name: stock.name }));
 ---
-<Layout title="Dashboard" description="Review and manage your stock notifications. Add or remove tracked stocks, set your digest time and timezone, and choose email or SMS delivery for your daily alerts.">
+<Layout title="Dashboard" description="Review and manage your stock notifications. Add or remove tracked stocks, set your notification schedule and timezone, and choose email or SMS delivery.">
 	<div class="min-h-screen bg-gray-50">
 		<header>
 			<Navigation user={authUser} />

@@ -1,0 +1,85 @@
+<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg-grad" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#1E293B"/>
+    </linearGradient>
+    <linearGradient id="accent-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#0D9488"/>
+    </linearGradient>
+    <linearGradient id="chart-fill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#2563EB" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="chart-fill-2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0D9488" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#0D9488" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg-grad)"/>
+
+  <!-- Top accent bar -->
+  <rect width="1200" height="5" fill="url(#accent-grad)"/>
+
+  <!-- Subtle horizontal grid lines -->
+  <g opacity="0.06" stroke="#94A3B8" stroke-width="1">
+    <line x1="0" y1="157" x2="1200" y2="157"/>
+    <line x1="0" y1="315" x2="1200" y2="315"/>
+    <line x1="0" y1="473" x2="1200" y2="473"/>
+  </g>
+
+  <!-- Background chart area fill (teal, behind) -->
+  <path d="M650,480 L730,460 L810,470 L890,430 L970,410 L1050,370 L1130,390 L1200,350 L1200,630 L650,630 Z"
+        fill="url(#chart-fill-2)"/>
+
+  <!-- Background chart line (teal) -->
+  <path d="M650,480 L730,460 L810,470 L890,430 L970,410 L1050,370 L1130,390 L1200,350"
+        fill="none" stroke="#0D9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/>
+
+  <!-- Foreground chart area fill (blue) -->
+  <path d="M580,500 L660,470 L740,440 L820,390 L900,410 L980,340 L1060,280 L1140,230 L1200,200 L1200,630 L580,630 Z"
+        fill="url(#chart-fill)"/>
+
+  <!-- Foreground chart line (blue) -->
+  <path d="M580,500 L660,470 L740,440 L820,390 L900,410 L980,340 L1060,280 L1140,230 L1200,200"
+        fill="none" stroke="#2563EB" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+
+  <!-- Chart dot at end -->
+  <circle cx="1140" cy="230" r="5" fill="#2563EB" opacity="0.9"/>
+  <circle cx="1140" cy="230" r="10" fill="#2563EB" opacity="0.2"/>
+
+  <!-- Brand name — white on dark = ~15:1 contrast -->
+  <text x="80" y="240"
+        font-family="'Helvetica Neue', 'Arial', sans-serif"
+        font-size="76" font-weight="700" fill="#FFFFFF"
+        letter-spacing="-1">StockTextAlerts</text>
+
+  <!-- Tagline — slate-300 on dark = ~10:1 contrast -->
+  <text x="82" y="305"
+        font-family="'Helvetica Neue', 'Arial', sans-serif"
+        font-size="34" font-weight="400" fill="#CBD5E1">Stock Updates via Email &amp; SMS</text>
+
+  <!-- Accent divider bar -->
+  <rect x="82" y="335" width="80" height="3" rx="1.5" fill="url(#accent-grad)"/>
+
+  <!-- Feature list — slate-400 on dark = ~5.5:1 contrast -->
+  <text x="82" y="395"
+        font-family="'Helvetica Neue', 'Arial', sans-serif"
+        font-size="22" font-weight="500" fill="#94A3B8">Track US Stocks</text>
+  <circle cx="275" cy="390" r="2.5" fill="#475569"/>
+  <text x="295" y="395"
+        font-family="'Helvetica Neue', 'Arial', sans-serif"
+        font-size="22" font-weight="500" fill="#94A3B8">Set Your Schedule</text>
+  <circle cx="510" cy="390" r="2.5" fill="#475569"/>
+  <text x="530" y="395"
+        font-family="'Helvetica Neue', 'Arial', sans-serif"
+        font-size="22" font-weight="500" fill="#94A3B8">Email &amp; SMS Alerts</text>
+
+  <!-- URL — slate-400 on dark -->
+  <text x="82" y="570"
+        font-family="'Helvetica Neue', 'Arial', sans-serif"
+        font-size="20" font-weight="400" fill="#94A3B8">stocktextalerts.com</text>
+</svg>

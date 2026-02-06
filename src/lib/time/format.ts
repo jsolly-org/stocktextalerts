@@ -2,7 +2,7 @@ import { DateTime } from "luxon";
 import {
 	calculateNextSendAt,
 	calculateNextSendAtFromTimes,
-} from "./digest-times";
+} from "./scheduled-times";
 import type { ParsedTime, TimeValue } from "./types";
 
 export {
@@ -158,7 +158,7 @@ export function getSecondsUntilNextSend(options: {
 		if (Number.isFinite(diffSeconds) && diffSeconds > 0) {
 			return diffSeconds;
 		}
-		// next_send_at is in the past (e.g. digest just sent); fall back to
+		// next_send_at is in the past (e.g. update just sent); fall back to
 		// delivery times so the UI can show countdown to the next occurrence.
 	}
 

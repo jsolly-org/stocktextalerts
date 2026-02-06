@@ -60,11 +60,33 @@
 			:savedNotificationPreferences="savedNotificationPreferences"
 		/>
 	</form>
+
+	<form
+		ref="formatPreferencesFormElement"
+		:id="DASHBOARD_FORMAT_PREFERENCES_FORM_ID"
+		method="POST"
+		action="/api/format-preferences/update"
+		class="space-y-6"
+		aria-label="Format preferences"
+		:aria-busy="isFormatPreferencesSaving"
+		@input="handleFormatPreferencesFormInput"
+		@change="handleFormatPreferencesFormChange"
+		@submit="handleFormatPreferencesFormSubmit"
+	>
+		<NotificationPreviewPanel
+			:user="user"
+			:initialStocks="initialStocks"
+			:status-message="formatPreferencesStatusMessage"
+			:status-tone="formatPreferencesStatusTone"
+			:is-saving="isFormatPreferencesSaving"
+		/>
+	</form>
 </template>
 
 <script lang="ts" setup>
 import { computed, ref, toRefs, watch } from "vue";
 import {
+	DASHBOARD_FORMAT_PREFERENCES_FORM_ID,
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 	DASHBOARD_STOCKS_FORM_ID,
 	type FlashMessage,
@@ -74,11 +96,16 @@ import {
 import type { User } from "../../lib/db";
 import { fetchCurrentNotificationPreferences } from "../../lib/notification-preferences/client";
 import {
+	type FormatPreferencesData,
+	useAutoSaveFormatPreferences,
+} from "./composables/useAutoSaveFormatPreferences";
+import {
 	type NotificationPreferencesData,
 	useAutoSaveForm,
 } from "./composables/useAutoSaveNotificationPreferences";
 import { useSmsVerificationSubmission } from "./composables/useSmsVerificationSubmission";
 import NotificationChannelsPanel from "./notification-channels/NotificationChannelsPanel.vue";
+import NotificationPreviewPanel from "./notification-preview/NotificationPreviewPanel.vue";
 import ScheduledNotificationsPanel from "./notifications/scheduled/ScheduledNotificationsPanel.vue";
 import type { StockOption } from "./stocks/StockInput.vue";
 import TrackedStocksPanel from "./stocks/TrackedStocksPanel.vue";
@@ -186,9 +213,9 @@ watch(
 				sms_notifications_enabled:
 					newNotificationPreferences.sms_notifications_enabled,
 				phone_verified: newNotificationPreferences.phone_verified,
-				daily_digest_enabled: newNotificationPreferences.daily_digest_enabled,
-				daily_digest_notification_times:
-					newNotificationPreferences.daily_digest_notification_times,
+				scheduled_updates_enabled: newNotificationPreferences.scheduled_updates_enabled,
+				scheduled_update_times:
+					newNotificationPreferences.scheduled_update_times,
 				next_send_at: newNotificationPreferences.next_send_at,
 			};
 		}
@@ -261,6 +288,18 @@ const {
 	statusTone: stocksStatusTone,
 } = useAutoSaveForm({
 	formRef: stocksFormElement,
+});
+
+const formatPreferencesFormElement = ref<HTMLFormElement | null>(null);
+const {
+	handleFormChange: handleFormatPreferencesFormChange,
+	handleFormInput: handleFormatPreferencesFormInput,
+	handleFormSubmit: handleFormatPreferencesFormSubmit,
+	isSaving: isFormatPreferencesSaving,
+	statusMessage: formatPreferencesStatusMessage,
+	statusTone: formatPreferencesStatusTone,
+} = useAutoSaveFormatPreferences<FormatPreferencesData>({
+	formRef: formatPreferencesFormElement,
 });
 
 async function handleNotificationPreferencesFormSubmitWrapper(

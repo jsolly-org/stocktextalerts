@@ -5,7 +5,7 @@ import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
 import { jsonResponse } from "../../../lib/json-response";
 import { createLogger } from "../../../lib/logging";
-import { parseDigestTimes } from "../../../lib/notification-preferences/digest-times";
+import { parseScheduledTimes } from "../../../lib/notification-preferences/scheduled-times";
 import {
 	buildNotificationPreferencesUpdatePayload,
 	NotificationPreferencesValidationError,
@@ -15,8 +15,8 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	email_notifications_enabled: { type: "boolean" },
 	sms_notifications_enabled: { type: "boolean" },
 	timezone: { type: "timezone" },
-	daily_digest_enabled: { type: "boolean" },
-	daily_digest_notification_times: { type: "json_string_array" },
+	scheduled_updates_enabled: { type: "boolean" },
+	scheduled_update_times: { type: "json_string_array" },
 } as const satisfies FormSchema;
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
@@ -54,7 +54,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		);
 		return jsonResponse(400, { ok: false, message: "invalid_form" });
 	}
-	const rawTimesValue = formData.get("daily_digest_notification_times");
+	const rawTimesValue = formData.get("scheduled_update_times");
 	const parsed = parseWithSchema(formData, NOTIFICATION_PREFERENCES_SCHEMA);
 
 	if (!parsed.ok) {
@@ -70,14 +70,12 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 
 	if (
 		rawTimesValue !== "" &&
-		parsed.data.daily_digest_notification_times !== undefined
+		parsed.data.scheduled_update_times !== undefined
 	) {
-		const result = parseDigestTimes(
-			parsed.data.daily_digest_notification_times,
-		);
+		const result = parseScheduledTimes(parsed.data.scheduled_update_times);
 		if (!result.ok) {
 			logger.info(
-				"Notification-preferences update rejected due to invalid digest times",
+				"Notification-preferences update rejected due to invalid scheduled times",
 				{
 					userId: user.id,
 					reason: result.reason,
@@ -126,11 +124,11 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		if (error instanceof NotificationPreferencesValidationError) {
 			return jsonResponse(400, {
 				ok: false,
-				message: "digest_times_required",
+				message: "update_times_required",
 			});
 		}
 		logger.error(
-			"Notification-preferences update rejected due to invalid digest schedule",
+			"Notification-preferences update rejected due to invalid update schedule",
 			{
 				userId: user.id,
 				action: "notification_preferences_update",
@@ -172,9 +170,8 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 				sms_notifications_enabled: updatedUser.sms_notifications_enabled,
 				phone_verified: updatedUser.phone_verified,
 				timezone: updatedUser.timezone,
-				daily_digest_enabled: updatedUser.daily_digest_enabled,
-				daily_digest_notification_times:
-					updatedUser.daily_digest_notification_times,
+				scheduled_updates_enabled: updatedUser.scheduled_updates_enabled,
+				scheduled_update_times: updatedUser.scheduled_update_times,
 				next_send_at: updatedUser.next_send_at,
 				dismiss_timezone_mismatch_prompts:
 					updatedUser.dismiss_timezone_mismatch_prompts,

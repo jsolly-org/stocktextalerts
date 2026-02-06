@@ -1,7 +1,7 @@
 import type { DateTime } from "luxon";
 import type { Logger } from "../logging";
 import type { UserRecord } from "../messaging/types";
-import { calculateNextSendAtFromTimes } from "../time/digest-times";
+import { calculateNextSendAtFromTimes } from "../time/scheduled-times";
 import type { SupabaseAdminClient } from "./helpers";
 
 export async function updateUserNextSendAt(options: {
@@ -12,10 +12,10 @@ export async function updateUserNextSendAt(options: {
 }): Promise<void> {
 	const { user, supabase, logger, currentTime } = options;
 
-	// Query filters out null daily_digest_notification_times with .not()
-	const digestTimes = user.daily_digest_notification_times as number[];
+	// Query filters out null scheduled_update_times with .not()
+	const scheduledTimes = user.scheduled_update_times as number[];
 	const nextSendAt = calculateNextSendAtFromTimes(
-		digestTimes,
+		scheduledTimes,
 		user.timezone,
 		currentTime,
 	);
@@ -29,7 +29,7 @@ export async function updateUserNextSendAt(options: {
 	if (!nextSendAt) {
 		logger.warn("calculateNextSendAtFromTimes returned null", {
 			userId: user.id,
-			daily_digest_notification_times: user.daily_digest_notification_times,
+			scheduled_update_times: user.scheduled_update_times,
 			timezone: user.timezone,
 		});
 	}

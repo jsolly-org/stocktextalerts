@@ -2,7 +2,7 @@
 
 ## Goal
 
-Add real-time stock pricing to digest email and SMS notifications. Each stock in the notification will show its current price and daily percent change alongside the existing symbol and company name.
+Add real-time stock pricing to email and SMS notifications. Each stock in the notification will show its current price and percent change alongside the existing symbol and company name.
 
 ## Decisions
 

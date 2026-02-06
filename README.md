@@ -5,11 +5,11 @@ A stock market notification app that sends scheduled SMS and email updates about
 ## Features
 
 - **Stock Tracking** - Search and track US stock symbols
-- **Email Notifications** - Daily digest email updates about tracked stocks (Resend)
-- **SMS Notifications** - Optional daily digest SMS messages (Twilio)
+- **Email Notifications** - Scheduled email updates about tracked stocks (Resend)
+- **SMS Notifications** - Optional scheduled SMS messages (Twilio)
 - **Phone Verification** - Secure phone verification via Twilio Verify
 - **Timezone Support** - Browser-detected timezones with user overrides
-- **Daily Digest Scheduling** - Choose the time for your daily digest
+- **Notification Scheduling** - Choose when to receive your stock updates
 - **SMS Opt-out** - Users can reply STOP to opt out of SMS
 - **CAPTCHA Protection** - hCaptcha for auth flows
 
@@ -197,10 +197,10 @@ For local development, run `npm run db:reset` before `npm run test` to ensure yo
 ### User Flow
 
 1. **Register** - Create an account with email
-2. **Set Settings** - Configure timezone and daily digest time
+2. **Set Settings** - Configure timezone and notification schedule
 3. **Add Stocks** - Search and add stocks to track
 4. **Enable SMS** (optional) - Add phone number and verify via SMS code
-5. **Receive Notifications** - Get your daily digest via email and/or SMS
+5. **Receive Notifications** - Get your stock updates via email and/or SMS
 
 ### API Endpoints
 
@@ -255,7 +255,7 @@ The cron job calls `/api/schedule` and must include:
 - `Authorization: Bearer <CRON_SECRET>`
 
 The cron job:
-1. Queries users who need notifications based on their timezone and daily digest time
+1. Queries users who need notifications based on their timezone and scheduled notification times
 2. Fetches their tracked stocks
 3. Sends via email and/or SMS based on settings
 4. Logs all notification attempts to `notification_log` table

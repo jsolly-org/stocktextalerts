@@ -4,6 +4,7 @@ import { getSiteUrl } from "../../db/env";
 import { rootLogger } from "../../logging";
 import type { StockPriceMap } from "../../price-fetcher";
 import type { DeliveryResult, EmailUser, UserStockRow } from "../types";
+import { DEFAULT_FORMAT_PREFERENCES, type FormatPreferences } from "../types";
 import { createEmailUnsubscribeUrl } from "./email-unsubscribe";
 
 function escapeHtml(value: string): string {
@@ -112,6 +113,7 @@ export function formatEmailMessage(
 	stocksList: string,
 	priceMap: StockPriceMap,
 	marketOpen: boolean,
+	formatPrefs: FormatPreferences = DEFAULT_FORMAT_PREFERENCES,
 ): { text: string; html: string } {
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const escapedDashboardUrl = escapeHtml(dashboardUrl);
@@ -167,22 +169,28 @@ export function formatEmailMessage(
 		? ""
 		: "\nPrices as of last market close.";
 	const text = `Your tracked stocks:\n${stocksList}${marketDisclaimer}${textFooter}`;
+	const joinStr = formatPrefs.detailed_format ? "<br><br>" : "<br>";
 	const escapedStocksListHtml = userStocks
 		.map((stock) => {
-			const stockInfo = escapeHtml(`${stock.symbol} - ${stock.name}`);
+			const stockInfo = formatPrefs.show_company_name
+				? escapeHtml(`${stock.symbol} - ${stock.name}`)
+				: escapeHtml(stock.symbol);
 			const price = priceMap.get(stock.symbol);
 			if (price) {
-				const sign = price.changePercent >= 0 ? "+" : "";
-				const color = price.changePercent >= 0 ? "#16a34a" : "#dc2626";
 				const priceStr = escapeHtml(`$${price.price.toFixed(2)}`);
-				const changeStr = escapeHtml(
-					`(${sign}${price.changePercent.toFixed(2)}%)`,
-				);
-				return `${stockInfo} &mdash; ${priceStr} <span style="color: ${color};">${changeStr}</span>`;
+				if (formatPrefs.show_change_percent) {
+					const sign = price.changePercent >= 0 ? "+" : "";
+					const color = price.changePercent >= 0 ? "#16a34a" : "#dc2626";
+					const changeStr = escapeHtml(
+						`(${sign}${price.changePercent.toFixed(2)}%)`,
+					);
+					return `${stockInfo} &mdash; ${priceStr} <span style="color: ${color};">${changeStr}</span>`;
+				}
+				return `${stockInfo} &mdash; ${priceStr}`;
 			}
 			return stockInfo;
 		})
-		.join("<br>");
+		.join(joinStr);
 	const marketDisclaimerHtml = marketOpen
 		? ""
 		: '<p style="color: #6b7280; font-size: 12px; font-style: italic; margin-top: 8px; margin-bottom: 0;">Prices as of last market close.</p>';

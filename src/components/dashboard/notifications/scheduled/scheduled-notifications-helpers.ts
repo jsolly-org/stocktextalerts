@@ -12,9 +12,9 @@ import {
 	getSecondsUntilNextSend,
 } from "../../../../lib/time/format";
 
-export function useScheduledDigestTiming(options: {
+export function useScheduledUpdateTiming(options: {
 	timezone: ComputedRef<string>;
-	dailyDigestEnabled: Ref<boolean>;
+	scheduledUpdatesEnabled: Ref<boolean>;
 	nextSendAtIso: ComputedRef<string | null>;
 	timeInputs: ComputedRef<string[]>;
 }) {
@@ -52,7 +52,7 @@ export function useScheduledDigestTiming(options: {
 			return null;
 		}
 		void tick.value;
-		if (!options.dailyDigestEnabled.value) {
+		if (!options.scheduledUpdatesEnabled.value) {
 			return null;
 		}
 		const tz = options.timezone.value;

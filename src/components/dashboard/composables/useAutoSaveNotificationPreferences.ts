@@ -8,8 +8,8 @@ export type NotificationPreferencesData = {
 	sms_notifications_enabled: boolean;
 	phone_verified: boolean;
 	timezone: string;
-	daily_digest_enabled: boolean;
-	daily_digest_notification_times: number[] | null;
+	scheduled_updates_enabled: boolean;
+	scheduled_update_times: number[] | null;
 	next_send_at: string | null;
 	dismiss_timezone_mismatch_prompts: boolean;
 };

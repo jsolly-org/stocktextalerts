@@ -50,7 +50,7 @@ Enums for Stronger DB Types
 
 CREATE TYPE public.delivery_method AS ENUM ('email', 'sms');
 
-CREATE TYPE public.scheduled_notification_type AS ENUM ('daily_digest');
+CREATE TYPE public.scheduled_notification_type AS ENUM ('scheduled_update');
 
 CREATE TYPE public.scheduled_notification_status AS ENUM ('sending', 'sent', 'failed');
 
@@ -196,7 +196,7 @@ GRANT SELECT ON TABLE public.timezones TO anon, authenticated;
 Users
 ============= */
 
-CREATE OR REPLACE FUNCTION public.is_valid_digest_times(
+CREATE OR REPLACE FUNCTION public.is_valid_scheduled_update_times(
   times integer[]
 )
 RETURNS boolean
@@ -229,14 +229,18 @@ CREATE TABLE IF NOT EXISTS users (
   phone_verified BOOLEAN DEFAULT false NOT NULL,
   verification_sent_at TIMESTAMP WITH TIME ZONE,
   timezone TEXT DEFAULT 'America/New_York' REFERENCES timezones(value) NOT NULL,
-  daily_digest_enabled BOOLEAN DEFAULT true NOT NULL,
-  daily_digest_notification_times INTEGER[] DEFAULT ARRAY[540] CHECK (
-    public.is_valid_digest_times(daily_digest_notification_times)
+  scheduled_updates_enabled BOOLEAN DEFAULT true NOT NULL,
+  scheduled_update_times INTEGER[] DEFAULT ARRAY[540] CHECK (
+    public.is_valid_scheduled_update_times(scheduled_update_times)
   ),
   next_send_at TIMESTAMP WITH TIME ZONE,
   email_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
   sms_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
+  sms_opted_out BOOLEAN DEFAULT false NOT NULL,
   dismiss_timezone_mismatch_prompts BOOLEAN DEFAULT false NOT NULL,
+  show_change_percent BOOLEAN DEFAULT true NOT NULL,
+  show_company_name BOOLEAN DEFAULT true NOT NULL,
+  detailed_format BOOLEAN DEFAULT false NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   CONSTRAINT phone_country_code_format CHECK (phone_country_code ~ '^\+[0-9]{1,4}$'),
@@ -255,11 +259,11 @@ CREATE TABLE IF NOT EXISTS users (
   CONSTRAINT users_timezone_no_whitespace CHECK (public.has_no_whitespace(timezone)),
   CONSTRAINT users_phone_country_code_no_whitespace CHECK (public.has_no_whitespace(phone_country_code)),
   CONSTRAINT users_phone_number_no_whitespace CHECK (public.has_no_whitespace(phone_number)),
-  CONSTRAINT users_daily_digest_requires_time CHECK (
-    daily_digest_enabled = false
+  CONSTRAINT users_scheduled_updates_requires_time CHECK (
+    scheduled_updates_enabled = false
     OR (
-      daily_digest_notification_times IS NOT NULL
-      AND COALESCE(array_length(daily_digest_notification_times, 1), 0) >= 1
+      scheduled_update_times IS NOT NULL
+      AND COALESCE(array_length(scheduled_update_times, 1), 0) >= 1
     )
   )
 );
@@ -375,14 +379,14 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.replace_user_stocks(uuid, text[]) TO authenticated, service_role;
 
-CREATE OR REPLACE FUNCTION public.update_notification_preferences_and_stocks(
+CREATE OR REPLACE FUNCTION public.update_user_preferences_and_stocks(
   p_user_id uuid,
   p_symbols text[],
   p_email_notifications_enabled boolean,
   p_sms_notifications_enabled boolean,
   p_timezone text,
-  p_daily_digest_enabled boolean,
-  p_daily_digest_notification_times integer[],
+  p_scheduled_updates_enabled boolean,
+  p_scheduled_update_times integer[],
   p_next_send_at timestamp with time zone
 )
 RETURNS void
@@ -408,8 +412,8 @@ BEGIN
     email_notifications_enabled = p_email_notifications_enabled,
     sms_notifications_enabled = p_sms_notifications_enabled,
     timezone = p_timezone,
-    daily_digest_enabled = p_daily_digest_enabled,
-    daily_digest_notification_times = p_daily_digest_notification_times,
+    scheduled_updates_enabled = p_scheduled_updates_enabled,
+    scheduled_update_times = p_scheduled_update_times,
     next_send_at = p_next_send_at
   WHERE id = p_user_id;
 
@@ -419,7 +423,7 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.update_notification_preferences_and_stocks(
+GRANT EXECUTE ON FUNCTION public.update_user_preferences_and_stocks(
   uuid,
   text[],
   boolean,
@@ -473,7 +477,7 @@ CREATE TABLE IF NOT EXISTS scheduled_notifications (
 
 CREATE INDEX IF NOT EXISTS idx_users_next_send_at
   ON users (next_send_at)
-  WHERE daily_digest_enabled = true
+  WHERE scheduled_updates_enabled = true
     AND next_send_at IS NOT NULL;
 
 /* =============

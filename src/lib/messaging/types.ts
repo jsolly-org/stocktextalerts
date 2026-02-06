@@ -13,6 +13,18 @@ export interface ProcessingStats {
 
 type DbUserRow = Database["public"]["Tables"]["users"]["Row"];
 
+export interface FormatPreferences {
+	show_change_percent: boolean;
+	show_company_name: boolean;
+	detailed_format: boolean;
+}
+
+export const DEFAULT_FORMAT_PREFERENCES: FormatPreferences = {
+	show_change_percent: true,
+	show_company_name: true,
+	detailed_format: false,
+};
+
 export type UserRecord = Pick<
 	DbUserRow,
 	| "id"
@@ -21,12 +33,15 @@ export type UserRecord = Pick<
 	| "phone_number"
 	| "phone_verified"
 	| "timezone"
-	| "daily_digest_enabled"
+	| "scheduled_updates_enabled"
 	| "next_send_at"
 	| "email_notifications_enabled"
 	| "sms_notifications_enabled"
+	| "show_change_percent"
+	| "show_company_name"
+	| "detailed_format"
 > & {
-	daily_digest_notification_times: number[] | null;
+	scheduled_update_times: number[] | null;
 };
 
 export type EmailUser = Pick<

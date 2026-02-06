@@ -17,41 +17,45 @@ const { isAuthenticated } = Astro.props;
   </div>
   
   <div class="relative max-w-7xl mx-auto">
-    <div class="mt-16 mx-auto max-w-7xl px-4 sm:mt-20 sm:px-6 md:mt-24 lg:mt-32 lg:px-8 xl:mt-40 pb-16 sm:pb-20 lg:pb-24">
-      <header class="text-center animate-fade-in">
-        <h1 id="hero-heading" class="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl lg:text-7xl">
-          <span class="block xl:inline">Your stock tickers' daily digest</span>
-          <span class="block bg-linear-to-r from-primary to-blue-500 bg-clip-text text-transparent xl:inline">delivered how you want it</span>
-        </h1>
-        <p class="mt-6 text-lg text-gray-600 sm:mt-8 sm:text-xl sm:max-w-2xl sm:mx-auto md:mt-10 md:text-2xl md:leading-relaxed">
-          Get a daily digest of your tracked stocks—delivered via email or text messages. Simple, reliable, and distraction-free.
-        </p>
-      </header>
-      <div class="text-center animate-fade-in">
-        <div class="mt-8 sm:mt-12">
-            {isAuthenticated ? (
-              <div class="flex flex-col items-center gap-4">
-                <p class="text-lg text-gray-600">You're already logged in.</p>
-                <a
-                  href="/dashboard"
-                  class="btn btn-lg btn-primary shadow-lg hover:shadow-xl md:py-4 md:text-lg md:px-10"
-                >
-                  Go to Dashboard
-                </a>
-              </div>
-            ) : (
-              <div class="flex justify-center">
-                <a
-                  href="/auth/register"
-                  class="btn btn-lg btn-primary shadow-lg hover:shadow-xl md:py-4 md:text-lg md:px-10"
-                >
-                  Start Tracking for Free
-                </a>
-              </div>
-            )}
+    <div class="mt-16 mx-auto max-w-7xl px-4 sm:mt-20 sm:px-6 md:mt-24 lg:px-8 pb-16 sm:pb-20 lg:pb-24">
+      <div class="lg:grid lg:grid-cols-2 lg:gap-12 lg:items-center">
+        <!-- Left column: text + CTA -->
+        <div class="text-center lg:text-left animate-fade-in">
+          <h1 id="hero-heading" class="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl lg:text-7xl">
+            <span class="block xl:inline">Stock updates on your schedule</span>
+            <span class="block bg-linear-to-r from-primary to-blue-500 bg-clip-text text-transparent xl:inline">delivered how you want them</span>
+          </h1>
+          <p class="mt-6 text-lg text-gray-600 sm:mt-8 sm:text-xl sm:max-w-2xl sm:mx-auto lg:mx-0 md:mt-10 md:text-2xl md:leading-relaxed">
+            Get updates on your tracked stocks—delivered via email or text messages. Simple, reliable, and distraction-free.
+          </p>
+          <div class="mt-8 sm:mt-12">
+              {isAuthenticated ? (
+                <div class="flex flex-col items-center lg:items-start gap-4">
+                  <p class="text-lg text-gray-600">You're already logged in.</p>
+                  <a
+                    href="/dashboard"
+                    class="btn btn-lg btn-primary shadow-lg hover:shadow-xl md:py-4 md:text-lg md:px-10"
+                  >
+                    Go to Dashboard
+                  </a>
+                </div>
+              ) : (
+                <div class="flex justify-center lg:justify-start">
+                  <a
+                    href="/auth/register"
+                    class="btn btn-lg btn-primary shadow-lg hover:shadow-xl md:py-4 md:text-lg md:px-10"
+                  >
+                    Start Tracking for Free
+                  </a>
+                </div>
+              )}
+          </div>
         </div>
 
-        <NotificationPreview />
+        <!-- Right column: phone animation -->
+        <div class="animate-fade-in">
+          <NotificationPreview />
+        </div>
       </div>
     </div>
   </div>

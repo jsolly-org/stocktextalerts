@@ -1,13 +1,15 @@
 import { DateTime } from "luxon";
 import type { Logger } from "../logging";
-import { calculateNextSendAtFromTimes } from "../time/digest-times";
 import { parseTimeToMinutes } from "../time/format";
+import { calculateNextSendAtFromTimes } from "../time/scheduled-times";
 
-export type DigestTimesParseResult =
+export type ScheduledTimesParseResult =
 	| { ok: true; times: number[] }
 	| { ok: false; reason: string };
 
-export function parseDigestTimes(values: string[]): DigestTimesParseResult {
+export function parseScheduledTimes(
+	values: string[],
+): ScheduledTimesParseResult {
 	const minutes: number[] = [];
 	for (const value of values) {
 		const parsed = parseTimeToMinutes(value);

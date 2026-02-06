@@ -10,7 +10,7 @@ import phoneFrame from "../../assets/phone-frame.svg";
       <div class="messages-scroll">
         <div class="messages-wrapper">
           <div class="message-bubble received" data-index="0">
-            <p>Daily Digest: AAPL $195.50 (+2.4%), GOOGL $178.20 (+1.8%), TSLA $248.30 (-0.5%)</p>
+            <p>Stock Update: AAPL $195.50 (+2.4%), GOOGL $178.20 (+1.8%), TSLA $248.30 (-0.5%)</p>
           </div>
           <div class="message-bubble sent" data-index="1">
             <p>What's driving AAPL today?</p>
@@ -22,10 +22,10 @@ import phoneFrame from "../../assets/phone-frame.svg";
             <p>Alert: NVDA just hit a new 52-week high at $142.60, up 4.1%</p>
           </div>
           <div class="message-bubble sent" data-index="4">
-            <p>Add NVDA to my watchlist</p>
+            <p>Can you start tracking NVDA?</p>
           </div>
           <div class="message-bubble received" data-index="5">
-            <p>Done! NVDA added. You'll get daily updates starting tomorrow.</p>
+            <p>Done! NVDA added. You'll get updates starting tomorrow.</p>
           </div>
           <div class="message-bubble received" data-index="6">
             <p>Market Close: S&P 500 +0.8%, NASDAQ +1.2%. Your portfolio is up 2.1% today.</p>
@@ -61,6 +61,15 @@ import phoneFrame from "../../assets/phone-frame.svg";
     }
   }
 
+  /* In the two-column hero, reduce top margin and allow a larger phone */
+  @media (min-width: 1024px) {
+    .phone-preview-container {
+      margin-top: 0;
+      margin-bottom: 0;
+      max-width: 300px;
+    }
+  }
+
   .phone-frame {
     position: relative;
   }
@@ -72,10 +81,10 @@ import phoneFrame from "../../assets/phone-frame.svg";
 
   .messages-container {
     position: absolute;
-    top: 40px;
-    left: 10px;
-    right: 10px;
-    bottom: 40px;
+    top: 15%;
+    left: 4%;
+    right: 4%;
+    bottom: 7.5%;
     border-radius: 28px;
     overflow: hidden;
     background-color: var(--color-slate-50);

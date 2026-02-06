@@ -55,7 +55,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 	}
 
 	// Support manual sends: run-scheduled-cron.sh --force sends { force: true } so we
-	// process all digest-enabled users immediately instead of only those with next_send_at <= now.
+	// process all notification-enabled users immediately instead of only those with next_send_at <= now.
 	let forceSend = false;
 	const contentType = request.headers.get("content-type") ?? "";
 	const contentLength = request.headers.get("content-length");
