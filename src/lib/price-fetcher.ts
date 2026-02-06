@@ -25,7 +25,7 @@ async function fetchStockQuote(
 		}
 		const data: unknown = await response.json();
 		if (typeof data !== "object" || data === null) {
-			rootLogger.error("Unexpected Finnhub quote payload", {
+			rootLogger.error("Unexpected Finnhub quote payload structure", {
 				symbol,
 				payload: data,
 			});
@@ -39,8 +39,10 @@ async function fetchStockQuote(
 			typeof dp !== "number" ||
 			!Number.isFinite(dp)
 		) {
-			rootLogger.error("Unexpected Finnhub quote payload", {
+			rootLogger.error("Invalid Finnhub quote field types", {
 				symbol,
+				c,
+				dp,
 				payload: data,
 			});
 			return null;
@@ -91,8 +93,24 @@ export async function fetchMarketStatus(): Promise<boolean> {
 			// Default to closed (show disclaimer) on error
 			return false;
 		}
-		const data = await response.json();
-		return data.isOpen === true;
+		const data: unknown = await response.json();
+		if (typeof data !== "object" || data === null) {
+			throw new Error(
+				"Unexpected Finnhub market status response: expected an object payload",
+				{ cause: data },
+			);
+		}
+
+		const isOpen =
+			"isOpen" in data ? (data as { isOpen?: unknown }).isOpen : undefined;
+		if (typeof isOpen !== "boolean") {
+			throw new Error(
+				"Unexpected Finnhub market status response: expected { isOpen: boolean }",
+				{ cause: data },
+			);
+		}
+
+		return isOpen;
 	} catch (error) {
 		rootLogger.error(
 			"Failed to fetch market status",
