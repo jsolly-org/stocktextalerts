@@ -23,12 +23,26 @@ async function fetchStockQuote(
 			});
 			return null;
 		}
-		const data = await response.json();
-		// Finnhub returns 0 for unknown/delisted symbols
-		if (data.c === 0) {
+		const data: unknown = await response.json();
+		if (typeof data !== "object" || data === null) {
 			return null;
 		}
-		return { price: data.c, changePercent: data.dp };
+
+		const { c, dp } = data as { c?: unknown; dp?: unknown };
+		if (
+			typeof c !== "number" ||
+			!Number.isFinite(c) ||
+			typeof dp !== "number" ||
+			!Number.isFinite(dp)
+		) {
+			return null;
+		}
+
+		// Finnhub returns 0 for unknown/delisted symbols
+		if (c === 0) {
+			return null;
+		}
+		return { price: c, changePercent: dp };
 	} catch (error) {
 		rootLogger.error("Failed to fetch stock quote", { symbol }, error);
 		return null;
