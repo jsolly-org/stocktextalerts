@@ -721,6 +721,9 @@ CREATE POLICY "Users can manage own rate limit records" ON rate_limit_log
   USING ((SELECT auth.uid()) = user_id)
   WITH CHECK ((SELECT auth.uid()) = user_id);
 
+-- Allows RPCs (e.g. check_rate_limit) to write, while RLS enforces per-user access.
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.rate_limit_log TO authenticated, service_role;
+
 /* =============
 Row Level Security - Users
 ============= */
@@ -742,6 +745,7 @@ CREATE POLICY "Users can delete own profile" ON users
   FOR DELETE USING ((SELECT auth.uid()) = id);
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.users TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.users TO service_role;
 
 /* =============
 Row Level Security - User Stocks
@@ -759,6 +763,7 @@ CREATE POLICY "Users can delete own stocks" ON user_stocks
   FOR DELETE USING ((SELECT auth.uid()) = user_id);
 
 GRANT SELECT, INSERT, DELETE ON TABLE public.user_stocks TO authenticated;
+GRANT SELECT, INSERT, DELETE ON TABLE public.user_stocks TO service_role;
 
 /* =============
 Row Level Security - Stocks (Public Read)
@@ -770,6 +775,7 @@ CREATE POLICY "Anyone can view stocks" ON stocks
   FOR SELECT USING (true);
 
 GRANT SELECT ON TABLE public.stocks TO anon, authenticated;
+GRANT SELECT ON TABLE public.stocks TO service_role;
 
 /* =============
 Row Level Security - Notification Log
@@ -780,12 +786,17 @@ ALTER TABLE notification_log ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view own notifications" ON notification_log
   FOR SELECT USING ((SELECT auth.uid()) = user_id);
 
+GRANT SELECT ON TABLE public.notification_log TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.notification_log TO service_role;
+
 /* =============
 Row Level Security - Scheduled Notifications
 ============= */
 
 /* Service-role only: notification scheduler tasks, no user-level access needed */
 ALTER TABLE scheduled_notifications ENABLE ROW LEVEL SECURITY;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.scheduled_notifications TO service_role;
 
 /* =============
 Timestamp Functions
