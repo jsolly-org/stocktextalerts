@@ -21,8 +21,8 @@ export async function processEmailUpdate(
 	sendEmail: EmailSender,
 	priceMap: StockPriceMap,
 	marketOpen: boolean,
+	formatPrefs: FormatPreferences,
 	idempotencyKey?: string,
-	formatPrefs?: FormatPreferences,
 ): Promise<ProcessingStats> {
 	const message = formatEmailMessage(
 		user,

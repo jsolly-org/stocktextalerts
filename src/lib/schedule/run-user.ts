@@ -3,11 +3,10 @@ import type { Logger } from "../logging";
 import type { EmailSender } from "../messaging/email/utils";
 import { recordNotification } from "../messaging/shared";
 import { shouldSendSms } from "../messaging/sms";
-import {
-	DEFAULT_FORMAT_PREFERENCES,
-	type FormatPreferences,
-	type UserRecord,
-	type UserStockRow,
+import type {
+	FormatPreferences,
+	UserRecord,
+	UserStockRow,
 } from "../messaging/types";
 import type { StockPriceMap } from "../price-fetcher";
 import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
@@ -41,7 +40,7 @@ function formatStockPrice(
 function buildStocksList(
 	userStocks: UserStockRow[],
 	priceMap: StockPriceMap,
-	formatPrefs: FormatPreferences = DEFAULT_FORMAT_PREFERENCES,
+	formatPrefs: FormatPreferences,
 ): string {
 	if (userStocks.length === 0) {
 		return "You don't have any tracked stocks";

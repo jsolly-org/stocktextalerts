@@ -13,14 +13,6 @@
 						v-html="formattedEmailHtml"
 					></p>
 				</div>
-				<div class="text-center mt-4">
-					<span class="text-primary text-xs font-medium">Manage your stocks &rarr;</span>
-				</div>
-				<div class="email-footer">
-					<span class="text-xs text-gray-400">Adjust delivery schedule</span>
-					<span class="text-gray-300 px-2">&bull;</span>
-					<span class="text-xs text-gray-400">Unsubscribe from email</span>
-				</div>
 			</div>
 		</div>
 	</div>
@@ -71,12 +63,4 @@ const formattedEmailHtml = computed(() =>
 	border-radius: 0.375rem;
 }
 
-.email-footer {
-	color: #6b7280;
-	font-size: 0.75rem;
-	margin-top: 1rem;
-	padding-top: 0.75rem;
-	border-top: 1px solid #e5e7eb;
-	text-align: center;
-}
 </style>

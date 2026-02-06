@@ -3,8 +3,12 @@ import { DASHBOARD_SECTION_HASHES } from "../../constants";
 import { getSiteUrl } from "../../db/env";
 import { rootLogger } from "../../logging";
 import type { StockPriceMap } from "../../price-fetcher";
-import type { DeliveryResult, EmailUser, UserStockRow } from "../types";
-import { DEFAULT_FORMAT_PREFERENCES, type FormatPreferences } from "../types";
+import type {
+	DeliveryResult,
+	EmailUser,
+	FormatPreferences,
+	UserStockRow,
+} from "../types";
 import { createEmailUnsubscribeUrl } from "./email-unsubscribe";
 
 /**
@@ -122,7 +126,7 @@ export function formatEmailMessage(
 	stocksList: string,
 	priceMap: StockPriceMap,
 	marketOpen: boolean,
-	formatPrefs: FormatPreferences = DEFAULT_FORMAT_PREFERENCES,
+	formatPrefs: FormatPreferences,
 ): { text: string; html: string } {
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const escapedDashboardUrl = escapeHtml(dashboardUrl);

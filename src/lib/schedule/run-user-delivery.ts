@@ -32,7 +32,7 @@ export async function processScheduledUserEmailDelivery(options: {
 	priceMap: StockPriceMap;
 	marketOpen: boolean;
 	stats: ScheduledNotificationTotals;
-	formatPrefs?: FormatPreferences;
+	formatPrefs: FormatPreferences;
 }): Promise<void> {
 	const {
 		user,
@@ -93,8 +93,8 @@ export async function processScheduledUserEmailDelivery(options: {
 		sendEmail,
 		priceMap,
 		marketOpen,
-		emailIdempotencyKey,
 		formatPrefs,
+		emailIdempotencyKey,
 	);
 
 	if (sent) {

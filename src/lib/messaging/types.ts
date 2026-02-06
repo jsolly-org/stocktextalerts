@@ -19,12 +19,6 @@ export interface FormatPreferences {
 	detailed_format: boolean;
 }
 
-export const DEFAULT_FORMAT_PREFERENCES: FormatPreferences = {
-	show_change_percent: true,
-	show_company_name: true,
-	detailed_format: false,
-};
-
 export type UserRecord = Pick<
 	DbUserRow,
 	| "id"

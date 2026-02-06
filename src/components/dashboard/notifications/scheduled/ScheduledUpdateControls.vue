@@ -18,9 +18,10 @@
 				type="checkbox"
 				value="on"
 				id="scheduled_updates_enabled"
-				class="mt-1 h-5 w-5 shrink-0 cursor-pointer rounded border-gray-300 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-				v-model="enabledValue"
+				class="mt-1 h-5 w-5 shrink-0 cursor-pointer rounded border-gray-300 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed"
+				:checked="needsChannelSelection || enabledValue"
 				:disabled="needsChannelSelection"
+				@change="enabledValue = ($event.target as HTMLInputElement).checked"
 				aria-labelledby="scheduled_updates_label"
 				aria-describedby="scheduled_updates_description"
 			/>

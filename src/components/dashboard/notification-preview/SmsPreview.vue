@@ -5,9 +5,6 @@
 			<div class="phone-frame-border">
 				<div class="phone-notch"></div>
 				<div class="phone-screen">
-					<div class="sms-header">
-						<span class="text-xs font-medium text-gray-500">Stock Text Alerts</span>
-					</div>
 					<div class="sms-body">
 						<div class="message-bubble-received">
 							<p class="text-sm leading-relaxed whitespace-pre-line">{{ formattedSmsText }}</p>
@@ -65,13 +62,6 @@ const formattedSmsText = computed(() =>
 	border-radius: 1.25rem;
 	overflow: hidden;
 	min-height: 200px;
-}
-
-.sms-header {
-	background: #f3f4f6;
-	padding: 0.5rem 0.75rem;
-	border-bottom: 1px solid #e5e7eb;
-	text-align: center;
 }
 
 .sms-body {
