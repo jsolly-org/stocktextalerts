@@ -392,16 +392,45 @@ jobs:
           }
 
           if [[ "$EVENT_NAME" == "pull_request_review_comment" ]]; then
-            COMMENT_JSON=$(gh api "repos/$REPO/pulls/comments/$COMMENT_ID" 2> /tmp/gh-err.txt) || { log_warning "Failed to fetch review comment $COMMENT_ID. API stderr: $(cat /tmp/gh-err.txt)"; exit 0; }
-            NODE_ID=$(echo "$COMMENT_JSON" | jq -r '.node_id')
-            [[ -z "$NODE_ID" || "$NODE_ID" == "null" ]] && { log_warning "Could not resolve review thread for comment $COMMENT_ID (missing node_id)."; exit 0; }
+            OWNER="${REPO%%/*}"
+            REPO_NAME="${REPO##*/}"
 
-            THREAD_QUERY='query($id:ID!){node(id:$id){... on PullRequestReviewComment{pullRequestReviewThread{id isResolved}}}}'
-            THREAD_JSON=$(gh api graphql -f query="$THREAD_QUERY" -f id="$NODE_ID" 2> /tmp/gh-err.txt) || { log_warning "Failed to fetch review thread for comment $COMMENT_ID. API stderr: $(cat /tmp/gh-err.txt)"; exit 0; }
-            THREAD_ID=$(echo "$THREAD_JSON" | jq -r '.data.node.pullRequestReviewThread.id // empty')
-            THREAD_RESOLVED=$(echo "$THREAD_JSON" | jq -r '.data.node.pullRequestReviewThread.isResolved // false')
+            # PullRequestReviewComment does not have a pullRequestReviewThread field.
+            # Instead, query the PR's reviewThreads and find the one containing our comment.
+            THREAD_QUERY='query($owner:String!,$repo:String!,$prNumber:Int!,$cursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$prNumber){reviewThreads(first:100,after:$cursor){pageInfo{hasNextPage endCursor}nodes{id isResolved comments(first:100){nodes{databaseId}}}}}}}'
 
-            [[ -z "$THREAD_ID" ]] && { log_warning "Could not resolve review thread for comment $COMMENT_ID (missing thread id). GraphQL response: $THREAD_JSON"; exit 0; }
+            THREAD_ID=""
+            THREAD_RESOLVED=""
+            CURSOR=""
+            while true; do
+              CURSOR_ARG=()
+              [[ -n "$CURSOR" ]] && CURSOR_ARG=(-f cursor="$CURSOR")
+              THREAD_JSON=$(gh api graphql \
+                -f query="$THREAD_QUERY" \
+                -f owner="$OWNER" \
+                -f repo="$REPO_NAME" \
+                -F prNumber="$PR_NUMBER" \
+                "${CURSOR_ARG[@]}" \
+                2> /tmp/gh-err.txt) || { log_warning "Failed to fetch review threads for PR $PR_NUMBER. API stderr: $(cat /tmp/gh-err.txt)"; exit 0; }
+
+              THREAD_ID=$(echo "$THREAD_JSON" | jq -r --argjson cid "$COMMENT_ID" '
+                .data.repository.pullRequest.reviewThreads.nodes[]
+                | select(.comments.nodes | any(.databaseId == $cid))
+                | .id' | head -1)
+              if [[ -n "$THREAD_ID" ]]; then
+                THREAD_RESOLVED=$(echo "$THREAD_JSON" | jq -r --argjson cid "$COMMENT_ID" '
+                  .data.repository.pullRequest.reviewThreads.nodes[]
+                  | select(.comments.nodes | any(.databaseId == $cid))
+                  | .isResolved' | head -1)
+                break
+              fi
+
+              HAS_NEXT=$(echo "$THREAD_JSON" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage')
+              [[ "$HAS_NEXT" != "true" ]] && break
+              CURSOR=$(echo "$THREAD_JSON" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor')
+            done
+
+            [[ -z "$THREAD_ID" ]] && { log_warning "Could not find review thread containing comment $COMMENT_ID in PR $PR_NUMBER."; exit 0; }
             [[ "$THREAD_RESOLVED" == "true" ]] && { echo "Review thread already resolved."; exit 0; }
 
             RESOLVE_MUTATION='mutation($threadId:ID!){resolveReviewThread(input:{threadId:$threadId}){thread{isResolved}}}'
