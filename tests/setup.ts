@@ -11,8 +11,10 @@ import {
 	cleanupTestUser,
 	getRealStockSymbols,
 } from "./shared-utils";
+import { takeTestUserIdsForCleanup } from "./test-user-cleanup";
 
 export { adminClient };
+export { registerTestUserForCleanup } from "./test-user-cleanup";
 
 vi.mock("../src/lib/db/env", () => ({
 	getSiteUrl: () => "http://localhost",
@@ -147,14 +149,8 @@ async function verifyDatabaseSchemaUpToDate() {
 	}
 }
 
-const createdUserIds: string[] = [];
-
-export function registerTestUserForCleanup(userId: string): void {
-	createdUserIds.push(userId);
-}
-
 afterEach(async () => {
-	const userIds = createdUserIds.splice(0, createdUserIds.length);
+	const userIds = takeTestUserIdsForCleanup();
 	for (const userId of userIds) {
 		await cleanupTestUser(userId);
 	}
