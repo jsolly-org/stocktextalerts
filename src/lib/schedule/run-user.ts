@@ -34,9 +34,6 @@ function formatStockPrice(
 	return `$${price.price.toFixed(2)} (${sign}${price.changePercent.toFixed(2)}%)`;
 }
 
-/**
- * Build the stock lines for a delivery message based on user format preferences.
- */
 function buildStocksList(
 	userStocks: UserStockRow[],
 	priceMap: StockPriceMap,
@@ -61,10 +58,6 @@ function buildStocksList(
 		.join(separator);
 }
 
-/**
- * Process a single scheduled user: render message content, deliver via enabled channels,
- * record delivery attempts, and advance `next_send_at`.
- */
 export async function processScheduledUser(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;

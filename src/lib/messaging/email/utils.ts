@@ -11,9 +11,6 @@ import type {
 } from "../types";
 import { createEmailUnsubscribeUrl } from "./email-unsubscribe";
 
-/**
- * Escape untrusted strings for safe insertion into HTML email templates.
- */
 function escapeHtml(value: string): string {
 	return value
 		.replaceAll("&", "&amp;")
@@ -34,9 +31,6 @@ export interface EmailRequest {
 
 export type EmailSender = (request: EmailRequest) => Promise<DeliveryResult>;
 
-/**
- * Create a Resend-backed email sender, falling back to a test stub in `MODE=test`.
- */
 export function createEmailSender(): EmailSender {
 	const apiKey = import.meta.env.RESEND_API_KEY;
 	const fromEmail = import.meta.env.EMAIL_FROM;
@@ -117,9 +111,6 @@ export function createEmailSender(): EmailSender {
 	};
 }
 
-/**
- * Format the scheduled update email message in both text and HTML variants.
- */
 export function formatEmailMessage(
 	user: EmailUser,
 	userStocks: UserStockRow[],
