@@ -55,7 +55,7 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 				},
 			);
 			throw new NotificationPreferencesValidationError(
-				`Invalid scheduled times: ${result.reason}`,
+				`Invalid schedule: ${result.reason}`,
 				{ userId: dbUser.id },
 			);
 		}
