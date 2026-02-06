@@ -43,6 +43,7 @@ function buildCsp(requestHost?: string): string {
 		`frame-src ${frameSrc}`,
 		"img-src 'self' data: https:",
 		`script-src ${scriptSrc}`,
+		"script-src-attr 'none'",
 		"style-src 'self' 'unsafe-inline' https://www.ssa.gov", // ANDI stylesheet
 		`connect-src ${connectSrc}`,
 		"font-src 'self' data:",
@@ -61,13 +62,12 @@ const applySecurityHeaders = (
 		buildCsp(request?.url ? new URL(request.url).host : undefined),
 	);
 	headers.set("cross-origin-opener-policy", "same-origin");
+	headers.set("origin-agent-cluster", "?1");
 	headers.set("x-content-type-options", "nosniff");
 	headers.set("x-frame-options", "DENY");
+	headers.set("x-permitted-cross-domain-policies", "none");
 	headers.set("referrer-policy", "strict-origin-when-cross-origin");
-	headers.set(
-		"permissions-policy",
-		"camera=(), microphone=(), geolocation=(), interest-cohort=()",
-	);
+	headers.set("permissions-policy", "camera=(), microphone=(), geolocation=()");
 	headers.set(
 		"strict-transport-security",
 		"max-age=63072000; includeSubDomains; preload",
