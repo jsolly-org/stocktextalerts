@@ -114,23 +114,6 @@ function validateOptionalBoolean(
   return value;
 }
 
-function validateOptionalNumber(
-  value: unknown,
-  fieldName: string,
-): number | undefined {
-  if (value === null || value === undefined) return undefined;
-  if (typeof value !== "number") {
-    throw new Error(
-      `Seed user: ${fieldName} must be a number, null, or undefined. Received: ${typeof value}`,
-    );
-  }
-  if (Number.isNaN(value) || !Number.isFinite(value)) {
-    throw new Error(
-      `Seed user: ${fieldName} must be a finite number. Received: ${value}`,
-    );
-  }
-  return value;
-}
 
 function validateOptionalNumberArray(
   value: unknown,

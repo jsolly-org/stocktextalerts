@@ -130,6 +130,15 @@ watch(userProp, (newUser) => {
 	localUser.value = { ...newUser };
 }, { deep: true });
 
+// Track server state separately so we can preserve a user's pending SMS toggle until it's persisted.
+const serverSmsEnabled = ref(userProp.value.sms_notifications_enabled);
+watch(
+	() => userProp.value.sms_notifications_enabled,
+	(value) => {
+		serverSmsEnabled.value = value;
+	},
+);
+
 const isEditingPhone = ref(false);
 
 /* ============= Auto-save composable ============= */
@@ -246,6 +255,8 @@ watch(
 	() => savedNotificationPreferencesData.value,
 	(newData) => {
 		if (newData) {
+			serverSmsEnabled.value = newData.sms_notifications_enabled;
+
 			// Update local user
 			localUser.value = {
 				...localUser.value,
@@ -255,7 +266,15 @@ watch(
 			};
 			// Sync channel state with parent
 			emit("update:emailEnabled", newData.email_notifications_enabled);
-			emit("update:smsEnabled", newData.sms_notifications_enabled);
+
+			// Preserve a user's SMS toggle if it's "on" but not persisted yet.
+			// This happens when SMS was enabled while the phone was unverified; the server
+			// will still report sms_notifications_enabled=false until we can save it.
+			const shouldPreserveSmsEnabled =
+				smsEnabled.value && !newData.sms_notifications_enabled;
+			if (!shouldPreserveSmsEnabled) {
+				emit("update:smsEnabled", newData.sms_notifications_enabled);
+			}
 			emit("user-updated", {
 				email_notifications_enabled: newData.email_notifications_enabled,
 				sms_notifications_enabled: newData.sms_notifications_enabled,
@@ -285,6 +304,7 @@ usePendingSmsChanges({
 	userId: computed(() => localUser.value.id),
 	smsEnabled,
 	phoneVerified,
+	serverSmsEnabled,
 	isEditingPhone,
 	logger: rootLogger,
 });
@@ -293,6 +313,12 @@ usePendingSmsChanges({
 watch(phoneVerified, (isVerified) => {
 	if (isVerified) {
 		isEditingPhone.value = false;
+
+		// If the user enabled SMS before verification, persist that preference now that
+		// we can safely include sms_notifications_enabled in the form payload.
+		if (smsEnabled.value && !serverSmsEnabled.value) {
+			notifyChange();
+		}
 	}
 });
 </script>

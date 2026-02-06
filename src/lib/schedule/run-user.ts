@@ -3,11 +3,8 @@ import type { Logger } from "../logging";
 import type { EmailSender } from "../messaging/email/utils";
 import { recordNotification } from "../messaging/shared";
 import { shouldSendSms } from "../messaging/sms";
-import type {
-	FormatPreferences,
-	UserRecord,
-	UserStockRow,
-} from "../messaging/types";
+import { formatStocksTextList } from "../messaging/stock-formatting";
+import type { FormatPreferences, UserRecord } from "../messaging/types";
 import type { StockPriceMap } from "../price-fetcher";
 import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
 import type {
@@ -22,41 +19,6 @@ import {
 } from "./run-user-delivery";
 import { updateUserNextSendAt } from "./run-user-next-send-at";
 import type { SmsSenderProvider } from "./run-user-sms-sender";
-
-function formatStockPrice(
-	price: { price: number; changePercent: number },
-	showChangePercent: boolean,
-) {
-	if (!showChangePercent) {
-		return `$${price.price.toFixed(2)}`;
-	}
-	const sign = price.changePercent >= 0 ? "+" : "";
-	return `$${price.price.toFixed(2)} (${sign}${price.changePercent.toFixed(2)}%)`;
-}
-
-function buildStocksList(
-	userStocks: UserStockRow[],
-	priceMap: StockPriceMap,
-	formatPrefs: FormatPreferences,
-): string {
-	if (userStocks.length === 0) {
-		return "You don't have any tracked stocks";
-	}
-
-	const separator = formatPrefs.detailed_format ? "\n\n" : "\n";
-	return userStocks
-		.map((stock) => {
-			const price = priceMap.get(stock.symbol);
-			const base = formatPrefs.show_company_name
-				? `${stock.symbol} - ${stock.name}`
-				: stock.symbol;
-			if (price) {
-				return `${base} — ${formatStockPrice(price, formatPrefs.show_change_percent)}`;
-			}
-			return base;
-		})
-		.join(separator);
-}
 
 export async function processScheduledUser(options: {
 	user: UserRecord;
@@ -149,7 +111,11 @@ export async function processScheduledUser(options: {
 			show_company_name: user.show_company_name,
 			detailed_format: user.detailed_format,
 		};
-		const stocksList = buildStocksList(userStocks, priceMap, formatPrefs);
+		const stocksList = formatStocksTextList(
+			userStocks,
+			(symbol) => priceMap.get(symbol) ?? undefined,
+			formatPrefs,
+		);
 
 		/* ============= Process Email ============= */
 		if (user.email_notifications_enabled) {
