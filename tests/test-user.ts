@@ -86,7 +86,7 @@ export async function cleanupTestUser(userId: string): Promise<void> {
 	}
 }
 
-type DbUserInsert = Omit<TablesInsert<"users">, "scheduled_update_time"> & {
+type DbUserInsert = Omit<TablesInsert<"users">, "scheduled_update_times"> & {
 	scheduled_update_times?: number[] | null;
 };
 type DbUserStockInsert = TablesInsert<"user_stocks">;
