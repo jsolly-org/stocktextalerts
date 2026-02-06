@@ -1,5 +1,5 @@
-import { rootLogger } from "../../../../lib/logging";
-import type { DeliveryResult, EmailUser } from "../shared";
+import { rootLogger } from "../../logging";
+import type { DeliveryResult, EmailUser } from "../types";
 import type { EmailSender } from "./utils";
 
 export async function sendUserEmail(

@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { clearAuthCookies } from "../../../lib/auth/cookies";
+import { deleteUserAccount } from "../../../lib/auth/delete-account";
 import { createUserService } from "../../../lib/db";
 import {
 	createSupabaseAdminClient,
@@ -24,7 +25,6 @@ export const POST: APIRoute = async ({
 	const authUser = await users.getCurrentUser();
 
 	if (!authUser) {
-		// Expected rejection (often bots); info to avoid inflating error metrics.
 		logger.info("Delete account requested without authenticated user", {
 			reason: "unauthenticated",
 		});
@@ -33,76 +33,24 @@ export const POST: APIRoute = async ({
 	}
 
 	try {
-		const supabaseAdmin = createSupabaseAdminClient();
+		const adminSupabase = createSupabaseAdminClient();
+		const result = await deleteUserAccount({
+			adminSupabase,
+			userId: authUser.id,
+			logger,
+		});
 
-		// Check if the application user already no longer exists so the handler is idempotent
-		const { data: existingUser, error: fetchError } = await supabaseAdmin
-			.from("users")
-			.select("id")
-			.eq("id", authUser.id)
-			.maybeSingle();
-
-		if (fetchError) {
-			logger.error(
-				"Failed to load user before deletion",
-				{ userId: authUser.id },
-				fetchError,
-			);
-			return redirect("/profile?error=delete_failed");
-		}
-
-		// If the DB user is already gone, just delete auth and treat as a repeated request
-		if (!existingUser) {
-			const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(
-				authUser.id,
-			);
-
-			if (authError) {
-				logger.error(
-					"Failed to delete auth user when DB user already missing",
-					{ userId: authUser.id },
-					authError,
-				);
-				return redirect("/profile?error=delete_orphaned_auth_failed");
-			}
-
+		if (result.ok) {
 			clearAuthCookies(cookies);
-
 			return redirect("/?success=account_deleted");
 		}
 
-		// Delete auth user first to avoid leaving an authenticated user without app data
-		const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(
-			authUser.id,
-		);
-
-		if (authError) {
-			logger.error(
-				"Failed to delete auth user before DB deletion",
-				{ userId: authUser.id },
-				authError,
-			);
-			return redirect("/profile?error=delete_failed");
-		}
-
-		const { error: dbError } = await supabaseAdmin
-			.from("users")
-			.delete()
-			.eq("id", authUser.id);
-
-		if (dbError) {
-			logger.error(
-				"CRITICAL: Failed to delete user row after auth deletion; orphaned record requires manual cleanup",
-				{ userId: authUser.id },
-				dbError,
-			);
+		// On delete_partial we still clear cookies so the user is signed out
+		if (result.redirectError === "delete_partial") {
 			clearAuthCookies(cookies);
-			return redirect("/profile?error=delete_partial");
 		}
 
-		clearAuthCookies(cookies);
-
-		return redirect("/?success=account_deleted");
+		return redirect(`/profile?error=${result.redirectError}`);
 	} catch (err) {
 		logger.error("Failed to delete user account", { userId: authUser.id }, err);
 		return redirect("/profile?error=delete_failed");

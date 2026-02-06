@@ -13,14 +13,14 @@
 			:id="sendVerificationButtonId"
 		:disabled="sendVerificationDisabled || isSendingVerification"
 		:aria-busy="isSendingVerification"
-		class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-strong transition-colors text-sm mt-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+		class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-strong transition-colors text-sm mt-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
 		>
 		<ArrowPathIcon
 			v-if="isSendingVerification"
 			class="animate-spin size-4 shrink-0"
 			aria-hidden="true"
 		/>
-		<span>{{ isSendingVerification ? "Sending..." : "Send Verification Code" }}</span>
+		<span>{{ isSendingVerification ? "Sending\u2026" : "Send Verification Code" }}</span>
 		</button>
 	</div>
 </template>

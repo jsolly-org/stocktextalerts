@@ -21,6 +21,7 @@ This file captures the non-negotiables for this repo. It is a new app, so we opt
   - **Avoid tuple/array indexing for types**: Don't use tuple indexing (e.g., `Parameters<T>[0]`, `ReturnType<T>[0]`) or array indexing to extract types. Prefer direct type annotations or utility types that express intent clearly. For example, use `export const POST: APIRoute = async ({ ... }) => {` instead of `export async function POST({ ... }: Parameters<APIRoute>[0]): Promise<Response> {`.
 - **Imports**
   - **Clean imports**: Use relative paths (not '@' style); delete unused imports.
+  - **No import-to-re-export**: Do not import symbols (types or values) in one file only to re-export them. Consumers should import from the module that defines the symbol (e.g. import types from `./types`, not from a `shared` or barrel file that re-exports them).
 - **Errors**
   - **Error handling**: Let errors propagate naturally; avoid defensive programming when the type system/constraints guarantee safety (e.g., strict TypeScript, non-nullable DB columns). Add null/undefined checks when values can legitimately be missing (e.g., parsed JSON, nullable columns, third-party payloads). Handle errors at boundaries (API endpoints, user-facing code) where appropriate.
   - **Deterministic error checking**: Avoid using `.includes()` or other string matching methods to detect error types. Use structured error properties (e.g., `error.code`, `error.status`) or verify conditions before operations (e.g., verify captcha tokens before API calls) rather than parsing error messages.

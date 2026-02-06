@@ -3,6 +3,7 @@
 import { Icon } from "astro-icon/components";
 import HCaptcha from "../../components/HCaptcha.astro";
 import EmailInput from "../../components/forms/EmailInput.vue";
+import Footer from "../../components/landing/Footer.astro";
 import Navigation from "../../components/Navigation.astro";
 import StatusMessage from "../../components/StatusMessage.astro";
 import Layout from "../../layouts/Layout.astro";
@@ -32,7 +33,7 @@ if (error === "user_already_exists") {
 	showSignInLink = true;
 }
 ---
-<Layout title="Register | Stock Text Alerts" description="Create a new Stock Text Alerts account. Sign up to get a daily digest for your tracked US stocks via email and optional text messages.">
+<Layout title="Create Your Account | Stock Text Alerts" description="Create a new Stock Text Alerts account. Sign up to get a daily digest for your tracked US stocks via email and optional text messages.">
   <div class="min-h-screen bg-gray-50">
     <header>
       <Navigation />
@@ -50,7 +51,7 @@ if (error === "user_already_exists") {
         <header>
           <h1 class="mt-6 text-center text-2xl sm:text-3xl font-extrabold text-gray-900">Register</h1>
           <p class="mt-2 text-center text-sm text-gray-600">
-            Already have an account? <a href="/auth/signin" class="link-primary">Sign in</a>
+            Already have an account? <a href="/auth/signin" class="link-primary">Sign in to your account</a>
           </p>
         </header>
 
@@ -87,13 +88,14 @@ if (error === "user_already_exists") {
             </div>
             <div>
               <label for="password" class="sr-only">Password</label>
-              <input 
-                type="password" 
-                name="password" 
-                id="password" 
-                required 
+              <input
+                type="password"
+                name="password"
+                id="password"
+                required
                 autocomplete="new-password"
-                class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:z-10 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed" 
+                spellcheck="false"
+                class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:z-10 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                 placeholder="Password"
               />
             </div>
@@ -149,6 +151,7 @@ if (error === "user_already_exists") {
         </form>
       </div>
     </main>
+    <Footer />
   </div>
 </Layout>
 

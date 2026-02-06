@@ -62,7 +62,7 @@ body {
 /* ============= Button Utilities ============= */
 
 .btn {
-	@apply inline-flex items-center justify-center font-medium rounded-lg transition-all duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+	@apply inline-flex items-center justify-center font-medium rounded-lg transition duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
 /* Button sizes */
@@ -78,28 +78,28 @@ body {
 
 /* Button variants */
 .btn-primary {
-	@apply bg-primary text-white shadow-sm hover:bg-primary-strong hover:shadow-md focus:ring-primary active:scale-[0.98];
+	@apply bg-primary text-white shadow-sm hover:bg-primary-strong hover:shadow-md focus-visible:ring-primary active:scale-[0.98];
 }
 .btn-secondary {
-	@apply bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-primary;
+	@apply bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus-visible:ring-primary;
 }
 .btn-danger {
-	@apply bg-error-strong text-white hover:bg-error-strong-hover focus:ring-error-strong;
+	@apply bg-error-strong text-white hover:bg-error-strong-hover focus-visible:ring-error-strong;
 }
 .btn-warning {
-	@apply bg-warning-strong text-white hover:bg-warning-strong-hover focus:ring-primary;
+	@apply bg-warning-strong text-white hover:bg-warning-strong-hover focus-visible:ring-primary;
 }
 .btn-warning-outline {
-	@apply bg-white border border-warning-border text-warning-text hover:bg-warning-bg hover:text-warning-text focus:ring-primary;
+	@apply bg-white border border-warning-border text-warning-text hover:bg-warning-bg hover:text-warning-text focus-visible:ring-primary;
 }
 .btn-ghost {
-	@apply bg-transparent text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:ring-primary;
+	@apply bg-transparent text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-primary;
 }
 
 /* ============= Form Input Utilities ============= */
 
 .input {
-	@apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary disabled:bg-gray-100 disabled:cursor-not-allowed;
+	@apply w-full px-4 py-2 border border-gray-300 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary disabled:bg-gray-100 disabled:cursor-not-allowed;
 }
 .input-lg {
 	@apply px-4 py-3 rounded-md;
@@ -108,7 +108,7 @@ body {
 /* ============= Link Utilities ============= */
 
 .link-primary {
-	@apply font-medium text-primary hover:text-primary-strong underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded;
+	@apply font-medium text-primary hover:text-primary-strong no-underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded;
 }
 
 /* ============= Card Utilities ============= */
@@ -149,4 +149,10 @@ body {
 
 .animate-fade-in {
 	animation: fadeIn 0.3s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.animate-fade-in {
+		animation: none;
+	}
 }

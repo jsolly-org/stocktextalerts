@@ -1,5 +1,4 @@
 import { DateTime } from "luxon";
-import { rootLogger } from "../logging";
 
 function buildLocalDateTime(options: {
 	date: DateTime;
@@ -29,19 +28,6 @@ function pickLaterOffset(candidate: DateTime): DateTime {
 	}
 
 	return possibleOffsets[possibleOffsets.length - 1];
-}
-
-export function getLocalDateString(
-	timezone: string,
-	date: DateTime,
-): string | null {
-	const local = date.setZone(timezone);
-	if (!local.isValid) {
-		rootLogger.error("Failed to format local date for timezone", { timezone });
-		return null;
-	}
-
-	return local.toISODate();
 }
 
 export function calculateNextSendAt(

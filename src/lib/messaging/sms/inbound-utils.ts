@@ -1,7 +1,7 @@
 import { parsePhoneNumberFromString } from "libphonenumber-js";
-import { getSiteUrl } from "../../../../lib/db/env";
-import type { AppSupabaseClient } from "../../../../lib/db/supabase";
-import { rootLogger } from "../../../../lib/logging";
+import { getSiteUrl } from "../../db/env";
+import type { AppSupabaseClient } from "../../db/supabase";
+import { rootLogger } from "../../logging";
 
 export interface InboundSmsDependencies {
 	authToken: string;
@@ -243,7 +243,7 @@ export async function handleInboundSms(
 		return {
 			status: 200,
 			body: wrapInTwiml(
-				`To re-enable SMS notifications, visit your dashboard: ${dashboardUrl}.`,
+				`You cannot re-enable SMS notifications by replying START. To re-enable, visit your dashboard: ${dashboardUrl}.`,
 			),
 			contentType: "text/xml",
 		};

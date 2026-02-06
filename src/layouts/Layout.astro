@@ -3,8 +3,20 @@ import "../global.css";
 interface Props {
 	title: string;
 	description: string;
+	jsonLd?: Record<string, unknown> | Record<string, unknown>[];
 }
-const { title, description }: Props = Astro.props;
+const { title, description, jsonLd }: Props = Astro.props;
+
+function escapeJsonForHtml(json: string): string {
+	// JSON-LD is injected via set:html, so we must prevent script-breakout if any
+	// future field contains `</script>` or raw `<`/`>`/`&`.
+	return json
+		.replaceAll("&", "\\u0026")
+		.replaceAll("<", "\\u003c")
+		.replaceAll(">", "\\u003e");
+}
+
+const jsonLdHtml = jsonLd ? escapeJsonForHtml(JSON.stringify(jsonLd)) : null;
 // Astro.site may be undefined when using AstroContainer (container-based tests),
 // even if 'site' is configured in vitest.config.ts. Without this fallback,
 // new URL(Astro.url.pathname, undefined) would throw a TypeError.
@@ -23,11 +35,12 @@ const omitManifestOnVercel =
 	isVercelPreviewByHost;
 ---
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="color-scheme: light">
   <head>
     <meta charset="UTF-8" />
     <meta name="description" content={description} />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#ffffff" />
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
     <link rel="canonical" href={canonicalURL} />
@@ -78,11 +91,15 @@ const omitManifestOnVercel =
     <meta property="twitter:title" content={title} />
     <meta property="twitter:description" content={description} />
     <meta property="twitter:image" content={socialImageURL} />
+
+    {jsonLdHtml && (
+      <script type="application/ld+json" set:html={jsonLdHtml} />
+    )}
   </head>
   <body>
     <a
       href="#main-content"
-      class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-white focus:rounded"
+      class="sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:top-4 focus-visible:left-4 focus-visible:z-50 focus-visible:px-4 focus-visible:py-2 focus-visible:bg-primary focus-visible:text-white focus-visible:rounded-lg focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary focus-visible:shadow-lg"
     >
       Skip to main content
     </a>

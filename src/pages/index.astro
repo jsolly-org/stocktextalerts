@@ -4,6 +4,7 @@ import CTA from "../components/landing/CTA.astro";
 import Features from "../components/landing/Features.astro";
 import Footer from "../components/landing/Footer.astro";
 import Hero from "../components/landing/Hero.astro";
+import HowItWorks from "../components/landing/HowItWorks.astro";
 import Navigation from "../components/Navigation.astro";
 import StatusMessage from "../components/StatusMessage.astro";
 import Layout from "../layouts/Layout.astro";
@@ -18,8 +19,26 @@ const isAuthenticated = !!user;
 const search = Astro.url.searchParams;
 const errorMessage = formatMessage(search.get("error"));
 const successMessage = formatMessage(search.get("success"));
+
+const siteUrl = Astro.site?.href ?? Astro.url.origin;
+const jsonLd = [
+	{
+		"@context": "https://schema.org",
+		"@type": "WebSite",
+		"name": "StockTextAlerts",
+		"url": siteUrl,
+	},
+	{
+		"@context": "https://schema.org",
+		"@type": "Organization",
+		"name": "StockTextAlerts",
+		"url": siteUrl,
+		"logo": `${siteUrl}/favicons/android-chrome-512x512.png`,
+		"description": "Get a daily digest for your tracked stocks via email and optional SMS. Track US stocks, set your preferred time and timezone.",
+	},
+];
 ---
-<Layout title="Stock Text Alerts" description="Get a daily digest for your tracked stocks—delivered via email and optional text messages. Track US stocks, set your time and timezone, and choose email or SMS alerts.">
+<Layout title="Stock Text Alerts | Daily Stock Digest via Email & SMS" description="Get a daily digest for your tracked stocks via email and optional SMS. Track US stocks, set your preferred time and timezone." jsonLd={jsonLd}>
   <div class="min-h-screen bg-white">
     <header>
       <Navigation user={user || undefined} />
@@ -39,6 +58,7 @@ const successMessage = formatMessage(search.get("success"));
       
       <Hero isAuthenticated={isAuthenticated} />
 
+      <HowItWorks />
       <Features />
       <CTA isAuthenticated={isAuthenticated} />
     </main>

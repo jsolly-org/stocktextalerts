@@ -33,6 +33,7 @@ Time Defaults
 ============= */
 
 export const DEFAULT_TIMEZONE = "America/New_York";
+export const DEFAULT_DAILY_DIGEST_TIME_MINUTES = 9 * 60; // 9:00 AM UTC
 
 /* =============
 SMS Verification Timing
@@ -45,6 +46,12 @@ export const VERIFICATION_EXPIRATION_MS =
 export const VERIFICATION_RESEND_COOLDOWN_SECONDS = 60;
 export const VERIFICATION_RESEND_COOLDOWN_MS =
 	VERIFICATION_RESEND_COOLDOWN_SECONDS * 1000;
+
+/* =============
+Finnhub API
+============= */
+
+export const FINNHUB_BASE_URL = "https://finnhub.io/api/v1";
 
 /* =============
 Card Gradient Accents
@@ -139,6 +146,8 @@ export const MESSAGE_ALLOWLIST = {
 	sms_notifications_disabled: "SMS notifications are disabled.",
 	notifications_not_configured:
 		"Enable at least one notification channel to send a daily digest.",
+	digest_times_required:
+		"Choose at least one daily digest time (or disable daily digests).",
 	user_not_found: "User not found",
 	delete_failed: "Failed to delete account. Please try again.",
 	delete_partial:

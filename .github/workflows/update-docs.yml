@@ -52,29 +52,35 @@ jobs:
           - Merge Commit SHA: ${{ github.event.pull_request.merge_commit_sha }}
 
           # Goal:
-          - Update \`README.md\` on \`main\`, then commit + push directly to \`main\` (no follow-up PR).
+          - Update docs on \`main\`, then commit + push directly to \`main\` (no follow-up PR).
+
+          # Allowed files (ONLY these may be modified):
+          - \`README.md\` — project documentation
+          - \`src/pages/faq.astro\` — FAQ page (question/answer pairs in the \`faqs\` array and page copy)
+          - \`src/components/landing/HowItWorks.astro\` — \"How it works\" section (steps in the \`steps\` array and section copy)
 
           # Requirements:
-          1) If Trigger is \`pull_request\` (PR Number and SHAs are set): determine what changed in the merged PR using \`gh pr diff <PR_NUMBER>\` or \`git diff <BASE_SHA> <HEAD_SHA>\` (PR-level diff; do NOT use merge-commit-vs-parent). Update README.md based on those changes.
-          2) If Trigger is \`workflow_dispatch\` (manual run; PR Number/SHAs may be empty): review the current state of the codebase on \`main\` and update README.md to accurately reflect it.
-          3) Update only README.md. Do NOT update any other documentation files.
-          4) Commit and push changes directly to \`main\`. Only create a commit if \`README.md\` changed.
-          5) Do NOT create or edit pull requests.
+          1) If Trigger is \`pull_request\` (PR Number and SHAs are set): determine what changed in the merged PR using \`gh pr diff <PR_NUMBER>\` or \`git diff <BASE_SHA> <HEAD_SHA>\` (PR-level diff; do NOT use merge-commit-vs-parent). Update the allowed files if the PR changes warrant it.
+          2) If Trigger is \`workflow_dispatch\` (manual run; PR Number/SHAs may be empty): review the current state of the codebase on \`main\` and update the allowed files to accurately reflect it.
+          3) Only modify the allowed files listed above. Do NOT touch any other files.
+          4) For \`src/pages/faq.astro\`: only update the \`faqs\` array entries and surrounding page copy. Do NOT change the component imports, layout structure, JSON-LD logic, or Tailwind classes.
+          5) For \`src/components/landing/HowItWorks.astro\`: only update the \`steps\` array entries and surrounding section copy. Do NOT change the component imports, template structure, or Tailwind classes.
+          6) Commit and push changes directly to \`main\`. Only create a commit if at least one allowed file changed.
+          7) Do NOT create or edit pull requests.
 
           # Inputs and conventions:
-          - Only update README.md. Do not modify any other files.
-          - If no README updates are necessary, make no changes and do not commit.
+          - If no updates are necessary, make no changes and do not commit.
           - Keep changes minimal and consistent with repo style.
 
           # Implementation notes:
-          - You are checked out on \`main\`. After updating README.md, run \`git status --porcelain\` to confirm only README.md changed.
-          - If README.md changed, run:
-            - \`git add README.md\`
-            - \`git commit -m \"docs: update README for PR #${{ github.event.pull_request.number }}\" \` when Trigger is \`pull_request\`, or \`git commit -m \"docs: update README (manual trigger)\" \` when Trigger is \`workflow_dispatch\`
+          - You are checked out on \`main\`. After making changes, run \`git status --porcelain\` to confirm only allowed files changed.
+          - If any allowed files changed, run:
+            - \`git add README.md src/pages/faq.astro src/components/landing/HowItWorks.astro\`
+            - \`git commit -m \"docs: update docs for PR #${{ github.event.pull_request.number }}\" \` when Trigger is \`pull_request\`, or \`git commit -m \"docs: update docs (manual trigger)\" \` when Trigger is \`workflow_dispatch\`
             - \`git push origin main\`
 
           # Deliverables when updates occur:
-          - A commit pushed directly to \`main\` that changes only \`README.md\`.
+          - A commit pushed directly to \`main\` that changes only the allowed files.
           - After pushing, print exactly one line so the workflow can log it: \`DOCS_PUSHED_SHA=\$(git rev-parse HEAD)\`
           " --force --model "$MODEL" --output-format=text
 

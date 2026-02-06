@@ -216,13 +216,14 @@ For local development, run `npm run db:reset` before `npm run test` to ensure yo
 - `POST /api/auth/sms/send-verification`
 - `POST /api/auth/sms/verify-code`
 
-**Notification settings:**
+**Notification settings:**  
+The canonical endpoint for fetching current user preferences is `GET /api/notification-preferences/current`.
 - `GET /api/notification-preferences/current`
 - `POST /api/notification-preferences/update`
 - `POST /api/notification-preferences/timezone`
 - `POST /api/notification-preferences/dismiss-timezone-banner`
-- `POST /api/notifications/scheduled` (cron, protected by `CRON_SECRET`)
-- `POST /api/notifications/sms/inbound` (Twilio webhook for STOP/START/HELP)
+- `POST /api/schedule` (cron, protected by `CRON_SECRET`)
+- `POST /api/messaging/inbound` (Twilio webhook for STOP/START/HELP)
 
 ## Deployment to Vercel
 
@@ -243,14 +244,14 @@ Push to your main branch or click "Redeploy" in Vercel. The application will aut
 After deployment, configure the Twilio webhook for incoming SMS:
 1. Go to Twilio Console → Phone Numbers → Manage → Active numbers
 2. Select your phone number
-3. Under "Messaging", set the webhook URL to: `https://yourdomain.com/api/notifications/sms/inbound`
+3. Under "Messaging", set the webhook URL to: `https://yourdomain.com/api/messaging/inbound`
 4. Save changes
 
 ### 4. Verify Cron Job
 
 The `vercel.json` file configures a scheduled cron job that runs at minute 0 of every hour.
 
-The cron job calls `/api/notifications/scheduled` and must include:
+The cron job calls `/api/schedule` and must include:
 - `Authorization: Bearer <CRON_SECRET>`
 
 The cron job:

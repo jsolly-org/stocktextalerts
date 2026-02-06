@@ -9,20 +9,7 @@ export function generateUniquePhoneNumber(): string {
 }
 
 /* ============= Stock data ============= */
-export {
-	getRealStockSymbols,
-	getStockData,
-	type StockData,
-} from "./stock-data";
+export { getRealStockSymbols, getStockData } from "./stock-data";
 /* ============= Test user & env ============= */
-export {
-	adminClient,
-	createAuthenticatedCookies,
-} from "./test-env";
-export {
-	type CreateTestUserOptions,
-	cleanupTestUser,
-	createTestEmail,
-	createTestUser,
-	type TestUser,
-} from "./test-user";
+export { adminClient, createAuthenticatedCookies } from "./test-env";
+export { cleanupTestUser, createTestEmail, createTestUser } from "./test-user";

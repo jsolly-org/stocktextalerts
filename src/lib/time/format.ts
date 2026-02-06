@@ -1,5 +1,8 @@
 import { DateTime } from "luxon";
-import { calculateNextSendAt, calculateNextSendAtFromTimes } from "./schedule";
+import {
+	calculateNextSendAt,
+	calculateNextSendAtFromTimes,
+} from "./digest-times";
 import type { ParsedTime, TimeValue } from "./types";
 
 export {

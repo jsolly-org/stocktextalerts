@@ -1,11 +1,13 @@
 import type { APIRoute } from "astro";
-import { DateTime } from "luxon";
-import { jsonResponse } from "../../../lib/api/json-response";
 import { createUserService, type User } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
+import { jsonResponse } from "../../../lib/json-response";
 import { createLogger } from "../../../lib/logging";
-import { calculateNextSendAtFromTimes } from "../../../lib/time/schedule";
+import {
+	computeTimezoneUpdatePayload,
+	NotificationPreferencesValidationError,
+} from "../../../lib/notification-preferences/server-update";
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
@@ -19,7 +21,6 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 
 	const authUser = await users.getCurrentUser();
 	if (!authUser) {
-		// Expected rejection (often bots); info to avoid inflating error metrics.
 		logger.info(
 			"Notification-preferences timezone update attempt without authenticated user",
 			{
@@ -35,7 +36,6 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	} as const);
 
 	if (!parsed.ok) {
-		// Expected rejection (often bots); info to avoid inflating error metrics.
 		logger.info("Notification-preferences timezone update rejected", {
 			userId: authUser.id,
 			errors: parsed.allErrors,
@@ -64,51 +64,39 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		return jsonResponse(404, { ok: false, message: "user_not_found" });
 	}
 
-	const timezoneChanged = parsed.data.timezone !== dbUser.timezone;
-	const updatePayload: { timezone: string; next_send_at?: string | null } = {
-		timezone: parsed.data.timezone,
-	};
-	if (timezoneChanged && dbUser.daily_digest_enabled) {
-		if (
-			!dbUser.daily_digest_notification_times ||
-			dbUser.daily_digest_notification_times.length === 0
-		) {
-			updatePayload.next_send_at = null;
-		} else {
-			const nextSendAt = calculateNextSendAtFromTimes(
-				dbUser.daily_digest_notification_times,
-				parsed.data.timezone,
-				DateTime.utc(),
-			);
-			if (nextSendAt) {
-				const nextSendAtIso = nextSendAt.toISO();
-				if (nextSendAtIso) {
-					updatePayload.next_send_at = nextSendAtIso;
-				} else {
-					logger.warn(
-						"Failed to convert next_send_at to ISO after timezone change",
-						{
-							userId: authUser.id,
-							timezone: parsed.data.timezone,
-							nextSendAt: nextSendAt.toString(),
-							nextSendAtIsValid: nextSendAt.isValid,
-							nextSendAtInvalidReason: nextSendAt.invalidReason,
-						},
-					);
-					updatePayload.next_send_at = null;
-				}
-			} else {
-				logger.warn(
-					"calculateNextSendAtFromTimes returned null despite having times",
-					{
-						userId: authUser.id,
-						timezone: parsed.data.timezone,
-						timesCount: dbUser.daily_digest_notification_times.length,
-					},
-				);
-				updatePayload.next_send_at = null;
-			}
+	let updatePayload: ReturnType<typeof computeTimezoneUpdatePayload>;
+	try {
+		updatePayload = computeTimezoneUpdatePayload(
+			parsed.data.timezone,
+			dbUser,
+			logger,
+		);
+	} catch (error) {
+		if (error instanceof NotificationPreferencesValidationError) {
+			logger.info("Timezone update rejected due to missing digest times", {
+				userId: authUser.id,
+				timezone: parsed.data.timezone,
+				reason: error.code,
+			});
+			return jsonResponse(400, {
+				ok: false,
+				message: "digest_times_required",
+			});
 		}
+		const errorObject =
+			error instanceof Error ? error : new Error(String(error));
+		logger.error(
+			"Failed to compute timezone update payload",
+			{
+				userId: authUser.id,
+				timezone: parsed.data.timezone,
+			},
+			errorObject,
+		);
+		return jsonResponse(500, {
+			ok: false,
+			message: "failed_to_update_timezone",
+		});
 	}
 
 	let updatedUser: User;

@@ -1,5 +1,5 @@
 import twilio, { type RestException } from "twilio";
-import { rootLogger } from "../../../../lib/logging";
+import { rootLogger } from "../logging";
 
 function handleTwilioError(
 	error: unknown,

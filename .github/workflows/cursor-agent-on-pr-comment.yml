@@ -73,25 +73,19 @@ jobs:
         env:
           RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
-          echo "Event: ${{ steps.context.outputs.event_name }}"
-          echo "Repo: ${{ github.repository }}"
-          echo "PR: #${{ steps.context.outputs.pr_number }}"
-          echo "Head repo: ${{ steps.context.outputs.head_repo }}"
-          echo "Head ref: ${{ steps.context.outputs.head_ref }}"
-          echo "Head sha: ${{ steps.context.outputs.head_sha }}"
-          echo "Trigger user: ${{ steps.context.outputs.comment_user }}"
-          echo "Trigger comment id: ${{ steps.context.outputs.comment_id }}"
-          echo "Run URL: $RUN_URL"
-          {
-            echo "## Cursor Agent workflow context"
-            echo ""
-            echo "- **Event**: \`${{ steps.context.outputs.event_name }}\`"
-            echo "- **PR**: \`#${{ steps.context.outputs.pr_number }}\`"
-            echo "- **Head**: \`${{ steps.context.outputs.head_repo }}@${{ steps.context.outputs.head_ref }}\`"
-            echo "- **Head SHA**: \`${{ steps.context.outputs.head_sha }}\`"
-            echo "- **Trigger**: \`${{ steps.context.outputs.comment_user }}\` (comment \`${{ steps.context.outputs.comment_id }}\`)"
-            echo "- **Run**: $RUN_URL"
-          } >> "$GITHUB_STEP_SUMMARY"
+          SUMMARY=$(cat <<SUMMARY_EOF
+          ## Cursor Agent workflow context
+
+          - **Event**: \`${{ steps.context.outputs.event_name }}\`
+          - **PR**: \`#${{ steps.context.outputs.pr_number }}\`
+          - **Head**: \`${{ steps.context.outputs.head_repo }}@${{ steps.context.outputs.head_ref }}\`
+          - **Head SHA**: \`${{ steps.context.outputs.head_sha }}\`
+          - **Trigger**: \`${{ steps.context.outputs.comment_user }}\` (comment \`${{ steps.context.outputs.comment_id }}\`)
+          - **Run**: $RUN_URL
+          SUMMARY_EOF
+          )
+          echo "$SUMMARY"
+          echo "$SUMMARY" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Enforce run queue and rate limit
         if: steps.context.outputs.run_agent == 'true'
@@ -189,23 +183,13 @@ jobs:
           # --force is required so the agent can actually execute commands (git) in CI.
           # Capture both stdout and stderr for better error reporting.
           echo "Running Cursor agent..."
-          if ! agent --print --model gpt-5.2 --output-format=text --force "$PROMPT" > "$AGENT_OUTPUT_FILE" 2> "$AGENT_ERROR_FILE"; then
-            AGENT_EXIT_CODE=$?
-            echo "##[error]Agent command failed with exit code $AGENT_EXIT_CODE"
-            echo "=== Agent stdout ==="
-            cat "$AGENT_OUTPUT_FILE" || true
-            echo ""
-            echo "=== Agent stderr ==="
-            cat "$AGENT_ERROR_FILE" || true
-            cp "$AGENT_OUTPUT_FILE" agent-stdout.txt 2>/dev/null || true
-            cp "$AGENT_ERROR_FILE" agent-stderr.txt 2>/dev/null || true
-            rm -f "$AGENT_OUTPUT_FILE" "$AGENT_ERROR_FILE"
-            exit $AGENT_EXIT_CODE
-          fi
+          AGENT_EXIT_CODE=0
+          agent --print --model gpt-5.2 --output-format=text --force "$PROMPT" > "$AGENT_OUTPUT_FILE" 2> "$AGENT_ERROR_FILE" || AGENT_EXIT_CODE=$?
 
-          # Log agent output for debugging
+          # Always persist logs for debug artifacts
           cp "$AGENT_OUTPUT_FILE" agent-stdout.txt 2>/dev/null || true
           cp "$AGENT_ERROR_FILE" agent-stderr.txt 2>/dev/null || true
+
           echo "=== Agent output ==="
           cat "$AGENT_OUTPUT_FILE" || true
           if [[ -s "$AGENT_ERROR_FILE" ]]; then
@@ -213,9 +197,13 @@ jobs:
             cat "$AGENT_ERROR_FILE" || true
           fi
 
-          # Save agent output for failure reporting
           AGENT_OUTPUT=$(cat "$AGENT_OUTPUT_FILE" || echo "")
           rm -f "$AGENT_OUTPUT_FILE" "$AGENT_ERROR_FILE"
+
+          if [[ "$AGENT_EXIT_CODE" -ne 0 ]]; then
+            echo "##[error]Agent command failed with exit code $AGENT_EXIT_CODE"
+            exit $AGENT_EXIT_CODE
+          fi
 
           AFTER_HEAD="$(git rev-parse HEAD)"
           if [[ "$AFTER_HEAD" != "$BEFORE_SHA" ]]; then
@@ -354,28 +342,13 @@ jobs:
           REMOTE_URL="https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
           git fetch "$REMOTE_URL" "$HEAD_REF"
           
-          # Build commit links: get SHA and first line of message, format as markdown links
-          COMMIT_LINKS=""
-          while IFS= read -r line; do
-            if [[ -n "$line" ]]; then
-              SHA=$(echo "$line" | cut -d' ' -f1)
-              MSG=$(echo "$line" | cut -d' ' -f2-)
-              # Avoid redundantly echoing the PR number in the reply comment, since this is already posted inside the PR.
-              # This is a display-only tweak; the commit subject remains unchanged.
-              MSG=${MSG//(#${{ steps.context.outputs.pr_number }}, comment ${{ steps.context.outputs.comment_id }})/}
-              MSG=$(echo "$MSG" | sed -E 's/[[:space:]]+/ /g; s/[[:space:]]+$//')
-              COMMIT_URL="https://github.com/$REPO/commit/$SHA"
-              if [[ -z "$COMMIT_LINKS" ]]; then
-                COMMIT_LINKS="- [\`${SHA:0:7}\`]($COMMIT_URL) $MSG"
-              else
-                COMMIT_LINKS="$COMMIT_LINKS"$'\n'"- [\`${SHA:0:7}\`]($COMMIT_URL) $MSG"
-              fi
-            fi
-          done < <(git log "$BEFORE_SHA".."$AFTER_SHA" --format="%H %s" 2>/dev/null || true)
-          
-          if [[ -z "$COMMIT_LINKS" ]]; then
-            COMMIT_LINKS="(no commits found)"
-          fi
+          # Build commit links: format as markdown links, strip redundant PR/comment references
+          COMMIT_LINKS=$(git log "$BEFORE_SHA".."$AFTER_SHA" --format="%H %s" 2>/dev/null | while read -r SHA MSG; do
+            MSG=${MSG//(#${{ steps.context.outputs.pr_number }}, comment ${{ steps.context.outputs.comment_id }})/}
+            MSG=$(echo "$MSG" | sed -E 's/[[:space:]]+/ /g; s/[[:space:]]+$//')
+            echo "- [\`${SHA:0:7}\`](https://github.com/$REPO/commit/$SHA) $MSG"
+          done)
+          COMMIT_LINKS=${COMMIT_LINKS:-(no commits found)}
 
           WARNINGS_SECTION=""
           if [[ -f "$WARNINGS_FILE" ]] && [[ -s "$WARNINGS_FILE" ]]; then
@@ -414,65 +387,31 @@ jobs:
         run: |
           touch "$WARNINGS_FILE"
           log_warning() {
-            local msg="$1"
-            echo "##[warning]$msg"
-            echo "$msg" >> "$WARNINGS_FILE"
+            echo "##[warning]$1"
+            echo "$1" >> "$WARNINGS_FILE"
           }
 
           if [[ "$EVENT_NAME" == "pull_request_review_comment" ]]; then
             COMMENT_JSON=$(gh api "repos/$REPO/pulls/comments/$COMMENT_ID" 2> /tmp/gh-err.txt) || { log_warning "Failed to fetch review comment $COMMENT_ID. API stderr: $(cat /tmp/gh-err.txt)"; exit 0; }
             NODE_ID=$(echo "$COMMENT_JSON" | jq -r '.node_id')
-            if [[ -z "$NODE_ID" || "$NODE_ID" == "null" ]]; then
-              log_warning "Could not resolve review thread for comment $COMMENT_ID (missing node_id)."
-              exit 0
-            fi
+            [[ -z "$NODE_ID" || "$NODE_ID" == "null" ]] && { log_warning "Could not resolve review thread for comment $COMMENT_ID (missing node_id)."; exit 0; }
 
             THREAD_QUERY='query($id:ID!){node(id:$id){... on PullRequestReviewComment{pullRequestReviewThread{id isResolved}}}}'
-            {
-              echo "### Cursor Agent debug"
-              echo "- Review thread query: \`$THREAD_QUERY\`"
-              echo "- Review comment node id: \`$NODE_ID\`"
-            } >> "$GITHUB_STEP_SUMMARY"
             THREAD_JSON=$(gh api graphql -f query="$THREAD_QUERY" -f id="$NODE_ID" 2> /tmp/gh-err.txt) || { log_warning "Failed to fetch review thread for comment $COMMENT_ID. API stderr: $(cat /tmp/gh-err.txt)"; exit 0; }
             THREAD_ID=$(echo "$THREAD_JSON" | jq -r '.data.node.pullRequestReviewThread.id // empty')
             THREAD_RESOLVED=$(echo "$THREAD_JSON" | jq -r '.data.node.pullRequestReviewThread.isResolved // false')
 
-            if [[ -z "$THREAD_ID" ]]; then
-              log_warning "Could not resolve review thread for comment $COMMENT_ID (missing thread id). GraphQL response: $THREAD_JSON"
-              exit 0
-            fi
-
-            if [[ "$THREAD_RESOLVED" == "true" ]]; then
-              echo "Review thread already resolved."
-              exit 0
-            fi
+            [[ -z "$THREAD_ID" ]] && { log_warning "Could not resolve review thread for comment $COMMENT_ID (missing thread id). GraphQL response: $THREAD_JSON"; exit 0; }
+            [[ "$THREAD_RESOLVED" == "true" ]] && { echo "Review thread already resolved."; exit 0; }
 
             RESOLVE_MUTATION='mutation($threadId:ID!){resolveReviewThread(input:{threadId:$threadId}){thread{isResolved}}}'
-            if ! gh api graphql -f query="$RESOLVE_MUTATION" -f threadId="$THREAD_ID" 2> /tmp/gh-err.txt; then
-              log_warning "Failed to resolve review thread for comment $COMMENT_ID. API stderr: $(cat /tmp/gh-err.txt)"
-              exit 0
-            fi
-            exit 0
-          fi
+            gh api graphql -f query="$RESOLVE_MUTATION" -f threadId="$THREAD_ID" 2> /tmp/gh-err.txt || log_warning "Failed to resolve review thread for comment $COMMENT_ID. API stderr: $(cat /tmp/gh-err.txt)"
 
-          if [[ "$EVENT_NAME" == "issue_comment" ]]; then
-            if ! gh api -X POST "/repos/$REPO/issues/comments/$COMMENT_ID/reactions" -f content=eyes 2> /tmp/gh-err.txt; then
-              log_warning "Failed to add reaction for issue comment $COMMENT_ID. API stderr: $(cat /tmp/gh-err.txt)"
-              exit 0
-            fi
-            exit 0
-          fi
+          elif [[ "$EVENT_NAME" == "issue_comment" ]]; then
+            gh api -X POST "/repos/$REPO/issues/comments/$COMMENT_ID/reactions" -f content=eyes 2> /tmp/gh-err.txt || log_warning "Failed to add reaction for issue comment $COMMENT_ID. API stderr: $(cat /tmp/gh-err.txt)"
 
-          # pull_request_review has no specific "resolve" action (the review is already submitted).
-          echo "No comment processing action needed for event: $EVENT_NAME"
-
-          if [[ -s "$WARNINGS_FILE" ]]; then
-            {
-              echo "## Cursor Agent warnings"
-              while IFS= read -r line; do
-                echo "- $line"
-              done < "$WARNINGS_FILE"
-            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No comment processing action needed for event: $EVENT_NAME"
           fi
 
       - name: Report agent no-op

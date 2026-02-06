@@ -22,7 +22,7 @@ export function buildSmsInboundRequest(options: {
 		headers["x-twilio-signature"] = "test-signature";
 	}
 
-	return new Request("http://localhost/api/notifications/sms/inbound", {
+	return new Request("http://localhost/api/messaging/inbound", {
 		method: "POST",
 		body: formData,
 		headers,

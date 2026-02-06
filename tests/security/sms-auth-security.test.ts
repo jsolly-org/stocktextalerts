@@ -19,7 +19,7 @@ const { sendVerificationMock, checkVerificationMock } = vi.hoisted(() => {
 	};
 });
 
-vi.mock("../../src/pages/api/auth/sms/verify-utils", () => ({
+vi.mock("../../src/lib/auth/sms-verification", () => ({
 	sendVerification: sendVerificationMock,
 	checkVerification: checkVerificationMock,
 }));

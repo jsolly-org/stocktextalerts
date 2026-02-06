@@ -76,6 +76,7 @@ import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 	DASHBOARD_SECTION_IDS,
+	DEFAULT_DAILY_DIGEST_TIME_MINUTES,
 	type FlashMessage,
 } from "../../../../lib/constants";
 import type { User } from "../../../../lib/db";
@@ -117,7 +118,6 @@ const dailyDigestEnabled = ref(user.value.daily_digest_enabled);
 const MAX_DAILY_DIGEST_MINUTES = 23 * 60 + 45;
 const DIGEST_INCREMENT_MINUTES = 15;
 const ADD_DIGEST_OFFSET_MINUTES = 180;
-const DEFAULT_DIGEST_TIME_MINUTES = 9 * 60; // 9:00 AM
 
 function normalizeDigestTimes(times: number[]): number[] {
 	const filtered = times.filter(
@@ -135,7 +135,7 @@ const dailyDigestTimesMinutes = ref<number[]>(
 );
 
 if (dailyDigestEnabled.value && dailyDigestTimesMinutes.value.length === 0) {
-	dailyDigestTimesMinutes.value = [DEFAULT_DIGEST_TIME_MINUTES];
+	dailyDigestTimesMinutes.value = [DEFAULT_DAILY_DIGEST_TIME_MINUTES];
 }
 
 const phoneVerificationSectionId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-phone-verification-section`;
@@ -191,7 +191,7 @@ watch(
 	(hasChannel, previousHasChannel) => {
 		if (previousHasChannel === false && hasChannel && !dailyDigestEnabled.value) {
 			if (dailyDigestTimesMinutes.value.length === 0) {
-				dailyDigestTimesMinutes.value = [DEFAULT_DIGEST_TIME_MINUTES];
+				dailyDigestTimesMinutes.value = [DEFAULT_DAILY_DIGEST_TIME_MINUTES];
 			}
 			dailyDigestEnabled.value = true;
 			onFormChanged.value?.();
@@ -214,7 +214,7 @@ const { currentTimeInTimezone, countdownText } = useScheduledDigestTiming({
 
 watch(dailyDigestEnabled, () => {
 	if (dailyDigestEnabled.value && dailyDigestTimesMinutes.value.length === 0) {
-		dailyDigestTimesMinutes.value = [DEFAULT_DIGEST_TIME_MINUTES];
+		dailyDigestTimesMinutes.value = [DEFAULT_DAILY_DIGEST_TIME_MINUTES];
 	}
 });
 
@@ -239,7 +239,7 @@ function handleAddTime() {
 		return;
 	}
 	const times = normalizeDigestTimes(dailyDigestTimesMinutes.value);
-	const baseTimes = times.length === 0 ? [DEFAULT_DIGEST_TIME_MINUTES] : times;
+	const baseTimes = times.length === 0 ? [DEFAULT_DAILY_DIGEST_TIME_MINUTES] : times;
 	const nextMinutes =
 		baseTimes[baseTimes.length - 1] + ADD_DIGEST_OFFSET_MINUTES;
 	if (nextMinutes > MAX_DAILY_DIGEST_MINUTES) {

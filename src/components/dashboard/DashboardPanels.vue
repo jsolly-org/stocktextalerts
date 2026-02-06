@@ -5,6 +5,7 @@
 		method="POST"
 		action="/api/stocks/update"
 		class="space-y-6"
+		aria-label="Tracked stocks"
 		:aria-busy="isStocksSaving"
 		@input="handleStocksFormInput"
 		@change="handleStocksFormChange"
@@ -26,6 +27,7 @@
 		method="POST"
 		action="/api/notification-preferences/update"
 		class="space-y-6"
+		aria-label="Notification preferences"
 		:aria-busy="isNotificationPreferencesSaving"
 		@input="handleNotificationPreferencesFormInput"
 		@change="handleNotificationPreferencesFormChange"
@@ -70,7 +72,7 @@ import {
 	formatMessage,
 } from "../../lib/constants";
 import type { User } from "../../lib/db";
-import { fetchCurrentNotificationPreferences } from "../../lib/notification-preferences/fetch-current";
+import { fetchCurrentNotificationPreferences } from "../../lib/notification-preferences/client";
 import {
 	type NotificationPreferencesData,
 	useAutoSaveForm,

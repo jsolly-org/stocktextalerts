@@ -3,6 +3,7 @@
 import { Icon } from "astro-icon/components";
 import HCaptcha from "../../components/HCaptcha.astro";
 import EmailInput from "../../components/forms/EmailInput.vue";
+import Footer from "../../components/landing/Footer.astro";
 import Navigation from "../../components/Navigation.astro";
 import StatusMessage from "../../components/StatusMessage.astro";
 import Layout from "../../layouts/Layout.astro";
@@ -31,7 +32,7 @@ if (success === "true") {
 	}
 }
 ---
-<Layout title="Forgot Password" description="Request a password reset email for your Stock Text Alerts account. Enter your email to receive a secure link to set a new password.">
+<Layout title="Forgot Password | Stock Text Alerts" description="Request a password reset email for your Stock Text Alerts account. Enter your email to receive a secure link to set a new password.">
   <div class="min-h-screen bg-gray-50">
     <header>
       <Navigation />
@@ -90,15 +91,16 @@ if (success === "true") {
             role="status"
             aria-live="polite"
           ></div>
-          <button 
+          <button
             type="submit"
-            class="w-full bg-primary hover:bg-primary-strong text-white px-6 py-3 rounded-md font-medium transition-colors cursor-pointer"
+            class="btn btn-lg btn-primary w-full"
           >
-            Send reset link
+            Send Reset Link
           </button>
         </form>
       </div>
     </main>
+    <Footer />
   </div>
 </Layout>
 

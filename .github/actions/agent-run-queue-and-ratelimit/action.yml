@@ -111,51 +111,35 @@ runs:
         RECENT_RUNS=$(echo "$RUNS_JSON" | jq --argjson limit "$LIMIT" \
           '[.workflow_runs[] | select(.created_at | fromdateiso8601 >= $limit)]' 2>&1)
 
-        COUNT=0
-        RUN_COUNT=$(echo "$RECENT_RUNS" | jq 'length' 2>&1)
-
-        # Ensure RUN_COUNT is a valid number
+        RUN_COUNT=$(echo "$RECENT_RUNS" | jq 'length' 2>/dev/null)
         if ! [[ "$RUN_COUNT" =~ ^[0-9]+$ ]]; then
           echo "Warning: Could not determine run count, skipping rate limit check"
           exit 0
         fi
 
+        # Count runs matching this PR (via pull_requests field or commits API fallback)
+        COUNT=0
         for ((i=0; i<RUN_COUNT; i++)); do
-          RUN=$(echo "$RECENT_RUNS" | jq ".[$i]" 2>&1)
+          RUN=$(echo "$RECENT_RUNS" | jq ".[$i]")
 
-          # First, try the pull_requests field (works for pull_request triggered runs)
-          PR_MATCH=$(echo "$RUN" | jq --arg pr "$PR_NUMBER" \
-            'if (.pull_requests // []) | any(.number == ($pr|tonumber)) then 1 else 0 end' 2>&1)
-
-          if [[ "$PR_MATCH" == "1" ]]; then
+          # Try the pull_requests field first (works for pull_request-triggered runs)
+          if echo "$RUN" | jq -e --arg pr "$PR_NUMBER" '(.pull_requests // []) | any(.number == ($pr|tonumber))' > /dev/null 2>&1; then
             COUNT=$((COUNT + 1))
+            if [[ "$COUNT" -ge 60 ]]; then
+              break
+            fi
             continue
           fi
 
-          # If pull_requests is empty, check head_sha association via commits API
-          # This handles issue_comment-triggered runs
-          HEAD_SHA=$(echo "$RUN" | jq -r '.head_sha // ""' 2>&1)
+          # Fallback: check head_sha via commits API (handles issue_comment-triggered runs)
+          HEAD_SHA=$(echo "$RUN" | jq -r '.head_sha // empty')
+          [[ -z "$HEAD_SHA" ]] && continue
 
-          if [[ -z "$HEAD_SHA" ]] || [[ "$HEAD_SHA" == "null" ]]; then
-            continue
-          fi
-
-          # Check if this head_sha is associated with the PR via commits API
-          COMMITS_PULLS=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" 2>&1)
-          COMMITS_EXIT=$?
-
-          if [[ $COMMITS_EXIT -ne 0 ]]; then
-            # If API call fails, skip this run (mirror existing RUNS_EXIT logic)
-            echo "Warning: Could not check commits/$HEAD_SHA/pulls, skipping this run"
-            continue
-          fi
-
-          # Check if any associated PR matches our PR number
-          PR_MATCH=$(echo "$COMMITS_PULLS" | jq --arg pr "$PR_NUMBER" \
-            '[.[] | select(.number == ($pr|tonumber))] | length' 2>&1)
-
-          if [[ "$PR_MATCH" -gt 0 ]]; then
+          if gh api "repos/$REPO/commits/$HEAD_SHA/pulls" 2>/dev/null | jq -e --arg pr "$PR_NUMBER" 'any(.number == ($pr|tonumber))' > /dev/null 2>&1; then
             COUNT=$((COUNT + 1))
+            if [[ "$COUNT" -ge 60 ]]; then
+              break
+            fi
           fi
         done
 

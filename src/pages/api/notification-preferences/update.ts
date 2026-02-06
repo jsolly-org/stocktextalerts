@@ -1,18 +1,15 @@
 import type { APIRoute } from "astro";
-import { DateTime } from "luxon";
-import { jsonResponse } from "../../../lib/api/json-response";
-import {
-	createUserService,
-	omitUndefined,
-	type User,
-	type UserUpdateInput,
-} from "../../../lib/db";
+import { createUserService, type User } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
+import { jsonResponse } from "../../../lib/json-response";
 import { createLogger } from "../../../lib/logging";
-import { parseTimeToMinutes } from "../../../lib/time/format";
-import { calculateNextSendAtFromTimes } from "../../../lib/time/schedule";
+import { parseDigestTimes } from "../../../lib/notification-preferences/digest-times";
+import {
+	buildNotificationPreferencesUpdatePayload,
+	NotificationPreferencesValidationError,
+} from "../../../lib/notification-preferences/server-update";
 
 const NOTIFICATION_PREFERENCES_SCHEMA = {
 	email_notifications_enabled: { type: "boolean" },
@@ -21,34 +18,6 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	daily_digest_enabled: { type: "boolean" },
 	daily_digest_notification_times: { type: "json_string_array" },
 } as const satisfies FormSchema;
-
-type DigestTimesParseResult =
-	| { ok: true; times: number[] }
-	| { ok: false; reason: string };
-
-function parseDigestTimes(values: string[]): DigestTimesParseResult {
-	const minutes: number[] = [];
-	for (const value of values) {
-		const parsed = parseTimeToMinutes(value);
-		if (parsed === null) {
-			return { ok: false, reason: "invalid_time" };
-		}
-		if (parsed % 15 !== 0) {
-			return { ok: false, reason: "invalid_time_increment" };
-		}
-		minutes.push(parsed);
-	}
-
-	const unique = [...new Set(minutes)].sort((a, b) => a - b);
-	return { ok: true, times: unique };
-}
-
-function serializeTimes(times: number[] | null | undefined): string {
-	if (!times || times.length === 0) {
-		return "";
-	}
-	return [...times].sort((a, b) => a - b).join(",");
-}
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
@@ -99,10 +68,10 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		return jsonResponse(400, { ok: false, message: "invalid_form" });
 	}
 
-	let parsedTimes: number[] | null | undefined;
-	if (rawTimesValue === "") {
-		parsedTimes = [];
-	} else if (parsed.data.daily_digest_notification_times !== undefined) {
+	if (
+		rawTimesValue !== "" &&
+		parsed.data.daily_digest_notification_times !== undefined
+	) {
 		const result = parseDigestTimes(
 			parsed.data.daily_digest_notification_times,
 		);
@@ -116,38 +85,6 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			);
 			return jsonResponse(400, { ok: false, message: "invalid_form" });
 		}
-		parsedTimes = result.times;
-	}
-
-	let normalizedTimes: number[] | null | undefined = parsedTimes;
-	if (normalizedTimes && normalizedTimes.length === 0) {
-		normalizedTimes = null;
-	}
-
-	const safeNotificationPreferenceUpdates: UserUpdateInput = omitUndefined({
-		timezone: parsed.data.timezone,
-		daily_digest_notification_times: normalizedTimes,
-		...(formData.has("email_notifications_enabled")
-			? {
-					email_notifications_enabled:
-						parsed.data.email_notifications_enabled ?? false,
-				}
-			: {}),
-		...(formData.has("sms_notifications_enabled")
-			? {
-					sms_notifications_enabled:
-						parsed.data.sms_notifications_enabled ?? false,
-				}
-			: {}),
-		...(formData.has("daily_digest_enabled")
-			? {
-					daily_digest_enabled: parsed.data.daily_digest_enabled ?? false,
-				}
-			: {}),
-	});
-	if (normalizedTimes === null) {
-		safeNotificationPreferenceUpdates.daily_digest_notification_times = null;
-		safeNotificationPreferenceUpdates.daily_digest_enabled = false;
 	}
 
 	let dbUser: User | null;
@@ -173,69 +110,34 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		return jsonResponse(404, { ok: false, message: "user_not_found" });
 	}
 
-	const timezoneChanged =
-		safeNotificationPreferenceUpdates.timezone !== undefined &&
-		safeNotificationPreferenceUpdates.timezone !== dbUser.timezone;
-	const timeChanged =
-		safeNotificationPreferenceUpdates.daily_digest_notification_times !==
-			undefined &&
-		serializeTimes(
-			safeNotificationPreferenceUpdates.daily_digest_notification_times,
-		) !== serializeTimes(dbUser.daily_digest_notification_times ?? null);
-	const enabledChanged =
-		safeNotificationPreferenceUpdates.daily_digest_enabled !== undefined &&
-		safeNotificationPreferenceUpdates.daily_digest_enabled !==
-			dbUser.daily_digest_enabled;
-
-	const finalTimezone =
-		safeNotificationPreferenceUpdates.timezone !== undefined
-			? safeNotificationPreferenceUpdates.timezone
-			: dbUser.timezone;
-	const finalTimes =
-		safeNotificationPreferenceUpdates.daily_digest_notification_times !==
-		undefined
-			? safeNotificationPreferenceUpdates.daily_digest_notification_times
-			: dbUser.daily_digest_notification_times;
-	const finalEnabled =
-		safeNotificationPreferenceUpdates.daily_digest_enabled !== undefined
-			? safeNotificationPreferenceUpdates.daily_digest_enabled
-			: dbUser.daily_digest_enabled;
-
-	if ((timezoneChanged || timeChanged || enabledChanged) && finalEnabled) {
-		if (!finalTimes || finalTimes.length === 0) {
-			safeNotificationPreferenceUpdates.next_send_at = null;
-		} else {
-			const nextSendAt = calculateNextSendAtFromTimes(
-				finalTimes,
-				finalTimezone,
-				DateTime.utc(),
-			);
-			if (nextSendAt) {
-				const nextSendAtIso = nextSendAt.toISO();
-				if (!nextSendAtIso) {
-					logger.warn(
-						"Failed to format next_send_at ISO for notification-preferences",
-						{
-							userId: user.id,
-							finalTimes,
-							finalTimezone,
-						},
-					);
-					safeNotificationPreferenceUpdates.next_send_at = null;
-				} else {
-					safeNotificationPreferenceUpdates.next_send_at = nextSendAtIso;
-				}
-			} else {
-				logger.warn("calculateNextSendAtFromTimes returned null", {
-					userId: user.id,
-					finalTimes,
-					finalTimezone,
-				});
-				safeNotificationPreferenceUpdates.next_send_at = null;
-			}
+	let safeNotificationPreferenceUpdates: ReturnType<
+		typeof buildNotificationPreferencesUpdatePayload
+	>;
+	try {
+		safeNotificationPreferenceUpdates =
+			buildNotificationPreferencesUpdatePayload({
+				parsedData: parsed.data,
+				formData,
+				rawTimesValue: rawTimesValue as string | null,
+				dbUser,
+				logger,
+			});
+	} catch (error) {
+		if (error instanceof NotificationPreferencesValidationError) {
+			return jsonResponse(400, {
+				ok: false,
+				message: "digest_times_required",
+			});
 		}
-	} else if (enabledChanged && !finalEnabled) {
-		safeNotificationPreferenceUpdates.next_send_at = null;
+		logger.error(
+			"Notification-preferences update rejected due to invalid digest schedule",
+			{
+				userId: user.id,
+				action: "notification_preferences_update",
+			},
+			error,
+		);
+		return jsonResponse(400, { ok: false, message: "invalid_form" });
 	}
 
 	try {

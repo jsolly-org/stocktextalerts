@@ -1,6 +1,6 @@
 import type { APIContext } from "astro";
 import { describe, expect, it, vi } from "vitest";
-import { POST } from "../../src/pages/api/notifications/sms/inbound";
+import { POST } from "../../src/pages/api/messaging/inbound";
 import {
 	adminClient,
 	buildSmsInboundRequest,
@@ -173,6 +173,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 			expect(response.status).toBe(200);
 			const body = await response.text();
+			expect(body).toContain("cannot re-enable SMS notifications");
 			expect(body).toContain("visit your dashboard");
 
 			const { data: updated } = await adminClient
