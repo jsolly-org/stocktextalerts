@@ -6,13 +6,6 @@ runs:
   steps:
     - name: Checkout
       uses: actions/checkout@v6
-    - name: Setup Biome
-      uses: biomejs/setup-biome@v2
-      with:
-        version: 2.3.13
-    - name: Run Biome
-      shell: bash
-      run: biome ci .
     - name: Setup Node.js
       uses: actions/setup-node@v6
       with:
@@ -22,6 +15,9 @@ runs:
     - name: Install dependencies
       shell: bash
       run: npm ci
+    - name: Run Biome
+      shell: bash
+      run: npx biome ci .
     - name: Deep Type check
       shell: bash
       run: npm run check:ts
