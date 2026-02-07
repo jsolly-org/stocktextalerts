@@ -58,7 +58,7 @@
 				<div
 					v-for="(time, index) in scheduledUpdateTimes"
 					:key="`${index}-${time}`"
-					class="flex flex-col gap-2 sm:flex-row sm:items-center"
+					class="flex items-center gap-2"
 				>
 					<TimePicker
 						:inputId="`scheduled_update_time_${index}`"
@@ -71,7 +71,7 @@
 					<button
 						v-if="scheduledUpdateTimes.length > 1"
 						type="button"
-						class="btn btn-sm btn-ghost text-error-text hover:bg-error-bg hover:text-error-text shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 self-start sm:self-auto"
+						class="btn btn-sm btn-ghost text-error-text hover:bg-error-bg hover:text-error-text shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2"
 						:aria-label="`Remove delivery time ${index + 1}`"
 						@click="emit('remove-time', index)"
 					>
