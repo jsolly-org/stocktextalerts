@@ -47,7 +47,13 @@ function escapePgpassField(s: string): string {
 }
 
 function isLocalHost(host: string): boolean {
-	return host === "localhost" || host === "127.0.0.1";
+	return (
+		host === "localhost" ||
+		host === "127.0.0.1" ||
+		host === "::1" ||
+		host === "0.0.0.0" ||
+		host === "host.docker.internal"
+	);
 }
 
 // --- psql helper ---
@@ -301,7 +307,7 @@ async function main(): Promise<void> {
 	});
 
 	// 1. Generate seed.sql from prod auth users + stock list
-	execFileSync("npm", ["run", "db:generate-seed", "--", "--prod"], {
+	execFileSync("npm", ["run", "db:generate-seed"], {
 		stdio: "inherit",
 	});
 

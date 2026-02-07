@@ -348,7 +348,7 @@ Resetting the database (`npm run db:reset`) will:
 - Re-apply the schema
 - Re-seed the database with the updated stock list
 
-This is safe for local development; `db:generate-seed` refuses to run against non-local Supabase unless you explicitly pass `--prod` (e.g. `npm run db:generate-seed -- --prod`). This is used by `npm run db:reset:prod`.
+This is safe for local development. `db:generate-seed` generates `supabase/seed.sql` against whatever Supabase instance `PUBLIC_SUPABASE_URL` points to, so be careful when running it against production. Production resets should use `npm run db:reset:prod`.
 
 ## License
 
