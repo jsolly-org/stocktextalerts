@@ -53,6 +53,8 @@ export default defineConfig({
 
 	site,
 
+	trailingSlash: "never",
+
 	integrations: [
 		sitemap({
 			// Exclude auth flow, authenticated, and utility pages from sitemap (no SEO value; keep crawlers off).
