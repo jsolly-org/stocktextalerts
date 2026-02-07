@@ -12,7 +12,7 @@ A stock market notification app that sends scheduled SMS and email updates about
 - **Notification Scheduling** - Choose when to receive your stock updates
 - **Format Preferences** - Customize how your updates look with live SMS/email previews
 - **SMS Opt-out** - Users can reply STOP to opt out of SMS
-- **CAPTCHA Protection** - hCaptcha for auth flows
+- **CAPTCHA Protection** - hCaptcha for sign-in, registration, and password reset
 
 ## Tech Stack
 
@@ -275,7 +275,7 @@ The cron job:
 ## Security Features
 
 - Row Level Security (RLS) on all database tables
-- CAPTCHA protection for anonymous auth flows (Supabase Auth + hCaptcha)
+- CAPTCHA protection for sign-in, registration, and password reset (Supabase Auth + hCaptcha)
 - Cron endpoint protected by secret header
 - Phone verification via Twilio Verify API
 - SMS opt-out support (STOP keyword compliance)
