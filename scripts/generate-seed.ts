@@ -324,6 +324,7 @@ async function generateUsersSql(
 
 async function main() {
   rootLogger.info('Generating supabase/seed.sql...');
+  const allowProd = process.argv.includes("--prod");
 
   // Check for required environment variables
   const supabaseUrl = process.env.PUBLIC_SUPABASE_URL;
@@ -400,7 +401,9 @@ async function main() {
 
   // 2. Read Users Data
   let users: SeedUser[] = [];
-  if (fs.existsSync(USERS_FILE)) {
+  // Safety: `supabase/seed.sql` includes auth user creation derived from DEFAULT_PASSWORD.
+  // For production resets, we never include user seed data to avoid creating accounts with predictable passwords.
+  if (!allowProd && fs.existsSync(USERS_FILE)) {
     try {
       const parsed = JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8')) as unknown;
       if (!Array.isArray(parsed)) {
