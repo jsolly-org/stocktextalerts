@@ -22,7 +22,6 @@ import {
 type SeedErrorCode =
   | "missing_env"
   | "invalid_supabase_url"
-  | "non_local_supabase_url"
   | "default_password_missing"
   | "stocks_read_failed"
   | "users_parse_failed"
@@ -50,11 +49,6 @@ const ERROR_HINTS: Partial<Record<SeedErrorCode, string[]>> = {
   invalid_supabase_url: [
     "\n💡 Hint: PUBLIC_SUPABASE_URL is malformed.",
     "   - Verify the URL format (e.g., http://localhost:54321)",
-  ],
-  non_local_supabase_url: [
-    "\n💡 Hint: Seed script is blocked from running against non-local Supabase.",
-    "   - Use a local Supabase instance for seeding (see .env.local)",
-    "   - Run npm run db:reset:prod for production",
   ],
   default_password_missing: [
     "\n💡 Hint: DEFAULT_PASSWORD is required in .env.local",
@@ -334,8 +328,6 @@ async function main() {
   // Check for required environment variables
   const supabaseUrl = process.env.PUBLIC_SUPABASE_URL;
   const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
-  const allowProd = process.argv.includes("--prod");
-
   // Seed scripts run outside middleware, so env validation lives here.
   if (!supabaseUrl || !supabaseSecretKey) {
     throw new SeedError(
@@ -344,30 +336,12 @@ async function main() {
     );
   }
 
-  let supabaseHost: string;
   try {
-    supabaseHost = new URL(supabaseUrl).hostname;
+    new URL(supabaseUrl);
   } catch {
     throw new SeedError(
       "invalid_supabase_url",
       `PUBLIC_SUPABASE_URL is not a valid URL: ${supabaseUrl}`,
-    );
-  }
-
-  const isLocalSupabase =
-    supabaseHost === 'localhost' || supabaseHost === '127.0.0.1';
-
-  if (!isLocalSupabase && !allowProd) {
-    throw new SeedError(
-      "non_local_supabase_url",
-      `Refusing to use SUPABASE_SECRET_KEY against non-local Supabase URL (${supabaseUrl}). Pass --prod to override.`,
-    );
-  }
-
-  if (!isLocalSupabase && allowProd) {
-    rootLogger.info(
-      "Running against production Supabase (--prod). seed.sql will be applied by db:reset:prod.",
-      { context: { supabaseHost } },
     );
   }
 
@@ -425,12 +399,8 @@ async function main() {
   const stocks = stocksRaw as Stock[];
 
   // 2. Read Users Data
-  //
-  // Safety: `supabase/seed.sql` includes auth user creation derived from DEFAULT_PASSWORD.
-  // For production resets, we never include user seed data to avoid creating accounts with
-  // predictable passwords in a real environment.
   let users: SeedUser[] = [];
-  if (!allowProd && fs.existsSync(USERS_FILE)) {
+  if (fs.existsSync(USERS_FILE)) {
     try {
       const parsed = JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8')) as unknown;
       if (!Array.isArray(parsed)) {

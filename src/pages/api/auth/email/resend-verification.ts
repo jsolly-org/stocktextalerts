@@ -16,7 +16,6 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 	const formData = await request.formData();
 	const parsed = parseWithSchema(formData, {
 		email: { type: "string", required: true },
-		captcha_token: { type: "string", required: true },
 	} as const);
 
 	if (!parsed.ok) {
@@ -31,7 +30,6 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 	// Supabase Auth doesn't enforce this constraint (external service owns its storage/constraints),
 	// so we normalize at the application level before sending.
 	const email = parsed.data.email.trim();
-	const captchaToken = parsed.data.captcha_token;
 
 	const origin = getSiteUrl();
 	const emailRedirectTo = `${origin}/auth/verified`;
@@ -41,22 +39,10 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 		email,
 		options: {
 			emailRedirectTo,
-			captchaToken,
 		},
 	});
 
 	if (error) {
-		if (error.code === "captcha_failed") {
-			// Expected rejection (often bots); info to avoid inflating error metrics.
-			logger.info("Resend verification blocked due to captcha", {
-				code: error.code,
-				status: error.status,
-			});
-			return redirect(
-				`/auth/unconfirmed?email=${encodeURIComponent(email)}&error=captcha_required`,
-			);
-		}
-
 		logger.error(
 			"Resend verification email failed",
 			{ email, errorCode: error.code, errorStatus: error.status },

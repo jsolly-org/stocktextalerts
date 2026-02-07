@@ -301,7 +301,7 @@ async function main(): Promise<void> {
 	});
 
 	// 1. Generate seed.sql from prod auth users + stock list
-	execFileSync("npm", ["run", "db:generate-seed:prod"], {
+	execFileSync("npm", ["run", "db:generate-seed"], {
 		stdio: "inherit",
 	});
 
