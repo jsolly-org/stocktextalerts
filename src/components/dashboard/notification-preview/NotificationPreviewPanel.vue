@@ -11,7 +11,33 @@
 		@change="handleFormChange"
 		@submit="handleFormSubmit"
 	>
-		<section class="card mb-6">
+		<section class="card relative mb-6">
+			<Transition
+				enter-active-class="transition-opacity duration-150"
+				enter-from-class="opacity-0"
+				enter-to-class="opacity-100"
+				leave-active-class="transition-opacity duration-150"
+				leave-from-class="opacity-100"
+				leave-to-class="opacity-0"
+			>
+				<div
+					v-if="statusMessage"
+					class="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium z-10 border"
+					:class="STATUS_TONE_CLASSES[statusTone]"
+					role="status"
+					aria-live="polite"
+					:aria-busy="isSaving"
+					:data-tone="statusTone"
+				>
+					<ArrowPathIcon
+						v-show="isSaving"
+						class="animate-spin size-3 shrink-0"
+						aria-hidden="true"
+					/>
+					{{ statusMessage }}
+				</div>
+			</Transition>
+
 			<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.gray}`"></div>
 			<div
 				class="card-body"
@@ -35,12 +61,6 @@
 					:needsPhoneVerification="false"
 					phoneVerificationSectionId=""
 				/>
-
-				<div v-if="statusMessage" class="mb-4">
-					<StatusMessage :tone="statusTone">
-						{{ statusMessage }}
-					</StatusMessage>
-				</div>
 
 				<FormatToggles
 					:showChangePercent="showChangePercent"
@@ -69,14 +89,16 @@
 
 <script lang="ts" setup>
 import { computed, ref, toRefs, watch } from "vue";
+// ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
+import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_FORMAT_PREFERENCES_FORM_ID,
 	DASHBOARD_SECTION_IDS,
+	STATUS_TONE_CLASSES,
 } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 import type { FormatPreferences } from "../../../lib/messaging/types";
-import StatusMessage from "../../StatusMessage.vue";
 import {
 	type FormatPreferencesData,
 	useAutoSaveFormatPreferences,
