@@ -47,9 +47,9 @@ const props = defineProps<{
 
 const emit = defineEmits<(event: "time-change", value: string) => void>();
 
-const minutesIncrement = 15;
+const minutesIncrement = 1;
 const minTime: TimeModel = { hours: 0, minutes: 0, seconds: 0 };
-const maxTime: TimeModel = { hours: 23, minutes: 45, seconds: 0 };
+const maxTime: TimeModel = { hours: 23, minutes: 59, seconds: 0 };
 const isMounted = ref(false);
 const lastSyncedValue = ref<string | null>(null);
 const selectedTime = ref<TimeModel | null>(

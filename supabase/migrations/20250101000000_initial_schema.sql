@@ -209,7 +209,7 @@ AS $$
       AND NOT EXISTS (
         SELECT 1
         FROM unnest(times) AS entry
-        WHERE entry IS NULL OR entry < 0 OR entry > 1439 OR entry % 15 <> 0
+        WHERE entry IS NULL OR entry < 0 OR entry > 1439
       )
     );
 $$;
@@ -462,7 +462,6 @@ CREATE TABLE IF NOT EXISTS scheduled_notifications (
   scheduled_minutes INTEGER NOT NULL CHECK (
     scheduled_minutes >= 0
     AND scheduled_minutes <= 1439
-    AND scheduled_minutes % 15 = 0
   ),
   channel public.delivery_method NOT NULL,
   status public.scheduled_notification_status NOT NULL,

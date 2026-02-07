@@ -19,9 +19,6 @@ export function parseScheduledTimes(
 		if (parsed === null) {
 			return { ok: false, reason: "invalid_time" };
 		}
-		if (parsed % 15 !== 0) {
-			return { ok: false, reason: "invalid_time_increment" };
-		}
 		minutes.push(parsed);
 	}
 

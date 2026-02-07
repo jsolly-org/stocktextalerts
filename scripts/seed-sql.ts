@@ -284,9 +284,9 @@ export function buildPublicUserSql(userId: string, user: SeedUser): string {
       );
     }
     for (const entry of scheduledUpdateTimes) {
-      if (entry < 0 || entry > 1439 || entry % 15 !== 0) {
+      if (entry < 0 || entry > 1439) {
         throw new Error(
-          `Seed user: scheduled_update_times entries must be between 0 and 1439 and divisible by 15. Received: ${entry}`,
+          `Seed user: scheduled_update_times entries must be between 0 and 1439. Received: ${entry}`,
         );
       }
     }

@@ -149,8 +149,8 @@ const {
 
 const scheduledUpdatesEnabled = ref(user.value.scheduled_updates_enabled);
 
-const MAX_SCHEDULED_UPDATE_MINUTES = 23 * 60 + 45;
-const SCHEDULED_UPDATE_INCREMENT_MINUTES = 15;
+const MAX_SCHEDULED_UPDATE_MINUTES = 23 * 60 + 59;
+const SCHEDULED_UPDATE_INCREMENT_MINUTES = 1;
 const ADD_SCHEDULED_OFFSET_MINUTES = 180;
 
 function normalizeScheduledTimes(times: number[]): number[] {

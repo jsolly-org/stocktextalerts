@@ -11,7 +11,7 @@
 
 Validate all major happy-path features end-to-end on production with the shortest possible flow. This plan covers registration, stock tracking, email/SMS notifications, profile management, inbound SMS keywords, and account deletion.
 
-**Estimated Duration:** 30-60 minutes (depends on 15-minute cron alignment)
+**Estimated Duration:** 15-30 minutes (cron runs every minute)
 
 ---
 
@@ -178,10 +178,9 @@ Verify email notification toggle, notification time scheduling, and email delive
 
 - [ ] Email notifications are turned on/enabled on the dashboard.
 
-**Step 2:** Set the notification time to the next 15-minute boundary that you can still realistically hit.
+**Step 2:** Set the notification time to any minute that is **at least 2 minutes from now**.
 
-- Choose the next \(HH:00 / HH:15 / HH:30 / HH:45\) that is **at least 5 minutes from now**.
-- Example: if it's 10:34 now, set it to 10:45. If it's 10:43, set it to 11:00.
+- Example: if it's 10:34 now, set it to 10:36.
 
 Save, then refresh.
 
@@ -190,7 +189,7 @@ Save, then refresh.
 
 **Step 3:** Wait until just after the selected delivery time, then check your email inbox.
 
-- [ ] The update email arrives by **one cron interval after** your selected time (cron runs every 15 minutes; allow up to ~20 minutes total).
+- [ ] The update email arrives within ~2 minutes of your selected time (cron runs every minute).
 
 - [ ] Stock update email arrives.
 - [ ] The email includes your tracked stock symbols with current prices and change percentages.
@@ -200,8 +199,8 @@ Save, then refresh.
 
 ### Notes
 
-- Notification times are in 15-minute intervals. Choose the nearest upcoming interval.
-- The cron runs every 15 minutes, so delivery is not instantaneous.
+- Any minute can be selected for notification times.
+- The cron runs every minute, so delivery should be near-immediate.
 
 ---
 
@@ -229,11 +228,11 @@ Verify phone verification, SMS toggle, and SMS notification delivery.
 - [ ] SMS verification succeeds after entering the code.
 - [ ] SMS notifications are enabled (toggle remains on after save).
 
-**Step 2:** Change the notification time again to the next 15-minute boundary (same rule as TC-EMAIL-001 Step 2). Save, then refresh.
+**Step 2:** Change the notification time again to a time at least 2 minutes from now (same rule as TC-EMAIL-001 Step 2). Save, then refresh.
 
 - [ ] Notification time persists after refresh.
 
-**Step 3:** Wait until just after the selected delivery time, then check both email and SMS (allow up to ~20 minutes total).
+**Step 3:** Wait until just after the selected delivery time, then check both email and SMS (allow up to ~2 minutes after the selected time).
 
 - [ ] Stock update email arrives.
 - [ ] Stock update SMS arrives.
@@ -424,7 +423,7 @@ The tests above are designed to run sequentially in a single session:
 ## Known Considerations
 
 - Twilio SMS delivery can have carrier-dependent delays.
-- Cron runs every 15 minutes, so notification delivery is not instantaneous.
+- Cron runs every minute, so notification delivery should be near-immediate.
 - SMS messages may span multiple segments when tracking many stocks with price data.
 - Email updates via Supabase Auth may require verifying both old and new addresses depending on configuration.
 
@@ -432,8 +431,8 @@ The tests above are designed to run sequentially in a single session:
 
 ## Troubleshooting: scheduled email/SMS never arrives
 
-- [ ] Confirm the delivery time you set is on a 15-minute boundary and is in the expected timezone.
-- [ ] Wait through **one full cron interval after** the selected time (up to ~20 minutes total).
+- [ ] Confirm the delivery time you set is in the expected timezone.
+- [ ] Wait at least 2 minutes after the selected time.
 - [ ] Verify both Email/SMS toggles are still enabled after refresh.
 - [ ] Check spam/junk for email.
 - [ ] Try reducing tracked stocks to 1-2 to rule out long-message/format issues.
