@@ -25,7 +25,10 @@ async function runScheduledNotifications(options: {
 	const { supabase, logger, forceSend } = options;
 	const sendEmail = createEmailSender();
 
-	const currentTime = options.now ?? DateTime.utc();
+	// Round to end of current minute so the cron picks up all notifications
+	// scheduled for this minute, regardless of when within the minute Vercel
+	// actually fires the cron (typically ~30s into the minute).
+	const currentTime = (options.now ?? DateTime.utc()).endOf("minute");
 	const currentTimeIso = toIsoOrThrow(
 		currentTime,
 		"Failed to format UTC ISO string",
