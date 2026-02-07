@@ -58,15 +58,7 @@
 				</div>
 
 				<SmsVerificationSection
-					:user="props.user"
 					:sms-enabled="smsEnabled"
-					:is-editing-phone="props.isEditingPhone"
-					:success-message="props.successMessage"
-					:send-verification-disabled="props.sendVerificationDisabled"
-					:is-verifying-code="props.isVerifyingCode"
-					:is-sending-verification="props.isSendingVerification"
-					@phone-validity-changed="(value) => emit('phone-validity-changed', value)"
-					@phone-editing-changed="(value) => emit('phone-editing-changed', value)"
 				/>
 			</div>
 		</fieldset>
@@ -88,20 +80,13 @@
 <script lang="ts" setup>
 import { computed } from "vue";
 import { DASHBOARD_SECTION_IDS } from "../../../lib/constants";
-import type { User } from "../../../lib/db";
 import StatusMessage from "../../StatusMessage.vue";
 import ToggleSwitch from "../../ToggleSwitch.vue";
 import SmsVerificationSection from "./SmsVerificationSection.vue";
 
 interface Props {
-	user: User;
 	emailEnabled: boolean;
 	smsEnabled: boolean;
-	isEditingPhone: boolean;
-	successMessage?: string | null;
-	sendVerificationDisabled: boolean;
-	isVerifyingCode?: boolean;
-	isSendingVerification?: boolean;
 	canSaveSmsEnabled: boolean;
 	showTimeReminder: boolean;
 	emailNotificationsEnabledId: string;
@@ -109,17 +94,11 @@ interface Props {
 	notificationChannelsDescId: string;
 }
 
-const props = withDefaults(defineProps<Props>(), {
-	successMessage: null,
-	isVerifyingCode: false,
-	isSendingVerification: false,
-});
+const props = defineProps<Props>();
 
 const emit = defineEmits<{
 	(event: "update:emailEnabled", value: boolean): void;
 	(event: "update:smsEnabled", value: boolean): void;
-	(event: "phone-validity-changed", value: boolean): void;
-	(event: "phone-editing-changed", value: boolean): void;
 	(event: "scroll-to-scheduled"): void;
 }>();
 

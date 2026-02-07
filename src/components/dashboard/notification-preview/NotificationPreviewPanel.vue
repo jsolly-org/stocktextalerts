@@ -12,14 +12,7 @@
 		@submit="handleFormSubmit"
 	>
 		<section class="card relative mb-6">
-			<Transition
-				enter-active-class="transition-opacity duration-150"
-				enter-from-class="opacity-0"
-				enter-to-class="opacity-100"
-				leave-active-class="transition-opacity duration-150"
-				leave-from-class="opacity-100"
-				leave-to-class="opacity-0"
-			>
+			<FadeTransition>
 				<div
 					v-if="statusMessage"
 					class="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium z-10 border"
@@ -36,7 +29,7 @@
 					/>
 					{{ statusMessage }}
 				</div>
-			</Transition>
+			</FadeTransition>
 
 			<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.gray}`"></div>
 			<div
@@ -97,12 +90,13 @@ import {
 	DASHBOARD_SECTION_IDS,
 	STATUS_TONE_CLASSES,
 } from "../../../lib/constants";
-import type { User } from "../../../lib/db";
 import type { FormatPreferences } from "../../../lib/messaging/types";
+import FadeTransition from "../../FadeTransition.vue";
 import {
 	type FormatPreferencesData,
 	useAutoSaveFormatPreferences,
 } from "../composables/useAutoSaveFormatPreferences";
+import { useDashboardUser } from "../composables/useDashboardUser";
 import SetupRequiredNotice from "../scheduled-notifications/SetupRequiredNotice.vue";
 import type { InitialStock } from "../stocks/types";
 import EmailPreview from "./EmailPreview.vue";
@@ -111,7 +105,6 @@ import { DEMO_STOCKS, type PreviewStock } from "./preview-data";
 import SmsPreview from "./SmsPreview.vue";
 
 interface Props {
-	user: User;
 	initialStocks: InitialStock[];
 	emailEnabled: boolean;
 	smsEnabled: boolean;
@@ -120,7 +113,10 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const { user, initialStocks, emailEnabled, smsEnabled, phoneVerified } = toRefs(props);
+const { initialStocks, emailEnabled, smsEnabled, phoneVerified } = toRefs(props);
+
+// Inject the shared mutable user ref from DashboardPanels
+const user = useDashboardUser();
 
 const smsReady = computed(() => smsEnabled.value && phoneVerified.value);
 const hasNotificationChannel = computed(() => emailEnabled.value || smsReady.value);

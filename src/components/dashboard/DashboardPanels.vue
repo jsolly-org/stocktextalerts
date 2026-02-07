@@ -14,30 +14,25 @@
 		<TrackedStocksPanel
 			:stockOptions="stockOptions"
 			:initialStocks="initialStocks"
-			:onFormChanged="notifyStocksChange"
 			:status-message="stocksStatusMessage"
 			:status-tone="stocksStatusTone"
 			:is-saving="isStocksSaving"
+			@form-changed="notifyStocksChange"
 		/>
 	</form>
 
 	<NotificationChannelsPanel
 		v-model:emailEnabled="emailEnabled"
 		v-model:smsEnabled="smsEnabled"
-		:user="user"
-		@user-updated="handleUserUpdated"
 	/>
 
 	<ScheduledNotificationsPanel
-		:user="user"
 		:emailEnabled="emailEnabled"
 		:smsEnabled="smsEnabled"
 		:phoneVerified="phoneVerified"
-		@user-updated="handleUserUpdated"
 	/>
 
 	<NotificationPreviewPanel
-		:user="user"
 		:initialStocks="initialStocks"
 		:emailEnabled="emailEnabled"
 		:smsEnabled="smsEnabled"
@@ -50,6 +45,7 @@ import { computed, ref, toRefs, watch } from "vue";
 import { DASHBOARD_STOCKS_FORM_ID } from "../../lib/constants";
 import type { User } from "../../lib/db";
 import { useAutoSaveForm } from "./composables/useAutoSaveNotificationPreferences";
+import { provideDashboardUser } from "./composables/useDashboardUser";
 import NotificationChannelsPanel from "./notification-channels/NotificationChannelsPanel.vue";
 import NotificationPreviewPanel from "./notification-preview/NotificationPreviewPanel.vue";
 import ScheduledNotificationsPanel from "./scheduled-notifications/ScheduledNotificationsPanel.vue";
@@ -71,19 +67,14 @@ const {
 	user: userProp,
 } = toRefs(props);
 
-// Local reactive copy of user that can be updated by child components
-const user = ref<User>({ ...userProp.value });
-
-// Sync with prop changes (e.g., after page reload)
-watch(userProp, (newUser) => {
-	user.value = { ...newUser };
-}, { deep: true });
+// Shared mutable user ref — all dashboard descendants inject this via useDashboardUser()
+const user = provideDashboardUser(userProp);
 
 const emailEnabled = ref(user.value.email_notifications_enabled);
 const smsEnabled = ref(user.value.sms_notifications_enabled);
 const phoneVerified = computed(() => user.value.phone_verified);
 
-// Sync channel flags when user prop changes externally
+// Sync channel flags when user changes (e.g., after auto-save response)
 watch(
 	() => user.value.email_notifications_enabled,
 	(value) => {
@@ -96,10 +87,6 @@ watch(
 		smsEnabled.value = value;
 	},
 );
-
-function handleUserUpdated(updates: Partial<User>) {
-	user.value = { ...user.value, ...updates };
-}
 
 // --- Stocks form (unchanged, future refactor candidate) ---
 const stocksFormElement = ref<HTMLFormElement | null>(null);

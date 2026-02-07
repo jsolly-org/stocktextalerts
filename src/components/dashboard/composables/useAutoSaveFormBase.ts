@@ -105,7 +105,7 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 			lastSavedSignature.value = submittedSignature;
 			setStatus(null);
 			const payloadData = payload[options.payloadKey] as T | undefined;
-			savedData.value = (payloadData ?? null) as T | null;
+			savedData.value = payloadData ?? null;
 		} catch (error) {
 			const reason =
 				error instanceof Error && error.name === "TimeoutError"

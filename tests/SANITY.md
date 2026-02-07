@@ -11,12 +11,17 @@
 
 Validate all major happy-path features end-to-end on production with the shortest possible flow. This plan covers registration, stock tracking, email/SMS notifications, profile management, inbound SMS keywords, and account deletion.
 
-**Estimated Duration:** 30-45 minutes (includes wait time for notification delivery)
+**Estimated Duration:** 30-60 minutes (depends on 15-minute cron alignment)
 
 ---
 
 ## Prerequisites
 
+- [ ] Record the run metadata somewhere (helps debugging):
+  - [ ] Production URL
+  - [ ] Date/time started (and your timezone)
+  - [ ] Browser + version
+  - [ ] Test email + phone used
 - [ ] Test email inbox you control (and can receive verification + notification emails)
 - [ ] A second email alias you control (for email update test)
 - [ ] Test phone number that can receive SMS (and you can reply to)
@@ -62,6 +67,36 @@ Verify new user registration, email confirmation, and first sign-in.
 
 - If the confirmation email doesn't arrive, check spam/junk folders.
 - Registration requires hCaptcha; automated scripts cannot bypass this.
+
+---
+
+## TC-AUTH-001: User can sign out and sign back in
+
+**Priority:** P0 (Critical)
+**Type:** Functional
+**Estimated Time:** 2 minutes
+
+### Objective
+
+Verify session termination and sign-in redirect behavior.
+
+### Preconditions
+
+- Authenticated session
+
+### Test Steps
+
+**Step 1:** Sign out.
+
+- [ ] You are signed out successfully.
+
+**Step 2:** Navigate directly to `/dashboard`.
+
+- [ ] You are redirected to sign-in (or otherwise blocked from authenticated content).
+
+**Step 3:** Sign back in with the same credentials.
+
+- [ ] Sign-in succeeds and you end at `/dashboard`.
 
 ---
 
@@ -128,7 +163,7 @@ Verify stock search, selection, and persistence.
 
 **Priority:** P0 (Critical)
 **Type:** Functional / Integration
-**Estimated Time:** 5 minutes (including wait)
+**Estimated Time:** 10-20 minutes (including wait)
 
 ### Objective
 
@@ -145,12 +180,19 @@ Verify email notification toggle, notification time scheduling, and email delive
 
 - [ ] Email notifications are turned on/enabled on the dashboard.
 
-**Step 2:** Set the notification time to 1 minute in the future (e.g., if it's 10:34 now, set it to 10:45 — the next 15-minute interval). Save, then refresh.
+**Step 2:** Set the notification time to the next 15-minute boundary that you can still realistically hit.
+
+- Choose the next \(HH:00 / HH:15 / HH:30 / HH:45\) that is **at least 5 minutes from now**.
+- Example: if it's 10:34 now, set it to 10:45. If it's 10:43, set it to 11:00.
+
+Save, then refresh.
 
 - [ ] Notification time persists after refresh.
 - [ ] A countdown to the next notification is displayed.
 
-**Step 3:** Wait 2-3 minutes and check your email inbox.
+**Step 3:** Wait until just after the selected delivery time, then check your email inbox.
+
+- [ ] The update email arrives by **one cron interval after** your selected time (cron runs every 15 minutes; allow up to ~20 minutes total).
 
 - [ ] Stock update email arrives.
 - [ ] The email includes your tracked stock symbols with current prices and change percentages.
@@ -161,7 +203,7 @@ Verify email notification toggle, notification time scheduling, and email delive
 ### Notes
 
 - Notification times are in 15-minute intervals. Choose the nearest upcoming interval.
-- The cron runs every 15 minutes, so delivery may take up to 15 minutes.
+- The cron runs every 15 minutes, so delivery is not instantaneous.
 
 ---
 
@@ -169,7 +211,7 @@ Verify email notification toggle, notification time scheduling, and email delive
 
 **Priority:** P0 (Critical)
 **Type:** Functional / Integration
-**Estimated Time:** 8 minutes (including wait)
+**Estimated Time:** 10-25 minutes (including wait)
 
 ### Objective
 
@@ -189,11 +231,11 @@ Verify phone verification, SMS toggle, and SMS notification delivery.
 - [ ] SMS verification succeeds after entering the code.
 - [ ] SMS notifications are enabled (toggle remains on after save).
 
-**Step 2:** Change the notification time again to a time 1 minute in the future (next 15-minute interval). Save, then refresh.
+**Step 2:** Change the notification time again to the next 15-minute boundary (same rule as TC-EMAIL-001 Step 2). Save, then refresh.
 
 - [ ] Notification time persists after refresh.
 
-**Step 3:** Wait 2-3 minutes and check both email and SMS.
+**Step 3:** Wait until just after the selected delivery time, then check both email and SMS (allow up to ~20 minutes total).
 
 - [ ] Stock update email arrives.
 - [ ] Stock update SMS arrives.
@@ -231,7 +273,7 @@ Verify the email unsubscribe flow and dashboard state synchronization.
 
 **Step 2:** Return to the dashboard and check the Email notifications toggle.
 
-- [ ] Email notifications are turned off/disabled on the dashboard.
+- [ ] Email notifications are turned off/disabled on the dashboard (refresh the page if needed).
 
 **Step 3:** Re-enable Email notifications from the dashboard.
 
@@ -339,6 +381,7 @@ Verify HELP, STOP, and START SMS keyword handling and dashboard state synchroniz
 
 - Keywords are case-insensitive (STOP, stop, Stop all work).
 - The STOP/START behavior follows Twilio's compliance requirements.
+- If carrier re-opt-in behavior differs, the product requirement is: **dashboard state remains the source of truth**.
 
 ---
 
@@ -349,14 +392,15 @@ The tests above are designed to run sequentially in a single session:
 | Order | Test ID | Description | Depends On |
 |-------|---------|-------------|------------|
 | 1 | TC-REG-001 | Register new account | - |
-| 2 | TC-TZ-001 | Configure timezone | TC-REG-001 |
-| 3 | TC-STK-001 | Add tracked stocks | TC-REG-001 |
-| 4 | TC-EMAIL-001 | Enable email + receive update | TC-STK-001 |
-| 5 | TC-SMS-001 | Enable SMS + receive update | TC-STK-001, TC-EMAIL-001 |
-| 6 | TC-UNSUB-001 | Unsubscribe via email link | TC-SMS-001 |
-| 7 | TC-PROF-001 | Change password + update email | TC-REG-001 |
-| 8 | TC-DEL-001 | Delete account | TC-REG-001 |
-| 9 | TC-INBOUND-001 | Inbound SMS keywords | Separate account with SMS enabled |
+| 2 | TC-AUTH-001 | Sign out + sign in | TC-REG-001 |
+| 3 | TC-TZ-001 | Configure timezone | TC-REG-001 |
+| 4 | TC-STK-001 | Add tracked stocks | TC-REG-001 |
+| 5 | TC-EMAIL-001 | Enable email + receive update | TC-STK-001 |
+| 6 | TC-SMS-001 | Enable SMS + receive update | TC-STK-001, TC-EMAIL-001 |
+| 7 | TC-UNSUB-001 | Unsubscribe via email link | TC-SMS-001 |
+| 8 | TC-PROF-001 | Change password + update email | TC-REG-001 |
+| 9 | TC-DEL-001 | Delete account | TC-REG-001 |
+| 10 | TC-INBOUND-001 | Inbound SMS keywords | Separate account with SMS enabled |
 
 > **Note:** TC-INBOUND-001 requires an account with active SMS notifications. Since TC-DEL-001 deletes the account, either run TC-INBOUND-001 before TC-DEL-001 (between steps 6 and 7), or use a separate test account.
 
@@ -386,3 +430,13 @@ The tests above are designed to run sequentially in a single session:
 - Cron runs every 15 minutes, so notification delivery is not instantaneous.
 - SMS messages may span multiple segments when tracking many stocks with price data.
 - Email updates via Supabase Auth may require verifying both old and new addresses depending on configuration.
+
+---
+
+## Troubleshooting: scheduled email/SMS never arrives
+
+- [ ] Confirm the delivery time you set is on a 15-minute boundary and is in the expected timezone.
+- [ ] Wait through **one full cron interval after** the selected time (up to ~20 minutes total).
+- [ ] Verify both Email/SMS toggles are still enabled after refresh.
+- [ ] Check spam/junk for email.
+- [ ] Try reducing tracked stocks to 1-2 to rule out long-message/format issues.

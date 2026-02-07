@@ -16,14 +16,7 @@
 			data-notification-channels-card
 			:data-form-id="DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID"
 		>
-			<Transition
-				enter-active-class="transition-opacity duration-150"
-				enter-from-class="opacity-0"
-				enter-to-class="opacity-100"
-				leave-active-class="transition-opacity duration-150"
-				leave-from-class="opacity-100"
-				leave-to-class="opacity-0"
-			>
+			<FadeTransition>
 				<div
 					v-if="statusMessage"
 					:id="DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID"
@@ -41,7 +34,7 @@
 					/>
 					{{ statusMessage }}
 				</div>
-			</Transition>
+			</FadeTransition>
 
 			<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.primary}`"></div>
 			<div class="card-body">
@@ -59,19 +52,11 @@
 			<NotificationChannelsFieldset
 				v-model:emailEnabled="emailEnabled"
 				v-model:smsEnabled="smsEnabled"
-				:user="localUser"
-				:is-editing-phone="isEditingPhone"
-				:success-message="smsSuccessMessage"
-				:send-verification-disabled="sendVerificationDisabled"
-				:is-verifying-code="isVerifyingCode"
-				:is-sending-verification="isSendingVerification"
 				:can-save-sms-enabled="canSaveSmsEnabled"
 				:show-time-reminder="showTimeReminder"
 				:email-notifications-enabled-id="emailNotificationsEnabledId"
 				:sms-notifications-enabled-id="smsNotificationsEnabledId"
 				:notification-channels-desc-id="notificationChannelsDescId"
-				@phone-validity-changed="handlePhoneValidityChanged"
-				@phone-editing-changed="handlePhoneEditingChanged"
 				@scroll-to-scheduled="scrollToScheduled"
 			/>
 			</div>
@@ -96,17 +81,19 @@ import {
 import type { User } from "../../../lib/db";
 import { rootLogger } from "../../../lib/logging";
 import { fetchCurrentNotificationPreferences } from "../../../lib/notification-preferences/client";
+import FadeTransition from "../../FadeTransition.vue";
 import StatusMessage from "../../StatusMessage.vue";
 import {
 	type NotificationPreferencesData,
 	useAutoSaveForm,
 } from "../composables/useAutoSaveNotificationPreferences";
+import { useDashboardUser } from "../composables/useDashboardUser";
+import { provideSmsVerificationContext } from "../composables/useSmsVerificationContext";
 import { useSmsVerificationSubmission } from "../composables/useSmsVerificationSubmission";
 import NotificationChannelsFieldset from "./NotificationChannelsFieldset.vue";
 import { usePendingSmsChanges } from "./pending-sms-changes";
 
 interface Props {
-	user: User;
 	emailEnabled: boolean;
 	smsEnabled: boolean;
 }
@@ -115,25 +102,20 @@ const props = defineProps<Props>();
 const {
 	emailEnabled: emailEnabledProp,
 	smsEnabled: smsEnabledProp,
-	user: userProp,
 } = toRefs(props);
 
 const emit = defineEmits<{
 	(event: "update:emailEnabled", value: boolean): void;
 	(event: "update:smsEnabled", value: boolean): void;
-	(event: "user-updated", updates: Partial<User>): void;
 }>();
 
-// Local mutable user ref — SMS composable needs to mutate user directly for immediate UI updates
-const localUser = ref<User>({ ...userProp.value });
-watch(userProp, (newUser) => {
-	localUser.value = { ...newUser };
-}, { deep: true });
+// Inject the shared mutable user ref from DashboardPanels
+const user = useDashboardUser();
 
 // Track server state separately so we can preserve a user's pending SMS toggle until it's persisted.
-const serverSmsEnabled = ref(userProp.value.sms_notifications_enabled);
+const serverSmsEnabled = ref(user.value.sms_notifications_enabled);
 watch(
-	() => userProp.value.sms_notifications_enabled,
+	() => user.value.sms_notifications_enabled,
 	(value) => {
 		serverSmsEnabled.value = value;
 	},
@@ -195,15 +177,26 @@ async function handleNotificationPreferencesUpdated() {
 	}
 }
 
+const sendVerificationDisabled = ref(true);
+
 const { handleSmsVerificationSubmit, isSendingVerification, isVerifyingCode } =
 	useSmsVerificationSubmission({
 		isEditingPhone,
-		user: localUser,
+		user,
 		smsSuccessMessage,
 		setNotificationPreferencesFlashMessage: setFlashMessage,
 		clearNotificationPreferencesFlashTone: clearFlashTone,
 		handleNotificationPreferencesUpdated,
 	});
+
+// Provide SMS verification state so descendants can inject instead of prop-drilling
+provideSmsVerificationContext({
+	isEditingPhone,
+	smsSuccessMessage,
+	sendVerificationDisabled,
+	isVerifyingCode,
+	isSendingVerification,
+});
 
 async function handleFormSubmitWrapper(event: SubmitEvent) {
 	const handled = await handleSmsVerificationSubmit(event);
@@ -212,7 +205,6 @@ async function handleFormSubmitWrapper(event: SubmitEvent) {
 }
 
 /* ============= Channel state ============= */
-const sendVerificationDisabled = ref(true);
 const emailNotificationsEnabledId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-email_notifications_enabled`;
 const smsNotificationsEnabledId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-sms_notifications_enabled`;
 const notificationChannelsDescId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-notification-channels-desc`;
@@ -226,7 +218,7 @@ const smsEnabled = computed({
 	set: (value: boolean) => emit("update:smsEnabled", value),
 });
 
-const phoneVerified = computed(() => localUser.value.phone_verified === true);
+const phoneVerified = computed(() => user.value.phone_verified === true);
 
 const canSaveSmsEnabled = computed(() => {
 	if (!smsEnabled.value) {
@@ -238,10 +230,10 @@ const showTimeReminder = computed(() => {
 	if (!emailEnabled.value && !smsEnabled.value) {
 		return false;
 	}
-	if (!localUser.value.scheduled_updates_enabled) {
+	if (!user.value.scheduled_updates_enabled) {
 		return false;
 	}
-	const times = localUser.value.scheduled_update_times;
+	const times = user.value.scheduled_update_times;
 	return !times || times.length === 0;
 });
 
@@ -250,16 +242,16 @@ watch([emailEnabled, smsEnabled], () => {
 	notifyChange();
 });
 
-// Watch savedData and emit to keep parent in sync
+// Watch savedData and update shared user ref directly (no more event bubbling)
 watch(
 	() => savedNotificationPreferencesData.value,
 	(newData) => {
 		if (newData) {
 			serverSmsEnabled.value = newData.sms_notifications_enabled;
 
-			// Update local user
-			localUser.value = {
-				...localUser.value,
+			// Update shared user ref directly
+			user.value = {
+				...user.value,
 				email_notifications_enabled: newData.email_notifications_enabled,
 				sms_notifications_enabled: newData.sms_notifications_enabled,
 				phone_verified: newData.phone_verified,
@@ -275,22 +267,9 @@ watch(
 			if (!shouldPreserveSmsEnabled) {
 				emit("update:smsEnabled", newData.sms_notifications_enabled);
 			}
-			emit("user-updated", {
-				email_notifications_enabled: newData.email_notifications_enabled,
-				sms_notifications_enabled: newData.sms_notifications_enabled,
-				phone_verified: newData.phone_verified,
-			});
 		}
 	},
 );
-
-function handlePhoneValidityChanged(isValid: boolean) {
-	sendVerificationDisabled.value = !isValid;
-}
-
-function handlePhoneEditingChanged(value: boolean) {
-	isEditingPhone.value = value;
-}
 
 function scrollToScheduled() {
 	const el = document.getElementById(DASHBOARD_SECTION_IDS.scheduled);
@@ -301,7 +280,7 @@ function scrollToScheduled() {
 
 /* ============= Pending SMS changes ============= */
 usePendingSmsChanges({
-	userId: computed(() => localUser.value.id),
+	userId: computed(() => user.value.id),
 	smsEnabled,
 	phoneVerified,
 	serverSmsEnabled,

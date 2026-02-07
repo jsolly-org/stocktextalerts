@@ -12,14 +12,7 @@
 		@submit="handleFormSubmit"
 	>
 		<section class="card relative mb-6">
-			<Transition
-				enter-active-class="transition-opacity duration-150"
-				enter-from-class="opacity-0"
-				enter-to-class="opacity-100"
-				leave-active-class="transition-opacity duration-150"
-				leave-from-class="opacity-100"
-				leave-to-class="opacity-0"
-			>
+			<FadeTransition>
 				<div
 					v-if="statusMessage"
 					class="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium z-10 border"
@@ -36,7 +29,7 @@
 					/>
 					{{ statusMessage }}
 				</div>
-			</Transition>
+			</FadeTransition>
 
 			<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.success}`"></div>
 			<div class="card-body">
@@ -110,21 +103,21 @@ import {
 	DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES,
 	STATUS_TONE_CLASSES,
 } from "../../../lib/constants";
-import type { User } from "../../../lib/db";
 import {
 	minutesToTimeInputValue,
 	parseTimeToMinutes,
 } from "../../../lib/time/format";
+import FadeTransition from "../../FadeTransition.vue";
 import {
 	type NotificationPreferencesData,
 	useAutoSaveForm,
 } from "../composables/useAutoSaveNotificationPreferences";
+import { useDashboardUser } from "../composables/useDashboardUser";
 import ScheduledUpdateControls from "./ScheduledUpdateControls.vue";
 import SetupRequiredNotice from "./SetupRequiredNotice.vue";
 import { useScheduledUpdateTiming } from "./scheduled-notifications-helpers";
 
 interface Props {
-	user: User;
 	emailEnabled: boolean;
 	smsEnabled: boolean;
 	phoneVerified: boolean;
@@ -132,13 +125,13 @@ interface Props {
 
 const props = defineProps<Props>();
 const {
-	user,
 	emailEnabled,
 	smsEnabled,
 	phoneVerified,
 } = toRefs(props);
 
-const emit = defineEmits<(event: "user-updated", updates: Partial<User>) => void>();
+// Inject the shared mutable user ref from DashboardPanels
+const user = useDashboardUser();
 
 const scheduledFormElement = ref<HTMLFormElement | null>(null);
 const {
@@ -185,7 +178,7 @@ const scheduledUpdateTimes = computed(() =>
 	scheduledUpdateTimesMinutes.value.map((value) => minutesToTimeInputValue(value)),
 );
 
-const timezone = computed(() => props.user.timezone ?? "");
+const timezone = computed(() => user.value.timezone ?? "");
 
 const smsReady = computed(
 	() => smsEnabled.value && phoneVerified.value,
@@ -243,7 +236,7 @@ watch(
 const nextSendAt = computed(
 	() =>
 		savedScheduledData.value?.next_send_at ??
-			props.user.next_send_at ??
+			user.value.next_send_at ??
 			null,
 );
 const { currentTimeInTimezone, countdownText } = useScheduledUpdateTiming({
@@ -259,16 +252,17 @@ watch(scheduledUpdatesEnabled, () => {
 	}
 });
 
-// Emit user-updated when auto-save response arrives with scheduled fields
+// Update shared user ref directly when auto-save response arrives
 watch(
 	() => savedScheduledData.value,
 	(newData) => {
 		if (newData) {
-			emit("user-updated", {
+			user.value = {
+				...user.value,
 				scheduled_updates_enabled: newData.scheduled_updates_enabled,
 				scheduled_update_times: newData.scheduled_update_times,
 				next_send_at: newData.next_send_at,
-			});
+			};
 		}
 	},
 );

@@ -8,6 +8,7 @@ import HowItWorks from "../components/landing/HowItWorks.astro";
 import Navigation from "../components/Navigation.astro";
 import StatusMessage from "../components/StatusMessage.astro";
 import Layout from "../layouts/Layout.astro";
+import phoneFrame from "../assets/phone-frame.svg";
 import { createUserService } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 import { formatMessage } from "../lib/constants";
@@ -39,6 +40,7 @@ const jsonLd = [
 ];
 ---
 <Layout title="Stock Text Alerts | Stock Updates via Email & SMS" description="Get scheduled updates for your tracked stocks via email and optional SMS. Track US stocks, set your preferred time and timezone." jsonLd={jsonLd}>
+  <link slot="head" rel="preload" as="image" type="image/svg+xml" href={phoneFrame.src} />
   <div class="min-h-screen bg-white">
     <header>
       <Navigation user={user || undefined} />

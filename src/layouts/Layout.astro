@@ -4,8 +4,9 @@ interface Props {
 	title: string;
 	description: string;
 	jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+	noindex?: boolean;
 }
-const { title, description, jsonLd }: Props = Astro.props;
+const { title, description, jsonLd, noindex }: Props = Astro.props;
 
 function escapeJsonForHtml(json: string): string {
 	// JSON-LD is injected via set:html, so we must prevent script-breakout if any
@@ -42,6 +43,7 @@ const omitManifestOnVercel =
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#ffffff" />
     <meta name="generator" content={Astro.generator} />
+    {noindex && <meta name="robots" content="noindex" />}
     <title>{title}</title>
     <link rel="canonical" href={canonicalURL} />
 
@@ -95,6 +97,8 @@ const omitManifestOnVercel =
     {jsonLdHtml && (
       <script type="application/ld+json" set:html={jsonLdHtml} />
     )}
+
+    <slot name="head" />
   </head>
   <body>
     <a
