@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { rootLogger } from "../src/lib/logging";
+import { isLocalHost } from "./is-local-host";
 
 // --- Environment helpers ---
 
@@ -44,16 +45,6 @@ function parseDatabaseUrl(url: string): ParsedDatabaseUrl {
 
 function escapePgpassField(s: string): string {
 	return s.replace(/[:\\\\]/g, "\\\\$&");
-}
-
-function isLocalHost(host: string): boolean {
-	return (
-		host === "localhost" ||
-		host === "127.0.0.1" ||
-		host === "::1" ||
-		host === "0.0.0.0" ||
-		host === "host.docker.internal"
-	);
 }
 
 // --- psql helper ---

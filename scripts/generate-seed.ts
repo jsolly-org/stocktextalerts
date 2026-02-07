@@ -18,6 +18,7 @@ import {
   escapeSql,
   type SeedUser,
 } from './seed-sql';
+import { isLocalHost } from './is-local-host';
 
 type SeedErrorCode =
   | "missing_env"
@@ -347,8 +348,7 @@ async function main() {
     );
   }
 
-  const isLocalSupabase =
-    supabaseHost === "localhost" || supabaseHost === "127.0.0.1";
+  const isLocalSupabase = isLocalHost(supabaseHost);
 
   // Create Supabase admin client
   const supabase = createClient(supabaseUrl, supabaseSecretKey, {
