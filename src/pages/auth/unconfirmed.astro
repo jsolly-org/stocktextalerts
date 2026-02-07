@@ -103,12 +103,12 @@ if (success === "true") {
 			return;
 		}
 
-		let cooldownTimer: ReturnType<typeof setInterval> | null = null;
+		let cooldownTimer = null;
 
 		const COOLDOWN_KEY = "resend-verification-cooldown";
 		const COOLDOWN_DURATION = 30;
 
-		function getRemainingCooldownSeconds(): number {
+		function getRemainingCooldownSeconds() {
 			try {
 				const lastSentStr = localStorage.getItem(COOLDOWN_KEY);
 				if (!lastSentStr) return 0;
@@ -121,7 +121,7 @@ if (success === "true") {
 			}
 		}
 
-		function setButtonCooldown(seconds: number) {
+		function setButtonCooldown(seconds) {
 			if (cooldownTimer) {
 				clearInterval(cooldownTimer);
 			}

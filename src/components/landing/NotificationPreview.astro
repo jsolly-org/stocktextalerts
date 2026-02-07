@@ -156,20 +156,21 @@ import phoneFrame from "../../assets/phone-frame.svg";
 </style>
 
 <script>
-  function initIphoneMessageAnimation(containerId: string) {
+  function initIphoneMessageAnimation(containerId) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    const messages = Array.from(container.querySelectorAll('.message-bubble')) as HTMLElement[];
+    const messages = Array.from(container.querySelectorAll('.message-bubble'));
     if (!messages.length) return;
 
-    const scrollContainer = container.querySelector('.messages-scroll') as HTMLElement;
-    if (!scrollContainer) return;
+    const scrollContainer = container.querySelector('.messages-scroll');
+    if (!(scrollContainer instanceof HTMLElement)) return;
 
     // Respect prefers-reduced-motion
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReducedMotion) {
       messages.forEach((msg) => {
+        if (!(msg instanceof HTMLElement)) return;
         msg.style.display = 'block';
         msg.style.opacity = '1';
         msg.classList.add('visible');
@@ -188,6 +189,7 @@ import phoneFrame from "../../assets/phone-frame.svg";
       animationInProgress = true;
 
       messages.forEach((msg) => {
+        if (!(msg instanceof HTMLElement)) return;
         msg.classList.remove('visible');
         msg.style.display = 'none';
       });
@@ -200,6 +202,11 @@ import phoneFrame from "../../assets/phone-frame.svg";
     function showNextMessage() {
       if (currentIndex < messages.length) {
         const message = messages[currentIndex];
+        if (!(message instanceof HTMLElement)) {
+          currentIndex++;
+          setTimeout(showNextMessage, DELAY);
+          return;
+        }
 
         setTimeout(() => {
           message.style.display = 'block';
