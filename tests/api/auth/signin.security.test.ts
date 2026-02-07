@@ -22,7 +22,6 @@ describe("A user signs in with an email and password.", () => {
 				body: new URLSearchParams({
 					email: testUser.email,
 					password: "TestPassword123!",
-					captcha_token: "test-captcha-token",
 					redirect: "https://example.com/evil",
 				}),
 			});
@@ -48,7 +47,6 @@ describe("A user signs in with an email and password.", () => {
 			body: new URLSearchParams({
 				// Email provided but empty; password missing
 				email: "",
-				captcha_token: "test-captcha-token",
 			}),
 		});
 

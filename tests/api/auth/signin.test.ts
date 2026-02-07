@@ -13,7 +13,6 @@ async function signInAndAssertRedirect(
 	const body: Record<string, string> = {
 		email,
 		password,
-		captcha_token: "test-captcha-token",
 	};
 	if (redirectParam !== undefined) {
 		body.redirect = redirectParam;
@@ -114,7 +113,6 @@ describe("Sign in with incorrect credentials.", () => {
 			body: new URLSearchParams({
 				email: nonExistentEmail,
 				password: "AnyPassword123!",
-				captcha_token: "test-captcha-token",
 			}),
 		});
 
@@ -150,7 +148,6 @@ describe("Sign in with incorrect credentials.", () => {
 				body: new URLSearchParams({
 					email: testUser.email,
 					password: "WrongPassword123!",
-					captcha_token: "test-captcha-token",
 				}),
 			});
 

@@ -1,6 +1,5 @@
 ---
 
-import HCaptcha from "../HCaptcha.astro";
 import StatusMessage from "../StatusMessage.astro";
 import EmailInput from "../forms/EmailInput.vue";
 
@@ -20,14 +19,9 @@ const {
 } = Astro.props;
 
 const SIGNIN_FORM_ID = "signin-form";
-const SIGNIN_CAPTCHA_TOKEN_ID = "signin_captcha_token";
-const SIGNIN_CAPTCHA_STATUS_ID = "signin-captcha-status";
 ---
-<section 
+<section
 	class="card max-w-md mx-auto p-8 mb-20"
-	data-signin-form-id={SIGNIN_FORM_ID}
-	data-signin-captcha-token-id={SIGNIN_CAPTCHA_TOKEN_ID}
-	data-signin-captcha-status-id={SIGNIN_CAPTCHA_STATUS_ID}
 	aria-labelledby="signin-heading"
 >
   <h2 id="signin-heading" class="text-2xl font-bold text-gray-900 mb-6 text-center">Sign in to your account</h2>
@@ -76,22 +70,6 @@ const SIGNIN_CAPTCHA_STATUS_ID = "signin-captcha-status";
         />
       </div>
     </fieldset>
-		<fieldset>
-			<legend class="sr-only">Security check</legend>
-			<HCaptcha
-				tokenInputId={SIGNIN_CAPTCHA_TOKEN_ID}
-				callbackName="onSignInHCaptchaSuccess"
-				errorCallback="onSignInHCaptchaError"
-				expiredCallback="onSignInHCaptchaExpired"
-				ariaLabel="Complete the CAPTCHA verification"
-			/>
-			<div
-				id={SIGNIN_CAPTCHA_STATUS_ID}
-				class="mt-2 hidden rounded-lg border p-3 text-sm status-tone-error"
-				role="status"
-				aria-live="polite"
-			></div>
-		</fieldset>
     <div class="flex items-center justify-between">
       <div class="text-sm">
         <a href="/auth/forgot" class="link-primary">Forgot your password?</a>
@@ -109,60 +87,3 @@ const SIGNIN_CAPTCHA_STATUS_ID = "signin-captcha-status";
   </p>
 </section>
 
-<script>
-	import {
-		createCaptchaStatusHelpers,
-		initializeHCaptchaForm,
-		setupCaptchaSubmitGuard,
-		setupCaptchaTokenInputListener,
-		setupHCaptchaCallback,
-		setupHCaptchaErrorCallback,
-		setupHCaptchaExpiredCallback,
-	} from "../../lib/auth/hcaptcha";
-
-	const container = document.querySelector('[data-signin-form-id]');
-	if (!container) {
-		throw new Error("SignInCard container not found");
-	}
-
-	const SIGNIN_FORM_ID = container.getAttribute("data-signin-form-id");
-	const SIGNIN_CAPTCHA_TOKEN_ID = container.getAttribute("data-signin-captcha-token-id");
-	const SIGNIN_CAPTCHA_STATUS_ID = container.getAttribute("data-signin-captcha-status-id");
-
-	if (!SIGNIN_FORM_ID || !SIGNIN_CAPTCHA_TOKEN_ID || !SIGNIN_CAPTCHA_STATUS_ID) {
-		throw new Error("Missing required data attributes on SignInCard container");
-	}
-
-	const form = document.getElementById(SIGNIN_FORM_ID);
-	if (!(form instanceof HTMLFormElement)) {
-		throw new Error(
-			`SignInCard form not found: no element with id "${SIGNIN_FORM_ID}" or element is not a form`,
-		);
-	}
-
-	const captchaStatus = createCaptchaStatusHelpers(SIGNIN_CAPTCHA_STATUS_ID);
-
-	setupCaptchaSubmitGuard(SIGNIN_FORM_ID, SIGNIN_CAPTCHA_TOKEN_ID, (message) => {
-		captchaStatus.show(message);
-	});
-	setupCaptchaTokenInputListener(SIGNIN_CAPTCHA_TOKEN_ID, (token) => {
-		if (token.trim().length > 0) {
-			captchaStatus.hide();
-		}
-	});
-
-	initializeHCaptchaForm(SIGNIN_FORM_ID, SIGNIN_CAPTCHA_TOKEN_ID);
-	setupHCaptchaCallback(
-		"onSignInHCaptchaSuccess",
-		SIGNIN_CAPTCHA_TOKEN_ID,
-		SIGNIN_FORM_ID,
-		() => {
-			captchaStatus.hide();
-		},
-	);
-	setupHCaptchaErrorCallback("onSignInHCaptchaError");
-	setupHCaptchaExpiredCallback(
-		"onSignInHCaptchaExpired",
-		SIGNIN_CAPTCHA_TOKEN_ID,
-	);
-</script>

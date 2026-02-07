@@ -52,7 +52,6 @@ export const POST: APIRoute = async ({
 	const parsed = parseWithSchema(formData, {
 		email: { type: "string", required: true },
 		password: { type: "string", required: true, trim: false },
-		captcha_token: { type: "string", required: true },
 	} as const);
 
 	if (!parsed.ok) {
@@ -71,30 +70,13 @@ export const POST: APIRoute = async ({
 
 	const email = parsed.data.email.trim();
 	const password = parsed.data.password;
-	const captchaToken = parsed.data.captcha_token;
 
 	const { data, error } = await supabase.auth.signInWithPassword({
 		email,
 		password,
-		options: {
-			captchaToken,
-		},
 	});
 
 	if (error) {
-		if (error.code === "captcha_failed") {
-			logger.info("Sign-in blocked due to captcha", {
-				code: error.code,
-				status: error.status,
-			});
-			return redirect(
-				buildSigninErrorRedirect("captcha_required", {
-					email,
-					redirectPath,
-				}),
-			);
-		}
-
 		if (error.code === "email_not_confirmed") {
 			logger.info("Sign-in blocked due to unconfirmed email", { email });
 			return redirect(`/auth/unconfirmed?email=${encodeURIComponent(email)}`);
