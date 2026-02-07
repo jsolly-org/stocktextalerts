@@ -99,8 +99,8 @@ if (tokenHash && type === null) {
 		return Astro.redirect("/auth/signin?success=email_updated");
 	}
 
-	// Clean up URL to prevent token reuse attempts on refresh
-	return Astro.redirect("/auth/verified");
+	// Verification succeeded — fall through to render the success page.
+	// The token_hash stays in the URL but is already consumed and cannot be reused.
 } else {
 	// If no token_hash, check if user has a valid session with confirmed email
 	// This handles cases where Supabase already verified the token before redirect
