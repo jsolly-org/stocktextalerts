@@ -27,7 +27,6 @@ Validate all major happy-path features end-to-end on production with the shortes
 - [ ] Test phone number that can receive SMS (and you can reply to)
 - [ ] Access to the production site
 - [ ] Modern browser (Chrome, Firefox, or Safari)
-- [ ] hCaptcha solver available (not in a headless/bot environment)
 - [ ] Ability to wait a few minutes for the scheduled notification
 
 ---
@@ -48,7 +47,7 @@ Verify new user registration, email confirmation, and first sign-in.
 
 ### Test Steps
 
-**Step 1:** Open the homepage and click the registration CTA. Enter a new email + strong password, complete hCaptcha, and submit.
+**Step 1:** Open the homepage and click the registration CTA. Enter a new email + strong password and submit.
 
 - [ ] You are redirected to the unconfirmed/email confirmation screen (`/auth/unconfirmed`) with verification instructions.
 - [ ] A confirmation email arrives in your inbox within 60 seconds.
@@ -66,7 +65,6 @@ Verify new user registration, email confirmation, and first sign-in.
 ### Notes
 
 - If the confirmation email doesn't arrive, check spam/junk folders.
-- Registration requires hCaptcha; automated scripts cannot bypass this.
 
 ---
 
@@ -425,7 +423,6 @@ The tests above are designed to run sequentially in a single session:
 
 ## Known Considerations
 
-- hCaptcha may behave differently across browsers/regions.
 - Twilio SMS delivery can have carrier-dependent delays.
 - Cron runs every 15 minutes, so notification delivery is not instantaneous.
 - SMS messages may span multiple segments when tracking many stocks with price data.

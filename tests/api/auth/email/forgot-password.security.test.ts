@@ -11,7 +11,6 @@ describe("A user requests a password reset email from the forgot password form."
 				method: "POST",
 				body: new URLSearchParams({
 					email: "",
-					captcha_token: "",
 				}),
 			},
 		);

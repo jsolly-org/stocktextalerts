@@ -115,8 +115,6 @@ export const MESSAGE_ALLOWLIST = {
 	user_already_exists: "An account with this email already exists.",
 	profile_creation_failed:
 		"Failed to create user profile. Please try again or contact support.",
-	captcha_required: "Please complete the CAPTCHA and try again.",
-	captcha_failed: "CAPTCHA verification failed. Please try again.",
 	failed: "Request failed. Please try again.",
 	rate_limit: "You've made too many requests. Please try again later.",
 	password_mismatch: "Passwords do not match.",

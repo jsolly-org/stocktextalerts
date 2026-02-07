@@ -4,8 +4,6 @@
 interface ImportMetaEnv {
 	readonly PUBLIC_SUPABASE_URL: string;
 	readonly PUBLIC_SUPABASE_ANON_KEY: string;
-	readonly PUBLIC_HCAPTCHA_SITE_KEY: string;
-	readonly HCAPTCHA_SECRET_KEY: string;
 	readonly SUPABASE_SECRET_KEY: string;
 	readonly RESEND_API_KEY: string;
 	readonly EMAIL_FROM: string;

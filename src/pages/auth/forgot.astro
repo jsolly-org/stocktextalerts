@@ -1,7 +1,6 @@
 ---
 
 import { Icon } from "astro-icon/components";
-import HCaptcha from "../../components/HCaptcha.astro";
 import EmailInput from "../../components/forms/EmailInput.vue";
 import Footer from "../../components/landing/Footer.astro";
 import Navigation from "../../components/Navigation.astro";
@@ -75,22 +74,6 @@ if (success === "true") {
               placeholder="you@example.com"
             />
           </fieldset>
-          <fieldset>
-            <legend class="sr-only">Security check</legend>
-            <HCaptcha
-              tokenInputId="forgot_captcha_token"
-              callbackName="onForgotHCaptchaSuccess"
-              errorCallback="onForgotHCaptchaError"
-              expiredCallback="onForgotHCaptchaExpired"
-              ariaLabel="Complete the CAPTCHA verification"
-            />
-          </fieldset>
-          <div
-            id="forgot-captcha-status"
-            class="mt-2 hidden rounded-lg border p-3 text-sm status-tone-error"
-            role="status"
-            aria-live="polite"
-          ></div>
           <button
             type="submit"
             class="btn btn-lg btn-primary w-full"
@@ -104,43 +87,4 @@ if (success === "true") {
   </div>
 </Layout>
 
-<script>
-	import {
-		createCaptchaStatusHelpers,
-		initializeHCaptchaForm,
-		setupCaptchaTokenInputListener,
-		setupHCaptchaCallback,
-		setupHCaptchaErrorCallback,
-		setupHCaptchaExpiredCallback,
-	} from "../../lib/auth/hcaptcha";
-	import { rootLogger } from "../../lib/logging";
-
-	const captchaStatus = createCaptchaStatusHelpers("forgot-captcha-status");
-
-	setupCaptchaTokenInputListener("forgot_captcha_token", (token) => {
-		if (token.trim().length > 0) {
-			captchaStatus.hide();
-		}
-	});
-
-	initializeHCaptchaForm("forgot-form", "forgot_captcha_token");
-	setupHCaptchaCallback(
-		"onForgotHCaptchaSuccess",
-		"forgot_captcha_token",
-		"forgot-form",
-	);
-
-	setupHCaptchaErrorCallback("onForgotHCaptchaError", (errorCode) => {
-		rootLogger.error("hCaptcha error", { errorCode });
-		captchaStatus.show("CAPTCHA failed to load. Please refresh and try again.");
-	});
-
-	setupHCaptchaExpiredCallback(
-		"onForgotHCaptchaExpired",
-		"forgot_captcha_token",
-		() => {
-			captchaStatus.show("CAPTCHA expired. Please complete it again.");
-		},
-	);
-</script>
 

@@ -15,7 +15,6 @@ describe("A visitor registers for a new account with email and password.", () =>
 		const payload = {
 			email: `test-${randomUUID()}@resend.dev`,
 			password: "TestPassword123!",
-			captcha_token: "test-captcha-token",
 			timezone: "America/New_York",
 		};
 		let userId: string | undefined;
@@ -72,7 +71,6 @@ describe("A visitor registers for a new account with email and password.", () =>
 		const payload = {
 			email: `test-fallback-${randomUUID()}@resend.dev`,
 			password: "TestPassword123!",
-			captcha_token: "test-captcha-token",
 			timezone: "Fake/Zone",
 		};
 		let userId: string | undefined;
@@ -120,7 +118,6 @@ describe("A visitor registers for a new account with email and password.", () =>
 		const payload = {
 			email: `test-chosen-${randomUUID()}@resend.dev`,
 			password: "TestPassword123!",
-			captcha_token: "test-captcha-token",
 			timezone: chosenTimezone,
 		};
 		let userId: string | undefined;
@@ -165,7 +162,6 @@ describe("A visitor registers for a new account with email and password.", () =>
 		const payload = {
 			email: `test-verify-${randomUUID()}@resend.dev`,
 			password: "TestPassword123!",
-			captcha_token: "test-captcha-token",
 			timezone: "America/New_York",
 		};
 		let userId: string | undefined;

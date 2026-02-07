@@ -28,7 +28,6 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 		const formData = await request.formData();
 		const parsed = parseWithSchema(formData, {
 			email: { type: "string", required: true },
-			captcha_token: { type: "string", required: true },
 		} as const);
 
 		if (!parsed.ok) {
@@ -40,7 +39,6 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 		}
 
 		const email = parsed.data.email.trim();
-		const captchaToken = parsed.data.captcha_token;
 
 		const redirectTo = new URL(
 			"/auth/recover?type=recovery",
@@ -49,14 +47,9 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
 
 		const { error } = await supabase.auth.resetPasswordForEmail(email, {
 			redirectTo,
-			captchaToken,
 		});
 
 		if (error) {
-			if (error.code === "captcha_failed") {
-				return redirect("/auth/forgot?error=captcha_required");
-			}
-
 			// Supabase Auth returns status 429 for rate limits. Error codes include:
 			// - "over_request_rate_limit" - too many auth requests
 			// - "over_email_send_rate_limit" - too many email-sending operations

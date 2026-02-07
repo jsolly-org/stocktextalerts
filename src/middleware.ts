@@ -12,16 +12,12 @@ function buildCsp(requestHost?: string): string {
 
 	const frameSrc = [
 		"'self'",
-		"https://newassets.hcaptcha.com",
-		"https://hcaptcha.com",
-		"https://*.hcaptcha.com",
 		...(isVercel ? ["https://vercel.live"] : []),
 	].join(" ");
 
 	const scriptSrc = [
 		"'self'",
 		"'unsafe-inline'",
-		"https://js.hcaptcha.com",
 		"https://www.ssa.gov",
 		"https://ajax.googleapis.com",
 		...(isVercel ? ["https://vercel.live"] : []),

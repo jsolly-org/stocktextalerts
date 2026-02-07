@@ -42,7 +42,6 @@ export async function POST({
 	const parsed = parseWithSchema(formData, {
 		email: { type: "string", required: true },
 		password: { type: "string", required: true, trim: false },
-		captcha_token: { type: "string", required: true },
 		timezone: { type: "timezone" },
 	} as const);
 
@@ -53,12 +52,7 @@ export async function POST({
 		return redirect("/auth/register?error=invalid_form");
 	}
 
-	const {
-		email: rawEmail,
-		password,
-		timezone,
-		captcha_token: captchaToken,
-	} = parsed.data;
+	const { email: rawEmail, password, timezone } = parsed.data;
 
 	// Trim email to satisfy our database constraints (no leading/trailing whitespace).
 	// Supabase Auth doesn't enforce this constraint (external service owns its storage/constraints),
@@ -78,21 +72,10 @@ export async function POST({
 		password,
 		options: {
 			emailRedirectTo,
-			captchaToken,
 		},
 	});
 
 	if (error) {
-		if (error.code === "captcha_failed") {
-			// Expected rejection (often bots); info to avoid inflating error metrics.
-			logger.info(
-				"User registration blocked due to captcha",
-				{ code: error.code, status: error.status },
-				error,
-			);
-			return redirect("/auth/register?error=captcha_failed");
-		}
-
 		if (error.code === "user_already_exists") {
 			logger.info("User registration rejected: user already exists", {
 				userAlreadyExists: true,

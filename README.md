@@ -12,7 +12,6 @@ A stock market notification app that sends scheduled SMS and email updates about
 - **Notification Scheduling** - Choose when to receive your stock updates
 - **Format Preferences** - Customize how your updates look with live SMS/email previews
 - **SMS Opt-out** - Users can reply STOP to opt out of SMS
-- **CAPTCHA Protection** - hCaptcha for sign-in, registration, and password reset
 
 ## Tech Stack
 
@@ -60,16 +59,6 @@ npm install
 2. Choose a project name, database password, and region
 3. Wait for the project to finish provisioning
 
-**Supabase Auth CAPTCHA (hCaptcha):**
-1. Create a site in the hCaptcha dashboard and copy the **Sitekey** + **Secret Key**
-2. In Supabase Dashboard, enable CAPTCHA protection: Project Settings → Auth → Bot and Abuse Protection → **Enable CAPTCHA protection**
-3. Select **hCaptcha** and paste the **Secret Key**
-4. For local development, use hCaptcha's test keys or a test sitekey:
-   - **Option A (recommended):** hCaptcha test keys (always pass)
-     - Site Key: `10000000-ffff-ffff-ffff-000000000001`
-     - Secret Key: `0x0000000000000000000000000000000000000000`
-   - **Option B:** Create a separate test sitekey and add `127.0.0.1` as an allowed domain
-
 **Resend:**
 1. Go to [resend.com](https://resend.com) and create an account
 2. Create an API key and verify a sending domain or email
@@ -101,10 +90,6 @@ PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SECRET_KEY=your-secret-key
 DATABASE_URL=postgresql://postgres:password@host:5432/database
 
-# hCaptcha (site key is public)
-PUBLIC_HCAPTCHA_SITE_KEY=your-hcaptcha-site-key
-HCAPTCHA_SECRET_KEY=your-hcaptcha-secret-key
-
 # Twilio
 TWILIO_ACCOUNT_SID=your-twilio-account-sid
 TWILIO_AUTH_TOKEN=your-twilio-auth-token
@@ -132,7 +117,6 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - Twilio credentials: Twilio Console → Account Dashboard
 - `CRON_SECRET`: Generate a random string (e.g., `openssl rand -hex 32`)
 - Resend credentials: Resend Dashboard → API Keys
-- hCaptcha secret: hCaptcha Dashboard → Settings → **Secret key**
 - LOG masking: optional, defaults to true
 
 **Security Note:** The `SUPABASE_SECRET_KEY` bypasses Row Level Security. Never expose it on the client side. The `.env.local` file (and all `.env*` files) are excluded from version control via `.gitignore`.
@@ -275,7 +259,6 @@ The cron job:
 ## Security Features
 
 - Row Level Security (RLS) on all database tables
-- CAPTCHA protection for sign-in, registration, and password reset (Supabase Auth + hCaptcha)
 - Cron endpoint protected by secret header
 - Phone verification via Twilio Verify API
 - SMS opt-out support (STOP keyword compliance)

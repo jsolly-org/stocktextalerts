@@ -1,7 +1,6 @@
 ---
 
 import { Icon } from "astro-icon/components";
-import HCaptcha from "../../components/HCaptcha.astro";
 import EmailInput from "../../components/forms/EmailInput.vue";
 import Footer from "../../components/landing/Footer.astro";
 import Navigation from "../../components/Navigation.astro";
@@ -124,22 +123,6 @@ if (error === "user_already_exists") {
             </select>
           </fieldset>
 
-          <fieldset>
-            <legend class="sr-only">Security check</legend>
-            <HCaptcha
-              tokenInputId="register_captcha_token"
-              callbackName="onRegisterHCaptchaSuccess"
-              errorCallback="onRegisterHCaptchaError"
-              expiredCallback="onRegisterHCaptchaExpired"
-              ariaLabel="Complete the CAPTCHA verification"
-            />
-          </fieldset>
-          <div
-            id="register-captcha-status"
-            class="mt-2 hidden rounded-lg border p-3 text-sm status-tone-error"
-            role="status"
-            aria-live="polite"
-          ></div>
           <div>
             <button 
               type="submit" 
@@ -163,42 +146,3 @@ import { DEFAULT_TIMEZONE } from "../../lib/constants";
 	setupDetectedTimezoneOption({ defaultTimezone: DEFAULT_TIMEZONE });
 </script>
 
-<script>
-	import {
-		createCaptchaStatusHelpers,
-		initializeHCaptchaForm,
-		setupCaptchaTokenInputListener,
-		setupHCaptchaCallback,
-		setupHCaptchaErrorCallback,
-		setupHCaptchaExpiredCallback,
-	} from "../../lib/auth/hcaptcha";
-	import { rootLogger } from "../../lib/logging";
-
-	const captchaStatus = createCaptchaStatusHelpers("register-captcha-status");
-
-	initializeHCaptchaForm("register-form", "register_captcha_token");
-	setupHCaptchaCallback(
-		"onRegisterHCaptchaSuccess",
-		"register_captcha_token",
-		"register-form",
-	);
-
-	setupHCaptchaErrorCallback("onRegisterHCaptchaError", (errorCode) => {
-		rootLogger.error("hCaptcha error", { errorCode });
-		captchaStatus.show("CAPTCHA failed to load. Please refresh and try again.");
-	});
-
-	setupHCaptchaExpiredCallback(
-		"onRegisterHCaptchaExpired",
-		"register_captcha_token",
-		() => {
-			captchaStatus.show("CAPTCHA expired. Please complete it again.");
-		},
-	);
-
-	setupCaptchaTokenInputListener("register_captcha_token", (token) => {
-		if (token.trim().length > 0) {
-			captchaStatus.hide();
-		}
-	});
-</script>

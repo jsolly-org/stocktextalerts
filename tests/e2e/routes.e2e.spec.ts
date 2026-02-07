@@ -88,14 +88,6 @@ test("A signed-in user can navigate all routes without console errors.", async (
 			password: TEST_PASSWORD,
 			confirmed: true,
 		});
-		await page.route("**/*hcaptcha.com/**", (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/javascript",
-				body: "window.hcaptcha={render:()=>{},reset:()=>{},execute:()=>{}};",
-			}),
-		);
-
 		// Extract baseOrigin from Playwright's baseURL by navigating to a route
 		await page.goto("/", { waitUntil: "domcontentloaded" });
 		const baseOrigin = new URL(page.url()).origin;

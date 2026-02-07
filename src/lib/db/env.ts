@@ -5,8 +5,6 @@ Environment Validation
 interface RequiredEnvVars {
 	PUBLIC_SUPABASE_URL: string;
 	PUBLIC_SUPABASE_ANON_KEY: string;
-	PUBLIC_HCAPTCHA_SITE_KEY: string;
-	HCAPTCHA_SECRET_KEY: string;
 	SUPABASE_SECRET_KEY: string;
 	TWILIO_ACCOUNT_SID: string;
 	TWILIO_AUTH_TOKEN: string;
@@ -22,8 +20,6 @@ interface RequiredEnvVars {
 const REQUIRED_ENV_VARS: (keyof RequiredEnvVars)[] = [
 	"PUBLIC_SUPABASE_URL",
 	"PUBLIC_SUPABASE_ANON_KEY",
-	"PUBLIC_HCAPTCHA_SITE_KEY",
-	"HCAPTCHA_SECRET_KEY",
 	"SUPABASE_SECRET_KEY",
 	"TWILIO_ACCOUNT_SID",
 	"TWILIO_AUTH_TOKEN",
