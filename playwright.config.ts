@@ -1,7 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
-	testDir: "./tests/routing",
+	testDir: "./tests/e2e",
 	testMatch: "**/*.e2e.spec.ts",
 	// Run e2e sequentially; parallel workers can race on shared DB/auth state.
 	workers: 1,

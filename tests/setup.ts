@@ -5,16 +5,16 @@ import {
 	POSTGRES_UNDEFINED_TABLE,
 	PRESERVED_TEST_EMAIL,
 	PRESERVED_USER_ID,
-} from "./constants";
+} from "./helpers/constants";
 import {
 	adminClient,
 	cleanupTestUser,
 	getRealStockSymbols,
-} from "./shared-utils";
-import { takeTestUserIdsForCleanup } from "./test-user-cleanup";
+} from "./helpers/shared-utils";
+import { takeTestUserIdsForCleanup } from "./helpers/test-user-cleanup";
 
 export { adminClient };
-export { registerTestUserForCleanup } from "./test-user-cleanup";
+export { registerTestUserForCleanup } from "./helpers/test-user-cleanup";
 
 vi.mock("../src/lib/db/env", () => ({
 	getSiteUrl: () => "http://localhost",
