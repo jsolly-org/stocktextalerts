@@ -51,12 +51,14 @@ export function validateEnv(): void {
 }
 
 export function getSiteUrl(): string {
-	const vercelUrl = import.meta.env.VERCEL_URL;
+	// Prefer VERCEL_PROJECT_PRODUCTION_URL (custom domain like "stocktextalerts.com")
+	// over VERCEL_URL which is the deployment-specific URL (e.g., "app-abc123.vercel.app")
+	const url =
+		import.meta.env.VERCEL_PROJECT_PRODUCTION_URL || import.meta.env.VERCEL_URL;
 
-	// VERCEL_URL from Vercel is just the hostname (e.g., "stocktextalerts.com")
-	// Locally, it should include the protocol (e.g., "http://localhost:4321")
-	if (vercelUrl.startsWith("http://") || vercelUrl.startsWith("https://")) {
-		return vercelUrl;
+	// Locally, VERCEL_URL includes the protocol (e.g., "http://localhost:4321")
+	if (url.startsWith("http://") || url.startsWith("https://")) {
+		return url;
 	}
-	return `https://${vercelUrl}`;
+	return `https://${url}`;
 }
