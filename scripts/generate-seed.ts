@@ -22,6 +22,7 @@ import {
 type SeedErrorCode =
   | "missing_env"
   | "invalid_supabase_url"
+  | "refuse_non_local"
   | "default_password_missing"
   | "stocks_read_failed"
   | "users_parse_failed"
@@ -49,6 +50,11 @@ const ERROR_HINTS: Partial<Record<SeedErrorCode, string[]>> = {
   invalid_supabase_url: [
     "\n💡 Hint: PUBLIC_SUPABASE_URL is malformed.",
     "   - Verify the URL format (e.g., http://localhost:54321)",
+  ],
+  refuse_non_local: [
+    "\n💡 Hint: Refusing to generate seed.sql against a non-local Supabase instance.",
+    "   - Double-check PUBLIC_SUPABASE_URL points to your local dev Supabase",
+    "   - If you really intend to run this against a non-local environment, pass `--prod`",
   ],
   default_password_missing: [
     "\n💡 Hint: DEFAULT_PASSWORD is required in .env.local",
@@ -139,6 +145,10 @@ function getErrorStatus(error: unknown): number | null {
 function isNetworkError(error: unknown): boolean {
   const code = getErrorCode(error);
   return code ? NETWORK_ERROR_CODES.has(code) : false;
+}
+
+function isLocalHost(host: string): boolean {
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
 }
 
 function generateStocksSql(stocks: Stock[]): string {
@@ -337,12 +347,20 @@ async function main() {
     );
   }
 
+  let parsedSupabaseUrl: URL;
   try {
-    new URL(supabaseUrl);
+    parsedSupabaseUrl = new URL(supabaseUrl);
   } catch {
     throw new SeedError(
       "invalid_supabase_url",
       `PUBLIC_SUPABASE_URL is not a valid URL: ${supabaseUrl}`,
+    );
+  }
+
+  if (!allowProd && !isLocalHost(parsedSupabaseUrl.hostname)) {
+    throw new SeedError(
+      "refuse_non_local",
+      `Refusing to generate seed.sql against non-local Supabase host: ${parsedSupabaseUrl.hostname}. Pass --prod to override.`,
     );
   }
 
@@ -401,9 +419,9 @@ async function main() {
 
   // 2. Read Users Data
   let users: SeedUser[] = [];
-  // Safety: `supabase/seed.sql` includes auth user creation derived from DEFAULT_PASSWORD.
-  // For production resets, we never include user seed data to avoid creating accounts with predictable passwords.
-  if (!allowProd && fs.existsSync(USERS_FILE)) {
+  // `supabase/seed.sql` includes auth user creation derived from DEFAULT_PASSWORD.
+  // If `users.json` exists, always include it so resets (including prod) restore users.
+  if (fs.existsSync(USERS_FILE)) {
     try {
       const parsed = JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8')) as unknown;
       if (!Array.isArray(parsed)) {
