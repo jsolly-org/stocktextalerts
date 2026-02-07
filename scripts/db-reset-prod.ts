@@ -306,7 +306,23 @@ async function main(): Promise<void> {
 		supabaseUrlHost: supabaseHost,
 	});
 
-	// 1. Generate seed.sql from prod auth users + stock list
+	// 1. Generate seed.sql from prod auth users + stock list (+ local scripts/users.json if present)
+	const __dirname = path.dirname(fileURLToPath(import.meta.url));
+	const seedUsersPath = path.join(__dirname, "users.json");
+	if (fs.existsSync(seedUsersPath)) {
+		let usersCount: number | null = null;
+		try {
+			const parsedUsers = JSON.parse(fs.readFileSync(seedUsersPath, "utf-8")) as unknown;
+			usersCount = Array.isArray(parsedUsers) ? parsedUsers.length : null;
+		} catch {
+			// generate-seed will fail later; we still want a loud warning before destructive operations.
+		}
+
+		rootLogger.warn(
+			"scripts/users.json is present. db:reset:prod will seed these users into production with a password derived from DEFAULT_PASSWORD.",
+			{ seedUsersPath, usersCount, supabaseUrlHost: supabaseHost },
+		);
+	}
 	execFileSync("npm", ["run", "db:generate-seed"], {
 		stdio: "inherit",
 	});
