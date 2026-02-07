@@ -6,12 +6,14 @@ import EmailInput from "../forms/EmailInput.vue";
 
 interface Props {
 	emailPrefill?: string;
+	errorCode?: string | null;
 	errorMessage?: string | null;
 	successMessage?: string | null;
 	redirectPath?: string | null;
 }
 const {
 	emailPrefill = "",
+	errorCode = null,
 	errorMessage = null,
 	successMessage = null,
 	redirectPath = null,
@@ -33,7 +35,12 @@ const SIGNIN_CAPTCHA_STATUS_ID = "signin-captcha-status";
     <StatusMessage class="mb-4" tone="success" message={successMessage} />
   )}
   {errorMessage && (
-    <StatusMessage class="mb-4" tone="error" message={errorMessage} />
+    <StatusMessage class="mb-4" tone="error">
+      {errorMessage}
+      {errorCode === "invalid_credentials" && (
+        <> You can <a href="/auth/register" class="underline hover:no-underline">create an account</a> or <a href="/auth/forgot" class="underline hover:no-underline">reset your password</a>.</>
+      )}
+    </StatusMessage>
   )}
   <form class="space-y-6" action="/api/auth/signin" method="post" id={SIGNIN_FORM_ID}>
 		{redirectPath && (

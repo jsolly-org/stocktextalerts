@@ -22,7 +22,6 @@ describe("A user resends their email verification from the unconfirmed page.", (
 				method: "POST",
 				body: new URLSearchParams({
 					email: `  ${testUser.email} `,
-					captcha_token: "test-captcha-token",
 				}),
 			},
 		);

@@ -348,7 +348,15 @@ Resetting the database (`npm run db:reset`) will:
 - Re-apply the schema
 - Re-seed the database with the updated stock list
 
-This is safe for local development; `db:generate-seed` refuses to run against non-local Supabase unless you explicitly pass `--prod` (or use `npm run db:generate-seed:prod`, which is used by `npm run db:reset:prod`).
+This is safe for local development as long as your env vars point to your local Supabase instance.
+
+`db:generate-seed` generates `supabase/seed.sql` against whatever Supabase instance `PUBLIC_SUPABASE_URL` points to, so be careful when running it against production.
+
+`npm run db:reset:prod` is intentionally destructive and targets production. It generates `supabase/seed.sql` and applies it to production.
+
+Important: `db:generate-seed` will include users from `scripts/users.json` **if that file exists** (it is gitignored). Those users are created with passwords derived from `DEFAULT_PASSWORD` in `.env.local`. If you run `db:reset:prod` while `scripts/users.json` exists, you will create those accounts in production with that password.
+
+If you *don’t* want seeded users in production, delete/rename `scripts/users.json` (or make it an empty array) before running `db:reset:prod`.
 
 ## License
 

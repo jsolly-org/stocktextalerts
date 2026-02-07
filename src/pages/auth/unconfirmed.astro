@@ -1,7 +1,6 @@
 ---
 
 import { Icon } from "astro-icon/components";
-import HCaptcha from "../../components/HCaptcha.astro";
 import StatusMessage from "../../components/StatusMessage.astro";
 import Layout from "../../layouts/Layout.astro";
 import { formatMessage } from "../../lib/constants";
@@ -69,23 +68,6 @@ if (success === "true") {
         <div class="space-y-4">
           <form id="resend-form" action="/api/auth/email/resend-verification" method="post">
             <input type="hidden" name="email" value={email || ""} />
-            <fieldset>
-              <legend class="sr-only">Resend verification email</legend>
-              <HCaptcha
-                tokenInputId="unconfirmed_captcha_token"
-                callbackName="onUnconfirmedHCaptchaSuccess"
-                widgetClasses="mb-4"
-                errorCallback="onUnconfirmedHCaptchaError"
-                expiredCallback="onUnconfirmedHCaptchaExpired"
-                ariaLabel="Complete the CAPTCHA verification"
-              />
-            </fieldset>
-            <div
-              id="unconfirmed-captcha-status"
-              class="mt-2 hidden rounded-lg border p-3 text-sm status-tone-error"
-              role="status"
-              aria-live="polite"
-            ></div>
             <button
               id="resend-btn"
               type="submit"
@@ -108,37 +90,19 @@ if (success === "true") {
 </Layout>
 
 <script>
-	import {
-		createCaptchaStatusHelpers,
-		setupCaptchaTokenInputListener,
-		setupHCaptchaCallback,
-		setupHCaptchaErrorCallback,
-		setupHCaptchaExpiredCallback,
-	} from "../../lib/auth/hcaptcha";
 	import { rootLogger } from "../../lib/logging";
 
 	(function setupResendVerification() {
 		const resendBtn = document.getElementById("resend-btn");
 		const resendForm = document.getElementById("resend-form");
-		const captchaTokenInput = document.getElementById("unconfirmed_captcha_token");
 
 		if (
 			!(resendBtn instanceof HTMLButtonElement) ||
-			!(resendForm instanceof HTMLFormElement) ||
-			!(captchaTokenInput instanceof HTMLInputElement)
+			!(resendForm instanceof HTMLFormElement)
 		) {
 			return;
 		}
 
-		setupResendVerificationElements(resendBtn, resendForm, captchaTokenInput);
-	})();
-
-	function setupResendVerificationElements(
-		resendBtn: HTMLButtonElement,
-		resendForm: HTMLFormElement,
-		captchaTokenInput: HTMLInputElement,
-	) {
-		const captchaStatus = createCaptchaStatusHelpers("unconfirmed-captcha-status");
 		let cooldownTimer: ReturnType<typeof setInterval> | null = null;
 
 		const COOLDOWN_KEY = "resend-verification-cooldown";
@@ -157,24 +121,31 @@ if (success === "true") {
 			}
 		}
 
-		function canResendNow(): boolean {
-			return getRemainingCooldownSeconds() === 0;
-		}
-
-		function updateResendDisabledState() {
-			const hasCaptchaToken = captchaTokenInput.value.trim().length > 0;
-			resendBtn.disabled = !hasCaptchaToken || !canResendNow();
-		}
-
-		function initializeCooldown() {
-			const remaining = getRemainingCooldownSeconds();
-
-			if (remaining > 0) {
-				setButtonCooldown(remaining);
-				return;
+		function setButtonCooldown(seconds: number) {
+			if (cooldownTimer) {
+				clearInterval(cooldownTimer);
 			}
 
-			updateResendDisabledState();
+			resendBtn.disabled = true;
+			let remaining = seconds;
+
+			const updateButton = () => {
+				if (remaining > 0) {
+					resendBtn.textContent = `Resend verification email (${remaining}s)`;
+					remaining--;
+					return;
+				}
+
+				resendBtn.disabled = false;
+				resendBtn.textContent = "Resend verification email";
+				if (cooldownTimer) {
+					clearInterval(cooldownTimer);
+					cooldownTimer = null;
+				}
+			};
+
+			updateButton();
+			cooldownTimer = setInterval(updateButton, 1000);
 		}
 
 		resendForm.addEventListener("submit", () => {
@@ -192,59 +163,11 @@ if (success === "true") {
 			}
 		});
 
-		function setButtonCooldown(seconds: number) {
-			if (cooldownTimer) {
-				clearInterval(cooldownTimer);
-			}
-
-			resendBtn.disabled = true;
-			let remaining = seconds;
-
-			const updateButton = () => {
-				if (remaining > 0) {
-					resendBtn.textContent = `Resend verification email (${remaining}s)`;
-					remaining--;
-					return;
-				}
-
-				updateResendDisabledState();
-				resendBtn.textContent = "Resend verification email";
-				if (cooldownTimer) {
-					clearInterval(cooldownTimer);
-					cooldownTimer = null;
-				}
-			};
-
-			updateButton();
-			cooldownTimer = setInterval(updateButton, 1000);
+		// Initialize: check if there's an active cooldown from a previous resend
+		const remaining = getRemainingCooldownSeconds();
+		if (remaining > 0) {
+			setButtonCooldown(remaining);
 		}
-
-		setupHCaptchaCallback(
-			"onUnconfirmedHCaptchaSuccess",
-			"unconfirmed_captcha_token",
-		);
-
-		setupHCaptchaErrorCallback("onUnconfirmedHCaptchaError", (errorCode) => {
-			rootLogger.error("hCaptcha error", { errorCode });
-			captchaStatus.show("CAPTCHA failed to load. Please refresh and try again.");
-		});
-
-		setupHCaptchaExpiredCallback(
-			"onUnconfirmedHCaptchaExpired",
-			"unconfirmed_captcha_token",
-			() => {
-				captchaStatus.show("CAPTCHA expired. Please complete it again.");
-			},
-		);
-
-		setupCaptchaTokenInputListener("unconfirmed_captcha_token", (token) => {
-			updateResendDisabledState();
-			if (token.trim().length > 0) {
-				captchaStatus.hide();
-			}
-		});
-
-		initializeCooldown();
-	}
+	})();
 </script>
 
