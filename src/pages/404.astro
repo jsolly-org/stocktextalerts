@@ -2,6 +2,8 @@
 import { Icon } from "astro-icon/components";
 import Navigation from "../components/Navigation.astro";
 import Layout from "../layouts/Layout.astro";
+
+export const prerender = true;
 ---
 <Layout title="404 - Page Not Found | Stock Text Alerts" description="The page you're looking for doesn't exist." noindex>
   <div class="min-h-screen bg-white flex flex-col">

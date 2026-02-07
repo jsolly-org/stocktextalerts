@@ -1,13 +1,6 @@
 <template>
 	<section class="card relative mb-6">
-		<Transition
-			enter-active-class="transition-opacity duration-150"
-			enter-from-class="opacity-0"
-			enter-to-class="opacity-100"
-			leave-active-class="transition-opacity duration-150"
-			leave-from-class="opacity-100"
-			leave-to-class="opacity-0"
-		>
+		<FadeTransition>
 			<div
 				v-if="statusMessage"
 				:id="DASHBOARD_STOCKS_STATUS_ID"
@@ -26,7 +19,7 @@
 				/>
 				{{ statusMessage }}
 			</div>
-		</Transition>
+		</FadeTransition>
 
 		<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.teal}`"></div>
 		<div class="card-body">
@@ -122,6 +115,7 @@ import {
 	type FlashMessage,
 } from "../../../lib/constants";
 import { MAX_TRACKED_STOCKS } from "../../../lib/db/database-errors";
+import FadeTransition from "../../FadeTransition.vue";
 import StatusMessage from "../../StatusMessage.vue";
 import type { StockOption } from "./StockInput.vue";
 import StockInput from "./StockInput.vue";
@@ -130,7 +124,6 @@ import type { InitialStock } from "./types";
 interface Props {
 	stockOptions: StockOption[];
 	initialStocks: InitialStock[];
-	onFormChanged: () => void;
 	flashMessages?: FlashMessage[];
 	statusMessage?: string | null;
 	statusTone?: "error" | "info";
@@ -143,6 +136,8 @@ const props = withDefaults(defineProps<Props>(), {
 	statusTone: "info",
 	isSaving: false,
 });
+
+const emit = defineEmits<(event: "form-changed") => void>();
 
 const { flashMessages, isSaving, statusMessage, statusTone } = toRefs(props);
 
@@ -161,7 +156,7 @@ const STOCK_LIMIT_HINT_ID = "stock-limit-hint";
 watch(
 	draftStocks,
 	() => {
-		props.onFormChanged();
+		emit("form-changed");
 	},
 	{ flush: "post", deep: true },
 );

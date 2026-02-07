@@ -34,7 +34,7 @@
 				<SmsCodeVerification
 					v-else-if="shouldShowVerification"
 					:user="user"
-					:success-message="successMessage"
+					:success-message="smsSuccessMessage"
 					:sms-verification-code-id="smsVerificationCodeId"
 					:form-submitted="formSubmitted"
 					:is-sending-verification="isSendingVerification"
@@ -52,31 +52,27 @@ import { computed, nextTick, ref, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import CheckCircleIcon from "../../../icons/check-circle-20.svg?component";
 import { DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID } from "../../../lib/constants";
-import type { User } from "../../../lib/db";
 import { formatPhoneForDisplay } from "../../../lib/format-phone";
+import { useDashboardUser } from "../composables/useDashboardUser";
+import { useSmsVerificationContext } from "../composables/useSmsVerificationContext";
 import SmsCodeVerification from "./SmsCodeVerification.vue";
 import SmsPhoneSetup from "./SmsPhoneSetup.vue";
 
 interface Props {
-	user: User;
 	smsEnabled: boolean;
-	isEditingPhone: boolean;
-	successMessage?: string | null;
-	sendVerificationDisabled: boolean;
-	isVerifyingCode?: boolean;
-	isSendingVerification?: boolean;
 }
 
-const props = withDefaults(defineProps<Props>(), {
-	successMessage: null,
-	isVerifyingCode: false,
-	isSendingVerification: false,
-});
+const props = defineProps<Props>();
 
-const emit = defineEmits<{
-	(event: "phone-validity-changed", value: boolean): void;
-	(event: "phone-editing-changed", value: boolean): void;
-}>();
+// Inject shared state instead of receiving drilled props
+const user = useDashboardUser();
+const {
+	isEditingPhone,
+	smsSuccessMessage,
+	sendVerificationDisabled,
+	isVerifyingCode,
+	isSendingVerification,
+} = useSmsVerificationContext();
 
 const phoneVerificationSectionId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-phone-verification-section`;
 const phoneVerificationFieldsetId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-phone-verification-fieldset`;
@@ -88,44 +84,41 @@ const phoneSetupRef = ref<{ focus: () => void } | null>(null);
 
 const isPhoneSetup = computed(() => {
 	return (
-		!props.user.phone_country_code ||
-		!props.user.phone_number ||
-		props.isEditingPhone
+		!user.value.phone_country_code ||
+		!user.value.phone_number ||
+		isEditingPhone.value
 	);
 });
 
 const shouldShowVerification = computed(() => {
-	return !props.user.phone_verified && !props.isEditingPhone;
+	return !user.value.phone_verified && !isEditingPhone.value;
 });
 
 const formattedVerifiedPhone = computed(() =>
 	formatPhoneForDisplay(
-		props.user.phone_country_code ?? "",
-		props.user.phone_number ?? "",
+		user.value.phone_country_code ?? "",
+		user.value.phone_number ?? "",
 	),
 );
 
 function handleValidityChanged(isValid: boolean) {
-	emit("phone-validity-changed", isValid);
+	sendVerificationDisabled.value = !isValid;
 }
 
 function handleChangeNumberClick() {
 	// Ensure pending SMS state is saved before navigation.
-	// The state should already be saved via watch(hasPendingSmsChanges), but ensure it's persisted.
 	try {
-		const storageKey = `pending_sms_enabled:${props.user.id}`;
-		const hasPending = props.smsEnabled && !props.user.phone_verified;
+		const storageKey = `pending_sms_enabled:${user.value.id}`;
+		const hasPending = props.smsEnabled && !user.value.phone_verified;
 		if (hasPending) {
 			sessionStorage.setItem(storageKey, "true");
 		} else {
-			// If SMS is disabled, remove any persisted pending flag so it can't be restored and
-			// re-enable SMS unexpectedly.
 			sessionStorage.removeItem(storageKey);
 		}
-	} catch (error) {
+	} catch {
 		// Silently fail - state should already be saved.
 	}
-	emit("phone-editing-changed", true);
+	isEditingPhone.value = true;
 }
 
 function onSectionAfterEnter() {
@@ -135,7 +128,7 @@ function onSectionAfterEnter() {
 }
 
 watch(
-	() => props.isVerifyingCode,
+	() => isVerifyingCode.value,
 	(isVerifying) => {
 		if (isVerifying) {
 			formSubmitted.value = true;
@@ -145,7 +138,7 @@ watch(
 
 // Focus phone input when entering change phone mode (no transition; nextTick suffices)
 watch(
-	() => props.isEditingPhone,
+	() => isEditingPhone.value,
 	async (isEditing) => {
 		if (isEditing && isPhoneSetup.value) {
 			await nextTick();
@@ -153,7 +146,6 @@ watch(
 		}
 	},
 );
-
 </script>
 
 <style scoped>

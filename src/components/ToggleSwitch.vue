@@ -20,22 +20,20 @@
 
 <script lang="ts" setup>
 interface Props {
-	modelValue: boolean;
 	srLabel?: string;
 	ariaLabelledby?: string;
 	ariaDescribedby?: string;
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
 	srLabel: "Toggle",
 	ariaLabelledby: undefined,
 	ariaDescribedby: undefined,
 });
 
-const emit = defineEmits<(event: "update:modelValue", value: boolean) => void>();
+const modelValue = defineModel<boolean>({ required: true });
 
 function toggle() {
-	const nextValue = !props.modelValue;
-	emit("update:modelValue", nextValue);
+	modelValue.value = !modelValue.value;
 }
 </script>
