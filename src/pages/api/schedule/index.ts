@@ -6,9 +6,10 @@ import { runScheduledNotifications } from "../../../lib/schedule/run";
 
 /*
  * Vercel cron entrypoint. Validates `CRON_SECRET` and triggers scheduled deliveries.
- * Accepts `{ "force": true }` to run a manual send regardless of `next_send_at`.
+ * GET  – used by Vercel cron.
+ * POST – used by scripts/run-scheduled-cron.sh (accepts `{ "force": true }`).
  */
-export const POST: APIRoute = async ({ request, locals }) => {
+const handler: APIRoute = async ({ request, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({
 		requestId: locals?.requestId,
@@ -111,3 +112,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		return new Response("Internal server error", { status: 500 });
 	}
 };
+
+export const GET: APIRoute = handler;
+export const POST: APIRoute = handler;
