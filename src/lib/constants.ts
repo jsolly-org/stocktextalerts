@@ -42,13 +42,11 @@ export const DEFAULT_TIMEZONE = "America/New_York";
 export const DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES = 9 * 60; // 9:00 AM local time (minutes since local midnight)
 
 /* =============
-US Market Timing (ET)
-============= */
+Market-open constants align with the US trading session used across scheduling.
 
-// These constants exist so "market open" behavior is computed consistently in a
-// single reference zone (New York / Eastern Time). The app assumes standard US
-// equities hours with a 9:30 AM local NY open; downstream formatting converts
-// this point-in-day into the user's timezone for UI/scheduling decisions.
+Defined in Eastern Time (New York) so market-time calculations are stable across
+DST and user timezones; downstream converts as needed for UI and scheduling.
+============= */
 export const US_MARKET_OPEN_EASTERN_MINUTES = 9 * 60 + 30;
 export const US_MARKET_TIMEZONE = "America/New_York";
 
