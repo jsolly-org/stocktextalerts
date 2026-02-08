@@ -1,13 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { MAX_TRACKED_STOCKS } from "../../../src/lib/db/database-errors";
 import { rootLogger } from "../../../src/lib/logging";
-import {
-	adminClient,
-	getRealStockSymbols,
-	getStockData,
-} from "../../helpers/shared-utils";
+import { getRealStockSymbols, getStockData } from "../../helpers/stock-data";
 import { updateTrackedStocks } from "../../helpers/stock-update";
-import { registerTestUserForCleanup } from "../../setup";
+import { adminClient } from "../../helpers/test-env";
+import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 describe("A signed-in user updates their tracked stocks.", () => {
 	it("A user cannot track more than the maximum allowed stocks.", async () => {

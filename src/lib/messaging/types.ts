@@ -19,6 +19,12 @@ export interface FormatPreferences {
 	detailed_format: boolean;
 }
 
+type GrokRumorsPreferences = {
+	first_notification_include_news: boolean;
+	first_notification_include_rumors: boolean;
+	last_grok_rumors_at: string | null;
+};
+
 export type UserRecord = Pick<
 	DbUserRow,
 	| "id"
@@ -27,16 +33,23 @@ export type UserRecord = Pick<
 	| "phone_number"
 	| "phone_verified"
 	| "timezone"
-	| "scheduled_updates_enabled"
 	| "next_send_at"
 	| "email_notifications_enabled"
 	| "sms_notifications_enabled"
+	| "sms_opted_out"
 	| "show_change_percent"
 	| "show_company_name"
 	| "detailed_format"
 > & {
+	price_notifications_enabled: boolean;
 	scheduled_update_times: number[] | null;
-};
+	only_notify_when_market_open: boolean;
+	add_ons_only_notify_when_market_open: boolean;
+	add_ons_delivery_time: number | null;
+	add_ons_next_send_at: string | null;
+	last_market_closed_skip_scheduled_at: string | null;
+	last_market_closed_skip_recorded_at: string | null;
+} & GrokRumorsPreferences;
 
 export type EmailUser = Pick<
 	Database["public"]["Tables"]["users"]["Row"],

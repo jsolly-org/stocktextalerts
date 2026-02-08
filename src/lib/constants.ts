@@ -14,6 +14,8 @@ export const DASHBOARD_STOCKS_STATUS_ID = "dashboard-stocks-save-status";
 export const DASHBOARD_SCHEDULED_FORM_ID = "dashboard-scheduled-form";
 export const DASHBOARD_FORMAT_PREFERENCES_FORM_ID =
 	"dashboard-format-preferences-form";
+export const DASHBOARD_FIRST_NOTIFICATION_EXTRAS_FORM_ID =
+	"dashboard-first-notification-extras-form";
 
 /* =============
 Status Message Colors
@@ -40,14 +42,23 @@ export const DEFAULT_TIMEZONE = "America/New_York";
 export const DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES = 9 * 60; // 9:00 AM local time (minutes since local midnight)
 
 /* =============
+Market-open constants align with the US trading session used across scheduling.
+
+Defined in Eastern Time (New York) so market-time calculations are stable across
+DST and user timezones; downstream converts as needed for UI and scheduling.
+============= */
+export const US_MARKET_OPEN_EASTERN_MINUTES = 9 * 60 + 30;
+export const US_MARKET_TIMEZONE = "America/New_York";
+
+/* =============
 SMS Verification Timing
 ============= */
 
-export const VERIFICATION_EXPIRATION_MINUTES = 10;
+const VERIFICATION_EXPIRATION_MINUTES = 10;
 export const VERIFICATION_EXPIRATION_MS =
 	VERIFICATION_EXPIRATION_MINUTES * 60 * 1000;
 
-export const VERIFICATION_RESEND_COOLDOWN_SECONDS = 60;
+const VERIFICATION_RESEND_COOLDOWN_SECONDS = 60;
 export const VERIFICATION_RESEND_COOLDOWN_MS =
 	VERIFICATION_RESEND_COOLDOWN_SECONDS * 1000;
 
@@ -78,15 +89,17 @@ export const DASHBOARD_SECTION_IDS = {
 	stocks: "tracked-stocks",
 	scheduled: "scheduled-notifications",
 	preview: "notification-preview",
+	firstNotificationExtras: "first-notification-extras",
 } as const;
 
-export type DashboardSection = keyof typeof DASHBOARD_SECTION_IDS;
+type DashboardSection = keyof typeof DASHBOARD_SECTION_IDS;
 
 export const DASHBOARD_SECTION_HASHES: Record<DashboardSection, string> = {
 	notificationChannels: `#${DASHBOARD_SECTION_IDS.notificationChannels}`,
 	stocks: `#${DASHBOARD_SECTION_IDS.stocks}`,
 	scheduled: `#${DASHBOARD_SECTION_IDS.scheduled}`,
 	preview: `#${DASHBOARD_SECTION_IDS.preview}`,
+	firstNotificationExtras: `#${DASHBOARD_SECTION_IDS.firstNotificationExtras}`,
 };
 
 /* =============
@@ -147,11 +160,11 @@ export const MESSAGE_ALLOWLIST = {
 	update_failed: "Failed to update. Please try again.",
 	server_error: "An error occurred. Please try again",
 	phone_not_set: "Add a phone number before verifying.",
+	sms_opted_out:
+		"SMS is blocked because you previously texted STOP. Text START to our number to unblock, then enable SMS here.",
 	sms_notifications_disabled: "SMS notifications are disabled.",
 	notifications_not_configured:
 		"Enable at least one notification channel to send updates.",
-	update_times_required:
-		"Choose at least one delivery time (or disable scheduled updates).",
 	user_not_found: "User not found",
 	delete_failed: "Failed to delete account. Please try again.",
 	delete_partial:
@@ -161,7 +174,7 @@ export const MESSAGE_ALLOWLIST = {
 	stocks_limit: `Maximum ${MAX_TRACKED_STOCKS} stocks allowed`,
 } as const;
 
-export type MessageKey = keyof typeof MESSAGE_ALLOWLIST;
+type MessageKey = keyof typeof MESSAGE_ALLOWLIST;
 
 export function formatMessage(message: string | null): string {
 	if (!message) return "";

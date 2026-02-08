@@ -4,14 +4,8 @@ import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { jsonResponse } from "../../../lib/json-response";
 import { createLogger } from "../../../lib/logging";
-import {
-	computeTimezoneUpdatePayload,
-	NotificationPreferencesValidationError,
-} from "../../../lib/notification-preferences/server-update";
+import { computeTimezoneUpdatePayload } from "../../../lib/notification-preferences/server-update";
 
-/**
- * Update the authenticated user's timezone and (if enabled) recompute `next_send_at`.
- */
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({
@@ -75,20 +69,6 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			logger,
 		);
 	} catch (error) {
-		if (error instanceof NotificationPreferencesValidationError) {
-			logger.info(
-				"Timezone update rejected due to missing scheduled update times",
-				{
-					userId: authUser.id,
-					timezone: parsed.data.timezone,
-					reason: error.code,
-				},
-			);
-			return jsonResponse(400, {
-				ok: false,
-				message: "update_times_required",
-			});
-		}
 		const errorObject =
 			error instanceof Error ? error : new Error(String(error));
 		logger.error(

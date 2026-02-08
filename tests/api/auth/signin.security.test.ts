@@ -2,11 +2,9 @@ import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/auth/signin";
-import {
-	cleanupTestUser,
-	createTestUser,
-	toRedirect,
-} from "../../helpers/shared-utils";
+import { toRedirect } from "../../helpers/request-helpers";
+import { createTestUser } from "../../helpers/test-user";
+import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 describe("A user signs in with an email and password.", () => {
 	it("If the redirect is unsafe, the user is redirected to the default dashboard.", async () => {
@@ -15,7 +13,6 @@ describe("A user signs in with an email and password.", () => {
 			password: "TestPassword123!",
 			confirmed: true,
 		});
-
 		try {
 			const request = new Request("http://localhost/api/auth/signin", {
 				method: "POST",
@@ -37,7 +34,7 @@ describe("A user signs in with an email and password.", () => {
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toBe("/dashboard");
 		} finally {
-			await cleanupTestUser(testUser.id);
+			registerTestUserForCleanup(testUser.id);
 		}
 	});
 

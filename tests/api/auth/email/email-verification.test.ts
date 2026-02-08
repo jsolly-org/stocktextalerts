@@ -2,11 +2,9 @@ import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST as emailResendPost } from "../../../../src/pages/api/auth/email/resend-verification";
-import {
-	adminClient,
-	cleanupTestUser,
-	toRedirect,
-} from "../../../helpers/shared-utils";
+import { toRedirect } from "../../../helpers/request-helpers";
+import { adminClient } from "../../../helpers/test-env";
+import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
 
 describe("A user resends their email verification from the unconfirmed page.", () => {
 	it("A user requests their verification email (first or resend) and sees a success confirmation.", async () => {
@@ -20,6 +18,7 @@ describe("A user resends their email verification from the unconfirmed page.", (
 			throw new Error(`Failed to create test auth user: ${error?.message}`);
 		}
 		const testUser = { id: data.user.id, email: testEmail };
+		registerTestUserForCleanup(testUser.id);
 		const request = new Request(
 			"http://localhost/api/auth/email/resend-verification",
 			{
@@ -30,7 +29,7 @@ describe("A user resends their email verification from the unconfirmed page.", (
 			},
 		);
 
-		try {
+		{
 			const response = await emailResendPost({
 				request,
 				redirect: toRedirect,
@@ -40,8 +39,6 @@ describe("A user resends their email verification from the unconfirmed page.", (
 			expect(response.headers.get("Location")).toBe(
 				`/auth/unconfirmed?email=${encodeURIComponent(testUser.email)}&success=true`,
 			);
-		} finally {
-			await cleanupTestUser(testUser.id);
 		}
 	});
 });

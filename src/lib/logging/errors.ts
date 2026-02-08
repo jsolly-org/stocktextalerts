@@ -1,6 +1,3 @@
-/**
- * Extracts a human-readable error message from an unknown error value.
- */
 export function extractErrorMessage(error: unknown): string {
 	if (error instanceof Error) {
 		return error.message;
@@ -16,10 +13,6 @@ export function extractErrorMessage(error: unknown): string {
 	return String(error);
 }
 
-/**
- * Converts an unknown error value to an Error instance for logging.
- * Always returns an Error to ensure consistent logging behavior.
- */
 export function createErrorForLogging(error: unknown): Error {
 	if (error instanceof Error) {
 		return error;

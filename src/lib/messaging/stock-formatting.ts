@@ -1,7 +1,9 @@
 import type { FormatPreferences } from "./types";
 
 export type StockPrice = { price: number; changePercent: number };
-export type StockWithName = { symbol: string; name: string };
+type StockWithName = { symbol: string; name: string };
+
+export const NO_TRACKED_STOCKS_MESSAGE = "You don't have any tracked stocks";
 
 export function escapeHtml(value: string): string {
 	return value
@@ -12,7 +14,7 @@ export function escapeHtml(value: string): string {
 		.replaceAll("'", "&#39;");
 }
 
-export function formatStockBaseText(
+function formatStockBaseText(
 	stock: StockWithName,
 	formatPrefs: FormatPreferences,
 ): string {
@@ -21,7 +23,7 @@ export function formatStockBaseText(
 		: stock.symbol;
 }
 
-export function formatStockPriceText(
+function formatStockPriceText(
 	price: StockPrice,
 	showChangePercent: boolean,
 ): string {
@@ -48,7 +50,7 @@ function getChangeColor(changePercent: number): string {
 	return changePercent >= 0 ? "#16a34a" : "#dc2626";
 }
 
-export function formatStockHtmlLine(
+function formatStockHtmlLine(
 	stock: StockWithName,
 	price: StockPrice | undefined,
 	formatPrefs: FormatPreferences,
@@ -79,7 +81,7 @@ export function formatStocksTextList(
 	formatPrefs: FormatPreferences,
 ): string {
 	if (stocks.length === 0) {
-		return "You don't have any tracked stocks";
+		return NO_TRACKED_STOCKS_MESSAGE;
 	}
 
 	const separator = formatPrefs.detailed_format ? "\n\n" : "\n";

@@ -1,39 +1,13 @@
 import { DateTime, Duration } from "luxon";
 import {
+	US_MARKET_OPEN_EASTERN_MINUTES,
+	US_MARKET_TIMEZONE,
+} from "../constants";
+import {
 	calculateNextSendAt,
 	calculateNextSendAtFromTimes,
 } from "./scheduled-times";
 import type { ParsedTime, TimeValue } from "./types";
-
-export function formatTimeRemaining(secondsUntil: number): string {
-	const safeSeconds = Math.max(secondsUntil, 0);
-	const duration = Duration.fromObject({ seconds: safeSeconds });
-	if (safeSeconds < 60) {
-		return duration.toHuman();
-	}
-
-	const { hours, minutes } = duration
-		.shiftTo("hours", "minutes")
-		.normalize()
-		.toObject();
-	const safeHours = Math.trunc(hours ?? 0);
-	const safeMinutes = Math.trunc(minutes ?? 0);
-
-	if (safeHours > 0 && safeMinutes > 0) {
-		return Duration.fromObject({
-			hours: safeHours,
-			minutes: safeMinutes,
-		}).toHuman({
-			listStyle: "long",
-		});
-	}
-
-	if (safeHours > 0) {
-		return Duration.fromObject({ hours: safeHours }).toHuman();
-	}
-
-	return Duration.fromObject({ minutes: safeMinutes }).toHuman();
-}
 
 export function formatCountdownWithSeconds(secondsUntil: number): string {
 	const safeSeconds = Math.max(secondsUntil, 0);
@@ -254,4 +228,34 @@ export function getSecondsUntilNextSend(options: {
 	}
 
 	return null;
+}
+
+/* =============
+Use Eastern-market baseline so local conversions stay aligned with exchange hours
+============= */
+export function getUsMarketOpenLocalMinutes(userTimezone: string): number {
+	const marketOpenHour = Math.floor(US_MARKET_OPEN_EASTERN_MINUTES / 60);
+	const marketOpenMinute = US_MARKET_OPEN_EASTERN_MINUTES % 60;
+	const eastern = DateTime.now().setZone(US_MARKET_TIMEZONE).set({
+		hour: marketOpenHour,
+		minute: marketOpenMinute,
+		second: 0,
+		millisecond: 0,
+	});
+	const local = eastern.setZone(userTimezone);
+	return local.hour * 60 + local.minute;
+}
+
+/* =============
+Format minute-of-day for UI display in the runtime locale
+============= */
+export function formatMinutesAsLocalTime(minutes: number): string {
+	const clamped = Math.max(0, Math.min(1439, Math.floor(minutes)));
+	const dt = DateTime.now().set({
+		hour: Math.floor(clamped / 60),
+		minute: clamped % 60,
+		second: 0,
+		millisecond: 0,
+	});
+	return dt.toLocaleString(DateTime.TIME_SIMPLE);
 }

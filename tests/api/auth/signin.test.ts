@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/auth/signin";
-import { cleanupTestUser, createTestUser } from "../../helpers/shared-utils";
+import { createTestUser } from "../../helpers/test-user";
+import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 async function signInAndAssertRedirect(
 	email: string,
@@ -52,17 +53,14 @@ describe("Sign in with correct email and password.", () => {
 			password: "TestPassword123!",
 			confirmed: true,
 		});
+		registerTestUserForCleanup(testUser.id);
 
-		try {
-			await signInAndAssertRedirect(
-				testUser.email,
-				"TestPassword123!",
-				undefined,
-				"/dashboard",
-			);
-		} finally {
-			await cleanupTestUser(testUser.id);
-		}
+		await signInAndAssertRedirect(
+			testUser.email,
+			"TestPassword123!",
+			undefined,
+			"/dashboard",
+		);
 	});
 
 	it("Unauthenticated user attempts /dashboard, is prompted to sign in, then is redirected to /dashboard.", async () => {
@@ -71,17 +69,14 @@ describe("Sign in with correct email and password.", () => {
 			password: "TestPassword123!",
 			confirmed: true,
 		});
+		registerTestUserForCleanup(testUser.id);
 
-		try {
-			await signInAndAssertRedirect(
-				testUser.email,
-				"TestPassword123!",
-				"/dashboard",
-				"/dashboard",
-			);
-		} finally {
-			await cleanupTestUser(testUser.id);
-		}
+		await signInAndAssertRedirect(
+			testUser.email,
+			"TestPassword123!",
+			"/dashboard",
+			"/dashboard",
+		);
 	});
 
 	it("Unauthenticated user attempts /profile, is prompted to sign in, then is redirected to /profile.", async () => {
@@ -90,17 +85,14 @@ describe("Sign in with correct email and password.", () => {
 			password: "TestPassword123!",
 			confirmed: true,
 		});
+		registerTestUserForCleanup(testUser.id);
 
-		try {
-			await signInAndAssertRedirect(
-				testUser.email,
-				"TestPassword123!",
-				"/profile",
-				"/profile",
-			);
-		} finally {
-			await cleanupTestUser(testUser.id);
-		}
+		await signInAndAssertRedirect(
+			testUser.email,
+			"TestPassword123!",
+			"/profile",
+			"/profile",
+		);
 	});
 });
 
@@ -141,35 +133,32 @@ describe("Sign in with incorrect credentials.", () => {
 			password: "CorrectPassword123!",
 			confirmed: true,
 		});
+		registerTestUserForCleanup(testUser.id);
 
-		try {
-			const request = new Request("http://localhost/api/auth/signin", {
-				method: "POST",
-				body: new URLSearchParams({
-					email: testUser.email,
-					password: "WrongPassword123!",
-				}),
-			});
+		const request = new Request("http://localhost/api/auth/signin", {
+			method: "POST",
+			body: new URLSearchParams({
+				email: testUser.email,
+				password: "WrongPassword123!",
+			}),
+		});
 
-			const response = await POST({
-				request,
-				cookies: {
-					set: () => {},
-				},
-				redirect: (url: string) => {
-					return new Response(null, {
-						status: 302,
-						headers: { Location: url },
-					});
-				},
-			} as unknown as APIContext);
+		const response = await POST({
+			request,
+			cookies: {
+				set: () => {},
+			},
+			redirect: (url: string) => {
+				return new Response(null, {
+					status: 302,
+					headers: { Location: url },
+				});
+			},
+		} as unknown as APIContext);
 
-			expect(response.status).toBe(302);
-			const location = response.headers.get("Location");
-			expect(location).toContain("/auth/signin?error=invalid_credentials");
-			expect(location).toContain(encodeURIComponent(testUser.email));
-		} finally {
-			await cleanupTestUser(testUser.id);
-		}
+		expect(response.status).toBe(302);
+		const location = response.headers.get("Location");
+		expect(location).toContain("/auth/signin?error=invalid_credentials");
+		expect(location).toContain(encodeURIComponent(testUser.email));
 	});
 });

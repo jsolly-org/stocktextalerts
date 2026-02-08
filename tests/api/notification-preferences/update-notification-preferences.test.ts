@@ -7,9 +7,9 @@ import { TEST_PASSWORD } from "../../helpers/constants";
 import {
 	adminClient,
 	createAuthenticatedCookies,
-	createTestUser,
-} from "../../helpers/shared-utils";
-import { registerTestUserForCleanup } from "../../setup";
+} from "../../helpers/test-env";
+import { createTestUser } from "../../helpers/test-user";
+import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 describe("A signed-in user updates their notification channels.", () => {
 	it("When the user enables their first notification channel, scheduled updates are enabled at the default time.", async () => {
@@ -57,16 +57,12 @@ describe("A signed-in user updates their notification channels.", () => {
 			ok: boolean;
 			message: string;
 			notificationPreferences: {
-				scheduled_updates_enabled: boolean;
 				scheduled_update_times: number[] | null;
 				next_send_at: string | null;
 			};
 		};
 		expect(payload.ok).toBe(true);
 		expect(payload.message).toBe("settings_updated");
-		expect(payload.notificationPreferences.scheduled_updates_enabled).toBe(
-			true,
-		);
 		expect(payload.notificationPreferences.scheduled_update_times).toEqual([
 			DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES,
 		]);
@@ -74,11 +70,10 @@ describe("A signed-in user updates their notification channels.", () => {
 
 		const { data: updatedUser } = await adminClient
 			.from("users")
-			.select("scheduled_updates_enabled,scheduled_update_times,next_send_at")
+			.select("scheduled_update_times,next_send_at")
 			.eq("id", testUser.id)
 			.single();
 
-		expect(updatedUser.scheduled_updates_enabled).toBe(true);
 		expect(updatedUser.scheduled_update_times).toEqual([
 			DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES,
 		]);

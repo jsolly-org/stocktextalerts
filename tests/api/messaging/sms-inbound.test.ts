@@ -1,13 +1,13 @@
 import type { APIContext } from "astro";
 import { describe, expect, it, vi } from "vitest";
 import { POST } from "../../../src/pages/api/messaging/inbound";
+import { buildSmsInboundRequest } from "../../helpers/request-helpers";
+import { adminClient } from "../../helpers/test-env";
 import {
-	adminClient,
-	buildSmsInboundRequest,
 	cleanupTestUser,
 	createTestUser,
 	generateUniquePhoneNumber,
-} from "../../helpers/shared-utils";
+} from "../../helpers/test-user";
 
 async function getTestUserPhone(userId: string): Promise<string> {
 	const { data: user } = await adminClient
@@ -57,12 +57,13 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 			const { data: updated } = await adminClient
 				.from("users")
-				.select("sms_notifications_enabled")
+				.select("sms_notifications_enabled,sms_opted_out")
 				.eq("id", testUser.id)
 				.single();
 			expect(updated).not.toBeNull();
 			if (!updated) throw new Error("expected user row");
 			expect(updated.sms_notifications_enabled).toBe(false);
+			expect(updated.sms_opted_out).toBe(true);
 		} finally {
 			await cleanupTestUser(testUser.id);
 			vi.unstubAllEnvs();
@@ -96,13 +97,16 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 			const { data: updated } = await adminClient
 				.from("users")
-				.select("sms_notifications_enabled,email_notifications_enabled")
+				.select(
+					"sms_notifications_enabled,email_notifications_enabled,sms_opted_out",
+				)
 				.eq("id", testUser.id)
 				.single();
 			expect(updated).not.toBeNull();
 			if (!updated) throw new Error("expected user row");
 			expect(updated.sms_notifications_enabled).toBe(false);
 			expect(updated.email_notifications_enabled).toBe(false);
+			expect(updated.sms_opted_out).toBe(true);
 		} finally {
 			await cleanupTestUser(testUser.id);
 			vi.unstubAllEnvs();
@@ -136,25 +140,29 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 			const { data: updated } = await adminClient
 				.from("users")
-				.select("sms_notifications_enabled,email_notifications_enabled")
+				.select(
+					"sms_notifications_enabled,email_notifications_enabled,sms_opted_out",
+				)
 				.eq("id", testUser.id)
 				.single();
 			expect(updated).not.toBeNull();
 			if (!updated) throw new Error("expected user row");
 			expect(updated.sms_notifications_enabled).toBe(true);
 			expect(updated.email_notifications_enabled).toBe(false);
+			expect(updated.sms_opted_out).toBe(false);
 		} finally {
 			await cleanupTestUser(testUser.id);
 			vi.unstubAllEnvs();
 		}
 	});
 
-	it("When a user texts START, they are instructed to use the dashboard.", async () => {
+	it("When a user texts START, sms_opted_out is cleared but SMS stays disabled.", async () => {
 		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
 		validateRequestMock.mockReturnValueOnce(true);
 
 		const testUser = await createTestUser({
 			smsNotificationsEnabled: false,
+			smsOptedOut: true,
 			phoneVerified: true,
 			phoneCountryCode: "+1",
 			phoneNumber: generateUniquePhoneNumber(),
@@ -173,16 +181,17 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 			expect(response.status).toBe(200);
 			const body = await response.text();
-			expect(body).toContain("cannot re-enable SMS notifications");
+			expect(body).toContain("unblocked");
 			expect(body).toContain("visit your dashboard");
 
 			const { data: updated } = await adminClient
 				.from("users")
-				.select("sms_notifications_enabled")
+				.select("sms_notifications_enabled,sms_opted_out")
 				.eq("id", testUser.id)
 				.single();
 			expect(updated).not.toBeNull();
 			if (!updated) throw new Error("expected user row");
+			expect(updated.sms_opted_out).toBe(false);
 			expect(updated.sms_notifications_enabled).toBe(false);
 		} finally {
 			await cleanupTestUser(testUser.id);

@@ -135,7 +135,6 @@ export async function processScheduledUserSmsDelivery(options: {
 		logger,
 		scheduledDate,
 		scheduledMinutes,
-		userStocks,
 		stocksList,
 		getSmsSender,
 		marketOpen,
@@ -226,7 +225,6 @@ export async function processScheduledUserSmsDelivery(options: {
 	const { sent, logged, error } = await processSmsUpdate(
 		supabase,
 		user,
-		userStocks,
 		stocksList,
 		smsSender,
 		marketOpen,

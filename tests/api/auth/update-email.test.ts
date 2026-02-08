@@ -2,12 +2,10 @@ import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/auth/update-email";
-import {
-	cleanupTestUser,
-	createAuthenticatedCookies,
-	createTestUser,
-	toRedirect,
-} from "../../helpers/shared-utils";
+import { toRedirect } from "../../helpers/request-helpers";
+import { createAuthenticatedCookies } from "../../helpers/test-env";
+import { createTestUser } from "../../helpers/test-user";
+import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 describe("A signed-in user requests to change their email address.", () => {
 	it("A valid request triggers the email change flow and returns the user to their profile with success.", async () => {
@@ -16,37 +14,34 @@ describe("A signed-in user requests to change their email address.", () => {
 			password: "TestPassword123!",
 			confirmed: true,
 		});
+		registerTestUserForCleanup(testUser.id);
 
-		try {
-			const cookies = await createAuthenticatedCookies(
-				testUser.email,
-				"TestPassword123!",
-			);
+		const cookies = await createAuthenticatedCookies(
+			testUser.email,
+			"TestPassword123!",
+		);
 
-			const request = new Request("http://localhost/api/auth/update-email", {
-				method: "POST",
-				body: new URLSearchParams({ email: "  new@example.com " }),
-			});
+		const request = new Request("http://localhost/api/auth/update-email", {
+			method: "POST",
+			body: new URLSearchParams({ email: "  new@example.com " }),
+		});
 
-			const response = await POST({
-				request,
-				cookies: {
-					get: (name: string) => {
-						const value = cookies.get(name);
-						return value ? { value } : undefined;
-					},
-					set: () => {},
+		const response = await POST({
+			request,
+			cookies: {
+				get: (name: string) => {
+					const value = cookies.get(name);
+					return value ? { value } : undefined;
 				},
-				redirect: toRedirect,
-			} as unknown as APIContext);
+				set: () => {},
+			},
+			redirect: toRedirect,
+		} as unknown as APIContext);
 
-			expect(response.status).toBe(302);
-			expect(response.headers.get("Location")).toBe(
-				"/profile?success=email_change_requested",
-			);
-		} finally {
-			await cleanupTestUser(testUser.id);
-		}
+		expect(response.status).toBe(302);
+		expect(response.headers.get("Location")).toBe(
+			"/profile?success=email_change_requested",
+		);
 	});
 
 	it("Submitting the same email the user already has is rejected.", async () => {
@@ -55,36 +50,33 @@ describe("A signed-in user requests to change their email address.", () => {
 			password: "TestPassword123!",
 			confirmed: true,
 		});
+		registerTestUserForCleanup(testUser.id);
 
-		try {
-			const cookies = await createAuthenticatedCookies(
-				testUser.email,
-				"TestPassword123!",
-			);
+		const cookies = await createAuthenticatedCookies(
+			testUser.email,
+			"TestPassword123!",
+		);
 
-			const request = new Request("http://localhost/api/auth/update-email", {
-				method: "POST",
-				body: new URLSearchParams({ email: testUser.email }),
-			});
+		const request = new Request("http://localhost/api/auth/update-email", {
+			method: "POST",
+			body: new URLSearchParams({ email: testUser.email }),
+		});
 
-			const response = await POST({
-				request,
-				cookies: {
-					get: (name: string) => {
-						const value = cookies.get(name);
-						return value ? { value } : undefined;
-					},
-					set: () => {},
+		const response = await POST({
+			request,
+			cookies: {
+				get: (name: string) => {
+					const value = cookies.get(name);
+					return value ? { value } : undefined;
 				},
-				redirect: toRedirect,
-			} as unknown as APIContext);
+				set: () => {},
+			},
+			redirect: toRedirect,
+		} as unknown as APIContext);
 
-			expect(response.status).toBe(302);
-			expect(response.headers.get("Location")).toBe(
-				"/profile?error=email_unchanged",
-			);
-		} finally {
-			await cleanupTestUser(testUser.id);
-		}
+		expect(response.status).toBe(302);
+		expect(response.headers.get("Location")).toBe(
+			"/profile?error=email_unchanged",
+		);
 	});
 });

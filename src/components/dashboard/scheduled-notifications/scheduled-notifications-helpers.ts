@@ -1,11 +1,4 @@
-import {
-	type ComputedRef,
-	computed,
-	onMounted,
-	onUnmounted,
-	type Ref,
-	ref,
-} from "vue";
+import { type ComputedRef, computed, onMounted, onUnmounted, ref } from "vue";
 import {
 	formatCountdownWithSeconds,
 	getNowInTimezone,
@@ -15,7 +8,6 @@ import {
 // Defers time-dependent rendering until after mount to avoid hydration mismatches.
 export function useScheduledUpdateTiming(options: {
 	timezone: ComputedRef<string>;
-	scheduledUpdatesEnabled: Ref<boolean>;
 	nextSendAtIso: ComputedRef<string | null>;
 	timeInputs: ComputedRef<string[]>;
 }) {
@@ -52,9 +44,6 @@ export function useScheduledUpdateTiming(options: {
 			return null;
 		}
 		void tick.value;
-		if (!options.scheduledUpdatesEnabled.value) {
-			return null;
-		}
 		const tz = options.timezone.value;
 		const secondsUntil = getSecondsUntilNextSend({
 			nextSendAtIso: options.nextSendAtIso.value,

@@ -29,49 +29,8 @@ export const prerender = true;
         </div>
 
         <!-- Animated downward chart -->
-        <div class="relative h-32 mb-8" aria-hidden="true">
-          <svg 
-            viewBox="0 0 200 80" 
-            class="w-full h-full"
-            preserveAspectRatio="none"
-          >
-            <!-- Grid lines -->
-            <g class="text-gray-200" stroke="currentColor" stroke-width="0.5">
-              <line x1="0" y1="20" x2="200" y2="20" />
-              <line x1="0" y1="40" x2="200" y2="40" />
-              <line x1="0" y1="60" x2="200" y2="60" />
-            </g>
-            
-            <!-- The "crash" line -->
-            <path 
-              d="M 0 10 L 30 12 L 60 8 L 90 15 L 110 10 L 130 20 L 150 35 L 170 50 L 185 65 L 200 75"
-              fill="none"
-              stroke="url(#crash-gradient)"
-              stroke-width="3"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="chart-line"
-            />
-            
-            <!-- Area fill under the line -->
-            <path 
-              d="M 0 10 L 30 12 L 60 8 L 90 15 L 110 10 L 130 20 L 150 35 L 170 50 L 185 65 L 200 75 L 200 80 L 0 80 Z"
-              fill="url(#area-gradient)"
-              class="chart-area"
-            />
-            
-            <defs>
-              <linearGradient id="crash-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stop-color="#22c55e" />
-                <stop offset="50%" stop-color="#eab308" />
-                <stop offset="100%" stop-color="#ef4444" />
-              </linearGradient>
-              <linearGradient id="area-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#ef4444" stop-opacity="0.2" />
-                <stop offset="100%" stop-color="#ef4444" stop-opacity="0" />
-              </linearGradient>
-            </defs>
-          </svg>
+        <div class="crash-chart relative h-32 mb-8" aria-hidden="true">
+          <Icon name="chart-crash" class="w-full h-full" />
         </div>
 
         <!-- 404 text -->
@@ -109,13 +68,13 @@ export const prerender = true;
 </Layout>
 
 <style>
-  .chart-line {
+  .crash-chart :global(.chart-line) {
     stroke-dasharray: 400;
     stroke-dashoffset: 400;
     animation: draw-line 1.5s ease-out forwards;
   }
 
-  .chart-area {
+  .crash-chart :global(.chart-area) {
     opacity: 0;
     animation: fade-in-area 0.5s ease-out 1s forwards;
   }

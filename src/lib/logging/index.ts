@@ -1,6 +1,6 @@
 type LogLevel = "debug" | "info" | "warn" | "error";
 
-export type LogContext = Record<string, unknown> & {
+type LogContext = Record<string, unknown> & {
 	requestId?: string;
 };
 

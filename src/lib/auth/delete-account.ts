@@ -1,7 +1,7 @@
 import type { AppSupabaseClient } from "../db/supabase";
 import type { Logger } from "../logging";
 
-export type DeleteUserAccountResult =
+type DeleteUserAccountResult =
 	| { ok: true }
 	| {
 			ok: false;
@@ -81,17 +81,36 @@ export async function deleteUserAccount(options: {
 		}
 	}
 
-	const { error: dbError, count } = await adminSupabase
+	// If auth deletion cascades to public.users (recommended), the row may already be gone.
+	const { data: afterAuthUser, error: afterAuthFetchError } =
+		await adminSupabase
+			.from("users")
+			.select("id")
+			.eq("id", userId)
+			.maybeSingle();
+
+	if (afterAuthFetchError) {
+		logger.error(
+			"Failed to load user after auth deletion",
+			{ userId },
+			afterAuthFetchError,
+		);
+		return { ok: false, redirectError: "delete_failed" };
+	}
+
+	if (!afterAuthUser) {
+		return { ok: true };
+	}
+
+	const { error: dbError } = await adminSupabase
 		.from("users")
-		.delete({ count: "exact" })
+		.delete()
 		.eq("id", userId);
 
-	// Supabase `.delete()` can succeed even when zero rows match (no-op).
-	// If we hit that case after deleting the auth user, we must treat it as partial deletion.
-	if (dbError || count === 0 || count === null) {
+	if (dbError) {
 		logger.error(
 			"CRITICAL: Failed to delete user row after auth deletion; orphaned record requires manual cleanup",
-			{ userId, count, deleted: count ?? 0 },
+			{ userId },
 			dbError,
 		);
 		return { ok: false, redirectError: "delete_partial" };

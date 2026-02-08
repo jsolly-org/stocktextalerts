@@ -4,6 +4,9 @@
     "timezone": "America/New_York",
     "email_notifications_enabled": false,
     "sms_notifications_enabled": false,
+    "sms_opted_out": false,
+    "price_notifications_enabled": true,
+    "only_notify_when_market_open": true,
     "scheduled_update_times": [540],
     "tracked_stocks": []
   },
@@ -15,7 +18,23 @@
     "phone_number": "4155551234",
     "phone_verified": true,
     "sms_notifications_enabled": true,
+    "sms_opted_out": false,
+    "price_notifications_enabled": true,
+    "only_notify_when_market_open": false,
     "tracked_stocks": ["AAPL", "MSFT"]
+  },
+  {
+    "email": "sms-opted-out@example.com",
+    "timezone": "America/Los_Angeles",
+    "email_notifications_enabled": false,
+    "phone_country_code": "+1",
+    "phone_number": "4155559999",
+    "phone_verified": true,
+    "sms_notifications_enabled": true,
+    "sms_opted_out": true,
+    "price_notifications_enabled": true,
+    "only_notify_when_market_open": true,
+    "tracked_stocks": ["AAPL"]
   },
   {
     "email": "nullable-fields@example.com",
@@ -23,9 +42,11 @@
     "phone_country_code": null,
     "phone_number": null,
     "phone_verified": null,
-    "scheduled_updates_enabled": null,
     "email_notifications_enabled": null,
     "sms_notifications_enabled": null,
+    "sms_opted_out": null,
+    "price_notifications_enabled": null,
+    "only_notify_when_market_open": null,
     "tracked_stocks": ["TSLA"]
   },
   {
@@ -34,3 +55,4 @@
     "tracked_stocks": []
   }
 ]
+

@@ -10,12 +10,12 @@
 		</header>
 
 		<fieldset
-			class="rounded-lg border border-gray-200 divide-y divide-gray-200"
+			class="divide-y divide-gray-200"
 			:aria-describedby="props.notificationChannelsDescId"
 		>
 			<legend class="sr-only">Notification channels</legend>
 
-			<div class="flex items-center justify-between gap-3 p-4">
+			<div class="flex items-center justify-between gap-3 py-4">
 				<input
 					type="hidden"
 					name="email_notifications_enabled"
@@ -36,11 +36,11 @@
 			</div>
 
 			<div>
-				<div class="flex items-center justify-between gap-3 p-4">
-					<input
-						v-if="props.canSaveSmsEnabled"
-						type="hidden"
-						name="sms_notifications_enabled"
+			<div class="flex items-center justify-between gap-3 py-4">
+				<input
+					v-if="props.canSaveSmsEnabled"
+					type="hidden"
+					name="sms_notifications_enabled"
 						:value="smsEnabled ? 'on' : 'off'"
 					/>
 					<div>
@@ -52,10 +52,15 @@
 					<ToggleSwitch
 						v-model="smsEnabled"
 						sr-label="SMS notifications"
+						:disabled="props.smsOptedOut"
 						:aria-labelledby="`${props.smsNotificationsEnabledId}_label`"
 						:aria-describedby="`${props.smsNotificationsEnabledId}_desc`"
 					/>
 				</div>
+
+				<StatusMessage v-if="props.smsOptedOut" tone="warning" class="mb-4">
+					{{ MESSAGE_ALLOWLIST.sms_opted_out }}
+				</StatusMessage>
 
 				<SmsVerificationSection
 					:sms-enabled="smsEnabled"
@@ -79,7 +84,7 @@
 
 <script lang="ts" setup>
 import { computed } from "vue";
-import { DASHBOARD_SECTION_IDS } from "../../../lib/constants";
+import { DASHBOARD_SECTION_IDS, MESSAGE_ALLOWLIST } from "../../../lib/constants";
 import StatusMessage from "../../StatusMessage.vue";
 import ToggleSwitch from "../../ToggleSwitch.vue";
 import SmsVerificationSection from "./SmsVerificationSection.vue";
@@ -88,6 +93,7 @@ interface Props {
 	emailEnabled: boolean;
 	smsEnabled: boolean;
 	canSaveSmsEnabled: boolean;
+	smsOptedOut: boolean;
 	showTimeReminder: boolean;
 	emailNotificationsEnabledId: string;
 	smsNotificationsEnabledId: string;

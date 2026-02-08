@@ -7,11 +7,8 @@ import {
 	ROUTES_DIR,
 	TEST_PASSWORD,
 } from "../helpers/constants";
-import {
-	cleanupTestUser,
-	createAuthenticatedCookies,
-	createTestUser,
-} from "../helpers/shared-utils";
+import { createAuthenticatedCookies } from "../helpers/test-env";
+import { cleanupTestUser, createTestUser } from "../helpers/test-user";
 
 type ConsoleIssue = {
 	route: string;

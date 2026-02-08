@@ -233,19 +233,28 @@ export type Database = {
       }
       users: {
         Row: {
+          add_ons_delivery_time: number | null
+          add_ons_next_send_at: string | null
+          add_ons_only_notify_when_market_open: boolean
           created_at: string
           detailed_format: boolean
           dismiss_timezone_mismatch_prompts: boolean
           email: string
           email_notifications_enabled: boolean
+          first_notification_include_news: boolean
+          first_notification_include_rumors: boolean
           full_phone: string | null
           id: string
+          last_grok_rumors_at: string | null
+          last_market_closed_skip_recorded_at: string | null
+          last_market_closed_skip_scheduled_at: string | null
           next_send_at: string | null
+          only_notify_when_market_open: boolean
           phone_country_code: string | null
           phone_number: string | null
           phone_verified: boolean
+          price_notifications_enabled: boolean
           scheduled_update_times: number[] | null
-          scheduled_updates_enabled: boolean
           show_change_percent: boolean
           show_company_name: boolean
           sms_notifications_enabled: boolean
@@ -255,19 +264,28 @@ export type Database = {
           verification_sent_at: string | null
         }
         Insert: {
+          add_ons_delivery_time?: number | null
+          add_ons_next_send_at?: string | null
+          add_ons_only_notify_when_market_open?: boolean
           created_at?: string
           detailed_format?: boolean
           dismiss_timezone_mismatch_prompts?: boolean
           email: string
           email_notifications_enabled?: boolean
+          first_notification_include_news?: boolean
+          first_notification_include_rumors?: boolean
           full_phone?: string | null
           id?: string
+          last_grok_rumors_at?: string | null
+          last_market_closed_skip_recorded_at?: string | null
+          last_market_closed_skip_scheduled_at?: string | null
           next_send_at?: string | null
+          only_notify_when_market_open?: boolean
           phone_country_code?: string | null
           phone_number?: string | null
           phone_verified?: boolean
+          price_notifications_enabled?: boolean
           scheduled_update_times?: number[] | null
-          scheduled_updates_enabled?: boolean
           show_change_percent?: boolean
           show_company_name?: boolean
           sms_notifications_enabled?: boolean
@@ -277,19 +295,28 @@ export type Database = {
           verification_sent_at?: string | null
         }
         Update: {
+          add_ons_delivery_time?: number | null
+          add_ons_next_send_at?: string | null
+          add_ons_only_notify_when_market_open?: boolean
           created_at?: string
           detailed_format?: boolean
           dismiss_timezone_mismatch_prompts?: boolean
           email?: string
           email_notifications_enabled?: boolean
+          first_notification_include_news?: boolean
+          first_notification_include_rumors?: boolean
           full_phone?: string | null
           id?: string
+          last_grok_rumors_at?: string | null
+          last_market_closed_skip_recorded_at?: string | null
+          last_market_closed_skip_scheduled_at?: string | null
           next_send_at?: string | null
+          only_notify_when_market_open?: boolean
           phone_country_code?: string | null
           phone_number?: string | null
           phone_verified?: boolean
+          price_notifications_enabled?: boolean
           scheduled_update_times?: number[] | null
-          scheduled_updates_enabled?: boolean
           show_change_percent?: boolean
           show_company_name?: boolean
           sms_notifications_enabled?: boolean
@@ -358,24 +385,11 @@ export type Database = {
         }
         Returns: boolean
       }
-      update_user_preferences_and_stocks: {
-        Args: {
-          p_email_notifications_enabled: boolean
-          p_next_send_at: string
-          p_scheduled_update_times: number[]
-          p_scheduled_updates_enabled: boolean
-          p_sms_notifications_enabled: boolean
-          p_symbols: string[]
-          p_timezone: string
-          p_user_id: string
-        }
-        Returns: undefined
-      }
     }
     Enums: {
       delivery_method: "email" | "sms"
       scheduled_notification_status: "sending" | "sent" | "failed"
-      scheduled_notification_type: "scheduled_update"
+      scheduled_notification_type: "scheduled_update" | "daily_add_ons"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -505,7 +519,7 @@ export const Constants = {
     Enums: {
       delivery_method: ["email", "sms"],
       scheduled_notification_status: ["sending", "sent", "failed"],
-      scheduled_notification_type: ["scheduled_update"],
+      scheduled_notification_type: ["scheduled_update", "daily_add_ons"],
     },
   },
 } as const

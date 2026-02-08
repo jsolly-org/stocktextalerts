@@ -3,10 +3,6 @@ import type { User } from "../../../lib/db";
 
 const DASHBOARD_USER_KEY: InjectionKey<Ref<User>> = Symbol("dashboard-user");
 
-/**
- * Provide a shared mutable User ref to all dashboard descendants.
- * Call once in the top-level DashboardPanels component.
- */
 export function provideDashboardUser(userProp: Ref<User>): Ref<User> {
 	const user = ref<User>({ ...userProp.value });
 
@@ -23,10 +19,6 @@ export function provideDashboardUser(userProp: Ref<User>): Ref<User> {
 	return user;
 }
 
-/**
- * Inject the shared dashboard User ref.
- * Must be called within a component that is a descendant of the provider.
- */
 export function useDashboardUser(): Ref<User> {
 	const user = inject(DASHBOARD_USER_KEY);
 	if (!user) {

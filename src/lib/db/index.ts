@@ -26,21 +26,27 @@ export type UserStock = Pick<DbUserStockRow, "symbol" | "created_at"> & {
 
 export type NotificationPreferencesSnapshot = Pick<
 	User,
+	| "price_notifications_enabled"
 	| "email_notifications_enabled"
 	| "sms_notifications_enabled"
+	| "sms_opted_out"
 	| "phone_verified"
 	| "timezone"
-	| "scheduled_updates_enabled"
 	| "scheduled_update_times"
+	| "only_notify_when_market_open"
+	| "add_ons_only_notify_when_market_open"
+	| "add_ons_delivery_time"
+	| "add_ons_next_send_at"
 	| "next_send_at"
 	| "dismiss_timezone_mismatch_prompts"
+	| "first_notification_include_news"
+	| "first_notification_include_rumors"
 >;
 
 export type NotificationPreferences = Pick<
 	User,
 	| "email_notifications_enabled"
 	| "sms_notifications_enabled"
-	| "scheduled_updates_enabled"
 	| "scheduled_update_times"
 	| "next_send_at"
 >;
@@ -118,7 +124,7 @@ export function createUserService(
 				.maybeSingle();
 
 			if (error) throw error;
-			return data;
+			return data as User | null;
 		},
 
 		async update(id: string, updates: UserUpdateInput): Promise<User> {
@@ -130,7 +136,7 @@ export function createUserService(
 				.single();
 
 			if (error) throw error;
-			return data;
+			return data as User;
 		},
 	};
 }

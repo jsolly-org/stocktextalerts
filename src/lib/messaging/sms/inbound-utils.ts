@@ -2,8 +2,9 @@ import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { getSiteUrl } from "../../db/env";
 import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
+import { wrapInTwiml } from "./twiml";
 
-export interface InboundSmsDependencies {
+interface InboundSmsDependencies {
 	authToken: string;
 	validateRequest: (
 		authToken: string,
@@ -14,13 +15,13 @@ export interface InboundSmsDependencies {
 	supabase: AppSupabaseClient;
 }
 
-export interface InboundSmsRequest {
+interface InboundSmsRequest {
 	url: string;
 	signature: string;
 	params: Record<string, string | undefined>;
 }
 
-export interface InboundSmsResponse {
+interface InboundSmsResponse {
 	status: number;
 	body: string;
 	contentType?: string;
@@ -157,6 +158,7 @@ export async function handleInboundSms(
 			.update({
 				email_notifications_enabled: false,
 				sms_notifications_enabled: false,
+				sms_opted_out: true,
 			})
 			.eq("id", userId);
 
@@ -213,7 +215,7 @@ export async function handleInboundSms(
 	if (STOP_RE.test(body)) {
 		const { error: updateError } = await supabase
 			.from("users")
-			.update({ sms_notifications_enabled: false })
+			.update({ sms_notifications_enabled: false, sms_opted_out: true })
 			.eq("id", userId);
 
 		if (updateError) {
@@ -240,10 +242,27 @@ export async function handleInboundSms(
 	}
 
 	if (START_RE.test(body)) {
+		const { error: updateError } = await supabase
+			.from("users")
+			.update({ sms_opted_out: false })
+			.eq("id", userId);
+
+		if (updateError) {
+			rootLogger.error(
+				"Failed to clear sms_opted_out",
+				{ userId, action: "sms_start" },
+				updateError,
+			);
+			return {
+				status: 500,
+				body: "Failed to update notification-preferences",
+			};
+		}
+
 		return {
 			status: 200,
 			body: wrapInTwiml(
-				`You cannot re-enable SMS notifications by replying START. To re-enable, visit your dashboard: ${dashboardUrl}.`,
+				`You have been unblocked from receiving SMS messages. To re-enable SMS notifications, visit your dashboard: ${dashboardUrl}.`,
 			),
 			contentType: "text/xml",
 		};
@@ -264,31 +283,4 @@ export async function handleInboundSms(
 		body: wrapInTwiml("Unknown command. Reply HELP for options."),
 		contentType: "text/xml",
 	};
-}
-
-function wrapInTwiml(message: string): string {
-	const twiml = ['<?xml version="1.0" encoding="UTF-8"?>', "<Response>"];
-
-	if (message) {
-		const escapedMessage = escapeForXml(message);
-		twiml.push(`\t<Message>${escapedMessage}</Message>`);
-	}
-
-	twiml.push("</Response>");
-
-	return twiml.join("\n");
-}
-
-function escapeForXml(message: string): string {
-	const replacements: Record<string, string> = {
-		"&": "&amp;",
-		"<": "&lt;",
-		">": "&gt;",
-		'"': "&quot;",
-		"'": "&apos;",
-	};
-
-	return message.replace(/[&<>"']/g, (character) => {
-		return replacements[character];
-	});
 }

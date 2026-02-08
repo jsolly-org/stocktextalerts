@@ -6,15 +6,10 @@ import {
 	PRESERVED_TEST_EMAIL,
 	PRESERVED_USER_ID,
 } from "./helpers/constants";
-import {
-	adminClient,
-	cleanupTestUser,
-	getRealStockSymbols,
-} from "./helpers/shared-utils";
+import { getRealStockSymbols } from "./helpers/stock-data";
+import { adminClient } from "./helpers/test-env";
+import { cleanupTestUser } from "./helpers/test-user";
 import { takeTestUserIdsForCleanup } from "./helpers/test-user-cleanup";
-
-export { adminClient };
-export { registerTestUserForCleanup } from "./helpers/test-user-cleanup";
 
 vi.mock("../src/lib/db/env", () => ({
 	getSiteUrl: () => "http://localhost",

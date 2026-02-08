@@ -4,10 +4,9 @@ import { POST } from "../../../src/pages/api/auth/delete-account";
 import { TEST_PASSWORD } from "../../helpers/constants";
 import {
 	adminClient,
-	cleanupTestUser,
 	createAuthenticatedCookies,
-	createTestUser,
-} from "../../helpers/shared-utils";
+} from "../../helpers/test-env";
+import { cleanupTestUser, createTestUser } from "../../helpers/test-user";
 
 describe("A signed-in user deletes their account from the profile page.", () => {
 	it("The account is removed, auth cookies are cleared, and the user is redirected home with a success message.", async () => {

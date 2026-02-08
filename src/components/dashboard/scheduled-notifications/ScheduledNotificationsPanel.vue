@@ -33,56 +33,103 @@
 
 			<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.success}`"></div>
 			<div class="card-body">
-				<header class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-					<div class="min-w-0">
-						<h2
-							:id="DASHBOARD_SECTION_IDS.scheduled"
-							class="text-xl sm:text-2xl font-bold text-gray-900"
-						>
-							Scheduled Notifications
-						</h2>
-						<p class="text-sm text-gray-600 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-							<span class="inline-flex items-center gap-1.5">
-								<ClockIcon class="size-4 shrink-0 text-gray-500" aria-hidden="true" />
-								<span class="text-gray-700">
-									Local time:
-									<span class="font-medium text-gray-900">
-										{{ currentTimeInTimezone ?? "—" }}
-									</span>
-								</span>
-							</span>
-							<a
-								href="/profile"
-								class="inline-flex items-center gap-1 link-primary rounded-sm"
-								aria-label="Change timezone in profile settings"
-							>
-								Change timezone
-								<ArrowTopRightOnSquareIcon class="size-3.5 shrink-0" aria-hidden="true" />
-							</a>
-						</p>
-					</div>
-				</header>
-
-				<ScheduledUpdateControls
-					:enabled="scheduledUpdatesEnabled"
-					:scheduledUpdateTimes="scheduledUpdateTimes"
-					:needsChannelSelection="needsChannelSelection"
-					:timePickerDisabled="timePickerDisabled"
-					:canAddTime="canAddTime"
-					:countdownText="countdownText"
-					@update:enabled="handleScheduledUpdatesEnabledUpdate"
-					@time-change="handleTimeChange"
-					@add-time="handleAddTime"
-					@remove-time="handleRemoveTime"
+			<header>
+				<h2
+					:id="DASHBOARD_SECTION_IDS.scheduled"
+					class="text-xl sm:text-2xl font-bold text-gray-900 transition-opacity duration-200"
+					:class="{ 'opacity-50': needsChannelSelection }"
 				>
-					<template #setup>
-						<SetupRequiredNotice
-							:needsChannelSelection="needsChannelSelection"
-							:needsPhoneVerification="needsPhoneVerification"
-							:phoneVerificationSectionId="phoneVerificationSectionId"
-						/>
-					</template>
-				</ScheduledUpdateControls>
+					Scheduled Notifications
+				</h2>
+				<p
+					class="text-sm text-gray-500 mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 transition-opacity duration-200"
+					:class="{ 'opacity-50': needsChannelSelection }"
+				>
+					<span class="inline-flex items-center gap-1.5">
+						<ClockIcon class="size-4 shrink-0 text-gray-400" aria-hidden="true" />
+						<span>
+							Local time:
+							<span class="font-medium text-gray-700">
+								{{ currentTimeInTimezone ?? "—" }}
+							</span>
+						</span>
+					</span>
+					<a
+						href="/profile"
+						class="inline-flex items-center gap-1 link-primary text-xs rounded-sm"
+						aria-label="Change timezone in profile settings"
+					>
+						Change timezone
+						<ArrowTopRightOnSquareIcon class="size-3 shrink-0" aria-hidden="true" />
+					</a>
+				</p>
+			</header>
+
+			<SetupRequiredNotice
+				:needsChannelSelection="needsChannelSelection"
+				:needsPhoneVerification="needsPhoneVerification"
+				:phoneVerificationSectionId="phoneVerificationSectionId"
+			/>
+
+			<div
+				class="flex items-center justify-between gap-3 py-3 transition-opacity duration-200"
+				:class="{ 'opacity-50': needsChannelSelection }"
+			>
+				<input
+					type="hidden"
+					name="price_notifications_enabled"
+					:value="priceNotificationsEnabled ? 'on' : 'off'"
+				/>
+				<div class="min-w-0">
+					<span
+						id="price_notifications_enabled_label"
+						class="text-base font-semibold text-gray-900"
+					>
+						Price Notifications
+					</span>
+					<p id="price_notifications_enabled_description" class="text-sm text-gray-600 mt-0.5">
+						Receive scheduled stock price updates.
+					</p>
+				</div>
+				<ToggleSwitch
+					v-model="priceNotificationsEnabled"
+					:disabled="needsChannelSelection"
+					sr-label="Price Notifications"
+					aria-labelledby="price_notifications_enabled_label"
+					aria-describedby="price_notifications_enabled_description"
+				/>
+			</div>
+
+			<FadeTransition>
+				<p
+					v-if="!needsChannelSelection && scheduledUpdateTimesMinutes.length === 0"
+					class="flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm bg-info-bg border border-info-border text-info-text"
+					role="note"
+				>
+					<InformationCircleIcon class="size-5 shrink-0 mt-0.5" aria-hidden="true" />
+					<span>No notifications will be sent until you choose at least one delivery time below.</span>
+				</p>
+			</FadeTransition>
+
+		<ScheduledUpdateControls
+				:scheduledUpdateTimes="scheduledUpdateTimes"
+				:onlyNotifyWhenMarketOpen="onlyNotifyWhenMarketOpen"
+				:marketClosedSkipNote="marketClosedSkipNote"
+				:needsChannelSelection="needsChannelSelection"
+				:timePickerDisabled="timePickerDisabled"
+				:canAddTime="canAddTime"
+				:canAddMarketOpen="canAddMarketOpen"
+				:marketOpenLabel="marketOpenLabel"
+				:maxTimes="MAX_DELIVERY_TIMES"
+				:maxTimesReached="maxTimesReached"
+				:countdownText="countdownText"
+			@update:onlyNotifyWhenMarketOpen="handleOnlyNotifyWhenMarketOpenUpdate"
+			@time-change="handleTimeChange"
+			@add-time="handleAddTime"
+			@add-initial-time="handleAddInitialTime"
+			@add-market-open="handleAddMarketOpen"
+			@remove-time="handleRemoveTime"
+			/>
 			</div>
 		</section>
 	</form>
@@ -90,11 +137,13 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, toRefs, watch } from "vue";
+import { DateTime } from "luxon";
+import { computed, onMounted, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import ArrowTopRightOnSquareIcon from "../../../icons/arrow-top-right-on-square.svg?component";
 import ClockIcon from "../../../icons/clock.svg?component";
+import InformationCircleIcon from "../../../icons/information-circle-20.svg?component";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
@@ -104,10 +153,13 @@ import {
 	STATUS_TONE_CLASSES,
 } from "../../../lib/constants";
 import {
+	formatMinutesAsLocalTime,
+	getUsMarketOpenLocalMinutes,
 	minutesToTimeInputValue,
 	parseTimeToMinutes,
 } from "../../../lib/time/format";
 import FadeTransition from "../../FadeTransition.vue";
+import ToggleSwitch from "../../ToggleSwitch.vue";
 import {
 	type NotificationPreferencesData,
 	useAutoSaveForm,
@@ -147,11 +199,59 @@ const {
 	formRef: scheduledFormElement,
 });
 
-const scheduledUpdatesEnabled = ref(user.value.scheduled_updates_enabled);
+const priceNotificationsEnabled = ref(user.value.price_notifications_enabled);
+const onlyNotifyWhenMarketOpen = ref(user.value.only_notify_when_market_open);
+const isHydrated = ref(false);
+
+onMounted(() => {
+	isHydrated.value = true;
+});
 
 const MAX_SCHEDULED_UPDATE_MINUTES = 23 * 60 + 59;
 const SCHEDULED_UPDATE_INCREMENT_MINUTES = 1;
-const ADD_SCHEDULED_OFFSET_MINUTES = 180;
+const MAX_DELIVERY_TIMES = 5;
+const MINUTES_PER_DAY = MAX_SCHEDULED_UPDATE_MINUTES + 1;
+
+// [threshold in minutes, increment] — checked high-to-low
+const QUICK_ADD_INCREMENTS: [number, number][] = [
+	[23 * 60 + 58, 1],
+	[23 * 60 + 45, 5],
+	[23 * 60 + 30, 15],
+	[23 * 60, 30],
+	[21 * 60, 60],
+];
+
+function getQuickAddIncrementMinutes(latestMinutes: number): number {
+	for (const [threshold, increment] of QUICK_ADD_INCREMENTS) {
+		if (latestMinutes >= threshold) return increment;
+	}
+	return 180;
+}
+
+function getNextQuickAddMinute(
+	existingTimes: number[],
+	fallbackLatest: number,
+): number | null {
+	const normalized = normalizeScheduledTimes(existingTimes);
+	const latestMinutes =
+		normalized.length > 0
+			? normalized[normalized.length - 1]
+			: fallbackLatest;
+	const incrementMinutes = getQuickAddIncrementMinutes(latestMinutes);
+	let candidate = latestMinutes + incrementMinutes;
+	if (candidate > MAX_SCHEDULED_UPDATE_MINUTES) {
+		candidate = 0;
+	}
+	const existingSet = new Set(normalized);
+
+	for (let offset = 0; offset < MINUTES_PER_DAY; offset += 1) {
+		const minute = (candidate + offset) % MINUTES_PER_DAY;
+		if (!existingSet.has(minute)) {
+			return minute;
+		}
+	}
+	return null;
+}
 
 function normalizeScheduledTimes(times: number[]): number[] {
 	const filtered = times.filter(
@@ -167,10 +267,6 @@ function normalizeScheduledTimes(times: number[]): number[] {
 const scheduledUpdateTimesMinutes = ref<number[]>(
 	normalizeScheduledTimes(user.value.scheduled_update_times ?? []),
 );
-
-if (scheduledUpdatesEnabled.value && scheduledUpdateTimesMinutes.value.length === 0) {
-	scheduledUpdateTimesMinutes.value = [DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES];
-}
 
 const phoneVerificationSectionId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-phone-verification-section`;
 
@@ -190,25 +286,55 @@ const needsChannelSelection = computed(() => !hasNotificationChannel.value);
 const needsPhoneVerification = computed(
 	() => smsEnabled.value && !phoneVerified.value,
 );
-const timePickerDisabled = computed(
-	() => needsChannelSelection.value || !scheduledUpdatesEnabled.value,
+const timePickerDisabled = computed(() => needsChannelSelection.value);
+const maxTimesReached = computed(
+	() => scheduledUpdateTimesMinutes.value.length >= MAX_DELIVERY_TIMES,
 );
 const canAddTime = computed(() => {
 	if (timePickerDisabled.value) {
 		return false;
 	}
+	if (maxTimesReached.value) {
+		return false;
+	}
 	const times = normalizeScheduledTimes(scheduledUpdateTimesMinutes.value);
+	// Always possible to add when list is empty
 	if (times.length === 0) {
 		return true;
 	}
-	const nextMinutes = times[times.length - 1] + ADD_SCHEDULED_OFFSET_MINUTES;
-	return nextMinutes <= MAX_SCHEDULED_UPDATE_MINUTES;
+	return getNextQuickAddMinute(times, 0) !== null;
 });
 
+const marketOpenLocalMinutes = computed(() => {
+	const tz = timezone.value;
+	if (tz === "") return null;
+	return getUsMarketOpenLocalMinutes(tz);
+});
+
+const marketOpenLabel = computed(() => {
+	if (marketOpenLocalMinutes.value === null) return null;
+	return formatMinutesAsLocalTime(marketOpenLocalMinutes.value);
+});
+
+const hasMarketOpenTime = computed(() => {
+	if (marketOpenLocalMinutes.value === null) return true;
+	return scheduledUpdateTimesMinutes.value.includes(marketOpenLocalMinutes.value);
+});
+
+const canAddMarketOpen = computed(
+	() => !timePickerDisabled.value && !hasMarketOpenTime.value && !maxTimesReached.value,
+);
+
 watch(
-	() => user.value.scheduled_updates_enabled,
+	() => user.value.price_notifications_enabled,
 	(value) => {
-		scheduledUpdatesEnabled.value = value;
+		priceNotificationsEnabled.value = value;
+	},
+);
+watch(
+	() => user.value.only_notify_when_market_open,
+	(value) => {
+		onlyNotifyWhenMarketOpen.value = value;
 	},
 );
 watch(
@@ -217,22 +343,6 @@ watch(
 		scheduledUpdateTimesMinutes.value = normalizeScheduledTimes(value ?? []);
 	},
 );
-// Only auto-enable scheduled updates when user gains their first channel (transition
-// from no channel to has channel). Do not run on mount: that would overwrite
-// a saved preference of scheduled_updates_enabled = false when they already have a channel.
-watch(
-	hasNotificationChannel,
-	(hasChannel, previousHasChannel) => {
-		if (previousHasChannel === false && hasChannel && !scheduledUpdatesEnabled.value) {
-			if (scheduledUpdateTimesMinutes.value.length === 0) {
-				scheduledUpdateTimesMinutes.value = [DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES];
-			}
-			scheduledUpdatesEnabled.value = true;
-			notifyChange();
-		}
-	},
-);
-
 const nextSendAt = computed(
 	() =>
 		savedScheduledData.value?.next_send_at ??
@@ -241,15 +351,28 @@ const nextSendAt = computed(
 );
 const { currentTimeInTimezone, countdownText } = useScheduledUpdateTiming({
 	timezone,
-	scheduledUpdatesEnabled,
 	nextSendAtIso: nextSendAt,
 	timeInputs: scheduledUpdateTimes,
 });
 
-watch(scheduledUpdatesEnabled, () => {
-	if (scheduledUpdatesEnabled.value && scheduledUpdateTimesMinutes.value.length === 0) {
-		scheduledUpdateTimesMinutes.value = [DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES];
-	}
+const marketClosedSkipNote = computed(() => {
+	if (!isHydrated.value || !onlyNotifyWhenMarketOpen.value) return null;
+
+	const skippedAtIso = user.value.last_market_closed_skip_scheduled_at;
+	if (!skippedAtIso) return null;
+
+	const skippedUtc = DateTime.fromISO(skippedAtIso, { zone: "utc" });
+	if (!skippedUtc.isValid) return null;
+
+	const hoursAgo = DateTime.utc().diff(skippedUtc, "hours").hours;
+	if (!Number.isFinite(hoursAgo) || hoursAgo > 72) return null;
+
+	const skippedLocal = skippedUtc.setZone(user.value.timezone);
+	const timeLabel = skippedLocal.isValid
+		? skippedLocal.toFormat("ccc, h:mm a")
+		: "your scheduled time";
+
+	return `We skipped ${timeLabel} because the market was closed. If you'd like to receive scheduled notifications anyway, turn off "Only notify when market is open" above.`;
 });
 
 // Update shared user ref directly when auto-save response arrives
@@ -257,18 +380,25 @@ watch(
 	() => savedScheduledData.value,
 	(newData) => {
 		if (newData) {
-			user.value = {
-				...user.value,
-				scheduled_updates_enabled: newData.scheduled_updates_enabled,
-				scheduled_update_times: newData.scheduled_update_times,
-				next_send_at: newData.next_send_at,
-			};
+		user.value = {
+			...user.value,
+			price_notifications_enabled: newData.price_notifications_enabled,
+			scheduled_update_times: newData.scheduled_update_times,
+			only_notify_when_market_open: newData.only_notify_when_market_open,
+			next_send_at: newData.next_send_at,
+		};
 		}
 	},
 );
 
-function handleScheduledUpdatesEnabledUpdate(value: boolean) {
-	scheduledUpdatesEnabled.value = value;
+watch(priceNotificationsEnabled, (value) => {
+	user.value = { ...user.value, price_notifications_enabled: value };
+	notifyChange();
+});
+
+function handleOnlyNotifyWhenMarketOpenUpdate(value: boolean) {
+	onlyNotifyWhenMarketOpen.value = value;
+	user.value = { ...user.value, only_notify_when_market_open: value };
 	notifyChange();
 }
 
@@ -284,27 +414,41 @@ function handleTimeChange(index: number, value: string) {
 }
 
 function handleAddTime() {
-	if (!canAddTime.value) {
+	if (!canAddTime.value) return;
+	const times = normalizeScheduledTimes(scheduledUpdateTimesMinutes.value);
+	// When empty, use market open as the first suggested time (falls back to 9:00 AM)
+	if (times.length === 0) {
+		scheduledUpdateTimesMinutes.value = [marketOpenLocalMinutes.value ?? DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES];
+		notifyChange();
+		return;
+	}
+	const nextMinutes = getNextQuickAddMinute(times, 0);
+	if (nextMinutes === null) return;
+	scheduledUpdateTimesMinutes.value = normalizeScheduledTimes([...times, nextMinutes]);
+	notifyChange();
+}
+
+function handleAddInitialTime(value: string) {
+	const parsedMinutes = parseTimeToMinutes(value);
+	if (parsedMinutes === null) {
+		return;
+	}
+	scheduledUpdateTimesMinutes.value = [parsedMinutes];
+	notifyChange();
+}
+
+function handleAddMarketOpen() {
+	if (!canAddMarketOpen.value || marketOpenLocalMinutes.value === null) {
 		return;
 	}
 	const times = normalizeScheduledTimes(scheduledUpdateTimesMinutes.value);
-	const baseTimes = times.length === 0 ? [DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES] : times;
-	const nextMinutes =
-		baseTimes[baseTimes.length - 1] + ADD_SCHEDULED_OFFSET_MINUTES;
-	if (nextMinutes > MAX_SCHEDULED_UPDATE_MINUTES) {
-		return;
-	}
-	scheduledUpdateTimesMinutes.value = normalizeScheduledTimes([
-		...baseTimes,
-		nextMinutes,
-	]);
+	const baseTimes =
+		times.length === 0 ? [marketOpenLocalMinutes.value] : [...times, marketOpenLocalMinutes.value];
+	scheduledUpdateTimesMinutes.value = normalizeScheduledTimes(baseTimes);
 	notifyChange();
 }
 
 function handleRemoveTime(index: number) {
-	if (scheduledUpdateTimesMinutes.value.length <= 1) {
-		return;
-	}
 	const updated = [...scheduledUpdateTimesMinutes.value];
 	updated.splice(index, 1);
 	scheduledUpdateTimesMinutes.value = normalizeScheduledTimes(updated);

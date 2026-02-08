@@ -9,7 +9,7 @@ import {
 	expect,
 	it,
 } from "vitest";
-import { getStockData } from "../../helpers/shared-utils";
+import { getStockData } from "../../helpers/stock-data";
 
 function createDbClient(): Client {
 	const databaseUrl = process.env.DATABASE_URL;

@@ -81,6 +81,11 @@ export default defineConfig({
 	],
 
 	vite: {
+		server: {
+			// Allow Vite dev server to be accessed through ngrok.
+			// Vite treats leading-dot entries as wildcard subdomains.
+			allowedHosts: [".ngrok-free.app"],
+		},
 		plugins: [
 			// Astro Icon's <Icon> component cannot be used in Vue components (Astro-only, server-rendered).
 			// For Vue components, import SVGs with ?component suffix to get Vue components with render functions.

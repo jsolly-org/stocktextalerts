@@ -12,7 +12,7 @@ import type {
 } from "../types";
 import { createEmailUnsubscribeUrl } from "./email-unsubscribe";
 
-export interface EmailRequest {
+interface EmailRequest {
 	to: string;
 	subject: string;
 	body: string;

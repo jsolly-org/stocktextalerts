@@ -5,11 +5,13 @@ import { createSendVerificationHandler } from "../../../../src/pages/api/auth/sm
 import { createVerifyCodeHandler } from "../../../../src/pages/api/auth/sms/verify-code";
 import {
 	adminClient,
-	cleanupTestUser,
 	createAuthenticatedCookies,
+} from "../../../helpers/test-env";
+import {
 	createTestUser,
 	generateUniquePhoneNumber,
-} from "../../../helpers/shared-utils";
+} from "../../../helpers/test-user";
+import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
 
 const smsVerifyMocks = vi.hoisted(() => ({
 	sendVerificationMock: vi.fn(),
@@ -34,8 +36,9 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 			password: "TestPassword123!",
 			confirmed: true,
 		});
+		registerTestUserForCleanup(testUser.id);
 
-		try {
+		{
 			const cookies = await createAuthenticatedCookies(
 				testUser.email,
 				"TestPassword123!",
@@ -93,8 +96,6 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 			expect(updatedUser.sms_notifications_enabled).toBe(true);
 			expect(updatedUser.phone_verified).toBe(false);
 			expect(updatedUser.verification_sent_at).toBeTruthy();
-		} finally {
-			await cleanupTestUser(testUser.id);
 		}
 	});
 });
@@ -116,8 +117,9 @@ describe("A signed-in user verifies their phone number with an SMS code.", () =>
 			phoneNumber: "5550001234",
 			phoneVerified: false,
 		});
+		registerTestUserForCleanup(testUser.id);
 
-		try {
+		{
 			await adminClient
 				.from("users")
 				.update({ verification_sent_at: new Date().toISOString() })
@@ -164,8 +166,6 @@ describe("A signed-in user verifies their phone number with an SMS code.", () =>
 			if (!updatedUser) throw new Error("expected user row");
 			expect(updatedUser.phone_verified).toBe(true);
 			expect(updatedUser.verification_sent_at).toBeNull();
-		} finally {
-			await cleanupTestUser(testUser.id);
 		}
 	});
 });

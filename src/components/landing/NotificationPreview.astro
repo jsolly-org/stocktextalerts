@@ -10,31 +10,36 @@ import phoneFrame from "../../assets/phone-frame.svg";
       <div class="messages-scroll">
         <div class="messages-wrapper">
           <div class="message-bubble received" data-index="0">
-            <p>Stock Update: AAPL $195.50 (+2.4%), GOOGL $178.20 (+1.8%), TSLA $248.30 (-0.5%)</p>
+            <p class="text-[10px] font-bold uppercase tracking-wider mb-1.5 text-blue-600">Scheduled Update</p>
+            <p>AAPL $195.50 (+2.4%), GOOGL $178.20 (+1.8%), TSLA $248.30 (-0.5%)</p>
           </div>
-          <div class="message-bubble sent" data-index="1">
-            <p>What's driving AAPL today?</p>
+          <div class="message-bubble received" data-index="1">
+            <p class="text-[10px] font-bold uppercase tracking-wider mb-1.5 text-blue-600">🗞️ Breaking News</p>
+            <p>Fed holds rates steady at 5.25%. Markets rally on dovish guidance.</p>
           </div>
           <div class="message-bubble received" data-index="2">
-            <p>Strong iPhone sales report and analyst upgrade from Morgan Stanley. Price target raised to $210.</p>
+            <p class="text-[10px] font-bold uppercase tracking-wider mb-1.5 text-blue-600">🤫 Rumor</p>
+            <p>TSLA chatter: leaked photos suggest a lower-cost model. Unverified.</p>
           </div>
           <div class="message-bubble received" data-index="3">
-            <p>Alert: NVDA just hit a new 52-week high at $142.60, up 4.1%</p>
+            <p class="text-[10px] font-bold uppercase tracking-wider mb-1.5 text-blue-600">🗞️ Breaking News</p>
+            <p>NVDA announces next-gen AI chip. Stock surges 4.1% to new 52-week high of $142.60.</p>
           </div>
-          <div class="message-bubble sent" data-index="4">
-            <p>Can you start tracking NVDA?</p>
+          <div class="message-bubble received" data-index="4">
+            <p class="text-[10px] font-bold uppercase tracking-wider mb-1.5 text-blue-600">🤫 Rumor</p>
+            <p>AAPL chatter: supply chain talk hints at a foldable prototype. Unverified.</p>
           </div>
           <div class="message-bubble received" data-index="5">
-            <p>Done! You will now receive updates for NVDA.</p>
+            <p class="text-[10px] font-bold uppercase tracking-wider mb-1.5 text-blue-600">Scheduled Update</p>
+            <p>Market Close: S&P 500 +0.8%, NASDAQ +1.2%, DOW +0.3%.</p>
           </div>
           <div class="message-bubble received" data-index="6">
-            <p>Market Close: S&P 500 +0.8%, NASDAQ +1.2%. Your portfolio is up 2.1% today.</p>
+            <p class="text-[10px] font-bold uppercase tracking-wider mb-1.5 text-blue-600">🗞️ Breaking News</p>
+            <p>MSFT earnings beat estimates. Revenue up 17% YoY. After-hours +3.2%.</p>
           </div>
-          <div class="message-bubble sent" data-index="7">
-            <p>Any earnings to watch this week?</p>
-          </div>
-          <div class="message-bubble received" data-index="8">
-            <p>MSFT reports Tuesday, AMZN Thursday. I'll alert you before market open.</p>
+          <div class="message-bubble received" data-index="7">
+            <p class="text-[10px] font-bold uppercase tracking-wider mb-1.5 text-blue-600">🤫 Rumor</p>
+            <p>GOOGL chatter: talk of insider buying ahead of a product launch. Unverified.</p>
           </div>
         </div>
       </div>
@@ -124,13 +129,6 @@ import phoneFrame from "../../assets/phone-frame.svg";
     margin: 0;
   }
 
-  .message-bubble.sent {
-    margin-left: auto;
-    background-color: var(--color-blue-500);
-    color: white;
-    border-radius: 0.5rem 0.5rem 0 0.5rem;
-  }
-
   .message-bubble.received {
     background-color: var(--color-slate-100);
     color: var(--color-slate-800);
@@ -180,8 +178,8 @@ import phoneFrame from "../../assets/phone-frame.svg";
     }
 
     let currentIndex = 0;
-    const DELAY = 1500;
-    const PAUSE_BEFORE_RESTART = 4000;
+    const DELAY = 2250;
+    const PAUSE_BEFORE_RESTART = 5000;
     let animationInProgress = false;
 
     function animateMessages() {

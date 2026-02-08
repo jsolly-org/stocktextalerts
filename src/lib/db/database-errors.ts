@@ -12,16 +12,6 @@ Database Error Constants
  */
 
 /* =============
-Constraint Names
-============= */
-
-/*
- * CHECK constraint on users table (line 182 in migration).
- * Raised when sms_notifications_enabled is true but phone is not set.
- */
-export const CONSTRAINT_SMS_REQUIRES_PHONE = "users_sms_requires_phone";
-
-/* =============
 Database Limits
 ============= */
 
@@ -35,19 +25,13 @@ Error Message Text
  * Error message from replace_user_stocks function (line 249 in migration).
  * Raised when user attempts to track more than MAX_TRACKED_STOCKS stocks.
  */
-export const MESSAGE_STOCKS_LIMIT_EXCEEDED = "Tracked stocks limit exceeded";
-
-/*
- * Error message from update_user_preferences_and_stocks function.
- * Raised when tracked stocks array is null.
- */
-export const MESSAGE_STOCKS_REQUIRED = "Tracked stocks required";
+const MESSAGE_STOCKS_LIMIT_EXCEEDED = "Tracked stocks limit exceeded";
 
 /*
  * Error message from replace_user_stocks function.
  * Raised when a stock symbol contains whitespace.
  */
-export const MESSAGE_STOCKS_WHITESPACE = "Stock symbol contains whitespace";
+const MESSAGE_STOCKS_WHITESPACE = "Stock symbol contains whitespace";
 
 const POSTGRES_RAISE_CODE = "P0001";
 
@@ -57,9 +41,6 @@ Error Detection Helpers
 
 type ErrorWithCode = { code: string | null; message: string };
 
-/**
- * Narrow an unknown error to a Supabase PostgrestError shape.
- */
 function isPostgrestError(error: unknown): error is PostgrestError {
 	if (!error || typeof error !== "object") {
 		return false;
@@ -74,9 +55,6 @@ function isPostgrestError(error: unknown): error is PostgrestError {
 	);
 }
 
-/**
- * Detect the "tracked stocks limit exceeded" error raised by DB functions.
- */
 export function isStocksLimitError(error: unknown): boolean {
 	if (!isPostgrestError(error)) {
 		return false;
@@ -88,23 +66,6 @@ export function isStocksLimitError(error: unknown): boolean {
 	);
 }
 
-/**
- * Detect the "tracked stocks required" error raised by DB functions.
- */
-export function isStocksRequiredError(error: unknown): boolean {
-	if (!isPostgrestError(error)) {
-		return false;
-	}
-
-	return (
-		error.code === POSTGRES_RAISE_CODE &&
-		error.message === MESSAGE_STOCKS_REQUIRED
-	);
-}
-
-/**
- * Detect the "stock symbol contains whitespace" error raised by DB functions.
- */
 export function isStocksWhitespaceError(error: unknown): boolean {
 	if (!isPostgrestError(error)) {
 		return false;

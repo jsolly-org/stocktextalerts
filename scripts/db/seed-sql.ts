@@ -1,4 +1,4 @@
-import type { TablesInsert } from "../src/lib/db/generated/database.types";
+import type { TablesInsert } from "../../src/lib/db/generated/database.types";
 
 type DbUserInsert = Omit<TablesInsert<"users">, "scheduled_update_times"> & {
   scheduled_update_times?: number[] | null;
@@ -261,16 +261,6 @@ export function buildPublicUserSql(userId: string, user: SeedUser): string {
     insertColumns.push("phone_verified");
     insertValues.push(String(phoneVerified));
     updateFields.push("phone_verified = EXCLUDED.phone_verified");
-  }
-
-  const scheduledUpdatesEnabled = validateOptionalBoolean(
-    user.scheduled_updates_enabled,
-    "scheduled_updates_enabled",
-  );
-  if (scheduledUpdatesEnabled !== undefined) {
-    insertColumns.push("scheduled_updates_enabled");
-    insertValues.push(String(scheduledUpdatesEnabled));
-    updateFields.push("scheduled_updates_enabled = EXCLUDED.scheduled_updates_enabled");
   }
 
   const scheduledUpdateTimes = validateOptionalNumberArray(

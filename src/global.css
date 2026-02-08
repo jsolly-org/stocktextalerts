@@ -7,8 +7,6 @@
 
 	--color-feature-phone: var(--color-indigo-600);
 	--color-feature-track: var(--color-teal-600);
-	--color-feature-secure: var(--color-rose-600);
-
 	--color-success-bg: var(--color-green-50);
 	--color-success-border: var(--color-green-200);
 	--color-success-text: var(--color-green-900);
@@ -115,19 +113,6 @@ body {
 
 .card {
 	@apply bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden;
-}
-
-.card-accent-primary {
-	@apply before:block before:h-1 before:bg-gradient-to-r before:from-primary before:via-blue-500 before:to-primary-soft;
-}
-.card-accent-success {
-	@apply before:block before:h-1 before:bg-gradient-to-r before:from-success-strong before:via-green-400 before:to-success-strong;
-}
-.card-accent-teal {
-	@apply before:block before:h-1 before:bg-gradient-to-r before:from-teal-500 before:via-teal-400 before:to-teal-500;
-}
-.card-accent-gray {
-	@apply before:block before:h-1 before:bg-gradient-to-r before:from-gray-300 before:via-gray-400 before:to-gray-300;
 }
 
 .card-body {

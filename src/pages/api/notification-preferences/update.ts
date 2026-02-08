@@ -6,17 +6,19 @@ import type { FormSchema } from "../../../lib/forms/schema";
 import { jsonResponse } from "../../../lib/json-response";
 import { createLogger } from "../../../lib/logging";
 import { parseScheduledTimes } from "../../../lib/notification-preferences/scheduled-times";
-import {
-	buildNotificationPreferencesUpdatePayload,
-	NotificationPreferencesValidationError,
-} from "../../../lib/notification-preferences/server-update";
+import { buildNotificationPreferencesUpdatePayload } from "../../../lib/notification-preferences/server-update";
 
 const NOTIFICATION_PREFERENCES_SCHEMA = {
+	price_notifications_enabled: { type: "boolean" },
 	email_notifications_enabled: { type: "boolean" },
 	sms_notifications_enabled: { type: "boolean" },
 	timezone: { type: "timezone" },
-	scheduled_updates_enabled: { type: "boolean" },
 	scheduled_update_times: { type: "json_string_array" },
+	only_notify_when_market_open: { type: "boolean" },
+	add_ons_only_notify_when_market_open: { type: "boolean" },
+	add_ons_delivery_time: { type: "time" },
+	first_notification_include_news: { type: "boolean" },
+	first_notification_include_rumors: { type: "boolean" },
 } as const satisfies FormSchema;
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
@@ -121,16 +123,6 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 				logger,
 			});
 	} catch (error) {
-		if (error instanceof NotificationPreferencesValidationError) {
-			logger.info(
-				"Notification-preferences update rejected due to missing scheduled update times",
-				{ userId: user.id, reason: "missing_scheduled_update_times" },
-			);
-			return jsonResponse(400, {
-				ok: false,
-				message: "update_times_required",
-			});
-		}
 		logger.error(
 			"Notification-preferences update rejected due to invalid update schedule",
 			{
@@ -143,10 +135,16 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	}
 
 	try {
+		const requestedSmsNotificationsEnabled =
+			safeNotificationPreferenceUpdates.sms_notifications_enabled;
+		if (requestedSmsNotificationsEnabled === true && dbUser.sms_opted_out) {
+			logger.info("SMS enable rejected: user is sms_opted_out", {
+				userId: user.id,
+			});
+			return jsonResponse(400, { ok: false, message: "sms_opted_out" });
+		}
 		const finalSmsNotificationsEnabled =
-			safeNotificationPreferenceUpdates.sms_notifications_enabled !== undefined
-				? safeNotificationPreferenceUpdates.sms_notifications_enabled
-				: dbUser.sms_notifications_enabled;
+			requestedSmsNotificationsEnabled ?? dbUser.sms_notifications_enabled;
 		if (
 			finalSmsNotificationsEnabled &&
 			(!dbUser.phone_country_code || !dbUser.phone_number)
@@ -170,15 +168,25 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			ok: true,
 			message: "settings_updated",
 			notificationPreferences: {
+				price_notifications_enabled: updatedUser.price_notifications_enabled,
 				email_notifications_enabled: updatedUser.email_notifications_enabled,
 				sms_notifications_enabled: updatedUser.sms_notifications_enabled,
+				sms_opted_out: updatedUser.sms_opted_out,
 				phone_verified: updatedUser.phone_verified,
 				timezone: updatedUser.timezone,
-				scheduled_updates_enabled: updatedUser.scheduled_updates_enabled,
 				scheduled_update_times: updatedUser.scheduled_update_times,
+				only_notify_when_market_open: updatedUser.only_notify_when_market_open,
+				add_ons_only_notify_when_market_open:
+					updatedUser.add_ons_only_notify_when_market_open,
+				add_ons_delivery_time: updatedUser.add_ons_delivery_time,
+				add_ons_next_send_at: updatedUser.add_ons_next_send_at,
 				next_send_at: updatedUser.next_send_at,
 				dismiss_timezone_mismatch_prompts:
 					updatedUser.dismiss_timezone_mismatch_prompts,
+				first_notification_include_news:
+					updatedUser.first_notification_include_news,
+				first_notification_include_rumors:
+					updatedUser.first_notification_include_rumors,
 			},
 		});
 	} catch (error) {

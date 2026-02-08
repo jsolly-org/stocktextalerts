@@ -53,6 +53,7 @@
 				v-model:emailEnabled="emailEnabled"
 				v-model:smsEnabled="smsEnabled"
 				:can-save-sms-enabled="canSaveSmsEnabled"
+				:sms-opted-out="smsOptedOut"
 				:show-time-reminder="showTimeReminder"
 				:email-notifications-enabled-id="emailNotificationsEnabledId"
 				:sms-notifications-enabled-id="smsNotificationsEnabledId"
@@ -78,7 +79,6 @@ import {
 	formatMessage,
 	STATUS_TONE_CLASSES,
 } from "../../../lib/constants";
-import type { User } from "../../../lib/db";
 import { rootLogger } from "../../../lib/logging";
 import { fetchCurrentNotificationPreferences } from "../../../lib/notification-preferences/client";
 import FadeTransition from "../../FadeTransition.vue";
@@ -219,6 +219,7 @@ const smsEnabled = computed({
 });
 
 const phoneVerified = computed(() => user.value.phone_verified === true);
+const smsOptedOut = computed(() => user.value.sms_opted_out === true);
 
 const canSaveSmsEnabled = computed(() => {
 	if (!smsEnabled.value) {
@@ -228,9 +229,6 @@ const canSaveSmsEnabled = computed(() => {
 });
 const showTimeReminder = computed(() => {
 	if (!emailEnabled.value && !smsEnabled.value) {
-		return false;
-	}
-	if (!user.value.scheduled_updates_enabled) {
 		return false;
 	}
 	const times = user.value.scheduled_update_times;
@@ -254,6 +252,7 @@ watch(
 				...user.value,
 				email_notifications_enabled: newData.email_notifications_enabled,
 				sms_notifications_enabled: newData.sms_notifications_enabled,
+				sms_opted_out: newData.sms_opted_out,
 				phone_verified: newData.phone_verified,
 			};
 			// Sync channel state with parent

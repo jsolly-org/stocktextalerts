@@ -1,0 +1,122 @@
+name: Create Issues
+
+on:
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  create-issues:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login == 'jsolly') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Setup Cursor CLI
+        uses: ./.github/actions/setup-cursor
+
+      - name: Create follow-up issues
+        env:
+          MODEL: gpt-5.2
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          agent -p "You are operating in a GitHub Actions runner.
+
+          The GitHub CLI is available as \`gh\` and authenticated via \`GH_TOKEN\`. Git is available. You have read-only access to repository contents and write access to issues.
+
+          # Context:
+          - Repo: ${{ github.repository }}
+          - Owner: ${{ github.repository_owner }}
+          - Trigger: ${{ github.event_name }}
+          - PR Number: ${{ github.event.pull_request.number }}
+          - Base Ref: ${{ github.event.pull_request.base.ref }}
+          - Head Ref: ${{ github.event.pull_request.head.ref }}
+          - Base SHA: ${{ github.event.pull_request.base.sha }}
+          - Head SHA: ${{ github.event.pull_request.head.sha }}
+          - Merge Commit SHA: ${{ github.event.pull_request.merge_commit_sha }}
+
+          # Goal:
+          Create high-quality follow-up GitHub issues inspired by the merged PR. Quality over quantity — zero issues is perfectly fine.
+
+          # Phase 1 — Understand the PR:
+          - If Trigger is \`pull_request\`: run \`gh pr view \$PR_NUMBER --json title,body,labels\` and \`gh pr diff \$PR_NUMBER\` (where PR_NUMBER=${{ github.event.pull_request.number }}) to understand what changed.
+          - If Trigger is \`workflow_dispatch\`: review the latest 3 commits on \`main\` using \`git log -3 --format='%H %s'\` and \`git diff HEAD~3..HEAD\` to understand recent changes.
+
+          # Phase 2 — Check existing issues:
+          - Fetch open issues: \`gh issue list --state open --limit 50 --json number,title,body,labels\`
+          - Fetch recently closed issues: \`gh issue list --state closed --limit 20 --json number,title,body,labels\`
+          - Use these to avoid creating duplicates or issues that were already addressed.
+
+          # Phase 3 — Brainstorm and filter:
+          Consider these categories:
+          - Follow-up features that naturally extend the PR's work
+          - Edge cases or error handling gaps revealed by the diff
+          - UX improvements for any UI changes in the PR
+          - Missing or insufficient test coverage
+          - Performance or security considerations
+
+          Apply these quality filters aggressively:
+          - Would a senior developer consider this issue worth filing? If not, skip it.
+          - Is the issue specific and actionable (not vague like 'improve performance')? If not, skip it.
+          - Does a similar open or recently closed issue already exist? If so, skip it.
+          - Is this something the PR author likely already considered and intentionally left out? If so, skip it.
+          - Is this a trivial nitpick or stylistic preference? If so, skip it.
+
+          # Phase 4 — Create issues:
+          For each issue that passes all filters (maximum 3, fewer is better, zero is fine):
+          1. Choose a label: \`enhancement\` for features/improvements, \`bug\` for defects.
+          2. Create the issue with:
+             \`\`\`
+             gh issue create \\
+               --title \"<concise title>\" \\
+               --label \"<enhancement or bug>,bot-generated\" \\
+               --body \"## Summary
+             <1-2 sentence description>
+
+             ## Requirements
+             - <specific requirement 1>
+             - <specific requirement 2>
+
+             ## Motivation
+             <why this matters, referencing the PR context>
+
+             ---
+             *Auto-generated from PR #${{ github.event.pull_request.number }} by the create-issues workflow.*\"
+             \`\`\`
+
+          # Strict rules:
+          - Do NOT modify any files, create commits, or push anything.
+          - Do NOT create more than 3 issues. Zero issues is a valid outcome.
+          - Do NOT create vague, low-value, or duplicate issues.
+          - Every issue MUST have both the category label AND the \`bot-generated\` label.
+          - Every issue body MUST end with the auto-generated footer.
+
+          # Output:
+          After completing all phases, print a summary:
+          - ISSUES_CREATED=<number>
+          - For each issue created, print: ISSUE_URL=<url>
+          - If zero issues were created, print: NO_ISSUES_NEEDED
+          " --force --model "$MODEL" --output-format=text
+
+      - name: Log results
+        run: |
+          echo "---"
+          echo "Issues with bot-generated label:"
+          gh issue list --label "bot-generated" --state open --limit 5 --json number,title,url
+          echo "---"

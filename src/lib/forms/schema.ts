@@ -10,15 +10,7 @@ type StringFieldSpec = {
 type BooleanFieldSpec = {
 	type: "boolean";
 	required?: boolean;
-	/**
-	 * Accepted truthy string values.
-	 * Defaults to ["on", "true", "1"].
-	 */
 	truthyValues?: readonly string[];
-	/**
-	 * Accepted falsy string values.
-	 * Defaults to ["off", "false", "0"].
-	 */
 	falsyValues?: readonly string[];
 };
 

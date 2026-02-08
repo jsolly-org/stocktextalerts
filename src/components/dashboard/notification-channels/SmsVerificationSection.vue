@@ -3,7 +3,7 @@
 		<section
 			v-if="smsEnabled"
 			:id="phoneVerificationSectionId"
-			class="pl-12 pr-4 pb-3 space-y-3"
+			class="pl-12 pb-3 space-y-3"
 		>
 			<p v-if="user.phone_verified && !isEditingPhone" class="flex items-center gap-1.5 text-sm text-gray-600">
 				<CheckCircleIcon class="size-4 text-success-strong shrink-0" aria-hidden="true" />

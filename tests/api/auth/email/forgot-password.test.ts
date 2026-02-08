@@ -1,7 +1,8 @@
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../../src/pages/api/auth/email/forgot-password";
-import { createTestEmail, toRedirect } from "../../../helpers/shared-utils";
+import { toRedirect } from "../../../helpers/request-helpers";
+import { createTestEmail } from "../../../helpers/test-user";
 
 describe("A user requests a password reset email from the forgot password form.", () => {
 	it("A reset email request is accepted and the user sees a success confirmation.", async () => {

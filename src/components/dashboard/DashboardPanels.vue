@@ -18,6 +18,7 @@
 			:status-tone="stocksStatusTone"
 			:is-saving="isStocksSaving"
 			@form-changed="notifyStocksChange"
+			@stocks-changed="currentStocks = $event"
 		/>
 	</form>
 
@@ -32,8 +33,14 @@
 		:phoneVerified="phoneVerified"
 	/>
 
+	<FirstNotificationExtrasPanel
+		:emailEnabled="emailEnabled"
+		:smsEnabled="smsEnabled"
+		:phoneVerified="phoneVerified"
+	/>
+
 	<NotificationPreviewPanel
-		:initialStocks="initialStocks"
+		:initialStocks="currentStocks"
 		:emailEnabled="emailEnabled"
 		:smsEnabled="smsEnabled"
 		:phoneVerified="phoneVerified"
@@ -46,6 +53,7 @@ import { DASHBOARD_STOCKS_FORM_ID } from "../../lib/constants";
 import type { User } from "../../lib/db";
 import { useAutoSaveForm } from "./composables/useAutoSaveNotificationPreferences";
 import { provideDashboardUser } from "./composables/useDashboardUser";
+import FirstNotificationExtrasPanel from "./FirstNotificationExtrasPanel.vue";
 import NotificationChannelsPanel from "./notification-channels/NotificationChannelsPanel.vue";
 import NotificationPreviewPanel from "./notification-preview/NotificationPreviewPanel.vue";
 import ScheduledNotificationsPanel from "./scheduled-notifications/ScheduledNotificationsPanel.vue";
@@ -69,6 +77,9 @@ const {
 
 // Shared mutable user ref — all dashboard descendants inject this via useDashboardUser()
 const user = provideDashboardUser(userProp);
+
+// Live tracked stocks — starts from server data, updated by TrackedStocksPanel edits
+const currentStocks = ref<InitialStock[]>([...props.initialStocks]);
 
 const emailEnabled = ref(user.value.email_notifications_enabled);
 const smsEnabled = ref(user.value.sms_notifications_enabled);

@@ -1,8 +1,5 @@
 import { DateTime } from "luxon";
 
-/**
- * Build a local DateTime for the given date in a specific zone.
- */
 function buildLocalDateTime(options: {
 	date: DateTime;
 	zone: string;
@@ -24,9 +21,7 @@ function buildLocalDateTime(options: {
 	);
 }
 
-/**
- * Prefer the later possible offset when a local time is ambiguous (DST fall-back).
- */
+// Prefer the later offset when a local time is ambiguous (DST fall-back)
 function pickLaterOffset(candidate: DateTime): DateTime {
 	const possibleOffsets = candidate.getPossibleOffsets();
 	if (possibleOffsets.length <= 1) {
@@ -36,9 +31,6 @@ function pickLaterOffset(candidate: DateTime): DateTime {
 	return possibleOffsets[possibleOffsets.length - 1];
 }
 
-/**
- * Calculate the next UTC send timestamp for a single local minutes value.
- */
 export function calculateNextSendAt(
 	localMinutes: number,
 	timezone: string,
@@ -89,9 +81,6 @@ export function calculateNextSendAt(
 	return candidate.toUTC();
 }
 
-/**
- * Calculate the earliest next UTC send timestamp across multiple local minutes values.
- */
 export function calculateNextSendAtFromTimes(
 	localMinutesList: number[],
 	timezone: string,
@@ -118,9 +107,6 @@ export function calculateNextSendAtFromTimes(
 	return nextSend;
 }
 
-/**
- * Convert a UTC DateTime into minutes since midnight in the provided timezone.
- */
 export function getLocalMinutesFromDateTime(
 	timezone: string,
 	date: DateTime,

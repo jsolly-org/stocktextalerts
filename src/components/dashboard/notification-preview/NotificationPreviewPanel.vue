@@ -32,11 +32,7 @@
 			</FadeTransition>
 
 			<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.gray}`"></div>
-			<div
-				class="card-body"
-				:class="{ 'opacity-60': needsChannelSelection }"
-				:aria-disabled="needsChannelSelection ? 'true' : undefined"
-			>
+			<div class="card-body">
 				<header class="mb-4">
 					<h2
 						:id="DASHBOARD_SECTION_IDS.preview"
@@ -55,27 +51,39 @@
 					phoneVerificationSectionId=""
 				/>
 
-				<FormatToggles
-					:showChangePercent="showChangePercent"
-					:showCompanyName="showCompanyName"
-					:detailedFormat="detailedFormat"
-					:disabled="needsChannelSelection"
-					@update:showChangePercent="showChangePercent = $event"
-					@update:showCompanyName="showCompanyName = $event"
-					@update:detailedFormat="detailedFormat = $event"
-				/>
+			<div
+				class="transition-opacity duration-200"
+				:class="{ 'opacity-50': needsChannelSelection }"
+			>
+			<FormatToggles
+				:showChangePercent="showChangePercent"
+				:showCompanyName="showCompanyName"
+				:detailedFormat="detailedFormat"
+				:disabled="needsChannelSelection"
+				@update:showChangePercent="showChangePercent = $event"
+				@update:showCompanyName="showCompanyName = $event"
+				@update:detailedFormat="detailedFormat = $event"
+			/>
 
-				<div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-					<SmsPreview
-						:stocks="previewStocks"
-						:formatPreferences="formatPreferences"
-					/>
-					<EmailPreview
-						:stocks="previewStocks"
-						:formatPreferences="formatPreferences"
-					/>
-				</div>
+			<p
+				v-if="isUsingDemoStocks"
+				class="mt-6 mb-0 text-xs text-gray-500 italic"
+			>
+				Showing example stocks. Add tracked stocks above to preview your actual notifications.
+			</p>
+
+			<div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+				<SmsPreview
+					:stocks="previewStocks"
+					:formatPreferences="formatPreferences"
+				/>
+				<EmailPreview
+					:stocks="previewStocks"
+					:formatPreferences="formatPreferences"
+				/>
 			</div>
+			</div>
+		</div>
 		</section>
 	</form>
 </template>
@@ -151,12 +159,13 @@ const formatPreferences = computed<FormatPreferences>(() => ({
 	detailed_format: detailedFormat.value,
 }));
 
+const isUsingDemoStocks = computed(() => initialStocks.value.length === 0);
+
 const previewStocks = computed<PreviewStock[]>(() => {
 	const stocks = initialStocks.value;
 	if (stocks.length === 0) {
 		return DEMO_STOCKS;
 	}
-	// Map user's actual tracked stocks to preview stocks with demo prices
 	const demoPrices = [
 		{ price: 195.5, changePercent: 2.4 },
 		{ price: 178.2, changePercent: 1.8 },

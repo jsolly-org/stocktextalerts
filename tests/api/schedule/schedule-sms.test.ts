@@ -2,11 +2,9 @@ import type { APIContext } from "astro";
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../../../src/pages/api/schedule";
-import {
-	adminClient,
-	cleanupTestUser,
-	createTestUser,
-} from "../../helpers/shared-utils";
+import { adminClient } from "../../helpers/test-env";
+import { createTestUser } from "../../helpers/test-user";
+import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 describe("Users receive scheduled stock update notifications.", () => {
 	const testCronSecret = "test-cron-secret";
@@ -32,71 +30,65 @@ describe("Users receive scheduled stock update notifications.", () => {
 		}
 		const scheduledUpdateTime = nowLocal.hour * 60 + nowLocal.minute;
 
-		let id: string | undefined;
-		try {
-			vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
-			vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-			vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
+		vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
+		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+		vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
 
-			const user = await createTestUser({
-				timezone,
-				emailNotificationsEnabled: false,
-				smsNotificationsEnabled: true,
-				phoneVerified: true,
-				smsOptedOut: false,
-				scheduledUpdatesEnabled: true,
-				scheduledUpdateTimes: [scheduledUpdateTime],
-				trackedStocks: ["AAPL"],
-			});
-			id = user.id;
+		const user = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: false,
+			smsNotificationsEnabled: true,
+			phoneVerified: true,
+			smsOptedOut: false,
+			scheduledUpdateTimes: [scheduledUpdateTime],
+			trackedStocks: ["AAPL"],
+		});
+		const { id } = user;
+		registerTestUserForCleanup(id);
 
-			const { error: updateError } = await adminClient
-				.from("users")
-				.update({ next_send_at: DateTime.utc().toISO() })
-				.eq("id", id);
-			expect(updateError).toBeNull();
+		const { error: updateError } = await adminClient
+			.from("users")
+			.update({ next_send_at: DateTime.utc().toISO() })
+			.eq("id", id);
+		expect(updateError).toBeNull();
 
-			const response = await POST({
-				request: new Request("http://localhost/api/schedule", {
-					method: "POST",
-					headers: {
-						Authorization: `Bearer ${testCronSecret}`,
-					},
-				}),
-			} as APIContext);
+		const response = await POST({
+			request: new Request("http://localhost/api/schedule", {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${testCronSecret}`,
+				},
+			}),
+		} as APIContext);
 
-			expect(response.status).toBe(200);
-			const json = await response.json();
-			expect(json.success).toBe(true);
-			expect(json.smsSent + json.smsFailed).toBeGreaterThanOrEqual(1);
+		expect(response.status).toBe(200);
+		const json = await response.json();
+		expect(json.success).toBe(true);
+		expect(json.smsSent + json.smsFailed).toBeGreaterThanOrEqual(1);
 
-			const { data: logs, error: logError } = await adminClient
-				.from("notification_log")
-				.select("*")
-				.eq("user_id", id)
-				.eq("delivery_method", "sms")
-				.eq("type", "scheduled_update")
-				.order("created_at", { ascending: false })
-				.limit(10);
-			expect(logError).toBeNull();
-			expect(logs).toHaveLength(1);
-			expect(logs[0].message_delivered).toBe(true);
+		const { data: logs, error: logError } = await adminClient
+			.from("notification_log")
+			.select("*")
+			.eq("user_id", id)
+			.eq("delivery_method", "sms")
+			.eq("type", "scheduled_update")
+			.order("created_at", { ascending: false })
+			.limit(10);
+		expect(logError).toBeNull();
+		expect(logs).toHaveLength(1);
+		expect(logs[0].message_delivered).toBe(true);
 
-			const { data: scheduled, error: scheduledError } = await adminClient
-				.from("scheduled_notifications")
-				.select("status,attempt_count")
-				.eq("user_id", id)
-				.eq("notification_type", "scheduled_update")
-				.eq("scheduled_minutes", scheduledUpdateTime)
-				.eq("channel", "sms")
-				.maybeSingle();
-			expect(scheduledError).toBeNull();
-			expect(scheduled).toBeTruthy();
-			expect(scheduled.attempt_count).toBe(1);
-			expect(["sent", "failed"]).toContain(scheduled.status);
-		} finally {
-			vi.unstubAllEnvs();
-			if (id) await cleanupTestUser(id);
-		}
+		const { data: scheduled, error: scheduledError } = await adminClient
+			.from("scheduled_notifications")
+			.select("status,attempt_count")
+			.eq("user_id", id)
+			.eq("notification_type", "scheduled_update")
+			.eq("scheduled_minutes", scheduledUpdateTime)
+			.eq("channel", "sms")
+			.maybeSingle();
+		expect(scheduledError).toBeNull();
+		expect(scheduled).toBeTruthy();
+		expect(scheduled.attempt_count).toBe(1);
+		expect(["sent", "failed"]).toContain(scheduled.status);
 	});
 });
