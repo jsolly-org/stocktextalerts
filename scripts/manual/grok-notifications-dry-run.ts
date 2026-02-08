@@ -1,6 +1,10 @@
 import { DateTime } from "luxon";
 import { generateFirstNotificationExtrasWithGrok } from "../../src/lib/grok/extras";
+import { createLogger } from "../../src/lib/logging";
 import { formatSmsMessage } from "../../src/lib/messaging/sms/delivery";
+
+const requestId = "scripts/grok-notifications-dry-run";
+const logger = createLogger({ requestId, action: "grok_notifications_dry_run" });
 
 function usage(): string {
 	return [
@@ -65,22 +69,26 @@ async function main() {
 	const args = process.argv.slice(2);
 	const help = args.includes("--help") || args.includes("-h");
 	if (help) {
-		console.log(usage());
+		logger.info(usage(), { event: "usage" });
 		return;
 	}
 
 	const tickers = parseTickers(getArgValue(args, "--tickers"));
 	if (tickers.length === 0) {
-		console.error("Missing required arg: --tickers AAPL,MSFT\n\n" + usage());
+		logger.info("Missing required arg: --tickers AAPL,MSFT\n\n" + usage(), {
+			event: "invalid_args",
+			reason: "missing_tickers",
+		});
 		process.exitCode = 2;
 		return;
 	}
 
 	const { includeNews, includeRumors } = parseKinds(getArgValue(args, "--kinds"));
 	if (!includeNews && !includeRumors) {
-		console.error(
+		logger.info(
 			"Invalid --kinds (expected a comma list containing 'news' and/or 'rumors').\n\n" +
 				usage(),
+			{ event: "invalid_args", reason: "invalid_kinds", tickers },
 		);
 		process.exitCode = 2;
 		return;
@@ -96,13 +104,23 @@ async function main() {
 	if (dateArg) {
 		const parsed = DateTime.fromISO(dateArg, { zone: timezone });
 		if (!parsed.isValid) {
-			console.error(`Invalid --date (expected YYYY-MM-DD): ${dateArg}`);
+			logger.info(`Invalid --date (expected YYYY-MM-DD): ${dateArg}`, {
+				event: "invalid_args",
+				reason: "invalid_date",
+				tickers,
+				timezone,
+			});
 			process.exitCode = 2;
 			return;
 		}
 		const iso = parsed.toISODate();
 		if (!iso) {
-			console.error(`Failed to format --date: ${dateArg}`);
+			logger.info(`Failed to format --date: ${dateArg}`, {
+				event: "invalid_args",
+				reason: "failed_date_formatting",
+				tickers,
+				timezone,
+			});
 			process.exitCode = 2;
 			return;
 		}
@@ -111,23 +129,27 @@ async function main() {
 		const now = DateTime.now().setZone(timezone);
 		const iso = now.toISODate();
 		if (!iso) {
-			console.error(`Failed to format today's date for timezone: ${timezone}`);
+			logger.info(`Failed to format today's date for timezone: ${timezone}`, {
+				event: "invalid_args",
+				reason: "failed_timezone_date_formatting",
+				tickers,
+				timezone,
+			});
 			process.exitCode = 2;
 			return;
 		}
 		localDateIso = iso;
 	}
 
-	console.log("=== Grok notification dry run ===");
-	console.log(`tickers: ${tickers.join(", ")}`);
-	console.log(`timezone: ${timezone}`);
-	console.log(`localDateIso: ${localDateIso}`);
-	console.log(
-		`kinds: ${[includeNews ? "news" : null, includeRumors ? "rumors" : null]
-			.filter(Boolean)
-			.join(", ")}`,
-	);
-	console.log("");
+	logger.info("Grok notification dry run starting", {
+		event: "start",
+		tickers,
+		timezone,
+		localDateIso,
+		includeNews,
+		includeRumors,
+		marketOpen,
+	});
 
 	const extras = await generateFirstNotificationExtrasWithGrok({
 		tickers,
@@ -135,33 +157,68 @@ async function main() {
 		timezone,
 		includeNews,
 		includeRumors,
-		requestId: "scripts/grok-notifications-dry-run",
+		requestId,
 	});
 
 	if (!extras?.news && !extras?.rumors) {
-		console.log(
+		logger.info(
 			"No Grok content generated (likely missing XAI_API_KEY, request failed, or empty response).",
+			{
+				event: "no_grok_content",
+				tickers,
+				timezone,
+				localDateIso,
+				includeNews,
+				includeRumors,
+			},
 		);
 		return;
 	}
 
-	console.log("=== Grok output (raw) ===");
 	if (extras.news) {
-		console.log("");
-		console.log("[news]");
-		console.log(extras.news);
+		logger.info("Grok output (raw) [news]", {
+			event: "grok_output_raw",
+			kind: "news",
+			tickers,
+			timezone,
+			localDateIso,
+			includeNews,
+			includeRumors,
+			text: extras.news,
+		});
 	}
 	if (extras.rumors) {
-		console.log("");
-		console.log("[rumors]");
-		console.log(extras.rumors);
+		logger.info("Grok output (raw) [rumors]", {
+			event: "grok_output_raw",
+			kind: "rumors",
+			tickers,
+			timezone,
+			localDateIso,
+			includeNews,
+			includeRumors,
+			text: extras.rumors,
+		});
 	}
-	console.log("");
 
-	console.log("=== SMS preview (Grok content appended) ===");
 	const sms = formatSmsMessage(buildStocksListPlaceholder(tickers), marketOpen, extras);
-	console.log(sms);
+	logger.info("SMS preview (Grok content appended)", {
+		event: "sms_preview",
+		tickers,
+		timezone,
+		localDateIso,
+		includeNews,
+		includeRumors,
+		marketOpen,
+		sms,
+	});
 }
 
-await main();
+main().catch((error: unknown) => {
+	logger.error(
+		"Unhandled error during grok notifications dry run",
+		{ event: "unhandled_error" },
+		error,
+	);
+	process.exitCode = 1;
+});
 
