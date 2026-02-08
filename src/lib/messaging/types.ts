@@ -19,6 +19,12 @@ export interface FormatPreferences {
 	detailed_format: boolean;
 }
 
+type GrokRumorsPreferences = {
+	first_notification_include_news: boolean;
+	first_notification_include_rumors: boolean;
+	last_grok_rumors_at: string | null;
+};
+
 export type UserRecord = Pick<
 	DbUserRow,
 	| "id"
@@ -37,7 +43,7 @@ export type UserRecord = Pick<
 	| "detailed_format"
 > & {
 	scheduled_update_times: number[] | null;
-};
+} & GrokRumorsPreferences;
 
 export type EmailUser = Pick<
 	Database["public"]["Tables"]["users"]["Row"],

@@ -1,4 +1,4 @@
-import type { TablesInsert } from "../src/lib/db/generated/database.types";
+import type { TablesInsert } from "../../src/lib/db/generated/database.types";
 
 type DbUserInsert = Omit<TablesInsert<"users">, "scheduled_update_times"> & {
   scheduled_update_times?: number[] | null;

@@ -13,6 +13,8 @@ export type NotificationPreferencesData = {
 	scheduled_update_times: number[] | null;
 	next_send_at: string | null;
 	dismiss_timezone_mismatch_prompts: boolean;
+	first_notification_include_news: boolean;
+	first_notification_include_rumors: boolean;
 };
 
 type AutoSaveOptions = Omit<AutoSaveFormOptions, "payloadKey" | "logAction">;

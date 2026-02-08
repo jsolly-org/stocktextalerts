@@ -14,6 +14,8 @@ export const DASHBOARD_STOCKS_STATUS_ID = "dashboard-stocks-save-status";
 export const DASHBOARD_SCHEDULED_FORM_ID = "dashboard-scheduled-form";
 export const DASHBOARD_FORMAT_PREFERENCES_FORM_ID =
 	"dashboard-format-preferences-form";
+export const DASHBOARD_FIRST_NOTIFICATION_EXTRAS_FORM_ID =
+	"dashboard-first-notification-extras-form";
 
 /* =============
 Status Message Colors
@@ -78,6 +80,7 @@ export const DASHBOARD_SECTION_IDS = {
 	stocks: "tracked-stocks",
 	scheduled: "scheduled-notifications",
 	preview: "notification-preview",
+	firstNotificationExtras: "first-notification-extras",
 } as const;
 
 export type DashboardSection = keyof typeof DASHBOARD_SECTION_IDS;
@@ -87,6 +90,7 @@ export const DASHBOARD_SECTION_HASHES: Record<DashboardSection, string> = {
 	stocks: `#${DASHBOARD_SECTION_IDS.stocks}`,
 	scheduled: `#${DASHBOARD_SECTION_IDS.scheduled}`,
 	preview: `#${DASHBOARD_SECTION_IDS.preview}`,
+	firstNotificationExtras: `#${DASHBOARD_SECTION_IDS.firstNotificationExtras}`,
 };
 
 /* =============

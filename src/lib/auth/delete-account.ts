@@ -81,18 +81,65 @@ export async function deleteUserAccount(options: {
 		}
 	}
 
+	// If auth deletion cascades to public.users (recommended), the row may already be gone.
+	const { data: afterAuthUser, error: afterAuthFetchError } =
+		await adminSupabase
+			.from("users")
+			.select("id")
+			.eq("id", userId)
+			.maybeSingle();
+
+	if (afterAuthFetchError) {
+		logger.error(
+			"Failed to load user after auth deletion",
+			{ userId },
+			afterAuthFetchError,
+		);
+		return { ok: false, redirectError: "delete_failed" };
+	}
+
+	if (!afterAuthUser) {
+		return { ok: true };
+	}
+
 	const { error: dbError, count } = await adminSupabase
 		.from("users")
 		.delete({ count: "exact" })
 		.eq("id", userId);
 
-	// Supabase `.delete()` can succeed even when zero rows match (no-op).
-	// If we hit that case after deleting the auth user, we must treat it as partial deletion.
-	if (dbError || count === 0 || count === null) {
+	if (dbError) {
 		logger.error(
 			"CRITICAL: Failed to delete user row after auth deletion; orphaned record requires manual cleanup",
 			{ userId, count, deleted: count ?? 0 },
 			dbError,
+		);
+		return { ok: false, redirectError: "delete_partial" };
+	}
+
+	// Supabase `.delete()` can succeed even when zero rows match (no-op).
+	// Double-check: if it's gone now, we still treat this as success.
+	if (count === 0 || count === null) {
+		const { data: finalUser, error: finalFetchError } = await adminSupabase
+			.from("users")
+			.select("id")
+			.eq("id", userId)
+			.maybeSingle();
+		if (finalFetchError) {
+			logger.error(
+				"Failed to verify user deletion after no-op delete",
+				{ userId },
+				finalFetchError,
+			);
+			return { ok: false, redirectError: "delete_partial" };
+		}
+		if (!finalUser) {
+			return { ok: true };
+		}
+
+		logger.error(
+			"CRITICAL: User row still present after auth deletion and DB delete attempt",
+			{ userId, count, deleted: count ?? 0 },
+			null,
 		);
 		return { ok: false, redirectError: "delete_partial" };
 	}

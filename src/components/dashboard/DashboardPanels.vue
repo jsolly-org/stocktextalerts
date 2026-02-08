@@ -38,6 +38,8 @@
 		:smsEnabled="smsEnabled"
 		:phoneVerified="phoneVerified"
 	/>
+
+	<FirstNotificationExtrasPanel />
 </template>
 
 <script lang="ts" setup>
@@ -46,6 +48,7 @@ import { DASHBOARD_STOCKS_FORM_ID } from "../../lib/constants";
 import type { User } from "../../lib/db";
 import { useAutoSaveForm } from "./composables/useAutoSaveNotificationPreferences";
 import { provideDashboardUser } from "./composables/useDashboardUser";
+import FirstNotificationExtrasPanel from "./FirstNotificationExtrasPanel.vue";
 import NotificationChannelsPanel from "./notification-channels/NotificationChannelsPanel.vue";
 import NotificationPreviewPanel from "./notification-preview/NotificationPreviewPanel.vue";
 import ScheduledNotificationsPanel from "./scheduled-notifications/ScheduledNotificationsPanel.vue";

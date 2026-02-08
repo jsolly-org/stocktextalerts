@@ -4,8 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
-import { rootLogger } from "../src/lib/logging";
-import { isLocalHost } from "./is-local-host";
+import { rootLogger } from "../../src/lib/logging";
+import { isLocalHost } from "../is-local-host";
 
 // --- Environment helpers ---
 
@@ -252,7 +252,7 @@ function repairMigrations(): void {
 
 function applySeed(databaseUrl: string): void {
 	const __dirname = path.dirname(fileURLToPath(import.meta.url));
-	const seedPath = path.join(__dirname, "..", "supabase", "seed.sql");
+	const seedPath = path.join(__dirname, "..", "..", "supabase", "seed.sql");
 
 	rootLogger.info("Applying seed.sql to production via psql.", {
 		context: { seedPath },
@@ -299,7 +299,7 @@ async function main(): Promise<void> {
 
 	// 1. Generate seed.sql from prod auth users + stock list (+ local scripts/users.json if present)
 	const __dirname = path.dirname(fileURLToPath(import.meta.url));
-	const seedUsersPath = path.join(__dirname, "users.json");
+	const seedUsersPath = path.join(__dirname, "..", "users.json");
 	if (fs.existsSync(seedUsersPath)) {
 		let usersCount: number | null = null;
 		try {
@@ -339,3 +339,4 @@ main().catch((error) => {
 	rootLogger.error("db reset prod failed", { action: "db_reset_prod" }, error);
 	process.exit(1);
 });
+

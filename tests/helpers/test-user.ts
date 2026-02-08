@@ -79,7 +79,12 @@ export async function cleanupTestUser(userId: string): Promise<void> {
 	const { error: authDeleteError } =
 		await adminClient.auth.admin.deleteUser(userId);
 	if (authDeleteError) {
-		errors.push(`auth: ${authDeleteError.message}`);
+		const status = (authDeleteError as { status?: number } | null)?.status;
+		const code = (authDeleteError as { code?: string } | null)?.code;
+		const isNotFound = status === 404 || code === "user_not_found";
+		if (!isNotFound) {
+			errors.push(`auth: ${authDeleteError.message}`);
+		}
 	}
 
 	if (errors.length > 0) {

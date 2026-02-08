@@ -26,6 +26,8 @@ export interface ParsedNotificationPreferencesForm {
 	sms_notifications_enabled?: boolean;
 	scheduled_updates_enabled?: boolean;
 	scheduled_update_times?: string[];
+	first_notification_include_news?: boolean;
+	first_notification_include_rumors?: boolean;
 }
 
 // Throws NotificationPreferencesValidationError when scheduled updates are enabled
@@ -72,6 +74,18 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 	const safeNotificationPreferenceUpdates: UserUpdateInput = omitUndefined({
 		timezone: parsedData.timezone,
 		scheduled_update_times: normalizedTimes,
+		...(formData.has("first_notification_include_news")
+			? {
+					first_notification_include_news:
+						parsedData.first_notification_include_news ?? false,
+				}
+			: {}),
+		...(formData.has("first_notification_include_rumors")
+			? {
+					first_notification_include_rumors:
+						parsedData.first_notification_include_rumors ?? false,
+				}
+			: {}),
 		...(formData.has("email_notifications_enabled")
 			? {
 					email_notifications_enabled:

@@ -1,4 +1,6 @@
 import { DateTime } from "luxon";
+import type { Database } from "../db/generated/database.types";
+import { generateFirstNotificationExtrasWithGrok } from "../grok/extras";
 import type { Logger } from "../logging";
 import type { EmailSender } from "../messaging/email/utils";
 import { recordNotification } from "../messaging/shared";
@@ -19,6 +21,25 @@ import {
 } from "./run-user-delivery";
 import { updateUserNextSendAt } from "./run-user-next-send-at";
 import type { SmsSenderProvider } from "./run-user-sms-sender";
+
+type DbUserUpdate = Database["public"]["Tables"]["users"]["Update"];
+
+function canInvokeGrokWithinWindow(options: {
+	lastInvokedAtIso: string | null;
+	currentTimeUtc: DateTime;
+	windowHours: number;
+}): boolean {
+	if (!options.lastInvokedAtIso) {
+		return true;
+	}
+	const last = DateTime.fromISO(options.lastInvokedAtIso, { zone: "utc" });
+	if (!last.isValid) {
+		return true;
+	}
+	return (
+		options.currentTimeUtc.diff(last, "hours").hours >= options.windowHours
+	);
+}
 
 export async function processScheduledUser(options: {
 	user: UserRecord;
@@ -117,6 +138,48 @@ export async function processScheduledUser(options: {
 			formatPrefs,
 		);
 
+		const shouldAttemptSms = shouldSendSms(user);
+
+		let smsExtras: { news?: string | null; rumors?: string | null } | undefined;
+		if (
+			shouldAttemptSms &&
+			(user.first_notification_include_news ||
+				user.first_notification_include_rumors) &&
+			canInvokeGrokWithinWindow({
+				lastInvokedAtIso: user.last_grok_rumors_at,
+				currentTimeUtc: currentTime,
+				windowHours: 24,
+			})
+		) {
+			const extras = await generateFirstNotificationExtrasWithGrok({
+				tickers: userStocks.map((s) => s.symbol),
+				localDateIso: scheduledDate,
+				timezone: user.timezone,
+				includeNews: user.first_notification_include_news,
+				includeRumors: user.first_notification_include_rumors,
+			});
+			if (extras?.news || extras?.rumors) {
+				smsExtras = extras;
+				const invokedAt = currentTime.toISO();
+				if (invokedAt) {
+					user.last_grok_rumors_at = invokedAt;
+					const { error } = await supabase
+						.from("users")
+						.update({
+							last_grok_rumors_at: invokedAt,
+						} as unknown as DbUserUpdate)
+						.eq("id", user.id);
+					if (error) {
+						logger.error(
+							"Failed to update last_grok_rumors_at",
+							{ userId: user.id, invokedAt },
+							error,
+						);
+					}
+				}
+			}
+		}
+
 		/* ============= Process Email ============= */
 		if (user.email_notifications_enabled) {
 			attemptedDeliveryMethod = "email";
@@ -137,7 +200,7 @@ export async function processScheduledUser(options: {
 		}
 
 		/* ============= Process SMS ============= */
-		if (shouldSendSms(user)) {
+		if (shouldAttemptSms) {
 			attemptedDeliveryMethod = "sms";
 			await processScheduledUserSmsDelivery({
 				user,
@@ -150,6 +213,7 @@ export async function processScheduledUser(options: {
 				getSmsSender,
 				marketOpen,
 				stats,
+				smsExtras,
 			});
 		}
 

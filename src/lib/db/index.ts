@@ -18,7 +18,14 @@ type DbUserStockRow = Database["public"]["Tables"]["user_stocks"]["Row"];
 Public Types
 ============= */
 
-export type User = DbUserRow;
+type FirstNotificationExtras = {
+	first_notification_include_news: boolean;
+	first_notification_include_rumors: boolean;
+	last_grok_rumors_at: string | null;
+};
+
+// Generated Supabase types lag migrations in-repo; assert the new columns exist.
+export type User = DbUserRow & FirstNotificationExtras;
 export type Stock = DbStockRow;
 export type UserStock = Pick<DbUserStockRow, "symbol" | "created_at"> & {
 	name: DbStockRow["name"];
@@ -35,6 +42,8 @@ export type NotificationPreferencesSnapshot = Pick<
 	| "scheduled_update_times"
 	| "next_send_at"
 	| "dismiss_timezone_mismatch_prompts"
+	| "first_notification_include_news"
+	| "first_notification_include_rumors"
 >;
 
 export type NotificationPreferences = Pick<
@@ -50,7 +59,7 @@ export type NotificationPreferences = Pick<
 Users
 ============= */
 
-export type UserUpdateInput = DbUserUpdate;
+export type UserUpdateInput = DbUserUpdate & Partial<FirstNotificationExtras>;
 
 export function createUserService(
 	supabase: AppSupabaseClient,
@@ -119,7 +128,7 @@ export function createUserService(
 				.maybeSingle();
 
 			if (error) throw error;
-			return data;
+			return data as User | null;
 		},
 
 		async update(id: string, updates: UserUpdateInput): Promise<User> {
@@ -131,7 +140,7 @@ export function createUserService(
 				.single();
 
 			if (error) throw error;
-			return data;
+			return data as User;
 		},
 	};
 }
