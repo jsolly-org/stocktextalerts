@@ -1,5 +1,4 @@
 import { DateTime } from "luxon";
-import type { Database } from "../db/generated/database.types";
 import type { Logger } from "../logging";
 import type { EmailSender } from "../messaging/email/utils";
 import { recordNotification } from "../messaging/shared";
@@ -20,8 +19,6 @@ import {
 } from "./run-user-delivery";
 import { updateUserNextSendAt } from "./run-user-next-send-at";
 import type { SmsSenderProvider } from "./run-user-sms-sender";
-
-type DbUserUpdate = Database["public"]["Tables"]["users"]["Update"];
 
 export async function processScheduledUser(options: {
 	user: UserRecord;
@@ -117,7 +114,7 @@ export async function processScheduledUser(options: {
 					.update({
 						last_market_closed_skip_scheduled_at: dueAtIso,
 						last_market_closed_skip_recorded_at: recordedAtIso,
-					} as unknown as DbUserUpdate)
+					})
 					.eq("id", user.id);
 				if (skipMarkerError) {
 					logger.error(
