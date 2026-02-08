@@ -1,5 +1,4 @@
 import { DateTime } from "luxon";
-import type { Database } from "../db/generated/database.types";
 import { generateFirstNotificationExtrasWithGrok } from "../grok/extras";
 import type { Logger } from "../logging";
 import type { EmailSender } from "../messaging/email/utils";
@@ -17,8 +16,6 @@ import {
 } from "./run-user-add-ons-delivery";
 import { updateUserAddOnsNextSendAt } from "./run-user-add-ons-next-send-at";
 import type { SmsSenderProvider } from "./run-user-sms-sender";
-
-type DbUserUpdate = Database["public"]["Tables"]["users"]["Update"];
 
 function canInvokeGrokWithinWindow(options: {
 	lastInvokedAtIso: string | null;
@@ -211,7 +208,7 @@ export async function processDailyAddOnsUser(options: {
 			user.last_grok_rumors_at = invokedAt;
 			const { error } = await supabase
 				.from("users")
-				.update({ last_grok_rumors_at: invokedAt } as unknown as DbUserUpdate)
+				.update({ last_grok_rumors_at: invokedAt })
 				.eq("id", user.id);
 			if (error) {
 				logger.error(
