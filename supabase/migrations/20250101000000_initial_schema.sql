@@ -236,6 +236,9 @@ CREATE TABLE IF NOT EXISTS users (
     public.is_valid_scheduled_update_times(scheduled_update_times)
   ),
   next_send_at TIMESTAMP WITH TIME ZONE,
+  add_ons_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
+  add_ons_delivery_time INTEGER DEFAULT 540,
+  add_ons_next_send_at TIMESTAMP WITH TIME ZONE,
   last_grok_rumors_at TIMESTAMP WITH TIME ZONE,
   email_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
   sms_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
@@ -270,6 +273,14 @@ CREATE TABLE IF NOT EXISTS users (
       scheduled_update_times IS NOT NULL
       AND COALESCE(array_length(scheduled_update_times, 1), 0) >= 1
     )
+  ),
+  CONSTRAINT users_add_ons_delivery_time_range CHECK (
+    add_ons_delivery_time IS NULL OR (
+      add_ons_delivery_time >= 0 AND add_ons_delivery_time <= 1439
+    )
+  ),
+  CONSTRAINT users_add_ons_schedule_requires_time CHECK (
+    add_ons_notifications_enabled = false OR add_ons_delivery_time IS NOT NULL
   )
 );
 
@@ -487,6 +498,11 @@ CREATE INDEX IF NOT EXISTS idx_users_next_send_at
   ON users (next_send_at)
   WHERE scheduled_updates_enabled = true
     AND next_send_at IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_users_add_ons_next_send_at
+  ON users (add_ons_next_send_at)
+  WHERE add_ons_notifications_enabled = true
+    AND add_ons_next_send_at IS NOT NULL;
 
 /* =============
 Scheduled Notifications Claim
