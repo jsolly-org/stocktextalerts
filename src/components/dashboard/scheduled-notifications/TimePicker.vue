@@ -75,8 +75,7 @@ const datepicker = ref<{ closeMenu: () => void } | null>(null);
 const isBackdropVisible = ref(false);
 const isBackdropPointerDown = ref(false);
 
-// Apply selection when the menu is dismissed (e.g. click-away), so the chosen time
-// persists even if the user doesn't press the Select button.
+/* ============= Menu Close Selection ============= */
 const datepickerConfig = { setDateOnMenuClose: true } as const;
 
 const displayFormat = computed(() => {
