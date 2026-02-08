@@ -3,8 +3,6 @@ import { formatSmsMessage } from "../../../src/lib/messaging/sms/delivery";
 import type { UserStockRow } from "../../../src/lib/messaging/types";
 
 describe("SMS scheduled update includes stock price data.", () => {
-	void 0 as unknown as UserStockRow;
-
 	it("Prices and daily change appear in the SMS message.", () => {
 		const stocksList =
 			"AAPL - Apple Inc. — $187.42 (+1.23%)\nMSFT - Microsoft Corporation — $412.10 (-0.31%)";
