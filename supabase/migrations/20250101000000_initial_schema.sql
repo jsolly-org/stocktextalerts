@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.app_metadata (
 );
 
 INSERT INTO public.app_metadata (key, value)
-VALUES ('schema_version', '20250101000000_initial_schema@v5')
+VALUES ('schema_version', '20250101000000_initial_schema@v6')
 ON CONFLICT (key) DO UPDATE SET
   value = EXCLUDED.value;
 
@@ -235,6 +235,7 @@ CREATE TABLE IF NOT EXISTS users (
     public.is_valid_scheduled_update_times(scheduled_update_times)
   ),
   next_send_at TIMESTAMP WITH TIME ZONE,
+  last_grok_rumors_at TIMESTAMP WITH TIME ZONE,
   email_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
   sms_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
   sms_opted_out BOOLEAN DEFAULT false NOT NULL,
