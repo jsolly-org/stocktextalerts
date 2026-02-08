@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.app_metadata (
 );
 
 INSERT INTO public.app_metadata (key, value)
-VALUES ('schema_version', '20250101000000_initial_schema@v6')
+VALUES ('schema_version', '20250101000000_initial_schema@v7')
 ON CONFLICT (key) DO UPDATE SET
   value = EXCLUDED.value;
 
@@ -231,6 +231,7 @@ CREATE TABLE IF NOT EXISTS users (
   verification_sent_at TIMESTAMP WITH TIME ZONE,
   timezone TEXT DEFAULT 'America/New_York' REFERENCES timezones(value) NOT NULL,
   scheduled_updates_enabled BOOLEAN DEFAULT true NOT NULL,
+  only_notify_when_market_open BOOLEAN DEFAULT true NOT NULL,
   scheduled_update_times INTEGER[] DEFAULT ARRAY[540] CHECK (
     public.is_valid_scheduled_update_times(scheduled_update_times)
   ),
