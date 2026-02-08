@@ -24,7 +24,9 @@ type FirstNotificationExtras = {
 	last_grok_rumors_at: string | null;
 };
 
-// Generated Supabase types lag migrations in-repo; assert the new columns exist.
+/* =============
+Generated Supabase types lag in-repo migrations; assert the new columns exist.
+============= */
 export type User = DbUserRow & FirstNotificationExtras;
 export type Stock = DbStockRow;
 export type UserStock = Pick<DbUserStockRow, "symbol" | "created_at"> & {
