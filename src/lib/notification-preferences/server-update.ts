@@ -156,6 +156,7 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 export interface TimezoneUpdatePayload {
 	timezone: string;
 	next_send_at?: string | null;
+	add_ons_next_send_at?: string | null;
 }
 
 export function computeTimezoneUpdatePayload(
@@ -171,24 +172,30 @@ export function computeTimezoneUpdatePayload(
 		return payload;
 	}
 
-	// No times — nothing to recompute
 	if (
-		!dbUser.scheduled_update_times ||
-		dbUser.scheduled_update_times.length === 0
+		dbUser.scheduled_update_times &&
+		dbUser.scheduled_update_times.length > 0
 	) {
-		return payload;
+		payload.next_send_at = computeNextSendAtIso(
+			dbUser.scheduled_update_times,
+			newTimezone,
+			{
+				userId: dbUser.id,
+				timezone: newTimezone,
+				timesCount: dbUser.scheduled_update_times.length,
+			},
+			logger,
+		);
 	}
 
-	payload.next_send_at = computeNextSendAtIso(
-		dbUser.scheduled_update_times,
-		newTimezone,
-		{
-			userId: dbUser.id,
-			timezone: newTimezone,
-			timesCount: dbUser.scheduled_update_times.length,
-		},
-		logger,
-	);
+	if (dbUser.add_ons_delivery_time != null) {
+		const nextAddOnsUtc = calculateNextSendAt(
+			dbUser.add_ons_delivery_time,
+			newTimezone,
+			DateTime.utc(),
+		);
+		payload.add_ons_next_send_at = nextAddOnsUtc?.toISO() ?? null;
+	}
 
 	return payload;
 }
