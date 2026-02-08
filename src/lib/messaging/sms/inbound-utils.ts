@@ -103,7 +103,7 @@ export async function handleInboundSms(
 	const { data: users, error } = await supabase
 		.from("users")
 		.select(
-			"id, phone_verified, email_notifications_enabled, sms_notifications_enabled, sms_opted_out",
+			"id, phone_verified, email_notifications_enabled, sms_notifications_enabled",
 		)
 		.eq("phone_country_code", countryCode)
 		.eq("phone_number", phoneNumber);
