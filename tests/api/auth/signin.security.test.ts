@@ -13,27 +13,29 @@ describe("A user signs in with an email and password.", () => {
 			password: "TestPassword123!",
 			confirmed: true,
 		});
-		registerTestUserForCleanup(testUser.id);
+		try {
+			const request = new Request("http://localhost/api/auth/signin", {
+				method: "POST",
+				body: new URLSearchParams({
+					email: testUser.email,
+					password: "TestPassword123!",
+					redirect: "https://example.com/evil",
+				}),
+			});
 
-		const request = new Request("http://localhost/api/auth/signin", {
-			method: "POST",
-			body: new URLSearchParams({
-				email: testUser.email,
-				password: "TestPassword123!",
-				redirect: "https://example.com/evil",
-			}),
-		});
+			const response = await POST({
+				request,
+				cookies: {
+					set: () => {},
+				},
+				redirect: toRedirect,
+			} as unknown as APIContext);
 
-		const response = await POST({
-			request,
-			cookies: {
-				set: () => {},
-			},
-			redirect: toRedirect,
-		} as unknown as APIContext);
-
-		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe("/dashboard");
+			expect(response.status).toBe(302);
+			expect(response.headers.get("Location")).toBe("/dashboard");
+		} finally {
+			registerTestUserForCleanup(testUser.id);
+		}
 	});
 
 	it("If the form is incomplete, the user sees a validation error.", async () => {
