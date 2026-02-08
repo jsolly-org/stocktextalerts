@@ -3,6 +3,8 @@ import type { FormatPreferences } from "./types";
 export type StockPrice = { price: number; changePercent: number };
 type StockWithName = { symbol: string; name: string };
 
+export const NO_TRACKED_STOCKS_MESSAGE = "You don't have any tracked stocks";
+
 export function escapeHtml(value: string): string {
 	return value
 		.replaceAll("&", "&amp;")
@@ -79,7 +81,7 @@ export function formatStocksTextList(
 	formatPrefs: FormatPreferences,
 ): string {
 	if (stocks.length === 0) {
-		return "You don't have any tracked stocks";
+		return NO_TRACKED_STOCKS_MESSAGE;
 	}
 
 	const separator = formatPrefs.detailed_format ? "\n\n" : "\n";

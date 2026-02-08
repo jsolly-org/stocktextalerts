@@ -56,7 +56,9 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		normalizedTimes = null;
 	}
 
-	// Only include a boolean field when it was present in the submitted form.
+	/* =============
+	Partial form updates: avoid overwriting omitted boolean fields
+	============= */
 	function boolFromForm(
 		field: keyof ParsedNotificationPreferencesForm,
 		fallback = false,
@@ -100,17 +102,25 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		safeNotificationPreferenceUpdates.scheduled_update_times !== undefined
 			? safeNotificationPreferenceUpdates.scheduled_update_times
 			: dbUser.scheduled_update_times;
-	// "Enabled" is derived: has times = enabled
+
+	/* =============
+	Scheduled updates enabled is derived from having at least one time
+	============= */
 	const hasTimes = finalTimes !== null && finalTimes.length > 0;
 
 	const finalAddOnsTime =
 		safeNotificationPreferenceUpdates.add_ons_delivery_time !== undefined
 			? safeNotificationPreferenceUpdates.add_ons_delivery_time
 			: dbUser.add_ons_delivery_time;
-	// "Enabled" is derived: has delivery time = enabled
+
+	/* =============
+	Add-ons enabled is derived from having a delivery time
+	============= */
 	const hasAddOnsTime = finalAddOnsTime !== null;
 
-	// Self-heal: if user has times but next_send_at is missing, recompute.
+	/* =============
+	Self-heal: repair missing next_send_at so scheduling doesn't stall
+	============= */
 	const needsNextSendAtRepair =
 		hasTimes &&
 		dbUser.next_send_at === null &&
@@ -125,7 +135,9 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 			logger,
 		);
 	} else if (timeChanged && !hasTimes) {
-		// User removed all times — clear schedule
+		/* =============
+		Clearing all times should also clear next_send_at
+		============= */
 		safeNotificationPreferenceUpdates.next_send_at = null;
 	}
 
@@ -172,6 +184,9 @@ export function computeTimezoneUpdatePayload(
 		return payload;
 	}
 
+	/* =============
+	No schedule: timezone changes don't require recomputing next_send_at
+	============= */
 	if (
 		dbUser.scheduled_update_times &&
 		dbUser.scheduled_update_times.length > 0

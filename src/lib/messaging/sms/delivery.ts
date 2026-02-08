@@ -1,5 +1,6 @@
 import type { AppSupabaseClient } from "../../db/supabase";
 import { recordNotification } from "../shared";
+import { NO_TRACKED_STOCKS_MESSAGE } from "../stock-formatting";
 import type { ProcessingStats, SmsUser } from "../types";
 import { formatExtrasSection } from "./formatting";
 import { sendUserSms } from "./index";
@@ -30,8 +31,8 @@ export function formatSmsMessage(
 ): string {
 	const optOutSuffix = "Reply STOP to opt out.";
 
-	if (stocksList.trim() === "You don't have any tracked stocks") {
-		return `You don't have any tracked stocks. ${optOutSuffix}`;
+	if (stocksList.trim() === NO_TRACKED_STOCKS_MESSAGE) {
+		return `${NO_TRACKED_STOCKS_MESSAGE}. ${optOutSuffix}`;
 	}
 
 	const marketDisclaimer = marketOpen ? "" : "Prices as of last market close.";

@@ -11,7 +11,7 @@
 ### Comments
 - **No TSDoc/JSDoc**: Use inline comments only to explain *why* (constraints, trade-offs), not *what*.
 - **Section comments**:
-  ```
+  ```text
   /* ============= Section Title ============= */
   ```
 

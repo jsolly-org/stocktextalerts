@@ -3,7 +3,8 @@ import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/auth/signin";
 import { toRedirect } from "../../helpers/request-helpers";
-import { cleanupTestUser, createTestUser } from "../../helpers/test-user";
+import { createTestUser } from "../../helpers/test-user";
+import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 describe("A user signs in with an email and password.", () => {
 	it("If the redirect is unsafe, the user is redirected to the default dashboard.", async () => {
@@ -12,30 +13,27 @@ describe("A user signs in with an email and password.", () => {
 			password: "TestPassword123!",
 			confirmed: true,
 		});
+		registerTestUserForCleanup(testUser.id);
 
-		try {
-			const request = new Request("http://localhost/api/auth/signin", {
-				method: "POST",
-				body: new URLSearchParams({
-					email: testUser.email,
-					password: "TestPassword123!",
-					redirect: "https://example.com/evil",
-				}),
-			});
+		const request = new Request("http://localhost/api/auth/signin", {
+			method: "POST",
+			body: new URLSearchParams({
+				email: testUser.email,
+				password: "TestPassword123!",
+				redirect: "https://example.com/evil",
+			}),
+		});
 
-			const response = await POST({
-				request,
-				cookies: {
-					set: () => {},
-				},
-				redirect: toRedirect,
-			} as unknown as APIContext);
+		const response = await POST({
+			request,
+			cookies: {
+				set: () => {},
+			},
+			redirect: toRedirect,
+		} as unknown as APIContext);
 
-			expect(response.status).toBe(302);
-			expect(response.headers.get("Location")).toBe("/dashboard");
-		} finally {
-			await cleanupTestUser(testUser.id);
-		}
+		expect(response.status).toBe(302);
+		expect(response.headers.get("Location")).toBe("/dashboard");
 	});
 
 	it("If the form is incomplete, the user sees a validation error.", async () => {

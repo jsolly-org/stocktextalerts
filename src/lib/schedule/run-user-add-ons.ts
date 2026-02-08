@@ -251,7 +251,9 @@ export async function processDailyAddOnsUser(options: {
 			{ userId: user.id },
 			error,
 		);
-		// Best-effort reschedule to avoid retry storms on persistent failures.
+		/* =============
+		Best-effort reschedule to avoid retry storms on persistent failures
+		============= */
 		try {
 			await updateUserAddOnsNextSendAt({
 				user,

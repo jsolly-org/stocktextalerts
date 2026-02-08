@@ -19,7 +19,7 @@ describe("A user clicks the email unsubscribe link.", () => {
 		renderers = await loadRenderers([getVueRenderer()]);
 	});
 
-	it("Email notifications are disabled while scheduled updates remain enabled.", async () => {
+	it("Email notifications are disabled while SMS remains enabled.", async () => {
 		const user = await createTestUser({
 			email: createTestEmail("test"),
 			password: "TestPassword123!",

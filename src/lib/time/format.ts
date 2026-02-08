@@ -230,7 +230,9 @@ export function getSecondsUntilNextSend(options: {
 	return null;
 }
 
-// Converts US market open (9:30 AM Eastern) to minutes since midnight in the user's timezone.
+/* =============
+Market-open UX: align "market open" time-of-day to the user's local clock
+============= */
 export function getUsMarketOpenLocalMinutes(userTimezone: string): number {
 	const marketOpenHour = Math.floor(US_MARKET_OPEN_EASTERN_MINUTES / 60);
 	const marketOpenMinute = US_MARKET_OPEN_EASTERN_MINUTES % 60;
@@ -244,7 +246,9 @@ export function getUsMarketOpenLocalMinutes(userTimezone: string): number {
 	return local.hour * 60 + local.minute;
 }
 
-// Formats minutes since midnight as a human-readable time string, e.g. "9:30 AM" or "14:30".
+/* =============
+UI formatting helper: keep scheduled-time display consistent with locale prefs
+============= */
 export function formatMinutesAsLocalTime(minutes: number): string {
 	const clamped = Math.max(0, Math.min(1439, Math.floor(minutes)));
 	const dt = DateTime.now().set({
