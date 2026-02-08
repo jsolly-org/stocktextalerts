@@ -2,7 +2,9 @@ import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { getSiteUrl } from "../../db/env";
 import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
+import { wrapInTwiml } from "./twiml";
 
+/** Runtime dependencies for `handleInboundSms` (Twilio + DB). */
 export interface InboundSmsDependencies {
 	authToken: string;
 	validateRequest: (
@@ -14,12 +16,14 @@ export interface InboundSmsDependencies {
 	supabase: AppSupabaseClient;
 }
 
+/** Normalized inbound webhook request inputs. */
 export interface InboundSmsRequest {
 	url: string;
 	signature: string;
 	params: Record<string, string | undefined>;
 }
 
+/** HTTP response to return from the inbound webhook route. */
 export interface InboundSmsResponse {
 	status: number;
 	body: string;
@@ -32,6 +36,12 @@ const STOP_RE = /\b(STOP|UNSUBSCRIBE|CANCEL|END|QUIT|REVOKE|OPTOUT)\b/;
 const START_RE = /\b(START|SUBSCRIBE|YES|UNSTOP)\b/;
 const HELP_RE = /\b(HELP|INFO)\b/;
 
+/**
+ * Handle Twilio inbound SMS webhooks for STOP/START/HELP-style commands.
+ *
+ * This is intentionally lenient in phone parsing (E.164 parseable) and returns
+ * TwiML for Twilio to deliver as the reply.
+ */
 export async function handleInboundSms(
 	request: InboundSmsRequest,
 	deps: InboundSmsDependencies,
@@ -282,31 +292,4 @@ export async function handleInboundSms(
 		body: wrapInTwiml("Unknown command. Reply HELP for options."),
 		contentType: "text/xml",
 	};
-}
-
-function wrapInTwiml(message: string): string {
-	const twiml = ['<?xml version="1.0" encoding="UTF-8"?>', "<Response>"];
-
-	if (message) {
-		const escapedMessage = escapeForXml(message);
-		twiml.push(`\t<Message>${escapedMessage}</Message>`);
-	}
-
-	twiml.push("</Response>");
-
-	return twiml.join("\n");
-}
-
-function escapeForXml(message: string): string {
-	const replacements: Record<string, string> = {
-		"&": "&amp;",
-		"<": "&lt;",
-		">": "&gt;",
-		'"': "&quot;",
-		"'": "&apos;",
-	};
-
-	return message.replace(/[&<>"']/g, (character) => {
-		return replacements[character];
-	});
 }

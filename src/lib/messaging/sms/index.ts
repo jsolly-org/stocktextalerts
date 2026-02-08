@@ -2,6 +2,7 @@ import { rootLogger } from "../../logging";
 import type { DeliveryResult, SmsUser, UserRecord } from "../types";
 import type { SmsSender } from "./twilio-utils";
 
+/** Send an SMS to a user via the provided `sendSms` implementation (Twilio). */
 export async function sendUserSms(
 	user: SmsUser,
 	message: string,
@@ -38,6 +39,7 @@ export async function sendUserSms(
 	}
 }
 
+/** True when a user is eligible to receive SMS (enabled, verified, and not opted out). */
 export function shouldSendSms(
 	user: Pick<
 		UserRecord,
