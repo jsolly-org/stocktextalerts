@@ -7,7 +7,7 @@ import type { SupabaseAdminClient } from "./helpers";
 
 type DbUserUpdate = Database["public"]["Tables"]["users"]["Update"];
 
-/* Recompute and persist the user's `add_ons_next_send_at` based on their daily time and timezone. */
+// Keep add-ons delivery aligned to the user's local time when timezone/DST or daily time changes.
 export async function updateUserAddOnsNextSendAt(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;

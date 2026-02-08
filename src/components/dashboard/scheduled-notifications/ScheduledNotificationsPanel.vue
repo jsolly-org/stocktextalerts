@@ -386,7 +386,7 @@ watch(
 );
 
 const scheduledUpdatesEnabledToggle = computed({
-	get: () => needsChannelSelection.value || scheduledUpdatesEnabled.value,
+	get: () => scheduledUpdatesEnabled.value,
 	set: (value: boolean) => {
 		scheduledUpdatesEnabled.value = value;
 		notifyChange();

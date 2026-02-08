@@ -236,6 +236,8 @@ CREATE TABLE IF NOT EXISTS users (
     public.is_valid_scheduled_update_times(scheduled_update_times)
   ),
   next_send_at TIMESTAMP WITH TIME ZONE,
+  last_market_closed_skip_scheduled_at TIMESTAMP WITH TIME ZONE,
+  last_market_closed_skip_recorded_at TIMESTAMP WITH TIME ZONE,
   add_ons_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
   add_ons_delivery_time INTEGER DEFAULT 540,
   add_ons_next_send_at TIMESTAMP WITH TIME ZONE,
@@ -283,10 +285,6 @@ CREATE TABLE IF NOT EXISTS users (
     add_ons_notifications_enabled = false OR add_ons_delivery_time IS NOT NULL
   )
 );
-
-ALTER TABLE public.users
-ADD COLUMN IF NOT EXISTS last_market_closed_skip_scheduled_at timestamp with time zone,
-ADD COLUMN IF NOT EXISTS last_market_closed_skip_recorded_at timestamp with time zone;
 
 /* =============
 Stocks
