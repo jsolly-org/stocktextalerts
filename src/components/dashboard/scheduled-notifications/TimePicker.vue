@@ -92,6 +92,7 @@ const timeConfig = computed(() => {
 });
 
 function handleMenuOpen() {
+	isBackdropPointerDown.value = false;
 	isBackdropVisible.value = true;
 }
 
