@@ -1,7 +1,4 @@
-/**
- * Wrap a message in a minimal TwiML response.
- * If `message` is empty, returns an empty `<Response />` body.
- */
+// Twilio expects a TwiML (XML) response body to render an SMS reply.
 export function wrapInTwiml(message: string): string {
 	const twiml = ['<?xml version="1.0" encoding="UTF-8"?>', "<Response>"];
 	if (message) {

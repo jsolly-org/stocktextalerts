@@ -4,7 +4,6 @@ import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
 import { wrapInTwiml } from "./twiml";
 
-/** Runtime dependencies for `handleInboundSms` (Twilio + DB). */
 export interface InboundSmsDependencies {
 	authToken: string;
 	validateRequest: (
@@ -16,14 +15,12 @@ export interface InboundSmsDependencies {
 	supabase: AppSupabaseClient;
 }
 
-/** Normalized inbound webhook request inputs. */
 export interface InboundSmsRequest {
 	url: string;
 	signature: string;
 	params: Record<string, string | undefined>;
 }
 
-/** HTTP response to return from the inbound webhook route. */
 export interface InboundSmsResponse {
 	status: number;
 	body: string;
@@ -36,12 +33,6 @@ const STOP_RE = /\b(STOP|UNSUBSCRIBE|CANCEL|END|QUIT|REVOKE|OPTOUT)\b/;
 const START_RE = /\b(START|SUBSCRIBE|YES|UNSTOP)\b/;
 const HELP_RE = /\b(HELP|INFO)\b/;
 
-/**
- * Handle Twilio inbound SMS webhooks for STOP/START/HELP-style commands.
- *
- * This is intentionally lenient in phone parsing (E.164 parseable) and returns
- * TwiML for Twilio to deliver as the reply.
- */
 export async function handleInboundSms(
 	request: InboundSmsRequest,
 	deps: InboundSmsDependencies,

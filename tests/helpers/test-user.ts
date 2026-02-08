@@ -6,7 +6,6 @@ import { PRESERVED_TEST_EMAIL, TEST_RUN_ID } from "./constants";
 import { getStockData } from "./stock-data";
 import { adminClient } from "./test-env";
 
-/** Options to customize the user created by `createTestUser`. */
 export type CreateTestUserOptions = {
 	email?: string;
 	password?: string;
@@ -23,10 +22,8 @@ export type CreateTestUserOptions = {
 	confirmed?: boolean;
 };
 
-/** Minimal identity returned by `createTestUser` for test flows. */
 export type TestUser = { id: string; email: string };
 
-/** Create a unique, deliverable email address for tests. */
 export function createTestEmail(prefix = "test"): string {
 	const safePrefix = prefix
 		.trim()
@@ -48,7 +45,6 @@ function tagEmailAddress(baseEmail: string): string {
 	return `${localPart}+${TEST_RUN_ID}-${randomUUID()}@${domain}`;
 }
 
-/** Delete the test user across public tables and Supabase Auth. */
 export async function cleanupTestUser(userId: string): Promise<void> {
 	const errors: string[] = [];
 
@@ -96,10 +92,6 @@ type DbUserInsert = Omit<TablesInsert<"users">, "scheduled_update_times"> & {
 };
 type DbUserStockInsert = TablesInsert<"user_stocks">;
 
-/**
- * Create a Supabase Auth user plus an associated `users` row (and optional stocks).
- * The defaults are chosen to keep most tests short and deterministic.
- */
 export async function createTestUser(
 	options: CreateTestUserOptions = {},
 ): Promise<TestUser> {

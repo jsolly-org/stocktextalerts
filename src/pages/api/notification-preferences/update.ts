@@ -19,7 +19,6 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	scheduled_update_times: { type: "json_string_array" },
 } as const satisfies FormSchema;
 
-/** Validate and persist notification preference updates for the authenticated user. */
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({
@@ -144,16 +143,16 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	}
 
 	try {
-		const finalSmsNotificationsEnabled =
-			safeNotificationPreferenceUpdates.sms_notifications_enabled !== undefined
-				? safeNotificationPreferenceUpdates.sms_notifications_enabled
-				: dbUser.sms_notifications_enabled;
-		if (finalSmsNotificationsEnabled && dbUser.sms_opted_out) {
+		const requestedSmsNotificationsEnabled =
+			safeNotificationPreferenceUpdates.sms_notifications_enabled;
+		if (requestedSmsNotificationsEnabled === true && dbUser.sms_opted_out) {
 			logger.info("SMS enable rejected: user is sms_opted_out", {
 				userId: user.id,
 			});
 			return jsonResponse(400, { ok: false, message: "sms_opted_out" });
 		}
+		const finalSmsNotificationsEnabled =
+			requestedSmsNotificationsEnabled ?? dbUser.sms_notifications_enabled;
 		if (
 			finalSmsNotificationsEnabled &&
 			(!dbUser.phone_country_code || !dbUser.phone_number)
