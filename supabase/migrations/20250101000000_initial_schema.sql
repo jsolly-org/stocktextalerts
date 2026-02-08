@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.app_metadata (
 );
 
 INSERT INTO public.app_metadata (key, value)
-VALUES ('schema_version', '20250101000000_initial_schema@v7')
+VALUES ('schema_version', '20250101000000_initial_schema@v8')
 ON CONFLICT (key) DO UPDATE SET
   value = EXCLUDED.value;
 
@@ -272,6 +272,10 @@ CREATE TABLE IF NOT EXISTS users (
     )
   )
 );
+
+ALTER TABLE public.users
+ADD COLUMN IF NOT EXISTS last_market_closed_skip_scheduled_at timestamp with time zone,
+ADD COLUMN IF NOT EXISTS last_market_closed_skip_recorded_at timestamp with time zone;
 
 /* =============
 Stocks
