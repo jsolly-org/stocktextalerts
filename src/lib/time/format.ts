@@ -231,7 +231,7 @@ export function getSecondsUntilNextSend(options: {
 }
 
 /* =============
-Market-open UX: align "market open" time-of-day to the user's local clock
+Use Eastern-market baseline so local conversions stay aligned with exchange hours
 ============= */
 export function getUsMarketOpenLocalMinutes(userTimezone: string): number {
 	const marketOpenHour = Math.floor(US_MARKET_OPEN_EASTERN_MINUTES / 60);
@@ -247,7 +247,7 @@ export function getUsMarketOpenLocalMinutes(userTimezone: string): number {
 }
 
 /* =============
-UI formatting helper: keep scheduled-time display consistent with locale prefs
+Format minute-of-day for UI display in the runtime locale
 ============= */
 export function formatMinutesAsLocalTime(minutes: number): string {
 	const clamped = Math.max(0, Math.min(1439, Math.floor(minutes)));
