@@ -57,7 +57,7 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 	}
 
 	/* =============
-	Partial form updates: avoid overwriting omitted boolean fields
+	Only persist booleans the form actually submitted (unchecked controls are often omitted)
 	============= */
 	function boolFromForm(
 		field: keyof ParsedNotificationPreferencesForm,
@@ -104,7 +104,7 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 			: dbUser.scheduled_update_times;
 
 	/* =============
-	Scheduled updates enabled is derived from having at least one time
+	Derive "scheduled updates enabled" from the schedule itself to prevent flag/time drift
 	============= */
 	const hasTimes = finalTimes !== null && finalTimes.length > 0;
 
@@ -114,7 +114,7 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 			: dbUser.add_ons_delivery_time;
 
 	/* =============
-	Add-ons enabled is derived from having a delivery time
+	Derive add-ons enabled from having a delivery time to avoid duplicating state in the DB
 	============= */
 	const hasAddOnsTime = finalAddOnsTime !== null;
 
@@ -126,7 +126,9 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		dbUser.next_send_at === null &&
 		safeNotificationPreferenceUpdates.next_send_at === undefined;
 
-	/* ============= Scheduled updates next_send_at ============= */
+	/* =============
+	Only recompute next_send_at when schedule inputs changed (or we're repairing a missing value) to avoid churn
+	============= */
 	if ((timezoneChanged || timeChanged || needsNextSendAtRepair) && hasTimes) {
 		safeNotificationPreferenceUpdates.next_send_at = computeNextSendAtIso(
 			finalTimes,
@@ -136,12 +138,14 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		);
 	} else if (timeChanged && !hasTimes) {
 		/* =============
-		Clearing all times should also clear next_send_at
+		Prevent a stale next_send_at from keeping scheduling "alive" after the schedule is cleared
 		============= */
 		safeNotificationPreferenceUpdates.next_send_at = null;
 	}
 
-	/* ============= Add-ons next_send_at ============= */
+	/* =============
+	Same constraint as scheduled updates: minimize writes unless inputs affecting delivery actually changed
+	============= */
 	const needsAddOnsNextSendAtRepair =
 		hasAddOnsTime &&
 		dbUser.add_ons_next_send_at === null &&
