@@ -125,7 +125,9 @@
 <script lang="ts" setup>
 import { DateTime } from "luxon";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-// ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
+/* =============
+Icon imports: use ?component because Astro Icon isn't supported in Vue
+============= */
 import ArrowPathIcon from "../../icons/arrow-path.svg?component";
 import BellAlertIcon from "../../icons/bell-alert.svg?component";
 import GrokLogoIcon from "../../icons/grok.svg?component";
@@ -227,7 +229,9 @@ const nextAddOnsDeliveryText = computed(() => {
 	return `in ${formatCountdownWithSeconds(secondsUntil)}`;
 });
 
-// ToggleSwitch is a <button>, so it does not emit native input/change events.
+/* =============
+ToggleSwitch is a <button>, so changes are observed via watchers
+============= */
 watch([includeNews, includeRumors], () => {
 	notifyChange();
 });
@@ -245,7 +249,9 @@ watch(
 	},
 );
 
-// Update shared user ref directly when auto-save response arrives
+/* =============
+Keep dashboard user state aligned with autosave responses
+============= */
 watch(
 	() => savedData.value,
 	(newData) => {
