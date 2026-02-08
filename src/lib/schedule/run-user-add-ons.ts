@@ -265,6 +265,21 @@ export async function processDailyAddOnsUser(options: {
 			{ userId: user.id },
 			error,
 		);
+		// Best-effort reschedule to avoid retry storms on persistent failures.
+		try {
+			await updateUserAddOnsNextSendAt({
+				user,
+				supabase,
+				logger,
+				currentTime,
+			});
+		} catch (updateError) {
+			logger.error(
+				"Failed to update add_ons_next_send_at after daily add-ons error",
+				{ userId: user.id },
+				updateError,
+			);
+		}
 		return stats;
 	}
 }
