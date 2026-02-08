@@ -45,8 +45,11 @@ export async function fetchScheduledUsers(options: {
 			.or(
 				"email_notifications_enabled.eq.true,sms_notifications_enabled.eq.true",
 			);
-		// When forceSend (manual send), include users even if next_send_at is null (e.g. newly enabled scheduled updates).
-		// For normal cron, only process users due to send.
+		/* =============
+		Force-send scheduling rationale
+		- When forceSend (manual send), include users even if next_send_at is null (e.g. newly enabled scheduled updates).
+		- For normal cron, only process users due to send.
+		============= */
 		if (!options.forceSend) {
 			query = query
 				.not("next_send_at", "is", null)
@@ -79,6 +82,6 @@ export async function fetchScheduledUsers(options: {
 		}
 	}
 
-	// Unreachable, but satisfies TypeScript
+	/* ============= TypeScript unreachable guard ============= */
 	throw new Error("Failed to fetch users: retries exhausted");
 }
