@@ -252,7 +252,7 @@ export async function processDailyAddOnsUser(options: {
 			error,
 		);
 		/* =============
-		Best-effort reschedule to avoid retry storms on persistent failures
+		Best-effort reschedule to avoid retry storms on persistent failures.
 		============= */
 		try {
 			await updateUserAddOnsNextSendAt({
