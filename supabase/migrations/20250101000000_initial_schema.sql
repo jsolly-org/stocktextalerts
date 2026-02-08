@@ -239,6 +239,8 @@ CREATE TABLE IF NOT EXISTS users (
   sms_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
   sms_opted_out BOOLEAN DEFAULT false NOT NULL,
   dismiss_timezone_mismatch_prompts BOOLEAN DEFAULT false NOT NULL,
+  first_notification_include_news BOOLEAN DEFAULT false NOT NULL,
+  first_notification_include_rumors BOOLEAN DEFAULT false NOT NULL,
   show_change_percent BOOLEAN DEFAULT false NOT NULL,
   show_company_name BOOLEAN DEFAULT true NOT NULL,
   detailed_format BOOLEAN DEFAULT true NOT NULL,
