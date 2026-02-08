@@ -192,22 +192,6 @@ export async function processDailyAddOnsUser(options: {
 			return stats;
 		}
 
-		const invokedAt = currentTime.toISO();
-		if (invokedAt) {
-			user.last_grok_rumors_at = invokedAt;
-			const { error } = await supabase
-				.from("users")
-				.update({ last_grok_rumors_at: invokedAt })
-				.eq("id", user.id);
-			if (error) {
-				logger.error(
-					"Failed to update last_grok_rumors_at (add-ons)",
-					{ userId: user.id, invokedAt },
-					error,
-				);
-			}
-		}
-
 		if (user.email_notifications_enabled) {
 			await processDailyAddOnsEmailDelivery({
 				user,
@@ -234,6 +218,27 @@ export async function processDailyAddOnsUser(options: {
 				getSmsSender,
 				stats,
 			});
+		}
+
+		// Only set the 24-hour gate if at least one delivery succeeded.
+		// This way, if delivery fails (e.g. DB issue), the user can adjust
+		// their time and get the notification re-sent without waiting 24h.
+		if (stats.emailsSent > 0 || stats.smsSent > 0) {
+			const invokedAt = currentTime.toISO();
+			if (invokedAt) {
+				user.last_grok_rumors_at = invokedAt;
+				const { error } = await supabase
+					.from("users")
+					.update({ last_grok_rumors_at: invokedAt })
+					.eq("id", user.id);
+				if (error) {
+					logger.error(
+						"Failed to update last_grok_rumors_at (add-ons)",
+						{ userId: user.id, invokedAt },
+						error,
+					);
+				}
+			}
 		}
 
 		await updateUserAddOnsNextSendAt({

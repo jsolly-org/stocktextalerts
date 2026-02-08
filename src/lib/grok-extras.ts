@@ -126,84 +126,99 @@ export async function generateFirstNotificationExtrasWithGrok(options: {
 		max_tokens: 300,
 	};
 
-	try {
-		const response = await fetch("https://api.x.ai/v1/chat/completions", {
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${apiKey}`,
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify(requestBody),
-			signal: AbortSignal.timeout(15_000),
-		});
+	const MAX_RETRIES = 3;
+	const RETRY_DELAY_MS = 2_000;
+	const logContext = {
+		action: "grok_extras",
+		model,
+		tickersCount: options.tickers.length,
+		includeNews: options.includeNews,
+		includeRumors: options.includeRumors,
+		requestId: options.requestId,
+	};
 
-		if (!response.ok) {
-			rootLogger.error("Grok extras request failed", {
-				action: "grok_extras",
-				status: response.status,
-				statusText: response.statusText,
-				model,
-				tickersCount: options.tickers.length,
-				includeNews: options.includeNews,
-				includeRumors: options.includeRumors,
-				requestId: options.requestId,
+	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+		const isLastAttempt = attempt === MAX_RETRIES;
+		const log = isLastAttempt
+			? rootLogger.error.bind(rootLogger)
+			: rootLogger.warn.bind(rootLogger);
+
+		try {
+			const response = await fetch("https://api.x.ai/v1/chat/completions", {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${apiKey}`,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(requestBody),
+				signal: AbortSignal.timeout(15_000),
 			});
+
+			if (!response.ok) {
+				log("Grok extras request failed", {
+					...logContext,
+					attempt,
+					status: response.status,
+					statusText: response.statusText,
+				});
+				if (!isLastAttempt) {
+					await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+					continue;
+				}
+				return null;
+			}
+
+			const data = (await response.json()) as ChatCompletionResponse;
+			const text = data.choices?.[0]?.message?.content?.trim();
+			if (!text) {
+				log("Grok extras returned empty content", {
+					...logContext,
+					attempt,
+				});
+				if (!isLastAttempt) {
+					await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+					continue;
+				}
+				return null;
+			}
+
+			const news = options.includeNews
+				? extractTaggedBlock(text, "NEWS")
+				: null;
+			const rumors = options.includeRumors
+				? extractTaggedBlock(text, "RUMORS")
+				: null;
+
+			if (!news && !rumors) {
+				log("Grok extras missing expected tags/content", {
+					...logContext,
+					attempt,
+				});
+				if (!isLastAttempt) {
+					await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+					continue;
+				}
+				return null;
+			}
+
+			return { news, rumors };
+		} catch (error) {
+			const reason =
+				error instanceof Error && error.name === "TimeoutError"
+					? "timeout"
+					: "request_failed";
+			log(
+				"Grok extras request errored",
+				{ ...logContext, attempt, reason },
+				error,
+			);
+			if (!isLastAttempt) {
+				await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+				continue;
+			}
 			return null;
 		}
-
-		const data = (await response.json()) as ChatCompletionResponse;
-		const text = data.choices?.[0]?.message?.content?.trim();
-		if (!text) {
-			rootLogger.error("Grok extras returned empty content", {
-				action: "grok_extras",
-				model,
-				tickersCount: options.tickers.length,
-				includeNews: options.includeNews,
-				includeRumors: options.includeRumors,
-				requestId: options.requestId,
-			});
-			return null;
-		}
-
-		const news = options.includeNews ? extractTaggedBlock(text, "NEWS") : null;
-		const rumors = options.includeRumors
-			? extractTaggedBlock(text, "RUMORS")
-			: null;
-
-		if (!news && !rumors) {
-			rootLogger.error("Grok extras missing expected tags/content", {
-				action: "grok_extras",
-				model,
-				tickersCount: options.tickers.length,
-				includeNews: options.includeNews,
-				includeRumors: options.includeRumors,
-				requestId: options.requestId,
-			});
-			return null;
-		}
-
-		return { news, rumors };
-	} catch (error) {
-		const reason =
-			error instanceof Error && error.name === "TimeoutError"
-				? "timeout"
-				: "request_failed";
-		rootLogger.error(
-			"Grok extras request errored",
-			{
-				action: "grok_extras",
-				reason,
-				model:
-					getMetaEnv()?.XAI_GROK_MODEL ??
-					process.env.XAI_GROK_MODEL ??
-					"grok-4",
-				tickersCount: options.tickers.length,
-				includeNews: options.includeNews,
-				includeRumors: options.includeRumors,
-				requestId: options.requestId,
-			},
-			error,
-		);
-		return null;
 	}
+
+	return null;
 }

@@ -1,6 +1,6 @@
 <template>
 	<div class="w-full sm:max-w-xs">
-		<Teleport to="body">
+		<Teleport v-if="isMounted" to="body">
 			<div
 				v-if="isBackdropVisible"
 				class="sta-timepicker-backdrop fixed inset-0 bg-transparent"
