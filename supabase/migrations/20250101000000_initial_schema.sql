@@ -50,7 +50,7 @@ Enums for Stronger DB Types
 
 CREATE TYPE public.delivery_method AS ENUM ('email', 'sms');
 
-CREATE TYPE public.scheduled_notification_type AS ENUM ('scheduled_update');
+CREATE TYPE public.scheduled_notification_type AS ENUM ('scheduled_update', 'daily_add_ons');
 
 CREATE TYPE public.scheduled_notification_status AS ENUM ('sending', 'sent', 'failed');
 
