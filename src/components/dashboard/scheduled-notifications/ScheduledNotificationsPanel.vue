@@ -395,6 +395,7 @@ const scheduledUpdatesEnabledToggle = computed({
 
 function handleOnlyNotifyWhenMarketOpenUpdate(value: boolean) {
 	onlyNotifyWhenMarketOpen.value = value;
+	user.value = { ...user.value, only_notify_when_market_open: value };
 	notifyChange();
 }
 

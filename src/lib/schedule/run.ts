@@ -53,6 +53,10 @@ async function runScheduledNotifications(options: {
 	// Collect unique stock symbols across scheduled users and fetch prices in batch
 	let priceMap: StockPriceMap = new Map();
 	let marketOpen = false;
+	const marketStatusPromise =
+		scheduledUsers.length > 0 || addOnsUsers.length > 0
+			? fetchMarketStatus()
+			: null;
 	if (scheduledUsers.length > 0) {
 		const userIds = scheduledUsers.map((u) => u.id);
 		const { data: allUserStocks, error: userStocksError } = await supabase
@@ -77,13 +81,17 @@ async function runScheduledNotifications(options: {
 		];
 
 		if (uniqueSymbols.length > 0) {
-			[priceMap, marketOpen] = await Promise.all([
+			const [fetchedPrices, fetchedMarketOpen] = await Promise.all([
 				fetchStockPrices(uniqueSymbols),
-				fetchMarketStatus(),
+				marketStatusPromise ?? Promise.resolve(false),
 			]);
+			priceMap = fetchedPrices;
+			marketOpen = fetchedMarketOpen;
+		} else if (marketStatusPromise) {
+			marketOpen = await marketStatusPromise;
 		}
-	} else if (addOnsUsers.length > 0) {
-		marketOpen = await fetchMarketStatus();
+	} else if (marketStatusPromise) {
+		marketOpen = await marketStatusPromise;
 	}
 
 	const getSmsSender = createSmsSenderProvider();

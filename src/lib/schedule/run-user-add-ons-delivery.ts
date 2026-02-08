@@ -5,6 +5,7 @@ import { sendUserEmail } from "../messaging/email/index";
 import type { EmailSender } from "../messaging/email/utils";
 import { recordNotification } from "../messaging/shared";
 import type { SmsExtras } from "../messaging/sms/delivery";
+import { formatExtrasSection } from "../messaging/sms/formatting";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { escapeHtml } from "../messaging/stock-formatting";
 import type { UserRecord, UserStockRow } from "../messaging/types";
@@ -14,17 +15,6 @@ import type {
 } from "./helpers";
 import { logRetriesExhausted, updateScheduledNotificationRow } from "./helpers";
 import type { SmsSenderProvider } from "./run-user-sms-sender";
-
-function formatExtrasSection(
-	title: string,
-	content: string | null | undefined,
-): string {
-	const normalized = (content ?? "").trim();
-	if (!normalized) {
-		return "";
-	}
-	return `${title}\n${normalized}`;
-}
 
 function formatDailyAddOnsSmsMessage(options: {
 	userStocks: UserStockRow[];

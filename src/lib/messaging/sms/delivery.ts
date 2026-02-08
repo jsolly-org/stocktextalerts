@@ -1,6 +1,7 @@
 import type { AppSupabaseClient } from "../../db/supabase";
 import { recordNotification } from "../shared";
 import type { ProcessingStats, SmsUser } from "../types";
+import { formatExtrasSection } from "./formatting";
 import { sendUserSms } from "./index";
 import type { SmsSender } from "./twilio-utils";
 
@@ -9,22 +10,14 @@ export type SmsExtras = {
 	rumors?: string | null;
 };
 
-function formatExtrasSection(title: string, content: string): string {
-	const normalized = content.trim();
-	if (!normalized) {
-		return "";
-	}
-	return `${title}\n${normalized}`;
-}
-
 function formatSmsExtras(extras?: SmsExtras): string {
 	if (!extras) {
 		return "";
 	}
 
 	const sections = [
-		formatExtrasSection("🗞️ News", extras.news ?? ""),
-		formatExtrasSection("🤫 Rumors", extras.rumors ?? ""),
+		formatExtrasSection("🗞️ News", extras.news),
+		formatExtrasSection("🤫 Rumors", extras.rumors),
 	].filter(Boolean);
 
 	return sections.join("\n\n");

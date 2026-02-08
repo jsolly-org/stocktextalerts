@@ -326,6 +326,13 @@ const onlyNotifyWhenMarketOpen = ref(user.value.only_notify_when_market_open);
 
 const addOnsEnabled = computed(() => includeNews.value || includeRumors.value);
 
+watch(onlyNotifyWhenMarketOpen, (value) => {
+	if (user.value.only_notify_when_market_open === value) {
+		return;
+	}
+	user.value = { ...user.value, only_notify_when_market_open: value };
+});
+
 const currentTimeInTimezone = computed(() => {
 	if (!isHydrated.value) {
 		return null;
