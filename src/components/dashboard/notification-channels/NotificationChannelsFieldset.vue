@@ -10,12 +10,12 @@
 		</header>
 
 		<fieldset
-			class="rounded-lg border border-gray-200 divide-y divide-gray-200"
+			class="divide-y divide-gray-200"
 			:aria-describedby="props.notificationChannelsDescId"
 		>
 			<legend class="sr-only">Notification channels</legend>
 
-			<div class="flex items-center justify-between gap-3 p-4">
+			<div class="flex items-center justify-between gap-3 py-4">
 				<input
 					type="hidden"
 					name="email_notifications_enabled"
@@ -36,11 +36,11 @@
 			</div>
 
 			<div>
-				<div class="flex items-center justify-between gap-3 p-4">
-					<input
-						v-if="props.canSaveSmsEnabled"
-						type="hidden"
-						name="sms_notifications_enabled"
+			<div class="flex items-center justify-between gap-3 py-4">
+				<input
+					v-if="props.canSaveSmsEnabled"
+					type="hidden"
+					name="sms_notifications_enabled"
 						:value="smsEnabled ? 'on' : 'off'"
 					/>
 					<div>
@@ -58,7 +58,7 @@
 					/>
 				</div>
 
-				<StatusMessage v-if="props.smsOptedOut" tone="warning" class="mx-4 mb-4">
+				<StatusMessage v-if="props.smsOptedOut" tone="warning" class="mb-4">
 					{{ MESSAGE_ALLOWLIST.sms_opted_out }}
 				</StatusMessage>
 

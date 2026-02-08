@@ -33,35 +33,19 @@
 
 			<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.teal}`"></div>
 			<div class="card-body">
-				<header class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-					<div class="flex items-start gap-3 min-w-0">
+				<header class="mb-4 flex items-start justify-between gap-4">
+					<div class="min-w-0">
 						<input
 							type="hidden"
 							name="add_ons_notifications_enabled"
 							:value="addOnsNotificationsEnabled ? 'on' : 'off'"
 						/>
-						<input
-							type="checkbox"
-							value="on"
-							id="add_ons_notifications_enabled"
-							class="mt-1 h-5 w-5 shrink-0 cursor-pointer rounded border-gray-300 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed"
-							:checked="needsChannelSelection || addOnsNotificationsEnabled"
-							:disabled="needsChannelSelection"
-							@change="
-								addOnsNotificationsEnabled = ($event.target as HTMLInputElement).checked
-							"
-							:aria-labelledby="DASHBOARD_SECTION_IDS.firstNotificationExtras"
-							aria-describedby="add_ons_notifications_enabled_description"
-						/>
-						<div class="min-w-0">
-							<h2
-								:id="DASHBOARD_SECTION_IDS.firstNotificationExtras"
-								class="text-xl sm:text-2xl font-bold text-gray-900"
-							>
-								<label for="add_ons_notifications_enabled" class="cursor-pointer">
-									Notification Add-ons
-								</label>
-							</h2>
+						<h2
+							:id="DASHBOARD_SECTION_IDS.firstNotificationExtras"
+							class="text-xl sm:text-2xl font-bold text-gray-900"
+						>
+							Notification Add-ons
+						</h2>
 						<p
 							id="add_ons_notifications_enabled_description"
 							class="text-sm text-gray-600 mt-1"
@@ -69,40 +53,45 @@
 							A daily notification with your selected add-ons, sent at the time below — separate from scheduled price alerts.
 						</p>
 						<p
-						class="text-sm text-gray-600 mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 transition-opacity duration-200"
-						:class="{ 'opacity-50': needsChannelSelection || !addOnsNotificationsEnabled }"
-					>
+							class="text-sm text-gray-500 mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 transition-opacity duration-200"
+							:class="{ 'opacity-50': needsChannelSelection || !addOnsNotificationsEnabled }"
+						>
 							<span class="inline-flex items-center gap-1.5">
-								<ClockIcon class="size-4 shrink-0 text-gray-500" aria-hidden="true" />
-								<span class="text-gray-700">
+								<ClockIcon class="size-4 shrink-0 text-gray-400" aria-hidden="true" />
+								<span>
 									Local time:
-									<span class="font-medium text-gray-900">
+									<span class="font-medium text-gray-700">
 										{{ currentTimeInTimezone ?? "—" }}
 									</span>
 								</span>
 							</span>
 							<a
 								href="/profile"
-								class="inline-flex items-center gap-1 link-primary rounded-sm"
+								class="inline-flex items-center gap-1 link-primary text-xs rounded-sm"
 								aria-label="Change timezone in profile settings"
 							>
 								Change timezone
-								<ArrowTopRightOnSquareIcon class="size-3.5 shrink-0" aria-hidden="true" />
+								<ArrowTopRightOnSquareIcon class="size-3 shrink-0" aria-hidden="true" />
 							</a>
 						</p>
 					</div>
-					</div>
+					<ToggleSwitch
+						v-model="addOnsNotificationsEnabled"
+						:disabled="needsChannelSelection"
+						sr-label="Enable notification add-ons"
+						:aria-labelledby="DASHBOARD_SECTION_IDS.firstNotificationExtras"
+						aria-describedby="add_ons_notifications_enabled_description"
+					/>
 				</header>
 
 			<SetupRequiredNotice
-				class="pl-8"
 				:needsChannelSelection="needsChannelSelection"
 				:needsPhoneVerification="needsPhoneVerification"
 				:phoneVerificationSectionId="phoneVerificationSectionId"
 			/>
 
 			<fieldset
-				class="pl-8 divide-y divide-gray-100 transition-opacity duration-200"
+				class="divide-y divide-gray-100 transition-opacity duration-200"
 					:class="{ 'opacity-50': needsChannelSelection || !addOnsNotificationsEnabled }"
 					:aria-disabled="needsChannelSelection || !addOnsNotificationsEnabled ? 'true' : undefined"
 				>
@@ -120,7 +109,7 @@
 								id="add_ons_delivery_time_description"
 								class="text-sm text-gray-600 mt-0.5"
 							>
-								Choose the daily delivery time.
+								Sent once every day.
 							</p>
 						</div>
 						<TimePicker
@@ -227,7 +216,7 @@
 					</div>
 				</fieldset>
 
-				<div v-if="isHydrated && nextAddOnsDeliveryText" class="pl-8 mt-4 border-t border-gray-200 pt-4">
+				<div v-if="isHydrated && nextAddOnsDeliveryText" class="mt-4 border-t border-gray-200 pt-4">
 					<p class="inline-flex items-center gap-2 text-sm text-gray-600">
 						<BellAlertIcon class="size-4 shrink-0 text-success-strong" aria-hidden="true" />
 						<span>Next delivery <span class="font-medium text-gray-900">{{ nextAddOnsDeliveryText }}</span>.</span>
@@ -383,6 +372,7 @@ const nextAddOnsDeliveryText = computed(() => {
 
 watch(
 	[
+		addOnsNotificationsEnabled,
 		includeNews,
 		includeRumors,
 		onlyNotifyWhenMarketOpen,
