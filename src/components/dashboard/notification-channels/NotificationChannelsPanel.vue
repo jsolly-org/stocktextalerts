@@ -53,6 +53,7 @@
 				v-model:emailEnabled="emailEnabled"
 				v-model:smsEnabled="smsEnabled"
 				:can-save-sms-enabled="canSaveSmsEnabled"
+				:sms-opted-out="smsOptedOut"
 				:show-time-reminder="showTimeReminder"
 				:email-notifications-enabled-id="emailNotificationsEnabledId"
 				:sms-notifications-enabled-id="smsNotificationsEnabledId"
@@ -219,6 +220,7 @@ const smsEnabled = computed({
 });
 
 const phoneVerified = computed(() => user.value.phone_verified === true);
+const smsOptedOut = computed(() => user.value.sms_opted_out === true);
 
 const canSaveSmsEnabled = computed(() => {
 	if (!smsEnabled.value) {
@@ -254,6 +256,7 @@ watch(
 				...user.value,
 				email_notifications_enabled: newData.email_notifications_enabled,
 				sms_notifications_enabled: newData.sms_notifications_enabled,
+				sms_opted_out: newData.sms_opted_out,
 				phone_verified: newData.phone_verified,
 			};
 			// Sync channel state with parent

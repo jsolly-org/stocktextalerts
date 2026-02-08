@@ -147,6 +147,12 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			safeNotificationPreferenceUpdates.sms_notifications_enabled !== undefined
 				? safeNotificationPreferenceUpdates.sms_notifications_enabled
 				: dbUser.sms_notifications_enabled;
+		if (finalSmsNotificationsEnabled && dbUser.sms_opted_out) {
+			logger.info("SMS enable rejected: user is sms_opted_out", {
+				userId: user.id,
+			});
+			return jsonResponse(400, { ok: false, message: "sms_opted_out" });
+		}
 		if (
 			finalSmsNotificationsEnabled &&
 			(!dbUser.phone_country_code || !dbUser.phone_number)
@@ -172,6 +178,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			notificationPreferences: {
 				email_notifications_enabled: updatedUser.email_notifications_enabled,
 				sms_notifications_enabled: updatedUser.sms_notifications_enabled,
+				sms_opted_out: updatedUser.sms_opted_out,
 				phone_verified: updatedUser.phone_verified,
 				timezone: updatedUser.timezone,
 				scheduled_updates_enabled: updatedUser.scheduled_updates_enabled,

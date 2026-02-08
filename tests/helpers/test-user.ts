@@ -12,6 +12,7 @@ export type CreateTestUserOptions = {
 	timezone?: string;
 	emailNotificationsEnabled?: boolean;
 	smsNotificationsEnabled?: boolean;
+	smsOptedOut?: boolean;
 	phoneCountryCode?: string | null;
 	phoneNumber?: string | null;
 	phoneVerified?: boolean;
@@ -195,6 +196,7 @@ export async function createTestUser(
 			timezone,
 			email_notifications_enabled: options.emailNotificationsEnabled ?? false,
 			sms_notifications_enabled: smsNotificationsEnabled,
+			sms_opted_out: options.smsOptedOut ?? false,
 			scheduled_updates_enabled: scheduledUpdatesEnabled,
 			scheduled_update_times: finalScheduledUpdateTimes,
 			next_send_at: nextSendAtIso,

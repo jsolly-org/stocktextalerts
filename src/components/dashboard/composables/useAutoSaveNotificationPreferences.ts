@@ -6,6 +6,7 @@ import {
 export type NotificationPreferencesData = {
 	email_notifications_enabled: boolean;
 	sms_notifications_enabled: boolean;
+	sms_opted_out: boolean;
 	phone_verified: boolean;
 	timezone: string;
 	scheduled_updates_enabled: boolean;

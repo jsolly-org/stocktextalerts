@@ -69,6 +69,8 @@
 					:needsChannelSelection="needsChannelSelection"
 					:timePickerDisabled="timePickerDisabled"
 					:canAddTime="canAddTime"
+					:maxTimes="MAX_DELIVERY_TIMES"
+					:maxTimesReached="maxTimesReached"
 					:countdownText="countdownText"
 					@update:enabled="handleScheduledUpdatesEnabledUpdate"
 					@time-change="handleTimeChange"
@@ -151,7 +153,57 @@ const scheduledUpdatesEnabled = ref(user.value.scheduled_updates_enabled);
 
 const MAX_SCHEDULED_UPDATE_MINUTES = 23 * 60 + 59;
 const SCHEDULED_UPDATE_INCREMENT_MINUTES = 1;
-const ADD_SCHEDULED_OFFSET_MINUTES = 180;
+const MAX_DELIVERY_TIMES = 5;
+const QUICK_ADD_LATE_EVENING_START = 21 * 60;
+const QUICK_ADD_LATE_NIGHT_START = 23 * 60;
+const QUICK_ADD_LATE_NIGHT_MEDIUM_START = 23 * 60 + 30;
+const QUICK_ADD_LATE_NIGHT_SHORT_START = 23 * 60 + 45;
+const QUICK_ADD_LATE_NIGHT_TINY_START = 23 * 60 + 58;
+const MINUTES_PER_DAY = MAX_SCHEDULED_UPDATE_MINUTES + 1;
+
+function getQuickAddIncrementMinutes(latestMinutes: number): number {
+	if (latestMinutes >= QUICK_ADD_LATE_NIGHT_TINY_START) {
+		return 1;
+	}
+	if (latestMinutes >= QUICK_ADD_LATE_NIGHT_SHORT_START) {
+		return 5;
+	}
+	if (latestMinutes >= QUICK_ADD_LATE_NIGHT_MEDIUM_START) {
+		return 15;
+	}
+	if (latestMinutes >= QUICK_ADD_LATE_NIGHT_START) {
+		return 30;
+	}
+	if (latestMinutes >= QUICK_ADD_LATE_EVENING_START) {
+		return 60;
+	}
+	return 180;
+}
+
+function getNextQuickAddMinute(
+	existingTimes: number[],
+	fallbackLatest: number,
+): number | null {
+	const normalized = normalizeScheduledTimes(existingTimes);
+	const latestMinutes =
+		normalized.length > 0
+			? normalized[normalized.length - 1]
+			: fallbackLatest;
+	const incrementMinutes = getQuickAddIncrementMinutes(latestMinutes);
+	let candidate = latestMinutes + incrementMinutes;
+	if (candidate > MAX_SCHEDULED_UPDATE_MINUTES) {
+		candidate = 0;
+	}
+	const existingSet = new Set(normalized);
+
+	for (let offset = 0; offset < MINUTES_PER_DAY; offset += 1) {
+		const minute = (candidate + offset) % MINUTES_PER_DAY;
+		if (!existingSet.has(minute)) {
+			return minute;
+		}
+	}
+	return null;
+}
 
 function normalizeScheduledTimes(times: number[]): number[] {
 	const filtered = times.filter(
@@ -193,16 +245,23 @@ const needsPhoneVerification = computed(
 const timePickerDisabled = computed(
 	() => needsChannelSelection.value || !scheduledUpdatesEnabled.value,
 );
+const maxTimesReached = computed(
+	() => scheduledUpdateTimesMinutes.value.length >= MAX_DELIVERY_TIMES,
+);
 const canAddTime = computed(() => {
 	if (timePickerDisabled.value) {
 		return false;
 	}
-	const times = normalizeScheduledTimes(scheduledUpdateTimesMinutes.value);
-	if (times.length === 0) {
-		return true;
+	if (maxTimesReached.value) {
+		return false;
 	}
-	const nextMinutes = times[times.length - 1] + ADD_SCHEDULED_OFFSET_MINUTES;
-	return nextMinutes <= MAX_SCHEDULED_UPDATE_MINUTES;
+	const times = normalizeScheduledTimes(scheduledUpdateTimesMinutes.value);
+	const baseTimes =
+		times.length === 0 ? [DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES] : times;
+	return (
+		getNextQuickAddMinute(baseTimes, DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES) !==
+		null
+	);
 });
 
 watch(
@@ -288,10 +347,16 @@ function handleAddTime() {
 		return;
 	}
 	const times = normalizeScheduledTimes(scheduledUpdateTimesMinutes.value);
-	const baseTimes = times.length === 0 ? [DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES] : times;
-	const nextMinutes =
-		baseTimes[baseTimes.length - 1] + ADD_SCHEDULED_OFFSET_MINUTES;
-	if (nextMinutes > MAX_SCHEDULED_UPDATE_MINUTES) {
+	const baseTimes =
+		times.length === 0 ? [DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES] : times;
+	if (baseTimes.length >= MAX_DELIVERY_TIMES) {
+		return;
+	}
+	const nextMinutes = getNextQuickAddMinute(
+		baseTimes,
+		DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES,
+	);
+	if (nextMinutes === null) {
 		return;
 	}
 	scheduledUpdateTimesMinutes.value = normalizeScheduledTimes([

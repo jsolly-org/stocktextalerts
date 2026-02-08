@@ -31,6 +31,7 @@ export type UserRecord = Pick<
 	| "next_send_at"
 	| "email_notifications_enabled"
 	| "sms_notifications_enabled"
+	| "sms_opted_out"
 	| "show_change_percent"
 	| "show_company_name"
 	| "detailed_format"

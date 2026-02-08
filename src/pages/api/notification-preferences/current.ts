@@ -45,6 +45,7 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 			notificationPreferences: {
 				email_notifications_enabled: dbUser.email_notifications_enabled,
 				sms_notifications_enabled: dbUser.sms_notifications_enabled,
+				sms_opted_out: dbUser.sms_opted_out,
 				phone_verified: dbUser.phone_verified,
 				timezone: dbUser.timezone,
 				scheduled_updates_enabled: dbUser.scheduled_updates_enabled,

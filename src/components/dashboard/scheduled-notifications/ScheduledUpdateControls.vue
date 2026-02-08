@@ -79,7 +79,7 @@
 					</button>
 				</div>
 			</div>
-			<div class="flex justify-start">
+			<div class="flex flex-col gap-2">
 				<button
 					type="button"
 					class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -90,6 +90,9 @@
 					<PlusIcon class="size-4 shrink-0" aria-hidden="true" />
 					Add an additional delivery time
 				</button>
+				<StatusMessage v-if="maxTimesReached" tone="warning">
+					You have reached the {{ maxTimes }} delivery slot limit.
+				</StatusMessage>
 			</div>
 		</fieldset>
 		<div v-if="!needsChannelSelection" class="mt-4 border-t border-gray-200 pt-4">
@@ -107,6 +110,7 @@ import { computed, onMounted, ref } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 import PlusIcon from "../../../icons/plus.svg?component";
+import StatusMessage from "../../StatusMessage.vue";
 import TimePicker from "./TimePicker.vue";
 
 interface Props {
@@ -115,6 +119,8 @@ interface Props {
 	needsChannelSelection: boolean;
 	timePickerDisabled: boolean;
 	canAddTime: boolean;
+	maxTimes: number;
+	maxTimesReached: boolean;
 	countdownText: string | null;
 }
 

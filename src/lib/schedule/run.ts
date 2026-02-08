@@ -35,6 +35,7 @@ async function runScheduledNotifications(options: {
 	);
 	const users = await fetchScheduledUsers({
 		supabase,
+		logger,
 		forceSend,
 		currentTimeIso,
 	});

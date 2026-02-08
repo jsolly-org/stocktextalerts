@@ -28,6 +28,7 @@ export type NotificationPreferencesSnapshot = Pick<
 	User,
 	| "email_notifications_enabled"
 	| "sms_notifications_enabled"
+	| "sms_opted_out"
 	| "phone_verified"
 	| "timezone"
 	| "scheduled_updates_enabled"

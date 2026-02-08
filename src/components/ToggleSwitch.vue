@@ -5,6 +5,7 @@
 		:aria-checked="modelValue"
 		:aria-labelledby="ariaLabelledby"
 		:aria-describedby="ariaDescribedby"
+		:disabled="disabled"
 		class="group relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
 		:class="modelValue ? 'bg-primary' : 'bg-gray-300'"
 		@click="toggle"
@@ -23,17 +24,20 @@ interface Props {
 	srLabel?: string;
 	ariaLabelledby?: string;
 	ariaDescribedby?: string;
+	disabled?: boolean;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
 	srLabel: "Toggle",
 	ariaLabelledby: undefined,
 	ariaDescribedby: undefined,
+	disabled: false,
 });
 
 const modelValue = defineModel<boolean>({ required: true });
 
 function toggle() {
+	if (props.disabled) return;
 	modelValue.value = !modelValue.value;
 }
 </script>

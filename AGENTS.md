@@ -41,7 +41,6 @@ New app with no users — optimize for simplicity and correctness over backwards
 - No `setTimeout`/`nextTick`/`requestAnimationFrame` to mask race conditions. Fix the root cause. Legitimate uses (debouncing, throttling) are fine.
 
 ## Repo Constraints
-- **Database migrations**: Do NOT create new migration files. Only modify the initial migration in `supabase/migrations`.
 - **Generated files**: Do NOT modify `src/lib/db/generated/database.types.ts`. Regenerate with Supabase CLI or use type assertions.
 
 ## Tech Stack

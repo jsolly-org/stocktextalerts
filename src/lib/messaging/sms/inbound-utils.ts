@@ -102,7 +102,7 @@ export async function handleInboundSms(
 	const { data: users, error } = await supabase
 		.from("users")
 		.select(
-			"id, phone_verified, email_notifications_enabled, sms_notifications_enabled",
+			"id, phone_verified, email_notifications_enabled, sms_notifications_enabled, sms_opted_out",
 		)
 		.eq("phone_country_code", countryCode)
 		.eq("phone_number", phoneNumber);
@@ -157,6 +157,7 @@ export async function handleInboundSms(
 			.update({
 				email_notifications_enabled: false,
 				sms_notifications_enabled: false,
+				sms_opted_out: true,
 			})
 			.eq("id", userId);
 
@@ -213,7 +214,7 @@ export async function handleInboundSms(
 	if (STOP_RE.test(body)) {
 		const { error: updateError } = await supabase
 			.from("users")
-			.update({ sms_notifications_enabled: false })
+			.update({ sms_notifications_enabled: false, sms_opted_out: true })
 			.eq("id", userId);
 
 		if (updateError) {
@@ -240,10 +241,27 @@ export async function handleInboundSms(
 	}
 
 	if (START_RE.test(body)) {
+		const { error: updateError } = await supabase
+			.from("users")
+			.update({ sms_opted_out: false })
+			.eq("id", userId);
+
+		if (updateError) {
+			rootLogger.error(
+				"Failed to clear sms_opted_out",
+				{ userId, action: "sms_start" },
+				updateError,
+			);
+			return {
+				status: 500,
+				body: "Failed to update notification-preferences",
+			};
+		}
+
 		return {
 			status: 200,
 			body: wrapInTwiml(
-				`You cannot re-enable SMS notifications by replying START. To re-enable, visit your dashboard: ${dashboardUrl}.`,
+				`You have been unblocked from receiving SMS messages. To re-enable SMS notifications, visit your dashboard: ${dashboardUrl}.`,
 			),
 			contentType: "text/xml",
 		};

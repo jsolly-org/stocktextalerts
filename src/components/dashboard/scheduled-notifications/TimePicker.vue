@@ -11,6 +11,7 @@
 			v-model="selectedTime"
 			time-picker
 			:time-config="timeConfig"
+			:config="datepickerConfig"
 			:min-time="minTime"
 			:max-time="maxTime"
 			:minutes-grid-increment="minutesIncrement"
@@ -57,6 +58,10 @@ const selectedTime = ref<TimeModel | null>(
 );
 const isDisabled = computed(() => props.disabled ?? false);
 const is24 = ref(true);
+
+// Apply selection when the menu is dismissed (e.g. click-away), so the chosen time
+// persists even if the user doesn't press the Select button.
+const datepickerConfig = { setDateOnMenuClose: true } as const;
 
 const displayFormat = computed(() => {
 	return is24.value ? "HH:mm" : "hh:mm aa";

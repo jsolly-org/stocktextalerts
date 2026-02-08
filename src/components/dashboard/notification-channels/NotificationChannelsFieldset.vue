@@ -52,10 +52,15 @@
 					<ToggleSwitch
 						v-model="smsEnabled"
 						sr-label="SMS notifications"
+						:disabled="props.smsOptedOut"
 						:aria-labelledby="`${props.smsNotificationsEnabledId}_label`"
 						:aria-describedby="`${props.smsNotificationsEnabledId}_desc`"
 					/>
 				</div>
+
+				<StatusMessage v-if="props.smsOptedOut" tone="warning" class="mx-4 mb-4">
+					{{ MESSAGE_ALLOWLIST.sms_opted_out }}
+				</StatusMessage>
 
 				<SmsVerificationSection
 					:sms-enabled="smsEnabled"
@@ -79,7 +84,7 @@
 
 <script lang="ts" setup>
 import { computed } from "vue";
-import { DASHBOARD_SECTION_IDS } from "../../../lib/constants";
+import { DASHBOARD_SECTION_IDS, MESSAGE_ALLOWLIST } from "../../../lib/constants";
 import StatusMessage from "../../StatusMessage.vue";
 import ToggleSwitch from "../../ToggleSwitch.vue";
 import SmsVerificationSection from "./SmsVerificationSection.vue";
@@ -88,6 +93,7 @@ interface Props {
 	emailEnabled: boolean;
 	smsEnabled: boolean;
 	canSaveSmsEnabled: boolean;
+	smsOptedOut: boolean;
 	showTimeReminder: boolean;
 	emailNotificationsEnabledId: string;
 	smsNotificationsEnabledId: string;
