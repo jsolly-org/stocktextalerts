@@ -137,7 +137,10 @@ const props = withDefaults(defineProps<Props>(), {
 	isSaving: false,
 });
 
-const emit = defineEmits<(event: "form-changed") => void>();
+const emit = defineEmits<{
+	(event: "form-changed"): void;
+	(event: "stocks-changed", stocks: InitialStock[]): void;
+}>();
 
 const { flashMessages, isSaving, statusMessage, statusTone } = toRefs(props);
 
@@ -155,8 +158,9 @@ const STOCK_LIMIT_HINT_ID = "stock-limit-hint";
 
 watch(
 	draftStocks,
-	() => {
+	(stocks) => {
 		emit("form-changed");
+		emit("stocks-changed", stocks);
 	},
 	{ flush: "post", deep: true },
 );

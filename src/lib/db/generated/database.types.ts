@@ -235,7 +235,7 @@ export type Database = {
         Row: {
           add_ons_delivery_time: number | null
           add_ons_next_send_at: string | null
-          add_ons_notifications_enabled: boolean
+          add_ons_only_notify_when_market_open: boolean
           created_at: string
           detailed_format: boolean
           dismiss_timezone_mismatch_prompts: boolean
@@ -253,8 +253,8 @@ export type Database = {
           phone_country_code: string | null
           phone_number: string | null
           phone_verified: boolean
+          price_notifications_enabled: boolean
           scheduled_update_times: number[] | null
-          scheduled_updates_enabled: boolean
           show_change_percent: boolean
           show_company_name: boolean
           sms_notifications_enabled: boolean
@@ -266,7 +266,7 @@ export type Database = {
         Insert: {
           add_ons_delivery_time?: number | null
           add_ons_next_send_at?: string | null
-          add_ons_notifications_enabled?: boolean
+          add_ons_only_notify_when_market_open?: boolean
           created_at?: string
           detailed_format?: boolean
           dismiss_timezone_mismatch_prompts?: boolean
@@ -284,8 +284,8 @@ export type Database = {
           phone_country_code?: string | null
           phone_number?: string | null
           phone_verified?: boolean
+          price_notifications_enabled?: boolean
           scheduled_update_times?: number[] | null
-          scheduled_updates_enabled?: boolean
           show_change_percent?: boolean
           show_company_name?: boolean
           sms_notifications_enabled?: boolean
@@ -297,7 +297,7 @@ export type Database = {
         Update: {
           add_ons_delivery_time?: number | null
           add_ons_next_send_at?: string | null
-          add_ons_notifications_enabled?: boolean
+          add_ons_only_notify_when_market_open?: boolean
           created_at?: string
           detailed_format?: boolean
           dismiss_timezone_mismatch_prompts?: boolean
@@ -315,8 +315,8 @@ export type Database = {
           phone_country_code?: string | null
           phone_number?: string | null
           phone_verified?: boolean
+          price_notifications_enabled?: boolean
           scheduled_update_times?: number[] | null
-          scheduled_updates_enabled?: boolean
           show_change_percent?: boolean
           show_company_name?: boolean
           sms_notifications_enabled?: boolean
@@ -384,19 +384,6 @@ export type Database = {
           p_user_id: string
         }
         Returns: boolean
-      }
-      update_user_preferences_and_stocks: {
-        Args: {
-          p_email_notifications_enabled: boolean
-          p_next_send_at: string
-          p_scheduled_update_times: number[]
-          p_scheduled_updates_enabled: boolean
-          p_sms_notifications_enabled: boolean
-          p_symbols: string[]
-          p_timezone: string
-          p_user_id: string
-        }
-        Returns: undefined
       }
     }
     Enums: {

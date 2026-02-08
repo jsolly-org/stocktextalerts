@@ -1,7 +1,7 @@
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/auth/update-email";
-import { toRedirect } from "../../helpers/shared-utils";
+import { toRedirect } from "../../helpers/request-helpers";
 
 describe("Update email requires authentication.", () => {
 	it("An unauthenticated request is redirected to sign-in with an error.", async () => {

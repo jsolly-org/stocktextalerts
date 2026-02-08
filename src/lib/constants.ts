@@ -41,15 +41,19 @@ Time Defaults
 export const DEFAULT_TIMEZONE = "America/New_York";
 export const DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES = 9 * 60; // 9:00 AM local time (minutes since local midnight)
 
+/** US stock market opens at 9:30 AM Eastern */
+export const US_MARKET_OPEN_EASTERN_MINUTES = 9 * 60 + 30;
+export const US_MARKET_TIMEZONE = "America/New_York";
+
 /* =============
 SMS Verification Timing
 ============= */
 
-export const VERIFICATION_EXPIRATION_MINUTES = 10;
+const VERIFICATION_EXPIRATION_MINUTES = 10;
 export const VERIFICATION_EXPIRATION_MS =
 	VERIFICATION_EXPIRATION_MINUTES * 60 * 1000;
 
-export const VERIFICATION_RESEND_COOLDOWN_SECONDS = 60;
+const VERIFICATION_RESEND_COOLDOWN_SECONDS = 60;
 export const VERIFICATION_RESEND_COOLDOWN_MS =
 	VERIFICATION_RESEND_COOLDOWN_SECONDS * 1000;
 
@@ -83,7 +87,7 @@ export const DASHBOARD_SECTION_IDS = {
 	firstNotificationExtras: "first-notification-extras",
 } as const;
 
-export type DashboardSection = keyof typeof DASHBOARD_SECTION_IDS;
+type DashboardSection = keyof typeof DASHBOARD_SECTION_IDS;
 
 export const DASHBOARD_SECTION_HASHES: Record<DashboardSection, string> = {
 	notificationChannels: `#${DASHBOARD_SECTION_IDS.notificationChannels}`,
@@ -156,8 +160,6 @@ export const MESSAGE_ALLOWLIST = {
 	sms_notifications_disabled: "SMS notifications are disabled.",
 	notifications_not_configured:
 		"Enable at least one notification channel to send updates.",
-	update_times_required:
-		"Choose at least one delivery time (or disable scheduled updates).",
 	user_not_found: "User not found",
 	delete_failed: "Failed to delete account. Please try again.",
 	delete_partial:
@@ -167,7 +169,7 @@ export const MESSAGE_ALLOWLIST = {
 	stocks_limit: `Maximum ${MAX_TRACKED_STOCKS} stocks allowed`,
 } as const;
 
-export type MessageKey = keyof typeof MESSAGE_ALLOWLIST;
+type MessageKey = keyof typeof MESSAGE_ALLOWLIST;
 
 export function formatMessage(message: string | null): string {
 	if (!message) return "";

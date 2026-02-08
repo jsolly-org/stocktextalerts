@@ -1,7 +1,7 @@
 import { FINNHUB_BASE_URL } from "./constants";
 import { rootLogger } from "./logging";
 
-export interface StockPrice {
+interface StockPrice {
 	price: number;
 	changePercent: number;
 }

@@ -2,12 +2,9 @@ import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/auth/update-email";
-import {
-	cleanupTestUser,
-	createAuthenticatedCookies,
-	createTestUser,
-	toRedirect,
-} from "../../helpers/shared-utils";
+import { toRedirect } from "../../helpers/request-helpers";
+import { createAuthenticatedCookies } from "../../helpers/test-env";
+import { cleanupTestUser, createTestUser } from "../../helpers/test-user";
 
 describe("A signed-in user requests to change their email address.", () => {
 	it("A valid request triggers the email change flow and returns the user to their profile with success.", async () => {

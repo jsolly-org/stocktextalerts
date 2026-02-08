@@ -3,7 +3,6 @@ import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 
-/** Read the authenticated user's current notification preferences snapshot. */
 export const GET: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({
@@ -43,15 +42,16 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 		return Response.json({
 			ok: true,
 			notificationPreferences: {
+				price_notifications_enabled: dbUser.price_notifications_enabled,
 				email_notifications_enabled: dbUser.email_notifications_enabled,
 				sms_notifications_enabled: dbUser.sms_notifications_enabled,
 				sms_opted_out: dbUser.sms_opted_out,
 				phone_verified: dbUser.phone_verified,
 				timezone: dbUser.timezone,
-				scheduled_updates_enabled: dbUser.scheduled_updates_enabled,
 				scheduled_update_times: dbUser.scheduled_update_times,
 				only_notify_when_market_open: dbUser.only_notify_when_market_open,
-				add_ons_notifications_enabled: dbUser.add_ons_notifications_enabled,
+				add_ons_only_notify_when_market_open:
+					dbUser.add_ons_only_notify_when_market_open,
 				add_ons_delivery_time: dbUser.add_ons_delivery_time,
 				add_ons_next_send_at: dbUser.add_ons_next_send_at,
 				next_send_at: dbUser.next_send_at,

@@ -33,7 +33,6 @@ export type UserRecord = Pick<
 	| "phone_number"
 	| "phone_verified"
 	| "timezone"
-	| "scheduled_updates_enabled"
 	| "next_send_at"
 	| "email_notifications_enabled"
 	| "sms_notifications_enabled"
@@ -42,9 +41,10 @@ export type UserRecord = Pick<
 	| "show_company_name"
 	| "detailed_format"
 > & {
+	price_notifications_enabled: boolean;
 	scheduled_update_times: number[] | null;
 	only_notify_when_market_open: boolean;
-	add_ons_notifications_enabled: boolean;
+	add_ons_only_notify_when_market_open: boolean;
 	add_ons_delivery_time: number | null;
 	add_ons_next_send_at: string | null;
 	last_market_closed_skip_scheduled_at: string | null;

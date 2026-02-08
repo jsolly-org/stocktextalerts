@@ -263,16 +263,6 @@ export function buildPublicUserSql(userId: string, user: SeedUser): string {
     updateFields.push("phone_verified = EXCLUDED.phone_verified");
   }
 
-  const scheduledUpdatesEnabled = validateOptionalBoolean(
-    user.scheduled_updates_enabled,
-    "scheduled_updates_enabled",
-  );
-  if (scheduledUpdatesEnabled !== undefined) {
-    insertColumns.push("scheduled_updates_enabled");
-    insertValues.push(String(scheduledUpdatesEnabled));
-    updateFields.push("scheduled_updates_enabled = EXCLUDED.scheduled_updates_enabled");
-  }
-
   const scheduledUpdateTimes = validateOptionalNumberArray(
     user.scheduled_update_times,
     "scheduled_update_times",

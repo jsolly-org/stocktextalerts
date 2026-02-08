@@ -5,9 +5,9 @@ import { POST } from "../../../src/pages/api/notification-preferences/update";
 import {
 	adminClient,
 	createAuthenticatedCookies,
-	createTestUser,
-} from "../../helpers/shared-utils";
-import { registerTestUserForCleanup } from "../../setup";
+} from "../../helpers/test-env";
+import { createTestUser } from "../../helpers/test-user";
+import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 describe("A signed-in user updates their email notification preference.", () => {
 	it("The user enables email notifications.", async () => {

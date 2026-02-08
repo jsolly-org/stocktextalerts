@@ -5,11 +5,13 @@ import { createSendVerificationHandler } from "../../../../src/pages/api/auth/sm
 import { createVerifyCodeHandler } from "../../../../src/pages/api/auth/sms/verify-code";
 import {
 	adminClient,
-	cleanupTestUser,
 	createAuthenticatedCookies,
+} from "../../../helpers/test-env";
+import {
+	cleanupTestUser,
 	createTestUser,
 	generateUniquePhoneNumber,
-} from "../../../helpers/shared-utils";
+} from "../../../helpers/test-user";
 
 const smsVerifyMocks = vi.hoisted(() => ({
 	sendVerificationMock: vi.fn(),

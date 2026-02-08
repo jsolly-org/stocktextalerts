@@ -15,12 +15,12 @@ import PrivacyPage from "../../src/pages/privacy.astro";
 import ProfilePage from "../../src/pages/profile.astro";
 import TermsPage from "../../src/pages/terms.astro";
 import { TEST_PASSWORD } from "../helpers/constants";
+import { createAuthenticatedCookies } from "../helpers/test-env";
 import {
 	cleanupTestUser,
-	createAuthenticatedCookies,
 	createTestEmail,
 	createTestUser,
-} from "../helpers/shared-utils";
+} from "../helpers/test-user";
 import { allowConsoleWarnings, errorSpy, warnSpy } from "../setup";
 
 function buildRequest(path: string, cookies?: Map<string, string>) {

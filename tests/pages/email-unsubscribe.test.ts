@@ -4,13 +4,13 @@ import { loadRenderers } from "astro/virtual-modules/container.js";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createEmailUnsubscribeToken } from "../../src/lib/messaging/email/email-unsubscribe";
 import EmailUnsubscribePage from "../../src/pages/email/unsubscribe.astro";
+import { adminClient } from "../helpers/test-env";
 import {
-	adminClient,
 	createTestEmail,
 	createTestUser,
 	generateUniquePhoneNumber,
-} from "../helpers/shared-utils";
-import { registerTestUserForCleanup } from "../setup";
+} from "../helpers/test-user";
+import { registerTestUserForCleanup } from "../helpers/test-user-cleanup";
 
 describe("A user clicks the email unsubscribe link.", () => {
 	let renderers: Awaited<ReturnType<typeof loadRenderers>>;
@@ -49,15 +49,12 @@ describe("A user clicks the email unsubscribe link.", () => {
 
 		const { data: updated, error } = await adminClient
 			.from("users")
-			.select(
-				"email_notifications_enabled,scheduled_updates_enabled,sms_notifications_enabled",
-			)
+			.select("email_notifications_enabled,sms_notifications_enabled")
 			.eq("id", user.id)
 			.maybeSingle();
 
 		expect(error).toBeNull();
 		expect(updated?.email_notifications_enabled).toBe(false);
-		expect(updated?.scheduled_updates_enabled).toBe(true);
 		expect(updated?.sms_notifications_enabled).toBe(true);
 	});
 

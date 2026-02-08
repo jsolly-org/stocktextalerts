@@ -1,7 +1,7 @@
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/auth/update-password";
-import { toRedirect } from "../../helpers/shared-utils";
+import { toRedirect } from "../../helpers/request-helpers";
 
 describe("A user submits the password recovery form.", () => {
 	it("The request is rejected when the form is incomplete.", async () => {

@@ -79,7 +79,6 @@ import {
 	formatMessage,
 	STATUS_TONE_CLASSES,
 } from "../../../lib/constants";
-import type { User } from "../../../lib/db";
 import { rootLogger } from "../../../lib/logging";
 import { fetchCurrentNotificationPreferences } from "../../../lib/notification-preferences/client";
 import FadeTransition from "../../FadeTransition.vue";
@@ -230,9 +229,6 @@ const canSaveSmsEnabled = computed(() => {
 });
 const showTimeReminder = computed(() => {
 	if (!emailEnabled.value && !smsEnabled.value) {
-		return false;
-	}
-	if (!user.value.scheduled_updates_enabled) {
 		return false;
 	}
 	const times = user.value.scheduled_update_times;

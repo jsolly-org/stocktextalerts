@@ -3,12 +3,9 @@ import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/auth/update-password";
 import { NEW_PASSWORD } from "../../helpers/constants";
-import {
-	adminClient,
-	cleanupTestUser,
-	createTestUser,
-	toRedirect,
-} from "../../helpers/shared-utils";
+import { toRedirect } from "../../helpers/request-helpers";
+import { adminClient } from "../../helpers/test-env";
+import { cleanupTestUser, createTestUser } from "../../helpers/test-user";
 
 describe("A user resets their password from the recovery flow.", () => {
 	it("With a valid token and password, the user is redirected to the sign-in page.", async () => {

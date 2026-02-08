@@ -4,7 +4,7 @@ import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
 import { wrapInTwiml } from "./twiml";
 
-export interface InboundSmsDependencies {
+interface InboundSmsDependencies {
 	authToken: string;
 	validateRequest: (
 		authToken: string,
@@ -15,13 +15,13 @@ export interface InboundSmsDependencies {
 	supabase: AppSupabaseClient;
 }
 
-export interface InboundSmsRequest {
+interface InboundSmsRequest {
 	url: string;
 	signature: string;
 	params: Record<string, string | undefined>;
 }
 
-export interface InboundSmsResponse {
+interface InboundSmsResponse {
 	status: number;
 	body: string;
 	contentType?: string;

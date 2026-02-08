@@ -2,11 +2,9 @@ import type { APIContext } from "astro";
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../../../src/pages/api/schedule";
-import {
-	adminClient,
-	createTestUser,
-	registerTestUserForCleanup,
-} from "../../helpers/shared-utils";
+import { adminClient } from "../../helpers/test-env";
+import { createTestUser } from "../../helpers/test-user";
+import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 describe("Users receive scheduled stock update notifications.", () => {
 	const testCronSecret = "test-cron-secret";

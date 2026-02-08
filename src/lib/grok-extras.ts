@@ -1,4 +1,4 @@
-import { rootLogger } from "../logging";
+import { rootLogger } from "./logging";
 
 type ChatCompletionRequest = {
 	model: string;

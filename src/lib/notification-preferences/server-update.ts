@@ -1,8 +1,6 @@
 import { DateTime } from "luxon";
-import { DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES } from "../constants";
 import { omitUndefined, type User, type UserUpdateInput } from "../db";
 import type { Logger } from "../logging";
-import { shouldSendSms } from "../messaging/sms";
 import { calculateNextSendAt } from "../time/scheduled-times";
 import {
 	computeNextSendAtIso,
@@ -10,34 +8,19 @@ import {
 	serializeTimes,
 } from "./scheduled-times";
 
-export class NotificationPreferencesValidationError extends Error {
-	readonly code: "UPDATE_TIMES_REQUIRED";
-	readonly userId?: string;
-
-	constructor(message: string, options: { userId?: string }) {
-		super(message);
-		this.name = "NotificationPreferencesValidationError";
-		this.code = "UPDATE_TIMES_REQUIRED";
-		this.userId = options.userId;
-	}
-}
-
-export interface ParsedNotificationPreferencesForm {
+interface ParsedNotificationPreferencesForm {
+	price_notifications_enabled?: boolean;
 	timezone?: string;
 	email_notifications_enabled?: boolean;
 	sms_notifications_enabled?: boolean;
-	scheduled_updates_enabled?: boolean;
 	scheduled_update_times?: string[];
 	only_notify_when_market_open?: boolean;
-	add_ons_notifications_enabled?: boolean;
+	add_ons_only_notify_when_market_open?: boolean;
 	add_ons_delivery_time?: number;
 	first_notification_include_news?: boolean;
 	first_notification_include_rumors?: boolean;
 }
 
-// Throws NotificationPreferencesValidationError when scheduled updates are enabled
-// but no notification times are provided, so callers can reject the update instead of
-// persisting an unschedulable state.
 export function buildNotificationPreferencesUpdatePayload(options: {
 	parsedData: ParsedNotificationPreferencesForm;
 	formData: FormData;
@@ -61,10 +44,7 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 					reason: result.reason,
 				},
 			);
-			throw new NotificationPreferencesValidationError(
-				`Invalid schedule: ${result.reason}`,
-				{ userId: dbUser.id },
-			);
+			throw new Error(`Invalid schedule: ${result.reason}`);
 		}
 		parsedTimes = result.times;
 	} else {
@@ -76,62 +56,30 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		normalizedTimes = null;
 	}
 
+	// Only include a boolean field when it was present in the submitted form.
+	function boolFromForm(
+		field: keyof ParsedNotificationPreferencesForm,
+		fallback = false,
+	): Record<string, boolean> | Record<string, never> {
+		return formData.has(field)
+			? { [field]: (parsedData[field] as boolean | undefined) ?? fallback }
+			: {};
+	}
+
 	const safeNotificationPreferenceUpdates: UserUpdateInput = omitUndefined({
 		timezone: parsedData.timezone,
 		scheduled_update_times: normalizedTimes,
-		...(formData.has("first_notification_include_news")
-			? {
-					first_notification_include_news:
-						parsedData.first_notification_include_news ?? false,
-				}
-			: {}),
-		...(formData.has("first_notification_include_rumors")
-			? {
-					first_notification_include_rumors:
-						parsedData.first_notification_include_rumors ?? false,
-				}
-			: {}),
-		...(formData.has("email_notifications_enabled")
-			? {
-					email_notifications_enabled:
-						parsedData.email_notifications_enabled ?? false,
-				}
-			: {}),
-		...(formData.has("sms_notifications_enabled")
-			? {
-					sms_notifications_enabled:
-						parsedData.sms_notifications_enabled ?? false,
-				}
-			: {}),
-		...(formData.has("scheduled_updates_enabled")
-			? {
-					scheduled_updates_enabled:
-						parsedData.scheduled_updates_enabled ?? false,
-				}
-			: {}),
-		...(formData.has("only_notify_when_market_open")
-			? {
-					only_notify_when_market_open:
-						parsedData.only_notify_when_market_open ?? false,
-				}
-			: {}),
-		...(formData.has("add_ons_notifications_enabled")
-			? {
-					add_ons_notifications_enabled:
-						parsedData.add_ons_notifications_enabled ?? false,
-				}
-			: {}),
+		...boolFromForm("price_notifications_enabled", true),
+		...boolFromForm("first_notification_include_news"),
+		...boolFromForm("first_notification_include_rumors"),
+		...boolFromForm("email_notifications_enabled"),
+		...boolFromForm("sms_notifications_enabled"),
+		...boolFromForm("only_notify_when_market_open"),
+		...boolFromForm("add_ons_only_notify_when_market_open"),
 		...(formData.has("add_ons_delivery_time")
-			? {
-					add_ons_delivery_time: parsedData.add_ons_delivery_time ?? null,
-				}
+			? { add_ons_delivery_time: parsedData.add_ons_delivery_time ?? null }
 			: {}),
 	});
-
-	if (normalizedTimes === null) {
-		safeNotificationPreferenceUpdates.scheduled_update_times = null;
-		safeNotificationPreferenceUpdates.scheduled_updates_enabled = false;
-	}
 
 	const timezoneChanged =
 		safeNotificationPreferenceUpdates.timezone !== undefined &&
@@ -140,138 +88,65 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		safeNotificationPreferenceUpdates.scheduled_update_times !== undefined &&
 		serializeTimes(safeNotificationPreferenceUpdates.scheduled_update_times) !==
 			serializeTimes(dbUser.scheduled_update_times ?? null);
-	const enabledChanged =
-		safeNotificationPreferenceUpdates.scheduled_updates_enabled !== undefined &&
-		safeNotificationPreferenceUpdates.scheduled_updates_enabled !==
-			dbUser.scheduled_updates_enabled;
 
-	const addOnsEnabledChanged =
-		safeNotificationPreferenceUpdates.add_ons_notifications_enabled !==
-			undefined &&
-		safeNotificationPreferenceUpdates.add_ons_notifications_enabled !==
-			dbUser.add_ons_notifications_enabled;
 	const addOnsTimeChanged =
 		safeNotificationPreferenceUpdates.add_ons_delivery_time !== undefined &&
 		safeNotificationPreferenceUpdates.add_ons_delivery_time !==
 			dbUser.add_ons_delivery_time;
 
-	const finalEmailNotificationsEnabled =
-		safeNotificationPreferenceUpdates.email_notifications_enabled ??
-		dbUser.email_notifications_enabled;
-	const finalSmsNotificationsEnabled =
-		safeNotificationPreferenceUpdates.sms_notifications_enabled ??
-		dbUser.sms_notifications_enabled;
-	const hadAnyChannelBefore =
-		dbUser.email_notifications_enabled || shouldSendSms(dbUser);
-	const hasAnyChannelAfter =
-		finalEmailNotificationsEnabled ||
-		shouldSendSms({
-			...dbUser,
-			sms_notifications_enabled: finalSmsNotificationsEnabled,
-		});
-	const gainedFirstChannel = !hadAnyChannelBefore && hasAnyChannelAfter;
-
 	const finalTimezone =
 		safeNotificationPreferenceUpdates.timezone ?? dbUser.timezone;
-	let finalTimes =
+	const finalTimes =
 		safeNotificationPreferenceUpdates.scheduled_update_times !== undefined
 			? safeNotificationPreferenceUpdates.scheduled_update_times
 			: dbUser.scheduled_update_times;
-	let finalEnabled =
-		safeNotificationPreferenceUpdates.scheduled_updates_enabled ??
-		dbUser.scheduled_updates_enabled;
+	// "Enabled" is derived: has times = enabled
+	const hasTimes = finalTimes !== null && finalTimes.length > 0;
 
-	const finalAddOnsEnabled =
-		safeNotificationPreferenceUpdates.add_ons_notifications_enabled ??
-		dbUser.add_ons_notifications_enabled;
 	const finalAddOnsTime =
 		safeNotificationPreferenceUpdates.add_ons_delivery_time !== undefined
 			? safeNotificationPreferenceUpdates.add_ons_delivery_time
 			: dbUser.add_ons_delivery_time;
+	// "Enabled" is derived: has delivery time = enabled
+	const hasAddOnsTime = finalAddOnsTime !== null;
 
-	// When a user enables their first usable notification channel, automatically
-	// enable scheduled updates and set a default notification time so scheduling works without
-	// requiring extra UI steps.
-	if (gainedFirstChannel) {
-		if (!finalTimes || finalTimes.length === 0) {
-			safeNotificationPreferenceUpdates.scheduled_update_times = [
-				DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES,
-			];
-			finalTimes = safeNotificationPreferenceUpdates.scheduled_update_times;
-		}
-		if (!finalEnabled) {
-			safeNotificationPreferenceUpdates.scheduled_updates_enabled = true;
-			finalEnabled = true;
-		}
-	}
-
-	// Self-heal: if scheduled updates are enabled but next_send_at is missing (e.g. legacy/buggy state),
-	// recompute it on the next preferences update so cron delivery can resume.
+	// Self-heal: if user has times but next_send_at is missing, recompute.
 	const needsNextSendAtRepair =
-		finalEnabled &&
+		hasTimes &&
 		dbUser.next_send_at === null &&
 		safeNotificationPreferenceUpdates.next_send_at === undefined;
 
-	if (
-		(timezoneChanged ||
-			timeChanged ||
-			enabledChanged ||
-			gainedFirstChannel ||
-			needsNextSendAtRepair) &&
-		finalEnabled
-	) {
-		if (!finalTimes || finalTimes.length === 0) {
-			logger?.info(
-				"Scheduled updates enabled but no notification times provided",
-				{
-					action: "notification_preferences_update",
-					userId: dbUser.id,
-					reason: "update_times_missing",
-					finalTimezone,
-					finalTimes,
-				},
-			);
-			throw new NotificationPreferencesValidationError(
-				`Invalid schedule: updates enabled but no notification times provided for timezone ${finalTimezone}`,
-				{ userId: dbUser.id },
-			);
-		}
+	/* ============= Scheduled updates next_send_at ============= */
+	if ((timezoneChanged || timeChanged || needsNextSendAtRepair) && hasTimes) {
 		safeNotificationPreferenceUpdates.next_send_at = computeNextSendAtIso(
 			finalTimes,
 			finalTimezone,
 			{ userId: dbUser.id, finalTimes, finalTimezone },
 			logger,
 		);
-	} else if (enabledChanged && !finalEnabled) {
+	} else if (timeChanged && !hasTimes) {
+		// User removed all times — clear schedule
 		safeNotificationPreferenceUpdates.next_send_at = null;
 	}
 
-	// Daily add-ons notification schedule (decoupled from scheduled updates)
+	/* ============= Add-ons next_send_at ============= */
 	const needsAddOnsNextSendAtRepair =
-		finalAddOnsEnabled &&
+		hasAddOnsTime &&
 		dbUser.add_ons_next_send_at === null &&
 		safeNotificationPreferenceUpdates.add_ons_next_send_at === undefined;
 
 	if (
-		(timezoneChanged ||
-			addOnsEnabledChanged ||
-			addOnsTimeChanged ||
-			needsAddOnsNextSendAtRepair) &&
-		finalAddOnsEnabled
+		(timezoneChanged || addOnsTimeChanged || needsAddOnsNextSendAtRepair) &&
+		hasAddOnsTime
 	) {
-		if (finalAddOnsTime === null) {
-			safeNotificationPreferenceUpdates.add_ons_notifications_enabled = false;
-			safeNotificationPreferenceUpdates.add_ons_next_send_at = null;
-		} else {
-			const nextAddOnsUtc = calculateNextSendAt(
-				finalAddOnsTime,
-				finalTimezone,
-				DateTime.utc(),
-			);
-			safeNotificationPreferenceUpdates.add_ons_next_send_at =
-				nextAddOnsUtc?.toISO() ?? null;
-		}
-	} else if (addOnsEnabledChanged && !finalAddOnsEnabled) {
+		const nextAddOnsUtc = calculateNextSendAt(
+			finalAddOnsTime,
+			finalTimezone,
+			DateTime.utc(),
+		);
+		safeNotificationPreferenceUpdates.add_ons_next_send_at =
+			nextAddOnsUtc?.toISO() ?? null;
+	} else if (addOnsTimeChanged && !hasAddOnsTime) {
 		safeNotificationPreferenceUpdates.add_ons_next_send_at = null;
 	}
 
@@ -283,9 +158,6 @@ export interface TimezoneUpdatePayload {
 	next_send_at?: string | null;
 }
 
-// Throws NotificationPreferencesValidationError when the database is in an
-// invalid state (updates enabled but no notification times), so callers can
-// surface the issue instead of silently clearing next_send_at.
 export function computeTimezoneUpdatePayload(
 	newTimezone: string,
 	dbUser: User,
@@ -295,27 +167,16 @@ export function computeTimezoneUpdatePayload(
 		timezone: newTimezone,
 	};
 
-	if (newTimezone === dbUser.timezone || !dbUser.scheduled_updates_enabled) {
+	if (newTimezone === dbUser.timezone) {
 		return payload;
 	}
 
+	// No times — nothing to recompute
 	if (
 		!dbUser.scheduled_update_times ||
 		dbUser.scheduled_update_times.length === 0
 	) {
-		logger?.warn(
-			"Scheduled updates enabled without notification times on timezone change",
-			{
-				action: "notification_preferences_timezone_update",
-				userId: dbUser.id,
-				reason: "update_times_missing",
-				timezone: newTimezone,
-			},
-		);
-		throw new NotificationPreferencesValidationError(
-			`Invalid schedule: updates enabled but no notification times exist for timezone ${newTimezone}`,
-			{ userId: dbUser.id },
-		);
+		return payload;
 	}
 
 	payload.next_send_at = computeNextSendAtIso(

@@ -42,7 +42,7 @@ export function formatSmsMessage(
 		extrasBlock,
 		marketDisclaimer,
 		optOutSuffix,
-	].filter((section) => Boolean(section));
+	].filter(Boolean);
 
 	return sections.join("\n\n");
 }

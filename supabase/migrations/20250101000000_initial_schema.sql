@@ -205,8 +205,7 @@ IMMUTABLE
 AS $$
   SELECT
     times IS NULL OR (
-      COALESCE(array_length(times, 1), 0) >= 1
-      AND COALESCE(array_length(times, 1), 0) <= 5
+      COALESCE(array_length(times, 1), 0) <= 5
       AND NOT EXISTS (
         SELECT 1
         FROM unnest(times) AS entry
@@ -230,18 +229,18 @@ CREATE TABLE IF NOT EXISTS users (
   phone_verified BOOLEAN DEFAULT false NOT NULL,
   verification_sent_at TIMESTAMP WITH TIME ZONE,
   timezone TEXT DEFAULT 'America/New_York' REFERENCES timezones(value) NOT NULL,
-  scheduled_updates_enabled BOOLEAN DEFAULT true NOT NULL,
   only_notify_when_market_open BOOLEAN DEFAULT true NOT NULL,
-  scheduled_update_times INTEGER[] DEFAULT ARRAY[540] CHECK (
+  scheduled_update_times INTEGER[] DEFAULT '{}' CHECK (
     public.is_valid_scheduled_update_times(scheduled_update_times)
   ),
   next_send_at TIMESTAMP WITH TIME ZONE,
   last_market_closed_skip_scheduled_at TIMESTAMP WITH TIME ZONE,
   last_market_closed_skip_recorded_at TIMESTAMP WITH TIME ZONE,
-  add_ons_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
-  add_ons_delivery_time INTEGER DEFAULT 540,
+  add_ons_only_notify_when_market_open BOOLEAN DEFAULT false NOT NULL,
+  add_ons_delivery_time INTEGER,
   add_ons_next_send_at TIMESTAMP WITH TIME ZONE,
   last_grok_rumors_at TIMESTAMP WITH TIME ZONE,
+  price_notifications_enabled BOOLEAN DEFAULT true NOT NULL,
   email_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
   sms_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
   sms_opted_out BOOLEAN DEFAULT false NOT NULL,
@@ -269,20 +268,10 @@ CREATE TABLE IF NOT EXISTS users (
   CONSTRAINT users_timezone_no_whitespace CHECK (public.has_no_whitespace(timezone)),
   CONSTRAINT users_phone_country_code_no_whitespace CHECK (public.has_no_whitespace(phone_country_code)),
   CONSTRAINT users_phone_number_no_whitespace CHECK (public.has_no_whitespace(phone_number)),
-  CONSTRAINT users_scheduled_updates_requires_time CHECK (
-    scheduled_updates_enabled = false
-    OR (
-      scheduled_update_times IS NOT NULL
-      AND COALESCE(array_length(scheduled_update_times, 1), 0) >= 1
-    )
-  ),
   CONSTRAINT users_add_ons_delivery_time_range CHECK (
     add_ons_delivery_time IS NULL OR (
       add_ons_delivery_time >= 0 AND add_ons_delivery_time <= 1439
     )
-  ),
-  CONSTRAINT users_add_ons_schedule_requires_time CHECK (
-    add_ons_notifications_enabled = false OR add_ons_delivery_time IS NOT NULL
   )
 );
 
@@ -397,61 +386,6 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.replace_user_stocks(uuid, text[]) TO authenticated, service_role;
 
-CREATE OR REPLACE FUNCTION public.update_user_preferences_and_stocks(
-  p_user_id uuid,
-  p_symbols text[],
-  p_email_notifications_enabled boolean,
-  p_sms_notifications_enabled boolean,
-  p_timezone text,
-  p_scheduled_updates_enabled boolean,
-  p_scheduled_update_times integer[],
-  p_next_send_at timestamp with time zone
-)
-RETURNS void
-LANGUAGE plpgsql
-SET search_path = public, pg_temp
-AS $$
-BEGIN
-  IF p_symbols IS NULL THEN
-    RAISE EXCEPTION 'Tracked stocks required'
-      USING ERRCODE = 'check_violation',
-        CONSTRAINT = 'user_stocks_required';
-  END IF;
-
-  IF NULLIF(current_setting('request.jwt.claims', true), '')::json->>'role' = 'authenticated'
-     AND p_user_id <> (SELECT auth.uid()) THEN
-    RAISE EXCEPTION 'Cannot update notification-preferences for another user';
-  END IF;
-
-  PERFORM public.replace_user_stocks(p_user_id, p_symbols);
-
-  UPDATE public.users
-  SET
-    email_notifications_enabled = p_email_notifications_enabled,
-    sms_notifications_enabled = p_sms_notifications_enabled,
-    timezone = p_timezone,
-    scheduled_updates_enabled = p_scheduled_updates_enabled,
-    scheduled_update_times = p_scheduled_update_times,
-    next_send_at = p_next_send_at
-  WHERE id = p_user_id;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'User not found';
-  END IF;
-END;
-$$;
-
-GRANT EXECUTE ON FUNCTION public.update_user_preferences_and_stocks(
-  uuid,
-  text[],
-  boolean,
-  boolean,
-  text,
-  boolean,
-  integer[],
-  timestamp with time zone
-) TO authenticated, service_role;
-
 /* =============
 Notification Log
 ============= */
@@ -494,12 +428,12 @@ CREATE TABLE IF NOT EXISTS scheduled_notifications (
 
 CREATE INDEX IF NOT EXISTS idx_users_next_send_at
   ON users (next_send_at)
-  WHERE scheduled_updates_enabled = true
+  WHERE price_notifications_enabled = true
     AND next_send_at IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_users_add_ons_next_send_at
   ON users (add_ons_next_send_at)
-  WHERE add_ons_notifications_enabled = true
+  WHERE add_ons_delivery_time IS NOT NULL
     AND add_ons_next_send_at IS NOT NULL;
 
 /* =============

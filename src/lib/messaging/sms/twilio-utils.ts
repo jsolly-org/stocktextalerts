@@ -7,13 +7,13 @@ import { rootLogger } from "../../logging";
 
 import type { DeliveryResult } from "../types";
 
-export interface TwilioConfig {
+interface TwilioConfig {
 	accountSid: string;
 	authToken: string;
 	phoneNumber: string;
 }
 
-export interface SmsRequest {
+interface SmsRequest {
 	to: string;
 	body: string;
 	from?: string;
@@ -21,7 +21,7 @@ export interface SmsRequest {
 
 export type SmsSender = (request: SmsRequest) => Promise<DeliveryResult>;
 
-export type TwilioClient = ReturnType<typeof twilio>;
+type TwilioClient = ReturnType<typeof twilio>;
 
 export function readTwilioConfig(): TwilioConfig {
 	const accountSid = import.meta.env.TWILIO_ACCOUNT_SID;

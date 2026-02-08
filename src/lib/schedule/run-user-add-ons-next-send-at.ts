@@ -1,11 +1,8 @@
 import type { DateTime } from "luxon";
-import type { Database } from "../db/generated/database.types";
 import type { Logger } from "../logging";
 import type { UserRecord } from "../messaging/types";
 import { calculateNextSendAt } from "../time/scheduled-times";
 import type { SupabaseAdminClient } from "./helpers";
-
-type DbUserUpdate = Database["public"]["Tables"]["users"]["Update"];
 
 // Recompute because timezone/DST offsets can shift the user's intended local delivery time.
 export async function updateUserAddOnsNextSendAt(options: {
@@ -16,10 +13,7 @@ export async function updateUserAddOnsNextSendAt(options: {
 }): Promise<void> {
 	const { user, supabase, logger, currentTime } = options;
 
-	if (
-		!user.add_ons_notifications_enabled ||
-		user.add_ons_delivery_time === null
-	) {
+	if (user.add_ons_delivery_time === null) {
 		const { error } = await supabase
 			.from("users")
 			.update({ add_ons_next_send_at: null })

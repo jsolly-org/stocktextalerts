@@ -2,11 +2,9 @@ import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST as emailResendPost } from "../../../../src/pages/api/auth/email/resend-verification";
-import {
-	adminClient,
-	cleanupTestUser,
-	toRedirect,
-} from "../../../helpers/shared-utils";
+import { toRedirect } from "../../../helpers/request-helpers";
+import { adminClient } from "../../../helpers/test-env";
+import { cleanupTestUser } from "../../../helpers/test-user";
 
 describe("A user resends their email verification from the unconfirmed page.", () => {
 	it("A user requests their verification email (first or resend) and sees a success confirmation.", async () => {

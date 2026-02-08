@@ -1,7 +1,7 @@
 import { rootLogger } from "../logging";
 import type { FormIssue, FormSchema } from "./schema";
 
-export type RawSchemaData = {
+type RawSchemaData = {
 	keys: readonly string[];
 	rawData: Record<string, string | null>;
 	validationErrors: FormIssue[];

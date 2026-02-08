@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/auth/signin";
-import { cleanupTestUser, createTestUser } from "../../helpers/shared-utils";
+import { cleanupTestUser, createTestUser } from "../../helpers/test-user";
 
 async function signInAndAssertRedirect(
 	email: string,

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../../../src/pages/api/messaging/inbound";
-import { buildSmsInboundRequest } from "../../helpers/shared-utils";
+import { buildSmsInboundRequest } from "../../helpers/request-helpers";
 import { allowConsoleErrors } from "../../setup";
 
 const { validateRequestMock } = vi.hoisted(() => ({

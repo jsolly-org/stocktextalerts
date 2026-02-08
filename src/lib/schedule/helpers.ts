@@ -9,7 +9,7 @@ import { recordNotification } from "../messaging/shared";
 import type { UserStockRow } from "../messaging/types";
 import { toIsoOrThrow } from "../time/format";
 
-export const MAX_NOTIFICATION_RETRIES = 3;
+const MAX_NOTIFICATION_RETRIES = 3;
 export const USER_PROCESS_BATCH_SIZE = 5;
 
 export type DeliveryMethod = Database["public"]["Enums"]["delivery_method"];
@@ -17,7 +17,7 @@ export type DeliveryMethod = Database["public"]["Enums"]["delivery_method"];
 // Generated Supabase types lag migrations in-repo; assert the new enum values exist.
 export type ScheduledNotificationType = "scheduled_update" | "daily_add_ons";
 
-export type ScheduledNotificationStatus =
+type ScheduledNotificationStatus =
 	Database["public"]["Enums"]["scheduled_notification_status"];
 
 export type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;

@@ -18,33 +18,7 @@ type DbUserStockRow = Database["public"]["Tables"]["user_stocks"]["Row"];
 Public Types
 ============= */
 
-type FirstNotificationExtras = {
-	first_notification_include_news: boolean;
-	first_notification_include_rumors: boolean;
-	last_grok_rumors_at: string | null;
-};
-
-type MarketHoursPreferences = {
-	only_notify_when_market_open: boolean;
-};
-
-type MarketHoursSkipMetadata = {
-	last_market_closed_skip_scheduled_at: string | null;
-	last_market_closed_skip_recorded_at: string | null;
-};
-
-type DailyAddOnsPreferences = {
-	add_ons_notifications_enabled: boolean;
-	add_ons_delivery_time: number | null;
-	add_ons_next_send_at: string | null;
-};
-
-// Generated Supabase types lag migrations in-repo; assert the new columns exist.
-export type User = DbUserRow &
-	FirstNotificationExtras &
-	MarketHoursPreferences &
-	MarketHoursSkipMetadata &
-	DailyAddOnsPreferences;
+export type User = DbUserRow;
 export type Stock = DbStockRow;
 export type UserStock = Pick<DbUserStockRow, "symbol" | "created_at"> & {
 	name: DbStockRow["name"];
@@ -52,15 +26,15 @@ export type UserStock = Pick<DbUserStockRow, "symbol" | "created_at"> & {
 
 export type NotificationPreferencesSnapshot = Pick<
 	User,
+	| "price_notifications_enabled"
 	| "email_notifications_enabled"
 	| "sms_notifications_enabled"
 	| "sms_opted_out"
 	| "phone_verified"
 	| "timezone"
-	| "scheduled_updates_enabled"
 	| "scheduled_update_times"
 	| "only_notify_when_market_open"
-	| "add_ons_notifications_enabled"
+	| "add_ons_only_notify_when_market_open"
 	| "add_ons_delivery_time"
 	| "add_ons_next_send_at"
 	| "next_send_at"
@@ -73,7 +47,6 @@ export type NotificationPreferences = Pick<
 	User,
 	| "email_notifications_enabled"
 	| "sms_notifications_enabled"
-	| "scheduled_updates_enabled"
 	| "scheduled_update_times"
 	| "next_send_at"
 >;
@@ -82,10 +55,7 @@ export type NotificationPreferences = Pick<
 Users
 ============= */
 
-export type UserUpdateInput = DbUserUpdate &
-	Partial<FirstNotificationExtras> &
-	Partial<MarketHoursPreferences> &
-	Partial<DailyAddOnsPreferences>;
+export type UserUpdateInput = DbUserUpdate;
 
 export function createUserService(
 	supabase: AppSupabaseClient,

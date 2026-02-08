@@ -1,13 +1,13 @@
 import type { APIContext } from "astro";
 import { describe, expect, it, vi } from "vitest";
 import { POST } from "../../../src/pages/api/messaging/inbound";
+import { buildSmsInboundRequest } from "../../helpers/request-helpers";
+import { adminClient } from "../../helpers/test-env";
 import {
-	adminClient,
-	buildSmsInboundRequest,
 	cleanupTestUser,
 	createTestUser,
 	generateUniquePhoneNumber,
-} from "../../helpers/shared-utils";
+} from "../../helpers/test-user";
 
 async function getTestUserPhone(userId: string): Promise<string> {
 	const { data: user } = await adminClient

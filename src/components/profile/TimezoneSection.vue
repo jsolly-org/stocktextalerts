@@ -89,7 +89,6 @@ function buildSavedNotificationPreferences(
 		sms_opted_out: sourceUser.sms_opted_out,
 		phone_verified: sourceUser.phone_verified,
 		timezone: sourceUser.timezone,
-		scheduled_updates_enabled: sourceUser.scheduled_updates_enabled,
 		scheduled_update_times:
 			sourceUser.scheduled_update_times,
 		next_send_at: sourceUser.next_send_at,

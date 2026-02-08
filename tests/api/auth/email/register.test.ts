@@ -4,11 +4,9 @@ import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_TIMEZONE } from "../../../../src/lib/constants";
 import { POST } from "../../../../src/pages/api/auth/email/register";
-import {
-	adminClient,
-	cleanupTestUser,
-	toRedirect,
-} from "../../../helpers/shared-utils";
+import { toRedirect } from "../../../helpers/request-helpers";
+import { adminClient } from "../../../helpers/test-env";
+import { cleanupTestUser } from "../../../helpers/test-user";
 
 describe("A visitor registers for a new account with email and password.", () => {
 	it("The account is created, stored with the chosen timezone, and the user is redirected to the unconfirmed email page.", async () => {

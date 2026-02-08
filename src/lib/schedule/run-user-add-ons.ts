@@ -1,5 +1,5 @@
 import { DateTime } from "luxon";
-import { generateFirstNotificationExtrasWithGrok } from "../grok/extras";
+import { generateFirstNotificationExtrasWithGrok } from "../grok-extras";
 import type { Logger } from "../logging";
 import type { EmailSender } from "../messaging/email/utils";
 import { shouldSendSms } from "../messaging/sms";
@@ -105,18 +105,7 @@ export async function processDailyAddOnsUser(options: {
 			return stats;
 		}
 
-		if (!user.add_ons_notifications_enabled) {
-			stats.skipped++;
-			await updateUserAddOnsNextSendAt({
-				user,
-				supabase,
-				logger,
-				currentTime,
-			});
-			return stats;
-		}
-
-		if (user.only_notify_when_market_open && !marketOpen) {
+		if (user.add_ons_only_notify_when_market_open && !marketOpen) {
 			logger.info("Skipping daily add-ons notification: market is closed", {
 				action: "daily_add_ons_run",
 				reason: "market_closed",

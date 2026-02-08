@@ -18,6 +18,7 @@
 			:status-tone="stocksStatusTone"
 			:is-saving="isStocksSaving"
 			@form-changed="notifyStocksChange"
+			@stocks-changed="currentStocks = $event"
 		/>
 	</form>
 
@@ -39,7 +40,7 @@
 	/>
 
 	<NotificationPreviewPanel
-		:initialStocks="initialStocks"
+		:initialStocks="currentStocks"
 		:emailEnabled="emailEnabled"
 		:smsEnabled="smsEnabled"
 		:phoneVerified="phoneVerified"
@@ -76,6 +77,9 @@ const {
 
 // Shared mutable user ref — all dashboard descendants inject this via useDashboardUser()
 const user = provideDashboardUser(userProp);
+
+// Live tracked stocks — starts from server data, updated by TrackedStocksPanel edits
+const currentStocks = ref<InitialStock[]>([...props.initialStocks]);
 
 const emailEnabled = ref(user.value.email_notifications_enabled);
 const smsEnabled = ref(user.value.sms_notifications_enabled);

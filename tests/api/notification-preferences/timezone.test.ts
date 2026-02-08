@@ -6,10 +6,9 @@ import { POST as POSTTimezone } from "../../../src/pages/api/notification-prefer
 import { TEST_PASSWORD } from "../../helpers/constants";
 import {
 	adminClient,
-	cleanupTestUser,
 	createAuthenticatedCookies,
-	createTestUser,
-} from "../../helpers/shared-utils";
+} from "../../helpers/test-env";
+import { cleanupTestUser, createTestUser } from "../../helpers/test-user";
 
 describe("A signed-in user dismisses the timezone mismatch banner.", () => {
 	it("The banner dismissal is saved so it no longer appears.", async () => {

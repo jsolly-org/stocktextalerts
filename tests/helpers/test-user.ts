@@ -6,6 +6,11 @@ import { PRESERVED_TEST_EMAIL, TEST_RUN_ID } from "./constants";
 import { getStockData } from "./stock-data";
 import { adminClient } from "./test-env";
 
+export function generateUniquePhoneNumber(): string {
+	const suffix = randomInt(1_000_000, 9_999_999);
+	return `555${String(suffix)}`;
+}
+
 export type CreateTestUserOptions = {
 	email?: string;
 	password?: string;
@@ -16,7 +21,6 @@ export type CreateTestUserOptions = {
 	phoneCountryCode?: string | null;
 	phoneNumber?: string | null;
 	phoneVerified?: boolean;
-	scheduledUpdatesEnabled?: boolean;
 	scheduledUpdateTimes?: number[] | null;
 	trackedStocks?: string[];
 	confirmed?: boolean;
@@ -154,13 +158,11 @@ export async function createTestUser(
 		}
 
 		// Create Profile in 'users' table
-		const scheduledUpdatesEnabled = options.scheduledUpdatesEnabled ?? true;
+		// "Enabled" is derived from having times — default to [540] (9:00 AM) unless explicitly null
 		const rawNotificationTimes = options.scheduledUpdateTimes ?? null;
 		const normalizedTimes =
 			rawNotificationTimes == null
-				? scheduledUpdatesEnabled
-					? [540]
-					: null
+				? [540]
 				: [
 						...new Set(
 							rawNotificationTimes
@@ -172,21 +174,16 @@ export async function createTestUser(
 						),
 					].sort((a, b) => a - b);
 		const finalScheduledUpdateTimes =
-			scheduledUpdatesEnabled && normalizedTimes && normalizedTimes.length > 0
-				? normalizedTimes
-				: scheduledUpdatesEnabled
-					? [540]
-					: null;
-		const nextSendAt =
-			scheduledUpdatesEnabled && finalScheduledUpdateTimes
-				? calculateNextSendAtFromTimes(
-						finalScheduledUpdateTimes,
-						timezone,
-						DateTime.utc(),
-					)
-				: null;
+			normalizedTimes && normalizedTimes.length > 0 ? normalizedTimes : null;
+		const nextSendAt = finalScheduledUpdateTimes
+			? calculateNextSendAtFromTimes(
+					finalScheduledUpdateTimes,
+					timezone,
+					DateTime.utc(),
+				)
+			: null;
 		const nextSendAtIso = nextSendAt?.toISO() ?? null;
-		if (scheduledUpdatesEnabled && finalScheduledUpdateTimes) {
+		if (finalScheduledUpdateTimes) {
 			if (!nextSendAtIso) {
 				throw new Error("Failed to generate next_send_at timestamp");
 			}
@@ -202,7 +199,6 @@ export async function createTestUser(
 			email_notifications_enabled: options.emailNotificationsEnabled ?? false,
 			sms_notifications_enabled: smsNotificationsEnabled,
 			sms_opted_out: options.smsOptedOut ?? false,
-			scheduled_updates_enabled: scheduledUpdatesEnabled,
 			scheduled_update_times: finalScheduledUpdateTimes,
 			next_send_at: nextSendAtIso,
 		};

@@ -1,7 +1,7 @@
 import type { FormatPreferences } from "./types";
 
 export type StockPrice = { price: number; changePercent: number };
-export type StockWithName = { symbol: string; name: string };
+type StockWithName = { symbol: string; name: string };
 
 export function escapeHtml(value: string): string {
 	return value
@@ -12,7 +12,7 @@ export function escapeHtml(value: string): string {
 		.replaceAll("'", "&#39;");
 }
 
-export function formatStockBaseText(
+function formatStockBaseText(
 	stock: StockWithName,
 	formatPrefs: FormatPreferences,
 ): string {
@@ -21,7 +21,7 @@ export function formatStockBaseText(
 		: stock.symbol;
 }
 
-export function formatStockPriceText(
+function formatStockPriceText(
 	price: StockPrice,
 	showChangePercent: boolean,
 ): string {
@@ -48,7 +48,7 @@ function getChangeColor(changePercent: number): string {
 	return changePercent >= 0 ? "#16a34a" : "#dc2626";
 }
 
-export function formatStockHtmlLine(
+function formatStockHtmlLine(
 	stock: StockWithName,
 	price: StockPrice | undefined,
 	formatPrefs: FormatPreferences,

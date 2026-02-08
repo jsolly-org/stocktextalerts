@@ -5,7 +5,7 @@
 		method="POST"
 		action="/api/notification-preferences/update"
 		class="space-y-6"
-		aria-label="Notification add-ons"
+		aria-label="Additional Notifications"
 		:aria-busy="isSaving"
 		@input="handleFormInput"
 		@change="handleFormChange"
@@ -33,101 +33,121 @@
 
 			<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.teal}`"></div>
 			<div class="card-body">
-				<header class="mb-4 flex items-start justify-between gap-4">
-					<div class="min-w-0">
-						<input
-							type="hidden"
-							name="add_ons_notifications_enabled"
-							:value="addOnsNotificationsEnabled ? 'on' : 'off'"
-						/>
-						<h2
-							:id="DASHBOARD_SECTION_IDS.firstNotificationExtras"
-							class="text-xl sm:text-2xl font-bold text-gray-900"
-						>
-							Notification Add-ons
-						</h2>
-						<p
-							id="add_ons_notifications_enabled_description"
-							class="text-sm text-gray-600 mt-1"
-						>
-							A daily notification with your selected add-ons, sent at the time below — separate from scheduled price alerts.
-						</p>
-						<p
-							class="text-sm text-gray-500 mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 transition-opacity duration-200"
-							:class="{ 'opacity-50': needsChannelSelection || !addOnsNotificationsEnabled }"
-						>
-							<span class="inline-flex items-center gap-1.5">
-								<ClockIcon class="size-4 shrink-0 text-gray-400" aria-hidden="true" />
-								<span>
-									Local time:
-									<span class="font-medium text-gray-700">
-										{{ currentTimeInTimezone ?? "—" }}
-									</span>
-								</span>
-							</span>
-							<a
-								href="/profile"
-								class="inline-flex items-center gap-1 link-primary text-xs rounded-sm"
-								aria-label="Change timezone in profile settings"
-							>
-								Change timezone
-								<ArrowTopRightOnSquareIcon class="size-3 shrink-0" aria-hidden="true" />
-							</a>
-						</p>
-					</div>
-					<ToggleSwitch
-						v-model="addOnsNotificationsEnabled"
-						:disabled="needsChannelSelection"
-						sr-label="Enable notification add-ons"
-						:aria-labelledby="DASHBOARD_SECTION_IDS.firstNotificationExtras"
-						aria-describedby="add_ons_notifications_enabled_description"
-					/>
-				</header>
-
-			<SetupRequiredNotice
-				:needsChannelSelection="needsChannelSelection"
-				:needsPhoneVerification="needsPhoneVerification"
-				:phoneVerificationSectionId="phoneVerificationSectionId"
-			/>
-
-			<fieldset
-				class="divide-y divide-gray-100 transition-opacity duration-200"
-					:class="{ 'opacity-50': needsChannelSelection || !addOnsNotificationsEnabled }"
-					:aria-disabled="needsChannelSelection || !addOnsNotificationsEnabled ? 'true' : undefined"
+			<header class="mb-4">
+				<h2
+					:id="DASHBOARD_SECTION_IDS.firstNotificationExtras"
+					class="text-xl sm:text-2xl font-bold text-gray-900"
 				>
-					<legend class="sr-only">Notification add-ons settings</legend>
-
-					<div class="flex items-start justify-between gap-3 py-3">
-						<div class="min-w-0">
-							<span
-								id="add_ons_delivery_time_label"
-								class="text-base font-semibold text-gray-900"
-							>
-								Delivery time
+					Additional Notifications
+				</h2>
+				<p
+					class="text-sm text-gray-600 mt-1"
+				>
+					A daily notification with your selected extras, sent at the time below — separate from scheduled price alerts.
+				</p>
+				<p
+					class="text-sm text-gray-500 mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 transition-opacity duration-200"
+					:class="{ 'opacity-50': needsChannelSelection }"
+				>
+					<span class="inline-flex items-center gap-1.5">
+						<ClockIcon class="size-4 shrink-0 text-gray-400" aria-hidden="true" />
+						<span>
+							Local time:
+							<span class="font-medium text-gray-700">
+								{{ currentTimeInTimezone ?? "—" }}
 							</span>
-							<p
-								id="add_ons_delivery_time_description"
-								class="text-sm text-gray-600 mt-0.5"
-							>
-								Sent once every day.
-							</p>
-						</div>
-						<TimePicker
-							:inputId="`add_ons_delivery_time`"
-							:inputName="`add_ons_delivery_time`"
-							:initialTime="addOnsDeliveryTimeInput"
-							inputAriaLabel="Daily add-ons delivery time"
-							:disabled="needsChannelSelection || !addOnsNotificationsEnabled"
-							@time-change="handleAddOnsTimeChange"
-						/>
+						</span>
+					</span>
+					<a
+						href="/profile"
+						class="inline-flex items-center gap-1 link-primary text-xs rounded-sm"
+						aria-label="Change timezone in profile settings"
+					>
+						Change timezone
+						<ArrowTopRightOnSquareIcon class="size-3 shrink-0" aria-hidden="true" />
+					</a>
+				</p>
+			</header>
+
+		<SetupRequiredNotice
+			:needsChannelSelection="needsChannelSelection"
+			:needsPhoneVerification="needsPhoneVerification"
+			:phoneVerificationSectionId="phoneVerificationSectionId"
+		/>
+
+			<FadeTransition>
+				<p
+					v-if="!needsChannelSelection && addOnsDeliveryTimeMinutes === null"
+					class="flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm bg-info-bg border border-info-border text-info-text"
+					role="note"
+				>
+					<InformationCircleIcon class="size-5 shrink-0 mt-0.5" aria-hidden="true" />
+					<span>No notifications will be sent until you choose a delivery time below.</span>
+				</p>
+			</FadeTransition>
+
+	<fieldset
+			class="divide-y divide-gray-100 transition-opacity duration-200"
+				:class="{ 'opacity-50': needsChannelSelection }"
+				:aria-disabled="needsChannelSelection ? 'true' : undefined"
+			>
+					<legend class="sr-only">Additional notifications settings</legend>
+
+				<div class="flex items-start justify-between gap-3 py-3">
+					<div class="min-w-0">
+						<span
+							id="add_ons_delivery_time_label"
+							class="text-base font-semibold text-gray-900"
+						>
+							Delivery time
+						</span>
+						<p
+							id="add_ons_delivery_time_description"
+							class="text-sm text-gray-600 mt-0.5"
+						>
+							Sent once every day.
+						</p>
 					</div>
+				<div class="flex items-center gap-2 shrink-0">
+					<TimePicker
+						:inputId="`add_ons_delivery_time`"
+						:inputName="`add_ons_delivery_time`"
+						:initialTime="addOnsDeliveryTimeInput"
+						inputAriaLabel="Additional notifications delivery time"
+						:disabled="addOnsTimepickerDisabled"
+						@time-change="handleAddOnsTimeChange"
+					/>
+					<button
+						v-if="addOnsDeliveryTimeMinutes !== null"
+						type="button"
+						class="inline-flex items-center justify-center size-8 shrink-0 rounded-lg text-gray-400 hover:bg-error-bg hover:text-error-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2"
+						:disabled="addOnsTimepickerDisabled"
+						aria-label="Clear delivery time"
+						@click="handleClearDeliveryTime"
+					>
+						<XMarkIcon class="size-4" aria-hidden="true" />
+					</button>
+					<button
+						v-if="marketOpenLabel"
+						type="button"
+						class="btn btn-sm btn-secondary"
+						:disabled="!canSetMarketOpen"
+						:aria-label="`Set delivery time to US market open (${marketOpenLabel})`"
+						@click="handleSetMarketOpen"
+					>
+						<PresentationChartLineIcon class="size-4 shrink-0" aria-hidden="true" />
+						<span class="hidden sm:inline">Market open ({{ marketOpenLabel }} your time)</span>
+						<span class="sm:hidden">Market open</span>
+					</button>
+				</div>
+				</div>
 
 					<div class="flex items-center justify-between gap-3 py-3">
-						<input
-							type="hidden"
-							name="only_notify_when_market_open"
-							:value="onlyNotifyWhenMarketOpen ? 'on' : 'off'"
-						/>
+					<input
+						type="hidden"
+						name="add_ons_only_notify_when_market_open"
+						:value="onlyNotifyWhenMarketOpen ? 'on' : 'off'"
+					/>
 						<div class="min-w-0">
 							<span
 								id="only_notify_when_market_open_label_add_ons"
@@ -142,10 +162,10 @@
 								You won’t be notified unless the market is open.
 							</p>
 						</div>
-						<ToggleSwitch
-							v-model="onlyNotifyWhenMarketOpen"
-							:disabled="needsChannelSelection || !addOnsNotificationsEnabled"
-							sr-label="Only notify when market is open"
+					<ToggleSwitch
+						v-model="onlyNotifyWhenMarketOpen"
+						:disabled="needsChannelSelection"
+						sr-label="Only notify when market is open"
 							aria-labelledby="only_notify_when_market_open_label_add_ons"
 							aria-describedby="only_notify_when_market_open_description_add_ons"
 						/>
@@ -174,10 +194,10 @@
 								Add a short news summary about the stocks you’re tracking.
 							</p>
 						</div>
-						<ToggleSwitch
-							v-model="includeNews"
-							:disabled="needsChannelSelection || !addOnsNotificationsEnabled"
-							sr-label="Include news 🗞️"
+					<ToggleSwitch
+						v-model="includeNews"
+						:disabled="needsChannelSelection"
+						sr-label="Include news 🗞️"
 							aria-labelledby="first_notification_include_news_label"
 							aria-describedby="first_notification_include_news_description"
 						/>
@@ -206,10 +226,10 @@
 								Add a short rumors/chatter summary about the stocks you’re tracking.
 							</p>
 						</div>
-						<ToggleSwitch
-							v-model="includeRumors"
-							:disabled="needsChannelSelection || !addOnsNotificationsEnabled"
-							sr-label="Include rumors 🤫"
+					<ToggleSwitch
+						v-model="includeRumors"
+						:disabled="needsChannelSelection"
+						sr-label="Include rumors 🤫"
 							aria-labelledby="first_notification_include_rumors_label"
 							aria-describedby="first_notification_include_rumors_description"
 						/>
@@ -236,6 +256,9 @@ import ArrowTopRightOnSquareIcon from "../../icons/arrow-top-right-on-square.svg
 import BellAlertIcon from "../../icons/bell-alert.svg?component";
 import ClockIcon from "../../icons/clock.svg?component";
 import GrokLogoIcon from "../../icons/grok.svg?component";
+import InformationCircleIcon from "../../icons/information-circle-20.svg?component";
+import PresentationChartLineIcon from "../../icons/presentation-chart-line.svg?component";
+import XMarkIcon from "../../icons/x-mark.svg?component";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_FIRST_NOTIFICATION_EXTRAS_FORM_ID,
@@ -245,9 +268,12 @@ import {
 } from "../../lib/constants";
 import {
 	formatCountdownWithSeconds,
+	formatMinutesAsLocalTime,
 	getNowInTimezone,
 	getSecondsUntilNextSend,
+	getUsMarketOpenLocalMinutes,
 	minutesToTimeInputValue,
+	parseTimeToMinutes,
 } from "../../lib/time/format";
 import FadeTransition from "../FadeTransition.vue";
 import ToggleSwitch from "../ToggleSwitch.vue";
@@ -309,17 +335,16 @@ const {
 
 const includeNews = ref(user.value.first_notification_include_news);
 const includeRumors = ref(user.value.first_notification_include_rumors);
-const addOnsNotificationsEnabled = ref(user.value.add_ons_notifications_enabled);
 const addOnsDeliveryTimeMinutes = ref<number | null>(user.value.add_ons_delivery_time);
-const onlyNotifyWhenMarketOpen = ref(user.value.only_notify_when_market_open);
+const onlyNotifyWhenMarketOpen = ref(user.value.add_ons_only_notify_when_market_open);
 
 const addOnsEnabled = computed(() => includeNews.value || includeRumors.value);
 
 watch(onlyNotifyWhenMarketOpen, (value) => {
-	if (user.value.only_notify_when_market_open === value) {
+	if (user.value.add_ons_only_notify_when_market_open === value) {
 		return;
 	}
-	user.value = { ...user.value, only_notify_when_market_open: value };
+	user.value = { ...user.value, add_ons_only_notify_when_market_open: value };
 });
 
 const currentTimeInTimezone = computed(() => {
@@ -338,22 +363,48 @@ const addOnsDeliveryTimeInput = computed(() => {
 	return minutesToTimeInputValue(addOnsDeliveryTimeMinutes.value);
 });
 
-const nextAddOnsDeliveryText = computed(() => {
-	if (!isHydrated.value) {
-		return null;
+const addOnsTimepickerDisabled = computed(() => needsChannelSelection.value);
+
+const marketOpenLocalMinutes = computed(() => {
+	const tz = user.value.timezone ?? "";
+	if (tz === "") return null;
+	return getUsMarketOpenLocalMinutes(tz);
+});
+
+const marketOpenLabel = computed(() => {
+	if (marketOpenLocalMinutes.value === null) return null;
+	return formatMinutesAsLocalTime(marketOpenLocalMinutes.value);
+});
+
+const isMarketOpenTime = computed(() => {
+	if (marketOpenLocalMinutes.value === null) return true;
+	return addOnsDeliveryTimeMinutes.value === marketOpenLocalMinutes.value;
+});
+
+const canSetMarketOpen = computed(
+	() => !addOnsTimepickerDisabled.value && !isMarketOpenTime.value,
+);
+
+function handleClearDeliveryTime() {
+	if (addOnsTimepickerDisabled.value) return;
+	addOnsDeliveryTimeMinutes.value = null;
+	notifyChange();
+}
+
+function handleSetMarketOpen() {
+	if (!canSetMarketOpen.value || marketOpenLocalMinutes.value === null) {
+		return;
 	}
+	addOnsDeliveryTimeMinutes.value = marketOpenLocalMinutes.value;
+	notifyChange();
+}
+
+const nextAddOnsDeliveryText = computed(() => {
+	if (!isHydrated.value || !addOnsEnabled.value) return null;
 	void tick.value;
 
-	if (!addOnsNotificationsEnabled.value) {
-		return null;
-	}
-	if (!addOnsEnabled.value) {
-		return null;
-	}
 	const tz = user.value.timezone ?? "";
-	if (tz === "") {
-		return null;
-	}
+	if (tz === "") return null;
 
 	const secondsUntil = getSecondsUntilNextSend({
 		nextSendAtIso: user.value.add_ons_next_send_at,
@@ -361,45 +412,21 @@ const nextAddOnsDeliveryText = computed(() => {
 		timezone: tz,
 		now: DateTime.utc(),
 	});
-	if (secondsUntil === null) {
-		return null;
-	}
-	if (secondsUntil <= 0) {
-		return "is due soon";
-	}
-	return `in ${formatCountdownWithSeconds(secondsUntil)}`;
+	if (secondsUntil === null) return null;
+	return secondsUntil <= 0 ? "is due soon" : `in ${formatCountdownWithSeconds(secondsUntil)}`;
 });
 
 watch(
-	[
-		addOnsNotificationsEnabled,
-		includeNews,
-		includeRumors,
-		onlyNotifyWhenMarketOpen,
-	],
+	[includeNews, includeRumors, onlyNotifyWhenMarketOpen],
 	() => {
-	notifyChange();
+		notifyChange();
 	},
 );
 
 function handleAddOnsTimeChange(value: string) {
-	const parts = value.split(":");
-	if (parts.length !== 2) {
-		return;
-	}
-	const hours = Number.parseInt(parts[0] ?? "", 10);
-	const minutes = Number.parseInt(parts[1] ?? "", 10);
-	if (
-		Number.isNaN(hours) ||
-		Number.isNaN(minutes) ||
-		hours < 0 ||
-		hours > 23 ||
-		minutes < 0 ||
-		minutes > 59
-	) {
-		return;
-	}
-	addOnsDeliveryTimeMinutes.value = hours * 60 + minutes;
+	const parsed = parseTimeToMinutes(value);
+	if (parsed === null) return;
+	addOnsDeliveryTimeMinutes.value = parsed;
 	notifyChange();
 }
 
@@ -416,19 +443,13 @@ watch(
 	},
 );
 watch(
-	() => user.value.add_ons_notifications_enabled,
-	(value) => {
-		addOnsNotificationsEnabled.value = value;
-	},
-);
-watch(
 	() => user.value.add_ons_delivery_time,
 	(value) => {
 		addOnsDeliveryTimeMinutes.value = value;
 	},
 );
 watch(
-	() => user.value.only_notify_when_market_open,
+	() => user.value.add_ons_only_notify_when_market_open,
 	(value) => {
 		onlyNotifyWhenMarketOpen.value = value;
 	},
@@ -448,10 +469,9 @@ watch(
 			first_notification_include_news: newData.first_notification_include_news,
 			first_notification_include_rumors:
 				newData.first_notification_include_rumors,
-			add_ons_notifications_enabled: newData.add_ons_notifications_enabled,
 			add_ons_delivery_time: newData.add_ons_delivery_time,
 			add_ons_next_send_at: newData.add_ons_next_send_at,
-			only_notify_when_market_open: newData.only_notify_when_market_open,
+			add_ons_only_notify_when_market_open: newData.add_ons_only_notify_when_market_open,
 		};
 	},
 );

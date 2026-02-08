@@ -50,12 +50,34 @@
 					name="scheduled_update_times"
 					:value="serializedTimes"
 				/>
-				<div class="space-y-2">
-					<div
-						v-for="(time, index) in scheduledUpdateTimes"
-						:key="`${index}-${time}`"
-						class="flex items-center gap-2"
+			<div class="space-y-2">
+				<!-- Empty picker shown when no times exist, so user can pick their first time -->
+				<div v-if="scheduledUpdateTimes.length === 0" class="flex flex-wrap items-center gap-2">
+					<TimePicker
+						inputId="scheduled_update_time_initial"
+						inputName="scheduled_update_time_initial"
+						:initialTime="null"
+						inputAriaLabel="Pick a delivery time"
+						:disabled="timePickerDisabled"
+						@time-change="emit('add-initial-time', $event)"
+					/>
+					<button
+						v-if="marketOpenLabel"
+						type="button"
+						class="btn btn-sm btn-secondary self-start"
+						:disabled="!canAddMarketOpen"
+						:aria-label="`Set delivery time to US market open (${marketOpenLabel})`"
+						@click="emit('add-market-open')"
 					>
+						<PresentationChartLineIcon class="size-4 shrink-0" aria-hidden="true" />
+						Market open ({{ marketOpenLabel }} your time)
+					</button>
+				</div>
+				<div
+					v-for="(time, index) in scheduledUpdateTimes"
+					:key="`${index}-${time}`"
+					class="flex items-center gap-2"
+				>
 						<TimePicker
 							:inputId="`scheduled_update_time_${index}`"
 							:inputName="`scheduled_update_time_${index}`"
@@ -64,19 +86,20 @@
 							:disabled="timePickerDisabled"
 							@time-change="emit('time-change', index, $event)"
 						/>
-						<button
-							v-if="scheduledUpdateTimes.length > 1"
-							type="button"
-							class="inline-flex items-center justify-center size-8 shrink-0 rounded-lg text-gray-400 hover:bg-error-bg hover:text-error-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2"
-							:aria-label="`Remove delivery time ${index + 1}`"
-							@click="emit('remove-time', index)"
-						>
+					<button
+						type="button"
+						class="inline-flex items-center justify-center size-8 shrink-0 rounded-lg text-gray-400 hover:bg-error-bg hover:text-error-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2"
+						:aria-label="`Remove delivery time ${index + 1}`"
+						@click="emit('remove-time', index)"
+					>
 							<XMarkIcon class="size-4" aria-hidden="true" />
 						</button>
 					</div>
 				</div>
-				<div class="flex flex-col gap-2">
+			<div class="flex flex-col gap-2">
+				<div class="flex flex-wrap gap-2">
 					<button
+						v-if="scheduledUpdateTimes.length > 0"
 						type="button"
 						class="btn btn-sm btn-secondary self-start"
 						:disabled="!canAddTime"
@@ -84,12 +107,24 @@
 						@click="emit('add-time')"
 					>
 						<PlusIcon class="size-4 shrink-0" aria-hidden="true" />
-						Add time
-					</button>
-					<StatusMessage v-if="maxTimesReached" tone="warning">
-						You've reached the maximum of {{ maxTimes }} delivery times.
-					</StatusMessage>
-				</div>
+					Add time
+				</button>
+				<button
+					v-if="marketOpenLabel && scheduledUpdateTimes.length > 0"
+					type="button"
+					class="btn btn-sm btn-secondary self-start"
+					:disabled="!canAddMarketOpen"
+					:aria-label="`Set delivery time to US market open (${marketOpenLabel})`"
+					@click="emit('add-market-open')"
+				>
+				<PresentationChartLineIcon class="size-4 shrink-0" aria-hidden="true" />
+				Market open ({{ marketOpenLabel }} your time)
+				</button>
+			</div>
+				<StatusMessage v-if="maxTimesReached" tone="warning">
+					You've reached the maximum of {{ maxTimes }} delivery times.
+				</StatusMessage>
+			</div>
 			</fieldset>
 		</div>
 	</fieldset>
@@ -108,6 +143,7 @@ import { computed, onMounted, ref } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 import PlusIcon from "../../../icons/plus.svg?component";
+import PresentationChartLineIcon from "../../../icons/presentation-chart-line.svg?component";
 import XMarkIcon from "../../../icons/x-mark.svg?component";
 import StatusMessage from "../../StatusMessage.vue";
 import ToggleSwitch from "../../ToggleSwitch.vue";
@@ -120,6 +156,8 @@ interface Props {
 	needsChannelSelection: boolean;
 	timePickerDisabled: boolean;
 	canAddTime: boolean;
+	canAddMarketOpen: boolean;
+	marketOpenLabel: string | null;
 	maxTimes: number;
 	maxTimesReached: boolean;
 	countdownText: string | null;
@@ -133,6 +171,8 @@ const emit = defineEmits<{
 	(event: "update:onlyNotifyWhenMarketOpen", value: boolean): void;
 	(event: "time-change", index: number, value: string): void;
 	(event: "add-time"): void;
+	(event: "add-initial-time", value: string): void;
+	(event: "add-market-open"): void;
 	(event: "remove-time", index: number): void;
 }>();
 

@@ -3,13 +3,10 @@ import type { APIContext } from "astro";
 import type { NotificationPreferences } from "../../src/lib/db";
 import { POST as stocksUpdatePost } from "../../src/pages/api/stocks/update";
 import { TEST_PASSWORD } from "./constants";
-import {
-	adminClient,
-	createAuthenticatedCookies,
-	createTestUser,
-	getStockData,
-} from "./shared-utils";
+import { getStockData } from "./stock-data";
+import { adminClient, createAuthenticatedCookies } from "./test-env";
 import type { CreateTestUserOptions, TestUser } from "./test-user";
+import { createTestUser } from "./test-user";
 
 async function ensureStocksExist(symbols: string[]): Promise<void> {
 	if (symbols.length === 0) return;
@@ -64,7 +61,7 @@ export async function updateTrackedStocks(
 	const { data: notificationPreferencesBefore } = await adminClient
 		.from("users")
 		.select(
-			"email_notifications_enabled,sms_notifications_enabled,scheduled_updates_enabled,scheduled_update_times,next_send_at",
+			"email_notifications_enabled,sms_notifications_enabled,scheduled_update_times,next_send_at",
 		)
 		.eq("id", testUser.id)
 		.maybeSingle();
@@ -105,7 +102,7 @@ export async function updateTrackedStocks(
 	const { data: notificationPreferencesAfter } = await adminClient
 		.from("users")
 		.select(
-			"email_notifications_enabled,sms_notifications_enabled,scheduled_updates_enabled,scheduled_update_times,next_send_at",
+			"email_notifications_enabled,sms_notifications_enabled,scheduled_update_times,next_send_at",
 		)
 		.eq("id", testUser.id)
 		.maybeSingle();

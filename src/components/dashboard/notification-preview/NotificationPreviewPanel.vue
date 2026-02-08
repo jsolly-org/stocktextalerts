@@ -65,11 +65,18 @@
 				@update:detailedFormat="detailedFormat = $event"
 			/>
 
-			<div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-					<SmsPreview
-						:stocks="previewStocks"
-						:formatPreferences="formatPreferences"
-					/>
+			<p
+				v-if="isUsingDemoStocks"
+				class="mt-6 mb-0 text-xs text-gray-500 italic"
+			>
+				Showing example stocks. Add tracked stocks above to preview your actual notifications.
+			</p>
+
+			<div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+				<SmsPreview
+					:stocks="previewStocks"
+					:formatPreferences="formatPreferences"
+				/>
 				<EmailPreview
 					:stocks="previewStocks"
 					:formatPreferences="formatPreferences"
@@ -152,12 +159,13 @@ const formatPreferences = computed<FormatPreferences>(() => ({
 	detailed_format: detailedFormat.value,
 }));
 
+const isUsingDemoStocks = computed(() => initialStocks.value.length === 0);
+
 const previewStocks = computed<PreviewStock[]>(() => {
 	const stocks = initialStocks.value;
 	if (stocks.length === 0) {
 		return DEMO_STOCKS;
 	}
-	// Map user's actual tracked stocks to preview stocks with demo prices
 	const demoPrices = [
 		{ price: 195.5, changePercent: 2.4 },
 		{ price: 178.2, changePercent: 1.8 },
