@@ -9,9 +9,9 @@ A stock market notification app that sends scheduled SMS and email updates about
 - **SMS Notifications** - Optional scheduled SMS messages (Twilio)
 - **Phone Verification** - Secure phone verification via Twilio Verify
 - **Timezone Support** - Browser-detected timezones with user overrides
-- **Notification Scheduling** - Choose when to receive your stock updates
+- **Notification Scheduling** - Choose up to 5 delivery times for your stock updates
 - **Format Preferences** - Customize how your updates look with live SMS/email previews
-- **SMS Opt-out** - Users can reply STOP to opt out of SMS
+- **SMS Opt-out** - Reply STOP to opt out of SMS; reply START to opt back in (then re-enable SMS in your dashboard)
 
 ## Tech Stack
 
