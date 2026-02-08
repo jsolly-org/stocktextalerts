@@ -13,8 +13,10 @@ export const MAX_NOTIFICATION_RETRIES = 3;
 export const USER_PROCESS_BATCH_SIZE = 5;
 
 export type DeliveryMethod = Database["public"]["Enums"]["delivery_method"];
-export type ScheduledNotificationType =
-	Database["public"]["Enums"]["scheduled_notification_type"];
+
+// Generated Supabase types lag migrations in-repo; assert the new enum values exist.
+export type ScheduledNotificationType = "scheduled_update" | "daily_add_ons";
+
 export type ScheduledNotificationStatus =
 	Database["public"]["Enums"]["scheduled_notification_status"];
 
@@ -59,6 +61,10 @@ export async function updateScheduledNotificationRow(options: {
 	error?: string;
 	logger: Logger;
 }) {
+	type UpdateChain = {
+		eq: (column: string, value: unknown) => UpdateChain;
+	};
+
 	const update: Database["public"]["Tables"]["scheduled_notifications"]["Update"] =
 		options.status === "sent"
 			? {
@@ -71,14 +77,24 @@ export async function updateScheduledNotificationRow(options: {
 				}
 			: { status: "failed", error: options.error ?? "Unknown error" };
 
-	const { error } = await options.supabase
-		.from("scheduled_notifications")
+	const scheduledNotifications = options.supabase.from(
+		"scheduled_notifications",
+	) as unknown as {
+		update: (
+			payload: Database["public"]["Tables"]["scheduled_notifications"]["Update"],
+		) => UpdateChain;
+	};
+
+	const { error } = await (scheduledNotifications
 		.update(update)
+		// Generated Supabase types lag migrations in-repo; notification_type includes daily_add_ons.
 		.eq("user_id", options.userId)
 		.eq("notification_type", options.notificationType)
 		.eq("scheduled_date", options.scheduledDate)
 		.eq("scheduled_minutes", options.scheduledMinutes)
-		.eq("channel", options.channel);
+		.eq("channel", options.channel) as unknown as Promise<{
+		error: unknown | null;
+	}>);
 
 	if (error) {
 		options.logger.error(
@@ -98,15 +114,31 @@ export async function logRetriesExhausted(options: {
 	channel: DeliveryMethod;
 	logger: Logger;
 }) {
-	const { data, error } = await options.supabase
-		.from("scheduled_notifications")
+	type SelectChain = {
+		eq: (column: string, value: unknown) => SelectChain;
+		maybeSingle: () => unknown;
+	};
+
+	const scheduledNotifications = options.supabase.from(
+		"scheduled_notifications",
+	) as unknown as {
+		select: (columns: string) => SelectChain;
+	};
+
+	const { data, error } = await (scheduledNotifications
 		.select("attempt_count,status")
 		.eq("user_id", options.userId)
 		.eq("notification_type", options.notificationType)
 		.eq("scheduled_date", options.scheduledDate)
 		.eq("scheduled_minutes", options.scheduledMinutes)
 		.eq("channel", options.channel)
-		.maybeSingle();
+		.maybeSingle() as unknown as Promise<{
+		data: {
+			attempt_count: number;
+			status: ScheduledNotificationStatus;
+		} | null;
+		error: unknown | null;
+	}>);
 
 	if (error) {
 		options.logger.error(
@@ -129,7 +161,7 @@ export async function logRetriesExhausted(options: {
 
 		await recordNotification(options.supabase, {
 			user_id: options.userId,
-			type: "scheduled_update",
+			type: options.notificationType,
 			delivery_method: options.channel,
 			message_delivered: false,
 			message: "Retries exhausted; will retry next local day",

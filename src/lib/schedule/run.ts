@@ -13,7 +13,9 @@ import {
 	USER_PROCESS_BATCH_SIZE,
 } from "./helpers";
 import { fetchScheduledUsers } from "./run-query";
+import { fetchDailyAddOnsUsers } from "./run-query-add-ons";
 import { processScheduledUser } from "./run-user";
+import { processDailyAddOnsUser } from "./run-user-add-ons";
 import { createSmsSenderProvider } from "./run-user-sms-sender";
 
 async function runScheduledNotifications(options: {
@@ -33,18 +35,26 @@ async function runScheduledNotifications(options: {
 		currentTime,
 		"Failed to format UTC ISO string",
 	);
-	const users = await fetchScheduledUsers({
-		supabase,
-		logger,
-		forceSend,
-		currentTimeIso,
-	});
+	const [scheduledUsers, addOnsUsers] = await Promise.all([
+		fetchScheduledUsers({
+			supabase,
+			logger,
+			forceSend,
+			currentTimeIso,
+		}),
+		fetchDailyAddOnsUsers({
+			supabase,
+			logger,
+			forceSend,
+			currentTimeIso,
+		}),
+	]);
 
-	// Collect unique stock symbols across all users and fetch prices in batch
+	// Collect unique stock symbols across scheduled users and fetch prices in batch
 	let priceMap: StockPriceMap = new Map();
 	let marketOpen = false;
-	if (users.length > 0) {
-		const userIds = users.map((u) => u.id);
+	if (scheduledUsers.length > 0) {
+		const userIds = scheduledUsers.map((u) => u.id);
 		const { data: allUserStocks, error: userStocksError } = await supabase
 			.from("user_stocks")
 			.select("symbol")
@@ -72,13 +82,19 @@ async function runScheduledNotifications(options: {
 				fetchMarketStatus(),
 			]);
 		}
+	} else if (addOnsUsers.length > 0) {
+		marketOpen = await fetchMarketStatus();
 	}
 
 	const getSmsSender = createSmsSenderProvider();
 
 	const results: ScheduledNotificationTotals[] = [];
-	for (let index = 0; index < users.length; index += USER_PROCESS_BATCH_SIZE) {
-		const batch = users.slice(index, index + USER_PROCESS_BATCH_SIZE);
+	for (
+		let index = 0;
+		index < scheduledUsers.length;
+		index += USER_PROCESS_BATCH_SIZE
+	) {
+		const batch = scheduledUsers.slice(index, index + USER_PROCESS_BATCH_SIZE);
 		const batchResults = await Promise.all(
 			batch.map((user) =>
 				processScheduledUser({
@@ -89,6 +105,28 @@ async function runScheduledNotifications(options: {
 					sendEmail,
 					getSmsSender,
 					priceMap,
+					marketOpen,
+				}),
+			),
+		);
+		results.push(...batchResults);
+	}
+
+	for (
+		let index = 0;
+		index < addOnsUsers.length;
+		index += USER_PROCESS_BATCH_SIZE
+	) {
+		const batch = addOnsUsers.slice(index, index + USER_PROCESS_BATCH_SIZE);
+		const batchResults = await Promise.all(
+			batch.map((user) =>
+				processDailyAddOnsUser({
+					user,
+					supabase,
+					logger,
+					currentTime,
+					sendEmail,
+					getSmsSender,
 					marketOpen,
 				}),
 			),

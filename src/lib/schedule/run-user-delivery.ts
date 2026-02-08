@@ -3,7 +3,7 @@ import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
 import { processEmailUpdate } from "../messaging/email/delivery";
 import type { EmailSender } from "../messaging/email/utils";
 import { recordNotification } from "../messaging/shared";
-import { processSmsUpdate, type SmsExtras } from "../messaging/sms/delivery";
+import { processSmsUpdate } from "../messaging/sms/delivery";
 import type {
 	FormatPreferences,
 	UserRecord,
@@ -128,7 +128,6 @@ export async function processScheduledUserSmsDelivery(options: {
 	getSmsSender: SmsSenderProvider;
 	marketOpen: boolean;
 	stats: ScheduledNotificationTotals;
-	smsExtras?: SmsExtras;
 }): Promise<void> {
 	const {
 		user,
@@ -140,7 +139,6 @@ export async function processScheduledUserSmsDelivery(options: {
 		getSmsSender,
 		marketOpen,
 		stats,
-		smsExtras,
 	} = options;
 
 	const { data: claimed, error: claimError } = await supabase.rpc(
@@ -230,7 +228,6 @@ export async function processScheduledUserSmsDelivery(options: {
 		stocksList,
 		smsSender,
 		marketOpen,
-		smsExtras,
 	);
 
 	if (sent) {

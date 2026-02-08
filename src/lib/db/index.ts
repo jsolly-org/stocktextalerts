@@ -24,10 +24,27 @@ type FirstNotificationExtras = {
 	last_grok_rumors_at: string | null;
 };
 
-/* =============
-Generated Supabase types lag in-repo migrations; assert the new columns exist.
-============= */
-export type User = DbUserRow & FirstNotificationExtras;
+type MarketHoursPreferences = {
+	only_notify_when_market_open: boolean;
+};
+
+type MarketHoursSkipMetadata = {
+	last_market_closed_skip_scheduled_at: string | null;
+	last_market_closed_skip_recorded_at: string | null;
+};
+
+type DailyAddOnsPreferences = {
+	add_ons_notifications_enabled: boolean;
+	add_ons_delivery_time: number | null;
+	add_ons_next_send_at: string | null;
+};
+
+// Generated Supabase types lag migrations in-repo; assert the new columns exist.
+export type User = DbUserRow &
+	FirstNotificationExtras &
+	MarketHoursPreferences &
+	MarketHoursSkipMetadata &
+	DailyAddOnsPreferences;
 export type Stock = DbStockRow;
 export type UserStock = Pick<DbUserStockRow, "symbol" | "created_at"> & {
 	name: DbStockRow["name"];
@@ -42,6 +59,10 @@ export type NotificationPreferencesSnapshot = Pick<
 	| "timezone"
 	| "scheduled_updates_enabled"
 	| "scheduled_update_times"
+	| "only_notify_when_market_open"
+	| "add_ons_notifications_enabled"
+	| "add_ons_delivery_time"
+	| "add_ons_next_send_at"
 	| "next_send_at"
 	| "dismiss_timezone_mismatch_prompts"
 	| "first_notification_include_news"
@@ -61,7 +82,10 @@ export type NotificationPreferences = Pick<
 Users
 ============= */
 
-export type UserUpdateInput = DbUserUpdate & Partial<FirstNotificationExtras>;
+export type UserUpdateInput = DbUserUpdate &
+	Partial<FirstNotificationExtras> &
+	Partial<MarketHoursPreferences> &
+	Partial<DailyAddOnsPreferences>;
 
 export function createUserService(
 	supabase: AppSupabaseClient,

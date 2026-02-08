@@ -32,11 +32,7 @@
 			</FadeTransition>
 
 			<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.gray}`"></div>
-			<div
-				class="card-body"
-				:class="{ 'opacity-60': needsChannelSelection }"
-				:aria-disabled="needsChannelSelection ? 'true' : undefined"
-			>
+			<div class="card-body">
 				<header class="mb-4">
 					<h2
 						:id="DASHBOARD_SECTION_IDS.preview"
@@ -55,27 +51,32 @@
 					phoneVerificationSectionId=""
 				/>
 
-				<FormatToggles
-					:showChangePercent="showChangePercent"
-					:showCompanyName="showCompanyName"
-					:detailedFormat="detailedFormat"
-					:disabled="needsChannelSelection"
-					@update:showChangePercent="showChangePercent = $event"
-					@update:showCompanyName="showCompanyName = $event"
-					@update:detailedFormat="detailedFormat = $event"
-				/>
+			<div
+				class="transition-opacity duration-200"
+				:class="{ 'opacity-50': needsChannelSelection }"
+			>
+			<FormatToggles
+				:showChangePercent="showChangePercent"
+				:showCompanyName="showCompanyName"
+				:detailedFormat="detailedFormat"
+				:disabled="needsChannelSelection"
+				@update:showChangePercent="showChangePercent = $event"
+				@update:showCompanyName="showCompanyName = $event"
+				@update:detailedFormat="detailedFormat = $event"
+			/>
 
-				<div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+			<div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
 					<SmsPreview
 						:stocks="previewStocks"
 						:formatPreferences="formatPreferences"
 					/>
-					<EmailPreview
-						:stocks="previewStocks"
-						:formatPreferences="formatPreferences"
-					/>
-				</div>
+				<EmailPreview
+					:stocks="previewStocks"
+					:formatPreferences="formatPreferences"
+				/>
 			</div>
+			</div>
+		</div>
 		</section>
 	</form>
 </template>

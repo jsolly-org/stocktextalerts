@@ -50,6 +50,10 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 				timezone: dbUser.timezone,
 				scheduled_updates_enabled: dbUser.scheduled_updates_enabled,
 				scheduled_update_times: dbUser.scheduled_update_times,
+				only_notify_when_market_open: dbUser.only_notify_when_market_open,
+				add_ons_notifications_enabled: dbUser.add_ons_notifications_enabled,
+				add_ons_delivery_time: dbUser.add_ons_delivery_time,
+				add_ons_next_send_at: dbUser.add_ons_next_send_at,
 				next_send_at: dbUser.next_send_at,
 				dismiss_timezone_mismatch_prompts:
 					dbUser.dismiss_timezone_mismatch_prompts,

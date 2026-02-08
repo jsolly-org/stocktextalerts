@@ -11,6 +11,10 @@ export type NotificationPreferencesData = {
 	timezone: string;
 	scheduled_updates_enabled: boolean;
 	scheduled_update_times: number[] | null;
+	only_notify_when_market_open: boolean;
+	add_ons_notifications_enabled: boolean;
+	add_ons_delivery_time: number | null;
+	add_ons_next_send_at: string | null;
 	next_send_at: string | null;
 	dismiss_timezone_mismatch_prompts: boolean;
 	first_notification_include_news: boolean;

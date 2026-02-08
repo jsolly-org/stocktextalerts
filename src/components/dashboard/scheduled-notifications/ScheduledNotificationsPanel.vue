@@ -5,7 +5,7 @@
 		method="POST"
 		action="/api/notification-preferences/update"
 		class="space-y-6"
-		aria-label="Scheduled notifications"
+		aria-label="Scheduled price notifications"
 		:aria-busy="isSaving"
 		@input="handleFormInput"
 		@change="handleFormChange"
@@ -33,58 +33,71 @@
 
 			<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.success}`"></div>
 			<div class="card-body">
-				<header class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+				<header class="flex items-start justify-between gap-4">
 					<div class="min-w-0">
+						<input
+							type="hidden"
+							name="scheduled_updates_enabled"
+							:value="scheduledUpdatesEnabled ? 'on' : 'off'"
+						/>
 						<h2
 							:id="DASHBOARD_SECTION_IDS.scheduled"
 							class="text-xl sm:text-2xl font-bold text-gray-900"
 						>
-							Scheduled Notifications
+							Scheduled Price Notifications
 						</h2>
-						<p class="text-sm text-gray-600 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+						<p
+						class="text-sm text-gray-500 mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 transition-opacity duration-200"
+						:class="{ 'opacity-50': needsChannelSelection || !scheduledUpdatesEnabled }"
+					>
 							<span class="inline-flex items-center gap-1.5">
-								<ClockIcon class="size-4 shrink-0 text-gray-500" aria-hidden="true" />
-								<span class="text-gray-700">
+								<ClockIcon class="size-4 shrink-0 text-gray-400" aria-hidden="true" />
+								<span>
 									Local time:
-									<span class="font-medium text-gray-900">
+									<span class="font-medium text-gray-700">
 										{{ currentTimeInTimezone ?? "—" }}
 									</span>
 								</span>
 							</span>
 							<a
 								href="/profile"
-								class="inline-flex items-center gap-1 link-primary rounded-sm"
+								class="inline-flex items-center gap-1 link-primary text-xs rounded-sm"
 								aria-label="Change timezone in profile settings"
 							>
 								Change timezone
-								<ArrowTopRightOnSquareIcon class="size-3.5 shrink-0" aria-hidden="true" />
+								<ArrowTopRightOnSquareIcon class="size-3 shrink-0" aria-hidden="true" />
 							</a>
 						</p>
 					</div>
+					<ToggleSwitch
+						v-model="scheduledUpdatesEnabledToggle"
+						:disabled="needsChannelSelection"
+						sr-label="Enable scheduled price notifications"
+						:aria-labelledby="DASHBOARD_SECTION_IDS.scheduled"
+					/>
 				</header>
 
+				<SetupRequiredNotice
+					:needsChannelSelection="needsChannelSelection"
+					:needsPhoneVerification="needsPhoneVerification"
+					:phoneVerificationSectionId="phoneVerificationSectionId"
+				/>
+
 				<ScheduledUpdateControls
-					:enabled="scheduledUpdatesEnabled"
 					:scheduledUpdateTimes="scheduledUpdateTimes"
+					:onlyNotifyWhenMarketOpen="onlyNotifyWhenMarketOpen"
+					:marketClosedSkipNote="marketClosedSkipNote"
 					:needsChannelSelection="needsChannelSelection"
 					:timePickerDisabled="timePickerDisabled"
 					:canAddTime="canAddTime"
 					:maxTimes="MAX_DELIVERY_TIMES"
 					:maxTimesReached="maxTimesReached"
 					:countdownText="countdownText"
-					@update:enabled="handleScheduledUpdatesEnabledUpdate"
+					@update:onlyNotifyWhenMarketOpen="handleOnlyNotifyWhenMarketOpenUpdate"
 					@time-change="handleTimeChange"
 					@add-time="handleAddTime"
 					@remove-time="handleRemoveTime"
-				>
-					<template #setup>
-						<SetupRequiredNotice
-							:needsChannelSelection="needsChannelSelection"
-							:needsPhoneVerification="needsPhoneVerification"
-							:phoneVerificationSectionId="phoneVerificationSectionId"
-						/>
-					</template>
-				</ScheduledUpdateControls>
+				/>
 			</div>
 		</section>
 	</form>
@@ -92,7 +105,8 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, toRefs, watch } from "vue";
+import { DateTime } from "luxon";
+import { computed, onMounted, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import ArrowTopRightOnSquareIcon from "../../../icons/arrow-top-right-on-square.svg?component";
@@ -110,6 +124,7 @@ import {
 	parseTimeToMinutes,
 } from "../../../lib/time/format";
 import FadeTransition from "../../FadeTransition.vue";
+import ToggleSwitch from "../../ToggleSwitch.vue";
 import {
 	type NotificationPreferencesData,
 	useAutoSaveForm,
@@ -150,6 +165,12 @@ const {
 });
 
 const scheduledUpdatesEnabled = ref(user.value.scheduled_updates_enabled);
+const onlyNotifyWhenMarketOpen = ref(user.value.only_notify_when_market_open);
+const isHydrated = ref(false);
+
+onMounted(() => {
+	isHydrated.value = true;
+});
 
 const MAX_SCHEDULED_UPDATE_MINUTES = 23 * 60 + 59;
 const SCHEDULED_UPDATE_INCREMENT_MINUTES = 1;
@@ -271,6 +292,12 @@ watch(
 	},
 );
 watch(
+	() => user.value.only_notify_when_market_open,
+	(value) => {
+		onlyNotifyWhenMarketOpen.value = value;
+	},
+);
+watch(
 	() => user.value.scheduled_update_times,
 	(value) => {
 		scheduledUpdateTimesMinutes.value = normalizeScheduledTimes(value ?? []);
@@ -305,6 +332,37 @@ const { currentTimeInTimezone, countdownText } = useScheduledUpdateTiming({
 	timeInputs: scheduledUpdateTimes,
 });
 
+const marketClosedSkipNote = computed(() => {
+	if (!isHydrated.value) {
+		return null;
+	}
+	if (!scheduledUpdatesEnabled.value) {
+		return null;
+	}
+	if (!onlyNotifyWhenMarketOpen.value) {
+		return null;
+	}
+	const skippedAtIso = user.value.last_market_closed_skip_scheduled_at;
+	if (!skippedAtIso) {
+		return null;
+	}
+	const skippedUtc = DateTime.fromISO(skippedAtIso, { zone: "utc" });
+	if (!skippedUtc.isValid) {
+		return null;
+	}
+	const hoursAgo = DateTime.utc().diff(skippedUtc, "hours").hours;
+	if (!Number.isFinite(hoursAgo) || hoursAgo > 72) {
+		return null;
+	}
+
+	const skippedLocal = skippedUtc.setZone(user.value.timezone);
+	const timeLabel = skippedLocal.isValid
+		? skippedLocal.toFormat("ccc, h:mm a")
+		: "your scheduled time";
+
+	return `We skipped ${timeLabel} because the market was closed. If you’d like to receive scheduled price notifications anyway, turn off “Only notify when market is open” above.`;
+});
+
 watch(scheduledUpdatesEnabled, () => {
 	if (scheduledUpdatesEnabled.value && scheduledUpdateTimesMinutes.value.length === 0) {
 		scheduledUpdateTimesMinutes.value = [DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES];
@@ -320,14 +378,23 @@ watch(
 				...user.value,
 				scheduled_updates_enabled: newData.scheduled_updates_enabled,
 				scheduled_update_times: newData.scheduled_update_times,
+				only_notify_when_market_open: newData.only_notify_when_market_open,
 				next_send_at: newData.next_send_at,
 			};
 		}
 	},
 );
 
-function handleScheduledUpdatesEnabledUpdate(value: boolean) {
-	scheduledUpdatesEnabled.value = value;
+const scheduledUpdatesEnabledToggle = computed({
+	get: () => needsChannelSelection.value || scheduledUpdatesEnabled.value,
+	set: (value: boolean) => {
+		scheduledUpdatesEnabled.value = value;
+		notifyChange();
+	},
+});
+
+function handleOnlyNotifyWhenMarketOpenUpdate(value: boolean) {
+	onlyNotifyWhenMarketOpen.value = value;
 	notifyChange();
 }
 

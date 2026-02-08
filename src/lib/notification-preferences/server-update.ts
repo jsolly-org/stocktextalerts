@@ -1,7 +1,9 @@
+import { DateTime } from "luxon";
 import { DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES } from "../constants";
 import { omitUndefined, type User, type UserUpdateInput } from "../db";
 import type { Logger } from "../logging";
 import { shouldSendSms } from "../messaging/sms";
+import { calculateNextSendAt } from "../time/scheduled-times";
 import {
 	computeNextSendAtIso,
 	parseScheduledTimes,
@@ -26,6 +28,9 @@ export interface ParsedNotificationPreferencesForm {
 	sms_notifications_enabled?: boolean;
 	scheduled_updates_enabled?: boolean;
 	scheduled_update_times?: string[];
+	only_notify_when_market_open?: boolean;
+	add_ons_notifications_enabled?: boolean;
+	add_ons_delivery_time?: number;
 	first_notification_include_news?: boolean;
 	first_notification_include_rumors?: boolean;
 }
@@ -104,6 +109,23 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 						parsedData.scheduled_updates_enabled ?? false,
 				}
 			: {}),
+		...(formData.has("only_notify_when_market_open")
+			? {
+					only_notify_when_market_open:
+						parsedData.only_notify_when_market_open ?? false,
+				}
+			: {}),
+		...(formData.has("add_ons_notifications_enabled")
+			? {
+					add_ons_notifications_enabled:
+						parsedData.add_ons_notifications_enabled ?? false,
+				}
+			: {}),
+		...(formData.has("add_ons_delivery_time")
+			? {
+					add_ons_delivery_time: parsedData.add_ons_delivery_time ?? null,
+				}
+			: {}),
 	});
 
 	if (normalizedTimes === null) {
@@ -122,6 +144,16 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		safeNotificationPreferenceUpdates.scheduled_updates_enabled !== undefined &&
 		safeNotificationPreferenceUpdates.scheduled_updates_enabled !==
 			dbUser.scheduled_updates_enabled;
+
+	const addOnsEnabledChanged =
+		safeNotificationPreferenceUpdates.add_ons_notifications_enabled !==
+			undefined &&
+		safeNotificationPreferenceUpdates.add_ons_notifications_enabled !==
+			dbUser.add_ons_notifications_enabled;
+	const addOnsTimeChanged =
+		safeNotificationPreferenceUpdates.add_ons_delivery_time !== undefined &&
+		safeNotificationPreferenceUpdates.add_ons_delivery_time !==
+			dbUser.add_ons_delivery_time;
 
 	const finalEmailNotificationsEnabled =
 		safeNotificationPreferenceUpdates.email_notifications_enabled ??
@@ -148,6 +180,14 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 	let finalEnabled =
 		safeNotificationPreferenceUpdates.scheduled_updates_enabled ??
 		dbUser.scheduled_updates_enabled;
+
+	const finalAddOnsEnabled =
+		safeNotificationPreferenceUpdates.add_ons_notifications_enabled ??
+		dbUser.add_ons_notifications_enabled;
+	const finalAddOnsTime =
+		safeNotificationPreferenceUpdates.add_ons_delivery_time !== undefined
+			? safeNotificationPreferenceUpdates.add_ons_delivery_time
+			: dbUser.add_ons_delivery_time;
 
 	// When a user enables their first usable notification channel, automatically
 	// enable scheduled updates and set a default notification time so scheduling works without
@@ -204,6 +244,35 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		);
 	} else if (enabledChanged && !finalEnabled) {
 		safeNotificationPreferenceUpdates.next_send_at = null;
+	}
+
+	// Daily add-ons notification schedule (decoupled from scheduled updates)
+	const needsAddOnsNextSendAtRepair =
+		finalAddOnsEnabled &&
+		dbUser.add_ons_next_send_at === null &&
+		safeNotificationPreferenceUpdates.add_ons_next_send_at === undefined;
+
+	if (
+		(timezoneChanged ||
+			addOnsEnabledChanged ||
+			addOnsTimeChanged ||
+			needsAddOnsNextSendAtRepair) &&
+		finalAddOnsEnabled
+	) {
+		if (finalAddOnsTime === null) {
+			safeNotificationPreferenceUpdates.add_ons_notifications_enabled = false;
+			safeNotificationPreferenceUpdates.add_ons_next_send_at = null;
+		} else {
+			const nextAddOnsUtc = calculateNextSendAt(
+				finalAddOnsTime,
+				finalTimezone,
+				DateTime.utc(),
+			);
+			safeNotificationPreferenceUpdates.add_ons_next_send_at =
+				nextAddOnsUtc?.toISO() ?? null;
+		}
+	} else if (addOnsEnabledChanged && !finalAddOnsEnabled) {
+		safeNotificationPreferenceUpdates.add_ons_next_send_at = null;
 	}
 
 	return safeNotificationPreferenceUpdates;

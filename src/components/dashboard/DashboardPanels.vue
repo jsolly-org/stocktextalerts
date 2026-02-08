@@ -32,14 +32,18 @@
 		:phoneVerified="phoneVerified"
 	/>
 
+	<FirstNotificationExtrasPanel
+		:emailEnabled="emailEnabled"
+		:smsEnabled="smsEnabled"
+		:phoneVerified="phoneVerified"
+	/>
+
 	<NotificationPreviewPanel
 		:initialStocks="initialStocks"
 		:emailEnabled="emailEnabled"
 		:smsEnabled="smsEnabled"
 		:phoneVerified="phoneVerified"
 	/>
-
-	<FirstNotificationExtrasPanel />
 </template>
 
 <script lang="ts" setup>
