@@ -22,7 +22,7 @@ export async function updateUserAddOnsNextSendAt(options: {
 	) {
 		const { error } = await supabase
 			.from("users")
-			.update({ add_ons_next_send_at: null } as unknown as DbUserUpdate)
+			.update({ add_ons_next_send_at: null })
 			.eq("id", user.id);
 		if (error) {
 			logger.error(
@@ -43,7 +43,7 @@ export async function updateUserAddOnsNextSendAt(options: {
 
 	const { error } = await supabase
 		.from("users")
-		.update({ add_ons_next_send_at: nextSendAtIso } as unknown as DbUserUpdate)
+		.update({ add_ons_next_send_at: nextSendAtIso })
 		.eq("id", user.id);
 
 	if (error) {
