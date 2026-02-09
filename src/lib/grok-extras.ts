@@ -148,7 +148,9 @@ export async function generateDailyExtrasWithGrok(options: {
 	}
 
 	const model =
-		metaEnv?.XAI_GROK_MODEL ?? process.env.XAI_GROK_MODEL ?? "grok-4";
+		metaEnv?.XAI_GROK_MODEL ??
+		process.env.XAI_GROK_MODEL ??
+		"grok-4-fast-non-reasoning";
 	const channel = options.channel ?? "sms";
 	const { system, user } = buildExtrasPrompt({
 		...options,
