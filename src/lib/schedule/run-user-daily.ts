@@ -202,9 +202,9 @@ export async function processDailyUser(options: {
 		const emailEnabled = user.email_notifications_enabled;
 		const smsEnabled = shouldSendSms(user);
 
+		// News/rumors are email-only (SMS body can exceed Twilio's 1600-char limit)
 		const channels: GrokChannel[] = [];
 		if (emailEnabled) channels.push("email");
-		if (smsEnabled) channels.push("sms");
 
 		if (channels.length === 0) {
 			stats.skipped++;
@@ -261,9 +261,11 @@ export async function processDailyUser(options: {
 		============= */
 		function buildExtras(channel: GrokChannel): SmsExtras {
 			const grok = grokResultsByChannel.get(channel);
+			// News/rumors are email-only (SMS body can exceed Twilio's 1600-char limit)
+			const isSms = channel === "sms";
 			return {
-				news: grok?.news ?? null,
-				rumors: grok?.rumors ?? null,
+				news: isSms ? null : (grok?.news ?? null),
+				rumors: isSms ? null : (grok?.rumors ?? null),
 				analyst: user.daily_include_analyst
 					? formatAnalystSection(finnhubData.analyst, channel)
 					: null,

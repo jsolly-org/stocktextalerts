@@ -201,7 +201,7 @@
 								id="daily_include_news_description"
 								class="text-sm text-gray-600 mt-0.5"
 							>
-								Add a short news summary about the stocks you’re tracking.
+								Add a short news summary about the stocks you're tracking. Email only — not included in SMS.
 							</p>
 						</div>
 					<ToggleSwitch
@@ -233,7 +233,7 @@
 								id="daily_include_rumors_description"
 								class="text-sm text-gray-600 mt-0.5"
 							>
-								Add a short rumors/chatter summary about the stocks you’re tracking.
+								Add a short rumors/chatter summary about the stocks you're tracking. Email only — not included in SMS.
 							</p>
 						</div>
 					<ToggleSwitch
