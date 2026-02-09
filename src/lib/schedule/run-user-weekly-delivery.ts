@@ -29,7 +29,6 @@ SMS formatting
  */
 function formatWeeklyCalendarSmsMessage(options: {
 	earningsSection: string | null;
-	dividendsSection: string | null;
 }): string {
 	const optOutSuffix = "Reply STOP to opt out.";
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
@@ -39,7 +38,6 @@ function formatWeeklyCalendarSmsMessage(options: {
 		options.earningsSection
 			? `📅 Earnings This Week\n${options.earningsSection}`
 			: "",
-		options.dividendsSection ? `💰 Dividends\n${options.dividendsSection}` : "",
 		`Manage your settings: ${dashboardUrl}`,
 		optOutSuffix,
 	].filter(Boolean);
@@ -59,7 +57,6 @@ Email formatting
 function formatWeeklyCalendarEmail(options: {
 	user: { id: string; email: string };
 	earningsSection: string | null;
-	dividendsSection: string | null;
 }): { subject: string; text: string; html: string } {
 	const urls = buildEmailUrls(
 		options.user.id,
@@ -68,12 +65,10 @@ function formatWeeklyCalendarEmail(options: {
 	);
 
 	const earnings = (options.earningsSection ?? "").trim();
-	const dividends = (options.dividendsSection ?? "").trim();
 
 	const sectionsText = [
 		"Weekly calendar",
 		earnings ? `\n📅 Earnings This Week\n${earnings}` : "",
-		dividends ? `\n💰 Dividends\n${dividends}` : "",
 		`\nManage your settings: ${urls.dashboardUrl}`,
 		`Manage your delivery schedule: ${urls.scheduleUrl}`,
 		`Unsubscribe: ${urls.unsubscribeUrl}`,
@@ -94,7 +89,6 @@ function formatWeeklyCalendarEmail(options: {
 		<h2 style="margin: 0 0 8px; font-size: 18px;">Weekly calendar</h2>
 		<p style="margin: 0 0 16px; color: #6b7280; font-size: 14px;">Upcoming events for your tracked stocks</p>
 		${renderEmailSection("📅", "Earnings This Week", earnings, { showFinnhubLogo: true })}
-		${renderEmailSection("💰", "Dividends", dividends, { showFinnhubLogo: true })}
 		<div style="text-align: center; margin-top: 20px;">
 			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
 				Manage your settings →
@@ -125,7 +119,6 @@ export async function processWeeklyCalendarEmailDelivery(options: {
 	scheduledDate: string;
 	scheduledMinutes: number;
 	earningsSection: string | null;
-	dividendsSection: string | null;
 	sendEmail: EmailSender;
 	stats: ScheduledNotificationTotals;
 }): Promise<void> {
@@ -136,7 +129,6 @@ export async function processWeeklyCalendarEmailDelivery(options: {
 		scheduledDate,
 		scheduledMinutes,
 		earningsSection,
-		dividendsSection,
 		sendEmail,
 		stats,
 	} = options;
@@ -163,7 +155,6 @@ export async function processWeeklyCalendarEmailDelivery(options: {
 	const message = formatWeeklyCalendarEmail({
 		user,
 		earningsSection,
-		dividendsSection,
 	});
 	const result = await sendUserEmail(
 		user,
@@ -222,7 +213,6 @@ export async function processWeeklyCalendarSmsDelivery(options: {
 	scheduledDate: string;
 	scheduledMinutes: number;
 	earningsSection: string | null;
-	dividendsSection: string | null;
 	getSmsSender: SmsSenderProvider;
 	stats: ScheduledNotificationTotals;
 }): Promise<void> {
@@ -233,7 +223,6 @@ export async function processWeeklyCalendarSmsDelivery(options: {
 		scheduledDate,
 		scheduledMinutes,
 		earningsSection,
-		dividendsSection,
 		getSmsSender,
 		stats,
 	} = options;
@@ -287,7 +276,6 @@ export async function processWeeklyCalendarSmsDelivery(options: {
 
 	const smsMessage = formatWeeklyCalendarSmsMessage({
 		earningsSection,
-		dividendsSection,
 	});
 	const result = await sendUserSms(user, smsMessage, smsSenderResult.sender);
 	const logged = await recordNotification(supabase, {

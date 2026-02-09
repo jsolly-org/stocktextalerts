@@ -49,8 +49,6 @@ export type NotificationPreferencesSnapshot = Pick<
 	| "price_include_sms"
 	| "weekly_include_earnings_email"
 	| "weekly_include_earnings_sms"
-	| "weekly_include_dividends_email"
-	| "weekly_include_dividends_sms"
 	| "weekly_next_send_at"
 >;
 

@@ -3,19 +3,19 @@ import { createClient } from "@supabase/supabase-js";
 type TestEnv = {
 	supabaseUrl: string;
 	supabaseSecretKey: string;
-	supabaseAnonKey: string;
+	supabasePublishableKey: string;
 };
 
 function getTestEnv(): TestEnv {
-	const supabaseUrl = process.env.PUBLIC_SUPABASE_URL;
+	const supabaseUrl = process.env.SUPABASE_URL;
 	const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
-	const supabaseAnonKey = process.env.PUBLIC_SUPABASE_ANON_KEY;
+	const supabasePublishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
 
 	// Tests run outside the request pipeline, so middleware env validation doesn't apply.
 	return {
 		supabaseUrl: supabaseUrl as string,
 		supabaseSecretKey: supabaseSecretKey as string,
-		supabaseAnonKey: supabaseAnonKey as string,
+		supabasePublishableKey: supabasePublishableKey as string,
 	};
 }
 
@@ -36,12 +36,16 @@ export async function createAuthenticatedCookies(
 	email: string,
 	password: string,
 ): Promise<Map<string, string>> {
-	const supabase = createClient(testEnv.supabaseUrl, testEnv.supabaseAnonKey, {
-		auth: {
-			autoRefreshToken: false,
-			persistSession: false,
+	const supabase = createClient(
+		testEnv.supabaseUrl,
+		testEnv.supabasePublishableKey,
+		{
+			auth: {
+				autoRefreshToken: false,
+				persistSession: false,
+			},
 		},
-	});
+	);
 
 	const { data, error } = await supabase.auth.signInWithPassword({
 		email,

@@ -57,8 +57,6 @@ export type UserRecord = Pick<
 	daily_next_send_at: string | null;
 	weekly_include_earnings_email: boolean;
 	weekly_include_earnings_sms: boolean;
-	weekly_include_dividends_email: boolean;
-	weekly_include_dividends_sms: boolean;
 	weekly_next_send_at: string | null;
 	last_market_closed_skip_scheduled_at: string | null;
 	last_market_closed_skip_recorded_at: string | null;

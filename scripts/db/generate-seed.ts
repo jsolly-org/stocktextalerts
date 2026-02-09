@@ -44,11 +44,11 @@ const ERROR_HINTS: Partial<Record<SeedErrorCode, string[]>> = {
   missing_env: [
     "\n💡 Hint: Missing environment variables.",
     "   - Ensure .env.local exists in the project root",
-    "   - Verify PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY are set",
+    "   - Verify SUPABASE_URL and SUPABASE_SECRET_KEY are set",
     "   - For local development, run: supabase start",
   ],
   invalid_supabase_url: [
-    "\n💡 Hint: PUBLIC_SUPABASE_URL is malformed.",
+    "\n💡 Hint: SUPABASE_URL is malformed.",
     "   - Verify the URL format (e.g., http://localhost:54321)",
   ],
   default_password_missing: [
@@ -69,7 +69,7 @@ const ERROR_HINTS: Partial<Record<SeedErrorCode, string[]>> = {
   network_failed: [
     "\n💡 Hint: Supabase connection issue.",
     "   - Ensure Supabase is running: supabase start",
-    "   - Verify PUBLIC_SUPABASE_URL points to a running instance",
+    "   - Verify SUPABASE_URL points to a running instance",
     "   - Check network connectivity",
   ],
   auth_failed: [
@@ -328,13 +328,13 @@ async function main() {
   rootLogger.info('Generating supabase/seed.sql...');
 
   // Check for required environment variables
-  const supabaseUrl = process.env.PUBLIC_SUPABASE_URL;
+  const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
   // Seed scripts run outside middleware, so env validation lives here.
   if (!supabaseUrl || !supabaseSecretKey) {
     throw new SeedError(
       "missing_env",
-      "Missing required environment variables: PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY must be set in .env.local",
+      "Missing required environment variables: SUPABASE_URL and SUPABASE_SECRET_KEY must be set in .env.local",
     );
   }
 
@@ -344,7 +344,7 @@ async function main() {
   } catch {
     throw new SeedError(
       "invalid_supabase_url",
-      `PUBLIC_SUPABASE_URL is not a valid URL: ${supabaseUrl}`,
+      `SUPABASE_URL is not a valid URL: ${supabaseUrl}`,
     );
   }
 

@@ -27,8 +27,6 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	price_include_sms: { type: "boolean" },
 	weekly_include_earnings_email: { type: "boolean" },
 	weekly_include_earnings_sms: { type: "boolean" },
-	weekly_include_dividends_email: { type: "boolean" },
-	weekly_include_dividends_sms: { type: "boolean" },
 } as const satisfies FormSchema;
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
@@ -204,9 +202,6 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 				weekly_include_earnings_email:
 					updatedUser.weekly_include_earnings_email,
 				weekly_include_earnings_sms: updatedUser.weekly_include_earnings_sms,
-				weekly_include_dividends_email:
-					updatedUser.weekly_include_dividends_email,
-				weekly_include_dividends_sms: updatedUser.weekly_include_dividends_sms,
 				weekly_next_send_at: updatedUser.weekly_next_send_at,
 			},
 		});

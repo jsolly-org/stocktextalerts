@@ -41,7 +41,7 @@
 						Weekly Calendar
 					</h2>
 				<p class="text-sm text-gray-600 mt-1">
-					Everything you enable below is bundled into <strong class="font-semibold text-gray-700">one weekly message</strong> every Monday — covering upcoming earnings and dividends for your tracked stocks.
+					Everything you enable below is bundled into <strong class="font-semibold text-gray-700">one weekly message</strong> every Monday — covering upcoming earnings for your tracked stocks.
 				</p>
 					<p
 						v-if="deliveryTimeLabel"
@@ -124,58 +124,7 @@
 						</div>
 					</div>
 
-					<div class="flex items-center justify-between gap-3 py-3">
-						<input
-							type="hidden"
-							name="weekly_include_dividends_email"
-							:value="includeDividendsEmail ? 'on' : 'off'"
-						/>
-						<input
-							type="hidden"
-							name="weekly_include_dividends_sms"
-							:value="includeDividendsSms ? 'on' : 'off'"
-						/>
-						<div class="min-w-0">
-							<div class="flex items-center gap-2">
-								<span
-									id="weekly_include_dividends_label"
-									class="text-base font-semibold text-gray-900"
-								>
-									💰 Dividends
-								</span>
-								<FinnhubLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Finnhub" role="img" />
-							</div>
-							<p
-								id="weekly_include_dividends_description"
-								class="text-sm text-gray-600 mt-0.5"
-							>
-								Upcoming ex-dividend dates and amounts for your tracked stocks.
-							</p>
-						</div>
-						<div class="flex items-center gap-4 shrink-0">
-							<label class="inline-flex items-center gap-1.5 cursor-pointer">
-								<input
-									type="checkbox"
-									v-model="includeDividendsEmail"
-									:disabled="needsChannelSelection"
-									class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4 cursor-pointer"
-									aria-describedby="weekly_include_dividends_description"
-								/>
-								<span class="text-sm text-gray-700">Email</span>
-							</label>
-							<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
-								<input
-									type="checkbox"
-									v-model="includeDividendsSms"
-									:disabled="needsChannelSelection || !smsReady"
-									class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4 cursor-pointer"
-									aria-describedby="weekly_include_dividends_description"
-								/>
-								<span class="text-sm text-gray-700">SMS</span>
-							</label>
-						</div>
-					</div>
-				</fieldset>
+					</fieldset>
 
 				<div v-if="isHydrated && nextWeeklyDeliveryText" class="mt-4 border-t border-gray-200 pt-4">
 					<p class="inline-flex items-center gap-2 text-sm text-gray-600">
@@ -266,15 +215,11 @@ const {
 
 const includeEarningsEmail = ref(user.value.weekly_include_earnings_email);
 const includeEarningsSms = ref(user.value.weekly_include_earnings_sms);
-const includeDividendsEmail = ref(user.value.weekly_include_dividends_email);
-const includeDividendsSms = ref(user.value.weekly_include_dividends_sms);
 
 const weeklyEnabled = computed(
 	() =>
 		includeEarningsEmail.value ||
-		includeEarningsSms.value ||
-		includeDividendsEmail.value ||
-		includeDividendsSms.value,
+		includeEarningsSms.value,
 );
 
 const deliveryTimeMinutes = computed(() =>
@@ -307,7 +252,7 @@ const nextWeeklyDeliveryText = computed(() => {
 	return `in ${formatCountdownWithSeconds(Math.round(diffSeconds))}`;
 });
 
-watch([includeEarningsEmail, includeEarningsSms, includeDividendsEmail, includeDividendsSms], () => {
+watch([includeEarningsEmail, includeEarningsSms], () => {
 	notifyChange();
 });
 
@@ -324,19 +269,6 @@ watch(
 		includeEarningsSms.value = value;
 	},
 );
-watch(
-	() => user.value.weekly_include_dividends_email,
-	(value) => {
-		includeDividendsEmail.value = value;
-	},
-);
-watch(
-	() => user.value.weekly_include_dividends_sms,
-	(value) => {
-		includeDividendsSms.value = value;
-	},
-);
-
 // Keep dashboard user state aligned with autosave responses
 watch(savedData, (newData) => {
 	if (!newData) return;
@@ -344,8 +276,6 @@ watch(savedData, (newData) => {
 		...user.value,
 		weekly_include_earnings_email: newData.weekly_include_earnings_email,
 		weekly_include_earnings_sms: newData.weekly_include_earnings_sms,
-		weekly_include_dividends_email: newData.weekly_include_dividends_email,
-		weekly_include_dividends_sms: newData.weekly_include_dividends_sms,
 		weekly_next_send_at: newData.weekly_next_send_at,
 	};
 });

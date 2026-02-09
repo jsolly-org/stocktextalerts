@@ -1,7 +1,6 @@
 import { DateTime } from "luxon";
 import {
 	fetchWeeklyCalendarData,
-	formatDividendsSection,
 	formatEarningsSection,
 } from "../finnhub-extras";
 import type { Logger } from "../logging";
@@ -24,7 +23,7 @@ import { updateUserWeeklyNextSendAt } from "./run-user-weekly-next-send-at";
 /**
  * Process a single user's weekly calendar notification.
  *
- * Fetches earnings/dividend events for the current week (Mon–Fri) for the user's tracked stocks,
+ * Fetches earnings events for the current week (Mon–Fri) for the user's tracked stocks,
  * formats channel-specific sections, delivers via enabled channels, and advances `weekly_next_send_at`.
  */
 export async function processWeeklyUser(options: {
@@ -91,10 +90,7 @@ export async function processWeeklyUser(options: {
 		}
 
 		const hasAnyWeeklyOption =
-			user.weekly_include_earnings_email ||
-			user.weekly_include_earnings_sms ||
-			user.weekly_include_dividends_email ||
-			user.weekly_include_dividends_sms;
+			user.weekly_include_earnings_email || user.weekly_include_earnings_sms;
 
 		if (!hasAnyWeeklyOption) {
 			stats.skipped++;
@@ -170,21 +166,13 @@ export async function processWeeklyUser(options: {
 			emailEnabled && user.weekly_include_earnings_email
 				? formatEarningsSection(calendarData.earnings, "email")
 				: null;
-		const emailDividends =
-			emailEnabled && user.weekly_include_dividends_email
-				? formatDividendsSection(calendarData.dividends, "email")
-				: null;
 		const smsEarnings =
 			smsEnabled && user.weekly_include_earnings_sms
 				? formatEarningsSection(calendarData.earnings, "sms")
 				: null;
-		const smsDividends =
-			smsEnabled && user.weekly_include_dividends_sms
-				? formatDividendsSection(calendarData.dividends, "sms")
-				: null;
 
-		const hasEmailContent = !!(emailEarnings || emailDividends);
-		const hasSmsContent = !!(smsEarnings || smsDividends);
+		const hasEmailContent = !!emailEarnings;
+		const hasSmsContent = !!smsEarnings;
 
 		if (!hasEmailContent && !hasSmsContent) {
 			logger.info("Skipping weekly calendar: no events this week", {
@@ -212,7 +200,6 @@ export async function processWeeklyUser(options: {
 				scheduledDate,
 				scheduledMinutes,
 				earningsSection: emailEarnings,
-				dividendsSection: emailDividends,
 				sendEmail,
 				stats,
 			});
@@ -226,7 +213,6 @@ export async function processWeeklyUser(options: {
 				scheduledDate,
 				scheduledMinutes,
 				earningsSection: smsEarnings,
-				dividendsSection: smsDividends,
 				getSmsSender,
 				stats,
 			});

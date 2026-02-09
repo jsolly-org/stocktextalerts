@@ -67,8 +67,6 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 				daily_include_insider_sms: dbUser.daily_include_insider_sms,
 				weekly_include_earnings_email: dbUser.weekly_include_earnings_email,
 				weekly_include_earnings_sms: dbUser.weekly_include_earnings_sms,
-				weekly_include_dividends_email: dbUser.weekly_include_dividends_email,
-				weekly_include_dividends_sms: dbUser.weekly_include_dividends_sms,
 				weekly_next_send_at: dbUser.weekly_next_send_at,
 			},
 		});

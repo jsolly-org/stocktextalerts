@@ -11,7 +11,7 @@ A stock market notification app that sends scheduled SMS and email updates (pric
 - **Timezone Support** - Browser-detected timezones with user overrides
 - **Frequent Price Notifications** - Choose up to 5 delivery times for scheduled stock price updates, and decide if they’re delivered by email, SMS, or both
 - **Daily Notifications** - Once-daily digest with optional extras (News/Rumors are email-only; Analyst Consensus and Insider Trades can be delivered by email and/or SMS)
-- **Weekly Calendar** - Monday calendar of upcoming earnings reports and dividend events for your tracked stocks (delivered by email and/or SMS)
+- **Weekly Calendar** - Monday calendar of upcoming earnings reports for your tracked stocks (delivered by email and/or SMS)
 - **Format Preferences** - Customize how your updates look with live SMS/email previews
 - **SMS Opt-out** - Reply STOP to opt out of SMS; reply START to opt back in (then re-enable SMS in your dashboard)
 
@@ -21,7 +21,7 @@ A stock market notification app that sends scheduled SMS and email updates (pric
 - **UI**: Vue 3 components with Tailwind CSS
 - **Icons**: Local SVGs in `/src/icons` loaded via `astro-icon` in `.astro` files; Vue components import SVGs via `vite-svg-loader` using the `?component` suffix
 - **Database**: Supabase (PostgreSQL)
-- **Market Data**: Finnhub (prices, market hours, earnings/dividends, analyst/insider extras)
+- **Market Data**: Finnhub (prices, market hours, earnings, analyst/insider extras)
 - **AI Summaries**: xAI (Grok) for optional News/Rumors add-ons
 - **Email**: Resend
 - **SMS**: Twilio Verify API + Messaging API
@@ -42,7 +42,6 @@ A stock market notification app that sends scheduled SMS and email updates (pric
 - Node.js (see `.nvmrc` for the required version)
 - Docker (Docker Desktop or Docker Engine)
 - Supabase account
-- Resend account
 - Twilio account with Verify API enabled
 - Finnhub account (API key)
 - xAI account (optional, only needed for News/Rumors add-ons)
@@ -65,10 +64,6 @@ npm install
 2. Choose a project name, database password, and region
 3. Wait for the project to finish provisioning
 
-**Resend:**
-1. Go to [resend.com](https://resend.com) and create an account
-2. Create an API key and verify a sending domain or email
-
 **Twilio:**
 1. Go to [twilio.com](https://www.twilio.com) and create an account
 2. Purchase a phone number (or use trial number)
@@ -82,6 +77,8 @@ npm install
 
 ### 3. Environment Variables
 
+> **Note:** Where possible, use official [Supabase integrations](https://supabase.com/docs/guides/platform/marketplace) (e.g. Resend, Twilio) instead of manually managing API keys as environment variables. Integrations are configured in the Supabase Dashboard and inject credentials automatically — no env vars needed.
+
 Create a `.env.local` file in the root directory (you can copy from `env.example` and fill in secrets). This file is gitignored and **must not** be committed.
 
 ```env
@@ -91,9 +88,9 @@ Create a `.env.local` file in the root directory (you can copy from `env.example
 VERCEL_URL=http://localhost:4321
 
 # Supabase
-PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SECRET_KEY=your-secret-key
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+SUPABASE_SECRET_KEY=your-service-role-key
 DATABASE_URL=postgresql://postgres:password@host:5432/database
 
 # Twilio
@@ -105,8 +102,6 @@ TWILIO_VERIFY_SERVICE_SID=your-verify-service-sid
 # Vercel
 CRON_SECRET=your-random-secret-string
 
-# Resend
-RESEND_API_KEY=REPLACE_WITH_YOUR_API_KEY
 EMAIL_FROM=notifications@updates.example.com
 
 # Finnhub (stock prices / market hours)
@@ -125,12 +120,11 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 ```
 
 **Where to find these:**
-- `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_ANON_KEY`: Supabase Dashboard → Project Settings → API
+- `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`: Supabase Dashboard → Project Settings → API Keys
 - `SUPABASE_SECRET_KEY`: Supabase Dashboard → Project Settings → API Keys → Secret keys
 - `DATABASE_URL`: Supabase Dashboard → Project Settings → Database → Connection String → Transaction mode (pooler)
 - Twilio credentials: Twilio Console → Account Dashboard
 - `CRON_SECRET`: Generate a random string (e.g., `openssl rand -hex 32`)
-- Resend credentials: Resend Dashboard → API Keys
 - Finnhub credentials: Finnhub Dashboard → API Keys
 - xAI credentials: xAI Console → API Keys
 - LOG masking: optional, defaults to true
@@ -287,7 +281,7 @@ The cron job calls `/api/schedule` and must include:
 
 The cron job:
 1. Runs frequent scheduled price notifications (batched price fetching)
-2. Sends weekly calendar notifications (earnings/dividends) on Mondays
+2. Sends weekly calendar notifications (earnings) on Mondays
 3. Sends daily digest notifications (News/Rumors/Analyst/Insider) at the user’s chosen daily time
 4. Sends via email and/or SMS based on settings and logs attempts to the `notification_log` table
 
@@ -379,7 +373,7 @@ Resetting the database (`npm run db:reset`) will:
 
 This is safe for local development as long as your env vars point to your local Supabase instance.
 
-`db:generate-seed` generates `supabase/seed.sql` against whatever Supabase instance `PUBLIC_SUPABASE_URL` points to, so be careful when running it against production.
+`db:generate-seed` generates `supabase/seed.sql` against whatever Supabase instance `SUPABASE_URL` points to, so be careful when running it against production.
 
 `npm run db:reset:prod` is intentionally destructive and targets production. It generates `supabase/seed.sql` and applies it to production.
 

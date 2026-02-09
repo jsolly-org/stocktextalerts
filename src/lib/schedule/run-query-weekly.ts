@@ -31,8 +31,6 @@ export async function fetchWeeklyUsers(options: {
 			daily_delivery_time,
 			weekly_include_earnings_email,
 			weekly_include_earnings_sms,
-			weekly_include_dividends_email,
-			weekly_include_dividends_sms,
 			weekly_next_send_at,
 			email_notifications_enabled,
 			sms_notifications_enabled,
@@ -40,7 +38,7 @@ export async function fetchWeeklyUsers(options: {
 		`,
 			)
 			.or(
-				"weekly_include_earnings_email.eq.true,weekly_include_earnings_sms.eq.true,weekly_include_dividends_email.eq.true,weekly_include_dividends_sms.eq.true",
+				"weekly_include_earnings_email.eq.true,weekly_include_earnings_sms.eq.true",
 			)
 			.or(
 				"email_notifications_enabled.eq.true,sms_notifications_enabled.eq.true",

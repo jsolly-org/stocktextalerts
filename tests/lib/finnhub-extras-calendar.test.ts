@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-	type DividendEvent,
 	type EarningsEvent,
-	formatDividendsSection,
 	formatEarningsSection,
 } from "../../src/lib/finnhub-extras";
 
@@ -117,119 +115,5 @@ describe("formatEarningsSection formats earnings events per ticker.", () => {
 		expect(result).toContain("GOOG: 02-13 (after close)");
 		expect(result).not.toContain("EPS est.");
 		expect(result).not.toContain("Rev est.");
-	});
-});
-
-describe("formatDividendsSection formats dividend events per ticker.", () => {
-	it("Formats SMS dividend section as compact one-liners.", () => {
-		const data = new Map<string, DividendEvent[]>([
-			[
-				"AAPL",
-				[
-					{
-						symbol: "AAPL",
-						exDate: "2026-02-11",
-						payDate: "2026-02-18",
-						amount: 0.24,
-						currency: "USD",
-					},
-				],
-			],
-		]);
-
-		const result = formatDividendsSection(data, "sms");
-
-		expect(result).not.toBeNull();
-		expect(result).toBe("AAPL: Ex-div 02-11, $0.24");
-	});
-
-	it("Formats email dividend section with pay date and currency.", () => {
-		const data = new Map<string, DividendEvent[]>([
-			[
-				"AAPL",
-				[
-					{
-						symbol: "AAPL",
-						exDate: "2026-02-11",
-						payDate: "2026-02-18",
-						amount: 0.24,
-						currency: "USD",
-					},
-				],
-			],
-		]);
-
-		const result = formatDividendsSection(data, "email");
-
-		expect(result).not.toBeNull();
-		expect(result).toContain("AAPL: Ex-div 02-11, pay 02-18, $0.24 USD");
-	});
-
-	it("Returns null when no dividend events exist.", () => {
-		const data = new Map<string, DividendEvent[]>([["AAPL", []]]);
-
-		const result = formatDividendsSection(data, "sms");
-
-		expect(result).toBeNull();
-	});
-
-	it("Handles empty payDate in email format.", () => {
-		const data = new Map<string, DividendEvent[]>([
-			[
-				"MSFT",
-				[
-					{
-						symbol: "MSFT",
-						exDate: "2026-02-14",
-						payDate: "",
-						amount: 0.75,
-						currency: "USD",
-					},
-				],
-			],
-		]);
-
-		const result = formatDividendsSection(data, "email");
-
-		expect(result).not.toBeNull();
-		expect(result).toBe("MSFT: Ex-div 02-14, $0.75 USD");
-		expect(result).not.toContain("pay");
-	});
-
-	it("Formats multiple tickers with multiple events.", () => {
-		const data = new Map<string, DividendEvent[]>([
-			[
-				"AAPL",
-				[
-					{
-						symbol: "AAPL",
-						exDate: "2026-02-11",
-						payDate: "2026-02-18",
-						amount: 0.24,
-						currency: "USD",
-					},
-				],
-			],
-			[
-				"MSFT",
-				[
-					{
-						symbol: "MSFT",
-						exDate: "2026-02-12",
-						payDate: "2026-02-19",
-						amount: 0.75,
-						currency: "USD",
-					},
-				],
-			],
-		]);
-
-		const result = formatDividendsSection(data, "sms");
-
-		expect(result).not.toBeNull();
-		const lines = result?.split("\n");
-		expect(lines.length).toBe(2);
-		expect(lines[0]).toContain("AAPL");
-		expect(lines[1]).toContain("MSFT");
 	});
 });

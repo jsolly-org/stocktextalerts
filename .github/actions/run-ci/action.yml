@@ -51,8 +51,8 @@ runs:
         supabase status -o json > /tmp/sb-status.json
         # Extract DB vars once, then write to both .env.local and GITHUB_ENV
         DB_VARS=$(jq -r '
-          "PUBLIC_SUPABASE_URL=\(.API_URL // "")",
-          "PUBLIC_SUPABASE_ANON_KEY=\(.ANON_KEY // "")",
+          "SUPABASE_URL=\(.API_URL // "")",
+          "SUPABASE_PUBLISHABLE_KEY=\(.ANON_KEY // "")",
           "SUPABASE_SECRET_KEY=\(.SERVICE_ROLE_KEY // "")",
           "DATABASE_URL=\(.DB_URL // "")"
         ' /tmp/sb-status.json)
@@ -76,7 +76,7 @@ runs:
             INVALID_DB_VARS=1
           fi
         done <<< "$DB_VARS"
-        for KEY in PUBLIC_SUPABASE_URL PUBLIC_SUPABASE_ANON_KEY SUPABASE_SECRET_KEY DATABASE_URL; do
+        for KEY in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY DATABASE_URL; do
           if [[ -z "${DB_VARS_SEEN_KEYS[$KEY]:-}" ]]; then
             echo "Error: Supabase env var $KEY was not produced by jq." >&2
             INVALID_DB_VARS=1

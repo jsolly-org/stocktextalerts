@@ -270,8 +270,6 @@ export type Database = {
           timezone: string
           updated_at: string
           verification_sent_at: string | null
-          weekly_include_dividends_email: boolean
-          weekly_include_dividends_sms: boolean
           weekly_include_earnings_email: boolean
           weekly_include_earnings_sms: boolean
           weekly_next_send_at: string | null
@@ -314,8 +312,6 @@ export type Database = {
           timezone?: string
           updated_at?: string
           verification_sent_at?: string | null
-          weekly_include_dividends_email?: boolean
-          weekly_include_dividends_sms?: boolean
           weekly_include_earnings_email?: boolean
           weekly_include_earnings_sms?: boolean
           weekly_next_send_at?: string | null
@@ -358,8 +354,6 @@ export type Database = {
           timezone?: string
           updated_at?: string
           verification_sent_at?: string | null
-          weekly_include_dividends_email?: boolean
-          weekly_include_dividends_sms?: boolean
           weekly_include_earnings_email?: boolean
           weekly_include_earnings_sms?: boolean
           weekly_next_send_at?: string | null

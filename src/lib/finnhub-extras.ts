@@ -43,17 +43,8 @@ export interface EarningsEvent {
 	revenueEstimate: number | null;
 }
 
-export interface DividendEvent {
-	symbol: string;
-	exDate: string;
-	payDate: string;
-	amount: number;
-	currency: string;
-}
-
 export interface WeeklyCalendarData {
 	earnings: Map<string, EarningsEvent[]>;
-	dividends: Map<string, DividendEvent[]>;
 }
 
 /* =============
@@ -254,7 +245,7 @@ export async function fetchInsiderTransactions(
 }
 
 /* =============
-Calendar Fetchers: Earnings + Dividends
+Calendar Fetchers: Earnings
 ============= */
 
 /**
@@ -299,46 +290,9 @@ export async function fetchEarningsCalendar(
 }
 
 /**
- * Fetch dividend events for a ticker within a date range.
+ * Fetch weekly calendar data (earnings) for a set of symbols.
  *
- * Returns a validated list (may be empty).
- */
-export async function fetchStockDividends(
-	symbol: string,
-	from: string,
-	to: string,
-): Promise<DividendEvent[]> {
-	const data = await finnhubFetch(
-		"/stock/dividend",
-		{ symbol, from, to },
-		"stock-dividend",
-	);
-	if (!Array.isArray(data)) return [];
-
-	return data
-		.filter(
-			(item: unknown) =>
-				typeof item === "object" &&
-				item !== null &&
-				typeof (item as Record<string, unknown>).exDate === "string" &&
-				typeof (item as Record<string, unknown>).amount === "number",
-		)
-		.map((item: Record<string, unknown>) => ({
-			symbol:
-				typeof item.symbol === "string" ? (item.symbol as string) : symbol,
-			exDate: item.exDate as string,
-			payDate: typeof item.payDate === "string" ? (item.payDate as string) : "",
-			amount: item.amount as number,
-			currency:
-				typeof item.currency === "string" ? (item.currency as string) : "USD",
-		}));
-}
-
-/**
- * Fetch weekly calendar data (earnings + dividends) for a set of symbols.
- *
- * Earnings are fetched once globally and filtered; dividends are fetched per symbol with
- * small delays to reduce API rate-limit pressure.
+ * Earnings are fetched once globally and filtered to the user's symbols.
  */
 export async function fetchWeeklyCalendarData(
 	symbols: string[],
@@ -347,7 +301,6 @@ export async function fetchWeeklyCalendarData(
 ): Promise<WeeklyCalendarData> {
 	const result: WeeklyCalendarData = {
 		earnings: new Map(),
-		dividends: new Map(),
 	};
 
 	if (symbols.length === 0) return result;
@@ -360,15 +313,6 @@ export async function fetchWeeklyCalendarData(
 		const existing = result.earnings.get(event.symbol) ?? [];
 		existing.push(event);
 		result.earnings.set(event.symbol, existing);
-	}
-
-	// Dividends are per-symbol
-	for (const symbol of symbols) {
-		const dividends = await fetchStockDividends(symbol, weekStart, weekEnd);
-		if (dividends.length > 0) {
-			result.dividends.set(symbol, dividends);
-		}
-		await new Promise((r) => setTimeout(r, INTER_REQUEST_DELAY_MS));
 	}
 
 	return result;
@@ -570,41 +514,6 @@ function formatRevenue(value: number): string {
 	if (abs >= 1_000_000_000) return `${(abs / 1_000_000_000).toFixed(1)}B`;
 	if (abs >= 1_000_000) return `${(abs / 1_000_000).toFixed(0)}M`;
 	return abs.toLocaleString("en-US");
-}
-
-/* =============
-Formatting: Dividends section for weekly calendar
-============= */
-
-/**
- * Format dividend calendar events as a channel-appropriate text block.
- *
- * Returns `null` when there are no dividend events to include.
- */
-export function formatDividendsSection(
-	data: Map<string, DividendEvent[]>,
-	channel: GrokChannel,
-): string | null {
-	const lines: string[] = [];
-	for (const [symbol, events] of data) {
-		if (events.length === 0) continue;
-		for (const event of events) {
-			const exDateStr = event.exDate.slice(5); // MM-DD
-			if (channel === "sms") {
-				lines.push(
-					`${symbol}: Ex-div ${exDateStr}, $${event.amount.toFixed(2)}`,
-				);
-			} else {
-				const payDateStr = event.payDate
-					? `, pay ${event.payDate.slice(5)}`
-					: "";
-				lines.push(
-					`${symbol}: Ex-div ${exDateStr}${payDateStr}, $${event.amount.toFixed(2)} ${event.currency}`,
-				);
-			}
-		}
-	}
-	return lines.length > 0 ? lines.join("\n") : null;
 }
 
 /**

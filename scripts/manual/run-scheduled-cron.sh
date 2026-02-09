@@ -50,14 +50,14 @@ if [ "${ALLOW_REMOTE:-}" != "1" ]; then
     exit 1
   fi
 
-  if [ -z "${PUBLIC_SUPABASE_URL:-}" ]; then
-    echo "PUBLIC_SUPABASE_URL is not set; cannot confirm local Supabase. Refusing to run." >&2
-    echo "Set PUBLIC_SUPABASE_URL to your local Supabase URL (usually http://127.0.0.1:54321)." >&2
+  if [ -z "${SUPABASE_URL:-}" ]; then
+    echo "SUPABASE_URL is not set; cannot confirm local Supabase. Refusing to run." >&2
+    echo "Set SUPABASE_URL to your local Supabase URL (usually http://127.0.0.1:54321)." >&2
     echo "Or export ALLOW_REMOTE=1 to override." >&2
     exit 1
   fi
-  if ! is_local_url "$PUBLIC_SUPABASE_URL"; then
-    echo "Refusing to run with non-local PUBLIC_SUPABASE_URL: $PUBLIC_SUPABASE_URL" >&2
+  if ! is_local_url "$SUPABASE_URL"; then
+    echo "Refusing to run with non-local SUPABASE_URL: $SUPABASE_URL" >&2
     echo "Point this at local Supabase (usually http://127.0.0.1:54321) or export ALLOW_REMOTE=1." >&2
     exit 1
   fi

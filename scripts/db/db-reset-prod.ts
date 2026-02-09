@@ -269,13 +269,13 @@ function applySeed(databaseUrl: string): void {
 async function main(): Promise<void> {
 	// Intentionally separate PROD vars so .env.local can keep local defaults.
 	const databaseUrlProd = requireEnv("DATABASE_URL_PROD");
-	const supabaseUrlProd = requireEnv("PUBLIC_SUPABASE_URL_PROD");
+	const supabaseUrlProd = requireEnv("SUPABASE_URL_PROD");
 	const supabaseSecretKeyProd =
 		getEnv("SUPABASE_SECRET_KEY_PROD") ?? requireEnv("SUPABASE_SECRET_KEY");
 
 	// Expose as canonical env vars for child processes (generate-seed, supabase CLI).
 	process.env.DATABASE_URL = databaseUrlProd;
-	process.env.PUBLIC_SUPABASE_URL = supabaseUrlProd;
+	process.env.SUPABASE_URL = supabaseUrlProd;
 	process.env.SUPABASE_SECRET_KEY = supabaseSecretKeyProd;
 
 	const parsed = parseDatabaseUrl(databaseUrlProd);
@@ -286,7 +286,7 @@ async function main(): Promise<void> {
 			[
 				"Refusing to reset: env vars point to a local Supabase instance.",
 				`DATABASE_URL host: ${parsed.host}`,
-				`PUBLIC_SUPABASE_URL host: ${supabaseHost}`,
+				`SUPABASE_URL host: ${supabaseHost}`,
 				"Use `supabase db reset` for local development.",
 			].join("\n"),
 		);

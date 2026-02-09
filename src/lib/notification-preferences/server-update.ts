@@ -28,8 +28,6 @@ interface ParsedNotificationPreferencesForm {
 	price_include_sms?: boolean;
 	weekly_include_earnings_email?: boolean;
 	weekly_include_earnings_sms?: boolean;
-	weekly_include_dividends_email?: boolean;
-	weekly_include_dividends_sms?: boolean;
 }
 
 /**
@@ -114,16 +112,7 @@ function computeWeeklyNextSendAt(
 		dbUser.weekly_include_earnings_email;
 	const finalWeeklyEarningsSms =
 		updates.weekly_include_earnings_sms ?? dbUser.weekly_include_earnings_sms;
-	const finalWeeklyDividendsEmail =
-		updates.weekly_include_dividends_email ??
-		dbUser.weekly_include_dividends_email;
-	const finalWeeklyDividendsSms =
-		updates.weekly_include_dividends_sms ?? dbUser.weekly_include_dividends_sms;
-	const hasAnyWeeklyOption =
-		finalWeeklyEarningsEmail ||
-		finalWeeklyEarningsSms ||
-		finalWeeklyDividendsEmail ||
-		finalWeeklyDividendsSms;
+	const hasAnyWeeklyOption = finalWeeklyEarningsEmail || finalWeeklyEarningsSms;
 
 	const needsRepair =
 		hasAnyWeeklyOption &&
@@ -205,8 +194,6 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		["daily_include_insider_sms", false],
 		["weekly_include_earnings_email", false],
 		["weekly_include_earnings_sms", false],
-		["weekly_include_dividends_email", false],
-		["weekly_include_dividends_sms", false],
 		["email_notifications_enabled", false],
 		["sms_notifications_enabled", false],
 		["only_notify_when_market_open", false],
@@ -260,12 +247,7 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 	const weeklyOptionsChanged =
 		safeNotificationPreferenceUpdates.weekly_include_earnings_email !==
 			undefined ||
-		safeNotificationPreferenceUpdates.weekly_include_earnings_sms !==
-			undefined ||
-		safeNotificationPreferenceUpdates.weekly_include_dividends_email !==
-			undefined ||
-		safeNotificationPreferenceUpdates.weekly_include_dividends_sms !==
-			undefined;
+		safeNotificationPreferenceUpdates.weekly_include_earnings_sms !== undefined;
 
 	computeScheduledNextSendAt(
 		safeNotificationPreferenceUpdates,
@@ -353,9 +335,7 @@ export function computeTimezoneUpdatePayload(
 
 	if (
 		dbUser.weekly_include_earnings_email ||
-		dbUser.weekly_include_earnings_sms ||
-		dbUser.weekly_include_dividends_email ||
-		dbUser.weekly_include_dividends_sms
+		dbUser.weekly_include_earnings_sms
 	) {
 		const nextWeeklyUtc = calculateNextMondaySendAt(
 			dbUser.daily_delivery_time,

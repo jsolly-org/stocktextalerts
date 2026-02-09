@@ -41,8 +41,8 @@ if [ -f .env.local ]; then
 fi
 
 if [ "${ALLOW_REMOTE:-}" != "1" ]; then
-  if [ -n "${PUBLIC_SUPABASE_URL:-}" ] && ! is_local_url "$PUBLIC_SUPABASE_URL"; then
-    echo "Refusing to run with non-local PUBLIC_SUPABASE_URL: $PUBLIC_SUPABASE_URL" >&2
+  if [ -n "${SUPABASE_URL:-}" ] && ! is_local_url "$SUPABASE_URL"; then
+    echo "Refusing to run with non-local SUPABASE_URL: $SUPABASE_URL" >&2
     echo "Point this at local Supabase (usually http://127.0.0.1:54321) or export ALLOW_REMOTE=1." >&2
     exit 1
   fi

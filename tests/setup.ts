@@ -43,9 +43,9 @@ async function verifySupabaseAdminAccess() {
 
 	throw new Error(
 		[
-			"Supabase admin auth failed in tests. This usually means SUPABASE_SECRET_KEY does not match PUBLIC_SUPABASE_URL.",
+			"Supabase admin auth failed in tests. This usually means SUPABASE_SECRET_KEY does not match SUPABASE_URL.",
 			`Error: ${errorDetail}`,
-			"Fix: ensure PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SECRET_KEY, and DATABASE_URL all point to the same Supabase project (recommended: local `supabase start`, then copy values from `supabase status`).",
+			"Fix: ensure SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, and DATABASE_URL all point to the same Supabase project (recommended: local `supabase start`, then copy values from `supabase status`).",
 		].join("\n"),
 	);
 }

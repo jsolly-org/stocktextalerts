@@ -27,8 +27,6 @@ export type NotificationPreferencesData = {
 	price_include_sms: boolean;
 	weekly_include_earnings_email: boolean;
 	weekly_include_earnings_sms: boolean;
-	weekly_include_dividends_email: boolean;
-	weekly_include_dividends_sms: boolean;
 	weekly_next_send_at: string | null;
 };
 
