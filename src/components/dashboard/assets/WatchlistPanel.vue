@@ -83,9 +83,21 @@
 					:key="asset.symbol"
 					class="group flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
 				>
-					<span class="min-w-0 text-sm font-medium text-gray-900 truncate">
-						<span class="font-semibold">{{ asset.symbol }}</span>
-						<span class="text-gray-500"> · {{ asset.name }}</span>
+					<span class="min-w-0 flex items-center gap-2 text-sm font-medium text-gray-900 truncate">
+						<span
+							class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium shrink-0"
+							:class="
+								typeForSymbol(asset.symbol) === 'etf'
+									? 'bg-purple-100 text-purple-700'
+									: 'bg-blue-100 text-blue-700'
+							"
+						>
+							{{ typeForSymbol(asset.symbol) === "etf" ? "ETF" : "Stock" }}
+						</span>
+						<span class="truncate">
+							<span class="font-semibold">{{ asset.symbol }}</span>
+							<span class="text-gray-500"> · {{ asset.name }}</span>
+						</span>
 					</span>
 					<button
 						type="button"
@@ -171,6 +183,10 @@ function nameForSymbol(symbol: string): string {
 		return symbol;
 	}
 	return option.label.split(" - ").slice(1).join(" - ");
+}
+
+function typeForSymbol(symbol: string): AssetOption["type"] {
+	return props.assetOptions.find((o) => o.value === symbol)?.type ?? "stock";
 }
 
 function handleSelect(symbol: string) {
