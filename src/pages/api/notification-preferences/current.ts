@@ -50,15 +50,20 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 				timezone: dbUser.timezone,
 				scheduled_update_times: dbUser.scheduled_update_times,
 				only_notify_when_market_open: dbUser.only_notify_when_market_open,
-				add_ons_only_notify_when_market_open:
-					dbUser.add_ons_only_notify_when_market_open,
-				add_ons_delivery_time: dbUser.add_ons_delivery_time,
-				add_ons_next_send_at: dbUser.add_ons_next_send_at,
+				daily_only_notify_when_market_open:
+					dbUser.daily_only_notify_when_market_open,
+				daily_delivery_time: dbUser.daily_delivery_time,
+				daily_next_send_at: dbUser.daily_next_send_at,
 				next_send_at: dbUser.next_send_at,
 				dismiss_timezone_mismatch_prompts:
 					dbUser.dismiss_timezone_mismatch_prompts,
-				add_ons_include_news: dbUser.add_ons_include_news,
-				add_ons_include_rumors: dbUser.add_ons_include_rumors,
+				daily_include_news: dbUser.daily_include_news,
+				daily_include_rumors: dbUser.daily_include_rumors,
+				daily_include_analyst: dbUser.daily_include_analyst,
+				daily_include_insider: dbUser.daily_include_insider,
+				weekly_include_earnings: dbUser.weekly_include_earnings,
+				weekly_include_dividends: dbUser.weekly_include_dividends,
+				weekly_next_send_at: dbUser.weekly_next_send_at,
 			},
 		});
 	} catch (error) {

@@ -1,11 +1,11 @@
 <template>
 	<form
 		ref="scheduledFormElement"
-		:id="DASHBOARD_SCHEDULED_FORM_ID"
+		:id="DASHBOARD_FREQUENT_FORM_ID"
 		method="POST"
 		action="/api/notification-preferences/update"
 		class="space-y-6"
-		aria-label="Scheduled notifications"
+		aria-label="Frequent notifications"
 		:aria-busy="isSaving"
 		@input="handleFormInput"
 		@change="handleFormChange"
@@ -35,11 +35,11 @@
 			<div class="card-body">
 			<header>
 				<h2
-					:id="DASHBOARD_SECTION_IDS.scheduled"
+					:id="DASHBOARD_SECTION_IDS.frequent"
 					class="text-xl sm:text-2xl font-bold text-gray-900 transition-opacity duration-200"
 					:class="{ 'opacity-50': needsChannelSelection }"
 				>
-					Scheduled Notifications
+					Frequent Notifications
 				</h2>
 				<p
 					class="text-sm text-gray-500 mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 transition-opacity duration-200"
@@ -147,8 +147,8 @@ import ClockIcon from "../../../icons/clock.svg?component";
 import InformationCircleIcon from "../../../icons/information-circle-20.svg?component";
 import {
 	CARD_GRADIENT_ACCENTS,
+	DASHBOARD_FREQUENT_FORM_ID,
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
-	DASHBOARD_SCHEDULED_FORM_ID,
 	DASHBOARD_SECTION_IDS,
 	DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES,
 	STATUS_TONE_CLASSES,

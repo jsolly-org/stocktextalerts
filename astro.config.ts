@@ -23,6 +23,20 @@ const vercelUrl =
 // CI is set by the runner (e.g. GitHub Actions), not .env.local.
 const isCI = process.env.CI === "true";
 
+// Vercel Serverless max duration (seconds).
+// Only set this when explicitly configured, since the effective limit depends on
+// plan + whether Fluid Compute is enabled for the project.
+const configuredVercelMaxDurationSecondsRaw =
+	env.VERCEL_MAX_DURATION || process.env.VERCEL_MAX_DURATION;
+const configuredVercelMaxDurationSeconds = configuredVercelMaxDurationSecondsRaw
+	? Number.parseInt(configuredVercelMaxDurationSecondsRaw, 10)
+	: Number.NaN;
+const vercelMaxDurationSeconds =
+	Number.isFinite(configuredVercelMaxDurationSeconds) &&
+	configuredVercelMaxDurationSeconds > 0
+		? configuredVercelMaxDurationSeconds
+		: undefined;
+
 // Locally, use full URL with protocol (e.g., "http://localhost:4321").
 // In CI, VERCEL_URL may be unset (e.g. unit tests); use a placeholder so config still works.
 let site: string;
@@ -49,6 +63,9 @@ export default defineConfig({
 	adapter: vercel({
 		// Enable if you later use edge middleware helpers; keep serverless for Supabase SSR consistency
 		edgeMiddleware: false,
+		...(vercelMaxDurationSeconds
+			? { maxDuration: vercelMaxDurationSeconds }
+			: {}),
 	}),
 
 	site,

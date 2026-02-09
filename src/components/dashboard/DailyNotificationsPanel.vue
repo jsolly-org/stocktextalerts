@@ -1,11 +1,11 @@
 <template>
 	<form
 		ref="extrasFormElement"
-		:id="DASHBOARD_ADDITIONAL_NOTIFICATIONS_FORM_ID"
+		:id="DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID"
 		method="POST"
 		action="/api/notification-preferences/update"
 		class="space-y-6"
-		aria-label="Additional Notifications"
+		aria-label="Daily Notifications"
 		:aria-busy="isSaving"
 		@input="handleFormInput"
 		@change="handleFormChange"
@@ -35,15 +35,15 @@
 			<div class="card-body">
 			<header class="mb-4">
 				<h2
-					:id="DASHBOARD_SECTION_IDS.additionalNotifications"
+					:id="DASHBOARD_SECTION_IDS.dailyNotifications"
 					class="text-xl sm:text-2xl font-bold text-gray-900"
 				>
-					Additional Notifications
+					Daily Notifications
 				</h2>
 				<p
 					class="text-sm text-gray-600 mt-1"
 				>
-					A daily notification with your selected extras, sent at the time below — separate from scheduled price alerts.
+					A once-daily notification with your selected extras, sent at the time below — separate from frequent price alerts.
 				</p>
 				<p
 					class="text-sm text-gray-500 mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 transition-opacity duration-200"
@@ -77,7 +77,7 @@
 
 			<FadeTransition>
 				<p
-					v-if="!needsChannelSelection && addOnsDeliveryTimeMinutes === null"
+					v-if="!needsChannelSelection && dailyDeliveryTimeMinutes === null"
 					class="flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm bg-info-bg border border-info-border text-info-text"
 					role="note"
 				>
@@ -91,18 +91,18 @@
 				:class="{ 'opacity-50': needsChannelSelection }"
 				:aria-disabled="needsChannelSelection ? 'true' : undefined"
 			>
-					<legend class="sr-only">Additional notifications settings</legend>
+					<legend class="sr-only">Daily notifications settings</legend>
 
 			<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-3">
 				<div class="min-w-0">
 					<span
-						id="add_ons_delivery_time_label"
+						id="daily_delivery_time_label"
 						class="text-base font-semibold text-gray-900"
 					>
 						Delivery time
 					</span>
 					<p
-						id="add_ons_delivery_time_description"
+						id="daily_delivery_time_description"
 						class="text-sm text-gray-600 mt-0.5"
 					>
 						Sent once every day.
@@ -111,18 +111,18 @@
 		<div class="sm:shrink-0">
 			<div class="flex flex-wrap items-center gap-2">
 					<TimePicker
-						:inputId="`add_ons_delivery_time`"
-						:inputName="`add_ons_delivery_time`"
-						:initialTime="addOnsDeliveryTimeInput"
-						inputAriaLabel="Additional notifications delivery time"
-						:disabled="addOnsTimepickerDisabled"
-						@time-change="handleAddOnsTimeChange"
+						:inputId="`daily_delivery_time`"
+						:inputName="`daily_delivery_time`"
+						:initialTime="dailyDeliveryTimeInput"
+						inputAriaLabel="Daily notifications delivery time"
+						:disabled="needsChannelSelection"
+						@time-change="handleDailyTimeChange"
 					/>
 					<button
-						v-if="addOnsDeliveryTimeMinutes !== null"
+						v-if="dailyDeliveryTimeMinutes !== null"
 						type="button"
 						class="inline-flex items-center justify-center size-8 shrink-0 rounded-lg text-gray-400 hover:bg-error-bg hover:text-error-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2"
-						:disabled="addOnsTimepickerDisabled"
+						:disabled="needsChannelSelection"
 						aria-label="Clear delivery time"
 						@click="handleClearDeliveryTime"
 					>
@@ -142,7 +142,7 @@
 					</button>
 				</div>
 				<p
-					v-if="isAddOnsTimeOutsideMarketHours"
+					v-if="isDailyTimeOutsideMarketHours"
 					class="text-xs text-amber-600 mt-1"
 					role="note"
 				>
@@ -154,18 +154,18 @@
 					<div class="flex items-center justify-between gap-3 py-3">
 					<input
 						type="hidden"
-						name="add_ons_only_notify_when_market_open"
+						name="daily_only_notify_when_market_open"
 						:value="onlyNotifyWhenMarketOpen ? 'on' : 'off'"
 					/>
 						<div class="min-w-0">
 							<span
-								id="only_notify_when_market_open_label_add_ons"
+								id="only_notify_when_market_open_label_daily"
 								class="text-base font-semibold text-gray-900"
 							>
 								Only notify when market is open
 							</span>
 							<p
-								id="only_notify_when_market_open_description_add_ons"
+								id="only_notify_when_market_open_description_daily"
 								class="text-sm text-gray-600 mt-0.5"
 							>
 								You won’t be notified unless the market is open.
@@ -175,29 +175,30 @@
 						v-model="onlyNotifyWhenMarketOpen"
 						:disabled="needsChannelSelection"
 						sr-label="Only notify when market is open"
-							aria-labelledby="only_notify_when_market_open_label_add_ons"
-							aria-describedby="only_notify_when_market_open_description_add_ons"
+							aria-labelledby="only_notify_when_market_open_label_daily"
+							aria-describedby="only_notify_when_market_open_description_daily"
 						/>
 					</div>
 
 					<div class="flex items-center justify-between gap-3 py-3">
 						<input
 							type="hidden"
-						name="add_ons_include_news"
+						name="daily_include_news"
 						:value="includeNews ? 'on' : 'off'"
 					/>
 					<div class="min-w-0">
 						<div class="flex items-center gap-2">
 							<span
-								id="add_ons_include_news_label"
+								id="daily_include_news_label"
 									class="text-base font-semibold text-gray-900"
 								>
 									🗞️ News
 								</span>
 								<GrokLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Grok" role="img" />
+								<FinnhubLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Finnhub" role="img" />
 							</div>
 							<p
-								id="add_ons_include_news_description"
+								id="daily_include_news_description"
 								class="text-sm text-gray-600 mt-0.5"
 							>
 								Add a short news summary about the stocks you’re tracking.
@@ -207,21 +208,21 @@
 						v-model="includeNews"
 						:disabled="needsChannelSelection"
 						sr-label="Include news 🗞️"
-							aria-labelledby="add_ons_include_news_label"
-							aria-describedby="add_ons_include_news_description"
+							aria-labelledby="daily_include_news_label"
+							aria-describedby="daily_include_news_description"
 						/>
 					</div>
 
 					<div class="flex items-center justify-between gap-3 py-3">
 						<input
 							type="hidden"
-						name="add_ons_include_rumors"
+						name="daily_include_rumors"
 						:value="includeRumors ? 'on' : 'off'"
 					/>
 					<div class="min-w-0">
 						<div class="flex items-center gap-2">
 							<span
-								id="add_ons_include_rumors_label"
+								id="daily_include_rumors_label"
 									class="text-base font-semibold text-gray-900"
 								>
 									🤫 Rumors
@@ -229,7 +230,7 @@
 								<GrokLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Grok" role="img" />
 							</div>
 							<p
-								id="add_ons_include_rumors_description"
+								id="daily_include_rumors_description"
 								class="text-sm text-gray-600 mt-0.5"
 							>
 								Add a short rumors/chatter summary about the stocks you’re tracking.
@@ -239,16 +240,80 @@
 						v-model="includeRumors"
 						:disabled="needsChannelSelection"
 						sr-label="Include rumors 🤫"
-							aria-labelledby="add_ons_include_rumors_label"
-							aria-describedby="add_ons_include_rumors_description"
+							aria-labelledby="daily_include_rumors_label"
+							aria-describedby="daily_include_rumors_description"
+						/>
+					</div>
+
+					<div class="flex items-center justify-between gap-3 py-3">
+						<input
+							type="hidden"
+							name="daily_include_analyst"
+							:value="includeAnalyst ? 'on' : 'off'"
+						/>
+						<div class="min-w-0">
+							<div class="flex items-center gap-2">
+							<span
+								id="daily_include_analyst_label"
+								class="text-base font-semibold text-gray-900"
+							>
+								📊 Analyst Consensus
+							</span>
+							<FinnhubLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Finnhub" role="img" />
+							</div>
+							<p
+								id="daily_include_analyst_description"
+								class="text-sm text-gray-600 mt-0.5"
+							>
+								See how analysts rate the stocks you're tracking (buy/hold/sell).
+							</p>
+						</div>
+						<ToggleSwitch
+							v-model="includeAnalyst"
+							:disabled="needsChannelSelection"
+							sr-label="Include analyst consensus 📊"
+							aria-labelledby="daily_include_analyst_label"
+							aria-describedby="daily_include_analyst_description"
+						/>
+					</div>
+
+					<div class="flex items-center justify-between gap-3 py-3">
+						<input
+							type="hidden"
+							name="daily_include_insider"
+							:value="includeInsider ? 'on' : 'off'"
+						/>
+						<div class="min-w-0">
+							<div class="flex items-center gap-2">
+							<span
+								id="daily_include_insider_label"
+								class="text-base font-semibold text-gray-900"
+							>
+								🏦 Insider Trades
+							</span>
+							<FinnhubLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Finnhub" role="img" />
+							</div>
+							<p
+								id="daily_include_insider_description"
+								class="text-sm text-gray-600 mt-0.5"
+							>
+								Recent insider buying and selling activity from SEC filings.
+							</p>
+						</div>
+						<ToggleSwitch
+							v-model="includeInsider"
+							:disabled="needsChannelSelection"
+							sr-label="Include insider trades 🏦"
+							aria-labelledby="daily_include_insider_label"
+							aria-describedby="daily_include_insider_description"
 						/>
 					</div>
 				</fieldset>
 
-				<div v-if="isHydrated && nextAddOnsDeliveryText" class="mt-4 border-t border-gray-200 pt-4">
+				<div v-if="isHydrated && nextDailyDeliveryText" class="mt-4 border-t border-gray-200 pt-4">
 					<p class="inline-flex items-center gap-2 text-sm text-gray-600">
 						<BellAlertIcon class="size-4 shrink-0 text-success-strong" aria-hidden="true" />
-						<span>Next delivery <span class="font-medium text-gray-900">{{ nextAddOnsDeliveryText }}</span>.</span>
+						<span>Next delivery <span class="font-medium text-gray-900">{{ nextDailyDeliveryText }}</span>.</span>
 					</p>
 				</div>
 			</div>
@@ -264,13 +329,14 @@ import ArrowPathIcon from "../../icons/arrow-path.svg?component";
 import ArrowTopRightOnSquareIcon from "../../icons/arrow-top-right-on-square.svg?component";
 import BellAlertIcon from "../../icons/bell-alert.svg?component";
 import ClockIcon from "../../icons/clock.svg?component";
+import FinnhubLogoIcon from "../../icons/finnhub.svg?component";
 import GrokLogoIcon from "../../icons/grok.svg?component";
 import InformationCircleIcon from "../../icons/information-circle-20.svg?component";
 import PresentationChartLineIcon from "../../icons/presentation-chart-line.svg?component";
 import XMarkIcon from "../../icons/x-mark.svg?component";
 import {
 	CARD_GRADIENT_ACCENTS,
-	DASHBOARD_ADDITIONAL_NOTIFICATIONS_FORM_ID,
+	DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID,
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 	DASHBOARD_SECTION_IDS,
 	STATUS_TONE_CLASSES,
@@ -343,69 +409,65 @@ const {
 	formRef: extrasFormElement,
 });
 
-const includeNews = ref(user.value.add_ons_include_news);
-const includeRumors = ref(user.value.add_ons_include_rumors);
-const addOnsDeliveryTimeMinutes = ref<number | null>(user.value.add_ons_delivery_time);
-const onlyNotifyWhenMarketOpen = ref(user.value.add_ons_only_notify_when_market_open);
+const includeNews = ref(user.value.daily_include_news);
+const includeRumors = ref(user.value.daily_include_rumors);
+const includeAnalyst = ref(user.value.daily_include_analyst);
+const includeInsider = ref(user.value.daily_include_insider);
+const dailyDeliveryTimeMinutes = ref<number | null>(user.value.daily_delivery_time);
+const onlyNotifyWhenMarketOpen = ref(user.value.daily_only_notify_when_market_open);
 
-const addOnsEnabled = computed(() => includeNews.value || includeRumors.value);
+const dailyEnabled = computed(() =>
+	includeNews.value || includeRumors.value || includeAnalyst.value || includeInsider.value,
+);
 
 watch(onlyNotifyWhenMarketOpen, (value) => {
-	if (user.value.add_ons_only_notify_when_market_open === value) {
+	if (user.value.daily_only_notify_when_market_open === value) {
 		return;
 	}
-	user.value = { ...user.value, add_ons_only_notify_when_market_open: value };
+	user.value = { ...user.value, daily_only_notify_when_market_open: value };
 });
 
 const currentTimeInTimezone = computed(() => {
-	if (!isHydrated.value) {
-		return null;
-	}
+	if (!isHydrated.value) return null;
 	void tick.value;
-	const tz = user.value.timezone ?? "";
-	return tz !== "" ? getNowInTimezone(tz) : null;
+	return user.value.timezone ? getNowInTimezone(user.value.timezone) : null;
 });
 
-const addOnsDeliveryTimeInput = computed(() => {
-	if (addOnsDeliveryTimeMinutes.value === null) {
-		return null;
-	}
-	return minutesToTimeInputValue(addOnsDeliveryTimeMinutes.value);
-});
+const dailyDeliveryTimeInput = computed(() =>
+	dailyDeliveryTimeMinutes.value !== null
+		? minutesToTimeInputValue(dailyDeliveryTimeMinutes.value)
+		: null,
+);
 
-const addOnsTimepickerDisabled = computed(() => needsChannelSelection.value);
+const marketOpenLocalMinutes = computed(() =>
+	user.value.timezone ? getUsMarketOpenLocalMinutes(user.value.timezone) : null,
+);
 
-const marketOpenLocalMinutes = computed(() => {
-	const tz = user.value.timezone ?? "";
-	if (tz === "") return null;
-	return getUsMarketOpenLocalMinutes(tz);
-});
-
-const marketOpenLabel = computed(() => {
-	if (marketOpenLocalMinutes.value === null) return null;
-	return formatMinutesAsLocalTime(marketOpenLocalMinutes.value);
-});
+const marketOpenLabel = computed(() =>
+	marketOpenLocalMinutes.value !== null
+		? formatMinutesAsLocalTime(marketOpenLocalMinutes.value)
+		: null,
+);
 
 const isMarketOpenTime = computed(() => {
 	if (marketOpenLocalMinutes.value === null) return true;
-	return addOnsDeliveryTimeMinutes.value === marketOpenLocalMinutes.value;
+	return dailyDeliveryTimeMinutes.value === marketOpenLocalMinutes.value;
 });
 
 const canSetMarketOpen = computed(
-	() => !addOnsTimepickerDisabled.value && !isMarketOpenTime.value,
+	() => !needsChannelSelection.value && !isMarketOpenTime.value,
 );
 
-const isAddOnsTimeOutsideMarketHours = computed(() => {
-	if (!onlyNotifyWhenMarketOpen.value) return false;
-	if (addOnsDeliveryTimeMinutes.value === null) return false;
-	const tz = user.value.timezone ?? "";
-	if (tz === "") return false;
-	return isOutsideMarketHours(addOnsDeliveryTimeMinutes.value, tz);
-});
+const isDailyTimeOutsideMarketHours = computed(() =>
+	onlyNotifyWhenMarketOpen.value &&
+	dailyDeliveryTimeMinutes.value !== null &&
+	!!user.value.timezone &&
+	isOutsideMarketHours(dailyDeliveryTimeMinutes.value, user.value.timezone),
+);
 
 function handleClearDeliveryTime() {
-	if (addOnsTimepickerDisabled.value) return;
-	addOnsDeliveryTimeMinutes.value = null;
+	if (needsChannelSelection.value) return;
+	dailyDeliveryTimeMinutes.value = null;
 	notifyChange();
 }
 
@@ -413,21 +475,20 @@ function handleSetMarketOpen() {
 	if (!canSetMarketOpen.value || marketOpenLocalMinutes.value === null) {
 		return;
 	}
-	addOnsDeliveryTimeMinutes.value = marketOpenLocalMinutes.value;
+	dailyDeliveryTimeMinutes.value = marketOpenLocalMinutes.value;
 	notifyChange();
 }
 
-const nextAddOnsDeliveryText = computed(() => {
-	if (!isHydrated.value || !addOnsEnabled.value) return null;
+const nextDailyDeliveryText = computed(() => {
+	if (!isHydrated.value || !dailyEnabled.value) return null;
 	void tick.value;
 
-	const tz = user.value.timezone ?? "";
-	if (tz === "") return null;
+	if (!user.value.timezone) return null;
 
 	const secondsUntil = getSecondsUntilNextSend({
-		nextSendAtIso: user.value.add_ons_next_send_at,
-		timeInput: addOnsDeliveryTimeInput.value,
-		timezone: tz,
+		nextSendAtIso: user.value.daily_next_send_at,
+		timeInput: dailyDeliveryTimeInput.value,
+		timezone: user.value.timezone,
 		now: DateTime.utc(),
 	});
 	if (secondsUntil === null) return null;
@@ -435,39 +496,51 @@ const nextAddOnsDeliveryText = computed(() => {
 });
 
 watch(
-	[includeNews, includeRumors, onlyNotifyWhenMarketOpen],
+	[includeNews, includeRumors, includeAnalyst, includeInsider, onlyNotifyWhenMarketOpen],
 	() => {
 		notifyChange();
 	},
 );
 
-function handleAddOnsTimeChange(value: string) {
+function handleDailyTimeChange(value: string) {
 	const parsed = parseTimeToMinutes(value);
 	if (parsed === null) return;
-	addOnsDeliveryTimeMinutes.value = parsed;
+	dailyDeliveryTimeMinutes.value = parsed;
 	notifyChange();
 }
 
 watch(
-	() => user.value.add_ons_include_news,
+	() => user.value.daily_include_news,
 	(value) => {
 		includeNews.value = value;
 	},
 );
 watch(
-	() => user.value.add_ons_include_rumors,
+	() => user.value.daily_include_rumors,
 	(value) => {
 		includeRumors.value = value;
 	},
 );
 watch(
-	() => user.value.add_ons_delivery_time,
+	() => user.value.daily_include_analyst,
 	(value) => {
-		addOnsDeliveryTimeMinutes.value = value;
+		includeAnalyst.value = value;
 	},
 );
 watch(
-	() => user.value.add_ons_only_notify_when_market_open,
+	() => user.value.daily_include_insider,
+	(value) => {
+		includeInsider.value = value;
+	},
+);
+watch(
+	() => user.value.daily_delivery_time,
+	(value) => {
+		dailyDeliveryTimeMinutes.value = value;
+	},
+);
+watch(
+	() => user.value.daily_only_notify_when_market_open,
 	(value) => {
 		onlyNotifyWhenMarketOpen.value = value;
 	},
@@ -476,22 +549,18 @@ watch(
 /* =============
 Keep dashboard user state aligned with autosave responses
 ============= */
-watch(
-	() => savedData.value,
-	(newData) => {
-		if (!newData) {
-			return;
-		}
-		user.value = {
-			...user.value,
-			add_ons_include_news: newData.add_ons_include_news,
-			add_ons_include_rumors:
-				newData.add_ons_include_rumors,
-			add_ons_delivery_time: newData.add_ons_delivery_time,
-			add_ons_next_send_at: newData.add_ons_next_send_at,
-			add_ons_only_notify_when_market_open: newData.add_ons_only_notify_when_market_open,
-		};
-	},
-);
+watch(savedData, (newData) => {
+	if (!newData) return;
+	user.value = {
+		...user.value,
+		daily_include_news: newData.daily_include_news,
+		daily_include_rumors: newData.daily_include_rumors,
+		daily_include_analyst: newData.daily_include_analyst,
+		daily_include_insider: newData.daily_include_insider,
+		daily_delivery_time: newData.daily_delivery_time,
+		daily_next_send_at: newData.daily_next_send_at,
+		daily_only_notify_when_market_open: newData.daily_only_notify_when_market_open,
+	};
+});
 </script>
 

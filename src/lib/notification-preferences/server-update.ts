@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 import { omitUndefined, type User, type UserUpdateInput } from "../db";
 import type { Logger } from "../logging";
+import { calculateNextMondaySendAt } from "../schedule/run-user-weekly-next-send-at";
 import { calculateNextSendAt } from "../time/scheduled-times";
 import {
 	computeNextSendAtIso,
@@ -15,12 +16,22 @@ interface ParsedNotificationPreferencesForm {
 	sms_notifications_enabled?: boolean;
 	scheduled_update_times?: string[];
 	only_notify_when_market_open?: boolean;
-	add_ons_only_notify_when_market_open?: boolean;
-	add_ons_delivery_time?: number;
-	add_ons_include_news?: boolean;
-	add_ons_include_rumors?: boolean;
+	daily_only_notify_when_market_open?: boolean;
+	daily_delivery_time?: number;
+	daily_include_news?: boolean;
+	daily_include_rumors?: boolean;
+	daily_include_analyst?: boolean;
+	daily_include_insider?: boolean;
+	weekly_include_earnings?: boolean;
+	weekly_include_dividends?: boolean;
 }
 
+/**
+ * Build a safe `users` table update payload from the notification preferences form submission.
+ *
+ * Only fields actually submitted by the form are persisted to avoid boolean drift when unchecked
+ * controls are omitted. Also recomputes derived `*_next_send_at` fields when inputs change.
+ */
 export function buildNotificationPreferencesUpdatePayload(options: {
 	parsedData: ParsedNotificationPreferencesForm;
 	formData: FormData;
@@ -72,14 +83,18 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		timezone: parsedData.timezone,
 		scheduled_update_times: normalizedTimes,
 		...boolFromForm("price_notifications_enabled", true),
-		...boolFromForm("add_ons_include_news"),
-		...boolFromForm("add_ons_include_rumors"),
+		...boolFromForm("daily_include_news"),
+		...boolFromForm("daily_include_rumors"),
+		...boolFromForm("daily_include_analyst"),
+		...boolFromForm("daily_include_insider"),
+		...boolFromForm("weekly_include_earnings"),
+		...boolFromForm("weekly_include_dividends"),
 		...boolFromForm("email_notifications_enabled"),
 		...boolFromForm("sms_notifications_enabled"),
 		...boolFromForm("only_notify_when_market_open"),
-		...boolFromForm("add_ons_only_notify_when_market_open"),
-		...(formData.has("add_ons_delivery_time")
-			? { add_ons_delivery_time: parsedData.add_ons_delivery_time ?? null }
+		...boolFromForm("daily_only_notify_when_market_open"),
+		...(formData.has("daily_delivery_time")
+			? { daily_delivery_time: parsedData.daily_delivery_time ?? null }
 			: {}),
 	});
 
@@ -91,10 +106,10 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		serializeTimes(safeNotificationPreferenceUpdates.scheduled_update_times) !==
 			serializeTimes(dbUser.scheduled_update_times ?? null);
 
-	const addOnsTimeChanged =
-		safeNotificationPreferenceUpdates.add_ons_delivery_time !== undefined &&
-		safeNotificationPreferenceUpdates.add_ons_delivery_time !==
-			dbUser.add_ons_delivery_time;
+	const dailyTimeChanged =
+		safeNotificationPreferenceUpdates.daily_delivery_time !== undefined &&
+		safeNotificationPreferenceUpdates.daily_delivery_time !==
+			dbUser.daily_delivery_time;
 
 	const finalTimezone =
 		safeNotificationPreferenceUpdates.timezone ?? dbUser.timezone;
@@ -108,15 +123,15 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 	============= */
 	const hasTimes = finalTimes !== null && finalTimes.length > 0;
 
-	const finalAddOnsTime =
-		safeNotificationPreferenceUpdates.add_ons_delivery_time !== undefined
-			? safeNotificationPreferenceUpdates.add_ons_delivery_time
-			: dbUser.add_ons_delivery_time;
+	const finalDailyTime =
+		safeNotificationPreferenceUpdates.daily_delivery_time !== undefined
+			? safeNotificationPreferenceUpdates.daily_delivery_time
+			: dbUser.daily_delivery_time;
 
 	/* =============
-	Derive add-ons enabled from having a delivery time to avoid duplicating state in the DB
+	Derive daily enabled from having a delivery time to avoid duplicating state in the DB
 	============= */
-	const hasAddOnsTime = finalAddOnsTime !== null;
+	const hasDailyTime = finalDailyTime !== null;
 
 	/* =============
 	Self-heal: repair missing next_send_at so scheduling doesn't stall
@@ -146,24 +161,62 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 	/* =============
 	Same constraint as scheduled updates: minimize writes unless inputs affecting delivery actually changed
 	============= */
-	const needsAddOnsNextSendAtRepair =
-		hasAddOnsTime &&
-		dbUser.add_ons_next_send_at === null &&
-		safeNotificationPreferenceUpdates.add_ons_next_send_at === undefined;
+	const needsDailyNextSendAtRepair =
+		hasDailyTime &&
+		dbUser.daily_next_send_at === null &&
+		safeNotificationPreferenceUpdates.daily_next_send_at === undefined;
 
 	if (
-		(timezoneChanged || addOnsTimeChanged || needsAddOnsNextSendAtRepair) &&
-		hasAddOnsTime
+		(timezoneChanged || dailyTimeChanged || needsDailyNextSendAtRepair) &&
+		hasDailyTime
 	) {
-		const nextAddOnsUtc = calculateNextSendAt(
-			finalAddOnsTime,
+		const nextDailyUtc = calculateNextSendAt(
+			finalDailyTime,
 			finalTimezone,
 			DateTime.utc(),
 		);
-		safeNotificationPreferenceUpdates.add_ons_next_send_at =
-			nextAddOnsUtc?.toISO() ?? null;
-	} else if (addOnsTimeChanged && !hasAddOnsTime) {
-		safeNotificationPreferenceUpdates.add_ons_next_send_at = null;
+		safeNotificationPreferenceUpdates.daily_next_send_at =
+			nextDailyUtc?.toISO() ?? null;
+	} else if (dailyTimeChanged && !hasDailyTime) {
+		safeNotificationPreferenceUpdates.daily_next_send_at = null;
+	}
+
+	/* =============
+	Weekly calendar: compute weekly_next_send_at when weekly options or timezone change
+	============= */
+	const finalWeeklyEarnings =
+		safeNotificationPreferenceUpdates.weekly_include_earnings ??
+		dbUser.weekly_include_earnings;
+	const finalWeeklyDividends =
+		safeNotificationPreferenceUpdates.weekly_include_dividends ??
+		dbUser.weekly_include_dividends;
+	const hasAnyWeeklyOption = finalWeeklyEarnings || finalWeeklyDividends;
+
+	const weeklyOptionsChanged =
+		safeNotificationPreferenceUpdates.weekly_include_earnings !== undefined ||
+		safeNotificationPreferenceUpdates.weekly_include_dividends !== undefined;
+
+	const needsWeeklyNextSendAtRepair =
+		hasAnyWeeklyOption &&
+		dbUser.weekly_next_send_at === null &&
+		safeNotificationPreferenceUpdates.weekly_next_send_at === undefined;
+
+	if (
+		(timezoneChanged ||
+			dailyTimeChanged ||
+			weeklyOptionsChanged ||
+			needsWeeklyNextSendAtRepair) &&
+		hasAnyWeeklyOption
+	) {
+		const nextWeeklyUtc = calculateNextMondaySendAt(
+			finalDailyTime,
+			finalTimezone,
+			DateTime.utc(),
+		);
+		safeNotificationPreferenceUpdates.weekly_next_send_at =
+			nextWeeklyUtc?.toISO() ?? null;
+	} else if (weeklyOptionsChanged && !hasAnyWeeklyOption) {
+		safeNotificationPreferenceUpdates.weekly_next_send_at = null;
 	}
 
 	return safeNotificationPreferenceUpdates;
@@ -172,9 +225,16 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 export interface TimezoneUpdatePayload {
 	timezone: string;
 	next_send_at?: string | null;
-	add_ons_next_send_at?: string | null;
+	daily_next_send_at?: string | null;
+	weekly_next_send_at?: string | null;
 }
 
+/**
+ * Compute the minimal update payload required when a user changes timezone.
+ *
+ * Recomputes `next_send_at`, `daily_next_send_at`, and `weekly_next_send_at` only when the user
+ * has the corresponding schedule enabled to avoid unnecessary writes.
+ */
 export function computeTimezoneUpdatePayload(
 	newTimezone: string,
 	dbUser: User,
@@ -207,13 +267,22 @@ export function computeTimezoneUpdatePayload(
 		);
 	}
 
-	if (dbUser.add_ons_delivery_time != null) {
-		const nextAddOnsUtc = calculateNextSendAt(
-			dbUser.add_ons_delivery_time,
+	if (dbUser.daily_delivery_time != null) {
+		const nextDailyUtc = calculateNextSendAt(
+			dbUser.daily_delivery_time,
 			newTimezone,
 			DateTime.utc(),
 		);
-		payload.add_ons_next_send_at = nextAddOnsUtc?.toISO() ?? null;
+		payload.daily_next_send_at = nextDailyUtc?.toISO() ?? null;
+	}
+
+	if (dbUser.weekly_include_earnings || dbUser.weekly_include_dividends) {
+		const nextWeeklyUtc = calculateNextMondaySendAt(
+			dbUser.daily_delivery_time,
+			newTimezone,
+			DateTime.utc(),
+		);
+		payload.weekly_next_send_at = nextWeeklyUtc?.toISO() ?? null;
 	}
 
 	return payload;

@@ -15,10 +15,14 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	timezone: { type: "timezone" },
 	scheduled_update_times: { type: "json_string_array" },
 	only_notify_when_market_open: { type: "boolean" },
-	add_ons_only_notify_when_market_open: { type: "boolean" },
-	add_ons_delivery_time: { type: "time" },
-	add_ons_include_news: { type: "boolean" },
-	add_ons_include_rumors: { type: "boolean" },
+	daily_only_notify_when_market_open: { type: "boolean" },
+	daily_delivery_time: { type: "time" },
+	daily_include_news: { type: "boolean" },
+	daily_include_rumors: { type: "boolean" },
+	daily_include_analyst: { type: "boolean" },
+	daily_include_insider: { type: "boolean" },
+	weekly_include_earnings: { type: "boolean" },
+	weekly_include_dividends: { type: "boolean" },
 } as const satisfies FormSchema;
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
@@ -176,15 +180,20 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 				timezone: updatedUser.timezone,
 				scheduled_update_times: updatedUser.scheduled_update_times,
 				only_notify_when_market_open: updatedUser.only_notify_when_market_open,
-				add_ons_only_notify_when_market_open:
-					updatedUser.add_ons_only_notify_when_market_open,
-				add_ons_delivery_time: updatedUser.add_ons_delivery_time,
-				add_ons_next_send_at: updatedUser.add_ons_next_send_at,
+				daily_only_notify_when_market_open:
+					updatedUser.daily_only_notify_when_market_open,
+				daily_delivery_time: updatedUser.daily_delivery_time,
+				daily_next_send_at: updatedUser.daily_next_send_at,
 				next_send_at: updatedUser.next_send_at,
 				dismiss_timezone_mismatch_prompts:
 					updatedUser.dismiss_timezone_mismatch_prompts,
-				add_ons_include_news: updatedUser.add_ons_include_news,
-				add_ons_include_rumors: updatedUser.add_ons_include_rumors,
+				daily_include_news: updatedUser.daily_include_news,
+				daily_include_rumors: updatedUser.daily_include_rumors,
+				daily_include_analyst: updatedUser.daily_include_analyst,
+				daily_include_insider: updatedUser.daily_include_insider,
+				weekly_include_earnings: updatedUser.weekly_include_earnings,
+				weekly_include_dividends: updatedUser.weekly_include_dividends,
+				weekly_next_send_at: updatedUser.weekly_next_send_at,
 			},
 		});
 	} catch (error) {

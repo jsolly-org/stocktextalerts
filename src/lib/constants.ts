@@ -11,11 +11,13 @@ export const DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID =
 	"dashboard-notification-preferences-save-status";
 export const DASHBOARD_STOCKS_FORM_ID = "dashboard-stocks-form";
 export const DASHBOARD_STOCKS_STATUS_ID = "dashboard-stocks-save-status";
-export const DASHBOARD_SCHEDULED_FORM_ID = "dashboard-scheduled-form";
+export const DASHBOARD_FREQUENT_FORM_ID = "dashboard-frequent-form";
 export const DASHBOARD_FORMAT_PREFERENCES_FORM_ID =
 	"dashboard-format-preferences-form";
-export const DASHBOARD_ADDITIONAL_NOTIFICATIONS_FORM_ID =
-	"dashboard-additional-notifications-form";
+export const DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID =
+	"dashboard-daily-notifications-form";
+export const DASHBOARD_WEEKLY_CALENDAR_FORM_ID =
+	"dashboard-weekly-calendar-form";
 
 /* =============
 Status Message Colors
@@ -78,6 +80,7 @@ export const CARD_GRADIENT_ACCENTS = {
 	success:
 		"bg-gradient-to-r from-success-strong via-green-400 to-success-strong",
 	teal: "bg-gradient-to-r from-teal-500 via-teal-400 to-teal-500",
+	purple: "bg-gradient-to-r from-purple-500 via-purple-400 to-purple-500",
 	gray: "bg-gradient-to-r from-gray-300 via-gray-400 to-gray-300",
 } as const;
 
@@ -88,9 +91,10 @@ Dashboard Sections
 export const DASHBOARD_SECTION_IDS = {
 	notificationChannels: "notification-channels",
 	stocks: "tracked-stocks",
-	scheduled: "scheduled-notifications",
+	frequent: "frequent-notifications",
 	preview: "notification-preview",
-	additionalNotifications: "additional-notifications",
+	dailyNotifications: "daily-notifications",
+	occasionalNotifications: "occasional-notifications",
 } as const;
 
 type DashboardSection = keyof typeof DASHBOARD_SECTION_IDS;
@@ -98,9 +102,10 @@ type DashboardSection = keyof typeof DASHBOARD_SECTION_IDS;
 export const DASHBOARD_SECTION_HASHES: Record<DashboardSection, string> = {
 	notificationChannels: `#${DASHBOARD_SECTION_IDS.notificationChannels}`,
 	stocks: `#${DASHBOARD_SECTION_IDS.stocks}`,
-	scheduled: `#${DASHBOARD_SECTION_IDS.scheduled}`,
+	frequent: `#${DASHBOARD_SECTION_IDS.frequent}`,
 	preview: `#${DASHBOARD_SECTION_IDS.preview}`,
-	additionalNotifications: `#${DASHBOARD_SECTION_IDS.additionalNotifications}`,
+	dailyNotifications: `#${DASHBOARD_SECTION_IDS.dailyNotifications}`,
+	occasionalNotifications: `#${DASHBOARD_SECTION_IDS.occasionalNotifications}`,
 };
 
 /* =============
@@ -177,6 +182,11 @@ export const MESSAGE_ALLOWLIST = {
 
 type MessageKey = keyof typeof MESSAGE_ALLOWLIST;
 
+/**
+ * Convert a whitelisted status/message key into a user-facing string.
+ *
+ * Unknown keys are treated as empty and logged for visibility.
+ */
 export function formatMessage(message: string | null): string {
 	if (!message) return "";
 

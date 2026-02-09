@@ -5,7 +5,13 @@ import { calculateNextSendAt } from "../time/scheduled-times";
 import type { SupabaseAdminClient } from "./helpers";
 
 // Recompute because timezone/DST offsets can shift the user's intended local delivery time.
-export async function updateUserAddOnsNextSendAt(options: {
+/**
+ * Recompute and persist `users.daily_next_send_at` for a user.
+ *
+ * Clears the field when daily delivery is disabled, otherwise calculates the next UTC send
+ * timestamp based on the user's local delivery time and timezone.
+ */
+export async function updateUserDailyNextSendAt(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
 	logger: Logger;
@@ -13,14 +19,14 @@ export async function updateUserAddOnsNextSendAt(options: {
 }): Promise<void> {
 	const { user, supabase, logger, currentTime } = options;
 
-	if (user.add_ons_delivery_time === null) {
+	if (user.daily_delivery_time === null) {
 		const { error } = await supabase
 			.from("users")
-			.update({ add_ons_next_send_at: null })
+			.update({ daily_next_send_at: null })
 			.eq("id", user.id);
 		if (error) {
 			logger.error(
-				"Failed to clear users.add_ons_next_send_at",
+				"Failed to clear users.daily_next_send_at",
 				{ userId: user.id },
 				error,
 			);
@@ -29,7 +35,7 @@ export async function updateUserAddOnsNextSendAt(options: {
 	}
 
 	const nextSendAt = calculateNextSendAt(
-		user.add_ons_delivery_time,
+		user.daily_delivery_time,
 		user.timezone,
 		currentTime,
 	);
@@ -37,15 +43,15 @@ export async function updateUserAddOnsNextSendAt(options: {
 
 	const { error } = await supabase
 		.from("users")
-		.update({ add_ons_next_send_at: nextSendAtIso })
+		.update({ daily_next_send_at: nextSendAtIso })
 		.eq("id", user.id);
 
 	if (error) {
 		logger.error(
 			nextSendAtIso
-				? "Failed to update users.add_ons_next_send_at"
-				: "Failed to clear users.add_ons_next_send_at",
-			{ userId: user.id, add_ons_next_send_at: nextSendAtIso },
+				? "Failed to update users.daily_next_send_at"
+				: "Failed to clear users.daily_next_send_at",
+			{ userId: user.id, daily_next_send_at: nextSendAtIso },
 			error,
 		);
 	}

@@ -10,6 +10,11 @@ interface SmsSenderResult {
 
 export type SmsSenderProvider = () => SmsSenderResult;
 
+/**
+ * Create a lazily-initialized, cached SMS sender provider for scheduler runs.
+ *
+ * This avoids re-reading config and re-initializing the Twilio client for every user processed.
+ */
 export function createSmsSenderProvider(): SmsSenderProvider {
 	let twilioConfig: ReturnType<typeof readTwilioConfig> | null = null;
 	let sendSms: ReturnType<typeof createSmsSender> | null = null;

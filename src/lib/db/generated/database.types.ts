@@ -233,12 +233,14 @@ export type Database = {
       }
       users: {
         Row: {
-          add_ons_delivery_time: number | null
-          add_ons_include_news: boolean
-          add_ons_include_rumors: boolean
-          add_ons_next_send_at: string | null
-          add_ons_only_notify_when_market_open: boolean
           created_at: string
+          daily_delivery_time: number | null
+          daily_include_analyst: boolean
+          daily_include_insider: boolean
+          daily_include_news: boolean
+          daily_include_rumors: boolean
+          daily_next_send_at: string | null
+          daily_only_notify_when_market_open: boolean
           detailed_format: boolean
           dismiss_timezone_mismatch_prompts: boolean
           email: string
@@ -264,14 +266,19 @@ export type Database = {
           timezone: string
           updated_at: string
           verification_sent_at: string | null
+          weekly_include_dividends: boolean
+          weekly_include_earnings: boolean
+          weekly_next_send_at: string | null
         }
         Insert: {
-          add_ons_delivery_time?: number | null
-          add_ons_include_news?: boolean
-          add_ons_include_rumors?: boolean
-          add_ons_next_send_at?: string | null
-          add_ons_only_notify_when_market_open?: boolean
           created_at?: string
+          daily_delivery_time?: number | null
+          daily_include_analyst?: boolean
+          daily_include_insider?: boolean
+          daily_include_news?: boolean
+          daily_include_rumors?: boolean
+          daily_next_send_at?: string | null
+          daily_only_notify_when_market_open?: boolean
           detailed_format?: boolean
           dismiss_timezone_mismatch_prompts?: boolean
           email: string
@@ -297,14 +304,19 @@ export type Database = {
           timezone?: string
           updated_at?: string
           verification_sent_at?: string | null
+          weekly_include_dividends?: boolean
+          weekly_include_earnings?: boolean
+          weekly_next_send_at?: string | null
         }
         Update: {
-          add_ons_delivery_time?: number | null
-          add_ons_include_news?: boolean
-          add_ons_include_rumors?: boolean
-          add_ons_next_send_at?: string | null
-          add_ons_only_notify_when_market_open?: boolean
           created_at?: string
+          daily_delivery_time?: number | null
+          daily_include_analyst?: boolean
+          daily_include_insider?: boolean
+          daily_include_news?: boolean
+          daily_include_rumors?: boolean
+          daily_next_send_at?: string | null
+          daily_only_notify_when_market_open?: boolean
           detailed_format?: boolean
           dismiss_timezone_mismatch_prompts?: boolean
           email?: string
@@ -330,6 +342,9 @@ export type Database = {
           timezone?: string
           updated_at?: string
           verification_sent_at?: string | null
+          weekly_include_dividends?: boolean
+          weekly_include_earnings?: boolean
+          weekly_next_send_at?: string | null
         }
         Relationships: [
           {
@@ -395,7 +410,10 @@ export type Database = {
     Enums: {
       delivery_method: "email" | "sms"
       scheduled_notification_status: "sending" | "sent" | "failed"
-      scheduled_notification_type: "scheduled_update" | "daily_add_ons"
+      scheduled_notification_type:
+        | "scheduled_update"
+        | "daily_digest"
+        | "weekly_calendar"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -525,7 +543,11 @@ export const Constants = {
     Enums: {
       delivery_method: ["email", "sms"],
       scheduled_notification_status: ["sending", "sent", "failed"],
-      scheduled_notification_type: ["scheduled_update", "daily_add_ons"],
+      scheduled_notification_type: [
+        "scheduled_update",
+        "daily_digest",
+        "weekly_calendar",
+      ],
     },
   },
 } as const

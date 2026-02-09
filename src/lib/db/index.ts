@@ -34,13 +34,18 @@ export type NotificationPreferencesSnapshot = Pick<
 	| "timezone"
 	| "scheduled_update_times"
 	| "only_notify_when_market_open"
-	| "add_ons_only_notify_when_market_open"
-	| "add_ons_delivery_time"
-	| "add_ons_next_send_at"
+	| "daily_only_notify_when_market_open"
+	| "daily_delivery_time"
+	| "daily_next_send_at"
 	| "next_send_at"
 	| "dismiss_timezone_mismatch_prompts"
-	| "add_ons_include_news"
-	| "add_ons_include_rumors"
+	| "daily_include_news"
+	| "daily_include_rumors"
+	| "daily_include_analyst"
+	| "daily_include_insider"
+	| "weekly_include_earnings"
+	| "weekly_include_dividends"
+	| "weekly_next_send_at"
 >;
 
 export type NotificationPreferences = Pick<
@@ -57,6 +62,11 @@ Users
 
 export type UserUpdateInput = DbUserUpdate;
 
+/**
+ * Create a small, cookie-aware user service wrapper around the Supabase client.
+ *
+ * This centralizes session refresh + cookie updates so RLS-backed queries keep working.
+ */
 export function createUserService(
 	supabase: AppSupabaseClient,
 	cookies: AstroCookies,
@@ -145,6 +155,9 @@ export function createUserService(
 Stocks
 ============= */
 
+/**
+ * Load a user's tracked stocks (symbol + created_at + stock name).
+ */
 export async function getUserStocks(
 	supabase: AppSupabaseClient,
 	userId: string,
@@ -172,6 +185,11 @@ type NonUndefined<T> = {
 	[K in keyof T]: Exclude<T[K], undefined>;
 };
 
+/**
+ * Return a shallow copy of `input` with all `undefined` values removed.
+ *
+ * Useful for building update payloads where omitted keys should not be persisted.
+ */
 export function omitUndefined<T extends Record<string, unknown | undefined>>(
 	input: T,
 ) {

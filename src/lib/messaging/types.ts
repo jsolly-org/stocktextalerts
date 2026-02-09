@@ -20,8 +20,10 @@ export interface FormatPreferences {
 }
 
 type GrokRumorsPreferences = {
-	add_ons_include_news: boolean;
-	add_ons_include_rumors: boolean;
+	daily_include_news: boolean;
+	daily_include_rumors: boolean;
+	daily_include_analyst: boolean;
+	daily_include_insider: boolean;
 	last_grok_rumors_at: string | null;
 	grok_window_start: string | null;
 	grok_sends_in_window: number;
@@ -46,9 +48,12 @@ export type UserRecord = Pick<
 	price_notifications_enabled: boolean;
 	scheduled_update_times: number[] | null;
 	only_notify_when_market_open: boolean;
-	add_ons_only_notify_when_market_open: boolean;
-	add_ons_delivery_time: number | null;
-	add_ons_next_send_at: string | null;
+	daily_only_notify_when_market_open: boolean;
+	daily_delivery_time: number | null;
+	daily_next_send_at: string | null;
+	weekly_include_earnings: boolean;
+	weekly_include_dividends: boolean;
+	weekly_next_send_at: string | null;
 	last_market_closed_skip_scheduled_at: string | null;
 	last_market_closed_skip_recorded_at: string | null;
 } & GrokRumorsPreferences;

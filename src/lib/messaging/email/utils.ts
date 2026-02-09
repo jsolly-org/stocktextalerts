@@ -23,6 +23,12 @@ interface EmailRequest {
 
 export type EmailSender = (request: EmailRequest) => Promise<DeliveryResult>;
 
+/**
+ * Create a Resend-backed email sender.
+ *
+ * In `test` mode, returns a deterministic mock sender that never calls the Resend API.
+ * If the API key is invalid, returns a sender that always fails with a clear error.
+ */
 export function createEmailSender(): EmailSender {
 	const apiKey = import.meta.env.RESEND_API_KEY;
 	const fromEmail = import.meta.env.EMAIL_FROM;
@@ -103,6 +109,11 @@ export function createEmailSender(): EmailSender {
 	};
 }
 
+/**
+ * Build the plaintext + HTML email body for a scheduled stock update.
+ *
+ * Includes footer links to the dashboard schedule section and a user-scoped unsubscribe URL.
+ */
 export function formatEmailMessage(
 	user: EmailUser,
 	userStocks: UserStockRow[],
@@ -113,7 +124,7 @@ export function formatEmailMessage(
 ): { text: string; html: string } {
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const escapedDashboardUrl = escapeHtml(dashboardUrl);
-	const scheduleUrl = `${dashboardUrl}${DASHBOARD_SECTION_HASHES.scheduled}`;
+	const scheduleUrl = `${dashboardUrl}${DASHBOARD_SECTION_HASHES.frequent}`;
 	const escapedScheduleUrl = escapeHtml(scheduleUrl);
 	const unsubscribeUrl = createEmailUnsubscribeUrl({
 		userId: user.id,
