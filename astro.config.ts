@@ -24,9 +24,8 @@ const vercelUrl =
 const isCI = process.env.CI === "true";
 
 // Vercel Serverless max duration (seconds).
-// - Hobby: typically 60s (without Fluid Compute)
-// - Pro/Enterprise: can support higher (e.g. 300s) with Fluid Compute enabled
-const DEFAULT_VERCEL_MAX_DURATION_SECONDS = 60;
+// Only set this when explicitly configured, since the effective limit depends on
+// plan + whether Fluid Compute is enabled for the project.
 const configuredVercelMaxDurationSecondsRaw =
 	env.VERCEL_MAX_DURATION || process.env.VERCEL_MAX_DURATION;
 const configuredVercelMaxDurationSeconds = configuredVercelMaxDurationSecondsRaw
@@ -36,7 +35,7 @@ const vercelMaxDurationSeconds =
 	Number.isFinite(configuredVercelMaxDurationSeconds) &&
 	configuredVercelMaxDurationSeconds > 0
 		? configuredVercelMaxDurationSeconds
-		: DEFAULT_VERCEL_MAX_DURATION_SECONDS;
+		: undefined;
 
 // Locally, use full URL with protocol (e.g., "http://localhost:4321").
 // In CI, VERCEL_URL may be unset (e.g. unit tests); use a placeholder so config still works.
@@ -64,7 +63,9 @@ export default defineConfig({
 	adapter: vercel({
 		// Enable if you later use edge middleware helpers; keep serverless for Supabase SSR consistency
 		edgeMiddleware: false,
-		maxDuration: vercelMaxDurationSeconds,
+		...(vercelMaxDurationSeconds
+			? { maxDuration: vercelMaxDurationSeconds }
+			: {}),
 	}),
 
 	site,
