@@ -13,7 +13,7 @@ interface ImportMetaEnv {
 	readonly EMAIL_FROM: string;
 	readonly EMAIL_REPLY_TO?: string;
 	readonly CRON_SECRET: string;
-	readonly VERCEL_URL: string;
+	readonly VERCEL_URL?: string;
 	readonly VERCEL_PROJECT_PRODUCTION_URL?: string;
 	readonly FINNHUB_API_KEY: string;
 	readonly TIMEZONE_CACHE_BUSTER?: string;

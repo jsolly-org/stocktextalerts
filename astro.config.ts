@@ -45,7 +45,7 @@ if (!vercelUrl) {
 		site = "https://placeholder.example.com";
 	} else {
 		throw new Error(
-			"VERCEL_URL is not configured. VERCEL_URL is automatically set by Vercel. For local development, set VERCEL_URL=http://localhost:4321 in your .env.local file.",
+			"Site URL is not configured. Set VERCEL_PROJECT_PRODUCTION_URL (recommended) or VERCEL_URL. For local development, set VERCEL_URL=http://localhost:4321 in your .env.local file.",
 		);
 	}
 } else if (

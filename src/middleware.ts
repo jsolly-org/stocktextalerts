@@ -17,6 +17,20 @@ const REQUIRED_ENV_VARS = [
 // Lazy validation flag - only validate once on first request
 let envValidated = false;
 
+const metaEnv = import.meta.env as unknown as Record<
+	string,
+	string | undefined
+>;
+
+function readEnv(name: string): string | undefined {
+	const fromMeta = metaEnv[name];
+	if (typeof fromMeta === "string" && fromMeta.trim() !== "") {
+		return fromMeta;
+	}
+	const fromProcess = process.env[name];
+	return typeof fromProcess === "string" ? fromProcess : undefined;
+}
+
 function buildCsp(requestHost?: string): string {
 	// Allow vercel.live when on Vercel (env at runtime) or when request host is a Vercel deployment (fallback if env unset).
 	const isVercel =
@@ -88,16 +102,16 @@ export const onRequest = defineMiddleware(async (context, next) => {
 	// This ensures validation happens after Vercel injects env vars at runtime
 	if (!envValidated) {
 		const missing: string[] = REQUIRED_ENV_VARS.filter((name) => {
-			const value = import.meta.env[name];
+			const value = readEnv(name);
 			return !value || value.trim() === "";
 		});
-		const vercelUrl = import.meta.env.VERCEL_URL;
-		const vercelProductionUrl = import.meta.env.VERCEL_PROJECT_PRODUCTION_URL;
+		const vercelUrl = readEnv("VERCEL_URL");
+		const vercelProductionUrl = readEnv("VERCEL_PROJECT_PRODUCTION_URL");
 		if (
 			(!vercelUrl || vercelUrl.trim() === "") &&
 			(!vercelProductionUrl || vercelProductionUrl.trim() === "")
 		) {
-			missing.push("VERCEL_URL (or VERCEL_PROJECT_PRODUCTION_URL)");
+			missing.push("VERCEL_PROJECT_PRODUCTION_URL or VERCEL_URL");
 		}
 		if (missing.length > 0) {
 			throw new Error(
