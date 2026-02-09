@@ -219,7 +219,11 @@ export async function createTestUser(
 		// Add Tracked Assets if provided
 		if (options.trackedAssets && options.trackedAssets.length > 0) {
 			// Ensure assets exist in the assets table first
-			const uniqueSymbols = [...new Set(options.trackedAssets)];
+			const uniqueSymbols = [
+				...new Set(
+					options.trackedAssets.map((symbol) => symbol.trim().toUpperCase()),
+				),
+			];
 			const assetRecords = uniqueSymbols.map((symbol) => {
 				const assetData = getAssetData(symbol);
 				return {
