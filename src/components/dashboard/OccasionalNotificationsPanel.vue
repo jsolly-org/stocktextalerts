@@ -40,9 +40,9 @@
 					>
 						Weekly Calendar
 					</h2>
-					<p class="text-sm text-gray-600 mt-1">
-						Upcoming earnings and dividend events for your tracked stocks, delivered every Monday.
-					</p>
+				<p class="text-sm text-gray-600 mt-1">
+					Everything you enable below is bundled into <strong class="font-semibold text-gray-700">one weekly message</strong> every Monday — covering upcoming earnings and dividends for your tracked stocks.
+				</p>
 					<p
 						v-if="deliveryTimeLabel"
 						class="text-sm text-gray-500 mt-1.5 transition-opacity duration-200"

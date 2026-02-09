@@ -40,11 +40,11 @@
 				>
 					Daily Notifications
 				</h2>
-				<p
-					class="text-sm text-gray-600 mt-1"
-				>
-					A once-daily notification with your selected extras, sent at the time below — separate from frequent price alerts.
-				</p>
+			<p
+				class="text-sm text-gray-600 mt-1"
+			>
+				Everything you enable below is bundled into <strong class="font-semibold text-gray-700">one daily message</strong> sent at the time you choose — separate from frequent price alerts.
+			</p>
 				<p
 					class="text-sm text-gray-500 mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 transition-opacity duration-200"
 					:class="{ 'opacity-50': needsChannelSelection }"
