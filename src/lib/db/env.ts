@@ -32,6 +32,11 @@ const REQUIRED_ENV_VARS: (keyof RequiredEnvVars)[] = [
 	"FINNHUB_API_KEY",
 ];
 
+/**
+ * Validate that required runtime environment variables are present and non-empty.
+ *
+ * Throws a human-readable error listing missing variables.
+ */
 export function validateEnv(): void {
 	const missing: string[] = [];
 
@@ -50,6 +55,11 @@ export function validateEnv(): void {
 	}
 }
 
+/**
+ * Compute the canonical site base URL for links in emails/SMS.
+ *
+ * Prefers the production domain (when available) over a deployment-specific Vercel URL.
+ */
 export function getSiteUrl(): string {
 	// Prefer VERCEL_PROJECT_PRODUCTION_URL (custom domain like "stocktextalerts.com")
 	// over VERCEL_URL which is the deployment-specific URL (e.g., "app-abc123.vercel.app")

@@ -2,6 +2,12 @@ import { readRawSchemaData } from "./form-data";
 import type { FormSchema, InferSchema, ParseOutcome } from "./schema";
 import { processFields } from "./validate";
 
+/**
+ * Parse a `FormData` object with a schema, returning either typed data or structured errors.
+ *
+ * When `transform` is provided, it runs after validation and may map the parsed result into
+ * a different shape (transform exceptions are captured as `transform_failed`).
+ */
 export function parseWithSchema<TSchema extends FormSchema>(
 	formData: FormData,
 	schema: TSchema,

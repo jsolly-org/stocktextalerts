@@ -23,6 +23,11 @@ export type SmsSender = (request: SmsRequest) => Promise<DeliveryResult>;
 
 type TwilioClient = ReturnType<typeof twilio>;
 
+/**
+ * Read Twilio credentials from `import.meta.env`.
+ *
+ * This does not validate presence/format; callers can decide how to handle missing values.
+ */
 export function readTwilioConfig(): TwilioConfig {
 	const accountSid = import.meta.env.TWILIO_ACCOUNT_SID;
 	const authToken = import.meta.env.TWILIO_AUTH_TOKEN;
@@ -31,10 +36,18 @@ export function readTwilioConfig(): TwilioConfig {
 	return { accountSid, authToken, phoneNumber };
 }
 
+/**
+ * Create a Twilio REST client from validated config.
+ */
 export function createTwilioClient(config: TwilioConfig): TwilioClient {
 	return twilio(config.accountSid, config.authToken);
 }
 
+/**
+ * Create an SMS sender function backed by Twilio.
+ *
+ * In `test` mode, returns a deterministic mock sender to avoid external API calls.
+ */
 export function createSmsSender(
 	client: TwilioClient,
 	defaultFromNumber: string,
