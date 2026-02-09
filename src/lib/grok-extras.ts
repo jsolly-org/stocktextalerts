@@ -16,36 +16,56 @@ type ResponsesRequest = {
 	include?: string[];
 };
 
-type XaiCitation = { url?: string; title?: string };
-type XaiOutputContentPart = {
-	type?: string;
-	text?: string;
-	citations?: XaiCitation[] | undefined;
-	annotations?: Array<{ url?: string }> | undefined;
-};
-type XaiOutputItem = {
-	id?: string;
-	type?: string;
-	role?: string;
-	content?: XaiOutputContentPart[] | string | undefined;
-	text?: string;
-	citations?: XaiCitation[] | undefined;
-	// Some variants nest message-like structures.
-	message?: {
-		content?: XaiOutputContentPart[] | string | undefined;
-		text?: string;
-		citations?: XaiCitation[] | undefined;
-	};
+// xAI Responses API (OpenAPI `ModelResponse`)
+type XaiAnnotation = {
+	type: string;
+	url: string;
+	start_index?: number | null;
+	end_index?: number | null;
 };
 
-// xAI "ModelResponse" (per OpenAPI): includes metadata + `output` array.
-type XaiModelResponse = {
+type XaiOutputContentPart =
+	| {
+			type: "output_text" | "text";
+			text: string;
+			annotations?: XaiAnnotation[] | undefined;
+			logprobs?: unknown;
+	  }
+	| {
+			// Future / unknown content part types.
+			type: string;
+			[key: string]: unknown;
+	  };
+
+type XaiOutputItem =
+	| {
+			id?: string;
+			type: "message";
+			role?: "assistant" | "system" | "user" | (string & {});
+			status?: string;
+			content?: XaiOutputContentPart[] | undefined;
+	  }
+	| {
+			// e.g. reasoning items can contain `summary` instead of `content`
+			id?: string;
+			type: "reasoning";
+			status?: string;
+			summary?: Array<{ type?: string; text?: string }> | undefined;
+	  }
+	| {
+			// Unknown output item type.
+			id?: string;
+			type?: string;
+			[key: string]: unknown;
+	  };
+
+type ResponsesResponse = {
 	id: string;
-	object: string;
+	object: "response" | (string & {});
 	created_at: number;
 	model: string;
 	status: string;
-	output?: XaiOutputItem[] | undefined;
+	output: XaiOutputItem[];
 };
 
 export type GrokExtrasResult = {
@@ -56,7 +76,7 @@ export type GrokExtrasResult = {
 
 const GROK_TIMEOUT_MS = 30_000;
 
-function extractTextAndCitationsFromXaiResponse(response: XaiModelResponse): {
+function extractTextAndCitationsFromXaiResponse(response: ResponsesResponse): {
 	text: string | null;
 	citations: string[];
 } {
@@ -69,49 +89,55 @@ function extractTextAndCitationsFromXaiResponse(response: XaiModelResponse): {
 		if (trimmed !== "") texts.push(trimmed);
 	};
 
-	const addCitations = (value: unknown) => {
+	const addAnnotationCitations = (value: unknown) => {
 		if (!Array.isArray(value)) return;
-		for (const c of value) {
-			if (typeof c === "string") {
-				const trimmed = c.trim();
-				if (trimmed !== "") citationUrls.add(trimmed);
-				continue;
-			}
-			if (!c || typeof c !== "object") continue;
-			const url = (c as { url?: unknown }).url;
-			if (typeof url === "string") {
-				const trimmed = url.trim();
-				if (trimmed !== "") citationUrls.add(trimmed);
-			}
+		for (const a of value) {
+			if (!a || typeof a !== "object") continue;
+			const url = (a as { url?: unknown }).url;
+			if (typeof url !== "string") continue;
+			const trimmed = url.trim();
+			if (trimmed !== "") citationUrls.add(trimmed);
 		}
 	};
 
-	const walkContent = (content: unknown) => {
-		if (typeof content === "string") {
-			addText(content);
-			return;
-		}
-		if (!Array.isArray(content)) return;
-		for (const part of content) {
-			if (!part || typeof part !== "object") continue;
-			const p = part as XaiOutputContentPart;
-			addText(p.text);
-			addCitations(p.citations);
-			addCitations(p.annotations);
-		}
-	};
-
-	const output = Array.isArray(response.output) ? response.output : [];
+	// Per OpenAPI, assistant text is typically in:
+	// response.output[].type === "message" -> content[].type === "output_text" -> text
+	const output = Array.isArray((response as { output?: unknown }).output)
+		? ((response as { output: XaiOutputItem[] }).output ?? [])
+		: [];
 	for (const item of output) {
 		if (!item || typeof item !== "object") continue;
-		addText(item.text);
-		addCitations(item.citations);
-		walkContent(item.content);
 
-		if (item.message) {
-			addText(item.message.text);
-			addCitations(item.message.citations);
-			walkContent(item.message.content);
+		if (item.type === "message") {
+			const content = item.content;
+			if (!Array.isArray(content)) continue;
+
+			for (const part of content) {
+				if (!part || typeof part !== "object") continue;
+				if (part.type !== "output_text" && part.type !== "text") continue;
+				addText(part.text);
+				addAnnotationCitations(part.annotations);
+			}
+			continue;
+		}
+
+		// Fallback for unexpected/legacy shapes: pull any obvious text/urls.
+		// (kept intentionally conservative to avoid leaking reasoning summaries)
+		if ("message" in item) {
+			const message = (item as { message?: unknown }).message;
+			if (message && typeof message === "object") {
+				const content = (message as { content?: unknown }).content;
+				if (Array.isArray(content)) {
+					for (const part of content) {
+						if (!part || typeof part !== "object") continue;
+						const type = (part as { type?: unknown }).type;
+						const text = (part as { text?: unknown }).text;
+						const annotations = (part as { annotations?: unknown }).annotations;
+						if (type === "output_text" || type === "text") addText(text);
+						addAnnotationCitations(annotations);
+					}
+				}
+			}
 		}
 	}
 
@@ -284,7 +310,7 @@ export async function generateDailyExtrasWithGrok(options: {
 				return null;
 			}
 
-			const data = (await response.json()) as XaiModelResponse;
+			const data = (await response.json()) as ResponsesResponse;
 			const { text, citations } = extractTextAndCitationsFromXaiResponse(data);
 			if (!text) {
 				log("Grok extras returned empty content", {
