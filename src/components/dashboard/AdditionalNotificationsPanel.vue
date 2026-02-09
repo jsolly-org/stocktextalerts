@@ -93,23 +93,23 @@
 			>
 					<legend class="sr-only">Additional notifications settings</legend>
 
-				<div class="flex items-start justify-between gap-3 py-3">
-					<div class="min-w-0">
-						<span
-							id="add_ons_delivery_time_label"
-							class="text-base font-semibold text-gray-900"
-						>
-							Delivery time
-						</span>
-						<p
-							id="add_ons_delivery_time_description"
-							class="text-sm text-gray-600 mt-0.5"
-						>
-							Sent once every day.
-						</p>
-					</div>
-			<div class="shrink-0">
-				<div class="flex items-center gap-2">
+			<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-3">
+				<div class="min-w-0">
+					<span
+						id="add_ons_delivery_time_label"
+						class="text-base font-semibold text-gray-900"
+					>
+						Delivery time
+					</span>
+					<p
+						id="add_ons_delivery_time_description"
+						class="text-sm text-gray-600 mt-0.5"
+					>
+						Sent once every day.
+					</p>
+				</div>
+		<div class="sm:shrink-0">
+			<div class="flex flex-wrap items-center gap-2">
 					<TimePicker
 						:inputId="`add_ons_delivery_time`"
 						:inputName="`add_ons_delivery_time`"
