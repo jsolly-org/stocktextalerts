@@ -97,6 +97,10 @@ export function formatAssetsHtmlList(
 	getPrice: (symbol: string) => AssetPrice | undefined,
 	formatPrefs: FormatPreferences,
 ): string {
+	if (assets.length === 0) {
+		return escapeHtml(NO_TRACKED_ASSETS_MESSAGE);
+	}
+
 	const joinStr = formatPrefs.detailed_format ? "<br><br>" : "<br>";
 	return assets
 		.map((asset) =>
