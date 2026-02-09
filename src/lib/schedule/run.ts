@@ -7,24 +7,27 @@ import {
 	type StockPriceMap,
 } from "../price-fetcher";
 import { toIsoOrThrow } from "../time/format";
+import { dispatchDailyUser } from "./dispatch-daily";
 import {
 	type ScheduledNotificationTotals,
 	type SupabaseAdminClient,
 	USER_PROCESS_BATCH_SIZE,
 } from "./helpers";
 import { fetchScheduledUsers } from "./run-query";
-import { fetchDailyAddOnsUsers } from "./run-query-add-ons";
+import { fetchDailyUsers } from "./run-query-daily";
+import { fetchWeeklyUsers } from "./run-query-weekly";
 import { processScheduledUser } from "./run-user";
-import { processDailyAddOnsUser } from "./run-user-add-ons";
 import { createSmsSenderProvider } from "./run-user-sms-sender";
+import { processWeeklyUser } from "./run-user-weekly";
 
 async function runScheduledNotifications(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
 	forceSend: boolean;
+	cronSecret: string;
 	now?: DateTime;
 }): Promise<ScheduledNotificationTotals> {
-	const { supabase, logger, forceSend } = options;
+	const { supabase, logger, forceSend, cronSecret } = options;
 	const sendEmail = createEmailSender();
 
 	// Round to end of current minute so the cron picks up all notifications
@@ -35,14 +38,20 @@ async function runScheduledNotifications(options: {
 		currentTime,
 		"Failed to format UTC ISO string",
 	);
-	const [scheduledUsers, addOnsUsers] = await Promise.all([
+	const [scheduledUsers, dailyUsers, weeklyUsers] = await Promise.all([
 		fetchScheduledUsers({
 			supabase,
 			logger,
 			forceSend,
 			currentTimeIso,
 		}),
-		fetchDailyAddOnsUsers({
+		fetchDailyUsers({
+			supabase,
+			logger,
+			forceSend,
+			currentTimeIso,
+		}),
+		fetchWeeklyUsers({
 			supabase,
 			logger,
 			forceSend,
@@ -52,11 +61,12 @@ async function runScheduledNotifications(options: {
 
 	// Collect unique stock symbols across scheduled users and fetch prices in batch
 	let priceMap: StockPriceMap = new Map();
-	let marketOpen = false;
-	const marketStatusPromise =
-		scheduledUsers.length > 0 || addOnsUsers.length > 0
-			? fetchMarketStatus()
-			: null;
+	const hasAnyUsers =
+		scheduledUsers.length > 0 ||
+		dailyUsers.length > 0 ||
+		weeklyUsers.length > 0;
+	const marketStatusPromise = hasAnyUsers ? fetchMarketStatus() : null;
+
 	if (scheduledUsers.length > 0) {
 		const userIds = scheduledUsers.map((u) => u.id);
 		const { data: allUserStocks, error: userStocksError } = await supabase
@@ -81,18 +91,11 @@ async function runScheduledNotifications(options: {
 		];
 
 		if (uniqueSymbols.length > 0) {
-			const [fetchedPrices, fetchedMarketOpen] = await Promise.all([
-				fetchStockPrices(uniqueSymbols),
-				marketStatusPromise ?? Promise.resolve(false),
-			]);
-			priceMap = fetchedPrices;
-			marketOpen = fetchedMarketOpen;
-		} else if (marketStatusPromise) {
-			marketOpen = await marketStatusPromise;
+			priceMap = await fetchStockPrices(uniqueSymbols);
 		}
-	} else if (marketStatusPromise) {
-		marketOpen = await marketStatusPromise;
 	}
+
+	const marketOpen = marketStatusPromise ? await marketStatusPromise : false;
 
 	const getSmsSender = createSmsSenderProvider();
 
@@ -120,26 +123,60 @@ async function runScheduledNotifications(options: {
 		results.push(...batchResults);
 	}
 
+	// In-process: process weekly calendar users in batches (no Grok calls, so no fan-out needed)
 	for (
 		let index = 0;
-		index < addOnsUsers.length;
+		index < weeklyUsers.length;
 		index += USER_PROCESS_BATCH_SIZE
 	) {
-		const batch = addOnsUsers.slice(index, index + USER_PROCESS_BATCH_SIZE);
+		const batch = weeklyUsers.slice(index, index + USER_PROCESS_BATCH_SIZE);
 		const batchResults = await Promise.all(
 			batch.map((user) =>
-				processDailyAddOnsUser({
+				processWeeklyUser({
 					user,
 					supabase,
 					logger,
 					currentTime,
 					sendEmail,
 					getSmsSender,
-					marketOpen,
 				}),
 			),
 		);
 		results.push(...batchResults);
+	}
+
+	// Fan-out: dispatch each daily user to its own serverless function
+	if (dailyUsers.length > 0) {
+		const dispatchResults = await Promise.allSettled(
+			dailyUsers.map((user) =>
+				dispatchDailyUser({
+					userId: user.id,
+					currentTimeIso,
+					marketOpen,
+					cronSecret,
+				}),
+			),
+		);
+
+		for (const result of dispatchResults) {
+			if (result.status === "fulfilled") {
+				results.push(result.value);
+			} else {
+				logger.error(
+					"Fan-out dispatch rejected",
+					{ action: "dispatch_daily_user" },
+					result.reason,
+				);
+				results.push({
+					skipped: 1,
+					logFailures: 0,
+					emailsSent: 0,
+					emailsFailed: 0,
+					smsSent: 0,
+					smsFailed: 0,
+				});
+			}
+		}
 	}
 
 	return results.reduce(

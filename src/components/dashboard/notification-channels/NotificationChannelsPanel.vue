@@ -271,7 +271,7 @@ watch(
 );
 
 function scrollToScheduled() {
-	const el = document.getElementById(DASHBOARD_SECTION_IDS.scheduled);
+	const el = document.getElementById(DASHBOARD_SECTION_IDS.frequent);
 	if (el) {
 		el.scrollIntoView({ behavior: "smooth" });
 	}

@@ -34,13 +34,18 @@ export type NotificationPreferencesSnapshot = Pick<
 	| "timezone"
 	| "scheduled_update_times"
 	| "only_notify_when_market_open"
-	| "add_ons_only_notify_when_market_open"
-	| "add_ons_delivery_time"
-	| "add_ons_next_send_at"
+	| "daily_only_notify_when_market_open"
+	| "daily_delivery_time"
+	| "daily_next_send_at"
 	| "next_send_at"
 	| "dismiss_timezone_mismatch_prompts"
-	| "add_ons_include_news"
-	| "add_ons_include_rumors"
+	| "daily_include_news"
+	| "daily_include_rumors"
+	| "daily_include_analyst"
+	| "daily_include_insider"
+	| "weekly_include_earnings"
+	| "weekly_include_dividends"
+	| "weekly_next_send_at"
 >;
 
 export type NotificationPreferences = Pick<

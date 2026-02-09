@@ -49,6 +49,7 @@ export default defineConfig({
 	adapter: vercel({
 		// Enable if you later use edge middleware helpers; keep serverless for Supabase SSR consistency
 		edgeMiddleware: false,
+		maxDuration: 300,
 	}),
 
 	site,

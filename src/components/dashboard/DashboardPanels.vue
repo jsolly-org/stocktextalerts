@@ -33,7 +33,13 @@
 		:phoneVerified="phoneVerified"
 	/>
 
-	<AdditionalNotificationsPanel
+	<DailyNotificationsPanel
+		:emailEnabled="emailEnabled"
+		:smsEnabled="smsEnabled"
+		:phoneVerified="phoneVerified"
+	/>
+
+	<OccasionalNotificationsPanel
 		:emailEnabled="emailEnabled"
 		:smsEnabled="smsEnabled"
 		:phoneVerified="phoneVerified"
@@ -51,11 +57,12 @@
 import { computed, ref, toRefs, watch } from "vue";
 import { DASHBOARD_STOCKS_FORM_ID } from "../../lib/constants";
 import type { User } from "../../lib/db";
-import AdditionalNotificationsPanel from "./AdditionalNotificationsPanel.vue";
 import { useAutoSaveForm } from "./composables/useAutoSaveNotificationPreferences";
 import { provideDashboardUser } from "./composables/useDashboardUser";
+import DailyNotificationsPanel from "./DailyNotificationsPanel.vue";
 import NotificationChannelsPanel from "./notification-channels/NotificationChannelsPanel.vue";
 import NotificationPreviewPanel from "./notification-preview/NotificationPreviewPanel.vue";
+import OccasionalNotificationsPanel from "./OccasionalNotificationsPanel.vue";
 import ScheduledNotificationsPanel from "./scheduled-notifications/ScheduledNotificationsPanel.vue";
 import type { StockOption } from "./stocks/StockInput.vue";
 import TrackedStocksPanel from "./stocks/TrackedStocksPanel.vue";

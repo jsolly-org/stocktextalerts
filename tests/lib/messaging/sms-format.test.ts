@@ -82,4 +82,42 @@ describe("SMS scheduled update includes stock price data.", () => {
 			"Manage your settings: http://localhost/dashboard",
 		);
 	});
+
+	it("Includes analyst consensus extras when provided.", () => {
+		const stocksList = "AAPL - Apple Inc. — $187.42 (+1.23%)";
+
+		const message = formatSmsMessage(stocksList, true, {
+			analyst: "AAPL: 32 Buy, 6 Hold, 1 Sell",
+		});
+
+		expect(message).toContain("📊 Analyst Consensus");
+		expect(message).toContain("AAPL: 32 Buy, 6 Hold, 1 Sell");
+	});
+
+	it("Includes insider trades extras when provided.", () => {
+		const stocksList = "AAPL - Apple Inc. — $187.42 (+1.23%)";
+
+		const message = formatSmsMessage(stocksList, true, {
+			insider: "AAPL: Tim Cook sold 50k shares (02-01)",
+		});
+
+		expect(message).toContain("🏦 Insider Trades");
+		expect(message).toContain("AAPL: Tim Cook sold 50k shares (02-01)");
+	});
+
+	it("Includes all extras sections when provided.", () => {
+		const stocksList = "AAPL - Apple Inc. — $187.42 (+1.23%)";
+
+		const message = formatSmsMessage(stocksList, true, {
+			news: "AAPL: Revenue beats",
+			rumors: "AAPL: Unconfirmed chatter",
+			analyst: "AAPL: 32 Buy, 6 Hold",
+			insider: "AAPL: CEO sold shares",
+		});
+
+		expect(message).toContain("🗞️ News");
+		expect(message).toContain("🤫 Rumors");
+		expect(message).toContain("📊 Analyst Consensus");
+		expect(message).toContain("🏦 Insider Trades");
+	});
 });

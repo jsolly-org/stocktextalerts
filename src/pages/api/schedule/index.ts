@@ -1,7 +1,7 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import type { APIRoute } from "astro";
 import { createSupabaseAdminClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
+import { verifyCronSecret } from "../../../lib/schedule/cron-auth";
 import { runScheduledNotifications } from "../../../lib/schedule/run";
 
 /*
@@ -16,46 +16,9 @@ const handler: APIRoute = async ({ request, locals }) => {
 		path: url.pathname,
 		method: request.method,
 	});
-	const authHeader = request.headers.get("authorization");
-	const envCronSecret = import.meta.env.CRON_SECRET;
 
-	if (!authHeader) {
-		logger.info("Unauthorized cron request", {
-			action: "cron_auth",
-			reason: "missing_authorization_header",
-		});
-		return new Response("Unauthorized", { status: 401 });
-	}
-
-	if (!authHeader.startsWith("Bearer ")) {
-		logger.info("Unauthorized cron request", {
-			action: "cron_auth",
-			reason: "malformed_authorization_header",
-		});
-		return new Response("Unauthorized", { status: 401 });
-	}
-
-	const cronSecret = authHeader.split("Bearer ")[1];
-	let authorized = false;
-
-	try {
-		const suppliedSecret = createHash("sha256").update(cronSecret).digest();
-		const expectedSecret = createHash("sha256").update(envCronSecret).digest();
-		authorized = timingSafeEqual(suppliedSecret, expectedSecret);
-	} catch (error) {
-		logger.error(
-			"Failed to compare cron secrets securely",
-			{ action: "compare_cron_secret" },
-			error,
-		);
-		return new Response("Internal server error", { status: 500 });
-	}
-
-	if (!authorized) {
-		logger.info("Unauthorized cron request", {
-			action: "cron_auth",
-			reason: "cron_secret_mismatch",
-		});
+	const cronSecret = verifyCronSecret(request, logger);
+	if (!cronSecret) {
 		return new Response("Unauthorized", { status: 401 });
 	}
 
@@ -97,6 +60,7 @@ const handler: APIRoute = async ({ request, locals }) => {
 			supabase,
 			logger,
 			forceSend,
+			cronSecret,
 		});
 
 		return new Response(JSON.stringify({ success: true, ...totals }), {

@@ -12,13 +12,18 @@ export type NotificationPreferencesData = {
 	timezone: string;
 	scheduled_update_times: number[] | null;
 	only_notify_when_market_open: boolean;
-	add_ons_only_notify_when_market_open: boolean;
-	add_ons_delivery_time: number | null;
-	add_ons_next_send_at: string | null;
+	daily_only_notify_when_market_open: boolean;
+	daily_delivery_time: number | null;
+	daily_next_send_at: string | null;
 	next_send_at: string | null;
 	dismiss_timezone_mismatch_prompts: boolean;
-	add_ons_include_news: boolean;
-	add_ons_include_rumors: boolean;
+	daily_include_news: boolean;
+	daily_include_rumors: boolean;
+	daily_include_analyst: boolean;
+	daily_include_insider: boolean;
+	weekly_include_earnings: boolean;
+	weekly_include_dividends: boolean;
+	weekly_next_send_at: string | null;
 };
 
 type AutoSaveOptions = Omit<AutoSaveFormOptions, "payloadKey" | "logAction">;

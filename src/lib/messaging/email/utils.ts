@@ -113,7 +113,7 @@ export function formatEmailMessage(
 ): { text: string; html: string } {
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const escapedDashboardUrl = escapeHtml(dashboardUrl);
-	const scheduleUrl = `${dashboardUrl}${DASHBOARD_SECTION_HASHES.scheduled}`;
+	const scheduleUrl = `${dashboardUrl}${DASHBOARD_SECTION_HASHES.frequent}`;
 	const escapedScheduleUrl = escapeHtml(scheduleUrl);
 	const unsubscribeUrl = createEmailUnsubscribeUrl({
 		userId: user.id,

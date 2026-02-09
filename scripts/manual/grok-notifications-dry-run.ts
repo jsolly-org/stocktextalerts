@@ -1,5 +1,5 @@
 import { DateTime } from "luxon";
-import { generateAddOnsExtrasWithGrok } from "../../src/lib/grok/extras";
+import { generateDailyExtrasWithGrok } from "../../src/lib/grok/extras";
 import { createLogger } from "../../src/lib/logging";
 import { formatSmsMessage } from "../../src/lib/messaging/sms/delivery";
 
@@ -36,7 +36,6 @@ function getArgValue(args: string[], name: string): string | undefined {
 }
 
 function parseBoolean(value: string | undefined): boolean | undefined {
-	if (!value) return undefined;
 	if (value === "true") return true;
 	if (value === "false") return false;
 	return undefined;
@@ -151,7 +150,7 @@ async function main() {
 		marketOpen,
 	});
 
-	const extras = await generateAddOnsExtrasWithGrok({
+	const extras = await generateDailyExtrasWithGrok({
 		tickers,
 		localDateIso,
 		timezone,

@@ -10,6 +10,8 @@ import type { SmsSender } from "./twilio-utils";
 export type SmsExtras = {
 	news?: string | null;
 	rumors?: string | null;
+	analyst?: string | null;
+	insider?: string | null;
 };
 
 function formatSmsExtras(extras?: SmsExtras): string {
@@ -20,6 +22,8 @@ function formatSmsExtras(extras?: SmsExtras): string {
 	const sections = [
 		formatExtrasSection("🗞️ News", extras.news),
 		formatExtrasSection("🤫 Rumors", extras.rumors),
+		formatExtrasSection("📊 Analyst Consensus", extras.analyst),
+		formatExtrasSection("🏦 Insider Trades", extras.insider),
 	].filter(Boolean);
 
 	return sections.join("\n\n");

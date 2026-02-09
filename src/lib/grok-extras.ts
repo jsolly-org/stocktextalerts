@@ -18,6 +18,10 @@ type SmsExtrasResult = {
 	rumors: string | null;
 };
 
+export type GrokChannel = "sms" | "email";
+
+const GROK_TIMEOUT_MS = 30_000;
+
 function getMetaEnv(): Record<string, string | undefined> | undefined {
 	return (import.meta as { env?: Record<string, string | undefined> }).env;
 }
@@ -28,8 +32,11 @@ function buildExtrasPrompt(options: {
 	timezone: string;
 	includeNews: boolean;
 	includeRumors: boolean;
+	channel?: GrokChannel;
+	finnhubNewsContext?: string;
 }): { system: string; user: string } {
 	const tickers = options.tickers.join(", ");
+	const channel = options.channel ?? "sms";
 	const requested = [
 		options.includeNews ? "news" : null,
 		options.includeRumors ? "rumors" : null,
@@ -37,18 +44,35 @@ function buildExtrasPrompt(options: {
 		.filter(Boolean)
 		.join(" + ");
 
-	return {
-		system:
-			"You write concise SMS add-ons for stock alerts. " +
+	const isSms = channel === "sms";
+
+	const system = isSms
+		? "You write very concise SMS extras for stock alerts. " +
+			"Be brief, neutral, and cautious. " +
+			"Do not give buy/sell advice. " +
+			"Do not claim to have real-time data or verified facts. " +
+			"Do not mention any specific websites, publications, or sources."
+		: "You write detailed email extras for stock alerts. Use complete sentences. " +
 			"Be descriptive, neutral, and cautious. " +
 			"Do not give buy/sell advice. " +
 			"Do not claim to have real-time data or verified facts. " +
-			"Do not mention any specific websites, publications, or sources.",
+			"Do not mention any specific websites, publications, or sources.";
+
+	const bulletRange = isSms ? "1–3" : "3–7";
+	const charLimit = isSms ? 200 : 800;
+
+	const newsContextBlock = options.finnhubNewsContext
+		? `\nHere are recent headlines for context (use these as your primary source for the news section):\n${options.finnhubNewsContext}\n`
+		: "";
+
+	return {
+		system,
 		user:
 			`Write short ${requested || "extras"} content for these tickers: ${tickers}.\n` +
-			`Context: this will be sent as a daily add-on notification.\n` +
-			`Local date: ${options.localDateIso} (${options.timezone}).\n\n` +
-			"Return EXACTLY this tagged format (no extra text outside tags):\n" +
+			`Context: this will be sent as a daily notification.\n` +
+			`Local date: ${options.localDateIso} (${options.timezone}).\n` +
+			newsContextBlock +
+			"\nReturn EXACTLY this tagged format (no extra text outside tags):\n" +
 			"[NEWS]\n" +
 			"<content>\n" +
 			"[/NEWS]\n" +
@@ -58,10 +82,10 @@ function buildExtrasPrompt(options: {
 			"Rules:\n" +
 			"- If news is not requested, output nothing between [NEWS] and [/NEWS].\n" +
 			"- If rumors are not requested, output nothing between [RUMORS] and [/RUMORS].\n" +
-			"- Each requested section: 2–5 bullet points max.\n" +
+			`- Each requested section: ${bulletRange} bullet points max.\n` +
 			"- Each bullet starts with the ticker (e.g. 'AAPL: ...').\n" +
 			"- No links.\n" +
-			"- Keep each section under 450 characters.\n" +
+			`- Keep each section under ${charLimit} characters.\n` +
 			"- News: focus on broad business/company developments people commonly discuss.\n" +
 			"- Rumors: use hedge words like 'chatter' and 'unconfirmed'. End the section with: 'Unverified chatter — double-check before acting.'",
 	};
@@ -83,13 +107,15 @@ function extractTaggedBlock(
 	return content === "" ? null : content;
 }
 
-export async function generateAddOnsExtrasWithGrok(options: {
+export async function generateDailyExtrasWithGrok(options: {
 	tickers: string[];
 	localDateIso: string;
 	timezone: string;
 	includeNews: boolean;
 	includeRumors: boolean;
+	channel?: GrokChannel;
 	requestId?: string;
+	finnhubNewsContext?: string;
 }): Promise<SmsExtrasResult | null> {
 	if (options.tickers.length === 0) {
 		return null;
@@ -114,7 +140,12 @@ export async function generateAddOnsExtrasWithGrok(options: {
 
 	const model =
 		metaEnv?.XAI_GROK_MODEL ?? process.env.XAI_GROK_MODEL ?? "grok-4";
-	const { system, user } = buildExtrasPrompt(options);
+	const channel = options.channel ?? "sms";
+	const { system, user } = buildExtrasPrompt({
+		...options,
+		channel,
+		finnhubNewsContext: options.finnhubNewsContext,
+	});
 
 	const requestBody: ChatCompletionRequest = {
 		model,
@@ -123,7 +154,7 @@ export async function generateAddOnsExtrasWithGrok(options: {
 			{ role: "user", content: user },
 		],
 		temperature: 0.4,
-		max_tokens: 300,
+		max_tokens: channel === "sms" ? 300 : 600,
 	};
 
 	const MAX_RETRIES = 3;
@@ -151,7 +182,7 @@ export async function generateAddOnsExtrasWithGrok(options: {
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify(requestBody),
-				signal: AbortSignal.timeout(15_000),
+				signal: AbortSignal.timeout(GROK_TIMEOUT_MS),
 			});
 
 			if (!response.ok) {
