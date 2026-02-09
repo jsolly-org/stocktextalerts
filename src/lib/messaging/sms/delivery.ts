@@ -33,10 +33,10 @@ export function formatSmsMessage(
 	const optOutSuffix = "Reply STOP to opt out.";
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 
-	const header = "Stock Text Alerts";
+	const header = "StockTextAlerts";
 
 	if (stocksList.trim() === NO_TRACKED_STOCKS_MESSAGE) {
-		return `${header}\n\n${NO_TRACKED_STOCKS_MESSAGE}.\n\nManage your stocks: ${dashboardUrl}\n\n${optOutSuffix}`;
+		return `${header}\n\n${NO_TRACKED_STOCKS_MESSAGE}.\n\nManage your settings: ${dashboardUrl}\n\n${optOutSuffix}`;
 	}
 
 	const marketDisclaimer = marketOpen ? "" : "Prices as of last market close.";
@@ -47,7 +47,7 @@ export function formatSmsMessage(
 		stocksList,
 		extrasBlock,
 		marketDisclaimer,
-		`Manage your stocks: ${dashboardUrl}`,
+		`Manage your settings: ${dashboardUrl}`,
 		optOutSuffix,
 	].filter(Boolean);
 

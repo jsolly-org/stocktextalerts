@@ -29,11 +29,11 @@ function formatDailyAddOnsSmsMessage(options: {
 		tickers.length > 0 ? `Tickers: ${tickers.join(", ")}` : "";
 
 	const sections = [
-		"Stock Text Alerts — Daily add-ons",
+		"StockTextAlerts — Daily add-ons",
 		tickersLine,
 		formatExtrasSection("🗞️ News", options.extras.news),
 		formatExtrasSection("🤫 Rumors", options.extras.rumors),
-		`Manage your stocks: ${dashboardUrl}`,
+		`Manage your settings: ${dashboardUrl}`,
 		optOutSuffix,
 	].filter((value) => Boolean(value));
 

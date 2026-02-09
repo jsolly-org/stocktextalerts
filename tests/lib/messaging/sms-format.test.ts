@@ -56,19 +56,21 @@ describe("SMS scheduled update includes stock price data.", () => {
 
 		const message = formatSmsMessage(stocksList, false);
 
-		expect(message).toContain("Stock Text Alerts");
+		expect(message).toContain("StockTextAlerts");
 		expect(message).toContain("You don't have any tracked stocks.");
-		expect(message).toContain("Manage your stocks: http://localhost/dashboard");
+		expect(message).toContain(
+			"Manage your settings: http://localhost/dashboard",
+		);
 		expect(message).toContain("Reply STOP to opt out.");
 		expect(message).not.toContain("Prices as of last market close.");
 	});
 
-	it("Includes Stock Text Alerts header.", () => {
+	it("Includes StockTextAlerts header.", () => {
 		const stocksList = "AAPL - Apple Inc. — $187.42 (+1.23%)";
 
 		const message = formatSmsMessage(stocksList, true);
 
-		expect(message).toMatch(/^Stock Text Alerts\n\n/);
+		expect(message).toMatch(/^StockTextAlerts\n\n/);
 	});
 
 	it("Includes dashboard link.", () => {
@@ -76,6 +78,8 @@ describe("SMS scheduled update includes stock price data.", () => {
 
 		const message = formatSmsMessage(stocksList, true);
 
-		expect(message).toContain("Manage your stocks: http://localhost/dashboard");
+		expect(message).toContain(
+			"Manage your settings: http://localhost/dashboard",
+		);
 	});
 });
