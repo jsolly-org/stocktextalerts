@@ -1,4 +1,4 @@
-import { DateTime } from "luxon";
+import { DateTime, FixedOffsetZone } from "luxon";
 import type { Logger } from "../logging";
 import type { UserRecord } from "../messaging/types";
 import type { SupabaseAdminClient } from "./helpers";
@@ -27,32 +27,57 @@ export function calculateNextMondaySendAt(
 	const current = now.setZone(timezone);
 	if (!current.isValid) return null;
 
-	// Find next Monday (weekday 1 in Luxon)
-	const daysUntilMonday = (1 - current.weekday + 7) % 7 || 7;
-	const targetDay = current.plus({ days: daysUntilMonday });
-
-	let candidate = DateTime.fromObject(
-		{
-			year: targetDay.year,
-			month: targetDay.month,
-			day: targetDay.day,
+	function buildCandidateFromDay(day: DateTime): DateTime | null {
+		const candidateLocal = {
+			year: day.year,
+			month: day.month,
+			day: day.day,
 			hour: hours,
 			minute: mins,
 			second: 0,
 			millisecond: 0,
-		},
-		{ zone: timezone },
-	);
+		};
 
-	if (!candidate.isValid) return null;
+		let candidate = DateTime.fromObject(candidateLocal, { zone: timezone });
+		if (!candidate.isValid) return null;
 
-	// Handle DST: prefer the later offset for ambiguous times
-	const possibleOffsets = candidate.getPossibleOffsets();
-	if (possibleOffsets.length > 1) {
-		candidate = possibleOffsets[possibleOffsets.length - 1];
+		// Handle DST ambiguity: pick the later possible instant for the same wall time.
+		const possibleOffsets = candidate.getPossibleOffsets() as unknown;
+		if (Array.isArray(possibleOffsets) && possibleOffsets.length > 1) {
+			const first = (possibleOffsets as unknown[])[0];
+
+			// Luxon returns DateTime[]; some environments/types may surface offsets as number[].
+			if (typeof first === "number") {
+				const offsets = possibleOffsets as unknown as number[];
+				// Later instant for the same wall time corresponds to the smaller offset.
+				const chosenOffset = Math.min(...offsets);
+				candidate = DateTime.fromObject(candidateLocal, {
+					zone: FixedOffsetZone.instance(chosenOffset),
+				}).setZone(timezone);
+			} else {
+				const possible = possibleOffsets as unknown as DateTime[];
+				candidate = possible.reduce((latest, dt) =>
+					dt.toMillis() > latest.toMillis() ? dt : latest,
+				);
+			}
+		}
+
+		return candidate.isValid ? candidate : null;
 	}
 
-	if (!candidate.isValid) return null;
+	// Find Monday (weekday 1 in Luxon). Allow "today" (0 days) if it's Monday.
+	const daysUntilMonday = (1 - current.weekday + 7) % 7;
+	let targetDay = current.plus({ days: daysUntilMonday });
+
+	let candidate = buildCandidateFromDay(targetDay);
+	if (!candidate) return null;
+
+	// If today's Monday time has already passed (or is exactly now), advance to next week.
+	if (candidate.toMillis() <= current.toMillis()) {
+		targetDay = targetDay.plus({ days: 7 });
+		candidate = buildCandidateFromDay(targetDay);
+		if (!candidate) return null;
+	}
 
 	return candidate.toUTC();
 }

@@ -20,6 +20,14 @@ import { processScheduledUser } from "./run-user";
 import { createSmsSenderProvider } from "./run-user-sms-sender";
 import { processWeeklyUser } from "./run-user-weekly";
 
+// Daily fan-out can easily produce a concurrency storm; keep this bounded.
+// Configure via env to tune for your Vercel plan/limits.
+const DAILY_DISPATCH_BATCH_SIZE = (() => {
+	const raw = process.env.SCHEDULE_DAILY_DISPATCH_BATCH_SIZE;
+	const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : 25;
+})();
+
 /**
  * Run all notification processors for the current minute.
  *
@@ -155,16 +163,26 @@ export async function runScheduledNotifications(options: {
 
 	// Fan-out: dispatch each daily user to its own serverless function
 	if (dailyUsers.length > 0) {
-		const dispatchResults = await Promise.allSettled(
-			dailyUsers.map((user) =>
-				dispatchDailyUser({
-					userId: user.id,
-					currentTimeIso,
-					marketOpen,
-					cronSecret,
-				}),
-			),
-		);
+		const dispatchResults: PromiseSettledResult<ScheduledNotificationTotals>[] =
+			[];
+		for (
+			let index = 0;
+			index < dailyUsers.length;
+			index += DAILY_DISPATCH_BATCH_SIZE
+		) {
+			const batch = dailyUsers.slice(index, index + DAILY_DISPATCH_BATCH_SIZE);
+			const batchResults = await Promise.allSettled(
+				batch.map((user) =>
+					dispatchDailyUser({
+						userId: user.id,
+						currentTimeIso,
+						marketOpen,
+						cronSecret,
+					}),
+				),
+			);
+			dispatchResults.push(...batchResults);
+		}
 
 		for (const result of dispatchResults) {
 			if (result.status === "fulfilled") {

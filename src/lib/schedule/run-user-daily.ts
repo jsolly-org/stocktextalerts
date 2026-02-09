@@ -128,7 +128,7 @@ export async function processDailyUser(options: {
 		}
 
 		if (user.daily_only_notify_when_market_open && !marketOpen) {
-			logger.info("Skipping daily daily notification: market is closed", {
+			logger.info("Skipping daily notification: market is closed", {
 				action: "daily_digest_run",
 				reason: "market_closed",
 				userId: user.id,
@@ -178,7 +178,7 @@ export async function processDailyUser(options: {
 			// Grok limit reached, but Finnhub-only daily can still proceed
 			if (!user.daily_include_analyst && !user.daily_include_insider) {
 				logger.info(
-					"Skipping daily daily: Grok send limit reached for this window",
+					"Skipping daily digest: Grok send limit reached for this window",
 					{
 						action: "daily_digest_run",
 						reason: "grok_limit",
@@ -290,7 +290,7 @@ export async function processDailyUser(options: {
 		);
 
 		if (!hasEmailContent && !hasSmsContent) {
-			logger.info("Skipping daily daily: no content available", {
+			logger.info("Skipping daily digest: no content available", {
 				action: "daily_digest_run",
 				reason: "no_content",
 				userId: user.id,
@@ -386,7 +386,7 @@ export async function processDailyUser(options: {
 	} catch (error) {
 		stats.skipped++;
 		logger.error(
-			"Error processing daily daily user",
+			"Error processing daily digest user",
 			{ userId: user.id },
 			error,
 		);
@@ -402,7 +402,7 @@ export async function processDailyUser(options: {
 			});
 		} catch (updateError) {
 			logger.error(
-				"Failed to update daily_next_send_at after daily daily error",
+				"Failed to update daily_next_send_at after daily digest error",
 				{ userId: user.id },
 				updateError,
 			);

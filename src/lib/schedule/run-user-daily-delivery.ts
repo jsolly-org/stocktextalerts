@@ -51,7 +51,7 @@ function formatDailyDigestEmail(options: {
 		tickers.length > 0 ? `Tickers: ${tickers.join(", ")}` : "Tickers: (none)";
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const escapedDashboardUrl = escapeHtml(dashboardUrl);
-	const scheduleUrl = `${dashboardUrl}${DASHBOARD_SECTION_HASHES.frequent}`;
+	const scheduleUrl = `${dashboardUrl}${DASHBOARD_SECTION_HASHES.dailyNotifications}`;
 	const escapedScheduleUrl = escapeHtml(scheduleUrl);
 	const unsubscribeUrl = createEmailUnsubscribeUrl({
 		userId: options.user.id,

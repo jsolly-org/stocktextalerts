@@ -33,7 +33,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
 	}
 
 	const { userId, currentTimeIso, marketOpen } = body;
-	if (!userId || !currentTimeIso || typeof marketOpen !== "boolean") {
+	const isParseableIso =
+		typeof currentTimeIso === "string" &&
+		Number.isFinite(Date.parse(currentTimeIso));
+	if (
+		typeof userId !== "string" ||
+		typeof currentTimeIso !== "string" ||
+		!isParseableIso ||
+		typeof marketOpen !== "boolean"
+	) {
 		return new Response("Bad Request: missing required fields", {
 			status: 400,
 		});
