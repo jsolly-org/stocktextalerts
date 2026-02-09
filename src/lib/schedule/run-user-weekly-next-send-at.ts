@@ -8,7 +8,7 @@ const DEFAULT_DELIVERY_MINUTES = 540; // 9:00 AM
 /**
  * Calculate the next Monday send time in UTC.
  *
- * - Finds the next Monday after `now` in the user's timezone
+ * - Finds the next Monday on/after `now` in the user's timezone
  * - Sets time to `localMinutes` (falls back to 9 AM / 540 if unset)
  * - Converts to UTC
  */
@@ -46,14 +46,17 @@ export function calculateNextMondaySendAt(
 		if (Array.isArray(possibleOffsets) && possibleOffsets.length > 1) {
 			const first = (possibleOffsets as unknown[])[0];
 
-			// Luxon returns DateTime[]; some environments/types may surface offsets as number[].
+			// Luxon returns DateTime[]; to be defensive, also handle number[] offsets if surfaced.
 			if (typeof first === "number") {
 				const offsets = possibleOffsets as unknown as number[];
-				// Later instant for the same wall time corresponds to the smaller offset.
-				const chosenOffset = Math.min(...offsets);
-				candidate = DateTime.fromObject(candidateLocal, {
-					zone: FixedOffsetZone.instance(chosenOffset),
-				}).setZone(timezone);
+				const candidates = offsets.map((offset) =>
+					candidate
+						.setZone(FixedOffsetZone.instance(offset), { keepLocalTime: true })
+						.setZone(timezone),
+				);
+				candidate = candidates.reduce((latest, dt) =>
+					dt.toMillis() > latest.toMillis() ? dt : latest,
+				);
 			} else {
 				const possible = possibleOffsets as unknown as DateTime[];
 				candidate = possible.reduce((latest, dt) =>
