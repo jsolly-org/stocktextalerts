@@ -237,7 +237,8 @@ export async function fetchInsiderTransactions(
 				typeof (item as Record<string, unknown>).name === "string" &&
 				typeof (item as Record<string, unknown>).change === "number" &&
 				typeof (item as Record<string, unknown>).transactionDate === "string" &&
-				(item as Record<string, unknown>).transactionDate >= cutoffDate,
+				((item as Record<string, unknown>).transactionDate as string) >=
+					cutoffDate,
 		)
 		.slice(0, 5)
 		.map((item: Record<string, unknown>) => ({
