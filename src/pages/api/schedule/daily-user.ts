@@ -33,13 +33,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
 	}
 
 	const { userId, currentTimeIso, marketOpen } = body;
-	const isParseableIso =
-		typeof currentTimeIso === "string" &&
-		Number.isFinite(Date.parse(currentTimeIso));
+	const parsedCurrentTime =
+		typeof currentTimeIso === "string"
+			? DateTime.fromISO(currentTimeIso, { zone: "utc" })
+			: null;
 	if (
 		typeof userId !== "string" ||
+		userId.trim() === "" ||
 		typeof currentTimeIso !== "string" ||
-		!isParseableIso ||
+		currentTimeIso.trim() === "" ||
+		parsedCurrentTime === null ||
+		!parsedCurrentTime.isValid ||
 		typeof marketOpen !== "boolean"
 	) {
 		return new Response("Bad Request: missing required fields", {
@@ -47,12 +51,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		});
 	}
 
-	const currentTime = DateTime.fromISO(currentTimeIso, { zone: "utc" });
-	if (!currentTime.isValid) {
-		return new Response("Bad Request: invalid currentTimeIso", {
-			status: 400,
-		});
-	}
+	const currentTime = parsedCurrentTime;
 
 	const supabase = createSupabaseAdminClient();
 
