@@ -3,7 +3,7 @@
 		<h4 class="text-sm font-medium text-gray-700 mb-3">Email Preview</h4>
 		<div class="email-card">
 			<div class="email-gradient-header">
-				<span class="text-white text-lg font-semibold">Stock Text Alerts</span>
+				<span class="text-white text-lg font-semibold">StockTextAlerts</span>
 			</div>
 			<div class="email-body">
 				<h3 class="text-gray-900 text-base font-semibold mt-0 mb-3">Your Stock Update</h3>

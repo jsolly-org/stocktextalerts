@@ -65,7 +65,7 @@ function formatDailyAddOnsEmail(options: {
 		tickersLine,
 		news ? `\n🗞️ News\n${news}` : "",
 		rumors ? `\n🤫 Rumors\n${rumors}` : "",
-		`\nManage your stocks: ${dashboardUrl}`,
+		`\nManage your settings: ${dashboardUrl}`,
 		`Manage your delivery schedule: ${scheduleUrl}`,
 		`Unsubscribe from email notifications: ${unsubscribeUrl}`,
 	].filter(Boolean);
@@ -88,7 +88,7 @@ function formatDailyAddOnsEmail(options: {
 		${rumors ? `<h3 style="margin: 16px 0 6px; font-size: 14px;">🤫 Rumors</h3><pre style="white-space: pre-wrap; margin: 0; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">${escapeHtml(rumors)}</pre>` : ""}
 		<div style="text-align: center; margin-top: 20px;">
 			<a href="${escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
-				Manage your stocks →
+				Manage your settings →
 			</a>
 		</div>
 		<p style="color: #6b7280; font-size: 12px; margin-top: 18px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
