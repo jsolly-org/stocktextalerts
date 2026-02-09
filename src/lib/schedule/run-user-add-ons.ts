@@ -1,5 +1,5 @@
 import { DateTime } from "luxon";
-import { generateFirstNotificationExtrasWithGrok } from "../grok-extras";
+import { generateAddOnsExtrasWithGrok } from "../grok-extras";
 import type { Logger } from "../logging";
 import type { EmailSender } from "../messaging/email/utils";
 import { shouldSendSms } from "../messaging/sms";
@@ -17,21 +17,28 @@ import {
 import { updateUserAddOnsNextSendAt } from "./run-user-add-ons-next-send-at";
 import type { SmsSenderProvider } from "./run-user-sms-sender";
 
-function canInvokeGrokWithinWindow(options: {
-	lastInvokedAtIso: string | null;
+const GROK_WINDOW_HOURS = 24;
+const GROK_MAX_SENDS_PER_WINDOW = 10;
+
+function canInvokeGrokWithinLimit(options: {
+	grokWindowStart: string | null;
+	grokSendsInWindow: number;
 	currentTimeUtc: DateTime;
-	windowHours: number;
 }): boolean {
-	if (!options.lastInvokedAtIso) {
+	const { grokWindowStart, grokSendsInWindow, currentTimeUtc } = options;
+	if (!grokWindowStart) {
 		return true;
 	}
-	const last = DateTime.fromISO(options.lastInvokedAtIso, { zone: "utc" });
-	if (!last.isValid) {
+	const windowStart = DateTime.fromISO(grokWindowStart, { zone: "utc" });
+	if (!windowStart.isValid) {
 		return true;
 	}
-	return (
-		options.currentTimeUtc.diff(last, "hours").hours >= options.windowHours
-	);
+	// If the window has expired, the counter will be reset — allow the send.
+	if (currentTimeUtc.diff(windowStart, "hours").hours >= GROK_WINDOW_HOURS) {
+		return true;
+	}
+	// Within the window — check the counter.
+	return grokSendsInWindow < GROK_MAX_SENDS_PER_WINDOW;
 }
 
 export async function processDailyAddOnsUser(options: {
@@ -123,10 +130,7 @@ export async function processDailyAddOnsUser(options: {
 			return stats;
 		}
 
-		if (
-			!user.first_notification_include_news &&
-			!user.first_notification_include_rumors
-		) {
+		if (!user.add_ons_include_news && !user.add_ons_include_rumors) {
 			stats.skipped++;
 			await updateUserAddOnsNextSendAt({
 				user,
@@ -140,20 +144,21 @@ export async function processDailyAddOnsUser(options: {
 		const userStocks = await loadUserStocks(supabase, user.id);
 
 		if (
-			!canInvokeGrokWithinWindow({
-				lastInvokedAtIso: user.last_grok_rumors_at,
+			!canInvokeGrokWithinLimit({
+				grokWindowStart: user.grok_window_start,
+				grokSendsInWindow: user.grok_sends_in_window,
 				currentTimeUtc: currentTime,
-				windowHours: 24,
 			})
 		) {
 			logger.info(
-				"Skipping daily add-ons: Grok extras already generated recently",
+				"Skipping daily add-ons: Grok send limit reached for this window",
 				{
 					action: "daily_add_ons_run",
-					reason: "grok_gate",
+					reason: "grok_limit",
 					userId: user.id,
 					scheduledDate,
 					scheduledMinutes,
+					grokSendsInWindow: user.grok_sends_in_window,
 				},
 			);
 			stats.skipped++;
@@ -166,12 +171,12 @@ export async function processDailyAddOnsUser(options: {
 			return stats;
 		}
 
-		const extras = await generateFirstNotificationExtrasWithGrok({
+		const extras = await generateAddOnsExtrasWithGrok({
 			tickers: userStocks.map((s) => s.symbol),
 			localDateIso: scheduledDate,
 			timezone: user.timezone,
-			includeNews: user.first_notification_include_news,
-			includeRumors: user.first_notification_include_rumors,
+			includeNews: user.add_ons_include_news,
+			includeRumors: user.add_ons_include_rumors,
 		});
 
 		if (!extras?.news && !extras?.rumors) {
@@ -220,21 +225,39 @@ export async function processDailyAddOnsUser(options: {
 			});
 		}
 
-		// Only set the 24-hour gate if at least one delivery succeeded.
+		// Only bump the send counter if at least one delivery succeeded.
 		// This way, if delivery fails (e.g. DB issue), the user can adjust
-		// their time and get the notification re-sent without waiting 24h.
+		// their time and get the notification re-sent without burning a send.
 		if (stats.emailsSent > 0 || stats.smsSent > 0) {
-			const invokedAt = currentTime.toISO();
-			if (invokedAt) {
-				user.last_grok_rumors_at = invokedAt;
+			const now = currentTime.toISO();
+			if (now) {
+				// If the window has expired (or never started), reset the counter.
+				const windowStart = user.grok_window_start
+					? DateTime.fromISO(user.grok_window_start, { zone: "utc" })
+					: null;
+				const windowExpired =
+					!windowStart?.isValid ||
+					currentTime.diff(windowStart, "hours").hours >= GROK_WINDOW_HOURS;
+
+				const newCount = windowExpired ? 1 : user.grok_sends_in_window + 1;
+				const newWindowStart = windowExpired ? now : user.grok_window_start;
+
+				user.grok_sends_in_window = newCount;
+				user.grok_window_start = newWindowStart;
+				user.last_grok_rumors_at = now;
+
 				const { error } = await supabase
 					.from("users")
-					.update({ last_grok_rumors_at: invokedAt })
+					.update({
+						last_grok_rumors_at: now,
+						grok_window_start: newWindowStart,
+						grok_sends_in_window: newCount,
+					})
 					.eq("id", user.id);
 				if (error) {
 					logger.error(
-						"Failed to update last_grok_rumors_at (add-ons)",
-						{ userId: user.id, invokedAt },
+						"Failed to update grok send counter (add-ons)",
+						{ userId: user.id, newCount, newWindowStart },
 						error,
 					);
 				}

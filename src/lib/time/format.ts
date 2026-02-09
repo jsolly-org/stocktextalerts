@@ -1,5 +1,6 @@
 import { DateTime, Duration } from "luxon";
 import {
+	US_MARKET_CLOSE_EASTERN_MINUTES,
 	US_MARKET_OPEN_EASTERN_MINUTES,
 	US_MARKET_TIMEZONE,
 } from "../constants";
@@ -244,6 +245,39 @@ export function getUsMarketOpenLocalMinutes(userTimezone: string): number {
 	});
 	const local = eastern.setZone(userTimezone);
 	return local.hour * 60 + local.minute;
+}
+
+export function getUsMarketCloseLocalMinutes(userTimezone: string): number {
+	const marketCloseHour = Math.floor(US_MARKET_CLOSE_EASTERN_MINUTES / 60);
+	const marketCloseMinute = US_MARKET_CLOSE_EASTERN_MINUTES % 60;
+	const eastern = DateTime.now().setZone(US_MARKET_TIMEZONE).set({
+		hour: marketCloseHour,
+		minute: marketCloseMinute,
+		second: 0,
+		millisecond: 0,
+	});
+	const local = eastern.setZone(userTimezone);
+	return local.hour * 60 + local.minute;
+}
+
+/**
+ * Returns true when a local minute-of-day falls outside regular US market
+ * hours (9:30 AM – 4:00 PM ET) converted to the user's timezone.
+ */
+export function isOutsideMarketHours(
+	timeMinutes: number,
+	userTimezone: string,
+): boolean {
+	const openLocal = getUsMarketOpenLocalMinutes(userTimezone);
+	const closeLocal = getUsMarketCloseLocalMinutes(userTimezone);
+
+	// When open < close (same calendar day), valid range is [open, close).
+	// When open >= close (crosses midnight, e.g. far-east timezones),
+	// valid range wraps: [open, 1440) ∪ [0, close).
+	if (openLocal < closeLocal) {
+		return timeMinutes < openLocal || timeMinutes >= closeLocal;
+	}
+	return timeMinutes >= closeLocal && timeMinutes < openLocal;
 }
 
 /* =============

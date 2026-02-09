@@ -123,6 +123,7 @@
 				:maxTimes="MAX_DELIVERY_TIMES"
 				:maxTimesReached="maxTimesReached"
 				:countdownText="countdownText"
+				:outsideMarketHoursIndices="outsideMarketHoursIndices"
 			@update:onlyNotifyWhenMarketOpen="handleOnlyNotifyWhenMarketOpenUpdate"
 			@time-change="handleTimeChange"
 			@add-time="handleAddTime"
@@ -155,6 +156,7 @@ import {
 import {
 	formatMinutesAsLocalTime,
 	getUsMarketOpenLocalMinutes,
+	isOutsideMarketHours,
 	minutesToTimeInputValue,
 	parseTimeToMinutes,
 } from "../../../lib/time/format";
@@ -324,6 +326,19 @@ const hasMarketOpenTime = computed(() => {
 const canAddMarketOpen = computed(
 	() => !timePickerDisabled.value && !hasMarketOpenTime.value && !maxTimesReached.value,
 );
+
+const outsideMarketHoursIndices = computed<Set<number>>(() => {
+	if (!onlyNotifyWhenMarketOpen.value) return new Set();
+	const tz = timezone.value;
+	if (tz === "") return new Set();
+	const indices = new Set<number>();
+	for (let i = 0; i < scheduledUpdateTimesMinutes.value.length; i++) {
+		if (isOutsideMarketHours(scheduledUpdateTimesMinutes.value[i], tz)) {
+			indices.add(i);
+		}
+	}
+	return indices;
+});
 
 watch(
 	() => user.value.price_notifications_enabled,

@@ -17,8 +17,8 @@ export type NotificationPreferencesData = {
 	add_ons_next_send_at: string | null;
 	next_send_at: string | null;
 	dismiss_timezone_mismatch_prompts: boolean;
-	first_notification_include_news: boolean;
-	first_notification_include_rumors: boolean;
+	add_ons_include_news: boolean;
+	add_ons_include_rumors: boolean;
 };
 
 type AutoSaveOptions = Omit<AutoSaveFormOptions, "payloadKey" | "logAction">;

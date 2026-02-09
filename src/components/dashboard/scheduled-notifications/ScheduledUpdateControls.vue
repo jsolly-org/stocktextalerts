@@ -73,28 +73,36 @@
 						Market open ({{ marketOpenLabel }} your time)
 					</button>
 				</div>
-				<div
-					v-for="(time, index) in scheduledUpdateTimes"
-					:key="`${index}-${time}`"
-					class="flex items-center gap-2"
-				>
-						<TimePicker
-							:inputId="`scheduled_update_time_${index}`"
-							:inputName="`scheduled_update_time_${index}`"
-							:initialTime="time"
-							:inputAriaLabel="`Delivery time ${index + 1}`"
-							:disabled="timePickerDisabled"
-							@time-change="emit('time-change', index, $event)"
-						/>
+			<div
+				v-for="(time, index) in scheduledUpdateTimes"
+				:key="`${index}-${time}`"
+			>
+				<div class="flex items-center gap-2">
+					<TimePicker
+						:inputId="`scheduled_update_time_${index}`"
+						:inputName="`scheduled_update_time_${index}`"
+						:initialTime="time"
+						:inputAriaLabel="`Delivery time ${index + 1}`"
+						:disabled="timePickerDisabled"
+						@time-change="emit('time-change', index, $event)"
+					/>
 					<button
 						type="button"
 						class="inline-flex items-center justify-center size-8 shrink-0 rounded-lg text-gray-400 hover:bg-error-bg hover:text-error-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2"
 						:aria-label="`Remove delivery time ${index + 1}`"
 						@click="emit('remove-time', index)"
 					>
-							<XMarkIcon class="size-4" aria-hidden="true" />
-						</button>
-					</div>
+						<XMarkIcon class="size-4" aria-hidden="true" />
+					</button>
+				</div>
+				<p
+					v-if="outsideMarketHoursIndices.has(index)"
+					class="text-xs text-amber-600 mt-1"
+					role="note"
+				>
+					Outside regular US market hours — this notification will be skipped.
+				</p>
+			</div>
 				</div>
 			<div class="flex flex-col gap-2">
 				<div class="flex flex-wrap gap-2">
@@ -161,6 +169,7 @@ interface Props {
 	maxTimes: number;
 	maxTimesReached: boolean;
 	countdownText: string | null;
+	outsideMarketHoursIndices: Set<number>;
 }
 
 const props = defineProps<Props>();

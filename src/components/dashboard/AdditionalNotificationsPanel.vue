@@ -1,7 +1,7 @@
 <template>
 	<form
 		ref="extrasFormElement"
-		:id="DASHBOARD_FIRST_NOTIFICATION_EXTRAS_FORM_ID"
+		:id="DASHBOARD_ADDITIONAL_NOTIFICATIONS_FORM_ID"
 		method="POST"
 		action="/api/notification-preferences/update"
 		class="space-y-6"
@@ -35,7 +35,7 @@
 			<div class="card-body">
 			<header class="mb-4">
 				<h2
-					:id="DASHBOARD_SECTION_IDS.firstNotificationExtras"
+					:id="DASHBOARD_SECTION_IDS.additionalNotifications"
 					class="text-xl sm:text-2xl font-bold text-gray-900"
 				>
 					Additional Notifications
@@ -108,7 +108,8 @@
 							Sent once every day.
 						</p>
 					</div>
-				<div class="flex items-center gap-2 shrink-0">
+			<div class="shrink-0">
+				<div class="flex items-center gap-2">
 					<TimePicker
 						:inputId="`add_ons_delivery_time`"
 						:inputName="`add_ons_delivery_time`"
@@ -140,7 +141,15 @@
 						<span class="sm:hidden">Market open</span>
 					</button>
 				</div>
-				</div>
+				<p
+					v-if="isAddOnsTimeOutsideMarketHours"
+					class="text-xs text-amber-600 mt-1"
+					role="note"
+				>
+					Outside regular US market hours — this notification will be skipped.
+				</p>
+			</div>
+			</div>
 
 					<div class="flex items-center justify-between gap-3 py-3">
 					<input
@@ -174,13 +183,13 @@
 					<div class="flex items-center justify-between gap-3 py-3">
 						<input
 							type="hidden"
-							name="first_notification_include_news"
-							:value="includeNews ? 'on' : 'off'"
-						/>
-						<div class="min-w-0">
-							<div class="flex items-center gap-2">
-								<span
-									id="first_notification_include_news_label"
+						name="add_ons_include_news"
+						:value="includeNews ? 'on' : 'off'"
+					/>
+					<div class="min-w-0">
+						<div class="flex items-center gap-2">
+							<span
+								id="add_ons_include_news_label"
 									class="text-base font-semibold text-gray-900"
 								>
 									🗞️ News
@@ -188,7 +197,7 @@
 								<GrokLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Grok" role="img" />
 							</div>
 							<p
-								id="first_notification_include_news_description"
+								id="add_ons_include_news_description"
 								class="text-sm text-gray-600 mt-0.5"
 							>
 								Add a short news summary about the stocks you’re tracking.
@@ -198,21 +207,21 @@
 						v-model="includeNews"
 						:disabled="needsChannelSelection"
 						sr-label="Include news 🗞️"
-							aria-labelledby="first_notification_include_news_label"
-							aria-describedby="first_notification_include_news_description"
+							aria-labelledby="add_ons_include_news_label"
+							aria-describedby="add_ons_include_news_description"
 						/>
 					</div>
 
 					<div class="flex items-center justify-between gap-3 py-3">
 						<input
 							type="hidden"
-							name="first_notification_include_rumors"
-							:value="includeRumors ? 'on' : 'off'"
-						/>
-						<div class="min-w-0">
-							<div class="flex items-center gap-2">
-								<span
-									id="first_notification_include_rumors_label"
+						name="add_ons_include_rumors"
+						:value="includeRumors ? 'on' : 'off'"
+					/>
+					<div class="min-w-0">
+						<div class="flex items-center gap-2">
+							<span
+								id="add_ons_include_rumors_label"
 									class="text-base font-semibold text-gray-900"
 								>
 									🤫 Rumors
@@ -220,7 +229,7 @@
 								<GrokLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Grok" role="img" />
 							</div>
 							<p
-								id="first_notification_include_rumors_description"
+								id="add_ons_include_rumors_description"
 								class="text-sm text-gray-600 mt-0.5"
 							>
 								Add a short rumors/chatter summary about the stocks you’re tracking.
@@ -230,8 +239,8 @@
 						v-model="includeRumors"
 						:disabled="needsChannelSelection"
 						sr-label="Include rumors 🤫"
-							aria-labelledby="first_notification_include_rumors_label"
-							aria-describedby="first_notification_include_rumors_description"
+							aria-labelledby="add_ons_include_rumors_label"
+							aria-describedby="add_ons_include_rumors_description"
 						/>
 					</div>
 				</fieldset>
@@ -261,7 +270,7 @@ import PresentationChartLineIcon from "../../icons/presentation-chart-line.svg?c
 import XMarkIcon from "../../icons/x-mark.svg?component";
 import {
 	CARD_GRADIENT_ACCENTS,
-	DASHBOARD_FIRST_NOTIFICATION_EXTRAS_FORM_ID,
+	DASHBOARD_ADDITIONAL_NOTIFICATIONS_FORM_ID,
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 	DASHBOARD_SECTION_IDS,
 	STATUS_TONE_CLASSES,
@@ -272,6 +281,7 @@ import {
 	getNowInTimezone,
 	getSecondsUntilNextSend,
 	getUsMarketOpenLocalMinutes,
+	isOutsideMarketHours,
 	minutesToTimeInputValue,
 	parseTimeToMinutes,
 } from "../../lib/time/format";
@@ -333,8 +343,8 @@ const {
 	formRef: extrasFormElement,
 });
 
-const includeNews = ref(user.value.first_notification_include_news);
-const includeRumors = ref(user.value.first_notification_include_rumors);
+const includeNews = ref(user.value.add_ons_include_news);
+const includeRumors = ref(user.value.add_ons_include_rumors);
 const addOnsDeliveryTimeMinutes = ref<number | null>(user.value.add_ons_delivery_time);
 const onlyNotifyWhenMarketOpen = ref(user.value.add_ons_only_notify_when_market_open);
 
@@ -385,6 +395,14 @@ const canSetMarketOpen = computed(
 	() => !addOnsTimepickerDisabled.value && !isMarketOpenTime.value,
 );
 
+const isAddOnsTimeOutsideMarketHours = computed(() => {
+	if (!onlyNotifyWhenMarketOpen.value) return false;
+	if (addOnsDeliveryTimeMinutes.value === null) return false;
+	const tz = user.value.timezone ?? "";
+	if (tz === "") return false;
+	return isOutsideMarketHours(addOnsDeliveryTimeMinutes.value, tz);
+});
+
 function handleClearDeliveryTime() {
 	if (addOnsTimepickerDisabled.value) return;
 	addOnsDeliveryTimeMinutes.value = null;
@@ -431,13 +449,13 @@ function handleAddOnsTimeChange(value: string) {
 }
 
 watch(
-	() => user.value.first_notification_include_news,
+	() => user.value.add_ons_include_news,
 	(value) => {
 		includeNews.value = value;
 	},
 );
 watch(
-	() => user.value.first_notification_include_rumors,
+	() => user.value.add_ons_include_rumors,
 	(value) => {
 		includeRumors.value = value;
 	},
@@ -466,9 +484,9 @@ watch(
 		}
 		user.value = {
 			...user.value,
-			first_notification_include_news: newData.first_notification_include_news,
-			first_notification_include_rumors:
-				newData.first_notification_include_rumors,
+			add_ons_include_news: newData.add_ons_include_news,
+			add_ons_include_rumors:
+				newData.add_ons_include_rumors,
 			add_ons_delivery_time: newData.add_ons_delivery_time,
 			add_ons_next_send_at: newData.add_ons_next_send_at,
 			add_ons_only_notify_when_market_open: newData.add_ons_only_notify_when_market_open,

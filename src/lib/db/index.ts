@@ -39,8 +39,8 @@ export type NotificationPreferencesSnapshot = Pick<
 	| "add_ons_next_send_at"
 	| "next_send_at"
 	| "dismiss_timezone_mismatch_prompts"
-	| "first_notification_include_news"
-	| "first_notification_include_rumors"
+	| "add_ons_include_news"
+	| "add_ons_include_rumors"
 >;
 
 export type NotificationPreferences = Pick<

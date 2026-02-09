@@ -14,8 +14,8 @@ export const DASHBOARD_STOCKS_STATUS_ID = "dashboard-stocks-save-status";
 export const DASHBOARD_SCHEDULED_FORM_ID = "dashboard-scheduled-form";
 export const DASHBOARD_FORMAT_PREFERENCES_FORM_ID =
 	"dashboard-format-preferences-form";
-export const DASHBOARD_FIRST_NOTIFICATION_EXTRAS_FORM_ID =
-	"dashboard-first-notification-extras-form";
+export const DASHBOARD_ADDITIONAL_NOTIFICATIONS_FORM_ID =
+	"dashboard-additional-notifications-form";
 
 /* =============
 Status Message Colors
@@ -48,6 +48,7 @@ Defined in Eastern Time (New York) so market-time calculations are stable across
 DST and user timezones; downstream converts as needed for UI and scheduling.
 ============= */
 export const US_MARKET_OPEN_EASTERN_MINUTES = 9 * 60 + 30;
+export const US_MARKET_CLOSE_EASTERN_MINUTES = 16 * 60; // 4:00 PM ET
 export const US_MARKET_TIMEZONE = "America/New_York";
 
 /* =============
@@ -89,7 +90,7 @@ export const DASHBOARD_SECTION_IDS = {
 	stocks: "tracked-stocks",
 	scheduled: "scheduled-notifications",
 	preview: "notification-preview",
-	firstNotificationExtras: "first-notification-extras",
+	additionalNotifications: "additional-notifications",
 } as const;
 
 type DashboardSection = keyof typeof DASHBOARD_SECTION_IDS;
@@ -99,7 +100,7 @@ export const DASHBOARD_SECTION_HASHES: Record<DashboardSection, string> = {
 	stocks: `#${DASHBOARD_SECTION_IDS.stocks}`,
 	scheduled: `#${DASHBOARD_SECTION_IDS.scheduled}`,
 	preview: `#${DASHBOARD_SECTION_IDS.preview}`,
-	firstNotificationExtras: `#${DASHBOARD_SECTION_IDS.firstNotificationExtras}`,
+	additionalNotifications: `#${DASHBOARD_SECTION_IDS.additionalNotifications}`,
 };
 
 /* =============

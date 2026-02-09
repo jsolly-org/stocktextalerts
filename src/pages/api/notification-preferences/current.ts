@@ -57,9 +57,8 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 				next_send_at: dbUser.next_send_at,
 				dismiss_timezone_mismatch_prompts:
 					dbUser.dismiss_timezone_mismatch_prompts,
-				first_notification_include_news: dbUser.first_notification_include_news,
-				first_notification_include_rumors:
-					dbUser.first_notification_include_rumors,
+				add_ons_include_news: dbUser.add_ons_include_news,
+				add_ons_include_rumors: dbUser.add_ons_include_rumors,
 			},
 		});
 	} catch (error) {

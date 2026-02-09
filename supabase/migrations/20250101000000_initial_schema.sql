@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.app_metadata (
 );
 
 INSERT INTO public.app_metadata (key, value)
-VALUES ('schema_version', '20250101000000_initial_schema@v8')
+VALUES ('schema_version', '20250101000000_initial_schema@v9')
 ON CONFLICT (key) DO UPDATE SET
   value = EXCLUDED.value;
 
@@ -245,8 +245,10 @@ CREATE TABLE IF NOT EXISTS users (
   sms_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
   sms_opted_out BOOLEAN DEFAULT false NOT NULL,
   dismiss_timezone_mismatch_prompts BOOLEAN DEFAULT false NOT NULL,
-  first_notification_include_news BOOLEAN DEFAULT false NOT NULL,
-  first_notification_include_rumors BOOLEAN DEFAULT false NOT NULL,
+  add_ons_include_news BOOLEAN DEFAULT false NOT NULL,
+  add_ons_include_rumors BOOLEAN DEFAULT false NOT NULL,
+  grok_window_start TIMESTAMP WITH TIME ZONE,
+  grok_sends_in_window INTEGER DEFAULT 0 NOT NULL,
   show_change_percent BOOLEAN DEFAULT false NOT NULL,
   show_company_name BOOLEAN DEFAULT true NOT NULL,
   detailed_format BOOLEAN DEFAULT true NOT NULL,
@@ -783,3 +785,26 @@ CREATE TRIGGER update_scheduled_notifications_updated_at
   BEFORE UPDATE ON scheduled_notifications
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
+
+/* =============
+Auth User Cascade Delete
+============= */
+
+-- When an auth user is deleted, automatically delete the corresponding
+-- public.users row (which cascades to all child tables).
+CREATE OR REPLACE FUNCTION public.handle_auth_user_deleted()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  DELETE FROM public.users WHERE id = OLD.id;
+  RETURN OLD;
+END;
+$$;
+
+CREATE TRIGGER on_auth_user_deleted
+  AFTER DELETE ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_auth_user_deleted();

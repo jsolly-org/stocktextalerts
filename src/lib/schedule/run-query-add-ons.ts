@@ -28,9 +28,11 @@ export async function fetchDailyAddOnsUsers(options: {
 			email_notifications_enabled,
 			sms_notifications_enabled,
 			sms_opted_out,
-			first_notification_include_news,
-			first_notification_include_rumors,
-			last_grok_rumors_at
+			add_ons_include_news,
+			add_ons_include_rumors,
+			last_grok_rumors_at,
+			grok_window_start,
+			grok_sends_in_window
 		`,
 			)
 			.not("add_ons_delivery_time", "is", null)

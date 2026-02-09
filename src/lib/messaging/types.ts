@@ -20,9 +20,11 @@ export interface FormatPreferences {
 }
 
 type GrokRumorsPreferences = {
-	first_notification_include_news: boolean;
-	first_notification_include_rumors: boolean;
+	add_ons_include_news: boolean;
+	add_ons_include_rumors: boolean;
 	last_grok_rumors_at: string | null;
+	grok_window_start: string | null;
+	grok_sends_in_window: number;
 };
 
 export type UserRecord = Pick<

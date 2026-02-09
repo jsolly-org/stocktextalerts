@@ -46,7 +46,7 @@ function buildExtrasPrompt(options: {
 			"Do not mention any specific websites, publications, or sources.",
 		user:
 			`Write short ${requested || "extras"} content for these tickers: ${tickers}.\n` +
-			`Context: this will be appended to the user's first scheduled SMS of the day.\n` +
+			`Context: this will be sent as a daily add-on notification.\n` +
 			`Local date: ${options.localDateIso} (${options.timezone}).\n\n` +
 			"Return EXACTLY this tagged format (no extra text outside tags):\n" +
 			"[NEWS]\n" +
@@ -83,7 +83,7 @@ function extractTaggedBlock(
 	return content === "" ? null : content;
 }
 
-export async function generateFirstNotificationExtrasWithGrok(options: {
+export async function generateAddOnsExtrasWithGrok(options: {
 	tickers: string[];
 	localDateIso: string;
 	timezone: string;

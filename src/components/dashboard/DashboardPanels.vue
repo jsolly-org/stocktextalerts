@@ -33,7 +33,7 @@
 		:phoneVerified="phoneVerified"
 	/>
 
-	<FirstNotificationExtrasPanel
+	<AdditionalNotificationsPanel
 		:emailEnabled="emailEnabled"
 		:smsEnabled="smsEnabled"
 		:phoneVerified="phoneVerified"
@@ -51,9 +51,9 @@
 import { computed, ref, toRefs, watch } from "vue";
 import { DASHBOARD_STOCKS_FORM_ID } from "../../lib/constants";
 import type { User } from "../../lib/db";
+import AdditionalNotificationsPanel from "./AdditionalNotificationsPanel.vue";
 import { useAutoSaveForm } from "./composables/useAutoSaveNotificationPreferences";
 import { provideDashboardUser } from "./composables/useDashboardUser";
-import FirstNotificationExtrasPanel from "./FirstNotificationExtrasPanel.vue";
 import NotificationChannelsPanel from "./notification-channels/NotificationChannelsPanel.vue";
 import NotificationPreviewPanel from "./notification-preview/NotificationPreviewPanel.vue";
 import ScheduledNotificationsPanel from "./scheduled-notifications/ScheduledNotificationsPanel.vue";

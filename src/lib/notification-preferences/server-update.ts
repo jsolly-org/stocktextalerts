@@ -17,8 +17,8 @@ interface ParsedNotificationPreferencesForm {
 	only_notify_when_market_open?: boolean;
 	add_ons_only_notify_when_market_open?: boolean;
 	add_ons_delivery_time?: number;
-	first_notification_include_news?: boolean;
-	first_notification_include_rumors?: boolean;
+	add_ons_include_news?: boolean;
+	add_ons_include_rumors?: boolean;
 }
 
 export function buildNotificationPreferencesUpdatePayload(options: {
@@ -72,8 +72,8 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		timezone: parsedData.timezone,
 		scheduled_update_times: normalizedTimes,
 		...boolFromForm("price_notifications_enabled", true),
-		...boolFromForm("first_notification_include_news"),
-		...boolFromForm("first_notification_include_rumors"),
+		...boolFromForm("add_ons_include_news"),
+		...boolFromForm("add_ons_include_rumors"),
 		...boolFromForm("email_notifications_enabled"),
 		...boolFromForm("sms_notifications_enabled"),
 		...boolFromForm("only_notify_when_market_open"),

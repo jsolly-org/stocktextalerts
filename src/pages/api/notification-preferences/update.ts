@@ -17,8 +17,8 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	only_notify_when_market_open: { type: "boolean" },
 	add_ons_only_notify_when_market_open: { type: "boolean" },
 	add_ons_delivery_time: { type: "time" },
-	first_notification_include_news: { type: "boolean" },
-	first_notification_include_rumors: { type: "boolean" },
+	add_ons_include_news: { type: "boolean" },
+	add_ons_include_rumors: { type: "boolean" },
 } as const satisfies FormSchema;
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
@@ -183,10 +183,8 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 				next_send_at: updatedUser.next_send_at,
 				dismiss_timezone_mismatch_prompts:
 					updatedUser.dismiss_timezone_mismatch_prompts,
-				first_notification_include_news:
-					updatedUser.first_notification_include_news,
-				first_notification_include_rumors:
-					updatedUser.first_notification_include_rumors,
+				add_ons_include_news: updatedUser.add_ons_include_news,
+				add_ons_include_rumors: updatedUser.add_ons_include_rumors,
 			},
 		});
 	} catch (error) {

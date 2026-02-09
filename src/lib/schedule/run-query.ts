@@ -33,9 +33,11 @@ export async function fetchScheduledUsers(options: {
 			email_notifications_enabled,
 			sms_notifications_enabled,
 			sms_opted_out,
-			first_notification_include_news,
-			first_notification_include_rumors,
+			add_ons_include_news,
+			add_ons_include_rumors,
 			last_grok_rumors_at,
+			grok_window_start,
+			grok_sends_in_window,
 			show_change_percent,
 			show_company_name,
 			detailed_format

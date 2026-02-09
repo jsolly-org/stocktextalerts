@@ -1,5 +1,5 @@
 import { DateTime } from "luxon";
-import { generateFirstNotificationExtrasWithGrok } from "../../src/lib/grok/extras";
+import { generateAddOnsExtrasWithGrok } from "../../src/lib/grok/extras";
 import { createLogger } from "../../src/lib/logging";
 import { formatSmsMessage } from "../../src/lib/messaging/sms/delivery";
 
@@ -151,7 +151,7 @@ async function main() {
 		marketOpen,
 	});
 
-	const extras = await generateFirstNotificationExtrasWithGrok({
+	const extras = await generateAddOnsExtrasWithGrok({
 		tickers,
 		localDateIso,
 		timezone,

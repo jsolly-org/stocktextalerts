@@ -234,6 +234,8 @@ export type Database = {
       users: {
         Row: {
           add_ons_delivery_time: number | null
+          add_ons_include_news: boolean
+          add_ons_include_rumors: boolean
           add_ons_next_send_at: string | null
           add_ons_only_notify_when_market_open: boolean
           created_at: string
@@ -241,9 +243,9 @@ export type Database = {
           dismiss_timezone_mismatch_prompts: boolean
           email: string
           email_notifications_enabled: boolean
-          first_notification_include_news: boolean
-          first_notification_include_rumors: boolean
           full_phone: string | null
+          grok_sends_in_window: number
+          grok_window_start: string | null
           id: string
           last_grok_rumors_at: string | null
           last_market_closed_skip_recorded_at: string | null
@@ -265,6 +267,8 @@ export type Database = {
         }
         Insert: {
           add_ons_delivery_time?: number | null
+          add_ons_include_news?: boolean
+          add_ons_include_rumors?: boolean
           add_ons_next_send_at?: string | null
           add_ons_only_notify_when_market_open?: boolean
           created_at?: string
@@ -272,9 +276,9 @@ export type Database = {
           dismiss_timezone_mismatch_prompts?: boolean
           email: string
           email_notifications_enabled?: boolean
-          first_notification_include_news?: boolean
-          first_notification_include_rumors?: boolean
           full_phone?: string | null
+          grok_sends_in_window?: number
+          grok_window_start?: string | null
           id?: string
           last_grok_rumors_at?: string | null
           last_market_closed_skip_recorded_at?: string | null
@@ -296,6 +300,8 @@ export type Database = {
         }
         Update: {
           add_ons_delivery_time?: number | null
+          add_ons_include_news?: boolean
+          add_ons_include_rumors?: boolean
           add_ons_next_send_at?: string | null
           add_ons_only_notify_when_market_open?: boolean
           created_at?: string
@@ -303,9 +309,9 @@ export type Database = {
           dismiss_timezone_mismatch_prompts?: boolean
           email?: string
           email_notifications_enabled?: boolean
-          first_notification_include_news?: boolean
-          first_notification_include_rumors?: boolean
           full_phone?: string | null
+          grok_sends_in_window?: number
+          grok_window_start?: string | null
           id?: string
           last_grok_rumors_at?: string | null
           last_market_closed_skip_recorded_at?: string | null
