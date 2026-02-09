@@ -34,6 +34,11 @@ export interface ScheduledNotificationTotals {
 	smsFailed: number;
 }
 
+/**
+ * Load a user's tracked stocks (symbol + stock name) from the database.
+ *
+ * Throws on query errors; returns a normalized list on success.
+ */
 export async function loadUserStocks(
 	supabase: AppSupabaseClient,
 	userId: string,
@@ -53,6 +58,12 @@ export async function loadUserStocks(
 	}));
 }
 
+/**
+ * Update the status/error fields for a specific scheduled notification row.
+ *
+ * This is keyed by the composite uniqueness of:
+ * user + notification type + scheduled date/minutes + channel.
+ */
 export async function updateScheduledNotificationRow(options: {
 	supabase: SupabaseAdminClient;
 	userId: string;
@@ -108,6 +119,12 @@ export async function updateScheduledNotificationRow(options: {
 	}
 }
 
+/**
+ * Record that retries were exhausted for a scheduled notification, and write a log row.
+ *
+ * This is used as a backstop so we can track delivery failures without spamming retries
+ * within a single run.
+ */
 export async function logRetriesExhausted(options: {
 	supabase: SupabaseAdminClient;
 	userId: string;

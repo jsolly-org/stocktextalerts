@@ -21,6 +21,12 @@ import {
 } from "./run-user-weekly-delivery";
 import { updateUserWeeklyNextSendAt } from "./run-user-weekly-next-send-at";
 
+/**
+ * Process a single user's weekly calendar notification.
+ *
+ * Fetches earnings/dividend events for the current week (Mon–Fri) for the user's tracked stocks,
+ * formats channel-specific sections, delivers via enabled channels, and advances `weekly_next_send_at`.
+ */
 export async function processWeeklyUser(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;

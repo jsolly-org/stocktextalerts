@@ -17,6 +17,12 @@ import type {
 import { logRetriesExhausted, updateScheduledNotificationRow } from "./helpers";
 import type { SmsSenderProvider } from "./run-user-sms-sender";
 
+/**
+ * Deliver a scheduled (frequent) stock update via email and record the result.
+ *
+ * Uses `claim_scheduled_notification` for idempotency, then writes the final status to
+ * `scheduled_notifications` and logs a notification row.
+ */
 export async function processScheduledUserEmailDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
@@ -117,6 +123,12 @@ export async function processScheduledUserEmailDelivery(options: {
 	});
 }
 
+/**
+ * Deliver a scheduled (frequent) stock update via SMS and record the result.
+ *
+ * Uses `claim_scheduled_notification` for idempotency. SMS sender initialization can fail
+ * (e.g. missing Twilio config); that failure is recorded and the notification is marked failed.
+ */
 export async function processScheduledUserSmsDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;

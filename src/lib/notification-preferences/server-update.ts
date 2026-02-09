@@ -26,6 +26,12 @@ interface ParsedNotificationPreferencesForm {
 	weekly_include_dividends?: boolean;
 }
 
+/**
+ * Build a safe `users` table update payload from the notification preferences form submission.
+ *
+ * Only fields actually submitted by the form are persisted to avoid boolean drift when unchecked
+ * controls are omitted. Also recomputes derived `*_next_send_at` fields when inputs change.
+ */
 export function buildNotificationPreferencesUpdatePayload(options: {
 	parsedData: ParsedNotificationPreferencesForm;
 	formData: FormData;
@@ -223,6 +229,12 @@ export interface TimezoneUpdatePayload {
 	weekly_next_send_at?: string | null;
 }
 
+/**
+ * Compute the minimal update payload required when a user changes timezone.
+ *
+ * Recomputes `next_send_at`, `daily_next_send_at`, and `weekly_next_send_at` only when the user
+ * has the corresponding schedule enabled to avoid unnecessary writes.
+ */
 export function computeTimezoneUpdatePayload(
 	newTimezone: string,
 	dbUser: User,

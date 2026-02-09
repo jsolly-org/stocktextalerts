@@ -5,6 +5,12 @@ import type { SupabaseAdminClient } from "./helpers";
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 1000;
 
+/**
+ * Fetch users eligible for a weekly calendar run.
+ *
+ * When `forceSend` is false, users are filtered by `weekly_next_send_at <= currentTimeIso`.
+ * Retries transient Supabase errors a small number of times before throwing.
+ */
 export async function fetchWeeklyUsers(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;

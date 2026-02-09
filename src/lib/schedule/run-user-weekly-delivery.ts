@@ -108,6 +108,12 @@ function formatWeeklyCalendarEmail(options: {
 Delivery: Email
 ============= */
 
+/**
+ * Deliver a weekly calendar notification via email and record the result.
+ *
+ * Uses the `claim_scheduled_notification` RPC to ensure idempotent delivery across retries
+ * and parallel runners, then writes a `scheduled_notifications` status update.
+ */
 export async function processWeeklyCalendarEmailDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
@@ -219,6 +225,12 @@ export async function processWeeklyCalendarEmailDelivery(options: {
 Delivery: SMS
 ============= */
 
+/**
+ * Deliver a weekly calendar notification via SMS and record the result.
+ *
+ * Uses the `claim_scheduled_notification` RPC for idempotency. If the user is opted out or
+ * lacks SMS capability, the function returns without delivery.
+ */
 export async function processWeeklyCalendarSmsDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;

@@ -121,6 +121,11 @@ async function finnhubFetch(
 Individual Fetchers
 ============= */
 
+/**
+ * Fetch recent company news headlines for a ticker within a date range.
+ *
+ * Returns a small, validated subset of the Finnhub response (headline/summary/datetime).
+ */
 export async function fetchCompanyNews(
 	symbol: string,
 	from: string,
@@ -149,6 +154,11 @@ export async function fetchCompanyNews(
 		}));
 }
 
+/**
+ * Fetch the latest analyst recommendation trend for a ticker.
+ *
+ * Returns the most recent period if available; otherwise `null`.
+ */
 export async function fetchRecommendationTrends(
 	symbol: string,
 ): Promise<RecommendationTrend | null> {
@@ -186,6 +196,11 @@ export async function fetchRecommendationTrends(
 	return { buy, hold, sell, strongBuy, strongSell, period };
 }
 
+/**
+ * Fetch recent insider transactions for a ticker.
+ *
+ * Returns a validated, capped list; invalid payloads yield an empty array.
+ */
 export async function fetchInsiderTransactions(
 	symbol: string,
 ): Promise<InsiderTransaction[]> {
@@ -225,6 +240,11 @@ export async function fetchInsiderTransactions(
 Calendar Fetchers: Earnings + Dividends
 ============= */
 
+/**
+ * Fetch the global earnings calendar for a date range.
+ *
+ * Finnhub returns a large list; callers should filter down to the user's symbols.
+ */
 export async function fetchEarningsCalendar(
 	from: string,
 	to: string,
@@ -261,6 +281,11 @@ export async function fetchEarningsCalendar(
 		}));
 }
 
+/**
+ * Fetch dividend events for a ticker within a date range.
+ *
+ * Returns a validated list (may be empty).
+ */
 export async function fetchStockDividends(
 	symbol: string,
 	from: string,
@@ -292,6 +317,12 @@ export async function fetchStockDividends(
 		}));
 }
 
+/**
+ * Fetch weekly calendar data (earnings + dividends) for a set of symbols.
+ *
+ * Earnings are fetched once globally and filtered; dividends are fetched per symbol with
+ * small delays to reduce API rate-limit pressure.
+ */
 export async function fetchWeeklyCalendarData(
 	symbols: string[],
 	weekStart: string,
@@ -330,6 +361,12 @@ export async function fetchWeeklyCalendarData(
 Wrapper: Fetch all enabled Finnhub data for a set of tickers
 ============= */
 
+/**
+ * Fetch enabled Finnhub "extras" data (news/analyst/insider) for a set of symbols.
+ *
+ * Requests are batched per symbol (parallel within symbol, sequential across symbols)
+ * with small inter-request delays to reduce rate-limit pressure.
+ */
 export async function fetchFinnhubExtras(
 	symbols: string[],
 	options: {
@@ -399,6 +436,11 @@ export async function fetchFinnhubExtras(
 Formatting: Build context string from Finnhub news for Grok
 ============= */
 
+/**
+ * Build a compact, line-based context string from recent news headlines for Grok.
+ *
+ * Format: one line per headline, prefixed by ticker (e.g. `AAPL: ...`).
+ */
 export function buildNewsContextForGrok(
 	newsData: Map<string, CompanyNewsItem[]>,
 ): string {
@@ -416,6 +458,11 @@ export function buildNewsContextForGrok(
 Formatting: Analyst consensus section
 ============= */
 
+/**
+ * Format analyst recommendation trend data as a channel-appropriate text block.
+ *
+ * Returns `null` when no tickers have usable trend data.
+ */
 export function formatAnalystSection(
 	data: Map<string, RecommendationTrend | null>,
 	channel: GrokChannel,
@@ -457,6 +504,11 @@ const HOUR_LABELS: Record<string, string> = {
 	dmh: "during market hours",
 };
 
+/**
+ * Format earnings calendar events as a channel-appropriate text block.
+ *
+ * Returns `null` when there are no earnings events to include.
+ */
 export function formatEarningsSection(
 	data: Map<string, EarningsEvent[]>,
 	channel: GrokChannel,
@@ -497,6 +549,11 @@ function formatRevenue(value: number): string {
 Formatting: Dividends section for weekly calendar
 ============= */
 
+/**
+ * Format dividend calendar events as a channel-appropriate text block.
+ *
+ * Returns `null` when there are no dividend events to include.
+ */
 export function formatDividendsSection(
 	data: Map<string, DividendEvent[]>,
 	channel: GrokChannel,
@@ -523,6 +580,11 @@ export function formatDividendsSection(
 	return lines.length > 0 ? lines.join("\n") : null;
 }
 
+/**
+ * Format insider transaction data as a channel-appropriate text block.
+ *
+ * Returns `null` when there are no insider transactions to include.
+ */
 export function formatInsiderSection(
 	data: Map<string, InsiderTransaction[]>,
 	channel: GrokChannel,

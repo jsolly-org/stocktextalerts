@@ -110,6 +110,13 @@ function formatDailyDigestEmail(options: {
 
 	return { subject, text, html };
 }
+
+/**
+ * Deliver a daily digest via email and record the result.
+ *
+ * Uses the `claim_scheduled_notification` RPC to ensure idempotent delivery across retries
+ * and parallel runners, then writes a `scheduled_notifications` status update.
+ */
 export async function processDailyDigestEmailDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
@@ -212,6 +219,13 @@ export async function processDailyDigestEmailDelivery(options: {
 		logger,
 	});
 }
+
+/**
+ * Deliver a daily digest via SMS and record the result.
+ *
+ * Uses the `claim_scheduled_notification` RPC for idempotency. If the user is opted out or
+ * lacks SMS capability, the function returns without delivery.
+ */
 export async function processDailyDigestSmsDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;

@@ -20,7 +20,15 @@ import { processScheduledUser } from "./run-user";
 import { createSmsSenderProvider } from "./run-user-sms-sender";
 import { processWeeklyUser } from "./run-user-weekly";
 
-async function runScheduledNotifications(options: {
+/**
+ * Run all notification processors for the current minute.
+ *
+ * This orchestrates:
+ * - frequent scheduled updates (with batched price fetching)
+ * - weekly calendar notifications (in-process)
+ * - daily digest notifications (fan-out per user to reduce Grok bottlenecks)
+ */
+export async function runScheduledNotifications(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
 	forceSend: boolean;
@@ -198,5 +206,3 @@ async function runScheduledNotifications(options: {
 		},
 	);
 }
-
-export { runScheduledNotifications };

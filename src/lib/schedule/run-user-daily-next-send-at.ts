@@ -5,6 +5,12 @@ import { calculateNextSendAt } from "../time/scheduled-times";
 import type { SupabaseAdminClient } from "./helpers";
 
 // Recompute because timezone/DST offsets can shift the user's intended local delivery time.
+/**
+ * Recompute and persist `users.daily_next_send_at` for a user.
+ *
+ * Clears the field when daily delivery is disabled, otherwise calculates the next UTC send
+ * timestamp based on the user's local delivery time and timezone.
+ */
 export async function updateUserDailyNextSendAt(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;

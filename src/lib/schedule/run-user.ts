@@ -20,6 +20,13 @@ import {
 import { updateUserNextSendAt } from "./run-user-next-send-at";
 import type { SmsSenderProvider } from "./run-user-sms-sender";
 
+/**
+ * Process a single user's scheduled (frequent) stock update notification.
+ *
+ * Computes a deterministic schedule key (local date + local minutes) from `next_send_at`,
+ * formats the stocks list, delivers via enabled channels, records delivery attempts, and
+ * advances `next_send_at`.
+ */
 export async function processScheduledUser(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;

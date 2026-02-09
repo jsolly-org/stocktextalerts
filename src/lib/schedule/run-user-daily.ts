@@ -48,6 +48,14 @@ function canInvokeGrokWithinLimit(options: {
 	return grokSendsInWindow < GROK_MAX_SENDS_PER_WINDOW;
 }
 
+/**
+ * Process a single user's daily digest notification.
+ *
+ * - Computes a deterministic schedule key (local date + local minutes) from `daily_next_send_at`
+ * - Fetches optional Finnhub extras (news context, analyst consensus, insider trades)
+ * - Optionally invokes Grok for channel-specific news/rumors (rate-limited per user window)
+ * - Delivers via enabled channels and advances `daily_next_send_at`
+ */
 export async function processDailyUser(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;

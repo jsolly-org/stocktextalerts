@@ -57,6 +57,12 @@ export function calculateNextMondaySendAt(
 	return candidate.toUTC();
 }
 
+/**
+ * Recompute and persist `users.weekly_next_send_at` for a user.
+ *
+ * Clears the field when weekly options are disabled, otherwise calculates the next Monday send
+ * timestamp (in UTC) using the user's timezone and preferred local delivery time.
+ */
 export async function updateUserWeeklyNextSendAt(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;

@@ -13,6 +13,11 @@ const EMPTY_STATS: ScheduledNotificationTotals = {
 	smsFailed: 0,
 };
 
+/**
+ * Fan-out helper to dispatch daily processing for a single user via the internal API.
+ *
+ * This is used by the cron runner to parallelize work safely while keeping API auth consistent.
+ */
 export async function dispatchDailyUser(options: {
 	userId: string;
 	currentTimeIso: string;

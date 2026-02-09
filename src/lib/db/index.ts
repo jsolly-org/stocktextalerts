@@ -62,6 +62,11 @@ Users
 
 export type UserUpdateInput = DbUserUpdate;
 
+/**
+ * Create a small, cookie-aware user service wrapper around the Supabase client.
+ *
+ * This centralizes session refresh + cookie updates so RLS-backed queries keep working.
+ */
 export function createUserService(
 	supabase: AppSupabaseClient,
 	cookies: AstroCookies,
@@ -150,6 +155,9 @@ export function createUserService(
 Stocks
 ============= */
 
+/**
+ * Load a user's tracked stocks (symbol + created_at + stock name).
+ */
 export async function getUserStocks(
 	supabase: AppSupabaseClient,
 	userId: string,
@@ -177,6 +185,11 @@ type NonUndefined<T> = {
 	[K in keyof T]: Exclude<T[K], undefined>;
 };
 
+/**
+ * Return a shallow copy of `input` with all `undefined` values removed.
+ *
+ * Useful for building update payloads where omitted keys should not be persisted.
+ */
 export function omitUndefined<T extends Record<string, unknown | undefined>>(
 	input: T,
 ) {

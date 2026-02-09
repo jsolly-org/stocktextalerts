@@ -182,6 +182,11 @@ export const MESSAGE_ALLOWLIST = {
 
 type MessageKey = keyof typeof MESSAGE_ALLOWLIST;
 
+/**
+ * Convert a whitelisted status/message key into a user-facing string.
+ *
+ * Unknown keys are treated as empty and logged for visibility.
+ */
 export function formatMessage(message: string | null): string {
 	if (!message) return "";
 

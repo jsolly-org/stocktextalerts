@@ -18,6 +18,9 @@ type SmsExtrasResult = {
 	rumors: string | null;
 };
 
+/**
+ * Delivery channel used to tune Grok output length/verbosity.
+ */
 export type GrokChannel = "sms" | "email";
 
 const GROK_TIMEOUT_MS = 30_000;
@@ -107,6 +110,12 @@ function extractTaggedBlock(
 	return content === "" ? null : content;
 }
 
+/**
+ * Generate optional daily "extras" (news/rumors) using Grok.
+ *
+ * Returns `null` when no extras are requested, tickers are empty, the API key is missing,
+ * or the request ultimately fails after retries.
+ */
 export async function generateDailyExtrasWithGrok(options: {
 	tickers: string[];
 	localDateIso: string;

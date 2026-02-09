@@ -29,6 +29,11 @@ function formatSmsExtras(extras?: SmsExtras): string {
 	return sections.join("\n\n");
 }
 
+/**
+ * Format the SMS body for a scheduled stock update.
+ *
+ * Includes an opt-out suffix and an optional "extras" block (news/rumors/analyst/insider).
+ */
 export function formatSmsMessage(
 	stocksList: string,
 	marketOpen: boolean,
@@ -58,6 +63,12 @@ export function formatSmsMessage(
 	return sections.join("\n\n");
 }
 
+/**
+ * Send and record an SMS scheduled update for a user.
+ *
+ * This persists a notification log row regardless of delivery success, and returns
+ * normalized processing stats for aggregation.
+ */
 export async function processSmsUpdate(
 	supabase: AppSupabaseClient,
 	user: SmsUser,
