@@ -35,7 +35,6 @@ describe("Users receive scheduled stock update notifications.", () => {
 			timezone,
 			emailNotificationsEnabled: true,
 			smsNotificationsEnabled: false,
-			scheduledUpdatesEnabled: true,
 			scheduledUpdateTimes: [scheduledUpdateTime],
 			trackedStocks: ["AAPL"],
 		});

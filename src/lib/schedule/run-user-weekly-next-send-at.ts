@@ -100,7 +100,10 @@ export async function updateUserWeeklyNextSendAt(options: {
 	const { user, supabase, logger, currentTime } = options;
 
 	const hasWeeklyOption =
-		user.weekly_include_earnings || user.weekly_include_dividends;
+		user.weekly_include_earnings_email ||
+		user.weekly_include_earnings_sms ||
+		user.weekly_include_dividends_email ||
+		user.weekly_include_dividends_sms;
 
 	if (!hasWeeklyOption) {
 		const { error } = await supabase

@@ -13,15 +13,15 @@
 					id="show_change_percent_label"
 					class="text-base font-semibold text-gray-900"
 				>
-					Show Change %
+					Show Daily Change %
 				</span>
 				<p id="show_change_percent_description" class="text-sm text-gray-600 mt-0.5">
-					Display the percentage change alongside the price.
+					Include the day's gain or loss percentage next to each stock price.
 				</p>
 			</div>
 			<ToggleSwitch
 				v-model="showChangePercentValue"
-				sr-label="Show change percent"
+				sr-label="Show daily change percent"
 				aria-labelledby="show_change_percent_label"
 				aria-describedby="show_change_percent_description"
 			/>

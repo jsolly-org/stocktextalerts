@@ -137,8 +137,7 @@
 						@click="handleSetMarketOpen"
 					>
 						<PresentationChartLineIcon class="size-4 shrink-0" aria-hidden="true" />
-						<span class="hidden sm:inline">Market open ({{ marketOpenLabel }} your time)</span>
-						<span class="sm:hidden">Market open</span>
+						Market open
 					</button>
 				</div>
 				<p
@@ -183,8 +182,8 @@
 					<div class="flex items-center justify-between gap-3 py-3">
 						<input
 							type="hidden"
-						name="daily_include_news"
-						:value="includeNews ? 'on' : 'off'"
+						name="daily_include_news_email"
+						:value="includeNewsEmail ? 'on' : 'off'"
 					/>
 					<div class="min-w-0">
 						<div class="flex items-center gap-2">
@@ -196,28 +195,36 @@
 								</span>
 								<GrokLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Grok" role="img" />
 								<FinnhubLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Finnhub" role="img" />
+								<EnvelopeIcon class="h-4.5 w-auto shrink-0 text-gray-400" aria-label="Email only" role="img" />
 							</div>
 							<p
 								id="daily_include_news_description"
 								class="text-sm text-gray-600 mt-0.5"
 							>
-								Add a short news summary about the stocks you're tracking. Email only — not included in SMS.
+								Add a short news summary about the stocks you're tracking. Email only.
 							</p>
 						</div>
-					<ToggleSwitch
-						v-model="includeNews"
-						:disabled="needsChannelSelection"
-						sr-label="Include news 🗞️"
+					<span
+						:title="showEmailRequiredHint ? 'Enable the email channel to use this feature' : undefined"
+						:class="showEmailRequiredHint ? 'cursor-not-allowed' : undefined"
+						class="inline-flex shrink-0"
+					>
+						<ToggleSwitch
+							v-model="includeNewsEmail"
+							:disabled="emailOnlyDisabled"
+							:class="{ 'pointer-events-none': showEmailRequiredHint }"
+							sr-label="Include news 🗞️"
 							aria-labelledby="daily_include_news_label"
 							aria-describedby="daily_include_news_description"
 						/>
+					</span>
 					</div>
 
 					<div class="flex items-center justify-between gap-3 py-3">
 						<input
 							type="hidden"
-						name="daily_include_rumors"
-						:value="includeRumors ? 'on' : 'off'"
+						name="daily_include_rumors_email"
+						:value="includeRumorsEmail ? 'on' : 'off'"
 					/>
 					<div class="min-w-0">
 						<div class="flex items-center gap-2">
@@ -228,28 +235,41 @@
 									🤫 Rumors
 								</span>
 								<GrokLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Grok" role="img" />
+								<EnvelopeIcon class="h-4.5 w-auto shrink-0 text-gray-400" aria-label="Email only" role="img" />
 							</div>
 							<p
 								id="daily_include_rumors_description"
 								class="text-sm text-gray-600 mt-0.5"
 							>
-								Add a short rumors/chatter summary about the stocks you're tracking. Email only — not included in SMS.
+								Add a short rumors/chatter summary about the stocks you're tracking. Email only.
 							</p>
 						</div>
-					<ToggleSwitch
-						v-model="includeRumors"
-						:disabled="needsChannelSelection"
-						sr-label="Include rumors 🤫"
+					<span
+						:title="showEmailRequiredHint ? 'Enable the email channel to use this feature' : undefined"
+						:class="showEmailRequiredHint ? 'cursor-not-allowed' : undefined"
+						class="inline-flex shrink-0"
+					>
+						<ToggleSwitch
+							v-model="includeRumorsEmail"
+							:disabled="emailOnlyDisabled"
+							:class="{ 'pointer-events-none': showEmailRequiredHint }"
+							sr-label="Include rumors 🤫"
 							aria-labelledby="daily_include_rumors_label"
 							aria-describedby="daily_include_rumors_description"
 						/>
+					</span>
 					</div>
 
 					<div class="flex items-center justify-between gap-3 py-3">
 						<input
 							type="hidden"
-							name="daily_include_analyst"
-							:value="includeAnalyst ? 'on' : 'off'"
+							name="daily_include_analyst_email"
+							:value="includeAnalystEmail ? 'on' : 'off'"
+						/>
+						<input
+							type="hidden"
+							name="daily_include_analyst_sms"
+							:value="includeAnalystSms ? 'on' : 'off'"
 						/>
 						<div class="min-w-0">
 							<div class="flex items-center gap-2">
@@ -268,20 +288,40 @@
 								See how analysts rate the stocks you're tracking (buy/hold/sell).
 							</p>
 						</div>
-						<ToggleSwitch
-							v-model="includeAnalyst"
-							:disabled="needsChannelSelection"
-							sr-label="Include analyst consensus 📊"
-							aria-labelledby="daily_include_analyst_label"
-							aria-describedby="daily_include_analyst_description"
-						/>
+						<div class="flex items-center gap-4 shrink-0">
+							<label class="inline-flex items-center gap-1.5 cursor-pointer">
+								<input
+									type="checkbox"
+									v-model="includeAnalystEmail"
+									:disabled="needsChannelSelection"
+									class="rounded border-gray-300 text-teal-600 focus:ring-teal-500 h-4 w-4 cursor-pointer"
+									aria-describedby="daily_include_analyst_description"
+								/>
+								<span class="text-sm text-gray-700">Email</span>
+							</label>
+							<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : needsChannelSelection ? 'cursor-not-allowed' : 'cursor-not-allowed opacity-50'">
+								<input
+									type="checkbox"
+									v-model="includeAnalystSms"
+									:disabled="needsChannelSelection || !smsReady"
+									class="rounded border-gray-300 text-teal-600 focus:ring-teal-500 h-4 w-4 cursor-pointer"
+									aria-describedby="daily_include_analyst_description"
+								/>
+								<span class="text-sm text-gray-700">SMS</span>
+							</label>
+						</div>
 					</div>
 
 					<div class="flex items-center justify-between gap-3 py-3">
 						<input
 							type="hidden"
-							name="daily_include_insider"
-							:value="includeInsider ? 'on' : 'off'"
+							name="daily_include_insider_email"
+							:value="includeInsiderEmail ? 'on' : 'off'"
+						/>
+						<input
+							type="hidden"
+							name="daily_include_insider_sms"
+							:value="includeInsiderSms ? 'on' : 'off'"
 						/>
 						<div class="min-w-0">
 							<div class="flex items-center gap-2">
@@ -300,13 +340,28 @@
 								Recent insider buying and selling activity from SEC filings.
 							</p>
 						</div>
-						<ToggleSwitch
-							v-model="includeInsider"
-							:disabled="needsChannelSelection"
-							sr-label="Include insider trades 🏦"
-							aria-labelledby="daily_include_insider_label"
-							aria-describedby="daily_include_insider_description"
-						/>
+						<div class="flex items-center gap-4 shrink-0">
+							<label class="inline-flex items-center gap-1.5 cursor-pointer">
+								<input
+									type="checkbox"
+									v-model="includeInsiderEmail"
+									:disabled="needsChannelSelection"
+									class="rounded border-gray-300 text-teal-600 focus:ring-teal-500 h-4 w-4 cursor-pointer"
+									aria-describedby="daily_include_insider_description"
+								/>
+								<span class="text-sm text-gray-700">Email</span>
+							</label>
+							<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : needsChannelSelection ? 'cursor-not-allowed' : 'cursor-not-allowed opacity-50'">
+								<input
+									type="checkbox"
+									v-model="includeInsiderSms"
+									:disabled="needsChannelSelection || !smsReady"
+									class="rounded border-gray-300 text-teal-600 focus:ring-teal-500 h-4 w-4 cursor-pointer"
+									aria-describedby="daily_include_insider_description"
+								/>
+								<span class="text-sm text-gray-700">SMS</span>
+							</label>
+						</div>
 					</div>
 				</fieldset>
 
@@ -329,6 +384,7 @@ import ArrowPathIcon from "../../icons/arrow-path.svg?component";
 import ArrowTopRightOnSquareIcon from "../../icons/arrow-top-right-on-square.svg?component";
 import BellAlertIcon from "../../icons/bell-alert.svg?component";
 import ClockIcon from "../../icons/clock.svg?component";
+import EnvelopeIcon from "../../icons/envelope.svg?component";
 import FinnhubLogoIcon from "../../icons/finnhub.svg?component";
 import GrokLogoIcon from "../../icons/grok.svg?component";
 import InformationCircleIcon from "../../icons/information-circle-20.svg?component";
@@ -376,6 +432,11 @@ const smsReady = computed(() => smsEnabled.value && phoneVerified.value);
 const hasNotificationChannel = computed(() => emailEnabled.value || smsReady.value);
 const needsChannelSelection = computed(() => !hasNotificationChannel.value);
 const needsPhoneVerification = computed(() => smsEnabled.value && !phoneVerified.value);
+
+/** News & Rumors are email-only — disable when email channel isn't enabled */
+const emailOnlyDisabled = computed(() => needsChannelSelection.value || !emailEnabled.value);
+/** Show the "email required" tooltip only when SMS is active but email isn't (the needsChannelSelection state already has its own UI treatment) */
+const showEmailRequiredHint = computed(() => !emailEnabled.value && !needsChannelSelection.value);
 const phoneVerificationSectionId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-phone-verification-section`;
 
 const isHydrated = ref(false);
@@ -409,15 +470,17 @@ const {
 	formRef: extrasFormElement,
 });
 
-const includeNews = ref(user.value.daily_include_news);
-const includeRumors = ref(user.value.daily_include_rumors);
-const includeAnalyst = ref(user.value.daily_include_analyst);
-const includeInsider = ref(user.value.daily_include_insider);
+const includeNewsEmail = ref(user.value.daily_include_news_email);
+const includeRumorsEmail = ref(user.value.daily_include_rumors_email);
+const includeAnalystEmail = ref(user.value.daily_include_analyst_email);
+const includeInsiderEmail = ref(user.value.daily_include_insider_email);
+const includeAnalystSms = ref(user.value.daily_include_analyst_sms);
+const includeInsiderSms = ref(user.value.daily_include_insider_sms);
 const dailyDeliveryTimeMinutes = ref<number | null>(user.value.daily_delivery_time);
 const onlyNotifyWhenMarketOpen = ref(user.value.daily_only_notify_when_market_open);
 
 const dailyEnabled = computed(() =>
-	includeNews.value || includeRumors.value || includeAnalyst.value || includeInsider.value,
+	includeNewsEmail.value || includeRumorsEmail.value || includeAnalystEmail.value || includeInsiderEmail.value || includeAnalystSms.value || includeInsiderSms.value,
 );
 
 watch(onlyNotifyWhenMarketOpen, (value) => {
@@ -496,7 +559,7 @@ const nextDailyDeliveryText = computed(() => {
 });
 
 watch(
-	[includeNews, includeRumors, includeAnalyst, includeInsider, onlyNotifyWhenMarketOpen],
+	[includeNewsEmail, includeRumorsEmail, includeAnalystEmail, includeInsiderEmail, includeAnalystSms, includeInsiderSms, onlyNotifyWhenMarketOpen],
 	() => {
 		notifyChange();
 	},
@@ -510,27 +573,39 @@ function handleDailyTimeChange(value: string) {
 }
 
 watch(
-	() => user.value.daily_include_news,
+	() => user.value.daily_include_news_email,
 	(value) => {
-		includeNews.value = value;
+		includeNewsEmail.value = value;
 	},
 );
 watch(
-	() => user.value.daily_include_rumors,
+	() => user.value.daily_include_rumors_email,
 	(value) => {
-		includeRumors.value = value;
+		includeRumorsEmail.value = value;
 	},
 );
 watch(
-	() => user.value.daily_include_analyst,
+	() => user.value.daily_include_analyst_email,
 	(value) => {
-		includeAnalyst.value = value;
+		includeAnalystEmail.value = value;
 	},
 );
 watch(
-	() => user.value.daily_include_insider,
+	() => user.value.daily_include_insider_email,
 	(value) => {
-		includeInsider.value = value;
+		includeInsiderEmail.value = value;
+	},
+);
+watch(
+	() => user.value.daily_include_analyst_sms,
+	(value) => {
+		includeAnalystSms.value = value;
+	},
+);
+watch(
+	() => user.value.daily_include_insider_sms,
+	(value) => {
+		includeInsiderSms.value = value;
 	},
 );
 watch(
@@ -553,10 +628,12 @@ watch(savedData, (newData) => {
 	if (!newData) return;
 	user.value = {
 		...user.value,
-		daily_include_news: newData.daily_include_news,
-		daily_include_rumors: newData.daily_include_rumors,
-		daily_include_analyst: newData.daily_include_analyst,
-		daily_include_insider: newData.daily_include_insider,
+		daily_include_news_email: newData.daily_include_news_email,
+		daily_include_rumors_email: newData.daily_include_rumors_email,
+		daily_include_analyst_email: newData.daily_include_analyst_email,
+		daily_include_insider_email: newData.daily_include_insider_email,
+		daily_include_analyst_sms: newData.daily_include_analyst_sms,
+		daily_include_insider_sms: newData.daily_include_insider_sms,
 		daily_delivery_time: newData.daily_delivery_time,
 		daily_next_send_at: newData.daily_next_send_at,
 		daily_only_notify_when_market_open: newData.daily_only_notify_when_market_open,

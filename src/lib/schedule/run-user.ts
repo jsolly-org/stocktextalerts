@@ -163,7 +163,7 @@ export async function processScheduledUser(options: {
 		const shouldAttemptSms = shouldSendSms(user);
 
 		/* ============= Process Email ============= */
-		if (user.email_notifications_enabled) {
+		if (user.email_notifications_enabled && user.price_include_email) {
 			attemptedDeliveryMethod = "email";
 			await processScheduledUserEmailDelivery({
 				user,
@@ -182,7 +182,7 @@ export async function processScheduledUser(options: {
 		}
 
 		/* ============= Process SMS ============= */
-		if (shouldAttemptSms) {
+		if (shouldAttemptSms && user.price_include_sms) {
 			attemptedDeliveryMethod = "sms";
 			await processScheduledUserSmsDelivery({
 				user,

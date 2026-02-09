@@ -119,6 +119,76 @@ export async function updateScheduledNotificationRow(options: {
 	}
 }
 
+export type ClaimResult =
+	| { status: "claimed" }
+	| { status: "claim_error" }
+	| { status: "retries_exhausted" };
+
+/**
+ * Claim a scheduled notification via the `claim_scheduled_notification` RPC.
+ *
+ * Encapsulates the RPC call, error logging, and retries-exhaustion recording so
+ * delivery functions can replace ~25 lines of boilerplate with a single call.
+ */
+export async function claimNotification(options: {
+	supabase: SupabaseAdminClient;
+	userId: string;
+	notificationType: ScheduledNotificationType;
+	scheduledDate: string;
+	scheduledMinutes: number;
+	channel: DeliveryMethod;
+	logger: Logger;
+}): Promise<ClaimResult> {
+	const {
+		supabase,
+		userId,
+		notificationType,
+		scheduledDate,
+		scheduledMinutes,
+		channel,
+		logger,
+	} = options;
+
+	const { data: claimed, error: claimError } = await (
+		supabase as unknown as {
+			rpc: (
+				fn: string,
+				args: unknown,
+			) => Promise<{ data: unknown; error: unknown }>;
+		}
+	).rpc("claim_scheduled_notification", {
+		p_user_id: userId,
+		p_notification_type: notificationType,
+		p_scheduled_date: scheduledDate,
+		p_scheduled_minutes: scheduledMinutes,
+		p_channel: channel,
+	});
+
+	if (claimError) {
+		logger.error(
+			`Failed to claim ${notificationType} notification (${channel})`,
+			{ userId },
+			claimError,
+		);
+		return { status: "claim_error" };
+	}
+
+	if (!claimed) {
+		await logRetriesExhausted({
+			supabase,
+			userId,
+			notificationType,
+			scheduledDate,
+			scheduledMinutes,
+			channel,
+			logger,
+		});
+		return { status: "retries_exhausted" };
+	}
+
+	return { status: "claimed" };
+}
+
 /**
  * Record that retries were exhausted for a scheduled notification, and write a log row.
  *

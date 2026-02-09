@@ -14,7 +14,7 @@ import type {
 	ScheduledNotificationTotals,
 	SupabaseAdminClient,
 } from "./helpers";
-import { logRetriesExhausted, updateScheduledNotificationRow } from "./helpers";
+import { claimNotification, updateScheduledNotificationRow } from "./helpers";
 import type { SmsSenderProvider } from "./run-user-sms-sender";
 
 /**
@@ -52,37 +52,20 @@ export async function processScheduledUserEmailDelivery(options: {
 		formatPrefs,
 	} = options;
 
-	const { data: claimed, error: claimError } = await supabase.rpc(
-		"claim_scheduled_notification",
-		{
-			p_user_id: user.id,
-			p_notification_type: "scheduled_update",
-			p_scheduled_date: scheduledDate,
-			p_scheduled_minutes: scheduledMinutes,
-			p_channel: "email",
-		},
-	);
-
-	if (claimError) {
-		logger.error(
-			"Failed to claim scheduled notification (email)",
-			{ userId: user.id },
-			claimError,
-		);
+	const claim = await claimNotification({
+		supabase,
+		userId: user.id,
+		notificationType: "scheduled_update",
+		scheduledDate,
+		scheduledMinutes,
+		channel: "email",
+		logger,
+	});
+	if (claim.status === "claim_error") {
 		stats.emailsFailed++;
 		return;
 	}
-
-	if (!claimed) {
-		await logRetriesExhausted({
-			supabase,
-			userId: user.id,
-			notificationType: "scheduled_update",
-			scheduledDate,
-			scheduledMinutes,
-			channel: "email",
-			logger,
-		});
+	if (claim.status === "retries_exhausted") {
 		stats.skipped++;
 		return;
 	}
@@ -153,37 +136,20 @@ export async function processScheduledUserSmsDelivery(options: {
 		stats,
 	} = options;
 
-	const { data: claimed, error: claimError } = await supabase.rpc(
-		"claim_scheduled_notification",
-		{
-			p_user_id: user.id,
-			p_notification_type: "scheduled_update",
-			p_scheduled_date: scheduledDate,
-			p_scheduled_minutes: scheduledMinutes,
-			p_channel: "sms",
-		},
-	);
-
-	if (claimError) {
-		logger.error(
-			"Failed to claim scheduled notification (sms)",
-			{ userId: user.id },
-			claimError,
-		);
+	const claim = await claimNotification({
+		supabase,
+		userId: user.id,
+		notificationType: "scheduled_update",
+		scheduledDate,
+		scheduledMinutes,
+		channel: "sms",
+		logger,
+	});
+	if (claim.status === "claim_error") {
 		stats.smsFailed++;
 		return;
 	}
-
-	if (!claimed) {
-		await logRetriesExhausted({
-			supabase,
-			userId: user.id,
-			notificationType: "scheduled_update",
-			scheduledDate,
-			scheduledMinutes,
-			channel: "sms",
-			logger,
-		});
+	if (claim.status === "retries_exhausted") {
 		stats.skipped++;
 		return;
 	}

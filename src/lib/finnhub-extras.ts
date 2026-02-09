@@ -72,7 +72,7 @@ function getFinnhubApiKey(): string {
 	return import.meta.env.FINNHUB_API_KEY ?? "";
 }
 
-async function finnhubFetch(
+export async function finnhubFetch(
 	endpoint: string,
 	params: Record<string, string>,
 	label: string,

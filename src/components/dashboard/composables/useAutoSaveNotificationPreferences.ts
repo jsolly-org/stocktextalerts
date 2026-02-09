@@ -17,12 +17,18 @@ export type NotificationPreferencesData = {
 	daily_next_send_at: string | null;
 	next_send_at: string | null;
 	dismiss_timezone_mismatch_prompts: boolean;
-	daily_include_news: boolean;
-	daily_include_rumors: boolean;
-	daily_include_analyst: boolean;
-	daily_include_insider: boolean;
-	weekly_include_earnings: boolean;
-	weekly_include_dividends: boolean;
+	daily_include_news_email: boolean;
+	daily_include_rumors_email: boolean;
+	daily_include_analyst_email: boolean;
+	daily_include_insider_email: boolean;
+	daily_include_analyst_sms: boolean;
+	daily_include_insider_sms: boolean;
+	price_include_email: boolean;
+	price_include_sms: boolean;
+	weekly_include_earnings_email: boolean;
+	weekly_include_earnings_sms: boolean;
+	weekly_include_dividends_email: boolean;
+	weekly_include_dividends_sms: boolean;
 	weekly_next_send_at: string | null;
 };
 

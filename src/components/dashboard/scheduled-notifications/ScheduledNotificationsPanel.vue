@@ -80,6 +80,16 @@
 					name="price_notifications_enabled"
 					:value="priceNotificationsEnabled ? 'on' : 'off'"
 				/>
+				<input
+					type="hidden"
+					name="price_include_email"
+					:value="priceIncludeEmail ? 'on' : 'off'"
+				/>
+				<input
+					type="hidden"
+					name="price_include_sms"
+					:value="priceIncludeSms ? 'on' : 'off'"
+				/>
 				<div class="min-w-0">
 					<span
 						id="price_notifications_enabled_label"
@@ -91,13 +101,28 @@
 						Receive scheduled stock price updates.
 					</p>
 				</div>
-				<ToggleSwitch
-					v-model="priceNotificationsEnabled"
-					:disabled="needsChannelSelection"
-					sr-label="Price Notifications"
-					aria-labelledby="price_notifications_enabled_label"
-					aria-describedby="price_notifications_enabled_description"
-				/>
+				<div class="flex items-center gap-4 shrink-0">
+					<label class="inline-flex items-center gap-1.5 cursor-pointer">
+						<input
+							type="checkbox"
+							v-model="priceIncludeEmail"
+							:disabled="needsChannelSelection || !emailEnabled"
+							class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+							aria-describedby="price_notifications_enabled_description"
+						/>
+						<span class="text-sm text-gray-700">Email</span>
+					</label>
+					<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : needsChannelSelection ? 'cursor-not-allowed' : 'cursor-not-allowed opacity-50'">
+						<input
+							type="checkbox"
+							v-model="priceIncludeSms"
+							:disabled="needsChannelSelection || !smsReady"
+							class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+							aria-describedby="price_notifications_enabled_description"
+						/>
+						<span class="text-sm text-gray-700">SMS</span>
+					</label>
+				</div>
 			</div>
 
 			<FadeTransition>
@@ -161,7 +186,6 @@ import {
 	parseTimeToMinutes,
 } from "../../../lib/time/format";
 import FadeTransition from "../../FadeTransition.vue";
-import ToggleSwitch from "../../ToggleSwitch.vue";
 import {
 	type NotificationPreferencesData,
 	useAutoSaveForm,
@@ -201,7 +225,11 @@ const {
 	formRef: scheduledFormElement,
 });
 
-const priceNotificationsEnabled = ref(user.value.price_notifications_enabled);
+const priceIncludeEmail = ref(user.value.price_include_email);
+const priceIncludeSms = ref(user.value.price_include_sms);
+const priceNotificationsEnabled = computed(
+	() => priceIncludeEmail.value || priceIncludeSms.value,
+);
 const onlyNotifyWhenMarketOpen = ref(user.value.only_notify_when_market_open);
 const isHydrated = ref(false);
 
@@ -341,9 +369,15 @@ const outsideMarketHoursIndices = computed<Set<number>>(() => {
 });
 
 watch(
-	() => user.value.price_notifications_enabled,
+	() => user.value.price_include_email,
 	(value) => {
-		priceNotificationsEnabled.value = value;
+		priceIncludeEmail.value = value;
+	},
+);
+watch(
+	() => user.value.price_include_sms,
+	(value) => {
+		priceIncludeSms.value = value;
 	},
 );
 watch(
@@ -398,6 +432,8 @@ watch(
 		user.value = {
 			...user.value,
 			price_notifications_enabled: newData.price_notifications_enabled,
+			price_include_email: newData.price_include_email,
+			price_include_sms: newData.price_include_sms,
 			scheduled_update_times: newData.scheduled_update_times,
 			only_notify_when_market_open: newData.only_notify_when_market_open,
 			next_send_at: newData.next_send_at,
@@ -406,8 +442,13 @@ watch(
 	},
 );
 
-watch(priceNotificationsEnabled, (value) => {
-	user.value = { ...user.value, price_notifications_enabled: value };
+watch([priceIncludeEmail, priceIncludeSms], ([email, sms]) => {
+	user.value = {
+		...user.value,
+		price_include_email: email,
+		price_include_sms: sms,
+		price_notifications_enabled: email || sms,
+	};
 	notifyChange();
 });
 

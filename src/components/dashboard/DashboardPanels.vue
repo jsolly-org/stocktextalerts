@@ -106,6 +106,13 @@ watch(
 	},
 );
 
+// Auto-check the SMS price-notification box when the user first enables the SMS channel
+watch(smsEnabled, (enabled, wasEnabled) => {
+	if (enabled && !wasEnabled) {
+		user.value = { ...user.value, price_include_sms: true };
+	}
+});
+
 // --- Stocks form (unchanged, future refactor candidate) ---
 const stocksFormElement = ref<HTMLFormElement | null>(null);
 const {

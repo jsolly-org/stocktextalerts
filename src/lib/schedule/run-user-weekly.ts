@@ -91,7 +91,10 @@ export async function processWeeklyUser(options: {
 		}
 
 		const hasAnyWeeklyOption =
-			user.weekly_include_earnings || user.weekly_include_dividends;
+			user.weekly_include_earnings_email ||
+			user.weekly_include_earnings_sms ||
+			user.weekly_include_dividends_email ||
+			user.weekly_include_dividends_sms;
 
 		if (!hasAnyWeeklyOption) {
 			stats.skipped++;
@@ -164,19 +167,19 @@ export async function processWeeklyUser(options: {
 
 		// Format sections per channel
 		const emailEarnings =
-			emailEnabled && user.weekly_include_earnings
+			emailEnabled && user.weekly_include_earnings_email
 				? formatEarningsSection(calendarData.earnings, "email")
 				: null;
 		const emailDividends =
-			emailEnabled && user.weekly_include_dividends
+			emailEnabled && user.weekly_include_dividends_email
 				? formatDividendsSection(calendarData.dividends, "email")
 				: null;
 		const smsEarnings =
-			smsEnabled && user.weekly_include_earnings
+			smsEnabled && user.weekly_include_earnings_sms
 				? formatEarningsSection(calendarData.earnings, "sms")
 				: null;
 		const smsDividends =
-			smsEnabled && user.weekly_include_dividends
+			smsEnabled && user.weekly_include_dividends_sms
 				? formatDividendsSection(calendarData.dividends, "sms")
 				: null;
 
