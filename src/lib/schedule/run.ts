@@ -163,15 +163,13 @@ export async function runScheduledNotifications(options: {
 
 	// Fan-out: dispatch each daily user to its own serverless function
 	if (dailyUsers.length > 0) {
-		const dispatchResults: PromiseSettledResult<ScheduledNotificationTotals>[] =
-			[];
 		for (
 			let index = 0;
 			index < dailyUsers.length;
 			index += DAILY_DISPATCH_BATCH_SIZE
 		) {
 			const batch = dailyUsers.slice(index, index + DAILY_DISPATCH_BATCH_SIZE);
-			const batchResults = await Promise.allSettled(
+			const dispatchResults = await Promise.allSettled(
 				batch.map((user) =>
 					dispatchDailyUser({
 						userId: user.id,
@@ -181,26 +179,25 @@ export async function runScheduledNotifications(options: {
 					}),
 				),
 			);
-			dispatchResults.push(...batchResults);
-		}
 
-		for (const result of dispatchResults) {
-			if (result.status === "fulfilled") {
-				results.push(result.value);
-			} else {
-				logger.error(
-					"Fan-out dispatch rejected",
-					{ action: "dispatch_daily_user" },
-					result.reason,
-				);
-				results.push({
-					skipped: 1,
-					logFailures: 0,
-					emailsSent: 0,
-					emailsFailed: 0,
-					smsSent: 0,
-					smsFailed: 0,
-				});
+			for (const result of dispatchResults) {
+				if (result.status === "fulfilled") {
+					results.push(result.value);
+				} else {
+					logger.error(
+						"Fan-out dispatch rejected",
+						{ action: "dispatch_daily_user" },
+						result.reason,
+					);
+					results.push({
+						skipped: 1,
+						logFailures: 0,
+						emailsSent: 0,
+						emailsFailed: 0,
+						smsSent: 0,
+						smsFailed: 0,
+					});
+				}
 			}
 		}
 	}
