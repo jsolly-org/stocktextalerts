@@ -316,6 +316,9 @@ watch(savedData, (newData) => {
 		weekly_include_earnings_email: newData.weekly_include_earnings_email,
 		weekly_include_earnings_sms: newData.weekly_include_earnings_sms,
 		weekly_next_send_at: newData.weekly_next_send_at,
+		// Keep other panels' scheduling in sync with the server response.
+		daily_next_send_at: newData.daily_next_send_at,
+		next_send_at: newData.next_send_at,
 	};
 });
 </script>

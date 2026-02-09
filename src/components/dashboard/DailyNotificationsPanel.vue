@@ -637,6 +637,11 @@ watch(savedData, (newData) => {
 		daily_delivery_time: newData.daily_delivery_time,
 		daily_next_send_at: newData.daily_next_send_at,
 		daily_only_notify_when_market_open: newData.daily_only_notify_when_market_open,
+		// Daily delivery time determines the weekly delivery time, so the server
+		// recalculates weekly_next_send_at when it changes. Keep all panels'
+		// scheduling in sync so countdowns update without a page refresh.
+		weekly_next_send_at: newData.weekly_next_send_at,
+		next_send_at: newData.next_send_at,
 	};
 });
 </script>

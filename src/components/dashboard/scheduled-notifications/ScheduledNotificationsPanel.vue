@@ -437,6 +437,9 @@ watch(
 			scheduled_update_times: newData.scheduled_update_times,
 			only_notify_when_market_open: newData.only_notify_when_market_open,
 			next_send_at: newData.next_send_at,
+			// Keep other panels' scheduling in sync with the server response.
+			daily_next_send_at: newData.daily_next_send_at,
+			weekly_next_send_at: newData.weekly_next_send_at,
 		};
 		}
 	},
