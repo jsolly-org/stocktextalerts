@@ -148,7 +148,7 @@ export async function generateDailyExtrasWithGrok(options: {
 	};
 
 	const MAX_RETRIES = 3;
-	const RETRY_DELAY_MS = 2_000;
+	const BASE_RETRY_DELAY_MS = 1_000;
 	const logContext = {
 		action: "grok_extras",
 		model,
@@ -183,7 +183,9 @@ export async function generateDailyExtrasWithGrok(options: {
 					statusText: response.statusText,
 				});
 				if (!isLastAttempt) {
-					await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+					await new Promise((r) =>
+						setTimeout(r, BASE_RETRY_DELAY_MS * 2 ** (attempt - 1)),
+					);
 					continue;
 				}
 				return null;
@@ -197,7 +199,9 @@ export async function generateDailyExtrasWithGrok(options: {
 					attempt,
 				});
 				if (!isLastAttempt) {
-					await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+					await new Promise((r) =>
+						setTimeout(r, BASE_RETRY_DELAY_MS * 2 ** (attempt - 1)),
+					);
 					continue;
 				}
 				return null;
@@ -216,7 +220,9 @@ export async function generateDailyExtrasWithGrok(options: {
 					attempt,
 				});
 				if (!isLastAttempt) {
-					await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+					await new Promise((r) =>
+						setTimeout(r, BASE_RETRY_DELAY_MS * 2 ** (attempt - 1)),
+					);
 					continue;
 				}
 				return null;
@@ -238,7 +244,9 @@ export async function generateDailyExtrasWithGrok(options: {
 				error,
 			);
 			if (!isLastAttempt) {
-				await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+				await new Promise((r) =>
+					setTimeout(r, BASE_RETRY_DELAY_MS * 2 ** (attempt - 1)),
+				);
 				continue;
 			}
 			return null;

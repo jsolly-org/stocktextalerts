@@ -1,5 +1,19 @@
 import { defineMiddleware } from "astro:middleware";
-import { validateEnv } from "./lib/db/env";
+
+const REQUIRED_ENV_VARS = [
+	"SUPABASE_URL",
+	"SUPABASE_PUBLISHABLE_KEY",
+	"SUPABASE_SECRET_KEY",
+	"TWILIO_ACCOUNT_SID",
+	"TWILIO_AUTH_TOKEN",
+	"TWILIO_PHONE_NUMBER",
+	"TWILIO_VERIFY_SERVICE_SID",
+	"CRON_SECRET",
+	"RESEND_API_KEY",
+	"EMAIL_FROM",
+	"VERCEL_URL",
+	"FINNHUB_API_KEY",
+] as const;
 
 // Lazy validation flag - only validate once on first request
 let envValidated = false;
@@ -74,7 +88,16 @@ export const onRequest = defineMiddleware(async (context, next) => {
 	// Validate environment variables on first request
 	// This ensures validation happens after Vercel injects env vars at runtime
 	if (!envValidated) {
-		validateEnv();
+		const missing = REQUIRED_ENV_VARS.filter((name) => {
+			const value = import.meta.env[name];
+			return !value || value.trim() === "";
+		});
+		if (missing.length > 0) {
+			throw new Error(
+				`Missing required environment variables: ${missing.join(", ")}\n` +
+					"Please check your .env file and ensure all required variables are set.",
+			);
+		}
 		envValidated = true;
 	}
 	const requestId = crypto.randomUUID();
