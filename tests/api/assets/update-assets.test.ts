@@ -9,7 +9,21 @@ import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 describe("A signed-in user updates their tracked assets.", () => {
 	it("A user cannot track more than the maximum allowed assets.", async () => {
 		const seedSymbols = getRealAssetSymbols(MAX_TRACKED_ASSETS + 1);
-		const seedRecords = seedSymbols.map((symbol) => {
+		const { data: existingAssets, error: existingAssetsError } =
+			await adminClient
+				.from("assets")
+				.select("symbol")
+				.in("symbol", seedSymbols);
+		expect(existingAssetsError).toBeNull();
+
+		const existingSymbolSet = new Set(
+			(existingAssets ?? []).map((row) => row.symbol),
+		);
+		const symbolsToInsert = seedSymbols.filter(
+			(symbol) => !existingSymbolSet.has(symbol),
+		);
+
+		const seedRecords = symbolsToInsert.map((symbol) => {
 			const assetData = getAssetData(symbol);
 			return {
 				symbol: assetData.symbol,
@@ -18,10 +32,12 @@ describe("A signed-in user updates their tracked assets.", () => {
 			};
 		});
 
-		const { error: insertError } = await adminClient
-			.from("assets")
-			.upsert(seedRecords, { onConflict: "symbol" });
-		expect(insertError).toBeNull();
+		if (seedRecords.length > 0) {
+			const { error: insertError } = await adminClient
+				.from("assets")
+				.upsert(seedRecords, { onConflict: "symbol" });
+			expect(insertError).toBeNull();
+		}
 
 		try {
 			const initialAssets = seedSymbols.slice(0, MAX_TRACKED_ASSETS);
@@ -40,12 +56,16 @@ describe("A signed-in user updates their tracked assets.", () => {
 
 			expect(trackedAssets).toHaveLength(MAX_TRACKED_ASSETS);
 		} finally {
-			const { error: assetDeleteError } = await adminClient
-				.from("assets")
-				.delete()
-				.in("symbol", seedSymbols);
-			if (assetDeleteError) {
-				rootLogger.warn("Cleanup failed (assets)", { error: assetDeleteError });
+			if (symbolsToInsert.length > 0) {
+				const { error: assetDeleteError } = await adminClient
+					.from("assets")
+					.delete()
+					.in("symbol", symbolsToInsert);
+				if (assetDeleteError) {
+					rootLogger.warn("Cleanup failed (assets)", {
+						error: assetDeleteError,
+					});
+				}
 			}
 		}
 	});
