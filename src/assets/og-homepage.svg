@@ -60,7 +60,7 @@
   <!-- Tagline — slate-300 on dark = ~10:1 contrast -->
   <text x="82" y="305"
         font-family="'Helvetica Neue', 'Arial', sans-serif"
-        font-size="34" font-weight="400" fill="#CBD5E1">Stock Updates via Email &amp; SMS</text>
+        font-size="34" font-weight="400" fill="#CBD5E1">Stock &amp; ETF Updates via Email &amp; SMS</text>
 
   <!-- Accent divider bar -->
   <rect x="82" y="335" width="80" height="3" rx="1.5" fill="url(#accent-grad)"/>
@@ -68,13 +68,13 @@
   <!-- Feature list — slate-400 on dark = ~5.5:1 contrast -->
   <text x="82" y="395"
         font-family="'Helvetica Neue', 'Arial', sans-serif"
-        font-size="22" font-weight="500" fill="#94A3B8">Track US Stocks</text>
-  <circle cx="275" cy="390" r="2.5" fill="#475569"/>
-  <text x="295" y="395"
+        font-size="22" font-weight="500" fill="#94A3B8">Track US Stocks &amp; ETFs</text>
+  <circle cx="320" cy="390" r="2.5" fill="#475569"/>
+  <text x="340" y="395"
         font-family="'Helvetica Neue', 'Arial', sans-serif"
         font-size="22" font-weight="500" fill="#94A3B8">Set Your Schedule</text>
-  <circle cx="510" cy="390" r="2.5" fill="#475569"/>
-  <text x="530" y="395"
+  <circle cx="545" cy="390" r="2.5" fill="#475569"/>
+  <text x="565" y="395"
         font-family="'Helvetica Neue', 'Arial', sans-serif"
         font-size="22" font-weight="500" fill="#94A3B8">Email &amp; SMS Alerts</text>
 

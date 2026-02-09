@@ -11,17 +11,17 @@ Row Types
 type DbUserRow = Database["public"]["Tables"]["users"]["Row"];
 type DbUserUpdate = Database["public"]["Tables"]["users"]["Update"];
 
-type DbStockRow = Database["public"]["Tables"]["stocks"]["Row"];
-type DbUserStockRow = Database["public"]["Tables"]["user_stocks"]["Row"];
+type DbAssetRow = Database["public"]["Tables"]["assets"]["Row"];
+type DbUserAssetRow = Database["public"]["Tables"]["user_assets"]["Row"];
 
 /* =============
 Public Types
 ============= */
 
 export type User = DbUserRow;
-export type Stock = DbStockRow;
-export type UserStock = Pick<DbUserStockRow, "symbol" | "created_at"> & {
-	name: DbStockRow["name"];
+export type Asset = DbAssetRow;
+export type UserAsset = Pick<DbUserAssetRow, "symbol" | "created_at"> & {
+	name: DbAssetRow["name"];
 };
 
 export type NotificationPreferencesSnapshot = Pick<
@@ -168,19 +168,19 @@ export function createUserService(
 }
 
 /* =============
-Stocks
+Assets
 ============= */
 
 /**
- * Load a user's tracked stocks (symbol + created_at + stock name).
+ * Load a user's tracked assets (symbol + created_at + asset name).
  */
-export async function getUserStocks(
+export async function getUserAssets(
 	supabase: AppSupabaseClient,
 	userId: string,
-): Promise<UserStock[]> {
+): Promise<UserAsset[]> {
 	const { data, error } = await supabase
-		.from("user_stocks")
-		.select("symbol, created_at, stocks!inner(name)")
+		.from("user_assets")
+		.select("symbol, created_at, assets!inner(name)")
 		.eq("user_id", userId)
 		.order("created_at", { ascending: false });
 
@@ -189,7 +189,7 @@ export async function getUserStocks(
 	return data.map((row) => ({
 		symbol: row.symbol,
 		created_at: row.created_at,
-		name: (row as { stocks: { name: string } }).stocks.name,
+		name: (row as { assets: { name: string } }).assets.name,
 	}));
 }
 

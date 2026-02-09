@@ -1,27 +1,25 @@
 import { rootLogger } from "./logging";
 
-type ChatCompletionRequest = {
+type ResponsesRequest = {
 	model: string;
-	messages: Array<{ role: "system" | "user"; content: string }>;
+	input: string;
+	instructions: string;
 	temperature?: number;
 	max_tokens?: number;
+	tools?: Array<{ type: "web_search" | "x_search" }>;
+	include?: string[];
 };
 
-type ChatCompletionResponse = {
-	choices?: Array<{
-		message?: { content?: string | null };
-	}>;
+type ResponsesResponse = {
+	output_text?: string;
+	citations?: Array<{ url?: string; title?: string }>;
 };
 
-type SmsExtrasResult = {
+export type GrokExtrasResult = {
 	news: string | null;
 	rumors: string | null;
+	citations: string[];
 };
-
-/**
- * Delivery channel used to tune Grok output length/verbosity.
- */
-export type GrokChannel = "sms" | "email";
 
 const GROK_TIMEOUT_MS = 30_000;
 
@@ -35,11 +33,9 @@ function buildExtrasPrompt(options: {
 	timezone: string;
 	includeNews: boolean;
 	includeRumors: boolean;
-	channel?: GrokChannel;
 	finnhubNewsContext?: string;
 }): { system: string; user: string } {
 	const tickers = options.tickers.join(", ");
-	const channel = options.channel ?? "sms";
 	const requested = [
 		options.includeNews ? "news" : null,
 		options.includeRumors ? "rumors" : null,
@@ -47,22 +43,12 @@ function buildExtrasPrompt(options: {
 		.filter(Boolean)
 		.join(" + ");
 
-	const isSms = channel === "sms";
-
-	const system = isSms
-		? "You write very concise SMS extras for stock alerts. " +
-			"Be brief, neutral, and cautious. " +
-			"Do not give buy/sell advice. " +
-			"Do not claim to have real-time data or verified facts. " +
-			"Do not mention any specific websites, publications, or sources."
-		: "You write detailed email extras for stock alerts. Use complete sentences. " +
-			"Be descriptive, neutral, and cautious. " +
-			"Do not give buy/sell advice. " +
-			"Do not claim to have real-time data or verified facts. " +
-			"Do not mention any specific websites, publications, or sources.";
-
-	const bulletRange = isSms ? "1–3" : "3–7";
-	const charLimit = isSms ? 200 : 800;
+	const system =
+		"You write detailed email extras for asset alerts. Use complete sentences. " +
+		"Be descriptive, neutral, and cautious. " +
+		"Do not give buy/sell advice. " +
+		"Do not claim to have real-time data or verified facts. " +
+		"Include inline source links where available to support your claims.";
 
 	const newsContextBlock = options.finnhubNewsContext
 		? `\nHere are recent headlines for context (use these as your primary source for the news section):\n${options.finnhubNewsContext}\n`
@@ -85,12 +71,12 @@ function buildExtrasPrompt(options: {
 			"Rules:\n" +
 			"- If news is not requested, output nothing between [NEWS] and [/NEWS].\n" +
 			"- If rumors are not requested, output nothing between [RUMORS] and [/RUMORS].\n" +
-			`- Each requested section: ${bulletRange} bullet points max.\n` +
+			"- Each requested section: 3–7 bullet points max.\n" +
 			"- Each bullet starts with the ticker (e.g. 'AAPL: ...').\n" +
-			"- No links.\n" +
-			`- Keep each section under ${charLimit} characters.\n` +
-			"- News: focus on broad business/company developments people commonly discuss.\n" +
-			"- Rumors: use hedge words like 'chatter' and 'unconfirmed'. End the section with: 'Unverified chatter — double-check before acting.'",
+			"- Include source links inline (markdown format) when referencing specific news or posts.\n" +
+			"- Keep each section under 1500 characters.\n" +
+			"- News: cite your sources with inline links to articles.\n" +
+			"- Rumors: cite X/social media posts where possible. Use hedge words like 'chatter' and 'unconfirmed'. End the section with: 'Unverified chatter — double-check before acting.'",
 	};
 }
 
@@ -111,7 +97,7 @@ function extractTaggedBlock(
 }
 
 /**
- * Generate optional daily "extras" (news/rumors) using Grok.
+ * Generate optional daily "extras" (news/rumors) using Grok for email delivery.
  *
  * Returns `null` when no extras are requested, tickers are empty, the API key is missing,
  * or the request ultimately fails after retries.
@@ -122,10 +108,9 @@ export async function generateDailyExtrasWithGrok(options: {
 	timezone: string;
 	includeNews: boolean;
 	includeRumors: boolean;
-	channel?: GrokChannel;
 	requestId?: string;
 	finnhubNewsContext?: string;
-}): Promise<SmsExtrasResult | null> {
+}): Promise<GrokExtrasResult | null> {
 	if (options.tickers.length === 0) {
 		return null;
 	}
@@ -148,24 +133,17 @@ export async function generateDailyExtrasWithGrok(options: {
 	}
 
 	const model =
-		metaEnv?.XAI_GROK_MODEL ??
-		process.env.XAI_GROK_MODEL ??
-		"grok-4-fast-non-reasoning";
-	const channel = options.channel ?? "sms";
-	const { system, user } = buildExtrasPrompt({
-		...options,
-		channel,
-		finnhubNewsContext: options.finnhubNewsContext,
-	});
+		metaEnv?.XAI_GROK_MODEL ?? process.env.XAI_GROK_MODEL ?? "grok-4-1-fast";
+	const { system, user } = buildExtrasPrompt(options);
 
-	const requestBody: ChatCompletionRequest = {
+	const requestBody: ResponsesRequest = {
 		model,
-		messages: [
-			{ role: "system", content: system },
-			{ role: "user", content: user },
-		],
+		instructions: system,
+		input: user,
 		temperature: 0.4,
-		max_tokens: channel === "sms" ? 300 : 600,
+		max_tokens: 1200,
+		tools: [{ type: "web_search" }, { type: "x_search" }],
+		include: ["citations.url", "citations.title"],
 	};
 
 	const MAX_RETRIES = 3;
@@ -186,7 +164,7 @@ export async function generateDailyExtrasWithGrok(options: {
 			: rootLogger.warn.bind(rootLogger);
 
 		try {
-			const response = await fetch("https://api.x.ai/v1/chat/completions", {
+			const response = await fetch("https://api.x.ai/v1/responses", {
 				method: "POST",
 				headers: {
 					Authorization: `Bearer ${apiKey}`,
@@ -210,8 +188,8 @@ export async function generateDailyExtrasWithGrok(options: {
 				return null;
 			}
 
-			const data = (await response.json()) as ChatCompletionResponse;
-			const text = data.choices?.[0]?.message?.content?.trim();
+			const data = (await response.json()) as ResponsesResponse;
+			const text = data.output_text?.trim();
 			if (!text) {
 				log("Grok extras returned empty content", {
 					...logContext,
@@ -243,7 +221,11 @@ export async function generateDailyExtrasWithGrok(options: {
 				return null;
 			}
 
-			return { news, rumors };
+			const citations = (data.citations ?? [])
+				.map((c) => c.url)
+				.filter((url): url is string => typeof url === "string");
+
+			return { news, rumors, citations };
 		} catch (error) {
 			const reason =
 				error instanceof Error && error.name === "TimeoutError"

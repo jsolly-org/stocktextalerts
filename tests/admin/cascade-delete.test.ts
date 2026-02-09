@@ -39,20 +39,20 @@ describe("Deleting an auth user cascades to application data.", () => {
 		}
 	});
 
-	it("Child rows like user_stocks are also removed when the auth user is deleted.", async () => {
+	it("Child rows like user_assets are also removed when the auth user is deleted.", async () => {
 		const testUser = await createTestUser({
 			confirmed: true,
-			trackedStocks: ["AAPL", "MSFT"],
+			trackedAssets: ["AAPL", "MSFT"],
 		});
 		let cleanupNeeded = true;
 
 		try {
-			// Verify user_stocks rows exist
-			const { data: stocksBefore } = await adminClient
-				.from("user_stocks")
+			// Verify user_assets rows exist
+			const { data: assetsBefore } = await adminClient
+				.from("user_assets")
 				.select("symbol")
 				.eq("user_id", testUser.id);
-			expect(stocksBefore).toHaveLength(2);
+			expect(assetsBefore).toHaveLength(2);
 
 			// Delete only the auth user
 			const { error: deleteError } = await adminClient.auth.admin.deleteUser(
@@ -60,7 +60,7 @@ describe("Deleting an auth user cascades to application data.", () => {
 			);
 			expect(deleteError).toBeNull();
 
-			// Both public.users and user_stocks should be gone
+			// Both public.users and user_assets should be gone
 			const { data: userAfter } = await adminClient
 				.from("users")
 				.select("id")
@@ -68,11 +68,11 @@ describe("Deleting an auth user cascades to application data.", () => {
 				.maybeSingle();
 			expect(userAfter).toBeNull();
 
-			const { data: stocksAfter } = await adminClient
-				.from("user_stocks")
+			const { data: assetsAfter } = await adminClient
+				.from("user_assets")
 				.select("symbol")
 				.eq("user_id", testUser.id);
-			expect(stocksAfter).toHaveLength(0);
+			expect(assetsAfter).toHaveLength(0);
 
 			cleanupNeeded = false;
 		} finally {

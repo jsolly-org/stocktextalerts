@@ -1,5 +1,5 @@
 {
-  "name": "Stock Text Alerts",
+  "name": "StockTextAlerts",
   "short_name": "StockAlerts",
   "start_url": "/",
   "scope": "/",

@@ -20,19 +20,19 @@
 import { computed } from "vue";
 import type { FormatPreferences } from "../../../lib/messaging/types";
 import {
-	formatPreviewStocksList,
-	type PreviewStock,
+	formatPreviewAssetsList,
+	type PreviewAsset,
 } from "./preview-data";
 
 interface Props {
-	stocks: PreviewStock[];
+	assets: PreviewAsset[];
 	formatPreferences: FormatPreferences;
 }
 
 const props = defineProps<Props>();
 
 const formattedSmsText = computed(() =>
-	`Your tracked stocks:\n${formatPreviewStocksList(props.stocks, props.formatPreferences)}`,
+	`Your tracked assets:\n${formatPreviewAssetsList(props.assets, props.formatPreferences)}`,
 );
 </script>
 

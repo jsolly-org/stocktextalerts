@@ -2,13 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { formatEmailMessage } from "../../../src/lib/messaging/email/utils";
 import type {
 	FormatPreferences,
-	UserStockRow,
+	UserAssetRow,
 } from "../../../src/lib/messaging/types";
-import type { StockPriceMap } from "../../../src/lib/price-fetcher";
+import type { AssetPriceMap } from "../../../src/lib/price-fetcher";
 
-describe("Email scheduled update includes stock price data.", () => {
+describe("Email scheduled update includes asset price data.", () => {
 	const testUser = { id: "test-user-id", email: "test@example.com" };
-	const testStocks: UserStockRow[] = [
+	const testAssets: UserAssetRow[] = [
 		{ symbol: "AAPL", name: "Apple Inc." },
 		{ symbol: "MSFT", name: "Microsoft Corporation" },
 	];
@@ -28,23 +28,23 @@ describe("Email scheduled update includes stock price data.", () => {
 	});
 
 	it("Prices and daily change appear in the HTML email with green/red coloring.", () => {
-		const priceMap: StockPriceMap = new Map([
+		const priceMap: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 			["MSFT", { price: 412.1, changePercent: -0.31 }],
 		]);
-		const stocksList =
+		const assetsList =
 			"AAPL - Apple Inc. — $187.42 (+1.23%)\nMSFT - Microsoft Corporation — $412.10 (-0.31%)";
 
 		const { text, html } = formatEmailMessage(
 			testUser,
-			testStocks,
-			stocksList,
+			testAssets,
+			assetsList,
 			priceMap,
 			true,
 			defaultPrefs,
 		);
 
-		// Plain text includes prices via stocksList
+		// Plain text includes prices via assetsList
 		expect(text).toContain("$187.42");
 		expect(text).toContain("+1.23%");
 		expect(text).toContain("$412.10");
@@ -60,15 +60,15 @@ describe("Email scheduled update includes stock price data.", () => {
 	});
 
 	it("Market-closed disclaimer appears when market is closed.", () => {
-		const priceMap: StockPriceMap = new Map([
+		const priceMap: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 		]);
-		const stocksList = "AAPL - Apple Inc. — $187.42 (+1.23%)";
+		const assetsList = "AAPL - Apple Inc. — $187.42 (+1.23%)";
 
 		const { text, html } = formatEmailMessage(
 			testUser,
-			[testStocks[0]],
-			stocksList,
+			[testAssets[0]],
+			assetsList,
 			priceMap,
 			false,
 			defaultPrefs,
@@ -79,15 +79,15 @@ describe("Email scheduled update includes stock price data.", () => {
 	});
 
 	it("Market-closed disclaimer is absent when market is open.", () => {
-		const priceMap: StockPriceMap = new Map([
+		const priceMap: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 		]);
-		const stocksList = "AAPL - Apple Inc. — $187.42 (+1.23%)";
+		const assetsList = "AAPL - Apple Inc. — $187.42 (+1.23%)";
 
 		const { text, html } = formatEmailMessage(
 			testUser,
-			[testStocks[0]],
-			stocksList,
+			[testAssets[0]],
+			assetsList,
 			priceMap,
 			true,
 			defaultPrefs,
@@ -97,18 +97,18 @@ describe("Email scheduled update includes stock price data.", () => {
 		expect(html).not.toContain("Prices as of last market close");
 	});
 
-	it("Stocks without price data fall back to symbol and name only.", () => {
-		const priceMap: StockPriceMap = new Map([
+	it("Assets without price data fall back to symbol and name only.", () => {
+		const priceMap: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 			["MSFT", null],
 		]);
-		const stocksList =
+		const assetsList =
 			"AAPL - Apple Inc. — $187.42 (+1.23%)\nMSFT - Microsoft Corporation";
 
 		const { html } = formatEmailMessage(
 			testUser,
-			testStocks,
-			stocksList,
+			testAssets,
+			assetsList,
 			priceMap,
 			true,
 			defaultPrefs,
@@ -119,5 +119,43 @@ describe("Email scheduled update includes stock price data.", () => {
 		// MSFT appears without price (no mdash separator)
 		expect(html).toContain("MSFT - Microsoft Corporation");
 		expect(html).not.toContain("MSFT - Microsoft Corporation &mdash;");
+	});
+
+	it("ETF assets render with the same format as stocks in email.", () => {
+		const etfAssets: UserAssetRow[] = [
+			{ symbol: "SPY", name: "SS SPDR S&P 500 ETF TRUST-US" },
+			{ symbol: "QQQ", name: "INVESCO QQQ TRUST SERIES 1" },
+		];
+		const priceMap: AssetPriceMap = new Map([
+			["SPY", { price: 523.45, changePercent: 0.87 }],
+			["QQQ", { price: 441.2, changePercent: -1.15 }],
+		]);
+		const assetsList =
+			"SPY - SS SPDR S&P 500 ETF TRUST-US — $523.45 (+0.87%)\nQQQ - INVESCO QQQ TRUST SERIES 1 — $441.20 (-1.15%)";
+
+		const { text, html } = formatEmailMessage(
+			testUser,
+			etfAssets,
+			assetsList,
+			priceMap,
+			true,
+			defaultPrefs,
+		);
+
+		// Plain text includes ETF prices
+		expect(text).toContain("$523.45");
+		expect(text).toContain("+0.87%");
+		expect(text).toContain("$441.20");
+		expect(text).toContain("-1.15%");
+
+		// HTML includes ETF symbols and prices
+		expect(html).toContain("SPY");
+		expect(html).toContain("$523.45");
+		expect(html).toContain("QQQ");
+		expect(html).toContain("$441.20");
+
+		// Green for positive change, red for negative
+		expect(html).toContain("color: #16a34a;");
+		expect(html).toContain("color: #dc2626;");
 	});
 });

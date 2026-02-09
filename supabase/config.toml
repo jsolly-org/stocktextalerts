@@ -22,15 +22,15 @@ double_confirm_changes = true
 enable_confirmations = true
 
 [auth.email.template.confirmation]
-subject = "Confirm your email — Stock Text Alerts"
+subject = "Confirm your email — StockTextAlerts"
 content_path = "./supabase/auth-confirmation.html"
 
 [auth.email.template.recovery]
-subject = "Reset your password — Stock Text Alerts"
+subject = "Reset your password — StockTextAlerts"
 content_path = "./supabase/auth-recovery.html"
 
 [auth.email.template.email_change]
-subject = "Confirm your email change — Stock Text Alerts"
+subject = "Confirm your email change — StockTextAlerts"
 content_path = "./supabase/auth-email-change.html"
 
 [experimental]

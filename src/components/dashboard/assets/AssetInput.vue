@@ -2,7 +2,7 @@
 	<div class="relative" ref="containerRef">
 		<input
 			type="text"
-			id="stock_search"
+			id="asset_search"
 			v-model="rawSearchQuery"
 			@input="handleInput"
 			@keydown="handleKeydown"
@@ -11,10 +11,10 @@
 			role="combobox"
 			aria-haspopup="listbox"
 			:aria-expanded="showDropdown"
-			aria-controls="stock_dropdown"
+			aria-controls="asset_dropdown"
 			aria-autocomplete="list"
 			:aria-activedescendant="
-				highlightedIndex >= 0 ? `stock_option_${highlightedIndex}` : undefined
+				highlightedIndex >= 0 ? `asset_option_${highlightedIndex}` : undefined
 			"
 			:aria-describedby="inputAriaDescribedBy"
 			:disabled="props.disabled"
@@ -23,8 +23,8 @@
 		/>
 
 		<ul
-			id="stock_dropdown"
-			v-show="showDropdown && (searchQuery.length >= 1 || filteredStocks.length > 0)"
+			id="asset_dropdown"
+			v-show="showDropdown && (searchQuery.length >= 1 || filteredAssets.length > 0)"
 			role="listbox"
 			class="absolute z-50 w-full mt-1 bg-white shadow-lg rounded-lg border border-gray-200 max-h-60 overflow-auto"
 		>
@@ -37,25 +37,37 @@
 				Searching…
 			</li>
 			<li
-				v-else-if="filteredStocks.length === 0 && searchQuery.length >= 1"
+				v-else-if="filteredAssets.length === 0 && searchQuery.length >= 1"
 				class="px-4 py-2 text-sm text-gray-500"
 				role="option"
 				aria-disabled="true"
 			>
-				No stocks found
+				No assets found
 			</li>
 			<li
-				v-for="(result, index) in filteredStocks"
+				v-for="(result, index) in filteredAssets"
 				:key="result.item.value"
 				role="option"
-				:id="`stock_option_${index}`"
+				:id="`asset_option_${index}`"
 				:aria-selected="highlightedIndex === index"
 				:data-highlighted="highlightedIndex === index"
-				@click="selectStock(result)"
+				@click="selectAsset(result)"
 				class="w-full px-4 py-2 text-left hover:bg-info-bg focus:bg-info-bg focus:outline-none cursor-pointer"
 				:class="{ 'bg-info-border': highlightedIndex === index }"
 			>
-				{{ result.item.label }}
+				<span class="flex items-center gap-2">
+					<span
+						class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium shrink-0"
+						:class="
+							result.item.type === 'etf'
+								? 'bg-purple-100 text-purple-700'
+								: 'bg-blue-100 text-blue-700'
+						"
+					>
+						{{ result.item.type === "etf" ? "ETF" : "Stock" }}
+					</span>
+					<span class="truncate">{{ result.item.label }}</span>
+				</span>
 			</li>
 		</ul>
 	</div>
@@ -66,19 +78,20 @@ import { onClickOutside, refDebounced } from "@vueuse/core";
 import Fuse from "fuse.js";
 import { computed, onMounted, ref, watch } from "vue";
 
-export interface StockOption {
+export interface AssetOption {
 	value: string;
 	label: string;
+	type: "stock" | "etf";
 }
 
 interface Props {
-	stockOptions: StockOption[];
+	assetOptions: AssetOption[];
 	disabled?: boolean;
 	inputAriaDescribedBy?: string;
 }
 
 interface FuseResult {
-	item: StockOption;
+	item: AssetOption;
 }
 
 type KeyActions = {
@@ -92,7 +105,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 const emit = defineEmits<(e: "select", symbol: string) => void>();
 
-const selectedStock = ref<string | null>(null);
+const selectedAsset = ref<string | null>(null);
 const rawSearchQuery = ref("");
 const searchQuery = refDebounced(rawSearchQuery, 300);
 const isSearching = ref(false);
@@ -112,13 +125,13 @@ const highlightedIndex = ref(-1);
 
 const fuse = computed(
 	() =>
-		new Fuse<StockOption>(props.stockOptions, {
+		new Fuse<AssetOption>(props.assetOptions, {
 			keys: ["label", "value"],
 			threshold: 0.3,
 		}),
 );
 
-const filteredStocks = computed(() => {
+const filteredAssets = computed(() => {
 	if (searchQuery.value.length < 1) return [];
 	return fuse.value.search(searchQuery.value).slice(0, 10);
 });
@@ -134,8 +147,8 @@ onMounted(() => {
 	onClickOutside(containerRef, resetDropdown);
 });
 
-const selectStock = (result: FuseResult) => {
-	selectedStock.value = result.item.value;
+const selectAsset = (result: FuseResult) => {
+	selectedAsset.value = result.item.value;
 	rawSearchQuery.value = "";
 	resetDropdown();
 
@@ -143,11 +156,11 @@ const selectStock = (result: FuseResult) => {
 };
 
 const handleInput = () => {
-	const current = props.stockOptions.find(
-		(s) => s.value === selectedStock.value,
+	const current = props.assetOptions.find(
+		(s) => s.value === selectedAsset.value,
 	);
 	if (!current || rawSearchQuery.value !== current.label) {
-		selectedStock.value = null;
+		selectedAsset.value = null;
 		showDropdown.value = true;
 		highlightedIndex.value = -1;
 	}
@@ -160,10 +173,10 @@ const handleKeydown = (e: KeyboardEvent) => {
 		return;
 	}
 
-	if (rawSearchQuery.value.length < 1 || filteredStocks.value.length === 0)
+	if (rawSearchQuery.value.length < 1 || filteredAssets.value.length === 0)
 		return;
 
-	const maxIndex = filteredStocks.value.length - 1;
+	const maxIndex = filteredAssets.value.length - 1;
 	const actions: KeyActions = {
 		ArrowDown: () => {
 			if (!showDropdown.value) {
@@ -188,17 +201,17 @@ const handleKeydown = (e: KeyboardEvent) => {
 					: Math.max(highlightedIndex.value - 1, 0);
 		},
 		Enter: () => {
-			const stocks = filteredStocks.value;
-			if (!stocks || stocks.length === 0) return;
+			const assets = filteredAssets.value;
+			if (!assets || assets.length === 0) return;
 
 			const safeIndex = Math.min(
 				Math.max(0, highlightedIndex.value),
-				stocks.length - 1,
+				assets.length - 1,
 			);
-			const selected = stocks[safeIndex];
+			const selected = assets[safeIndex];
 			if (!selected) return;
 
-			selectStock(selected);
+			selectAsset(selected);
 		},
 	};
 

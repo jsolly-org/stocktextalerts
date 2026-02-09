@@ -16,7 +16,7 @@
 					Show Daily Change %
 				</span>
 				<p id="show_change_percent_description" class="text-sm text-gray-600 mt-0.5">
-					Include the day's gain or loss percentage next to each stock price.
+					Include the day's gain or loss percentage next to each asset price.
 				</p>
 			</div>
 			<ToggleSwitch
@@ -66,7 +66,7 @@
 					Detailed Format
 				</span>
 				<p id="detailed_format_description" class="text-sm text-gray-600 mt-0.5">
-					Add extra spacing between stocks for easier reading.
+					Add extra spacing between assets for easier reading.
 				</p>
 			</div>
 			<ToggleSwitch

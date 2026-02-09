@@ -1,6 +1,6 @@
 import { DASHBOARD_SECTION_HASHES } from "../../constants";
 import { getSiteUrl } from "../../db/env";
-import { escapeHtml } from "../stock-formatting";
+import { escapeHtml } from "../asset-formatting";
 import { createEmailUnsubscribeUrl } from "./email-unsubscribe";
 
 export interface EmailUrls {

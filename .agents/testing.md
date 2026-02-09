@@ -13,7 +13,7 @@
 - **Delivery-related tests**: Assert "send attempted" or outcome via stub invocation counts, log rows, or response payloads — not real API responses.
 
 ### Test Structure
-- **Use shared utilities**: Reuse helpers from `tests/helpers/` (`test-user.ts`, `test-env.ts`, `stock-data.ts`, `stock-update.ts`). Import from the defining module.
+- **Use shared utilities**: Reuse helpers from `tests/helpers/` (`test-user.ts`, `test-env.ts`, `asset-data.ts`, `asset-update.ts`). Import from the defining module.
 - **Setup/teardown**: Rely on `tests/setup.ts` for global hooks (schema verification, cleanup, console spies). Use `registerTestUserForCleanup` for users created during a test.
 - **Console output**: `setup.ts` asserts no unexpected `console.warn` or `console.error`. Use `allowConsoleWarnings()` / `allowConsoleErrors()` when a test intentionally triggers those; call `resetConsoleAssertions()` in shared helpers if needed.
 

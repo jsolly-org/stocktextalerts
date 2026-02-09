@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-Validate all major happy-path features end-to-end on production with the shortest possible flow. This plan covers registration, stock tracking, email/SMS notifications, profile management, inbound SMS keywords, and account deletion.
+Validate all major happy-path features end-to-end on production with the shortest possible flow. This plan covers registration, asset tracking, email/SMS notifications, profile management, inbound SMS keywords, and account deletion.
 
 **Estimated Duration:** 15-30 minutes (cron runs every minute)
 
@@ -125,7 +125,7 @@ Verify timezone detection/selection persists across page reloads.
 
 ---
 
-## TC-STK-001: User can add stocks to track
+## TC-AST-001: User can add assets to track
 
 **Priority:** P0 (Critical)
 **Type:** Functional
@@ -133,7 +133,7 @@ Verify timezone detection/selection persists across page reloads.
 
 ### Objective
 
-Verify stock search, selection, and persistence.
+Verify asset search, selection, and persistence.
 
 ### Preconditions
 
@@ -141,19 +141,19 @@ Verify stock search, selection, and persistence.
 
 ### Test Steps
 
-**Step 1:** On the dashboard, use the stock search field. Search for a common symbol (e.g., "AAPL") and add 2-3 stocks.
+**Step 1:** On the dashboard, use the asset search field. Search for a common symbol (e.g., "AAPL") and add 2-3 assets.
 
 - [ ] Search results appear as you type (fuzzy search works).
-- [ ] Added stocks appear in the tracked list immediately.
-- [ ] A save/success indicator confirms the stocks were saved.
+- [ ] Added assets appear in the tracked list immediately.
+- [ ] A save/success indicator confirms the assets were saved.
 
 **Step 2:** Hard-refresh the page.
 
-- [ ] Tracked stocks persist after refresh (same stocks displayed).
+- [ ] Tracked assets persist after refresh (same assets displayed).
 
 ### Notes
 
-- Max 10 stocks per user. Symbols should display in uppercase.
+- Max 10 assets per user. Symbols should display in uppercase.
 
 ---
 
@@ -170,7 +170,7 @@ Verify email notification toggle, notification time scheduling, and email delive
 ### Preconditions
 
 - Authenticated session on `/dashboard`
-- At least 2-3 stocks tracked (from TC-STK-001)
+- At least 2-3 assets tracked (from TC-AST-001)
 
 ### Test Steps
 
@@ -191,8 +191,8 @@ Save, then refresh.
 
 - [ ] The update email arrives within ~2 minutes of your selected time (cron runs every minute).
 
-- [ ] Stock update email arrives.
-- [ ] The email includes your tracked stock symbols with current prices and change percentages.
+- [ ] Asset update email arrives.
+- [ ] The email includes your tracked asset symbols with current prices and change percentages.
 - [ ] Positive changes display in green; negative changes display in red.
 - [ ] If sent outside market hours, a "Prices as of last market close." disclaimer is visible.
 - [ ] The email reflects the chosen notification time/timezone.
@@ -217,7 +217,7 @@ Verify phone verification, SMS toggle, and SMS notification delivery.
 ### Preconditions
 
 - Authenticated session on `/dashboard`
-- At least 2-3 stocks tracked
+- At least 2-3 assets tracked
 - Email notifications already enabled (from TC-EMAIL-001)
 
 ### Test Steps
@@ -234,15 +234,15 @@ Verify phone verification, SMS toggle, and SMS notification delivery.
 
 **Step 3:** Wait until just after the selected delivery time, then check both email and SMS (allow up to ~2 minutes after the selected time).
 
-- [ ] Stock update email arrives.
-- [ ] Stock update SMS arrives.
-- [ ] Both updates include your tracked stock symbols with current prices and change percentages.
+- [ ] Asset update email arrives.
+- [ ] Asset update SMS arrives.
+- [ ] Both updates include your tracked asset symbols with current prices and change percentages.
 - [ ] If sent outside market hours, a "Prices as of last market close." disclaimer is visible in both email and SMS.
 - [ ] Both updates reflect the chosen notification time/timezone.
 
 ### Notes
 
-- SMS messages may span multiple segments for users tracking many stocks. Each stock is listed on its own line with price data.
+- SMS messages may span multiple segments for users tracking many assets. Each asset is listed on its own line with price data.
 - SMS includes "Reply STOP to opt out" compliance text.
 
 ---
@@ -339,7 +339,7 @@ Verify account deletion, session termination, and access revocation.
 
 ### Notes
 
-- Account deletion is permanent and cascades to all related data (stocks, preferences, notifications).
+- Account deletion is permanent and cascades to all related data (assets, preferences, notifications).
 
 ---
 
@@ -391,9 +391,9 @@ The tests above are designed to run sequentially in a single session:
 | 1 | TC-REG-001 | Register new account | - |
 | 2 | TC-AUTH-001 | Sign out + sign in | TC-REG-001 |
 | 3 | TC-TZ-001 | Configure timezone | TC-REG-001 |
-| 4 | TC-STK-001 | Add tracked stocks | TC-REG-001 |
-| 5 | TC-EMAIL-001 | Enable email + receive update | TC-STK-001 |
-| 6 | TC-SMS-001 | Enable SMS + receive update | TC-STK-001, TC-EMAIL-001 |
+| 4 | TC-AST-001 | Add tracked assets | TC-REG-001 |
+| 5 | TC-EMAIL-001 | Enable email + receive update | TC-AST-001 |
+| 6 | TC-SMS-001 | Enable SMS + receive update | TC-AST-001, TC-EMAIL-001 |
 | 7 | TC-UNSUB-001 | Unsubscribe via email link | TC-SMS-001 |
 | 8 | TC-PROF-001 | Change password + update email | TC-REG-001 |
 | 9 | TC-DEL-001 | Delete account | TC-REG-001 |
@@ -408,7 +408,7 @@ The tests above are designed to run sequentially in a single session:
 **PASS:** All checkboxes marked. No critical or high-severity bugs found.
 
 **FAIL (block release):**
-- Any TC-REG, TC-STK, TC-EMAIL, or TC-SMS test fails (P0 tests)
+- Any TC-REG, TC-AST, TC-EMAIL, or TC-SMS test fails (P0 tests)
 - Notification email or SMS never arrives
 - Account cannot be created or deleted
 - Security issue discovered (e.g., dashboard accessible after deletion)
@@ -424,7 +424,7 @@ The tests above are designed to run sequentially in a single session:
 
 - Twilio SMS delivery can have carrier-dependent delays.
 - Cron runs every minute, so notification delivery should be near-immediate.
-- SMS messages may span multiple segments when tracking many stocks with price data.
+- SMS messages may span multiple segments when tracking many assets with price data.
 - Email updates via Supabase Auth may require verifying both old and new addresses depending on configuration.
 
 ---
@@ -435,4 +435,4 @@ The tests above are designed to run sequentially in a single session:
 - [ ] Wait at least 2 minutes after the selected time.
 - [ ] Verify both Email/SMS toggles are still enabled after refresh.
 - [ ] Check spam/junk for email.
-- [ ] Try reducing tracked stocks to 1-2 to rule out long-message/format issues.
+- [ ] Try reducing tracked assets to 1-2 to rule out long-message/format issues.

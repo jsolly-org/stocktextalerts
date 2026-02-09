@@ -12,7 +12,7 @@ import type {
 	ScheduledNotificationTotals,
 	SupabaseAdminClient,
 } from "./helpers";
-import { loadUserStocks } from "./helpers";
+import { loadUserAssets } from "./helpers";
 import type { SmsSenderProvider } from "./run-user-sms-sender";
 import {
 	processWeeklyCalendarEmailDelivery,
@@ -23,7 +23,7 @@ import { updateUserWeeklyNextSendAt } from "./run-user-weekly-next-send-at";
 /**
  * Process a single user's weekly calendar notification.
  *
- * Fetches earnings events for the current week (Mon–Fri) for the user's tracked stocks,
+ * Fetches earnings events for the current week (Mon-Fri) for the user's tracked assets,
  * formats channel-specific sections, delivers via enabled channels, and advances `weekly_next_send_at`.
  */
 export async function processWeeklyUser(options: {
@@ -103,13 +103,13 @@ export async function processWeeklyUser(options: {
 			return stats;
 		}
 
-		const userStocks = await loadUserStocks(supabase, user.id);
-		const tickers = userStocks.map((s) => s.symbol);
+		const userAssets = await loadUserAssets(supabase, user.id);
+		const tickers = userAssets.map((s) => s.symbol);
 
 		if (tickers.length === 0) {
-			logger.info("Skipping weekly calendar: user has no tracked stocks", {
+			logger.info("Skipping weekly calendar: user has no tracked assets", {
 				action: "weekly_calendar_run",
-				reason: "no_stocks",
+				reason: "no_assets",
 				userId: user.id,
 			});
 			stats.skipped++;

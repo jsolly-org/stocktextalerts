@@ -7,7 +7,7 @@ type DbUserInsert = Omit<TablesInsert<"users">, "scheduled_update_times"> & {
 export type SeedUser = Omit<Partial<DbUserInsert>, "email"> & {
   email: DbUserInsert["email"];
   password?: string;
-  tracked_stocks?: string[];
+  tracked_assets?: string[];
 };
 
 /**
@@ -318,20 +318,20 @@ ON CONFLICT (id) DO UPDATE SET
 `;
 }
 
-export function buildUserStocksSql(userId: string, trackedStocks: string[]): string {
-  if (trackedStocks.length === 0) return '';
+export function buildUserAssetsSql(userId: string, trackedAssets: string[]): string {
+  if (trackedAssets.length === 0) return '';
 
-  const stocksValues = trackedStocks
+  const assetsValues = trackedAssets
     .map((symbol) => `'${escapeSql(symbol)}'`)
     .join(', ');
 
   return `
-INSERT INTO public.user_stocks (user_id, symbol)
+INSERT INTO public.user_assets (user_id, symbol)
 SELECT
   '${userId}'::uuid,
   s.symbol
 FROM (
-  SELECT symbol FROM public.stocks WHERE symbol IN (${stocksValues})
+  SELECT symbol FROM public.assets WHERE symbol IN (${assetsValues})
 ) s
 ON CONFLICT (user_id, symbol) DO NOTHING;
 `;

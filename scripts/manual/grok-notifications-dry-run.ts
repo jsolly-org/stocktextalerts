@@ -1,7 +1,6 @@
 import { DateTime } from "luxon";
-import { generateDailyExtrasWithGrok } from "../../src/lib/grok/extras";
+import { generateDailyExtrasWithGrok } from "../../src/lib/grok-extras";
 import { createLogger } from "../../src/lib/logging";
-import { formatSmsMessage } from "../../src/lib/messaging/sms/delivery";
 
 const requestId = "scripts/grok-notifications-dry-run";
 const logger = createLogger({ requestId, action: "grok_notifications_dry_run" });
@@ -9,7 +8,7 @@ const logger = createLogger({ requestId, action: "grok_notifications_dry_run" })
 function usage(): string {
 	return [
 		"Usage:",
-		"  npm run grok:notifications -- --tickers AAPL,MSFT [--kinds news,rumors] [--timezone America/New_York] [--date 2026-02-08] [--market-open true|false]",
+		"  npm run grok:notifications -- --tickers AAPL,MSFT [--kinds news,rumors] [--timezone America/New_York] [--date 2026-02-08]",
 		"",
 		"Examples:",
 		"  npm run grok:notifications -- --tickers AAPL,MSFT",
@@ -17,7 +16,7 @@ function usage(): string {
 		"",
 		"Notes:",
 		"  - Requires XAI_API_KEY in .env.local (see env.example).",
-		"  - This does NOT send SMS/email; it prints a preview only.",
+		"  - This does NOT send email; it prints a preview only.",
 	].join("\n");
 }
 
@@ -35,12 +34,6 @@ function getArgValue(args: string[], name: string): string | undefined {
 	return args[idx + 1];
 }
 
-function parseBoolean(value: string | undefined): boolean | undefined {
-	if (value === "true") return true;
-	if (value === "false") return false;
-	return undefined;
-}
-
 function parseKinds(raw: string | undefined): { includeNews: boolean; includeRumors: boolean } {
 	if (!raw) {
 		return { includeNews: true, includeRumors: true };
@@ -55,13 +48,6 @@ function parseKinds(raw: string | undefined): { includeNews: boolean; includeRum
 		includeNews: kinds.includes("news"),
 		includeRumors: kinds.includes("rumors"),
 	};
-}
-
-function buildStocksListPlaceholder(tickers: string[]): string {
-	if (tickers.length === 0) {
-		return "(no tickers)";
-	}
-	return tickers.map((t) => `${t}: $123.45 (+0.0%)`).join("\n");
 }
 
 async function main() {
@@ -95,9 +81,6 @@ async function main() {
 
 	const timezone = getArgValue(args, "--timezone") ?? "America/New_York";
 	const dateArg = getArgValue(args, "--date");
-	const marketOpen =
-		parseBoolean(getArgValue(args, "--market-open")) ??
-		(DateTime.now().setZone("America/New_York").weekday <= 5);
 
 	let localDateIso: string;
 	if (dateArg) {
@@ -147,7 +130,6 @@ async function main() {
 		localDateIso,
 		includeNews,
 		includeRumors,
-		marketOpen,
 	});
 
 	const extras = await generateDailyExtrasWithGrok({
@@ -198,18 +180,14 @@ async function main() {
 			text: extras.rumors,
 		});
 	}
-
-	const sms = formatSmsMessage(buildStocksListPlaceholder(tickers), marketOpen, extras);
-	logger.info("SMS preview (Grok content appended)", {
-		event: "sms_preview",
-		tickers,
-		timezone,
-		localDateIso,
-		includeNews,
-		includeRumors,
-		marketOpen,
-		sms,
-	});
+	if (extras.citations && extras.citations.length > 0) {
+		logger.info("Grok citations", {
+			event: "grok_citations",
+			tickers,
+			citationCount: extras.citations.length,
+			citations: extras.citations,
+		});
+	}
 }
 
 main().catch((error: unknown) => {

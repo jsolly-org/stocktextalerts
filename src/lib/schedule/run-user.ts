@@ -1,18 +1,18 @@
 import { DateTime } from "luxon";
 import type { Logger } from "../logging";
+import { formatAssetsTextList } from "../messaging/asset-formatting";
 import type { EmailSender } from "../messaging/email/utils";
 import { recordNotification } from "../messaging/shared";
 import { shouldSendSms } from "../messaging/sms";
-import { formatStocksTextList } from "../messaging/stock-formatting";
 import type { FormatPreferences, UserRecord } from "../messaging/types";
-import type { StockPriceMap } from "../price-fetcher";
+import type { AssetPriceMap } from "../price-fetcher";
 import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
 import type {
 	DeliveryMethod,
 	ScheduledNotificationTotals,
 	SupabaseAdminClient,
 } from "./helpers";
-import { loadUserStocks } from "./helpers";
+import { loadUserAssets } from "./helpers";
 import {
 	processScheduledUserEmailDelivery,
 	processScheduledUserSmsDelivery,
@@ -21,10 +21,10 @@ import { updateUserNextSendAt } from "./run-user-next-send-at";
 import type { SmsSenderProvider } from "./run-user-sms-sender";
 
 /**
- * Process a single user's scheduled (frequent) stock update notification.
+ * Process a single user's scheduled (frequent) asset update notification.
  *
  * Computes a deterministic schedule key (local date + local minutes) from `next_send_at`,
- * formats the stocks list, delivers via enabled channels, records delivery attempts, and
+ * formats the assets list, delivers via enabled channels, records delivery attempts, and
  * advances `next_send_at`.
  */
 export async function processScheduledUser(options: {
@@ -34,7 +34,7 @@ export async function processScheduledUser(options: {
 	currentTime: DateTime;
 	sendEmail: EmailSender;
 	getSmsSender: SmsSenderProvider;
-	priceMap: StockPriceMap;
+	priceMap: AssetPriceMap;
 	marketOpen: boolean;
 }): Promise<ScheduledNotificationTotals> {
 	const stats: ScheduledNotificationTotals = {
@@ -148,14 +148,14 @@ export async function processScheduledUser(options: {
 			return stats;
 		}
 
-		const userStocks = await loadUserStocks(supabase, user.id);
+		const userAssets = await loadUserAssets(supabase, user.id);
 		const formatPrefs: FormatPreferences = {
 			show_change_percent: user.show_change_percent,
 			show_company_name: user.show_company_name,
 			detailed_format: user.detailed_format,
 		};
-		const stocksList = formatStocksTextList(
-			userStocks,
+		const assetsList = formatAssetsTextList(
+			userAssets,
 			(symbol) => priceMap.get(symbol) ?? undefined,
 			formatPrefs,
 		);
@@ -171,8 +171,8 @@ export async function processScheduledUser(options: {
 				logger,
 				scheduledDate,
 				scheduledMinutes,
-				userStocks,
-				stocksList,
+				userAssets,
+				assetsList,
 				sendEmail,
 				priceMap,
 				marketOpen,
@@ -190,8 +190,8 @@ export async function processScheduledUser(options: {
 				logger,
 				scheduledDate,
 				scheduledMinutes,
-				userStocks,
-				stocksList,
+				userAssets,
+				assetsList,
 				getSmsSender,
 				marketOpen,
 				stats,

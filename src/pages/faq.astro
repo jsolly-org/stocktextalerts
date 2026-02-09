@@ -8,11 +8,11 @@ export const prerender = true;
 const faqs = [
 	{
 		question: "What is StockTextAlerts?",
-		answer: "StockTextAlerts is a free service that sends you updates on the US stocks you choose to track. You receive a concise summary of price changes delivered via email, SMS, or both."
+		answer: "StockTextAlerts is a free service that sends you updates on the US assets you choose to track. You receive a concise summary of price changes delivered via email, SMS, or both."
 	},
 	{
-		question: "How do stock updates work?",
-		answer: "Once you create an account and pick the stock tickers you want to follow, we compile updates based on your preferences. You can receive frequent scheduled price alerts, plus optional daily and weekly notifications (like news/extras or an earnings calendar). You can choose whether each notification type is delivered via email, SMS, or both. Everything is delivered in your preferred timezone."
+		question: "How do asset updates work?",
+		answer: "Once you create an account and pick the asset tickers you want to follow, we compile updates based on your preferences. You can receive frequent scheduled price alerts, plus optional daily and weekly notifications (like news/extras or an earnings calendar). You can choose whether each notification type is delivered via email, SMS, or both. Everything is delivered in your preferred timezone."
 	},
 	{
 		question: "Can I choose which notifications are sent via email vs SMS?",
@@ -23,15 +23,15 @@ const faqs = [
 		answer: "Check your spam folder, then use the resend button on the unconfirmed page to request a new verification email. If it still doesn’t arrive, reach out to support@stocktextalerts.com."
 	},
 	{
-		question: "What stocks can I track?",
-		answer: "You can track any US-listed stock. Our database includes thousands of tickers from the NYSE and NASDAQ. Simply search by ticker symbol or company name in your dashboard."
+		question: "What assets can I track?",
+		answer: "You can track any US-listed asset. Our database includes thousands of tickers from the NYSE and NASDAQ. Simply search by ticker symbol or company name in your dashboard."
 	},
 	{
 		question: "Is StockTextAlerts free?",
-		answer: "Yes. Creating an account, tracking stocks, and receiving email updates are completely free. SMS delivery is also available at no extra cost."
+		answer: "Yes. Creating an account, tracking assets, and receiving email updates are completely free. SMS delivery is also available at no extra cost."
 	},
 	{
-		question: "How do I get stock alerts by text message?",
+		question: "How do I get asset alerts by text message?",
 		answer: "After signing up, go to your dashboard and enable SMS as a notification channel. Add your phone number, verify it, and your updates will be sent as a text message in addition to (or instead of) email. You can reply STOP at any time to opt out of SMS; reply START to opt back in, then re-enable SMS from your dashboard."
 	},
 	{
@@ -40,15 +40,15 @@ const faqs = [
 	},
 	{
 		question: "What are Daily Notifications?",
-		answer: "Daily Notifications are a once-daily digest that’s separate from frequent price alerts. You can add optional extras like News, Rumors, Analyst Consensus, and Insider Trades for the stocks you track. News and Rumors are email-only."
+		answer: "Daily Notifications are a once-daily digest that's separate from frequent price alerts. You can add optional extras like News, Rumors, Analyst Consensus, and Insider Trades for the assets you track. News and Rumors are email-only."
 	},
 	{
 		question: "What is the Weekly Calendar?",
-		answer: "The Weekly Calendar is a Monday notification that highlights upcoming earnings reports for the stocks you track, so you can see what's coming up for the week. You can choose to receive it via email, SMS, or both."
+		answer: "The Weekly Calendar is a Monday notification that highlights upcoming earnings reports for the assets you track, so you can see what's coming up for the week. You can choose to receive it via email, SMS, or both."
 	},
 	{
 		question: "What information is included in the updates?",
-		answer: "Each update shows the ticker symbol, current price, and percentage change for every stock you track. It's designed to be a quick, at-a-glance summary you can read in seconds."
+		answer: "Each update shows the ticker symbol, current price, and percentage change for every asset you track. It's designed to be a quick, at-a-glance summary you can read in seconds."
 	},
 	{
 		question: "Can I customize how the updates look?",
@@ -59,8 +59,8 @@ const faqs = [
 		answer: "No. StockTextAlerts works entirely through email and SMS. There is nothing to download or install. Manage your settings through our website and receive your updates in your inbox or messaging app."
 	},
 	{
-		question: "How do I add or remove stocks from my watchlist?",
-		answer: "Log in and visit your dashboard. Use the stock search to find tickers and add them to your list. To remove a stock, click the remove button next to its name."
+		question: "How do I add or remove assets from my watchlist?",
+		answer: "Log in and visit your dashboard. Use the asset search to find tickers and add them to your list. To remove an asset, click the remove button next to its name."
 	},
 	{
 		question: "Is StockTextAlerts investment advice?",
@@ -83,8 +83,8 @@ const jsonLd = {
 ---
 
 <Layout
-  title="Frequently Asked Questions | Stock Text Alerts"
-  description="Frequently asked questions about StockTextAlerts. Learn how stock updates work, what stocks you can track, how to get alerts by text message, and more."
+  title="Frequently Asked Questions | StockTextAlerts"
+  description="Frequently asked questions about StockTextAlerts. Learn how asset updates work, what assets you can track, how to get alerts by text message, and more."
   jsonLd={jsonLd}
 >
   <div class="min-h-screen bg-white">
@@ -93,7 +93,7 @@ const jsonLd = {
     </header>
     <main id="main-content" class="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
       <h1 class="text-4xl font-bold mb-4 text-balance">Frequently Asked Questions</h1>
-      <p class="text-lg text-gray-600 mb-10">Everything you need to know about tracking stocks and choosing how you receive notifications (email, SMS, or both).</p>
+      <p class="text-lg text-gray-600 mb-10">Everything you need to know about tracking assets and choosing how you receive notifications (email, SMS, or both).</p>
 
       <div class="space-y-8">
         {faqs.map((faq) => (

@@ -2,9 +2,9 @@ import { DateTime } from "luxon";
 import type { Logger } from "../logging";
 import { createEmailSender } from "../messaging/email/utils";
 import {
+	type AssetPriceMap,
+	fetchAssetPrices,
 	fetchMarketStatus,
-	fetchStockPrices,
-	type StockPriceMap,
 } from "../price-fetcher";
 import { toIsoOrThrow } from "../time/format";
 import { dispatchDailyUser } from "./dispatch-daily";
@@ -75,8 +75,8 @@ export async function runScheduledNotifications(options: {
 		}),
 	]);
 
-	// Collect unique stock symbols across scheduled users and fetch prices in batch
-	let priceMap: StockPriceMap = new Map();
+	// Collect unique asset symbols across scheduled users and fetch prices in batch
+	let priceMap: AssetPriceMap = new Map();
 	const hasAnyUsers =
 		scheduledUsers.length > 0 ||
 		dailyUsers.length > 0 ||
@@ -85,29 +85,29 @@ export async function runScheduledNotifications(options: {
 
 	if (scheduledUsers.length > 0) {
 		const userIds = scheduledUsers.map((u) => u.id);
-		const { data: allUserStocks, error: userStocksError } = await supabase
-			.from("user_stocks")
+		const { data: allUserAssets, error: userAssetsError } = await supabase
+			.from("user_assets")
 			.select("symbol")
 			.in("user_id", userIds);
 
-		if (userStocksError) {
+		if (userAssetsError) {
 			logger.error(
-				"Failed to load user stocks for scheduled notifications",
+				"Failed to load user assets for scheduled notifications",
 				{
 					action: "scheduled_notifications_run",
 					userIdsCount: userIds.length,
 				},
-				userStocksError,
+				userAssetsError,
 			);
-			throw userStocksError;
+			throw userAssetsError;
 		}
 
 		const uniqueSymbols = [
-			...new Set((allUserStocks ?? []).map((s) => s.symbol)),
+			...new Set((allUserAssets ?? []).map((s) => s.symbol)),
 		];
 
 		if (uniqueSymbols.length > 0) {
-			priceMap = await fetchStockPrices(uniqueSymbols);
+			priceMap = await fetchAssetPrices(uniqueSymbols);
 		}
 	}
 

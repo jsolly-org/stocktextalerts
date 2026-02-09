@@ -41,7 +41,7 @@
 						Weekly Calendar
 					</h2>
 				<p class="text-sm text-gray-600 mt-1">
-					Everything you enable below is bundled into <strong class="font-semibold text-gray-700">one weekly message</strong> every Monday — covering upcoming earnings for your tracked stocks.
+					Everything you enable below is bundled into <strong class="font-semibold text-gray-700">one weekly message</strong> every Monday — covering upcoming earnings for your tracked assets.
 				</p>
 					<p
 						v-if="deliveryTimeLabel"
@@ -115,7 +115,7 @@
 								id="weekly_include_earnings_description"
 								class="text-sm text-gray-600 mt-0.5"
 							>
-								See which of your tracked stocks report earnings this week.
+								See which of your tracked stocks report earnings this week. <span class="text-gray-400 italic">ETFs are not included.</span>
 							</p>
 						</div>
 						<div class="flex items-center gap-4 shrink-0">

@@ -1,4 +1,4 @@
-import { MAX_TRACKED_STOCKS } from "./db/database-errors";
+import { MAX_TRACKED_ASSETS } from "./db/database-errors";
 import { rootLogger } from "./logging";
 
 /* =============
@@ -9,8 +9,8 @@ export const DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID =
 	"dashboard-notification-preferences-form";
 export const DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID =
 	"dashboard-notification-preferences-save-status";
-export const DASHBOARD_STOCKS_FORM_ID = "dashboard-stocks-form";
-export const DASHBOARD_STOCKS_STATUS_ID = "dashboard-stocks-save-status";
+export const DASHBOARD_ASSETS_FORM_ID = "dashboard-assets-form";
+export const DASHBOARD_ASSETS_STATUS_ID = "dashboard-assets-save-status";
 export const DASHBOARD_FREQUENT_FORM_ID = "dashboard-frequent-form";
 export const DASHBOARD_FORMAT_PREFERENCES_FORM_ID =
 	"dashboard-format-preferences-form";
@@ -90,7 +90,7 @@ Dashboard Sections
 
 export const DASHBOARD_SECTION_IDS = {
 	notificationChannels: "notification-channels",
-	stocks: "tracked-stocks",
+	assets: "watchlist",
 	frequent: "frequent-notifications",
 	preview: "notification-preview",
 	dailyNotifications: "daily-notifications",
@@ -101,7 +101,7 @@ type DashboardSection = keyof typeof DASHBOARD_SECTION_IDS;
 
 export const DASHBOARD_SECTION_HASHES: Record<DashboardSection, string> = {
 	notificationChannels: `#${DASHBOARD_SECTION_IDS.notificationChannels}`,
-	stocks: `#${DASHBOARD_SECTION_IDS.stocks}`,
+	assets: `#${DASHBOARD_SECTION_IDS.assets}`,
 	frequent: `#${DASHBOARD_SECTION_IDS.frequent}`,
 	preview: `#${DASHBOARD_SECTION_IDS.preview}`,
 	dailyNotifications: `#${DASHBOARD_SECTION_IDS.dailyNotifications}`,
@@ -113,9 +113,9 @@ Status Messages
 ============= */
 
 export const MESSAGE_ALLOWLIST = {
-	stock_added: "Stock added successfully",
-	stock_removed: "Stock removed successfully",
-	stocks_updated: "Tracked stocks updated successfully",
+	asset_added: "Asset added successfully",
+	asset_removed: "Asset removed successfully",
+	assets_updated: "Tracked assets updated successfully",
 	phone_verified: "Phone number verified successfully",
 	settings_updated: "Settings updated successfully",
 	timezone_updated: "Timezone updated successfully",
@@ -160,9 +160,9 @@ export const MESSAGE_ALLOWLIST = {
 		"Too many verification attempts. Please wait 15 minutes and try again.",
 	invalid_code: "Invalid verification code. Please try again.",
 	code_expired: "Verification code has expired. Please request a new code.",
-	failed_to_add_stock: "Failed to add stock",
-	failed_to_remove_stock: "Failed to remove stock",
-	failed_to_update_stocks: "Failed to update tracked stocks. Please try again.",
+	failed_to_add_asset: "Failed to add asset",
+	failed_to_remove_asset: "Failed to remove asset",
+	failed_to_update_assets: "Failed to update tracked assets. Please try again.",
 	update_failed: "Failed to update. Please try again.",
 	server_error: "An error occurred. Please try again",
 	phone_not_set: "Add a phone number before verifying.",
@@ -177,7 +177,7 @@ export const MESSAGE_ALLOWLIST = {
 		"Your account data was deleted, but we couldn't fully remove your sign-in. Please sign out and try again.",
 	delete_orphaned_auth_failed:
 		"Failed to complete account deletion. Please try again.",
-	stocks_limit: `Maximum ${MAX_TRACKED_STOCKS} stocks allowed`,
+	assets_limit: `Maximum ${MAX_TRACKED_ASSETS} assets allowed`,
 } as const;
 
 type MessageKey = keyof typeof MESSAGE_ALLOWLIST;

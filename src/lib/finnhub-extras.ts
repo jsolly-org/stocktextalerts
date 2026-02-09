@@ -1,6 +1,8 @@
 import { FINNHUB_BASE_URL } from "./constants";
-import type { GrokChannel } from "./grok-extras";
 import { rootLogger } from "./logging";
+
+/** Delivery channel used to tune formatting verbosity. */
+export type DeliveryChannel = "sms" | "email";
 
 /* =============
 Types
@@ -10,6 +12,8 @@ export interface CompanyNewsItem {
 	headline: string;
 	summary: string;
 	datetime: number;
+	url: string;
+	source: string;
 }
 
 export interface RecommendationTrend {
@@ -152,6 +156,8 @@ export async function fetchCompanyNews(
 			headline: item.headline as string,
 			summary: typeof item.summary === "string" ? (item.summary as string) : "",
 			datetime: item.datetime as number,
+			url: typeof item.url === "string" ? (item.url as string) : "",
+			source: typeof item.source === "string" ? (item.source as string) : "",
 		}));
 }
 
@@ -409,7 +415,8 @@ export function buildNewsContextForGrok(
 	for (const [symbol, items] of newsData) {
 		if (items.length === 0) continue;
 		for (const item of items) {
-			lines.push(`${symbol}: ${item.headline}`);
+			const suffix = item.url ? ` — ${item.url}` : "";
+			lines.push(`${symbol}: ${item.headline}${suffix}`);
 		}
 	}
 	return lines.join("\n");
@@ -426,7 +433,7 @@ Formatting: Analyst consensus section
  */
 export function formatAnalystSection(
 	data: Map<string, RecommendationTrend | null>,
-	channel: GrokChannel,
+	channel: DeliveryChannel,
 ): string | null {
 	const lines: string[] = [];
 	for (const [symbol, trend] of data) {
@@ -477,7 +484,7 @@ const HOUR_LABELS: Record<string, string> = {
  */
 export function formatEarningsSection(
 	data: Map<string, EarningsEvent[]>,
-	channel: GrokChannel,
+	channel: DeliveryChannel,
 ): string | null {
 	const lines: string[] = [];
 	for (const [symbol, events] of data) {
@@ -523,7 +530,7 @@ function formatRevenue(value: number): string {
  */
 export function formatInsiderSection(
 	data: Map<string, InsiderTransaction[]>,
-	channel: GrokChannel,
+	channel: DeliveryChannel,
 ): string | null {
 	const lines: string[] = [];
 	const maxPerTicker = channel === "sms" ? 2 : 5;

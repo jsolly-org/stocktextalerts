@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
 import { createUserService } from "../../../lib/db";
 import {
-	isStocksLimitError,
-	isStocksWhitespaceError,
-	MAX_TRACKED_STOCKS,
+	isAssetsLimitError,
+	isAssetsWhitespaceError,
+	MAX_TRACKED_ASSETS,
 } from "../../../lib/db/database-errors";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
@@ -15,8 +15,8 @@ import {
 	extractErrorMessage,
 } from "../../../lib/logging/errors";
 
-const STOCKS_SCHEMA = {
-	tracked_stocks: { type: "json_string_array", required: true },
+const ASSETS_SCHEMA = {
+	tracked_assets: { type: "json_string_array", required: true },
 } as const satisfies FormSchema;
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
@@ -31,7 +31,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 
 	const user = await userService.getCurrentUser();
 	if (!user) {
-		logger.info("Tracked stocks update attempt without authenticated user", {
+		logger.info("Tracked assets update attempt without authenticated user", {
 			reason: "unauthenticated",
 		});
 		return jsonResponse(401, { ok: false, message: "unauthorized" });
@@ -42,7 +42,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		formData = await request.formData();
 	} catch (error) {
 		logger.info(
-			"Tracked stocks update rejected due to malformed request body",
+			"Tracked assets update rejected due to malformed request body",
 			{
 				userId: user.id,
 				error: extractErrorMessage(error),
@@ -52,27 +52,27 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		);
 		return jsonResponse(400, { ok: false, message: "invalid_form" });
 	}
-	const parsed = parseWithSchema(formData, STOCKS_SCHEMA);
+	const parsed = parseWithSchema(formData, ASSETS_SCHEMA);
 
 	if (!parsed.ok) {
-		logger.info("Tracked stocks update rejected due to invalid form", {
+		logger.info("Tracked assets update rejected due to invalid form", {
 			userId: user.id,
 			errors: parsed.allErrors,
 		});
 		return jsonResponse(400, { ok: false, message: "invalid_form" });
 	}
 
-	const trackedSymbols = parsed.data.tracked_stocks;
-	if (trackedSymbols.length > MAX_TRACKED_STOCKS) {
-		logger.info("Tracked stocks limit exceeded", {
+	const trackedSymbols = parsed.data.tracked_assets;
+	if (trackedSymbols.length > MAX_TRACKED_ASSETS) {
+		logger.info("Tracked assets limit exceeded", {
 			userId: user.id,
 			count: trackedSymbols.length,
 		});
-		return jsonResponse(400, { ok: false, message: "stocks_limit" });
+		return jsonResponse(400, { ok: false, message: "assets_limit" });
 	}
 
 	try {
-		const { error } = await supabase.rpc("replace_user_stocks", {
+		const { error } = await supabase.rpc("replace_user_assets", {
 			user_id: user.id,
 			symbols: trackedSymbols,
 		});
@@ -82,14 +82,14 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	} catch (error) {
 		const errorMessage = extractErrorMessage(error);
 
-		if (isStocksLimitError(error) || isStocksWhitespaceError(error)) {
-			logger.info("Tracked stocks update rejected due to invalid input", {
+		if (isAssetsLimitError(error) || isAssetsWhitespaceError(error)) {
+			logger.info("Tracked assets update rejected due to invalid input", {
 				userId: user.id,
 				error: errorMessage,
 			});
 		} else {
 			logger.error(
-				"Failed to update tracked stocks",
+				"Failed to update tracked assets",
 				{
 					userId: user.id,
 					symbols: trackedSymbols,
@@ -99,16 +99,16 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			);
 		}
 
-		if (isStocksLimitError(error)) {
-			return jsonResponse(400, { ok: false, message: "stocks_limit" });
+		if (isAssetsLimitError(error)) {
+			return jsonResponse(400, { ok: false, message: "assets_limit" });
 		}
 
-		if (isStocksWhitespaceError(error)) {
+		if (isAssetsWhitespaceError(error)) {
 			return jsonResponse(400, { ok: false, message: "invalid_form" });
 		}
 
-		return jsonResponse(500, { ok: false, message: "failed_to_update_stocks" });
+		return jsonResponse(500, { ok: false, message: "failed_to_update_assets" });
 	}
 
-	return jsonResponse(200, { ok: true, message: "stocks_updated" });
+	return jsonResponse(200, { ok: true, message: "assets_updated" });
 };

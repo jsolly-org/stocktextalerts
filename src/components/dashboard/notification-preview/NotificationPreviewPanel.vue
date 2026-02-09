@@ -41,7 +41,7 @@
 						Notification Preview
 					</h2>
 					<p class="text-sm text-gray-600 mt-1">
-						Customize how your stock notifications look. Changes apply to both SMS and email.
+						Customize how your asset notifications look. Changes apply to both SMS and email.
 					</p>
 				</header>
 
@@ -66,19 +66,19 @@
 			/>
 
 			<p
-				v-if="isUsingDemoStocks"
+				v-if="isUsingDemoAssets"
 				class="mt-6 mb-0 text-xs text-gray-500 italic"
 			>
-				Showing example stocks. Add tracked stocks above to preview your actual notifications.
+				Showing example assets. Add tracked assets above to preview your actual notifications.
 			</p>
 
 			<div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
 				<SmsPreview
-					:stocks="previewStocks"
+					:assets="previewAssets"
 					:formatPreferences="formatPreferences"
 				/>
 				<EmailPreview
-					:stocks="previewStocks"
+					:assets="previewAssets"
 					:formatPreferences="formatPreferences"
 				/>
 			</div>
@@ -100,20 +100,20 @@ import {
 } from "../../../lib/constants";
 import type { FormatPreferences } from "../../../lib/messaging/types";
 import FadeTransition from "../../FadeTransition.vue";
+import type { InitialAsset } from "../assets/types";
 import {
 	type FormatPreferencesData,
 	useAutoSaveFormatPreferences,
 } from "../composables/useAutoSaveFormatPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
 import SetupRequiredNotice from "../scheduled-notifications/SetupRequiredNotice.vue";
-import type { InitialStock } from "../stocks/types";
 import EmailPreview from "./EmailPreview.vue";
 import FormatToggles from "./FormatToggles.vue";
-import { DEMO_STOCKS, type PreviewStock } from "./preview-data";
+import { DEMO_ASSETS, type PreviewAsset } from "./preview-data";
 import SmsPreview from "./SmsPreview.vue";
 
 interface Props {
-	initialStocks: InitialStock[];
+	initialAssets: InitialAsset[];
 	emailEnabled: boolean;
 	smsEnabled: boolean;
 	phoneVerified: boolean;
@@ -121,7 +121,7 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const { initialStocks, emailEnabled, smsEnabled, phoneVerified } = toRefs(props);
+const { initialAssets, emailEnabled, smsEnabled, phoneVerified } = toRefs(props);
 
 // Inject the shared mutable user ref from DashboardPanels
 const user = useDashboardUser();
@@ -159,21 +159,21 @@ const formatPreferences = computed<FormatPreferences>(() => ({
 	detailed_format: detailedFormat.value,
 }));
 
-const isUsingDemoStocks = computed(() => initialStocks.value.length === 0);
+const isUsingDemoAssets = computed(() => initialAssets.value.length === 0);
 
-const previewStocks = computed<PreviewStock[]>(() => {
-	const stocks = initialStocks.value;
-	if (stocks.length === 0) {
-		return DEMO_STOCKS;
+const previewAssets = computed<PreviewAsset[]>(() => {
+	const assets = initialAssets.value;
+	if (assets.length === 0) {
+		return DEMO_ASSETS;
 	}
 	const demoPrices = [
 		{ price: 195.5, changePercent: 2.4 },
 		{ price: 178.2, changePercent: 1.8 },
 		{ price: 248.3, changePercent: -0.5 },
 	];
-	return stocks.slice(0, 3).map((stock, i) => ({
-		symbol: stock.symbol,
-		name: stock.name,
+	return assets.slice(0, 3).map((asset, i) => ({
+		symbol: asset.symbol,
+		name: asset.name,
 		price: demoPrices[i % demoPrices.length].price,
 		changePercent: demoPrices[i % demoPrices.length].changePercent,
 	}));

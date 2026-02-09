@@ -3,7 +3,7 @@
 		<FadeTransition>
 			<div
 				v-if="statusMessage"
-				:id="DASHBOARD_STOCKS_STATUS_ID"
+				:id="DASHBOARD_ASSETS_STATUS_ID"
 				class="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium z-10"
 				:class="[statusTone === 'error' ? 'bg-error-bg text-error-text' : 'bg-info-bg text-info-text']"
 				role="status"
@@ -25,16 +25,16 @@
 		<div class="card-body">
 		<header class="flex items-center gap-2 mb-4">
 			<h2
-				:id="DASHBOARD_SECTION_IDS.stocks"
+				:id="DASHBOARD_SECTION_IDS.assets"
 				class="text-xl sm:text-2xl font-bold text-gray-900"
 			>
-				Tracked Stocks
+				Watchlist
 			</h2>
 			<span
 				class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700"
-				:aria-label="`${draftStocks.length} ${draftStocks.length === 1 ? 'stock' : 'stocks'} tracked`"
+				:aria-label="`${draftAssets.length} ${draftAssets.length === 1 ? 'asset' : 'assets'} tracked`"
 			>
-				{{ draftStocks.length }}
+				{{ draftAssets.length }}
 			</span>
 		</header>
 
@@ -48,50 +48,50 @@
 			</StatusMessage>
 		</div>
 
-		<input type="hidden" name="tracked_stocks" :value="trackedStocksValue" />
+		<input type="hidden" name="tracked_assets" :value="trackedAssetsValue" />
 
 		<fieldset class="mb-6">
-			<legend class="sr-only">Add stocks</legend>
+			<legend class="sr-only">Add to watchlist</legend>
 			<div>
-				<label for="stock_search" class="sr-only">Search by symbol or company name</label>
-				<StockInput
-					:stock-options="stockOptions"
-					:disabled="isAtStockLimit"
-					:input-aria-described-by="isAtStockLimit ? STOCK_LIMIT_HINT_ID : undefined"
+				<label for="asset_search" class="sr-only">Search by symbol or company name</label>
+				<AssetInput
+					:asset-options="assetOptions"
+					:disabled="isAtAssetLimit"
+					:input-aria-described-by="isAtAssetLimit ? ASSET_LIMIT_HINT_ID : undefined"
 					@select="handleSelect"
 				/>
 				<p
-					v-if="isAtStockLimit"
-					:id="STOCK_LIMIT_HINT_ID"
+					v-if="isAtAssetLimit"
+					:id="ASSET_LIMIT_HINT_ID"
 					class="mt-2 text-sm text-warning-text"
 				>
-					You've reached the maximum of {{ MAX_TRACKED_STOCKS }} stocks. Please remove an existing stock to track a new one.
+					You've reached the maximum of {{ MAX_TRACKED_ASSETS }} assets. Please remove an existing asset to track a new one.
 				</p>
 			</div>
 		</fieldset>
 
-		<section :aria-label="`${draftStocks.length} tracked ${draftStocks.length === 1 ? 'stock' : 'stocks'}`">
-			<div v-if="draftStocks.length === 0" class="text-center py-10 px-4 sm:py-12 sm:px-6 bg-linear-to-b from-gray-50 to-white rounded-xl border-2 border-dashed border-gray-200">
+		<section :aria-label="`${draftAssets.length} tracked ${draftAssets.length === 1 ? 'asset' : 'assets'}`">
+			<div v-if="draftAssets.length === 0" class="text-center py-10 px-4 sm:py-12 sm:px-6 bg-linear-to-b from-gray-50 to-white rounded-xl border-2 border-dashed border-gray-200">
 				<div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-gray-100">
 					<ChartBarIcon class="h-6 w-6 text-gray-400" aria-hidden="true" focusable="false" />
 				</div>
-				<p class="mt-3 text-sm text-gray-500">Search above to add stocks.</p>
+				<p class="mt-3 text-sm text-gray-500">Search above to add assets.</p>
 			</div>
 			<ul v-else class="space-y-2" role="list">
 				<li
-					v-for="stock in draftStocks"
-					:key="stock.symbol"
+					v-for="asset in draftAssets"
+					:key="asset.symbol"
 					class="group flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
 				>
 					<span class="min-w-0 text-sm font-medium text-gray-900 truncate">
-						<span class="font-semibold">{{ stock.symbol }}</span>
-						<span class="text-gray-500"> · {{ stock.name }}</span>
+						<span class="font-semibold">{{ asset.symbol }}</span>
+						<span class="text-gray-500"> · {{ asset.name }}</span>
 					</span>
 					<button
 						type="button"
 						class="btn-icon-danger rounded p-1.5"
-						:aria-label="`Remove ${stock.symbol}`"
-						@click="removeSymbol(stock.symbol)"
+						:aria-label="`Remove ${asset.symbol}`"
+						@click="removeSymbol(asset.symbol)"
 					>
 						<XMarkIcon class="h-4 w-4" aria-hidden="true" focusable="false" />
 					</button>
@@ -110,20 +110,20 @@ import ChartBarIcon from "../../../icons/chart-bar.svg?component";
 import XMarkIcon from "../../../icons/x-mark.svg?component";
 import {
 	CARD_GRADIENT_ACCENTS,
+	DASHBOARD_ASSETS_STATUS_ID,
 	DASHBOARD_SECTION_IDS,
-	DASHBOARD_STOCKS_STATUS_ID,
 	type FlashMessage,
 } from "../../../lib/constants";
-import { MAX_TRACKED_STOCKS } from "../../../lib/db/database-errors";
+import { MAX_TRACKED_ASSETS } from "../../../lib/db/database-errors";
 import FadeTransition from "../../FadeTransition.vue";
 import StatusMessage from "../../StatusMessage.vue";
-import type { StockOption } from "./StockInput.vue";
-import StockInput from "./StockInput.vue";
-import type { InitialStock } from "./types";
+import type { AssetOption } from "./AssetInput.vue";
+import AssetInput from "./AssetInput.vue";
+import type { InitialAsset } from "./types";
 
 interface Props {
-	stockOptions: StockOption[];
-	initialStocks: InitialStock[];
+	assetOptions: AssetOption[];
+	initialAssets: InitialAsset[];
 	flashMessages?: FlashMessage[];
 	statusMessage?: string | null;
 	statusTone?: "error" | "info";
@@ -139,34 +139,34 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
 	(event: "form-changed"): void;
-	(event: "stocks-changed", stocks: InitialStock[]): void;
+	(event: "assets-changed", assets: InitialAsset[]): void;
 }>();
 
 const { flashMessages, isSaving, statusMessage, statusTone } = toRefs(props);
 
-const draftStocks = ref<InitialStock[]>([...props.initialStocks]);
+const draftAssets = ref<InitialAsset[]>([...props.initialAssets]);
 
-const trackedStocksValue = computed(() =>
-	JSON.stringify(draftStocks.value.map((s) => s.symbol)),
+const trackedAssetsValue = computed(() =>
+	JSON.stringify(draftAssets.value.map((s) => s.symbol)),
 );
 
-const isAtStockLimit = computed(
-	() => draftStocks.value.length >= MAX_TRACKED_STOCKS,
+const isAtAssetLimit = computed(
+	() => draftAssets.value.length >= MAX_TRACKED_ASSETS,
 );
 
-const STOCK_LIMIT_HINT_ID = "stock-limit-hint";
+const ASSET_LIMIT_HINT_ID = "asset-limit-hint";
 
 watch(
-	draftStocks,
-	(stocks) => {
+	draftAssets,
+	(assets) => {
 		emit("form-changed");
-		emit("stocks-changed", stocks);
+		emit("assets-changed", assets);
 	},
 	{ flush: "post", deep: true },
 );
 
 function nameForSymbol(symbol: string): string {
-	const option = props.stockOptions.find((o) => o.value === symbol);
+	const option = props.assetOptions.find((o) => o.value === symbol);
 	if (!option?.label.includes(" - ")) {
 		return symbol;
 	}
@@ -178,18 +178,18 @@ function handleSelect(symbol: string) {
 		return;
 	}
 
-	if (draftStocks.value.some((s) => s.symbol === symbol)) {
+	if (draftAssets.value.some((s) => s.symbol === symbol)) {
 		return;
 	}
 
-	draftStocks.value = [
-		...draftStocks.value,
+	draftAssets.value = [
+		...draftAssets.value,
 		{ symbol, name: nameForSymbol(symbol) },
 	];
 }
 
 function removeSymbol(symbol: string) {
-	draftStocks.value = draftStocks.value.filter((s) => s.symbol !== symbol);
+	draftAssets.value = draftAssets.value.filter((s) => s.symbol !== symbol);
 }
 </script>
 
