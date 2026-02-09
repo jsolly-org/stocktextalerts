@@ -1,15 +1,17 @@
 # StockTextAlerts.com
 
-A stock market notification app that sends scheduled SMS and email updates about tracked stocks. Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email and SMS are sent via Resend and Twilio. 🔔
+A stock market notification app that sends scheduled SMS and email updates (price alerts, daily digests, and a weekly calendar) about tracked stocks. Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email and SMS are sent via Resend and Twilio. 🔔
 
 ## Features
 
 - **Stock Tracking** - Search and track US stock symbols
-- **Email Notifications** - Scheduled email updates about tracked stocks (Resend)
-- **SMS Notifications** - Optional scheduled SMS messages (Twilio)
+- **Email Notifications** - Receive updates via email (Resend)
+- **SMS Notifications** - Optional SMS delivery (Twilio)
 - **Phone Verification** - Secure phone verification via Twilio Verify
 - **Timezone Support** - Browser-detected timezones with user overrides
-- **Notification Scheduling** - Choose up to 5 delivery times for your stock updates
+- **Frequent Price Notifications** - Choose up to 5 delivery times for scheduled stock price updates
+- **Daily Notifications** - Once-daily digest with optional news/rumors, analyst consensus, and insider trades
+- **Weekly Calendar** - Monday calendar of upcoming earnings reports and dividend events for your tracked stocks
 - **Format Preferences** - Customize how your updates look with live SMS/email previews
 - **SMS Opt-out** - Reply STOP to opt out of SMS; reply START to opt back in (then re-enable SMS in your dashboard)
 
@@ -19,6 +21,8 @@ A stock market notification app that sends scheduled SMS and email updates about
 - **UI**: Vue 3 components with Tailwind CSS
 - **Icons**: Local SVGs in `/src/icons` loaded via `astro-icon` in `.astro` files; Vue components import SVGs via `vite-svg-loader` using the `?component` suffix
 - **Database**: Supabase (PostgreSQL)
+- **Market Data**: Finnhub (prices, market hours, earnings/dividends, analyst/insider extras)
+- **AI Summaries**: xAI (Grok) for optional News/Rumors add-ons
 - **Email**: Resend
 - **SMS**: Twilio Verify API + Messaging API
 - **Hosting**: Vercel with Cron Jobs
@@ -40,6 +44,8 @@ A stock market notification app that sends scheduled SMS and email updates about
 - Supabase account
 - Resend account
 - Twilio account with Verify API enabled
+- Finnhub account (API key)
+- xAI account (optional, only needed for News/Rumors add-ons)
 - Vercel account (for deployment and cron jobs)
 
 ## Development Setup
@@ -103,6 +109,14 @@ CRON_SECRET=your-random-secret-string
 RESEND_API_KEY=REPLACE_WITH_YOUR_API_KEY
 EMAIL_FROM=notifications@updates.example.com
 
+# Finnhub (stock prices / market hours)
+FINNHUB_API_KEY=your-finnhub-api-key
+
+# xAI (Grok) - optional, only needed for News/Rumors add-ons
+XAI_API_KEY=your-xai-api-key
+# Optional: defaults to grok-4
+XAI_GROK_MODEL=grok-4
+
 # Logging
 LOG_MASK_PII=true
 
@@ -117,6 +131,8 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - Twilio credentials: Twilio Console → Account Dashboard
 - `CRON_SECRET`: Generate a random string (e.g., `openssl rand -hex 32`)
 - Resend credentials: Resend Dashboard → API Keys
+- Finnhub credentials: Finnhub Dashboard → API Keys
+- xAI credentials: xAI Console → API Keys
 - LOG masking: optional, defaults to true
 
 **Security Note:** The `SUPABASE_SECRET_KEY` bypasses Row Level Security. Never expose it on the client side. The `.env.local` file (and all `.env*` files) are excluded from version control via `.gitignore`.
@@ -270,10 +286,10 @@ The cron job calls `/api/schedule` and must include:
 - `Authorization: Bearer <CRON_SECRET>`
 
 The cron job:
-1. Queries users who need notifications based on their timezone and scheduled notification times
-2. Fetches their tracked stocks
-3. Sends via email and/or SMS based on settings
-4. Logs all notification attempts to `notification_log` table
+1. Runs frequent scheduled price notifications (batched price fetching)
+2. Sends weekly calendar notifications (earnings/dividends) on Mondays
+3. Sends daily digest notifications (News/Rumors/Analyst/Insider) at the user’s chosen daily time
+4. Sends via email and/or SMS based on settings and logs attempts to the `notification_log` table
 
 ## Project Structure
 
