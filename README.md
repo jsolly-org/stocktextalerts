@@ -10,7 +10,7 @@ A securities notification app that sends scheduled SMS and email updates (price 
 - **Phone Verification** - Secure phone verification via Twilio Verify
 - **Timezone Support** - Browser-detected timezones with user overrides
 - **Frequent Price Notifications** - Choose up to 5 delivery times for scheduled asset price updates, and decide if they're delivered by email, SMS, or both
-- **Daily Notifications** - Once-daily digest with optional extras (News/Rumors are email-only; Analyst Consensus and Insider Trades can be delivered by email and/or SMS)
+- **Daily Notifications** - Once-daily digest with optional extras (News/Rumors are email-only and may include clickable source links; Analyst Consensus and Insider Trades can be delivered by email and/or SMS)
 - **Weekly Calendar** - Monday calendar of upcoming earnings reports for your tracked assets (delivered by email and/or SMS)
 - **Format Preferences** - Customize how your updates look with live SMS/email previews
 - **SMS Opt-out** - Reply STOP to opt out of SMS; reply START to opt back in (then re-enable SMS in your dashboard)
