@@ -16,7 +16,15 @@ const LINK_STYLE = "color: #667eea; text-decoration: underline;";
  * rendered as plain escaped text.
  */
 export function markdownLinksToHtml(content: string): string {
-	const MARKDOWN_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
+	// Match markdown links `[text](url)` where the URL is http(s) and may contain
+	// balanced parentheses (common in Wikipedia URLs like `JavaScript_(programming_language)`).
+	//
+	// Notes:
+	// - We keep the URL "no whitespace" rule to avoid swallowing following text.
+	// - This supports nested parentheses up to 2 levels, which is sufficient for
+	//   common real-world links while remaining regex-friendly in JS.
+	const MARKDOWN_LINK_RE =
+		/\[([^\]]+)\]\(((?:https?:\/\/)(?:[^\s()]+|\((?:[^\s()]+|\([^\s()]*\))*\))*)\)/g;
 	const parts: string[] = [];
 	let lastIndex = 0;
 
