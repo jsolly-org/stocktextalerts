@@ -252,8 +252,6 @@ CREATE TABLE IF NOT EXISTS users (
   -- Weekly calendar
   weekly_include_earnings_email BOOLEAN DEFAULT false NOT NULL,
   weekly_include_earnings_sms BOOLEAN DEFAULT false NOT NULL,
-  weekly_include_dividends_email BOOLEAN DEFAULT false NOT NULL,
-  weekly_include_dividends_sms BOOLEAN DEFAULT false NOT NULL,
   weekly_next_send_at TIMESTAMP WITH TIME ZONE,
   -- Price notifications
   price_notifications_enabled BOOLEAN DEFAULT true NOT NULL,
