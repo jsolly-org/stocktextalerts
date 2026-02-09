@@ -224,6 +224,11 @@ export async function fetchInsiderTransactions(
 	const transactions = (data as Record<string, unknown>).data;
 	if (!Array.isArray(transactions)) return [];
 
+	// Only include transactions from the last 24 hours
+	const cutoffDate = new Date(Date.now() - 24 * 60 * 60 * 1000)
+		.toISOString()
+		.slice(0, 10);
+
 	return transactions
 		.filter(
 			(item: unknown) =>
@@ -231,7 +236,8 @@ export async function fetchInsiderTransactions(
 				item !== null &&
 				typeof (item as Record<string, unknown>).name === "string" &&
 				typeof (item as Record<string, unknown>).change === "number" &&
-				typeof (item as Record<string, unknown>).transactionDate === "string",
+				typeof (item as Record<string, unknown>).transactionDate === "string" &&
+				(item as Record<string, unknown>).transactionDate >= cutoffDate,
 		)
 		.slice(0, 5)
 		.map((item: Record<string, unknown>) => ({
@@ -622,5 +628,7 @@ export function formatInsiderSection(
 			lines.push(`${symbol}: ${tx.name} ${action} ${shares} shares (${date})`);
 		}
 	}
-	return lines.length > 0 ? lines.join("\n") : null;
+	if (lines.length > 0) return lines.join("\n");
+	if (data.size > 0) return "No reported insider trades in the last 24 hours.";
+	return null;
 }

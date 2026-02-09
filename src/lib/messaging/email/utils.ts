@@ -131,12 +131,12 @@ export function formatEmailMessage(
 		email: user.email,
 	});
 	const escapedUnsubscribeUrl = escapeHtml(unsubscribeUrl);
-	const textFooter = `\n\nManage your delivery schedule: ${scheduleUrl}\nUnsubscribe from email notifications: ${unsubscribeUrl}`;
+	const textFooter = `\n\nManage your delivery schedule: ${scheduleUrl}\nUnsubscribe: ${unsubscribeUrl}`;
 	const htmlFooter = `
 		<p style="color: #6b7280; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
 			<a href="${escapedScheduleUrl}" style="color: #667eea; text-decoration: none;">Adjust delivery schedule</a>
 			<span style="color: #d1d5db; padding: 0 8px;">•</span>
-			<a href="${escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe from email</a>
+			<a href="${escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
 		</p>`;
 
 	if (userStocks.length === 0) {

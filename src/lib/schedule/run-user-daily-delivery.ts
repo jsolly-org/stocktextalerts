@@ -83,7 +83,7 @@ function formatDailyDigestEmail(options: {
 		insider ? `\n🏦 Insider Trades\n${insider}` : "",
 		`\nManage your settings: ${urls.dashboardUrl}`,
 		`Manage your delivery schedule: ${urls.scheduleUrl}`,
-		`Unsubscribe from email notifications: ${urls.unsubscribeUrl}`,
+		`Unsubscribe: ${urls.unsubscribeUrl}`,
 	].filter(Boolean);
 
 	const subject = "Daily stock digest";
@@ -100,10 +100,10 @@ function formatDailyDigestEmail(options: {
 	<div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-radius: 10px;">
 		<h2 style="margin: 0 0 8px; font-size: 18px;">Daily digest</h2>
 		<p style="margin: 0 0 16px; color: #6b7280; font-size: 14px;">${escapeHtml(tickersLine)}</p>
-		${renderEmailSection("🗞️", "News", news)}
-		${renderEmailSection("🤫", "Rumors", rumors)}
-		${renderEmailSection("📊", "Analyst Consensus", analyst)}
-		${renderEmailSection("🏦", "Insider Trades", insider)}
+		${renderEmailSection("🗞️", "News", news, { showGrokLogo: true, showFinnhubLogo: true })}
+		${renderEmailSection("🤫", "Rumors", rumors, { showGrokLogo: true })}
+		${renderEmailSection("📊", "Analyst Consensus", analyst, { showFinnhubLogo: true })}
+		${renderEmailSection("🏦", "Insider Trades", insider, { showFinnhubLogo: true })}
 		<div style="text-align: center; margin-top: 20px;">
 			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
 				Manage your settings →

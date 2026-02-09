@@ -76,7 +76,7 @@ function formatWeeklyCalendarEmail(options: {
 		dividends ? `\n💰 Dividends\n${dividends}` : "",
 		`\nManage your settings: ${urls.dashboardUrl}`,
 		`Manage your delivery schedule: ${urls.scheduleUrl}`,
-		`Unsubscribe from email notifications: ${urls.unsubscribeUrl}`,
+		`Unsubscribe: ${urls.unsubscribeUrl}`,
 	].filter(Boolean);
 
 	const subject = "Weekly calendar events";
@@ -93,8 +93,8 @@ function formatWeeklyCalendarEmail(options: {
 	<div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-radius: 10px;">
 		<h2 style="margin: 0 0 8px; font-size: 18px;">Weekly calendar</h2>
 		<p style="margin: 0 0 16px; color: #6b7280; font-size: 14px;">Upcoming events for your tracked stocks</p>
-		${renderEmailSection("📅", "Earnings This Week", earnings)}
-		${renderEmailSection("💰", "Dividends", dividends)}
+		${renderEmailSection("📅", "Earnings This Week", earnings, { showFinnhubLogo: true })}
+		${renderEmailSection("💰", "Dividends", dividends, { showFinnhubLogo: true })}
 		<div style="text-align: center; margin-top: 20px;">
 			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
 				Manage your settings →
