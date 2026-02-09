@@ -357,7 +357,7 @@ See `scripts/us-assets.json` for the canonical schema and example data.
 npm run db:generate-seed
 ```
 
-4. Reset the local database to apply the new seed data:
+3. Reset the local database to apply the new seed data:
 
 ```bash
 npm run db:reset

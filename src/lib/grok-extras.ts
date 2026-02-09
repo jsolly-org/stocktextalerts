@@ -133,7 +133,9 @@ export async function generateDailyExtrasWithGrok(options: {
 	}
 
 	const model =
-		metaEnv?.XAI_GROK_MODEL ?? process.env.XAI_GROK_MODEL ?? "grok-4-1-fast";
+		metaEnv?.XAI_GROK_MODEL ??
+		process.env.XAI_GROK_MODEL ??
+		"grok-4-1-fast-reasoning";
 	const { system, user } = buildExtrasPrompt(options);
 
 	const requestBody: ResponsesRequest = {
@@ -143,7 +145,6 @@ export async function generateDailyExtrasWithGrok(options: {
 		temperature: 0.4,
 		max_tokens: 1200,
 		tools: [{ type: "web_search" }, { type: "x_search" }],
-		include: ["citations.url", "citations.title"],
 	};
 
 	const MAX_RETRIES = 3;
