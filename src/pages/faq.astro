@@ -12,7 +12,11 @@ const faqs = [
 	},
 	{
 		question: "How do stock updates work?",
-		answer: "Once you create an account and pick the stock tickers you want to follow, we compile updates based on your preferences. You can receive frequent scheduled price alerts, plus optional daily and weekly notifications (like news/extras or an earnings/dividends calendar). Everything is delivered in your preferred timezone."
+		answer: "Once you create an account and pick the stock tickers you want to follow, we compile updates based on your preferences. You can receive frequent scheduled price alerts, plus optional daily and weekly notifications (like news/extras or an earnings/dividends calendar). You can choose whether each notification type is delivered via email, SMS, or both. Everything is delivered in your preferred timezone."
+	},
+	{
+		question: "Can I choose which notifications are sent via email vs SMS?",
+		answer: "Yes. Enable email and/or SMS, then choose which notification types are delivered to each channel. Some add-ons (like News and Rumors) are email-only."
 	},
 	{
 		question: "I didn't receive my verification email. What should I do?",
@@ -36,11 +40,11 @@ const faqs = [
 	},
 	{
 		question: "What are Daily Notifications?",
-		answer: "Daily Notifications are a once-daily digest that’s separate from frequent price alerts. You can add optional extras like News, Rumors, Analyst Consensus, and Insider Trades for the stocks you track."
+		answer: "Daily Notifications are a once-daily digest that’s separate from frequent price alerts. You can add optional extras like News, Rumors, Analyst Consensus, and Insider Trades for the stocks you track. News and Rumors are email-only."
 	},
 	{
 		question: "What is the Weekly Calendar?",
-		answer: "The Weekly Calendar is a Monday notification that highlights upcoming earnings reports and dividend events for the stocks you track, so you can see what’s coming up for the week."
+		answer: "The Weekly Calendar is a Monday notification that highlights upcoming earnings reports and dividend events for the stocks you track, so you can see what’s coming up for the week. You can choose to receive it via email, SMS, or both."
 	},
 	{
 		question: "What information is included in the updates?",
@@ -89,7 +93,7 @@ const jsonLd = {
     </header>
     <main id="main-content" class="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
       <h1 class="text-4xl font-bold mb-4 text-balance">Frequently Asked Questions</h1>
-      <p class="text-lg text-gray-600 mb-10">Everything you need to know about tracking stocks and receiving your notifications.</p>
+      <p class="text-lg text-gray-600 mb-10">Everything you need to know about tracking stocks and choosing how you receive notifications (email, SMS, or both).</p>
 
       <div class="space-y-8">
         {faqs.map((faq) => (
