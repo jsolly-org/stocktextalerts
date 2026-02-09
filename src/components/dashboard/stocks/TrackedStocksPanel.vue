@@ -89,7 +89,7 @@
 					</span>
 					<button
 						type="button"
-						class="shrink-0 rounded p-1.5 text-gray-400 hover:text-error-text hover:bg-error-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 transition-colors cursor-pointer"
+						class="btn-icon-danger rounded p-1.5"
 						:aria-label="`Remove ${stock.symbol}`"
 						@click="removeSymbol(stock.symbol)"
 					>

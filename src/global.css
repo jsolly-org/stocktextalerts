@@ -93,6 +93,9 @@ body {
 .btn-ghost {
 	@apply bg-transparent text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-primary;
 }
+.btn-icon-danger {
+	@apply inline-flex items-center justify-center shrink-0 rounded-lg text-gray-400 hover:bg-error-bg hover:text-error-text transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error-strong focus-visible:ring-offset-2;
+}
 
 /* ============= Form Input Utilities ============= */
 
@@ -106,7 +109,10 @@ body {
 /* ============= Link Utilities ============= */
 
 .link-primary {
-	@apply font-medium text-primary hover:text-primary-strong no-underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded;
+	@apply font-medium text-primary hover:text-primary-strong hover:underline no-underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded;
+}
+.link-action {
+	@apply text-primary hover:underline rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
 }
 
 /* ============= Card Utilities ============= */

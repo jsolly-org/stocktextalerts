@@ -16,6 +16,11 @@
 - `verifyOtp()` uses `type: "email"` (not `"signup"` — deprecated).
 - Whitelist only `email`, `invite`, `magiclink`, `recovery`, `email_change` in `verified.astro`. Do not add `signup` as a verification type.
 
+### Supabase Migrations
+- **Local files are the source of truth.** Always create the migration SQL file in `supabase/migrations/` first, then apply it to production using the Supabase MCP `apply_migration` tool with the **same version and name** as the local file.
+- **Never apply migrations directly to production** without a corresponding local file. This causes version drift that is painful to reconcile.
+- After applying a migration, run `npm run db:gen-types` to keep TypeScript types in sync.
+
 ### Generated Files
 - Do NOT modify `src/lib/db/generated/database.types.ts`. Regenerate with `npm run db:gen-types` or use type assertions.
 

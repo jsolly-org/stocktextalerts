@@ -12,7 +12,7 @@
 				<span class="text-gray-400 mx-0.5" aria-hidden="true">·</span>
 				<button
 					type="button"
-					class="text-primary hover:underline rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+					class="link-action"
 					@click="handleChangeNumberClick"
 				>
 					Change

@@ -13,7 +13,7 @@
 			:id="sendVerificationButtonId"
 		:disabled="sendVerificationDisabled || isSendingVerification"
 		:aria-busy="isSendingVerification"
-		class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-strong transition-colors text-sm mt-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+		class="btn btn-sm btn-primary mt-4 gap-2"
 		>
 		<ArrowPathIcon
 			v-if="isSendingVerification"

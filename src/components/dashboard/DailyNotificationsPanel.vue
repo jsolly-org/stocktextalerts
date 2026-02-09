@@ -121,7 +121,7 @@
 					<button
 						v-if="dailyDeliveryTimeMinutes !== null"
 						type="button"
-						class="inline-flex items-center justify-center size-8 shrink-0 rounded-lg text-gray-400 hover:bg-error-bg hover:text-error-text transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2"
+						class="btn-icon-danger size-8"
 						:disabled="needsChannelSelection"
 						aria-label="Clear delivery time"
 						@click="handleClearDeliveryTime"

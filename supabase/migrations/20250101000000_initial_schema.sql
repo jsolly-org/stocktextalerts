@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.app_metadata (
 );
 
 INSERT INTO public.app_metadata (key, value)
-VALUES ('schema_version', '20250101000000_initial_schema@v9')
+VALUES ('schema_version', '20250101000000_initial_schema@v10')
 ON CONFLICT (key) DO UPDATE SET
   value = EXCLUDED.value;
 
@@ -50,7 +50,7 @@ Enums for Stronger DB Types
 
 CREATE TYPE public.delivery_method AS ENUM ('email', 'sms');
 
-CREATE TYPE public.scheduled_notification_type AS ENUM ('scheduled_update', 'daily_add_ons');
+CREATE TYPE public.scheduled_notification_type AS ENUM ('scheduled_update', 'daily_digest', 'weekly_calendar');
 
 CREATE TYPE public.scheduled_notification_status AS ENUM ('sending', 'sent', 'failed');
 
@@ -220,8 +220,8 @@ CREATE TABLE IF NOT EXISTS users (
   phone_country_code VARCHAR(5),
   phone_number VARCHAR(15),
   full_phone VARCHAR(20) GENERATED ALWAYS AS (
-    CASE 
-      WHEN phone_country_code IS NOT NULL AND phone_number IS NOT NULL 
+    CASE
+      WHEN phone_country_code IS NOT NULL AND phone_number IS NOT NULL
       THEN phone_country_code || phone_number
       ELSE NULL
     END
@@ -236,22 +236,39 @@ CREATE TABLE IF NOT EXISTS users (
   next_send_at TIMESTAMP WITH TIME ZONE,
   last_market_closed_skip_scheduled_at TIMESTAMP WITH TIME ZONE,
   last_market_closed_skip_recorded_at TIMESTAMP WITH TIME ZONE,
-  add_ons_only_notify_when_market_open BOOLEAN DEFAULT false NOT NULL,
-  add_ons_delivery_time INTEGER,
-  add_ons_next_send_at TIMESTAMP WITH TIME ZONE,
+  -- Daily digest
+  daily_only_notify_when_market_open BOOLEAN DEFAULT false NOT NULL,
+  daily_delivery_time INTEGER,
+  daily_next_send_at TIMESTAMP WITH TIME ZONE,
   last_grok_rumors_at TIMESTAMP WITH TIME ZONE,
+  daily_include_news_email BOOLEAN DEFAULT false NOT NULL,
+  daily_include_rumors_email BOOLEAN DEFAULT false NOT NULL,
+  daily_include_analyst_email BOOLEAN DEFAULT false NOT NULL,
+  daily_include_insider_email BOOLEAN DEFAULT false NOT NULL,
+  daily_include_analyst_sms BOOLEAN DEFAULT false NOT NULL,
+  daily_include_insider_sms BOOLEAN DEFAULT false NOT NULL,
+  grok_window_start TIMESTAMP WITH TIME ZONE,
+  grok_sends_in_window INTEGER DEFAULT 0 NOT NULL,
+  -- Weekly calendar
+  weekly_include_earnings_email BOOLEAN DEFAULT false NOT NULL,
+  weekly_include_earnings_sms BOOLEAN DEFAULT false NOT NULL,
+  weekly_include_dividends_email BOOLEAN DEFAULT false NOT NULL,
+  weekly_include_dividends_sms BOOLEAN DEFAULT false NOT NULL,
+  weekly_next_send_at TIMESTAMP WITH TIME ZONE,
+  -- Price notifications
   price_notifications_enabled BOOLEAN DEFAULT true NOT NULL,
+  price_include_email BOOLEAN DEFAULT true NOT NULL,
+  price_include_sms BOOLEAN DEFAULT true NOT NULL,
+  -- Channel enablement
   email_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
   sms_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
   sms_opted_out BOOLEAN DEFAULT false NOT NULL,
+  -- Display preferences
   dismiss_timezone_mismatch_prompts BOOLEAN DEFAULT false NOT NULL,
-  add_ons_include_news BOOLEAN DEFAULT false NOT NULL,
-  add_ons_include_rumors BOOLEAN DEFAULT false NOT NULL,
-  grok_window_start TIMESTAMP WITH TIME ZONE,
-  grok_sends_in_window INTEGER DEFAULT 0 NOT NULL,
   show_change_percent BOOLEAN DEFAULT false NOT NULL,
   show_company_name BOOLEAN DEFAULT true NOT NULL,
   detailed_format BOOLEAN DEFAULT true NOT NULL,
+  -- Timestamps
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   CONSTRAINT phone_country_code_format CHECK (phone_country_code ~ '^\+[0-9]{1,4}$'),
@@ -270,9 +287,9 @@ CREATE TABLE IF NOT EXISTS users (
   CONSTRAINT users_timezone_no_whitespace CHECK (public.has_no_whitespace(timezone)),
   CONSTRAINT users_phone_country_code_no_whitespace CHECK (public.has_no_whitespace(phone_country_code)),
   CONSTRAINT users_phone_number_no_whitespace CHECK (public.has_no_whitespace(phone_number)),
-  CONSTRAINT users_add_ons_delivery_time_range CHECK (
-    add_ons_delivery_time IS NULL OR (
-      add_ons_delivery_time >= 0 AND add_ons_delivery_time <= 1439
+  CONSTRAINT users_daily_delivery_time_range CHECK (
+    daily_delivery_time IS NULL OR (
+      daily_delivery_time >= 0 AND daily_delivery_time <= 1439
     )
   )
 );
@@ -433,10 +450,14 @@ CREATE INDEX IF NOT EXISTS idx_users_next_send_at
   WHERE price_notifications_enabled = true
     AND next_send_at IS NOT NULL;
 
-CREATE INDEX IF NOT EXISTS idx_users_add_ons_next_send_at
-  ON users (add_ons_next_send_at)
-  WHERE add_ons_delivery_time IS NOT NULL
-    AND add_ons_next_send_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_daily_next_send_at
+  ON users (daily_next_send_at)
+  WHERE daily_delivery_time IS NOT NULL
+    AND daily_next_send_at IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_users_weekly_next_send_at
+  ON users (weekly_next_send_at)
+  WHERE weekly_next_send_at IS NOT NULL;
 
 /* =============
 Scheduled Notifications Claim
@@ -542,7 +563,7 @@ BEGIN
      AND p_user_id <> (SELECT auth.uid()) THEN
     RAISE EXCEPTION 'Cannot check rate limit for another user';
   END IF;
-  
+
   IF p_max_requests IS NULL OR p_max_requests <= 0 THEN
     RAISE EXCEPTION 'invalid rate limit parameter: p_max_requests must be > 0';
   END IF;
@@ -552,27 +573,27 @@ BEGIN
   END IF;
 
   window_start := pg_catalog.now() - (p_window_minutes || ' minutes')::interval;
-  
+
   lock_key := pg_catalog.hashtext(p_user_id::text || '|' || p_endpoint);
-  
+
   PERFORM pg_advisory_xact_lock(lock_key);
-  
+
   DELETE FROM rate_limit_log
   WHERE user_id = p_user_id
     AND endpoint = p_endpoint
     AND created_at < window_start;
-  
+
   INSERT INTO rate_limit_log (user_id, endpoint)
   SELECT p_user_id, p_endpoint
   WHERE (SELECT COUNT(*) FROM rate_limit_log
          WHERE user_id = p_user_id
            AND endpoint = p_endpoint
            AND created_at >= window_start) < p_max_requests;
-  
+
   IF NOT FOUND THEN
     RETURN false;
   END IF;
-  
+
   RETURN true;
 END;
 $$;
@@ -695,7 +716,7 @@ CREATE POLICY "Users can insert own profile" ON users
   FOR INSERT WITH CHECK ((SELECT auth.uid()) = id);
 
 CREATE POLICY "Users can update own profile" ON users
-  FOR UPDATE 
+  FOR UPDATE
   USING ((SELECT auth.uid()) = id)
   WITH CHECK ((SELECT auth.uid()) = id);
 

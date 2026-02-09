@@ -16,7 +16,7 @@
 					formnovalidate
 					:disabled="isSendingVerification || !canResend"
 					:aria-busy="isSendingVerification"
-					class="self-start inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-strong transition-colors text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+					class="btn btn-sm btn-primary self-start gap-2"
 					@click="handleResendClick"
 				>
 					<ArrowPathIcon
@@ -40,7 +40,7 @@
 					</span>
 					<a
 						href="/dashboard#notification-channels"
-						class="text-sm text-primary hover:underline cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+						class="link-action text-sm"
 						@click.prevent="emit('change-number')"
 					>
 						Change number
