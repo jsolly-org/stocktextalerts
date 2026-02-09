@@ -42,7 +42,7 @@
 		"luxon": "^3.7.2",
 		"resend": "^6.9.1",
 		"twilio": "^5.12.1",
-		"vue": "^3.5.27"
+		"vue": "^3.5.28"
 	},
 	"devDependencies": {
 		"@astrojs/check": "^0.9.6",
