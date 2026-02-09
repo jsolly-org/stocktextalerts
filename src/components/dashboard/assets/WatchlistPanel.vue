@@ -21,7 +21,7 @@
 			</div>
 		</FadeTransition>
 
-		<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.teal}`"></div>
+		<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.teal}`"></div>
 		<div class="card-body">
 		<header class="flex items-center gap-2 mb-4">
 			<h2

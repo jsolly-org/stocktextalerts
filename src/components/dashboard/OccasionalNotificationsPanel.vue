@@ -31,7 +31,7 @@
 				</div>
 			</FadeTransition>
 
-			<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.purple}`"></div>
+			<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.purple}`"></div>
 			<div class="card-body">
 				<header class="mb-4">
 					<h2
@@ -115,7 +115,7 @@
 								id="weekly_include_earnings_description"
 								class="text-sm text-gray-600 mt-0.5"
 							>
-								See which of your tracked stocks report earnings this week. <span class="text-gray-400 italic">ETFs are not included.</span>
+								See which of your tracked stocks report earnings this week. <span class="text-gray-400 italic">Stocks only.</span>
 							</p>
 						</div>
 						<div class="flex items-center gap-4 shrink-0">

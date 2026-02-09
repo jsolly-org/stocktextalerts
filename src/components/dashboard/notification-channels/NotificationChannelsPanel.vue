@@ -36,7 +36,7 @@
 				</div>
 			</FadeTransition>
 
-			<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.primary}`"></div>
+			<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.primary}`"></div>
 			<div class="card-body">
 
 			<div v-if="flashMessages.length" class="space-y-2 mb-4">

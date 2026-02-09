@@ -118,7 +118,11 @@ body {
 /* ============= Card Utilities ============= */
 
 .card {
-	@apply bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden;
+	@apply bg-white rounded-xl shadow-md border border-gray-200;
+}
+
+.card-accent {
+	@apply h-1 rounded-t-xl;
 }
 
 .card-body {

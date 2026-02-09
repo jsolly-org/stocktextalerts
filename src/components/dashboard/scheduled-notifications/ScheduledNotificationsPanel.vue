@@ -31,7 +31,7 @@
 				</div>
 			</FadeTransition>
 
-			<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.success}`"></div>
+			<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.success}`"></div>
 			<div class="card-body">
 			<header>
 				<h2

@@ -3,7 +3,7 @@
 		class="card"
 		aria-labelledby="timezone-heading"
 	>
-		<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.gray}`"></div>
+		<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.gray}`"></div>
 		<div class="card-body">
 			<div class="flex items-center gap-3 mb-2">
 				<div class="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100">
