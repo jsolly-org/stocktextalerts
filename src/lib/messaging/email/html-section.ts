@@ -29,7 +29,7 @@ export function markdownLinksToHtml(content: string): string {
 		const linkText = escapeHtml(match[1]);
 		const url = escapeHtml(match[2]);
 		parts.push(
-			`<a href="${url}" style="${LINK_STYLE}" target="_blank">${linkText}</a>`,
+			`<a href="${url}" style="${LINK_STYLE}" target="_blank" rel="noopener noreferrer">${linkText}</a>`,
 		);
 		lastIndex = matchIndex + match[0].length;
 	}
