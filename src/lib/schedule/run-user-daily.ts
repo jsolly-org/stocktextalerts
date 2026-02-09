@@ -327,10 +327,11 @@ export async function processDailyUser(options: {
 			});
 		}
 
-		// Only bump the send counter if at least one delivery succeeded.
-		// This way, if delivery fails (e.g. DB issue), the user can adjust
-		// their time and get the notification re-sent without burning a send.
-		if (stats.emailsSent > 0 || stats.smsSent > 0) {
+		// Only bump the Grok send counter if Grok was invoked and at least one
+		// delivery succeeded. This way, Finnhub-only sends don't burn Grok budget,
+		// and if delivery fails (e.g. DB issue), the user can adjust their time
+		// and get the notification re-sent without burning a send.
+		if (grokAllowed && (stats.emailsSent > 0 || stats.smsSent > 0)) {
 			const now = currentTime.toISO();
 			if (now) {
 				// If the window has expired (or never started), reset the counter.
