@@ -217,9 +217,20 @@ export async function processScheduledUser(options: {
 			// Avoid false negatives: if delivery already happened (or was at least recorded as
 			// attempted), a later failure (e.g. updating next_send_at) shouldn't log as undelivered.
 			if (deliveryAttempts === 0) {
+				const shouldAttemptSms = shouldSendSms(user);
+				const eligibleEmail =
+					user.email_notifications_enabled && user.price_include_email;
+				const eligibleSms = shouldAttemptSms && user.price_include_sms;
+
 				const deliveryMethod: DeliveryMethod =
 					attemptedDeliveryMethod ??
-					(user.email_notifications_enabled ? "email" : "sms");
+					(eligibleEmail
+						? "email"
+						: eligibleSms
+							? "sms"
+							: user.email_notifications_enabled
+								? "email"
+								: "sms");
 				const logged = await recordNotification(supabase, {
 					user_id: user.id,
 					type: "scheduled_update",

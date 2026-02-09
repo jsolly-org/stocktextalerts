@@ -44,7 +44,11 @@ async function applyUserUpdate(
 		.eq("id", userId);
 
 	if (updateError) {
-		rootLogger.error("Failed to opt out user", { userId, action }, updateError);
+		rootLogger.error(
+			"Failed to update user notification preferences",
+			{ userId, action, updateFields: Object.keys(update) },
+			updateError,
+		);
 		return {
 			status: 500,
 			body: "Failed to update notification-preferences",

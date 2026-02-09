@@ -313,10 +313,11 @@ export async function processDailyUser(options: {
 		const smsEnabled = shouldSendSms(user);
 
 		// News/rumors are email-only (SMS body can exceed Twilio's 1600-char limit)
-		const channels: GrokChannel[] = [];
-		if (emailEnabled) channels.push("email");
+		const hasAnyChannel = emailEnabled || smsEnabled;
+		const grokChannels: GrokChannel[] = [];
+		if (emailEnabled) grokChannels.push("email");
 
-		if (channels.length === 0) {
+		if (!hasAnyChannel) {
 			stats.skipped++;
 			await updateUserDailyNextSendAt({
 				user,
@@ -359,12 +360,12 @@ export async function processDailyUser(options: {
 
 		if (grokAllowed) {
 			const grokResults = await Promise.all(
-				channels.map((channel) =>
+				grokChannels.map((channel) =>
 					generateDailyExtrasWithGrok({ ...grokOptions, channel }),
 				),
 			);
-			for (let i = 0; i < channels.length; i++) {
-				grokResultsByChannel.set(channels[i], grokResults[i]);
+			for (let i = 0; i < grokChannels.length; i++) {
+				grokResultsByChannel.set(grokChannels[i], grokResults[i]);
 			}
 		}
 

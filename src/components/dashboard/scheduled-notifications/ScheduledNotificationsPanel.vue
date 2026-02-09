@@ -443,6 +443,12 @@ watch(
 );
 
 watch([priceIncludeEmail, priceIncludeSms], ([email, sms]) => {
+	if (
+		email === user.value.price_include_email &&
+		sms === user.value.price_include_sms
+	) {
+		return;
+	}
 	user.value = {
 		...user.value,
 		price_include_email: email,

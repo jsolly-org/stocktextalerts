@@ -108,7 +108,7 @@ watch(
 
 // Auto-check the SMS price-notification box when the user first enables the SMS channel
 watch(smsEnabled, (enabled, wasEnabled) => {
-	if (enabled && !wasEnabled) {
+	if (enabled && !wasEnabled && user.value.price_include_sms == null) {
 		user.value = { ...user.value, price_include_sms: true };
 	}
 });

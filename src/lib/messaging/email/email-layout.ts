@@ -12,7 +12,7 @@ export interface EmailUrls {
 	escapedUnsubscribeUrl: string;
 }
 
-type DashboardSection = keyof typeof DASHBOARD_SECTION_HASHES;
+export type DashboardSection = keyof typeof DASHBOARD_SECTION_HASHES;
 
 /**
  * Build all standard email URLs (dashboard, schedule section, unsubscribe) and

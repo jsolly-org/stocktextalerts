@@ -12,5 +12,5 @@ export function renderEmailSection(
 	content: string,
 ): string {
 	if (!content) return "";
-	return `<h3 style="margin: 16px 0 6px; font-size: 14px;">${emoji} ${title}</h3><pre style="white-space: pre-wrap; margin: 0; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">${escapeHtml(content)}</pre>`;
+	return `<h3 style="margin: 16px 0 6px; font-size: 14px;">${escapeHtml(emoji)} ${escapeHtml(title)}</h3><pre style="white-space: pre-wrap; margin: 0; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">${escapeHtml(content)}</pre>`;
 }
