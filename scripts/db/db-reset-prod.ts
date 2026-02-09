@@ -297,7 +297,7 @@ async function main(): Promise<void> {
 		supabaseUrlHost: supabaseHost,
 	});
 
-	// 1. Generate seed.sql from prod auth users + stock list (+ local scripts/users.json if present)
+	// 1. Generate seed.sql from prod auth users + asset list (+ local scripts/users.json if present)
 	const __dirname = path.dirname(fileURLToPath(import.meta.url));
 	const seedUsersPath = path.join(__dirname, "..", "users.json");
 	if (fs.existsSync(seedUsersPath)) {

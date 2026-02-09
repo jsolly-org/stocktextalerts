@@ -6,7 +6,7 @@ import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
-describe("Users receive scheduled stock update notifications.", () => {
+describe("Users receive scheduled asset update notifications.", () => {
 	const testCronSecret = "test-cron-secret";
 
 	beforeEach(() => {
@@ -22,7 +22,7 @@ describe("Users receive scheduled stock update notifications.", () => {
 		vi.unstubAllEnvs();
 	});
 
-	it("Eligible users receive their stock update by SMS at the scheduled time.", async () => {
+	it("Eligible users receive their asset update by SMS at the scheduled time.", async () => {
 		const timezone = "America/New_York";
 		const nowLocal = DateTime.now().setZone(timezone);
 		if (!nowLocal.isValid) {
@@ -41,7 +41,7 @@ describe("Users receive scheduled stock update notifications.", () => {
 			phoneVerified: true,
 			smsOptedOut: false,
 			scheduledUpdateTimes: [scheduledUpdateTime],
-			trackedStocks: ["AAPL"],
+			trackedAssets: ["AAPL"],
 		});
 		const { id } = user;
 		registerTestUserForCleanup(id);

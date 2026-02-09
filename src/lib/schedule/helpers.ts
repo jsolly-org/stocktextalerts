@@ -6,7 +6,7 @@ import type {
 } from "../db/supabase";
 import type { Logger } from "../logging";
 import { recordNotification } from "../messaging/shared";
-import type { UserStockRow } from "../messaging/types";
+import type { UserAssetRow } from "../messaging/types";
 import { toIsoOrThrow } from "../time/format";
 
 const MAX_NOTIFICATION_RETRIES = 3;
@@ -35,26 +35,26 @@ export interface ScheduledNotificationTotals {
 }
 
 /**
- * Load a user's tracked stocks (symbol + stock name) from the database.
+ * Load a user's tracked assets (symbol + asset name) from the database.
  *
  * Throws on query errors; returns a normalized list on success.
  */
-export async function loadUserStocks(
+export async function loadUserAssets(
 	supabase: AppSupabaseClient,
 	userId: string,
-): Promise<UserStockRow[]> {
-	const { data: stocks, error } = await supabase
-		.from("user_stocks")
-		.select("symbol, stocks!inner(name)")
+): Promise<UserAssetRow[]> {
+	const { data: assets, error } = await supabase
+		.from("user_assets")
+		.select("symbol, assets!inner(name)")
 		.eq("user_id", userId);
 
 	if (error) {
 		throw error;
 	}
 
-	return stocks.map((stock) => ({
-		symbol: stock.symbol,
-		name: stock.stocks.name,
+	return assets.map((asset) => ({
+		symbol: asset.symbol,
+		name: asset.assets.name,
 	}));
 }
 

@@ -1,41 +1,41 @@
 import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import type { NotificationPreferences } from "../../src/lib/db";
-import { POST as stocksUpdatePost } from "../../src/pages/api/stocks/update";
+import { POST as assetsUpdatePost } from "../../src/pages/api/assets/update";
+import { getAssetData } from "./asset-data";
 import { TEST_PASSWORD } from "./constants";
-import { getStockData } from "./stock-data";
 import { adminClient, createAuthenticatedCookies } from "./test-env";
 import type { CreateTestUserOptions, TestUser } from "./test-user";
 import { createTestUser } from "./test-user";
 
-async function ensureStocksExist(symbols: string[]): Promise<void> {
+async function ensureAssetsExist(symbols: string[]): Promise<void> {
 	if (symbols.length === 0) return;
 	const uniqueSymbols = [...new Set(symbols)];
-	const stockRecords = uniqueSymbols.map((symbol) => {
-		const stockData = getStockData(symbol);
+	const assetRecords = uniqueSymbols.map((symbol) => {
+		const assetData = getAssetData(symbol);
 		return {
-			symbol: stockData.symbol,
-			name: stockData.name,
-			exchange: stockData.exchange,
+			symbol: assetData.symbol,
+			name: assetData.name,
+			type: assetData.type,
 		};
 	});
 	const { error } = await adminClient
-		.from("stocks")
-		.upsert(stockRecords, { onConflict: "symbol" });
+		.from("assets")
+		.upsert(assetRecords, { onConflict: "symbol" });
 	if (error) {
-		throw new Error(`Failed to ensure stocks exist: ${error.message}`);
+		throw new Error(`Failed to ensure assets exist: ${error.message}`);
 	}
 }
 
-export async function updateTrackedStocks(
-	initialStocks: string[],
-	stocksToUpdate: string[],
-	userOverrides: Omit<CreateTestUserOptions, "trackedStocks"> = {},
+export async function updateTrackedAssets(
+	initialAssets: string[],
+	assetsToUpdate: string[],
+	userOverrides: Omit<CreateTestUserOptions, "trackedAssets"> = {},
 	registerForCleanup?: (userId: string) => void,
 ): Promise<{
 	response: Response;
 	testUser: TestUser;
-	trackedStocks: Array<{ symbol: string }> | null;
+	trackedAssets: Array<{ symbol: string }> | null;
 	payload: { ok: boolean; message: string };
 	notificationPreferencesBefore: NotificationPreferences | null;
 	notificationPreferencesAfter: NotificationPreferences | null;
@@ -43,7 +43,7 @@ export async function updateTrackedStocks(
 	const testUser = await createTestUser({
 		email: `test-${randomUUID()}@resend.dev`,
 		password: TEST_PASSWORD,
-		trackedStocks: initialStocks,
+		trackedAssets: initialAssets,
 		...userOverrides,
 	});
 	registerForCleanup?.(testUser.id);
@@ -71,17 +71,17 @@ export async function updateTrackedStocks(
 		TEST_PASSWORD,
 	);
 
-	await ensureStocksExist(stocksToUpdate);
+	await ensureAssetsExist(assetsToUpdate);
 
 	const formData = new FormData();
-	formData.append("tracked_stocks", JSON.stringify(stocksToUpdate));
+	formData.append("tracked_assets", JSON.stringify(assetsToUpdate));
 
-	const request = new Request("http://localhost/api/stocks/update", {
+	const request = new Request("http://localhost/api/assets/update", {
 		method: "POST",
 		body: formData,
 	});
 
-	const response = await stocksUpdatePost({
+	const response = await assetsUpdatePost({
 		request,
 		cookies: {
 			get: (name: string) => {
@@ -93,8 +93,8 @@ export async function updateTrackedStocks(
 	} as unknown as APIContext);
 	const payload = (await response.json()) as { ok: boolean; message: string };
 
-	const { data: trackedStocks } = await adminClient
-		.from("user_stocks")
+	const { data: trackedAssets } = await adminClient
+		.from("user_assets")
 		.select("symbol")
 		.eq("user_id", testUser.id)
 		.order("symbol");
@@ -110,7 +110,7 @@ export async function updateTrackedStocks(
 	return {
 		response,
 		testUser,
-		trackedStocks,
+		trackedAssets,
 		payload,
 		notificationPreferencesBefore,
 		notificationPreferencesAfter,

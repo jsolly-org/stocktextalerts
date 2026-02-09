@@ -1,7 +1,7 @@
 import { getSiteUrl } from "../../db/env";
 import type { AppSupabaseClient } from "../../db/supabase";
+import { NO_TRACKED_ASSETS_MESSAGE } from "../asset-formatting";
 import { recordNotification } from "../shared";
-import { NO_TRACKED_STOCKS_MESSAGE } from "../stock-formatting";
 import type { ProcessingStats, SmsUser } from "../types";
 import { formatExtrasSection } from "./formatting";
 import { sendUserSms } from "./index";
@@ -30,12 +30,12 @@ function formatSmsExtras(extras?: SmsExtras): string {
 }
 
 /**
- * Format the SMS body for a scheduled stock update.
+ * Format the SMS body for a scheduled asset update.
  *
  * Includes an opt-out suffix and an optional "extras" block (news/rumors/analyst/insider).
  */
 export function formatSmsMessage(
-	stocksList: string,
+	assetsList: string,
 	marketOpen: boolean,
 	extras?: SmsExtras,
 ): string {
@@ -44,8 +44,8 @@ export function formatSmsMessage(
 
 	const header = "StockTextAlerts";
 
-	if (stocksList.trim() === NO_TRACKED_STOCKS_MESSAGE) {
-		return `${header}\n\n${NO_TRACKED_STOCKS_MESSAGE}.\n\nManage your settings: ${dashboardUrl}\n\n${optOutSuffix}`;
+	if (assetsList.trim() === NO_TRACKED_ASSETS_MESSAGE) {
+		return `${header}\n\n${NO_TRACKED_ASSETS_MESSAGE}.\n\nManage your settings: ${dashboardUrl}\n\n${optOutSuffix}`;
 	}
 
 	const marketDisclaimer = marketOpen ? "" : "Prices as of last market close.";
@@ -53,7 +53,7 @@ export function formatSmsMessage(
 
 	const sections = [
 		header,
-		stocksList,
+		assetsList,
 		extrasBlock,
 		marketDisclaimer,
 		`Manage your settings: ${dashboardUrl}`,
@@ -72,12 +72,12 @@ export function formatSmsMessage(
 export async function processSmsUpdate(
 	supabase: AppSupabaseClient,
 	user: SmsUser,
-	stocksList: string,
+	assetsList: string,
 	sendSms: SmsSender,
 	marketOpen: boolean,
 	extras?: SmsExtras,
 ): Promise<ProcessingStats> {
-	const smsMessage = formatSmsMessage(stocksList, marketOpen, extras);
+	const smsMessage = formatSmsMessage(assetsList, marketOpen, extras);
 
 	const result = await sendUserSms(user, smsMessage, sendSms);
 

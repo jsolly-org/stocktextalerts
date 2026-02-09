@@ -71,9 +71,9 @@ export type SmsUser = Pick<
 	"id" | "phone_country_code" | "phone_number"
 >;
 
-export type UserStockRow = Pick<
-	Database["public"]["Tables"]["user_stocks"]["Row"],
+export type UserAssetRow = Pick<
+	Database["public"]["Tables"]["user_assets"]["Row"],
 	"symbol"
 > & {
-	name: Database["public"]["Tables"]["stocks"]["Row"]["name"];
+	name: Database["public"]["Tables"]["assets"]["Row"]["name"];
 };

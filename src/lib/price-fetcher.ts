@@ -1,19 +1,19 @@
 import { finnhubFetch } from "./finnhub-extras";
 import { rootLogger } from "./logging";
 
-interface StockPrice {
+interface AssetPrice {
 	price: number;
 	changePercent: number;
 }
 
-export type StockPriceMap = Map<string, StockPrice | null>;
+export type AssetPriceMap = Map<string, AssetPrice | null>;
 
 /**
- * Fetch a single stock quote from Finnhub and normalize it.
+ * Fetch a single asset quote from Finnhub and normalize it.
  *
  * Returns `null` for invalid/unavailable quotes (including delisted/unknown symbols).
  */
-async function fetchStockQuote(symbol: string): Promise<StockPrice | null> {
+async function fetchAssetQuote(symbol: string): Promise<AssetPrice | null> {
 	const data = await finnhubFetch("/quote", { symbol }, "quote");
 	if (typeof data !== "object" || data === null) return null;
 
@@ -45,9 +45,9 @@ async function fetchStockQuote(symbol: string): Promise<StockPrice | null> {
  *
  * In test mode, returns deterministic dummy data to avoid external API calls.
  */
-export async function fetchStockPrices(
+export async function fetchAssetPrices(
 	symbols: string[],
-): Promise<StockPriceMap> {
+): Promise<AssetPriceMap> {
 	if (import.meta.env.MODE === "test") {
 		return new Map(
 			symbols.map((s) => [s, { price: 150.0, changePercent: 1.25 }]),
@@ -55,7 +55,7 @@ export async function fetchStockPrices(
 	}
 	const results = await Promise.all(
 		symbols.map(async (symbol) => {
-			const price = await fetchStockQuote(symbol);
+			const price = await fetchAssetQuote(symbol);
 			return [symbol, price] as const;
 		}),
 	);

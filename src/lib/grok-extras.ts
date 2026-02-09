@@ -1,29 +1,149 @@
 import { rootLogger } from "./logging";
 
-type ChatCompletionRequest = {
+const BASE_RETRY_DELAY_MS = 1_000;
+const delay = (attempt: number) =>
+	new Promise<void>((r) =>
+		setTimeout(r, BASE_RETRY_DELAY_MS * 2 ** (attempt - 1)),
+	);
+
+type ResponsesRequest = {
 	model: string;
-	messages: Array<{ role: "system" | "user"; content: string }>;
+	input: string;
+	instructions: string;
 	temperature?: number;
 	max_tokens?: number;
+	tools?: Array<{ type: "web_search" | "x_search" }>;
+	include?: string[];
 };
 
-type ChatCompletionResponse = {
-	choices?: Array<{
-		message?: { content?: string | null };
-	}>;
+// xAI Responses API (OpenAPI `ModelResponse`)
+type XaiAnnotation = {
+	type: string;
+	url: string;
+	start_index?: number | null;
+	end_index?: number | null;
 };
 
-type SmsExtrasResult = {
+type XaiOutputContentPart =
+	| {
+			type: "output_text" | "text";
+			text: string;
+			annotations?: XaiAnnotation[] | undefined;
+			logprobs?: unknown;
+	  }
+	| {
+			// Future / unknown content part types.
+			type: string;
+			[key: string]: unknown;
+	  };
+
+type XaiOutputItem =
+	| {
+			id?: string;
+			type: "message";
+			role?: "assistant" | "system" | "user" | (string & {});
+			status?: string;
+			content?: XaiOutputContentPart[] | undefined;
+	  }
+	| {
+			// e.g. reasoning items can contain `summary` instead of `content`
+			id?: string;
+			type: "reasoning";
+			status?: string;
+			summary?: Array<{ type?: string; text?: string }> | undefined;
+	  }
+	| {
+			// Unknown output item type.
+			id?: string;
+			type?: string;
+			[key: string]: unknown;
+	  };
+
+type ResponsesResponse = {
+	id: string;
+	object: "response" | (string & {});
+	created_at: number;
+	model: string;
+	status: string;
+	output: XaiOutputItem[];
+};
+
+export type GrokExtrasResult = {
 	news: string | null;
 	rumors: string | null;
+	citations: string[];
 };
 
-/**
- * Delivery channel used to tune Grok output length/verbosity.
- */
-export type GrokChannel = "sms" | "email";
-
 const GROK_TIMEOUT_MS = 30_000;
+
+function extractTextAndCitationsFromXaiResponse(response: ResponsesResponse): {
+	text: string | null;
+	citations: string[];
+} {
+	const texts: string[] = [];
+	const citationUrls = new Set<string>();
+
+	const addText = (value: unknown) => {
+		if (typeof value !== "string") return;
+		const trimmed = value.trim();
+		if (trimmed !== "") texts.push(trimmed);
+	};
+
+	const addAnnotationCitations = (value: unknown) => {
+		if (!Array.isArray(value)) return;
+		for (const a of value) {
+			if (!a || typeof a !== "object") continue;
+			const url = (a as { url?: unknown }).url;
+			if (typeof url !== "string") continue;
+			const trimmed = url.trim();
+			if (trimmed !== "") citationUrls.add(trimmed);
+		}
+	};
+
+	// Per OpenAPI, assistant text is typically in:
+	// response.output[].type === "message" -> content[].type === "output_text" -> text
+	const output = Array.isArray((response as { output?: unknown }).output)
+		? ((response as { output: XaiOutputItem[] }).output ?? [])
+		: [];
+	for (const item of output) {
+		if (!item || typeof item !== "object") continue;
+
+		if (item.type === "message") {
+			const content = item.content;
+			if (!Array.isArray(content)) continue;
+
+			for (const part of content) {
+				if (!part || typeof part !== "object") continue;
+				if (part.type !== "output_text" && part.type !== "text") continue;
+				addText(part.text);
+				addAnnotationCitations(part.annotations);
+			}
+			continue;
+		}
+
+		// Fallback for unexpected/legacy shapes: pull any obvious text/urls.
+		// (kept intentionally conservative to avoid leaking reasoning summaries)
+		if ("message" in item) {
+			const message = (item as { message?: unknown }).message;
+			if (message && typeof message === "object") {
+				const content = (message as { content?: unknown }).content;
+				if (Array.isArray(content)) {
+					for (const part of content) {
+						if (!part || typeof part !== "object") continue;
+						const type = (part as { type?: unknown }).type;
+						const text = (part as { text?: unknown }).text;
+						const annotations = (part as { annotations?: unknown }).annotations;
+						if (type === "output_text" || type === "text") addText(text);
+						addAnnotationCitations(annotations);
+					}
+				}
+			}
+		}
+	}
+
+	const text = texts.join("\n").trim();
+	return { text: text === "" ? null : text, citations: [...citationUrls] };
+}
 
 function getMetaEnv(): Record<string, string | undefined> | undefined {
 	return (import.meta as { env?: Record<string, string | undefined> }).env;
@@ -35,11 +155,9 @@ function buildExtrasPrompt(options: {
 	timezone: string;
 	includeNews: boolean;
 	includeRumors: boolean;
-	channel?: GrokChannel;
 	finnhubNewsContext?: string;
 }): { system: string; user: string } {
 	const tickers = options.tickers.join(", ");
-	const channel = options.channel ?? "sms";
 	const requested = [
 		options.includeNews ? "news" : null,
 		options.includeRumors ? "rumors" : null,
@@ -47,22 +165,12 @@ function buildExtrasPrompt(options: {
 		.filter(Boolean)
 		.join(" + ");
 
-	const isSms = channel === "sms";
-
-	const system = isSms
-		? "You write very concise SMS extras for stock alerts. " +
-			"Be brief, neutral, and cautious. " +
-			"Do not give buy/sell advice. " +
-			"Do not claim to have real-time data or verified facts. " +
-			"Do not mention any specific websites, publications, or sources."
-		: "You write detailed email extras for stock alerts. Use complete sentences. " +
-			"Be descriptive, neutral, and cautious. " +
-			"Do not give buy/sell advice. " +
-			"Do not claim to have real-time data or verified facts. " +
-			"Do not mention any specific websites, publications, or sources.";
-
-	const bulletRange = isSms ? "1–3" : "3–7";
-	const charLimit = isSms ? 200 : 800;
+	const system =
+		"You write detailed email extras for asset alerts. Use complete sentences. " +
+		"Be descriptive, neutral, and cautious. " +
+		"Do not give buy/sell advice. " +
+		"Do not claim to have real-time data or verified facts. " +
+		"Include inline source links where available to support your claims.";
 
 	const newsContextBlock = options.finnhubNewsContext
 		? `\nHere are recent headlines for context (use these as your primary source for the news section):\n${options.finnhubNewsContext}\n`
@@ -85,12 +193,12 @@ function buildExtrasPrompt(options: {
 			"Rules:\n" +
 			"- If news is not requested, output nothing between [NEWS] and [/NEWS].\n" +
 			"- If rumors are not requested, output nothing between [RUMORS] and [/RUMORS].\n" +
-			`- Each requested section: ${bulletRange} bullet points max.\n` +
+			"- Each requested section: 3–7 bullet points max.\n" +
 			"- Each bullet starts with the ticker (e.g. 'AAPL: ...').\n" +
-			"- No links.\n" +
-			`- Keep each section under ${charLimit} characters.\n` +
-			"- News: focus on broad business/company developments people commonly discuss.\n" +
-			"- Rumors: use hedge words like 'chatter' and 'unconfirmed'. End the section with: 'Unverified chatter — double-check before acting.'",
+			"- Include source links inline (markdown format) when referencing specific news or posts.\n" +
+			"- Keep each section under 1500 characters.\n" +
+			"- News: cite your sources with inline links to articles.\n" +
+			"- Rumors: cite X/social media posts where possible. Use hedge words like 'chatter' and 'unconfirmed'. End the section with: 'Unverified chatter — double-check before acting.'",
 	};
 }
 
@@ -111,7 +219,7 @@ function extractTaggedBlock(
 }
 
 /**
- * Generate optional daily "extras" (news/rumors) using Grok.
+ * Generate optional daily "extras" (news/rumors) using Grok for email delivery.
  *
  * Returns `null` when no extras are requested, tickers are empty, the API key is missing,
  * or the request ultimately fails after retries.
@@ -122,10 +230,9 @@ export async function generateDailyExtrasWithGrok(options: {
 	timezone: string;
 	includeNews: boolean;
 	includeRumors: boolean;
-	channel?: GrokChannel;
 	requestId?: string;
 	finnhubNewsContext?: string;
-}): Promise<SmsExtrasResult | null> {
+}): Promise<GrokExtrasResult | null> {
 	if (options.tickers.length === 0) {
 		return null;
 	}
@@ -150,26 +257,19 @@ export async function generateDailyExtrasWithGrok(options: {
 	const model =
 		metaEnv?.XAI_GROK_MODEL ??
 		process.env.XAI_GROK_MODEL ??
-		"grok-4-fast-non-reasoning";
-	const channel = options.channel ?? "sms";
-	const { system, user } = buildExtrasPrompt({
-		...options,
-		channel,
-		finnhubNewsContext: options.finnhubNewsContext,
-	});
+		"grok-4-1-fast-reasoning";
+	const { system, user } = buildExtrasPrompt(options);
 
-	const requestBody: ChatCompletionRequest = {
+	const requestBody: ResponsesRequest = {
 		model,
-		messages: [
-			{ role: "system", content: system },
-			{ role: "user", content: user },
-		],
+		instructions: system,
+		input: user,
 		temperature: 0.4,
-		max_tokens: channel === "sms" ? 300 : 600,
+		max_tokens: 1200,
+		tools: [{ type: "web_search" }, { type: "x_search" }],
 	};
 
 	const MAX_RETRIES = 3;
-	const RETRY_DELAY_MS = 2_000;
 	const logContext = {
 		action: "grok_extras",
 		model,
@@ -186,7 +286,7 @@ export async function generateDailyExtrasWithGrok(options: {
 			: rootLogger.warn.bind(rootLogger);
 
 		try {
-			const response = await fetch("https://api.x.ai/v1/chat/completions", {
+			const response = await fetch("https://api.x.ai/v1/responses", {
 				method: "POST",
 				headers: {
 					Authorization: `Bearer ${apiKey}`,
@@ -204,21 +304,21 @@ export async function generateDailyExtrasWithGrok(options: {
 					statusText: response.statusText,
 				});
 				if (!isLastAttempt) {
-					await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+					await delay(attempt);
 					continue;
 				}
 				return null;
 			}
 
-			const data = (await response.json()) as ChatCompletionResponse;
-			const text = data.choices?.[0]?.message?.content?.trim();
+			const data = (await response.json()) as ResponsesResponse;
+			const { text, citations } = extractTextAndCitationsFromXaiResponse(data);
 			if (!text) {
 				log("Grok extras returned empty content", {
 					...logContext,
 					attempt,
 				});
 				if (!isLastAttempt) {
-					await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+					await delay(attempt);
 					continue;
 				}
 				return null;
@@ -237,13 +337,13 @@ export async function generateDailyExtrasWithGrok(options: {
 					attempt,
 				});
 				if (!isLastAttempt) {
-					await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+					await delay(attempt);
 					continue;
 				}
 				return null;
 			}
 
-			return { news, rumors };
+			return { news, rumors, citations };
 		} catch (error) {
 			const reason =
 				error instanceof Error && error.name === "TimeoutError"
@@ -255,7 +355,7 @@ export async function generateDailyExtrasWithGrok(options: {
 				error,
 			);
 			if (!isLastAttempt) {
-				await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+				await delay(attempt);
 				continue;
 			}
 			return null;

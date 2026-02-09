@@ -1,6 +1,7 @@
 import { getSiteUrl } from "../db/env";
 import type { Logger } from "../logging";
 import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
+import { escapeHtml } from "../messaging/asset-formatting";
 import {
 	buildEmailUrls,
 	renderEmailFooter,
@@ -12,8 +13,7 @@ import { recordNotification } from "../messaging/shared";
 import type { SmsExtras } from "../messaging/sms/delivery";
 import { formatExtrasSection } from "../messaging/sms/formatting";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
-import { escapeHtml } from "../messaging/stock-formatting";
-import type { UserRecord, UserStockRow } from "../messaging/types";
+import type { UserAssetRow, UserRecord } from "../messaging/types";
 import type {
 	ScheduledNotificationTotals,
 	SupabaseAdminClient,
@@ -27,12 +27,12 @@ import type { SmsSenderProvider } from "./run-user-sms-sender";
  * Keeps the message readable in plain text and appends a required STOP opt-out suffix.
  */
 function formatDailyDigestSmsMessage(options: {
-	userStocks: UserStockRow[];
+	userAssets: UserAssetRow[];
 	extras: SmsExtras;
 }): string {
 	const optOutSuffix = "Reply STOP to opt out.";
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
-	const tickers = options.userStocks.map((s) => s.symbol).filter(Boolean);
+	const tickers = options.userAssets.map((s) => s.symbol).filter(Boolean);
 	const tickersLine =
 		tickers.length > 0 ? `Tickers: ${tickers.join(", ")}` : "";
 
@@ -57,10 +57,10 @@ function formatDailyDigestSmsMessage(options: {
  */
 function formatDailyDigestEmail(options: {
 	user: { id: string; email: string };
-	userStocks: UserStockRow[];
+	userAssets: UserAssetRow[];
 	extras: SmsExtras;
 }): { subject: string; text: string; html: string } {
-	const tickers = options.userStocks.map((s) => s.symbol).filter(Boolean);
+	const tickers = options.userAssets.map((s) => s.symbol).filter(Boolean);
 	const tickersLine =
 		tickers.length > 0 ? `Tickers: ${tickers.join(", ")}` : "Tickers: (none)";
 	const urls = buildEmailUrls(
@@ -86,7 +86,7 @@ function formatDailyDigestEmail(options: {
 		`Unsubscribe: ${urls.unsubscribeUrl}`,
 	].filter(Boolean);
 
-	const subject = "Daily stock digest";
+	const subject = "Daily digest";
 	const text = sectionsText.join("\n");
 
 	const html = `
@@ -129,7 +129,7 @@ export async function processDailyDigestEmailDelivery(options: {
 	logger: Logger;
 	scheduledDate: string;
 	scheduledMinutes: number;
-	userStocks: UserStockRow[];
+	userAssets: UserAssetRow[];
 	extras: SmsExtras;
 	sendEmail: EmailSender;
 	stats: ScheduledNotificationTotals;
@@ -140,7 +140,7 @@ export async function processDailyDigestEmailDelivery(options: {
 		logger,
 		scheduledDate,
 		scheduledMinutes,
-		userStocks,
+		userAssets,
 		extras,
 		sendEmail,
 		stats,
@@ -165,7 +165,7 @@ export async function processDailyDigestEmailDelivery(options: {
 	}
 
 	const emailIdempotencyKey = `daily-digest/${user.id}/${scheduledDate}/${scheduledMinutes}/email`;
-	const message = formatDailyDigestEmail({ user, userStocks, extras });
+	const message = formatDailyDigestEmail({ user, userAssets, extras });
 	const result = await sendUserEmail(
 		user,
 		message.subject,
@@ -218,7 +218,7 @@ export async function processDailyDigestSmsDelivery(options: {
 	logger: Logger;
 	scheduledDate: string;
 	scheduledMinutes: number;
-	userStocks: UserStockRow[];
+	userAssets: UserAssetRow[];
 	extras: SmsExtras;
 	getSmsSender: SmsSenderProvider;
 	stats: ScheduledNotificationTotals;
@@ -229,7 +229,7 @@ export async function processDailyDigestSmsDelivery(options: {
 		logger,
 		scheduledDate,
 		scheduledMinutes,
-		userStocks,
+		userAssets,
 		extras,
 		getSmsSender,
 		stats,
@@ -282,7 +282,7 @@ export async function processDailyDigestSmsDelivery(options: {
 		return;
 	}
 
-	const smsMessage = formatDailyDigestSmsMessage({ userStocks, extras });
+	const smsMessage = formatDailyDigestSmsMessage({ userAssets, extras });
 	const result = await sendUserSms(user, smsMessage, smsSenderResult.sender);
 	const logged = await recordNotification(supabase, {
 		user_id: user.id,

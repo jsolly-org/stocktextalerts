@@ -6,10 +6,10 @@ import { recordNotification } from "../messaging/shared";
 import { processSmsUpdate } from "../messaging/sms/delivery";
 import type {
 	FormatPreferences,
+	UserAssetRow,
 	UserRecord,
-	UserStockRow,
 } from "../messaging/types";
-import type { StockPriceMap } from "../price-fetcher";
+import type { AssetPriceMap } from "../price-fetcher";
 import type {
 	ScheduledNotificationTotals,
 	SupabaseAdminClient,
@@ -18,7 +18,7 @@ import { claimNotification, updateScheduledNotificationRow } from "./helpers";
 import type { SmsSenderProvider } from "./run-user-sms-sender";
 
 /**
- * Deliver a scheduled (frequent) stock update via email and record the result.
+ * Deliver a scheduled (frequent) asset update via email and record the result.
  *
  * Uses `claim_scheduled_notification` for idempotency, then writes the final status to
  * `scheduled_notifications` and logs a notification row.
@@ -29,10 +29,10 @@ export async function processScheduledUserEmailDelivery(options: {
 	logger: Logger;
 	scheduledDate: string;
 	scheduledMinutes: number;
-	userStocks: UserStockRow[];
-	stocksList: string;
+	userAssets: UserAssetRow[];
+	assetsList: string;
 	sendEmail: EmailSender;
-	priceMap: StockPriceMap;
+	priceMap: AssetPriceMap;
 	marketOpen: boolean;
 	stats: ScheduledNotificationTotals;
 	formatPrefs: FormatPreferences;
@@ -43,8 +43,8 @@ export async function processScheduledUserEmailDelivery(options: {
 		logger,
 		scheduledDate,
 		scheduledMinutes,
-		userStocks,
-		stocksList,
+		userAssets,
+		assetsList,
 		sendEmail,
 		priceMap,
 		marketOpen,
@@ -74,8 +74,8 @@ export async function processScheduledUserEmailDelivery(options: {
 	const { sent, logged, error } = await processEmailUpdate(
 		supabase,
 		user,
-		userStocks,
-		stocksList,
+		userAssets,
+		assetsList,
 		sendEmail,
 		priceMap,
 		marketOpen,
@@ -107,7 +107,7 @@ export async function processScheduledUserEmailDelivery(options: {
 }
 
 /**
- * Deliver a scheduled (frequent) stock update via SMS and record the result.
+ * Deliver a scheduled (frequent) asset update via SMS and record the result.
  *
  * Uses `claim_scheduled_notification` for idempotency. SMS sender initialization can fail
  * (e.g. missing Twilio config); that failure is recorded and the notification is marked failed.
@@ -118,8 +118,8 @@ export async function processScheduledUserSmsDelivery(options: {
 	logger: Logger;
 	scheduledDate: string;
 	scheduledMinutes: number;
-	userStocks: UserStockRow[];
-	stocksList: string;
+	userAssets: UserAssetRow[];
+	assetsList: string;
 	getSmsSender: SmsSenderProvider;
 	marketOpen: boolean;
 	stats: ScheduledNotificationTotals;
@@ -130,7 +130,7 @@ export async function processScheduledUserSmsDelivery(options: {
 		logger,
 		scheduledDate,
 		scheduledMinutes,
-		stocksList,
+		assetsList,
 		getSmsSender,
 		marketOpen,
 		stats,
@@ -203,7 +203,7 @@ export async function processScheduledUserSmsDelivery(options: {
 	const { sent, logged, error } = await processSmsUpdate(
 		supabase,
 		user,
-		stocksList,
+		assetsList,
 		smsSender,
 		marketOpen,
 	);

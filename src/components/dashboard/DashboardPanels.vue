@@ -1,24 +1,24 @@
 <template>
 	<form
-		ref="stocksFormElement"
-		:id="DASHBOARD_STOCKS_FORM_ID"
+		ref="assetsFormElement"
+		:id="DASHBOARD_ASSETS_FORM_ID"
 		method="POST"
-		action="/api/stocks/update"
+		action="/api/assets/update"
 		class="space-y-6"
-		aria-label="Tracked stocks"
-		:aria-busy="isStocksSaving"
-		@input="handleStocksFormInput"
-		@change="handleStocksFormChange"
-		@submit="handleStocksFormSubmit"
+		aria-label="Watchlist"
+		:aria-busy="isAssetsSaving"
+		@input="handleAssetsFormInput"
+		@change="handleAssetsFormChange"
+		@submit="handleAssetsFormSubmit"
 	>
-		<TrackedStocksPanel
-			:stockOptions="stockOptions"
-			:initialStocks="initialStocks"
-			:status-message="stocksStatusMessage"
-			:status-tone="stocksStatusTone"
-			:is-saving="isStocksSaving"
-			@form-changed="notifyStocksChange"
-			@stocks-changed="currentStocks = $event"
+		<WatchlistPanel
+			:assetOptions="assetOptions"
+			:initialAssets="initialAssets"
+			:status-message="assetsStatusMessage"
+			:status-tone="assetsStatusTone"
+			:is-saving="isAssetsSaving"
+			@form-changed="notifyAssetsChange"
+			@assets-changed="currentAssets = $event"
 		/>
 	</form>
 
@@ -46,7 +46,7 @@
 	/>
 
 	<NotificationPreviewPanel
-		:initialStocks="currentStocks"
+		:initialAssets="currentAssets"
 		:emailEnabled="emailEnabled"
 		:smsEnabled="smsEnabled"
 		:phoneVerified="phoneVerified"
@@ -55,8 +55,11 @@
 
 <script lang="ts" setup>
 import { computed, ref, toRefs, watch } from "vue";
-import { DASHBOARD_STOCKS_FORM_ID } from "../../lib/constants";
+import { DASHBOARD_ASSETS_FORM_ID } from "../../lib/constants";
 import type { User } from "../../lib/db";
+import type { AssetOption } from "./assets/AssetInput.vue";
+import type { InitialAsset } from "./assets/types";
+import WatchlistPanel from "./assets/WatchlistPanel.vue";
 import { useAutoSaveForm } from "./composables/useAutoSaveNotificationPreferences";
 import { provideDashboardUser } from "./composables/useDashboardUser";
 import DailyNotificationsPanel from "./DailyNotificationsPanel.vue";
@@ -64,29 +67,26 @@ import NotificationChannelsPanel from "./notification-channels/NotificationChann
 import NotificationPreviewPanel from "./notification-preview/NotificationPreviewPanel.vue";
 import OccasionalNotificationsPanel from "./OccasionalNotificationsPanel.vue";
 import ScheduledNotificationsPanel from "./scheduled-notifications/ScheduledNotificationsPanel.vue";
-import type { StockOption } from "./stocks/StockInput.vue";
-import TrackedStocksPanel from "./stocks/TrackedStocksPanel.vue";
-import type { InitialStock } from "./stocks/types";
 
 interface Props {
 	user: User;
-	stockOptions: StockOption[];
-	initialStocks: InitialStock[];
+	assetOptions: AssetOption[];
+	initialAssets: InitialAsset[];
 }
 
 const props = defineProps<Props>();
 
 const {
-	initialStocks,
-	stockOptions,
+	initialAssets,
+	assetOptions,
 	user: userProp,
 } = toRefs(props);
 
 // Shared mutable user ref — all dashboard descendants inject this via useDashboardUser()
 const user = provideDashboardUser(userProp);
 
-// Live tracked stocks — starts from server data, updated by TrackedStocksPanel edits
-const currentStocks = ref<InitialStock[]>([...props.initialStocks]);
+// Live tracked assets — starts from server data, updated by WatchlistPanel edits
+const currentAssets = ref<InitialAsset[]>([...props.initialAssets]);
 
 const emailEnabled = ref(user.value.email_notifications_enabled);
 const smsEnabled = ref(user.value.sms_notifications_enabled);
@@ -113,17 +113,17 @@ watch(smsEnabled, (enabled, wasEnabled) => {
 	}
 });
 
-// --- Stocks form (unchanged, future refactor candidate) ---
-const stocksFormElement = ref<HTMLFormElement | null>(null);
+// --- Assets form (unchanged, future refactor candidate) ---
+const assetsFormElement = ref<HTMLFormElement | null>(null);
 const {
-	handleFormChange: handleStocksFormChange,
-	handleFormInput: handleStocksFormInput,
-	handleFormSubmit: handleStocksFormSubmit,
-	isSaving: isStocksSaving,
-	notifyChange: notifyStocksChange,
-	statusMessage: stocksStatusMessage,
-	statusTone: stocksStatusTone,
+	handleFormChange: handleAssetsFormChange,
+	handleFormInput: handleAssetsFormInput,
+	handleFormSubmit: handleAssetsFormSubmit,
+	isSaving: isAssetsSaving,
+	notifyChange: notifyAssetsChange,
+	statusMessage: assetsStatusMessage,
+	statusTone: assetsStatusTone,
 } = useAutoSaveForm({
-	formRef: stocksFormElement,
+	formRef: assetsFormElement,
 });
 </script>

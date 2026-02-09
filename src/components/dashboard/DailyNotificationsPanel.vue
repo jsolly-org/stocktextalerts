@@ -31,7 +31,7 @@
 				</div>
 			</FadeTransition>
 
-			<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.teal}`"></div>
+			<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.teal}`"></div>
 			<div class="card-body">
 			<header class="mb-4">
 				<h2
@@ -201,7 +201,7 @@
 								id="daily_include_news_description"
 								class="text-sm text-gray-600 mt-0.5"
 							>
-								Add a short news summary about the stocks you're tracking. Email only.
+								Add a short news summary about the assets you're tracking. <span class="text-gray-400 italic">Email only.</span>
 							</p>
 						</div>
 					<span
@@ -241,7 +241,7 @@
 								id="daily_include_rumors_description"
 								class="text-sm text-gray-600 mt-0.5"
 							>
-								Add a short rumors/chatter summary about the stocks you're tracking. Email only.
+								Add a short rumors/chatter summary about the assets you're tracking. <span class="text-gray-400 italic">Email only.</span>
 							</p>
 						</div>
 					<span
@@ -285,7 +285,7 @@
 								id="daily_include_analyst_description"
 								class="text-sm text-gray-600 mt-0.5"
 							>
-								See how analysts rate the stocks you're tracking (buy/hold/sell).
+								See how analysts rate the stocks you're tracking (buy/hold/sell). <span class="text-gray-400 italic">Stocks only.</span>
 							</p>
 						</div>
 						<div class="flex items-center gap-4 shrink-0">
@@ -337,7 +337,7 @@
 								id="daily_include_insider_description"
 								class="text-sm text-gray-600 mt-0.5"
 							>
-								Recent insider buying and selling activity from SEC filings.
+								Recent insider buying and selling activity from SEC filings. <span class="text-gray-400 italic">Stocks only.</span>
 							</p>
 						</div>
 						<div class="flex items-center gap-4 shrink-0">

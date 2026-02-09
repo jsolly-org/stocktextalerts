@@ -14,11 +14,19 @@ describe("buildNewsContextForGrok formats Finnhub headlines into a Grok context 
 			[
 				"AAPL",
 				[
-					{ headline: "Apple launches new MacBook", summary: "", datetime: 1 },
+					{
+						headline: "Apple launches new MacBook",
+						summary: "",
+						datetime: 1,
+						url: "https://example.com/apple-macbook",
+						source: "TechCrunch",
+					},
 					{
 						headline: "Apple revenue beats estimates",
 						summary: "",
 						datetime: 2,
+						url: "https://example.com/apple-revenue",
+						source: "Reuters",
 					},
 				],
 			],
@@ -29,6 +37,8 @@ describe("buildNewsContextForGrok formats Finnhub headlines into a Grok context 
 						headline: "Microsoft expands AI offerings",
 						summary: "",
 						datetime: 3,
+						url: "",
+						source: "",
 					},
 				],
 			],
@@ -36,9 +46,32 @@ describe("buildNewsContextForGrok formats Finnhub headlines into a Grok context 
 
 		const context = buildNewsContextForGrok(newsData);
 
-		expect(context).toContain("AAPL: Apple launches new MacBook");
-		expect(context).toContain("AAPL: Apple revenue beats estimates");
+		expect(context).toContain(
+			"AAPL: Apple launches new MacBook — https://example.com/apple-macbook",
+		);
+		expect(context).toContain(
+			"AAPL: Apple revenue beats estimates — https://example.com/apple-revenue",
+		);
 		expect(context).toContain("MSFT: Microsoft expands AI offerings");
+	});
+
+	it("Does not append URL suffix when url is empty.", () => {
+		const newsData = new Map<string, CompanyNewsItem[]>([
+			[
+				"GOOG",
+				[
+					{
+						headline: "Google IO announced",
+						summary: "",
+						datetime: 4,
+						url: "",
+						source: "",
+					},
+				],
+			],
+		]);
+		const context = buildNewsContextForGrok(newsData);
+		expect(context).toBe("GOOG: Google IO announced");
 	});
 
 	it("Returns empty string when no news data is available.", () => {

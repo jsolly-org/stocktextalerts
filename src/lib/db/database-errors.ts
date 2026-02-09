@@ -15,23 +15,23 @@ Database Error Constants
 Database Limits
 ============= */
 
-export const MAX_TRACKED_STOCKS = 10;
+export const MAX_TRACKED_ASSETS = 10;
 
 /* =============
 Error Message Text
 ============= */
 
 /*
- * Error message from replace_user_stocks function (line 249 in migration).
- * Raised when user attempts to track more than MAX_TRACKED_STOCKS stocks.
+ * Error message from replace_user_assets function (line 249 in migration).
+ * Raised when user attempts to track more than MAX_TRACKED_ASSETS assets.
  */
-const MESSAGE_STOCKS_LIMIT_EXCEEDED = "Tracked stocks limit exceeded";
+const MESSAGE_ASSETS_LIMIT_EXCEEDED = "Tracked assets limit exceeded";
 
 /*
- * Error message from replace_user_stocks function.
- * Raised when a stock symbol contains whitespace.
+ * Error message from replace_user_assets function.
+ * Raised when an asset symbol contains whitespace.
  */
-const MESSAGE_STOCKS_WHITESPACE = "Stock symbol contains whitespace";
+const MESSAGE_ASSETS_WHITESPACE = "Asset symbol contains whitespace";
 
 const POSTGRES_RAISE_CODE = "P0001";
 
@@ -55,24 +55,24 @@ function isPostgrestError(error: unknown): error is PostgrestError {
 	);
 }
 
-export function isStocksLimitError(error: unknown): boolean {
+export function isAssetsLimitError(error: unknown): boolean {
 	if (!isPostgrestError(error)) {
 		return false;
 	}
 
 	return (
 		error.code === POSTGRES_RAISE_CODE &&
-		error.message === MESSAGE_STOCKS_LIMIT_EXCEEDED
+		error.message === MESSAGE_ASSETS_LIMIT_EXCEEDED
 	);
 }
 
-export function isStocksWhitespaceError(error: unknown): boolean {
+export function isAssetsWhitespaceError(error: unknown): boolean {
 	if (!isPostgrestError(error)) {
 		return false;
 	}
 
 	return (
 		error.code === POSTGRES_RAISE_CODE &&
-		error.message === MESSAGE_STOCKS_WHITESPACE
+		error.message === MESSAGE_ASSETS_WHITESPACE
 	);
 }

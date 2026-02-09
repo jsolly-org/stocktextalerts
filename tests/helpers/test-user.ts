@@ -2,8 +2,8 @@ import { randomInt, randomUUID } from "node:crypto";
 import { DateTime } from "luxon";
 import type { TablesInsert } from "../../src/lib/db/generated/database.types";
 import { calculateNextSendAtFromTimes } from "../../src/lib/time/scheduled-times";
+import { getAssetData } from "./asset-data";
 import { PRESERVED_TEST_EMAIL, TEST_RUN_ID } from "./constants";
-import { getStockData } from "./stock-data";
 import { adminClient } from "./test-env";
 
 export function generateUniquePhoneNumber(): string {
@@ -22,7 +22,7 @@ export type CreateTestUserOptions = {
 	phoneNumber?: string | null;
 	phoneVerified?: boolean;
 	scheduledUpdateTimes?: number[] | null;
-	trackedStocks?: string[];
+	trackedAssets?: string[];
 	confirmed?: boolean;
 	priceIncludeEmail?: boolean;
 	priceIncludeSms?: boolean;
@@ -66,12 +66,12 @@ export async function cleanupTestUser(userId: string): Promise<void> {
 		return;
 	}
 
-	const { error: userStocksError } = await adminClient
-		.from("user_stocks")
+	const { error: userAssetsError } = await adminClient
+		.from("user_assets")
 		.delete()
 		.eq("user_id", userId);
-	if (userStocksError) {
-		errors.push(`user_stocks: ${userStocksError.message}`);
+	if (userAssetsError) {
+		errors.push(`user_assets: ${userAssetsError.message}`);
 	}
 
 	const { error: userRowError } = await adminClient
@@ -101,7 +101,7 @@ export async function cleanupTestUser(userId: string): Promise<void> {
 type DbUserInsert = Omit<TablesInsert<"users">, "scheduled_update_times"> & {
 	scheduled_update_times?: number[] | null;
 };
-type DbUserStockInsert = TablesInsert<"user_stocks">;
+type DbUserAssetInsert = TablesInsert<"user_assets">;
 
 export async function createTestUser(
 	options: CreateTestUserOptions = {},
@@ -216,40 +216,44 @@ export async function createTestUser(
 			throw new Error(`Profile setup failed: ${profileError.message}`);
 		}
 
-		// Add Tracked Stocks if provided
-		if (options.trackedStocks && options.trackedStocks.length > 0) {
-			// Ensure stocks exist in the stocks table first
-			const uniqueSymbols = [...new Set(options.trackedStocks)];
-			const stockRecords = uniqueSymbols.map((symbol) => {
-				const stockData = getStockData(symbol);
+		// Add Tracked Assets if provided
+		if (options.trackedAssets && options.trackedAssets.length > 0) {
+			// Ensure assets exist in the assets table first
+			const uniqueSymbols = [
+				...new Set(
+					options.trackedAssets.map((symbol) => symbol.trim().toUpperCase()),
+				),
+			];
+			const assetRecords = uniqueSymbols.map((symbol) => {
+				const assetData = getAssetData(symbol);
 				return {
-					symbol: stockData.symbol,
-					name: stockData.name,
-					exchange: stockData.exchange,
+					symbol: assetData.symbol,
+					name: assetData.name,
+					type: assetData.type,
 				};
 			});
 
-			const { error: stocksTableError } = await adminClient
-				.from("stocks")
-				.upsert(stockRecords, { onConflict: "symbol" });
+			const { error: assetsTableError } = await adminClient
+				.from("assets")
+				.upsert(assetRecords, { onConflict: "symbol" });
 
-			if (stocksTableError) {
+			if (assetsTableError) {
 				throw new Error(
-					`Stocks table setup failed: ${stocksTableError.message}`,
+					`Assets table setup failed: ${assetsTableError.message}`,
 				);
 			}
 
-			const stockInserts: DbUserStockInsert[] = stockRecords.map((stock) => ({
+			const assetInserts: DbUserAssetInsert[] = assetRecords.map((asset) => ({
 				user_id: userId,
-				symbol: stock.symbol,
+				symbol: asset.symbol,
 			}));
 
-			const { error: stockError } = await adminClient
-				.from("user_stocks")
-				.insert(stockInserts);
+			const { error: assetError } = await adminClient
+				.from("user_assets")
+				.insert(assetInserts);
 
-			if (stockError) {
-				throw new Error(`Stock setup failed: ${stockError.message}`);
+			if (assetError) {
+				throw new Error(`Asset setup failed: ${assetError.message}`);
 			}
 		}
 

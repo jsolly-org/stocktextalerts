@@ -2,13 +2,13 @@ import { Resend } from "resend";
 import { DASHBOARD_SECTION_HASHES } from "../../constants";
 import { getSiteUrl } from "../../db/env";
 import { rootLogger } from "../../logging";
-import type { StockPriceMap } from "../../price-fetcher";
-import { escapeHtml, formatStocksHtmlList } from "../stock-formatting";
+import type { AssetPriceMap } from "../../price-fetcher";
+import { escapeHtml, formatAssetsHtmlList } from "../asset-formatting";
 import type {
 	DeliveryResult,
 	EmailUser,
 	FormatPreferences,
-	UserStockRow,
+	UserAssetRow,
 } from "../types";
 import { createEmailUnsubscribeUrl } from "./email-unsubscribe";
 
@@ -110,15 +110,15 @@ export function createEmailSender(): EmailSender {
 }
 
 /**
- * Build the plaintext + HTML email body for a scheduled stock update.
+ * Build the plaintext + HTML email body for a scheduled asset update.
  *
  * Includes footer links to the dashboard schedule section and a user-scoped unsubscribe URL.
  */
 export function formatEmailMessage(
 	user: EmailUser,
-	userStocks: UserStockRow[],
-	stocksList: string,
-	priceMap: StockPriceMap,
+	userAssets: UserAssetRow[],
+	assetsList: string,
+	priceMap: AssetPriceMap,
 	marketOpen: boolean,
 	formatPrefs: FormatPreferences,
 ): { text: string; html: string } {
@@ -139,8 +139,8 @@ export function formatEmailMessage(
 			<a href="${escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
 		</p>`;
 
-	if (userStocks.length === 0) {
-		const text = `You don't have any tracked stocks yet.\n\nVisit your dashboard to add stocks to track: ${dashboardUrl}${textFooter}`;
+	if (userAssets.length === 0) {
+		const text = `You don't have any tracked assets yet.\n\nVisit your dashboard to add assets to track: ${dashboardUrl}${textFooter}`;
 		const html = `
 <!DOCTYPE html>
 <html>
@@ -153,17 +153,17 @@ export function formatEmailMessage(
 		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">📈 StockTextAlerts</h1>
 	</div>
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Get Started Tracking Stocks</h2>
+		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Get Started Tracking Assets</h2>
 		<p style="color: #4b5563; font-size: 16px; margin-bottom: 30px;">
-			You don't have any tracked stocks yet. Start tracking your favorite stocks to receive regular updates!
+			You don't have any tracked assets yet. Start tracking your favorite assets to receive regular updates!
 		</p>
 		<div style="text-align: center; margin: 40px 0;">
 			<a href="${escapedDashboardUrl}" style="display: inline-block; background: #667eea; color: white; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-weight: 600; font-size: 16px; transition: background 0.2s;">
-				Add Stocks to Track →
+				Add Assets to Track →
 			</a>
 		</div>
 		<p style="color: #6b7280; font-size: 14px; margin-top: 30px; padding-top: 30px; border-top: 1px solid #e5e7eb;">
-			Once you add stocks to your dashboard, you'll receive regular updates about them during your configured notification window.
+			Once you add assets to your dashboard, you'll receive regular updates about them during your configured notification window.
 		</p>
 		${htmlFooter}
 	</div>
@@ -175,9 +175,9 @@ export function formatEmailMessage(
 	const marketDisclaimer = marketOpen
 		? ""
 		: "\nPrices as of last market close.";
-	const text = `Your tracked stocks:\n${stocksList}${marketDisclaimer}${textFooter}`;
-	const escapedStocksListHtml = formatStocksHtmlList(
-		userStocks,
+	const text = `Your tracked assets:\n${assetsList}${marketDisclaimer}${textFooter}`;
+	const escapedAssetsListHtml = formatAssetsHtmlList(
+		userAssets,
 		(symbol) => priceMap.get(symbol) ?? undefined,
 		formatPrefs,
 	);
@@ -196,10 +196,10 @@ export function formatEmailMessage(
 		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">📈 StockTextAlerts</h1>
 	</div>
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Your Stock Update</h2>
+		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Your Update</h2>
 		<div style="background: #f9fafb; padding: 20px; border-radius: 6px; margin-bottom: 30px;">
 			<p style="color: #1f2937; font-size: 18px; font-weight: 600; margin: 0; font-family: 'Courier New', monospace;">
-				${escapedStocksListHtml}
+				${escapedAssetsListHtml}
 			</p>
 			${marketDisclaimerHtml}
 		</div>

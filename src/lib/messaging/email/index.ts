@@ -2,6 +2,11 @@ import { rootLogger } from "../../logging";
 import type { DeliveryResult, EmailUser } from "../types";
 import type { EmailSender } from "./utils";
 
+/**
+ * Send a pre-formatted email to a user via the provided sender.
+ *
+ * Errors are caught and returned as a `DeliveryResult` so callers can log outcomes consistently.
+ */
 export async function sendUserEmail(
 	user: EmailUser,
 	subject: string,

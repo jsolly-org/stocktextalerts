@@ -4,17 +4,17 @@ import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient, User as AuthUser } from '@supabase/supabase-js';
-type Stock = {
+type Asset = {
   symbol: string;
   name: string;
-  exchange: string;
+  type: string;
 };
 import { rootLogger } from '../../src/lib/logging';
 import {
   buildAuthIdentitySql,
   buildAuthUserSql,
   buildPublicUserSql,
-  buildUserStocksSql,
+  buildUserAssetsSql,
   escapeSql,
   type SeedUser,
 } from './seed-sql';
@@ -24,7 +24,7 @@ type SeedErrorCode =
   | "missing_env"
   | "invalid_supabase_url"
   | "default_password_missing"
-  | "stocks_read_failed"
+  | "assets_read_failed"
   | "users_parse_failed"
   | "network_failed"
   | "auth_failed"
@@ -55,9 +55,9 @@ const ERROR_HINTS: Partial<Record<SeedErrorCode, string[]>> = {
     "\n💡 Hint: DEFAULT_PASSWORD is required in .env.local",
     "   - Add DEFAULT_PASSWORD=your-password to .env.local",
   ],
-  stocks_read_failed: [
+  assets_read_failed: [
     "\n💡 Hint: File read error.",
-    "   - Check that us-stocks.json exists in scripts/",
+    "   - Check that us-assets.json exists in scripts/",
     "   - Verify file permissions and JSON format",
   ],
   users_parse_failed: [
@@ -94,7 +94,7 @@ const NETWORK_ERROR_CODES = new Set([
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, '..', '..');
 
-const STOCKS_FILE = path.join(projectRoot, 'scripts', 'us-stocks.json');
+const ASSETS_FILE = path.join(projectRoot, 'scripts', 'us-assets.json');
 const USERS_FILE = path.join(projectRoot, 'scripts', 'users.json');
 const SEED_FILE = path.join(projectRoot, 'supabase', 'seed.sql');
 
@@ -142,21 +142,21 @@ function isNetworkError(error: unknown): boolean {
   return code ? NETWORK_ERROR_CODES.has(code) : false;
 }
 
-function generateStocksSql(stocks: Stock[]): string {
-  if (stocks.length === 0) return '';
+function generateAssetsSql(assets: Asset[]): string {
+  if (assets.length === 0) return '';
 
-  const values = stocks
+  const values = assets
     .map(
       (s) =>
-        `('${escapeSql(s.symbol)}', '${escapeSql(s.name)}', '${escapeSql(s.exchange)}')`
+        `('${escapeSql(s.symbol)}', '${escapeSql(s.name)}', '${escapeSql(s.type)}')`
     )
     .join(',\n  ');
 
   return `
-INSERT INTO public.stocks (symbol, name, exchange)
+INSERT INTO public.assets (symbol, name, type)
 VALUES
   ${values}
-ON CONFLICT (symbol) DO NOTHING;
+ON CONFLICT (symbol) DO UPDATE SET name = EXCLUDED.name, type = EXCLUDED.type;
 `;
 }
 
@@ -275,37 +275,37 @@ async function generateUsersSql(
     const userEmailLookup = userEmailRaw.toLowerCase();
     const userPasswordRaw = defaultPassword;
 
-    let trackedStocks: string[] = [];
-    if (user.tracked_stocks !== undefined && user.tracked_stocks !== null) {
-      if (!Array.isArray(user.tracked_stocks)) {
+    let trackedAssets: string[] = [];
+    if (user.tracked_assets !== undefined && user.tracked_assets !== null) {
+      if (!Array.isArray(user.tracked_assets)) {
         throw new SeedError(
           "users_parse_failed",
-          `Invalid seed user: tracked_stocks must be an array, null, or undefined. Received: ${typeof user.tracked_stocks}. User data: ${JSON.stringify(user)}`,
+          `Invalid seed user: tracked_assets must be an array, null, or undefined. Received: ${typeof user.tracked_assets}. User data: ${JSON.stringify(user)}`,
         );
       }
-      for (let i = 0; i < user.tracked_stocks.length; i++) {
-        const stock = user.tracked_stocks[i];
-        if (typeof stock !== "string") {
+      for (let i = 0; i < user.tracked_assets.length; i++) {
+        const asset = user.tracked_assets[i];
+        if (typeof asset !== "string") {
           throw new SeedError(
             "users_parse_failed",
-            `Invalid seed user: tracked_stocks[${i}] must be a string. Received: ${typeof stock}. User data: ${JSON.stringify(user)}`,
+            `Invalid seed user: tracked_assets[${i}] must be a string. Received: ${typeof asset}. User data: ${JSON.stringify(user)}`,
           );
         }
         // Normalize seed input; whitespace is common in CSV/JSON exports.
-        const trimmed = stock.trim();
+        const trimmed = asset.trim();
         if (!trimmed) {
           throw new SeedError(
             "users_parse_failed",
-            `Invalid seed user: tracked_stocks[${i}] cannot be empty or whitespace-only. User data: ${JSON.stringify(user)}`,
+            `Invalid seed user: tracked_assets[${i}] cannot be empty or whitespace-only. User data: ${JSON.stringify(user)}`,
           );
         }
         if (/\s/.test(trimmed)) {
           throw new SeedError(
             "users_parse_failed",
-            `Invalid seed user: tracked_stocks[${i}] cannot contain whitespace. Received: "${trimmed}". User data: ${JSON.stringify(user)}`,
+            `Invalid seed user: tracked_assets[${i}] cannot contain whitespace. Received: "${trimmed}". User data: ${JSON.stringify(user)}`,
           );
         }
-        trackedStocks.push(trimmed);
+        trackedAssets.push(trimmed);
       }
     }
 
@@ -318,7 +318,7 @@ async function generateUsersSql(
     sql += buildAuthUserSql(userId, userEmailRaw, userPasswordRaw);
     sql += buildAuthIdentitySql(userId, userEmailRaw);
     sql += buildPublicUserSql(userId, user);
-    sql += buildUserStocksSql(userId, trackedStocks);
+    sql += buildUserAssetsSql(userId, trackedAssets);
   }
 
   return sql;
@@ -358,50 +358,50 @@ async function main() {
     },
   });
 
-  // 1. Read Stocks Data
-  let stocksData;
+  // 1. Read Assets Data
+  let assetsData;
   try {
-    stocksData = JSON.parse(fs.readFileSync(STOCKS_FILE, 'utf-8'));
+    assetsData = JSON.parse(fs.readFileSync(ASSETS_FILE, 'utf-8'));
   } catch (error) {
     throw new SeedError(
-      "stocks_read_failed",
-      `Failed to read ${STOCKS_FILE}: ${error instanceof Error ? error.message : error}`,
+      "assets_read_failed",
+      `Failed to read ${ASSETS_FILE}: ${error instanceof Error ? error.message : error}`,
       { cause: error },
     );
   }
 
-  if (stocksData === null || typeof stocksData !== "object" || Array.isArray(stocksData)) {
+  if (assetsData === null || typeof assetsData !== "object" || Array.isArray(assetsData)) {
     throw new SeedError(
-      "stocks_read_failed",
-      `${STOCKS_FILE} must contain a JSON object with a 'data' property; received ${stocksData === null ? "null" : Array.isArray(stocksData) ? "array" : typeof stocksData}`,
+      "assets_read_failed",
+      `${ASSETS_FILE} must contain a JSON object with a 'data' property; received ${assetsData === null ? "null" : Array.isArray(assetsData) ? "array" : typeof assetsData}`,
     );
   }
 
-  const stocksRaw = stocksData.data;
-  if (!Array.isArray(stocksRaw)) {
+  const assetsRaw = assetsData.data;
+  if (!Array.isArray(assetsRaw)) {
     throw new SeedError(
-      "stocks_read_failed",
-      `${STOCKS_FILE}: 'data' property must be an array; received ${typeof stocksRaw}`,
+      "assets_read_failed",
+      `${ASSETS_FILE}: 'data' property must be an array; received ${typeof assetsRaw}`,
     );
   }
 
-  for (let i = 0; i < stocksRaw.length; i++) {
-    const stock = stocksRaw[i];
-    if (stock === null || typeof stock !== "object" || Array.isArray(stock)) {
+  for (let i = 0; i < assetsRaw.length; i++) {
+    const asset = assetsRaw[i];
+    if (asset === null || typeof asset !== "object" || Array.isArray(asset)) {
       throw new SeedError(
-        "stocks_read_failed",
-        `${STOCKS_FILE}: stocks[${i}] must be an object. Received: ${stock === null ? "null" : Array.isArray(stock) ? "array" : typeof stock}`,
+        "assets_read_failed",
+        `${ASSETS_FILE}: assets[${i}] must be an object. Received: ${asset === null ? "null" : Array.isArray(asset) ? "array" : typeof asset}`,
       );
     }
-    if (typeof stock.symbol !== "string" || typeof stock.name !== "string" || typeof stock.exchange !== "string") {
+    if (typeof asset.symbol !== "string" || typeof asset.name !== "string" || typeof asset.type !== "string") {
       throw new SeedError(
-        "stocks_read_failed",
-        `${STOCKS_FILE}: stocks[${i}] must have string properties 'symbol', 'name', and 'exchange'. Received: ${JSON.stringify(stock)}`,
+        "assets_read_failed",
+        `${ASSETS_FILE}: assets[${i}] must have string properties 'symbol', 'name', and 'type'. Received: ${JSON.stringify(asset)}`,
       );
     }
   }
 
-  const stocks = stocksRaw as Stock[];
+  const assets = assetsRaw as Asset[];
 
   // 2. Read Users Data
   let users: SeedUser[] = [];
@@ -441,12 +441,12 @@ async function main() {
   }
 
   // 3. Generate SQL
-  const stocksSql = generateStocksSql(stocks);
+  const assetsSql = generateAssetsSql(assets);
   const usersSql = await generateUsersSql(users, supabase);
 
   const sections = [
-    `-- 1. Stocks\n${stocksSql.trimEnd()}`.trimEnd(),
-    `-- 2. Users (auth + public profile + tracked stocks)\n${usersSql.trimEnd()}`.trimEnd(),
+    `-- 1. Assets\n${assetsSql.trimEnd()}`.trimEnd(),
+    `-- 2. Users (auth + public profile + tracked assets)\n${usersSql.trimEnd()}`.trimEnd(),
   ];
 
   const fullSql = `/*
@@ -467,7 +467,7 @@ ${sections.join('\n\n')}
   rootLogger.info(
     [
       `✅ seed.sql generated at ${SEED_FILE}`,
-      `   - ${stocks.length} stocks`,
+      `   - ${assets.length} assets`,
       `   - ${users.length} users`,
     ].join("\n"),
   );

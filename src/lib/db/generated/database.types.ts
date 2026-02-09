@@ -30,6 +30,24 @@ export type Database = {
         }
         Relationships: []
       }
+      assets: {
+        Row: {
+          name: string
+          symbol: string
+          type: string
+        }
+        Insert: {
+          name: string
+          symbol: string
+          type?: string
+        }
+        Update: {
+          name?: string
+          symbol?: string
+          type?: string
+        }
+        Relationships: []
+      }
       notification_log: {
         Row: {
           created_at: string
@@ -159,24 +177,6 @@ export type Database = {
           },
         ]
       }
-      stocks: {
-        Row: {
-          exchange: string
-          name: string
-          symbol: string
-        }
-        Insert: {
-          exchange: string
-          name: string
-          symbol: string
-        }
-        Update: {
-          exchange?: string
-          name?: string
-          symbol?: string
-        }
-        Relationships: []
-      }
       timezones: {
         Row: {
           active: boolean
@@ -198,7 +198,7 @@ export type Database = {
         }
         Relationships: []
       }
-      user_stocks: {
+      user_assets: {
         Row: {
           created_at: string
           symbol: string
@@ -216,14 +216,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "user_stocks_symbol_fkey"
+            foreignKeyName: "user_assets_symbol_fkey"
             columns: ["symbol"]
             isOneToOne: false
-            referencedRelation: "stocks"
+            referencedRelation: "assets"
             referencedColumns: ["symbol"]
           },
           {
-            foreignKeyName: "user_stocks_user_id_fkey"
+            foreignKeyName: "user_assets_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
@@ -397,7 +397,7 @@ export type Database = {
         Args: { times: number[] }
         Returns: boolean
       }
-      replace_user_stocks: {
+      replace_user_assets: {
         Args: { symbols: string[]; user_id: string }
         Returns: undefined
       }

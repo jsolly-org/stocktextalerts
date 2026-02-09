@@ -1,13 +1,13 @@
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
-import { POST } from "../../../src/pages/api/stocks/update";
+import { POST } from "../../../src/pages/api/assets/update";
 
-describe("A logged-out user cannot update tracked stocks.", () => {
-	it("A logged-out user cannot update tracked stocks.", async () => {
+describe("A logged-out user cannot update tracked assets.", () => {
+	it("A logged-out user cannot update tracked assets.", async () => {
 		const formData = new FormData();
-		formData.append("tracked_stocks", JSON.stringify(["AAPL"]));
+		formData.append("tracked_assets", JSON.stringify(["AAPL"]));
 
-		const request = new Request("http://localhost/api/stocks/update", {
+		const request = new Request("http://localhost/api/assets/update", {
 			method: "POST",
 			body: formData,
 		});

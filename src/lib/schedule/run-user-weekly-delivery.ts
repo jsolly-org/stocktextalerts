@@ -37,7 +37,7 @@ function formatWeeklyCalendarSmsMessage(options: {
 		"StockTextAlerts — Weekly calendar",
 		options.earningsSection
 			? `📅 Earnings This Week\n${options.earningsSection}`
-			: "📅 No earnings events scheduled for your tracked stocks this week.",
+			: "📅 No earnings events scheduled for your tracked assets this week.",
 		`Manage your settings: ${dashboardUrl}`,
 		optOutSuffix,
 	].filter(Boolean);
@@ -66,7 +66,7 @@ function formatWeeklyCalendarEmail(options: {
 
 	const earnings = (options.earningsSection ?? "").trim();
 	const noEventsMessage =
-		"No earnings events scheduled for your tracked stocks this week.";
+		"No earnings events scheduled for your tracked assets this week.";
 
 	const sectionsText = [
 		"Weekly calendar",
@@ -91,7 +91,7 @@ function formatWeeklyCalendarEmail(options: {
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #111827; max-width: 600px; margin: 0 auto; padding: 20px;">
 	<div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-radius: 10px;">
 		<h2 style="margin: 0 0 8px; font-size: 18px;">Weekly calendar</h2>
-		<p style="margin: 0 0 16px; color: #6b7280; font-size: 14px;">Upcoming events for your tracked stocks</p>
+		<p style="margin: 0 0 16px; color: #6b7280; font-size: 14px;">Upcoming events for your tracked assets</p>
 		${earnings ? renderEmailSection("📅", "Earnings This Week", earnings, { showFinnhubLogo: true }) : renderEmailSection("📅", "Earnings This Week", noEventsMessage)}
 		<div style="text-align: center; margin-top: 20px;">
 			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">

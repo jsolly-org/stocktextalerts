@@ -23,7 +23,7 @@
 					Only notify when market is open
 				</span>
 				<p id="only_notify_when_market_open_description" class="text-sm text-gray-600 mt-0.5">
-					You won't be notified unless the market is open.
+					You won't be notified unless the market is open. <span class="text-gray-400 italic">Mon–Fri, 9:30 AM – 4:00 PM ET.</span>
 				</p>
 			</div>
 			<ToggleSwitch

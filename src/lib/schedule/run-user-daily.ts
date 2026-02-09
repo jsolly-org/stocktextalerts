@@ -1,11 +1,12 @@
 import { DateTime } from "luxon";
+import type { DeliveryChannel } from "../finnhub-extras";
 import {
 	buildNewsContextForGrok,
 	fetchFinnhubExtras,
 	formatAnalystSection,
 	formatInsiderSection,
 } from "../finnhub-extras";
-import { type GrokChannel, generateDailyExtrasWithGrok } from "../grok-extras";
+import { generateDailyExtrasWithGrok } from "../grok-extras";
 import type { Logger } from "../logging";
 import type { EmailSender } from "../messaging/email/utils";
 import { shouldSendSms } from "../messaging/sms";
@@ -16,7 +17,7 @@ import type {
 	ScheduledNotificationTotals,
 	SupabaseAdminClient,
 } from "./helpers";
-import { loadUserStocks } from "./helpers";
+import { loadUserAssets } from "./helpers";
 import {
 	processDailyDigestEmailDelivery,
 	processDailyDigestSmsDelivery,
@@ -290,8 +291,8 @@ export async function processDailyUser(options: {
 			return stats;
 		}
 
-		const userStocks = await loadUserStocks(supabase, user.id);
-		const tickers = userStocks.map((s) => s.symbol);
+		const userAssets = await loadUserAssets(supabase, user.id);
+		const tickers = userAssets.map((s) => s.symbol);
 
 		const needsGrok =
 			user.daily_include_news_email || user.daily_include_rumors_email;
@@ -312,12 +313,7 @@ export async function processDailyUser(options: {
 		const emailEnabled = user.email_notifications_enabled;
 		const smsEnabled = shouldSendSms(user);
 
-		// News/rumors are email-only (SMS body can exceed Twilio's 1600-char limit)
-		const hasAnyChannel = emailEnabled || smsEnabled;
-		const grokChannels: GrokChannel[] = [];
-		if (emailEnabled) grokChannels.push("email");
-
-		if (!hasAnyChannel) {
+		if (!emailEnabled && !smsEnabled) {
 			stats.skipped++;
 			await updateUserDailyNextSendAt({
 				user,
@@ -344,37 +340,32 @@ export async function processDailyUser(options: {
 			? buildNewsContextForGrok(finnhubData.news)
 			: undefined;
 
-		const grokOptions = {
-			tickers,
-			localDateIso: scheduledDate,
-			timezone: user.timezone,
-			includeNews: user.daily_include_news_email,
-			includeRumors: user.daily_include_rumors_email,
-			finnhubNewsContext: newsContext || undefined,
-		};
+		// Grok extras are email-only (SMS body can exceed Twilio's 1600-char limit)
+		const grokResult =
+			grokAllowed && emailEnabled
+				? await generateDailyExtrasWithGrok({
+						tickers,
+						localDateIso: scheduledDate,
+						timezone: user.timezone,
+						includeNews: user.daily_include_news_email,
+						includeRumors: user.daily_include_rumors_email,
+						finnhubNewsContext: newsContext || undefined,
+					})
+				: null;
 
-		const grokResultsByChannel = new Map<
-			GrokChannel,
-			{ news: string | null; rumors: string | null } | null
-		>();
-
-		if (grokAllowed) {
-			const grokResults = await Promise.all(
-				grokChannels.map((channel) =>
-					generateDailyExtrasWithGrok({ ...grokOptions, channel }),
-				),
-			);
-			for (let i = 0; i < grokChannels.length; i++) {
-				grokResultsByChannel.set(grokChannels[i], grokResults[i]);
-			}
+		if (grokResult?.citations && grokResult.citations.length > 0) {
+			logger.info("Grok citations returned", {
+				action: "daily_digest_run",
+				userId: user.id,
+				citationCount: grokResult.citations.length,
+				citations: grokResult.citations,
+			});
 		}
 
 		/* =============
-		Format Finnhub-only sections (analyst + insider) per channel
+		Build extras per channel
 		============= */
-		function buildExtras(channel: GrokChannel): SmsExtras {
-			const grok = grokResultsByChannel.get(channel);
-			// News/rumors are email-only (SMS body can exceed Twilio's 1600-char limit)
+		function buildExtras(channel: DeliveryChannel): SmsExtras {
 			const isSms = channel === "sms";
 			const includeAnalyst = isSms
 				? user.daily_include_analyst_sms
@@ -383,8 +374,8 @@ export async function processDailyUser(options: {
 				? user.daily_include_insider_sms
 				: user.daily_include_insider_email;
 			return {
-				news: isSms ? null : (grok?.news ?? null),
-				rumors: isSms ? null : (grok?.rumors ?? null),
+				news: isSms ? null : (grokResult?.news ?? null),
+				rumors: isSms ? null : (grokResult?.rumors ?? null),
 				analyst: includeAnalyst
 					? formatAnalystSection(finnhubData.analyst, channel)
 					: null,
@@ -435,7 +426,7 @@ export async function processDailyUser(options: {
 				logger,
 				scheduledDate,
 				scheduledMinutes,
-				userStocks,
+				userAssets,
 				extras: emailExtras,
 				sendEmail,
 				stats,
@@ -449,7 +440,7 @@ export async function processDailyUser(options: {
 				logger,
 				scheduledDate,
 				scheduledMinutes,
-				userStocks,
+				userAssets,
 				extras: smsExtras,
 				getSmsSender,
 				stats,

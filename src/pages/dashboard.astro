@@ -1,25 +1,27 @@
 ---
 
-import stocksData from "../../scripts/us-stocks.json";
+import assetsData from "../../scripts/us-assets.json";
 import DashboardPanels from "../components/dashboard/DashboardPanels.vue";
-import type { StockOption } from "../components/dashboard/stocks/StockInput.vue";
+import type { AssetOption } from "../components/dashboard/assets/AssetInput.vue";
 import Navigation from "../components/Navigation.astro";
 import Layout from "../layouts/Layout.astro";
 import { buildSigninRedirectUrl } from "../lib/auth/redirects";
-import { createUserService, getUserStocks } from "../lib/db";
+import { createUserService, getUserAssets } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 import { rootLogger } from "../lib/logging";
 
-/* ============= Precomputed Stock Options ============= */
-type StockJsonItem = {
+/* ============= Precomputed Asset Options ============= */
+type AssetJsonItem = {
 	symbol: string;
 	name: string;
+	type: "stock" | "etf";
 };
-const stockOptions: StockOption[] = (
-	stocksData as { data: StockJsonItem[] }
-).data.map((stock) => ({
-	value: stock.symbol,
-	label: `${stock.symbol} - ${stock.name}`,
+const assetOptions: AssetOption[] = (
+	assetsData as { data: AssetJsonItem[] }
+).data.map((asset) => ({
+	value: asset.symbol,
+	label: `${asset.symbol} - ${asset.name}`,
+	type: asset.type,
 }));
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
@@ -32,9 +34,9 @@ if (!authUser) {
 	const returnTo = `${Astro.url.pathname}${Astro.url.search}`;
 	return Astro.redirect(buildSigninRedirectUrl(returnTo));
 }
-const [dbUser, userStocks] = await Promise.all([
+const [dbUser, userAssets] = await Promise.all([
 	users.getById(authUser.id),
-	getUserStocks(supabase, authUser.id),
+	getUserAssets(supabase, authUser.id),
 ]);
 if (!dbUser) {
 	rootLogger.error("Auth user exists but database user record missing", {
@@ -44,9 +46,9 @@ if (!dbUser) {
 	return Astro.redirect("/?error=user_not_found");
 }
 const user = dbUser;
-const initialStocks = userStocks.map((stock) => ({ symbol: stock.symbol, name: stock.name }));
+const initialAssets = userAssets.map((asset) => ({ symbol: asset.symbol, name: asset.name }));
 ---
-<Layout title="Dashboard" description="Review and manage your stock notifications. Add or remove tracked stocks, set your notification schedule and timezone, and choose email or SMS delivery." noindex>
+<Layout title="Dashboard" description="Review and manage your asset notifications. Add or remove tracked assets, set your notification schedule and timezone, and choose email or SMS delivery." noindex>
 	<div class="min-h-screen bg-gray-50">
 		<header>
 			<Navigation user={authUser} />
@@ -56,14 +58,14 @@ const initialStocks = userStocks.map((stock) => ({ symbol: stock.symbol, name: s
 			<header class="mb-8">
 				<h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
 				<p class="mt-2 text-sm text-gray-600">
-					Manage your alert channels, tracked stocks, and delivery schedule.
+					Manage your alert channels, tracked assets, and delivery schedule.
 				</p>
 			</header>
 			<DashboardPanels
 				client:load
 				user={user}
-				stockOptions={stockOptions}
-				initialStocks={initialStocks}
+				assetOptions={assetOptions}
+				initialAssets={initialAssets}
 			/>
 		</main>
 	</div>

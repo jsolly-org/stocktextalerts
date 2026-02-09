@@ -9,7 +9,7 @@ import {
 	expect,
 	it,
 } from "vitest";
-import { getStockData } from "../../helpers/stock-data";
+import { getAssetData } from "../../helpers/asset-data";
 
 function createDbClient(): Client {
 	const databaseUrl = process.env.DATABASE_URL;
@@ -60,17 +60,17 @@ describe("User input is validated against required data format rules.", () => {
 		});
 	});
 
-	it("A stock symbol with whitespace is rejected when adding it to the database.", async () => {
-		const realStock = getStockData("AAPL");
+	it("An asset symbol with whitespace is rejected when adding it to the database.", async () => {
+		const realAsset = getAssetData("AAPL");
 		await expect(
 			client.query(
-				"insert into public.stocks (symbol, name, exchange) values ($1, $2, $3)",
-				["A A", realStock.name, realStock.exchange],
+				"insert into public.assets (symbol, name, type) values ($1, $2, $3)",
+				["A A", realAsset.name, "stock"],
 			),
 		).rejects.toMatchObject({
 			code: "23514",
-			constraint: "stocks_symbol_no_whitespace",
-			table: "stocks",
+			constraint: "assets_symbol_no_whitespace",
+			table: "assets",
 		});
 	});
 
@@ -87,21 +87,21 @@ describe("User input is validated against required data format rules.", () => {
 		});
 	});
 
-	it("A user cannot replace tracked stocks with symbols that include whitespace.", async () => {
+	it("A user cannot replace tracked assets with symbols that include whitespace.", async () => {
 		const userId = randomUUID();
 		await client.query("insert into public.users (id, email) values ($1, $2)", [
 			userId,
 			`test-${randomUUID()}@resend.dev`,
 		]);
 
-		const aaplStock = getStockData("AAPL");
+		const aaplAsset = getAssetData("AAPL");
 		await client.query(
-			"insert into public.stocks (symbol, name, exchange) values ($1, $2, $3) on conflict (symbol) do nothing",
-			["AAPL", aaplStock.name, aaplStock.exchange],
+			"insert into public.assets (symbol, name, type) values ($1, $2, $3) on conflict (symbol) do nothing",
+			["AAPL", aaplAsset.name, "stock"],
 		);
 
 		await expect(
-			client.query("select public.replace_user_stocks($1::uuid, $2::text[])", [
+			client.query("select public.replace_user_assets($1::uuid, $2::text[])", [
 				userId,
 				["AAPL "],
 			]),
@@ -110,21 +110,21 @@ describe("User input is validated against required data format rules.", () => {
 		});
 	});
 
-	it("A user cannot replace tracked stocks with lowercase symbols.", async () => {
+	it("A user cannot replace tracked assets with lowercase symbols.", async () => {
 		const userId = randomUUID();
 		await client.query("insert into public.users (id, email) values ($1, $2)", [
 			userId,
 			`test-${randomUUID()}@resend.dev`,
 		]);
 
-		const aaplStock = getStockData("AAPL");
+		const aaplAsset = getAssetData("AAPL");
 		await client.query(
-			"insert into public.stocks (symbol, name, exchange) values ($1, $2, $3) on conflict (symbol) do nothing",
-			["aapl", aaplStock.name, aaplStock.exchange],
+			"insert into public.assets (symbol, name, type) values ($1, $2, $3) on conflict (symbol) do nothing",
+			["aapl", aaplAsset.name, "stock"],
 		);
 
 		await expect(
-			client.query("select public.replace_user_stocks($1::uuid, $2::text[])", [
+			client.query("select public.replace_user_assets($1::uuid, $2::text[])", [
 				userId,
 				["aapl"],
 			]),
@@ -133,32 +133,47 @@ describe("User input is validated against required data format rules.", () => {
 		});
 	});
 
-	it("A user cannot replace tracked stocks with duplicate symbols.", async () => {
+	it("A user cannot replace tracked assets with duplicate symbols.", async () => {
 		const userId = randomUUID();
 		await client.query("insert into public.users (id, email) values ($1, $2)", [
 			userId,
 			`test-${randomUUID()}@resend.dev`,
 		]);
 
-		const aaplStock = getStockData("AAPL");
-		const msftStock = getStockData("MSFT");
+		const aaplAsset = getAssetData("AAPL");
+		const msftAsset = getAssetData("MSFT");
 		await client.query(
-			"insert into public.stocks (symbol, name, exchange) values ($1, $2, $3), ($4, $5, $6) on conflict (symbol) do nothing",
-			[
-				"AAPL",
-				aaplStock.name,
-				aaplStock.exchange,
-				"MSFT",
-				msftStock.name,
-				msftStock.exchange,
-			],
+			"insert into public.assets (symbol, name, type) values ($1, $2, $3), ($4, $5, $6) on conflict (symbol) do nothing",
+			["AAPL", aaplAsset.name, "stock", "MSFT", msftAsset.name, "stock"],
 		);
 
 		await expect(
-			client.query("select public.replace_user_stocks($1::uuid, $2::text[])", [
+			client.query("select public.replace_user_assets($1::uuid, $2::text[])", [
 				userId,
 				["AAPL", "MSFT", "AAPL"],
 			]),
+		).rejects.toMatchObject({
+			code: "23514",
+		});
+	});
+
+	it("An asset with type 'etf' is accepted by the database.", async () => {
+		const spyAsset = getAssetData("SPY");
+		const { rowCount } = await client.query(
+			"insert into public.assets (symbol, name, type) values ($1, $2, $3) on conflict (symbol) do nothing",
+			[spyAsset.symbol, spyAsset.name, "etf"],
+		);
+
+		// Either inserted (1) or already existed (0) — no constraint violation
+		expect(rowCount).toBeLessThanOrEqual(1);
+	});
+
+	it("An asset with an invalid type is rejected by the database.", async () => {
+		await expect(
+			client.query(
+				"insert into public.assets (symbol, name, type) values ($1, $2, $3)",
+				["TESTMF", "Test Mutual Fund", "mutual_fund"],
+			),
 		).rejects.toMatchObject({
 			code: "23514",
 		});

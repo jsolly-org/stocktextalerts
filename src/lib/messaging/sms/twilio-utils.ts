@@ -23,29 +23,45 @@ export type SmsSender = (request: SmsRequest) => Promise<DeliveryResult>;
 
 type TwilioClient = ReturnType<typeof twilio>;
 
+// Reads Twilio credentials from import.meta.env.
+// Presence is guaranteed by middleware env validation; types reflect this via ImportMetaEnv.
 export function readTwilioConfig(): TwilioConfig {
-	const accountSid = import.meta.env.TWILIO_ACCOUNT_SID;
-	const authToken = import.meta.env.TWILIO_AUTH_TOKEN;
-	const phoneNumber = import.meta.env.TWILIO_PHONE_NUMBER;
-
-	return { accountSid, authToken, phoneNumber };
+	return {
+		accountSid: import.meta.env.TWILIO_ACCOUNT_SID,
+		authToken: import.meta.env.TWILIO_AUTH_TOKEN,
+		phoneNumber: import.meta.env.TWILIO_PHONE_NUMBER,
+	};
 }
 
+/**
+ * Create a Twilio REST client from validated config.
+ */
 export function createTwilioClient(config: TwilioConfig): TwilioClient {
 	return twilio(config.accountSid, config.authToken);
 }
 
+/**
+ * Create an SMS sender function backed by Twilio.
+ *
+ * In `test` mode, returns a deterministic mock sender to avoid external API calls.
+ */
 export function createSmsSender(
 	client: TwilioClient,
 	defaultFromNumber: string,
 ): SmsSender {
-	// In test mode, return a mock sender that always succeeds without making API calls
+	// In test mode, return a mock sender that validates required fields but avoids external API calls
 	if (import.meta.env.MODE === "test") {
 		const behavior = import.meta.env.SMS_TEST_BEHAVIOR ?? "success";
 		const testMessageSid = import.meta.env.SMS_TEST_MESSAGE_SID ?? "test";
 		const testError = import.meta.env.SMS_TEST_ERROR ?? "Test SMS failure";
 		const testErrorCode = import.meta.env.SMS_TEST_ERROR_CODE;
-		return async () => {
+		return async (request: SmsRequest) => {
+			if (!request.to || !request.body) {
+				return {
+					success: false,
+					error: `Test mock: missing required field(s): ${[!request.to && "to", !request.body && "body"].filter(Boolean).join(", ")}`,
+				};
+			}
 			if (behavior === "fail") {
 				return {
 					success: false,
@@ -75,9 +91,10 @@ export function createSmsSender(
 				messageSid: message.sid,
 			};
 		} catch (error) {
+			const maskedTo = request.to.slice(-4).padStart(request.to.length, "*");
 			rootLogger.error(
 				"Twilio SMS send error",
-				{ action: "send_sms", from, to: request.to },
+				{ action: "send_sms", from, to: maskedTo },
 				error,
 			);
 

@@ -1,8 +1,35 @@
 import { defineMiddleware } from "astro:middleware";
-import { validateEnv } from "./lib/db/env";
+
+const REQUIRED_ENV_VARS = [
+	"SUPABASE_URL",
+	"SUPABASE_PUBLISHABLE_KEY",
+	"SUPABASE_SECRET_KEY",
+	"TWILIO_ACCOUNT_SID",
+	"TWILIO_AUTH_TOKEN",
+	"TWILIO_PHONE_NUMBER",
+	"TWILIO_VERIFY_SERVICE_SID",
+	"CRON_SECRET",
+	"RESEND_API_KEY",
+	"EMAIL_FROM",
+	"FINNHUB_API_KEY",
+] as const;
 
 // Lazy validation flag - only validate once on first request
 let envValidated = false;
+
+const metaEnv = import.meta.env as unknown as Record<
+	string,
+	string | undefined
+>;
+
+function readEnv(name: string): string | undefined {
+	const fromMeta = metaEnv[name];
+	if (typeof fromMeta === "string" && fromMeta.trim() !== "") {
+		return fromMeta;
+	}
+	const fromProcess = process.env[name];
+	return typeof fromProcess === "string" ? fromProcess : undefined;
+}
 
 function buildCsp(requestHost?: string): string {
 	// Allow vercel.live when on Vercel (env at runtime) or when request host is a Vercel deployment (fallback if env unset).
@@ -74,7 +101,24 @@ export const onRequest = defineMiddleware(async (context, next) => {
 	// Validate environment variables on first request
 	// This ensures validation happens after Vercel injects env vars at runtime
 	if (!envValidated) {
-		validateEnv();
+		const missing: string[] = REQUIRED_ENV_VARS.filter((name) => {
+			const value = readEnv(name);
+			return !value || value.trim() === "";
+		});
+		const vercelUrl = readEnv("VERCEL_URL");
+		const vercelProductionUrl = readEnv("VERCEL_PROJECT_PRODUCTION_URL");
+		if (
+			(!vercelUrl || vercelUrl.trim() === "") &&
+			(!vercelProductionUrl || vercelProductionUrl.trim() === "")
+		) {
+			missing.push("VERCEL_PROJECT_PRODUCTION_URL or VERCEL_URL");
+		}
+		if (missing.length > 0) {
+			throw new Error(
+				`Missing required environment variables: ${missing.join(", ")}\n` +
+					"Please check your .env file and ensure all required variables are set.",
+			);
+		}
 		envValidated = true;
 	}
 	const requestId = crypto.randomUUID();

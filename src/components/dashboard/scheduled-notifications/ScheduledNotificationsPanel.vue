@@ -31,7 +31,7 @@
 				</div>
 			</FadeTransition>
 
-			<div :class="`h-1 ${CARD_GRADIENT_ACCENTS.success}`"></div>
+			<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.success}`"></div>
 			<div class="card-body">
 			<header>
 				<h2
@@ -98,7 +98,7 @@
 						Price Notifications
 					</span>
 					<p id="price_notifications_enabled_description" class="text-sm text-gray-600 mt-0.5">
-						Receive scheduled stock price updates.
+						Receive scheduled price updates for all your tracked assets, including ETFs.
 					</p>
 				</div>
 				<div class="flex items-center gap-4 shrink-0">

@@ -6,8 +6,8 @@
 				<span class="text-white text-lg font-semibold">StockTextAlerts</span>
 			</div>
 			<div class="email-body">
-				<h3 class="text-gray-900 text-base font-semibold mt-0 mb-3">Your Stock Update</h3>
-				<div class="email-stocks-section">
+				<h3 class="text-gray-900 text-base font-semibold mt-0 mb-3">Your Update</h3>
+				<div class="email-assets-section">
 					<p
 						class="text-gray-900 text-sm font-semibold m-0 font-mono leading-relaxed"
 						v-html="formattedEmailHtml"
@@ -23,18 +23,18 @@ import { computed } from "vue";
 import type { FormatPreferences } from "../../../lib/messaging/types";
 import {
 	formatPreviewEmailHtml,
-	type PreviewStock,
+	type PreviewAsset,
 } from "./preview-data";
 
 interface Props {
-	stocks: PreviewStock[];
+	assets: PreviewAsset[];
 	formatPreferences: FormatPreferences;
 }
 
 const props = defineProps<Props>();
 
 const formattedEmailHtml = computed(() =>
-	formatPreviewEmailHtml(props.stocks, props.formatPreferences),
+	formatPreviewEmailHtml(props.assets, props.formatPreferences),
 );
 </script>
 
@@ -57,7 +57,7 @@ const formattedEmailHtml = computed(() =>
 	padding: 1.25rem;
 }
 
-.email-stocks-section {
+.email-assets-section {
 	background: #f9fafb;
 	padding: 0.75rem;
 	border-radius: 0.375rem;

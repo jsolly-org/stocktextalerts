@@ -1,12 +1,12 @@
 import { Client } from "pg";
 import { afterAll, afterEach, beforeAll, expect, vi } from "vitest";
+import { getRealAssetSymbols } from "./helpers/asset-data";
 import {
 	EXPECTED_DB_SCHEMA_VERSION,
 	POSTGRES_UNDEFINED_TABLE,
 	PRESERVED_TEST_EMAIL,
 	PRESERVED_USER_ID,
 } from "./helpers/constants";
-import { getRealStockSymbols } from "./helpers/stock-data";
 import { adminClient } from "./helpers/test-env";
 import { cleanupTestUser } from "./helpers/test-user";
 import { takeTestUserIdsForCleanup } from "./helpers/test-user-cleanup";
@@ -63,7 +63,7 @@ async function cleanupAllNonPreservedUsers(): Promise<void> {
 		const preservedTestUserIds = preservedTestUsers.map((user) => user.id);
 		preservedUserIds.push(...preservedTestUserIds);
 
-		// Deleting from users cascades to user_stocks and notification_log
+		// Deleting from users cascades to user_assets and notification_log
 		await client.query(`DELETE FROM public.users WHERE id != ALL($1::uuid[])`, [
 			preservedUserIds,
 		]);
@@ -194,6 +194,6 @@ beforeAll(async () => {
 	await verifyDatabaseSchemaUpToDate();
 	await verifySupabaseAdminAccess();
 	await cleanupAllNonPreservedUsers();
-	// Preload stock data once for all tests (cached after first load)
-	getRealStockSymbols(1);
+	// Preload asset data once for all tests (cached after first load)
+	getRealAssetSymbols(1);
 });
