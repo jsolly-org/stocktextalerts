@@ -107,6 +107,49 @@ export function calculateNextSendAtFromTimes(
 	return nextSend;
 }
 
+export function calculateNextMondaySendAt(
+	localMinutes: number,
+	timezone: string,
+	now: DateTime,
+): DateTime | null {
+	if (!Number.isFinite(localMinutes)) return null;
+
+	const hours = Math.floor(localMinutes / 60);
+	const mins = localMinutes % 60;
+	if (hours < 0 || hours > 23 || mins < 0 || mins > 59) return null;
+
+	const current = now.setZone(timezone);
+	if (!current.isValid) return null;
+
+	// Find next Monday (weekday 1 in Luxon). Allow today if it's Monday.
+	const daysUntilMonday = (1 - current.weekday + 7) % 7;
+	let targetDay = current.plus({ days: daysUntilMonday });
+
+	let candidate = buildLocalDateTime({
+		date: targetDay,
+		zone: timezone,
+		hour: hours,
+		minute: mins,
+	});
+	candidate = pickLaterOffset(candidate);
+	if (!candidate.isValid) return null;
+
+	// If today's Monday time has already passed, advance to next week.
+	if (candidate <= current) {
+		targetDay = targetDay.plus({ days: 7 });
+		candidate = buildLocalDateTime({
+			date: targetDay,
+			zone: timezone,
+			hour: hours,
+			minute: mins,
+		});
+		candidate = pickLaterOffset(candidate);
+		if (!candidate.isValid) return null;
+	}
+
+	return candidate.toUTC();
+}
+
 export function getLocalMinutesFromDateTime(
 	timezone: string,
 	date: DateTime,

@@ -161,7 +161,7 @@ export async function processWeeklyUser(options: {
 			weekEnd,
 		);
 
-		// Format sections per channel
+		// Format sections per channel (null means no events this week)
 		const emailEarnings =
 			emailEnabled && user.weekly_include_earnings_email
 				? formatEarningsSection(calendarData.earnings, "email")
@@ -171,28 +171,10 @@ export async function processWeeklyUser(options: {
 				? formatEarningsSection(calendarData.earnings, "sms")
 				: null;
 
-		const hasEmailContent = !!emailEarnings;
-		const hasSmsContent = !!smsEarnings;
+		const wantsEmail = emailEnabled && user.weekly_include_earnings_email;
+		const wantsSms = smsEnabled && user.weekly_include_earnings_sms;
 
-		if (!hasEmailContent && !hasSmsContent) {
-			logger.info("Skipping weekly calendar: no events this week", {
-				action: "weekly_calendar_run",
-				reason: "no_content",
-				userId: user.id,
-				scheduledDate,
-				scheduledMinutes,
-			});
-			stats.skipped++;
-			await updateUserWeeklyNextSendAt({
-				user,
-				supabase,
-				logger,
-				currentTime,
-			});
-			return stats;
-		}
-
-		if (hasEmailContent) {
+		if (wantsEmail) {
 			await processWeeklyCalendarEmailDelivery({
 				user,
 				supabase,
@@ -205,7 +187,7 @@ export async function processWeeklyUser(options: {
 			});
 		}
 
-		if (hasSmsContent) {
+		if (wantsSms) {
 			await processWeeklyCalendarSmsDelivery({
 				user,
 				supabase,

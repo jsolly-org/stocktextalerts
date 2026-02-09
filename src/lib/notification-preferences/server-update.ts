@@ -1,8 +1,10 @@
 import { DateTime } from "luxon";
 import { omitUndefined, type User, type UserUpdateInput } from "../db";
 import type { Logger } from "../logging";
-import { calculateNextMondaySendAt } from "../schedule/run-user-weekly-next-send-at";
-import { calculateNextSendAt } from "../time/scheduled-times";
+import {
+	calculateNextMondaySendAt,
+	calculateNextSendAt,
+} from "../time/scheduled-times";
 import {
 	computeNextSendAtIso,
 	parseScheduledTimes,
@@ -127,7 +129,7 @@ function computeWeeklyNextSendAt(
 		hasAnyWeeklyOption
 	) {
 		const nextWeeklyUtc = calculateNextMondaySendAt(
-			finalDailyTime,
+			finalDailyTime ?? 540,
 			finalTimezone,
 			DateTime.utc(),
 		);
@@ -338,7 +340,7 @@ export function computeTimezoneUpdatePayload(
 		dbUser.weekly_include_earnings_sms
 	) {
 		const nextWeeklyUtc = calculateNextMondaySendAt(
-			dbUser.daily_delivery_time,
+			dbUser.daily_delivery_time ?? 540,
 			newTimezone,
 			DateTime.utc(),
 		);

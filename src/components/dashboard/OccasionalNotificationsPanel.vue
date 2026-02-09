@@ -53,7 +53,25 @@
 							<span>
 								Delivered Mondays at
 								<span class="font-medium text-gray-700">{{ deliveryTimeLabel }}</span>
-								<span v-if="timezoneLabel" class="text-gray-400">({{ timezoneLabel }})</span>
+								<span v-if="timezoneLabel" class="text-gray-400"> ({{ timezoneLabel }})</span>
+								<template v-if="hasDailyDeliveryTime">
+									— synced with your
+									<button
+										type="button"
+										class="underline cursor-pointer hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 rounded"
+										@click="scrollToDailyNotifications"
+									>daily delivery time</button>.
+								</template>
+								<template v-else>
+									<span class="text-gray-400 italic">(default)</span>
+									— set your
+									<button
+										type="button"
+										class="underline cursor-pointer hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 rounded"
+										@click="scrollToDailyNotifications"
+									>daily delivery time</button>
+									to change.
+								</template>
 							</span>
 						</span>
 					</p>
@@ -155,6 +173,7 @@ import {
 	formatCountdownWithSeconds,
 	formatMinutesAsLocalTime,
 } from "../../lib/time/format";
+import { calculateNextMondaySendAt } from "../../lib/time/scheduled-times";
 import FadeTransition from "../FadeTransition.vue";
 import {
 	type NotificationPreferencesData,
@@ -222,6 +241,8 @@ const weeklyEnabled = computed(
 		includeEarningsSms.value,
 );
 
+const hasDailyDeliveryTime = computed(() => user.value.daily_delivery_time != null);
+
 const deliveryTimeMinutes = computed(() =>
 	user.value.daily_delivery_time ?? DEFAULT_DELIVERY_MINUTES,
 );
@@ -236,20 +257,38 @@ const timezoneLabel = computed(() => {
 	return dt.isValid ? dt.toFormat("ZZZZ") : null;
 });
 
+function scrollToDailyNotifications() {
+	const el = document.getElementById(DASHBOARD_SECTION_IDS.dailyNotifications);
+	if (el) {
+		el.scrollIntoView({ behavior: "smooth" });
+	}
+}
+
 const nextWeeklyDeliveryText = computed(() => {
 	if (!isHydrated.value || !weeklyEnabled.value) return null;
 	void tick.value;
 
-	const nextSendAt = user.value.weekly_next_send_at;
-	if (!nextSendAt) return null;
-
-	const next = DateTime.fromISO(nextSendAt, { zone: "utc" });
-	if (!next.isValid) return null;
-
 	const now = DateTime.utc();
-	const diffSeconds = next.diff(now, "seconds").seconds;
-	if (diffSeconds <= 0) return "is due soon";
-	return `in ${formatCountdownWithSeconds(Math.round(diffSeconds))}`;
+
+	const nextSendAt = user.value.weekly_next_send_at;
+	if (nextSendAt) {
+		const next = DateTime.fromISO(nextSendAt, { zone: "utc" });
+		if (next.isValid) {
+			const diffSeconds = next.diff(now, "seconds").seconds;
+			if (diffSeconds > 0) {
+				return `in ${formatCountdownWithSeconds(Math.round(diffSeconds))}`;
+			}
+		}
+	}
+
+	// next_send_at is missing or in the past; fall back to computing the next Monday.
+	const tz = user.value.timezone;
+	if (!tz) return null;
+	const nextMonday = calculateNextMondaySendAt(deliveryTimeMinutes.value, tz, now);
+	if (!nextMonday) return null;
+	const fallbackSeconds = Math.ceil(nextMonday.diff(now, "seconds").seconds);
+	if (fallbackSeconds <= 0) return null;
+	return `in ${formatCountdownWithSeconds(fallbackSeconds)}`;
 });
 
 watch([includeEarningsEmail, includeEarningsSms], () => {
