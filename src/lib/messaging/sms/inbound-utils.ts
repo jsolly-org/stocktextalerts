@@ -27,12 +27,48 @@ interface InboundSmsResponse {
 	contentType?: string;
 }
 
+/**
+ * Apply a `users` table update and return a Twilio-friendly error response on failure.
+ *
+ * Returns `null` on success so callers can continue handling the inbound command.
+ */
+async function applyUserUpdate(
+	supabase: AppSupabaseClient,
+	userId: string,
+	update: Record<string, unknown>,
+	action: string,
+): Promise<InboundSmsResponse | null> {
+	const { error: updateError } = await supabase
+		.from("users")
+		.update(update)
+		.eq("id", userId);
+
+	if (updateError) {
+		rootLogger.error(
+			"Failed to update user notification preferences",
+			{ userId, action, updateFields: Object.keys(update) },
+			updateError,
+		);
+		return {
+			status: 500,
+			body: "Failed to update notification-preferences",
+		};
+	}
+	return null;
+}
+
 const STOP_ALL_RE = /\bSTOP\s*ALL\b|\bSTOPALL\b/;
 const STOP_EMAIL_RE = /\bSTOP\s*EMAIL\b|\bSTOPEMAIL\b/;
 const STOP_RE = /\b(STOP|UNSUBSCRIBE|CANCEL|END|QUIT|REVOKE|OPTOUT)\b/;
 const START_RE = /\b(START|SUBSCRIBE|YES|UNSTOP)\b/;
 const HELP_RE = /\b(HELP|INFO)\b/;
 
+/**
+ * Handle inbound Twilio SMS webhooks.
+ *
+ * Validates the request signature, looks up the user by phone number, and processes
+ * STOP/START/HELP commands to update notification preferences and opt-out state.
+ */
 export async function handleInboundSms(
 	request: InboundSmsRequest,
 	deps: InboundSmsDependencies,
@@ -153,26 +189,17 @@ export async function handleInboundSms(
 	}
 
 	if (STOP_ALL_RE.test(body)) {
-		const { error: updateError } = await supabase
-			.from("users")
-			.update({
+		const err = await applyUserUpdate(
+			supabase,
+			userId,
+			{
 				email_notifications_enabled: false,
 				sms_notifications_enabled: false,
 				sms_opted_out: true,
-			})
-			.eq("id", userId);
-
-		if (updateError) {
-			rootLogger.error(
-				"Failed to opt out user",
-				{ userId, action: "sms_stop_all" },
-				updateError,
-			);
-			return {
-				status: 500,
-				body: "Failed to update notification-preferences",
-			};
-		}
+			},
+			"sms_stop_all",
+		);
+		if (err) return err;
 
 		return {
 			status: 200,
@@ -184,22 +211,15 @@ export async function handleInboundSms(
 	}
 
 	if (STOP_EMAIL_RE.test(body)) {
-		const { error: updateError } = await supabase
-			.from("users")
-			.update({ email_notifications_enabled: false })
-			.eq("id", userId);
-
-		if (updateError) {
-			rootLogger.error(
-				"Failed to opt out user",
-				{ userId, action: "sms_stop_email" },
-				updateError,
-			);
-			return {
-				status: 500,
-				body: "Failed to update notification-preferences",
-			};
-		}
+		const err = await applyUserUpdate(
+			supabase,
+			userId,
+			{
+				email_notifications_enabled: false,
+			},
+			"sms_stop_email",
+		);
+		if (err) return err;
 
 		const stopEmailMessage = hasBothChannelsEnabled
 			? `Email notifications are now off. To stop SMS too, reply STOP ALL or visit ${dashboardUrl}.`
@@ -213,22 +233,16 @@ export async function handleInboundSms(
 	}
 
 	if (STOP_RE.test(body)) {
-		const { error: updateError } = await supabase
-			.from("users")
-			.update({ sms_notifications_enabled: false, sms_opted_out: true })
-			.eq("id", userId);
-
-		if (updateError) {
-			rootLogger.error(
-				"Failed to opt out user",
-				{ userId, action: "sms_opt_out" },
-				updateError,
-			);
-			return {
-				status: 500,
-				body: "Failed to update notification-preferences",
-			};
-		}
+		const err = await applyUserUpdate(
+			supabase,
+			userId,
+			{
+				sms_notifications_enabled: false,
+				sms_opted_out: true,
+			},
+			"sms_opt_out",
+		);
+		if (err) return err;
 
 		const stopSmsMessage = hasBothChannelsEnabled
 			? `You have been unsubscribed from SMS notifications. To stop email too, reply STOP EMAIL or visit ${dashboardUrl}.`
@@ -242,22 +256,15 @@ export async function handleInboundSms(
 	}
 
 	if (START_RE.test(body)) {
-		const { error: updateError } = await supabase
-			.from("users")
-			.update({ sms_opted_out: false })
-			.eq("id", userId);
-
-		if (updateError) {
-			rootLogger.error(
-				"Failed to clear sms_opted_out",
-				{ userId, action: "sms_start" },
-				updateError,
-			);
-			return {
-				status: 500,
-				body: "Failed to update notification-preferences",
-			};
-		}
+		const err = await applyUserUpdate(
+			supabase,
+			userId,
+			{
+				sms_opted_out: false,
+			},
+			"sms_start",
+		);
+		if (err) return err;
 
 		return {
 			status: 200,

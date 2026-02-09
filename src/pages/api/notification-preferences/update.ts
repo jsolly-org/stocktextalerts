@@ -17,12 +17,18 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	only_notify_when_market_open: { type: "boolean" },
 	daily_only_notify_when_market_open: { type: "boolean" },
 	daily_delivery_time: { type: "time" },
-	daily_include_news: { type: "boolean" },
-	daily_include_rumors: { type: "boolean" },
-	daily_include_analyst: { type: "boolean" },
-	daily_include_insider: { type: "boolean" },
-	weekly_include_earnings: { type: "boolean" },
-	weekly_include_dividends: { type: "boolean" },
+	daily_include_news_email: { type: "boolean" },
+	daily_include_rumors_email: { type: "boolean" },
+	daily_include_analyst_email: { type: "boolean" },
+	daily_include_insider_email: { type: "boolean" },
+	daily_include_analyst_sms: { type: "boolean" },
+	daily_include_insider_sms: { type: "boolean" },
+	price_include_email: { type: "boolean" },
+	price_include_sms: { type: "boolean" },
+	weekly_include_earnings_email: { type: "boolean" },
+	weekly_include_earnings_sms: { type: "boolean" },
+	weekly_include_dividends_email: { type: "boolean" },
+	weekly_include_dividends_sms: { type: "boolean" },
 } as const satisfies FormSchema;
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
@@ -173,6 +179,8 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			message: "settings_updated",
 			notificationPreferences: {
 				price_notifications_enabled: updatedUser.price_notifications_enabled,
+				price_include_email: updatedUser.price_include_email,
+				price_include_sms: updatedUser.price_include_sms,
 				email_notifications_enabled: updatedUser.email_notifications_enabled,
 				sms_notifications_enabled: updatedUser.sms_notifications_enabled,
 				sms_opted_out: updatedUser.sms_opted_out,
@@ -187,12 +195,18 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 				next_send_at: updatedUser.next_send_at,
 				dismiss_timezone_mismatch_prompts:
 					updatedUser.dismiss_timezone_mismatch_prompts,
-				daily_include_news: updatedUser.daily_include_news,
-				daily_include_rumors: updatedUser.daily_include_rumors,
-				daily_include_analyst: updatedUser.daily_include_analyst,
-				daily_include_insider: updatedUser.daily_include_insider,
-				weekly_include_earnings: updatedUser.weekly_include_earnings,
-				weekly_include_dividends: updatedUser.weekly_include_dividends,
+				daily_include_news_email: updatedUser.daily_include_news_email,
+				daily_include_rumors_email: updatedUser.daily_include_rumors_email,
+				daily_include_analyst_email: updatedUser.daily_include_analyst_email,
+				daily_include_insider_email: updatedUser.daily_include_insider_email,
+				daily_include_analyst_sms: updatedUser.daily_include_analyst_sms,
+				daily_include_insider_sms: updatedUser.daily_include_insider_sms,
+				weekly_include_earnings_email:
+					updatedUser.weekly_include_earnings_email,
+				weekly_include_earnings_sms: updatedUser.weekly_include_earnings_sms,
+				weekly_include_dividends_email:
+					updatedUser.weekly_include_dividends_email,
+				weekly_include_dividends_sms: updatedUser.weekly_include_dividends_sms,
 				weekly_next_send_at: updatedUser.weekly_next_send_at,
 			},
 		});

@@ -24,6 +24,8 @@ export type CreateTestUserOptions = {
 	scheduledUpdateTimes?: number[] | null;
 	trackedStocks?: string[];
 	confirmed?: boolean;
+	priceIncludeEmail?: boolean;
+	priceIncludeSms?: boolean;
 };
 
 export type TestUser = { id: string; email: string };
@@ -201,6 +203,9 @@ export async function createTestUser(
 			sms_opted_out: options.smsOptedOut ?? false,
 			scheduled_update_times: finalScheduledUpdateTimes,
 			next_send_at: nextSendAtIso,
+			price_include_email:
+				options.priceIncludeEmail ?? options.emailNotificationsEnabled ?? false,
+			price_include_sms: options.priceIncludeSms ?? smsNotificationsEnabled,
 		};
 
 		const { error: profileError } = await adminClient

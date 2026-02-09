@@ -18,12 +18,134 @@ interface ParsedNotificationPreferencesForm {
 	only_notify_when_market_open?: boolean;
 	daily_only_notify_when_market_open?: boolean;
 	daily_delivery_time?: number;
-	daily_include_news?: boolean;
-	daily_include_rumors?: boolean;
-	daily_include_analyst?: boolean;
-	daily_include_insider?: boolean;
-	weekly_include_earnings?: boolean;
-	weekly_include_dividends?: boolean;
+	daily_include_news_email?: boolean;
+	daily_include_rumors_email?: boolean;
+	daily_include_analyst_email?: boolean;
+	daily_include_insider_email?: boolean;
+	daily_include_analyst_sms?: boolean;
+	daily_include_insider_sms?: boolean;
+	price_include_email?: boolean;
+	price_include_sms?: boolean;
+	weekly_include_earnings_email?: boolean;
+	weekly_include_earnings_sms?: boolean;
+	weekly_include_dividends_email?: boolean;
+	weekly_include_dividends_sms?: boolean;
+}
+
+/**
+ * Compute `next_send_at` for scheduled update notifications when timezone or schedule changes.
+ *
+ * Mutates `updates` in-place so callers can compose a single `users` table update payload.
+ */
+function computeScheduledNextSendAt(
+	updates: UserUpdateInput,
+	dbUser: User,
+	finalTimezone: string,
+	finalTimes: number[] | null,
+	timezoneChanged: boolean,
+	timeChanged: boolean,
+	logger?: Logger,
+): void {
+	const hasTimes = finalTimes !== null && finalTimes.length > 0;
+	const needsRepair =
+		hasTimes &&
+		dbUser.next_send_at === null &&
+		updates.next_send_at === undefined;
+
+	if ((timezoneChanged || timeChanged || needsRepair) && hasTimes) {
+		updates.next_send_at = computeNextSendAtIso(
+			finalTimes,
+			finalTimezone,
+			{ userId: dbUser.id, finalTimes, finalTimezone },
+			logger,
+		);
+	} else if (timeChanged && !hasTimes) {
+		updates.next_send_at = null;
+	}
+}
+
+/**
+ * Compute `daily_next_send_at` when the daily delivery time or timezone changes.
+ *
+ * Mutates `updates` in-place so callers can compose a single `users` table update payload.
+ */
+function computeDailyNextSendAt(
+	updates: UserUpdateInput,
+	dbUser: User,
+	finalDailyTime: number | null,
+	finalTimezone: string,
+	timezoneChanged: boolean,
+	dailyTimeChanged: boolean,
+): void {
+	const hasDailyTime = finalDailyTime !== null;
+	const needsRepair =
+		hasDailyTime &&
+		dbUser.daily_next_send_at === null &&
+		updates.daily_next_send_at === undefined;
+
+	if ((timezoneChanged || dailyTimeChanged || needsRepair) && hasDailyTime) {
+		const nextDailyUtc = calculateNextSendAt(
+			finalDailyTime,
+			finalTimezone,
+			DateTime.utc(),
+		);
+		updates.daily_next_send_at = nextDailyUtc?.toISO() ?? null;
+	} else if (dailyTimeChanged && !hasDailyTime) {
+		updates.daily_next_send_at = null;
+	}
+}
+
+/**
+ * Compute `weekly_next_send_at` when weekly preferences, daily delivery time, or timezone changes.
+ *
+ * Mutates `updates` in-place so callers can compose a single `users` table update payload.
+ */
+function computeWeeklyNextSendAt(
+	updates: UserUpdateInput,
+	dbUser: User,
+	finalDailyTime: number | null,
+	finalTimezone: string,
+	timezoneChanged: boolean,
+	dailyTimeChanged: boolean,
+	weeklyOptionsChanged: boolean,
+): void {
+	const finalWeeklyEarningsEmail =
+		updates.weekly_include_earnings_email ??
+		dbUser.weekly_include_earnings_email;
+	const finalWeeklyEarningsSms =
+		updates.weekly_include_earnings_sms ?? dbUser.weekly_include_earnings_sms;
+	const finalWeeklyDividendsEmail =
+		updates.weekly_include_dividends_email ??
+		dbUser.weekly_include_dividends_email;
+	const finalWeeklyDividendsSms =
+		updates.weekly_include_dividends_sms ?? dbUser.weekly_include_dividends_sms;
+	const hasAnyWeeklyOption =
+		finalWeeklyEarningsEmail ||
+		finalWeeklyEarningsSms ||
+		finalWeeklyDividendsEmail ||
+		finalWeeklyDividendsSms;
+
+	const needsRepair =
+		hasAnyWeeklyOption &&
+		dbUser.weekly_next_send_at === null &&
+		updates.weekly_next_send_at === undefined;
+
+	if (
+		(timezoneChanged ||
+			dailyTimeChanged ||
+			weeklyOptionsChanged ||
+			needsRepair) &&
+		hasAnyWeeklyOption
+	) {
+		const nextWeeklyUtc = calculateNextMondaySendAt(
+			finalDailyTime,
+			finalTimezone,
+			DateTime.utc(),
+		);
+		updates.weekly_next_send_at = nextWeeklyUtc?.toISO() ?? null;
+	} else if (weeklyOptionsChanged && !hasAnyWeeklyOption) {
+		updates.weekly_next_send_at = null;
+	}
 }
 
 /**
@@ -68,31 +190,43 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 	}
 
 	/* =============
-	Only persist booleans the form actually submitted (unchecked controls are often omitted)
+	Only persist booleans the form actually submitted (unchecked controls are often omitted).
+	Build imperatively to avoid a union-type explosion from too many spread expressions.
 	============= */
-	function boolFromForm(
-		field: keyof ParsedNotificationPreferencesForm,
-		fallback = false,
-	): Record<string, boolean> | Record<string, never> {
-		return formData.has(field)
-			? { [field]: (parsedData[field] as boolean | undefined) ?? fallback }
-			: {};
+	const boolFields = [
+		["price_notifications_enabled", true],
+		["price_include_email", false],
+		["price_include_sms", false],
+		["daily_include_news_email", false],
+		["daily_include_rumors_email", false],
+		["daily_include_analyst_email", false],
+		["daily_include_insider_email", false],
+		["daily_include_analyst_sms", false],
+		["daily_include_insider_sms", false],
+		["weekly_include_earnings_email", false],
+		["weekly_include_earnings_sms", false],
+		["weekly_include_dividends_email", false],
+		["weekly_include_dividends_sms", false],
+		["email_notifications_enabled", false],
+		["sms_notifications_enabled", false],
+		["only_notify_when_market_open", false],
+		["daily_only_notify_when_market_open", false],
+	] as const satisfies ReadonlyArray<
+		readonly [keyof ParsedNotificationPreferencesForm, boolean]
+	>;
+
+	const boolUpdates: Record<string, boolean> = {};
+	for (const [field, fallback] of boolFields) {
+		if (formData.has(field)) {
+			boolUpdates[field] =
+				(parsedData[field] as boolean | undefined) ?? fallback;
+		}
 	}
 
 	const safeNotificationPreferenceUpdates: UserUpdateInput = omitUndefined({
 		timezone: parsedData.timezone,
 		scheduled_update_times: normalizedTimes,
-		...boolFromForm("price_notifications_enabled", true),
-		...boolFromForm("daily_include_news"),
-		...boolFromForm("daily_include_rumors"),
-		...boolFromForm("daily_include_analyst"),
-		...boolFromForm("daily_include_insider"),
-		...boolFromForm("weekly_include_earnings"),
-		...boolFromForm("weekly_include_dividends"),
-		...boolFromForm("email_notifications_enabled"),
-		...boolFromForm("sms_notifications_enabled"),
-		...boolFromForm("only_notify_when_market_open"),
-		...boolFromForm("daily_only_notify_when_market_open"),
+		...boolUpdates,
 		...(formData.has("daily_delivery_time")
 			? { daily_delivery_time: parsedData.daily_delivery_time ?? null }
 			: {}),
@@ -118,106 +252,47 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 			? safeNotificationPreferenceUpdates.scheduled_update_times
 			: dbUser.scheduled_update_times;
 
-	/* =============
-	Derive "scheduled updates enabled" from the schedule itself to prevent flag/time drift
-	============= */
-	const hasTimes = finalTimes !== null && finalTimes.length > 0;
-
 	const finalDailyTime =
 		safeNotificationPreferenceUpdates.daily_delivery_time !== undefined
 			? safeNotificationPreferenceUpdates.daily_delivery_time
 			: dbUser.daily_delivery_time;
 
-	/* =============
-	Derive daily enabled from having a delivery time to avoid duplicating state in the DB
-	============= */
-	const hasDailyTime = finalDailyTime !== null;
-
-	/* =============
-	Self-heal: repair missing next_send_at so scheduling doesn't stall
-	============= */
-	const needsNextSendAtRepair =
-		hasTimes &&
-		dbUser.next_send_at === null &&
-		safeNotificationPreferenceUpdates.next_send_at === undefined;
-
-	/* =============
-	Only recompute next_send_at when schedule inputs changed (or we're repairing a missing value) to avoid churn
-	============= */
-	if ((timezoneChanged || timeChanged || needsNextSendAtRepair) && hasTimes) {
-		safeNotificationPreferenceUpdates.next_send_at = computeNextSendAtIso(
-			finalTimes,
-			finalTimezone,
-			{ userId: dbUser.id, finalTimes, finalTimezone },
-			logger,
-		);
-	} else if (timeChanged && !hasTimes) {
-		/* =============
-		Prevent a stale next_send_at from keeping scheduling "alive" after the schedule is cleared
-		============= */
-		safeNotificationPreferenceUpdates.next_send_at = null;
-	}
-
-	/* =============
-	Same constraint as scheduled updates: minimize writes unless inputs affecting delivery actually changed
-	============= */
-	const needsDailyNextSendAtRepair =
-		hasDailyTime &&
-		dbUser.daily_next_send_at === null &&
-		safeNotificationPreferenceUpdates.daily_next_send_at === undefined;
-
-	if (
-		(timezoneChanged || dailyTimeChanged || needsDailyNextSendAtRepair) &&
-		hasDailyTime
-	) {
-		const nextDailyUtc = calculateNextSendAt(
-			finalDailyTime,
-			finalTimezone,
-			DateTime.utc(),
-		);
-		safeNotificationPreferenceUpdates.daily_next_send_at =
-			nextDailyUtc?.toISO() ?? null;
-	} else if (dailyTimeChanged && !hasDailyTime) {
-		safeNotificationPreferenceUpdates.daily_next_send_at = null;
-	}
-
-	/* =============
-	Weekly calendar: compute weekly_next_send_at when weekly options or timezone change
-	============= */
-	const finalWeeklyEarnings =
-		safeNotificationPreferenceUpdates.weekly_include_earnings ??
-		dbUser.weekly_include_earnings;
-	const finalWeeklyDividends =
-		safeNotificationPreferenceUpdates.weekly_include_dividends ??
-		dbUser.weekly_include_dividends;
-	const hasAnyWeeklyOption = finalWeeklyEarnings || finalWeeklyDividends;
-
 	const weeklyOptionsChanged =
-		safeNotificationPreferenceUpdates.weekly_include_earnings !== undefined ||
-		safeNotificationPreferenceUpdates.weekly_include_dividends !== undefined;
+		safeNotificationPreferenceUpdates.weekly_include_earnings_email !==
+			undefined ||
+		safeNotificationPreferenceUpdates.weekly_include_earnings_sms !==
+			undefined ||
+		safeNotificationPreferenceUpdates.weekly_include_dividends_email !==
+			undefined ||
+		safeNotificationPreferenceUpdates.weekly_include_dividends_sms !==
+			undefined;
 
-	const needsWeeklyNextSendAtRepair =
-		hasAnyWeeklyOption &&
-		dbUser.weekly_next_send_at === null &&
-		safeNotificationPreferenceUpdates.weekly_next_send_at === undefined;
-
-	if (
-		(timezoneChanged ||
-			dailyTimeChanged ||
-			weeklyOptionsChanged ||
-			needsWeeklyNextSendAtRepair) &&
-		hasAnyWeeklyOption
-	) {
-		const nextWeeklyUtc = calculateNextMondaySendAt(
-			finalDailyTime,
-			finalTimezone,
-			DateTime.utc(),
-		);
-		safeNotificationPreferenceUpdates.weekly_next_send_at =
-			nextWeeklyUtc?.toISO() ?? null;
-	} else if (weeklyOptionsChanged && !hasAnyWeeklyOption) {
-		safeNotificationPreferenceUpdates.weekly_next_send_at = null;
-	}
+	computeScheduledNextSendAt(
+		safeNotificationPreferenceUpdates,
+		dbUser,
+		finalTimezone,
+		finalTimes,
+		timezoneChanged,
+		timeChanged,
+		logger,
+	);
+	computeDailyNextSendAt(
+		safeNotificationPreferenceUpdates,
+		dbUser,
+		finalDailyTime,
+		finalTimezone,
+		timezoneChanged,
+		dailyTimeChanged,
+	);
+	computeWeeklyNextSendAt(
+		safeNotificationPreferenceUpdates,
+		dbUser,
+		finalDailyTime,
+		finalTimezone,
+		timezoneChanged,
+		dailyTimeChanged,
+		weeklyOptionsChanged,
+	);
 
 	return safeNotificationPreferenceUpdates;
 }
@@ -276,7 +351,12 @@ export function computeTimezoneUpdatePayload(
 		payload.daily_next_send_at = nextDailyUtc?.toISO() ?? null;
 	}
 
-	if (dbUser.weekly_include_earnings || dbUser.weekly_include_dividends) {
+	if (
+		dbUser.weekly_include_earnings_email ||
+		dbUser.weekly_include_earnings_sms ||
+		dbUser.weekly_include_dividends_email ||
+		dbUser.weekly_include_dividends_sms
+	) {
 		const nextWeeklyUtc = calculateNextMondaySendAt(
 			dbUser.daily_delivery_time,
 			newTimezone,

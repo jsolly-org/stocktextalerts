@@ -29,15 +29,19 @@ export async function fetchWeeklyUsers(options: {
 			phone_verified,
 			timezone,
 			daily_delivery_time,
-			weekly_include_earnings,
-			weekly_include_dividends,
+			weekly_include_earnings_email,
+			weekly_include_earnings_sms,
+			weekly_include_dividends_email,
+			weekly_include_dividends_sms,
 			weekly_next_send_at,
 			email_notifications_enabled,
 			sms_notifications_enabled,
 			sms_opted_out
 		`,
 			)
-			.or("weekly_include_earnings.eq.true,weekly_include_dividends.eq.true")
+			.or(
+				"weekly_include_earnings_email.eq.true,weekly_include_earnings_sms.eq.true,weekly_include_dividends_email.eq.true,weekly_include_dividends_sms.eq.true",
+			)
 			.or(
 				"email_notifications_enabled.eq.true,sms_notifications_enabled.eq.true",
 			);

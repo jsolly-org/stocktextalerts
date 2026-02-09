@@ -39,12 +39,18 @@ export type NotificationPreferencesSnapshot = Pick<
 	| "daily_next_send_at"
 	| "next_send_at"
 	| "dismiss_timezone_mismatch_prompts"
-	| "daily_include_news"
-	| "daily_include_rumors"
-	| "daily_include_analyst"
-	| "daily_include_insider"
-	| "weekly_include_earnings"
-	| "weekly_include_dividends"
+	| "daily_include_news_email"
+	| "daily_include_rumors_email"
+	| "daily_include_analyst_email"
+	| "daily_include_insider_email"
+	| "daily_include_analyst_sms"
+	| "daily_include_insider_sms"
+	| "price_include_email"
+	| "price_include_sms"
+	| "weekly_include_earnings_email"
+	| "weekly_include_earnings_sms"
+	| "weekly_include_dividends_email"
+	| "weekly_include_dividends_sms"
 	| "weekly_next_send_at"
 >;
 
@@ -72,6 +78,12 @@ export function createUserService(
 	cookies: AstroCookies,
 ) {
 	return {
+		/**
+		 * Resolve the current authenticated user from auth cookies.
+		 *
+		 * Refreshes the Supabase session and updates cookies when tokens rotate.
+		 * Returns `null` when unauthenticated or when tokens are invalid/expired.
+		 */
 		async getCurrentUser() {
 			const accessToken = cookies.get("sb-access-token");
 			const refreshToken = cookies.get("sb-refresh-token");
@@ -126,6 +138,9 @@ export function createUserService(
 			return sessionResponse.data.user ?? null;
 		},
 
+		/**
+		 * Fetch a user row by id using RLS.
+		 */
 		async getById(id: string): Promise<User | null> {
 			const { data, error } = await supabase
 				.from("users")
@@ -137,6 +152,9 @@ export function createUserService(
 			return data as User | null;
 		},
 
+		/**
+		 * Update a user row by id and return the updated record.
+		 */
 		async update(id: string, updates: UserUpdateInput): Promise<User> {
 			const { data, error } = await supabase
 				.from("users")

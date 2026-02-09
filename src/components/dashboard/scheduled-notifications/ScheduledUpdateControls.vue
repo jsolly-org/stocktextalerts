@@ -70,7 +70,7 @@
 						@click="emit('add-market-open')"
 					>
 						<PresentationChartLineIcon class="size-4 shrink-0" aria-hidden="true" />
-						Market open ({{ marketOpenLabel }} your time)
+						Market open
 					</button>
 				</div>
 			<div
@@ -126,7 +126,7 @@
 					@click="emit('add-market-open')"
 				>
 				<PresentationChartLineIcon class="size-4 shrink-0" aria-hidden="true" />
-				Market open ({{ marketOpenLabel }} your time)
+				Market open
 				</button>
 			</div>
 				<StatusMessage v-if="maxTimesReached" tone="warning">

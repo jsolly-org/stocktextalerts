@@ -75,8 +75,13 @@
 					<div class="flex items-center justify-between gap-3 py-3">
 						<input
 							type="hidden"
-							name="weekly_include_earnings"
-							:value="includeEarnings ? 'on' : 'off'"
+							name="weekly_include_earnings_email"
+							:value="includeEarningsEmail ? 'on' : 'off'"
+						/>
+						<input
+							type="hidden"
+							name="weekly_include_earnings_sms"
+							:value="includeEarningsSms ? 'on' : 'off'"
 						/>
 						<div class="min-w-0">
 							<div class="flex items-center gap-2">
@@ -95,20 +100,40 @@
 								See which of your tracked stocks report earnings this week.
 							</p>
 						</div>
-						<ToggleSwitch
-							v-model="includeEarnings"
-							:disabled="needsChannelSelection"
-							sr-label="Include earnings reports 📅"
-							aria-labelledby="weekly_include_earnings_label"
-							aria-describedby="weekly_include_earnings_description"
-						/>
+						<div class="flex items-center gap-4 shrink-0">
+							<label class="inline-flex items-center gap-1.5 cursor-pointer">
+								<input
+									type="checkbox"
+									v-model="includeEarningsEmail"
+									:disabled="needsChannelSelection"
+									class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4 cursor-pointer"
+									aria-describedby="weekly_include_earnings_description"
+								/>
+								<span class="text-sm text-gray-700">Email</span>
+							</label>
+							<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+								<input
+									type="checkbox"
+									v-model="includeEarningsSms"
+									:disabled="needsChannelSelection || !smsReady"
+									class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4 cursor-pointer"
+									aria-describedby="weekly_include_earnings_description"
+								/>
+								<span class="text-sm text-gray-700">SMS</span>
+							</label>
+						</div>
 					</div>
 
 					<div class="flex items-center justify-between gap-3 py-3">
 						<input
 							type="hidden"
-							name="weekly_include_dividends"
-							:value="includeDividends ? 'on' : 'off'"
+							name="weekly_include_dividends_email"
+							:value="includeDividendsEmail ? 'on' : 'off'"
+						/>
+						<input
+							type="hidden"
+							name="weekly_include_dividends_sms"
+							:value="includeDividendsSms ? 'on' : 'off'"
 						/>
 						<div class="min-w-0">
 							<div class="flex items-center gap-2">
@@ -127,13 +152,28 @@
 								Upcoming ex-dividend dates and amounts for your tracked stocks.
 							</p>
 						</div>
-						<ToggleSwitch
-							v-model="includeDividends"
-							:disabled="needsChannelSelection"
-							sr-label="Include dividends 💰"
-							aria-labelledby="weekly_include_dividends_label"
-							aria-describedby="weekly_include_dividends_description"
-						/>
+						<div class="flex items-center gap-4 shrink-0">
+							<label class="inline-flex items-center gap-1.5 cursor-pointer">
+								<input
+									type="checkbox"
+									v-model="includeDividendsEmail"
+									:disabled="needsChannelSelection"
+									class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4 cursor-pointer"
+									aria-describedby="weekly_include_dividends_description"
+								/>
+								<span class="text-sm text-gray-700">Email</span>
+							</label>
+							<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+								<input
+									type="checkbox"
+									v-model="includeDividendsSms"
+									:disabled="needsChannelSelection || !smsReady"
+									class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4 cursor-pointer"
+									aria-describedby="weekly_include_dividends_description"
+								/>
+								<span class="text-sm text-gray-700">SMS</span>
+							</label>
+						</div>
 					</div>
 				</fieldset>
 
@@ -167,7 +207,6 @@ import {
 	formatMinutesAsLocalTime,
 } from "../../lib/time/format";
 import FadeTransition from "../FadeTransition.vue";
-import ToggleSwitch from "../ToggleSwitch.vue";
 import {
 	type NotificationPreferencesData,
 	useAutoSaveForm,
@@ -225,10 +264,18 @@ const {
 	formRef: weeklyFormElement,
 });
 
-const includeEarnings = ref(user.value.weekly_include_earnings);
-const includeDividends = ref(user.value.weekly_include_dividends);
+const includeEarningsEmail = ref(user.value.weekly_include_earnings_email);
+const includeEarningsSms = ref(user.value.weekly_include_earnings_sms);
+const includeDividendsEmail = ref(user.value.weekly_include_dividends_email);
+const includeDividendsSms = ref(user.value.weekly_include_dividends_sms);
 
-const weeklyEnabled = computed(() => includeEarnings.value || includeDividends.value);
+const weeklyEnabled = computed(
+	() =>
+		includeEarningsEmail.value ||
+		includeEarningsSms.value ||
+		includeDividendsEmail.value ||
+		includeDividendsSms.value,
+);
 
 const deliveryTimeMinutes = computed(() =>
 	user.value.daily_delivery_time ?? DEFAULT_DELIVERY_MINUTES,
@@ -260,21 +307,33 @@ const nextWeeklyDeliveryText = computed(() => {
 	return `in ${formatCountdownWithSeconds(Math.round(diffSeconds))}`;
 });
 
-watch([includeEarnings, includeDividends], () => {
+watch([includeEarningsEmail, includeEarningsSms, includeDividendsEmail, includeDividendsSms], () => {
 	notifyChange();
 });
 
 // Sync from user prop changes
 watch(
-	() => user.value.weekly_include_earnings,
+	() => user.value.weekly_include_earnings_email,
 	(value) => {
-		includeEarnings.value = value;
+		includeEarningsEmail.value = value;
 	},
 );
 watch(
-	() => user.value.weekly_include_dividends,
+	() => user.value.weekly_include_earnings_sms,
 	(value) => {
-		includeDividends.value = value;
+		includeEarningsSms.value = value;
+	},
+);
+watch(
+	() => user.value.weekly_include_dividends_email,
+	(value) => {
+		includeDividendsEmail.value = value;
+	},
+);
+watch(
+	() => user.value.weekly_include_dividends_sms,
+	(value) => {
+		includeDividendsSms.value = value;
 	},
 );
 
@@ -283,8 +342,10 @@ watch(savedData, (newData) => {
 	if (!newData) return;
 	user.value = {
 		...user.value,
-		weekly_include_earnings: newData.weekly_include_earnings,
-		weekly_include_dividends: newData.weekly_include_dividends,
+		weekly_include_earnings_email: newData.weekly_include_earnings_email,
+		weekly_include_earnings_sms: newData.weekly_include_earnings_sms,
+		weekly_include_dividends_email: newData.weekly_include_dividends_email,
+		weekly_include_dividends_sms: newData.weekly_include_dividends_sms,
 		weekly_next_send_at: newData.weekly_next_send_at,
 	};
 });

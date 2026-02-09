@@ -27,6 +27,11 @@ export function calculateNextMondaySendAt(
 	const current = now.setZone(timezone);
 	if (!current.isValid) return null;
 
+	/**
+	 * Build a local-time candidate DateTime for a given calendar day.
+	 *
+	 * Handles DST ambiguity by choosing the later possible instant for the same wall time.
+	 */
 	function buildCandidateFromDay(day: DateTime): DateTime | null {
 		const candidateLocal = {
 			year: day.year,
@@ -100,7 +105,10 @@ export async function updateUserWeeklyNextSendAt(options: {
 	const { user, supabase, logger, currentTime } = options;
 
 	const hasWeeklyOption =
-		user.weekly_include_earnings || user.weekly_include_dividends;
+		user.weekly_include_earnings_email ||
+		user.weekly_include_earnings_sms ||
+		user.weekly_include_dividends_email ||
+		user.weekly_include_dividends_sms;
 
 	if (!hasWeeklyOption) {
 		const { error } = await supabase

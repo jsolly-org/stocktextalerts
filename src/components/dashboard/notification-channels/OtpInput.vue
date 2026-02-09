@@ -6,7 +6,7 @@
 		>
 			Enter Verification Code
 		</label>
-		<div class="flex gap-1.5 sm:gap-2">
+		<div class="grid grid-cols-6 gap-1.5 sm:gap-2 max-w-72">
 			<input
 				v-for="(digit, index) in digits"
 				:key="index"
@@ -26,7 +26,7 @@
 				@paste="handlePaste($event)"
 				@focus="handleFocus(index)"
 				@blur="handleBlur($event)"
-				class="w-10 h-10 sm:w-12 sm:h-12 text-center text-base sm:text-lg font-semibold border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+				class="w-full aspect-square text-center text-base sm:text-lg font-semibold border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
 				:class="{
 					'border-error-strong ring-2 ring-error-strong': showError,
 				}"
