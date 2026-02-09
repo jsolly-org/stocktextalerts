@@ -1,3 +1,4 @@
+import { getSiteUrl } from "../../db/env";
 import type { AppSupabaseClient } from "../../db/supabase";
 import { recordNotification } from "../shared";
 import { NO_TRACKED_STOCKS_MESSAGE } from "../stock-formatting";
@@ -30,18 +31,23 @@ export function formatSmsMessage(
 	extras?: SmsExtras,
 ): string {
 	const optOutSuffix = "Reply STOP to opt out.";
+	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
+
+	const header = "Stock Text Alerts";
 
 	if (stocksList.trim() === NO_TRACKED_STOCKS_MESSAGE) {
-		return `${NO_TRACKED_STOCKS_MESSAGE}. ${optOutSuffix}`;
+		return `${header}\n\n${NO_TRACKED_STOCKS_MESSAGE}.\n\nManage your stocks: ${dashboardUrl}\n\n${optOutSuffix}`;
 	}
 
 	const marketDisclaimer = marketOpen ? "" : "Prices as of last market close.";
 	const extrasBlock = formatSmsExtras(extras);
 
 	const sections = [
+		header,
 		stocksList,
 		extrasBlock,
 		marketDisclaimer,
+		`Manage your stocks: ${dashboardUrl}`,
 		optOutSuffix,
 	].filter(Boolean);
 

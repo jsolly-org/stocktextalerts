@@ -1,6 +1,8 @@
+import { DASHBOARD_SECTION_HASHES } from "../constants";
 import { getSiteUrl } from "../db/env";
 import type { Logger } from "../logging";
 import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
+import { createEmailUnsubscribeUrl } from "../messaging/email/email-unsubscribe";
 import { sendUserEmail } from "../messaging/email/index";
 import type { EmailSender } from "../messaging/email/utils";
 import { recordNotification } from "../messaging/shared";
@@ -21,21 +23,24 @@ function formatDailyAddOnsSmsMessage(options: {
 	extras: SmsExtras;
 }): string {
 	const optOutSuffix = "Reply STOP to opt out.";
+	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const tickers = options.userStocks.map((s) => s.symbol).filter(Boolean);
 	const tickersLine =
 		tickers.length > 0 ? `Tickers: ${tickers.join(", ")}` : "";
 
 	const sections = [
-		"Daily add-ons",
+		"Stock Text Alerts — Daily add-ons",
 		tickersLine,
 		formatExtrasSection("🗞️ News", options.extras.news),
 		formatExtrasSection("🤫 Rumors", options.extras.rumors),
+		`Manage your stocks: ${dashboardUrl}`,
 		optOutSuffix,
 	].filter((value) => Boolean(value));
 
 	return sections.join("\n\n");
 }
 function formatDailyAddOnsEmail(options: {
+	user: { id: string; email: string };
 	userStocks: UserStockRow[];
 	extras: SmsExtras;
 }): { subject: string; text: string; html: string } {
@@ -43,6 +48,14 @@ function formatDailyAddOnsEmail(options: {
 	const tickersLine =
 		tickers.length > 0 ? `Tickers: ${tickers.join(", ")}` : "Tickers: (none)";
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
+	const escapedDashboardUrl = escapeHtml(dashboardUrl);
+	const scheduleUrl = `${dashboardUrl}${DASHBOARD_SECTION_HASHES.scheduled}`;
+	const escapedScheduleUrl = escapeHtml(scheduleUrl);
+	const unsubscribeUrl = createEmailUnsubscribeUrl({
+		userId: options.user.id,
+		email: options.user.email,
+	});
+	const escapedUnsubscribeUrl = escapeHtml(unsubscribeUrl);
 
 	const news = (options.extras.news ?? "").trim();
 	const rumors = (options.extras.rumors ?? "").trim();
@@ -52,7 +65,9 @@ function formatDailyAddOnsEmail(options: {
 		tickersLine,
 		news ? `\n🗞️ News\n${news}` : "",
 		rumors ? `\n🤫 Rumors\n${rumors}` : "",
-		`\nManage settings: ${dashboardUrl}`,
+		`\nManage your stocks: ${dashboardUrl}`,
+		`Manage your delivery schedule: ${scheduleUrl}`,
+		`Unsubscribe from email notifications: ${unsubscribeUrl}`,
 	].filter(Boolean);
 
 	const subject = "Daily stock add-ons";
@@ -71,8 +86,15 @@ function formatDailyAddOnsEmail(options: {
 		<p style="margin: 0 0 16px; color: #6b7280; font-size: 14px;">${escapeHtml(tickersLine)}</p>
 		${news ? `<h3 style="margin: 16px 0 6px; font-size: 14px;">🗞️ News</h3><pre style="white-space: pre-wrap; margin: 0; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">${escapeHtml(news)}</pre>` : ""}
 		${rumors ? `<h3 style="margin: 16px 0 6px; font-size: 14px;">🤫 Rumors</h3><pre style="white-space: pre-wrap; margin: 0; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">${escapeHtml(rumors)}</pre>` : ""}
-		<p style="margin: 18px 0 0; font-size: 12px; color: #6b7280;">
-			<a href="${escapeHtml(dashboardUrl)}" style="color: #667eea; text-decoration: none;">Manage settings</a>
+		<div style="text-align: center; margin-top: 20px;">
+			<a href="${escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
+				Manage your stocks →
+			</a>
+		</div>
+		<p style="color: #6b7280; font-size: 12px; margin-top: 18px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+			<a href="${escapedScheduleUrl}" style="color: #667eea; text-decoration: none;">Adjust delivery schedule</a>
+			<span style="color: #d1d5db; padding: 0 8px;">•</span>
+			<a href="${escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe from email</a>
 		</p>
 	</div>
 </body>
@@ -142,7 +164,7 @@ export async function processDailyAddOnsEmailDelivery(options: {
 	}
 
 	const emailIdempotencyKey = `daily-add-ons/${user.id}/${scheduledDate}/${scheduledMinutes}/email`;
-	const message = formatDailyAddOnsEmail({ userStocks, extras });
+	const message = formatDailyAddOnsEmail({ user, userStocks, extras });
 	const result = await sendUserEmail(
 		user,
 		message.subject,
