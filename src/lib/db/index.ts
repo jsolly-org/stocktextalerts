@@ -78,6 +78,12 @@ export function createUserService(
 	cookies: AstroCookies,
 ) {
 	return {
+		/**
+		 * Resolve the current authenticated user from auth cookies.
+		 *
+		 * Refreshes the Supabase session and updates cookies when tokens rotate.
+		 * Returns `null` when unauthenticated or when tokens are invalid/expired.
+		 */
 		async getCurrentUser() {
 			const accessToken = cookies.get("sb-access-token");
 			const refreshToken = cookies.get("sb-refresh-token");
@@ -132,6 +138,9 @@ export function createUserService(
 			return sessionResponse.data.user ?? null;
 		},
 
+		/**
+		 * Fetch a user row by id using RLS.
+		 */
 		async getById(id: string): Promise<User | null> {
 			const { data, error } = await supabase
 				.from("users")
@@ -143,6 +152,9 @@ export function createUserService(
 			return data as User | null;
 		},
 
+		/**
+		 * Update a user row by id and return the updated record.
+		 */
 		async update(id: string, updates: UserUpdateInput): Promise<User> {
 			const { data, error } = await supabase
 				.from("users")

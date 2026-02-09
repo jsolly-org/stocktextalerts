@@ -8,6 +8,11 @@ interface StockPrice {
 
 export type StockPriceMap = Map<string, StockPrice | null>;
 
+/**
+ * Fetch a single stock quote from Finnhub and normalize it.
+ *
+ * Returns `null` for invalid/unavailable quotes (including delisted/unknown symbols).
+ */
 async function fetchStockQuote(symbol: string): Promise<StockPrice | null> {
 	const data = await finnhubFetch("/quote", { symbol }, "quote");
 	if (typeof data !== "object" || data === null) return null;
@@ -35,6 +40,11 @@ async function fetchStockQuote(symbol: string): Promise<StockPrice | null> {
 	return { price: c, changePercent: dp };
 }
 
+/**
+ * Fetch quotes for a list of symbols and return a map keyed by symbol.
+ *
+ * In test mode, returns deterministic dummy data to avoid external API calls.
+ */
 export async function fetchStockPrices(
 	symbols: string[],
 ): Promise<StockPriceMap> {
@@ -52,6 +62,12 @@ export async function fetchStockPrices(
 	return new Map(results);
 }
 
+/**
+ * Determine whether the US market is currently open.
+ *
+ * Defaults to "closed" on errors (safer UX: show a disclaimer rather than silently assuming open).
+ * In test mode, always returns `true`.
+ */
 export async function fetchMarketStatus(): Promise<boolean> {
 	if (import.meta.env.MODE === "test") {
 		return true;

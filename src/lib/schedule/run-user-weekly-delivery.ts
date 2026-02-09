@@ -22,6 +22,11 @@ import type { SmsSenderProvider } from "./run-user-sms-sender";
 SMS formatting
 ============= */
 
+/**
+ * Format the weekly calendar message body for SMS delivery.
+ *
+ * Keeps the message readable in plain text and appends a required STOP opt-out suffix.
+ */
 function formatWeeklyCalendarSmsMessage(options: {
 	earningsSection: string | null;
 	dividendsSection: string | null;
@@ -46,6 +51,11 @@ function formatWeeklyCalendarSmsMessage(options: {
 Email formatting
 ============= */
 
+/**
+ * Format the weekly calendar payload for email delivery.
+ *
+ * Produces a plain-text version for logging and a simple HTML version for rendering.
+ */
 function formatWeeklyCalendarEmail(options: {
 	user: { id: string; email: string };
 	earningsSection: string | null;

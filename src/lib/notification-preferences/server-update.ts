@@ -32,6 +32,11 @@ interface ParsedNotificationPreferencesForm {
 	weekly_include_dividends_sms?: boolean;
 }
 
+/**
+ * Compute `next_send_at` for scheduled update notifications when timezone or schedule changes.
+ *
+ * Mutates `updates` in-place so callers can compose a single `users` table update payload.
+ */
 function computeScheduledNextSendAt(
 	updates: UserUpdateInput,
 	dbUser: User,
@@ -59,6 +64,11 @@ function computeScheduledNextSendAt(
 	}
 }
 
+/**
+ * Compute `daily_next_send_at` when the daily delivery time or timezone changes.
+ *
+ * Mutates `updates` in-place so callers can compose a single `users` table update payload.
+ */
 function computeDailyNextSendAt(
 	updates: UserUpdateInput,
 	dbUser: User,
@@ -85,6 +95,11 @@ function computeDailyNextSendAt(
 	}
 }
 
+/**
+ * Compute `weekly_next_send_at` when weekly preferences, daily delivery time, or timezone changes.
+ *
+ * Mutates `updates` in-place so callers can compose a single `users` table update payload.
+ */
 function computeWeeklyNextSendAt(
 	updates: UserUpdateInput,
 	dbUser: User,

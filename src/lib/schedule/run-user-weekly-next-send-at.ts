@@ -27,6 +27,11 @@ export function calculateNextMondaySendAt(
 	const current = now.setZone(timezone);
 	if (!current.isValid) return null;
 
+	/**
+	 * Build a local-time candidate DateTime for a given calendar day.
+	 *
+	 * Handles DST ambiguity by choosing the later possible instant for the same wall time.
+	 */
 	function buildCandidateFromDay(day: DateTime): DateTime | null {
 		const candidateLocal = {
 			year: day.year,

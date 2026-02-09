@@ -21,6 +21,11 @@ import type {
 import { claimNotification, updateScheduledNotificationRow } from "./helpers";
 import type { SmsSenderProvider } from "./run-user-sms-sender";
 
+/**
+ * Format the daily digest message body for SMS delivery.
+ *
+ * Keeps the message readable in plain text and appends a required STOP opt-out suffix.
+ */
 function formatDailyDigestSmsMessage(options: {
 	userStocks: UserStockRow[];
 	extras: SmsExtras;
@@ -44,6 +49,12 @@ function formatDailyDigestSmsMessage(options: {
 
 	return sections.join("\n\n");
 }
+
+/**
+ * Format the daily digest payload for email delivery.
+ *
+ * Produces a plain-text version for logging and a simple HTML version for rendering.
+ */
 function formatDailyDigestEmail(options: {
 	user: { id: string; email: string };
 	userStocks: UserStockRow[];

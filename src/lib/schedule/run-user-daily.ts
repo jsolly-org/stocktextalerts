@@ -27,6 +27,12 @@ import type { SmsSenderProvider } from "./run-user-sms-sender";
 const GROK_WINDOW_HOURS = 24;
 const GROK_MAX_SENDS_PER_WINDOW = 10;
 
+/**
+ * Check whether a user can invoke Grok within the current rolling window.
+ *
+ * The window is tracked per-user via `grok_window_start` and `grok_sends_in_window`.
+ * Invalid/missing window state is treated as "allowed" to avoid blocking delivery due to bad data.
+ */
 function canInvokeGrokWithinLimit(options: {
 	grokWindowStart: string | null;
 	grokSendsInWindow: number;
@@ -53,6 +59,12 @@ interface DailyScheduleContext {
 	scheduledMinutes: number;
 }
 
+/**
+ * Derive a deterministic schedule key (local date + local minutes) for daily digest delivery.
+ *
+ * Uses `daily_next_send_at` when available; falls back to `currentTime` if missing to keep the
+ * runner functional for users that haven't been fully backfilled yet.
+ */
 function parseDailyScheduleContext(
 	user: UserRecord,
 	currentTime: DateTime,
@@ -99,6 +111,12 @@ function parseDailyScheduleContext(
 	return { scheduledDate, scheduledMinutes };
 }
 
+/**
+ * Decide whether Grok may be used for this run and whether the entire run should be skipped.
+ *
+ * If Grok is required (e.g., rumors/news) but the user is over their window limit, we may still
+ * proceed when Finnhub-only sections are enabled.
+ */
 function resolveGrokEligibility(
 	user: UserRecord,
 	needsGrok: boolean,
@@ -141,6 +159,12 @@ function resolveGrokEligibility(
 	return { grokAllowed, skip: false };
 }
 
+/**
+ * Persist Grok usage counters to the database after a successful send.
+ *
+ * This is only called when Grok was allowed and at least one message was delivered (email or SMS).
+ * The counter is reset when the rolling window has expired.
+ */
 async function updateGrokSendCounter(
 	user: UserRecord,
 	supabase: SupabaseAdminClient,

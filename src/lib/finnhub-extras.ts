@@ -68,10 +68,20 @@ const INTER_REQUEST_DELAY_MS = 100;
 Helpers
 ============= */
 
+/**
+ * Read the Finnhub API key from environment.
+ *
+ * Returns an empty string when unset so callers can treat "missing key" as "no data".
+ */
 function getFinnhubApiKey(): string {
 	return import.meta.env.FINNHUB_API_KEY ?? "";
 }
 
+/**
+ * Fetch and JSON-decode a Finnhub endpoint with basic retry/backoff.
+ *
+ * Returns `null` on errors (including missing API key) so callers can degrade gracefully.
+ */
 export async function finnhubFetch(
 	endpoint: string,
 	params: Record<string, string>,
@@ -487,6 +497,11 @@ export function formatAnalystSection(
 Formatting: Insider transactions section
 ============= */
 
+/**
+ * Format a share count compactly for display.
+ *
+ * Example: 1200 -> "1k", 2500000 -> "2.5M".
+ */
 function formatShareCount(shares: number): string {
 	const abs = Math.abs(shares);
 	if (abs >= 1_000_000) return `${(abs / 1_000_000).toFixed(1)}M`;
@@ -538,6 +553,11 @@ export function formatEarningsSection(
 	return lines.length > 0 ? lines.join("\n") : null;
 }
 
+/**
+ * Format a revenue estimate compactly for display.
+ *
+ * Example: 1250000000 -> "1.3B", 7500000 -> "8M".
+ */
 function formatRevenue(value: number): string {
 	const abs = Math.abs(value);
 	if (abs >= 1_000_000_000) return `${(abs / 1_000_000_000).toFixed(1)}B`;

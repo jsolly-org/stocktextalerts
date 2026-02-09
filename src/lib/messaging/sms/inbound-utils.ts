@@ -27,6 +27,11 @@ interface InboundSmsResponse {
 	contentType?: string;
 }
 
+/**
+ * Apply a `users` table update and return a Twilio-friendly error response on failure.
+ *
+ * Returns `null` on success so callers can continue handling the inbound command.
+ */
 async function applyUserUpdate(
 	supabase: AppSupabaseClient,
 	userId: string,
@@ -54,6 +59,12 @@ const STOP_RE = /\b(STOP|UNSUBSCRIBE|CANCEL|END|QUIT|REVOKE|OPTOUT)\b/;
 const START_RE = /\b(START|SUBSCRIBE|YES|UNSTOP)\b/;
 const HELP_RE = /\b(HELP|INFO)\b/;
 
+/**
+ * Handle inbound Twilio SMS webhooks.
+ *
+ * Validates the request signature, looks up the user by phone number, and processes
+ * STOP/START/HELP commands to update notification preferences and opt-out state.
+ */
 export async function handleInboundSms(
 	request: InboundSmsRequest,
 	deps: InboundSmsDependencies,
