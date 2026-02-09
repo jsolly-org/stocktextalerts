@@ -43,6 +43,32 @@ export function markdownLinksToHtml(content: string): string {
 }
 
 /**
+ * Outlook (MS Word engine) can be unreliable with `<pre style="white-space: pre-wrap">`.
+ * This converts newline-separated HTML into an Outlook-friendlier `<div>` body using
+ * explicit `<br />` line breaks and `&nbsp;` for leading indentation.
+ */
+function htmlToOutlookPreLike(html: string): string {
+	const lines = html.split(/\r?\n/);
+	return lines
+		.map((line) => {
+			let i = 0;
+			while (i < line.length && (line[i] === " " || line[i] === "\t")) i++;
+			const leading = line.slice(0, i);
+			const rest = line.slice(i);
+
+			const leadingHtml = leading
+				.replaceAll("\t", "    ")
+				.split("")
+				.map((ch) => (ch === " " ? "&nbsp;" : ch))
+				.join("");
+
+			// Preserve blank lines so spacing matches the non-Outlook `<pre>` rendering.
+			return `${leadingHtml}${rest || "&nbsp;"}`;
+		})
+		.join("<br />");
+}
+
+/**
  * Render a styled email content section (`<h3>` heading + `<pre>` block).
  *
  * Returns an empty string when `content` is blank so callers can embed the
@@ -64,5 +90,9 @@ export function renderEmailSection(
 	]
 		.filter(Boolean)
 		.join("");
-	return `<h3 style="margin: 16px 0 6px; font-size: 14px;">${escapeHtml(emoji)} ${escapeHtml(title)}${logos}</h3><pre style="white-space: pre-wrap; margin: 0; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">${markdownLinksToHtml(content)}</pre>`;
+
+	const htmlContent = markdownLinksToHtml(content);
+	const outlookContent = htmlToOutlookPreLike(htmlContent);
+
+	return `<h3 style="margin: 16px 0 6px; font-size: 14px;">${escapeHtml(emoji)} ${escapeHtml(title)}${logos}</h3><!--[if mso]><div style="margin: 0; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px; line-height: 18px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; mso-line-height-rule: exactly;">${outlookContent}</div><![endif]--><!--[if !mso]><!--><pre style="white-space: pre-wrap; margin: 0; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">${htmlContent}</pre><!--<![endif]-->`;
 }
