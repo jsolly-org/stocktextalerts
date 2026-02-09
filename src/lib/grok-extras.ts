@@ -1,5 +1,11 @@
 import { rootLogger } from "./logging";
 
+const BASE_RETRY_DELAY_MS = 1_000;
+const delay = (attempt: number) =>
+	new Promise<void>((r) =>
+		setTimeout(r, BASE_RETRY_DELAY_MS * 2 ** (attempt - 1)),
+	);
+
 type ResponsesRequest = {
 	model: string;
 	input: string;
@@ -10,9 +16,36 @@ type ResponsesRequest = {
 	include?: string[];
 };
 
-type ResponsesResponse = {
-	output_text?: string;
-	citations?: Array<{ url?: string; title?: string }>;
+type XaiCitation = { url?: string; title?: string };
+type XaiOutputContentPart = {
+	type?: string;
+	text?: string;
+	citations?: XaiCitation[] | undefined;
+	annotations?: Array<{ url?: string }> | undefined;
+};
+type XaiOutputItem = {
+	id?: string;
+	type?: string;
+	role?: string;
+	content?: XaiOutputContentPart[] | string | undefined;
+	text?: string;
+	citations?: XaiCitation[] | undefined;
+	// Some variants nest message-like structures.
+	message?: {
+		content?: XaiOutputContentPart[] | string | undefined;
+		text?: string;
+		citations?: XaiCitation[] | undefined;
+	};
+};
+
+// xAI "ModelResponse" (per OpenAPI): includes metadata + `output` array.
+type XaiModelResponse = {
+	id: string;
+	object: string;
+	created_at: number;
+	model: string;
+	status: string;
+	output?: XaiOutputItem[] | undefined;
 };
 
 export type GrokExtrasResult = {
@@ -22,6 +55,69 @@ export type GrokExtrasResult = {
 };
 
 const GROK_TIMEOUT_MS = 30_000;
+
+function extractTextAndCitationsFromXaiResponse(response: XaiModelResponse): {
+	text: string | null;
+	citations: string[];
+} {
+	const texts: string[] = [];
+	const citationUrls = new Set<string>();
+
+	const addText = (value: unknown) => {
+		if (typeof value !== "string") return;
+		const trimmed = value.trim();
+		if (trimmed !== "") texts.push(trimmed);
+	};
+
+	const addCitations = (value: unknown) => {
+		if (!Array.isArray(value)) return;
+		for (const c of value) {
+			if (typeof c === "string") {
+				const trimmed = c.trim();
+				if (trimmed !== "") citationUrls.add(trimmed);
+				continue;
+			}
+			if (!c || typeof c !== "object") continue;
+			const url = (c as { url?: unknown }).url;
+			if (typeof url === "string") {
+				const trimmed = url.trim();
+				if (trimmed !== "") citationUrls.add(trimmed);
+			}
+		}
+	};
+
+	const walkContent = (content: unknown) => {
+		if (typeof content === "string") {
+			addText(content);
+			return;
+		}
+		if (!Array.isArray(content)) return;
+		for (const part of content) {
+			if (!part || typeof part !== "object") continue;
+			const p = part as XaiOutputContentPart;
+			addText(p.text);
+			addCitations(p.citations);
+			addCitations(p.annotations);
+		}
+	};
+
+	const output = Array.isArray(response.output) ? response.output : [];
+	for (const item of output) {
+		if (!item || typeof item !== "object") continue;
+		addText(item.text);
+		addCitations(item.citations);
+		walkContent(item.content);
+
+		if (item.message) {
+			addText(item.message.text);
+			addCitations(item.message.citations);
+			walkContent(item.message.content);
+		}
+	}
+
+	const text = texts.join("\n").trim();
+	return { text: text === "" ? null : text, citations: [...citationUrls] };
+}
 
 function getMetaEnv(): Record<string, string | undefined> | undefined {
 	return (import.meta as { env?: Record<string, string | undefined> }).env;
@@ -148,7 +244,6 @@ export async function generateDailyExtrasWithGrok(options: {
 	};
 
 	const MAX_RETRIES = 3;
-	const BASE_RETRY_DELAY_MS = 1_000;
 	const logContext = {
 		action: "grok_extras",
 		model,
@@ -183,25 +278,21 @@ export async function generateDailyExtrasWithGrok(options: {
 					statusText: response.statusText,
 				});
 				if (!isLastAttempt) {
-					await new Promise((r) =>
-						setTimeout(r, BASE_RETRY_DELAY_MS * 2 ** (attempt - 1)),
-					);
+					await delay(attempt);
 					continue;
 				}
 				return null;
 			}
 
-			const data = (await response.json()) as ResponsesResponse;
-			const text = data.output_text?.trim();
+			const data = (await response.json()) as XaiModelResponse;
+			const { text, citations } = extractTextAndCitationsFromXaiResponse(data);
 			if (!text) {
 				log("Grok extras returned empty content", {
 					...logContext,
 					attempt,
 				});
 				if (!isLastAttempt) {
-					await new Promise((r) =>
-						setTimeout(r, BASE_RETRY_DELAY_MS * 2 ** (attempt - 1)),
-					);
+					await delay(attempt);
 					continue;
 				}
 				return null;
@@ -220,17 +311,11 @@ export async function generateDailyExtrasWithGrok(options: {
 					attempt,
 				});
 				if (!isLastAttempt) {
-					await new Promise((r) =>
-						setTimeout(r, BASE_RETRY_DELAY_MS * 2 ** (attempt - 1)),
-					);
+					await delay(attempt);
 					continue;
 				}
 				return null;
 			}
-
-			const citations = (data.citations ?? [])
-				.map((c) => c.url)
-				.filter((url): url is string => typeof url === "string");
 
 			return { news, rumors, citations };
 		} catch (error) {
@@ -244,9 +329,7 @@ export async function generateDailyExtrasWithGrok(options: {
 				error,
 			);
 			if (!isLastAttempt) {
-				await new Promise((r) =>
-					setTimeout(r, BASE_RETRY_DELAY_MS * 2 ** (attempt - 1)),
-				);
+				await delay(attempt);
 				continue;
 			}
 			return null;

@@ -11,7 +11,6 @@ const REQUIRED_ENV_VARS = [
 	"CRON_SECRET",
 	"RESEND_API_KEY",
 	"EMAIL_FROM",
-	"VERCEL_URL",
 	"FINNHUB_API_KEY",
 ] as const;
 
@@ -88,10 +87,18 @@ export const onRequest = defineMiddleware(async (context, next) => {
 	// Validate environment variables on first request
 	// This ensures validation happens after Vercel injects env vars at runtime
 	if (!envValidated) {
-		const missing = REQUIRED_ENV_VARS.filter((name) => {
+		const missing: string[] = REQUIRED_ENV_VARS.filter((name) => {
 			const value = import.meta.env[name];
 			return !value || value.trim() === "";
 		});
+		const vercelUrl = import.meta.env.VERCEL_URL;
+		const vercelProductionUrl = import.meta.env.VERCEL_PROJECT_PRODUCTION_URL;
+		if (
+			(!vercelUrl || vercelUrl.trim() === "") &&
+			(!vercelProductionUrl || vercelProductionUrl.trim() === "")
+		) {
+			missing.push("VERCEL_URL (or VERCEL_PROJECT_PRODUCTION_URL)");
+		}
 		if (missing.length > 0) {
 			throw new Error(
 				`Missing required environment variables: ${missing.join(", ")}\n` +
