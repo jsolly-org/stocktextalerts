@@ -4,7 +4,23 @@ on:
   pull_request:
 
 jobs:
-  testAndBuild:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Run Biome
+        run: npx biome ci .
+      - name: Type check
+        run: npm run check:ts
+
+  test-and-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

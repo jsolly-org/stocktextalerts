@@ -4,8 +4,6 @@ description: Shared CI steps (lint, typecheck, Supabase, test, build)
 runs:
   using: composite
   steps:
-    - name: Checkout
-      uses: actions/checkout@v6
     - name: Setup Node.js
       uses: actions/setup-node@v6
       with:
@@ -15,19 +13,19 @@ runs:
     - name: Install dependencies
       shell: bash
       run: npm ci
+    - name: Setup Supabase CLI
+      uses: supabase/setup-cli@v1
+      with:
+        version: "2.58.5"
+    - name: Start Supabase (background)
+      shell: bash
+      run: nohup supabase start > /tmp/supabase-start.log 2>&1 &
     - name: Run Biome
       shell: bash
       run: npx biome ci .
     - name: Deep Type check
       shell: bash
       run: npm run check:ts
-    - name: Setup Supabase CLI
-      uses: supabase/setup-cli@v1
-      with:
-        version: "2.58.5"
-    - name: Start Supabase
-      shell: bash
-      run: supabase start
     - name: Wait for Supabase
       shell: bash
       run: |
@@ -44,6 +42,8 @@ runs:
           sleep 2
         done
         echo "Supabase failed to become ready"
+        echo "=== supabase start output ==="
+        cat /tmp/supabase-start.log 2>/dev/null || true
         exit 1
     - name: Load Supabase env
       shell: bash

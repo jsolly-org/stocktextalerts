@@ -96,15 +96,40 @@ const formattedSmsText = computed(() =>
 
 .sms-body {
 	padding: 0.2rem 0.75rem 1.2rem;
+	background: #f1f5f9;
 }
 
 .message-bubble-received {
 	background: #e5e7eb;
 	color: #1f2937;
-	border-radius: 0.75rem 0.75rem 0.75rem 0.25rem;
-	padding: 0.625rem 0.75rem;
-	max-width: 90%;
-	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+	border-radius: 1.125rem;
+	border-bottom-left-radius: 0.125rem;
+	padding: 0.5rem 0.75rem;
+	max-width: 85%;
+	position: relative;
+	margin-left: 0.625rem;
+}
+
+.message-bubble-received::before {
+	content: "";
+	position: absolute;
+	bottom: 0;
+	left: -0.4375rem;
+	height: 1.25rem;
+	width: 1.25rem;
+	background: #e5e7eb;
+	border-bottom-right-radius: 0.9375rem;
+}
+
+.message-bubble-received::after {
+	content: "";
+	position: absolute;
+	bottom: 0;
+	left: -0.625rem;
+	width: 0.625rem;
+	height: 1.25rem;
+	background: #f1f5f9;
+	border-bottom-right-radius: 0.625rem;
 }
 
 .phone-home-indicator {

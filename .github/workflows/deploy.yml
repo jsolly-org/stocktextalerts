@@ -16,16 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/run-ci
-
-  migrate:
-    needs: deploy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: "2.58.5"
       - name: Link Supabase project
         run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
         env:
