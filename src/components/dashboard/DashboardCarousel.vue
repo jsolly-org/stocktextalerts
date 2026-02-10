@@ -110,9 +110,16 @@ onBeforeUnmount(() => {
 .dashboard-carousel {
 	display: flex;
 	flex-direction: column;
-	/* 100dvh minus nav (~52px) and main py-2 (8px top) */
-	height: calc(100dvh - 52px - 0.5rem);
+	height: calc(100vh - 52px - 0.5rem);
 	overflow: hidden;
+	overscroll-behavior: contain;
+}
+
+@supports (height: 100svh) {
+	.dashboard-carousel {
+		/* Keep mobile height stable while browser chrome expands/collapses. */
+		height: calc(100svh - 52px - 0.5rem);
+	}
 }
 
 .carousel-tabs {
@@ -167,6 +174,7 @@ onBeforeUnmount(() => {
 	min-height: 0;
 	scrollbar-width: none;
 	-ms-overflow-style: none;
+	overscroll-behavior-x: contain;
 }
 
 .carousel-track::-webkit-scrollbar {
