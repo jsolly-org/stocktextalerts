@@ -59,7 +59,7 @@
 		"husky": "^9.1.7",
 		"lint-staged": "^16.2.7",
 		"pg": "^8.18.0",
-		"supabase": "^2.76.6",
+		"supabase": "^2.76.7",
 		"tailwindcss": "^4.1.18",
 		"tsx": "^4.21.0",
 		"typescript": "^5.9.3",
