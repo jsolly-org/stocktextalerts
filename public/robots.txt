@@ -3,6 +3,8 @@ Allow: /
 Disallow: /api/
 Disallow: /auth/forgot
 Disallow: /auth/recover
+Disallow: /auth/register
+Disallow: /auth/signin
 Disallow: /auth/unconfirmed
 Disallow: /auth/verified
 Disallow: /email/unsubscribe
