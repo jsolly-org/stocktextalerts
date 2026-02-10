@@ -88,14 +88,16 @@ const { user, timezones, timezoneLoadError } = toRefs(props);
 function buildSavedNotificationPreferences(
 	sourceUser: User,
 ): NotificationPreferencesSnapshot {
+	const scheduledUpdateTimes = sourceUser.scheduled_update_times;
 	return {
 		email_notifications_enabled: sourceUser.email_notifications_enabled,
 		sms_notifications_enabled: sourceUser.sms_notifications_enabled,
 		sms_opted_out: sourceUser.sms_opted_out,
 		phone_verified: sourceUser.phone_verified,
 		timezone: sourceUser.timezone,
-		scheduled_update_times:
-			sourceUser.scheduled_update_times,
+		scheduled_update_times: Array.isArray(scheduledUpdateTimes)
+			? [...scheduledUpdateTimes]
+			: scheduledUpdateTimes,
 		next_send_at: sourceUser.next_send_at,
 		dismiss_timezone_mismatch_prompts:
 			sourceUser.dismiss_timezone_mismatch_prompts,
@@ -174,6 +176,8 @@ async function saveTimezone(nextTimezone: string) {
 		if (!prefs) {
 			statusMessage.value = "Failed to update timezone. Please try again.";
 			statusTone.value = "error";
+			selectedTimezone.value =
+				savedNotificationPreferences.value?.timezone ?? user.value.timezone;
 			return;
 		}
 
@@ -207,6 +211,8 @@ async function saveTimezone(nextTimezone: string) {
 		);
 		statusMessage.value = "Failed to update timezone. Please try again.";
 		statusTone.value = "error";
+		selectedTimezone.value =
+			savedNotificationPreferences.value?.timezone ?? user.value.timezone;
 	} finally {
 		isSaving.value = false;
 		const next = pendingTimezoneSave.value;
