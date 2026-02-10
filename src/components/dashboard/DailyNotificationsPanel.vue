@@ -429,6 +429,10 @@ function getEarliestMarketNotificationTime(): number | null {
 	return Math.min(...times);
 }
 
+/**
+ * If the daily digest is enabled but no explicit daily delivery time is set,
+ * inherit the earliest scheduled market notification time for display (and optional save).
+ */
 function maybeDefaultToMarketTime(): boolean {
 	if (dailyDeliveryTimeMinutes.value !== null) return false;
 	const earliestMarketNotificationTime = getEarliestMarketNotificationTime();
@@ -462,12 +466,14 @@ const canSetMarketOpen = computed(
 	() => !needsChannelSelection.value && !isMarketOpenTime.value,
 );
 
+/** Clear the daily digest delivery time (disables sending unless inherited elsewhere). */
 function handleClearDeliveryTime() {
 	if (needsChannelSelection.value) return;
 	dailyDeliveryTimeMinutes.value = null;
 	notifyChange();
 }
 
+/** Set the daily digest delivery time to the user's local US market-open time. */
 function handleSetMarketOpen() {
 	if (!canSetMarketOpen.value || marketOpenLocalMinutes.value === null) {
 		return;

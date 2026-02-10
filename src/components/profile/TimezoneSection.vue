@@ -80,6 +80,11 @@ const props = withDefaults(defineProps<Props>(), {
 
 const { user, timezones, timezoneLoadError } = toRefs(props);
 
+/**
+ * Create a stable snapshot of notification preferences relevant to timezone mismatch prompts.
+ *
+ * This is used for comparison/UX in `TimezoneMismatchBanner`.
+ */
 function buildSavedNotificationPreferences(
 	sourceUser: User,
 ): NotificationPreferencesSnapshot {
@@ -109,6 +114,11 @@ const pendingTimezoneSave = ref<string | null>(null);
 const statusMessage = ref<string | null>(null);
 const statusTone = ref<"success" | "error" | "warning" | "info">("info");
 
+/**
+ * Ensure `selectedTimezone` is set to a valid value available in the options list.
+ *
+ * Prefers: currently-selected (if valid) → detected local zone → app default.
+ */
 function resolveDefaultTimezone() {
 	const knownValues = new Set(
 		timezones.value.map((timezone) => timezone.value),
@@ -129,6 +139,7 @@ function resolveDefaultTimezone() {
 	}
 }
 
+/** Fetch the user's current notification preferences snapshot for the mismatch banner. */
 async function refreshNotificationPreferences() {
 	const prefs = await fetchCurrentNotificationPreferences();
 	if (prefs) {
@@ -136,6 +147,11 @@ async function refreshNotificationPreferences() {
 	}
 }
 
+/**
+ * Persist timezone changes and update UI + cached snapshot.
+ *
+ * If a new change is requested while a save is in-flight, it is queued and saved next.
+ */
 async function saveTimezone(nextTimezone: string) {
 	if (!nextTimezone) {
 		return;
@@ -191,6 +207,7 @@ async function saveTimezone(nextTimezone: string) {
 	}
 }
 
+/** Handle timezone selection changes initiated from `TimezoneSelect`. */
 function handleTimezoneChange() {
 	if (timezoneLoadError.value) {
 		return;
@@ -202,6 +219,7 @@ function handleTimezoneChange() {
 	void saveTimezone(selectedTimezone.value);
 }
 
+/** Handle timezone updates emitted by `TimezoneMismatchBanner`. */
 function handleTimezoneUpdated(newTimezone: string) {
 	selectedTimezone.value = newTimezone;
 	statusMessage.value = "Timezone updated.";
@@ -211,6 +229,7 @@ function handleTimezoneUpdated(newTimezone: string) {
 		: buildSavedNotificationPreferences({ ...user.value, timezone: newTimezone });
 }
 
+/** Refresh mismatch banner preferences after it updates notification settings. */
 function handleNotificationPreferencesUpdated() {
 	void refreshNotificationPreferences();
 }

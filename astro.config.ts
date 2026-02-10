@@ -57,6 +57,31 @@ if (!vercelUrl) {
 	site = `https://${vercelUrl}`;
 }
 
+/**
+ * Exclude auth flow, authenticated, and utility pages from the sitemap.
+ *
+ * These routes have no SEO value and are better left out of crawl budgets.
+ */
+function sitemapFilter(page: string): boolean {
+	const pathname = new URL(page).pathname.replace(/\/$/, "") || "/";
+	const excludedPrefixes = [
+		"/auth/forgot",
+		"/auth/recover",
+		"/auth/register",
+		"/auth/signin",
+		"/auth/unconfirmed",
+		"/auth/verified",
+		"/dashboard",
+		"/email/unsubscribe",
+		"/profile",
+		"/404",
+		"/500",
+	];
+	return !excludedPrefixes.some(
+		(p) => pathname === p || pathname.startsWith(`${p}/`),
+	);
+}
+
 // https://astro.build/config
 export default defineConfig({
 	output: "server",
@@ -74,26 +99,7 @@ export default defineConfig({
 
 	integrations: [
 		sitemap({
-			// Exclude auth flow, authenticated, and utility pages from sitemap (no SEO value; keep crawlers off).
-			filter: (page) => {
-				const pathname = new URL(page).pathname.replace(/\/$/, "") || "/";
-				const excludedPrefixes = [
-					"/auth/forgot",
-					"/auth/recover",
-					"/auth/register",
-					"/auth/signin",
-					"/auth/unconfirmed",
-					"/auth/verified",
-					"/dashboard",
-					"/email/unsubscribe",
-					"/profile",
-					"/404",
-					"/500",
-				];
-				return !excludedPrefixes.some(
-					(p) => pathname === p || pathname.startsWith(`${p}/`),
-				);
-			},
+			filter: sitemapFilter,
 		}),
 		icon(),
 		vue(),
