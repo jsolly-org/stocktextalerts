@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { getSiteUrl } from "../lib/db/env";
 import {
 	EXCLUDED_ROUTE_PREFIXES,
 	ROBOTS_ONLY_DISALLOW_PREFIXES,
@@ -7,6 +8,7 @@ import {
 export const prerender = true;
 
 export const GET: APIRoute = () => {
+	const sitemapUrl = new URL("/sitemap-index.xml", getSiteUrl()).toString();
 	const disallowLines = [
 		...ROBOTS_ONLY_DISALLOW_PREFIXES,
 		...EXCLUDED_ROUTE_PREFIXES,
@@ -19,7 +21,7 @@ export const GET: APIRoute = () => {
 		"Allow: /",
 		disallowLines,
 		"",
-		"Sitemap: https://www.stocktextalerts.com/sitemap-index.xml",
+		`Sitemap: ${sitemapUrl}`,
 		"",
 	].join("\n");
 

@@ -82,7 +82,7 @@ function getFinnhubApiKey(): string {
 function parseRetryAfterMs(headerValue: string | null): number | null {
 	if (!headerValue) return null;
 	const seconds = Number(headerValue);
-	if (Number.isFinite(seconds) && seconds > 0) {
+	if (Number.isFinite(seconds) && seconds >= 0) {
 		return seconds * 1_000;
 	}
 	const date = Date.parse(headerValue);
