@@ -36,7 +36,7 @@
 </template>
 
 <script lang="ts" setup>
-import { type Component, onBeforeUnmount, onMounted, ref } from "vue";
+import { type Component, onMounted, ref } from "vue";
 import BellAlertIcon from "../../icons/bell-alert.svg?component";
 import CalendarDaysIcon from "../../icons/calendar-days.svg?component";
 import ClockIcon from "../../icons/clock.svg?component";
@@ -68,6 +68,7 @@ function setCardRef(el: HTMLElement | null, index: number) {
 function scrollToCard(index: number) {
 	const card = cardRefs.value[index];
 	if (card && trackRef.value) {
+		activeIndex.value = index;
 		trackRef.value.scrollTo({
 			left: card.offsetLeft,
 			behavior: "smooth",
@@ -75,11 +76,8 @@ function scrollToCard(index: number) {
 	}
 }
 
-let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
-
 function handleScroll() {
-	if (scrollTimeout) clearTimeout(scrollTimeout);
-	scrollTimeout = setTimeout(syncActiveTab, 50);
+	syncActiveTab();
 }
 
 function syncActiveTab() {
@@ -98,10 +96,6 @@ function syncActiveTab() {
 
 onMounted(() => {
 	syncActiveTab();
-});
-
-onBeforeUnmount(() => {
-	if (scrollTimeout) clearTimeout(scrollTimeout);
 });
 </script>
 
