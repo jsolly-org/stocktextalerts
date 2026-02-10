@@ -119,7 +119,7 @@ const statusTone = ref<"success" | "error" | "warning" | "info">("info");
 /**
  * Ensure `selectedTimezone` is set to a valid value available in the options list.
  *
- * Prefers: currently-selected (if valid) → detected local zone → app default.
+ * Prefers: currently-selected (if valid) → detected local zone → app default → first available option.
  */
 function resolveDefaultTimezone() {
 	const knownValues = new Set(
@@ -138,6 +138,12 @@ function resolveDefaultTimezone() {
 
 	if (DEFAULT_TIMEZONE && knownValues.has(DEFAULT_TIMEZONE)) {
 		selectedTimezone.value = DEFAULT_TIMEZONE;
+		return;
+	}
+
+	const fallback = timezones.value[0]?.value;
+	if (fallback) {
+		selectedTimezone.value = fallback;
 	}
 }
 
