@@ -28,7 +28,6 @@ export async function fetchDailyUsers(options: {
 			phone_number,
 			phone_verified,
 			timezone,
-			daily_only_notify_when_market_open,
 			daily_delivery_time,
 			daily_next_send_at,
 			email_notifications_enabled,

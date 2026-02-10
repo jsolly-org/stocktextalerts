@@ -94,7 +94,7 @@ body {
 	@apply bg-transparent text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-primary;
 }
 .btn-icon-danger {
-	@apply inline-flex items-center justify-center shrink-0 rounded-lg text-gray-400 hover:bg-error-bg hover:text-error-text transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error-strong focus-visible:ring-offset-2;
+	@apply inline-flex items-center justify-center shrink-0 rounded-lg text-gray-400 hover:text-error-strong transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error-strong focus-visible:ring-offset-2;
 }
 
 /* ============= Form Input Utilities ============= */

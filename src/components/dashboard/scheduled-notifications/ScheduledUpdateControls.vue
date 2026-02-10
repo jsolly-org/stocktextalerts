@@ -9,41 +9,11 @@
 	>
 		<legend class="sr-only">Scheduled update settings</legend>
 
-		<div class="flex items-center justify-between gap-3 py-3">
-			<input
-				type="hidden"
-				name="only_notify_when_market_open"
-				:value="onlyNotifyWhenMarketOpenValue ? 'on' : 'off'"
-			/>
-			<div class="min-w-0">
-				<span
-					id="only_notify_when_market_open_label"
-					class="text-base font-semibold text-gray-900"
-				>
-					Only notify when market is open
-				</span>
-				<p id="only_notify_when_market_open_description" class="text-sm text-gray-600 mt-0.5">
-					You won't be notified unless the market is open. <span class="text-gray-400 italic">Mon–Fri, 9:30 AM – 4:00 PM ET.</span>
-				</p>
-			</div>
-			<ToggleSwitch
-				v-model="onlyNotifyWhenMarketOpenValue"
-				:disabled="needsChannelSelection"
-				sr-label="Only notify when market is open"
-				aria-labelledby="only_notify_when_market_open_label"
-				aria-describedby="only_notify_when_market_open_description"
-			/>
-		</div>
-
 		<div class="py-3">
-			<StatusMessage v-if="marketClosedSkipNote" class="mb-3" tone="info">
-				{{ marketClosedSkipNote }}
-			</StatusMessage>
-
 			<fieldset class="grid gap-3">
 				<legend class="block text-base font-semibold text-gray-900 mb-1">
 					Delivery times
-					<span class="block text-sm font-normal text-gray-600 mt-0.5">Choose up to 5 delivery times.</span>
+					<span class="block text-sm font-normal text-gray-600 mt-0.5">Choose up to 5 time slots.</span>
 				</legend>
 				<input
 					type="hidden"
@@ -77,31 +47,18 @@
 				v-for="(time, index) in scheduledUpdateTimes"
 				:key="`${index}-${time}`"
 			>
-				<div class="flex items-center gap-2">
-					<TimePicker
-						:inputId="`scheduled_update_time_${index}`"
-						:inputName="`scheduled_update_time_${index}`"
-						:initialTime="time"
-						:inputAriaLabel="`Delivery time ${index + 1}`"
-						:disabled="timePickerDisabled"
-						@time-change="emit('time-change', index, $event)"
-					/>
-					<button
-						type="button"
-						class="btn-icon-danger size-8"
-						:aria-label="`Remove delivery time ${index + 1}`"
-						@click="emit('remove-time', index)"
-					>
-						<XMarkIcon class="size-4" aria-hidden="true" />
-					</button>
-				</div>
-				<p
-					v-if="outsideMarketHoursIndices.has(index)"
-					class="text-xs text-amber-600 mt-1"
-					role="note"
-				>
-					Outside regular US market hours — this notification will be skipped.
-				</p>
+				<TimePicker
+					:inputId="`scheduled_update_time_${index}`"
+					:inputName="`scheduled_update_time_${index}`"
+					:initialTime="time"
+					:inputAriaLabel="`Delivery time ${index + 1}`"
+					:disabled="timePickerDisabled"
+					:outsideMarketHours="outsideMarketHoursIndices.has(index)"
+					clearable
+					:clearAriaLabel="`Remove delivery time ${index + 1}`"
+					@time-change="emit('time-change', index, $event)"
+					@clear="emit('remove-time', index)"
+				/>
 			</div>
 				</div>
 			<div class="flex flex-col gap-2">
@@ -152,15 +109,11 @@ import { computed, onMounted, ref } from "vue";
 import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 import PlusIcon from "../../../icons/plus.svg?component";
 import PresentationChartLineIcon from "../../../icons/presentation-chart-line.svg?component";
-import XMarkIcon from "../../../icons/x-mark.svg?component";
 import StatusMessage from "../../StatusMessage.vue";
-import ToggleSwitch from "../../ToggleSwitch.vue";
 import TimePicker from "./TimePicker.vue";
 
 interface Props {
 	scheduledUpdateTimes: string[];
-	onlyNotifyWhenMarketOpen: boolean;
-	marketClosedSkipNote: string | null;
 	needsChannelSelection: boolean;
 	timePickerDisabled: boolean;
 	canAddTime: boolean;
@@ -177,7 +130,6 @@ const props = defineProps<Props>();
 const isHydrated = ref(false);
 
 const emit = defineEmits<{
-	(event: "update:onlyNotifyWhenMarketOpen", value: boolean): void;
 	(event: "time-change", index: number, value: string): void;
 	(event: "add-time"): void;
 	(event: "add-initial-time", value: string): void;
@@ -187,11 +139,6 @@ const emit = defineEmits<{
 
 onMounted(() => {
 	isHydrated.value = true;
-});
-
-const onlyNotifyWhenMarketOpenValue = computed({
-	get: () => props.onlyNotifyWhenMarketOpen,
-	set: (value: boolean) => emit("update:onlyNotifyWhenMarketOpen", value),
 });
 
 const serializedTimes = computed(() => JSON.stringify(props.scheduledUpdateTimes));

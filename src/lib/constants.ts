@@ -11,7 +11,7 @@ export const DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID =
 	"dashboard-notification-preferences-save-status";
 export const DASHBOARD_ASSETS_FORM_ID = "dashboard-assets-form";
 export const DASHBOARD_ASSETS_STATUS_ID = "dashboard-assets-save-status";
-export const DASHBOARD_FREQUENT_FORM_ID = "dashboard-frequent-form";
+export const DASHBOARD_FREQUENT_FORM_ID = "dashboard-market-form";
 export const DASHBOARD_FORMAT_PREFERENCES_FORM_ID =
 	"dashboard-format-preferences-form";
 export const DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID =
@@ -91,7 +91,7 @@ Dashboard Sections
 export const DASHBOARD_SECTION_IDS = {
 	notificationChannels: "notification-channels",
 	assets: "watchlist",
-	frequent: "frequent-notifications",
+	frequent: "market-notifications",
 	preview: "notification-preview",
 	dailyNotifications: "daily-notifications",
 	occasionalNotifications: "occasional-notifications",

@@ -229,15 +229,11 @@ CREATE TABLE IF NOT EXISTS users (
   phone_verified BOOLEAN DEFAULT false NOT NULL,
   verification_sent_at TIMESTAMP WITH TIME ZONE,
   timezone TEXT DEFAULT 'America/New_York' REFERENCES timezones(value) NOT NULL,
-  only_notify_when_market_open BOOLEAN DEFAULT true NOT NULL,
   scheduled_update_times INTEGER[] DEFAULT '{}' CHECK (
     public.is_valid_scheduled_update_times(scheduled_update_times)
   ),
   next_send_at TIMESTAMP WITH TIME ZONE,
-  last_market_closed_skip_scheduled_at TIMESTAMP WITH TIME ZONE,
-  last_market_closed_skip_recorded_at TIMESTAMP WITH TIME ZONE,
   -- Daily digest
-  daily_only_notify_when_market_open BOOLEAN DEFAULT false NOT NULL,
   daily_delivery_time INTEGER,
   daily_next_send_at TIMESTAMP WITH TIME ZONE,
   last_grok_rumors_at TIMESTAMP WITH TIME ZONE,

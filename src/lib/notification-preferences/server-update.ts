@@ -17,8 +17,6 @@ interface ParsedNotificationPreferencesForm {
 	email_notifications_enabled?: boolean;
 	sms_notifications_enabled?: boolean;
 	scheduled_update_times?: string[];
-	only_notify_when_market_open?: boolean;
-	daily_only_notify_when_market_open?: boolean;
 	daily_delivery_time?: number;
 	daily_include_news_email?: boolean;
 	daily_include_rumors_email?: boolean;
@@ -198,8 +196,6 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		["weekly_include_earnings_sms", false],
 		["email_notifications_enabled", false],
 		["sms_notifications_enabled", false],
-		["only_notify_when_market_open", false],
-		["daily_only_notify_when_market_open", false],
 	] as const satisfies ReadonlyArray<
 		readonly [keyof ParsedNotificationPreferencesForm, boolean]
 	>;

@@ -51,9 +51,6 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 				phone_verified: dbUser.phone_verified,
 				timezone: dbUser.timezone,
 				scheduled_update_times: dbUser.scheduled_update_times,
-				only_notify_when_market_open: dbUser.only_notify_when_market_open,
-				daily_only_notify_when_market_open:
-					dbUser.daily_only_notify_when_market_open,
 				daily_delivery_time: dbUser.daily_delivery_time,
 				daily_next_send_at: dbUser.daily_next_send_at,
 				next_send_at: dbUser.next_send_at,

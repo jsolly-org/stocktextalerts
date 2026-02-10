@@ -51,15 +51,11 @@ export type UserRecord = Pick<
 	price_include_email: boolean;
 	price_include_sms: boolean;
 	scheduled_update_times: number[] | null;
-	only_notify_when_market_open: boolean;
-	daily_only_notify_when_market_open: boolean;
 	daily_delivery_time: number | null;
 	daily_next_send_at: string | null;
 	weekly_include_earnings_email: boolean;
 	weekly_include_earnings_sms: boolean;
 	weekly_next_send_at: string | null;
-	last_market_closed_skip_scheduled_at: string | null;
-	last_market_closed_skip_recorded_at: string | null;
 } & GrokRumorsPreferences;
 
 export type EmailUser = Pick<

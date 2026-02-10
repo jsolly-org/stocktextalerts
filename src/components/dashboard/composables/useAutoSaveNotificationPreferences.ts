@@ -11,8 +11,6 @@ export type NotificationPreferencesData = {
 	phone_verified: boolean;
 	timezone: string;
 	scheduled_update_times: number[] | null;
-	only_notify_when_market_open: boolean;
-	daily_only_notify_when_market_open: boolean;
 	daily_delivery_time: number | null;
 	daily_next_send_at: string | null;
 	next_send_at: string | null;

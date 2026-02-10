@@ -1,6 +1,6 @@
 <template>
 	<div class="email-preview">
-		<h4 class="text-sm font-medium text-gray-700 mb-3">Email Preview</h4>
+		<h4 class="sr-only">Email</h4>
 		<div class="email-card">
 			<div class="email-gradient-header">
 				<span class="text-white text-lg font-semibold">StockTextAlerts</span>

@@ -4,14 +4,13 @@
 		:id="DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID"
 		method="POST"
 		action="/api/notification-preferences/update"
-		class="space-y-6"
 		aria-label="Daily Notifications"
 		:aria-busy="isSaving"
 		@input="handleFormInput"
 		@change="handleFormChange"
 		@submit="handleFormSubmit"
 	>
-		<section class="card relative mb-6">
+		<section class="card relative">
 			<FadeTransition>
 				<div
 					v-if="statusMessage"
@@ -38,35 +37,13 @@
 					:id="DASHBOARD_SECTION_IDS.dailyNotifications"
 					class="text-xl sm:text-2xl font-bold text-gray-900"
 				>
-					Daily Notifications
+					Daily Digest
 				</h2>
 			<p
 				class="text-sm text-gray-600 mt-1"
 			>
-				Everything you enable below is bundled into <strong class="font-semibold text-gray-700">one daily message</strong> sent at the time you choose — separate from frequent price alerts.
+				Everything you enable below is bundled into <strong class="font-semibold text-gray-700">one daily message</strong> sent at the time you choose — separate from market price alerts.
 			</p>
-				<p
-					class="text-sm text-gray-500 mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 transition-opacity duration-200"
-					:class="{ 'opacity-50': needsChannelSelection }"
-				>
-					<span class="inline-flex items-center gap-1.5">
-						<ClockIcon class="size-4 shrink-0 text-gray-400" aria-hidden="true" />
-						<span>
-							Local time:
-							<span class="font-medium text-gray-700">
-								{{ currentTimeInTimezone ?? "—" }}
-							</span>
-						</span>
-					</span>
-					<a
-						href="/profile"
-						class="inline-flex items-center gap-1 link-primary text-xs rounded-sm"
-						aria-label="Change timezone in profile settings"
-					>
-						Change timezone
-						<ArrowTopRightOnSquareIcon class="size-3 shrink-0" aria-hidden="true" />
-					</a>
-				</p>
 			</header>
 
 		<SetupRequiredNotice
@@ -82,7 +59,7 @@
 					role="note"
 				>
 					<InformationCircleIcon class="size-5 shrink-0 mt-0.5" aria-hidden="true" />
-					<span>No notifications will be sent until you choose a delivery time below.</span>
+					<span>No daily digest will be sent.</span>
 				</p>
 			</FadeTransition>
 
@@ -93,172 +70,82 @@
 			>
 					<legend class="sr-only">Daily notifications settings</legend>
 
-			<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-3">
-				<div class="min-w-0">
-					<span
-						id="daily_delivery_time_label"
-						class="text-base font-semibold text-gray-900"
-					>
-						Delivery time
-					</span>
-					<p
-						id="daily_delivery_time_description"
-						class="text-sm text-gray-600 mt-0.5"
-					>
-						Sent once every day.
-					</p>
-				</div>
-		<div class="sm:shrink-0">
-			<div class="flex flex-wrap items-center gap-2">
-					<TimePicker
-						:inputId="`daily_delivery_time`"
-						:inputName="`daily_delivery_time`"
-						:initialTime="dailyDeliveryTimeInput"
-						inputAriaLabel="Daily notifications delivery time"
-						:disabled="needsChannelSelection"
-						@time-change="handleDailyTimeChange"
-					/>
-					<button
-						v-if="dailyDeliveryTimeMinutes !== null"
-						type="button"
-						class="btn-icon-danger size-8"
-						:disabled="needsChannelSelection"
-						aria-label="Clear delivery time"
-						@click="handleClearDeliveryTime"
-					>
-						<XMarkIcon class="size-4" aria-hidden="true" />
-					</button>
-					<button
-						v-if="marketOpenLabel"
-						type="button"
-						class="btn btn-sm btn-secondary"
-						:disabled="!canSetMarketOpen"
-						:aria-label="`Set delivery time to US market open (${marketOpenLabel})`"
-						@click="handleSetMarketOpen"
-					>
-						<PresentationChartLineIcon class="size-4 shrink-0" aria-hidden="true" />
-						Market open
-					</button>
-				</div>
-				<p
-					v-if="isDailyTimeOutsideMarketHours"
-					class="text-xs text-amber-600 mt-1"
-					role="note"
-				>
-					Outside regular US market hours — this notification will be skipped.
-				</p>
-			</div>
-			</div>
-
-					<div class="flex items-center justify-between gap-3 py-3">
+				<div class="flex items-center justify-between gap-3 py-3">
 					<input
 						type="hidden"
-						name="daily_only_notify_when_market_open"
-						:value="onlyNotifyWhenMarketOpen ? 'on' : 'off'"
-					/>
-						<div class="min-w-0">
-							<span
-								id="only_notify_when_market_open_label_daily"
+					name="daily_include_news_email"
+					:value="includeNewsEmail ? 'on' : 'off'"
+				/>
+				<div class="min-w-0">
+					<div class="flex items-center gap-2">
+						<span
+							id="daily_include_news_label"
 								class="text-base font-semibold text-gray-900"
 							>
-								Only notify when market is open
+								🗞️ News
 							</span>
-							<p
-								id="only_notify_when_market_open_description_daily"
-								class="text-sm text-gray-600 mt-0.5"
-							>
-								You won’t be notified unless the market is open.
-							</p>
+							<GrokLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Grok" role="img" />
+							<FinnhubLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Finnhub" role="img" />
 						</div>
-					<ToggleSwitch
-						v-model="onlyNotifyWhenMarketOpen"
-						:disabled="needsChannelSelection"
-						sr-label="Only notify when market is open"
-							aria-labelledby="only_notify_when_market_open_label_daily"
-							aria-describedby="only_notify_when_market_open_description_daily"
-						/>
+						<p
+							id="daily_include_news_description"
+							class="text-sm text-gray-600 mt-0.5"
+						>
+							Add a short news summary about the assets you're tracking.
+						</p>
 					</div>
-
-					<div class="flex items-center justify-between gap-3 py-3">
+				<div class="shrink-0">
+					<label class="inline-flex items-center gap-1.5" :class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'">
 						<input
-							type="hidden"
-						name="daily_include_news_email"
-						:value="includeNewsEmail ? 'on' : 'off'"
-					/>
-					<div class="min-w-0">
-						<div class="flex items-center gap-2">
-							<span
-								id="daily_include_news_label"
-									class="text-base font-semibold text-gray-900"
-								>
-									🗞️ News
-								</span>
-								<GrokLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Grok" role="img" />
-								<FinnhubLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Finnhub" role="img" />
-								<EnvelopeIcon class="h-4.5 w-auto shrink-0 text-gray-400" aria-label="Email only" role="img" />
-							</div>
-							<p
-								id="daily_include_news_description"
-								class="text-sm text-gray-600 mt-0.5"
-							>
-								Add a short news summary about the assets you're tracking. <span class="text-gray-400 italic">Email only.</span>
-							</p>
-						</div>
-					<span
-						:title="showEmailRequiredHint ? 'Enable the email channel to use this feature' : undefined"
-						:class="showEmailRequiredHint ? 'cursor-not-allowed' : undefined"
-						class="inline-flex shrink-0"
-					>
-						<ToggleSwitch
+							type="checkbox"
 							v-model="includeNewsEmail"
 							:disabled="emailOnlyDisabled"
-							:class="{ 'pointer-events-none': showEmailRequiredHint }"
-							sr-label="Include news 🗞️"
-							aria-labelledby="daily_include_news_label"
+							class="rounded border-gray-300 text-teal-600 focus:ring-teal-500 h-4 w-4"
+							:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
 							aria-describedby="daily_include_news_description"
 						/>
-					</span>
-					</div>
+						<span class="text-sm text-gray-700">Email</span>
+					</label>
+				</div>
+				</div>
 
-					<div class="flex items-center justify-between gap-3 py-3">
-						<input
-							type="hidden"
-						name="daily_include_rumors_email"
-						:value="includeRumorsEmail ? 'on' : 'off'"
-					/>
-					<div class="min-w-0">
-						<div class="flex items-center gap-2">
-							<span
-								id="daily_include_rumors_label"
-									class="text-base font-semibold text-gray-900"
-								>
-									🤫 Rumors
-								</span>
-								<GrokLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Grok" role="img" />
-								<EnvelopeIcon class="h-4.5 w-auto shrink-0 text-gray-400" aria-label="Email only" role="img" />
-							</div>
-							<p
-								id="daily_include_rumors_description"
-								class="text-sm text-gray-600 mt-0.5"
+				<div class="flex items-center justify-between gap-3 py-3">
+					<input
+						type="hidden"
+					name="daily_include_rumors_email"
+					:value="includeRumorsEmail ? 'on' : 'off'"
+				/>
+				<div class="min-w-0">
+					<div class="flex items-center gap-2">
+						<span
+							id="daily_include_rumors_label"
+								class="text-base font-semibold text-gray-900"
 							>
-								Add a short rumors/chatter summary about the assets you're tracking. <span class="text-gray-400 italic">Email only.</span>
-							</p>
+								🤫 Rumors
+							</span>
+							<GrokLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Grok" role="img" />
 						</div>
-					<span
-						:title="showEmailRequiredHint ? 'Enable the email channel to use this feature' : undefined"
-						:class="showEmailRequiredHint ? 'cursor-not-allowed' : undefined"
-						class="inline-flex shrink-0"
-					>
-						<ToggleSwitch
+						<p
+							id="daily_include_rumors_description"
+							class="text-sm text-gray-600 mt-0.5"
+						>
+							Add a short rumors/chatter summary about the assets you're tracking.
+						</p>
+					</div>
+				<div class="shrink-0">
+					<label class="inline-flex items-center gap-1.5" :class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'">
+						<input
+							type="checkbox"
 							v-model="includeRumorsEmail"
 							:disabled="emailOnlyDisabled"
-							:class="{ 'pointer-events-none': showEmailRequiredHint }"
-							sr-label="Include rumors 🤫"
-							aria-labelledby="daily_include_rumors_label"
+							class="rounded border-gray-300 text-teal-600 focus:ring-teal-500 h-4 w-4"
+							:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
 							aria-describedby="daily_include_rumors_description"
 						/>
-					</span>
-					</div>
+						<span class="text-sm text-gray-700">Email</span>
+					</label>
+				</div>
+				</div>
 
 					<div class="flex items-center justify-between gap-3 py-3">
 						<input
@@ -289,16 +176,6 @@
 							</p>
 						</div>
 						<div class="flex items-center gap-4 shrink-0">
-							<label class="inline-flex items-center gap-1.5 cursor-pointer">
-								<input
-									type="checkbox"
-									v-model="includeAnalystEmail"
-									:disabled="needsChannelSelection"
-									class="rounded border-gray-300 text-teal-600 focus:ring-teal-500 h-4 w-4 cursor-pointer"
-									aria-describedby="daily_include_analyst_description"
-								/>
-								<span class="text-sm text-gray-700">Email</span>
-							</label>
 							<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : needsChannelSelection ? 'cursor-not-allowed' : 'cursor-not-allowed opacity-50'">
 								<input
 									type="checkbox"
@@ -308,6 +185,17 @@
 									aria-describedby="daily_include_analyst_description"
 								/>
 								<span class="text-sm text-gray-700">SMS</span>
+							</label>
+							<label class="inline-flex items-center gap-1.5" :class="needsChannelSelection ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'">
+								<input
+									type="checkbox"
+									v-model="includeAnalystEmail"
+									:disabled="needsChannelSelection"
+									class="rounded border-gray-300 text-teal-600 focus:ring-teal-500 h-4 w-4"
+									:class="needsChannelSelection ? 'cursor-not-allowed' : 'cursor-pointer'"
+									aria-describedby="daily_include_analyst_description"
+								/>
+								<span class="text-sm text-gray-700">Email</span>
 							</label>
 						</div>
 					</div>
@@ -341,16 +229,6 @@
 							</p>
 						</div>
 						<div class="flex items-center gap-4 shrink-0">
-							<label class="inline-flex items-center gap-1.5 cursor-pointer">
-								<input
-									type="checkbox"
-									v-model="includeInsiderEmail"
-									:disabled="needsChannelSelection"
-									class="rounded border-gray-300 text-teal-600 focus:ring-teal-500 h-4 w-4 cursor-pointer"
-									aria-describedby="daily_include_insider_description"
-								/>
-								<span class="text-sm text-gray-700">Email</span>
-							</label>
 							<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : needsChannelSelection ? 'cursor-not-allowed' : 'cursor-not-allowed opacity-50'">
 								<input
 									type="checkbox"
@@ -361,8 +239,62 @@
 								/>
 								<span class="text-sm text-gray-700">SMS</span>
 							</label>
+							<label class="inline-flex items-center gap-1.5" :class="needsChannelSelection ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'">
+								<input
+									type="checkbox"
+									v-model="includeInsiderEmail"
+									:disabled="needsChannelSelection"
+									class="rounded border-gray-300 text-teal-600 focus:ring-teal-500 h-4 w-4"
+									:class="needsChannelSelection ? 'cursor-not-allowed' : 'cursor-pointer'"
+									aria-describedby="daily_include_insider_description"
+								/>
+								<span class="text-sm text-gray-700">Email</span>
+							</label>
 						</div>
 					</div>
+
+			<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-3">
+				<div class="min-w-0">
+					<span
+						id="daily_delivery_time_label"
+						class="text-base font-semibold text-gray-900"
+					>
+						Delivery time
+					</span>
+					<p
+						id="daily_delivery_time_description"
+						class="text-sm text-gray-600 mt-0.5"
+					>
+						Sent once every day.<span v-if="isHydrated && isUsingMarketTime" class="text-gray-400 italic"> Using your earliest market notification time.</span>
+					</p>
+				</div>
+		<div class="sm:shrink-0">
+			<div class="flex flex-col sm:flex-row sm:items-center gap-2">
+					<TimePicker
+						:inputId="`daily_delivery_time`"
+						:inputName="`daily_delivery_time`"
+						:initialTime="dailyDeliveryTimeInput"
+						inputAriaLabel="Daily notifications delivery time"
+						:disabled="needsChannelSelection"
+						:clearable="dailyDeliveryTimeMinutes !== null && !needsChannelSelection"
+						clearAriaLabel="Clear delivery time"
+						@time-change="handleDailyTimeChange"
+						@clear="handleClearDeliveryTime"
+					/>
+					<button
+						v-if="marketOpenLabel"
+						type="button"
+						class="btn btn-md btn-secondary h-[41px] shrink-0 whitespace-nowrap"
+						:disabled="!canSetMarketOpen"
+						:aria-label="`Set delivery time to US market open (${marketOpenLabel})`"
+						@click="handleSetMarketOpen"
+					>
+						<PresentationChartLineIcon class="size-4 shrink-0" aria-hidden="true" />
+						Market open
+					</button>
+				</div>
+			</div>
+			</div>
 				</fieldset>
 
 				<div v-if="isHydrated && nextDailyDeliveryText" class="mt-4 border-t border-gray-200 pt-4">
@@ -381,15 +313,11 @@ import { DateTime } from "luxon";
 import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../icons/arrow-path.svg?component";
-import ArrowTopRightOnSquareIcon from "../../icons/arrow-top-right-on-square.svg?component";
 import BellAlertIcon from "../../icons/bell-alert.svg?component";
-import ClockIcon from "../../icons/clock.svg?component";
-import EnvelopeIcon from "../../icons/envelope.svg?component";
 import FinnhubLogoIcon from "../../icons/finnhub.svg?component";
 import GrokLogoIcon from "../../icons/grok.svg?component";
 import InformationCircleIcon from "../../icons/information-circle-20.svg?component";
 import PresentationChartLineIcon from "../../icons/presentation-chart-line.svg?component";
-import XMarkIcon from "../../icons/x-mark.svg?component";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID,
@@ -400,15 +328,12 @@ import {
 import {
 	formatCountdownWithSeconds,
 	formatMinutesAsLocalTime,
-	getNowInTimezone,
 	getSecondsUntilNextSend,
 	getUsMarketOpenLocalMinutes,
-	isOutsideMarketHours,
 	minutesToTimeInputValue,
 	parseTimeToMinutes,
 } from "../../lib/time/format";
 import FadeTransition from "../FadeTransition.vue";
-import ToggleSwitch from "../ToggleSwitch.vue";
 import {
 	type NotificationPreferencesData,
 	useAutoSaveForm,
@@ -435,8 +360,6 @@ const needsPhoneVerification = computed(() => smsEnabled.value && !phoneVerified
 
 /** News & Rumors are email-only — disable when email channel isn't enabled */
 const emailOnlyDisabled = computed(() => needsChannelSelection.value || !emailEnabled.value);
-/** Show the "email required" tooltip only when SMS is active but email isn't (the needsChannelSelection state already has its own UI treatment) */
-const showEmailRequiredHint = computed(() => !emailEnabled.value && !needsChannelSelection.value);
 const phoneVerificationSectionId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-phone-verification-section`;
 
 const isHydrated = ref(false);
@@ -449,6 +372,12 @@ onMounted(() => {
 	intervalId = window.setInterval(() => {
 		tick.value = Date.now();
 	}, 1000);
+
+	if (dailyEnabled.value) {
+		// On initial mount we may "inherit" a time from market notifications for display,
+		// but we should not autosave during hydration.
+		maybeDefaultToMarketTime();
+	}
 });
 onUnmounted(() => {
 	if (intervalId === null) return;
@@ -476,25 +405,37 @@ const includeAnalystEmail = ref(user.value.daily_include_analyst_email);
 const includeInsiderEmail = ref(user.value.daily_include_insider_email);
 const includeAnalystSms = ref(user.value.daily_include_analyst_sms);
 const includeInsiderSms = ref(user.value.daily_include_insider_sms);
-const dailyDeliveryTimeMinutes = ref<number | null>(user.value.daily_delivery_time);
-const onlyNotifyWhenMarketOpen = ref(user.value.daily_only_notify_when_market_open);
+const dailyDeliveryTimeMinutes = ref<number | null>(
+	user.value.daily_delivery_time ?? getEarliestMarketNotificationTime(),
+);
 
 const dailyEnabled = computed(() =>
 	includeNewsEmail.value || includeRumorsEmail.value || includeAnalystEmail.value || includeInsiderEmail.value || includeAnalystSms.value || includeInsiderSms.value,
 );
 
-watch(onlyNotifyWhenMarketOpen, (value) => {
-	if (user.value.daily_only_notify_when_market_open === value) {
-		return;
-	}
-	user.value = { ...user.value, daily_only_notify_when_market_open: value };
-});
+/** True when the displayed delivery time is inherited from market notification settings. */
+const isUsingMarketTime = computed(
+	() => user.value.daily_delivery_time === null && dailyDeliveryTimeMinutes.value !== null,
+);
 
-const currentTimeInTimezone = computed(() => {
-	if (!isHydrated.value) return null;
-	void tick.value;
-	return user.value.timezone ? getNowInTimezone(user.value.timezone) : null;
-});
+/**
+ * When daily notifications are enabled but no delivery time is set,
+ * default to the earliest scheduled market notification time (if any).
+ * The user can still change to a different time.
+ */
+function getEarliestMarketNotificationTime(): number | null {
+	const times = user.value.scheduled_update_times;
+	if (!times || times.length === 0) return null;
+	return Math.min(...times);
+}
+
+function maybeDefaultToMarketTime(): boolean {
+	if (dailyDeliveryTimeMinutes.value !== null) return false;
+	const earliestMarketNotificationTime = getEarliestMarketNotificationTime();
+	if (earliestMarketNotificationTime === null) return false;
+	dailyDeliveryTimeMinutes.value = earliestMarketNotificationTime;
+	return true;
+}
 
 const dailyDeliveryTimeInput = computed(() =>
 	dailyDeliveryTimeMinutes.value !== null
@@ -519,13 +460,6 @@ const isMarketOpenTime = computed(() => {
 
 const canSetMarketOpen = computed(
 	() => !needsChannelSelection.value && !isMarketOpenTime.value,
-);
-
-const isDailyTimeOutsideMarketHours = computed(() =>
-	onlyNotifyWhenMarketOpen.value &&
-	dailyDeliveryTimeMinutes.value !== null &&
-	!!user.value.timezone &&
-	isOutsideMarketHours(dailyDeliveryTimeMinutes.value, user.value.timezone),
 );
 
 function handleClearDeliveryTime() {
@@ -559,11 +493,22 @@ const nextDailyDeliveryText = computed(() => {
 });
 
 watch(
-	[includeNewsEmail, includeRumorsEmail, includeAnalystEmail, includeInsiderEmail, includeAnalystSms, includeInsiderSms, onlyNotifyWhenMarketOpen],
+	[includeNewsEmail, includeRumorsEmail, includeAnalystEmail, includeInsiderEmail, includeAnalystSms, includeInsiderSms],
 	() => {
 		notifyChange();
 	},
 );
+
+watch(dailyEnabled, (enabled) => {
+	if (enabled) {
+		// When a user enables the daily digest, default to market time (if needed)
+		// and explicitly notify so the defaulted time is persisted.
+		const didDefault = maybeDefaultToMarketTime();
+		if (didDefault) {
+			notifyChange();
+		}
+	}
+});
 
 function handleDailyTimeChange(value: string) {
 	const parsed = parseTimeToMinutes(value);
@@ -611,16 +556,17 @@ watch(
 watch(
 	() => user.value.daily_delivery_time,
 	(value) => {
-		dailyDeliveryTimeMinutes.value = value;
+		dailyDeliveryTimeMinutes.value = value ?? getEarliestMarketNotificationTime();
 	},
 );
 watch(
-	() => user.value.daily_only_notify_when_market_open,
-	(value) => {
-		onlyNotifyWhenMarketOpen.value = value;
+	() => user.value.scheduled_update_times,
+	(times) => {
+		if (user.value.daily_delivery_time !== null) return;
+		dailyDeliveryTimeMinutes.value =
+			times && times.length > 0 ? getEarliestMarketNotificationTime() : null;
 	},
 );
-
 /* =============
 Keep dashboard user state aligned with autosave responses
 ============= */
@@ -636,7 +582,6 @@ watch(savedData, (newData) => {
 		daily_include_insider_sms: newData.daily_include_insider_sms,
 		daily_delivery_time: newData.daily_delivery_time,
 		daily_next_send_at: newData.daily_next_send_at,
-		daily_only_notify_when_market_open: newData.daily_only_notify_when_market_open,
 		// Daily delivery time determines the weekly delivery time, so the server
 		// recalculates weekly_next_send_at when it changes. Keep all panels'
 		// scheduling in sync so countdowns update without a page refresh.
