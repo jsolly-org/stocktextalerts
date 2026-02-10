@@ -106,6 +106,9 @@ const emit = defineEmits<{
 
 const hasOverlayIcons = computed(() => props.outsideMarketHours || props.clearable);
 
+const PADDING_TWO_ICONS = "!pr-14";
+const PADDING_ONE_ICON = "!pr-9";
+
 const minutesIncrement = 1;
 const minTime: TimeModel = { hours: 0, minutes: 0, seconds: 0 };
 const maxTime: TimeModel = { hours: 23, minutes: 59, seconds: 0 };
@@ -176,7 +179,8 @@ function handleBackdropPointerCancel() {
 
 const inputAttributes = computed(() => {
 	const iconCount = (props.outsideMarketHours ? 1 : 0) + (props.clearable ? 1 : 0);
-	const paddingClass = iconCount > 1 ? "!pr-14" : iconCount === 1 ? "!pr-9" : "";
+	const paddingClass =
+		iconCount > 1 ? PADDING_TWO_ICONS : iconCount === 1 ? PADDING_ONE_ICON : "";
 	return {
 		id: props.inputId,
 		class: `input cursor-pointer ${paddingClass}`.trim(),

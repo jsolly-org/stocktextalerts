@@ -374,6 +374,8 @@ onMounted(() => {
 	}, 1000);
 
 	if (dailyEnabled.value) {
+		// On initial mount we may "inherit" a time from market notifications for display,
+		// but we should not autosave during hydration.
 		maybeDefaultToMarketTime();
 	}
 });
@@ -427,12 +429,12 @@ function getEarliestMarketNotificationTime(): number | null {
 	return Math.min(...times);
 }
 
-function maybeDefaultToMarketTime() {
-	if (dailyDeliveryTimeMinutes.value !== null) return;
+function maybeDefaultToMarketTime(): boolean {
+	if (dailyDeliveryTimeMinutes.value !== null) return false;
 	const earliestMarketNotificationTime = getEarliestMarketNotificationTime();
-	if (earliestMarketNotificationTime === null) return;
+	if (earliestMarketNotificationTime === null) return false;
 	dailyDeliveryTimeMinutes.value = earliestMarketNotificationTime;
-	notifyChange();
+	return true;
 }
 
 const dailyDeliveryTimeInput = computed(() =>
@@ -499,7 +501,12 @@ watch(
 
 watch(dailyEnabled, (enabled) => {
 	if (enabled) {
-		maybeDefaultToMarketTime();
+		// When a user enables the daily digest, default to market time (if needed)
+		// and explicitly notify so the defaulted time is persisted.
+		const didDefault = maybeDefaultToMarketTime();
+		if (didDefault) {
+			notifyChange();
+		}
 	}
 });
 

@@ -197,13 +197,20 @@ const previewAssets = computed<PreviewAsset[]>(() => {
 const SLIDE_LABELS = ["SMS", "Email"] as const;
 const carouselRef = ref<HTMLElement | null>(null);
 const activeSlide = ref(0);
+let scrollTicking = false;
 
 /** Detect which slide is in view by checking scroll position. */
 function onCarouselScroll() {
-	const el = carouselRef.value;
-	if (!el) return;
-	const index = Math.round(el.scrollLeft / el.clientWidth);
-	activeSlide.value = Math.min(Math.max(index, 0), SLIDE_LABELS.length - 1);
+	if (scrollTicking) return;
+	scrollTicking = true;
+	requestAnimationFrame(() => {
+		const el = carouselRef.value;
+		if (el && el.clientWidth > 0) {
+			const index = Math.round(el.scrollLeft / el.clientWidth);
+			activeSlide.value = Math.min(Math.max(index, 0), SLIDE_LABELS.length - 1);
+		}
+		scrollTicking = false;
+	});
 }
 
 function scrollToSlide(index: number) {
