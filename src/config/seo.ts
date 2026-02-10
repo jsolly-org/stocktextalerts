@@ -41,3 +41,42 @@ export const robotsOnlyDisallowedRoutes = [
 export function getAllRobotsDisallowedRoutes(): readonly string[] {
 	return [...seoExcludedRoutes, ...robotsOnlyDisallowedRoutes];
 }
+
+/**
+ * Site URL used in robots.txt sitemap reference.
+ * This is hardcoded here as it's only used for robots.txt generation.
+ * The actual site URL for the application is configured in astro.config.ts.
+ */
+export const ROBOTS_TXT_SITE_URL = "https://www.stocktextalerts.com";
+
+/**
+ * Generate the complete robots.txt content from the SEO configuration.
+ * This is the single source-of-truth for robots.txt structure.
+ */
+export function generateRobotsTxtContent(): string {
+	const disallowedRoutes = getAllRobotsDisallowedRoutes();
+
+	const lines = [
+		"User-agent: *",
+		"Allow: /",
+		// Add each disallowed route
+		...disallowedRoutes.map((route) => `Disallow: ${route}`),
+		"",
+		`Sitemap: ${ROBOTS_TXT_SITE_URL}/sitemap-index.xml`,
+		"",
+	];
+
+	return lines.join("\n");
+}
+
+/**
+ * Parse disallowed routes from robots.txt content.
+ * Used by tests to verify the generated content.
+ */
+export function parseRobotsTxtDisallows(content: string): string[] {
+	return content
+		.split("\n")
+		.filter((line) => line.startsWith("Disallow:"))
+		.map((line) => line.replace("Disallow:", "").trim())
+		.sort();
+}

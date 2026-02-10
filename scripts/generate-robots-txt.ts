@@ -8,7 +8,10 @@
 
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { getAllRobotsDisallowedRoutes } from "../src/config/seo";
+import {
+	generateRobotsTxtContent,
+	getAllRobotsDisallowedRoutes,
+} from "../src/config/seo";
 
 const ROBOTS_TXT_PATH = join(
 	import.meta.dirname,
@@ -17,25 +20,7 @@ const ROBOTS_TXT_PATH = join(
 	"robots.txt",
 );
 
-const SITE_URL = "https://www.stocktextalerts.com";
-
-function generateRobotsTxt(): string {
-	const disallowedRoutes = getAllRobotsDisallowedRoutes();
-
-	const lines = [
-		"User-agent: *",
-		"Allow: /",
-		// Add each disallowed route
-		...disallowedRoutes.map((route) => `Disallow: ${route}`),
-		"",
-		`Sitemap: ${SITE_URL}/sitemap-index.xml`,
-		"",
-	];
-
-	return lines.join("\n");
-}
-
-const content = generateRobotsTxt();
+const content = generateRobotsTxtContent();
 writeFileSync(ROBOTS_TXT_PATH, content, "utf-8");
 
 console.log("✅ Generated robots.txt");

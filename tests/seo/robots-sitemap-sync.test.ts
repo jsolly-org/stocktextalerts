@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+	generateRobotsTxtContent,
 	getAllRobotsDisallowedRoutes,
+	parseRobotsTxtDisallows,
 	seoExcludedRoutes,
 } from "../../src/config/seo";
 
@@ -12,10 +14,7 @@ describe("SEO: robots.txt and sitemap exclusions stay in sync", () => {
 		const robotsTxtContent = readFileSync(robotsTxtPath, "utf-8");
 
 		// Parse disallowed routes from robots.txt
-		const disallowedInRobotsTxt = robotsTxtContent
-			.split("\n")
-			.filter((line) => line.startsWith("Disallow:"))
-			.map((line) => line.replace("Disallow:", "").trim());
+		const disallowedInRobotsTxt = parseRobotsTxtDisallows(robotsTxtContent);
 
 		// Every route excluded from sitemap should be disallowed in robots.txt
 		for (const route of seoExcludedRoutes) {
@@ -31,11 +30,7 @@ describe("SEO: robots.txt and sitemap exclusions stay in sync", () => {
 		const robotsTxtContent = readFileSync(robotsTxtPath, "utf-8");
 
 		// Parse disallowed routes from robots.txt
-		const disallowedInRobotsTxt = robotsTxtContent
-			.split("\n")
-			.filter((line) => line.startsWith("Disallow:"))
-			.map((line) => line.replace("Disallow:", "").trim())
-			.sort();
+		const disallowedInRobotsTxt = parseRobotsTxtDisallows(robotsTxtContent);
 
 		// Get expected routes from config
 		const expectedDisallowedRoutes = getAllRobotsDisallowedRoutes()
@@ -51,17 +46,7 @@ describe("SEO: robots.txt and sitemap exclusions stay in sync", () => {
 		// by verifying it matches what the generation script would produce
 		const robotsTxtPath = join(import.meta.dirname, "../../public/robots.txt");
 		const actualContent = readFileSync(robotsTxtPath, "utf-8");
-
-		// Expected structure based on the generation script
-		const expectedLines = [
-			"User-agent: *",
-			"Allow: /",
-			...getAllRobotsDisallowedRoutes().map((route) => `Disallow: ${route}`),
-			"",
-			"Sitemap: https://www.stocktextalerts.com/sitemap-index.xml",
-			"",
-		];
-		const expectedContent = expectedLines.join("\n");
+		const expectedContent = generateRobotsTxtContent();
 
 		expect(actualContent).toBe(expectedContent);
 	});

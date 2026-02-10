@@ -9,7 +9,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+	generateRobotsTxtContent,
 	getAllRobotsDisallowedRoutes,
+	parseRobotsTxtDisallows,
 	seoExcludedRoutes,
 } from "../src/config/seo";
 
@@ -19,14 +21,6 @@ const ROBOTS_TXT_PATH = join(
 	"public",
 	"robots.txt",
 );
-
-function parseRobotsTxtDisallows(content: string): string[] {
-	return content
-		.split("\n")
-		.filter((line) => line.startsWith("Disallow:"))
-		.map((line) => line.replace("Disallow:", "").trim())
-		.sort();
-}
 
 function testRobotsTxtContainsSitemapExclusions(): void {
 	const robotsTxtContent = readFileSync(ROBOTS_TXT_PATH, "utf-8");
@@ -94,16 +88,7 @@ function testRobotsTxtMatchesExpected(): void {
 
 function testGeneratedContentMatches(): void {
 	const actualContent = readFileSync(ROBOTS_TXT_PATH, "utf-8");
-
-	const expectedLines = [
-		"User-agent: *",
-		"Allow: /",
-		...getAllRobotsDisallowedRoutes().map((route) => `Disallow: ${route}`),
-		"",
-		"Sitemap: https://www.stocktextalerts.com/sitemap-index.xml",
-		"",
-	];
-	const expectedContent = expectedLines.join("\n");
+	const expectedContent = generateRobotsTxtContent();
 
 	if (actualContent !== expectedContent) {
 		console.error(
