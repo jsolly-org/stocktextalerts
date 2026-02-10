@@ -148,7 +148,7 @@ async function refreshNotificationPreferences() {
 		}
 	} catch (error) {
 		rootLogger.error(
-			"Failed to refresh notification preferences for timezone mismatch banner",
+			"Failed to refresh notification preferences for timezone banner",
 			{ action: "refresh_notification_preferences" },
 			error,
 		);
