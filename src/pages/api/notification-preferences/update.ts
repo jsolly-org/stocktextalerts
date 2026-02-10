@@ -14,8 +14,6 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	sms_notifications_enabled: { type: "boolean" },
 	timezone: { type: "timezone" },
 	scheduled_update_times: { type: "json_string_array" },
-	only_notify_when_market_open: { type: "boolean" },
-	daily_only_notify_when_market_open: { type: "boolean" },
 	daily_delivery_time: { type: "time" },
 	daily_include_news_email: { type: "boolean" },
 	daily_include_rumors_email: { type: "boolean" },
@@ -185,9 +183,6 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 				phone_verified: updatedUser.phone_verified,
 				timezone: updatedUser.timezone,
 				scheduled_update_times: updatedUser.scheduled_update_times,
-				only_notify_when_market_open: updatedUser.only_notify_when_market_open,
-				daily_only_notify_when_market_open:
-					updatedUser.daily_only_notify_when_market_open,
 				daily_delivery_time: updatedUser.daily_delivery_time,
 				daily_next_send_at: updatedUser.daily_next_send_at,
 				next_send_at: updatedUser.next_send_at,

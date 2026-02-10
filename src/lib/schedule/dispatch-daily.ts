@@ -21,10 +21,9 @@ const EMPTY_STATS: ScheduledNotificationTotals = {
 export async function dispatchDailyUser(options: {
 	userId: string;
 	currentTimeIso: string;
-	marketOpen: boolean;
 	cronSecret: string;
 }): Promise<ScheduledNotificationTotals> {
-	const { userId, currentTimeIso, marketOpen, cronSecret } = options;
+	const { userId, currentTimeIso, cronSecret } = options;
 	const url = new URL("/api/schedule/daily-user", getSiteUrl()).toString();
 
 	try {
@@ -34,7 +33,7 @@ export async function dispatchDailyUser(options: {
 				Authorization: `Bearer ${cronSecret}`,
 				"Content-Type": "application/json",
 			},
-			body: JSON.stringify({ userId, currentTimeIso, marketOpen }),
+			body: JSON.stringify({ userId, currentTimeIso }),
 			signal: AbortSignal.timeout(DISPATCH_TIMEOUT_MS),
 		});
 

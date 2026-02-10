@@ -4,14 +4,13 @@
 		:id="DASHBOARD_FREQUENT_FORM_ID"
 		method="POST"
 		action="/api/notification-preferences/update"
-		class="space-y-6"
-		aria-label="Frequent notifications"
+		aria-label="Market notifications"
 		:aria-busy="isSaving"
 		@input="handleFormInput"
 		@change="handleFormChange"
 		@submit="handleFormSubmit"
 	>
-		<section class="card relative mb-6">
+		<section class="card relative">
 			<FadeTransition>
 				<div
 					v-if="statusMessage"
@@ -32,37 +31,20 @@
 			</FadeTransition>
 
 			<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.success}`"></div>
-			<div class="card-body">
-			<header>
-				<h2
+		<div class="card-body">
+		<header class="mb-4">
+			<h2
 					:id="DASHBOARD_SECTION_IDS.frequent"
 					class="text-xl sm:text-2xl font-bold text-gray-900 transition-opacity duration-200"
 					:class="{ 'opacity-50': needsChannelSelection }"
 				>
-					Frequent Notifications
+					Market Notifications
 				</h2>
-				<p
-					class="text-sm text-gray-500 mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 transition-opacity duration-200"
-					:class="{ 'opacity-50': needsChannelSelection }"
-				>
-					<span class="inline-flex items-center gap-1.5">
-						<ClockIcon class="size-4 shrink-0 text-gray-400" aria-hidden="true" />
-						<span>
-							Local time:
-							<span class="font-medium text-gray-700">
-								{{ currentTimeInTimezone ?? "—" }}
-							</span>
-						</span>
-					</span>
-					<a
-						href="/profile"
-						class="inline-flex items-center gap-1 link-primary text-xs rounded-sm"
-						aria-label="Change timezone in profile settings"
-					>
-						Change timezone
-						<ArrowTopRightOnSquareIcon class="size-3 shrink-0" aria-hidden="true" />
-					</a>
-				</p>
+			<p
+				class="text-sm text-gray-600 mt-1"
+			>
+				Scheduled market notifications for all your tracked assets — each selected delivery time sends a separate notification.
+			</p>
 			</header>
 
 			<SetupRequiredNotice
@@ -98,7 +80,7 @@
 						Price Notifications
 					</span>
 					<p id="price_notifications_enabled_description" class="text-sm text-gray-600 mt-0.5">
-						Receive scheduled price updates for all your tracked assets, including ETFs.
+						Receive price updates for all your tracked assets, including ETFs.
 					</p>
 				</div>
 				<div class="flex items-center gap-4 shrink-0">
@@ -132,14 +114,12 @@
 					role="note"
 				>
 					<InformationCircleIcon class="size-5 shrink-0 mt-0.5" aria-hidden="true" />
-					<span>No notifications will be sent until you choose at least one delivery time below.</span>
+					<span>No Market notifications..</span>
 				</p>
 			</FadeTransition>
 
 		<ScheduledUpdateControls
 				:scheduledUpdateTimes="scheduledUpdateTimes"
-				:onlyNotifyWhenMarketOpen="onlyNotifyWhenMarketOpen"
-				:marketClosedSkipNote="marketClosedSkipNote"
 				:needsChannelSelection="needsChannelSelection"
 				:timePickerDisabled="timePickerDisabled"
 				:canAddTime="canAddTime"
@@ -149,7 +129,6 @@
 				:maxTimesReached="maxTimesReached"
 				:countdownText="countdownText"
 				:outsideMarketHoursIndices="outsideMarketHoursIndices"
-			@update:onlyNotifyWhenMarketOpen="handleOnlyNotifyWhenMarketOpenUpdate"
 			@time-change="handleTimeChange"
 			@add-time="handleAddTime"
 			@add-initial-time="handleAddInitialTime"
@@ -163,12 +142,9 @@
 </template>
 
 <script lang="ts" setup>
-import { DateTime } from "luxon";
 import { computed, onMounted, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
-import ArrowTopRightOnSquareIcon from "../../../icons/arrow-top-right-on-square.svg?component";
-import ClockIcon from "../../../icons/clock.svg?component";
 import InformationCircleIcon from "../../../icons/information-circle-20.svg?component";
 import {
 	CARD_GRADIENT_ACCENTS,
@@ -230,7 +206,6 @@ const priceIncludeSms = ref(user.value.price_include_sms);
 const priceNotificationsEnabled = computed(
 	() => priceIncludeEmail.value || priceIncludeSms.value,
 );
-const onlyNotifyWhenMarketOpen = ref(user.value.only_notify_when_market_open);
 const isHydrated = ref(false);
 
 onMounted(() => {
@@ -356,7 +331,6 @@ const canAddMarketOpen = computed(
 );
 
 const outsideMarketHoursIndices = computed<Set<number>>(() => {
-	if (!onlyNotifyWhenMarketOpen.value) return new Set();
 	const tz = timezone.value;
 	if (tz === "") return new Set();
 	const indices = new Set<number>();
@@ -381,12 +355,6 @@ watch(
 	},
 );
 watch(
-	() => user.value.only_notify_when_market_open,
-	(value) => {
-		onlyNotifyWhenMarketOpen.value = value;
-	},
-);
-watch(
 	() => user.value.scheduled_update_times,
 	(value) => {
 		scheduledUpdateTimesMinutes.value = normalizeScheduledTimes(value ?? []);
@@ -398,30 +366,10 @@ const nextSendAt = computed(
 			user.value.next_send_at ??
 			null,
 );
-const { currentTimeInTimezone, countdownText } = useScheduledUpdateTiming({
+const { countdownText } = useScheduledUpdateTiming({
 	timezone,
 	nextSendAtIso: nextSendAt,
 	timeInputs: scheduledUpdateTimes,
-});
-
-const marketClosedSkipNote = computed(() => {
-	if (!isHydrated.value || !onlyNotifyWhenMarketOpen.value) return null;
-
-	const skippedAtIso = user.value.last_market_closed_skip_scheduled_at;
-	if (!skippedAtIso) return null;
-
-	const skippedUtc = DateTime.fromISO(skippedAtIso, { zone: "utc" });
-	if (!skippedUtc.isValid) return null;
-
-	const hoursAgo = DateTime.utc().diff(skippedUtc, "hours").hours;
-	if (!Number.isFinite(hoursAgo) || hoursAgo > 72) return null;
-
-	const skippedLocal = skippedUtc.setZone(user.value.timezone);
-	const timeLabel = skippedLocal.isValid
-		? skippedLocal.toFormat("ccc, h:mm a")
-		: "your scheduled time";
-
-	return `We skipped ${timeLabel} because the market was closed. If you'd like to receive scheduled notifications anyway, turn off "Only notify when market is open" above.`;
 });
 
 // Update shared user ref directly when auto-save response arrives
@@ -435,7 +383,6 @@ watch(
 			price_include_email: newData.price_include_email,
 			price_include_sms: newData.price_include_sms,
 			scheduled_update_times: newData.scheduled_update_times,
-			only_notify_when_market_open: newData.only_notify_when_market_open,
 			next_send_at: newData.next_send_at,
 			// Keep other panels' scheduling in sync with the server response.
 			daily_next_send_at: newData.daily_next_send_at,
@@ -460,12 +407,6 @@ watch([priceIncludeEmail, priceIncludeSms], ([email, sms]) => {
 	};
 	notifyChange();
 });
-
-function handleOnlyNotifyWhenMarketOpenUpdate(value: boolean) {
-	onlyNotifyWhenMarketOpen.value = value;
-	user.value = { ...user.value, only_notify_when_market_open: value };
-	notifyChange();
-}
 
 function handleTimeChange(index: number, value: string) {
 	const parsedMinutes = parseTimeToMinutes(value);

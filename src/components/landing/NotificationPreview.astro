@@ -57,7 +57,7 @@ import phoneFrame from "../../assets/phone-frame.svg";
     margin-right: auto;
     margin-top: 3rem;
     margin-bottom: 2rem;
-    max-width: 260px;
+    max-width: 130px;
   }
 
   @media (min-width: 640px) {
@@ -71,7 +71,7 @@ import phoneFrame from "../../assets/phone-frame.svg";
     .phone-preview-container {
       margin-top: 0;
       margin-bottom: 0;
-      max-width: 300px;
+      max-width: 150px;
     }
   }
 
@@ -98,7 +98,7 @@ import phoneFrame from "../../assets/phone-frame.svg";
 
   .messages-scroll {
     height: 100%;
-    padding: 1rem;
+    padding: 0.5rem;
     overflow-y: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
@@ -111,13 +111,13 @@ import phoneFrame from "../../assets/phone-frame.svg";
   .messages-wrapper {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.4rem;
   }
 
   .message-bubble {
     max-width: 85%;
-    padding: 0.75rem;
-    font-size: 0.875rem;
+    padding: 0.4rem;
+    font-size: 0.48rem;
     line-height: 1.25;
     transform-origin: bottom;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -127,6 +127,18 @@ import phoneFrame from "../../assets/phone-frame.svg";
 
   .message-bubble p {
     margin: 0;
+  }
+
+  .message-bubble p:first-child {
+    font-size: 0.34rem;
+    letter-spacing: 0.03em;
+    margin-bottom: 0.2rem;
+    line-height: 1.2;
+  }
+
+  .message-bubble p:last-child {
+    font-size: 0.48rem;
+    line-height: 1.35;
   }
 
   .message-bubble.received {
@@ -154,15 +166,17 @@ import phoneFrame from "../../assets/phone-frame.svg";
 </style>
 
 <script>
-  function initIphoneMessageAnimation(containerId) {
+  function initIphoneMessageAnimation() {
+    const containerId = 'iphone-animation-demo';
     const container = document.getElementById(containerId);
     if (!container) return;
 
     const messages = Array.from(container.querySelectorAll('.message-bubble'));
     if (!messages.length) return;
 
-    const scrollContainer = container.querySelector('.messages-scroll');
-    if (!(scrollContainer instanceof HTMLElement)) return;
+    const scrollContainerElement = container.querySelector('.messages-scroll');
+    if (!(scrollContainerElement instanceof HTMLElement)) return;
+    const scrollContainer = scrollContainerElement;
 
     // Respect prefers-reduced-motion
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -248,5 +262,5 @@ import phoneFrame from "../../assets/phone-frame.svg";
     observer.observe(container);
   }
 
-  initIphoneMessageAnimation('iphone-animation-demo');
+  initIphoneMessageAnimation();
 </script>

@@ -1,5 +1,5 @@
 <template>
-	<section class="card relative mb-6">
+	<section class="card relative">
 		<FadeTransition>
 			<div
 				v-if="statusMessage"

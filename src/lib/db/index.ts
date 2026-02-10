@@ -33,8 +33,6 @@ export type NotificationPreferencesSnapshot = Pick<
 	| "phone_verified"
 	| "timezone"
 	| "scheduled_update_times"
-	| "only_notify_when_market_open"
-	| "daily_only_notify_when_market_open"
 	| "daily_delivery_time"
 	| "daily_next_send_at"
 	| "next_send_at"

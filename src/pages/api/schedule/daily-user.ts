@@ -25,14 +25,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		return new Response("Unauthorized", { status: 401 });
 	}
 
-	let body: { userId?: string; currentTimeIso?: string; marketOpen?: boolean };
+	let body: { userId?: string; currentTimeIso?: string };
 	try {
 		body = (await request.json()) as typeof body;
 	} catch {
 		return new Response("Bad Request", { status: 400 });
 	}
 
-	const { userId, currentTimeIso, marketOpen } = body;
+	const { userId, currentTimeIso } = body;
 	const parsedCurrentTime =
 		typeof currentTimeIso === "string"
 			? DateTime.fromISO(currentTimeIso, { zone: "utc" })
@@ -43,8 +43,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		typeof currentTimeIso !== "string" ||
 		currentTimeIso.trim() === "" ||
 		parsedCurrentTime === null ||
-		!parsedCurrentTime.isValid ||
-		typeof marketOpen !== "boolean"
+		!parsedCurrentTime.isValid
 	) {
 		return new Response("Bad Request: missing required fields", {
 			status: 400,
@@ -66,7 +65,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			phone_number,
 			phone_verified,
 			timezone,
-			daily_only_notify_when_market_open,
 			daily_delivery_time,
 			daily_next_send_at,
 			email_notifications_enabled,
@@ -120,7 +118,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		currentTime,
 		sendEmail,
 		getSmsSender,
-		marketOpen,
 	});
 
 	return new Response(JSON.stringify(stats), {

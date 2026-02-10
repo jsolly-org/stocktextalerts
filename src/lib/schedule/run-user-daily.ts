@@ -226,7 +226,6 @@ export async function processDailyUser(options: {
 	currentTime: DateTime;
 	sendEmail: EmailSender;
 	getSmsSender: SmsSenderProvider;
-	marketOpen: boolean;
 }): Promise<ScheduledNotificationTotals> {
 	const stats: ScheduledNotificationTotals = {
 		skipped: 0,
@@ -236,15 +235,8 @@ export async function processDailyUser(options: {
 		smsSent: 0,
 		smsFailed: 0,
 	};
-	const {
-		user,
-		supabase,
-		logger,
-		currentTime,
-		sendEmail,
-		getSmsSender,
-		marketOpen,
-	} = options;
+	const { user, supabase, logger, currentTime, sendEmail, getSmsSender } =
+		options;
 
 	try {
 		const scheduleCtx = parseDailyScheduleContext(user, currentTime, logger);
@@ -253,24 +245,6 @@ export async function processDailyUser(options: {
 			return stats;
 		}
 		const { scheduledDate, scheduledMinutes } = scheduleCtx;
-
-		if (user.daily_only_notify_when_market_open && !marketOpen) {
-			logger.info("Skipping daily notification: market is closed", {
-				action: "daily_digest_run",
-				reason: "market_closed",
-				userId: user.id,
-				scheduledDate,
-				scheduledMinutes,
-			});
-			stats.skipped++;
-			await updateUserDailyNextSendAt({
-				user,
-				supabase,
-				logger,
-				currentTime,
-			});
-			return stats;
-		}
 
 		const hasAnyDailyOption =
 			user.daily_include_news_email ||

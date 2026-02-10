@@ -4,7 +4,6 @@
 		:id="DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID"
 		method="POST"
 		action="/api/notification-preferences/update"
-		class="space-y-6"
 		aria-label="Notification preferences"
 		:aria-busy="isSaving"
 		@input="handleFormInput"
@@ -12,7 +11,7 @@
 		@submit="handleFormSubmitWrapper"
 	>
 		<section
-			class="card relative mb-6"
+			class="card relative"
 			data-notification-channels-card
 			:data-form-id="DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID"
 		>
@@ -54,11 +53,9 @@
 				v-model:smsEnabled="smsEnabled"
 				:can-save-sms-enabled="canSaveSmsEnabled"
 				:sms-opted-out="smsOptedOut"
-				:show-time-reminder="showTimeReminder"
 				:email-notifications-enabled-id="emailNotificationsEnabledId"
 				:sms-notifications-enabled-id="smsNotificationsEnabledId"
 				:notification-channels-desc-id="notificationChannelsDescId"
-				@scroll-to-scheduled="scrollToScheduled"
 			/>
 			</div>
 		</section>
@@ -73,7 +70,6 @@ import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 	DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID,
-	DASHBOARD_SECTION_IDS,
 	type FlashMessage,
 	type FlashTone,
 	formatMessage,
@@ -227,14 +223,6 @@ const canSaveSmsEnabled = computed(() => {
 	}
 	return phoneVerified.value;
 });
-const showTimeReminder = computed(() => {
-	if (!emailEnabled.value && !smsEnabled.value) {
-		return false;
-	}
-	const times = user.value.scheduled_update_times;
-	return !times || times.length === 0;
-});
-
 // Notify auto-save when channel toggles change
 watch([emailEnabled, smsEnabled], () => {
 	notifyChange();
@@ -269,13 +257,6 @@ watch(
 		}
 	},
 );
-
-function scrollToScheduled() {
-	const el = document.getElementById(DASHBOARD_SECTION_IDS.frequent);
-	if (el) {
-		el.scrollIntoView({ behavior: "smooth" });
-	}
-}
 
 /* ============= Pending SMS changes ============= */
 usePendingSmsChanges({

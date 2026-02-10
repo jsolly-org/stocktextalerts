@@ -4,14 +4,13 @@
 		:id="DASHBOARD_WEEKLY_CALENDAR_FORM_ID"
 		method="POST"
 		action="/api/notification-preferences/update"
-		class="space-y-6"
 		aria-label="Weekly Calendar Notifications"
 		:aria-busy="isSaving"
 		@input="handleFormInput"
 		@change="handleFormChange"
 		@submit="handleFormSubmit"
 	>
-		<section class="card relative mb-6">
+		<section class="card relative">
 			<FadeTransition>
 				<div
 					v-if="statusMessage"
@@ -63,7 +62,6 @@
 									>daily delivery time</button>.
 								</template>
 								<template v-else>
-									<span class="text-gray-400 italic">(default)</span>
 									— set your
 									<button
 										type="button"
@@ -119,16 +117,6 @@
 							</p>
 						</div>
 						<div class="flex items-center gap-4 shrink-0">
-							<label class="inline-flex items-center gap-1.5 cursor-pointer">
-								<input
-									type="checkbox"
-									v-model="includeEarningsEmail"
-									:disabled="needsChannelSelection"
-									class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4 cursor-pointer"
-									aria-describedby="weekly_include_earnings_description"
-								/>
-								<span class="text-sm text-gray-700">Email</span>
-							</label>
 							<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
 								<input
 									type="checkbox"
@@ -138,6 +126,16 @@
 									aria-describedby="weekly_include_earnings_description"
 								/>
 								<span class="text-sm text-gray-700">SMS</span>
+							</label>
+							<label class="inline-flex items-center gap-1.5 cursor-pointer">
+								<input
+									type="checkbox"
+									v-model="includeEarningsEmail"
+									:disabled="needsChannelSelection"
+									class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4 cursor-pointer"
+									aria-describedby="weekly_include_earnings_description"
+								/>
+								<span class="text-sm text-gray-700">Email</span>
 							</label>
 						</div>
 					</div>

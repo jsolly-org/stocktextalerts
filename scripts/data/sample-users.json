@@ -6,7 +6,6 @@
     "sms_notifications_enabled": false,
     "sms_opted_out": false,
     "price_notifications_enabled": true,
-    "only_notify_when_market_open": true,
     "scheduled_update_times": [540],
     "tracked_assets": []
   },
@@ -20,7 +19,6 @@
     "sms_notifications_enabled": true,
     "sms_opted_out": false,
     "price_notifications_enabled": true,
-    "only_notify_when_market_open": false,
     "tracked_assets": ["AAPL", "MSFT"]
   },
   {
@@ -33,7 +31,6 @@
     "sms_notifications_enabled": true,
     "sms_opted_out": true,
     "price_notifications_enabled": true,
-    "only_notify_when_market_open": true,
     "tracked_assets": ["AAPL"]
   },
   {
@@ -46,7 +43,6 @@
     "sms_notifications_enabled": null,
     "sms_opted_out": null,
     "price_notifications_enabled": null,
-    "only_notify_when_market_open": null,
     "tracked_assets": ["TSLA"]
   },
   {

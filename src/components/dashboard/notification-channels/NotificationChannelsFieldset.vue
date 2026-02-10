@@ -68,17 +68,6 @@
 			</div>
 		</fieldset>
 
-		<StatusMessage v-if="props.showTimeReminder" tone="warning">
-			Choose a
-			<button
-				type="button"
-				class="underline rounded cursor-pointer hover:text-warning-text/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning focus-visible:ring-offset-2"
-				@click="emit('scroll-to-scheduled')"
-			>
-				delivery time
-			</button>
-			to start sending your updates.
-		</StatusMessage>
 	</section>
 </template>
 
@@ -94,7 +83,6 @@ interface Props {
 	smsEnabled: boolean;
 	canSaveSmsEnabled: boolean;
 	smsOptedOut: boolean;
-	showTimeReminder: boolean;
 	emailNotificationsEnabledId: string;
 	smsNotificationsEnabledId: string;
 	notificationChannelsDescId: string;
@@ -105,7 +93,6 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
 	(event: "update:emailEnabled", value: boolean): void;
 	(event: "update:smsEnabled", value: boolean): void;
-	(event: "scroll-to-scheduled"): void;
 }>();
 
 const emailEnabled = computed({

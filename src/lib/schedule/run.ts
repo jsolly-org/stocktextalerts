@@ -174,7 +174,6 @@ export async function runScheduledNotifications(options: {
 					dispatchDailyUser({
 						userId: user.id,
 						currentTimeIso,
-						marketOpen,
 						cronSecret,
 					}),
 				),

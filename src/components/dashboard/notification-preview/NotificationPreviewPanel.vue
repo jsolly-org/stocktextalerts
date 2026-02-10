@@ -4,14 +4,13 @@
 		:id="DASHBOARD_FORMAT_PREFERENCES_FORM_ID"
 		method="POST"
 		action="/api/format-preferences/update"
-		class="space-y-6"
 		aria-label="Format preferences"
 		:aria-busy="isSaving"
 		@input="handleFormInput"
 		@change="handleFormChange"
 		@submit="handleFormSubmit"
 	>
-		<section class="card relative mb-6">
+		<section class="card relative">
 			<FadeTransition>
 				<div
 					v-if="statusMessage"
@@ -65,23 +64,40 @@
 				@update:detailedFormat="detailedFormat = $event"
 			/>
 
-			<p
-				v-if="isUsingDemoAssets"
-				class="mt-6 mb-0 text-xs text-gray-500 italic"
-			>
-				Showing example assets. Add tracked assets above to preview your actual notifications.
+			<p class="preview-hint mt-6 mb-0 text-xs text-gray-500 italic text-center">
+				Swipe left or right to switch between SMS and email previews.
 			</p>
 
-			<div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-				<SmsPreview
-					:assets="previewAssets"
-					:formatPreferences="formatPreferences"
-				/>
-				<EmailPreview
-					:assets="previewAssets"
-					:formatPreferences="formatPreferences"
-				/>
+		<div class="mt-4">
+			<div ref="carouselRef" class="preview-carousel" @scroll="onCarouselScroll">
+				<div class="preview-slide">
+					<SmsPreview
+						:assets="previewAssets"
+						:formatPreferences="formatPreferences"
+					/>
+				</div>
+				<div class="preview-slide">
+					<EmailPreview
+						:assets="previewAssets"
+						:formatPreferences="formatPreferences"
+					/>
+				</div>
 			</div>
+			<nav class="preview-dots" aria-label="Preview navigation">
+				<button
+					v-for="(label, i) in SLIDE_LABELS"
+					:key="label"
+					type="button"
+					class="preview-dot"
+					:class="{ active: activeSlide === i }"
+					:aria-label="`View ${label} preview`"
+					:aria-current="activeSlide === i ? 'true' : undefined"
+					@click="scrollToSlide(i)"
+				>
+					<span class="sr-only">{{ label }}</span>
+				</button>
+			</nav>
+		</div>
 			</div>
 		</div>
 		</section>
@@ -89,7 +105,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, toRefs, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import {
@@ -159,8 +175,6 @@ const formatPreferences = computed<FormatPreferences>(() => ({
 	detailed_format: detailedFormat.value,
 }));
 
-const isUsingDemoAssets = computed(() => initialAssets.value.length === 0);
-
 const previewAssets = computed<PreviewAsset[]>(() => {
 	const assets = initialAssets.value;
 	if (assets.length === 0) {
@@ -178,4 +192,111 @@ const previewAssets = computed<PreviewAsset[]>(() => {
 		changePercent: demoPrices[i % demoPrices.length].changePercent,
 	}));
 });
+
+// --- Carousel (mobile only, CSS scroll-snap) ---
+const SLIDE_LABELS = ["SMS", "Email"] as const;
+const carouselRef = ref<HTMLElement | null>(null);
+const activeSlide = ref(0);
+
+/** Detect which slide is in view by checking scroll position. */
+function onCarouselScroll() {
+	const el = carouselRef.value;
+	if (!el) return;
+	const index = Math.round(el.scrollLeft / el.clientWidth);
+	activeSlide.value = Math.min(Math.max(index, 0), SLIDE_LABELS.length - 1);
+}
+
+function scrollToSlide(index: number) {
+	const el = carouselRef.value;
+	if (!el) return;
+	const slide = el.children[index] as HTMLElement | undefined;
+	slide?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+}
+
+// Reset active slide when resizing from mobile to desktop
+const mediaQuery = typeof window !== "undefined" ? window.matchMedia("(min-width: 768px)") : null;
+
+function onMediaChange(e: MediaQueryListEvent | MediaQueryList) {
+	if (e.matches) activeSlide.value = 0;
+}
+
+onMounted(() => {
+	mediaQuery?.addEventListener("change", onMediaChange);
+});
+
+onBeforeUnmount(() => {
+	mediaQuery?.removeEventListener("change", onMediaChange);
+});
 </script>
+
+<style scoped>
+/* Mobile: horizontal scroll-snap carousel */
+.preview-carousel {
+	display: flex;
+	overflow-x: auto;
+	scroll-snap-type: x mandatory;
+	-webkit-overflow-scrolling: touch;
+	scrollbar-width: none; /* Firefox */
+	gap: 1.5rem;
+}
+
+.preview-carousel::-webkit-scrollbar {
+	display: none; /* Chrome / Safari */
+}
+
+.preview-slide {
+	scroll-snap-align: start;
+	flex: 0 0 100%;
+	min-width: 0;
+}
+
+/* Dot navigation (mobile only) */
+.preview-dots {
+	display: flex;
+	justify-content: center;
+	gap: 0.5rem;
+	margin-top: 0.75rem;
+}
+
+.preview-dot {
+	width: 0.5rem;
+	height: 0.5rem;
+	border-radius: 9999px;
+	border: none;
+	padding: 0;
+	cursor: pointer;
+	background: #d1d5db; /* gray-300 */
+	transition: background-color 0.2s, transform 0.2s;
+}
+
+.preview-dot.active {
+	background: #6366f1; /* indigo-500 */
+	transform: scale(1.25);
+}
+
+.preview-hint {
+	display: block;
+}
+
+/* Desktop (md+): side-by-side grid, hide dots */
+@media (min-width: 768px) {
+	.preview-carousel {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		overflow: visible;
+		scroll-snap-type: none;
+	}
+
+	.preview-slide {
+		flex: initial;
+	}
+
+	.preview-dots {
+		display: none;
+	}
+
+	.preview-hint {
+		display: none;
+	}
+}
+</style>

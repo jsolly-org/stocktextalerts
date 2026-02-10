@@ -242,7 +242,6 @@ export type Database = {
           daily_include_news_email: boolean
           daily_include_rumors_email: boolean
           daily_next_send_at: string | null
-          daily_only_notify_when_market_open: boolean
           detailed_format: boolean
           dismiss_timezone_mismatch_prompts: boolean
           email: string
@@ -252,10 +251,7 @@ export type Database = {
           grok_window_start: string | null
           id: string
           last_grok_rumors_at: string | null
-          last_market_closed_skip_recorded_at: string | null
-          last_market_closed_skip_scheduled_at: string | null
           next_send_at: string | null
-          only_notify_when_market_open: boolean
           phone_country_code: string | null
           phone_number: string | null
           phone_verified: boolean
@@ -284,7 +280,6 @@ export type Database = {
           daily_include_news_email?: boolean
           daily_include_rumors_email?: boolean
           daily_next_send_at?: string | null
-          daily_only_notify_when_market_open?: boolean
           detailed_format?: boolean
           dismiss_timezone_mismatch_prompts?: boolean
           email: string
@@ -294,10 +289,7 @@ export type Database = {
           grok_window_start?: string | null
           id?: string
           last_grok_rumors_at?: string | null
-          last_market_closed_skip_recorded_at?: string | null
-          last_market_closed_skip_scheduled_at?: string | null
           next_send_at?: string | null
-          only_notify_when_market_open?: boolean
           phone_country_code?: string | null
           phone_number?: string | null
           phone_verified?: boolean
@@ -326,7 +318,6 @@ export type Database = {
           daily_include_news_email?: boolean
           daily_include_rumors_email?: boolean
           daily_next_send_at?: string | null
-          daily_only_notify_when_market_open?: boolean
           detailed_format?: boolean
           dismiss_timezone_mismatch_prompts?: boolean
           email?: string
@@ -336,10 +327,7 @@ export type Database = {
           grok_window_start?: string | null
           id?: string
           last_grok_rumors_at?: string | null
-          last_market_closed_skip_recorded_at?: string | null
-          last_market_closed_skip_scheduled_at?: string | null
           next_send_at?: string | null
-          only_notify_when_market_open?: boolean
           phone_country_code?: string | null
           phone_number?: string | null
           phone_verified?: boolean

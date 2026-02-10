@@ -112,42 +112,6 @@ export async function processScheduledUser(options: {
 			return stats;
 		}
 
-		if (user.only_notify_when_market_open && !marketOpen) {
-			const dueAtIso = dueAt.toISO();
-			const recordedAtIso = currentTime.toISO();
-			if (dueAtIso && recordedAtIso) {
-				const { error: skipMarkerError } = await supabase
-					.from("users")
-					.update({
-						last_market_closed_skip_scheduled_at: dueAtIso,
-						last_market_closed_skip_recorded_at: recordedAtIso,
-					})
-					.eq("id", user.id);
-				if (skipMarkerError) {
-					logger.error(
-						"Failed to record market-closed skip marker",
-						{ userId: user.id, dueAtIso, recordedAtIso },
-						skipMarkerError,
-					);
-				}
-			}
-			logger.info("Skipping scheduled notification: market is closed", {
-				action: "scheduled_notifications_run",
-				reason: "market_closed",
-				userId: user.id,
-				scheduledDate,
-				scheduledMinutes,
-			});
-			stats.skipped++;
-			await updateUserNextSendAt({
-				user,
-				supabase,
-				logger,
-				currentTime,
-			});
-			return stats;
-		}
-
 		const userAssets = await loadUserAssets(supabase, user.id);
 		const formatPrefs: FormatPreferences = {
 			show_change_percent: user.show_change_percent,

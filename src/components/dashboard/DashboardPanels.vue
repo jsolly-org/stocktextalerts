@@ -1,56 +1,57 @@
 <template>
-	<form
-		ref="assetsFormElement"
-		:id="DASHBOARD_ASSETS_FORM_ID"
-		method="POST"
-		action="/api/assets/update"
-		class="space-y-6"
-		aria-label="Watchlist"
-		:aria-busy="isAssetsSaving"
-		@input="handleAssetsFormInput"
-		@change="handleAssetsFormChange"
-		@submit="handleAssetsFormSubmit"
-	>
-		<WatchlistPanel
-			:assetOptions="assetOptions"
-			:initialAssets="initialAssets"
-			:status-message="assetsStatusMessage"
-			:status-tone="assetsStatusTone"
-			:is-saving="isAssetsSaving"
-			@form-changed="notifyAssetsChange"
-			@assets-changed="currentAssets = $event"
+	<div class="space-y-6">
+		<form
+			ref="assetsFormElement"
+			:id="DASHBOARD_ASSETS_FORM_ID"
+			method="POST"
+			action="/api/assets/update"
+			aria-label="Watchlist"
+			:aria-busy="isAssetsSaving"
+			@input="handleAssetsFormInput"
+			@change="handleAssetsFormChange"
+			@submit="handleAssetsFormSubmit"
+		>
+			<WatchlistPanel
+				:assetOptions="assetOptions"
+				:initialAssets="initialAssets"
+				:status-message="assetsStatusMessage"
+				:status-tone="assetsStatusTone"
+				:is-saving="isAssetsSaving"
+				@form-changed="notifyAssetsChange"
+				@assets-changed="currentAssets = $event"
+			/>
+		</form>
+
+		<NotificationChannelsPanel
+			v-model:emailEnabled="emailEnabled"
+			v-model:smsEnabled="smsEnabled"
 		/>
-	</form>
 
-	<NotificationChannelsPanel
-		v-model:emailEnabled="emailEnabled"
-		v-model:smsEnabled="smsEnabled"
-	/>
+		<ScheduledNotificationsPanel
+			:emailEnabled="emailEnabled"
+			:smsEnabled="smsEnabled"
+			:phoneVerified="phoneVerified"
+		/>
 
-	<ScheduledNotificationsPanel
-		:emailEnabled="emailEnabled"
-		:smsEnabled="smsEnabled"
-		:phoneVerified="phoneVerified"
-	/>
+		<DailyNotificationsPanel
+			:emailEnabled="emailEnabled"
+			:smsEnabled="smsEnabled"
+			:phoneVerified="phoneVerified"
+		/>
 
-	<DailyNotificationsPanel
-		:emailEnabled="emailEnabled"
-		:smsEnabled="smsEnabled"
-		:phoneVerified="phoneVerified"
-	/>
+		<OccasionalNotificationsPanel
+			:emailEnabled="emailEnabled"
+			:smsEnabled="smsEnabled"
+			:phoneVerified="phoneVerified"
+		/>
 
-	<OccasionalNotificationsPanel
-		:emailEnabled="emailEnabled"
-		:smsEnabled="smsEnabled"
-		:phoneVerified="phoneVerified"
-	/>
-
-	<NotificationPreviewPanel
-		:initialAssets="currentAssets"
-		:emailEnabled="emailEnabled"
-		:smsEnabled="smsEnabled"
-		:phoneVerified="phoneVerified"
-	/>
+		<NotificationPreviewPanel
+			:initialAssets="currentAssets"
+			:emailEnabled="emailEnabled"
+			:smsEnabled="smsEnabled"
+			:phoneVerified="phoneVerified"
+		/>
+	</div>
 </template>
 
 <script lang="ts" setup>

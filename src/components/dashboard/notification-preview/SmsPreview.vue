@@ -1,15 +1,22 @@
 <template>
-	<div class="sms-preview">
-		<h4 class="text-sm font-medium text-gray-700 mb-3">SMS Preview</h4>
+	<div class="sms-preview" aria-label="SMS notification preview">
 		<div class="phone-mockup">
 			<div class="phone-frame-border">
-				<div class="phone-notch"></div>
 				<div class="phone-screen">
+					<div class="phone-status-bar" aria-hidden="true">
+						<span class="status-time">9:41</span>
+						<div class="status-icons">
+							<svg class="status-icon" viewBox="0 0 17 12" fill="#0f172a"><rect x="0" y="8" width="3" height="4" rx="0.5"/><rect x="4.5" y="5" width="3" height="7" rx="0.5"/><rect x="9" y="2" width="3" height="10" rx="0.5"/><rect x="13.5" y="0" width="3" height="12" rx="0.5" opacity="0.3"/></svg>
+							<svg class="status-icon" viewBox="0 0 16 12" fill="none" stroke="#0f172a" stroke-width="1.6"><path d="M1 4.5a10 10 0 0 1 14 0" stroke-linecap="round"/><path d="M4 7.5a6 6 0 0 1 8 0" stroke-linecap="round"/><circle cx="8" cy="11" r="1" fill="#0f172a" stroke="none"/></svg>
+							<svg class="status-icon-battery" viewBox="0 0 27 12" fill="#0f172a"><rect x="0" y="0.5" width="22" height="11" rx="2" stroke="#0f172a" stroke-width="1.2" fill="none"/><rect x="2.5" y="2.5" width="14" height="7" rx="1"/><rect x="23" y="3.5" width="2" height="5" rx="1"/></svg>
+						</div>
+					</div>
 					<div class="sms-body">
 						<div class="message-bubble-received">
 							<p class="text-sm leading-relaxed whitespace-pre-line">{{ formattedSmsText }}</p>
 						</div>
 					</div>
+					<div class="phone-home-indicator" aria-hidden="true"></div>
 				</div>
 			</div>
 		</div>
@@ -43,29 +50,52 @@ const formattedSmsText = computed(() =>
 }
 
 .phone-frame-border {
-	background: #1f2937;
-	border-radius: 2rem;
-	padding: 0.75rem 0.5rem;
+	background: linear-gradient(160deg, #111827 0%, #1f2937 60%, #111827 100%);
+	border-radius: 2.1rem;
+	padding: 0.4rem;
 	position: relative;
-}
-
-.phone-notch {
-	width: 5rem;
-	height: 0.375rem;
-	background: #374151;
-	border-radius: 9999px;
-	margin: 0 auto 0.5rem;
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.15),
+		0 18px 28px -18px rgba(0, 0, 0, 0.55);
 }
 
 .phone-screen {
-	background: #f9fafb;
-	border-radius: 1.25rem;
+	background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+	border-radius: 1.75rem;
 	overflow: hidden;
-	min-height: 200px;
+	min-height: 300px;
+	position: relative;
+	border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.phone-status-bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0.75rem 1rem 0.4rem;
+	font-size: 0.75rem;
+	font-weight: 600;
+	color: #0f172a;
+}
+
+.status-icons {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+}
+
+.status-icon {
+	width: 0.95rem;
+	height: 0.7rem;
+}
+
+.status-icon-battery {
+	width: 1.3rem;
+	height: 0.6rem;
 }
 
 .sms-body {
-	padding: 0.75rem;
+	padding: 0.2rem 0.75rem 1.2rem;
 }
 
 .message-bubble-received {
@@ -75,5 +105,16 @@ const formattedSmsText = computed(() =>
 	padding: 0.625rem 0.75rem;
 	max-width: 90%;
 	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.phone-home-indicator {
+	position: absolute;
+	left: 50%;
+	bottom: 0.35rem;
+	transform: translateX(-50%);
+	width: 6.2rem;
+	height: 0.2rem;
+	background: rgba(15, 23, 42, 0.22);
+	border-radius: 9999px;
 }
 </style>

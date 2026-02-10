@@ -1,5 +1,5 @@
 <template>
-	<div class="w-full sm:max-w-xs">
+	<div class="relative w-full sm:max-w-xs">
 		<Teleport v-if="isMounted" to="body">
 			<div
 				v-if="isBackdropVisible"
@@ -21,6 +21,7 @@
 			ref="datepicker"
 			v-model="selectedTime"
 			time-picker
+			placeholder="Select time"
 			:time-config="timeConfig"
 			:config="datepickerConfig"
 			:min-time="minTime"
@@ -32,6 +33,37 @@
 			@open="handleMenuOpen"
 			@closed="handleMenuClosed"
 		/>
+		<!-- Overlay icons inside the right edge of the input -->
+		<div
+			v-if="hasOverlayIcons"
+			class="absolute inset-y-0 right-0 flex items-center gap-0.5 pr-2 pointer-events-none"
+		>
+			<span v-if="outsideMarketHours" class="relative group/warn pointer-events-auto">
+				<button
+					type="button"
+					class="text-amber-500 hover:text-amber-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 rounded p-0.5"
+					aria-label="Outside market hours"
+					@click.stop
+				>
+					<ExclamationTriangleIcon class="size-4" aria-hidden="true" />
+				</button>
+				<span
+					class="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-focus-within/warn:opacity-100 group-hover/warn:opacity-100 z-10"
+					role="tooltip"
+				>
+					Outside market hours
+				</span>
+			</span>
+			<button
+				v-if="clearable"
+				type="button"
+				class="pointer-events-auto text-gray-400 hover:text-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded p-0.5 transition-colors"
+				:aria-label="clearAriaLabel ?? 'Clear time'"
+				@click.stop="emit('clear')"
+			>
+				<XMarkIcon class="size-3.5 cursor-pointer" aria-hidden="true" />
+			</button>
+		</div>
 	</div>
 </template>
 
@@ -39,6 +71,8 @@
 import "@vuepic/vue-datepicker/dist/main.css";
 import { VueDatePicker } from "@vuepic/vue-datepicker";
 import { computed, onMounted, ref, watch } from "vue";
+import ExclamationTriangleIcon from "../../../icons/exclamation-triangle-24.svg?component";
+import XMarkIcon from "../../../icons/x-mark.svg?component";
 import {
 	formatTimeValue,
 	parseTimeString,
@@ -57,9 +91,20 @@ const props = defineProps<{
 	initialTime: string | null;
 	disabled?: boolean;
 	inputAriaLabel?: string;
+	/** Show amber warning triangle inside the input */
+	outsideMarketHours?: boolean;
+	/** Show X clear button inside the input */
+	clearable?: boolean;
+	/** Accessible label for the clear button */
+	clearAriaLabel?: string;
 }>();
 
-const emit = defineEmits<(event: "time-change", value: string) => void>();
+const emit = defineEmits<{
+	(event: "time-change", value: string): void;
+	(event: "clear"): void;
+}>();
+
+const hasOverlayIcons = computed(() => props.outsideMarketHours || props.clearable);
 
 const minutesIncrement = 1;
 const minTime: TimeModel = { hours: 0, minutes: 0, seconds: 0 };
@@ -130,11 +175,13 @@ function handleBackdropPointerCancel() {
 }
 
 const inputAttributes = computed(() => {
+	const iconCount = (props.outsideMarketHours ? 1 : 0) + (props.clearable ? 1 : 0);
+	const paddingClass = iconCount > 1 ? "!pr-14" : iconCount === 1 ? "!pr-9" : "";
 	return {
 		id: props.inputId,
-		class:
-			"input cursor-pointer",
+		class: `input cursor-pointer ${paddingClass}`.trim(),
 		"aria-label": props.inputAriaLabel,
+		placeholder: "Select time",
 		// vue-datepicker v12 clear button is controlled by inputAttrs, not a top-level prop.
 		clearable: false,
 		alwaysClearable: false,
