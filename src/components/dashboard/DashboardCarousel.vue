@@ -59,14 +59,14 @@ const tabs: Tab[] = [
 
 const activeIndex = ref(0);
 const trackRef = ref<HTMLElement | null>(null);
-const cardRefs: (HTMLElement | null)[] = [];
+const cardRefs = ref<(HTMLElement | null)[]>([]);
 
 function setCardRef(el: HTMLElement | null, index: number) {
-	cardRefs[index] = el;
+	cardRefs.value[index] = el;
 }
 
 function scrollToCard(index: number) {
-	const card = cardRefs[index];
+	const card = cardRefs.value[index];
 	if (card && trackRef.value) {
 		trackRef.value.scrollTo({
 			left: card.offsetLeft,
@@ -88,6 +88,7 @@ function syncActiveTab() {
 
 	const scrollLeft = track.scrollLeft;
 	const cardWidth = track.offsetWidth;
+	if (cardWidth === 0) return;
 
 	const index = Math.round(scrollLeft / cardWidth);
 	if (index >= 0 && index < tabs.length) {
@@ -162,7 +163,6 @@ onBeforeUnmount(() => {
 	display: flex;
 	overflow-x: auto;
 	scroll-snap-type: x mandatory;
-	-webkit-overflow-scrolling: touch;
 	flex: 1;
 	min-height: 0;
 	scrollbar-width: none;
@@ -183,7 +183,6 @@ onBeforeUnmount(() => {
 .carousel-card-inner {
 	height: 100%;
 	overflow-y: auto;
-	-webkit-overflow-scrolling: touch;
 }
 
 /* ===== Desktop: stacked mode (>=768px) ===== */
