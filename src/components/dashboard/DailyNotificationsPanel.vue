@@ -59,7 +59,7 @@
 					role="note"
 				>
 					<InformationCircleIcon class="size-5 shrink-0 mt-0.5" aria-hidden="true" />
-					<span>No daily digest will be sent..</span>
+					<span>No daily digest will be sent.</span>
 				</p>
 			</FadeTransition>
 
@@ -186,12 +186,13 @@
 								/>
 								<span class="text-sm text-gray-700">SMS</span>
 							</label>
-							<label class="inline-flex items-center gap-1.5 cursor-pointer">
+							<label class="inline-flex items-center gap-1.5" :class="needsChannelSelection ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'">
 								<input
 									type="checkbox"
 									v-model="includeAnalystEmail"
 									:disabled="needsChannelSelection"
-									class="rounded border-gray-300 text-teal-600 focus:ring-teal-500 h-4 w-4 cursor-pointer"
+									class="rounded border-gray-300 text-teal-600 focus:ring-teal-500 h-4 w-4"
+									:class="needsChannelSelection ? 'cursor-not-allowed' : 'cursor-pointer'"
 									aria-describedby="daily_include_analyst_description"
 								/>
 								<span class="text-sm text-gray-700">Email</span>
@@ -238,12 +239,13 @@
 								/>
 								<span class="text-sm text-gray-700">SMS</span>
 							</label>
-							<label class="inline-flex items-center gap-1.5 cursor-pointer">
+							<label class="inline-flex items-center gap-1.5" :class="needsChannelSelection ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'">
 								<input
 									type="checkbox"
 									v-model="includeInsiderEmail"
 									:disabled="needsChannelSelection"
-									class="rounded border-gray-300 text-teal-600 focus:ring-teal-500 h-4 w-4 cursor-pointer"
+									class="rounded border-gray-300 text-teal-600 focus:ring-teal-500 h-4 w-4"
+									:class="needsChannelSelection ? 'cursor-not-allowed' : 'cursor-pointer'"
 									aria-describedby="daily_include_insider_description"
 								/>
 								<span class="text-sm text-gray-700">Email</span>

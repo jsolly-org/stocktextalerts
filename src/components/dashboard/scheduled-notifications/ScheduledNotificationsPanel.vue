@@ -114,7 +114,7 @@
 					role="note"
 				>
 					<InformationCircleIcon class="size-5 shrink-0 mt-0.5" aria-hidden="true" />
-					<span>No Market notifications..</span>
+					<span>No Market notifications.</span>
 				</p>
 			</FadeTransition>
 

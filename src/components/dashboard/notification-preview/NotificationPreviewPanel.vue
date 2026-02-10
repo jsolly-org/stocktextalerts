@@ -91,7 +91,7 @@
 					class="preview-dot"
 					:class="{ active: activeSlide === i }"
 					:aria-label="`View ${label} preview`"
-					:aria-current="activeSlide === i ? 'true' : undefined"
+					:aria-current="activeSlide === i ? 'page' : undefined"
 					@click="scrollToSlide(i)"
 				>
 					<span class="sr-only">{{ label }}</span>

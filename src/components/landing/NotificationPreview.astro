@@ -10,35 +10,35 @@ import phoneFrame from "../../assets/phone-frame.svg";
       <div class="messages-scroll">
         <div class="messages-wrapper">
           <div class="message-bubble received" data-index="0">
-            <p class="text-[10px] font-bold uppercase tracking-wider mb-1.5 text-blue-600">Scheduled Update</p>
+            <p class="font-bold uppercase text-blue-600">Scheduled Update</p>
             <p>AAPL $195.50 (+2.4%), GOOGL $178.20 (+1.8%), TSLA $248.30 (-0.5%)</p>
           </div>
           <div class="message-bubble received" data-index="1">
-            <p class="text-[10px] font-bold uppercase tracking-wider mb-1.5 text-blue-600">🗞️ Breaking News</p>
+            <p class="font-bold uppercase text-blue-600">🗞️ Breaking News</p>
             <p>Fed holds rates steady at 5.25%. Markets rally on dovish guidance.</p>
           </div>
           <div class="message-bubble received" data-index="2">
-            <p class="text-[10px] font-bold uppercase tracking-wider mb-1.5 text-blue-600">🤫 Rumor</p>
+            <p class="font-bold uppercase text-blue-600">🤫 Rumor</p>
             <p>TSLA chatter: leaked photos suggest a lower-cost model. Unverified.</p>
           </div>
           <div class="message-bubble received" data-index="3">
-            <p class="text-[10px] font-bold uppercase tracking-wider mb-1.5 text-blue-600">🗞️ Breaking News</p>
+            <p class="font-bold uppercase text-blue-600">🗞️ Breaking News</p>
             <p>NVDA announces next-gen AI chip. Stock surges 4.1% to new 52-week high of $142.60.</p>
           </div>
           <div class="message-bubble received" data-index="4">
-            <p class="text-[10px] font-bold uppercase tracking-wider mb-1.5 text-blue-600">🤫 Rumor</p>
+            <p class="font-bold uppercase text-blue-600">🤫 Rumor</p>
             <p>AAPL chatter: supply chain talk hints at a foldable prototype. Unverified.</p>
           </div>
           <div class="message-bubble received" data-index="5">
-            <p class="text-[10px] font-bold uppercase tracking-wider mb-1.5 text-blue-600">Scheduled Update</p>
+            <p class="font-bold uppercase text-blue-600">Scheduled Update</p>
             <p>Market Close: S&P 500 +0.8%, NASDAQ +1.2%, DOW +0.3%.</p>
           </div>
           <div class="message-bubble received" data-index="6">
-            <p class="text-[10px] font-bold uppercase tracking-wider mb-1.5 text-blue-600">🗞️ Breaking News</p>
+            <p class="font-bold uppercase text-blue-600">🗞️ Breaking News</p>
             <p>MSFT earnings beat estimates. Revenue up 17% YoY. After-hours +3.2%.</p>
           </div>
           <div class="message-bubble received" data-index="7">
-            <p class="text-[10px] font-bold uppercase tracking-wider mb-1.5 text-blue-600">🤫 Rumor</p>
+            <p class="font-bold uppercase text-blue-600">🤫 Rumor</p>
             <p>GOOGL chatter: talk of insider buying ahead of a product launch. Unverified.</p>
           </div>
         </div>
@@ -174,9 +174,8 @@ import phoneFrame from "../../assets/phone-frame.svg";
     const messages = Array.from(container.querySelectorAll('.message-bubble'));
     if (!messages.length) return;
 
-    const scrollContainerElement = container.querySelector('.messages-scroll');
-    if (!(scrollContainerElement instanceof HTMLElement)) return;
-    const scrollContainer = scrollContainerElement;
+    const scrollContainer = container.querySelector('.messages-scroll');
+    if (!(scrollContainer instanceof HTMLElement)) return;
 
     // Respect prefers-reduced-motion
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

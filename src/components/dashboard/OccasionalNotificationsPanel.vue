@@ -127,12 +127,13 @@
 								/>
 								<span class="text-sm text-gray-700">SMS</span>
 							</label>
-							<label class="inline-flex items-center gap-1.5 cursor-pointer">
+							<label class="inline-flex items-center gap-1.5" :class="needsChannelSelection ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'">
 								<input
 									type="checkbox"
 									v-model="includeEarningsEmail"
 									:disabled="needsChannelSelection"
-									class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4 cursor-pointer"
+									class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4"
+									:class="needsChannelSelection ? 'cursor-not-allowed' : 'cursor-pointer'"
 									aria-describedby="weekly_include_earnings_description"
 								/>
 								<span class="text-sm text-gray-700">Email</span>
