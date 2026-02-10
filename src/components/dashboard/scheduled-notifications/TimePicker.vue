@@ -57,11 +57,11 @@
 			<button
 				v-if="clearable"
 				type="button"
-				class="pointer-events-auto text-gray-400 hover:text-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded p-0.5 transition-colors"
+				class="pointer-events-auto btn-icon-danger p-0.5"
 				:aria-label="clearAriaLabel ?? 'Clear time'"
 				@click.stop="emit('clear')"
 			>
-				<XMarkIcon class="size-3.5 cursor-pointer" aria-hidden="true" />
+				<XMarkIcon class="size-3.5" aria-hidden="true" />
 			</button>
 		</div>
 	</div>

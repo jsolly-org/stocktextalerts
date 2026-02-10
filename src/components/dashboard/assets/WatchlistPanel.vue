@@ -101,11 +101,11 @@
 					</span>
 					<button
 						type="button"
-						class="btn-icon-danger rounded p-1.5"
+						class="btn-icon-danger p-1.5"
 						:aria-label="`Remove ${asset.symbol}`"
 						@click="removeSymbol(asset.symbol)"
 					>
-						<XMarkIcon class="h-4 w-4" aria-hidden="true" focusable="false" />
+						<XMarkIcon class="size-3.5" aria-hidden="true" focusable="false" />
 					</button>
 				</li>
 			</ul>

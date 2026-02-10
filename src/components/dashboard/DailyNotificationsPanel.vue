@@ -265,7 +265,7 @@
 						id="daily_delivery_time_description"
 						class="text-sm text-gray-600 mt-0.5"
 					>
-						Sent once every day.
+						Sent once every day.<span v-if="isHydrated && isUsingMarketTime" class="text-gray-400 italic"> Using your earliest market notification time.</span>
 					</p>
 				</div>
 		<div class="sm:shrink-0">
@@ -409,6 +409,11 @@ const dailyDeliveryTimeMinutes = ref<number | null>(
 
 const dailyEnabled = computed(() =>
 	includeNewsEmail.value || includeRumorsEmail.value || includeAnalystEmail.value || includeInsiderEmail.value || includeAnalystSms.value || includeInsiderSms.value,
+);
+
+/** True when the displayed delivery time is inherited from market notification settings. */
+const isUsingMarketTime = computed(
+	() => user.value.daily_delivery_time === null && dailyDeliveryTimeMinutes.value !== null,
 );
 
 /**
