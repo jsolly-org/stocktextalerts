@@ -1,57 +1,69 @@
 <template>
-	<div class="space-y-6">
-		<form
-			ref="assetsFormElement"
-			:id="DASHBOARD_ASSETS_FORM_ID"
-			method="POST"
-			action="/api/assets/update"
-			aria-label="Watchlist"
-			:aria-busy="isAssetsSaving"
-			@input="handleAssetsFormInput"
-			@change="handleAssetsFormChange"
-			@submit="handleAssetsFormSubmit"
-		>
-			<WatchlistPanel
-				:assetOptions="assetOptions"
-				:initialAssets="initialAssets"
-				:status-message="assetsStatusMessage"
-				:status-tone="assetsStatusTone"
-				:is-saving="isAssetsSaving"
-				@form-changed="notifyAssetsChange"
-				@assets-changed="currentAssets = $event"
+	<DashboardCarousel>
+		<template #setup>
+			<div class="space-y-6">
+				<form
+					ref="assetsFormElement"
+					:id="DASHBOARD_ASSETS_FORM_ID"
+					method="POST"
+					action="/api/assets/update"
+					aria-label="Watchlist"
+					:aria-busy="isAssetsSaving"
+					@input="handleAssetsFormInput"
+					@change="handleAssetsFormChange"
+					@submit="handleAssetsFormSubmit"
+				>
+					<WatchlistPanel
+						:assetOptions="assetOptions"
+						:initialAssets="initialAssets"
+						:status-message="assetsStatusMessage"
+						:status-tone="assetsStatusTone"
+						:is-saving="isAssetsSaving"
+						@form-changed="notifyAssetsChange"
+						@assets-changed="currentAssets = $event"
+					/>
+				</form>
+
+				<NotificationChannelsPanel
+					v-model:emailEnabled="emailEnabled"
+					v-model:smsEnabled="smsEnabled"
+				/>
+			</div>
+		</template>
+
+		<template #schedule>
+			<ScheduledNotificationsPanel
+				:emailEnabled="emailEnabled"
+				:smsEnabled="smsEnabled"
+				:phoneVerified="phoneVerified"
 			/>
-		</form>
+		</template>
 
-		<NotificationChannelsPanel
-			v-model:emailEnabled="emailEnabled"
-			v-model:smsEnabled="smsEnabled"
-		/>
+		<template #daily>
+			<DailyNotificationsPanel
+				:emailEnabled="emailEnabled"
+				:smsEnabled="smsEnabled"
+				:phoneVerified="phoneVerified"
+			/>
+		</template>
 
-		<ScheduledNotificationsPanel
-			:emailEnabled="emailEnabled"
-			:smsEnabled="smsEnabled"
-			:phoneVerified="phoneVerified"
-		/>
+		<template #weekly>
+			<OccasionalNotificationsPanel
+				:emailEnabled="emailEnabled"
+				:smsEnabled="smsEnabled"
+				:phoneVerified="phoneVerified"
+			/>
+		</template>
 
-		<DailyNotificationsPanel
-			:emailEnabled="emailEnabled"
-			:smsEnabled="smsEnabled"
-			:phoneVerified="phoneVerified"
-		/>
-
-		<OccasionalNotificationsPanel
-			:emailEnabled="emailEnabled"
-			:smsEnabled="smsEnabled"
-			:phoneVerified="phoneVerified"
-		/>
-
-		<NotificationPreviewPanel
-			:initialAssets="currentAssets"
-			:emailEnabled="emailEnabled"
-			:smsEnabled="smsEnabled"
-			:phoneVerified="phoneVerified"
-		/>
-	</div>
+		<template #preview>
+			<NotificationPreviewPanel
+				:initialAssets="currentAssets"
+				:emailEnabled="emailEnabled"
+				:smsEnabled="smsEnabled"
+				:phoneVerified="phoneVerified"
+			/>
+		</template>
+	</DashboardCarousel>
 </template>
 
 <script lang="ts" setup>
@@ -64,6 +76,7 @@ import WatchlistPanel from "./assets/WatchlistPanel.vue";
 import { useAutoSaveForm } from "./composables/useAutoSaveNotificationPreferences";
 import { provideDashboardUser } from "./composables/useDashboardUser";
 import DailyNotificationsPanel from "./DailyNotificationsPanel.vue";
+import DashboardCarousel from "./DashboardCarousel.vue";
 import NotificationChannelsPanel from "./notification-channels/NotificationChannelsPanel.vue";
 import NotificationPreviewPanel from "./notification-preview/NotificationPreviewPanel.vue";
 import OccasionalNotificationsPanel from "./OccasionalNotificationsPanel.vue";
