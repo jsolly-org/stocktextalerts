@@ -32,14 +32,31 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 		? Math.min(Math.max(1, limitParam), MAX_LIMIT)
 		: DEFAULT_LIMIT;
 
+	// PostgREST `.or()` takes a raw filter string; values containing reserved
+	// characters (e.g. `,()`) must be quoted. Also escape `%`/`_` so user input
+	// is treated literally in ILIKE patterns (we add our own wildcards).
+	const escapeLikeLiteral = (input: string) =>
+		input.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+	const quotePostgrestValue = (value: string) => {
+		const escaped = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+		return `"${escaped}"`;
+	};
+
+	const likeQuery = escapeLikeLiteral(query);
+	const symbolPrefixPattern = `${likeQuery}%`;
+	const nameContainsPattern = `%${likeQuery}%`;
+	const quotedSymbolPrefixPattern = quotePostgrestValue(symbolPrefixPattern);
+	const quotedNameContainsPattern = quotePostgrestValue(nameContainsPattern);
+
 	try {
 		// Use ilike for prefix matching on symbol, or textSearch for name
 		// Symbol prefix match (exact start) OR name substring match
-		const searchPattern = `%${query}%`;
 		const { data, error } = await supabase
 			.from("assets")
 			.select("symbol, name, type")
-			.or(`symbol.ilike.${query}%,name.ilike.${searchPattern}`)
+			.or(
+				`symbol.ilike.${quotedSymbolPrefixPattern},name.ilike.${quotedNameContainsPattern}`,
+			)
 			.order("symbol")
 			.limit(limit);
 
