@@ -1,14 +1,16 @@
 User-agent: *
 Allow: /
-Disallow: /api/
 Disallow: /auth/forgot
 Disallow: /auth/recover
 Disallow: /auth/register
 Disallow: /auth/signin
 Disallow: /auth/unconfirmed
 Disallow: /auth/verified
-Disallow: /email/unsubscribe
 Disallow: /dashboard
 Disallow: /profile
+Disallow: /email/unsubscribe
+Disallow: /404
+Disallow: /500
+Disallow: /api/
 
 Sitemap: https://www.stocktextalerts.com/sitemap-index.xml

@@ -6,6 +6,7 @@ import { defineConfig } from "astro/config";
 import icon from "astro-icon";
 import { loadEnv } from "vite";
 import svgLoader from "vite-svg-loader";
+import { seoExcludedRoutes } from "./src/config/seo";
 
 // Config runs before Vite loads .env*; loadEnv makes .env / .env.local available here.
 const mode = process.env.NODE_ENV || process.env.MODE || "development";
@@ -61,23 +62,12 @@ if (!vercelUrl) {
  * Exclude auth flow, authenticated, and utility pages from the sitemap.
  *
  * These routes have no SEO value and are better left out of crawl budgets.
+ * The exclusion list is defined in src/config/seo.ts to ensure consistency
+ * with robots.txt.
  */
 function sitemapFilter(page: string): boolean {
 	const pathname = new URL(page).pathname.replace(/\/$/, "") || "/";
-	const excludedPrefixes = [
-		"/auth/forgot",
-		"/auth/recover",
-		"/auth/register",
-		"/auth/signin",
-		"/auth/unconfirmed",
-		"/auth/verified",
-		"/dashboard",
-		"/email/unsubscribe",
-		"/profile",
-		"/404",
-		"/500",
-	];
-	return !excludedPrefixes.some(
+	return !seoExcludedRoutes.some(
 		(p) => pathname === p || pathname.startsWith(`${p}/`),
 	);
 }

@@ -8,8 +8,11 @@
 	},
 	"scripts": {
 		"dev": "astro dev",
+		"prebuild": "npm run seo:generate-robots",
 		"build": "astro build",
 		"preview": "npm run build && vercel deploy --prebuilt",
+		"seo:generate-robots": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/generate-robots-txt.ts",
+		"seo:test-sync": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/test-seo-sync.ts",
 		"prepare": "if [ -z \"$CI\" ]; then husky; fi",
 		"test": "node --env-file-if-exists=.env.local ./node_modules/.bin/vitest --no-watch",
 		"test:ci": "node --env-file-if-exists=.env.local ./node_modules/.bin/vitest --no-watch",
