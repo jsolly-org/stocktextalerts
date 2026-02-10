@@ -4,7 +4,7 @@ const BASE_RETRY_DELAY_MS = 1_000;
 /**
  * Exponential backoff helper for Grok retries.
  *
- * Uses \(BASE_RETRY_DELAY_MS * 2^(attempt-1)\) with `setTimeout`.
+ * Uses `BASE_RETRY_DELAY_MS * 2^(attempt-1)` with `setTimeout`.
  */
 const delay = (attempt: number) =>
 	new Promise<void>((r) =>

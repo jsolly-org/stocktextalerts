@@ -141,9 +141,17 @@ function resolveDefaultTimezone() {
 
 /** Fetch the user's current notification preferences snapshot for the mismatch banner. */
 async function refreshNotificationPreferences() {
-	const prefs = await fetchCurrentNotificationPreferences();
-	if (prefs) {
-		savedNotificationPreferences.value = prefs;
+	try {
+		const prefs = await fetchCurrentNotificationPreferences();
+		if (prefs) {
+			savedNotificationPreferences.value = prefs;
+		}
+	} catch (error) {
+		rootLogger.error(
+			"Failed to refresh notification preferences for timezone mismatch banner",
+			{ action: "refresh_notification_preferences" },
+			error,
+		);
 	}
 }
 
@@ -222,6 +230,9 @@ function handleTimezoneChange() {
 /** Handle timezone updates emitted by `TimezoneMismatchBanner`. */
 function handleTimezoneUpdated(newTimezone: string) {
 	selectedTimezone.value = newTimezone;
+	if (isSaving.value) {
+		pendingTimezoneSave.value = newTimezone;
+	}
 	statusMessage.value = "Timezone updated.";
 	statusTone.value = "success";
 	savedNotificationPreferences.value = savedNotificationPreferences.value

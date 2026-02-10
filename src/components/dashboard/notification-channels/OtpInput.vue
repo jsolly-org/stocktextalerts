@@ -97,6 +97,15 @@ function handleInput(index: number, event: Event) {
 				el.value = chars[i];
 			}
 		}
+		if (chars.length < CODE_LENGTH - index) {
+			for (let i = index + chars.length; i < CODE_LENGTH; i++) {
+				digits.value[i] = "";
+				const el = inputRefs.value[i];
+				if (el) {
+					el.value = "";
+				}
+			}
+		}
 		const lastIdx = index + chars.length - 1;
 		const lastInput = inputRefs.value[lastIdx];
 		if (lastInput) {
