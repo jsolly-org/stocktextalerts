@@ -1,6 +1,11 @@
 import { rootLogger } from "./logging";
 
 const BASE_RETRY_DELAY_MS = 1_000;
+/**
+ * Exponential backoff helper for Grok retries.
+ *
+ * Uses `BASE_RETRY_DELAY_MS * 2^(attempt-1)` with `setTimeout`.
+ */
 const delay = (attempt: number) =>
 	new Promise<void>((r) =>
 		setTimeout(r, BASE_RETRY_DELAY_MS * 2 ** (attempt - 1)),
@@ -76,6 +81,12 @@ export type GrokExtrasResult = {
 
 const GROK_TIMEOUT_MS = 30_000;
 
+/**
+ * Extract plain text and source URLs from an xAI Responses API payload.
+ *
+ * This intentionally only pulls assistant-visible output text and annotation URLs, and
+ * avoids attempting to interpret non-text output items.
+ */
 function extractTextAndCitationsFromXaiResponse(response: ResponsesResponse): {
 	text: string | null;
 	citations: string[];
@@ -145,10 +156,16 @@ function extractTextAndCitationsFromXaiResponse(response: ResponsesResponse): {
 	return { text: text === "" ? null : text, citations: [...citationUrls] };
 }
 
+/** Read Vite `import.meta.env` in a way that also works in Node contexts. */
 function getMetaEnv(): Record<string, string | undefined> | undefined {
 	return (import.meta as { env?: Record<string, string | undefined> }).env;
 }
 
+/**
+ * Build the system/user prompt used to request "extras" content from Grok.
+ *
+ * The prompt enforces a strict tagged format so we can reliably parse the response.
+ */
 function buildExtrasPrompt(options: {
 	tickers: string[];
 	localDateIso: string;
@@ -180,7 +197,7 @@ function buildExtrasPrompt(options: {
 		system,
 		user:
 			`Write short ${requested || "extras"} content for these tickers: ${tickers}.\n` +
-			`Context: this will be sent as a daily notification.\n` +
+			`Context: this will be sent as part of the daily digest.\n` +
 			`Local date: ${options.localDateIso} (${options.timezone}).\n` +
 			newsContextBlock +
 			"\nReturn EXACTLY this tagged format (no extra text outside tags):\n" +
@@ -202,6 +219,11 @@ function buildExtrasPrompt(options: {
 	};
 }
 
+/**
+ * Extract the content between `[TAG]` and `[/TAG]` markers.
+ *
+ * Returns `null` when tags are missing, malformed, or the content is empty.
+ */
 function extractTaggedBlock(
 	text: string,
 	tag: "NEWS" | "RUMORS",

@@ -48,15 +48,15 @@ import Layout from "../layouts/Layout.astro";
 
         <!-- Action buttons -->
         <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <button 
+          <button
             id="reload-button"
             class="btn btn-lg btn-primary w-full sm:w-auto"
           >
-            <Icon name="arrow-path" class="w-5 h-5 mr-2" />
+            <Icon name="arrow-path" class="w-5 h-5 mr-2" aria-hidden="true" />
             Try Again
           </button>
           <a href="/" class="btn btn-lg btn-secondary w-full sm:w-auto">
-            <Icon name="arrow-left" class="w-5 h-5 mr-2" />
+            <Icon name="arrow-left" class="w-5 h-5 mr-2" aria-hidden="true" />
             Back to Home
           </a>
         </div>
@@ -102,6 +102,18 @@ import Layout from "../layouts/Layout.astro";
   @keyframes draw-flatline {
     to {
       stroke-dashoffset: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .flatline-chart :global(.heartbeat-line),
+    .flatline-chart :global(.flatline) {
+      animation: none;
+      stroke-dashoffset: 0;
+    }
+
+    .animate-ping {
+      animation: none;
     }
   }
 </style>

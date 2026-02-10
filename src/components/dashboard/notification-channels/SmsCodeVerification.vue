@@ -27,7 +27,7 @@
 					<span aria-live="polite">
 						{{
 							isSendingVerification
-								? "Sending..."
+								? "Sending\u2026"
 								: !canResend
 									? `Resend (${formatRemaining(resendRemaining)})`
 									: "Resend Verification Code"
@@ -179,6 +179,7 @@ const formattedPhone = computed(() =>
 	),
 );
 
+/** Format a millisecond countdown as `M:SS`. */
 function formatRemaining(remaining: number) {
 	if (remaining === 0) {
 		return "0:00";
@@ -189,13 +190,18 @@ function formatRemaining(remaining: number) {
 	return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-
+/** Clear the ticking interval that drives countdown UI. */
 function clearTimer() {
 	if (!intervalId) return;
 	clearInterval(intervalId);
 	intervalId = null;
 }
 
+/**
+ * Ensure a countdown timer is running while either expiration or resend cooldown is active.
+ *
+ * Stops automatically once the code is expired and the user can resend.
+ */
 function ensureTimer() {
 	clearTimer();
 	now.value = Date.now();
@@ -233,6 +239,7 @@ onUnmounted(() => {
 	clearTimer();
 });
 
+/** Receive OTP input events and store the current code. */
 function handleOtpInput(code: string) {
 	otpCode.value = code;
 	emit("otp-input");
@@ -273,6 +280,11 @@ watch(
 	},
 );
 
+/**
+ * Intercept the resend click and submit the parent form using this button as the submitter.
+ *
+ * This preserves the `formaction`/`formmethod` on the button.
+ */
 function handleResendClick(event: MouseEvent) {
 	event.preventDefault();
 	const button = event.currentTarget;

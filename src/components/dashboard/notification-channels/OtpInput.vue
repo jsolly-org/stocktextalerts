@@ -26,7 +26,7 @@
 				@paste="handlePaste($event)"
 				@focus="handleFocus(index)"
 				@blur="handleBlur($event)"
-				class="w-full aspect-square text-center text-base sm:text-lg font-semibold border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+				class="w-full aspect-square text-center text-base sm:text-lg font-semibold border border-gray-300 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary"
 				:class="{
 					'border-error-strong ring-2 ring-error-strong': showError,
 				}"
@@ -59,6 +59,7 @@ const showError = ref(false);
 const touched = ref(false);
 const hasBlurred = ref(false);
 
+/** Track each digit input element for focus/validation management. */
 function setInputRef(el: unknown, index: number) {
 	if (el instanceof HTMLInputElement) {
 		inputRefs.value[index] = el;
@@ -67,6 +68,11 @@ function setInputRef(el: unknown, index: number) {
 
 const code = computed(() => digits.value.join(""));
 
+/**
+ * Handle typing into a single OTP digit input.
+ *
+ * Enforces numeric-only input and supports multi-character entry (mobile autofill).
+ */
 function handleInput(index: number, event: Event) {
 	if (!(event.target instanceof HTMLInputElement)) {
 		return;
@@ -89,6 +95,15 @@ function handleInput(index: number, event: Event) {
 			const el = inputRefs.value[idx];
 			if (el) {
 				el.value = chars[i];
+			}
+		}
+		if (chars.length < CODE_LENGTH - index) {
+			for (let i = index + chars.length; i < CODE_LENGTH; i++) {
+				digits.value[i] = "";
+				const el = inputRefs.value[i];
+				if (el) {
+					el.value = "";
+				}
 			}
 		}
 		const lastIdx = index + chars.length - 1;
@@ -114,6 +129,7 @@ function handleInput(index: number, event: Event) {
 	validateOtp();
 }
 
+/** Keyboard navigation (Backspace/Arrow keys) across OTP digit inputs. */
 function handleKeydown(index: number, event: KeyboardEvent) {
 	if (event.key === "Backspace" && !digits.value[index] && index > 0) {
 		event.preventDefault();
@@ -137,6 +153,11 @@ function handleKeydown(index: number, event: KeyboardEvent) {
 	}
 }
 
+/**
+ * Paste handler for OTP codes.
+ *
+ * Extracts digits, fills inputs left-to-right, then focuses the last populated cell.
+ */
 function handlePaste(event: ClipboardEvent) {
 	event.preventDefault();
 	touched.value = true;
@@ -160,6 +181,7 @@ function handlePaste(event: ClipboardEvent) {
 	validateOtp();
 }
 
+/** Select the digit on focus for quick replacement. */
 function handleFocus(index: number) {
 	const input = inputRefs.value[index];
 	if (input) {
@@ -168,6 +190,11 @@ function handleFocus(index: number) {
 	}
 }
 
+/**
+ * Blur handler used to decide when to show validation feedback.
+ *
+ * When focus moves between OTP inputs, we do not treat that as a "real" blur.
+ */
 function handleBlur(event: FocusEvent) {
 	const nextTarget = event.relatedTarget;
 	if (nextTarget instanceof HTMLElement) {
@@ -181,6 +208,11 @@ function handleBlur(event: FocusEvent) {
 	validateOtp();
 }
 
+/**
+ * Validate completeness of the OTP code and set browser custom validity.
+ *
+ * This keeps native form validation accurate even when we delay showing errors visually.
+ */
 function validateOtp() {
 	const isComplete = code.value.length === CODE_LENGTH;
 	const isEmpty = code.value.length === 0;
@@ -208,6 +240,7 @@ function validateOtp() {
 	}
 }
 
+/** Public validator invoked by watchers and form-submission signals. */
 function validate() {
 	const firstInput = inputRefs.value[0];
 

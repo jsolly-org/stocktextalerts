@@ -101,10 +101,15 @@ const formattedVerifiedPhone = computed(() =>
 	),
 );
 
+/** Receive phone input validity updates from `SmsPhoneSetup`. */
 function handleValidityChanged(isValid: boolean) {
 	sendVerificationDisabled.value = !isValid;
 }
 
+/**
+ * Switch the UI into "change number" mode and persist a lightweight marker
+ * so navigation back to the dashboard can restore pending state.
+ */
 function handleChangeNumberClick() {
 	// Ensure pending SMS state is saved before navigation.
 	try {
@@ -121,6 +126,7 @@ function handleChangeNumberClick() {
 	isEditingPhone.value = true;
 }
 
+/** After the expand transition, focus the phone setup input for faster completion. */
 function onSectionAfterEnter() {
 	if (isPhoneSetup.value) {
 		phoneSetupRef.value?.focus();
@@ -171,5 +177,12 @@ watch(
 	max-height: min(640px, 80vh);
 	opacity: 1;
 	transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.sms-verification-expand-enter-active,
+	.sms-verification-expand-leave-active {
+		transition: none;
+	}
 }
 </style>

@@ -8,11 +8,11 @@ export const prerender = true;
 const faqs = [
 	{
 		question: "What is StockTextAlerts?",
-		answer: "StockTextAlerts is a free service that sends you updates on the US assets you choose to track. You receive a concise summary of price changes delivered via email, SMS, or both."
+		answer: 'StockTextAlerts is a free service that sends you updates on the US stocks and ETFs you choose to track. You receive a concise summary of price changes delivered via email, SMS, or both. <a href="/auth/register" class="link-primary">Create a free account</a> to get started.'
 	},
 	{
 		question: "How do asset updates work?",
-		answer: "Once you create an account and pick the asset tickers you want to follow, we compile updates based on your preferences. You can receive scheduled market price notifications, plus optional daily and weekly notifications (like news/extras or an earnings calendar). You can choose whether each notification type is delivered by email, SMS, or both. Everything is delivered in your preferred timezone."
+		answer: 'Once you <a href="/auth/register" class="link-primary">create an account</a> and pick the asset tickers you want to follow, we compile updates based on your preferences. You can receive scheduled market price notifications, plus an optional daily digest and weekly calendar notifications. You can choose whether each notification type is delivered by email, SMS, or both.'
 	},
 	{
 		question: "Can I choose which notifications are sent via email vs SMS?",
@@ -20,27 +20,27 @@ const faqs = [
 	},
 	{
 		question: "I didn't receive my verification email. What should I do?",
-		answer: "Check your spam folder, then use the resend button on the unconfirmed page to request a new verification email. If it still doesn’t arrive, reach out to support@stocktextalerts.com."
+		answer: 'Check your spam folder, then use the resend button on the unconfirmed page to request a new verification email. If it still doesn\'t arrive, reach out to <a href="mailto:support@stocktextalerts.com" class="link-primary">support@stocktextalerts.com</a>.'
 	},
 	{
 		question: "What assets can I track?",
-		answer: "You can track any US-listed asset. Our database includes thousands of tickers from the NYSE and NASDAQ. Simply search by ticker symbol or company name in your dashboard."
+		answer: "You can track US-listed stocks and ETFs. Our database includes thousands of tickers from the NYSE and NASDAQ. Simply search by ticker symbol or company name in your dashboard."
 	},
 	{
 		question: "Is StockTextAlerts free?",
-		answer: "Yes. Creating an account, tracking assets, and receiving email updates are completely free. SMS delivery is also available at no extra cost."
+		answer: 'Yes. Creating an account, tracking assets, and receiving email updates are completely free. SMS delivery is also available at no extra cost. <a href="/auth/register" class="link-primary">Sign up for free</a>.'
 	},
 	{
 		question: "How do I get asset alerts by text message?",
-		answer: "After signing up, go to your dashboard and enable SMS as a notification channel. Add your phone number, verify it, and your updates will be sent as a text message in addition to (or instead of) email. You can reply STOP at any time to opt out of SMS; reply START to opt back in, then re-enable SMS from your dashboard."
+		answer: 'After <a href="/auth/register" class="link-primary">signing up</a>, go to your dashboard and enable SMS as a notification channel. Add your phone number, verify it, and your updates will be sent as a text message in addition to (or instead of) email. To change SMS delivery preferences, update your notification settings in your dashboard.'
 	},
 	{
 		question: "When are updates sent?",
-		answer: "You can choose up to five delivery times for market price notifications (in your preferred timezone). Daily notifications are sent once per day at your selected daily delivery time, and the weekly calendar is delivered every Monday (at your daily delivery time, or 9:00 AM by default)."
+		answer: "You can choose up to five delivery times for market price notifications. The daily digest is sent once per day at your selected daily delivery time, and the weekly calendar is delivered every Monday (at your daily delivery time, or 9:00 AM local time by default)."
 	},
 	{
-		question: "What are Daily Notifications?",
-		answer: "Daily Notifications are a once-daily digest that's separate from market price alerts. You can add optional extras like News, Rumors, Analyst Consensus, and Insider Trades for the assets you track. News and Rumors are email-only and may include clickable source links in the email."
+		question: "What is the Daily Digest?",
+		answer: "The Daily Digest is a once-daily summary that's separate from market price alerts. You can add optional extras like News, Rumors, Analyst Consensus, and Insider Trades for the assets you track. News and Rumors are email-only and may include clickable source links in the email."
 	},
 	{
 		question: "What is the Weekly Calendar?",
@@ -56,11 +56,11 @@ const faqs = [
 	},
 	{
 		question: "Do I need to install an app?",
-		answer: "No. StockTextAlerts works entirely through email and SMS. There is nothing to download or install. Manage your settings through our website and receive your updates in your inbox or messaging app."
+		answer: 'No. StockTextAlerts works entirely through email and SMS. There is nothing to download or install. <a href="/auth/register" class="link-primary">Create an account</a>, manage your settings through our website, and receive your updates in your inbox or messaging app.'
 	},
 	{
 		question: "How do I add or remove assets from my watchlist?",
-		answer: "Log in and visit your dashboard. Use the asset search to find tickers and add them to your list. To remove an asset, click the remove button next to its name."
+		answer: '<a href="/auth/signin" class="link-primary">Sign in to your dashboard</a> to manage your watchlist. Use the asset search to find tickers and add them to your list. To remove an asset, click the remove button next to its name.'
 	},
 	{
 		question: "Is StockTextAlerts investment advice?",
@@ -68,23 +68,35 @@ const faqs = [
 	},
 ];
 
-const jsonLd = {
-	"@context": "https://schema.org",
-	"@type": "FAQPage",
-	"mainEntity": faqs.map(faq => ({
-		"@type": "Question",
-		"name": faq.question,
-		"acceptedAnswer": {
-			"@type": "Answer",
-			"text": faq.answer,
-		},
-	})),
-};
+const siteUrl = (Astro.site?.href ?? Astro.url.origin).replace(/\/$/, "");
+
+const jsonLd = [
+	{
+		"@context": "https://schema.org",
+		"@type": "FAQPage",
+		"mainEntity": faqs.map(faq => ({
+			"@type": "Question",
+			"name": faq.question,
+			"acceptedAnswer": {
+				"@type": "Answer",
+				"text": faq.answer.replace(/<[^>]*>/g, ""),
+			},
+		})),
+	},
+	{
+		"@context": "https://schema.org",
+		"@type": "BreadcrumbList",
+		"itemListElement": [
+			{ "@type": "ListItem", "position": 1, "name": "Home", "item": siteUrl },
+			{ "@type": "ListItem", "position": 2, "name": "FAQ", "item": `${siteUrl}/faq` },
+		],
+	},
+];
 ---
 
 <Layout
-  title="Frequently Asked Questions | StockTextAlerts"
-  description="Frequently asked questions about StockTextAlerts. Learn how asset updates work, what assets you can track, how to get alerts by text message, and more."
+  title="Stock Alert FAQ | How Notifications Work"
+  description="FAQs about StockTextAlerts. Learn how stock and ETF price alerts work, what US assets you can track, and how to get free alerts by text."
   jsonLd={jsonLd}
 >
   <div class="min-h-screen bg-white">
@@ -99,7 +111,7 @@ const jsonLd = {
         {faqs.map((faq) => (
           <section class="border-b border-gray-200 pb-8">
             <h2 class="text-xl font-semibold text-gray-900 mb-3">{faq.question}</h2>
-            <p class="text-gray-600 leading-relaxed">{faq.answer}</p>
+            <p class="text-gray-600 leading-relaxed" set:html={faq.answer} />
           </section>
         ))}
       </div>

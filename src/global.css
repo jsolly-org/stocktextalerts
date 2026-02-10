@@ -33,8 +33,14 @@
 html {
 	font-family: "Open Sans", sans-serif;
 	font-size: 112.5%;
-	scroll-behavior: smooth;
 	scroll-padding-top: 4rem;
+	scroll-behavior: smooth;
+}
+
+h1,
+h2,
+h3 {
+	text-wrap: balance;
 }
 
 body {
@@ -60,7 +66,7 @@ body {
 /* ============= Button Utilities ============= */
 
 .btn {
-	@apply inline-flex items-center justify-center font-medium rounded-lg transition duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+	@apply inline-flex items-center justify-center font-medium rounded-lg transition-[background-color,color,border-color,box-shadow,transform,opacity] duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
 /* Button sizes */
@@ -147,7 +153,17 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+	html {
+		scroll-behavior: auto;
+	}
+
 	.animate-fade-in {
 		animation: none;
+	}
+
+	/* Disable Vue expand/collapse transitions */
+	[class*="-enter-active"],
+	[class*="-leave-active"] {
+		transition: none !important;
 	}
 }

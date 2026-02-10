@@ -20,6 +20,8 @@
 - **Semantic tokens** in `src/global.css` via Tailwind v4 `@theme` (primary, success, warning, error, info).
 - **Status UI**: Use `StatusMessage.astro` / `StatusMessage.vue` or `status-tone-*` classes.
 - **Neutral palette**: `gray-*` utilities for surfaces/text/borders.
+- **Avoid `:global(...)` in Astro component styles**: Prefer scoped selectors or shared classes in `src/global.css`.
+- **Allowed exception**: Use `:global(...)` only when styling markup outside the local scope boundary (for example, classes inside icon/SVG internals rendered by another component).
 
 ### Timing
 - No `setTimeout`/`nextTick`/`requestAnimationFrame` to mask race conditions. Fix the root cause. Legitimate uses (debouncing, throttling) are fine.

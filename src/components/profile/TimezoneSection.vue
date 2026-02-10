@@ -80,17 +80,24 @@ const props = withDefaults(defineProps<Props>(), {
 
 const { user, timezones, timezoneLoadError } = toRefs(props);
 
+/**
+ * Create a stable snapshot of notification preferences relevant to timezone mismatch prompts.
+ *
+ * This is used for comparison/UX in `TimezoneMismatchBanner`.
+ */
 function buildSavedNotificationPreferences(
 	sourceUser: User,
 ): NotificationPreferencesSnapshot {
+	const scheduledUpdateTimes = sourceUser.scheduled_update_times;
 	return {
 		email_notifications_enabled: sourceUser.email_notifications_enabled,
 		sms_notifications_enabled: sourceUser.sms_notifications_enabled,
 		sms_opted_out: sourceUser.sms_opted_out,
 		phone_verified: sourceUser.phone_verified,
 		timezone: sourceUser.timezone,
-		scheduled_update_times:
-			sourceUser.scheduled_update_times,
+		scheduled_update_times: Array.isArray(scheduledUpdateTimes)
+			? [...scheduledUpdateTimes]
+			: scheduledUpdateTimes,
 		next_send_at: sourceUser.next_send_at,
 		dismiss_timezone_mismatch_prompts:
 			sourceUser.dismiss_timezone_mismatch_prompts,
@@ -109,6 +116,11 @@ const pendingTimezoneSave = ref<string | null>(null);
 const statusMessage = ref<string | null>(null);
 const statusTone = ref<"success" | "error" | "warning" | "info">("info");
 
+/**
+ * Ensure `selectedTimezone` is set to a valid value available in the options list.
+ *
+ * Prefers: currently-selected (if valid) → detected local zone → app default → first available option.
+ */
 function resolveDefaultTimezone() {
 	const knownValues = new Set(
 		timezones.value.map((timezone) => timezone.value),
@@ -126,22 +138,42 @@ function resolveDefaultTimezone() {
 
 	if (DEFAULT_TIMEZONE && knownValues.has(DEFAULT_TIMEZONE)) {
 		selectedTimezone.value = DEFAULT_TIMEZONE;
+		return;
+	}
+
+	const fallback = timezones.value[0]?.value;
+	if (fallback) {
+		selectedTimezone.value = fallback;
 	}
 }
 
+/** Fetch the user's current notification preferences snapshot for the mismatch banner. */
 async function refreshNotificationPreferences() {
-	const prefs = await fetchCurrentNotificationPreferences();
-	if (prefs) {
-		savedNotificationPreferences.value = prefs;
+	try {
+		const prefs = await fetchCurrentNotificationPreferences();
+		if (prefs) {
+			savedNotificationPreferences.value = prefs;
+		}
+	} catch (error) {
+		rootLogger.error(
+			"Failed to refresh notification preferences for timezone banner",
+			{ action: "refresh_notification_preferences" },
+			error,
+		);
 	}
 }
 
+/**
+ * Persist timezone changes and update UI + cached snapshot.
+ *
+ * If a new change is requested while a save is in-flight, it is queued and saved next.
+ */
 async function saveTimezone(nextTimezone: string) {
 	if (!nextTimezone) {
 		return;
 	}
 
-	statusMessage.value = "Saving timezone...";
+	statusMessage.value = "Saving timezone\u2026";
 	statusTone.value = "info";
 	isSaving.value = true;
 
@@ -150,22 +182,26 @@ async function saveTimezone(nextTimezone: string) {
 		if (!prefs) {
 			statusMessage.value = "Failed to update timezone. Please try again.";
 			statusTone.value = "error";
+			selectedTimezone.value =
+				savedNotificationPreferences.value?.timezone ?? user.value.timezone;
 			return;
 		}
 
+		const resolvedTimezone = prefs.timezone ?? nextTimezone;
+		selectedTimezone.value = resolvedTimezone;
 		statusMessage.value = "Timezone updated.";
 		statusTone.value = "success";
 		savedNotificationPreferences.value = savedNotificationPreferences.value
 			? {
 					...savedNotificationPreferences.value,
-					timezone: prefs.timezone ?? nextTimezone,
+					timezone: resolvedTimezone,
 					...(prefs.next_send_at !== undefined && {
 						next_send_at: prefs.next_send_at,
 					}),
 				}
 			: buildSavedNotificationPreferences({
 					...user.value,
-					timezone: prefs.timezone ?? nextTimezone,
+					timezone: resolvedTimezone,
 					...(prefs.next_send_at !== undefined && {
 						next_send_at: prefs.next_send_at,
 					}),
@@ -181,6 +217,8 @@ async function saveTimezone(nextTimezone: string) {
 		);
 		statusMessage.value = "Failed to update timezone. Please try again.";
 		statusTone.value = "error";
+		selectedTimezone.value =
+			savedNotificationPreferences.value?.timezone ?? user.value.timezone;
 	} finally {
 		isSaving.value = false;
 		const next = pendingTimezoneSave.value;
@@ -191,6 +229,7 @@ async function saveTimezone(nextTimezone: string) {
 	}
 }
 
+/** Handle timezone selection changes initiated from `TimezoneSelect`. */
 function handleTimezoneChange() {
 	if (timezoneLoadError.value) {
 		return;
@@ -202,8 +241,12 @@ function handleTimezoneChange() {
 	void saveTimezone(selectedTimezone.value);
 }
 
+/** Handle timezone updates emitted by `TimezoneMismatchBanner`. */
 function handleTimezoneUpdated(newTimezone: string) {
 	selectedTimezone.value = newTimezone;
+	if (isSaving.value) {
+		pendingTimezoneSave.value = newTimezone;
+	}
 	statusMessage.value = "Timezone updated.";
 	statusTone.value = "success";
 	savedNotificationPreferences.value = savedNotificationPreferences.value
@@ -211,6 +254,7 @@ function handleTimezoneUpdated(newTimezone: string) {
 		: buildSavedNotificationPreferences({ ...user.value, timezone: newTimezone });
 }
 
+/** Refresh mismatch banner preferences after it updates notification settings. */
 function handleNotificationPreferencesUpdated() {
 	void refreshNotificationPreferences();
 }
