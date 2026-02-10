@@ -3,16 +3,30 @@ import {
 	EXCLUDED_ROUTE_PREFIXES,
 	ROBOTS_ONLY_DISALLOW_PREFIXES,
 } from "../../src/lib/seo/excluded-routes";
+import { GET as getRobotsTxt } from "../../src/pages/robots.txt";
 
 describe("SEO exclusion lists stay in sync.", () => {
-	it("robots.txt disallows are a superset of sitemap exclusions.", () => {
-		const allRobotsDisallows = [
-			...ROBOTS_ONLY_DISALLOW_PREFIXES,
-			...EXCLUDED_ROUTE_PREFIXES,
-		];
+	it("robots.txt output contains Disallow lines for all excluded prefixes.", async () => {
+		const previousVercelUrl = process.env.VERCEL_URL;
+		process.env.VERCEL_URL ??= "https://example.com";
+		try {
+			const response = await getRobotsTxt();
+			const body = await response.text();
 
-		for (const prefix of EXCLUDED_ROUTE_PREFIXES) {
-			expect(allRobotsDisallows).toContain(prefix);
+			const expectedDisallowLines = [
+				...ROBOTS_ONLY_DISALLOW_PREFIXES,
+				...EXCLUDED_ROUTE_PREFIXES,
+			].map((prefix) => `Disallow: ${prefix}`);
+
+			for (const line of expectedDisallowLines) {
+				expect(body).toContain(line);
+			}
+		} finally {
+			if (previousVercelUrl === undefined) {
+				delete process.env.VERCEL_URL;
+			} else {
+				process.env.VERCEL_URL = previousVercelUrl;
+			}
 		}
 	});
 
