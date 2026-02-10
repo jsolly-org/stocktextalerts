@@ -57,12 +57,13 @@ import phoneFrame from "../../assets/phone-frame.svg";
     margin-right: auto;
     margin-top: 3rem;
     margin-bottom: 2rem;
-    max-width: 130px;
+    max-width: 160px;
   }
 
   @media (min-width: 640px) {
     .phone-preview-container {
       margin-top: 4rem;
+      max-width: 180px;
     }
   }
 
@@ -71,7 +72,7 @@ import phoneFrame from "../../assets/phone-frame.svg";
     .phone-preview-container {
       margin-top: 0;
       margin-bottom: 0;
-      max-width: 150px;
+      max-width: 300px;
     }
   }
 
@@ -141,6 +142,23 @@ import phoneFrame from "../../assets/phone-frame.svg";
     line-height: 1.35;
   }
 
+  @media (min-width: 1024px) {
+    .message-bubble {
+      padding: 0.55rem;
+      font-size: 0.62rem;
+    }
+
+    .message-bubble p:first-child {
+      font-size: 0.44rem;
+      margin-bottom: 0.24rem;
+    }
+
+    .message-bubble p:last-child {
+      font-size: 0.62rem;
+      line-height: 1.4;
+    }
+  }
+
   .message-bubble.received {
     background-color: var(--color-slate-100);
     color: var(--color-slate-800);
@@ -163,6 +181,12 @@ import phoneFrame from "../../assets/phone-frame.svg";
       transform: translateY(0) scale(1);
     }
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    .message-bubble.visible {
+      animation: none;
+    }
+  }
 </style>
 
 <script>
@@ -174,8 +198,9 @@ import phoneFrame from "../../assets/phone-frame.svg";
     const messages = Array.from(container.querySelectorAll('.message-bubble'));
     if (!messages.length) return;
 
-    const scrollContainer = container.querySelector('.messages-scroll');
-    if (!(scrollContainer instanceof HTMLElement)) return;
+    const maybeScrollContainer = container.querySelector('.messages-scroll');
+    if (!(maybeScrollContainer instanceof HTMLElement)) return;
+    const scrollContainer: HTMLElement = maybeScrollContainer;
 
     // Respect prefers-reduced-motion
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

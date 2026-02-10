@@ -100,6 +100,10 @@ export default defineConfig({
 	integrations: [
 		sitemap({
 			filter: sitemapFilter,
+			serialize(item) {
+				item.lastmod = new Date();
+				return item;
+			},
 		}),
 		icon(),
 		vue(),
