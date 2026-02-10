@@ -1,0 +1,72 @@
+---
+import Footer from '../components/landing/Footer.astro';
+import Navigation from '../components/Navigation.astro';
+import Layout from '../layouts/Layout.astro';
+
+export const prerender = true;
+
+const siteUrl = (Astro.site?.href ?? Astro.url.origin).replace(/\/$/, "");
+const jsonLd = {
+	"@context": "https://schema.org",
+	"@type": "ContactPage",
+	"name": "Contact StockTextAlerts",
+	"url": `${siteUrl}/contact`,
+	"mainEntity": {
+		"@type": "Organization",
+		"name": "StockTextAlerts",
+		"email": "support@stocktextalerts.com",
+		"contactPoint": {
+			"@type": "ContactPoint",
+			"email": "support@stocktextalerts.com",
+			"contactType": "customer support",
+		},
+	},
+};
+---
+
+<Layout
+  title="Contact StockTextAlerts | Get Help"
+  description="Get in touch with StockTextAlerts. Reach out for help with your account, feedback, or any questions about our stock and ETF alert service."
+  jsonLd={jsonLd}
+>
+  <div class="min-h-screen bg-white">
+    <header>
+      <Navigation />
+    </header>
+    <main id="main-content" class="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+      <h1 class="text-4xl font-bold mb-8 text-balance">Contact Us</h1>
+
+      <div class="prose prose-sm max-w-none space-y-6">
+        <p>Have questions, feedback, or need help with your account? We'd love to hear from you. The StockTextAlerts team is here to help with anything related to your stock and ETF price alerts, account settings, notification preferences, or general inquiries about how our service works.</p>
+
+        <section>
+          <h2 class="text-2xl font-semibold mb-4">Email support</h2>
+          <p>The best way to reach us is by email at <a href="mailto:support@stocktextalerts.com" class="link-primary">support@stocktextalerts.com</a>. We aim to respond to all inquiries within one business day. Whether you need help setting up your alert schedule, adding assets to your watchlist, configuring SMS delivery, or troubleshooting any issues, our support team is ready to assist.</p>
+        </section>
+
+        <section>
+          <h2 class="text-2xl font-semibold mb-4">What we can help with</h2>
+          <ul class="list-disc ml-6 space-y-2">
+            <li><strong>Account setup:</strong> Creating your account, verifying your email, and getting started with your first alerts</li>
+            <li><strong>Notification preferences:</strong> Choosing delivery times, enabling email or SMS, and customizing alert formats</li>
+            <li><strong>Asset tracking:</strong> Adding or removing tickers, searching for US-listed stocks and ETFs</li>
+            <li><strong>SMS delivery:</strong> Setting up and verifying your phone number for text message alerts</li>
+            <li><strong>Technical issues:</strong> Troubleshooting delivery problems, account access, or any unexpected behavior</li>
+            <li><strong>Feedback:</strong> Sharing feature requests, suggestions, or general feedback about the service</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 class="text-2xl font-semibold mb-4">Common questions</h2>
+          <p>Before reaching out, you might find your answer in our <a href="/faq" class="link-primary">frequently asked questions</a>. Our FAQ covers topics like how alerts work, what assets you can track, delivery timing, notification types, and more. If your question isn't covered there, don't hesitate to email us directly.</p>
+        </section>
+
+        <section>
+          <h2 class="text-2xl font-semibold mb-4">Response times</h2>
+          <p>We typically respond to support emails within one business day. For urgent account issues such as being unable to log in or not receiving alerts, please include your registered email address in your message so we can look into it quickly.</p>
+        </section>
+      </div>
+    </main>
+    <Footer />
+  </div>
+</Layout>

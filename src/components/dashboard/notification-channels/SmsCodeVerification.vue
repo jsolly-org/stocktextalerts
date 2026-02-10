@@ -27,7 +27,7 @@
 					<span aria-live="polite">
 						{{
 							isSendingVerification
-								? "Sending..."
+								? "Sending\u2026"
 								: !canResend
 									? `Resend (${formatRemaining(resendRemaining)})`
 									: "Resend Verification Code"

@@ -172,4 +172,11 @@ watch(
 	opacity: 1;
 	transform: translateY(0);
 }
+
+@media (prefers-reduced-motion: reduce) {
+	.sms-verification-expand-enter-active,
+	.sms-verification-expand-leave-active {
+		transition: none;
+	}
+}
 </style>

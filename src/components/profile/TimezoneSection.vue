@@ -141,7 +141,7 @@ async function saveTimezone(nextTimezone: string) {
 		return;
 	}
 
-	statusMessage.value = "Saving timezone...";
+	statusMessage.value = "Saving timezone\u2026";
 	statusTone.value = "info";
 	isSaving.value = true;
 

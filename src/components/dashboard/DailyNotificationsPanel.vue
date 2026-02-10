@@ -4,7 +4,7 @@
 		:id="DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID"
 		method="POST"
 		action="/api/notification-preferences/update"
-		aria-label="Daily Notifications"
+		aria-label="Daily Digest"
 		:aria-busy="isSaving"
 		@input="handleFormInput"
 		@change="handleFormChange"
@@ -68,7 +68,7 @@
 				:class="{ 'opacity-50': needsChannelSelection }"
 				:aria-disabled="needsChannelSelection ? 'true' : undefined"
 			>
-					<legend class="sr-only">Daily notifications settings</legend>
+					<legend class="sr-only">Daily digest settings</legend>
 
 				<div class="flex items-center justify-between gap-3 py-3">
 					<input
@@ -274,7 +274,7 @@
 						:inputId="`daily_delivery_time`"
 						:inputName="`daily_delivery_time`"
 						:initialTime="dailyDeliveryTimeInput"
-						inputAriaLabel="Daily notifications delivery time"
+						inputAriaLabel="Daily digest delivery time"
 						:disabled="needsChannelSelection"
 						:clearable="dailyDeliveryTimeMinutes !== null && !needsChannelSelection"
 						clearAriaLabel="Clear delivery time"
@@ -419,7 +419,7 @@ const isUsingMarketTime = computed(
 );
 
 /**
- * When daily notifications are enabled but no delivery time is set,
+ * When the daily digest is enabled but no delivery time is set,
  * default to the earliest scheduled market notification time (if any).
  * The user can still change to a different time.
  */

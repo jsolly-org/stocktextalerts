@@ -80,6 +80,8 @@ export default defineConfig({
 				const excludedPrefixes = [
 					"/auth/forgot",
 					"/auth/recover",
+					"/auth/register",
+					"/auth/signin",
 					"/auth/unconfirmed",
 					"/auth/verified",
 					"/dashboard",

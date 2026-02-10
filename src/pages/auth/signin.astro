@@ -29,7 +29,7 @@ if (user) {
 	return Astro.redirect(getPostSigninRedirect(redirectPath));
 }
 ---
-<Layout title="Sign In to Your Account | StockTextAlerts" description="Sign in to your StockTextAlerts account to manage your tracked assets, scheduled notifications, and email or SMS notification channels.">
+<Layout title="Sign In | StockTextAlerts" description="Sign in to manage tracked assets, notification schedules, and alert channels.">
   <main id="main-content" class="min-h-screen bg-gray-50 flex flex-col justify-center px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
     <header class="sm:mx-auto sm:w-full sm:max-w-md">
       <div class="flex justify-center">
@@ -44,7 +44,10 @@ if (user) {
         Sign in to your account
       </h1>
       <p class="mt-2 text-center text-sm text-gray-600">
-        Or <a href="/auth/register" class="link-primary">create a free account</a>
+        Manage tracked assets, notification schedules, and alert preferences.
+      </p>
+      <p class="mt-2 text-center text-sm text-gray-600">
+        New here? <a href="/auth/register" class="link-primary">Create a free account</a>
       </p>
     </header>
 

@@ -180,7 +180,7 @@ function buildExtrasPrompt(options: {
 		system,
 		user:
 			`Write short ${requested || "extras"} content for these tickers: ${tickers}.\n` +
-			`Context: this will be sent as a daily notification.\n` +
+			`Context: this will be sent as part of the daily digest.\n` +
 			`Local date: ${options.localDateIso} (${options.timezone}).\n` +
 			newsContextBlock +
 			"\nReturn EXACTLY this tagged format (no extra text outside tags):\n" +
