@@ -30,7 +30,7 @@ runs:
       shell: bash
       run: |
         echo "Waiting for Supabase services to be ready..."
-        for i in $(seq 1 30); do
+        for i in $(seq 1 60); do
           if supabase status -o json > /tmp/supabase-status.json 2>/dev/null; then
             API_URL=$(jq -r '.API_URL // empty' /tmp/supabase-status.json)
             if [[ -n "$API_URL" ]]; then
@@ -38,7 +38,7 @@ runs:
               exit 0
             fi
           fi
-          echo "Waiting... ($i/30)"
+          echo "Waiting... ($i/60)"
           sleep 2
         done
         echo "Supabase failed to become ready"
