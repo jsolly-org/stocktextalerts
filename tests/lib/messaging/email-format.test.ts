@@ -55,7 +55,7 @@ describe("Email scheduled update includes asset price data.", () => {
 		expect(html).toContain("$412.10");
 
 		// Green for positive change, red for negative
-		expect(html).toContain("color: #16a34a;");
+		expect(html).toContain("color: #15803d;");
 		expect(html).toContain("color: #dc2626;");
 	});
 
@@ -155,7 +155,7 @@ describe("Email scheduled update includes asset price data.", () => {
 		expect(html).toContain("$441.20");
 
 		// Green for positive change, red for negative
-		expect(html).toContain("color: #16a34a;");
+		expect(html).toContain("color: #15803d;");
 		expect(html).toContain("color: #dc2626;");
 	});
 });

@@ -172,7 +172,7 @@
 								id="daily_include_analyst_description"
 								class="text-sm text-gray-600 mt-0.5"
 							>
-								See how analysts rate the stocks you're tracking (buy/hold/sell). <span class="text-gray-400 italic">Stocks only.</span>
+								See how analysts rate the stocks you're tracking (buy/hold/sell). <span class="text-gray-500 italic">Stocks only.</span>
 							</p>
 						</div>
 						<div class="flex items-center gap-4 shrink-0">
@@ -225,7 +225,7 @@
 								id="daily_include_insider_description"
 								class="text-sm text-gray-600 mt-0.5"
 							>
-								Recent insider buying and selling activity from SEC filings. <span class="text-gray-400 italic">Stocks only.</span>
+								Recent insider buying and selling activity from SEC filings. <span class="text-gray-500 italic">Stocks only.</span>
 							</p>
 						</div>
 						<div class="flex items-center gap-4 shrink-0">
@@ -265,7 +265,7 @@
 						id="daily_delivery_time_description"
 						class="text-sm text-gray-600 mt-0.5"
 					>
-						Sent once every day.<span v-if="isHydrated && isUsingMarketTime" class="text-gray-400 italic"> Using your earliest market notification time.</span>
+						Sent once every day.<span v-if="isHydrated && isUsingMarketTime" class="text-gray-500 italic"> Using your earliest market notification time.</span>
 					</p>
 				</div>
 		<div class="sm:shrink-0">

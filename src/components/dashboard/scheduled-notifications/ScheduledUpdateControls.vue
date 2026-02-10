@@ -68,7 +68,7 @@
 						type="button"
 						class="btn btn-sm btn-secondary self-start"
 						:disabled="!canAddTime"
-						aria-label="Add delivery time"
+						aria-label="Add time"
 						@click="emit('add-time')"
 					>
 						<PlusIcon class="size-4 shrink-0" aria-hidden="true" />

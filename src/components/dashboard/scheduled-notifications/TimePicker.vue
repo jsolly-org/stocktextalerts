@@ -57,7 +57,7 @@
 			<button
 				v-if="clearable"
 				type="button"
-				class="pointer-events-auto btn-icon-danger p-0.5"
+				class="pointer-events-auto btn-icon-danger p-1.5"
 				:aria-label="clearAriaLabel ?? 'Clear time'"
 				@click.stop="emit('clear')"
 			>

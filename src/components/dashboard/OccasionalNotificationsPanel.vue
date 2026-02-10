@@ -52,7 +52,7 @@
 							<span>
 								Delivered Mondays at
 								<span class="font-medium text-gray-700">{{ deliveryTimeLabel }}</span>
-								<span v-if="timezoneLabel" class="text-gray-400"> ({{ timezoneLabel }})</span>
+								<span v-if="timezoneLabel" class="text-gray-500"> ({{ timezoneLabel }})</span>
 								<template v-if="hasDailyDeliveryTime">
 									— synced with your
 									<button
@@ -113,7 +113,7 @@
 								id="weekly_include_earnings_description"
 								class="text-sm text-gray-600 mt-0.5"
 							>
-								See which of your tracked stocks report earnings this week. <span class="text-gray-400 italic">Stocks only.</span>
+								See which of your tracked stocks report earnings this week. <span class="text-gray-500 italic">Stocks only.</span>
 							</p>
 						</div>
 						<div class="flex items-center gap-4 shrink-0">

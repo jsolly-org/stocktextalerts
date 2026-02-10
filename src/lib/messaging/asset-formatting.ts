@@ -47,7 +47,7 @@ export function formatAssetTextLine(
 }
 
 function getChangeColor(changePercent: number): string {
-	return changePercent >= 0 ? "#16a34a" : "#dc2626";
+	return changePercent >= 0 ? "#15803d" : "#dc2626";
 }
 
 function formatAssetHtmlLine(
