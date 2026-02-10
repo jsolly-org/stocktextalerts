@@ -14,7 +14,6 @@
 					@submit="handleAssetsFormSubmit"
 				>
 					<WatchlistPanel
-						:assetOptions="assetOptions"
 						:initialAssets="initialAssets"
 						:status-message="assetsStatusMessage"
 						:status-tone="assetsStatusTone"
@@ -70,7 +69,6 @@
 import { computed, ref, toRefs, watch } from "vue";
 import { DASHBOARD_ASSETS_FORM_ID } from "../../lib/constants";
 import type { User } from "../../lib/db";
-import type { AssetOption } from "./assets/AssetInput.vue";
 import type { InitialAsset } from "./assets/types";
 import WatchlistPanel from "./assets/WatchlistPanel.vue";
 import { useAutoSaveForm } from "./composables/useAutoSaveNotificationPreferences";
@@ -84,7 +82,6 @@ import ScheduledNotificationsPanel from "./scheduled-notifications/ScheduledNoti
 
 interface Props {
 	user: User;
-	assetOptions: AssetOption[];
 	initialAssets: InitialAsset[];
 }
 
@@ -92,7 +89,6 @@ const props = defineProps<Props>();
 
 const {
 	initialAssets,
-	assetOptions,
 	user: userProp,
 } = toRefs(props);
 

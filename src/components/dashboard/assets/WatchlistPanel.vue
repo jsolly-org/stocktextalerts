@@ -55,7 +55,6 @@
 			<div>
 				<label for="asset_search" class="sr-only">Search by symbol or company name</label>
 				<AssetInput
-					:asset-options="assetOptions"
 					:disabled="isAtAssetLimit"
 					:input-aria-described-by="isAtAssetLimit ? ASSET_LIMIT_HINT_ID : undefined"
 					@select="handleSelect"
@@ -87,12 +86,12 @@
 						<span
 							class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium shrink-0"
 							:class="
-								typeForSymbol(asset.symbol) === 'etf'
+								asset.type === 'etf'
 									? 'bg-purple-100 text-purple-700'
 									: 'bg-blue-100 text-blue-700'
 							"
 						>
-							{{ typeForSymbol(asset.symbol) === "etf" ? "ETF" : "Stock" }}
+							{{ asset.type === "etf" ? "ETF" : "Stock" }}
 						</span>
 						<span class="truncate">
 							<span class="font-semibold">{{ asset.symbol }}</span>
@@ -129,12 +128,11 @@ import {
 import { MAX_TRACKED_ASSETS } from "../../../lib/db/database-errors";
 import FadeTransition from "../../FadeTransition.vue";
 import StatusMessage from "../../StatusMessage.vue";
-import type { AssetOption } from "./AssetInput.vue";
+import type { AssetSearchResult } from "./AssetInput.vue";
 import AssetInput from "./AssetInput.vue";
 import type { InitialAsset } from "./types";
 
 interface Props {
-	assetOptions: AssetOption[];
 	initialAssets: InitialAsset[];
 	flashMessages?: FlashMessage[];
 	statusMessage?: string | null;
@@ -177,30 +175,18 @@ watch(
 	{ flush: "post", deep: true },
 );
 
-function nameForSymbol(symbol: string): string {
-	const option = props.assetOptions.find((o) => o.value === symbol);
-	if (!option?.label.includes(" - ")) {
-		return symbol;
-	}
-	return option.label.split(" - ").slice(1).join(" - ");
-}
-
-function typeForSymbol(symbol: string): AssetOption["type"] {
-	return props.assetOptions.find((o) => o.value === symbol)?.type ?? "stock";
-}
-
-function handleSelect(symbol: string) {
-	if (!symbol) {
+function handleSelect(result: AssetSearchResult) {
+	if (!result.symbol) {
 		return;
 	}
 
-	if (draftAssets.value.some((s) => s.symbol === symbol)) {
+	if (draftAssets.value.some((s) => s.symbol === result.symbol)) {
 		return;
 	}
 
 	draftAssets.value = [
 		...draftAssets.value,
-		{ symbol, name: nameForSymbol(symbol) },
+		{ symbol: result.symbol, name: result.name, type: result.type },
 	];
 }
 
@@ -208,5 +194,3 @@ function removeSymbol(symbol: string) {
 	draftAssets.value = draftAssets.value.filter((s) => s.symbol !== symbol);
 }
 </script>
-
-

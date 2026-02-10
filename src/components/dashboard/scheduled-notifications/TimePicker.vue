@@ -48,10 +48,10 @@
 					<ExclamationTriangleIcon class="size-4" aria-hidden="true" />
 				</button>
 				<span
-					class="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-focus-within/warn:opacity-100 group-hover/warn:opacity-100 z-10"
+					class="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1 w-48 text-center rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-focus-within/warn:opacity-100 group-hover/warn:opacity-100 z-10"
 					role="tooltip"
 				>
-					Outside market hours
+					Outside market hours — prices may reflect the last close
 				</span>
 			</span>
 			<button

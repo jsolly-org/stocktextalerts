@@ -1,8 +1,6 @@
 ---
 
-import assetsData from "../../scripts/us-assets.json";
 import DashboardPanels from "../components/dashboard/DashboardPanels.vue";
-import type { AssetOption } from "../components/dashboard/assets/AssetInput.vue";
 import Navigation from "../components/Navigation.astro";
 import Layout from "../layouts/Layout.astro";
 import { buildSigninRedirectUrl } from "../lib/auth/redirects";
@@ -10,19 +8,6 @@ import { createUserService, getUserAssets } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 import { rootLogger } from "../lib/logging";
 
-/* ============= Precomputed Asset Options ============= */
-type AssetJsonItem = {
-	symbol: string;
-	name: string;
-	type: "stock" | "etf";
-};
-const assetOptions: AssetOption[] = (
-	assetsData as { data: AssetJsonItem[] }
-).data.map((asset) => ({
-	value: asset.symbol,
-	label: `${asset.symbol} - ${asset.name}`,
-	type: asset.type,
-}));
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
 const authUser = await users.getCurrentUser();
@@ -46,7 +31,7 @@ if (!dbUser) {
 	return Astro.redirect("/?error=user_not_found");
 }
 const user = dbUser;
-const initialAssets = userAssets.map((asset) => ({ symbol: asset.symbol, name: asset.name }));
+const initialAssets = userAssets.map((asset) => ({ symbol: asset.symbol, name: asset.name, type: asset.type }));
 ---
 <Layout title="Dashboard" description="Review and manage your asset notifications. Add or remove tracked assets, set your delivery schedule, and choose email or SMS delivery." noindex>
 	<div class="min-h-screen bg-gray-50">
@@ -64,10 +49,8 @@ const initialAssets = userAssets.map((asset) => ({ symbol: asset.symbol, name: a
 			<DashboardPanels
 				client:load
 				user={user}
-				assetOptions={assetOptions}
 				initialAssets={initialAssets}
 			/>
 		</main>
 	</div>
 </Layout>
-

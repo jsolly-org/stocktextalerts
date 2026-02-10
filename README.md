@@ -27,7 +27,7 @@ A securities notification app that sends scheduled SMS and email updates (price 
 - **SMS**: Twilio Verify API + Messaging API
 - **Hosting**: Vercel with Cron Jobs
 - **Phone Validation**: libphonenumber-js
-- **Search**: Fuse.js for fuzzy asset search
+- **Search**: Finnhub symbol lookup API (server-side)
 - **Linting**: Biome (no ESLint or Prettier)
 - **Testing**: Vitest + Playwright
 
