@@ -17,34 +17,15 @@ runs:
       uses: supabase/setup-cli@v1
       with:
         version: "2.58.5"
-    - name: Start Supabase (background)
-      shell: bash
-      run: nohup supabase start > /tmp/supabase-start.log 2>&1 &
     - name: Run Biome
       shell: bash
       run: npx biome ci .
     - name: Deep Type check
       shell: bash
       run: npm run check:ts
-    - name: Wait for Supabase
+    - name: Start Supabase
       shell: bash
-      run: |
-        echo "Waiting for Supabase services to be ready..."
-        for i in $(seq 1 60); do
-          if supabase status -o json > /tmp/supabase-status.json 2>/dev/null; then
-            API_URL=$(jq -r '.API_URL // empty' /tmp/supabase-status.json)
-            if [[ -n "$API_URL" ]]; then
-              echo "Supabase ready (attempt $i)"
-              exit 0
-            fi
-          fi
-          echo "Waiting... ($i/60)"
-          sleep 2
-        done
-        echo "Supabase failed to become ready"
-        echo "=== supabase start output ==="
-        cat /tmp/supabase-start.log 2>/dev/null || true
-        exit 1
+      run: supabase start
     - name: Load Supabase env
       shell: bash
       run: |
