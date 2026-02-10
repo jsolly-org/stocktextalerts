@@ -177,19 +177,21 @@ async function saveTimezone(nextTimezone: string) {
 			return;
 		}
 
+		const resolvedTimezone = prefs.timezone ?? nextTimezone;
+		selectedTimezone.value = resolvedTimezone;
 		statusMessage.value = "Timezone updated.";
 		statusTone.value = "success";
 		savedNotificationPreferences.value = savedNotificationPreferences.value
 			? {
 					...savedNotificationPreferences.value,
-					timezone: prefs.timezone ?? nextTimezone,
+					timezone: resolvedTimezone,
 					...(prefs.next_send_at !== undefined && {
 						next_send_at: prefs.next_send_at,
 					}),
 				}
 			: buildSavedNotificationPreferences({
 					...user.value,
-					timezone: prefs.timezone ?? nextTimezone,
+					timezone: resolvedTimezone,
 					...(prefs.next_send_at !== undefined && {
 						next_send_at: prefs.next_send_at,
 					}),
