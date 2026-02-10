@@ -38,7 +38,7 @@ export const robotsOnlyDisallowedRoutes = [
  * Get all routes that should be disallowed in robots.txt.
  * This is the union of sitemap exclusions and robots-only exclusions.
  */
-export function getAllRobotsDisallowedRoutes(): readonly string[] {
+export function getAllRobotsDisallowedRoutes(): string[] {
 	return [...seoExcludedRoutes, ...robotsOnlyDisallowedRoutes];
 }
 
