@@ -280,7 +280,7 @@ The cron job calls `/api/schedule` and must include:
 - `Authorization: Bearer <CRON_SECRET>`
 
 The cron job:
-1. Runs frequent scheduled price notifications (batched price fetching)
+1. Runs scheduled market price notifications (batched price fetching)
 2. Sends weekly calendar notifications (earnings) on Mondays
 3. Sends daily digest notifications (News/Rumors/Analyst/Insider) at the user’s chosen daily time
 4. Sends via email and/or SMS based on settings and logs attempts to the `notification_log` table
