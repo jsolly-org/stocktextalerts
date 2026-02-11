@@ -79,7 +79,7 @@ export type GrokExtrasResult = {
 	citations: string[];
 };
 
-const GROK_TIMEOUT_MS = 30_000;
+const GROK_TIMEOUT_MS = 45_000;
 
 /**
  * Extract plain text and source URLs from an xAI Responses API payload.
@@ -276,10 +276,7 @@ export async function generateDailyExtrasWithGrok(options: {
 		return null;
 	}
 
-	const model =
-		metaEnv?.XAI_GROK_MODEL ??
-		process.env.XAI_GROK_MODEL ??
-		"grok-4-1-fast-reasoning";
+	const model = "grok-4-1-fast";
 	const { system, user } = buildExtrasPrompt(options);
 
 	const requestBody: ResponsesRequest = {

@@ -109,8 +109,6 @@ FINNHUB_API_KEY=your-finnhub-api-key
 
 # xAI (Grok) - optional, only needed for News/Rumors add-ons
 XAI_API_KEY=your-xai-api-key
-# Optional: defaults to grok-4
-XAI_GROK_MODEL=grok-4
 
 # Logging
 LOG_MASK_PII=true
