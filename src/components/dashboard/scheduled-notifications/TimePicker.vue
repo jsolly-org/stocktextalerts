@@ -38,7 +38,7 @@
 			v-if="hasOverlayIcons"
 			class="absolute inset-y-0 right-0 flex items-center gap-0.5 pr-2 pointer-events-none"
 		>
-			<span v-if="outsideMarketHours" class="relative group/warn pointer-events-auto">
+			<span v-if="outsideMarketHours" class="relative inline-flex items-center group/warn pointer-events-auto">
 				<button
 					type="button"
 					class="text-amber-500 hover:text-amber-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 rounded p-0.5"
