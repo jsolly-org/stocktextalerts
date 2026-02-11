@@ -44,7 +44,7 @@
 			<p
 				class="text-sm text-gray-600 mt-1"
 			>
-				Configure market-related notifications for your tracked assets.
+				Configure market-related notifications for your tracked assets during trading hours.
 			</p>
 			</header>
 
@@ -82,7 +82,7 @@
 							Scheduled Price Notifications
 						</span>
 						<p id="price_notifications_enabled_description" class="text-sm text-gray-600 mt-0.5">
-							Receive scheduled price updates for all tracked assets, including ETFs.
+							Scheduled price updates for all tracked assets, including ETFs.
 						</p>
 					</div>
 					<div class="flex items-center gap-4 shrink-0">
@@ -180,7 +180,7 @@
 							Market Movement Alerts
 						</span>
 						<p id="instant_notifications_enabled_description" class="text-sm text-gray-600 mt-0.5">
-							Get notified immediately when your tracked assets show significant movement during market hours, whether prices are moving up or down.
+							Notified immediately when tracked assets show significant movement, up or down.
 						</p>
 						<details class="mt-2 group">
 							<summary
