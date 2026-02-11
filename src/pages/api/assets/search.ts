@@ -6,6 +6,33 @@ import { createLogger } from "../../../lib/logging";
 
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 20;
+const SEARCH_CANDIDATE_MULTIPLIER = 5;
+
+function getAssetSearchRank(
+	row: { symbol: string; name: string },
+	normalizedQuery: string,
+): number {
+	const symbol = row.symbol.toUpperCase();
+	const name = row.name.toUpperCase();
+
+	if (symbol === normalizedQuery) {
+		return 0;
+	}
+
+	if (symbol.startsWith(normalizedQuery)) {
+		return 1;
+	}
+
+	if (name.startsWith(normalizedQuery)) {
+		return 2;
+	}
+
+	if (name.includes(normalizedQuery)) {
+		return 3;
+	}
+
+	return 4;
+}
 
 export const GET: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
@@ -43,10 +70,12 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 	};
 
 	const likeQuery = escapeLikeLiteral(query);
+	const normalizedQuery = query.toUpperCase();
 	const symbolPrefixPattern = `${likeQuery}%`;
 	const nameContainsPattern = `%${likeQuery}%`;
 	const quotedSymbolPrefixPattern = quotePostgrestValue(symbolPrefixPattern);
 	const quotedNameContainsPattern = quotePostgrestValue(nameContainsPattern);
+	const candidateLimit = Math.min(limit * SEARCH_CANDIDATE_MULTIPLIER, 100);
 
 	try {
 		// Use ilike for prefix matching on symbol, or textSearch for name
@@ -58,7 +87,7 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 				`symbol.ilike.${quotedSymbolPrefixPattern},name.ilike.${quotedNameContainsPattern}`,
 			)
 			.order("symbol")
-			.limit(limit);
+			.limit(candidateLimit);
 
 		if (error) {
 			logger.error("Asset search query failed", {
@@ -72,11 +101,23 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 			});
 		}
 
-		const results = (data ?? []).map((row) => ({
-			symbol: row.symbol,
-			name: row.name,
-			type: row.type,
-		}));
+		const results = (data ?? [])
+			.sort((left, right) => {
+				const rankDifference =
+					getAssetSearchRank(left, normalizedQuery) -
+					getAssetSearchRank(right, normalizedQuery);
+				if (rankDifference !== 0) {
+					return rankDifference;
+				}
+
+				return left.symbol.localeCompare(right.symbol);
+			})
+			.slice(0, limit)
+			.map((row) => ({
+				symbol: row.symbol,
+				name: row.name,
+				type: row.type,
+			}));
 
 		return jsonResponse(200, { ok: true, message: "ok", results });
 	} catch (error) {
