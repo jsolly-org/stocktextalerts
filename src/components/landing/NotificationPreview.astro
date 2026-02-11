@@ -3,7 +3,16 @@ import phoneFrame from "../../assets/phone-frame.svg";
 ---
 <div class="phone-preview-container" id="iphone-animation-demo" aria-hidden="true">
   <div class="phone-frame">
-    <img src={phoneFrame.src} alt="Phone showing asset alert notification preview" width="260" height="536" class="phone-frame-svg" />
+    <img
+      src={phoneFrame.src}
+      alt="Phone showing asset alert notification preview"
+      width="260"
+      height="536"
+      class="phone-frame-svg"
+      loading="eager"
+      fetchpriority="high"
+      decoding="async"
+    />
 
     <!-- Message bubbles inside the phone screen -->
     <div class="messages-container">

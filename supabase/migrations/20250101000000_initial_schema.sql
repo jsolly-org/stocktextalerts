@@ -250,9 +250,9 @@ CREATE TABLE IF NOT EXISTS users (
   weekly_include_earnings_sms BOOLEAN DEFAULT false NOT NULL,
   weekly_next_send_at TIMESTAMP WITH TIME ZONE,
   -- Price notifications
-  price_notifications_enabled BOOLEAN DEFAULT true NOT NULL,
-  price_include_email BOOLEAN DEFAULT true NOT NULL,
-  price_include_sms BOOLEAN DEFAULT true NOT NULL,
+  price_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
+  price_include_email BOOLEAN DEFAULT false NOT NULL,
+  price_include_sms BOOLEAN DEFAULT false NOT NULL,
   -- Channel enablement
   email_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
   sms_notifications_enabled BOOLEAN DEFAULT false NOT NULL,

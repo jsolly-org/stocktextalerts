@@ -50,7 +50,7 @@
 						<span class="inline-flex items-center gap-1.5">
 							<ClockIcon class="size-4 shrink-0 text-gray-400" aria-hidden="true" />
 							<span>
-								Delivered Mondays at
+								Sent Mondays at
 								<span class="font-medium text-gray-700">{{ deliveryTimeLabel }}</span>
 								<span v-if="timezoneLabel" class="text-gray-500"> ({{ timezoneLabel }})</span>
 								<template v-if="hasDailyDeliveryTime">

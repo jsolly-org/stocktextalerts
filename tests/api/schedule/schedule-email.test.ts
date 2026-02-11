@@ -42,7 +42,10 @@ describe("Users receive scheduled asset update notifications.", () => {
 
 		const { error: updateError } = await adminClient
 			.from("users")
-			.update({ next_send_at: DateTime.utc().toISO() })
+			.update({
+				next_send_at: DateTime.utc().toISO(),
+				price_notifications_enabled: true,
+			})
 			.eq("id", id);
 		expect(updateError).toBeNull();
 

@@ -6,7 +6,11 @@ import {
 	buildEmailUrls,
 	renderEmailFooter,
 } from "../messaging/email/email-layout";
-import { renderEmailSection } from "../messaging/email/html-section";
+import {
+	formatCitationsText,
+	renderCitationsSection,
+	renderEmailSection,
+} from "../messaging/email/html-section";
 import { sendUserEmail } from "../messaging/email/index";
 import type { EmailSender } from "../messaging/email/utils";
 import { recordNotification } from "../messaging/shared";
@@ -73,6 +77,7 @@ function formatDailyDigestEmail(options: {
 	const rumors = (options.extras.rumors ?? "").trim();
 	const analyst = (options.extras.analyst ?? "").trim();
 	const insider = (options.extras.insider ?? "").trim();
+	const citations = options.extras.citations ?? [];
 
 	const sectionsText = [
 		"Daily digest",
@@ -81,6 +86,7 @@ function formatDailyDigestEmail(options: {
 		rumors ? `\n🤫 Rumors\n${rumors}` : "",
 		analyst ? `\n📊 Analyst Consensus\n${analyst}` : "",
 		insider ? `\n🏦 Insider Trades\n${insider}` : "",
+		formatCitationsText(citations),
 		`\nManage your settings: ${urls.dashboardUrl}`,
 		`Manage your delivery schedule: ${urls.scheduleUrl}`,
 		`Unsubscribe: ${urls.unsubscribeUrl}`,
@@ -104,6 +110,7 @@ function formatDailyDigestEmail(options: {
 		${renderEmailSection("🤫", "Rumors", rumors, { showGrokLogo: true })}
 		${renderEmailSection("📊", "Analyst Consensus", analyst, { showFinnhubLogo: true })}
 		${renderEmailSection("🏦", "Insider Trades", insider, { showFinnhubLogo: true })}
+		${renderCitationsSection(citations)}
 		<div style="text-align: center; margin-top: 20px;">
 			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
 				Manage your settings →

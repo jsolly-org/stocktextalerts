@@ -1,3 +1,3 @@
 import type { UserAsset } from "../../../lib/db";
 
-export type InitialAsset = Pick<UserAsset, "symbol" | "name">;
+export type InitialAsset = Pick<UserAsset, "symbol" | "name" | "type">;

@@ -58,6 +58,7 @@ Constants
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2_000;
 const INTER_REQUEST_DELAY_MS = 100;
+const REQUEST_TIMEOUT_MS = 10_000;
 
 /* =============
 Helpers
@@ -73,10 +74,43 @@ function getFinnhubApiKey(): string {
 }
 
 /**
- * Fetch and JSON-decode a Finnhub endpoint with basic retry/backoff.
+ * Parse the `Retry-After` header value.
  *
- * Returns `null` on errors (including missing API key) so callers can degrade gracefully.
+ * Supports both delay-seconds (e.g. `"30"`) and HTTP-date formats.
+ * Returns the delay in milliseconds, or `null` if the header is missing/unparseable.
  */
+function parseRetryAfterMs(headerValue: string | null): number | null {
+	if (!headerValue) return null;
+	const seconds = Number(headerValue);
+	if (Number.isFinite(seconds) && seconds >= 0) {
+		return seconds * 1_000;
+	}
+	const date = Date.parse(headerValue);
+	if (Number.isFinite(date)) {
+		const delayMs = date - Date.now();
+		return delayMs > 0 ? delayMs : 0;
+	}
+	return null;
+}
+
+/**
+ * Compute retry delay with exponential backoff and jitter.
+ *
+ * For 429 responses, respects `Retry-After` when available.
+ */
+function computeRetryDelayMs(
+	attempt: number,
+	retryAfterMs: number | null,
+): number {
+	if (retryAfterMs !== null) {
+		// Cap Retry-After at 60 s to avoid excessively long waits.
+		return Math.min(retryAfterMs, 60_000);
+	}
+	const base = RETRY_DELAY_MS * 2 ** (attempt - 1);
+	const jitter = Math.random() * base * 0.5;
+	return base + jitter;
+}
+
 export async function finnhubFetch(
 	endpoint: string,
 	params: Record<string, string>,
@@ -95,14 +129,38 @@ export async function finnhubFetch(
 			: rootLogger.warn.bind(rootLogger);
 
 		try {
-			const response = await fetch(url);
+			const response = await fetch(url, {
+				signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+			});
+
+			if (response.status === 429) {
+				const retryAfterMs = parseRetryAfterMs(
+					response.headers.get("Retry-After"),
+				);
+				log(`Finnhub ${label} rate limited (429)`, {
+					endpoint,
+					attempt,
+					status: 429,
+				});
+				if (!isLastAttempt) {
+					await new Promise((r) =>
+						setTimeout(r, computeRetryDelayMs(attempt, retryAfterMs)),
+					);
+					continue;
+				}
+				return null;
+			}
+
 			if (!response.ok) {
 				log(`Finnhub ${label} API error`, {
+					endpoint,
 					attempt,
 					status: response.status,
 				});
 				if (!isLastAttempt) {
-					await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+					await new Promise((r) =>
+						setTimeout(r, computeRetryDelayMs(attempt, null)),
+					);
 					continue;
 				}
 				return null;
@@ -111,9 +169,19 @@ export async function finnhubFetch(
 			const data: unknown = await response.json();
 			return data;
 		} catch (error) {
-			log(`Failed to fetch Finnhub ${label}`, { attempt }, error);
+			const reason =
+				error instanceof Error && error.name === "TimeoutError"
+					? "timeout"
+					: "request_failed";
+			log(
+				`Failed to fetch Finnhub ${label}`,
+				{ endpoint, attempt, reason },
+				error,
+			);
 			if (!isLastAttempt) {
-				await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+				await new Promise((r) =>
+					setTimeout(r, computeRetryDelayMs(attempt, null)),
+				);
 				continue;
 			}
 			return null;

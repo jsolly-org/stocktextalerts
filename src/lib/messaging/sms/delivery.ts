@@ -12,6 +12,7 @@ export type SmsExtras = {
 	rumors?: string | null;
 	analyst?: string | null;
 	insider?: string | null;
+	citations?: string[];
 };
 
 function formatSmsExtras(extras?: SmsExtras): string {

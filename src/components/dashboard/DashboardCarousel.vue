@@ -36,7 +36,7 @@
 </template>
 
 <script lang="ts" setup>
-import { type Component, onMounted, ref } from "vue";
+import { type Component, onMounted, onUnmounted, ref } from "vue";
 import BellAlertIcon from "../../icons/bell-alert.svg?component";
 import CalendarDaysIcon from "../../icons/calendar-days.svg?component";
 import ClockIcon from "../../icons/clock.svg?component";
@@ -60,6 +60,8 @@ const tabs: Tab[] = [
 const activeIndex = ref(0);
 const trackRef = ref<HTMLElement | null>(null);
 const cardRefs = ref<(HTMLElement | null)[]>([]);
+const prefersReducedMotion = ref(false);
+let motionQuery: MediaQueryList | null = null;
 
 function setCardRef(el: HTMLElement | null, index: number) {
 	cardRefs.value[index] = el;
@@ -71,7 +73,7 @@ function scrollToCard(index: number) {
 		activeIndex.value = index;
 		trackRef.value.scrollTo({
 			left: card.offsetLeft,
-			behavior: "smooth",
+			behavior: prefersReducedMotion.value ? "auto" : "smooth",
 		});
 	}
 }
@@ -94,8 +96,19 @@ function syncActiveTab() {
 	}
 }
 
+function handleMotionChange(event: MediaQueryListEvent) {
+	prefersReducedMotion.value = event.matches;
+}
+
 onMounted(() => {
 	syncActiveTab();
+	motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+	prefersReducedMotion.value = motionQuery.matches;
+	motionQuery.addEventListener("change", handleMotionChange);
+});
+
+onUnmounted(() => {
+	motionQuery?.removeEventListener("change", handleMotionChange);
 });
 </script>
 

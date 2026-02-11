@@ -6,6 +6,7 @@ import { defineConfig } from "astro/config";
 import icon from "astro-icon";
 import { loadEnv } from "vite";
 import svgLoader from "vite-svg-loader";
+import { EXCLUDED_ROUTE_PREFIXES } from "./src/lib/seo/excluded-routes";
 
 // Config runs before Vite loads .env*; loadEnv makes .env / .env.local available here.
 const mode = process.env.NODE_ENV || process.env.MODE || "development";
@@ -64,20 +65,7 @@ if (!vercelUrl) {
  */
 function sitemapFilter(page: string): boolean {
 	const pathname = new URL(page).pathname.replace(/\/$/, "") || "/";
-	const excludedPrefixes = [
-		"/auth/forgot",
-		"/auth/recover",
-		"/auth/register",
-		"/auth/signin",
-		"/auth/unconfirmed",
-		"/auth/verified",
-		"/dashboard",
-		"/email/unsubscribe",
-		"/profile",
-		"/404",
-		"/500",
-	];
-	return !excludedPrefixes.some(
+	return !EXCLUDED_ROUTE_PREFIXES.some(
 		(p) => pathname === p || pathname.startsWith(`${p}/`),
 	);
 }
@@ -127,7 +115,7 @@ export default defineConfig({
 		],
 		// Pre-bundle Vue and dashboard deps so SSR/client resolve them without issues.
 		optimizeDeps: {
-			include: ["vue", "@vueuse/core", "fuse.js", "libphonenumber-js"],
+			include: ["vue", "@vueuse/core", "libphonenumber-js"],
 		},
 	},
 });

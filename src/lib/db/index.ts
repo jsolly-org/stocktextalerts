@@ -22,6 +22,7 @@ export type User = DbUserRow;
 export type Asset = DbAssetRow;
 export type UserAsset = Pick<DbUserAssetRow, "symbol" | "created_at"> & {
 	name: DbAssetRow["name"];
+	type: DbAssetRow["type"];
 };
 
 export type NotificationPreferencesSnapshot = Pick<
@@ -178,17 +179,21 @@ export async function getUserAssets(
 ): Promise<UserAsset[]> {
 	const { data, error } = await supabase
 		.from("user_assets")
-		.select("symbol, created_at, assets!inner(name)")
+		.select("symbol, created_at, assets!inner(name, type)")
 		.eq("user_id", userId)
 		.order("created_at", { ascending: false });
 
 	if (error) throw error;
 
-	return data.map((row) => ({
-		symbol: row.symbol,
-		created_at: row.created_at,
-		name: (row as { assets: { name: string } }).assets.name,
-	}));
+	return data.map((row) => {
+		const { assets } = row as { assets: Pick<DbAssetRow, "name" | "type"> };
+		return {
+			symbol: row.symbol,
+			created_at: row.created_at,
+			name: assets.name,
+			type: assets.type,
+		};
+	});
 }
 
 /* =============

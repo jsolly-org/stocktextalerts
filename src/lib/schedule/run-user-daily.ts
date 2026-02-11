@@ -356,6 +356,10 @@ export async function processDailyUser(options: {
 				insider: includeInsider
 					? formatInsiderSection(finnhubData.insider, channel)
 					: null,
+				citations:
+					!isSms && grokResult?.citations?.length
+						? grokResult.citations
+						: undefined,
 			};
 		}
 

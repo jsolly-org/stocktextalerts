@@ -1,0 +1,131 @@
+import type { APIRoute } from "astro";
+import { createUserService } from "../../../lib/db";
+import { createSupabaseServerClient } from "../../../lib/db/supabase";
+import { jsonResponse } from "../../../lib/json-response";
+import { createLogger } from "../../../lib/logging";
+
+const DEFAULT_LIMIT = 10;
+const MAX_LIMIT = 20;
+const SEARCH_CANDIDATE_MULTIPLIER = 5;
+
+function getAssetSearchRank(
+	row: { symbol: string; name: string },
+	normalizedQuery: string,
+): number {
+	const symbol = row.symbol.toUpperCase();
+	const name = row.name.toUpperCase();
+
+	if (symbol === normalizedQuery) {
+		return 0;
+	}
+
+	if (symbol.startsWith(normalizedQuery)) {
+		return 1;
+	}
+
+	if (name.startsWith(normalizedQuery)) {
+		return 2;
+	}
+
+	if (name.includes(normalizedQuery)) {
+		return 3;
+	}
+
+	return 4;
+}
+
+export const GET: APIRoute = async ({ request, cookies, locals }) => {
+	const url = new URL(request.url);
+	const logger = createLogger({
+		requestId: locals?.requestId,
+		path: url.pathname,
+		method: request.method,
+	});
+
+	const supabase = createSupabaseServerClient();
+	const userService = createUserService(supabase, cookies);
+	const user = await userService.getCurrentUser();
+	if (!user) {
+		return jsonResponse(401, { ok: false, message: "unauthorized" });
+	}
+
+	const query = url.searchParams.get("q")?.trim() ?? "";
+	if (query.length < 1) {
+		return jsonResponse(200, { ok: true, message: "ok", results: [] });
+	}
+
+	const limitParam = Number.parseInt(url.searchParams.get("limit") ?? "", 10);
+	const limit = Number.isFinite(limitParam)
+		? Math.min(Math.max(1, limitParam), MAX_LIMIT)
+		: DEFAULT_LIMIT;
+
+	// PostgREST `.or()` takes a raw filter string; values containing reserved
+	// characters (e.g. `,()`) must be quoted. Also escape `%`/`_` so user input
+	// is treated literally in ILIKE patterns (we add our own wildcards).
+	const escapeLikeLiteral = (input: string) =>
+		input.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+	const quotePostgrestValue = (value: string) => {
+		const escaped = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+		return `"${escaped}"`;
+	};
+
+	const likeQuery = escapeLikeLiteral(query);
+	const normalizedQuery = query.toUpperCase();
+	const symbolPrefixPattern = `${likeQuery}%`;
+	const nameContainsPattern = `%${likeQuery}%`;
+	const quotedSymbolPrefixPattern = quotePostgrestValue(symbolPrefixPattern);
+	const quotedNameContainsPattern = quotePostgrestValue(nameContainsPattern);
+	const candidateLimit = Math.min(limit * SEARCH_CANDIDATE_MULTIPLIER, 100);
+
+	try {
+		// Use ilike for prefix matching on symbol, or textSearch for name
+		// Symbol prefix match (exact start) OR name substring match
+		const { data, error } = await supabase
+			.from("assets")
+			.select("symbol, name, type")
+			.or(
+				`symbol.ilike.${quotedSymbolPrefixPattern},name.ilike.${quotedNameContainsPattern}`,
+			)
+			.order("symbol")
+			.limit(candidateLimit);
+
+		if (error) {
+			logger.error("Asset search query failed", {
+				userId: user.id,
+				query,
+				error: error.message,
+			});
+			return jsonResponse(500, {
+				ok: false,
+				message: "search_failed",
+			});
+		}
+
+		const results = (data ?? [])
+			.sort((left, right) => {
+				const rankDifference =
+					getAssetSearchRank(left, normalizedQuery) -
+					getAssetSearchRank(right, normalizedQuery);
+				if (rankDifference !== 0) {
+					return rankDifference;
+				}
+
+				return left.symbol.localeCompare(right.symbol);
+			})
+			.slice(0, limit)
+			.map((row) => ({
+				symbol: row.symbol,
+				name: row.name,
+				type: row.type,
+			}));
+
+		return jsonResponse(200, { ok: true, message: "ok", results });
+	} catch (error) {
+		logger.error(
+			"Unexpected error in asset search",
+			{ userId: user.id, query },
+			error,
+		);
+		return jsonResponse(500, { ok: false, message: "search_failed" });
+	}
+};

@@ -38,7 +38,7 @@
 			v-if="hasOverlayIcons"
 			class="absolute inset-y-0 right-0 flex items-center gap-0.5 pr-2 pointer-events-none"
 		>
-			<span v-if="outsideMarketHours" class="relative group/warn pointer-events-auto">
+			<span v-if="outsideMarketHours" class="relative inline-flex items-center group/warn pointer-events-auto">
 				<button
 					type="button"
 					class="text-amber-500 hover:text-amber-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 rounded p-0.5"
@@ -48,10 +48,10 @@
 					<ExclamationTriangleIcon class="size-4" aria-hidden="true" />
 				</button>
 				<span
-					class="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-focus-within/warn:opacity-100 group-hover/warn:opacity-100 z-10"
+					class="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1 w-48 text-center rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-focus-within/warn:opacity-100 group-hover/warn:opacity-100 z-10"
 					role="tooltip"
 				>
-					Outside market hours
+					Outside market hours — prices may reflect the last close
 				</span>
 			</span>
 			<button

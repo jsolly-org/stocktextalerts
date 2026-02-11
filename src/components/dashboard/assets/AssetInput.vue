@@ -24,7 +24,7 @@
 
 		<ul
 			id="asset_dropdown"
-			v-show="showDropdown && (searchQuery.length >= 1 || filteredAssets.length > 0)"
+			v-show="showDropdown && (searchQuery.length >= 1 || searchResults.length > 0)"
 			role="listbox"
 			class="absolute z-50 w-full mt-1 bg-white shadow-lg rounded-lg border border-gray-200 max-h-60 overflow-auto"
 		>
@@ -37,7 +37,7 @@
 				Searching…
 			</li>
 			<li
-				v-else-if="filteredAssets.length === 0 && searchQuery.length >= 1"
+				v-else-if="searchResults.length === 0 && searchQuery.length >= 1"
 				class="px-4 py-2 text-sm text-gray-500"
 				role="option"
 				aria-disabled="true"
@@ -45,8 +45,8 @@
 				No assets found
 			</li>
 			<li
-				v-for="(result, index) in filteredAssets"
-				:key="result.item.value"
+				v-for="(result, index) in searchResults"
+				:key="result.symbol"
 				role="option"
 				:id="`asset_option_${index}`"
 				:aria-selected="highlightedIndex === index"
@@ -59,14 +59,14 @@
 					<span
 						class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium shrink-0"
 						:class="
-							result.item.type === 'etf'
+							result.type === 'etf'
 								? 'bg-purple-100 text-purple-700'
 								: 'bg-blue-100 text-blue-700'
 						"
 					>
-						{{ result.item.type === "etf" ? "ETF" : "Stock" }}
+						{{ result.type === "etf" ? "ETF" : "Stock" }}
 					</span>
-					<span class="truncate">{{ result.item.label }}</span>
+					<span class="truncate">{{ result.symbol }} - {{ result.name }}</span>
 				</span>
 			</li>
 		</ul>
@@ -75,23 +75,17 @@
 
 <script lang="ts" setup>
 import { onClickOutside, refDebounced } from "@vueuse/core";
-import Fuse from "fuse.js";
-import { computed, onMounted, ref, watch } from "vue";
+import { onMounted, ref, watch } from "vue";
 
-export interface AssetOption {
-	value: string;
-	label: string;
+export interface AssetSearchResult {
+	symbol: string;
+	name: string;
 	type: "stock" | "etf";
 }
 
 interface Props {
-	assetOptions: AssetOption[];
 	disabled?: boolean;
 	inputAriaDescribedBy?: string;
-}
-
-interface FuseResult {
-	item: AssetOption;
 }
 
 type KeyActions = {
@@ -103,38 +97,64 @@ type KeyActions = {
 const props = withDefaults(defineProps<Props>(), {
 	disabled: false,
 });
-const emit = defineEmits<(e: "select", symbol: string) => void>();
+const emit = defineEmits<(e: "select", result: AssetSearchResult) => void>();
 
-const selectedAsset = ref<string | null>(null);
 const rawSearchQuery = ref("");
 const searchQuery = refDebounced(rawSearchQuery, 300);
 const isSearching = ref(false);
+const searchResults = ref<AssetSearchResult[]>([]);
+
+let fetchController: AbortController | null = null;
 
 watch(rawSearchQuery, (newValue) => {
+	if (newValue.length === 0) {
+		fetchController?.abort();
+		searchResults.value = [];
+		isSearching.value = false;
+		return;
+	}
+
 	if (newValue.length >= 1) {
 		isSearching.value = true;
 	}
 });
 
-watch(searchQuery, () => {
-	isSearching.value = false;
+async function fetchResults(query: string) {
+	fetchController?.abort();
+	if (query.length < 1) {
+		searchResults.value = [];
+		isSearching.value = false;
+		return;
+	}
+
+	fetchController = new AbortController();
+	try {
+		const params = new URLSearchParams({ q: query, limit: "10" });
+		const response = await fetch(`/api/assets/search?${params}`, {
+			signal: fetchController.signal,
+		});
+		if (!response.ok) {
+			searchResults.value = [];
+			return;
+		}
+		const data = (await response.json()) as {
+			ok: boolean;
+			results: AssetSearchResult[];
+		};
+		searchResults.value = data.results ?? [];
+	} catch {
+		// Aborted or network error — ignore
+	} finally {
+		isSearching.value = false;
+	}
+}
+
+watch(searchQuery, (query) => {
+	fetchResults(query);
 });
 
 const showDropdown = ref(false);
 const highlightedIndex = ref(-1);
-
-const fuse = computed(
-	() =>
-		new Fuse<AssetOption>(props.assetOptions, {
-			keys: ["label", "value"],
-			threshold: 0.3,
-		}),
-);
-
-const filteredAssets = computed(() => {
-	if (searchQuery.value.length < 1) return [];
-	return fuse.value.search(searchQuery.value).slice(0, 10);
-});
 
 const containerRef = ref<HTMLElement | null>(null);
 
@@ -147,23 +167,15 @@ onMounted(() => {
 	onClickOutside(containerRef, resetDropdown);
 });
 
-const selectAsset = (result: FuseResult) => {
-	selectedAsset.value = result.item.value;
+const selectAsset = (result: AssetSearchResult) => {
 	rawSearchQuery.value = "";
 	resetDropdown();
-
-	emit("select", result.item.value);
+	emit("select", result);
 };
 
 const handleInput = () => {
-	const current = props.assetOptions.find(
-		(s) => s.value === selectedAsset.value,
-	);
-	if (!current || rawSearchQuery.value !== current.label) {
-		selectedAsset.value = null;
-		showDropdown.value = true;
-		highlightedIndex.value = -1;
-	}
+	showDropdown.value = true;
+	highlightedIndex.value = -1;
 };
 
 const handleKeydown = (e: KeyboardEvent) => {
@@ -173,10 +185,10 @@ const handleKeydown = (e: KeyboardEvent) => {
 		return;
 	}
 
-	if (rawSearchQuery.value.length < 1 || filteredAssets.value.length === 0)
+	if (rawSearchQuery.value.length < 1 || searchResults.value.length === 0)
 		return;
 
-	const maxIndex = filteredAssets.value.length - 1;
+	const maxIndex = searchResults.value.length - 1;
 	const actions: KeyActions = {
 		ArrowDown: () => {
 			if (!showDropdown.value) {
@@ -201,7 +213,7 @@ const handleKeydown = (e: KeyboardEvent) => {
 					: Math.max(highlightedIndex.value - 1, 0);
 		},
 		Enter: () => {
-			const assets = filteredAssets.value;
+			const assets = searchResults.value;
 			if (!assets || assets.length === 0) return;
 
 			const safeIndex = Math.min(
@@ -221,4 +233,3 @@ const handleKeydown = (e: KeyboardEvent) => {
 	}
 };
 </script>
-
