@@ -132,11 +132,8 @@ runs:
              "$COMMENT_BODY" =~ ^\[vc\]: ]] && skip "Vercel status update"
         fi
 
-        # @coderabbitai mentions from non-CodeRabbit users
-        [[ "$COMMENT_BODY" =~ @[Cc]oderabbitai && "$COMMENT_USER" != "coderabbitai[bot]" ]] && skip "comment mentions @coderabbitai from $COMMENT_USER"
-
-        # CodeRabbit "Full review triggered" acknowledgments
-        [[ "$COMMENT_USER" == "coderabbitai[bot]" && "$COMMENT_BODY" =~ [Ff]ull[[:space:]]+review[[:space:]]+triggered ]] && skip "CodeRabbit acknowledgment"
+        # Skip CodeRabbit full-review chatter.
+        [[ "$COMMENT_BODY" =~ [Ff]ull[[:space:]]+[Rr]eview ]] && skip "comment contains full review text"
 
         # Review events without body text
         [[ "$EVENT_NAME" == "pull_request_review" && ( -z "$COMMENT_BODY" || "$COMMENT_BODY" == "null" ) ]] && skip "review without body"
