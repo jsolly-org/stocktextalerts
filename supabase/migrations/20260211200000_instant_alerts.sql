@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS public.asset_snapshots (
   day_low NUMERIC(12,4),
   day_open NUMERIC(12,4),
   prev_close NUMERIC(12,4),
+  volume NUMERIC(16,0),
   captured_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
@@ -27,7 +28,7 @@ Instant Alerts: Cooldowns
 
 CREATE TABLE IF NOT EXISTS public.instant_alert_cooldowns (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  symbol VARCHAR(10) NOT NULL,
+  symbol VARCHAR(10) NOT NULL REFERENCES assets(symbol) ON DELETE CASCADE,
   last_alerted_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   PRIMARY KEY (user_id, symbol)
 );
@@ -41,9 +42,9 @@ Instant Alerts: User Preference Columns
 ============= */
 
 ALTER TABLE users
-  ADD COLUMN instant_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
-  ADD COLUMN instant_include_email BOOLEAN DEFAULT false NOT NULL,
-  ADD COLUMN instant_include_sms BOOLEAN DEFAULT false NOT NULL;
+  ADD COLUMN IF NOT EXISTS instant_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
+  ADD COLUMN IF NOT EXISTS instant_include_email BOOLEAN DEFAULT false NOT NULL,
+  ADD COLUMN IF NOT EXISTS instant_include_sms BOOLEAN DEFAULT false NOT NULL;
 
 /* =============
 Instant Alerts: Purge Old Snapshots
