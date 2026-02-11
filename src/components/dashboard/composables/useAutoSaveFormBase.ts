@@ -1,4 +1,8 @@
 import { onBeforeUnmount, type Ref, ref, watch } from "vue";
+import {
+	isUnauthorizedResponse,
+	redirectToSignIn,
+} from "../../../lib/auth/session-expired";
 import { formatMessage } from "../../../lib/constants";
 import { rootLogger } from "../../../lib/logging";
 
@@ -88,6 +92,11 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 				headers: { Accept: "application/json" },
 				signal: AbortSignal.timeout(10_000),
 			});
+
+			if (isUnauthorizedResponse(response)) {
+				redirectToSignIn();
+				return;
+			}
 
 			const payload = (await response.json()) as FormSaveResponse;
 

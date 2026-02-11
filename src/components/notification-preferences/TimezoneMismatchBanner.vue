@@ -53,6 +53,10 @@
 import { DateTime } from "luxon";
 import { computed, ref, toRefs, watch } from "vue";
 
+import {
+	isUnauthorizedResponse,
+	redirectToSignIn,
+} from "../../lib/auth/session-expired";
 import type { NotificationPreferencesSnapshot } from "../../lib/db";
 import { rootLogger } from "../../lib/logging";
 import { updateNotificationTimezonePreference } from "../../lib/notification-preferences/client";
@@ -209,6 +213,10 @@ async function handleDismissPermanently() {
 		);
 
 		if (!response.ok) {
+			if (isUnauthorizedResponse(response)) {
+				redirectToSignIn();
+				return;
+			}
 			rootLogger.error("Failed to dismiss timezone banner permanently", {
 				action: "dismiss_timezone_banner_permanently",
 				status: response.status,

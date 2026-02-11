@@ -11,6 +11,7 @@
 
 		<fieldset
 			class="divide-y divide-gray-200"
+			:disabled="props.isSaving"
 			:aria-describedby="props.notificationChannelsDescId"
 		>
 			<legend class="sr-only">Notification channels</legend>
@@ -86,6 +87,7 @@ interface Props {
 	emailNotificationsEnabledId: string;
 	smsNotificationsEnabledId: string;
 	notificationChannelsDescId: string;
+	isSaving?: boolean;
 }
 
 const props = defineProps<Props>();

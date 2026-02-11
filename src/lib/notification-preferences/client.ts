@@ -1,3 +1,7 @@
+import {
+	isUnauthorizedResponse,
+	redirectToSignIn,
+} from "../auth/session-expired";
 import type { NotificationPreferencesSnapshot } from "../db";
 import { rootLogger } from "../logging";
 
@@ -13,11 +17,13 @@ export async function fetchCurrentNotificationPreferences(): Promise<Notificatio
 		});
 
 		if (!response.ok) {
+			if (isUnauthorizedResponse(response)) {
+				redirectToSignIn();
+				return null;
+			}
+
 			const isExpectedRejection =
-				response.status === 401 ||
-				response.status === 403 ||
-				response.status === 422 ||
-				response.status === 429;
+				response.status === 422 || response.status === 429;
 			const log = isExpectedRejection ? rootLogger.info : rootLogger.error;
 
 			const contentType = response.headers.get("content-type") ?? "";
@@ -130,6 +136,10 @@ export async function updateNotificationTimezonePreference(
 	});
 
 	if (!response.ok) {
+		if (isUnauthorizedResponse(response)) {
+			redirectToSignIn();
+			return null;
+		}
 		return null;
 	}
 

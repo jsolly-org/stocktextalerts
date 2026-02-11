@@ -1,8 +1,13 @@
 import { DateTime } from "luxon";
+import {
+	type InstantAlertTotals,
+	processInstantAlerts,
+} from "../instant-alerts/process";
 import type { Logger } from "../logging";
 import { createEmailSender } from "../messaging/email/utils";
 import {
 	type AssetPriceMap,
+	type ExtendedQuoteMap,
 	fetchAssetPrices,
 	fetchMarketStatus,
 } from "../price-fetcher";
@@ -42,9 +47,34 @@ export async function runScheduledNotifications(options: {
 	forceSend: boolean;
 	cronSecret: string;
 	now?: DateTime;
-}): Promise<ScheduledNotificationTotals> {
+}): Promise<
+	ScheduledNotificationTotals & { instantAlerts?: InstantAlertTotals }
+> {
 	const { supabase, logger, forceSend, cronSecret } = options;
 	const sendEmail = createEmailSender();
+
+	// Run instant alerts first — this also returns an extended quote map
+	// that could be reused by scheduled notifications to avoid duplicate API calls.
+	let instantAlertTotals: InstantAlertTotals | undefined;
+	let instantQuoteMap: ExtendedQuoteMap | undefined;
+	try {
+		const instantResult = await processInstantAlerts({ supabase });
+		instantAlertTotals = instantResult.totals;
+		instantQuoteMap = instantResult.quoteMap;
+
+		if (instantAlertTotals.alertsTriggered > 0) {
+			logger.info("Instant alerts processed", {
+				action: "instant_alerts",
+				...instantAlertTotals,
+			});
+		}
+	} catch (error) {
+		logger.error(
+			"Instant alerts processing failed (non-fatal)",
+			{ action: "instant_alerts" },
+			error,
+		);
+	}
 
 	// Round to end of current minute so the cron picks up all notifications
 	// scheduled for this minute, regardless of when within the minute Vercel
@@ -107,7 +137,28 @@ export async function runScheduledNotifications(options: {
 		];
 
 		if (uniqueSymbols.length > 0) {
-			priceMap = await fetchAssetPrices(uniqueSymbols);
+			// Reuse quotes from instant alerts when available to avoid duplicate API calls
+			if (instantQuoteMap && instantQuoteMap.size > 0) {
+				const missingSymbols = uniqueSymbols.filter(
+					(s) => !instantQuoteMap?.has(s),
+				);
+				// Start with instant alert quotes (they extend AssetPrice)
+				for (const symbol of uniqueSymbols) {
+					const cached = instantQuoteMap.get(symbol);
+					if (cached) {
+						priceMap.set(symbol, cached);
+					}
+				}
+				// Fetch any symbols not covered by instant alerts
+				if (missingSymbols.length > 0) {
+					const extraPrices = await fetchAssetPrices(missingSymbols);
+					for (const [symbol, price] of extraPrices) {
+						priceMap.set(symbol, price);
+					}
+				}
+			} else {
+				priceMap = await fetchAssetPrices(uniqueSymbols);
+			}
 		}
 	}
 
@@ -201,7 +252,7 @@ export async function runScheduledNotifications(options: {
 		}
 	}
 
-	return results.reduce(
+	const scheduledTotals = results.reduce(
 		(acc, curr) => ({
 			skipped: acc.skipped + curr.skipped,
 			logFailures: acc.logFailures + curr.logFailures,
@@ -219,4 +270,9 @@ export async function runScheduledNotifications(options: {
 			smsFailed: 0,
 		},
 	);
+
+	return {
+		...scheduledTotals,
+		instantAlerts: instantAlertTotals,
+	};
 }

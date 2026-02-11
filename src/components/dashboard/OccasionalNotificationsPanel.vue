@@ -84,6 +84,7 @@
 				<fieldset
 					class="divide-y divide-gray-100 transition-opacity duration-200"
 					:class="{ 'opacity-50': needsChannelSelection }"
+					:disabled="isSaving"
 					:aria-disabled="needsChannelSelection ? 'true' : undefined"
 				>
 					<legend class="sr-only">Weekly calendar settings</legend>

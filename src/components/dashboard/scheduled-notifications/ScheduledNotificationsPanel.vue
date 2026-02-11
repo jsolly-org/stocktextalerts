@@ -32,6 +32,7 @@
 
 			<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.success}`"></div>
 		<div class="card-body">
+		<fieldset :disabled="isSaving" class="min-w-0">
 		<header class="mb-4">
 			<h2
 					:id="DASHBOARD_SECTION_IDS.frequent"
@@ -146,6 +147,127 @@
 				</FadeTransition>
 			</div>
 
+			<div
+				class="mt-4 rounded-xl border border-gray-200 bg-white p-4 transition-opacity duration-200"
+				:class="{ 'opacity-50': needsChannelSelection }"
+			>
+				<div class="flex items-center justify-between gap-3">
+					<input
+						type="hidden"
+						name="instant_notifications_enabled"
+						:value="instantNotificationsEnabled ? 'on' : 'off'"
+					/>
+					<input
+						type="hidden"
+						name="instant_include_email"
+						:value="instantIncludeEmail ? 'on' : 'off'"
+					/>
+					<input
+						type="hidden"
+						name="instant_include_sms"
+						:value="instantIncludeSms ? 'on' : 'off'"
+					/>
+					<input
+						type="hidden"
+						name="instant_alert_sensitivity"
+						:value="instantAlertSensitivity"
+					/>
+					<div class="min-w-0">
+						<span
+							id="instant_notifications_enabled_label"
+							class="text-base font-semibold text-gray-900"
+						>
+							Market Movement Alerts
+						</span>
+						<p id="instant_notifications_enabled_description" class="text-sm text-gray-600 mt-0.5">
+							Get notified immediately when your tracked assets show significant movement during market hours, whether prices are moving up or down.
+						</p>
+						<details class="mt-2 group">
+							<summary
+								class="text-xs font-medium text-emerald-700 cursor-pointer hover:text-emerald-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded"
+							>
+								How market movement alerts work
+							</summary>
+							<div class="mt-2 rounded-md border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+								<ul class="list-disc pl-4 space-y-1">
+									<li>Runs only during US market hours and checks symbols you track.</li>
+									<li>Builds a score from rapid price moves, breakouts, and breaking news.</li>
+									<li>Sends an alert when the score crosses the configured threshold.</li>
+									<li>Uses a cooldown per symbol to avoid repeated alerts in a short window.</li>
+								</ul>
+							</div>
+						</details>
+					</div>
+					<div class="flex items-center gap-4 shrink-0">
+						<label class="inline-flex items-center gap-1.5 cursor-pointer">
+							<input
+								type="checkbox"
+								v-model="instantIncludeEmail"
+								:disabled="needsChannelSelection || !emailEnabled"
+								class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								aria-describedby="instant_notifications_enabled_description"
+							/>
+							<span class="text-sm text-gray-700">Email</span>
+						</label>
+						<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : needsChannelSelection ? 'cursor-not-allowed' : 'cursor-not-allowed opacity-50'">
+							<input
+								type="checkbox"
+								v-model="instantIncludeSms"
+								:disabled="needsChannelSelection || !smsReady"
+								class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								aria-describedby="instant_notifications_enabled_description"
+							/>
+							<span class="text-sm text-gray-700">SMS</span>
+						</label>
+					</div>
+				</div>
+
+				<FadeTransition>
+					<div v-if="instantNotificationsEnabled" class="mt-3 border-t border-gray-100 pt-3 pl-3 sm:pl-4">
+						<fieldset :disabled="needsChannelSelection">
+							<legend class="text-sm font-medium text-gray-700 mb-2">
+								Movement Sensitivity
+							</legend>
+							<div
+								class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5"
+								role="radiogroup"
+								aria-label="Alert sensitivity level"
+							>
+								<label
+									v-for="option in SENSITIVITY_OPTIONS"
+									:key="option.value"
+									class="relative cursor-pointer rounded-md px-3.5 py-1.5 text-sm font-medium transition-all duration-150 select-none focus-within:z-10 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:ring-offset-1"
+									:class="
+										instantAlertSensitivity === option.value
+											? 'bg-white text-gray-900 shadow-sm border border-gray-200'
+											: 'text-gray-500 hover:text-gray-700 border border-transparent'
+									"
+								>
+									<input
+										type="radio"
+										:value="option.value"
+										v-model.number="instantAlertSensitivity"
+										class="sr-only"
+										name="instant_alert_sensitivity_radio"
+									/>
+									{{ option.label }}
+								</label>
+							</div>
+						<p class="mt-2 text-xs" :class="isAggressiveSensitivity ? 'text-amber-600' : 'text-gray-500'">
+							<span v-if="isAggressiveSensitivity" class="inline-flex items-start gap-1">
+								<svg class="mt-px h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+									<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+								</svg>
+								{{ sensitivityDescription }}
+							</span>
+							<template v-else>{{ sensitivityDescription }}</template>
+						</p>
+						</fieldset>
+					</div>
+				</FadeTransition>
+			</div>
+
+			</fieldset>
 			</div>
 		</section>
 	</form>
@@ -217,6 +339,32 @@ const priceIncludeSms = ref(user.value.price_include_sms);
 const priceNotificationsEnabled = computed(
 	() => priceIncludeEmail.value || priceIncludeSms.value,
 );
+
+const instantIncludeEmail = ref(user.value.instant_include_email);
+const instantIncludeSms = ref(user.value.instant_include_sms);
+const instantNotificationsEnabled = computed(
+	() => instantIncludeEmail.value || instantIncludeSms.value,
+);
+const instantAlertSensitivity = ref<number>(user.value.instant_alert_sensitivity ?? 1);
+
+const SENSITIVITY_OPTIONS = [
+	{ value: 1, label: "Chill" },
+	{ value: 2, label: "Balanced" },
+	{ value: 3, label: "Aggressive" },
+] as const;
+
+const SENSITIVITY_DESCRIPTIONS: Record<number, string> = {
+	1: "Only high-confidence alerts for major market-moving events.",
+	2: "Notifies more than Chill, but still waits for solid confirmation before alerting.",
+	3: "Lowest threshold — alerts on smaller moves and weaker signals. May send a lot of notifications.",
+};
+
+const sensitivityDescription = computed(
+	() => SENSITIVITY_DESCRIPTIONS[instantAlertSensitivity.value] ?? SENSITIVITY_DESCRIPTIONS[1],
+);
+
+const isAggressiveSensitivity = computed(() => instantAlertSensitivity.value === 3);
+
 const isHydrated = ref(false);
 
 onMounted(() => {
@@ -366,6 +514,24 @@ watch(
 	},
 );
 watch(
+	() => user.value.instant_include_email,
+	(value) => {
+		instantIncludeEmail.value = value;
+	},
+);
+watch(
+	() => user.value.instant_include_sms,
+	(value) => {
+		instantIncludeSms.value = value;
+	},
+);
+watch(
+	() => user.value.instant_alert_sensitivity,
+	(value) => {
+		instantAlertSensitivity.value = value ?? 1;
+	},
+);
+watch(
 	() => user.value.scheduled_update_times,
 	(value) => {
 		scheduledUpdateTimesMinutes.value = normalizeScheduledTimes(value ?? []);
@@ -398,6 +564,19 @@ watch(
 			// Keep other panels' scheduling in sync with the server response.
 			daily_next_send_at: newData.daily_next_send_at,
 			weekly_next_send_at: newData.weekly_next_send_at,
+			// Sync instant alerts state from server response
+			...(newData.instant_notifications_enabled !== undefined && {
+				instant_notifications_enabled: newData.instant_notifications_enabled,
+			}),
+			...(newData.instant_include_email !== undefined && {
+				instant_include_email: newData.instant_include_email,
+			}),
+			...(newData.instant_include_sms !== undefined && {
+				instant_include_sms: newData.instant_include_sms,
+			}),
+			...(newData.instant_alert_sensitivity !== undefined && {
+				instant_alert_sensitivity: newData.instant_alert_sensitivity,
+			}),
 		};
 		}
 	},
@@ -415,6 +594,33 @@ watch([priceIncludeEmail, priceIncludeSms], ([email, sms]) => {
 		price_include_email: email,
 		price_include_sms: sms,
 		price_notifications_enabled: email || sms,
+	};
+	notifyChange();
+});
+
+watch(instantAlertSensitivity, (value) => {
+	if (value === (user.value.instant_alert_sensitivity ?? 1)) {
+		return;
+	}
+	user.value = {
+		...user.value,
+		instant_alert_sensitivity: value,
+	};
+	notifyChange();
+});
+
+watch([instantIncludeEmail, instantIncludeSms], ([email, sms]) => {
+	if (
+		email === user.value.instant_include_email &&
+		sms === user.value.instant_include_sms
+	) {
+		return;
+	}
+	user.value = {
+		...user.value,
+		instant_include_email: email,
+		instant_include_sms: sms,
+		instant_notifications_enabled: email || sms,
 	};
 	notifyChange();
 });

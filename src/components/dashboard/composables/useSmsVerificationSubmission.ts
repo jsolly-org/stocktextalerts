@@ -1,5 +1,9 @@
 import { nextTick, ref } from "vue";
 import {
+	isUnauthorizedResponse,
+	redirectToSignIn,
+} from "../../../lib/auth/session-expired";
+import {
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 	type FlashTone,
 } from "../../../lib/constants";
@@ -110,6 +114,11 @@ export function useSmsVerificationSubmission(options: {
 				credentials: "same-origin",
 				headers: { Accept: "application/json" },
 			});
+
+			if (isUnauthorizedResponse(res)) {
+				redirectToSignIn();
+				return true;
+			}
 
 			const payload = await parseResponsePayload(res);
 			if (!payload || typeof payload.message !== "string") {
