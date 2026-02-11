@@ -3,6 +3,11 @@ import type { SupabaseAdminClient } from "../schedule/helpers";
 
 const DEFAULT_COOLDOWN_MINUTES = 30;
 
+/**
+ * Read the cooldown duration (minutes) from env, falling back to a safe default.
+ *
+ * This controls how frequently a user can receive instant alerts per symbol.
+ */
 function getCooldownMinutes(): number {
 	const raw = process.env.INSTANT_ALERT_COOLDOWN_MINUTES;
 	const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;

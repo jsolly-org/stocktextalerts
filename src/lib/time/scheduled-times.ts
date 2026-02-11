@@ -31,6 +31,12 @@ function pickLaterOffset(candidate: DateTime): DateTime {
 	return possibleOffsets[possibleOffsets.length - 1];
 }
 
+/**
+ * Compute the next UTC send time for a local minute-of-day in a user's timezone.
+ *
+ * Handles DST ambiguity by preferring the later offset on fall-back days.
+ * Returns `null` when inputs are invalid or the timezone cannot be resolved.
+ */
 export function calculateNextSendAt(
 	localMinutes: number,
 	timezone: string,
@@ -81,6 +87,11 @@ export function calculateNextSendAt(
 	return candidate.toUTC();
 }
 
+/**
+ * Compute the next UTC send time across multiple local minute-of-day candidates.
+ *
+ * Returns the earliest next send time, or `null` when no valid candidates exist.
+ */
 export function calculateNextSendAtFromTimes(
 	localMinutesList: number[],
 	timezone: string,
@@ -107,6 +118,12 @@ export function calculateNextSendAtFromTimes(
 	return nextSend;
 }
 
+/**
+ * Compute the next UTC send time for the next Monday at the given local minute-of-day.
+ *
+ * If today is Monday and the time is still in the future, today is used; otherwise next week.
+ * Returns `null` when inputs are invalid.
+ */
 export function calculateNextMondaySendAt(
 	localMinutes: number,
 	timezone: string,
@@ -150,6 +167,11 @@ export function calculateNextMondaySendAt(
 	return candidate.toUTC();
 }
 
+/**
+ * Convert a DateTime into local minutes since midnight for the given timezone.
+ *
+ * Returns `null` when the timezone conversion is invalid.
+ */
 export function getLocalMinutesFromDateTime(
 	timezone: string,
 	date: DateTime,

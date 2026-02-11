@@ -55,6 +55,9 @@ function isPostgrestError(error: unknown): error is PostgrestError {
 	);
 }
 
+/**
+ * Return true when an error represents the "tracked assets limit exceeded" database constraint.
+ */
 export function isAssetsLimitError(error: unknown): boolean {
 	if (!isPostgrestError(error)) {
 		return false;
@@ -66,6 +69,9 @@ export function isAssetsLimitError(error: unknown): boolean {
 	);
 }
 
+/**
+ * Return true when an error represents the "asset symbol contains whitespace" database constraint.
+ */
 export function isAssetsWhitespaceError(error: unknown): boolean {
 	if (!isPostgrestError(error)) {
 		return false;

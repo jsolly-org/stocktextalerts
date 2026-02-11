@@ -1,5 +1,10 @@
 import { DateTime } from "luxon";
 
+/**
+ * Set the selected timezone `<select>` option based on the browser-detected timezone.
+ *
+ * Only applies when no value is already selected; falls back to an optional default timezone.
+ */
 export function setupDetectedTimezoneOption(options?: {
 	selectId?: string;
 	defaultTimezone?: string;

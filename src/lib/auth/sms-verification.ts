@@ -56,6 +56,9 @@ function createVerificationClient(): {
 	};
 }
 
+/**
+ * Send an SMS verification code to the given fully-qualified phone number.
+ */
 export async function sendVerification(
 	fullPhone: string,
 ): Promise<{ success: boolean; error?: string }> {
@@ -75,6 +78,9 @@ export async function sendVerification(
 	}
 }
 
+/**
+ * Verify an SMS code for the given fully-qualified phone number.
+ */
 export async function checkVerification(
 	fullPhone: string,
 	code: string,

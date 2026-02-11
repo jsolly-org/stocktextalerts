@@ -11,12 +11,20 @@ export interface SmsVerificationContext {
 const SMS_VERIFICATION_KEY: InjectionKey<SmsVerificationContext> =
 	Symbol("sms-verification");
 
+/**
+ * Provide shared SMS verification UI state for descendant components.
+ */
 export function provideSmsVerificationContext(
 	context: SmsVerificationContext,
 ): void {
 	provide(SMS_VERIFICATION_KEY, context);
 }
 
+/**
+ * Consume the provided SMS verification context.
+ *
+ * Throws when called outside a component tree that has run `provideSmsVerificationContext()`.
+ */
 export function useSmsVerificationContext(): SmsVerificationContext {
 	const context = inject(SMS_VERIFICATION_KEY);
 	if (!context) {

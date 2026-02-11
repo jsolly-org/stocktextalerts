@@ -5,6 +5,9 @@ type AssetWithName = { symbol: string; name: string };
 
 export const NO_TRACKED_ASSETS_MESSAGE = "You don't have any tracked assets";
 
+/**
+ * Escape a string for safe HTML embedding.
+ */
 export function escapeHtml(value: string): string {
 	return value
 		.replaceAll("&", "&amp;")
@@ -34,6 +37,9 @@ function formatAssetPriceText(
 	return `$${price.price.toFixed(2)} (${sign}${price.changePercent.toFixed(2)}%)`;
 }
 
+/**
+ * Format a single asset line for plaintext contexts (email text / SMS / previews).
+ */
 export function formatAssetTextLine(
 	asset: AssetWithName,
 	price: AssetPrice | undefined,
@@ -75,6 +81,9 @@ function formatAssetHtmlLine(
 	return `${assetInfo} &mdash; ${priceStr}`;
 }
 
+/**
+ * Format a list of assets as plaintext, using the user's formatting preferences.
+ */
 export function formatAssetsTextList(
 	assets: AssetWithName[],
 	getPrice: (symbol: string) => AssetPrice | undefined,
@@ -92,6 +101,9 @@ export function formatAssetsTextList(
 		.join(separator);
 }
 
+/**
+ * Format a list of assets as HTML, using the user's formatting preferences.
+ */
 export function formatAssetsHtmlList(
 	assets: AssetWithName[],
 	getPrice: (symbol: string) => AssetPrice | undefined,

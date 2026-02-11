@@ -19,6 +19,11 @@ function fromBase64Url(value: string): Buffer {
 	return Buffer.from(padded, "base64");
 }
 
+/**
+ * Create a signed unsubscribe token for a specific user+email pair.
+ *
+ * The token embeds an expiry timestamp and an HMAC signature using `CRON_SECRET`.
+ */
 export function createEmailUnsubscribeToken(options: {
 	userId: string;
 	email: string;
@@ -31,6 +36,11 @@ export function createEmailUnsubscribeToken(options: {
 	return `${expiresAtMs}.${toBase64Url(signature)}`;
 }
 
+/**
+ * Verify a previously issued unsubscribe token for a given user+email pair.
+ *
+ * Returns `{ ok: true }` on success, otherwise `{ ok: false, reason }`.
+ */
 export function verifyEmailUnsubscribeToken(options: {
 	userId: string;
 	email: string;
@@ -64,6 +74,9 @@ export function verifyEmailUnsubscribeToken(options: {
 	return { ok: true };
 }
 
+/**
+ * Create a fully-qualified unsubscribe URL that includes a signed token.
+ */
 export function createEmailUnsubscribeUrl(options: {
 	userId: string;
 	email: string;

@@ -7,6 +7,9 @@ const authCookieOptions = {
 	sameSite: "lax" as const,
 };
 
+/**
+ * Persist Supabase auth tokens into HTTP-only cookies.
+ */
 export function setAuthCookies(
 	cookies: AstroCookies,
 	accessToken: string,
@@ -16,6 +19,9 @@ export function setAuthCookies(
 	cookies.set("sb-refresh-token", refreshToken, authCookieOptions);
 }
 
+/**
+ * Clear any persisted Supabase auth cookies.
+ */
 export function clearAuthCookies(cookies: AstroCookies): void {
 	cookies.delete("sb-access-token", authCookieOptions);
 	cookies.delete("sb-refresh-token", authCookieOptions);

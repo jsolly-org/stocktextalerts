@@ -187,6 +187,9 @@ export type Logger = {
 	error: (message: string, context?: LogContext, error?: unknown) => void;
 };
 
+/**
+ * Create a structured logger with optional base context merged into every log call.
+ */
 export function createLogger(baseContext: LogContext = {}): Logger {
 	return {
 		debug(message, context) {

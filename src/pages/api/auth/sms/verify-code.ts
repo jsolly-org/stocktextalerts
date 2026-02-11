@@ -22,6 +22,11 @@ const defaultDependencies: SmsVerifyCodeDependencies = {
 	checkVerification,
 };
 
+/**
+ * Create an API handler for verifying an SMS OTP code.
+ *
+ * Dependency injection is supported for testing.
+ */
 export function createVerifyCodeHandler(
 	overrides: Partial<SmsVerifyCodeDependencies> = {},
 ): APIRoute {

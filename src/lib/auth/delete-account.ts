@@ -19,6 +19,12 @@ function isAuthUserNotFoundError(authError: unknown): boolean {
 	return status === 404 || code === "user_not_found";
 }
 
+/**
+ * Delete a user account from Supabase Auth and the app `users` table.
+ *
+ * Designed to be idempotent and defensive: it handles already-missing auth users and attempts
+ * to avoid leaving orphaned records (while surfacing partial-failure states to the caller).
+ */
 export async function deleteUserAccount(options: {
 	adminSupabase: AppSupabaseClient;
 	userId: string;

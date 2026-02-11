@@ -5,6 +5,11 @@ import {
 import type { NotificationPreferencesSnapshot } from "../db";
 import { rootLogger } from "../logging";
 
+/**
+ * Fetch the latest notification-preferences snapshot from the server.
+ *
+ * Returns `null` on failure; redirects to sign-in when the session is unauthorized.
+ */
 export async function fetchCurrentNotificationPreferences(): Promise<NotificationPreferencesSnapshot | null> {
 	try {
 		const method = "GET";
@@ -121,6 +126,11 @@ type TimezoneUpdateNotificationPreferences = {
 	next_send_at?: string | null;
 };
 
+/**
+ * Update the user's timezone preference and return any derived scheduling fields the server updated.
+ *
+ * Returns `null` on failure; redirects to sign-in when the session is unauthorized.
+ */
 export async function updateNotificationTimezonePreference(
 	nextTimezone: string,
 ): Promise<TimezoneUpdateNotificationPreferences | null> {

@@ -7,6 +7,12 @@ type RawSchemaData = {
 	validationErrors: FormIssue[];
 };
 
+/**
+ * Extract and validate raw `FormData` entries against a schema.
+ *
+ * Returns a fixed key set, a raw data map (missing keys are `null`), and structured validation
+ * errors for unsupported shapes (duplicate keys, non-string values, etc).
+ */
 export function readRawSchemaData(
 	formData: FormData,
 	schema: FormSchema,

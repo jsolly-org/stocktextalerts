@@ -111,6 +111,11 @@ function computeRetryDelayMs(
 	return base + jitter;
 }
 
+/**
+ * Low-level Finnhub fetch wrapper with retries, rate-limit handling, and timeouts.
+ *
+ * Returns `null` when the API key is missing or the request ultimately fails.
+ */
 export async function finnhubFetch(
 	endpoint: string,
 	params: Record<string, string>,
