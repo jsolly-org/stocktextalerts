@@ -135,7 +135,7 @@ describe("computeAnomalyScore", () => {
 
 		const priceSignal = result.signals.find((s) => s.name === "price_move");
 		// 2% move, 2% range → normalized 1.0 → ratio 0.5 → ~22 raw pts, vol 0.8x → ~18
-		expect(priceSignal!.points).toBeGreaterThan(0);
+		expect(priceSignal?.points).toBeGreaterThan(0);
 	});
 
 	it("volume confirmation affects score (high vol vs low vol)", () => {
@@ -176,7 +176,7 @@ describe("computeAnomalyScore", () => {
 		const lowVolPrice = lowVolResult.signals.find(
 			(s) => s.name === "price_move",
 		);
-		expect(highVolPrice!.points).toBeGreaterThan(lowVolPrice!.points);
+		expect(highVolPrice?.points).toBeGreaterThan(lowVolPrice?.points);
 	});
 
 	it("price-only score never exceeds 60 (can't trigger alone even at Aggressive)", () => {
@@ -255,7 +255,7 @@ describe("computeAnomalyScore", () => {
 		});
 
 		const newsSignal = result.signals.find((s) => s.name === "breaking_news");
-		expect(newsSignal!.points).toBe(10);
+		expect(newsSignal?.points).toBe(10);
 	});
 
 	it("graduated news scoring: 3 recent headlines gives 25 pts", () => {
@@ -274,7 +274,7 @@ describe("computeAnomalyScore", () => {
 		});
 
 		const newsSignal = result.signals.find((s) => s.name === "breaking_news");
-		expect(newsSignal!.points).toBe(25);
+		expect(newsSignal?.points).toBe(25);
 	});
 
 	it("graduated breakout scoring: 0.5% = 1 pt, 2.0%+ = 15 pts", () => {
@@ -299,7 +299,7 @@ describe("computeAnomalyScore", () => {
 		const smallBreakout = smallResult.signals.find(
 			(s) => s.name === "range_breakout",
 		);
-		expect(smallBreakout!.points).toBe(1);
+		expect(smallBreakout?.points).toBe(1);
 
 		// Test large breakout (2.0% above day high)
 		const snapshotsLarge = makeSnapshots(10, 100.0).map((s) => ({
@@ -322,7 +322,7 @@ describe("computeAnomalyScore", () => {
 		const largeBreakout = largeResult.signals.find(
 			(s) => s.name === "range_breakout",
 		);
-		expect(largeBreakout!.points).toBe(15);
+		expect(largeBreakout?.points).toBe(15);
 	});
 
 	it("sensitivity parameter affects threshold: same score triggers at Aggressive but not Chill", () => {
@@ -381,8 +381,8 @@ describe("computeAnomalyScore", () => {
 		const earningsSignal = result.signals.find(
 			(s) => s.name === "earnings_proximity",
 		);
-		expect(earningsSignal!.triggered).toBe(true);
-		expect(earningsSignal!.points).toBe(15);
+		expect(earningsSignal?.triggered).toBe(true);
+		expect(earningsSignal?.points).toBe(15);
 	});
 });
 
