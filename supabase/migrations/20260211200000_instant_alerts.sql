@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS public.asset_snapshots (
   captured_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
-CREATE INDEX idx_asset_snapshots_symbol_captured ON asset_snapshots (symbol, captured_at DESC);
-CREATE INDEX idx_asset_snapshots_captured_at ON asset_snapshots (captured_at);
+CREATE INDEX IF NOT EXISTS idx_asset_snapshots_symbol_captured ON public.asset_snapshots (symbol, captured_at DESC);
+CREATE INDEX IF NOT EXISTS idx_asset_snapshots_captured_at ON public.asset_snapshots (captured_at);
 
 ALTER TABLE public.asset_snapshots ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.asset_snapshots FROM anon, authenticated;

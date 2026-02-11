@@ -97,7 +97,7 @@ export function usePendingSmsChanges(options: {
 	}
 
 	function setupNavigationWarning() {
-		if (!hasPendingSmsChanges.value) {
+		if (typeof window === "undefined" || !hasPendingSmsChanges.value) {
 			return;
 		}
 

@@ -55,7 +55,6 @@ function serializeFormData(formData: FormData): string {
 				: String(value);
 		entries.push(`${name}=${serializedValue}`);
 	}
-	entries.sort();
 	return entries.join("&");
 }
 

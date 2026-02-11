@@ -93,6 +93,10 @@ function parseRetryAfterMs(headerValue: string | null): number | null {
 	return null;
 }
 
+function redactFinnhubToken(value: string): string {
+	return value.replace(/([?&]token=)[^&]+/gi, "$1[redacted]");
+}
+
 /**
  * Compute retry delay with exponential backoff and jitter.
  *
@@ -178,10 +182,21 @@ export async function finnhubFetch(
 				error instanceof Error && error.name === "TimeoutError"
 					? "timeout"
 					: "request_failed";
+			const safeError =
+				error instanceof Error
+					? (() => {
+							const sanitized = new Error(redactFinnhubToken(error.message));
+							sanitized.name = error.name;
+							if (error.stack) {
+								sanitized.stack = redactFinnhubToken(error.stack);
+							}
+							return sanitized;
+						})()
+					: undefined;
 			log(
 				`Failed to fetch Finnhub ${label}`,
 				{ endpoint, attempt, reason },
-				error,
+				safeError,
 			);
 			if (!isLastAttempt) {
 				await new Promise((r) =>

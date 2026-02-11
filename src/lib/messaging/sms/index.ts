@@ -4,6 +4,7 @@ import type { SmsSender } from "./twilio-utils";
 
 /**
  * Send an SMS to a user using the provided sender implementation.
+ * Caller should verify opt-in/verification (e.g., shouldSendSms) before calling.
  */
 export async function sendUserSms(
 	user: SmsUser,

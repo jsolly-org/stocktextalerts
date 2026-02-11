@@ -89,7 +89,7 @@ export function createVerifyCodeHandler(
 				});
 			}
 			if (!userData.phone_country_code || !userData.phone_number) {
-				logger.error("SMS verification requested but phone details missing", {
+				logger.info("SMS verification requested but phone details missing", {
 					userId: user.id,
 				});
 				return jsonResponse(400, {

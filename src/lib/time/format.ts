@@ -287,6 +287,9 @@ export function getUsMarketOpenLocalMinutes(userTimezone: string): number {
 		millisecond: 0,
 	});
 	const local = eastern.setZone(userTimezone);
+	if (!local.isValid) {
+		return US_MARKET_OPEN_EASTERN_MINUTES; // fallback to Eastern
+	}
 	return local.hour * 60 + local.minute;
 }
 
@@ -303,6 +306,9 @@ export function getUsMarketCloseLocalMinutes(userTimezone: string): number {
 		millisecond: 0,
 	});
 	const local = eastern.setZone(userTimezone);
+	if (!local.isValid) {
+		return US_MARKET_CLOSE_EASTERN_MINUTES; // fallback to Eastern
+	}
 	return local.hour * 60 + local.minute;
 }
 
