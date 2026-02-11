@@ -6,6 +6,7 @@ import {
 	sanitizeCitations,
 } from "../../../../src/lib/messaging/email/html-section";
 
+/* ============= markdownLinksToHtml ============= */
 describe("markdownLinksToHtml", () => {
 	it("captures URLs containing balanced parentheses (e.g. Wikipedia links).", () => {
 		const input =
@@ -24,6 +25,7 @@ describe("markdownLinksToHtml", () => {
 	});
 });
 
+/* ============= sanitizeCitations ============= */
 describe("sanitizeCitations deduplicates, filters, and caps citation URLs.", () => {
 	it("Keeps only http(s) URLs and deduplicates.", () => {
 		const urls = [
@@ -59,6 +61,7 @@ describe("sanitizeCitations deduplicates, filters, and caps citation URLs.", () 
 	});
 });
 
+/* ============= renderCitationsSection ============= */
 describe("renderCitationsSection renders HTML for citation URLs.", () => {
 	it("Renders a Sources heading and list of links.", () => {
 		const html = renderCitationsSection([
@@ -79,6 +82,7 @@ describe("renderCitationsSection renders HTML for citation URLs.", () => {
 	});
 });
 
+/* ============= formatCitationsText ============= */
 describe("formatCitationsText renders plain text for citation URLs.", () => {
 	it("Formats citations as a bulleted list.", () => {
 		const text = formatCitationsText([

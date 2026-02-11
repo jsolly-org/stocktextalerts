@@ -186,7 +186,7 @@ export async function getUserAssets(
 	if (error) throw error;
 
 	return data.map((row) => {
-		const { assets } = row as { assets: { name: string; type: string } };
+		const { assets } = row as { assets: Pick<DbAssetRow, "name" | "type"> };
 		return {
 			symbol: row.symbol,
 			created_at: row.created_at,

@@ -104,13 +104,20 @@ const searchQuery = refDebounced(rawSearchQuery, 300);
 const isSearching = ref(false);
 const searchResults = ref<AssetSearchResult[]>([]);
 
+let fetchController: AbortController | null = null;
+
 watch(rawSearchQuery, (newValue) => {
+	if (newValue.length === 0) {
+		fetchController?.abort();
+		searchResults.value = [];
+		isSearching.value = false;
+		return;
+	}
+
 	if (newValue.length >= 1) {
 		isSearching.value = true;
 	}
 });
-
-let fetchController: AbortController | null = null;
 
 async function fetchResults(query: string) {
 	fetchController?.abort();
