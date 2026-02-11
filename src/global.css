@@ -161,9 +161,8 @@ body {
 		animation: none;
 	}
 
-	/* Disable Vue expand/collapse transitions */
-	[class*="-enter-active"],
-	[class*="-leave-active"] {
-		transition: none !important;
+	/* Disable FadeTransition's Vue enter/leave motion classes */
+	.transition-opacity.duration-150 {
+		transition: none;
 	}
 }

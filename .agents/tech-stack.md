@@ -20,6 +20,9 @@
 - **Local files are the source of truth.** Always create the migration SQL file in `supabase/migrations/` first, then apply it to production using the Supabase MCP `apply_migration` tool with the **same version and name** as the local file.
 - **Never apply migrations directly to production** without a corresponding local file. This causes version drift that is painful to reconcile.
 - After applying a migration, run `npm run db:gen-types` to keep TypeScript types in sync.
+- Default sync check is **effective sync**: DB schema + generated TS types + app queries are aligned.
+- **History sync** (exact migration-version parity) is a stricter check and is only required when CI/deploy tooling depends on it.
+- Do not treat history-only mismatch as a functional bug unless it blocks migration tooling.
 
 ### Generated Files
 - Do NOT modify `src/lib/db/generated/database.types.ts`. Regenerate with `npm run db:gen-types` or use type assertions.

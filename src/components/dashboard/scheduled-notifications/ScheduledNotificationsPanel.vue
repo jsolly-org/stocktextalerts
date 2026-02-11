@@ -43,7 +43,7 @@
 			<p
 				class="text-sm text-gray-600 mt-1"
 			>
-				Scheduled market notifications for all your tracked assets — each selected delivery time sends a separate notification.
+				Configure market-related notifications for your tracked assets.
 			</p>
 			</header>
 
@@ -54,87 +54,98 @@
 			/>
 
 			<div
-				class="flex items-center justify-between gap-3 py-3 transition-opacity duration-200"
+				class="rounded-xl border border-gray-200 bg-white p-4 transition-opacity duration-200"
 				:class="{ 'opacity-50': needsChannelSelection }"
 			>
-				<input
-					type="hidden"
-					name="price_notifications_enabled"
-					:value="priceNotificationsEnabled ? 'on' : 'off'"
-				/>
-				<input
-					type="hidden"
-					name="price_include_email"
-					:value="priceIncludeEmail ? 'on' : 'off'"
-				/>
-				<input
-					type="hidden"
-					name="price_include_sms"
-					:value="priceIncludeSms ? 'on' : 'off'"
-				/>
-				<div class="min-w-0">
-					<span
-						id="price_notifications_enabled_label"
-						class="text-base font-semibold text-gray-900"
-					>
-						Price Notifications
-					</span>
-					<p id="price_notifications_enabled_description" class="text-sm text-gray-600 mt-0.5">
-						Receive price updates for all your tracked assets, including ETFs.
-					</p>
+				<div class="flex items-center justify-between gap-3">
+					<input
+						type="hidden"
+						name="price_notifications_enabled"
+						:value="priceNotificationsEnabled ? 'on' : 'off'"
+					/>
+					<input
+						type="hidden"
+						name="price_include_email"
+						:value="priceIncludeEmail ? 'on' : 'off'"
+					/>
+					<input
+						type="hidden"
+						name="price_include_sms"
+						:value="priceIncludeSms ? 'on' : 'off'"
+					/>
+					<div class="min-w-0">
+						<span
+							id="price_notifications_enabled_label"
+							class="text-base font-semibold text-gray-900"
+						>
+							Scheduled Price Notifications
+						</span>
+						<p id="price_notifications_enabled_description" class="text-sm text-gray-600 mt-0.5">
+							Receive scheduled price updates for all tracked assets, including ETFs.
+						</p>
+					</div>
+					<div class="flex items-center gap-4 shrink-0">
+						<label class="inline-flex items-center gap-1.5 cursor-pointer">
+							<input
+								type="checkbox"
+								v-model="priceIncludeEmail"
+								:disabled="needsChannelSelection || !emailEnabled"
+								class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								aria-describedby="price_notifications_enabled_description"
+							/>
+							<span class="text-sm text-gray-700">Email</span>
+						</label>
+						<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : needsChannelSelection ? 'cursor-not-allowed' : 'cursor-not-allowed opacity-50'">
+							<input
+								type="checkbox"
+								v-model="priceIncludeSms"
+								:disabled="needsChannelSelection || !smsReady"
+								class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								aria-describedby="price_notifications_enabled_description"
+							/>
+							<span class="text-sm text-gray-700">SMS</span>
+						</label>
+					</div>
 				</div>
-				<div class="flex items-center gap-4 shrink-0">
-					<label class="inline-flex items-center gap-1.5 cursor-pointer">
-						<input
-							type="checkbox"
-							v-model="priceIncludeEmail"
-							:disabled="needsChannelSelection || !emailEnabled"
-							class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
-							aria-describedby="price_notifications_enabled_description"
+
+				<FadeTransition>
+					<div v-if="priceNotificationsEnabled" class="mt-3 border-t border-gray-100 pt-3 pl-3 sm:pl-4">
+						<p class="text-sm text-gray-600 mb-3">
+							Delivery times for scheduled price notifications.
+						</p>
+
+						<FadeTransition>
+							<p
+								v-if="!needsChannelSelection && scheduledUpdateTimesMinutes.length === 0"
+								class="flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm bg-info-bg border border-info-border text-info-text"
+								role="note"
+							>
+								<InformationCircleIcon class="size-5 shrink-0 mt-0.5" aria-hidden="true" />
+								<span>No scheduled price notification delivery times selected.</span>
+							</p>
+						</FadeTransition>
+
+						<ScheduledUpdateControls
+							:scheduledUpdateTimes="scheduledUpdateTimes"
+							:needsChannelSelection="needsChannelSelection"
+							:timePickerDisabled="timePickerDisabled"
+							:canAddTime="canAddTime"
+							:canAddMarketOpen="canAddMarketOpen"
+							:marketOpenLabel="marketOpenLabel"
+							:maxTimes="MAX_DELIVERY_TIMES"
+							:maxTimesReached="maxTimesReached"
+							:countdownText="countdownText"
+							:outsideMarketHoursIndices="outsideMarketHoursIndices"
+							@time-change="handleTimeChange"
+							@add-time="handleAddTime"
+							@add-initial-time="handleAddInitialTime"
+							@add-market-open="handleAddMarketOpen"
+							@remove-time="handleRemoveTime"
 						/>
-						<span class="text-sm text-gray-700">Email</span>
-					</label>
-					<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : needsChannelSelection ? 'cursor-not-allowed' : 'cursor-not-allowed opacity-50'">
-						<input
-							type="checkbox"
-							v-model="priceIncludeSms"
-							:disabled="needsChannelSelection || !smsReady"
-							class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
-							aria-describedby="price_notifications_enabled_description"
-						/>
-						<span class="text-sm text-gray-700">SMS</span>
-					</label>
-				</div>
+					</div>
+				</FadeTransition>
 			</div>
 
-			<FadeTransition>
-				<p
-					v-if="!needsChannelSelection && scheduledUpdateTimesMinutes.length === 0"
-					class="flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm bg-info-bg border border-info-border text-info-text"
-					role="note"
-				>
-					<InformationCircleIcon class="size-5 shrink-0 mt-0.5" aria-hidden="true" />
-					<span>No Market notifications.</span>
-				</p>
-			</FadeTransition>
-
-		<ScheduledUpdateControls
-				:scheduledUpdateTimes="scheduledUpdateTimes"
-				:needsChannelSelection="needsChannelSelection"
-				:timePickerDisabled="timePickerDisabled"
-				:canAddTime="canAddTime"
-				:canAddMarketOpen="canAddMarketOpen"
-				:marketOpenLabel="marketOpenLabel"
-				:maxTimes="MAX_DELIVERY_TIMES"
-				:maxTimesReached="maxTimesReached"
-				:countdownText="countdownText"
-				:outsideMarketHoursIndices="outsideMarketHoursIndices"
-			@time-change="handleTimeChange"
-			@add-time="handleAddTime"
-			@add-initial-time="handleAddInitialTime"
-			@add-market-open="handleAddMarketOpen"
-			@remove-time="handleRemoveTime"
-			/>
 			</div>
 		</section>
 	</form>

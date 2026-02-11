@@ -183,28 +183,26 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 	Build imperatively to avoid a union-type explosion from too many spread expressions.
 	============= */
 	const boolFields = [
-		["price_notifications_enabled", true],
-		["price_include_email", false],
-		["price_include_sms", false],
-		["daily_include_news_email", false],
-		["daily_include_rumors_email", false],
-		["daily_include_analyst_email", false],
-		["daily_include_insider_email", false],
-		["daily_include_analyst_sms", false],
-		["daily_include_insider_sms", false],
-		["weekly_include_earnings_email", false],
-		["weekly_include_earnings_sms", false],
-		["email_notifications_enabled", false],
-		["sms_notifications_enabled", false],
-	] as const satisfies ReadonlyArray<
-		readonly [keyof ParsedNotificationPreferencesForm, boolean]
-	>;
+		"price_notifications_enabled",
+		"price_include_email",
+		"price_include_sms",
+		"daily_include_news_email",
+		"daily_include_rumors_email",
+		"daily_include_analyst_email",
+		"daily_include_insider_email",
+		"daily_include_analyst_sms",
+		"daily_include_insider_sms",
+		"weekly_include_earnings_email",
+		"weekly_include_earnings_sms",
+		"email_notifications_enabled",
+		"sms_notifications_enabled",
+	] as const satisfies ReadonlyArray<keyof ParsedNotificationPreferencesForm>;
 
 	const boolUpdates: Record<string, boolean> = {};
-	for (const [field, fallback] of boolFields) {
-		if (formData.has(field)) {
-			boolUpdates[field] =
-				(parsedData[field] as boolean | undefined) ?? fallback;
+	for (const field of boolFields) {
+		const val = parsedData[field] as boolean | undefined;
+		if (formData.has(field) && val !== undefined) {
+			boolUpdates[field] = val;
 		}
 	}
 

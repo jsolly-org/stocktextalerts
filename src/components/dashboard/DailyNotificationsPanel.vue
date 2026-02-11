@@ -54,12 +54,12 @@
 
 			<FadeTransition>
 				<p
-					v-if="!needsChannelSelection && dailyDeliveryTimeMinutes === null"
+					v-if="dailyEnabled && dailyDeliveryTimeMinutes === null"
 					class="flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm bg-info-bg border border-info-border text-info-text"
 					role="note"
 				>
 					<InformationCircleIcon class="size-5 shrink-0 mt-0.5" aria-hidden="true" />
-					<span>No daily digest will be sent.</span>
+					<span>No daily digest will be sent until you choose a notification time.</span>
 				</p>
 			</FadeTransition>
 
@@ -265,7 +265,7 @@
 						id="daily_delivery_time_description"
 						class="text-sm text-gray-600 mt-0.5"
 					>
-						Sent once every day.<span v-if="isHydrated && isUsingMarketTime" class="text-gray-500 italic"> Using your earliest market notification time.</span>
+						Sent once every day.
 					</p>
 				</div>
 		<div class="sm:shrink-0">
@@ -411,11 +411,6 @@ const dailyDeliveryTimeMinutes = ref<number | null>(
 
 const dailyEnabled = computed(() =>
 	includeNewsEmail.value || includeRumorsEmail.value || includeAnalystEmail.value || includeInsiderEmail.value || includeAnalystSms.value || includeInsiderSms.value,
-);
-
-/** True when the displayed delivery time is inherited from market notification settings. */
-const isUsingMarketTime = computed(
-	() => user.value.daily_delivery_time === null && dailyDeliveryTimeMinutes.value !== null,
 );
 
 /**
