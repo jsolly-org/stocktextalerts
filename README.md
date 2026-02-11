@@ -1,12 +1,13 @@
 # StockTextAlerts.com
 
-A securities notification app that sends scheduled SMS and email updates (price alerts, daily digests, and a weekly calendar) about tracked assets (stocks and ETFs). Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email and SMS are sent via Resend and Twilio. 🔔
+A securities notification app that sends scheduled SMS and email updates (market price notifications, daily digests, and a weekly calendar) plus optional market movement alerts about tracked assets (stocks and ETFs). Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email and SMS are sent via Resend and Twilio. 🔔
 
 ## Features
 
 - **Asset Tracking** - Search and track US stocks and ETFs
 - **Email Notifications** - Receive updates via email (Resend)
 - **SMS Notifications** - Optional SMS delivery (Twilio)
+- **Market Movement Alerts** - Get alerted during US market hours when tracked assets show significant movement (up or down), with configurable sensitivity (Chill/Normal/Aggressive)
 - **Phone Verification** - Secure phone verification via Twilio Verify
 - **Timezone Support** - Browser-detected timezones with user overrides
 - **Market Notifications** - Choose up to 5 delivery times for scheduled asset price updates, and decide if they're delivered by email, SMS, or both
@@ -22,7 +23,7 @@ A securities notification app that sends scheduled SMS and email updates (price 
 - **Icons**: Local SVGs in `/src/icons` loaded via `astro-icon` in `.astro` files; Vue components import SVGs via `vite-svg-loader` using the `?component` suffix
 - **Database**: Supabase (PostgreSQL)
 - **Market Data**: Finnhub (prices, market hours, earnings, analyst/insider extras)
-- **AI Summaries**: xAI (Grok) for optional News/Rumors add-ons
+- **AI Summaries**: xAI (Grok) for optional News/Rumors add-ons and instant alert summaries
 - **Email**: Resend
 - **SMS**: Twilio Verify API + Messaging API
 - **Hosting**: Vercel with Cron Jobs
@@ -272,16 +273,17 @@ After deployment, configure the Twilio webhook for incoming SMS:
 
 ### 4. Verify Cron Job
 
-The `vercel.json` file configures a scheduled cron job that runs at minute 0 of every hour.
+The `vercel.json` file configures a scheduled cron job that runs once per minute.
 
 The cron job calls `/api/schedule` and must include:
 - `Authorization: Bearer <CRON_SECRET>`
 
 The cron job:
-1. Runs scheduled market price notifications (batched price fetching)
-2. Sends weekly calendar notifications (earnings) on Mondays
-3. Sends daily digest notifications (News/Rumors/Analyst/Insider) at the user’s chosen daily time
-4. Sends via email and/or SMS based on settings and logs attempts to the `notification_log` table
+1. Runs market movement alerts during US market hours
+2. Runs scheduled market price notifications (batched price fetching)
+3. Sends weekly calendar notifications (earnings) on Mondays
+4. Sends daily digest notifications (News/Rumors/Analyst/Insider) at the user’s chosen daily time
+5. Sends via email and/or SMS based on settings and logs attempts to the `notification_log` table
 
 ## Project Structure
 
