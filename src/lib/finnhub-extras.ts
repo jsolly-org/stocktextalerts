@@ -178,10 +178,10 @@ export async function finnhubFetch(
 			const data: unknown = await response.json();
 			return data;
 		} catch (error) {
-			const reason =
-				error instanceof Error && error.name === "TimeoutError"
-					? "timeout"
-					: "request_failed";
+			const isTimeout =
+				error instanceof Error &&
+				(error.name === "TimeoutError" || error.name === "AbortError");
+			const reason = isTimeout ? "timeout" : "request_failed";
 			const safeError =
 				error instanceof Error
 					? (() => {
@@ -192,7 +192,7 @@ export async function finnhubFetch(
 							}
 							return sanitized;
 						})()
-					: undefined;
+					: new Error(redactFinnhubToken(String(error)));
 			log(
 				`Failed to fetch Finnhub ${label}`,
 				{ endpoint, attempt, reason },

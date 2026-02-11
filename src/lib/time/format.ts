@@ -58,8 +58,15 @@ export function parseTimeToMinutes(value: string): number | null {
 		return null;
 	}
 
-	const hours = Number.parseInt(parts[0] ?? "", 10);
-	const minutes = Number.parseInt(parts[1] ?? "", 10);
+	const [hoursPart, minutesPart] = parts;
+	if (!hoursPart || !minutesPart) {
+		return null;
+	}
+	if (!/^\d+$/.test(hoursPart) || !/^\d+$/.test(minutesPart)) {
+		return null;
+	}
+	const hours = Number.parseInt(hoursPart, 10);
+	const minutes = Number.parseInt(minutesPart, 10);
 
 	if (
 		Number.isNaN(hours) ||
@@ -133,7 +140,8 @@ export function parseTimeString(
  * Convert minutes since midnight into a `HH:MM` string suitable for `<input type="time">`.
  */
 export function minutesToTimeInputValue(minutes: number): string {
-	const clamped = Math.max(0, Math.min(1439, Math.floor(minutes)));
+	const safeMinutes = Number.isFinite(minutes) ? minutes : 0;
+	const clamped = Math.max(0, Math.min(1439, Math.floor(safeMinutes)));
 	const hours = Math.floor(clamped / 60);
 	const mins = clamped % 60;
 	return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
@@ -339,7 +347,8 @@ Format minute-of-day for UI display in the runtime locale
  * Format a minute-of-day value into a locale-aware time string.
  */
 export function formatMinutesAsLocalTime(minutes: number): string {
-	const clamped = Math.max(0, Math.min(1439, Math.floor(minutes)));
+	const safeMinutes = Number.isFinite(minutes) ? minutes : 0;
+	const clamped = Math.max(0, Math.min(1439, Math.floor(safeMinutes)));
 	const dt = DateTime.now().set({
 		hour: Math.floor(clamped / 60),
 		minute: clamped % 60,

@@ -12,12 +12,14 @@ import { createLogger } from "../../../../lib/logging";
 
 interface SmsVerifyCodeDependencies {
 	createSupabaseServerClient: typeof createSupabaseServerClient;
+	createSupabaseAdminClient: typeof createSupabaseAdminClient;
 	createUserService: typeof createUserService;
 	checkVerification: typeof checkVerification;
 }
 
 const defaultDependencies: SmsVerifyCodeDependencies = {
 	createSupabaseServerClient,
+	createSupabaseAdminClient,
 	createUserService,
 	checkVerification,
 };
@@ -117,7 +119,7 @@ export function createVerifyCodeHandler(
 			}
 
 			// Rate limit verification attempts to prevent brute force attacks
-			const adminSupabase = createSupabaseAdminClient();
+			const adminSupabase = dependencies.createSupabaseAdminClient();
 			const { data: rateLimitAllowed, error: rateLimitError } =
 				await adminSupabase.rpc("check_rate_limit", {
 					p_user_id: user.id,

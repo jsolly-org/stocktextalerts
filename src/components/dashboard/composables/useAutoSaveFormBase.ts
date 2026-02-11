@@ -55,6 +55,7 @@ function serializeFormData(formData: FormData): string {
 				: String(value);
 		entries.push(`${name}=${serializedValue}`);
 	}
+	entries.sort();
 	return entries.join("&");
 }
 
@@ -240,7 +241,16 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 		}
 
 		event.preventDefault();
-		await triggerSave(form);
+		try {
+			await triggerSave(form);
+		} catch (error) {
+			rootLogger.error(
+				"Form submit autosave failed",
+				{ action: options.logAction },
+				error,
+			);
+			setStatus("Could not save changes. Please try again.", "error");
+		}
 	}
 
 	watch(dirtySignal, () => {
