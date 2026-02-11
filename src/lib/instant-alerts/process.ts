@@ -25,7 +25,7 @@ import {
 	purgeOldSnapshots,
 	storeSnapshots,
 } from "./snapshot-store";
-import { checkCooldown, fetchInstantAlertUsers, updateCooldown } from "./users";
+import { claimCooldown, fetchInstantAlertUsers } from "./users";
 
 /**
  * Threshold multiplier: fetch news when price-only score >= 50% of the aggressive threshold.
@@ -263,9 +263,9 @@ export async function processInstantAlerts(options: {
 			);
 			if (anomalyResult.score < userThreshold) continue;
 
-			// Check cooldown
-			const onCooldown = await checkCooldown(supabase, user.id, symbol);
-			if (onCooldown) {
+			// Atomically claim cooldown before delivery to avoid duplicate sends.
+			const claimed = await claimCooldown(supabase, user.id, symbol);
+			if (!claimed) {
 				totals.cooldownSkips++;
 				continue;
 			}
@@ -287,9 +287,6 @@ export async function processInstantAlerts(options: {
 				sendSms: smsSender,
 				stats: totals,
 			});
-
-			// Update cooldown
-			await updateCooldown(supabase, user.id, symbol);
 		}
 	}
 

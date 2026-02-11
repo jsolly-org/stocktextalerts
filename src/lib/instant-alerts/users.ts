@@ -58,57 +58,37 @@ export async function fetchInstantAlertUsers(
 }
 
 /**
- * Check whether a user is within the cooldown window for a symbol.
+ * Atomically claim a cooldown slot for a user+symbol pair.
  *
- * Returns true if the user should NOT be alerted (cooldown active).
+ * Returns true when alert delivery should proceed, false when still on cooldown.
  */
-export async function checkCooldown(
+export async function claimCooldown(
 	supabase: SupabaseAdminClient,
 	userId: string,
 	symbol: string,
 ): Promise<boolean> {
 	const cooldownMinutes = getCooldownMinutes();
-	const cutoff = new Date(
-		Date.now() - cooldownMinutes * 60 * 1000,
-	).toISOString();
-
-	const { data, error } = await (supabase
-		.from("instant_alert_cooldowns")
-		.select("last_alerted_at")
-		.eq("user_id", userId)
-		.eq("symbol", symbol) as unknown as Promise<{
-		data: Array<{ last_alerted_at: string }> | null;
-		error: unknown;
-	}>);
-
-	if (error) {
-		rootLogger.warn("Failed to check cooldown", { userId, symbol }, error);
-		return false; // Allow alerting on error (fail open)
-	}
-
-	if (!data || data.length === 0) return false;
-
-	return data[0].last_alerted_at > cutoff;
-}
-
-/**
- * Upsert the cooldown timestamp for a user+symbol pair.
- */
-export async function updateCooldown(
-	supabase: SupabaseAdminClient,
-	userId: string,
-	symbol: string,
-): Promise<void> {
-	const { error } = await (supabase.from("instant_alert_cooldowns").upsert(
-		{
-			user_id: userId,
-			symbol,
-			last_alerted_at: new Date().toISOString(),
-		},
-		{ onConflict: "user_id,symbol" },
-	) as unknown as Promise<{ error: unknown }>);
+	const { data: claimed, error } = await (
+		supabase as unknown as {
+			rpc: (
+				fn: string,
+				args: unknown,
+			) => Promise<{ data: unknown; error: unknown }>;
+		}
+	).rpc("claim_instant_alert_cooldown", {
+		p_user_id: userId,
+		p_symbol: symbol,
+		p_cooldown_minutes: cooldownMinutes,
+	});
 
 	if (error) {
-		rootLogger.warn("Failed to update cooldown", { userId, symbol }, error);
+		rootLogger.warn(
+			"Failed to claim instant alert cooldown",
+			{ userId, symbol },
+			error,
+		);
+		return true; // Allow alerting on error (fail open)
 	}
+
+	return Boolean(claimed);
 }

@@ -13,11 +13,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   public: {
     Tables: {
       app_metadata: {
@@ -117,6 +112,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "instant_alert_cooldowns_symbol_fkey"
+            columns: ["symbol"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["symbol"]
+          },
           {
             foreignKeyName: "instant_alert_cooldowns_user_id_fkey"
             columns: ["user_id"]
@@ -460,6 +462,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      claim_instant_alert_cooldown: {
+        Args: {
+          p_cooldown_minutes: number
+          p_symbol: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
       claim_scheduled_notification: {
         Args: {
           p_channel: Database["public"]["Enums"]["delivery_method"]
@@ -647,3 +657,4 @@ export const Constants = {
     },
   },
 } as const
+
