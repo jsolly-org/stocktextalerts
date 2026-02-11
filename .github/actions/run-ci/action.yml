@@ -17,23 +17,13 @@ runs:
           exit 0
         fi
 
-        base_sha=""
-        head_sha=""
+        if [[ "$event_name" != "pull_request" ]]; then
+          echo "Skipping migration guard for event: $event_name"
+          exit 0
+        fi
 
-        case "$event_name" in
-          pull_request)
-            base_sha="$(jq -r '.pull_request.base.sha // empty' "$event_path")"
-            head_sha="$(jq -r '.pull_request.head.sha // empty' "$event_path")"
-            ;;
-          push)
-            base_sha="$(jq -r '.before // empty' "$event_path")"
-            head_sha="$(jq -r '.after // empty' "$event_path")"
-            ;;
-          *)
-            echo "Skipping migration guard for event: $event_name"
-            exit 0
-            ;;
-        esac
+        base_sha="$(jq -r '.pull_request.base.sha // empty' "$event_path")"
+        head_sha="$(jq -r '.pull_request.head.sha // empty' "$event_path")"
 
         if [[ -z "$base_sha" || -z "$head_sha" ]]; then
           echo "Skipping migration guard: could not determine diff range."
