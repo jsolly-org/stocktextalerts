@@ -26,6 +26,10 @@ export type NotificationPreferencesData = {
 	weekly_include_earnings_email: boolean;
 	weekly_include_earnings_sms: boolean;
 	weekly_next_send_at: string | null;
+	instant_notifications_enabled: boolean;
+	instant_include_email: boolean;
+	instant_include_sms: boolean;
+	instant_alert_sensitivity: number;
 };
 
 type AutoSaveOptions = Omit<AutoSaveFormOptions, "payloadKey" | "logAction">;

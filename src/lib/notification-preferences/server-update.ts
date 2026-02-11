@@ -28,6 +28,10 @@ interface ParsedNotificationPreferencesForm {
 	price_include_sms?: boolean;
 	weekly_include_earnings_email?: boolean;
 	weekly_include_earnings_sms?: boolean;
+	instant_notifications_enabled?: boolean;
+	instant_include_email?: boolean;
+	instant_include_sms?: boolean;
+	instant_alert_sensitivity?: number;
 }
 
 /**
@@ -196,6 +200,9 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		"weekly_include_earnings_sms",
 		"email_notifications_enabled",
 		"sms_notifications_enabled",
+		"instant_notifications_enabled",
+		"instant_include_email",
+		"instant_include_sms",
 	] as const satisfies ReadonlyArray<keyof ParsedNotificationPreferencesForm>;
 
 	const boolUpdates: Record<string, boolean> = {};
@@ -212,6 +219,15 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		...boolUpdates,
 		...(formData.has("daily_delivery_time")
 			? { daily_delivery_time: parsedData.daily_delivery_time ?? null }
+			: {}),
+		...(formData.has("instant_alert_sensitivity") &&
+		parsedData.instant_alert_sensitivity !== undefined
+			? {
+					instant_alert_sensitivity: Math.max(
+						1,
+						Math.min(3, parsedData.instant_alert_sensitivity),
+					),
+				}
 			: {}),
 	});
 

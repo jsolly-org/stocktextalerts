@@ -1,4 +1,8 @@
 import { onBeforeUnmount, type Ref, ref, watch } from "vue";
+import {
+	isUnauthorizedResponse,
+	redirectToSignIn,
+} from "../../../lib/auth/session-expired";
 import { formatMessage } from "../../../lib/constants";
 import { rootLogger } from "../../../lib/logging";
 
@@ -18,6 +22,11 @@ export type AutoSaveFormOptions = {
 };
 
 /* ============= Helpers ============= */
+/**
+ * Resolve the request path that will be used for a submit event.
+ *
+ * Prefers the submitter's `formAction` when present, otherwise uses the form's `action`.
+ */
 function resolveActionPath(
 	form: HTMLFormElement,
 	submitter: HTMLElement | null,
@@ -32,6 +41,11 @@ function resolveActionPath(
 	return resolved.pathname;
 }
 
+/**
+ * Serialize a `FormData` payload into a stable string signature.
+ *
+ * Used to detect whether the form has changed since the last successful save.
+ */
 function serializeFormData(formData: FormData): string {
 	const entries: string[] = [];
 	for (const [name, value] of formData.entries()) {
@@ -45,6 +59,11 @@ function serializeFormData(formData: FormData): string {
 	return entries.join("&");
 }
 
+/**
+ * Return true when an input/change event is coming from an element that should not trigger autosave.
+ *
+ * This allows opt-out for controls like OTP fields or explicit submit-only sections.
+ */
 function isAutosaveIgnoredEvent(event: Event): boolean {
 	if (!(event.target instanceof Element)) {
 		return false;
@@ -53,6 +72,12 @@ function isAutosaveIgnoredEvent(event: Event): boolean {
 }
 
 /* ============= Composable ============= */
+/**
+ * Generic autosave composable for dashboard forms.
+ *
+ * Watches input/change events, debounces updates, and POSTs the form to its `action` endpoint.
+ * Redirects to sign-in on unauthorized responses and exposes saving state + last saved payload.
+ */
 export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 	const statusMessage = ref<string | null>(null);
 	const statusTone = ref<"error" | "info">("info");
@@ -65,6 +90,7 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 	const lastSavedSignature = ref<string | null>(null);
 	const dirtySignal = ref(0);
 
+	/** Update the inline status message shown in the UI. */
 	function setStatus(message: string | null, tone: "error" | "info" = "info") {
 		statusMessage.value = message;
 		if (message) {
@@ -72,6 +98,11 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 		}
 	}
 
+	/**
+	 * POST the current form data to the server and update local state from the JSON response.
+	 *
+	 * When another save is requested while a save is in-flight, the latest state is queued.
+	 */
 	async function sendUpdate(
 		form: HTMLFormElement,
 		formData: FormData,
@@ -88,6 +119,11 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 				headers: { Accept: "application/json" },
 				signal: AbortSignal.timeout(10_000),
 			});
+
+			if (isUnauthorizedResponse(response)) {
+				redirectToSignIn();
+				return;
+			}
 
 			const payload = (await response.json()) as FormSaveResponse;
 
@@ -133,6 +169,9 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 		}
 	}
 
+	/**
+	 * Trigger a save immediately unless the form is unchanged or a save is currently running.
+	 */
 	async function triggerSave(form: HTMLFormElement) {
 		const formData = new FormData(form);
 		const currentSignature = serializeFormData(formData);
@@ -147,6 +186,7 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 		await sendUpdate(form, formData, currentSignature);
 	}
 
+	/** Debounced wrapper around `triggerSave()` to batch rapid input changes. */
 	function scheduleSave(form: HTMLFormElement) {
 		if (debounceHandle) {
 			window.clearTimeout(debounceHandle);
@@ -159,10 +199,12 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 		}, debounceMs);
 	}
 
+	/** Manually mark the form as dirty (useful when updates come from code instead of DOM events). */
 	function notifyChange() {
 		dirtySignal.value += 1;
 	}
 
+	/** Handler for `input` events that should schedule autosave. */
 	function handleFormInput(event: Event) {
 		if (isAutosaveIgnoredEvent(event)) {
 			return;
@@ -170,6 +212,7 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 		dirtySignal.value += 1;
 	}
 
+	/** Handler for `change` events that should schedule autosave. */
 	function handleFormChange(event: Event) {
 		if (isAutosaveIgnoredEvent(event)) {
 			return;
@@ -177,6 +220,11 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 		dirtySignal.value += 1;
 	}
 
+	/**
+	 * Intercept a form submit and convert it into an autosave if it targets the expected action.
+	 *
+	 * This prevents full page reloads when the submit is meant to persist preferences.
+	 */
 	async function handleFormSubmit(event: SubmitEvent): Promise<void> {
 		const form = options.formRef.value;
 		if (!form) {
@@ -193,7 +241,16 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 		}
 
 		event.preventDefault();
-		await triggerSave(form);
+		try {
+			await triggerSave(form);
+		} catch (error) {
+			rootLogger.error(
+				"Form submit autosave failed",
+				{ action: options.logAction },
+				error,
+			);
+			setStatus("Could not save changes. Please try again.", "error");
+		}
 	}
 
 	watch(dirtySignal, () => {

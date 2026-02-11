@@ -1,4 +1,7 @@
 // Twilio expects a TwiML (XML) response body to render an SMS reply.
+/**
+ * Wrap a message string in a minimal TwiML (XML) response body for Twilio webhooks.
+ */
 export function wrapInTwiml(message: string): string {
 	const twiml = ['<?xml version="1.0" encoding="UTF-8"?>', "<Response>"];
 	if (message) {

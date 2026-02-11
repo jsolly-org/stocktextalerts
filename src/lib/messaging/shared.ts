@@ -2,6 +2,11 @@ import type { Database } from "../db/generated/database.types";
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 
+/**
+ * Record a notification attempt in `notification_log`.
+ *
+ * Returns `true` on success, `false` on failure (after logging).
+ */
 export async function recordNotification(
 	supabase: AppSupabaseClient,
 	insert: Database["public"]["Tables"]["notification_log"]["Insert"],

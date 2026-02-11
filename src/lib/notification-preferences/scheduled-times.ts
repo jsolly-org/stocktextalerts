@@ -7,6 +7,9 @@ type ScheduledTimesParseResult =
 	| { ok: true; times: number[] }
 	| { ok: false; reason: string };
 
+/**
+ * Parse `<input type="time">` string values into unique minutes-since-midnight values.
+ */
 export function parseScheduledTimes(
 	values: string[],
 ): ScheduledTimesParseResult {
@@ -23,6 +26,9 @@ export function parseScheduledTimes(
 	return { ok: true, times: unique };
 }
 
+/**
+ * Serialize a list of minutes-since-midnight into a stable comma-separated string.
+ */
 export function serializeTimes(times: number[] | null | undefined): string {
 	if (!times || times.length === 0) {
 		return "";
@@ -30,6 +36,11 @@ export function serializeTimes(times: number[] | null | undefined): string {
 	return [...times].sort((a, b) => a - b).join(",");
 }
 
+/**
+ * Compute the next send time in ISO-UTC for scheduled notifications.
+ *
+ * Throws on failure (invalid inputs or unexpected null results) and logs contextual details.
+ */
 export function computeNextSendAtIso(
 	times: number[],
 	timezone: string,

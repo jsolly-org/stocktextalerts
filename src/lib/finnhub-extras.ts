@@ -93,6 +93,10 @@ function parseRetryAfterMs(headerValue: string | null): number | null {
 	return null;
 }
 
+function redactFinnhubToken(value: string): string {
+	return value.replace(/([?&]token=)[^&]+/gi, "$1[redacted]");
+}
+
 /**
  * Compute retry delay with exponential backoff and jitter.
  *
@@ -111,6 +115,11 @@ function computeRetryDelayMs(
 	return base + jitter;
 }
 
+/**
+ * Low-level Finnhub fetch wrapper with retries, rate-limit handling, and timeouts.
+ *
+ * Returns `null` when the API key is missing or the request ultimately fails.
+ */
 export async function finnhubFetch(
 	endpoint: string,
 	params: Record<string, string>,
@@ -169,14 +178,25 @@ export async function finnhubFetch(
 			const data: unknown = await response.json();
 			return data;
 		} catch (error) {
-			const reason =
-				error instanceof Error && error.name === "TimeoutError"
-					? "timeout"
-					: "request_failed";
+			const isTimeout =
+				error instanceof Error &&
+				(error.name === "TimeoutError" || error.name === "AbortError");
+			const reason = isTimeout ? "timeout" : "request_failed";
+			const safeError =
+				error instanceof Error
+					? (() => {
+							const sanitized = new Error(redactFinnhubToken(error.message));
+							sanitized.name = error.name;
+							if (error.stack) {
+								sanitized.stack = redactFinnhubToken(error.stack);
+							}
+							return sanitized;
+						})()
+					: new Error(redactFinnhubToken(String(error)));
 			log(
 				`Failed to fetch Finnhub ${label}`,
 				{ endpoint, attempt, reason },
-				error,
+				safeError,
 			);
 			if (!isLastAttempt) {
 				await new Promise((r) =>

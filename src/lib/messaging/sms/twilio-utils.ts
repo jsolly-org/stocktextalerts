@@ -25,6 +25,9 @@ type TwilioClient = ReturnType<typeof twilio>;
 
 // Reads Twilio credentials from import.meta.env.
 // Presence is guaranteed by middleware env validation; types reflect this via ImportMetaEnv.
+/**
+ * Read validated Twilio credentials from environment variables.
+ */
 export function readTwilioConfig(): TwilioConfig {
 	return {
 		accountSid: import.meta.env.TWILIO_ACCOUNT_SID,

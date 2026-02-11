@@ -49,6 +49,10 @@ export type NotificationPreferencesSnapshot = Pick<
 	| "weekly_include_earnings_email"
 	| "weekly_include_earnings_sms"
 	| "weekly_next_send_at"
+	| "instant_notifications_enabled"
+	| "instant_include_email"
+	| "instant_include_sms"
+	| "instant_alert_sensitivity"
 >;
 
 export type NotificationPreferences = Pick<

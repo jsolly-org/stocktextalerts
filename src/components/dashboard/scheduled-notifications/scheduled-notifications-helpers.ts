@@ -6,6 +6,11 @@ import {
 } from "../../../lib/time/format";
 
 // Defers time-dependent rendering until after mount to avoid hydration mismatches.
+/**
+ * Provide derived UI state for scheduled update timing (local "now" and countdown).
+ *
+ * Uses a 1-second tick after mount to keep countdown text updated without hydration mismatch.
+ */
 export function useScheduledUpdateTiming(options: {
 	timezone: ComputedRef<string>;
 	nextSendAtIso: ComputedRef<string | null>;

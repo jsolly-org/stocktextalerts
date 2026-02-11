@@ -22,6 +22,12 @@ type VerifyOtpResult = {
 	error: { code?: string; message: string } | null;
 };
 
+/**
+ * Verify a Supabase email OTP token hash for the given OTP type.
+ *
+ * This helper isolates the minimal runtime surface needed from Supabase Auth, avoiding
+ * type-resolution issues with transitive auth-js dependencies.
+ */
 export async function verifySupabaseOtp(
 	supabase: AppSupabaseClient,
 	params: VerifyOtpParams,

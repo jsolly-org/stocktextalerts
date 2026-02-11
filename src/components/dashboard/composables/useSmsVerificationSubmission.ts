@@ -1,5 +1,9 @@
 import { nextTick, ref } from "vue";
 import {
+	isUnauthorizedResponse,
+	redirectToSignIn,
+} from "../../../lib/auth/session-expired";
+import {
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 	type FlashTone,
 } from "../../../lib/constants";
@@ -11,6 +15,12 @@ type SmsVerificationPayload = {
 	tone?: FlashTone;
 };
 
+/**
+ * Composable that handles sending an SMS verification code and verifying the OTP.
+ *
+ * Performs API requests, updates local `user` state so the UI stays in sync, and redirects to
+ * sign-in if the session is unauthorized.
+ */
 export function useSmsVerificationSubmission(options: {
 	user: { value: User };
 	isEditingPhone: { value: boolean };
@@ -25,6 +35,7 @@ export function useSmsVerificationSubmission(options: {
 	const isVerifyingCode = ref(false);
 	const isSendingVerification = ref(false);
 
+	/** Parse a JSON response into the expected payload shape, returning null on parse failure. */
 	const parseResponsePayload = async (
 		res: Response,
 	): Promise<SmsVerificationPayload | null> => {
@@ -35,6 +46,10 @@ export function useSmsVerificationSubmission(options: {
 		}
 	};
 
+	/**
+	 * After requesting a verification code, update local user state so the OTP UI can render
+	 * immediately without a full refresh.
+	 */
 	const updateLocalUserAfterVerificationSent = (formData: FormData) => {
 		const phoneCountryCode = formData.get("phone_country_code");
 		const phoneNumber = formData.get("phone_number");
@@ -58,6 +73,9 @@ export function useSmsVerificationSubmission(options: {
 		} as User & { verification_sent_at: string };
 	};
 
+	/**
+	 * After successful OTP verification, update local state to reflect the verified phone number.
+	 */
 	const updateLocalUserAfterPhoneVerified = () => {
 		options.user.value = {
 			...options.user.value,
@@ -67,6 +85,7 @@ export function useSmsVerificationSubmission(options: {
 		options.isEditingPhone.value = false;
 	};
 
+	/** Focus the first OTP digit input after a verification code is sent. */
 	const focusFirstOtpDigit = async () => {
 		await nextTick();
 		const firstOtpInputId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-sms-verification-code-0`;
@@ -78,6 +97,11 @@ export function useSmsVerificationSubmission(options: {
 		otp0.select();
 	};
 
+	/**
+	 * Intercept the SMS verification form submit and route it to the correct API endpoint.
+	 *
+	 * Returns `true` when the submit was handled (and default navigation should be suppressed).
+	 */
 	const handleSmsVerificationSubmit = async (event: SubmitEvent) => {
 		const submitter = event.submitter;
 		const action =
@@ -110,6 +134,11 @@ export function useSmsVerificationSubmission(options: {
 				credentials: "same-origin",
 				headers: { Accept: "application/json" },
 			});
+
+			if (isUnauthorizedResponse(res)) {
+				redirectToSignIn();
+				return true;
+			}
 
 			const payload = await parseResponsePayload(res);
 			if (!payload || typeof payload.message !== "string") {

@@ -12,16 +12,23 @@ import { createLogger } from "../../../../lib/logging";
 
 interface SmsVerifyCodeDependencies {
 	createSupabaseServerClient: typeof createSupabaseServerClient;
+	createSupabaseAdminClient: typeof createSupabaseAdminClient;
 	createUserService: typeof createUserService;
 	checkVerification: typeof checkVerification;
 }
 
 const defaultDependencies: SmsVerifyCodeDependencies = {
 	createSupabaseServerClient,
+	createSupabaseAdminClient,
 	createUserService,
 	checkVerification,
 };
 
+/**
+ * Create an API handler for verifying an SMS OTP code.
+ *
+ * Dependency injection is supported for testing.
+ */
 export function createVerifyCodeHandler(
 	overrides: Partial<SmsVerifyCodeDependencies> = {},
 ): APIRoute {
@@ -84,7 +91,7 @@ export function createVerifyCodeHandler(
 				});
 			}
 			if (!userData.phone_country_code || !userData.phone_number) {
-				logger.error("SMS verification requested but phone details missing", {
+				logger.info("SMS verification requested but phone details missing", {
 					userId: user.id,
 				});
 				return jsonResponse(400, {
@@ -112,7 +119,7 @@ export function createVerifyCodeHandler(
 			}
 
 			// Rate limit verification attempts to prevent brute force attacks
-			const adminSupabase = createSupabaseAdminClient();
+			const adminSupabase = dependencies.createSupabaseAdminClient();
 			const { data: rateLimitAllowed, error: rateLimitError } =
 				await adminSupabase.rpc("check_rate_limit", {
 					p_user_id: user.id,

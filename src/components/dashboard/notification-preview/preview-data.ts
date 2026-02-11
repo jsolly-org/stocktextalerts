@@ -24,6 +24,9 @@ export const DEMO_ASSETS: PreviewAsset[] = [
 	},
 ];
 
+/**
+ * Format a single demo asset line for the notification preview UI.
+ */
 export function formatPreviewLine(
 	asset: PreviewAsset,
 	prefs: FormatPreferences,
@@ -35,6 +38,9 @@ export function formatPreviewLine(
 	);
 }
 
+/**
+ * Format a plaintext preview list for a set of demo assets.
+ */
 export function formatPreviewAssetsList(
 	assets: PreviewAsset[],
 	prefs: FormatPreferences,
@@ -48,6 +54,9 @@ export function formatPreviewAssetsList(
 	return formatAssetsTextList(assets, (symbol) => prices.get(symbol), prefs);
 }
 
+/**
+ * Format an HTML preview block for a set of demo assets (email-like rendering).
+ */
 export function formatPreviewEmailHtml(
 	assets: PreviewAsset[],
 	prefs: FormatPreferences,

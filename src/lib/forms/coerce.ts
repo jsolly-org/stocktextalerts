@@ -5,6 +5,12 @@ const DEFAULT_FALSY_VALUES = ["off", "false", "0"];
 const TIME_PATTERN = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
 const FLOAT_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 
+/**
+ * Coerce a raw string form value into the typed value defined by the field spec.
+ *
+ * Returns `{ value: undefined }` for empty optional fields and includes a structured `FormIssue`
+ * when coercion fails.
+ */
 export function coerceValue(
 	spec: FieldSpec,
 	raw: string,

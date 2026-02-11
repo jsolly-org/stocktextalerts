@@ -53,6 +53,7 @@
 				v-model:smsEnabled="smsEnabled"
 				:can-save-sms-enabled="canSaveSmsEnabled"
 				:sms-opted-out="smsOptedOut"
+				:is-saving="isSaving"
 				:email-notifications-enabled-id="emailNotificationsEnabledId"
 				:sms-notifications-enabled-id="smsNotificationsEnabledId"
 				:notification-channels-desc-id="notificationChannelsDescId"

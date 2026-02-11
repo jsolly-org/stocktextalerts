@@ -12,11 +12,17 @@ export function parseWithSchema<TSchema extends FormSchema>(
 	formData: FormData,
 	schema: TSchema,
 ): ParseOutcome<InferSchema<TSchema>>;
+/**
+ * @see parseWithSchema
+ */
 export function parseWithSchema<TSchema extends FormSchema, TResult>(
 	formData: FormData,
 	schema: TSchema,
 	transform: (data: InferSchema<TSchema>) => TResult,
 ): ParseOutcome<TResult>;
+/**
+ * @see parseWithSchema
+ */
 export function parseWithSchema<TSchema extends FormSchema, TResult>(
 	formData: FormData,
 	schema: TSchema,

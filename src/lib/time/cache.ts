@@ -104,6 +104,11 @@ async function getAllTimezonesCached(
 	return allTimezonesInFlight;
 }
 
+/**
+ * Return timezone options for a UI select, optionally including additional inactive values.
+ *
+ * Results are cached in-memory for a short TTL to reduce database load.
+ */
 export async function getTimezoneOptions(
 	supabase: AppSupabaseClient,
 	options?: { includeValues?: string[] },
@@ -148,6 +153,11 @@ export async function getTimezoneOptions(
 	return [...extras, ...activeTimezones];
 }
 
+/**
+ * Resolve the best timezone value to persist for a user.
+ *
+ * Prefers a detected timezone when it exists in the DB; otherwise falls back to `DEFAULT_TIMEZONE`.
+ */
 export async function resolveTimezone(options: {
 	supabase: AppSupabaseClient;
 	detectedTimezone: string | null | undefined;

@@ -1,6 +1,15 @@
+import {
+	isUnauthorizedResponse,
+	redirectToSignIn,
+} from "../auth/session-expired";
 import type { NotificationPreferencesSnapshot } from "../db";
 import { rootLogger } from "../logging";
 
+/**
+ * Fetch the latest notification-preferences snapshot from the server.
+ *
+ * Returns `null` on failure; redirects to sign-in when the session is unauthorized.
+ */
 export async function fetchCurrentNotificationPreferences(): Promise<NotificationPreferencesSnapshot | null> {
 	try {
 		const method = "GET";
@@ -13,11 +22,13 @@ export async function fetchCurrentNotificationPreferences(): Promise<Notificatio
 		});
 
 		if (!response.ok) {
+			if (isUnauthorizedResponse(response)) {
+				redirectToSignIn();
+				return null;
+			}
+
 			const isExpectedRejection =
-				response.status === 401 ||
-				response.status === 403 ||
-				response.status === 422 ||
-				response.status === 429;
+				response.status === 422 || response.status === 429;
 			const log = isExpectedRejection ? rootLogger.info : rootLogger.error;
 
 			const contentType = response.headers.get("content-type") ?? "";
@@ -115,6 +126,11 @@ type TimezoneUpdateNotificationPreferences = {
 	next_send_at?: string | null;
 };
 
+/**
+ * Update the user's timezone preference and return any derived scheduling fields the server updated.
+ *
+ * Returns `null` on failure; redirects to sign-in when the session is unauthorized.
+ */
 export async function updateNotificationTimezonePreference(
 	nextTimezone: string,
 ): Promise<TimezoneUpdateNotificationPreferences | null> {
@@ -130,6 +146,10 @@ export async function updateNotificationTimezonePreference(
 	});
 
 	if (!response.ok) {
+		if (isUnauthorizedResponse(response)) {
+			redirectToSignIn();
+			return null;
+		}
 		return null;
 	}
 

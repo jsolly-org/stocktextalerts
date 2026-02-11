@@ -2,6 +2,10 @@ import { rootLogger } from "../../logging";
 import type { DeliveryResult, SmsUser, UserRecord } from "../types";
 import type { SmsSender } from "./twilio-utils";
 
+/**
+ * Send an SMS to a user using the provided sender implementation.
+ * Caller should verify opt-in/verification (e.g., shouldSendSms) before calling.
+ */
 export async function sendUserSms(
 	user: SmsUser,
 	message: string,
@@ -38,6 +42,11 @@ export async function sendUserSms(
 	}
 }
 
+/**
+ * Returns true when an SMS should be attempted for the user.
+ *
+ * Enforces opt-out and phone verification invariants.
+ */
 export function shouldSendSms(
 	user: Pick<
 		UserRecord,

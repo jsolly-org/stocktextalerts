@@ -3,6 +3,11 @@ import type { User } from "../../../lib/db";
 
 const DASHBOARD_USER_KEY: InjectionKey<Ref<User>> = Symbol("dashboard-user");
 
+/**
+ * Provide a reactive dashboard `User` ref for descendant components.
+ *
+ * The provided ref is a shallow copy of the incoming prop and stays in sync with prop changes.
+ */
 export function provideDashboardUser(userProp: Ref<User>): Ref<User> {
 	const user = ref<User>({ ...userProp.value });
 
@@ -19,6 +24,11 @@ export function provideDashboardUser(userProp: Ref<User>): Ref<User> {
 	return user;
 }
 
+/**
+ * Consume the provided dashboard `User` ref.
+ *
+ * Throws when called outside a component tree that has run `provideDashboardUser()`.
+ */
 export function useDashboardUser(): Ref<User> {
 	const user = inject(DASHBOARD_USER_KEY);
 	if (!user) {

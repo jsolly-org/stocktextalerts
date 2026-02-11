@@ -13,6 +13,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "13.0.5"
+  }
   public: {
     Tables: {
       app_metadata: {
@@ -29,6 +34,53 @@ export type Database = {
           value?: string
         }
         Relationships: []
+      }
+      asset_snapshots: {
+        Row: {
+          captured_at: string
+          change_percent: number
+          day_high: number | null
+          day_low: number | null
+          day_open: number | null
+          id: string
+          prev_close: number | null
+          price: number
+          symbol: string
+          volume: number | null
+        }
+        Insert: {
+          captured_at?: string
+          change_percent: number
+          day_high?: number | null
+          day_low?: number | null
+          day_open?: number | null
+          id?: string
+          prev_close?: number | null
+          price: number
+          symbol: string
+          volume?: number | null
+        }
+        Update: {
+          captured_at?: string
+          change_percent?: number
+          day_high?: number | null
+          day_low?: number | null
+          day_open?: number | null
+          id?: string
+          prev_close?: number | null
+          price?: number
+          symbol?: string
+          volume?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_snapshots_symbol_fkey"
+            columns: ["symbol"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["symbol"]
+          },
+        ]
       }
       assets: {
         Row: {
@@ -47,6 +99,32 @@ export type Database = {
           type?: string
         }
         Relationships: []
+      }
+      instant_alert_cooldowns: {
+        Row: {
+          last_alerted_at: string
+          symbol: string
+          user_id: string
+        }
+        Insert: {
+          last_alerted_at?: string
+          symbol: string
+          user_id: string
+        }
+        Update: {
+          last_alerted_at?: string
+          symbol?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instant_alert_cooldowns_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notification_log: {
         Row: {
@@ -250,6 +328,10 @@ export type Database = {
           grok_sends_in_window: number
           grok_window_start: string | null
           id: string
+          instant_alert_sensitivity: number
+          instant_include_email: boolean
+          instant_include_sms: boolean
+          instant_notifications_enabled: boolean
           last_grok_rumors_at: string | null
           next_send_at: string | null
           phone_country_code: string | null
@@ -288,6 +370,10 @@ export type Database = {
           grok_sends_in_window?: number
           grok_window_start?: string | null
           id?: string
+          instant_alert_sensitivity?: number
+          instant_include_email?: boolean
+          instant_include_sms?: boolean
+          instant_notifications_enabled?: boolean
           last_grok_rumors_at?: string | null
           next_send_at?: string | null
           phone_country_code?: string | null
@@ -326,6 +412,10 @@ export type Database = {
           grok_sends_in_window?: number
           grok_window_start?: string | null
           id?: string
+          instant_alert_sensitivity?: number
+          instant_include_email?: boolean
+          instant_include_sms?: boolean
+          instant_notifications_enabled?: boolean
           last_grok_rumors_at?: string | null
           next_send_at?: string | null
           phone_country_code?: string | null
@@ -384,6 +474,10 @@ export type Database = {
       is_valid_scheduled_update_times: {
         Args: { times: number[] }
         Returns: boolean
+      }
+      purge_old_asset_snapshots: {
+        Args: { p_retention_minutes?: number }
+        Returns: number
       }
       replace_user_assets: {
         Args: { symbols: string[]; user_id: string }
@@ -553,4 +647,3 @@ export const Constants = {
     },
   },
 } as const
-

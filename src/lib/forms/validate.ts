@@ -1,6 +1,11 @@
 import { coerceValue } from "./coerce";
 import type { FormIssue, FormSchema } from "./schema";
 
+/**
+ * Validate and coerce form fields according to a schema.
+ *
+ * Returns structured errors and a typed output record.
+ */
 export function processFields(
 	keys: readonly string[],
 	rawData: Record<string, string | null>,

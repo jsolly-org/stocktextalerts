@@ -25,6 +25,10 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	price_include_sms: { type: "boolean" },
 	weekly_include_earnings_email: { type: "boolean" },
 	weekly_include_earnings_sms: { type: "boolean" },
+	instant_notifications_enabled: { type: "boolean" },
+	instant_include_email: { type: "boolean" },
+	instant_include_sms: { type: "boolean" },
+	instant_alert_sensitivity: { type: "integer" },
 } as const satisfies FormSchema;
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
@@ -198,6 +202,11 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 					updatedUser.weekly_include_earnings_email,
 				weekly_include_earnings_sms: updatedUser.weekly_include_earnings_sms,
 				weekly_next_send_at: updatedUser.weekly_next_send_at,
+				instant_notifications_enabled:
+					updatedUser.instant_notifications_enabled,
+				instant_include_email: updatedUser.instant_include_email,
+				instant_include_sms: updatedUser.instant_include_sms,
+				instant_alert_sensitivity: updatedUser.instant_alert_sensitivity,
 			},
 		});
 	} catch (error) {

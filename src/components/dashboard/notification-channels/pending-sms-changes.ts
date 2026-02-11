@@ -1,5 +1,11 @@
 import { computed, onMounted, onUnmounted, type Ref, watch } from "vue";
 
+/**
+ * Track "pending SMS enabled" intent across refreshes while phone verification is in progress.
+ *
+ * This prevents a user from losing their intent to enable SMS if the server cannot persist the
+ * preference until the phone is verified.
+ */
 export function usePendingSmsChanges(options: {
 	userId: Ref<string>;
 	smsEnabled: Ref<boolean>;
@@ -91,7 +97,7 @@ export function usePendingSmsChanges(options: {
 	}
 
 	function setupNavigationWarning() {
-		if (!hasPendingSmsChanges.value) {
+		if (typeof window === "undefined" || !hasPendingSmsChanges.value) {
 			return;
 		}
 
