@@ -21,6 +21,35 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      - name: Check for migration drift
+        run: |
+          # Get remote migration versions from the linked project
+          remote_versions=$(supabase migration list 2>/dev/null \
+            | grep -oE '[0-9]{14}' \
+            | sort -u)
+
+          orphaned=()
+          for version in $remote_versions; do
+            if ! ls supabase/migrations/${version}_*.sql 1>/dev/null 2>&1; then
+              orphaned+=("$version")
+            fi
+          done
+
+          if [ ${#orphaned[@]} -gt 0 ]; then
+            echo "::error::Migration drift detected! The following remote versions have no local file:"
+            for v in "${orphaned[@]}"; do
+              echo "  - $v"
+            done
+            echo ""
+            echo "To repair, run for each orphaned version:"
+            echo "  supabase migration repair <version> --status reverted --linked"
+            exit 1
+          fi
+
+          echo "All remote migration versions have matching local files."
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       - name: Push migrations to production
         run: supabase db push
         env:

@@ -15,7 +15,9 @@ New app with no users — optimize for simplicity and correctness over backwards
 ## Supabase Migrations
 - **Always** create migrations with `supabase migration new <name>` — never create files manually or rename timestamps.
 - The CLI generates a precise timestamp (e.g., `20260209223746`). This timestamp is recorded in the remote `schema_migrations` table when `supabase db push` runs in CI. Renaming the file (e.g., to `20260209200000`) causes a mismatch that breaks CI.
-- **Never** apply migrations directly via the Supabase dashboard SQL editor. All schema changes must go through migration files in this repo so CI stays in sync.
+- **Production is CI-only.** Do not run `supabase db push` against production from a local machine. Do not run `supabase link --project-ref` with the production project ref. Do not use MCP `apply_migration` against the production database. Do not execute DDL via the Supabase dashboard SQL editor.
+- **Production migration path:** `supabase migration new <name>` → write SQL → commit → merge to `main` → CI runs `supabase db push`.
+- MCP `apply_migration` is for iterating on the **local** Supabase database only.
 
 ## Guidelines
 - [Code Style & Structure](.agents/code-style.md)
