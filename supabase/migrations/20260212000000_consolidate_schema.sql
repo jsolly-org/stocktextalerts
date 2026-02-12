@@ -336,4 +336,12 @@ BEGIN
   END IF;
 END $$;
 
+/* ================================================================
+   9.  SCHEMA VERSION — bump to @v1 for the consolidated schema
+   ================================================================ */
+
+UPDATE public.app_metadata
+  SET value = '20250101000000_initial_schema@v1'
+  WHERE key = 'schema_version';
+
 COMMIT;
