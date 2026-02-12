@@ -67,21 +67,53 @@ const prefersReducedMotion = ref(false);
 let motionQuery: MediaQueryList | null = null;
 let touchStartX: number | null = null;
 let touchStartY: number | null = null;
+let pendingScrollTargetIndex: number | null = null;
+let pendingScrollTargetLeft: number | null = null;
+let pendingScrollClearTimeout: number | null = null;
 
 const SWIPE_THRESHOLD_PX = 30;
+const PROGRAMMATIC_SCROLL_TIMEOUT_MS = 700;
+const PROGRAMMATIC_SCROLL_EPSILON_PX = 2;
 
 function setCardRef(el: HTMLElement | null, index: number) {
 	cardRefs.value[index] = el;
 }
 
+function clearPendingProgrammaticScroll() {
+	pendingScrollTargetIndex = null;
+	pendingScrollTargetLeft = null;
+	if (pendingScrollClearTimeout != null) {
+		window.clearTimeout(pendingScrollClearTimeout);
+		pendingScrollClearTimeout = null;
+	}
+}
+
 function scrollToCard(index: number) {
 	const card = cardRefs.value[index];
 	if (card && trackRef.value) {
+		clearPendingProgrammaticScroll();
+		pendingScrollTargetIndex = index;
+		pendingScrollTargetLeft = card.offsetLeft;
+
 		activeIndex.value = index;
 		trackRef.value.scrollTo({
 			left: card.offsetLeft,
 			behavior: prefersReducedMotion.value ? "auto" : "smooth",
 		});
+
+		// If we didn't animate (or we're already there), don't block scroll syncing.
+		if (
+			prefersReducedMotion.value ||
+			Math.abs(trackRef.value.scrollLeft - card.offsetLeft) <=
+				PROGRAMMATIC_SCROLL_EPSILON_PX
+		) {
+			clearPendingProgrammaticScroll();
+		} else {
+			// Failsafe so we never get stuck ignoring scroll events.
+			pendingScrollClearTimeout = window.setTimeout(() => {
+				clearPendingProgrammaticScroll();
+			}, PROGRAMMATIC_SCROLL_TIMEOUT_MS);
+		}
 	}
 }
 
@@ -131,6 +163,19 @@ function handleTouchCancel() {
 function syncActiveTab() {
 	const track = trackRef.value;
 	if (!track) return;
+
+	if (pendingScrollTargetIndex != null && pendingScrollTargetLeft != null) {
+		if (
+			Math.abs(track.scrollLeft - pendingScrollTargetLeft) >
+			PROGRAMMATIC_SCROLL_EPSILON_PX
+		) {
+			return;
+		}
+
+		activeIndex.value = pendingScrollTargetIndex;
+		clearPendingProgrammaticScroll();
+		return;
+	}
 
 	const scrollLeft = track.scrollLeft;
 	const cardWidth = track.offsetWidth;
