@@ -32,32 +32,48 @@ const handler: APIRoute = async ({ request, locals }) => {
 	const nextMonday = DateTime.utc().plus({ weeks: 1 }).startOf("week"); // Luxon weeks start Monday
 	const weekAfterMonday = nextMonday.plus({ weeks: 1 });
 
-	function requireIsoDate(dt: DateTime, label: string): string {
-		const iso = dt.toISODate();
-		if (!dt.isValid || !iso) {
-			logger.error("Invalid DateTime while building asset events weeks", {
-				action: "weekly_asset_events_cron",
-				label,
-				isValid: dt.isValid,
-				invalidReason: dt.invalidReason,
-				dt: dt.toString(),
-			});
-			throw new Error(`Invalid ${label} DateTime`);
-		}
-		return iso;
+	const nextMondayStart = nextMonday.toISODate();
+	const nextMondayEnd = nextMonday.plus({ days: 4 }).toISODate();
+	const weekAfterMondayStart = weekAfterMonday.toISODate();
+	const weekAfterMondayEnd = weekAfterMonday.plus({ days: 4 }).toISODate();
+
+	const invalidDateRanges =
+		!nextMonday.isValid ||
+		!weekAfterMonday.isValid ||
+		!nextMondayStart ||
+		!nextMondayEnd ||
+		!weekAfterMondayStart ||
+		!weekAfterMondayEnd;
+
+	if (invalidDateRanges) {
+		logger.error("Failed to compute week date range", {
+			action: "weekly_asset_events_cron",
+			nextMonday: {
+				isValid: nextMonday.isValid,
+				invalidReason: nextMonday.invalidReason,
+				weekStart: nextMondayStart,
+				weekEnd: nextMondayEnd,
+				dt: nextMonday.toString(),
+			},
+			weekAfterMonday: {
+				isValid: weekAfterMonday.isValid,
+				invalidReason: weekAfterMonday.invalidReason,
+				weekStart: weekAfterMondayStart,
+				weekEnd: weekAfterMondayEnd,
+				dt: weekAfterMonday.toString(),
+			},
+		});
+		return new Response("Internal server error", { status: 500 });
 	}
 
 	const weeks = [
 		{
-			weekStart: requireIsoDate(nextMonday, "nextMonday"),
-			weekEnd: requireIsoDate(nextMonday.plus({ days: 4 }), "nextMonday+4"),
+			weekStart: nextMondayStart,
+			weekEnd: nextMondayEnd,
 		},
 		{
-			weekStart: requireIsoDate(weekAfterMonday, "weekAfterMonday"),
-			weekEnd: requireIsoDate(
-				weekAfterMonday.plus({ days: 4 }),
-				"weekAfterMonday+4",
-			),
+			weekStart: weekAfterMondayStart,
+			weekEnd: weekAfterMondayEnd,
 		},
 	];
 
