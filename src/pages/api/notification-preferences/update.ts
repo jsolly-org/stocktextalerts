@@ -84,6 +84,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		return jsonResponse(400, { ok: false, message: "invalid_form" });
 	}
 
+	let parsedMarketScheduledAssetPriceTimes: number[] | undefined;
 	if (
 		rawTimesValue !== "" &&
 		parsed.data.market_scheduled_asset_price_times !== undefined
@@ -101,6 +102,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			);
 			return jsonResponse(400, { ok: false, message: "invalid_form" });
 		}
+		parsedMarketScheduledAssetPriceTimes = result.times;
 	}
 
 	let dbUser: User | null;
@@ -135,6 +137,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 				parsedData: parsed.data,
 				formData,
 				rawTimesValue: rawTimesValue as string | null,
+				parsedMarketScheduledAssetPriceTimes,
 				dbUser,
 				logger,
 			});

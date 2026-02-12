@@ -162,30 +162,42 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 	parsedData: ParsedNotificationPreferencesForm;
 	formData: FormData;
 	rawTimesValue: string | null;
+	parsedMarketScheduledAssetPriceTimes?: number[] | null;
 	dbUser: User;
 	logger?: Logger;
 }): UserUpdateInput {
-	const { parsedData, formData, rawTimesValue, dbUser, logger } = options;
+	const {
+		parsedData,
+		formData,
+		rawTimesValue,
+		parsedMarketScheduledAssetPriceTimes,
+		dbUser,
+		logger,
+	} = options;
 
 	let parsedTimes: number[] | null | undefined;
 	if (rawTimesValue === "") {
 		parsedTimes = [];
 	} else if (parsedData.market_scheduled_asset_price_times !== undefined) {
-		const result = parseScheduledTimes(
-			parsedData.market_scheduled_asset_price_times,
-		);
-		if (!result.ok) {
-			logger?.info(
-				"Invalid scheduled times in notification preferences payload",
-				{
-					action: "notification_preferences_update",
-					userId: dbUser.id,
-					reason: result.reason,
-				},
+		if (parsedMarketScheduledAssetPriceTimes !== undefined) {
+			parsedTimes = parsedMarketScheduledAssetPriceTimes;
+		} else {
+			const result = parseScheduledTimes(
+				parsedData.market_scheduled_asset_price_times,
 			);
-			throw new Error(`Invalid schedule: ${result.reason}`);
+			if (!result.ok) {
+				logger?.info(
+					"Invalid scheduled times in notification preferences payload",
+					{
+						action: "notification_preferences_update",
+						userId: dbUser.id,
+						reason: result.reason,
+					},
+				);
+				throw new Error(`Invalid schedule: ${result.reason}`);
+			}
+			parsedTimes = result.times;
 		}
-		parsedTimes = result.times;
 	} else {
 		parsedTimes = undefined;
 	}

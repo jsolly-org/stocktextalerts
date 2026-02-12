@@ -221,12 +221,24 @@ async function saveTimezone(nextTimezone: string) {
 					...(prefs.market_scheduled_asset_price_next_send_at !== undefined && {
 						market_scheduled_asset_price_next_send_at: prefs.market_scheduled_asset_price_next_send_at,
 					}),
+					...(prefs.daily_digest_next_send_at !== undefined && {
+						daily_digest_next_send_at: prefs.daily_digest_next_send_at,
+					}),
+					...(prefs.asset_events_next_send_at !== undefined && {
+						asset_events_next_send_at: prefs.asset_events_next_send_at,
+					}),
 				}
 			: buildSavedNotificationPreferences({
 					...user.value,
 					timezone: resolvedTimezone,
 					...(prefs.market_scheduled_asset_price_next_send_at !== undefined && {
 						market_scheduled_asset_price_next_send_at: prefs.market_scheduled_asset_price_next_send_at,
+					}),
+					...(prefs.daily_digest_next_send_at !== undefined && {
+						daily_digest_next_send_at: prefs.daily_digest_next_send_at,
+					}),
+					...(prefs.asset_events_next_send_at !== undefined && {
+						asset_events_next_send_at: prefs.asset_events_next_send_at,
 					}),
 				});
 	} catch (error) {

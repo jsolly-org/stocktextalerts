@@ -124,6 +124,8 @@ export async function fetchCurrentNotificationPreferences(): Promise<Notificatio
 type TimezoneUpdateNotificationPreferences = {
 	timezone?: string;
 	market_scheduled_asset_price_next_send_at?: string | null;
+	daily_digest_next_send_at?: string | null;
+	asset_events_next_send_at?: string | null;
 };
 
 /**

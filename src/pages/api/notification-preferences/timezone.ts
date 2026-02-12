@@ -116,6 +116,8 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			timezone: updatedUser.timezone,
 			market_scheduled_asset_price_next_send_at:
 				updatedUser.market_scheduled_asset_price_next_send_at,
+			daily_digest_next_send_at: updatedUser.daily_digest_next_send_at,
+			asset_events_next_send_at: updatedUser.asset_events_next_send_at,
 		},
 	});
 };
