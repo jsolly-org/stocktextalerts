@@ -311,6 +311,7 @@
 
 			<!-- Weekly Calendar -->
 			<div
+				:id="showMarketSections ? DASHBOARD_SECTION_IDS.weeklyCalendar : null"
 				class="rounded-xl border border-gray-200 bg-white p-4 transition-opacity duration-200"
 				:class="[
 					{ 'opacity-50': needsChannelSelection },
@@ -585,19 +586,19 @@ function stopWeeklyTickInterval() {
 }
 
 onMounted(() => {
-	if (showWeeklySection.value) {
-		startWeeklyTickInterval();
-	}
+	watch(
+		[showWeeklySection, weeklyEnabled],
+		([isVisible, isEnabled]) => {
+			if (isVisible && isEnabled) {
+				startWeeklyTickInterval();
+				return;
+			}
+			stopWeeklyTickInterval();
+		},
+		{ immediate: true },
+	);
 });
 onUnmounted(() => {
-	stopWeeklyTickInterval();
-});
-
-watch(showWeeklySection, (isVisible) => {
-	if (isVisible) {
-		startWeeklyTickInterval();
-		return;
-	}
 	stopWeeklyTickInterval();
 });
 
