@@ -1,10 +1,10 @@
 <template>
 	<form
 		ref="scheduledFormElement"
-		:id="resolvedFormId"
+		:id="formId"
 		method="POST"
 		action="/api/notification-preferences/update"
-		:aria-label="resolvedAriaLabel"
+		:aria-label="ariaLabel"
 		:aria-busy="isSaving"
 		@input="handleFormInput"
 		@change="handleFormChange"
@@ -347,21 +347,6 @@
 						</p>
 					</div>
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
-						<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
-							<input
-								type="checkbox"
-								v-model="includeEarningsSms"
-								:disabled="needsChannelSelection || !smsReady"
-								class="rounded border-gray-300 h-4 w-4"
-								:class="[
-									weeklyAccentClasses,
-									smsReady ? 'cursor-pointer' : 'cursor-not-allowed',
-								]"
-								aria-label="Earnings Reports SMS"
-								aria-describedby="weekly_include_earnings_description"
-							/>
-							<span class="text-sm text-gray-700">SMS</span>
-						</label>
 						<label class="inline-flex items-center gap-1.5" :class="needsChannelSelection ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'">
 							<input
 								type="checkbox"
@@ -376,6 +361,21 @@
 								aria-describedby="weekly_include_earnings_description"
 							/>
 							<span class="text-sm text-gray-700">Email</span>
+						</label>
+						<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+							<input
+								type="checkbox"
+								v-model="includeEarningsSms"
+								:disabled="needsChannelSelection || !smsReady"
+								class="rounded border-gray-300 h-4 w-4"
+								:class="[
+									weeklyAccentClasses,
+									smsReady ? 'cursor-pointer' : 'cursor-not-allowed',
+								]"
+								aria-label="Earnings Reports SMS"
+								aria-describedby="weekly_include_earnings_description"
+							/>
+							<span class="text-sm text-gray-700">SMS</span>
 						</label>
 					</div>
 				</div>
@@ -453,10 +453,9 @@ const {
 	phoneVerified,
 	showMarketSections,
 	showWeeklySection,
+	formId,
+	ariaLabel,
 } = toRefs(props);
-
-const resolvedFormId = computed(() => props.formId);
-const resolvedAriaLabel = computed(() => props.ariaLabel);
 
 // Inject the shared mutable user ref from DashboardPanels
 const user = useDashboardUser();
@@ -537,7 +536,7 @@ const tick = ref(0);
 let tickIntervalId: number | null = null;
 const nextWeeklyDeliveryText = computed(() => {
 	if (!isHydrated.value || !weeklyEnabled.value) return null;
-	void tick.value;
+	void tick.value; // Subscribe to tick updates for countdown reactivity
 
 	const now = DateTime.utc();
 	const nextSendAt = user.value.weekly_next_send_at;
@@ -577,9 +576,6 @@ onMounted(() => {
 	}, 1000);
 });
 onUnmounted(() => {
-	if (!showWeeklySection.value) {
-		return;
-	}
 	if (tickIntervalId !== null) {
 		window.clearInterval(tickIntervalId);
 		tickIntervalId = null;
