@@ -108,7 +108,7 @@ runs:
       run: npm run check:ts
     - name: Start Supabase
       shell: bash
-      run: supabase start
+      run: supabase start -x studio,imgproxy,logflare,vector,mailpit,postgres-meta,edge-runtime,realtime,storage-api
     - name: Load Supabase env
       shell: bash
       run: |
