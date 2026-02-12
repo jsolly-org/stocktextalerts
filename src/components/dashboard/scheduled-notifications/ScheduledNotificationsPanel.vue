@@ -1,10 +1,10 @@
 <template>
 	<form
 		ref="scheduledFormElement"
-		:id="DASHBOARD_FREQUENT_FORM_ID"
+		:id="resolvedFormId"
 		method="POST"
 		action="/api/notification-preferences/update"
-		aria-label="Market notifications"
+		:aria-label="resolvedAriaLabel"
 		:aria-busy="isSaving"
 		@input="handleFormInput"
 		@change="handleFormChange"
@@ -30,10 +30,10 @@
 				</div>
 			</FadeTransition>
 
-			<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.success}`"></div>
+			<div :class="`card-accent ${showMarketSections ? CARD_GRADIENT_ACCENTS.success : CARD_GRADIENT_ACCENTS.purple}`"></div>
 		<div class="card-body">
 		<fieldset :disabled="isSaving" class="min-w-0">
-		<header class="mb-4">
+		<header v-if="showMarketSections" class="mb-4">
 			<h2
 					:id="DASHBOARD_SECTION_IDS.frequent"
 					class="text-xl sm:text-2xl font-bold text-gray-900 transition-opacity duration-200"
@@ -47,6 +47,46 @@
 				Configure market-related notifications for your tracked assets during trading hours.
 			</p>
 			</header>
+		<header v-else-if="showWeeklySection" class="mb-4">
+			<h2
+				:id="DASHBOARD_SECTION_IDS.weeklyCalendar"
+				class="text-xl sm:text-2xl font-bold text-gray-900 transition-opacity duration-200"
+				:class="{ 'opacity-50': needsChannelSelection }"
+			>
+				Asset Events
+			</h2>
+			<p
+				v-if="weeklyDeliveryTimeLabel"
+				class="text-sm text-gray-600 mt-1 transition-opacity duration-200"
+				:class="{ 'opacity-50': needsChannelSelection }"
+			>
+				<span class="inline-flex items-center gap-1.5">
+					<ClockIcon class="size-4 shrink-0 text-gray-400" aria-hidden="true" />
+					<span>
+						Sent Mondays at
+						<span class="font-medium text-gray-700">{{ weeklyDeliveryTimeLabel }}</span>
+						<span v-if="weeklyTimezoneLabel" class="text-gray-500"> ({{ weeklyTimezoneLabel }})</span>
+					<template v-if="hasDailyDeliveryTime">
+						— synced with your
+						<button
+							type="button"
+							class="font-medium text-gray-700 underline decoration-gray-400 underline-offset-2 cursor-pointer hover:text-gray-900 hover:decoration-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 rounded transition-colors"
+							@click="scrollToDailyNotifications"
+						>daily delivery time</button>.
+					</template>
+					<template v-else>
+						— set your
+						<button
+							type="button"
+							class="font-medium text-gray-700 underline decoration-gray-400 underline-offset-2 cursor-pointer hover:text-gray-900 hover:decoration-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 rounded transition-colors"
+							@click="scrollToDailyNotifications"
+						>daily delivery time</button>
+						to change.
+					</template>
+					</span>
+				</span>
+			</p>
+		</header>
 
 			<SetupRequiredNotice
 				:needsChannelSelection="needsChannelSelection"
@@ -54,6 +94,7 @@
 				:phoneVerificationSectionId="phoneVerificationSectionId"
 			/>
 
+			<template v-if="showMarketSections">
 			<div
 				class="rounded-xl border border-gray-200 bg-white p-4 transition-opacity duration-200"
 				:class="{ 'opacity-50': needsChannelSelection }"
@@ -85,7 +126,7 @@
 							Scheduled price updates for all tracked assets, including ETFs.
 						</p>
 					</div>
-					<div class="flex items-center gap-4 shrink-0">
+					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
 						<label class="inline-flex items-center gap-1.5 cursor-pointer">
 							<input
 								type="checkbox"
@@ -198,7 +239,7 @@
 							</div>
 						</details>
 					</div>
-					<div class="flex items-center gap-4 shrink-0">
+					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
 						<label class="inline-flex items-center gap-1.5 cursor-pointer">
 							<input
 								type="checkbox"
@@ -266,6 +307,86 @@
 					</div>
 				</FadeTransition>
 			</div>
+			</template>
+
+			<!-- Weekly Calendar -->
+			<div
+				class="rounded-xl border border-gray-200 bg-white p-4 transition-opacity duration-200"
+				:class="[
+					{ 'opacity-50': needsChannelSelection },
+					showMarketSections ? 'mt-4' : ''
+				]"
+				v-if="showWeeklySection"
+			>
+				<div class="flex items-center justify-between gap-3">
+					<input
+						type="hidden"
+						name="weekly_include_earnings_email"
+						:value="includeEarningsEmail ? 'on' : 'off'"
+					/>
+					<input
+						type="hidden"
+						name="weekly_include_earnings_sms"
+						:value="includeEarningsSms ? 'on' : 'off'"
+					/>
+					<div class="min-w-0">
+						<div class="flex items-center gap-2">
+							<span
+								id="weekly_include_earnings_label"
+								class="text-base font-semibold text-gray-900"
+							>
+								Earnings Reports
+							</span>
+							<FinnhubLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Finnhub" role="img" />
+						</div>
+						<p
+							id="weekly_include_earnings_description"
+							class="text-sm text-gray-600 mt-0.5"
+						>
+							Sent when tracked stocks have earnings in the next 1-3 days.
+						</p>
+					</div>
+					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
+						<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+							<input
+								type="checkbox"
+								v-model="includeEarningsSms"
+								:disabled="needsChannelSelection || !smsReady"
+								class="rounded border-gray-300 h-4 w-4"
+								:class="[
+									weeklyAccentClasses,
+									smsReady ? 'cursor-pointer' : 'cursor-not-allowed',
+								]"
+								aria-label="Earnings Reports SMS"
+								aria-describedby="weekly_include_earnings_description"
+							/>
+							<span class="text-sm text-gray-700">SMS</span>
+						</label>
+						<label class="inline-flex items-center gap-1.5" :class="needsChannelSelection ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'">
+							<input
+								type="checkbox"
+								v-model="includeEarningsEmail"
+								:disabled="needsChannelSelection"
+								class="rounded border-gray-300 h-4 w-4"
+								:class="[
+									weeklyAccentClasses,
+									needsChannelSelection ? 'cursor-not-allowed' : 'cursor-pointer',
+								]"
+								aria-label="Earnings Reports Email"
+								aria-describedby="weekly_include_earnings_description"
+							/>
+							<span class="text-sm text-gray-700">Email</span>
+						</label>
+					</div>
+				</div>
+
+				<div v-if="isHydrated && weeklyEnabled && nextWeeklyDeliveryText" class="mt-3 border-t border-gray-100 pt-3 pl-3 sm:pl-4">
+					<p class="inline-flex items-center gap-2 text-sm text-gray-600">
+						<BellAlertIcon class="size-4 shrink-0 text-success-strong" aria-hidden="true" />
+						<span>Next delivery <span class="font-medium text-gray-900">{{ nextWeeklyDeliveryText }}</span>.</span>
+					</p>
+				</div>
+			</div>
 
 			</fieldset>
 			</div>
@@ -275,9 +396,13 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref, toRefs, watch } from "vue";
+import { DateTime } from "luxon";
+import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
+import BellAlertIcon from "../../../icons/bell-alert.svg?component";
+import ClockIcon from "../../../icons/clock.svg?component";
+import FinnhubLogoIcon from "../../../icons/finnhub.svg?component";
 import InformationCircleIcon from "../../../icons/information-circle-20.svg?component";
 import {
 	CARD_GRADIENT_ACCENTS,
@@ -288,12 +413,14 @@ import {
 	STATUS_TONE_CLASSES,
 } from "../../../lib/constants";
 import {
+	formatCountdownWithSeconds,
 	formatMinutesAsLocalTime,
 	getUsMarketOpenLocalMinutes,
 	isOutsideMarketHours,
 	minutesToTimeInputValue,
 	parseTimeToMinutes,
 } from "../../../lib/time/format";
+import { calculateNextMondaySendAt } from "../../../lib/time/scheduled-times";
 import FadeTransition from "../../FadeTransition.vue";
 import {
 	type NotificationPreferencesData,
@@ -308,14 +435,28 @@ interface Props {
 	emailEnabled: boolean;
 	smsEnabled: boolean;
 	phoneVerified: boolean;
+	showMarketSections?: boolean;
+	showWeeklySection?: boolean;
+	formId?: string;
+	ariaLabel?: string;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+	showMarketSections: true,
+	showWeeklySection: true,
+	formId: DASHBOARD_FREQUENT_FORM_ID,
+	ariaLabel: "Market and weekly calendar notifications",
+});
 const {
 	emailEnabled,
 	smsEnabled,
 	phoneVerified,
+	showMarketSections,
+	showWeeklySection,
 } = toRefs(props);
+
+const resolvedFormId = computed(() => props.formId);
+const resolvedAriaLabel = computed(() => props.ariaLabel);
 
 // Inject the shared mutable user ref from DashboardPanels
 const user = useDashboardUser();
@@ -365,10 +506,84 @@ const sensitivityDescription = computed(
 
 const isAggressiveSensitivity = computed(() => instantAlertSensitivity.value === 3);
 
+const includeEarningsEmail = ref(user.value.weekly_include_earnings_email);
+const includeEarningsSms = ref(user.value.weekly_include_earnings_sms);
+
+/** Checkbox accent: purple for weekly-only, emerald when combined with market sections. */
+const weeklyAccentClasses = computed(() =>
+	showMarketSections.value
+		? "text-emerald-600 focus:ring-emerald-500"
+		: "text-purple-600 focus:ring-purple-500",
+);
+const weeklyEnabled = computed(
+	() => includeEarningsEmail.value || includeEarningsSms.value,
+);
+
+const DEFAULT_WEEKLY_DELIVERY_MINUTES = 540; // 9:00 AM
+const weeklyDeliveryTimeMinutes = computed(() =>
+	user.value.daily_delivery_time ?? DEFAULT_WEEKLY_DELIVERY_MINUTES,
+);
+const weeklyDeliveryTimeLabel = computed(() =>
+	formatMinutesAsLocalTime(weeklyDeliveryTimeMinutes.value),
+);
+const weeklyTimezoneLabel = computed(() => {
+	if (!user.value.timezone) return null;
+	const dt = DateTime.now().setZone(user.value.timezone);
+	return dt.isValid ? dt.toFormat("ZZZZ") : null;
+});
+const hasDailyDeliveryTime = computed(() => user.value.daily_delivery_time != null);
+
+const tick = ref(0);
+let tickIntervalId: number | null = null;
+const nextWeeklyDeliveryText = computed(() => {
+	if (!isHydrated.value || !weeklyEnabled.value) return null;
+	void tick.value;
+
+	const now = DateTime.utc();
+	const nextSendAt = user.value.weekly_next_send_at;
+	if (nextSendAt) {
+		const next = DateTime.fromISO(nextSendAt, { zone: "utc" });
+		if (next.isValid) {
+			const diffSeconds = next.diff(now, "seconds").seconds;
+			if (diffSeconds > 0) {
+				return `in ${formatCountdownWithSeconds(Math.round(diffSeconds))}`;
+			}
+		}
+	}
+	const tz = user.value.timezone;
+	if (!tz) return null;
+	const nextMonday = calculateNextMondaySendAt(weeklyDeliveryTimeMinutes.value, tz, now);
+	if (!nextMonday) return null;
+	const fallbackSeconds = Math.ceil(nextMonday.diff(now, "seconds").seconds);
+	if (fallbackSeconds <= 0) return null;
+	return `in ${formatCountdownWithSeconds(fallbackSeconds)}`;
+});
+
+function scrollToDailyNotifications() {
+	const el = document.getElementById(DASHBOARD_SECTION_IDS.dailyNotifications);
+	if (el) el.scrollIntoView({ behavior: "smooth" });
+}
+
 const isHydrated = ref(false);
 
 onMounted(() => {
+	if (!showWeeklySection.value) {
+		return;
+	}
 	isHydrated.value = true;
+	tick.value = Date.now();
+	tickIntervalId = window.setInterval(() => {
+		tick.value = Date.now();
+	}, 1000);
+});
+onUnmounted(() => {
+	if (!showWeeklySection.value) {
+		return;
+	}
+	if (tickIntervalId !== null) {
+		window.clearInterval(tickIntervalId);
+		tickIntervalId = null;
+	}
 });
 
 const MAX_SCHEDULED_UPDATE_MINUTES = 23 * 60 + 59;
@@ -537,6 +752,32 @@ watch(
 		scheduledUpdateTimesMinutes.value = normalizeScheduledTimes(value ?? []);
 	},
 );
+watch(
+	() => user.value.weekly_include_earnings_email,
+	(value) => {
+		includeEarningsEmail.value = value;
+	},
+);
+watch(
+	() => user.value.weekly_include_earnings_sms,
+	(value) => {
+		includeEarningsSms.value = value;
+	},
+);
+watch([includeEarningsEmail, includeEarningsSms], ([email, sms]) => {
+	if (
+		email === user.value.weekly_include_earnings_email &&
+		sms === user.value.weekly_include_earnings_sms
+	) {
+		return;
+	}
+	user.value = {
+		...user.value,
+		weekly_include_earnings_email: email,
+		weekly_include_earnings_sms: sms,
+	};
+	notifyChange();
+});
 const nextSendAt = computed(
 	() =>
 		savedScheduledData.value?.next_send_at ??
@@ -576,6 +817,13 @@ watch(
 			}),
 			...(newData.instant_alert_sensitivity !== undefined && {
 				instant_alert_sensitivity: newData.instant_alert_sensitivity,
+			}),
+			// Sync weekly calendar state from server response
+			...(newData.weekly_include_earnings_email !== undefined && {
+				weekly_include_earnings_email: newData.weekly_include_earnings_email,
+			}),
+			...(newData.weekly_include_earnings_sms !== undefined && {
+				weekly_include_earnings_sms: newData.weekly_include_earnings_sms,
 			}),
 		};
 		}

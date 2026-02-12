@@ -35,6 +35,10 @@
 				:emailEnabled="emailEnabled"
 				:smsEnabled="smsEnabled"
 				:phoneVerified="phoneVerified"
+				:showMarketSections="true"
+				:showWeeklySection="false"
+				:formId="DASHBOARD_FREQUENT_FORM_ID"
+				ariaLabel="Market notifications"
 			/>
 		</template>
 
@@ -47,10 +51,14 @@
 		</template>
 
 		<template #weekly>
-			<OccasionalNotificationsPanel
+			<ScheduledNotificationsPanel
 				:emailEnabled="emailEnabled"
 				:smsEnabled="smsEnabled"
 				:phoneVerified="phoneVerified"
+				:showMarketSections="false"
+				:showWeeklySection="true"
+				:formId="DASHBOARD_WEEKLY_CALENDAR_FORM_ID"
+				ariaLabel="Weekly calendar notifications"
 			/>
 		</template>
 
@@ -67,7 +75,11 @@
 
 <script lang="ts" setup>
 import { computed, ref, toRefs, watch } from "vue";
-import { DASHBOARD_ASSETS_FORM_ID } from "../../lib/constants";
+import {
+	DASHBOARD_ASSETS_FORM_ID,
+	DASHBOARD_FREQUENT_FORM_ID,
+	DASHBOARD_WEEKLY_CALENDAR_FORM_ID,
+} from "../../lib/constants";
 import type { User } from "../../lib/db";
 import type { InitialAsset } from "./assets/types";
 import WatchlistPanel from "./assets/WatchlistPanel.vue";
@@ -77,7 +89,6 @@ import DailyNotificationsPanel from "./DailyNotificationsPanel.vue";
 import DashboardCarousel from "./DashboardCarousel.vue";
 import NotificationChannelsPanel from "./notification-channels/NotificationChannelsPanel.vue";
 import NotificationPreviewPanel from "./notification-preview/NotificationPreviewPanel.vue";
-import OccasionalNotificationsPanel from "./OccasionalNotificationsPanel.vue";
 import ScheduledNotificationsPanel from "./scheduled-notifications/ScheduledNotificationsPanel.vue";
 
 interface Props {

@@ -71,6 +71,49 @@
 			>
 					<legend class="sr-only">Daily digest settings</legend>
 
+			<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-3">
+				<div class="min-w-0">
+					<span
+						id="daily_delivery_time_label"
+						class="text-base font-semibold text-gray-900"
+					>
+						Delivery time
+					</span>
+					<p
+						id="daily_delivery_time_description"
+						class="text-sm text-gray-600 mt-0.5"
+					>
+						Sent once every day.
+					</p>
+				</div>
+				<div class="sm:shrink-0">
+					<div class="flex flex-col sm:flex-row sm:items-center gap-2">
+						<TimePicker
+							:inputId="`daily_delivery_time`"
+							:inputName="`daily_delivery_time`"
+							:initialTime="dailyDeliveryTimeInput"
+							inputAriaLabel="Daily digest delivery time"
+							:disabled="needsChannelSelection"
+							:clearable="dailyDeliveryTimeMinutes !== null && !needsChannelSelection"
+							clearAriaLabel="Clear delivery time"
+							@time-change="handleDailyTimeChange"
+							@clear="handleClearDeliveryTime"
+						/>
+						<button
+							v-if="marketOpenLabel"
+							type="button"
+							class="btn btn-md btn-secondary h-[41px] shrink-0 whitespace-nowrap"
+							:disabled="!canSetMarketOpen"
+							:aria-label="`Set delivery time to US market open (${marketOpenLabel})`"
+							@click="handleSetMarketOpen"
+						>
+							<PresentationChartLineIcon class="size-4 shrink-0" aria-hidden="true" />
+							Market open
+						</button>
+					</div>
+				</div>
+			</div>
+
 				<div class="flex items-center justify-between gap-3 py-3">
 					<input
 						type="hidden"
@@ -176,7 +219,7 @@
 								See how analysts rate the stocks you're tracking (buy/hold/sell). <span class="text-gray-500 italic">Stocks only.</span>
 							</p>
 						</div>
-						<div class="flex items-center gap-4 shrink-0">
+						<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
 							<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : needsChannelSelection ? 'cursor-not-allowed' : 'cursor-not-allowed opacity-50'">
 								<input
 									type="checkbox"
@@ -229,7 +272,7 @@
 								Recent insider buying and selling activity from SEC filings. <span class="text-gray-500 italic">Stocks only.</span>
 							</p>
 						</div>
-						<div class="flex items-center gap-4 shrink-0">
+						<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
 							<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : needsChannelSelection ? 'cursor-not-allowed' : 'cursor-not-allowed opacity-50'">
 								<input
 									type="checkbox"
@@ -253,49 +296,6 @@
 							</label>
 						</div>
 					</div>
-
-			<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-3">
-				<div class="min-w-0">
-					<span
-						id="daily_delivery_time_label"
-						class="text-base font-semibold text-gray-900"
-					>
-						Delivery time
-					</span>
-					<p
-						id="daily_delivery_time_description"
-						class="text-sm text-gray-600 mt-0.5"
-					>
-						Sent once every day.
-					</p>
-				</div>
-		<div class="sm:shrink-0">
-			<div class="flex flex-col sm:flex-row sm:items-center gap-2">
-					<TimePicker
-						:inputId="`daily_delivery_time`"
-						:inputName="`daily_delivery_time`"
-						:initialTime="dailyDeliveryTimeInput"
-						inputAriaLabel="Daily digest delivery time"
-						:disabled="needsChannelSelection"
-						:clearable="dailyDeliveryTimeMinutes !== null && !needsChannelSelection"
-						clearAriaLabel="Clear delivery time"
-						@time-change="handleDailyTimeChange"
-						@clear="handleClearDeliveryTime"
-					/>
-					<button
-						v-if="marketOpenLabel"
-						type="button"
-						class="btn btn-md btn-secondary h-[41px] shrink-0 whitespace-nowrap"
-						:disabled="!canSetMarketOpen"
-						:aria-label="`Set delivery time to US market open (${marketOpenLabel})`"
-						@click="handleSetMarketOpen"
-					>
-						<PresentationChartLineIcon class="size-4 shrink-0" aria-hidden="true" />
-						Market open
-					</button>
-				</div>
-			</div>
-			</div>
 				</fieldset>
 
 				<div v-if="isHydrated && nextDailyDeliveryText" class="mt-4 border-t border-gray-200 pt-4">

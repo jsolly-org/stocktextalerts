@@ -232,8 +232,17 @@ onMounted(() => {
 <style>
 .sta-timepicker-backdrop {
 	z-index: 10000;
-}.dp__outer_menu_wrap,
+}
+
+.dp__outer_menu_wrap,
 .dp__menu {
 	z-index: 10001;
+}
+
+/* Prevent iOS double-tap zoom on repeated time-stepper taps. */
+.dp__inc_dec_button,
+.dp__button,
+.dp__pm_am_button {
+	touch-action: manipulation;
 }
 </style>

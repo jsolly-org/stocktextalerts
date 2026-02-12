@@ -28,7 +28,7 @@
 				:id="DASHBOARD_SECTION_IDS.assets"
 				class="text-xl sm:text-2xl font-bold text-gray-900"
 			>
-				Watchlist
+				My Watchlist
 			</h2>
 			<span
 				class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700"
@@ -50,15 +50,21 @@
 
 		<input type="hidden" name="tracked_assets" :value="trackedAssetsValue" />
 
-		<fieldset class="mb-6">
+		<fieldset class="mb-2">
 			<legend class="sr-only">Add to watchlist</legend>
 			<div>
 				<label for="asset_search" class="sr-only">Search by symbol or company name</label>
 				<AssetInput
 					:disabled="isAtAssetLimit"
-					:input-aria-described-by="isAtAssetLimit ? ASSET_LIMIT_HINT_ID : undefined"
+					:input-aria-described-by="assetSearchInputDescribedBy"
 					@select="handleSelect"
 				/>
+				<p
+					:id="ASSET_SEARCH_HINT_ID"
+					class="mt-2 text-sm text-gray-600"
+				>
+					Search by ticker or company name to add to your watchlist.
+				</p>
 				<p
 					v-if="isAtAssetLimit"
 					:id="ASSET_LIMIT_HINT_ID"
@@ -70,11 +76,19 @@
 		</fieldset>
 
 		<section :aria-label="`${draftAssets.length} tracked ${draftAssets.length === 1 ? 'asset' : 'assets'}`">
-			<div v-if="draftAssets.length === 0" class="text-center py-10 px-4 sm:py-12 sm:px-6 bg-linear-to-b from-gray-50 to-white rounded-xl border-2 border-dashed border-gray-200">
-				<div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-gray-100">
-					<ChartBarIcon class="h-6 w-6 text-gray-400" aria-hidden="true" focusable="false" />
+			<div v-if="draftAssets.length === 0" class="relative overflow-hidden text-center py-10 px-4 sm:py-12 sm:px-6 bg-linear-to-b from-gray-50 to-white rounded-xl border-2 border-dashed border-gray-200">
+				<!-- Decorative ticker word cloud -->
+				<div class="absolute inset-0 pointer-events-none select-none" aria-hidden="true">
+					<span
+						v-for="ticker in WORD_CLOUD_TICKERS"
+						:key="ticker.symbol"
+						class="absolute font-semibold"
+						:class="[ticker.size, ticker.rotate, ticker.color]"
+						:style="ticker.style"
+					>
+						{{ ticker.symbol }}
+					</span>
 				</div>
-				<p class="mt-3 text-sm text-gray-500">Search above to add assets.</p>
 			</div>
 			<ul v-else class="space-y-2" role="list">
 				<li
@@ -117,7 +131,6 @@
 import { computed, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles these to Vue components.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
-import ChartBarIcon from "../../../icons/chart-bar.svg?component";
 import XMarkIcon from "../../../icons/x-mark.svg?component";
 import {
 	CARD_GRADIENT_ACCENTS,
@@ -165,6 +178,31 @@ const isAtAssetLimit = computed(
 );
 
 const ASSET_LIMIT_HINT_ID = "asset-limit-hint";
+const ASSET_SEARCH_HINT_ID = "asset-search-hint";
+
+const assetSearchInputDescribedBy = computed(() =>
+	isAtAssetLimit.value
+		? `${ASSET_SEARCH_HINT_ID} ${ASSET_LIMIT_HINT_ID}`
+		: ASSET_SEARCH_HINT_ID,
+);
+
+const WORD_CLOUD_TICKERS = [
+	{ symbol: "AAPL", style: "top: 8%; left: 5%", size: "text-lg", rotate: "-rotate-12", color: "text-gray-300" },
+	{ symbol: "NVDA", style: "top: 5%; left: 35%", size: "text-sm", rotate: "rotate-6", color: "text-gray-200" },
+	{ symbol: "TSLA", style: "top: 12%; left: 70%", size: "text-xl", rotate: "-rotate-6", color: "text-gray-300" },
+	{ symbol: "SPY", style: "top: 18%; left: 88%", size: "text-xs", rotate: "rotate-12", color: "text-gray-200" },
+	{ symbol: "MSFT", style: "top: 30%; left: 2%", size: "text-sm", rotate: "rotate-3", color: "text-gray-300" },
+	{ symbol: "AMZN", style: "top: 35%; left: 22%", size: "text-2xl", rotate: "-rotate-3", color: "text-gray-200" },
+	{ symbol: "META", style: "top: 45%; left: 55%", size: "text-base", rotate: "-rotate-6", color: "text-gray-300" },
+	{ symbol: "JPM", style: "top: 28%; left: 80%", size: "text-sm", rotate: "rotate-12", color: "text-gray-200" },
+	{ symbol: "GOOGL", style: "top: 60%; left: 8%", size: "text-xl", rotate: "rotate-6", color: "text-gray-300" },
+	{ symbol: "V", style: "top: 55%; left: 42%", size: "text-sm", rotate: "-rotate-6", color: "text-gray-200" },
+	{ symbol: "NFLX", style: "top: 68%; left: 65%", size: "text-lg", rotate: "rotate-3", color: "text-gray-300" },
+	{ symbol: "AMD", style: "top: 58%; left: 85%", size: "text-xs", rotate: "-rotate-12", color: "text-gray-200" },
+	{ symbol: "DIS", style: "top: 82%; left: 15%", size: "text-base", rotate: "-rotate-3", color: "text-gray-200" },
+	{ symbol: "QQQ", style: "top: 78%; left: 48%", size: "text-sm", rotate: "rotate-12", color: "text-gray-300" },
+	{ symbol: "BA", style: "top: 85%; left: 75%", size: "text-lg", rotate: "-rotate-6", color: "text-gray-200" },
+] as const;
 
 watch(
 	draftAssets,

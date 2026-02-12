@@ -4,7 +4,7 @@
 		:id="DASHBOARD_WEEKLY_CALENDAR_FORM_ID"
 		method="POST"
 		action="/api/notification-preferences/update"
-		aria-label="Weekly Calendar Notifications"
+		aria-label="Asset Events Notifications"
 		:aria-busy="isSaving"
 		@input="handleFormInput"
 		@change="handleFormChange"
@@ -37,14 +37,11 @@
 						:id="DASHBOARD_SECTION_IDS.occasionalNotifications"
 						class="text-xl sm:text-2xl font-bold text-gray-900"
 					>
-						Weekly Calendar
+						Asset Events
 					</h2>
-				<p class="text-sm text-gray-600 mt-1">
-					Everything you enable below is bundled into <strong class="font-semibold text-gray-700">one weekly message</strong> every Monday — covering upcoming earnings for your tracked assets.
-				</p>
 					<p
 						v-if="deliveryTimeLabel"
-						class="text-sm text-gray-500 mt-1.5 transition-opacity duration-200"
+					class="text-sm text-gray-600 mt-1 transition-opacity duration-200"
 						:class="{ 'opacity-50': needsChannelSelection }"
 					>
 						<span class="inline-flex items-center gap-1.5">
@@ -53,23 +50,23 @@
 								Sent Mondays at
 								<span class="font-medium text-gray-700">{{ deliveryTimeLabel }}</span>
 								<span v-if="timezoneLabel" class="text-gray-500"> ({{ timezoneLabel }})</span>
-								<template v-if="hasDailyDeliveryTime">
-									— synced with your
-									<button
-										type="button"
-										class="underline cursor-pointer hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 rounded"
-										@click="scrollToDailyNotifications"
-									>daily delivery time</button>.
-								</template>
-								<template v-else>
-									— set your
-									<button
-										type="button"
-										class="underline cursor-pointer hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 rounded"
-										@click="scrollToDailyNotifications"
-									>daily delivery time</button>
-									to change.
-								</template>
+							<template v-if="hasDailyDeliveryTime">
+								— synced with your
+								<button
+									type="button"
+									class="font-medium text-gray-700 underline decoration-gray-400 underline-offset-2 cursor-pointer hover:text-gray-900 hover:decoration-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 rounded transition-colors"
+									@click="scrollToDailyNotifications"
+								>daily delivery time</button>.
+							</template>
+							<template v-else>
+								— set your
+								<button
+									type="button"
+									class="font-medium text-gray-700 underline decoration-gray-400 underline-offset-2 cursor-pointer hover:text-gray-900 hover:decoration-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 rounded transition-colors"
+									@click="scrollToDailyNotifications"
+								>daily delivery time</button>
+								to change.
+							</template>
 							</span>
 						</span>
 					</p>
@@ -106,7 +103,7 @@
 									id="weekly_include_earnings_label"
 									class="text-base font-semibold text-gray-900"
 								>
-									📅 Earnings Reports
+									Earnings Reports
 								</span>
 								<FinnhubLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Finnhub" role="img" />
 							</div>
@@ -114,31 +111,34 @@
 								id="weekly_include_earnings_description"
 								class="text-sm text-gray-600 mt-0.5"
 							>
-								See which of your tracked stocks report earnings this week. <span class="text-gray-500 italic">Stocks only.</span>
+								Sent when tracked stocks have earnings in the next 1-3 days.
 							</p>
 						</div>
-						<div class="flex items-center gap-4 shrink-0">
-							<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
-								<input
-									type="checkbox"
-									v-model="includeEarningsSms"
-									:disabled="needsChannelSelection || !smsReady"
-									class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4 cursor-pointer"
-									aria-describedby="weekly_include_earnings_description"
-								/>
-								<span class="text-sm text-gray-700">SMS</span>
-							</label>
-							<label class="inline-flex items-center gap-1.5" :class="needsChannelSelection ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'">
-								<input
-									type="checkbox"
-									v-model="includeEarningsEmail"
-									:disabled="needsChannelSelection"
-									class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4"
-									:class="needsChannelSelection ? 'cursor-not-allowed' : 'cursor-pointer'"
-									aria-describedby="weekly_include_earnings_description"
-								/>
-								<span class="text-sm text-gray-700">Email</span>
-							</label>
+						<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
+						<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+							<input
+								type="checkbox"
+								v-model="includeEarningsSms"
+								:disabled="needsChannelSelection || !smsReady"
+								class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4"
+								:class="smsReady ? 'cursor-pointer' : 'cursor-not-allowed'"
+								aria-label="Earnings Reports SMS"
+								aria-describedby="weekly_include_earnings_description"
+							/>
+							<span class="text-sm text-gray-700">SMS</span>
+						</label>
+						<label class="inline-flex items-center gap-1.5" :class="needsChannelSelection ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'">
+							<input
+								type="checkbox"
+								v-model="includeEarningsEmail"
+								:disabled="needsChannelSelection"
+								class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4"
+								:class="needsChannelSelection ? 'cursor-not-allowed' : 'cursor-pointer'"
+								aria-label="Earnings Reports Email"
+								aria-describedby="weekly_include_earnings_description"
+							/>
+							<span class="text-sm text-gray-700">Email</span>
+						</label>
 						</div>
 					</div>
 

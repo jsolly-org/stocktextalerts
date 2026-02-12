@@ -44,31 +44,11 @@
 					</p>
 				</header>
 
-				<SetupRequiredNotice
-					:needsChannelSelection="needsChannelSelection"
-					:needsPhoneVerification="false"
-					phoneVerificationSectionId=""
-				/>
-
 			<div
 				class="transition-opacity duration-200"
 				:class="{ 'opacity-50': needsChannelSelection }"
 			>
-			<FormatToggles
-				:showChangePercent="showChangePercent"
-				:showCompanyName="showCompanyName"
-				:detailedFormat="detailedFormat"
-				:disabled="needsChannelSelection"
-				@update:showChangePercent="showChangePercent = $event"
-				@update:showCompanyName="showCompanyName = $event"
-				@update:detailedFormat="detailedFormat = $event"
-			/>
-
-			<p class="preview-hint mt-6 mb-0 text-xs text-gray-500 italic text-center">
-				Swipe left or right to switch between SMS and email previews.
-			</p>
-
-		<div class="mt-4">
+		<div class="mb-6">
 			<div ref="carouselRef" class="preview-carousel" @scroll="onCarouselScroll">
 				<div class="preview-slide">
 					<SmsPreview
@@ -97,7 +77,26 @@
 					<span class="sr-only">{{ label }}</span>
 				</button>
 			</nav>
+			<p class="preview-hint mt-3 mb-0 text-xs text-gray-500 italic text-center">
+				Swipe left or right to switch between SMS and email previews.
+			</p>
 		</div>
+
+				<SetupRequiredNotice
+					:needsChannelSelection="needsChannelSelection"
+					:needsPhoneVerification="false"
+					phoneVerificationSectionId=""
+				/>
+
+			<FormatToggles
+				:showChangePercent="showChangePercent"
+				:showCompanyName="showCompanyName"
+				:detailedFormat="detailedFormat"
+				:disabled="needsChannelSelection"
+				@update:showChangePercent="showChangePercent = $event"
+				@update:showCompanyName="showCompanyName = $event"
+				@update:detailedFormat="detailedFormat = $event"
+			/>
 			</div>
 		</div>
 		</section>

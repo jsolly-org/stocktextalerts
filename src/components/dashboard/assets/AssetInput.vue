@@ -6,7 +6,7 @@
 			v-model="rawSearchQuery"
 			@input="handleInput"
 			@keydown="handleKeydown"
-			placeholder="Search by symbol or company name…"
+			placeholder="AAPL, VOO, Tesla, etc"
 			autocomplete="off"
 			role="combobox"
 			aria-haspopup="listbox"

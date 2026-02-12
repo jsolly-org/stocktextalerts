@@ -58,11 +58,7 @@ function formatWeeklyCalendarEmail(options: {
 	user: { id: string; email: string };
 	earningsSection: string | null;
 }): { subject: string; text: string; html: string } {
-	const urls = buildEmailUrls(
-		options.user.id,
-		options.user.email,
-		"occasionalNotifications",
-	);
+	const urls = buildEmailUrls(options.user.id, options.user.email, "frequent");
 
 	const earnings = (options.earningsSection ?? "").trim();
 	const noEventsMessage =

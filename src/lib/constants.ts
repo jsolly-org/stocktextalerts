@@ -92,9 +92,9 @@ export const DASHBOARD_SECTION_IDS = {
 	notificationChannels: "notification-channels",
 	assets: "watchlist",
 	frequent: "market-notifications",
+	weeklyCalendar: "weekly-calendar-notifications",
 	preview: "notification-preview",
 	dailyNotifications: "daily-notifications",
-	occasionalNotifications: "occasional-notifications",
 } as const;
 
 type DashboardSection = keyof typeof DASHBOARD_SECTION_IDS;
@@ -103,9 +103,9 @@ export const DASHBOARD_SECTION_HASHES: Record<DashboardSection, string> = {
 	notificationChannels: `#${DASHBOARD_SECTION_IDS.notificationChannels}`,
 	assets: `#${DASHBOARD_SECTION_IDS.assets}`,
 	frequent: `#${DASHBOARD_SECTION_IDS.frequent}`,
+	weeklyCalendar: `#${DASHBOARD_SECTION_IDS.weeklyCalendar}`,
 	preview: `#${DASHBOARD_SECTION_IDS.preview}`,
 	dailyNotifications: `#${DASHBOARD_SECTION_IDS.dailyNotifications}`,
-	occasionalNotifications: `#${DASHBOARD_SECTION_IDS.occasionalNotifications}`,
 };
 
 /* =============
