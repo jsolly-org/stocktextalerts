@@ -216,7 +216,7 @@ describe("User input is validated against required data format rules.", () => {
 		});
 	});
 
-	it("Instant alert cooldown claims are atomic for user and symbol pairs.", async () => {
+	it("Price alert cooldown claims are atomic for user and symbol pairs.", async () => {
 		const userId = randomUUID();
 		const symbol = "AAPL";
 
@@ -232,20 +232,20 @@ describe("User input is validated against required data format rules.", () => {
 		);
 
 		const firstClaim = await client.query<{ claimed: boolean }>(
-			"select public.claim_instant_alert_cooldown($1::uuid, $2::text, $3::integer) as claimed",
+			"select public.claim_market_asset_price_alert_cooldown($1::uuid, $2::text, $3::integer) as claimed",
 			[userId, symbol, 30],
 		);
 		expect(firstClaim.rows[0]?.claimed).toBe(true);
 
 		const secondClaim = await client.query<{ claimed: boolean }>(
-			"select public.claim_instant_alert_cooldown($1::uuid, $2::text, $3::integer) as claimed",
+			"select public.claim_market_asset_price_alert_cooldown($1::uuid, $2::text, $3::integer) as claimed",
 			[userId, symbol, 30],
 		);
 		expect(secondClaim.rows[0]?.claimed).toBe(false);
 
 		await client.query(
 			[
-				"update public.instant_alert_cooldowns",
+				"update public.market_asset_price_alert_cooldowns",
 				"set last_alerted_at = pg_catalog.now() - interval '31 minutes'",
 				"where user_id = $1 and symbol = $2",
 			].join(" "),
@@ -253,7 +253,7 @@ describe("User input is validated against required data format rules.", () => {
 		);
 
 		const thirdClaim = await client.query<{ claimed: boolean }>(
-			"select public.claim_instant_alert_cooldown($1::uuid, $2::text, $3::integer) as claimed",
+			"select public.claim_market_asset_price_alert_cooldown($1::uuid, $2::text, $3::integer) as claimed",
 			[userId, symbol, 30],
 		);
 		expect(thirdClaim.rows[0]?.claimed).toBe(true);

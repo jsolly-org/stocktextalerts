@@ -5,8 +5,8 @@
     "email_notifications_enabled": false,
     "sms_notifications_enabled": false,
     "sms_opted_out": false,
-    "price_notifications_enabled": true,
-    "scheduled_update_times": [540],
+    "market_scheduled_asset_price_enabled": true,
+    "market_scheduled_asset_price_times": [540],
     "tracked_assets": []
   },
   {
@@ -18,7 +18,7 @@
     "phone_verified": true,
     "sms_notifications_enabled": true,
     "sms_opted_out": false,
-    "price_notifications_enabled": true,
+    "market_scheduled_asset_price_enabled": true,
     "tracked_assets": ["AAPL", "MSFT"]
   },
   {
@@ -30,7 +30,7 @@
     "phone_verified": true,
     "sms_notifications_enabled": true,
     "sms_opted_out": true,
-    "price_notifications_enabled": true,
+    "market_scheduled_asset_price_enabled": true,
     "tracked_assets": ["AAPL"]
   },
   {
@@ -42,7 +42,7 @@
     "email_notifications_enabled": null,
     "sms_notifications_enabled": null,
     "sms_opted_out": null,
-    "price_notifications_enabled": null,
+    "market_scheduled_asset_price_enabled": null,
     "tracked_assets": ["TSLA"]
   },
   {

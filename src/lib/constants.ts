@@ -11,13 +11,12 @@ export const DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID =
 	"dashboard-notification-preferences-save-status";
 export const DASHBOARD_ASSETS_FORM_ID = "dashboard-assets-form";
 export const DASHBOARD_ASSETS_STATUS_ID = "dashboard-assets-save-status";
-export const DASHBOARD_FREQUENT_FORM_ID = "dashboard-market-form";
+export const DASHBOARD_MARKET_FORM_ID = "dashboard-market-form";
 export const DASHBOARD_FORMAT_PREFERENCES_FORM_ID =
 	"dashboard-format-preferences-form";
 export const DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID =
 	"dashboard-daily-notifications-form";
-export const DASHBOARD_WEEKLY_CALENDAR_FORM_ID =
-	"dashboard-weekly-calendar-form";
+export const DASHBOARD_ASSET_EVENTS_FORM_ID = "dashboard-asset-events-form";
 
 /* =============
 Status Message Colors
@@ -41,7 +40,7 @@ Time Defaults
 
 /** Must match: users.timezone DEFAULT in initial_schema.sql */
 export const DEFAULT_TIMEZONE = "America/New_York";
-export const DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES = 9 * 60; // 9:00 AM local time (minutes since local midnight)
+export const DEFAULT_MARKET_UPDATE_TIME_MINUTES = 9 * 60; // 9:00 AM local time (minutes since local midnight)
 
 /* =============
 Market-open constants align with the US trading session used across scheduling.
@@ -91,10 +90,10 @@ Dashboard Sections
 export const DASHBOARD_SECTION_IDS = {
 	notificationChannels: "notification-channels",
 	assets: "watchlist",
-	frequent: "market-notifications",
+	marketNotifications: "market-notifications",
+	assetEvents: "asset-events-notifications",
 	preview: "notification-preview",
 	dailyNotifications: "daily-notifications",
-	occasionalNotifications: "occasional-notifications",
 } as const;
 
 type DashboardSection = keyof typeof DASHBOARD_SECTION_IDS;
@@ -102,10 +101,10 @@ type DashboardSection = keyof typeof DASHBOARD_SECTION_IDS;
 export const DASHBOARD_SECTION_HASHES: Record<DashboardSection, string> = {
 	notificationChannels: `#${DASHBOARD_SECTION_IDS.notificationChannels}`,
 	assets: `#${DASHBOARD_SECTION_IDS.assets}`,
-	frequent: `#${DASHBOARD_SECTION_IDS.frequent}`,
+	marketNotifications: `#${DASHBOARD_SECTION_IDS.marketNotifications}`,
+	assetEvents: `#${DASHBOARD_SECTION_IDS.assetEvents}`,
 	preview: `#${DASHBOARD_SECTION_IDS.preview}`,
 	dailyNotifications: `#${DASHBOARD_SECTION_IDS.dailyNotifications}`,
-	occasionalNotifications: `#${DASHBOARD_SECTION_IDS.occasionalNotifications}`,
 };
 
 /* =============

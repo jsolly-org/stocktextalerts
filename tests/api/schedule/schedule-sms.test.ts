@@ -50,8 +50,8 @@ describe("Users receive scheduled asset update notifications.", () => {
 		const { error: updateError } = await adminClient
 			.from("users")
 			.update({
-				next_send_at: DateTime.utc().toISO(),
-				price_notifications_enabled: true,
+				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+				market_scheduled_asset_price_enabled: true,
 			})
 			.eq("id", id);
 		expect(updateError).toBeNull();
@@ -75,7 +75,7 @@ describe("Users receive scheduled asset update notifications.", () => {
 			.select("*")
 			.eq("user_id", id)
 			.eq("delivery_method", "sms")
-			.eq("type", "scheduled_update")
+			.eq("type", "market")
 			.order("created_at", { ascending: false })
 			.limit(10);
 		expect(logError).toBeNull();
@@ -86,7 +86,7 @@ describe("Users receive scheduled asset update notifications.", () => {
 			.from("scheduled_notifications")
 			.select("status,attempt_count")
 			.eq("user_id", id)
-			.eq("notification_type", "scheduled_update")
+			.eq("notification_type", "market")
 			.eq("scheduled_minutes", scheduledUpdateTime)
 			.eq("channel", "sms")
 			.maybeSingle();

@@ -14,11 +14,7 @@ export const USER_PROCESS_BATCH_SIZE = 5;
 
 export type DeliveryMethod = Database["public"]["Enums"]["delivery_method"];
 
-// Generated Supabase types lag migrations in-repo; assert the new enum values exist.
-export type ScheduledNotificationType =
-	| "scheduled_update"
-	| "daily_digest"
-	| "weekly_calendar";
+export type ScheduledNotificationType = "market" | "daily" | "asset_events";
 
 type ScheduledNotificationStatus =
 	Database["public"]["Enums"]["scheduled_notification_status"];
@@ -101,7 +97,6 @@ export async function updateScheduledNotificationRow(options: {
 
 	const { error } = await (scheduledNotifications
 		.update(update)
-		// Generated Supabase types lag migrations in-repo; notification_type includes daily_digest.
 		.eq("user_id", options.userId)
 		.eq("notification_type", options.notificationType)
 		.eq("scheduled_date", options.scheduledDate)

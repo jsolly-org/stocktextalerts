@@ -1,5 +1,5 @@
 import type { AppSupabaseClient } from "../../db/supabase";
-import type { AssetPriceMap } from "../../price-fetcher";
+import type { AssetPriceMap } from "../../providers/price-fetcher";
 import { recordNotification } from "../shared";
 import type {
 	EmailUser,
@@ -42,7 +42,7 @@ export async function processEmailUpdate(
 
 	const logged = await recordNotification(supabase, {
 		user_id: user.id,
-		type: "scheduled_update",
+		type: "market",
 		delivery_method: "email",
 		message_delivered: result.success,
 		message: message.text,

@@ -1,0 +1,164 @@
+import { DateTime } from "luxon";
+import type { Logger } from "../logging";
+import type { UserRecord } from "../messaging/types";
+import {
+	fetchFinnhubExtras,
+	formatAnalystSection,
+	formatInsiderSection,
+} from "../providers/finnhub";
+import { formatAssetEventsSection } from "../providers/polygon";
+import type { SupabaseAdminClient } from "../schedule/helpers";
+
+export async function buildAssetEventsContent(options: {
+	user: UserRecord;
+	supabase: SupabaseAdminClient;
+	logger: Logger;
+	localDate: string; // YYYY-MM-DD (user's local date)
+	tickers: readonly string[];
+	channel: "email" | "sms";
+}): Promise<{
+	eventsSection: {
+		earnings: string | null;
+		dividends: string | null;
+		splits: string | null;
+	} | null;
+	insiderSection: string | null;
+	analystSection: string | null;
+	shouldUpdateAnalystMonth: boolean;
+	hasAnyContent: boolean;
+}> {
+	const { user, supabase, logger, localDate, tickers, channel } = options;
+
+	const nullResult = {
+		eventsSection: null,
+		insiderSection: null,
+		analystSection: null,
+		shouldUpdateAnalystMonth: false,
+		hasAnyContent: false,
+	};
+
+	if (tickers.length === 0) {
+		return nullResult;
+	}
+
+	const localDt = DateTime.fromISO(localDate);
+	if (!localDt.isValid) {
+		logger.warn("Invalid localDate for asset events content", {
+			localDate,
+			localDtInvalidReason: localDt.invalidReason,
+		});
+		return nullResult;
+	}
+	// "Next 3 days" inclusive: localDate, localDate+1, localDate+2
+	const endDate = localDt.plus({ days: 2 }).toISODate() ?? "";
+	if (!endDate) {
+		logger.warn("Failed to format endDate for asset events content", {
+			localDate,
+			localDt: localDt.toString(),
+			localDtIsValid: localDt.isValid,
+		});
+		return nullResult;
+	}
+
+	// Query asset_events table for the relevant date range (pre-populated by weekly cron)
+	const { data: rawEvents, error } = await supabase
+		.from("asset_events")
+		.select("*")
+		.in("symbol", [...tickers])
+		.gte("event_date", localDate)
+		.lte("event_date", endDate);
+
+	if (error) {
+		logger.error("Failed to query asset_events", { error });
+		return nullResult;
+	}
+
+	// 3. Filter by user's per-type channel-specific toggles
+	const filteredEvents = (rawEvents ?? []).filter((event) => {
+		if (event.event_type === "earnings") {
+			return channel === "email"
+				? user.asset_events_include_earnings_email
+				: user.asset_events_include_earnings_sms;
+		}
+		if (event.event_type === "dividend") {
+			return channel === "email"
+				? user.asset_events_include_dividends_email
+				: user.asset_events_include_dividends_sms;
+		}
+		if (event.event_type === "split") {
+			return channel === "email"
+				? user.asset_events_include_splits_email
+				: user.asset_events_include_splits_sms;
+		}
+		return false;
+	});
+
+	// 4. Compute daysUntil for each event
+	const eventsWithDaysUntil = filteredEvents.map((event) => ({
+		symbol: event.symbol,
+		event_type: event.event_type,
+		event_date: event.event_date,
+		data: (event.data ?? {}) as Record<string, unknown>,
+		daysUntil: Math.round(
+			DateTime.fromISO(event.event_date).diff(localDt, "days").days,
+		),
+	}));
+
+	// 5. Format asset events section
+	const eventsSection =
+		eventsWithDaysUntil.length > 0
+			? formatAssetEventsSection(eventsWithDaysUntil, channel)
+			: null;
+
+	// 6. Determine if insider should be fetched
+	const includeInsider =
+		channel === "email"
+			? user.asset_events_include_insider_email
+			: user.asset_events_include_insider_sms;
+
+	// 7. Determine if analyst should be fetched (channel-specific)
+	const currentMonth = localDt.toFormat("yyyy-MM");
+	const includeAnalyst =
+		(channel === "email"
+			? user.asset_events_include_analyst_email
+			: user.asset_events_include_analyst_sms) &&
+		user.asset_events_last_analyst_sent_month !== currentMonth;
+
+	// Fetch finnhub extras - combine into one call when both needed
+	let insiderSection: string | null = null;
+	let analystSection: string | null = null;
+
+	if (includeInsider || includeAnalyst) {
+		const finnhubData = await fetchFinnhubExtras([...tickers], {
+			includeNews: false,
+			includeAnalyst,
+			includeInsider,
+		});
+
+		if (includeInsider) {
+			insiderSection = formatInsiderSection(finnhubData.insider, channel);
+		}
+
+		if (includeAnalyst) {
+			analystSection = formatAnalystSection(finnhubData.analyst, channel);
+		}
+	}
+
+	// 8. Set shouldUpdateAnalystMonth if analyst was fetched and formatted
+	const shouldUpdateAnalystMonth = analystSection !== null;
+
+	// 9. Compute hasAnyContent
+	const hasAnyContent =
+		eventsSection !== null ||
+		insiderSection !== null ||
+		analystSection !== null;
+
+	// 10. Return all sections
+	return {
+		eventsSection,
+		insiderSection,
+		analystSection,
+		shouldUpdateAnalystMonth,
+		hasAnyContent,
+	};
+}

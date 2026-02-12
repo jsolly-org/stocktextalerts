@@ -22,6 +22,7 @@ function loadAssetData(): Map<string, AssetData> {
 		"..",
 		"..",
 		"scripts",
+		"data",
 		"us-assets.json",
 	);
 

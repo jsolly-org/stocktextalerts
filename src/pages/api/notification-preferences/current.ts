@@ -42,29 +42,48 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 		return Response.json({
 			ok: true,
 			notificationPreferences: {
-				price_notifications_enabled: dbUser.price_notifications_enabled,
-				price_include_email: dbUser.price_include_email,
-				price_include_sms: dbUser.price_include_sms,
+				market_scheduled_asset_price_enabled:
+					dbUser.market_scheduled_asset_price_enabled,
+				market_scheduled_asset_price_include_email:
+					dbUser.market_scheduled_asset_price_include_email,
+				market_scheduled_asset_price_include_sms:
+					dbUser.market_scheduled_asset_price_include_sms,
 				email_notifications_enabled: dbUser.email_notifications_enabled,
 				sms_notifications_enabled: dbUser.sms_notifications_enabled,
 				sms_opted_out: dbUser.sms_opted_out,
 				phone_verified: dbUser.phone_verified,
 				timezone: dbUser.timezone,
-				scheduled_update_times: dbUser.scheduled_update_times,
-				daily_delivery_time: dbUser.daily_delivery_time,
-				daily_next_send_at: dbUser.daily_next_send_at,
-				next_send_at: dbUser.next_send_at,
+				market_scheduled_asset_price_times:
+					dbUser.market_scheduled_asset_price_times,
+				daily_digest_time: dbUser.daily_digest_time,
+				daily_digest_next_send_at: dbUser.daily_digest_next_send_at,
+				market_scheduled_asset_price_next_send_at:
+					dbUser.market_scheduled_asset_price_next_send_at,
 				dismiss_timezone_mismatch_prompts:
 					dbUser.dismiss_timezone_mismatch_prompts,
-				daily_include_news_email: dbUser.daily_include_news_email,
-				daily_include_rumors_email: dbUser.daily_include_rumors_email,
-				daily_include_analyst_email: dbUser.daily_include_analyst_email,
-				daily_include_insider_email: dbUser.daily_include_insider_email,
-				daily_include_analyst_sms: dbUser.daily_include_analyst_sms,
-				daily_include_insider_sms: dbUser.daily_include_insider_sms,
-				weekly_include_earnings_email: dbUser.weekly_include_earnings_email,
-				weekly_include_earnings_sms: dbUser.weekly_include_earnings_sms,
-				weekly_next_send_at: dbUser.weekly_next_send_at,
+				daily_digest_include_news_email: dbUser.daily_digest_include_news_email,
+				daily_digest_include_rumors_email:
+					dbUser.daily_digest_include_rumors_email,
+				asset_events_include_earnings_email:
+					dbUser.asset_events_include_earnings_email,
+				asset_events_include_earnings_sms:
+					dbUser.asset_events_include_earnings_sms,
+				asset_events_include_dividends_email:
+					dbUser.asset_events_include_dividends_email,
+				asset_events_include_dividends_sms:
+					dbUser.asset_events_include_dividends_sms,
+				asset_events_include_splits_email:
+					dbUser.asset_events_include_splits_email,
+				asset_events_include_splits_sms: dbUser.asset_events_include_splits_sms,
+				asset_events_include_analyst_email:
+					dbUser.asset_events_include_analyst_email,
+				asset_events_include_analyst_sms:
+					dbUser.asset_events_include_analyst_sms,
+				asset_events_include_insider_email:
+					dbUser.asset_events_include_insider_email,
+				asset_events_include_insider_sms:
+					dbUser.asset_events_include_insider_sms,
+				asset_events_next_send_at: dbUser.asset_events_next_send_at,
 			},
 		});
 	} catch (error) {

@@ -20,6 +20,9 @@
 			ref="trackRef"
 			class="carousel-track"
 			@scroll.passive="handleScroll"
+			@touchstart.passive="handleTouchStart"
+			@touchend.passive="handleTouchEnd"
+			@touchcancel.passive="handleTouchCancel"
 		>
 			<div
 				v-for="(tab, index) in tabs"
@@ -39,8 +42,8 @@
 import { type Component, onMounted, onUnmounted, ref } from "vue";
 import BellAlertIcon from "../../icons/bell-alert.svg?component";
 import CalendarDaysIcon from "../../icons/calendar-days.svg?component";
-import ClockIcon from "../../icons/clock.svg?component";
 import EyeIcon from "../../icons/eye.svg?component";
+import NewspaperIcon from "../../icons/newspaper.svg?component";
 import PresentationChartLineIcon from "../../icons/presentation-chart-line.svg?component";
 
 interface Tab {
@@ -51,9 +54,9 @@ interface Tab {
 
 const tabs: Tab[] = [
 	{ id: "setup", label: "Watchlist & Channels", icon: PresentationChartLineIcon },
-	{ id: "schedule", label: "Schedule", icon: ClockIcon },
-	{ id: "daily", label: "Daily", icon: BellAlertIcon },
-	{ id: "weekly", label: "Weekly", icon: CalendarDaysIcon },
+	{ id: "daily", label: "Daily", icon: NewspaperIcon },
+	{ id: "schedule", label: "Alerts", icon: BellAlertIcon },
+	{ id: "asset-events", label: "Asset Events", icon: CalendarDaysIcon },
 	{ id: "preview", label: "Preview", icon: EyeIcon },
 ];
 
@@ -62,19 +65,55 @@ const trackRef = ref<HTMLElement | null>(null);
 const cardRefs = ref<(HTMLElement | null)[]>([]);
 const prefersReducedMotion = ref(false);
 let motionQuery: MediaQueryList | null = null;
+let touchStartX: number | null = null;
+let touchStartY: number | null = null;
+let pendingScrollTargetIndex: number | null = null;
+let pendingScrollTargetLeft: number | null = null;
+let pendingScrollClearTimeout: number | null = null;
+
+const SWIPE_THRESHOLD_PX = 30;
+const PROGRAMMATIC_SCROLL_TIMEOUT_MS = 700;
+const PROGRAMMATIC_SCROLL_EPSILON_PX = 2;
 
 function setCardRef(el: HTMLElement | null, index: number) {
 	cardRefs.value[index] = el;
 }
 
+function clearPendingProgrammaticScroll() {
+	pendingScrollTargetIndex = null;
+	pendingScrollTargetLeft = null;
+	if (pendingScrollClearTimeout != null) {
+		window.clearTimeout(pendingScrollClearTimeout);
+		pendingScrollClearTimeout = null;
+	}
+}
+
 function scrollToCard(index: number) {
 	const card = cardRefs.value[index];
 	if (card && trackRef.value) {
+		clearPendingProgrammaticScroll();
+		pendingScrollTargetIndex = index;
+		pendingScrollTargetLeft = card.offsetLeft;
+
 		activeIndex.value = index;
 		trackRef.value.scrollTo({
 			left: card.offsetLeft,
 			behavior: prefersReducedMotion.value ? "auto" : "smooth",
 		});
+
+		// If we didn't animate (or we're already there), don't block scroll syncing.
+		if (
+			prefersReducedMotion.value ||
+			Math.abs(trackRef.value.scrollLeft - card.offsetLeft) <=
+				PROGRAMMATIC_SCROLL_EPSILON_PX
+		) {
+			clearPendingProgrammaticScroll();
+		} else {
+			// Failsafe so we never get stuck ignoring scroll events.
+			pendingScrollClearTimeout = window.setTimeout(() => {
+				clearPendingProgrammaticScroll();
+			}, PROGRAMMATIC_SCROLL_TIMEOUT_MS);
+		}
 	}
 }
 
@@ -82,9 +121,61 @@ function handleScroll() {
 	syncActiveTab();
 }
 
+function handleTouchStart(event: TouchEvent) {
+	const touch = event.touches[0];
+	if (!touch) return;
+	touchStartX = touch.clientX;
+	touchStartY = touch.clientY;
+}
+
+function handleTouchEnd(event: TouchEvent) {
+	if (touchStartX == null || touchStartY == null) return;
+
+	const touch = event.changedTouches[0];
+	if (!touch) return;
+
+	const deltaX = touch.clientX - touchStartX;
+	const deltaY = touch.clientY - touchStartY;
+
+	touchStartX = null;
+	touchStartY = null;
+
+	// Ignore mostly vertical gestures so panel scrolling stays natural.
+	if (Math.abs(deltaY) >= Math.abs(deltaX)) return;
+	if (Math.abs(deltaX) < SWIPE_THRESHOLD_PX) return;
+
+	const direction = deltaX < 0 ? 1 : -1;
+	const nextIndex = Math.min(
+		Math.max(activeIndex.value + direction, 0),
+		tabs.length - 1,
+	);
+
+	if (nextIndex !== activeIndex.value) {
+		scrollToCard(nextIndex);
+	}
+}
+
+function handleTouchCancel() {
+	touchStartX = null;
+	touchStartY = null;
+}
+
 function syncActiveTab() {
 	const track = trackRef.value;
 	if (!track) return;
+
+	if (pendingScrollTargetIndex != null && pendingScrollTargetLeft != null) {
+		if (
+			Math.abs(track.scrollLeft - pendingScrollTargetLeft) >
+			PROGRAMMATIC_SCROLL_EPSILON_PX
+		) {
+			return;
+		}
+
+		activeIndex.value = pendingScrollTargetIndex;
+		clearPendingProgrammaticScroll();
+		return;
+	}
 
 	const scrollLeft = track.scrollLeft;
 	const cardWidth = track.offsetWidth;
@@ -158,6 +249,12 @@ onUnmounted(() => {
 	background-color: var(--color-gray-100, #f3f4f6);
 }
 
+.carousel-tab:focus-visible {
+	outline: 2px solid var(--color-primary, #2563eb);
+	outline-offset: -2px;
+	color: var(--color-gray-700, #374151);
+}
+
 .carousel-tab--active {
 	color: var(--color-primary, #2563eb);
 }
@@ -177,6 +274,7 @@ onUnmounted(() => {
 	display: flex;
 	overflow-x: auto;
 	scroll-snap-type: x mandatory;
+	touch-action: pan-y;
 	flex: 1;
 	min-height: 0;
 	scrollbar-width: none;

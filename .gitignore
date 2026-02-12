@@ -38,4 +38,4 @@ precommit-*.log
 supabase/seed.sql
 
 # User seed data (may contain real email addresses)
-scripts/users.json
+scripts/data/users.json

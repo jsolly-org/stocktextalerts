@@ -3,6 +3,10 @@
 		{
 			"path": "/api/schedule",
 			"schedule": "* * * * *"
+		},
+		{
+			"path": "/api/asset-events",
+			"schedule": "0 0 * * 6"
 		}
 	]
 }

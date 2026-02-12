@@ -1,7 +1,7 @@
 import type { TablesInsert } from "../../src/lib/db/generated/database.types";
 
-type DbUserInsert = Omit<TablesInsert<"users">, "scheduled_update_times"> & {
-  scheduled_update_times?: number[] | null;
+type DbUserInsert = Omit<TablesInsert<"users">, "market_scheduled_asset_price_times"> & {
+  market_scheduled_asset_price_times?: number[] | null;
 };
 
 export type SeedUser = Omit<Partial<DbUserInsert>, "email"> & {
@@ -264,26 +264,26 @@ export function buildPublicUserSql(userId: string, user: SeedUser): string {
   }
 
   const scheduledUpdateTimes = validateOptionalNumberArray(
-    user.scheduled_update_times,
-    "scheduled_update_times",
+    user.market_scheduled_asset_price_times,
+    "market_scheduled_asset_price_times",
   );
   if (scheduledUpdateTimes !== undefined) {
     if (scheduledUpdateTimes.length === 0) {
       throw new Error(
-        "Seed user: scheduled_update_times cannot be an empty array.",
+        "Seed user: market_scheduled_asset_price_times cannot be an empty array.",
       );
     }
     for (const entry of scheduledUpdateTimes) {
       if (entry < 0 || entry > 1439) {
         throw new Error(
-          `Seed user: scheduled_update_times entries must be between 0 and 1439. Received: ${entry}`,
+          `Seed user: market_scheduled_asset_price_times entries must be between 0 and 1439. Received: ${entry}`,
         );
       }
     }
-    insertColumns.push("scheduled_update_times");
+    insertColumns.push("market_scheduled_asset_price_times");
     insertValues.push(`ARRAY[${scheduledUpdateTimes.join(", ")}]`);
     updateFields.push(
-      "scheduled_update_times = EXCLUDED.scheduled_update_times",
+      "market_scheduled_asset_price_times = EXCLUDED.market_scheduled_asset_price_times",
     );
   }
 

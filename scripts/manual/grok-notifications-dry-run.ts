@@ -1,5 +1,8 @@
 import { DateTime } from "luxon";
-import { generateDailyExtrasWithGrok } from "../../src/lib/grok-extras";
+import {
+	generateNewsWithGrok,
+	generateRumorsWithGrok,
+} from "../../src/lib/providers/grok";
 import { createLogger } from "../../src/lib/logging";
 
 const requestId = "scripts/grok-notifications-dry-run";
@@ -132,16 +135,16 @@ async function main() {
 		includeRumors,
 	});
 
-	const extras = await generateDailyExtrasWithGrok({
-		tickers,
-		localDateIso,
-		timezone,
-		includeNews,
-		includeRumors,
-		requestId,
-	});
+	const [newsResult, rumorsResult] = await Promise.all([
+		includeNews
+			? generateNewsWithGrok({ tickers, localDateIso, timezone, requestId })
+			: Promise.resolve(null),
+		includeRumors
+			? generateRumorsWithGrok({ tickers, localDateIso, timezone, requestId })
+			: Promise.resolve(null),
+	]);
 
-	if (!extras?.news && !extras?.rumors) {
+	if (!newsResult?.content && !rumorsResult?.content) {
 		logger.info(
 			"No Grok content generated (likely missing XAI_API_KEY, request failed, or empty response).",
 			{
@@ -156,36 +159,36 @@ async function main() {
 		return;
 	}
 
-	if (extras.news) {
+	if (newsResult?.content) {
 		logger.info("Grok output (raw) [news]", {
 			event: "grok_output_raw",
 			kind: "news",
 			tickers,
 			timezone,
 			localDateIso,
-			includeNews,
-			includeRumors,
-			text: extras.news,
+			text: newsResult.content,
 		});
 	}
-	if (extras.rumors) {
+	if (rumorsResult?.content) {
 		logger.info("Grok output (raw) [rumors]", {
 			event: "grok_output_raw",
 			kind: "rumors",
 			tickers,
 			timezone,
 			localDateIso,
-			includeNews,
-			includeRumors,
-			text: extras.rumors,
+			text: rumorsResult.content,
 		});
 	}
-	if (extras.citations && extras.citations.length > 0) {
+	const allCitations = [
+		...(newsResult?.citations ?? []),
+		...(rumorsResult?.citations ?? []),
+	];
+	if (allCitations.length > 0) {
 		logger.info("Grok citations", {
 			event: "grok_citations",
 			tickers,
-			citationCount: extras.citations.length,
-			citations: extras.citations,
+			citationCount: allCitations.length,
+			citations: allCitations,
 		});
 	}
 }
