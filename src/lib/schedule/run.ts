@@ -137,17 +137,18 @@ export async function runScheduledNotifications(options: {
 		if (uniqueSymbols.length > 0) {
 			// Reuse quotes from price alerts when available to avoid duplicate API calls
 			if (priceAlertQuoteMap && priceAlertQuoteMap.size > 0) {
-				const missingSymbols = uniqueSymbols.filter(
-					(s) => !priceAlertQuoteMap?.has(s),
-				);
+				const missingSymbols: string[] = [];
 				// Start with price alert quotes (they extend AssetPrice)
+				// Treat `null` cached quotes as missing so we refetch and don't skip notifications.
 				for (const symbol of uniqueSymbols) {
 					const cached = priceAlertQuoteMap.get(symbol);
 					if (cached) {
 						priceMap.set(symbol, cached);
+					} else {
+						missingSymbols.push(symbol);
 					}
 				}
-				// Fetch any symbols not covered by price alerts
+				// Fetch any symbols not covered by price alerts (including null quotes)
 				if (missingSymbols.length > 0) {
 					const extraPrices = await fetchAssetPrices(missingSymbols);
 					for (const [symbol, price] of extraPrices) {

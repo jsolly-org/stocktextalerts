@@ -149,7 +149,8 @@ export async function fetchAndStoreAssetEvents(options: {
 		const { error: insertError } = await supabase
 			.from("asset_events")
 			.upsert(rows, {
-				onConflict: "symbol,event_type,event_date,week_of",
+				// Matches DB unique index (week_of is not part of uniqueness)
+				onConflict: "symbol,event_type,event_date",
 			});
 
 		if (insertError) {
@@ -173,7 +174,8 @@ export async function fetchAndStoreAssetEvents(options: {
 
 	// Cleanup old rows
 	const cutoff = new Date();
-	cutoff.setDate(cutoff.getDate() - RETENTION_WEEKS * 7);
+	// Use UTC explicitly to avoid timezone-dependent cutoffs.
+	cutoff.setUTCDate(cutoff.getUTCDate() - RETENTION_WEEKS * 7);
 	const cutoffDate = cutoff.toISOString().slice(0, 10);
 
 	const { error: deleteError } = await supabase

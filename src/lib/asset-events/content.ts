@@ -42,7 +42,23 @@ export async function buildAssetEventsContent(options: {
 	}
 
 	const localDt = DateTime.fromISO(localDate);
-	const endDate = localDt.plus({ days: 3 }).toISODate() ?? "";
+	if (!localDt.isValid) {
+		logger.warn("Invalid localDate for asset events content", {
+			localDate,
+			localDtInvalidReason: localDt.invalidReason,
+		});
+		return nullResult;
+	}
+	// "Next 3 days" inclusive: localDate, localDate+1, localDate+2
+	const endDate = localDt.plus({ days: 2 }).toISODate() ?? "";
+	if (!endDate) {
+		logger.warn("Failed to format endDate for asset events content", {
+			localDate,
+			localDt: localDt.toString(),
+			localDtIsValid: localDt.isValid,
+		});
+		return nullResult;
+	}
 
 	// Query asset_events table for the relevant date range (pre-populated by weekly cron)
 	const { data: rawEvents, error } = await supabase

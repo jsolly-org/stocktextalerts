@@ -161,35 +161,72 @@ export async function fetchPolygonEarnings(
 	from: string,
 	to: string,
 ): Promise<PolygonEarningsEvent[]> {
+	// Polygon does not provide earnings on the core reference API; use a documented partner endpoint.
+	// Benzinga earnings calendar response fields vary by plan — parse defensively.
 	const data = await polygonFetch(
-		"/vX/reference/earnings",
-		{ "date.gte": from, "date.lte": to, limit: "1000" },
+		"/benzinga/v1/earnings",
+		{ date_from: from, date_to: to },
 		"earnings",
 	);
 	if (typeof data !== "object" || data === null) return [];
 
-	const results = (data as Record<string, unknown>).results;
-	if (!Array.isArray(results)) return [];
+	const obj = data as Record<string, unknown>;
+	const raw =
+		(Array.isArray(obj.results) && obj.results) ||
+		(Array.isArray(obj.earnings) && obj.earnings) ||
+		(Array.isArray(obj.data) && obj.data) ||
+		(Array.isArray(data) ? (data as unknown[]) : null);
+	if (!raw) return [];
 
-	return results
-		.filter(
-			(item: unknown) =>
-				typeof item === "object" &&
-				item !== null &&
-				typeof (item as Record<string, unknown>).ticker === "string" &&
-				typeof (item as Record<string, unknown>).date === "string",
-		)
-		.map((item: Record<string, unknown>) => ({
-			ticker: item.ticker as string,
-			date: item.date as string,
-			time: typeof item.time === "string" ? item.time : null,
-			epsEstimate:
-				typeof item.eps_estimate === "number" ? item.eps_estimate : null,
-			revenueEstimate:
-				typeof item.revenue_estimate === "number"
-					? item.revenue_estimate
-					: null,
-		}));
+	const toNumberOrNull = (value: unknown): number | null => {
+		if (typeof value === "number" && Number.isFinite(value)) return value;
+		if (typeof value === "string" && value.trim() !== "") {
+			const parsed = Number(value);
+			return Number.isFinite(parsed) ? parsed : null;
+		}
+		return null;
+	};
+	const toStringOrNull = (value: unknown): string | null =>
+		typeof value === "string" && value.trim() !== "" ? value : null;
+
+	const events: PolygonEarningsEvent[] = [];
+	for (const item of raw) {
+		if (typeof item !== "object" || item === null) continue;
+		const row = item as Record<string, unknown>;
+
+		const ticker = toStringOrNull(row.ticker) ?? toStringOrNull(row.symbol);
+		const dateRaw =
+			toStringOrNull(row.date) ??
+			toStringOrNull(row.earnings_date) ??
+			toStringOrNull(row.report_date) ??
+			toStringOrNull(row.fiscal_date);
+		if (!ticker || !dateRaw) continue;
+
+		const date = dateRaw.slice(0, 10); // normalize YYYY-MM-DD when timestamps appear
+		const time =
+			toStringOrNull(row.time) ??
+			toStringOrNull(row.hour) ??
+			toStringOrNull(row.session);
+
+		const epsEstimate =
+			toNumberOrNull(row.eps_estimate) ??
+			toNumberOrNull(row.eps_est) ??
+			toNumberOrNull(row.epsEstimate);
+		const revenueEstimate =
+			toNumberOrNull(row.revenue_estimate) ??
+			toNumberOrNull(row.revenue_est) ??
+			toNumberOrNull(row.revenueEstimate);
+
+		events.push({
+			ticker,
+			date,
+			time,
+			epsEstimate,
+			revenueEstimate,
+		});
+	}
+
+	return events;
 }
 
 /**

@@ -330,7 +330,8 @@ const nextAssetEventsDeliveryText = computed(() => {
 		if (next.isValid) {
 			const diffSeconds = next.diff(now, "seconds").seconds;
 			if (diffSeconds > 0) {
-				return `in ${formatCountdownWithSeconds(Math.round(diffSeconds))}`;
+				// Round up so small positive deltas don't display as "in 0s"
+				return `in ${formatCountdownWithSeconds(Math.ceil(diffSeconds))}`;
 			}
 		}
 	}

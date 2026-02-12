@@ -32,19 +32,42 @@ const handler: APIRoute = async ({ request, locals }) => {
 	const nextMonday = DateTime.utc().plus({ weeks: 1 }).startOf("week"); // Luxon weeks start Monday
 	const weekAfterMonday = nextMonday.plus({ weeks: 1 });
 
+	function requireIsoDate(dt: DateTime, label: string): string {
+		const iso = dt.toISODate();
+		if (!dt.isValid || !iso) {
+			logger.error("Invalid DateTime while building asset events weeks", {
+				action: "weekly_asset_events_cron",
+				label,
+				isValid: dt.isValid,
+				invalidReason: dt.invalidReason,
+				dt: dt.toString(),
+			});
+			throw new Error(`Invalid ${label} DateTime`);
+		}
+		return iso;
+	}
+
 	const weeks = [
 		{
-			weekStart: nextMonday.toISODate() ?? "",
-			weekEnd: nextMonday.plus({ days: 4 }).toISODate() ?? "",
+			weekStart: requireIsoDate(nextMonday, "nextMonday"),
+			weekEnd: requireIsoDate(nextMonday.plus({ days: 4 }), "nextMonday+4"),
 		},
 		{
-			weekStart: weekAfterMonday.toISODate() ?? "",
-			weekEnd: weekAfterMonday.plus({ days: 4 }).toISODate() ?? "",
+			weekStart: requireIsoDate(weekAfterMonday, "weekAfterMonday"),
+			weekEnd: requireIsoDate(
+				weekAfterMonday.plus({ days: 4 }),
+				"weekAfterMonday+4",
+			),
 		},
 	];
 
 	try {
-		const results = [];
+		const results: Array<{
+			weekStart: string;
+			weekEnd: string;
+			inserted: number;
+			skipped: boolean;
+		}> = [];
 		for (const { weekStart, weekEnd } of weeks) {
 			const result = await fetchAndStoreAssetEvents({
 				supabase,

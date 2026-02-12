@@ -8,6 +8,38 @@ import type { UserRecord } from "../../../lib/messaging/types";
 import { verifyCronSecret } from "../../../lib/schedule/cron-auth";
 import { createSmsSenderProvider } from "../../../lib/schedule/sms-sender";
 
+type DailyDigestUserRow = Pick<
+	UserRecord,
+	| "id"
+	| "email"
+	| "phone_country_code"
+	| "phone_number"
+	| "phone_verified"
+	| "timezone"
+	| "daily_digest_time"
+	| "daily_digest_next_send_at"
+	| "email_notifications_enabled"
+	| "sms_notifications_enabled"
+	| "sms_opted_out"
+	| "daily_digest_include_news_email"
+	| "daily_digest_include_rumors_email"
+	| "asset_events_include_earnings_email"
+	| "asset_events_include_earnings_sms"
+	| "asset_events_include_dividends_email"
+	| "asset_events_include_dividends_sms"
+	| "asset_events_include_splits_email"
+	| "asset_events_include_splits_sms"
+	| "asset_events_include_analyst_email"
+	| "asset_events_include_analyst_sms"
+	| "asset_events_include_insider_email"
+	| "asset_events_include_insider_sms"
+	| "asset_events_next_send_at"
+	| "asset_events_last_analyst_sent_month"
+	| "last_grok_rumors_at"
+	| "grok_window_start"
+	| "grok_sends_in_window"
+>;
+
 /**
  * Per-user daily endpoint — called by the fan-out dispatcher.
  * Each invocation gets its own Vercel function timeout budget.
@@ -119,8 +151,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
 	const sendEmail = createEmailSender();
 	const getSmsSender = createSmsSenderProvider();
 
+	const dailyDigestUser: UserRecord = {
+		...(user as DailyDigestUserRow),
+		// Not required for daily digest processing, but part of UserRecord.
+		// Provide safe defaults rather than bypassing type checking via `unknown`.
+		market_scheduled_asset_price_next_send_at: null,
+		show_change_percent: false,
+		show_company_name: false,
+		detailed_format: false,
+		market_scheduled_asset_price_enabled: false,
+		market_scheduled_asset_price_include_email: false,
+		market_scheduled_asset_price_include_sms: false,
+		market_scheduled_asset_price_times: null,
+	};
+
 	const stats = await processDailyDigestUser({
-		user: user as unknown as UserRecord,
+		user: dailyDigestUser,
 		supabase,
 		logger,
 		currentTime,
