@@ -116,7 +116,7 @@
 						:id="`asset_events_${eventType.key}_description`"
 						class="text-sm text-gray-600 mt-0.5"
 					>
-						<template v-if="eventType.key === 'insider'">
+						<template v-if="eventType.key === 'insider' || eventType.key === 'analyst'">
 							{{ eventType.description }}
 							<span class="text-gray-400"> Stocks only.</span>
 						</template>
