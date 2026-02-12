@@ -96,6 +96,9 @@ GRANT EXECUTE ON FUNCTION public.claim_scheduled_notification(
    2.  FUNCTIONS — validation + cooldown
    ================================================================ */
 
+-- Drop constraints that reference old functions before dropping the functions.
+ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_scheduled_update_times_check;
+
 -- Replace is_valid_scheduled_update_times → is_valid_market_scheduled_asset_price_times
 DROP FUNCTION IF EXISTS public.is_valid_scheduled_update_times(integer[]);
 
@@ -177,8 +180,7 @@ REVOKE ALL ON TABLE public.market_asset_price_alert_cooldowns FROM anon, authent
    4.  COLUMN RENAMES on users
    ================================================================ */
 
--- Drop constraints that reference old column names / functions.
-ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_scheduled_update_times_check;
+-- Drop constraints that reference old column names.
 ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_daily_delivery_time_range;
 
 -- Drop old indexes (will be recreated with new names).
