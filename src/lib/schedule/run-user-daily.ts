@@ -6,7 +6,8 @@ import {
 	formatAnalystSection,
 	formatInsiderSection,
 } from "../finnhub-extras";
-import { generateDailyExtrasWithGrok } from "../grok-extras";
+import type { GrokSectionResult } from "../grok-extras";
+import { generateNewsWithGrok, generateRumorsWithGrok } from "../grok-extras";
 import type { Logger } from "../logging";
 import type { EmailSender } from "../messaging/email/utils";
 import { shouldSendSms } from "../messaging/sms";
@@ -315,24 +316,39 @@ export async function processDailyUser(options: {
 			: undefined;
 
 		// Grok extras are email-only (SMS body can exceed Twilio's 1600-char limit)
-		const grokResult =
-			grokAllowed && emailEnabled
-				? await generateDailyExtrasWithGrok({
-						tickers,
-						localDateIso: scheduledDate,
-						timezone: user.timezone,
-						includeNews: user.daily_include_news_email,
-						includeRumors: user.daily_include_rumors_email,
-						finnhubNewsContext: newsContext || undefined,
-					})
-				: null;
+		let newsResult: GrokSectionResult | null = null;
+		let rumorsResult: GrokSectionResult | null = null;
 
-		if (grokResult?.citations && grokResult.citations.length > 0) {
+		if (grokAllowed && emailEnabled) {
+			[newsResult, rumorsResult] = await Promise.all([
+				user.daily_include_news_email
+					? generateNewsWithGrok({
+							tickers,
+							localDateIso: scheduledDate,
+							timezone: user.timezone,
+							finnhubNewsContext: newsContext || undefined,
+						})
+					: Promise.resolve(null),
+				user.daily_include_rumors_email
+					? generateRumorsWithGrok({
+							tickers,
+							localDateIso: scheduledDate,
+							timezone: user.timezone,
+						})
+					: Promise.resolve(null),
+			]);
+		}
+
+		const mergedCitations = [
+			...(newsResult?.citations ?? []),
+			...(rumorsResult?.citations ?? []),
+		];
+		if (mergedCitations.length > 0) {
 			logger.info("Grok citations returned", {
 				action: "daily_digest_run",
 				userId: user.id,
-				citationCount: grokResult.citations.length,
-				citations: grokResult.citations,
+				citationCount: mergedCitations.length,
+				citations: mergedCitations,
 			});
 		}
 
@@ -348,8 +364,8 @@ export async function processDailyUser(options: {
 				? user.daily_include_insider_sms
 				: user.daily_include_insider_email;
 			return {
-				news: isSms ? null : (grokResult?.news ?? null),
-				rumors: isSms ? null : (grokResult?.rumors ?? null),
+				news: isSms ? null : (newsResult?.content ?? null),
+				rumors: isSms ? null : (rumorsResult?.content ?? null),
 				analyst: includeAnalyst
 					? formatAnalystSection(finnhubData.analyst, channel)
 					: null,
@@ -357,9 +373,7 @@ export async function processDailyUser(options: {
 					? formatInsiderSection(finnhubData.insider, channel)
 					: null,
 				citations:
-					!isSms && grokResult?.citations?.length
-						? grokResult.citations
-						: undefined,
+					!isSms && mergedCitations.length > 0 ? mergedCitations : undefined,
 			};
 		}
 
