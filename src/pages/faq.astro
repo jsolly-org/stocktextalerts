@@ -12,15 +12,15 @@ const faqs = [
 	},
 	{
 		question: "How do asset updates work?",
-		answer: 'Once you <a href="/auth/register" class="link-primary">create an account</a> and pick the asset tickers you want to follow, we compile updates based on your preferences. You can receive scheduled market asset price notifications, optional Market Movement Alerts, plus an optional daily digest and asset events notifications. You can choose whether each notification type is delivered by email, SMS, or both.'
+		answer: 'Once you <a href="/auth/register" class="link-primary">create an account</a> and pick the asset tickers you want to follow, we compile updates based on your preferences. You can receive scheduled market asset price notifications, optional Asset Price Alerts, plus an optional daily digest and asset events notifications. You can choose whether each notification type is delivered by email, SMS, or both.'
 	},
 	{
-		question: "What are Market Movement Alerts?",
-		answer: "Market Movement Alerts are optional, near real-time alerts that run during US market hours. They watch the symbols you track and send an alert when our movement score crosses your configured threshold. You can adjust Movement Sensitivity (Chill / Normal / Aggressive), and we apply a per-symbol cooldown to avoid repeated alerts in a short window."
+		question: "What are Asset Price Alerts?",
+		answer: "Asset Price Alerts are optional, near real-time alerts that run during US market hours. They watch the symbols you track and send an alert when our price-movement score crosses your configured threshold. You can adjust Price Sensitivity (Chill / Balanced / Aggressive), and we apply a per-symbol cooldown to avoid repeated alerts in a short window."
 	},
 	{
 		question: "Can I choose which notifications are sent via email vs SMS?",
-		answer: "Yes. Enable email and/or SMS, then choose which notification types are delivered to each channel (including Market Movement Alerts). Some add-ons (like News and Rumors) are email-only."
+		answer: "Yes. Enable email and/or SMS, then choose which notification types are delivered to each channel (including Asset Price Alerts and Asset Events). Some add-ons (like News and Rumors) are email-only."
 	},
 	{
 		question: "I didn\u2019t receive my verification email. What should I do?",
@@ -40,7 +40,7 @@ const faqs = [
 	},
 	{
 		question: "When are updates sent?",
-		answer: "You can choose up to five delivery times for scheduled market asset price notifications. Market Movement Alerts (if enabled) run during US market hours and can trigger as activity happens (with per-symbol cooldowns). The daily digest is sent once per day at your selected daily delivery time, and asset events (earnings, dividends, splits, insider trades, analyst consensus) are delivered daily at the same time."
+		answer: "You can choose up to five delivery times for scheduled market asset price notifications. Asset Price Alerts (if enabled) run during US market hours and can trigger as activity happens (with per-symbol cooldowns). The daily digest is sent once per day at your selected daily delivery time, and asset events (earnings, dividends, splits, insider trades, analyst consensus) are delivered daily at the same time."
 	},
 	{
 		question: "What is the Daily Digest?",
@@ -109,7 +109,7 @@ const jsonLd = [
     </header>
     <main id="main-content" class="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
       <h1 class="text-4xl font-bold mb-4 text-balance">Stock & ETF Alert FAQ</h1>
-      <p class="text-lg text-gray-600 mb-10">Everything you need to know about tracking assets and choosing how you receive notifications (scheduled updates and Market Movement Alerts by email, SMS, or both).</p>
+      <p class="text-lg text-gray-600 mb-10">Everything you need to know about tracking assets and choosing how you receive notifications (scheduled updates and Asset Price Alerts by email, SMS, or both).</p>
 
       <div class="space-y-8">
         {faqs.map((faq) => (

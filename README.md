@@ -1,6 +1,6 @@
 # StockTextAlerts.com
 
-A securities notification app that sends scheduled SMS and email updates (market price notifications, daily digests, and a weekly calendar) plus optional asset price alerts about tracked assets (stocks and ETFs). Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email and SMS are sent via Resend and Twilio. 🔔
+A securities notification app that sends scheduled SMS and email updates (scheduled asset price notifications, daily digests, and asset events) plus optional asset price alerts about tracked assets (stocks and ETFs). Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email and SMS are sent via Resend and Twilio. 🔔
 
 ## Features
 
@@ -11,8 +11,8 @@ A securities notification app that sends scheduled SMS and email updates (market
 - **Phone Verification** - Secure phone verification via Twilio Verify
 - **Timezone Support** - Browser-detected timezones with user overrides
 - **Market Notifications** - Choose up to 5 delivery times for scheduled asset price updates, and decide if they're delivered by email, SMS, or both
-- **Daily Digest** - Once-daily digest with optional extras (News/Rumors are email-only and may include clickable source links; Analyst Consensus and Insider Trades can be delivered by email and/or SMS)
-- **Weekly Calendar** - Monday calendar of upcoming earnings reports for your tracked assets (delivered by email and/or SMS)
+- **Daily Digest** - Once-daily email digest with optional extras (News/Rumors are email-only and may include clickable source links)
+- **Asset Events** - Daily notification of upcoming earnings, dividends, splits, plus analyst consensus and insider trades (delivered by email and/or SMS; toggle each event type)
 - **Format Preferences** - Customize how your updates look with live SMS/email previews
 - **SMS Opt-out** - Reply STOP to opt out of SMS; reply START to opt back in (then re-enable SMS in your dashboard)
 
@@ -280,9 +280,9 @@ The cron job calls `/api/schedule` and must include:
 
 The cron job:
 1. Runs asset price alerts during US market hours
-2. Runs scheduled market price notifications (batched price fetching)
-3. Sends weekly calendar notifications (earnings) on Mondays
-4. Sends daily digest notifications (News/Rumors/Analyst/Insider) at the user’s chosen daily time
+2. Runs scheduled asset price notifications (batched price fetching)
+3. Sends asset events notifications (earnings/dividends/splits/analyst/insider) at the user’s daily delivery time
+4. Sends daily digest notifications (News/Rumors) at the user’s chosen daily time
 5. Sends via email and/or SMS based on settings and logs attempts to the `notification_log` table
 
 ## Project Structure
