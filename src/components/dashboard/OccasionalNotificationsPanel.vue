@@ -34,7 +34,7 @@
 			<div class="card-body">
 				<header class="mb-4">
 					<h2
-						:id="DASHBOARD_SECTION_IDS.occasionalNotifications"
+						:id="DASHBOARD_SECTION_IDS.weeklyCalendar"
 						class="text-xl sm:text-2xl font-bold text-gray-900"
 					>
 						Asset Events
