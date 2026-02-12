@@ -162,21 +162,9 @@ export async function fetchPolygonEarnings(
 	to: string,
 ): Promise<PolygonEarningsEvent[]> {
 	// Polygon does not provide earnings on the core reference API; use a documented partner endpoint.
-	// Benzinga earnings calendar response fields vary by plan — parse defensively.
-	const data = await polygonFetch(
-		"/benzinga/v1/earnings",
-		{ date_from: from, date_to: to },
-		"earnings",
-	);
-	if (typeof data !== "object" || data === null) return [];
-
-	const obj = data as Record<string, unknown>;
-	const raw =
-		(Array.isArray(obj.results) && obj.results) ||
-		(Array.isArray(obj.earnings) && obj.earnings) ||
-		(Array.isArray(obj.data) && obj.data) ||
-		(Array.isArray(data) ? (data as unknown[]) : null);
-	if (!raw) return [];
+	// Benzinga earnings calendar response fields vary by plan — parse defensively and paginate when possible.
+	const PAGE_SIZE = 100;
+	const MAX_PAGES = 25;
 
 	const toNumberOrNull = (value: unknown): number | null => {
 		if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -189,41 +177,127 @@ export async function fetchPolygonEarnings(
 	const toStringOrNull = (value: unknown): string | null =>
 		typeof value === "string" && value.trim() !== "" ? value : null;
 
+	const parseNextUrl = (
+		nextUrl: string,
+	): { endpoint: string; params: Record<string, string> } | null => {
+		try {
+			// Polygon typically returns absolute URLs, but handle relative too.
+			const u = new URL(nextUrl, POLYGON_BASE_URL);
+			const params: Record<string, string> = {};
+			for (const [k, v] of u.searchParams.entries()) {
+				if (k === "apiKey") continue;
+				params[k] = v;
+			}
+			return { endpoint: u.pathname, params };
+		} catch {
+			return null;
+		}
+	};
+
 	const events: PolygonEarningsEvent[] = [];
-	for (const item of raw) {
-		if (typeof item !== "object" || item === null) continue;
-		const row = item as Record<string, unknown>;
+	const seen = new Set<string>();
 
-		const ticker = toStringOrNull(row.ticker) ?? toStringOrNull(row.symbol);
-		const dateRaw =
-			toStringOrNull(row.date) ??
-			toStringOrNull(row.earnings_date) ??
-			toStringOrNull(row.report_date) ??
-			toStringOrNull(row.fiscal_date);
-		if (!ticker || !dateRaw) continue;
+	let endpoint = "/benzinga/v1/earnings";
+	let params: Record<string, string> = {
+		date_from: from,
+		date_to: to,
+		pagesize: String(PAGE_SIZE),
+		page: "1",
+	};
 
-		const date = dateRaw.slice(0, 10); // normalize YYYY-MM-DD when timestamps appear
-		const time =
-			toStringOrNull(row.time) ??
-			toStringOrNull(row.hour) ??
-			toStringOrNull(row.session);
+	for (let pageCount = 0; pageCount < MAX_PAGES; pageCount++) {
+		const data = await polygonFetch(endpoint, params, "earnings");
+		if (typeof data !== "object" || data === null) break;
 
-		const epsEstimate =
-			toNumberOrNull(row.eps_estimate) ??
-			toNumberOrNull(row.eps_est) ??
-			toNumberOrNull(row.epsEstimate);
-		const revenueEstimate =
-			toNumberOrNull(row.revenue_estimate) ??
-			toNumberOrNull(row.revenue_est) ??
-			toNumberOrNull(row.revenueEstimate);
+		const obj = data as Record<string, unknown>;
+		const raw =
+			(Array.isArray(obj.results) && obj.results) ||
+			(Array.isArray(obj.earnings) && obj.earnings) ||
+			(Array.isArray(obj.data) && obj.data) ||
+			(Array.isArray(data) ? (data as unknown[]) : null);
+		if (!raw) break;
 
-		events.push({
-			ticker,
-			date,
-			time,
-			epsEstimate,
-			revenueEstimate,
-		});
+		for (const item of raw) {
+			if (typeof item !== "object" || item === null) continue;
+			const row = item as Record<string, unknown>;
+
+			const ticker = toStringOrNull(row.ticker) ?? toStringOrNull(row.symbol);
+			const dateRaw =
+				toStringOrNull(row.date) ??
+				toStringOrNull(row.earnings_date) ??
+				toStringOrNull(row.report_date) ??
+				toStringOrNull(row.fiscal_date);
+			if (!ticker || !dateRaw) continue;
+
+			const date = dateRaw.slice(0, 10); // normalize YYYY-MM-DD when timestamps appear
+			const time =
+				toStringOrNull(row.time) ??
+				toStringOrNull(row.hour) ??
+				toStringOrNull(row.session);
+
+			const epsEstimate =
+				toNumberOrNull(row.eps_estimate) ??
+				toNumberOrNull(row.eps_est) ??
+				toNumberOrNull(row.epsEstimate) ??
+				(typeof row.eps === "object" && row.eps !== null
+					? (toNumberOrNull((row.eps as Record<string, unknown>).estimate) ??
+						toNumberOrNull((row.eps as Record<string, unknown>).estimated))
+					: null);
+			const revenueEstimate =
+				toNumberOrNull(row.revenue_estimate) ??
+				toNumberOrNull(row.revenue_est) ??
+				toNumberOrNull(row.revenueEstimate) ??
+				(typeof row.revenue === "object" && row.revenue !== null
+					? (toNumberOrNull(
+							(row.revenue as Record<string, unknown>).estimate,
+						) ??
+						toNumberOrNull((row.revenue as Record<string, unknown>).estimated))
+					: null);
+
+			const key = `${ticker}|${date}`;
+			if (seen.has(key)) continue;
+			seen.add(key);
+
+			events.push({
+				ticker,
+				date,
+				time,
+				epsEstimate,
+				revenueEstimate,
+			});
+		}
+
+		const nextUrl = toStringOrNull(obj.next_url);
+		if (nextUrl) {
+			const parsed = parseNextUrl(nextUrl);
+			if (parsed) {
+				endpoint = parsed.endpoint;
+				params = parsed.params;
+				continue;
+			}
+		}
+
+		const nextPageRaw = obj.next_page;
+		const nextPage =
+			typeof nextPageRaw === "number" && Number.isFinite(nextPageRaw)
+				? String(nextPageRaw)
+				: toStringOrNull(nextPageRaw);
+		if (nextPage) {
+			params = { ...params, page: nextPage };
+			continue;
+		}
+
+		// Fallback: if we received a full page, assume there might be more.
+		if (raw.length >= PAGE_SIZE) {
+			const currentPage = Number(params.page ?? "1");
+			params = {
+				...params,
+				page: Number.isFinite(currentPage) ? String(currentPage + 1) : "2",
+			};
+			continue;
+		}
+
+		break;
 	}
 
 	return events;
