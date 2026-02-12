@@ -347,15 +347,18 @@
 						</p>
 					</div>
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
-						<label class="inline-flex items-center gap-1.5" :class="needsChannelSelection ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'">
+						<label
+							class="inline-flex items-center gap-1.5"
+							:class="emailEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+						>
 							<input
 								type="checkbox"
 								v-model="includeEarningsEmail"
-								:disabled="needsChannelSelection"
+								:disabled="needsChannelSelection || !emailEnabled"
 								class="rounded border-gray-300 h-4 w-4"
 								:class="[
 									weeklyAccentClasses,
-									needsChannelSelection ? 'cursor-not-allowed' : 'cursor-pointer',
+									emailEnabled ? 'cursor-pointer' : 'cursor-not-allowed',
 								]"
 								aria-label="Earnings Reports Email"
 								aria-describedby="weekly_include_earnings_description"
@@ -565,15 +568,34 @@ function scrollToDailyNotifications() {
 
 const isHydrated = ref(false);
 
-onMounted(() => {
-	if (!showWeeklySection.value) {
-		return;
-	}
+function startWeeklyTickInterval() {
+	if (tickIntervalId !== null) return;
 	isHydrated.value = true;
 	tick.value = Date.now();
 	tickIntervalId = window.setInterval(() => {
 		tick.value = Date.now();
 	}, 1000);
+}
+
+function stopWeeklyTickInterval() {
+	if (tickIntervalId === null) return;
+	window.clearInterval(tickIntervalId);
+	tickIntervalId = null;
+	isHydrated.value = false;
+}
+
+onMounted(() => {
+	if (showWeeklySection.value) {
+		startWeeklyTickInterval();
+	}
+
+	watch(showWeeklySection, (isVisible) => {
+		if (isVisible) {
+			startWeeklyTickInterval();
+			return;
+		}
+		stopWeeklyTickInterval();
+	});
 });
 onUnmounted(() => {
 	if (tickIntervalId !== null) {
