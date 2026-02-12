@@ -6,7 +6,7 @@ import {
 	formatInsiderSection,
 	type InsiderTransaction,
 	type RecommendationTrend,
-} from "../../src/lib/finnhub-extras";
+} from "../../src/lib/providers/finnhub";
 
 describe("buildNewsContextForGrok formats Finnhub headlines into a Grok context string.", () => {
 	it("Builds context lines from multiple tickers with headlines.", () => {

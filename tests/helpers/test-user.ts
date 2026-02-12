@@ -24,8 +24,8 @@ export type CreateTestUserOptions = {
 	scheduledUpdateTimes?: number[] | null;
 	trackedAssets?: string[];
 	confirmed?: boolean;
-	priceIncludeEmail?: boolean;
-	priceIncludeSms?: boolean;
+	marketScheduledAssetPriceIncludeEmail?: boolean;
+	marketScheduledAssetPriceIncludeSms?: boolean;
 };
 
 export type TestUser = { id: string; email: string };
@@ -98,8 +98,11 @@ export async function cleanupTestUser(userId: string): Promise<void> {
 	}
 }
 
-type DbUserInsert = Omit<TablesInsert<"users">, "scheduled_update_times"> & {
-	scheduled_update_times?: number[] | null;
+type DbUserInsert = Omit<
+	TablesInsert<"users">,
+	"market_scheduled_asset_price_times"
+> & {
+	market_scheduled_asset_price_times?: number[] | null;
 };
 type DbUserAssetInsert = TablesInsert<"user_assets">;
 
@@ -175,19 +178,21 @@ export async function createTestUser(
 								),
 						),
 					].sort((a, b) => a - b);
-		const finalScheduledUpdateTimes =
+		const finalMarketScheduledPriceTimes =
 			normalizedTimes && normalizedTimes.length > 0 ? normalizedTimes : null;
-		const nextSendAt = finalScheduledUpdateTimes
+		const nextSendAt = finalMarketScheduledPriceTimes
 			? calculateNextSendAtFromTimes(
-					finalScheduledUpdateTimes,
+					finalMarketScheduledPriceTimes,
 					timezone,
 					DateTime.utc(),
 				)
 			: null;
 		const nextSendAtIso = nextSendAt?.toISO() ?? null;
-		if (finalScheduledUpdateTimes) {
+		if (finalMarketScheduledPriceTimes) {
 			if (!nextSendAtIso) {
-				throw new Error("Failed to generate next_send_at timestamp");
+				throw new Error(
+					"Failed to generate market_scheduled_asset_price_next_send_at timestamp",
+				);
 			}
 		}
 
@@ -201,11 +206,14 @@ export async function createTestUser(
 			email_notifications_enabled: options.emailNotificationsEnabled ?? false,
 			sms_notifications_enabled: smsNotificationsEnabled,
 			sms_opted_out: options.smsOptedOut ?? false,
-			scheduled_update_times: finalScheduledUpdateTimes,
-			next_send_at: nextSendAtIso,
-			price_include_email:
-				options.priceIncludeEmail ?? options.emailNotificationsEnabled ?? false,
-			price_include_sms: options.priceIncludeSms ?? smsNotificationsEnabled,
+			market_scheduled_asset_price_times: finalMarketScheduledPriceTimes,
+			market_scheduled_asset_price_next_send_at: nextSendAtIso,
+			market_scheduled_asset_price_include_email:
+				options.marketScheduledAssetPriceIncludeEmail ??
+				options.emailNotificationsEnabled ??
+				false,
+			market_scheduled_asset_price_include_sms:
+				options.marketScheduledAssetPriceIncludeSms ?? smsNotificationsEnabled,
 		};
 
 		const { error: profileError } = await adminClient

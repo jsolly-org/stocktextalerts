@@ -1,10 +1,10 @@
 import type { APIRoute } from "astro";
+import { jsonResponse } from "../../../../lib/api/json-response";
 import { sendVerification } from "../../../../lib/auth/sms-verification";
 import { VERIFICATION_RESEND_COOLDOWN_MS } from "../../../../lib/constants";
 import { createUserService } from "../../../../lib/db";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
-import { jsonResponse } from "../../../../lib/json-response";
 import { createLogger } from "../../../../lib/logging";
 
 interface SmsSendVerificationDependencies {

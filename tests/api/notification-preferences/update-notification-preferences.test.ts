@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES } from "../../../src/lib/constants";
+import { DEFAULT_MARKET_UPDATE_TIME_MINUTES } from "../../../src/lib/constants";
 import { POST } from "../../../src/pages/api/notification-preferences/update";
 import { TEST_PASSWORD } from "../../helpers/constants";
 import {
@@ -57,27 +57,31 @@ describe("A signed-in user updates their notification channels.", () => {
 			ok: boolean;
 			message: string;
 			notificationPreferences: {
-				scheduled_update_times: number[] | null;
-				next_send_at: string | null;
+				market_scheduled_asset_price_times: number[] | null;
+				market_scheduled_asset_price_next_send_at: string | null;
 			};
 		};
 		expect(payload.ok).toBe(true);
 		expect(payload.message).toBe("settings_updated");
-		expect(payload.notificationPreferences.scheduled_update_times).toEqual([
-			DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES,
-		]);
-		expect(payload.notificationPreferences.next_send_at).toBeTruthy();
+		expect(
+			payload.notificationPreferences.market_scheduled_asset_price_times,
+		).toEqual([DEFAULT_MARKET_UPDATE_TIME_MINUTES]);
+		expect(
+			payload.notificationPreferences.market_scheduled_asset_price_next_send_at,
+		).toBeTruthy();
 
 		const { data: updatedUser } = await adminClient
 			.from("users")
-			.select("scheduled_update_times,next_send_at")
+			.select(
+				"market_scheduled_asset_price_times,market_scheduled_asset_price_next_send_at",
+			)
 			.eq("id", testUser.id)
 			.single();
 
-		expect(updatedUser.scheduled_update_times).toEqual([
-			DEFAULT_SCHEDULED_UPDATE_TIME_MINUTES,
+		expect(updatedUser.market_scheduled_asset_price_times).toEqual([
+			DEFAULT_MARKET_UPDATE_TIME_MINUTES,
 		]);
-		expect(updatedUser.next_send_at).toBeTruthy();
+		expect(updatedUser.market_scheduled_asset_price_next_send_at).toBeTruthy();
 	});
 
 	it("The user updates the notification time to a new hour.", async () => {
@@ -96,7 +100,10 @@ describe("A signed-in user updates their notification channels.", () => {
 		const formData = new FormData();
 		formData.append("email_notifications_enabled", "true");
 		formData.append("sms_notifications_enabled", "false");
-		formData.append("scheduled_update_times", JSON.stringify(["12:00"]));
+		formData.append(
+			"market_scheduled_asset_price_times",
+			JSON.stringify(["12:00"]),
+		);
 
 		const request = new Request(
 			"http://localhost/api/notification-preferences/update",
@@ -128,7 +135,7 @@ describe("A signed-in user updates their notification channels.", () => {
 			.eq("id", testUser.id)
 			.single();
 
-		expect(updatedUser.scheduled_update_times).toEqual([720]);
+		expect(updatedUser.market_scheduled_asset_price_times).toEqual([720]);
 	});
 
 	it("Submitted scheduled times are cleaned up and stored in order.", async () => {
@@ -146,7 +153,7 @@ describe("A signed-in user updates their notification channels.", () => {
 
 		const formData = new FormData();
 		formData.append(
-			"scheduled_update_times",
+			"market_scheduled_asset_price_times",
 			JSON.stringify(["10:00", "08:00", "10:00", "11:00"]),
 		);
 
@@ -177,7 +184,9 @@ describe("A signed-in user updates their notification channels.", () => {
 			.eq("id", testUser.id)
 			.single();
 
-		expect(updatedUser.scheduled_update_times).toEqual([480, 600, 660]);
+		expect(updatedUser.market_scheduled_asset_price_times).toEqual([
+			480, 600, 660,
+		]);
 	});
 
 	it("When all notification times are removed, scheduled updates are cleared.", async () => {
@@ -196,7 +205,7 @@ describe("A signed-in user updates their notification channels.", () => {
 		);
 
 		const formData = new FormData();
-		formData.append("scheduled_update_times", "[]");
+		formData.append("market_scheduled_asset_price_times", "[]");
 
 		const request = new Request(
 			"http://localhost/api/notification-preferences/update",
@@ -223,14 +232,18 @@ describe("A signed-in user updates their notification channels.", () => {
 			ok: boolean;
 			message: string;
 			notificationPreferences: {
-				scheduled_update_times: number[] | null;
-				next_send_at: string | null;
+				market_scheduled_asset_price_times: number[] | null;
+				market_scheduled_asset_price_next_send_at: string | null;
 			};
 		};
 
 		expect(payload.ok).toBe(true);
 		expect(payload.message).toBe("settings_updated");
-		expect(payload.notificationPreferences.scheduled_update_times).toBeNull();
-		expect(payload.notificationPreferences.next_send_at).toBeNull();
+		expect(
+			payload.notificationPreferences.market_scheduled_asset_price_times,
+		).toBeNull();
+		expect(
+			payload.notificationPreferences.market_scheduled_asset_price_next_send_at,
+		).toBeNull();
 	});
 });

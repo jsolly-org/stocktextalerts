@@ -97,7 +97,7 @@ import {
 	VERIFICATION_RESEND_COOLDOWN_MS,
 } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
-import { formatPhoneForDisplay } from "../../../lib/format-phone";
+import { formatPhoneForDisplay } from "../../../lib/messaging/format-phone";
 import StatusMessage from "../../StatusMessage.vue";
 import OtpInput from "./OtpInput.vue";
 

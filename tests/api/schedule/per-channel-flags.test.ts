@@ -7,7 +7,7 @@ import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 /**
- * Tests that per-channel include flags (price_include_email, price_include_sms)
+ * Tests that per-channel include flags (market_scheduled_asset_price_include_email, market_scheduled_asset_price_include_sms)
  * correctly gate delivery for scheduled price updates.
  *
  * These flags were introduced so users can enable a notification channel (e.g. email)
@@ -38,7 +38,7 @@ describe("Per-channel include flags gate scheduled notification delivery.", () =
 		});
 	}
 
-	it("No email is sent when email_notifications_enabled=true but price_include_email=false.", async () => {
+	it("No email is sent when email_notifications_enabled=true but market_scheduled_asset_price_include_email=false.", async () => {
 		const nowLocal = DateTime.now().setZone(timezone);
 		if (!nowLocal.isValid) throw new Error("Invalid timezone");
 		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
@@ -49,13 +49,15 @@ describe("Per-channel include flags gate scheduled notification delivery.", () =
 			smsNotificationsEnabled: false,
 			scheduledUpdateTimes: [scheduledTime],
 			trackedAssets: ["AAPL"],
-			priceIncludeEmail: false,
+			marketScheduledAssetPriceIncludeEmail: false,
 		});
 		registerTestUserForCleanup(id);
 
 		await adminClient
 			.from("users")
-			.update({ next_send_at: DateTime.utc().toISO() })
+			.update({
+				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+			})
 			.eq("id", id);
 
 		const response = await POST({ request: createRequest() } as APIContext);
@@ -66,13 +68,13 @@ describe("Per-channel include flags gate scheduled notification delivery.", () =
 			.from("notification_log")
 			.select("*")
 			.eq("user_id", id)
-			.eq("type", "scheduled_update")
+			.eq("type", "market")
 			.eq("delivery_method", "email");
 
 		expect(logs ?? []).toHaveLength(0);
 	});
 
-	it("No SMS is sent when sms_notifications_enabled=true but price_include_sms=false.", async () => {
+	it("No SMS is sent when sms_notifications_enabled=true but market_scheduled_asset_price_include_sms=false.", async () => {
 		const nowLocal = DateTime.now().setZone(timezone);
 		if (!nowLocal.isValid) throw new Error("Invalid timezone");
 		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
@@ -84,13 +86,15 @@ describe("Per-channel include flags gate scheduled notification delivery.", () =
 			phoneVerified: true,
 			scheduledUpdateTimes: [scheduledTime],
 			trackedAssets: ["AAPL"],
-			priceIncludeSms: false,
+			marketScheduledAssetPriceIncludeSms: false,
 		});
 		registerTestUserForCleanup(id);
 
 		await adminClient
 			.from("users")
-			.update({ next_send_at: DateTime.utc().toISO() })
+			.update({
+				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+			})
 			.eq("id", id);
 
 		const response = await POST({ request: createRequest() } as APIContext);
@@ -101,7 +105,7 @@ describe("Per-channel include flags gate scheduled notification delivery.", () =
 			.from("notification_log")
 			.select("*")
 			.eq("user_id", id)
-			.eq("type", "scheduled_update")
+			.eq("type", "market")
 			.eq("delivery_method", "sms");
 
 		expect(logs ?? []).toHaveLength(0);

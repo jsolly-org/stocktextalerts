@@ -4,7 +4,7 @@ import type {
 	FormatPreferences,
 	UserAssetRow,
 } from "../../../src/lib/messaging/types";
-import type { AssetPriceMap } from "../../../src/lib/price-fetcher";
+import type { AssetPriceMap } from "../../../src/lib/providers/price-fetcher";
 
 describe("Email scheduled update includes asset price data.", () => {
 	const testUser = { id: "test-user-id", email: "test@example.com" };

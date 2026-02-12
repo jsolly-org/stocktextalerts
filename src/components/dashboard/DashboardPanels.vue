@@ -31,14 +31,10 @@
 		</template>
 
 		<template #schedule>
-			<ScheduledNotificationsPanel
+			<MarketNotificationsPanel
 				:emailEnabled="emailEnabled"
 				:smsEnabled="smsEnabled"
 				:phoneVerified="phoneVerified"
-				:showMarketSections="true"
-				:showWeeklySection="false"
-				:formId="DASHBOARD_FREQUENT_FORM_ID"
-				ariaLabel="Market notifications"
 			/>
 		</template>
 
@@ -50,15 +46,11 @@
 			/>
 		</template>
 
-		<template #weekly>
-			<ScheduledNotificationsPanel
+		<template #asset-events>
+			<AssetEventsPanel
 				:emailEnabled="emailEnabled"
 				:smsEnabled="smsEnabled"
 				:phoneVerified="phoneVerified"
-				:showMarketSections="false"
-				:showWeeklySection="true"
-				:formId="DASHBOARD_WEEKLY_CALENDAR_FORM_ID"
-				ariaLabel="Weekly calendar notifications"
 			/>
 		</template>
 
@@ -77,19 +69,18 @@
 import { computed, ref, toRefs, watch } from "vue";
 import {
 	DASHBOARD_ASSETS_FORM_ID,
-	DASHBOARD_FREQUENT_FORM_ID,
-	DASHBOARD_WEEKLY_CALENDAR_FORM_ID,
 } from "../../lib/constants";
 import type { User } from "../../lib/db";
+import AssetEventsPanel from "./asset-events/AssetEventsPanel.vue";
 import type { InitialAsset } from "./assets/types";
 import WatchlistPanel from "./assets/WatchlistPanel.vue";
 import { useAutoSaveForm } from "./composables/useAutoSaveNotificationPreferences";
 import { provideDashboardUser } from "./composables/useDashboardUser";
-import DailyNotificationsPanel from "./DailyNotificationsPanel.vue";
 import DashboardCarousel from "./DashboardCarousel.vue";
+import DailyNotificationsPanel from "./daily-digest/DailyNotificationsPanel.vue";
+import MarketNotificationsPanel from "./market-notifications/MarketNotificationsPanel.vue";
 import NotificationChannelsPanel from "./notification-channels/NotificationChannelsPanel.vue";
 import NotificationPreviewPanel from "./notification-preview/NotificationPreviewPanel.vue";
-import ScheduledNotificationsPanel from "./scheduled-notifications/ScheduledNotificationsPanel.vue";
 
 interface Props {
 	user: User;
@@ -127,10 +118,10 @@ watch(
 	},
 );
 
-// Auto-check the SMS price-notification box when the user first enables the SMS channel
+// Auto-check the SMS market-notification box when the user first enables the SMS channel
 watch(smsEnabled, (enabled, wasEnabled) => {
-	if (enabled && !wasEnabled && user.value.price_include_sms == null) {
-		user.value = { ...user.value, price_include_sms: true };
+	if (enabled && !wasEnabled && user.value.market_scheduled_asset_price_include_sms == null) {
+		user.value = { ...user.value, market_scheduled_asset_price_include_sms: true };
 	}
 });
 

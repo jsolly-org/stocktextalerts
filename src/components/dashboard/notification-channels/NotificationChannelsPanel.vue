@@ -67,6 +67,7 @@
 import { computed, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
+import { fetchCurrentNotificationPreferences } from "../../../lib/api/notification-preferences";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
@@ -77,7 +78,6 @@ import {
 	STATUS_TONE_CLASSES,
 } from "../../../lib/constants";
 import { rootLogger } from "../../../lib/logging";
-import { fetchCurrentNotificationPreferences } from "../../../lib/notification-preferences/client";
 import FadeTransition from "../../FadeTransition.vue";
 import StatusMessage from "../../StatusMessage.vue";
 import {

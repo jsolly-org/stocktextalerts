@@ -20,12 +20,8 @@ export interface FormatPreferences {
 }
 
 type GrokRumorsPreferences = {
-	daily_include_news_email: boolean;
-	daily_include_rumors_email: boolean;
-	daily_include_analyst_email: boolean;
-	daily_include_insider_email: boolean;
-	daily_include_analyst_sms: boolean;
-	daily_include_insider_sms: boolean;
+	daily_digest_include_news_email: boolean;
+	daily_digest_include_rumors_email: boolean;
 	last_grok_rumors_at: string | null;
 	grok_window_start: string | null;
 	grok_sends_in_window: number;
@@ -39,7 +35,7 @@ export type UserRecord = Pick<
 	| "phone_number"
 	| "phone_verified"
 	| "timezone"
-	| "next_send_at"
+	| "market_scheduled_asset_price_next_send_at"
 	| "email_notifications_enabled"
 	| "sms_notifications_enabled"
 	| "sms_opted_out"
@@ -47,15 +43,24 @@ export type UserRecord = Pick<
 	| "show_company_name"
 	| "detailed_format"
 > & {
-	price_notifications_enabled: boolean;
-	price_include_email: boolean;
-	price_include_sms: boolean;
-	scheduled_update_times: number[] | null;
-	daily_delivery_time: number | null;
-	daily_next_send_at: string | null;
-	weekly_include_earnings_email: boolean;
-	weekly_include_earnings_sms: boolean;
-	weekly_next_send_at: string | null;
+	market_scheduled_asset_price_enabled: boolean;
+	market_scheduled_asset_price_include_email: boolean;
+	market_scheduled_asset_price_include_sms: boolean;
+	market_scheduled_asset_price_times: number[] | null;
+	daily_digest_time: number | null;
+	daily_digest_next_send_at: string | null;
+	asset_events_include_earnings_email: boolean;
+	asset_events_include_earnings_sms: boolean;
+	asset_events_include_dividends_email: boolean;
+	asset_events_include_dividends_sms: boolean;
+	asset_events_include_splits_email: boolean;
+	asset_events_include_splits_sms: boolean;
+	asset_events_include_analyst_email: boolean;
+	asset_events_include_analyst_sms: boolean;
+	asset_events_include_insider_email: boolean;
+	asset_events_include_insider_sms: boolean;
+	asset_events_next_send_at: string | null;
+	asset_events_last_analyst_sent_month: string | null;
 } & GrokRumorsPreferences;
 
 export type EmailUser = Pick<

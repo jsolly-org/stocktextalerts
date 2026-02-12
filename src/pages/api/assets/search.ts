@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
+import { jsonResponse } from "../../../lib/api/json-response";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
-import { jsonResponse } from "../../../lib/json-response";
 import { createLogger } from "../../../lib/logging";
 
 const DEFAULT_LIMIT = 10;

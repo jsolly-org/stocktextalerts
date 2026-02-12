@@ -121,7 +121,7 @@ import {
 	useAutoSaveFormatPreferences,
 } from "../composables/useAutoSaveFormatPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
-import SetupRequiredNotice from "../scheduled-notifications/SetupRequiredNotice.vue";
+import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 import EmailPreview from "./EmailPreview.vue";
 import FormatToggles from "./FormatToggles.vue";
 import { DEMO_ASSETS, type PreviewAsset } from "./preview-data";

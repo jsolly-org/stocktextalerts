@@ -56,7 +56,7 @@ const tabs: Tab[] = [
 	{ id: "setup", label: "Watchlist & Channels", icon: PresentationChartLineIcon },
 	{ id: "daily", label: "Daily", icon: NewspaperIcon },
 	{ id: "schedule", label: "Alerts", icon: BellAlertIcon },
-	{ id: "weekly", label: "Calendar", icon: CalendarDaysIcon },
+	{ id: "asset-events", label: "Asset Events", icon: CalendarDaysIcon },
 	{ id: "preview", label: "Preview", icon: EyeIcon },
 ];
 

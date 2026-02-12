@@ -1,21 +1,21 @@
 /* =============
-Domains and Extensions
+Extensions
 ============= */
 
--- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 /* =============
 Schema Version (test + ops sanity check)
 ============= */
 
-CREATE TABLE IF NOT EXISTS public.app_metadata (
+CREATE TABLE public.app_metadata (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
 
 INSERT INTO public.app_metadata (key, value)
-VALUES ('schema_version', '20250101000000_initial_schema@v10')
+VALUES ('schema_version', '20250101000000_initial_schema@v1')
 ON CONFLICT (key) DO UPDATE SET
   value = EXCLUDED.value;
 
@@ -44,21 +44,41 @@ AS $$
   SELECT value !~ '\s';
 $$;
 
+CREATE OR REPLACE FUNCTION public.is_valid_market_scheduled_asset_price_times(
+  times integer[]
+)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public, pg_temp
+AS $$
+  SELECT
+    times IS NULL OR (
+      COALESCE(array_length(times, 1), 0) <= 5
+      AND NOT EXISTS (
+        SELECT 1 FROM unnest(times) AS t(val)
+        WHERE val < 0 OR val >= 1440
+      )
+    );
+$$;
+
 /* =============
-Enums for Stronger DB Types
+Enums
 ============= */
 
 CREATE TYPE public.delivery_method AS ENUM ('email', 'sms');
 
-CREATE TYPE public.scheduled_notification_type AS ENUM ('scheduled_update', 'daily_digest', 'weekly_calendar');
+CREATE TYPE public.scheduled_notification_type AS ENUM ('market', 'daily', 'asset_events');
 
 CREATE TYPE public.scheduled_notification_status AS ENUM ('sending', 'sent', 'failed');
+
+CREATE TYPE public.asset_event_type AS ENUM ('earnings', 'dividend', 'split');
 
 /* =============
 Timezones
 ============= */
 
-CREATE TABLE IF NOT EXISTS timezones (
+CREATE TABLE timezones (
   value TEXT PRIMARY KEY,
   label TEXT NOT NULL,
   display_order SMALLINT NOT NULL CHECK (display_order >= 0),
@@ -196,25 +216,7 @@ GRANT SELECT ON TABLE public.timezones TO anon, authenticated;
 Users
 ============= */
 
-CREATE OR REPLACE FUNCTION public.is_valid_scheduled_update_times(
-  times integer[]
-)
-RETURNS boolean
-LANGUAGE sql
-IMMUTABLE
-AS $$
-  SELECT
-    times IS NULL OR (
-      COALESCE(array_length(times, 1), 0) <= 5
-      AND NOT EXISTS (
-        SELECT 1
-        FROM unnest(times) AS entry
-        WHERE entry IS NULL OR entry < 0 OR entry > 1439
-      )
-    );
-$$;
-
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE users (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
   phone_country_code VARCHAR(5),
@@ -229,30 +231,38 @@ CREATE TABLE IF NOT EXISTS users (
   phone_verified BOOLEAN DEFAULT false NOT NULL,
   verification_sent_at TIMESTAMP WITH TIME ZONE,
   timezone TEXT DEFAULT 'America/New_York' REFERENCES timezones(value) NOT NULL,
-  scheduled_update_times INTEGER[] DEFAULT '{}' CHECK (
-    public.is_valid_scheduled_update_times(scheduled_update_times)
-  ),
-  next_send_at TIMESTAMP WITH TIME ZONE,
+  -- Market scheduled asset price notifications
+  market_scheduled_asset_price_times INTEGER[] DEFAULT '{}',
+  market_scheduled_asset_price_next_send_at TIMESTAMP WITH TIME ZONE,
+  market_scheduled_asset_price_enabled BOOLEAN DEFAULT false NOT NULL,
+  market_scheduled_asset_price_include_email BOOLEAN DEFAULT false NOT NULL,
+  market_scheduled_asset_price_include_sms BOOLEAN DEFAULT false NOT NULL,
+  -- Asset price alerts
+  market_asset_price_alerts_enabled BOOLEAN DEFAULT false NOT NULL,
+  market_asset_price_alerts_include_email BOOLEAN DEFAULT false NOT NULL,
+  market_asset_price_alerts_include_sms BOOLEAN DEFAULT false NOT NULL,
+  market_asset_price_alert_sensitivity SMALLINT DEFAULT 1 NOT NULL,
   -- Daily digest
-  daily_delivery_time INTEGER,
-  daily_next_send_at TIMESTAMP WITH TIME ZONE,
+  daily_digest_time INTEGER,
+  daily_digest_next_send_at TIMESTAMP WITH TIME ZONE,
   last_grok_rumors_at TIMESTAMP WITH TIME ZONE,
-  daily_include_news_email BOOLEAN DEFAULT false NOT NULL,
-  daily_include_rumors_email BOOLEAN DEFAULT false NOT NULL,
-  daily_include_analyst_email BOOLEAN DEFAULT false NOT NULL,
-  daily_include_insider_email BOOLEAN DEFAULT false NOT NULL,
-  daily_include_analyst_sms BOOLEAN DEFAULT false NOT NULL,
-  daily_include_insider_sms BOOLEAN DEFAULT false NOT NULL,
+  daily_digest_include_news_email BOOLEAN DEFAULT false NOT NULL,
+  daily_digest_include_rumors_email BOOLEAN DEFAULT false NOT NULL,
   grok_window_start TIMESTAMP WITH TIME ZONE,
   grok_sends_in_window INTEGER DEFAULT 0 NOT NULL,
-  -- Weekly calendar
-  weekly_include_earnings_email BOOLEAN DEFAULT false NOT NULL,
-  weekly_include_earnings_sms BOOLEAN DEFAULT false NOT NULL,
-  weekly_next_send_at TIMESTAMP WITH TIME ZONE,
-  -- Price notifications
-  price_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
-  price_include_email BOOLEAN DEFAULT false NOT NULL,
-  price_include_sms BOOLEAN DEFAULT false NOT NULL,
+  -- Asset events
+  asset_events_include_earnings_email BOOLEAN DEFAULT false NOT NULL,
+  asset_events_include_earnings_sms BOOLEAN DEFAULT false NOT NULL,
+  asset_events_include_dividends_email BOOLEAN DEFAULT false NOT NULL,
+  asset_events_include_dividends_sms BOOLEAN DEFAULT false NOT NULL,
+  asset_events_include_splits_email BOOLEAN DEFAULT false NOT NULL,
+  asset_events_include_splits_sms BOOLEAN DEFAULT false NOT NULL,
+  asset_events_include_analyst_email BOOLEAN DEFAULT false NOT NULL,
+  asset_events_include_analyst_sms BOOLEAN DEFAULT false NOT NULL,
+  asset_events_include_insider_email BOOLEAN DEFAULT false NOT NULL,
+  asset_events_include_insider_sms BOOLEAN DEFAULT false NOT NULL,
+  asset_events_next_send_at TIMESTAMP WITH TIME ZONE,
+  asset_events_last_analyst_sent_month TEXT,
   -- Channel enablement
   email_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
   sms_notifications_enabled BOOLEAN DEFAULT false NOT NULL,
@@ -265,6 +275,7 @@ CREATE TABLE IF NOT EXISTS users (
   -- Timestamps
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+  -- Constraints
   CONSTRAINT phone_country_code_format CHECK (phone_country_code ~ '^\+[0-9]{1,4}$'),
   CONSTRAINT phone_number_format CHECK (phone_number ~ '^[0-9]{10,14}$'),
   CONSTRAINT unique_phone UNIQUE (phone_country_code, phone_number),
@@ -276,45 +287,55 @@ CREATE TABLE IF NOT EXISTS users (
     sms_notifications_enabled = false OR
     (phone_country_code IS NOT NULL AND phone_number IS NOT NULL)
   ),
+  CONSTRAINT users_sms_opted_out_blocks_sms_enabled CHECK (
+    NOT (sms_opted_out AND sms_notifications_enabled)
+  ),
+  CONSTRAINT users_phone_verified_requires_phone CHECK (
+    NOT phone_verified OR
+    (phone_country_code IS NOT NULL AND phone_number IS NOT NULL)
+  ),
   CONSTRAINT users_email_no_whitespace CHECK (public.has_no_whitespace(email)),
   CONSTRAINT users_email_non_empty CHECK (email <> ''),
   CONSTRAINT users_timezone_no_whitespace CHECK (public.has_no_whitespace(timezone)),
   CONSTRAINT users_phone_country_code_no_whitespace CHECK (public.has_no_whitespace(phone_country_code)),
   CONSTRAINT users_phone_number_no_whitespace CHECK (public.has_no_whitespace(phone_number)),
-  CONSTRAINT users_daily_delivery_time_range CHECK (
-    daily_delivery_time IS NULL OR (
-      daily_delivery_time >= 0 AND daily_delivery_time <= 1439
+  CONSTRAINT users_daily_digest_time_range CHECK (
+    daily_digest_time IS NULL OR (
+      daily_digest_time >= 0 AND daily_digest_time <= 1439
     )
+  ),
+  CONSTRAINT users_market_scheduled_asset_price_times_check CHECK (
+    public.is_valid_market_scheduled_asset_price_times(market_scheduled_asset_price_times)
   )
 );
 
 /* =============
-Stocks
+Assets
 ============= */
 
-CREATE TABLE IF NOT EXISTS stocks (
+CREATE TABLE assets (
   symbol VARCHAR(10) PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
-  exchange VARCHAR(50) NOT NULL,
-  CONSTRAINT stocks_symbol_no_whitespace CHECK (public.has_no_whitespace(symbol))
+  type TEXT NOT NULL DEFAULT 'stock' CHECK (type IN ('stock', 'etf')),
+  CONSTRAINT assets_symbol_no_whitespace CHECK (public.has_no_whitespace(symbol))
 );
 
 /* =============
-User Stocks Junction
+User Assets Junction
 ============= */
 
-CREATE TABLE IF NOT EXISTS user_stocks (
+CREATE TABLE user_assets (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  symbol VARCHAR(10) NOT NULL REFERENCES stocks(symbol) ON DELETE CASCADE,
+  symbol VARCHAR(10) NOT NULL REFERENCES assets(symbol) ON DELETE CASCADE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   PRIMARY KEY (user_id, symbol)
 );
 
 /* =============
-Stock Functions
+Replace User Assets
 ============= */
 
-CREATE OR REPLACE FUNCTION public.replace_user_stocks(
+CREATE OR REPLACE FUNCTION public.replace_user_assets(
   user_id uuid,
   symbols text[]
 )
@@ -329,7 +350,7 @@ DECLARE
   symbol_not_uppercase text;
   duplicate_symbol text;
 BEGIN
-  DELETE FROM user_stocks WHERE user_stocks.user_id = replace_user_stocks.user_id;
+  DELETE FROM user_assets WHERE user_assets.user_id = replace_user_assets.user_id;
 
   IF symbols IS NULL OR array_length(symbols, 1) IS NULL THEN
     RETURN;
@@ -342,7 +363,7 @@ BEGIN
   LIMIT 1;
 
   IF symbol_with_whitespace IS NOT NULL THEN
-    RAISE EXCEPTION 'Stock symbol contains whitespace'
+    RAISE EXCEPTION 'Asset symbol contains whitespace'
       USING ERRCODE = 'check_violation',
             DETAIL = symbol_with_whitespace;
   END IF;
@@ -354,7 +375,7 @@ BEGIN
   LIMIT 1;
 
   IF symbol_not_uppercase IS NOT NULL THEN
-    RAISE EXCEPTION 'Stock symbol is not uppercase: %', symbol_not_uppercase
+    RAISE EXCEPTION 'Asset symbol is not uppercase: %', symbol_not_uppercase
       USING ERRCODE = 'check_violation';
   END IF;
 
@@ -370,7 +391,7 @@ BEGIN
   ) duplicates;
 
   IF duplicate_symbol IS NOT NULL THEN
-    RAISE EXCEPTION 'Duplicate stock symbol: %', duplicate_symbol
+    RAISE EXCEPTION 'Duplicate asset symbol: %', duplicate_symbol
       USING ERRCODE = 'check_violation';
   END IF;
 
@@ -386,24 +407,24 @@ BEGIN
 
   SELECT array_length(sanitized_symbols, 1) INTO sanitized_count;
   IF sanitized_count > 10 THEN
-    RAISE EXCEPTION 'Tracked stocks limit exceeded'
+    RAISE EXCEPTION 'Tracked assets limit exceeded'
       USING ERRCODE = 'check_violation',
-        CONSTRAINT = 'user_stocks_max_limit';
+        CONSTRAINT = 'user_assets_max_limit';
   END IF;
 
-  INSERT INTO user_stocks (user_id, symbol)
-  SELECT replace_user_stocks.user_id, symbol
+  INSERT INTO user_assets (user_id, symbol)
+  SELECT replace_user_assets.user_id, symbol
   FROM unnest(sanitized_symbols) AS symbol;
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.replace_user_stocks(uuid, text[]) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.replace_user_assets(uuid, text[]) TO authenticated, service_role;
 
 /* =============
 Notification Log
 ============= */
 
-CREATE TABLE IF NOT EXISTS notification_log (
+CREATE TABLE notification_log (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   type VARCHAR(50) NOT NULL,
@@ -420,7 +441,7 @@ CREATE TABLE IF NOT EXISTS notification_log (
 Scheduled Notifications
 ============= */
 
-CREATE TABLE IF NOT EXISTS scheduled_notifications (
+CREATE TABLE scheduled_notifications (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   notification_type public.scheduled_notification_type NOT NULL,
   scheduled_date DATE NOT NULL,
@@ -439,19 +460,25 @@ CREATE TABLE IF NOT EXISTS scheduled_notifications (
   PRIMARY KEY (user_id, notification_type, scheduled_date, scheduled_minutes, channel)
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_next_send_at
-  ON users (next_send_at)
-  WHERE price_notifications_enabled = true
-    AND next_send_at IS NOT NULL;
+/* =============
+Indexes
+============= */
 
-CREATE INDEX IF NOT EXISTS idx_users_daily_next_send_at
-  ON users (daily_next_send_at)
-  WHERE daily_delivery_time IS NOT NULL
-    AND daily_next_send_at IS NOT NULL;
+CREATE INDEX idx_users_market_scheduled_asset_price_next_send_at
+  ON users (market_scheduled_asset_price_next_send_at)
+  WHERE market_scheduled_asset_price_enabled = true
+    AND market_scheduled_asset_price_next_send_at IS NOT NULL;
 
-CREATE INDEX IF NOT EXISTS idx_users_weekly_next_send_at
-  ON users (weekly_next_send_at)
-  WHERE weekly_next_send_at IS NOT NULL;
+CREATE INDEX idx_users_daily_digest_next_send_at
+  ON users (daily_digest_next_send_at)
+  WHERE daily_digest_time IS NOT NULL
+    AND daily_digest_next_send_at IS NOT NULL;
+
+CREATE INDEX idx_assets_symbol_trgm
+  ON public.assets USING gin (symbol gin_trgm_ops);
+
+CREATE INDEX idx_assets_name_trgm
+  ON public.assets USING gin (name gin_trgm_ops);
 
 /* =============
 Scheduled Notifications Claim
@@ -528,14 +555,14 @@ GRANT EXECUTE ON FUNCTION public.claim_scheduled_notification(
 Rate Limiting
 ============= */
 
-CREATE TABLE IF NOT EXISTS rate_limit_log (
+CREATE TABLE rate_limit_log (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   endpoint VARCHAR(255) NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_rate_limit_log_user_endpoint_created
+CREATE INDEX idx_rate_limit_log_user_endpoint_created
   ON rate_limit_log (user_id, endpoint, created_at DESC);
 
 CREATE OR REPLACE FUNCTION public.check_rate_limit(
@@ -687,6 +714,115 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.rollback_sms_verification_reservation(uuid, timestamptz, timestamptz) TO authenticated, service_role;
 
+/* =============
+Asset Snapshots (rolling window for asset price alerts)
+============= */
+
+CREATE TABLE asset_snapshots (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  symbol VARCHAR(10) NOT NULL REFERENCES assets(symbol) ON DELETE CASCADE,
+  price NUMERIC(12,4) NOT NULL,
+  change_percent NUMERIC(8,4) NOT NULL,
+  day_high NUMERIC(12,4),
+  day_low NUMERIC(12,4),
+  day_open NUMERIC(12,4),
+  prev_close NUMERIC(12,4),
+  volume NUMERIC(16,0),
+  captured_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE INDEX idx_asset_snapshots_symbol_captured ON public.asset_snapshots (symbol, captured_at DESC);
+CREATE INDEX idx_asset_snapshots_captured_at ON public.asset_snapshots (captured_at);
+
+ALTER TABLE public.asset_snapshots ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.asset_snapshots FROM anon, authenticated;
+GRANT SELECT, INSERT, DELETE ON TABLE public.asset_snapshots TO service_role;
+
+CREATE OR REPLACE FUNCTION public.purge_old_asset_snapshots(p_retention_minutes integer DEFAULT 60)
+RETURNS integer
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
+DECLARE deleted_count integer;
+BEGIN
+  DELETE FROM asset_snapshots WHERE captured_at < NOW() - (p_retention_minutes || ' minutes')::interval;
+  GET DIAGNOSTICS deleted_count = ROW_COUNT;
+  RETURN deleted_count;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.purge_old_asset_snapshots(integer) TO service_role;
+
+/* =============
+Asset Price Alert Cooldowns
+============= */
+
+CREATE TABLE market_asset_price_alert_cooldowns (
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  symbol VARCHAR(10) NOT NULL REFERENCES assets(symbol) ON DELETE CASCADE,
+  last_alerted_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  PRIMARY KEY (user_id, symbol)
+);
+
+ALTER TABLE public.market_asset_price_alert_cooldowns ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.market_asset_price_alert_cooldowns FROM anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.market_asset_price_alert_cooldowns TO service_role;
+
+CREATE OR REPLACE FUNCTION public.claim_market_asset_price_alert_cooldown(
+  p_user_id uuid,
+  p_symbol text,
+  p_cooldown_minutes integer
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  claimed boolean;
+BEGIN
+  IF p_cooldown_minutes IS NULL OR p_cooldown_minutes <= 0 THEN
+    RAISE EXCEPTION 'invalid cooldown parameter: p_cooldown_minutes must be > 0'
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+
+  INSERT INTO public.market_asset_price_alert_cooldowns (user_id, symbol, last_alerted_at)
+  VALUES (p_user_id, p_symbol, pg_catalog.now())
+  ON CONFLICT (user_id, symbol) DO UPDATE
+    SET last_alerted_at = pg_catalog.now()
+    WHERE public.market_asset_price_alert_cooldowns.last_alerted_at
+      <= pg_catalog.now() - make_interval(mins => p_cooldown_minutes)
+  RETURNING true INTO claimed;
+
+  RETURN COALESCE(claimed, false);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.claim_market_asset_price_alert_cooldown(uuid, text, integer) TO service_role;
+
+/* =============
+Asset Events
+============= */
+
+CREATE TABLE asset_events (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  symbol text NOT NULL REFERENCES assets(symbol),
+  event_type asset_event_type NOT NULL,
+  event_date date NOT NULL,
+  data jsonb NOT NULL DEFAULT '{}'::jsonb,
+  week_of date NOT NULL,
+  fetched_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (symbol, event_type, event_date, week_of)
+);
+
+CREATE INDEX idx_asset_events_week_of ON asset_events (week_of);
+
+ALTER TABLE asset_events ENABLE ROW LEVEL SECURITY;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.asset_events TO service_role;
+
+/* =============
+Row Level Security - Rate Limit Log
+============= */
+
 ALTER TABLE rate_limit_log ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can manage own rate limit records" ON rate_limit_log
@@ -721,34 +857,34 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.users TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.users TO service_role;
 
 /* =============
-Row Level Security - User Stocks
+Row Level Security - User Assets
 ============= */
 
-ALTER TABLE user_stocks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_assets ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view own stocks" ON user_stocks
+CREATE POLICY "Users can view own assets" ON user_assets
   FOR SELECT USING ((SELECT auth.uid()) = user_id);
 
-CREATE POLICY "Users can insert own stocks" ON user_stocks
+CREATE POLICY "Users can insert own assets" ON user_assets
   FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
 
-CREATE POLICY "Users can delete own stocks" ON user_stocks
+CREATE POLICY "Users can delete own assets" ON user_assets
   FOR DELETE USING ((SELECT auth.uid()) = user_id);
 
-GRANT SELECT, INSERT, DELETE ON TABLE public.user_stocks TO authenticated;
-GRANT SELECT, INSERT, DELETE ON TABLE public.user_stocks TO service_role;
+GRANT SELECT, INSERT, DELETE ON TABLE public.user_assets TO authenticated;
+GRANT SELECT, INSERT, DELETE ON TABLE public.user_assets TO service_role;
 
 /* =============
-Row Level Security - Stocks (Public Read)
+Row Level Security - Assets (Public Read)
 ============= */
 
-ALTER TABLE stocks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Anyone can view stocks" ON stocks
+CREATE POLICY "Anyone can view assets" ON assets
   FOR SELECT USING (true);
 
-GRANT SELECT ON TABLE public.stocks TO anon, authenticated;
-GRANT SELECT ON TABLE public.stocks TO service_role;
+GRANT SELECT ON TABLE public.assets TO anon, authenticated;
+GRANT SELECT ON TABLE public.assets TO service_role;
 
 /* =============
 Row Level Security - Notification Log
@@ -772,7 +908,7 @@ ALTER TABLE scheduled_notifications ENABLE ROW LEVEL SECURITY;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.scheduled_notifications TO service_role;
 
 /* =============
-Timestamp Functions
+Triggers
 ============= */
 
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()

@@ -1,29 +1,29 @@
 import { DateTime } from "luxon";
-import {
-	type InstantAlertTotals,
-	processInstantAlerts,
-} from "../instant-alerts/process";
+import { processAssetEventsUser } from "../asset-events/process";
+import { fetchAssetEventsUsers } from "../asset-events/query";
+import { dispatchDailyDigestUser } from "../daily-digest/dispatch";
+import { fetchDailyDigestUsers } from "../daily-digest/query";
 import type { Logger } from "../logging";
+import {
+	type PriceAlertTotals,
+	processPriceAlerts,
+} from "../market-notifications/process";
+import { processMarketScheduledUser } from "../market-notifications/scheduled/process";
+import { fetchMarketScheduledUsers } from "../market-notifications/scheduled/query";
 import { createEmailSender } from "../messaging/email/utils";
 import {
 	type AssetPriceMap,
 	type ExtendedQuoteMap,
 	fetchAssetPrices,
 	fetchMarketStatus,
-} from "../price-fetcher";
+} from "../providers/price-fetcher";
 import { toIsoOrThrow } from "../time/format";
-import { dispatchDailyUser } from "./dispatch-daily";
 import {
 	type ScheduledNotificationTotals,
 	type SupabaseAdminClient,
 	USER_PROCESS_BATCH_SIZE,
 } from "./helpers";
-import { fetchScheduledUsers } from "./run-query";
-import { fetchDailyUsers } from "./run-query-daily";
-import { fetchWeeklyUsers } from "./run-query-weekly";
-import { processScheduledUser } from "./run-user";
-import { createSmsSenderProvider } from "./run-user-sms-sender";
-import { processWeeklyUser } from "./run-user-weekly";
+import { createSmsSenderProvider } from "./sms-sender";
 
 // Daily fan-out can easily produce a concurrency storm; keep this bounded.
 // Configure via env to tune for your Vercel plan/limits.
@@ -37,8 +37,8 @@ const DAILY_DISPATCH_BATCH_SIZE = (() => {
  * Run all notification processors for the current minute.
  *
  * This orchestrates:
- * - frequent scheduled updates (with batched price fetching)
- * - weekly calendar notifications (in-process)
+ * - market scheduled updates (with batched price fetching)
+ * - asset events notifications (in-process)
  * - daily digest notifications (fan-out per user to reduce Grok bottlenecks)
  */
 export async function runScheduledNotifications(options: {
@@ -47,31 +47,29 @@ export async function runScheduledNotifications(options: {
 	forceSend: boolean;
 	cronSecret: string;
 	now?: DateTime;
-}): Promise<
-	ScheduledNotificationTotals & { instantAlerts?: InstantAlertTotals }
-> {
+}): Promise<ScheduledNotificationTotals & { priceAlerts?: PriceAlertTotals }> {
 	const { supabase, logger, forceSend, cronSecret } = options;
 	const sendEmail = createEmailSender();
 
-	// Run instant alerts first — this also returns an extended quote map
+	// Run price alerts first — this also returns an extended quote map
 	// that could be reused by scheduled notifications to avoid duplicate API calls.
-	let instantAlertTotals: InstantAlertTotals | undefined;
-	let instantQuoteMap: ExtendedQuoteMap | undefined;
+	let priceAlertTotals: PriceAlertTotals | undefined;
+	let priceAlertQuoteMap: ExtendedQuoteMap | undefined;
 	try {
-		const instantResult = await processInstantAlerts({ supabase });
-		instantAlertTotals = instantResult.totals;
-		instantQuoteMap = instantResult.quoteMap;
+		const priceAlertResult = await processPriceAlerts({ supabase });
+		priceAlertTotals = priceAlertResult.totals;
+		priceAlertQuoteMap = priceAlertResult.quoteMap;
 
-		if (instantAlertTotals.alertsTriggered > 0) {
-			logger.info("Instant alerts processed", {
-				action: "instant_alerts",
-				...instantAlertTotals,
+		if (priceAlertTotals.alertsTriggered > 0) {
+			logger.info("Price alerts processed", {
+				action: "price_alerts",
+				...priceAlertTotals,
 			});
 		}
 	} catch (error) {
 		logger.error(
-			"Instant alerts processing failed (non-fatal)",
-			{ action: "instant_alerts" },
+			"Price alerts processing failed (non-fatal)",
+			{ action: "price_alerts" },
 			error,
 		);
 	}
@@ -84,20 +82,20 @@ export async function runScheduledNotifications(options: {
 		currentTime,
 		"Failed to format UTC ISO string",
 	);
-	const [scheduledUsers, dailyUsers, weeklyUsers] = await Promise.all([
-		fetchScheduledUsers({
+	const [marketUsers, dailyUsers, assetEventsUsers] = await Promise.all([
+		fetchMarketScheduledUsers({
 			supabase,
 			logger,
 			forceSend,
 			currentTimeIso,
 		}),
-		fetchDailyUsers({
+		fetchDailyDigestUsers({
 			supabase,
 			logger,
 			forceSend,
 			currentTimeIso,
 		}),
-		fetchWeeklyUsers({
+		fetchAssetEventsUsers({
 			supabase,
 			logger,
 			forceSend,
@@ -108,13 +106,13 @@ export async function runScheduledNotifications(options: {
 	// Collect unique asset symbols across scheduled users and fetch prices in batch
 	let priceMap: AssetPriceMap = new Map();
 	const hasAnyUsers =
-		scheduledUsers.length > 0 ||
+		marketUsers.length > 0 ||
 		dailyUsers.length > 0 ||
-		weeklyUsers.length > 0;
+		assetEventsUsers.length > 0;
 	const marketStatusPromise = hasAnyUsers ? fetchMarketStatus() : null;
 
-	if (scheduledUsers.length > 0) {
-		const userIds = scheduledUsers.map((u) => u.id);
+	if (marketUsers.length > 0) {
+		const userIds = marketUsers.map((u) => u.id);
 		const { data: allUserAssets, error: userAssetsError } = await supabase
 			.from("user_assets")
 			.select("symbol")
@@ -124,7 +122,7 @@ export async function runScheduledNotifications(options: {
 			logger.error(
 				"Failed to load user assets for scheduled notifications",
 				{
-					action: "scheduled_notifications_run",
+					action: "market_notifications_run",
 					userIdsCount: userIds.length,
 				},
 				userAssetsError,
@@ -137,19 +135,19 @@ export async function runScheduledNotifications(options: {
 		];
 
 		if (uniqueSymbols.length > 0) {
-			// Reuse quotes from instant alerts when available to avoid duplicate API calls
-			if (instantQuoteMap && instantQuoteMap.size > 0) {
+			// Reuse quotes from price alerts when available to avoid duplicate API calls
+			if (priceAlertQuoteMap && priceAlertQuoteMap.size > 0) {
 				const missingSymbols = uniqueSymbols.filter(
-					(s) => !instantQuoteMap?.has(s),
+					(s) => !priceAlertQuoteMap?.has(s),
 				);
-				// Start with instant alert quotes (they extend AssetPrice)
+				// Start with price alert quotes (they extend AssetPrice)
 				for (const symbol of uniqueSymbols) {
-					const cached = instantQuoteMap.get(symbol);
+					const cached = priceAlertQuoteMap.get(symbol);
 					if (cached) {
 						priceMap.set(symbol, cached);
 					}
 				}
-				// Fetch any symbols not covered by instant alerts
+				// Fetch any symbols not covered by price alerts
 				if (missingSymbols.length > 0) {
 					const extraPrices = await fetchAssetPrices(missingSymbols);
 					for (const [symbol, price] of extraPrices) {
@@ -169,13 +167,13 @@ export async function runScheduledNotifications(options: {
 	const results: ScheduledNotificationTotals[] = [];
 	for (
 		let index = 0;
-		index < scheduledUsers.length;
+		index < marketUsers.length;
 		index += USER_PROCESS_BATCH_SIZE
 	) {
-		const batch = scheduledUsers.slice(index, index + USER_PROCESS_BATCH_SIZE);
+		const batch = marketUsers.slice(index, index + USER_PROCESS_BATCH_SIZE);
 		const batchResults = await Promise.all(
 			batch.map((user) =>
-				processScheduledUser({
+				processMarketScheduledUser({
 					user,
 					supabase,
 					logger,
@@ -190,16 +188,19 @@ export async function runScheduledNotifications(options: {
 		results.push(...batchResults);
 	}
 
-	// In-process: process weekly calendar users in batches (no Grok calls, so no fan-out needed)
+	// In-process: process asset events users in batches (no Grok calls, so no fan-out needed)
 	for (
 		let index = 0;
-		index < weeklyUsers.length;
+		index < assetEventsUsers.length;
 		index += USER_PROCESS_BATCH_SIZE
 	) {
-		const batch = weeklyUsers.slice(index, index + USER_PROCESS_BATCH_SIZE);
+		const batch = assetEventsUsers.slice(
+			index,
+			index + USER_PROCESS_BATCH_SIZE,
+		);
 		const batchResults = await Promise.all(
 			batch.map((user) =>
-				processWeeklyUser({
+				processAssetEventsUser({
 					user,
 					supabase,
 					logger,
@@ -222,7 +223,7 @@ export async function runScheduledNotifications(options: {
 			const batch = dailyUsers.slice(index, index + DAILY_DISPATCH_BATCH_SIZE);
 			const dispatchResults = await Promise.allSettled(
 				batch.map((user) =>
-					dispatchDailyUser({
+					dispatchDailyDigestUser({
 						userId: user.id,
 						currentTimeIso,
 						cronSecret,
@@ -273,6 +274,6 @@ export async function runScheduledNotifications(options: {
 
 	return {
 		...scheduledTotals,
-		instantAlerts: instantAlertTotals,
+		priceAlerts: priceAlertTotals,
 	};
 }

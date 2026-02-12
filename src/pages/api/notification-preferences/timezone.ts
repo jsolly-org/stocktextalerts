@@ -1,10 +1,10 @@
 import type { APIRoute } from "astro";
+import { jsonResponse } from "../../../lib/api/json-response";
+import { computeTimezoneUpdatePayload } from "../../../lib/api/notification-preferences-update";
 import { createUserService, type User } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
-import { jsonResponse } from "../../../lib/json-response";
 import { createLogger } from "../../../lib/logging";
-import { computeTimezoneUpdatePayload } from "../../../lib/notification-preferences/server-update";
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
@@ -114,7 +114,8 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		message: "timezone_updated",
 		notificationPreferences: {
 			timezone: updatedUser.timezone,
-			next_send_at: updatedUser.next_send_at,
+			market_scheduled_asset_price_next_send_at:
+				updatedUser.market_scheduled_asset_price_next_send_at,
 		},
 	});
 };

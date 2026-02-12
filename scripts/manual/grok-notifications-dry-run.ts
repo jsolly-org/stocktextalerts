@@ -2,7 +2,7 @@ import { DateTime } from "luxon";
 import {
 	generateNewsWithGrok,
 	generateRumorsWithGrok,
-} from "../../src/lib/grok-extras";
+} from "../../src/lib/providers/grok";
 import { createLogger } from "../../src/lib/logging";
 
 const requestId = "scripts/grok-notifications-dry-run";

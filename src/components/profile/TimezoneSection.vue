@@ -56,17 +56,17 @@ import { DateTime } from "luxon";
 import { onMounted, ref, toRefs, watch } from "vue";
 
 import GlobeAltIcon from "../../icons/globe-alt.svg?component";
-import { CARD_GRADIENT_ACCENTS, DEFAULT_TIMEZONE } from "../../lib/constants";
-import type { NotificationPreferencesSnapshot, User } from "../../lib/db";
-import { rootLogger } from "../../lib/logging";
 import {
 	fetchCurrentNotificationPreferences,
 	updateNotificationTimezonePreference,
-} from "../../lib/notification-preferences/client";
+} from "../../lib/api/notification-preferences";
+import { CARD_GRADIENT_ACCENTS, DEFAULT_TIMEZONE } from "../../lib/constants";
+import type { NotificationPreferencesSnapshot, User } from "../../lib/db";
+import { rootLogger } from "../../lib/logging";
 import type { TimezoneOption } from "../../lib/time/cache";
-import TimezoneMismatchBanner from "../notification-preferences/TimezoneMismatchBanner.vue";
-import TimezoneSelect from "../notification-preferences/TimezoneSelect.vue";
 import StatusMessage from "../StatusMessage.vue";
+import TimezoneMismatchBanner from "./TimezoneMismatchBanner.vue";
+import TimezoneSelect from "./TimezoneSelect.vue";
 
 interface Props {
 	user: User;
@@ -88,19 +88,42 @@ const { user, timezones, timezoneLoadError } = toRefs(props);
 function buildSavedNotificationPreferences(
 	sourceUser: User,
 ): NotificationPreferencesSnapshot {
-	const scheduledUpdateTimes = sourceUser.scheduled_update_times;
+	const marketScheduledAssetPriceTimes = sourceUser.market_scheduled_asset_price_times;
 	return {
 		email_notifications_enabled: sourceUser.email_notifications_enabled,
 		sms_notifications_enabled: sourceUser.sms_notifications_enabled,
 		sms_opted_out: sourceUser.sms_opted_out,
 		phone_verified: sourceUser.phone_verified,
 		timezone: sourceUser.timezone,
-		scheduled_update_times: Array.isArray(scheduledUpdateTimes)
-			? [...scheduledUpdateTimes]
-			: scheduledUpdateTimes,
-		next_send_at: sourceUser.next_send_at,
+		market_scheduled_asset_price_times: Array.isArray(marketScheduledAssetPriceTimes)
+			? [...marketScheduledAssetPriceTimes]
+			: marketScheduledAssetPriceTimes,
+		market_scheduled_asset_price_next_send_at: sourceUser.market_scheduled_asset_price_next_send_at,
 		dismiss_timezone_mismatch_prompts:
 			sourceUser.dismiss_timezone_mismatch_prompts,
+		market_scheduled_asset_price_enabled: sourceUser.market_scheduled_asset_price_enabled,
+		daily_digest_time: sourceUser.daily_digest_time,
+		daily_digest_next_send_at: sourceUser.daily_digest_next_send_at,
+		daily_digest_include_news_email: sourceUser.daily_digest_include_news_email,
+		daily_digest_include_rumors_email: sourceUser.daily_digest_include_rumors_email,
+		market_scheduled_asset_price_include_email: sourceUser.market_scheduled_asset_price_include_email,
+		market_scheduled_asset_price_include_sms: sourceUser.market_scheduled_asset_price_include_sms,
+		asset_events_include_earnings_email: sourceUser.asset_events_include_earnings_email,
+		asset_events_include_earnings_sms: sourceUser.asset_events_include_earnings_sms,
+		asset_events_include_dividends_email: sourceUser.asset_events_include_dividends_email,
+		asset_events_include_dividends_sms: sourceUser.asset_events_include_dividends_sms,
+		asset_events_include_splits_email: sourceUser.asset_events_include_splits_email,
+		asset_events_include_splits_sms: sourceUser.asset_events_include_splits_sms,
+		asset_events_include_analyst_email: sourceUser.asset_events_include_analyst_email,
+		asset_events_include_analyst_sms: sourceUser.asset_events_include_analyst_sms,
+		asset_events_include_insider_email: sourceUser.asset_events_include_insider_email,
+		asset_events_include_insider_sms: sourceUser.asset_events_include_insider_sms,
+		asset_events_next_send_at: sourceUser.asset_events_next_send_at,
+		asset_events_last_analyst_sent_month: sourceUser.asset_events_last_analyst_sent_month,
+		market_asset_price_alerts_enabled: sourceUser.market_asset_price_alerts_enabled,
+		market_asset_price_alerts_include_email: sourceUser.market_asset_price_alerts_include_email,
+		market_asset_price_alerts_include_sms: sourceUser.market_asset_price_alerts_include_sms,
+		market_asset_price_alert_sensitivity: sourceUser.market_asset_price_alert_sensitivity,
 	};
 }
 
@@ -195,15 +218,15 @@ async function saveTimezone(nextTimezone: string) {
 			? {
 					...savedNotificationPreferences.value,
 					timezone: resolvedTimezone,
-					...(prefs.next_send_at !== undefined && {
-						next_send_at: prefs.next_send_at,
+					...(prefs.market_scheduled_asset_price_next_send_at !== undefined && {
+						market_scheduled_asset_price_next_send_at: prefs.market_scheduled_asset_price_next_send_at,
 					}),
 				}
 			: buildSavedNotificationPreferences({
 					...user.value,
 					timezone: resolvedTimezone,
-					...(prefs.next_send_at !== undefined && {
-						next_send_at: prefs.next_send_at,
+					...(prefs.market_scheduled_asset_price_next_send_at !== undefined && {
+						market_scheduled_asset_price_next_send_at: prefs.market_scheduled_asset_price_next_send_at,
 					}),
 				});
 	} catch (error) {

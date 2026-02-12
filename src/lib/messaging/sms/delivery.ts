@@ -84,7 +84,7 @@ export async function processSmsUpdate(
 
 	const logged = await recordNotification(supabase, {
 		user_id: user.id,
-		type: "scheduled_update",
+		type: "market",
 		delivery_method: "sms",
 		message_delivered: result.success,
 		message: smsMessage,

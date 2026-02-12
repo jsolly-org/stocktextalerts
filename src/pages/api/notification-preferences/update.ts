@@ -1,34 +1,38 @@
 import type { APIRoute } from "astro";
+import { jsonResponse } from "../../../lib/api/json-response";
+import { buildNotificationPreferencesUpdatePayload } from "../../../lib/api/notification-preferences-update";
 import { createUserService, type User } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
-import { jsonResponse } from "../../../lib/json-response";
 import { createLogger } from "../../../lib/logging";
-import { parseScheduledTimes } from "../../../lib/notification-preferences/scheduled-times";
-import { buildNotificationPreferencesUpdatePayload } from "../../../lib/notification-preferences/server-update";
+import { parseScheduledTimes } from "../../../lib/time/scheduled-times";
 
 const NOTIFICATION_PREFERENCES_SCHEMA = {
-	price_notifications_enabled: { type: "boolean" },
+	market_scheduled_asset_price_enabled: { type: "boolean" },
 	email_notifications_enabled: { type: "boolean" },
 	sms_notifications_enabled: { type: "boolean" },
 	timezone: { type: "timezone" },
-	scheduled_update_times: { type: "json_string_array" },
-	daily_delivery_time: { type: "time" },
-	daily_include_news_email: { type: "boolean" },
-	daily_include_rumors_email: { type: "boolean" },
-	daily_include_analyst_email: { type: "boolean" },
-	daily_include_insider_email: { type: "boolean" },
-	daily_include_analyst_sms: { type: "boolean" },
-	daily_include_insider_sms: { type: "boolean" },
-	price_include_email: { type: "boolean" },
-	price_include_sms: { type: "boolean" },
-	weekly_include_earnings_email: { type: "boolean" },
-	weekly_include_earnings_sms: { type: "boolean" },
-	instant_notifications_enabled: { type: "boolean" },
-	instant_include_email: { type: "boolean" },
-	instant_include_sms: { type: "boolean" },
-	instant_alert_sensitivity: { type: "integer" },
+	market_scheduled_asset_price_times: { type: "json_string_array" },
+	daily_digest_time: { type: "time" },
+	daily_digest_include_news_email: { type: "boolean" },
+	daily_digest_include_rumors_email: { type: "boolean" },
+	market_scheduled_asset_price_include_email: { type: "boolean" },
+	market_scheduled_asset_price_include_sms: { type: "boolean" },
+	asset_events_include_earnings_email: { type: "boolean" },
+	asset_events_include_earnings_sms: { type: "boolean" },
+	asset_events_include_dividends_email: { type: "boolean" },
+	asset_events_include_dividends_sms: { type: "boolean" },
+	asset_events_include_splits_email: { type: "boolean" },
+	asset_events_include_splits_sms: { type: "boolean" },
+	asset_events_include_analyst_email: { type: "boolean" },
+	asset_events_include_analyst_sms: { type: "boolean" },
+	asset_events_include_insider_email: { type: "boolean" },
+	asset_events_include_insider_sms: { type: "boolean" },
+	market_asset_price_alerts_enabled: { type: "boolean" },
+	market_asset_price_alerts_include_email: { type: "boolean" },
+	market_asset_price_alerts_include_sms: { type: "boolean" },
+	market_asset_price_alert_sensitivity: { type: "integer" },
 } as const satisfies FormSchema;
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
@@ -66,7 +70,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		);
 		return jsonResponse(400, { ok: false, message: "invalid_form" });
 	}
-	const rawTimesValue = formData.get("scheduled_update_times");
+	const rawTimesValue = formData.get("market_scheduled_asset_price_times");
 	const parsed = parseWithSchema(formData, NOTIFICATION_PREFERENCES_SCHEMA);
 
 	if (!parsed.ok) {
@@ -82,9 +86,11 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 
 	if (
 		rawTimesValue !== "" &&
-		parsed.data.scheduled_update_times !== undefined
+		parsed.data.market_scheduled_asset_price_times !== undefined
 	) {
-		const result = parseScheduledTimes(parsed.data.scheduled_update_times);
+		const result = parseScheduledTimes(
+			parsed.data.market_scheduled_asset_price_times,
+		);
 		if (!result.ok) {
 			logger.info(
 				"Notification-preferences update rejected due to invalid scheduled times",
@@ -178,35 +184,58 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			ok: true,
 			message: "settings_updated",
 			notificationPreferences: {
-				price_notifications_enabled: updatedUser.price_notifications_enabled,
-				price_include_email: updatedUser.price_include_email,
-				price_include_sms: updatedUser.price_include_sms,
+				market_scheduled_asset_price_enabled:
+					updatedUser.market_scheduled_asset_price_enabled,
+				market_scheduled_asset_price_include_email:
+					updatedUser.market_scheduled_asset_price_include_email,
+				market_scheduled_asset_price_include_sms:
+					updatedUser.market_scheduled_asset_price_include_sms,
 				email_notifications_enabled: updatedUser.email_notifications_enabled,
 				sms_notifications_enabled: updatedUser.sms_notifications_enabled,
 				sms_opted_out: updatedUser.sms_opted_out,
 				phone_verified: updatedUser.phone_verified,
 				timezone: updatedUser.timezone,
-				scheduled_update_times: updatedUser.scheduled_update_times,
-				daily_delivery_time: updatedUser.daily_delivery_time,
-				daily_next_send_at: updatedUser.daily_next_send_at,
-				next_send_at: updatedUser.next_send_at,
+				market_scheduled_asset_price_times:
+					updatedUser.market_scheduled_asset_price_times,
+				daily_digest_time: updatedUser.daily_digest_time,
+				daily_digest_next_send_at: updatedUser.daily_digest_next_send_at,
+				market_scheduled_asset_price_next_send_at:
+					updatedUser.market_scheduled_asset_price_next_send_at,
 				dismiss_timezone_mismatch_prompts:
 					updatedUser.dismiss_timezone_mismatch_prompts,
-				daily_include_news_email: updatedUser.daily_include_news_email,
-				daily_include_rumors_email: updatedUser.daily_include_rumors_email,
-				daily_include_analyst_email: updatedUser.daily_include_analyst_email,
-				daily_include_insider_email: updatedUser.daily_include_insider_email,
-				daily_include_analyst_sms: updatedUser.daily_include_analyst_sms,
-				daily_include_insider_sms: updatedUser.daily_include_insider_sms,
-				weekly_include_earnings_email:
-					updatedUser.weekly_include_earnings_email,
-				weekly_include_earnings_sms: updatedUser.weekly_include_earnings_sms,
-				weekly_next_send_at: updatedUser.weekly_next_send_at,
-				instant_notifications_enabled:
-					updatedUser.instant_notifications_enabled,
-				instant_include_email: updatedUser.instant_include_email,
-				instant_include_sms: updatedUser.instant_include_sms,
-				instant_alert_sensitivity: updatedUser.instant_alert_sensitivity,
+				daily_digest_include_news_email:
+					updatedUser.daily_digest_include_news_email,
+				daily_digest_include_rumors_email:
+					updatedUser.daily_digest_include_rumors_email,
+				asset_events_include_earnings_email:
+					updatedUser.asset_events_include_earnings_email,
+				asset_events_include_earnings_sms:
+					updatedUser.asset_events_include_earnings_sms,
+				asset_events_include_dividends_email:
+					updatedUser.asset_events_include_dividends_email,
+				asset_events_include_dividends_sms:
+					updatedUser.asset_events_include_dividends_sms,
+				asset_events_include_splits_email:
+					updatedUser.asset_events_include_splits_email,
+				asset_events_include_splits_sms:
+					updatedUser.asset_events_include_splits_sms,
+				asset_events_include_analyst_email:
+					updatedUser.asset_events_include_analyst_email,
+				asset_events_include_analyst_sms:
+					updatedUser.asset_events_include_analyst_sms,
+				asset_events_include_insider_email:
+					updatedUser.asset_events_include_insider_email,
+				asset_events_include_insider_sms:
+					updatedUser.asset_events_include_insider_sms,
+				asset_events_next_send_at: updatedUser.asset_events_next_send_at,
+				market_asset_price_alerts_enabled:
+					updatedUser.market_asset_price_alerts_enabled,
+				market_asset_price_alerts_include_email:
+					updatedUser.market_asset_price_alerts_include_email,
+				market_asset_price_alerts_include_sms:
+					updatedUser.market_asset_price_alerts_include_sms,
+				market_asset_price_alert_sensitivity:
+					updatedUser.market_asset_price_alert_sensitivity,
 			},
 		});
 	} catch (error) {

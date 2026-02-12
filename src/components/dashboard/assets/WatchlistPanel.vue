@@ -89,6 +89,9 @@
 						{{ ticker.symbol }}
 					</span>
 				</div>
+				<p class="relative text-sm text-gray-500">
+					No assets tracked yet. Use the search above to add your first asset.
+				</p>
 			</div>
 			<ul v-else class="space-y-2" role="list">
 				<li
