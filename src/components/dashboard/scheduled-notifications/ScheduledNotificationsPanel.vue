@@ -588,20 +588,17 @@ onMounted(() => {
 	if (showWeeklySection.value) {
 		startWeeklyTickInterval();
 	}
-
-	watch(showWeeklySection, (isVisible) => {
-		if (isVisible) {
-			startWeeklyTickInterval();
-			return;
-		}
-		stopWeeklyTickInterval();
-	});
 });
 onUnmounted(() => {
-	if (tickIntervalId !== null) {
-		window.clearInterval(tickIntervalId);
-		tickIntervalId = null;
+	stopWeeklyTickInterval();
+});
+
+watch(showWeeklySection, (isVisible) => {
+	if (isVisible) {
+		startWeeklyTickInterval();
+		return;
 	}
+	stopWeeklyTickInterval();
 });
 
 const MAX_SCHEDULED_UPDATE_MINUTES = 23 * 60 + 59;
