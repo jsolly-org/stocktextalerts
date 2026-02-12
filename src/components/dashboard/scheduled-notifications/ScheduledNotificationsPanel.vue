@@ -349,7 +349,7 @@
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
 						<label
 							class="inline-flex items-center gap-1.5"
-							:class="emailEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+							:class="(needsChannelSelection || !emailEnabled) ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'"
 						>
 							<input
 								type="checkbox"
@@ -358,7 +358,7 @@
 								class="rounded border-gray-300 h-4 w-4"
 								:class="[
 									weeklyAccentClasses,
-									emailEnabled ? 'cursor-pointer' : 'cursor-not-allowed',
+									(needsChannelSelection || !emailEnabled) ? 'cursor-not-allowed' : 'cursor-pointer',
 								]"
 								aria-label="Earnings Reports Email"
 								aria-describedby="weekly_include_earnings_description"
@@ -680,6 +680,16 @@ const hasNotificationChannel = computed(
 	() => emailEnabled.value || smsReady.value,
 );
 const needsChannelSelection = computed(() => !hasNotificationChannel.value);
+
+watch(
+	emailEnabled,
+	(enabled) => {
+		if (!enabled && includeEarningsEmail.value) {
+			includeEarningsEmail.value = false;
+		}
+	},
+	{ immediate: true },
+);
 const needsPhoneVerification = computed(
 	() => smsEnabled.value && !phoneVerified.value,
 );
