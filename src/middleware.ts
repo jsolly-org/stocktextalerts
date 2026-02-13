@@ -30,6 +30,12 @@ const metaEnv = import.meta.env as unknown as Record<
 	string | undefined
 >;
 
+/**
+ * Read an environment variable from the runtime environment.
+ *
+ * Prefers `import.meta.env` (Vite/Astro build/runtime) and falls back to
+ * `process.env` (Node/Vercel runtime). Empty strings are treated as unset.
+ */
 function readEnv(name: string): string | undefined {
 	const fromMeta = metaEnv[name];
 	if (typeof fromMeta === "string" && fromMeta.trim() !== "") {
@@ -39,12 +45,23 @@ function readEnv(name: string): string | undefined {
 	return typeof fromProcess === "string" ? fromProcess : undefined;
 }
 
+/**
+ * Feature-flag for temporary auth origin debugging logs.
+ *
+ * Keep this enabled only while investigating cross-site origin blocks on auth
+ * endpoints; it increases log volume and may include header context.
+ */
 function isAuthOriginDebugEnabled(): boolean {
 	// TEMPORARY DEBUGGING NOTE:
 	// Always enabled during the auth origin investigation.
 	return true;
 }
 
+/**
+ * Returns true when the `Content-Type` indicates a form-like submission.
+ *
+ * Used to emulate (and add logging around) Astro's origin enforcement behavior.
+ */
 function hasFormLikeContentType(contentType: string | null): boolean {
 	if (!contentType) {
 		return false;
@@ -53,6 +70,12 @@ function hasFormLikeContentType(contentType: string | null): boolean {
 	return FORM_CONTENT_TYPES.some((candidate) => normalized.includes(candidate));
 }
 
+/**
+ * Build the Content Security Policy header value.
+ *
+ * Allows `vercel.live` when running on Vercel (or when the request host looks
+ * like a Vercel deployment) to support preview tooling.
+ */
 function buildCsp(requestHost?: string): string {
 	// Allow vercel.live when on Vercel (env at runtime) or when request host is a Vercel deployment (fallback if env unset).
 	const isVercel =
@@ -96,6 +119,12 @@ function buildCsp(requestHost?: string): string {
 	].join("; ");
 }
 
+/**
+ * Apply response security headers and request correlation metadata.
+ *
+ * Must be safe to call multiple times and should not assume mutable `Headers`
+ * (some platforms return immutable header bags).
+ */
 const applySecurityHeaders = (
 	headers: Headers,
 	requestId: string,
@@ -119,6 +148,15 @@ const applySecurityHeaders = (
 	);
 };
 
+/**
+ * Global Astro middleware.
+ *
+ * - Validates required environment variables (once, lazily).
+ * - Assigns a per-request ID available via `context.locals.requestId`.
+ * - Applies security headers (CSP, HSTS, etc).
+ * - Temporarily enforces and logs origin checks for auth endpoints while
+ *   investigating blocked cross-site requests.
+ */
 export const onRequest = defineMiddleware(async (context, next) => {
 	// Validate environment variables on first request
 	// This ensures validation happens after Vercel injects env vars at runtime
