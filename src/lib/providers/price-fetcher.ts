@@ -34,11 +34,7 @@ export async function fetchAssetPrices(
 		);
 	}
 	const snapshot = await fetchPolygonSnapshotQuotes(symbols);
-	const result: AssetPriceMap = new Map();
-	for (const [symbol, quote] of snapshot) {
-		result.set(symbol, quote);
-	}
-	return result;
+	return snapshot as AssetPriceMap;
 }
 
 /**
@@ -69,11 +65,7 @@ export async function fetchExtendedQuotes(
 		);
 	}
 	const snapshot = await fetchPolygonSnapshotQuotes(symbols);
-	const result: ExtendedQuoteMap = new Map();
-	for (const [symbol, quote] of snapshot) {
-		result.set(symbol, quote);
-	}
-	return result;
+	return snapshot as ExtendedQuoteMap;
 }
 
 /**

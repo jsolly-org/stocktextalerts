@@ -396,16 +396,16 @@ Snapshot Quotes
  */
 interface PolygonSnapshotTicker {
 	ticker: string;
-	todaysChangePerc: number;
-	updated: number; // nanoseconds
-	day: {
+	todaysChangePerc?: number;
+	updated?: number; // nanoseconds
+	day?: {
 		o: number;
 		h: number;
 		l: number;
 		c: number;
 		v: number;
 	};
-	prevDay: {
+	prevDay?: {
 		c: number;
 	};
 }
@@ -433,7 +433,7 @@ function parseSnapshotTicker(
 		return null;
 
 	const num = (v: unknown): number | null =>
-		typeof v === "number" && Number.isFinite(v) && v !== 0 ? v : null;
+		typeof v === "number" && Number.isFinite(v) ? v : null;
 
 	return {
 		price,
