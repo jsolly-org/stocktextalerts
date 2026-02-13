@@ -18,4 +18,18 @@ describe("markdownLinksToHtml", () => {
 			'<a href="https://en.wikipedia.org/wiki/JavaScript_(programming_language)" style="color: #667eea; text-decoration: underline;" target="_blank" rel="noopener noreferrer">Wiki</a>',
 		);
 	});
+
+	it("converts citation-style links with nested brackets like [[1]](url)", () => {
+		const input =
+			"Chatter on upgrades.[[1]](https://x.com/i/status/123)[[2]](https://x.com/i/status/456)";
+
+		const html = markdownLinksToHtml(input);
+
+		expect(html).toContain(
+			'<a href="https://x.com/i/status/123" style="color: #667eea; text-decoration: underline;" target="_blank" rel="noopener noreferrer">[1]</a>',
+		);
+		expect(html).toContain(
+			'<a href="https://x.com/i/status/456" style="color: #667eea; text-decoration: underline;" target="_blank" rel="noopener noreferrer">[2]</a>',
+		);
+	});
 });

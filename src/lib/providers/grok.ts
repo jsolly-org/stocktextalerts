@@ -106,9 +106,11 @@ function applyAnnotationsInline(
 	let result = text;
 	for (const ann of valid) {
 		const span = result.slice(ann.start_index, ann.end_index);
-		// Skip if this span is already part of a markdown link (followed by `(http`).
-		const after = result.slice(ann.end_index, ann.end_index + 6);
-		if (after.startsWith("(http")) continue;
+		// Skip if this span is already part of a markdown link.
+		// Check for `(http` directly after the span, or `](http` when the span is
+		// inside nested brackets like `[[1]](url)` where the annotation covers `[1]`.
+		const after = result.slice(ann.end_index, ann.end_index + 10);
+		if (/^\]?\(https?:/.test(after)) continue;
 
 		// Clean up the link text — remove surrounding brackets and post:N markers.
 		let linkText = span.replace(/^\[|\]$/g, "").trim();

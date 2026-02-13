@@ -20,11 +20,13 @@ export function markdownLinksToHtml(content: string): string {
 	// balanced parentheses (common in Wikipedia URLs like `JavaScript_(programming_language)`).
 	//
 	// Notes:
+	// - The link text allows one level of nested brackets so citation-style links
+	//   like `[[1]](url)` are matched (Grok outputs these for numbered references).
 	// - We keep the URL "no whitespace" rule to avoid swallowing following text.
 	// - This supports nested parentheses up to 2 levels, which is sufficient for
 	//   common real-world links while remaining regex-friendly in JS.
 	const MARKDOWN_LINK_RE =
-		/\[([^\]]+)\]\(((?:https?:\/\/)(?:[^\s()]+|\((?:[^\s()]+|\([^\s()]*\))*\))*)\)/g;
+		/\[((?:[^[\]]+|\[[^\]]*\])+)\]\(((?:https?:\/\/)(?:[^\s()]+|\((?:[^\s()]+|\([^\s()]*\))*\))*)\)/g;
 	const parts: string[] = [];
 	let lastIndex = 0;
 
