@@ -6,7 +6,10 @@ function getSafeNext(nextParam: string | null): string {
 		return "/";
 	}
 	// Only allow same-site relative paths to avoid open redirects.
-	return nextParam.startsWith("/") ? nextParam : "/";
+	// Block protocol-relative URLs (e.g., "//evil.com") and ensure single leading slash.
+	return nextParam.startsWith("/") && !nextParam.startsWith("//")
+		? nextParam
+		: "/";
 }
 
 /**
