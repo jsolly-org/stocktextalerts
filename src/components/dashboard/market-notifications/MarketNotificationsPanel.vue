@@ -75,12 +75,15 @@
 						:value="marketIncludeSms ? 'on' : 'off'"
 					/>
 					<div class="min-w-0">
-						<span
-							id="market_scheduled_asset_price_enabled_label"
-							class="text-base font-semibold text-heading"
-						>
-							Scheduled Asset Price Notifications
-						</span>
+						<div class="flex items-center gap-2">
+							<span
+								id="market_scheduled_asset_price_enabled_label"
+								class="text-base font-semibold text-heading"
+							>
+								Scheduled Asset Price Notifications
+							</span>
+							<PolygonLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Polygon.io" role="img" />
+						</div>
 						<p id="market_scheduled_asset_price_enabled_description" class="text-sm text-body-secondary mt-0.5">
 							Scheduled asset price updates for all tracked assets, including ETFs.
 						</p>
@@ -173,12 +176,18 @@
 						:value="priceAlertSensitivity"
 					/>
 					<div class="min-w-0">
-						<span
-							id="market_asset_price_alerts_enabled_label"
-							class="text-base font-semibold text-heading"
-						>
-							Asset Price Alerts
-						</span>
+						<div class="flex items-center gap-2">
+							<span
+								id="market_asset_price_alerts_enabled_label"
+								class="text-base font-semibold text-heading"
+							>
+								Asset Price Alerts
+							</span>
+							<PolygonLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Polygon.io" role="img" />
+							<FinnhubLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Finnhub" role="img" />
+							<GrokLogoLightIcon class="h-4.5 w-auto shrink-0 dark:hidden" aria-label="Powered by Grok" role="img" />
+							<GrokLogoDarkIcon class="hidden h-4.5 w-auto shrink-0 dark:inline" aria-label="Powered by Grok" role="img" />
+						</div>
 						<p id="market_asset_price_alerts_enabled_description" class="text-sm text-body-secondary mt-0.5">
 							Immediate alerts for significant price movement. Alerts may include related headlines and a brief AI summary when available.
 						</p>
@@ -280,7 +289,11 @@
 import { computed, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
+import FinnhubLogoIcon from "../../../icons/finnhub.svg?component";
+import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
+import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
 import InformationCircleIcon from "../../../icons/information-circle-20.svg?component";
+import PolygonLogoIcon from "../../../icons/polygon.svg?component";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_MARKET_FORM_ID,

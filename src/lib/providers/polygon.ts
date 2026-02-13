@@ -388,6 +388,110 @@ export async function fetchPolygonSplits(
 }
 
 /* =============
+Snapshot Quotes
+============= */
+
+/**
+ * Snapshot ticker shape from Polygon `/v2/snapshot/locale/us/market/stocks/tickers`.
+ */
+interface PolygonSnapshotTicker {
+	ticker: string;
+	todaysChangePerc: number;
+	updated: number; // nanoseconds
+	day: {
+		o: number;
+		h: number;
+		l: number;
+		c: number;
+		v: number;
+	};
+	prevDay: {
+		c: number;
+	};
+}
+
+export interface PolygonSnapshotQuote {
+	price: number;
+	changePercent: number;
+	dayHigh: number | null;
+	dayLow: number | null;
+	dayOpen: number | null;
+	prevClose: number | null;
+	timestamp: number | null;
+	volume: number | null;
+}
+
+function parseSnapshotTicker(
+	t: PolygonSnapshotTicker,
+): PolygonSnapshotQuote | null {
+	const price = t.day?.c;
+	if (typeof price !== "number" || !Number.isFinite(price) || price === 0)
+		return null;
+
+	const changePercent = t.todaysChangePerc;
+	if (typeof changePercent !== "number" || !Number.isFinite(changePercent))
+		return null;
+
+	const num = (v: unknown): number | null =>
+		typeof v === "number" && Number.isFinite(v) && v !== 0 ? v : null;
+
+	return {
+		price,
+		changePercent,
+		dayHigh: num(t.day?.h),
+		dayLow: num(t.day?.l),
+		dayOpen: num(t.day?.o),
+		prevClose: num(t.prevDay?.c),
+		// Polygon `updated` is in nanoseconds — convert to seconds for consistency
+		timestamp:
+			typeof t.updated === "number" && Number.isFinite(t.updated)
+				? Math.floor(t.updated / 1_000_000_000)
+				: null,
+		volume: num(t.day?.v),
+	};
+}
+
+/**
+ * Batch-fetch snapshot quotes for a list of symbols via a single Polygon API call.
+ *
+ * Uses `/v2/snapshot/locale/us/market/stocks/tickers?tickers=A,B,C`.
+ * Returns a Map keyed by symbol; missing/invalid tickers map to `null`.
+ */
+export async function fetchPolygonSnapshotQuotes(
+	symbols: string[],
+): Promise<Map<string, PolygonSnapshotQuote | null>> {
+	const result = new Map<string, PolygonSnapshotQuote | null>();
+	if (symbols.length === 0) return result;
+
+	// Pre-fill with null so callers always see every requested symbol
+	for (const s of symbols) result.set(s, null);
+
+	const data = await polygonFetch(
+		"/v2/snapshot/locale/us/market/stocks/tickers",
+		{ tickers: symbols.join(",") },
+		"snapshot-quotes",
+	);
+
+	if (typeof data !== "object" || data === null) return result;
+
+	const tickers = (data as Record<string, unknown>).tickers;
+	if (!Array.isArray(tickers)) return result;
+
+	for (const raw of tickers) {
+		if (typeof raw !== "object" || raw === null) continue;
+		const t = raw as PolygonSnapshotTicker;
+		if (typeof t.ticker !== "string") continue;
+
+		const quote = parseSnapshotTicker(t);
+		if (quote) {
+			result.set(t.ticker, quote);
+		}
+	}
+
+	return result;
+}
+
+/* =============
 Formatting
 ============= */
 
