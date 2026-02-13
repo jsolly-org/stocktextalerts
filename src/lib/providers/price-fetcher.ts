@@ -1,5 +1,6 @@
 import { rootLogger } from "../logging";
 import { finnhubFetch } from "./finnhub";
+import { fetchPolygonSnapshotQuotes } from "./polygon";
 
 interface AssetPrice {
 	price: number;
@@ -19,63 +20,9 @@ export type AssetPriceMap = Map<string, AssetPrice | null>;
 export type ExtendedQuoteMap = Map<string, ExtendedAssetQuote | null>;
 
 /**
- * Fetch a single asset quote from Finnhub and normalize it.
- *
- * Returns `null` for invalid/unavailable quotes (including delisted/unknown symbols).
- * Extracts extended fields (h, l, o, pc, t) when available for market movement alerts.
- */
-async function fetchAssetQuote(
-	symbol: string,
-): Promise<ExtendedAssetQuote | null> {
-	const data = await finnhubFetch("/quote", { symbol }, "quote");
-	if (typeof data !== "object" || data === null) return null;
-
-	const { c, dp, h, l, o, pc, t, v } = data as {
-		c?: unknown;
-		dp?: unknown;
-		h?: unknown;
-		l?: unknown;
-		o?: unknown;
-		pc?: unknown;
-		t?: unknown;
-		v?: unknown;
-	};
-	if (
-		typeof c !== "number" ||
-		!Number.isFinite(c) ||
-		typeof dp !== "number" ||
-		!Number.isFinite(dp)
-	) {
-		rootLogger.warn("Invalid Finnhub quote field types", {
-			symbol,
-			c,
-			dp,
-			payload: data,
-		});
-		return null;
-	}
-
-	// Finnhub returns 0 for unknown/delisted symbols — not retryable
-	if (c === 0) {
-		return null;
-	}
-
-	return {
-		price: c,
-		changePercent: dp,
-		dayHigh: typeof h === "number" && Number.isFinite(h) && h !== 0 ? h : null,
-		dayLow: typeof l === "number" && Number.isFinite(l) && l !== 0 ? l : null,
-		dayOpen: typeof o === "number" && Number.isFinite(o) && o !== 0 ? o : null,
-		prevClose:
-			typeof pc === "number" && Number.isFinite(pc) && pc !== 0 ? pc : null,
-		timestamp: typeof t === "number" && Number.isFinite(t) ? t : null,
-		volume: typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null,
-	};
-}
-
-/**
  * Fetch quotes for a list of symbols and return a map keyed by symbol.
  *
+ * Uses Polygon's batch snapshot API (single HTTP call) to avoid per-symbol rate limits.
  * In test mode, returns deterministic dummy data to avoid external API calls.
  */
 export async function fetchAssetPrices(
@@ -86,18 +33,14 @@ export async function fetchAssetPrices(
 			symbols.map((s) => [s, { price: 150.0, changePercent: 1.25 }]),
 		);
 	}
-	const results = await Promise.all(
-		symbols.map(async (symbol) => {
-			const price = await fetchAssetQuote(symbol);
-			return [symbol, price] as const;
-		}),
-	);
-	return new Map(results);
+	const snapshot = await fetchPolygonSnapshotQuotes(symbols);
+	return snapshot as AssetPriceMap;
 }
 
 /**
  * Fetch extended quotes for a list of symbols (includes day high/low/open/prevClose).
  *
+ * Uses Polygon's batch snapshot API (single HTTP call) to avoid per-symbol rate limits.
  * Used by market movement alerts to store rolling-window snapshots with richer data.
  * In test mode, returns deterministic dummy data.
  */
@@ -121,13 +64,8 @@ export async function fetchExtendedQuotes(
 			]),
 		);
 	}
-	const results = await Promise.all(
-		symbols.map(async (symbol) => {
-			const quote = await fetchAssetQuote(symbol);
-			return [symbol, quote] as const;
-		}),
-	);
-	return new Map(results);
+	const snapshot = await fetchPolygonSnapshotQuotes(symbols);
+	return snapshot as ExtendedQuoteMap;
 }
 
 /**
