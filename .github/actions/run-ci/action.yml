@@ -99,7 +99,7 @@ runs:
     - name: Setup Supabase CLI
       uses: supabase/setup-cli@v1
       with:
-        version: v2.75.0
+        version: 2.75.0
     - name: Run Biome
       shell: bash
       run: npx biome ci .
