@@ -1,6 +1,6 @@
 <template>
 	<div>
-		<label :for="id" class="block text-sm font-medium text-gray-700 mb-1">
+		<label :for="id" class="block text-sm font-medium text-label mb-1">
 			Timezone <span class="text-error-text">*</span>
 		</label>
 		<select

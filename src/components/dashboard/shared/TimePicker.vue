@@ -48,7 +48,7 @@
 					<ExclamationTriangleIcon class="size-4" aria-hidden="true" />
 				</button>
 				<span
-					class="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1 w-48 text-center rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-focus-within/warn:opacity-100 group-hover/warn:opacity-100 z-10"
+					class="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1 w-48 text-center rounded bg-heading px-2 py-1 text-xs text-surface opacity-0 transition-opacity group-focus-within/warn:opacity-100 group-hover/warn:opacity-100 z-10"
 					role="tooltip"
 				>
 					Outside market hours — prices may reflect the last close
@@ -244,5 +244,30 @@ onMounted(() => {
 .dp__button,
 .dp__pm_am_button {
 	touch-action: manipulation;
+}
+
+/*
+ * Override VueDatePicker theme to use our design tokens.
+ * The library always renders dp__theme_light; we remap its CSS
+ * variables so both light and dark mode stay consistent with the
+ * `.input` utility class used by the rest of the app.
+ */
+.dp__theme_light {
+	--dp-background-color: var(--surface);
+	--dp-text-color: var(--heading);
+	--dp-border-color: var(--edge-strong);
+	--dp-menu-border-color: var(--edge-strong);
+	--dp-border-color-hover: var(--muted);
+	--dp-border-color-focus: var(--color-primary);
+	--dp-hover-color: var(--surface-active);
+	--dp-hover-text-color: var(--heading);
+	--dp-hover-icon-color: var(--muted);
+	--dp-icon-color: var(--muted);
+	--dp-disabled-color: var(--disabled-bg);
+	--dp-disabled-color-text: var(--muted);
+	--dp-primary-color: var(--color-primary);
+	--dp-secondary-color: var(--body-secondary);
+	--dp-scroll-bar-background: var(--surface-alt);
+	--dp-scroll-bar-color: var(--muted);
 }
 </style>

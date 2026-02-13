@@ -1,4 +1,12 @@
 import { defineMiddleware } from "astro:middleware";
+import { rootLogger } from "./lib/logging";
+
+const ORIGIN_CHECK_METHODS = new Set(["POST", "PATCH", "DELETE", "PUT"]);
+const FORM_CONTENT_TYPES = [
+	"application/x-www-form-urlencoded",
+	"multipart/form-data",
+	"text/plain",
+];
 
 const REQUIRED_ENV_VARS = [
 	"SUPABASE_URL",
@@ -29,6 +37,20 @@ function readEnv(name: string): string | undefined {
 	}
 	const fromProcess = process.env[name];
 	return typeof fromProcess === "string" ? fromProcess : undefined;
+}
+
+function isAuthOriginDebugEnabled(): boolean {
+	// TEMPORARY DEBUGGING NOTE:
+	// Always enabled during the auth origin investigation.
+	return true;
+}
+
+function hasFormLikeContentType(contentType: string | null): boolean {
+	if (!contentType) {
+		return false;
+	}
+	const normalized = contentType.toLowerCase();
+	return FORM_CONTENT_TYPES.some((candidate) => normalized.includes(candidate));
 }
 
 function buildCsp(requestHost?: string): string {
@@ -123,6 +145,73 @@ export const onRequest = defineMiddleware(async (context, next) => {
 	}
 	const requestId = crypto.randomUUID();
 	context.locals.requestId = requestId;
+	const requestUrl = new URL(context.request.url);
+
+	// TEMPORARY DEBUGGING NOTE:
+	// Do not remove this block until the auth origin investigation is complete.
+	// This replaces Astro's built-in security.checkOrigin so blocked requests
+	// can be logged with header context in production while preserving CSRF checks.
+	if (ORIGIN_CHECK_METHODS.has(context.request.method)) {
+		const origin = context.request.headers.get("origin");
+		const contentType = context.request.headers.get("content-type");
+		const hasContentType = context.request.headers.has("content-type");
+		const formLikeContentType = hasFormLikeContentType(contentType);
+		const shouldEnforce = hasContentType ? formLikeContentType : true;
+		const isSameOrigin = origin === requestUrl.origin;
+		if (shouldEnforce && !isSameOrigin) {
+			if (
+				isAuthOriginDebugEnabled() &&
+				requestUrl.pathname.startsWith("/api/auth/")
+			) {
+				rootLogger.warn("Auth origin debug: blocked cross-site form request", {
+					requestId,
+					method: context.request.method,
+					pathname: requestUrl.pathname,
+					urlOrigin: requestUrl.origin,
+					headerHost: context.request.headers.get("host"),
+					headerOrigin: origin,
+					headerReferer: context.request.headers.get("referer"),
+					headerXForwardedHost: context.request.headers.get("x-forwarded-host"),
+					headerXForwardedProto:
+						context.request.headers.get("x-forwarded-proto"),
+					headerXForwardedPort: context.request.headers.get("x-forwarded-port"),
+					headerContentType: contentType,
+					headerSecFetchSite: context.request.headers.get("sec-fetch-site"),
+					hasContentType,
+					formLikeContentType,
+					shouldEnforce,
+					isSameOrigin,
+				});
+			}
+			return new Response(
+				`Cross-site ${context.request.method} form submissions are forbidden`,
+				{
+					status: 403,
+				},
+			);
+		}
+	}
+
+	if (
+		isAuthOriginDebugEnabled() &&
+		context.request.method === "POST" &&
+		requestUrl.pathname.startsWith("/api/auth/")
+	) {
+		rootLogger.info("Auth origin debug: request reached middleware", {
+			requestId,
+			method: context.request.method,
+			pathname: requestUrl.pathname,
+			urlOrigin: requestUrl.origin,
+			headerHost: context.request.headers.get("host"),
+			headerOrigin: context.request.headers.get("origin"),
+			headerReferer: context.request.headers.get("referer"),
+			headerXForwardedHost: context.request.headers.get("x-forwarded-host"),
+			headerXForwardedProto: context.request.headers.get("x-forwarded-proto"),
+			headerXForwardedPort: context.request.headers.get("x-forwarded-port"),
+			headerContentType: context.request.headers.get("content-type"),
+			headerSecFetchSite: context.request.headers.get("sec-fetch-site"),
+		});
+	}
 
 	const response = await next();
 	// Some platform responses expose immutable headers; if response.headers.set throws,

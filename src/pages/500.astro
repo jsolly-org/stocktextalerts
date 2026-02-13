@@ -4,7 +4,7 @@ import Navigation from "../components/Navigation.astro";
 import Layout from "../layouts/Layout.astro";
 ---
 <Layout title="500 - Server Error | StockTextAlerts" description="Something went wrong on our end." noindex>
-  <div class="min-h-screen bg-white flex flex-col">
+  <div class="min-h-screen bg-surface flex flex-col">
     <header>
       <Navigation />
     </header>
@@ -34,15 +34,15 @@ import Layout from "../layouts/Layout.astro";
         </div>
 
         <!-- 500 text -->
-        <h1 class="text-7xl sm:text-8xl font-extrabold text-gray-900 mb-4">
+        <h1 class="text-7xl sm:text-8xl font-extrabold text-heading mb-4">
           <span class="bg-linear-to-r from-error-strong to-red-400 bg-clip-text text-transparent">500</span>
         </h1>
         
-        <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">
+        <h2 class="text-2xl sm:text-3xl font-bold text-heading mb-4">
           Market Meltdown
         </h2>
         
-        <p class="text-gray-600 text-lg mb-8 max-w-md mx-auto">
+        <p class="text-body-secondary text-lg mb-8 max-w-md mx-auto">
           Our servers hit a circuit breaker. We're working to get things back online. Please try again in a moment.
         </p>
 
@@ -67,10 +67,10 @@ import Layout from "../layouts/Layout.astro";
         </script>
 
         <!-- Status note -->
-        <div class="mt-12 p-4 bg-gray-50 rounded-lg border border-gray-200 max-w-sm mx-auto">
+        <div class="mt-12 p-4 bg-surface-alt rounded-lg border border-edge max-w-sm mx-auto">
           <div class="flex items-start gap-3 text-left">
-            <Icon name="information-circle-20" class="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
-            <p class="text-sm text-gray-500">
+            <Icon name="information-circle-20" class="w-5 h-5 text-faint shrink-0 mt-0.5" />
+            <p class="text-sm text-muted">
               If this keeps happening, our team has already been notified and is looking into it.
             </p>
           </div>

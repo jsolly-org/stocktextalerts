@@ -35,11 +35,11 @@
 				<header class="mb-4">
 					<h2
 						:id="DASHBOARD_SECTION_IDS.preview"
-						class="text-xl sm:text-2xl font-bold text-gray-900"
+						class="text-xl sm:text-2xl font-bold text-heading"
 					>
 						Notification Preview
 					</h2>
-					<p class="text-sm text-gray-600 mt-1">
+					<p class="text-sm text-body-secondary mt-1">
 						Customize how your asset notifications look. Changes apply to both SMS and email.
 					</p>
 				</header>
@@ -77,7 +77,7 @@
 					<span class="sr-only">{{ label }}</span>
 				</button>
 			</nav>
-			<p class="preview-hint mt-3 mb-0 text-xs text-gray-500 italic text-center">
+			<p class="preview-hint mt-3 mb-0 text-xs text-muted italic text-center">
 				Swipe left or right to switch between SMS and email previews.
 			</p>
 		</div>
@@ -271,7 +271,7 @@ onBeforeUnmount(() => {
 	border: none;
 	padding: 0;
 	cursor: pointer;
-	background: #d1d5db; /* gray-300 */
+	background: var(--color-edge-strong);
 	transition: background-color 0.2s, transform 0.2s;
 }
 

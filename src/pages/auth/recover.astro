@@ -37,7 +37,7 @@ if (!hasValidToken) {
 }
 ---
 <Layout title="Reset Password" description="Set a new password for your StockTextAlerts account. Use the link from your reset email to choose a new password and regain access." noindex>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen bg-surface-alt">
     <header>
       <Navigation />
     </header>
@@ -46,17 +46,17 @@ if (!hasValidToken) {
       <div class="mb-6">
         <a
           href="/auth/signin"
-          class="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 font-medium"
+          class="inline-flex items-center text-sm text-body-secondary hover:text-heading font-medium"
         >
           <Icon name="arrow-left" class="w-4 h-4 mr-2" aria-hidden="true" />
           Back to Sign in
         </a>
       </div>
 
-      <div class="max-w-md mx-auto bg-white rounded-lg shadow-lg border border-gray-200 p-6 sm:p-8">
+      <div class="max-w-md mx-auto bg-surface rounded-lg shadow-lg border border-edge p-6 sm:p-8">
         <header>
-          <h1 class="text-2xl font-bold text-gray-900 mb-2">Set a new password</h1>
-          <p class="text-sm text-gray-600 mb-6">Choose a strong password for your account.</p>
+          <h1 class="text-2xl font-bold text-heading mb-2">Set a new password</h1>
+          <p class="text-sm text-body-secondary mb-6">Choose a strong password for your account.</p>
         </header>
 
         {message && (
@@ -69,7 +69,7 @@ if (!hasValidToken) {
             <fieldset class="space-y-4">
               <legend class="sr-only">Set a new password</legend>
               <div>
-                <label for="password" class="block text-sm font-medium text-gray-700 mb-2">New password</label>
+                <label for="password" class="block text-sm font-medium text-label mb-2">New password</label>
                 <input
                   type="password"
                   name="password"
@@ -80,10 +80,10 @@ if (!hasValidToken) {
                   placeholder="••••••••"
                   minlength="8"
                 />
-                <p class="text-sm text-gray-500 mt-1">Minimum 8 characters required</p>
+                <p class="text-sm text-muted mt-1">Minimum 8 characters required</p>
               </div>
               <div>
-                <label for="confirm" class="block text-sm font-medium text-gray-700 mb-2">Confirm password</label>
+                <label for="confirm" class="block text-sm font-medium text-label mb-2">Confirm password</label>
                 <input
                   type="password"
                   name="confirm"
@@ -94,7 +94,7 @@ if (!hasValidToken) {
                   placeholder="••••••••"
                   minlength="8"
                 />
-                <p class="text-sm text-gray-500 mt-1">Minimum 8 characters required</p>
+                <p class="text-sm text-muted mt-1">Minimum 8 characters required</p>
               </div>
             </fieldset>
             <button

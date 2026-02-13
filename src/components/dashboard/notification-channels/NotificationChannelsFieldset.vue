@@ -1,16 +1,16 @@
 <template>
 	<section :id="DASHBOARD_SECTION_IDS.notificationChannels" class="space-y-4">
 		<header>
-			<h2 class="text-xl sm:text-2xl font-bold text-gray-900">
+			<h2 class="text-xl sm:text-2xl font-bold text-heading">
 				Notification Channels
 			</h2>
-			<p :id="props.notificationChannelsDescId" class="text-sm text-gray-600 mt-1.5">
+			<p :id="props.notificationChannelsDescId" class="text-sm text-body-secondary mt-1.5">
 				Choose how you want to receive alerts.
 			</p>
 		</header>
 
 		<fieldset
-			class="divide-y divide-gray-200"
+			class="divide-y divide-edge"
 			:disabled="props.isSaving"
 			:aria-describedby="props.notificationChannelsDescId"
 		>
@@ -23,8 +23,8 @@
 					:value="emailEnabled ? 'on' : 'off'"
 				/>
 				<div>
-					<span :id="`${props.emailNotificationsEnabledId}_label`" class="text-sm font-medium text-gray-900">Email Notifications</span>
-					<span :id="`${props.emailNotificationsEnabledId}_desc`" class="block text-sm text-gray-500">
+					<span :id="`${props.emailNotificationsEnabledId}_label`" class="text-sm font-medium text-heading">Email Notifications</span>
+					<span :id="`${props.emailNotificationsEnabledId}_desc`" class="block text-sm text-muted">
 						Notifications are sent to your registered email.
 					</span>
 				</div>
@@ -45,8 +45,8 @@
 						:value="smsEnabled ? 'on' : 'off'"
 					/>
 					<div>
-						<span :id="`${props.smsNotificationsEnabledId}_label`" class="text-sm font-medium text-gray-900">SMS Notifications</span>
-						<span :id="`${props.smsNotificationsEnabledId}_desc`" class="block text-sm text-gray-500">
+						<span :id="`${props.smsNotificationsEnabledId}_label`" class="text-sm font-medium text-heading">SMS Notifications</span>
+						<span :id="`${props.smsNotificationsEnabledId}_desc`" class="block text-sm text-muted">
 							Notifications will be sent to a phone number you provide.
 						</span>
 					</div>

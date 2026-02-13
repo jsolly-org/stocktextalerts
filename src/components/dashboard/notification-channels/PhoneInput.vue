@@ -1,11 +1,11 @@
 <template>
 	<div data-autosave-ignore>
-		<label for="phone" class="block text-sm font-medium text-gray-700 mb-1">
+		<label for="phone" class="block text-sm font-medium text-label mb-1">
 			Phone Number
 		</label>
 		<div class="flex">
 			<div
-				class="group relative flex w-full rounded-lg border border-gray-300 focus-within:ring-2 focus-within:ring-primary focus-within:border-primary"
+				class="group relative flex w-full rounded-lg border border-edge-strong focus-within:ring-2 focus-within:ring-primary focus-within:border-primary"
 				:class="{
 					'border-error-strong ring-2 ring-error-strong': showError,
 					'border-success-strong ring-2 ring-success-strong': isValid && phoneNumber,
@@ -18,13 +18,13 @@
 					v-model="country"
 					autocomplete="country"
 					aria-label="Country"
-					class="w-full appearance-none rounded-l-lg py-2.5 pl-3 pr-8 text-base text-gray-500 focus:outline-none border-r border-gray-300 bg-white"
+					class="w-full appearance-none rounded-l-lg py-2.5 pl-3 pr-8 text-base text-muted focus:outline-none border-r border-edge-strong bg-surface"
 				>
 					<option value="US">+1</option>
 				</select>
 				<div class="absolute inset-y-0 right-1 flex items-center pointer-events-none">
 					<ChevronDownIcon
-						class="h-5 w-5 text-gray-500"
+						class="h-5 w-5 text-muted"
 						aria-hidden="true"
 					/>
 				</div>
@@ -42,7 +42,7 @@
 					@blur="validate"
 					:aria-describedby="showError ? 'phone-error' : undefined"
 					:aria-invalid="showError ? 'true' : undefined"
-					class="w-full min-w-0 rounded-r-lg py-2.5 px-3 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none"
+					class="w-full min-w-0 rounded-r-lg py-2.5 px-3 text-base text-heading placeholder:text-faint focus:outline-none"
 					:placeholder="computedPlaceholder"
 					name="phone"
 					:required="isRequired"

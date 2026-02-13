@@ -32,7 +32,7 @@ if (success === "true") {
 }
 ---
 <Layout title="Forgot Password | StockTextAlerts" description="Request a password reset email for your StockTextAlerts account. Enter your email to receive a secure link to set a new password." noindex>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen bg-surface-alt">
     <header>
       <Navigation />
     </header>
@@ -45,11 +45,11 @@ if (success === "true") {
         </a>
       </div>
 
-      <div class="max-w-md mx-auto bg-white rounded-lg shadow-lg border border-gray-200 p-6 sm:p-8">
+      <div class="max-w-md mx-auto bg-surface rounded-lg shadow-lg border border-edge p-6 sm:p-8">
         <header>
-          <h1 class="text-2xl font-bold text-gray-900 mb-2">Forgot your password?</h1>
-          <p class="text-sm text-gray-600 mb-4">Enter the email address associated with your StockTextAlerts account and we'll send you a secure link to reset your password.</p>
-          <p class="text-sm text-gray-600 mb-6">The reset link will expire after 24 hours for security. If you don't receive the email within a few minutes, check your spam folder or try again.</p>
+          <h1 class="text-2xl font-bold text-heading mb-2">Forgot your password?</h1>
+          <p class="text-sm text-body-secondary mb-4">Enter the email address associated with your StockTextAlerts account and we'll send you a secure link to reset your password.</p>
+          <p class="text-sm text-body-secondary mb-6">The reset link will expire after 24 hours for security. If you don't receive the email within a few minutes, check your spam folder or try again.</p>
         </header>
 
         {message && messageType && (
@@ -63,7 +63,7 @@ if (success === "true") {
         <form class="space-y-4" action="/api/auth/email/forgot-password" method="post" id="forgot-form">
           <fieldset>
             <legend class="sr-only">Reset email</legend>
-            <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+            <label for="email" class="block text-sm font-medium text-label mb-2">Email</label>
             <EmailInput
               client:load
               type="email"

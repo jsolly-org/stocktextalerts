@@ -36,27 +36,27 @@
 		<header class="mb-4">
 			<h2
 				:id="DASHBOARD_SECTION_IDS.assetEvents"
-				class="text-xl sm:text-2xl font-bold text-gray-900 transition-opacity duration-200"
+				class="text-xl sm:text-2xl font-bold text-heading transition-opacity duration-200"
 				:class="{ 'opacity-50': needsChannelSelection }"
 			>
 				Asset Events
 			</h2>
 			<p
 				v-if="assetEventsDeliveryTimeLabel"
-				class="text-sm text-gray-600 mt-1 transition-opacity duration-200"
+				class="text-sm text-body-secondary mt-1 transition-opacity duration-200"
 				:class="{ 'opacity-50': needsChannelSelection }"
 			>
 				<span class="inline-flex items-center gap-1.5">
-					<ClockIcon class="size-4 shrink-0 text-gray-400" aria-hidden="true" />
+					<ClockIcon class="size-4 shrink-0 text-faint" aria-hidden="true" />
 					<span>
 						Delivered daily at
-						<span class="font-medium text-gray-700">{{ assetEventsDeliveryTimeLabel }}</span>
-						<span v-if="assetEventsTimezoneLabel" class="text-gray-500"> ({{ assetEventsTimezoneLabel }})</span>
+						<span class="font-medium text-label">{{ assetEventsDeliveryTimeLabel }}</span>
+						<span v-if="assetEventsTimezoneLabel" class="text-muted"> ({{ assetEventsTimezoneLabel }})</span>
 					<template v-if="hasDailyDeliveryTime">
 						— synced with your
 						<button
 							type="button"
-							class="font-medium text-gray-700 underline decoration-gray-400 underline-offset-2 cursor-pointer hover:text-gray-900 hover:decoration-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 rounded transition-colors"
+							class="font-medium text-label underline decoration-faint underline-offset-2 cursor-pointer hover:text-heading hover:decoration-body-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 rounded transition-colors"
 							@click="scrollToDailyNotifications"
 						>daily delivery time</button>.
 					</template>
@@ -64,7 +64,7 @@
 						— set your
 						<button
 							type="button"
-							class="font-medium text-gray-700 underline decoration-gray-400 underline-offset-2 cursor-pointer hover:text-gray-900 hover:decoration-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 rounded transition-colors"
+							class="font-medium text-label underline decoration-faint underline-offset-2 cursor-pointer hover:text-heading hover:decoration-body-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 rounded transition-colors"
 							@click="scrollToDailyNotifications"
 						>daily delivery time</button>
 						to change.
@@ -87,7 +87,7 @@
 				class="flex items-center justify-between gap-3 px-4 transition-opacity duration-200"
 				:class="{ 'opacity-50': needsChannelSelection }"
 			>
-				<span class="text-xs font-semibold uppercase tracking-wider text-gray-400 select-none">Select all</span>
+				<span class="text-xs font-semibold uppercase tracking-wider text-faint select-none">Select all</span>
 				<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
 					<label class="inline-flex items-center gap-1.5" :class="needsChannelSelection ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'">
 						<input
@@ -95,12 +95,12 @@
 							type="checkbox"
 							:checked="allEmailChecked"
 							:disabled="needsChannelSelection"
-							class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4"
+							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
 							:class="needsChannelSelection ? 'cursor-not-allowed' : 'cursor-pointer'"
 							aria-label="Select all Email"
 							@change="toggleAllEmail"
 						/>
-						<span class="text-sm font-medium text-gray-600">Email</span>
+						<span class="text-sm font-medium text-body-secondary">Email</span>
 					</label>
 					<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
 						<input
@@ -108,12 +108,12 @@
 							type="checkbox"
 							:checked="allSmsChecked"
 							:disabled="needsChannelSelection || !smsReady"
-							class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4"
+							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
 							:class="smsReady ? 'cursor-pointer' : 'cursor-not-allowed'"
 							aria-label="Select all SMS"
 							@change="toggleAllSms"
 						/>
-						<span class="text-sm font-medium text-gray-600">SMS</span>
+						<span class="text-sm font-medium text-body-secondary">SMS</span>
 					</label>
 				</div>
 			</div>
@@ -121,7 +121,7 @@
 			<div
 				v-for="eventType in ASSET_EVENT_TYPES"
 				:key="eventType.key"
-				class="rounded-xl border border-gray-200 bg-white p-4 transition-opacity duration-200"
+				class="rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200"
 				:class="{ 'opacity-50': needsChannelSelection }"
 			>
 			<div class="flex items-center justify-between gap-3">
@@ -139,7 +139,7 @@
 					<div class="flex items-center gap-2">
 						<span
 							:id="`asset_events_${eventType.key}_label`"
-							class="text-base font-semibold text-gray-900"
+							class="text-base font-semibold text-heading"
 						>
 							{{ eventType.label }}
 						</span>
@@ -148,11 +148,11 @@
 					</div>
 					<p
 						:id="`asset_events_${eventType.key}_description`"
-						class="text-sm text-gray-600 mt-0.5"
+						class="text-sm text-body-secondary mt-0.5"
 					>
 						<template v-if="eventType.key === 'insider' || eventType.key === 'analyst'">
 							{{ eventType.description }}
-							<span class="text-gray-400"> Stocks only.</span>
+							<span class="text-faint"> Stocks only.</span>
 						</template>
 						<template v-else>
 							{{ eventType.description }}
@@ -165,34 +165,34 @@
 							type="checkbox"
 							v-model="assetEventRefs[eventType.key].email.value"
 							:disabled="needsChannelSelection"
-							class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4"
+							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
 							:class="needsChannelSelection ? 'cursor-not-allowed' : 'cursor-pointer'"
 							:aria-label="`${eventType.label} Email`"
 							:aria-describedby="`asset_events_${eventType.key}_description`"
 						/>
-						<span class="text-sm text-gray-700">Email</span>
+						<span class="text-sm text-label">Email</span>
 					</label>
 					<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
 						<input
 							type="checkbox"
 							v-model="assetEventRefs[eventType.key].sms.value"
 							:disabled="needsChannelSelection || !smsReady"
-							class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4"
+							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
 							:class="smsReady ? 'cursor-pointer' : 'cursor-not-allowed'"
 							:aria-label="`${eventType.label} SMS`"
 							:aria-describedby="`asset_events_${eventType.key}_description`"
 						/>
-						<span class="text-sm text-gray-700">SMS</span>
+						<span class="text-sm text-label">SMS</span>
 					</label>
 				</div>
 			</div>
 		</div>
 		</div>
 
-		<div v-if="isHydrated && assetEventsEnabled && nextAssetEventsDeliveryText" class="mt-4 rounded-xl border border-gray-200 bg-white p-4 transition-opacity duration-200" :class="{ 'opacity-50': needsChannelSelection }">
-			<p class="inline-flex items-center gap-2 text-sm text-gray-600">
+		<div v-if="isHydrated && assetEventsEnabled && nextAssetEventsDeliveryText" class="mt-4 rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200" :class="{ 'opacity-50': needsChannelSelection }">
+			<p class="inline-flex items-center gap-2 text-sm text-body-secondary">
 				<BellAlertIcon class="size-4 shrink-0 text-success-strong" aria-hidden="true" />
-				<span>Next delivery <span class="font-medium text-gray-900">{{ nextAssetEventsDeliveryText }}</span>.</span>
+				<span>Next delivery <span class="font-medium text-heading">{{ nextAssetEventsDeliveryText }}</span>.</span>
 			</p>
 		</div>
 

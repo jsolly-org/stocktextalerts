@@ -2,7 +2,7 @@
 	<fieldset
 		data-autosave-ignore
 		:class="[
-			'divide-y divide-gray-100 transition-opacity duration-200',
+			'divide-y divide-divider transition-opacity duration-200',
 			{ 'opacity-50': needsChannelSelection },
 		]"
 		:aria-disabled="needsChannelSelection ? 'true' : 'false'"
@@ -11,9 +11,9 @@
 
 		<div class="py-3">
 			<fieldset class="grid gap-3">
-				<legend class="block text-base font-semibold text-gray-900 mb-1">
+				<legend class="block text-base font-semibold text-heading mb-1">
 					Delivery times
-					<span class="block text-sm font-normal text-gray-600 mt-0.5">Choose up to 5 time slots.</span>
+					<span class="block text-sm font-normal text-body-secondary mt-0.5">Choose up to 5 time slots.</span>
 				</legend>
 				<input
 					type="hidden"
@@ -94,10 +94,10 @@
 		</div>
 	</fieldset>
 
-	<div v-if="!needsChannelSelection && isHydrated && countdownText" class="mt-4 border-t border-gray-200 pt-4">
-		<p class="inline-flex items-center gap-2 text-sm text-gray-600">
+	<div v-if="!needsChannelSelection && isHydrated && countdownText" class="mt-4 border-t border-edge pt-4">
+		<p class="inline-flex items-center gap-2 text-sm text-body-secondary">
 			<BellAlertIcon class="size-4 shrink-0 text-success-strong" aria-hidden="true" />
-			<span>Next delivery <span class="font-medium text-gray-900">{{ countdownText }}</span></span>
+			<span>Next delivery <span class="font-medium text-heading">{{ countdownText }}</span></span>
 		</p>
 	</div>
 </template>

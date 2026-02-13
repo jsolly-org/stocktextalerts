@@ -5,7 +5,7 @@
 			{{ formatMessage(props.successMessage) }}
 		</StatusMessage>
 		<div class="space-y-2">
-			<p v-if="!isExpired" class="text-sm text-gray-700">
+			<p v-if="!isExpired" class="text-sm text-label">
 				We sent a verification code to your phone.
 			</p>
 			<div class="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -35,7 +35,7 @@
 					</span>
 				</button>
 				<div class="flex items-center gap-2">
-					<span class="text-sm text-gray-700">
+					<span class="text-sm text-label">
 						{{ formattedPhone }}
 					</span>
 					<a
@@ -47,7 +47,7 @@
 					</a>
 				</div>
 			</div>
-			<p v-if="verificationSentAt && !isExpired" class="text-sm text-gray-600">
+			<p v-if="verificationSentAt && !isExpired" class="text-sm text-body-secondary">
 				Code expires in {{ formatRemaining(expirationRemaining) }}.
 			</p>
 			<StatusMessage v-else-if="verificationSentAt" tone="warning">
@@ -66,7 +66,7 @@
 				:formSubmitted="formSubmitted"
 				@input="handleOtpInput"
 			/>
-			<p v-if="isVerifyingCode" class="text-sm text-gray-700 flex items-center gap-2">
+			<p v-if="isVerifyingCode" class="text-sm text-label flex items-center gap-2">
 				<ArrowPathIcon class="animate-spin size-4 shrink-0" aria-hidden="true" />
 				<span>Verifying…</span>
 			</p>

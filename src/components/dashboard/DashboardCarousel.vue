@@ -225,8 +225,8 @@ onUnmounted(() => {
 	justify-content: space-around;
 	align-items: center;
 	padding: 0.5rem 0;
-	border-bottom: 1px solid var(--color-gray-200, #e5e7eb);
-	background: white;
+	border-bottom: 1px solid var(--color-edge);
+	background: var(--color-surface);
 	flex-shrink: 0;
 }
 
@@ -236,7 +236,7 @@ onUnmounted(() => {
 	justify-content: center;
 	padding: 0.5rem;
 	border-radius: 0.5rem;
-	color: var(--color-gray-400, #9ca3af);
+	color: var(--color-faint);
 	transition: color 0.15s, background-color 0.15s;
 	position: relative;
 	cursor: pointer;
@@ -245,14 +245,14 @@ onUnmounted(() => {
 }
 
 .carousel-tab:hover {
-	color: var(--color-gray-600, #4b5563);
-	background-color: var(--color-gray-100, #f3f4f6);
+	color: var(--color-body-secondary);
+	background-color: var(--color-surface-active);
 }
 
 .carousel-tab:focus-visible {
 	outline: 2px solid var(--color-primary, #2563eb);
 	outline-offset: -2px;
-	color: var(--color-gray-700, #374151);
+	color: var(--color-label);
 }
 
 .carousel-tab--active {
