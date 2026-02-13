@@ -72,7 +72,7 @@ const formattedSmsText = computed(() =>
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 0.75rem 1rem 0.4rem;
+	padding: 0.4rem 1rem 0.4rem;
 	font-size: 0.75rem;
 	font-weight: 600;
 	color: #0f172a;
