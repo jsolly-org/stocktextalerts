@@ -22,7 +22,7 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - **UI**: Vue 3 components with Tailwind CSS
 - **Icons**: Local SVGs in `/src/icons` loaded via `astro-icon` in `.astro` files; Vue components import SVGs via `vite-svg-loader` using the `?component` suffix
 - **Database**: Supabase (PostgreSQL)
-- **Market Data**: Finnhub (prices, market hours, earnings, analyst/insider extras)
+- **Market Data**: Polygon (prices, earnings/dividends/splits) + Finnhub (market hours, analyst/insider extras)
 - **AI Summaries**: xAI (Grok) for optional News/Rumors add-ons and asset price alert summaries
 - **Email**: Resend
 - **SMS**: Twilio Verify API + Messaging API
@@ -44,6 +44,7 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - Docker (Docker Desktop or Docker Engine)
 - Supabase account
 - Twilio account with Verify API enabled
+- Polygon account (API key)
 - Finnhub account (API key)
 - xAI account (optional, only needed for News/Rumors add-ons)
 - Vercel account (for deployment and cron jobs)
@@ -105,7 +106,10 @@ CRON_SECRET=your-random-secret-string
 
 EMAIL_FROM=notifications@updates.example.com
 
-# Finnhub (asset prices / market hours)
+# Polygon (asset prices / earnings / dividends / splits)
+POLYGON_API_KEY=your-polygon-api-key
+
+# Finnhub (market hours / symbol search / analyst/insider extras)
 FINNHUB_API_KEY=your-finnhub-api-key
 
 # xAI (Grok) - optional, only needed for News/Rumors add-ons
@@ -124,6 +128,7 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - `DATABASE_URL`: Supabase Dashboard → Project Settings → Database → Connection String → Transaction mode (pooler)
 - Twilio credentials: Twilio Console → Account Dashboard
 - `CRON_SECRET`: Generate a random string (e.g., `openssl rand -hex 32`)
+- Polygon credentials: Polygon.io Dashboard → API Keys
 - Finnhub credentials: Finnhub Dashboard → API Keys
 - xAI credentials: xAI Console → API Keys
 - LOG masking: optional, defaults to true
@@ -280,8 +285,8 @@ The cron job calls `/api/schedule` and must include:
 - `Authorization: Bearer <CRON_SECRET>`
 
 The cron job:
-1. Runs asset price alerts during US market hours
-2. Runs scheduled asset price notifications (batched price fetching)
+1. Runs asset price alerts during US market hours (Polygon snapshot quotes)
+2. Runs scheduled asset price notifications (batched via Polygon snapshot quotes)
 3. Sends asset events notifications (earnings/dividends/splits/analyst/insider) at the user’s daily delivery time
 4. Sends daily digest notifications (News/Rumors) at the user’s chosen daily time
 5. Sends via email and/or SMS based on settings and logs attempts to the `notification_log` table
