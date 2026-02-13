@@ -35,14 +35,14 @@
 			<header class="mb-4">
 				<h2
 					:id="DASHBOARD_SECTION_IDS.dailyNotifications"
-					class="text-xl sm:text-2xl font-bold text-gray-900"
+					class="text-xl sm:text-2xl font-bold text-heading"
 				>
 					Daily Digest
 				</h2>
 			<p
-				class="text-sm text-gray-600 mt-1"
+				class="text-sm text-body-secondary mt-1"
 			>
-				Everything you enable below is bundled into <strong class="font-semibold text-gray-700">one daily message</strong> sent at the time you choose.
+				Everything you enable below is bundled into <strong class="font-semibold text-label">one daily message</strong> sent at the time you choose.
 			</p>
 			</header>
 
@@ -64,7 +64,7 @@
 			</FadeTransition>
 
 	<fieldset
-			class="divide-y divide-gray-100 transition-opacity duration-200"
+			class="divide-y divide-divider transition-opacity duration-200"
 				:class="{ 'opacity-50': needsChannelSelection }"
 				:disabled="isSaving"
 				:aria-disabled="needsChannelSelection ? 'true' : undefined"
@@ -75,13 +75,13 @@
 				<div class="min-w-0">
 					<span
 						id="daily_digest_time_label"
-						class="text-base font-semibold text-gray-900"
+						class="text-base font-semibold text-heading"
 					>
 						Delivery time
 					</span>
 					<p
 						id="daily_digest_time_description"
-						class="text-sm text-gray-600 mt-0.5"
+						class="text-sm text-body-secondary mt-0.5"
 					>
 						Sent once every day.
 					</p>
@@ -124,16 +124,17 @@
 					<div class="flex items-center gap-2">
 						<span
 							id="daily_digest_include_news_label"
-								class="text-base font-semibold text-gray-900"
+								class="text-base font-semibold text-heading"
 							>
 								🗞️ News
 							</span>
-							<GrokLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Grok" role="img" />
-							<FinnhubLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Finnhub" role="img" />
+							<GrokLogoLightIcon class="h-4.5 w-auto shrink-0 dark:hidden" aria-label="Powered by Grok" role="img" />
+							<GrokLogoDarkIcon class="hidden h-4.5 w-auto shrink-0 dark:inline" aria-label="Powered by Grok" role="img" />
+						<FinnhubLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Finnhub" role="img" />
 						</div>
 						<p
 							id="daily_digest_include_news_description"
-							class="text-sm text-gray-600 mt-0.5"
+							class="text-sm text-body-secondary mt-0.5"
 						>
 							Add a short news summary about the assets you're tracking.
 						</p>
@@ -144,11 +145,11 @@
 							type="checkbox"
 							v-model="includeNewsEmail"
 							:disabled="emailOnlyDisabled"
-							class="rounded border-gray-300 text-teal-600 focus:ring-teal-500 h-4 w-4"
+							class="rounded border-edge-strong text-teal-600 focus:ring-teal-500 h-4 w-4"
 							:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
 							aria-describedby="daily_digest_include_news_description"
 						/>
-						<span class="text-sm text-gray-700">Email</span>
+						<span class="text-sm text-label">Email</span>
 					</label>
 				</div>
 				</div>
@@ -163,15 +164,16 @@
 					<div class="flex items-center gap-2">
 						<span
 							id="daily_digest_include_rumors_label"
-								class="text-base font-semibold text-gray-900"
+								class="text-base font-semibold text-heading"
 							>
 								🤫 Rumors
 							</span>
-							<GrokLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Grok" role="img" />
-						</div>
+							<GrokLogoLightIcon class="h-4.5 w-auto shrink-0 dark:hidden" aria-label="Powered by Grok" role="img" />
+							<GrokLogoDarkIcon class="hidden h-4.5 w-auto shrink-0 dark:inline" aria-label="Powered by Grok" role="img" />
+					</div>
 						<p
 							id="daily_digest_include_rumors_description"
-							class="text-sm text-gray-600 mt-0.5"
+							class="text-sm text-body-secondary mt-0.5"
 						>
 							Add a short rumors/chatter summary about the assets you're tracking.
 						</p>
@@ -182,21 +184,21 @@
 							type="checkbox"
 							v-model="includeRumorsEmail"
 							:disabled="emailOnlyDisabled"
-							class="rounded border-gray-300 text-teal-600 focus:ring-teal-500 h-4 w-4"
+							class="rounded border-edge-strong text-teal-600 focus:ring-teal-500 h-4 w-4"
 							:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
 							aria-describedby="daily_digest_include_rumors_description"
 						/>
-						<span class="text-sm text-gray-700">Email</span>
+						<span class="text-sm text-label">Email</span>
 					</label>
 				</div>
 				</div>
 
 				</fieldset>
 
-				<div v-if="isHydrated && nextDailyDeliveryText" class="mt-4 border-t border-gray-200 pt-4">
-					<p class="inline-flex items-center gap-2 text-sm text-gray-600">
+				<div v-if="isHydrated && nextDailyDeliveryText" class="mt-4 border-t border-edge pt-4">
+					<p class="inline-flex items-center gap-2 text-sm text-body-secondary">
 						<BellAlertIcon class="size-4 shrink-0 text-success-strong" aria-hidden="true" />
-						<span>Next delivery <span class="font-medium text-gray-900">{{ nextDailyDeliveryText }}</span>.</span>
+						<span>Next delivery <span class="font-medium text-heading">{{ nextDailyDeliveryText }}</span>.</span>
 					</p>
 				</div>
 			</div>
@@ -211,7 +213,8 @@ import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 import FinnhubLogoIcon from "../../../icons/finnhub.svg?component";
-import GrokLogoIcon from "../../../icons/grok.svg?component";
+import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
+import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
 import InformationCircleIcon from "../../../icons/information-circle-20.svg?component";
 import PresentationChartLineIcon from "../../../icons/presentation-chart-line.svg?component";
 import {

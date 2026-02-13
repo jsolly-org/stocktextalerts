@@ -34,15 +34,15 @@ const user = dbUser;
 const initialAssets = userAssets.map((asset) => ({ symbol: asset.symbol, name: asset.name, type: asset.type }));
 ---
 <Layout title="Dashboard" description="Review and manage your asset notifications. Add or remove tracked assets, set your delivery schedule, and choose email or SMS delivery." noindex>
-	<div class="min-h-screen bg-gray-50">
+	<div class="min-h-screen bg-surface-alt">
 		<header>
 			<Navigation user={authUser} />
 		</header>
 
 		<main id="main-content" class="max-w-4xl mx-auto px-0 py-0 md:px-6 md:py-12">
 			<header class="mb-8 hidden md:block">
-				<h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
-				<p class="mt-2 text-sm text-gray-600">
+				<h1 class="text-2xl sm:text-3xl font-bold text-heading">Dashboard</h1>
+				<p class="mt-2 text-sm text-body-secondary">
 					Manage your alert channels, tracked assets, and delivery schedule.
 				</p>
 			</header>

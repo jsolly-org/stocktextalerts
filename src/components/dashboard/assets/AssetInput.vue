@@ -26,11 +26,11 @@
 			id="asset_dropdown"
 			v-show="showDropdown && (searchQuery.length >= 1 || searchResults.length > 0)"
 			role="listbox"
-			class="absolute z-50 w-full mt-1 bg-white shadow-lg rounded-lg border border-gray-200 max-h-60 overflow-auto"
+			class="absolute z-50 w-full mt-1 bg-surface shadow-lg rounded-lg border border-edge max-h-60 overflow-auto"
 		>
 			<li
 				v-if="isSearching"
-				class="px-4 py-2 text-sm text-gray-500"
+				class="px-4 py-2 text-sm text-muted"
 				role="option"
 				aria-disabled="true"
 			>
@@ -38,7 +38,7 @@
 			</li>
 			<li
 				v-else-if="searchResults.length === 0 && searchQuery.length >= 1"
-				class="px-4 py-2 text-sm text-gray-500"
+				class="px-4 py-2 text-sm text-muted"
 				role="option"
 				aria-disabled="true"
 			>
@@ -60,8 +60,8 @@
 						class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium shrink-0"
 						:class="
 							result.type === 'etf'
-								? 'bg-purple-100 text-purple-700'
-								: 'bg-blue-100 text-blue-700'
+								? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
+								: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
 						"
 					>
 						{{ result.type === "etf" ? "ETF" : "Stock" }}

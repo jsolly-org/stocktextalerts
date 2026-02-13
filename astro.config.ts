@@ -82,6 +82,18 @@ export default defineConfig({
 	}),
 
 	site,
+	security: {
+		// TEMPORARY DEBUGGING NOTE:
+		// Keep this disabled until the auth origin investigation is complete.
+		// Origin enforcement currently lives in src/middleware.ts so we can log
+		// header context for blocked requests in production.
+		checkOrigin: false,
+		allowedDomains: [
+			{ protocol: "https", hostname: "stocktextalerts.com" },
+			{ protocol: "https", hostname: "www.stocktextalerts.com" },
+			{ protocol: "https", hostname: "**.jsollys-projects.vercel.app" },
+		],
+	},
 
 	trailingSlash: "never",
 

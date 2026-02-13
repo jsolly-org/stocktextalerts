@@ -5,11 +5,11 @@
 			:id="phoneVerificationSectionId"
 			class="pb-3 space-y-3"
 		>
-			<p v-if="user.phone_verified && !isEditingPhone" class="flex items-center gap-1.5 text-sm text-gray-600">
+			<p v-if="user.phone_verified && !isEditingPhone" class="flex items-center gap-1.5 text-sm text-body-secondary">
 				<CheckCircleIcon class="size-4 text-success-strong shrink-0" aria-hidden="true" />
 				<span class="sr-only">Phone verified: </span>
 				<span>{{ formattedVerifiedPhone }}</span>
-				<span class="text-gray-400 mx-0.5" aria-hidden="true">·</span>
+				<span class="text-faint mx-0.5" aria-hidden="true">·</span>
 				<button
 					type="button"
 					class="link-action"

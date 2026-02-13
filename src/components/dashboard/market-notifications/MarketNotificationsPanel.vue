@@ -36,13 +36,13 @@
 		<header class="mb-4">
 			<h2
 					:id="DASHBOARD_SECTION_IDS.marketNotifications"
-					class="text-xl sm:text-2xl font-bold text-gray-900 transition-opacity duration-200"
+					class="text-xl sm:text-2xl font-bold text-heading transition-opacity duration-200"
 					:class="{ 'opacity-50': needsChannelSelection }"
 				>
 					Market Notifications
 				</h2>
 			<p
-				class="text-sm text-gray-600 mt-1"
+				class="text-sm text-body-secondary mt-1"
 			>
 				Configure market-related notifications for your tracked assets during trading hours.
 			</p>
@@ -55,7 +55,7 @@
 			/>
 
 			<div
-				class="rounded-xl border border-gray-200 bg-white p-4 transition-opacity duration-200"
+				class="rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200"
 				:class="{ 'opacity-50': needsChannelSelection }"
 			>
 				<div class="flex items-center justify-between gap-3">
@@ -77,11 +77,11 @@
 					<div class="min-w-0">
 						<span
 							id="market_scheduled_asset_price_enabled_label"
-							class="text-base font-semibold text-gray-900"
+							class="text-base font-semibold text-heading"
 						>
 							Scheduled Asset Price Notifications
 						</span>
-						<p id="market_scheduled_asset_price_enabled_description" class="text-sm text-gray-600 mt-0.5">
+						<p id="market_scheduled_asset_price_enabled_description" class="text-sm text-body-secondary mt-0.5">
 							Scheduled asset price updates for all tracked assets, including ETFs.
 						</p>
 					</div>
@@ -91,27 +91,27 @@
 								type="checkbox"
 								v-model="marketIncludeEmail"
 								:disabled="needsChannelSelection || !emailEnabled"
-								class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
 								aria-describedby="market_scheduled_asset_price_enabled_description"
 							/>
-							<span class="text-sm text-gray-700">Email</span>
+							<span class="text-sm text-label">Email</span>
 						</label>
 						<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : needsChannelSelection ? 'cursor-not-allowed' : 'cursor-not-allowed opacity-50'">
 							<input
 								type="checkbox"
 								v-model="marketIncludeSms"
 								:disabled="needsChannelSelection || !smsReady"
-								class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
 								aria-describedby="market_scheduled_asset_price_enabled_description"
 							/>
-							<span class="text-sm text-gray-700">SMS</span>
+							<span class="text-sm text-label">SMS</span>
 						</label>
 					</div>
 				</div>
 
 				<FadeTransition>
-					<div v-if="marketNotificationsEnabled" class="mt-3 border-t border-gray-100 pt-3 pl-3 sm:pl-4">
-						<p class="text-sm text-gray-600 mb-3">
+					<div v-if="marketNotificationsEnabled" class="mt-3 border-t border-divider pt-3 pl-3 sm:pl-4">
+						<p class="text-sm text-body-secondary mb-3">
 							Delivery times for scheduled asset price notifications.
 						</p>
 
@@ -148,7 +148,7 @@
 			</div>
 
 			<div
-				class="mt-4 rounded-xl border border-gray-200 bg-white p-4 transition-opacity duration-200"
+				class="mt-4 rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200"
 				:class="{ 'opacity-50': needsChannelSelection }"
 			>
 				<div class="flex items-center justify-between gap-3">
@@ -175,11 +175,11 @@
 					<div class="min-w-0">
 						<span
 							id="market_asset_price_alerts_enabled_label"
-							class="text-base font-semibold text-gray-900"
+							class="text-base font-semibold text-heading"
 						>
 							Asset Price Alerts
 						</span>
-						<p id="market_asset_price_alerts_enabled_description" class="text-sm text-gray-600 mt-0.5">
+						<p id="market_asset_price_alerts_enabled_description" class="text-sm text-body-secondary mt-0.5">
 							Immediate alerts for significant price movement. Alerts may include related headlines and a brief AI summary when available.
 						</p>
 						<details class="mt-2 group">
@@ -206,32 +206,32 @@
 								type="checkbox"
 								v-model="priceAlertsIncludeEmail"
 								:disabled="needsChannelSelection || !emailEnabled"
-								class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
 								aria-describedby="market_asset_price_alerts_enabled_description"
 							/>
-							<span class="text-sm text-gray-700">Email</span>
+							<span class="text-sm text-label">Email</span>
 						</label>
 						<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : needsChannelSelection ? 'cursor-not-allowed' : 'cursor-not-allowed opacity-50'">
 							<input
 								type="checkbox"
 								v-model="priceAlertsIncludeSms"
 								:disabled="needsChannelSelection || !smsReady"
-								class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
 								aria-describedby="market_asset_price_alerts_enabled_description"
 							/>
-							<span class="text-sm text-gray-700">SMS</span>
+							<span class="text-sm text-label">SMS</span>
 						</label>
 					</div>
 				</div>
 
 				<FadeTransition>
-					<div v-if="priceAlertsEnabled" class="mt-3 border-t border-gray-100 pt-3 pl-3 sm:pl-4">
+					<div v-if="priceAlertsEnabled" class="mt-3 border-t border-divider pt-3 pl-3 sm:pl-4">
 						<fieldset :disabled="needsChannelSelection">
-							<legend class="text-sm font-medium text-gray-700 mb-2">
+							<legend class="text-sm font-medium text-label mb-2">
 								Price Sensitivity
 							</legend>
 							<div
-								class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5"
+								class="inline-flex rounded-lg border border-edge bg-surface-alt p-0.5"
 								role="radiogroup"
 								aria-label="Alert sensitivity level"
 							>
@@ -241,8 +241,8 @@
 									class="relative cursor-pointer rounded-md px-3.5 py-1.5 text-sm font-medium transition-all duration-150 select-none focus-within:z-10 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:ring-offset-1"
 									:class="
 										priceAlertSensitivity === option.value
-											? 'bg-white text-gray-900 shadow-sm border border-gray-200'
-											: 'text-gray-500 hover:text-gray-700 border border-transparent'
+											? 'bg-surface text-heading shadow-sm border border-edge'
+											: 'text-muted hover:text-label border border-transparent'
 									"
 								>
 									<input
@@ -255,7 +255,7 @@
 									{{ option.label }}
 								</label>
 							</div>
-						<p class="mt-2 text-xs" :class="isAggressivePriceSensitivity ? 'text-amber-600' : 'text-gray-500'">
+						<p class="mt-2 text-xs" :class="isAggressivePriceSensitivity ? 'text-amber-600' : 'text-muted'">
 							<span v-if="isAggressivePriceSensitivity" class="inline-flex items-start gap-1">
 								<svg class="mt-px h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
 									<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />

@@ -1,5 +1,5 @@
 <template>
-	<fieldset class="divide-y divide-gray-100" :disabled="disabled">
+	<fieldset class="divide-y divide-divider" :disabled="disabled">
 		<legend class="sr-only">Format preferences</legend>
 
 		<div class="flex items-center justify-between gap-3 py-3">
@@ -11,11 +11,11 @@
 			<div class="min-w-0">
 				<span
 					id="show_change_percent_label"
-					class="text-base font-semibold text-gray-900"
+					class="text-base font-semibold text-heading"
 				>
 					Show Daily Change %
 				</span>
-				<p id="show_change_percent_description" class="text-sm text-gray-600 mt-0.5">
+				<p id="show_change_percent_description" class="text-sm text-body-secondary mt-0.5">
 					Include the day's gain or loss percentage next to each asset price.
 				</p>
 			</div>
@@ -36,11 +36,11 @@
 			<div class="min-w-0">
 				<span
 					id="show_company_name_label"
-					class="text-base font-semibold text-gray-900"
+					class="text-base font-semibold text-heading"
 				>
 					Show Company Name
 				</span>
-				<p id="show_company_name_description" class="text-sm text-gray-600 mt-0.5">
+				<p id="show_company_name_description" class="text-sm text-body-secondary mt-0.5">
 					Include the full company name next to the ticker symbol.
 				</p>
 			</div>
@@ -61,11 +61,11 @@
 			<div class="min-w-0">
 				<span
 					id="detailed_format_label"
-					class="text-base font-semibold text-gray-900"
+					class="text-base font-semibold text-heading"
 				>
 					Detailed Format
 				</span>
-				<p id="detailed_format_description" class="text-sm text-gray-600 mt-0.5">
+				<p id="detailed_format_description" class="text-sm text-body-secondary mt-0.5">
 					Add extra spacing between assets for easier reading.
 				</p>
 			</div>

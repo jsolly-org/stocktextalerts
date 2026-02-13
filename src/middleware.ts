@@ -1,4 +1,12 @@
 import { defineMiddleware } from "astro:middleware";
+import { rootLogger } from "./lib/logging";
+
+const ORIGIN_CHECK_METHODS = new Set(["POST", "PATCH", "DELETE", "PUT"]);
+const FORM_CONTENT_TYPES = [
+	"application/x-www-form-urlencoded",
+	"multipart/form-data",
+	"text/plain",
+];
 
 const REQUIRED_ENV_VARS = [
 	"SUPABASE_URL",
@@ -22,15 +30,54 @@ const metaEnv = import.meta.env as unknown as Record<
 	string | undefined
 >;
 
+/**
+ * Read an environment variable from the runtime environment.
+ *
+ * Prefers `import.meta.env` (Vite/Astro build/runtime) and falls back to
+ * `process.env` (Node/Vercel runtime). Empty strings are treated as unset.
+ */
 function readEnv(name: string): string | undefined {
 	const fromMeta = metaEnv[name];
 	if (typeof fromMeta === "string" && fromMeta.trim() !== "") {
 		return fromMeta;
 	}
 	const fromProcess = process.env[name];
-	return typeof fromProcess === "string" ? fromProcess : undefined;
+	return typeof fromProcess === "string" && fromProcess.trim() !== ""
+		? fromProcess
+		: undefined;
 }
 
+/**
+ * Feature-flag for temporary auth origin debugging logs.
+ *
+ * Keep this enabled only while investigating cross-site origin blocks on auth
+ * endpoints; it increases log volume and may include header context.
+ */
+function isAuthOriginDebugEnabled(): boolean {
+	// Toggle via env var to avoid redeployments.
+	// Keep disabled by default to reduce log volume.
+	return readEnv("AUTH_ORIGIN_DEBUG")?.toLowerCase() === "true";
+}
+
+/**
+ * Returns true when the `Content-Type` indicates a form-like submission.
+ *
+ * Used to emulate (and add logging around) Astro's origin enforcement behavior.
+ */
+function hasFormLikeContentType(contentType: string | null): boolean {
+	if (!contentType) {
+		return false;
+	}
+	const normalized = contentType.toLowerCase();
+	return FORM_CONTENT_TYPES.some((candidate) => normalized.includes(candidate));
+}
+
+/**
+ * Build the Content Security Policy header value.
+ *
+ * Allows `vercel.live` when running on Vercel (or when the request host looks
+ * like a Vercel deployment) to support preview tooling.
+ */
 function buildCsp(requestHost?: string): string {
 	// Allow vercel.live when on Vercel (env at runtime) or when request host is a Vercel deployment (fallback if env unset).
 	const isVercel =
@@ -74,6 +121,48 @@ function buildCsp(requestHost?: string): string {
 	].join("; ");
 }
 
+type AuthOriginDebugHeaderContext = {
+	requestId: string;
+	method: string;
+	pathname: string;
+	urlOrigin: string;
+	headerHost: string | null;
+	headerOrigin: string | null;
+	headerReferer: string | null;
+	headerXForwardedHost: string | null;
+	headerXForwardedProto: string | null;
+	headerXForwardedPort: string | null;
+	headerContentType: string | null;
+	headerSecFetchSite: string | null;
+};
+
+function collectAuthOriginDebugHeaderContext(
+	request: Request,
+	requestId: string,
+	requestUrl: URL,
+): AuthOriginDebugHeaderContext {
+	return {
+		requestId,
+		method: request.method,
+		pathname: requestUrl.pathname,
+		urlOrigin: requestUrl.origin,
+		headerHost: request.headers.get("host"),
+		headerOrigin: request.headers.get("origin"),
+		headerReferer: request.headers.get("referer"),
+		headerXForwardedHost: request.headers.get("x-forwarded-host"),
+		headerXForwardedProto: request.headers.get("x-forwarded-proto"),
+		headerXForwardedPort: request.headers.get("x-forwarded-port"),
+		headerContentType: request.headers.get("content-type"),
+		headerSecFetchSite: request.headers.get("sec-fetch-site"),
+	};
+}
+
+/**
+ * Apply response security headers and request correlation metadata.
+ *
+ * Must be safe to call multiple times and should not assume mutable `Headers`
+ * (some platforms return immutable header bags).
+ */
 const applySecurityHeaders = (
 	headers: Headers,
 	requestId: string,
@@ -97,6 +186,15 @@ const applySecurityHeaders = (
 	);
 };
 
+/**
+ * Global Astro middleware.
+ *
+ * - Validates required environment variables (once, lazily).
+ * - Assigns a per-request ID available via `context.locals.requestId`.
+ * - Applies security headers (CSP, HSTS, etc).
+ * - Temporarily enforces and logs origin checks for auth endpoints while
+ *   investigating blocked cross-site requests.
+ */
 export const onRequest = defineMiddleware(async (context, next) => {
 	// Validate environment variables on first request
 	// This ensures validation happens after Vercel injects env vars at runtime
@@ -123,6 +221,77 @@ export const onRequest = defineMiddleware(async (context, next) => {
 	}
 	const requestId = crypto.randomUUID();
 	context.locals.requestId = requestId;
+	const requestUrl = new URL(context.request.url);
+
+	// TEMPORARY DEBUGGING NOTE:
+	// Do not remove this block until the auth origin investigation is complete.
+	// This replaces Astro's built-in security.checkOrigin so blocked requests
+	// can be logged with header context in production while preserving CSRF checks.
+	if (ORIGIN_CHECK_METHODS.has(context.request.method)) {
+		// If Astro's built-in origin enforcement is enabled, avoid duplicating checks here.
+		// (Note: requests blocked by Astro won't reach this middleware, so we also won't log them.)
+		const astroCheckOriginEnabled =
+			readEnv("ASTRO_SECURITY_CHECK_ORIGIN")?.toLowerCase() === "true";
+		if (!astroCheckOriginEnabled) {
+			const origin = context.request.headers.get("origin");
+			const contentType = context.request.headers.get("content-type");
+			const hasContentType = context.request.headers.has("content-type");
+			const formLikeContentType = hasFormLikeContentType(contentType);
+			// Only enforce cross-site form blocking when Origin is present and cross-origin.
+			const shouldEnforce =
+				origin !== null && (hasContentType ? formLikeContentType : true);
+			const isSameOrigin = origin === requestUrl.origin;
+			if (shouldEnforce && !isSameOrigin) {
+				if (
+					isAuthOriginDebugEnabled() &&
+					requestUrl.pathname.startsWith("/api/auth/")
+				) {
+					rootLogger.info(
+						"Auth origin debug: blocked cross-site form request",
+						{
+							...collectAuthOriginDebugHeaderContext(
+								context.request,
+								requestId,
+								requestUrl,
+							),
+							hasContentType,
+							formLikeContentType,
+							shouldEnforce,
+							isSameOrigin,
+						},
+					);
+				}
+				const message = `Cross-site ${context.request.method} form submissions are forbidden`;
+				const blockedResponse = new Response(message, { status: 403 });
+				try {
+					applySecurityHeaders(
+						blockedResponse.headers,
+						requestId,
+						context.request,
+					);
+					return blockedResponse;
+				} catch {
+					const headers = new Headers(blockedResponse.headers);
+					applySecurityHeaders(headers, requestId, context.request);
+					return new Response(message, { status: 403, headers });
+				}
+			}
+		}
+	}
+
+	if (
+		isAuthOriginDebugEnabled() &&
+		context.request.method === "POST" &&
+		requestUrl.pathname.startsWith("/api/auth/")
+	) {
+		rootLogger.info("Auth origin debug: request reached middleware", {
+			...collectAuthOriginDebugHeaderContext(
+				context.request,
+				requestId,
+				requestUrl,
+			),
+		});
+	}
 
 	const response = await next();
 	// Some platform responses expose immutable headers; if response.headers.set throws,

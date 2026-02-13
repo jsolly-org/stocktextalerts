@@ -1,8 +1,8 @@
 ---
 
 import { Icon } from "astro-icon/components";
-import Footer from "../../components/landing/Footer.astro";
-import SignInCard from "../../components/landing/SignInCard.astro";
+import Footer from "../../components/Footer.astro";
+import SignInCard from "../../components/SignInCard.astro";
 import Layout from "../../layouts/Layout.astro";
 import {
 	getAuthErrorMessage,
@@ -30,23 +30,23 @@ if (user) {
 }
 ---
 <Layout title="Sign In | StockTextAlerts" description="Sign in to manage tracked assets, notification schedules, and alert channels.">
-  <main id="main-content" class="min-h-screen bg-gray-50 flex flex-col justify-center px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
+  <main id="main-content" class="min-h-screen bg-surface-alt flex flex-col justify-center px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
     <header class="sm:mx-auto sm:w-full sm:max-w-md">
       <div class="flex justify-center">
         <a href="/" class="flex items-center gap-2 group" aria-label="StockTextAlerts home">
           <div class="bg-primary text-white p-1.5 rounded-lg group-hover:bg-primary-strong transition-colors shadow-sm">
             <Icon name="presentation-chart-line" class="size-8" aria-hidden="true" />
           </div>
-          <span class="text-xl font-bold text-gray-900 tracking-tight group-hover:text-primary transition-colors">StockTextAlerts</span>
+          <span class="text-xl font-bold text-heading tracking-tight group-hover:text-primary transition-colors">StockTextAlerts</span>
         </a>
       </div>
-      <h1 class="mt-6 text-center text-2xl sm:text-3xl font-extrabold text-gray-900">
+      <h1 class="mt-6 text-center text-2xl sm:text-3xl font-extrabold text-heading">
         Sign in to your account
       </h1>
-      <p class="mt-2 text-center text-sm text-gray-600">
+      <p class="mt-2 text-center text-sm text-body-secondary">
         Manage tracked assets, notification schedules, and alert preferences.
       </p>
-      <p class="mt-2 text-center text-sm text-gray-600">
+      <p class="mt-2 text-center text-sm text-body-secondary">
         New here? <a href="/auth/register" class="link-primary">Create a free account</a>
       </p>
     </header>

@@ -6,9 +6,9 @@
 					<div class="phone-status-bar" aria-hidden="true">
 						<span class="status-time">9:41</span>
 						<div class="status-icons">
-							<svg class="status-icon" viewBox="0 0 17 12" fill="#0f172a"><rect x="0" y="8" width="3" height="4" rx="0.5"/><rect x="4.5" y="5" width="3" height="7" rx="0.5"/><rect x="9" y="2" width="3" height="10" rx="0.5"/><rect x="13.5" y="0" width="3" height="12" rx="0.5" opacity="0.3"/></svg>
-							<svg class="status-icon" viewBox="0 0 16 12" fill="none" stroke="#0f172a" stroke-width="1.6"><path d="M1 4.5a10 10 0 0 1 14 0" stroke-linecap="round"/><path d="M4 7.5a6 6 0 0 1 8 0" stroke-linecap="round"/><circle cx="8" cy="11" r="1" fill="#0f172a" stroke="none"/></svg>
-							<svg class="status-icon-battery" viewBox="0 0 27 12" fill="#0f172a"><rect x="0" y="0.5" width="22" height="11" rx="2" stroke="#0f172a" stroke-width="1.2" fill="none"/><rect x="2.5" y="2.5" width="14" height="7" rx="1"/><rect x="23" y="3.5" width="2" height="5" rx="1"/></svg>
+							<svg class="status-icon" viewBox="0 0 17 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="0.5"/><rect x="4.5" y="5" width="3" height="7" rx="0.5"/><rect x="9" y="2" width="3" height="10" rx="0.5"/><rect x="13.5" y="0" width="3" height="12" rx="0.5" opacity="0.3"/></svg>
+							<svg class="status-icon" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 4.5a10 10 0 0 1 14 0" stroke-linecap="round"/><path d="M4 7.5a6 6 0 0 1 8 0" stroke-linecap="round"/><circle cx="8" cy="11" r="1" fill="currentColor" stroke="none"/></svg>
+							<svg class="status-icon-battery" viewBox="0 0 27 12" fill="currentColor"><rect x="0" y="0.5" width="22" height="11" rx="2" stroke="currentColor" stroke-width="1.2" fill="none"/><rect x="2.5" y="2.5" width="14" height="7" rx="1"/><rect x="23" y="3.5" width="2" height="5" rx="1"/></svg>
 						</div>
 					</div>
 					<div class="sms-body">
@@ -141,5 +141,37 @@ const formattedSmsText = computed(() =>
 	height: 0.2rem;
 	background: rgba(15, 23, 42, 0.22);
 	border-radius: 9999px;
+}
+
+@media (prefers-color-scheme: dark) {
+	.phone-screen {
+		background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+		border-color: rgba(255, 255, 255, 0.08);
+	}
+
+	.phone-status-bar {
+		color: #e2e8f0;
+	}
+
+	.sms-body {
+		background: #0f172a;
+	}
+
+	.message-bubble-received {
+		background: #374151;
+		color: #e5e7eb;
+	}
+
+	.message-bubble-received::before {
+		background: #374151;
+	}
+
+	.message-bubble-received::after {
+		background: #0f172a;
+	}
+
+	.phone-home-indicator {
+		background: rgba(226, 232, 240, 0.25);
+	}
 }
 </style>

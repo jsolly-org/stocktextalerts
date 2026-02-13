@@ -1,5 +1,5 @@
 ---
-import Footer from '../components/landing/Footer.astro';
+import Footer from '../components/Footer.astro';
 import Navigation from '../components/Navigation.astro';
 import Layout from '../layouts/Layout.astro';
 
@@ -103,26 +103,26 @@ const jsonLd = [
   description="FAQs about StockTextAlerts. Learn how stock and ETF price alerts work, what US assets you can track, and how to get free alerts by text."
   jsonLd={jsonLd}
 >
-  <div class="min-h-screen bg-white">
+  <div class="min-h-screen bg-surface">
     <header>
       <Navigation />
     </header>
     <main id="main-content" class="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
       <h1 class="text-4xl font-bold mb-4 text-balance">Stock & ETF Alert FAQ</h1>
-      <p class="text-lg text-gray-600 mb-10">Everything you need to know about tracking assets and choosing how you receive notifications (scheduled updates and Asset Price Alerts by email, SMS, or both).</p>
+      <p class="text-lg text-body-secondary mb-10">Everything you need to know about tracking assets and choosing how you receive notifications (scheduled updates and Asset Price Alerts by email, SMS, or both).</p>
 
       <div class="space-y-8">
         {faqs.map((faq) => (
-          <section class="border-b border-gray-200 pb-8">
-            <h2 class="text-xl font-semibold text-gray-900 mb-3">{faq.question}</h2>
-            <p class="text-gray-600 leading-relaxed" set:html={faq.answer} />
+          <section class="border-b border-edge pb-8">
+            <h2 class="text-xl font-semibold text-heading mb-3">{faq.question}</h2>
+            <p class="text-body-secondary leading-relaxed" set:html={faq.answer} />
           </section>
         ))}
       </div>
 
-      <div class="mt-12 bg-gray-50 rounded-lg p-6 sm:p-8 border border-gray-200">
-        <h2 class="text-xl font-semibold text-gray-900 mb-2">Still have questions?</h2>
-        <p class="text-gray-600">
+      <div class="mt-12 bg-surface-alt rounded-lg p-6 sm:p-8 border border-edge">
+        <h2 class="text-xl font-semibold text-heading mb-2">Still have questions?</h2>
+        <p class="text-body-secondary">
           Send us a message via our <a href="/contact" class="link-primary">contact page</a> or email <a href="mailto:support@stocktextalerts.com" class="link-primary">support@stocktextalerts.com</a> and we&rsquo;ll get back to you.
         </p>
       </div>

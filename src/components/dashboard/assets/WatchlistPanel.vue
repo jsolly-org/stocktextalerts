@@ -26,12 +26,12 @@
 		<header class="flex items-center gap-2 mb-4">
 			<h2
 				:id="DASHBOARD_SECTION_IDS.assets"
-				class="text-xl sm:text-2xl font-bold text-gray-900"
+				class="text-xl sm:text-2xl font-bold text-heading"
 			>
 				My Watchlist
 			</h2>
 			<span
-				class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700"
+				class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-surface-active text-label"
 				:aria-label="`${draftAssets.length} ${draftAssets.length === 1 ? 'asset' : 'assets'} tracked`"
 			>
 				{{ draftAssets.length }}
@@ -61,7 +61,7 @@
 				/>
 				<p
 					:id="ASSET_SEARCH_HINT_ID"
-					class="mt-2 text-sm text-gray-600"
+					class="mt-2 text-sm text-body-secondary"
 				>
 					Search by ticker or company name to add to your watchlist.
 				</p>
@@ -76,7 +76,7 @@
 		</fieldset>
 
 		<section :aria-label="`${draftAssets.length} tracked ${draftAssets.length === 1 ? 'asset' : 'assets'}`">
-			<div v-if="draftAssets.length === 0" class="relative overflow-hidden text-center py-10 px-4 sm:py-12 sm:px-6 bg-linear-to-b from-gray-50 to-white rounded-xl border-2 border-dashed border-gray-200">
+			<div v-if="draftAssets.length === 0" class="relative overflow-hidden text-center py-10 px-4 sm:py-12 sm:px-6 bg-linear-to-b from-surface-alt to-surface rounded-xl border-2 border-dashed border-edge">
 				<!-- Decorative ticker word cloud -->
 				<div class="absolute inset-0 pointer-events-none select-none" aria-hidden="true">
 					<span
@@ -89,30 +89,30 @@
 						{{ ticker.symbol }}
 					</span>
 				</div>
-				<p class="relative text-sm text-gray-500">
-					No assets tracked yet. Use the search above to add your first asset.
-				</p>
+			<p class="relative text-sm font-medium text-body-secondary" style="text-shadow: 0 0 8px var(--color-surface), 0 0 16px var(--color-surface), 0 0 28px var(--color-surface), 0 0 40px var(--color-surface);">
+				No assets tracked yet. Use the search above to add your first asset.
+			</p>
 			</div>
 			<ul v-else class="space-y-2" role="list">
 				<li
 					v-for="asset in draftAssets"
 					:key="asset.symbol"
-					class="group flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+					class="group flex items-center justify-between gap-3 p-3 bg-surface-alt rounded-lg hover:bg-surface-active transition-colors"
 				>
-					<span class="min-w-0 flex items-center gap-2 text-sm font-medium text-gray-900 truncate">
+					<span class="min-w-0 flex items-center gap-2 text-sm font-medium text-heading truncate">
 						<span
 							class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium shrink-0"
 							:class="
 								asset.type === 'etf'
-									? 'bg-purple-100 text-purple-700'
-									: 'bg-blue-100 text-blue-700'
+									? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
+									: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
 							"
 						>
 							{{ asset.type === "etf" ? "ETF" : "Stock" }}
 						</span>
 						<span class="truncate">
 							<span class="font-semibold">{{ asset.symbol }}</span>
-							<span class="text-gray-500"> · {{ asset.name }}</span>
+							<span class="text-muted"> · {{ asset.name }}</span>
 						</span>
 					</span>
 					<button
@@ -190,21 +190,21 @@ const assetSearchInputDescribedBy = computed(() =>
 );
 
 const WORD_CLOUD_TICKERS = [
-	{ symbol: "AAPL", style: "top: 8%; left: 5%", size: "text-lg", rotate: "-rotate-12", color: "text-gray-300" },
-	{ symbol: "NVDA", style: "top: 5%; left: 35%", size: "text-sm", rotate: "rotate-6", color: "text-gray-200" },
-	{ symbol: "TSLA", style: "top: 12%; left: 70%", size: "text-xl", rotate: "-rotate-6", color: "text-gray-300" },
-	{ symbol: "SPY", style: "top: 18%; left: 88%", size: "text-xs", rotate: "rotate-12", color: "text-gray-200" },
-	{ symbol: "MSFT", style: "top: 30%; left: 2%", size: "text-sm", rotate: "rotate-3", color: "text-gray-300" },
-	{ symbol: "AMZN", style: "top: 35%; left: 22%", size: "text-2xl", rotate: "-rotate-3", color: "text-gray-200" },
-	{ symbol: "META", style: "top: 45%; left: 55%", size: "text-base", rotate: "-rotate-6", color: "text-gray-300" },
-	{ symbol: "JPM", style: "top: 28%; left: 80%", size: "text-sm", rotate: "rotate-12", color: "text-gray-200" },
-	{ symbol: "GOOGL", style: "top: 60%; left: 8%", size: "text-xl", rotate: "rotate-6", color: "text-gray-300" },
-	{ symbol: "V", style: "top: 55%; left: 42%", size: "text-sm", rotate: "-rotate-6", color: "text-gray-200" },
-	{ symbol: "NFLX", style: "top: 68%; left: 65%", size: "text-lg", rotate: "rotate-3", color: "text-gray-300" },
-	{ symbol: "AMD", style: "top: 58%; left: 85%", size: "text-xs", rotate: "-rotate-12", color: "text-gray-200" },
-	{ symbol: "DIS", style: "top: 82%; left: 15%", size: "text-base", rotate: "-rotate-3", color: "text-gray-200" },
-	{ symbol: "QQQ", style: "top: 78%; left: 48%", size: "text-sm", rotate: "rotate-12", color: "text-gray-300" },
-	{ symbol: "BA", style: "top: 85%; left: 75%", size: "text-lg", rotate: "-rotate-6", color: "text-gray-200" },
+	{ symbol: "AAPL", style: "top: 8%; left: 5%", size: "text-lg", rotate: "-rotate-12", color: "text-edge-strong" },
+	{ symbol: "NVDA", style: "top: 5%; left: 35%", size: "text-sm", rotate: "rotate-6", color: "text-edge" },
+	{ symbol: "TSLA", style: "top: 12%; left: 70%", size: "text-xl", rotate: "-rotate-6", color: "text-edge-strong" },
+	{ symbol: "SPY", style: "top: 18%; left: 88%", size: "text-xs", rotate: "rotate-12", color: "text-edge" },
+	{ symbol: "MSFT", style: "top: 30%; left: 2%", size: "text-sm", rotate: "rotate-3", color: "text-edge-strong" },
+	{ symbol: "AMZN", style: "top: 35%; left: 22%", size: "text-2xl", rotate: "-rotate-3", color: "text-edge" },
+	{ symbol: "META", style: "top: 45%; left: 55%", size: "text-base", rotate: "-rotate-6", color: "text-edge-strong" },
+	{ symbol: "JPM", style: "top: 28%; left: 80%", size: "text-sm", rotate: "rotate-12", color: "text-edge" },
+	{ symbol: "GOOGL", style: "top: 60%; left: 8%", size: "text-xl", rotate: "rotate-6", color: "text-edge-strong" },
+	{ symbol: "V", style: "top: 55%; left: 42%", size: "text-sm", rotate: "-rotate-6", color: "text-edge" },
+	{ symbol: "NFLX", style: "top: 68%; left: 65%", size: "text-lg", rotate: "rotate-3", color: "text-edge-strong" },
+	{ symbol: "AMD", style: "top: 58%; left: 85%", size: "text-xs", rotate: "-rotate-12", color: "text-edge" },
+	{ symbol: "DIS", style: "top: 82%; left: 15%", size: "text-base", rotate: "-rotate-3", color: "text-edge" },
+	{ symbol: "QQQ", style: "top: 78%; left: 48%", size: "text-sm", rotate: "rotate-12", color: "text-edge-strong" },
+	{ symbol: "BA", style: "top: 85%; left: 75%", size: "text-lg", rotate: "-rotate-6", color: "text-edge" },
 ] as const;
 
 watch(

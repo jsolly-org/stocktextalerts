@@ -6,7 +6,7 @@ import Layout from "../layouts/Layout.astro";
 export const prerender = true;
 ---
 <Layout title="404 - Page Not Found | StockTextAlerts" description="The page you're looking for doesn't exist." noindex>
-  <div class="min-h-screen bg-white flex flex-col">
+  <div class="min-h-screen bg-surface flex flex-col">
     <header>
       <Navigation />
     </header>
@@ -21,7 +21,7 @@ export const prerender = true;
       <div class="relative z-10 max-w-lg mx-auto px-4 py-16 text-center animate-fade-in">
         <!-- Fake ticker display -->
         <div class="mb-8">
-          <div class="inline-flex items-center gap-2 bg-gray-100 rounded-full px-4 py-2 text-sm text-gray-600 mb-6">
+          <div class="inline-flex items-center gap-2 bg-surface-active rounded-full px-4 py-2 text-sm text-body-secondary mb-6">
             <Icon name="presentation-chart-line" class="w-4 h-4 text-primary" aria-hidden="true" />
             <span class="font-medium">PAGE</span>
             <span class="text-error-strong font-bold">-100%</span>
@@ -34,15 +34,15 @@ export const prerender = true;
         </div>
 
         <!-- 404 text -->
-        <h1 class="text-7xl sm:text-8xl font-extrabold text-gray-900 mb-4">
+        <h1 class="text-7xl sm:text-8xl font-extrabold text-heading mb-4">
           <span class="bg-linear-to-r from-error-strong to-red-400 bg-clip-text text-transparent">404</span>
         </h1>
         
-        <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">
+        <h2 class="text-2xl sm:text-3xl font-bold text-heading mb-4">
           Ticker Not Found
         </h2>
         
-        <p class="text-gray-600 text-lg mb-8 max-w-md mx-auto">
+        <p class="text-body-secondary text-lg mb-8 max-w-md mx-auto">
           Looks like this page took a nosedive. The URL you're looking for doesn't exist or has been delisted.
         </p>
 
@@ -59,7 +59,7 @@ export const prerender = true;
         </div>
 
         <!-- Fun footer note -->
-        <p class="mt-12 text-sm text-gray-400">
+        <p class="mt-12 text-sm text-faint">
           Don't worry, your real assets are doing better than this page.
         </p>
       </div>

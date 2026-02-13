@@ -20,19 +20,19 @@ if (success === "true") {
 }
 ---
 <Layout title="Verify Your Email" description="Please verify your email address to continue. Check your inbox for the confirmation link from StockTextAlerts, then sign in to access your account." noindex>
-  <main id="main-content" class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+  <main id="main-content" class="min-h-screen flex items-center justify-center bg-surface-alt py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-md w-full space-y-8">
       <header class="text-center">
         <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-info-bg">
           <Icon name="envelope" class="h-6 w-6 text-info-text" aria-hidden="true" />
         </div>
-        <h1 class="mt-6 text-center text-2xl sm:text-3xl font-extrabold text-gray-900">
+        <h1 class="mt-6 text-center text-2xl sm:text-3xl font-extrabold text-heading">
           Check Your Email
         </h1>
-        <p class="mt-2 text-center text-sm text-gray-600">
+        <p class="mt-2 text-center text-sm text-body-secondary">
           We&rsquo;ve sent a verification link to
         </p>
-        <p class="mt-1 text-center text-sm font-medium text-gray-900">
+        <p class="mt-1 text-center text-sm font-medium text-heading">
           {email || "your email address"}
         </p>
       </header>

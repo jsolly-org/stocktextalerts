@@ -109,4 +109,49 @@ const formattedEmailHtml = computed(() =>
 		"Liberation Mono", monospace;
 }
 
+@media (prefers-color-scheme: dark) {
+	.email-card {
+		border-color: #334155;
+		background: #1e293b;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+	}
+
+	.email-client-toolbar {
+		background: linear-gradient(90deg, #1e293b 0%, #0f172a 100%);
+		border-bottom-color: #334155;
+	}
+
+	.toolbar-dot {
+		background: #475569;
+	}
+
+	.toolbar-dot:nth-child(1) {
+		background: #ef4444;
+	}
+
+	.toolbar-dot:nth-child(2) {
+		background: #eab308;
+	}
+
+	.toolbar-dot:nth-child(3) {
+		background: #22c55e;
+	}
+
+	.toolbar-title {
+		color: #818cf8;
+	}
+
+	.email-body {
+		background: #1e2d3d;
+	}
+
+	.email-assets-section {
+		background: #1a2744;
+		border-color: #334155;
+	}
+
+	.email-assets-content {
+		color: #e2e8f0;
+	}
+}
 </style>

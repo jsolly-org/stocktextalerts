@@ -80,7 +80,7 @@ export const CARD_GRADIENT_ACCENTS = {
 		"bg-gradient-to-r from-success-strong via-green-400 to-success-strong",
 	teal: "bg-gradient-to-r from-teal-500 via-teal-400 to-teal-500",
 	purple: "bg-gradient-to-r from-purple-500 via-purple-400 to-purple-500",
-	gray: "bg-gradient-to-r from-gray-300 via-gray-400 to-gray-300",
+	gray: "bg-gradient-to-r from-edge-strong via-muted to-edge-strong",
 } as const;
 
 /* =============

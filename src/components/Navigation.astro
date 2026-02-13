@@ -12,7 +12,7 @@ const isLanding = currentPage === "/";
 ---
 <nav
   aria-label="Main navigation"
-  class="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50"
+  class="bg-surface/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-edge sticky top-0 z-50"
 >
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="flex items-center justify-between py-3 md:h-16 md:py-0">
@@ -22,26 +22,26 @@ const isLanding = currentPage === "/";
           <div class="bg-primary text-white p-1.5 rounded-lg group-hover:bg-primary-strong transition-colors shadow-sm">
             <Icon name="presentation-chart-line" class="size-5" aria-hidden="true" focusable="false" />
           </div>
-          <span class="text-xl font-bold text-gray-900 tracking-tight group-hover:text-primary transition-colors hidden sm:block">StockTextAlerts</span>
+          <span class="text-xl font-bold text-heading tracking-tight group-hover:text-primary transition-colors hidden sm:block">StockTextAlerts</span>
         </a>
 
         <!-- Main Nav Links -->
         <ul class="hidden md:flex items-center gap-4 sm:gap-6">
           {!user && isLanding && (
             <li class="hidden md:block">
-              <a href="#features" class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+              <a href="#features" class="text-sm font-medium text-body-secondary hover:text-heading transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
                 Features
               </a>
             </li>
           )}
           {user && (
             <li>
-              <a 
+              <a
                 href="/dashboard"
                 aria-current={currentPage === "/dashboard" ? "page" : undefined}
                 class:list={[
                   "text-sm font-medium transition-colors px-3 py-1.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-                  currentPage === "/dashboard" ? "text-primary bg-primary/10" : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  currentPage === "/dashboard" ? "text-primary bg-primary/10" : "text-body-secondary hover:text-heading hover:bg-surface-active"
                 ]}
               >
                 Dashboard
@@ -61,24 +61,24 @@ const isLanding = currentPage === "/";
               aria-current={currentPage === "/profile" ? "page" : undefined}
               class:list={[
                 "group rounded-full p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-                currentPage === "/profile" ? "bg-primary/10" : "bg-gray-100 hover:bg-gray-200"
+                currentPage === "/profile" ? "bg-primary/10" : "bg-surface-active hover:bg-edge"
               ]}
             >
               <Icon
                 name="user-circle"
                 class:list={[
                   "size-8",
-                  currentPage === "/profile" ? "text-primary" : "text-gray-500 group-hover:text-gray-700"
+                  currentPage === "/profile" ? "text-primary" : "text-muted group-hover:text-label"
                 ]}
                 aria-hidden="true"
                 focusable="false"
               />
             </a>
-            <span class="text-sm text-gray-500 hidden md:block font-medium truncate max-w-[200px]">{user.email}</span>
-            <div class="h-4 w-px bg-gray-200 hidden md:block"></div>
+            <span class="text-sm text-muted hidden md:block font-medium truncate max-w-[200px]">{user.email}</span>
+            <div class="h-4 w-px bg-edge hidden md:block"></div>
             <form action="/api/auth/signout" method="post" class="flex">
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 class="btn btn-sm btn-ghost text-error-strong hover:text-error-strong"
               >
                 Sign Out
@@ -88,8 +88,8 @@ const isLanding = currentPage === "/";
         ) : (
           <div class="flex items-center gap-3">
             <a href="/auth/signin" class="btn btn-sm btn-ghost">Sign in to your account</a>
-            <a 
-              href="/auth/register" 
+            <a
+              href="/auth/register"
               class="btn btn-sm btn-primary whitespace-nowrap"
             >
               Start Tracking
@@ -99,12 +99,12 @@ const isLanding = currentPage === "/";
       </div>
       <details class="relative md:hidden" id="mobile-nav-menu">
         <summary
-          class="list-none [&::-webkit-details-marker]:hidden rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          class="list-none [&::-webkit-details-marker]:hidden rounded-lg border border-edge bg-surface px-3 py-2 text-sm font-medium text-label shadow-sm hover:bg-surface-alt cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           aria-label="Open navigation menu"
         >
           Menu
         </summary>
-        <div class="absolute right-0 mt-2 w-60 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden overscroll-contain">
+        <div class="absolute right-0 mt-2 w-60 rounded-xl border border-edge bg-surface shadow-lg overflow-hidden overscroll-contain">
           {user ? (
             <>
               <nav class="flex flex-col gap-0.5 p-2" aria-label="Mobile navigation">
@@ -113,7 +113,7 @@ const isLanding = currentPage === "/";
                   aria-current={currentPage === "/dashboard" ? "page" : undefined}
                   class:list={[
                     "rounded-md px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-                    currentPage === "/dashboard" ? "text-primary bg-primary/10" : "text-gray-700 hover:bg-gray-50"
+                    currentPage === "/dashboard" ? "text-primary bg-primary/10" : "text-label hover:bg-surface-alt"
                   ]}
                 >
                   Dashboard
@@ -123,14 +123,14 @@ const isLanding = currentPage === "/";
                   aria-current={currentPage === "/profile" ? "page" : undefined}
                   class:list={[
                     "rounded-md px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-                    currentPage === "/profile" ? "text-primary bg-primary/10" : "text-gray-700 hover:bg-gray-50"
+                    currentPage === "/profile" ? "text-primary bg-primary/10" : "text-label hover:bg-surface-alt"
                   ]}
                 >
                   Profile
                 </a>
               </nav>
-              <div class="border-t border-gray-100 p-2">
-                <div class="px-3 py-1.5 text-xs font-medium text-gray-400 truncate">{user.email}</div>
+              <div class="border-t border-divider p-2">
+                <div class="px-3 py-1.5 text-xs font-medium text-faint truncate">{user.email}</div>
                 <form action="/api/auth/signout" method="post">
                   <button
                     type="submit"
@@ -145,11 +145,11 @@ const isLanding = currentPage === "/";
             <>
               <div class="flex flex-col gap-0.5 p-2">
                 {isLanding && (
-                  <a href="#features" class="rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+                  <a href="#features" class="rounded-md px-3 py-2 text-sm text-label hover:bg-surface-alt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
                     Features
                   </a>
                 )}
-                <a href="/auth/signin" class="rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+                <a href="/auth/signin" class="rounded-md px-3 py-2 text-sm font-medium text-label hover:bg-surface-alt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
                   Sign in to your account
                 </a>
                 <a href="/auth/register" class="rounded-md px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
