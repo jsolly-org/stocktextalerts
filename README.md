@@ -36,7 +36,7 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 
 - **Tokens**: Semantic color tokens live in `src/global.css` via Tailwind v4 `@theme`.
 - **Status UI**: Use `StatusMessage.astro` / `StatusMessage.vue` or the `status-tone-*` classes for alerts.
-- **Neutrals**: Prefer `gray-*` utilities for borders, text, and surfaces.
+- **Neutrals**: Prefer semantic surface/text/border tokens (e.g. `bg-surface`, `text-heading`, `border-edge`, `text-muted`) and only reach for `gray-*` utilities when a token doesn't exist.
 
 ## Prerequisites
 
@@ -233,6 +233,7 @@ For local development, run `npm run db:reset` before `npm run test` to ensure yo
 - `POST /api/auth/email/forgot-password`
 - `POST /api/auth/email/resend-verification`
 - `POST /api/auth/signin`
+- `GET /api/auth/signout` (renders a confirmation page; does not sign you out)
 - `POST /api/auth/signout`
 - `POST /api/auth/delete-account`
 - `POST /api/auth/update-email`
