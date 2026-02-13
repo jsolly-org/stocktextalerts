@@ -1,5 +1,4 @@
 import { defineMiddleware } from "astro:middleware";
-import { rootLogger } from "./lib/logging";
 
 const ORIGIN_CHECK_METHODS = new Set(["POST", "PATCH", "DELETE", "PUT"]);
 const FORM_CONTENT_TYPES = [
@@ -45,18 +44,6 @@ function readEnv(name: string): string | undefined {
 	return typeof fromProcess === "string" && fromProcess.trim() !== ""
 		? fromProcess
 		: undefined;
-}
-
-/**
- * Feature-flag for temporary auth origin debugging logs.
- *
- * Keep this enabled only while investigating cross-site origin blocks on auth
- * endpoints; it increases log volume and may include header context.
- */
-function isAuthOriginDebugEnabled(): boolean {
-	// Toggle via env var to avoid redeployments.
-	// Keep disabled by default to reduce log volume.
-	return readEnv("AUTH_ORIGIN_DEBUG")?.toLowerCase() === "true";
 }
 
 /**
@@ -121,23 +108,6 @@ function buildCsp(requestHost?: string): string {
 	].join("; ");
 }
 
-type AuthOriginDebugHeaderContext = {
-	requestId: string;
-	method: string;
-	pathname: string;
-	urlOrigin: string;
-	headerXVercelId: string | null;
-	headerXForwardedFor: string | null;
-	headerHost: string | null;
-	headerOrigin: string | null;
-	headerReferer: string | null;
-	headerXForwardedHost: string | null;
-	headerXForwardedProto: string | null;
-	headerXForwardedPort: string | null;
-	headerContentType: string | null;
-	headerSecFetchSite: string | null;
-};
-
 /**
  * Parse an Origin-like value and return the normalized origin string.
  *
@@ -162,7 +132,7 @@ function firstHeaderValue(value: string | null): string | null {
 		return null;
 	}
 	const first = value.split(",")[0]?.trim();
-	return first && first.length > 0 ? first : null;
+	return first || null;
 }
 
 /**
@@ -195,29 +165,6 @@ function collectExpectedOrigins(
 	}
 
 	return expected;
-}
-
-function collectAuthOriginDebugHeaderContext(
-	request: Request,
-	requestId: string,
-	requestUrl: URL,
-): AuthOriginDebugHeaderContext {
-	return {
-		requestId,
-		method: request.method,
-		pathname: requestUrl.pathname,
-		urlOrigin: requestUrl.origin,
-		headerXVercelId: request.headers.get("x-vercel-id"),
-		headerXForwardedFor: request.headers.get("x-forwarded-for"),
-		headerHost: request.headers.get("host"),
-		headerOrigin: request.headers.get("origin"),
-		headerReferer: request.headers.get("referer"),
-		headerXForwardedHost: request.headers.get("x-forwarded-host"),
-		headerXForwardedProto: request.headers.get("x-forwarded-proto"),
-		headerXForwardedPort: request.headers.get("x-forwarded-port"),
-		headerContentType: request.headers.get("content-type"),
-		headerSecFetchSite: request.headers.get("sec-fetch-site"),
-	};
 }
 
 /**
@@ -255,23 +202,16 @@ const applySecurityHeaders = (
  * - Validates required environment variables (once, lazily).
  * - Assigns a per-request ID available via `context.locals.requestId`.
  * - Applies security headers (CSP, HSTS, etc).
- * - Temporarily enforces and logs origin checks for auth endpoints while
- *   investigating blocked cross-site requests.
+ * - Enforces CSRF-style same-origin checks for mutation requests.
  */
 export const onRequest = defineMiddleware(async (context, next) => {
 	// Validate environment variables on first request
 	// This ensures validation happens after Vercel injects env vars at runtime
 	if (!envValidated) {
-		const missing: string[] = REQUIRED_ENV_VARS.filter((name) => {
-			const value = readEnv(name);
-			return !value || value.trim() === "";
-		});
-		const vercelUrl = readEnv("VERCEL_URL");
-		const vercelProductionUrl = readEnv("VERCEL_PROJECT_PRODUCTION_URL");
-		if (
-			(!vercelUrl || vercelUrl.trim() === "") &&
-			(!vercelProductionUrl || vercelProductionUrl.trim() === "")
-		) {
+		const missing: string[] = REQUIRED_ENV_VARS.filter(
+			(name) => !readEnv(name),
+		);
+		if (!readEnv("VERCEL_URL") && !readEnv("VERCEL_PROJECT_PRODUCTION_URL")) {
 			missing.push("VERCEL_PROJECT_PRODUCTION_URL or VERCEL_URL");
 		}
 		if (missing.length > 0) {
@@ -286,13 +226,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
 	context.locals.requestId = requestId;
 	const requestUrl = new URL(context.request.url);
 
-	// TEMPORARY DEBUGGING NOTE:
-	// Do not remove this block until the auth origin investigation is complete.
-	// This replaces Astro's built-in security.checkOrigin so blocked requests
-	// can be logged with header context in production while preserving CSRF checks.
+	// Keep Astro checkOrigin disabled and enforce origin checks here so
+	// same-origin validation can account for proxy headers.
 	if (ORIGIN_CHECK_METHODS.has(context.request.method)) {
-		// If Astro's built-in origin enforcement is enabled, avoid duplicating checks here.
-		// (Note: requests blocked by Astro won't reach this middleware, so we also won't log them.)
+		// If Astro's built-in origin enforcement is enabled, avoid duplicate checks.
 		const astroCheckOriginEnabled =
 			readEnv("ASTRO_SECURITY_CHECK_ORIGIN")?.toLowerCase() === "true";
 		if (!astroCheckOriginEnabled) {
@@ -311,27 +248,6 @@ export const onRequest = defineMiddleware(async (context, next) => {
 			const isSameOrigin =
 				normalizedOrigin !== null && expectedOrigins.has(normalizedOrigin);
 			if (shouldEnforce && !isSameOrigin) {
-				if (
-					isAuthOriginDebugEnabled() &&
-					requestUrl.pathname.startsWith("/api/auth/")
-				) {
-					rootLogger.info(
-						"Auth origin debug: blocked cross-site form request",
-						{
-							...collectAuthOriginDebugHeaderContext(
-								context.request,
-								requestId,
-								requestUrl,
-							),
-							hasContentType,
-							formLikeContentType,
-							shouldEnforce,
-							normalizedOrigin,
-							expectedOrigins: Array.from(expectedOrigins),
-							isSameOrigin,
-						},
-					);
-				}
 				const message = `Cross-site ${context.request.method} form submissions are forbidden`;
 				const blockedResponse = new Response(message, { status: 403 });
 				try {
@@ -348,20 +264,6 @@ export const onRequest = defineMiddleware(async (context, next) => {
 				}
 			}
 		}
-	}
-
-	if (
-		isAuthOriginDebugEnabled() &&
-		context.request.method === "POST" &&
-		requestUrl.pathname.startsWith("/api/auth/")
-	) {
-		rootLogger.info("Auth origin debug: request reached middleware", {
-			...collectAuthOriginDebugHeaderContext(
-				context.request,
-				requestId,
-				requestUrl,
-			),
-		});
 	}
 
 	const response = await next();

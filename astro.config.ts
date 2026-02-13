@@ -27,16 +27,13 @@ const isCI = process.env.CI === "true";
 // Vercel Serverless max duration (seconds).
 // Only set this when explicitly configured, since the effective limit depends on
 // plan + whether Fluid Compute is enabled for the project.
-const configuredVercelMaxDurationSecondsRaw =
+const maxDurationRaw =
 	env.VERCEL_MAX_DURATION || process.env.VERCEL_MAX_DURATION;
-const configuredVercelMaxDurationSeconds = configuredVercelMaxDurationSecondsRaw
-	? Number.parseInt(configuredVercelMaxDurationSecondsRaw, 10)
+const maxDurationParsed = maxDurationRaw
+	? Number.parseInt(maxDurationRaw, 10)
 	: Number.NaN;
 const vercelMaxDurationSeconds =
-	Number.isFinite(configuredVercelMaxDurationSeconds) &&
-	configuredVercelMaxDurationSeconds > 0
-		? configuredVercelMaxDurationSeconds
-		: undefined;
+	maxDurationParsed > 0 ? maxDurationParsed : undefined;
 
 // Locally, use full URL with protocol (e.g., "http://localhost:4321").
 // In CI, VERCEL_URL may be unset (e.g. unit tests); use a placeholder so config still works.
@@ -83,10 +80,8 @@ export default defineConfig({
 
 	site,
 	security: {
-		// TEMPORARY DEBUGGING NOTE:
-		// Keep this disabled until the auth origin investigation is complete.
-		// Origin enforcement currently lives in src/middleware.ts so we can log
-		// header context for blocked requests in production.
+		// Keep disabled; same-origin enforcement lives in src/middleware.ts
+		// to support proxy-aware origin checks.
 		checkOrigin: false,
 		allowedDomains: [
 			{ protocol: "https", hostname: "stocktextalerts.com" },
