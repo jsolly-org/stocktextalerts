@@ -42,7 +42,9 @@ function readEnv(name: string): string | undefined {
 		return fromMeta;
 	}
 	const fromProcess = process.env[name];
-	return typeof fromProcess === "string" ? fromProcess : undefined;
+	return typeof fromProcess === "string" && fromProcess.trim() !== ""
+		? fromProcess
+		: undefined;
 }
 
 /**
@@ -226,43 +228,53 @@ export const onRequest = defineMiddleware(async (context, next) => {
 	// This replaces Astro's built-in security.checkOrigin so blocked requests
 	// can be logged with header context in production while preserving CSRF checks.
 	if (ORIGIN_CHECK_METHODS.has(context.request.method)) {
-		const origin = context.request.headers.get("origin");
-		const contentType = context.request.headers.get("content-type");
-		const hasContentType = context.request.headers.has("content-type");
-		const formLikeContentType = hasFormLikeContentType(contentType);
-		const shouldEnforce = hasContentType ? formLikeContentType : true;
-		// Treat missing Origin header as same-origin (browsers omit it for some legitimate requests).
-		const isSameOrigin = !origin || origin === requestUrl.origin;
-		if (shouldEnforce && origin && !isSameOrigin) {
-			if (
-				isAuthOriginDebugEnabled() &&
-				requestUrl.pathname.startsWith("/api/auth/")
-			) {
-				rootLogger.info("Auth origin debug: blocked cross-site form request", {
-					...collectAuthOriginDebugHeaderContext(
-						context.request,
+		// If Astro's built-in origin enforcement is enabled, avoid duplicating checks here.
+		// (Note: requests blocked by Astro won't reach this middleware, so we also won't log them.)
+		const astroCheckOriginEnabled =
+			readEnv("ASTRO_SECURITY_CHECK_ORIGIN")?.toLowerCase() === "true";
+		if (!astroCheckOriginEnabled) {
+			const origin = context.request.headers.get("origin");
+			const contentType = context.request.headers.get("content-type");
+			const hasContentType = context.request.headers.has("content-type");
+			const formLikeContentType = hasFormLikeContentType(contentType);
+			// Only enforce cross-site form blocking when Origin is present and cross-origin.
+			const shouldEnforce =
+				origin !== null && (hasContentType ? formLikeContentType : true);
+			const isSameOrigin = origin === requestUrl.origin;
+			if (shouldEnforce && !isSameOrigin) {
+				if (
+					isAuthOriginDebugEnabled() &&
+					requestUrl.pathname.startsWith("/api/auth/")
+				) {
+					rootLogger.info(
+						"Auth origin debug: blocked cross-site form request",
+						{
+							...collectAuthOriginDebugHeaderContext(
+								context.request,
+								requestId,
+								requestUrl,
+							),
+							hasContentType,
+							formLikeContentType,
+							shouldEnforce,
+							isSameOrigin,
+						},
+					);
+				}
+				const message = `Cross-site ${context.request.method} form submissions are forbidden`;
+				const blockedResponse = new Response(message, { status: 403 });
+				try {
+					applySecurityHeaders(
+						blockedResponse.headers,
 						requestId,
-						requestUrl,
-					),
-					hasContentType,
-					formLikeContentType,
-					shouldEnforce,
-					isSameOrigin,
-				});
-			}
-			const message = `Cross-site ${context.request.method} form submissions are forbidden`;
-			const blockedResponse = new Response(message, { status: 403 });
-			try {
-				applySecurityHeaders(
-					blockedResponse.headers,
-					requestId,
-					context.request,
-				);
-				return blockedResponse;
-			} catch {
-				const headers = new Headers(blockedResponse.headers);
-				applySecurityHeaders(headers, requestId, context.request);
-				return new Response(message, { status: 403, headers });
+						context.request,
+					);
+					return blockedResponse;
+				} catch {
+					const headers = new Headers(blockedResponse.headers);
+					applySecurityHeaders(headers, requestId, context.request);
+					return new Response(message, { status: 403, headers });
+				}
 			}
 		}
 	}
