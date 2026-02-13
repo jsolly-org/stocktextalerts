@@ -98,8 +98,6 @@ runs:
       run: npm ci
     - name: Setup Supabase CLI
       uses: supabase/setup-cli@v1
-      with:
-        version: "2.58.5"
     - name: Run Biome
       shell: bash
       run: npx biome ci .
