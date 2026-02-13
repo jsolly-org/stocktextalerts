@@ -237,7 +237,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 				isAuthOriginDebugEnabled() &&
 				requestUrl.pathname.startsWith("/api/auth/")
 			) {
-				rootLogger.warn("Auth origin debug: blocked cross-site form request", {
+				rootLogger.info("Auth origin debug: blocked cross-site form request", {
 					...collectAuthOriginDebugHeaderContext(
 						context.request,
 						requestId,
@@ -249,12 +249,20 @@ export const onRequest = defineMiddleware(async (context, next) => {
 					isSameOrigin,
 				});
 			}
-			return new Response(
-				`Cross-site ${context.request.method} form submissions are forbidden`,
-				{
-					status: 403,
-				},
-			);
+			const message = `Cross-site ${context.request.method} form submissions are forbidden`;
+			const blockedResponse = new Response(message, { status: 403 });
+			try {
+				applySecurityHeaders(
+					blockedResponse.headers,
+					requestId,
+					context.request,
+				);
+				return blockedResponse;
+			} catch {
+				const headers = new Headers(blockedResponse.headers);
+				applySecurityHeaders(headers, requestId, context.request);
+				return new Response(message, { status: 403, headers });
+			}
 		}
 	}
 
