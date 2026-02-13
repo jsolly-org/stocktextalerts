@@ -432,22 +432,24 @@ function parseSnapshotTicker(
 	if (typeof changePercent !== "number" || !Number.isFinite(changePercent))
 		return null;
 
-	const num = (v: unknown): number | null =>
-		typeof v === "number" && Number.isFinite(v) ? v : null;
+	const numPrice = (v: unknown): number | null =>
+		typeof v === "number" && Number.isFinite(v) && v !== 0 ? v : null;
+	const numVolume = (v: unknown): number | null =>
+		typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : null;
 
 	return {
 		price,
 		changePercent,
-		dayHigh: num(t.day?.h),
-		dayLow: num(t.day?.l),
-		dayOpen: num(t.day?.o),
-		prevClose: num(t.prevDay?.c),
+		dayHigh: numPrice(t.day?.h),
+		dayLow: numPrice(t.day?.l),
+		dayOpen: numPrice(t.day?.o),
+		prevClose: numPrice(t.prevDay?.c),
 		// Polygon `updated` is in nanoseconds — convert to seconds for consistency
 		timestamp:
 			typeof t.updated === "number" && Number.isFinite(t.updated)
 				? Math.floor(t.updated / 1_000_000_000)
 				: null,
-		volume: num(t.day?.v),
+		volume: numVolume(t.day?.v),
 	};
 }
 
