@@ -104,6 +104,8 @@ function applyAnnotationsInline(
 		.sort((a, b) => b.start_index - a.start_index);
 
 	let result = text;
+
+	// Phase 1: Apply positioned annotations as inline markdown links.
 	for (const ann of valid) {
 		const span = result.slice(ann.start_index, ann.end_index);
 		// Skip if this span is already part of a markdown link.
@@ -124,6 +126,22 @@ function applyAnnotationsInline(
 			markdownLink +
 			result.slice(ann.end_index);
 	}
+
+	// Phase 2: Resolve remaining [post:N] markers from x_search results.
+	// Grok's x_search outputs [post:N] where N is the 0-based index into search
+	// results. When annotations lack positional data, Phase 1 can't resolve them.
+	// Map each marker to annotations[N].url with sequential link numbering.
+	let linkCounter = 0;
+	result = result.replace(/\[post:(\d+)\]/g, (_match, numStr) => {
+		const idx = parseInt(numStr, 10);
+		const ann = annotations[idx];
+		if (ann && typeof ann.url === "string" && ann.url.trim() !== "") {
+			linkCounter++;
+			return `[${linkCounter}](${ann.url.trim()})`;
+		}
+		return "";
+	});
+
 	return result;
 }
 

@@ -32,4 +32,22 @@ describe("markdownLinksToHtml", () => {
 			'<a href="https://x.com/i/status/456" style="color: #667eea; text-decoration: underline;" target="_blank" rel="noopener noreferrer">[2]</a>',
 		);
 	});
+
+	it("converts sequential numbered links from resolved [post:N] markers", () => {
+		// After applyAnnotationsInline resolves [post:N] → [N](url)
+		const input =
+			"Chatter on bonds.[1](https://x.com/i/status/111)[2](https://x.com/i/status/222)";
+
+		const html = markdownLinksToHtml(input);
+
+		expect(html).toContain(
+			'<a href="https://x.com/i/status/111" style="color: #667eea; text-decoration: underline;" target="_blank" rel="noopener noreferrer">1</a>',
+		);
+		expect(html).toContain(
+			'<a href="https://x.com/i/status/222" style="color: #667eea; text-decoration: underline;" target="_blank" rel="noopener noreferrer">2</a>',
+		);
+		// No raw markdown remains
+		expect(html).not.toContain("[1]");
+		expect(html).not.toContain("[post:");
+	});
 });
