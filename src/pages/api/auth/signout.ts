@@ -19,7 +19,7 @@ function getSafeNext(nextParam: string | null): string {
  */
 export const POST: APIRoute = async ({ cookies, redirect, url }) => {
 	clearAuthCookies(cookies);
-	const next = getSafeNext(url.searchParams.get("next"));
+	const next = getSafeNext(url?.searchParams.get("next") ?? null);
 	return redirect(next);
 };
 
