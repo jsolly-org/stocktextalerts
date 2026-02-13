@@ -231,8 +231,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
 		const hasContentType = context.request.headers.has("content-type");
 		const formLikeContentType = hasFormLikeContentType(contentType);
 		const shouldEnforce = hasContentType ? formLikeContentType : true;
-		const isSameOrigin = origin === requestUrl.origin;
-		if (shouldEnforce && !isSameOrigin) {
+		// Treat missing Origin header as same-origin (browsers omit it for some legitimate requests).
+		const isSameOrigin = !origin || origin === requestUrl.origin;
+		if (shouldEnforce && origin && !isSameOrigin) {
 			if (
 				isAuthOriginDebugEnabled() &&
 				requestUrl.pathname.startsWith("/api/auth/")
