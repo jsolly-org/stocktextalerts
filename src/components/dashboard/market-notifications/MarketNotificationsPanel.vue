@@ -180,7 +180,7 @@
 							Asset Price Alerts
 						</span>
 						<p id="market_asset_price_alerts_enabled_description" class="text-sm text-gray-600 mt-0.5">
-							Notified immediately when tracked assets show significant price movement, up or down.
+							Immediate alerts for significant price movement. Alerts may include related headlines and a brief AI summary when available.
 						</p>
 						<details class="mt-2 group">
 							<summary
@@ -192,8 +192,10 @@
 								<ul class="list-disc pl-4 space-y-1">
 									<li>Runs only during US market hours and checks symbols you track.</li>
 									<li>Builds a score from rapid price moves, breakouts, and breaking news.</li>
-									<li>Sends an alert when the score crosses the configured threshold.</li>
+									<li>Sends an alert when the score crosses the configured threshold, with price and signal context.</li>
+									<li>May include recent headlines and an AI summary when relevant context is available.</li>
 									<li>Uses a cooldown per symbol to avoid repeated alerts in a short window.</li>
+									<li>News and Rumors is separate and delivered through Daily Digest (email-only).</li>
 								</ul>
 							</div>
 						</details>

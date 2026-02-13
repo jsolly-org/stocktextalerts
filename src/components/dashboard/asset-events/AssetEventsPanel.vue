@@ -81,15 +81,49 @@
 			/>
 
 		<!-- Asset Events — each event type has its own Email/SMS toggles -->
-		<div
-			v-for="(eventType, idx) in ASSET_EVENT_TYPES"
-			:key="eventType.key"
-			class="rounded-xl border border-gray-200 bg-white p-4 transition-opacity duration-200"
-			:class="[
-				{ 'opacity-50': needsChannelSelection },
-				idx > 0 ? 'mt-4' : ''
-			]"
-		>
+		<div class="space-y-3">
+			<!-- Select all Email / SMS — column header -->
+			<div
+				class="flex items-center justify-between gap-3 px-4 transition-opacity duration-200"
+				:class="{ 'opacity-50': needsChannelSelection }"
+			>
+				<span class="text-xs font-semibold uppercase tracking-wider text-gray-400 select-none">Select all</span>
+				<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
+					<label class="inline-flex items-center gap-1.5" :class="needsChannelSelection ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'">
+						<input
+							ref="selectAllEmailRef"
+							type="checkbox"
+							:checked="allEmailChecked"
+							:disabled="needsChannelSelection"
+							class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4"
+							:class="needsChannelSelection ? 'cursor-not-allowed' : 'cursor-pointer'"
+							aria-label="Select all Email"
+							@change="toggleAllEmail"
+						/>
+						<span class="text-sm font-medium text-gray-600">Email</span>
+					</label>
+					<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+						<input
+							ref="selectAllSmsRef"
+							type="checkbox"
+							:checked="allSmsChecked"
+							:disabled="needsChannelSelection || !smsReady"
+							class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4"
+							:class="smsReady ? 'cursor-pointer' : 'cursor-not-allowed'"
+							aria-label="Select all SMS"
+							@change="toggleAllSms"
+						/>
+						<span class="text-sm font-medium text-gray-600">SMS</span>
+					</label>
+				</div>
+			</div>
+
+			<div
+				v-for="eventType in ASSET_EVENT_TYPES"
+				:key="eventType.key"
+				class="rounded-xl border border-gray-200 bg-white p-4 transition-opacity duration-200"
+				:class="{ 'opacity-50': needsChannelSelection }"
+			>
 			<div class="flex items-center justify-between gap-3">
 				<input
 					type="hidden"
@@ -153,6 +187,7 @@
 				</div>
 			</div>
 		</div>
+		</div>
 
 		<div v-if="isHydrated && assetEventsEnabled && nextAssetEventsDeliveryText" class="mt-4 rounded-xl border border-gray-200 bg-white p-4 transition-opacity duration-200" :class="{ 'opacity-50': needsChannelSelection }">
 			<p class="inline-flex items-center gap-2 text-sm text-gray-600">
@@ -170,7 +205,7 @@
 
 <script lang="ts" setup>
 import { DateTime } from "luxon";
-import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, toRefs, watch, watchEffect } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import BellAlertIcon from "../../../icons/bell-alert.svg?component";
@@ -302,6 +337,51 @@ const assetEventsEnabled = computed(() =>
 		(t) => assetEventRefs[t.key].email.value || assetEventRefs[t.key].sms.value,
 	),
 );
+
+/* =============
+Select-all Email / SMS
+============= */
+const allEmailChecked = computed(() =>
+	ASSET_EVENT_TYPES.every((t) => assetEventRefs[t.key].email.value),
+);
+const someEmailChecked = computed(() =>
+	ASSET_EVENT_TYPES.some((t) => assetEventRefs[t.key].email.value),
+);
+
+const allSmsChecked = computed(() =>
+	ASSET_EVENT_TYPES.every((t) => assetEventRefs[t.key].sms.value),
+);
+const someSmsChecked = computed(() =>
+	ASSET_EVENT_TYPES.some((t) => assetEventRefs[t.key].sms.value),
+);
+
+const selectAllEmailRef = ref<HTMLInputElement | null>(null);
+const selectAllSmsRef = ref<HTMLInputElement | null>(null);
+
+watchEffect(() => {
+	if (selectAllEmailRef.value) {
+		selectAllEmailRef.value.indeterminate = someEmailChecked.value && !allEmailChecked.value;
+	}
+});
+watchEffect(() => {
+	if (selectAllSmsRef.value) {
+		selectAllSmsRef.value.indeterminate = someSmsChecked.value && !allSmsChecked.value;
+	}
+});
+
+function toggleAllEmail() {
+	const next = !allEmailChecked.value;
+	for (const eventType of ASSET_EVENT_TYPES) {
+		assetEventRefs[eventType.key].email.value = next;
+	}
+}
+
+function toggleAllSms() {
+	const next = !allSmsChecked.value;
+	for (const eventType of ASSET_EVENT_TYPES) {
+		assetEventRefs[eventType.key].sms.value = next;
+	}
+}
 
 const DEFAULT_ASSET_EVENTS_DELIVERY_MINUTES = 540; // 9:00 AM
 const assetEventsDeliveryTimeMinutes = computed(() =>
