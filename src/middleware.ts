@@ -126,6 +126,8 @@ type AuthOriginDebugHeaderContext = {
 	method: string;
 	pathname: string;
 	urlOrigin: string;
+	headerXVercelId: string | null;
+	headerXForwardedFor: string | null;
 	headerHost: string | null;
 	headerOrigin: string | null;
 	headerReferer: string | null;
@@ -135,6 +137,65 @@ type AuthOriginDebugHeaderContext = {
 	headerContentType: string | null;
 	headerSecFetchSite: string | null;
 };
+
+/**
+ * Parse an Origin-like value and return the normalized origin string.
+ *
+ * Returns `null` for missing or invalid values.
+ */
+function normalizeOrigin(value: string | null): string | null {
+	if (!value) {
+		return null;
+	}
+	try {
+		return new URL(value).origin;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Some proxy headers may include comma-separated values; keep the first one.
+ */
+function firstHeaderValue(value: string | null): string | null {
+	if (!value) {
+		return null;
+	}
+	const first = value.split(",")[0]?.trim();
+	return first && first.length > 0 ? first : null;
+}
+
+/**
+ * Build acceptable same-origin candidates for CSRF-style origin checks.
+ *
+ * In serverless/proxied environments, `request.url` can differ from the
+ * browser-visible origin. Include host/proxy-derived origins to avoid
+ * false positives while keeping strict cross-site blocking.
+ */
+function collectExpectedOrigins(
+	request: Request,
+	requestUrl: URL,
+): Set<string> {
+	const expected = new Set<string>();
+	expected.add(requestUrl.origin);
+
+	const host = firstHeaderValue(request.headers.get("host"));
+	if (host) {
+		expected.add(`${requestUrl.protocol}//${host}`);
+	}
+
+	const forwardedHost = firstHeaderValue(
+		request.headers.get("x-forwarded-host"),
+	);
+	const forwardedProto = firstHeaderValue(
+		request.headers.get("x-forwarded-proto"),
+	);
+	if (forwardedHost && forwardedProto) {
+		expected.add(`${forwardedProto}://${forwardedHost}`);
+	}
+
+	return expected;
+}
 
 function collectAuthOriginDebugHeaderContext(
 	request: Request,
@@ -146,6 +207,8 @@ function collectAuthOriginDebugHeaderContext(
 		method: request.method,
 		pathname: requestUrl.pathname,
 		urlOrigin: requestUrl.origin,
+		headerXVercelId: request.headers.get("x-vercel-id"),
+		headerXForwardedFor: request.headers.get("x-forwarded-for"),
 		headerHost: request.headers.get("host"),
 		headerOrigin: request.headers.get("origin"),
 		headerReferer: request.headers.get("referer"),
@@ -240,7 +303,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
 			// Only enforce cross-site form blocking when Origin is present and cross-origin.
 			const shouldEnforce =
 				origin !== null && (hasContentType ? formLikeContentType : true);
-			const isSameOrigin = origin === requestUrl.origin;
+			const normalizedOrigin = normalizeOrigin(origin);
+			const expectedOrigins = collectExpectedOrigins(
+				context.request,
+				requestUrl,
+			);
+			const isSameOrigin =
+				normalizedOrigin !== null && expectedOrigins.has(normalizedOrigin);
 			if (shouldEnforce && !isSameOrigin) {
 				if (
 					isAuthOriginDebugEnabled() &&
@@ -257,6 +326,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
 							hasContentType,
 							formLikeContentType,
 							shouldEnforce,
+							normalizedOrigin,
+							expectedOrigins: Array.from(expectedOrigins),
 							isSameOrigin,
 						},
 					);
