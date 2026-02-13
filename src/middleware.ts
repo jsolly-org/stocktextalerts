@@ -52,9 +52,9 @@ function readEnv(name: string): string | undefined {
  * endpoints; it increases log volume and may include header context.
  */
 function isAuthOriginDebugEnabled(): boolean {
-	// TEMPORARY DEBUGGING NOTE:
-	// Always enabled during the auth origin investigation.
-	return true;
+	// Toggle via env var to avoid redeployments.
+	// Keep disabled by default to reduce log volume.
+	return readEnv("AUTH_ORIGIN_DEBUG")?.toLowerCase() === "true";
 }
 
 /**
@@ -117,6 +117,42 @@ function buildCsp(requestHost?: string): string {
 		"font-src 'self' data:",
 		"form-action 'self'",
 	].join("; ");
+}
+
+type AuthOriginDebugHeaderContext = {
+	requestId: string;
+	method: string;
+	pathname: string;
+	urlOrigin: string;
+	headerHost: string | null;
+	headerOrigin: string | null;
+	headerReferer: string | null;
+	headerXForwardedHost: string | null;
+	headerXForwardedProto: string | null;
+	headerXForwardedPort: string | null;
+	headerContentType: string | null;
+	headerSecFetchSite: string | null;
+};
+
+function collectAuthOriginDebugHeaderContext(
+	request: Request,
+	requestId: string,
+	requestUrl: URL,
+): AuthOriginDebugHeaderContext {
+	return {
+		requestId,
+		method: request.method,
+		pathname: requestUrl.pathname,
+		urlOrigin: requestUrl.origin,
+		headerHost: request.headers.get("host"),
+		headerOrigin: request.headers.get("origin"),
+		headerReferer: request.headers.get("referer"),
+		headerXForwardedHost: request.headers.get("x-forwarded-host"),
+		headerXForwardedProto: request.headers.get("x-forwarded-proto"),
+		headerXForwardedPort: request.headers.get("x-forwarded-port"),
+		headerContentType: request.headers.get("content-type"),
+		headerSecFetchSite: request.headers.get("sec-fetch-site"),
+	};
 }
 
 /**
@@ -202,19 +238,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
 				requestUrl.pathname.startsWith("/api/auth/")
 			) {
 				rootLogger.warn("Auth origin debug: blocked cross-site form request", {
-					requestId,
-					method: context.request.method,
-					pathname: requestUrl.pathname,
-					urlOrigin: requestUrl.origin,
-					headerHost: context.request.headers.get("host"),
-					headerOrigin: origin,
-					headerReferer: context.request.headers.get("referer"),
-					headerXForwardedHost: context.request.headers.get("x-forwarded-host"),
-					headerXForwardedProto:
-						context.request.headers.get("x-forwarded-proto"),
-					headerXForwardedPort: context.request.headers.get("x-forwarded-port"),
-					headerContentType: contentType,
-					headerSecFetchSite: context.request.headers.get("sec-fetch-site"),
+					...collectAuthOriginDebugHeaderContext(
+						context.request,
+						requestId,
+						requestUrl,
+					),
 					hasContentType,
 					formLikeContentType,
 					shouldEnforce,
@@ -236,18 +264,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
 		requestUrl.pathname.startsWith("/api/auth/")
 	) {
 		rootLogger.info("Auth origin debug: request reached middleware", {
-			requestId,
-			method: context.request.method,
-			pathname: requestUrl.pathname,
-			urlOrigin: requestUrl.origin,
-			headerHost: context.request.headers.get("host"),
-			headerOrigin: context.request.headers.get("origin"),
-			headerReferer: context.request.headers.get("referer"),
-			headerXForwardedHost: context.request.headers.get("x-forwarded-host"),
-			headerXForwardedProto: context.request.headers.get("x-forwarded-proto"),
-			headerXForwardedPort: context.request.headers.get("x-forwarded-port"),
-			headerContentType: context.request.headers.get("content-type"),
-			headerSecFetchSite: context.request.headers.get("sec-fetch-site"),
+			...collectAuthOriginDebugHeaderContext(
+				context.request,
+				requestId,
+				requestUrl,
+			),
 		});
 	}
 

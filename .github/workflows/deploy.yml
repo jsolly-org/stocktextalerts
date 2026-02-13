@@ -34,7 +34,9 @@ jobs:
             if ! ls supabase/migrations/${version}_*.sql 1>/dev/null 2>&1; then
               orphaned+=("$version")
             fi
-          done          if [ ${#orphaned[@]} -gt 0 ]; then
+          done
+
+          if [ ${#orphaned[@]} -gt 0 ]; then
             echo "::error::Migration drift detected! The following remote versions have no local file:"
             for v in "${orphaned[@]}"; do
               echo "  - $v"
