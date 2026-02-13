@@ -12,6 +12,14 @@ function getSafeNext(nextParam: string | null): string {
 		: "/";
 }
 
+function escapeHtmlAttribute(value: string): string {
+	return value
+		.replaceAll("&", "&amp;")
+		.replaceAll('"', "&quot;")
+		.replaceAll("<", "&lt;")
+		.replaceAll(">", "&gt;");
+}
+
 /**
  * Sign the user out by clearing auth cookies.
  *
@@ -33,6 +41,8 @@ export const POST: APIRoute = async ({ cookies, redirect, url }) => {
 export const GET: APIRoute = async ({ url }) => {
 	const next = getSafeNext(url.searchParams.get("next"));
 	const action = `/api/auth/signout?next=${encodeURIComponent(next)}`;
+	const safeAction = escapeHtmlAttribute(action);
+	const safeNext = escapeHtmlAttribute(next);
 	const html = `<!doctype html>
 <html lang="en">
   <head>
@@ -46,11 +56,11 @@ export const GET: APIRoute = async ({ url }) => {
       <p style="margin: 0 0 1.25rem; line-height: 1.4;">
         Confirm you want to sign out.
       </p>
-      <form method="POST" action="${action}">
+      <form method="POST" action="${safeAction}">
         <button type="submit" style="padding: 0.6rem 1rem; font-weight: 600; cursor: pointer;">
           Sign out
         </button>
-        <a href="${next}" style="margin-left: 0.75rem;">Cancel</a>
+        <a href="${safeNext}" style="margin-left: 0.75rem;">Cancel</a>
       </form>
     </main>
   </body>
