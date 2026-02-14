@@ -10,7 +10,7 @@
  *   node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/one-off-tests/verify-market-events.ts --tickers AAPL,MSFT,NVDA
  */
 
-const POLYGON_BASE_URL = "https://api.polygon.io";
+const MASSIVE_BASE_URL = "https://api.polygon.io";
 const REQUEST_TIMEOUT_MS = 15_000;
 const DEFAULT_TICKERS = ["AAPL", "MSFT", "NVDA"];
 
@@ -41,8 +41,8 @@ async function getJson(url: string): Promise<{ ok: boolean; status: number; data
 }
 
 async function main(): Promise<void> {
-	const polygonKey = process.env.POLYGON_API_KEY;
-	if (!polygonKey) throw new Error("Missing POLYGON_API_KEY");
+	const massiveKey = process.env.MASSIVE_API_KEY;
+	if (!massiveKey) throw new Error("Missing MASSIVE_API_KEY");
 
 	const tickers = parseTickers(argValue("--tickers"));
 
@@ -50,7 +50,7 @@ async function main(): Promise<void> {
 	console.log(`Tickers: ${tickers.join(", ")}`);
 	console.log("");
 
-	const statusUrl = `${POLYGON_BASE_URL}/v1/marketstatus/now?apiKey=${polygonKey}`;
+	const statusUrl = `${MASSIVE_BASE_URL}/v1/marketstatus/now?apiKey=${massiveKey}`;
 	const marketStatus = await getJson(statusUrl);
 	if (!marketStatus.ok) throw new Error(`market status failed: HTTP ${marketStatus.status}`);
 	if (typeof marketStatus.data !== "object" || marketStatus.data === null) {
@@ -60,8 +60,8 @@ async function main(): Promise<void> {
 	const serverTime = (marketStatus.data as Record<string, unknown>).serverTime;
 	console.log(`PASS market-status market=${String(market)} serverTime=${String(serverTime)}`);
 
-	const qs = new URLSearchParams({ tickers: tickers.join(","), apiKey: polygonKey });
-	const snapshotUrl = `${POLYGON_BASE_URL}/v2/snapshot/locale/us/markets/stocks/tickers?${qs.toString()}`;
+	const qs = new URLSearchParams({ tickers: tickers.join(","), apiKey: massiveKey });
+	const snapshotUrl = `${MASSIVE_BASE_URL}/v2/snapshot/locale/us/markets/stocks/tickers?${qs.toString()}`;
 	const snapshot = await getJson(snapshotUrl);
 	if (!snapshot.ok) throw new Error(`snapshot failed: HTTP ${snapshot.status}`);
 	if (typeof snapshot.data !== "object" || snapshot.data === null) throw new Error("snapshot payload invalid");

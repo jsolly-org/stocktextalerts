@@ -4,16 +4,16 @@
  *
  * Checks:
  * - Finnhub earnings calendar
- * - Polygon dividends
- * - Polygon splits
- * - Polygon IPOs
+ * - Massive dividends
+ * - Massive splits
+ * - Massive IPOs
  *
  * Usage:
  *   node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/one-off-tests/verify-asset-events.ts
  *   node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/one-off-tests/verify-asset-events.ts --tickers AAPL,MSFT
  */
 
-const POLYGON_BASE_URL = "https://api.polygon.io";
+const MASSIVE_BASE_URL = "https://api.polygon.io";
 const FINNHUB_BASE_URL = "https://finnhub.io/api/v1";
 const REQUEST_TIMEOUT_MS = 15_000;
 
@@ -91,7 +91,7 @@ async function checkEarnings(
 	return { name: "finnhub:earnings", status: "PASS", message: `${filtered.length} events` };
 }
 
-async function checkPolygonEndpoint(options: {
+async function checkMassiveEndpoint(options: {
 	name: string;
 	path: string;
 	apiKey: string;
@@ -100,7 +100,7 @@ async function checkPolygonEndpoint(options: {
 	dateField?: string;
 }): Promise<CheckResult> {
 	const qs = new URLSearchParams({ ...options.params, apiKey: options.apiKey });
-	const url = `${POLYGON_BASE_URL}${options.path}?${qs.toString()}`;
+	const url = `${MASSIVE_BASE_URL}${options.path}?${qs.toString()}`;
 	const { ok, status, data } = await getJson(url);
 	if (!ok) return { name: options.name, status: "FAIL", message: `HTTP ${status}` };
 	if (typeof data !== "object" || data === null) {
@@ -133,9 +133,9 @@ function printResult(result: CheckResult): void {
 }
 
 async function main(): Promise<void> {
-	const polygonKey = process.env.POLYGON_API_KEY;
+	const massiveKey = process.env.MASSIVE_API_KEY;
 	const finnhubKey = process.env.FINNHUB_API_KEY;
-	if (!polygonKey) throw new Error("Missing POLYGON_API_KEY");
+	if (!massiveKey) throw new Error("Missing MASSIVE_API_KEY");
 	if (!finnhubKey) throw new Error("Missing FINNHUB_API_KEY");
 
 	const tickers = parseTickers(argValue("--tickers"));
@@ -149,10 +149,10 @@ async function main(): Promise<void> {
 
 	const results = await Promise.all([
 		checkEarnings(finnhubKey, tickers, from, to),
-		checkPolygonEndpoint({
-			name: "polygon:dividends",
+		checkMassiveEndpoint({
+			name: "massive:dividends",
 			path: "/v3/reference/dividends",
-			apiKey: polygonKey,
+			apiKey: massiveKey,
 			params: {
 				"ex_dividend_date.gte": from,
 				"ex_dividend_date.lte": to,
@@ -161,10 +161,10 @@ async function main(): Promise<void> {
 			tickers,
 			dateField: "ex_dividend_date",
 		}),
-		checkPolygonEndpoint({
-			name: "polygon:splits",
+		checkMassiveEndpoint({
+			name: "massive:splits",
 			path: "/v3/reference/splits",
-			apiKey: polygonKey,
+			apiKey: massiveKey,
 			params: {
 				"execution_date.gte": from,
 				"execution_date.lte": to,
@@ -173,10 +173,10 @@ async function main(): Promise<void> {
 			tickers,
 			dateField: "execution_date",
 		}),
-		checkPolygonEndpoint({
-			name: "polygon:ipos",
+		checkMassiveEndpoint({
+			name: "massive:ipos",
 			path: "/v3/reference/ipos",
-			apiKey: polygonKey,
+			apiKey: massiveKey,
 			params: {
 				"listing_date.gte": from,
 				"listing_date.lte": to,

@@ -3,10 +3,10 @@
  * to scripts/data/us-assets.json.
  *
  * Uses `marketDataFetch` from `src/lib/providers/massive.ts` which wraps
- * Polygon `/v3/reference/tickers?market=stocks&active=true&limit=1000`
+ * the Massive `/v3/reference/tickers?market=stocks&active=true&limit=1000` endpoint
  * with retries, rate-limit handling, and timeouts.
  *
- * We normalize Polygon's `type` values to our own: "stock" or "etf".
+ * We normalize Massive's `type` values to our own: "stock" or "etf".
  *
  * Included as "stock": CS (Common Stock), ADRC (ADR)
  * Included as "etf": ETF, ETN
@@ -18,7 +18,7 @@
  *     data: [{ symbol, name, type }]    // sorted alphabetically by symbol
  *   }
  *
- * Requires POLYGON_API_KEY in .env.local (loaded via --env-file-if-exists).
+ * Requires MASSIVE_API_KEY in .env.local (loaded via --env-file-if-exists).
  *
  * Usage:
  *   npx tsx scripts/db/fetch-us-assets.ts
@@ -34,15 +34,15 @@ import { marketDataFetch } from "../../src/lib/providers/massive";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_FILE = path.join(__dirname, "..", "data", "us-assets.json");
 
-// Polygon `type` values we include, mapped to our normalized types.
-const POLYGON_TYPE_MAP: Record<string, "stock" | "etf"> = {
+// Massive `type` values we include, mapped to our normalized types.
+const ASSET_TYPE_MAP: Record<string, "stock" | "etf"> = {
 	CS: "stock",
 	ADRC: "stock",
 	ETF: "etf",
 	ETN: "etf",
 };
 
-interface PolygonTicker {
+interface MassiveTicker {
 	ticker: string;
 	name: string;
 	type: string;
@@ -65,17 +65,15 @@ interface OutputFile {
 }
 
 /** Fetch all tickers via Massive provider with pagination. */
-async function fetchAllTickers(): Promise<PolygonTicker[]> {
+async function fetchAllTickers(): Promise<MassiveTicker[]> {
 	// Verify API key is available (marketDataFetch returns null silently when missing)
-	const metaEnv = (import.meta as { env?: Record<string, string | undefined> })
-		.env;
-	if (!process.env.POLYGON_API_KEY && !metaEnv?.POLYGON_API_KEY) {
+	if (!process.env.MASSIVE_API_KEY) {
 		throw new Error(
-			"POLYGON_API_KEY is not set. Add it to .env.local and run with --env-file-if-exists=.env.local",
+			"MASSIVE_API_KEY is not set. Add it to .env.local and run with --env-file-if-exists=.env.local",
 		);
 	}
 
-	const allTickers: PolygonTicker[] = [];
+	const allTickers: MassiveTicker[] = [];
 	let cursor: string | null = null;
 	let page = 1;
 
@@ -121,7 +119,7 @@ async function fetchAllTickers(): Promise<PolygonTicker[]> {
 				typeof (item as Record<string, unknown>).name === "string" &&
 				typeof (item as Record<string, unknown>).type === "string"
 			) {
-				allTickers.push(item as PolygonTicker);
+				allTickers.push(item as MassiveTicker);
 			}
 		}
 
@@ -144,12 +142,12 @@ async function fetchAllTickers(): Promise<PolygonTicker[]> {
 	return allTickers;
 }
 
-/** Normalize Polygon tickers into our `{symbol,name,type}` set. */
-function transformSymbols(raw: PolygonTicker[]): OutputSymbol[] {
+/** Normalize Massive tickers into our `{symbol,name,type}` set. */
+function transformSymbols(raw: MassiveTicker[]): OutputSymbol[] {
 	const symbols: OutputSymbol[] = [];
 
 	for (const item of raw) {
-		const normalizedType = POLYGON_TYPE_MAP[item.type];
+		const normalizedType = ASSET_TYPE_MAP[item.type];
 		if (!normalizedType) continue;
 
 		const symbol = (item.ticker ?? "").trim().toUpperCase();
@@ -173,14 +171,14 @@ async function main() {
 	const raw = await fetchAllTickers();
 	console.info(`  Received ${raw.length} raw tickers from Massive`);
 
-	// Log all unique Polygon type values for visibility
+	// Log all unique Massive type values for visibility
 	const typeCounts = new Map<string, number>();
 	for (const item of raw) {
 		typeCounts.set(item.type, (typeCounts.get(item.type) ?? 0) + 1);
 	}
 	console.info("  Type breakdown:");
 	for (const [type, count] of [...typeCounts.entries()].sort()) {
-		const kept = type in POLYGON_TYPE_MAP ? "KEPT" : "skipped";
+		const kept = type in ASSET_TYPE_MAP ? "KEPT" : "skipped";
 		console.info(`    ${type}: ${count} (${kept})`);
 	}
 
@@ -192,7 +190,7 @@ async function main() {
 	const output: OutputFile = {
 		metadata: {
 			source:
-				"https://api.polygon.io/v3/reference/tickers?market=stocks&active=true",
+				"massive:/v3/reference/tickers?market=stocks&active=true",
 			fetched_at: new Date().toISOString(),
 			type_counts: { stock: stockTypeCount, etf: etfCount },
 			total_symbols: symbols.length,
