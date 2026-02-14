@@ -24,12 +24,8 @@ type DailyDigestUserRow = Pick<
 	| "show_sparklines"
 	| "daily_digest_include_news_email"
 	| "daily_digest_include_rumors_email"
-	| "asset_events_include_earnings_email"
-	| "asset_events_include_earnings_sms"
-	| "asset_events_include_dividends_email"
-	| "asset_events_include_dividends_sms"
-	| "asset_events_include_splits_email"
-	| "asset_events_include_splits_sms"
+	| "asset_events_include_calendar_email"
+	| "asset_events_include_calendar_sms"
 	| "asset_events_include_ipo_email"
 	| "asset_events_include_ipo_sms"
 	| "asset_events_include_analyst_email"
@@ -108,12 +104,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			show_sparklines,
 			daily_digest_include_news_email,
 			daily_digest_include_rumors_email,
-			asset_events_include_earnings_email,
-			asset_events_include_earnings_sms,
-			asset_events_include_dividends_email,
-			asset_events_include_dividends_sms,
-			asset_events_include_splits_email,
-			asset_events_include_splits_sms,
+			asset_events_include_calendar_email,
+			asset_events_include_calendar_sms,
 			asset_events_include_ipo_email,
 			asset_events_include_ipo_sms,
 			asset_events_include_analyst_email,

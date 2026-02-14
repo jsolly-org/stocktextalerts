@@ -608,9 +608,9 @@ const previewAssets = computed<PreviewAsset[]>(() => {
 		return DEMO_ASSETS;
 	}
 	const demoData = [
-		{ price: 195.5, changePercent: 2.4, sparkline: "▁▂▃▅▇▅▆" },
-		{ price: 178.2, changePercent: 1.8, sparkline: "▃▂▁▃▅▆▇" },
-		{ price: 248.3, changePercent: -0.5, sparkline: "▇▆▅▃▂▃▁" },
+		{ price: 195.5, changePercent: 2.4, sparkline: "▁▂▃▅▇▅▆", sparklineValues: [188, 190, 191, 193, 196, 194, 195] },
+		{ price: 178.2, changePercent: 1.8, sparkline: "▃▂▁▃▅▆▇", sparklineValues: [174, 173, 172, 174, 176, 177, 178] },
+		{ price: 248.3, changePercent: -0.5, sparkline: "▇▆▅▃▂▃▁", sparklineValues: [255, 253, 252, 250, 249, 250, 248] },
 	];
 	return assets.slice(0, 3).map((asset, i) => ({
 		symbol: asset.symbol,
@@ -618,6 +618,7 @@ const previewAssets = computed<PreviewAsset[]>(() => {
 		price: demoData[i % demoData.length].price,
 		changePercent: demoData[i % demoData.length].changePercent,
 		sparkline: demoData[i % demoData.length].sparkline,
+		sparklineValues: demoData[i % demoData.length].sparklineValues,
 	}));
 });
 

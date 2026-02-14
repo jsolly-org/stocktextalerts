@@ -19,12 +19,8 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	daily_digest_include_rumors_email: { type: "boolean" },
 	market_scheduled_asset_price_include_email: { type: "boolean" },
 	market_scheduled_asset_price_include_sms: { type: "boolean" },
-	asset_events_include_earnings_email: { type: "boolean" },
-	asset_events_include_earnings_sms: { type: "boolean" },
-	asset_events_include_dividends_email: { type: "boolean" },
-	asset_events_include_dividends_sms: { type: "boolean" },
-	asset_events_include_splits_email: { type: "boolean" },
-	asset_events_include_splits_sms: { type: "boolean" },
+	asset_events_include_calendar_email: { type: "boolean" },
+	asset_events_include_calendar_sms: { type: "boolean" },
 	asset_events_include_ipo_email: { type: "boolean" },
 	asset_events_include_ipo_sms: { type: "boolean" },
 	asset_events_include_analyst_email: { type: "boolean" },
@@ -212,18 +208,10 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 					updatedUser.daily_digest_include_news_email,
 				daily_digest_include_rumors_email:
 					updatedUser.daily_digest_include_rumors_email,
-				asset_events_include_earnings_email:
-					updatedUser.asset_events_include_earnings_email,
-				asset_events_include_earnings_sms:
-					updatedUser.asset_events_include_earnings_sms,
-				asset_events_include_dividends_email:
-					updatedUser.asset_events_include_dividends_email,
-				asset_events_include_dividends_sms:
-					updatedUser.asset_events_include_dividends_sms,
-				asset_events_include_splits_email:
-					updatedUser.asset_events_include_splits_email,
-				asset_events_include_splits_sms:
-					updatedUser.asset_events_include_splits_sms,
+				asset_events_include_calendar_email:
+					updatedUser.asset_events_include_calendar_email,
+				asset_events_include_calendar_sms:
+					updatedUser.asset_events_include_calendar_sms,
 				asset_events_include_ipo_email:
 					updatedUser.asset_events_include_ipo_email,
 				asset_events_include_ipo_sms: updatedUser.asset_events_include_ipo_sms,

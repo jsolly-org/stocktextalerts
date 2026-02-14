@@ -76,20 +76,14 @@ export async function buildAssetEventsContent(options: {
 
 	// 3. Filter by user's per-type channel-specific toggles
 	const filteredEvents = (rawEvents ?? []).filter((event) => {
-		if (event.event_type === "earnings") {
+		if (
+			event.event_type === "earnings" ||
+			event.event_type === "dividend" ||
+			event.event_type === "split"
+		) {
 			return channel === "email"
-				? user.asset_events_include_earnings_email
-				: user.asset_events_include_earnings_sms;
-		}
-		if (event.event_type === "dividend") {
-			return channel === "email"
-				? user.asset_events_include_dividends_email
-				: user.asset_events_include_dividends_sms;
-		}
-		if (event.event_type === "split") {
-			return channel === "email"
-				? user.asset_events_include_splits_email
-				: user.asset_events_include_splits_sms;
+				? user.asset_events_include_calendar_email
+				: user.asset_events_include_calendar_sms;
 		}
 		if (event.event_type === "ipo") {
 			return channel === "email"

@@ -10,10 +10,10 @@
 			</div>
 			<div class="email-body">
 				<div class="email-assets-section">
-					<p
+					<div
 						class="email-assets-content"
 						v-html="formattedEmailHtml"
-					></p>
+					></div>
 				</div>
 			</div>
 		</div>

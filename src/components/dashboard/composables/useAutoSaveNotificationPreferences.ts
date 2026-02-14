@@ -19,12 +19,8 @@ export type NotificationPreferencesData = {
 	daily_digest_include_rumors_email: boolean;
 	market_scheduled_asset_price_include_email: boolean;
 	market_scheduled_asset_price_include_sms: boolean;
-	asset_events_include_earnings_email: boolean;
-	asset_events_include_earnings_sms: boolean;
-	asset_events_include_dividends_email: boolean;
-	asset_events_include_dividends_sms: boolean;
-	asset_events_include_splits_email: boolean;
-	asset_events_include_splits_sms: boolean;
+	asset_events_include_calendar_email: boolean;
+	asset_events_include_calendar_sms: boolean;
 	asset_events_include_ipo_email: boolean;
 	asset_events_include_ipo_sms: boolean;
 	asset_events_include_analyst_email: boolean;

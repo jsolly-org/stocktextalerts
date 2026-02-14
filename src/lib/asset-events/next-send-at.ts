@@ -22,12 +22,8 @@ export async function updateUserAssetEventsNextSendAt(options: {
 	const { user, supabase, logger, currentTime } = options;
 
 	const hasAssetEventsOption =
-		user.asset_events_include_earnings_email ||
-		user.asset_events_include_earnings_sms ||
-		user.asset_events_include_dividends_email ||
-		user.asset_events_include_dividends_sms ||
-		user.asset_events_include_splits_email ||
-		user.asset_events_include_splits_sms ||
+		user.asset_events_include_calendar_email ||
+		user.asset_events_include_calendar_sms ||
 		user.asset_events_include_ipo_email ||
 		user.asset_events_include_ipo_sms ||
 		user.asset_events_include_analyst_email ||

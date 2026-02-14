@@ -41,6 +41,9 @@ export function toSvgSparklineImg(
 		`</svg>`,
 	].join("");
 
-	const base64 = Buffer.from(svg).toString("base64");
+	const base64 =
+		typeof btoa === "function"
+			? btoa(svg)
+			: Buffer.from(svg).toString("base64");
 	return `<img src="data:image/svg+xml;base64,${base64}" alt="sparkline" width="${width}" height="${height}" style="vertical-align: middle;" />`;
 }
