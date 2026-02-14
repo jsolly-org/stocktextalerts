@@ -51,6 +51,7 @@
 			<NotificationChannelsFieldset
 				v-model:emailEnabled="emailEnabled"
 				v-model:smsEnabled="smsEnabled"
+				:phone-verified="phoneVerified"
 				:can-save-sms-enabled="canSaveSmsEnabled"
 				:sms-opted-out="smsOptedOut"
 				:sms-phone-number="props.smsPhoneNumber"

@@ -96,10 +96,7 @@ async function fetchAllTickers(): Promise<MassiveTicker[]> {
 		);
 
 		if (typeof data !== "object" || data === null) {
-			if (page === 1) {
-				throw new Error("Failed to fetch tickers from Massive");
-			}
-			break;
+			throw new Error(`Failed to fetch tickers from Massive on page ${page}`);
 		}
 
 		const record = data as Record<string, unknown>;

@@ -133,6 +133,7 @@ import SmsVerificationSection from "./SmsVerificationSection.vue";
 interface Props {
 	emailEnabled: boolean;
 	smsEnabled: boolean;
+	phoneVerified: boolean;
 	canSaveSmsEnabled: boolean;
 	smsOptedOut: boolean;
 	smsPhoneNumber: string;
@@ -171,7 +172,9 @@ const smsEnabled = computed({
 	set: (value: boolean) => emit("update:smsEnabled", value),
 });
 
-const hasNotificationChannel = computed(() => props.emailEnabled || props.smsEnabled);
+const hasNotificationChannel = computed(
+	() => props.emailEnabled || (props.smsEnabled && props.phoneVerified),
+);
 
 const canSetMarketOpen = computed(
 	() => hasNotificationChannel.value && !props.isMarketOpenTime,

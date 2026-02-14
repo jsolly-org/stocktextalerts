@@ -164,7 +164,7 @@ watch(activeIndex, (i) => visitedIndices.value.add(i));
 // When switching to desktop, mark all panels as visited so they stay mounted on resize back to mobile
 watch(isMobile, (mobile) => {
 	if (!mobile) for (let i = 0; i < 5; i++) visitedIndices.value.add(i);
-});
+}, { immediate: true });
 
 function shouldRender(panelIndex: number): boolean {
 	if (!isMobile.value) return true;
