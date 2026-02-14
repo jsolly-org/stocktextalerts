@@ -121,12 +121,12 @@ describe("Daily digest email prices", () => {
 			extras,
 		});
 
-		expect(message.text).toContain("Daily digest");
+		expect(message.text).toContain("Your Assets");
 		expect(message.text).toContain("AAPL — price unavailable");
 		expect(message.text).toContain("MSFT — price unavailable");
 	});
 
-	it("applies preferences to daily digest SMS price lines", () => {
+	it("formats daily digest SMS with a Your Assets section", () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 			["MSFT", { price: 412.1, changePercent: -0.31 }],
@@ -142,7 +142,9 @@ describe("Daily digest email prices", () => {
 			extras,
 		});
 
-		expect(message).toContain("💵 Prices");
+		expect(message).toContain("Your Assets");
+		expect(message).not.toContain("Tickers:");
+		expect(message).not.toContain("💵 Prices");
 		expect(message).toContain("AAPL — $187.42 (+1.23%)");
 		expect(message).toContain("MSFT — $412.10 (-0.31%)");
 	});
@@ -168,6 +170,30 @@ describe("Daily digest email prices", () => {
 		);
 		expect(message.html).toContain(
 			"AAPL: First rumor line\n\nMSFT: Second rumor line",
+		);
+	});
+
+	it("adds a blank line between news ticker sections", () => {
+		const assetPrices: AssetPriceMap = new Map([
+			["AAPL", { price: 187.42, changePercent: 1.23 }],
+		]);
+
+		const message = formatDailyDigestEmail({
+			user,
+			userAssets: [userAssets[0]],
+			assetPrices,
+			formatPrefs: defaultPrefs,
+			extras: {
+				...extras,
+				news: "AAPL: First news line\nMSFT: Second news line",
+			},
+		});
+
+		expect(message.text).toContain(
+			"🗞️ News\nAAPL: First news line\n\nMSFT: Second news line",
+		);
+		expect(message.html).toContain(
+			"AAPL: First news line\n\nMSFT: Second news line",
 		);
 	});
 });

@@ -47,9 +47,6 @@ export function formatDailyDigestSmsMessage(options: {
 }): string {
 	const optOutSuffix = "Reply STOP to opt out.";
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
-	const tickers = options.userAssets.map((s) => s.symbol).filter(Boolean);
-	const tickersLine =
-		tickers.length > 0 ? `Tickers: ${tickers.join(", ")}` : "";
 	const prices = buildDailyDigestPricesSummary(
 		options.userAssets,
 		options.assetPrices,
@@ -61,8 +58,7 @@ export function formatDailyDigestSmsMessage(options: {
 	const ae = options.assetEvents;
 	const sections = [
 		"StockTextAlerts — Daily digest",
-		tickersLine,
-		prices ? `💵 Prices\n${prices}` : "",
+		prices ? `Your Assets\n${prices}` : "",
 		formatExtrasSection("🗞️ News", options.extras.news),
 		formatExtrasSection("🤫 Rumors", options.extras.rumors),
 		formatExtrasSection("📈 Earnings", ae?.eventsSection?.earnings),
@@ -145,7 +141,9 @@ export function formatDailyDigestEmail(options: {
 		"dailyNotifications",
 	);
 
-	const news = (options.extras.news ?? "").trim();
+	const news = addBlankLinesBetweenSymbolSections(
+		(options.extras.news ?? "").trim(),
+	);
 	const rumors = addBlankLinesBetweenSymbolSections(
 		(options.extras.rumors ?? "").trim(),
 	);
@@ -167,8 +165,8 @@ export function formatDailyDigestEmail(options: {
 	const digestTickerBody = prices || tickersLine;
 
 	const sectionsText = [
-		"Daily digest",
-		digestTickerBody,
+		"StockTextAlerts — Daily digest",
+		`Your Assets\n${digestTickerBody}`,
 		news ? `\n🗞️ News\n${news}` : "",
 		rumors ? `\n🤫 Rumors\n${rumors}` : "",
 		earnings ? `\n📈 Earnings\n${earnings}` : "",
@@ -193,8 +191,11 @@ export function formatDailyDigestEmail(options: {
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #111827; max-width: 600px; margin: 0 auto; padding: 20px;">
-	<div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-radius: 10px;">
-		<h2 style="margin: 0 0 8px; font-size: 18px;">Daily digest</h2>
+	<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 8px 8px 0 0; text-align: center;">
+		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">📈 StockTextAlerts</h1>
+	</div>
+	<div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+		<h2 style="margin: 0 0 8px; font-size: 18px;">Your Assets</h2>
 		<pre style="white-space: pre-wrap; margin: 0 0 16px; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">${escapeHtml(digestTickerBody)}</pre>
 		${renderEmailSection("🗞️", "News", news, { showGrokLogo: true, showFinnhubLogo: true })}
 		${renderEmailSection("🤫", "Rumors", rumors, { showGrokLogo: true })}
@@ -337,6 +338,7 @@ export async function processDailyDigestSmsDelivery(options: {
 	assetPrices: AssetPriceMap;
 	extras: SmsExtras;
 	assetEvents?: AssetEventsResult;
+	sparklines?: SparklineMap;
 	getSmsSender: SmsSenderProvider;
 	stats: ScheduledNotificationTotals;
 }): Promise<void> {
@@ -409,6 +411,7 @@ export async function processDailyDigestSmsDelivery(options: {
 		},
 		extras,
 		assetEvents,
+		sparklines: options.sparklines,
 	});
 	const result = await sendUserSms(user, smsMessage, smsSenderResult.sender);
 	const logged = await recordNotification(supabase, {

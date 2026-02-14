@@ -623,6 +623,7 @@ export async function processDailyDigestUser(options: {
 				assetPrices,
 				extras: smsExtras,
 				assetEvents: smsAssetEvents,
+				sparklines,
 				getSmsSender,
 				stats,
 			});
