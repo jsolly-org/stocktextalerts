@@ -22,7 +22,7 @@ type ResponsesRequest = {
 };
 
 // xAI Responses API (OpenAPI `ModelResponse`)
-type XaiAnnotation = {
+export type XaiAnnotation = {
 	type: string;
 	url: string;
 	start_index?: number | null;
@@ -64,7 +64,7 @@ type XaiOutputItem =
 			[key: string]: unknown;
 	  };
 
-type ResponsesResponse = {
+export type ResponsesResponse = {
 	id: string;
 	object: "response" | (string & {});
 	created_at: number;
@@ -143,7 +143,7 @@ function linkLabelFromUrl(url: string): string | null {
  * markdown links. Processes annotations from end to start so character
  * positions remain valid during replacement.
  */
-function applyAnnotationsInline(
+export function applyAnnotationsInline(
 	text: string,
 	annotations: XaiAnnotation[],
 ): string {
@@ -357,7 +357,7 @@ function getMetaEnv(): Record<string, string | undefined> | undefined {
 }
 
 /** Build the system/user prompt for the news section. */
-function buildNewsPrompt(options: {
+export function buildNewsPrompt(options: {
 	tickers: string[];
 	localDateIso: string;
 	timezone: string;
@@ -394,7 +394,7 @@ function buildNewsPrompt(options: {
 }
 
 /** Build the system/user prompt for the rumors section. */
-function buildRumorsPrompt(options: {
+export function buildRumorsPrompt(options: {
 	tickers: string[];
 	localDateIso: string;
 	timezone: string;

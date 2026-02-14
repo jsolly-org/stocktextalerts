@@ -15,121 +15,13 @@ import {
 	markdownLinksToHtml,
 	renderEmailSection,
 } from "../../src/lib/messaging/email/html-section";
-
-/* -- xAI types (mirrors grok.ts) -- */
-type XaiAnnotation = {
-	type: string;
-	url: string;
-	start_index?: number | null;
-	end_index?: number | null;
-};
-type XaiOutputContentPart = {
-	type: string;
-	text?: string;
-	annotations?: XaiAnnotation[];
-};
-type XaiOutputItem = {
-	type: string;
-	content?: XaiOutputContentPart[];
-};
-type ResponsesResponse = {
-	id: string;
-	output: XaiOutputItem[];
-};
-
-/* -- Mirrors linkLabelFromUrl + applyAnnotationsInline from grok.ts -- */
-const DOMAIN_LABELS: Record<string, string> = {
-	"cnbc.com": "CNBC", "finance.yahoo.com": "Yahoo Finance", "yahoo.com": "Yahoo",
-	"investopedia.com": "Investopedia", "seekingalpha.com": "Seeking Alpha",
-	"morningstar.com": "Morningstar", "marketwatch.com": "MarketWatch",
-	"bloomberg.com": "Bloomberg", "reuters.com": "Reuters", "wsj.com": "WSJ",
-	"barrons.com": "Barron's", "fool.com": "Motley Fool", "marketbeat.com": "MarketBeat",
-	"benzinga.com": "Benzinga", "thestreet.com": "TheStreet", "tradingview.com": "TradingView",
-	"trefis.com": "Trefis", "electrek.co": "Electrek", "techcrunch.com": "TechCrunch",
-	"theverge.com": "The Verge", "arstechnica.com": "Ars Technica",
-};
-function linkLabelFromUrl(url: string): string | null {
-	const xMatch = url.match(/^https?:\/\/(?:x|twitter)\.com\/([^/]+)\/status\/\d+/);
-	if (xMatch) return xMatch[1] === "i" ? null : `@${xMatch[1]}`;
-	try {
-		const hostname = new URL(url).hostname.replace(/^www\./, "");
-		if (DOMAIN_LABELS[hostname]) return DOMAIN_LABELS[hostname];
-		const parts = hostname.split(".");
-		if (parts.length > 2) { const parent = parts.slice(-2).join("."); if (DOMAIN_LABELS[parent]) return DOMAIN_LABELS[parent]; }
-		return hostname;
-	} catch { return null; }
-}
-
-function applyAnnotationsInline(text: string, annotations: XaiAnnotation[]): string {
-	const valid = annotations
-		.filter(
-			(a): a is XaiAnnotation & { start_index: number; end_index: number } =>
-				typeof a.url === "string" && a.url.trim() !== "" &&
-				typeof a.start_index === "number" && typeof a.end_index === "number" &&
-				a.start_index >= 0 && a.end_index > a.start_index && a.end_index <= text.length,
-		)
-		.sort((a, b) => b.start_index - a.start_index);
-
-	let result = text;
-
-	// Phase 0: Strip <grok:render> citation tags (opaque hash-based, can't resolve to URLs).
-	result = result.replace(/<grok:render[^>]*>[\s\S]*?<\/grok:render>/g, "");
-
-	for (const ann of valid) {
-		const span = result.slice(ann.start_index, ann.end_index);
-		if (/\]\(https?:\/\//.test(span)) continue;
-		const after = result.slice(ann.end_index, ann.end_index + 10);
-		if (/^\]?\(https?:/.test(after)) continue;
-		let linkText = span.replace(/^\[|\]$/g, "").trim();
-		if (!linkText || /^post:\d+$/i.test(linkText)) linkText = "source";
-		result = result.slice(0, ann.start_index) + `[${linkText}](${ann.url})` + result.slice(ann.end_index);
-	}
-
-	let linkCounter = 0;
-	result = result.replace(/\[?\[(?:post|web):(\d+)\]\]?/g, (_match, numStr) => {
-		const idx = parseInt(numStr as string, 10);
-		const ann = annotations[idx];
-		if (ann && typeof ann.url === "string" && ann.url.trim() !== "") {
-			linkCounter++;
-			const url = ann.url.trim();
-			return `[[${linkLabelFromUrl(url) ?? `[${linkCounter}]`}]](${url})`;
-		}
-		return "";
-	});
-
-	result = result.replace(
-		/\[https?:\/\/(?:x|twitter)\.com\/([^/\]]+)\/status\/[^\]]+\]/g,
-		(_, handle) => (handle === "i" ? "[[post]]" : `[[@${handle}]]`),
-	);
-
-	result = result.replace(/\[\[(\d+)\]\]\((https?:\/\/[^)]+)\)/g, (_match, _num, url) => {
-		const label = linkLabelFromUrl(url as string);
-		return label ? `[[${label}]](${url})` : _match;
-	});
-
-	// Phase 5: Link inline @handle mentions to anonymous x_search citation URLs.
-	const anonXUrls: string[] = [];
-	for (const m of result.matchAll(
-		/\[\[\d+\]\]\((https?:\/\/(?:x|twitter)\.com\/i\/status\/\d+)\)/g,
-	)) {
-		anonXUrls.push(m[1]);
-	}
-	if (anonXUrls.length > 0) {
-		result = result.replace(
-			/\[\[\d+\]\]\(https?:\/\/(?:x|twitter)\.com\/i\/status\/\d+\)/g,
-			"",
-		);
-		let anonIdx = 0;
-		result = result.replace(/(?<!\[)@([A-Za-z0-9_]+)/g, (match) => {
-			if (anonIdx < anonXUrls.length) {
-				return `[[${match}]](${anonXUrls[anonIdx++]})`;
-			}
-			return match;
-		});
-	}
-
-	return result;
-}
+import {
+	type XaiAnnotation,
+	type ResponsesResponse,
+	applyAnnotationsInline,
+	buildNewsPrompt,
+	buildRumorsPrompt,
+} from "../../src/lib/providers/grok";
 
 /* -- Config -- */
 const TICKERS = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN"];
@@ -143,59 +35,7 @@ if (!apiKey) {
 	process.exit(1);
 }
 
-/* -- Build prompts (mirrors grok.ts) -- */
-function buildNewsPrompt() {
-	const tickers = TICKERS.join(", ");
-	const bulletCount = Math.min(TICKERS.length, 10);
-	return {
-		system:
-			"You write factual financial news summaries for daily email digests. " +
-			"Be descriptive, neutral, and cautious. " +
-			"Do not give buy/sell advice. " +
-			"Do NOT include links, URLs, or citation numbers in your text -- " +
-			"source links are added automatically from search metadata.",
-		user:
-			`Write a short news summary for these tickers: ${tickers}.\n` +
-			`Local date: ${LOCAL_DATE_ISO} (${TIMEZONE}).\n` +
-			"\nRules:\n" +
-			`- One bullet per ticker, up to ${bulletCount}. Skip tickers with nothing noteworthy.\n` +
-			"- Each bullet starts with the ticker (e.g. 'AAPL: ...').\n" +
-			"- Do NOT include links or citation markers -- they are added automatically.\n" +
-			"- Output the bullets directly -- no wrappers, tags, or preamble.\n" +
-			"\nExample output:\n" +
-			"AAPL: Apple shares fell 3% after the FTC opened an inquiry into App Store practices, adding to concerns over slowing services revenue.\n" +
-			"NVDA: Nvidia declined 2% as competition from AMD accelerators intensified ahead of next week's earnings report.",
-	};
-}
-
-function buildRumorsPrompt() {
-	const tickers = TICKERS.join(", ");
-	const bulletCount = Math.min(TICKERS.length, 10);
-	return {
-		system:
-			"You summarize social media chatter and unverified rumors about stocks. " +
-			"Use hedge words like 'chatter', 'unconfirmed', and 'reportedly'. " +
-			"Do not give buy/sell advice. " +
-			"Attribute claims to specific X posters by their @handle. " +
-			"Do NOT include full URLs -- just @handles.",
-		user:
-			`Write a short rumors summary for these tickers: ${tickers}.\n` +
-			`Local date: ${LOCAL_DATE_ISO} (${TIMEZONE}).\n` +
-			"\nRules:\n" +
-			`- One bullet per ticker, up to ${bulletCount}. Skip tickers with nothing noteworthy.\n` +
-			"- Each bullet starts with the ticker (e.g. 'AAPL: ...').\n" +
-			"- Attribute claims to specific X posters using their @handle.\n" +
-			"- Do NOT include full URLs or citation markers -- they are added automatically.\n" +
-			"- End with: 'Unverified chatter -- double-check before acting.'\n" +
-			"- Output the bullets directly -- no wrappers, tags, or preamble.\n" +
-			"\nExample output:\n" +
-			"AAPL: Chatter about Siri delays pressuring shares, with @TechBullish flagging supply chain friction and @MarketWatcher noting strong China sales as an offset.\n" +
-			"NVDA: @ChipAnalyst reports UBS raising PT to $245 ahead of earnings, while @OptionsFlow highlights aggressive upside bets.\n" +
-			"Unverified chatter -- double-check before acting.",
-	};
-}
-
-/* -- API call -- */
+/* -- API call (keeps raw text + annotations for debug display) -- */
 async function callGrok(
 	label: string,
 	system: string,
@@ -236,12 +76,17 @@ async function callGrok(
 	let rawText = "";
 	let annotations: XaiAnnotation[] = [];
 	for (const item of data.output) {
-		if (item.type !== "message" || !Array.isArray(item.content)) continue;
-		for (const part of item.content) {
+		if (item.type !== "message") continue;
+		const content = "content" in item ? item.content : undefined;
+		if (!Array.isArray(content)) continue;
+		for (const part of content) {
+			if (!part || typeof part !== "object") continue;
 			if (part.type !== "output_text" && part.type !== "text") continue;
-			rawText += (part.text ?? "").trim();
-			if (Array.isArray(part.annotations)) {
-				annotations = annotations.concat(part.annotations);
+			if ("text" in part && typeof part.text === "string") {
+				rawText += part.text.trim();
+			}
+			if ("annotations" in part && Array.isArray(part.annotations)) {
+				annotations = annotations.concat(part.annotations as XaiAnnotation[]);
 			}
 		}
 	}
@@ -255,8 +100,9 @@ async function callGrok(
 async function main() {
 	console.log(`Fetching Grok news + rumors for ${TICKERS.join(", ")}...\n`);
 
-	const newsPrompt = buildNewsPrompt();
-	const rumorsPrompt = buildRumorsPrompt();
+	const promptOpts = { tickers: TICKERS, localDateIso: LOCAL_DATE_ISO, timezone: TIMEZONE };
+	const newsPrompt = buildNewsPrompt(promptOpts);
+	const rumorsPrompt = buildRumorsPrompt(promptOpts);
 
 	const [newsData, rumorsData] = await Promise.all([
 		callGrok("News", newsPrompt.system, newsPrompt.user, "web_search"),
