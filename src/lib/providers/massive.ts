@@ -48,7 +48,6 @@ export interface IpoEvent {
 Constants
 ============= */
 
-const MASSIVE_BASE_URL = "https://api.massive.com";
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2_000;
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -57,8 +56,10 @@ const REQUEST_TIMEOUT_MS = 10_000;
 Helpers
 ============= */
 
-function getMassiveApiKey(): string {
-	return import.meta.env.MASSIVE_API_KEY ?? "";
+const POLYGON_BASE_URL = "https://api.polygon.io";
+
+function getPolygonApiKey(): string {
+	return import.meta.env.POLYGON_API_KEY ?? "";
 }
 
 function computeRetryDelayMs(
@@ -83,7 +84,7 @@ function parseRetryAfterMs(headerValue: string | null): number | null {
 }
 
 /**
- * Low-level Massive fetch wrapper with retries, rate-limit handling, and timeouts.
+ * Low-level Polygon fetch wrapper with retries, rate-limit handling, and timeouts.
  *
  * Returns `null` when the API key is missing or the request ultimately fails.
  */
@@ -92,11 +93,11 @@ export async function marketDataFetch(
 	params: Record<string, string>,
 	label: string,
 ): Promise<unknown> {
-	const apiKey = getMassiveApiKey();
+	const apiKey = getPolygonApiKey();
 	if (!apiKey) return null;
 
 	const query = new URLSearchParams({ ...params, apiKey });
-	const url = `${MASSIVE_BASE_URL}${endpoint}?${query.toString()}`;
+	const url = `${POLYGON_BASE_URL}${endpoint}?${query.toString()}`;
 
 	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
 		const isLastAttempt = attempt === MAX_RETRIES;
@@ -113,7 +114,7 @@ export async function marketDataFetch(
 				const retryAfterMs = parseRetryAfterMs(
 					response.headers.get("Retry-After"),
 				);
-				log(`Massive ${label} rate limited (429)`, {
+				log(`Polygon ${label} rate limited (429)`, {
 					endpoint,
 					attempt,
 					status: 429,
@@ -137,7 +138,7 @@ export async function marketDataFetch(
 					// Ignore malformed/non-JSON error bodies.
 				}
 
-				log(`Massive ${label} API error`, {
+				log(`Polygon ${label} API error`, {
 					endpoint,
 					attempt,
 					status: response.status,
@@ -154,7 +155,7 @@ export async function marketDataFetch(
 
 			return await response.json();
 		} catch (error) {
-			log(`Massive ${label} request failed`, {
+			log(`Polygon ${label} request failed`, {
 				endpoint,
 				attempt,
 				error: error instanceof Error ? error.message : String(error),
@@ -228,7 +229,7 @@ export async function fetchEarnings(
 	from: string,
 	to: string,
 ): Promise<EarningsEvent[]> {
-	// Use Finnhub as the canonical earnings feed to avoid partner entitlement issues on Massive.
+	// Use Finnhub as the canonical earnings feed to avoid partner entitlement issues on Polygon.
 	return fetchFinnhubEarnings(from, to);
 }
 
@@ -394,7 +395,7 @@ Snapshot Quotes
 ============= */
 
 /**
- * Snapshot ticker shape from Massive `/v2/snapshot/locale/us/markets/stocks/tickers`.
+ * Snapshot ticker shape from Polygon `/v2/snapshot/locale/us/markets/stocks/tickers`.
  */
 interface SnapshotTicker {
 	ticker: string;
@@ -412,7 +413,7 @@ interface SnapshotTicker {
 	};
 }
 
-/** Normalized quote fields extracted from Massive's snapshot endpoint. */
+/** Normalized quote fields extracted from Polygon's snapshot endpoint. */
 export interface SnapshotQuote {
 	price: number;
 	changePercent: number;
@@ -445,7 +446,7 @@ function parseSnapshotTicker(t: SnapshotTicker): SnapshotQuote | null {
 		dayLow: numPrice(t.day?.l),
 		dayOpen: numPrice(t.day?.o),
 		prevClose: numPrice(t.prevDay?.c),
-		// Massive `updated` is in nanoseconds — convert to seconds for consistency
+		// Polygon `updated` is in nanoseconds — convert to seconds for consistency
 		timestamp:
 			typeof t.updated === "number" && Number.isFinite(t.updated)
 				? Math.floor(t.updated / 1_000_000_000)
@@ -455,7 +456,7 @@ function parseSnapshotTicker(t: SnapshotTicker): SnapshotQuote | null {
 }
 
 /**
- * Batch-fetch snapshot quotes for a list of symbols via a single Massive API call.
+ * Batch-fetch snapshot quotes for a list of symbols via a single Polygon API call.
  *
  * Uses `/v2/snapshot/locale/us/markets/stocks/tickers?tickers=A,B,C`.
  * Returns a Map keyed by symbol; missing/invalid tickers map to `null`.
@@ -523,7 +524,7 @@ function formatSplitRatio(
 	return `${splitTo}:${splitFrom}`;
 }
 
-/** Map Massive dividend frequency codes to labels. */
+/** Map Polygon dividend frequency codes to labels. */
 const FREQUENCY_LABELS: Record<number, string> = {
 	1: "annual",
 	2: "semi-annual",

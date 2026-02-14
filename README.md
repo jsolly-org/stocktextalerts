@@ -106,8 +106,8 @@ CRON_SECRET=your-random-secret-string
 
 EMAIL_FROM=notifications@updates.example.com
 
-# Massive (asset prices / dividends / splits)
-MASSIVE_API_KEY=your-massive-api-key
+# Polygon (asset prices / dividends / splits / news)
+POLYGON_API_KEY=your-polygon-api-key
 
 # Finnhub (earnings / market hours / symbol search / analyst/insider extras)
 FINNHUB_API_KEY=your-finnhub-api-key
@@ -128,7 +128,7 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - `DATABASE_URL`: Supabase Dashboard → Project Settings → Database → Connection String → Transaction mode (pooler)
 - Twilio credentials: Twilio Console → Account Dashboard
 - `CRON_SECRET`: Generate a random string (e.g., `openssl rand -hex 32`)
-- Massive credentials: Massive Dashboard → API Keys
+- Polygon credentials: Polygon.io Dashboard → API Keys
 - Finnhub credentials: Finnhub Dashboard → API Keys
 - xAI credentials: xAI Console → API Keys
 - LOG masking: optional, defaults to true

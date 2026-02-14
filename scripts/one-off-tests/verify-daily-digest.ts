@@ -10,7 +10,7 @@
  *   node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/one-off-tests/verify-daily-digest.ts --tickers AAPL,MSFT,TSLA
  */
 
-const MASSIVE_BASE_URL = "https://api.massive.com";
+const POLYGON_BASE_URL = "https://api.polygon.io";
 const FINNHUB_BASE_URL = "https://finnhub.io/api/v1";
 const REQUEST_TIMEOUT_MS = 15_000;
 
@@ -46,9 +46,9 @@ async function getJson(url: string): Promise<{ ok: boolean; status: number; data
 }
 
 async function main(): Promise<void> {
-	const massiveKey = process.env.MASSIVE_API_KEY;
+	const polygonKey = process.env.POLYGON_API_KEY;
 	const finnhubKey = process.env.FINNHUB_API_KEY;
-	if (!massiveKey) throw new Error("Missing MASSIVE_API_KEY");
+	if (!polygonKey) throw new Error("Missing POLYGON_API_KEY");
 	if (!finnhubKey) throw new Error("Missing FINNHUB_API_KEY");
 
 	const tickers = parseTickers(argValue("--tickers"));
@@ -60,8 +60,11 @@ async function main(): Promise<void> {
 	console.log(`Tickers: ${tickers.join(", ")}`);
 	console.log("");
 
-	const quoteQs = new URLSearchParams({ tickers: tickers.join(","), apiKey: massiveKey });
-	const quoteUrl = `${MASSIVE_BASE_URL}/v2/snapshot/locale/us/markets/stocks/tickers?${quoteQs.toString()}`;
+	const quoteQs = new URLSearchParams({
+		tickers: tickers.join(","),
+		apiKey: polygonKey,
+	});
+	const quoteUrl = `${POLYGON_BASE_URL}/v2/snapshot/locale/us/markets/stocks/tickers?${quoteQs.toString()}`;
 	const quoteResp = await getJson(quoteUrl);
 	if (!quoteResp.ok) throw new Error(`snapshot failed: HTTP ${quoteResp.status}`);
 	if (typeof quoteResp.data !== "object" || quoteResp.data === null) throw new Error("snapshot payload invalid");

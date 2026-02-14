@@ -1,6 +1,6 @@
 #!/usr/bin/env npx tsx
 /**
- * Verify all Massive (Polygon-compatible) API endpoints return expected data.
+ * Verify Polygon API endpoints return expected data.
  *
  * Endpoints tested:
  *   1. /v2/snapshot/locale/us/markets/stocks/tickers — batch snapshot quotes
@@ -15,7 +15,7 @@
  *   node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/one-off-tests/verify-massive.ts --tickers AAPL,MSFT
  */
 
-const MASSIVE_BASE_URL = "https://api.massive.com";
+const POLYGON_BASE_URL = "https://api.polygon.io";
 const DEFAULT_TICKERS = ["AAPL", "MSFT", "GOOG"];
 const REQUEST_TIMEOUT_MS = 15_000;
 
@@ -51,14 +51,14 @@ function futureDate(daysAhead: number): string {
 	return d.toISOString().slice(0, 10);
 }
 
-/** Minimal Massive GET helper with timeout. */
-async function massiveGet(
+/** Minimal Polygon GET helper with timeout. */
+async function polygonGet(
 	endpoint: string,
 	params: Record<string, string>,
 	apiKey: string,
 ): Promise<{ status: number; data: unknown }> {
 	const query = new URLSearchParams({ ...params, apiKey });
-	const url = `${MASSIVE_BASE_URL}${endpoint}?${query.toString()}`;
+	const url = `${POLYGON_BASE_URL}${endpoint}?${query.toString()}`;
 	const response = await fetch(url, {
 		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 	});
@@ -82,7 +82,7 @@ async function testSnapshotQuotes(
 ): Promise<TestResult> {
 	const endpoint = `/v2/snapshot/locale/us/markets/stocks/tickers`;
 	try {
-		const { status, data } = await massiveGet(
+		const { status, data } = await polygonGet(
 			endpoint,
 			{ tickers: tickers.join(",") },
 			apiKey,
@@ -180,7 +180,7 @@ async function testSnapshotFields(
 ): Promise<TestResult> {
 	const endpoint = `/v2/snapshot (field check)`;
 	try {
-		const { status, data } = await massiveGet(
+		const { status, data } = await polygonGet(
 			"/v2/snapshot/locale/us/markets/stocks/tickers",
 			{ tickers: ticker },
 			apiKey,
@@ -240,7 +240,7 @@ async function testDividends(apiKey: string): Promise<TestResult> {
 	const from = dateStr(30);
 	const to = futureDate(30);
 	try {
-		const { status, data } = await massiveGet(
+		const { status, data } = await polygonGet(
 			endpoint,
 			{
 				"ex_dividend_date.gte": from,
@@ -323,7 +323,7 @@ async function testSplits(apiKey: string): Promise<TestResult> {
 	const from = dateStr(180);
 	const to = futureDate(30);
 	try {
-		const { status, data } = await massiveGet(
+		const { status, data } = await polygonGet(
 			endpoint,
 			{
 				"execution_date.gte": from,
@@ -412,7 +412,7 @@ async function testCompanyNews(
 	const from = dateStr(7);
 	const to = dateStr(0);
 	try {
-		const { status, data } = await massiveGet(
+		const { status, data } = await polygonGet(
 			endpoint,
 			{
 				ticker,
@@ -475,7 +475,7 @@ async function testCompanyNews(
 async function testMarketStatus(apiKey: string): Promise<TestResult> {
 	const endpoint = `/v1/marketstatus/now`;
 	try {
-		const { status, data } = await massiveGet(endpoint, {}, apiKey);
+		const { status, data } = await polygonGet(endpoint, {}, apiKey);
 		if (status !== 200)
 			return { endpoint, status: "FAIL", message: `HTTP ${status}` };
 		if (typeof data !== "object" || data === null)
@@ -509,7 +509,7 @@ async function testMarketStatus(apiKey: string): Promise<TestResult> {
 async function testMarketHolidays(apiKey: string): Promise<TestResult> {
 	const endpoint = `/v1/marketstatus/upcoming`;
 	try {
-		const { status, data } = await massiveGet(endpoint, {}, apiKey);
+		const { status, data } = await polygonGet(endpoint, {}, apiKey);
 		if (status !== 200)
 			return { endpoint, status: "FAIL", message: `HTTP ${status}` };
 		if (!Array.isArray(data))
@@ -586,9 +586,9 @@ function printResult(result: TestResult) {
 /** Script entrypoint: run endpoint checks and exit non-zero on failures. */
 async function main() {
 	const args = process.argv.slice(2);
-	const apiKey = process.env.MASSIVE_API_KEY;
+	const apiKey = process.env.POLYGON_API_KEY;
 	if (!apiKey) {
-		console.error("Missing MASSIVE_API_KEY in environment.");
+		console.error("Missing POLYGON_API_KEY in environment.");
 		console.error(
 			"Run with: node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/one-off-tests/verify-massive.ts",
 		);
@@ -597,7 +597,7 @@ async function main() {
 	}
 
 	const tickers = parseTickers(getArgValue(args, "--tickers"));
-	console.log(`\nMassive API Verification`);
+	console.log(`\nPolygon API Verification`);
 	console.log(`========================`);
 	console.log(`Tickers: ${tickers.join(", ")}\n`);
 

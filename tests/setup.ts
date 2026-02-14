@@ -15,10 +15,10 @@ vi.mock("../src/lib/db/env", () => ({
 	getSiteUrl: () => "http://localhost",
 }));
 
-// Prevent real Massive API calls in all tests.
+// Prevent real Polygon API calls in all tests.
 // Without this, any code path that reaches marketDataFetch() would attempt a
-// live HTTP request when MASSIVE_API_KEY is set (e.g. in CI secrets).
-vi.stubEnv("MASSIVE_API_KEY", "");
+// live HTTP request when POLYGON_API_KEY is set (e.g. in CI secrets).
+vi.stubEnv("POLYGON_API_KEY", "");
 
 function getDatabaseUrl(): string {
 	const databaseUrl = process.env.DATABASE_URL;

@@ -8,8 +8,8 @@ describe("fetchCompanyNews", () => {
 		vi.useRealTimers();
 	});
 
-	it("maps MASSIVE fields to CompanyNewsItem shape", async () => {
-		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+	it("maps Polygon fields to CompanyNewsItem shape", async () => {
+		vi.stubEnv("POLYGON_API_KEY", "test-key");
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			new Response(
 				JSON.stringify({
@@ -40,7 +40,7 @@ describe("fetchCompanyNews", () => {
 	});
 
 	it("converts ISO 8601 published_utc to unix seconds", async () => {
-		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		vi.stubEnv("POLYGON_API_KEY", "test-key");
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			new Response(
 				JSON.stringify({
@@ -65,7 +65,7 @@ describe("fetchCompanyNews", () => {
 	});
 
 	it("returns empty array when response has no results", async () => {
-		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		vi.stubEnv("POLYGON_API_KEY", "test-key");
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			new Response(JSON.stringify({ results: [] }), {
 				status: 200,
@@ -79,7 +79,7 @@ describe("fetchCompanyNews", () => {
 	});
 
 	it("returns empty array on malformed response", async () => {
-		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		vi.stubEnv("POLYGON_API_KEY", "test-key");
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			new Response(JSON.stringify({ status: "ERROR" }), {
 				status: 200,
@@ -93,7 +93,7 @@ describe("fetchCompanyNews", () => {
 	});
 
 	it("filters out items missing required fields", async () => {
-		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		vi.stubEnv("POLYGON_API_KEY", "test-key");
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			new Response(
 				JSON.stringify({
@@ -117,7 +117,7 @@ describe("fetchCompanyNews", () => {
 	});
 
 	it("defaults optional fields when publisher/description/url are missing", async () => {
-		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		vi.stubEnv("POLYGON_API_KEY", "test-key");
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			new Response(
 				JSON.stringify({
@@ -145,7 +145,7 @@ describe("fetchCompanyNews", () => {
 
 	it("returns empty array on network error", async () => {
 		vi.useFakeTimers();
-		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		vi.stubEnv("POLYGON_API_KEY", "test-key");
 		vi.spyOn(globalThis, "fetch").mockRejectedValue(
 			new Error("Network failure"),
 		);
@@ -158,7 +158,7 @@ describe("fetchCompanyNews", () => {
 
 	it("returns empty array on non-200 response", async () => {
 		vi.useFakeTimers();
-		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		vi.stubEnv("POLYGON_API_KEY", "test-key");
 		vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
 			return new Response(JSON.stringify({ error: "Rate limited" }), {
 				status: 429,
@@ -173,7 +173,7 @@ describe("fetchCompanyNews", () => {
 	});
 
 	it("filters out items with invalid published_utc", async () => {
-		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		vi.stubEnv("POLYGON_API_KEY", "test-key");
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			new Response(
 				JSON.stringify({

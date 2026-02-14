@@ -11,7 +11,7 @@ interface SnapshotQuote {
 	changePercent: number;
 }
 
-const MASSIVE_BASE_URL = "https://api.massive.com";
+const POLYGON_BASE_URL = "https://api.polygon.io";
 
 function getArgValue(args: string[], name: string): string | undefined {
 	const idx = args.indexOf(name);
@@ -92,11 +92,13 @@ async function fetchSnapshotQuotes(
 		tickers: tickers.join(","),
 		apiKey,
 	});
-	const url = `${MASSIVE_BASE_URL}/v2/snapshot/locale/us/markets/stocks/tickers?${params.toString()}`;
+	const url = `${POLYGON_BASE_URL}/v2/snapshot/locale/us/markets/stocks/tickers?${params.toString()}`;
 
 	const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
 	if (!response.ok) {
-		throw new Error(`Massive snapshot failed: ${response.status} ${response.statusText}`);
+		throw new Error(
+			`Polygon snapshot failed: ${response.status} ${response.statusText}`,
+		);
 	}
 
 	const data = (await response.json()) as { tickers?: unknown };
@@ -120,10 +122,10 @@ async function main() {
 		return;
 	}
 
-	const apiKey = process.env.MASSIVE_API_KEY;
+	const apiKey = process.env.POLYGON_API_KEY;
 	if (!apiKey) {
 		console.error(
-			"Missing MASSIVE_API_KEY in environment.",
+			"Missing POLYGON_API_KEY in environment.",
 		);
 		process.exitCode = 2;
 		return;

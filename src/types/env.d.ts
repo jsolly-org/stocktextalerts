@@ -15,7 +15,7 @@ interface ImportMetaEnv {
 	readonly CRON_SECRET: string;
 	readonly VERCEL_URL?: string;
 	readonly VERCEL_PROJECT_PRODUCTION_URL?: string;
-	readonly MASSIVE_API_KEY: string;
+	readonly POLYGON_API_KEY: string;
 	readonly FINNHUB_API_KEY: string;
 	readonly TIMEZONE_CACHE_BUSTER?: string;
 	readonly SMS_TEST_BEHAVIOR?: "success" | "fail";

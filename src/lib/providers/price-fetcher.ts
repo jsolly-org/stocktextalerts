@@ -137,7 +137,7 @@ export async function fetchMarketStatus(): Promise<boolean> {
 
 	const market = (data as Record<string, unknown>).market;
 	if (typeof market !== "string") {
-		rootLogger.warn("Invalid MASSIVE market status field types", {
+		rootLogger.warn("Invalid Polygon market status field types", {
 			market,
 			payload: data,
 		});
