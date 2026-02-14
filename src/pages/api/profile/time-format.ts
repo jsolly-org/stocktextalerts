@@ -59,6 +59,13 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			updates.use_24_hour_time = parsed.data.use_24_hour_time;
 		}
 
+		if (Object.keys(updates).length === 0) {
+			logger.info("Time-format update rejected due to empty update payload", {
+				userId: user.id,
+			});
+			return jsonResponse(400, { ok: false, message: "invalid_form" });
+		}
+
 		const updatedUser = await userService.update(user.id, updates);
 		if (!updatedUser) {
 			logger.error("User update returned null", { userId: user.id });
