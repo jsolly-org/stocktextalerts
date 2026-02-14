@@ -119,8 +119,9 @@ export async function fetchSparklines(
 	}
 
 	async function worker(): Promise<void> {
-		while (queue.length > 0) {
-			const symbol = queue.shift()!;
+		while (true) {
+			const symbol = queue.shift();
+			if (symbol === undefined) break;
 			await processSymbol(symbol);
 		}
 	}
