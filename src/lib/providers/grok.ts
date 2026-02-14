@@ -163,6 +163,12 @@ function applyAnnotationsInline(
 
 	let result = text;
 
+	// Phase 0: Strip <grok:render> citation tags.
+	// Grok web_search sometimes embeds XML-style citation references that use
+	// opaque hash-based citation_ids instead of URLs. These can't be resolved
+	// to clickable links, so strip them to keep the text clean.
+	result = result.replace(/<grok:render[^>]*>[\s\S]*?<\/grok:render>/g, "");
+
 	// Phase 1: Apply positioned annotations as inline markdown links.
 	for (const ann of valid) {
 		const span = result.slice(ann.start_index, ann.end_index);

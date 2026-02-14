@@ -3,20 +3,20 @@
  * Preview the daily digest email (News + Rumors sections) using the real Grok API.
  *
  * Usage:
- *   node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/preview-digest.ts
+ *   node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/one-off-testing/preview-digest.ts
  *
- * Writes output to scripts/preview-digest.html and opens it in the default browser.
- * Shows every stage of the pipeline: raw API → annotation processing → HTML rendering.
+ * Writes output to scripts/one-off-testing/preview-digest.html and opens it in the default browser.
+ * Shows every stage of the pipeline: raw API -> annotation processing -> HTML rendering.
  */
 import { writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
-import { escapeHtml } from "../src/lib/messaging/asset-formatting";
+import { escapeHtml } from "../../src/lib/messaging/asset-formatting";
 import {
 	markdownLinksToHtml,
 	renderEmailSection,
-} from "../src/lib/messaging/email/html-section";
+} from "../../src/lib/messaging/email/html-section";
 
-/* ── xAI types (mirrors grok.ts) ── */
+/* -- xAI types (mirrors grok.ts) -- */
 type XaiAnnotation = {
 	type: string;
 	url: string;
@@ -37,7 +37,7 @@ type ResponsesResponse = {
 	output: XaiOutputItem[];
 };
 
-/* ── Mirrors linkLabelFromUrl + applyAnnotationsInline from grok.ts ── */
+/* -- Mirrors linkLabelFromUrl + applyAnnotationsInline from grok.ts -- */
 const DOMAIN_LABELS: Record<string, string> = {
 	"cnbc.com": "CNBC", "finance.yahoo.com": "Yahoo Finance", "yahoo.com": "Yahoo",
 	"investopedia.com": "Investopedia", "seekingalpha.com": "Seeking Alpha",
@@ -71,6 +71,9 @@ function applyAnnotationsInline(text: string, annotations: XaiAnnotation[]): str
 		.sort((a, b) => b.start_index - a.start_index);
 
 	let result = text;
+
+	// Phase 0: Strip <grok:render> citation tags (opaque hash-based, can't resolve to URLs).
+	result = result.replace(/<grok:render[^>]*>[\s\S]*?<\/grok:render>/g, "");
 
 	for (const ann of valid) {
 		const span = result.slice(ann.start_index, ann.end_index);
@@ -128,7 +131,7 @@ function applyAnnotationsInline(text: string, annotations: XaiAnnotation[]): str
 	return result;
 }
 
-/* ── Config ── */
+/* -- Config -- */
 const TICKERS = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN"];
 const LOCAL_DATE_ISO = new Date().toISOString().slice(0, 10);
 const TIMEZONE = "America/New_York";
@@ -140,7 +143,7 @@ if (!apiKey) {
 	process.exit(1);
 }
 
-/* ── Build prompts (mirrors grok.ts) ── */
+/* -- Build prompts (mirrors grok.ts) -- */
 function buildNewsPrompt() {
 	const tickers = TICKERS.join(", ");
 	const bulletCount = Math.min(TICKERS.length, 10);
@@ -149,7 +152,7 @@ function buildNewsPrompt() {
 			"You write factual financial news summaries for daily email digests. " +
 			"Be descriptive, neutral, and cautious. " +
 			"Do not give buy/sell advice. " +
-			"Do NOT include links, URLs, or citation numbers in your text — " +
+			"Do NOT include links, URLs, or citation numbers in your text -- " +
 			"source links are added automatically from search metadata.",
 		user:
 			`Write a short news summary for these tickers: ${tickers}.\n` +
@@ -157,8 +160,8 @@ function buildNewsPrompt() {
 			"\nRules:\n" +
 			`- One bullet per ticker, up to ${bulletCount}. Skip tickers with nothing noteworthy.\n` +
 			"- Each bullet starts with the ticker (e.g. 'AAPL: ...').\n" +
-			"- Do NOT include links or citation markers — they are added automatically.\n" +
-			"- Output the bullets directly — no wrappers, tags, or preamble.\n" +
+			"- Do NOT include links or citation markers -- they are added automatically.\n" +
+			"- Output the bullets directly -- no wrappers, tags, or preamble.\n" +
 			"\nExample output:\n" +
 			"AAPL: Apple shares fell 3% after the FTC opened an inquiry into App Store practices, adding to concerns over slowing services revenue.\n" +
 			"NVDA: Nvidia declined 2% as competition from AMD accelerators intensified ahead of next week's earnings report.",
@@ -174,7 +177,7 @@ function buildRumorsPrompt() {
 			"Use hedge words like 'chatter', 'unconfirmed', and 'reportedly'. " +
 			"Do not give buy/sell advice. " +
 			"Attribute claims to specific X posters by their @handle. " +
-			"Do NOT include full URLs — just @handles.",
+			"Do NOT include full URLs -- just @handles.",
 		user:
 			`Write a short rumors summary for these tickers: ${tickers}.\n` +
 			`Local date: ${LOCAL_DATE_ISO} (${TIMEZONE}).\n` +
@@ -182,17 +185,17 @@ function buildRumorsPrompt() {
 			`- One bullet per ticker, up to ${bulletCount}. Skip tickers with nothing noteworthy.\n` +
 			"- Each bullet starts with the ticker (e.g. 'AAPL: ...').\n" +
 			"- Attribute claims to specific X posters using their @handle.\n" +
-			"- Do NOT include full URLs or citation markers — they are added automatically.\n" +
-			"- End with: 'Unverified chatter — double-check before acting.'\n" +
-			"- Output the bullets directly — no wrappers, tags, or preamble.\n" +
+			"- Do NOT include full URLs or citation markers -- they are added automatically.\n" +
+			"- End with: 'Unverified chatter -- double-check before acting.'\n" +
+			"- Output the bullets directly -- no wrappers, tags, or preamble.\n" +
 			"\nExample output:\n" +
 			"AAPL: Chatter about Siri delays pressuring shares, with @TechBullish flagging supply chain friction and @MarketWatcher noting strong China sales as an offset.\n" +
 			"NVDA: @ChipAnalyst reports UBS raising PT to $245 ahead of earnings, while @OptionsFlow highlights aggressive upside bets.\n" +
-			"Unverified chatter — double-check before acting.",
+			"Unverified chatter -- double-check before acting.",
 	};
 }
 
-/* ── API call ── */
+/* -- API call -- */
 async function callGrok(
 	label: string,
 	system: string,
@@ -204,7 +207,7 @@ async function callGrok(
 	afterAnnotations: string;
 	rawResponse: ResponsesResponse;
 } | null> {
-	console.log(`[${label}] Calling Grok API…`);
+	console.log(`[${label}] Calling Grok API...`);
 	const response = await fetch("https://api.x.ai/v1/responses", {
 		method: "POST",
 		headers: {
@@ -248,9 +251,9 @@ async function callGrok(
 	return { rawText, annotations, afterAnnotations, rawResponse: data };
 }
 
-/* ── Main ── */
+/* -- Main -- */
 async function main() {
-	console.log(`Fetching Grok news + rumors for ${TICKERS.join(", ")}…\n`);
+	console.log(`Fetching Grok news + rumors for ${TICKERS.join(", ")}...\n`);
 
 	const newsPrompt = buildNewsPrompt();
 	const rumorsPrompt = buildRumorsPrompt();
@@ -318,7 +321,7 @@ async function main() {
 		${renderEmailSection("🗞️", "News", news, { showGrokLogo: true, showFinnhubLogo: true })}
 		${renderEmailSection("🤫", "Rumors", rumors, { showGrokLogo: true })}
 		<div style="text-align: center; margin-top: 20px;">
-			<a href="#" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">Manage your settings →</a>
+			<a href="#" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">Manage your settings -></a>
 		</div>
 	</div>
 
@@ -344,13 +347,13 @@ function buildDebugSection(
 		.map((a) => {
 			const pos =
 				typeof a.start_index === "number" && typeof a.end_index === "number"
-					? `[${a.start_index}–${a.end_index}]`
+					? `[${a.start_index}-${a.end_index}]`
 					: "[no pos]";
 			const span =
 				typeof a.start_index === "number" && typeof a.end_index === "number"
 					? data.rawText.slice(a.start_index, a.end_index)
 					: "";
-			return `<div class="annotation-row"><span class="pos">${escapeHtml(pos)}</span> <span class="span">${escapeHtml(span)}</span> → <span class="url">${escapeHtml(a.url)}</span></div>`;
+			return `<div class="annotation-row"><span class="pos">${escapeHtml(pos)}</span> <span class="span">${escapeHtml(span)}</span> -> <span class="url">${escapeHtml(a.url)}</span></div>`;
 		})
 		.join("");
 
