@@ -582,6 +582,7 @@ const {
 	notifyChange: notifyFormatChange,
 	statusMessage: formatStatusMessage,
 	statusTone: formatStatusTone,
+	savedData: formatSavedData,
 } = useAutoSaveFormatPreferences<FormatPreferencesData>({
 	formRef: formatPreferencesFormElement,
 });
@@ -589,6 +590,19 @@ const {
 const showSparklines = ref(user.value.show_sparklines);
 const showCompanyName = ref(user.value.show_company_name);
 const detailedFormat = ref(user.value.detailed_format);
+
+watch(formatSavedData, (newData) => {
+	if (!newData) return;
+	showSparklines.value = newData.show_sparklines;
+	showCompanyName.value = newData.show_company_name;
+	detailedFormat.value = newData.detailed_format;
+	user.value = {
+		...user.value,
+		show_sparklines: newData.show_sparklines,
+		show_company_name: newData.show_company_name,
+		detailed_format: newData.detailed_format,
+	};
+});
 
 watch([showSparklines, showCompanyName, detailedFormat], () => {
 	notifyFormatChange();
