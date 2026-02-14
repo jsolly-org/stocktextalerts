@@ -84,7 +84,8 @@ async function callGrok(
 			if (!part || typeof part !== "object") continue;
 			if (part.type !== "output_text" && part.type !== "text") continue;
 			if ("text" in part && typeof part.text === "string") {
-				rawText += part.text.trim();
+				// Do not trim: annotation offsets rely on original indices.
+				rawText += part.text;
 			}
 			if ("annotations" in part && Array.isArray(part.annotations)) {
 				annotations = annotations.concat(part.annotations as XaiAnnotation[]);

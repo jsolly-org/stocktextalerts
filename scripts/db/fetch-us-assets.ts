@@ -68,12 +68,7 @@ interface OutputFile {
 
 /** Fetch all Polygon tickers via pagination. */
 async function fetchAllTickers(): Promise<PolygonTicker[]> {
-	const apiKey = process.env.POLYGON_API_KEY;
-	if (!apiKey) {
-		throw new Error(
-			"POLYGON_API_KEY is not set. Add it to .env.local and run with --env-file-if-exists=.env.local",
-		);
-	}
+	const apiKey: string | undefined = process.env.POLYGON_API_KEY;
 
 	const allTickers: PolygonTicker[] = [];
 	let nextUrl: string | null = null;
@@ -84,8 +79,9 @@ async function fetchAllTickers(): Promise<PolygonTicker[]> {
 		market: "stocks",
 		active: "true",
 		limit: "1000",
-		apiKey,
 	});
+	// Intentionally do not throw when missing: let Polygon surface the error via HTTP.
+	if (apiKey) params.set("apiKey", apiKey);
 	let url = `${POLYGON_BASE_URL}/v3/reference/tickers?${params.toString()}`;
 
 	console.info("Fetching US assets from Polygon API...");
@@ -131,8 +127,12 @@ async function fetchAllTickers(): Promise<PolygonTicker[]> {
 			typeof record.next_url === "string" ? record.next_url : null;
 		if (nextUrl) {
 			// Polygon next_url includes the full URL but not the apiKey
-			const separator = nextUrl.includes("?") ? "&" : "?";
-			url = `${nextUrl}${separator}apiKey=${apiKey}`;
+			if (apiKey) {
+				const separator = nextUrl.includes("?") ? "&" : "?";
+				url = `${nextUrl}${separator}apiKey=${apiKey}`;
+			} else {
+				url = nextUrl;
+			}
 			page++;
 		} else {
 			url = "";
