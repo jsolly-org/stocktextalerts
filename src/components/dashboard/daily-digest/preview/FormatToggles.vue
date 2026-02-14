@@ -46,7 +46,7 @@
 			</div>
 			<ToggleSwitch
 				v-model="showCompanyNameValue"
-				sr-label="Show company name"
+				sr-label="Show asset name"
 				aria-labelledby="show_company_name_label"
 				aria-describedby="show_company_name_description"
 			/>
@@ -71,7 +71,7 @@
 			</div>
 			<ToggleSwitch
 				v-model="detailedFormatValue"
-				sr-label="Detailed format"
+				sr-label="More space"
 				aria-labelledby="detailed_format_label"
 				aria-describedby="detailed_format_description"
 			/>

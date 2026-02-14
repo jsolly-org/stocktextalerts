@@ -204,7 +204,10 @@ export function getNowInTimezone(
 		return now.toLocaleString(DateTime.TIME_24_WITH_SECONDS);
 	}
 	if (is24 === false) {
-		return now.toLocaleString(DateTime.TIME_WITH_SECONDS);
+		return now.toLocaleString({
+			...DateTime.TIME_WITH_SECONDS,
+			hourCycle: "h12",
+		});
 	}
 	return now.toLocaleString(DateTime.TIME_WITH_SECONDS);
 }
@@ -381,7 +384,10 @@ export function formatMinutesAsLocalTime(
 		return dt.toLocaleString(DateTime.TIME_24_SIMPLE);
 	}
 	if (is24 === false) {
-		return dt.toLocaleString(DateTime.TIME_SIMPLE);
+		return dt.toLocaleString({
+			...DateTime.TIME_SIMPLE,
+			hourCycle: "h12",
+		});
 	}
 	return dt.toLocaleString(DateTime.TIME_SIMPLE);
 }
