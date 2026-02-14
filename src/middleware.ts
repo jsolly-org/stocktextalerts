@@ -18,6 +18,7 @@ const REQUIRED_ENV_VARS = [
 	"CRON_SECRET",
 	"RESEND_API_KEY",
 	"EMAIL_FROM",
+	"MASSIVE_API_KEY",
 	"FINNHUB_API_KEY",
 ] as const;
 

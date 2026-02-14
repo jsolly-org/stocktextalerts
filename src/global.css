@@ -53,8 +53,8 @@
 		--surface-active: var(--color-gray-100);
 		--heading: var(--color-gray-900);
 		--label: var(--color-gray-700);
-		--body-secondary: var(--color-gray-600);
-		--muted: var(--color-gray-500);
+		--body-secondary: var(--color-gray-700);
+		--muted: var(--color-gray-600);
 		--faint: var(--color-gray-400);
 		--edge: var(--color-gray-200);
 		--edge-strong: var(--color-gray-300);
@@ -70,8 +70,8 @@
 			--surface-active: var(--color-gray-700);
 			--heading: var(--color-gray-100);
 			--label: var(--color-gray-300);
-			--body-secondary: var(--color-gray-400);
-			--muted: var(--color-gray-500);
+			--body-secondary: var(--color-gray-300);
+			--muted: var(--color-gray-400);
 			--faint: var(--color-gray-600);
 			--edge: var(--color-gray-700);
 			--edge-strong: var(--color-gray-600);

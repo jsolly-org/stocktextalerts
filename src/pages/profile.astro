@@ -4,6 +4,7 @@ import { Icon } from "astro-icon/components";
 import Navigation from "../components/Navigation.astro";
 import AccountManagement from "../components/profile/AccountManagement.astro";
 import DangerZone from "../components/profile/DangerZone.astro";
+import TimeFormatSection from "../components/profile/TimeFormatSection.vue";
 import TimezoneSection from "../components/profile/TimezoneSection.vue";
 import StatusMessage from "../components/StatusMessage.astro";
 import Layout from "../layouts/Layout.astro";
@@ -109,6 +110,13 @@ const successMessage = formatMessage(success);
 						user={user}
 						timezones={timezones}
 						timezoneLoadError={timezoneLoadError}
+					/>
+				</section>
+
+				<section>
+					<TimeFormatSection
+						client:idle
+						user={user}
 					/>
 				</section>
       </div>

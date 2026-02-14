@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Manually trigger the scheduled notifications cron job (POST /api/schedule).
 # Requires CRON_SECRET. Loads .env.local from project root if present.
-# Usage: ./scripts/one-off-testing/run-scheduled-cron.sh [--force]
+# Usage: ./scripts/one-off-tests/run-scheduled-cron.sh [--force]
 #   --force    Process all users with scheduled updates enabled (ignore next_send_at <= now).
 #   BASE_URL=http://localhost:4321  (default)
 #   CRON_SECRET=...                 (from env or .env.local)
@@ -93,4 +93,3 @@ else
     -w "\nHTTP %{http_code}\n" \
     -o /dev/stdout
 fi
-

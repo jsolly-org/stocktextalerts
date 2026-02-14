@@ -6,7 +6,7 @@ import {
 	formatAnalystSection,
 	formatInsiderSection,
 } from "../providers/finnhub";
-import { formatAssetEventsSection } from "../providers/polygon";
+import { formatAssetEventsSection } from "../providers/massive";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 
 export async function buildAssetEventsContent(options: {
@@ -21,6 +21,7 @@ export async function buildAssetEventsContent(options: {
 		earnings: string | null;
 		dividends: string | null;
 		splits: string | null;
+		ipos: string | null;
 	} | null;
 	insiderSection: string | null;
 	analystSection: string | null;
@@ -89,6 +90,11 @@ export async function buildAssetEventsContent(options: {
 			return channel === "email"
 				? user.asset_events_include_splits_email
 				: user.asset_events_include_splits_sms;
+		}
+		if (event.event_type === "ipo") {
+			return channel === "email"
+				? user.asset_events_include_ipo_email
+				: user.asset_events_include_ipo_sms;
 		}
 		return false;
 	});

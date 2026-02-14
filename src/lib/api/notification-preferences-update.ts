@@ -25,6 +25,8 @@ interface ParsedNotificationPreferencesForm {
 	asset_events_include_dividends_sms?: boolean;
 	asset_events_include_splits_email?: boolean;
 	asset_events_include_splits_sms?: boolean;
+	asset_events_include_ipo_email?: boolean;
+	asset_events_include_ipo_sms?: boolean;
 	asset_events_include_analyst_email?: boolean;
 	asset_events_include_analyst_sms?: boolean;
 	asset_events_include_insider_email?: boolean;
@@ -119,6 +121,8 @@ function computeAssetEventsNextSendAt(
 		"asset_events_include_dividends_sms",
 		"asset_events_include_splits_email",
 		"asset_events_include_splits_sms",
+		"asset_events_include_ipo_email",
+		"asset_events_include_ipo_sms",
 		"asset_events_include_analyst_email",
 		"asset_events_include_analyst_sms",
 		"asset_events_include_insider_email",
@@ -223,6 +227,8 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		"asset_events_include_dividends_sms",
 		"asset_events_include_splits_email",
 		"asset_events_include_splits_sms",
+		"asset_events_include_ipo_email",
+		"asset_events_include_ipo_sms",
 		"asset_events_include_analyst_email",
 		"asset_events_include_analyst_sms",
 		"asset_events_include_insider_email",
@@ -295,6 +301,8 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		"asset_events_include_dividends_sms",
 		"asset_events_include_splits_email",
 		"asset_events_include_splits_sms",
+		"asset_events_include_ipo_email",
+		"asset_events_include_ipo_sms",
 		"asset_events_include_analyst_email",
 		"asset_events_include_analyst_sms",
 		"asset_events_include_insider_email",
@@ -397,6 +405,8 @@ export function computeTimezoneUpdatePayload(
 		dbUser.asset_events_include_dividends_sms ||
 		dbUser.asset_events_include_splits_email ||
 		dbUser.asset_events_include_splits_sms ||
+		dbUser.asset_events_include_ipo_email ||
+		dbUser.asset_events_include_ipo_sms ||
 		dbUser.asset_events_include_analyst_email ||
 		dbUser.asset_events_include_analyst_sms ||
 		dbUser.asset_events_include_insider_email ||

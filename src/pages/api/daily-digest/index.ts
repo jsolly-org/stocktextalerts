@@ -21,7 +21,7 @@ type DailyDigestUserRow = Pick<
 	| "email_notifications_enabled"
 	| "sms_notifications_enabled"
 	| "sms_opted_out"
-	| "show_change_percent"
+	| "show_sparklines"
 	| "show_company_name"
 	| "detailed_format"
 	| "daily_digest_include_news_email"
@@ -32,6 +32,8 @@ type DailyDigestUserRow = Pick<
 	| "asset_events_include_dividends_sms"
 	| "asset_events_include_splits_email"
 	| "asset_events_include_splits_sms"
+	| "asset_events_include_ipo_email"
+	| "asset_events_include_ipo_sms"
 	| "asset_events_include_analyst_email"
 	| "asset_events_include_analyst_sms"
 	| "asset_events_include_insider_email"
@@ -105,7 +107,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			email_notifications_enabled,
 			sms_notifications_enabled,
 			sms_opted_out,
-			show_change_percent,
+			show_sparklines,
 			show_company_name,
 			detailed_format,
 			daily_digest_include_news_email,
@@ -116,6 +118,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			asset_events_include_dividends_sms,
 			asset_events_include_splits_email,
 			asset_events_include_splits_sms,
+			asset_events_include_ipo_email,
+			asset_events_include_ipo_sms,
 			asset_events_include_analyst_email,
 			asset_events_include_analyst_sms,
 			asset_events_include_insider_email,

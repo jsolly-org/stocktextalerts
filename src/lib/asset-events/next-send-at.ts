@@ -28,6 +28,8 @@ export async function updateUserAssetEventsNextSendAt(options: {
 		user.asset_events_include_dividends_sms ||
 		user.asset_events_include_splits_email ||
 		user.asset_events_include_splits_sms ||
+		user.asset_events_include_ipo_email ||
+		user.asset_events_include_ipo_sms ||
 		user.asset_events_include_analyst_email ||
 		user.asset_events_include_analyst_sms ||
 		user.asset_events_include_insider_email ||

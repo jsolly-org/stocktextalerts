@@ -3,9 +3,9 @@
  * Preview the daily digest email (News + Rumors sections) using the real Grok API.
  *
  * Usage:
- *   node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/one-off-testing/preview-digest.ts
+ *   node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/one-off-tests/preview-digest.ts
  *
- * Writes output to scripts/one-off-testing/preview-digest.html and opens it in the default browser.
+ * Writes output to scripts/one-off-tests/preview-digest.html and opens it in the default browser.
  * Shows every stage of the pipeline: raw API -> annotation processing -> HTML rendering.
  */
 import { writeFileSync } from "node:fs";

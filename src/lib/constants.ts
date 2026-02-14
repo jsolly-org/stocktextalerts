@@ -12,8 +12,6 @@ export const DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID =
 export const DASHBOARD_ASSETS_FORM_ID = "dashboard-assets-form";
 export const DASHBOARD_ASSETS_STATUS_ID = "dashboard-assets-save-status";
 export const DASHBOARD_MARKET_FORM_ID = "dashboard-market-form";
-export const DASHBOARD_FORMAT_PREFERENCES_FORM_ID =
-	"dashboard-format-preferences-form";
 export const DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID =
 	"dashboard-daily-notifications-form";
 export const DASHBOARD_ASSET_EVENTS_FORM_ID = "dashboard-asset-events-form";
@@ -92,7 +90,6 @@ export const DASHBOARD_SECTION_IDS = {
 	assets: "watchlist",
 	marketNotifications: "market-notifications",
 	assetEvents: "asset-events-notifications",
-	preview: "notification-preview",
 	dailyNotifications: "daily-notifications",
 } as const;
 
@@ -103,7 +100,6 @@ export const DASHBOARD_SECTION_HASHES: Record<DashboardSection, string> = {
 	assets: `#${DASHBOARD_SECTION_IDS.assets}`,
 	marketNotifications: `#${DASHBOARD_SECTION_IDS.marketNotifications}`,
 	assetEvents: `#${DASHBOARD_SECTION_IDS.assetEvents}`,
-	preview: `#${DASHBOARD_SECTION_IDS.preview}`,
 	dailyNotifications: `#${DASHBOARD_SECTION_IDS.dailyNotifications}`,
 };
 

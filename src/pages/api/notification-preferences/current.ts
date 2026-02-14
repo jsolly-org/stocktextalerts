@@ -75,6 +75,8 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 				asset_events_include_splits_email:
 					dbUser.asset_events_include_splits_email,
 				asset_events_include_splits_sms: dbUser.asset_events_include_splits_sms,
+				asset_events_include_ipo_email: dbUser.asset_events_include_ipo_email,
+				asset_events_include_ipo_sms: dbUser.asset_events_include_ipo_sms,
 				asset_events_include_analyst_email:
 					dbUser.asset_events_include_analyst_email,
 				asset_events_include_analyst_sms:

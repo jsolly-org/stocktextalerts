@@ -14,7 +14,7 @@ export interface ProcessingStats {
 type DbUserRow = Database["public"]["Tables"]["users"]["Row"];
 
 export interface FormatPreferences {
-	show_change_percent: boolean;
+	show_sparklines: boolean;
 	show_company_name: boolean;
 	detailed_format: boolean;
 }
@@ -39,7 +39,7 @@ export type UserRecord = Pick<
 	| "email_notifications_enabled"
 	| "sms_notifications_enabled"
 	| "sms_opted_out"
-	| "show_change_percent"
+	| "show_sparklines"
 	| "show_company_name"
 	| "detailed_format"
 > & {
@@ -55,6 +55,8 @@ export type UserRecord = Pick<
 	asset_events_include_dividends_sms: boolean;
 	asset_events_include_splits_email: boolean;
 	asset_events_include_splits_sms: boolean;
+	asset_events_include_ipo_email: boolean;
+	asset_events_include_ipo_sms: boolean;
 	asset_events_include_analyst_email: boolean;
 	asset_events_include_analyst_sms: boolean;
 	asset_events_include_insider_email: boolean;

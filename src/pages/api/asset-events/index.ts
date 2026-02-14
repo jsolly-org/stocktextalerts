@@ -7,7 +7,7 @@ import { verifyCronSecret } from "../../../lib/schedule/cron-auth";
 
 /**
  * Weekly cron endpoint to pre-populate the `asset_events` table with
- * next week's earnings, dividends, and splits from Polygon.io.
+ * next week's earnings (Finnhub) and dividends/splits/IPOs (Massive).
  *
  * Runs every Saturday at 00:00 UTC so events are ready before Monday
  * deliveries, even for users in far-ahead timezones (e.g. UTC+14).

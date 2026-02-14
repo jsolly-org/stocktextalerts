@@ -122,7 +122,7 @@ export async function processMarketScheduledUser(options: {
 
 		const userAssets = await loadUserAssets(supabase, user.id);
 		const formatPrefs: FormatPreferences = {
-			show_change_percent: user.show_change_percent,
+			show_sparklines: user.show_sparklines,
 			show_company_name: user.show_company_name,
 			detailed_format: user.detailed_format,
 		};

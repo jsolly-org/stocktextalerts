@@ -97,6 +97,8 @@ const props = defineProps<{
 	clearable?: boolean;
 	/** Accessible label for the clear button */
 	clearAriaLabel?: string;
+	/** Force 24-hour / 12-hour display. Falls back to locale detection when omitted. */
+	is24?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -215,6 +217,15 @@ watch(
 );
 
 watch(
+	() => props.is24,
+	(value) => {
+		if (value !== undefined) {
+			is24.value = value;
+		}
+	},
+);
+
+watch(
 	() => props.initialTime,
 	(value) => {
 		const parsed = parseTimeString(value);
@@ -225,7 +236,7 @@ watch(
 
 onMounted(() => {
 	isMounted.value = true;
-	is24.value = resolveIs24();
+	is24.value = props.is24 ?? resolveIs24();
 });
 </script>
 

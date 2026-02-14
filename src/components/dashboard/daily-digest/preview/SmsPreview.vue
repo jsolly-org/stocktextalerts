@@ -25,7 +25,7 @@
 
 <script lang="ts" setup>
 import { computed } from "vue";
-import type { FormatPreferences } from "../../../lib/messaging/types";
+import type { FormatPreferences } from "../../../../lib/messaging/types";
 import {
 	formatPreviewAssetsList,
 	type PreviewAsset,

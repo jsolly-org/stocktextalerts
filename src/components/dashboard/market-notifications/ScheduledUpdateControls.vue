@@ -29,6 +29,7 @@
 						:initialTime="null"
 						inputAriaLabel="Pick a delivery time"
 						:disabled="timePickerDisabled"
+						:is24="is24"
 						@time-change="emit('add-initial-time', $event)"
 					/>
 					<button
@@ -56,6 +57,7 @@
 					:outsideMarketHours="outsideMarketHoursIndices.has(index)"
 					clearable
 					:clearAriaLabel="`Remove delivery time ${index + 1}`"
+					:is24="is24"
 					@time-change="emit('time-change', index, $event)"
 					@clear="emit('remove-time', index)"
 				/>
@@ -123,6 +125,8 @@ interface Props {
 	maxTimesReached: boolean;
 	countdownText: string | null;
 	outsideMarketHoursIndices: Set<number>;
+	/** Force 24-hour / 12-hour display on time pickers. */
+	is24?: boolean;
 }
 
 const props = defineProps<Props>();

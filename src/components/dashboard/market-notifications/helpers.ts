@@ -15,6 +15,7 @@ export function useScheduledUpdateTiming(options: {
 	timezone: ComputedRef<string>;
 	nextSendAtIso: ComputedRef<string | null>;
 	timeInputs: ComputedRef<string[]>;
+	is24?: ComputedRef<boolean>;
 }) {
 	const hasMounted = ref(false);
 	const tick = ref(0);
@@ -41,7 +42,7 @@ export function useScheduledUpdateTiming(options: {
 		}
 		void tick.value;
 		const tz = options.timezone.value;
-		return tz !== "" ? getNowInTimezone(tz) : null;
+		return tz !== "" ? getNowInTimezone(tz, options.is24?.value) : null;
 	});
 
 	const countdownText = computed(() => {

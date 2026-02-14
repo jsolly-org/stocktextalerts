@@ -82,7 +82,7 @@
 							>
 								Scheduled Asset Price Notifications
 							</span>
-							<PolygonLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Polygon.io" role="img" />
+							<MassiveLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
 						</div>
 						<p id="market_scheduled_asset_price_enabled_description" class="text-sm text-body-secondary mt-0.5">
 							Scheduled asset price updates for all tracked assets, including ETFs.
@@ -140,6 +140,7 @@
 							:maxTimesReached="maxTimesReached"
 							:countdownText="countdownText"
 							:outsideMarketHoursIndices="outsideMarketHoursIndices"
+							:is24="is24"
 							@time-change="handleTimeChange"
 							@add-time="handleAddTime"
 							@add-initial-time="handleAddInitialTime"
@@ -183,7 +184,7 @@
 							>
 								Asset Price Alerts
 							</span>
-							<PolygonLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Polygon.io" role="img" />
+							<MassiveLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
 							<FinnhubLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Finnhub" role="img" />
 							<GrokLogoLightIcon class="h-4.5 w-auto shrink-0 dark:hidden" aria-label="Powered by Grok" role="img" />
 							<GrokLogoDarkIcon class="hidden h-4.5 w-auto shrink-0 dark:inline" aria-label="Powered by Grok" role="img" />
@@ -293,7 +294,7 @@ import FinnhubLogoIcon from "../../../icons/finnhub.svg?component";
 import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
 import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
 import InformationCircleIcon from "../../../icons/information-circle-20.svg?component";
-import PolygonLogoIcon from "../../../icons/polygon.svg?component";
+import MassiveLogoIcon from "../../../icons/massive.svg?component";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_MARKET_FORM_ID,
@@ -488,7 +489,7 @@ const marketOpenLocalMinutes = computed(() => {
 
 const marketOpenLabel = computed(() => {
 	if (marketOpenLocalMinutes.value === null) return null;
-	return formatMinutesAsLocalTime(marketOpenLocalMinutes.value);
+	return formatMinutesAsLocalTime(marketOpenLocalMinutes.value, user.value.use_24_hour_time);
 });
 
 const hasMarketOpenTime = computed(() => {
@@ -555,10 +556,12 @@ const nextSendAt = computed(
 			user.value.market_scheduled_asset_price_next_send_at ??
 			null,
 );
+const is24 = computed(() => user.value.use_24_hour_time);
 const { countdownText } = useScheduledUpdateTiming({
 	timezone,
 	nextSendAtIso: nextSendAt,
 	timeInputs: scheduledUpdateTimes,
+	is24,
 });
 
 // Update shared user ref directly when auto-save response arrives

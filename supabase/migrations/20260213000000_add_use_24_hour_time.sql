@@ -1,0 +1,2 @@
+ALTER TABLE public.users
+  ADD COLUMN IF NOT EXISTS use_24_hour_time BOOLEAN DEFAULT false NOT NULL;

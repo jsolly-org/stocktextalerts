@@ -20,7 +20,7 @@ import { updateUserAssetEventsNextSendAt } from "./next-send-at";
 /**
  * Process a single user's standalone asset events notification.
  *
- * Builds asset events content (earnings/dividends/splits + insider + analyst),
+ * Builds asset events content (earnings/dividends/splits/IPOs + insider + analyst),
  * delivers via enabled channels, and advances `asset_events_next_send_at`.
  */
 export async function processAssetEventsUser(options: {
@@ -93,6 +93,8 @@ export async function processAssetEventsUser(options: {
 			user.asset_events_include_dividends_sms ||
 			user.asset_events_include_splits_email ||
 			user.asset_events_include_splits_sms ||
+			user.asset_events_include_ipo_email ||
+			user.asset_events_include_ipo_sms ||
 			user.asset_events_include_analyst_email ||
 			user.asset_events_include_analyst_sms ||
 			user.asset_events_include_insider_email ||
@@ -149,6 +151,7 @@ export async function processAssetEventsUser(options: {
 			(user.asset_events_include_earnings_email ||
 				user.asset_events_include_dividends_email ||
 				user.asset_events_include_splits_email ||
+				user.asset_events_include_ipo_email ||
 				user.asset_events_include_analyst_email ||
 				user.asset_events_include_insider_email);
 		const wantsSms =
@@ -156,6 +159,7 @@ export async function processAssetEventsUser(options: {
 			(user.asset_events_include_earnings_sms ||
 				user.asset_events_include_dividends_sms ||
 				user.asset_events_include_splits_sms ||
+				user.asset_events_include_ipo_sms ||
 				user.asset_events_include_analyst_sms ||
 				user.asset_events_include_insider_sms);
 
@@ -197,6 +201,7 @@ export async function processAssetEventsUser(options: {
 				earningsSection: emailContent.eventsSection?.earnings ?? null,
 				dividendsSection: emailContent.eventsSection?.dividends ?? null,
 				splitsSection: emailContent.eventsSection?.splits ?? null,
+				iposSection: emailContent.eventsSection?.ipos ?? null,
 				analystSection: emailContent.analystSection,
 				insiderSection: emailContent.insiderSection,
 				sendEmail,
@@ -214,6 +219,7 @@ export async function processAssetEventsUser(options: {
 				earningsSection: smsContent.eventsSection?.earnings ?? null,
 				dividendsSection: smsContent.eventsSection?.dividends ?? null,
 				splitsSection: smsContent.eventsSection?.splits ?? null,
+				iposSection: smsContent.eventsSection?.ipos ?? null,
 				analystSection: smsContent.analystSection,
 				insiderSection: smsContent.insiderSection,
 				getSmsSender,

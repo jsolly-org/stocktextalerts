@@ -13,7 +13,7 @@ describe("Email scheduled update includes asset price data.", () => {
 		{ symbol: "MSFT", name: "Microsoft Corporation" },
 	];
 	const defaultPrefs: FormatPreferences = {
-		show_change_percent: true,
+		show_sparklines: true,
 		show_company_name: true,
 		detailed_format: true,
 	};

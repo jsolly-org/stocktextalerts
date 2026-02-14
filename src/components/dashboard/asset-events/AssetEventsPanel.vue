@@ -143,7 +143,7 @@
 						>
 							{{ eventType.label }}
 						</span>
-						<PolygonLogoIcon v-if="eventType.polygon" class="h-4.5 w-auto shrink-0" aria-label="Powered by Polygon.io" role="img" />
+						<MassiveLogoIcon v-if="eventType.polygon" class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
 						<FinnhubLogoIcon v-if="eventType.finnhub" class="h-4.5 w-auto shrink-0" aria-label="Powered by Finnhub" role="img" />
 					</div>
 					<p
@@ -211,7 +211,7 @@ import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 import ClockIcon from "../../../icons/clock.svg?component";
 import FinnhubLogoIcon from "../../../icons/finnhub.svg?component";
-import PolygonLogoIcon from "../../../icons/polygon.svg?component";
+import MassiveLogoIcon from "../../../icons/massive.svg?component";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_ASSET_EVENTS_FORM_ID,
@@ -304,6 +304,14 @@ const ASSET_EVENT_TYPES = [
 		finnhub: false,
 	},
 	{
+		key: "ipo" as const,
+		label: "Upcoming IPOs",
+		description:
+			"Included in your daily delivery when an IPO listing date is within the next 3 days.",
+		polygon: true,
+		finnhub: false,
+	},
+	{
 		key: "analyst" as const,
 		label: "Analyst Consensus",
 		description:
@@ -328,6 +336,7 @@ const assetEventRefs: Record<AssetEventKey, { email: ReturnType<typeof ref<boole
 	earnings: { email: ref(user.value.asset_events_include_earnings_email), sms: ref(user.value.asset_events_include_earnings_sms) },
 	dividends: { email: ref(user.value.asset_events_include_dividends_email), sms: ref(user.value.asset_events_include_dividends_sms) },
 	splits: { email: ref(user.value.asset_events_include_splits_email), sms: ref(user.value.asset_events_include_splits_sms) },
+	ipo: { email: ref(user.value.asset_events_include_ipo_email), sms: ref(user.value.asset_events_include_ipo_sms) },
 	analyst: { email: ref(user.value.asset_events_include_analyst_email), sms: ref(user.value.asset_events_include_analyst_sms) },
 	insider: { email: ref(user.value.asset_events_include_insider_email), sms: ref(user.value.asset_events_include_insider_sms) },
 };
@@ -388,7 +397,7 @@ const assetEventsDeliveryTimeMinutes = computed(() =>
 	user.value.daily_digest_time ?? DEFAULT_ASSET_EVENTS_DELIVERY_MINUTES,
 );
 const assetEventsDeliveryTimeLabel = computed(() =>
-	formatMinutesAsLocalTime(assetEventsDeliveryTimeMinutes.value),
+	formatMinutesAsLocalTime(assetEventsDeliveryTimeMinutes.value, user.value.use_24_hour_time),
 );
 const assetEventsTimezoneLabel = computed(() => {
 	if (!user.value.timezone) return null;
@@ -498,6 +507,12 @@ watch(
 			}),
 			...(newData.asset_events_include_splits_sms !== undefined && {
 				asset_events_include_splits_sms: newData.asset_events_include_splits_sms,
+			}),
+			...(newData.asset_events_include_ipo_email !== undefined && {
+				asset_events_include_ipo_email: newData.asset_events_include_ipo_email,
+			}),
+			...(newData.asset_events_include_ipo_sms !== undefined && {
+				asset_events_include_ipo_sms: newData.asset_events_include_ipo_sms,
 			}),
 			...(newData.asset_events_include_analyst_email !== undefined && {
 				asset_events_include_analyst_email: newData.asset_events_include_analyst_email,

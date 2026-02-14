@@ -5,25 +5,25 @@
 		<div class="flex items-center justify-between gap-3 py-3">
 			<input
 				type="hidden"
-				name="show_change_percent"
-				:value="showChangePercentValue ? 'on' : 'off'"
+				name="show_sparklines"
+				:value="showSparklinesValue ? 'on' : 'off'"
 			/>
 			<div class="min-w-0">
 				<span
-					id="show_change_percent_label"
+					id="show_sparklines_label"
 					class="text-base font-semibold text-heading"
 				>
-					Show Daily Change %
+					Show Sparklines
 				</span>
-				<p id="show_change_percent_description" class="text-sm text-body-secondary mt-0.5">
-					Include the day's gain or loss percentage next to each asset price.
+				<p id="show_sparklines_description" class="text-sm text-body-secondary mt-0.5">
+					Display a weekly price trend sparkline next to each asset.
 				</p>
 			</div>
 			<ToggleSwitch
-				v-model="showChangePercentValue"
-				sr-label="Show daily change percent"
-				aria-labelledby="show_change_percent_label"
-				aria-describedby="show_change_percent_description"
+				v-model="showSparklinesValue"
+				sr-label="Show sparklines"
+				aria-labelledby="show_sparklines_label"
+				aria-describedby="show_sparklines_description"
 			/>
 		</div>
 
@@ -38,10 +38,10 @@
 					id="show_company_name_label"
 					class="text-base font-semibold text-heading"
 				>
-					Show Company Name
+					Asset Name
 				</span>
 				<p id="show_company_name_description" class="text-sm text-body-secondary mt-0.5">
-					Include the full company name next to the ticker symbol.
+					Include the full asset name next to the ticker symbol.
 				</p>
 			</div>
 			<ToggleSwitch
@@ -63,10 +63,10 @@
 					id="detailed_format_label"
 					class="text-base font-semibold text-heading"
 				>
-					Detailed Format
+					More Space
 				</span>
 				<p id="detailed_format_description" class="text-sm text-body-secondary mt-0.5">
-					Add extra spacing between assets for easier reading.
+					Add blank lines between each asset for easier reading.
 				</p>
 			</div>
 			<ToggleSwitch
@@ -81,10 +81,10 @@
 
 <script lang="ts" setup>
 import { computed } from "vue";
-import ToggleSwitch from "../../ToggleSwitch.vue";
+import ToggleSwitch from "../../../ToggleSwitch.vue";
 
 interface Props {
-	showChangePercent: boolean;
+	showSparklines: boolean;
 	showCompanyName: boolean;
 	detailedFormat: boolean;
 	disabled?: boolean;
@@ -93,14 +93,14 @@ interface Props {
 const props = defineProps<Props>();
 
 const emit = defineEmits<{
-	(event: "update:showChangePercent", value: boolean): void;
+	(event: "update:showSparklines", value: boolean): void;
 	(event: "update:showCompanyName", value: boolean): void;
 	(event: "update:detailedFormat", value: boolean): void;
 }>();
 
-const showChangePercentValue = computed({
-	get: () => props.showChangePercent,
-	set: (value: boolean) => emit("update:showChangePercent", value),
+const showSparklinesValue = computed({
+	get: () => props.showSparklines,
+	set: (value: boolean) => emit("update:showSparklines", value),
 });
 
 const showCompanyNameValue = computed({

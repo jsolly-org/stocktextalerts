@@ -151,14 +151,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "market_asset_price_alert_cooldowns_symbol_fkey"
+            foreignKeyName: "instant_alert_cooldowns_symbol_fkey"
             columns: ["symbol"]
             isOneToOne: false
             referencedRelation: "assets"
             referencedColumns: ["symbol"]
           },
           {
-            foreignKeyName: "market_asset_price_alert_cooldowns_user_id_fkey"
+            foreignKeyName: "instant_alert_cooldowns_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
@@ -359,6 +359,8 @@ export type Database = {
           asset_events_include_earnings_sms: boolean
           asset_events_include_insider_email: boolean
           asset_events_include_insider_sms: boolean
+          asset_events_include_ipo_email: boolean
+          asset_events_include_ipo_sms: boolean
           asset_events_include_splits_email: boolean
           asset_events_include_splits_sms: boolean
           asset_events_last_analyst_sent_month: string | null
@@ -368,6 +370,10 @@ export type Database = {
           daily_digest_include_rumors_email: boolean
           daily_digest_next_send_at: string | null
           daily_digest_time: number | null
+          daily_include_analyst_email: boolean
+          daily_include_analyst_sms: boolean
+          daily_include_insider_email: boolean
+          daily_include_insider_sms: boolean
           detailed_format: boolean
           dismiss_timezone_mismatch_prompts: boolean
           email: string
@@ -389,13 +395,17 @@ export type Database = {
           phone_country_code: string | null
           phone_number: string | null
           phone_verified: boolean
-          show_change_percent: boolean
+          show_sparklines: boolean
           show_company_name: boolean
           sms_notifications_enabled: boolean
           sms_opted_out: boolean
           timezone: string
           updated_at: string
+          use_24_hour_time: boolean
           verification_sent_at: string | null
+          weekly_include_earnings_email: boolean
+          weekly_include_earnings_sms: boolean
+          weekly_next_send_at: string | null
         }
         Insert: {
           asset_events_include_analyst_email?: boolean
@@ -406,6 +416,8 @@ export type Database = {
           asset_events_include_earnings_sms?: boolean
           asset_events_include_insider_email?: boolean
           asset_events_include_insider_sms?: boolean
+          asset_events_include_ipo_email?: boolean
+          asset_events_include_ipo_sms?: boolean
           asset_events_include_splits_email?: boolean
           asset_events_include_splits_sms?: boolean
           asset_events_last_analyst_sent_month?: string | null
@@ -415,6 +427,10 @@ export type Database = {
           daily_digest_include_rumors_email?: boolean
           daily_digest_next_send_at?: string | null
           daily_digest_time?: number | null
+          daily_include_analyst_email?: boolean
+          daily_include_analyst_sms?: boolean
+          daily_include_insider_email?: boolean
+          daily_include_insider_sms?: boolean
           detailed_format?: boolean
           dismiss_timezone_mismatch_prompts?: boolean
           email: string
@@ -436,13 +452,17 @@ export type Database = {
           phone_country_code?: string | null
           phone_number?: string | null
           phone_verified?: boolean
-          show_change_percent?: boolean
+          show_sparklines?: boolean
           show_company_name?: boolean
           sms_notifications_enabled?: boolean
           sms_opted_out?: boolean
           timezone?: string
           updated_at?: string
+          use_24_hour_time?: boolean
           verification_sent_at?: string | null
+          weekly_include_earnings_email?: boolean
+          weekly_include_earnings_sms?: boolean
+          weekly_next_send_at?: string | null
         }
         Update: {
           asset_events_include_analyst_email?: boolean
@@ -453,6 +473,8 @@ export type Database = {
           asset_events_include_earnings_sms?: boolean
           asset_events_include_insider_email?: boolean
           asset_events_include_insider_sms?: boolean
+          asset_events_include_ipo_email?: boolean
+          asset_events_include_ipo_sms?: boolean
           asset_events_include_splits_email?: boolean
           asset_events_include_splits_sms?: boolean
           asset_events_last_analyst_sent_month?: string | null
@@ -462,6 +484,10 @@ export type Database = {
           daily_digest_include_rumors_email?: boolean
           daily_digest_next_send_at?: string | null
           daily_digest_time?: number | null
+          daily_include_analyst_email?: boolean
+          daily_include_analyst_sms?: boolean
+          daily_include_insider_email?: boolean
+          daily_include_insider_sms?: boolean
           detailed_format?: boolean
           dismiss_timezone_mismatch_prompts?: boolean
           email?: string
@@ -483,13 +509,17 @@ export type Database = {
           phone_country_code?: string | null
           phone_number?: string | null
           phone_verified?: boolean
-          show_change_percent?: boolean
+          show_sparklines?: boolean
           show_company_name?: boolean
           sms_notifications_enabled?: boolean
           sms_opted_out?: boolean
           timezone?: string
           updated_at?: string
+          use_24_hour_time?: boolean
           verification_sent_at?: string | null
+          weekly_include_earnings_email?: boolean
+          weekly_include_earnings_sms?: boolean
+          weekly_next_send_at?: string | null
         }
         Relationships: [
           {
@@ -567,13 +597,10 @@ export type Database = {
       show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
-      asset_event_type: "earnings" | "dividend" | "split"
+      asset_event_type: "earnings" | "dividend" | "split" | "ipo"
       delivery_method: "email" | "sms"
       scheduled_notification_status: "sending" | "sent" | "failed"
-      scheduled_notification_type:
-        | "market"
-        | "daily"
-        | "asset_events"
+      scheduled_notification_type: "market" | "daily" | "asset_events"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -701,15 +728,10 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      asset_event_type: ["earnings", "dividend", "split"],
+      asset_event_type: ["earnings", "dividend", "split", "ipo"],
       delivery_method: ["email", "sms"],
       scheduled_notification_status: ["sending", "sent", "failed"],
-      scheduled_notification_type: [
-        "market",
-        "daily",
-        "asset_events",
-      ],
+      scheduled_notification_type: ["market", "daily", "asset_events"],
     },
   },
 } as const
-
