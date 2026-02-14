@@ -307,7 +307,10 @@ const { initialAssets, emailEnabled, smsEnabled, phoneVerified } = toRefs(props)
 
 const user = useDashboardUser();
 
-const smsReady = computed(() => smsEnabled.value && phoneVerified.value);
+const smsOptedOut = computed(() => user.value.sms_opted_out === true);
+const smsReady = computed(
+	() => smsEnabled.value && phoneVerified.value && !smsOptedOut.value,
+);
 const hasNotificationChannel = computed(() => emailEnabled.value || smsReady.value);
 const needsChannelSelection = computed(() => !hasNotificationChannel.value);
 const needsPhoneVerification = computed(() => smsEnabled.value && !phoneVerified.value);

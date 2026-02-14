@@ -264,8 +264,9 @@ const {
 
 const phoneVerificationSectionId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-phone-verification-section`;
 
+const smsOptedOut = computed(() => user.value.sms_opted_out === true);
 const smsReady = computed(
-	() => smsEnabled.value && phoneVerified.value,
+	() => smsEnabled.value && phoneVerified.value && !smsOptedOut.value,
 );
 const hasNotificationChannel = computed(
 	() => emailEnabled.value || smsReady.value,

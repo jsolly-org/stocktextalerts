@@ -355,7 +355,11 @@ function handleSetMarketOpen() {
 	notifyChange();
 }
 
-const hasNotificationChannel = computed(() => emailEnabled.value || (smsEnabled.value && phoneVerified.value));
+const hasNotificationChannel = computed(
+	() =>
+		emailEnabled.value ||
+		(smsEnabled.value && phoneVerified.value && !smsOptedOut.value),
+);
 
 // Sync delivery time from user state (e.g. after save from another panel)
 watch(
