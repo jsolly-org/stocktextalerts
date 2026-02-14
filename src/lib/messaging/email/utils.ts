@@ -4,7 +4,12 @@ import { getSiteUrl } from "../../db/env";
 import { rootLogger } from "../../logging";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
 import { escapeHtml, formatAssetsHtmlList } from "../asset-formatting";
-import type { DeliveryResult, EmailUser, UserAssetRow } from "../types";
+import type {
+	DeliveryResult,
+	EmailUser,
+	FormatPreferences,
+	UserAssetRow,
+} from "../types";
 import { createEmailUnsubscribeUrl } from "./unsubscribe";
 
 interface EmailRequest {
@@ -106,6 +111,8 @@ export function formatEmailMessage(
 	assetsList: string,
 	priceMap: AssetPriceMap,
 	marketOpen: boolean,
+	formatPrefs?: FormatPreferences,
+	getSparkline?: (symbol: string) => string | null | undefined,
 ): { text: string; html: string } {
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const escapedDashboardUrl = escapeHtml(dashboardUrl);
@@ -164,7 +171,8 @@ export function formatEmailMessage(
 	const escapedAssetsListHtml = formatAssetsHtmlList(
 		userAssets,
 		(symbol) => priceMap.get(symbol) ?? undefined,
-		{ show_sparklines: false },
+		formatPrefs ?? { show_sparklines: false },
+		getSparkline,
 	);
 	const marketDisclaimerHtml = marketOpen
 		? ""

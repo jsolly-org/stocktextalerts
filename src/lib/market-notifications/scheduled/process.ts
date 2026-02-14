@@ -6,8 +6,10 @@ import { formatEmailMessage } from "../../messaging/email/utils";
 import { recordNotification } from "../../messaging/shared";
 import { shouldSendSms } from "../../messaging/sms";
 import { formatSmsMessage } from "../../messaging/sms/delivery";
+import type { SparklineMap } from "../../messaging/sparkline";
 import type { UserRecord } from "../../messaging/types";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
+import { fetchSparklines } from "../../providers/price-fetcher";
 import type {
 	DeliveryMethod,
 	ScheduledNotificationTotals,
@@ -140,12 +142,33 @@ export async function processMarketScheduledUser(options: {
 
 		const userAssets = await loadUserAssets(supabase, user.id);
 		const formatPrefs = {
-			show_sparklines: false,
-		} as const;
+			show_sparklines: user.show_sparklines,
+		};
+
+		const tickers = userAssets.map((a) => a.symbol);
+		let sparklines: SparklineMap = new Map();
+		if (user.show_sparklines && tickers.length > 0) {
+			try {
+				sparklines = await fetchSparklines(tickers);
+			} catch (error) {
+				logger.warn(
+					"Failed to fetch sparklines for scheduled market notification",
+					{
+						action: "market_notifications_run",
+						userId: user.id,
+						tickerCount: tickers.length,
+						error: error instanceof Error ? error.message : String(error),
+					},
+				);
+			}
+		}
+		const getSparkline = (symbol: string) => sparklines.get(symbol)?.ascii;
+
 		const assetsList = formatAssetsTextList(
 			userAssets,
 			(symbol) => priceMap.get(symbol) ?? undefined,
 			formatPrefs,
+			getSparkline,
 		);
 
 		const shouldAttemptSms = shouldSendSms(user);
@@ -181,6 +204,8 @@ export async function processMarketScheduledUser(options: {
 							assetsList,
 							priceMap,
 							marketOpen,
+							formatPrefs,
+							getSparkline,
 						);
 						return {
 							subject: "Your Scheduled Price Notification",
@@ -240,6 +265,8 @@ export async function processMarketScheduledUser(options: {
 				priceMap,
 				marketOpen,
 				stats,
+				formatPrefs,
+				getSparkline,
 			});
 		}
 
