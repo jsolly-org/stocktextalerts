@@ -239,27 +239,34 @@ export function applyAnnotationsInline(
 	// Grok's x_search often produces anonymous /i/ URLs that lack the poster's
 	// handle. When @handles appear as plain text alongside [[N]](url) citations,
 	// pair them positionally and make the @handle the clickable link text.
-	const anonXUrls: string[] = [];
-	for (const m of result.matchAll(
-		/\[\[\d+\]\]\((https?:\/\/(?:x|twitter)\.com\/i\/status\/\d+)\)/g,
-	)) {
-		anonXUrls.push(m[1]);
+	// Process per-line so URLs from one ticker bullet don't bleed into another.
+	const lines = result.split("\n");
+	for (let i = 0; i < lines.length; i++) {
+		let line = lines[i];
+		const anonXUrls: string[] = [];
+		for (const m of line.matchAll(
+			/\[\[\d+\]\]\((https?:\/\/(?:x|twitter)\.com\/i\/status\/\d+)\)/g,
+		)) {
+			anonXUrls.push(m[1]);
+		}
+		if (anonXUrls.length > 0) {
+			// Remove the [[N]](anonymous-url) citation markers
+			line = line.replace(
+				/\[\[\d+\]\]\(https?:\/\/(?:x|twitter)\.com\/i\/status\/\d+\)/g,
+				"",
+			);
+			// Link unlinked @handle mentions with the anonymous URLs, in order
+			let anonIdx = 0;
+			line = line.replace(/(?<!\[)@([A-Za-z0-9_]+)/g, (match) => {
+				if (anonIdx < anonXUrls.length) {
+					return `[[${match}]](${anonXUrls[anonIdx++]})`;
+				}
+				return match;
+			});
+		}
+		lines[i] = line;
 	}
-	if (anonXUrls.length > 0) {
-		// Remove the [[N]](anonymous-url) citation markers
-		result = result.replace(
-			/\[\[\d+\]\]\(https?:\/\/(?:x|twitter)\.com\/i\/status\/\d+\)/g,
-			"",
-		);
-		// Link unlinked @handle mentions with the anonymous URLs, in order
-		let anonIdx = 0;
-		result = result.replace(/(?<!\[)@([A-Za-z0-9_]+)/g, (match) => {
-			if (anonIdx < anonXUrls.length) {
-				return `[[${match}]](${anonXUrls[anonIdx++]})`;
-			}
-			return match;
-		});
-	}
+	result = lines.join("\n");
 
 	return result;
 }
