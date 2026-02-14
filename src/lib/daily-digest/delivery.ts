@@ -11,7 +11,12 @@ import { recordNotification } from "../messaging/shared";
 import type { SmsExtras } from "../messaging/sms/delivery";
 import { formatExtrasSection } from "../messaging/sms/formatting";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
-import type { UserAssetRow, UserRecord } from "../messaging/types";
+import type {
+	FormatPreferences,
+	UserAssetRow,
+	UserRecord,
+} from "../messaging/types";
+import type { AssetPriceMap } from "../providers/price-fetcher";
 import type {
 	ScheduledNotificationTotals,
 	SupabaseAdminClient,
@@ -31,8 +36,10 @@ export type AssetEventsResult = Awaited<
  *
  * Keeps the message readable in plain text and appends a required STOP opt-out suffix.
  */
-function formatDailyDigestSmsMessage(options: {
+export function formatDailyDigestSmsMessage(options: {
 	userAssets: UserAssetRow[];
+	assetPrices: AssetPriceMap;
+	formatPrefs: FormatPreferences;
 	extras: SmsExtras;
 	assetEvents?: AssetEventsResult;
 }): string {
@@ -41,11 +48,17 @@ function formatDailyDigestSmsMessage(options: {
 	const tickers = options.userAssets.map((s) => s.symbol).filter(Boolean);
 	const tickersLine =
 		tickers.length > 0 ? `Tickers: ${tickers.join(", ")}` : "";
+	const prices = buildDailyDigestPricesSummary(
+		options.userAssets,
+		options.assetPrices,
+		options.formatPrefs,
+	);
 
 	const ae = options.assetEvents;
 	const sections = [
 		"StockTextAlerts — Daily digest",
 		tickersLine,
+		prices ? `💵 Prices\n${prices}` : "",
 		formatExtrasSection("🗞️ News", options.extras.news),
 		formatExtrasSection("🤫 Rumors", options.extras.rumors),
 		formatExtrasSection("📈 Earnings", ae?.eventsSection?.earnings),
@@ -60,14 +73,54 @@ function formatDailyDigestSmsMessage(options: {
 	return sections.join("\n\n");
 }
 
+function formatDailyDigestPriceLine(
+	asset: UserAssetRow,
+	quote: { price: number; changePercent: number } | null | undefined,
+	formatPrefs: FormatPreferences,
+): string {
+	const base = formatPrefs.show_company_name
+		? `${asset.symbol} - ${asset.name}`
+		: asset.symbol;
+	if (!quote) {
+		return `${base} — price unavailable`;
+	}
+	if (!formatPrefs.show_change_percent) {
+		return `${base} — $${quote.price.toFixed(2)}`;
+	}
+	const sign = quote.changePercent >= 0 ? "+" : "";
+	return `${base} — $${quote.price.toFixed(2)} (${sign}${quote.changePercent.toFixed(2)}%)`;
+}
+
+function buildDailyDigestPricesSummary(
+	userAssets: UserAssetRow[],
+	assetPrices: AssetPriceMap,
+	formatPrefs: FormatPreferences,
+): string {
+	if (userAssets.length === 0) {
+		return "";
+	}
+	const separator = formatPrefs.detailed_format ? "\n\n" : "\n";
+	return userAssets
+		.map((asset) =>
+			formatDailyDigestPriceLine(
+				asset,
+				assetPrices.get(asset.symbol),
+				formatPrefs,
+			),
+		)
+		.join(separator);
+}
+
 /**
  * Format the daily digest payload for email delivery.
  *
  * Produces a plain-text version for logging and a simple HTML version for rendering.
  */
-function formatDailyDigestEmail(options: {
+export function formatDailyDigestEmail(options: {
 	user: { id: string; email: string };
 	userAssets: UserAssetRow[];
+	assetPrices: AssetPriceMap;
+	formatPrefs: FormatPreferences;
 	extras: SmsExtras;
 	assetEvents?: AssetEventsResult;
 }): { subject: string; text: string; html: string } {
@@ -89,10 +142,16 @@ function formatDailyDigestEmail(options: {
 	const splits = (ae?.eventsSection?.splits ?? "").trim();
 	const analyst = (ae?.analystSection ?? "").trim();
 	const insider = (ae?.insiderSection ?? "").trim();
+	const prices = buildDailyDigestPricesSummary(
+		options.userAssets,
+		options.assetPrices,
+		options.formatPrefs,
+	);
 
 	const sectionsText = [
 		"Daily digest",
 		tickersLine,
+		prices ? `\n💵 Prices\n${prices}` : "",
 		news ? `\n🗞️ News\n${news}` : "",
 		rumors ? `\n🤫 Rumors\n${rumors}` : "",
 		earnings ? `\n📈 Earnings\n${earnings}` : "",
@@ -119,6 +178,7 @@ function formatDailyDigestEmail(options: {
 	<div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-radius: 10px;">
 		<h2 style="margin: 0 0 8px; font-size: 18px;">Daily digest</h2>
 		<p style="margin: 0 0 16px; color: #6b7280; font-size: 14px;">${escapeHtml(tickersLine)}</p>
+		${renderEmailSection("💵", "Prices", prices)}
 		${renderEmailSection("🗞️", "News", news, { showGrokLogo: true, showFinnhubLogo: true })}
 		${renderEmailSection("🤫", "Rumors", rumors, { showGrokLogo: true })}
 		${renderEmailSection("📈", "Earnings", earnings)}
@@ -152,6 +212,8 @@ export async function processDailyDigestEmailDelivery(options: {
 	scheduledDate: string;
 	scheduledMinutes: number;
 	userAssets: UserAssetRow[];
+	assetPrices: AssetPriceMap;
+	formatPrefs: FormatPreferences;
 	extras: SmsExtras;
 	assetEvents?: AssetEventsResult;
 	sendEmail: EmailSender;
@@ -164,6 +226,8 @@ export async function processDailyDigestEmailDelivery(options: {
 		scheduledDate,
 		scheduledMinutes,
 		userAssets,
+		assetPrices,
+		formatPrefs,
 		extras,
 		assetEvents,
 		sendEmail,
@@ -192,6 +256,8 @@ export async function processDailyDigestEmailDelivery(options: {
 	const message = formatDailyDigestEmail({
 		user,
 		userAssets,
+		assetPrices,
+		formatPrefs,
 		extras,
 		assetEvents,
 	});
@@ -248,6 +314,7 @@ export async function processDailyDigestSmsDelivery(options: {
 	scheduledDate: string;
 	scheduledMinutes: number;
 	userAssets: UserAssetRow[];
+	assetPrices: AssetPriceMap;
 	extras: SmsExtras;
 	assetEvents?: AssetEventsResult;
 	getSmsSender: SmsSenderProvider;
@@ -260,6 +327,7 @@ export async function processDailyDigestSmsDelivery(options: {
 		scheduledDate,
 		scheduledMinutes,
 		userAssets,
+		assetPrices,
 		extras,
 		assetEvents,
 		getSmsSender,
@@ -315,6 +383,12 @@ export async function processDailyDigestSmsDelivery(options: {
 
 	const smsMessage = formatDailyDigestSmsMessage({
 		userAssets,
+		assetPrices,
+		formatPrefs: {
+			show_change_percent: user.show_change_percent,
+			show_company_name: user.show_company_name,
+			detailed_format: user.detailed_format,
+		},
 		extras,
 		assetEvents,
 	});

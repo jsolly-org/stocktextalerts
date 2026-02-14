@@ -21,6 +21,9 @@ type DailyDigestUserRow = Pick<
 	| "email_notifications_enabled"
 	| "sms_notifications_enabled"
 	| "sms_opted_out"
+	| "show_change_percent"
+	| "show_company_name"
+	| "detailed_format"
 	| "daily_digest_include_news_email"
 	| "daily_digest_include_rumors_email"
 	| "asset_events_include_earnings_email"
@@ -102,6 +105,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			email_notifications_enabled,
 			sms_notifications_enabled,
 			sms_opted_out,
+			show_change_percent,
+			show_company_name,
+			detailed_format,
 			daily_digest_include_news_email,
 			daily_digest_include_rumors_email,
 			asset_events_include_earnings_email,
@@ -156,9 +162,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		// Not required for daily digest processing, but part of UserRecord.
 		// Provide safe defaults rather than bypassing type checking via `unknown`.
 		market_scheduled_asset_price_next_send_at: null,
-		show_change_percent: false,
-		show_company_name: false,
-		detailed_format: false,
 		market_scheduled_asset_price_enabled: false,
 		market_scheduled_asset_price_include_email: false,
 		market_scheduled_asset_price_include_sms: false,

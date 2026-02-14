@@ -15,6 +15,10 @@ import {
 	generateNewsWithGrok,
 	generateRumorsWithGrok,
 } from "../providers/grok";
+import {
+	type AssetPriceMap,
+	fetchAssetPrices,
+} from "../providers/price-fetcher";
 import type {
 	ScheduledNotificationTotals,
 	SupabaseAdminClient,
@@ -321,6 +325,20 @@ export async function processDailyDigestUser(options: {
 			return stats;
 		}
 
+		let assetPrices: AssetPriceMap = new Map();
+		if ((emailEnabled || smsEnabled) && tickers.length > 0) {
+			try {
+				assetPrices = await fetchAssetPrices(tickers);
+			} catch (error) {
+				logger.warn("Failed to fetch daily digest prices", {
+					action: "daily_run",
+					userId: user.id,
+					tickerCount: tickers.length,
+					error: error instanceof Error ? error.message : String(error),
+				});
+			}
+		}
+
 		/* =============
 		Fetch Finnhub data (non-blocking — failures omit that section)
 		============= */
@@ -447,11 +465,13 @@ export async function processDailyDigestUser(options: {
 		const smsExtras = smsEnabled ? buildExtras("sms") : null;
 
 		const hasEmailContent = !!(
+			(userAssets.length > 0 && emailEnabled) ||
 			emailExtras?.news ||
 			emailExtras?.rumors ||
 			emailAssetEvents?.hasAnyContent
 		);
 		const hasSmsContent = !!(
+			(userAssets.length > 0 && smsEnabled) ||
 			smsExtras?.news ||
 			smsExtras?.rumors ||
 			smsAssetEvents?.hasAnyContent
@@ -491,6 +511,12 @@ export async function processDailyDigestUser(options: {
 				scheduledDate,
 				scheduledMinutes,
 				userAssets,
+				assetPrices,
+				formatPrefs: {
+					show_change_percent: user.show_change_percent,
+					show_company_name: user.show_company_name,
+					detailed_format: user.detailed_format,
+				},
 				extras: emailExtras,
 				assetEvents: emailAssetEvents,
 				sendEmail,
@@ -506,6 +532,7 @@ export async function processDailyDigestUser(options: {
 				scheduledDate,
 				scheduledMinutes,
 				userAssets,
+				assetPrices,
 				extras: smsExtras,
 				assetEvents: smsAssetEvents,
 				getSmsSender,
