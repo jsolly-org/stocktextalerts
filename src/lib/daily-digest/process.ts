@@ -262,12 +262,14 @@ export async function processDailyDigestUser(options: {
 
 		if (!hasAnyDailyOption && !hasAnyAssetEventsOption) {
 			stats.skipped++;
-			await updateUserDailyDigestNextSendAt({
-				user,
-				supabase,
-				logger,
-				currentTime,
-			});
+			if (!stageOnly) {
+				await updateUserDailyDigestNextSendAt({
+					user,
+					supabase,
+					logger,
+					currentTime,
+				});
+			}
 			return stats;
 		}
 
@@ -287,12 +289,14 @@ export async function processDailyDigestUser(options: {
 		);
 		if (grokSkip) {
 			stats.skipped++;
-			await updateUserDailyDigestNextSendAt({
-				user,
-				supabase,
-				logger,
-				currentTime,
-			});
+			if (!stageOnly) {
+				await updateUserDailyDigestNextSendAt({
+					user,
+					supabase,
+					logger,
+					currentTime,
+				});
+			}
 			return stats;
 		}
 
@@ -301,12 +305,14 @@ export async function processDailyDigestUser(options: {
 
 		if (!emailEnabled && !smsEnabled) {
 			stats.skipped++;
-			await updateUserDailyDigestNextSendAt({
-				user,
-				supabase,
-				logger,
-				currentTime,
-			});
+			if (!stageOnly) {
+				await updateUserDailyDigestNextSendAt({
+					user,
+					supabase,
+					logger,
+					currentTime,
+				});
+			}
 			return stats;
 		}
 

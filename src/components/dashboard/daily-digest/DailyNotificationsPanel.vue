@@ -354,6 +354,18 @@ const dailyEnabled = computed(() =>
 	includeRumorsEmail.value,
 );
 
+const hasAnyAssetEventsOptionEnabled = computed(
+	() =>
+		user.value.asset_events_include_calendar_email ||
+		user.value.asset_events_include_calendar_sms ||
+		user.value.asset_events_include_ipo_email ||
+		user.value.asset_events_include_ipo_sms ||
+		user.value.asset_events_include_analyst_email ||
+		user.value.asset_events_include_analyst_sms ||
+		user.value.asset_events_include_insider_email ||
+		user.value.asset_events_include_insider_sms,
+);
+
 /** Derive the current delivery time input from the shared user state (managed by NotificationChannelsPanel). */
 const dailyDeliveryTimeInput = computed(() => {
 	const minutes = user.value.daily_digest_time;
@@ -372,9 +384,25 @@ function getEarliestMarketNotificationTime(): number | null {
  * Ensure daily-digest saves include a delivery time even when the Alerts panel
  * hasn't mounted yet (mobile lazy tabs).
  */
+const lastKnownDailyDeliveryTimeInput = ref<string | null>(null);
+watch(
+	dailyDeliveryTimeInput,
+	(value) => {
+		if (value !== null) lastKnownDailyDeliveryTimeInput.value = value;
+	},
+	{ immediate: true },
+);
+
 const dailyDigestTimeInputForSubmit = computed(() => {
 	if (dailyDeliveryTimeInput.value !== null) return dailyDeliveryTimeInput.value;
-	if (!dailyEnabled.value) return null;
+	if (!dailyEnabled.value) {
+		// When daily is disabled but asset events are enabled, keep submitting the
+		// prior delivery time so this form doesn't accidentally clear
+		// `daily_digest_time` (asset-events scheduling uses it as a fallback).
+		return hasAnyAssetEventsOptionEnabled.value
+			? lastKnownDailyDeliveryTimeInput.value
+			: null;
+	}
 	const fallbackMinutes = getEarliestMarketNotificationTime();
 	return fallbackMinutes !== null
 		? minutesToTimeInputValue(fallbackMinutes)

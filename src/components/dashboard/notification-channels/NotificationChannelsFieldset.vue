@@ -173,7 +173,9 @@ const smsEnabled = computed({
 });
 
 const hasNotificationChannel = computed(
-	() => props.emailEnabled || (props.smsEnabled && props.phoneVerified),
+	() =>
+		props.emailEnabled ||
+		(props.smsEnabled && props.phoneVerified && !props.smsOptedOut),
 );
 
 const canSetMarketOpen = computed(
