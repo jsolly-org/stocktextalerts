@@ -15,12 +15,10 @@ vi.mock("../src/lib/db/env", () => ({
 	getSiteUrl: () => "http://localhost",
 }));
 
-// Prevent real external API calls in all tests.
-// Without this, any code path that reaches these providers would attempt a
-// live HTTP request when the key is set (e.g. in CI secrets).
+// Prevent real Massive API calls in all tests.
+// Without this, any code path that reaches marketDataFetch() would attempt a
+// live HTTP request when MASSIVE_API_KEY is set (e.g. in CI secrets).
 vi.stubEnv("MASSIVE_API_KEY", "");
-vi.stubEnv("FINNHUB_API_KEY", "");
-vi.stubEnv("XAI_API_KEY", "");
 
 function getDatabaseUrl(): string {
 	const databaseUrl = process.env.DATABASE_URL;
