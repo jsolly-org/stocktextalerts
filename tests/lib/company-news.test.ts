@@ -5,6 +5,7 @@ describe("fetchCompanyNews", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 		vi.unstubAllEnvs();
+		vi.useRealTimers();
 	});
 
 	it("maps MASSIVE fields to CompanyNewsItem shape", async () => {
@@ -140,5 +141,54 @@ describe("fetchCompanyNews", () => {
 			url: "",
 			source: "",
 		});
+	});
+
+	it("returns empty array on network error", async () => {
+		vi.useFakeTimers();
+		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		vi.spyOn(globalThis, "fetch").mockRejectedValue(
+			new Error("Network failure"),
+		);
+
+		const promise = fetchCompanyNews("AAPL", "2026-02-01", "2026-02-14");
+		await vi.runAllTimersAsync();
+
+		await expect(promise).resolves.toEqual([]);
+	});
+
+	it("returns empty array on non-200 response", async () => {
+		vi.useFakeTimers();
+		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+			return new Response(JSON.stringify({ error: "Rate limited" }), {
+				status: 429,
+				headers: { "Content-Type": "application/json" },
+			});
+		});
+
+		const promise = fetchCompanyNews("AAPL", "2026-02-01", "2026-02-14");
+		await vi.runAllTimersAsync();
+
+		await expect(promise).resolves.toEqual([]);
+	});
+
+	it("filters out items with invalid published_utc", async () => {
+		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(
+			new Response(
+				JSON.stringify({
+					results: [
+						{ title: "Good headline", published_utc: "2026-02-14T10:00:00Z" },
+						{ title: "Bad date", published_utc: "not-a-date" },
+					],
+				}),
+				{ status: 200, headers: { "Content-Type": "application/json" } },
+			),
+		);
+
+		const items = await fetchCompanyNews("NVDA", "2026-02-07", "2026-02-14");
+
+		expect(items).toHaveLength(1);
+		expect(items[0].headline).toBe("Good headline");
 	});
 });

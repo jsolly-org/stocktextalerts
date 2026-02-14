@@ -172,6 +172,8 @@ export async function deliverStagedNotifications(options: {
 	}
 
 	const userMap = new Map(
+		// Cast is intentionally narrow: the select above includes all fields required
+		// by the downstream delivery helpers for staged notifications.
 		(users ?? []).map((u) => [u.id, u as unknown as UserRecord]),
 	);
 
@@ -198,6 +200,7 @@ export async function deliverStagedNotifications(options: {
 					currentTime,
 					sendEmail,
 					getSmsSender,
+					deliveredUserTypes,
 					stats,
 				});
 			} else {
@@ -210,10 +213,14 @@ export async function deliverStagedNotifications(options: {
 					currentTime,
 					sendEmail,
 					getSmsSender,
+					deliveredUserTypes,
 					stats,
 				});
 			}
 
+			// Mark as delivered for fallback-skipping when staging completes successfully.
+			// This is redundant with the per-channel marking inside deliverStagedMarket/Daily,
+			// but preserves the original behavior (skip fallback even when no channel sent).
 			deliveredUserTypes.add(`${row.user_id}:${row.notification_type}`);
 		} catch (error) {
 			logger.error(
@@ -230,7 +237,15 @@ export async function deliverStagedNotifications(options: {
 		}
 
 		// Always delete the staged row after processing (success or failure)
-		await deleteStagedNotification(supabase, row.id);
+		try {
+			await deleteStagedNotification(supabase, row.id);
+		} catch (error) {
+			logger.error(
+				"Failed to delete staged notification row after processing",
+				{ action: "staged_deliver", stagedId: row.id, userId: row.user_id },
+				error,
+			);
+		}
 	}
 
 	return { stats, deliveredUserTypes };
@@ -246,9 +261,11 @@ async function deliverStagedMarket(options: {
 	currentTime: DateTime;
 	sendEmail: EmailSender;
 	getSmsSender: SmsSenderProvider;
+	deliveredUserTypes: Set<string>;
 	stats: ScheduledNotificationTotals;
 }): Promise<void> {
 	const {
+		row,
 		stagedData,
 		user,
 		supabase,
@@ -256,9 +273,11 @@ async function deliverStagedMarket(options: {
 		currentTime,
 		sendEmail,
 		getSmsSender,
+		deliveredUserTypes,
 		stats,
 	} = options;
 	const { scheduledDate, scheduledMinutes } = stagedData;
+	const deliveredKey = `${row.user_id}:market`;
 
 	// Email delivery
 	if (stagedData.email) {
@@ -281,6 +300,12 @@ async function deliverStagedMarket(options: {
 				sendEmail,
 				idempotencyKey,
 			);
+
+			// IMPORTANT: mark this user/type as delivered immediately after a successful send
+			// so fallback doesn't reprocess if later bookkeeping fails.
+			if (result.success) {
+				deliveredUserTypes.add(deliveredKey);
+			}
 
 			const logged = await recordNotification(supabase, {
 				user_id: user.id,
@@ -312,6 +337,8 @@ async function deliverStagedMarket(options: {
 		} else if (claim.status === "claim_error") {
 			stats.emailsFailed++;
 		} else {
+			// Already claimed elsewhere → treat as delivered for fallback-skipping.
+			deliveredUserTypes.add(deliveredKey);
 			stats.skipped++;
 		}
 	}
@@ -338,6 +365,12 @@ async function deliverStagedMarket(options: {
 						stagedData.sms.message,
 						sender,
 					);
+
+					// Mark this user/type as delivered immediately after a successful send
+					// so fallback doesn't reprocess if later bookkeeping fails.
+					if (result.success) {
+						deliveredUserTypes.add(deliveredKey);
+					}
 
 					const logged = await recordNotification(supabase, {
 						user_id: user.id,
@@ -377,18 +410,28 @@ async function deliverStagedMarket(options: {
 			} else if (claim.status === "claim_error") {
 				stats.smsFailed++;
 			} else {
+				// Already claimed elsewhere → treat as delivered for fallback-skipping.
+				deliveredUserTypes.add(deliveredKey);
 				stats.skipped++;
 			}
 		}
 	}
 
 	// Advance next_send_at
-	await updateUserMarketScheduledNextSendAt({
-		user,
-		supabase,
-		logger,
-		currentTime,
-	});
+	try {
+		await updateUserMarketScheduledNextSendAt({
+			user,
+			supabase,
+			logger,
+			currentTime,
+		});
+	} catch (error) {
+		logger.error(
+			"Failed to advance next_send_at for staged market delivery",
+			{ userId: user.id },
+			error,
+		);
+	}
 }
 
 /** Deliver a single staged daily-digest row. */
@@ -401,9 +444,11 @@ async function deliverStagedDaily(options: {
 	currentTime: DateTime;
 	sendEmail: EmailSender;
 	getSmsSender: SmsSenderProvider;
+	deliveredUserTypes: Set<string>;
 	stats: ScheduledNotificationTotals;
 }): Promise<void> {
 	const {
+		row,
 		stagedData,
 		user,
 		supabase,
@@ -411,9 +456,13 @@ async function deliverStagedDaily(options: {
 		currentTime,
 		sendEmail,
 		getSmsSender,
+		deliveredUserTypes,
 		stats,
 	} = options;
 	const { scheduledDate, scheduledMinutes } = stagedData;
+	const deliveredKey = `${row.user_id}:daily`;
+	let localEmailDelivered = false;
+	let localSmsDelivered = false;
 
 	// Email delivery
 	if (stagedData.email) {
@@ -436,6 +485,13 @@ async function deliverStagedDaily(options: {
 				sendEmail,
 				idempotencyKey,
 			);
+
+			// Mark as delivered immediately after a successful send so fallback doesn't
+			// reprocess if later bookkeeping fails.
+			if (result.success) {
+				localEmailDelivered = true;
+				deliveredUserTypes.add(deliveredKey);
+			}
 
 			const logged = await recordNotification(supabase, {
 				user_id: user.id,
@@ -467,6 +523,8 @@ async function deliverStagedDaily(options: {
 		} else if (claim.status === "claim_error") {
 			stats.emailsFailed++;
 		} else {
+			// Already claimed elsewhere → treat as delivered for fallback-skipping.
+			deliveredUserTypes.add(deliveredKey);
 			stats.skipped++;
 		}
 	}
@@ -493,6 +551,13 @@ async function deliverStagedDaily(options: {
 						stagedData.sms.message,
 						sender,
 					);
+
+					// Mark as delivered immediately after a successful send so fallback doesn't
+					// reprocess if later bookkeeping fails.
+					if (result.success) {
+						localSmsDelivered = true;
+						deliveredUserTypes.add(deliveredKey);
+					}
 
 					const logged = await recordNotification(supabase, {
 						user_id: user.id,
@@ -532,6 +597,8 @@ async function deliverStagedDaily(options: {
 			} else if (claim.status === "claim_error") {
 				stats.smsFailed++;
 			} else {
+				// Already claimed elsewhere → treat as delivered for fallback-skipping.
+				deliveredUserTypes.add(deliveredKey);
 				stats.skipped++;
 			}
 		}
@@ -543,8 +610,8 @@ async function deliverStagedDaily(options: {
 	// the ScheduledNotificationTotals stats object and would create a circular
 	// dependency. The logic is straightforward: reset the rolling window if expired,
 	// otherwise increment the counter.
-	const anyDelivered = stats.emailsSent > 0 || stats.smsSent > 0;
-	if (stagedData.grokAllowed && anyDelivered) {
+	const localDelivered = localEmailDelivered || localSmsDelivered;
+	if (stagedData.grokAllowed && localDelivered) {
 		const GROK_WINDOW_HOURS = 24;
 		const now = currentTime.toISO();
 		if (now) {
@@ -577,21 +644,37 @@ async function deliverStagedDaily(options: {
 	}
 
 	// Advance next_send_at for daily digest
-	await updateUserDailyDigestNextSendAt({
-		user,
-		supabase,
-		logger,
-		currentTime,
-	});
-
-	// Advance next_send_at for asset events if applicable
-	if (stagedData.hasAnyAssetEventsOption) {
-		await updateUserAssetEventsNextSendAt({
+	try {
+		await updateUserDailyDigestNextSendAt({
 			user,
 			supabase,
 			logger,
 			currentTime,
 		});
+	} catch (error) {
+		logger.error(
+			"Failed to advance next_send_at for staged daily delivery",
+			{ userId: user.id },
+			error,
+		);
+	}
+
+	// Advance next_send_at for asset events if applicable
+	if (stagedData.hasAnyAssetEventsOption) {
+		try {
+			await updateUserAssetEventsNextSendAt({
+				user,
+				supabase,
+				logger,
+				currentTime,
+			});
+		} catch (error) {
+			logger.error(
+				"Failed to advance asset_events next_send_at for staged daily delivery",
+				{ userId: user.id },
+				error,
+			);
+		}
 	}
 
 	// Update analyst sent month if applicable

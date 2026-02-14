@@ -33,30 +33,30 @@ export async function fetchCompanyNews(
 	if (!Array.isArray(results)) return [];
 
 	return results
-		.filter(
-			(item: unknown) =>
-				typeof item === "object" &&
-				item !== null &&
-				typeof (item as Record<string, unknown>).title === "string" &&
-				typeof (item as Record<string, unknown>).published_utc === "string",
-		)
-		.slice(0, 10)
-		.map((item: Record<string, unknown>) => ({
-			headline: item.title as string,
-			summary:
-				typeof item.description === "string"
-					? (item.description as string)
-					: "",
-			datetime: Math.floor(Date.parse(item.published_utc as string) / 1000),
-			url:
-				typeof item.article_url === "string"
-					? (item.article_url as string)
-					: "",
-			source:
-				typeof item.publisher === "object" &&
-				item.publisher !== null &&
-				typeof (item.publisher as Record<string, unknown>).name === "string"
-					? ((item.publisher as Record<string, unknown>).name as string)
-					: "",
-		}));
+		.flatMap((item: unknown): CompanyNewsItem[] => {
+			if (typeof item !== "object" || item === null) return [];
+			const row = item as Record<string, unknown>;
+
+			if (typeof row.title !== "string") return [];
+			if (typeof row.published_utc !== "string") return [];
+
+			const parsed = Date.parse(row.published_utc);
+			if (Number.isNaN(parsed)) return [];
+
+			return [
+				{
+					headline: row.title,
+					summary: typeof row.description === "string" ? row.description : "",
+					datetime: Math.floor(parsed / 1000),
+					url: typeof row.article_url === "string" ? row.article_url : "",
+					source:
+						typeof row.publisher === "object" &&
+						row.publisher !== null &&
+						typeof (row.publisher as Record<string, unknown>).name === "string"
+							? ((row.publisher as Record<string, unknown>).name as string)
+							: "",
+				},
+			];
+		})
+		.slice(0, 10);
 }

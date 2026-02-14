@@ -204,7 +204,7 @@ describe("Daily digest email prices", () => {
 		expect(message).toContain("MSFT — $412.10 (-0.31%)");
 	});
 
-	it("adds a blank line between rumor ticker sections", () => {
+	it("formats rumor ticker sections on consecutive lines", () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 		]);
@@ -228,7 +228,7 @@ describe("Daily digest email prices", () => {
 		);
 	});
 
-	it("adds a blank line between news ticker sections", () => {
+	it("formats news ticker sections on consecutive lines", () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 		]);

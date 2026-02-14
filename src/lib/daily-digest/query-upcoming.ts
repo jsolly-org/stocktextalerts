@@ -82,5 +82,7 @@ export async function fetchUpcomingDailyDigestUsers(options: {
 		await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
 	}
 
+	// Unreachable: loop always returns on success or throws on final failure.
+	// Kept for TypeScript control-flow completeness.
 	throw new Error("Failed to fetch upcoming daily users: retries exhausted");
 }

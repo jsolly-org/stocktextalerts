@@ -38,7 +38,10 @@ export async function upsertStagedNotification(
 				scheduled_for: scheduledFor,
 				staged_data: stagedData,
 			} as never,
-			{ onConflict: "user_id,notification_type,scheduled_for" },
+			{
+				onConflict: "user_id,notification_type,scheduled_for",
+				ignoreDuplicates: true,
+			},
 		);
 
 	return { error };
@@ -130,7 +133,7 @@ export async function purgeStaleStaged(
 		.select("id");
 
 	if (error) {
-		// Non-fatal: log but don't throw
+		// Non-fatal: swallow and return 0 (log upstream if needed)
 		return 0;
 	}
 

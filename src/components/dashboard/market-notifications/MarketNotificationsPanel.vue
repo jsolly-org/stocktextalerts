@@ -140,7 +140,7 @@
 							:maxTimesReached="maxTimesReached"
 							:countdownText="countdownText"
 							:countdownDelayReasons="countdownDelayReasons"
-						:countdownHolidayName="countdownHolidayName"
+							:countdownHolidayName="countdownHolidayName"
 							:outsideMarketHoursIndices="outsideMarketHoursIndices"
 							:is24="is24"
 							@time-change="handleTimeChange"

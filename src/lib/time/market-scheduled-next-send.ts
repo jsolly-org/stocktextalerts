@@ -1,7 +1,6 @@
 import type { DateTime } from "luxon";
 import {
 	getUsMarketClosureInfoForInstant,
-	type MarketClosureInfo,
 	type MarketClosureReason,
 } from "./market-calendar";
 import { calculateNextSendAtFromTimes } from "./scheduled-times";
