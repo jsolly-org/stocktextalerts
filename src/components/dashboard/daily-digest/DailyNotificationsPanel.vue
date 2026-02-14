@@ -12,6 +12,7 @@
 		@submit="handleFormSubmit"
 	>
 		<input
+			v-if="shouldSubmitDailyDigestTime"
 			type="hidden"
 			name="daily_digest_time"
 			:value="dailyDigestTimeInputForSubmit ?? ''"
@@ -408,6 +409,16 @@ const dailyDigestTimeInputForSubmit = computed(() => {
 		? minutesToTimeInputValue(fallbackMinutes)
 		: null;
 });
+
+const shouldClearDailyDigestTimeOnSubmit = computed(
+	() => !dailyEnabled.value && !hasAnyAssetEventsOptionEnabled.value,
+);
+const shouldSubmitDailyDigestTime = computed(
+	() =>
+		dailyEnabled.value ||
+		dailyDigestTimeInputForSubmit.value !== null ||
+		shouldClearDailyDigestTimeOnSubmit.value,
+);
 
 const nextDailyDeliveryText = computed(() => {
 	if (!isHydrated.value || !dailyEnabled.value) return null;
