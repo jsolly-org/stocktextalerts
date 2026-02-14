@@ -1,21 +1,17 @@
 /**
- * Fetch all US assets (stocks, ETFs, REITs, ADRs, etc.) from Finnhub and write
+ * Fetch all US assets (stocks, ETFs) from the MASSIVE API and write
  * to scripts/data/us-assets.json.
  *
- * Source: Finnhub /stock/symbol?exchange=US
- * Docs:   https://finnhub.io/docs/api/stock-symbols
+ * Source: MASSIVE /v3/reference/tickers?market=stocks&active=true&limit=1000
  *
- * Finnhub returns objects like:
- *   { currency, description, displaySymbol, figi, isin, mic, shareClassFIGI, symbol, symbol2, type }
+ * MASSIVE returns objects like:
+ *   { ticker, name, market, locale, primary_exchange, type, active, currency_name, ... }
  *
- * We normalize Finnhub's `type` values to our own: "stock" or "etf".
+ * We normalize MASSIVE's `type` values to our own: "stock" or "etf".
  *
- * Included as "stock": Common Stock, ADR, REIT, GDR, MLP, Ltd Part, NY Reg Shrs,
- *   Foreign Sh., Royalty Trst, Tracking Stk, PUBLIC
- * Included as "etf": ETP, Closed-End Fund
- * Excluded: Equity WRT, Unit, Right, Preference, Open-End Fund, PRIVATE, Misc.,
- *   Receipt, CDI, NVDR, SDR, Dutch Cert, Canadian DR, Savings Share,
- *   Stapled Security, empty type
+ * Included as "stock": CS (Common Stock), ADRC (ADR)
+ * Included as "etf": ETF, ETN
+ * Excluded: all other types (WARRANT, RIGHT, UNIT, FUND, OS, GDR, SP, etc.)
  *
  * Output format (scripts/data/us-assets.json):
  *   {
@@ -23,7 +19,7 @@
  *     data: [{ symbol, name, type }]    // sorted alphabetically by symbol
  *   }
  *
- * Requires FINNHUB_API_KEY in .env.local (loaded via --env-file-if-exists).
+ * Requires MASSIVE_API_KEY in .env.local (loaded via --env-file-if-exists).
  *
  * Usage:
  *   npx tsx scripts/db/fetch-us-assets.ts
@@ -38,33 +34,20 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_FILE = path.join(__dirname, "..", "data", "us-assets.json");
 
-const FINNHUB_BASE_URL = "https://finnhub.io/api/v1";
+const MASSIVE_BASE_URL = "https://api.massive.com";
 
-// Finnhub `type` values we include, mapped to our normalized types.
-// Stock-like securities: get all notification types (price, daily digest, asset events).
-// ETF-like securities: get price notifications only.
-const FINNHUB_TYPE_MAP: Record<string, "stock" | "etf"> = {
-	"Common Stock": "stock",
-	ADR: "stock",
-	REIT: "stock",
-	GDR: "stock",
-	MLP: "stock",
-	"Ltd Part": "stock",
-	"NY Reg Shrs": "stock",
-	"Foreign Sh.": "stock",
-	"Royalty Trst": "stock",
-	"Tracking Stk": "stock",
-	PUBLIC: "stock",
-	ETP: "etf",
-	"Closed-End Fund": "etf",
+// MASSIVE `type` values we include, mapped to our normalized types.
+const MASSIVE_TYPE_MAP: Record<string, "stock" | "etf"> = {
+	CS: "stock",
+	ADRC: "stock",
+	ETF: "etf",
+	ETN: "etf",
 };
 
-interface FinnhubSymbol {
-	symbol: string;
-	description: string;
+interface MassiveTicker {
+	ticker: string;
+	name: string;
 	type: string;
-	// Fields we don't use but Finnhub returns:
-	// currency, displaySymbol, figi, isin, mic, shareClassFIGI, symbol2
 }
 
 interface OutputSymbol {
@@ -83,45 +66,79 @@ interface OutputFile {
 	data: OutputSymbol[];
 }
 
-async function fetchSymbols(): Promise<FinnhubSymbol[]> {
-	const apiKey = process.env.FINNHUB_API_KEY;
+async function fetchAllTickers(): Promise<MassiveTicker[]> {
+	const apiKey = process.env.MASSIVE_API_KEY;
 	if (!apiKey) {
 		throw new Error(
-			"FINNHUB_API_KEY is not set. Add it to .env.local and run with --env-file-if-exists=.env.local",
+			"MASSIVE_API_KEY is not set. Add it to .env.local and run with --env-file-if-exists=.env.local",
 		);
 	}
 
-	const params = new URLSearchParams({ exchange: "US", token: apiKey });
-	const url = `${FINNHUB_BASE_URL}/stock/symbol?${params.toString()}`;
+	const allTickers: MassiveTicker[] = [];
+	let nextUrl: string | null = null;
+	let page = 1;
 
-	console.info("Fetching US assets from Finnhub...");
-	const response = await fetch(url);
+	// First page
+	const params = new URLSearchParams({
+		market: "stocks",
+		active: "true",
+		limit: "1000",
+		apiKey,
+	});
+	let url = `${MASSIVE_BASE_URL}/v3/reference/tickers?${params.toString()}`;
 
-	if (!response.ok) {
-		throw new Error(
-			`Finnhub API returned ${response.status}: ${await response.text()}`,
-		);
+	console.info("Fetching US assets from MASSIVE API...");
+
+	while (url) {
+		console.info(`  Fetching page ${page}...`);
+		const response = await fetch(url);
+
+		if (!response.ok) {
+			throw new Error(
+				`MASSIVE API returned ${response.status}: ${await response.text()}`,
+			);
+		}
+
+		const data: unknown = await response.json();
+		if (typeof data !== "object" || data === null) {
+			throw new Error(`Expected object from MASSIVE, got ${typeof data}`);
+		}
+
+		const record = data as Record<string, unknown>;
+		const results = record.results;
+		if (!Array.isArray(results)) {
+			throw new Error(
+				`Expected .results array from MASSIVE, got ${typeof results}`,
+			);
+		}
+
+		allTickers.push(...(results as MassiveTicker[]));
+
+		// Check for pagination via next_url
+		nextUrl =
+			typeof record.next_url === "string" ? record.next_url : null;
+		if (nextUrl) {
+			// MASSIVE next_url includes the full URL but not the apiKey
+			const separator = nextUrl.includes("?") ? "&" : "?";
+			url = `${nextUrl}${separator}apiKey=${apiKey}`;
+			page++;
+		} else {
+			url = "";
+		}
 	}
 
-	const data: unknown = await response.json();
-	if (!Array.isArray(data)) {
-		throw new Error(
-			`Expected array from Finnhub, got ${typeof data}`,
-		);
-	}
-
-	return data as FinnhubSymbol[];
+	return allTickers;
 }
 
-function transformSymbols(raw: FinnhubSymbol[]): OutputSymbol[] {
+function transformSymbols(raw: MassiveTicker[]): OutputSymbol[] {
 	const symbols: OutputSymbol[] = [];
 
 	for (const item of raw) {
-		const normalizedType = FINNHUB_TYPE_MAP[item.type];
+		const normalizedType = MASSIVE_TYPE_MAP[item.type];
 		if (!normalizedType) continue;
 
-		const symbol = (item.symbol ?? "").trim().toUpperCase();
-		const name = (item.description ?? "").trim();
+		const symbol = (item.ticker ?? "").trim().toUpperCase();
+		const name = (item.name ?? "").trim();
 
 		// Skip symbols with dots (preferred shares like BRK.A) or empty symbols
 		if (!symbol || symbol.includes(".")) continue;
@@ -137,17 +154,17 @@ function transformSymbols(raw: FinnhubSymbol[]): OutputSymbol[] {
 }
 
 async function main() {
-	const raw = await fetchSymbols();
-	console.info(`  Received ${raw.length} raw symbols from Finnhub`);
+	const raw = await fetchAllTickers();
+	console.info(`  Received ${raw.length} raw tickers from MASSIVE`);
 
-	// Log all unique Finnhub type values for visibility
+	// Log all unique MASSIVE type values for visibility
 	const typeCounts = new Map<string, number>();
 	for (const item of raw) {
 		typeCounts.set(item.type, (typeCounts.get(item.type) ?? 0) + 1);
 	}
-	console.info("  Finnhub type breakdown:");
+	console.info("  MASSIVE type breakdown:");
 	for (const [type, count] of [...typeCounts.entries()].sort()) {
-		const kept = type in FINNHUB_TYPE_MAP ? "KEPT" : "skipped";
+		const kept = type in MASSIVE_TYPE_MAP ? "KEPT" : "skipped";
 		console.info(`    ${type}: ${count} (${kept})`);
 	}
 
@@ -158,7 +175,8 @@ async function main() {
 
 	const output: OutputFile = {
 		metadata: {
-			source: "https://finnhub.io/api/v1/stock/symbol?exchange=US",
+			source:
+				"https://api.massive.com/v3/reference/tickers?market=stocks&active=true",
 			fetched_at: new Date().toISOString(),
 			type_counts: { stock: stockTypeCount, etf: etfCount },
 			total_symbols: symbols.length,

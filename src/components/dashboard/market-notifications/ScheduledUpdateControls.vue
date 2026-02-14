@@ -101,6 +101,10 @@
 			<BellAlertIcon class="size-4 shrink-0 text-success-strong" aria-hidden="true" />
 			<span>Next delivery <span class="font-medium text-heading">{{ countdownText }}</span></span>
 		</p>
+		<p v-if="countdownDelayReasons.length > 0" class="mt-1 text-xs text-body-secondary">
+			Delayed to the next slot because the market is closed for
+			{{ delayReasonLabel }}.
+		</p>
 	</div>
 </template>
 
@@ -124,6 +128,8 @@ interface Props {
 	maxTimes: number;
 	maxTimesReached: boolean;
 	countdownText: string | null;
+	countdownDelayReasons: Array<"weekend" | "holiday">;
+	countdownHolidayName: string | null;
 	outsideMarketHoursIndices: Set<number>;
 	/** Force 24-hour / 12-hour display on time pickers. */
 	is24?: boolean;
@@ -146,4 +152,36 @@ onMounted(() => {
 });
 
 const serializedTimes = computed(() => JSON.stringify(props.scheduledUpdateTimes));
+
+const HOLIDAY_EMOJIS: Record<string, string> = {
+	"New Year's Day": "\u{1F389}",        // 🎉
+	"Martin Luther King Jr. Day": "\u{270A}\u{1F3FE}", // ✊🏾
+	"Washington's Birthday": "\u{1F1FA}\u{1F1F8}", // 🇺🇸
+	"Good Friday": "\u{1F54A}\u{FE0F}",   // 🕊️
+	"Memorial Day": "\u{1FA96}",           // 🪖
+	"Juneteenth National Independence Day": "\u{270A}\u{1F3FF}", // ✊🏿
+	"Independence Day": "\u{1F386}",       // 🎆
+	"Labor Day": "\u{1F477}",             // 👷
+	"Thanksgiving": "\u{1F983}",           // 🦃
+	"Christmas": "\u{1F384}",             // 🎄
+};
+
+const delayReasonLabel = computed(() => {
+	const reasons = props.countdownDelayReasons;
+	const hasWeekend = reasons.includes("weekend");
+	const hasHoliday = reasons.includes("holiday");
+	const name = props.countdownHolidayName;
+	const emoji = name ? HOLIDAY_EMOJIS[name] : undefined;
+	const holidayLabel = name
+		? `${name}${emoji ? ` ${emoji}` : ""}`
+		: "a holiday";
+
+	if (hasWeekend && hasHoliday) {
+		return `the weekend and ${holidayLabel}`;
+	}
+	if (hasHoliday) {
+		return holidayLabel;
+	}
+	return "the weekend";
+});
 </script>

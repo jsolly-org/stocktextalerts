@@ -139,6 +139,8 @@
 							:maxTimes="MAX_DELIVERY_TIMES"
 							:maxTimesReached="maxTimesReached"
 							:countdownText="countdownText"
+							:countdownDelayReasons="countdownDelayReasons"
+						:countdownHolidayName="countdownHolidayName"
 							:outsideMarketHoursIndices="outsideMarketHoursIndices"
 							:is24="is24"
 							@time-change="handleTimeChange"
@@ -182,10 +184,9 @@
 								id="market_asset_price_alerts_enabled_label"
 								class="text-base font-semibold text-heading"
 							>
-								Asset Price Alerts
+								Realtime Asset Price Alerts
 							</span>
 							<MassiveLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
-							<FinnhubLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Finnhub" role="img" />
 							<GrokLogoLightIcon class="h-4.5 w-auto shrink-0 dark:hidden" aria-label="Powered by Grok" role="img" />
 							<GrokLogoDarkIcon class="hidden h-4.5 w-auto shrink-0 dark:inline" aria-label="Powered by Grok" role="img" />
 						</div>
@@ -290,7 +291,6 @@
 import { computed, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
-import FinnhubLogoIcon from "../../../icons/finnhub.svg?component";
 import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
 import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
 import InformationCircleIcon from "../../../icons/information-circle-20.svg?component";
@@ -557,7 +557,7 @@ const nextSendAt = computed(
 			null,
 );
 const is24 = computed(() => user.value.use_24_hour_time);
-const { countdownText } = useScheduledUpdateTiming({
+const { countdownText, countdownDelayReasons, countdownHolidayName } = useScheduledUpdateTiming({
 	timezone,
 	nextSendAtIso: nextSendAt,
 	timeInputs: scheduledUpdateTimes,

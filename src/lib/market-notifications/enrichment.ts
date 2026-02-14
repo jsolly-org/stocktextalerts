@@ -1,4 +1,7 @@
-import { type CompanyNewsItem, fetchCompanyNews } from "../providers/finnhub";
+import {
+	type CompanyNewsItem,
+	fetchCompanyNews,
+} from "../providers/company-news";
 import type { ExtendedAssetQuote } from "../providers/price-fetcher";
 import type { AnomalyResult } from "./anomaly-detection";
 import { generatePriceAlertSummary } from "./grok-summary";

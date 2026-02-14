@@ -53,10 +53,19 @@
 				v-model:smsEnabled="smsEnabled"
 				:can-save-sms-enabled="canSaveSmsEnabled"
 				:sms-opted-out="smsOptedOut"
+				:sms-phone-number="props.smsPhoneNumber"
 				:is-saving="isSaving"
 				:email-notifications-enabled-id="emailNotificationsEnabledId"
 				:sms-notifications-enabled-id="smsNotificationsEnabledId"
 				:notification-channels-desc-id="notificationChannelsDescId"
+				:daily-delivery-time-input="dailyDeliveryTimeInput"
+				:daily-delivery-time-minutes="dailyDeliveryTimeMinutes"
+				:is24="user.use_24_hour_time"
+				:market-open-label="marketOpenLabel"
+				:is-market-open-time="isMarketOpenTime"
+				@daily-time-change="handleDailyTimeChange"
+				@clear-delivery-time="handleClearDeliveryTime"
+				@set-market-open="handleSetMarketOpen"
 			/>
 			</div>
 		</section>
@@ -78,6 +87,12 @@ import {
 	STATUS_TONE_CLASSES,
 } from "../../../lib/constants";
 import { rootLogger } from "../../../lib/logging";
+import {
+	formatMinutesAsLocalTime,
+	getUsMarketOpenLocalMinutes,
+	minutesToTimeInputValue,
+	parseTimeToMinutes,
+} from "../../../lib/time/format";
 import FadeTransition from "../../FadeTransition.vue";
 import StatusMessage from "../../StatusMessage.vue";
 import {
@@ -93,6 +108,7 @@ import { usePendingSmsChanges } from "./pending-sms-changes";
 interface Props {
 	emailEnabled: boolean;
 	smsEnabled: boolean;
+	smsPhoneNumber: string;
 }
 
 const props = defineProps<Props>();
@@ -243,6 +259,10 @@ watch(
 				sms_notifications_enabled: newData.sms_notifications_enabled,
 				sms_opted_out: newData.sms_opted_out,
 				phone_verified: newData.phone_verified,
+				daily_digest_time: newData.daily_digest_time,
+				daily_digest_next_send_at: newData.daily_digest_next_send_at,
+				asset_events_next_send_at: newData.asset_events_next_send_at,
+				market_scheduled_asset_price_next_send_at: newData.market_scheduled_asset_price_next_send_at,
 			};
 			// Sync channel state with parent
 			emit("update:emailEnabled", newData.email_notifications_enabled);
@@ -281,4 +301,74 @@ watch(phoneVerified, (isVerified) => {
 		}
 	}
 });
+
+/* ============= Daily Delivery Time ============= */
+
+function getEarliestMarketNotificationTime(): number | null {
+	const times = user.value.market_scheduled_asset_price_times;
+	if (!times || times.length === 0) return null;
+	return Math.min(...times);
+}
+
+const dailyDeliveryTimeMinutes = ref<number | null>(
+	user.value.daily_digest_time ?? getEarliestMarketNotificationTime(),
+);
+
+const dailyDeliveryTimeInput = computed(() =>
+	dailyDeliveryTimeMinutes.value !== null
+		? minutesToTimeInputValue(dailyDeliveryTimeMinutes.value)
+		: null,
+);
+
+const marketOpenLocalMinutes = computed(() =>
+	user.value.timezone ? getUsMarketOpenLocalMinutes(user.value.timezone) : null,
+);
+
+const marketOpenLabel = computed(() =>
+	marketOpenLocalMinutes.value !== null
+		? formatMinutesAsLocalTime(marketOpenLocalMinutes.value, user.value.use_24_hour_time)
+		: null,
+);
+
+const isMarketOpenTime = computed(() => {
+	if (marketOpenLocalMinutes.value === null) return true;
+	return dailyDeliveryTimeMinutes.value === marketOpenLocalMinutes.value;
+});
+
+function handleDailyTimeChange(value: string) {
+	const parsed = parseTimeToMinutes(value);
+	if (parsed === null) return;
+	dailyDeliveryTimeMinutes.value = parsed;
+	notifyChange();
+}
+
+function handleClearDeliveryTime() {
+	if (!hasNotificationChannel.value) return;
+	dailyDeliveryTimeMinutes.value = null;
+	notifyChange();
+}
+
+function handleSetMarketOpen() {
+	if (marketOpenLocalMinutes.value === null || !hasNotificationChannel.value || isMarketOpenTime.value) return;
+	dailyDeliveryTimeMinutes.value = marketOpenLocalMinutes.value;
+	notifyChange();
+}
+
+const hasNotificationChannel = computed(() => emailEnabled.value || (smsEnabled.value && phoneVerified.value));
+
+// Sync delivery time from user state (e.g. after save from another panel)
+watch(
+	() => user.value.daily_digest_time,
+	(value) => {
+		dailyDeliveryTimeMinutes.value = value ?? getEarliestMarketNotificationTime();
+	},
+);
+watch(
+	() => user.value.market_scheduled_asset_price_times,
+	(times) => {
+		if (user.value.daily_digest_time !== null) return;
+		dailyDeliveryTimeMinutes.value =
+			times && times.length > 0 ? getEarliestMarketNotificationTime() : null;
+	},
+);
 </script>

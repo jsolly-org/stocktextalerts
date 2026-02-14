@@ -27,7 +27,7 @@ export async function processEmailUpdate(
 	);
 	const result = await sendUserEmail(
 		user,
-		"Your Update",
+		"Your Scheduled Price Notification",
 		message,
 		sendEmail,
 		idempotencyKey,

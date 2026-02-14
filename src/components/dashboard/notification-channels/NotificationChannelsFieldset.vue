@@ -60,23 +60,74 @@
 				</div>
 
 				<StatusMessage v-if="props.smsOptedOut" tone="warning" class="mb-4">
-					{{ MESSAGE_ALLOWLIST.sms_opted_out }}
+					<span>You've opted out of SMS notifications. To re-enable:</span>
+					<ol class="list-decimal list-inside mt-1 space-y-0.5">
+						<li>Text <strong>START</strong> to <a v-if="props.smsPhoneNumber" :href="`sms:${props.smsPhoneNumber}`" class="link-action font-medium">{{ props.smsPhoneNumber }}</a><span v-else>our SMS number</span></li>
+						<li>Return here and turn SMS back on</li>
+					</ol>
 				</StatusMessage>
 
 				<SmsVerificationSection
 					:sms-enabled="smsEnabled"
+					:sms-opted-out="props.smsOptedOut"
 				/>
 			</div>
 		</fieldset>
+
+		<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pt-2">
+			<div class="min-w-0">
+				<span
+					id="daily_digest_time_label"
+					class="text-base font-semibold text-heading"
+				>
+					Daily digest delivery time
+				</span>
+				<p
+					id="daily_digest_time_description"
+					class="text-sm text-body-secondary mt-0.5"
+				>
+					Controls when your <a :href="DASHBOARD_SECTION_HASHES.dailyNotifications" class="font-medium text-primary underline rounded-sm hover:text-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1">Daily Digest</a> is sent each day (if enabled).
+				</p>
+			</div>
+			<div class="sm:shrink-0">
+				<div class="flex flex-col sm:flex-row sm:items-center gap-2">
+					<TimePicker
+						:inputId="`daily_digest_time`"
+						:inputName="`daily_digest_time`"
+						:initialTime="props.dailyDeliveryTimeInput"
+						inputAriaLabel="Daily digest delivery time"
+						:disabled="!hasNotificationChannel"
+						:clearable="props.dailyDeliveryTimeMinutes !== null && hasNotificationChannel"
+						clearAriaLabel="Clear delivery time"
+						:is24="props.is24"
+						@time-change="emit('dailyTimeChange', $event)"
+						@clear="emit('clearDeliveryTime')"
+					/>
+					<button
+						v-if="props.marketOpenLabel"
+						type="button"
+						class="btn btn-md btn-secondary h-[41px] shrink-0 whitespace-nowrap"
+						:disabled="!canSetMarketOpen"
+						:aria-label="`Set delivery time to US market open (${props.marketOpenLabel})`"
+						@click="emit('setMarketOpen')"
+					>
+						<PresentationChartLineIcon class="size-4 shrink-0" aria-hidden="true" />
+						Market open
+					</button>
+				</div>
+			</div>
+		</div>
 
 	</section>
 </template>
 
 <script lang="ts" setup>
 import { computed } from "vue";
-import { DASHBOARD_SECTION_IDS, MESSAGE_ALLOWLIST } from "../../../lib/constants";
+import PresentationChartLineIcon from "../../../icons/presentation-chart-line.svg?component";
+import { DASHBOARD_SECTION_HASHES, DASHBOARD_SECTION_IDS } from "../../../lib/constants";
 import StatusMessage from "../../StatusMessage.vue";
 import ToggleSwitch from "../../ToggleSwitch.vue";
+import TimePicker from "../shared/TimePicker.vue";
 import SmsVerificationSection from "./SmsVerificationSection.vue";
 
 interface Props {
@@ -84,10 +135,21 @@ interface Props {
 	smsEnabled: boolean;
 	canSaveSmsEnabled: boolean;
 	smsOptedOut: boolean;
+	smsPhoneNumber: string;
 	emailNotificationsEnabledId: string;
 	smsNotificationsEnabledId: string;
 	notificationChannelsDescId: string;
 	isSaving?: boolean;
+	/** Current daily delivery time as an HH:MM string, or null. */
+	dailyDeliveryTimeInput: string | null;
+	/** Current daily delivery time in minutes since midnight, or null. */
+	dailyDeliveryTimeMinutes: number | null;
+	/** Whether the user uses 24-hour time format. */
+	is24: boolean;
+	/** Human-readable label for market-open time (e.g. "9:30 AM"), or null if unavailable. */
+	marketOpenLabel: string | null;
+	/** Whether the current delivery time already matches market-open. */
+	isMarketOpenTime: boolean;
 }
 
 const props = defineProps<Props>();
@@ -95,6 +157,9 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
 	(event: "update:emailEnabled", value: boolean): void;
 	(event: "update:smsEnabled", value: boolean): void;
+	(event: "dailyTimeChange", value: string): void;
+	(event: "clearDeliveryTime"): void;
+	(event: "setMarketOpen"): void;
 }>();
 
 const emailEnabled = computed({
@@ -105,4 +170,10 @@ const smsEnabled = computed({
 	get: () => props.smsEnabled,
 	set: (value: boolean) => emit("update:smsEnabled", value),
 });
+
+const hasNotificationChannel = computed(() => props.emailEnabled || props.smsEnabled);
+
+const canSetMarketOpen = computed(
+	() => hasNotificationChannel.value && !props.isMarketOpenTime,
+);
 </script>

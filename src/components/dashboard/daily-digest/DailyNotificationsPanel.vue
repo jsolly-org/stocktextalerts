@@ -43,7 +43,7 @@
 			<p
 				class="text-sm text-body-secondary mt-1"
 			>
-				Everything you enable below is bundled into <strong class="font-semibold text-label">one daily message</strong> sent at the time you choose.
+				Everything you enable below is bundled into <strong class="font-semibold text-label">one daily message</strong> sent at your daily digest <a href="#daily_digest_time" class="font-medium text-primary underline rounded-sm hover:text-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1">delivery time</a>.
 			</p>
 			</header>
 
@@ -53,17 +53,6 @@
 			:phoneVerificationSectionId="phoneVerificationSectionId"
 		/>
 
-			<FadeTransition>
-				<p
-					v-if="dailyEnabled && dailyDeliveryTimeMinutes === null"
-					class="flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm bg-info-bg border border-info-border text-info-text"
-					role="note"
-				>
-					<InformationCircleIcon class="size-5 shrink-0 mt-0.5" aria-hidden="true" />
-					<span>No daily digest will be sent until you choose a notification time.</span>
-				</p>
-			</FadeTransition>
-
 	<fieldset
 			class="divide-y divide-divider transition-opacity duration-200"
 				:class="{ 'opacity-50': needsChannelSelection }"
@@ -71,50 +60,6 @@
 				:aria-disabled="needsChannelSelection ? 'true' : undefined"
 			>
 					<legend class="sr-only">Daily digest settings</legend>
-
-			<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-3">
-				<div class="min-w-0">
-					<span
-						id="daily_digest_time_label"
-						class="text-base font-semibold text-heading"
-					>
-						Delivery time
-					</span>
-					<p
-						id="daily_digest_time_description"
-						class="text-sm text-body-secondary mt-0.5"
-					>
-						Sent once every day.
-					</p>
-				</div>
-				<div class="sm:shrink-0">
-					<div class="flex flex-col sm:flex-row sm:items-center gap-2">
-						<TimePicker
-							:inputId="`daily_digest_time`"
-							:inputName="`daily_digest_time`"
-							:initialTime="dailyDeliveryTimeInput"
-							inputAriaLabel="Daily digest delivery time"
-							:disabled="needsChannelSelection"
-							:clearable="dailyDeliveryTimeMinutes !== null && !needsChannelSelection"
-							clearAriaLabel="Clear delivery time"
-							:is24="user.use_24_hour_time"
-							@time-change="handleDailyTimeChange"
-							@clear="handleClearDeliveryTime"
-						/>
-						<button
-							v-if="marketOpenLabel"
-							type="button"
-							class="btn btn-md btn-secondary h-[41px] shrink-0 whitespace-nowrap"
-							:disabled="!canSetMarketOpen"
-							:aria-label="`Set delivery time to US market open (${marketOpenLabel})`"
-							@click="handleSetMarketOpen"
-						>
-							<PresentationChartLineIcon class="size-4 shrink-0" aria-hidden="true" />
-							Market open
-						</button>
-					</div>
-				</div>
-			</div>
 
 				<div class="flex items-center justify-between gap-3 py-3">
 					<input
@@ -132,7 +77,7 @@
 							</span>
 							<GrokLogoLightIcon class="h-4.5 w-auto shrink-0 dark:hidden" aria-label="Powered by Grok" role="img" />
 							<GrokLogoDarkIcon class="hidden h-4.5 w-auto shrink-0 dark:inline" aria-label="Powered by Grok" role="img" />
-						<FinnhubLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Finnhub" role="img" />
+						<MassiveLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
 						</div>
 						<p
 							id="daily_digest_include_news_description"
@@ -242,7 +187,7 @@
 			<div class="card-body">
 				<header class="mb-4">
 					<h2 class="text-xl sm:text-2xl font-bold text-heading">
-						Daily Digest Preview
+						Notification Preview
 					</h2>
 					<p class="text-sm text-body-secondary mt-1">
 						Customize how your asset notifications look. Changes apply to both SMS and email.
@@ -254,7 +199,7 @@
 					:class="{ 'opacity-50': needsChannelSelection }"
 				>
 					<div class="mb-6">
-						<div ref="previewCarouselRef" class="preview-carousel" @scroll="onPreviewCarouselScroll">
+						<div ref="previewCarouselRef" class="preview-carousel" data-horizontal-scroll @scroll="onPreviewCarouselScroll">
 							<div class="preview-slide">
 								<SmsPreview
 									:assets="previewAssets"
@@ -311,11 +256,9 @@ import { computed, onBeforeUnmount, onMounted, onUnmounted, ref, toRefs, watch }
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import BellAlertIcon from "../../../icons/bell-alert.svg?component";
-import FinnhubLogoIcon from "../../../icons/finnhub.svg?component";
 import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
 import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
-import InformationCircleIcon from "../../../icons/information-circle-20.svg?component";
-import PresentationChartLineIcon from "../../../icons/presentation-chart-line.svg?component";
+import MassiveLogoIcon from "../../../icons/massive.svg?component";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID,
@@ -326,11 +269,8 @@ import {
 import type { FormatPreferences } from "../../../lib/messaging/types";
 import {
 	formatCountdownWithSeconds,
-	formatMinutesAsLocalTime,
 	getSecondsUntilNextSend,
-	getUsMarketOpenLocalMinutes,
 	minutesToTimeInputValue,
-	parseTimeToMinutes,
 } from "../../../lib/time/format";
 import FadeTransition from "../../FadeTransition.vue";
 import type { InitialAsset } from "../assets/types";
@@ -344,7 +284,6 @@ import {
 } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
-import TimePicker from "../shared/TimePicker.vue";
 import EmailPreview from "./preview/EmailPreview.vue";
 import FormatToggles from "./preview/FormatToggles.vue";
 import { DEMO_ASSETS, type PreviewAsset } from "./preview/preview-data";
@@ -381,12 +320,6 @@ onMounted(() => {
 	intervalId = window.setInterval(() => {
 		tick.value = Date.now();
 	}, 1000);
-
-	if (dailyEnabled.value) {
-		// On initial mount we may "inherit" a time from market notifications for display,
-		// but we should not autosave during hydration.
-		maybeDefaultToMarketTime();
-	}
 });
 onUnmounted(() => {
 	if (intervalId === null) return;
@@ -410,78 +343,19 @@ const {
 
 const includeNewsEmail = ref(user.value.daily_digest_include_news_email);
 const includeRumorsEmail = ref(user.value.daily_digest_include_rumors_email);
-const dailyDeliveryTimeMinutes = ref<number | null>(
-	user.value.daily_digest_time ?? getEarliestMarketNotificationTime(),
-);
 
 const dailyEnabled = computed(() =>
 	includeNewsEmail.value ||
 	includeRumorsEmail.value,
 );
 
-/**
- * When the daily digest is enabled but no delivery time is set,
- * default to the earliest scheduled market notification time (if any).
- * The user can still change to a different time.
- */
-function getEarliestMarketNotificationTime(): number | null {
-	const times = user.value.market_scheduled_asset_price_times;
-	if (!times || times.length === 0) return null;
-	return Math.min(...times);
-}
-
-/**
- * If the daily digest is enabled but no explicit daily delivery time is set,
- * inherit the earliest scheduled market notification time for display (and optional save).
- */
-function maybeDefaultToMarketTime(): boolean {
-	if (dailyDeliveryTimeMinutes.value !== null) return false;
-	const earliestMarketNotificationTime = getEarliestMarketNotificationTime();
-	if (earliestMarketNotificationTime === null) return false;
-	dailyDeliveryTimeMinutes.value = earliestMarketNotificationTime;
-	return true;
-}
-
-const dailyDeliveryTimeInput = computed(() =>
-	dailyDeliveryTimeMinutes.value !== null
-		? minutesToTimeInputValue(dailyDeliveryTimeMinutes.value)
-		: null,
-);
-
-const marketOpenLocalMinutes = computed(() =>
-	user.value.timezone ? getUsMarketOpenLocalMinutes(user.value.timezone) : null,
-);
-
-const marketOpenLabel = computed(() =>
-	marketOpenLocalMinutes.value !== null
-		? formatMinutesAsLocalTime(marketOpenLocalMinutes.value, user.value.use_24_hour_time)
-		: null,
-);
-
-const isMarketOpenTime = computed(() => {
-	if (marketOpenLocalMinutes.value === null) return true;
-	return dailyDeliveryTimeMinutes.value === marketOpenLocalMinutes.value;
+/** Derive the current delivery time input from the shared user state (managed by NotificationChannelsPanel). */
+const dailyDeliveryTimeInput = computed(() => {
+	const minutes = user.value.daily_digest_time;
+	return minutes !== null && minutes !== undefined
+		? minutesToTimeInputValue(minutes)
+		: null;
 });
-
-const canSetMarketOpen = computed(
-	() => !needsChannelSelection.value && !isMarketOpenTime.value,
-);
-
-/** Clear the daily digest delivery time (disables sending unless inherited elsewhere). */
-function handleClearDeliveryTime() {
-	if (needsChannelSelection.value) return;
-	dailyDeliveryTimeMinutes.value = null;
-	notifyChange();
-}
-
-/** Set the daily digest delivery time to the user's local US market-open time. */
-function handleSetMarketOpen() {
-	if (!canSetMarketOpen.value || marketOpenLocalMinutes.value === null) {
-		return;
-	}
-	dailyDeliveryTimeMinutes.value = marketOpenLocalMinutes.value;
-	notifyChange();
-}
 
 const nextDailyDeliveryText = computed(() => {
 	if (!isHydrated.value || !dailyEnabled.value) return null;
@@ -503,24 +377,6 @@ watch([includeNewsEmail, includeRumorsEmail], () => {
 	notifyChange();
 });
 
-watch(dailyEnabled, (enabled) => {
-	if (enabled) {
-		// When a user enables the daily digest, default to market time (if needed)
-		// and explicitly notify so the defaulted time is persisted.
-		const didDefault = maybeDefaultToMarketTime();
-		if (didDefault) {
-			notifyChange();
-		}
-	}
-});
-
-function handleDailyTimeChange(value: string) {
-	const parsed = parseTimeToMinutes(value);
-	if (parsed === null) return;
-	dailyDeliveryTimeMinutes.value = parsed;
-	notifyChange();
-}
-
 watch(
 	() => user.value.daily_digest_include_news_email,
 	(value) => {
@@ -533,20 +389,7 @@ watch(
 		includeRumorsEmail.value = value;
 	},
 );
-watch(
-	() => user.value.daily_digest_time,
-	(value) => {
-		dailyDeliveryTimeMinutes.value = value ?? getEarliestMarketNotificationTime();
-	},
-);
-watch(
-	() => user.value.market_scheduled_asset_price_times,
-	(times) => {
-		if (user.value.daily_digest_time !== null) return;
-		dailyDeliveryTimeMinutes.value =
-			times && times.length > 0 ? getEarliestMarketNotificationTime() : null;
-	},
-);
+
 /* =============
 Keep dashboard user state aligned with autosave responses
 ============= */
@@ -673,6 +516,9 @@ onBeforeUnmount(() => {
 	-webkit-overflow-scrolling: touch;
 	scrollbar-width: none; /* Firefox */
 	gap: 1.5rem;
+	/* Override the parent carousel's touch-action: pan-y so the browser
+	   allows native horizontal scrolling on this element. */
+	touch-action: pan-x pan-y;
 }
 
 .preview-carousel::-webkit-scrollbar {

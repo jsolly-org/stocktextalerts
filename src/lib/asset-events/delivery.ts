@@ -33,7 +33,7 @@ function formatAssetEventsSmsMessage(options: {
 	const optOutSuffix = "Reply STOP to opt out.";
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 
-	const parts: string[] = ["StockTextAlerts — Asset Events"];
+	const parts: string[] = ["StockTextAlerts — Asset Events 🗓️"];
 
 	if (options.earningsSection) {
 		parts.push(`📅 Earnings\n${options.earningsSection}`);

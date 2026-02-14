@@ -24,6 +24,7 @@ describe("Per-channel include flags gate scheduled notification delivery.", () =
 		vi.stubEnv("SMS_TEST_BEHAVIOR", "success");
 		vi.stubEnv("SMS_TEST_MESSAGE_SID", "test-sms-sid");
 		vi.stubEnv("FINNHUB_API_KEY", "");
+		vi.stubEnv("SCHEDULE_PASS_DELAY_MS", "0");
 	});
 
 	afterEach(() => {

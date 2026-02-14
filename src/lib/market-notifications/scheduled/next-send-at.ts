@@ -2,7 +2,7 @@ import type { DateTime } from "luxon";
 import type { Logger } from "../../logging";
 import type { UserRecord } from "../../messaging/types";
 import type { SupabaseAdminClient } from "../../schedule/helpers";
-import { calculateNextSendAtFromTimes } from "../../time/scheduled-times";
+import { calculateNextMarketScheduledSendAtFromTimes } from "../../time/market-scheduled-next-send";
 
 /**
  * Recompute and persist `users.market_scheduled_asset_price_next_send_at` based on `market_scheduled_asset_price_times` and timezone.
@@ -19,11 +19,12 @@ export async function updateUserMarketScheduledNextSendAt(options: {
 
 	// Query filters out null market_scheduled_asset_price_times with .not()
 	const scheduledTimes = user.market_scheduled_asset_price_times as number[];
-	const nextSendAt = calculateNextSendAtFromTimes(
-		scheduledTimes,
-		user.timezone,
-		currentTime,
-	);
+	const { nextSendAt, delayReasons } =
+		await calculateNextMarketScheduledSendAtFromTimes({
+			localMinutesList: scheduledTimes,
+			timezone: user.timezone,
+			now: currentTime,
+		});
 	const nextSendAtIso = nextSendAt ? nextSendAt.toISO() : null;
 	if (nextSendAt && !nextSendAtIso) {
 		logger.error(
@@ -35,12 +36,22 @@ export async function updateUserMarketScheduledNextSendAt(options: {
 		);
 	}
 	if (!nextSendAt) {
-		logger.warn("calculateNextSendAtFromTimes returned null", {
+		logger.warn("calculateNextMarketScheduledSendAtFromTimes returned null", {
 			userId: user.id,
 			market_scheduled_asset_price_times:
 				user.market_scheduled_asset_price_times,
 			timezone: user.timezone,
 		});
+	}
+	if (delayReasons.length > 0) {
+		logger.info(
+			"Advanced scheduled market next_send_at due to market closure",
+			{
+				userId: user.id,
+				reasons: delayReasons,
+				nextSendAt: nextSendAtIso ?? undefined,
+			},
+		);
 	}
 
 	const { error: updateError } = await supabase

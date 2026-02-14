@@ -1,3 +1,36 @@
+/*
+ * Two-pass cron scheduler for pre-computed notification delivery.
+ *
+ * ARCHITECTURE OVERVIEW
+ * --------------------
+ * Previously, the cron fired every minute and ran the full pipeline (DB queries,
+ * API calls, Grok generation, formatting) before sending each notification. This
+ * added seconds of latency between the user's scheduled time and actual delivery.
+ *
+ * Now the cron fires every minute but runs TWO passes, 30 seconds apart:
+ *
+ *   Pass 1 (~:00)                         Pass 2 (~:30)
+ *   ┌─────────────────────────┐           ┌─────────────────────────┐
+ *   │ 1. DELIVER staged       │           │ 1. DELIVER staged       │
+ *   │ 2. DELIVER fallback     │           │ 2. DELIVER fallback     │
+ *   │ 3. PRE-COMPUTE          │           │ 3. PRE-COMPUTE          │
+ *   └─────────────────────────┘           └─────────────────────────┘
+ *
+ * - DELIVER staged: Send pre-rendered content from `staged_notifications` for
+ *   users whose `scheduled_for` has arrived. This is near-instant (no API calls).
+ * - DELIVER fallback: Users without staged data (new users, staging failures,
+ *   first deploy) get processed via the existing full pipeline. The optimization
+ *   is purely additive.
+ * - PRE-COMPUTE: Look ahead 30s, run the full pipeline for those users, and
+ *   write the rendered content to `staged_notifications`. Next pass delivers it.
+ *
+ * Price staleness from pre-compute is at most ~30 seconds, which is acceptable
+ * for informational scheduled notifications.
+ *
+ * forceSend mode (manual --force) bypasses staging entirely and runs a single
+ * pass through the full pipeline, preserving the original behavior.
+ */
+
 import { DateTime } from "luxon";
 import { processAssetEventsUser } from "../asset-events/process";
 import { fetchAssetEventsUsers } from "../asset-events/query";
@@ -17,6 +50,11 @@ import {
 	fetchAssetPrices,
 	fetchMarketStatus,
 } from "../providers/price-fetcher";
+import { deliverStagedNotifications } from "../staged-notifications/deliver";
+import {
+	precomputeDailyDigest,
+	precomputeMarketScheduled,
+} from "../staged-notifications/precompute";
 import { toIsoOrThrow } from "../time/format";
 import {
 	type ScheduledNotificationTotals,
@@ -34,85 +72,146 @@ const DAILY_DISPATCH_BATCH_SIZE = (() => {
 })();
 
 /**
- * Run all notification processors for the current minute.
- *
- * This orchestrates:
- * - market scheduled updates (with batched price fetching)
- * - asset events notifications (in-process)
- * - daily digest notifications (fan-out per user to reduce Grok bottlenecks)
+ * Delay between pass 1 and pass 2, in milliseconds.
+ * Must match PRECOMPUTE_WINDOW_SECONDS in precompute.ts — each pass pre-computes
+ * content for users due within the next 30s, so the following pass can deliver it.
+ * Configurable via env for testing (set to 0 to skip the wait).
+ * Read at call time (not module load) so test stubs take effect.
  */
-export async function runScheduledNotifications(options: {
+function getPassDelayMs(): number {
+	const raw = process.env.SCHEDULE_PASS_DELAY_MS;
+	const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
+	return Number.isFinite(parsed) && parsed >= 0 ? parsed : 30_000;
+}
+
+const EMPTY_TOTALS: ScheduledNotificationTotals = {
+	skipped: 0,
+	logFailures: 0,
+	emailsSent: 0,
+	emailsFailed: 0,
+	smsSent: 0,
+	smsFailed: 0,
+};
+
+function mergeTotals(
+	a: ScheduledNotificationTotals,
+	b: ScheduledNotificationTotals,
+): ScheduledNotificationTotals {
+	return {
+		skipped: a.skipped + b.skipped,
+		logFailures: a.logFailures + b.logFailures,
+		emailsSent: a.emailsSent + b.emailsSent,
+		emailsFailed: a.emailsFailed + b.emailsFailed,
+		smsSent: a.smsSent + b.smsSent,
+		smsFailed: a.smsFailed + b.smsFailed,
+	};
+}
+
+/**
+ * Run a single pass of the notification pipeline.
+ *
+ * Each pass executes:
+ * 1. DELIVER — send staged content for users due now
+ * 2. DELIVER FALLBACK — process users due now via the full pipeline (those without staged data)
+ * 3. PRE-COMPUTE — stage content for users due in the next 30 seconds
+ */
+async function runPass(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	forceSend: boolean;
 	cronSecret: string;
-	now?: DateTime;
-}): Promise<ScheduledNotificationTotals & { priceAlerts?: PriceAlertTotals }> {
-	const { supabase, logger, forceSend, cronSecret } = options;
-	const sendEmail = createEmailSender();
+	priceAlertQuoteMap?: ExtendedQuoteMap;
+	/** When true, run asset events processing (only in the first pass). */
+	includeAssetEvents: boolean;
+}): Promise<ScheduledNotificationTotals> {
+	const { supabase, logger, cronSecret, priceAlertQuoteMap } = options;
 
-	// Run price alerts first — this also returns an extended quote map
-	// that could be reused by scheduled notifications to avoid duplicate API calls.
-	let priceAlertTotals: PriceAlertTotals | undefined;
-	let priceAlertQuoteMap: ExtendedQuoteMap | undefined;
-	try {
-		const priceAlertResult = await processPriceAlerts({ supabase });
-		priceAlertTotals = priceAlertResult.totals;
-		priceAlertQuoteMap = priceAlertResult.quoteMap;
-
-		if (priceAlertTotals.alertsTriggered > 0) {
-			logger.info("Price alerts processed", {
-				action: "price_alerts",
-				...priceAlertTotals,
-			});
-		}
-	} catch (error) {
-		logger.error(
-			"Price alerts processing failed (non-fatal)",
-			{ action: "price_alerts" },
-			error,
-		);
-	}
-
-	// Round to end of current minute so the cron picks up all notifications
-	// scheduled for this minute, regardless of when within the minute Vercel
-	// actually fires the cron (typically ~30s into the minute).
-	const currentTime = (options.now ?? DateTime.utc()).endOf("minute");
+	// Use actual UTC time — NOT rounded to end-of-minute like the old single-pass approach.
+	// Users set times at minute granularity so next_send_at is always at :00 seconds.
+	// The two-pass system at ~:00 and ~:30 naturally covers the full minute window.
+	const currentTime = DateTime.utc();
 	const currentTimeIso = toIsoOrThrow(
 		currentTime,
 		"Failed to format UTC ISO string",
 	);
+
+	const sendEmail = createEmailSender();
+	const getSmsSender = createSmsSenderProvider();
+
+	/* ============= Phase 1: DELIVER staged ============= */
+	let stagedStats = { ...EMPTY_TOTALS };
+	let deliveredUserTypes = new Set<string>();
+	try {
+		const staged = await deliverStagedNotifications({
+			supabase,
+			logger,
+			currentTime,
+			sendEmail,
+			getSmsSender,
+		});
+		stagedStats = staged.stats;
+		deliveredUserTypes = staged.deliveredUserTypes;
+
+		if (
+			stagedStats.emailsSent > 0 ||
+			stagedStats.smsSent > 0 ||
+			stagedStats.skipped > 0
+		) {
+			logger.info("Staged notifications delivered", {
+				action: "staged_deliver",
+				...stagedStats,
+			});
+		}
+	} catch (error) {
+		logger.error(
+			"Staged delivery phase failed (falling back to full pipeline)",
+			{ action: "staged_deliver" },
+			error,
+		);
+	}
+
+	/* ============= Phase 2: DELIVER fallback (full pipeline for non-staged users) ============= */
 	const [marketUsers, dailyUsers, assetEventsUsers] = await Promise.all([
 		fetchMarketScheduledUsers({
 			supabase,
 			logger,
-			forceSend,
+			forceSend: false,
 			currentTimeIso,
 		}),
 		fetchDailyDigestUsers({
 			supabase,
 			logger,
-			forceSend,
+			forceSend: false,
 			currentTimeIso,
 		}),
-		fetchAssetEventsUsers({
-			supabase,
-			logger,
-			forceSend,
-			currentTimeIso,
-		}),
+		options.includeAssetEvents
+			? fetchAssetEventsUsers({
+					supabase,
+					logger,
+					forceSend: false,
+					currentTimeIso,
+				})
+			: Promise.resolve([]),
 	]);
+
+	// Filter out users already delivered from staging so we don't double-send.
+	// The deliveredUserTypes set uses "userId:type" keys (e.g. "abc-123:market").
+	const fallbackMarketUsers = marketUsers.filter(
+		(u) => !deliveredUserTypes.has(`${u.id}:market`),
+	);
+	const fallbackDailyUsers = dailyUsers.filter(
+		(u) => !deliveredUserTypes.has(`${u.id}:daily`),
+	);
 
 	// Collect unique asset symbols across scheduled users and fetch prices in batch
 	let priceMap: AssetPriceMap = new Map();
 	const hasAnyUsers =
-		marketUsers.length > 0 ||
-		dailyUsers.length > 0 ||
+		fallbackMarketUsers.length > 0 ||
+		fallbackDailyUsers.length > 0 ||
 		assetEventsUsers.length > 0;
 	const marketStatusPromise = hasAnyUsers ? fetchMarketStatus() : null;
 
-	if (marketUsers.length > 0) {
-		const userIds = marketUsers.map((u) => u.id);
+	if (fallbackMarketUsers.length > 0) {
+		const userIds = fallbackMarketUsers.map((u) => u.id);
 		const { data: allUserAssets, error: userAssetsError } = await supabase
 			.from("user_assets")
 			.select("symbol")
@@ -138,8 +237,6 @@ export async function runScheduledNotifications(options: {
 			// Reuse quotes from price alerts when available to avoid duplicate API calls
 			if (priceAlertQuoteMap && priceAlertQuoteMap.size > 0) {
 				const missingSymbols: string[] = [];
-				// Start with price alert quotes (they extend AssetPrice)
-				// Treat `null` cached quotes as missing so we refetch and don't skip notifications.
 				for (const symbol of uniqueSymbols) {
 					const cached = priceAlertQuoteMap.get(symbol);
 					if (cached) {
@@ -148,7 +245,6 @@ export async function runScheduledNotifications(options: {
 						missingSymbols.push(symbol);
 					}
 				}
-				// Fetch any symbols not covered by price alerts (including null quotes)
 				if (missingSymbols.length > 0) {
 					const extraPrices = await fetchAssetPrices(missingSymbols);
 					for (const [symbol, price] of extraPrices) {
@@ -163,15 +259,18 @@ export async function runScheduledNotifications(options: {
 
 	const marketOpen = marketStatusPromise ? await marketStatusPromise : false;
 
-	const getSmsSender = createSmsSenderProvider();
-
 	const results: ScheduledNotificationTotals[] = [];
+
+	// Process fallback market users
 	for (
 		let index = 0;
-		index < marketUsers.length;
+		index < fallbackMarketUsers.length;
 		index += USER_PROCESS_BATCH_SIZE
 	) {
-		const batch = marketUsers.slice(index, index + USER_PROCESS_BATCH_SIZE);
+		const batch = fallbackMarketUsers.slice(
+			index,
+			index + USER_PROCESS_BATCH_SIZE,
+		);
 		const batchResults = await Promise.all(
 			batch.map((user) =>
 				processMarketScheduledUser({
@@ -189,7 +288,7 @@ export async function runScheduledNotifications(options: {
 		results.push(...batchResults);
 	}
 
-	// In-process: process asset events users in batches (no Grok calls, so no fan-out needed)
+	// In-process: process asset events users in batches (first pass only)
 	for (
 		let index = 0;
 		index < assetEventsUsers.length;
@@ -214,14 +313,17 @@ export async function runScheduledNotifications(options: {
 		results.push(...batchResults);
 	}
 
-	// Fan-out: dispatch each daily user to its own serverless function
-	if (dailyUsers.length > 0) {
+	// Fan-out: dispatch each fallback daily user to its own serverless function
+	if (fallbackDailyUsers.length > 0) {
 		for (
 			let index = 0;
-			index < dailyUsers.length;
+			index < fallbackDailyUsers.length;
 			index += DAILY_DISPATCH_BATCH_SIZE
 		) {
-			const batch = dailyUsers.slice(index, index + DAILY_DISPATCH_BATCH_SIZE);
+			const batch = fallbackDailyUsers.slice(
+				index,
+				index + DAILY_DISPATCH_BATCH_SIZE,
+			);
 			const dispatchResults = await Promise.allSettled(
 				batch.map((user) =>
 					dispatchDailyDigestUser({
@@ -254,27 +356,306 @@ export async function runScheduledNotifications(options: {
 		}
 	}
 
-	const scheduledTotals = results.reduce(
-		(acc, curr) => ({
-			skipped: acc.skipped + curr.skipped,
-			logFailures: acc.logFailures + curr.logFailures,
-			emailsSent: acc.emailsSent + curr.emailsSent,
-			emailsFailed: acc.emailsFailed + curr.emailsFailed,
-			smsSent: acc.smsSent + curr.smsSent,
-			smsFailed: acc.smsFailed + curr.smsFailed,
-		}),
-		{
-			skipped: 0,
-			logFailures: 0,
-			emailsSent: 0,
-			emailsFailed: 0,
-			smsSent: 0,
-			smsFailed: 0,
-		},
-	);
+	const fallbackTotals = results.reduce((acc, curr) => mergeTotals(acc, curr), {
+		...EMPTY_TOTALS,
+	});
+
+	/* ============= Phase 3: PRE-COMPUTE for upcoming users ============= */
+	try {
+		const [preMarket, preDaily] = await Promise.all([
+			precomputeMarketScheduled({ supabase, logger, currentTime }),
+			precomputeDailyDigest({ supabase, logger, currentTime, cronSecret }),
+		]);
+		// Pre-compute stats are informational only (no actual delivery)
+		if (preMarket.skipped > 0 || preDaily.skipped > 0) {
+			logger.info("Pre-compute phase completed", {
+				action: "precompute",
+				marketSkipped: preMarket.skipped,
+				dailySkipped: preDaily.skipped,
+			});
+		}
+	} catch (error) {
+		logger.error(
+			"Pre-compute phase failed (non-fatal)",
+			{ action: "precompute" },
+			error,
+		);
+	}
+
+	return mergeTotals(stagedStats, fallbackTotals);
+}
+
+/**
+ * Run all notification processors for the current minute.
+ *
+ * This orchestrates:
+ * - Price alerts (first pass only)
+ * - Two-pass delivery: pass 1 at ~:00, pass 2 at ~:30
+ *   Each pass: DELIVER staged → DELIVER fallback → PRE-COMPUTE
+ * - Asset events (first pass only)
+ *
+ * In forceSend mode (manual sends), staging is bypassed and only a single pass runs.
+ */
+export async function runScheduledNotifications(options: {
+	supabase: SupabaseAdminClient;
+	logger: Logger;
+	forceSend: boolean;
+	cronSecret: string;
+	now?: DateTime;
+}): Promise<ScheduledNotificationTotals & { priceAlerts?: PriceAlertTotals }> {
+	const { supabase, logger, forceSend, cronSecret } = options;
+
+	// Run price alerts first — this also returns an extended quote map
+	// that could be reused by scheduled notifications to avoid duplicate API calls.
+	let priceAlertTotals: PriceAlertTotals | undefined;
+	let priceAlertQuoteMap: ExtendedQuoteMap | undefined;
+	try {
+		const priceAlertResult = await processPriceAlerts({ supabase });
+		priceAlertTotals = priceAlertResult.totals;
+		priceAlertQuoteMap = priceAlertResult.quoteMap;
+
+		if (priceAlertTotals.alertsTriggered > 0) {
+			logger.info("Price alerts processed", {
+				action: "price_alerts",
+				...priceAlertTotals,
+			});
+		}
+	} catch (error) {
+		logger.error(
+			"Price alerts processing failed (non-fatal)",
+			{ action: "price_alerts" },
+			error,
+		);
+	}
+
+	/* =============
+	Force-send: bypass staging, single pass via existing pipeline.
+	Manual sends (--force via run-scheduled-cron.sh) process all notification-enabled
+	users immediately. Staging adds no value here because we're not waiting for a
+	scheduled time — the user wants delivery now.
+	============= */
+	if (forceSend) {
+		const sendEmail = createEmailSender();
+		const getSmsSender = createSmsSenderProvider();
+		const currentTime = options.now ?? DateTime.utc();
+		const currentTimeIso = toIsoOrThrow(
+			currentTime,
+			"Failed to format UTC ISO string",
+		);
+
+		const [marketUsers, dailyUsers, assetEventsUsers] = await Promise.all([
+			fetchMarketScheduledUsers({
+				supabase,
+				logger,
+				forceSend: true,
+				currentTimeIso,
+			}),
+			fetchDailyDigestUsers({
+				supabase,
+				logger,
+				forceSend: true,
+				currentTimeIso,
+			}),
+			fetchAssetEventsUsers({
+				supabase,
+				logger,
+				forceSend: true,
+				currentTimeIso,
+			}),
+		]);
+
+		let priceMap: AssetPriceMap = new Map();
+		const hasAnyUsers =
+			marketUsers.length > 0 ||
+			dailyUsers.length > 0 ||
+			assetEventsUsers.length > 0;
+		const marketStatusPromise = hasAnyUsers ? fetchMarketStatus() : null;
+
+		if (marketUsers.length > 0) {
+			const userIds = marketUsers.map((u) => u.id);
+			const { data: allUserAssets, error: userAssetsError } = await supabase
+				.from("user_assets")
+				.select("symbol")
+				.in("user_id", userIds);
+
+			if (userAssetsError) {
+				logger.error(
+					"Failed to load user assets for scheduled notifications",
+					{
+						action: "market_notifications_run",
+						userIdsCount: userIds.length,
+					},
+					userAssetsError,
+				);
+				throw userAssetsError;
+			}
+
+			const uniqueSymbols = [
+				...new Set((allUserAssets ?? []).map((s) => s.symbol)),
+			];
+
+			if (uniqueSymbols.length > 0) {
+				if (priceAlertQuoteMap && priceAlertQuoteMap.size > 0) {
+					const missingSymbols: string[] = [];
+					for (const symbol of uniqueSymbols) {
+						const cached = priceAlertQuoteMap.get(symbol);
+						if (cached) {
+							priceMap.set(symbol, cached);
+						} else {
+							missingSymbols.push(symbol);
+						}
+					}
+					if (missingSymbols.length > 0) {
+						const extraPrices = await fetchAssetPrices(missingSymbols);
+						for (const [symbol, price] of extraPrices) {
+							priceMap.set(symbol, price);
+						}
+					}
+				} else {
+					priceMap = await fetchAssetPrices(uniqueSymbols);
+				}
+			}
+		}
+
+		const marketOpen = marketStatusPromise ? await marketStatusPromise : false;
+
+		const results: ScheduledNotificationTotals[] = [];
+
+		for (
+			let index = 0;
+			index < marketUsers.length;
+			index += USER_PROCESS_BATCH_SIZE
+		) {
+			const batch = marketUsers.slice(index, index + USER_PROCESS_BATCH_SIZE);
+			const batchResults = await Promise.all(
+				batch.map((user) =>
+					processMarketScheduledUser({
+						user,
+						supabase,
+						logger,
+						currentTime,
+						sendEmail,
+						getSmsSender,
+						priceMap,
+						marketOpen,
+					}),
+				),
+			);
+			results.push(...batchResults);
+		}
+
+		for (
+			let index = 0;
+			index < assetEventsUsers.length;
+			index += USER_PROCESS_BATCH_SIZE
+		) {
+			const batch = assetEventsUsers.slice(
+				index,
+				index + USER_PROCESS_BATCH_SIZE,
+			);
+			const batchResults = await Promise.all(
+				batch.map((user) =>
+					processAssetEventsUser({
+						user,
+						supabase,
+						logger,
+						currentTime,
+						sendEmail,
+						getSmsSender,
+					}),
+				),
+			);
+			results.push(...batchResults);
+		}
+
+		if (dailyUsers.length > 0) {
+			for (
+				let index = 0;
+				index < dailyUsers.length;
+				index += DAILY_DISPATCH_BATCH_SIZE
+			) {
+				const batch = dailyUsers.slice(
+					index,
+					index + DAILY_DISPATCH_BATCH_SIZE,
+				);
+				const dispatchResults = await Promise.allSettled(
+					batch.map((user) =>
+						dispatchDailyDigestUser({
+							userId: user.id,
+							currentTimeIso,
+							cronSecret,
+						}),
+					),
+				);
+
+				for (const result of dispatchResults) {
+					if (result.status === "fulfilled") {
+						results.push(result.value);
+					} else {
+						logger.error(
+							"Fan-out dispatch rejected",
+							{ action: "dispatch_daily_user" },
+							result.reason,
+						);
+						results.push({
+							skipped: 1,
+							logFailures: 0,
+							emailsSent: 0,
+							emailsFailed: 0,
+							smsSent: 0,
+							smsFailed: 0,
+						});
+					}
+				}
+			}
+		}
+
+		const scheduledTotals = results.reduce(
+			(acc, curr) => mergeTotals(acc, curr),
+			{ ...EMPTY_TOTALS },
+		);
+
+		return { ...scheduledTotals, priceAlerts: priceAlertTotals };
+	}
+
+	/* ============= Normal cron: two-pass execution ============= */
+	const passStartTime = Date.now();
+
+	// Pass 1: DELIVER staged + fallback + PRE-COMPUTE
+	logger.info("Starting pass 1", { action: "two_pass" });
+	const pass1Totals = await runPass({
+		supabase,
+		logger,
+		cronSecret,
+		priceAlertQuoteMap,
+		includeAssetEvents: true,
+	});
+
+	// Wait until 30 seconds have elapsed since the start of pass 1
+	const elapsed = Date.now() - passStartTime;
+	const passDelayMs = getPassDelayMs();
+	const waitMs = Math.max(0, passDelayMs - elapsed);
+	if (waitMs > 0) {
+		logger.info("Waiting for pass 2", {
+			action: "two_pass",
+			waitMs,
+		});
+		await new Promise((resolve) => setTimeout(resolve, waitMs));
+	}
+
+	// Pass 2: DELIVER staged + fallback + PRE-COMPUTE (no asset events)
+	logger.info("Starting pass 2", { action: "two_pass" });
+	const pass2Totals = await runPass({
+		supabase,
+		logger,
+		cronSecret,
+		includeAssetEvents: false,
+	});
+
+	const combinedTotals = mergeTotals(pass1Totals, pass2Totals);
 
 	return {
-		...scheduledTotals,
+		...combinedTotals,
 		priceAlerts: priceAlertTotals,
 	};
 }

@@ -164,7 +164,7 @@ async function main() {
 	<div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-radius: 10px; max-width: 600px;">
 		<h2 style="margin: 0 0 8px; font-size: 18px;">Daily digest</h2>
 		<p style="margin: 0 0 16px; color: #6b7280; font-size: 14px;">${escapeHtml(tickersLine)}</p>
-		${renderEmailSection("🗞️", "News", news, { showGrokLogo: true, showFinnhubLogo: true })}
+		${renderEmailSection("🗞️", "News", news, { showGrokLogo: true, showMassiveLogo: true })}
 		${renderEmailSection("🤫", "Rumors", rumors, { showGrokLogo: true })}
 		<div style="text-align: center; margin-top: 20px;">
 			<a href="#" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">Manage your settings -></a>

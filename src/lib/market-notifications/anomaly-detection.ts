@@ -1,4 +1,4 @@
-import type { CompanyNewsItem } from "../providers/finnhub";
+import type { CompanyNewsItem } from "../providers/company-news";
 import type { ExtendedAssetQuote } from "../providers/price-fetcher";
 import type { AssetSnapshot } from "./snapshot-store";
 

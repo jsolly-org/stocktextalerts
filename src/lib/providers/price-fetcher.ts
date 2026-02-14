@@ -1,7 +1,10 @@
 import { rootLogger } from "../logging";
 import { type SparklineMap, toSparkline } from "../messaging/sparkline";
-import { finnhubFetch } from "./finnhub";
-import { fetchDailyCloses, fetchSnapshotQuotes } from "./massive";
+import {
+	fetchDailyCloses,
+	fetchSnapshotQuotes,
+	marketDataFetch,
+} from "./massive";
 
 interface AssetPrice {
 	price: number;
@@ -137,6 +140,7 @@ export async function fetchSparklines(
 /**
  * Determine whether the US market is currently open.
  *
+ * Uses MASSIVE `/v1/marketstatus/now` endpoint.
  * Defaults to "closed" on errors (safer UX: show a disclaimer rather than silently assuming open).
  * In test mode, always returns `true`.
  */
@@ -145,26 +149,23 @@ export async function fetchMarketStatus(): Promise<boolean> {
 		return true;
 	}
 
-	const data = await finnhubFetch(
-		"/stock/market-status",
-		{ exchange: "US" },
+	const data = await marketDataFetch(
+		"/v1/marketstatus/now",
+		{},
 		"market-status",
 	);
 	if (typeof data !== "object" || data === null) {
-		// Default to closed (show disclaimer) on error
 		return false;
 	}
 
-	const isOpen =
-		"isOpen" in data ? (data as { isOpen?: unknown }).isOpen : undefined;
-	if (typeof isOpen !== "boolean") {
-		rootLogger.warn("Invalid Finnhub market status field types", {
-			isOpen,
+	const market = (data as Record<string, unknown>).market;
+	if (typeof market !== "string") {
+		rootLogger.warn("Invalid MASSIVE market status field types", {
+			market,
 			payload: data,
 		});
-		// Default to closed (show disclaimer) on error
 		return false;
 	}
 
-	return isOpen;
+	return market === "open";
 }

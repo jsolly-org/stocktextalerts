@@ -1,5 +1,8 @@
 import { FINNHUB_BASE_URL } from "../constants";
 import { rootLogger } from "../logging";
+import { type CompanyNewsItem, fetchCompanyNews } from "./company-news";
+
+export { type CompanyNewsItem, fetchCompanyNews };
 
 /** Delivery channel used to tune formatting verbosity. */
 export type DeliveryChannel = "sms" | "email";
@@ -7,15 +10,6 @@ export type DeliveryChannel = "sms" | "email";
 /* =============
 Types
 ============= */
-
-/** Minimal company-news item fields used in digests/sections. */
-export interface CompanyNewsItem {
-	headline: string;
-	summary: string;
-	datetime: number;
-	url: string;
-	source: string;
-}
 
 /** Analyst recommendation trend totals for a given period. */
 export interface RecommendationTrend {
@@ -41,12 +35,6 @@ export interface FinnhubExtrasData {
 	news: Map<string, CompanyNewsItem[]>;
 	analyst: Map<string, RecommendationTrend | null>;
 	insider: Map<string, InsiderTransaction[]>;
-}
-
-/** Minimal quote fields used for digest price fallback. */
-export interface FinnhubQuote {
-	price: number;
-	changePercent: number;
 }
 
 /* =============
@@ -213,41 +201,6 @@ Individual Fetchers
 ============= */
 
 /**
- * Fetch recent company news headlines for a ticker within a date range.
- *
- * Returns a small, validated subset of the Finnhub response (headline/summary/datetime).
- */
-export async function fetchCompanyNews(
-	symbol: string,
-	from: string,
-	to: string,
-): Promise<CompanyNewsItem[]> {
-	const data = await finnhubFetch(
-		"/company-news",
-		{ symbol, from, to },
-		"company-news",
-	);
-	if (!Array.isArray(data)) return [];
-
-	return data
-		.filter(
-			(item: unknown) =>
-				typeof item === "object" &&
-				item !== null &&
-				typeof (item as Record<string, unknown>).headline === "string" &&
-				typeof (item as Record<string, unknown>).datetime === "number",
-		)
-		.slice(0, 10)
-		.map((item: Record<string, unknown>) => ({
-			headline: item.headline as string,
-			summary: typeof item.summary === "string" ? (item.summary as string) : "",
-			datetime: item.datetime as number,
-			url: typeof item.url === "string" ? (item.url as string) : "",
-			source: typeof item.source === "string" ? (item.source as string) : "",
-		}));
-}
-
-/**
  * Fetch the latest analyst recommendation trend for a ticker.
  *
  * Returns the most recent period if available; otherwise `null`.
@@ -334,44 +287,6 @@ export async function fetchInsiderTransactions(
 					: "",
 			transactionDate: item.transactionDate as string,
 		}));
-}
-
-/**
- * Fetch a current quote for a ticker.
- *
- * Uses Finnhub `/quote` and returns `null` when price data is unavailable.
- */
-export async function fetchQuote(symbol: string): Promise<FinnhubQuote | null> {
-	const data = await finnhubFetch("/quote", { symbol }, "quote");
-	if (typeof data !== "object" || data === null) return null;
-
-	const current = (data as Record<string, unknown>).c;
-	if (
-		typeof current !== "number" ||
-		!Number.isFinite(current) ||
-		current <= 0
-	) {
-		return null;
-	}
-
-	const dp = (data as Record<string, unknown>).dp;
-	if (typeof dp === "number" && Number.isFinite(dp)) {
-		return { price: current, changePercent: dp };
-	}
-
-	const prevClose = (data as Record<string, unknown>).pc;
-	if (
-		typeof prevClose === "number" &&
-		Number.isFinite(prevClose) &&
-		prevClose > 0
-	) {
-		return {
-			price: current,
-			changePercent: ((current - prevClose) / prevClose) * 100,
-		};
-	}
-
-	return null;
 }
 
 /* =============

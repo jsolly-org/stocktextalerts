@@ -1,6 +1,6 @@
 import { rootLogger } from "../logging";
 import { createEmailSender } from "../messaging/email/utils";
-import type { CompanyNewsItem } from "../providers/finnhub";
+import type { CompanyNewsItem } from "../providers/company-news";
 import {
 	type ExtendedQuoteMap,
 	fetchExtendedQuotes,

@@ -1,36 +1,37 @@
 <template>
 	<DashboardCarousel>
 		<template #setup>
-			<div class="space-y-6">
-				<form
-					ref="assetsFormElement"
-					:id="DASHBOARD_ASSETS_FORM_ID"
-					method="POST"
-					action="/api/assets/update"
-					aria-label="Watchlist"
-					:aria-busy="isAssetsSaving"
-					@input="handleAssetsFormInput"
-					@change="handleAssetsFormChange"
-					@submit="handleAssetsFormSubmit"
-				>
-					<WatchlistPanel
-						:initialAssets="initialAssets"
-						:status-message="assetsStatusMessage"
-						:status-tone="assetsStatusTone"
-						:is-saving="isAssetsSaving"
-						@form-changed="notifyAssetsChange"
-						@assets-changed="currentAssets = $event"
-					/>
-				</form>
-
-				<NotificationChannelsPanel
-					v-model:emailEnabled="emailEnabled"
-					v-model:smsEnabled="smsEnabled"
+			<form
+				ref="assetsFormElement"
+				:id="DASHBOARD_ASSETS_FORM_ID"
+				method="POST"
+				action="/api/assets/update"
+				aria-label="Watchlist"
+				:aria-busy="isAssetsSaving"
+				@input="handleAssetsFormInput"
+				@change="handleAssetsFormChange"
+				@submit="handleAssetsFormSubmit"
+			>
+				<WatchlistPanel
+					:initialAssets="initialAssets"
+					:status-message="assetsStatusMessage"
+					:status-tone="assetsStatusTone"
+					:is-saving="isAssetsSaving"
+					@form-changed="notifyAssetsChange"
+					@assets-changed="currentAssets = $event"
 				/>
-			</div>
+			</form>
 		</template>
 
 		<template #schedule>
+			<NotificationChannelsPanel
+				v-model:emailEnabled="emailEnabled"
+				v-model:smsEnabled="smsEnabled"
+				:sms-phone-number="smsPhoneNumber"
+			/>
+		</template>
+
+		<template #market-notifications>
 			<MarketNotificationsPanel
 				:emailEnabled="emailEnabled"
 				:smsEnabled="smsEnabled"
@@ -76,12 +77,14 @@ import NotificationChannelsPanel from "./notification-channels/NotificationChann
 interface Props {
 	user: User;
 	initialAssets: InitialAsset[];
+	smsPhoneNumber: string;
 }
 
 const props = defineProps<Props>();
 
 const {
 	initialAssets,
+	smsPhoneNumber,
 	user: userProp,
 } = toRefs(props);
 

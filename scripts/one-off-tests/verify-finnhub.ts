@@ -1,13 +1,15 @@
 #!/usr/bin/env npx tsx
 /**
- * Verify all Finnhub API endpoints return expected data.
+ * Verify Finnhub API endpoints that remain on Finnhub (not migrated to MASSIVE).
  *
  * Endpoints tested:
- *   1. /company-news        — recent news headlines for a ticker
- *   2. /stock/recommendation — analyst consensus (buy/hold/sell)
- *   3. /stock/insider-transactions — recent insider trades
- *   4. /calendar/earnings   — earnings calendar for a date range
- *   5. /stock/market-status — whether the US market is currently open
+ *   1. /stock/recommendation — analyst consensus (buy/hold/sell)
+ *   2. /stock/insider-transactions — recent insider trades
+ *   3. /calendar/earnings   — earnings calendar for a date range
+ *
+ * Migrated to MASSIVE (see verify-massive.ts):
+ *   - /company-news        → /v2/reference/news
+ *   - /stock/market-status  → /v1/marketstatus/now
  *
  * Usage:
  *   node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/one-off-tests/verify-finnhub.ts
@@ -67,61 +69,6 @@ interface TestResult {
 	status: "PASS" | "FAIL" | "WARN";
 	message: string;
 	detail?: string;
-}
-
-async function testCompanyNews(
-	ticker: string,
-	apiKey: string,
-): Promise<TestResult> {
-	const endpoint = `/company-news`;
-	const from = dateStr(7);
-	const to = dateStr(0);
-	try {
-		const { status, data } = await finnhubGet(
-			endpoint,
-			{ symbol: ticker, from, to },
-			apiKey,
-		);
-		if (status !== 200)
-			return { endpoint, status: "FAIL", message: `HTTP ${status}` };
-		if (!Array.isArray(data))
-			return {
-				endpoint,
-				status: "FAIL",
-				message: `Expected array, got ${typeof data}`,
-			};
-		if (data.length === 0)
-			return {
-				endpoint,
-				status: "WARN",
-				message: `${ticker}: 0 news items (may be normal)`,
-			};
-
-		const sample = data[0] as Record<string, unknown>;
-		const hasFields =
-			typeof sample.headline === "string" &&
-			typeof sample.datetime === "number";
-		if (!hasFields)
-			return {
-				endpoint,
-				status: "FAIL",
-				message: `Missing expected fields`,
-				detail: JSON.stringify(Object.keys(sample)),
-			};
-
-		return {
-			endpoint,
-			status: "PASS",
-			message: `${ticker}: ${data.length} items`,
-			detail: `Latest: "${(sample.headline as string).slice(0, 80)}"`,
-		};
-	} catch (err) {
-		return {
-			endpoint,
-			status: "FAIL",
-			message: String(err),
-		};
-	}
 }
 
 async function testRecommendation(
@@ -294,43 +241,6 @@ async function testEarningsCalendar(apiKey: string): Promise<TestResult> {
 	}
 }
 
-async function testMarketStatus(apiKey: string): Promise<TestResult> {
-	const endpoint = `/stock/market-status`;
-	try {
-		const { status, data } = await finnhubGet(
-			endpoint,
-			{ exchange: "US" },
-			apiKey,
-		);
-		if (status !== 200)
-			return { endpoint, status: "FAIL", message: `HTTP ${status}` };
-		if (typeof data !== "object" || data === null)
-			return {
-				endpoint,
-				status: "FAIL",
-				message: `Expected object, got ${typeof data}`,
-			};
-
-		const obj = data as Record<string, unknown>;
-		if (typeof obj.isOpen !== "boolean")
-			return {
-				endpoint,
-				status: "FAIL",
-				message: `Expected .isOpen boolean, got ${typeof obj.isOpen}`,
-				detail: JSON.stringify(data),
-			};
-
-		return {
-			endpoint,
-			status: "PASS",
-			message: `Market is currently ${obj.isOpen ? "OPEN" : "CLOSED"}`,
-			detail: obj.t ? `Exchange time: ${obj.t}` : undefined,
-		};
-	} catch (err) {
-		return { endpoint, status: "FAIL", message: String(err) };
-	}
-}
-
 // ── Main ─────────────────────────────────────────────────────────────
 
 function printResult(result: TestResult) {
@@ -367,25 +277,19 @@ async function main() {
 
 	// Global endpoints (not ticker-specific)
 	console.log("Global endpoints:");
-	const [marketStatus, earnings] = await Promise.all([
-		testMarketStatus(apiKey),
-		testEarningsCalendar(apiKey),
-	]);
-	results.push(marketStatus, earnings);
-	printResult(marketStatus);
+	const earnings = await testEarningsCalendar(apiKey);
+	results.push(earnings);
 	printResult(earnings);
 
 	// Per-ticker endpoints
 	for (const ticker of tickers) {
 		console.log(`\n${ticker}:`);
 		// Run in parallel per ticker
-		const [news, reco, insider] = await Promise.all([
-			testCompanyNews(ticker, apiKey),
+		const [reco, insider] = await Promise.all([
 			testRecommendation(ticker, apiKey),
 			testInsiderTransactions(ticker, apiKey),
 		]);
-		results.push(news, reco, insider);
-		printResult(news);
+		results.push(reco, insider);
 		printResult(reco);
 		printResult(insider);
 	}

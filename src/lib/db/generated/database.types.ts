@@ -295,6 +295,41 @@ export type Database = {
           },
         ]
       }
+      staged_notifications: {
+        Row: {
+          id: string
+          notification_type: string
+          scheduled_for: string
+          staged_at: string
+          staged_data: Json
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          notification_type: string
+          scheduled_for: string
+          staged_at?: string
+          staged_data: Json
+          user_id: string
+        }
+        Update: {
+          id?: string
+          notification_type?: string
+          scheduled_for?: string
+          staged_at?: string
+          staged_data?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staged_notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       timezones: {
         Row: {
           active: boolean

@@ -10,13 +10,13 @@ import type { UserRecord } from "../messaging/types";
 import {
 	buildNewsContextForGrok,
 	fetchFinnhubExtras,
-	fetchQuote,
 } from "../providers/finnhub";
 import type { GrokSectionResult } from "../providers/grok";
 import {
 	generateNewsWithGrok,
 	generateRumorsWithGrok,
 } from "../providers/grok";
+import { fetchSnapshotQuotes } from "../providers/massive";
 import {
 	type AssetPriceMap,
 	fetchAssetPrices,
@@ -28,8 +28,12 @@ import type {
 } from "../schedule/helpers";
 import { loadUserAssets } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
+import { upsertStagedNotification } from "../staged-notifications/db";
+import type { StagedDailyData } from "../staged-notifications/types";
 import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
 import {
+	formatDailyDigestEmail,
+	formatDailyDigestSmsMessage,
 	processDailyDigestEmailDelivery,
 	processDailyDigestSmsDelivery,
 } from "./delivery";
@@ -240,6 +244,8 @@ export async function processDailyDigestUser(options: {
 	currentTime: DateTime;
 	sendEmail: EmailSender;
 	getSmsSender: SmsSenderProvider;
+	/** When true, stage content for later delivery instead of sending now. */
+	stageOnly?: boolean;
 }): Promise<ScheduledNotificationTotals> {
 	const stats: ScheduledNotificationTotals = {
 		skipped: 0,
@@ -249,8 +255,15 @@ export async function processDailyDigestUser(options: {
 		smsSent: 0,
 		smsFailed: 0,
 	};
-	const { user, supabase, logger, currentTime, sendEmail, getSmsSender } =
-		options;
+	const {
+		user,
+		supabase,
+		logger,
+		currentTime,
+		sendEmail,
+		getSmsSender,
+		stageOnly,
+	} = options;
 
 	try {
 		const scheduleCtx = parseDailyScheduleContext(user, currentTime, logger);
@@ -373,17 +386,16 @@ export async function processDailyDigestUser(options: {
 
 			if (missingTickers.length > 0) {
 				try {
-					const fallbackQuotes = await Promise.all(
-						missingTickers.map(async (ticker) => ({
-							ticker,
-							quote: await fetchQuote(ticker),
-						})),
-					);
+					const retrySnapshot = await fetchSnapshotQuotes(missingTickers);
 					const recoveredTickers: string[] = [];
 					const stillMissingTickers: string[] = [];
-					for (const { ticker, quote } of fallbackQuotes) {
-						if (quote) {
-							assetPrices.set(ticker, quote);
+					for (const ticker of missingTickers) {
+						const snap = retrySnapshot.get(ticker);
+						if (snap) {
+							assetPrices.set(ticker, {
+								price: snap.price,
+								changePercent: snap.changePercent,
+							});
 							recoveredTickers.push(ticker);
 						} else {
 							stillMissingTickers.push(ticker);
@@ -391,7 +403,7 @@ export async function processDailyDigestUser(options: {
 					}
 
 					if (recoveredTickers.length > 0) {
-						logger.info("Recovered daily digest prices via Finnhub fallback", {
+						logger.info("Recovered daily digest prices via snapshot retry", {
 							action: "daily_run",
 							userId: user.id,
 							recoveredCount: recoveredTickers.length,
@@ -399,7 +411,7 @@ export async function processDailyDigestUser(options: {
 						});
 					}
 					if (stillMissingTickers.length > 0) {
-						logger.warn("Finnhub fallback missing daily digest prices", {
+						logger.warn("Snapshot retry missing daily digest prices", {
 							action: "daily_run",
 							userId: user.id,
 							missingCount: stillMissingTickers.length,
@@ -407,7 +419,7 @@ export async function processDailyDigestUser(options: {
 						});
 					}
 				} catch (error) {
-					logger.warn("Failed Finnhub fallback for daily digest prices", {
+					logger.warn("Failed snapshot retry for daily digest prices", {
 						action: "daily_run",
 						userId: user.id,
 						missingCount: missingTickers.length,
@@ -563,20 +575,105 @@ export async function processDailyDigestUser(options: {
 				scheduledMinutes,
 			});
 			stats.skipped++;
-			await updateUserDailyDigestNextSendAt({
-				user,
-				supabase,
-				logger,
-				currentTime,
-			});
-			if (hasAnyAssetEventsOption) {
-				await updateUserAssetEventsNextSendAt({
+			if (!stageOnly) {
+				await updateUserDailyDigestNextSendAt({
 					user,
 					supabase,
 					logger,
 					currentTime,
 				});
+				if (hasAnyAssetEventsOption) {
+					await updateUserAssetEventsNextSendAt({
+						user,
+						supabase,
+						logger,
+						currentTime,
+					});
+				}
 			}
+			return stats;
+		}
+
+		/* ============= Stage-only: write to staging table and return ============= */
+		// Pre-compute path: render the full digest (prices, Grok, asset events) now
+		// and store it in staged_notifications for near-instant delivery later.
+		// We do NOT advance next_send_at, update Grok counters, or update the
+		// analyst month here — the delivery phase (staged-notifications/deliver.ts)
+		// handles all post-delivery side-effects using metadata captured below
+		// (grokAllowed, hasAnyAssetEventsOption, shouldUpdateAnalyst, analystMonth).
+		if (stageOnly) {
+			const scheduledForIso =
+				user.daily_digest_next_send_at ?? currentTime.toISO();
+			if (!scheduledForIso) {
+				logger.error("Cannot determine scheduled_for for daily staging", {
+					userId: user.id,
+				});
+				stats.skipped++;
+				return stats;
+			}
+
+			const emailContent =
+				hasEmailContent && emailExtras
+					? formatDailyDigestEmail({
+							user,
+							userAssets,
+							assetPrices,
+							formatPrefs: { show_sparklines: user.show_sparklines },
+							extras: emailExtras,
+							assetEvents: emailAssetEvents,
+							sparklines,
+						})
+					: null;
+
+			const smsContent =
+				hasSmsContent && smsExtras
+					? {
+							message: formatDailyDigestSmsMessage({
+								userAssets,
+								assetPrices,
+								formatPrefs: { show_sparklines: user.show_sparklines },
+								extras: smsExtras,
+								assetEvents: smsAssetEvents,
+								sparklines,
+							}),
+						}
+					: null;
+
+			const shouldUpdateAnalyst = !!(
+				emailAssetEvents?.shouldUpdateAnalystMonth ||
+				smsAssetEvents?.shouldUpdateAnalystMonth
+			);
+
+			const stagedData: StagedDailyData = {
+				type: "daily",
+				scheduledDate,
+				scheduledMinutes,
+				email: emailContent,
+				sms: smsContent,
+				grokAllowed,
+				hasAnyAssetEventsOption,
+				shouldUpdateAnalyst,
+				analystMonth: shouldUpdateAnalyst
+					? dueAtLocal.toFormat("yyyy-MM")
+					: null,
+			};
+
+			const { error: stageError } = await upsertStagedNotification(supabase, {
+				userId: user.id,
+				notificationType: "daily",
+				scheduledFor: scheduledForIso,
+				stagedData,
+			});
+
+			if (stageError) {
+				logger.error(
+					"Failed to stage daily digest notification",
+					{ userId: user.id },
+					stageError,
+				);
+				stats.skipped++;
+			}
+
 			return stats;
 		}
 

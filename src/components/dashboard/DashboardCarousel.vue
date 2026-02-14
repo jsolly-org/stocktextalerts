@@ -19,10 +19,10 @@
 		<div
 			ref="trackRef"
 			class="carousel-track"
-			@scroll.passive="handleScroll"
-			@touchstart.passive="handleTouchStart"
-			@touchend.passive="handleTouchEnd"
-			@touchcancel.passive="handleTouchCancel"
+			@touchstart="handleTouchStart"
+			@touchmove="handleTouchMove"
+			@touchend="handleTouchEnd"
+			@touchcancel="handleTouchCancel"
 		>
 			<div
 				v-for="(tab, index) in tabs"
@@ -42,8 +42,12 @@
 import { type Component, onMounted, onUnmounted, ref } from "vue";
 import BellAlertIcon from "../../icons/bell-alert.svg?component";
 import CalendarDaysIcon from "../../icons/calendar-days.svg?component";
+import ChartBarIcon from "../../icons/chart-bar.svg?component";
 import NewspaperIcon from "../../icons/newspaper.svg?component";
 import PresentationChartLineIcon from "../../icons/presentation-chart-line.svg?component";
+import {
+	DASHBOARD_SECTION_IDS,
+} from "../../lib/constants";
 
 interface Tab {
 	id: string;
@@ -53,93 +57,139 @@ interface Tab {
 
 const tabs: Tab[] = [
 	{ id: "setup", label: "Watchlist & Channels", icon: PresentationChartLineIcon },
+	{ id: "schedule", label: "Alerts", icon: BellAlertIcon },
 	{ id: "daily", label: "Daily", icon: NewspaperIcon },
 	{ id: "asset-events", label: "Asset Events", icon: CalendarDaysIcon },
-	{ id: "schedule", label: "Alerts", icon: BellAlertIcon },
+	{ id: "market-notifications", label: "Market Notifications", icon: ChartBarIcon },
 ];
+
+/** Map hash fragment (without #) to tab index for hash-link sync. */
+const HASH_TO_TAB_INDEX: Record<string, number> = {
+	[DASHBOARD_SECTION_IDS.assets]: 0,
+	[DASHBOARD_SECTION_IDS.notificationChannels]: 1,
+	[DASHBOARD_SECTION_IDS.dailyNotifications]: 2,
+	[DASHBOARD_SECTION_IDS.assetEvents]: 3,
+	[DASHBOARD_SECTION_IDS.marketNotifications]: 4,
+	// daily_digest_time input lives in schedule (Alerts) card
+	daily_digest_time: 1,
+};
 
 const activeIndex = ref(0);
 const trackRef = ref<HTMLElement | null>(null);
 const cardRefs = ref<(HTMLElement | null)[]>([]);
 const prefersReducedMotion = ref(false);
 let motionQuery: MediaQueryList | null = null;
+
+// --- Touch tracking ---
 let touchStartX: number | null = null;
 let touchStartY: number | null = null;
-let pendingScrollTargetIndex: number | null = null;
-let pendingScrollTargetLeft: number | null = null;
-let pendingScrollClearTimeout: number | null = null;
+/** Once we know the gesture direction we lock to horizontal or vertical for
+ *  the remainder of the touch. null = undecided. */
+let touchAxis: "horizontal" | "vertical" | null = null;
 
 const SWIPE_THRESHOLD_PX = 30;
-const PROGRAMMATIC_SCROLL_TIMEOUT_MS = 700;
-const PROGRAMMATIC_SCROLL_EPSILON_PX = 2;
+/** Minimum horizontal movement before we lock the axis (prevents jitter). */
+const AXIS_LOCK_PX = 10;
 
 function setCardRef(el: HTMLElement | null, index: number) {
 	cardRefs.value[index] = el;
 }
 
-function clearPendingProgrammaticScroll() {
-	pendingScrollTargetIndex = null;
-	pendingScrollTargetLeft = null;
-	if (pendingScrollClearTimeout != null) {
-		window.clearTimeout(pendingScrollClearTimeout);
-		pendingScrollClearTimeout = null;
-	}
-}
-
 function scrollToCard(index: number) {
+	const track = trackRef.value;
 	const card = cardRefs.value[index];
-	if (card && trackRef.value) {
-		clearPendingProgrammaticScroll();
-		pendingScrollTargetIndex = index;
-		pendingScrollTargetLeft = card.offsetLeft;
+	if (!card || !track) return;
 
-		activeIndex.value = index;
-		trackRef.value.scrollTo({
-			left: card.offsetLeft,
-			behavior: prefersReducedMotion.value ? "auto" : "smooth",
-		});
-
-		// If we didn't animate (or we're already there), don't block scroll syncing.
-		if (
-			prefersReducedMotion.value ||
-			Math.abs(trackRef.value.scrollLeft - card.offsetLeft) <=
-				PROGRAMMATIC_SCROLL_EPSILON_PX
-		) {
-			clearPendingProgrammaticScroll();
-		} else {
-			// Failsafe so we never get stuck ignoring scroll events.
-			pendingScrollClearTimeout = window.setTimeout(() => {
-				clearPendingProgrammaticScroll();
-			}, PROGRAMMATIC_SCROLL_TIMEOUT_MS);
-		}
-	}
+	activeIndex.value = index;
+	track.scrollTo({
+		left: card.offsetLeft,
+		behavior: prefersReducedMotion.value ? "auto" : "smooth",
+	});
 }
 
-function handleScroll() {
-	syncActiveTab();
+/**
+ * Returns true when the touch originated inside a nested element that is
+ * intentionally horizontally scrollable (e.g. the Daily Digest preview
+ * carousel). Such elements opt in with `data-horizontal-scroll`.
+ *
+ * We can't simply check `getComputedStyle(el).overflowX` because the CSS
+ * spec forces `overflow-x` to `auto` whenever `overflow-y` is non-visible,
+ * which would false-positive on every vertically-scrollable container
+ * (like `.carousel-card-inner`).
+ */
+function isNestedHorizontalScroll(target: EventTarget | null): boolean {
+	let el = target as HTMLElement | null;
+	const track = trackRef.value;
+	while (el && el !== track) {
+		if (el.hasAttribute("data-horizontal-scroll")) {
+			return true;
+		}
+		el = el.parentElement;
+	}
+	return false;
+}
+
+function resetTouch() {
+	touchStartX = null;
+	touchStartY = null;
+	touchAxis = null;
 }
 
 function handleTouchStart(event: TouchEvent) {
 	const touch = event.touches[0];
 	if (!touch) return;
+
+	// If the touch is inside a nested horizontal scroller, bail out so
+	// the inner element (e.g. SMS ↔ Email preview carousel) scrolls instead.
+	if (isNestedHorizontalScroll(event.target)) {
+		resetTouch();
+		return;
+	}
+
 	touchStartX = touch.clientX;
 	touchStartY = touch.clientY;
+	touchAxis = null;
+}
+
+function handleTouchMove(event: TouchEvent) {
+	if (touchStartX == null || touchStartY == null) return;
+
+	const touch = event.touches[0];
+	if (!touch) return;
+
+	const deltaX = Math.abs(touch.clientX - touchStartX);
+	const deltaY = Math.abs(touch.clientY - touchStartY);
+
+	// Lock the axis once the finger has moved enough to determine intent.
+	if (touchAxis == null && (deltaX >= AXIS_LOCK_PX || deltaY >= AXIS_LOCK_PX)) {
+		touchAxis = deltaX >= deltaY ? "horizontal" : "vertical";
+	}
+
+	// Once locked to horizontal, prevent the native scroll so the track
+	// doesn't move at all — only our programmatic scrollToCard will move it.
+	if (touchAxis === "horizontal") {
+		event.preventDefault();
+	}
 }
 
 function handleTouchEnd(event: TouchEvent) {
-	if (touchStartX == null || touchStartY == null) return;
+	if (touchStartX == null || touchStartY == null) {
+		resetTouch();
+		return;
+	}
 
 	const touch = event.changedTouches[0];
-	if (!touch) return;
+	if (!touch) {
+		resetTouch();
+		return;
+	}
 
 	const deltaX = touch.clientX - touchStartX;
-	const deltaY = touch.clientY - touchStartY;
+	const axis = touchAxis;
+	resetTouch();
 
-	touchStartX = null;
-	touchStartY = null;
-
-	// Ignore mostly vertical gestures so panel scrolling stays natural.
-	if (Math.abs(deltaY) >= Math.abs(deltaX)) return;
+	// Only act on horizontal swipes that exceeded the threshold.
+	if (axis !== "horizontal") return;
 	if (Math.abs(deltaX) < SWIPE_THRESHOLD_PX) return;
 
 	const direction = deltaX < 0 ? 1 : -1;
@@ -148,56 +198,39 @@ function handleTouchEnd(event: TouchEvent) {
 		tabs.length - 1,
 	);
 
-	if (nextIndex !== activeIndex.value) {
-		scrollToCard(nextIndex);
-	}
+	scrollToCard(nextIndex);
 }
 
 function handleTouchCancel() {
-	touchStartX = null;
-	touchStartY = null;
-}
-
-function syncActiveTab() {
-	const track = trackRef.value;
-	if (!track) return;
-
-	if (pendingScrollTargetIndex != null && pendingScrollTargetLeft != null) {
-		if (
-			Math.abs(track.scrollLeft - pendingScrollTargetLeft) >
-			PROGRAMMATIC_SCROLL_EPSILON_PX
-		) {
-			return;
-		}
-
-		activeIndex.value = pendingScrollTargetIndex;
-		clearPendingProgrammaticScroll();
-		return;
-	}
-
-	const scrollLeft = track.scrollLeft;
-	const cardWidth = track.offsetWidth;
-	if (cardWidth === 0) return;
-
-	const index = Math.round(scrollLeft / cardWidth);
-	if (index >= 0 && index < tabs.length) {
-		activeIndex.value = index;
-	}
+	resetTouch();
 }
 
 function handleMotionChange(event: MediaQueryListEvent) {
 	prefersReducedMotion.value = event.matches;
 }
 
+/** Sync tab highlight and scroll position when user navigates via hash link. */
+function syncToHash() {
+	const hash = window.location.hash.slice(1);
+	if (!hash) return;
+	const index = HASH_TO_TAB_INDEX[hash];
+	if (index === undefined || index === activeIndex.value) return;
+	scrollToCard(index);
+}
+
 onMounted(() => {
-	syncActiveTab();
 	motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 	prefersReducedMotion.value = motionQuery.matches;
 	motionQuery.addEventListener("change", handleMotionChange);
+
+	// Sync tab highlight when user follows hash links (e.g. Daily Digest link from Alerts tab)
+	syncToHash();
+	window.addEventListener("hashchange", syncToHash);
 });
 
 onUnmounted(() => {
 	motionQuery?.removeEventListener("change", handleMotionChange);
+	window.removeEventListener("hashchange", syncToHash);
 });
 </script>
 
@@ -270,24 +303,16 @@ onUnmounted(() => {
 
 .carousel-track {
 	display: flex;
-	overflow-x: auto;
-	scroll-snap-type: x mandatory;
-	touch-action: pan-y;
+	/* No overflow-x: auto — JS controls all horizontal movement so native
+	   momentum / scroll-snap can never fling through multiple cards. */
+	overflow-x: hidden;
 	flex: 1;
 	min-height: 0;
-	scrollbar-width: none;
-	-ms-overflow-style: none;
-	overscroll-behavior-x: contain;
-}
-
-.carousel-track::-webkit-scrollbar {
-	display: none;
 }
 
 .carousel-card {
 	flex: 0 0 100%;
 	min-width: 100%;
-	scroll-snap-align: start;
 	padding: 1rem;
 }
 
@@ -313,13 +338,11 @@ onUnmounted(() => {
 		flex-direction: column;
 		gap: 1.5rem;
 		overflow-x: visible;
-		scroll-snap-type: none;
 	}
 
 	.carousel-card {
 		flex: 0 0 auto;
 		min-width: 0;
-		scroll-snap-align: none;
 		padding: 0;
 	}
 
