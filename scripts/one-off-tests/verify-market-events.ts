@@ -10,7 +10,7 @@
  *   node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/one-off-tests/verify-market-events.ts --tickers AAPL,MSFT,NVDA
  */
 
-const MASSIVE_BASE_URL = "https://api.polygon.io";
+const MASSIVE_BASE_URL = "https://api.massive.com";
 const REQUEST_TIMEOUT_MS = 15_000;
 const DEFAULT_TICKERS = ["AAPL", "MSFT", "NVDA"];
 

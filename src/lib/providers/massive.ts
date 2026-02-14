@@ -56,7 +56,7 @@ const REQUEST_TIMEOUT_MS = 10_000;
 Helpers
 ============= */
 
-const MASSIVE_BASE_URL = "https://api.polygon.io";
+const MASSIVE_BASE_URL = "https://api.massive.com";
 
 function getMassiveApiKey(): string {
 	// import.meta.env is available in Astro/Vitest (transformed by Vite).

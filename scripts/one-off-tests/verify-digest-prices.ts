@@ -11,7 +11,7 @@ interface SnapshotQuote {
 	changePercent: number;
 }
 
-const MASSIVE_BASE_URL = "https://api.polygon.io";
+const MASSIVE_BASE_URL = "https://api.massive.com";
 
 function getArgValue(args: string[], name: string): string | undefined {
 	const idx = args.indexOf(name);

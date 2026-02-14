@@ -15,7 +15,7 @@
  *   node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/one-off-tests/verify-massive.ts --tickers AAPL,MSFT
  */
 
-const MASSIVE_BASE_URL = "https://api.polygon.io";
+const MASSIVE_BASE_URL = "https://api.massive.com";
 const DEFAULT_TICKERS = ["AAPL", "MSFT", "GOOG"];
 const REQUEST_TIMEOUT_MS = 15_000;
 
