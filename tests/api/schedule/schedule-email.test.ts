@@ -15,7 +15,6 @@ describe("Users receive scheduled asset update notifications.", () => {
 		vi.stubEnv("CRON_SECRET", testCronSecret);
 		vi.stubEnv("SMS_TEST_BEHAVIOR", "success");
 		vi.stubEnv("SMS_TEST_MESSAGE_SID", "test-sms-sid");
-		vi.stubEnv("FINNHUB_API_KEY", "");
 		vi.stubEnv("SCHEDULE_PASS_DELAY_MS", "0");
 	});
 
