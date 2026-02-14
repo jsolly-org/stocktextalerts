@@ -61,7 +61,7 @@ export async function fetchUpcomingMarketScheduledUsers(options: {
 			.lte("market_scheduled_asset_price_next_send_at", options.beforeTimeIso);
 
 		if (!error) {
-			return (data ?? []) as unknown as UserRecord[];
+			return data as unknown as UserRecord[];
 		}
 
 		if (attempt < MAX_RETRIES) {

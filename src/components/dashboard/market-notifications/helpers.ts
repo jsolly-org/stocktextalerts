@@ -40,6 +40,17 @@ export function useScheduledUpdateTiming(options: {
 
 		const requestId = refreshRequestId.value + 1;
 		refreshRequestId.value = requestId;
+
+		const clearAdjustedIfActive = () => {
+			// Only clear if this request is still the most recent one.
+			if (refreshRequestId.value !== requestId) {
+				return;
+			}
+			adjustedNextSendAtIso.value = null;
+			delayReasons.value = [];
+			holidayName.value = null;
+		};
+
 		try {
 			const response = await fetch("/api/market-notifications/next-send-at", {
 				method: "POST",
@@ -50,6 +61,7 @@ export function useScheduledUpdateTiming(options: {
 				}),
 			});
 			if (!response.ok) {
+				clearAdjustedIfActive();
 				return;
 			}
 			const payload = (await response.json()) as {
@@ -58,7 +70,11 @@ export function useScheduledUpdateTiming(options: {
 				delayReasons?: Array<"weekend" | "holiday">;
 				holidayName?: string | null;
 			};
-			if (refreshRequestId.value !== requestId || payload.ok !== true) {
+			if (refreshRequestId.value !== requestId) {
+				return;
+			}
+			if (payload.ok !== true) {
+				clearAdjustedIfActive();
 				return;
 			}
 			adjustedNextSendAtIso.value =
@@ -71,6 +87,7 @@ export function useScheduledUpdateTiming(options: {
 			holidayName.value =
 				typeof payload.holidayName === "string" ? payload.holidayName : null;
 		} catch {
+			clearAdjustedIfActive();
 			// Best-effort enhancement only; countdown will fall back to persisted next_send_at.
 		}
 	};
