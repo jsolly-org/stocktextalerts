@@ -11,6 +11,11 @@
 		@change="handleFormChange"
 		@submit="handleFormSubmit"
 	>
+		<input
+			type="hidden"
+			name="daily_digest_time"
+			:value="dailyDigestTimeInputForSubmit ?? ''"
+		/>
 		<section class="card relative">
 			<FadeTransition>
 				<div
@@ -354,6 +359,25 @@ const dailyDeliveryTimeInput = computed(() => {
 	const minutes = user.value.daily_digest_time;
 	return minutes !== null && minutes !== undefined
 		? minutesToTimeInputValue(minutes)
+		: null;
+});
+
+function getEarliestMarketNotificationTime(): number | null {
+	const times = user.value.market_scheduled_asset_price_times;
+	if (!times || times.length === 0) return null;
+	return Math.min(...times);
+}
+
+/**
+ * Ensure daily-digest saves include a delivery time even when the Alerts panel
+ * hasn't mounted yet (mobile lazy tabs).
+ */
+const dailyDigestTimeInputForSubmit = computed(() => {
+	if (dailyDeliveryTimeInput.value !== null) return dailyDeliveryTimeInput.value;
+	if (!dailyEnabled.value) return null;
+	const fallbackMinutes = getEarliestMarketNotificationTime();
+	return fallbackMinutes !== null
+		? minutesToTimeInputValue(fallbackMinutes)
 		: null;
 });
 
