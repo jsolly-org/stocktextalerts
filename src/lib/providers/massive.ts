@@ -59,7 +59,10 @@ Helpers
 const POLYGON_BASE_URL = "https://api.polygon.io";
 
 function getPolygonApiKey(): string {
-	return import.meta.env.POLYGON_API_KEY ?? "";
+	// Support both Astro runtime (import.meta.env) and standalone scripts (process.env)
+	const metaEnv = (import.meta as { env?: Record<string, string | undefined> })
+		.env;
+	return metaEnv?.POLYGON_API_KEY ?? process.env.POLYGON_API_KEY ?? "";
 }
 
 function computeRetryDelayMs(

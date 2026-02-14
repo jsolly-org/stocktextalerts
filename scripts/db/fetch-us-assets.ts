@@ -1,11 +1,10 @@
 /**
- * Fetch all US assets (stocks, ETFs) from the Polygon API and write
+ * Fetch all US assets (stocks, ETFs) via the Massive provider and write
  * to scripts/data/us-assets.json.
  *
- * Source: Polygon `/v3/reference/tickers?market=stocks&active=true&limit=1000`
- *
- * Polygon returns objects like:
- *   { ticker, name, market, locale, primary_exchange, type, active, currency_name, ... }
+ * Uses `marketDataFetch` from `src/lib/providers/massive.ts` which wraps
+ * Polygon `/v3/reference/tickers?market=stocks&active=true&limit=1000`
+ * with retries, rate-limit handling, and timeouts.
  *
  * We normalize Polygon's `type` values to our own: "stock" or "etf".
  *
@@ -30,11 +29,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { marketDataFetch } from "../../src/lib/providers/massive";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_FILE = path.join(__dirname, "..", "data", "us-assets.json");
-
-const POLYGON_BASE_URL = "https://api.polygon.io";
 
 // Polygon `type` values we include, mapped to our normalized types.
 const POLYGON_TYPE_MAP: Record<string, "stock" | "etf"> = {
@@ -66,45 +64,51 @@ interface OutputFile {
 	data: OutputSymbol[];
 }
 
-/** Fetch all Polygon tickers via pagination. */
+/** Fetch all tickers via Massive provider with pagination. */
 async function fetchAllTickers(): Promise<PolygonTicker[]> {
-	const apiKey = process.env.POLYGON_API_KEY ?? "";
+	// Verify API key is available (marketDataFetch returns null silently when missing)
+	const metaEnv = (import.meta as { env?: Record<string, string | undefined> })
+		.env;
+	if (!process.env.POLYGON_API_KEY && !metaEnv?.POLYGON_API_KEY) {
+		throw new Error(
+			"POLYGON_API_KEY is not set. Add it to .env.local and run with --env-file-if-exists=.env.local",
+		);
+	}
 
 	const allTickers: PolygonTicker[] = [];
-	let nextUrl: string | null = null;
+	let cursor: string | null = null;
 	let page = 1;
 
-	// First page
-	const params = new URLSearchParams({
-		market: "stocks",
-		active: "true",
-		limit: "1000",
-	});
-	params.set("apiKey", apiKey);
-	let url = `${POLYGON_BASE_URL}/v3/reference/tickers?${params.toString()}`;
+	console.info("Fetching US assets via Massive...");
 
-	console.info("Fetching US assets from Polygon API...");
-
-	while (url) {
+	while (true) {
 		console.info(`  Fetching page ${page}...`);
-		const response = await fetch(url);
 
-		if (!response.ok) {
-			throw new Error(
-				`Polygon API returned ${response.status}: ${await response.text()}`,
-			);
-		}
+		const params: Record<string, string> = {
+			market: "stocks",
+			active: "true",
+			limit: "1000",
+		};
+		if (cursor) params.cursor = cursor;
 
-		const data: unknown = await response.json();
+		const data = await marketDataFetch(
+			"/v3/reference/tickers",
+			params,
+			"fetch-us-assets",
+		);
+
 		if (typeof data !== "object" || data === null) {
-			throw new Error(`Expected object from Polygon, got ${typeof data}`);
+			if (page === 1) {
+				throw new Error("Failed to fetch tickers from Massive");
+			}
+			break;
 		}
 
 		const record = data as Record<string, unknown>;
 		const results = record.results;
 		if (!Array.isArray(results)) {
 			throw new Error(
-				`Expected .results array from Polygon, got ${typeof results}`,
+				`Expected .results array from Massive, got ${typeof results}`,
 			);
 		}
 
@@ -121,17 +125,20 @@ async function fetchAllTickers(): Promise<PolygonTicker[]> {
 			}
 		}
 
-		// Check for pagination via next_url
-		nextUrl =
+		// Extract cursor for next page from next_url
+		const nextUrl =
 			typeof record.next_url === "string" ? record.next_url : null;
-		if (nextUrl) {
-			// Polygon next_url includes the full URL but not the apiKey
-			const separator = nextUrl.includes("?") ? "&" : "?";
-			url = `${nextUrl}${separator}apiKey=${encodeURIComponent(apiKey)}`;
-			page++;
-		} else {
-			url = "";
+		if (!nextUrl) break;
+
+		try {
+			const url = new URL(nextUrl);
+			cursor = url.searchParams.get("cursor");
+			if (!cursor) break;
+		} catch {
+			break;
 		}
+
+		page++;
 	}
 
 	return allTickers;
@@ -164,14 +171,14 @@ function transformSymbols(raw: PolygonTicker[]): OutputSymbol[] {
 /** Script entrypoint: fetch, normalize, and write `scripts/data/us-assets.json`. */
 async function main() {
 	const raw = await fetchAllTickers();
-	console.info(`  Received ${raw.length} raw tickers from Polygon`);
+	console.info(`  Received ${raw.length} raw tickers from Massive`);
 
 	// Log all unique Polygon type values for visibility
 	const typeCounts = new Map<string, number>();
 	for (const item of raw) {
 		typeCounts.set(item.type, (typeCounts.get(item.type) ?? 0) + 1);
 	}
-	console.info("  Polygon type breakdown:");
+	console.info("  Type breakdown:");
 	for (const [type, count] of [...typeCounts.entries()].sort()) {
 		const kept = type in POLYGON_TYPE_MAP ? "KEPT" : "skipped";
 		console.info(`    ${type}: ${count} (${kept})`);
