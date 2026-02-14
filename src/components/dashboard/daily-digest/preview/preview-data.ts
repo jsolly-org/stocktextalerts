@@ -1,3 +1,4 @@
+/** Demo asset shape used by the daily-digest preview panel. */
 export interface PreviewAsset {
 	symbol: string;
 	name: string;
@@ -14,6 +15,7 @@ import {
 } from "../../../../lib/messaging/asset-formatting";
 import type { FormatPreferences } from "../../../../lib/messaging/types";
 
+/** Stable demo assets used to render previews without a live API call. */
 export const DEMO_ASSETS: PreviewAsset[] = [
 	{
 		symbol: "AAPL",

@@ -8,6 +8,7 @@ export type DeliveryChannel = "sms" | "email";
 Types
 ============= */
 
+/** Minimal company-news item fields used in digests/sections. */
 export interface CompanyNewsItem {
 	headline: string;
 	summary: string;
@@ -16,6 +17,7 @@ export interface CompanyNewsItem {
 	source: string;
 }
 
+/** Analyst recommendation trend totals for a given period. */
 export interface RecommendationTrend {
 	buy: number;
 	hold: number;
@@ -25,6 +27,7 @@ export interface RecommendationTrend {
 	period: string;
 }
 
+/** Normalized insider transaction entry. */
 export interface InsiderTransaction {
 	name: string;
 	share: number;
@@ -33,6 +36,7 @@ export interface InsiderTransaction {
 	transactionDate: string;
 }
 
+/** Batch “extras” data fetched from Finnhub for a set of symbols. */
 export interface FinnhubExtrasData {
 	news: Map<string, CompanyNewsItem[]>;
 	analyst: Map<string, RecommendationTrend | null>;

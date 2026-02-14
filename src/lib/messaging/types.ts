@@ -1,9 +1,11 @@
 import type { Database } from "../db/generated/database.types";
 
+/** Result of attempting to deliver a single notification (email or SMS). */
 export type DeliveryResult =
 	| { success: true; messageSid?: string }
 	| { success: false; error: string; errorCode?: string };
 
+/** Per-notification processing metadata used for auditing/debugging. */
 export interface ProcessingStats {
 	sent: boolean;
 	logged: boolean;
@@ -13,6 +15,7 @@ export interface ProcessingStats {
 
 type DbUserRow = Database["public"]["Tables"]["users"]["Row"];
 
+/** User-controlled formatting toggles for rendered notifications. */
 export interface FormatPreferences {
 	show_sparklines: boolean;
 	show_company_name: boolean;
@@ -27,6 +30,7 @@ type GrokRumorsPreferences = {
 	grok_sends_in_window: number;
 };
 
+/** User fields required for notification delivery, scheduling, and formatting. */
 export type UserRecord = Pick<
 	DbUserRow,
 	| "id"
@@ -65,15 +69,18 @@ export type UserRecord = Pick<
 	asset_events_last_analyst_sent_month: string | null;
 } & GrokRumorsPreferences;
 
+/** Minimal user shape needed to send email. */
 export type EmailUser = Pick<
 	Database["public"]["Tables"]["users"]["Row"],
 	"id" | "email"
 >;
+/** Minimal user shape needed to send SMS. */
 export type SmsUser = Pick<
 	Database["public"]["Tables"]["users"]["Row"],
 	"id" | "phone_country_code" | "phone_number"
 >;
 
+/** User asset joined with its canonical asset name. */
 export type UserAssetRow = Pick<
 	Database["public"]["Tables"]["user_assets"]["Row"],
 	"symbol"

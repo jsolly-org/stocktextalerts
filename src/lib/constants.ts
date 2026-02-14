@@ -5,26 +5,37 @@ import { rootLogger } from "./logging";
 Dashboard Form IDs
 ============= */
 
+/** DOM id for the notification preferences form. */
 export const DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID =
 	"dashboard-notification-preferences-form";
+/** DOM id for the "save status" element for notification preferences. */
 export const DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID =
 	"dashboard-notification-preferences-save-status";
+/** DOM id for the tracked-assets (watchlist) form. */
 export const DASHBOARD_ASSETS_FORM_ID = "dashboard-assets-form";
+/** DOM id for the "save status" element for tracked-assets (watchlist). */
 export const DASHBOARD_ASSETS_STATUS_ID = "dashboard-assets-save-status";
+/** DOM id for the market notifications form. */
 export const DASHBOARD_MARKET_FORM_ID = "dashboard-market-form";
+/** DOM id for the daily notifications form. */
 export const DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID =
 	"dashboard-daily-notifications-form";
+/** DOM id for the asset-events notification form. */
 export const DASHBOARD_ASSET_EVENTS_FORM_ID = "dashboard-asset-events-form";
 
 /* =============
 Status Message Colors
 ============= */
 
+/** UI tone variants used by status/flash messaging components. */
 export type StatusTone = "success" | "error" | "warning" | "info";
 
+/** Allowed flash-message tones (subset of `StatusTone`). */
 export type FlashTone = Extract<StatusTone, "success" | "error" | "warning">;
+/** Flash message payload used by UI components. */
 export type FlashMessage = { tone: FlashTone; message: string };
 
+/** CSS class names for each `StatusTone`. */
 export const STATUS_TONE_CLASSES: Record<StatusTone, string> = {
 	success: "status-tone-success",
 	error: "status-tone-error",
@@ -38,6 +49,7 @@ Time Defaults
 
 /** Must match: users.timezone DEFAULT in initial_schema.sql */
 export const DEFAULT_TIMEZONE = "America/New_York";
+/** Default time (minutes since local midnight) for market updates. */
 export const DEFAULT_MARKET_UPDATE_TIME_MINUTES = 9 * 60; // 9:00 AM local time (minutes since local midnight)
 
 /* =============
@@ -46,8 +58,11 @@ Market-open constants align with the US trading session used across scheduling.
 Defined in Eastern Time (New York) so market-time calculations are stable across
 DST and user timezones; downstream converts as needed for UI and scheduling.
 ============= */
+/** US market open time in ET (minutes since midnight). */
 export const US_MARKET_OPEN_EASTERN_MINUTES = 9 * 60 + 30;
+/** US market close time in ET (minutes since midnight). */
 export const US_MARKET_CLOSE_EASTERN_MINUTES = 16 * 60; // 4:00 PM ET
+/** IANA timezone for the US market session constants (ET). */
 export const US_MARKET_TIMEZONE = "America/New_York";
 
 /* =============
@@ -55,10 +70,12 @@ SMS Verification Timing
 ============= */
 
 const VERIFICATION_EXPIRATION_MINUTES = 10;
+/** Verification code lifetime in milliseconds. */
 export const VERIFICATION_EXPIRATION_MS =
 	VERIFICATION_EXPIRATION_MINUTES * 60 * 1000;
 
 const VERIFICATION_RESEND_COOLDOWN_SECONDS = 60;
+/** Minimum time between verification-code sends (milliseconds). */
 export const VERIFICATION_RESEND_COOLDOWN_MS =
 	VERIFICATION_RESEND_COOLDOWN_SECONDS * 1000;
 
@@ -66,12 +83,14 @@ export const VERIFICATION_RESEND_COOLDOWN_MS =
 Finnhub API
 ============= */
 
+/** Base URL for Finnhub REST API calls. */
 export const FINNHUB_BASE_URL = "https://finnhub.io/api/v1";
 
 /* =============
 Card Gradient Accents
 ============= */
 
+/** Tailwind class presets for card gradient accents. */
 export const CARD_GRADIENT_ACCENTS = {
 	primary: "bg-gradient-to-r from-primary via-blue-500 to-primary-soft",
 	success:
@@ -85,6 +104,7 @@ export const CARD_GRADIENT_ACCENTS = {
 Dashboard Sections
 ============= */
 
+/** Section id fragments used for dashboard navigation and deep links. */
 export const DASHBOARD_SECTION_IDS = {
 	notificationChannels: "notification-channels",
 	assets: "watchlist",
@@ -95,6 +115,7 @@ export const DASHBOARD_SECTION_IDS = {
 
 type DashboardSection = keyof typeof DASHBOARD_SECTION_IDS;
 
+/** Hash links (e.g. `#watchlist`) for each dashboard section. */
 export const DASHBOARD_SECTION_HASHES: Record<DashboardSection, string> = {
 	notificationChannels: `#${DASHBOARD_SECTION_IDS.notificationChannels}`,
 	assets: `#${DASHBOARD_SECTION_IDS.assets}`,
@@ -107,6 +128,7 @@ export const DASHBOARD_SECTION_HASHES: Record<DashboardSection, string> = {
 Status Messages
 ============= */
 
+/** Whitelist of user-facing status messages keyed by internal codes. */
 export const MESSAGE_ALLOWLIST = {
 	asset_added: "Asset added successfully",
 	asset_removed: "Asset removed successfully",

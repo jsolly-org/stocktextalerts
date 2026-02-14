@@ -8,6 +8,7 @@ interface AssetPrice {
 	changePercent: number;
 }
 
+/** Quote fields used by movement alerts and snapshot persistence. */
 export interface ExtendedAssetQuote extends AssetPrice {
 	dayHigh: number | null;
 	dayLow: number | null;
@@ -17,7 +18,9 @@ export interface ExtendedAssetQuote extends AssetPrice {
 	volume: number | null;
 }
 
+/** Map of simple price quotes keyed by symbol. */
 export type AssetPriceMap = Map<string, AssetPrice | null>;
+/** Map of extended quotes keyed by symbol. */
 export type ExtendedQuoteMap = Map<string, ExtendedAssetQuote | null>;
 
 /**

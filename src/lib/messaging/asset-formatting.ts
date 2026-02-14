@@ -1,8 +1,10 @@
 import type { FormatPreferences } from "./types";
 
+/** Price quote subset required for rendering asset lines. */
 export type AssetPrice = { price: number; changePercent: number };
 type AssetWithName = { symbol: string; name: string };
 
+/** User-facing fallback shown when no assets are tracked. */
 export const NO_TRACKED_ASSETS_MESSAGE = "You don't have any tracked assets";
 
 /**

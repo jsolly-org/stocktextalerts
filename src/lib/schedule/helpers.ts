@@ -10,17 +10,22 @@ import type { UserAssetRow } from "../messaging/types";
 import { toIsoOrThrow } from "../time/format";
 
 const MAX_NOTIFICATION_RETRIES = 3;
+/** Number of users to process concurrently in scheduled-delivery jobs. */
 export const USER_PROCESS_BATCH_SIZE = 5;
 
+/** Delivery channel enum sourced from the database schema. */
 export type DeliveryMethod = Database["public"]["Enums"]["delivery_method"];
 
+/** Scheduled notification job categories supported by the scheduler. */
 export type ScheduledNotificationType = "market" | "daily" | "asset_events";
 
 type ScheduledNotificationStatus =
 	Database["public"]["Enums"]["scheduled_notification_status"];
 
+/** Supabase admin client type used by schedule jobs/RPCs. */
 export type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
 
+/** Aggregate counters for a scheduler run (used for logging/metrics). */
 export interface ScheduledNotificationTotals {
 	skipped: number;
 	logFailures: number;
@@ -114,6 +119,7 @@ export async function updateScheduledNotificationRow(options: {
 	}
 }
 
+/** Result state from attempting to claim a scheduled notification row. */
 export type ClaimResult =
 	| { status: "claimed" }
 	| { status: "claim_error" }

@@ -22,6 +22,7 @@ type ResponsesRequest = {
 };
 
 // xAI Responses API (OpenAPI `ModelResponse`)
+/** Source annotation entry from xAI Responses API outputs. */
 export type XaiAnnotation = {
 	type: string;
 	url: string;
@@ -64,6 +65,7 @@ type XaiOutputItem =
 			[key: string]: unknown;
 	  };
 
+/** Top-level response payload shape returned by the xAI Responses API. */
 export type ResponsesResponse = {
 	id: string;
 	object: "response" | (string & {});
@@ -73,6 +75,7 @@ export type ResponsesResponse = {
 	output: XaiOutputItem[];
 };
 
+/** Rendered Grok section text plus extracted citation URLs. */
 export type GrokSectionResult = {
 	content: string;
 	citations: string[];

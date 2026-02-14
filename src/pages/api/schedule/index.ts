@@ -77,5 +77,7 @@ const handler: APIRoute = async ({ request, locals }) => {
 	}
 };
 
+/** Vercel cron entrypoint (GET). */
 export const GET: APIRoute = handler;
+/** Manual/script entrypoint (POST). */
 export const POST: APIRoute = handler;

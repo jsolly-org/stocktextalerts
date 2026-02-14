@@ -8,6 +8,7 @@ export type DeliveryChannel = "sms" | "email";
 Types
 ============= */
 
+/** Massive/Finnhub earnings calendar event (normalized). */
 export interface EarningsEvent {
 	ticker: string;
 	date: string; // YYYY-MM-DD
@@ -16,6 +17,7 @@ export interface EarningsEvent {
 	revenueEstimate: number | null;
 }
 
+/** Massive dividend reference event (normalized). */
 export interface DividendEvent {
 	ticker: string;
 	exDividendDate: string; // YYYY-MM-DD
@@ -25,6 +27,7 @@ export interface DividendEvent {
 	frequency: number | null; // 1=annual, 2=semi, 4=quarterly, 12=monthly
 }
 
+/** Massive split reference event (normalized). */
 export interface SplitEvent {
 	ticker: string;
 	executionDate: string; // YYYY-MM-DD
@@ -33,6 +36,7 @@ export interface SplitEvent {
 	adjustmentType: string; // forward_split, reverse_split, stock_dividend
 }
 
+/** Massive IPO reference event (normalized). */
 export interface IpoEvent {
 	ticker: string;
 	listingDate: string; // YYYY-MM-DD
@@ -408,6 +412,7 @@ interface SnapshotTicker {
 	};
 }
 
+/** Normalized quote fields extracted from Massive's snapshot endpoint. */
 export interface SnapshotQuote {
 	price: number;
 	changePercent: number;

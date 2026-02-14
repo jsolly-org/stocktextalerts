@@ -180,6 +180,7 @@ function writeLog(
 	}
 }
 
+/** Minimal structured logger interface used across the app. */
 export type Logger = {
 	debug: (message: string, context?: LogContext) => void;
 	info: (message: string, context?: LogContext, error?: unknown) => void;
@@ -207,4 +208,5 @@ export function createLogger(baseContext: LogContext = {}): Logger {
 	};
 }
 
+/** Process-wide default logger with no base context. */
 export const rootLogger = createLogger();

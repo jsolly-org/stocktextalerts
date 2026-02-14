@@ -45,6 +45,7 @@ type JsonStringArrayFieldSpec = {
 	required?: boolean;
 };
 
+/** Supported form-field spec variants used by the lightweight form parser. */
 export type FieldSpec<TValues extends readonly string[] = readonly string[]> =
 	| BooleanFieldSpec
 	| StringFieldSpec
@@ -55,6 +56,7 @@ export type FieldSpec<TValues extends readonly string[] = readonly string[]> =
 	| TimeFieldSpec
 	| JsonStringArrayFieldSpec;
 
+/** A form schema mapping field keys to their validation specs. */
 export type FormSchema = Record<string, FieldSpec>;
 
 type NonEnumFieldTypeMap = {
@@ -95,6 +97,7 @@ type OptionalFields<TSchema extends FormSchema> = {
 export type InferSchema<TSchema extends FormSchema> = RequiredFields<TSchema> &
 	OptionalFields<TSchema>;
 
+/** Standard result shape returned from parsing a form submission. */
 export type ParseOutcome<TResult> =
 	| {
 			ok: true;
@@ -106,6 +109,7 @@ export type ParseOutcome<TResult> =
 			allErrors: FormIssue[];
 	  };
 
+/** A single form validation issue associated with a specific key. */
 export interface FormIssue {
 	reason: string;
 	key: string;
