@@ -745,19 +745,21 @@ export async function processDailyDigestUser(options: {
 		/* =============
 		Best-effort reschedule to avoid retry storms on persistent failures.
 		============= */
-		try {
-			await updateUserDailyDigestNextSendAt({
-				user,
-				supabase,
-				logger,
-				currentTime,
-			});
-		} catch (updateError) {
-			logger.error(
-				"Failed to update daily_digest_next_send_at after daily digest error",
-				{ userId: user.id },
-				updateError,
-			);
+		if (!stageOnly) {
+			try {
+				await updateUserDailyDigestNextSendAt({
+					user,
+					supabase,
+					logger,
+					currentTime,
+				});
+			} catch (updateError) {
+				logger.error(
+					"Failed to update daily_digest_next_send_at after daily digest error",
+					{ userId: user.id },
+					updateError,
+				);
+			}
 		}
 		return stats;
 	}
