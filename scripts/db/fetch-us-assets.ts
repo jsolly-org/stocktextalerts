@@ -1,16 +1,16 @@
 /**
- * Fetch all US assets (stocks, ETFs) via the Massive provider and write
+ * Fetch all US assets (stocks, ETFs) via Finnhub and write
  * to scripts/data/us-assets.json.
  *
- * Uses `marketDataFetch` from `src/lib/providers/massive.ts` which wraps
- * the Massive `/v3/reference/tickers?market=stocks&active=true&limit=1000` endpoint
- * with retries, rate-limit handling, and timeouts.
+ * Uses `finnhubFetch` from `src/lib/providers/finnhub.ts` which wraps
+ * the Finnhub `/stock/symbol?exchange=US` endpoint with retries, rate-limit
+ * handling, and timeouts.
  *
- * We normalize Massive's `type` values to our own: "stock" or "etf".
+ * We normalize Finnhub's `type` values to our own: "stock" or "etf".
  *
- * Included as "stock": CS (Common Stock), ADRC (ADR)
- * Included as "etf": ETF, ETN
- * Excluded: all other types (WARRANT, RIGHT, UNIT, FUND, OS, GDR, SP, etc.)
+ * Included as "stock": Common Stock, ADR
+ * Included as "etf": ETP, ETF, ETN
+ * Excluded: all other types (mutual funds, warrants, rights, units, indexes, etc.)
  *
  * Output format (scripts/data/us-assets.json):
  *   {
@@ -18,7 +18,7 @@
  *     data: [{ symbol, name, type }]    // sorted alphabetically by symbol
  *   }
  *
- * Requires MASSIVE_API_KEY in .env.local (loaded via --env-file-if-exists).
+ * Requires FINNHUB_API_KEY in .env.local (loaded via --env-file-if-exists).
  *
  * Usage:
  *   npx tsx scripts/db/fetch-us-assets.ts
@@ -29,22 +29,24 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { marketDataFetch } from "../../src/lib/providers/massive";
+import { finnhubFetch } from "../../src/lib/providers/finnhub";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_FILE = path.join(__dirname, "..", "data", "us-assets.json");
 
-// Massive `type` values we include, mapped to our normalized types.
+// Finnhub `type` values we include, mapped to our normalized types.
 const ASSET_TYPE_MAP: Record<string, "stock" | "etf"> = {
-	CS: "stock",
-	ADRC: "stock",
+	"Common Stock": "stock",
+	ADR: "stock",
+	ETP: "etf",
 	ETF: "etf",
 	ETN: "etf",
 };
 
-interface MassiveTicker {
-	ticker: string;
-	name: string;
+interface FinnhubSymbol {
+	// Finnhub returns both `symbol` and `displaySymbol`; `symbol` is the canonical ticker.
+	symbol: string;
+	description: string;
 	type: string;
 }
 
@@ -64,91 +66,52 @@ interface OutputFile {
 	data: OutputSymbol[];
 }
 
-/** Fetch all tickers via Massive provider with pagination. */
-async function fetchAllTickers(): Promise<MassiveTicker[]> {
-	// Verify API key is available (marketDataFetch returns null silently when missing)
-	if (!process.env.MASSIVE_API_KEY) {
+/** Fetch all symbols via Finnhub. */
+async function fetchAllSymbols(): Promise<FinnhubSymbol[]> {
+	// Verify API key is available (finnhubFetch returns null silently when missing)
+	if (!process.env.FINNHUB_API_KEY) {
 		throw new Error(
-			"MASSIVE_API_KEY is not set. Add it to .env.local and run with --env-file-if-exists=.env.local",
+			"FINNHUB_API_KEY is not set. Add it to .env.local and run with --env-file-if-exists=.env.local",
 		);
 	}
 
-	const allTickers: MassiveTicker[] = [];
-	let cursor: string | null = null;
-	let page = 1;
+	console.info("Fetching US assets via Finnhub...");
 
-	console.info("Fetching US assets via Massive...");
-
-	while (true) {
-		console.info(`  Fetching page ${page}...`);
-
-		const params: Record<string, string> = {
-			market: "stocks",
-			active: "true",
-			limit: "1000",
-		};
-		if (cursor) params.cursor = cursor;
-
-		const data = await marketDataFetch(
-			"/v3/reference/tickers",
-			params,
-			"fetch-us-assets",
-		);
-
-		if (typeof data !== "object" || data === null) {
-			throw new Error(`Failed to fetch tickers from Massive on page ${page}`);
-		}
-
-		const record = data as Record<string, unknown>;
-		const results = record.results;
-		if (!Array.isArray(results)) {
-			throw new Error(
-				`Expected .results array from Massive, got ${typeof results}`,
-			);
-		}
-
-		// Defensive: validate each ticker object before casting.
-		for (const item of results) {
-			if (
-				typeof item === "object" &&
-				item !== null &&
-				typeof (item as Record<string, unknown>).ticker === "string" &&
-				typeof (item as Record<string, unknown>).name === "string" &&
-				typeof (item as Record<string, unknown>).type === "string"
-			) {
-				allTickers.push(item as MassiveTicker);
-			}
-		}
-
-		// Extract cursor for next page from next_url
-		const nextUrl =
-			typeof record.next_url === "string" ? record.next_url : null;
-		if (!nextUrl) break;
-
-		try {
-			const url = new URL(nextUrl);
-			cursor = url.searchParams.get("cursor");
-			if (!cursor) break;
-		} catch {
-			break;
-		}
-
-		page++;
+	const data = await finnhubFetch(
+		"/stock/symbol",
+		{ exchange: "US" },
+		"fetch-us-assets",
+	);
+	if (!Array.isArray(data)) {
+		throw new Error("Failed to fetch symbols from Finnhub (expected array)");
 	}
 
-	return allTickers;
+	const symbols: FinnhubSymbol[] = [];
+	for (const item of data) {
+		if (
+			typeof item === "object" &&
+			item !== null &&
+			typeof (item as Record<string, unknown>).symbol === "string" &&
+			typeof (item as Record<string, unknown>).description === "string" &&
+			typeof (item as Record<string, unknown>).type === "string"
+		) {
+			symbols.push(item as FinnhubSymbol);
+		}
+	}
+
+	return symbols;
 }
 
-/** Normalize Massive tickers into our `{symbol,name,type}` set. */
-function transformSymbols(raw: MassiveTicker[]): OutputSymbol[] {
+/** Normalize Finnhub symbols into our `{symbol,name,type}` set. */
+function transformSymbols(raw: FinnhubSymbol[]): OutputSymbol[] {
 	const symbols: OutputSymbol[] = [];
 
 	for (const item of raw) {
 		const normalizedType = ASSET_TYPE_MAP[item.type];
 		if (!normalizedType) continue;
 
-		const symbol = (item.ticker ?? "").trim().toUpperCase();
-		const name = (item.name ?? "").trim();
+		const symbol = (item.symbol ?? "").trim().toUpperCase();
+		const name = (item.description ?? "").trim();
 
 		// Skip symbols with dots (preferred shares like BRK.A) or empty symbols
 		if (!symbol || symbol.includes(".")) continue;
@@ -165,10 +128,10 @@ function transformSymbols(raw: MassiveTicker[]): OutputSymbol[] {
 
 /** Script entrypoint: fetch, normalize, and write `scripts/data/us-assets.json`. */
 async function main() {
-	const raw = await fetchAllTickers();
-	console.info(`  Received ${raw.length} raw tickers from Massive`);
+	const raw = await fetchAllSymbols();
+	console.info(`  Received ${raw.length} raw symbols from Finnhub`);
 
-	// Log all unique Massive type values for visibility
+	// Log all unique Finnhub type values for visibility
 	const typeCounts = new Map<string, number>();
 	for (const item of raw) {
 		typeCounts.set(item.type, (typeCounts.get(item.type) ?? 0) + 1);
@@ -187,7 +150,7 @@ async function main() {
 	const output: OutputFile = {
 		metadata: {
 			source:
-				"massive:/v3/reference/tickers?market=stocks&active=true",
+				"https://finnhub.io/api/v1/stock/symbol?exchange=US",
 			fetched_at: new Date().toISOString(),
 			type_counts: { stock: stockTypeCount, etf: etfCount },
 			total_symbols: symbols.length,

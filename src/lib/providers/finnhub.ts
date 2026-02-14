@@ -52,7 +52,15 @@ Helpers
 
 /** Read the Finnhub API key from env (or return empty string). */
 function getFinnhubApiKey(): string {
-	return import.meta.env.FINNHUB_API_KEY ?? "";
+	// import.meta.env is available in Astro/Vitest (transformed by Vite).
+	// Falls back to process.env for standalone scripts (tsx, node).
+	try {
+		const key = import.meta.env.FINNHUB_API_KEY;
+		if (key) return key;
+	} catch {
+		// import.meta.env not available outside Vite/Astro
+	}
+	return process.env.FINNHUB_API_KEY ?? "";
 }
 
 /** Parse `Retry-After` into a delay (ms), or `null` when missing/unparseable. */
