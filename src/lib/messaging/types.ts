@@ -18,8 +18,6 @@ type DbUserRow = Database["public"]["Tables"]["users"]["Row"];
 /** User-controlled formatting toggles for rendered notifications. */
 export interface FormatPreferences {
 	show_sparklines: boolean;
-	show_company_name: boolean;
-	detailed_format: boolean;
 }
 
 type GrokRumorsPreferences = {
@@ -44,8 +42,6 @@ export type UserRecord = Pick<
 	| "sms_notifications_enabled"
 	| "sms_opted_out"
 	| "show_sparklines"
-	| "show_company_name"
-	| "detailed_format"
 > & {
 	market_scheduled_asset_price_enabled: boolean;
 	market_scheduled_asset_price_include_email: boolean;

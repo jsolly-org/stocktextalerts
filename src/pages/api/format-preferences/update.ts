@@ -8,8 +8,6 @@ import { createLogger } from "../../../lib/logging";
 
 const FORMAT_PREFERENCES_SCHEMA = {
 	show_sparklines: { type: "boolean" },
-	show_company_name: { type: "boolean" },
-	detailed_format: { type: "boolean" },
 } as const satisfies FormSchema;
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
@@ -61,12 +59,6 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		if (parsed.data.show_sparklines !== undefined) {
 			updates.show_sparklines = parsed.data.show_sparklines;
 		}
-		if (parsed.data.show_company_name !== undefined) {
-			updates.show_company_name = parsed.data.show_company_name;
-		}
-		if (parsed.data.detailed_format !== undefined) {
-			updates.detailed_format = parsed.data.detailed_format;
-		}
 
 		const updatedUser = await userService.update(user.id, updates);
 		if (!updatedUser) {
@@ -79,8 +71,6 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			message: "settings_updated",
 			formatPreferences: {
 				show_sparklines: updatedUser.show_sparklines,
-				show_company_name: updatedUser.show_company_name,
-				detailed_format: updatedUser.detailed_format,
 			},
 		});
 	} catch (error) {

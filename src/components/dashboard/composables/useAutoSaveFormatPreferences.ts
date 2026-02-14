@@ -5,8 +5,6 @@ import {
 
 export type FormatPreferencesData = {
 	show_sparklines: boolean;
-	show_company_name: boolean;
-	detailed_format: boolean;
 };
 
 type AutoSaveOptions = Omit<AutoSaveFormOptions, "payloadKey" | "logAction">;

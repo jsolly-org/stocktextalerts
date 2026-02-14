@@ -24,8 +24,6 @@ describe("Daily digest email prices", () => {
 	};
 	const defaultPrefs: FormatPreferences = {
 		show_sparklines: true,
-		show_company_name: true,
-		detailed_format: true,
 	};
 
 	beforeEach(() => {
@@ -37,7 +35,7 @@ describe("Daily digest email prices", () => {
 		vi.unstubAllEnvs();
 	});
 
-	it("applies change %, company name, and detailed format preferences in daily digest email", () => {
+	it("applies change % preferences in daily digest email", () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 			["MSFT", { price: 412.1, changePercent: -0.31 }],
@@ -52,10 +50,11 @@ describe("Daily digest email prices", () => {
 		});
 
 		expect(message.text).not.toContain("💵 Prices");
-		expect(message.text).toContain("AAPL - Apple Inc — $187.42 (+1.23%)");
-		expect(message.text).toContain("MSFT - Microsoft Corp — $412.10 (-0.31%)");
+		expect(message.text).toContain("AAPL — $187.42 (+1.23%)");
+		expect(message.text).toContain("MSFT — $412.10 (-0.31%)");
+		// Email uses single newline separator (renders inside <pre>)
 		expect(message.text).toContain(
-			"AAPL - Apple Inc — $187.42 (+1.23%)\n\nMSFT - Microsoft Corp — $412.10 (-0.31%)",
+			"AAPL — $187.42 (+1.23%)\nMSFT — $412.10 (-0.31%)",
 		);
 		expect(message.html).not.toContain("💵 Prices");
 		expect(message.html).toContain("$187.42 (+1.23%)");
@@ -69,8 +68,6 @@ describe("Daily digest email prices", () => {
 		const sparklines = new Map([["AAPL", "▁▂▃▅▇▅▃"]]);
 		const prefs: FormatPreferences = {
 			show_sparklines: false,
-			show_company_name: false,
-			detailed_format: false,
 		};
 
 		const message = formatDailyDigestEmail({
@@ -95,8 +92,6 @@ describe("Daily digest email prices", () => {
 		const sparklines = new Map([["AAPL", "▁▂▃▅▇▅▃"]]);
 		const prefs: FormatPreferences = {
 			show_sparklines: true,
-			show_company_name: false,
-			detailed_format: false,
 		};
 
 		const message = formatDailyDigestEmail({
@@ -116,8 +111,6 @@ describe("Daily digest email prices", () => {
 		const assetPrices: AssetPriceMap = new Map([["AAPL", null]]);
 		const prefs: FormatPreferences = {
 			show_sparklines: false,
-			show_company_name: false,
-			detailed_format: false,
 		};
 
 		const message = formatDailyDigestEmail({
@@ -140,8 +133,6 @@ describe("Daily digest email prices", () => {
 		]);
 		const prefs: FormatPreferences = {
 			show_sparklines: false,
-			show_company_name: false,
-			detailed_format: false,
 		};
 
 		const message = formatDailyDigestSmsMessage({

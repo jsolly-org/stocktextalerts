@@ -556,8 +556,6 @@ export async function processDailyDigestUser(options: {
 				assetPrices,
 				formatPrefs: {
 					show_sparklines: user.show_sparklines,
-					show_company_name: user.show_company_name,
-					detailed_format: user.detailed_format,
 				},
 				extras: emailExtras,
 				assetEvents: emailAssetEvents,

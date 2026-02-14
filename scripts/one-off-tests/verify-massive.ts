@@ -290,7 +290,8 @@ async function testDividends(apiKey: string): Promise<TestResult> {
 
 		const sampleLines = results.slice(0, 5).map((r: unknown) => {
 			const row = r as Record<string, unknown>;
-			return `${row.ticker}: ex-div ${row.ex_dividend_date} $${(row.cash_amount as number).toFixed(2)}`;
+			const amount = typeof row.cash_amount === "number" ? row.cash_amount.toFixed(2) : String(row.cash_amount);
+		return `${row.ticker}: ex-div ${row.ex_dividend_date} $${amount}`;
 		});
 
 		return {
@@ -376,7 +377,7 @@ async function testSplits(apiKey: string): Promise<TestResult> {
 
 		const sampleLines = results.slice(0, 5).map((r: unknown) => {
 			const row = r as Record<string, unknown>;
-			return `${row.ticker}: split ${row.execution_date} ${row.split_to}:${row.split_from}`;
+			return `${row.ticker}: split ${row.execution_date} ${String(row.split_to)}:${String(row.split_from)}`;
 		});
 
 		return {

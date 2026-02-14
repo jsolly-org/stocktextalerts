@@ -57,9 +57,7 @@ export async function fetchMarketScheduledUsers(options: {
 			last_grok_rumors_at,
 			grok_window_start,
 			grok_sends_in_window,
-			show_sparklines,
-			show_company_name,
-			detailed_format
+			show_sparklines
 		`,
 			)
 			.eq("market_scheduled_asset_price_enabled", true)

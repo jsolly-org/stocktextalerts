@@ -295,12 +295,8 @@
 
 					<FormatToggles
 						:showSparklines="showSparklines"
-						:showCompanyName="showCompanyName"
-						:detailedFormat="detailedFormat"
 						:disabled="needsChannelSelection"
 						@update:showSparklines="showSparklines = $event"
-						@update:showCompanyName="showCompanyName = $event"
-						@update:detailedFormat="detailedFormat = $event"
 					/>
 				</div>
 			</div>
@@ -588,30 +584,22 @@ const {
 });
 
 const showSparklines = ref(user.value.show_sparklines);
-const showCompanyName = ref(user.value.show_company_name);
-const detailedFormat = ref(user.value.detailed_format);
 
 watch(formatSavedData, (newData) => {
 	if (!newData) return;
 	showSparklines.value = newData.show_sparklines;
-	showCompanyName.value = newData.show_company_name;
-	detailedFormat.value = newData.detailed_format;
 	user.value = {
 		...user.value,
 		show_sparklines: newData.show_sparklines,
-		show_company_name: newData.show_company_name,
-		detailed_format: newData.detailed_format,
 	};
 });
 
-watch([showSparklines, showCompanyName, detailedFormat], () => {
+watch([showSparklines], () => {
 	notifyFormatChange();
 });
 
 const formatPreferences = computed<FormatPreferences>(() => ({
 	show_sparklines: showSparklines.value,
-	show_company_name: showCompanyName.value,
-	detailed_format: detailedFormat.value,
 }));
 
 const previewAssets = computed<PreviewAsset[]>(() => {

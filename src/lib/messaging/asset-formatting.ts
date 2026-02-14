@@ -21,11 +21,9 @@ export function escapeHtml(value: string): string {
 
 function formatAssetBaseText(
 	asset: AssetWithName,
-	formatPrefs: FormatPreferences,
+	_formatPrefs: FormatPreferences,
 ): string {
-	return formatPrefs.show_company_name
-		? `${asset.symbol} - ${asset.name}`
-		: asset.symbol;
+	return asset.symbol;
 }
 
 function formatAssetPriceText(
@@ -67,9 +65,7 @@ function formatAssetHtmlLine(
 	formatPrefs: FormatPreferences,
 	sparkline?: string | null,
 ): string {
-	const assetInfo = formatPrefs.show_company_name
-		? escapeHtml(`${asset.symbol} - ${asset.name}`)
-		: escapeHtml(asset.symbol);
+	const assetInfo = escapeHtml(asset.symbol);
 
 	if (!price) {
 		return assetInfo;
@@ -101,7 +97,6 @@ export function formatAssetsTextList(
 		return NO_TRACKED_ASSETS_MESSAGE;
 	}
 
-	const separator = formatPrefs.detailed_format ? "\n\n" : "\n";
 	return assets
 		.map((asset) =>
 			formatAssetTextLine(
@@ -111,7 +106,7 @@ export function formatAssetsTextList(
 				getSparkline?.(asset.symbol),
 			),
 		)
-		.join(separator);
+		.join("\n\n");
 }
 
 /**
@@ -127,7 +122,6 @@ export function formatAssetsHtmlList(
 		return escapeHtml(NO_TRACKED_ASSETS_MESSAGE);
 	}
 
-	const joinStr = formatPrefs.detailed_format ? "<br><br>" : "<br>";
 	return assets
 		.map((asset) =>
 			formatAssetHtmlLine(
@@ -137,5 +131,5 @@ export function formatAssetsHtmlList(
 				getSparkline?.(asset.symbol),
 			),
 		)
-		.join(joinStr);
+		.join("<br>");
 }

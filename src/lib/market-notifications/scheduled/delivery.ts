@@ -7,11 +7,7 @@ import { processEmailUpdate } from "../../messaging/email/delivery";
 import type { EmailSender } from "../../messaging/email/utils";
 import { recordNotification } from "../../messaging/shared";
 import { processSmsUpdate } from "../../messaging/sms/delivery";
-import type {
-	FormatPreferences,
-	UserAssetRow,
-	UserRecord,
-} from "../../messaging/types";
+import type { UserAssetRow, UserRecord } from "../../messaging/types";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
 import type {
 	ScheduledNotificationTotals,
@@ -41,7 +37,6 @@ export async function processMarketScheduledEmailDelivery(options: {
 	priceMap: AssetPriceMap;
 	marketOpen: boolean;
 	stats: ScheduledNotificationTotals;
-	formatPrefs: FormatPreferences;
 }): Promise<void> {
 	const {
 		user,
@@ -55,7 +50,6 @@ export async function processMarketScheduledEmailDelivery(options: {
 		priceMap,
 		marketOpen,
 		stats,
-		formatPrefs,
 	} = options;
 
 	const claim = await claimNotification({
@@ -85,7 +79,6 @@ export async function processMarketScheduledEmailDelivery(options: {
 		sendEmail,
 		priceMap,
 		marketOpen,
-		formatPrefs,
 		emailIdempotencyKey,
 	);
 

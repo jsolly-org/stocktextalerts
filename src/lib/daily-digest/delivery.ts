@@ -55,6 +55,7 @@ export function formatDailyDigestSmsMessage(options: {
 		options.assetPrices,
 		options.formatPrefs,
 		options.sparklines,
+		"\n\n",
 	);
 
 	const ae = options.assetEvents;
@@ -83,9 +84,7 @@ function formatDailyDigestPriceLine(
 	formatPrefs: FormatPreferences,
 	sparkline?: string | null,
 ): string {
-	const base = formatPrefs.show_company_name
-		? `${asset.symbol} - ${asset.name}`
-		: asset.symbol;
+	const base = asset.symbol;
 	if (!quote) {
 		return `${base} — price unavailable`;
 	}
@@ -101,11 +100,11 @@ function buildDailyDigestPricesSummary(
 	assetPrices: AssetPriceMap,
 	formatPrefs: FormatPreferences,
 	sparklines?: SparklineMap,
+	separator = "\n",
 ): string {
 	if (userAssets.length === 0) {
 		return "";
 	}
-	const separator = formatPrefs.detailed_format ? "\n\n" : "\n";
 	return userAssets
 		.map((asset) =>
 			formatDailyDigestPriceLine(
@@ -156,6 +155,7 @@ export function formatDailyDigestEmail(options: {
 		options.assetPrices,
 		options.formatPrefs,
 		options.sparklines,
+		"\n",
 	);
 	const digestTickerBody = prices || tickersLine;
 
@@ -399,8 +399,6 @@ export async function processDailyDigestSmsDelivery(options: {
 		assetPrices,
 		formatPrefs: {
 			show_sparklines: user.show_sparklines,
-			show_company_name: user.show_company_name,
-			detailed_format: user.detailed_format,
 		},
 		extras,
 		assetEvents,

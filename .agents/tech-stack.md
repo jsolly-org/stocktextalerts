@@ -26,7 +26,7 @@
 - Do NOT modify `src/lib/db/generated/database.types.ts`. Regenerate with `npm run db:gen-types` or use type assertions.
 
 ### Available CLIs (Machine-Specific Audit)
-Last audited: 2026-02-14 on `/Users/johnsolly/code/stocktextalerts`.
+Last audited: 2026-02-14.
 
 Installed and verified:
 - `codex`, `claude`, `cursor`
