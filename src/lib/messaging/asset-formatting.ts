@@ -55,7 +55,7 @@ export function formatAssetTextLine(
 	return `${base} — ${formatAssetPriceText(price, effectiveSparkline)}`;
 }
 
-function getChangeColor(changePercent: number): string {
+export function getChangeColor(changePercent: number): string {
 	return changePercent >= 0 ? "#15803d" : "#dc2626";
 }
 

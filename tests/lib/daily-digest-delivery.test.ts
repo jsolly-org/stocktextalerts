@@ -4,6 +4,7 @@ import {
 	formatDailyDigestSmsMessage,
 } from "../../src/lib/daily-digest/delivery";
 import type { SmsExtras } from "../../src/lib/messaging/sms/delivery";
+import type { SparklineData } from "../../src/lib/messaging/sparkline";
 import type {
 	FormatPreferences,
 	UserAssetRow,
@@ -24,6 +25,11 @@ describe("Daily digest email prices", () => {
 	};
 	const defaultPrefs: FormatPreferences = {
 		show_sparklines: true,
+	};
+
+	const sparklineData: SparklineData = {
+		values: [1, 2, 3, 5, 7, 5, 3],
+		ascii: "▁▂▃▅▇▅▃",
 	};
 
 	beforeEach(() => {
@@ -52,20 +58,42 @@ describe("Daily digest email prices", () => {
 		expect(message.text).not.toContain("💵 Prices");
 		expect(message.text).toContain("AAPL — $187.42 (+1.23%)");
 		expect(message.text).toContain("MSFT — $412.10 (-0.31%)");
-		// Email uses single newline separator (renders inside <pre>)
+		// Email uses single newline separator
 		expect(message.text).toContain(
 			"AAPL — $187.42 (+1.23%)\nMSFT — $412.10 (-0.31%)",
 		);
 		expect(message.html).not.toContain("💵 Prices");
-		expect(message.html).toContain("$187.42 (+1.23%)");
-		expect(message.html).toContain("$412.10 (-0.31%)");
+		expect(message.html).toContain("$187.42");
+		expect(message.html).toContain("(+1.23%)");
+		expect(message.html).toContain("$412.10");
+		expect(message.html).toContain("(-0.31%)");
+	});
+
+	it("colors positive change green and negative change red in HTML", () => {
+		const assetPrices: AssetPriceMap = new Map([
+			["AAPL", { price: 187.42, changePercent: 1.23 }],
+			["MSFT", { price: 412.1, changePercent: -0.31 }],
+		]);
+
+		const message = formatDailyDigestEmail({
+			user,
+			userAssets,
+			assetPrices,
+			formatPrefs: defaultPrefs,
+			extras,
+		});
+
+		// Green for positive
+		expect(message.html).toContain("color: #15803d");
+		// Red for negative
+		expect(message.html).toContain("color: #dc2626");
 	});
 
 	it("hides sparklines when show_sparklines is disabled but still shows change%", () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 		]);
-		const sparklines = new Map([["AAPL", "▁▂▃▅▇▅▃"]]);
+		const sparklines = new Map([["AAPL", sparklineData]]);
 		const prefs: FormatPreferences = {
 			show_sparklines: false,
 		};
@@ -81,15 +109,17 @@ describe("Daily digest email prices", () => {
 
 		// Change% should always be shown
 		expect(message.text).toContain("+1.23%");
-		// Sparklines should NOT appear
+		// ASCII sparklines should NOT appear in plaintext
 		expect(message.text).not.toContain("▁▂▃▅▇▅▃");
+		// SVG sparklines should NOT appear in HTML
+		expect(message.html).not.toContain("data:image/svg+xml;base64,");
 	});
 
-	it("shows sparklines when enabled with sparkline data", () => {
+	it("shows ASCII sparklines in plaintext and SVG in HTML when enabled", () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 		]);
-		const sparklines = new Map([["AAPL", "▁▂▃▅▇▅▃"]]);
+		const sparklines = new Map([["AAPL", sparklineData]]);
 		const prefs: FormatPreferences = {
 			show_sparklines: true,
 		};
@@ -103,8 +133,33 @@ describe("Daily digest email prices", () => {
 			sparklines,
 		});
 
+		// Plaintext keeps ASCII sparkline
 		expect(message.text).toContain("▁▂▃▅▇▅▃");
 		expect(message.text).toContain("+1.23%");
+		// HTML gets SVG sparkline <img>
+		expect(message.html).toContain("data:image/svg+xml;base64,");
+		expect(message.html).toContain("<img ");
+	});
+
+	it("SMS uses ASCII sparklines, not SVG", () => {
+		const assetPrices: AssetPriceMap = new Map([
+			["AAPL", { price: 187.42, changePercent: 1.23 }],
+		]);
+		const sparklines = new Map([["AAPL", sparklineData]]);
+		const prefs: FormatPreferences = {
+			show_sparklines: true,
+		};
+
+		const message = formatDailyDigestSmsMessage({
+			userAssets: [userAssets[0]],
+			assetPrices,
+			formatPrefs: prefs,
+			extras,
+			sparklines,
+		});
+
+		expect(message).toContain("▁▂▃▅▇▅▃");
+		expect(message).not.toContain("data:image/svg+xml;base64,");
 	});
 
 	it("always shows change% even with price unavailable", () => {

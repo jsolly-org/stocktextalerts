@@ -41,4 +41,9 @@ export function toSparkline(values: number[]): string {
 		.join("");
 }
 
-export type SparklineMap = Map<string, string | null>;
+export interface SparklineData {
+	values: number[];
+	ascii: string;
+}
+
+export type SparklineMap = Map<string, SparklineData | null>;

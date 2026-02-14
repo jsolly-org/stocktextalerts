@@ -2,7 +2,7 @@ import type { buildAssetEventsContent } from "../asset-events/content";
 import { getSiteUrl } from "../db/env";
 import type { Logger } from "../logging";
 import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
-import { escapeHtml } from "../messaging/asset-formatting";
+import { escapeHtml, getChangeColor } from "../messaging/asset-formatting";
 import { renderEmailSection } from "../messaging/email/html-section";
 import { sendUserEmail } from "../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter } from "../messaging/email/layout";
@@ -11,7 +11,8 @@ import { recordNotification } from "../messaging/shared";
 import type { SmsExtras } from "../messaging/sms/delivery";
 import { formatExtrasSection } from "../messaging/sms/formatting";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
-import type { SparklineMap } from "../messaging/sparkline";
+import type { SparklineData, SparklineMap } from "../messaging/sparkline";
+import { toSvgSparklineImg } from "../messaging/svg-sparkline";
 import type {
 	FormatPreferences,
 	UserAssetRow,
@@ -78,7 +79,7 @@ function formatDailyDigestPriceLine(
 	asset: UserAssetRow,
 	quote: { price: number; changePercent: number } | null | undefined,
 	formatPrefs: FormatPreferences,
-	sparkline?: string | null,
+	sparkline?: SparklineData | null,
 ): string {
 	const base = asset.symbol;
 	if (!quote) {
@@ -86,9 +87,38 @@ function formatDailyDigestPriceLine(
 	}
 	const sign = quote.changePercent >= 0 ? "+" : "";
 	const priceStr = `$${quote.price.toFixed(2)} (${sign}${quote.changePercent.toFixed(2)}%)`;
-	const effectiveSparkline =
-		formatPrefs.show_sparklines && sparkline ? ` ${sparkline}` : "";
-	return `${base} — ${priceStr}${effectiveSparkline}`;
+	const ascii =
+		formatPrefs.show_sparklines && sparkline?.ascii
+			? ` ${sparkline.ascii}`
+			: "";
+	return `${base} — ${priceStr}${ascii}`;
+}
+
+function formatDailyDigestPriceLineHtml(
+	asset: UserAssetRow,
+	quote: { price: number; changePercent: number } | null | undefined,
+	formatPrefs: FormatPreferences,
+	sparkline?: SparklineData | null,
+): string {
+	const symbol = escapeHtml(asset.symbol);
+	if (!quote) {
+		return `<div style="margin-bottom: 8px;">${symbol} &mdash; <span style="color: #6b7280;">price unavailable</span></div>`;
+	}
+	const priceStr = escapeHtml(`$${quote.price.toFixed(2)}`);
+	const sign = quote.changePercent >= 0 ? "+" : "";
+	const color = getChangeColor(quote.changePercent);
+	const changeStr = escapeHtml(`(${sign}${quote.changePercent.toFixed(2)}%)`);
+
+	let sparklineHtml = "";
+	if (
+		formatPrefs.show_sparklines &&
+		sparkline?.values &&
+		sparkline.values.length >= 2
+	) {
+		sparklineHtml = ` ${toSvgSparklineImg(sparkline.values, color)}`;
+	}
+
+	return `<div style="margin-bottom: 8px;">${symbol} &mdash; ${priceStr} <span style="color: ${color}; font-weight: 600;">${changeStr}</span>${sparklineHtml}</div>`;
 }
 
 function buildDailyDigestPricesSummary(
@@ -111,6 +141,27 @@ function buildDailyDigestPricesSummary(
 			),
 		)
 		.join(separator);
+}
+
+function buildDailyDigestPricesHtml(
+	userAssets: UserAssetRow[],
+	assetPrices: AssetPriceMap,
+	formatPrefs: FormatPreferences,
+	sparklines?: SparklineMap,
+): string {
+	if (userAssets.length === 0) {
+		return "";
+	}
+	return userAssets
+		.map((asset) =>
+			formatDailyDigestPriceLineHtml(
+				asset,
+				assetPrices.get(asset.symbol),
+				formatPrefs,
+				sparklines?.get(asset.symbol),
+			),
+		)
+		.join("");
 }
 
 function addBlankLinesBetweenSymbolSections(content: string): string {
@@ -163,6 +214,13 @@ export function formatDailyDigestEmail(options: {
 		"\n",
 	);
 	const digestTickerBody = prices || tickersLine;
+	const pricesHtml =
+		buildDailyDigestPricesHtml(
+			options.userAssets,
+			options.assetPrices,
+			options.formatPrefs,
+			options.sparklines,
+		) || escapeHtml(tickersLine);
 
 	const sectionsText = [
 		"StockTextAlerts — Daily digest",
@@ -196,7 +254,7 @@ export function formatDailyDigestEmail(options: {
 	</div>
 	<div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
 		<h2 style="margin: 0 0 8px; font-size: 18px;">Your Assets</h2>
-		<pre style="white-space: pre-wrap; margin: 0 0 16px; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">${escapeHtml(digestTickerBody)}</pre>
+		<div style="margin: 0 0 16px; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">${pricesHtml}</div>
 		${renderEmailSection("🗞️", "News", news, { showGrokLogo: true, showFinnhubLogo: true })}
 		${renderEmailSection("🤫", "Rumors", rumors, { showGrokLogo: true })}
 		${renderEmailSection("📈", "Earnings", earnings)}

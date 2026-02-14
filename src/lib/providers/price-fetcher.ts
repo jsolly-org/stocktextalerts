@@ -86,8 +86,9 @@ export async function fetchSparklines(
 	if (symbols.length === 0) return result;
 
 	if (import.meta.env.MODE === "test") {
+		const stubValues = [1, 2, 3, 5, 7, 5, 3];
 		for (const s of symbols) {
-			result.set(s, "▁▂▃▅▇▅▃");
+			result.set(s, { values: stubValues, ascii: "▁▂▃▅▇▅▃" });
 		}
 		return result;
 	}
@@ -110,8 +111,8 @@ export async function fetchSparklines(
 				return;
 			}
 			const last7 = closes.slice(-7);
-			const sparkline = toSparkline(last7);
-			result.set(symbol, sparkline || null);
+			const ascii = toSparkline(last7);
+			result.set(symbol, ascii ? { values: last7, ascii } : null);
 		} catch {
 			result.set(symbol, null);
 		}
