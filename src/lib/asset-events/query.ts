@@ -31,12 +31,8 @@ export async function fetchAssetEventsUsers(options: {
 			daily_digest_time,
 			daily_digest_include_news_email,
 			daily_digest_include_rumors_email,
-			asset_events_include_earnings_email,
-			asset_events_include_earnings_sms,
-			asset_events_include_dividends_email,
-			asset_events_include_dividends_sms,
-			asset_events_include_splits_email,
-			asset_events_include_splits_sms,
+			asset_events_include_calendar_email,
+			asset_events_include_calendar_sms,
 			asset_events_include_ipo_email,
 			asset_events_include_ipo_sms,
 			asset_events_include_analyst_email,
@@ -51,7 +47,7 @@ export async function fetchAssetEventsUsers(options: {
 		`,
 			)
 			.or(
-				"asset_events_include_earnings_email.eq.true,asset_events_include_earnings_sms.eq.true,asset_events_include_dividends_email.eq.true,asset_events_include_dividends_sms.eq.true,asset_events_include_splits_email.eq.true,asset_events_include_splits_sms.eq.true,asset_events_include_ipo_email.eq.true,asset_events_include_ipo_sms.eq.true,asset_events_include_analyst_email.eq.true,asset_events_include_analyst_sms.eq.true,asset_events_include_insider_email.eq.true,asset_events_include_insider_sms.eq.true",
+				"asset_events_include_calendar_email.eq.true,asset_events_include_calendar_sms.eq.true,asset_events_include_ipo_email.eq.true,asset_events_include_ipo_sms.eq.true,asset_events_include_analyst_email.eq.true,asset_events_include_analyst_sms.eq.true,asset_events_include_insider_email.eq.true,asset_events_include_insider_sms.eq.true",
 			)
 			.or(
 				"email_notifications_enabled.eq.true,sms_notifications_enabled.eq.true",

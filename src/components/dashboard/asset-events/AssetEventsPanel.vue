@@ -280,26 +280,10 @@ Asset event type definitions — drives both the template loop and the ref map.
 ============= */
 const ASSET_EVENT_TYPES = [
 	{
-		key: "earnings" as const,
-		label: "Earnings",
+		key: "calendar" as const,
+		label: "Calendar Events",
 		description:
-			"Included in your daily delivery when an earnings report is scheduled in the next 3 days.",
-		polygon: true,
-		finnhub: false,
-	},
-	{
-		key: "dividends" as const,
-		label: "Dividends",
-		description:
-			"Included in your daily delivery when an ex-dividend date is within the next 3 days.",
-		polygon: true,
-		finnhub: false,
-	},
-	{
-		key: "splits" as const,
-		label: "Stock Splits",
-		description:
-			"Included in your daily delivery when a stock split is scheduled in the next 3 days.",
+			"Included in your daily delivery when earnings, ex-dividend dates, or stock splits are scheduled in the next 3 days.",
 		polygon: true,
 		finnhub: false,
 	},
@@ -333,9 +317,7 @@ type AssetEventKey = (typeof ASSET_EVENT_TYPES)[number]["key"];
 
 /** Per-type email/sms refs, keyed by event type. */
 const assetEventRefs: Record<AssetEventKey, { email: ReturnType<typeof ref<boolean>>; sms: ReturnType<typeof ref<boolean>> }> = {
-	earnings: { email: ref(user.value.asset_events_include_earnings_email), sms: ref(user.value.asset_events_include_earnings_sms) },
-	dividends: { email: ref(user.value.asset_events_include_dividends_email), sms: ref(user.value.asset_events_include_dividends_sms) },
-	splits: { email: ref(user.value.asset_events_include_splits_email), sms: ref(user.value.asset_events_include_splits_sms) },
+	calendar: { email: ref(user.value.asset_events_include_calendar_email), sms: ref(user.value.asset_events_include_calendar_sms) },
 	ipo: { email: ref(user.value.asset_events_include_ipo_email), sms: ref(user.value.asset_events_include_ipo_sms) },
 	analyst: { email: ref(user.value.asset_events_include_analyst_email), sms: ref(user.value.asset_events_include_analyst_sms) },
 	insider: { email: ref(user.value.asset_events_include_insider_email), sms: ref(user.value.asset_events_include_insider_sms) },
@@ -490,23 +472,11 @@ watch(
 			asset_events_next_send_at: newData.asset_events_next_send_at,
 			market_scheduled_asset_price_next_send_at: newData.market_scheduled_asset_price_next_send_at,
 			// Sync per-type asset events state from server response
-			...(newData.asset_events_include_earnings_email !== undefined && {
-				asset_events_include_earnings_email: newData.asset_events_include_earnings_email,
+			...(newData.asset_events_include_calendar_email !== undefined && {
+				asset_events_include_calendar_email: newData.asset_events_include_calendar_email,
 			}),
-			...(newData.asset_events_include_earnings_sms !== undefined && {
-				asset_events_include_earnings_sms: newData.asset_events_include_earnings_sms,
-			}),
-			...(newData.asset_events_include_dividends_email !== undefined && {
-				asset_events_include_dividends_email: newData.asset_events_include_dividends_email,
-			}),
-			...(newData.asset_events_include_dividends_sms !== undefined && {
-				asset_events_include_dividends_sms: newData.asset_events_include_dividends_sms,
-			}),
-			...(newData.asset_events_include_splits_email !== undefined && {
-				asset_events_include_splits_email: newData.asset_events_include_splits_email,
-			}),
-			...(newData.asset_events_include_splits_sms !== undefined && {
-				asset_events_include_splits_sms: newData.asset_events_include_splits_sms,
+			...(newData.asset_events_include_calendar_sms !== undefined && {
+				asset_events_include_calendar_sms: newData.asset_events_include_calendar_sms,
 			}),
 			...(newData.asset_events_include_ipo_email !== undefined && {
 				asset_events_include_ipo_email: newData.asset_events_include_ipo_email,

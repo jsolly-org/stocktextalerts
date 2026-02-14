@@ -147,12 +147,8 @@ function resolveGrokEligibility(
 	if (needsGrok && !grokAllowed) {
 		// Grok limit reached, but asset events bundled into daily can still proceed
 		const hasAnyAssetEventsOption =
-			user.asset_events_include_earnings_email ||
-			user.asset_events_include_earnings_sms ||
-			user.asset_events_include_dividends_email ||
-			user.asset_events_include_dividends_sms ||
-			user.asset_events_include_splits_email ||
-			user.asset_events_include_splits_sms ||
+			user.asset_events_include_calendar_email ||
+			user.asset_events_include_calendar_sms ||
 			user.asset_events_include_ipo_email ||
 			user.asset_events_include_ipo_sms ||
 			user.asset_events_include_analyst_email ||
@@ -269,12 +265,8 @@ export async function processDailyDigestUser(options: {
 			user.daily_digest_include_rumors_email;
 
 		const hasAnyAssetEventsOption =
-			user.asset_events_include_earnings_email ||
-			user.asset_events_include_earnings_sms ||
-			user.asset_events_include_dividends_email ||
-			user.asset_events_include_dividends_sms ||
-			user.asset_events_include_splits_email ||
-			user.asset_events_include_splits_sms ||
+			user.asset_events_include_calendar_email ||
+			user.asset_events_include_calendar_sms ||
 			user.asset_events_include_ipo_email ||
 			user.asset_events_include_ipo_sms ||
 			user.asset_events_include_analyst_email ||
@@ -499,17 +491,13 @@ export async function processDailyDigestUser(options: {
 		if (hasAnyAssetEventsOption) {
 			const wantsAssetEventsEmail =
 				emailEnabled &&
-				(user.asset_events_include_earnings_email ||
-					user.asset_events_include_dividends_email ||
-					user.asset_events_include_splits_email ||
+				(user.asset_events_include_calendar_email ||
 					user.asset_events_include_ipo_email ||
 					user.asset_events_include_analyst_email ||
 					user.asset_events_include_insider_email);
 			const wantsAssetEventsSms =
 				smsEnabled &&
-				(user.asset_events_include_earnings_sms ||
-					user.asset_events_include_dividends_sms ||
-					user.asset_events_include_splits_sms ||
+				(user.asset_events_include_calendar_sms ||
 					user.asset_events_include_ipo_sms ||
 					user.asset_events_include_analyst_sms ||
 					user.asset_events_include_insider_sms);

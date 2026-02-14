@@ -19,12 +19,8 @@ interface ParsedNotificationPreferencesForm {
 	daily_digest_include_rumors_email?: boolean;
 	market_scheduled_asset_price_include_email?: boolean;
 	market_scheduled_asset_price_include_sms?: boolean;
-	asset_events_include_earnings_email?: boolean;
-	asset_events_include_earnings_sms?: boolean;
-	asset_events_include_dividends_email?: boolean;
-	asset_events_include_dividends_sms?: boolean;
-	asset_events_include_splits_email?: boolean;
-	asset_events_include_splits_sms?: boolean;
+	asset_events_include_calendar_email?: boolean;
+	asset_events_include_calendar_sms?: boolean;
 	asset_events_include_ipo_email?: boolean;
 	asset_events_include_ipo_sms?: boolean;
 	asset_events_include_analyst_email?: boolean;
@@ -115,12 +111,8 @@ function computeAssetEventsNextSendAt(
 	assetEventsOptionsChanged: boolean,
 ): void {
 	const hasAnyAssetEventsOption = [
-		"asset_events_include_earnings_email",
-		"asset_events_include_earnings_sms",
-		"asset_events_include_dividends_email",
-		"asset_events_include_dividends_sms",
-		"asset_events_include_splits_email",
-		"asset_events_include_splits_sms",
+		"asset_events_include_calendar_email",
+		"asset_events_include_calendar_sms",
 		"asset_events_include_ipo_email",
 		"asset_events_include_ipo_sms",
 		"asset_events_include_analyst_email",
@@ -221,12 +213,8 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		"market_scheduled_asset_price_include_sms",
 		"daily_digest_include_news_email",
 		"daily_digest_include_rumors_email",
-		"asset_events_include_earnings_email",
-		"asset_events_include_earnings_sms",
-		"asset_events_include_dividends_email",
-		"asset_events_include_dividends_sms",
-		"asset_events_include_splits_email",
-		"asset_events_include_splits_sms",
+		"asset_events_include_calendar_email",
+		"asset_events_include_calendar_sms",
 		"asset_events_include_ipo_email",
 		"asset_events_include_ipo_sms",
 		"asset_events_include_analyst_email",
@@ -295,12 +283,8 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 			: dbUser.daily_digest_time;
 
 	const assetEventsOptionsChanged = [
-		"asset_events_include_earnings_email",
-		"asset_events_include_earnings_sms",
-		"asset_events_include_dividends_email",
-		"asset_events_include_dividends_sms",
-		"asset_events_include_splits_email",
-		"asset_events_include_splits_sms",
+		"asset_events_include_calendar_email",
+		"asset_events_include_calendar_sms",
 		"asset_events_include_ipo_email",
 		"asset_events_include_ipo_sms",
 		"asset_events_include_analyst_email",
@@ -399,12 +383,8 @@ export function computeTimezoneUpdatePayload(
 	}
 
 	const hasAnyAssetEvents =
-		dbUser.asset_events_include_earnings_email ||
-		dbUser.asset_events_include_earnings_sms ||
-		dbUser.asset_events_include_dividends_email ||
-		dbUser.asset_events_include_dividends_sms ||
-		dbUser.asset_events_include_splits_email ||
-		dbUser.asset_events_include_splits_sms ||
+		dbUser.asset_events_include_calendar_email ||
+		dbUser.asset_events_include_calendar_sms ||
 		dbUser.asset_events_include_ipo_email ||
 		dbUser.asset_events_include_ipo_sms ||
 		dbUser.asset_events_include_analyst_email ||
