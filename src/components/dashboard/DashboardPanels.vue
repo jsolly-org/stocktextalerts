@@ -1,5 +1,5 @@
 <template>
-	<DashboardCarousel>
+	<DashboardCarousel v-model:activeIndex="activeIndex">
 		<template #setup>
 			<form
 				ref="assetsFormElement"
@@ -24,7 +24,8 @@
 		</template>
 
 		<template #schedule>
-			<NotificationChannelsPanel
+			<AsyncNotificationChannelsPanel
+				v-if="shouldRender(1)"
 				v-model:emailEnabled="emailEnabled"
 				v-model:smsEnabled="smsEnabled"
 				:sms-phone-number="smsPhoneNumber"
@@ -32,7 +33,8 @@
 		</template>
 
 		<template #market-notifications>
-			<MarketNotificationsPanel
+			<AsyncMarketNotificationsPanel
+				v-if="shouldRender(4)"
 				:emailEnabled="emailEnabled"
 				:smsEnabled="smsEnabled"
 				:phoneVerified="phoneVerified"
@@ -40,7 +42,8 @@
 		</template>
 
 		<template #daily>
-			<DailyNotificationsPanel
+			<AsyncDailyNotificationsPanel
+				v-if="shouldRender(2)"
 				:initialAssets="currentAssets"
 				:emailEnabled="emailEnabled"
 				:smsEnabled="smsEnabled"
@@ -49,7 +52,8 @@
 		</template>
 
 		<template #asset-events>
-			<AssetEventsPanel
+			<AsyncAssetEventsPanel
+				v-if="shouldRender(3)"
 				:emailEnabled="emailEnabled"
 				:smsEnabled="smsEnabled"
 				:phoneVerified="phoneVerified"
@@ -59,20 +63,37 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, toRefs, watch } from "vue";
+import { useMediaQuery } from "@vueuse/core";
+import { computed, defineAsyncComponent, ref, toRefs, watch } from "vue";
 import {
 	DASHBOARD_ASSETS_FORM_ID,
 } from "../../lib/constants";
 import type { User } from "../../lib/db";
-import AssetEventsPanel from "./asset-events/AssetEventsPanel.vue";
 import type { InitialAsset } from "./assets/types";
 import WatchlistPanel from "./assets/WatchlistPanel.vue";
 import { useAutoSaveForm } from "./composables/useAutoSaveNotificationPreferences";
 import { provideDashboardUser } from "./composables/useDashboardUser";
 import DashboardCarousel from "./DashboardCarousel.vue";
-import DailyNotificationsPanel from "./daily-digest/DailyNotificationsPanel.vue";
-import MarketNotificationsPanel from "./market-notifications/MarketNotificationsPanel.vue";
-import NotificationChannelsPanel from "./notification-channels/NotificationChannelsPanel.vue";
+import PanelSkeleton from "./PanelSkeleton.vue";
+
+// Lazy-load panels 2-5 so mobile only fetches the chunk when the tab is visited.
+// On desktop all loaders fire immediately in parallel (shouldRender returns true for all).
+const AsyncNotificationChannelsPanel = defineAsyncComponent({
+	loader: () => import("./notification-channels/NotificationChannelsPanel.vue"),
+	loadingComponent: PanelSkeleton,
+});
+const AsyncDailyNotificationsPanel = defineAsyncComponent({
+	loader: () => import("./daily-digest/DailyNotificationsPanel.vue"),
+	loadingComponent: PanelSkeleton,
+});
+const AsyncAssetEventsPanel = defineAsyncComponent({
+	loader: () => import("./asset-events/AssetEventsPanel.vue"),
+	loadingComponent: PanelSkeleton,
+});
+const AsyncMarketNotificationsPanel = defineAsyncComponent({
+	loader: () => import("./market-notifications/MarketNotificationsPanel.vue"),
+	loadingComponent: PanelSkeleton,
+});
 
 interface Props {
 	user: User;
@@ -132,4 +153,21 @@ const {
 } = useAutoSaveForm({
 	formRef: assetsFormElement,
 });
+
+// --- Mobile lazy-loading ---
+const isMobile = useMediaQuery("(max-width: 767.99px)");
+const activeIndex = ref(0);
+const visitedIndices = ref(new Set<number>([0]));
+
+watch(activeIndex, (i) => visitedIndices.value.add(i));
+
+// When switching to desktop, mark all panels as visited so they stay mounted on resize back to mobile
+watch(isMobile, (mobile) => {
+	if (!mobile) for (let i = 0; i < 5; i++) visitedIndices.value.add(i);
+});
+
+function shouldRender(panelIndex: number): boolean {
+	if (!isMobile.value) return true;
+	return visitedIndices.value.has(panelIndex);
+}
 </script>

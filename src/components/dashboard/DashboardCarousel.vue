@@ -40,6 +40,7 @@
 
 <script lang="ts" setup>
 import { type Component, onMounted, onUnmounted, ref } from "vue";
+
 import BellAlertIcon from "../../icons/bell-alert.svg?component";
 import CalendarDaysIcon from "../../icons/calendar-days.svg?component";
 import ChartBarIcon from "../../icons/chart-bar.svg?component";
@@ -74,7 +75,7 @@ const HASH_TO_TAB_INDEX: Record<string, number> = {
 	daily_digest_time: 1,
 };
 
-const activeIndex = ref(0);
+const activeIndex = defineModel<number>('activeIndex', { default: 0 });
 const trackRef = ref<HTMLElement | null>(null);
 const cardRefs = ref<(HTMLElement | null)[]>([]);
 const prefersReducedMotion = ref(false);
