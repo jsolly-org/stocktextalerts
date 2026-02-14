@@ -43,6 +43,12 @@ export interface FinnhubExtrasData {
 	insider: Map<string, InsiderTransaction[]>;
 }
 
+/** Minimal quote fields used for digest price fallback. */
+export interface FinnhubQuote {
+	price: number;
+	changePercent: number;
+}
+
 /* =============
 Constants
 ============= */
@@ -328,6 +334,44 @@ export async function fetchInsiderTransactions(
 					: "",
 			transactionDate: item.transactionDate as string,
 		}));
+}
+
+/**
+ * Fetch a current quote for a ticker.
+ *
+ * Uses Finnhub `/quote` and returns `null` when price data is unavailable.
+ */
+export async function fetchQuote(symbol: string): Promise<FinnhubQuote | null> {
+	const data = await finnhubFetch("/quote", { symbol }, "quote");
+	if (typeof data !== "object" || data === null) return null;
+
+	const current = (data as Record<string, unknown>).c;
+	if (
+		typeof current !== "number" ||
+		!Number.isFinite(current) ||
+		current <= 0
+	) {
+		return null;
+	}
+
+	const dp = (data as Record<string, unknown>).dp;
+	if (typeof dp === "number" && Number.isFinite(dp)) {
+		return { price: current, changePercent: dp };
+	}
+
+	const prevClose = (data as Record<string, unknown>).pc;
+	if (
+		typeof prevClose === "number" &&
+		Number.isFinite(prevClose) &&
+		prevClose > 0
+	) {
+		return {
+			price: current,
+			changePercent: ((current - prevClose) / prevClose) * 100,
+		};
+	}
+
+	return null;
 }
 
 /* =============

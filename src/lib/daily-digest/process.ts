@@ -10,6 +10,7 @@ import type { UserRecord } from "../messaging/types";
 import {
 	buildNewsContextForGrok,
 	fetchFinnhubExtras,
+	fetchQuote,
 } from "../providers/finnhub";
 import type { GrokSectionResult } from "../providers/grok";
 import {
@@ -376,6 +377,52 @@ export async function processDailyDigestUser(options: {
 					missingCount: missingTickers.length,
 					missingTickers,
 				});
+			}
+
+			if (missingTickers.length > 0) {
+				try {
+					const fallbackQuotes = await Promise.all(
+						missingTickers.map(async (ticker) => ({
+							ticker,
+							quote: await fetchQuote(ticker),
+						})),
+					);
+					const recoveredTickers: string[] = [];
+					const stillMissingTickers: string[] = [];
+					for (const { ticker, quote } of fallbackQuotes) {
+						if (quote) {
+							assetPrices.set(ticker, quote);
+							recoveredTickers.push(ticker);
+						} else {
+							stillMissingTickers.push(ticker);
+						}
+					}
+
+					if (recoveredTickers.length > 0) {
+						logger.info("Recovered daily digest prices via Finnhub fallback", {
+							action: "daily_run",
+							userId: user.id,
+							recoveredCount: recoveredTickers.length,
+							recoveredTickers,
+						});
+					}
+					if (stillMissingTickers.length > 0) {
+						logger.warn("Finnhub fallback missing daily digest prices", {
+							action: "daily_run",
+							userId: user.id,
+							missingCount: stillMissingTickers.length,
+							missingTickers: stillMissingTickers,
+						});
+					}
+				} catch (error) {
+					logger.warn("Failed Finnhub fallback for daily digest prices", {
+						action: "daily_run",
+						userId: user.id,
+						missingCount: missingTickers.length,
+						missingTickers,
+						error: error instanceof Error ? error.message : String(error),
+					});
+				}
 			}
 		}
 

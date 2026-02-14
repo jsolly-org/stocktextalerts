@@ -117,6 +117,11 @@ function buildDailyDigestPricesSummary(
 		.join(separator);
 }
 
+function addBlankLinesBetweenSymbolSections(content: string): string {
+	if (!content) return content;
+	return content.replace(/\n(?=[A-Z][A-Z0-9.-]{0,9}:\s)/g, "\n\n");
+}
+
 /**
  * Format the daily digest payload for email delivery.
  *
@@ -141,7 +146,9 @@ export function formatDailyDigestEmail(options: {
 	);
 
 	const news = (options.extras.news ?? "").trim();
-	const rumors = (options.extras.rumors ?? "").trim();
+	const rumors = addBlankLinesBetweenSymbolSections(
+		(options.extras.rumors ?? "").trim(),
+	);
 
 	const ae = options.assetEvents;
 	const earnings = (ae?.eventsSection?.earnings ?? "").trim();

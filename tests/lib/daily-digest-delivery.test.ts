@@ -146,4 +146,28 @@ describe("Daily digest email prices", () => {
 		expect(message).toContain("AAPL — $187.42 (+1.23%)");
 		expect(message).toContain("MSFT — $412.10 (-0.31%)");
 	});
+
+	it("adds a blank line between rumor ticker sections", () => {
+		const assetPrices: AssetPriceMap = new Map([
+			["AAPL", { price: 187.42, changePercent: 1.23 }],
+		]);
+
+		const message = formatDailyDigestEmail({
+			user,
+			userAssets: [userAssets[0]],
+			assetPrices,
+			formatPrefs: defaultPrefs,
+			extras: {
+				...extras,
+				rumors: "AAPL: First rumor line\nMSFT: Second rumor line",
+			},
+		});
+
+		expect(message.text).toContain(
+			"🤫 Rumors\nAAPL: First rumor line\n\nMSFT: Second rumor line",
+		);
+		expect(message.html).toContain(
+			"AAPL: First rumor line\n\nMSFT: Second rumor line",
+		);
+	});
 });
