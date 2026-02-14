@@ -4,9 +4,9 @@
  *
  * Checks:
  * - Finnhub earnings calendar
- * - Massive dividends
- * - Massive splits
- * - Massive IPOs
+ * - Polygon dividends
+ * - Polygon splits
+ * - Polygon IPOs
  *
  * Usage:
  *   node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/one-off-tests/verify-asset-events.ts

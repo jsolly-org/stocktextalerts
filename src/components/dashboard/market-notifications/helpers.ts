@@ -32,6 +32,9 @@ export function useScheduledUpdateTiming(options: {
 		const tz = options.timezone.value;
 		const inputs = options.timeInputs.value;
 		if (tz === "" || inputs.length === 0) {
+			// Invalidate any in-flight request so stale responses can't overwrite cleared state.
+			const requestId = refreshRequestId.value + 1;
+			refreshRequestId.value = requestId;
 			adjustedNextSendAtIso.value = null;
 			delayReasons.value = [];
 			holidayName.value = null;
