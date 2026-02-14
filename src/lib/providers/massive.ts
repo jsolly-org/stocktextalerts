@@ -321,7 +321,7 @@ export async function fetchSplits(
  */
 export async function fetchIpos(from: string, to: string): Promise<IpoEvent[]> {
 	const data = await marketDataFetch(
-		"/vX/reference/ipos",
+		"/v3/reference/ipos",
 		{
 			"listing_date.gte": from,
 			"listing_date.lte": to,
