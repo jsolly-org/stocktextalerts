@@ -51,7 +51,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, watch } from "vue";
+import { nextTick, ref, watch } from "vue";
 
 import ClockIcon from "../../icons/clock.svg?component";
 import { CARD_GRADIENT_ACCENTS } from "../../lib/constants";
@@ -97,6 +97,7 @@ async function saveTimeFormat() {
 			statusTone.value = "error";
 			isReverting.value = true;
 			use24HourTime.value = !use24HourTime.value;
+			await nextTick();
 			isReverting.value = false;
 			return;
 		}
@@ -113,6 +114,7 @@ async function saveTimeFormat() {
 		statusTone.value = "error";
 		isReverting.value = true;
 		use24HourTime.value = !use24HourTime.value;
+		await nextTick();
 		isReverting.value = false;
 	} finally {
 		isSaving.value = false;
