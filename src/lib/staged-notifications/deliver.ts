@@ -67,7 +67,11 @@ export async function deliverStagedNotifications(options: {
 		smsFailed: 0,
 	};
 
-	// Track which user+type combos were delivered via staging so fallback can skip them
+	// Track which user+type combos were handled via staging so fallback can skip them.
+	//
+	// IMPORTANT: this must be updated immediately after a successful send (per channel)
+	// so that unexpected bookkeeping errors after a partial delivery cannot cause the
+	// fallback pipeline to re-send.
 	const deliveredUserTypes = new Set<string>();
 
 	// Purge stale rows first
@@ -217,11 +221,6 @@ export async function deliverStagedNotifications(options: {
 					stats,
 				});
 			}
-
-			// Mark as delivered for fallback-skipping when staging completes successfully.
-			// This is redundant with the per-channel marking inside deliverStagedMarket/Daily,
-			// but preserves the original behavior (skip fallback even when no channel sent).
-			deliveredUserTypes.add(`${row.user_id}:${row.notification_type}`);
 		} catch (error) {
 			logger.error(
 				"Error delivering staged notification",
