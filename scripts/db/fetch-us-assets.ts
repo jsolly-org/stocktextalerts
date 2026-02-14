@@ -26,7 +26,7 @@
  * Requires FINNHUB_API_KEY in .env.local (loaded via --env-file-if-exists).
  *
  * Usage:
- *   npx tsx scripts/manual/fetch-us-assets.ts
+ *   npx tsx scripts/db/fetch-us-assets.ts
  *   # or via package.json script:
  *   npm run db:fetch-assets
  */

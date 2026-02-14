@@ -29,12 +29,17 @@ export function markdownLinksToHtml(content: string): string {
 		/\[((?:[^[\]]+|\[[^\]]*\])+)\]\(((?:https?:\/\/)(?:[^\s()]+|\((?:[^\s()]+|\([^\s()]*\))*\))*)\)/g;
 	const parts: string[] = [];
 	let lastIndex = 0;
+	let prevWasLink = false;
 
 	for (const match of content.matchAll(MARKDOWN_LINK_RE)) {
 		// Escape the text before this link
 		const matchIndex = match.index ?? lastIndex;
 		if (matchIndex > lastIndex) {
 			parts.push(escapeHtml(content.slice(lastIndex, matchIndex)));
+			prevWasLink = false;
+		} else if (prevWasLink) {
+			// Insert a space between adjacent links so underlines don't merge.
+			parts.push(" ");
 		}
 		const linkText = escapeHtml(match[1]);
 		const url = escapeHtml(match[2]);
@@ -42,6 +47,7 @@ export function markdownLinksToHtml(content: string): string {
 			`<a href="${url}" style="${LINK_STYLE}" target="_blank" rel="noopener noreferrer">${linkText}</a>`,
 		);
 		lastIndex = matchIndex + match[0].length;
+		prevWasLink = true;
 	}
 
 	// Escape any remaining text after the last link
@@ -49,7 +55,10 @@ export function markdownLinksToHtml(content: string): string {
 		parts.push(escapeHtml(content.slice(lastIndex)));
 	}
 
-	return parts.join("");
+	// Convert markdown bold **text** to <strong>text</strong>.
+	// The `**` markers survive escapeHtml() unchanged, so this runs on the
+	// joined output after links and escaping are already resolved.
+	return parts.join("").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
 }
 
 /**
