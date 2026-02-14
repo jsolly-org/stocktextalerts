@@ -1,8 +1,8 @@
-name: Post-Merge
+name: Post Main Push
 
 on:
-  pull_request:
-    types: [closed]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -15,7 +15,7 @@ env:
 
 jobs:
   create-issues:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login == 'jsolly') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.actor == 'jsolly' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -48,18 +48,15 @@ jobs:
           - Repo: ${{ github.repository }}
           - Owner: ${{ github.repository_owner }}
           - Trigger: ${{ github.event_name }}
-          - PR Number: ${{ github.event.pull_request.number }}
-          - Base Ref: ${{ github.event.pull_request.base.ref }}
-          - Head Ref: ${{ github.event.pull_request.head.ref }}
-          - Base SHA: ${{ github.event.pull_request.base.sha }}
-          - Head SHA: ${{ github.event.pull_request.head.sha }}
-          - Merge Commit SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          - Before SHA: ${{ github.event.before }}
+          - After SHA: ${{ github.sha }}
+          - Actor: ${{ github.actor }}
 
           # Goal:
-          Create high-quality follow-up GitHub issues inspired by the merged PR. Quality over quantity — zero issues is perfectly fine.
+          Create high-quality follow-up GitHub issues inspired by the changes just pushed to main. Quality over quantity — zero issues is perfectly fine.
 
-          # Phase 1 — Understand the PR:
-          - If Trigger is \`pull_request\`: run \`gh pr view \$PR_NUMBER --json title,body,labels\` and \`gh pr diff \$PR_NUMBER\` (where PR_NUMBER=${{ github.event.pull_request.number }}) to understand what changed.
+          # Phase 1 — Understand the changes:
+          - If Trigger is \`push\`: run \`git log ${{ github.event.before }}..${{ github.sha }} --format='%H %s'\` and \`git diff ${{ github.event.before }}..${{ github.sha }}\` to understand what changed. Also try to find an associated merged PR: \`gh pr list --search '${{ github.sha }}' --state merged --json number,title,url --limit 1\`.
           - If Trigger is \`workflow_dispatch\`: review the latest 3 commits on \`main\` using \`git log -3 --format='%H %s'\` and \`git diff HEAD~3..HEAD\` to understand recent changes.
 
           # Phase 2 — Check existing issues:
@@ -69,9 +66,9 @@ jobs:
 
           # Phase 3 — Brainstorm and filter:
           Consider these categories:
-          - Follow-up features that naturally extend the PR's work
+          - Follow-up features that naturally extend the pushed changes
           - Edge cases or error handling gaps revealed by the diff
-          - UX improvements for any UI changes in the PR
+          - UX improvements for any UI changes
           - Missing or insufficient test coverage
           - Performance or security considerations
 
@@ -79,7 +76,7 @@ jobs:
           - Would a senior developer consider this issue worth filing? If not, skip it.
           - Is the issue specific and actionable (not vague like 'improve performance')? If not, skip it.
           - Does a similar open or recently closed issue already exist? If so, skip it.
-          - Is this something the PR author likely already considered and intentionally left out? If so, skip it.
+          - Is this something the author likely already considered and intentionally left out? If so, skip it.
           - Is this a trivial nitpick or stylistic preference? If so, skip it.
 
           # Phase 4 — Create issues:
@@ -98,10 +95,10 @@ jobs:
              - <specific requirement 2>
 
              ## Motivation
-             <why this matters, referencing the PR context>
+             <why this matters, referencing the change context>
 
              ---
-             *Auto-generated from PR #${{ github.event.pull_request.number }} by the create-issues workflow.*\"
+             *Auto-generated from push ${{ github.sha }} by the create-issues workflow.*\"
              \`\`\`
 
           # Strict rules:
@@ -126,7 +123,7 @@ jobs:
           echo "---"
 
   update-docs:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login == 'jsolly') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.actor == 'jsolly' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -159,12 +156,9 @@ jobs:
           - Repo: ${{ github.repository }}
           - Owner: ${{ github.repository_owner }}
           - Trigger: ${{ github.event_name }}
-          - PR Number: ${{ github.event.pull_request.number }}
-          - Base Ref: ${{ github.event.pull_request.base.ref }}
-          - Head Ref: ${{ github.event.pull_request.head.ref }}
-          - Base SHA: ${{ github.event.pull_request.base.sha }}
-          - Head SHA: ${{ github.event.pull_request.head.sha }}
-          - Merge Commit SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          - Before SHA: ${{ github.event.before }}
+          - After SHA: ${{ github.sha }}
+          - Actor: ${{ github.actor }}
 
           # Goal:
           - Update docs on \`main\`, then commit + push directly to \`main\` (no follow-up PR).
@@ -175,8 +169,8 @@ jobs:
           - \`src/components/landing/HowItWorks.astro\` — \"How it works\" section (steps in the \`steps\` array and section copy)
 
           # Requirements:
-          1) If Trigger is \`pull_request\` (PR Number and SHAs are set): determine what changed in the merged PR using \`gh pr diff <PR_NUMBER>\` or \`git diff <BASE_SHA> <HEAD_SHA>\` (PR-level diff; do NOT use merge-commit-vs-parent). Update the allowed files if the PR changes warrant it.
-          2) If Trigger is \`workflow_dispatch\` (manual run; PR Number/SHAs may be empty): review the current state of the codebase on \`main\` and update the allowed files to accurately reflect it.
+          1) If Trigger is \`push\` (Before SHA and After SHA are set): determine what changed using \`git diff ${{ github.event.before }}..${{ github.sha }}\` or \`git log ${{ github.event.before }}..${{ github.sha }} --format='%H %s'\`. Update the allowed files if the changes warrant it.
+          2) If Trigger is \`workflow_dispatch\` (manual run; SHAs may be empty): review the current state of the codebase on \`main\` and update the allowed files to accurately reflect it.
           3) Only modify the allowed files listed above. Do NOT touch any other files.
           4) For \`src/pages/faq.astro\`: only update the \`faqs\` array entries and surrounding page copy. Do NOT change the component imports, layout structure, JSON-LD logic, or Tailwind classes.
           5) For \`src/components/landing/HowItWorks.astro\`: only update the \`steps\` array entries and surrounding section copy. Do NOT change the component imports, template structure, or Tailwind classes.
@@ -191,7 +185,7 @@ jobs:
           - You are checked out on \`main\`. After making changes, run \`git status --porcelain\` to confirm only allowed files changed.
           - If any allowed files changed, run:
             - \`git add README.md src/pages/faq.astro src/components/landing/HowItWorks.astro\`
-            - \`git commit -m \"docs: update docs for PR #${{ github.event.pull_request.number }}\" \` when Trigger is \`pull_request\`, or \`git commit -m \"docs: update docs (manual trigger)\" \` when Trigger is \`workflow_dispatch\`
+            - \`git commit -m \"docs: update docs for ${{ github.sha }}\" \` when Trigger is \`push\`, or \`git commit -m \"docs: update docs (manual trigger)\" \` when Trigger is \`workflow_dispatch\`
             - \`git push origin main\`
 
           # Deliverables when updates occur:
