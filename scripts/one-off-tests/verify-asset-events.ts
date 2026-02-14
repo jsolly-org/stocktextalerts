@@ -175,7 +175,7 @@ async function main(): Promise<void> {
 		}),
 		checkMassiveEndpoint({
 			name: "massive:ipos",
-			path: "/vX/reference/ipos",
+			path: "/v3/reference/ipos",
 			apiKey: massiveKey,
 			params: {
 				"listing_date.gte": from,
