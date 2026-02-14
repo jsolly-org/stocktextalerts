@@ -114,6 +114,8 @@ function buildSavedNotificationPreferences(
 		asset_events_include_dividends_sms: sourceUser.asset_events_include_dividends_sms,
 		asset_events_include_splits_email: sourceUser.asset_events_include_splits_email,
 		asset_events_include_splits_sms: sourceUser.asset_events_include_splits_sms,
+		asset_events_include_ipo_email: sourceUser.asset_events_include_ipo_email,
+		asset_events_include_ipo_sms: sourceUser.asset_events_include_ipo_sms,
 		asset_events_include_analyst_email: sourceUser.asset_events_include_analyst_email,
 		asset_events_include_analyst_sms: sourceUser.asset_events_include_analyst_sms,
 		asset_events_include_insider_email: sourceUser.asset_events_include_insider_email,

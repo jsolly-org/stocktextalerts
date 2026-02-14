@@ -25,6 +25,8 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	asset_events_include_dividends_sms: { type: "boolean" },
 	asset_events_include_splits_email: { type: "boolean" },
 	asset_events_include_splits_sms: { type: "boolean" },
+	asset_events_include_ipo_email: { type: "boolean" },
+	asset_events_include_ipo_sms: { type: "boolean" },
 	asset_events_include_analyst_email: { type: "boolean" },
 	asset_events_include_analyst_sms: { type: "boolean" },
 	asset_events_include_insider_email: { type: "boolean" },
@@ -222,6 +224,9 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 					updatedUser.asset_events_include_splits_email,
 				asset_events_include_splits_sms:
 					updatedUser.asset_events_include_splits_sms,
+				asset_events_include_ipo_email:
+					updatedUser.asset_events_include_ipo_email,
+				asset_events_include_ipo_sms: updatedUser.asset_events_include_ipo_sms,
 				asset_events_include_analyst_email:
 					updatedUser.asset_events_include_analyst_email,
 				asset_events_include_analyst_sms:

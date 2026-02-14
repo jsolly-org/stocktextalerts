@@ -25,6 +25,8 @@ export type NotificationPreferencesData = {
 	asset_events_include_dividends_sms: boolean;
 	asset_events_include_splits_email: boolean;
 	asset_events_include_splits_sms: boolean;
+	asset_events_include_ipo_email: boolean;
+	asset_events_include_ipo_sms: boolean;
 	asset_events_include_analyst_email: boolean;
 	asset_events_include_analyst_sms: boolean;
 	asset_events_include_insider_email: boolean;

@@ -1,8 +1,10 @@
 import type { FormatPreferences } from "./types";
 
+/** Price quote subset required for rendering asset lines. */
 export type AssetPrice = { price: number; changePercent: number };
 type AssetWithName = { symbol: string; name: string };
 
+/** User-facing fallback shown when no assets are tracked. */
 export const NO_TRACKED_ASSETS_MESSAGE = "You don't have any tracked assets";
 
 /**
@@ -19,22 +21,21 @@ export function escapeHtml(value: string): string {
 
 function formatAssetBaseText(
 	asset: AssetWithName,
-	formatPrefs: FormatPreferences,
+	_formatPrefs: FormatPreferences,
 ): string {
-	return formatPrefs.show_company_name
-		? `${asset.symbol} - ${asset.name}`
-		: asset.symbol;
+	return asset.symbol;
 }
 
 function formatAssetPriceText(
 	price: AssetPrice,
-	showChangePercent: boolean,
+	sparkline?: string | null,
 ): string {
-	if (!showChangePercent) {
-		return `$${price.price.toFixed(2)}`;
-	}
 	const sign = price.changePercent >= 0 ? "+" : "";
-	return `$${price.price.toFixed(2)} (${sign}${price.changePercent.toFixed(2)}%)`;
+	const base = `$${price.price.toFixed(2)} (${sign}${price.changePercent.toFixed(2)}%)`;
+	if (sparkline) {
+		return `${base} ${sparkline}`;
+	}
+	return base;
 }
 
 /**
@@ -44,12 +45,14 @@ export function formatAssetTextLine(
 	asset: AssetWithName,
 	price: AssetPrice | undefined,
 	formatPrefs: FormatPreferences,
+	sparkline?: string | null,
 ): string {
 	const base = formatAssetBaseText(asset, formatPrefs);
 	if (!price) {
 		return base;
 	}
-	return `${base} — ${formatAssetPriceText(price, formatPrefs.show_change_percent)}`;
+	const effectiveSparkline = formatPrefs.show_sparklines ? sparkline : null;
+	return `${base} — ${formatAssetPriceText(price, effectiveSparkline)}`;
 }
 
 function getChangeColor(changePercent: number): string {
@@ -60,25 +63,25 @@ function formatAssetHtmlLine(
 	asset: AssetWithName,
 	price: AssetPrice | undefined,
 	formatPrefs: FormatPreferences,
+	sparkline?: string | null,
 ): string {
-	const assetInfo = formatPrefs.show_company_name
-		? escapeHtml(`${asset.symbol} - ${asset.name}`)
-		: escapeHtml(asset.symbol);
+	const assetInfo = escapeHtml(asset.symbol);
 
 	if (!price) {
 		return assetInfo;
 	}
 
 	const priceStr = escapeHtml(`$${price.price.toFixed(2)}`);
+	const sign = price.changePercent >= 0 ? "+" : "";
+	const color = getChangeColor(price.changePercent);
+	const changeStr = escapeHtml(`(${sign}${price.changePercent.toFixed(2)}%)`);
 
-	if (formatPrefs.show_change_percent) {
-		const sign = price.changePercent >= 0 ? "+" : "";
-		const color = getChangeColor(price.changePercent);
-		const changeStr = escapeHtml(`(${sign}${price.changePercent.toFixed(2)}%)`);
-		return `${assetInfo} &mdash; ${priceStr} <span style="color: ${color};">${changeStr}</span>`;
-	}
+	const effectiveSparkline = formatPrefs.show_sparklines ? sparkline : null;
+	const sparklineHtml = effectiveSparkline
+		? ` <span style="letter-spacing:1px">${escapeHtml(effectiveSparkline)}</span>`
+		: "";
 
-	return `${assetInfo} &mdash; ${priceStr}`;
+	return `${assetInfo} &mdash; ${priceStr} <span style="color: ${color};">${changeStr}</span>${sparklineHtml}`;
 }
 
 /**
@@ -88,17 +91,22 @@ export function formatAssetsTextList(
 	assets: AssetWithName[],
 	getPrice: (symbol: string) => AssetPrice | undefined,
 	formatPrefs: FormatPreferences,
+	getSparkline?: (symbol: string) => string | null | undefined,
 ): string {
 	if (assets.length === 0) {
 		return NO_TRACKED_ASSETS_MESSAGE;
 	}
 
-	const separator = formatPrefs.detailed_format ? "\n\n" : "\n";
 	return assets
 		.map((asset) =>
-			formatAssetTextLine(asset, getPrice(asset.symbol), formatPrefs),
+			formatAssetTextLine(
+				asset,
+				getPrice(asset.symbol),
+				formatPrefs,
+				getSparkline?.(asset.symbol),
+			),
 		)
-		.join(separator);
+		.join("\n\n");
 }
 
 /**
@@ -108,15 +116,20 @@ export function formatAssetsHtmlList(
 	assets: AssetWithName[],
 	getPrice: (symbol: string) => AssetPrice | undefined,
 	formatPrefs: FormatPreferences,
+	getSparkline?: (symbol: string) => string | null | undefined,
 ): string {
 	if (assets.length === 0) {
 		return escapeHtml(NO_TRACKED_ASSETS_MESSAGE);
 	}
 
-	const joinStr = formatPrefs.detailed_format ? "<br><br>" : "<br>";
 	return assets
 		.map((asset) =>
-			formatAssetHtmlLine(asset, getPrice(asset.symbol), formatPrefs),
+			formatAssetHtmlLine(
+				asset,
+				getPrice(asset.symbol),
+				formatPrefs,
+				getSparkline?.(asset.symbol),
+			),
 		)
-		.join(joinStr);
+		.join("<br>");
 }

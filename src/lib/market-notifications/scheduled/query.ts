@@ -46,6 +46,8 @@ export async function fetchMarketScheduledUsers(options: {
 			asset_events_include_dividends_sms,
 			asset_events_include_splits_email,
 			asset_events_include_splits_sms,
+			asset_events_include_ipo_email,
+			asset_events_include_ipo_sms,
 			asset_events_include_analyst_email,
 			asset_events_include_analyst_sms,
 			asset_events_include_insider_email,
@@ -55,9 +57,7 @@ export async function fetchMarketScheduledUsers(options: {
 			last_grok_rumors_at,
 			grok_window_start,
 			grok_sends_in_window,
-			show_change_percent,
-			show_company_name,
-			detailed_format
+			show_sparklines
 		`,
 			)
 			.eq("market_scheduled_asset_price_enabled", true)

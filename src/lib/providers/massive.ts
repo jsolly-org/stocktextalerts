@@ -1,4 +1,5 @@
 import { rootLogger } from "../logging";
+import { finnhubFetch } from "./finnhub";
 
 /** Delivery channel used to tune formatting verbosity. */
 export type DeliveryChannel = "sms" | "email";
@@ -7,7 +8,8 @@ export type DeliveryChannel = "sms" | "email";
 Types
 ============= */
 
-export interface PolygonEarningsEvent {
+/** Massive/Finnhub earnings calendar event (normalized). */
+export interface EarningsEvent {
 	ticker: string;
 	date: string; // YYYY-MM-DD
 	time: string | null; // UTC 24h format
@@ -15,7 +17,8 @@ export interface PolygonEarningsEvent {
 	revenueEstimate: number | null;
 }
 
-export interface PolygonDividendEvent {
+/** Massive dividend reference event (normalized). */
+export interface DividendEvent {
 	ticker: string;
 	exDividendDate: string; // YYYY-MM-DD
 	cashAmount: number;
@@ -24,7 +27,8 @@ export interface PolygonDividendEvent {
 	frequency: number | null; // 1=annual, 2=semi, 4=quarterly, 12=monthly
 }
 
-export interface PolygonSplitEvent {
+/** Massive split reference event (normalized). */
+export interface SplitEvent {
 	ticker: string;
 	executionDate: string; // YYYY-MM-DD
 	splitFrom: number; // e.g. 1
@@ -32,11 +36,19 @@ export interface PolygonSplitEvent {
 	adjustmentType: string; // forward_split, reverse_split, stock_dividend
 }
 
+/** Massive IPO reference event (normalized). */
+export interface IpoEvent {
+	ticker: string;
+	listingDate: string; // YYYY-MM-DD
+	issuerName: string | null;
+	securityType: string | null;
+}
+
 /* =============
 Constants
 ============= */
 
-const POLYGON_BASE_URL = "https://api.polygon.io";
+const MASSIVE_BASE_URL = "https://api.massive.com";
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2_000;
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -45,8 +57,8 @@ const REQUEST_TIMEOUT_MS = 10_000;
 Helpers
 ============= */
 
-function getPolygonApiKey(): string {
-	return import.meta.env.POLYGON_API_KEY ?? "";
+function getMassiveApiKey(): string {
+	return import.meta.env.MASSIVE_API_KEY ?? "";
 }
 
 function computeRetryDelayMs(
@@ -71,20 +83,20 @@ function parseRetryAfterMs(headerValue: string | null): number | null {
 }
 
 /**
- * Low-level Polygon fetch wrapper with retries, rate-limit handling, and timeouts.
+ * Low-level Massive fetch wrapper with retries, rate-limit handling, and timeouts.
  *
  * Returns `null` when the API key is missing or the request ultimately fails.
  */
-export async function polygonFetch(
+export async function marketDataFetch(
 	endpoint: string,
 	params: Record<string, string>,
 	label: string,
 ): Promise<unknown> {
-	const apiKey = getPolygonApiKey();
+	const apiKey = getMassiveApiKey();
 	if (!apiKey) return null;
 
 	const query = new URLSearchParams({ ...params, apiKey });
-	const url = `${POLYGON_BASE_URL}${endpoint}?${query.toString()}`;
+	const url = `${MASSIVE_BASE_URL}${endpoint}?${query.toString()}`;
 
 	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
 		const isLastAttempt = attempt === MAX_RETRIES;
@@ -101,7 +113,7 @@ export async function polygonFetch(
 				const retryAfterMs = parseRetryAfterMs(
 					response.headers.get("Retry-After"),
 				);
-				log(`Polygon ${label} rate limited (429)`, {
+				log(`Massive ${label} rate limited (429)`, {
 					endpoint,
 					attempt,
 					status: 429,
@@ -116,10 +128,20 @@ export async function polygonFetch(
 			}
 
 			if (!response.ok) {
-				log(`Polygon ${label} API error`, {
+				let apiStatus: string | null = null;
+				try {
+					const payload = (await response.json()) as Record<string, unknown>;
+					apiStatus =
+						typeof payload.status === "string" ? payload.status : null;
+				} catch {
+					// Ignore malformed/non-JSON error bodies.
+				}
+
+				log(`Massive ${label} API error`, {
 					endpoint,
 					attempt,
 					status: response.status,
+					apiStatus,
 				});
 				if (!isLastAttempt) {
 					await new Promise((r) =>
@@ -132,7 +154,7 @@ export async function polygonFetch(
 
 			return await response.json();
 		} catch (error) {
-			log(`Polygon ${label} request failed`, {
+			log(`Massive ${label} request failed`, {
 				endpoint,
 				attempt,
 				error: error instanceof Error ? error.message : String(error),
@@ -150,6 +172,51 @@ export async function polygonFetch(
 	return null;
 }
 
+async function fetchFinnhubEarnings(
+	from: string,
+	to: string,
+): Promise<EarningsEvent[]> {
+	const toNumberOrNull = (value: unknown): number | null =>
+		typeof value === "number" && Number.isFinite(value) ? value : null;
+	const toStringOrNull = (value: unknown): string | null =>
+		typeof value === "string" && value.trim() !== "" ? value : null;
+
+	const data = await finnhubFetch(
+		"/calendar/earnings",
+		{ from, to },
+		"earnings-calendar",
+	);
+	if (typeof data !== "object" || data === null) return [];
+
+	const raw = (data as Record<string, unknown>).earningsCalendar;
+	if (!Array.isArray(raw)) return [];
+
+	const events: EarningsEvent[] = [];
+	const seen = new Set<string>();
+	for (const item of raw) {
+		if (typeof item !== "object" || item === null) continue;
+		const row = item as Record<string, unknown>;
+		const ticker = toStringOrNull(row.symbol);
+		const dateRaw = toStringOrNull(row.date);
+		if (!ticker || !dateRaw) continue;
+
+		const date = dateRaw.slice(0, 10);
+		const key = `${ticker}|${date}`;
+		if (seen.has(key)) continue;
+		seen.add(key);
+
+		events.push({
+			ticker,
+			date,
+			time: toStringOrNull(row.hour),
+			epsEstimate: toNumberOrNull(row.epsEstimate),
+			revenueEstimate: toNumberOrNull(row.revenueEstimate),
+		});
+	}
+
+	return events;
+}
+
 /* =============
 Fetchers
 ============= */
@@ -157,160 +224,22 @@ Fetchers
 /**
  * Fetch all earnings events for a date range (market-wide).
  */
-export async function fetchPolygonEarnings(
+export async function fetchEarnings(
 	from: string,
 	to: string,
-): Promise<PolygonEarningsEvent[]> {
-	// Polygon does not provide earnings on the core reference API; use a documented partner endpoint.
-	// Benzinga earnings calendar response fields vary by plan — parse defensively and paginate when possible.
-	const PAGE_SIZE = 100;
-	const MAX_PAGES = 25;
-
-	const toNumberOrNull = (value: unknown): number | null => {
-		if (typeof value === "number" && Number.isFinite(value)) return value;
-		if (typeof value === "string" && value.trim() !== "") {
-			const parsed = Number(value);
-			return Number.isFinite(parsed) ? parsed : null;
-		}
-		return null;
-	};
-	const toStringOrNull = (value: unknown): string | null =>
-		typeof value === "string" && value.trim() !== "" ? value : null;
-
-	const parseNextUrl = (
-		nextUrl: string,
-	): { endpoint: string; params: Record<string, string> } | null => {
-		try {
-			// Polygon typically returns absolute URLs, but handle relative too.
-			const u = new URL(nextUrl, POLYGON_BASE_URL);
-			const params: Record<string, string> = {};
-			for (const [k, v] of u.searchParams.entries()) {
-				if (k === "apiKey") continue;
-				params[k] = v;
-			}
-			return { endpoint: u.pathname, params };
-		} catch {
-			return null;
-		}
-	};
-
-	const events: PolygonEarningsEvent[] = [];
-	const seen = new Set<string>();
-
-	let endpoint = "/benzinga/v1/earnings";
-	let params: Record<string, string> = {
-		date_from: from,
-		date_to: to,
-		pagesize: String(PAGE_SIZE),
-		page: "1",
-	};
-
-	for (let pageCount = 0; pageCount < MAX_PAGES; pageCount++) {
-		const data = await polygonFetch(endpoint, params, "earnings");
-		if (typeof data !== "object" || data === null) break;
-
-		const obj = data as Record<string, unknown>;
-		const raw =
-			(Array.isArray(obj.results) && obj.results) ||
-			(Array.isArray(obj.earnings) && obj.earnings) ||
-			(Array.isArray(obj.data) && obj.data) ||
-			(Array.isArray(data) ? (data as unknown[]) : null);
-		if (!raw) break;
-
-		for (const item of raw) {
-			if (typeof item !== "object" || item === null) continue;
-			const row = item as Record<string, unknown>;
-
-			const ticker = toStringOrNull(row.ticker) ?? toStringOrNull(row.symbol);
-			const dateRaw =
-				toStringOrNull(row.date) ??
-				toStringOrNull(row.earnings_date) ??
-				toStringOrNull(row.report_date) ??
-				toStringOrNull(row.fiscal_date);
-			if (!ticker || !dateRaw) continue;
-
-			const date = dateRaw.slice(0, 10); // normalize YYYY-MM-DD when timestamps appear
-			const time =
-				toStringOrNull(row.time) ??
-				toStringOrNull(row.hour) ??
-				toStringOrNull(row.session);
-
-			const epsEstimate =
-				toNumberOrNull(row.eps_estimate) ??
-				toNumberOrNull(row.eps_est) ??
-				toNumberOrNull(row.epsEstimate) ??
-				(typeof row.eps === "object" && row.eps !== null
-					? (toNumberOrNull((row.eps as Record<string, unknown>).estimate) ??
-						toNumberOrNull((row.eps as Record<string, unknown>).estimated))
-					: null);
-			const revenueEstimate =
-				toNumberOrNull(row.revenue_estimate) ??
-				toNumberOrNull(row.revenue_est) ??
-				toNumberOrNull(row.revenueEstimate) ??
-				(typeof row.revenue === "object" && row.revenue !== null
-					? (toNumberOrNull(
-							(row.revenue as Record<string, unknown>).estimate,
-						) ??
-						toNumberOrNull((row.revenue as Record<string, unknown>).estimated))
-					: null);
-
-			const key = `${ticker}|${date}`;
-			if (seen.has(key)) continue;
-			seen.add(key);
-
-			events.push({
-				ticker,
-				date,
-				time,
-				epsEstimate,
-				revenueEstimate,
-			});
-		}
-
-		const nextUrl = toStringOrNull(obj.next_url);
-		if (nextUrl) {
-			const parsed = parseNextUrl(nextUrl);
-			if (parsed) {
-				endpoint = parsed.endpoint;
-				params = parsed.params;
-				continue;
-			}
-		}
-
-		const nextPageRaw = obj.next_page;
-		const nextPage =
-			typeof nextPageRaw === "number" && Number.isFinite(nextPageRaw)
-				? String(nextPageRaw)
-				: toStringOrNull(nextPageRaw);
-		if (nextPage) {
-			params = { ...params, page: nextPage };
-			continue;
-		}
-
-		// Fallback: if we received a full page, assume there might be more.
-		if (raw.length >= PAGE_SIZE) {
-			const currentPage = Number(params.page ?? "1");
-			params = {
-				...params,
-				page: Number.isFinite(currentPage) ? String(currentPage + 1) : "2",
-			};
-			continue;
-		}
-
-		break;
-	}
-
-	return events;
+): Promise<EarningsEvent[]> {
+	// Use Finnhub as the canonical earnings feed to avoid partner entitlement issues on Massive.
+	return fetchFinnhubEarnings(from, to);
 }
 
 /**
  * Fetch all ex-dividend events for a date range (market-wide).
  */
-export async function fetchPolygonDividends(
+export async function fetchDividends(
 	from: string,
 	to: string,
-): Promise<PolygonDividendEvent[]> {
-	const data = await polygonFetch(
+): Promise<DividendEvent[]> {
+	const data = await marketDataFetch(
 		"/v3/reference/dividends",
 		{
 			"ex_dividend_date.gte": from,
@@ -347,11 +276,11 @@ export async function fetchPolygonDividends(
 /**
  * Fetch all stock splits for a date range (market-wide).
  */
-export async function fetchPolygonSplits(
+export async function fetchSplits(
 	from: string,
 	to: string,
-): Promise<PolygonSplitEvent[]> {
-	const data = await polygonFetch(
+): Promise<SplitEvent[]> {
+	const data = await marketDataFetch(
 		"/v3/reference/splits",
 		{
 			"execution_date.gte": from,
@@ -387,14 +316,87 @@ export async function fetchPolygonSplits(
 		}));
 }
 
+/**
+ * Fetch upcoming IPO events for a date range (market-wide).
+ */
+export async function fetchIpos(from: string, to: string): Promise<IpoEvent[]> {
+	const data = await marketDataFetch(
+		"/v3/reference/ipos",
+		{
+			"listing_date.gte": from,
+			"listing_date.lte": to,
+			limit: "1000",
+		},
+		"ipos",
+	);
+	if (typeof data !== "object" || data === null) return [];
+
+	const results = (data as Record<string, unknown>).results;
+	if (!Array.isArray(results)) return [];
+
+	return results
+		.filter(
+			(item: unknown) =>
+				typeof item === "object" &&
+				item !== null &&
+				typeof (item as Record<string, unknown>).ticker === "string" &&
+				typeof (item as Record<string, unknown>).listing_date === "string",
+		)
+		.map((item: Record<string, unknown>) => ({
+			ticker: item.ticker as string,
+			listingDate: item.listing_date as string,
+			issuerName:
+				typeof item.issuer_name === "string" ? item.issuer_name : null,
+			securityType:
+				typeof item.security_type === "string" ? item.security_type : null,
+		}));
+}
+
+/* =============
+Daily Aggregates
+============= */
+
+/**
+ * Fetch daily closing prices for a single symbol over a date range.
+ *
+ * Uses `/v2/aggs/ticker/{symbol}/range/1/day/{from}/{to}?sort=asc&limit=10`.
+ * Returns an array of closing prices, or null on failure.
+ */
+export async function fetchDailyCloses(
+	symbol: string,
+	from: string,
+	to: string,
+): Promise<number[] | null> {
+	const data = await marketDataFetch(
+		`/v2/aggs/ticker/${encodeURIComponent(symbol)}/range/1/day/${from}/${to}`,
+		{ sort: "asc", limit: "10" },
+		"daily-closes",
+	);
+	if (typeof data !== "object" || data === null) return null;
+
+	const results = (data as Record<string, unknown>).results;
+	if (!Array.isArray(results)) return null;
+
+	const closes: number[] = [];
+	for (const bar of results) {
+		if (typeof bar !== "object" || bar === null) continue;
+		const c = (bar as Record<string, unknown>).c;
+		if (typeof c === "number" && Number.isFinite(c)) {
+			closes.push(c);
+		}
+	}
+
+	return closes.length > 0 ? closes : null;
+}
+
 /* =============
 Snapshot Quotes
 ============= */
 
 /**
- * Snapshot ticker shape from Polygon `/v2/snapshot/locale/us/markets/stocks/tickers`.
+ * Snapshot ticker shape from Massive `/v2/snapshot/locale/us/markets/stocks/tickers`.
  */
-interface PolygonSnapshotTicker {
+interface SnapshotTicker {
 	ticker: string;
 	todaysChangePerc?: number;
 	updated?: number; // nanoseconds
@@ -410,7 +412,8 @@ interface PolygonSnapshotTicker {
 	};
 }
 
-export interface PolygonSnapshotQuote {
+/** Normalized quote fields extracted from Massive's snapshot endpoint. */
+export interface SnapshotQuote {
 	price: number;
 	changePercent: number;
 	dayHigh: number | null;
@@ -421,9 +424,7 @@ export interface PolygonSnapshotQuote {
 	volume: number | null;
 }
 
-function parseSnapshotTicker(
-	t: PolygonSnapshotTicker,
-): PolygonSnapshotQuote | null {
+function parseSnapshotTicker(t: SnapshotTicker): SnapshotQuote | null {
 	const price = t.day?.c;
 	if (typeof price !== "number" || !Number.isFinite(price) || price === 0)
 		return null;
@@ -444,7 +445,7 @@ function parseSnapshotTicker(
 		dayLow: numPrice(t.day?.l),
 		dayOpen: numPrice(t.day?.o),
 		prevClose: numPrice(t.prevDay?.c),
-		// Polygon `updated` is in nanoseconds — convert to seconds for consistency
+		// Massive `updated` is in nanoseconds — convert to seconds for consistency
 		timestamp:
 			typeof t.updated === "number" && Number.isFinite(t.updated)
 				? Math.floor(t.updated / 1_000_000_000)
@@ -454,21 +455,21 @@ function parseSnapshotTicker(
 }
 
 /**
- * Batch-fetch snapshot quotes for a list of symbols via a single Polygon API call.
+ * Batch-fetch snapshot quotes for a list of symbols via a single Massive API call.
  *
  * Uses `/v2/snapshot/locale/us/markets/stocks/tickers?tickers=A,B,C`.
  * Returns a Map keyed by symbol; missing/invalid tickers map to `null`.
  */
-export async function fetchPolygonSnapshotQuotes(
+export async function fetchSnapshotQuotes(
 	symbols: string[],
-): Promise<Map<string, PolygonSnapshotQuote | null>> {
-	const result = new Map<string, PolygonSnapshotQuote | null>();
+): Promise<Map<string, SnapshotQuote | null>> {
+	const result = new Map<string, SnapshotQuote | null>();
 	if (symbols.length === 0) return result;
 
 	// Pre-fill with null so callers always see every requested symbol
 	for (const s of symbols) result.set(s, null);
 
-	const data = await polygonFetch(
+	const data = await marketDataFetch(
 		"/v2/snapshot/locale/us/markets/stocks/tickers",
 		{ tickers: symbols.join(",") },
 		"snapshot-quotes",
@@ -481,7 +482,7 @@ export async function fetchPolygonSnapshotQuotes(
 
 	for (const raw of tickers) {
 		if (typeof raw !== "object" || raw === null) continue;
-		const t = raw as PolygonSnapshotTicker;
+		const t = raw as SnapshotTicker;
 		if (typeof t.ticker !== "string") continue;
 
 		const quote = parseSnapshotTicker(t);
@@ -522,7 +523,7 @@ function formatSplitRatio(
 	return `${splitTo}:${splitFrom}`;
 }
 
-/** Map Polygon dividend frequency codes to labels. */
+/** Map Massive dividend frequency codes to labels. */
 const FREQUENCY_LABELS: Record<number, string> = {
 	1: "annual",
 	2: "semi-annual",
@@ -533,7 +534,7 @@ const FREQUENCY_LABELS: Record<number, string> = {
 /**
  * Format asset events from the DB into a channel-appropriate text block.
  *
- * Events are grouped by type (earnings, dividends, splits).
+ * Events are grouped by type (earnings, dividends, splits, IPOs).
  * Returns `null` when there are no events.
  */
 /**
@@ -559,7 +560,7 @@ function formatDateLabel(
 /**
  * Format asset events from the DB into a channel-appropriate text block.
  *
- * Events are grouped by type (earnings, dividends, splits).
+ * Events are grouped by type (earnings, dividends, splits, IPOs).
  * Returns `null` when there are no events.
  *
  * Each event may include an optional `daysUntil` field for countdown display:
@@ -569,7 +570,7 @@ function formatDateLabel(
 export function formatAssetEventsSection(
 	events: Array<{
 		symbol: string;
-		event_type: "earnings" | "dividend" | "split";
+		event_type: "earnings" | "dividend" | "split" | "ipo";
 		event_date: string;
 		data: Record<string, unknown>;
 		daysUntil?: number;
@@ -579,10 +580,12 @@ export function formatAssetEventsSection(
 	earnings: string | null;
 	dividends: string | null;
 	splits: string | null;
+	ipos: string | null;
 } {
 	const earningsLines: string[] = [];
 	const dividendLines: string[] = [];
 	const splitLines: string[] = [];
+	const ipoLines: string[] = [];
 
 	for (const event of events) {
 		const dateLabel = formatDateLabel(event.event_date, event.daysUntil);
@@ -641,6 +644,14 @@ export function formatAssetEventsSection(
 					`${event.symbol}: split ${dateLabel} — ${numericRatio} ${typeLabel}`,
 				);
 			}
+		} else if (event.event_type === "ipo") {
+			const issuer = event.data.issuerName as string | undefined;
+			if (channel === "sms") {
+				ipoLines.push(`${event.symbol}: IPO ${dateLabel}`);
+			} else {
+				const issuerSuffix = issuer ? ` — ${issuer}` : "";
+				ipoLines.push(`${event.symbol}: IPO ${dateLabel}${issuerSuffix}`);
+			}
 		}
 	}
 
@@ -648,5 +659,6 @@ export function formatAssetEventsSection(
 		earnings: earningsLines.length > 0 ? earningsLines.join("\n") : null,
 		dividends: dividendLines.length > 0 ? dividendLines.join("\n") : null,
 		splits: splitLines.length > 0 ? splitLines.join("\n") : null,
+		ipos: ipoLines.length > 0 ? ipoLines.join("\n") : null,
 	};
 }

@@ -18,13 +18,17 @@ type DbUserAssetRow = Database["public"]["Tables"]["user_assets"]["Row"];
 Public Types
 ============= */
 
+/** Full `users` table row type (public schema). */
 export type User = DbUserRow;
+/** Full `assets` table row type (public schema). */
 export type Asset = DbAssetRow;
+/** A user's tracked asset joined with canonical asset details. */
 export type UserAsset = Pick<DbUserAssetRow, "symbol" | "created_at"> & {
 	name: DbAssetRow["name"];
 	type: DbAssetRow["type"];
 };
 
+/** Snapshot of user notification-related columns used for quick comparisons/decisions. */
 export type NotificationPreferencesSnapshot = Pick<
 	User,
 	| "market_scheduled_asset_price_enabled"
@@ -48,6 +52,8 @@ export type NotificationPreferencesSnapshot = Pick<
 	| "asset_events_include_dividends_sms"
 	| "asset_events_include_splits_email"
 	| "asset_events_include_splits_sms"
+	| "asset_events_include_ipo_email"
+	| "asset_events_include_ipo_sms"
 	| "asset_events_include_analyst_email"
 	| "asset_events_include_analyst_sms"
 	| "asset_events_include_insider_email"
@@ -60,6 +66,7 @@ export type NotificationPreferencesSnapshot = Pick<
 	| "market_asset_price_alert_sensitivity"
 >;
 
+/** Subset of notification preferences editable from the dashboard UI. */
 export type NotificationPreferences = Pick<
 	User,
 	| "email_notifications_enabled"
@@ -72,6 +79,7 @@ export type NotificationPreferences = Pick<
 Users
 ============= */
 
+/** Allowed update payload for the `users` table. */
 export type UserUpdateInput = DbUserUpdate;
 
 /**

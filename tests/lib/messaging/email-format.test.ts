@@ -1,9 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { formatEmailMessage } from "../../../src/lib/messaging/email/utils";
-import type {
-	FormatPreferences,
-	UserAssetRow,
-} from "../../../src/lib/messaging/types";
+import type { UserAssetRow } from "../../../src/lib/messaging/types";
 import type { AssetPriceMap } from "../../../src/lib/providers/price-fetcher";
 
 describe("Email scheduled update includes asset price data.", () => {
@@ -12,11 +9,6 @@ describe("Email scheduled update includes asset price data.", () => {
 		{ symbol: "AAPL", name: "Apple Inc." },
 		{ symbol: "MSFT", name: "Microsoft Corporation" },
 	];
-	const defaultPrefs: FormatPreferences = {
-		show_change_percent: true,
-		show_company_name: true,
-		detailed_format: true,
-	};
 
 	beforeEach(() => {
 		vi.stubEnv("CRON_SECRET", "test-secret");
@@ -41,7 +33,6 @@ describe("Email scheduled update includes asset price data.", () => {
 			assetsList,
 			priceMap,
 			true,
-			defaultPrefs,
 		);
 
 		// Plain text includes prices via assetsList
@@ -71,7 +62,6 @@ describe("Email scheduled update includes asset price data.", () => {
 			assetsList,
 			priceMap,
 			false,
-			defaultPrefs,
 		);
 
 		expect(text).toContain("Prices as of last market close");
@@ -90,7 +80,6 @@ describe("Email scheduled update includes asset price data.", () => {
 			assetsList,
 			priceMap,
 			true,
-			defaultPrefs,
 		);
 
 		expect(text).not.toContain("Prices as of last market close");
@@ -111,14 +100,13 @@ describe("Email scheduled update includes asset price data.", () => {
 			assetsList,
 			priceMap,
 			true,
-			defaultPrefs,
 		);
 
 		// AAPL has price in HTML
 		expect(html).toContain("$187.42");
 		// MSFT appears without price (no mdash separator)
-		expect(html).toContain("MSFT - Microsoft Corporation");
-		expect(html).not.toContain("MSFT - Microsoft Corporation &mdash;");
+		expect(html).toContain("MSFT");
+		expect(html).not.toContain("MSFT &mdash;");
 	});
 
 	it("ETF assets render with the same format as stocks in email.", () => {
@@ -139,7 +127,6 @@ describe("Email scheduled update includes asset price data.", () => {
 			assetsList,
 			priceMap,
 			true,
-			defaultPrefs,
 		);
 
 		// Plain text includes ETF prices

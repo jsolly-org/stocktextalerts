@@ -3,6 +3,7 @@ import { getSiteUrl } from "../../db/env";
 import { escapeHtml } from "../asset-formatting";
 import { createEmailUnsubscribeUrl } from "./unsubscribe";
 
+/** Precomputed URLs used in email templates (both raw and HTML-escaped). */
 export interface EmailUrls {
 	dashboardUrl: string;
 	escapedDashboardUrl: string;
@@ -12,6 +13,7 @@ export interface EmailUrls {
 	escapedUnsubscribeUrl: string;
 }
 
+/** Dashboard section keys used to build schedule/deep-link URLs in emails. */
 export type DashboardSection = keyof typeof DASHBOARD_SECTION_HASHES;
 
 /**

@@ -5,7 +5,7 @@ import {
 } from "../../src/lib/providers/grok";
 import { createLogger } from "../../src/lib/logging";
 
-const requestId = "scripts/one-off-testing/grok-notifications-dry-run";
+const requestId = "scripts/one-off-tests/grok-notifications-dry-run";
 const logger = createLogger({ requestId, action: "grok_notifications_dry_run" });
 
 function usage(): string {
@@ -201,4 +201,3 @@ main().catch((error: unknown) => {
 	);
 	process.exitCode = 1;
 });
-

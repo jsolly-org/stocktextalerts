@@ -40,6 +40,7 @@
 
 		<template #daily>
 			<DailyNotificationsPanel
+				:initialAssets="currentAssets"
 				:emailEnabled="emailEnabled"
 				:smsEnabled="smsEnabled"
 				:phoneVerified="phoneVerified"
@@ -48,15 +49,6 @@
 
 		<template #asset-events>
 			<AssetEventsPanel
-				:emailEnabled="emailEnabled"
-				:smsEnabled="smsEnabled"
-				:phoneVerified="phoneVerified"
-			/>
-		</template>
-
-		<template #preview>
-			<NotificationPreviewPanel
-				:initialAssets="currentAssets"
 				:emailEnabled="emailEnabled"
 				:smsEnabled="smsEnabled"
 				:phoneVerified="phoneVerified"
@@ -80,7 +72,6 @@ import DashboardCarousel from "./DashboardCarousel.vue";
 import DailyNotificationsPanel from "./daily-digest/DailyNotificationsPanel.vue";
 import MarketNotificationsPanel from "./market-notifications/MarketNotificationsPanel.vue";
 import NotificationChannelsPanel from "./notification-channels/NotificationChannelsPanel.vue";
-import NotificationPreviewPanel from "./notification-preview/NotificationPreviewPanel.vue";
 
 interface Props {
 	user: User;

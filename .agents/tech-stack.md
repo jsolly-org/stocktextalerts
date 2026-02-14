@@ -25,5 +25,19 @@
 ### Generated Files
 - Do NOT modify `src/lib/db/generated/database.types.ts`. Regenerate with `npm run db:gen-types` or use type assertions.
 
-### Available CLIs
-Biome, Cursor, Claude, Vercel, GitHub (`gh`), Supabase.
+### Available CLIs (Machine-Specific Audit)
+Last audited: 2026-02-14.
+
+Installed and verified:
+- `codex`, `claude`, `cursor`
+- `git`, `gh`
+- `rg`, `fd`, `fzf`, `bat`, `eza`, `jq`, `yq`
+- `node`, `npm`, `pnpm`
+- `supabase`
+- `psql`, `sqlite3`
+- `docker`
+- `terraform`, `kubectl`
+- `vercel`, `aws`
+- `python3`, `pipx`
+- `delta`, `lazygit`, `direnv`, `zoxide`
+- `make`, `tree`, `curl`

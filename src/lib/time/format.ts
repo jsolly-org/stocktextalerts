@@ -172,24 +172,43 @@ export function formatTimeValue(value: TimeValue): string {
 
 /**
  * Return true when the runtime locale uses a 24-hour clock.
+ *
+ * Used as a fallback when no stored user preference is available (e.g. the
+ * `is24` prop isn't passed to TimePicker).  The stored `use_24_hour_time`
+ * preference is the primary path — this detection is only a best-effort hint.
  */
 export function resolveIs24(): boolean {
 	const formatter = new Intl.DateTimeFormat(undefined, { hour: "numeric" });
-	const options = formatter.resolvedOptions();
-	return options.hourCycle === "h23" || options.hourCycle === "h24";
+	const { hourCycle } = formatter.resolvedOptions();
+	return hourCycle === "h23" || hourCycle === "h24";
 }
 
 /**
  * Return the current local time (with seconds) in the given IANA timezone.
  *
+ * When `is24` is provided the format is forced to 24-hour or 12-hour;
+ * otherwise it falls back to the locale default.
+ *
  * Returns `null` when the timezone is invalid.
  */
-export function getNowInTimezone(timezone: string): string | null {
+export function getNowInTimezone(
+	timezone: string,
+	is24?: boolean,
+): string | null {
 	const now = DateTime.now().setZone(timezone);
 	if (!now.isValid) {
 		return null;
 	}
 
+	if (is24 === true) {
+		return now.toLocaleString(DateTime.TIME_24_WITH_SECONDS);
+	}
+	if (is24 === false) {
+		return now.toLocaleString({
+			...DateTime.TIME_WITH_SECONDS,
+			hourCycle: "h12",
+		});
+	}
 	return now.toLocaleString(DateTime.TIME_WITH_SECONDS);
 }
 
@@ -345,8 +364,14 @@ Format minute-of-day for UI display in the runtime locale
 ============= */
 /**
  * Format a minute-of-day value into a locale-aware time string.
+ *
+ * When `is24` is provided the format is forced to 24-hour or 12-hour;
+ * otherwise it falls back to the locale default.
  */
-export function formatMinutesAsLocalTime(minutes: number): string {
+export function formatMinutesAsLocalTime(
+	minutes: number,
+	is24?: boolean,
+): string {
 	const safeMinutes = Number.isFinite(minutes) ? minutes : 0;
 	const clamped = Math.max(0, Math.min(1439, Math.floor(safeMinutes)));
 	const dt = DateTime.now().set({
@@ -355,5 +380,14 @@ export function formatMinutesAsLocalTime(minutes: number): string {
 		second: 0,
 		millisecond: 0,
 	});
+	if (is24 === true) {
+		return dt.toLocaleString(DateTime.TIME_24_SIMPLE);
+	}
+	if (is24 === false) {
+		return dt.toLocaleString({
+			...DateTime.TIME_SIMPLE,
+			hourCycle: "h12",
+		});
+	}
 	return dt.toLocaleString(DateTime.TIME_SIMPLE);
 }

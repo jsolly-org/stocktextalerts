@@ -4,7 +4,7 @@ import { formatAssetsTextList } from "../../messaging/asset-formatting";
 import type { EmailSender } from "../../messaging/email/utils";
 import { recordNotification } from "../../messaging/shared";
 import { shouldSendSms } from "../../messaging/sms";
-import type { FormatPreferences, UserRecord } from "../../messaging/types";
+import type { UserRecord } from "../../messaging/types";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
 import type {
 	DeliveryMethod,
@@ -121,11 +121,9 @@ export async function processMarketScheduledUser(options: {
 		}
 
 		const userAssets = await loadUserAssets(supabase, user.id);
-		const formatPrefs: FormatPreferences = {
-			show_change_percent: user.show_change_percent,
-			show_company_name: user.show_company_name,
-			detailed_format: user.detailed_format,
-		};
+		const formatPrefs = {
+			show_sparklines: false,
+		} as const;
 		const assetsList = formatAssetsTextList(
 			userAssets,
 			(symbol) => priceMap.get(symbol) ?? undefined,
@@ -152,7 +150,6 @@ export async function processMarketScheduledUser(options: {
 				priceMap,
 				marketOpen,
 				stats,
-				formatPrefs,
 			});
 		}
 

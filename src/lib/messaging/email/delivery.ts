@@ -1,12 +1,7 @@
 import type { AppSupabaseClient } from "../../db/supabase";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
 import { recordNotification } from "../shared";
-import type {
-	EmailUser,
-	FormatPreferences,
-	ProcessingStats,
-	UserAssetRow,
-} from "../types";
+import type { EmailUser, ProcessingStats, UserAssetRow } from "../types";
 import { sendUserEmail } from "./index";
 import { type EmailSender, formatEmailMessage } from "./utils";
 
@@ -21,7 +16,6 @@ export async function processEmailUpdate(
 	sendEmail: EmailSender,
 	priceMap: AssetPriceMap,
 	marketOpen: boolean,
-	formatPrefs: FormatPreferences,
 	idempotencyKey?: string,
 ): Promise<ProcessingStats> {
 	const message = formatEmailMessage(
@@ -30,7 +24,6 @@ export async function processEmailUpdate(
 		assetsList,
 		priceMap,
 		marketOpen,
-		formatPrefs,
 	);
 	const result = await sendUserEmail(
 		user,

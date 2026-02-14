@@ -23,9 +23,7 @@ describe("Daily digest email prices", () => {
 		insider: null,
 	};
 	const defaultPrefs: FormatPreferences = {
-		show_change_percent: true,
-		show_company_name: true,
-		detailed_format: true,
+		show_sparklines: true,
 	};
 
 	beforeEach(() => {
@@ -37,7 +35,7 @@ describe("Daily digest email prices", () => {
 		vi.unstubAllEnvs();
 	});
 
-	it("applies change %, company name, and detailed format preferences in daily digest email", () => {
+	it("applies change % preferences in daily digest email", () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 			["MSFT", { price: 412.1, changePercent: -0.31 }],
@@ -51,24 +49,68 @@ describe("Daily digest email prices", () => {
 			extras,
 		});
 
-		expect(message.text).toContain("💵 Prices");
-		expect(message.text).toContain("AAPL - Apple Inc — $187.42 (+1.23%)");
-		expect(message.text).toContain("MSFT - Microsoft Corp — $412.10 (-0.31%)");
+		expect(message.text).not.toContain("💵 Prices");
+		expect(message.text).toContain("AAPL — $187.42 (+1.23%)");
+		expect(message.text).toContain("MSFT — $412.10 (-0.31%)");
+		// Email uses single newline separator (renders inside <pre>)
 		expect(message.text).toContain(
-			"AAPL - Apple Inc — $187.42 (+1.23%)\n\nMSFT - Microsoft Corp — $412.10 (-0.31%)",
+			"AAPL — $187.42 (+1.23%)\nMSFT — $412.10 (-0.31%)",
 		);
-		expect(message.html).toContain("💵");
-		expect(message.html).toContain("Prices");
+		expect(message.html).not.toContain("💵 Prices");
 		expect(message.html).toContain("$187.42 (+1.23%)");
 		expect(message.html).toContain("$412.10 (-0.31%)");
 	});
 
-	it("hides change percent when show_change_percent is disabled", () => {
+	it("hides sparklines when show_sparklines is disabled but still shows change%", () => {
+		const assetPrices: AssetPriceMap = new Map([
+			["AAPL", { price: 187.42, changePercent: 1.23 }],
+		]);
+		const sparklines = new Map([["AAPL", "▁▂▃▅▇▅▃"]]);
+		const prefs: FormatPreferences = {
+			show_sparklines: false,
+		};
+
+		const message = formatDailyDigestEmail({
+			user,
+			userAssets: [userAssets[0]],
+			assetPrices,
+			formatPrefs: prefs,
+			extras,
+			sparklines,
+		});
+
+		// Change% should always be shown
+		expect(message.text).toContain("+1.23%");
+		// Sparklines should NOT appear
+		expect(message.text).not.toContain("▁▂▃▅▇▅▃");
+	});
+
+	it("shows sparklines when enabled with sparkline data", () => {
+		const assetPrices: AssetPriceMap = new Map([
+			["AAPL", { price: 187.42, changePercent: 1.23 }],
+		]);
+		const sparklines = new Map([["AAPL", "▁▂▃▅▇▅▃"]]);
+		const prefs: FormatPreferences = {
+			show_sparklines: true,
+		};
+
+		const message = formatDailyDigestEmail({
+			user,
+			userAssets: [userAssets[0]],
+			assetPrices,
+			formatPrefs: prefs,
+			extras,
+			sparklines,
+		});
+
+		expect(message.text).toContain("▁▂▃▅▇▅▃");
+		expect(message.text).toContain("+1.23%");
+	});
+
+	it("always shows change% even with price unavailable", () => {
 		const assetPrices: AssetPriceMap = new Map([["AAPL", null]]);
 		const prefs: FormatPreferences = {
-			show_change_percent: false,
-			show_company_name: false,
-			detailed_format: false,
+			show_sparklines: false,
 		};
 
 		const message = formatDailyDigestEmail({
@@ -79,9 +121,9 @@ describe("Daily digest email prices", () => {
 			extras,
 		});
 
+		expect(message.text).toContain("Daily digest");
 		expect(message.text).toContain("AAPL — price unavailable");
 		expect(message.text).toContain("MSFT — price unavailable");
-		expect(message.text).not.toContain("%");
 	});
 
 	it("applies preferences to daily digest SMS price lines", () => {
@@ -90,9 +132,7 @@ describe("Daily digest email prices", () => {
 			["MSFT", { price: 412.1, changePercent: -0.31 }],
 		]);
 		const prefs: FormatPreferences = {
-			show_change_percent: false,
-			show_company_name: false,
-			detailed_format: false,
+			show_sparklines: false,
 		};
 
 		const message = formatDailyDigestSmsMessage({
@@ -103,8 +143,7 @@ describe("Daily digest email prices", () => {
 		});
 
 		expect(message).toContain("💵 Prices");
-		expect(message).toContain("AAPL — $187.42");
-		expect(message).toContain("MSFT — $412.10");
-		expect(message).not.toContain("%");
+		expect(message).toContain("AAPL — $187.42 (+1.23%)");
+		expect(message).toContain("MSFT — $412.10 (-0.31%)");
 	});
 });

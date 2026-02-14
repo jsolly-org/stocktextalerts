@@ -4,9 +4,7 @@ import {
 } from "./useAutoSaveFormBase";
 
 export type FormatPreferencesData = {
-	show_change_percent: boolean;
-	show_company_name: boolean;
-	detailed_format: boolean;
+	show_sparklines: boolean;
 };
 
 type AutoSaveOptions = Omit<AutoSaveFormOptions, "payloadKey" | "logAction">;

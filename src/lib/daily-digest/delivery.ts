@@ -11,6 +11,7 @@ import { recordNotification } from "../messaging/shared";
 import type { SmsExtras } from "../messaging/sms/delivery";
 import { formatExtrasSection } from "../messaging/sms/formatting";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
+import type { SparklineMap } from "../messaging/sparkline";
 import type {
 	FormatPreferences,
 	UserAssetRow,
@@ -42,6 +43,7 @@ export function formatDailyDigestSmsMessage(options: {
 	formatPrefs: FormatPreferences;
 	extras: SmsExtras;
 	assetEvents?: AssetEventsResult;
+	sparklines?: SparklineMap;
 }): string {
 	const optOutSuffix = "Reply STOP to opt out.";
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
@@ -52,6 +54,8 @@ export function formatDailyDigestSmsMessage(options: {
 		options.userAssets,
 		options.assetPrices,
 		options.formatPrefs,
+		options.sparklines,
+		"\n\n",
 	);
 
 	const ae = options.assetEvents;
@@ -64,6 +68,7 @@ export function formatDailyDigestSmsMessage(options: {
 		formatExtrasSection("📈 Earnings", ae?.eventsSection?.earnings),
 		formatExtrasSection("💰 Dividends", ae?.eventsSection?.dividends),
 		formatExtrasSection("✂️ Splits", ae?.eventsSection?.splits),
+		formatExtrasSection("🆕 Upcoming IPOs", ae?.eventsSection?.ipos),
 		formatExtrasSection("📊 Analyst Consensus", ae?.analystSection),
 		formatExtrasSection("🏦 Insider Trades", ae?.insiderSection),
 		`Manage your settings: ${dashboardUrl}`,
@@ -77,35 +82,36 @@ function formatDailyDigestPriceLine(
 	asset: UserAssetRow,
 	quote: { price: number; changePercent: number } | null | undefined,
 	formatPrefs: FormatPreferences,
+	sparkline?: string | null,
 ): string {
-	const base = formatPrefs.show_company_name
-		? `${asset.symbol} - ${asset.name}`
-		: asset.symbol;
+	const base = asset.symbol;
 	if (!quote) {
 		return `${base} — price unavailable`;
 	}
-	if (!formatPrefs.show_change_percent) {
-		return `${base} — $${quote.price.toFixed(2)}`;
-	}
 	const sign = quote.changePercent >= 0 ? "+" : "";
-	return `${base} — $${quote.price.toFixed(2)} (${sign}${quote.changePercent.toFixed(2)}%)`;
+	const priceStr = `$${quote.price.toFixed(2)} (${sign}${quote.changePercent.toFixed(2)}%)`;
+	const effectiveSparkline =
+		formatPrefs.show_sparklines && sparkline ? ` ${sparkline}` : "";
+	return `${base} — ${priceStr}${effectiveSparkline}`;
 }
 
 function buildDailyDigestPricesSummary(
 	userAssets: UserAssetRow[],
 	assetPrices: AssetPriceMap,
 	formatPrefs: FormatPreferences,
+	sparklines?: SparklineMap,
+	separator = "\n",
 ): string {
 	if (userAssets.length === 0) {
 		return "";
 	}
-	const separator = formatPrefs.detailed_format ? "\n\n" : "\n";
 	return userAssets
 		.map((asset) =>
 			formatDailyDigestPriceLine(
 				asset,
 				assetPrices.get(asset.symbol),
 				formatPrefs,
+				sparklines?.get(asset.symbol),
 			),
 		)
 		.join(separator);
@@ -123,10 +129,11 @@ export function formatDailyDigestEmail(options: {
 	formatPrefs: FormatPreferences;
 	extras: SmsExtras;
 	assetEvents?: AssetEventsResult;
+	sparklines?: SparklineMap;
 }): { subject: string; text: string; html: string } {
 	const tickers = options.userAssets.map((s) => s.symbol).filter(Boolean);
 	const tickersLine =
-		tickers.length > 0 ? `Tickers: ${tickers.join(", ")}` : "Tickers: (none)";
+		tickers.length > 0 ? `Tickers: ${tickers.join(", ")}` : "(none)";
 	const urls = buildEmailUrls(
 		options.user.id,
 		options.user.email,
@@ -140,23 +147,27 @@ export function formatDailyDigestEmail(options: {
 	const earnings = (ae?.eventsSection?.earnings ?? "").trim();
 	const dividends = (ae?.eventsSection?.dividends ?? "").trim();
 	const splits = (ae?.eventsSection?.splits ?? "").trim();
+	const ipos = (ae?.eventsSection?.ipos ?? "").trim();
 	const analyst = (ae?.analystSection ?? "").trim();
 	const insider = (ae?.insiderSection ?? "").trim();
 	const prices = buildDailyDigestPricesSummary(
 		options.userAssets,
 		options.assetPrices,
 		options.formatPrefs,
+		options.sparklines,
+		"\n",
 	);
+	const digestTickerBody = prices || tickersLine;
 
 	const sectionsText = [
 		"Daily digest",
-		tickersLine,
-		prices ? `\n💵 Prices\n${prices}` : "",
+		digestTickerBody,
 		news ? `\n🗞️ News\n${news}` : "",
 		rumors ? `\n🤫 Rumors\n${rumors}` : "",
 		earnings ? `\n📈 Earnings\n${earnings}` : "",
 		dividends ? `\n💰 Dividends\n${dividends}` : "",
 		splits ? `\n✂️ Splits\n${splits}` : "",
+		ipos ? `\n🆕 Upcoming IPOs\n${ipos}` : "",
 		analyst ? `\n📊 Analyst Consensus\n${analyst}` : "",
 		insider ? `\n🏦 Insider Trades\n${insider}` : "",
 		`\nManage your settings: ${urls.dashboardUrl}`,
@@ -177,13 +188,13 @@ export function formatDailyDigestEmail(options: {
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #111827; max-width: 600px; margin: 0 auto; padding: 20px;">
 	<div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-radius: 10px;">
 		<h2 style="margin: 0 0 8px; font-size: 18px;">Daily digest</h2>
-		<p style="margin: 0 0 16px; color: #6b7280; font-size: 14px;">${escapeHtml(tickersLine)}</p>
-		${renderEmailSection("💵", "Prices", prices)}
+		<pre style="white-space: pre-wrap; margin: 0 0 16px; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">${escapeHtml(digestTickerBody)}</pre>
 		${renderEmailSection("🗞️", "News", news, { showGrokLogo: true, showFinnhubLogo: true })}
 		${renderEmailSection("🤫", "Rumors", rumors, { showGrokLogo: true })}
 		${renderEmailSection("📈", "Earnings", earnings)}
 		${renderEmailSection("💰", "Dividends", dividends)}
 		${renderEmailSection("✂️", "Splits", splits)}
+		${renderEmailSection("🆕", "Upcoming IPOs", ipos)}
 		${renderEmailSection("📊", "Analyst Consensus", analyst, { showFinnhubLogo: true })}
 		${renderEmailSection("🏦", "Insider Trades", insider, { showFinnhubLogo: true })}
 		<div style="text-align: center; margin-top: 20px;">
@@ -216,6 +227,7 @@ export async function processDailyDigestEmailDelivery(options: {
 	formatPrefs: FormatPreferences;
 	extras: SmsExtras;
 	assetEvents?: AssetEventsResult;
+	sparklines?: SparklineMap;
 	sendEmail: EmailSender;
 	stats: ScheduledNotificationTotals;
 }): Promise<void> {
@@ -260,6 +272,7 @@ export async function processDailyDigestEmailDelivery(options: {
 		formatPrefs,
 		extras,
 		assetEvents,
+		sparklines: options.sparklines,
 	});
 	const result = await sendUserEmail(
 		user,
@@ -385,9 +398,7 @@ export async function processDailyDigestSmsDelivery(options: {
 		userAssets,
 		assetPrices,
 		formatPrefs: {
-			show_change_percent: user.show_change_percent,
-			show_company_name: user.show_company_name,
-			detailed_format: user.detailed_format,
+			show_sparklines: user.show_sparklines,
 		},
 		extras,
 		assetEvents,

@@ -12,7 +12,7 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - **Timezone Support** - Browser-detected timezones with user overrides
 - **Market Notifications** - Choose up to 5 delivery times for scheduled asset price updates, and decide if they're delivered by email, SMS, or both
 - **Daily Digest** - Once-daily email digest with optional extras (News/Rumors are email-only and may include clickable source links)
-- **Asset Events** - Daily notification of upcoming earnings, dividends, splits, plus analyst consensus and insider trades (delivered by email and/or SMS; toggle each event type)
+- **Asset Events** - Daily notification of upcoming earnings, dividends, splits, IPOs, plus analyst consensus and insider trades (delivered by email and/or SMS; toggle each event type)
 - **Format Preferences** - Customize how your updates look with live SMS/email previews
 - **SMS Opt-out** - Reply STOP to opt out of SMS; reply START to opt back in (then re-enable SMS in your dashboard)
 
@@ -22,7 +22,7 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - **UI**: Vue 3 components with Tailwind CSS
 - **Icons**: Local SVGs in `/src/icons` loaded via `astro-icon` in `.astro` files; Vue components import SVGs via `vite-svg-loader` using the `?component` suffix
 - **Database**: Supabase (PostgreSQL)
-- **Market Data**: Polygon (prices, earnings/dividends/splits) + Finnhub (market hours, analyst/insider extras)
+- **Market Data**: Massive (prices/dividends/splits/IPOs) + Finnhub (earnings, market hours, analyst/insider extras)
 - **AI Summaries**: xAI (Grok) for optional News/Rumors add-ons and asset price alert summaries
 - **Email**: Resend
 - **SMS**: Twilio Verify API + Messaging API
@@ -44,7 +44,7 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - Docker (Docker Desktop or Docker Engine)
 - Supabase account
 - Twilio account with Verify API enabled
-- Polygon account (API key)
+- Massive account (API key)
 - Finnhub account (API key)
 - xAI account (optional, only needed for News/Rumors add-ons)
 - Vercel account (for deployment and cron jobs)
@@ -106,10 +106,10 @@ CRON_SECRET=your-random-secret-string
 
 EMAIL_FROM=notifications@updates.example.com
 
-# Polygon (asset prices / earnings / dividends / splits)
-POLYGON_API_KEY=your-polygon-api-key
+# Massive (asset prices / dividends / splits)
+MASSIVE_API_KEY=your-massive-api-key
 
-# Finnhub (market hours / symbol search / analyst/insider extras)
+# Finnhub (earnings / market hours / symbol search / analyst/insider extras)
 FINNHUB_API_KEY=your-finnhub-api-key
 
 # xAI (Grok) - optional, only needed for News/Rumors add-ons
@@ -128,7 +128,7 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - `DATABASE_URL`: Supabase Dashboard → Project Settings → Database → Connection String → Transaction mode (pooler)
 - Twilio credentials: Twilio Console → Account Dashboard
 - `CRON_SECRET`: Generate a random string (e.g., `openssl rand -hex 32`)
-- Polygon credentials: Polygon.io Dashboard → API Keys
+- Massive credentials: Massive Dashboard → API Keys
 - Finnhub credentials: Finnhub Dashboard → API Keys
 - xAI credentials: xAI Console → API Keys
 - LOG masking: optional, defaults to true
@@ -285,9 +285,9 @@ The cron job calls `/api/schedule` and must include:
 - `Authorization: Bearer <CRON_SECRET>`
 
 The cron job:
-1. Runs asset price alerts during US market hours (Polygon snapshot quotes)
-2. Runs scheduled asset price notifications (batched via Polygon snapshot quotes)
-3. Sends asset events notifications (earnings/dividends/splits/analyst/insider) at the user’s daily delivery time
+1. Runs asset price alerts during US market hours (Massive snapshot quotes)
+2. Runs scheduled asset price notifications (batched via Massive snapshot quotes)
+3. Sends asset events notifications (earnings/dividends/splits/IPOs/analyst/insider) at the user’s daily delivery time
 4. Sends daily digest notifications (News/Rumors) at the user’s chosen daily time
 5. Sends via email and/or SMS based on settings and logs attempts to the `notification_log` table
 

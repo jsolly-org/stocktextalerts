@@ -26,6 +26,7 @@ function formatAssetEventsSmsMessage(options: {
 	earningsSection: string | null;
 	dividendsSection: string | null;
 	splitsSection: string | null;
+	iposSection: string | null;
 	analystSection: string | null;
 	insiderSection: string | null;
 }): string {
@@ -43,6 +44,9 @@ function formatAssetEventsSmsMessage(options: {
 	if (options.splitsSection) {
 		parts.push(`✂️ Splits\n${options.splitsSection}`);
 	}
+	if (options.iposSection) {
+		parts.push(`🆕 Upcoming IPOs\n${options.iposSection}`);
+	}
 	if (options.insiderSection) {
 		parts.push(`🏦 Insider Trades\n${options.insiderSection}`);
 	}
@@ -56,6 +60,7 @@ function formatAssetEventsSmsMessage(options: {
 		!options.earningsSection &&
 		!options.dividendsSection &&
 		!options.splitsSection &&
+		!options.iposSection &&
 		!options.insiderSection &&
 		!options.analystSection
 	) {
@@ -77,6 +82,7 @@ function formatAssetEventsEmail(options: {
 	earningsSection: string | null;
 	dividendsSection: string | null;
 	splitsSection: string | null;
+	iposSection: string | null;
 	analystSection: string | null;
 	insiderSection: string | null;
 }): { subject: string; text: string; html: string } {
@@ -90,6 +96,7 @@ function formatAssetEventsEmail(options: {
 		options.earningsSection ||
 		options.dividendsSection ||
 		options.splitsSection ||
+		options.iposSection ||
 		options.insiderSection ||
 		options.analystSection;
 	const noEventsMessage =
@@ -105,6 +112,9 @@ function formatAssetEventsEmail(options: {
 	}
 	if (options.splitsSection) {
 		textParts.push(`\n✂️ Stock Splits\n${options.splitsSection}`);
+	}
+	if (options.iposSection) {
+		textParts.push(`\n🆕 Upcoming IPOs\n${options.iposSection}`);
 	}
 	if (options.insiderSection) {
 		textParts.push(`\n🏦 Insider Trades\n${options.insiderSection}`);
@@ -145,6 +155,13 @@ function formatAssetEventsEmail(options: {
 			"✂️",
 			"Stock Splits",
 			options.splitsSection,
+		);
+	}
+	if (options.iposSection) {
+		sectionsHtml += renderEmailSection(
+			"🆕",
+			"Upcoming IPOs",
+			options.iposSection,
 		);
 	}
 	if (options.insiderSection) {
@@ -205,6 +222,7 @@ export async function processAssetEventsEmailDelivery(options: {
 	earningsSection: string | null;
 	dividendsSection: string | null;
 	splitsSection: string | null;
+	iposSection: string | null;
 	analystSection: string | null;
 	insiderSection: string | null;
 	sendEmail: EmailSender;
@@ -219,6 +237,7 @@ export async function processAssetEventsEmailDelivery(options: {
 		earningsSection,
 		dividendsSection,
 		splitsSection,
+		iposSection,
 		analystSection,
 		insiderSection,
 		sendEmail,
@@ -249,6 +268,7 @@ export async function processAssetEventsEmailDelivery(options: {
 		earningsSection,
 		dividendsSection,
 		splitsSection,
+		iposSection,
 		analystSection,
 		insiderSection,
 	});
@@ -305,6 +325,7 @@ export async function processAssetEventsSmsDelivery(options: {
 	earningsSection: string | null;
 	dividendsSection: string | null;
 	splitsSection: string | null;
+	iposSection: string | null;
 	analystSection: string | null;
 	insiderSection: string | null;
 	getSmsSender: SmsSenderProvider;
@@ -319,6 +340,7 @@ export async function processAssetEventsSmsDelivery(options: {
 		earningsSection,
 		dividendsSection,
 		splitsSection,
+		iposSection,
 		analystSection,
 		insiderSection,
 		getSmsSender,
@@ -376,6 +398,7 @@ export async function processAssetEventsSmsDelivery(options: {
 		earningsSection,
 		dividendsSection,
 		splitsSection,
+		iposSection,
 		analystSection,
 		insiderSection,
 	});

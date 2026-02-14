@@ -7,9 +7,7 @@ import type { FormSchema } from "../../../lib/forms/schema";
 import { createLogger } from "../../../lib/logging";
 
 const FORMAT_PREFERENCES_SCHEMA = {
-	show_change_percent: { type: "boolean" },
-	show_company_name: { type: "boolean" },
-	detailed_format: { type: "boolean" },
+	show_sparklines: { type: "boolean" },
 } as const satisfies FormSchema;
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
@@ -58,14 +56,8 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 
 	try {
 		const updates: Record<string, boolean> = {};
-		if (parsed.data.show_change_percent !== undefined) {
-			updates.show_change_percent = parsed.data.show_change_percent;
-		}
-		if (parsed.data.show_company_name !== undefined) {
-			updates.show_company_name = parsed.data.show_company_name;
-		}
-		if (parsed.data.detailed_format !== undefined) {
-			updates.detailed_format = parsed.data.detailed_format;
+		if (parsed.data.show_sparklines !== undefined) {
+			updates.show_sparklines = parsed.data.show_sparklines;
 		}
 
 		const updatedUser = await userService.update(user.id, updates);
@@ -78,9 +70,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			ok: true,
 			message: "settings_updated",
 			formatPreferences: {
-				show_change_percent: updatedUser.show_change_percent,
-				show_company_name: updatedUser.show_company_name,
-				detailed_format: updatedUser.detailed_format,
+				show_sparklines: updatedUser.show_sparklines,
 			},
 		});
 	} catch (error) {

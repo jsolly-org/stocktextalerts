@@ -1,16 +1,17 @@
 import type { Logger } from "../logging";
 import {
-	fetchPolygonDividends,
-	fetchPolygonEarnings,
-	fetchPolygonSplits,
-} from "../providers/polygon";
+	fetchDividends,
+	fetchEarnings,
+	fetchIpos,
+	fetchSplits,
+} from "../providers/massive";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 
 /** Number of weeks to retain in the asset_events table. */
 const RETENTION_WEEKS = 4;
 
 /**
- * Fetch earnings, dividends, and splits from Polygon.io for the given week,
+ * Fetch earnings (Finnhub) plus dividends/splits/IPOs (Massive) for the given week,
  * filter to symbols tracked by any user, and upsert into the `asset_events` table.
  *
  * Skips the fetch if events for this `weekOf` already exist (idempotent).
@@ -72,26 +73,30 @@ export async function fetchAndStoreAssetEvents(options: {
 		return { inserted: 0, skipped: true };
 	}
 
-	// Fetch all three event types from Polygon (3 API calls)
-	const [earnings, dividends, splits] = await Promise.all([
-		fetchPolygonEarnings(weekStart, weekEnd),
-		fetchPolygonDividends(weekStart, weekEnd),
-		fetchPolygonSplits(weekStart, weekEnd),
+	// Fetch all three event types from providers:
+	// - earnings from Finnhub
+	// - dividends/splits/IPOs from Massive
+	const [earnings, dividends, splits, ipos] = await Promise.all([
+		fetchEarnings(weekStart, weekEnd),
+		fetchDividends(weekStart, weekEnd),
+		fetchSplits(weekStart, weekEnd),
+		fetchIpos(weekStart, weekEnd),
 	]);
 
-	logger.info("Polygon API responses received", {
+	logger.info("Provider responses received", {
 		action: "fetch_asset_events",
 		weekStart,
 		earningsTotal: earnings.length,
 		dividendsTotal: dividends.length,
 		splitsTotal: splits.length,
+		iposTotal: ipos.length,
 		trackedSymbols: symbolSet.size,
 	});
 
 	// Filter to tracked symbols and build insert rows
 	type AssetEventInsert = {
 		symbol: string;
-		event_type: "earnings" | "dividend" | "split";
+		event_type: "earnings" | "dividend" | "split" | "ipo";
 		event_date: string;
 		data: Record<string, string | number | null>;
 		week_of: string;
@@ -140,6 +145,20 @@ export async function fetchAndStoreAssetEvents(options: {
 				splitFrom: s.splitFrom,
 				splitTo: s.splitTo,
 				adjustmentType: s.adjustmentType,
+			},
+			week_of: weekStart,
+		});
+	}
+
+	for (const ipo of ipos) {
+		if (!symbolSet.has(ipo.ticker)) continue;
+		rows.push({
+			symbol: ipo.ticker,
+			event_type: "ipo",
+			event_date: ipo.listingDate,
+			data: {
+				issuerName: ipo.issuerName,
+				securityType: ipo.securityType,
 			},
 			week_of: weekStart,
 		});

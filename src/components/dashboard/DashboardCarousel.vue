@@ -42,7 +42,6 @@
 import { type Component, onMounted, onUnmounted, ref } from "vue";
 import BellAlertIcon from "../../icons/bell-alert.svg?component";
 import CalendarDaysIcon from "../../icons/calendar-days.svg?component";
-import EyeIcon from "../../icons/eye.svg?component";
 import NewspaperIcon from "../../icons/newspaper.svg?component";
 import PresentationChartLineIcon from "../../icons/presentation-chart-line.svg?component";
 
@@ -55,9 +54,8 @@ interface Tab {
 const tabs: Tab[] = [
 	{ id: "setup", label: "Watchlist & Channels", icon: PresentationChartLineIcon },
 	{ id: "daily", label: "Daily", icon: NewspaperIcon },
-	{ id: "schedule", label: "Alerts", icon: BellAlertIcon },
 	{ id: "asset-events", label: "Asset Events", icon: CalendarDaysIcon },
-	{ id: "preview", label: "Preview", icon: EyeIcon },
+	{ id: "schedule", label: "Alerts", icon: BellAlertIcon },
 ];
 
 const activeIndex = ref(0);
