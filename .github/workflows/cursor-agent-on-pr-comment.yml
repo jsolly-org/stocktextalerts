@@ -108,6 +108,18 @@ jobs:
           # Don't persist the token in git config so the agent can't push.
           persist-credentials: false
 
+      - name: Setup Node.js (for agent)
+        if: steps.context.outputs.run_agent == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install npm dependencies (for agent)
+        if: steps.context.outputs.run_agent == 'true'
+        run: npm ci
+
       - name: Setup Cursor CLI
         if: steps.context.outputs.run_agent == 'true'
         uses: ./.github/actions/setup-cursor
@@ -229,14 +241,6 @@ jobs:
           git diff --name-only > agent-changed-files.txt 2>/dev/null || true
 
           echo "changes_present=true" >> "$GITHUB_OUTPUT"
-
-      - name: Setup Node.js (for checks)
-        if: steps.context.outputs.run_agent == 'true' && steps.agent.outcome == 'success' && steps.agent.outputs.changes_present == 'true'
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: package-lock.json
 
       - name: Run pre-commit checks (lint + type-check)
         if: steps.context.outputs.run_agent == 'true' && steps.agent.outcome == 'success' && steps.agent.outputs.changes_present == 'true'
