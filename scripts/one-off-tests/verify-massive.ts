@@ -21,12 +21,14 @@ const REQUEST_TIMEOUT_MS = 15_000;
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
+/** Return the value following a CLI flag (e.g. `--tickers AAPL`). */
 function getArgValue(args: string[], name: string): string | undefined {
 	const idx = args.indexOf(name);
 	if (idx === -1) return undefined;
 	return args[idx + 1];
 }
 
+/** Parse `--tickers` into an uppercase ticker list (or defaults). */
 function parseTickers(raw: string | undefined): string[] {
 	if (!raw) return DEFAULT_TICKERS;
 	return raw
@@ -35,18 +37,21 @@ function parseTickers(raw: string | undefined): string[] {
 		.filter(Boolean);
 }
 
+/** Format an ISO date for N days ago. */
 function dateStr(daysAgo: number): string {
 	const d = new Date();
 	d.setDate(d.getDate() - daysAgo);
 	return d.toISOString().slice(0, 10);
 }
 
+/** Format an ISO date for N days in the future. */
 function futureDate(daysAhead: number): string {
 	const d = new Date();
 	d.setDate(d.getDate() + daysAhead);
 	return d.toISOString().slice(0, 10);
 }
 
+/** Minimal Massive GET helper with timeout. */
 async function massiveGet(
 	endpoint: string,
 	params: Record<string, string>,
@@ -70,6 +75,7 @@ interface TestResult {
 	detail?: string;
 }
 
+/** Verify `/v2/snapshot/.../tickers` returns batch quotes for the given tickers. */
 async function testSnapshotQuotes(
 	tickers: string[],
 	apiKey: string,
@@ -167,6 +173,7 @@ async function testSnapshotQuotes(
 	}
 }
 
+/** Verify snapshot quote payload includes expected fields for one ticker. */
 async function testSnapshotFields(
 	ticker: string,
 	apiKey: string,
@@ -226,6 +233,7 @@ async function testSnapshotFields(
 	}
 }
 
+/** Verify `/v3/reference/dividends` returns dividend events for a date range. */
 async function testDividends(apiKey: string): Promise<TestResult> {
 	const endpoint = `/v3/reference/dividends`;
 	// Look at a wider window to ensure we find some data
@@ -308,6 +316,7 @@ async function testDividends(apiKey: string): Promise<TestResult> {
 	}
 }
 
+/** Verify `/v3/reference/splits` returns split events for a date range. */
 async function testSplits(apiKey: string): Promise<TestResult> {
 	const endpoint = `/v3/reference/splits`;
 	// Use a very wide window — splits are rare
@@ -394,6 +403,7 @@ async function testSplits(apiKey: string): Promise<TestResult> {
 	}
 }
 
+/** Verify `/v2/reference/news` returns news items for a ticker. */
 async function testCompanyNews(
 	ticker: string,
 	apiKey: string,
@@ -461,6 +471,7 @@ async function testCompanyNews(
 	}
 }
 
+/** Verify `/v1/marketstatus/now` returns the current market state. */
 async function testMarketStatus(apiKey: string): Promise<TestResult> {
 	const endpoint = `/v1/marketstatus/now`;
 	try {
@@ -494,6 +505,7 @@ async function testMarketStatus(apiKey: string): Promise<TestResult> {
 	}
 }
 
+/** Verify `/v1/marketstatus/upcoming` returns upcoming market events/closures. */
 async function testMarketHolidays(apiKey: string): Promise<TestResult> {
 	const endpoint = `/v1/marketstatus/upcoming`;
 	try {
@@ -557,6 +569,7 @@ async function testMarketHolidays(apiKey: string): Promise<TestResult> {
 
 // ── Main ─────────────────────────────────────────────────────────────
 
+/** Print one test result line (plus optional details). */
 function printResult(result: TestResult) {
 	const icon =
 		result.status === "PASS"
@@ -570,6 +583,7 @@ function printResult(result: TestResult) {
 	}
 }
 
+/** Script entrypoint: run endpoint checks and exit non-zero on failures. */
 async function main() {
 	const args = process.argv.slice(2);
 	const apiKey = process.env.MASSIVE_API_KEY;

@@ -45,12 +45,7 @@ import type {
 
 const STALE_MAX_AGE_MINUTES = 5;
 
-/**
- * Deliver all staged notifications that are due (scheduled_for <= now).
- *
- * Returns combined stats and the set of user IDs that were delivered from staging
- * (so the fallback path can skip them).
- */
+/** Deliver all staged notifications that are due (scheduled_for <= now). */
 export async function deliverStagedNotifications(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
@@ -241,6 +236,7 @@ export async function deliverStagedNotifications(options: {
 	return { stats, deliveredUserTypes };
 }
 
+/** Deliver a single staged market-notification row. */
 async function deliverStagedMarket(options: {
 	row: StagedNotificationRow;
 	stagedData: StagedMarketData;
@@ -395,6 +391,7 @@ async function deliverStagedMarket(options: {
 	});
 }
 
+/** Deliver a single staged daily-digest row. */
 async function deliverStagedDaily(options: {
 	row: StagedNotificationRow;
 	stagedData: StagedDailyData;

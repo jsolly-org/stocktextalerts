@@ -33,11 +33,7 @@ export type AssetEventsResult = Awaited<
 	ReturnType<typeof buildAssetEventsContent>
 > | null;
 
-/**
- * Format the daily digest message body for SMS delivery.
- *
- * Keeps the message readable in plain text and appends a required STOP opt-out suffix.
- */
+/** Format the daily digest message body for SMS delivery. */
 export function formatDailyDigestSmsMessage(options: {
 	userAssets: UserAssetRow[];
 	assetPrices: AssetPriceMap;
@@ -75,6 +71,7 @@ export function formatDailyDigestSmsMessage(options: {
 	return sections.join("\n\n");
 }
 
+/** Format a single asset price line for the SMS/plain-text digest. */
 function formatDailyDigestPriceLine(
 	asset: UserAssetRow,
 	quote: { price: number; changePercent: number } | null | undefined,
@@ -94,6 +91,7 @@ function formatDailyDigestPriceLine(
 	return `${base} — ${priceStr}${ascii}`;
 }
 
+/** Format a single asset price line for the HTML digest. */
 function formatDailyDigestPriceLineHtml(
 	asset: UserAssetRow,
 	quote: { price: number; changePercent: number } | null | undefined,
@@ -121,6 +119,7 @@ function formatDailyDigestPriceLineHtml(
 	return `<div style="margin-bottom: 8px;">${symbol} &mdash; ${priceStr} <span style="color: ${color}; font-weight: 600;">${changeStr}</span>${sparklineHtml}</div>`;
 }
 
+/** Build the plain-text “Your Assets” section for the digest. */
 function buildDailyDigestPricesSummary(
 	userAssets: UserAssetRow[],
 	assetPrices: AssetPriceMap,
@@ -143,6 +142,7 @@ function buildDailyDigestPricesSummary(
 		.join(separator);
 }
 
+/** Build the HTML “Your Assets” section for the digest. */
 function buildDailyDigestPricesHtml(
 	userAssets: UserAssetRow[],
 	assetPrices: AssetPriceMap,
@@ -164,11 +164,7 @@ function buildDailyDigestPricesHtml(
 		.join("");
 }
 
-/**
- * Format the daily digest payload for email delivery.
- *
- * Produces a plain-text version for logging and a simple HTML version for rendering.
- */
+/** Format the daily digest payload for email delivery. */
 export function formatDailyDigestEmail(options: {
 	user: { id: string; email: string };
 	userAssets: UserAssetRow[];
@@ -267,12 +263,7 @@ export function formatDailyDigestEmail(options: {
 	return { subject, text, html };
 }
 
-/**
- * Deliver a daily digest via email and record the result.
- *
- * Uses the `claim_scheduled_notification` RPC to ensure idempotent delivery across retries
- * and parallel runners, then writes a `scheduled_notifications` status update.
- */
+/** Deliver a daily digest via email and record the result. */
 export async function processDailyDigestEmailDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
@@ -371,12 +362,7 @@ export async function processDailyDigestEmailDelivery(options: {
 	});
 }
 
-/**
- * Deliver a daily digest via SMS and record the result.
- *
- * Uses the `claim_scheduled_notification` RPC for idempotency. If the user is opted out or
- * lacks SMS capability, the function returns without delivery.
- */
+/** Deliver a daily digest via SMS and record the result. */
 export async function processDailyDigestSmsDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;

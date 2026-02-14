@@ -9,12 +9,7 @@ export interface CompanyNewsItem {
 	source: string;
 }
 
-/**
- * Fetch recent company news headlines for a ticker within a date range.
- *
- * Uses MASSIVE `/v2/reference/news` endpoint.
- * Returns a small, validated subset (headline/summary/datetime/url/source).
- */
+/** Fetch recent company news headlines for a ticker within a date range. */
 export async function fetchCompanyNews(
 	symbol: string,
 	from: string,

@@ -103,11 +103,7 @@ export async function deleteStagedNotification(
 		.eq("id", id);
 }
 
-/**
- * Purge staged notification rows older than the specified number of minutes.
- *
- * These represent missed deliveries that should not send with stale content.
- */
+/** Purge staged notification rows older than the specified number of minutes. */
 export async function purgeStaleStaged(
 	supabase: SupabaseAdminClient,
 	maxAgeMinutes: number,

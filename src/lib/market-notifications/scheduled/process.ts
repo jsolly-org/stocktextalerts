@@ -25,13 +25,7 @@ import {
 } from "./delivery";
 import { updateUserMarketScheduledNextSendAt } from "./next-send-at";
 
-/**
- * Process a single user's scheduled market asset update notification.
- *
- * Computes a deterministic schedule key (local date + local minutes) from `market_scheduled_asset_price_next_send_at`,
- * formats the assets list, delivers via enabled channels, records delivery attempts, and
- * advances `market_scheduled_asset_price_next_send_at`.
- */
+/** Process a single user's scheduled market asset update notification. */
 export async function processMarketScheduledUser(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;

@@ -18,12 +18,7 @@ interface EmailRequest {
 
 export type EmailSender = (request: EmailRequest) => Promise<DeliveryResult>;
 
-/**
- * Create a Resend-backed email sender.
- *
- * In `test` mode, returns a deterministic mock sender that never calls the Resend API.
- * If the API key is invalid, returns a sender that always fails with a clear error.
- */
+/** Create a Resend-backed email sender (mocked in test mode). */
 export function createEmailSender(): EmailSender {
 	const apiKey = import.meta.env.RESEND_API_KEY;
 	const fromEmail = import.meta.env.EMAIL_FROM;
@@ -104,11 +99,7 @@ export function createEmailSender(): EmailSender {
 	};
 }
 
-/**
- * Build the plaintext + HTML email body for a scheduled asset update.
- *
- * Includes footer links to the dashboard schedule section and a user-scoped unsubscribe URL.
- */
+/** Build the plaintext + HTML email body for a scheduled asset update. */
 export function formatEmailMessage(
 	user: EmailUser,
 	userAssets: UserAssetRow[],

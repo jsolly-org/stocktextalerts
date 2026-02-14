@@ -23,9 +23,7 @@ import {
 } from "./snapshot-store";
 import { claimCooldown, fetchPriceAlertUsers } from "./users";
 
-/**
- * Threshold multiplier: fetch news when price-only score >= 50% of the aggressive threshold.
- */
+/** Fetch news when price-only score is >= 50% of the aggressive threshold. */
 const NEWS_FETCH_SCORE_RATIO = 0.5;
 
 /** The most permissive threshold (Aggressive) — used to decide if a symbol could trigger for anyone. */
@@ -37,9 +35,7 @@ export interface PriceAlertTotals extends PriceAlertDeliveryStats {
 	cooldownSkips: number;
 }
 
-/**
- * Fetch the set of symbols with earnings within 2 calendar days from the asset_events table.
- */
+/** Fetch symbols with earnings within ~2 calendar days from the asset_events table. */
 async function fetchEarningsSymbols(
 	supabase: SupabaseAdminClient,
 ): Promise<Set<string>> {
@@ -74,11 +70,7 @@ async function fetchEarningsSymbols(
 	}
 }
 
-/**
- * Main orchestrator: called once per cron tick during market hours.
- *
- * Returns the extended quote map so the caller can reuse it for scheduled notifications.
- */
+/** Process market movement price alerts and return totals plus a reusable quote map. */
 export async function processPriceAlerts(options: {
 	supabase: SupabaseAdminClient;
 }): Promise<{

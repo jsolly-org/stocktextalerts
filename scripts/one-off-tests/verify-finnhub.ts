@@ -22,12 +22,14 @@ const REQUEST_TIMEOUT_MS = 15_000;
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
+/** Return the value following a CLI flag (e.g. `--tickers AAPL`). */
 function getArgValue(args: string[], name: string): string | undefined {
 	const idx = args.indexOf(name);
 	if (idx === -1) return undefined;
 	return args[idx + 1];
 }
 
+/** Parse `--tickers` into an uppercase ticker list (or defaults). */
 function parseTickers(raw: string | undefined): string[] {
 	if (!raw) return DEFAULT_TICKERS;
 	return raw
@@ -36,6 +38,7 @@ function parseTickers(raw: string | undefined): string[] {
 		.filter(Boolean);
 }
 
+/** Minimal Finnhub GET helper with timeout. */
 async function finnhubGet(
 	endpoint: string,
 	params: Record<string, string>,
@@ -50,12 +53,14 @@ async function finnhubGet(
 	return { status: response.status, data };
 }
 
+/** Format an ISO date for N days ago. */
 function dateStr(daysAgo: number): string {
 	const d = new Date();
 	d.setDate(d.getDate() - daysAgo);
 	return d.toISOString().slice(0, 10);
 }
 
+/** Format an ISO date for N days in the future. */
 function futureDate(daysAhead: number): string {
 	const d = new Date();
 	d.setDate(d.getDate() + daysAhead);
@@ -71,6 +76,7 @@ interface TestResult {
 	detail?: string;
 }
 
+/** Verify `/stock/recommendation` returns expected fields. */
 async function testRecommendation(
 	ticker: string,
 	apiKey: string,
@@ -127,6 +133,7 @@ async function testRecommendation(
 	}
 }
 
+/** Verify `/stock/insider-transactions` returns a usable payload. */
 async function testInsiderTransactions(
 	ticker: string,
 	apiKey: string,
@@ -185,6 +192,7 @@ async function testInsiderTransactions(
 	}
 }
 
+/** Verify `/calendar/earnings` returns a calendar payload for a date range. */
 async function testEarningsCalendar(apiKey: string): Promise<TestResult> {
 	const endpoint = `/calendar/earnings`;
 	const from = dateStr(0);
@@ -243,6 +251,7 @@ async function testEarningsCalendar(apiKey: string): Promise<TestResult> {
 
 // ── Main ─────────────────────────────────────────────────────────────
 
+/** Print one test result line (plus optional details). */
 function printResult(result: TestResult) {
 	const icon =
 		result.status === "PASS"
@@ -256,6 +265,7 @@ function printResult(result: TestResult) {
 	}
 }
 
+/** Script entrypoint: run endpoint checks and exit non-zero on failures. */
 async function main() {
 	const args = process.argv.slice(2);
 	const apiKey = process.env.FINNHUB_API_KEY;

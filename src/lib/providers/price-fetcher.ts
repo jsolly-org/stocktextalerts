@@ -26,12 +26,7 @@ export type AssetPriceMap = Map<string, AssetPrice | null>;
 /** Map of extended quotes keyed by symbol. */
 export type ExtendedQuoteMap = Map<string, ExtendedAssetQuote | null>;
 
-/**
- * Fetch quotes for a list of symbols and return a map keyed by symbol.
- *
- * Uses Massive's batch snapshot API (single HTTP call) to avoid per-symbol rate limits.
- * In test mode, returns deterministic dummy data to avoid external API calls.
- */
+/** Fetch quotes for a list of symbols and return a map keyed by symbol. */
 export async function fetchAssetPrices(
 	symbols: string[],
 ): Promise<AssetPriceMap> {
@@ -44,13 +39,7 @@ export async function fetchAssetPrices(
 	return snapshot as AssetPriceMap;
 }
 
-/**
- * Fetch extended quotes for a list of symbols (includes day high/low/open/prevClose).
- *
- * Uses Massive's batch snapshot API (single HTTP call) to avoid per-symbol rate limits.
- * Used by market movement alerts to store rolling-window snapshots with richer data.
- * In test mode, returns deterministic dummy data.
- */
+/** Fetch extended quotes for symbols (day high/low/open/prevClose + volume). */
 export async function fetchExtendedQuotes(
 	symbols: string[],
 ): Promise<ExtendedQuoteMap> {
@@ -75,13 +64,7 @@ export async function fetchExtendedQuotes(
 	return snapshot as ExtendedQuoteMap;
 }
 
-/**
- * Fetch weekly sparklines for a list of symbols.
- *
- * Fetches 9 calendar days of daily closes per symbol (to cover ~7 trading days),
- * takes the last 7 data points, and converts to a Unicode sparkline.
- * In test mode, returns deterministic data to avoid external API calls.
- */
+/** Fetch 7-point sparklines for the last ~week of closes. */
 export async function fetchSparklines(
 	symbols: string[],
 ): Promise<SparklineMap> {
@@ -137,13 +120,7 @@ export async function fetchSparklines(
 	return result;
 }
 
-/**
- * Determine whether the US market is currently open.
- *
- * Uses MASSIVE `/v1/marketstatus/now` endpoint.
- * Defaults to "closed" on errors (safer UX: show a disclaimer rather than silently assuming open).
- * In test mode, always returns `true`.
- */
+/** Return whether the US market is currently open (best-effort; defaults to closed). */
 export async function fetchMarketStatus(): Promise<boolean> {
 	if (import.meta.env.MODE === "test") {
 		return true;

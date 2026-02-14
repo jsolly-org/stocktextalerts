@@ -11,13 +11,7 @@ const GROK_LOGO_IMG = `<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0c
 
 const LINK_STYLE = "color: #667eea; text-decoration: underline;";
 
-/**
- * Convert markdown-style links `[text](url)` to clickable HTML `<a>` tags.
- *
- * Non-link text is escaped with `escapeHtml()` to prevent XSS while preserving
- * link markup. Only `http://` and `https://` URLs are linked; anything else is
- * rendered as plain escaped text.
- */
+/** Convert markdown links (`[text](https://...)`) into safe HTML `<a>` tags. */
 export function markdownLinksToHtml(content: string): string {
 	// Match markdown links `[text](url)` where the URL is http(s) and may contain
 	// balanced parentheses (common in Wikipedia URLs like `JavaScript_(programming_language)`).
@@ -64,11 +58,7 @@ export function markdownLinksToHtml(content: string): string {
 	return parts.join("").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
 }
 
-/**
- * Outlook (MS Word engine) can be unreliable with `<pre style="white-space: pre-wrap">`.
- * This converts newline-separated HTML into an Outlook-friendlier `<div>` body using
- * explicit `<br />` line breaks and `&nbsp;` for leading indentation.
- */
+/** Convert newline-separated HTML into an Outlook-friendlier `<div>` body. */
 function htmlToOutlookPreLike(html: string): string {
 	const lines = html.split(/\r?\n/);
 	return lines
@@ -90,15 +80,7 @@ function htmlToOutlookPreLike(html: string): string {
 		.join("<br />");
 }
 
-/**
- * Render a styled email content section (`<h3>` heading + `<pre>` block).
- *
- * Returns an empty string when `content` is blank so callers can embed the
- * result directly in a template literal without additional checks.
- *
- * When `showFinnhubLogo`, `showGrokLogo`, or `showMassiveLogo` is true, the corresponding logo is
- * appended to the heading to match the attribution badges shown in the dashboard UI.
- */
+/** Render a styled email content section (`<h3>` heading + body block). */
 export function renderEmailSection(
 	emoji: string,
 	title: string,

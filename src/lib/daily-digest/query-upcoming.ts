@@ -5,12 +5,7 @@ import type { SupabaseAdminClient } from "../schedule/helpers";
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 1000;
 
-/**
- * Fetch users whose daily digest is due in an upcoming window.
- *
- * Returns users with `daily_digest_next_send_at > afterTimeIso AND daily_digest_next_send_at <= beforeTimeIso`.
- * Used by the pre-compute phase to stage content before delivery time.
- */
+/** Fetch users whose daily digest is due in an upcoming time window. */
 export async function fetchUpcomingDailyDigestUsers(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;

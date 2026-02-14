@@ -42,12 +42,7 @@ import { updateUserDailyDigestNextSendAt } from "./next-send-at";
 const GROK_WINDOW_HOURS = 24;
 const GROK_MAX_SENDS_PER_WINDOW = 10;
 
-/**
- * Check whether a user can invoke Grok within the current rolling window.
- *
- * The window is tracked per-user via `grok_window_start` and `grok_sends_in_window`.
- * Invalid/missing window state is treated as "allowed" to avoid blocking delivery due to bad data.
- */
+/** Return whether Grok is allowed within the user's rolling window limit. */
 function canInvokeGrokWithinLimit(options: {
 	grokWindowStart: string | null;
 	grokSendsInWindow: number;
@@ -74,12 +69,7 @@ interface DailyScheduleContext {
 	scheduledMinutes: number;
 }
 
-/**
- * Derive a deterministic schedule key (local date + local minutes) for daily digest delivery.
- *
- * Uses `daily_digest_next_send_at` when available; falls back to `currentTime` if missing to keep the
- * runner functional for users that haven't been fully backfilled yet.
- */
+/** Derive the (scheduledDate, scheduledMinutes) key for daily digest delivery. */
 function parseDailyScheduleContext(
 	user: UserRecord,
 	currentTime: DateTime,
@@ -126,12 +116,7 @@ function parseDailyScheduleContext(
 	return { scheduledDate, scheduledMinutes };
 }
 
-/**
- * Decide whether Grok may be used for this run and whether the entire run should be skipped.
- *
- * If Grok is required (e.g., rumors/news) but the user is over their window limit, we may still
- * proceed when Finnhub-only sections are enabled.
- */
+/** Resolve whether Grok can be used and whether the run should be skipped. */
 function resolveGrokEligibility(
 	user: UserRecord,
 	needsGrok: boolean,
@@ -178,12 +163,7 @@ function resolveGrokEligibility(
 	return { grokAllowed, skip: false };
 }
 
-/**
- * Persist Grok usage counters to the database after a successful send.
- *
- * This is only called when Grok was allowed and at least one message was delivered (email or SMS).
- * The counter is reset when the rolling window has expired.
- */
+/** Persist Grok usage counters after at least one successful delivery. */
 async function updateGrokSendCounter(
 	user: UserRecord,
 	supabase: SupabaseAdminClient,
@@ -229,14 +209,7 @@ async function updateGrokSendCounter(
 	}
 }
 
-/**
- * Process a single user's daily digest notification.
- *
- * - Computes a deterministic schedule key (local date + local minutes) from `daily_digest_next_send_at`
- * - Fetches optional Finnhub extras (news context, insider trades)
- * - Optionally invokes Grok for channel-specific news/rumors (rate-limited per user window)
- * - Delivers via enabled channels and advances `daily_digest_next_send_at`
- */
+/** Process one user's daily digest notification (deliver now or stage for later). */
 export async function processDailyDigestUser(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;

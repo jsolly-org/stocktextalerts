@@ -14,9 +14,7 @@ export interface EnrichedAlert {
 	aiSummary: string | null;
 }
 
-/**
- * Fetch breaking news for a symbol (top 3 headlines from last 24h).
- */
+/** Fetch breaking news for a symbol (top 3 headlines from the last 24h). */
 export async function fetchBreakingNews(
 	symbol: string,
 ): Promise<CompanyNewsItem[]> {
@@ -30,29 +28,21 @@ export async function fetchBreakingNews(
 	return news.slice(0, 3);
 }
 
-/**
- * Build a human-readable price context string.
- */
+/** Build a human-readable price context string. */
 function buildPriceContext(symbol: string, quote: ExtendedAssetQuote): string {
 	const direction = quote.changePercent >= 0 ? "up" : "down";
 	const absChange = Math.abs(quote.changePercent).toFixed(1);
 	return `${symbol} is ${direction} ${absChange}% today ($${quote.price.toFixed(2)})`;
 }
 
-/**
- * Build a signal context string from triggered signals.
- */
+/** Build a signal context string from triggered signals. */
 function buildSignalContext(anomalyResult: AnomalyResult): string {
 	const triggered = anomalyResult.signals.filter((s) => s.triggered);
 	if (triggered.length === 0) return "unusual activity detected";
 	return triggered.map((s) => s.detail).join(", ");
 }
 
-/**
- * Enrich a triggered alert with context for delivery.
- *
- * Fetches news, builds price/signal context, and optionally generates an AI summary.
- */
+/** Enrich a triggered alert with news context and optional AI summary. */
 export async function enrichAlert(options: {
 	symbol: string;
 	quote: ExtendedAssetQuote;

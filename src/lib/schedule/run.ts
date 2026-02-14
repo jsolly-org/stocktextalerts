@@ -63,21 +63,14 @@ import {
 } from "./helpers";
 import { createSmsSenderProvider } from "./sms-sender";
 
-// Daily fan-out can easily produce a concurrency storm; keep this bounded.
-// Configure via env to tune for your Vercel plan/limits.
+/** Daily fan-out batch size for dispatching digest processing. */
 const DAILY_DISPATCH_BATCH_SIZE = (() => {
 	const raw = process.env.SCHEDULE_DAILY_DISPATCH_BATCH_SIZE;
 	const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
 	return Number.isFinite(parsed) && parsed > 0 ? parsed : 25;
 })();
 
-/**
- * Delay between pass 1 and pass 2, in milliseconds.
- * Must match PRECOMPUTE_WINDOW_SECONDS in precompute.ts — each pass pre-computes
- * content for users due within the next 30s, so the following pass can deliver it.
- * Configurable via env for testing (set to 0 to skip the wait).
- * Read at call time (not module load) so test stubs take effect.
- */
+/** Return the delay between pass 1 and pass 2 (ms). */
 function getPassDelayMs(): number {
 	const raw = process.env.SCHEDULE_PASS_DELAY_MS;
 	const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
@@ -93,6 +86,7 @@ const EMPTY_TOTALS: ScheduledNotificationTotals = {
 	smsFailed: 0,
 };
 
+/** Combine two scheduled notification totals into one aggregate. */
 function mergeTotals(
 	a: ScheduledNotificationTotals,
 	b: ScheduledNotificationTotals,
@@ -107,14 +101,7 @@ function mergeTotals(
 	};
 }
 
-/**
- * Run a single pass of the notification pipeline.
- *
- * Each pass executes:
- * 1. DELIVER — send staged content for users due now
- * 2. DELIVER FALLBACK — process users due now via the full pipeline (those without staged data)
- * 3. PRE-COMPUTE — stage content for users due in the next 30 seconds
- */
+/** Run a single pass: deliver staged → fallback → pre-compute. */
 async function runPass(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
@@ -386,15 +373,7 @@ async function runPass(options: {
 }
 
 /**
- * Run all notification processors for the current minute.
- *
- * This orchestrates:
- * - Price alerts (first pass only)
- * - Two-pass delivery: pass 1 at ~:00, pass 2 at ~:30
- *   Each pass: DELIVER staged → DELIVER fallback → PRE-COMPUTE
- * - Asset events (first pass only)
- *
- * In forceSend mode (manual sends), staging is bypassed and only a single pass runs.
+ * Run the scheduled notification cron (two-pass) or force-send (single-pass).
  */
 export async function runScheduledNotifications(options: {
 	supabase: SupabaseAdminClient;

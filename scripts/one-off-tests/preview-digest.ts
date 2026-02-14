@@ -36,6 +36,7 @@ if (!apiKey) {
 }
 
 /* -- API call (keeps raw text + annotations for debug display) -- */
+/** Call Grok and return raw text + annotations for debugging. */
 async function callGrok(
 	label: string,
 	system: string,
@@ -97,6 +98,7 @@ async function callGrok(
 }
 
 /* -- Main -- */
+/** Script entrypoint: fetch Grok sections and write an HTML preview. */
 async function main() {
 	console.log(`Fetching Grok news + rumors for ${TICKERS.join(", ")}...\n`);
 
@@ -183,6 +185,7 @@ async function main() {
 	execSync(`open "${outPath}"`);
 }
 
+/** Render a `<details>` block showing each pipeline stage for debugging. */
 function buildDebugSection(
 	label: string,
 	data: Awaited<ReturnType<typeof callGrok>>,

@@ -66,6 +66,7 @@ interface OutputFile {
 	data: OutputSymbol[];
 }
 
+/** Fetch all MASSIVE tickers via pagination. */
 async function fetchAllTickers(): Promise<MassiveTicker[]> {
 	const apiKey = process.env.MASSIVE_API_KEY;
 	if (!apiKey) {
@@ -130,6 +131,7 @@ async function fetchAllTickers(): Promise<MassiveTicker[]> {
 	return allTickers;
 }
 
+/** Normalize MASSIVE tickers into our `{symbol,name,type}` set. */
 function transformSymbols(raw: MassiveTicker[]): OutputSymbol[] {
 	const symbols: OutputSymbol[] = [];
 
@@ -153,6 +155,7 @@ function transformSymbols(raw: MassiveTicker[]): OutputSymbol[] {
 	return symbols;
 }
 
+/** Script entrypoint: fetch, normalize, and write `scripts/data/us-assets.json`. */
 async function main() {
 	const raw = await fetchAllTickers();
 	console.info(`  Received ${raw.length} raw tickers from MASSIVE`);

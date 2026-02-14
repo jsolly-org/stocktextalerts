@@ -35,18 +35,14 @@ import { toIsoOrThrow } from "../time/format";
 /** Pre-compute window in seconds (look ahead this far). */
 const PRECOMPUTE_WINDOW_SECONDS = 30;
 
-// Daily fan-out batch size (same env-configurable value as run.ts)
+/** Daily fan-out batch size for pre-compute dispatching. */
 const DAILY_DISPATCH_BATCH_SIZE = (() => {
 	const raw = process.env.SCHEDULE_DAILY_DISPATCH_BATCH_SIZE;
 	const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
 	return Number.isFinite(parsed) && parsed > 0 ? parsed : 25;
 })();
 
-/**
- * Pre-compute market scheduled notifications for users due in the next 30 seconds.
- *
- * Fetches upcoming users, batches price lookups, and processes each user in stageOnly mode.
- */
+/** Pre-compute market scheduled notifications for users due in the next 30 seconds. */
 export async function precomputeMarketScheduled(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
@@ -154,11 +150,7 @@ export async function precomputeMarketScheduled(options: {
 	return stats;
 }
 
-/**
- * Pre-compute daily digest notifications for users due in the next 30 seconds.
- *
- * Uses the existing fan-out dispatch mechanism with the `precompute` flag set.
- */
+/** Pre-compute daily digest notifications for users due in the next 30 seconds. */
 export async function precomputeDailyDigest(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;

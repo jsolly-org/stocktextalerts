@@ -16,6 +16,7 @@ let holidayCache: {
 	holidays: Map<string, string | undefined>;
 } | null = null;
 
+/** Fetch and cache upcoming full-day US market closures (NYSE/NASDAQ). */
 async function fetchUsMarketHolidays(): Promise<
 	Map<string, string | undefined>
 > {

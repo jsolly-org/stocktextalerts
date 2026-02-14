@@ -19,11 +19,7 @@ const defaultDependencies: SmsSendVerificationDependencies = {
 	sendVerification,
 };
 
-/**
- * Create an API handler that sends an SMS verification code to the submitted phone number.
- *
- * Dependency injection is supported for testing.
- */
+/** Create an API handler that sends an SMS verification code to a submitted phone number. */
 export function createSendVerificationHandler(
 	overrides: Partial<SmsSendVerificationDependencies> = {},
 ): APIRoute {

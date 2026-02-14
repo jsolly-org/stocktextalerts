@@ -5,12 +5,7 @@ import type { SupabaseAdminClient } from "../../schedule/helpers";
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 1000;
 
-/**
- * Fetch users whose market scheduled update is due in an upcoming window.
- *
- * Returns users with `next_send_at > afterTimeIso AND next_send_at <= beforeTimeIso`.
- * Used by the pre-compute phase to stage content before delivery time.
- */
+/** Fetch users whose market scheduled update is due in an upcoming time window. */
 export async function fetchUpcomingMarketScheduledUsers(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;

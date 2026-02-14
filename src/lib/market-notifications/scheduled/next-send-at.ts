@@ -4,11 +4,7 @@ import type { UserRecord } from "../../messaging/types";
 import type { SupabaseAdminClient } from "../../schedule/helpers";
 import { calculateNextMarketScheduledSendAtFromTimes } from "../../time/market-scheduled-next-send";
 
-/**
- * Recompute and persist `users.market_scheduled_asset_price_next_send_at` based on `market_scheduled_asset_price_times` and timezone.
- *
- * This is called after a scheduled update attempt (success or skip) to advance the schedule.
- */
+/** Recompute and persist `users.market_scheduled_asset_price_next_send_at` after a run. */
 export async function updateUserMarketScheduledNextSendAt(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
