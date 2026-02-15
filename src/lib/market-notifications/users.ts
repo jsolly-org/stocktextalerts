@@ -21,6 +21,8 @@ export interface PriceAlertUser {
 	email: string;
 	phone_country_code: string | null;
 	phone_number: string | null;
+	phone_verified: boolean;
+	sms_opted_out: boolean;
 	market_asset_price_alerts_include_email: boolean;
 	market_asset_price_alerts_include_sms: boolean;
 	market_asset_price_alert_sensitivity: number;
@@ -35,7 +37,7 @@ export async function fetchPriceAlertUsers(
 	const { data, error } = await (supabase
 		.from("users")
 		.select(
-			"id, email, phone_country_code, phone_number, market_asset_price_alerts_include_email, market_asset_price_alerts_include_sms, market_asset_price_alert_sensitivity",
+			"id, email, phone_country_code, phone_number, phone_verified, sms_opted_out, market_asset_price_alerts_include_email, market_asset_price_alerts_include_sms, market_asset_price_alert_sensitivity",
 		)
 		.eq("market_asset_price_alerts_enabled", true)
 		.or(

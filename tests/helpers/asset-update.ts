@@ -61,7 +61,7 @@ export async function updateTrackedAssets(
 	const { data: notificationPreferencesBefore } = await adminClient
 		.from("users")
 		.select(
-			"email_notifications_enabled,sms_notifications_enabled,market_scheduled_asset_price_times,market_scheduled_asset_price_next_send_at",
+			"email_notifications_enabled,market_scheduled_asset_price_times,market_scheduled_asset_price_next_send_at",
 		)
 		.eq("id", testUser.id)
 		.maybeSingle();
@@ -102,7 +102,7 @@ export async function updateTrackedAssets(
 	const { data: notificationPreferencesAfter } = await adminClient
 		.from("users")
 		.select(
-			"email_notifications_enabled,sms_notifications_enabled,market_scheduled_asset_price_times,market_scheduled_asset_price_next_send_at",
+			"email_notifications_enabled,market_scheduled_asset_price_times,market_scheduled_asset_price_next_send_at",
 		)
 		.eq("id", testUser.id)
 		.maybeSingle();

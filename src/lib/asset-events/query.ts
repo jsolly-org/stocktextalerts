@@ -42,7 +42,6 @@ export async function fetchAssetEventsUsers(options: {
 			asset_events_next_send_at,
 			asset_events_last_analyst_sent_month,
 			email_notifications_enabled,
-			sms_notifications_enabled,
 			sms_opted_out
 		`,
 			)
@@ -50,7 +49,7 @@ export async function fetchAssetEventsUsers(options: {
 				"asset_events_include_calendar_email.eq.true,asset_events_include_calendar_sms.eq.true,asset_events_include_ipo_email.eq.true,asset_events_include_ipo_sms.eq.true,asset_events_include_analyst_email.eq.true,asset_events_include_analyst_sms.eq.true,asset_events_include_insider_email.eq.true,asset_events_include_insider_sms.eq.true",
 			)
 			.or(
-				"email_notifications_enabled.eq.true,sms_notifications_enabled.eq.true",
+				"email_notifications_enabled.eq.true,market_scheduled_asset_price_include_sms.eq.true,asset_events_include_calendar_sms.eq.true,asset_events_include_ipo_sms.eq.true,asset_events_include_analyst_sms.eq.true,asset_events_include_insider_sms.eq.true,market_asset_price_alerts_include_sms.eq.true",
 			);
 
 		if (!options.forceSend) {

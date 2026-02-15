@@ -89,7 +89,7 @@ if (success === "true") {
   </main>
 </Layout>
 
-<script>
+<script define:vars={{ success, error }}>
 	import { rootLogger } from "../../lib/logging";
 
 	(function setupResendVerification() {
@@ -106,6 +106,7 @@ if (success === "true") {
 		let cooldownTimer = null;
 
 		const COOLDOWN_KEY = "resend-verification-cooldown";
+		const PENDING_KEY = "resend-verification-pending";
 		const COOLDOWN_DURATION = 30;
 
 		function getRemainingCooldownSeconds() {
@@ -121,12 +122,37 @@ if (success === "true") {
 			}
 		}
 
+		function markPendingSubmit() {
+			try {
+				sessionStorage.setItem(PENDING_KEY, "1");
+			} catch {
+				// Ignore sessionStorage failures.
+			}
+		}
+
+		function hasPendingSubmit() {
+			try {
+				return sessionStorage.getItem(PENDING_KEY) === "1";
+			} catch {
+				return false;
+			}
+		}
+
+		function clearPendingSubmit() {
+			try {
+				sessionStorage.removeItem(PENDING_KEY);
+			} catch {
+				// Ignore sessionStorage failures.
+			}
+		}
+
 		function setButtonCooldown(seconds) {
 			if (cooldownTimer) {
 				clearInterval(cooldownTimer);
 			}
 
 			resendBtn.disabled = true;
+			resendBtn.setAttribute("aria-busy", "true");
 			let remaining = seconds;
 
 			const updateButton = () => {
@@ -137,6 +163,7 @@ if (success === "true") {
 				}
 
 				resendBtn.disabled = false;
+				resendBtn.removeAttribute("aria-busy");
 				resendBtn.textContent = "Resend verification email";
 				if (cooldownTimer) {
 					clearInterval(cooldownTimer);
@@ -149,6 +176,14 @@ if (success === "true") {
 		}
 
 		resendForm.addEventListener("submit", () => {
+			markPendingSubmit();
+			resendBtn.disabled = true;
+			resendBtn.setAttribute("aria-busy", "true");
+			resendBtn.textContent = "Sending verification email...";
+		});
+
+		// Start cooldown only after a confirmed successful round-trip.
+		if (success === "true" && hasPendingSubmit()) {
 			try {
 				localStorage.setItem(COOLDOWN_KEY, Date.now().toString());
 			} catch (err) {
@@ -160,14 +195,20 @@ if (success === "true") {
 					},
 					err,
 				);
+			} finally {
+				clearPendingSubmit();
 			}
-		});
+		}
 
-		// Initialize: check if there's an active cooldown from a previous resend
+		// If the backend rejected the resend, clear pending state and allow retry.
+		if (error && hasPendingSubmit()) {
+			clearPendingSubmit();
+		}
+
+		// Initialize from persisted cooldown.
 		const remaining = getRemainingCooldownSeconds();
 		if (remaining > 0) {
 			setButtonCooldown(remaining);
 		}
 	})();
 </script>
-

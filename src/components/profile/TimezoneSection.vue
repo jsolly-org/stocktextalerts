@@ -91,7 +91,6 @@ function buildSavedNotificationPreferences(
 	const marketScheduledAssetPriceTimes = sourceUser.market_scheduled_asset_price_times;
 	return {
 		email_notifications_enabled: sourceUser.email_notifications_enabled,
-		sms_notifications_enabled: sourceUser.sms_notifications_enabled,
 		sms_opted_out: sourceUser.sms_opted_out,
 		phone_verified: sourceUser.phone_verified,
 		timezone: sourceUser.timezone,

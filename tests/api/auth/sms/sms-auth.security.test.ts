@@ -124,7 +124,6 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 					phone_country_code: "+1",
 					phone_number: existingPhoneNumber,
 					phone_verified: true,
-					sms_notifications_enabled: true,
 				})
 				.eq("id", testUser.id);
 

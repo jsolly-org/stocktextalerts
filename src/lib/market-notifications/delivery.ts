@@ -7,7 +7,7 @@ import { sendUserEmail } from "../messaging/email/index";
 import { createEmailUnsubscribeUrl } from "../messaging/email/unsubscribe";
 import type { EmailSender } from "../messaging/email/utils";
 import { recordNotification } from "../messaging/shared";
-import { sendUserSms } from "../messaging/sms/index";
+import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import type { SmsSender } from "../messaging/sms/twilio-utils";
 import type { EnrichedAlert } from "./enrichment";
 import type { PriceAlertUser } from "./users";
@@ -198,6 +198,13 @@ export async function deliverPriceAlert(options: {
 
 	// SMS delivery
 	if (user.market_asset_price_alerts_include_sms && sendSms) {
+		if (!shouldSendSms(user)) {
+			rootLogger.info("Price alert SMS skipped: user not eligible", {
+				userId: user.id,
+			});
+			return;
+		}
+
 		if (!user.phone_country_code || !user.phone_number) {
 			rootLogger.warn("Price alert SMS skipped: no phone number", {
 				userId: user.id,

@@ -26,7 +26,6 @@ export async function fetchUpcomingDailyDigestUsers(options: {
 			daily_digest_time,
 			daily_digest_next_send_at,
 			email_notifications_enabled,
-			sms_notifications_enabled,
 			sms_opted_out,
 			show_sparklines,
 			daily_digest_include_news_email,
@@ -48,7 +47,7 @@ export async function fetchUpcomingDailyDigestUsers(options: {
 			)
 			.not("daily_digest_time", "is", null)
 			.or(
-				"email_notifications_enabled.eq.true,sms_notifications_enabled.eq.true",
+				"email_notifications_enabled.eq.true,market_scheduled_asset_price_include_sms.eq.true,asset_events_include_calendar_sms.eq.true,asset_events_include_ipo_sms.eq.true,asset_events_include_analyst_sms.eq.true,asset_events_include_insider_sms.eq.true,market_asset_price_alerts_include_sms.eq.true",
 			)
 			.not("daily_digest_next_send_at", "is", null)
 			.gt("daily_digest_next_send_at", options.afterTimeIso)

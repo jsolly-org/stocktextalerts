@@ -297,16 +297,6 @@ export function buildPublicUserSql(userId: string, user: SeedUser): string {
     updateFields.push("email_notifications_enabled = EXCLUDED.email_notifications_enabled");
   }
 
-  const smsNotificationsEnabled = validateOptionalBoolean(
-    user.sms_notifications_enabled,
-    "sms_notifications_enabled",
-  );
-  if (smsNotificationsEnabled !== undefined) {
-    insertColumns.push("sms_notifications_enabled");
-    insertValues.push(String(smsNotificationsEnabled));
-    updateFields.push("sms_notifications_enabled = EXCLUDED.sms_notifications_enabled");
-  }
-
   return `
 INSERT INTO public.users (
   ${insertColumns.join(",\n  ")}
@@ -336,4 +326,3 @@ FROM (
 ON CONFLICT (user_id, symbol) DO NOTHING;
 `;
 }
-

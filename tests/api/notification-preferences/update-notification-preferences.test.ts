@@ -30,7 +30,6 @@ describe("A signed-in user updates their notification channels.", () => {
 
 		const formData = new FormData();
 		formData.append("email_notifications_enabled", "true");
-		formData.append("sms_notifications_enabled", "false");
 
 		const request = new Request(
 			"http://localhost/api/notification-preferences/update",
@@ -99,7 +98,6 @@ describe("A signed-in user updates their notification channels.", () => {
 
 		const formData = new FormData();
 		formData.append("email_notifications_enabled", "true");
-		formData.append("sms_notifications_enabled", "false");
 		formData.append(
 			"market_scheduled_asset_price_times",
 			JSON.stringify(["12:00"]),

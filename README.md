@@ -221,6 +221,32 @@ npm run fix
 
 For local development, run `npm run db:reset` before `npm run test` to ensure your Supabase DB matches the current migrations and seed data.
 
+### Optional: Live Provider Tests (Massive/Finnhub/xAI)
+
+Vitest runs offline by default and stubs external provider keys. To opt into one or more real providers for targeted integration tests, pass `--live` to `npm test`:
+
+```bash
+# Massive only
+npm test -- --live=massive tests/lib/live-provider-apis.test.ts
+
+# Finnhub only
+npm test -- --live=finnhub tests/lib/live-provider-apis.test.ts
+
+# Both Massive + Finnhub
+npm test -- --live=massive,finnhub tests/lib/live-provider-apis.test.ts
+
+# xAI (Grok) only
+npm test -- --live=xai tests/lib/live-xai-apis.test.ts
+
+# Package scripts
+npm run test:live:data
+npm run test:live:xai
+```
+
+Notes:
+- `MASSIVE_API_KEY`, `FINNHUB_API_KEY`, and/or `XAI_API_KEY` must be present in your environment when enabled.
+- Twilio and Resend remain fake/stubbed in tests.
+
 ## Usage
 
 ### User Flow

@@ -39,7 +39,6 @@ export type UserRecord = Pick<
 	| "timezone"
 	| "market_scheduled_asset_price_next_send_at"
 	| "email_notifications_enabled"
-	| "sms_notifications_enabled"
 	| "sms_opted_out"
 	| "show_sparklines"
 > & {

@@ -422,7 +422,6 @@ export type Database = {
           phone_number: string | null
           phone_verified: boolean
           show_sparklines: boolean
-          sms_notifications_enabled: boolean
           sms_opted_out: boolean
           timezone: string
           updated_at: string
@@ -466,7 +465,6 @@ export type Database = {
           phone_number?: string | null
           phone_verified?: boolean
           show_sparklines?: boolean
-          sms_notifications_enabled?: boolean
           sms_opted_out?: boolean
           timezone?: string
           updated_at?: string
@@ -510,7 +508,6 @@ export type Database = {
           phone_number?: string | null
           phone_verified?: boolean
           show_sparklines?: boolean
-          sms_notifications_enabled?: boolean
           sms_opted_out?: boolean
           timezone?: string
           updated_at?: string

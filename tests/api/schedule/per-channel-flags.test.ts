@@ -74,7 +74,7 @@ describe("Per-channel include flags gate scheduled notification delivery.", () =
 		expect(logs ?? []).toHaveLength(0);
 	});
 
-	it("No SMS is sent when sms_notifications_enabled=true but market_scheduled_asset_price_include_sms=false.", async () => {
+	it("No SMS is sent when phone is verified but market_scheduled_asset_price_include_sms=false.", async () => {
 		const nowLocal = DateTime.now().setZone(timezone);
 		if (!nowLocal.isValid) throw new Error("Invalid timezone");
 		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;

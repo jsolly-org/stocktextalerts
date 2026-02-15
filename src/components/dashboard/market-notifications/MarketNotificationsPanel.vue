@@ -37,7 +37,7 @@
 			<h2
 					:id="DASHBOARD_SECTION_IDS.marketNotifications"
 					class="text-xl sm:text-2xl font-bold text-heading transition-opacity duration-200"
-					:class="{ 'opacity-50': needsChannelSelection }"
+					:class="{ 'opacity-50': notificationSetupBlocked }"
 				>
 					Market Notifications
 				</h2>
@@ -49,6 +49,7 @@
 			</header>
 
 			<SetupRequiredNotice
+				:needsTrackedAssets="needsTrackedAssets"
 				:needsChannelSelection="needsChannelSelection"
 				:needsPhoneVerification="needsPhoneVerification"
 				:phoneVerificationSectionId="phoneVerificationSectionId"
@@ -56,7 +57,7 @@
 
 			<div
 				class="rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200"
-				:class="{ 'opacity-50': needsChannelSelection }"
+				:class="{ 'opacity-50': notificationSetupBlocked }"
 			>
 				<div class="flex items-center justify-between gap-3">
 					<input
@@ -93,17 +94,17 @@
 							<input
 								type="checkbox"
 								v-model="marketIncludeEmail"
-								:disabled="needsChannelSelection || !emailEnabled"
+								:disabled="notificationSetupBlocked || !emailEnabled"
 								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
 								aria-describedby="market_scheduled_asset_price_enabled_description"
 							/>
 							<span class="text-sm text-label">Email</span>
 						</label>
-						<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : needsChannelSelection ? 'cursor-not-allowed' : 'cursor-not-allowed opacity-50'">
+						<label class="inline-flex items-center gap-1.5" :class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
 							<input
 								type="checkbox"
 								v-model="marketIncludeSms"
-								:disabled="needsChannelSelection || !smsReady"
+								:disabled="notificationSetupBlocked || !smsReady"
 								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
 								aria-describedby="market_scheduled_asset_price_enabled_description"
 							/>
@@ -120,7 +121,7 @@
 
 						<FadeTransition>
 							<p
-								v-if="!needsChannelSelection && scheduledUpdateTimesMinutes.length === 0"
+								v-if="!notificationSetupBlocked && scheduledUpdateTimesMinutes.length === 0"
 								class="flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm bg-info-bg border border-info-border text-info-text"
 								role="note"
 							>
@@ -131,7 +132,7 @@
 
 						<ScheduledUpdateControls
 							:scheduledUpdateTimes="scheduledUpdateTimes"
-							:needsChannelSelection="needsChannelSelection"
+							:needsChannelSelection="notificationSetupBlocked"
 							:timePickerDisabled="timePickerDisabled"
 							:canAddTime="canAddTime"
 							:canAddMarketOpen="canAddMarketOpen"
@@ -155,7 +156,7 @@
 
 			<div
 				class="mt-4 rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200"
-				:class="{ 'opacity-50': needsChannelSelection }"
+				:class="{ 'opacity-50': notificationSetupBlocked }"
 			>
 				<div class="flex items-center justify-between gap-3">
 					<input
@@ -216,17 +217,17 @@
 							<input
 								type="checkbox"
 								v-model="priceAlertsIncludeEmail"
-								:disabled="needsChannelSelection || !emailEnabled"
+								:disabled="notificationSetupBlocked || !emailEnabled"
 								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
 								aria-describedby="market_asset_price_alerts_enabled_description"
 							/>
 							<span class="text-sm text-label">Email</span>
 						</label>
-						<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : needsChannelSelection ? 'cursor-not-allowed' : 'cursor-not-allowed opacity-50'">
+						<label class="inline-flex items-center gap-1.5" :class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
 							<input
 								type="checkbox"
 								v-model="priceAlertsIncludeSms"
-								:disabled="needsChannelSelection || !smsReady"
+								:disabled="notificationSetupBlocked || !smsReady"
 								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
 								aria-describedby="market_asset_price_alerts_enabled_description"
 							/>
@@ -237,7 +238,7 @@
 
 				<FadeTransition>
 					<div v-if="priceAlertsEnabled" class="mt-3 border-t border-divider pt-3 pl-3 sm:pl-4">
-						<fieldset :disabled="needsChannelSelection">
+						<fieldset :disabled="notificationSetupBlocked">
 							<legend class="text-sm font-medium text-label mb-2">
 								Price Sensitivity
 							</legend>
@@ -322,15 +323,15 @@ import ScheduledUpdateControls from "./ScheduledUpdateControls.vue";
 
 interface Props {
 	emailEnabled: boolean;
-	smsEnabled: boolean;
 	phoneVerified: boolean;
+	hasTrackedAssets: boolean;
 }
 
 const props = defineProps<Props>();
 const {
 	emailEnabled,
-	smsEnabled,
 	phoneVerified,
+	hasTrackedAssets,
 } = toRefs(props);
 
 // Inject the shared mutable user ref from DashboardPanels
@@ -452,18 +453,29 @@ const timezone = computed(() => user.value.timezone ?? "");
 
 const smsOptedOut = computed(() => user.value.sms_opted_out === true);
 const smsReady = computed(
-	() => smsEnabled.value && phoneVerified.value && !smsOptedOut.value,
+	() => phoneVerified.value && !smsOptedOut.value,
 );
 const hasNotificationChannel = computed(
-	() => emailEnabled.value || smsReady.value,
+	() =>
+		emailEnabled.value ||
+		(user.value.market_scheduled_asset_price_include_sms ||
+			user.value.market_asset_price_alerts_include_sms) &&
+			smsReady.value,
 );
 const needsChannelSelection = computed(() => !hasNotificationChannel.value);
+const needsTrackedAssets = computed(() => !hasTrackedAssets.value);
+const notificationSetupBlocked = computed(
+	() => needsChannelSelection.value || needsTrackedAssets.value,
+);
 
 
 const needsPhoneVerification = computed(
-	() => smsEnabled.value && !phoneVerified.value,
+	() =>
+		(user.value.market_scheduled_asset_price_include_sms ||
+			user.value.market_asset_price_alerts_include_sms) &&
+		!phoneVerified.value,
 );
-const timePickerDisabled = computed(() => needsChannelSelection.value);
+const timePickerDisabled = computed(() => notificationSetupBlocked.value);
 const maxTimesReached = computed(
 	() => scheduledUpdateTimesMinutes.value.length >= MAX_DELIVERY_TIMES,
 );

@@ -398,6 +398,34 @@ export async function fetchDailyCloses(
 	return closes.length > 0 ? closes : null;
 }
 
+/**
+ * Fetch previous close for a single symbol.
+ *
+ * Uses `/v2/aggs/ticker/{symbol}/prev?adjusted=true`.
+ * Returns the previous close price, or null when unavailable.
+ */
+export async function fetchPrevClose(symbol: string): Promise<number | null> {
+	const data = await marketDataFetch(
+		`/v2/aggs/ticker/${encodeURIComponent(symbol)}/prev`,
+		{ adjusted: "true" },
+		"prev-close",
+	);
+	if (typeof data !== "object" || data === null) return null;
+
+	const results = (data as Record<string, unknown>).results;
+	if (!Array.isArray(results) || results.length === 0) return null;
+
+	const first = results[0];
+	if (typeof first !== "object" || first === null) return null;
+
+	const close = (first as Record<string, unknown>).c;
+	if (typeof close !== "number" || !Number.isFinite(close) || close === 0) {
+		return null;
+	}
+
+	return close;
+}
+
 /* =============
 Snapshot Quotes
 ============= */

@@ -42,6 +42,20 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 		try {
 			const from = await getTestUserPhone(testUser.id);
+			const { error: seedSmsFieldsError } = await adminClient
+				.from("users")
+				.update({
+					market_scheduled_asset_price_include_sms: true,
+					asset_events_include_calendar_sms: true,
+					asset_events_include_ipo_sms: true,
+					asset_events_include_analyst_sms: true,
+					asset_events_include_insider_sms: true,
+					market_asset_price_alerts_include_sms: true,
+				})
+				.eq("id", testUser.id);
+			if (seedSmsFieldsError) {
+				throw new Error(seedSmsFieldsError.message);
+			}
 
 			const response = await POST({
 				request: buildSmsInboundRequest({
@@ -57,13 +71,28 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 			const { data: updated } = await adminClient
 				.from("users")
-				.select("sms_notifications_enabled,sms_opted_out")
+				.select(
+					[
+						"sms_opted_out",
+						"market_scheduled_asset_price_include_sms",
+						"asset_events_include_calendar_sms",
+						"asset_events_include_ipo_sms",
+						"asset_events_include_analyst_sms",
+						"asset_events_include_insider_sms",
+						"market_asset_price_alerts_include_sms",
+					].join(","),
+				)
 				.eq("id", testUser.id)
 				.single();
 			expect(updated).not.toBeNull();
 			if (!updated) throw new Error("expected user row");
-			expect(updated.sms_notifications_enabled).toBe(false);
 			expect(updated.sms_opted_out).toBe(true);
+			expect(updated.market_scheduled_asset_price_include_sms).toBe(false);
+			expect(updated.asset_events_include_calendar_sms).toBe(false);
+			expect(updated.asset_events_include_ipo_sms).toBe(false);
+			expect(updated.asset_events_include_analyst_sms).toBe(false);
+			expect(updated.asset_events_include_insider_sms).toBe(false);
+			expect(updated.market_asset_price_alerts_include_sms).toBe(false);
 		} finally {
 			await cleanupTestUser(testUser.id);
 			vi.unstubAllEnvs();
@@ -98,15 +127,15 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 			const { data: updated } = await adminClient
 				.from("users")
 				.select(
-					"sms_notifications_enabled,email_notifications_enabled,sms_opted_out",
+					"email_notifications_enabled,sms_opted_out,market_scheduled_asset_price_include_sms",
 				)
 				.eq("id", testUser.id)
 				.single();
 			expect(updated).not.toBeNull();
 			if (!updated) throw new Error("expected user row");
-			expect(updated.sms_notifications_enabled).toBe(false);
 			expect(updated.email_notifications_enabled).toBe(false);
 			expect(updated.sms_opted_out).toBe(true);
+			expect(updated.market_scheduled_asset_price_include_sms).toBe(false);
 		} finally {
 			await cleanupTestUser(testUser.id);
 			vi.unstubAllEnvs();
@@ -141,22 +170,22 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 			const { data: updated } = await adminClient
 				.from("users")
 				.select(
-					"sms_notifications_enabled,email_notifications_enabled,sms_opted_out",
+					"email_notifications_enabled,sms_opted_out,market_scheduled_asset_price_include_sms",
 				)
 				.eq("id", testUser.id)
 				.single();
 			expect(updated).not.toBeNull();
 			if (!updated) throw new Error("expected user row");
-			expect(updated.sms_notifications_enabled).toBe(true);
 			expect(updated.email_notifications_enabled).toBe(false);
 			expect(updated.sms_opted_out).toBe(false);
+			expect(updated.market_scheduled_asset_price_include_sms).toBe(true);
 		} finally {
 			await cleanupTestUser(testUser.id);
 			vi.unstubAllEnvs();
 		}
 	});
 
-	it("When a user texts START, sms_opted_out is cleared but SMS stays disabled.", async () => {
+	it("When a user texts START, sms_opted_out is cleared but SMS feature flags stay unchanged.", async () => {
 		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
 		validateRequestMock.mockReturnValueOnce(true);
 
@@ -186,13 +215,13 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 			const { data: updated } = await adminClient
 				.from("users")
-				.select("sms_notifications_enabled,sms_opted_out")
+				.select("sms_opted_out,market_scheduled_asset_price_include_sms")
 				.eq("id", testUser.id)
 				.single();
 			expect(updated).not.toBeNull();
 			if (!updated) throw new Error("expected user row");
 			expect(updated.sms_opted_out).toBe(false);
-			expect(updated.sms_notifications_enabled).toBe(false);
+			expect(updated.market_scheduled_asset_price_include_sms).toBe(false);
 		} finally {
 			await cleanupTestUser(testUser.id);
 			vi.unstubAllEnvs();

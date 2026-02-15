@@ -2,6 +2,7 @@ import { rootLogger } from "../logging";
 import { type SparklineMap, toSparkline } from "../messaging/sparkline";
 import {
 	fetchDailyCloses,
+	fetchPrevClose,
 	fetchSnapshotQuotes,
 	marketDataFetch,
 } from "./massive";
@@ -9,6 +10,7 @@ import {
 interface AssetPrice {
 	price: number;
 	changePercent: number;
+	timestamp?: number | null;
 }
 
 /** Quote fields used by movement alerts and snapshot persistence. */
@@ -26,16 +28,62 @@ export type AssetPriceMap = Map<string, AssetPrice | null>;
 /** Map of extended quotes keyed by symbol. */
 export type ExtendedQuoteMap = Map<string, ExtendedAssetQuote | null>;
 
+function isLiveMassiveEnabledInTests(): boolean {
+	const enabled =
+		process.env.LIVE_API_PROVIDERS ?? process.env.TEST_LIVE_PROVIDERS;
+	if (!enabled) return false;
+	return enabled
+		.split(",")
+		.map((s) => s.trim().toLowerCase())
+		.includes("massive");
+}
+
 /** Fetch quotes for a list of symbols and return a map keyed by symbol. */
 export async function fetchAssetPrices(
 	symbols: string[],
 ): Promise<AssetPriceMap> {
-	if (import.meta.env.MODE === "test") {
+	if (import.meta.env.MODE === "test" && !isLiveMassiveEnabledInTests()) {
 		return new Map(
 			symbols.map((s) => [s, { price: 150.0, changePercent: 1.25 }]),
 		);
 	}
 	const snapshot = await fetchSnapshotQuotes(symbols);
+
+	const missingSymbols = symbols.filter(
+		(symbol) => snapshot.get(symbol) === null,
+	);
+	if (missingSymbols.length === 0) {
+		return snapshot as AssetPriceMap;
+	}
+
+	const isMarketOpen = await fetchMarketStatus();
+	if (isMarketOpen) {
+		return snapshot as AssetPriceMap;
+	}
+
+	for (const symbol of missingSymbols) {
+		try {
+			const prevClose = await fetchPrevClose(symbol);
+			if (prevClose !== null) {
+				snapshot.set(symbol, {
+					price: prevClose,
+					changePercent: 0,
+					dayHigh: null,
+					dayLow: null,
+					dayOpen: null,
+					prevClose,
+					timestamp: null,
+					volume: null,
+				});
+			}
+		} catch (error) {
+			rootLogger.warn("Failed to fetch prev-close fallback", {
+				symbol,
+				error: error instanceof Error ? error.message : String(error),
+			});
+		}
+	}
+
 	return snapshot as AssetPriceMap;
 }
 
@@ -43,7 +91,7 @@ export async function fetchAssetPrices(
 export async function fetchExtendedQuotes(
 	symbols: string[],
 ): Promise<ExtendedQuoteMap> {
-	if (import.meta.env.MODE === "test") {
+	if (import.meta.env.MODE === "test" && !isLiveMassiveEnabledInTests()) {
 		return new Map(
 			symbols.map((s) => [
 				s,
@@ -122,7 +170,7 @@ export async function fetchSparklines(
 
 /** Return whether the US market is currently open (best-effort; defaults to closed). */
 export async function fetchMarketStatus(): Promise<boolean> {
-	if (import.meta.env.MODE === "test") {
+	if (import.meta.env.MODE === "test" && !isLiveMassiveEnabledInTests()) {
 		return true;
 	}
 

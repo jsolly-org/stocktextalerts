@@ -10,6 +10,14 @@
 			Setup required
 		</p>
 		<ul class="mt-2 space-y-1.5 text-sm text-warning-text list-disc list-inside ml-0.5">
+			<li v-if="needsTrackedAssets">
+				Add at least one tracked stock in
+				<a
+					:href="DASHBOARD_SECTION_HASHES.assets"
+					class="font-medium text-warning-text underline rounded-sm hover:text-warning-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning-strong focus-visible:ring-offset-1 focus-visible:ring-offset-warning-bg"
+				>
+					watchlist</a>.
+			</li>
 			<li v-if="needsChannelSelection">
 				Enable at least one notification channel in
 				<a
@@ -39,6 +47,7 @@ import ExclamationTriangleIcon from "../../../icons/exclamation-triangle-24.svg?
 import { DASHBOARD_SECTION_HASHES } from "../../../lib/constants";
 
 interface Props {
+	needsTrackedAssets?: boolean;
 	needsChannelSelection: boolean;
 	needsPhoneVerification: boolean;
 	phoneVerificationSectionId: string;
@@ -47,6 +56,9 @@ interface Props {
 const props = defineProps<Props>();
 
 const needsSetup = computed(
-	() => props.needsChannelSelection || props.needsPhoneVerification,
+	() =>
+		Boolean(props.needsTrackedAssets) ||
+		props.needsChannelSelection ||
+		props.needsPhoneVerification,
 );
 </script>

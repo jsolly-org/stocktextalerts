@@ -179,27 +179,18 @@ describe("User input is validated against required data format rules.", () => {
 		});
 	});
 
-	it("SMS notifications cannot be enabled when the user has opted out.", async () => {
+	it("The legacy sms_notifications_enabled column no longer exists.", async () => {
 		await expect(
 			client.query(
 				[
 					"insert into public.users (",
-					"id, email, phone_country_code, phone_number, sms_opted_out, sms_notifications_enabled",
-					") values ($1, $2, $3, $4, $5, $6)",
+					"id, email, sms_notifications_enabled",
+					") values ($1, $2, $3)",
 				].join(" "),
-				[
-					randomUUID(),
-					`test-${randomUUID()}@resend.dev`,
-					"+1",
-					"5551234567",
-					true,
-					true,
-				],
+				[randomUUID(), `test-${randomUUID()}@resend.dev`, true],
 			),
 		).rejects.toMatchObject({
-			code: "23514",
-			constraint: "users_sms_opted_out_blocks_sms_enabled",
-			table: "users",
+			code: "42703",
 		});
 	});
 

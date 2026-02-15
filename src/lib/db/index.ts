@@ -33,7 +33,6 @@ export type NotificationPreferencesSnapshot = Pick<
 	User,
 	| "market_scheduled_asset_price_enabled"
 	| "email_notifications_enabled"
-	| "sms_notifications_enabled"
 	| "sms_opted_out"
 	| "phone_verified"
 	| "timezone"
@@ -66,7 +65,6 @@ export type NotificationPreferencesSnapshot = Pick<
 export type NotificationPreferences = Pick<
 	User,
 	| "email_notifications_enabled"
-	| "sms_notifications_enabled"
 	| "market_scheduled_asset_price_times"
 	| "market_scheduled_asset_price_next_send_at"
 >;

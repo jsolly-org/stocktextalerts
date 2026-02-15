@@ -37,38 +37,24 @@
 			</div>
 
 			<div>
-			<div class="flex items-center justify-between gap-3 py-4">
-				<input
-					v-if="props.canSaveSmsEnabled"
-					type="hidden"
-					name="sms_notifications_enabled"
-						:value="smsEnabled ? 'on' : 'off'"
-					/>
+				<div class="py-4">
 					<div>
-						<span :id="`${props.smsNotificationsEnabledId}_label`" class="text-sm font-medium text-heading">SMS Notifications</span>
-						<span :id="`${props.smsNotificationsEnabledId}_desc`" class="block text-sm text-muted">
-							Notifications will be sent to a phone number you provide.
+						<span :id="`${props.smsStatusId}_label`" class="text-sm font-medium text-heading">SMS Notifications</span>
+						<span :id="`${props.smsStatusId}_desc`" class="block text-sm text-muted">
+							SMS delivery is controlled by each notification section. Verify your phone number below.
 						</span>
 					</div>
-					<ToggleSwitch
-						v-model="smsEnabled"
-						sr-label="SMS notifications"
-						:disabled="props.smsOptedOut"
-						:aria-labelledby="`${props.smsNotificationsEnabledId}_label`"
-						:aria-describedby="`${props.smsNotificationsEnabledId}_desc`"
-					/>
 				</div>
 
 				<StatusMessage v-if="props.smsOptedOut" tone="warning" class="mb-4">
 					<span>You've opted out of SMS notifications. To re-enable:</span>
 					<ol class="list-decimal list-inside mt-1 space-y-0.5">
-						<li>Text <strong>START</strong> to <a v-if="props.smsPhoneNumber" :href="`sms:${props.smsPhoneNumber}`" class="link-action font-medium">{{ props.smsPhoneNumber }}</a><span v-else>our SMS number</span></li>
+						<li>Reply <strong>START</strong> to <a v-if="props.smsPhoneNumber" :href="`sms:${props.smsPhoneNumber}`" class="link-action font-medium">{{ props.smsPhoneNumber }}</a><span v-else>the number you receive alerts from</span></li>
 						<li>Return here and turn SMS back on</li>
 					</ol>
 				</StatusMessage>
 
 				<SmsVerificationSection
-					:sms-enabled="smsEnabled"
 					:sms-opted-out="props.smsOptedOut"
 				/>
 			</div>
@@ -132,13 +118,12 @@ import SmsVerificationSection from "./SmsVerificationSection.vue";
 
 interface Props {
 	emailEnabled: boolean;
-	smsEnabled: boolean;
+	smsFeatureEnabled: boolean;
 	phoneVerified: boolean;
-	canSaveSmsEnabled: boolean;
 	smsOptedOut: boolean;
 	smsPhoneNumber: string;
 	emailNotificationsEnabledId: string;
-	smsNotificationsEnabledId: string;
+	smsStatusId: string;
 	notificationChannelsDescId: string;
 	isSaving?: boolean;
 	/** Current daily delivery time as an HH:MM string, or null. */
@@ -157,7 +142,6 @@ const props = defineProps<Props>();
 
 const emit = defineEmits<{
 	(event: "update:emailEnabled", value: boolean): void;
-	(event: "update:smsEnabled", value: boolean): void;
 	(event: "dailyTimeChange", value: string): void;
 	(event: "clearDeliveryTime"): void;
 	(event: "setMarketOpen"): void;
@@ -167,15 +151,11 @@ const emailEnabled = computed({
 	get: () => props.emailEnabled,
 	set: (value: boolean) => emit("update:emailEnabled", value),
 });
-const smsEnabled = computed({
-	get: () => props.smsEnabled,
-	set: (value: boolean) => emit("update:smsEnabled", value),
-});
 
 const hasNotificationChannel = computed(
 	() =>
 		props.emailEnabled ||
-		(props.smsEnabled && props.phoneVerified && !props.smsOptedOut),
+		(props.smsFeatureEnabled && props.phoneVerified && !props.smsOptedOut),
 );
 
 const canSetMarketOpen = computed(

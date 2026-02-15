@@ -29,6 +29,65 @@ import {
 } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
 
+const TICKER_LINE_RE = /^[A-Z][A-Z0-9.-]{0,9}:\s/;
+const MARKET_TIME_ZONE = "America/New_York";
+
+/**
+ * Ensure each ticker snippet starts after a blank line so entries are visually separated.
+ * Only applied to email digest extras where source formatting can be inconsistent.
+ */
+function ensureBlankLineBetweenTickerSnippets(content: string): string {
+	const lines = content.replace(/\r\n/g, "\n").split("\n");
+	const normalized: string[] = [];
+
+	for (const line of lines) {
+		const isTickerLine = TICKER_LINE_RE.test(line);
+		const prev = normalized.at(-1);
+
+		if (isTickerLine && normalized.length > 0 && prev !== "") {
+			normalized.push("");
+		}
+
+		if (line === "" && prev === "") {
+			continue;
+		}
+
+		normalized.push(line);
+	}
+
+	return normalized.join("\n").trim();
+}
+
+/** Build a digest price context line based on the latest available quote timestamp. */
+function buildDigestPriceContextLine(assetPrices: AssetPriceMap): string {
+	let latestTimestamp: number | null = null;
+
+	for (const quote of assetPrices.values()) {
+		if (!quote || typeof quote.timestamp !== "number") continue;
+		if (!Number.isFinite(quote.timestamp) || quote.timestamp <= 0) continue;
+		latestTimestamp =
+			latestTimestamp === null
+				? quote.timestamp
+				: Math.max(latestTimestamp, quote.timestamp);
+	}
+
+	if (latestTimestamp === null) {
+		return "Prices reflect the last market open.";
+	}
+
+	const formatted = new Intl.DateTimeFormat("en-US", {
+		timeZone: MARKET_TIME_ZONE,
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+		timeZoneName: "short",
+	}).format(new Date(latestTimestamp * 1000));
+
+	return `Prices reflect the last market open (as of ${formatted}).`;
+}
+
 export type AssetEventsResult = Awaited<
 	ReturnType<typeof buildAssetEventsContent>
 > | null;
@@ -184,7 +243,9 @@ export function formatDailyDigestEmail(options: {
 	);
 
 	const news = (options.extras.news ?? "").trim();
-	const rumors = (options.extras.rumors ?? "").trim();
+	const rumors = ensureBlankLineBetweenTickerSnippets(
+		(options.extras.rumors ?? "").trim(),
+	);
 
 	const ae = options.assetEvents;
 	const earnings = (ae?.eventsSection?.earnings ?? "").trim();
@@ -208,10 +269,13 @@ export function formatDailyDigestEmail(options: {
 			options.formatPrefs,
 			options.sparklines,
 		) || escapeHtml(tickersLine);
+	const priceContextLine = buildDigestPriceContextLine(options.assetPrices);
+	const priceContextLineHtml = escapeHtml(priceContextLine);
 
 	const sectionsText = [
 		"StockTextAlerts — Your daily digest 🗓️",
 		`💰 Your Assets\n${digestTickerBody}`,
+		priceContextLine,
 		news ? `\n🗞️ News\n${news}` : "",
 		rumors ? `\n🤫 Rumors\n${rumors}` : "",
 		earnings ? `\n📈 Earnings\n${earnings}` : "",
@@ -242,6 +306,7 @@ export function formatDailyDigestEmail(options: {
 	<div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
 		<h2 style="margin: 0 0 8px; font-size: 18px;">💰 Your Assets</h2>
 		<div style="margin: 0 0 16px; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">${pricesHtml}</div>
+		<p style="color: #6b7280; font-size: 12px; font-style: italic; margin-top: -8px; margin-bottom: 16px;">${priceContextLineHtml}</p>
 		${renderEmailSection("🗞️", "News", news, { showGrokLogo: true, showMassiveLogo: true })}
 		${renderEmailSection("🤫", "Rumors", rumors, { showGrokLogo: true })}
 		${renderEmailSection("📈", "Earnings", earnings)}

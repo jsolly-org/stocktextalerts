@@ -93,7 +93,6 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 			if (!updatedUser) throw new Error("expected user row");
 			expect(updatedUser.phone_country_code).toBe("+1");
 			expect(updatedUser.phone_number).toBe(phoneNumber);
-			expect(updatedUser.sms_notifications_enabled).toBe(true);
 			expect(updatedUser.phone_verified).toBe(false);
 			expect(updatedUser.verification_sent_at).toBeTruthy();
 		}

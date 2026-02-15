@@ -6,7 +6,6 @@ import {
 export type NotificationPreferencesData = {
 	market_scheduled_asset_price_enabled: boolean;
 	email_notifications_enabled: boolean;
-	sms_notifications_enabled: boolean;
 	sms_opted_out: boolean;
 	phone_verified: boolean;
 	timezone: string;

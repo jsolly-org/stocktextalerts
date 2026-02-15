@@ -12,7 +12,6 @@ interface ParsedNotificationPreferencesForm {
 	market_scheduled_asset_price_enabled?: boolean;
 	timezone?: string;
 	email_notifications_enabled?: boolean;
-	sms_notifications_enabled?: boolean;
 	market_scheduled_asset_price_times?: string[];
 	daily_digest_time?: number;
 	daily_digest_include_news_email?: boolean;
@@ -222,7 +221,6 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		"asset_events_include_insider_email",
 		"asset_events_include_insider_sms",
 		"email_notifications_enabled",
-		"sms_notifications_enabled",
 		"market_asset_price_alerts_enabled",
 		"market_asset_price_alerts_include_email",
 		"market_asset_price_alerts_include_sms",

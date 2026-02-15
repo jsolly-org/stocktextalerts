@@ -3,7 +3,6 @@
     "email": "dev@example.com",
     "timezone": "America/New_York",
     "email_notifications_enabled": false,
-    "sms_notifications_enabled": false,
     "sms_opted_out": false,
     "market_scheduled_asset_price_enabled": true,
     "market_scheduled_asset_price_times": [540],
@@ -16,9 +15,9 @@
     "phone_country_code": "+1",
     "phone_number": "4155551234",
     "phone_verified": true,
-    "sms_notifications_enabled": true,
     "sms_opted_out": false,
     "market_scheduled_asset_price_enabled": true,
+    "market_scheduled_asset_price_include_sms": true,
     "tracked_assets": ["AAPL", "MSFT"]
   },
   {
@@ -28,9 +27,9 @@
     "phone_country_code": "+1",
     "phone_number": "4155559999",
     "phone_verified": true,
-    "sms_notifications_enabled": true,
     "sms_opted_out": true,
     "market_scheduled_asset_price_enabled": true,
+    "market_scheduled_asset_price_include_sms": true,
     "tracked_assets": ["AAPL"]
   },
   {
@@ -40,7 +39,6 @@
     "phone_number": null,
     "phone_verified": null,
     "email_notifications_enabled": null,
-    "sms_notifications_enabled": null,
     "sms_opted_out": null,
     "market_scheduled_asset_price_enabled": null,
     "tracked_assets": ["TSLA"]
@@ -51,4 +49,3 @@
     "tracked_assets": []
   }
 ]
-

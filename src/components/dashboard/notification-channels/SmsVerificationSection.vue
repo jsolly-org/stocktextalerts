@@ -1,7 +1,7 @@
 <template>
 	<Transition name="sms-verification-expand" @after-enter="onSectionAfterEnter">
 		<section
-			v-if="smsEnabled && !props.smsOptedOut"
+			v-if="!props.smsOptedOut"
 			:id="phoneVerificationSectionId"
 			class="pb-3 space-y-3"
 		>
@@ -59,7 +59,6 @@ import SmsCodeVerification from "./SmsCodeVerification.vue";
 import SmsPhoneSetup from "./SmsPhoneSetup.vue";
 
 interface Props {
-	smsEnabled: boolean;
 	smsOptedOut: boolean;
 }
 
@@ -112,18 +111,6 @@ function handleValidityChanged(isValid: boolean) {
  * so navigation back to the dashboard can restore pending state.
  */
 function handleChangeNumberClick() {
-	// Ensure pending SMS state is saved before navigation.
-	try {
-		const storageKey = `pending_sms_enabled:${user.value.id}`;
-		const hasPending = props.smsEnabled && !user.value.phone_verified;
-		if (hasPending) {
-			sessionStorage.setItem(storageKey, "true");
-		} else {
-			sessionStorage.removeItem(storageKey);
-		}
-	} catch {
-		// Silently fail - state should already be saved.
-	}
 	isEditingPhone.value = true;
 }
 

@@ -50,14 +50,13 @@
 
 			<NotificationChannelsFieldset
 				v-model:emailEnabled="emailEnabled"
-				v-model:smsEnabled="smsEnabled"
+				:sms-feature-enabled="smsFeatureEnabled"
 				:phone-verified="phoneVerified"
-				:can-save-sms-enabled="canSaveSmsEnabled"
 				:sms-opted-out="smsOptedOut"
 				:sms-phone-number="props.smsPhoneNumber"
 				:is-saving="isSaving"
 				:email-notifications-enabled-id="emailNotificationsEnabledId"
-				:sms-notifications-enabled-id="smsNotificationsEnabledId"
+				:sms-status-id="smsStatusId"
 				:notification-channels-desc-id="notificationChannelsDescId"
 				:daily-delivery-time-input="dailyDeliveryTimeInput"
 				:daily-delivery-time-minutes="dailyDeliveryTimeMinutes"
@@ -87,7 +86,6 @@ import {
 	formatMessage,
 	STATUS_TONE_CLASSES,
 } from "../../../lib/constants";
-import { rootLogger } from "../../../lib/logging";
 import {
 	formatMinutesAsLocalTime,
 	getUsMarketOpenLocalMinutes,
@@ -104,36 +102,19 @@ import { useDashboardUser } from "../composables/useDashboardUser";
 import { provideSmsVerificationContext } from "../composables/useSmsVerificationContext";
 import { useSmsVerificationSubmission } from "../composables/useSmsVerificationSubmission";
 import NotificationChannelsFieldset from "./NotificationChannelsFieldset.vue";
-import { usePendingSmsChanges } from "./pending-sms-changes";
 
 interface Props {
 	emailEnabled: boolean;
-	smsEnabled: boolean;
 	smsPhoneNumber: string;
 }
 
 const props = defineProps<Props>();
-const {
-	emailEnabled: emailEnabledProp,
-	smsEnabled: smsEnabledProp,
-} = toRefs(props);
+const { emailEnabled: emailEnabledProp } = toRefs(props);
 
-const emit = defineEmits<{
-	(event: "update:emailEnabled", value: boolean): void;
-	(event: "update:smsEnabled", value: boolean): void;
-}>();
+const emit = defineEmits<(event: "update:emailEnabled", value: boolean) => void>();
 
 // Inject the shared mutable user ref from DashboardPanels
 const user = useDashboardUser();
-
-// Track server state separately so we can preserve a user's pending SMS toggle until it's persisted.
-const serverSmsEnabled = ref(user.value.sms_notifications_enabled);
-watch(
-	() => user.value.sms_notifications_enabled,
-	(value) => {
-		serverSmsEnabled.value = value;
-	},
-);
 
 const isEditingPhone = ref(false);
 
@@ -220,86 +201,55 @@ async function handleFormSubmitWrapper(event: SubmitEvent) {
 
 /* ============= Channel state ============= */
 const emailNotificationsEnabledId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-email_notifications_enabled`;
-const smsNotificationsEnabledId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-sms_notifications_enabled`;
+const smsStatusId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-sms_status`;
 const notificationChannelsDescId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-notification-channels-desc`;
 
 const emailEnabled = computed({
 	get: () => emailEnabledProp.value,
 	set: (value: boolean) => emit("update:emailEnabled", value),
 });
-const smsEnabled = computed({
-	get: () => smsEnabledProp.value,
-	set: (value: boolean) => emit("update:smsEnabled", value),
-});
 
 const phoneVerified = computed(() => user.value.phone_verified === true);
 const smsOptedOut = computed(() => user.value.sms_opted_out === true);
-
-const canSaveSmsEnabled = computed(() => {
-	if (!smsEnabled.value) {
-		return true;
-	}
-	return phoneVerified.value;
-});
-// Notify auto-save when channel toggles change
-watch([emailEnabled, smsEnabled], () => {
+const smsFeatureEnabled = computed(
+	() =>
+		user.value.market_scheduled_asset_price_include_sms ||
+		user.value.asset_events_include_calendar_sms ||
+		user.value.asset_events_include_ipo_sms ||
+		user.value.asset_events_include_analyst_sms ||
+		user.value.asset_events_include_insider_sms ||
+		user.value.market_asset_price_alerts_include_sms,
+);
+watch([emailEnabled], () => {
 	notifyChange();
 });
 
 // Watch savedData and update shared user ref directly (no more event bubbling)
 watch(
 	() => savedNotificationPreferencesData.value,
-	(newData) => {
-		if (newData) {
-			serverSmsEnabled.value = newData.sms_notifications_enabled;
-
-			// Update shared user ref directly
-			user.value = {
-				...user.value,
-				email_notifications_enabled: newData.email_notifications_enabled,
-				sms_notifications_enabled: newData.sms_notifications_enabled,
-				sms_opted_out: newData.sms_opted_out,
-				phone_verified: newData.phone_verified,
-				daily_digest_time: newData.daily_digest_time,
+		(newData) => {
+			if (newData) {
+				// Update shared user ref directly
+				user.value = {
+					...user.value,
+					email_notifications_enabled: newData.email_notifications_enabled,
+					sms_opted_out: newData.sms_opted_out,
+					phone_verified: newData.phone_verified,
+					daily_digest_time: newData.daily_digest_time,
 				daily_digest_next_send_at: newData.daily_digest_next_send_at,
 				asset_events_next_send_at: newData.asset_events_next_send_at,
 				market_scheduled_asset_price_next_send_at: newData.market_scheduled_asset_price_next_send_at,
-			};
-			// Sync channel state with parent
-			emit("update:emailEnabled", newData.email_notifications_enabled);
-
-			// Preserve a user's SMS toggle if it's "on" but not persisted yet.
-			// This happens when SMS was enabled while the phone was unverified; the server
-			// will still report sms_notifications_enabled=false until we can save it.
-			const shouldPreserveSmsEnabled =
-				smsEnabled.value && !newData.sms_notifications_enabled;
-			if (!shouldPreserveSmsEnabled) {
-				emit("update:smsEnabled", newData.sms_notifications_enabled);
+				};
+				// Sync channel state with parent
+				emit("update:emailEnabled", newData.email_notifications_enabled);
 			}
-		}
-	},
-);
-
-/* ============= Pending SMS changes ============= */
-usePendingSmsChanges({
-	userId: computed(() => user.value.id),
-	smsEnabled,
-	phoneVerified,
-	serverSmsEnabled,
-	isEditingPhone,
-	logger: rootLogger,
-});
+		},
+	);
 
 // When phone becomes verified: exit phone-edit mode
 watch(phoneVerified, (isVerified) => {
 	if (isVerified) {
 		isEditingPhone.value = false;
-
-		// If the user enabled SMS before verification, persist that preference now that
-		// we can safely include sms_notifications_enabled in the form payload.
-		if (smsEnabled.value && !serverSmsEnabled.value) {
-			notifyChange();
-		}
 	}
 });
 
@@ -358,7 +308,7 @@ function handleSetMarketOpen() {
 const hasNotificationChannel = computed(
 	() =>
 		emailEnabled.value ||
-		(smsEnabled.value && phoneVerified.value && !smsOptedOut.value),
+		(smsFeatureEnabled.value && phoneVerified.value && !smsOptedOut.value),
 );
 
 // Sync delivery time from user state (e.g. after save from another panel)
