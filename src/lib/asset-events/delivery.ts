@@ -65,7 +65,7 @@ function formatAssetEventsSmsMessage(options: {
 		!options.insiderSection &&
 		!options.analystSection
 	) {
-		parts.push("No asset events for your tracked assets in the next few days.");
+		parts.push("No upcoming asset events in the next few days.");
 	}
 
 	parts.push(`Manage your settings: ${dashboardUrl}`);
@@ -101,8 +101,7 @@ function formatAssetEventsEmail(options: {
 		options.iposSection ||
 		options.insiderSection ||
 		options.analystSection;
-	const noEventsMessage =
-		"No asset events for your tracked assets in the next few days.";
+	const noEventsMessage = "No upcoming asset events in the next few days.";
 
 	const textParts: string[] = ["Asset Events"];
 

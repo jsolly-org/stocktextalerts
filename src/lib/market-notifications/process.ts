@@ -2,32 +2,23 @@ import { rootLogger } from "../logging";
 import { createEmailSender } from "../messaging/email/utils";
 import type { CompanyNewsItem } from "../providers/company-news";
 import {
+	type ExtendedAssetQuote,
 	type ExtendedQuoteMap,
 	fetchExtendedQuotes,
 	fetchMarketStatus,
 } from "../providers/price-fetcher";
+import { SECTOR_ETF_MAP } from "../providers/sector-mapping";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 import { createSmsSenderProvider } from "../schedule/sms-sender";
-import {
-	type AnomalyResult,
-	computeAnomalyScore,
-	computePriceOnlyScore,
-	getThresholdForSensitivity,
-} from "./anomaly-detection";
+import { deriveAlertProfile } from "./alert-profile";
 import { deliverPriceAlert, type PriceAlertDeliveryStats } from "./delivery";
 import { enrichAlert, fetchBreakingNews } from "./enrichment";
-import {
-	getSnapshotsForSymbols,
-	purgeOldSnapshots,
-	storeSnapshots,
-} from "./snapshot-store";
 import { claimCooldown, fetchPriceAlertUsers } from "./users";
 
-/** Fetch news when price-only score is >= 50% of the aggressive threshold. */
-const NEWS_FETCH_SCORE_RATIO = 0.5;
-
-/** The most permissive threshold (Aggressive) — used to decide if a symbol could trigger for anyone. */
-const AGGRESSIVE_THRESHOLD = getThresholdForSensitivity(3);
+const MARKET_CONTEXT_ACTIVE_MOVE_PCT = 2;
+const MARKET_CONTEXT_STANDOUT_DELTA_PCT = 1;
+const MARKET_CONTEXT_EXTREME_DELTA_PCT = 2.5;
+const MARKET_BENCHMARK_SYMBOL = "SPY";
 
 export interface PriceAlertTotals extends PriceAlertDeliveryStats {
 	symbolsChecked: number;
@@ -35,7 +26,6 @@ export interface PriceAlertTotals extends PriceAlertDeliveryStats {
 	cooldownSkips: number;
 }
 
-/** Fetch symbols with earnings within ~2 calendar days from the asset_events table. */
 async function fetchEarningsSymbols(
 	supabase: SupabaseAdminClient,
 ): Promise<Set<string>> {
@@ -70,7 +60,105 @@ async function fetchEarningsSymbols(
 	}
 }
 
-/** Process market movement price alerts and return totals plus a reusable quote map. */
+function calculatePercentMove(quote: ExtendedAssetQuote): number | null {
+	if (quote.prevClose !== null && quote.prevClose > 0) {
+		return ((quote.price - quote.prevClose) / quote.prevClose) * 100;
+	}
+	if (Number.isFinite(quote.changePercent)) {
+		return quote.changePercent;
+	}
+	return null;
+}
+
+function calculateDollarMove(
+	quote: ExtendedAssetQuote,
+	percentMove: number | null,
+): number | null {
+	if (quote.prevClose !== null && quote.prevClose > 0) {
+		return quote.price - quote.prevClose;
+	}
+	if (percentMove === null) {
+		return null;
+	}
+	const denominator = 1 + percentMove / 100;
+	if (Math.abs(denominator) < 0.000001) {
+		return null;
+	}
+	const inferredPrevClose = quote.price / denominator;
+	return quote.price - inferredPrevClose;
+}
+
+function passesDirectionPreference(options: {
+	percentMove: number;
+	directionPreference: "downside" | "upside" | "both";
+}): boolean {
+	const { percentMove, directionPreference } = options;
+	if (directionPreference === "both") return true;
+	if (directionPreference === "downside") return percentMove < 0;
+	return percentMove > 0;
+}
+
+function passesMarketContext(options: {
+	marketContext: "standout" | "any_major" | "extreme_only";
+	marketMovePercentAbs: number | null;
+	symbolMovePercentAbs: number;
+}): boolean {
+	const { marketContext, marketMovePercentAbs, symbolMovePercentAbs } = options;
+	if (
+		marketMovePercentAbs === null ||
+		marketMovePercentAbs < MARKET_CONTEXT_ACTIVE_MOVE_PCT
+	) {
+		return true;
+	}
+	if (marketContext === "any_major") {
+		return true;
+	}
+	if (marketContext === "standout") {
+		return (
+			symbolMovePercentAbs >=
+			marketMovePercentAbs + MARKET_CONTEXT_STANDOUT_DELTA_PCT
+		);
+	}
+	return (
+		symbolMovePercentAbs >=
+		marketMovePercentAbs + MARKET_CONTEXT_EXTREME_DELTA_PCT
+	);
+}
+
+function buildSignalContext(options: {
+	percentMove: number;
+	dollarMove: number;
+	percentThreshold: number;
+	dollarThreshold: number;
+	hasEarningsNearby: boolean;
+	benchmarkMovePercentAbs: number | null;
+	benchmarkLabel: string;
+}): string {
+	const {
+		percentMove,
+		dollarMove,
+		percentThreshold,
+		dollarThreshold,
+		hasEarningsNearby,
+		benchmarkMovePercentAbs,
+		benchmarkLabel,
+	} = options;
+	const direction = percentMove >= 0 ? "up" : "down";
+	const base = `${direction} ${Math.abs(percentMove).toFixed(2)}% ($${Math.abs(dollarMove).toFixed(2)}) from previous close`;
+	const threshold = `triggered at >=${percentThreshold.toFixed(1)}% or >=$${dollarThreshold.toFixed(2)}`;
+	const marketContext =
+		benchmarkMovePercentAbs !== null
+			? `${benchmarkLabel} moved ${benchmarkMovePercentAbs.toFixed(2)}%`
+			: null;
+	const earningsContext = hasEarningsNearby
+		? "earnings are within ~2 days"
+		: null;
+
+	return [base, threshold, marketContext, earningsContext]
+		.filter((value): value is string => value !== null)
+		.join(", ");
+}
+
 export async function processPriceAlerts(options: {
 	supabase: SupabaseAdminClient;
 }): Promise<{
@@ -90,13 +178,11 @@ export async function processPriceAlerts(options: {
 	};
 	const emptyResult = { totals, quoteMap: new Map<string, null>() };
 
-	// 1. Check market status — skip if closed
 	const isMarketOpen = await fetchMarketStatus();
 	if (!isMarketOpen) {
 		return emptyResult;
 	}
 
-	// 2. Query all distinct symbols tracked by any user
 	const { data: allUserAssets, error: assetsError } = await supabase
 		.from("user_assets")
 		.select("symbol");
@@ -117,102 +203,60 @@ export async function processPriceAlerts(options: {
 		return emptyResult;
 	}
 
-	// 3. Fetch extended quotes + earnings calendar in parallel
+	// Load sector data for all tracked assets
+	const { data: assetRows, error: assetSectorError } = await supabase
+		.from("assets")
+		.select("symbol, sector, type")
+		.in("symbol", uniqueSymbols);
+
+	if (assetSectorError) {
+		rootLogger.warn(
+			"Failed to load asset sectors for price alerts",
+			{ action: "price_alerts" },
+			assetSectorError,
+		);
+	}
+
+	const assetSectorMap = new Map<string, string | null>();
+	const assetTypeMap = new Map<string, string>();
+	for (const row of assetRows ?? []) {
+		const r = row as { symbol: string; sector: string | null; type: string };
+		assetSectorMap.set(r.symbol, r.sector);
+		assetTypeMap.set(r.symbol, r.type);
+	}
+
+	// Determine which sector ETFs we need as benchmarks
+	const neededSectorEtfs = new Set<string>();
+	for (const sector of assetSectorMap.values()) {
+		if (sector && SECTOR_ETF_MAP[sector]) {
+			neededSectorEtfs.add(SECTOR_ETF_MAP[sector]);
+		}
+	}
+
+	// Build the full symbol list: user assets + SPY + needed sector ETFs
+	const benchmarkSymbols = new Set([
+		MARKET_BENCHMARK_SYMBOL,
+		...neededSectorEtfs,
+	]);
+	const symbolsWithBenchmarks = [
+		...uniqueSymbols,
+		...[...benchmarkSymbols].filter((s) => !uniqueSymbols.includes(s)),
+	];
+
 	const [quoteMap, earningsSymbols] = await Promise.all([
-		fetchExtendedQuotes(uniqueSymbols),
+		fetchExtendedQuotes(symbolsWithBenchmarks),
 		fetchEarningsSymbols(supabase),
 	]);
 
-	// 4. Store snapshots + fetch historical snapshots
-	await storeSnapshots(supabase, quoteMap);
-	const snapshotMap = await getSnapshotsForSymbols(supabase, uniqueSymbols);
-
-	// 5. Purge old snapshots (fire-and-forget)
-	purgeOldSnapshots(supabase).catch((err) =>
-		rootLogger.warn("Snapshot purge failed", {}, err),
-	);
-
-	// 6. First pass: identify candidate symbols (price-only score above news-fetch threshold)
-	const newsFetchThreshold = AGGRESSIVE_THRESHOLD * NEWS_FETCH_SCORE_RATIO;
-
-	const candidates: Array<{
-		symbol: string;
-		hasEarningsNearby: boolean;
-	}> = [];
-
-	for (const symbol of uniqueSymbols) {
-		totals.symbolsChecked++;
-		const quote = quoteMap.get(symbol);
-		if (!quote) continue;
-
-		const snapshots = snapshotMap.get(symbol) ?? [];
-		const hasEarningsNearby = earningsSymbols.has(symbol);
-
-		const priceScore = computePriceOnlyScore({
-			currentQuote: quote,
-			snapshots,
-			hasEarningsNearby,
-			sensitivity: 3, // use most permissive for pre-screening
-		});
-
-		if (priceScore >= newsFetchThreshold) {
-			candidates.push({ symbol, hasEarningsNearby });
-		}
-	}
-
-	// 7. Parallel news fetch for all candidates
-	const newsMap = new Map<string, CompanyNewsItem[]>();
-	if (candidates.length > 0) {
-		const newsResults = await Promise.all(
-			candidates.map(async ({ symbol }) => {
-				const news = await fetchBreakingNews(symbol);
-				return { symbol, news };
-			}),
-		);
-		for (const { symbol, news } of newsResults) {
-			newsMap.set(symbol, news);
-		}
-	}
-
-	// 8. Second pass: full scoring with news — score once per symbol at Aggressive threshold
-	const triggeredAlerts: Array<{
-		symbol: string;
-		news: CompanyNewsItem[];
-		anomalyResult: AnomalyResult;
-	}> = [];
-
-	for (const { symbol, hasEarningsNearby } of candidates) {
-		const quote = quoteMap.get(symbol);
-		if (!quote) continue;
-
-		const snapshots = snapshotMap.get(symbol) ?? [];
-		const news = newsMap.get(symbol) ?? [];
-
-		const result = computeAnomalyScore({
-			currentQuote: quote,
-			snapshots,
-			news,
-			hasEarningsNearby,
-			sensitivity: 3, // score at most permissive — filter per-user during delivery
-		});
-
-		if (result.triggered) {
-			triggeredAlerts.push({ symbol, news, anomalyResult: result });
-			totals.alertsTriggered++;
-		}
-	}
-
-	if (triggeredAlerts.length === 0) {
-		return { totals, quoteMap };
-	}
-
-	// 9. Fetch price alert users
 	const users = await fetchPriceAlertUsers(supabase);
 	if (users.length === 0) {
-		return { totals, quoteMap };
+		const filteredQuoteMap: ExtendedQuoteMap = new Map();
+		for (const symbol of uniqueSymbols) {
+			filteredQuoteMap.set(symbol, quoteMap.get(symbol) ?? null);
+		}
+		return { totals, quoteMap: filteredQuoteMap };
 	}
 
-	// 10. Build user→symbols mapping from user_assets
 	const { data: userAssetRows, error: userAssetsError } = await supabase
 		.from("user_assets")
 		.select("user_id, symbol")
@@ -227,51 +271,166 @@ export async function processPriceAlerts(options: {
 			{ action: "price_alerts" },
 			userAssetsError,
 		);
-		return { totals, quoteMap };
+		const filteredQuoteMap: ExtendedQuoteMap = new Map();
+		for (const symbol of uniqueSymbols) {
+			filteredQuoteMap.set(symbol, quoteMap.get(symbol) ?? null);
+		}
+		return { totals, quoteMap: filteredQuoteMap };
 	}
 
 	const userSymbolMap = new Map<string, Set<string>>();
 	for (const row of userAssetRows ?? []) {
-		const existing = userSymbolMap.get(row.user_id) ?? new Set();
+		const existing = userSymbolMap.get(row.user_id) ?? new Set<string>();
 		existing.add(row.symbol);
 		userSymbolMap.set(row.user_id, existing);
 	}
 
-	// 11. Deliver alerts — filter per user's sensitivity threshold
 	const sendEmail = createEmailSender();
 	const getSmsSender = createSmsSenderProvider();
 	let smsSender: ReturnType<typeof getSmsSender>["sender"] | null = null;
 
-	for (const { symbol, news, anomalyResult } of triggeredAlerts) {
+	// Pre-compute benchmark moves for SPY and all sector ETFs
+	const benchmarkMoveCache = new Map<string, number | null>();
+	for (const etfSymbol of benchmarkSymbols) {
+		const etfQuote = quoteMap.get(etfSymbol) ?? null;
+		const pctMove = etfQuote === null ? null : calculatePercentMove(etfQuote);
+		benchmarkMoveCache.set(
+			etfSymbol,
+			pctMove === null ? null : Math.abs(pctMove),
+		);
+	}
+
+	const spyMovePercentAbs =
+		benchmarkMoveCache.get(MARKET_BENCHMARK_SYMBOL) ?? null;
+
+	for (const symbol of uniqueSymbols) {
+		totals.symbolsChecked++;
+
+		// Skip ETFs — they track sectors/markets and aren't suitable for
+		// standout-style alerts. Users still get scheduled price updates for ETFs.
+		if (assetTypeMap.get(symbol) === "etf") continue;
+
 		const quote = quoteMap.get(symbol);
 		if (!quote) continue;
 
-		const enrichedAlert = await enrichAlert({
-			symbol,
-			quote,
-			anomalyResult,
-			news,
-		});
+		const percentMove = calculatePercentMove(quote);
+		if (percentMove === null) {
+			continue;
+		}
+		const dollarMove = calculateDollarMove(quote, percentMove);
+		if (dollarMove === null) {
+			continue;
+		}
+
+		// Resolve sector-specific benchmark for this symbol
+		const assetSector = assetSectorMap.get(symbol) ?? null;
+		const sectorEtf = assetSector
+			? (SECTOR_ETF_MAP[assetSector] ?? null)
+			: null;
+
+		// For stocks: prefer sector ETF benchmark, fall back to SPY.
+		const benchmarkEtf = sectorEtf ?? MARKET_BENCHMARK_SYMBOL;
+		const benchmarkMovePercentAbs =
+			benchmarkMoveCache.get(benchmarkEtf) ?? spyMovePercentAbs;
+		const benchmarkLabel = sectorEtf
+			? `${assetSector} sector (${sectorEtf})`
+			: `market (${MARKET_BENCHMARK_SYMBOL})`;
+
+		const eligibleUsers = [] as Array<
+			(typeof users)[number] & {
+				profile: ReturnType<typeof deriveAlertProfile>;
+			}
+		>;
+		const symbolMovePercentAbs = Math.abs(percentMove);
+		const symbolMoveDollarAbs = Math.abs(dollarMove);
 
 		for (const user of users) {
-			// Check if user tracks this symbol
 			const userSymbols = userSymbolMap.get(user.id);
 			if (!userSymbols?.has(symbol)) continue;
 
-			// Per-user sensitivity filtering: check if score meets this user's threshold
-			const userThreshold = getThresholdForSensitivity(
-				user.market_asset_price_alert_sensitivity,
-			);
-			if (anomalyResult.score < userThreshold) continue;
+			const profile = deriveAlertProfile({
+				riskPriority: user.market_asset_price_alert_risk_priority,
+				marketContext: user.market_asset_price_alert_market_context,
+				moveSize: user.market_asset_price_alert_move_size,
+				followUpMode: user.market_asset_price_alert_follow_up_mode,
+			});
+			if (
+				!passesDirectionPreference({
+					percentMove,
+					directionPreference: profile.directionPreference,
+				})
+			) {
+				continue;
+			}
 
-			// Atomically claim cooldown before delivery to avoid duplicate sends.
-			const claimed = await claimCooldown(supabase, user.id, symbol);
+			const meetsShockThreshold =
+				symbolMovePercentAbs >= profile.percentThreshold ||
+				symbolMoveDollarAbs >= profile.dollarThreshold;
+			if (!meetsShockThreshold) {
+				continue;
+			}
+
+			if (
+				!passesMarketContext({
+					marketContext: profile.marketContext,
+					marketMovePercentAbs: benchmarkMovePercentAbs,
+					symbolMovePercentAbs,
+				})
+			) {
+				continue;
+			}
+
+			const claimed = await claimCooldown(
+				supabase,
+				user.id,
+				symbol,
+				symbolMovePercentAbs,
+				symbolMoveDollarAbs,
+				profile.followUpMode === "allow_acceleration_follow_up",
+				profile.followUpMode === "allow_recovery_follow_up",
+				percentMove < 0 ? "down" : "up",
+			);
 			if (!claimed) {
 				totals.cooldownSkips++;
 				continue;
 			}
 
-			// Lazy-init SMS sender
+			eligibleUsers.push({ ...user, profile });
+		}
+
+		if (eligibleUsers.length === 0) {
+			continue;
+		}
+
+		totals.alertsTriggered++;
+
+		let news: CompanyNewsItem[] = [];
+		try {
+			news = await fetchBreakingNews(symbol);
+		} catch (error) {
+			rootLogger.warn(
+				"Failed to fetch breaking news for price alert enrichment",
+				{ symbol },
+				error,
+			);
+		}
+
+		for (const user of eligibleUsers) {
+			const enrichedAlert = await enrichAlert({
+				symbol,
+				quote,
+				signalContext: buildSignalContext({
+					percentMove,
+					dollarMove,
+					percentThreshold: user.profile.percentThreshold,
+					dollarThreshold: user.profile.dollarThreshold,
+					hasEarningsNearby: earningsSymbols.has(symbol),
+					benchmarkMovePercentAbs,
+					benchmarkLabel,
+				}),
+				news,
+			});
+
 			if (user.market_asset_price_alerts_include_sms && !smsSender) {
 				try {
 					smsSender = getSmsSender().sender;
@@ -291,5 +450,10 @@ export async function processPriceAlerts(options: {
 		}
 	}
 
-	return { totals, quoteMap };
+	const filteredQuoteMap: ExtendedQuoteMap = new Map();
+	for (const symbol of uniqueSymbols) {
+		filteredQuoteMap.set(symbol, quoteMap.get(symbol) ?? null);
+	}
+
+	return { totals, quoteMap: filteredQuoteMap };
 }

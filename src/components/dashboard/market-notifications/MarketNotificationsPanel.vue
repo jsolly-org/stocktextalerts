@@ -157,6 +157,7 @@
 			<div
 				class="mt-4 rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200"
 				:class="{ 'opacity-50': notificationSetupBlocked }"
+				:data-autosave-ignore="isPriceAlertAutosaveLocked ? '' : null"
 			>
 				<div class="flex items-center justify-between gap-3">
 					<input
@@ -176,8 +177,28 @@
 					/>
 					<input
 						type="hidden"
-						name="market_asset_price_alert_sensitivity"
-						:value="priceAlertSensitivity"
+						name="market_asset_price_alert_onboarding_completed"
+						:value="priceAlertOnboardingCompleted ? 'on' : 'off'"
+					/>
+					<input
+						type="hidden"
+						name="market_asset_price_alert_risk_priority"
+						:value="priceAlertRiskPriority"
+					/>
+					<input
+						type="hidden"
+						name="market_asset_price_alert_market_context"
+						:value="priceAlertMarketContext"
+					/>
+					<input
+						type="hidden"
+						name="market_asset_price_alert_move_size"
+						:value="priceAlertMoveSize"
+					/>
+					<input
+						type="hidden"
+						name="market_asset_price_alert_follow_up_mode"
+						:value="priceAlertFollowUpMode"
 					/>
 					<div class="min-w-0">
 						<div class="flex items-center gap-2">
@@ -192,25 +213,8 @@
 							<GrokLogoDarkIcon class="hidden h-4.5 w-auto shrink-0 dark:inline" aria-label="Powered by Grok" role="img" />
 						</div>
 						<p id="market_asset_price_alerts_enabled_description" class="text-sm text-body-secondary mt-0.5">
-							Immediate alerts for significant price movement. Alerts may include related headlines and a brief AI summary when available.
+							Immediate alerts for significant price moves during US trading hours.
 						</p>
-						<details class="mt-2 group">
-							<summary
-								class="text-xs font-medium text-emerald-700 cursor-pointer hover:text-emerald-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded"
-							>
-								How asset price alerts work
-							</summary>
-							<div class="mt-2 rounded-md border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
-								<ul class="list-disc pl-4 space-y-1">
-									<li>Runs only during US market hours and checks symbols you track.</li>
-									<li>Builds a score from rapid price moves, breakouts, and breaking news.</li>
-									<li>Sends an alert when the score crosses the configured threshold, with price and signal context.</li>
-									<li>May include recent headlines and an AI summary when relevant context is available.</li>
-									<li>Uses a cooldown per symbol to avoid repeated alerts in a short window.</li>
-									<li>News and Rumors is separate and delivered through Daily Digest (email-only).</li>
-								</ul>
-							</div>
-						</details>
 					</div>
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
 						<label class="inline-flex items-center gap-1.5 cursor-pointer">
@@ -239,43 +243,112 @@
 				<FadeTransition>
 					<div v-if="priceAlertsEnabled" class="mt-3 border-t border-divider pt-3 pl-3 sm:pl-4">
 						<fieldset :disabled="notificationSetupBlocked">
-							<legend class="text-sm font-medium text-label mb-2">
-								Price Sensitivity
-							</legend>
-							<div
-								class="inline-flex rounded-lg border border-edge bg-surface-alt p-0.5"
-								role="radiogroup"
-								aria-label="Alert sensitivity level"
-							>
-								<label
-									v-for="option in SENSITIVITY_OPTIONS"
-									:key="option.value"
-									class="relative cursor-pointer rounded-md px-3.5 py-1.5 text-sm font-medium transition-all duration-150 select-none focus-within:z-10 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:ring-offset-1"
-									:class="
-										priceAlertSensitivity === option.value
-											? 'bg-surface text-heading shadow-sm border border-edge'
-											: 'text-muted hover:text-label border border-transparent'
-									"
-								>
-									<input
-										type="radio"
-										:value="option.value"
-										v-model.number="priceAlertSensitivity"
-										class="sr-only"
-										name="price_alert_sensitivity_radio"
-									/>
-									{{ option.label }}
-								</label>
+							<div class="space-y-3">
+								<div v-if="activeRetuneStep === 0">
+									<p class="text-sm text-label mb-1.5">Which moves would you want a text about?</p>
+									<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+										<label
+											v-for="option in riskPriorityOptions"
+											:key="option.value"
+											class="rounded-lg border border-edge bg-surface-alt px-2.5 py-2 text-sm text-label cursor-pointer"
+										>
+											<input
+												v-model="priceAlertRiskPriority"
+												type="radio"
+												name="price_alert_risk_priority"
+												:value="option.value"
+												class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-emerald-500 align-middle"
+											/>
+											<span class="ml-1.5 align-middle">{{ option.label }}</span>
+											<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
+										</label>
+									</div>
+								</div>
+
+								<div v-else-if="activeRetuneStep === 1">
+									<p class="text-sm text-label mb-1.5">Should we text you when all stocks are moving, or only when yours stands out?</p>
+									<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+										<label
+											v-for="option in marketContextOptions"
+											:key="option.value"
+											class="rounded-lg border border-edge bg-surface-alt px-2.5 py-2 text-sm text-label cursor-pointer"
+										>
+											<input
+												v-model="priceAlertMarketContext"
+												type="radio"
+												name="price_alert_market_context"
+												:value="option.value"
+												class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-emerald-500 align-middle"
+											/>
+											<span class="ml-1.5 align-middle">{{ option.label }}</span>
+											<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
+										</label>
+									</div>
+								</div>
+
+								<div v-else-if="activeRetuneStep === 2">
+									<p class="text-sm text-label mb-1.5">How big should a move be before it deserves an alert?</p>
+									<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+										<label
+											v-for="option in moveSizeOptions"
+											:key="option.value"
+											class="rounded-lg border border-edge bg-surface-alt px-2.5 py-2 text-sm text-label cursor-pointer"
+										>
+											<input
+												v-model="priceAlertMoveSize"
+												type="radio"
+												name="price_alert_move_size"
+												:value="option.value"
+												class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-emerald-500 align-middle"
+											/>
+											<span class="ml-1.5 align-middle">{{ option.label }}</span>
+											<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
+										</label>
+									</div>
+								</div>
+								<div v-else>
+									<p class="text-sm text-label mb-1.5">After your first alert, what should happen?</p>
+									<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+										<label
+											v-for="option in followUpOptions"
+											:key="option.value"
+											class="rounded-lg border border-edge bg-surface-alt px-2.5 py-2 text-sm text-label cursor-pointer"
+										>
+											<input
+												v-model="priceAlertFollowUpMode"
+												type="radio"
+												name="price_alert_follow_up_mode"
+												:value="option.value"
+												class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-emerald-500 align-middle"
+											/>
+											<span class="ml-1.5 align-middle">{{ option.label }}</span>
+											<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
+										</label>
+									</div>
+								</div>
+
+								<div class="flex items-center justify-between pt-1">
+									<button
+										type="button"
+										class="rounded-md border border-edge px-2.5 py-1.5 text-xs font-medium text-label transition hover:bg-surface-alt cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+										:disabled="isFirstRetuneStep"
+										@click="handleRetunePrevious"
+									>
+										Back
+									</button>
+									<p class="text-xs text-muted">
+										Question {{ activeRetuneStep + 1 }} of {{ TOTAL_RETUNE_STEPS }}
+									</p>
+									<button
+										type="button"
+										class="rounded-md border border-edge bg-surface px-2.5 py-1.5 text-xs font-medium text-label transition hover:bg-surface-alt cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+										:disabled="isLastRetuneStep && !showFinishSetupButton"
+										@click="handleRetunePrimaryAction"
+									>
+										{{ retunePrimaryActionLabel }}
+									</button>
+								</div>
 							</div>
-						<p class="mt-2 text-xs" :class="isAggressivePriceSensitivity ? 'text-amber-600' : 'text-muted'">
-							<span v-if="isAggressivePriceSensitivity" class="inline-flex items-start gap-1">
-								<svg class="mt-px h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-									<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-								</svg>
-								{{ sensitivityDescription }}
-							</span>
-							<template v-else>{{ sensitivityDescription }}</template>
-						</p>
 						</fieldset>
 					</div>
 				</FadeTransition>
@@ -304,6 +377,12 @@ import {
 	DEFAULT_MARKET_UPDATE_TIME_MINUTES,
 	STATUS_TONE_CLASSES,
 } from "../../../lib/constants";
+import type {
+	AlertFollowUpMode,
+	AlertMarketContext,
+	AlertMoveSize,
+	AlertRiskPriority,
+} from "../../../lib/market-notifications/alert-profile";
 import {
 	formatMinutesAsLocalTime,
 	getUsMarketOpenLocalMinutes,
@@ -312,6 +391,7 @@ import {
 	parseTimeToMinutes,
 } from "../../../lib/time/format";
 import FadeTransition from "../../FadeTransition.vue";
+import type { InitialAsset } from "../assets/types";
 import {
 	type NotificationPreferencesData,
 	useAutoSaveForm,
@@ -320,18 +400,23 @@ import { useDashboardUser } from "../composables/useDashboardUser";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 import { useScheduledUpdateTiming } from "./helpers";
 import ScheduledUpdateControls from "./ScheduledUpdateControls.vue";
+import { useOnboardingExamples } from "./useOnboardingExamples";
 
 interface Props {
 	emailEnabled: boolean;
 	phoneVerified: boolean;
 	hasTrackedAssets: boolean;
+	trackedAssets?: InitialAsset[];
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+	trackedAssets: () => [],
+});
 const {
 	emailEnabled,
 	phoneVerified,
 	hasTrackedAssets,
+	trackedAssets,
 } = toRefs(props);
 
 // Inject the shared mutable user ref from DashboardPanels
@@ -362,25 +447,52 @@ const priceAlertsIncludeSms = ref(user.value.market_asset_price_alerts_include_s
 const priceAlertsEnabled = computed(
 	() => priceAlertsIncludeEmail.value || priceAlertsIncludeSms.value,
 );
-const priceAlertSensitivity = ref<number>(user.value.market_asset_price_alert_sensitivity ?? 1);
-
-const SENSITIVITY_OPTIONS = [
-	{ value: 1, label: "Chill" },
-	{ value: 2, label: "Balanced" },
-	{ value: 3, label: "Aggressive" },
-] as const;
-
-const SENSITIVITY_DESCRIPTIONS: Record<number, string> = {
-	1: "Only high-confidence alerts for major market-moving events.",
-	2: "Notifies more than Chill, but still waits for solid confirmation before alerting.",
-	3: "Lowest threshold — alerts on smaller moves and weaker signals. May send a lot of notifications.",
-};
-
-const sensitivityDescription = computed(
-	() => SENSITIVITY_DESCRIPTIONS[priceAlertSensitivity.value] ?? SENSITIVITY_DESCRIPTIONS[1],
+const priceAlertOnboardingCompleted = ref(
+	user.value.market_asset_price_alert_onboarding_completed ?? false,
+);
+const priceAlertRiskPriority = ref<AlertRiskPriority>(
+	user.value.market_asset_price_alert_risk_priority ?? "both_equally",
+);
+function normalizeMarketContext(
+	value: AlertMarketContext | null | undefined,
+): AlertMarketContext {
+	if (value === "any_major" || value === "extreme_only") return value;
+	return "standout";
+}
+const priceAlertMarketContext = ref<AlertMarketContext>(
+	normalizeMarketContext(user.value.market_asset_price_alert_market_context),
+);
+const priceAlertMoveSize = ref<AlertMoveSize>(
+	user.value.market_asset_price_alert_move_size ?? "large",
+);
+const priceAlertFollowUpMode = ref<AlertFollowUpMode>(
+	user.value.market_asset_price_alert_follow_up_mode ?? "first_only",
 );
 
-const isAggressivePriceSensitivity = computed(() => priceAlertSensitivity.value === 3);
+// Composable fetches prices lazily when the wizard is visible
+const wizardVisible = computed(() => priceAlertsEnabled.value);
+const {
+	riskPriorityOptions,
+	marketContextOptions,
+	moveSizeOptions,
+	followUpOptions,
+} = useOnboardingExamples(trackedAssets, wizardVisible);
+
+const TOTAL_RETUNE_STEPS = 4;
+const activeRetuneStep = ref(0);
+const isFirstRetuneStep = computed(() => activeRetuneStep.value === 0);
+const isLastRetuneStep = computed(
+	() => activeRetuneStep.value === TOTAL_RETUNE_STEPS - 1,
+);
+const showFinishSetupButton = computed(
+	() => !priceAlertOnboardingCompleted.value && isLastRetuneStep.value,
+);
+const isPriceAlertAutosaveLocked = computed(
+	() => !priceAlertOnboardingCompleted.value,
+);
+const retunePrimaryActionLabel = computed(() =>
+	showFinishSetupButton.value ? "Finish setup" : "Next",
+);
 
 const MAX_SCHEDULED_UPDATE_MINUTES = 23 * 60 + 59;
 const SCHEDULED_UPDATE_INCREMENT_MINUTES = 1;
@@ -551,9 +663,33 @@ watch(
 	},
 );
 watch(
-	() => user.value.market_asset_price_alert_sensitivity,
+	() => user.value.market_asset_price_alert_onboarding_completed,
 	(value) => {
-		priceAlertSensitivity.value = value ?? 1;
+		priceAlertOnboardingCompleted.value = value ?? false;
+	},
+);
+watch(
+	() => user.value.market_asset_price_alert_risk_priority,
+	(value) => {
+		priceAlertRiskPriority.value = value ?? "both_equally";
+	},
+);
+watch(
+	() => user.value.market_asset_price_alert_market_context,
+	(value) => {
+		priceAlertMarketContext.value = normalizeMarketContext(value);
+	},
+);
+watch(
+	() => user.value.market_asset_price_alert_move_size,
+	(value) => {
+		priceAlertMoveSize.value = value ?? "large";
+	},
+);
+watch(
+	() => user.value.market_asset_price_alert_follow_up_mode,
+	(value) => {
+		priceAlertFollowUpMode.value = value ?? "first_only";
 	},
 );
 watch(
@@ -602,8 +738,20 @@ watch(
 			...(newData.market_asset_price_alerts_include_sms !== undefined && {
 				market_asset_price_alerts_include_sms: newData.market_asset_price_alerts_include_sms,
 			}),
-			...(newData.market_asset_price_alert_sensitivity !== undefined && {
-				market_asset_price_alert_sensitivity: newData.market_asset_price_alert_sensitivity,
+			...(newData.market_asset_price_alert_onboarding_completed !== undefined && {
+				market_asset_price_alert_onboarding_completed: newData.market_asset_price_alert_onboarding_completed,
+			}),
+			...(newData.market_asset_price_alert_risk_priority !== undefined && {
+				market_asset_price_alert_risk_priority: newData.market_asset_price_alert_risk_priority,
+			}),
+			...(newData.market_asset_price_alert_market_context !== undefined && {
+				market_asset_price_alert_market_context: newData.market_asset_price_alert_market_context,
+			}),
+			...(newData.market_asset_price_alert_move_size !== undefined && {
+				market_asset_price_alert_move_size: newData.market_asset_price_alert_move_size,
+			}),
+			...(newData.market_asset_price_alert_follow_up_mode !== undefined && {
+				market_asset_price_alert_follow_up_mode: newData.market_asset_price_alert_follow_up_mode,
 			}),
 		};
 		}
@@ -626,18 +774,43 @@ watch([marketIncludeEmail, marketIncludeSms], ([email, sms]) => {
 	notifyChange();
 });
 
-watch(priceAlertSensitivity, (value) => {
-	if (value === (user.value.market_asset_price_alert_sensitivity ?? 1)) {
+watch([priceAlertRiskPriority, priceAlertMarketContext, priceAlertMoveSize, priceAlertFollowUpMode], ([riskPriority, marketContext, moveSize, followUpMode]) => {
+	if (!priceAlertOnboardingCompleted.value) {
+		return;
+	}
+	if (
+		riskPriority === (user.value.market_asset_price_alert_risk_priority ?? "both_equally") &&
+		marketContext === (user.value.market_asset_price_alert_market_context ?? "standout") &&
+		moveSize === (user.value.market_asset_price_alert_move_size ?? "large") &&
+		followUpMode === (user.value.market_asset_price_alert_follow_up_mode ?? "first_only")
+	) {
 		return;
 	}
 	user.value = {
 		...user.value,
-		market_asset_price_alert_sensitivity: value,
+		market_asset_price_alert_risk_priority: riskPriority,
+		market_asset_price_alert_market_context: marketContext,
+		market_asset_price_alert_move_size: moveSize,
+		market_asset_price_alert_follow_up_mode: followUpMode,
+	};
+	notifyChange();
+});
+
+watch(priceAlertOnboardingCompleted, (value) => {
+	if (value === (user.value.market_asset_price_alert_onboarding_completed ?? false)) {
+		return;
+	}
+	user.value = {
+		...user.value,
+		market_asset_price_alert_onboarding_completed: value,
 	};
 	notifyChange();
 });
 
 watch([priceAlertsIncludeEmail, priceAlertsIncludeSms], ([email, sms]) => {
+	if (!priceAlertOnboardingCompleted.value) {
+		return;
+	}
 	if (
 		email === user.value.market_asset_price_alerts_include_email &&
 		sms === user.value.market_asset_price_alerts_include_sms
@@ -652,6 +825,37 @@ watch([priceAlertsIncludeEmail, priceAlertsIncludeSms], ([email, sms]) => {
 	};
 	notifyChange();
 });
+
+function handleRetunePrevious() {
+	if (isFirstRetuneStep.value) return;
+	activeRetuneStep.value -= 1;
+}
+
+function handleRetuneNext() {
+	if (isLastRetuneStep.value) return;
+	activeRetuneStep.value += 1;
+}
+
+function handleRetunePrimaryAction() {
+	if (showFinishSetupButton.value) {
+		user.value = {
+			...user.value,
+			market_asset_price_alerts_include_email: priceAlertsIncludeEmail.value,
+			market_asset_price_alerts_include_sms: priceAlertsIncludeSms.value,
+			market_asset_price_alerts_enabled:
+				priceAlertsIncludeEmail.value || priceAlertsIncludeSms.value,
+			market_asset_price_alert_risk_priority: priceAlertRiskPriority.value,
+			market_asset_price_alert_market_context: priceAlertMarketContext.value,
+			market_asset_price_alert_move_size: priceAlertMoveSize.value,
+			market_asset_price_alert_follow_up_mode: priceAlertFollowUpMode.value,
+			market_asset_price_alert_onboarding_completed: true,
+		};
+		priceAlertOnboardingCompleted.value = true;
+		notifyChange();
+		return;
+	}
+	handleRetuneNext();
+}
 
 function handleTimeChange(index: number, value: string) {
 	const parsedMinutes = parseTimeToMinutes(value);

@@ -33,19 +33,17 @@
 			<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.purple}`"></div>
 		<div class="card-body">
 		<fieldset :disabled="isSaving" class="min-w-0">
-		<header class="mb-4">
-			<h2
-				:id="DASHBOARD_SECTION_IDS.assetEvents"
-				class="text-xl sm:text-2xl font-bold text-heading transition-opacity duration-200"
-				:class="{ 'opacity-50': notificationSetupBlocked }"
-			>
-				Asset Events
-			</h2>
-			<p
-				v-if="assetEventsDeliveryTimeLabel"
-				class="text-sm text-body-secondary mt-1 transition-opacity duration-200"
-				:class="{ 'opacity-50': notificationSetupBlocked }"
-			>
+			<header class="mb-4">
+				<h2
+					:id="DASHBOARD_SECTION_IDS.assetEvents"
+					class="text-xl sm:text-2xl font-bold text-heading"
+				>
+					Asset Events
+				</h2>
+				<p
+					v-if="assetEventsDeliveryTimeLabel"
+					class="text-sm text-body-secondary mt-1"
+				>
 				<span class="inline-flex items-center gap-1.5">
 					<ClockIcon class="size-4 shrink-0 text-faint" aria-hidden="true" />
 					<span>
@@ -74,30 +72,31 @@
 			</p>
 		</header>
 
-			<SetupRequiredNotice
-				:needsTrackedAssets="needsTrackedAssets"
-				:needsChannelSelection="needsChannelSelection"
-				:needsPhoneVerification="needsPhoneVerification"
-				:phoneVerificationSectionId="phoneVerificationSectionId"
-			/>
+				<SetupRequiredNotice
+					:needsTrackedAssets="needsTrackedAssets"
+					trackedAssetsMessage="Add at least one tracked stock to enable calendar events, analyst consensus, and insider trades"
+					:needsChannelSelection="needsChannelSelection"
+					:needsPhoneVerification="needsPhoneVerification"
+					:phoneVerificationSectionId="phoneVerificationSectionId"
+				/>
 
 		<!-- Asset Events — each event type has its own Email/SMS toggles -->
 		<div class="space-y-3">
 			<!-- Select all Email / SMS — column header -->
-			<div
-				class="flex items-center justify-between gap-3 px-4 transition-opacity duration-200"
-				:class="{ 'opacity-50': notificationSetupBlocked }"
-			>
+				<div
+					class="flex items-center justify-between gap-3 px-4 transition-opacity duration-200"
+					:class="{ 'opacity-50': needsChannelSelection }"
+				>
 				<span class="text-xs font-semibold uppercase tracking-wider text-faint select-none">Select all</span>
 				<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
-					<label class="inline-flex items-center gap-1.5" :class="notificationSetupBlocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'">
+					<label class="inline-flex items-center gap-1.5" :class="needsChannelSelection ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'">
 						<input
 							ref="selectAllEmailRef"
 							type="checkbox"
 							:checked="allEmailChecked"
-							:disabled="notificationSetupBlocked"
+							:disabled="needsChannelSelection"
 							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
-							:class="notificationSetupBlocked ? 'cursor-not-allowed' : 'cursor-pointer'"
+							:class="needsChannelSelection ? 'cursor-not-allowed' : 'cursor-pointer'"
 							aria-label="Select all Email"
 							@change="toggleAllEmail"
 						/>
@@ -108,7 +107,7 @@
 							ref="selectAllSmsRef"
 							type="checkbox"
 							:checked="allSmsChecked"
-							:disabled="notificationSetupBlocked || !smsReady"
+							:disabled="needsChannelSelection || !smsReady"
 							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
 							:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed'"
 							aria-label="Select all SMS"
@@ -119,12 +118,12 @@
 				</div>
 			</div>
 
-			<div
-				v-for="eventType in ASSET_EVENT_TYPES"
-				:key="eventType.key"
-				class="rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200"
-				:class="{ 'opacity-50': notificationSetupBlocked }"
-			>
+				<div
+					v-for="eventType in ASSET_EVENT_TYPES"
+					:key="eventType.key"
+					class="rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200"
+					:class="{ 'opacity-50': isEventTypeBlocked(eventType.key) }"
+				>
 			<div class="flex items-center justify-between gap-3">
 				<input
 					type="hidden"
@@ -161,13 +160,13 @@
 					</p>
 				</div>
 				<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
-					<label class="inline-flex items-center gap-1.5" :class="notificationSetupBlocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'">
+					<label class="inline-flex items-center gap-1.5" :class="isEventTypeBlocked(eventType.key) ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'">
 						<input
 							type="checkbox"
 							v-model="assetEventRefs[eventType.key].email.value"
-							:disabled="notificationSetupBlocked"
+							:disabled="isEventTypeBlocked(eventType.key)"
 							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
-							:class="notificationSetupBlocked ? 'cursor-not-allowed' : 'cursor-pointer'"
+							:class="isEventTypeBlocked(eventType.key) ? 'cursor-not-allowed' : 'cursor-pointer'"
 							:aria-label="`${eventType.label} Email`"
 							:aria-describedby="`asset_events_${eventType.key}_description`"
 						/>
@@ -177,7 +176,7 @@
 						<input
 							type="checkbox"
 							v-model="assetEventRefs[eventType.key].sms.value"
-							:disabled="notificationSetupBlocked || !smsReady"
+							:disabled="isEventTypeBlocked(eventType.key) || !smsReady"
 							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
 							:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed'"
 							:aria-label="`${eventType.label} SMS`"
@@ -190,7 +189,7 @@
 		</div>
 		</div>
 
-		<div v-if="isHydrated && assetEventsEnabled && nextAssetEventsDeliveryText" class="mt-4 rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200" :class="{ 'opacity-50': notificationSetupBlocked }">
+		<div v-if="isHydrated && assetEventsEnabled && nextAssetEventsDeliveryText" class="mt-4 rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200" :class="{ 'opacity-50': needsChannelSelection }">
 			<p class="inline-flex items-center gap-2 text-sm text-body-secondary">
 				<BellAlertIcon class="size-4 shrink-0 text-success-strong" aria-hidden="true" />
 				<span>Next delivery <span class="font-medium text-heading">{{ nextAssetEventsDeliveryText }}</span>.</span>
@@ -280,9 +279,6 @@ const hasNotificationChannel = computed(
 );
 const needsChannelSelection = computed(() => !hasNotificationChannel.value);
 const needsTrackedAssets = computed(() => !hasTrackedAssets.value);
-const notificationSetupBlocked = computed(
-	() => needsChannelSelection.value || needsTrackedAssets.value,
-);
 const needsPhoneVerification = computed(
 	() =>
 		(user.value.asset_events_include_calendar_sms ||
@@ -332,6 +328,18 @@ const ASSET_EVENT_TYPES = [
 
 type AssetEventKey = (typeof ASSET_EVENT_TYPES)[number]["key"];
 
+function isEventTypeBlockedByAssets(key: AssetEventKey): boolean {
+	return !hasTrackedAssets.value && key !== "ipo";
+}
+
+function isEventTypeBlocked(key: AssetEventKey): boolean {
+	return needsChannelSelection.value || isEventTypeBlockedByAssets(key);
+}
+
+const selectableEventTypes = computed(() =>
+	ASSET_EVENT_TYPES.filter((t) => !isEventTypeBlockedByAssets(t.key)),
+);
+
 /** Per-type email/sms refs, keyed by event type. */
 const assetEventRefs: Record<AssetEventKey, { email: ReturnType<typeof ref<boolean>>; sms: ReturnType<typeof ref<boolean>> }> = {
 	calendar: { email: ref(user.value.asset_events_include_calendar_email), sms: ref(user.value.asset_events_include_calendar_sms) },
@@ -350,17 +358,19 @@ const assetEventsEnabled = computed(() =>
 Select-all Email / SMS
 ============= */
 const allEmailChecked = computed(() =>
-	ASSET_EVENT_TYPES.every((t) => assetEventRefs[t.key].email.value),
+	selectableEventTypes.value.length > 0 &&
+	selectableEventTypes.value.every((t) => assetEventRefs[t.key].email.value),
 );
 const someEmailChecked = computed(() =>
-	ASSET_EVENT_TYPES.some((t) => assetEventRefs[t.key].email.value),
+	selectableEventTypes.value.some((t) => assetEventRefs[t.key].email.value),
 );
 
 const allSmsChecked = computed(() =>
-	ASSET_EVENT_TYPES.every((t) => assetEventRefs[t.key].sms.value),
+	selectableEventTypes.value.length > 0 &&
+	selectableEventTypes.value.every((t) => assetEventRefs[t.key].sms.value),
 );
 const someSmsChecked = computed(() =>
-	ASSET_EVENT_TYPES.some((t) => assetEventRefs[t.key].sms.value),
+	selectableEventTypes.value.some((t) => assetEventRefs[t.key].sms.value),
 );
 
 const selectAllEmailRef = ref<HTMLInputElement | null>(null);
@@ -379,14 +389,14 @@ watchEffect(() => {
 
 function toggleAllEmail() {
 	const next = !allEmailChecked.value;
-	for (const eventType of ASSET_EVENT_TYPES) {
+	for (const eventType of selectableEventTypes.value) {
 		assetEventRefs[eventType.key].email.value = next;
 	}
 }
 
 function toggleAllSms() {
 	const next = !allSmsChecked.value;
-	for (const eventType of ASSET_EVENT_TYPES) {
+	for (const eventType of selectableEventTypes.value) {
 		assetEventRefs[eventType.key].sms.value = next;
 	}
 }

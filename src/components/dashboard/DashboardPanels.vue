@@ -37,6 +37,7 @@
 				:emailEnabled="emailEnabled"
 				:phoneVerified="phoneVerified"
 				:hasTrackedAssets="hasTrackedAssets"
+				:trackedAssets="currentAssets"
 			/>
 		</template>
 

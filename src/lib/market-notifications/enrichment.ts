@@ -3,7 +3,6 @@ import {
 	fetchCompanyNews,
 } from "../providers/company-news";
 import type { ExtendedAssetQuote } from "../providers/price-fetcher";
-import type { AnomalyResult } from "./anomaly-detection";
 import { generatePriceAlertSummary } from "./grok-summary";
 
 export interface EnrichedAlert {
@@ -35,24 +34,16 @@ function buildPriceContext(symbol: string, quote: ExtendedAssetQuote): string {
 	return `${symbol} is ${direction} ${absChange}% today ($${quote.price.toFixed(2)})`;
 }
 
-/** Build a signal context string from triggered signals. */
-function buildSignalContext(anomalyResult: AnomalyResult): string {
-	const triggered = anomalyResult.signals.filter((s) => s.triggered);
-	if (triggered.length === 0) return "unusual activity detected";
-	return triggered.map((s) => s.detail).join(", ");
-}
-
 /** Enrich a triggered alert with news context and optional AI summary. */
 export async function enrichAlert(options: {
 	symbol: string;
 	quote: ExtendedAssetQuote;
-	anomalyResult: AnomalyResult;
+	signalContext: string;
 	news: CompanyNewsItem[];
 }): Promise<EnrichedAlert> {
-	const { symbol, quote, anomalyResult, news } = options;
+	const { symbol, quote, signalContext, news } = options;
 
 	const priceContext = buildPriceContext(symbol, quote);
-	const signalContext = buildSignalContext(anomalyResult);
 
 	// Only attempt AI summary if there are news headlines
 	let aiSummary: string | null = null;

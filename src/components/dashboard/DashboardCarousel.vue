@@ -19,6 +19,7 @@
 		<div
 			ref="trackRef"
 			class="carousel-track"
+			@click="handleTrackClick"
 			@touchstart="handleTouchStart"
 			@touchmove="handleTouchMove"
 			@touchend="handleTouchEnd"
@@ -208,6 +209,30 @@ function handleTouchCancel() {
 
 function handleMotionChange(event: MediaQueryListEvent) {
 	prefersReducedMotion.value = event.matches;
+}
+
+function handleTrackClick(event: MouseEvent) {
+	const target = event.target as HTMLElement | null;
+	const anchor = target?.closest("a[href]") as HTMLAnchorElement | null;
+	if (!anchor) return;
+
+	const href = anchor.getAttribute("href");
+	if (!href?.startsWith("#")) return;
+
+	// On desktop, preserve native in-page hash navigation between stacked panels.
+	if (!window.matchMedia("(max-width: 767.99px)").matches) return;
+
+	const hash = href.slice(1);
+	const index = HASH_TO_TAB_INDEX[hash];
+	if (index === undefined) return;
+
+	event.preventDefault();
+	if (index !== activeIndex.value) {
+		scrollToCard(index);
+	}
+	if (window.location.hash.slice(1) !== hash) {
+		window.history.pushState(null, "", `#${hash}`);
+	}
 }
 
 /** Sync tab highlight and scroll position when user navigates via hash link. */

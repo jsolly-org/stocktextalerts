@@ -29,7 +29,20 @@ interface ParsedNotificationPreferencesForm {
 	market_asset_price_alerts_enabled?: boolean;
 	market_asset_price_alerts_include_email?: boolean;
 	market_asset_price_alerts_include_sms?: boolean;
-	market_asset_price_alert_sensitivity?: number;
+	market_asset_price_alert_onboarding_completed?: boolean;
+	market_asset_price_alert_risk_priority?:
+		| "big_drops"
+		| "big_gains"
+		| "both_equally";
+	market_asset_price_alert_market_context?:
+		| "standout"
+		| "any_major"
+		| "extreme_only";
+	market_asset_price_alert_move_size?: "moderate" | "large" | "very_large";
+	market_asset_price_alert_follow_up_mode?:
+		| "first_only"
+		| "allow_acceleration_follow_up"
+		| "allow_recovery_follow_up";
 }
 
 /**
@@ -224,6 +237,7 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		"market_asset_price_alerts_enabled",
 		"market_asset_price_alerts_include_email",
 		"market_asset_price_alerts_include_sms",
+		"market_asset_price_alert_onboarding_completed",
 	] as const satisfies ReadonlyArray<keyof ParsedNotificationPreferencesForm>;
 
 	const boolUpdates: Record<string, boolean> = {};
@@ -241,13 +255,32 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		...(formData.has("daily_digest_time")
 			? { daily_digest_time: parsedData.daily_digest_time ?? null }
 			: {}),
-		...(formData.has("market_asset_price_alert_sensitivity") &&
-		parsedData.market_asset_price_alert_sensitivity !== undefined
+		...(formData.has("market_asset_price_alert_risk_priority") &&
+		parsedData.market_asset_price_alert_risk_priority !== undefined
 			? {
-					market_asset_price_alert_sensitivity: Math.max(
-						1,
-						Math.min(3, parsedData.market_asset_price_alert_sensitivity),
-					),
+					market_asset_price_alert_risk_priority:
+						parsedData.market_asset_price_alert_risk_priority,
+				}
+			: {}),
+		...(formData.has("market_asset_price_alert_market_context") &&
+		parsedData.market_asset_price_alert_market_context !== undefined
+			? {
+					market_asset_price_alert_market_context:
+						parsedData.market_asset_price_alert_market_context,
+				}
+			: {}),
+		...(formData.has("market_asset_price_alert_move_size") &&
+		parsedData.market_asset_price_alert_move_size !== undefined
+			? {
+					market_asset_price_alert_move_size:
+						parsedData.market_asset_price_alert_move_size,
+				}
+			: {}),
+		...(formData.has("market_asset_price_alert_follow_up_mode") &&
+		parsedData.market_asset_price_alert_follow_up_mode !== undefined
+			? {
+					market_asset_price_alert_follow_up_mode:
+						parsedData.market_asset_price_alert_follow_up_mode,
 				}
 			: {}),
 	});

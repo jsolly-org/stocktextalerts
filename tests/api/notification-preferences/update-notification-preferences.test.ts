@@ -12,6 +12,84 @@ import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 describe("A signed-in user updates their notification channels.", () => {
+	it("The user can update realtime price-alert onboarding answers.", async () => {
+		const testUser = await createTestUser({
+			email: `test-${randomUUID()}@resend.dev`,
+			password: TEST_PASSWORD,
+			confirmed: true,
+		});
+		registerTestUserForCleanup(testUser.id);
+
+		const cookies = await createAuthenticatedCookies(
+			testUser.email,
+			TEST_PASSWORD,
+		);
+
+		const formData = new FormData();
+		formData.append("market_asset_price_alerts_include_email", "true");
+		formData.append("market_asset_price_alert_risk_priority", "big_drops");
+		formData.append("market_asset_price_alert_market_context", "extreme_only");
+		formData.append("market_asset_price_alert_move_size", "very_large");
+
+		const request = new Request(
+			"http://localhost/api/notification-preferences/update",
+			{
+				method: "POST",
+				body: formData,
+				headers: { Accept: "application/json" },
+			},
+		);
+
+		const response = await POST({
+			request,
+			cookies: {
+				get: (name: string) => {
+					const cookie = cookies.get(name);
+					return cookie ? { value: cookie } : undefined;
+				},
+				set: () => {},
+			},
+		} as unknown as APIContext);
+
+		expect(response.status).toBe(200);
+		const payload = (await response.json()) as {
+			ok: boolean;
+			message: string;
+			notificationPreferences: {
+				market_asset_price_alert_risk_priority: string;
+				market_asset_price_alert_market_context: string;
+				market_asset_price_alert_move_size: string;
+			};
+		};
+		expect(payload.ok).toBe(true);
+		expect(payload.message).toBe("settings_updated");
+		expect(
+			payload.notificationPreferences.market_asset_price_alert_risk_priority,
+		).toBe("big_drops");
+		expect(
+			payload.notificationPreferences.market_asset_price_alert_market_context,
+		).toBe("extreme_only");
+		expect(
+			payload.notificationPreferences.market_asset_price_alert_move_size,
+		).toBe("very_large");
+
+		const { data: updatedUser } = await adminClient
+			.from("users")
+			.select(
+				"market_asset_price_alert_risk_priority,market_asset_price_alert_market_context,market_asset_price_alert_move_size",
+			)
+			.eq("id", testUser.id)
+			.single();
+
+		expect(updatedUser.market_asset_price_alert_risk_priority).toBe(
+			"big_drops",
+		);
+		expect(updatedUser.market_asset_price_alert_market_context).toBe(
+			"extreme_only",
+		);
+		expect(updatedUser.market_asset_price_alert_move_size).toBe("very_large");
+	});
+
 	it("When the user enables their first notification channel, scheduled updates are enabled at the default time.", async () => {
 		const testUser = await createTestUser({
 			email: `test-${randomUUID()}@resend.dev`,

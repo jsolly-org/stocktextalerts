@@ -29,7 +29,27 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	market_asset_price_alerts_enabled: { type: "boolean" },
 	market_asset_price_alerts_include_email: { type: "boolean" },
 	market_asset_price_alerts_include_sms: { type: "boolean" },
-	market_asset_price_alert_sensitivity: { type: "integer" },
+	market_asset_price_alert_onboarding_completed: { type: "boolean" },
+	market_asset_price_alert_risk_priority: {
+		type: "enum",
+		values: ["big_drops", "big_gains", "both_equally"],
+	},
+	market_asset_price_alert_market_context: {
+		type: "enum",
+		values: ["standout", "any_major", "extreme_only"],
+	},
+	market_asset_price_alert_move_size: {
+		type: "enum",
+		values: ["moderate", "large", "very_large"],
+	},
+	market_asset_price_alert_follow_up_mode: {
+		type: "enum",
+		values: [
+			"first_only",
+			"allow_acceleration_follow_up",
+			"allow_recovery_follow_up",
+		],
+	},
 } as const satisfies FormSchema;
 
 const SMS_INCLUDE_FIELDS = [
@@ -236,8 +256,16 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 					updatedUser.market_asset_price_alerts_include_email,
 				market_asset_price_alerts_include_sms:
 					updatedUser.market_asset_price_alerts_include_sms,
-				market_asset_price_alert_sensitivity:
-					updatedUser.market_asset_price_alert_sensitivity,
+				market_asset_price_alert_onboarding_completed:
+					updatedUser.market_asset_price_alert_onboarding_completed,
+				market_asset_price_alert_risk_priority:
+					updatedUser.market_asset_price_alert_risk_priority,
+				market_asset_price_alert_market_context:
+					updatedUser.market_asset_price_alert_market_context,
+				market_asset_price_alert_move_size:
+					updatedUser.market_asset_price_alert_move_size,
+				market_asset_price_alert_follow_up_mode:
+					updatedUser.market_asset_price_alert_follow_up_mode,
 			},
 		});
 	} catch (error) {
