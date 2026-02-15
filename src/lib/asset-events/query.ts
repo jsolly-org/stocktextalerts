@@ -71,8 +71,9 @@ export async function fetchAssetEventsUsers(options: {
 
 		const { data, error } = await query;
 		if (!error) {
+			const users = (data ?? []) as UserRecord[];
 			// Filter out users handled by the daily pipeline (they have daily_digest_time AND daily features)
-			const filtered = ((data ?? []) as unknown as UserRecord[]).filter(
+			const filtered = users.filter(
 				(user) =>
 					!(
 						user.daily_digest_time != null &&
