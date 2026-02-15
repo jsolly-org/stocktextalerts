@@ -58,105 +58,6 @@
 			<div
 				class="rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200"
 				:class="{ 'opacity-50': notificationSetupBlocked }"
-			>
-				<div class="flex items-center justify-between gap-3">
-					<input
-						type="hidden"
-						name="market_scheduled_asset_price_enabled"
-						:value="marketNotificationsEnabled ? 'on' : 'off'"
-					/>
-					<input
-						type="hidden"
-						name="market_scheduled_asset_price_include_email"
-						:value="marketIncludeEmail ? 'on' : 'off'"
-					/>
-					<input
-						type="hidden"
-						name="market_scheduled_asset_price_include_sms"
-						:value="marketIncludeSms ? 'on' : 'off'"
-					/>
-					<div class="min-w-0">
-						<div class="flex items-center gap-2">
-							<span
-								id="market_scheduled_asset_price_enabled_label"
-								class="text-base font-semibold text-heading"
-							>
-								Scheduled Asset Price Notifications
-							</span>
-							<MassiveLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
-						</div>
-						<p id="market_scheduled_asset_price_enabled_description" class="text-sm text-body-secondary mt-0.5">
-							Scheduled asset price updates for all tracked assets, including ETFs.
-						</p>
-					</div>
-					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
-						<label class="inline-flex items-center gap-1.5 cursor-pointer">
-							<input
-								type="checkbox"
-								v-model="marketIncludeEmail"
-								:disabled="notificationSetupBlocked || !emailEnabled"
-								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
-								aria-describedby="market_scheduled_asset_price_enabled_description"
-							/>
-							<span class="text-sm text-label">Email</span>
-						</label>
-						<label class="inline-flex items-center gap-1.5" :class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
-							<input
-								type="checkbox"
-								v-model="marketIncludeSms"
-								:disabled="notificationSetupBlocked || !smsReady"
-								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
-								aria-describedby="market_scheduled_asset_price_enabled_description"
-							/>
-							<span class="text-sm text-label">SMS</span>
-						</label>
-					</div>
-				</div>
-
-				<FadeTransition>
-					<div v-if="marketNotificationsEnabled" class="mt-3 border-t border-divider pt-3 pl-3 sm:pl-4">
-						<p class="text-sm text-body-secondary mb-3">
-							Delivery times for scheduled asset price notifications.
-						</p>
-
-						<FadeTransition>
-							<p
-								v-if="!notificationSetupBlocked && scheduledUpdateTimesMinutes.length === 0"
-								class="flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm bg-info-bg border border-info-border text-info-text"
-								role="note"
-							>
-								<InformationCircleIcon class="size-5 shrink-0 mt-0.5" aria-hidden="true" />
-								<span>No scheduled asset price notification delivery times selected.</span>
-							</p>
-						</FadeTransition>
-
-						<ScheduledUpdateControls
-							:scheduledUpdateTimes="scheduledUpdateTimes"
-							:needsChannelSelection="notificationSetupBlocked"
-							:timePickerDisabled="timePickerDisabled"
-							:canAddTime="canAddTime"
-							:canAddMarketOpen="canAddMarketOpen"
-							:marketOpenLabel="marketOpenLabel"
-							:maxTimes="MAX_DELIVERY_TIMES"
-							:maxTimesReached="maxTimesReached"
-							:countdownText="countdownText"
-							:countdownDelayReasons="countdownDelayReasons"
-							:countdownHolidayName="countdownHolidayName"
-							:outsideMarketHoursIndices="outsideMarketHoursIndices"
-							:is24="is24"
-							@time-change="handleTimeChange"
-							@add-time="handleAddTime"
-							@add-initial-time="handleAddInitialTime"
-							@add-market-open="handleAddMarketOpen"
-							@remove-time="handleRemoveTime"
-						/>
-					</div>
-				</FadeTransition>
-			</div>
-
-			<div
-				class="mt-4 rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200"
-				:class="{ 'opacity-50': notificationSetupBlocked }"
 				:data-autosave-ignore="isPriceAlertAutosaveLocked ? '' : null"
 			>
 				<div class="flex items-center justify-between gap-3">
@@ -392,6 +293,105 @@
 						>
 							⚙️ Re-tune
 						</button>
+					</div>
+				</FadeTransition>
+			</div>
+
+			<div
+				class="mt-4 rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200"
+				:class="{ 'opacity-50': notificationSetupBlocked }"
+			>
+				<div class="flex items-center justify-between gap-3">
+					<input
+						type="hidden"
+						name="market_scheduled_asset_price_enabled"
+						:value="marketNotificationsEnabled ? 'on' : 'off'"
+					/>
+					<input
+						type="hidden"
+						name="market_scheduled_asset_price_include_email"
+						:value="marketIncludeEmail ? 'on' : 'off'"
+					/>
+					<input
+						type="hidden"
+						name="market_scheduled_asset_price_include_sms"
+						:value="marketIncludeSms ? 'on' : 'off'"
+					/>
+					<div class="min-w-0">
+						<div class="flex items-center gap-2">
+							<span
+								id="market_scheduled_asset_price_enabled_label"
+								class="text-base font-semibold text-heading"
+							>
+								Scheduled Asset Price Notifications
+							</span>
+							<MassiveLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
+						</div>
+						<p id="market_scheduled_asset_price_enabled_description" class="text-sm text-body-secondary mt-0.5">
+							Scheduled asset price updates for all tracked assets, including ETFs.
+						</p>
+					</div>
+					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
+						<label class="inline-flex items-center gap-1.5 cursor-pointer">
+							<input
+								type="checkbox"
+								v-model="marketIncludeEmail"
+								:disabled="notificationSetupBlocked || !emailEnabled"
+								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								aria-describedby="market_scheduled_asset_price_enabled_description"
+							/>
+							<span class="text-sm text-label">Email</span>
+						</label>
+						<label class="inline-flex items-center gap-1.5" :class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+							<input
+								type="checkbox"
+								v-model="marketIncludeSms"
+								:disabled="notificationSetupBlocked || !smsReady"
+								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								aria-describedby="market_scheduled_asset_price_enabled_description"
+							/>
+							<span class="text-sm text-label">SMS</span>
+						</label>
+					</div>
+				</div>
+
+				<FadeTransition>
+					<div v-if="marketNotificationsEnabled" class="mt-3 border-t border-divider pt-3 pl-3 sm:pl-4">
+						<p class="text-sm text-body-secondary mb-3">
+							Delivery times for scheduled asset price notifications.
+						</p>
+
+						<FadeTransition>
+							<p
+								v-if="!notificationSetupBlocked && scheduledUpdateTimesMinutes.length === 0"
+								class="flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm bg-info-bg border border-info-border text-info-text"
+								role="note"
+							>
+								<InformationCircleIcon class="size-5 shrink-0 mt-0.5" aria-hidden="true" />
+								<span>No scheduled asset price notification delivery times selected.</span>
+							</p>
+						</FadeTransition>
+
+						<ScheduledUpdateControls
+							:scheduledUpdateTimes="scheduledUpdateTimes"
+							:needsChannelSelection="notificationSetupBlocked"
+							:timePickerDisabled="timePickerDisabled"
+							:canAddTime="canAddTime"
+							:canAddMarketOpen="canAddMarketOpen"
+							:marketOpenLabel="marketOpenLabel"
+							:maxTimes="MAX_DELIVERY_TIMES"
+							:maxTimesReached="maxTimesReached"
+							:countdownText="countdownText"
+							:countdownDelayReasons="countdownDelayReasons"
+							:countdownHolidayName="countdownHolidayName"
+							:outsideMarketHoursIndices="outsideMarketHoursIndices"
+							:is24="is24"
+							@time-change="handleTimeChange"
+							@add-time="handleAddTime"
+							@add-initial-time="handleAddInitialTime"
+							@add-market-open="handleAddMarketOpen"
+							@remove-time="handleRemoveTime"
+						/>
 					</div>
 				</FadeTransition>
 			</div>

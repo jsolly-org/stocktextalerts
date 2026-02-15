@@ -31,16 +31,6 @@
 			/>
 		</template>
 
-		<template #market-notifications>
-			<AsyncMarketNotificationsPanel
-				v-if="shouldRender(4)"
-				:emailEnabled="emailEnabled"
-				:phoneVerified="phoneVerified"
-				:hasTrackedAssets="hasTrackedAssets"
-				:trackedAssets="currentAssets"
-			/>
-		</template>
-
 		<template #daily>
 			<AsyncDailyNotificationsPanel
 				v-if="shouldRender(2)"
@@ -51,9 +41,19 @@
 			/>
 		</template>
 
+		<template #market-notifications>
+			<AsyncMarketNotificationsPanel
+				v-if="shouldRender(3)"
+				:emailEnabled="emailEnabled"
+				:phoneVerified="phoneVerified"
+				:hasTrackedAssets="hasTrackedAssets"
+				:trackedAssets="currentAssets"
+			/>
+		</template>
+
 		<template #asset-events>
 			<AsyncAssetEventsPanel
-				v-if="shouldRender(3)"
+				v-if="shouldRender(4)"
 				:emailEnabled="emailEnabled"
 				:phoneVerified="phoneVerified"
 				:hasTrackedAssets="hasTrackedAssets"

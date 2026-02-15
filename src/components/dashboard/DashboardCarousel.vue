@@ -61,8 +61,8 @@ const tabs: Tab[] = [
 	{ id: "setup", label: "Watchlist & Channels", icon: PresentationChartLineIcon },
 	{ id: "schedule", label: "Alerts", icon: BellAlertIcon },
 	{ id: "daily", label: "Daily", icon: NewspaperIcon },
-	{ id: "asset-events", label: "Asset Events", icon: CalendarDaysIcon },
 	{ id: "market-notifications", label: "Market Notifications", icon: ChartBarIcon },
+	{ id: "asset-events", label: "Asset Events", icon: CalendarDaysIcon },
 ];
 
 /** Map hash fragment (without #) to tab index for hash-link sync. */
@@ -70,8 +70,8 @@ const HASH_TO_TAB_INDEX: Record<string, number> = {
 	[DASHBOARD_SECTION_IDS.assets]: 0,
 	[DASHBOARD_SECTION_IDS.notificationChannels]: 1,
 	[DASHBOARD_SECTION_IDS.dailyNotifications]: 2,
-	[DASHBOARD_SECTION_IDS.assetEvents]: 3,
-	[DASHBOARD_SECTION_IDS.marketNotifications]: 4,
+	[DASHBOARD_SECTION_IDS.marketNotifications]: 3,
+	[DASHBOARD_SECTION_IDS.assetEvents]: 4,
 	// daily_digest_time input lives in schedule (Alerts) card
 	daily_digest_time: 1,
 };
