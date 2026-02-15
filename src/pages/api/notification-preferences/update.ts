@@ -62,6 +62,12 @@ const SMS_INCLUDE_FIELDS = [
 	"market_asset_price_alerts_include_sms",
 ] as const;
 
+/**
+ * Update the authenticated user's notification-preferences.
+ *
+ * Accepts a form POST, validates input, enforces SMS opt-out/phone invariants,
+ * persists the update, and returns the updated preference snapshot.
+ */
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({

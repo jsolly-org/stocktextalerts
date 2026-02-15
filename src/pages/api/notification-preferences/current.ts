@@ -3,6 +3,11 @@ import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 
+/**
+ * Read the authenticated user's current notification-preferences.
+ *
+ * Returns a single snapshot of preferences used by the dashboard UI.
+ */
 export const GET: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({
