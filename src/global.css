@@ -176,7 +176,7 @@ body {
 	@apply inline-flex items-center justify-center shrink-0 rounded-lg text-muted hover:text-error-strong transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error-strong focus-visible:ring-offset-2;
 }
 
-@keyframes buttonSpinner {
+@keyframes button-spinner {
 	to {
 		transform: rotate(360deg);
 	}
@@ -192,9 +192,9 @@ body {
 	height: 0.95rem;
 	margin-right: 0.5rem;
 	border-radius: 9999px;
-	border: 2px solid currentColor;
+	border: 2px solid currentcolor;
 	border-right-color: transparent;
-	animation: buttonSpinner 700ms linear infinite;
+	animation: button-spinner 700ms linear infinite;
 }
 
 /* ============= Form Input Utilities ============= */

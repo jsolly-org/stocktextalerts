@@ -103,14 +103,14 @@
 						/>
 						<span class="text-sm font-medium text-body-secondary">Email</span>
 					</label>
-					<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+					<label class="inline-flex items-center gap-1.5" :class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
 						<input
 							ref="selectAllSmsRef"
 							type="checkbox"
 							:checked="allSmsChecked"
 							:disabled="notificationSetupBlocked || !smsReady"
 							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
-							:class="smsReady ? 'cursor-pointer' : 'cursor-not-allowed'"
+							:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed'"
 							aria-label="Select all SMS"
 							@change="toggleAllSms"
 						/>
@@ -173,13 +173,13 @@
 						/>
 						<span class="text-sm text-label">Email</span>
 					</label>
-					<label class="inline-flex items-center gap-1.5" :class="smsReady ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+					<label class="inline-flex items-center gap-1.5" :class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
 						<input
 							type="checkbox"
 							v-model="assetEventRefs[eventType.key].sms.value"
 							:disabled="notificationSetupBlocked || !smsReady"
 							class="rounded border-edge-strong text-purple-600 focus:ring-purple-500 h-4 w-4"
-							:class="smsReady ? 'cursor-pointer' : 'cursor-not-allowed'"
+							:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed'"
 							:aria-label="`${eventType.label} SMS`"
 							:aria-describedby="`asset_events_${eventType.key}_description`"
 						/>
