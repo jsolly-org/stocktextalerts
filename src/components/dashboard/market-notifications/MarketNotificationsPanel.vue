@@ -241,89 +241,93 @@
 				</div>
 
 				<FadeTransition>
-					<div v-if="priceAlertsEnabled" class="mt-3 border-t border-divider pt-3 pl-3 sm:pl-4">
+					<div v-if="priceAlertsEnabled && showWizard" key="wizard" class="mt-3 border-t border-divider pt-3 pl-3 sm:pl-4">
 						<fieldset :disabled="notificationSetupBlocked">
 							<div class="space-y-3">
-								<div v-if="activeRetuneStep === 0">
-									<p class="text-sm text-label mb-1.5">Which moves would you want a text about?</p>
-									<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
-										<label
-											v-for="option in riskPriorityOptions"
-											:key="option.value"
-											class="rounded-lg border border-edge bg-surface-alt px-2.5 py-2 text-sm text-label cursor-pointer"
-										>
-											<input
-												v-model="priceAlertRiskPriority"
-												type="radio"
-												name="price_alert_risk_priority"
-												:value="option.value"
-												class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-emerald-500 align-middle"
-											/>
-											<span class="ml-1.5 align-middle">{{ option.label }}</span>
-											<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
-										</label>
+								<!-- All steps rendered in the same grid cell so the container
+								     sizes to the tallest step, preventing layout shift. -->
+								<div class="grid [&>*]:col-start-1 [&>*]:row-start-1">
+									<div :class="activeRetuneStep === 0 ? 'visible' : 'invisible'" :inert="activeRetuneStep !== 0 || undefined">
+										<p class="text-sm text-label mb-1.5">Which moves would you want a text about?</p>
+										<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+											<label
+												v-for="option in riskPriorityOptions"
+												:key="option.value"
+												class="rounded-lg border border-edge bg-surface-alt px-2.5 py-2 text-sm text-label cursor-pointer"
+											>
+												<input
+													v-model="priceAlertRiskPriority"
+													type="radio"
+													name="price_alert_risk_priority"
+													:value="option.value"
+													class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-emerald-500 align-middle"
+												/>
+												<span class="ml-1.5 align-middle">{{ option.label }}</span>
+												<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
+											</label>
+										</div>
 									</div>
-								</div>
 
-								<div v-else-if="activeRetuneStep === 1">
-									<p class="text-sm text-label mb-1.5">Should we text you when all stocks are moving, or only when yours stands out?</p>
-									<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
-										<label
-											v-for="option in marketContextOptions"
-											:key="option.value"
-											class="rounded-lg border border-edge bg-surface-alt px-2.5 py-2 text-sm text-label cursor-pointer"
-										>
-											<input
-												v-model="priceAlertMarketContext"
-												type="radio"
-												name="price_alert_market_context"
-												:value="option.value"
-												class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-emerald-500 align-middle"
-											/>
-											<span class="ml-1.5 align-middle">{{ option.label }}</span>
-											<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
-										</label>
+									<div :class="activeRetuneStep === 1 ? 'visible' : 'invisible'" :inert="activeRetuneStep !== 1 || undefined">
+										<p class="text-sm text-label mb-1.5">Should we text you when all stocks are moving, or only when yours stands out?</p>
+										<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+											<label
+												v-for="option in marketContextOptions"
+												:key="option.value"
+												class="rounded-lg border border-edge bg-surface-alt px-2.5 py-2 text-sm text-label cursor-pointer"
+											>
+												<input
+													v-model="priceAlertMarketContext"
+													type="radio"
+													name="price_alert_market_context"
+													:value="option.value"
+													class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-emerald-500 align-middle"
+												/>
+												<span class="ml-1.5 align-middle">{{ option.label }}</span>
+												<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
+											</label>
+										</div>
 									</div>
-								</div>
 
-								<div v-else-if="activeRetuneStep === 2">
-									<p class="text-sm text-label mb-1.5">How big should a move be before it deserves an alert?</p>
-									<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
-										<label
-											v-for="option in moveSizeOptions"
-											:key="option.value"
-											class="rounded-lg border border-edge bg-surface-alt px-2.5 py-2 text-sm text-label cursor-pointer"
-										>
-											<input
-												v-model="priceAlertMoveSize"
-												type="radio"
-												name="price_alert_move_size"
-												:value="option.value"
-												class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-emerald-500 align-middle"
-											/>
-											<span class="ml-1.5 align-middle">{{ option.label }}</span>
-											<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
-										</label>
+									<div :class="activeRetuneStep === 2 ? 'visible' : 'invisible'" :inert="activeRetuneStep !== 2 || undefined">
+										<p class="text-sm text-label mb-1.5">How big should a move be before it deserves an alert?</p>
+										<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+											<label
+												v-for="option in moveSizeOptions"
+												:key="option.value"
+												class="rounded-lg border border-edge bg-surface-alt px-2.5 py-2 text-sm text-label cursor-pointer"
+											>
+												<input
+													v-model="priceAlertMoveSize"
+													type="radio"
+													name="price_alert_move_size"
+													:value="option.value"
+													class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-emerald-500 align-middle"
+												/>
+												<span class="ml-1.5 align-middle">{{ option.label }}</span>
+												<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
+											</label>
+										</div>
 									</div>
-								</div>
-								<div v-else>
-									<p class="text-sm text-label mb-1.5">After your first alert, what should happen?</p>
-									<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
-										<label
-											v-for="option in followUpOptions"
-											:key="option.value"
-											class="rounded-lg border border-edge bg-surface-alt px-2.5 py-2 text-sm text-label cursor-pointer"
-										>
-											<input
-												v-model="priceAlertFollowUpMode"
-												type="radio"
-												name="price_alert_follow_up_mode"
-												:value="option.value"
-												class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-emerald-500 align-middle"
-											/>
-											<span class="ml-1.5 align-middle">{{ option.label }}</span>
-											<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
-										</label>
+									<div :class="activeRetuneStep === 3 ? 'visible' : 'invisible'" :inert="activeRetuneStep !== 3 || undefined">
+										<p class="text-sm text-label mb-1.5">After your first alert, what should happen?</p>
+										<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+											<label
+												v-for="option in followUpOptions"
+												:key="option.value"
+												class="rounded-lg border border-edge bg-surface-alt px-2.5 py-2 text-sm text-label cursor-pointer"
+											>
+												<input
+													v-model="priceAlertFollowUpMode"
+													type="radio"
+													name="price_alert_follow_up_mode"
+													:value="option.value"
+													class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-emerald-500 align-middle"
+												/>
+												<span class="ml-1.5 align-middle">{{ option.label }}</span>
+												<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
+											</label>
+										</div>
 									</div>
 								</div>
 
@@ -341,8 +345,7 @@
 									</p>
 									<button
 										type="button"
-										class="rounded-md border border-edge bg-surface px-2.5 py-1.5 text-xs font-medium text-label transition hover:bg-surface-alt cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-										:disabled="isLastRetuneStep && !showFinishSetupButton"
+										class="rounded-md border border-edge bg-surface px-2.5 py-1.5 text-xs font-medium text-label transition hover:bg-surface-alt cursor-pointer"
 										@click="handleRetunePrimaryAction"
 									>
 										{{ retunePrimaryActionLabel }}
@@ -350,6 +353,45 @@
 								</div>
 							</div>
 						</fieldset>
+					</div>
+					<div v-else-if="priceAlertsEnabled && !showWizard" key="summary" class="mt-3 border-t border-divider pt-3 pl-3 sm:pl-4">
+						<div class="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs sm:grid-cols-4">
+							<div class="flex items-start gap-1.5">
+								<span class="text-base leading-none mt-px" aria-hidden="true">🎯</span>
+								<div>
+									<p class="text-muted">Alert on</p>
+									<p class="text-label font-medium">{{ RISK_PRIORITY_LABELS[priceAlertRiskPriority] }}</p>
+								</div>
+							</div>
+							<div class="flex items-start gap-1.5">
+								<span class="text-base leading-none mt-px" aria-hidden="true">📊</span>
+								<div>
+									<p class="text-muted">Market filter</p>
+									<p class="text-label font-medium">{{ MARKET_CONTEXT_LABELS[priceAlertMarketContext] }}</p>
+								</div>
+							</div>
+							<div class="flex items-start gap-1.5">
+								<span class="text-base leading-none mt-px" aria-hidden="true">📏</span>
+								<div>
+									<p class="text-muted">Move size</p>
+									<p class="text-label font-medium">{{ MOVE_SIZE_LABELS[priceAlertMoveSize] }}</p>
+								</div>
+							</div>
+							<div class="flex items-start gap-1.5">
+								<span class="text-base leading-none mt-px" aria-hidden="true">🔁</span>
+								<div>
+									<p class="text-muted">Same-day follow-up</p>
+									<p class="text-label font-medium">{{ FOLLOW_UP_LABELS[priceAlertFollowUpMode] }}</p>
+								</div>
+							</div>
+						</div>
+						<button
+							type="button"
+							class="mt-3 inline-flex items-center gap-1 rounded-md border border-edge px-2.5 py-1 text-xs font-medium text-label transition hover:bg-surface-alt focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 cursor-pointer"
+							@click="startRetune"
+						>
+							⚙️ Re-tune
+						</button>
 					</div>
 				</FadeTransition>
 			</div>
@@ -487,12 +529,39 @@ const isLastRetuneStep = computed(
 const showFinishSetupButton = computed(
 	() => !priceAlertOnboardingCompleted.value && isLastRetuneStep.value,
 );
+const retuning = ref(false);
+const showWizard = computed(
+	() => !priceAlertOnboardingCompleted.value || retuning.value,
+);
 const isPriceAlertAutosaveLocked = computed(
 	() => !priceAlertOnboardingCompleted.value,
 );
-const retunePrimaryActionLabel = computed(() =>
-	showFinishSetupButton.value ? "Finish setup" : "Next",
-);
+const retunePrimaryActionLabel = computed(() => {
+	if (showFinishSetupButton.value) return "Finish setup";
+	if (retuning.value && isLastRetuneStep.value) return "Save";
+	return "Next";
+});
+
+const RISK_PRIORITY_LABELS: Record<AlertRiskPriority, string> = {
+	big_drops: "Big drops only",
+	big_gains: "Big gains only",
+	both_equally: "Drops and gains",
+};
+const MARKET_CONTEXT_LABELS: Record<AlertMarketContext, string> = {
+	any_major: "Any big move",
+	standout: "Standouts only",
+	extreme_only: "Extreme outliers",
+};
+const MOVE_SIZE_LABELS: Record<AlertMoveSize, string> = {
+	moderate: "Moderate (\u22653% or $5)",
+	large: "Large (\u22655% or $10)",
+	very_large: "Very large (\u22658% or $20)",
+};
+const FOLLOW_UP_LABELS: Record<AlertFollowUpMode, string> = {
+	first_only: "None",
+	allow_acceleration_follow_up: "If move accelerates",
+	allow_recovery_follow_up: "If move reverses",
+};
 
 const MAX_SCHEDULED_UPDATE_MINUTES = 23 * 60 + 59;
 const SCHEDULED_UPDATE_INCREMENT_MINUTES = 1;
@@ -836,6 +905,11 @@ function handleRetuneNext() {
 	activeRetuneStep.value += 1;
 }
 
+function startRetune() {
+	activeRetuneStep.value = 0;
+	retuning.value = true;
+}
+
 function handleRetunePrimaryAction() {
 	if (showFinishSetupButton.value) {
 		user.value = {
@@ -851,6 +925,12 @@ function handleRetunePrimaryAction() {
 			market_asset_price_alert_onboarding_completed: true,
 		};
 		priceAlertOnboardingCompleted.value = true;
+		retuning.value = false;
+		notifyChange();
+		return;
+	}
+	if (retuning.value && isLastRetuneStep.value) {
+		retuning.value = false;
 		notifyChange();
 		return;
 	}
