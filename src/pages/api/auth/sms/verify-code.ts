@@ -182,7 +182,7 @@ export function createVerifyCodeHandler(
 			await userService.update(user.id, {
 				phone_verified: true,
 				verification_sent_at: null,
-				sms_notifications_enabled: true,
+				sms_notifications_enabled: !userData.sms_opted_out,
 			});
 
 			return jsonResponse(200, {

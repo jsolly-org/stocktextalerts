@@ -15,7 +15,7 @@ env:
 
 jobs:
   dependency-maintenance:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.actor == 'github-actions[bot]' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check for existing nightly PR
