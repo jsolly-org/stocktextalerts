@@ -124,5 +124,36 @@ const omitManifestOnVercel =
       </svg>
       Support
     </a>
+    <script>
+      (() => {
+        document.addEventListener(
+          "submit",
+          (event) => {
+            const form = event.target;
+            if (!(form instanceof HTMLFormElement)) {
+              return;
+            }
+
+            const submitter = event.submitter;
+            const button =
+              submitter instanceof HTMLButtonElement
+                ? submitter
+                : form.querySelector("button[type='submit'][data-submit-loading]");
+
+            if (
+              !(button instanceof HTMLButtonElement) ||
+              !button.hasAttribute("data-submit-loading")
+            ) {
+              return;
+            }
+
+            button.disabled = true;
+            button.setAttribute("aria-busy", "true");
+            button.classList.add("btn-loading");
+          },
+          { capture: true },
+        );
+      })();
+    </script>
   </body>
 </html>

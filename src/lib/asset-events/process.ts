@@ -110,22 +110,6 @@ export async function processAssetEventsUser(options: {
 		const userAssets = await loadUserAssets(supabase, user.id);
 		const tickers = userAssets.map((s) => s.symbol);
 
-		if (tickers.length === 0) {
-			logger.info("Skipping asset events: user has no tracked assets", {
-				action: "asset_events_run",
-				reason: "no_assets",
-				userId: user.id,
-			});
-			stats.skipped++;
-			await updateUserAssetEventsNextSendAt({
-				user,
-				supabase,
-				logger,
-				currentTime,
-			});
-			return stats;
-		}
-
 		const emailEnabled = user.email_notifications_enabled;
 		const smsEnabled = shouldSendSms(user);
 

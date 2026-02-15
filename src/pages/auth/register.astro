@@ -127,6 +127,7 @@ if (error === "user_already_exists") {
             <button 
               type="submit" 
               class="btn btn-md btn-primary w-full"
+              data-submit-loading
             >
               Register
             </button>
@@ -145,4 +146,3 @@ import { DEFAULT_TIMEZONE } from "../../lib/constants";
 	// Ensure register form preselects a detected timezone even before user profile exists.
 	setupDetectedTimezoneOption({ defaultTimezone: DEFAULT_TIMEZONE });
 </script>
-

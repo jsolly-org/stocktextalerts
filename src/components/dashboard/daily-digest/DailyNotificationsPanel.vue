@@ -54,6 +54,7 @@
 			</header>
 
 		<SetupRequiredNotice
+			:needsTrackedAssets="needsTrackedAssets"
 			:needsChannelSelection="needsChannelSelection"
 			:needsPhoneVerification="needsPhoneVerification"
 			:phoneVerificationSectionId="phoneVerificationSectionId"
@@ -61,9 +62,9 @@
 
 	<fieldset
 			class="divide-y divide-divider transition-opacity duration-200"
-				:class="{ 'opacity-50': needsChannelSelection }"
+				:class="{ 'opacity-50': notificationSetupBlocked }"
 				:disabled="isSaving"
-				:aria-disabled="needsChannelSelection ? 'true' : undefined"
+				:aria-disabled="notificationSetupBlocked ? 'true' : undefined"
 			>
 					<legend class="sr-only">Daily digest settings</legend>
 
@@ -202,7 +203,7 @@
 
 				<div
 					class="transition-opacity duration-200"
-					:class="{ 'opacity-50': needsChannelSelection }"
+					:class="{ 'opacity-50': notificationSetupBlocked }"
 				>
 					<div class="mb-6">
 						<div ref="previewCarouselRef" class="preview-carousel" data-horizontal-scroll @scroll="onPreviewCarouselScroll">
@@ -239,6 +240,7 @@
 					</div>
 
 					<SetupRequiredNotice
+						:needsTrackedAssets="needsTrackedAssets"
 						:needsChannelSelection="needsChannelSelection"
 						:needsPhoneVerification="false"
 						phoneVerificationSectionId=""
@@ -246,7 +248,7 @@
 
 					<FormatToggles
 						:showSparklines="showSparklines"
-						:disabled="needsChannelSelection"
+						:disabled="notificationSetupBlocked"
 						@update:showSparklines="showSparklines = $event"
 					/>
 				</div>
@@ -298,25 +300,45 @@ import SmsPreview from "./preview/SmsPreview.vue";
 interface Props {
 	initialAssets: InitialAsset[];
 	emailEnabled: boolean;
-	smsEnabled: boolean;
 	phoneVerified: boolean;
+	hasTrackedAssets: boolean;
 }
 
 const props = defineProps<Props>();
-const { initialAssets, emailEnabled, smsEnabled, phoneVerified } = toRefs(props);
+const { initialAssets, emailEnabled, phoneVerified, hasTrackedAssets } =
+	toRefs(props);
 
 const user = useDashboardUser();
 
 const smsOptedOut = computed(() => user.value.sms_opted_out === true);
 const smsReady = computed(
-	() => smsEnabled.value && phoneVerified.value && !smsOptedOut.value,
+	() => phoneVerified.value && !smsOptedOut.value,
 );
-const hasNotificationChannel = computed(() => emailEnabled.value || smsReady.value);
+const hasAnySmsFeatureEnabled = computed(
+	() =>
+		user.value.market_scheduled_asset_price_include_sms ||
+		user.value.asset_events_include_calendar_sms ||
+		user.value.asset_events_include_ipo_sms ||
+		user.value.asset_events_include_analyst_sms ||
+		user.value.asset_events_include_insider_sms ||
+		user.value.market_asset_price_alerts_include_sms,
+);
+const hasNotificationChannel = computed(
+	() => emailEnabled.value || (smsReady.value && hasAnySmsFeatureEnabled.value),
+);
 const needsChannelSelection = computed(() => !hasNotificationChannel.value);
-const needsPhoneVerification = computed(() => smsEnabled.value && !phoneVerified.value);
+const needsTrackedAssets = computed(() => !hasTrackedAssets.value);
+const notificationSetupBlocked = computed(
+	() => needsChannelSelection.value || needsTrackedAssets.value,
+);
+const needsPhoneVerification = computed(
+	() => hasAnySmsFeatureEnabled.value && !phoneVerified.value,
+);
 
 /** News & Rumors are email-only — disable when email channel isn't enabled */
-const emailOnlyDisabled = computed(() => needsChannelSelection.value || !emailEnabled.value);
+const emailOnlyDisabled = computed(
+	() => notificationSetupBlocked.value || !emailEnabled.value,
+);
 const phoneVerificationSectionId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-phone-verification-section`;
 
 const isHydrated = ref(false);

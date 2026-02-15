@@ -95,11 +95,21 @@ if (!hasValidToken) {
                   minlength="8"
                 />
                 <p class="text-sm text-muted mt-1">Minimum 8 characters required</p>
+                <p
+                  id="confirm-match-feedback"
+                  class="mt-1 hidden items-center gap-1 text-sm"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <Icon id="confirm-match-icon" name="check-circle-20" class="h-4 w-4" aria-hidden="true" />
+                  <span id="confirm-match-text"></span>
+                </p>
               </div>
             </fieldset>
             <button
               type="submit"
               class="btn btn-lg btn-primary w-full"
+              data-submit-loading
             >
               Update password
             </button>
@@ -116,3 +126,63 @@ if (!hasValidToken) {
   </div>
 </Layout>
 
+<script>
+  (() => {
+    const passwordInput = document.getElementById("password");
+    const confirmInput = document.getElementById("confirm");
+    const feedback = document.getElementById("confirm-match-feedback");
+    const feedbackIcon = document.getElementById("confirm-match-icon");
+    const feedbackText = document.getElementById("confirm-match-text");
+
+    if (
+      !(passwordInput instanceof HTMLInputElement) ||
+      !(confirmInput instanceof HTMLInputElement) ||
+      !(feedback instanceof HTMLElement) ||
+      !(feedbackIcon instanceof HTMLElement) ||
+      !(feedbackText instanceof HTMLElement)
+    ) {
+      return;
+    }
+
+    function hideFeedback() {
+      feedback.classList.add("hidden");
+      feedback.classList.remove("flex", "text-success-text", "text-error-text");
+      feedbackIcon.classList.add("hidden");
+      feedbackIcon.classList.remove("text-success-text", "text-error-text");
+      feedbackText.textContent = "";
+    }
+
+    function showFeedback(matches) {
+      feedback.classList.remove("hidden");
+      feedback.classList.add("flex");
+      feedback.classList.remove("text-success-text", "text-error-text");
+      feedbackIcon.classList.remove("hidden", "text-success-text", "text-error-text");
+
+      if (matches) {
+        feedback.classList.add("text-success-text");
+        feedbackIcon.classList.add("text-success-text");
+        feedbackText.textContent = "Passwords match.";
+        return;
+      }
+
+      feedback.classList.add("text-error-text");
+      feedbackIcon.classList.add("hidden");
+      feedbackText.textContent = "Passwords do not match.";
+    }
+
+    function updateMatchFeedback() {
+      const confirmValue = confirmInput.value;
+      const passwordValue = passwordInput.value;
+
+      if (!confirmValue.length) {
+        hideFeedback();
+        return;
+      }
+
+      showFeedback(passwordValue.length >= 8 && passwordValue === confirmValue);
+    }
+
+    passwordInput.addEventListener("input", updateMatchFeedback);
+    confirmInput.addEventListener("input", updateMatchFeedback);
+  })();
+</script>

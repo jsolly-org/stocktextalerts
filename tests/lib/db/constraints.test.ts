@@ -179,27 +179,18 @@ describe("User input is validated against required data format rules.", () => {
 		});
 	});
 
-	it("SMS notifications cannot be enabled when the user has opted out.", async () => {
+	it("The legacy sms_notifications_enabled column no longer exists.", async () => {
 		await expect(
 			client.query(
 				[
 					"insert into public.users (",
-					"id, email, phone_country_code, phone_number, sms_opted_out, sms_notifications_enabled",
-					") values ($1, $2, $3, $4, $5, $6)",
+					"id, email, sms_notifications_enabled",
+					") values ($1, $2, $3)",
 				].join(" "),
-				[
-					randomUUID(),
-					`test-${randomUUID()}@resend.dev`,
-					"+1",
-					"5551234567",
-					true,
-					true,
-				],
+				[randomUUID(), `test-${randomUUID()}@resend.dev`, true],
 			),
 		).rejects.toMatchObject({
-			code: "23514",
-			constraint: "users_sms_opted_out_blocks_sms_enabled",
-			table: "users",
+			code: "42703",
 		});
 	});
 
@@ -216,7 +207,7 @@ describe("User input is validated against required data format rules.", () => {
 		});
 	});
 
-	it("Price alert cooldown claims are atomic for user and symbol pairs.", async () => {
+	it("Price alert slot claims allow one acceleration follow-up when enabled.", async () => {
 		const userId = randomUUID();
 		const symbol = "AAPL";
 
@@ -231,31 +222,65 @@ describe("User input is validated against required data format rules.", () => {
 			[symbol, aaplAsset.name, "stock"],
 		);
 
-		const firstClaim = await client.query<{ claimed: boolean }>(
-			"select public.claim_market_asset_price_alert_cooldown($1::uuid, $2::text, $3::integer) as claimed",
-			[userId, symbol, 30],
-		);
+		const claimSql = [
+			"select public.claim_market_asset_price_alert_slot(",
+			"$1::uuid, $2::text, $3::timestamptz, $4::numeric, $5::numeric,",
+			"$6::boolean, $7::boolean, $8::text",
+			") as claimed",
+		].join(" ");
+
+		const firstClaim = await client.query<{ claimed: boolean }>(claimSql, [
+			userId,
+			symbol,
+			"2026-02-13T15:30:00Z",
+			5,
+			10,
+			false,
+			false,
+			"down",
+		]);
 		expect(firstClaim.rows[0]?.claimed).toBe(true);
 
-		const secondClaim = await client.query<{ claimed: boolean }>(
-			"select public.claim_market_asset_price_alert_cooldown($1::uuid, $2::text, $3::integer) as claimed",
-			[userId, symbol, 30],
-		);
+		const secondClaim = await client.query<{ claimed: boolean }>(claimSql, [
+			userId,
+			symbol,
+			"2026-02-13T18:30:00Z",
+			6,
+			11,
+			false,
+			false,
+			"down",
+		]);
 		expect(secondClaim.rows[0]?.claimed).toBe(false);
 
-		await client.query(
-			[
-				"update public.market_asset_price_alert_cooldowns",
-				"set last_alerted_at = pg_catalog.now() - interval '31 minutes'",
-				"where user_id = $1 and symbol = $2",
-			].join(" "),
-			[userId, symbol],
-		);
-
-		const thirdClaim = await client.query<{ claimed: boolean }>(
-			"select public.claim_market_asset_price_alert_cooldown($1::uuid, $2::text, $3::integer) as claimed",
-			[userId, symbol, 30],
-		);
+		const thirdClaim = await client.query<{ claimed: boolean }>(claimSql, [
+			userId,
+			symbol,
+			"2026-02-13T18:45:00Z",
+			6.4,
+			11.8,
+			true,
+			false,
+			"down",
+		]);
 		expect(thirdClaim.rows[0]?.claimed).toBe(true);
+
+		const fourthClaim = await client.query<{ claimed: boolean }>(claimSql, [
+			userId,
+			symbol,
+			"2026-02-13T19:15:00Z",
+			7.2,
+			12.6,
+			true,
+			false,
+			"down",
+		]);
+		expect(fourthClaim.rows[0]?.claimed).toBe(false);
+
+		const nextTradingDayClaim = await client.query<{ claimed: boolean }>(
+			claimSql,
+			[userId, symbol, "2026-02-13T22:30:00Z", 5.5, 10.3, false, false, "down"],
+		);
+		expect(nextTradingDayClaim.rows[0]?.claimed).toBe(true);
 	});
 });

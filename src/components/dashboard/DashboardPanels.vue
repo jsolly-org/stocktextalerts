@@ -27,17 +27,7 @@
 			<AsyncNotificationChannelsPanel
 				v-if="shouldRender(1)"
 				v-model:emailEnabled="emailEnabled"
-				v-model:smsEnabled="smsEnabled"
 				:sms-phone-number="smsPhoneNumber"
-			/>
-		</template>
-
-		<template #market-notifications>
-			<AsyncMarketNotificationsPanel
-				v-if="shouldRender(4)"
-				:emailEnabled="emailEnabled"
-				:smsEnabled="smsEnabled"
-				:phoneVerified="phoneVerified"
 			/>
 		</template>
 
@@ -46,17 +36,27 @@
 				v-if="shouldRender(2)"
 				:initialAssets="currentAssets"
 				:emailEnabled="emailEnabled"
-				:smsEnabled="smsEnabled"
 				:phoneVerified="phoneVerified"
+				:hasTrackedAssets="hasTrackedAssets"
+			/>
+		</template>
+
+		<template #market-notifications>
+			<AsyncMarketNotificationsPanel
+				v-if="shouldRender(3)"
+				:emailEnabled="emailEnabled"
+				:phoneVerified="phoneVerified"
+				:hasTrackedAssets="hasTrackedAssets"
+				:trackedAssets="currentAssets"
 			/>
 		</template>
 
 		<template #asset-events>
 			<AsyncAssetEventsPanel
-				v-if="shouldRender(3)"
+				v-if="shouldRender(4)"
 				:emailEnabled="emailEnabled"
-				:smsEnabled="smsEnabled"
 				:phoneVerified="phoneVerified"
+				:hasTrackedAssets="hasTrackedAssets"
 			/>
 		</template>
 	</DashboardCarousel>
@@ -114,9 +114,9 @@ const user = provideDashboardUser(userProp);
 
 // Live tracked assets — starts from server data, updated by WatchlistPanel edits
 const currentAssets = ref<InitialAsset[]>([...props.initialAssets]);
+const hasTrackedAssets = computed(() => currentAssets.value.length > 0);
 
 const emailEnabled = ref(user.value.email_notifications_enabled);
-const smsEnabled = ref(user.value.sms_notifications_enabled);
 const phoneVerified = computed(() => user.value.phone_verified);
 
 // Sync channel flags when user changes (e.g., after auto-save response)
@@ -126,19 +126,6 @@ watch(
 		emailEnabled.value = value;
 	},
 );
-watch(
-	() => user.value.sms_notifications_enabled,
-	(value) => {
-		smsEnabled.value = value;
-	},
-);
-
-// Auto-check the SMS market-notification box when the user first enables the SMS channel
-watch(smsEnabled, (enabled, wasEnabled) => {
-	if (enabled && !wasEnabled && user.value.market_scheduled_asset_price_include_sms == null) {
-		user.value = { ...user.value, market_scheduled_asset_price_include_sms: true };
-	}
-});
 
 // --- Assets form (unchanged, future refactor candidate) ---
 const assetsFormElement = ref<HTMLFormElement | null>(null);

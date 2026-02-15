@@ -7,7 +7,7 @@ import { runScheduledNotifications } from "../../../lib/schedule/run";
 /*
  * Vercel cron entrypoint. Validates `CRON_SECRET` and triggers scheduled deliveries.
  * GET  – used by Vercel cron.
- * POST – used by scripts/one-off-tests/run-scheduled-cron.sh (accepts `{ "force": true }`).
+ * POST – manual trigger endpoint (accepts `{ "force": true }`).
  */
 const handler: APIRoute = async ({ request, locals }) => {
 	const url = new URL(request.url);

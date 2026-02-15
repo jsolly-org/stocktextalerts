@@ -6,7 +6,6 @@ import {
 export type NotificationPreferencesData = {
 	market_scheduled_asset_price_enabled: boolean;
 	email_notifications_enabled: boolean;
-	sms_notifications_enabled: boolean;
 	sms_opted_out: boolean;
 	phone_verified: boolean;
 	timezone: string;
@@ -31,7 +30,20 @@ export type NotificationPreferencesData = {
 	market_asset_price_alerts_enabled: boolean;
 	market_asset_price_alerts_include_email: boolean;
 	market_asset_price_alerts_include_sms: boolean;
-	market_asset_price_alert_sensitivity: number;
+	market_asset_price_alert_onboarding_completed: boolean;
+	market_asset_price_alert_risk_priority:
+		| "big_drops"
+		| "big_gains"
+		| "both_equally";
+	market_asset_price_alert_market_context:
+		| "standout"
+		| "any_major"
+		| "extreme_only";
+	market_asset_price_alert_move_size: "moderate" | "large" | "very_large";
+	market_asset_price_alert_follow_up_mode:
+		| "first_only"
+		| "allow_acceleration_follow_up"
+		| "allow_recovery_follow_up";
 };
 
 type AutoSaveOptions = Omit<AutoSaveFormOptions, "payloadKey" | "logAction">;

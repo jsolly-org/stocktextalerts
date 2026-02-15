@@ -49,7 +49,6 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 				market_scheduled_asset_price_include_sms:
 					dbUser.market_scheduled_asset_price_include_sms,
 				email_notifications_enabled: dbUser.email_notifications_enabled,
-				sms_notifications_enabled: dbUser.sms_notifications_enabled,
 				sms_opted_out: dbUser.sms_opted_out,
 				phone_verified: dbUser.phone_verified,
 				timezone: dbUser.timezone,
@@ -79,6 +78,22 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 				asset_events_include_insider_sms:
 					dbUser.asset_events_include_insider_sms,
 				asset_events_next_send_at: dbUser.asset_events_next_send_at,
+				market_asset_price_alerts_enabled:
+					dbUser.market_asset_price_alerts_enabled,
+				market_asset_price_alerts_include_email:
+					dbUser.market_asset_price_alerts_include_email,
+				market_asset_price_alerts_include_sms:
+					dbUser.market_asset_price_alerts_include_sms,
+				market_asset_price_alert_onboarding_completed:
+					dbUser.market_asset_price_alert_onboarding_completed,
+				market_asset_price_alert_risk_priority:
+					dbUser.market_asset_price_alert_risk_priority,
+				market_asset_price_alert_market_context:
+					dbUser.market_asset_price_alert_market_context,
+				market_asset_price_alert_move_size:
+					dbUser.market_asset_price_alert_move_size,
+				market_asset_price_alert_follow_up_mode:
+					dbUser.market_asset_price_alert_follow_up_mode,
 			},
 		});
 	} catch (error) {

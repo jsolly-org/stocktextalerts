@@ -49,13 +49,15 @@ describe("A user clicks the email unsubscribe link.", () => {
 
 		const { data: updated, error } = await adminClient
 			.from("users")
-			.select("email_notifications_enabled,sms_notifications_enabled")
+			.select(
+				"email_notifications_enabled,market_scheduled_asset_price_include_sms",
+			)
 			.eq("id", user.id)
 			.maybeSingle();
 
 		expect(error).toBeNull();
 		expect(updated?.email_notifications_enabled).toBe(false);
-		expect(updated?.sms_notifications_enabled).toBe(true);
+		expect(updated?.market_scheduled_asset_price_include_sms).toBe(true);
 	});
 
 	it("Email unsubscribe can also disable SMS when requested.", async () => {
@@ -88,12 +90,14 @@ describe("A user clicks the email unsubscribe link.", () => {
 
 		const { data: updated, error } = await adminClient
 			.from("users")
-			.select("email_notifications_enabled,sms_notifications_enabled")
+			.select(
+				"email_notifications_enabled,market_scheduled_asset_price_include_sms",
+			)
 			.eq("id", user.id)
 			.maybeSingle();
 
 		expect(error).toBeNull();
 		expect(updated?.email_notifications_enabled).toBe(false);
-		expect(updated?.sms_notifications_enabled).toBe(false);
+		expect(updated?.market_scheduled_asset_price_include_sms).toBe(false);
 	});
 });

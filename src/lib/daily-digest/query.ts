@@ -28,10 +28,12 @@ export async function fetchDailyDigestUsers(options: {
 			phone_number,
 			phone_verified,
 			timezone,
+			market_scheduled_asset_price_enabled,
+			market_scheduled_asset_price_include_email,
 			daily_digest_time,
 			daily_digest_next_send_at,
+			market_scheduled_asset_price_next_send_at,
 			email_notifications_enabled,
-			sms_notifications_enabled,
 			sms_opted_out,
 			show_sparklines,
 			daily_digest_include_news_email,
@@ -46,6 +48,9 @@ export async function fetchDailyDigestUsers(options: {
 			asset_events_include_insider_sms,
 			asset_events_next_send_at,
 			asset_events_last_analyst_sent_month,
+			market_asset_price_alerts_include_sms,
+			market_scheduled_asset_price_include_sms,
+			market_scheduled_asset_price_times,
 			last_grok_rumors_at,
 			grok_window_start,
 			grok_sends_in_window
@@ -53,7 +58,7 @@ export async function fetchDailyDigestUsers(options: {
 			)
 			.not("daily_digest_time", "is", null)
 			.or(
-				"email_notifications_enabled.eq.true,sms_notifications_enabled.eq.true",
+				"email_notifications_enabled.eq.true,market_scheduled_asset_price_include_sms.eq.true,asset_events_include_calendar_sms.eq.true,asset_events_include_ipo_sms.eq.true,asset_events_include_analyst_sms.eq.true,asset_events_include_insider_sms.eq.true,market_asset_price_alerts_include_sms.eq.true",
 			);
 
 		if (!options.forceSend) {
@@ -64,7 +69,7 @@ export async function fetchDailyDigestUsers(options: {
 
 		const { data, error } = await query;
 		if (!error) {
-			return (data ?? []) as unknown as UserRecord[];
+			return (data ?? []) as UserRecord[];
 		}
 
 		if (attempt === MAX_RETRIES) {

@@ -204,7 +204,6 @@ export async function createTestUser(
 			phone_verified: phoneVerified,
 			timezone,
 			email_notifications_enabled: options.emailNotificationsEnabled ?? false,
-			sms_notifications_enabled: smsNotificationsEnabled,
 			sms_opted_out: options.smsOptedOut ?? false,
 			market_scheduled_asset_price_times: finalMarketScheduledPriceTimes,
 			market_scheduled_asset_price_next_send_at: nextSendAtIso,

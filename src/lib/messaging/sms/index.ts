@@ -2,6 +2,18 @@ import { rootLogger } from "../../logging";
 import type { DeliveryResult, SmsUser, UserRecord } from "../types";
 import type { SmsSender } from "./twilio-utils";
 
+type SmsEligibilityUser = Pick<
+	UserRecord,
+	"sms_opted_out" | "phone_verified" | "phone_country_code" | "phone_number"
+> & {
+	market_scheduled_asset_price_include_sms?: boolean;
+	asset_events_include_calendar_sms?: boolean;
+	asset_events_include_ipo_sms?: boolean;
+	asset_events_include_analyst_sms?: boolean;
+	asset_events_include_insider_sms?: boolean;
+	market_asset_price_alerts_include_sms?: boolean;
+};
+
 /**
  * Send an SMS to a user using the provided sender implementation.
  * Caller should verify opt-in/verification (e.g., shouldSendSms) before calling.
@@ -47,29 +59,23 @@ export async function sendUserSms(
  *
  * Enforces opt-out and phone verification invariants.
  */
-export function shouldSendSms(
-	user: Pick<
-		UserRecord,
-		| "sms_notifications_enabled"
-		| "sms_opted_out"
-		| "phone_verified"
-		| "phone_country_code"
-		| "phone_number"
-	>,
-): boolean {
+export function shouldSendSms(user: SmsEligibilityUser): boolean {
 	if (user.sms_opted_out) {
 		return false;
 	}
 
-	const hasOptedIn = user.sms_notifications_enabled;
 	const hasVerifiedPhone =
 		user.phone_verified &&
 		Boolean(user.phone_country_code) &&
 		Boolean(user.phone_number);
+	const hasAnySmsFeatureEnabled = [
+		user.market_scheduled_asset_price_include_sms,
+		user.asset_events_include_calendar_sms,
+		user.asset_events_include_ipo_sms,
+		user.asset_events_include_analyst_sms,
+		user.asset_events_include_insider_sms,
+		user.market_asset_price_alerts_include_sms,
+	].some((value) => value === true);
 
-	if (!hasOptedIn) {
-		return false;
-	}
-
-	return hasVerifiedPhone;
+	return hasVerifiedPhone && hasAnySmsFeatureEnabled;
 }

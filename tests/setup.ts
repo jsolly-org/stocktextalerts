@@ -7,6 +7,10 @@ import {
 	PRESERVED_TEST_EMAIL,
 	PRESERVED_USER_ID,
 } from "./helpers/constants";
+import {
+	assertLiveProviderKey,
+	isLiveProviderEnabled,
+} from "./helpers/live-api";
 import { adminClient } from "./helpers/test-env";
 import { cleanupTestUser } from "./helpers/test-user";
 import { takeTestUserIdsForCleanup } from "./helpers/test-user-cleanup";
@@ -15,10 +19,32 @@ vi.mock("../src/lib/db/env", () => ({
 	getSiteUrl: () => "http://localhost",
 }));
 
-// Prevent real Massive API calls in all tests.
-// Without this, any code path that reaches marketDataFetch() would attempt a
-// live HTTP request when MASSIVE_API_KEY is set (e.g. in CI secrets).
-vi.stubEnv("MASSIVE_API_KEY", "");
+// Live API tests are opt-in by provider:
+//   npm run test:live:data
+//   npm run test:live:xai
+// Providers not explicitly enabled are stubbed to prevent accidental network calls.
+assertLiveProviderKey({ provider: "massive", envVar: "MASSIVE_API_KEY" });
+assertLiveProviderKey({ provider: "finnhub", envVar: "FINNHUB_API_KEY" });
+assertLiveProviderKey({ provider: "xai", envVar: "XAI_API_KEY" });
+
+if (!isLiveProviderEnabled("massive")) {
+	vi.stubEnv("MASSIVE_API_KEY", "");
+}
+
+if (!isLiveProviderEnabled("finnhub")) {
+	vi.stubEnv("FINNHUB_API_KEY", "");
+}
+
+if (!isLiveProviderEnabled("xai")) {
+	vi.stubEnv("XAI_API_KEY", "");
+}
+
+// Keep messaging providers fake/stubbed in tests by default.
+vi.stubEnv("TWILIO_ACCOUNT_SID", "AC_TEST_SID");
+vi.stubEnv("TWILIO_AUTH_TOKEN", "TEST_TOKEN");
+vi.stubEnv("TWILIO_PHONE_NUMBER", "+15555550123");
+vi.stubEnv("TWILIO_VERIFY_SERVICE_SID", "VA_TEST_SERVICE");
+vi.stubEnv("RESEND_API_KEY", "RESEND_TEST_KEY");
 
 function getDatabaseUrl(): string {
 	const databaseUrl = process.env.DATABASE_URL;

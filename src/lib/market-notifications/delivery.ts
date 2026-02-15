@@ -7,7 +7,7 @@ import { sendUserEmail } from "../messaging/email/index";
 import { createEmailUnsubscribeUrl } from "../messaging/email/unsubscribe";
 import type { EmailSender } from "../messaging/email/utils";
 import { recordNotification } from "../messaging/shared";
-import { sendUserSms } from "../messaging/sms/index";
+import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import type { SmsSender } from "../messaging/sms/twilio-utils";
 import type { EnrichedAlert } from "./enrichment";
 import type { PriceAlertUser } from "./users";
@@ -28,7 +28,7 @@ function formatPriceAlertSms(alert: EnrichedAlert): string {
 	const optOutSuffix = "Reply STOP to opt out.";
 
 	const sections = [
-		`ALERT: ${alert.symbol} unusual activity`,
+		`ALERT: ${alert.symbol} price shock`,
 		alert.priceContext,
 		`Signals: ${alert.signalContext}`,
 	];
@@ -130,7 +130,7 @@ function formatPriceAlertEmail(
 		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Asset Price Alert</h1>
 	</div>
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">${escapeHtml(alert.symbol)} — Unusual Activity</h2>
+		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">${escapeHtml(alert.symbol)} — Price Shock</h2>
 		<div style="background: #fffbeb; padding: 16px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #fde68a;">
 			<p style="color: #92400e; font-size: 16px; font-weight: 500; margin: 0;">${escapeHtml(alert.priceContext)}</p>
 		</div>
@@ -174,7 +174,7 @@ export async function deliverPriceAlert(options: {
 		const message = formatPriceAlertEmail(user, alert);
 		const result = await sendUserEmail(
 			user,
-			`Alert: ${alert.symbol} unusual activity`,
+			`Alert: ${alert.symbol} price shock`,
 			message,
 			sendEmail,
 		);
@@ -198,7 +198,12 @@ export async function deliverPriceAlert(options: {
 
 	// SMS delivery
 	if (user.market_asset_price_alerts_include_sms && sendSms) {
-		if (!user.phone_country_code || !user.phone_number) {
+		if (!shouldSendSms(user)) {
+			rootLogger.info("Price alert SMS skipped: user not eligible", {
+				userId: user.id,
+			});
+			stats.smsFailed++;
+		} else if (!user.phone_country_code || !user.phone_number) {
 			rootLogger.warn("Price alert SMS skipped: no phone number", {
 				userId: user.id,
 			});

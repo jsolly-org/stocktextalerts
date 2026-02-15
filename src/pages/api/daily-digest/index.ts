@@ -19,7 +19,6 @@ type DailyDigestUserRow = Pick<
 	| "daily_digest_time"
 	| "daily_digest_next_send_at"
 	| "email_notifications_enabled"
-	| "sms_notifications_enabled"
 	| "sms_opted_out"
 	| "show_sparklines"
 	| "daily_digest_include_news_email"
@@ -99,7 +98,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			daily_digest_time,
 			daily_digest_next_send_at,
 			email_notifications_enabled,
-			sms_notifications_enabled,
 			sms_opted_out,
 			show_sparklines,
 			daily_digest_include_news_email,
@@ -158,6 +156,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		market_scheduled_asset_price_include_email: false,
 		market_scheduled_asset_price_include_sms: false,
 		market_scheduled_asset_price_times: null,
+		market_asset_price_alerts_include_sms: false,
 	};
 
 	const stats = await processDailyDigestUser({

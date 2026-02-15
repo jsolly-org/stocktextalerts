@@ -12,7 +12,8 @@ const RETENTION_WEEKS = 4;
 
 /**
  * Fetch earnings (Finnhub) plus dividends/splits/IPOs (Massive) for the given week,
- * filter to symbols tracked by any user, and upsert into the `asset_events` table.
+ * filter calendar events to symbols tracked by any user, and upsert into the
+ * `asset_events` table. IPOs are stored market-wide (not watchlist-scoped).
  *
  * Skips the fetch if events for this `weekOf` already exist (idempotent).
  * Cleans up rows older than RETENTION_WEEKS.
@@ -65,21 +66,17 @@ export async function fetchAndStoreAssetEvents(options: {
 	}
 
 	const symbolSet = new Set((trackedSymbols ?? []).map((row) => row.symbol));
-
-	if (symbolSet.size === 0) {
-		logger.info("No tracked symbols, skipping asset events fetch", {
-			action: "fetch_asset_events",
-		});
-		return { inserted: 0, skipped: true };
-	}
+	const hasTrackedSymbols = symbolSet.size > 0;
 
 	// Fetch all three event types from providers:
 	// - earnings from Finnhub
 	// - dividends/splits/IPOs from Massive
 	const [earnings, dividends, splits, ipos] = await Promise.all([
-		fetchEarnings(weekStart, weekEnd),
-		fetchDividends(weekStart, weekEnd),
-		fetchSplits(weekStart, weekEnd),
+		hasTrackedSymbols ? fetchEarnings(weekStart, weekEnd) : Promise.resolve([]),
+		hasTrackedSymbols
+			? fetchDividends(weekStart, weekEnd)
+			: Promise.resolve([]),
+		hasTrackedSymbols ? fetchSplits(weekStart, weekEnd) : Promise.resolve([]),
 		fetchIpos(weekStart, weekEnd),
 	]);
 
@@ -93,10 +90,12 @@ export async function fetchAndStoreAssetEvents(options: {
 		trackedSymbols: symbolSet.size,
 	});
 
-	// Filter to tracked symbols and build insert rows
+	// Filter calendar events to tracked symbols and build insert rows.
+	// IPOs are intentionally global and should not depend on tracked symbols.
 	type AssetEventInsert = {
 		symbol: string;
 		event_type: "earnings" | "dividend" | "split" | "ipo";
+		scope: "watchlist" | "global";
 		event_date: string;
 		data: Record<string, string | number | null>;
 		week_of: string;
@@ -109,6 +108,7 @@ export async function fetchAndStoreAssetEvents(options: {
 		rows.push({
 			symbol: e.ticker,
 			event_type: "earnings",
+			scope: "watchlist",
 			event_date: e.date,
 			data: {
 				time: e.time,
@@ -124,6 +124,7 @@ export async function fetchAndStoreAssetEvents(options: {
 		rows.push({
 			symbol: d.ticker,
 			event_type: "dividend",
+			scope: "watchlist",
 			event_date: d.exDividendDate,
 			data: {
 				cashAmount: d.cashAmount,
@@ -140,6 +141,7 @@ export async function fetchAndStoreAssetEvents(options: {
 		rows.push({
 			symbol: s.ticker,
 			event_type: "split",
+			scope: "watchlist",
 			event_date: s.executionDate,
 			data: {
 				splitFrom: s.splitFrom,
@@ -151,10 +153,10 @@ export async function fetchAndStoreAssetEvents(options: {
 	}
 
 	for (const ipo of ipos) {
-		if (!symbolSet.has(ipo.ticker)) continue;
 		rows.push({
 			symbol: ipo.ticker,
 			event_type: "ipo",
+			scope: "global",
 			event_date: ipo.listingDate,
 			data: {
 				issuerName: ipo.issuerName,

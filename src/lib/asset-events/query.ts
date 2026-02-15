@@ -28,7 +28,15 @@ export async function fetchAssetEventsUsers(options: {
 			phone_number,
 			phone_verified,
 			timezone,
+			market_scheduled_asset_price_enabled,
+			market_scheduled_asset_price_include_email,
+			market_scheduled_asset_price_include_sms,
+			market_scheduled_asset_price_times,
 			daily_digest_time,
+			daily_digest_next_send_at,
+			market_scheduled_asset_price_next_send_at,
+			email_notifications_enabled,
+			sms_opted_out,
 			daily_digest_include_news_email,
 			daily_digest_include_rumors_email,
 			asset_events_include_calendar_email,
@@ -41,16 +49,18 @@ export async function fetchAssetEventsUsers(options: {
 			asset_events_include_insider_sms,
 			asset_events_next_send_at,
 			asset_events_last_analyst_sent_month,
-			email_notifications_enabled,
-			sms_notifications_enabled,
-			sms_opted_out
+			market_asset_price_alerts_include_sms,
+			last_grok_rumors_at,
+			grok_window_start,
+			grok_sends_in_window,
+			show_sparklines
 		`,
 			)
 			.or(
 				"asset_events_include_calendar_email.eq.true,asset_events_include_calendar_sms.eq.true,asset_events_include_ipo_email.eq.true,asset_events_include_ipo_sms.eq.true,asset_events_include_analyst_email.eq.true,asset_events_include_analyst_sms.eq.true,asset_events_include_insider_email.eq.true,asset_events_include_insider_sms.eq.true",
 			)
 			.or(
-				"email_notifications_enabled.eq.true,sms_notifications_enabled.eq.true",
+				"email_notifications_enabled.eq.true,market_scheduled_asset_price_include_sms.eq.true,asset_events_include_calendar_sms.eq.true,asset_events_include_ipo_sms.eq.true,asset_events_include_analyst_sms.eq.true,asset_events_include_insider_sms.eq.true,market_asset_price_alerts_include_sms.eq.true",
 			);
 
 		if (!options.forceSend) {
@@ -61,8 +71,9 @@ export async function fetchAssetEventsUsers(options: {
 
 		const { data, error } = await query;
 		if (!error) {
+			const users = (data ?? []) as UserRecord[];
 			// Filter out users handled by the daily pipeline (they have daily_digest_time AND daily features)
-			const filtered = ((data ?? []) as unknown as UserRecord[]).filter(
+			const filtered = users.filter(
 				(user) =>
 					!(
 						user.daily_digest_time != null &&

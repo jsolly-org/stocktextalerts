@@ -38,10 +38,6 @@ export async function buildAssetEventsContent(options: {
 		hasAnyContent: false,
 	};
 
-	if (tickers.length === 0) {
-		return nullResult;
-	}
-
 	const localDt = DateTime.fromISO(localDate);
 	if (!localDt.isValid) {
 		logger.warn("Invalid localDate for asset events content", {
@@ -61,21 +57,68 @@ export async function buildAssetEventsContent(options: {
 		return nullResult;
 	}
 
-	// Query asset_events table for the relevant date range (pre-populated by weekly cron)
-	const { data: rawEvents, error } = await supabase
-		.from("asset_events")
-		.select("*")
-		.in("symbol", [...tickers])
-		.gte("event_date", localDate)
-		.lte("event_date", endDate);
+	const includeCalendar =
+		channel === "email"
+			? user.asset_events_include_calendar_email
+			: user.asset_events_include_calendar_sms;
+	const includeIpos =
+		channel === "email"
+			? user.asset_events_include_ipo_email
+			: user.asset_events_include_ipo_sms;
 
-	if (error) {
-		logger.error("Failed to query asset_events", { error });
+	// Query asset_events table for the relevant date range (pre-populated by weekly cron).
+	// Calendar events are watchlist-scoped; IPOs are global for all users.
+	const calendarPromise =
+		includeCalendar && tickers.length > 0
+			? supabase
+					.from("asset_events")
+					.select("*")
+					.eq("scope", "watchlist")
+					.in("event_type", ["earnings", "dividend", "split"])
+					.in("symbol", [...tickers])
+					.gte("event_date", localDate)
+					.lte("event_date", endDate)
+			: Promise.resolve({ data: [], error: null });
+	const ipoPromise = includeIpos
+		? supabase
+				.from("asset_events")
+				.select("*")
+				.eq("scope", "global")
+				.eq("event_type", "ipo")
+				.gte("event_date", localDate)
+				.lte("event_date", endDate)
+		: Promise.resolve({ data: [], error: null });
+
+	const [calendarResult, ipoResult] = await Promise.all([
+		calendarPromise,
+		ipoPromise,
+	]);
+
+	if (calendarResult.error || ipoResult.error) {
+		logger.error("Failed to query asset_events", {
+			calendarError: calendarResult.error?.message ?? null,
+			ipoError: ipoResult.error?.message ?? null,
+		});
 		return nullResult;
 	}
 
+	const rawEvents = [
+		...((calendarResult.data ?? []) as Array<{
+			symbol: string;
+			event_type: "earnings" | "dividend" | "split" | "ipo";
+			event_date: string;
+			data: Record<string, unknown> | null;
+		}>),
+		...((ipoResult.data ?? []) as Array<{
+			symbol: string;
+			event_type: "earnings" | "dividend" | "split" | "ipo";
+			event_date: string;
+			data: Record<string, unknown> | null;
+		}>),
+	];
+
 	// 3. Filter by user's per-type channel-specific toggles
-	const filteredEvents = (rawEvents ?? []).filter((event) => {
+	const filteredEvents = rawEvents.filter((event) => {
 		if (
 			event.event_type === "earnings" ||
 			event.event_type === "dividend" ||
@@ -128,7 +171,7 @@ export async function buildAssetEventsContent(options: {
 	let insiderSection: string | null = null;
 	let analystSection: string | null = null;
 
-	if (includeInsider || includeAnalyst) {
+	if ((includeInsider || includeAnalyst) && tickers.length > 0) {
 		const finnhubData = await fetchFinnhubExtras([...tickers], {
 			includeNews: false,
 			includeAnalyst,

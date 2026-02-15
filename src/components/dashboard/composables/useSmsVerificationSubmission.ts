@@ -68,7 +68,6 @@ export function useSmsVerificationSubmission(options: {
 			phone_country_code: phoneCountryCode,
 			phone_number: phoneNumber,
 			phone_verified: false,
-			sms_notifications_enabled: true,
 			verification_sent_at: new Date().toISOString(),
 		} as User & { verification_sent_at: string };
 	};

@@ -19,6 +19,7 @@
 		<div
 			ref="trackRef"
 			class="carousel-track"
+			@click="handleTrackClick"
 			@touchstart="handleTouchStart"
 			@touchmove="handleTouchMove"
 			@touchend="handleTouchEnd"
@@ -60,8 +61,8 @@ const tabs: Tab[] = [
 	{ id: "setup", label: "Watchlist & Channels", icon: PresentationChartLineIcon },
 	{ id: "schedule", label: "Alerts", icon: BellAlertIcon },
 	{ id: "daily", label: "Daily", icon: NewspaperIcon },
-	{ id: "asset-events", label: "Asset Events", icon: CalendarDaysIcon },
 	{ id: "market-notifications", label: "Market Notifications", icon: ChartBarIcon },
+	{ id: "asset-events", label: "Asset Events", icon: CalendarDaysIcon },
 ];
 
 /** Map hash fragment (without #) to tab index for hash-link sync. */
@@ -69,8 +70,8 @@ const HASH_TO_TAB_INDEX: Record<string, number> = {
 	[DASHBOARD_SECTION_IDS.assets]: 0,
 	[DASHBOARD_SECTION_IDS.notificationChannels]: 1,
 	[DASHBOARD_SECTION_IDS.dailyNotifications]: 2,
-	[DASHBOARD_SECTION_IDS.assetEvents]: 3,
-	[DASHBOARD_SECTION_IDS.marketNotifications]: 4,
+	[DASHBOARD_SECTION_IDS.marketNotifications]: 3,
+	[DASHBOARD_SECTION_IDS.assetEvents]: 4,
 	// daily_digest_time input lives in schedule (Alerts) card
 	daily_digest_time: 1,
 };
@@ -208,6 +209,30 @@ function handleTouchCancel() {
 
 function handleMotionChange(event: MediaQueryListEvent) {
 	prefersReducedMotion.value = event.matches;
+}
+
+function handleTrackClick(event: MouseEvent) {
+	const target = event.target as HTMLElement | null;
+	const anchor = target?.closest("a[href]") as HTMLAnchorElement | null;
+	if (!anchor) return;
+
+	const href = anchor.getAttribute("href");
+	if (!href?.startsWith("#")) return;
+
+	// On desktop, preserve native in-page hash navigation between stacked panels.
+	if (!window.matchMedia("(max-width: 767.99px)").matches) return;
+
+	const hash = href.slice(1);
+	const index = HASH_TO_TAB_INDEX[hash];
+	if (index === undefined) return;
+
+	event.preventDefault();
+	if (index !== activeIndex.value) {
+		scrollToCard(index);
+	}
+	if (window.location.hash.slice(1) !== hash) {
+		window.history.pushState(null, "", `#${hash}`);
+	}
 }
 
 /** Sync tab highlight and scroll position when user navigates via hash link. */

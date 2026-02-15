@@ -204,7 +204,7 @@ describe("Daily digest email prices", () => {
 		expect(message).toContain("MSFT — $412.10 (-0.31%)");
 	});
 
-	it("formats rumor ticker sections on consecutive lines", () => {
+	it("formats rumor ticker sections with blank lines between tickers", () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 		]);
@@ -221,10 +221,34 @@ describe("Daily digest email prices", () => {
 		});
 
 		expect(message.text).toContain(
-			"🤫 Rumors\nAAPL: First rumor line\nMSFT: Second rumor line",
+			"🤫 Rumors\nAAPL: First rumor line\n\nMSFT: Second rumor line",
 		);
 		expect(message.html).toContain(
-			"AAPL: First rumor line\nMSFT: Second rumor line",
+			"AAPL: First rumor line\n\nMSFT: Second rumor line",
+		);
+	});
+
+	it("preserves single blank-line spacing when rumors already contain it", () => {
+		const assetPrices: AssetPriceMap = new Map([
+			["AAPL", { price: 187.42, changePercent: 1.23 }],
+		]);
+
+		const message = formatDailyDigestEmail({
+			user,
+			userAssets: [userAssets[0]],
+			assetPrices,
+			formatPrefs: defaultPrefs,
+			extras: {
+				...extras,
+				rumors: "AAPL: First rumor line\n\nMSFT: Second rumor line",
+			},
+		});
+
+		expect(message.text).toContain(
+			"🤫 Rumors\nAAPL: First rumor line\n\nMSFT: Second rumor line",
+		);
+		expect(message.text).not.toContain(
+			"🤫 Rumors\nAAPL: First rumor line\n\n\nMSFT: Second rumor line",
 		);
 	});
 
@@ -249,6 +273,30 @@ describe("Daily digest email prices", () => {
 		);
 		expect(message.html).toContain(
 			"AAPL: First news line\nMSFT: Second news line",
+		);
+	});
+
+	it("includes last market session context with quote timestamp in email", () => {
+		const assetPrices: AssetPriceMap = new Map([
+			["AAPL", { price: 187.42, changePercent: 1.23, timestamp: 1735837200 }],
+		]);
+
+		const message = formatDailyDigestEmail({
+			user,
+			userAssets: [userAssets[0]],
+			assetPrices,
+			formatPrefs: defaultPrefs,
+			extras,
+		});
+
+		expect(message.text).toContain(
+			"Prices reflect the last market open (as of",
+		);
+		expect(message.text).toMatch(
+			/Prices reflect the last market open \(as of .*EST\)\./,
+		);
+		expect(message.html).toContain(
+			"Prices reflect the last market open (as of",
 		);
 	});
 });
