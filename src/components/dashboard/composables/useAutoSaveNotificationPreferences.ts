@@ -42,7 +42,8 @@ export type NotificationPreferencesData = {
 	market_asset_price_alert_move_size: "moderate" | "large" | "very_large";
 	market_asset_price_alert_follow_up_mode:
 		| "first_only"
-		| "allow_acceleration_follow_up";
+		| "allow_acceleration_follow_up"
+		| "allow_recovery_follow_up";
 };
 
 type AutoSaveOptions = Omit<AutoSaveFormOptions, "payloadKey" | "logAction">;

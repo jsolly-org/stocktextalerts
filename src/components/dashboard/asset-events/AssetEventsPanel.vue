@@ -279,6 +279,9 @@ const hasNotificationChannel = computed(
 );
 const needsChannelSelection = computed(() => !hasNotificationChannel.value);
 const needsTrackedAssets = computed(() => !hasTrackedAssets.value);
+const notificationSetupBlocked = computed(
+	() => needsChannelSelection.value || needsTrackedAssets.value,
+);
 const needsPhoneVerification = computed(
 	() =>
 		(user.value.asset_events_include_calendar_sms ||
