@@ -156,6 +156,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		market_scheduled_asset_price_include_email: false,
 		market_scheduled_asset_price_include_sms: false,
 		market_scheduled_asset_price_times: null,
+		market_asset_price_alerts_include_sms: false,
 	};
 
 	const stats = await processDailyDigestUser({

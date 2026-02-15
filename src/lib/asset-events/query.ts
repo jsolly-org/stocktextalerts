@@ -41,6 +41,7 @@ export async function fetchAssetEventsUsers(options: {
 			asset_events_include_insider_sms,
 			asset_events_next_send_at,
 			asset_events_last_analyst_sent_month,
+			market_asset_price_alerts_include_sms,
 			email_notifications_enabled,
 			sms_opted_out
 		`,
