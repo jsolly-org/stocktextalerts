@@ -28,7 +28,15 @@ export async function fetchAssetEventsUsers(options: {
 			phone_number,
 			phone_verified,
 			timezone,
+			market_scheduled_asset_price_enabled,
+			market_scheduled_asset_price_include_email,
+			market_scheduled_asset_price_include_sms,
+			market_scheduled_asset_price_times,
 			daily_digest_time,
+			daily_digest_next_send_at,
+			market_scheduled_asset_price_next_send_at,
+			email_notifications_enabled,
+			sms_opted_out,
 			daily_digest_include_news_email,
 			daily_digest_include_rumors_email,
 			asset_events_include_calendar_email,
@@ -42,8 +50,10 @@ export async function fetchAssetEventsUsers(options: {
 			asset_events_next_send_at,
 			asset_events_last_analyst_sent_month,
 			market_asset_price_alerts_include_sms,
-			email_notifications_enabled,
-			sms_opted_out
+			last_grok_rumors_at,
+			grok_window_start,
+			grok_sends_in_window,
+			show_sparklines
 		`,
 			)
 			.or(
