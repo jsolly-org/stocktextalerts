@@ -70,7 +70,7 @@ describe("deliverPriceAlert SMS eligibility", () => {
 
 		expect(sendSms).not.toHaveBeenCalled();
 		expect(stats.smsSent).toBe(0);
-		expect(stats.smsFailed).toBe(0);
+		expect(stats.smsFailed).toBe(1);
 	});
 
 	it("does not attempt SMS when phone number is missing", async () => {
@@ -91,7 +91,7 @@ describe("deliverPriceAlert SMS eligibility", () => {
 
 		expect(sendSms).not.toHaveBeenCalled();
 		expect(stats.smsSent).toBe(0);
-		expect(stats.smsFailed).toBe(0);
+		expect(stats.smsFailed).toBe(1);
 	});
 
 	it("does not attempt SMS when phone is not verified", async () => {
@@ -112,6 +112,6 @@ describe("deliverPriceAlert SMS eligibility", () => {
 
 		expect(sendSms).not.toHaveBeenCalled();
 		expect(stats.smsSent).toBe(0);
-		expect(stats.smsFailed).toBe(0);
+		expect(stats.smsFailed).toBe(1);
 	});
 });

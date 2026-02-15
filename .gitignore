@@ -27,6 +27,7 @@ node_modules/
 /.cursor/
 .tmp/
 .playwright-mcp/
+plans/
 scripts/one-off-testing/preview-digest.html
 
 # Test results

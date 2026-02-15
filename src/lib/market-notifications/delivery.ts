@@ -202,10 +202,8 @@ export async function deliverPriceAlert(options: {
 			rootLogger.info("Price alert SMS skipped: user not eligible", {
 				userId: user.id,
 			});
-			return;
-		}
-
-		if (!user.phone_country_code || !user.phone_number) {
+			stats.smsFailed++;
+		} else if (!user.phone_country_code || !user.phone_number) {
 			rootLogger.warn("Price alert SMS skipped: no phone number", {
 				userId: user.id,
 			});
