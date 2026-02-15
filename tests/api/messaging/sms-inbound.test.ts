@@ -115,6 +115,12 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		try {
 			const from = await getTestUserPhone(testUser.id);
 
+			const { error: seedError } = await adminClient
+				.from("users")
+				.update({ market_scheduled_asset_price_include_sms: true })
+				.eq("id", testUser.id);
+			if (seedError) throw new Error(seedError.message);
+
 			const response = await POST({
 				request: buildSmsInboundRequest({
 					from,
@@ -205,6 +211,12 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		try {
 			const from = await getTestUserPhone(testUser.id);
 
+			const { error: seedError } = await adminClient
+				.from("users")
+				.update({ market_scheduled_asset_price_include_sms: true })
+				.eq("id", testUser.id);
+			if (seedError) throw new Error(seedError.message);
+
 			const response = await POST({
 				request: buildSmsInboundRequest({
 					from,
@@ -228,8 +240,8 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 			if (!updated) throw new Error("expected user row");
 			expect(updated.sms_opted_out).toBe(false);
 			expect(updated.sms_notifications_enabled).toBe(true);
-			// Individual field stays unchanged (was false, stays false)
-			expect(updated.market_scheduled_asset_price_include_sms).toBe(false);
+			// Individual field stays unchanged (seeded true, stays true)
+			expect(updated.market_scheduled_asset_price_include_sms).toBe(true);
 		} finally {
 			await cleanupTestUser(testUser.id);
 			vi.unstubAllEnvs();

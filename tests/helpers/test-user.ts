@@ -133,6 +133,11 @@ export async function createTestUser(
 			"Invalid test user: smsNotificationsEnabled requires phoneCountryCode and phoneNumber",
 		);
 	}
+	if (smsNotificationsEnabled && options.smsOptedOut) {
+		throw new Error(
+			"Invalid test user: smsNotificationsEnabled and smsOptedOut cannot both be true (violates database constraint)",
+		);
+	}
 
 	// Create in Auth
 	const { data: authUser, error: authError } = await adminClient.auth.signUp({
