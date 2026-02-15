@@ -19,8 +19,12 @@ export function escapeSql(str: string): string {
   return str.replace(/'/g, "''");
 }
 
-// Seed inputs come from local JSON; normalize whitespace since DB constraints
-// do not apply to auth.users and the seed data is sourced from external JSON.
+/**
+ * Render a nullable SQL string literal from a potentially-empty value.
+ *
+ * Seed inputs come from local JSON; normalize whitespace since DB constraints
+ * do not apply to auth.users and the seed data is sourced from external JSON.
+ */
 function sqlNullableString(value: string | null | undefined): string {
   if (value === null || value === undefined) return 'NULL';
   const trimmed = value.trim();
@@ -28,11 +32,17 @@ function sqlNullableString(value: string | null | undefined): string {
   return `'${escapeSql(trimmed)}'`;
 }
 
+/** Render a non-null SQL string literal, trimming and escaping. */
 function sqlString(value: string): string {
   const trimmed = value.trim();
   return `'${escapeSql(trimmed)}'`;
 }
 
+/**
+ * Validate an optional string field from seed JSON.
+ *
+ * Returns `null` when the field is absent; throws when present but invalid.
+ */
 function validateOptionalString(
   value: unknown,
   fieldName: string,
@@ -52,6 +62,11 @@ function validateOptionalString(
   return trimmed;
 }
 
+/**
+ * Validate an E.164-ish country calling code (e.g. "+1", "+44") from seed JSON.
+ *
+ * Returns `null` when absent; throws when present but invalid.
+ */
 function validatePhoneCountryCode(value: unknown, fieldName: string): string | null {
   const validated = validateOptionalString(value, fieldName);
   if (validated === null) return null;
@@ -65,6 +80,11 @@ function validatePhoneCountryCode(value: unknown, fieldName: string): string | n
   return validated;
 }
 
+/**
+ * Validate a national phone number digit string from seed JSON.
+ *
+ * Returns `null` when absent; throws when present but invalid.
+ */
 function validatePhoneNumber(value: unknown, fieldName: string): string | null {
   const validated = validateOptionalString(value, fieldName);
   if (validated === null) return null;
@@ -78,6 +98,11 @@ function validatePhoneNumber(value: unknown, fieldName: string): string | null {
   return validated;
 }
 
+/**
+ * Validate a timezone identifier for the `users.timezone` field.
+ *
+ * Defaults to "America/New_York" when omitted.
+ */
 function validateTimezone(value: unknown, fieldName: string): string {
   if (value === null || value === undefined) {
     return "America/New_York";
@@ -101,6 +126,11 @@ function validateTimezone(value: unknown, fieldName: string): string {
   return trimmed;
 }
 
+/**
+ * Validate an optional boolean field from seed JSON.
+ *
+ * Returns `undefined` when absent; throws when present but invalid.
+ */
 function validateOptionalBoolean(
   value: unknown,
   fieldName: string,
@@ -115,6 +145,11 @@ function validateOptionalBoolean(
 }
 
 
+/**
+ * Validate an optional number array field from seed JSON.
+ *
+ * Returns `undefined` when absent; throws when present but invalid.
+ */
 function validateOptionalNumberArray(
   value: unknown,
   fieldName: string,
@@ -135,6 +170,11 @@ function validateOptionalNumberArray(
   return value;
 }
 
+/**
+ * Build a SQL block that ensures an auth user exists.
+ *
+ * This targets `auth.users` and only inserts if the user id is not present.
+ */
 export function buildAuthUserSql(userId: string, email: string, password: string): string {
   const escapedEmail = escapeSql(email);
   const escapedPassword = escapeSql(password);
@@ -185,6 +225,11 @@ END $$;
 `;
 }
 
+/**
+ * Build SQL to ensure an `auth.identities` row exists for a user.
+ *
+ * The INSERT is guarded with `WHERE NOT EXISTS` to be idempotent.
+ */
 export function buildAuthIdentitySql(userId: string, email: string): string {
   const escapedEmail = escapeSql(email);
 
@@ -214,6 +259,11 @@ WHERE NOT EXISTS (
 `;
 }
 
+/**
+ * Build SQL to upsert a row into `public.users` from seed input.
+ *
+ * Validates and normalizes fields and only includes optional columns when provided.
+ */
 export function buildPublicUserSql(userId: string, user: SeedUser): string {
   if (typeof user.email !== "string") {
     throw new Error(
@@ -308,6 +358,11 @@ ON CONFLICT (id) DO UPDATE SET
 `;
 }
 
+/**
+ * Build SQL to insert tracked assets into `public.user_assets` for a user.
+ *
+ * Uses `ON CONFLICT DO NOTHING` so it can be safely re-run.
+ */
 export function buildUserAssetsSql(userId: string, trackedAssets: string[]): string {
   if (trackedAssets.length === 0) return '';
 

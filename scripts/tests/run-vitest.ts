@@ -6,6 +6,12 @@ interface ParsedArgs {
 	vitestArgs: string[];
 }
 
+/**
+ * Parse CLI args for this wrapper script.
+ *
+ * Supports `--live=<providers>` (or `--live <providers>`) to set `LIVE_API_PROVIDERS`,
+ * and forwards all remaining args through to Vitest.
+ */
 function parseArgs(args: string[]): ParsedArgs {
 	let liveProviders: string | null = null;
 	const vitestArgs: string[] = [];
@@ -27,6 +33,11 @@ function parseArgs(args: string[]): ParsedArgs {
 	return { liveProviders, vitestArgs };
 }
 
+/**
+ * Ensure Vitest runs without watch mode unless explicitly set.
+ *
+ * This is important for CI and for scripts that would otherwise hang.
+ */
 function ensureNoWatch(vitestArgs: string[]): string[] {
 	const hasWatchArg = vitestArgs.some(
 		(arg) => arg === "--watch" || arg === "--no-watch" || arg === "--watch=false",
@@ -35,6 +46,12 @@ function ensureNoWatch(vitestArgs: string[]): string[] {
 	return ["--no-watch", ...vitestArgs];
 }
 
+/**
+ * Entry point for a small Vitest wrapper that:
+ * - optionally enables live providers for specific tests
+ * - forces `--no-watch` by default
+ * - exits with the child process status code
+ */
 function main() {
 	const { liveProviders, vitestArgs } = parseArgs(process.argv.slice(2));
 	if (liveProviders !== null) {
