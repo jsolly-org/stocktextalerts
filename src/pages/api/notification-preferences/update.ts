@@ -198,7 +198,9 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		}
 
 		const enablesAnySmsIncludeField = SMS_INCLUDE_FIELDS.some(
-			(field) => safeNotificationPreferenceUpdates[field] === true,
+			(field) =>
+				safeNotificationPreferenceUpdates[field] === true &&
+				dbUser[field] !== true,
 		);
 		if (dbUser.sms_opted_out && enablesAnySmsIncludeField) {
 			logger.info("SMS enable rejected: user is sms_opted_out", {
