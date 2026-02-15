@@ -46,6 +46,7 @@ export async function fetchDailyDigestUsers(options: {
 			asset_events_next_send_at,
 			asset_events_last_analyst_sent_month,
 			market_asset_price_alerts_include_sms,
+			market_scheduled_asset_price_include_sms,
 			last_grok_rumors_at,
 			grok_window_start,
 			grok_sends_in_window
