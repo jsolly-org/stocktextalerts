@@ -25,7 +25,7 @@
 				<div>
 					<span :id="`${props.emailNotificationsEnabledId}_label`" class="text-sm font-medium text-heading">Email Notifications</span>
 					<span :id="`${props.emailNotificationsEnabledId}_desc`" class="block text-sm text-muted">
-						Notifications are sent to your registered email.
+						Global email toggle. Individual notification types are configured in each section.
 					</span>
 				</div>
 				<ToggleSwitch
@@ -37,7 +37,7 @@
 			</div>
 
 			<div>
-				<div class="flex items-center justify-between gap-3 py-4">
+				<div v-if="props.phoneVerified" class="flex items-center justify-between gap-3 py-4">
 					<input
 						type="hidden"
 						name="sms_notifications_enabled"
@@ -46,7 +46,7 @@
 					<div>
 						<span :id="`${props.smsStatusId}_label`" class="text-sm font-medium text-heading">SMS Notifications</span>
 						<span :id="`${props.smsStatusId}_desc`" class="block text-sm text-muted">
-							Global SMS toggle. Individual notification types are configured per section below.
+							Global SMS toggle. Individual notification types are configured in each section.
 						</span>
 					</div>
 					<ToggleSwitch
