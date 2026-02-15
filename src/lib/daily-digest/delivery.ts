@@ -33,11 +33,7 @@ export type AssetEventsResult = Awaited<
 	ReturnType<typeof buildAssetEventsContent>
 > | null;
 
-/**
- * Format the daily digest message body for SMS delivery.
- *
- * Keeps the message readable in plain text and appends a required STOP opt-out suffix.
- */
+/** Format the daily digest message body for SMS delivery. */
 export function formatDailyDigestSmsMessage(options: {
 	userAssets: UserAssetRow[];
 	assetPrices: AssetPriceMap;
@@ -58,8 +54,8 @@ export function formatDailyDigestSmsMessage(options: {
 
 	const ae = options.assetEvents;
 	const sections = [
-		"StockTextAlerts — Daily digest",
-		prices ? `Your Assets\n${prices}` : "",
+		"StockTextAlerts — Your daily digest 🗓️",
+		prices ? `💰 Your Assets\n${prices}` : "",
 		formatExtrasSection("🗞️ News", options.extras.news),
 		formatExtrasSection("🤫 Rumors", options.extras.rumors),
 		formatExtrasSection("📈 Earnings", ae?.eventsSection?.earnings),
@@ -75,6 +71,7 @@ export function formatDailyDigestSmsMessage(options: {
 	return sections.join("\n\n");
 }
 
+/** Format a single asset price line for the SMS/plain-text digest. */
 function formatDailyDigestPriceLine(
 	asset: UserAssetRow,
 	quote: { price: number; changePercent: number } | null | undefined,
@@ -94,6 +91,7 @@ function formatDailyDigestPriceLine(
 	return `${base} — ${priceStr}${ascii}`;
 }
 
+/** Format a single asset price line for the HTML digest. */
 function formatDailyDigestPriceLineHtml(
 	asset: UserAssetRow,
 	quote: { price: number; changePercent: number } | null | undefined,
@@ -121,6 +119,7 @@ function formatDailyDigestPriceLineHtml(
 	return `<div style="margin-bottom: 8px;">${symbol} &mdash; ${priceStr} <span style="color: ${color}; font-weight: 600;">${changeStr}</span>${sparklineHtml}</div>`;
 }
 
+/** Build the plain-text “Your Assets” section for the digest. */
 function buildDailyDigestPricesSummary(
 	userAssets: UserAssetRow[],
 	assetPrices: AssetPriceMap,
@@ -143,6 +142,7 @@ function buildDailyDigestPricesSummary(
 		.join(separator);
 }
 
+/** Build the HTML “Your Assets” section for the digest. */
 function buildDailyDigestPricesHtml(
 	userAssets: UserAssetRow[],
 	assetPrices: AssetPriceMap,
@@ -164,16 +164,7 @@ function buildDailyDigestPricesHtml(
 		.join("");
 }
 
-function addBlankLinesBetweenSymbolSections(content: string): string {
-	if (!content) return content;
-	return content.replace(/\n(?=[A-Z][A-Z0-9.-]{0,9}:\s)/g, "\n\n");
-}
-
-/**
- * Format the daily digest payload for email delivery.
- *
- * Produces a plain-text version for logging and a simple HTML version for rendering.
- */
+/** Format the daily digest payload for email delivery. */
 export function formatDailyDigestEmail(options: {
 	user: { id: string; email: string };
 	userAssets: UserAssetRow[];
@@ -192,12 +183,8 @@ export function formatDailyDigestEmail(options: {
 		"dailyNotifications",
 	);
 
-	const news = addBlankLinesBetweenSymbolSections(
-		(options.extras.news ?? "").trim(),
-	);
-	const rumors = addBlankLinesBetweenSymbolSections(
-		(options.extras.rumors ?? "").trim(),
-	);
+	const news = (options.extras.news ?? "").trim();
+	const rumors = (options.extras.rumors ?? "").trim();
 
 	const ae = options.assetEvents;
 	const earnings = (ae?.eventsSection?.earnings ?? "").trim();
@@ -223,8 +210,8 @@ export function formatDailyDigestEmail(options: {
 		) || escapeHtml(tickersLine);
 
 	const sectionsText = [
-		"StockTextAlerts — Daily digest",
-		`Your Assets\n${digestTickerBody}`,
+		"StockTextAlerts — Your daily digest 🗓️",
+		`💰 Your Assets\n${digestTickerBody}`,
 		news ? `\n🗞️ News\n${news}` : "",
 		rumors ? `\n🤫 Rumors\n${rumors}` : "",
 		earnings ? `\n📈 Earnings\n${earnings}` : "",
@@ -253,9 +240,9 @@ export function formatDailyDigestEmail(options: {
 		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">📈 StockTextAlerts</h1>
 	</div>
 	<div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-		<h2 style="margin: 0 0 8px; font-size: 18px;">Your Assets</h2>
+		<h2 style="margin: 0 0 8px; font-size: 18px;">💰 Your Assets</h2>
 		<div style="margin: 0 0 16px; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">${pricesHtml}</div>
-		${renderEmailSection("🗞️", "News", news, { showGrokLogo: true, showFinnhubLogo: true })}
+		${renderEmailSection("🗞️", "News", news, { showGrokLogo: true, showMassiveLogo: true })}
 		${renderEmailSection("🤫", "Rumors", rumors, { showGrokLogo: true })}
 		${renderEmailSection("📈", "Earnings", earnings)}
 		${renderEmailSection("💰", "Dividends", dividends)}
@@ -276,12 +263,7 @@ export function formatDailyDigestEmail(options: {
 	return { subject, text, html };
 }
 
-/**
- * Deliver a daily digest via email and record the result.
- *
- * Uses the `claim_scheduled_notification` RPC to ensure idempotent delivery across retries
- * and parallel runners, then writes a `scheduled_notifications` status update.
- */
+/** Deliver a daily digest via email and record the result. */
 export async function processDailyDigestEmailDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
@@ -380,12 +362,7 @@ export async function processDailyDigestEmailDelivery(options: {
 	});
 }
 
-/**
- * Deliver a daily digest via SMS and record the result.
- *
- * Uses the `claim_scheduled_notification` RPC for idempotency. If the user is opted out or
- * lacks SMS capability, the function returns without delivery.
- */
+/** Deliver a daily digest via SMS and record the result. */
 export async function processDailyDigestSmsDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;

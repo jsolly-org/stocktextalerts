@@ -56,14 +56,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		return new Response("Unauthorized", { status: 401 });
 	}
 
-	let body: { userId?: string; currentTimeIso?: string };
+	let body: { userId?: string; currentTimeIso?: string; precompute?: boolean };
 	try {
 		body = (await request.json()) as typeof body;
 	} catch {
 		return new Response("Bad Request", { status: 400 });
 	}
 
-	const { userId, currentTimeIso } = body;
+	const { userId, currentTimeIso, precompute } = body;
 	const parsedCurrentTime =
 		typeof currentTimeIso === "string"
 			? DateTime.fromISO(currentTimeIso, { zone: "utc" })
@@ -167,6 +167,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		currentTime,
 		sendEmail,
 		getSmsSender,
+		stageOnly: precompute === true,
 	});
 
 	return new Response(JSON.stringify(stats), {

@@ -1,4 +1,4 @@
-import type { CompanyNewsItem } from "../providers/finnhub";
+import type { CompanyNewsItem } from "../providers/company-news";
 import type { ExtendedAssetQuote } from "../providers/price-fetcher";
 import type { AssetSnapshot } from "./snapshot-store";
 
@@ -11,10 +11,7 @@ const MIN_SNAPSHOTS = 5;
 /** Volume multiplier when volume data is unavailable (penalizes missing data). */
 const UNKNOWN_VOLUME_MULTIPLIER = 0.8;
 
-/**
- * Returns the alert threshold for a given sensitivity level.
- * 1 = Chill (80), 2 = Normal (70), 3 = Aggressive (60).
- */
+/** Return the alert threshold for a sensitivity (1=Chill, 2=Normal, 3=Aggressive). */
 export function getThresholdForSensitivity(sensitivity: number): number {
 	if (sensitivity === 3) return 60;
 	if (sensitivity === 2) return 70;
@@ -44,10 +41,7 @@ export interface AnomalyResult {
 Signal Calculations
 ============= */
 
-/**
- * Estimate median volume from snapshot history.
- * Returns null when no volume data is available.
- */
+/** Estimate median volume from snapshots (or `null` when unavailable). */
 function estimateAverageVolume(snapshots: AssetSnapshot[]): number | null {
 	const volumes = snapshots
 		.map((s) => s.volume)
@@ -62,12 +56,7 @@ function estimateAverageVolume(snapshots: AssetSnapshot[]): number | null {
 		: volumes[mid];
 }
 
-/**
- * Price move signal (45 pts max): volatility-normalized, volume-scaled.
- *
- * Takes the max of sustained move (oldest→current) and sudden move (latest→current),
- * normalizes by intraday range, and scales by volume.
- */
+/** Compute the price-move signal (volatility-normalized and volume-scaled). */
 function computePriceMove(
 	currentQuote: ExtendedAssetQuote,
 	snapshots: AssetSnapshot[],
@@ -126,12 +115,7 @@ function computePriceMove(
 	};
 }
 
-/**
- * Range breakout signal (15 pts max): graduated.
- *
- * 0.5% breakout = 1 pt, 2.0% breakout = 15 pts (linear between).
- * Takes the larger of high-breakout or low-breakout.
- */
+/** Compute the range-breakout signal (high/low breakout vs recent intraday range). */
 function computeRangeBreakout(
 	currentPrice: number,
 	snapshots: AssetSnapshot[],
@@ -190,12 +174,7 @@ function computeRangeBreakout(
 	};
 }
 
-/**
- * Breaking news signal (25 pts max): graduated by count and recency.
- *
- * Base 10 pts for any news, +5 for 2+ headlines, +5 for 3+ headlines,
- * +5 if any headline is from last 2 hours.
- */
+/** Compute the breaking-news signal (headlines count + recency). */
 function computeNewsSignal(news: CompanyNewsItem[] | null): SignalBreakdown {
 	const maxPoints = 25;
 
@@ -230,11 +209,7 @@ function computeNewsSignal(news: CompanyNewsItem[] | null): SignalBreakdown {
 	};
 }
 
-/**
- * Earnings proximity signal (15 pts max): binary.
- *
- * Awards 15 pts when earnings are within 2 calendar days.
- */
+/** Compute the earnings-proximity signal (binary within ~2 days). */
 function computeEarningsProximity(hasEarningsNearby: boolean): SignalBreakdown {
 	const maxPoints = 15;
 
@@ -253,14 +228,7 @@ function computeEarningsProximity(hasEarningsNearby: boolean): SignalBreakdown {
 Composite Scoring
 ============= */
 
-/**
- * Compute the composite anomaly score for a symbol.
- *
- * Requires >= MIN_SNAPSHOTS snapshots (5 min of data) before scoring.
- * Uses the 4-signal architecture: price_move, range_breakout, breaking_news, earnings_proximity.
- *
- * Sensitivity: 1 = Chill (threshold 80), 2 = Normal (70), 3 = Aggressive (60).
- */
+/** Compute the composite anomaly score for a symbol. */
 export function computeAnomalyScore(options: {
 	currentQuote: ExtendedAssetQuote;
 	snapshots: AssetSnapshot[];
@@ -306,10 +274,7 @@ export function computeAnomalyScore(options: {
 	return { score, triggered, signals, summary };
 }
 
-/**
- * Compute the price-only score (before news fetch).
- * Used to determine whether news fetching is worthwhile.
- */
+/** Compute the price-only score (before any news fetch). */
 export function computePriceOnlyScore(options: {
 	currentQuote: ExtendedAssetQuote;
 	snapshots: AssetSnapshot[];

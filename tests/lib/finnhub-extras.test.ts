@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
+import type { CompanyNewsItem } from "../../src/lib/providers/company-news";
 import {
 	buildNewsContextForGrok,
-	type CompanyNewsItem,
 	formatAnalystSection,
 	formatInsiderSection,
 	type InsiderTransaction,

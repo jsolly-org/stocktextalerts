@@ -36,6 +36,7 @@ if (!apiKey) {
 }
 
 /* -- API call (keeps raw text + annotations for debug display) -- */
+/** Call Grok and return raw text + annotations for debugging. */
 async function callGrok(
 	label: string,
 	system: string,
@@ -83,7 +84,8 @@ async function callGrok(
 			if (!part || typeof part !== "object") continue;
 			if (part.type !== "output_text" && part.type !== "text") continue;
 			if ("text" in part && typeof part.text === "string") {
-				rawText += part.text.trim();
+				// Do not trim: annotation offsets rely on original indices.
+				rawText += part.text;
 			}
 			if ("annotations" in part && Array.isArray(part.annotations)) {
 				annotations = annotations.concat(part.annotations as XaiAnnotation[]);
@@ -97,6 +99,7 @@ async function callGrok(
 }
 
 /* -- Main -- */
+/** Script entrypoint: fetch Grok sections and write an HTML preview. */
 async function main() {
 	console.log(`Fetching Grok news + rumors for ${TICKERS.join(", ")}...\n`);
 
@@ -164,7 +167,7 @@ async function main() {
 	<div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-radius: 10px; max-width: 600px;">
 		<h2 style="margin: 0 0 8px; font-size: 18px;">Daily digest</h2>
 		<p style="margin: 0 0 16px; color: #6b7280; font-size: 14px;">${escapeHtml(tickersLine)}</p>
-		${renderEmailSection("🗞️", "News", news, { showGrokLogo: true, showFinnhubLogo: true })}
+		${renderEmailSection("🗞️", "News", news, { showGrokLogo: true, showMassiveLogo: true })}
 		${renderEmailSection("🤫", "Rumors", rumors, { showGrokLogo: true })}
 		<div style="text-align: center; margin-top: 20px;">
 			<a href="#" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">Manage your settings -></a>
@@ -183,6 +186,7 @@ async function main() {
 	execSync(`open "${outPath}"`);
 }
 
+/** Render a `<details>` block showing each pipeline stage for debugging. */
 function buildDebugSection(
 	label: string,
 	data: Awaited<ReturnType<typeof callGrok>>,

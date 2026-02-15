@@ -13,17 +13,15 @@ const EMPTY_STATS: ScheduledNotificationTotals = {
 	smsFailed: 0,
 };
 
-/**
- * Fan-out helper to dispatch daily processing for a single user via the internal API.
- *
- * This is used by the cron runner to parallelize work safely while keeping API auth consistent.
- */
+/** Dispatch daily-digest processing for one user via the internal API. */
 export async function dispatchDailyDigestUser(options: {
 	userId: string;
 	currentTimeIso: string;
 	cronSecret: string;
+	/** When true, the fan-out endpoint stages content instead of delivering. */
+	precompute?: boolean;
 }): Promise<ScheduledNotificationTotals> {
-	const { userId, currentTimeIso, cronSecret } = options;
+	const { userId, currentTimeIso, cronSecret, precompute } = options;
 	const url = new URL("/api/daily-digest", getSiteUrl()).toString();
 
 	try {
@@ -33,7 +31,7 @@ export async function dispatchDailyDigestUser(options: {
 				Authorization: `Bearer ${cronSecret}`,
 				"Content-Type": "application/json",
 			},
-			body: JSON.stringify({ userId, currentTimeIso }),
+			body: JSON.stringify({ userId, currentTimeIso, precompute }),
 			signal: AbortSignal.timeout(DISPATCH_TIMEOUT_MS),
 		});
 

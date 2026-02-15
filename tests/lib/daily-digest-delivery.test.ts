@@ -204,7 +204,7 @@ describe("Daily digest email prices", () => {
 		expect(message).toContain("MSFT — $412.10 (-0.31%)");
 	});
 
-	it("adds a blank line between rumor ticker sections", () => {
+	it("formats rumor ticker sections on consecutive lines", () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 		]);
@@ -221,14 +221,14 @@ describe("Daily digest email prices", () => {
 		});
 
 		expect(message.text).toContain(
-			"🤫 Rumors\nAAPL: First rumor line\n\nMSFT: Second rumor line",
+			"🤫 Rumors\nAAPL: First rumor line\nMSFT: Second rumor line",
 		);
 		expect(message.html).toContain(
-			"AAPL: First rumor line\n\nMSFT: Second rumor line",
+			"AAPL: First rumor line\nMSFT: Second rumor line",
 		);
 	});
 
-	it("adds a blank line between news ticker sections", () => {
+	it("formats news ticker sections on consecutive lines", () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 		]);
@@ -245,10 +245,10 @@ describe("Daily digest email prices", () => {
 		});
 
 		expect(message.text).toContain(
-			"🗞️ News\nAAPL: First news line\n\nMSFT: Second news line",
+			"🗞️ News\nAAPL: First news line\nMSFT: Second news line",
 		);
 		expect(message.html).toContain(
-			"AAPL: First news line\n\nMSFT: Second news line",
+			"AAPL: First news line\nMSFT: Second news line",
 		);
 	});
 });

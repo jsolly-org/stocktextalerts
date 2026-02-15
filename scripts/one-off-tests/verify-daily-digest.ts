@@ -60,7 +60,10 @@ async function main(): Promise<void> {
 	console.log(`Tickers: ${tickers.join(", ")}`);
 	console.log("");
 
-	const quoteQs = new URLSearchParams({ tickers: tickers.join(","), apiKey: massiveKey });
+	const quoteQs = new URLSearchParams({
+		tickers: tickers.join(","),
+		apiKey: massiveKey,
+	});
 	const quoteUrl = `${MASSIVE_BASE_URL}/v2/snapshot/locale/us/markets/stocks/tickers?${quoteQs.toString()}`;
 	const quoteResp = await getJson(quoteUrl);
 	if (!quoteResp.ok) throw new Error(`snapshot failed: HTTP ${quoteResp.status}`);

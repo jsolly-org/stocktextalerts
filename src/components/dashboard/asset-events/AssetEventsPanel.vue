@@ -143,7 +143,7 @@
 						>
 							{{ eventType.label }}
 						</span>
-						<MassiveLogoIcon v-if="eventType.polygon" class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
+						<MassiveLogoIcon v-if="eventType.massive" class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
 						<FinnhubLogoIcon v-if="eventType.finnhub" class="h-4.5 w-auto shrink-0" aria-label="Powered by Finnhub" role="img" />
 					</div>
 					<p
@@ -264,8 +264,9 @@ const {
 
 const phoneVerificationSectionId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-phone-verification-section`;
 
+const smsOptedOut = computed(() => user.value.sms_opted_out === true);
 const smsReady = computed(
-	() => smsEnabled.value && phoneVerified.value,
+	() => smsEnabled.value && phoneVerified.value && !smsOptedOut.value,
 );
 const hasNotificationChannel = computed(
 	() => emailEnabled.value || smsReady.value,
@@ -284,7 +285,7 @@ const ASSET_EVENT_TYPES = [
 		label: "Calendar Events",
 		description:
 			"Included in your daily delivery when earnings, ex-dividend dates, or stock splits are scheduled in the next 3 days.",
-		polygon: true,
+		massive: true,
 		finnhub: false,
 	},
 	{
@@ -292,7 +293,7 @@ const ASSET_EVENT_TYPES = [
 		label: "Upcoming IPOs",
 		description:
 			"Included in your daily delivery when an IPO listing date is within the next 3 days.",
-		polygon: true,
+		massive: true,
 		finnhub: false,
 	},
 	{
@@ -300,7 +301,7 @@ const ASSET_EVENT_TYPES = [
 		label: "Analyst Consensus",
 		description:
 			"Sent at most once per month, usually in your first delivery of the month.",
-		polygon: false,
+		massive: false,
 		finnhub: true,
 	},
 	{
@@ -308,7 +309,7 @@ const ASSET_EVENT_TYPES = [
 		label: "Insider Trades",
 		description:
 			"Can appear in your daily delivery when new insider filings are available.",
-		polygon: false,
+		massive: false,
 		finnhub: true,
 	},
 ] as const;

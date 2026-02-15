@@ -4,7 +4,12 @@ import { getSiteUrl } from "../../db/env";
 import { rootLogger } from "../../logging";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
 import { escapeHtml, formatAssetsHtmlList } from "../asset-formatting";
-import type { DeliveryResult, EmailUser, UserAssetRow } from "../types";
+import type {
+	DeliveryResult,
+	EmailUser,
+	FormatPreferences,
+	UserAssetRow,
+} from "../types";
 import { createEmailUnsubscribeUrl } from "./unsubscribe";
 
 interface EmailRequest {
@@ -18,12 +23,7 @@ interface EmailRequest {
 
 export type EmailSender = (request: EmailRequest) => Promise<DeliveryResult>;
 
-/**
- * Create a Resend-backed email sender.
- *
- * In `test` mode, returns a deterministic mock sender that never calls the Resend API.
- * If the API key is invalid, returns a sender that always fails with a clear error.
- */
+/** Create a Resend-backed email sender (mocked in test mode). */
 export function createEmailSender(): EmailSender {
 	const apiKey = import.meta.env.RESEND_API_KEY;
 	const fromEmail = import.meta.env.EMAIL_FROM;
@@ -104,17 +104,15 @@ export function createEmailSender(): EmailSender {
 	};
 }
 
-/**
- * Build the plaintext + HTML email body for a scheduled asset update.
- *
- * Includes footer links to the dashboard schedule section and a user-scoped unsubscribe URL.
- */
+/** Build the plaintext + HTML email body for a scheduled asset update. */
 export function formatEmailMessage(
 	user: EmailUser,
 	userAssets: UserAssetRow[],
 	assetsList: string,
 	priceMap: AssetPriceMap,
 	marketOpen: boolean,
+	formatPrefs?: FormatPreferences,
+	getSparkline?: (symbol: string) => string | null | undefined,
 ): { text: string; html: string } {
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const escapedDashboardUrl = escapeHtml(dashboardUrl);
@@ -173,7 +171,8 @@ export function formatEmailMessage(
 	const escapedAssetsListHtml = formatAssetsHtmlList(
 		userAssets,
 		(symbol) => priceMap.get(symbol) ?? undefined,
-		{ show_sparklines: false },
+		formatPrefs ?? { show_sparklines: false },
+		getSparkline,
 	);
 	const marketDisclaimerHtml = marketOpen
 		? ""
@@ -190,7 +189,7 @@ export function formatEmailMessage(
 		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">📈 StockTextAlerts</h1>
 	</div>
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Your Update</h2>
+		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Your Scheduled Price Notification</h2>
 		<div style="background: #f9fafb; padding: 20px; border-radius: 6px; margin-bottom: 30px;">
 			<p style="color: #1f2937; font-size: 18px; font-weight: 600; margin: 0; font-family: 'Courier New', monospace;">
 				${escapedAssetsListHtml}

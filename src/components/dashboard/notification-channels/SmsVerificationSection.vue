@@ -1,7 +1,7 @@
 <template>
 	<Transition name="sms-verification-expand" @after-enter="onSectionAfterEnter">
 		<section
-			v-if="smsEnabled"
+			v-if="smsEnabled && !props.smsOptedOut"
 			:id="phoneVerificationSectionId"
 			class="pb-3 space-y-3"
 		>
@@ -60,6 +60,7 @@ import SmsPhoneSetup from "./SmsPhoneSetup.vue";
 
 interface Props {
 	smsEnabled: boolean;
+	smsOptedOut: boolean;
 }
 
 const props = defineProps<Props>();

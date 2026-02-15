@@ -1,11 +1,14 @@
 #!/usr/bin/env npx tsx
 /**
- * Verify all Massive (Polygon-compatible) API endpoints return expected data.
+ * Verify Massive API endpoints return expected data.
  *
  * Endpoints tested:
  *   1. /v2/snapshot/locale/us/markets/stocks/tickers — batch snapshot quotes
  *   2. /v3/reference/dividends — ex-dividend events for a date range
  *   3. /v3/reference/splits   — stock split events for a date range
+ *   4. /v2/reference/news     — company news (migrated from Finnhub)
+ *   5. /v1/marketstatus/now   — market open/closed (migrated from Finnhub)
+ *   6. /v1/marketstatus/upcoming — market holidays (migrated from Finnhub)
  *
  * Usage:
  *   node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/one-off-tests/verify-massive.ts
@@ -18,12 +21,14 @@ const REQUEST_TIMEOUT_MS = 15_000;
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
+/** Return the value following a CLI flag (e.g. `--tickers AAPL`). */
 function getArgValue(args: string[], name: string): string | undefined {
 	const idx = args.indexOf(name);
 	if (idx === -1) return undefined;
 	return args[idx + 1];
 }
 
+/** Parse `--tickers` into an uppercase ticker list (or defaults). */
 function parseTickers(raw: string | undefined): string[] {
 	if (!raw) return DEFAULT_TICKERS;
 	return raw
@@ -32,18 +37,21 @@ function parseTickers(raw: string | undefined): string[] {
 		.filter(Boolean);
 }
 
+/** Format an ISO date for N days ago. */
 function dateStr(daysAgo: number): string {
 	const d = new Date();
 	d.setDate(d.getDate() - daysAgo);
 	return d.toISOString().slice(0, 10);
 }
 
+/** Format an ISO date for N days in the future. */
 function futureDate(daysAhead: number): string {
 	const d = new Date();
 	d.setDate(d.getDate() + daysAhead);
 	return d.toISOString().slice(0, 10);
 }
 
+/** Minimal Massive GET helper with timeout. */
 async function massiveGet(
 	endpoint: string,
 	params: Record<string, string>,
@@ -67,6 +75,7 @@ interface TestResult {
 	detail?: string;
 }
 
+/** Verify `/v2/snapshot/.../tickers` returns batch quotes for the given tickers. */
 async function testSnapshotQuotes(
 	tickers: string[],
 	apiKey: string,
@@ -164,6 +173,7 @@ async function testSnapshotQuotes(
 	}
 }
 
+/** Verify snapshot quote payload includes expected fields for one ticker. */
 async function testSnapshotFields(
 	ticker: string,
 	apiKey: string,
@@ -223,6 +233,7 @@ async function testSnapshotFields(
 	}
 }
 
+/** Verify `/v3/reference/dividends` returns dividend events for a date range. */
 async function testDividends(apiKey: string): Promise<TestResult> {
 	const endpoint = `/v3/reference/dividends`;
 	// Look at a wider window to ensure we find some data
@@ -305,6 +316,7 @@ async function testDividends(apiKey: string): Promise<TestResult> {
 	}
 }
 
+/** Verify `/v3/reference/splits` returns split events for a date range. */
 async function testSplits(apiKey: string): Promise<TestResult> {
 	const endpoint = `/v3/reference/splits`;
 	// Use a very wide window — splits are rare
@@ -391,8 +403,173 @@ async function testSplits(apiKey: string): Promise<TestResult> {
 	}
 }
 
+/** Verify `/v2/reference/news` returns news items for a ticker. */
+async function testCompanyNews(
+	ticker: string,
+	apiKey: string,
+): Promise<TestResult> {
+	const endpoint = `/v2/reference/news`;
+	const from = dateStr(7);
+	const to = dateStr(0);
+	try {
+		const { status, data } = await massiveGet(
+			endpoint,
+			{
+				ticker,
+				"published_utc.gte": from,
+				"published_utc.lte": to,
+				limit: "5",
+				sort: "published_utc",
+				order: "desc",
+			},
+			apiKey,
+		);
+		if (status !== 200)
+			return { endpoint, status: "FAIL", message: `HTTP ${status}` };
+		if (typeof data !== "object" || data === null)
+			return {
+				endpoint,
+				status: "FAIL",
+				message: `Expected object, got ${typeof data}`,
+			};
+
+		const results = (data as Record<string, unknown>).results;
+		if (!Array.isArray(results))
+			return {
+				endpoint,
+				status: "FAIL",
+				message: `Expected .results array`,
+				detail: JSON.stringify(Object.keys(data as object)),
+			};
+		if (results.length === 0)
+			return {
+				endpoint,
+				status: "WARN",
+				message: `${ticker}: 0 news items (may be normal)`,
+			};
+
+		const sample = results[0] as Record<string, unknown>;
+		const hasFields =
+			typeof sample.title === "string" &&
+			typeof sample.published_utc === "string";
+		if (!hasFields)
+			return {
+				endpoint,
+				status: "FAIL",
+				message: `Missing expected fields (title, published_utc)`,
+				detail: JSON.stringify(Object.keys(sample)),
+			};
+
+		return {
+			endpoint,
+			status: "PASS",
+			message: `${ticker}: ${results.length} items`,
+			detail: `Latest: "${(sample.title as string).slice(0, 80)}"`,
+		};
+	} catch (err) {
+		return { endpoint, status: "FAIL", message: String(err) };
+	}
+}
+
+/** Verify `/v1/marketstatus/now` returns the current market state. */
+async function testMarketStatus(apiKey: string): Promise<TestResult> {
+	const endpoint = `/v1/marketstatus/now`;
+	try {
+		const { status, data } = await massiveGet(endpoint, {}, apiKey);
+		if (status !== 200)
+			return { endpoint, status: "FAIL", message: `HTTP ${status}` };
+		if (typeof data !== "object" || data === null)
+			return {
+				endpoint,
+				status: "FAIL",
+				message: `Expected object, got ${typeof data}`,
+			};
+
+		const obj = data as Record<string, unknown>;
+		if (typeof obj.market !== "string")
+			return {
+				endpoint,
+				status: "FAIL",
+				message: `Expected .market string, got ${typeof obj.market}`,
+				detail: JSON.stringify(data),
+			};
+
+		return {
+			endpoint,
+			status: "PASS",
+			message: `Market is currently ${(obj.market as string).toUpperCase()}`,
+			detail: obj.serverTime ? `Server time: ${obj.serverTime}` : undefined,
+		};
+	} catch (err) {
+		return { endpoint, status: "FAIL", message: String(err) };
+	}
+}
+
+/** Verify `/v1/marketstatus/upcoming` returns upcoming market events/closures. */
+async function testMarketHolidays(apiKey: string): Promise<TestResult> {
+	const endpoint = `/v1/marketstatus/upcoming`;
+	try {
+		const { status, data } = await massiveGet(endpoint, {}, apiKey);
+		if (status !== 200)
+			return { endpoint, status: "FAIL", message: `HTTP ${status}` };
+		if (!Array.isArray(data))
+			return {
+				endpoint,
+				status: "FAIL",
+				message: `Expected array, got ${typeof data}`,
+			};
+		if (data.length === 0)
+			return {
+				endpoint,
+				status: "WARN",
+				message: `0 upcoming market events`,
+			};
+
+		const sample = data[0] as Record<string, unknown>;
+		const hasFields =
+			typeof sample.exchange === "string" &&
+			typeof sample.status === "string" &&
+			typeof sample.date === "string";
+		if (!hasFields)
+			return {
+				endpoint,
+				status: "FAIL",
+				message: `Missing expected fields (exchange, status, date)`,
+				detail: JSON.stringify(Object.keys(sample)),
+			};
+
+		const nyseEvents = data.filter((row: unknown) => {
+			if (typeof row !== "object" || row === null) return false;
+			const r = row as Record<string, unknown>;
+			return (
+				typeof r.exchange === "string" &&
+				r.exchange.includes("NYSE") &&
+				r.status === "closed"
+			);
+		});
+
+		const sampleLines = nyseEvents.slice(0, 5).map((r: unknown) => {
+			const row = r as Record<string, unknown>;
+			return `${row.date}: ${row.name} (${row.exchange})`;
+		});
+
+		return {
+			endpoint,
+			status: "PASS",
+			message: `${data.length} upcoming events (${nyseEvents.length} NYSE closures)`,
+			detail:
+				sampleLines.length > 0
+					? sampleLines.join("\n         ")
+					: "No upcoming NYSE closures found",
+		};
+	} catch (err) {
+		return { endpoint, status: "FAIL", message: String(err) };
+	}
+}
+
 // ── Main ─────────────────────────────────────────────────────────────
 
+/** Print one test result line (plus optional details). */
 function printResult(result: TestResult) {
 	const icon =
 		result.status === "PASS"
@@ -406,6 +583,7 @@ function printResult(result: TestResult) {
 	}
 }
 
+/** Script entrypoint: run endpoint checks and exit non-zero on failures. */
 async function main() {
 	const args = process.argv.slice(2);
 	const apiKey = process.env.MASSIVE_API_KEY;
@@ -446,6 +624,24 @@ async function main() {
 	results.push(divResult, splitResult);
 	printResult(divResult);
 	printResult(splitResult);
+
+	// Company news (migrated from Finnhub)
+	console.log("\nCompany news (migrated from Finnhub):");
+	for (const ticker of tickers) {
+		const newsResult = await testCompanyNews(ticker, apiKey);
+		results.push(newsResult);
+		printResult(newsResult);
+	}
+
+	// Market status (migrated from Finnhub)
+	console.log("\nMarket status (migrated from Finnhub):");
+	const [marketStatusResult, marketHolidaysResult] = await Promise.all([
+		testMarketStatus(apiKey),
+		testMarketHolidays(apiKey),
+	]);
+	results.push(marketStatusResult, marketHolidaysResult);
+	printResult(marketStatusResult);
+	printResult(marketHolidaysResult);
 
 	// Summary
 	const passed = results.filter((r) => r.status === "PASS").length;

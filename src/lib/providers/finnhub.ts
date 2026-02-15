@@ -1,5 +1,8 @@
 import { FINNHUB_BASE_URL } from "../constants";
 import { rootLogger } from "../logging";
+import { type CompanyNewsItem, fetchCompanyNews } from "./company-news";
+
+export { type CompanyNewsItem, fetchCompanyNews };
 
 /** Delivery channel used to tune formatting verbosity. */
 export type DeliveryChannel = "sms" | "email";
@@ -7,15 +10,6 @@ export type DeliveryChannel = "sms" | "email";
 /* =============
 Types
 ============= */
-
-/** Minimal company-news item fields used in digests/sections. */
-export interface CompanyNewsItem {
-	headline: string;
-	summary: string;
-	datetime: number;
-	url: string;
-	source: string;
-}
 
 /** Analyst recommendation trend totals for a given period. */
 export interface RecommendationTrend {
@@ -43,12 +37,6 @@ export interface FinnhubExtrasData {
 	insider: Map<string, InsiderTransaction[]>;
 }
 
-/** Minimal quote fields used for digest price fallback. */
-export interface FinnhubQuote {
-	price: number;
-	changePercent: number;
-}
-
 /* =============
 Constants
 ============= */
@@ -62,21 +50,20 @@ const REQUEST_TIMEOUT_MS = 10_000;
 Helpers
 ============= */
 
-/**
- * Read the Finnhub API key from environment.
- *
- * Returns an empty string when unset so callers can treat "missing key" as "no data".
- */
+/** Read the Finnhub API key from env (or return empty string). */
 function getFinnhubApiKey(): string {
-	return import.meta.env.FINNHUB_API_KEY ?? "";
+	// import.meta.env is available in Astro/Vitest (transformed by Vite).
+	// Falls back to process.env for standalone scripts (tsx, node).
+	try {
+		const key = import.meta.env.FINNHUB_API_KEY;
+		if (key) return key;
+	} catch {
+		// import.meta.env not available outside Vite/Astro
+	}
+	return process.env.FINNHUB_API_KEY ?? "";
 }
 
-/**
- * Parse the `Retry-After` header value.
- *
- * Supports both delay-seconds (e.g. `"30"`) and HTTP-date formats.
- * Returns the delay in milliseconds, or `null` if the header is missing/unparseable.
- */
+/** Parse `Retry-After` into a delay (ms), or `null` when missing/unparseable. */
 function parseRetryAfterMs(headerValue: string | null): number | null {
 	if (!headerValue) return null;
 	const seconds = Number(headerValue);
@@ -91,15 +78,12 @@ function parseRetryAfterMs(headerValue: string | null): number | null {
 	return null;
 }
 
+/** Redact the Finnhub `token=` query param from loggable strings. */
 function redactFinnhubToken(value: string): string {
 	return value.replace(/([?&]token=)[^&]+/gi, "$1[redacted]");
 }
 
-/**
- * Compute retry delay with exponential backoff and jitter.
- *
- * For 429 responses, respects `Retry-After` when available.
- */
+/** Compute retry delay with exponential backoff and jitter (respects Retry-After). */
 function computeRetryDelayMs(
 	attempt: number,
 	retryAfterMs: number | null,
@@ -113,11 +97,7 @@ function computeRetryDelayMs(
 	return base + jitter;
 }
 
-/**
- * Low-level Finnhub fetch wrapper with retries, rate-limit handling, and timeouts.
- *
- * Returns `null` when the API key is missing or the request ultimately fails.
- */
+/** Low-level Finnhub fetch wrapper with retries, timeouts, and rate-limit handling. */
 export async function finnhubFetch(
 	endpoint: string,
 	params: Record<string, string>,
@@ -212,46 +192,7 @@ export async function finnhubFetch(
 Individual Fetchers
 ============= */
 
-/**
- * Fetch recent company news headlines for a ticker within a date range.
- *
- * Returns a small, validated subset of the Finnhub response (headline/summary/datetime).
- */
-export async function fetchCompanyNews(
-	symbol: string,
-	from: string,
-	to: string,
-): Promise<CompanyNewsItem[]> {
-	const data = await finnhubFetch(
-		"/company-news",
-		{ symbol, from, to },
-		"company-news",
-	);
-	if (!Array.isArray(data)) return [];
-
-	return data
-		.filter(
-			(item: unknown) =>
-				typeof item === "object" &&
-				item !== null &&
-				typeof (item as Record<string, unknown>).headline === "string" &&
-				typeof (item as Record<string, unknown>).datetime === "number",
-		)
-		.slice(0, 10)
-		.map((item: Record<string, unknown>) => ({
-			headline: item.headline as string,
-			summary: typeof item.summary === "string" ? (item.summary as string) : "",
-			datetime: item.datetime as number,
-			url: typeof item.url === "string" ? (item.url as string) : "",
-			source: typeof item.source === "string" ? (item.source as string) : "",
-		}));
-}
-
-/**
- * Fetch the latest analyst recommendation trend for a ticker.
- *
- * Returns the most recent period if available; otherwise `null`.
- */
+/** Fetch the latest analyst recommendation trend for a ticker (or `null`). */
 export async function fetchRecommendationTrends(
 	symbol: string,
 ): Promise<RecommendationTrend | null> {
@@ -289,11 +230,7 @@ export async function fetchRecommendationTrends(
 	return { buy, hold, sell, strongBuy, strongSell, period };
 }
 
-/**
- * Fetch recent insider transactions for a ticker.
- *
- * Returns a validated, capped list; invalid payloads yield an empty array.
- */
+/** Fetch recent insider transactions for a ticker (validated and capped). */
 export async function fetchInsiderTransactions(
 	symbol: string,
 ): Promise<InsiderTransaction[]> {
@@ -336,54 +273,11 @@ export async function fetchInsiderTransactions(
 		}));
 }
 
-/**
- * Fetch a current quote for a ticker.
- *
- * Uses Finnhub `/quote` and returns `null` when price data is unavailable.
- */
-export async function fetchQuote(symbol: string): Promise<FinnhubQuote | null> {
-	const data = await finnhubFetch("/quote", { symbol }, "quote");
-	if (typeof data !== "object" || data === null) return null;
-
-	const current = (data as Record<string, unknown>).c;
-	if (
-		typeof current !== "number" ||
-		!Number.isFinite(current) ||
-		current <= 0
-	) {
-		return null;
-	}
-
-	const dp = (data as Record<string, unknown>).dp;
-	if (typeof dp === "number" && Number.isFinite(dp)) {
-		return { price: current, changePercent: dp };
-	}
-
-	const prevClose = (data as Record<string, unknown>).pc;
-	if (
-		typeof prevClose === "number" &&
-		Number.isFinite(prevClose) &&
-		prevClose > 0
-	) {
-		return {
-			price: current,
-			changePercent: ((current - prevClose) / prevClose) * 100,
-		};
-	}
-
-	return null;
-}
-
 /* =============
 Wrapper: Fetch all enabled Finnhub data for a set of tickers
 ============= */
 
-/**
- * Fetch enabled Finnhub "extras" data (news/analyst/insider) for a set of symbols.
- *
- * Requests are batched per symbol (parallel within symbol, sequential across symbols)
- * with small inter-request delays to reduce rate-limit pressure.
- */
+/** Fetch enabled Finnhub “extras” (news/analyst/insider) for a set of symbols. */
 export async function fetchFinnhubExtras(
 	symbols: string[],
 	options: {
@@ -453,11 +347,7 @@ export async function fetchFinnhubExtras(
 Formatting: Build context string from Finnhub news for Grok
 ============= */
 
-/**
- * Build a compact, line-based context string from recent news headlines for Grok.
- *
- * Format: one line per headline, prefixed by ticker (e.g. `AAPL: ...`).
- */
+/** Build a compact, line-based news context string for Grok. */
 export function buildNewsContextForGrok(
 	newsData: Map<string, CompanyNewsItem[]>,
 ): string {
@@ -476,11 +366,7 @@ export function buildNewsContextForGrok(
 Formatting: Analyst consensus section
 ============= */
 
-/**
- * Format analyst recommendation trend data as a channel-appropriate text block.
- *
- * Returns `null` when no tickers have usable trend data.
- */
+/** Format analyst recommendation trend data as a channel-appropriate text block. */
 export function formatAnalystSection(
 	data: Map<string, RecommendationTrend | null>,
 	channel: DeliveryChannel,
@@ -505,11 +391,7 @@ export function formatAnalystSection(
 Formatting: Insider transactions section
 ============= */
 
-/**
- * Format a share count compactly for display.
- *
- * Example: 1200 -> "1k", 2500000 -> "2.5M".
- */
+/** Format a share count compactly (e.g. 1200 -> "1k"). */
 function formatShareCount(shares: number): string {
 	const abs = Math.abs(shares);
 	if (abs >= 1_000_000) return `${(abs / 1_000_000).toFixed(1)}M`;
@@ -517,11 +399,7 @@ function formatShareCount(shares: number): string {
 	return abs.toLocaleString("en-US");
 }
 
-/**
- * Format insider transaction data as a channel-appropriate text block.
- *
- * Returns `null` when there are no insider transactions to include.
- */
+/** Format insider transaction data as a channel-appropriate text block. */
 export function formatInsiderSection(
 	data: Map<string, InsiderTransaction[]>,
 	channel: DeliveryChannel,

@@ -184,7 +184,7 @@ export const MESSAGE_ALLOWLIST = {
 	server_error: "An error occurred. Please try again",
 	phone_not_set: "Add a phone number before verifying.",
 	sms_opted_out:
-		"SMS is currently blocked. To restore SMS delivery, update your notification settings here.",
+		"SMS is currently blocked. Text START to our number to re-enable SMS delivery.",
 	sms_notifications_disabled: "SMS notifications are disabled.",
 	notifications_not_configured:
 		"Enable at least one notification channel to send updates.",
@@ -199,11 +199,7 @@ export const MESSAGE_ALLOWLIST = {
 
 type MessageKey = keyof typeof MESSAGE_ALLOWLIST;
 
-/**
- * Convert a whitelisted status/message key into a user-facing string.
- *
- * Unknown keys are treated as empty and logged for visibility.
- */
+/** Convert a whitelisted status/message key into a user-facing string. */
 export function formatMessage(message: string | null): string {
 	if (!message) return "";
 

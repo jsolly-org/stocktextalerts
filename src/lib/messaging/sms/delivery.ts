@@ -15,6 +15,7 @@ export type SmsExtras = {
 	citations?: string[];
 };
 
+/** Format the optional “extras” block appended to some SMS messages. */
 function formatSmsExtras(extras?: SmsExtras): string {
 	if (!extras) {
 		return "";
@@ -30,11 +31,7 @@ function formatSmsExtras(extras?: SmsExtras): string {
 	return sections.join("\n\n");
 }
 
-/**
- * Format the SMS body for a scheduled asset update.
- *
- * Includes an opt-out suffix and an optional "extras" block (news/rumors/analyst/insider).
- */
+/** Format the SMS body for a scheduled asset update. */
 export function formatSmsMessage(
 	assetsList: string,
 	marketOpen: boolean,
@@ -43,7 +40,7 @@ export function formatSmsMessage(
 	const optOutSuffix = "Reply STOP to opt out.";
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 
-	const header = "StockTextAlerts";
+	const header = "StockTextAlerts — Your scheduled price notification 📈";
 
 	if (assetsList.trim() === NO_TRACKED_ASSETS_MESSAGE) {
 		return `${header}\n\n${NO_TRACKED_ASSETS_MESSAGE}.\n\nManage your settings: ${dashboardUrl}\n\n${optOutSuffix}`;
@@ -64,12 +61,7 @@ export function formatSmsMessage(
 	return sections.join("\n\n");
 }
 
-/**
- * Send and record an SMS scheduled update for a user.
- *
- * This persists a notification log row regardless of delivery success, and returns
- * normalized processing stats for aggregation.
- */
+/** Send and record an SMS scheduled update for a user. */
 export async function processSmsUpdate(
 	supabase: AppSupabaseClient,
 	user: SmsUser,

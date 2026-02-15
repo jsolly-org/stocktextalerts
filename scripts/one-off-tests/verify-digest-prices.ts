@@ -96,7 +96,9 @@ async function fetchSnapshotQuotes(
 
 	const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
 	if (!response.ok) {
-		throw new Error(`Massive snapshot failed: ${response.status} ${response.statusText}`);
+		throw new Error(
+			`Massive snapshot failed: ${response.status} ${response.statusText}`,
+		);
 	}
 
 	const data = (await response.json()) as { tickers?: unknown };

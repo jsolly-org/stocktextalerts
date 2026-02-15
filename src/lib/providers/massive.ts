@@ -48,7 +48,6 @@ export interface IpoEvent {
 Constants
 ============= */
 
-const MASSIVE_BASE_URL = "https://api.massive.com";
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2_000;
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -57,8 +56,18 @@ const REQUEST_TIMEOUT_MS = 10_000;
 Helpers
 ============= */
 
+const MASSIVE_BASE_URL = "https://api.massive.com";
+
 function getMassiveApiKey(): string {
-	return import.meta.env.MASSIVE_API_KEY ?? "";
+	// import.meta.env is available in Astro/Vitest (transformed by Vite).
+	// Falls back to process.env for standalone scripts (tsx, node).
+	try {
+		const key = import.meta.env.MASSIVE_API_KEY;
+		if (key) return key;
+	} catch {
+		// import.meta.env not available outside Vite/Astro
+	}
+	return process.env.MASSIVE_API_KEY ?? "";
 }
 
 function computeRetryDelayMs(

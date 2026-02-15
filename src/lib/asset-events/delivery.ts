@@ -22,6 +22,7 @@ import type { SmsSenderProvider } from "../schedule/sms-sender";
 SMS formatting
 ============= */
 
+/** Build the SMS body for an asset-events digest. */
 function formatAssetEventsSmsMessage(options: {
 	earningsSection: string | null;
 	dividendsSection: string | null;
@@ -33,7 +34,7 @@ function formatAssetEventsSmsMessage(options: {
 	const optOutSuffix = "Reply STOP to opt out.";
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 
-	const parts: string[] = ["StockTextAlerts — Asset Events"];
+	const parts: string[] = ["StockTextAlerts — Asset Events 🗓️"];
 
 	if (options.earningsSection) {
 		parts.push(`📅 Earnings\n${options.earningsSection}`);
@@ -77,6 +78,7 @@ function formatAssetEventsSmsMessage(options: {
 Email formatting
 ============= */
 
+/** Build the email payload (subject/text/html) for an asset-events digest. */
 function formatAssetEventsEmail(options: {
 	user: { id: string; email: string };
 	earningsSection: string | null;
@@ -216,6 +218,7 @@ function formatAssetEventsEmail(options: {
 Delivery: Email
 ============= */
 
+/** Deliver an asset-events digest via email and record the attempt. */
 export async function processAssetEventsEmailDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;
@@ -319,6 +322,7 @@ export async function processAssetEventsEmailDelivery(options: {
 Delivery: SMS
 ============= */
 
+/** Deliver an asset-events digest via SMS and record the attempt. */
 export async function processAssetEventsSmsDelivery(options: {
 	user: UserRecord;
 	supabase: SupabaseAdminClient;

@@ -106,7 +106,7 @@ CRON_SECRET=your-random-secret-string
 
 EMAIL_FROM=notifications@updates.example.com
 
-# Massive (asset prices / dividends / splits)
+# Massive (asset prices / dividends / splits / news)
 MASSIVE_API_KEY=your-massive-api-key
 
 # Finnhub (earnings / market hours / symbol search / analyst/insider extras)

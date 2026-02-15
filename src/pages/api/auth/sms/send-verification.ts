@@ -19,11 +19,7 @@ const defaultDependencies: SmsSendVerificationDependencies = {
 	sendVerification,
 };
 
-/**
- * Create an API handler that sends an SMS verification code to the submitted phone number.
- *
- * Dependency injection is supported for testing.
- */
+/** Create an API handler that sends an SMS verification code to a submitted phone number. */
 export function createSendVerificationHandler(
 	overrides: Partial<SmsSendVerificationDependencies> = {},
 ): APIRoute {
@@ -89,6 +85,18 @@ export function createSendVerificationHandler(
 					tone: "error",
 				});
 			}
+
+			if (dbUser.sms_opted_out) {
+				logger.info("SMS verification blocked: user has opted out of SMS", {
+					userId: user.id,
+				});
+				return jsonResponse(400, {
+					ok: false,
+					message: "sms_opted_out",
+					tone: "warning",
+				});
+			}
+
 			// `verification_sent_at` may not be present in generated types yet, but it *is* in the DB.
 			const dbUserWithVerificationSentAt = dbUser as typeof dbUser & {
 				verification_sent_at?: string | null;
