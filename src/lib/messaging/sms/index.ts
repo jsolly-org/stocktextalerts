@@ -4,7 +4,11 @@ import type { SmsSender } from "./twilio-utils";
 
 type SmsEligibilityUser = Pick<
 	UserRecord,
-	"sms_opted_out" | "phone_verified" | "phone_country_code" | "phone_number"
+	| "sms_opted_out"
+	| "sms_notifications_enabled"
+	| "phone_verified"
+	| "phone_country_code"
+	| "phone_number"
 > & {
 	market_scheduled_asset_price_include_sms?: boolean;
 	asset_events_include_calendar_sms?: boolean;
@@ -61,6 +65,10 @@ export async function sendUserSms(
  */
 export function shouldSendSms(user: SmsEligibilityUser): boolean {
 	if (user.sms_opted_out) {
+		return false;
+	}
+
+	if (!user.sms_notifications_enabled) {
 		return false;
 	}
 

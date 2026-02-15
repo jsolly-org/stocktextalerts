@@ -242,7 +242,9 @@ export function formatDailyDigestEmail(options: {
 		"dailyNotifications",
 	);
 
-	const news = (options.extras.news ?? "").trim();
+	const news = ensureBlankLineBetweenTickerSnippets(
+		(options.extras.news ?? "").trim(),
+	);
 	const rumors = ensureBlankLineBetweenTickerSnippets(
 		(options.extras.rumors ?? "").trim(),
 	);

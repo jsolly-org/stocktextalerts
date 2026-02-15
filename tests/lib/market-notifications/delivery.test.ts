@@ -43,6 +43,7 @@ function makeUser(overrides: Partial<PriceAlertUser> = {}): PriceAlertUser {
 		phone_country_code: "+1",
 		phone_number: "5551112222",
 		phone_verified: true,
+		sms_notifications_enabled: true,
 		sms_opted_out: false,
 		market_asset_price_alerts_include_email: false,
 		market_asset_price_alerts_include_sms: true,

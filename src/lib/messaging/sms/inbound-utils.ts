@@ -27,15 +27,6 @@ interface InboundSmsResponse {
 	contentType?: string;
 }
 
-const SMS_NOTIFICATION_FIELDS_TO_DISABLE = {
-	market_scheduled_asset_price_include_sms: false,
-	asset_events_include_calendar_sms: false,
-	asset_events_include_ipo_sms: false,
-	asset_events_include_analyst_sms: false,
-	asset_events_include_insider_sms: false,
-	market_asset_price_alerts_include_sms: false,
-} as const;
-
 /**
  * Apply a `users` table update and return a Twilio-friendly error response on failure.
  *
@@ -148,7 +139,7 @@ export async function handleInboundSms(
 	const { data: users, error } = await supabase
 		.from("users")
 		.select(
-			"id, phone_verified, email_notifications_enabled, market_scheduled_asset_price_include_sms, asset_events_include_calendar_sms, asset_events_include_ipo_sms, asset_events_include_analyst_sms, asset_events_include_insider_sms, market_asset_price_alerts_include_sms",
+			"id, phone_verified, email_notifications_enabled, sms_notifications_enabled, market_scheduled_asset_price_include_sms, asset_events_include_calendar_sms, asset_events_include_ipo_sms, asset_events_include_analyst_sms, asset_events_include_insider_sms, market_asset_price_alerts_include_sms",
 		)
 		.eq("phone_country_code", countryCode)
 		.eq("phone_number", phoneNumber);
@@ -181,13 +172,7 @@ export async function handleInboundSms(
 	const userId = users[0].id;
 	const phoneVerified = users[0].phone_verified;
 	const emailNotificationsEnabled = users[0].email_notifications_enabled;
-	const smsNotificationsEnabled =
-		users[0].market_scheduled_asset_price_include_sms ||
-		users[0].asset_events_include_calendar_sms ||
-		users[0].asset_events_include_ipo_sms ||
-		users[0].asset_events_include_analyst_sms ||
-		users[0].asset_events_include_insider_sms ||
-		users[0].market_asset_price_alerts_include_sms;
+	const smsNotificationsEnabled = users[0].sms_notifications_enabled;
 	// Use pre-update channel state for STOP copy; reflects prior SMS enablement.
 	const hasBothChannelsEnabled =
 		emailNotificationsEnabled && smsNotificationsEnabled;
@@ -208,9 +193,9 @@ export async function handleInboundSms(
 			supabase,
 			userId,
 			{
-				...SMS_NOTIFICATION_FIELDS_TO_DISABLE,
-				email_notifications_enabled: false,
 				sms_opted_out: true,
+				sms_notifications_enabled: false,
+				email_notifications_enabled: false,
 			},
 			"sms_stop_all",
 		);
@@ -252,8 +237,8 @@ export async function handleInboundSms(
 			supabase,
 			userId,
 			{
-				...SMS_NOTIFICATION_FIELDS_TO_DISABLE,
 				sms_opted_out: true,
+				sms_notifications_enabled: false,
 			},
 			"sms_opt_out",
 		);
@@ -276,6 +261,7 @@ export async function handleInboundSms(
 			userId,
 			{
 				sms_opted_out: false,
+				sms_notifications_enabled: true,
 			},
 			"sms_start",
 		);
@@ -284,7 +270,7 @@ export async function handleInboundSms(
 		return {
 			status: 200,
 			body: wrapInTwiml(
-				`You have been unblocked from receiving SMS messages. To re-enable SMS notifications, visit your dashboard: ${dashboardUrl}.`,
+				`SMS notifications have been resumed. Manage notification-preferences at ${dashboardUrl}.`,
 			),
 			contentType: "text/xml",
 		};

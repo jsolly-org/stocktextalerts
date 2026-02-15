@@ -19,6 +19,7 @@ type DailyDigestUserRow = Pick<
 	| "daily_digest_time"
 	| "daily_digest_next_send_at"
 	| "email_notifications_enabled"
+	| "sms_notifications_enabled"
 	| "sms_opted_out"
 	| "show_sparklines"
 	| "daily_digest_include_news_email"
@@ -98,6 +99,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			daily_digest_time,
 			daily_digest_next_send_at,
 			email_notifications_enabled,
+			sms_notifications_enabled,
 			sms_opted_out,
 			show_sparklines,
 			daily_digest_include_news_email,

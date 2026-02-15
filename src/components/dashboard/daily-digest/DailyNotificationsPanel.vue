@@ -311,8 +311,9 @@ const { initialAssets, emailEnabled, phoneVerified, hasTrackedAssets } =
 const user = useDashboardUser();
 
 const smsOptedOut = computed(() => user.value.sms_opted_out === true);
+const smsNotificationsEnabled = computed(() => user.value.sms_notifications_enabled === true);
 const smsReady = computed(
-	() => phoneVerified.value && !smsOptedOut.value,
+	() => phoneVerified.value && !smsOptedOut.value && smsNotificationsEnabled.value,
 );
 const hasAnySmsFeatureEnabled = computed(
 	() =>

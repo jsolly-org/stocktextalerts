@@ -184,7 +184,7 @@ export const MESSAGE_ALLOWLIST = {
 	server_error: "An error occurred. Please try again",
 	phone_not_set: "Add a phone number before verifying.",
 	sms_opted_out:
-		"SMS is currently blocked. Text START to our number to re-enable SMS delivery.",
+		"SMS is currently paused. Text START to our number to resume SMS notifications.",
 	sms_notifications_disabled: "SMS notifications are disabled.",
 	notifications_not_configured:
 		"Enable at least one notification channel to send updates.",

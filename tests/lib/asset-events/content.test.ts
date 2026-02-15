@@ -103,6 +103,7 @@ function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {
 		timezone: "UTC",
 		market_scheduled_asset_price_next_send_at: null,
 		email_notifications_enabled: true,
+		sms_notifications_enabled: false,
 		sms_opted_out: false,
 		show_sparklines: false,
 		market_scheduled_asset_price_enabled: false,

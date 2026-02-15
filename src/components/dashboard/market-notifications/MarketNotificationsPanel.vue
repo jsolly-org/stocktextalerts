@@ -633,8 +633,9 @@ const scheduledUpdateTimes = computed(() =>
 const timezone = computed(() => user.value.timezone ?? "");
 
 const smsOptedOut = computed(() => user.value.sms_opted_out === true);
+const smsNotificationsEnabled = computed(() => user.value.sms_notifications_enabled === true);
 const smsReady = computed(
-	() => phoneVerified.value && !smsOptedOut.value,
+	() => phoneVerified.value && !smsOptedOut.value && smsNotificationsEnabled.value,
 );
 const hasNotificationChannel = computed(
 	() =>

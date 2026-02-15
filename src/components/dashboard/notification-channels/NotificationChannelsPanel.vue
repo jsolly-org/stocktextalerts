@@ -50,7 +50,7 @@
 
 			<NotificationChannelsFieldset
 				v-model:emailEnabled="emailEnabled"
-				:sms-feature-enabled="smsFeatureEnabled"
+				v-model:smsNotificationsEnabled="smsNotificationsEnabled"
 				:phone-verified="phoneVerified"
 				:sms-opted-out="smsOptedOut"
 				:sms-phone-number="props.smsPhoneNumber"
@@ -211,40 +211,38 @@ const emailEnabled = computed({
 
 const phoneVerified = computed(() => user.value.phone_verified === true);
 const smsOptedOut = computed(() => user.value.sms_opted_out === true);
-const smsFeatureEnabled = computed(
-	() =>
-		user.value.market_scheduled_asset_price_include_sms ||
-		user.value.asset_events_include_calendar_sms ||
-		user.value.asset_events_include_ipo_sms ||
-		user.value.asset_events_include_analyst_sms ||
-		user.value.asset_events_include_insider_sms ||
-		user.value.market_asset_price_alerts_include_sms,
-);
-watch([emailEnabled], () => {
+const smsNotificationsEnabled = computed({
+	get: () => user.value.sms_notifications_enabled === true,
+	set: (value: boolean) => {
+		user.value = { ...user.value, sms_notifications_enabled: value };
+	},
+});
+watch([emailEnabled, smsNotificationsEnabled], () => {
 	notifyChange();
 });
 
 // Watch savedData and update shared user ref directly (no more event bubbling)
 watch(
 	() => savedNotificationPreferencesData.value,
-		(newData) => {
-			if (newData) {
-				// Update shared user ref directly
-				user.value = {
-					...user.value,
-					email_notifications_enabled: newData.email_notifications_enabled,
-					sms_opted_out: newData.sms_opted_out,
-					phone_verified: newData.phone_verified,
-					daily_digest_time: newData.daily_digest_time,
+	(newData) => {
+		if (newData) {
+			// Update shared user ref directly
+			user.value = {
+				...user.value,
+				email_notifications_enabled: newData.email_notifications_enabled,
+				sms_notifications_enabled: newData.sms_notifications_enabled,
+				sms_opted_out: newData.sms_opted_out,
+				phone_verified: newData.phone_verified,
+				daily_digest_time: newData.daily_digest_time,
 				daily_digest_next_send_at: newData.daily_digest_next_send_at,
 				asset_events_next_send_at: newData.asset_events_next_send_at,
 				market_scheduled_asset_price_next_send_at: newData.market_scheduled_asset_price_next_send_at,
-				};
-				// Sync channel state with parent
-				emit("update:emailEnabled", newData.email_notifications_enabled);
-			}
-		},
-	);
+			};
+			// Sync channel state with parent
+			emit("update:emailEnabled", newData.email_notifications_enabled);
+		}
+	},
+);
 
 // When phone becomes verified: exit phone-edit mode
 watch(phoneVerified, (isVerified) => {
@@ -308,7 +306,7 @@ function handleSetMarketOpen() {
 const hasNotificationChannel = computed(
 	() =>
 		emailEnabled.value ||
-		(smsFeatureEnabled.value && phoneVerified.value && !smsOptedOut.value),
+		(smsNotificationsEnabled.value && phoneVerified.value && !smsOptedOut.value),
 );
 
 // Sync delivery time from user state (e.g. after save from another panel)

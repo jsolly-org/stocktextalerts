@@ -11,6 +11,7 @@ import { parseScheduledTimes } from "../../../lib/time/scheduled-times";
 const NOTIFICATION_PREFERENCES_SCHEMA = {
 	market_scheduled_asset_price_enabled: { type: "boolean" },
 	email_notifications_enabled: { type: "boolean" },
+	sms_notifications_enabled: { type: "boolean" },
 	timezone: { type: "timezone" },
 	market_scheduled_asset_price_times: { type: "json_string_array" },
 	daily_digest_time: { type: "time" },
@@ -180,6 +181,16 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	}
 
 	try {
+		if (
+			dbUser.sms_opted_out &&
+			safeNotificationPreferenceUpdates.sms_notifications_enabled === true
+		) {
+			logger.info("sms_notifications_enabled rejected: user is sms_opted_out", {
+				userId: user.id,
+			});
+			return jsonResponse(400, { ok: false, message: "sms_opted_out" });
+		}
+
 		const enablesAnySmsIncludeField = SMS_INCLUDE_FIELDS.some(
 			(field) => safeNotificationPreferenceUpdates[field] === true,
 		);
@@ -219,6 +230,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 				market_scheduled_asset_price_include_sms:
 					updatedUser.market_scheduled_asset_price_include_sms,
 				email_notifications_enabled: updatedUser.email_notifications_enabled,
+				sms_notifications_enabled: updatedUser.sms_notifications_enabled,
 				sms_opted_out: updatedUser.sms_opted_out,
 				phone_verified: updatedUser.phone_verified,
 				timezone: updatedUser.timezone,

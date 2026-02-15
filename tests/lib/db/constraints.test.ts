@@ -179,18 +179,20 @@ describe("User input is validated against required data format rules.", () => {
 		});
 	});
 
-	it("The legacy sms_notifications_enabled column no longer exists.", async () => {
+	it("A user cannot have sms_notifications_enabled while sms_opted_out.", async () => {
 		await expect(
 			client.query(
 				[
 					"insert into public.users (",
-					"id, email, sms_notifications_enabled",
-					") values ($1, $2, $3)",
+					"id, email, sms_opted_out, sms_notifications_enabled",
+					") values ($1, $2, $3, $4)",
 				].join(" "),
-				[randomUUID(), `test-${randomUUID()}@resend.dev`, true],
+				[randomUUID(), `test-${randomUUID()}@resend.dev`, true, true],
 			),
 		).rejects.toMatchObject({
-			code: "42703",
+			code: "23514",
+			constraint: "users_sms_opted_out_blocks_sms_enabled",
+			table: "users",
 		});
 	});
 

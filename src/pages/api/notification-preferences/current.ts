@@ -49,6 +49,7 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 				market_scheduled_asset_price_include_sms:
 					dbUser.market_scheduled_asset_price_include_sms,
 				email_notifications_enabled: dbUser.email_notifications_enabled,
+				sms_notifications_enabled: dbUser.sms_notifications_enabled,
 				sms_opted_out: dbUser.sms_opted_out,
 				phone_verified: dbUser.phone_verified,
 				timezone: dbUser.timezone,

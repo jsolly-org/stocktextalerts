@@ -252,7 +252,7 @@ describe("Daily digest email prices", () => {
 		);
 	});
 
-	it("formats news ticker sections on consecutive lines", () => {
+	it("formats news ticker sections with blank lines between tickers", () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 		]);
@@ -269,10 +269,10 @@ describe("Daily digest email prices", () => {
 		});
 
 		expect(message.text).toContain(
-			"🗞️ News\nAAPL: First news line\nMSFT: Second news line",
+			"🗞️ News\nAAPL: First news line\n\nMSFT: Second news line",
 		);
 		expect(message.html).toContain(
-			"AAPL: First news line\nMSFT: Second news line",
+			"AAPL: First news line\n\nMSFT: Second news line",
 		);
 	});
 
