@@ -38,6 +38,9 @@
 			"includes": ["**/*.vue"],
 			"linter": {
 				"rules": {
+					"a11y": {
+						"useAriaPropsForRole": "off"
+					},
 					"correctness": {
 						"noUnusedVariables": "off",
 						"noUnusedImports": "off"
