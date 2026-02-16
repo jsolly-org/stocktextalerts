@@ -118,7 +118,7 @@
 						</p>
 					</div>
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
-						<label class="inline-flex items-center gap-1.5 cursor-pointer">
+						<label class="inline-flex items-center gap-1.5" :class="!notificationSetupBlocked && emailEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
 							<input
 								type="checkbox"
 								v-model="priceAlertsIncludeEmail"
@@ -126,7 +126,7 @@
 								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
 								aria-describedby="market_asset_price_alerts_enabled_description"
 							/>
-							<span class="text-sm text-label">Email</span>
+							<span class="text-sm font-normal text-label">Email</span>
 						</label>
 						<label class="inline-flex items-center gap-1.5" :class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
 							<input
@@ -136,7 +136,7 @@
 								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
 								aria-describedby="market_asset_price_alerts_enabled_description"
 							/>
-							<span class="text-sm text-label">SMS</span>
+							<span class="text-sm font-normal text-label">SMS</span>
 						</label>
 					</div>
 				</div>
@@ -328,11 +328,11 @@
 							<MassiveLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
 						</div>
 						<p id="market_scheduled_asset_price_enabled_description" class="text-sm text-body-secondary mt-0.5">
-							Scheduled asset price updates for all tracked assets, including ETFs.
+							Scheduled asset price updates for all tracked assets, including ETFs, at fixed notification times.
 						</p>
 					</div>
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
-						<label class="inline-flex items-center gap-1.5 cursor-pointer">
+						<label class="inline-flex items-center gap-1.5" :class="!notificationSetupBlocked && emailEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
 							<input
 								type="checkbox"
 								v-model="marketIncludeEmail"
@@ -340,7 +340,7 @@
 								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
 								aria-describedby="market_scheduled_asset_price_enabled_description"
 							/>
-							<span class="text-sm text-label">Email</span>
+							<span class="text-sm font-normal text-label">Email</span>
 						</label>
 						<label class="inline-flex items-center gap-1.5" :class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
 							<input
@@ -350,7 +350,7 @@
 								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
 								aria-describedby="market_scheduled_asset_price_enabled_description"
 							/>
-							<span class="text-sm text-label">SMS</span>
+							<span class="text-sm font-normal text-label">SMS</span>
 						</label>
 					</div>
 				</div>
@@ -633,8 +633,9 @@ const scheduledUpdateTimes = computed(() =>
 const timezone = computed(() => user.value.timezone ?? "");
 
 const smsOptedOut = computed(() => user.value.sms_opted_out === true);
+const smsNotificationsEnabled = computed(() => user.value.sms_notifications_enabled === true);
 const smsReady = computed(
-	() => phoneVerified.value && !smsOptedOut.value,
+	() => phoneVerified.value && !smsOptedOut.value && smsNotificationsEnabled.value,
 );
 const hasNotificationChannel = computed(
 	() =>

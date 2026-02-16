@@ -3,6 +3,11 @@ import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 
+/**
+ * Read the authenticated user's current notification-preferences.
+ *
+ * Returns a single snapshot of preferences used by the dashboard UI.
+ */
 export const GET: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({
@@ -49,6 +54,7 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 				market_scheduled_asset_price_include_sms:
 					dbUser.market_scheduled_asset_price_include_sms,
 				email_notifications_enabled: dbUser.email_notifications_enabled,
+				sms_notifications_enabled: dbUser.sms_notifications_enabled,
 				sms_opted_out: dbUser.sms_opted_out,
 				phone_verified: dbUser.phone_verified,
 				timezone: dbUser.timezone,

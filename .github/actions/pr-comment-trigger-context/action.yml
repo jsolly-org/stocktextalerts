@@ -124,8 +124,9 @@ runs:
         # Internal workflow comments
         [[ "$COMMENT_BODY" == *"$INTERNAL_MARKER"* ]] && skip "internal workflow comment"
 
-        # Skip comments that contain "full review" text.
-        [[ "$COMMENT_BODY" =~ [Ff]ull[[:space:]]+[Rr]eview ]] && skip "comment contains full review text"
+        COMMENT_BODY_LC="${COMMENT_BODY,,}"
+        # Skip comments that contain "full review" text (case-insensitive).
+        [[ "$COMMENT_BODY_LC" =~ full[[:space:]]+review ]] && skip "comment contains full review text"
 
         # Review events without body text
         [[ "$EVENT_NAME" == "pull_request_review" && ( -z "$COMMENT_BODY" || "$COMMENT_BODY" == "null" ) ]] && skip "review without body"

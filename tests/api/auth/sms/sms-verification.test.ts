@@ -111,7 +111,7 @@ describe("A signed-in user verifies their phone number with an SMS code.", () =>
 			email: `test-${randomUUID()}@resend.dev`,
 			password: "TestPassword123!",
 			confirmed: true,
-			smsNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
 			phoneCountryCode: "+1",
 			phoneNumber: "5550001234",
 			phoneVerified: false,
@@ -157,7 +157,7 @@ describe("A signed-in user verifies their phone number with an SMS code.", () =>
 
 			const { data: updatedUser } = await adminClient
 				.from("users")
-				.select("phone_verified,verification_sent_at")
+				.select("phone_verified,verification_sent_at,sms_notifications_enabled")
 				.eq("id", testUser.id)
 				.single();
 
@@ -165,6 +165,7 @@ describe("A signed-in user verifies their phone number with an SMS code.", () =>
 			if (!updatedUser) throw new Error("expected user row");
 			expect(updatedUser.phone_verified).toBe(true);
 			expect(updatedUser.verification_sent_at).toBeNull();
+			expect(updatedUser.sms_notifications_enabled).toBe(true);
 		}
 	});
 });

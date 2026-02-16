@@ -179,10 +179,12 @@ export function createVerifyCodeHandler(
 				});
 			}
 
-			await userService.update(user.id, {
+			const updates = {
 				phone_verified: true,
 				verification_sent_at: null,
-			});
+				...(userData.sms_opted_out ? {} : { sms_notifications_enabled: true }),
+			};
+			await userService.update(user.id, updates);
 
 			return jsonResponse(200, {
 				ok: true,

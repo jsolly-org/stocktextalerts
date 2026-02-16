@@ -144,6 +144,7 @@ export async function deliverStagedNotifications(options: {
 			daily_digest_next_send_at,
 			market_scheduled_asset_price_next_send_at,
 			email_notifications_enabled,
+			sms_notifications_enabled,
 			sms_opted_out,
 			show_sparklines,
 			daily_digest_include_news_email,

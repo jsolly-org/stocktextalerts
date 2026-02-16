@@ -36,6 +36,7 @@ export async function fetchAssetEventsUsers(options: {
 			daily_digest_next_send_at,
 			market_scheduled_asset_price_next_send_at,
 			email_notifications_enabled,
+			sms_notifications_enabled,
 			sms_opted_out,
 			daily_digest_include_news_email,
 			daily_digest_include_rumors_email,
