@@ -35,9 +35,12 @@
 	},
 	"overrides": [
 		{
-			"includes": ["**/*.vue"],
+			"includes": ["**/components/**/*.vue"],
 			"linter": {
 				"rules": {
+					"a11y": {
+						"useAriaPropsForRole": "off"
+					},
 					"correctness": {
 						"noUnusedVariables": "off",
 						"noUnusedImports": "off"

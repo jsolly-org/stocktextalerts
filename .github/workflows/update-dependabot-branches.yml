@@ -17,6 +17,7 @@ concurrency:
 jobs:
   update-branches:
     runs-on: ubuntu-latest
+    if: ${{ github.actor != 'nektos/act' }}
     steps:
       - name: Update open PR branches that are behind main
         env:
