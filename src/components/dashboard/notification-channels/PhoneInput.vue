@@ -38,7 +38,7 @@
 					id="phone"
 					v-model="phoneNumber"
 					@input="handlePhoneInput"
-					@focus="touched = true"
+					@focus="handleFocus"
 					@blur="validate"
 					:aria-describedby="showError ? 'phone-error' : undefined"
 					:aria-invalid="showError ? 'true' : undefined"
@@ -203,6 +203,10 @@ function handlePhoneInput(e: Event) {
 	lastDigits.value = newDigits;
 }
 
+function handleFocus() {
+	touched.value = true;
+}
+
 const isValid = computed(() => {
 	if (!phoneNumber.value) {
 		return !isRequired.value;
@@ -235,4 +239,3 @@ watch(
 	},
 );
 </script>
-

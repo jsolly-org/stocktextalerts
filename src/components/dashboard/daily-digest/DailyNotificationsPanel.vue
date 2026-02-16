@@ -249,7 +249,7 @@
 					<FormatToggles
 						:showSparklines="showSparklines"
 						:disabled="notificationSetupBlocked"
-						@update:showSparklines="showSparklines = $event"
+						@update:showSparklines="handleShowSparklinesUpdate"
 					/>
 				</div>
 			</div>
@@ -335,6 +335,10 @@ const notificationSetupBlocked = computed(
 const needsPhoneVerification = computed(
 	() => hasAnySmsFeatureEnabled.value && !phoneVerified.value,
 );
+
+function handleShowSparklinesUpdate(value: boolean) {
+	showSparklines.value = value;
+}
 
 /** News & Rumors are email-only — disable when email channel isn't enabled */
 const emailOnlyDisabled = computed(

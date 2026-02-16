@@ -18,6 +18,7 @@ permissions:
 jobs:
   run-agent:
     runs-on: ubuntu-latest
+    if: ${{ github.actor != 'nektos/act' }}
     defaults:
       run:
         shell: bash
