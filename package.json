@@ -48,8 +48,7 @@
 		"vue": "^3.5.28"
 	},
 	"overrides": {
-		"lodash": "4.17.23",
-		"path-to-regexp@>=4 <6.3.0": "6.3.0"
+		"lodash": "4.17.23"
 	},
 	"devDependencies": {
 		"@astrojs/check": "^0.9.6",
