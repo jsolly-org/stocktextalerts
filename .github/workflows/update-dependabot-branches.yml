@@ -9,7 +9,6 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  actions: write
 
 concurrency:
   group: update-open-pr-branches
@@ -31,7 +30,7 @@ jobs:
             --state open \
             --base main \
             --limit 200 \
-            --json number,mergeStateStatus,isDraft,url,headRefName,isCrossRepository,maintainerCanModify)"
+            --json number,mergeStateStatus,isDraft,url)"
 
           count="$(jq 'length' <<<"$prs")"
           echo "Found $count open PR(s)."
@@ -42,8 +41,6 @@ jobs:
 
           updated=0
           update_failed=0
-          checks_dispatched=0
-          checks_failed=0
           skipped_drafts=0
           skipped_not_behind=0
 
@@ -52,9 +49,6 @@ jobs:
             state="$(jq -r '.mergeStateStatus' <<<"$pr")"
             draft="$(jq -r '.isDraft' <<<"$pr")"
             url="$(jq -r '.url' <<<"$pr")"
-            head_ref="$(jq -r '.headRefName' <<<"$pr")"
-            is_cross_repo="$(jq -r '.isCrossRepository' <<<"$pr")"
-            maintainer_can_modify="$(jq -r '.maintainerCanModify' <<<"$pr")"
 
             if [[ "$draft" == "true" ]]; then
               echo "Skipping draft PR #$number ($url)."
@@ -78,26 +72,10 @@ jobs:
               fi
             fi
 
-            if [[ "$is_cross_repo" == "true" && "$maintainer_can_modify" != "true" ]]; then
-              echo "Skipping workflow dispatch for PR #$number: fork branch is not writable by maintainers."
-              continue
-            fi
-
-            echo "Dispatching required checks for PR #$number on branch $head_ref."
-            if gh workflow run noDeploy.yml \
-              --repo "$GH_REPO" \
-              --ref "$head_ref"; then
-              checks_dispatched=$((checks_dispatched + 1))
-            else
-              echo "Could not dispatch checks for PR #$number on ref $head_ref."
-              checks_failed=$((checks_failed + 1))
-            fi
           done < <(jq -c '.[]' <<<"$prs")
 
           echo "Summary:"
           echo "- updated=$updated"
           echo "- update_failed=$update_failed"
-          echo "- checks_dispatched=$checks_dispatched"
-          echo "- checks_failed=$checks_failed"
           echo "- skipped_drafts=$skipped_drafts"
           echo "- skipped_not_behind=$skipped_not_behind"
