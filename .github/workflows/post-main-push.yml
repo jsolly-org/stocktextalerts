@@ -140,6 +140,13 @@ jobs:
           - If zero issues were created, print: NO_ISSUES_NEEDED
           " --force --model "$MODEL" --output-format=text
 
+      - name: Drop workflow file edits
+        run: |
+          if git diff --name-only -- .github/workflows .github/actions | grep -q .; then
+            echo "Reverting workflow and action file edits from agent output."
+            git restore --staged --worktree -- .github/workflows .github/actions
+          fi
+
       - name: Log results
         run: |
           echo "---"
@@ -242,6 +249,13 @@ jobs:
           - A commit pushed directly to \`main\` that changes only the allowed files.
           - After pushing, print exactly one line so the workflow can log it: \`DOCS_PUSHED_SHA=\$(git rev-parse HEAD)\`
           " --force --model "$MODEL" --output-format=text
+
+      - name: Drop workflow file edits
+        run: |
+          if git diff --name-only -- .github/workflows .github/actions | grep -q .; then
+            echo "Reverting workflow and action file edits from agent output."
+            git restore --staged --worktree -- .github/workflows .github/actions
+          fi
 
       - name: Log latest commit on main
         run: |
