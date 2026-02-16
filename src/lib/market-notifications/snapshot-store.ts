@@ -124,23 +124,3 @@ export async function getSnapshotsForSymbols(
 
 	return result;
 }
-
-/**
- * Delete snapshots older than the retention window (fire-and-forget).
- */
-export async function purgeOldSnapshots(
-	supabase: SupabaseAdminClient,
-): Promise<void> {
-	const cutoff = new Date(
-		Date.now() - RETENTION_MINUTES * 60 * 1000,
-	).toISOString();
-
-	const { error } = await (supabase
-		.from("asset_snapshots")
-		.delete()
-		.lt("captured_at", cutoff) as unknown as Promise<{ error: unknown }>);
-
-	if (error) {
-		rootLogger.warn("Failed to purge old asset snapshots", {}, error);
-	}
-}

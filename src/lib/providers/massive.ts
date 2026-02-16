@@ -1,15 +1,13 @@
 import { rootLogger } from "../logging";
 import { finnhubFetch } from "./finnhub";
 
-/** Delivery channel used to tune formatting verbosity. */
-export type DeliveryChannel = "sms" | "email";
+type DeliveryChannel = "sms" | "email";
 
 /* =============
 Types
 ============= */
 
-/** Massive/Finnhub earnings calendar event (normalized). */
-export interface EarningsEvent {
+interface EarningsEvent {
 	ticker: string;
 	date: string; // YYYY-MM-DD
 	time: string | null; // UTC 24h format
@@ -17,8 +15,7 @@ export interface EarningsEvent {
 	revenueEstimate: number | null;
 }
 
-/** Massive dividend reference event (normalized). */
-export interface DividendEvent {
+interface DividendEvent {
 	ticker: string;
 	exDividendDate: string; // YYYY-MM-DD
 	cashAmount: number;
@@ -27,8 +24,7 @@ export interface DividendEvent {
 	frequency: number | null; // 1=annual, 2=semi, 4=quarterly, 12=monthly
 }
 
-/** Massive split reference event (normalized). */
-export interface SplitEvent {
+interface SplitEvent {
 	ticker: string;
 	executionDate: string; // YYYY-MM-DD
 	splitFrom: number; // e.g. 1
@@ -36,8 +32,7 @@ export interface SplitEvent {
 	adjustmentType: string; // forward_split, reverse_split, stock_dividend
 }
 
-/** Massive IPO reference event (normalized). */
-export interface IpoEvent {
+interface IpoEvent {
 	ticker: string;
 	listingDate: string; // YYYY-MM-DD
 	issuerName: string | null;
@@ -449,8 +444,7 @@ interface SnapshotTicker {
 	};
 }
 
-/** Normalized quote fields extracted from Massive's snapshot endpoint. */
-export interface SnapshotQuote {
+interface SnapshotQuote {
 	price: number;
 	changePercent: number;
 	dayHigh: number | null;

@@ -22,7 +22,7 @@ export function getThresholdForSensitivity(sensitivity: number): number {
 Types
 ============= */
 
-export interface SignalBreakdown {
+interface SignalBreakdown {
 	name: string;
 	points: number;
 	maxPoints: number;
@@ -30,7 +30,7 @@ export interface SignalBreakdown {
 	detail: string;
 }
 
-export interface AnomalyResult {
+interface AnomalyResult {
 	score: number;
 	triggered: boolean;
 	signals: SignalBreakdown[];
