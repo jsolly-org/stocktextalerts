@@ -2,6 +2,10 @@ name: No Deploy (Test and Build)
 
 on:
   pull_request:
+  push:
+    branches:
+      - "dependabot/**"
+  workflow_dispatch:
 
 jobs:
   lint:
