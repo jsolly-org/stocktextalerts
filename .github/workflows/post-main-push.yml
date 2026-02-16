@@ -36,7 +36,7 @@ jobs:
 
       - name: Create follow-up issues
         env:
-          MODEL: gpt-5.3-codex
+          MODEL: o3
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
         run: |
@@ -144,7 +144,7 @@ jobs:
 
       - name: Update docs
         env:
-          MODEL: gpt-5.3-codex
+          MODEL: o3
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
         run: |

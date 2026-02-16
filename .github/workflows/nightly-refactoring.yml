@@ -60,7 +60,7 @@ jobs:
 
       - name: Create branch
         if: steps.check-pr.outputs.skip != 'true'
-        run: git checkout -b nightly/refactoring-$(date +%Y-%m-%d)
+        run: git checkout -b "nightly/refactoring-$(date +%Y-%m-%d)"
 
       - name: Run agent
         if: steps.check-pr.outputs.skip != 'true'

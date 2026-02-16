@@ -60,7 +60,7 @@ jobs:
 
       - name: Create branch
         if: steps.check-pr.outputs.skip != 'true'
-        run: git checkout -b nightly/code-quality-$(date +%Y-%m-%d)-${{ github.run_id }}-${{ github.run_attempt }}
+        run: git checkout -b "nightly/code-quality-$(date +%Y-%m-%d)-${{ github.run_id }}-${{ github.run_attempt }}"
 
       - name: Run agent
         if: steps.check-pr.outputs.skip != 'true'

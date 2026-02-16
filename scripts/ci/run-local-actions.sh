@@ -26,6 +26,10 @@ EOF
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --job)
+      if [[ -z "${2:-}" ]]; then
+        echo "Error: --job requires an argument" >&2
+        exit 1
+      fi
       JOB="${2:-}"
       shift 2
       ;;
