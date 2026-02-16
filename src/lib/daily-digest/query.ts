@@ -69,7 +69,14 @@ export async function fetchDailyDigestUsers(options: {
 
 		const { data, error } = await query;
 		if (!error) {
-			return (data ?? []) as UserRecord[];
+			const users = (data ?? []) as UserRecord[];
+			// Daily pipeline should only handle users with actual daily features enabled.
+			// Users with only asset events enabled are processed by the asset-events pipeline.
+			return users.filter(
+				(user) =>
+					user.daily_digest_include_news_email ||
+					user.daily_digest_include_rumors_email,
+			);
 		}
 
 		if (attempt === MAX_RETRIES) {

@@ -127,6 +127,8 @@ runs:
         COMMENT_BODY_LC="${COMMENT_BODY,,}"
         # Skip comments that contain "full review" text (case-insensitive).
         [[ "$COMMENT_BODY_LC" =~ full[[:space:]]+review ]] && skip "comment contains full review text"
+        # Skip CodeRabbit status comments that indicate there is nothing to do.
+        [[ "$COMMENT_BODY_LC" =~ no[[:space:]]+actionable[[:space:]]+comments ]] && skip "comment contains no actionable comments text"
 
         # Review events without body text
         [[ "$EVENT_NAME" == "pull_request_review" && ( -z "$COMMENT_BODY" || "$COMMENT_BODY" == "null" ) ]] && skip "review without body"
