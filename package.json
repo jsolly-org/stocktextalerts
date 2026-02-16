@@ -47,6 +47,10 @@
 		"twilio": "^5.12.1",
 		"vue": "^3.5.28"
 	},
+	"overrides": {
+		"lodash": "4.17.23",
+		"path-to-regexp@>=4 <6.3.0": "6.3.0"
+	},
 	"devDependencies": {
 		"@astrojs/check": "^0.9.6",
 		"@astrojs/sitemap": "^3.7.0",
