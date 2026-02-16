@@ -219,9 +219,7 @@ watch(
 watch(
 	() => props.is24,
 	(value) => {
-		if (value !== undefined) {
-			is24Hour.value = value;
-		}
+		is24Hour.value = value ?? resolveIs24();
 	},
 );
 

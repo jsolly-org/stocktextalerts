@@ -1,8 +1,7 @@
 <template>
 	<button
 		type="button"
-		role="switch"
-		:aria-checked="modelValue ? 'true' : 'false'"
+		:aria-pressed="modelValue ? 'true' : 'false'"
 		:aria-labelledby="ariaLabelledby"
 		:aria-describedby="ariaDescribedby"
 		:disabled="disabled"
