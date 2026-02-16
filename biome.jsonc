@@ -35,7 +35,7 @@
 	},
 	"overrides": [
 		{
-			"includes": ["**/*.vue"],
+			"includes": ["**/components/**/*.vue"],
 			"linter": {
 				"rules": {
 					"a11y": {
