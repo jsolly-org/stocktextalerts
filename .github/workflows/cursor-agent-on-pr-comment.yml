@@ -196,7 +196,7 @@ jobs:
           # Capture both stdout and stderr for better error reporting.
           echo "Running Cursor agent..."
           AGENT_EXIT_CODE=0
-          agent --print --model gpt-5.3-codex --output-format=text --force "$PROMPT" > "$AGENT_OUTPUT_FILE" 2> "$AGENT_ERROR_FILE" || AGENT_EXIT_CODE=$?
+          agent --print --model "${{ vars.AGENT_MODEL }}" --output-format=text --force "$PROMPT" > "$AGENT_OUTPUT_FILE" 2> "$AGENT_ERROR_FILE" || AGENT_EXIT_CODE=$?
 
           # Always persist logs for debug artifacts
           cp "$AGENT_OUTPUT_FILE" agent-stdout.txt 2>/dev/null || true
