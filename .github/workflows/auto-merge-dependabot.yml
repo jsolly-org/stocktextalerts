@@ -1,3 +1,5 @@
+# Automatically approves and squash-merges Dependabot PRs for minor/patch
+# updates. Major version bumps are left for manual review.
 name: Auto-merge Dependabot PRs
 
 on:

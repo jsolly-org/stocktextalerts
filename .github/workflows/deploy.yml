@@ -1,3 +1,6 @@
+# Deploys the site to Supabase on every push to main. Runs CI checks, links
+# the Supabase project, verifies there is no migration drift, and pushes
+# database migrations to production.
 name: Deploy Website
 
 on:

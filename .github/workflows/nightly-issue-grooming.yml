@@ -1,3 +1,5 @@
+# Scheduled nightly job that picks open GitHub issues, uses the Cursor agent
+# to implement fixes, and opens PRs that close each issue.
 name: "Nightly: Issue Grooming"
 
 on:
@@ -14,9 +16,11 @@ env:
   GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
 
 jobs:
-  issue-grooming:
+  discover-issues:
     if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.actor != 'nektos/act' }}
     runs-on: ubuntu-latest
+    outputs:
+      issues: ${{ steps.matrix.outputs.issues }}
     steps:
       - name: Ensure GitHub CLI (act only)
         if: ${{ env.ACT == 'true' }}
@@ -43,60 +47,59 @@ jobs:
             fi
           fi
 
-      - name: Check for existing nightly PR
-        id: check-pr
+      - name: Discover open issues and filter already-in-progress
+        id: matrix
         run: |
-          EXISTING_PR=$(gh pr list \
-            --repo "${{ github.repository }}" \
-            --label "nightly" \
-            --search "feat(nightly): resolve" \
-            --state open \
-            --json number,url \
-            --limit 1)
-          if [ "$(echo "$EXISTING_PR" | jq length)" -gt 0 ]; then
-            PR_URL=$(echo "$EXISTING_PR" | jq -r '.[0].url')
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "Existing nightly issue-grooming PR found: $PR_URL"
-            gh pr comment "$PR_URL" --body "Nightly run skipped — this PR is still open."
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
-
-      - name: Pick an issue
-        if: steps.check-pr.outputs.skip != 'true'
-        id: pick-issue
-        run: |
-          ISSUE=$(gh issue list \
+          # Fetch all open issues
+          ALL_ISSUES=$(gh issue list \
             --repo "${{ github.repository }}" \
             --state open \
             --json number,title \
-            --limit 1 \
-            --jq '.[0]')
-          if [ -z "$ISSUE" ] || [ "$ISSUE" = "null" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "No open issues found."
-          else
-            ISSUE_NUMBER=$(echo "$ISSUE" | jq -r '.number')
-            ISSUE_TITLE=$(echo "$ISSUE" | jq -r '.title')
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
-            echo "issue_title=$ISSUE_TITLE" >> "$GITHUB_OUTPUT"
-            echo "Picked issue #$ISSUE_NUMBER: $ISSUE_TITLE"
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+            --limit 100)
 
+          if [ "$(echo "$ALL_ISSUES" | jq length)" -eq 0 ]; then
+            echo "No open issues found."
+            echo 'issues=[]' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Fetch open PRs from nightly issue-grooming to find issues already in progress
+          OPEN_PRS=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --state open \
+            --search "feat(nightly): resolve" \
+            --json title \
+            --limit 100)
+
+          # Extract issue numbers from PR titles matching "feat(nightly): resolve #N"
+          IN_PROGRESS=$(echo "$OPEN_PRS" | jq '[.[].title | capture("feat\\(nightly\\): resolve #(?<n>[0-9]+)") | .n | tonumber]')
+
+          # Filter out issues that already have an open PR
+          FILTERED=$(echo "$ALL_ISSUES" | jq --argjson skip "$IN_PROGRESS" \
+            '[.[] | select(.number as $n | $skip | index($n) | not)]')
+
+          COUNT=$(echo "$FILTERED" | jq length)
+          echo "Found $COUNT actionable issue(s) after filtering."
+          echo "$FILTERED" | jq .
+
+          echo "issues=$(echo "$FILTERED" | jq -c .)" >> "$GITHUB_OUTPUT"
+
+  resolve-issue:
+    needs: discover-issues
+    if: ${{ needs.discover-issues.outputs.issues != '[]' && needs.discover-issues.outputs.issues != '' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        issue: ${{ fromJson(needs.discover-issues.outputs.issues) }}
+    steps:
       - name: Checkout repository
-        if: steps.check-pr.outputs.skip != 'true' && steps.pick-issue.outputs.skip != 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: main
           fetch-depth: 0
 
       - name: Setup Node.js
-        if: steps.check-pr.outputs.skip != 'true' && steps.pick-issue.outputs.skip != 'true'
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
         with:
           node-version-file: .nvmrc
@@ -104,21 +107,18 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Setup Cursor CLI
-        if: steps.check-pr.outputs.skip != 'true' && steps.pick-issue.outputs.skip != 'true'
         uses: ./.github/actions/setup-cursor
 
       - name: Create branch
-        if: steps.check-pr.outputs.skip != 'true' && steps.pick-issue.outputs.skip != 'true'
-        run: git checkout -b "nightly/issue-${{ steps.pick-issue.outputs.issue_number }}-$(date +%Y-%m-%d)-${{ github.run_id }}-${{ github.run_attempt }}"
+        run: git checkout -b "nightly/issue-${{ matrix.issue.number }}-$(date +%Y-%m-%d)-${{ github.run_id }}-${{ github.run_attempt }}"
 
       - name: Run agent
-        if: steps.check-pr.outputs.skip != 'true' && steps.pick-issue.outputs.skip != 'true'
         env:
           MODEL: ${{ vars.AGENT_MODEL }}
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
-          ISSUE_NUMBER: ${{ steps.pick-issue.outputs.issue_number }}
-          ISSUE_TITLE: ${{ steps.pick-issue.outputs.issue_title }}
+          ISSUE_NUMBER: ${{ matrix.issue.number }}
+          ISSUE_TITLE: ${{ matrix.issue.title }}
         run: |
           agent -p "You are operating in a GitHub Actions runner. Git and the \`gh\` CLI are available and authenticated.
 
@@ -134,7 +134,6 @@ jobs:
           " --force --model "$MODEL" --output-format=text
 
       - name: Drop workflow file edits
-        if: steps.check-pr.outputs.skip != 'true' && steps.pick-issue.outputs.skip != 'true'
         run: |
           if git diff --name-only -- .github/workflows .github/actions | grep -q .; then
             echo "Reverting workflow and action file edits from agent output."
@@ -142,7 +141,6 @@ jobs:
           fi
 
       - name: Check for changes
-        if: steps.check-pr.outputs.skip != 'true' && steps.pick-issue.outputs.skip != 'true'
         id: changes
         run: |
           if [ -z "$(git status --porcelain)" ]; then
@@ -153,25 +151,25 @@ jobs:
           fi
 
       - name: Run pre-commit checks
-        if: steps.check-pr.outputs.skip != 'true' && steps.pick-issue.outputs.skip != 'true' && steps.changes.outputs.has_changes == 'true'
+        if: steps.changes.outputs.has_changes == 'true'
         uses: ./.github/actions/run-precommit-checks
 
       - name: Commit and push
-        if: steps.check-pr.outputs.skip != 'true' && steps.pick-issue.outputs.skip != 'true' && steps.changes.outputs.has_changes == 'true'
+        if: steps.changes.outputs.has_changes == 'true'
         env:
-          ISSUE_NUMBER: ${{ steps.pick-issue.outputs.issue_number }}
-          ISSUE_TITLE: ${{ steps.pick-issue.outputs.issue_title }}
+          ISSUE_NUMBER: ${{ matrix.issue.number }}
+          ISSUE_TITLE: ${{ matrix.issue.title }}
         run: |
           git add -A
           git commit -m "feat(nightly): resolve #${ISSUE_NUMBER} — ${ISSUE_TITLE}"
           git push origin HEAD
 
       - name: Create pull request
-        if: steps.check-pr.outputs.skip != 'true' && steps.pick-issue.outputs.skip != 'true' && steps.changes.outputs.has_changes == 'true'
+        if: steps.changes.outputs.has_changes == 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
-          ISSUE_NUMBER: ${{ steps.pick-issue.outputs.issue_number }}
-          ISSUE_TITLE: ${{ steps.pick-issue.outputs.issue_title }}
+          ISSUE_NUMBER: ${{ matrix.issue.number }}
+          ISSUE_TITLE: ${{ matrix.issue.title }}
         run: |
           PR_TITLE="feat(nightly): resolve #${ISSUE_NUMBER} — ${ISSUE_TITLE}"
           PR_BODY="$(cat <<EOF

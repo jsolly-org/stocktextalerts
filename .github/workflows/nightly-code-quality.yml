@@ -1,3 +1,6 @@
+# Scheduled nightly job that uses the Cursor agent to find and fix code quality
+# issues such as dead code, unused imports, and lint violations. Opens a PR
+# with the fixes if any changes are made.
 name: "Nightly: Code Quality"
 
 on:

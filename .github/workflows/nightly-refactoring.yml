@@ -1,3 +1,6 @@
+# Scheduled nightly job that uses the Cursor agent to refactor code for
+# simplicity — reducing duplication, lowering complexity, improving type safety,
+# and cleaning up project structure. Opens a PR with the changes.
 name: "Nightly: Refactoring"
 
 on:

@@ -1,3 +1,6 @@
+# Scheduled nightly job that uses the Cursor agent to find and fix performance
+# issues such as slow queries, bundle size problems, and unnecessary re-renders.
+# Opens a PR with the optimizations.
 name: "Nightly: Performance"
 
 on:

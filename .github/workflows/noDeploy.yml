@@ -1,3 +1,5 @@
+# CI gate for pull requests. Runs Biome linting, TypeScript type checking, and
+# a full build to catch issues before merging. No deployment occurs.
 name: No Deploy (Test and Build)
 
 on:

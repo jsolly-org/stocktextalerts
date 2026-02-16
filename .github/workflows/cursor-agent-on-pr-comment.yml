@@ -1,3 +1,6 @@
+# Runs the Cursor CLI agent in response to PR comments and review feedback.
+# The agent makes code changes, validates them with lint/type-check, commits,
+# and reports results back on the PR.
 name: Cursor Agent on PR Comment
 run-name: cursor-agent pr-${{ github.event.issue.number || github.event.pull_request.number }} comment-${{ github.event.comment.id || github.event.review.id }}
 
