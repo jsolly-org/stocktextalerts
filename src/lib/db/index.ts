@@ -20,8 +20,6 @@ Public Types
 
 /** Full `users` table row type (public schema). */
 export type User = DbUserRow;
-/** Full `assets` table row type (public schema). */
-export type Asset = DbAssetRow;
 /** A user's tracked asset joined with canonical asset details. */
 export type UserAsset = Pick<DbUserAssetRow, "symbol" | "created_at"> & {
 	name: DbAssetRow["name"];

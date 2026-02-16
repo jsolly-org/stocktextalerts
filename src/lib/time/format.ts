@@ -323,7 +323,7 @@ export function getUsMarketOpenLocalMinutes(userTimezone: string): number {
 /**
  * Convert US market close (4:00 PM ET) to the user's local minutes since midnight.
  */
-export function getUsMarketCloseLocalMinutes(userTimezone: string): number {
+function getUsMarketCloseLocalMinutes(userTimezone: string): number {
 	const marketCloseHour = Math.floor(US_MARKET_CLOSE_EASTERN_MINUTES / 60);
 	const marketCloseMinute = US_MARKET_CLOSE_EASTERN_MINUTES % 60;
 	const eastern = DateTime.now().setZone(US_MARKET_TIMEZONE).set({

@@ -51,15 +51,6 @@ const SIC_RANGES: Array<{ min: number; max: number; sector: string }> = [
 	{ min: 9000, max: 9999, sector: "Industrials" },
 ];
 
-/**
- * Convert a SIC code string to a sector name.
- *
- * @returns Sector name (e.g., "Technology", "Healthcare") or "Other" if unmatched.
- */
-/**
- * Map sector names to their representative SPDR sector ETFs.
- * Used for sector-aware market context filtering in price alerts.
- */
 export const SECTOR_ETF_MAP: Record<string, string> = {
 	Technology: "XLK",
 	Healthcare: "XLV",
@@ -72,16 +63,6 @@ export const SECTOR_ETF_MAP: Record<string, string> = {
 	Materials: "XLB",
 	Communication: "XLC",
 };
-
-/** Broad-market ETFs that track the overall market rather than a sector. */
-export const BROAD_MARKET_ETFS = new Set([
-	"SPY",
-	"QQQ",
-	"DIA",
-	"IWM",
-	"VOO",
-	"VTI",
-]);
 
 export function sicCodeToSector(sicCode: string): string {
 	const code = Number.parseInt(sicCode, 10);

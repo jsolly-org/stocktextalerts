@@ -22,8 +22,7 @@ type ResponsesRequest = {
 };
 
 // xAI Responses API (OpenAPI `ModelResponse`)
-/** Source annotation entry from xAI Responses API outputs. */
-export type XaiAnnotation = {
+type XaiAnnotation = {
 	type: string;
 	url: string;
 	start_index?: number | null;
@@ -65,8 +64,7 @@ type XaiOutputItem =
 			[key: string]: unknown;
 	  };
 
-/** Top-level response payload shape returned by the xAI Responses API. */
-export type ResponsesResponse = {
+type ResponsesResponse = {
 	id: string;
 	object: "response" | (string & {});
 	created_at: number;
@@ -75,7 +73,6 @@ export type ResponsesResponse = {
 	output: XaiOutputItem[];
 };
 
-/** Rendered Grok section text plus extracted citation URLs. */
 export type GrokSectionResult = {
 	content: string;
 	citations: string[];
@@ -146,7 +143,7 @@ function linkLabelFromUrl(url: string): string | null {
  * markdown links. Processes annotations from end to start so character
  * positions remain valid during replacement.
  */
-export function applyAnnotationsInline(
+function applyAnnotationsInline(
 	text: string,
 	annotations: XaiAnnotation[],
 ): string {
@@ -366,8 +363,7 @@ function getMetaEnv(): Record<string, string | undefined> | undefined {
 	return (import.meta as { env?: Record<string, string | undefined> }).env;
 }
 
-/** Build the system/user prompt for the news section. */
-export function buildNewsPrompt(options: {
+function buildNewsPrompt(options: {
 	tickers: string[];
 	localDateIso: string;
 	timezone: string;
@@ -403,8 +399,7 @@ export function buildNewsPrompt(options: {
 	return { system, user };
 }
 
-/** Build the system/user prompt for the rumors section. */
-export function buildRumorsPrompt(options: {
+function buildRumorsPrompt(options: {
 	tickers: string[];
 	localDateIso: string;
 	timezone: string;

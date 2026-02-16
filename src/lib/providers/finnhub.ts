@@ -2,16 +2,12 @@ import { FINNHUB_BASE_URL } from "../constants";
 import { rootLogger } from "../logging";
 import { type CompanyNewsItem, fetchCompanyNews } from "./company-news";
 
-export { type CompanyNewsItem, fetchCompanyNews };
-
-/** Delivery channel used to tune formatting verbosity. */
 export type DeliveryChannel = "sms" | "email";
 
 /* =============
 Types
 ============= */
 
-/** Analyst recommendation trend totals for a given period. */
 export interface RecommendationTrend {
 	buy: number;
 	hold: number;
@@ -21,7 +17,6 @@ export interface RecommendationTrend {
 	period: string;
 }
 
-/** Normalized insider transaction entry. */
 export interface InsiderTransaction {
 	name: string;
 	share: number;
@@ -193,7 +188,7 @@ Individual Fetchers
 ============= */
 
 /** Fetch the latest analyst recommendation trend for a ticker (or `null`). */
-export async function fetchRecommendationTrends(
+async function fetchRecommendationTrends(
 	symbol: string,
 ): Promise<RecommendationTrend | null> {
 	const data = await finnhubFetch(
@@ -231,7 +226,7 @@ export async function fetchRecommendationTrends(
 }
 
 /** Fetch recent insider transactions for a ticker (validated and capped). */
-export async function fetchInsiderTransactions(
+async function fetchInsiderTransactions(
 	symbol: string,
 ): Promise<InsiderTransaction[]> {
 	const data = await finnhubFetch(

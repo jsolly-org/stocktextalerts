@@ -135,8 +135,7 @@ export const DASHBOARD_SECTION_HASHES: Record<DashboardSection, string> = {
 Status Messages
 ============= */
 
-/** Whitelist of user-facing status messages keyed by internal codes. */
-export const MESSAGE_ALLOWLIST = {
+const MESSAGE_ALLOWLIST = {
 	asset_added: "Asset added successfully",
 	asset_removed: "Asset removed successfully",
 	assets_updated: "Tracked assets updated successfully",

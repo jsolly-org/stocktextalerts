@@ -16,8 +16,7 @@ export const USER_PROCESS_BATCH_SIZE = 5;
 /** Delivery channel enum sourced from the database schema. */
 export type DeliveryMethod = Database["public"]["Enums"]["delivery_method"];
 
-/** Scheduled notification job categories supported by the scheduler. */
-export type ScheduledNotificationType = "market" | "daily" | "asset_events";
+type ScheduledNotificationType = "market" | "daily" | "asset_events";
 
 type ScheduledNotificationStatus =
 	Database["public"]["Enums"]["scheduled_notification_status"];
@@ -119,8 +118,7 @@ export async function updateScheduledNotificationRow(options: {
 	}
 }
 
-/** Result state from attempting to claim a scheduled notification row. */
-export type ClaimResult =
+type ClaimResult =
 	| { status: "claimed" }
 	| { status: "claim_error" }
 	| { status: "retries_exhausted" };
@@ -196,7 +194,7 @@ export async function claimNotification(options: {
  * This is used as a backstop so we can track delivery failures without spamming retries
  * within a single run.
  */
-export async function logRetriesExhausted(options: {
+async function logRetriesExhausted(options: {
 	supabase: SupabaseAdminClient;
 	userId: string;
 	notificationType: ScheduledNotificationType;

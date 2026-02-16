@@ -5,7 +5,7 @@ export type AlertFollowUpMode =
 	| "first_only"
 	| "allow_acceleration_follow_up"
 	| "allow_recovery_follow_up";
-export type AlertDirectionPreference = "downside" | "upside" | "both";
+type AlertDirectionPreference = "downside" | "upside" | "both";
 
 export interface AlertProfile {
 	riskPriority: AlertRiskPriority;
@@ -26,7 +26,7 @@ export const MOVE_SIZE_THRESHOLDS: Record<
 	very_large: { percentThreshold: 8, dollarThreshold: 20 },
 };
 
-export function toDirectionPreference(
+function toDirectionPreference(
 	riskPriority: AlertRiskPriority,
 ): AlertDirectionPreference {
 	if (riskPriority === "big_drops") return "downside";
