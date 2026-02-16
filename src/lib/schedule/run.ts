@@ -601,7 +601,6 @@ export async function runScheduledNotifications(options: {
 	const passStartTime = Date.now();
 
 	// Pass 1: DELIVER staged + fallback + PRE-COMPUTE
-	logger.info("Starting pass 1", { action: "two_pass" });
 	const pass1Totals = await runPass({
 		supabase,
 		logger,
@@ -615,15 +614,11 @@ export async function runScheduledNotifications(options: {
 	const passDelayMs = getPassDelayMs();
 	const waitMs = Math.max(0, passDelayMs - elapsed);
 	if (waitMs > 0) {
-		logger.info("Waiting for pass 2", {
-			action: "two_pass",
-			waitMs,
-		});
+		// Wait silently — pass lifecycle is an implementation detail
 		await new Promise((resolve) => setTimeout(resolve, waitMs));
 	}
 
 	// Pass 2: DELIVER staged + fallback + PRE-COMPUTE (no asset events)
-	logger.info("Starting pass 2", { action: "two_pass" });
 	const pass2Totals = await runPass({
 		supabase,
 		logger,

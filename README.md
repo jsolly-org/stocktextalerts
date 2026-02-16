@@ -221,6 +221,23 @@ npm run fix
 
 For local development, run `npm run db:reset` before `npm run test` to ensure your Supabase DB matches the current migrations and seed data.
 
+### GitHub Actions (Local)
+
+Run the pull request CI workflow locally with `act`:
+
+```bash
+npm run gha:local
+```
+
+Run only a single CI job:
+
+```bash
+npm run gha:local:lint
+npm run gha:local:test-build
+```
+
+Full setup and troubleshooting: `docs/testing-github-actions-locally.md`
+
 ### Optional: Live Provider Tests (Massive/Finnhub/xAI)
 
 Vitest runs offline by default and stubs external provider keys. To opt into one or more real providers for targeted integration tests, pass `--live` to `npm test`:

@@ -90,8 +90,6 @@ if (success === "true") {
 </Layout>
 
 <script define:vars={{ success, error }}>
-	import { rootLogger } from "../../lib/logging";
-
 	(function setupResendVerification() {
 		const resendBtn = document.getElementById("resend-btn");
 		const resendForm = document.getElementById("resend-form");
@@ -186,15 +184,8 @@ if (success === "true") {
 		if (success === "true" && hasPendingSubmit()) {
 			try {
 				localStorage.setItem(COOLDOWN_KEY, Date.now().toString());
-			} catch (err) {
-				rootLogger.error(
-					"Failed to save cooldown timestamp to localStorage",
-					{
-						action: "persist_resend_cooldown",
-						storageKey: COOLDOWN_KEY,
-					},
-					err,
-				);
+			} catch {
+				// Ignore localStorage failures.
 			} finally {
 				clearPendingSubmit();
 			}

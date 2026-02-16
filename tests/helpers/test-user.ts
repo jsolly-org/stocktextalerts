@@ -133,6 +133,11 @@ export async function createTestUser(
 			"Invalid test user: smsNotificationsEnabled requires phoneCountryCode and phoneNumber",
 		);
 	}
+	if (smsNotificationsEnabled && options.smsOptedOut) {
+		throw new Error(
+			"Invalid test user: smsNotificationsEnabled and smsOptedOut cannot both be true (violates database constraint)",
+		);
+	}
 
 	// Create in Auth
 	const { data: authUser, error: authError } = await adminClient.auth.signUp({
@@ -204,6 +209,7 @@ export async function createTestUser(
 			phone_verified: phoneVerified,
 			timezone,
 			email_notifications_enabled: options.emailNotificationsEnabled ?? false,
+			sms_notifications_enabled: smsNotificationsEnabled,
 			sms_opted_out: options.smsOptedOut ?? false,
 			market_scheduled_asset_price_times: finalMarketScheduledPriceTimes,
 			market_scheduled_asset_price_next_send_at: nextSendAtIso,

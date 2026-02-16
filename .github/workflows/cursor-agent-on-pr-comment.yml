@@ -49,7 +49,7 @@ jobs:
           pr_number: ${{ github.event.issue.number || github.event.pull_request.number }}
           issue_pull_request_url: ${{ github.event.issue.pull_request.url }}
           internal_marker: ${{ env.INTERNAL_MARKER }}
-          gh_token: ${{ secrets.GITHUB_TOKEN }}
+          gh_token: ${{ secrets.GH_AGENT_TOKEN }}
 
       - name: Log skip context
         if: steps.context.outputs.run_agent != 'true'
@@ -96,7 +96,7 @@ jobs:
           workflow_file: ${{ env.WORKFLOW_FILE }}
           run_id: ${{ github.run_id }}
           internal_marker: ${{ env.INTERNAL_MARKER }}
-          gh_token: ${{ secrets.GITHUB_TOKEN }}
+          gh_token: ${{ secrets.GH_AGENT_TOKEN }}
 
       - name: Checkout PR head
         if: steps.context.outputs.run_agent == 'true'
@@ -196,7 +196,7 @@ jobs:
           # Capture both stdout and stderr for better error reporting.
           echo "Running Cursor agent..."
           AGENT_EXIT_CODE=0
-          agent --print --model gpt-5.2 --output-format=text --force "$PROMPT" > "$AGENT_OUTPUT_FILE" 2> "$AGENT_ERROR_FILE" || AGENT_EXIT_CODE=$?
+          agent --print --model gpt-5.3-codex --output-format=text --force "$PROMPT" > "$AGENT_OUTPUT_FILE" 2> "$AGENT_ERROR_FILE" || AGENT_EXIT_CODE=$?
 
           # Always persist logs for debug artifacts
           cp "$AGENT_OUTPUT_FILE" agent-stdout.txt 2>/dev/null || true
@@ -253,14 +253,14 @@ jobs:
         id: commit_push
         continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_AGENT_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           HEAD_REPO: ${{ steps.context.outputs.head_repo }}
           HEAD_REF: ${{ steps.context.outputs.head_ref }}
           COMMENT_ID: ${{ steps.context.outputs.comment_id }}
           BEFORE_SHA: ${{ steps.agent.outputs.before_sha }}
         run: |
           # Use a tokenized URL inline to avoid persisting credentials in git config.
-          REMOTE_URL="https://x-access-token:${GH_TOKEN}@github.com/${HEAD_REPO}.git"
+          REMOTE_URL="https://x-access-token:${GH_AGENT_TOKEN}@github.com/${HEAD_REPO}.git"
 
           git add -A
           git commit -m "Cursor: apply requested changes (comment $COMMENT_ID)"
@@ -269,15 +269,21 @@ jobs:
           # Rebase our commit(s) onto the latest remote tip so we can fast-forward push without force.
           MAX_PUSH_ATTEMPTS=3
           for attempt in $(seq 1 "$MAX_PUSH_ATTEMPTS"); do
+            LOCAL_TIP="$(git rev-parse HEAD)"
             git fetch "$REMOTE_URL" "$HEAD_REF"
 
             if ! git rebase FETCH_HEAD; then
               echo "##[warning]Rebase onto latest tip failed for $HEAD_REF. Retrying with conflict auto-resolution."
               git rebase --abort || true
               if ! git rebase -X theirs FETCH_HEAD; then
-                echo "##[error]Failed to rebase onto latest remote tip for $HEAD_REF after auto-resolution."
+                echo "##[warning]Rebase with auto-resolution failed. Falling back to reset + cherry-pick."
                 git rebase --abort || true
-                exit 1
+                git reset --hard FETCH_HEAD
+                if ! git cherry-pick -X theirs "$LOCAL_TIP"; then
+                  echo "##[error]Failed to replay local commit on top of latest remote tip for $HEAD_REF."
+                  git cherry-pick --abort || true
+                  exit 1
+                fi
               fi
             fi
 
@@ -289,7 +295,7 @@ jobs:
             cat push-error.log || true
 
             if [[ "$attempt" == "$MAX_PUSH_ATTEMPTS" ]]; then
-              echo "##[error]Failed to push commit. This may be a fork PR where GITHUB_TOKEN cannot push."
+              echo "##[error]Failed to push commit. Check GH_AGENT_TOKEN permissions for contents/workflows write access."
               exit 1
             fi
           done
@@ -310,7 +316,7 @@ jobs:
       - name: Report push failure
         if: steps.context.outputs.run_agent == 'true' && steps.agent.outcome == 'success' && steps.agent.outputs.changes_present == 'true' && steps.precommit_checks.outcome == 'success' && steps.commit_push.outcome == 'failure'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           COMMENT_REFERENCE: ${{ steps.context.outputs.comment_reference }}
           RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
@@ -319,7 +325,7 @@ jobs:
           
           The agent made changes and the pre-commit checks passed, but the workflow could not push the commit to the PR branch.
 
-          The workflow attempted a rebase retry with conflict auto-resolution (favoring agent changes) before failing.
+          The workflow attempted a rebase retry with conflict auto-resolution and a reset/cherry-pick fallback (favoring agent changes) before failing.
           
           $COMMENT_REFERENCE
           
@@ -333,7 +339,7 @@ jobs:
       - name: Report agent success
         if: steps.context.outputs.run_agent == 'true' && steps.commit_push.outputs.changes_pushed == 'true' && steps.precommit_checks.outcome == 'success'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           COMMENT_REFERENCE: ${{ steps.context.outputs.comment_reference }}
           BEFORE_SHA: ${{ steps.commit_push.outputs.before_sha }}
           AFTER_SHA: ${{ steps.commit_push.outputs.after_sha }}
@@ -383,7 +389,7 @@ jobs:
       - name: Mark triggering comment as processed
         if: steps.context.outputs.run_agent == 'true' && (steps.agent.outputs.noop == 'true' || (steps.commit_push.outputs.changes_pushed == 'true' && steps.precommit_checks.outcome == 'success'))
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
           COMMENT_ID: ${{ steps.context.outputs.comment_id }}
@@ -450,7 +456,7 @@ jobs:
       - name: Report agent no-op
         if: steps.context.outputs.run_agent == 'true' && steps.agent.outputs.noop == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           COMMENT_REFERENCE: ${{ steps.context.outputs.comment_reference }}
           RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
@@ -488,7 +494,7 @@ jobs:
       - name: Report agent pushed but checks failed
         if: steps.context.outputs.run_agent == 'true' && steps.agent.outcome == 'success' && steps.agent.outputs.changes_present == 'true' && steps.precommit_checks.outcome == 'failure'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           COMMENT_REFERENCE: ${{ steps.context.outputs.comment_reference }}
           RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
@@ -509,7 +515,7 @@ jobs:
       - name: Report agent failure
         if: steps.context.outputs.run_agent == 'true' && steps.agent.outcome == 'failure'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           COMMENT_REFERENCE: ${{ steps.context.outputs.comment_reference }}
           RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
@@ -541,8 +547,8 @@ jobs:
           gh pr comment "${{ steps.context.outputs.pr_number }}" \
             --body "$FAILURE_BODY"
 
-      # Only fail the job for agent or pre-commit failures. Push failure (e.g. fork PR where
-      # GITHUB_TOKEN cannot push) is reported via "Report push failure" but does not fail the run.
+      # Only fail the job for agent or pre-commit failures. Push failures (e.g. token permission
+      # issues) are reported via "Report push failure" but do not fail the run.
       - name: Fail job if workflow had errors
         if: steps.context.outputs.run_agent == 'true' && (steps.agent.outcome == 'failure' || steps.precommit_checks.outcome == 'failure')
         run: exit 1
