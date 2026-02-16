@@ -55,7 +55,14 @@ export async function fetchUpcomingDailyDigestUsers(options: {
 			.lte("daily_digest_next_send_at", options.beforeTimeIso);
 
 		if (!error) {
-			return (data ?? []) as unknown as UserRecord[];
+			const users = (data ?? []) as UserRecord[];
+			// Precompute only true daily digest users; asset-events-only users are
+			// scheduled/delivered through the asset-events pipeline.
+			return users.filter(
+				(user) =>
+					user.daily_digest_include_news_email ||
+					user.daily_digest_include_rumors_email,
+			);
 		}
 
 		if (attempt === MAX_RETRIES) {
