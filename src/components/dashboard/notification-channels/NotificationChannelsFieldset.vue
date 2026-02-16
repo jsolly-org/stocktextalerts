@@ -29,7 +29,7 @@
 					</span>
 				</div>
 				<ToggleSwitch
-					v-model="emailEnabled"
+					v-model="emailEnabledModel"
 					sr-label="Email notifications"
 					:aria-labelledby="`${props.emailNotificationsEnabledId}_label`"
 					:aria-describedby="`${props.emailNotificationsEnabledId}_desc`"
@@ -50,7 +50,7 @@
 						</span>
 					</div>
 					<ToggleSwitch
-						v-model="smsEnabled"
+						v-model="smsEnabledModel"
 						sr-label="SMS notifications"
 						:disabled="props.smsOptedOut"
 						:aria-labelledby="`${props.smsStatusId}_label`"
@@ -155,12 +155,12 @@ const emit = defineEmits<{
 	(event: "setMarketOpen"): void;
 }>();
 
-const emailEnabled = computed({
+const emailEnabledModel = computed({
 	get: () => props.emailEnabled,
 	set: (value: boolean) => emit("update:emailEnabled", value),
 });
 
-const smsEnabled = computed({
+const smsEnabledModel = computed({
 	get: () => props.smsNotificationsEnabled,
 	set: (value: boolean) => emit("update:smsNotificationsEnabled", value),
 });

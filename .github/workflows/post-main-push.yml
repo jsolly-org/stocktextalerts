@@ -15,7 +15,7 @@ env:
 
 jobs:
   create-issues:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.actor == 'jsolly' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.actor == 'jsolly') && github.actor != 'nektos/act' }}
     runs-on: ubuntu-latest
     steps:
       - name: Ensure GitHub CLI (act only)
@@ -155,7 +155,7 @@ jobs:
           echo "---"
 
   update-docs:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.actor == 'jsolly' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.actor == 'jsolly') && github.actor != 'nektos/act' }}
     runs-on: ubuntu-latest
     steps:
       - name: Ensure GitHub CLI (act only)

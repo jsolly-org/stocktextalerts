@@ -120,7 +120,7 @@ const selectedTime = ref<TimeModel | null>(
 	parseTimeString(props.initialTime) ?? null,
 );
 const isDisabled = computed(() => props.disabled ?? false);
-const is24 = ref(true);
+const is24Hour = ref(true);
 const datepicker = ref<{ closeMenu: () => void } | null>(null);
 const isBackdropVisible = ref(false);
 const isBackdropPointerDown = ref(false);
@@ -129,12 +129,12 @@ const isBackdropPointerDown = ref(false);
 const datepickerConfig = { setDateOnMenuClose: true } as const;
 
 const displayFormat = computed(() => {
-	return is24.value ? "HH:mm" : "hh:mm aa";
+	return is24Hour.value ? "HH:mm" : "hh:mm aa";
 });
 
 const timeConfig = computed(() => {
 	return {
-		is24: is24.value,
+		is24: is24Hour.value,
 		minutesIncrement,
 		startTime: { hours: 9, minutes: 0, seconds: 0 },
 	};
@@ -220,7 +220,7 @@ watch(
 	() => props.is24,
 	(value) => {
 		if (value !== undefined) {
-			is24.value = value;
+			is24Hour.value = value;
 		}
 	},
 );
@@ -236,7 +236,7 @@ watch(
 
 onMounted(() => {
 	isMounted.value = true;
-	is24.value = props.is24 ?? resolveIs24();
+	is24Hour.value = props.is24 ?? resolveIs24();
 });
 </script>
 

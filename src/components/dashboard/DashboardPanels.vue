@@ -18,7 +18,7 @@
 					:status-tone="assetsStatusTone"
 					:is-saving="isAssetsSaving"
 					@form-changed="notifyAssetsChange"
-					@assets-changed="currentAssets = $event"
+					@assets-changed="handleAssetsChanged"
 				/>
 			</form>
 		</template>
@@ -110,22 +110,26 @@ const {
 } = toRefs(props);
 
 // Shared mutable user ref — all dashboard descendants inject this via useDashboardUser()
-const user = provideDashboardUser(userProp);
+const dashboardUser = provideDashboardUser(userProp);
 
 // Live tracked assets — starts from server data, updated by WatchlistPanel edits
 const currentAssets = ref<InitialAsset[]>([...props.initialAssets]);
 const hasTrackedAssets = computed(() => currentAssets.value.length > 0);
 
-const emailEnabled = ref(user.value.email_notifications_enabled);
-const phoneVerified = computed(() => user.value.phone_verified);
+const emailEnabled = ref(dashboardUser.value.email_notifications_enabled);
+const phoneVerified = computed(() => dashboardUser.value.phone_verified);
 
 // Sync channel flags when user changes (e.g., after auto-save response)
 watch(
-	() => user.value.email_notifications_enabled,
+	() => dashboardUser.value.email_notifications_enabled,
 	(value) => {
 		emailEnabled.value = value;
 	},
 );
+
+function handleAssetsChanged(assets: InitialAsset[]) {
+	currentAssets.value = assets;
+}
 
 // --- Assets form (unchanged, future refactor candidate) ---
 const assetsFormElement = ref<HTMLFormElement | null>(null);

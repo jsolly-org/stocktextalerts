@@ -39,7 +39,7 @@
 					:form-submitted="formSubmitted"
 					:is-sending-verification="isSendingVerification"
 					:is-verifying-code="isVerifyingCode"
-					@otp-input="formSubmitted = false"
+					@otp-input="handleOtpInput"
 					@change-number="handleChangeNumberClick"
 				/>
 			</fieldset>
@@ -112,6 +112,10 @@ function handleValidityChanged(isValid: boolean) {
  */
 function handleChangeNumberClick() {
 	isEditingPhone.value = true;
+}
+
+function handleOtpInput() {
+	formSubmitted.value = false;
 }
 
 /** After the expand transition, focus the phone setup input for faster completion. */

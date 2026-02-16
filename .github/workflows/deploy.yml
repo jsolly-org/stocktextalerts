@@ -13,6 +13,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    if: ${{ github.actor != 'nektos/act' }}
     steps:
       - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/run-ci

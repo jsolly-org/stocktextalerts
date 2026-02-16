@@ -8,9 +8,8 @@
 			@keydown="handleKeydown"
 			placeholder="AAPL, VOO, Tesla, etc"
 			autocomplete="off"
-			role="combobox"
 			aria-haspopup="listbox"
-			:aria-expanded="showDropdown"
+			:aria-expanded="showDropdown ? 'true' : 'false'"
 			aria-controls="asset_dropdown"
 			aria-autocomplete="list"
 			:aria-activedescendant="
@@ -19,7 +18,7 @@
 			:aria-describedby="inputAriaDescribedBy"
 			:disabled="props.disabled"
 			class="input disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-			@focus="showDropdown = true"
+			@focus="handleFocus"
 		/>
 
 		<ul
@@ -176,6 +175,10 @@ const selectAsset = (result: AssetSearchResult) => {
 const handleInput = () => {
 	showDropdown.value = true;
 	highlightedIndex.value = -1;
+};
+
+const handleFocus = () => {
+	showDropdown.value = true;
 };
 
 const handleKeydown = (e: KeyboardEvent) => {
