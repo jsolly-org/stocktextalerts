@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { APIContext } from "astro";
+import { MIN_PASSWORD_LENGTH } from "../../../../lib/constants";
 import { getSiteUrl } from "../../../../lib/db/env";
 import {
 	createSupabaseAdminClient,
@@ -58,6 +59,14 @@ export async function POST({
 	}
 
 	const { email: rawEmail, password, timezone } = parsed.data;
+
+	if (password.length < MIN_PASSWORD_LENGTH) {
+		logger.info("Registration rejected: password too short", {
+			passwordLength: password.length,
+			minLength: MIN_PASSWORD_LENGTH,
+		});
+		return redirect("/auth/register?error=weak_password");
+	}
 
 	// Trim email to satisfy our database constraints (no leading/trailing whitespace).
 	// Supabase Auth doesn't enforce this constraint (external service owns its storage/constraints),
