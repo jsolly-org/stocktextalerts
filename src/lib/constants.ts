@@ -66,6 +66,13 @@ export const US_MARKET_CLOSE_EASTERN_MINUTES = 16 * 60; // 4:00 PM ET
 export const US_MARKET_TIMEZONE = "America/New_York";
 
 /* =============
+Password Policy
+============= */
+
+/** Minimum password length enforced at the application level. */
+export const MIN_PASSWORD_LENGTH = 8;
+
+/* =============
 SMS Verification Timing
 ============= */
 
