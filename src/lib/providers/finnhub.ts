@@ -2,7 +2,7 @@ import { FINNHUB_BASE_URL } from "../constants";
 import { rootLogger } from "../logging";
 import { type CompanyNewsItem, fetchCompanyNews } from "./company-news";
 
-type DeliveryChannel = "sms" | "email";
+export type DeliveryChannel = "sms" | "email";
 
 /* =============
 Types
@@ -26,7 +26,7 @@ export interface InsiderTransaction {
 }
 
 /** Batch “extras” data fetched from Finnhub for a set of symbols. */
-interface FinnhubExtrasData {
+export interface FinnhubExtrasData {
 	news: Map<string, CompanyNewsItem[]>;
 	analyst: Map<string, RecommendationTrend | null>;
 	insider: Map<string, InsiderTransaction[]>;
