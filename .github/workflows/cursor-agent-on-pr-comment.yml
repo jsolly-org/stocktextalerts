@@ -269,15 +269,21 @@ jobs:
           # Rebase our commit(s) onto the latest remote tip so we can fast-forward push without force.
           MAX_PUSH_ATTEMPTS=3
           for attempt in $(seq 1 "$MAX_PUSH_ATTEMPTS"); do
+            LOCAL_TIP="$(git rev-parse HEAD)"
             git fetch "$REMOTE_URL" "$HEAD_REF"
 
             if ! git rebase FETCH_HEAD; then
               echo "##[warning]Rebase onto latest tip failed for $HEAD_REF. Retrying with conflict auto-resolution."
               git rebase --abort || true
-              if ! git rebase -X theirs FETCH_HEAD; then
-                echo "##[error]Failed to rebase onto latest remote tip for $HEAD_REF after auto-resolution."
+              if ! git rebase -X ours FETCH_HEAD; then
+                echo "##[warning]Rebase with auto-resolution failed. Falling back to reset + cherry-pick."
                 git rebase --abort || true
-                exit 1
+                git reset --hard FETCH_HEAD
+                if ! git cherry-pick -X ours "$LOCAL_TIP"; then
+                  echo "##[error]Failed to replay local commit on top of latest remote tip for $HEAD_REF."
+                  git cherry-pick --abort || true
+                  exit 1
+                fi
               fi
             fi
 
@@ -319,7 +325,7 @@ jobs:
           
           The agent made changes and the pre-commit checks passed, but the workflow could not push the commit to the PR branch.
 
-          The workflow attempted a rebase retry with conflict auto-resolution (favoring agent changes) before failing.
+          The workflow attempted a rebase retry with conflict auto-resolution and a reset/cherry-pick fallback (favoring agent changes) before failing.
           
           $COMMENT_REFERENCE
           
