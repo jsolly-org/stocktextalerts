@@ -18,7 +18,7 @@ vi.mock("../../../src/lib/time/market-scheduled-next-send", () => ({
 
 describe("An authenticated user requests the next market notification send time.", () => {
 	beforeEach(() => {
-		vi.resetAllMocks();
+		vi.clearAllMocks();
 	});
 
 	it("The API returns the computed next send time for valid timezone and times.", async () => {
