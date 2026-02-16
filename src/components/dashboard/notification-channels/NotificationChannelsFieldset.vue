@@ -90,8 +90,7 @@
 						:inputName="`daily_digest_time`"
 						:initialTime="props.dailyDeliveryTimeInput"
 						inputAriaLabel="Daily digest delivery time"
-						:disabled="!hasNotificationChannel"
-						:clearable="props.dailyDeliveryTimeMinutes !== null && hasNotificationChannel"
+						:clearable="props.dailyDeliveryTimeMinutes !== null"
 						clearAriaLabel="Clear delivery time"
 						:is24="props.is24"
 						@time-change="emit('dailyTimeChange', $event)"
@@ -166,13 +165,7 @@ const smsEnabled = computed({
 	set: (value: boolean) => emit("update:smsNotificationsEnabled", value),
 });
 
-const hasNotificationChannel = computed(
-	() =>
-		props.emailEnabled ||
-		(props.smsNotificationsEnabled && props.phoneVerified && !props.smsOptedOut),
-);
-
 const canSetMarketOpen = computed(
-	() => hasNotificationChannel.value && !props.isMarketOpenTime,
+	() => !props.isMarketOpenTime,
 );
 </script>
