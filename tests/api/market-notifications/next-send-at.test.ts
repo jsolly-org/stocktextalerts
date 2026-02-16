@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { DateTime } from "luxon";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../../../src/pages/api/market-notifications/next-send-at";
 import { TEST_PASSWORD } from "../../helpers/constants";
 import { createAuthenticatedCookies } from "../../helpers/test-env";
@@ -17,6 +17,10 @@ vi.mock("../../../src/lib/time/market-scheduled-next-send", () => ({
 }));
 
 describe("An authenticated user requests the next market notification send time.", () => {
+	beforeEach(() => {
+		vi.resetAllMocks();
+	});
+
 	it("The API returns the computed next send time for valid timezone and times.", async () => {
 		const testUser = await createTestUser({
 			email: `test-${randomUUID()}@resend.dev`,

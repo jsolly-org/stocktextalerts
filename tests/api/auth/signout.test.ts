@@ -39,6 +39,9 @@ describe("A signed-in user signs out of the app.", () => {
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toBe("/dashboard");
+
+		const deleted = deleteSpy.mock.calls.map(([name]) => name);
+		expect(deleted).toEqual(["sb-access-token", "sb-refresh-token"]);
 	});
 
 	it("The signout confirmation page escapes next links in HTML attributes.", async () => {
