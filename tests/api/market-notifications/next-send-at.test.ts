@@ -68,7 +68,12 @@ describe("An authenticated user requests the next market notification send time.
 		};
 		expect(payload.ok).toBe(true);
 		expect(payload.message).toBe("ok");
-		expect(payload.nextSendAtIso).toBe("2026-02-16T14:30:00.000Z");
+		// Compare as UTC millis so the assertion is timezone-representation-agnostic.
+		const nextSendAtIso = payload.nextSendAtIso;
+		expect(nextSendAtIso).not.toBeNull();
+		expect(DateTime.fromISO(nextSendAtIso as string).toMillis()).toBe(
+			DateTime.fromISO("2026-02-16T14:30:00.000Z").toMillis(),
+		);
 		expect(payload.delayReasons).toEqual([]);
 	});
 });

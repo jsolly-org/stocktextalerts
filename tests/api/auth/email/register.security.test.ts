@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
-import { MIN_PASSWORD_LENGTH } from "../../../../../src/lib/constants";
-import { POST } from "../../../../../src/pages/api/auth/email/register";
+import { MIN_PASSWORD_LENGTH } from "../../../../src/lib/constants";
+import { POST } from "../../../../src/pages/api/auth/email/register";
 import { toRedirect } from "../../../helpers/request-helpers";
 
 describe("A visitor attempts to register with an invalid password.", () => {
