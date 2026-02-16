@@ -1,3 +1,6 @@
+# Runs after every push to main. Creates up to 3 follow-up GitHub issues based
+# on the recent changes, and updates documentation files (README, FAQ,
+# HowItWorks) to reflect the latest code.
 name: Post Main Push
 
 on:
