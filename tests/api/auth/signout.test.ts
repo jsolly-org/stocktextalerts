@@ -23,6 +23,24 @@ describe("A signed-in user signs out of the app.", () => {
 		expect(deleted).toEqual(["sb-access-token", "sb-refresh-token"]);
 	});
 
+	it("When next is a valid path, the user is redirected there after sign-out.", async () => {
+		const deleteSpy = vi.fn();
+		const response = await POST({
+			cookies: {
+				delete: deleteSpy,
+			},
+			redirect: (url: string) =>
+				new Response(null, {
+					status: 302,
+					headers: { Location: url },
+				}),
+			url: new URL("https://example.com/api/auth/signout?next=/dashboard"),
+		} as unknown as APIContext);
+
+		expect(response.status).toBe(302);
+		expect(response.headers.get("Location")).toBe("/dashboard");
+	});
+
 	it("The signout confirmation page escapes next links in HTML attributes.", async () => {
 		const response = await GET({
 			url: new URL(
