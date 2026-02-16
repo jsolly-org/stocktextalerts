@@ -72,16 +72,16 @@
 			</p>
 		</header>
 
-				<SetupRequiredNotice
-					:needsTrackedAssets="needsTrackedAssets"
-					trackedAssetsMessage="Add at least one tracked stock to enable calendar events, analyst consensus, and insider trades"
-					:needsChannelSelection="needsChannelSelection"
-					:needsPhoneVerification="needsPhoneVerification"
-					:phoneVerificationSectionId="phoneVerificationSectionId"
-				/>
+		<SetupRequiredNotice
+			:needsTrackedAssets="needsTrackedAssets"
+			trackedAssetsMessage="Add at least one tracked stock to enable calendar events, analyst consensus, and insider trades"
+			:needsChannelSelection="needsChannelSelection"
+			:needsPhoneVerification="needsPhoneVerification"
+			:phoneVerificationSectionId="phoneVerificationSectionId"
+		/>
 
 		<!-- Asset Events — each event type has its own Email/SMS toggles -->
-		<div class="space-y-3">
+		<div class="mt-4 space-y-3">
 			<!-- Select all Email / SMS — column header -->
 				<div
 					class="flex items-center justify-between gap-3 px-4 transition-opacity duration-200"
@@ -170,7 +170,7 @@
 							:aria-label="`${eventType.label} Email`"
 							:aria-describedby="`asset_events_${eventType.key}_description`"
 						/>
-						<span class="text-sm text-label">Email</span>
+						<span class="text-sm font-normal text-label">Email</span>
 					</label>
 					<label class="inline-flex items-center gap-1.5" :class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
 						<input
@@ -182,7 +182,7 @@
 							:aria-label="`${eventType.label} SMS`"
 							:aria-describedby="`asset_events_${eventType.key}_description`"
 						/>
-						<span class="text-sm text-label">SMS</span>
+						<span class="text-sm font-normal text-label">SMS</span>
 					</label>
 				</div>
 			</div>

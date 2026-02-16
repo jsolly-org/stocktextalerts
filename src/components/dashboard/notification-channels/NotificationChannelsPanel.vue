@@ -292,22 +292,15 @@ function handleDailyTimeChange(value: string) {
 }
 
 function handleClearDeliveryTime() {
-	if (!hasNotificationChannel.value) return;
 	dailyDeliveryTimeMinutes.value = null;
 	notifyChange();
 }
 
 function handleSetMarketOpen() {
-	if (marketOpenLocalMinutes.value === null || !hasNotificationChannel.value || isMarketOpenTime.value) return;
+	if (marketOpenLocalMinutes.value === null || isMarketOpenTime.value) return;
 	dailyDeliveryTimeMinutes.value = marketOpenLocalMinutes.value;
 	notifyChange();
 }
-
-const hasNotificationChannel = computed(
-	() =>
-		emailEnabled.value ||
-		(smsNotificationsEnabled.value && phoneVerified.value && !smsOptedOut.value),
-);
 
 // Sync delivery time from user state (e.g. after save from another panel)
 watch(
