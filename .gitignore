@@ -14,6 +14,7 @@ logs/
 
 # environment variables
 .env*
+.act.secrets
 
 # macOS-specific files
 .DS_Store

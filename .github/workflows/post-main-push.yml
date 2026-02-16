@@ -11,7 +11,7 @@ permissions:
   issues: write
 
 env:
-  GH_TOKEN: ${{ github.token }}
+  GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
 
 jobs:
   create-issues:
@@ -38,7 +38,7 @@ jobs:
         env:
           MODEL: gpt-5.3-codex
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
         run: |
           agent -p "You are operating in a GitHub Actions runner.
 
@@ -146,7 +146,7 @@ jobs:
         env:
           MODEL: gpt-5.3-codex
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
         run: |
           agent -p "You are operating in a GitHub Actions runner.
 

@@ -11,7 +11,7 @@ permissions:
   issues: write
 
 env:
-  GH_TOKEN: ${{ github.token }}
+  GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
 
 jobs:
   code-quality:
@@ -37,7 +37,7 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
 
       - name: Checkout repository
         if: steps.check-pr.outputs.skip != 'true'
@@ -67,7 +67,7 @@ jobs:
         env:
           MODEL: gpt-5.3-codex
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
         run: |
           agent -p "You are operating in a GitHub Actions runner. Git and the \`gh\` CLI are available and authenticated.
 
@@ -105,7 +105,7 @@ jobs:
       - name: Create pull request
         if: steps.check-pr.outputs.skip != 'true' && steps.changes.outputs.has_changes == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
         run: |
           gh pr create \
             --title "chore(nightly): code quality cleanup — $(date +%Y-%m-%d)" \

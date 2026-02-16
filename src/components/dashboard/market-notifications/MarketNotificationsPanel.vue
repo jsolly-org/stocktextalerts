@@ -328,7 +328,7 @@
 							<MassiveLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
 						</div>
 						<p id="market_scheduled_asset_price_enabled_description" class="text-sm text-body-secondary mt-0.5">
-							Scheduled asset price updates for all tracked assets, including ETFs.
+							Scheduled asset price updates for all tracked assets, including ETFs, at fixed notification times.
 						</p>
 					</div>
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
