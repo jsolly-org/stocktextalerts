@@ -9,6 +9,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: write
 
 concurrency:
   group: update-dependabot-branches
@@ -30,7 +31,7 @@ jobs:
             --state open \
             --base main \
             --author 'app/dependabot' \
-            --json number,mergeStateStatus,isDraft,url)"
+            --json number,mergeStateStatus,isDraft,url,headRefName)"
 
           count="$(jq 'length' <<<"$prs")"
           echo "Found $count open Dependabot PR(s)."
@@ -46,6 +47,7 @@ jobs:
             state="$(jq -r '.mergeStateStatus' <<<"$pr")"
             draft="$(jq -r '.isDraft' <<<"$pr")"
             url="$(jq -r '.url' <<<"$pr")"
+            head_ref="$(jq -r '.headRefName' <<<"$pr")"
 
             if [[ "$draft" == "true" ]]; then
               echo "Skipping draft PR #$number ($url)."
@@ -54,16 +56,20 @@ jobs:
 
             if [[ "$state" != "BEHIND" ]]; then
               echo "Skipping PR #$number ($url): mergeStateStatus=$state."
-              continue
+            else
+              echo "Updating PR #$number ($url)."
+              gh api \
+                --method PUT \
+                "repos/$GH_REPO/pulls/$number/update-branch" \
+                --silent
+
+              updated=$((updated + 1))
             fi
 
-            echo "Updating PR #$number ($url)."
-            gh api \
-              --method PUT \
-              "repos/$GH_REPO/pulls/$number/update-branch" \
-              --silent
-
-            updated=$((updated + 1))
+            echo "Dispatching required checks for PR #$number on branch $head_ref."
+            gh workflow run noDeploy.yml \
+              --repo "$GH_REPO" \
+              --ref "$head_ref"
           done < <(jq -c '.[]' <<<"$prs")
 
           echo "Queued updates for $updated PR(s)."
