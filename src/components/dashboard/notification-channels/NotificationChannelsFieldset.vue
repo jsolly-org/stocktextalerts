@@ -41,7 +41,7 @@
 					<input
 						type="hidden"
 						name="sms_notifications_enabled"
-						:value="smsEnabled ? 'on' : 'off'"
+						:value="smsEnabledModel ? 'on' : 'off'"
 					/>
 					<div>
 						<span :id="`${props.smsStatusId}_label`" class="text-sm font-medium text-heading">SMS Notifications</span>

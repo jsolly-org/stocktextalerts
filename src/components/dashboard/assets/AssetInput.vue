@@ -3,6 +3,7 @@
 		<input
 			type="text"
 			id="asset_search"
+			role="combobox"
 			v-model="rawSearchQuery"
 			@input="handleInput"
 			@keydown="handleKeydown"
