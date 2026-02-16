@@ -1,15 +1,9 @@
 import type { APIRoute } from "astro";
 import { clearAuthCookies } from "../../../lib/auth/cookies";
+import { getSafeRedirectPath } from "../../../lib/auth/redirects";
 
 function getSafeNext(nextParam: string | null): string {
-	if (!nextParam) {
-		return "/";
-	}
-	// Only allow same-site relative paths to avoid open redirects.
-	// Block protocol-relative URLs (e.g., "//evil.com") and ensure single leading slash.
-	return nextParam.startsWith("/") && !nextParam.startsWith("//")
-		? nextParam
-		: "/";
+	return getSafeRedirectPath(nextParam) ?? "/";
 }
 
 function escapeHtmlAttribute(value: string): string {
