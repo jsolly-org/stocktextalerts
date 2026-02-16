@@ -1,4 +1,4 @@
-name: Update Dependabot Branches
+name: Update Open PR Branches
 
 on:
   push:
@@ -9,17 +9,17 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  actions: write
 
 concurrency:
-  group: update-dependabot-branches
+  group: update-open-pr-branches
   cancel-in-progress: true
 
 jobs:
   update-branches:
     runs-on: ubuntu-latest
+    if: ${{ github.actor != 'nektos/act' }}
     steps:
-      - name: Update open Dependabot PR branches that are behind main
+      - name: Update open PR branches that are behind main
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -30,46 +30,53 @@ jobs:
             --repo "$GH_REPO" \
             --state open \
             --base main \
-            --author 'app/dependabot' \
-            --json number,mergeStateStatus,isDraft,url,headRefName)"
+            --limit 200 \
+            --json number,mergeStateStatus,isDraft,url)"
 
           count="$(jq 'length' <<<"$prs")"
-          echo "Found $count open Dependabot PR(s)."
+          echo "Found $count open PR(s)."
 
           if [[ "$count" -eq 0 ]]; then
             exit 0
           fi
 
           updated=0
+          update_failed=0
+          skipped_drafts=0
+          skipped_not_behind=0
 
           while IFS= read -r pr; do
             number="$(jq -r '.number' <<<"$pr")"
             state="$(jq -r '.mergeStateStatus' <<<"$pr")"
             draft="$(jq -r '.isDraft' <<<"$pr")"
             url="$(jq -r '.url' <<<"$pr")"
-            head_ref="$(jq -r '.headRefName' <<<"$pr")"
 
             if [[ "$draft" == "true" ]]; then
               echo "Skipping draft PR #$number ($url)."
+              skipped_drafts=$((skipped_drafts + 1))
               continue
             fi
 
             if [[ "$state" != "BEHIND" ]]; then
               echo "Skipping PR #$number ($url): mergeStateStatus=$state."
+              skipped_not_behind=$((skipped_not_behind + 1))
             else
               echo "Updating PR #$number ($url)."
-              gh api \
+              if gh api \
                 --method PUT \
                 "repos/$GH_REPO/pulls/$number/update-branch" \
-                --silent
-
-              updated=$((updated + 1))
+                --silent; then
+                updated=$((updated + 1))
+              else
+                echo "Could not update PR #$number (permissions or merge constraints)."
+                update_failed=$((update_failed + 1))
+              fi
             fi
 
-            echo "Dispatching required checks for PR #$number on branch $head_ref."
-            gh workflow run noDeploy.yml \
-              --repo "$GH_REPO" \
-              --ref "$head_ref"
           done < <(jq -c '.[]' <<<"$prs")
 
-          echo "Queued updates for $updated PR(s)."
+          echo "Summary:"
+          echo "- updated=$updated"
+          echo "- update_failed=$update_failed"
+          echo "- skipped_drafts=$skipped_drafts"
+          echo "- skipped_not_behind=$skipped_not_behind"

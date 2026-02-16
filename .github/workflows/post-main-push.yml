@@ -15,42 +15,17 @@ env:
 
 jobs:
   create-issues:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.actor == 'jsolly' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.actor == 'jsolly') && github.actor != 'nektos/act' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Ensure GitHub CLI (act only)
-        if: ${{ env.ACT == 'true' }}
-        run: |
-          if command -v gh >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
-            exit 0
-          fi
-          SUDO=""
-          if command -v sudo >/dev/null 2>&1; then
-            SUDO="sudo"
-          fi
-          $SUDO apt-get update
-          if ! command -v jq >/dev/null 2>&1; then
-            $SUDO apt-get install -y jq
-          fi
-          if ! command -v gh >/dev/null 2>&1; then
-            if ! $SUDO apt-get install -y gh; then
-              type -p curl >/dev/null 2>&1 || $SUDO apt-get install -y curl
-              curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | $SUDO dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-              $SUDO chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
-              echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | $SUDO tee /etc/apt/sources.list.d/github-cli.list >/dev/null
-              $SUDO apt-get update
-              $SUDO apt-get install -y gh
-            fi
-          fi
-
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
         with:
           ref: main
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v6.2.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -140,6 +115,13 @@ jobs:
           - If zero issues were created, print: NO_ISSUES_NEEDED
           " --force --model "$MODEL" --output-format=text
 
+      - name: Drop workflow file edits
+        run: |
+          if git diff --name-only -- .github/workflows .github/actions | grep -q .; then
+            echo "Reverting workflow and action file edits from agent output."
+            git restore --staged --worktree -- .github/workflows .github/actions
+          fi
+
       - name: Log results
         run: |
           echo "---"
@@ -148,42 +130,17 @@ jobs:
           echo "---"
 
   update-docs:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.actor == 'jsolly' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.actor == 'jsolly') && github.actor != 'nektos/act' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Ensure GitHub CLI (act only)
-        if: ${{ env.ACT == 'true' }}
-        run: |
-          if command -v gh >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
-            exit 0
-          fi
-          SUDO=""
-          if command -v sudo >/dev/null 2>&1; then
-            SUDO="sudo"
-          fi
-          $SUDO apt-get update
-          if ! command -v jq >/dev/null 2>&1; then
-            $SUDO apt-get install -y jq
-          fi
-          if ! command -v gh >/dev/null 2>&1; then
-            if ! $SUDO apt-get install -y gh; then
-              type -p curl >/dev/null 2>&1 || $SUDO apt-get install -y curl
-              curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | $SUDO dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-              $SUDO chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
-              echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | $SUDO tee /etc/apt/sources.list.d/github-cli.list >/dev/null
-              $SUDO apt-get update
-              $SUDO apt-get install -y gh
-            fi
-          fi
-
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
         with:
           ref: main
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v6.2.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -242,6 +199,13 @@ jobs:
           - A commit pushed directly to \`main\` that changes only the allowed files.
           - After pushing, print exactly one line so the workflow can log it: \`DOCS_PUSHED_SHA=\$(git rev-parse HEAD)\`
           " --force --model "$MODEL" --output-format=text
+
+      - name: Drop workflow file edits
+        run: |
+          if git diff --name-only -- .github/workflows .github/actions | grep -q .; then
+            echo "Reverting workflow and action file edits from agent output."
+            git restore --staged --worktree -- .github/workflows .github/actions
+          fi
 
       - name: Log latest commit on main
         run: |

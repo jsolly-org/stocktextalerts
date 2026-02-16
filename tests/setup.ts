@@ -110,6 +110,12 @@ async function cleanupAllNonPreservedUsers(): Promise<void> {
 					user.id,
 				);
 				if (deleteError) {
+					const code = (deleteError as { code?: string }).code;
+					const status = (deleteError as { status?: number }).status;
+					// Another test worker may have removed this auth row first.
+					if (code === "user_not_found" || status === 404) {
+						return;
+					}
 					throw new Error(`Failed to delete auth user ${user.id}`, {
 						cause: deleteError,
 					});

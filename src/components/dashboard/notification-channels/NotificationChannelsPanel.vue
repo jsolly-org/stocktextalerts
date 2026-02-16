@@ -49,7 +49,7 @@
 			</div>
 
 			<NotificationChannelsFieldset
-				v-model:emailEnabled="emailEnabled"
+				v-model:emailEnabled="emailEnabledModel"
 				v-model:smsNotificationsEnabled="smsNotificationsEnabled"
 				:phone-verified="phoneVerified"
 				:sms-opted-out="smsOptedOut"
@@ -204,7 +204,7 @@ const emailNotificationsEnabledId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_I
 const smsStatusId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-sms_status`;
 const notificationChannelsDescId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-notification-channels-desc`;
 
-const emailEnabled = computed({
+const emailEnabledModel = computed({
 	get: () => emailEnabledProp.value,
 	set: (value: boolean) => emit("update:emailEnabled", value),
 });
@@ -217,7 +217,7 @@ const smsNotificationsEnabled = computed({
 		user.value = { ...user.value, sms_notifications_enabled: value };
 	},
 });
-watch([emailEnabled, smsNotificationsEnabled], () => {
+watch([emailEnabledModel, smsNotificationsEnabled], () => {
 	notifyChange();
 });
 
