@@ -31,7 +31,7 @@ jobs:
       WARNINGS_FILE: /tmp/cursor-agent-warnings.txt
     steps:
       - name: Checkout workflow and actions
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
         with:
           ref: main
           fetch-depth: 1
@@ -100,7 +100,7 @@ jobs:
 
       - name: Checkout PR head
         if: steps.context.outputs.run_agent == 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
         with:
           repository: ${{ steps.context.outputs.head_repo }}
           ref: ${{ steps.context.outputs.head_ref }}
@@ -110,7 +110,7 @@ jobs:
 
       - name: Setup Node.js (for agent)
         if: steps.context.outputs.run_agent == 'true'
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v6.2.0
         with:
           node-version-file: .nvmrc
           cache: npm
