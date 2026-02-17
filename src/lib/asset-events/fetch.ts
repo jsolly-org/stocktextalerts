@@ -15,7 +15,8 @@ const RETENTION_WEEKS = 4;
  * filter calendar events to symbols tracked by any user, and upsert into the
  * `asset_events` table. IPOs are stored market-wide (not watchlist-scoped).
  *
- * Skips the fetch if events for this `weekOf` already exist (idempotent).
+ * Deduplication is handled by the DB unique index `(symbol, event_type, event_date)`
+ * via upsert, so this function is safe to call repeatedly for the same week.
  * Cleans up rows older than RETENTION_WEEKS.
  */
 export async function fetchAndStoreAssetEvents(options: {
@@ -23,34 +24,8 @@ export async function fetchAndStoreAssetEvents(options: {
 	weekStart: string; // YYYY-MM-DD (Monday)
 	weekEnd: string; // YYYY-MM-DD (Friday)
 	logger: Logger;
-}): Promise<{ inserted: number; skipped: boolean }> {
+}): Promise<{ upserted: number }> {
 	const { supabase, weekStart, weekEnd, logger } = options;
-
-	// Idempotency: skip if we already have events for this week
-	const { count, error: countError } = await supabase
-		.from("asset_events")
-		.select("id", { count: "exact", head: true })
-		.eq("week_of", weekStart);
-
-	if (countError) {
-		logger.error("Failed to check existing asset_events", {
-			action: "fetch_asset_events",
-			weekStart,
-			error: countError.message,
-		});
-		throw new Error(
-			`Failed to check existing asset_events for ${weekStart}: ${countError.message}`,
-		);
-	}
-
-	if (count && count > 0) {
-		logger.info("Asset events already fetched for this week, skipping", {
-			action: "fetch_asset_events",
-			weekStart,
-			existingCount: count,
-		});
-		return { inserted: 0, skipped: true };
-	}
 
 	// Get distinct symbols tracked by any user
 	const { data: trackedSymbols, error: symbolsError } = await supabase
@@ -190,7 +165,7 @@ export async function fetchAndStoreAssetEvents(options: {
 	logger.info("Asset events stored", {
 		action: "fetch_asset_events",
 		weekStart,
-		inserted: rows.length,
+		upserted: rows.length,
 	});
 
 	// Cleanup old rows
@@ -212,5 +187,5 @@ export async function fetchAndStoreAssetEvents(options: {
 		});
 	}
 
-	return { inserted: rows.length, skipped: false };
+	return { upserted: rows.length };
 }
