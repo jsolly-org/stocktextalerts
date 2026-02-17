@@ -189,7 +189,15 @@ export async function deliverStagedNotifications(options: {
 				stagedId: row.id,
 				userId: row.user_id,
 			});
-			await deleteStagedNotification(supabase, row.id);
+			try {
+				await deleteStagedNotification(supabase, row.id);
+			} catch (error) {
+				logger.error(
+					"Failed to delete staged notification (user not found)",
+					{ action: "staged_deliver", stagedId: row.id, userId: row.user_id },
+					error,
+				);
+			}
 			continue;
 		}
 
