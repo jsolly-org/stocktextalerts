@@ -7,6 +7,13 @@ import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
 import { createLogger } from "../../../../lib/logging";
 
+/**
+ * POST /api/auth/sms/send-verification
+ *
+ * Sends an SMS verification code to the authenticated user's phone number.
+ * Expects form fields: phone_country_code, phone_number.
+ * Applies cooldown between sends; returns 429 if a verification was recently sent.
+ */
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({

@@ -10,6 +10,14 @@ import {
 import { parseWithSchema } from "../../../../lib/forms/parse";
 import { createLogger } from "../../../../lib/logging";
 
+/**
+ * POST /api/auth/sms/verify-code
+ *
+ * Verifies the SMS code submitted by the authenticated user.
+ * Expects form field: code.
+ * Marks phone_verified and enables sms_notifications if not opted out.
+ * Rate-limited and rejects expired codes.
+ */
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({

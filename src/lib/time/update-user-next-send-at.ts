@@ -8,7 +8,15 @@ import { calculateNextSendAt } from "./scheduled-times";
  * Recompute and persist a user's single-time next_send_at column.
  *
  * When `getLocalMinutes` returns null, the column is cleared. Otherwise the next UTC
- * send time is calculated and stored. Reduces duplication between asset-events and daily-digest.
+ * send time is calculated from the user's timezone and local delivery minutes, then stored.
+ * Reduces duplication between asset-events and daily-digest.
+ *
+ * @param options.user - User record with timezone
+ * @param options.supabase - Supabase admin client
+ * @param options.logger - Logger for error reporting
+ * @param options.currentTime - Current time (for computing next send)
+ * @param options.column - Target column: asset_events_next_send_at or daily_digest_next_send_at
+ * @param options.getLocalMinutes - Function returning local delivery minutes (0–1439) or null if disabled
  */
 export async function updateUserNextSendAtSingleTime(options: {
 	user: UserRecord;

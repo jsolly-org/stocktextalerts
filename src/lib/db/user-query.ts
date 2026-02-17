@@ -6,7 +6,18 @@ const RETRY_DELAY_MS = 1000;
 
 /**
  * Execute a users-table query with retries on transient errors.
+ *
+ * Runs `execute` up to 3 times (initial + 2 retries). On success, returns the data array
+ * (or empty array if null). On each transient error, logs a warning, waits 1 second, and retries.
+ * Throws after all retries are exhausted.
+ *
  * Reduces duplication across asset-events, daily-digest, and market-scheduled query modules.
+ *
+ * @param options.supabase - Supabase admin client for database access
+ * @param options.logger - Logger for error/warn messages
+ * @param options.label - Label for log messages (e.g. "scheduled users")
+ * @param options.execute - Async function returning `{ data, error }` from a Supabase query
+ * @returns Array of typed user records on success
  */
 export async function fetchUsersWithRetry<T>(options: {
 	supabase: SupabaseAdminClient;
