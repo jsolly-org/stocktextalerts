@@ -35,7 +35,9 @@ describe("Claim cooldown atomicity under concurrency", () => {
 			),
 		);
 
-		const claimed = results.filter((r) => !r.error).map((r) => Boolean(r.data));
+		const errors = results.filter((r) => r.error);
+		expect(errors).toHaveLength(0);
+		const claimed = results.map((r) => Boolean(r.data));
 		const successCount = claimed.filter(Boolean).length;
 
 		expect(successCount).toBe(1);
