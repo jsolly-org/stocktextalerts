@@ -50,8 +50,12 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 	}
 
 	const query = url.searchParams.get("q")?.trim() ?? "";
+	const MAX_QUERY_LENGTH = 100;
 	if (query.length < 1) {
 		return jsonResponse(200, { ok: true, message: "ok", results: [] });
+	}
+	if (query.length > MAX_QUERY_LENGTH) {
+		return jsonResponse(400, { ok: false, message: "query_too_long" });
 	}
 
 	const limitParam = Number.parseInt(url.searchParams.get("limit") ?? "", 10);
