@@ -63,7 +63,7 @@ export async function fetchDueStagedNotifications(
 		throw error;
 	}
 
-	return (data ?? []) as unknown as StagedNotificationRow[];
+	return data as unknown as StagedNotificationRow[];
 }
 
 /**
