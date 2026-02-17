@@ -5,6 +5,11 @@
 import type { APIContext } from "astro";
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../../../src/lib/time/market-calendar", () => ({
+	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
+}));
+
 import * as deliverModule from "../../../src/lib/staged-notifications/deliver";
 import { POST } from "../../../src/pages/api/schedule";
 import { createScheduleRequest } from "../../helpers/schedule-request";
