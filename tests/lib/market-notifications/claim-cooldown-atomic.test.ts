@@ -6,6 +6,8 @@ import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 /**
  * Verifies that concurrent cooldown claims for the same user+symbol are atomic:
  * only one caller succeeds, preventing duplicate alerts under overlapping cron ticks.
+ * Exercises `claim_market_asset_price_alert_slot` RPC (INSERT ... ON CONFLICT DO UPDATE)
+ * with five parallel calls sharing identical params; exactly one must return true.
  */
 describe("Claim cooldown atomicity under concurrency", () => {
 	it("Concurrent claims for same user+symbol: exactly one succeeds (first_only)", async () => {
