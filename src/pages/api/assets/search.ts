@@ -8,6 +8,7 @@ const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 20;
 const SEARCH_CANDIDATE_MULTIPLIER = 5;
 
+/** Assigns a rank for search result ordering (0 = exact symbol match, 4 = no match). */
 function getAssetSearchRank(
 	row: { symbol: string; name: string },
 	normalizedQuery: string,
@@ -34,6 +35,12 @@ function getAssetSearchRank(
 	return 4;
 }
 
+/**
+ * Search assets by symbol or name prefix/substring.
+ *
+ * Requires authentication. Query length is limited to prevent abuse.
+ * Returns results sorted by relevance (exact symbol > symbol prefix > name prefix > name contains).
+ */
 export const GET: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({
@@ -50,8 +57,13 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 	}
 
 	const query = url.searchParams.get("q")?.trim() ?? "";
+	/** Limit query length to reduce ILIKE load and prevent abuse. */
+	const MAX_QUERY_LENGTH = 100;
 	if (query.length < 1) {
 		return jsonResponse(200, { ok: true, message: "ok", results: [] });
+	}
+	if (query.length > MAX_QUERY_LENGTH) {
+		return jsonResponse(400, { ok: false, message: "query_too_long" });
 	}
 
 	const limitParam = Number.parseInt(url.searchParams.get("limit") ?? "", 10);
