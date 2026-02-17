@@ -8,9 +8,9 @@ import type { Logger } from "../logging";
  * Returns the extracted secret string on success, or `null` on failure
  * (after logging the reason).
  */
-/** Rejects empty or weak secrets (min 12 chars) to prevent accidental misconfiguration. */
-function isAcceptableSecret(value: string | undefined): value is string {
-	return typeof value === "string" && value.trim().length >= 12;
+/** Reject weak secrets (presence is already validated in middleware). */
+function isAcceptableSecret(value: string): boolean {
+	return value.trim().length >= 12;
 }
 
 export function verifyCronSecret(
@@ -18,18 +18,12 @@ export function verifyCronSecret(
 	logger: Logger,
 ): string | null {
 	const authHeader = request.headers.get("authorization");
-	const envCronSecret = import.meta.env.CRON_SECRET;
+	const envCronSecret = import.meta.env.CRON_SECRET as string;
 
 	if (!isAcceptableSecret(envCronSecret)) {
-		logger.error(
-			"CRON_SECRET format/strength unacceptable (minimum 12 characters)",
-			{
-				action: "cron_auth",
-				source: "verifyCronSecret",
-				validator: "isAcceptableSecret",
-				validatedVar: "CRON_SECRET",
-			},
-		);
+		logger.error("CRON_SECRET is too short (minimum 12 characters)", {
+			action: "cron_auth",
+		});
 		return null;
 	}
 
