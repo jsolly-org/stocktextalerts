@@ -81,6 +81,7 @@ const trackRef = ref<HTMLElement | null>(null);
 const cardRefs = ref<(HTMLElement | null)[]>([]);
 const prefersReducedMotion = ref(false);
 let motionQuery: MediaQueryList | null = null;
+let isMobileQuery: MediaQueryList | null = null;
 
 // --- Touch tracking ---
 let touchStartX: number | null = null;
@@ -220,7 +221,7 @@ function handleTrackClick(event: MouseEvent) {
 	if (!href?.startsWith("#")) return;
 
 	// On desktop, preserve native in-page hash navigation between stacked panels.
-	if (!window.matchMedia("(max-width: 767.99px)").matches) return;
+	if (!isMobileQuery?.matches) return;
 
 	const hash = href.slice(1);
 	const index = HASH_TO_TAB_INDEX[hash];
@@ -246,6 +247,7 @@ function syncToHash() {
 
 onMounted(() => {
 	motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+	isMobileQuery = window.matchMedia("(max-width: 767.99px)");
 	prefersReducedMotion.value = motionQuery.matches;
 	motionQuery.addEventListener("change", handleMotionChange);
 
