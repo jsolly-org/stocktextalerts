@@ -56,6 +56,8 @@ export async function fetchPriceAlertUsers(
 
 /**
  * Atomically claim per-symbol eligibility for the current US trading day.
+ * Single RPC (INSERT ... ON CONFLICT DO UPDATE) prevents duplicate sends under
+ * overlapping cron ticks or retries.
  *
  * Returns true when alert delivery should proceed, false when already sent today.
  */
