@@ -293,7 +293,7 @@ async function runPass(options: {
 					getSmsSender,
 					priceMap,
 					marketOpen,
-					marketClosureInfo: !marketOpen ? marketClosureInfo : undefined,
+					marketClosureInfo,
 				}),
 			),
 		);
@@ -581,7 +581,7 @@ export async function runScheduledNotifications(options: {
 						getSmsSender,
 						priceMap,
 						marketOpen,
-						marketClosureInfo: !marketOpen ? forceSendMarketClosure : undefined,
+						marketClosureInfo: forceSendMarketClosure,
 					}),
 				),
 			);
