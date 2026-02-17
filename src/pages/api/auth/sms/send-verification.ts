@@ -63,6 +63,19 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			.trim()
 			.replace(/\s+/g, "");
 		const rawNational = parsed.data.phone_number.trim().replace(/\s+/g, "");
+
+		// Reject malformed country code before normalization: must be + followed by 1–4 digits.
+		if (!/^\+\d{1,4}$/.test(rawCountryCode)) {
+			logger.info("SMS verification rejected due to invalid phone format", {
+				userId: user.id,
+			});
+			return jsonResponse(400, {
+				ok: false,
+				message: "invalid_phone_format",
+				tone: "error",
+			});
+		}
+
 		const normalizedCountryCode = `+${rawCountryCode.replace(/^\+/, "").replace(/\D/g, "")}`;
 		const phoneNationalNumber = rawNational.replace(/\D/g, "");
 
