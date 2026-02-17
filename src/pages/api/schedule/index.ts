@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { createSupabaseAdminClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
-import { purgeExpiredSnapshots } from "../../../lib/market-notifications/snapshot-store";
+import { purgeOldAssetSnapshots } from "../../../lib/market-notifications/snapshot-store";
 import { verifyCronSecret } from "../../../lib/schedule/cron-auth";
 import { runScheduledNotifications } from "../../../lib/schedule/run";
 
@@ -64,7 +64,7 @@ const handler: APIRoute = async ({ request, locals }) => {
 			cronSecret,
 		});
 
-		const purged = await purgeExpiredSnapshots(supabase);
+		const purged = await purgeOldAssetSnapshots(supabase);
 		if (purged > 0) {
 			logger.info("Purged expired snapshots", {
 				action: "purge_snapshots",
