@@ -1,5 +1,6 @@
 /**
  * Database helpers for the `staged_notifications` table.
+ * Uses generated database types for typed access.
  */
 
 import type { Json } from "../db/generated/database.types";
