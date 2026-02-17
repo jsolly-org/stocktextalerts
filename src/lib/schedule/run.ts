@@ -255,8 +255,7 @@ async function runPass(options: {
 	let marketClosureInfo: MarketClosureInfo | null = null;
 	if (fallbackDailyUsers.length > 0) {
 		try {
-			marketClosureInfo =
-				await getUsMarketClosureInfoForInstant(currentTime);
+			marketClosureInfo = await getUsMarketClosureInfoForInstant(currentTime);
 		} catch (error) {
 			logger.error(
 				"Market closure lookup failed (continuing without closure info)",
