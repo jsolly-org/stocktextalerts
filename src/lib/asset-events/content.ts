@@ -72,7 +72,7 @@ export async function buildAssetEventsContent(options: {
 		includeCalendar && tickers.length > 0
 			? supabase
 					.from("asset_events")
-					.select("*")
+					.select("symbol,event_type,event_date,data")
 					.eq("scope", "watchlist")
 					.in("event_type", ["earnings", "dividend", "split"])
 					.in("symbol", [...tickers])
@@ -82,7 +82,7 @@ export async function buildAssetEventsContent(options: {
 	const ipoPromise = includeIpos
 		? supabase
 				.from("asset_events")
-				.select("*")
+				.select("symbol,event_type,event_date,data")
 				.eq("scope", "global")
 				.eq("event_type", "ipo")
 				.gte("event_date", localDate)

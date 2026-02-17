@@ -101,15 +101,19 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 			});
 		}
 
-		const results = (data ?? [])
+		const candidates = data ?? [];
+		const rankCache = new Map<string, number>();
+		for (const row of candidates) {
+			rankCache.set(row.symbol, getAssetSearchRank(row, normalizedQuery));
+		}
+		const results = candidates
 			.sort((left, right) => {
 				const rankDifference =
-					getAssetSearchRank(left, normalizedQuery) -
-					getAssetSearchRank(right, normalizedQuery);
+					(rankCache.get(left.symbol) ?? 4) -
+					(rankCache.get(right.symbol) ?? 4);
 				if (rankDifference !== 0) {
 					return rankDifference;
 				}
-
 				return left.symbol.localeCompare(right.symbol);
 			})
 			.slice(0, limit)
