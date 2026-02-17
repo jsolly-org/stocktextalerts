@@ -10,6 +10,10 @@ function isSafeRedirectPath(value: string): boolean {
 	if (value.includes("://")) {
 		return false;
 	}
+	// Reject backslashes: /\/evil.com can become //evil.com after escape, enabling protocol-relative bypass
+	if (value.includes("\\")) {
+		return false;
+	}
 
 	return true;
 }
@@ -17,7 +21,10 @@ function isSafeRedirectPath(value: string): boolean {
 /**
  * Validate and normalize a redirect path from user-controlled input.
  *
- * Only allows same-origin, absolute paths (e.g. `/dashboard`) and rejects protocol URLs.
+ * Accepts same-origin absolute paths (e.g. `/dashboard`, `/auth/signin?redirect=`), trims whitespace,
+ * and returns null for invalid input. Rejects: protocol-relative URLs (`//evil.com`), protocol
+ * schemes (`javascript:`, `https://`), backslash-containing paths (bypass attempt), null, empty
+ * string, and whitespace-only.
  */
 export function getSafeRedirectPath(value: string | null): string | null {
 	if (!value) {

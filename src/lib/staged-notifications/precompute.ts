@@ -31,6 +31,7 @@ import type {
 import { USER_PROCESS_BATCH_SIZE } from "../schedule/helpers";
 import { createSmsSenderProvider } from "../schedule/sms-sender";
 import { toIsoOrThrow } from "../time/format";
+import { getUsMarketClosureInfoForInstant } from "../time/market-calendar";
 
 /** Pre-compute window in seconds (look ahead this far). */
 const PRECOMPUTE_WINDOW_SECONDS = 30;
@@ -203,6 +204,9 @@ export async function precomputeDailyDigest(options: {
 		window: `${afterTimeIso} → ${beforeTimeIso}`,
 	});
 
+	// Fetch market closure once for fan-out (avoids per-user API calls)
+	const marketClosureInfo = await getUsMarketClosureInfoForInstant(currentTime);
+
 	for (
 		let index = 0;
 		index < upcomingUsers.length;
@@ -216,6 +220,7 @@ export async function precomputeDailyDigest(options: {
 					currentTimeIso,
 					cronSecret,
 					precompute: true,
+					marketClosureInfo,
 				}),
 			),
 		);

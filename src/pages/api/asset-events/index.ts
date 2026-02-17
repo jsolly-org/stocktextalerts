@@ -6,11 +6,11 @@ import { createLogger } from "../../../lib/logging";
 import { verifyCronSecret } from "../../../lib/schedule/cron-auth";
 
 /**
- * Weekly cron endpoint to pre-populate the `asset_events` table with
- * next week's earnings (Finnhub) and dividends/splits/IPOs (Massive).
+ * Daily cron endpoint to pre-populate the `asset_events` table with
+ * this week's and next week's earnings (Finnhub) and dividends/splits/IPOs (Massive).
  *
- * Runs every Saturday at 00:00 UTC so events are ready before Monday
- * deliveries, even for users in far-ahead timezones (e.g. UTC+14).
+ * Runs daily at 00:00 UTC so newly-listed events and newly-tracked symbols
+ * are picked up promptly. The DB unique index handles deduplication via upsert.
  */
 const handler: APIRoute = async ({ request, locals }) => {
 	const url = new URL(request.url);
@@ -26,28 +26,35 @@ const handler: APIRoute = async ({ request, locals }) => {
 
 	const supabase = createSupabaseAdminClient();
 
-	// Fetch two weeks: next week + the week after.
+	// Fetch two weeks: this week + next week.
 	// This ensures users with late-week (Thu/Fri) deliveries whose 3-day
 	// lookahead window extends into the following week still see those events.
-	const nextMonday = DateTime.utc().plus({ weeks: 1 }).startOf("week"); // Luxon weeks start Monday
-	const weekAfterMonday = nextMonday.plus({ weeks: 1 });
+	const thisMonday = DateTime.utc().startOf("week"); // Luxon weeks start Monday
+	const nextMonday = thisMonday.plus({ weeks: 1 });
 
+	const thisMondayStart = thisMonday.toISODate();
+	const thisMondayEnd = thisMonday.plus({ days: 4 }).toISODate();
 	const nextMondayStart = nextMonday.toISODate();
 	const nextMondayEnd = nextMonday.plus({ days: 4 }).toISODate();
-	const weekAfterMondayStart = weekAfterMonday.toISODate();
-	const weekAfterMondayEnd = weekAfterMonday.plus({ days: 4 }).toISODate();
 
 	const invalidDateRanges =
+		!thisMonday.isValid ||
 		!nextMonday.isValid ||
-		!weekAfterMonday.isValid ||
+		!thisMondayStart ||
+		!thisMondayEnd ||
 		!nextMondayStart ||
-		!nextMondayEnd ||
-		!weekAfterMondayStart ||
-		!weekAfterMondayEnd;
+		!nextMondayEnd;
 
 	if (invalidDateRanges) {
 		logger.error("Failed to compute week date range", {
-			action: "weekly_asset_events_cron",
+			action: "daily_asset_events_cron",
+			thisMonday: {
+				isValid: thisMonday.isValid,
+				invalidReason: thisMonday.invalidReason,
+				weekStart: thisMondayStart,
+				weekEnd: thisMondayEnd,
+				dt: thisMonday.toString(),
+			},
 			nextMonday: {
 				isValid: nextMonday.isValid,
 				invalidReason: nextMonday.invalidReason,
@@ -55,25 +62,18 @@ const handler: APIRoute = async ({ request, locals }) => {
 				weekEnd: nextMondayEnd,
 				dt: nextMonday.toString(),
 			},
-			weekAfterMonday: {
-				isValid: weekAfterMonday.isValid,
-				invalidReason: weekAfterMonday.invalidReason,
-				weekStart: weekAfterMondayStart,
-				weekEnd: weekAfterMondayEnd,
-				dt: weekAfterMonday.toString(),
-			},
 		});
 		return new Response("Internal server error", { status: 500 });
 	}
 
 	const weeks = [
 		{
-			weekStart: nextMondayStart,
-			weekEnd: nextMondayEnd,
+			weekStart: thisMondayStart,
+			weekEnd: thisMondayEnd,
 		},
 		{
-			weekStart: weekAfterMondayStart,
-			weekEnd: weekAfterMondayEnd,
+			weekStart: nextMondayStart,
+			weekEnd: nextMondayEnd,
 		},
 	];
 
@@ -81,8 +81,7 @@ const handler: APIRoute = async ({ request, locals }) => {
 		const results: Array<{
 			weekStart: string;
 			weekEnd: string;
-			inserted: number;
-			skipped: boolean;
+			upserted: number;
 		}> = [];
 		for (const { weekStart, weekEnd } of weeks) {
 			const result = await fetchAndStoreAssetEvents({
@@ -94,8 +93,8 @@ const handler: APIRoute = async ({ request, locals }) => {
 			results.push({ weekStart, weekEnd, ...result });
 		}
 
-		logger.info("Weekly asset events fetch complete", {
-			action: "weekly_asset_events_cron",
+		logger.info("Daily asset events fetch complete", {
+			action: "daily_asset_events_cron",
 			results,
 		});
 
@@ -105,8 +104,8 @@ const handler: APIRoute = async ({ request, locals }) => {
 		});
 	} catch (error) {
 		logger.error(
-			"Weekly asset events cron error",
-			{ action: "weekly_asset_events_cron" },
+			"Daily asset events cron error",
+			{ action: "daily_asset_events_cron" },
 			error,
 		);
 		return new Response("Internal server error", { status: 500 });

@@ -28,6 +28,7 @@ import {
 	updateScheduledNotificationRow,
 } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
+import type { MarketClosureInfo } from "../time/market-calendar";
 
 const TICKER_LINE_RE = /^[A-Z][A-Z0-9.-]{0,9}:\s/;
 const MARKET_TIME_ZONE = "America/New_York";
@@ -58,8 +59,8 @@ function ensureBlankLineBetweenTickerSnippets(content: string): string {
 	return normalized.join("\n").trim();
 }
 
-/** Build a digest price context line based on the latest available quote timestamp. */
-function buildDigestPriceContextLine(assetPrices: AssetPriceMap): string {
+/** Extract the latest quote timestamp from asset prices, if any. */
+function getLatestQuoteTimestamp(assetPrices: AssetPriceMap): number | null {
 	let latestTimestamp: number | null = null;
 
 	for (const quote of assetPrices.values()) {
@@ -71,11 +72,12 @@ function buildDigestPriceContextLine(assetPrices: AssetPriceMap): string {
 				: Math.max(latestTimestamp, quote.timestamp);
 	}
 
-	if (latestTimestamp === null) {
-		return "Prices reflect the last market open.";
-	}
+	return latestTimestamp;
+}
 
-	const formatted = new Intl.DateTimeFormat("en-US", {
+/** Format a Unix timestamp in Eastern time for display. */
+function formatQuoteTimestamp(timestamp: number): string {
+	return new Intl.DateTimeFormat("en-US", {
 		timeZone: MARKET_TIME_ZONE,
 		month: "short",
 		day: "numeric",
@@ -83,9 +85,43 @@ function buildDigestPriceContextLine(assetPrices: AssetPriceMap): string {
 		hour: "numeric",
 		minute: "2-digit",
 		timeZoneName: "short",
-	}).format(new Date(latestTimestamp * 1000));
+	}).format(new Date(timestamp * 1000));
+}
 
-	return `Prices reflect the last market open (as of ${formatted}).`;
+/** Build a human-readable market closure label. */
+function buildMarketClosureLabel(closureInfo: MarketClosureInfo): string {
+	if (closureInfo.reason === "holiday" && closureInfo.holidayName) {
+		return `Market Closed — ${closureInfo.holidayName}`;
+	}
+	if (closureInfo.reason === "weekend") {
+		return "Market Closed — Weekend";
+	}
+	return "Market Closed";
+}
+
+/** Build a plain-text market-closed banner for the digest. */
+function buildDigestMarketClosedText(
+	closureInfo: MarketClosureInfo,
+	assetPrices: AssetPriceMap,
+): string {
+	const label = buildMarketClosureLabel(closureInfo);
+	const ts = getLatestQuoteTimestamp(assetPrices);
+	const asOf = ts ? ` (as of ${formatQuoteTimestamp(ts)})` : "";
+	return `🔔 ${label}\nPrices below reflect the last market close${asOf}.`;
+}
+
+/** Build an HTML market-closed banner for the digest. */
+function buildDigestMarketClosedHtml(
+	closureInfo: MarketClosureInfo,
+	assetPrices: AssetPriceMap,
+): string {
+	const label = escapeHtml(buildMarketClosureLabel(closureInfo));
+	const ts = getLatestQuoteTimestamp(assetPrices);
+	const asOf = ts ? ` (as of ${escapeHtml(formatQuoteTimestamp(ts))})` : "";
+	return `<div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; text-align: center;">
+			<div style="font-size: 14px; color: #92400e; font-weight: 600;">🔔 ${label}</div>
+			<div style="font-size: 12px; color: #92400e; margin-top: 4px;">Prices below reflect the last market close${asOf}.</div>
+		</div>`;
 }
 
 export type AssetEventsResult = Awaited<
@@ -232,6 +268,7 @@ export function formatDailyDigestEmail(options: {
 	extras: SmsExtras;
 	assetEvents?: AssetEventsResult;
 	sparklines?: SparklineMap;
+	marketClosureInfo?: MarketClosureInfo | null;
 }): { subject: string; text: string; html: string } {
 	const tickers = options.userAssets.map((s) => s.symbol).filter(Boolean);
 	const tickersLine =
@@ -271,13 +308,18 @@ export function formatDailyDigestEmail(options: {
 			options.formatPrefs,
 			options.sparklines,
 		) || escapeHtml(tickersLine);
-	const priceContextLine = buildDigestPriceContextLine(options.assetPrices);
-	const priceContextLineHtml = escapeHtml(priceContextLine);
+	const closureInfo = options.marketClosureInfo ?? null;
+	const marketClosedText = closureInfo
+		? buildDigestMarketClosedText(closureInfo, options.assetPrices)
+		: null;
+	const marketClosedHtml = closureInfo
+		? buildDigestMarketClosedHtml(closureInfo, options.assetPrices)
+		: "";
 
 	const sectionsText = [
 		"StockTextAlerts — Your daily digest 🗓️",
+		marketClosedText ?? "",
 		`💰 Your Assets\n${digestTickerBody}`,
-		priceContextLine,
 		news ? `\n🗞️ News\n${news}` : "",
 		rumors ? `\n🤫 Rumors\n${rumors}` : "",
 		earnings ? `\n📈 Earnings\n${earnings}` : "",
@@ -306,9 +348,9 @@ export function formatDailyDigestEmail(options: {
 		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">📈 StockTextAlerts</h1>
 	</div>
 	<div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+		${marketClosedHtml}
 		<h2 style="margin: 0 0 8px; font-size: 18px;">💰 Your Assets</h2>
 		<div style="margin: 0 0 16px; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">${pricesHtml}</div>
-		<p style="color: #6b7280; font-size: 12px; font-style: italic; margin-top: -8px; margin-bottom: 16px;">${priceContextLineHtml}</p>
 		${renderEmailSection("🗞️", "News", news, { showGrokLogo: true, showMassiveLogo: true })}
 		${renderEmailSection("🤫", "Rumors", rumors, { showGrokLogo: true })}
 		${renderEmailSection("📈", "Earnings", earnings)}
@@ -343,6 +385,7 @@ export async function processDailyDigestEmailDelivery(options: {
 	extras: SmsExtras;
 	assetEvents?: AssetEventsResult;
 	sparklines?: SparklineMap;
+	marketClosureInfo?: MarketClosureInfo | null;
 	sendEmail: EmailSender;
 	stats: ScheduledNotificationTotals;
 }): Promise<void> {
@@ -388,6 +431,7 @@ export async function processDailyDigestEmailDelivery(options: {
 		extras,
 		assetEvents,
 		sparklines: options.sparklines,
+		marketClosureInfo: options.marketClosureInfo,
 	});
 	const result = await sendUserEmail(
 		user,

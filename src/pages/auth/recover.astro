@@ -4,7 +4,7 @@ import { Icon } from "astro-icon/components";
 import Navigation from "../../components/Navigation.astro";
 import StatusMessage from "../../components/StatusMessage.astro";
 import Layout from "../../layouts/Layout.astro";
-import { formatMessage } from "../../lib/constants";
+import { formatMessage, MIN_PASSWORD_LENGTH } from "../../lib/constants";
 
 const search = Astro.url.searchParams;
 const tokenHash = search.get("token_hash");
@@ -75,12 +75,12 @@ if (!hasValidToken) {
                   name="password"
                   id="password"
                   required
+                  minlength={MIN_PASSWORD_LENGTH}
                   autocomplete="new-password"
                   class="input input-lg"
                   placeholder="••••••••"
-                  minlength="8"
                 />
-                <p class="text-sm text-muted mt-1">Minimum 8 characters required</p>
+                <p class="text-sm text-muted mt-1">Minimum {MIN_PASSWORD_LENGTH} characters required</p>
               </div>
               <div>
                 <label for="confirm" class="block text-sm font-medium text-label mb-2">Confirm password</label>
@@ -89,12 +89,12 @@ if (!hasValidToken) {
                   name="confirm"
                   id="confirm"
                   required
+                  minlength={MIN_PASSWORD_LENGTH}
                   autocomplete="new-password"
                   class="input input-lg"
                   placeholder="••••••••"
-                  minlength="8"
                 />
-                <p class="text-sm text-muted mt-1">Minimum 8 characters required</p>
+                <p class="text-sm text-muted mt-1">Minimum {MIN_PASSWORD_LENGTH} characters required</p>
                 <p
                   id="confirm-match-feedback"
                   class="mt-1 hidden items-center gap-1 text-sm"
@@ -127,6 +127,7 @@ if (!hasValidToken) {
 </Layout>
 
 <script>
+  import { MIN_PASSWORD_LENGTH } from "../../lib/constants";
   (() => {
     const passwordInput = document.getElementById("password");
     const confirmInput = document.getElementById("confirm");
@@ -179,7 +180,13 @@ if (!hasValidToken) {
         return;
       }
 
-      showFeedback(passwordValue.length >= 8 && passwordValue === confirmValue);
+      if (passwordValue.length < MIN_PASSWORD_LENGTH) {
+        showFeedback(false);
+        feedbackText.textContent = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+        return;
+      }
+
+      showFeedback(passwordValue === confirmValue);
     }
 
     passwordInput.addEventListener("input", updateMatchFeedback);

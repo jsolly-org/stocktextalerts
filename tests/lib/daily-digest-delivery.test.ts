@@ -276,7 +276,7 @@ describe("Daily digest email prices", () => {
 		);
 	});
 
-	it("includes last market session context with quote timestamp in email", () => {
+	it("omits price disclaimer when market is open (no closure info)", () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23, timestamp: 1735837200 }],
 		]);
@@ -289,14 +289,74 @@ describe("Daily digest email prices", () => {
 			extras,
 		});
 
+		expect(message.text).not.toContain("Prices reflect");
+		expect(message.text).not.toContain("Market Closed");
+		expect(message.html).not.toContain("Market Closed");
+	});
+
+	it("shows market-closed banner for weekend closure", () => {
+		const assetPrices: AssetPriceMap = new Map([
+			["AAPL", { price: 187.42, changePercent: 1.23, timestamp: 1735837200 }],
+		]);
+
+		const message = formatDailyDigestEmail({
+			user,
+			userAssets: [userAssets[0]],
+			assetPrices,
+			formatPrefs: defaultPrefs,
+			extras,
+			marketClosureInfo: { reason: "weekend" },
+		});
+
+		expect(message.text).toContain("Market Closed — Weekend");
 		expect(message.text).toContain(
-			"Prices reflect the last market open (as of",
+			"Prices below reflect the last market close",
 		);
-		expect(message.text).toMatch(
-			/Prices reflect the last market open \(as of .*EST\)\./,
-		);
+		expect(message.text).toMatch(/as of .+EST/);
+		expect(message.html).toContain("Market Closed — Weekend");
 		expect(message.html).toContain(
-			"Prices reflect the last market open (as of",
+			"Prices below reflect the last market close",
 		);
+		// Banner uses amber styling
+		expect(message.html).toContain("#fef3c7");
+	});
+
+	it("shows market-closed banner with holiday name", () => {
+		const assetPrices: AssetPriceMap = new Map([
+			["AAPL", { price: 187.42, changePercent: 1.23, timestamp: 1735837200 }],
+		]);
+
+		const message = formatDailyDigestEmail({
+			user,
+			userAssets: [userAssets[0]],
+			assetPrices,
+			formatPrefs: defaultPrefs,
+			extras,
+			marketClosureInfo: { reason: "holiday", holidayName: "Presidents' Day" },
+		});
+
+		expect(message.text).toContain("Market Closed — Presidents' Day");
+		expect(message.html).toContain("Market Closed — Presidents&#39; Day");
+	});
+
+	it("shows market-closed banner without timestamp when no quotes have timestamps", () => {
+		const assetPrices: AssetPriceMap = new Map([
+			["AAPL", { price: 187.42, changePercent: 1.23 }],
+		]);
+
+		const message = formatDailyDigestEmail({
+			user,
+			userAssets: [userAssets[0]],
+			assetPrices,
+			formatPrefs: defaultPrefs,
+			extras,
+			marketClosureInfo: { reason: "weekend" },
+		});
+
+		expect(message.text).toContain("Market Closed — Weekend");
+		expect(message.text).toContain(
+			"Prices below reflect the last market close.",
+		);
+		expect(message.text).not.toContain("as of");
 	});
 });

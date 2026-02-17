@@ -14,13 +14,21 @@ const logger = createLogger({
 const userId = Astro.url.searchParams.get("user");
 const token = Astro.url.searchParams.get("token");
 
+/** UUID v4 format; validates user ID before DB lookup to avoid injection. */
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+const isValidUuid = (s: string | null) => typeof s === "string" && UUID_REGEX.test(s);
+/** Token length cap to reject malformed or oversized values early. */
+const MAX_TOKEN_LENGTH = 200;
+const isValidToken = (s: string | null) =>
+	typeof s === "string" && s.length > 0 && s.length <= MAX_TOKEN_LENGTH;
+
 let tone: "success" | "error" = "error";
 let message =
 	"This unsubscribe link is invalid or has expired. Please sign in to manage your email notification-preferences.";
 let canOfferSmsOptOut = false;
 let smsOptOutUrl: string | null = null;
 
-if (userId && token) {
+if (userId && token && isValidUuid(userId) && isValidToken(token)) {
 	const supabase = createSupabaseAdminClient();
 	const { data: user, error } = await supabase
 		.from("users")

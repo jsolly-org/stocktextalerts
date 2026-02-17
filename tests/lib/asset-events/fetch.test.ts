@@ -41,19 +41,6 @@ function createSupabaseStub(trackedSymbols: string[]) {
 
 			if (table === "asset_events") {
 				return {
-					select(
-						_columns: string,
-						options?: { count?: "exact"; head?: boolean },
-					) {
-						if (options?.count === "exact" && options.head === true) {
-							return {
-								eq() {
-									return Promise.resolve({ count: 0, error: null });
-								},
-							};
-						}
-						throw new Error("Unexpected select() shape in test stub");
-					},
 					upsert(rows: AssetEventRow[]) {
 						state.upsertRows = rows;
 						return Promise.resolve({ error: null });
@@ -108,7 +95,7 @@ describe("fetchAndStoreAssetEvents", () => {
 			logger: logger as never,
 		});
 
-		expect(result).toEqual({ inserted: 1, skipped: false });
+		expect(result).toEqual({ upserted: 1 });
 		expect(state.upsertRows).toHaveLength(1);
 		expect(state.upsertRows[0]).toMatchObject({
 			symbol: "ACME",
@@ -161,7 +148,7 @@ describe("fetchAndStoreAssetEvents", () => {
 			logger: logger as never,
 		});
 
-		expect(result).toEqual({ inserted: 3, skipped: false });
+		expect(result).toEqual({ upserted: 3 });
 		expect(state.upsertRows).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
@@ -186,5 +173,35 @@ describe("fetchAndStoreAssetEvents", () => {
 				(row) => row.symbol === "MSFT" && row.event_type === "earnings",
 			),
 		).toBe(false);
+	});
+
+	it("succeeds on repeated calls (upsert idempotency)", async () => {
+		const { supabase } = createSupabaseStub(["AAPL"]);
+
+		vi.mocked(fetchEarnings).mockResolvedValue([
+			{
+				ticker: "AAPL",
+				date: "2026-02-16",
+				time: null,
+				epsEstimate: null,
+				revenueEstimate: null,
+			},
+		]);
+		vi.mocked(fetchDividends).mockResolvedValue([]);
+		vi.mocked(fetchSplits).mockResolvedValue([]);
+		vi.mocked(fetchIpos).mockResolvedValue([]);
+
+		const args = {
+			supabase: supabase as never,
+			weekStart: "2026-02-16",
+			weekEnd: "2026-02-20",
+			logger: logger as never,
+		};
+
+		const first = await fetchAndStoreAssetEvents(args);
+		const second = await fetchAndStoreAssetEvents(args);
+
+		expect(first).toEqual({ upserted: 1 });
+		expect(second).toEqual({ upserted: 1 });
 	});
 });

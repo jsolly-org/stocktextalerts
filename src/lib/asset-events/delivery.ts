@@ -57,17 +57,6 @@ function formatAssetEventsSmsMessage(options: {
 		);
 	}
 
-	if (
-		!options.earningsSection &&
-		!options.dividendsSection &&
-		!options.splitsSection &&
-		!options.iposSection &&
-		!options.insiderSection &&
-		!options.analystSection
-	) {
-		parts.push("No upcoming asset events in the next few days.");
-	}
-
 	parts.push(`Manage your settings: ${dashboardUrl}`);
 	parts.push(optOutSuffix);
 
@@ -94,15 +83,6 @@ function formatAssetEventsEmail(options: {
 		"assetEvents",
 	);
 
-	const hasAnyEvents =
-		options.earningsSection ||
-		options.dividendsSection ||
-		options.splitsSection ||
-		options.iposSection ||
-		options.insiderSection ||
-		options.analystSection;
-	const noEventsMessage = "No upcoming asset events in the next few days.";
-
 	const textParts: string[] = ["Asset Events"];
 
 	if (options.earningsSection) {
@@ -125,10 +105,6 @@ function formatAssetEventsEmail(options: {
 			`\n📊 Analyst Consensus (published monthly on the 1st)\n${options.analystSection}`,
 		);
 	}
-	if (!hasAnyEvents) {
-		textParts.push(`\n${noEventsMessage}`);
-	}
-
 	textParts.push(`\nManage your settings: ${urls.dashboardUrl}`);
 	textParts.push(`Manage your delivery schedule: ${urls.scheduleUrl}`);
 	textParts.push(`Unsubscribe: ${urls.unsubscribeUrl}`);
@@ -181,10 +157,6 @@ function formatAssetEventsEmail(options: {
 			{ showFinnhubLogo: true },
 		);
 	}
-	if (!hasAnyEvents) {
-		sectionsHtml = renderEmailSection("📅", "Asset Events", noEventsMessage);
-	}
-
 	const html = `
 <!DOCTYPE html>
 <html>
