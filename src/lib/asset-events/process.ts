@@ -9,6 +9,7 @@ import type {
 } from "../schedule/helpers";
 import { loadUserAssets } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
+import { getUsMarketClosureInfoForInstant } from "../time/market-calendar";
 import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
 import { buildAssetEventsContent } from "./content";
 import {
@@ -126,6 +127,9 @@ export async function processAssetEventsUser(options: {
 
 		const localDate = dueAtLocal.toISODate() ?? "";
 
+		const marketClosureInfo =
+			await getUsMarketClosureInfoForInstant(currentTime);
+
 		const wantsEmail =
 			emailEnabled &&
 			(user.asset_events_include_calendar_email ||
@@ -180,6 +184,7 @@ export async function processAssetEventsUser(options: {
 				iposSection: emailContent.eventsSection?.ipos ?? null,
 				analystSection: emailContent.analystSection,
 				insiderSection: emailContent.insiderSection,
+				marketClosureInfo,
 				sendEmail,
 				stats,
 			});
@@ -198,6 +203,7 @@ export async function processAssetEventsUser(options: {
 				iposSection: smsContent.eventsSection?.ipos ?? null,
 				analystSection: smsContent.analystSection,
 				insiderSection: smsContent.insiderSection,
+				marketClosureInfo,
 				getSmsSender,
 				stats,
 			});
