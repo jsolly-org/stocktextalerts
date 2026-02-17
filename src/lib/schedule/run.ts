@@ -254,8 +254,8 @@ async function runPass(options: {
 	// Fetch market closure once for daily digest fan-out and market-scheduled banners (avoids per-user API calls)
 	let marketClosureInfo: MarketClosureInfo | null = null;
 	if (
-		fallbackDailyUsers.length > 0 ||
-		(fallbackMarketUsers.length > 0 && !marketOpen)
+		!marketOpen &&
+		(fallbackDailyUsers.length > 0 || fallbackMarketUsers.length > 0)
 	) {
 		try {
 			marketClosureInfo = await getUsMarketClosureInfoForInstant(currentTime);
@@ -541,7 +541,7 @@ export async function runScheduledNotifications(options: {
 
 		// Fetch market closure once for daily digest fan-out and market-scheduled banners (avoids per-user API calls)
 		let forceSendMarketClosure: MarketClosureInfo | null = null;
-		if (dailyUsers.length > 0 || (marketUsers.length > 0 && !marketOpen)) {
+		if (!marketOpen && (dailyUsers.length > 0 || marketUsers.length > 0)) {
 			try {
 				forceSendMarketClosure =
 					await getUsMarketClosureInfoForInstant(currentTime);
