@@ -30,6 +30,7 @@ import { loadUserAssets } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
 import { upsertStagedNotification } from "../staged-notifications/db";
 import type { StagedDailyData } from "../staged-notifications/types";
+import { getUsMarketClosureInfoForInstant } from "../time/market-calendar";
 import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
 import {
 	formatDailyDigestEmail,
@@ -409,6 +410,10 @@ export async function processDailyDigestUser(options: {
 			}
 		}
 
+		// Check whether the US market is closed today (weekend / holiday).
+		const marketClosureInfo =
+			await getUsMarketClosureInfoForInstant(currentTime);
+
 		/* =============
 		Fetch Finnhub data (non-blocking — failures omit that section)
 		============= */
@@ -601,6 +606,7 @@ export async function processDailyDigestUser(options: {
 							extras: emailExtras,
 							assetEvents: emailAssetEvents,
 							sparklines,
+							marketClosureInfo,
 						})
 					: null;
 
@@ -671,6 +677,7 @@ export async function processDailyDigestUser(options: {
 				extras: emailExtras,
 				assetEvents: emailAssetEvents,
 				sparklines,
+				marketClosureInfo,
 				sendEmail,
 				stats,
 			});

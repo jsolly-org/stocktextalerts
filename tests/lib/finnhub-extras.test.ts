@@ -203,12 +203,12 @@ describe("formatInsiderSection formats insider transactions per ticker.", () => 
 		expect(lines?.length).toBe(5);
 	});
 
-	it("Returns 'no trades' message when no transactions exist but tickers are present.", () => {
+	it("Returns null when no transactions exist but tickers are present.", () => {
 		const data = new Map<string, InsiderTransaction[]>([["AAPL", []]]);
 
 		const result = formatInsiderSection(data, "sms");
 
-		expect(result).toBe("No reported insider trades in the last 24 hours.");
+		expect(result).toBeNull();
 	});
 
 	it("Returns null when the map is empty.", () => {
