@@ -251,9 +251,12 @@ async function runPass(options: {
 
 	const marketOpen = marketStatusPromise ? await marketStatusPromise : false;
 
-	// Fetch market closure once for daily digest fan-out (avoids per-user API calls)
+	// Fetch market closure once for daily digest fan-out and market-scheduled banners (avoids per-user API calls)
 	let marketClosureInfo: MarketClosureInfo | null = null;
-	if (fallbackDailyUsers.length > 0) {
+	if (
+		fallbackDailyUsers.length > 0 ||
+		(fallbackMarketUsers.length > 0 && !marketOpen)
+	) {
 		try {
 			marketClosureInfo = await getUsMarketClosureInfoForInstant(currentTime);
 		} catch (error) {
@@ -288,6 +291,7 @@ async function runPass(options: {
 					getSmsSender,
 					priceMap,
 					marketOpen,
+					marketClosureInfo: !marketOpen ? marketClosureInfo : undefined,
 				}),
 			),
 		);
@@ -535,9 +539,9 @@ export async function runScheduledNotifications(options: {
 
 		const marketOpen = marketStatusPromise ? await marketStatusPromise : false;
 
-		// Fetch market closure once for daily digest fan-out (avoids per-user API calls)
+		// Fetch market closure once for daily digest fan-out and market-scheduled banners (avoids per-user API calls)
 		let forceSendMarketClosure: MarketClosureInfo | null = null;
-		if (dailyUsers.length > 0) {
+		if (dailyUsers.length > 0 || (marketUsers.length > 0 && !marketOpen)) {
 			try {
 				forceSendMarketClosure =
 					await getUsMarketClosureInfoForInstant(currentTime);
@@ -569,6 +573,7 @@ export async function runScheduledNotifications(options: {
 						getSmsSender,
 						priceMap,
 						marketOpen,
+						marketClosureInfo: !marketOpen ? forceSendMarketClosure : undefined,
 					}),
 				),
 			);
