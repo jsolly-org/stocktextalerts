@@ -16,8 +16,9 @@ describe("getSafeRedirectPath open-redirect protection", () => {
 		expect(getSafeRedirectPath("https://evil.com/path")).toBeNull();
 	});
 
-	it("rejects path with protocol delimiter bypass attempt", () => {
-		// "/\/evil.com" in string becomes "//evil.com" after backslash escape
+	it("rejects paths containing backslashes", () => {
+		// String literal "/\\/evil.com" is path "/\/evil.com"; browsers may normalize \ to /
+		// turning it into "//evil.com" (protocol-relative). The backslash check in redirects.ts blocks this.
 		expect(getSafeRedirectPath("/\\/evil.com")).toBeNull();
 	});
 
