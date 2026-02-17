@@ -7,8 +7,14 @@
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLogger } from "../../../src/lib/logging";
-import type { EmailSender } from "../../../src/lib/messaging/email/utils";
-import type { SmsSenderProvider } from "../../../src/lib/schedule/sms-sender";
+import {
+	createEmailSender,
+	type EmailSender,
+} from "../../../src/lib/messaging/email/utils";
+import {
+	createSmsSenderProvider,
+	type SmsSenderProvider,
+} from "../../../src/lib/schedule/sms-sender";
 import { upsertStagedNotification } from "../../../src/lib/staged-notifications/db";
 import { deliverStagedNotifications } from "../../../src/lib/staged-notifications/deliver";
 import type { StagedMarketData } from "../../../src/lib/staged-notifications/types";
@@ -22,17 +28,11 @@ describe("deliverStagedNotifications", () => {
 	let sendEmail: EmailSender;
 	let getSmsSender: SmsSenderProvider;
 
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.useFakeTimers();
 		vi.setSystemTime(DateTime.fromISO("2026-01-15T15:00:00.000Z").toJSDate());
 		vi.stubEnv("SMS_TEST_BEHAVIOR", "success");
 
-		const { createEmailSender } = await import(
-			"../../../src/lib/messaging/email/utils"
-		);
-		const { createSmsSenderProvider } = await import(
-			"../../../src/lib/schedule/sms-sender"
-		);
 		sendEmail = createEmailSender();
 		getSmsSender = createSmsSenderProvider();
 	});
@@ -96,7 +96,7 @@ describe("deliverStagedNotifications", () => {
 			getSmsSender,
 		});
 
-		expect(result.stats.emailsSent).toBeGreaterThanOrEqual(1);
+		expect(result.stats.emailsSent).toBe(1);
 		expect(result.deliveredUserTypes.has(`${id}:market`)).toBe(true);
 
 		const { data: logs } = await adminClient
@@ -104,7 +104,7 @@ describe("deliverStagedNotifications", () => {
 			.select("id")
 			.eq("user_id", id)
 			.eq("type", "market");
-		expect(logs?.length).toBeGreaterThanOrEqual(1);
+		expect(logs?.length).toBe(1);
 	});
 
 	it("skips second attempt when notification already claimed and adds to deliveredUserTypes", async () => {
@@ -183,10 +183,24 @@ describe("deliverStagedNotifications", () => {
 		});
 
 		expect(result.deliveredUserTypes.has(`${id}:market`)).toBe(true);
-		expect(result.stats.skipped).toBeGreaterThanOrEqual(1);
+		expect(result.stats.skipped).toBe(1);
 	});
 
 	it("returns empty deliveredUserTypes when no staged rows are due", async () => {
+		// Explicitly clear staged rows to avoid depending on cleanup order from prior tests.
+		const { data: stagedRows } = await adminClient
+			.from("staged_notifications")
+			.select("id");
+		if (stagedRows && stagedRows.length > 0) {
+			await adminClient
+				.from("staged_notifications")
+				.delete()
+				.in(
+					"id",
+					stagedRows.map((r) => r.id),
+				);
+		}
+
 		const result = await deliverStagedNotifications({
 			supabase: adminClient,
 			logger,
