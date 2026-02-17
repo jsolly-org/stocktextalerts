@@ -135,6 +135,12 @@ export async function purgeOldAssetSnapshots(
 	supabase: SupabaseAdminClient,
 	retentionMinutes: number = RETENTION_MINUTES,
 ): Promise<number> {
+	if (!Number.isFinite(retentionMinutes) || retentionMinutes <= 0) {
+		rootLogger.error("Invalid retentionMinutes for purgeOldAssetSnapshots", {
+			retentionMinutes,
+		});
+		return 0;
+	}
 	const { data, error } = await supabase.rpc("purge_old_asset_snapshots", {
 		p_retention_minutes: retentionMinutes,
 	});
