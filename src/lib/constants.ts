@@ -150,6 +150,7 @@ const MESSAGE_ALLOWLIST = {
 		"Failed to dismiss timezone banner. Please try again.",
 	invalid_form:
 		"There was a problem with your submission. Please check the form and try again.",
+	invalid_phone_format: "Invalid phone number format. Please enter a valid phone number and try again.",
 	invalid_credentials: "Invalid email or password.",
 	invalid_verification: "Verification link is invalid or expired.",
 	email_required: "No email address found.",
