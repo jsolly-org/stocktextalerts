@@ -1,6 +1,11 @@
+-- replace_user_assets: Replace a user's tracked assets with a new symbol list.
+--
 -- Enforce that authenticated callers can only replace their own assets.
 -- service_role (cron/admin) may replace any user's assets.
 -- Matches the pattern used in check_rate_limit, reserve_sms_verification, etc.
+--
+-- Input sanitization: rejects whitespace, non-uppercase symbols, duplicates,
+-- enforces max 10 symbols, and inserts only trimmed non-empty entries.
 
 CREATE OR REPLACE FUNCTION public.replace_user_assets(
   user_id uuid,

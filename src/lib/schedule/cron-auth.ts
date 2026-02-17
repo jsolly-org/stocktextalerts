@@ -8,7 +8,7 @@ import type { Logger } from "../logging";
  * Returns the extracted secret string on success, or `null` on failure
  * (after logging the reason).
  */
-/** Rejects empty or weak secrets to prevent accidental misconfiguration. */
+/** Rejects empty or weak secrets (min 12 chars) to prevent accidental misconfiguration. */
 function isAcceptableSecret(value: string | undefined): value is string {
 	return typeof value === "string" && value.trim().length >= 12;
 }
