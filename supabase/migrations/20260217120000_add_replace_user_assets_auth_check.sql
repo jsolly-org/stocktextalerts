@@ -5,7 +5,7 @@
 -- Matches the pattern used in check_rate_limit, reserve_sms_verification, etc.
 --
 -- Input sanitization: rejects whitespace, non-uppercase symbols, duplicates,
--- enforces max 10 symbols, and inserts only trimmed non-empty entries.
+-- enforces max 10 symbols, and inserts only non-empty entries.
 
 CREATE OR REPLACE FUNCTION public.replace_user_assets(
   user_id uuid,
@@ -16,16 +16,32 @@ LANGUAGE plpgsql
 SET search_path = public, pg_temp
 AS $$
 DECLARE
+  jwt_role text;
   sanitized_symbols text[];
   sanitized_count integer;
   symbol_with_whitespace text;
   symbol_not_uppercase text;
   duplicate_symbol text;
 BEGIN
-  IF NULLIF(current_setting('request.jwt.claims', true), '')::json->>'role' = 'authenticated'
-     AND replace_user_assets.user_id <> (SELECT auth.uid()) THEN
-    RAISE EXCEPTION 'Cannot replace assets for another user'
+  jwt_role := COALESCE(NULLIF(current_setting('request.jwt.claims', true), ''), '{}')::json->>'role';
+
+  IF jwt_role IS NULL OR jwt_role NOT IN ('authenticated', 'service_role') THEN
+    RAISE EXCEPTION 'replace_user_assets: role must be authenticated or service_role, got: %',
+      COALESCE(jwt_role, '<null>')
       USING ERRCODE = 'insufficient_privilege';
+  END IF;
+
+  IF jwt_role = 'authenticated' THEN
+    IF auth.uid() IS NULL THEN
+      RAISE EXCEPTION 'replace_user_assets: authenticated role requires auth.uid() to be set'
+        USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    IF replace_user_assets.user_id <> auth.uid() THEN
+      RAISE EXCEPTION 'replace_user_assets: cannot replace assets for another user (user_id=%, auth.uid=%)',
+        replace_user_assets.user_id,
+        auth.uid()
+        USING ERRCODE = 'insufficient_privilege';
+    END IF;
   END IF;
 
   DELETE FROM user_assets WHERE user_assets.user_id = replace_user_assets.user_id;
