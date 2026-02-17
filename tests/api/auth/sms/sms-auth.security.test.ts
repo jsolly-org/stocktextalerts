@@ -60,6 +60,54 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 		expect(sendVerificationMock).not.toHaveBeenCalled();
 	});
 
+	it("If the phone number format is invalid, the request is rejected.", async () => {
+		const testUser = await createTestUser({
+			email: `test-${randomUUID()}@resend.dev`,
+			password: "TestPassword123!",
+			confirmed: true,
+		});
+		try {
+			const cookies = await createAuthenticatedCookies(
+				testUser.email,
+				"TestPassword123!",
+			);
+
+			const formData = new FormData();
+			formData.append("phone_country_code", "1"); // missing +
+			formData.append("phone_number", "5551234567");
+
+			const request = new Request(
+				"http://localhost/api/auth/sms/send-verification",
+				{
+					method: "POST",
+					body: formData,
+				},
+			);
+
+			const response = await sendVerificationPost({
+				request,
+				cookies: {
+					get: (name: string) => {
+						const cookie = cookies.get(name);
+						return cookie ? { value: cookie } : undefined;
+					},
+					set: () => {},
+				},
+			} as unknown as APIContext);
+
+			expect(response.status).toBe(400);
+			const payload = (await response.json()) as {
+				ok: boolean;
+				message: string;
+			};
+			expect(payload.ok).toBe(false);
+			expect(payload.message).toBe("invalid_phone_format");
+			expect(sendVerificationMock).not.toHaveBeenCalled();
+		} finally {
+			await cleanupTestUser(testUser.id);
+		}
+	});
+
 	it("If the form is incomplete, the request is rejected with a validation error.", async () => {
 		const testUser = await createTestUser({
 			email: `test-${randomUUID()}@resend.dev`,

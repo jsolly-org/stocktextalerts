@@ -60,6 +60,22 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		const phoneCountryCode = parsed.data.phone_country_code;
 		const phoneNationalNumber = parsed.data.phone_number;
 
+		// Basic validation: country code should start with + and contain digits;
+		// national number should contain only digits with reasonable length (E.164).
+		if (
+			!/^\+\d{1,4}$/.test(phoneCountryCode) ||
+			!/^\d{6,15}$/.test(phoneNationalNumber)
+		) {
+			logger.info("SMS verification rejected due to invalid phone format", {
+				userId: user.id,
+			});
+			return jsonResponse(400, {
+				ok: false,
+				message: "invalid_phone_format",
+				tone: "error",
+			});
+		}
+
 		const fullPhone = `${phoneCountryCode}${phoneNationalNumber}`;
 
 		const dbUser = await userService.getById(user.id);
