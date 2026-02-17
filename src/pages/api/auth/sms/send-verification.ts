@@ -86,27 +86,17 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			});
 		}
 
-		// `verification_sent_at` may not be present in generated types yet, but it *is* in the DB.
-		const dbUserWithVerificationSentAt = dbUser as typeof dbUser & {
-			verification_sent_at?: string | null;
-		};
-		const previousVerificationSentAt =
-			dbUserWithVerificationSentAt.verification_sent_at ?? null;
+		const previousVerificationSentAt = dbUser.verification_sent_at ?? null;
 
-		// `reserve_sms_verification` may not be present in generated types yet, but it *is* in the DB.
-		const supabaseWithUntrackedRpc = supabase as unknown as {
-			rpc: (
-				fn: string,
-				args: Record<string, unknown>,
-			) => Promise<{ data: unknown; error: unknown }>;
-		};
-		const { data: reserved, error: reserveError } =
-			await supabaseWithUntrackedRpc.rpc("reserve_sms_verification", {
+		const { data: reserved, error: reserveError } = await supabase.rpc(
+			"reserve_sms_verification",
+			{
 				p_user_id: dbUser.id,
 				p_phone_country_code: phoneCountryCode,
 				p_phone_number: phoneNationalNumber,
 				p_cooldown_ms: VERIFICATION_RESEND_COOLDOWN_MS,
-			});
+			},
+		);
 
 		if (reserveError) throw reserveError;
 
@@ -114,7 +104,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			// Expected rejection (often bots); info to avoid inflating error metrics.
 			logger.info("SMS verification resend blocked due to cooldown", {
 				userId: user.id,
-				sentAt: dbUserWithVerificationSentAt.verification_sent_at ?? null,
+				sentAt: dbUser.verification_sent_at ?? null,
 				cooldownMs: VERIFICATION_RESEND_COOLDOWN_MS,
 			});
 			return jsonResponse(429, {
@@ -155,11 +145,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			});
 		}
 
-		const reservedVerificationSentAt = (
-			dbUserAfterReserve as typeof dbUserAfterReserve & {
-				verification_sent_at?: string | null;
-			}
-		).verification_sent_at;
+		const reservedVerificationSentAt = dbUserAfterReserve.verification_sent_at;
 
 		if (!reservedVerificationSentAt) {
 			logger.error(
@@ -177,15 +163,14 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 
 		const result = await sendVerification(fullPhone);
 		if (!result.success) {
-			const { data: rolledBack, error: rollbackError } =
-				await supabaseWithUntrackedRpc.rpc(
-					"rollback_sms_verification_reservation",
-					{
-						p_user_id: dbUser.id,
-						p_expected_verification_sent_at: reservedVerificationSentAt,
-						p_restore_verification_sent_at: previousVerificationSentAt,
-					},
-				);
+			const { data: rolledBack, error: rollbackError } = await supabase.rpc(
+				"rollback_sms_verification_reservation",
+				{
+					p_user_id: dbUser.id,
+					p_expected_verification_sent_at: reservedVerificationSentAt,
+					p_restore_verification_sent_at: previousVerificationSentAt as string,
+				},
+			);
 
 			if (rollbackError || rolledBack !== true) {
 				logger.error(

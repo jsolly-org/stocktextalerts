@@ -40,7 +40,7 @@ const MARKET_SCHEDULED_USER_SELECT = `
 `;
 
 const HAS_DELIVERY_CHANNEL_OR =
-	"email_notifications_enabled.eq.true,market_scheduled_asset_price_include_sms.eq.true,asset_events_include_calendar_sms.eq.true,asset_events_include_ipo_sms.eq.true,asset_events_include_analyst_sms.eq.true,asset_events_include_insider_sms.eq.true,market_asset_price_alerts_include_sms.eq.true";
+	"email_notifications_enabled.eq.true,market_scheduled_asset_price_include_sms.eq.true";
 
 /**
  * Fetch users eligible for a scheduled asset price update run.

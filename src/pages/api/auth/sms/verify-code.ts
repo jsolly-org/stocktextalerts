@@ -84,21 +84,30 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			});
 		}
 
+		if (!userData.verification_sent_at) {
+			logger.warn("SMS verification attempted without prior code request", {
+				userId: user.id,
+			});
+			return jsonResponse(400, {
+				ok: false,
+				message: "no_code_requested",
+				tone: "error",
+			});
+		}
+
 		// Check if verification code has expired.
-		if (userData.verification_sent_at) {
-			const sentAt = new Date(userData.verification_sent_at);
-			const now = new Date();
-			if (now.getTime() - sentAt.getTime() > VERIFICATION_EXPIRATION_MS) {
-				logger.info("SMS verification code expired", {
-					userId: user.id,
-					sentAt: userData.verification_sent_at,
-				});
-				return jsonResponse(400, {
-					ok: false,
-					message: "code_expired",
-					tone: "error",
-				});
-			}
+		const sentAt = new Date(userData.verification_sent_at);
+		const now = new Date();
+		if (now.getTime() - sentAt.getTime() > VERIFICATION_EXPIRATION_MS) {
+			logger.info("SMS verification code expired", {
+				userId: user.id,
+				sentAt: userData.verification_sent_at,
+			});
+			return jsonResponse(400, {
+				ok: false,
+				message: "code_expired",
+				tone: "error",
+			});
 		}
 
 		// Rate limit verification attempts to prevent brute force attacks

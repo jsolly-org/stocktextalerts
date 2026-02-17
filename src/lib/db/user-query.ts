@@ -28,7 +28,16 @@ export async function fetchUsersWithRetry<T>(options: {
 	const { logger, label, execute } = options;
 
 	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-		const { data, error } = await execute();
+		let data: T[] | null = null;
+		let error: unknown;
+
+		try {
+			const result = await execute();
+			data = result.data;
+			error = result.error;
+		} catch (thrown) {
+			error = thrown;
+		}
 
 		if (!error) {
 			return (data ?? []) as T[];
