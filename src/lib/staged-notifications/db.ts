@@ -73,7 +73,11 @@ export async function deleteStagedNotification(
 	supabase: SupabaseAdminClient,
 	id: string,
 ): Promise<void> {
-	await supabase.from("staged_notifications").delete().eq("id", id);
+	const { error } = await supabase
+		.from("staged_notifications")
+		.delete()
+		.eq("id", id);
+	if (error) throw error;
 }
 
 /** Purge staged notification rows older than the specified number of minutes. */
