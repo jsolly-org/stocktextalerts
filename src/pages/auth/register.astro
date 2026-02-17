@@ -8,7 +8,7 @@ import StatusMessage from "../../components/StatusMessage.astro";
 import Layout from "../../layouts/Layout.astro";
 import { createSupabaseServerClient } from "../../lib/db/supabase";
 import { rootLogger } from "../../lib/logging";
-import { formatMessage } from "../../lib/constants";
+import { formatMessage, MIN_PASSWORD_LENGTH } from "../../lib/constants";
 import { getTimezoneOptions } from "../../lib/time/cache";
 
 const search = Astro.url.searchParams;
@@ -92,11 +92,13 @@ if (error === "user_already_exists") {
                 name="password"
                 id="password"
                 required
+                minlength={MIN_PASSWORD_LENGTH}
                 autocomplete="new-password"
                 spellcheck="false"
                 class="appearance-none rounded-none relative block w-full px-3 py-2 border border-edge-strong placeholder-muted text-heading rounded-b-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:z-10 sm:text-sm disabled:bg-disabled-bg disabled:cursor-not-allowed"
                 placeholder="Password…"
               />
+              <p class="text-sm text-muted mt-1">At least {MIN_PASSWORD_LENGTH} characters</p>
             </div>
           </fieldset>
           
