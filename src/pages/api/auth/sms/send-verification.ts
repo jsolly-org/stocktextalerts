@@ -57,15 +57,19 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			});
 		}
 
-		const phoneCountryCode = parsed.data.phone_country_code;
-		const phoneNationalNumber = parsed.data.phone_number;
+		// Normalize phone inputs: the external auth/storage service controls its own
+		// constraints, so E.164 format must be enforced at the application layer.
+		const rawCountryCode = parsed.data.phone_country_code
+			.trim()
+			.replace(/\s+/g, "");
+		const rawNational = parsed.data.phone_number.trim().replace(/\s+/g, "");
+		const normalizedCountryCode = `+${rawCountryCode.replace(/^\+/, "").replace(/\D/g, "")}`;
+		const phoneNationalNumber = rawNational.replace(/\D/g, "");
 
-		// Basic validation: country code should start with + and contain digits;
-		// national number should contain only digits with reasonable length (E.164).
-		if (
-			!/^\+\d{1,4}$/.test(phoneCountryCode) ||
-			!/^\d{6,15}$/.test(phoneNationalNumber)
-		) {
+		const fullPhone = `${normalizedCountryCode}${phoneNationalNumber}`;
+
+		// E.164: + followed by 7–15 digits total.
+		if (!/^\+\d{7,15}$/.test(fullPhone)) {
 			logger.info("SMS verification rejected due to invalid phone format", {
 				userId: user.id,
 			});
@@ -75,8 +79,6 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 				tone: "error",
 			});
 		}
-
-		const fullPhone = `${phoneCountryCode}${phoneNationalNumber}`;
 
 		const dbUser = await userService.getById(user.id);
 		if (!dbUser) {
@@ -108,7 +110,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			"reserve_sms_verification",
 			{
 				p_user_id: dbUser.id,
-				p_phone_country_code: phoneCountryCode,
+				p_phone_country_code: normalizedCountryCode,
 				p_phone_number: phoneNationalNumber,
 				p_cooldown_ms: VERIFICATION_RESEND_COOLDOWN_MS,
 			},

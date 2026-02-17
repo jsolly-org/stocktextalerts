@@ -37,4 +37,4 @@ export const MARKET_SCHEDULED_USER_SELECT = `
 
 /** Filter: user has at least one delivery channel for market-scheduled updates. */
 export const HAS_DELIVERY_CHANNEL_OR =
-	"email_notifications_enabled.eq.true,market_scheduled_asset_price_include_sms.eq.true";
+	"and(email_notifications_enabled.eq.true,market_scheduled_asset_price_include_email.eq.true),and(sms_notifications_enabled.eq.true,market_scheduled_asset_price_include_sms.eq.true)";
