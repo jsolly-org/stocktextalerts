@@ -7,6 +7,8 @@
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLogger } from "../../../src/lib/logging";
+import type { EmailSender } from "../../../src/lib/messaging/email/utils";
+import type { SmsSenderProvider } from "../../../src/lib/schedule/sms-sender";
 import { upsertStagedNotification } from "../../../src/lib/staged-notifications/db";
 import { deliverStagedNotifications } from "../../../src/lib/staged-notifications/deliver";
 import type { StagedMarketData } from "../../../src/lib/staged-notifications/types";
@@ -17,11 +19,22 @@ import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 describe("deliverStagedNotifications", () => {
 	const logger = createLogger({ path: "staged-deliver-test" });
+	let sendEmail: EmailSender;
+	let getSmsSender: SmsSenderProvider;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(DateTime.fromISO("2026-01-15T15:00:00.000Z").toJSDate());
 		vi.stubEnv("SMS_TEST_BEHAVIOR", "success");
+
+		const { createEmailSender } = await import(
+			"../../../src/lib/messaging/email/utils"
+		);
+		const { createSmsSenderProvider } = await import(
+			"../../../src/lib/schedule/sms-sender"
+		);
+		sendEmail = createEmailSender();
+		getSmsSender = createSmsSenderProvider();
 	});
 
 	afterEach(() => {
@@ -75,19 +88,12 @@ describe("deliverStagedNotifications", () => {
 		});
 		expect(upsertError).toBeNull();
 
-		const { createEmailSender } = await import(
-			"../../../src/lib/messaging/email/utils"
-		);
-		const { createSmsSenderProvider } = await import(
-			"../../../src/lib/schedule/sms-sender"
-		);
-
 		const result = await deliverStagedNotifications({
 			supabase: adminClient,
 			logger,
 			currentTime: DateTime.utc(),
-			sendEmail: createEmailSender(),
-			getSmsSender: createSmsSenderProvider(),
+			sendEmail,
+			getSmsSender,
 		});
 
 		expect(result.stats.emailsSent).toBeGreaterThanOrEqual(1);
@@ -168,19 +174,12 @@ describe("deliverStagedNotifications", () => {
 			);
 		expect(insertSnError).toBeNull();
 
-		const { createEmailSender } = await import(
-			"../../../src/lib/messaging/email/utils"
-		);
-		const { createSmsSenderProvider } = await import(
-			"../../../src/lib/schedule/sms-sender"
-		);
-
 		const result = await deliverStagedNotifications({
 			supabase: adminClient,
 			logger,
 			currentTime: DateTime.utc(),
-			sendEmail: createEmailSender(),
-			getSmsSender: createSmsSenderProvider(),
+			sendEmail,
+			getSmsSender,
 		});
 
 		expect(result.deliveredUserTypes.has(`${id}:market`)).toBe(true);
@@ -188,19 +187,12 @@ describe("deliverStagedNotifications", () => {
 	});
 
 	it("returns empty deliveredUserTypes when no staged rows are due", async () => {
-		const { createEmailSender } = await import(
-			"../../../src/lib/messaging/email/utils"
-		);
-		const { createSmsSenderProvider } = await import(
-			"../../../src/lib/schedule/sms-sender"
-		);
-
 		const result = await deliverStagedNotifications({
 			supabase: adminClient,
 			logger,
 			currentTime: DateTime.utc(),
-			sendEmail: createEmailSender(),
-			getSmsSender: createSmsSenderProvider(),
+			sendEmail,
+			getSmsSender,
 		});
 
 		expect(result.deliveredUserTypes.size).toBe(0);

@@ -11,6 +11,7 @@ import { upsertStagedNotification } from "../../../src/lib/staged-notifications/
 import type { StagedMarketData } from "../../../src/lib/staged-notifications/types";
 import { toIsoOrThrow } from "../../../src/lib/time/format";
 import { POST } from "../../../src/pages/api/schedule";
+import { createScheduleRequest } from "../../helpers/schedule-request";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
@@ -77,15 +78,9 @@ describe("runScheduledNotifications: staged + fallback pipeline", () => {
 		});
 		expect(upsertError).toBeNull();
 
-		const createRequest = () =>
-			new Request("http://localhost/api/schedule", {
-				method: "POST",
-				headers: {
-					Authorization: `Bearer ${testCronSecret}`,
-				},
-			});
-
-		const response = await POST({ request: createRequest() } as APIContext);
+		const response = await POST({
+			request: createScheduleRequest(testCronSecret),
+		} as APIContext);
 		expect(response.status).toBe(200);
 
 		const { data: logs } = await adminClient
@@ -120,15 +115,9 @@ describe("runScheduledNotifications: staged + fallback pipeline", () => {
 			.eq("id", id);
 		expect(updateError).toBeNull();
 
-		const createRequest = () =>
-			new Request("http://localhost/api/schedule", {
-				method: "POST",
-				headers: {
-					Authorization: `Bearer ${testCronSecret}`,
-				},
-			});
-
-		const response = await POST({ request: createRequest() } as APIContext);
+		const response = await POST({
+			request: createScheduleRequest(testCronSecret),
+		} as APIContext);
 		expect(response.status).toBe(200);
 
 		const { data: logs } = await adminClient

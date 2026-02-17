@@ -1,21 +1,17 @@
 /**
  * Tests that when staged delivery fails (throws), fallback still runs.
- * Uses a mock so we can simulate the failure path without affecting other tests.
+ * Uses a scoped spy so we can simulate the failure path without affecting other tests.
  */
 import type { APIContext } from "astro";
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as deliverModule from "../../../src/lib/staged-notifications/deliver";
 import { POST } from "../../../src/pages/api/schedule";
+import { createScheduleRequest } from "../../helpers/schedule-request";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 import { allowConsoleErrors } from "../../setup";
-
-vi.mock("../../../src/lib/staged-notifications/deliver", () => ({
-	deliverStagedNotifications: () => {
-		throw new Error("Simulated staged delivery failure");
-	},
-}));
 
 describe("runScheduledNotifications: staging failure fallback", () => {
 	const testCronSecret = "test-cron-secret";
@@ -27,9 +23,13 @@ describe("runScheduledNotifications: staging failure fallback", () => {
 		vi.stubEnv("CRON_SECRET", testCronSecret);
 		vi.stubEnv("SMS_TEST_BEHAVIOR", "success");
 		vi.stubEnv("SCHEDULE_PASS_DELAY_MS", "0");
+		vi.spyOn(deliverModule, "deliverStagedNotifications").mockRejectedValue(
+			new Error("Simulated staged delivery failure"),
+		);
 	});
 
 	afterEach(() => {
+		vi.restoreAllMocks();
 		vi.useRealTimers();
 		vi.unstubAllEnvs();
 	});
@@ -57,15 +57,9 @@ describe("runScheduledNotifications: staging failure fallback", () => {
 			.eq("id", id);
 		expect(updateError).toBeNull();
 
-		const createRequest = () =>
-			new Request("http://localhost/api/schedule", {
-				method: "POST",
-				headers: {
-					Authorization: `Bearer ${testCronSecret}`,
-				},
-			});
-
-		const response = await POST({ request: createRequest() } as APIContext);
+		const response = await POST({
+			request: createScheduleRequest(testCronSecret),
+		} as APIContext);
 		expect(response.status).toBe(200);
 
 		const { data: logs } = await adminClient
