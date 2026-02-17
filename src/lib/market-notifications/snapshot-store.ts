@@ -14,7 +14,7 @@ export interface AssetSnapshot {
 	capturedAt: string;
 }
 
-const RETENTION_MINUTES = 60;
+export const RETENTION_MINUTES = 60;
 
 /**
  * Bulk-insert current tick's quotes as snapshot rows.
@@ -123,4 +123,26 @@ export async function getSnapshotsForSymbols(
 	}
 
 	return result;
+}
+
+/**
+ * Purge asset_snapshots older than the retention window via Postgres RPC.
+ * Call from cron (e.g. /api/schedule) so the table does not grow unbounded.
+ */
+export async function purgeOldAssetSnapshots(
+	supabase: SupabaseAdminClient,
+	retentionMinutes: number = RETENTION_MINUTES,
+): Promise<number> {
+	const { data, error } = await supabase.rpc("purge_old_asset_snapshots", {
+		p_retention_minutes: retentionMinutes,
+	});
+	if (error) {
+		rootLogger.error(
+			"Failed to purge old asset snapshots",
+			{ retentionMinutes },
+			error,
+		);
+		return 0;
+	}
+	return typeof data === "number" ? data : 0;
 }
