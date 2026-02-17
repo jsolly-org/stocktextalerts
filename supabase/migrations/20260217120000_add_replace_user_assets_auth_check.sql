@@ -28,7 +28,9 @@ BEGIN
       USING ERRCODE = 'insufficient_privilege';
   END IF;
 
-  -- Validate input before any deletion; return without modifying data when symbols is NULL/empty.
+  DELETE FROM user_assets WHERE user_assets.user_id = replace_user_assets.user_id;
+
+  -- Return without further modification when symbols is NULL/empty (DELETE already ran for clear-all case).
   IF symbols IS NULL OR array_length(symbols, 1) IS NULL THEN
     RETURN;
   END IF;
@@ -88,8 +90,6 @@ BEGIN
       USING ERRCODE = 'check_violation',
         CONSTRAINT = 'user_assets_max_limit';
   END IF;
-
-  DELETE FROM user_assets WHERE user_assets.user_id = replace_user_assets.user_id;
 
   INSERT INTO user_assets (user_id, symbol)
   SELECT replace_user_assets.user_id, symbol
