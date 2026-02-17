@@ -83,10 +83,19 @@ const handler: APIRoute = async ({ request, locals }) => {
 					continue;
 				}
 				const sector = sicCodeToSector(String(sicCode));
-				await supabase
+				const { error: updateError } = await supabase
 					.from("assets")
 					.update({ sector } as Record<string, unknown>)
 					.eq("symbol", symbol);
+				if (updateError) {
+					logger.warn(
+						"Supabase update failed for sector backfill",
+						{ symbol, sector },
+						updateError,
+					);
+					skipped++;
+					continue;
+				}
 				updated++;
 			} catch (err) {
 				logger.warn(
