@@ -1,3 +1,9 @@
+/**
+ * Vitest tests for the run.ts scheduled notification runner.
+ *
+ * Covers: fallback phase skips users already delivered by staging (no double-send),
+ * and fallback still delivers when staging has no rows (missing/invalid path).
+ */
 import type { APIContext } from "astro";
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

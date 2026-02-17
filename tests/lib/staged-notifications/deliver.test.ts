@@ -1,3 +1,9 @@
+/**
+ * Vitest tests for the staged notification delivery pipeline (deliver.ts).
+ *
+ * Covers: due staged rows delivery, idempotency when already claimed,
+ * deliveredUserTypes bookkeeping, and empty-result when no rows are due.
+ */
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLogger } from "../../../src/lib/logging";
