@@ -43,7 +43,9 @@ function formatAssetEventsSmsMessage(options: {
 	const parts: string[] = ["StockTextAlerts — Asset Events 🗓️"];
 
 	if (options.marketClosureInfo) {
-		parts.push(buildMarketClosedBannerText(options.marketClosureInfo));
+		parts.push(
+			buildMarketClosedBannerText(options.marketClosureInfo, "events"),
+		);
 	}
 
 	if (options.earningsSection) {
@@ -97,7 +99,9 @@ function formatAssetEventsEmail(options: {
 	const textParts: string[] = ["Asset Events"];
 
 	if (options.marketClosureInfo) {
-		textParts.push(buildMarketClosedBannerText(options.marketClosureInfo));
+		textParts.push(
+			buildMarketClosedBannerText(options.marketClosureInfo, "events"),
+		);
 	}
 
 	if (options.earningsSection) {
@@ -128,7 +132,7 @@ function formatAssetEventsEmail(options: {
 	const text = textParts.join("\n");
 
 	const marketClosedHtml = options.marketClosureInfo
-		? buildMarketClosedBannerHtml(options.marketClosureInfo)
+		? buildMarketClosedBannerHtml(options.marketClosureInfo, "events")
 		: "";
 
 	let sectionsHtml = "";

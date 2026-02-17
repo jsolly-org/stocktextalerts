@@ -173,7 +173,7 @@ export function formatEmailMessage(
 	const marketDisclaimer = marketOpen
 		? ""
 		: `\n${buildMarketClosedBannerText(marketClosureInfo ?? null)}`;
-	const text = `Your tracked assets:\n${assetsList}${marketDisclaimer}${textFooter}`;
+	const text = `Your tracked assets:\n${marketDisclaimer}${assetsList}${textFooter}`;
 	const escapedAssetsListHtml = formatAssetsHtmlList(
 		userAssets,
 		(symbol) => priceMap.get(symbol) ?? undefined,

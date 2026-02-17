@@ -56,9 +56,9 @@ export function formatSmsMessage(
 
 	const sections = [
 		header,
+		marketDisclaimer,
 		assetsList,
 		extrasBlock,
-		marketDisclaimer,
 		`Manage your settings: ${dashboardUrl}`,
 		optOutSuffix,
 	].filter(Boolean);
