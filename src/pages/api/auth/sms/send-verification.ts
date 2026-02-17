@@ -184,7 +184,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 				{
 					p_user_id: dbUser.id,
 					p_expected_verification_sent_at: reservedVerificationSentAt,
-					p_restore_verification_sent_at: previousVerificationSentAt as string,
+					p_restore_verification_sent_at: previousVerificationSentAt,
 				},
 			);
 
