@@ -4,7 +4,10 @@ import { getSiteUrl } from "../../db/env";
 import { rootLogger } from "../../logging";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
 import { escapeHtml, formatAssetsHtmlList } from "../asset-formatting";
-import { buildMarketClosedBannerHtml } from "../market-closure-banner";
+import {
+	buildMarketClosedBannerHtml,
+	buildMarketClosedBannerText,
+} from "../market-closure-banner";
 import type {
 	DeliveryResult,
 	EmailUser,
@@ -165,9 +168,7 @@ export function formatEmailMessage(
 		return { text, html };
 	}
 
-	const marketDisclaimer = marketOpen
-		? ""
-		: "\n🔔 Market Closed\nPrices below reflect the last market close.";
+	const marketDisclaimer = marketOpen ? "" : "\n" + buildMarketClosedBannerText();
 	const text = `Your tracked assets:\n${assetsList}${marketDisclaimer}${textFooter}`;
 	const escapedAssetsListHtml = formatAssetsHtmlList(
 		userAssets,
