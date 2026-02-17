@@ -16,6 +16,7 @@ import type { DateTime } from "luxon";
 import { dispatchDailyDigestUser } from "../daily-digest/dispatch";
 import { fetchUpcomingDailyDigestUsers } from "../daily-digest/query-upcoming";
 import type { Logger } from "../logging";
+import { getUsMarketClosureInfoForInstant } from "../time/market-calendar";
 import { processMarketScheduledUser } from "../market-notifications/scheduled/process";
 import { fetchUpcomingMarketScheduledUsers } from "../market-notifications/scheduled/query-upcoming";
 import { createEmailSender } from "../messaging/email/utils";
@@ -203,6 +204,10 @@ export async function precomputeDailyDigest(options: {
 		window: `${afterTimeIso} → ${beforeTimeIso}`,
 	});
 
+	// Fetch market closure once for fan-out (avoids per-user API calls)
+	const marketClosureInfo =
+		await getUsMarketClosureInfoForInstant(currentTime);
+
 	for (
 		let index = 0;
 		index < upcomingUsers.length;
@@ -216,6 +221,7 @@ export async function precomputeDailyDigest(options: {
 					currentTimeIso,
 					cronSecret,
 					precompute: true,
+					marketClosureInfo,
 				}),
 			),
 		);

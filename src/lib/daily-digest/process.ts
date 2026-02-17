@@ -30,7 +30,10 @@ import { loadUserAssets } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
 import { upsertStagedNotification } from "../staged-notifications/db";
 import type { StagedDailyData } from "../staged-notifications/types";
-import { getUsMarketClosureInfoForInstant } from "../time/market-calendar";
+import {
+	getUsMarketClosureInfoForInstant,
+	type MarketClosureInfo,
+} from "../time/market-calendar";
 import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
 import {
 	formatDailyDigestEmail,
@@ -220,6 +223,8 @@ export async function processDailyDigestUser(options: {
 	getSmsSender: SmsSenderProvider;
 	/** When true, stage content for later delivery instead of sending now. */
 	stageOnly?: boolean;
+	/** Pre-fetched market closure info (avoids per-user API calls in fan-out). */
+	marketClosureInfo?: MarketClosureInfo | null;
 }): Promise<ScheduledNotificationTotals> {
 	const stats: ScheduledNotificationTotals = {
 		skipped: 0,
@@ -237,6 +242,7 @@ export async function processDailyDigestUser(options: {
 		sendEmail,
 		getSmsSender,
 		stageOnly,
+		marketClosureInfo: marketClosureInfoParam,
 	} = options;
 
 	try {
@@ -411,8 +417,11 @@ export async function processDailyDigestUser(options: {
 		}
 
 		// Check whether the US market is closed today (weekend / holiday).
+		// Use pre-fetched value when provided (fan-out) to avoid per-user API calls.
 		const marketClosureInfo =
-			await getUsMarketClosureInfoForInstant(currentTime);
+			marketClosureInfoParam !== undefined
+				? marketClosureInfoParam
+				: await getUsMarketClosureInfoForInstant(currentTime);
 
 		/* =============
 		Fetch Finnhub data (non-blocking — failures omit that section)

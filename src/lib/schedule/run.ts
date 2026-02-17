@@ -58,6 +58,10 @@ import {
 } from "../staged-notifications/precompute";
 import { toIsoOrThrow } from "../time/format";
 import {
+	getUsMarketClosureInfoForInstant,
+	type MarketClosureInfo,
+} from "../time/market-calendar";
+import {
 	type ScheduledNotificationTotals,
 	type SupabaseAdminClient,
 	USER_PROCESS_BATCH_SIZE,
@@ -247,6 +251,14 @@ async function runPass(options: {
 
 	const marketOpen = marketStatusPromise ? await marketStatusPromise : false;
 
+	// Fetch market closure once for daily digest fan-out (avoids per-user API calls)
+	const marketClosurePromise: Promise<MarketClosureInfo | null> =
+		fallbackDailyUsers.length > 0
+			? getUsMarketClosureInfoForInstant(currentTime)
+			: Promise.resolve(null);
+	const marketClosureInfo =
+		fallbackDailyUsers.length > 0 ? await marketClosurePromise : null;
+
 	const results: ScheduledNotificationTotals[] = [];
 
 	// Process fallback market users
@@ -318,6 +330,7 @@ async function runPass(options: {
 						userId: user.id,
 						currentTimeIso,
 						cronSecret,
+						marketClosureInfo,
 					}),
 				),
 			);
@@ -516,6 +529,12 @@ export async function runScheduledNotifications(options: {
 
 		const marketOpen = marketStatusPromise ? await marketStatusPromise : false;
 
+		// Fetch market closure once for daily digest fan-out (avoids per-user API calls)
+		const forceSendMarketClosure: MarketClosureInfo | null =
+			dailyUsers.length > 0
+				? await getUsMarketClosureInfoForInstant(currentTime)
+				: null;
+
 		const results: ScheduledNotificationTotals[] = [];
 
 		for (
@@ -581,6 +600,7 @@ export async function runScheduledNotifications(options: {
 							userId: user.id,
 							currentTimeIso,
 							cronSecret,
+							marketClosureInfo: forceSendMarketClosure,
 						}),
 					),
 				);
