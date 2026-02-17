@@ -1,6 +1,7 @@
 import { getSiteUrl } from "../db/env";
 import { rootLogger } from "../logging";
 import type { ScheduledNotificationTotals } from "../schedule/helpers";
+import type { MarketClosureInfo } from "../time/market-calendar";
 
 const DISPATCH_TIMEOUT_MS = 120_000;
 
@@ -20,8 +21,11 @@ export async function dispatchDailyDigestUser(options: {
 	cronSecret: string;
 	/** When true, the fan-out endpoint stages content instead of delivering. */
 	precompute?: boolean;
+	/** Pre-fetched market closure info (avoids per-user API calls in fan-out). */
+	marketClosureInfo?: MarketClosureInfo | null;
 }): Promise<ScheduledNotificationTotals> {
-	const { userId, currentTimeIso, cronSecret, precompute } = options;
+	const { userId, currentTimeIso, cronSecret, precompute, marketClosureInfo } =
+		options;
 	const url = new URL("/api/daily-digest", getSiteUrl()).toString();
 
 	try {
@@ -31,7 +35,12 @@ export async function dispatchDailyDigestUser(options: {
 				Authorization: `Bearer ${cronSecret}`,
 				"Content-Type": "application/json",
 			},
-			body: JSON.stringify({ userId, currentTimeIso, precompute }),
+			body: JSON.stringify({
+				userId,
+				currentTimeIso,
+				precompute,
+				...(marketClosureInfo !== undefined && { marketClosureInfo }),
+			}),
 			signal: AbortSignal.timeout(DISPATCH_TIMEOUT_MS),
 		});
 

@@ -58,6 +58,10 @@ import {
 } from "../staged-notifications/precompute";
 import { toIsoOrThrow } from "../time/format";
 import {
+	getUsMarketClosureInfoForInstant,
+	type MarketClosureInfo,
+} from "../time/market-calendar";
+import {
 	type ScheduledNotificationTotals,
 	type SupabaseAdminClient,
 	USER_PROCESS_BATCH_SIZE,
@@ -247,6 +251,20 @@ async function runPass(options: {
 
 	const marketOpen = marketStatusPromise ? await marketStatusPromise : false;
 
+	// Fetch market closure once for daily digest fan-out (avoids per-user API calls)
+	let marketClosureInfo: MarketClosureInfo | null = null;
+	if (fallbackDailyUsers.length > 0) {
+		try {
+			marketClosureInfo = await getUsMarketClosureInfoForInstant(currentTime);
+		} catch (error) {
+			logger.error(
+				"Market closure lookup failed (continuing without closure info)",
+				{ action: "market_closure_prefetch" },
+				error,
+			);
+		}
+	}
+
 	const results: ScheduledNotificationTotals[] = [];
 
 	// Process fallback market users
@@ -318,6 +336,7 @@ async function runPass(options: {
 						userId: user.id,
 						currentTimeIso,
 						cronSecret,
+						marketClosureInfo,
 					}),
 				),
 			);
@@ -516,6 +535,21 @@ export async function runScheduledNotifications(options: {
 
 		const marketOpen = marketStatusPromise ? await marketStatusPromise : false;
 
+		// Fetch market closure once for daily digest fan-out (avoids per-user API calls)
+		let forceSendMarketClosure: MarketClosureInfo | null = null;
+		if (dailyUsers.length > 0) {
+			try {
+				forceSendMarketClosure =
+					await getUsMarketClosureInfoForInstant(currentTime);
+			} catch (error) {
+				logger.error(
+					"Market closure lookup failed (continuing without closure info)",
+					{ action: "market_closure_prefetch" },
+					error,
+				);
+			}
+		}
+
 		const results: ScheduledNotificationTotals[] = [];
 
 		for (
@@ -581,6 +615,7 @@ export async function runScheduledNotifications(options: {
 							userId: user.id,
 							currentTimeIso,
 							cronSecret,
+							marketClosureInfo: forceSendMarketClosure,
 						}),
 					),
 				);

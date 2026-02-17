@@ -7,6 +7,7 @@ import { createEmailSender } from "../../../lib/messaging/email/utils";
 import type { UserRecord } from "../../../lib/messaging/types";
 import { verifyCronSecret } from "../../../lib/schedule/cron-auth";
 import { createSmsSenderProvider } from "../../../lib/schedule/sms-sender";
+import type { MarketClosureInfo } from "../../../lib/time/market-calendar";
 
 type DailyDigestUserRow = Pick<
 	UserRecord,
@@ -56,14 +57,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		return new Response("Unauthorized", { status: 401 });
 	}
 
-	let body: { userId?: string; currentTimeIso?: string; precompute?: boolean };
+	let body: {
+		userId?: string;
+		currentTimeIso?: string;
+		precompute?: boolean;
+		marketClosureInfo?: MarketClosureInfo | null;
+	};
 	try {
 		body = (await request.json()) as typeof body;
 	} catch {
 		return new Response("Bad Request", { status: 400 });
 	}
 
-	const { userId, currentTimeIso, precompute } = body;
+	const { userId, currentTimeIso, precompute, marketClosureInfo } = body;
 	const parsedCurrentTime =
 		typeof currentTimeIso === "string"
 			? DateTime.fromISO(currentTimeIso, { zone: "utc" })
@@ -169,6 +175,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		sendEmail,
 		getSmsSender,
 		stageOnly: precompute === true,
+		marketClosureInfo,
 	});
 
 	return new Response(JSON.stringify(stats), {
