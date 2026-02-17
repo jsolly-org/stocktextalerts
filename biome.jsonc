@@ -22,6 +22,10 @@
 		"enabled": true,
 		"rules": {
 			"recommended": true,
+			"correctness": {
+				"noUnusedImports": "warn",
+				"noUnusedVariables": "warn"
+			},
 			"suspicious": {
 				"noConsole": {
 					"level": "error"
