@@ -1,6 +1,7 @@
 import { getSiteUrl } from "../../db/env";
 import type { AppSupabaseClient } from "../../db/supabase";
 import { NO_TRACKED_ASSETS_MESSAGE } from "../asset-formatting";
+import { buildMarketClosedBannerText } from "../market-closure-banner";
 import { recordNotification } from "../shared";
 import type { ProcessingStats, SmsUser } from "../types";
 import { formatExtrasSection } from "./formatting";
@@ -46,9 +47,7 @@ export function formatSmsMessage(
 		return `${header}\n\n${NO_TRACKED_ASSETS_MESSAGE}.\n\nManage your settings: ${dashboardUrl}\n\n${optOutSuffix}`;
 	}
 
-	const marketDisclaimer = marketOpen
-		? ""
-		: "🔔 Market Closed\nPrices below reflect the last market close.";
+	const marketDisclaimer = marketOpen ? "" : buildMarketClosedBannerText();
 	const extrasBlock = formatSmsExtras(extras);
 
 	const sections = [
