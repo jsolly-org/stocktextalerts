@@ -23,8 +23,8 @@
 		"rules": {
 			"recommended": true,
 			"correctness": {
-				"noUnusedImports": "warn",
-				"noUnusedVariables": "warn"
+				"noUnusedImports": "error",
+				"noUnusedVariables": "error"
 			},
 			"suspicious": {
 				"noConsole": {
