@@ -417,11 +417,15 @@ export async function processDailyDigestUser(options: {
 		}
 
 		// Check whether the US market is closed today (weekend / holiday).
-		// Use pre-fetched value when provided (fan-out) to avoid per-user API calls.
+		// Use the user's scheduled send instant (not job execution time) so digests
+		// near US midnight classify the correct market day during precompute.
+		const closureRefInstant = user.daily_digest_next_send_at
+			? DateTime.fromISO(user.daily_digest_next_send_at, { zone: "utc" })
+			: currentTime;
 		const marketClosureInfo =
 			marketClosureInfoParam !== undefined
 				? marketClosureInfoParam
-				: await getUsMarketClosureInfoForInstant(currentTime);
+				: await getUsMarketClosureInfoForInstant(closureRefInstant);
 
 		/* =============
 		Fetch Finnhub data (non-blocking — failures omit that section)
