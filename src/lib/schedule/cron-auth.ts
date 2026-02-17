@@ -22,8 +22,13 @@ export function verifyCronSecret(
 
 	if (!isAcceptableSecret(envCronSecret)) {
 		logger.error(
-			"CRON_SECRET is missing or too short (minimum 12 characters)",
-			{ action: "cron_auth" },
+			"CRON_SECRET format/strength unacceptable (minimum 12 characters)",
+			{
+				action: "cron_auth",
+				source: "verifyCronSecret",
+				validator: "isAcceptableSecret",
+				validatedVar: "CRON_SECRET",
+			},
 		);
 		return null;
 	}
