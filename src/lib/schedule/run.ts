@@ -252,12 +252,19 @@ async function runPass(options: {
 	const marketOpen = marketStatusPromise ? await marketStatusPromise : false;
 
 	// Fetch market closure once for daily digest fan-out (avoids per-user API calls)
-	const marketClosurePromise: Promise<MarketClosureInfo | null> =
-		fallbackDailyUsers.length > 0
-			? getUsMarketClosureInfoForInstant(currentTime)
-			: Promise.resolve(null);
-	const marketClosureInfo =
-		fallbackDailyUsers.length > 0 ? await marketClosurePromise : null;
+	let marketClosureInfo: MarketClosureInfo | null = null;
+	if (fallbackDailyUsers.length > 0) {
+		try {
+			marketClosureInfo =
+				await getUsMarketClosureInfoForInstant(currentTime);
+		} catch (error) {
+			logger.error(
+				"Market closure lookup failed (continuing without closure info)",
+				{ action: "market_closure_prefetch" },
+				error,
+			);
+		}
+	}
 
 	const results: ScheduledNotificationTotals[] = [];
 
@@ -530,10 +537,19 @@ export async function runScheduledNotifications(options: {
 		const marketOpen = marketStatusPromise ? await marketStatusPromise : false;
 
 		// Fetch market closure once for daily digest fan-out (avoids per-user API calls)
-		const forceSendMarketClosure: MarketClosureInfo | null =
-			dailyUsers.length > 0
-				? await getUsMarketClosureInfoForInstant(currentTime)
-				: null;
+		let forceSendMarketClosure: MarketClosureInfo | null = null;
+		if (dailyUsers.length > 0) {
+			try {
+				forceSendMarketClosure =
+					await getUsMarketClosureInfoForInstant(currentTime);
+			} catch (error) {
+				logger.error(
+					"Market closure lookup failed (continuing without closure info)",
+					{ action: "market_closure_prefetch" },
+					error,
+				);
+			}
+		}
 
 		const results: ScheduledNotificationTotals[] = [];
 
