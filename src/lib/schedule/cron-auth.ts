@@ -8,8 +8,8 @@ import type { Logger } from "../logging";
  * Returns the extracted secret string on success, or `null` on failure
  * (after logging the reason).
  */
-/** Reject weak secrets (presence is already validated in middleware). */
-function isAcceptableSecret(value: string | undefined): boolean {
+/** Reject weak or missing secrets; defensively handles absent env var for graceful failure. */
+function isAcceptableSecret(value: string | undefined): value is string {
 	if (value == null || typeof value !== "string") return false;
 	return value.trim().length >= 12;
 }
@@ -19,12 +19,15 @@ export function verifyCronSecret(
 	logger: Logger,
 ): string | null {
 	const authHeader = request.headers.get("authorization");
-	const envCronSecret = import.meta.env.CRON_SECRET as string;
+	const envCronSecret = import.meta.env.CRON_SECRET;
 
 	if (!isAcceptableSecret(envCronSecret)) {
-		logger.error("CRON_SECRET is too short (minimum 12 characters)", {
-			action: "cron_auth",
-		});
+		logger.error(
+			"CRON_SECRET is missing or too short (minimum 12 characters)",
+			{
+				action: "cron_auth",
+			},
+		);
 		return null;
 	}
 
