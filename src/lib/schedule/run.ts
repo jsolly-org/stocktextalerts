@@ -43,6 +43,7 @@ import {
 } from "../market-notifications/process";
 import { processMarketScheduledUser } from "../market-notifications/scheduled/process";
 import { fetchMarketScheduledUsers } from "../market-notifications/scheduled/query";
+import { purgeOldAssetSnapshots } from "../market-notifications/snapshot-store";
 import { createEmailSender } from "../messaging/email/utils";
 import {
 	type AssetPriceMap,
@@ -56,6 +57,10 @@ import {
 	precomputeMarketScheduled,
 } from "../staged-notifications/precompute";
 import { toIsoOrThrow } from "../time/format";
+import {
+	getUsMarketClosureInfoForInstant,
+	type MarketClosureInfo,
+} from "../time/market-calendar";
 import {
 	type ScheduledNotificationTotals,
 	type SupabaseAdminClient,
@@ -246,6 +251,20 @@ async function runPass(options: {
 
 	const marketOpen = marketStatusPromise ? await marketStatusPromise : false;
 
+	// Fetch market closure once for daily digest fan-out (avoids per-user API calls)
+	let marketClosureInfo: MarketClosureInfo | null = null;
+	if (fallbackDailyUsers.length > 0) {
+		try {
+			marketClosureInfo = await getUsMarketClosureInfoForInstant(currentTime);
+		} catch (error) {
+			logger.error(
+				"Market closure lookup failed (continuing without closure info)",
+				{ action: "market_closure_prefetch" },
+				error,
+			);
+		}
+	}
+
 	const results: ScheduledNotificationTotals[] = [];
 
 	// Process fallback market users
@@ -317,6 +336,7 @@ async function runPass(options: {
 						userId: user.id,
 						currentTimeIso,
 						cronSecret,
+						marketClosureInfo,
 					}),
 				),
 			);
@@ -383,6 +403,23 @@ export async function runScheduledNotifications(options: {
 	now?: DateTime;
 }): Promise<ScheduledNotificationTotals & { priceAlerts?: PriceAlertTotals }> {
 	const { supabase, logger, forceSend, cronSecret } = options;
+
+	// Purge old asset_snapshots (60-minute retention) so the table does not grow unbounded
+	try {
+		const purged = await purgeOldAssetSnapshots(supabase);
+		if (purged > 0) {
+			logger.info("Purged old asset snapshots", {
+				action: "purge_asset_snapshots",
+				purgedCount: purged,
+			});
+		}
+	} catch (error) {
+		logger.error(
+			"Failed to purge old asset snapshots (non-fatal)",
+			{ action: "purge_asset_snapshots" },
+			error,
+		);
+	}
 
 	// Run price alerts first — this also returns an extended quote map
 	// that could be reused by scheduled notifications to avoid duplicate API calls.
@@ -498,6 +535,21 @@ export async function runScheduledNotifications(options: {
 
 		const marketOpen = marketStatusPromise ? await marketStatusPromise : false;
 
+		// Fetch market closure once for daily digest fan-out (avoids per-user API calls)
+		let forceSendMarketClosure: MarketClosureInfo | null = null;
+		if (dailyUsers.length > 0) {
+			try {
+				forceSendMarketClosure =
+					await getUsMarketClosureInfoForInstant(currentTime);
+			} catch (error) {
+				logger.error(
+					"Market closure lookup failed (continuing without closure info)",
+					{ action: "market_closure_prefetch" },
+					error,
+				);
+			}
+		}
+
 		const results: ScheduledNotificationTotals[] = [];
 
 		for (
@@ -563,6 +615,7 @@ export async function runScheduledNotifications(options: {
 							userId: user.id,
 							currentTimeIso,
 							cronSecret,
+							marketClosureInfo: forceSendMarketClosure,
 						}),
 					),
 				);

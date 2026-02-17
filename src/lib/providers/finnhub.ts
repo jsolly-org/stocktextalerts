@@ -413,6 +413,5 @@ export function formatInsiderSection(
 		}
 	}
 	if (lines.length > 0) return lines.join("\n");
-	if (data.size > 0) return "No reported insider trades in the last 24 hours.";
 	return null;
 }

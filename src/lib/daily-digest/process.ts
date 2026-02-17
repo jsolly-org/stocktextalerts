@@ -30,6 +30,10 @@ import { loadUserAssets } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
 import { upsertStagedNotification } from "../staged-notifications/db";
 import type { StagedDailyData } from "../staged-notifications/types";
+import {
+	getUsMarketClosureInfoForInstant,
+	type MarketClosureInfo,
+} from "../time/market-calendar";
 import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
 import {
 	formatDailyDigestEmail,
@@ -219,6 +223,8 @@ export async function processDailyDigestUser(options: {
 	getSmsSender: SmsSenderProvider;
 	/** When true, stage content for later delivery instead of sending now. */
 	stageOnly?: boolean;
+	/** Pre-fetched market closure info (avoids per-user API calls in fan-out). */
+	marketClosureInfo?: MarketClosureInfo | null;
 }): Promise<ScheduledNotificationTotals> {
 	const stats: ScheduledNotificationTotals = {
 		skipped: 0,
@@ -236,6 +242,7 @@ export async function processDailyDigestUser(options: {
 		sendEmail,
 		getSmsSender,
 		stageOnly,
+		marketClosureInfo: marketClosureInfoParam,
 	} = options;
 
 	try {
@@ -408,6 +415,17 @@ export async function processDailyDigestUser(options: {
 				}
 			}
 		}
+
+		// Check whether the US market is closed today (weekend / holiday).
+		// Use the user's scheduled send instant (not job execution time) so digests
+		// near US midnight classify the correct market day during precompute.
+		const closureRefInstant = user.daily_digest_next_send_at
+			? DateTime.fromISO(user.daily_digest_next_send_at, { zone: "utc" })
+			: currentTime;
+		const marketClosureInfo =
+			marketClosureInfoParam !== undefined
+				? marketClosureInfoParam
+				: await getUsMarketClosureInfoForInstant(closureRefInstant);
 
 		/* =============
 		Fetch Finnhub data (non-blocking — failures omit that section)
@@ -601,6 +619,7 @@ export async function processDailyDigestUser(options: {
 							extras: emailExtras,
 							assetEvents: emailAssetEvents,
 							sparklines,
+							marketClosureInfo,
 						})
 					: null;
 
@@ -671,6 +690,7 @@ export async function processDailyDigestUser(options: {
 				extras: emailExtras,
 				assetEvents: emailAssetEvents,
 				sparklines,
+				marketClosureInfo,
 				sendEmail,
 				stats,
 			});

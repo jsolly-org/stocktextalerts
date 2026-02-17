@@ -100,6 +100,9 @@ describe("User input is validated against required data format rules.", () => {
 			["AAPL", aaplAsset.name, "stock"],
 		);
 
+		await client.query(
+			"select set_config('request.jwt.claims', '{\"role\":\"service_role\"}', true)",
+		);
 		await expect(
 			client.query("select public.replace_user_assets($1::uuid, $2::text[])", [
 				userId,
@@ -123,6 +126,9 @@ describe("User input is validated against required data format rules.", () => {
 			["aapl", aaplAsset.name, "stock"],
 		);
 
+		await client.query(
+			"select set_config('request.jwt.claims', '{\"role\":\"service_role\"}', true)",
+		);
 		await expect(
 			client.query("select public.replace_user_assets($1::uuid, $2::text[])", [
 				userId,
@@ -147,6 +153,9 @@ describe("User input is validated against required data format rules.", () => {
 			["AAPL", aaplAsset.name, "stock", "MSFT", msftAsset.name, "stock"],
 		);
 
+		await client.query(
+			"select set_config('request.jwt.claims', '{\"role\":\"service_role\"}', true)",
+		);
 		await expect(
 			client.query("select public.replace_user_assets($1::uuid, $2::text[])", [
 				userId,

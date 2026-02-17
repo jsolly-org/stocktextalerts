@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VERIFICATION_RESEND_COOLDOWN_MS } from "../../../../src/lib/constants";
-import { createSendVerificationHandler } from "../../../../src/pages/api/auth/sms/send-verification";
-import { createVerifyCodeHandler } from "../../../../src/pages/api/auth/sms/verify-code";
+import { POST as sendVerificationPost } from "../../../../src/pages/api/auth/sms/send-verification";
+import { POST as verifyCodePost } from "../../../../src/pages/api/auth/sms/verify-code";
 import {
 	adminClient,
 	createAuthenticatedCookies,
@@ -45,8 +45,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 			},
 		);
 
-		const handler = createSendVerificationHandler();
-		const response = await handler({
+		const response = await sendVerificationPost({
 			request,
 			cookies: {
 				get: () => undefined,
@@ -59,6 +58,54 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 		expect(payload.ok).toBe(false);
 		expect(payload.message).toBe("unauthorized");
 		expect(sendVerificationMock).not.toHaveBeenCalled();
+	});
+
+	it("If the phone number format is invalid, the request is rejected.", async () => {
+		const testUser = await createTestUser({
+			email: `test-${randomUUID()}@resend.dev`,
+			password: "TestPassword123!",
+			confirmed: true,
+		});
+		try {
+			const cookies = await createAuthenticatedCookies(
+				testUser.email,
+				"TestPassword123!",
+			);
+
+			const formData = new FormData();
+			formData.append("phone_country_code", "1"); // missing +
+			formData.append("phone_number", "5551234567");
+
+			const request = new Request(
+				"http://localhost/api/auth/sms/send-verification",
+				{
+					method: "POST",
+					body: formData,
+				},
+			);
+
+			const response = await sendVerificationPost({
+				request,
+				cookies: {
+					get: (name: string) => {
+						const cookie = cookies.get(name);
+						return cookie ? { value: cookie } : undefined;
+					},
+					set: () => {},
+				},
+			} as unknown as APIContext);
+
+			expect(response.status).toBe(400);
+			const payload = (await response.json()) as {
+				ok: boolean;
+				message: string;
+			};
+			expect(payload.ok).toBe(false);
+			expect(payload.message).toBe("invalid_phone_format");
+			expect(sendVerificationMock).not.toHaveBeenCalled();
+		} finally {
+			await cleanupTestUser(testUser.id);
+		}
 	});
 
 	it("If the form is incomplete, the request is rejected with a validation error.", async () => {
@@ -84,8 +131,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 				},
 			);
 
-			const handler = createSendVerificationHandler();
-			const response = await handler({
+			const response = await sendVerificationPost({
 				request,
 				cookies: {
 					get: (name: string) => {
@@ -147,8 +193,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 				},
 			);
 
-			const handler = createSendVerificationHandler();
-			const response = await handler({
+			const response = await sendVerificationPost({
 				request,
 				cookies: {
 					get: (name: string) => {
@@ -221,8 +266,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 				},
 			);
 
-			const handler = createSendVerificationHandler();
-			const response = await handler({
+			const response = await sendVerificationPost({
 				request,
 				cookies: {
 					get: (name: string) => {
@@ -286,8 +330,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 				},
 			);
 
-			const handler = createSendVerificationHandler();
-			const response = await handler({
+			const response = await sendVerificationPost({
 				request,
 				cookies: {
 					get: (name: string) => {
@@ -345,11 +388,10 @@ describe("A signed-in user verifies their phone number with an SMS code.", () =>
 				error: "invalid",
 			});
 
-			const handler = createVerifyCodeHandler();
 			const formData = new FormData();
 			formData.append("code", "000000");
 
-			const response = await handler({
+			const response = await verifyCodePost({
 				request: new Request("http://localhost/api/auth/sms/verify-code", {
 					method: "POST",
 					body: formData,
@@ -416,11 +458,10 @@ describe("A signed-in user verifies their phone number with an SMS code.", () =>
 
 			checkVerificationMock.mockResolvedValue({ success: true });
 
-			const handler = createVerifyCodeHandler();
 			const formData = new FormData();
 			formData.append("code", "123456");
 
-			const response = await handler({
+			const response = await verifyCodePost({
 				request: new Request("http://localhost/api/auth/sms/verify-code", {
 					method: "POST",
 					body: formData,
