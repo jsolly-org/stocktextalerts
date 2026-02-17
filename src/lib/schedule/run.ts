@@ -251,12 +251,13 @@ async function runPass(options: {
 
 	const marketOpen = marketStatusPromise ? await marketStatusPromise : false;
 
-	// Fetch market closure once for daily digest fan-out and market-scheduled banners (avoids per-user API calls)
+	// Fetch market closure once for daily digest fan-out, market-scheduled banners, and asset-events (avoids per-user API calls)
 	let marketClosureInfo: MarketClosureInfo | null = null;
-	if (
-		!marketOpen &&
-		(fallbackDailyUsers.length > 0 || fallbackMarketUsers.length > 0)
-	) {
+	const needsClosureInfo =
+		(!marketOpen &&
+			(fallbackDailyUsers.length > 0 || fallbackMarketUsers.length > 0)) ||
+		assetEventsUsers.length > 0;
+	if (needsClosureInfo) {
 		try {
 			marketClosureInfo = await getUsMarketClosureInfoForInstant(currentTime);
 		} catch (error) {
@@ -317,6 +318,7 @@ async function runPass(options: {
 					currentTime,
 					sendEmail,
 					getSmsSender,
+					marketClosureInfo,
 				}),
 			),
 		);
@@ -539,9 +541,12 @@ export async function runScheduledNotifications(options: {
 
 		const marketOpen = marketStatusPromise ? await marketStatusPromise : false;
 
-		// Fetch market closure once for daily digest fan-out and market-scheduled banners (avoids per-user API calls)
+		// Fetch market closure once for daily digest fan-out, market-scheduled banners, and asset-events (avoids per-user API calls)
 		let forceSendMarketClosure: MarketClosureInfo | null = null;
-		if (!marketOpen && (dailyUsers.length > 0 || marketUsers.length > 0)) {
+		const forceSendNeedsClosure =
+			(!marketOpen && (dailyUsers.length > 0 || marketUsers.length > 0)) ||
+			assetEventsUsers.length > 0;
+		if (forceSendNeedsClosure) {
 			try {
 				forceSendMarketClosure =
 					await getUsMarketClosureInfoForInstant(currentTime);
@@ -590,19 +595,20 @@ export async function runScheduledNotifications(options: {
 				index + USER_PROCESS_BATCH_SIZE,
 			);
 			const batchResults = await Promise.all(
-				batch.map((user) =>
-					processAssetEventsUser({
-						user,
-						supabase,
-						logger,
-						currentTime,
-						sendEmail,
-						getSmsSender,
-					}),
-				),
-			);
-			results.push(...batchResults);
-		}
+			batch.map((user) =>
+				processAssetEventsUser({
+					user,
+					supabase,
+					logger,
+					currentTime,
+					sendEmail,
+					getSmsSender,
+					marketClosureInfo: forceSendMarketClosure,
+				}),
+			),
+		);
+		results.push(...batchResults);
+	}
 
 		if (dailyUsers.length > 0) {
 			for (

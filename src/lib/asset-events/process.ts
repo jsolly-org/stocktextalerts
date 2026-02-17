@@ -9,7 +9,10 @@ import type {
 } from "../schedule/helpers";
 import { loadUserAssets } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
-import { getUsMarketClosureInfoForInstant } from "../time/market-calendar";
+import {
+	getUsMarketClosureInfoForInstant,
+	type MarketClosureInfo,
+} from "../time/market-calendar";
 import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
 import { buildAssetEventsContent } from "./content";
 import {
@@ -31,6 +34,8 @@ export async function processAssetEventsUser(options: {
 	currentTime: DateTime;
 	sendEmail: EmailSender;
 	getSmsSender: SmsSenderProvider;
+	/** Prefetched market closure info (avoids per-user API calls when provided). */
+	marketClosureInfo?: MarketClosureInfo | null;
 }): Promise<ScheduledNotificationTotals> {
 	const stats: ScheduledNotificationTotals = {
 		skipped: 0,
@@ -40,8 +45,15 @@ export async function processAssetEventsUser(options: {
 		smsSent: 0,
 		smsFailed: 0,
 	};
-	const { user, supabase, logger, currentTime, sendEmail, getSmsSender } =
-		options;
+	const {
+		user,
+		supabase,
+		logger,
+		currentTime,
+		sendEmail,
+		getSmsSender,
+		marketClosureInfo: passedMarketClosureInfo,
+	} = options;
 
 	try {
 		const dueAt = user.asset_events_next_send_at
@@ -128,7 +140,9 @@ export async function processAssetEventsUser(options: {
 		const localDate = dueAtLocal.toISODate() ?? "";
 
 		const marketClosureInfo =
-			await getUsMarketClosureInfoForInstant(currentTime);
+			passedMarketClosureInfo !== undefined
+				? passedMarketClosureInfo
+				: await getUsMarketClosureInfoForInstant(currentTime);
 
 		const wantsEmail =
 			emailEnabled &&
