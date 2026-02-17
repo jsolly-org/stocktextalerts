@@ -2,6 +2,7 @@ import { rootLogger } from "../logging";
 import type { ExtendedQuoteMap } from "../providers/price-fetcher";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 
+/** Single captured quote row from `asset_snapshots`. */
 export interface AssetSnapshot {
 	symbol: string;
 	price: number;
@@ -14,6 +15,7 @@ export interface AssetSnapshot {
 	capturedAt: string;
 }
 
+/** Minutes to retain asset snapshots; rows older than this are purged by `purgeOldAssetSnapshots`. */
 export const RETENTION_MINUTES = 60;
 
 /**
