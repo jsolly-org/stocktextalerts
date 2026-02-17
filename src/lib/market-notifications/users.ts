@@ -24,7 +24,8 @@ export interface PriceAlertUser {
 }
 
 /**
- * Fetch users who have price alerts enabled with at least one delivery channel.
+ * Fetch users who have price alerts enabled and at least one delivery channel
+ * (email or SMS). Used by the price-alert pipeline to determine recipients.
  */
 export async function fetchPriceAlertUsers(
 	supabase: SupabaseAdminClient,
@@ -55,9 +56,13 @@ export async function fetchPriceAlertUsers(
 }
 
 /**
- * Atomically claim per-symbol eligibility for the current US trading day.
+ * Atomically claim per-symbol eligibility for the current US trading day via
+ * `claim_market_asset_price_alert_slot` (single RPC with INSERT ... ON CONFLICT
+ * DO UPDATE). Prevents duplicate alerts when overlapping cron ticks or retries
+ * race.
  *
- * Returns true when alert delivery should proceed, false when already sent today.
+ * @returns true when alert delivery should proceed; false when already sent today
+ *   or slot is denied by follow-up rules (acceleration/recovery).
  */
 export async function claimCooldown(
 	supabase: SupabaseAdminClient,

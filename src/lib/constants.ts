@@ -150,6 +150,8 @@ const MESSAGE_ALLOWLIST = {
 		"Failed to dismiss timezone banner. Please try again.",
 	invalid_form:
 		"There was a problem with your submission. Please check the form and try again.",
+	invalid_phone_format:
+		"Invalid phone number format. Please enter a valid phone number and try again.",
 	invalid_credentials: "Invalid email or password.",
 	invalid_verification: "Verification link is invalid or expired.",
 	email_required: "No email address found.",
@@ -182,6 +184,7 @@ const MESSAGE_ALLOWLIST = {
 	verification_rate_limited:
 		"Too many verification attempts. Please wait 15 minutes and try again.",
 	invalid_code: "Invalid verification code. Please try again.",
+	no_code_requested: "Request a verification code before entering one.",
 	code_expired: "Verification code has expired. Please request a new code.",
 	failed_to_add_asset: "Failed to add asset",
 	failed_to_remove_asset: "Failed to remove asset",

@@ -20,6 +20,11 @@ const MARKET_CONTEXT_STANDOUT_DELTA_PCT = 1;
 const MARKET_CONTEXT_EXTREME_DELTA_PCT = 2.5;
 const MARKET_BENCHMARK_SYMBOL = "SPY";
 
+/**
+ * Aggregated stats from a price-alert run: symbols checked, alerts sent,
+ * cooldown skips (when claim_market_asset_price_alert_slot returned false),
+ * and delivery counts (email/SMS success/fail).
+ */
 export interface PriceAlertTotals extends PriceAlertDeliveryStats {
 	symbolsChecked: number;
 	alertsTriggered: number;
@@ -159,6 +164,11 @@ function buildSignalContext(options: {
 		.join(", ");
 }
 
+/**
+ * Run the price-alert pipeline: fetch quotes, evaluate thresholds, atomically
+ * claim trading-day slots via claimCooldown (INSERT ... ON CONFLICT DO UPDATE),
+ * then deliver alerts. Only runs when US market is open.
+ */
 export async function processPriceAlerts(options: {
 	supabase: SupabaseAdminClient;
 }): Promise<{

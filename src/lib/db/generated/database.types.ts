@@ -626,7 +626,7 @@ export type Database = {
       rollback_sms_verification_reservation: {
         Args: {
           p_expected_verification_sent_at: string
-          p_restore_verification_sent_at: string
+          p_restore_verification_sent_at: string | null
           p_user_id: string
         }
         Returns: boolean
