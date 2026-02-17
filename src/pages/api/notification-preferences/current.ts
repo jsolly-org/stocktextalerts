@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { jsonResponse } from "../../../lib/api/json-response";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
@@ -26,10 +27,7 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 				reason: "unauthenticated",
 			},
 		);
-		return Response.json(
-			{ ok: false, message: "unauthorized" },
-			{ status: 401 },
-		);
+		return jsonResponse(401, { ok: false, message: "unauthorized" });
 	}
 
 	try {
@@ -38,14 +36,12 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 			logger.error("Notification-preferences read failed: user not found", {
 				userId: user.id,
 			});
-			return Response.json(
-				{ ok: false, message: "user_not_found" },
-				{ status: 404 },
-			);
+			return jsonResponse(404, { ok: false, message: "user_not_found" });
 		}
 
-		return Response.json({
+		return jsonResponse(200, {
 			ok: true,
+			message: "ok",
 			notificationPreferences: {
 				market_scheduled_asset_price_enabled:
 					dbUser.market_scheduled_asset_price_enabled,
@@ -108,9 +104,6 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 			{ userId: user.id, action: "load_notification-preferences" },
 			error,
 		);
-		return Response.json(
-			{ ok: false, message: "read_failed" },
-			{ status: 500 },
-		);
+		return jsonResponse(500, { ok: false, message: "read_failed" });
 	}
 };
