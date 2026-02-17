@@ -3,6 +3,7 @@ import { DASHBOARD_SECTION_HASHES } from "../../constants";
 import { getSiteUrl } from "../../db/env";
 import { rootLogger } from "../../logging";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
+import type { MarketClosureInfo } from "../../time/market-calendar";
 import { escapeHtml, formatAssetsHtmlList } from "../asset-formatting";
 import {
 	buildMarketClosedBannerHtml,
@@ -117,6 +118,7 @@ export function formatEmailMessage(
 	marketOpen: boolean,
 	formatPrefs?: FormatPreferences,
 	getSparkline?: (symbol: string) => string | null | undefined,
+	marketClosureInfo?: MarketClosureInfo | null,
 ): { text: string; html: string } {
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const escapedDashboardUrl = escapeHtml(dashboardUrl);
@@ -168,7 +170,9 @@ export function formatEmailMessage(
 		return { text, html };
 	}
 
-	const marketDisclaimer = marketOpen ? "" : "\n" + buildMarketClosedBannerText();
+	const marketDisclaimer = marketOpen
+		? ""
+		: `\n${buildMarketClosedBannerText(marketClosureInfo ?? null)}`;
 	const text = `Your tracked assets:\n${assetsList}${marketDisclaimer}${textFooter}`;
 	const escapedAssetsListHtml = formatAssetsHtmlList(
 		userAssets,
@@ -178,7 +182,7 @@ export function formatEmailMessage(
 	);
 	const marketClosedBannerHtml = marketOpen
 		? ""
-		: buildMarketClosedBannerHtml();
+		: buildMarketClosedBannerHtml(marketClosureInfo ?? null);
 	const html = `
 <!DOCTYPE html>
 <html>
