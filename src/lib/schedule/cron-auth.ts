@@ -9,7 +9,8 @@ import type { Logger } from "../logging";
  * (after logging the reason).
  */
 /** Reject weak secrets (presence is already validated in middleware). */
-function isAcceptableSecret(value: string): boolean {
+function isAcceptableSecret(value: string | undefined): boolean {
+	if (value == null || typeof value !== "string") return false;
 	return value.trim().length >= 12;
 }
 
