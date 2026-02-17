@@ -118,4 +118,25 @@ describe("deliverPriceAlert SMS eligibility", () => {
 		expect(stats.smsSent).toBe(0);
 		expect(stats.smsFailed).toBe(1);
 	});
+
+	it("does not attempt SMS when sms_notifications_enabled is false", async () => {
+		const sendSms = vi.fn<
+			(_: { to: string; body: string }) => Promise<DeliveryResult>
+		>(async () => ({ success: true }));
+		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const stats = makeStats();
+
+		await deliverPriceAlert({
+			user: makeUser({ sms_notifications_enabled: false }),
+			alert: makeAlert(),
+			supabase: makeSupabaseMock(),
+			sendEmail,
+			sendSms,
+			stats,
+		});
+
+		expect(sendSms).not.toHaveBeenCalled();
+		expect(stats.smsSent).toBe(0);
+		expect(stats.smsFailed).toBe(1);
+	});
 });
