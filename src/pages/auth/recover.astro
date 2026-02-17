@@ -180,7 +180,13 @@ if (!hasValidToken) {
         return;
       }
 
-      showFeedback(passwordValue.length >= MIN_PASSWORD_LENGTH && passwordValue === confirmValue);
+      if (passwordValue.length < MIN_PASSWORD_LENGTH) {
+        showFeedback(false);
+        feedbackText.textContent = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+        return;
+      }
+
+      showFeedback(passwordValue === confirmValue);
     }
 
     passwordInput.addEventListener("input", updateMatchFeedback);
