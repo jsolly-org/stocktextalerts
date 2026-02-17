@@ -46,7 +46,9 @@ export function formatSmsMessage(
 		return `${header}\n\n${NO_TRACKED_ASSETS_MESSAGE}.\n\nManage your settings: ${dashboardUrl}\n\n${optOutSuffix}`;
 	}
 
-	const marketDisclaimer = marketOpen ? "" : "Prices as of last market close.";
+	const marketDisclaimer = marketOpen
+		? ""
+		: "🔔 Market Closed\nPrices below reflect the last market close.";
 	const extrasBlock = formatSmsExtras(extras);
 
 	const sections = [

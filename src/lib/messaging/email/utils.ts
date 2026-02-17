@@ -4,6 +4,7 @@ import { getSiteUrl } from "../../db/env";
 import { rootLogger } from "../../logging";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
 import { escapeHtml, formatAssetsHtmlList } from "../asset-formatting";
+import { buildMarketClosedBannerHtml } from "../market-closure-banner";
 import type {
 	DeliveryResult,
 	EmailUser,
@@ -166,7 +167,7 @@ export function formatEmailMessage(
 
 	const marketDisclaimer = marketOpen
 		? ""
-		: "\nPrices as of last market close.";
+		: "\n🔔 Market Closed\nPrices below reflect the last market close.";
 	const text = `Your tracked assets:\n${assetsList}${marketDisclaimer}${textFooter}`;
 	const escapedAssetsListHtml = formatAssetsHtmlList(
 		userAssets,
@@ -174,9 +175,9 @@ export function formatEmailMessage(
 		formatPrefs ?? { show_sparklines: false },
 		getSparkline,
 	);
-	const marketDisclaimerHtml = marketOpen
+	const marketClosedBannerHtml = marketOpen
 		? ""
-		: '<p style="color: #6b7280; font-size: 12px; font-style: italic; margin-top: 8px; margin-bottom: 0;">Prices as of last market close.</p>';
+		: buildMarketClosedBannerHtml();
 	const html = `
 <!DOCTYPE html>
 <html>
@@ -189,12 +190,12 @@ export function formatEmailMessage(
 		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">📈 StockTextAlerts</h1>
 	</div>
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+		${marketClosedBannerHtml}
 		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Your Scheduled Price Notification</h2>
 		<div style="background: #f9fafb; padding: 20px; border-radius: 6px; margin-bottom: 30px;">
 			<p style="color: #1f2937; font-size: 18px; font-weight: 600; margin: 0; font-family: 'Courier New', monospace;">
 				${escapedAssetsListHtml}
 			</p>
-			${marketDisclaimerHtml}
 		</div>
 		<div style="text-align: center; margin-top: 30px;">
 			<a href="${escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
