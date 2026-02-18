@@ -87,8 +87,14 @@ describe("Password change endpoint enforces rate limiting.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
+		const attempts =
+			Number.parseInt(
+				process.env.CHANGE_PASSWORD_RATE_LIMIT_ATTEMPTS ?? "5",
+				10,
+			) || 5;
+
 		await adminClient.from("rate_limit_log").insert(
-			Array.from({ length: 5 }, () => ({
+			Array.from({ length: attempts }, () => ({
 				user_id: testUser.id,
 				endpoint: "change_password",
 			})),
