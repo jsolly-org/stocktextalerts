@@ -5,12 +5,14 @@ import {
 import type { ExtendedAssetQuote } from "../providers/price-fetcher";
 import { generatePriceAlertSummary } from "./grok-summary";
 
+/** Alert enriched with news headlines, optional AI summary, and intraday closing prices for sparkline rendering. */
 export interface EnrichedAlert {
 	symbol: string;
 	priceContext: string;
 	signalContext: string;
 	headlines: CompanyNewsItem[];
 	aiSummary: string | null;
+	intradayCloses: number[] | null;
 }
 
 /** Fetch breaking news for a symbol (top 3 headlines from the last 24h). */
@@ -34,14 +36,15 @@ function buildPriceContext(symbol: string, quote: ExtendedAssetQuote): string {
 	return `${symbol} is ${direction} ${absChange}% today ($${quote.price.toFixed(2)})`;
 }
 
-/** Enrich a triggered alert with news context and optional AI summary. */
+/** Enrich a triggered alert with news context, optional AI summary, and intraday closes for sparklines. */
 export async function enrichAlert(options: {
 	symbol: string;
 	quote: ExtendedAssetQuote;
 	signalContext: string;
 	news: CompanyNewsItem[];
+	intradayCloses: number[] | null;
 }): Promise<EnrichedAlert> {
-	const { symbol, quote, signalContext, news } = options;
+	const { symbol, quote, signalContext, news, intradayCloses } = options;
 
 	const priceContext = buildPriceContext(symbol, quote);
 
@@ -62,5 +65,6 @@ export async function enrichAlert(options: {
 		signalContext,
 		headlines: news,
 		aiSummary,
+		intradayCloses,
 	};
 }

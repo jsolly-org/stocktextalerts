@@ -61,11 +61,16 @@ export async function loadUserAssets(
 /** Map of user id to that user's tracked assets. */
 export type UserAssetsMap = Map<string, UserAssetRow[]>;
 
+/** Max IDs per in() filter to stay under PostgREST/URL length limits (414 URI Too Long). */
+const IN_FILTER_CHUNK_SIZE = 50;
+
 /**
  * Batch-load tracked assets for multiple users in a single query.
  *
  * Returns a Map keyed by user_id. Use this to avoid N+1 queries when processing
  * multiple users in a scheduled run.
+ *
+ * Chunks the user_id list to avoid PostgREST in() URL length limits (414 URI Too Long).
  */
 export async function batchLoadUserAssets(
 	supabase: AppSupabaseClient,
@@ -81,33 +86,43 @@ export async function batchLoadUserAssets(
 		map.set(id, []);
 	}
 
-	const pageSize = 1000;
-	for (let from = 0; ; from += pageSize) {
-		const { data: rows, error } = await supabase
-			.from("user_assets")
-			.select("user_id, symbol, assets!inner(name)")
-			.in("user_id", uniqueIds)
-			.order("user_id", { ascending: true })
-			.order("symbol", { ascending: true })
-			.range(from, from + pageSize - 1);
+	for (
+		let chunkStart = 0;
+		chunkStart < uniqueIds.length;
+		chunkStart += IN_FILTER_CHUNK_SIZE
+	) {
+		const chunk = uniqueIds.slice(
+			chunkStart,
+			chunkStart + IN_FILTER_CHUNK_SIZE,
+		);
+		const pageSize = 1000;
+		for (let from = 0; ; from += pageSize) {
+			const { data: rows, error } = await supabase
+				.from("user_assets")
+				.select("user_id, symbol, assets!inner(name)")
+				.in("user_id", chunk)
+				.order("user_id", { ascending: true })
+				.order("symbol", { ascending: true })
+				.range(from, from + pageSize - 1);
 
-		if (error) {
-			throw error;
-		}
+			if (error) {
+				throw error;
+			}
 
-		for (const row of rows ?? []) {
-			const typed = row as {
-				user_id: string;
-				symbol: string;
-				assets: { name: string };
-			};
-			const entry = map.get(typed.user_id) ?? [];
-			entry.push({ symbol: typed.symbol, name: typed.assets.name });
-			map.set(typed.user_id, entry);
-		}
+			for (const row of rows ?? []) {
+				const typed = row as {
+					user_id: string;
+					symbol: string;
+					assets: { name: string };
+				};
+				const entry = map.get(typed.user_id) ?? [];
+				entry.push({ symbol: typed.symbol, name: typed.assets.name });
+				map.set(typed.user_id, entry);
+			}
 
-		if ((rows ?? []).length < pageSize) {
-			break;
+			if ((rows ?? []).length < pageSize) {
+				break;
+			}
 		}
 	}
 	return map;

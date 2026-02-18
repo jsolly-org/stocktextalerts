@@ -123,6 +123,20 @@ export async function precomputeMarketScheduled(options: {
 	}
 
 	const marketOpen = await fetchMarketStatus();
+	let marketClosureInfo: Awaited<
+		ReturnType<typeof getUsMarketClosureInfoForInstant>
+	> = null;
+	if (!marketOpen) {
+		try {
+			marketClosureInfo = await getUsMarketClosureInfoForInstant(currentTime);
+		} catch (error) {
+			logger.warn(
+				"Market closure lookup failed for precompute (continuing without closure info)",
+				{ action: "precompute_market" },
+				error,
+			);
+		}
+	}
 	const sendEmail = createEmailSender();
 	const getSmsSender = createSmsSenderProvider();
 
@@ -143,6 +157,7 @@ export async function precomputeMarketScheduled(options: {
 					getSmsSender,
 					priceMap,
 					marketOpen,
+					marketClosureInfo: !marketOpen ? marketClosureInfo : undefined,
 					stageOnly: true,
 					userAssetsMap,
 				}),

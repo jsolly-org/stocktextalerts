@@ -22,6 +22,7 @@ import {
 	updateScheduledNotificationRow,
 } from "../../schedule/helpers";
 import type { SmsSenderProvider } from "../../schedule/sms-sender";
+import type { MarketClosureInfo } from "../../time/market-calendar";
 
 /**
  * Deliver a scheduled market asset update via email and record the result.
@@ -40,6 +41,7 @@ export async function processMarketScheduledEmailDelivery(options: {
 	sendEmail: EmailSender;
 	priceMap: AssetPriceMap;
 	marketOpen: boolean;
+	marketClosureInfo?: MarketClosureInfo | null;
 	stats: ScheduledNotificationTotals;
 	formatPrefs?: FormatPreferences;
 	getSparkline?: (symbol: string) => string | null | undefined;
@@ -55,6 +57,7 @@ export async function processMarketScheduledEmailDelivery(options: {
 		sendEmail,
 		priceMap,
 		marketOpen,
+		marketClosureInfo,
 		stats,
 		formatPrefs,
 		getSparkline,
@@ -90,6 +93,7 @@ export async function processMarketScheduledEmailDelivery(options: {
 		emailIdempotencyKey,
 		formatPrefs,
 		getSparkline,
+		marketClosureInfo,
 	);
 
 	if (sent) {
@@ -131,6 +135,7 @@ export async function processMarketScheduledSmsDelivery(options: {
 	assetsList: string;
 	getSmsSender: SmsSenderProvider;
 	marketOpen: boolean;
+	marketClosureInfo?: MarketClosureInfo | null;
 	stats: ScheduledNotificationTotals;
 }): Promise<void> {
 	const {
@@ -142,6 +147,7 @@ export async function processMarketScheduledSmsDelivery(options: {
 		assetsList,
 		getSmsSender,
 		marketOpen,
+		marketClosureInfo,
 		stats,
 	} = options;
 
@@ -215,6 +221,8 @@ export async function processMarketScheduledSmsDelivery(options: {
 		assetsList,
 		smsSender,
 		marketOpen,
+		undefined,
+		marketClosureInfo,
 	);
 
 	if (sent) {

@@ -76,17 +76,20 @@ describe("fetchAndStoreAssetEvents", () => {
 	it("stores IPO events even when no symbols are tracked", async () => {
 		const { supabase, state } = createSupabaseStub([]);
 
-		vi.mocked(fetchEarnings).mockResolvedValue([]);
-		vi.mocked(fetchDividends).mockResolvedValue([]);
-		vi.mocked(fetchSplits).mockResolvedValue([]);
-		vi.mocked(fetchIpos).mockResolvedValue([
-			{
-				ticker: "ACME",
-				listingDate: "2026-02-16",
-				issuerName: "Acme Corp",
-				securityType: "CS",
-			},
-		]);
+		vi.mocked(fetchEarnings).mockResolvedValue({ data: [], failed: false });
+		vi.mocked(fetchDividends).mockResolvedValue({ data: [], failed: false });
+		vi.mocked(fetchSplits).mockResolvedValue({ data: [], failed: false });
+		vi.mocked(fetchIpos).mockResolvedValue({
+			data: [
+				{
+					ticker: "ACME",
+					listingDate: "2026-02-16",
+					issuerName: "Acme Corp",
+					securityType: "CS",
+				},
+			],
+			failed: false,
+		});
 
 		const result = await fetchAndStoreAssetEvents({
 			supabase: supabase as never,
@@ -95,7 +98,7 @@ describe("fetchAndStoreAssetEvents", () => {
 			logger: logger as never,
 		});
 
-		expect(result).toEqual({ upserted: 1 });
+		expect(result).toEqual({ upserted: 1, failedProviders: [] });
 		expect(state.upsertRows).toHaveLength(1);
 		expect(state.upsertRows[0]).toMatchObject({
 			symbol: "ACME",
@@ -108,38 +111,44 @@ describe("fetchAndStoreAssetEvents", () => {
 	it("keeps calendar events watchlist-scoped while IPOs stay global", async () => {
 		const { supabase, state } = createSupabaseStub(["AAPL"]);
 
-		vi.mocked(fetchEarnings).mockResolvedValue([
-			{
-				ticker: "AAPL",
-				date: "2026-02-16",
-				time: null,
-				epsEstimate: null,
-				revenueEstimate: null,
-			},
-			{
-				ticker: "MSFT",
-				date: "2026-02-16",
-				time: null,
-				epsEstimate: null,
-				revenueEstimate: null,
-			},
-		]);
-		vi.mocked(fetchDividends).mockResolvedValue([]);
-		vi.mocked(fetchSplits).mockResolvedValue([]);
-		vi.mocked(fetchIpos).mockResolvedValue([
-			{
-				ticker: "AAPL",
-				listingDate: "2026-02-17",
-				issuerName: "Apple Spinout",
-				securityType: "CS",
-			},
-			{
-				ticker: "NEWC",
-				listingDate: "2026-02-18",
-				issuerName: "NewCo",
-				securityType: "CS",
-			},
-		]);
+		vi.mocked(fetchEarnings).mockResolvedValue({
+			data: [
+				{
+					ticker: "AAPL",
+					date: "2026-02-16",
+					time: null,
+					epsEstimate: null,
+					revenueEstimate: null,
+				},
+				{
+					ticker: "MSFT",
+					date: "2026-02-16",
+					time: null,
+					epsEstimate: null,
+					revenueEstimate: null,
+				},
+			],
+			failed: false,
+		});
+		vi.mocked(fetchDividends).mockResolvedValue({ data: [], failed: false });
+		vi.mocked(fetchSplits).mockResolvedValue({ data: [], failed: false });
+		vi.mocked(fetchIpos).mockResolvedValue({
+			data: [
+				{
+					ticker: "AAPL",
+					listingDate: "2026-02-17",
+					issuerName: "Apple Spinout",
+					securityType: "CS",
+				},
+				{
+					ticker: "NEWC",
+					listingDate: "2026-02-18",
+					issuerName: "NewCo",
+					securityType: "CS",
+				},
+			],
+			failed: false,
+		});
 
 		const result = await fetchAndStoreAssetEvents({
 			supabase: supabase as never,
@@ -148,7 +157,7 @@ describe("fetchAndStoreAssetEvents", () => {
 			logger: logger as never,
 		});
 
-		expect(result).toEqual({ upserted: 3 });
+		expect(result).toEqual({ upserted: 3, failedProviders: [] });
 		expect(state.upsertRows).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
@@ -178,18 +187,21 @@ describe("fetchAndStoreAssetEvents", () => {
 	it("succeeds on repeated calls (upsert idempotency)", async () => {
 		const { supabase } = createSupabaseStub(["AAPL"]);
 
-		vi.mocked(fetchEarnings).mockResolvedValue([
-			{
-				ticker: "AAPL",
-				date: "2026-02-16",
-				time: null,
-				epsEstimate: null,
-				revenueEstimate: null,
-			},
-		]);
-		vi.mocked(fetchDividends).mockResolvedValue([]);
-		vi.mocked(fetchSplits).mockResolvedValue([]);
-		vi.mocked(fetchIpos).mockResolvedValue([]);
+		vi.mocked(fetchEarnings).mockResolvedValue({
+			data: [
+				{
+					ticker: "AAPL",
+					date: "2026-02-16",
+					time: null,
+					epsEstimate: null,
+					revenueEstimate: null,
+				},
+			],
+			failed: false,
+		});
+		vi.mocked(fetchDividends).mockResolvedValue({ data: [], failed: false });
+		vi.mocked(fetchSplits).mockResolvedValue({ data: [], failed: false });
+		vi.mocked(fetchIpos).mockResolvedValue({ data: [], failed: false });
 
 		const args = {
 			supabase: supabase as never,
@@ -201,7 +213,103 @@ describe("fetchAndStoreAssetEvents", () => {
 		const first = await fetchAndStoreAssetEvents(args);
 		const second = await fetchAndStoreAssetEvents(args);
 
-		expect(first).toEqual({ upserted: 1 });
-		expect(second).toEqual({ upserted: 1 });
+		expect(first).toEqual({ upserted: 1, failedProviders: [] });
+		expect(second).toEqual({ upserted: 1, failedProviders: [] });
+	});
+
+	it("reports single provider failure while storing other data", async () => {
+		const { supabase, state } = createSupabaseStub(["AAPL"]);
+
+		vi.mocked(fetchEarnings).mockResolvedValue({ data: [], failed: true });
+		vi.mocked(fetchDividends).mockResolvedValue({
+			data: [
+				{
+					ticker: "AAPL",
+					exDividendDate: "2026-02-17",
+					cashAmount: 0.25,
+					currency: "USD",
+					payDate: null,
+					frequency: 4,
+				},
+			],
+			failed: false,
+		});
+		vi.mocked(fetchSplits).mockResolvedValue({ data: [], failed: false });
+		vi.mocked(fetchIpos).mockResolvedValue({ data: [], failed: false });
+
+		const result = await fetchAndStoreAssetEvents({
+			supabase: supabase as never,
+			weekStart: "2026-02-16",
+			weekEnd: "2026-02-20",
+			logger: logger as never,
+		});
+
+		expect(result).toEqual({ upserted: 1, failedProviders: ["earnings"] });
+		expect(state.upsertRows).toHaveLength(1);
+		expect(state.upsertRows[0]).toMatchObject({
+			symbol: "AAPL",
+			event_type: "dividend",
+		});
+		expect(logger.warn).toHaveBeenCalledWith(
+			"One or more asset event providers failed",
+			expect.objectContaining({ failedProviders: ["earnings"] }),
+		);
+	});
+
+	it("reports all providers failed with 0 upserted", async () => {
+		const { supabase } = createSupabaseStub(["AAPL"]);
+
+		vi.mocked(fetchEarnings).mockResolvedValue({ data: [], failed: true });
+		vi.mocked(fetchDividends).mockResolvedValue({ data: [], failed: true });
+		vi.mocked(fetchSplits).mockResolvedValue({ data: [], failed: true });
+		vi.mocked(fetchIpos).mockResolvedValue({ data: [], failed: true });
+
+		const result = await fetchAndStoreAssetEvents({
+			supabase: supabase as never,
+			weekStart: "2026-02-16",
+			weekEnd: "2026-02-20",
+			logger: logger as never,
+		});
+
+		expect(result).toEqual({
+			upserted: 0,
+			failedProviders: ["earnings", "dividends", "splits", "ipos"],
+		});
+		expect(logger.warn).toHaveBeenCalledWith(
+			"One or more asset event providers failed",
+			expect.objectContaining({
+				failedProviders: ["earnings", "dividends", "splits", "ipos"],
+			}),
+		);
+	});
+
+	it("returns empty failedProviders and does not warn when all succeed", async () => {
+		const { supabase } = createSupabaseStub(["AAPL"]);
+
+		vi.mocked(fetchEarnings).mockResolvedValue({
+			data: [
+				{
+					ticker: "AAPL",
+					date: "2026-02-16",
+					time: null,
+					epsEstimate: null,
+					revenueEstimate: null,
+				},
+			],
+			failed: false,
+		});
+		vi.mocked(fetchDividends).mockResolvedValue({ data: [], failed: false });
+		vi.mocked(fetchSplits).mockResolvedValue({ data: [], failed: false });
+		vi.mocked(fetchIpos).mockResolvedValue({ data: [], failed: false });
+
+		const result = await fetchAndStoreAssetEvents({
+			supabase: supabase as never,
+			weekStart: "2026-02-16",
+			weekEnd: "2026-02-20",
+			logger: logger as never,
+		});
+
+		expect(result).toEqual({ upserted: 1, failedProviders: [] });
+		expect(logger.warn).not.toHaveBeenCalled();
 	});
 });

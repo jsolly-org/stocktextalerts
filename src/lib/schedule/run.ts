@@ -263,9 +263,14 @@ async function runPass(options: {
 
 	const marketOpen = marketStatusPromise ? await marketStatusPromise : false;
 
-	// Fetch market closure once for daily digest fan-out (avoids per-user API calls)
+	// Fetch market closure once for daily digest fan-out, market-scheduled banners, and asset-events (avoids per-user API calls)
 	let marketClosureInfo: MarketClosureInfo | null = null;
-	if (fallbackDailyUsers.length > 0) {
+	const needsClosureInfo =
+		!marketOpen &&
+		(fallbackDailyUsers.length > 0 ||
+			fallbackMarketUsers.length > 0 ||
+			assetEventsUsers.length > 0);
+	if (needsClosureInfo) {
 		try {
 			marketClosureInfo = await getUsMarketClosureInfoForInstant(currentTime);
 		} catch (error) {
@@ -301,6 +306,7 @@ async function runPass(options: {
 					priceMap,
 					marketOpen,
 					userAssetsMap,
+					marketClosureInfo,
 				}),
 			),
 		);
@@ -327,6 +333,7 @@ async function runPass(options: {
 					sendEmail,
 					getSmsSender,
 					userAssetsMap,
+					marketClosureInfo,
 				}),
 			),
 		);
@@ -560,9 +567,14 @@ export async function runScheduledNotifications(options: {
 
 		const marketOpen = marketStatusPromise ? await marketStatusPromise : false;
 
-		// Fetch market closure once for daily digest fan-out (avoids per-user API calls)
+		// Fetch market closure once for daily digest fan-out, market-scheduled banners, and asset-events (avoids per-user API calls)
 		let forceSendMarketClosure: MarketClosureInfo | null = null;
-		if (dailyUsers.length > 0) {
+		const forceSendNeedsClosure =
+			!marketOpen &&
+			(dailyUsers.length > 0 ||
+				marketUsers.length > 0 ||
+				assetEventsUsers.length > 0);
+		if (forceSendNeedsClosure) {
 			try {
 				forceSendMarketClosure =
 					await getUsMarketClosureInfoForInstant(currentTime);
@@ -595,6 +607,7 @@ export async function runScheduledNotifications(options: {
 						priceMap,
 						marketOpen,
 						userAssetsMap: forceSendUserAssetsMap,
+						marketClosureInfo: forceSendMarketClosure,
 					}),
 				),
 			);
@@ -620,6 +633,7 @@ export async function runScheduledNotifications(options: {
 						sendEmail,
 						getSmsSender,
 						userAssetsMap: forceSendUserAssetsMap,
+						marketClosureInfo: forceSendMarketClosure,
 					}),
 				),
 			);
