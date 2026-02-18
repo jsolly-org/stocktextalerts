@@ -19,6 +19,9 @@ New app with no users — optimize for simplicity and correctness over backwards
 - **Production migration path:** `supabase migration new <name>` → write SQL → commit → merge to `main` → CI runs `supabase db push`.
 - MCP `apply_migration` is for iterating on the **local** Supabase database only.
 
+## CI Pipeline
+- See [.github/workflows/README.md](.github/workflows/README.md) for the post-dev-push workflow (discover → parse → create-followup-pr matrix) and how it differs from the removed nightly-issue-grooming flow.
+
 ## Local Dev Login
 - Test user email: `test@jsolly.com` (defined in `scripts/data/users.json`)
 - Password: the `DEFAULT_PASSWORD` value from `.env.local`
