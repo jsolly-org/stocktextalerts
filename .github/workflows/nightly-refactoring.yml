@@ -115,6 +115,11 @@ jobs:
             echo "Reverting workflow and action file edits from agent output."
             git restore --staged --worktree -- .github/workflows .github/actions
           fi
+          UNTRACKED=$(git ls-files --others --exclude-standard -- .github/workflows .github/actions)
+          if [ -n "$UNTRACKED" ]; then
+            echo "Removing untracked workflow/action files from agent output."
+            echo "$UNTRACKED" | xargs rm -f
+          fi
 
       - name: Check for changes
         if: steps.check-pr.outputs.skip != 'true'

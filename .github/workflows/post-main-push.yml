@@ -124,6 +124,11 @@ jobs:
             echo "Reverting workflow and action file edits from agent output."
             git restore --staged --worktree -- .github/workflows .github/actions
           fi
+          UNTRACKED=$(git ls-files --others --exclude-standard -- .github/workflows .github/actions)
+          if [ -n "$UNTRACKED" ]; then
+            echo "Removing untracked workflow/action files from agent output."
+            echo "$UNTRACKED" | xargs rm -f
+          fi
 
       - name: Log results
         run: |
@@ -171,7 +176,7 @@ jobs:
           - Actor: ${{ github.actor }}
 
           # Goal:
-          - Update docs on \`main\`, then commit + push directly to \`main\` (no follow-up PR).
+          Update docs to reflect recent changes. Leave all changes uncommitted. The workflow will handle commit, validation, and push.
 
           # Allowed files (ONLY these may be modified):
           - \`README.md\` — project documentation
@@ -184,23 +189,12 @@ jobs:
           3) Only modify the allowed files listed above. Do NOT touch any other files.
           4) For \`src/pages/faq.astro\`: only update the \`faqs\` array entries and surrounding page copy. Do NOT change the component imports, layout structure, JSON-LD logic, or Tailwind classes.
           5) For \`src/components/landing/HowItWorks.astro\`: only update the \`steps\` array entries and surrounding section copy. Do NOT change the component imports, template structure, or Tailwind classes.
-          6) Commit and push changes directly to \`main\`. Only create a commit if at least one allowed file changed.
-          7) Do NOT create or edit pull requests.
+          6) Do NOT commit, push, or create pull requests. Leave all changes uncommitted.
+          7) After making changes, run \`git status --porcelain\` to confirm only allowed files changed.
 
           # Inputs and conventions:
-          - If no updates are necessary, make no changes and do not commit.
+          - If no updates are necessary, make no changes.
           - Keep changes minimal and consistent with repo style.
-
-          # Implementation notes:
-          - You are checked out on \`main\`. After making changes, run \`git status --porcelain\` to confirm only allowed files changed.
-          - If any allowed files changed, run:
-            - \`git add README.md src/pages/faq.astro src/components/landing/HowItWorks.astro\`
-            - \`git commit -m \"docs: update docs for ${{ github.sha }}\" \` when Trigger is \`push\`, or \`git commit -m \"docs: update docs (manual trigger)\" \` when Trigger is \`workflow_dispatch\`
-            - \`git push origin main\`
-
-          # Deliverables when updates occur:
-          - A commit pushed directly to \`main\` that changes only the allowed files.
-          - After pushing, print exactly one line so the workflow can log it: \`DOCS_PUSHED_SHA=\$(git rev-parse HEAD)\`
           " --force --model "$MODEL" --output-format=text
 
       - name: Drop workflow file edits
@@ -209,8 +203,40 @@ jobs:
             echo "Reverting workflow and action file edits from agent output."
             git restore --staged --worktree -- .github/workflows .github/actions
           fi
+          UNTRACKED=$(git ls-files --others --exclude-standard -- .github/workflows .github/actions)
+          if [ -n "$UNTRACKED" ]; then
+            echo "Removing untracked workflow/action files from agent output."
+            echo "$UNTRACKED" | xargs rm -f
+          fi
+
+      - name: Validate and commit docs
+        id: docs
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No doc changes to push."
+            exit 0
+          fi
+          CHANGED=$(git diff --name-only HEAD; git ls-files --others --exclude-standard)
+          ALLOWED="README.md src/pages/faq.astro src/components/landing/HowItWorks.astro"
+          for f in $CHANGED; do
+            case " $ALLOWED " in
+              *" $f "*) ;;
+              *) echo "Agent modified disallowed file: $f"; exit 1 ;;
+            esac
+          done
+          git add README.md src/pages/faq.astro src/components/landing/HowItWorks.astro
+          if [ "${{ github.event_name }}" = "push" ]; then
+            git commit -m "docs: update docs for ${{ github.sha }}"
+          else
+            git commit -m "docs: update docs (manual trigger)"
+          fi
+          git push origin main
+          echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          echo "DOCS_PUSHED_SHA=$(git rev-parse HEAD)"
 
       - name: Log latest commit on main
+        if: steps.docs.outputs.has_changes == 'true'
         run: |
           git fetch origin main --depth=1
           echo "---"
