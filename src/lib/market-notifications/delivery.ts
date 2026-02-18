@@ -14,6 +14,22 @@ import { toSvgSparklineImg } from "../messaging/svg-sparkline";
 import type { EnrichedAlert } from "./enrichment";
 import type { PriceAlertUser } from "./users";
 
+/** Max sparkline length for SMS. Unicode blocks use UCS-2 (70 chars/segment). Truncating reduces segment count and cost. */
+const SMS_SPARKLINE_MAX_LENGTH = 12;
+
+function formatPriceContextWithSparkline(
+	priceContext: string,
+	intradayCloses: number[] | null,
+	maxSparklineLength?: number,
+): string {
+	const raw = intradayCloses ? toSparkline(intradayCloses) : "";
+	const sparkline =
+		maxSparklineLength !== undefined && raw.length > maxSparklineLength
+			? raw.slice(0, maxSparklineLength)
+			: raw;
+	return sparkline ? `${priceContext} Today: ${sparkline}` : priceContext;
+}
+
 /** Counts of price-alert delivery outcomes (email/SMS sent/failed, notification log failures). */
 export interface PriceAlertDeliveryStats {
 	emailsSent: number;
@@ -30,12 +46,11 @@ function formatPriceAlertSms(alert: EnrichedAlert): string {
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const optOutSuffix = "Reply STOP to opt out.";
 
-	const sparkline = alert.intradayCloses
-		? toSparkline(alert.intradayCloses)
-		: "";
-	const priceContextLine = sparkline
-		? `${alert.priceContext} Today: ${sparkline}`
-		: alert.priceContext;
+	const priceContextLine = formatPriceContextWithSparkline(
+		alert.priceContext,
+		alert.intradayCloses,
+		SMS_SPARKLINE_MAX_LENGTH,
+	);
 
 	const sections = [
 		`ALERT: ${alert.symbol} price shock`,
@@ -89,12 +104,10 @@ function formatPriceAlertEmail(
 	});
 
 	// Plaintext
-	const textSparkline = alert.intradayCloses
-		? toSparkline(alert.intradayCloses)
-		: "";
-	const textPriceContextLine = textSparkline
-		? `${alert.priceContext} Today: ${textSparkline}`
-		: alert.priceContext;
+	const textPriceContextLine = formatPriceContextWithSparkline(
+		alert.priceContext,
+		alert.intradayCloses,
+	);
 
 	const textSections = [
 		`Asset Price Alert: ${alert.symbol}`,
