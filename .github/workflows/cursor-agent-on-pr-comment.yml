@@ -141,11 +141,11 @@ jobs:
         run: |
           # When triggered by a CodeRabbit full review, the body says "Actionable comments posted: N"
           # but the actual comments are in separate review threads. Fetch them for the agent.
-          COMMENTS_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments" 2>/dev/null || echo "[]")
+          COMMENTS_JSON=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/comments" 2>/dev/null || echo "[]")
           echo "$COMMENTS_JSON" | jq -r --argjson rid "$REVIEW_ID" \
             '.[] | select(.pull_request_review_id == $rid) | "### \(.path):\(.line // .original_line) (\(.user.login))\n\(.body)\n"' \
             > /tmp/review-comments.txt 2>/dev/null || true
-          [[ -s /tmp/review-comments.txt ]] || echo "(no inline comments from this review)" > /tmp/review-comments.txt
+          # Leave the file empty when there are no inline comments so the agent can fall back to the review body.
 
       - name: Run Cursor agent
         if: steps.context.outputs.run_agent == 'true'
