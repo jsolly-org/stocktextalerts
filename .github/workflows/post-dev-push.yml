@@ -6,6 +6,10 @@ name: Post Dev Push
 on:
   push:
     branches: [dev]
+    paths-ignore:
+      - 'README.md'
+      - 'src/pages/faq.astro'
+      - 'src/components/landing/HowItWorks.astro'
   workflow_dispatch:
 
 permissions:
@@ -224,7 +228,7 @@ jobs:
           agent_model: ${{ vars.AGENT_MODEL }}
           max_fix_attempts: "2"
 
-      - name: Commit and push
+      - name: Create PR with doc updates
         if: steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
         run: |
           # Verify only allowed files were changed
@@ -233,18 +237,28 @@ jobs:
             echo "##[warning]Unexpected file changes detected:"
             echo "$UNEXPECTED"
           fi
+
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          BRANCH="docs/auto-update-${SHORT_SHA}"
+
+          git checkout -b "$BRANCH"
           git add -A
           if [ "${{ github.event_name }}" = "push" ]; then
             git commit -m "docs: update docs for ${{ github.sha }}"
           else
             git commit -m "docs: update docs (manual trigger)"
           fi
-          git push origin dev
+          git push origin "$BRANCH"
 
-      - name: Log latest commit on dev
-        run: |
-          git fetch origin dev --depth=1
-          echo "---"
-          echo "Latest commit on origin/dev after run:"
-          git log -1 origin/dev --format="  SHA: %H%n  Subject: %s%n  Author: %an <%ae>%n  Date: %ai"
-          echo "---"
+          PR_URL=$(gh pr create \
+            --base dev \
+            --head "$BRANCH" \
+            --title "docs: auto-update docs for ${SHORT_SHA}" \
+            --body "Automated doc updates triggered by push to dev.
+
+          Source commit: ${{ github.sha }}
+          Trigger: ${{ github.event_name }}")
+
+          echo "PR created: $PR_URL"
+          gh pr merge "$PR_URL" --admin --merge --delete-branch
+          echo "PR merged successfully."
