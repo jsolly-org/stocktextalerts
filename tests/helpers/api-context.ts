@@ -24,6 +24,9 @@ export function createCookieAdapter(
 			const value = cookieStore.get(name);
 			return value ? { value } : undefined;
 		},
+		has(name: string) {
+			return cookieStore.has(name);
+		},
 		set(name: string, value: string, cookieOptions?: unknown) {
 			cookieStore.set(name, value);
 			options.onSet?.(name, value, cookieOptions);

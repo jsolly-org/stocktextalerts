@@ -10,7 +10,7 @@ import {
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
-describe("A signed-in user loads onboarding asset price examples.", () => {
+describe("GET /api/assets/prices", () => {
 	it("Returns prev-close and sector data for tracked assets.", async () => {
 		const testUser = await createTestUser({
 			email: `asset-prices-${randomUUID()}@resend.dev`,
