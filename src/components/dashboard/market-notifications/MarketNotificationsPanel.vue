@@ -432,7 +432,7 @@ import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
 import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
 import InformationCircleIcon from "../../../icons/information-circle-20.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
-import { usePrefersReducedMotion } from "../../../lib/accessibility/prefers-reduced-motion";
+import { usePreferredReducedMotion } from "@vueuse/core";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_MARKET_FORM_ID,
@@ -557,13 +557,13 @@ const showWizard = computed(
 );
 
 /* ============= Retune wizard: prefers-reduced-motion ============= */
-const prefersReducedMotion = usePrefersReducedMotion();
+const preferredReducedMotion = usePreferredReducedMotion();
 
 const AUTO_ADVANCE_DELAY_MS = 350;
 let autoAdvanceTimeoutId: ReturnType<typeof setTimeout> | null = null;
 function autoAdvanceFromStep(step: number) {
 	// Respect prefers-reduced-motion: skip auto-advance when user requests reduced motion
-	if (prefersReducedMotion.value) return;
+	if (preferredReducedMotion.value === "reduce") return;
 	if (activeRetuneStep.value !== step || isLastRetuneStep.value) return;
 	if (autoAdvanceTimeoutId !== null) clearTimeout(autoAdvanceTimeoutId);
 	autoAdvanceTimeoutId = setTimeout(() => {
