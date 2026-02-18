@@ -102,15 +102,95 @@ jobs:
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Commit and push
+      - name: Run pre-commit checks (lint + type-check)
         if: steps.check-pr.outputs.skip != 'true' && steps.changes.outputs.has_changes == 'true'
+        id: precommit_checks
+        continue-on-error: true
+        uses: ./.github/actions/run-precommit-checks
+
+      - name: Auto-fix lint/type errors
+        if: steps.check-pr.outputs.skip != 'true' && steps.changes.outputs.has_changes == 'true' && steps.precommit_checks.outcome == 'failure'
+        id: autofix
+        continue-on-error: true
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          MAX_FIX_ATTEMPTS: 2
+        run: |
+          for attempt in $(seq 1 "$MAX_FIX_ATTEMPTS"); do
+            echo "::group::Fix attempt $attempt/$MAX_FIX_ATTEMPTS"
+
+            ERRORS=""
+            for log in precommit-*.log; do
+              [[ -f "$log" ]] || continue
+              ERRORS+="--- $log ---"$'\n'
+              ERRORS+="$(tail -50 "$log")"$'\n\n'
+            done
+
+            FIX_PROMPT="$(cat <<FIXEOF
+            ---SYSTEM_INSTRUCTIONS_START---
+            You are running in GitHub Actions. Your previous code changes failed lint and/or type checks.
+
+            Hard rules:
+            - Do NOT create commits.
+            - Do NOT push.
+            - Do NOT use GitHub APIs or post comments/reactions (no \`gh\`).
+
+            Fix the errors below. Only modify the files that have errors — do not touch unrelated code.
+
+            --- ERRORS ---
+            $ERRORS
+            ---SYSTEM_INSTRUCTIONS_END---
+          FIXEOF
+            )"
+
+            agent --print --model "${{ vars.AGENT_MODEL }}" --output-format=text --force "$FIX_PROMPT" 2>&1 | tail -100 || true
+
+            set -o pipefail
+            run_cmd() {
+              local label="$1"; shift
+              echo "::group::$label"
+              "$@" 2>&1 | tee "precommit-$label.log"
+              local rc="${PIPESTATUS[0]}"
+              echo "::endgroup::"
+              return "$rc"
+            }
+
+            CHECKS_PASSED=true
+            run_cmd "npm-ci" npm ci || { CHECKS_PASSED=false; }
+            if [[ "$CHECKS_PASSED" == "true" ]]; then
+              run_cmd "biome-fix" npm run check:biome || { CHECKS_PASSED=false; }
+            fi
+            if [[ "$CHECKS_PASSED" == "true" ]]; then
+              run_cmd "biome-ci" npx biome ci . --error-on-warnings || { CHECKS_PASSED=false; }
+            fi
+            if [[ "$CHECKS_PASSED" == "true" ]]; then
+              run_cmd "check-ts" npm run check:ts || { CHECKS_PASSED=false; }
+            fi
+
+            echo "::endgroup::"
+
+            if [[ "$CHECKS_PASSED" == "true" ]]; then
+              echo "Fix attempt $attempt succeeded."
+              echo "fixed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            echo "Fix attempt $attempt failed; checks still failing."
+          done
+
+          echo "All $MAX_FIX_ATTEMPTS fix attempts exhausted."
+          echo "fixed=false" >> "$GITHUB_OUTPUT"
+          exit 1
+
+      - name: Commit and push
+        if: steps.check-pr.outputs.skip != 'true' && steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
         run: |
           git add -A
           git commit -m "perf(nightly): performance improvements — $(date +%Y-%m-%d)"
           git push origin HEAD
 
       - name: Create pull request
-        if: steps.check-pr.outputs.skip != 'true' && steps.changes.outputs.has_changes == 'true'
+        if: steps.check-pr.outputs.skip != 'true' && steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
         env:
           GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
         run: |

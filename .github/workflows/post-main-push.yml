@@ -160,7 +160,7 @@ jobs:
         run: |
           agent -p "You are operating in a GitHub Actions runner.
 
-          The GitHub CLI is available as \`gh\` and authenticated via \`GH_TOKEN\`. Git is available. You have write access to repository contents.
+          The GitHub CLI is available as \`gh\` and authenticated via \`GH_TOKEN\`. Git is available.
 
           # Context:
           - Repo: ${{ github.repository }}
@@ -171,7 +171,7 @@ jobs:
           - Actor: ${{ github.actor }}
 
           # Goal:
-          - Update docs on \`dev\`, then commit + push directly to \`dev\` (no follow-up PR).
+          - Update docs on \`dev\`. Leave all changes uncommitted — the workflow will handle commit and push.
 
           # Allowed files (ONLY these may be modified):
           - \`README.md\` — project documentation
@@ -184,23 +184,11 @@ jobs:
           3) Only modify the allowed files listed above. Do NOT touch any other files.
           4) For \`src/pages/faq.astro\`: only update the \`faqs\` array entries and surrounding page copy. Do NOT change the component imports, layout structure, JSON-LD logic, or Tailwind classes.
           5) For \`src/components/landing/HowItWorks.astro\`: only update the \`steps\` array entries and surrounding section copy. Do NOT change the component imports, template structure, or Tailwind classes.
-          6) Commit and push changes directly to \`dev\`. Only create a commit if at least one allowed file changed.
-          7) Do NOT create or edit pull requests.
+          6) Do NOT create commits, push, or create/edit pull requests.
 
           # Inputs and conventions:
-          - If no updates are necessary, make no changes and do not commit.
+          - If no updates are necessary, make no changes.
           - Keep changes minimal and consistent with repo style.
-
-          # Implementation notes:
-          - You are checked out on \`dev\`. After making changes, run \`git status --porcelain\` to confirm only allowed files changed.
-          - If any allowed files changed, run:
-            - \`git add README.md src/pages/faq.astro src/components/landing/HowItWorks.astro\`
-            - \`git commit -m \"docs: update docs for ${{ github.sha }}\" \` when Trigger is \`push\`, or \`git commit -m \"docs: update docs (manual trigger)\" \` when Trigger is \`workflow_dispatch\`
-            - \`git push origin dev\`
-
-          # Deliverables when updates occur:
-          - A commit pushed directly to \`dev\` that changes only the allowed files.
-          - After pushing, print exactly one line so the workflow can log it: \`DOCS_PUSHED_SHA=\$(git rev-parse HEAD)\`
           " --force --model "$MODEL" --output-format=text
 
       - name: Drop workflow file edits
@@ -209,6 +197,107 @@ jobs:
             echo "Reverting workflow and action file edits from agent output."
             git restore --staged --worktree -- .github/workflows .github/actions
           fi
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No changes detected."
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run pre-commit checks (lint + type-check)
+        if: steps.changes.outputs.has_changes == 'true'
+        id: precommit_checks
+        continue-on-error: true
+        uses: ./.github/actions/run-precommit-checks
+
+      - name: Auto-fix lint/type errors
+        if: steps.changes.outputs.has_changes == 'true' && steps.precommit_checks.outcome == 'failure'
+        id: autofix
+        continue-on-error: true
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          MAX_FIX_ATTEMPTS: 2
+        run: |
+          for attempt in $(seq 1 "$MAX_FIX_ATTEMPTS"); do
+            echo "::group::Fix attempt $attempt/$MAX_FIX_ATTEMPTS"
+
+            ERRORS=""
+            for log in precommit-*.log; do
+              [[ -f "$log" ]] || continue
+              ERRORS+="--- $log ---"$'\n'
+              ERRORS+="$(tail -50 "$log")"$'\n\n'
+            done
+
+            FIX_PROMPT="$(cat <<FIXEOF
+            ---SYSTEM_INSTRUCTIONS_START---
+            You are running in GitHub Actions. Your previous code changes failed lint and/or type checks.
+
+            Hard rules:
+            - Do NOT create commits.
+            - Do NOT push.
+            - Do NOT use GitHub APIs or post comments/reactions (no \`gh\`).
+
+            Fix the errors below. Only modify the files that have errors — do not touch unrelated code.
+
+            --- ERRORS ---
+            $ERRORS
+            ---SYSTEM_INSTRUCTIONS_END---
+          FIXEOF
+            )"
+
+            agent --print --model "${{ vars.AGENT_MODEL }}" --output-format=text --force "$FIX_PROMPT" 2>&1 | tail -100 || true
+
+            set -o pipefail
+            run_cmd() {
+              local label="$1"; shift
+              echo "::group::$label"
+              "$@" 2>&1 | tee "precommit-$label.log"
+              local rc="${PIPESTATUS[0]}"
+              echo "::endgroup::"
+              return "$rc"
+            }
+
+            CHECKS_PASSED=true
+            run_cmd "npm-ci" npm ci || { CHECKS_PASSED=false; }
+            if [[ "$CHECKS_PASSED" == "true" ]]; then
+              run_cmd "biome-fix" npm run check:biome || { CHECKS_PASSED=false; }
+            fi
+            if [[ "$CHECKS_PASSED" == "true" ]]; then
+              run_cmd "biome-ci" npx biome ci . --error-on-warnings || { CHECKS_PASSED=false; }
+            fi
+            if [[ "$CHECKS_PASSED" == "true" ]]; then
+              run_cmd "check-ts" npm run check:ts || { CHECKS_PASSED=false; }
+            fi
+
+            echo "::endgroup::"
+
+            if [[ "$CHECKS_PASSED" == "true" ]]; then
+              echo "Fix attempt $attempt succeeded."
+              echo "fixed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            echo "Fix attempt $attempt failed; checks still failing."
+          done
+
+          echo "All $MAX_FIX_ATTEMPTS fix attempts exhausted."
+          echo "fixed=false" >> "$GITHUB_OUTPUT"
+          exit 1
+
+      - name: Commit and push
+        if: steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
+        run: |
+          git add README.md src/pages/faq.astro src/components/landing/HowItWorks.astro
+          if [ "${{ github.event_name }}" = "push" ]; then
+            git commit -m "docs: update docs for ${{ github.sha }}"
+          else
+            git commit -m "docs: update docs (manual trigger)"
+          fi
+          git push origin dev
 
       - name: Log latest commit on dev
         run: |
