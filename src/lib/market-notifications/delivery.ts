@@ -151,10 +151,11 @@ function formatPriceAlertEmail(
 		<div style="background: #fffbeb; padding: 16px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #fde68a;">
 			<p style="color: #92400e; font-size: 16px; font-weight: 500; margin: 0;">${escapeHtml(alert.priceContext)}</p>${(() => {
 				if (!alert.intradayCloses || alert.intradayCloses.length < 2) return "";
-				const color = getChangeColor(
-					alert.intradayCloses[alert.intradayCloses.length - 1] -
-						alert.intradayCloses[0],
-				);
+				const openPrice = alert.intradayCloses[0];
+				const lastPrice = alert.intradayCloses[alert.intradayCloses.length - 1];
+				const changePercent =
+					openPrice === 0 ? 0 : ((lastPrice - openPrice) / openPrice) * 100;
+				const color = getChangeColor(changePercent);
 				const sparklineImg = toSvgSparklineImg(
 					alert.intradayCloses,
 					color,
