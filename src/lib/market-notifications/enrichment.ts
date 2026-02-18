@@ -12,7 +12,6 @@ export interface EnrichedAlert {
 	signalContext: string;
 	headlines: CompanyNewsItem[];
 	aiSummary: string | null;
-	/** Intraday 5-minute closes for today (ET), or null if unavailable. Used for SMS/email sparklines. */
 	intradayCloses: number[] | null;
 }
 

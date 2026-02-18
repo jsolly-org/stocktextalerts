@@ -34,8 +34,17 @@ export function createEmailSender(): EmailSender {
 	const fromEmail = import.meta.env.EMAIL_FROM;
 	const defaultReplyTo = import.meta.env.EMAIL_REPLY_TO;
 
-	// In test mode, return a mock sender that always succeeds without making API calls
-	if (import.meta.env.MODE === "test") {
+	// In test mode, return a mock sender unless --live=email is set.
+	// LIVE_API_PROVIDERS is set by run-vitest.ts before Vitest starts, making it
+	// visible in source code (unlike vi.stubEnv which only affects test context).
+	const liveProviders = import.meta.env.LIVE_API_PROVIDERS || "";
+	const liveEmail =
+		liveProviders === "all" ||
+		liveProviders
+			.split(",")
+			.map((s: string) => s.trim())
+			.includes("email");
+	if (import.meta.env.MODE === "test" && !liveEmail) {
 		return async () => ({
 			success: true,
 			messageSid: "test",
@@ -129,12 +138,12 @@ export function formatEmailMessage(
 		email: user.email,
 	});
 	const escapedUnsubscribeUrl = escapeHtml(unsubscribeUrl);
-	const textFooter = `\n\nManage your delivery schedule: ${scheduleUrl}\nUnsubscribe: ${unsubscribeUrl}`;
+	const textFooter = `\n\nManage your delivery schedule: ${scheduleUrl}\nUnsubscribe from all emails: ${unsubscribeUrl}`;
 	const htmlFooter = `
 		<p style="color: #6b7280; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
 			<a href="${escapedScheduleUrl}" style="color: #667eea; text-decoration: none;">Adjust delivery schedule</a>
 			<span style="color: #d1d5db; padding: 0 8px;">•</span>
-			<a href="${escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
+			<a href="${escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe from all emails</a>
 		</p>`;
 
 	if (userAssets.length === 0) {
