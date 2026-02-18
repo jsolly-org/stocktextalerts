@@ -18,8 +18,9 @@ if (!authUser) {
 		page: "dashboard",
 		reason: "unauthenticated",
 	});
-	const returnTo = `${Astro.url.pathname}${Astro.url.search}`;
-	return Astro.redirect(buildSigninRedirectUrl(returnTo));
+	return Astro.redirect(
+		buildSigninRedirectUrl(`${Astro.url.pathname}${Astro.url.search}`),
+	);
 }
 const [dbUser, userAssets] = await Promise.all([
 	users.getById(authUser.id),

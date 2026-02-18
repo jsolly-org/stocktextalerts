@@ -103,8 +103,6 @@ export function usePendingSmsChanges(options: {
 
 		function handleBeforeUnload(event: BeforeUnloadEvent) {
 			event.preventDefault();
-			event.returnValue = "";
-			return "";
 		}
 
 		window.addEventListener("beforeunload", handleBeforeUnload);

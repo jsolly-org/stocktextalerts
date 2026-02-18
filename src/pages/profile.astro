@@ -25,8 +25,9 @@ if (!authUser) {
 		page: "profile",
 		reason: "unauthenticated",
 	});
-	const returnTo = `${Astro.url.pathname}${Astro.url.search}`;
-	return Astro.redirect(buildSigninRedirectUrl(returnTo));
+	return Astro.redirect(
+		buildSigninRedirectUrl(`${Astro.url.pathname}${Astro.url.search}`),
+	);
 }
 const user = await users.getById(authUser.id);
 if (!user) {
