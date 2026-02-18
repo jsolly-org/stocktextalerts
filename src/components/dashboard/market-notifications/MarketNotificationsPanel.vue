@@ -538,6 +538,7 @@ const showWizard = computed(
 	() => !priceAlertOnboardingCompleted.value || retuning.value,
 );
 
+/* ============= Retune wizard: prefers-reduced-motion ============= */
 const prefersReducedMotion = ref(false);
 let motionQuery: MediaQueryList | null = null;
 function handleMotionChange(event: MediaQueryListEvent) {
@@ -547,6 +548,7 @@ function handleMotionChange(event: MediaQueryListEvent) {
 const AUTO_ADVANCE_DELAY_MS = 350;
 let autoAdvanceTimeoutId: ReturnType<typeof setTimeout> | null = null;
 function autoAdvanceFromStep(step: number) {
+	// Respect prefers-reduced-motion: skip auto-advance when user requests reduced motion
 	if (shouldDisableAutoAdvance({ matches: prefersReducedMotion.value })) return;
 	if (activeRetuneStep.value !== step || isLastRetuneStep.value) return;
 	if (autoAdvanceTimeoutId !== null) clearTimeout(autoAdvanceTimeoutId);
