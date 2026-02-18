@@ -1,0 +1,96 @@
+name: Auto-fix lint/type errors
+description: Use the Cursor agent to fix lint and type errors from pre-commit check logs.
+
+inputs:
+  cursor_api_key:
+    description: Cursor API key for the agent
+    required: true
+  agent_model:
+    description: Agent model (e.g. from vars.AGENT_MODEL)
+    required: true
+  max_fix_attempts:
+    description: Maximum number of fix attempts
+    required: false
+    default: "2"
+
+outputs:
+  fixed:
+    description: "true" if all checks passed after fixes, "false" otherwise
+    value: ${{ steps.autofix.outputs.fixed }}
+
+runs:
+  using: composite
+  steps:
+    - name: Auto-fix lint/type errors
+      id: autofix
+      shell: bash
+      env:
+        CURSOR_API_KEY: ${{ inputs.cursor_api_key }}
+        AGENT_MODEL: ${{ inputs.agent_model }}
+        MAX_FIX_ATTEMPTS: ${{ inputs.max_fix_attempts }}
+      run: |
+        for attempt in $(seq 1 "$MAX_FIX_ATTEMPTS"); do
+          echo "::group::Fix attempt $attempt/$MAX_FIX_ATTEMPTS"
+
+          ERRORS=""
+          for log in precommit-*.log; do
+            [[ -f "$log" ]] || continue
+            ERRORS+="--- $log ---"$'\n'
+            ERRORS+="$(tail -50 "$log")"$'\n\n'
+          done
+
+          FIX_PROMPT="$(cat <<FIXEOF
+            ---SYSTEM_INSTRUCTIONS_START---
+            You are running in GitHub Actions. Your previous code changes failed lint and/or type checks.
+
+            Hard rules:
+            - Do NOT create commits.
+            - Do NOT push.
+            - Do NOT use GitHub APIs or post comments/reactions (no \`gh\`).
+
+            Fix the errors below. Only modify the files that have errors — do not touch unrelated code.
+
+            --- ERRORS ---
+            $ERRORS
+            ---SYSTEM_INSTRUCTIONS_END---
+          FIXEOF
+          )"
+
+          agent --print --model "$AGENT_MODEL" --output-format=text --force "$FIX_PROMPT" 2>&1 | tail -100 || true
+
+          set -o pipefail
+          run_cmd() {
+            local label="$1"; shift
+            echo "::group::$label"
+            "$@" 2>&1 | tee "precommit-$label.log"
+            local rc="${PIPESTATUS[0]}"
+            echo "::endgroup::"
+            return "$rc"
+          }
+
+          CHECKS_PASSED=true
+          run_cmd "npm-ci" npm ci || { CHECKS_PASSED=false; }
+          if [[ "$CHECKS_PASSED" == "true" ]]; then
+            run_cmd "biome-fix" npm run check:biome || { CHECKS_PASSED=false; }
+          fi
+          if [[ "$CHECKS_PASSED" == "true" ]]; then
+            run_cmd "biome-ci" npx biome ci . --error-on-warnings || { CHECKS_PASSED=false; }
+          fi
+          if [[ "$CHECKS_PASSED" == "true" ]]; then
+            run_cmd "check-ts" npm run check:ts || { CHECKS_PASSED=false; }
+          fi
+
+          echo "::endgroup::"
+
+          if [[ "$CHECKS_PASSED" == "true" ]]; then
+            echo "Fix attempt $attempt succeeded."
+            echo "fixed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Fix attempt $attempt failed; checks still failing."
+        done
+
+        echo "All $MAX_FIX_ATTEMPTS fix attempts exhausted."
+        echo "fixed=false" >> "$GITHUB_OUTPUT"
+        exit 1

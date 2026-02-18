@@ -112,10 +112,11 @@ jobs:
         if: steps.check-pr.outputs.skip != 'true' && steps.changes.outputs.has_changes == 'true' && steps.precommit_checks.outcome == 'failure'
         id: autofix
         continue-on-error: true
-        uses: ./.github/actions/auto-fix-precommit
+        uses: ./.github/actions/autofix-lint-type-errors
         with:
-          agent_model: ${{ vars.AGENT_MODEL }}
           cursor_api_key: ${{ secrets.CURSOR_API_KEY }}
+          agent_model: ${{ vars.AGENT_MODEL }}
+          max_fix_attempts: "2"
 
       - name: Commit and push
         if: steps.check-pr.outputs.skip != 'true' && steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
