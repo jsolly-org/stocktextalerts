@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { GET as GETAssetSearch } from "../../../src/pages/api/assets/search";
+import { createApiContext } from "../../helpers/api-context";
 import { TEST_PASSWORD } from "../../helpers/constants";
 import {
 	adminClient,
@@ -20,19 +20,12 @@ async function searchAssets(
 		{ method: "GET" },
 	);
 
-	return GETAssetSearch({
-		request,
-		cookies: {
-			get: (name: string) => {
-				const cookie = cookies.get(name);
-				return cookie ? { value: cookie } : undefined;
-			},
-			set: () => {},
-		},
-		locals: {
-			requestId: "test-request-id",
-		},
-	} as unknown as APIContext);
+	return GETAssetSearch(
+		createApiContext({
+			request,
+			cookies,
+		}),
+	);
 }
 
 describe("Asset search ranking", () => {
