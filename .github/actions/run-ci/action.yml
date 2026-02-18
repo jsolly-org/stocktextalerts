@@ -162,6 +162,12 @@ runs:
     - name: Test
       shell: bash
       run: npm run test:ci
+    - name: Install Playwright browsers
+      shell: bash
+      run: npx playwright install --with-deps
+    - name: Smoke tests
+      shell: bash
+      run: npm run test:smoke
     - name: Build application
       shell: bash
       run: npm run build
