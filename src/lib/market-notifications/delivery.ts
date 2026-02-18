@@ -2,7 +2,11 @@ import { DASHBOARD_SECTION_HASHES } from "../constants";
 import { getSiteUrl } from "../db/env";
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
-import { escapeHtml, getChangeColor } from "../messaging/asset-formatting";
+import {
+	escapeHtml,
+	getChangeColor,
+	getSafeHrefUrl,
+} from "../messaging/asset-formatting";
 import { sendUserEmail } from "../messaging/email/index";
 import { createEmailUnsubscribeUrl } from "../messaging/email/unsubscribe";
 import type { EmailSender } from "../messaging/email/utils";
@@ -44,7 +48,7 @@ function formatPriceContextWithSparkline(
 	return sparkline ? `${priceContext} Today: ${sparkline}` : priceContext;
 }
 
-/** Counts of price-alert delivery outcomes (email/SMS sent/failed, notification log failures). */
+/** Per-run delivery counters for price alerts (email/SMS success/fail and log failures). */
 export interface PriceAlertDeliveryStats {
 	emailsSent: number;
 	emailsFailed: number;
@@ -74,8 +78,8 @@ function formatPriceAlertSms(alert: EnrichedAlert): string {
 
 	if (alert.aiSummary) {
 		const headlineUrls = alert.headlines
-			.filter((h) => h.url)
-			.map((h) => h.url)
+			.map((h) => getSafeHrefUrl(h.url))
+			.filter((url): url is string => url !== null)
 			.join("\n");
 		sections.push(
 			headlineUrls ? `${alert.aiSummary}\n${headlineUrls}` : alert.aiSummary,
@@ -137,7 +141,10 @@ function formatPriceAlertEmail(
 
 	if (alert.headlines.length > 0) {
 		const headlineLines = alert.headlines
-			.map((h) => `- ${h.headline}${h.url ? ` (${h.url})` : ""}`)
+			.map((h) => {
+				const safeUrl = getSafeHrefUrl(h.url);
+				return `- ${h.headline}${safeUrl ? ` (${safeUrl})` : ""}`;
+			})
 			.join("\n");
 		textSections.push(`Breaking News:\n${headlineLines}`);
 	}
@@ -166,8 +173,9 @@ function formatPriceAlertEmail(
 					.map((h) => {
 						const headline = escapeHtml(h.headline);
 						const source = h.source ? escapeHtml(h.source) : "";
-						return h.url
-							? `<li style="margin-bottom: 6px;"><a href="${escapeHtml(h.url)}" style="color: #667eea; text-decoration: none;">${headline}</a>${source ? ` <span style="color: #9ca3af;">(${source})</span>` : ""}</li>`
+						const safeUrl = getSafeHrefUrl(h.url);
+						return safeUrl
+							? `<li style="margin-bottom: 6px;"><a href="${escapeHtml(safeUrl)}" style="color: #667eea; text-decoration: none;">${headline}</a>${source ? ` <span style="color: #9ca3af;">(${source})</span>` : ""}</li>`
 							: `<li style="margin-bottom: 6px;">${headline}${source ? ` <span style="color: #9ca3af;">(${source})</span>` : ""}</li>`;
 					})
 					.join("\n\t\t\t\t")}

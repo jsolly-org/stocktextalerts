@@ -1,7 +1,10 @@
 import type { APIRoute } from "astro";
 import { jsonResponse } from "../../../lib/api/json-response";
 import { createUserService, getUserAssets } from "../../../lib/db";
-import { createSupabaseServerClient } from "../../../lib/db/supabase";
+import {
+	createSupabaseAdminClient,
+	createSupabaseServerClient,
+} from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 import { marketDataFetch } from "../../../lib/providers/massive";
 import { fetchExtendedQuotes } from "../../../lib/providers/price-fetcher";
@@ -12,6 +15,8 @@ import { sicCodeToSector } from "../../../lib/providers/sector-mapping";
  *
  * Returns prevClose and sector for the user's tracked assets.
  * Used by the onboarding wizard to show asset-grounded examples.
+ * Lazy-backfills sector from Massive for assets missing it (writes via admin client;
+ * authenticated user has SELECT-only on assets).
  */
 export const GET: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
@@ -42,13 +47,21 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 		const quoteMap = await fetchExtendedQuotes(symbols);
 
 		// Load existing sector values from assets table
-		const { data: assetRows } = await supabase
+		const { data: assetRows, error: assetRowsError } = await supabase
 			.from("assets")
 			.select("symbol, sector")
 			.in("symbol", symbols);
+		if (assetRowsError) {
+			logger.error(
+				"Failed to load asset sectors",
+				{ userId: user.id },
+				assetRowsError,
+			);
+			return jsonResponse(500, { ok: false, message: "fetch_failed" });
+		}
 
 		const sectorMap = new Map<string, string | null>();
-		for (const row of assetRows ?? []) {
+		for (const row of assetRows) {
 			sectorMap.set(
 				row.symbol,
 				(row as { symbol: string; sector: string | null }).sector,
@@ -56,37 +69,41 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 		}
 
 		// Lazy backfill: fetch sector from Massive for assets missing it.
+		// Use admin client for updates — authenticated has SELECT only on assets.
 		// Process sequentially to avoid unbounded fan-out of Massive API calls.
 		const missingSectorSymbols = symbols.filter((s) => !sectorMap.get(s));
-		for (const symbol of missingSectorSymbols) {
-			try {
-				const data = await marketDataFetch(
-					`/v3/reference/tickers/${encodeURIComponent(symbol)}`,
-					{},
-					"ticker-details",
-				);
-				if (typeof data !== "object" || data === null) continue;
-				const results = (data as Record<string, unknown>).results;
-				if (typeof results !== "object" || results === null) continue;
-				const sicCode = (results as Record<string, unknown>).sic_code;
-				if (typeof sicCode !== "string" && typeof sicCode !== "number")
-					continue;
-				const sector = sicCodeToSector(String(sicCode));
-				sectorMap.set(symbol, sector);
-
-				const { error: updateError } = await supabase
-					.from("assets")
-					.update({ sector } as Record<string, unknown>)
-					.eq("symbol", symbol);
-				if (updateError) {
-					logger.warn(
-						"Supabase sector update failed",
-						{ symbol, sector },
-						updateError,
+		if (missingSectorSymbols.length > 0) {
+			const adminSupabase = createSupabaseAdminClient();
+			for (const symbol of missingSectorSymbols) {
+				try {
+					const data = await marketDataFetch(
+						`/v3/reference/tickers/${encodeURIComponent(symbol)}`,
+						{},
+						"ticker-details",
 					);
+					if (typeof data !== "object" || data === null) continue;
+					const results = (data as Record<string, unknown>).results;
+					if (typeof results !== "object" || results === null) continue;
+					const sicCode = (results as Record<string, unknown>).sic_code;
+					if (typeof sicCode !== "string" && typeof sicCode !== "number")
+						continue;
+					const sector = sicCodeToSector(String(sicCode));
+					sectorMap.set(symbol, sector);
+
+					const { error: updateError } = await adminSupabase
+						.from("assets")
+						.update({ sector } as Record<string, unknown>)
+						.eq("symbol", symbol);
+					if (updateError) {
+						logger.warn(
+							"Supabase sector update failed",
+							{ symbol, sector },
+							updateError,
+						);
+					}
+				} catch (err) {
+					logger.warn("Failed to fetch sector for asset", { symbol }, err);
 				}
-			} catch (err) {
-				logger.warn("Failed to fetch sector for asset", { symbol }, err);
 			}
 		}
 
