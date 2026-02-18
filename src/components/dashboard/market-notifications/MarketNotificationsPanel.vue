@@ -114,7 +114,7 @@
 							<GrokLogoDarkIcon class="hidden h-4.5 w-auto shrink-0 dark:inline" aria-label="Powered by Grok" role="img" />
 						</div>
 						<p id="market_asset_price_alerts_enabled_description" class="text-sm text-body-secondary mt-0.5">
-							Immediate alerts for significant price moves during US trading hours.
+							Immediate alerts for significant price moves during US trading hours. Maximum of two notifications per asset per day.
 						</p>
 					</div>
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
@@ -212,6 +212,7 @@
 									</div>
 									<div :class="activeRetuneStep === 3 ? 'visible' : 'invisible'" :inert="activeRetuneStep !== 3 || undefined">
 										<p class="text-sm text-label mb-1.5">After your first alert, what should happen?</p>
+										<p class="text-xs text-body-secondary mb-2">Maximum of two notifications per asset per day.</p>
 										<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
 											<label
 												v-for="option in followUpOptions"

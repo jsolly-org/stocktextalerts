@@ -131,6 +131,22 @@ jobs:
           git_name: ${{ env.CURSOR_AGENT_NAME }}
           git_email: ${{ env.CURSOR_AGENT_EMAIL }}
 
+      - name: Fetch review comments for CodeRabbit full review
+        if: steps.context.outputs.run_agent == 'true' && github.event_name == 'pull_request_review'
+        env:
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          REVIEW_ID: ${{ github.event.review.id }}
+        run: |
+          # When triggered by a CodeRabbit full review, the body says "Actionable comments posted: N"
+          # but the actual comments are in separate review threads. Fetch them for the agent.
+          COMMENTS_JSON=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/comments" 2>/dev/null || echo "[]")
+          echo "$COMMENTS_JSON" | jq -r --argjson rid "$REVIEW_ID" \
+            '.[] | select(.pull_request_review_id == $rid) | "### \(.path):\(.line // .original_line) (\(.user.login))\n\(.body)\n"' \
+            > /tmp/review-comments.txt 2>/dev/null || true
+          # Leave the file empty when there are no inline comments so the agent can fall back to the review body.
+
       - name: Run Cursor agent
         if: steps.context.outputs.run_agent == 'true'
         id: agent
@@ -156,6 +172,12 @@ jobs:
           echo "before_sha=$BEFORE_SHA" >> "$GITHUB_OUTPUT"
           echo "noop=false" >> "$GITHUB_OUTPUT"
           echo "changes_present=false" >> "$GITHUB_OUTPUT"
+
+          if [[ -f /tmp/review-comments.txt ]] && [[ -s /tmp/review-comments.txt ]]; then
+            USER_INPUT="$(cat /tmp/review-comments.txt)"
+          else
+            USER_INPUT="$COMMENT_BODY"
+          fi
 
           PROMPT="$(
             cat <<EOF
@@ -189,7 +211,7 @@ jobs:
             ---SYSTEM_INSTRUCTIONS_END---
 
             ---USER_INPUT_START---
-            $COMMENT_BODY
+            $USER_INPUT
             ---USER_INPUT_END---
           EOF
           )"
@@ -252,8 +274,18 @@ jobs:
         continue-on-error: true
         uses: ./.github/actions/run-precommit-checks
 
+      - name: Auto-fix lint/type errors
+        if: steps.context.outputs.run_agent == 'true' && steps.agent.outcome == 'success' && steps.agent.outputs.changes_present == 'true' && steps.precommit_checks.outcome == 'failure'
+        id: autofix
+        continue-on-error: true
+        uses: ./.github/actions/autofix-lint-type-errors
+        with:
+          cursor_api_key: ${{ secrets.CURSOR_API_KEY }}
+          agent_model: ${{ vars.AGENT_MODEL }}
+          max_fix_attempts: "2"
+
       - name: Commit and push changes
-        if: steps.context.outputs.run_agent == 'true' && steps.agent.outcome == 'success' && steps.agent.outputs.changes_present == 'true' && steps.precommit_checks.outcome == 'success'
+        if: steps.context.outputs.run_agent == 'true' && steps.agent.outcome == 'success' && steps.agent.outputs.changes_present == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
         id: commit_push
         continue-on-error: true
         env:
@@ -312,13 +344,13 @@ jobs:
           echo "after_sha=$AFTER_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Upload debug artifacts
-        if: steps.context.outputs.run_agent == 'true' && (steps.agent.outcome == 'failure' || steps.precommit_checks.outcome == 'failure' || steps.commit_push.outcome == 'failure')
+        if: steps.context.outputs.run_agent == 'true' && (steps.agent.outcome == 'failure' || (steps.precommit_checks.outcome == 'failure' && steps.autofix.outputs.fixed != 'true') || steps.commit_push.outcome == 'failure')
         uses: ./.github/actions/upload-agent-debug
         with:
           name: cursor-agent-logs-pr-${{ steps.context.outputs.pr_number }}-run-${{ github.run_id }}
 
       - name: Report push failure
-        if: steps.context.outputs.run_agent == 'true' && steps.agent.outcome == 'success' && steps.agent.outputs.changes_present == 'true' && steps.precommit_checks.outcome == 'success' && steps.commit_push.outcome == 'failure'
+        if: steps.context.outputs.run_agent == 'true' && steps.agent.outcome == 'success' && steps.agent.outputs.changes_present == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true') && steps.commit_push.outcome == 'failure'
         env:
           GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           COMMENT_REFERENCE: ${{ steps.context.outputs.comment_reference }}
@@ -341,7 +373,7 @@ jobs:
           gh pr comment "${{ steps.context.outputs.pr_number }}" --body "$PUSH_FAILED_BODY"
 
       - name: Report agent success
-        if: steps.context.outputs.run_agent == 'true' && steps.commit_push.outputs.changes_pushed == 'true' && steps.precommit_checks.outcome == 'success'
+        if: steps.context.outputs.run_agent == 'true' && steps.commit_push.outputs.changes_pushed == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
         env:
           GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           COMMENT_REFERENCE: ${{ steps.context.outputs.comment_reference }}
@@ -391,7 +423,7 @@ jobs:
             --body "$SUCCESS_BODY"
 
       - name: Mark triggering comment as processed
-        if: steps.context.outputs.run_agent == 'true' && (steps.agent.outputs.noop == 'true' || (steps.commit_push.outputs.changes_pushed == 'true' && steps.precommit_checks.outcome == 'success'))
+        if: steps.context.outputs.run_agent == 'true' && (steps.agent.outputs.noop == 'true' || (steps.commit_push.outputs.changes_pushed == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')))
         env:
           GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           REPO: ${{ github.repository }}
@@ -452,9 +484,6 @@ jobs:
 
           elif [[ "$EVENT_NAME" == "issue_comment" ]]; then
             gh api -X POST "/repos/$REPO/issues/comments/$COMMENT_ID/reactions" -f content=eyes 2> /tmp/gh-err.txt || log_warning "Failed to add reaction for issue comment $COMMENT_ID. API stderr: $(cat /tmp/gh-err.txt)"
-
-          else
-            echo "No comment processing action needed for event: $EVENT_NAME"
           fi
 
       - name: Report agent no-op
@@ -496,7 +525,7 @@ jobs:
             --body "$NOOP_BODY"
 
       - name: Report agent pushed but checks failed
-        if: steps.context.outputs.run_agent == 'true' && steps.agent.outcome == 'success' && steps.agent.outputs.changes_present == 'true' && steps.precommit_checks.outcome == 'failure'
+        if: steps.context.outputs.run_agent == 'true' && steps.agent.outcome == 'success' && steps.agent.outputs.changes_present == 'true' && steps.precommit_checks.outcome == 'failure' && steps.autofix.outputs.fixed != 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           COMMENT_REFERENCE: ${{ steps.context.outputs.comment_reference }}
@@ -554,5 +583,5 @@ jobs:
       # Only fail the job for agent or pre-commit failures. Push failures (e.g. token permission
       # issues) are reported via "Report push failure" but do not fail the run.
       - name: Fail job if workflow had errors
-        if: steps.context.outputs.run_agent == 'true' && (steps.agent.outcome == 'failure' || steps.precommit_checks.outcome == 'failure')
+        if: steps.context.outputs.run_agent == 'true' && (steps.agent.outcome == 'failure' || (steps.precommit_checks.outcome == 'failure' && steps.autofix.outputs.fixed != 'true'))
         run: exit 1

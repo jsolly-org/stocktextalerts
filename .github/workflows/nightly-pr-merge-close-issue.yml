@@ -1,0 +1,31 @@
+# When a nightly-issue-grooming PR is merged, close the linked issue.
+# GitHub's "Closes #N" auto-close only works when merging into main;
+# these PRs target dev, so we close explicitly on merge.
+name: Nightly PR merge — close issue
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  issues: write
+
+jobs:
+  close-issue-on-merge:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true &&
+        github.event.pull_request.base.ref == 'dev' &&
+        github.actor != 'nektos/act'
+    steps:
+      - name: Extract issue number and close
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_HTML_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          ISSUE_NUM=$(echo "$PR_TITLE" | sed -n 's/.*feat(nightly): resolve #\([0-9]*\).*/\1/p')
+          if [ -n "$ISSUE_NUM" ]; then
+            gh issue close "$ISSUE_NUM" \
+              --repo "${{ github.repository }}" \
+              --comment "Resolved by $PR_HTML_URL. Closed automatically because the PR targets dev (not main), so GitHub's auto-close keywords don't apply."
+          fi

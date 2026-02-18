@@ -1,3 +1,6 @@
+# Keeps open PR branches up to date with main. When a push lands on main, this
+# workflow finds all non-draft PRs that are behind and calls the GitHub API to
+# update their branches. Skips draft PRs and PRs already up to date.
 name: Update Open PR Branches
 
 on:
