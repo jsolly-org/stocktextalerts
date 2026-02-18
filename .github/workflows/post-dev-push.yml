@@ -1,6 +1,6 @@
-# Runs after every push to dev. Creates up to 3 follow-up GitHub issues based
-# on the recent changes, and updates documentation files (README, FAQ,
-# HowItWorks) to reflect the latest code.
+# Runs after every push to dev. Creates up to 3 follow-up PRs with code
+# changes based on the recent push, and updates documentation files (README,
+# FAQ, HowItWorks) to reflect the latest code.
 name: Post Dev Push
 
 on:
@@ -15,22 +15,22 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  issues: write
 
 env:
   GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
 
 jobs:
-  create-issues:
+  discover-followups:
     if: ${{ (github.event_name == 'workflow_dispatch' || github.actor == 'jsolly') && github.actor != 'nektos/act' }}
     runs-on: ubuntu-latest
+    outputs:
+      followups: ${{ steps.parse.outputs.followups }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6.0.2
         with:
           ref: dev
           fetch-depth: 0
-          # Use GH_AGENT_TOKEN so git push can modify workflow files (default GITHUB_TOKEN lacks workflows permission)
           token: ${{ secrets.GH_AGENT_TOKEN }}
 
       - name: Setup Node.js
@@ -43,7 +43,7 @@ jobs:
       - name: Setup Cursor CLI
         uses: ./.github/actions/setup-cursor
 
-      - name: Create follow-up issues
+      - name: Discover follow-up tasks
         env:
           MODEL: ${{ vars.AGENT_MODEL }}
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
@@ -51,7 +51,7 @@ jobs:
         run: |
           agent -p "You are operating in a GitHub Actions runner.
 
-          The GitHub CLI is available as \`gh\` and authenticated via \`GH_TOKEN\`. Git is available. You have read-only access to repository contents and write access to issues.
+          The GitHub CLI is available as \`gh\` and authenticated via \`GH_TOKEN\`. Git is available.
 
           # Context:
           - Repo: ${{ github.repository }}
@@ -62,16 +62,16 @@ jobs:
           - Actor: ${{ github.actor }}
 
           # Goal:
-          Create high-quality follow-up GitHub issues inspired by the changes just pushed to dev. Quality over quantity — zero issues is perfectly fine.
+          Identify high-quality follow-up tasks inspired by the changes just pushed to dev, and write them to a JSON file. Quality over quantity — zero tasks is perfectly fine.
 
           # Phase 1 — Understand the changes:
           - If Trigger is \`push\`: run \`git log ${{ github.event.before }}..${{ github.sha }} --format='%H %s'\` and \`git diff ${{ github.event.before }}..${{ github.sha }}\` to understand what changed. Also try to find an associated merged PR: \`gh pr list --search '${{ github.sha }}' --state merged --json number,title,url --limit 1\`.
           - If Trigger is \`workflow_dispatch\`: review the latest 3 commits on \`dev\` using \`git log -3 --format='%H %s'\` and \`git diff HEAD~3..HEAD\` to understand recent changes.
 
-          # Phase 2 — Check existing issues:
-          - Fetch open issues: \`gh issue list --state open --limit 50 --json number,title,body,labels\`
-          - Fetch recently closed issues: \`gh issue list --state closed --limit 20 --json number,title,body,labels\`
-          - Use these to avoid creating duplicates or issues that were already addressed.
+          # Phase 2 — Check for duplicates:
+          - Fetch open PRs: \`gh pr list --state open --limit 50 --json number,title,body,labels\`
+          - Fetch recently merged PRs: \`gh pr list --state merged --limit 20 --json number,title,body,labels\`
+          - Use these to avoid proposing tasks that duplicate existing or recently completed work.
 
           # Phase 3 — Brainstorm and filter:
           Consider these categories:
@@ -82,51 +82,112 @@ jobs:
           - Performance or security considerations
 
           Apply these quality filters aggressively:
-          - Would a senior developer consider this issue worth filing? If not, skip it.
-          - Is the issue specific and actionable (not vague like 'improve performance')? If not, skip it.
-          - Does a similar open or recently closed issue already exist? If so, skip it.
+          - Would a senior developer consider this task worth doing? If not, skip it.
+          - Is the task specific and actionable (not vague like 'improve performance')? If not, skip it.
+          - Does a similar open or recently merged PR already cover this? If so, skip it.
           - Is this something the author likely already considered and intentionally left out? If so, skip it.
           - Is this a trivial nitpick or stylistic preference? If so, skip it.
 
-          # Phase 4 — Create issues:
-          For each issue that passes all filters (maximum 3, fewer is better, zero is fine):
-          1. Choose a label: \`enhancement\` for features/improvements, \`bug\` for defects.
-          2. Create the issue with:
-             \`\`\`
-             gh issue create \\
-               --title \"<concise title>\" \\
-               --label \"<enhancement or bug>,bot-generated\" \\
-               --body \"## Summary
-             <1-2 sentence description>
+          # Phase 4 — Write follow-ups to file:
+          Write a JSON file at \`/tmp/followups.json\` containing an array of follow-up tasks.
+          Maximum 3 tasks. Fewer is better. Zero (empty array \`[]\`) is a valid outcome.
 
-             ## Requirements
-             - <specific requirement 1>
-             - <specific requirement 2>
+          Each task must have:
+          - \`title\`: a concise imperative title (e.g. \"Add unit tests for bar parsing edge cases\")
+          - \`description\`: 2-4 sentences describing what to implement and why, referencing the change context
 
-             ## Motivation
-             <why this matters, referencing the change context>
-
-             ---
-             *Auto-generated from push ${{ github.sha }} by the create-issues workflow.*\"
-             \`\`\`
+          Example:
+          \`\`\`json
+          [
+            {
+              \"title\": \"Add unit tests for bar parsing edge cases\",
+              \"description\": \"The recent changes to extractClosesFromBars added new parsing logic but only cover the happy path. Add tests for empty arrays, malformed bar data, and bars with missing close prices to prevent regressions.\"
+            }
+          ]
+          \`\`\`
 
           # Strict rules:
-          - Do NOT modify any files, create commits, or push anything.
-          - Do NOT create more than 3 issues. Zero issues is a valid outcome.
-          - Do NOT create vague, low-value, or duplicate issues.
-          - Every issue MUST have both the category label AND the \`bot-generated\` label.
-          - Every issue body MUST end with the auto-generated footer.
+          - Do NOT modify any repository files, create commits, or push anything.
+          - Do NOT create issues or PRs.
+          - ONLY write to \`/tmp/followups.json\`.
+          - The file MUST contain valid JSON — an array of objects with \`title\` and \`description\` fields.
+          - Maximum 3 tasks. Zero is fine.
+          " --force --model "$MODEL" --output-format=text
 
-          # Output:
-          After completing all phases, print a summary:
-          - ISSUES_CREATED=<number>
-          - For each issue created, print: ISSUE_URL=<url>
-          - If zero issues were created, print: NO_ISSUES_NEEDED
+      - name: Parse follow-ups
+        id: parse
+        run: |
+          if [ ! -f /tmp/followups.json ]; then
+            echo "No followups file found."
+            echo 'followups=[]' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Validate JSON and limit to 3
+          FOLLOWUPS=$(jq -c '.[0:3]' /tmp/followups.json 2>/dev/null || echo '[]')
+          COUNT=$(echo "$FOLLOWUPS" | jq 'length')
+          echo "Found $COUNT follow-up task(s)."
+          echo "$FOLLOWUPS" | jq .
+          echo "followups=$FOLLOWUPS" >> "$GITHUB_OUTPUT"
+
+  create-followup-pr:
+    needs: discover-followups
+    if: ${{ needs.discover-followups.outputs.followups != '[]' && needs.discover-followups.outputs.followups != '' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        followup: ${{ fromJson(needs.discover-followups.outputs.followups) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6.0.2
+        with:
+          ref: dev
+          fetch-depth: 0
+          token: ${{ secrets.GH_AGENT_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6.2.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Setup Cursor CLI
+        uses: ./.github/actions/setup-cursor
+
+      - name: Create branch
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          INDEX=${{ strategy.job-index }}
+          git checkout -b "post-push/followup-${SHORT_SHA}-${INDEX}-${{ github.run_id }}-${{ github.run_attempt }}"
+
+      - name: Run agent
+        env:
+          MODEL: ${{ vars.AGENT_MODEL }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+          TASK_TITLE: ${{ matrix.followup.title }}
+          TASK_DESCRIPTION: ${{ matrix.followup.description }}
+        run: |
+          agent -p "You are operating in a GitHub Actions runner. Git and the \`gh\` CLI are available and authenticated.
+
+          # Goal
+          Implement the following task:
+
+          **${TASK_TITLE}**
+
+          ${TASK_DESCRIPTION}
+
+          # Guidelines
+          - Read \`AGENTS.md\` and the \`.agents/\` directory for project conventions and guidelines.
+          - Leave all changes uncommitted. The workflow will handle commit, push, and PR creation.
+          - Do not create issues or PRs yourself.
           " --force --model "$MODEL" --output-format=text
 
       - name: Drop workflow file edits
         run: |
-          # Check for modified (tracked) AND new (untracked) workflow/action files
           CHANGED=$(git diff --name-only -- .github/workflows .github/actions || true)
           UNTRACKED=$(git ls-files --others --exclude-standard -- .github/workflows .github/actions || true)
           if [[ -n "$CHANGED" || -n "$UNTRACKED" ]]; then
@@ -139,12 +200,60 @@ jobs:
             fi
           fi
 
-      - name: Log results
+      - name: Check for changes
+        id: changes
         run: |
-          echo "---"
-          echo "Issues with bot-generated label:"
-          gh issue list --label "bot-generated" --state open --limit 5 --json number,title,url
-          echo "---"
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No changes detected."
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run pre-commit checks (lint + type-check)
+        if: steps.changes.outputs.has_changes == 'true'
+        id: precommit_checks
+        continue-on-error: true
+        uses: ./.github/actions/run-precommit-checks
+
+      - name: Auto-fix lint/type errors
+        if: steps.changes.outputs.has_changes == 'true' && steps.precommit_checks.outcome == 'failure'
+        id: autofix
+        continue-on-error: true
+        uses: ./.github/actions/autofix-lint-type-errors
+        with:
+          cursor_api_key: ${{ secrets.CURSOR_API_KEY }}
+          agent_model: ${{ vars.AGENT_MODEL }}
+          max_fix_attempts: "2"
+
+      - name: Commit and push
+        if: steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
+        env:
+          TASK_TITLE: ${{ matrix.followup.title }}
+        run: |
+          git add -A
+          git commit -m "feat(post-push): ${TASK_TITLE}"
+          git push origin HEAD
+
+      - name: Create pull request
+        if: steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
+        env:
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+          TASK_TITLE: ${{ matrix.followup.title }}
+          TASK_DESCRIPTION: ${{ matrix.followup.description }}
+        run: |
+          gh pr create \
+            --base dev \
+            --title "feat(post-push): ${TASK_TITLE}" \
+            --label "bot-generated" \
+            --body "$(cat <<EOF
+          ## Summary
+          ${TASK_DESCRIPTION}
+
+          ---
+          *Auto-generated from push ${{ github.sha }} by the post-dev-push workflow.*
+          EOF
+          )"
 
   update-docs:
     if: ${{ (github.event_name == 'workflow_dispatch' || github.actor == 'jsolly') && github.actor != 'nektos/act' }}
