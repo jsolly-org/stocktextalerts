@@ -404,13 +404,17 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, toRefs, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
 import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
 import InformationCircleIcon from "../../../icons/information-circle-20.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
+import {
+	REDUCED_MOTION_QUERY,
+	shouldDisableAutoAdvance,
+} from "../../../lib/accessibility/prefers-reduced-motion";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_MARKET_FORM_ID,
@@ -533,6 +537,29 @@ const retuning = ref(false);
 const showWizard = computed(
 	() => !priceAlertOnboardingCompleted.value || retuning.value,
 );
+
+const prefersReducedMotion = ref(false);
+let motionQuery: MediaQueryList | null = null;
+function handleMotionChange(event: MediaQueryListEvent) {
+	prefersReducedMotion.value = event.matches;
+}
+
+const AUTO_ADVANCE_DELAY_MS = 350;
+function autoAdvanceFromStep(step: number) {
+	if (shouldDisableAutoAdvance({ matches: prefersReducedMotion.value })) return;
+	if (activeRetuneStep.value !== step || isLastRetuneStep.value) return;
+	setTimeout(() => {
+		if (activeRetuneStep.value === step && !isLastRetuneStep.value) {
+			handleRetuneNext();
+		}
+	}, AUTO_ADVANCE_DELAY_MS);
+}
+
+watch(priceAlertRiskPriority, () => autoAdvanceFromStep(0));
+watch(priceAlertMarketContext, () => autoAdvanceFromStep(1));
+watch(priceAlertMoveSize, () => autoAdvanceFromStep(2));
+watch(priceAlertFollowUpMode, () => autoAdvanceFromStep(3));
+
 const isPriceAlertAutosaveLocked = computed(
 	() => !priceAlertOnboardingCompleted.value,
 );
@@ -990,4 +1017,14 @@ function handleRemoveTime(index: number) {
 	scheduledUpdateTimesMinutes.value = normalizeScheduledTimes(updated);
 	notifyChange();
 }
+
+onMounted(() => {
+	motionQuery = window.matchMedia(REDUCED_MOTION_QUERY);
+	prefersReducedMotion.value = motionQuery.matches;
+	motionQuery.addEventListener("change", handleMotionChange);
+});
+
+onUnmounted(() => {
+	motionQuery?.removeEventListener("change", handleMotionChange);
+});
 </script>
