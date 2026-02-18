@@ -124,9 +124,10 @@
 								v-model="priceAlertsIncludeEmail"
 								:disabled="notificationSetupBlocked || !emailEnabled"
 								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								aria-label="Enable email for realtime price alerts"
 								aria-describedby="market_asset_price_alerts_enabled_description"
 							/>
-							<span class="text-sm font-normal text-label">Email</span>
+							<span class="text-sm font-normal text-label" aria-hidden="true">Email</span>
 						</label>
 						<label class="inline-flex items-center gap-1.5" :class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
 							<input
@@ -134,9 +135,10 @@
 								v-model="priceAlertsIncludeSms"
 								:disabled="notificationSetupBlocked || !smsReady"
 								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								aria-label="Enable SMS for realtime price alerts"
 								aria-describedby="market_asset_price_alerts_enabled_description"
 							/>
-							<span class="text-sm font-normal text-label">SMS</span>
+							<span class="text-sm font-normal text-label" aria-hidden="true">SMS</span>
 						</label>
 					</div>
 				</div>
@@ -154,14 +156,15 @@
 											<label
 												v-for="option in riskPriorityOptions"
 												:key="option.value"
-												class="rounded-lg border border-edge bg-surface-alt px-2.5 py-2 text-sm text-label cursor-pointer"
+												class="rounded-lg border px-2.5 py-2 text-sm text-label cursor-pointer transition-colors duration-150 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-emerald-500"
+												:class="priceAlertRiskPriority === option.value ? 'border-emerald-500 bg-emerald-500/10' : 'border-edge bg-surface-alt hover:border-edge-strong'"
 											>
 												<input
 													v-model="priceAlertRiskPriority"
 													type="radio"
 													name="price_alert_risk_priority"
 													:value="option.value"
-													class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-emerald-500 align-middle"
+													class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-0 align-middle"
 												/>
 												<span class="ml-1.5 align-middle">{{ option.label }}</span>
 												<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
@@ -175,14 +178,15 @@
 											<label
 												v-for="option in marketContextOptions"
 												:key="option.value"
-												class="rounded-lg border border-edge bg-surface-alt px-2.5 py-2 text-sm text-label cursor-pointer"
+												class="rounded-lg border px-2.5 py-2 text-sm text-label cursor-pointer transition-colors duration-150 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-emerald-500"
+												:class="priceAlertMarketContext === option.value ? 'border-emerald-500 bg-emerald-500/10' : 'border-edge bg-surface-alt hover:border-edge-strong'"
 											>
 												<input
 													v-model="priceAlertMarketContext"
 													type="radio"
 													name="price_alert_market_context"
 													:value="option.value"
-													class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-emerald-500 align-middle"
+													class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-0 align-middle"
 												/>
 												<span class="ml-1.5 align-middle">{{ option.label }}</span>
 												<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
@@ -196,14 +200,15 @@
 											<label
 												v-for="option in moveSizeOptions"
 												:key="option.value"
-												class="rounded-lg border border-edge bg-surface-alt px-2.5 py-2 text-sm text-label cursor-pointer"
+												class="rounded-lg border px-2.5 py-2 text-sm text-label cursor-pointer transition-colors duration-150 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-emerald-500"
+												:class="priceAlertMoveSize === option.value ? 'border-emerald-500 bg-emerald-500/10' : 'border-edge bg-surface-alt hover:border-edge-strong'"
 											>
 												<input
 													v-model="priceAlertMoveSize"
 													type="radio"
 													name="price_alert_move_size"
 													:value="option.value"
-													class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-emerald-500 align-middle"
+													class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-0 align-middle"
 												/>
 												<span class="ml-1.5 align-middle">{{ option.label }}</span>
 												<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
@@ -217,14 +222,15 @@
 											<label
 												v-for="option in followUpOptions"
 												:key="option.value"
-												class="rounded-lg border border-edge bg-surface-alt px-2.5 py-2 text-sm text-label cursor-pointer"
+												class="rounded-lg border px-2.5 py-2 text-sm text-label cursor-pointer transition-colors duration-150 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-emerald-500"
+												:class="priceAlertFollowUpMode === option.value ? 'border-emerald-500 bg-emerald-500/10' : 'border-edge bg-surface-alt hover:border-edge-strong'"
 											>
 												<input
 													v-model="priceAlertFollowUpMode"
 													type="radio"
 													name="price_alert_follow_up_mode"
 													:value="option.value"
-													class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-emerald-500 align-middle"
+													class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-0 align-middle"
 												/>
 												<span class="ml-1.5 align-middle">{{ option.label }}</span>
 												<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
@@ -235,23 +241,35 @@
 
 								<div class="flex items-center justify-between pt-1">
 									<button
+										v-show="!isFirstRetuneStep"
 										type="button"
-										class="rounded-md border border-edge px-2.5 py-1.5 text-xs font-medium text-label transition hover:bg-surface-alt cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-										:disabled="isFirstRetuneStep"
+										class="rounded-md border border-edge px-2.5 py-1.5 text-xs font-medium text-label transition hover:bg-surface-alt cursor-pointer"
 										@click="handleRetunePrevious"
 									>
 										Back
 									</button>
-									<p class="text-xs text-muted">
-										Question {{ activeRetuneStep + 1 }} of {{ TOTAL_RETUNE_STEPS }}
-									</p>
+									<div v-show="isFirstRetuneStep" />
+									<nav class="flex items-center gap-2" aria-label="Wizard steps">
+										<button
+											v-for="step in TOTAL_RETUNE_STEPS"
+											:key="step"
+											type="button"
+											class="size-2.5 rounded-full transition-colors duration-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
+											:class="step - 1 === activeRetuneStep ? 'bg-emerald-500 scale-125' : step - 1 < activeRetuneStep ? 'bg-emerald-500/40 hover:bg-emerald-500/60' : 'bg-edge-strong hover:bg-muted'"
+											:aria-label="`Go to step ${step}`"
+											:aria-current="step - 1 === activeRetuneStep ? 'step' : undefined"
+											@click="goToRetuneStep(step - 1)"
+										/>
+									</nav>
 									<button
+										v-if="isLastRetuneStep"
 										type="button"
-										class="rounded-md border border-edge bg-surface px-2.5 py-1.5 text-xs font-medium text-label transition hover:bg-surface-alt cursor-pointer"
+										class="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 cursor-pointer"
 										@click="handleRetunePrimaryAction"
 									>
 										{{ retunePrimaryActionLabel }}
 									</button>
+									<div v-else />
 								</div>
 							</div>
 						</fieldset>
@@ -339,9 +357,10 @@
 								v-model="marketIncludeEmail"
 								:disabled="notificationSetupBlocked || !emailEnabled"
 								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								aria-label="Enable email for scheduled price notifications"
 								aria-describedby="market_scheduled_asset_price_enabled_description"
 							/>
-							<span class="text-sm font-normal text-label">Email</span>
+							<span class="text-sm font-normal text-label" aria-hidden="true">Email</span>
 						</label>
 						<label class="inline-flex items-center gap-1.5" :class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
 							<input
@@ -349,9 +368,10 @@
 								v-model="marketIncludeSms"
 								:disabled="notificationSetupBlocked || !smsReady"
 								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								aria-label="Enable SMS for scheduled price notifications"
 								aria-describedby="market_scheduled_asset_price_enabled_description"
 							/>
-							<span class="text-sm font-normal text-label">SMS</span>
+							<span class="text-sm font-normal text-label" aria-hidden="true">SMS</span>
 						</label>
 					</div>
 				</div>
@@ -499,14 +519,14 @@ const priceAlertRiskPriority = ref<AlertRiskPriority>(
 function normalizeMarketContext(
 	value: AlertMarketContext | null | undefined,
 ): AlertMarketContext {
-	if (value === "any_major" || value === "extreme_only") return value;
-	return "standout";
+	if (value === "any_major" || value === "standout") return value;
+	return "extreme_only";
 }
 const priceAlertMarketContext = ref<AlertMarketContext>(
 	normalizeMarketContext(user.value.market_asset_price_alert_market_context),
 );
 const priceAlertMoveSize = ref<AlertMoveSize>(
-	user.value.market_asset_price_alert_move_size ?? "large",
+	user.value.market_asset_price_alert_move_size ?? "very_large",
 );
 const priceAlertFollowUpMode = ref<AlertFollowUpMode>(
 	user.value.market_asset_price_alert_follow_up_mode ?? "first_only",
@@ -754,7 +774,7 @@ watch(
 watch(
 	() => user.value.market_asset_price_alert_move_size,
 	(value) => {
-		priceAlertMoveSize.value = value ?? "large";
+		priceAlertMoveSize.value = value ?? "very_large";
 	},
 );
 watch(
@@ -851,8 +871,8 @@ watch([priceAlertRiskPriority, priceAlertMarketContext, priceAlertMoveSize, pric
 	}
 	if (
 		riskPriority === (user.value.market_asset_price_alert_risk_priority ?? "both_equally") &&
-		marketContext === (user.value.market_asset_price_alert_market_context ?? "standout") &&
-		moveSize === (user.value.market_asset_price_alert_move_size ?? "large") &&
+		marketContext === (user.value.market_asset_price_alert_market_context ?? "extreme_only") &&
+		moveSize === (user.value.market_asset_price_alert_move_size ?? "very_large") &&
 		followUpMode === (user.value.market_asset_price_alert_follow_up_mode ?? "first_only")
 	) {
 		return;
@@ -897,6 +917,12 @@ watch([priceAlertsIncludeEmail, priceAlertsIncludeSms], ([email, sms]) => {
 	notifyChange();
 });
 
+const AUTO_ADVANCE_DELAY_MS = 350;
+
+function goToRetuneStep(step: number) {
+	activeRetuneStep.value = step;
+}
+
 function handleRetunePrevious() {
 	if (isFirstRetuneStep.value) return;
 	activeRetuneStep.value -= 1;
@@ -906,6 +932,20 @@ function handleRetuneNext() {
 	if (isLastRetuneStep.value) return;
 	activeRetuneStep.value += 1;
 }
+
+function autoAdvanceFromStep(step: number) {
+	if (activeRetuneStep.value !== step || isLastRetuneStep.value) return;
+	setTimeout(() => {
+		if (activeRetuneStep.value === step && !isLastRetuneStep.value) {
+			handleRetuneNext();
+		}
+	}, AUTO_ADVANCE_DELAY_MS);
+}
+
+watch(priceAlertRiskPriority, () => autoAdvanceFromStep(0));
+watch(priceAlertMarketContext, () => autoAdvanceFromStep(1));
+watch(priceAlertMoveSize, () => autoAdvanceFromStep(2));
+watch(priceAlertFollowUpMode, () => autoAdvanceFromStep(3));
 
 function startRetune() {
 	activeRetuneStep.value = 0;

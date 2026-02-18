@@ -20,6 +20,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/run-ci
+      - name: E2E tests
+        run: npm run test:e2e
       - name: Link Supabase project
         run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
         env:

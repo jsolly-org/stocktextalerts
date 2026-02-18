@@ -482,6 +482,44 @@ jobs:
             RESOLVE_MUTATION='mutation($threadId:ID!){resolveReviewThread(input:{threadId:$threadId}){thread{isResolved}}}'
             gh api graphql -f query="$RESOLVE_MUTATION" -f threadId="$THREAD_ID" 2> /tmp/gh-err.txt || log_warning "Failed to resolve review thread for comment $COMMENT_ID. API stderr: $(cat /tmp/gh-err.txt)"
 
+          elif [[ "$EVENT_NAME" == "pull_request_review" ]]; then
+            # For full review events, resolve all unresolved threads from this review.
+            OWNER="${OWNER:-${REPO%%/*}}"
+            REPO_NAME="${REPO_NAME:-${REPO##*/}}"
+
+            THREAD_QUERY='query($owner:String!,$repo:String!,$prNumber:Int!,$cursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$prNumber){reviewThreads(first:100,after:$cursor){pageInfo{hasNextPage endCursor}nodes{id isResolved comments(first:100){nodes{pullRequestReview{databaseId}}}}}}}}'
+            RESOLVE_MUTATION='mutation($threadId:ID!){resolveReviewThread(input:{threadId:$threadId}){thread{isResolved}}}'
+
+            RESOLVED_COUNT=0
+            CURSOR=""
+            while true; do
+              CURSOR_ARG=()
+              [[ -n "$CURSOR" ]] && CURSOR_ARG=(-f cursor="$CURSOR")
+              THREAD_JSON=$(gh api graphql \
+                -f query="$THREAD_QUERY" \
+                -f owner="$OWNER" \
+                -f repo="$REPO_NAME" \
+                -F prNumber="$PR_NUMBER" \
+                "${CURSOR_ARG[@]}" \
+                2> /tmp/gh-err.txt) || { log_warning "Failed to fetch review threads for PR $PR_NUMBER. API stderr: $(cat /tmp/gh-err.txt)"; break; }
+
+              THREAD_IDS=$(echo "$THREAD_JSON" | jq -r --argjson rid "$COMMENT_ID" '
+                .data.repository.pullRequest.reviewThreads.nodes[]
+                | select(.isResolved == false)
+                | select(.comments.nodes | any(.pullRequestReview.databaseId == $rid))
+                | .id')
+
+              for TID in $THREAD_IDS; do
+                gh api graphql -f query="$RESOLVE_MUTATION" -f threadId="$TID" 2> /tmp/gh-err.txt || { log_warning "Failed to resolve thread $TID. API stderr: $(cat /tmp/gh-err.txt)"; continue; }
+                RESOLVED_COUNT=$((RESOLVED_COUNT + 1))
+              done
+
+              HAS_NEXT=$(echo "$THREAD_JSON" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage')
+              [[ "$HAS_NEXT" != "true" ]] && break
+              CURSOR=$(echo "$THREAD_JSON" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor')
+            done
+            echo "Resolved $RESOLVED_COUNT review thread(s) from review $COMMENT_ID."
+
           elif [[ "$EVENT_NAME" == "issue_comment" ]]; then
             gh api -X POST "/repos/$REPO/issues/comments/$COMMENT_ID/reactions" -f content=eyes 2> /tmp/gh-err.txt || log_warning "Failed to add reaction for issue comment $COMMENT_ID. API stderr: $(cat /tmp/gh-err.txt)"
           fi
