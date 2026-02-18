@@ -6,6 +6,8 @@ on:
   schedule:
     - cron: "0 9 * * *" # 4 AM ET
   workflow_dispatch:
+  pull_request:
+    types: [closed]
 
 permissions:
   contents: write
@@ -191,18 +193,17 @@ jobs:
             --body "$PR_BODY")
           echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
 
-      # GitHub auto-close keywords only work when merging into the default
-      # branch (main). These PRs target dev, so close the issue explicitly.
-      - name: Close resolved issue
-        if: steps.changes.outputs.has_changes == 'true'
+  close-issue-on-merge:
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close issues linked by merged PR
         env:
           GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
-          ISSUE_NUMBER: ${{ matrix.issue.number }}
-          PR_URL: ${{ steps.create_pr.outputs.pr_url }}
         run: |
-          if [ -n "$PR_URL" ]; then
-            COMMENT="Resolved by $PR_URL. Closed automatically because the PR targets dev (not main), so GitHub's auto-close keywords don't apply."
-          else
-            COMMENT="Resolved — PR creation failed or URL unavailable."
-          fi
-          gh issue close "$ISSUE_NUMBER" --comment "$COMMENT"
+          BODY="${{ github.event.pull_request.body }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          # Extract issue numbers from Closes #N, Fixes #N, Resolves #N (GitHub keywords)
+          for N in $(echo "$BODY" | grep -oiE '(closes?|fixes?|resolves?)\s*#[0-9]+' | grep -oE '[0-9]+' | sort -u); do
+            gh issue close "$N" --comment "Resolved by merged PR: $PR_URL"
+          done
