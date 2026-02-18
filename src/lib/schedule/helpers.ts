@@ -76,28 +76,37 @@ export async function batchLoadUserAssets(
 	}
 
 	const uniqueIds = [...new Set(userIds)];
-	const { data: rows, error } = await supabase
-		.from("user_assets")
-		.select("user_id, symbol, assets!inner(name)")
-		.in("user_id", uniqueIds);
-
-	if (error) {
-		throw error;
-	}
-
 	const map = new Map<string, UserAssetRow[]>();
 	for (const id of uniqueIds) {
 		map.set(id, []);
 	}
-	for (const row of rows ?? []) {
-		const typed = row as {
-			user_id: string;
-			symbol: string;
-			assets: { name: string };
-		};
-		const entry = map.get(typed.user_id) ?? [];
-		entry.push({ symbol: typed.symbol, name: typed.assets.name });
-		map.set(typed.user_id, entry);
+
+	const pageSize = 1000;
+	for (let from = 0; ; from += pageSize) {
+		const { data: rows, error } = await supabase
+			.from("user_assets")
+			.select("user_id, symbol, assets!inner(name)")
+			.in("user_id", uniqueIds)
+			.range(from, from + pageSize - 1);
+
+		if (error) {
+			throw error;
+		}
+
+		for (const row of rows ?? []) {
+			const typed = row as {
+				user_id: string;
+				symbol: string;
+				assets: { name: string };
+			};
+			const entry = map.get(typed.user_id) ?? [];
+			entry.push({ symbol: typed.symbol, name: typed.assets.name });
+			map.set(typed.user_id, entry);
+		}
+
+		if ((rows ?? []).length < pageSize) {
+			break;
+		}
 	}
 	return map;
 }

@@ -208,13 +208,14 @@ async function runPass(options: {
 			userAssetsMap = await batchLoadUserAssets(supabase, userAssetsUserIds);
 		} catch (error) {
 			logger.error(
-				"Failed to batch-load user assets (falling back to per-user fetch)",
+				"Failed to batch-load user assets (aborting fallback pass)",
 				{
 					action: "batch_load_user_assets",
 					userCount: userAssetsUserIds.length,
 				},
 				error,
 			);
+			throw error;
 		}
 	}
 
