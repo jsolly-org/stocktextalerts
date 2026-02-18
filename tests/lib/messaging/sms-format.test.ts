@@ -21,7 +21,8 @@ describe("SMS scheduled update includes asset price data.", () => {
 
 		const message = formatSmsMessage(assetsList, false);
 
-		expect(message).toContain("Prices as of last market close.");
+		expect(message).toContain("Market Closed");
+		expect(message).toContain("Prices below reflect the last market close.");
 		expect(message).toContain("Reply STOP to opt out.");
 	});
 

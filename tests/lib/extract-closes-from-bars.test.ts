@@ -40,6 +40,12 @@ describe("extractClosesFromBars", () => {
 				results: [{ c: 150.5 }, { c: 151.25 }],
 			}),
 		).toEqual([150.5, 151.25]);
+		// Negative numbers are valid finite numbers
+		expect(
+			extractClosesFromBars({
+				results: [{ c: -0.5 }, { c: 0 }, { c: 100 }],
+			}),
+		).toEqual([-0.5, 0, 100]);
 	});
 
 	it("ignores bars with non-numeric or NaN c", () => {

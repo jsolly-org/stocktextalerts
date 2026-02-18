@@ -176,6 +176,8 @@ const MESSAGE_ALLOWLIST = {
 	email_unchanged: "The new email is the same as your current email.",
 	password_reset:
 		"Password updated successfully! You can now sign in with your new password.",
+	password_changed: "Password updated successfully.",
+	password_change_failed: "Password update failed. Please try again.",
 	account_deleted: "Your account has been permanently deleted.",
 	verification_sent: "Verification code sent",
 	verification_recently_sent:
