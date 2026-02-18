@@ -227,7 +227,13 @@ jobs:
       - name: Commit and push
         if: steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
         run: |
-          git add README.md src/pages/faq.astro src/components/landing/HowItWorks.astro
+          # Verify only allowed files were changed
+          UNEXPECTED=$(git status --porcelain | grep -v -E '^.. (README\.md|src/pages/faq\.astro|src/components/landing/HowItWorks\.astro)$' || true)
+          if [[ -n "$UNEXPECTED" ]]; then
+            echo "##[warning]Unexpected file changes detected:"
+            echo "$UNEXPECTED"
+          fi
+          git add -A
           if [ "${{ github.event_name }}" = "push" ]; then
             git commit -m "docs: update docs for ${{ github.sha }}"
           else
