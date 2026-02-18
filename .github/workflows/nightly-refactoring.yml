@@ -51,7 +51,7 @@ jobs:
         run: |
           EXISTING_PR=$(gh pr list \
             --repo "${{ github.repository }}" \
-            --label "nightly" \
+            --label "bot-generated" \
             --search "refactor(nightly): code improvements" \
             --state open \
             --json number,url \
