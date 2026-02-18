@@ -131,7 +131,7 @@ runs:
         [[ "$COMMENT_BODY_LC" =~ no[[:space:]]+actionable[[:space:]]+comments ]] && skip "comment contains no actionable comments text"
         # Skip Codex bot comments about usage/rate limits.
         COMMENT_USER_LC="${COMMENT_USER,,}"
-        [[ "$COMMENT_USER_LC" == *codex* && "$COMMENT_BODY_LC" =~ usage[[:space:]]+limit ]] && skip "Codex usage limit notice"
+        [[ "$COMMENT_USER_LC" == *codex* && "$COMMENT_BODY_LC" =~ (usage|rate)[-_[:space:]]+limit ]] && skip "Codex usage/rate limit notice"
 
         # Review events without body text
         [[ "$EVENT_NAME" == "pull_request_review" && ( -z "$COMMENT_BODY" || "$COMMENT_BODY" == "null" ) ]] && skip "review without body"
