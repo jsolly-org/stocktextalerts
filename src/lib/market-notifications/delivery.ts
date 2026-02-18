@@ -14,6 +14,7 @@ import { toSvgSparklineImg } from "../messaging/svg-sparkline";
 import type { EnrichedAlert } from "./enrichment";
 import type { PriceAlertUser } from "./users";
 
+/** Counts of price-alert delivery outcomes (email/SMS sent/failed, notification log failures). */
 export interface PriceAlertDeliveryStats {
 	emailsSent: number;
 	emailsFailed: number;

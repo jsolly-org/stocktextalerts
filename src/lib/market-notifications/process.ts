@@ -168,7 +168,8 @@ function buildSignalContext(options: {
 /**
  * Run the price-alert pipeline: fetch quotes, evaluate thresholds, atomically
  * claim trading-day slots via claimCooldown (INSERT ... ON CONFLICT DO UPDATE),
- * then deliver alerts. Only runs when US market is open.
+ * enrich with news and intraday bars (fetched in parallel), then deliver via email/SMS.
+ * Only runs when US market is open.
  */
 export async function processPriceAlerts(options: {
 	supabase: SupabaseAdminClient;
