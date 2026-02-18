@@ -349,10 +349,12 @@ The `vercel.json` file configures three cron jobs. All must include `Authorizati
 
 ## Security Features
 
-- Row Level Security (RLS) on all database tables
+- Row Level Security (RLS) on all database tables (authenticated users have SELECT-only on assets; service_role handles sector updates)
+- URL sanitization in notification links (only http/https allowed in headline URLs, blocks javascript:, data:, etc.)
 - Cron endpoint protected by secret header
 - Phone verification via Twilio Verify API
 - SMS opt-out support (STOP keyword compliance)
+- Rate limiting on password change attempts (default: 5 attempts per 15 minutes; configurable via `CHANGE_PASSWORD_RATE_LIMIT_ATTEMPTS` and `CHANGE_PASSWORD_RATE_LIMIT_MINUTES`)
 - Service role key never exposed to client
 - Traditional form submissions (some UI components like Vue dashboard panels and autosave maintain client-side state)
 

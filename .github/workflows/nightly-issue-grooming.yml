@@ -6,6 +6,8 @@ on:
   schedule:
     - cron: "0 6 * * *" # 1 AM ET
   workflow_dispatch:
+  pull_request:
+    types: [closed]
 
 permissions:
   contents: write
@@ -183,7 +185,23 @@ jobs:
           EOF
           )"
           PR_URL=$(gh pr create \
+            --base dev \
             --title "$PR_TITLE" \
             --label "bot-generated" \
             --body "$PR_BODY")
           echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+
+  close-issue-on-merge:
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'dev'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close issues linked by merged PR
+        env:
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          # Extract issue numbers from close/closes/closed, fix/fixes/fixed, resolve/resolves/resolved #N
+          for N in $(printf '%s' "$PR_BODY" | grep -oiE '(close[sd]?|fix(es|ed)?|resolve[sd]?)\s*#[0-9]+' | grep -oE '[0-9]+' | sort -u); do
+            gh issue close "$N" --comment "Resolved by merged PR: $PR_URL"
+          done
