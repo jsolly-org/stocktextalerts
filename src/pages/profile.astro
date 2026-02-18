@@ -63,7 +63,17 @@ try {
 const search = Astro.url.searchParams;
 const error = search.get("error");
 const success = search.get("success");
-const errorMessage = getAuthErrorMessage(error);
+const minutesNum = Number.parseInt(search.get("minutes") ?? "", 10);
+const minutes =
+	Number.isFinite(minutesNum) && minutesNum >= 0 ? String(minutesNum) : null;
+let errorMessage = "";
+if (error) {
+	if (error === "rate_limit" && minutes) {
+		errorMessage = `Too many password change attempts. Please wait ${minutes} minutes and try again.`;
+	} else {
+		errorMessage = getAuthErrorMessage(error);
+	}
+}
 const successMessage = formatMessage(success);
 ---
 <Layout title="Profile" description="Edit your profile and manage your StockTextAlerts account settings, including email, password, and notification delivery preferences." noindex>
