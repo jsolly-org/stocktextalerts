@@ -76,6 +76,74 @@ const { email } = Astro.props;
 					Update email
 				</button>
 			</form>
+
+			<form
+				class="space-y-4 border-t border-edge pt-6"
+				action="/api/auth/change-password"
+				method="post"
+			>
+				<fieldset class="space-y-4">
+					<legend class="text-sm font-medium text-label">
+						Change password
+					</legend>
+					<div>
+						<label
+							for="new-password"
+							class="block text-sm font-medium text-label mb-1"
+						>
+							New password
+						</label>
+						<input
+							type="password"
+							id="new-password"
+							name="password"
+							autocomplete="new-password"
+							required
+							minlength="8"
+							class="input input-lg"
+							placeholder="••••••••"
+							aria-describedby="password-change-help password-match-feedback"
+						/>
+						<p id="password-change-help" class="mt-2 text-sm text-muted">
+							Use at least 8 characters.
+						</p>
+					</div>
+					<div>
+						<label
+							for="confirm-password"
+							class="block text-sm font-medium text-label mb-1"
+						>
+							Confirm new password
+						</label>
+						<input
+							type="password"
+							id="confirm-password"
+							name="confirm"
+							autocomplete="new-password"
+							required
+							minlength="8"
+							class="input input-lg"
+							placeholder="••••••••"
+							aria-describedby="password-match-feedback"
+						/>
+						<p
+							id="password-match-feedback"
+							class="mt-2 text-sm text-warning-text hidden"
+							role="status"
+							aria-live="polite"
+						>
+							Passwords do not match.
+						</p>
+					</div>
+				</fieldset>
+				<button
+					id="save-password-btn"
+					class="btn btn-md btn-primary"
+					type="submit"
+				>
+					Update password
+				</button>
+			</form>
 		</div>
 	</div>
 </section>
@@ -105,6 +173,37 @@ const { email } = Astro.props;
 			input.addEventListener("input", updateState);
 			input.addEventListener("change", updateState);
 			updateState();
+		}
+	}
+
+	const passwordForm = document.querySelector(
+		'form[action="/api/auth/change-password"]',
+	) as HTMLFormElement | null;
+	if (passwordForm) {
+		const passwordInput =
+			passwordForm.querySelector<HTMLInputElement>("#new-password");
+		const confirmInput =
+			passwordForm.querySelector<HTMLInputElement>("#confirm-password");
+		const submitBtn =
+			passwordForm.querySelector<HTMLButtonElement>("#save-password-btn");
+		const mismatchFeedback =
+			passwordForm.querySelector<HTMLParagraphElement>(
+				"#password-match-feedback",
+			);
+
+		if (passwordInput && confirmInput && submitBtn && mismatchFeedback) {
+			const updatePasswordState = () => {
+				const password = passwordInput.value;
+				const confirm = confirmInput.value;
+				const isComplete = password.length >= 8 && confirm.length >= 8;
+				const mismatch = confirm.length > 0 && password !== confirm;
+
+				mismatchFeedback.classList.toggle("hidden", !mismatch);
+				submitBtn.disabled = !isComplete || mismatch;
+			};
+			passwordInput.addEventListener("input", updatePasswordState);
+			confirmInput.addEventListener("input", updatePasswordState);
+			updatePasswordState();
 		}
 	}
 </script>

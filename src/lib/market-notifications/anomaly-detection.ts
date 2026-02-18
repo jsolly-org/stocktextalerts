@@ -11,11 +11,11 @@ const MIN_SNAPSHOTS = 5;
 /** Volume multiplier when volume data is unavailable (penalizes missing data). */
 const UNKNOWN_VOLUME_MULTIPLIER = 0.8;
 
-/** Return the alert threshold for a sensitivity (1=Chill, 2=Normal, 3=Aggressive). */
+/** Return the alert threshold for a sensitivity level (1=very_large, 2=large, 3=moderate). */
 export function getThresholdForSensitivity(sensitivity: number): number {
 	if (sensitivity === 3) return 60;
 	if (sensitivity === 2) return 70;
-	return 80; // default to Chill
+	return 80; // default to very_large (most conservative)
 }
 
 /* =============
