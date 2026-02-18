@@ -131,6 +131,22 @@ jobs:
           git_name: ${{ env.CURSOR_AGENT_NAME }}
           git_email: ${{ env.CURSOR_AGENT_EMAIL }}
 
+      - name: Fetch review comments for CodeRabbit full review
+        if: steps.context.outputs.run_agent == 'true' && github.event_name == 'pull_request_review'
+        env:
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          REVIEW_ID: ${{ github.event.review.id }}
+        run: |
+          # When triggered by a CodeRabbit full review, the body says "Actionable comments posted: N"
+          # but the actual comments are in separate review threads. Fetch them for the agent.
+          COMMENTS_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments" 2>/dev/null || echo "[]")
+          echo "$COMMENTS_JSON" | jq -r --argjson rid "$REVIEW_ID" \
+            '.[] | select(.pull_request_review_id == $rid) | "### \(.path):\(.line // .original_line) (\(.user.login))\n\(.body)\n"' \
+            > /tmp/review-comments.txt 2>/dev/null || true
+          [[ -s /tmp/review-comments.txt ]] || echo "(no inline comments from this review)" > /tmp/review-comments.txt
+
       - name: Run Cursor agent
         if: steps.context.outputs.run_agent == 'true'
         id: agent
@@ -156,6 +172,12 @@ jobs:
           echo "before_sha=$BEFORE_SHA" >> "$GITHUB_OUTPUT"
           echo "noop=false" >> "$GITHUB_OUTPUT"
           echo "changes_present=false" >> "$GITHUB_OUTPUT"
+
+          if [[ -f /tmp/review-comments.txt ]] && [[ -s /tmp/review-comments.txt ]]; then
+            USER_INPUT="$(cat /tmp/review-comments.txt)"
+          else
+            USER_INPUT="$COMMENT_BODY"
+          fi
 
           PROMPT="$(
             cat <<EOF
@@ -189,7 +211,7 @@ jobs:
             ---SYSTEM_INSTRUCTIONS_END---
 
             ---USER_INPUT_START---
-            $COMMENT_BODY
+            $USER_INPUT
             ---USER_INPUT_END---
           EOF
           )"
