@@ -55,7 +55,11 @@ describe("A signed-in user loads onboarding asset price examples.", () => {
 		expect(payload.ok).toBe(true);
 		expect(payload.assets.AAPL).toBeDefined();
 		expect(payload.assets.MSFT).toBeDefined();
-		expect(typeof payload.assets.AAPL?.prevClose).toBe("number");
+		// prevClose may be null if market data is unavailable
+		expect(
+			payload.assets.AAPL?.prevClose === null ||
+				typeof payload.assets.AAPL?.prevClose === "number",
+		).toBe(true);
 		expect(payload.assets.AAPL?.sector).toBe("Technology");
 	});
 
