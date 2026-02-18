@@ -67,7 +67,7 @@ function computeTwilioSignature(
 	params: Record<string, string | undefined>,
 ): string {
 	const sortedKeys = Object.keys(params)
-		.filter((key) => params[key] !== undefined)
+		.filter((key) => params[key] != null)
 		.sort();
 	let data = url;
 	for (const key of sortedKeys) {
