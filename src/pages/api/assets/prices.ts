@@ -47,13 +47,21 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 		const quoteMap = await fetchExtendedQuotes(symbols);
 
 		// Load existing sector values from assets table
-		const { data: assetRows } = await supabase
+		const { data: assetRows, error: assetRowsError } = await supabase
 			.from("assets")
 			.select("symbol, sector")
 			.in("symbol", symbols);
+		if (assetRowsError) {
+			logger.error(
+				"Failed to load asset sectors",
+				{ userId: user.id },
+				assetRowsError,
+			);
+			return jsonResponse(500, { ok: false, message: "fetch_failed" });
+		}
 
 		const sectorMap = new Map<string, string | null>();
-		for (const row of assetRows ?? []) {
+		for (const row of assetRows) {
 			sectorMap.set(
 				row.symbol,
 				(row as { symbol: string; sector: string | null }).sector,

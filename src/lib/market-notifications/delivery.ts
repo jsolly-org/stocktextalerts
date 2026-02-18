@@ -141,7 +141,10 @@ function formatPriceAlertEmail(
 
 	if (alert.headlines.length > 0) {
 		const headlineLines = alert.headlines
-			.map((h) => `- ${h.headline}${h.url ? ` (${h.url})` : ""}`)
+			.map((h) => {
+				const safeUrl = getSafeHrefUrl(h.url);
+				return `- ${h.headline}${safeUrl ? ` (${safeUrl})` : ""}`;
+			})
 			.join("\n");
 		textSections.push(`Breaking News:\n${headlineLines}`);
 	}
