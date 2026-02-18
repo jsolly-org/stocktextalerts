@@ -1,7 +1,7 @@
 # Runs after every push to dev. Creates up to 3 follow-up GitHub issues based
 # on the recent changes, and updates documentation files (README, FAQ,
 # HowItWorks) to reflect the latest code.
-name: Post Main Push
+name: Post Dev Push
 
 on:
   push:
