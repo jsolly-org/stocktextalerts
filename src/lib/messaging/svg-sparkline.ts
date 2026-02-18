@@ -45,5 +45,5 @@ export function toSvgSparklineImg(
 		typeof btoa === "function"
 			? btoa(svg)
 			: Buffer.from(svg).toString("base64");
-	return `<img src="data:image/svg+xml;base64,${base64}" alt="sparkline" width="${width}" height="${height}" style="vertical-align: middle;" />`;
+	return `<img src="data:image/svg+xml;base64,${base64}" alt="Intraday price chart since market open" width="${width}" height="${height}" style="vertical-align: middle;" />`;
 }
