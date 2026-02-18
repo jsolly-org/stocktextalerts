@@ -201,8 +201,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           PR_BODY: ${{ github.event.pull_request.body }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
-          PR_URL="${{ github.event.pull_request.html_url }}"
           # Extract issue numbers from Closes #N, Fixes #N, Resolves #N (GitHub keywords)
           for N in $(printf '%s' "$PR_BODY" | grep -oiE '(closes?|fixes?|resolves?)\s*#[0-9]+' | grep -oE '[0-9]+' | sort -u); do
             gh issue close "$N" --comment "Resolved by merged PR: $PR_URL"
