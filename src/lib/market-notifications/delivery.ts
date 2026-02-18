@@ -2,7 +2,7 @@ import { DASHBOARD_SECTION_HASHES } from "../constants";
 import { getSiteUrl } from "../db/env";
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
-import { escapeHtml } from "../messaging/asset-formatting";
+import { escapeHtml, getSafeHrefUrl } from "../messaging/asset-formatting";
 import { sendUserEmail } from "../messaging/email/index";
 import { createEmailUnsubscribeUrl } from "../messaging/email/unsubscribe";
 import type { EmailSender } from "../messaging/email/utils";
@@ -102,8 +102,9 @@ function formatPriceAlertEmail(
 					.map((h) => {
 						const headline = escapeHtml(h.headline);
 						const source = h.source ? escapeHtml(h.source) : "";
-						return h.url
-							? `<li style="margin-bottom: 6px;"><a href="${escapeHtml(h.url)}" style="color: #667eea; text-decoration: none;">${headline}</a>${source ? ` <span style="color: #9ca3af;">(${source})</span>` : ""}</li>`
+						const safeUrl = getSafeHrefUrl(h.url);
+						return safeUrl
+							? `<li style="margin-bottom: 6px;"><a href="${escapeHtml(safeUrl)}" style="color: #667eea; text-decoration: none;">${headline}</a>${source ? ` <span style="color: #9ca3af;">(${source})</span>` : ""}</li>`
 							: `<li style="margin-bottom: 6px;">${headline}${source ? ` <span style="color: #9ca3af;">(${source})</span>` : ""}</li>`;
 					})
 					.join("\n\t\t\t\t")}

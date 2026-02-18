@@ -1,7 +1,10 @@
 import type { APIRoute } from "astro";
 import { jsonResponse } from "../../../lib/api/json-response";
 import { createUserService, getUserAssets } from "../../../lib/db";
-import { createSupabaseServerClient } from "../../../lib/db/supabase";
+import {
+	createSupabaseAdminClient,
+	createSupabaseServerClient,
+} from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 import { marketDataFetch } from "../../../lib/providers/massive";
 import { fetchExtendedQuotes } from "../../../lib/providers/price-fetcher";
@@ -55,9 +58,11 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 			);
 		}
 
-		// Lazy backfill: fetch sector from Massive for assets missing it
+		// Lazy backfill: fetch sector from Massive for assets missing it.
+		// Use admin client for updates — authenticated has SELECT only on assets.
 		const missingSectorSymbols = symbols.filter((s) => !sectorMap.get(s));
 		if (missingSectorSymbols.length > 0) {
+			const adminSupabase = createSupabaseAdminClient();
 			await Promise.all(
 				missingSectorSymbols.map(async (symbol) => {
 					try {
@@ -75,8 +80,7 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 						const sector = sicCodeToSector(String(sicCode));
 						sectorMap.set(symbol, sector);
 
-						// Upsert sector into assets table
-						await supabase
+						await adminSupabase
 							.from("assets")
 							.update({ sector } as Record<string, unknown>)
 							.eq("symbol", symbol);
