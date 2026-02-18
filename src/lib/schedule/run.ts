@@ -539,9 +539,10 @@ export async function runScheduledNotifications(options: {
 		if (marketUsers.length > 0) {
 			const uniqueSymbols = [
 				...new Set(
-					[...forceSendUserAssetsMap.values()].flatMap((assets) =>
-						assets.map((a) => a.symbol),
-					),
+					marketUsers.flatMap((u) => {
+						const assets = forceSendUserAssetsMap.get(u.id);
+						return assets ? assets.map((a) => a.symbol) : [];
+					}),
 				),
 			];
 

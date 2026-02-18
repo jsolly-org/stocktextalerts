@@ -115,7 +115,7 @@ export async function precomputeMarketScheduled(options: {
 		}
 	} catch (error) {
 		logger.error(
-			"Failed to load user assets for precompute",
+			"Failed to precompute market data (user assets or price fetch)",
 			{ action: "precompute_market", userIdsCount: userIds.length },
 			error,
 		);
