@@ -189,14 +189,3 @@ jobs:
             --label "bot-generated" \
             --body "$PR_BODY")
           echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
-
-      # GitHub auto-close keywords only work when merging into the default
-      # branch (main). These PRs target dev, so close the issue explicitly.
-      - name: Close resolved issue
-        if: steps.changes.outputs.has_changes == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
-          ISSUE_NUMBER: ${{ matrix.issue.number }}
-        run: |
-          gh issue close "$ISSUE_NUMBER" \
-            --comment "Resolved by ${{ steps.create_pr.outputs.pr_url }}. Closed automatically because the PR targets dev (not main), so GitHub's auto-close keywords don't apply."
