@@ -3,6 +3,7 @@ import {
 	fetchCurrentNotificationPreferences,
 	updateNotificationTimezonePreference,
 } from "../../../src/lib/api/notification-preferences";
+import { allowConsoleErrors } from "../../setup";
 
 const { redirectToSignInMock } = vi.hoisted(() => ({
 	redirectToSignInMock: vi.fn(),
@@ -62,6 +63,7 @@ describe("Dashboard notification-preferences client helpers", () => {
 	});
 
 	it("Returns null when loading preferences receives a non-OK response.", async () => {
+		allowConsoleErrors();
 		const fetchMock = vi.mocked(fetch);
 		fetchMock.mockResolvedValueOnce(
 			new Response(JSON.stringify({ ok: false, message: "read_failed" }), {

@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GET as runSectorBackfill } from "../../../src/pages/api/sector-backfill";
 import { createApiContext } from "../helpers/api-context";
 import { createCronRequest } from "../helpers/cron";
 
@@ -33,10 +32,16 @@ vi.mock("../../../src/lib/providers/massive", () => ({
 	marketDataFetch: marketDataFetchMock,
 }));
 
+async function loadSectorBackfillHandler() {
+	const module = await import("../../../src/pages/api/sector-backfill");
+	return module.GET;
+}
+
 describe("A cron worker backfills missing asset sectors.", () => {
 	const testCronSecret = "sector-backfill-test-secret";
 
 	beforeEach(() => {
+		vi.resetModules();
 		vi.stubEnv("CRON_SECRET", testCronSecret);
 		state.queryRows = [];
 		state.updateCalls = [];
@@ -77,6 +82,7 @@ describe("A cron worker backfills missing asset sectors.", () => {
 			.mockResolvedValueOnce({ results: { sic_code: "3571" } }) // Technology
 			.mockResolvedValueOnce({ results: { sic_code: "1311" } }); // Energy
 
+		const runSectorBackfill = await loadSectorBackfillHandler();
 		const response = await runSectorBackfill(
 			createApiContext({
 				request: createCronRequest({
@@ -115,6 +121,7 @@ describe("A cron worker backfills missing asset sectors.", () => {
 	it("Returns a no-op response when no assets need backfill.", async () => {
 		state.queryRows = [];
 
+		const runSectorBackfill = await loadSectorBackfillHandler();
 		const response = await runSectorBackfill(
 			createApiContext({
 				request: createCronRequest({
@@ -140,6 +147,7 @@ describe("A cron worker backfills missing asset sectors.", () => {
 	});
 
 	it("Rejects a cron request without authorization.", async () => {
+		const runSectorBackfill = await loadSectorBackfillHandler();
 		const response = await runSectorBackfill(
 			createApiContext({
 				request: new Request("http://localhost/api/sector-backfill", {
