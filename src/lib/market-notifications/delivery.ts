@@ -78,8 +78,8 @@ function formatPriceAlertSms(alert: EnrichedAlert): string {
 
 	if (alert.aiSummary) {
 		const headlineUrls = alert.headlines
-			.filter((h) => h.url)
-			.map((h) => h.url)
+			.map((h) => getSafeHrefUrl(h.url))
+			.filter((url): url is string => url !== null)
 			.join("\n");
 		sections.push(
 			headlineUrls ? `${alert.aiSummary}\n${headlineUrls}` : alert.aiSummary,
