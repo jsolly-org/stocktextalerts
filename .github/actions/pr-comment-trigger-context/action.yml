@@ -118,9 +118,9 @@ runs:
 
         echo "Commenter: '$COMMENT_USER' | Event: $EVENT_NAME"
 
-        # Allowlist: repo owner, coderabbitai[bot]
+        # Allowlist: coderabbitai[bot]
         case "$COMMENT_USER" in
-          "$REPO_OWNER"|"coderabbitai[bot]") ;;
+          "coderabbitai[bot]") ;;
           *) skip "commenter is not in the allowlist" ;;
         esac
 
