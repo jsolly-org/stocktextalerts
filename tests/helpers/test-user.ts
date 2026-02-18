@@ -4,6 +4,7 @@ import type { TablesInsert } from "../../src/lib/db/generated/database.types";
 import { calculateNextSendAtFromTimes } from "../../src/lib/time/scheduled-times";
 import { getAssetData } from "./asset-data";
 import { PRESERVED_TEST_EMAIL, TEST_RUN_ID } from "./constants";
+import { isLiveProviderEnabled } from "./live-api";
 import { adminClient } from "./test-env";
 
 export function generateUniquePhoneNumber(): string {
@@ -37,7 +38,15 @@ export function createTestEmail(prefix = "test"): string {
 		.replace(/^-+|-+$/g, "")
 		.toLowerCase();
 	const normalizedPrefix = safePrefix.length > 0 ? safePrefix : "test";
-	return `${normalizedPrefix}-${TEST_RUN_ID}-${randomUUID()}@resend.dev`;
+	const label = `${normalizedPrefix}-${TEST_RUN_ID}-${randomUUID()}`;
+
+	// When email provider is live, Resend only delivers to their test address.
+	// Use plus-addressing on delivered@resend.dev so each test gets a unique address.
+	if (isLiveProviderEnabled("email")) {
+		return `delivered+${label}@resend.dev`;
+	}
+
+	return `${label}@resend.dev`;
 }
 
 function tagEmailAddress(baseEmail: string): string {

@@ -23,7 +23,6 @@ const CHANGE_PASSWORD_RATE_LIMIT_MINUTES =
 		import.meta.env.CHANGE_PASSWORD_RATE_LIMIT_MINUTES ?? "15",
 		10,
 	) || 15;
-
 export const POST: APIRoute = async ({
 	request,
 	redirect,

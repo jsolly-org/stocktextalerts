@@ -7,6 +7,11 @@ type DeliveryChannel = "sms" | "email";
 Types
 ============= */
 
+export interface ProviderResult<T> {
+	data: T[];
+	failed: boolean;
+}
+
 interface EarningsEvent {
 	ticker: string;
 	date: string; // YYYY-MM-DD
@@ -179,7 +184,7 @@ export async function marketDataFetch(
 async function fetchFinnhubEarnings(
 	from: string,
 	to: string,
-): Promise<EarningsEvent[]> {
+): Promise<ProviderResult<EarningsEvent>> {
 	const toNumberOrNull = (value: unknown): number | null =>
 		typeof value === "number" && Number.isFinite(value) ? value : null;
 	const toStringOrNull = (value: unknown): string | null =>
@@ -190,10 +195,11 @@ async function fetchFinnhubEarnings(
 		{ from, to },
 		"earnings-calendar",
 	);
-	if (typeof data !== "object" || data === null) return [];
+	if (data === null) return { data: [], failed: true };
+	if (typeof data !== "object") return { data: [], failed: false };
 
 	const raw = (data as Record<string, unknown>).earningsCalendar;
-	if (!Array.isArray(raw)) return [];
+	if (!Array.isArray(raw)) return { data: [], failed: false };
 
 	const events: EarningsEvent[] = [];
 	const seen = new Set<string>();
@@ -218,7 +224,7 @@ async function fetchFinnhubEarnings(
 		});
 	}
 
-	return events;
+	return { data: events, failed: false };
 }
 
 /* =============
@@ -231,7 +237,7 @@ Fetchers
 export async function fetchEarnings(
 	from: string,
 	to: string,
-): Promise<EarningsEvent[]> {
+): Promise<ProviderResult<EarningsEvent>> {
 	// Use Finnhub as the canonical earnings feed to avoid partner entitlement issues on Massive.
 	return fetchFinnhubEarnings(from, to);
 }
@@ -242,7 +248,7 @@ export async function fetchEarnings(
 export async function fetchDividends(
 	from: string,
 	to: string,
-): Promise<DividendEvent[]> {
+): Promise<ProviderResult<DividendEvent>> {
 	const data = await marketDataFetch(
 		"/v3/reference/dividends",
 		{
@@ -252,29 +258,33 @@ export async function fetchDividends(
 		},
 		"dividends",
 	);
-	if (typeof data !== "object" || data === null) return [];
+	if (data === null) return { data: [], failed: true };
+	if (typeof data !== "object") return { data: [], failed: false };
 
 	const results = (data as Record<string, unknown>).results;
-	if (!Array.isArray(results)) return [];
+	if (!Array.isArray(results)) return { data: [], failed: false };
 
-	return results
-		.filter(
-			(item: unknown) =>
-				typeof item === "object" &&
-				item !== null &&
-				typeof (item as Record<string, unknown>).ticker === "string" &&
-				typeof (item as Record<string, unknown>).ex_dividend_date ===
-					"string" &&
-				typeof (item as Record<string, unknown>).cash_amount === "number",
-		)
-		.map((item: Record<string, unknown>) => ({
-			ticker: item.ticker as string,
-			exDividendDate: item.ex_dividend_date as string,
-			cashAmount: item.cash_amount as number,
-			currency: typeof item.currency === "string" ? item.currency : "USD",
-			payDate: typeof item.pay_date === "string" ? item.pay_date : null,
-			frequency: typeof item.frequency === "number" ? item.frequency : null,
-		}));
+	return {
+		data: results
+			.filter(
+				(item: unknown) =>
+					typeof item === "object" &&
+					item !== null &&
+					typeof (item as Record<string, unknown>).ticker === "string" &&
+					typeof (item as Record<string, unknown>).ex_dividend_date ===
+						"string" &&
+					typeof (item as Record<string, unknown>).cash_amount === "number",
+			)
+			.map((item: Record<string, unknown>) => ({
+				ticker: item.ticker as string,
+				exDividendDate: item.ex_dividend_date as string,
+				cashAmount: item.cash_amount as number,
+				currency: typeof item.currency === "string" ? item.currency : "USD",
+				payDate: typeof item.pay_date === "string" ? item.pay_date : null,
+				frequency: typeof item.frequency === "number" ? item.frequency : null,
+			})),
+		failed: false,
+	};
 }
 
 /**
@@ -283,7 +293,7 @@ export async function fetchDividends(
 export async function fetchSplits(
 	from: string,
 	to: string,
-): Promise<SplitEvent[]> {
+): Promise<ProviderResult<SplitEvent>> {
 	const data = await marketDataFetch(
 		"/v3/reference/splits",
 		{
@@ -293,37 +303,45 @@ export async function fetchSplits(
 		},
 		"splits",
 	);
-	if (typeof data !== "object" || data === null) return [];
+	if (data === null) return { data: [], failed: true };
+	if (typeof data !== "object") return { data: [], failed: false };
 
 	const results = (data as Record<string, unknown>).results;
-	if (!Array.isArray(results)) return [];
+	if (!Array.isArray(results)) return { data: [], failed: false };
 
-	return results
-		.filter(
-			(item: unknown) =>
-				typeof item === "object" &&
-				item !== null &&
-				typeof (item as Record<string, unknown>).ticker === "string" &&
-				typeof (item as Record<string, unknown>).execution_date === "string" &&
-				typeof (item as Record<string, unknown>).split_from === "number" &&
-				typeof (item as Record<string, unknown>).split_to === "number",
-		)
-		.map((item: Record<string, unknown>) => ({
-			ticker: item.ticker as string,
-			executionDate: item.execution_date as string,
-			splitFrom: item.split_from as number,
-			splitTo: item.split_to as number,
-			adjustmentType:
-				typeof item.adjustment_type === "string"
-					? item.adjustment_type
-					: "forward_split",
-		}));
+	return {
+		data: results
+			.filter(
+				(item: unknown) =>
+					typeof item === "object" &&
+					item !== null &&
+					typeof (item as Record<string, unknown>).ticker === "string" &&
+					typeof (item as Record<string, unknown>).execution_date ===
+						"string" &&
+					typeof (item as Record<string, unknown>).split_from === "number" &&
+					typeof (item as Record<string, unknown>).split_to === "number",
+			)
+			.map((item: Record<string, unknown>) => ({
+				ticker: item.ticker as string,
+				executionDate: item.execution_date as string,
+				splitFrom: item.split_from as number,
+				splitTo: item.split_to as number,
+				adjustmentType:
+					typeof item.adjustment_type === "string"
+						? item.adjustment_type
+						: "forward_split",
+			})),
+		failed: false,
+	};
 }
 
 /**
  * Fetch upcoming IPO events for a date range (market-wide).
  */
-export async function fetchIpos(from: string, to: string): Promise<IpoEvent[]> {
+export async function fetchIpos(
+	from: string,
+	to: string,
+): Promise<ProviderResult<IpoEvent>> {
 	const data = await marketDataFetch(
 		"/v3/reference/ipos",
 		{
@@ -333,32 +351,55 @@ export async function fetchIpos(from: string, to: string): Promise<IpoEvent[]> {
 		},
 		"ipos",
 	);
-	if (typeof data !== "object" || data === null) return [];
+	if (data === null) return { data: [], failed: true };
+	if (typeof data !== "object") return { data: [], failed: false };
 
 	const results = (data as Record<string, unknown>).results;
-	if (!Array.isArray(results)) return [];
+	if (!Array.isArray(results)) return { data: [], failed: false };
 
-	return results
-		.filter(
-			(item: unknown) =>
-				typeof item === "object" &&
-				item !== null &&
-				typeof (item as Record<string, unknown>).ticker === "string" &&
-				typeof (item as Record<string, unknown>).listing_date === "string",
-		)
-		.map((item: Record<string, unknown>) => ({
-			ticker: item.ticker as string,
-			listingDate: item.listing_date as string,
-			issuerName:
-				typeof item.issuer_name === "string" ? item.issuer_name : null,
-			securityType:
-				typeof item.security_type === "string" ? item.security_type : null,
-		}));
+	return {
+		data: results
+			.filter(
+				(item: unknown) =>
+					typeof item === "object" &&
+					item !== null &&
+					typeof (item as Record<string, unknown>).ticker === "string" &&
+					typeof (item as Record<string, unknown>).listing_date === "string",
+			)
+			.map((item: Record<string, unknown>) => ({
+				ticker: item.ticker as string,
+				listingDate: item.listing_date as string,
+				issuerName:
+					typeof item.issuer_name === "string" ? item.issuer_name : null,
+				securityType:
+					typeof item.security_type === "string" ? item.security_type : null,
+			})),
+		failed: false,
+	};
 }
 
 /* =============
 Daily Aggregates
 ============= */
+
+/**
+ * Extract closing prices from Polygon/Massive bars API response.
+ * Returns an array of closes, or null if parsing fails or no valid bars.
+ */
+function extractClosesFromBars(data: unknown): number[] | null {
+	if (typeof data !== "object" || data === null) return null;
+	const results = (data as Record<string, unknown>).results;
+	if (!Array.isArray(results)) return null;
+	const closes: number[] = [];
+	for (const bar of results) {
+		if (typeof bar !== "object" || bar === null) continue;
+		const c = (bar as Record<string, unknown>).c;
+		if (typeof c === "number" && Number.isFinite(c)) {
+			closes.push(c);
+		}
+	}
+	return closes.length > 0 ? closes : null;
+}
 
 /**
  * Fetch daily closing prices for a single symbol over a date range.
@@ -376,21 +417,27 @@ export async function fetchDailyCloses(
 		{ sort: "asc", limit: "10" },
 		"daily-closes",
 	);
-	if (typeof data !== "object" || data === null) return null;
+	return extractClosesFromBars(data);
+}
 
-	const results = (data as Record<string, unknown>).results;
-	if (!Array.isArray(results)) return null;
-
-	const closes: number[] = [];
-	for (const bar of results) {
-		if (typeof bar !== "object" || bar === null) continue;
-		const c = (bar as Record<string, unknown>).c;
-		if (typeof c === "number" && Number.isFinite(c)) {
-			closes.push(c);
-		}
-	}
-
-	return closes.length > 0 ? closes : null;
+/**
+ * Fetch intraday 5-minute closing prices for a single symbol (today, ET timezone).
+ *
+ * Uses `/v2/aggs/ticker/{symbol}/range/5/minute/{today}/{today}?sort=asc&limit=5000`.
+ * Returns an array of closing prices, or null on failure.
+ */
+export async function fetchIntradayBars(
+	symbol: string,
+): Promise<number[] | null> {
+	const today = new Date().toLocaleDateString("en-CA", {
+		timeZone: "America/New_York",
+	});
+	const data = await marketDataFetch(
+		`/v2/aggs/ticker/${encodeURIComponent(symbol)}/range/5/minute/${today}/${today}`,
+		{ sort: "asc", limit: "5000" },
+		"intraday-bars",
+	);
+	return extractClosesFromBars(data);
 }
 
 /**

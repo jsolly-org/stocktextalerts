@@ -1,11 +1,15 @@
-# Runs after every push to main. Creates up to 3 follow-up GitHub issues based
+# Runs after every push to dev. Creates up to 3 follow-up GitHub issues based
 # on the recent changes, and updates documentation files (README, FAQ,
 # HowItWorks) to reflect the latest code.
-name: Post Main Push
+name: Post Dev Push
 
 on:
   push:
-    branches: [main]
+    branches: [dev]
+    paths-ignore:
+      - 'README.md'
+      - 'src/pages/faq.astro'
+      - 'src/components/landing/HowItWorks.astro'
   workflow_dispatch:
 
 permissions:
@@ -24,8 +28,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6.0.2
         with:
-          ref: main
+          ref: dev
           fetch-depth: 0
+          # Use GH_AGENT_TOKEN so git push can modify workflow files (default GITHUB_TOKEN lacks workflows permission)
+          token: ${{ secrets.GH_AGENT_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6.2.0
@@ -56,11 +62,11 @@ jobs:
           - Actor: ${{ github.actor }}
 
           # Goal:
-          Create high-quality follow-up GitHub issues inspired by the changes just pushed to main. Quality over quantity — zero issues is perfectly fine.
+          Create high-quality follow-up GitHub issues inspired by the changes just pushed to dev. Quality over quantity — zero issues is perfectly fine.
 
           # Phase 1 — Understand the changes:
           - If Trigger is \`push\`: run \`git log ${{ github.event.before }}..${{ github.sha }} --format='%H %s'\` and \`git diff ${{ github.event.before }}..${{ github.sha }}\` to understand what changed. Also try to find an associated merged PR: \`gh pr list --search '${{ github.sha }}' --state merged --json number,title,url --limit 1\`.
-          - If Trigger is \`workflow_dispatch\`: review the latest 3 commits on \`main\` using \`git log -3 --format='%H %s'\` and \`git diff HEAD~3..HEAD\` to understand recent changes.
+          - If Trigger is \`workflow_dispatch\`: review the latest 3 commits on \`dev\` using \`git log -3 --format='%H %s'\` and \`git diff HEAD~3..HEAD\` to understand recent changes.
 
           # Phase 2 — Check existing issues:
           - Fetch open issues: \`gh issue list --state open --limit 50 --json number,title,body,labels\`
@@ -120,9 +126,17 @@ jobs:
 
       - name: Drop workflow file edits
         run: |
-          if git diff --name-only -- .github/workflows .github/actions | grep -q .; then
+          # Check for modified (tracked) AND new (untracked) workflow/action files
+          CHANGED=$(git diff --name-only -- .github/workflows .github/actions || true)
+          UNTRACKED=$(git ls-files --others --exclude-standard -- .github/workflows .github/actions || true)
+          if [[ -n "$CHANGED" || -n "$UNTRACKED" ]]; then
             echo "Reverting workflow and action file edits from agent output."
-            git restore --staged --worktree -- .github/workflows .github/actions
+            if [[ -n "$CHANGED" ]]; then
+              git restore --staged --worktree -- .github/workflows .github/actions
+            fi
+            if [[ -n "$UNTRACKED" ]]; then
+              echo "$UNTRACKED" | xargs rm -f
+            fi
           fi
 
       - name: Log results
@@ -139,8 +153,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6.0.2
         with:
-          ref: main
+          ref: dev
           fetch-depth: 0
+          # Use GH_AGENT_TOKEN so git push can modify workflow files (default GITHUB_TOKEN lacks workflows permission)
+          token: ${{ secrets.GH_AGENT_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6.2.0
@@ -160,7 +176,7 @@ jobs:
         run: |
           agent -p "You are operating in a GitHub Actions runner.
 
-          The GitHub CLI is available as \`gh\` and authenticated via \`GH_TOKEN\`. Git is available. You have write access to repository contents.
+          The GitHub CLI is available as \`gh\` and authenticated via \`GH_TOKEN\`. Git is available.
 
           # Context:
           - Repo: ${{ github.repository }}
@@ -171,7 +187,7 @@ jobs:
           - Actor: ${{ github.actor }}
 
           # Goal:
-          - Update docs on \`main\`, then commit + push directly to \`main\` (no follow-up PR).
+          - Update docs on \`dev\`. Leave all changes uncommitted — the workflow will handle commit and push.
 
           # Allowed files (ONLY these may be modified):
           - \`README.md\` — project documentation
@@ -180,40 +196,89 @@ jobs:
 
           # Requirements:
           1) If Trigger is \`push\` (Before SHA and After SHA are set): determine what changed using \`git diff ${{ github.event.before }}..${{ github.sha }}\` or \`git log ${{ github.event.before }}..${{ github.sha }} --format='%H %s'\`. Update the allowed files if the changes warrant it.
-          2) If Trigger is \`workflow_dispatch\` (manual run; SHAs may be empty): review the current state of the codebase on \`main\` and update the allowed files to accurately reflect it.
+          2) If Trigger is \`workflow_dispatch\` (manual run; SHAs may be empty): review the current state of the codebase on \`dev\` and update the allowed files to accurately reflect it.
           3) Only modify the allowed files listed above. Do NOT touch any other files.
           4) For \`src/pages/faq.astro\`: only update the \`faqs\` array entries and surrounding page copy. Do NOT change the component imports, layout structure, JSON-LD logic, or Tailwind classes.
           5) For \`src/components/landing/HowItWorks.astro\`: only update the \`steps\` array entries and surrounding section copy. Do NOT change the component imports, template structure, or Tailwind classes.
-          6) Commit and push changes directly to \`main\`. Only create a commit if at least one allowed file changed.
-          7) Do NOT create or edit pull requests.
+          6) Do NOT create commits, push, or create/edit pull requests.
 
           # Inputs and conventions:
-          - If no updates are necessary, make no changes and do not commit.
+          - If no updates are necessary, make no changes.
           - Keep changes minimal and consistent with repo style.
-
-          # Implementation notes:
-          - You are checked out on \`main\`. After making changes, run \`git status --porcelain\` to confirm only allowed files changed.
-          - If any allowed files changed, run:
-            - \`git add README.md src/pages/faq.astro src/components/landing/HowItWorks.astro\`
-            - \`git commit -m \"docs: update docs for ${{ github.sha }}\" \` when Trigger is \`push\`, or \`git commit -m \"docs: update docs (manual trigger)\" \` when Trigger is \`workflow_dispatch\`
-            - \`git push origin main\`
-
-          # Deliverables when updates occur:
-          - A commit pushed directly to \`main\` that changes only the allowed files.
-          - After pushing, print exactly one line so the workflow can log it: \`DOCS_PUSHED_SHA=\$(git rev-parse HEAD)\`
           " --force --model "$MODEL" --output-format=text
 
       - name: Drop workflow file edits
         run: |
-          if git diff --name-only -- .github/workflows .github/actions | grep -q .; then
+          # Check for modified (tracked) AND new (untracked) workflow/action files
+          CHANGED=$(git diff --name-only -- .github/workflows .github/actions || true)
+          UNTRACKED=$(git ls-files --others --exclude-standard -- .github/workflows .github/actions || true)
+          if [[ -n "$CHANGED" || -n "$UNTRACKED" ]]; then
             echo "Reverting workflow and action file edits from agent output."
-            git restore --staged --worktree -- .github/workflows .github/actions
+            if [[ -n "$CHANGED" ]]; then
+              git restore --staged --worktree -- .github/workflows .github/actions
+            fi
+            if [[ -n "$UNTRACKED" ]]; then
+              echo "$UNTRACKED" | xargs rm -f
+            fi
           fi
 
-      - name: Log latest commit on main
+      - name: Check for changes
+        id: changes
         run: |
-          git fetch origin main --depth=1
-          echo "---"
-          echo "Latest commit on origin/main after run:"
-          git log -1 origin/main --format="  SHA: %H%n  Subject: %s%n  Author: %an <%ae>%n  Date: %ai"
-          echo "---"
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No changes detected."
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run pre-commit checks (lint + type-check)
+        if: steps.changes.outputs.has_changes == 'true'
+        id: precommit_checks
+        continue-on-error: true
+        uses: ./.github/actions/run-precommit-checks
+
+      - name: Auto-fix lint/type errors
+        if: steps.changes.outputs.has_changes == 'true' && steps.precommit_checks.outcome == 'failure'
+        id: autofix
+        continue-on-error: true
+        uses: ./.github/actions/autofix-lint-type-errors
+        with:
+          cursor_api_key: ${{ secrets.CURSOR_API_KEY }}
+          agent_model: ${{ vars.AGENT_MODEL }}
+          max_fix_attempts: "2"
+
+      - name: Create PR with doc updates
+        if: steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
+        run: |
+          # Verify only allowed files were changed
+          UNEXPECTED=$(git status --porcelain | grep -v -E '^.. (README\.md|src/pages/faq\.astro|src/components/landing/HowItWorks\.astro)$' || true)
+          if [[ -n "$UNEXPECTED" ]]; then
+            echo "##[warning]Unexpected file changes detected:"
+            echo "$UNEXPECTED"
+          fi
+
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          BRANCH="docs/auto-update-${SHORT_SHA}"
+
+          git checkout -b "$BRANCH"
+          git add -A
+          if [ "${{ github.event_name }}" = "push" ]; then
+            git commit -m "docs: update docs for ${{ github.sha }}"
+          else
+            git commit -m "docs: update docs (manual trigger)"
+          fi
+          git push origin "$BRANCH"
+
+          PR_URL=$(gh pr create \
+            --base dev \
+            --head "$BRANCH" \
+            --title "docs: auto-update docs for ${SHORT_SHA}" \
+            --body "Automated doc updates triggered by push to dev.
+
+          Source commit: ${{ github.sha }}
+          Trigger: ${{ github.event_name }}")
+
+          echo "PR created: $PR_URL"
+          gh pr merge "$PR_URL" --admin --merge --delete-branch
+          echo "PR merged successfully."

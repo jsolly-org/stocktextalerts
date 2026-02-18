@@ -1,13 +1,9 @@
 /**
  * Database helpers for the `staged_notifications` table.
- *
- * Queries use `supabase.from("staged_notifications" as "users")` to bypass the
- * Supabase TypeScript client's type checker when `staged_notifications` is absent
- * from the generated types. The `as "users"` cast makes the client accept the
- * table name while the actual SQL targets `staged_notifications`. If the generated
- * types include this table, these casts can be replaced with proper typed access.
+ * Uses generated database types for typed access.
  */
 
+import type { Json } from "../db/generated/database.types";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 import type {
 	StagedData,
@@ -29,20 +25,18 @@ export async function upsertStagedNotification(
 ): Promise<{ error: unknown | null }> {
 	const { userId, notificationType, scheduledFor, stagedData } = options;
 
-	const { error } = await supabase
-		.from("staged_notifications" as "users")
-		.upsert(
-			{
-				user_id: userId,
-				notification_type: notificationType,
-				scheduled_for: scheduledFor,
-				staged_data: stagedData,
-			} as never,
-			{
-				onConflict: "user_id,notification_type,scheduled_for",
-				ignoreDuplicates: true,
-			},
-		);
+	const { error } = await supabase.from("staged_notifications").upsert(
+		{
+			user_id: userId,
+			notification_type: notificationType,
+			scheduled_for: scheduledFor,
+			staged_data: stagedData as unknown as Json,
+		},
+		{
+			onConflict: "user_id,notification_type,scheduled_for",
+			ignoreDuplicates: true,
+		},
+	);
 
 	return { error };
 }
@@ -59,24 +53,8 @@ export async function fetchDueStagedNotifications(
 ): Promise<StagedNotificationRow[]> {
 	const { cutoffTimeIso, notificationType } = options;
 
-	const { data, error } = await (
-		supabase.from("staged_notifications" as "users") as unknown as {
-			select: (columns: string) => {
-				eq: (
-					col: string,
-					val: string,
-				) => {
-					lte: (
-						col: string,
-						val: string,
-					) => Promise<{
-						data: StagedNotificationRow[] | null;
-						error: unknown;
-					}>;
-				};
-			};
-		}
-	)
+	const { data, error } = await supabase
+		.from("staged_notifications")
 		.select("id,user_id,notification_type,scheduled_for,staged_at,staged_data")
 		.eq("notification_type", notificationType)
 		.lte("scheduled_for", cutoffTimeIso);
@@ -85,7 +63,7 @@ export async function fetchDueStagedNotifications(
 		throw error;
 	}
 
-	return (data ?? []) as StagedNotificationRow[];
+	return (data ?? []) as unknown as StagedNotificationRow[];
 }
 
 /**
@@ -95,15 +73,11 @@ export async function deleteStagedNotification(
 	supabase: SupabaseAdminClient,
 	id: string,
 ): Promise<void> {
-	await (
-		supabase.from("staged_notifications" as "users") as unknown as {
-			delete: () => {
-				eq: (col: string, val: string) => Promise<{ error: unknown }>;
-			};
-		}
-	)
+	const { error } = await supabase
+		.from("staged_notifications")
 		.delete()
 		.eq("id", id);
+	if (error) throw error;
 }
 
 /** Purge staged notification rows older than the specified number of minutes. */
@@ -113,21 +87,8 @@ export async function purgeStaleStaged(
 ): Promise<number> {
 	const cutoff = new Date(Date.now() - maxAgeMinutes * 60 * 1000).toISOString();
 
-	const { data, error } = await (
-		supabase.from("staged_notifications" as "users") as unknown as {
-			delete: () => {
-				lt: (
-					col: string,
-					val: string,
-				) => {
-					select: (cols: string) => Promise<{
-						data: { id: string }[] | null;
-						error: unknown;
-					}>;
-				};
-			};
-		}
-	)
+	const { data, error } = await supabase
+		.from("staged_notifications")
 		.delete()
 		.lt("staged_at", cutoff)
 		.select("id");

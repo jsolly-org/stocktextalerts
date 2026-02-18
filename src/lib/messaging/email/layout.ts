@@ -48,6 +48,6 @@ export function renderEmailFooter(urls: EmailUrls): string {
 	return `<p style="color: #6b7280; font-size: 12px; margin-top: 18px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
 			<a href="${urls.escapedScheduleUrl}" style="color: #667eea; text-decoration: none;">Adjust delivery schedule</a>
 			<span style="color: #d1d5db; padding: 0 8px;">•</span>
-			<a href="${urls.escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
+			<a href="${urls.escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe from all emails</a>
 		</p>`;
 }

@@ -22,6 +22,7 @@ interface ImportMetaEnv {
 	readonly SMS_TEST_MESSAGE_SID?: string;
 	readonly SMS_TEST_ERROR?: string;
 	readonly SMS_TEST_ERROR_CODE?: string;
+	readonly LIVE_API_PROVIDERS?: string;
 }
 
 declare module "*.svg?component" {
