@@ -13,16 +13,23 @@ import { createLogger } from "../../../lib/logging";
  * Reduces brute-force risk when an attacker has a stolen session.
  * Can be overridden via CHANGE_PASSWORD_RATE_LIMIT_* env vars.
  */
+const parsedRateLimitRequests = Number.parseInt(
+	import.meta.env.CHANGE_PASSWORD_RATE_LIMIT_REQUESTS ?? "5",
+	10,
+);
 const CHANGE_PASSWORD_RATE_LIMIT_REQUESTS =
-	Number.parseInt(
-		import.meta.env.CHANGE_PASSWORD_RATE_LIMIT_REQUESTS ?? "5",
-		10,
-	) || 5;
+	Number.isFinite(parsedRateLimitRequests) && parsedRateLimitRequests > 0
+		? parsedRateLimitRequests
+		: 5;
+
+const parsedRateLimitMinutes = Number.parseInt(
+	import.meta.env.CHANGE_PASSWORD_RATE_LIMIT_MINUTES ?? "15",
+	10,
+);
 const CHANGE_PASSWORD_RATE_LIMIT_MINUTES =
-	Number.parseInt(
-		import.meta.env.CHANGE_PASSWORD_RATE_LIMIT_MINUTES ?? "15",
-		10,
-	) || 15;
+	Number.isFinite(parsedRateLimitMinutes) && parsedRateLimitMinutes > 0
+		? parsedRateLimitMinutes
+		: 15;
 export const POST: APIRoute = async ({
 	request,
 	redirect,
