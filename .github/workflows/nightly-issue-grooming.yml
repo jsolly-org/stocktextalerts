@@ -204,6 +204,7 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
           # Extract issue numbers from Closes #N, Fixes #N, Resolves #N (GitHub keywords)
-          for N in $(printf '%s' "$PR_BODY" | grep -oiE '(closes?|fixes?|resolves?)\s*#[0-9]+' | grep -oE '[0-9]+' | sort -u); do
+          # Use printenv to avoid shell injection from user-controlled PR body
+          for N in $(printenv PR_BODY | grep -oiE '(closes?|fixes?|resolves?)\s*#[0-9]+' | grep -oE '[0-9]+' | sort -u); do
             gh issue close "$N" --comment "Resolved by merged PR: $PR_URL"
           done
