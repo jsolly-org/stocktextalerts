@@ -25,6 +25,9 @@ function formatPriceContextWithSparkline(
 	if (!intradayCloses) return priceContext;
 
 	let values = intradayCloses;
+	if (maxSparklineLength !== undefined && maxSparklineLength < 2) {
+		return priceContext;
+	}
 	if (maxSparklineLength !== undefined && values.length > maxSparklineLength) {
 		// Downsample to preserve full-day shape; truncating would drop recent price data
 		const sampled: number[] = [];
