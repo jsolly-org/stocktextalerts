@@ -88,6 +88,7 @@ function formatPriceAlertSms(alert: EnrichedAlert): string {
 
 function renderHtmlSparkline(intradayCloses: number[] | null): string {
 	if (!intradayCloses || intradayCloses.length < 2) return "";
+	if (intradayCloses.some((v) => !Number.isFinite(v))) return "";
 	const openPrice = intradayCloses[0];
 	const lastPrice = intradayCloses[intradayCloses.length - 1];
 	const changePercent =
