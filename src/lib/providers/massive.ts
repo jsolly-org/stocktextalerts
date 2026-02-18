@@ -360,6 +360,25 @@ export async function fetchIpos(from: string, to: string): Promise<IpoEvent[]> {
 Daily Aggregates
 ============= */
 
+// Parse Polygon/Massive bars API responses; returns null for invalid payloads or empty results.
+export function extractClosesFromBars(payload: unknown): number[] | null {
+	if (typeof payload !== "object" || payload === null) return null;
+
+	const results = (payload as Record<string, unknown>).results;
+	if (!Array.isArray(results)) return null;
+
+	const closes: number[] = [];
+	for (const bar of results) {
+		if (typeof bar !== "object" || bar === null) continue;
+		const c = (bar as Record<string, unknown>).c;
+		if (typeof c === "number" && Number.isFinite(c)) {
+			closes.push(c);
+		}
+	}
+
+	return closes.length > 0 ? closes : null;
+}
+
 /**
  * Fetch daily closing prices for a single symbol over a date range.
  *
@@ -376,21 +395,7 @@ export async function fetchDailyCloses(
 		{ sort: "asc", limit: "10" },
 		"daily-closes",
 	);
-	if (typeof data !== "object" || data === null) return null;
-
-	const results = (data as Record<string, unknown>).results;
-	if (!Array.isArray(results)) return null;
-
-	const closes: number[] = [];
-	for (const bar of results) {
-		if (typeof bar !== "object" || bar === null) continue;
-		const c = (bar as Record<string, unknown>).c;
-		if (typeof c === "number" && Number.isFinite(c)) {
-			closes.push(c);
-		}
-	}
-
-	return closes.length > 0 ? closes : null;
+	return extractClosesFromBars(data);
 }
 
 /**
