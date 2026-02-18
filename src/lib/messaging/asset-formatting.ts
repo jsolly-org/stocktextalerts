@@ -68,6 +68,7 @@ export function formatAssetTextLine(
 	return `${base} — ${formatAssetPriceText(price, effectiveSparkline)}`;
 }
 
+/** Return CSS hex color for price change (green for positive, red for negative). */
 export function getChangeColor(changePercent: number): string {
 	return changePercent >= 0 ? "#15803d" : "#dc2626";
 }

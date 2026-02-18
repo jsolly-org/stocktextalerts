@@ -15,6 +15,8 @@ import { sicCodeToSector } from "../../../lib/providers/sector-mapping";
  *
  * Returns prevClose and sector for the user's tracked assets.
  * Used by the onboarding wizard to show asset-grounded examples.
+ * Lazy-backfills sector from Massive for assets missing it (writes via admin client;
+ * authenticated user has SELECT-only on assets).
  */
 export const GET: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);

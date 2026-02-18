@@ -12,6 +12,7 @@ import type { SmsSender } from "../messaging/sms/twilio-utils";
 import type { EnrichedAlert } from "./enrichment";
 import type { PriceAlertUser } from "./users";
 
+/** Per-run delivery counters for price alerts (email/SMS success/fail and log failures). */
 export interface PriceAlertDeliveryStats {
 	emailsSent: number;
 	emailsFailed: number;
