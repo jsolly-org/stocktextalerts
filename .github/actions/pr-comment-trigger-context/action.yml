@@ -118,9 +118,9 @@ runs:
 
         echo "Commenter: '$COMMENT_USER' | Event: $EVENT_NAME"
 
-        # Allowlist: coderabbitai[bot]
+        # Allowlist: coderabbitai[bot], chatgpt-codex-connector[bot]
         case "$COMMENT_USER" in
-          "coderabbitai[bot]") ;;
+          "coderabbitai[bot]"|"chatgpt-codex-connector[bot]") ;;
           *) skip "commenter is not in the allowlist" ;;
         esac
 
