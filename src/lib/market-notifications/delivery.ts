@@ -22,11 +22,25 @@ function formatPriceContextWithSparkline(
 	intradayCloses: number[] | null,
 	maxSparklineLength?: number,
 ): string {
-	const raw = intradayCloses ? toSparkline(intradayCloses) : "";
-	const sparkline =
-		maxSparklineLength !== undefined && raw.length > maxSparklineLength
-			? raw.slice(0, maxSparklineLength)
-			: raw;
+	if (!intradayCloses) return priceContext;
+
+	let values = intradayCloses;
+	if (
+		maxSparklineLength !== undefined &&
+		values.length > maxSparklineLength
+	) {
+		// Downsample to preserve full-day shape; truncating would drop recent price data
+		const sampled: number[] = [];
+		for (let i = 0; i < maxSparklineLength; i++) {
+			const idx = Math.round(
+				(i / (maxSparklineLength - 1)) * (values.length - 1),
+			);
+			sampled.push(values[idx]);
+		}
+		values = sampled;
+	}
+
+	const sparkline = toSparkline(values);
 	return sparkline ? `${priceContext} Today: ${sparkline}` : priceContext;
 }
 
