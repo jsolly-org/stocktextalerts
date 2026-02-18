@@ -48,6 +48,8 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+          # Use GH_AGENT_TOKEN so git push can modify workflow files (default GITHUB_TOKEN lacks workflows permission)
+          token: ${{ secrets.GH_AGENT_TOKEN }}
 
       - name: Setup Node.js
         if: steps.check-pr.outputs.skip != 'true'
@@ -86,9 +88,17 @@ jobs:
       - name: Drop workflow file edits
         if: steps.check-pr.outputs.skip != 'true'
         run: |
-          if git diff --name-only -- .github/workflows .github/actions | grep -q .; then
+          # Check for modified (tracked) AND new (untracked) workflow/action files
+          CHANGED=$(git diff --name-only -- .github/workflows .github/actions || true)
+          UNTRACKED=$(git ls-files --others --exclude-standard -- .github/workflows .github/actions || true)
+          if [[ -n "$CHANGED" || -n "$UNTRACKED" ]]; then
             echo "Reverting workflow and action file edits from agent output."
-            git restore --staged --worktree -- .github/workflows .github/actions
+            if [[ -n "$CHANGED" ]]; then
+              git restore --staged --worktree -- .github/workflows .github/actions
+            fi
+            if [[ -n "$UNTRACKED" ]]; then
+              echo "$UNTRACKED" | xargs rm -f
+            fi
           fi
 
       - name: Check for changes
