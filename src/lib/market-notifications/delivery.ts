@@ -97,7 +97,13 @@ function renderHtmlSparkline(intradayCloses: number[] | null): string {
 	const changePercent =
 		openPrice === 0 ? 0 : ((lastPrice - openPrice) / openPrice) * 100;
 	const color = getChangeColor(changePercent);
-	const sparklineImg = toSvgSparklineImg(intradayCloses, color, 200, 40);
+	const sparklineImg = toSvgSparklineImg(
+			intradayCloses,
+			color,
+			200,
+			40,
+			"Intraday price chart since market open",
+		);
 	if (!sparklineImg) return "";
 	return `
 			<p style="color: #92400e; font-size: 12px; margin: 8px 0 0 0;">Today since open:</p>

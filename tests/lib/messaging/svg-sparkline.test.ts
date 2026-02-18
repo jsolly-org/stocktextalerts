@@ -6,7 +6,7 @@ describe("toSvgSparklineImg", () => {
 		const result = toSvgSparklineImg([1, 2, 3, 5, 7, 5, 3], "#15803d");
 		expect(result).toContain("<img ");
 		expect(result).toContain("data:image/svg+xml;base64,");
-		expect(result).toContain('alt="Intraday price chart since market open"');
+		expect(result).toContain('alt="sparkline"');
 	});
 
 	it("returns empty string for fewer than 2 values", () => {
