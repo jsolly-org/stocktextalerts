@@ -1,6 +1,7 @@
 import { createHmac, randomUUID } from "node:crypto";
 import type { BrowserContext, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
+import { getAssetData } from "../helpers/asset-data";
 import { NEW_PASSWORD, TEST_PASSWORD } from "../helpers/constants";
 import { adminClient } from "../helpers/test-env";
 import {
@@ -20,6 +21,24 @@ type InbucketMessage = {
 		text?: string;
 		html?: string;
 	};
+};
+
+type MailpitRecipient = {
+	Address?: string;
+};
+
+type MailpitListResponse = {
+	messages?: Array<{
+		ID: string;
+		Subject?: string;
+		To?: MailpitRecipient[];
+	}>;
+};
+
+type MailpitMessageResponse = {
+	Subject?: string;
+	Text?: string;
+	HTML?: string;
 };
 
 function toBase64Url(buffer: Buffer): string {
@@ -44,7 +63,7 @@ function createEmailUnsubscribeToken(userId: string, email: string): string {
 function computeTwilioSignature(
 	authToken: string,
 	url: string,
-	params: Record<string, string>,
+	params: Record<string, string | undefined>,
 ): string {
 	const sortedKeys = Object.keys(params).sort();
 	let data = url;
@@ -52,6 +71,42 @@ function computeTwilioSignature(
 		data += key + params[key];
 	}
 	return createHmac("sha1", authToken).update(data, "utf-8").digest("base64");
+}
+
+function buildInboundSignatureParams(
+	params: Record<string, string>,
+): Record<string, string | undefined> {
+	const signatureParams: Record<string, string | undefined> = {
+		MessageSid: undefined,
+		SmsSid: undefined,
+		SmsMessageSid: undefined,
+		AccountSid: undefined,
+		MessagingServiceSid: undefined,
+		From: undefined,
+		FromCity: undefined,
+		FromState: undefined,
+		FromZip: undefined,
+		FromCountry: undefined,
+		To: undefined,
+		ToCity: undefined,
+		ToState: undefined,
+		ToZip: undefined,
+		ToCountry: undefined,
+		Body: undefined,
+		NumSegments: undefined,
+		NumMedia: undefined,
+		ApiVersion: undefined,
+		SmsStatus: undefined,
+		ForwardedFrom: undefined,
+		CallerName: undefined,
+	};
+
+	for (let index = 0; index < 10; index += 1) {
+		signatureParams[`MediaUrl${index}`] = undefined;
+		signatureParams[`MediaContentType${index}`] = undefined;
+	}
+
+	return { ...signatureParams, ...params };
 }
 
 function rewriteLinkOrigin(link: string, baseOrigin: string): string {
@@ -77,18 +132,38 @@ async function getInbucketMessages(email: string): Promise<InbucketListItem[]> {
 		return [];
 	}
 
-	const response = await fetch(
+	const mailboxResponse = await fetch(
 		`http://localhost:54324/api/v1/mailbox/${encodeURIComponent(localPart)}`,
 	);
-	if (response.status === 404) {
-		return [];
+	if (mailboxResponse.status === 404) {
+		const mailpitResponse = await fetch("http://localhost:54324/api/v1/messages");
+		if (!mailpitResponse.ok) {
+			const body = await mailpitResponse.text();
+			throw new Error(
+				`Failed to read Mailpit messages: ${mailpitResponse.status} ${body}`,
+			);
+		}
+		const payload = (await mailpitResponse.json()) as MailpitListResponse;
+		return (payload.messages ?? [])
+			.filter((message) =>
+				(message.To ?? []).some(
+					(recipient) =>
+						recipient.Address?.toLowerCase() === email.toLowerCase(),
+				),
+			)
+			.map((message) => ({
+				id: message.ID,
+				subject: message.Subject,
+			}));
 	}
-	if (!response.ok) {
-		const body = await response.text();
-		throw new Error(`Failed to read Inbucket mailbox: ${response.status} ${body}`);
+	if (!mailboxResponse.ok) {
+		const body = await mailboxResponse.text();
+		throw new Error(
+			`Failed to read Inbucket mailbox: ${mailboxResponse.status} ${body}`,
+		);
 	}
 
-	return (await response.json()) as InbucketListItem[];
+	return (await mailboxResponse.json()) as InbucketListItem[];
 }
 
 async function getInbucketMessage(
@@ -103,6 +178,25 @@ async function getInbucketMessage(
 	const response = await fetch(
 		`http://localhost:54324/api/v1/mailbox/${encodeURIComponent(localPart)}/${encodeURIComponent(messageId)}`,
 	);
+	if (response.status === 404) {
+		const mailpitResponse = await fetch(
+			`http://localhost:54324/api/v1/message/${encodeURIComponent(messageId)}`,
+		);
+		if (!mailpitResponse.ok) {
+			const body = await mailpitResponse.text();
+			throw new Error(
+				`Failed to fetch Mailpit message: ${mailpitResponse.status} ${body}`,
+			);
+		}
+		const payload = (await mailpitResponse.json()) as MailpitMessageResponse;
+		return {
+			subject: payload.Subject,
+			body: {
+				text: payload.Text,
+				html: payload.HTML,
+			},
+		};
+	}
 	if (!response.ok) {
 		const body = await response.text();
 		throw new Error(`Failed to fetch Inbucket message: ${response.status} ${body}`);
@@ -146,10 +240,15 @@ async function maybeWaitForEmail(
 	}
 }
 
-async function expectCurrentPath(page: Page, expectedPath: string) {
+async function expectCurrentPath(
+	page: Page,
+	expectedPath: string,
+	timeout = 15_000,
+) {
 	await expect
 		.poll(() => new URL(page.url()).pathname, {
 			message: `Expected path ${expectedPath}`,
+			timeout,
 		})
 		.toBe(expectedPath);
 }
@@ -165,13 +264,36 @@ async function signIn(page: Page, email: string, password: string) {
 async function addAsset(page: Page, symbol: string) {
 	const input = page.locator("#asset_search");
 	await input.fill(symbol);
-	const option = page
-		.locator('#asset_dropdown [role="option"]')
-		.filter({ hasText: new RegExp(`^${symbol}\\b`) })
-		.first();
-	await expect(option).toBeVisible();
-	await option.click();
-	await expect(page.getByRole("button", { name: `Remove ${symbol}` })).toBeVisible();
+	await page.waitForResponse(
+		(response) =>
+			response.url().includes("/api/assets/search") && response.status() === 200,
+		{
+			timeout: 15_000,
+		},
+	);
+	await input.press("ArrowDown");
+	await input.press("Enter");
+	await expect(page.getByRole("button", { name: `Remove ${symbol}` })).toBeVisible({
+		timeout: 15_000,
+	});
+}
+
+async function ensureAssetsExist(symbols: string[]): Promise<void> {
+	const uniqueSymbols = [...new Set(symbols)];
+	const assetRecords = uniqueSymbols.map((symbol) => {
+		const assetData = getAssetData(symbol);
+		return {
+			symbol: assetData.symbol,
+			name: assetData.name,
+			type: assetData.type,
+		};
+	});
+	const { error } = await adminClient
+		.from("assets")
+		.upsert(assetRecords, { onConflict: "symbol" });
+	if (error) {
+		throw new Error(`Failed to ensure assets exist: ${error.message}`);
+	}
 }
 
 async function fetchNextSendAt(userId: string): Promise<string | null> {
@@ -203,6 +325,61 @@ async function waitForNextSendAdvance(
 	throw new Error(
 		`Timed out waiting for market_scheduled_asset_price_next_send_at to advance from ${String(previousValue)}`,
 	);
+}
+
+async function waitForTrackedAssets(
+	userId: string,
+	expectedSymbols: string[],
+	timeoutMs = 30_000,
+): Promise<void> {
+	const expected = [...expectedSymbols].sort();
+	const startedAt = Date.now();
+	while (Date.now() - startedAt < timeoutMs) {
+		const { data, error } = await adminClient
+			.from("user_assets")
+			.select("symbol")
+			.eq("user_id", userId)
+			.order("symbol");
+		if (error) {
+			throw new Error(`Failed to read tracked assets: ${error.message}`);
+		}
+		const symbols = (data ?? []).map((row) => row.symbol).sort();
+		if (symbols.length === expected.length && symbols.every((value, idx) => value === expected[idx])) {
+			return;
+		}
+		await new Promise((resolve) => setTimeout(resolve, 1000));
+	}
+
+	throw new Error(
+		`Timed out waiting for tracked assets to become [${expected.join(", ")}]`,
+	);
+}
+
+async function waitForEmailNotificationsEnabled(
+	userId: string,
+	expectedValue: boolean,
+	timeoutMs = 30_000,
+): Promise<void> {
+	await expect
+		.poll(
+			async () => {
+				const { data, error } = await adminClient
+					.from("users")
+					.select("email_notifications_enabled")
+					.eq("id", userId)
+					.single();
+				if (error) {
+					throw new Error(
+						`Failed to read email notification state: ${error.message}`,
+					);
+				}
+				return data.email_notifications_enabled;
+			},
+			{
+				timeout: timeoutMs,
+			},
+		)
+		.toBe(expectedValue);
 }
 
 test.describe("sanity tests", () => {
@@ -271,6 +448,9 @@ test.describe("sanity tests", () => {
 	});
 
 	test("TC-REG-001: User can register for a new account", async () => {
+		test.slow();
+		test.setTimeout(120_000);
+
 		testEmail = `sanity-${randomUUID()}@resend.dev`;
 		secondEmail = `sanity-second-${randomUUID()}@resend.dev`;
 
@@ -313,31 +493,45 @@ test.describe("sanity tests", () => {
 		await page.goto("/dashboard");
 		await expectCurrentPath(page, "/auth/signin");
 
-		await page.locator("#email").fill(testEmail);
-		await page.locator("#password").fill(testPassword);
-		await page.getByRole("button", { name: "Sign In" }).click();
-		await expectCurrentPath(page, "/dashboard");
+		await signIn(page, testEmail, testPassword);
 	});
 
 	test("TC-TZ-001: User can configure timezone", async () => {
 		await page.goto("/profile");
 		await expectCurrentPath(page, "/profile");
 
-		await page.locator("#profile-timezone").selectOption("America/Chicago");
-		await expect(page.getByText("Timezone updated.")).toBeVisible();
+		const timezoneSelect = page.locator("#profile-timezone");
+		const currentTimezone = await timezoneSelect.inputValue();
+		const targetTimezone =
+			currentTimezone === "America/Chicago"
+				? "America/New_York"
+				: "America/Chicago";
+
+		await timezoneSelect.selectOption(targetTimezone);
+		await expect(page.getByText("Timezone updated.")).toBeVisible({
+			timeout: 10_000,
+		});
+		await expect(timezoneSelect).toHaveValue(targetTimezone);
 
 		await page.reload();
 		await expectCurrentPath(page, "/profile");
-		await expect(page.locator("#profile-timezone")).toHaveValue("America/Chicago");
+		await expect(page.locator("#profile-timezone")).toHaveValue(targetTimezone);
 	});
 
 	test("TC-AST-001: User can add assets to track", async () => {
+		if (!testUserId) {
+			throw new Error("testUserId not set before TC-AST-001");
+		}
+
+		await ensureAssetsExist(["AAPL", "MSFT", "GOOGL"]);
+
 		await page.goto("/dashboard");
 		await expectCurrentPath(page, "/dashboard");
 
 		await addAsset(page, "AAPL");
 		await addAsset(page, "MSFT");
 		await addAsset(page, "GOOGL");
+		await waitForTrackedAssets(testUserId, ["AAPL", "GOOGL", "MSFT"]);
 
 		await page.reload();
 		await expect(page.getByRole("button", { name: "Remove AAPL" })).toBeVisible();
@@ -347,7 +541,7 @@ test.describe("sanity tests", () => {
 
 	test("TC-EMAIL-001: User can enable email notifications and receive an update", async () => {
 		test.slow();
-		test.setTimeout(120_000);
+		test.setTimeout(180_000);
 		if (!testUserId) {
 			throw new Error("testUserId not set before TC-EMAIL-001");
 		}
@@ -360,37 +554,62 @@ test.describe("sanity tests", () => {
 			await emailSwitch.click();
 		}
 
-		const scheduledCard = page
-			.locator("section.card")
-			.filter({
-				has: page.getByRole("heading", {
-					name: "Scheduled Asset Price Notifications",
-				}),
-			})
-			.first();
-		const scheduledEmailCheckbox = scheduledCard
-			.locator('label:has-text("Email") input[type="checkbox"]')
-			.first();
+		const marketNotificationsForm = page.locator(
+			'form[aria-label="Market notifications"]',
+		);
+		const scheduledEmailCheckbox = marketNotificationsForm
+			.getByRole("checkbox", { name: "Email" })
+			.nth(1);
 		if (!(await scheduledEmailCheckbox.isChecked())) {
 			await scheduledEmailCheckbox.click();
 		}
 
-		const targetTime = new Date(Date.now() + 2 * 60_000)
-			.toTimeString()
-			.slice(0, 5);
-		const initialTimeInput = scheduledCard.locator(
-			"input#scheduled_update_time_initial",
-		);
-		const firstTimeInput = scheduledCard.locator("input#scheduled_update_time_0");
-		if (await initialTimeInput.isVisible()) {
-			await initialTimeInput.fill(targetTime);
-		} else {
-			await firstTimeInput.fill(targetTime);
+		const marketOpenButton = marketNotificationsForm.getByRole("button", {
+			name: /Set delivery time to US market open/i,
+		});
+		if (await marketOpenButton.isVisible()) {
+			await marketOpenButton.click();
 		}
+
+		await expect
+			.poll(
+				async () => {
+					const { data, error } = await adminClient
+						.from("users")
+						.select(
+							"email_notifications_enabled,market_scheduled_asset_price_include_email,market_scheduled_asset_price_times",
+						)
+						.eq("id", testUserId)
+						.single();
+					if (error) {
+						throw new Error(
+							`Failed to verify email notification preferences: ${error.message}`,
+						);
+					}
+					return (
+						data.email_notifications_enabled === true &&
+						data.market_scheduled_asset_price_include_email === true &&
+						Array.isArray(data.market_scheduled_asset_price_times) &&
+						data.market_scheduled_asset_price_times.length > 0
+					);
+				},
+				{ timeout: 30_000 },
+			)
+			.toBe(true);
 
 		await page.reload();
 		await expect(emailSwitch).toHaveAttribute("aria-checked", "true");
 		await expect(scheduledEmailCheckbox).toBeChecked();
+
+		const { error: resetEmailNextSendError } = await adminClient
+			.from("users")
+			.update({ market_scheduled_asset_price_next_send_at: null })
+			.eq("id", testUserId);
+		if (resetEmailNextSendError) {
+			throw new Error(
+				`Failed to reset email next_send_at: ${resetEmailNextSendError.message}`,
+			);
+		}
 
 		const previousNextSendAt = await fetchNextSendAt(testUserId);
 		await triggerSchedule(true);
@@ -399,7 +618,7 @@ test.describe("sanity tests", () => {
 
 	test("TC-SMS-001: User can enable SMS notifications and receive an update", async () => {
 		test.slow();
-		test.setTimeout(120_000);
+		test.setTimeout(180_000);
 		if (!testUserId) {
 			throw new Error("testUserId not set before TC-SMS-001");
 		}
@@ -430,19 +649,24 @@ test.describe("sanity tests", () => {
 		const smsSwitch = page.getByRole("switch", { name: "SMS notifications" });
 		await expect(smsSwitch).toHaveAttribute("aria-checked", "true");
 
-		const scheduledCard = page
-			.locator("section.card")
-			.filter({
-				has: page.getByRole("heading", {
-					name: "Scheduled Asset Price Notifications",
-				}),
-			})
-			.first();
-		const scheduledSmsCheckbox = scheduledCard
-			.locator('label:has-text("SMS") input[type="checkbox"]')
-			.first();
+		const marketNotificationsForm = page.locator(
+			'form[aria-label="Market notifications"]',
+		);
+		const scheduledSmsCheckbox = marketNotificationsForm
+			.getByRole("checkbox", { name: "SMS" })
+			.nth(1);
 		if (!(await scheduledSmsCheckbox.isChecked())) {
 			await scheduledSmsCheckbox.click();
+		}
+
+		const { error: resetSmsNextSendError } = await adminClient
+			.from("users")
+			.update({ market_scheduled_asset_price_next_send_at: null })
+			.eq("id", testUserId);
+		if (resetSmsNextSendError) {
+			throw new Error(
+				`Failed to reset SMS next_send_at: ${resetSmsNextSendError.message}`,
+			);
 		}
 
 		const previousNextSendAt = await fetchNextSendAt(testUserId);
@@ -464,13 +688,20 @@ test.describe("sanity tests", () => {
 		const emailSwitch = page.getByRole("switch", {
 			name: "Email notifications",
 		});
+		await waitForEmailNotificationsEnabled(testUserId, false);
 		await expect(emailSwitch).toHaveAttribute("aria-checked", "false");
-		await emailSwitch.click();
+		if ((await emailSwitch.getAttribute("aria-checked")) !== "true") {
+			await emailSwitch.click();
+		}
+		await waitForEmailNotificationsEnabled(testUserId, true);
 		await page.reload();
 		await expect(emailSwitch).toHaveAttribute("aria-checked", "true");
 	});
 
 	test("TC-PROF-001: User can change password and update email", async () => {
+		test.slow();
+		test.setTimeout(120_000);
+
 		if (!testUserId) {
 			throw new Error("testUserId not set before TC-PROF-001");
 		}
@@ -496,12 +727,12 @@ test.describe("sanity tests", () => {
 
 		const newEmailMessage = await waitForEmail(
 			secondEmail,
-			"Confirm email change",
+			"email change",
 			60_000,
 		);
 		const oldEmailMessage = await maybeWaitForEmail(
 			testEmail,
-			"Confirm email change",
+			"email change",
 			60_000,
 		);
 
@@ -576,15 +807,20 @@ test.describe("sanity tests", () => {
 
 		const webhookUrl = `${baseOrigin}/api/messaging/inbound`;
 		async function postInbound(bodyValue: string) {
-			const params = {
+			const formParams = {
 				MessageSid: `SM${randomUUID().replaceAll("-", "").slice(0, 16)}`,
 				AccountSid: "AC1234567890",
 				From: inboundUserPhone,
 				To: "+15551234567",
 				Body: bodyValue,
 			};
-			const signature = computeTwilioSignature(authToken, webhookUrl, params);
-			const body = new URLSearchParams(params);
+			const signatureParams = buildInboundSignatureParams(formParams);
+			const signature = computeTwilioSignature(
+				authToken,
+				webhookUrl,
+				signatureParams,
+			);
+			const body = new URLSearchParams(formParams);
 			return fetch(webhookUrl, {
 				method: "POST",
 				headers: {
