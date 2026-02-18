@@ -7,6 +7,7 @@ import { renderEmailSection } from "../messaging/email/html-section";
 import { sendUserEmail } from "../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
+import { buildMarketClosureLabel } from "../messaging/market-closure-banner";
 import { recordNotification } from "../messaging/shared";
 import type { SmsExtras } from "../messaging/sms/delivery";
 import { formatExtrasSection } from "../messaging/sms/formatting";
@@ -86,17 +87,6 @@ function formatQuoteTimestamp(timestamp: number): string {
 		minute: "2-digit",
 		timeZoneName: "short",
 	}).format(new Date(timestamp * 1000));
-}
-
-/** Build a human-readable market closure label. */
-function buildMarketClosureLabel(closureInfo: MarketClosureInfo): string {
-	if (closureInfo.reason === "holiday" && closureInfo.holidayName) {
-		return `Market Closed — ${closureInfo.holidayName}`;
-	}
-	if (closureInfo.reason === "weekend") {
-		return "Market Closed — Weekend";
-	}
-	return "Market Closed";
 }
 
 /** Build a plain-text market-closed banner for the digest. */

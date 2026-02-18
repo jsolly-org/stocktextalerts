@@ -5,6 +5,10 @@ import { renderEmailSection } from "../messaging/email/html-section";
 import { sendUserEmail } from "../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
+import {
+	buildMarketClosedBannerHtml,
+	buildMarketClosedBannerText,
+} from "../messaging/market-closure-banner";
 import { recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import type { UserRecord } from "../messaging/types";
@@ -17,6 +21,7 @@ import {
 	updateScheduledNotificationRow,
 } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
+import type { MarketClosureInfo } from "../time/market-calendar";
 
 /* =============
 SMS formatting
@@ -30,11 +35,18 @@ function formatAssetEventsSmsMessage(options: {
 	iposSection: string | null;
 	analystSection: string | null;
 	insiderSection: string | null;
+	marketClosureInfo?: MarketClosureInfo | null;
 }): string {
 	const optOutSuffix = "Reply STOP to opt out.";
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 
 	const parts: string[] = ["StockTextAlerts — Asset Events 🗓️"];
+
+	if (options.marketClosureInfo) {
+		parts.push(
+			buildMarketClosedBannerText(options.marketClosureInfo, "events"),
+		);
+	}
 
 	if (options.earningsSection) {
 		parts.push(`📅 Earnings\n${options.earningsSection}`);
@@ -76,6 +88,7 @@ function formatAssetEventsEmail(options: {
 	iposSection: string | null;
 	analystSection: string | null;
 	insiderSection: string | null;
+	marketClosureInfo?: MarketClosureInfo | null;
 }): { subject: string; text: string; html: string } {
 	const urls = buildEmailUrls(
 		options.user.id,
@@ -84,6 +97,12 @@ function formatAssetEventsEmail(options: {
 	);
 
 	const textParts: string[] = ["Asset Events"];
+
+	if (options.marketClosureInfo) {
+		textParts.push(
+			buildMarketClosedBannerText(options.marketClosureInfo, "events"),
+		);
+	}
 
 	if (options.earningsSection) {
 		textParts.push(`\n📅 Earnings\n${options.earningsSection}`);
@@ -111,6 +130,10 @@ function formatAssetEventsEmail(options: {
 
 	const subject = "Asset Events";
 	const text = textParts.join("\n");
+
+	const marketClosedHtml = options.marketClosureInfo
+		? buildMarketClosedBannerHtml(options.marketClosureInfo, "events")
+		: "";
 
 	let sectionsHtml = "";
 	if (options.earningsSection) {
@@ -169,6 +192,7 @@ function formatAssetEventsEmail(options: {
 		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">📈 StockTextAlerts</h1>
 	</div>
 	<div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+		${marketClosedHtml}
 		<h2 style="margin: 0 0 8px; font-size: 18px;">Asset Events</h2>
 		<p style="margin: 0 0 16px; color: #6b7280; font-size: 14px;">Upcoming events for your tracked assets</p>
 		${sectionsHtml}
@@ -202,6 +226,7 @@ export async function processAssetEventsEmailDelivery(options: {
 	iposSection: string | null;
 	analystSection: string | null;
 	insiderSection: string | null;
+	marketClosureInfo?: MarketClosureInfo | null;
 	sendEmail: EmailSender;
 	stats: ScheduledNotificationTotals;
 }): Promise<void> {
@@ -248,6 +273,7 @@ export async function processAssetEventsEmailDelivery(options: {
 		iposSection,
 		analystSection,
 		insiderSection,
+		marketClosureInfo: options.marketClosureInfo,
 	});
 	const result = await sendUserEmail(
 		user,
@@ -306,6 +332,7 @@ export async function processAssetEventsSmsDelivery(options: {
 	iposSection: string | null;
 	analystSection: string | null;
 	insiderSection: string | null;
+	marketClosureInfo?: MarketClosureInfo | null;
 	getSmsSender: SmsSenderProvider;
 	stats: ScheduledNotificationTotals;
 }): Promise<void> {
@@ -379,6 +406,7 @@ export async function processAssetEventsSmsDelivery(options: {
 		iposSection,
 		analystSection,
 		insiderSection,
+		marketClosureInfo: options.marketClosureInfo,
 	});
 	const result = await sendUserSms(user, smsMessage, smsSenderResult.sender);
 	const logged = await recordNotification(supabase, {
