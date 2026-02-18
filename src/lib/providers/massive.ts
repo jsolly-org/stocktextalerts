@@ -361,6 +361,28 @@ Daily Aggregates
 ============= */
 
 /**
+ * Parse closing prices from Polygon/Massive bars API response payload.
+ * Returns an array of valid closing prices in order, or null for invalid payloads.
+ */
+export function extractClosesFromBars(payload: unknown): number[] | null {
+	if (typeof payload !== "object" || payload === null) return null;
+
+	const results = (payload as Record<string, unknown>).results;
+	if (!Array.isArray(results)) return null;
+
+	const closes: number[] = [];
+	for (const bar of results) {
+		if (typeof bar !== "object" || bar === null) continue;
+		const c = (bar as Record<string, unknown>).c;
+		if (typeof c === "number" && Number.isFinite(c)) {
+			closes.push(c);
+		}
+	}
+
+	return closes.length > 0 ? closes : null;
+}
+
+/**
  * Fetch daily closing prices for a single symbol over a date range.
  *
  * Uses `/v2/aggs/ticker/{symbol}/range/1/day/{from}/{to}?sort=asc&limit=10`.
@@ -376,21 +398,7 @@ export async function fetchDailyCloses(
 		{ sort: "asc", limit: "10" },
 		"daily-closes",
 	);
-	if (typeof data !== "object" || data === null) return null;
-
-	const results = (data as Record<string, unknown>).results;
-	if (!Array.isArray(results)) return null;
-
-	const closes: number[] = [];
-	for (const bar of results) {
-		if (typeof bar !== "object" || bar === null) continue;
-		const c = (bar as Record<string, unknown>).c;
-		if (typeof c === "number" && Number.isFinite(c)) {
-			closes.push(c);
-		}
-	}
-
-	return closes.length > 0 ? closes : null;
+	return extractClosesFromBars(data);
 }
 
 /**
