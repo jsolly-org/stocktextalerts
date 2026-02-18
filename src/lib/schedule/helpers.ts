@@ -86,6 +86,9 @@ export async function batchLoadUserAssets(
 	}
 
 	const map = new Map<string, UserAssetRow[]>();
+	for (const id of uniqueIds) {
+		map.set(id, []);
+	}
 	for (const row of rows ?? []) {
 		const typed = row as {
 			user_id: string;

@@ -196,6 +196,28 @@ async function runPass(options: {
 		(u) => !deliveredUserTypes.has(`${u.id}:daily`),
 	);
 
+	// Batch-load user assets for market + asset-events users first (single query).
+	// Derive unique symbols from the map for price fetching to avoid a redundant DB round-trip.
+	const userAssetsUserIds = [
+		...fallbackMarketUsers.map((u) => u.id),
+		...assetEventsUsers.map((u) => u.id),
+	];
+	let userAssetsMap: UserAssetsMap = new Map();
+	if (userAssetsUserIds.length > 0) {
+		try {
+			userAssetsMap = await batchLoadUserAssets(supabase, userAssetsUserIds);
+		} catch (error) {
+			logger.error(
+				"Failed to batch-load user assets (falling back to per-user fetch)",
+				{
+					action: "batch_load_user_assets",
+					userCount: userAssetsUserIds.length,
+				},
+				error,
+			);
+		}
+	}
+
 	// Collect unique asset symbols across scheduled users and fetch prices in batch
 	let priceMap: AssetPriceMap = new Map();
 	const hasAnyUsers =
@@ -205,26 +227,13 @@ async function runPass(options: {
 	const marketStatusPromise = hasAnyUsers ? fetchMarketStatus() : null;
 
 	if (fallbackMarketUsers.length > 0) {
-		const userIds = fallbackMarketUsers.map((u) => u.id);
-		const { data: allUserAssets, error: userAssetsError } = await supabase
-			.from("user_assets")
-			.select("symbol")
-			.in("user_id", userIds);
-
-		if (userAssetsError) {
-			logger.error(
-				"Failed to load user assets for scheduled notifications",
-				{
-					action: "market_notifications_run",
-					userIdsCount: userIds.length,
-				},
-				userAssetsError,
-			);
-			throw userAssetsError;
-		}
-
 		const uniqueSymbols = [
-			...new Set((allUserAssets ?? []).map((s) => s.symbol)),
+			...new Set(
+				fallbackMarketUsers.flatMap((u) => {
+					const assets = userAssetsMap.get(u.id);
+					return assets ? assets.map((a) => a.symbol) : [];
+				}),
+			),
 		];
 
 		if (uniqueSymbols.length > 0) {
@@ -262,27 +271,6 @@ async function runPass(options: {
 			logger.error(
 				"Market closure lookup failed (continuing without closure info)",
 				{ action: "market_closure_prefetch" },
-				error,
-			);
-		}
-	}
-
-	// Batch-load user assets for market + asset-events users to avoid N+1 queries
-	const userAssetsUserIds = [
-		...fallbackMarketUsers.map((u) => u.id),
-		...assetEventsUsers.map((u) => u.id),
-	];
-	let userAssetsMap: UserAssetsMap = new Map();
-	if (userAssetsUserIds.length > 0) {
-		try {
-			userAssetsMap = await batchLoadUserAssets(supabase, userAssetsUserIds);
-		} catch (error) {
-			logger.error(
-				"Failed to batch-load user assets (falling back to per-user fetch)",
-				{
-					action: "batch_load_user_assets",
-					userCount: userAssetsUserIds.length,
-				},
 				error,
 			);
 		}
