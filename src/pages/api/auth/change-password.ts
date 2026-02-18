@@ -23,7 +23,6 @@ const CHANGE_PASSWORD_RATE_LIMIT_MINUTES =
 		import.meta.env.CHANGE_PASSWORD_RATE_LIMIT_MINUTES ?? "15",
 		10,
 	) || 15;
-
 export const POST: APIRoute = async ({
 	request,
 	redirect,
@@ -116,6 +115,14 @@ export const POST: APIRoute = async ({
 
 	const { error } = await supabase.auth.updateUser({ password });
 	if (error) {
+		if (error.code === "weak_password") {
+			logger.info("Password change request rejected due to weak password", {
+				userId: authUser.id,
+				passwordLength: password.length,
+				minLength: MIN_PASSWORD_LENGTH,
+			});
+			return redirect("/profile?error=weak_password");
+		}
 		logger.error(
 			"Password change request failed",
 			{
@@ -125,9 +132,6 @@ export const POST: APIRoute = async ({
 			},
 			error,
 		);
-		if (error.code === "weak_password") {
-			return redirect("/profile?error=weak_password");
-		}
 		return redirect("/profile?error=password_change_failed");
 	}
 

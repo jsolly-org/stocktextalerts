@@ -286,6 +286,7 @@ Notes:
 - `POST /api/auth/delete-account`
 - `POST /api/auth/update-email`
 - `POST /api/auth/update-password`
+- `POST /api/auth/change-password`
 - `POST /api/auth/sms/send-verification`
 - `POST /api/auth/sms/verify-code`
 
@@ -320,19 +321,20 @@ After deployment, configure the Twilio webhook for incoming SMS:
 3. Under "Messaging", set the webhook URL to: `https://yourdomain.com/api/messaging/inbound`
 4. Save changes
 
-### 4. Verify Cron Job
+### 4. Verify Cron Jobs
 
-The `vercel.json` file configures a scheduled cron job that runs once per minute.
+The `vercel.json` file configures three cron jobs. All must include `Authorization: Bearer <CRON_SECRET>`.
 
-The cron job calls `/api/schedule` and must include:
-- `Authorization: Bearer <CRON_SECRET>`
-
-The cron job:
+**`/api/schedule`** (runs every minute) — main notification pipeline:
 1. Runs asset price alerts during US market hours (Massive snapshot quotes)
 2. Runs scheduled asset price notifications (batched via Massive snapshot quotes)
 3. Sends asset events notifications (earnings/dividends/splits/IPOs/analyst/insider) at the user’s daily delivery time
 4. Sends daily digest notifications (News/Rumors) at the user’s chosen daily time
 5. Sends via email and/or SMS based on settings and logs attempts to the `notification_log` table
+
+**`/api/asset-events`** (runs daily at 00:00 UTC) — pre-populates the `asset_events` table with earnings, dividends, splits, and IPOs.
+
+**`/api/sector-backfill`** (runs weekly on Sunday at 06:00 UTC) — backfills missing sector metadata on tracked assets.
 
 ## Project Structure
 
