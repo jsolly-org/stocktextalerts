@@ -42,6 +42,7 @@
 <script lang="ts" setup>
 import { type Component, onMounted, onUnmounted, ref } from "vue";
 
+import { usePrefersReducedMotion } from "../../lib/accessibility/prefers-reduced-motion";
 import BellAlertIcon from "../../icons/bell-alert.svg?component";
 import CalendarDaysIcon from "../../icons/calendar-days.svg?component";
 import ChartBarIcon from "../../icons/chart-bar.svg?component";
@@ -79,8 +80,7 @@ const HASH_TO_TAB_INDEX: Record<string, number> = {
 const activeIndex = defineModel<number>('activeIndex', { default: 0 });
 const trackRef = ref<HTMLElement | null>(null);
 const cardRefs = ref<(HTMLElement | null)[]>([]);
-const prefersReducedMotion = ref(false);
-let motionQuery: MediaQueryList | null = null;
+const prefersReducedMotion = usePrefersReducedMotion();
 let isMobileQuery: MediaQueryList | null = null;
 
 // --- Touch tracking ---
@@ -208,10 +208,6 @@ function handleTouchCancel() {
 	resetTouch();
 }
 
-function handleMotionChange(event: MediaQueryListEvent) {
-	prefersReducedMotion.value = event.matches;
-}
-
 function handleTrackClick(event: MouseEvent) {
 	const target = event.target as HTMLElement | null;
 	const anchor = target?.closest("a[href]") as HTMLAnchorElement | null;
@@ -246,10 +242,7 @@ function syncToHash() {
 }
 
 onMounted(() => {
-	motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 	isMobileQuery = window.matchMedia("(max-width: 767.99px)");
-	prefersReducedMotion.value = motionQuery.matches;
-	motionQuery.addEventListener("change", handleMotionChange);
 
 	// Sync tab highlight when user follows hash links (e.g. Daily Digest link from Alerts tab)
 	syncToHash();
@@ -257,7 +250,6 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-	motionQuery?.removeEventListener("change", handleMotionChange);
 	window.removeEventListener("hashchange", syncToHash);
 });
 </script>
