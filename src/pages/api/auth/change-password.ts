@@ -48,6 +48,37 @@ export const POST: APIRoute = async ({
 		return redirect("/auth/signin?error=unauthorized");
 	}
 
+	const formData = await request.formData();
+	const parsed = parseWithSchema(formData, {
+		password: { type: "string", required: true, trim: false },
+		confirm: { type: "string", required: true, trim: false },
+	} as const);
+
+	if (!parsed.ok) {
+		logger.info("Password change request rejected due to invalid form", {
+			userId: authUser.id,
+			errors: parsed.allErrors,
+		});
+		return redirect("/profile?error=invalid_form");
+	}
+
+	const { password, confirm } = parsed.data;
+	if (password !== confirm) {
+		logger.info("Password change request rejected due to password mismatch", {
+			userId: authUser.id,
+		});
+		return redirect("/profile?error=password_mismatch");
+	}
+
+	if (password.length < MIN_PASSWORD_LENGTH) {
+		logger.info("Password change request rejected due to weak password", {
+			userId: authUser.id,
+			passwordLength: password.length,
+			minLength: MIN_PASSWORD_LENGTH,
+		});
+		return redirect("/profile?error=weak_password");
+	}
+
 	const adminSupabase = createSupabaseAdminClient();
 	const { data: rateLimitAllowed, error: rateLimitError } =
 		await adminSupabase.rpc("check_rate_limit", {
@@ -81,37 +112,6 @@ export const POST: APIRoute = async ({
 			rateLimitAllowed,
 		});
 		return redirect("/profile?error=failed");
-	}
-
-	const formData = await request.formData();
-	const parsed = parseWithSchema(formData, {
-		password: { type: "string", required: true, trim: false },
-		confirm: { type: "string", required: true, trim: false },
-	} as const);
-
-	if (!parsed.ok) {
-		logger.info("Password change request rejected due to invalid form", {
-			userId: authUser.id,
-			errors: parsed.allErrors,
-		});
-		return redirect("/profile?error=invalid_form");
-	}
-
-	const { password, confirm } = parsed.data;
-	if (password !== confirm) {
-		logger.info("Password change request rejected due to password mismatch", {
-			userId: authUser.id,
-		});
-		return redirect("/profile?error=password_mismatch");
-	}
-
-	if (password.length < MIN_PASSWORD_LENGTH) {
-		logger.info("Password change request rejected due to weak password", {
-			userId: authUser.id,
-			passwordLength: password.length,
-			minLength: MIN_PASSWORD_LENGTH,
-		});
-		return redirect("/profile?error=weak_password");
 	}
 
 	const { error } = await supabase.auth.updateUser({ password });
