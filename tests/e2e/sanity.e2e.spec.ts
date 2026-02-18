@@ -270,15 +270,17 @@ async function signIn(page: Page, email: string, password: string) {
 
 async function addAsset(page: Page, symbol: string) {
 	const input = page.locator("#asset_search");
-	await input.fill(symbol);
-	await page.waitForResponse(
-		(response) =>
-			response.url().includes("/api/assets/search") &&
-			response.status() === 200,
-		{
-			timeout: 15_000,
-		},
-	);
+	await Promise.all([
+		page.waitForResponse(
+			(response) =>
+				response.url().includes("/api/assets/search") &&
+				response.status() === 200,
+			{
+				timeout: 15_000,
+			},
+		),
+		input.fill(symbol),
+	]);
 	await input.press("ArrowDown");
 	await input.press("Enter");
 	await expect(
