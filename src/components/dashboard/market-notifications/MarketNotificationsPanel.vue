@@ -1032,6 +1032,7 @@ onUnmounted(() => {
 	motionQuery?.removeEventListener("change", handleMotionChange);
 	if (autoAdvanceTimeoutId !== null) {
 		clearTimeout(autoAdvanceTimeoutId);
+		autoAdvanceTimeoutId = null;
 	}
 });
 </script>
