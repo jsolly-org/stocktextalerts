@@ -58,6 +58,47 @@ export async function loadUserAssets(
 	}));
 }
 
+/** Map of user id to that user's tracked assets. */
+export type UserAssetsMap = Map<string, UserAssetRow[]>;
+
+/**
+ * Batch-load tracked assets for multiple users in a single query.
+ *
+ * Returns a Map keyed by user_id. Use this to avoid N+1 queries when processing
+ * multiple users in a scheduled run.
+ */
+export async function batchLoadUserAssets(
+	supabase: AppSupabaseClient,
+	userIds: string[],
+): Promise<UserAssetsMap> {
+	if (userIds.length === 0) {
+		return new Map();
+	}
+
+	const uniqueIds = [...new Set(userIds)];
+	const { data: rows, error } = await supabase
+		.from("user_assets")
+		.select("user_id, symbol, assets!inner(name)")
+		.in("user_id", uniqueIds);
+
+	if (error) {
+		throw error;
+	}
+
+	const map = new Map<string, UserAssetRow[]>();
+	for (const row of rows ?? []) {
+		const typed = row as {
+			user_id: string;
+			symbol: string;
+			assets: { name: string };
+		};
+		const entry = map.get(typed.user_id) ?? [];
+		entry.push({ symbol: typed.symbol, name: typed.assets.name });
+		map.set(typed.user_id, entry);
+	}
+	return map;
+}
+
 /**
  * Update the status/error fields for a specific scheduled notification row.
  *

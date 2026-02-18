@@ -62,9 +62,11 @@ import {
 	type MarketClosureInfo,
 } from "../time/market-calendar";
 import {
+	batchLoadUserAssets,
 	type ScheduledNotificationTotals,
 	type SupabaseAdminClient,
 	USER_PROCESS_BATCH_SIZE,
+	type UserAssetsMap,
 } from "./helpers";
 import { createSmsSenderProvider } from "./sms-sender";
 
@@ -265,6 +267,27 @@ async function runPass(options: {
 		}
 	}
 
+	// Batch-load user assets for market + asset-events users to avoid N+1 queries
+	const userAssetsUserIds = [
+		...fallbackMarketUsers.map((u) => u.id),
+		...assetEventsUsers.map((u) => u.id),
+	];
+	let userAssetsMap: UserAssetsMap = new Map();
+	if (userAssetsUserIds.length > 0) {
+		try {
+			userAssetsMap = await batchLoadUserAssets(supabase, userAssetsUserIds);
+		} catch (error) {
+			logger.error(
+				"Failed to batch-load user assets (falling back to per-user fetch)",
+				{
+					action: "batch_load_user_assets",
+					userCount: userAssetsUserIds.length,
+				},
+				error,
+			);
+		}
+	}
+
 	const results: ScheduledNotificationTotals[] = [];
 
 	// Process fallback market users
@@ -288,6 +311,7 @@ async function runPass(options: {
 					getSmsSender,
 					priceMap,
 					marketOpen,
+					userAssetsMap,
 				}),
 			),
 		);
@@ -313,6 +337,7 @@ async function runPass(options: {
 					currentTime,
 					sendEmail,
 					getSmsSender,
+					userAssetsMap,
 				}),
 			),
 		);
@@ -487,27 +512,37 @@ export async function runScheduledNotifications(options: {
 			assetEventsUsers.length > 0;
 		const marketStatusPromise = hasAnyUsers ? fetchMarketStatus() : null;
 
-		if (marketUsers.length > 0) {
-			const userIds = marketUsers.map((u) => u.id);
-			const { data: allUserAssets, error: userAssetsError } = await supabase
-				.from("user_assets")
-				.select("symbol")
-				.in("user_id", userIds);
-
-			if (userAssetsError) {
-				logger.error(
-					"Failed to load user assets for scheduled notifications",
-					{
-						action: "market_notifications_run",
-						userIdsCount: userIds.length,
-					},
-					userAssetsError,
+		const forceSendUserAssetsUserIds = [
+			...marketUsers.map((u) => u.id),
+			...assetEventsUsers.map((u) => u.id),
+		];
+		let forceSendUserAssetsMap: UserAssetsMap = new Map();
+		if (forceSendUserAssetsUserIds.length > 0) {
+			try {
+				forceSendUserAssetsMap = await batchLoadUserAssets(
+					supabase,
+					forceSendUserAssetsUserIds,
 				);
-				throw userAssetsError;
+			} catch (error) {
+				logger.error(
+					"Failed to batch-load user assets for force-send",
+					{
+						action: "force_send",
+						userCount: forceSendUserAssetsUserIds.length,
+					},
+					error,
+				);
+				throw error;
 			}
+		}
 
+		if (marketUsers.length > 0) {
 			const uniqueSymbols = [
-				...new Set((allUserAssets ?? []).map((s) => s.symbol)),
+				...new Set(
+					[...forceSendUserAssetsMap.values()].flatMap((assets) =>
+						assets.map((a) => a.symbol),
+					),
+				),
 			];
 
 			if (uniqueSymbols.length > 0) {
@@ -569,6 +604,7 @@ export async function runScheduledNotifications(options: {
 						getSmsSender,
 						priceMap,
 						marketOpen,
+						userAssetsMap: forceSendUserAssetsMap,
 					}),
 				),
 			);
@@ -593,6 +629,7 @@ export async function runScheduledNotifications(options: {
 						currentTime,
 						sendEmail,
 						getSmsSender,
+						userAssetsMap: forceSendUserAssetsMap,
 					}),
 				),
 			);
