@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.actor != 'nektos/act' }}
     steps:
-      - name: Update open PR branches that are behind main
+      - name: Update open PR branches that are behind dev
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
