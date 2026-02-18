@@ -206,5 +206,6 @@ jobs:
         run: |
           if [[ "$PR_TITLE" =~ feat\(nightly\):\ resolve\ #([0-9]+) ]]; then
             gh issue close "${BASH_REMATCH[1]}" \
+              --repo "${{ github.repository }}" \
               --comment "Resolved by $PR_URL (merged). Closed because the PR targets dev (not main), so GitHub's auto-close keywords don't apply."
           fi
