@@ -32,7 +32,7 @@ jobs:
           PRS=$(gh pr list \
             --repo "${{ github.repository }}" \
             --state open \
-            --json number,headRefName \
+            --json number,headRefName,baseRefName \
             --limit 50)
 
           if [ "$(echo "$PRS" | jq length)" -eq 0 ]; then
@@ -46,6 +46,7 @@ jobs:
           for ROW in $(echo "$PRS" | jq -c '.[]'); do
             PR_NUMBER=$(echo "$ROW" | jq -r '.number')
             HEAD_REF=$(echo "$ROW" | jq -r '.headRefName')
+            BASE_REF=$(echo "$ROW" | jq -r '.baseRefName')
 
             # --- Check for failing CI checks ---
             FAILED_CHECKS=$(gh pr checks "$PR_NUMBER" \
@@ -53,16 +54,23 @@ jobs:
               --json name,state \
               --jq '[.[] | select(.state == "FAILURE" and (.name | test("lint|test-and-build")))] | map(.name)' 2>/dev/null || echo "[]")
 
-            # --- Check for merge conflicts ---
-            MERGE_STATE=$(gh pr view "$PR_NUMBER" \
-              --repo "${{ github.repository }}" \
-              --json mergeStateStatus \
-              --jq '.mergeStateStatus' 2>/dev/null || echo "UNKNOWN")
-
+            # --- Check for merge conflicts (retry for lazy GitHub computation) ---
             HAS_CONFLICTS="false"
-            if [ "$MERGE_STATE" = "DIRTY" ]; then
-              HAS_CONFLICTS="true"
-            fi
+            for _ATTEMPT in 1 2 3; do
+              MERGE_STATE=$(gh pr view "$PR_NUMBER" \
+                --repo "${{ github.repository }}" \
+                --json mergeStateStatus \
+                --jq '.mergeStateStatus' 2>/dev/null || echo "UNKNOWN")
+              if [ "$MERGE_STATE" = "DIRTY" ]; then
+                HAS_CONFLICTS="true"
+                break
+              elif [ "$MERGE_STATE" = "UNKNOWN" ] && [ "$_ATTEMPT" -lt 3 ]; then
+                echo "PR #$PR_NUMBER: mergeStateStatus is UNKNOWN, retrying in 5s (attempt $_ATTEMPT/3)..."
+                sleep 5
+              else
+                break
+              fi
+            done
 
             # --- Check for unresolved review comments ---
             OWNER="${{ github.repository_owner }}"
@@ -117,10 +125,11 @@ jobs:
             ENTRY=$(jq -n \
               --argjson number "$PR_NUMBER" \
               --arg headRefName "$HEAD_REF" \
+              --arg baseRefName "$BASE_REF" \
               --argjson failedChecks "$FAILED_CHECKS" \
               --argjson hasConflicts "$HAS_CONFLICTS" \
               --argjson hasUnresolved "$HAS_UNRESOLVED" \
-              '{number: $number, headRefName: $headRefName, failedChecks: $failedChecks, hasConflicts: $hasConflicts, hasUnresolved: $hasUnresolved}')
+              '{number: $number, headRefName: $headRefName, baseRefName: $baseRefName, failedChecks: $failedChecks, hasConflicts: $hasConflicts, hasUnresolved: $hasUnresolved}')
 
             RESULT=$(echo "$RESULT" | jq --argjson entry "$ENTRY" '. + [$entry]')
           done
@@ -148,6 +157,10 @@ jobs:
           # Use GH_AGENT_TOKEN so git push can modify workflow files (default GITHUB_TOKEN lacks workflows permission)
           token: ${{ secrets.GH_AGENT_TOKEN }}
 
+      - name: Save original HEAD
+        id: original
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Setup Node.js
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
         with:
@@ -165,6 +178,7 @@ jobs:
           FAILED_CHECKS: ${{ toJson(matrix.pr.failedChecks) }}
           HAS_CONFLICTS: ${{ matrix.pr.hasConflicts }}
           HAS_UNRESOLVED: ${{ matrix.pr.hasUnresolved }}
+          BASE_REF: ${{ matrix.pr.baseRefName }}
         run: |
           CONTEXT=""
 
@@ -203,15 +217,15 @@ jobs:
           ${LOGS}"
           fi
 
-          # --- Merge conflict context: merge main to surface markers ---
+          # --- Merge conflict context: merge base branch to surface markers ---
           if [ "$HAS_CONFLICTS" = "true" ]; then
-            echo "Merging main to surface conflict markers..."
-            git fetch origin main
-            git merge origin/main --no-commit --no-ff 2>/dev/null || true
+            echo "Merging $BASE_REF to surface conflict markers..."
+            git fetch origin "$BASE_REF"
+            git merge "origin/$BASE_REF" --no-commit --no-ff 2>/dev/null || true
 
             CONTEXT="${CONTEXT}
           ## Merge conflicts
-          This PR has merge conflicts with the main branch. The conflicts have been
+          This PR has merge conflicts with the $BASE_REF branch. The conflicts have been
           surfaced in the working tree — look for conflict markers (<<<<<<< / ======= / >>>>>>>)
           and resolve them."
           fi
@@ -301,12 +315,27 @@ jobs:
 
       - name: Check for changes
         id: changes
+        env:
+          ORIGINAL_SHA: ${{ steps.original.outputs.sha }}
         run: |
-          if [ -z "$(git status --porcelain)" ]; then
+          CURRENT_SHA="$(git rev-parse HEAD)"
+          HAS_UNCOMMITTED="false"
+          HAS_NEW_COMMITS="false"
+
+          if [ -n "$(git status --porcelain)" ]; then
+            HAS_UNCOMMITTED="true"
+          fi
+
+          if [ "$CURRENT_SHA" != "$ORIGINAL_SHA" ]; then
+            HAS_NEW_COMMITS="true"
+          fi
+
+          if [ "$HAS_UNCOMMITTED" = "true" ] || [ "$HAS_NEW_COMMITS" = "true" ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "Changes detected: uncommitted=$HAS_UNCOMMITTED, new_commits=$HAS_NEW_COMMITS"
+          else
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
             echo "No changes detected."
-          else
-            echo "has_changes=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Run pre-commit checks (lint + type-check)
@@ -334,8 +363,11 @@ jobs:
         run: |
           REMOTE_URL="https://x-access-token:${GH_AGENT_TOKEN}@github.com/${{ github.repository }}.git"
 
-          git add -A
-          git commit -m "fix(nightly): auto-fix PR #${PR_NUMBER} — $(date +%Y-%m-%d)"
+          # Commit any uncommitted changes; agent commits are already in history
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "fix(nightly): auto-fix PR #${PR_NUMBER} — $(date +%Y-%m-%d)"
+          fi
 
           MAX_PUSH_ATTEMPTS=3
           for attempt in $(seq 1 "$MAX_PUSH_ATTEMPTS"); do
