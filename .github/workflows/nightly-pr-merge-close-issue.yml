@@ -26,5 +26,6 @@ jobs:
           ISSUE_NUM=$(echo "$PR_TITLE" | sed -n 's/.*feat(nightly): resolve #\([0-9]*\).*/\1/p')
           if [ -n "$ISSUE_NUM" ]; then
             gh issue close "$ISSUE_NUM" \
+              --repo "${{ github.repository }}" \
               --comment "Resolved by $PR_HTML_URL. Closed automatically because the PR targets dev (not main), so GitHub's auto-close keywords don't apply."
           fi
