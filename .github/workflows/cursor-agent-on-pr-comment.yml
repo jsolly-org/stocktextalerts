@@ -484,9 +484,6 @@ jobs:
 
           elif [[ "$EVENT_NAME" == "issue_comment" ]]; then
             gh api -X POST "/repos/$REPO/issues/comments/$COMMENT_ID/reactions" -f content=eyes 2> /tmp/gh-err.txt || log_warning "Failed to add reaction for issue comment $COMMENT_ID. API stderr: $(cat /tmp/gh-err.txt)"
-
-          else
-            echo "No comment processing action needed for event: $EVENT_NAME"
           fi
 
       - name: Report agent no-op
