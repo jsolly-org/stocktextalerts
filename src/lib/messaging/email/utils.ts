@@ -3,7 +3,12 @@ import { DASHBOARD_SECTION_HASHES } from "../../constants";
 import { getSiteUrl } from "../../db/env";
 import { rootLogger } from "../../logging";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
+import type { MarketClosureInfo } from "../../time/market-calendar";
 import { escapeHtml, formatAssetsHtmlList } from "../asset-formatting";
+import {
+	buildMarketClosedBannerHtml,
+	buildMarketClosedBannerText,
+} from "../market-closure-banner";
 import type {
 	DeliveryResult,
 	EmailUser,
@@ -29,8 +34,17 @@ export function createEmailSender(): EmailSender {
 	const fromEmail = import.meta.env.EMAIL_FROM;
 	const defaultReplyTo = import.meta.env.EMAIL_REPLY_TO;
 
-	// In test mode, return a mock sender that always succeeds without making API calls
-	if (import.meta.env.MODE === "test") {
+	// In test mode, return a mock sender unless --live=email is set.
+	// LIVE_API_PROVIDERS is set by run-vitest.ts before Vitest starts, making it
+	// visible in source code (unlike vi.stubEnv which only affects test context).
+	const liveProviders = import.meta.env.LIVE_API_PROVIDERS || "";
+	const liveEmail =
+		liveProviders === "all" ||
+		liveProviders
+			.split(",")
+			.map((s: string) => s.trim())
+			.includes("email");
+	if (import.meta.env.MODE === "test" && !liveEmail) {
 		return async () => ({
 			success: true,
 			messageSid: "test",
@@ -113,6 +127,7 @@ export function formatEmailMessage(
 	marketOpen: boolean,
 	formatPrefs?: FormatPreferences,
 	getSparkline?: (symbol: string) => string | null | undefined,
+	marketClosureInfo?: MarketClosureInfo | null,
 ): { text: string; html: string } {
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const escapedDashboardUrl = escapeHtml(dashboardUrl);
@@ -123,12 +138,12 @@ export function formatEmailMessage(
 		email: user.email,
 	});
 	const escapedUnsubscribeUrl = escapeHtml(unsubscribeUrl);
-	const textFooter = `\n\nManage your delivery schedule: ${scheduleUrl}\nUnsubscribe: ${unsubscribeUrl}`;
+	const textFooter = `\n\nManage your delivery schedule: ${scheduleUrl}\nUnsubscribe from all emails: ${unsubscribeUrl}`;
 	const htmlFooter = `
 		<p style="color: #6b7280; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
 			<a href="${escapedScheduleUrl}" style="color: #667eea; text-decoration: none;">Adjust delivery schedule</a>
 			<span style="color: #d1d5db; padding: 0 8px;">•</span>
-			<a href="${escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
+			<a href="${escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe from all emails</a>
 		</p>`;
 
 	if (userAssets.length === 0) {
@@ -166,17 +181,17 @@ export function formatEmailMessage(
 
 	const marketDisclaimer = marketOpen
 		? ""
-		: "\nPrices as of last market close.";
-	const text = `Your tracked assets:\n${assetsList}${marketDisclaimer}${textFooter}`;
+		: `\n${buildMarketClosedBannerText(marketClosureInfo ?? null)}\n`;
+	const text = `Your tracked assets:\n${marketDisclaimer}${assetsList}${textFooter}`;
 	const escapedAssetsListHtml = formatAssetsHtmlList(
 		userAssets,
 		(symbol) => priceMap.get(symbol) ?? undefined,
 		formatPrefs ?? { show_sparklines: false },
 		getSparkline,
 	);
-	const marketDisclaimerHtml = marketOpen
+	const marketClosedBannerHtml = marketOpen
 		? ""
-		: '<p style="color: #6b7280; font-size: 12px; font-style: italic; margin-top: 8px; margin-bottom: 0;">Prices as of last market close.</p>';
+		: buildMarketClosedBannerHtml(marketClosureInfo ?? null);
 	const html = `
 <!DOCTYPE html>
 <html>
@@ -189,12 +204,12 @@ export function formatEmailMessage(
 		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">📈 StockTextAlerts</h1>
 	</div>
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+		${marketClosedBannerHtml}
 		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Your Scheduled Price Notification</h2>
 		<div style="background: #f9fafb; padding: 20px; border-radius: 6px; margin-bottom: 30px;">
 			<p style="color: #1f2937; font-size: 18px; font-weight: 600; margin: 0; font-family: 'Courier New', monospace;">
 				${escapedAssetsListHtml}
 			</p>
-			${marketDisclaimerHtml}
 		</div>
 		<div style="text-align: center; margin-top: 30px;">
 			<a href="${escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">

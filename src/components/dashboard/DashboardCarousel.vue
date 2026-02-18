@@ -42,12 +42,12 @@
 <script lang="ts" setup>
 import { type Component, onMounted, onUnmounted, ref } from "vue";
 
-import { usePrefersReducedMotion } from "../../lib/accessibility/prefers-reduced-motion";
 import BellAlertIcon from "../../icons/bell-alert.svg?component";
 import CalendarDaysIcon from "../../icons/calendar-days.svg?component";
 import ChartBarIcon from "../../icons/chart-bar.svg?component";
 import NewspaperIcon from "../../icons/newspaper.svg?component";
 import PresentationChartLineIcon from "../../icons/presentation-chart-line.svg?component";
+import { getScrollBehavior } from "../../lib/accessibility";
 import {
 	DASHBOARD_SECTION_IDS,
 } from "../../lib/constants";
@@ -80,7 +80,6 @@ const HASH_TO_TAB_INDEX: Record<string, number> = {
 const activeIndex = defineModel<number>('activeIndex', { default: 0 });
 const trackRef = ref<HTMLElement | null>(null);
 const cardRefs = ref<(HTMLElement | null)[]>([]);
-const prefersReducedMotion = usePrefersReducedMotion();
 let isMobileQuery: MediaQueryList | null = null;
 
 // --- Touch tracking ---
@@ -106,7 +105,7 @@ function scrollToCard(index: number) {
 	activeIndex.value = index;
 	track.scrollTo({
 		left: card.offsetLeft,
-		behavior: prefersReducedMotion.value ? "auto" : "smooth",
+		behavior: getScrollBehavior(),
 	});
 }
 
@@ -243,7 +242,6 @@ function syncToHash() {
 
 onMounted(() => {
 	isMobileQuery = window.matchMedia("(max-width: 767.99px)");
-
 	// Sync tab highlight when user follows hash links (e.g. Daily Digest link from Alerts tab)
 	syncToHash();
 	window.addEventListener("hashchange", syncToHash);

@@ -267,6 +267,7 @@ import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
 import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
+import { getScrollBehavior } from "../../../lib/accessibility";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID,
@@ -581,7 +582,7 @@ function scrollToSlide(index: number) {
 	const el = previewCarouselRef.value;
 	if (!el) return;
 	const slide = el.children[index] as HTMLElement | undefined;
-	slide?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+	slide?.scrollIntoView({ behavior: getScrollBehavior(), block: "nearest", inline: "start" });
 }
 
 // Reset active slide when resizing from mobile to desktop

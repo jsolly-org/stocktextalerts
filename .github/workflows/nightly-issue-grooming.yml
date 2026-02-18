@@ -4,7 +4,7 @@ name: "Nightly: Issue Grooming"
 
 on:
   schedule:
-    - cron: "0 9 * * *" # 4 AM ET
+    - cron: "0 6 * * *" # 1 AM ET
   workflow_dispatch:
 
 permissions:
@@ -22,31 +22,6 @@ jobs:
     outputs:
       issues: ${{ steps.matrix.outputs.issues }}
     steps:
-      - name: Ensure GitHub CLI (act only)
-        if: ${{ env.ACT == 'true' }}
-        run: |
-          if command -v gh >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
-            exit 0
-          fi
-          SUDO=""
-          if command -v sudo >/dev/null 2>&1; then
-            SUDO="sudo"
-          fi
-          $SUDO apt-get update
-          if ! command -v jq >/dev/null 2>&1; then
-            $SUDO apt-get install -y jq
-          fi
-          if ! command -v gh >/dev/null 2>&1; then
-            if ! $SUDO apt-get install -y gh; then
-              type -p curl >/dev/null 2>&1 || $SUDO apt-get install -y curl
-              curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | $SUDO dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-              $SUDO chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
-              echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | $SUDO tee /etc/apt/sources.list.d/github-cli.list >/dev/null
-              $SUDO apt-get update
-              $SUDO apt-get install -y gh
-            fi
-          fi
-
       - name: Discover open issues and filter already-in-progress
         id: matrix
         run: |
@@ -97,8 +72,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          ref: main
+          ref: dev
           fetch-depth: 0
+          # Use GH_AGENT_TOKEN so git push can modify workflow files (default GITHUB_TOKEN lacks workflows permission)
+          token: ${{ secrets.GH_AGENT_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
@@ -136,9 +113,19 @@ jobs:
 
       - name: Drop workflow file edits
         run: |
-          if git diff --name-only -- .github/workflows .github/actions | grep -q .; then
+          # Check for modified (tracked) AND new (untracked) workflow/action files
+          CHANGED=$(git diff --name-only -- .github/workflows .github/actions || true)
+          UNTRACKED=$(git ls-files --others --exclude-standard -- .github/workflows .github/actions || true)
+          if [[ -n "$CHANGED" || -n "$UNTRACKED" ]]; then
             echo "Reverting workflow and action file edits from agent output."
-            git restore --staged --worktree -- .github/workflows .github/actions
+            # Restore any modified tracked files
+            if [[ -n "$CHANGED" ]]; then
+              git restore --staged --worktree -- .github/workflows .github/actions
+            fi
+            # Remove any new untracked files
+            if [[ -n "$UNTRACKED" ]]; then
+              echo "$UNTRACKED" | xargs rm -f
+            fi
           fi
 
       - name: Check for changes
@@ -151,12 +138,23 @@ jobs:
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Run pre-commit checks
+      - name: Run pre-commit checks (lint + type-check)
         if: steps.changes.outputs.has_changes == 'true'
+        id: precommit_checks
+        continue-on-error: true
         uses: ./.github/actions/run-precommit-checks
 
+      - name: Auto-fix lint/type errors
+        if: steps.changes.outputs.has_changes == 'true' && steps.precommit_checks.outcome == 'failure'
+        id: autofix
+        continue-on-error: true
+        uses: ./.github/actions/autofix-lint-type-errors
+        with:
+          agent_model: ${{ vars.AGENT_MODEL }}
+          cursor_api_key: ${{ secrets.CURSOR_API_KEY }}
+
       - name: Commit and push
-        if: steps.changes.outputs.has_changes == 'true'
+        if: steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
         env:
           ISSUE_NUMBER: ${{ matrix.issue.number }}
           ISSUE_TITLE: ${{ matrix.issue.title }}
@@ -167,7 +165,7 @@ jobs:
 
       - name: Create pull request
         id: create_pr
-        if: steps.changes.outputs.has_changes == 'true'
+        if: steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
         env:
           GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           ISSUE_NUMBER: ${{ matrix.issue.number }}
@@ -189,14 +187,3 @@ jobs:
             --label "bot-generated" \
             --body "$PR_BODY")
           echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
-
-      # GitHub auto-close keywords only work when merging into the default
-      # branch (main). These PRs target dev, so close the issue explicitly.
-      - name: Close resolved issue
-        if: steps.changes.outputs.has_changes == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
-          ISSUE_NUMBER: ${{ matrix.issue.number }}
-        run: |
-          gh issue close "$ISSUE_NUMBER" \
-            --comment "Resolved by ${{ steps.create_pr.outputs.pr_url }}. Closed automatically because the PR targets dev (not main), so GitHub's auto-close keywords don't apply."
