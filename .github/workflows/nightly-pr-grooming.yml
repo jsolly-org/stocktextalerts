@@ -360,6 +360,7 @@ jobs:
           GH_AGENT_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           HEAD_REF: ${{ matrix.pr.headRefName }}
           PR_NUMBER: ${{ matrix.pr.number }}
+          ORIGINAL_SHA: ${{ steps.original.outputs.sha }}
         run: |
           REMOTE_URL="https://x-access-token:${GH_AGENT_TOKEN}@github.com/${{ github.repository }}.git"
 
@@ -373,18 +374,34 @@ jobs:
           for attempt in $(seq 1 "$MAX_PUSH_ATTEMPTS"); do
             LOCAL_TIP="$(git rev-parse HEAD)"
             git fetch "$REMOTE_URL" "$HEAD_REF"
+            REMOTE_TIP="$(git rev-parse FETCH_HEAD)"
 
-            if ! git rebase FETCH_HEAD; then
-              echo "##[warning]Rebase failed, retrying with auto-resolution."
-              git rebase --abort || true
-              if ! git rebase -X theirs FETCH_HEAD; then
-                echo "##[warning]Rebase with auto-resolution failed. Falling back to reset + cherry-pick."
+            # If remote hasn't moved since checkout, push directly (no rebase needed).
+            # This is the common case and avoids rebase issues with merge commits
+            # created when the agent resolves conflicts from `git merge --no-commit`.
+            if [ "$REMOTE_TIP" = "$ORIGINAL_SHA" ]; then
+              echo "Remote unchanged since checkout, pushing directly."
+            else
+              echo "Remote has advanced ($ORIGINAL_SHA -> $REMOTE_TIP), rebasing..."
+              if ! git rebase --rebase-merges FETCH_HEAD; then
+                echo "##[warning]Rebase failed, retrying with auto-resolution."
                 git rebase --abort || true
-                git reset --hard FETCH_HEAD
-                if ! git cherry-pick -X theirs "$LOCAL_TIP"; then
-                  echo "##[error]Failed to replay local commit."
-                  git cherry-pick --abort || true
-                  exit 1
+                if ! git rebase --rebase-merges -X theirs FETCH_HEAD; then
+                  echo "##[warning]Rebase with auto-resolution failed. Falling back to reset + cherry-pick."
+                  git rebase --abort || true
+                  git reset --hard FETCH_HEAD
+                  # Detect merge commits and use -m 1 (diff against first parent)
+                  PARENT_COUNT=$(git cat-file -p "$LOCAL_TIP" | grep -c '^parent ')
+                  if [ "$PARENT_COUNT" -gt 1 ]; then
+                    CHERRY_PICK_ARGS="-m 1 -X theirs"
+                  else
+                    CHERRY_PICK_ARGS="-X theirs"
+                  fi
+                  if ! git cherry-pick $CHERRY_PICK_ARGS "$LOCAL_TIP"; then
+                    echo "##[error]Failed to replay local commit."
+                    git cherry-pick --abort || true
+                    exit 1
+                  fi
                 fi
               fi
             fi
