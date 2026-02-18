@@ -394,7 +394,7 @@ function extractClosesFromBars(data: unknown): number[] | null {
 	for (const bar of results) {
 		if (typeof bar !== "object" || bar === null) continue;
 		const c = (bar as Record<string, unknown>).c;
-		if (typeof c === "number" && Number.isFinite(c) && c > 0) {
+		if (typeof c === "number" && Number.isFinite(c)) {
 			closes.push(c);
 		}
 	}

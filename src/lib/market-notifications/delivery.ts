@@ -124,12 +124,10 @@ function formatPriceAlertEmail(
 	});
 
 	// Plaintext
-	const textSparkline = alert.intradayCloses
-		? toSparkline(alert.intradayCloses)
-		: "";
-	const textPriceContextLine = textSparkline
-		? `${alert.priceContext} Today: ${textSparkline}`
-		: alert.priceContext;
+	const textPriceContextLine = formatPriceContextWithSparkline(
+		alert.priceContext,
+		alert.intradayCloses,
+	);
 
 	const textSections = [
 		`Asset Price Alert: ${alert.symbol}`,
