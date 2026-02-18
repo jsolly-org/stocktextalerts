@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET as runSectorBackfill } from "../../../src/pages/api/sector-backfill";
-import { createApiContext } from "../../helpers/api-context";
-import { createCronRequest } from "../../helpers/cron";
+import { createApiContext } from "../helpers/api-context";
+import { createCronRequest } from "../helpers/cron";
 
 type QueryRow = { symbol: string };
 type UpdateCall = {
