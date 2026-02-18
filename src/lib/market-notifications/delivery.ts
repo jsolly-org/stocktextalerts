@@ -60,6 +60,20 @@ function formatPriceAlertSms(alert: EnrichedAlert): string {
 	return sections.join("\n\n");
 }
 
+function renderHtmlSparkline(intradayCloses: number[] | null): string {
+	if (!intradayCloses || intradayCloses.length < 2) return "";
+	const openPrice = intradayCloses[0];
+	const lastPrice = intradayCloses[intradayCloses.length - 1];
+	const changePercent =
+		openPrice === 0 ? 0 : ((lastPrice - openPrice) / openPrice) * 100;
+	const color = getChangeColor(changePercent);
+	const sparklineImg = toSvgSparklineImg(intradayCloses, color, 200, 40);
+	if (!sparklineImg) return "";
+	return `
+			<p style="color: #92400e; font-size: 12px; margin: 8px 0 0 0;">Today since open:</p>
+			<div style="margin-top: 4px;">${sparklineImg}</div>`;
+}
+
 /**
  * Format the email body for a price alert.
  */
@@ -149,24 +163,7 @@ function formatPriceAlertEmail(
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
 		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">${escapeHtml(alert.symbol)} — Price Shock</h2>
 		<div style="background: #fffbeb; padding: 16px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #fde68a;">
-			<p style="color: #92400e; font-size: 16px; font-weight: 500; margin: 0;">${escapeHtml(alert.priceContext)}</p>${(() => {
-				if (!alert.intradayCloses || alert.intradayCloses.length < 2) return "";
-				const openPrice = alert.intradayCloses[0];
-				const lastPrice = alert.intradayCloses[alert.intradayCloses.length - 1];
-				const changePercent =
-					openPrice === 0 ? 0 : ((lastPrice - openPrice) / openPrice) * 100;
-				const color = getChangeColor(changePercent);
-				const sparklineImg = toSvgSparklineImg(
-					alert.intradayCloses,
-					color,
-					200,
-					40,
-				);
-				if (!sparklineImg) return "";
-				return `
-			<p style="color: #92400e; font-size: 12px; margin: 8px 0 0 0;">Today since open:</p>
-			<div style="margin-top: 4px;">${sparklineImg}</div>`;
-			})()}
+			<p style="color: #92400e; font-size: 16px; font-weight: 500; margin: 0;">${escapeHtml(alert.priceContext)}</p>${renderHtmlSparkline(alert.intradayCloses)}
 		</div>
 		<div style="margin-bottom: 20px;">
 			<p style="color: #6b7280; font-size: 14px; margin: 0;"><strong>Signals:</strong> ${escapeHtml(alert.signalContext)}</p>
