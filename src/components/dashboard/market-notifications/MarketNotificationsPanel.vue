@@ -545,10 +545,13 @@ function handleMotionChange(event: MediaQueryListEvent) {
 }
 
 const AUTO_ADVANCE_DELAY_MS = 350;
+let autoAdvanceTimeoutId: ReturnType<typeof setTimeout> | null = null;
 function autoAdvanceFromStep(step: number) {
 	if (shouldDisableAutoAdvance({ matches: prefersReducedMotion.value })) return;
 	if (activeRetuneStep.value !== step || isLastRetuneStep.value) return;
-	setTimeout(() => {
+	if (autoAdvanceTimeoutId !== null) clearTimeout(autoAdvanceTimeoutId);
+	autoAdvanceTimeoutId = setTimeout(() => {
+		autoAdvanceTimeoutId = null;
 		if (activeRetuneStep.value === step && !isLastRetuneStep.value) {
 			handleRetuneNext();
 		}
@@ -558,7 +561,6 @@ function autoAdvanceFromStep(step: number) {
 watch(priceAlertRiskPriority, () => autoAdvanceFromStep(0));
 watch(priceAlertMarketContext, () => autoAdvanceFromStep(1));
 watch(priceAlertMoveSize, () => autoAdvanceFromStep(2));
-watch(priceAlertFollowUpMode, () => autoAdvanceFromStep(3));
 
 const isPriceAlertAutosaveLocked = computed(
 	() => !priceAlertOnboardingCompleted.value,
@@ -1026,5 +1028,8 @@ onMounted(() => {
 
 onUnmounted(() => {
 	motionQuery?.removeEventListener("change", handleMotionChange);
+	if (autoAdvanceTimeoutId !== null) {
+		clearTimeout(autoAdvanceTimeoutId);
+	}
 });
 </script>
