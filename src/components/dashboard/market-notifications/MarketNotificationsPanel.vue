@@ -411,10 +411,7 @@ import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
 import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
 import InformationCircleIcon from "../../../icons/information-circle-20.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
-import {
-	REDUCED_MOTION_QUERY,
-	shouldDisableAutoAdvance,
-} from "../../../lib/accessibility/prefers-reduced-motion";
+import { REDUCED_MOTION_QUERY } from "../../../lib/accessibility/prefers-reduced-motion";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_MARKET_FORM_ID,
@@ -549,7 +546,7 @@ const AUTO_ADVANCE_DELAY_MS = 350;
 let autoAdvanceTimeoutId: ReturnType<typeof setTimeout> | null = null;
 function autoAdvanceFromStep(step: number) {
 	// Respect prefers-reduced-motion: skip auto-advance when user requests reduced motion
-	if (shouldDisableAutoAdvance({ matches: prefersReducedMotion.value })) return;
+	if (prefersReducedMotion.value) return;
 	if (activeRetuneStep.value !== step || isLastRetuneStep.value) return;
 	if (autoAdvanceTimeoutId !== null) clearTimeout(autoAdvanceTimeoutId);
 	autoAdvanceTimeoutId = setTimeout(() => {
