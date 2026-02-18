@@ -1,6 +1,9 @@
 ---
 import { Icon } from "astro-icon/components";
-import { CARD_GRADIENT_ACCENTS } from "../../lib/constants";
+import {
+	CARD_GRADIENT_ACCENTS,
+	MIN_PASSWORD_LENGTH,
+} from "../../lib/constants";
 
 interface Props {
 	email: string;
@@ -81,6 +84,7 @@ const { email } = Astro.props;
 				class="space-y-4 border-t border-edge pt-6"
 				action="/api/auth/change-password"
 				method="post"
+				data-min-length={MIN_PASSWORD_LENGTH}
 			>
 				<fieldset class="space-y-4">
 					<legend class="text-sm font-medium text-label">
@@ -99,13 +103,13 @@ const { email } = Astro.props;
 							name="password"
 							autocomplete="new-password"
 							required
-							minlength="8"
+							minlength={MIN_PASSWORD_LENGTH}
 							class="input input-lg"
 							placeholder="••••••••"
 							aria-describedby="password-change-help password-match-feedback"
 						/>
 						<p id="password-change-help" class="mt-2 text-sm text-muted">
-							Use at least 8 characters.
+							Use at least {MIN_PASSWORD_LENGTH} characters.
 						</p>
 					</div>
 					<div>
@@ -121,7 +125,7 @@ const { email } = Astro.props;
 							name="confirm"
 							autocomplete="new-password"
 							required
-							minlength="8"
+							minlength={MIN_PASSWORD_LENGTH}
 							class="input input-lg"
 							placeholder="••••••••"
 							aria-describedby="password-match-feedback"
@@ -192,10 +196,12 @@ const { email } = Astro.props;
 			);
 
 		if (passwordInput && confirmInput && submitBtn && mismatchFeedback) {
+			const minLength = Number(passwordForm.dataset.minLength ?? "8");
 			const updatePasswordState = () => {
 				const password = passwordInput.value;
 				const confirm = confirmInput.value;
-				const isComplete = password.length >= 8 && confirm.length >= 8;
+				const isComplete =
+					password.length >= minLength && confirm.length >= minLength;
 				const mismatch = confirm.length > 0 && password !== confirm;
 
 				mismatchFeedback.classList.toggle("hidden", !mismatch);

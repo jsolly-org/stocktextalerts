@@ -138,42 +138,48 @@ if (!hasValidToken) {
     if (
       !(passwordInput instanceof HTMLInputElement) ||
       !(confirmInput instanceof HTMLInputElement) ||
-      !(feedback instanceof HTMLElement) ||
-      !(feedbackIcon instanceof HTMLElement) ||
-      !(feedbackText instanceof HTMLElement)
+      !feedback ||
+      !feedbackIcon ||
+      !feedbackText
     ) {
       return;
     }
 
+    const pwInput: HTMLInputElement = passwordInput;
+    const confInput: HTMLInputElement = confirmInput;
+    const fb: HTMLElement = feedback;
+    const fbIcon: HTMLElement = feedbackIcon;
+    const fbText: HTMLElement = feedbackText;
+
     function hideFeedback() {
-      feedback.classList.add("hidden");
-      feedback.classList.remove("flex", "text-success-text", "text-error-text");
-      feedbackIcon.classList.add("hidden");
-      feedbackIcon.classList.remove("text-success-text", "text-error-text");
-      feedbackText.textContent = "";
+      fb.classList.add("hidden");
+      fb.classList.remove("flex", "text-success-text", "text-error-text");
+      fbIcon.classList.add("hidden");
+      fbIcon.classList.remove("text-success-text", "text-error-text");
+      fbText.textContent = "";
     }
 
-    function showFeedback(matches) {
-      feedback.classList.remove("hidden");
-      feedback.classList.add("flex");
-      feedback.classList.remove("text-success-text", "text-error-text");
-      feedbackIcon.classList.remove("hidden", "text-success-text", "text-error-text");
+    function showFeedback(matches: boolean) {
+      fb.classList.remove("hidden");
+      fb.classList.add("flex");
+      fb.classList.remove("text-success-text", "text-error-text");
+      fbIcon.classList.remove("hidden", "text-success-text", "text-error-text");
 
       if (matches) {
-        feedback.classList.add("text-success-text");
-        feedbackIcon.classList.add("text-success-text");
-        feedbackText.textContent = "Passwords match.";
+        fb.classList.add("text-success-text");
+        fbIcon.classList.add("text-success-text");
+        fbText.textContent = "Passwords match.";
         return;
       }
 
-      feedback.classList.add("text-error-text");
-      feedbackIcon.classList.add("hidden");
-      feedbackText.textContent = "Passwords do not match.";
+      fb.classList.add("text-error-text");
+      fbIcon.classList.add("hidden");
+      fbText.textContent = "Passwords do not match.";
     }
 
     function updateMatchFeedback() {
-      const confirmValue = confirmInput.value;
-      const passwordValue = passwordInput.value;
+      const confirmValue = confInput.value;
+      const passwordValue = pwInput.value;
 
       if (!confirmValue.length) {
         hideFeedback();
@@ -182,14 +188,14 @@ if (!hasValidToken) {
 
       if (passwordValue.length < MIN_PASSWORD_LENGTH) {
         showFeedback(false);
-        feedbackText.textContent = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+        fbText.textContent = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
         return;
       }
 
       showFeedback(passwordValue === confirmValue);
     }
 
-    passwordInput.addEventListener("input", updateMatchFeedback);
-    confirmInput.addEventListener("input", updateMatchFeedback);
+    pwInput.addEventListener("input", updateMatchFeedback);
+    confInput.addEventListener("input", updateMatchFeedback);
   })();
 </script>
