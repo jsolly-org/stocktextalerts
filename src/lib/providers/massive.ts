@@ -360,7 +360,14 @@ export async function fetchIpos(from: string, to: string): Promise<IpoEvent[]> {
 Daily Aggregates
 ============= */
 
-// Parse Polygon/Massive bars API responses; returns null for invalid payloads or empty results.
+/**
+ * Extract closing prices from a Polygon/Massive bars API response.
+ *
+ * Expects a payload with a `results` array of bar objects, each with an optional `c` (close) field.
+ * Returns `null` for non-object payloads, missing or invalid `results`, or when no valid bars exist.
+ * Extracts only finite numeric `c` values; ignores non-numeric, NaN, and Infinity.
+ * Returns closes in the same order as the bars in `results`.
+ */
 export function extractClosesFromBars(payload: unknown): number[] | null {
 	if (typeof payload !== "object" || payload === null) return null;
 
