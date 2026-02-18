@@ -87,6 +87,8 @@ export async function batchLoadUserAssets(
 			.from("user_assets")
 			.select("user_id, symbol, assets!inner(name)")
 			.in("user_id", uniqueIds)
+			.order("user_id", { ascending: true })
+			.order("symbol", { ascending: true })
 			.range(from, from + pageSize - 1);
 
 		if (error) {
