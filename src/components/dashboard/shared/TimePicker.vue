@@ -68,6 +68,7 @@
 </template>
 
 <script lang="ts" setup>
+/** VueDatePicker is lazy-loaded via defineAsyncComponent to reduce initial bundle size. */
 import "@vuepic/vue-datepicker/dist/main.css";
 import { computed, defineAsyncComponent, onMounted, ref, watch } from "vue";
 
