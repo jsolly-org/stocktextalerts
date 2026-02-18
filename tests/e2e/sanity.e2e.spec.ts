@@ -1,6 +1,7 @@
 import { createHmac, randomUUID } from "node:crypto";
 import type { BrowserContext, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
+import { rootLogger } from "../../src/lib/logging";
 import { getAssetData } from "../helpers/asset-data";
 import { NEW_PASSWORD, TEST_PASSWORD } from "../helpers/constants";
 import { adminClient } from "../helpers/test-env";
@@ -136,7 +137,9 @@ async function getInbucketMessages(email: string): Promise<InbucketListItem[]> {
 		`http://localhost:54324/api/v1/mailbox/${encodeURIComponent(localPart)}`,
 	);
 	if (mailboxResponse.status === 404) {
-		const mailpitResponse = await fetch("http://localhost:54324/api/v1/messages");
+		const mailpitResponse = await fetch(
+			"http://localhost:54324/api/v1/messages",
+		);
 		if (!mailpitResponse.ok) {
 			const body = await mailpitResponse.text();
 			throw new Error(
@@ -199,7 +202,9 @@ async function getInbucketMessage(
 	}
 	if (!response.ok) {
 		const body = await response.text();
-		throw new Error(`Failed to fetch Inbucket message: ${response.status} ${body}`);
+		throw new Error(
+			`Failed to fetch Inbucket message: ${response.status} ${body}`,
+		);
 	}
 
 	return (await response.json()) as InbucketMessage;
@@ -266,14 +271,17 @@ async function addAsset(page: Page, symbol: string) {
 	await input.fill(symbol);
 	await page.waitForResponse(
 		(response) =>
-			response.url().includes("/api/assets/search") && response.status() === 200,
+			response.url().includes("/api/assets/search") &&
+			response.status() === 200,
 		{
 			timeout: 15_000,
 		},
 	);
 	await input.press("ArrowDown");
 	await input.press("Enter");
-	await expect(page.getByRole("button", { name: `Remove ${symbol}` })).toBeVisible({
+	await expect(
+		page.getByRole("button", { name: `Remove ${symbol}` }),
+	).toBeVisible({
 		timeout: 15_000,
 	});
 }
@@ -344,7 +352,10 @@ async function waitForTrackedAssets(
 			throw new Error(`Failed to read tracked assets: ${error.message}`);
 		}
 		const symbols = (data ?? []).map((row) => row.symbol).sort();
-		if (symbols.length === expected.length && symbols.every((value, idx) => value === expected[idx])) {
+		if (
+			symbols.length === expected.length &&
+			symbols.every((value, idx) => value === expected[idx])
+		) {
 			return;
 		}
 		await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -429,14 +440,18 @@ test.describe("sanity tests", () => {
 			try {
 				await cleanupTestUser(testUserId);
 			} catch (error) {
-				console.warn("Failed to cleanup primary sanity test user", error);
+				rootLogger.warn("Failed to cleanup primary sanity test user", {
+					error,
+				});
 			}
 		}
 		if (inboundUserId) {
 			try {
 				await cleanupTestUser(inboundUserId);
 			} catch (error) {
-				console.warn("Failed to cleanup inbound sanity test user", error);
+				rootLogger.warn("Failed to cleanup inbound sanity test user", {
+					error,
+				});
 			}
 		}
 		if (page) {
@@ -460,7 +475,11 @@ test.describe("sanity tests", () => {
 		await page.getByRole("button", { name: "Register" }).click();
 		await expectCurrentPath(page, "/auth/unconfirmed");
 
-		const confirmationEmail = await waitForEmail(testEmail, "Confirm your email", 60_000);
+		const confirmationEmail = await waitForEmail(
+			testEmail,
+			"Confirm your email",
+			60_000,
+		);
 		const confirmationLink = extractLinks(confirmationEmail).find(
 			(link) => link.includes("token_hash=") && link.includes("type=email"),
 		);
@@ -534,9 +553,15 @@ test.describe("sanity tests", () => {
 		await waitForTrackedAssets(testUserId, ["AAPL", "GOOGL", "MSFT"]);
 
 		await page.reload();
-		await expect(page.getByRole("button", { name: "Remove AAPL" })).toBeVisible();
-		await expect(page.getByRole("button", { name: "Remove MSFT" })).toBeVisible();
-		await expect(page.getByRole("button", { name: "Remove GOOGL" })).toBeVisible();
+		await expect(
+			page.getByRole("button", { name: "Remove AAPL" }),
+		).toBeVisible();
+		await expect(
+			page.getByRole("button", { name: "Remove MSFT" }),
+		).toBeVisible();
+		await expect(
+			page.getByRole("button", { name: "Remove GOOGL" }),
+		).toBeVisible();
 	});
 
 	test("TC-EMAIL-001: User can enable email notifications and receive an update", async () => {
@@ -642,7 +667,9 @@ test.describe("sanity tests", () => {
 			})
 			.eq("id", testUserId);
 		if (updateError) {
-			throw new Error(`Failed to enable SMS in admin update: ${updateError.message}`);
+			throw new Error(
+				`Failed to enable SMS in admin update: ${updateError.message}`,
+			);
 		}
 
 		await page.reload();
@@ -682,7 +709,9 @@ test.describe("sanity tests", () => {
 		const token = createEmailUnsubscribeToken(testUserId, testEmail);
 		const unsubscribeUrl = `${baseOrigin}/email/unsubscribe?user=${encodeURIComponent(testUserId)}&token=${encodeURIComponent(token)}`;
 		await page.goto(unsubscribeUrl);
-		await expect(page.getByText("Email notifications are now turned off.")).toBeVisible();
+		await expect(
+			page.getByText("Email notifications are now turned off."),
+		).toBeVisible();
 
 		await page.goto("/dashboard");
 		const emailSwitch = page.getByRole("switch", {
@@ -711,7 +740,9 @@ test.describe("sanity tests", () => {
 		await page.locator("#confirm-password").fill(newPassword);
 		await page.getByRole("button", { name: "Update password" }).click();
 		await expectCurrentPath(page, "/profile");
-		await expect(page.getByText("Password updated successfully.")).toBeVisible();
+		await expect(
+			page.getByText("Password updated successfully."),
+		).toBeVisible();
 
 		await page.getByRole("button", { name: "Sign Out" }).click();
 		await expectCurrentPath(page, "/");
@@ -722,7 +753,9 @@ test.describe("sanity tests", () => {
 		await page.getByRole("button", { name: "Update email" }).click();
 		await expectCurrentPath(page, "/profile");
 		await expect(
-			page.getByText("Check your old and new inboxes to confirm the email change."),
+			page.getByText(
+				"Check your old and new inboxes to confirm the email change.",
+			),
 		).toBeVisible();
 
 		const newEmailMessage = await waitForEmail(
@@ -741,7 +774,8 @@ test.describe("sanity tests", () => {
 			...(oldEmailMessage ? extractLinks(oldEmailMessage) : []),
 		];
 		const emailChangeLinks = [...new Set(candidateLinks)].filter(
-			(link) => link.includes("token_hash=") && link.includes("type=email_change"),
+			(link) =>
+				link.includes("token_hash=") && link.includes("type=email_change"),
 		);
 		expect(emailChangeLinks.length).toBeGreaterThan(0);
 

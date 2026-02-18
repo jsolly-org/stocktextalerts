@@ -67,6 +67,8 @@ describe("Password change endpoint enforces authentication and form validation."
 		} as unknown as APIContext);
 
 		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe("/profile?error=invalid_form");
+		expect(response.headers.get("Location")).toBe(
+			"/profile?error=invalid_form",
+		);
 	});
 });

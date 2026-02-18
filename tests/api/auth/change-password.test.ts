@@ -44,7 +44,9 @@ describe("A signed-in user changes their password from profile.", () => {
 		} as unknown as APIContext);
 
 		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe("/profile?success=password_changed");
+		expect(response.headers.get("Location")).toBe(
+			"/profile?success=password_changed",
+		);
 
 		const newPasswordCookies = await createAuthenticatedCookies(
 			testUser.email,
@@ -129,6 +131,8 @@ describe("A signed-in user changes their password from profile.", () => {
 		} as unknown as APIContext);
 
 		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe("/profile?error=weak_password");
+		expect(response.headers.get("Location")).toBe(
+			"/profile?error=weak_password",
+		);
 	});
 });
