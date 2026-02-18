@@ -24,13 +24,13 @@ export function createCookieAdapter(
 			const value = cookieStore.get(name);
 			return value ? { value } : undefined;
 		},
-		set(name: string, value: string, options?: unknown) {
+		set(name: string, value: string, cookieOptions?: unknown) {
 			cookieStore.set(name, value);
-			options.onSet?.(name, value, options);
+			options.onSet?.(name, value, cookieOptions);
 		},
-		delete(name: string, options?: unknown) {
+		delete(name: string, cookieOptions?: unknown) {
 			cookieStore.delete(name);
-			options.onDelete?.(name, options);
+			options.onDelete?.(name, cookieOptions);
 		},
 	} as unknown as APIContext["cookies"];
 }
