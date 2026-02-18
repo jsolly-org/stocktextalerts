@@ -72,7 +72,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          ref: main
+          ref: dev
           fetch-depth: 0
           # Use GH_AGENT_TOKEN so git push can modify workflow files (default GITHUB_TOKEN lacks workflows permission)
           token: ${{ secrets.GH_AGENT_TOKEN }}

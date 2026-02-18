@@ -360,7 +360,6 @@ jobs:
           GH_AGENT_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           HEAD_REF: ${{ matrix.pr.headRefName }}
           PR_NUMBER: ${{ matrix.pr.number }}
-          ORIGINAL_SHA: ${{ steps.original.outputs.sha }}
         run: |
           REMOTE_URL="https://x-access-token:${GH_AGENT_TOKEN}@github.com/${{ github.repository }}.git"
 
@@ -370,54 +369,9 @@ jobs:
             git commit -m "fix(nightly): auto-fix PR #${PR_NUMBER} — $(date +%Y-%m-%d)"
           fi
 
-          MAX_PUSH_ATTEMPTS=3
-          for attempt in $(seq 1 "$MAX_PUSH_ATTEMPTS"); do
-            LOCAL_TIP="$(git rev-parse HEAD)"
-            git fetch "$REMOTE_URL" "$HEAD_REF"
-            REMOTE_TIP="$(git rev-parse FETCH_HEAD)"
-
-            # If remote hasn't moved since checkout, push directly (no rebase needed).
-            # This is the common case and avoids rebase issues with merge commits
-            # created when the agent resolves conflicts from `git merge --no-commit`.
-            if [ "$REMOTE_TIP" = "$ORIGINAL_SHA" ]; then
-              echo "Remote unchanged since checkout, pushing directly."
-            else
-              echo "Remote has advanced ($ORIGINAL_SHA -> $REMOTE_TIP), rebasing..."
-              if ! git rebase --rebase-merges FETCH_HEAD; then
-                echo "##[warning]Rebase failed, retrying with auto-resolution."
-                git rebase --abort || true
-                if ! git rebase --rebase-merges -X theirs FETCH_HEAD; then
-                  echo "##[warning]Rebase with auto-resolution failed. Falling back to reset + cherry-pick."
-                  git rebase --abort || true
-                  git reset --hard FETCH_HEAD
-                  # Detect merge commits and use -m 1 (diff against first parent)
-                  PARENT_COUNT=$(git cat-file -p "$LOCAL_TIP" | grep -c '^parent ')
-                  if [ "$PARENT_COUNT" -gt 1 ]; then
-                    CHERRY_PICK_ARGS="-m 1 -X theirs"
-                  else
-                    CHERRY_PICK_ARGS="-X theirs"
-                  fi
-                  if ! git cherry-pick $CHERRY_PICK_ARGS "$LOCAL_TIP"; then
-                    echo "##[error]Failed to replay local commit."
-                    git cherry-pick --abort || true
-                    exit 1
-                  fi
-                fi
-              fi
-            fi
-
-            if git push "$REMOTE_URL" HEAD:"$HEAD_REF" 2> push-error.log; then
-              break
-            fi
-
-            echo "##[warning]Push attempt $attempt/$MAX_PUSH_ATTEMPTS failed."
-            cat push-error.log || true
-
-            if [ "$attempt" = "$MAX_PUSH_ATTEMPTS" ]; then
-              echo "##[error]Failed to push after $MAX_PUSH_ATTEMPTS attempts."
-              exit 1
-            fi
-          done
+          # These are nightly bot branches — only this workflow touches them,
+          # so the remote should not advance during the run. Push directly.
+          git push "$REMOTE_URL" HEAD:"$HEAD_REF"
 
       - name: Post fix-attempt comment
         if: steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
