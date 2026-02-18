@@ -13,8 +13,9 @@
 		"prepare": "if [ -z \"$CI\" ]; then husky; fi",
 		"test": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/tests/run-vitest.ts",
 		"test:ci": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/tests/run-vitest.ts",
+		"test:smoke": "node --env-file-if-exists=.env.local ./node_modules/.bin/playwright test --config playwright.smoke.config.ts",
 		"test:e2e": "node --env-file-if-exists=.env.local ./node_modules/.bin/playwright test",
-		"test:all": "npm run test && npm run test:e2e",
+		"test:all": "npm run test && npm run test:smoke && npm run test:e2e",
 		"gha:local": "scripts/ci/run-local-actions.sh",
 		"gha:local:lint": "scripts/ci/run-local-actions.sh --job lint",
 		"gha:local:test-build": "scripts/ci/run-local-actions.sh --job test-and-build",
@@ -28,7 +29,10 @@
 		"db:fetch-assets": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/fetch-us-assets.ts",
 		"db:generate-seed": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/generate-seed.ts",
 		"test:live:data": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/tests/run-vitest.ts --live=massive,finnhub tests/lib/live-provider-apis.test.ts",
-		"test:live:xai": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/tests/run-vitest.ts --live=xai tests/lib/live-xai-apis.test.ts"
+		"test:live:xai": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/tests/run-vitest.ts --live=xai tests/lib/live-xai-apis.test.ts",
+		"test:live:email": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/tests/run-vitest.ts --live=email tests/lib/staged-notifications/deliver.test.ts",
+		"test:live:sms": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/tests/run-vitest.ts --live=sms tests/api/schedule/schedule-sms.test.ts",
+		"test:live:all": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/tests/run-vitest.ts --live=all"
 	},
 	"lint-staged": {
 		"**/*.{ts,tsx,json,css,md,astro,html,vue}": [
@@ -37,14 +41,14 @@
 	},
 	"dependencies": {
 		"@astrojs/vercel": "^9.0.4",
-		"@supabase/supabase-js": "^2.95.3",
+		"@supabase/supabase-js": "^2.97.0",
 		"@vuepic/vue-datepicker": "^12.1.0",
 		"@vueuse/core": "^14.2.1",
 		"astro-icon": "^1.1.5",
-		"libphonenumber-js": "^1.12.36",
+		"libphonenumber-js": "^1.12.37",
 		"luxon": "^3.7.2",
 		"resend": "^6.9.2",
-		"twilio": "^5.12.1",
+		"twilio": "^5.12.2",
 		"vue": "^3.5.28"
 	},
 	"overrides": {
@@ -64,7 +68,7 @@
 		"husky": "^9.1.7",
 		"lint-staged": "^16.2.7",
 		"pg": "^8.18.0",
-		"supabase": "^2.76.9",
+		"supabase": "^2.76.10",
 		"tailwindcss": "^4.1.18",
 		"tsx": "^4.21.0",
 		"typescript": "^5.9.3",

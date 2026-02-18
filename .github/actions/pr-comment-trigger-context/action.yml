@@ -106,10 +106,13 @@ runs:
       env:
         COMMENT_BODY: ${{ inputs.comment_body }}
         COMMENT_USER: ${{ inputs.comment_user }}
+        COMMENT_ID: ${{ inputs.comment_id }}
         REPO: ${{ inputs.repo }}
         REPO_OWNER: ${{ inputs.repo_owner }}
         INTERNAL_MARKER: ${{ inputs.internal_marker }}
         EVENT_NAME: ${{ inputs.event_name }}
+        PR_NUMBER: ${{ inputs.pr_number }}
+        GH_TOKEN: ${{ inputs.gh_token }}
       run: |
         skip() { echo "Skipping: $1"; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0; }
 
@@ -131,10 +134,22 @@ runs:
         [[ "$COMMENT_BODY_LC" =~ no[[:space:]]+actionable[[:space:]]+comments ]] && skip "comment contains no actionable comments text"
         # Skip Codex bot comments about usage/rate limits.
         COMMENT_USER_LC="${COMMENT_USER,,}"
-        [[ "$COMMENT_USER_LC" == *codex* && "$COMMENT_BODY_LC" =~ usage[[:space:]]+limit ]] && skip "Codex usage limit notice"
+        [[ "$COMMENT_USER_LC" == *codex* && "$COMMENT_BODY_LC" =~ (usage|rate)[-_[:space:]]+limit ]] && skip "Codex usage/rate limit notice"
 
         # Review events without body text
         [[ "$EVENT_NAME" == "pull_request_review" && ( -z "$COMMENT_BODY" || "$COMMENT_BODY" == "null" ) ]] && skip "review without body"
+
+        # When a review is submitted with line comments, GitHub fires both a
+        # pull_request_review event (for the review body) and a separate
+        # pull_request_review_comment event for each line comment. Skip the
+        # pull_request_review run when line comments exist to avoid redundant
+        # agent invocations — the individual comment events handle those.
+        if [[ "$EVENT_NAME" == "pull_request_review" && -n "$COMMENT_ID" && -n "$PR_NUMBER" ]]; then
+          COMMENT_COUNT=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews/$COMMENT_ID/comments" --jq 'length' 2>/dev/null || echo "0")
+          if [[ "$COMMENT_COUNT" -gt 0 ]]; then
+            skip "pull_request_review with $COMMENT_COUNT line comments (handled by pull_request_review_comment events)"
+          fi
+        fi
 
         echo "skip=false" >> "$GITHUB_OUTPUT"
 

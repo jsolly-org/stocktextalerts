@@ -1,0 +1,394 @@
+# Scheduled nightly job that discovers open PRs with failing CI, merge
+# conflicts, or unresolved review comments and uses the Cursor agent to fix
+# them automatically. Runs last in the nightly schedule so other workflows'
+# PRs exist with CI results.
+name: "Nightly: PR Grooming"
+
+on:
+  schedule:
+    - cron: "0 7 * * *" # 2 AM ET
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+
+env:
+  GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+
+jobs:
+  discover-prs:
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.actor != 'nektos/act' }}
+    runs-on: ubuntu-latest
+    outputs:
+      prs: ${{ steps.matrix.outputs.prs }}
+    steps:
+      - name: Discover problematic PRs
+        id: matrix
+        run: |
+          # Fetch all open PRs
+          PRS=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --state open \
+            --json number,headRefName,baseRefName \
+            --limit 50)
+
+          if [ "$(echo "$PRS" | jq length)" -eq 0 ]; then
+            echo "No open PRs found."
+            echo 'prs=[]' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          RESULT="[]"
+
+          for ROW in $(echo "$PRS" | jq -c '.[]'); do
+            PR_NUMBER=$(echo "$ROW" | jq -r '.number')
+            HEAD_REF=$(echo "$ROW" | jq -r '.headRefName')
+            BASE_REF=$(echo "$ROW" | jq -r '.baseRefName')
+
+            # --- Check for failing CI checks ---
+            FAILED_CHECKS=$(gh pr checks "$PR_NUMBER" \
+              --repo "${{ github.repository }}" \
+              --json name,state \
+              --jq '[.[] | select(.state == "FAILURE" and (.name | test("lint|test-and-build")))] | map(.name)' 2>/dev/null || echo "[]")
+
+            # --- Check for merge conflicts (retry for lazy GitHub computation) ---
+            HAS_CONFLICTS="false"
+            for _ATTEMPT in 1 2 3; do
+              MERGE_STATE=$(gh pr view "$PR_NUMBER" \
+                --repo "${{ github.repository }}" \
+                --json mergeStateStatus \
+                --jq '.mergeStateStatus' 2>/dev/null || echo "UNKNOWN")
+              if [ "$MERGE_STATE" = "DIRTY" ]; then
+                HAS_CONFLICTS="true"
+                break
+              elif [ "$MERGE_STATE" = "UNKNOWN" ] && [ "$_ATTEMPT" -lt 3 ]; then
+                echo "PR #$PR_NUMBER: mergeStateStatus is UNKNOWN, retrying in 5s (attempt $_ATTEMPT/3)..."
+                sleep 5
+              else
+                break
+              fi
+            done
+
+            # --- Check for unresolved review comments ---
+            OWNER="${{ github.repository_owner }}"
+            REPO_NAME=$(echo "${{ github.repository }}" | cut -d/ -f2)
+            UNRESOLVED_THREAD_QUERY='query($owner:String!,$repo:String!,$prNumber:Int!,$cursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$prNumber){reviewThreads(first:100,after:$cursor){pageInfo{hasNextPage endCursor}nodes{isResolved comments(first:1){nodes{body path author{login}}}}}}}}'
+
+            UNRESOLVED_COUNT=0
+            CURSOR=""
+            while true; do
+              CURSOR_ARG=()
+              [[ -n "$CURSOR" ]] && CURSOR_ARG=(-f cursor="$CURSOR")
+              THREAD_RESULT=$(gh api graphql \
+                -f query="$UNRESOLVED_THREAD_QUERY" \
+                -f owner="$OWNER" \
+                -f repo="$REPO_NAME" \
+                -F prNumber="$PR_NUMBER" \
+                "${CURSOR_ARG[@]}" 2>/dev/null) || break
+
+              PAGE_UNRESOLVED=$(echo "$THREAD_RESULT" | jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length')
+              UNRESOLVED_COUNT=$((UNRESOLVED_COUNT + PAGE_UNRESOLVED))
+
+              HAS_NEXT=$(echo "$THREAD_RESULT" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage')
+              [[ "$HAS_NEXT" != "true" ]] && break
+              CURSOR=$(echo "$THREAD_RESULT" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor')
+            done
+
+            HAS_UNRESOLVED="false"
+            if [ "$UNRESOLVED_COUNT" -gt 0 ]; then
+              HAS_UNRESOLVED="true"
+            fi
+
+            # Skip PRs with no problems
+            FAILED_COUNT=$(echo "$FAILED_CHECKS" | jq 'length')
+            if [ "$FAILED_COUNT" -eq 0 ] && [ "$HAS_CONFLICTS" = "false" ] && [ "$HAS_UNRESOLVED" = "false" ]; then
+              echo "PR #$PR_NUMBER: no problems detected, skipping."
+              continue
+            fi
+
+            # --- Count previous fix attempts via comment marker ---
+            ATTEMPT_COUNT=$(gh pr view "$PR_NUMBER" \
+              --repo "${{ github.repository }}" \
+              --json comments \
+              --jq '[.comments[].body | select(contains("<!-- nightly-pr-grooming-attempt -->"))] | length' 2>/dev/null || echo "0")
+
+            if [ "$ATTEMPT_COUNT" -ge 2 ]; then
+              echo "PR #$PR_NUMBER: already has $ATTEMPT_COUNT fix attempts, skipping."
+              continue
+            fi
+
+            echo "PR #$PR_NUMBER: failedChecks=$FAILED_CHECKS, hasConflicts=$HAS_CONFLICTS, unresolvedComments=$UNRESOLVED_COUNT, attempts=$ATTEMPT_COUNT"
+
+            ENTRY=$(jq -n \
+              --argjson number "$PR_NUMBER" \
+              --arg headRefName "$HEAD_REF" \
+              --arg baseRefName "$BASE_REF" \
+              --argjson failedChecks "$FAILED_CHECKS" \
+              --argjson hasConflicts "$HAS_CONFLICTS" \
+              --argjson hasUnresolved "$HAS_UNRESOLVED" \
+              '{number: $number, headRefName: $headRefName, baseRefName: $baseRefName, failedChecks: $failedChecks, hasConflicts: $hasConflicts, hasUnresolved: $hasUnresolved}')
+
+            RESULT=$(echo "$RESULT" | jq --argjson entry "$ENTRY" '. + [$entry]')
+          done
+
+          COUNT=$(echo "$RESULT" | jq length)
+          echo "Found $COUNT PR(s) needing fixes."
+          echo "$RESULT" | jq .
+
+          echo "prs=$(echo "$RESULT" | jq -c .)" >> "$GITHUB_OUTPUT"
+
+  fix-pr:
+    needs: discover-prs
+    if: ${{ needs.discover-prs.outputs.prs != '[]' && needs.discover-prs.outputs.prs != '' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pr: ${{ fromJson(needs.discover-prs.outputs.prs) }}
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ matrix.pr.headRefName }}
+          fetch-depth: 0
+          # Use GH_AGENT_TOKEN so git push can modify workflow files (default GITHUB_TOKEN lacks workflows permission)
+          token: ${{ secrets.GH_AGENT_TOKEN }}
+
+      - name: Save original HEAD
+        id: original
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Setup Cursor CLI
+        uses: ./.github/actions/setup-cursor
+
+      - name: Build context for agent
+        id: context
+        env:
+          PR_NUMBER: ${{ matrix.pr.number }}
+          FAILED_CHECKS: ${{ toJson(matrix.pr.failedChecks) }}
+          HAS_CONFLICTS: ${{ matrix.pr.hasConflicts }}
+          HAS_UNRESOLVED: ${{ matrix.pr.hasUnresolved }}
+          BASE_REF: ${{ matrix.pr.baseRefName }}
+        run: |
+          CONTEXT=""
+
+          # --- Failing CI context: fetch failed run logs ---
+          FAILED_COUNT=$(echo "$FAILED_CHECKS" | jq 'length')
+          if [ "$FAILED_COUNT" -gt 0 ]; then
+            echo "Fetching failed CI logs for PR #$PR_NUMBER..."
+            HEAD_SHA=$(gh pr view "$PR_NUMBER" \
+              --repo "${{ github.repository }}" \
+              --json headRefOid \
+              --jq '.headRefOid')
+
+            FAILED_RUNS=$(gh run list \
+              --repo "${{ github.repository }}" \
+              --commit "$HEAD_SHA" \
+              --status failure \
+              --json databaseId \
+              --limit 5)
+
+            LOGS=""
+            for RUN_ID in $(echo "$FAILED_RUNS" | jq -r '.[].databaseId'); do
+              RUN_LOG=$(gh run view "$RUN_ID" \
+                --repo "${{ github.repository }}" \
+                --log-failed 2>/dev/null | tail -200 || echo "(could not fetch logs for run $RUN_ID)")
+              LOGS="${LOGS}
+          --- Run ${RUN_ID} ---
+          ${RUN_LOG}
+          "
+            done
+
+            CONTEXT="${CONTEXT}
+          ## Failing CI checks
+          The following checks are failing: $(echo "$FAILED_CHECKS" | jq -r 'join(", ")')
+
+          Failed run logs (truncated to 200 lines per run):
+          ${LOGS}"
+          fi
+
+          # --- Merge conflict context: merge base branch to surface markers ---
+          if [ "$HAS_CONFLICTS" = "true" ]; then
+            echo "Merging $BASE_REF to surface conflict markers..."
+            git fetch origin "$BASE_REF"
+            git merge "origin/$BASE_REF" --no-commit --no-ff 2>/dev/null || true
+
+            CONTEXT="${CONTEXT}
+          ## Merge conflicts
+          This PR has merge conflicts with the $BASE_REF branch. The conflicts have been
+          surfaced in the working tree — look for conflict markers (<<<<<<< / ======= / >>>>>>>)
+          and resolve them."
+          fi
+
+          # --- Unresolved review comments context ---
+          if [ "$HAS_UNRESOLVED" = "true" ]; then
+            echo "Fetching unresolved review comments for PR #$PR_NUMBER..."
+            OWNER="${{ github.repository_owner }}"
+            REPO_NAME=$(echo "${{ github.repository }}" | cut -d/ -f2)
+            THREAD_QUERY='query($owner:String!,$repo:String!,$prNumber:Int!,$cursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$prNumber){reviewThreads(first:100,after:$cursor){pageInfo{hasNextPage endCursor}nodes{isResolved comments(first:5){nodes{body path line author{login}}}}}}}}'
+
+            COMMENT_LIST=""
+            CURSOR=""
+            while true; do
+              CURSOR_ARG=()
+              [[ -n "$CURSOR" ]] && CURSOR_ARG=(-f cursor="$CURSOR")
+              THREAD_RESULT=$(gh api graphql \
+                -f query="$THREAD_QUERY" \
+                -f owner="$OWNER" \
+                -f repo="$REPO_NAME" \
+                -F prNumber="$PR_NUMBER" \
+                "${CURSOR_ARG[@]}" 2>/dev/null) || break
+
+              while IFS= read -r THREAD; do
+                [[ -z "$THREAD" ]] && continue
+                FILE=$(echo "$THREAD" | jq -r '.comments.nodes[0].path // "(no file)"')
+                LINE=$(echo "$THREAD" | jq -r '.comments.nodes[0].line // "?"')
+                AUTHOR=$(echo "$THREAD" | jq -r '.comments.nodes[0].author.login // "unknown"')
+                BODY=$(echo "$THREAD" | jq -r '[.comments.nodes[].body] | join("\n---\n")' | head -20)
+                COMMENT_LIST="${COMMENT_LIST}
+          ### ${FILE}:${LINE} (@${AUTHOR})
+          ${BODY}
+          "
+              done < <(echo "$THREAD_RESULT" | jq -c '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)')
+
+              HAS_NEXT=$(echo "$THREAD_RESULT" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage')
+              [[ "$HAS_NEXT" != "true" ]] && break
+              CURSOR=$(echo "$THREAD_RESULT" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor')
+            done
+
+            CONTEXT="${CONTEXT}
+          ## Unresolved review comments
+          The following review comments need to be addressed:
+          ${COMMENT_LIST}"
+          fi
+
+          # Save context to file to avoid shell escaping issues
+          printf '%s' "$CONTEXT" > /tmp/pr-grooming-context.txt
+
+      - name: Run agent
+        env:
+          MODEL: ${{ vars.AGENT_MODEL }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+          PR_NUMBER: ${{ matrix.pr.number }}
+        run: |
+          CONTEXT=$(cat /tmp/pr-grooming-context.txt)
+
+          agent -p "You are operating in a GitHub Actions runner. Git and the \`gh\` CLI are available and authenticated.
+
+          # Goal
+          Fix the problems on PR #${PR_NUMBER} so that CI passes, merge conflicts are resolved, and/or unresolved review comments are addressed.
+
+          ${CONTEXT}
+
+          # Guidelines
+          - Read \`AGENTS.md\` and the \`.agents/\` directory for project conventions and guidelines.
+          - Leave all changes uncommitted. The workflow will handle commit, push, and PR creation.
+          - Do not create issues or PRs yourself.
+          - Focus only on fixing the identified problems — do not make unrelated changes.
+          " --force --model "$MODEL" --output-format=text
+
+      - name: Drop workflow file edits
+        run: |
+          # Check for modified (tracked) AND new (untracked) workflow/action files
+          CHANGED=$(git diff --name-only -- .github/workflows .github/actions || true)
+          UNTRACKED=$(git ls-files --others --exclude-standard -- .github/workflows .github/actions || true)
+          if [[ -n "$CHANGED" || -n "$UNTRACKED" ]]; then
+            echo "Reverting workflow and action file edits from agent output."
+            if [[ -n "$CHANGED" ]]; then
+              git restore --staged --worktree -- .github/workflows .github/actions
+            fi
+            if [[ -n "$UNTRACKED" ]]; then
+              echo "$UNTRACKED" | xargs rm -f
+            fi
+          fi
+
+      - name: Check for changes
+        id: changes
+        env:
+          ORIGINAL_SHA: ${{ steps.original.outputs.sha }}
+        run: |
+          CURRENT_SHA="$(git rev-parse HEAD)"
+          HAS_UNCOMMITTED="false"
+          HAS_NEW_COMMITS="false"
+
+          if [ -n "$(git status --porcelain)" ]; then
+            HAS_UNCOMMITTED="true"
+          fi
+
+          if [ "$CURRENT_SHA" != "$ORIGINAL_SHA" ]; then
+            HAS_NEW_COMMITS="true"
+          fi
+
+          if [ "$HAS_UNCOMMITTED" = "true" ] || [ "$HAS_NEW_COMMITS" = "true" ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "Changes detected: uncommitted=$HAS_UNCOMMITTED, new_commits=$HAS_NEW_COMMITS"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No changes detected."
+          fi
+
+      - name: Run pre-commit checks (lint + type-check)
+        if: steps.changes.outputs.has_changes == 'true'
+        id: precommit_checks
+        continue-on-error: true
+        uses: ./.github/actions/run-precommit-checks
+
+      - name: Auto-fix lint/type errors
+        if: steps.changes.outputs.has_changes == 'true' && steps.precommit_checks.outcome == 'failure'
+        id: autofix
+        continue-on-error: true
+        uses: ./.github/actions/autofix-lint-type-errors
+        with:
+          cursor_api_key: ${{ secrets.CURSOR_API_KEY }}
+          agent_model: ${{ vars.AGENT_MODEL }}
+          max_fix_attempts: "2"
+
+      - name: Commit and push
+        if: steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
+        env:
+          GH_AGENT_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+          HEAD_REF: ${{ matrix.pr.headRefName }}
+          PR_NUMBER: ${{ matrix.pr.number }}
+        run: |
+          REMOTE_URL="https://x-access-token:${GH_AGENT_TOKEN}@github.com/${{ github.repository }}.git"
+
+          # Commit any uncommitted changes; agent commits are already in history
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "fix(nightly): auto-fix PR #${PR_NUMBER} — $(date +%Y-%m-%d)"
+          fi
+
+          # These are nightly bot branches — only this workflow touches them,
+          # so the remote should not advance during the run. Push directly.
+          git push "$REMOTE_URL" HEAD:"$HEAD_REF"
+
+      - name: Post fix-attempt comment
+        if: steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
+        env:
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+          PR_NUMBER: ${{ matrix.pr.number }}
+          RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        run: |
+          gh pr comment "$PR_NUMBER" --body "$(cat <<EOF
+          ## Nightly PR Grooming: Fix applied
+
+          The nightly PR grooming workflow detected issues and pushed a fix commit.
+
+          [Workflow run]($RUN_URL)
+
+          ---
+          *Auto-generated by the nightly-pr-grooming workflow.*
+          <!-- nightly-pr-grooming-attempt -->
+          EOF
+          )"

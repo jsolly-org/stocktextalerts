@@ -7,41 +7,43 @@ import {
 import type { AssetSnapshot } from "../../../src/lib/market-notifications/snapshot-store";
 import type { ExtendedAssetQuote } from "../../../src/lib/providers/price-fetcher";
 
+/** Defaults modeled on AAPL trading at ~$187 on a typical low-volatility day. */
 function makeQuote(
 	overrides: Partial<ExtendedAssetQuote> = {},
 ): ExtendedAssetQuote {
 	return {
-		price: 150.0,
-		changePercent: 1.0,
-		dayHigh: 152.0,
-		dayLow: 148.0,
-		dayOpen: 149.0,
-		prevClose: 148.5,
+		price: 187.42,
+		changePercent: 0.83,
+		dayHigh: 189.15,
+		dayLow: 185.6,
+		dayOpen: 186.1,
+		prevClose: 185.87,
 		timestamp: Math.floor(Date.now() / 1000),
 		volume: null,
 		...overrides,
 	};
 }
 
+/** Defaults modeled on AAPL snapshot history at ~$187. */
 function makeSnapshot(
 	overrides: Partial<AssetSnapshot> = {},
 	minutesAgo = 0,
 ): AssetSnapshot {
 	return {
 		symbol: "AAPL",
-		price: 150.0,
-		changePercent: 1.0,
-		dayHigh: 152.0,
-		dayLow: 148.0,
-		dayOpen: 149.0,
-		prevClose: 148.5,
+		price: 187.42,
+		changePercent: 0.83,
+		dayHigh: 189.15,
+		dayLow: 185.6,
+		dayOpen: 186.1,
+		prevClose: 185.87,
 		volume: null,
 		capturedAt: new Date(Date.now() - minutesAgo * 60 * 1000).toISOString(),
 		...overrides,
 	};
 }
 
-function makeSnapshots(count: number, basePrice = 150.0): AssetSnapshot[] {
+function makeSnapshots(count: number, basePrice = 187.42): AssetSnapshot[] {
 	return Array.from({ length: count }, (_, i) =>
 		makeSnapshot({ price: basePrice }, count - i),
 	);
@@ -51,22 +53,23 @@ function makeNewsItem(
 	overrides: Partial<{ headline: string; datetime: number }> = {},
 ) {
 	return {
-		headline: overrides.headline ?? "Breaking news headline",
+		headline:
+			overrides.headline ?? "Apple announces new AI features for iPhone",
 		summary: "",
 		datetime: overrides.datetime ?? Date.now() / 1000,
-		url: "https://example.com",
+		url: "https://reuters.com/technology/apple-ai-features",
 		source: "Reuters",
 	};
 }
 
 describe("getThresholdForSensitivity", () => {
-	it("returns 80 for Chill (1)", () => {
+	it("returns 80 for very_large move size (1)", () => {
 		expect(getThresholdForSensitivity(1)).toBe(80);
 	});
-	it("returns 70 for Normal (2)", () => {
+	it("returns 70 for large move size (2)", () => {
 		expect(getThresholdForSensitivity(2)).toBe(70);
 	});
-	it("returns 60 for Aggressive (3)", () => {
+	it("returns 60 for moderate move size (3)", () => {
 		expect(getThresholdForSensitivity(3)).toBe(60);
 	});
 	it("defaults to 80 for unknown values", () => {
@@ -76,7 +79,7 @@ describe("getThresholdForSensitivity", () => {
 });
 
 describe("computeAnomalyScore", () => {
-	it("returns score 0 when fewer than 5 snapshots exist", () => {
+	it("AAPL with only 3 snapshots collected so far returns insufficient data", () => {
 		const result = computeAnomalyScore({
 			currentQuote: makeQuote(),
 			snapshots: makeSnapshots(3),
@@ -89,43 +92,44 @@ describe("computeAnomalyScore", () => {
 		expect(result.summary).toContain("Insufficient data");
 	});
 
-	it("volatile stock moderate move does NOT trigger (volatility normalization)", () => {
-		// Biotech-like: 5% move on a day with 8% range → normalized move is small
-		const snapshots = makeSnapshots(10, 100.0).map((s) => ({
+	it("MRNA 5% move on a volatile 8% range day does NOT trigger (volatility normalization)", () => {
+		// Biotech like MRNA swings wide intraday — a 5% move within an 8% range is normal
+		const snapshots = makeSnapshots(10, 34.8).map((s) => ({
 			...s,
-			dayHigh: 108.0,
-			dayLow: 100.0,
+			symbol: "MRNA",
+			dayHigh: 37.58, // 8% range above low
+			dayLow: 34.8,
 		}));
 
 		const result = computeAnomalyScore({
 			currentQuote: makeQuote({
-				price: 105.0,
-				dayHigh: 108.0,
-				dayLow: 100.0,
+				price: 36.54, // ~5% above snapshot base
+				dayHigh: 37.58,
+				dayLow: 34.8,
 				volume: null,
 			}),
 			snapshots,
 			news: null,
 			hasEarningsNearby: false,
-			sensitivity: 3, // even at aggressive
+			sensitivity: 3, // even at moderate (most sensitive)
 		});
 
 		expect(result.triggered).toBe(false);
 	});
 
-	it("stable stock moderate move scores high (normalization amplifies)", () => {
-		// AAPL-like: 2% move on a day with 1.5% range → normalized move is amplified
-		const snapshots = makeSnapshots(10, 100.0).map((s) => ({
+	it("AAPL 2% move on a tight 1.5% range day scores high (normalization amplifies)", () => {
+		// AAPL typically has narrow intraday range — a 2% move is unusual
+		const snapshots = makeSnapshots(10, 187.42).map((s) => ({
 			...s,
-			dayHigh: 101.5,
-			dayLow: 100.0,
+			dayHigh: 190.23, // ~1.5% range
+			dayLow: 187.42,
 		}));
 
 		const result = computeAnomalyScore({
 			currentQuote: makeQuote({
-				price: 102.0,
-				dayHigh: 102.0,
-				dayLow: 100.0,
+				price: 191.17, // ~2% above snapshot base
+				dayHigh: 191.17,
+				dayLow: 187.42,
 				volume: null,
 			}),
 			snapshots,
@@ -134,24 +138,26 @@ describe("computeAnomalyScore", () => {
 		});
 
 		const priceSignal = result.signals.find((s) => s.name === "price_move");
-		// 2% move, 2% range → normalized 1.0 → ratio 0.5 → ~22 raw pts, vol 0.8x → ~18
+		// 2% move on 2% range → normalized 1.0 → ratio 0.5 → ~22 raw pts, vol 0.8x → ~18
 		expect(priceSignal?.points).toBeGreaterThan(0);
 	});
 
-	it("volume confirmation affects score (high vol vs low vol)", () => {
-		const snapshots = makeSnapshots(10, 100.0).map((s) => ({
+	it("NVDA surge on high volume scores higher than same move on low volume", () => {
+		// NVDA averages ~45M shares/day; compare 1.5x spike vs 0.5x dry-up
+		const snapshots = makeSnapshots(10, 131.25).map((s) => ({
 			...s,
-			volume: 1000000,
-			dayHigh: 101.5,
-			dayLow: 99.5,
+			symbol: "NVDA",
+			volume: 45_000_000,
+			dayHigh: 133.18, // ~1.5% range
+			dayLow: 130.5,
 		}));
 
 		const highVolResult = computeAnomalyScore({
 			currentQuote: makeQuote({
-				price: 103.0,
-				dayHigh: 103.0,
-				dayLow: 99.5,
-				volume: 1500000, // 1.5x median
+				price: 135.17, // ~3% move
+				dayHigh: 135.17,
+				dayLow: 130.5,
+				volume: 67_500_000, // 1.5x median
 			}),
 			snapshots,
 			news: null,
@@ -160,10 +166,10 @@ describe("computeAnomalyScore", () => {
 
 		const lowVolResult = computeAnomalyScore({
 			currentQuote: makeQuote({
-				price: 103.0,
-				dayHigh: 103.0,
-				dayLow: 99.5,
-				volume: 500000, // 0.5x median
+				price: 135.17,
+				dayHigh: 135.17,
+				dayLow: 130.5,
+				volume: 22_500_000, // 0.5x median
 			}),
 			snapshots,
 			news: null,
@@ -179,21 +185,22 @@ describe("computeAnomalyScore", () => {
 		expect(highVolPrice?.points).toBeGreaterThan(lowVolPrice?.points);
 	});
 
-	it("price-only score never exceeds 60 (can't trigger alone even at Aggressive)", () => {
-		// Extreme 10% move with max volume — should still cap at price_move 45 + breakout 15 = 60
-		const snapshots = makeSnapshots(10, 100.0).map((s) => ({
+	it("TSLA 10% crash with heavy volume still caps price-only score at 60", () => {
+		// Even an extreme TSLA selloff can't trigger alerts on price alone — needs confirming signals
+		const snapshots = makeSnapshots(10, 248.5).map((s) => ({
 			...s,
-			dayHigh: 101.0,
-			dayLow: 99.0,
-			volume: 1000000,
+			symbol: "TSLA",
+			dayHigh: 251.0,
+			dayLow: 246.0,
+			volume: 80_000_000,
 		}));
 
 		const result = computeAnomalyScore({
 			currentQuote: makeQuote({
-				price: 110.0, // 10% move
-				dayHigh: 110.0,
-				dayLow: 99.0,
-				volume: 2000000,
+				price: 223.65, // ~10% drop
+				dayHigh: 251.0,
+				dayLow: 223.65,
+				volume: 160_000_000, // 2x median
 			}),
 			snapshots,
 			news: null,
@@ -209,48 +216,58 @@ describe("computeAnomalyScore", () => {
 			(priceSignal?.points ?? 0) + (breakoutSignal?.points ?? 0);
 
 		expect(priceOnlyTotal).toBeLessThanOrEqual(60);
-		// With unknown volume multiplier 0.8x applied, the effective price points should be < 45
-		// so the total should be strictly less than 60, preventing trigger at Aggressive
 	});
 
-	it("multi-signal convergence triggers at Chill threshold", () => {
-		// Big move + news + earnings should comfortably exceed 80
-		const snapshots = makeSnapshots(10, 100.0).map((s) => ({
+	it("MSFT drops 6% with earnings tomorrow and 3 headlines triggers even at very_large threshold", () => {
+		// Multi-signal convergence: price crash + breaking news + upcoming earnings
+		const snapshots = makeSnapshots(10, 415.3).map((s) => ({
 			...s,
-			dayHigh: 101.0,
-			dayLow: 99.0,
-			volume: 1000000,
+			symbol: "MSFT",
+			dayHigh: 419.45,
+			dayLow: 411.2,
+			volume: 22_000_000,
 		}));
 
 		const result = computeAnomalyScore({
 			currentQuote: makeQuote({
-				price: 106.0, // 6% move
-				dayHigh: 106.0,
-				dayLow: 99.0,
-				volume: 2000000,
+				price: 390.38, // ~6% drop
+				dayHigh: 419.45,
+				dayLow: 390.38,
+				volume: 44_000_000, // 2x median
 			}),
 			snapshots,
 			news: [
-				makeNewsItem(),
-				makeNewsItem({ headline: "Second headline" }),
-				makeNewsItem({ headline: "Third headline" }),
+				makeNewsItem({
+					headline: "Microsoft cloud revenue misses expectations",
+				}),
+				makeNewsItem({
+					headline: "Azure growth slows amid enterprise spending pullback",
+				}),
+				makeNewsItem({
+					headline: "Analysts downgrade MSFT ahead of earnings call",
+				}),
 			],
 			hasEarningsNearby: true,
-			sensitivity: 1, // Chill
+			sensitivity: 1, // very_large (highest threshold)
 		});
 
 		expect(result.score).toBeGreaterThanOrEqual(80);
 		expect(result.triggered).toBe(true);
 	});
 
-	it("graduated news scoring: 1 old headline gives 10 pts", () => {
+	it("AAPL morning headline published 12 hours ago scores 10 pts for stale news", () => {
 		const snapshots = makeSnapshots(10);
 		const oldTimestamp = Date.now() / 1000 - 12 * 60 * 60; // 12 hours ago
 
 		const result = computeAnomalyScore({
 			currentQuote: makeQuote(),
 			snapshots,
-			news: [makeNewsItem({ datetime: oldTimestamp })],
+			news: [
+				makeNewsItem({
+					headline: "Apple supplier warns of component shortage",
+					datetime: oldTimestamp,
+				}),
+			],
 			hasEarningsNearby: false,
 		});
 
@@ -258,7 +275,7 @@ describe("computeAnomalyScore", () => {
 		expect(newsSignal?.points).toBe(10);
 	});
 
-	it("graduated news scoring: 3 recent headlines gives 25 pts", () => {
+	it("3 recent NVDA headlines within 30 minutes scores max 25 pts for breaking news", () => {
 		const snapshots = makeSnapshots(10);
 		const recentTimestamp = Date.now() / 1000 - 30 * 60; // 30 min ago
 
@@ -266,9 +283,18 @@ describe("computeAnomalyScore", () => {
 			currentQuote: makeQuote(),
 			snapshots,
 			news: [
-				makeNewsItem({ datetime: recentTimestamp }),
-				makeNewsItem({ headline: "Second", datetime: recentTimestamp }),
-				makeNewsItem({ headline: "Third", datetime: recentTimestamp }),
+				makeNewsItem({
+					headline: "NVIDIA unveils next-gen GPU architecture",
+					datetime: recentTimestamp,
+				}),
+				makeNewsItem({
+					headline: "Jensen Huang keynote drives NVDA to session highs",
+					datetime: recentTimestamp,
+				}),
+				makeNewsItem({
+					headline: "Analysts raise NVDA price targets after product launch",
+					datetime: recentTimestamp,
+				}),
 			],
 			hasEarningsNearby: false,
 		});
@@ -277,19 +303,20 @@ describe("computeAnomalyScore", () => {
 		expect(newsSignal?.points).toBe(25);
 	});
 
-	it("graduated breakout scoring: 0.5% = 1 pt, 2.0%+ = 15 pts", () => {
-		// Test small breakout (0.5% above day high)
-		const snapshotsSmall = makeSnapshots(10, 100.0).map((s) => ({
+	it("SPY small breakout 0.5% above day high scores 1 pt, 2%+ breakout scores 15 pts", () => {
+		// Small breakout: SPY edges just above session high
+		const snapshotsSmall = makeSnapshots(10, 518.3).map((s) => ({
 			...s,
-			dayHigh: 100.0,
-			dayLow: 98.0,
+			symbol: "SPY",
+			dayHigh: 518.3,
+			dayLow: 508.15,
 		}));
 
 		const smallResult = computeAnomalyScore({
 			currentQuote: makeQuote({
-				price: 100.5,
-				dayHigh: 100.5,
-				dayLow: 98.0,
+				price: 520.92, // ~0.5% above day high
+				dayHigh: 520.92,
+				dayLow: 508.15,
 				volume: null,
 			}),
 			snapshots: snapshotsSmall,
@@ -301,18 +328,19 @@ describe("computeAnomalyScore", () => {
 		);
 		expect(smallBreakout?.points).toBe(1);
 
-		// Test large breakout (2.0% above day high)
-		const snapshotsLarge = makeSnapshots(10, 100.0).map((s) => ({
+		// Large breakout: SPY surges 2%+ above session high
+		const snapshotsLarge = makeSnapshots(10, 518.3).map((s) => ({
 			...s,
-			dayHigh: 100.0,
-			dayLow: 98.0,
+			symbol: "SPY",
+			dayHigh: 518.3,
+			dayLow: 508.15,
 		}));
 
 		const largeResult = computeAnomalyScore({
 			currentQuote: makeQuote({
-				price: 102.0,
-				dayHigh: 102.0,
-				dayLow: 98.0,
+				price: 528.67, // ~2% above day high
+				dayHigh: 528.67,
+				dayLow: 508.15,
 				volume: null,
 			}),
 			snapshots: snapshotsLarge,
@@ -325,52 +353,58 @@ describe("computeAnomalyScore", () => {
 		expect(largeBreakout?.points).toBe(15);
 	});
 
-	it("sensitivity parameter affects threshold: same score triggers at Aggressive but not Chill", () => {
-		// Build a scenario that scores around 65 (above Aggressive 60 but below Chill 80)
-		const snapshots = makeSnapshots(10, 100.0).map((s) => ({
+	it("GOOGL 4% move triggers moderate-sensitivity user but not very_large-sensitivity user", () => {
+		// Same market event, different move size thresholds — moderate catches it, very_large does not
+		const snapshots = makeSnapshots(10, 176.85).map((s) => ({
 			...s,
-			dayHigh: 101.0,
-			dayLow: 99.0,
-			volume: 1000000,
+			symbol: "GOOGL",
+			dayHigh: 178.62,
+			dayLow: 175.1,
+			volume: 28_000_000,
 		}));
 
 		const quote = makeQuote({
-			price: 104.0,
-			dayHigh: 104.0,
-			dayLow: 99.0,
-			volume: 1500000,
+			price: 183.92, // ~4% move
+			dayHigh: 183.92,
+			dayLow: 175.1,
+			volume: 42_000_000, // 1.5x median
 		});
 
-		// Just 1 old headline = 10 pts news
-		const news = [makeNewsItem({ datetime: Date.now() / 1000 - 12 * 60 * 60 })];
+		// Just 1 stale headline = 10 pts news
+		const news = [
+			makeNewsItem({
+				headline: "Google faces new antitrust scrutiny in EU",
+				datetime: Date.now() / 1000 - 12 * 60 * 60,
+			}),
+		];
 
-		const aggressiveResult = computeAnomalyScore({
+		const moderateResult = computeAnomalyScore({
 			currentQuote: quote,
 			snapshots,
 			news,
 			hasEarningsNearby: false,
-			sensitivity: 3,
+			sensitivity: 3, // moderate — lowest threshold (60)
 		});
 
-		const chillResult = computeAnomalyScore({
+		const veryLargeResult = computeAnomalyScore({
 			currentQuote: quote,
 			snapshots,
 			news,
 			hasEarningsNearby: false,
-			sensitivity: 1,
+			sensitivity: 1, // very_large — highest threshold (80)
 		});
 
 		// Same score, different trigger outcomes
-		expect(aggressiveResult.score).toBe(chillResult.score);
+		expect(moderateResult.score).toBe(veryLargeResult.score);
 
-		// If the score is between 60-79, it triggers at Aggressive but not Chill
-		if (aggressiveResult.score >= 60 && aggressiveResult.score < 80) {
-			expect(aggressiveResult.triggered).toBe(true);
-			expect(chillResult.triggered).toBe(false);
+		// If the score is between 60-79, it triggers at moderate but not very_large
+		if (moderateResult.score >= 60 && moderateResult.score < 80) {
+			expect(moderateResult.triggered).toBe(true);
+			expect(veryLargeResult.triggered).toBe(false);
 		}
 	});
 
-	it("earnings proximity awards 15 pts", () => {
+	it("AAPL with earnings in 2 days adds 15 pts for earnings proximity", () => {
 		const result = computeAnomalyScore({
 			currentQuote: makeQuote(),
 			snapshots: makeSnapshots(10),
@@ -387,17 +421,17 @@ describe("computeAnomalyScore", () => {
 });
 
 describe("computePriceOnlyScore", () => {
-	it("returns price-based score without news", () => {
-		const snapshots = makeSnapshots(10, 100.0).map((s) => ({
+	it("AAPL 3% move with no news still produces a non-zero price score", () => {
+		const snapshots = makeSnapshots(10, 187.42).map((s) => ({
 			...s,
-			dayHigh: 101.0,
-			dayLow: 99.0,
+			dayHigh: 189.29, // ~1% range
+			dayLow: 187.42,
 		}));
 		const score = computePriceOnlyScore({
 			currentQuote: makeQuote({
-				price: 103.0,
-				dayHigh: 103.0,
-				dayLow: 99.0,
+				price: 193.04, // ~3% move
+				dayHigh: 193.04,
+				dayLow: 187.42,
 				volume: null,
 			}),
 			snapshots,
@@ -407,7 +441,7 @@ describe("computePriceOnlyScore", () => {
 		expect(score).toBeGreaterThan(0);
 	});
 
-	it("returns 0 with insufficient snapshots", () => {
+	it("AAPL with only 2 snapshots returns 0 due to insufficient data", () => {
 		const score = computePriceOnlyScore({
 			currentQuote: makeQuote(),
 			snapshots: makeSnapshots(2),

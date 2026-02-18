@@ -1,6 +1,12 @@
-type LiveProvider = "massive" | "finnhub" | "xai";
+type LiveProvider = "massive" | "finnhub" | "xai" | "email" | "sms";
 
-const ALLOWED_PROVIDERS: LiveProvider[] = ["massive", "finnhub", "xai"];
+const ALLOWED_PROVIDERS: LiveProvider[] = [
+	"massive",
+	"finnhub",
+	"xai",
+	"email",
+	"sms",
+];
 
 function parseCsv(value: string | undefined): string[] {
 	if (!value) return [];
@@ -13,6 +19,11 @@ function parseCsv(value: string | undefined): string[] {
 function parseEnabledProviders(): Set<LiveProvider> {
 	const raw =
 		process.env.LIVE_API_PROVIDERS ?? process.env.TEST_LIVE_PROVIDERS ?? "";
+
+	if (raw.trim().toLowerCase() === "all") {
+		return new Set<LiveProvider>(ALLOWED_PROVIDERS);
+	}
+
 	const parsed = parseCsv(raw);
 	const enabled = new Set<LiveProvider>();
 

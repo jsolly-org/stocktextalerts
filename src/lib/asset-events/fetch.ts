@@ -1,4 +1,5 @@
 import type { Logger } from "../logging";
+import type { ProviderResult } from "../providers/massive";
 import {
 	fetchDividends,
 	fetchEarnings,
@@ -24,7 +25,7 @@ export async function fetchAndStoreAssetEvents(options: {
 	weekStart: string; // YYYY-MM-DD (Monday)
 	weekEnd: string; // YYYY-MM-DD (Friday)
 	logger: Logger;
-}): Promise<{ upserted: number }> {
+}): Promise<{ upserted: number; failedProviders: string[] }> {
 	const { supabase, weekStart, weekEnd, logger } = options;
 
 	// Get distinct symbols tracked by any user
@@ -43,17 +44,41 @@ export async function fetchAndStoreAssetEvents(options: {
 	const symbolSet = new Set((trackedSymbols ?? []).map((row) => row.symbol));
 	const hasTrackedSymbols = symbolSet.size > 0;
 
-	// Fetch all three event types from providers:
+	// Fetch all four event types from providers:
 	// - earnings from Finnhub
 	// - dividends/splits/IPOs from Massive
-	const [earnings, dividends, splits, ipos] = await Promise.all([
-		hasTrackedSymbols ? fetchEarnings(weekStart, weekEnd) : Promise.resolve([]),
-		hasTrackedSymbols
-			? fetchDividends(weekStart, weekEnd)
-			: Promise.resolve([]),
-		hasTrackedSymbols ? fetchSplits(weekStart, weekEnd) : Promise.resolve([]),
-		fetchIpos(weekStart, weekEnd),
-	]);
+	const emptyResult: ProviderResult<never> = { data: [], failed: false };
+	const [earningsResult, dividendsResult, splitsResult, iposResult] =
+		await Promise.all([
+			hasTrackedSymbols
+				? fetchEarnings(weekStart, weekEnd)
+				: Promise.resolve(emptyResult),
+			hasTrackedSymbols
+				? fetchDividends(weekStart, weekEnd)
+				: Promise.resolve(emptyResult),
+			hasTrackedSymbols
+				? fetchSplits(weekStart, weekEnd)
+				: Promise.resolve(emptyResult),
+			fetchIpos(weekStart, weekEnd),
+		]);
+
+	const earnings = earningsResult.data;
+	const dividends = dividendsResult.data;
+	const splits = splitsResult.data;
+	const ipos = iposResult.data;
+
+	const failedProviders: string[] = [];
+	if (earningsResult.failed) failedProviders.push("earnings");
+	if (dividendsResult.failed) failedProviders.push("dividends");
+	if (splitsResult.failed) failedProviders.push("splits");
+	if (iposResult.failed) failedProviders.push("ipos");
+
+	if (failedProviders.length > 0) {
+		logger.warn("One or more asset event providers failed", {
+			action: "fetch_asset_events",
+			failedProviders,
+		});
+	}
 
 	logger.info("Provider responses received", {
 		action: "fetch_asset_events",
@@ -187,5 +212,5 @@ export async function fetchAndStoreAssetEvents(options: {
 		});
 	}
 
-	return { upserted: rows.length };
+	return { upserted: rows.length, failedProviders };
 }

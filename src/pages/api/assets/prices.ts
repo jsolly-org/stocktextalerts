@@ -62,35 +62,41 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 
 		// Lazy backfill: fetch sector from Massive for assets missing it.
 		// Use admin client for updates — authenticated has SELECT only on assets.
+		// Process sequentially to avoid unbounded fan-out of Massive API calls.
 		const missingSectorSymbols = symbols.filter((s) => !sectorMap.get(s));
 		if (missingSectorSymbols.length > 0) {
 			const adminSupabase = createSupabaseAdminClient();
-			await Promise.all(
-				missingSectorSymbols.map(async (symbol) => {
-					try {
-						const data = await marketDataFetch(
-							`/v3/reference/tickers/${encodeURIComponent(symbol)}`,
-							{},
-							"ticker-details",
-						);
-						if (typeof data !== "object" || data === null) return;
-						const results = (data as Record<string, unknown>).results;
-						if (typeof results !== "object" || results === null) return;
-						const sicCode = (results as Record<string, unknown>).sic_code;
-						if (typeof sicCode !== "string" && typeof sicCode !== "number")
-							return;
-						const sector = sicCodeToSector(String(sicCode));
-						sectorMap.set(symbol, sector);
+			for (const symbol of missingSectorSymbols) {
+				try {
+					const data = await marketDataFetch(
+						`/v3/reference/tickers/${encodeURIComponent(symbol)}`,
+						{},
+						"ticker-details",
+					);
+					if (typeof data !== "object" || data === null) continue;
+					const results = (data as Record<string, unknown>).results;
+					if (typeof results !== "object" || results === null) continue;
+					const sicCode = (results as Record<string, unknown>).sic_code;
+					if (typeof sicCode !== "string" && typeof sicCode !== "number")
+						continue;
+					const sector = sicCodeToSector(String(sicCode));
+					sectorMap.set(symbol, sector);
 
-						await adminSupabase
-							.from("assets")
-							.update({ sector } as Record<string, unknown>)
-							.eq("symbol", symbol);
-					} catch (err) {
-						logger.warn("Failed to fetch sector for asset", { symbol }, err);
+					const { error: updateError } = await adminSupabase
+						.from("assets")
+						.update({ sector } as Record<string, unknown>)
+						.eq("symbol", symbol);
+					if (updateError) {
+						logger.warn(
+							"Supabase sector update failed",
+							{ symbol, sector },
+							updateError,
+						);
 					}
-				}),
-			);
+				} catch (err) {
+					logger.warn("Failed to fetch sector for asset", { symbol }, err);
+				}
+			}
 		}
 
 		const assets: Record<
