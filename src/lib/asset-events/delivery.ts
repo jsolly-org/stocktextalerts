@@ -126,7 +126,7 @@ function formatAssetEventsEmail(options: {
 	}
 	textParts.push(`\nManage your settings: ${urls.dashboardUrl}`);
 	textParts.push(`Manage your delivery schedule: ${urls.scheduleUrl}`);
-	textParts.push(`Unsubscribe: ${urls.unsubscribeUrl}`);
+	textParts.push(`Unsubscribe from all emails: ${urls.unsubscribeUrl}`);
 
 	const subject = "Asset Events";
 	const text = textParts.join("\n");

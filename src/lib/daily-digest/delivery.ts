@@ -320,7 +320,7 @@ export function formatDailyDigestEmail(options: {
 		insider ? `\n🏦 Insider Trades\n${insider}` : "",
 		`\nManage your settings: ${urls.dashboardUrl}`,
 		`Manage your delivery schedule: ${urls.scheduleUrl}`,
-		`Unsubscribe: ${urls.unsubscribeUrl}`,
+		`Unsubscribe from all emails: ${urls.unsubscribeUrl}`,
 	].filter(Boolean);
 
 	const subject = "Daily digest";

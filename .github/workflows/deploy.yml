@@ -58,3 +58,50 @@ jobs:
         run: supabase db push --include-all
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+  live-email-test:
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: ${{ github.actor != 'nektos/act' }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: actions/setup-node@v6.2.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - uses: supabase/setup-cli@v1.6.0
+        with:
+          version: 2.76.9
+      - name: Start Supabase
+        run: supabase start -x studio,imgproxy,logflare,vector,postgres-meta,edge-runtime,realtime,storage-api
+      - name: Load env
+        run: |
+          supabase status -o json > /tmp/sb-status.json
+          DB_VARS=$(jq -r '
+            "SUPABASE_URL=\(.API_URL // "")",
+            "SUPABASE_PUBLISHABLE_KEY=\(.ANON_KEY // "")",
+            "SUPABASE_SECRET_KEY=\(.SERVICE_ROLE_KEY // "")",
+            "DATABASE_URL=\(.DB_URL // "")"
+          ' /tmp/sb-status.json)
+          cat > .env.local <<EOF
+          $DB_VARS
+          CRON_SECRET=ci-cron-secret
+          VERCEL_URL=http://localhost:4321
+          TWILIO_ACCOUNT_SID=AC00000000000000000000000000000000
+          TWILIO_AUTH_TOKEN=ci-twilio-auth-token
+          TWILIO_PHONE_NUMBER=+15555550100
+          TWILIO_VERIFY_SERVICE_SID=VA00000000000000000000000000000000
+          RESEND_API_KEY=$RESEND_API_KEY
+          EMAIL_FROM=$EMAIL_FROM
+          MASSIVE_API_KEY=ci-massive-api-key
+          FINNHUB_API_KEY=ci-finnhub-api-key
+          EOF
+          cat .env.local >> $GITHUB_ENV
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+      - name: Run live email tests
+        run: npm run test:live:email

@@ -11,6 +11,7 @@ export interface EnrichedAlert {
 	signalContext: string;
 	headlines: CompanyNewsItem[];
 	aiSummary: string | null;
+	intradayCloses: number[] | null;
 }
 
 /** Fetch breaking news for a symbol (top 3 headlines from the last 24h). */
@@ -40,8 +41,9 @@ export async function enrichAlert(options: {
 	quote: ExtendedAssetQuote;
 	signalContext: string;
 	news: CompanyNewsItem[];
+	intradayCloses: number[] | null;
 }): Promise<EnrichedAlert> {
-	const { symbol, quote, signalContext, news } = options;
+	const { symbol, quote, signalContext, news, intradayCloses } = options;
 
 	const priceContext = buildPriceContext(symbol, quote);
 
@@ -62,5 +64,6 @@ export async function enrichAlert(options: {
 		signalContext,
 		headlines: news,
 		aiSummary,
+		intradayCloses,
 	};
 }

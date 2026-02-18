@@ -52,8 +52,17 @@ export function createSmsSender(
 	client: TwilioClient,
 	defaultFromNumber: string,
 ): SmsSender {
-	// In test mode, return a mock sender that validates required fields but avoids external API calls
-	if (import.meta.env.MODE === "test") {
+	// In test mode, return a mock sender unless --live=sms is set.
+	// LIVE_API_PROVIDERS is set by run-vitest.ts before Vitest starts, making it
+	// visible in source code (unlike vi.stubEnv which only affects test context).
+	const liveProviders = import.meta.env.LIVE_API_PROVIDERS || "";
+	const liveSms =
+		liveProviders === "all" ||
+		liveProviders
+			.split(",")
+			.map((s: string) => s.trim())
+			.includes("sms");
+	if (import.meta.env.MODE === "test" && !liveSms) {
 		const behavior = import.meta.env.SMS_TEST_BEHAVIOR ?? "success";
 		const testMessageSid = import.meta.env.SMS_TEST_MESSAGE_SID ?? "test";
 		const testError = import.meta.env.SMS_TEST_ERROR ?? "Test SMS failure";

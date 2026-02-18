@@ -1,11 +1,11 @@
-# Runs after every push to main. Creates up to 3 follow-up GitHub issues based
+# Runs after every push to dev. Creates up to 3 follow-up GitHub issues based
 # on the recent changes, and updates documentation files (README, FAQ,
 # HowItWorks) to reflect the latest code.
 name: Post Main Push
 
 on:
   push:
-    branches: [main]
+    branches: [dev]
   workflow_dispatch:
 
 permissions:
@@ -24,7 +24,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6.0.2
         with:
-          ref: main
+          ref: dev
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -56,11 +56,11 @@ jobs:
           - Actor: ${{ github.actor }}
 
           # Goal:
-          Create high-quality follow-up GitHub issues inspired by the changes just pushed to main. Quality over quantity — zero issues is perfectly fine.
+          Create high-quality follow-up GitHub issues inspired by the changes just pushed to dev. Quality over quantity — zero issues is perfectly fine.
 
           # Phase 1 — Understand the changes:
           - If Trigger is \`push\`: run \`git log ${{ github.event.before }}..${{ github.sha }} --format='%H %s'\` and \`git diff ${{ github.event.before }}..${{ github.sha }}\` to understand what changed. Also try to find an associated merged PR: \`gh pr list --search '${{ github.sha }}' --state merged --json number,title,url --limit 1\`.
-          - If Trigger is \`workflow_dispatch\`: review the latest 3 commits on \`main\` using \`git log -3 --format='%H %s'\` and \`git diff HEAD~3..HEAD\` to understand recent changes.
+          - If Trigger is \`workflow_dispatch\`: review the latest 3 commits on \`dev\` using \`git log -3 --format='%H %s'\` and \`git diff HEAD~3..HEAD\` to understand recent changes.
 
           # Phase 2 — Check existing issues:
           - Fetch open issues: \`gh issue list --state open --limit 50 --json number,title,body,labels\`
@@ -139,7 +139,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6.0.2
         with:
-          ref: main
+          ref: dev
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -171,7 +171,7 @@ jobs:
           - Actor: ${{ github.actor }}
 
           # Goal:
-          - Update docs on \`main\`, then commit + push directly to \`main\` (no follow-up PR).
+          - Update docs on \`dev\`, then commit + push directly to \`dev\` (no follow-up PR).
 
           # Allowed files (ONLY these may be modified):
           - \`README.md\` — project documentation
@@ -180,11 +180,11 @@ jobs:
 
           # Requirements:
           1) If Trigger is \`push\` (Before SHA and After SHA are set): determine what changed using \`git diff ${{ github.event.before }}..${{ github.sha }}\` or \`git log ${{ github.event.before }}..${{ github.sha }} --format='%H %s'\`. Update the allowed files if the changes warrant it.
-          2) If Trigger is \`workflow_dispatch\` (manual run; SHAs may be empty): review the current state of the codebase on \`main\` and update the allowed files to accurately reflect it.
+          2) If Trigger is \`workflow_dispatch\` (manual run; SHAs may be empty): review the current state of the codebase on \`dev\` and update the allowed files to accurately reflect it.
           3) Only modify the allowed files listed above. Do NOT touch any other files.
           4) For \`src/pages/faq.astro\`: only update the \`faqs\` array entries and surrounding page copy. Do NOT change the component imports, layout structure, JSON-LD logic, or Tailwind classes.
           5) For \`src/components/landing/HowItWorks.astro\`: only update the \`steps\` array entries and surrounding section copy. Do NOT change the component imports, template structure, or Tailwind classes.
-          6) Commit and push changes directly to \`main\`. Only create a commit if at least one allowed file changed.
+          6) Commit and push changes directly to \`dev\`. Only create a commit if at least one allowed file changed.
           7) Do NOT create or edit pull requests.
 
           # Inputs and conventions:
@@ -192,14 +192,14 @@ jobs:
           - Keep changes minimal and consistent with repo style.
 
           # Implementation notes:
-          - You are checked out on \`main\`. After making changes, run \`git status --porcelain\` to confirm only allowed files changed.
+          - You are checked out on \`dev\`. After making changes, run \`git status --porcelain\` to confirm only allowed files changed.
           - If any allowed files changed, run:
             - \`git add README.md src/pages/faq.astro src/components/landing/HowItWorks.astro\`
             - \`git commit -m \"docs: update docs for ${{ github.sha }}\" \` when Trigger is \`push\`, or \`git commit -m \"docs: update docs (manual trigger)\" \` when Trigger is \`workflow_dispatch\`
-            - \`git push origin main\`
+            - \`git push origin dev\`
 
           # Deliverables when updates occur:
-          - A commit pushed directly to \`main\` that changes only the allowed files.
+          - A commit pushed directly to \`dev\` that changes only the allowed files.
           - After pushing, print exactly one line so the workflow can log it: \`DOCS_PUSHED_SHA=\$(git rev-parse HEAD)\`
           " --force --model "$MODEL" --output-format=text
 
@@ -210,10 +210,10 @@ jobs:
             git restore --staged --worktree -- .github/workflows .github/actions
           fi
 
-      - name: Log latest commit on main
+      - name: Log latest commit on dev
         run: |
-          git fetch origin main --depth=1
+          git fetch origin dev --depth=1
           echo "---"
-          echo "Latest commit on origin/main after run:"
-          git log -1 origin/main --format="  SHA: %H%n  Subject: %s%n  Author: %an <%ae>%n  Date: %ai"
+          echo "Latest commit on origin/dev after run:"
+          git log -1 origin/dev --format="  SHA: %H%n  Subject: %s%n  Author: %an <%ae>%n  Date: %ai"
           echo "---"
