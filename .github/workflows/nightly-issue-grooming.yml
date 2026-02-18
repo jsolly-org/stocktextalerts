@@ -185,6 +185,7 @@ jobs:
           EOF
           )"
           PR_URL=$(gh pr create \
+            --base dev \
             --title "$PR_TITLE" \
             --label "bot-generated" \
             --body "$PR_BODY")
@@ -197,6 +198,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           ISSUE_NUMBER: ${{ matrix.issue.number }}
+          PR_URL: ${{ steps.create_pr.outputs.pr_url }}
         run: |
-          gh issue close "$ISSUE_NUMBER" \
-            --comment "Resolved by ${{ steps.create_pr.outputs.pr_url }}. Closed automatically because the PR targets dev (not main), so GitHub's auto-close keywords don't apply."
+          if [ -n "$PR_URL" ]; then
+            COMMENT="Resolved by $PR_URL. Closed automatically because the PR targets dev (not main), so GitHub's auto-close keywords don't apply."
+          else
+            COMMENT="Resolved — PR creation failed or URL unavailable."
+          fi
+          gh issue close "$ISSUE_NUMBER" --comment "$COMMENT"
