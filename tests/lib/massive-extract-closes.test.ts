@@ -39,12 +39,14 @@ describe("extractClosesFromBars", () => {
 		expect(extractClosesFromBars({ results: [{ c: "100" }] })).toBeNull();
 		expect(extractClosesFromBars({ results: [{ c: NaN }] })).toBeNull();
 		expect(extractClosesFromBars({ results: [{ c: Infinity }] })).toBeNull();
+		expect(extractClosesFromBars({ results: [{ c: -Infinity }] })).toBeNull();
 		expect(extractClosesFromBars({ results: [{ c: null }] })).toBeNull();
 	});
 
 	it("extracts c when typeof c === number and Number.isFinite(c)", () => {
 		expect(extractClosesFromBars({ results: [{ c: 150.5 }] })).toEqual([150.5]);
 		expect(extractClosesFromBars({ results: [{ c: 0 }] })).toEqual([0]);
+		expect(extractClosesFromBars({ results: [{ c: -5.5 }] })).toEqual([-5.5]);
 	});
 
 	it("ignores bars with non-numeric or NaN c", () => {

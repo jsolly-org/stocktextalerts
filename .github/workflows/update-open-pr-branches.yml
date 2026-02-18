@@ -1,9 +1,12 @@
+# Keeps open PR branches up to date with dev. When a push lands on dev, this
+# workflow finds all non-draft PRs that are behind and calls the GitHub API to
+# update their branches. Skips draft PRs and PRs already up to date.
 name: Update Open PR Branches
 
 on:
   push:
     branches:
-      - main
+      - dev
   workflow_dispatch:
 
 permissions:
@@ -19,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.actor != 'nektos/act' }}
     steps:
-      - name: Update open PR branches that are behind main
+      - name: Update open PR branches that are behind dev
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -29,7 +32,7 @@ jobs:
           prs="$(gh pr list \
             --repo "$GH_REPO" \
             --state open \
-            --base main \
+            --base dev \
             --limit 200 \
             --json number,mergeStateStatus,isDraft,url)"
 
@@ -62,13 +65,13 @@ jobs:
               skipped_not_behind=$((skipped_not_behind + 1))
             else
               echo "Updating PR #$number ($url)."
-              if gh api \
+              if err="$(gh api \
                 --method PUT \
                 "repos/$GH_REPO/pulls/$number/update-branch" \
-                --silent; then
+                --silent 2>&1)"; then
                 updated=$((updated + 1))
               else
-                echo "Could not update PR #$number (permissions or merge constraints)."
+                echo "::error::Failed to update PR #$number ($url): $err"
                 update_failed=$((update_failed + 1))
               fi
             fi
@@ -80,3 +83,8 @@ jobs:
           echo "- update_failed=$update_failed"
           echo "- skipped_drafts=$skipped_drafts"
           echo "- skipped_not_behind=$skipped_not_behind"
+
+          if [[ "$update_failed" -gt 0 ]]; then
+            echo "::warning::$update_failed PR(s) failed to update."
+            exit 1
+          fi

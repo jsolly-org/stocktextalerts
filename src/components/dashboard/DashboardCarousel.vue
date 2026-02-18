@@ -47,6 +47,7 @@ import CalendarDaysIcon from "../../icons/calendar-days.svg?component";
 import ChartBarIcon from "../../icons/chart-bar.svg?component";
 import NewspaperIcon from "../../icons/newspaper.svg?component";
 import PresentationChartLineIcon from "../../icons/presentation-chart-line.svg?component";
+import { getScrollBehavior } from "../../lib/accessibility";
 import {
 	DASHBOARD_SECTION_IDS,
 } from "../../lib/constants";
@@ -79,8 +80,6 @@ const HASH_TO_TAB_INDEX: Record<string, number> = {
 const activeIndex = defineModel<number>('activeIndex', { default: 0 });
 const trackRef = ref<HTMLElement | null>(null);
 const cardRefs = ref<(HTMLElement | null)[]>([]);
-const prefersReducedMotion = ref(false);
-let motionQuery: MediaQueryList | null = null;
 let isMobileQuery: MediaQueryList | null = null;
 
 // --- Touch tracking ---
@@ -106,7 +105,7 @@ function scrollToCard(index: number) {
 	activeIndex.value = index;
 	track.scrollTo({
 		left: card.offsetLeft,
-		behavior: prefersReducedMotion.value ? "auto" : "smooth",
+		behavior: getScrollBehavior(),
 	});
 }
 
@@ -208,10 +207,6 @@ function handleTouchCancel() {
 	resetTouch();
 }
 
-function handleMotionChange(event: MediaQueryListEvent) {
-	prefersReducedMotion.value = event.matches;
-}
-
 function handleTrackClick(event: MouseEvent) {
 	const target = event.target as HTMLElement | null;
 	const anchor = target?.closest("a[href]") as HTMLAnchorElement | null;
@@ -246,18 +241,13 @@ function syncToHash() {
 }
 
 onMounted(() => {
-	motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 	isMobileQuery = window.matchMedia("(max-width: 767.99px)");
-	prefersReducedMotion.value = motionQuery.matches;
-	motionQuery.addEventListener("change", handleMotionChange);
-
 	// Sync tab highlight when user follows hash links (e.g. Daily Digest link from Alerts tab)
 	syncToHash();
 	window.addEventListener("hashchange", syncToHash);
 });
 
 onUnmounted(() => {
-	motionQuery?.removeEventListener("change", handleMotionChange);
 	window.removeEventListener("hashchange", syncToHash);
 });
 </script>
