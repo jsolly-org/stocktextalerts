@@ -1,4 +1,4 @@
-# Keeps open PR branches up to date with main. When a push lands on main, this
+# Keeps open PR branches up to date with dev. When a push lands on dev, this
 # workflow finds all non-draft PRs that are behind and calls the GitHub API to
 # update their branches. Skips draft PRs and PRs already up to date.
 name: Update Open PR Branches
@@ -6,7 +6,7 @@ name: Update Open PR Branches
 on:
   push:
     branches:
-      - main
+      - dev
   workflow_dispatch:
 
 permissions:
@@ -32,7 +32,7 @@ jobs:
           prs="$(gh pr list \
             --repo "$GH_REPO" \
             --state open \
-            --base main \
+            --base dev \
             --limit 200 \
             --json number,mergeStateStatus,isDraft,url)"
 
