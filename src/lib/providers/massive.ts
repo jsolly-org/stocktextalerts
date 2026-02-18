@@ -394,6 +394,40 @@ export async function fetchDailyCloses(
 }
 
 /**
+ * Fetch intraday 5-minute closing prices for a single symbol (today, ET timezone).
+ *
+ * Uses `/v2/aggs/ticker/{symbol}/range/5/minute/{today}/{today}?sort=asc&limit=5000`.
+ * Returns an array of closing prices, or null on failure.
+ */
+export async function fetchIntradayBars(
+	symbol: string,
+): Promise<number[] | null> {
+	const today = new Date().toLocaleDateString("en-CA", {
+		timeZone: "America/New_York",
+	});
+	const data = await marketDataFetch(
+		`/v2/aggs/ticker/${encodeURIComponent(symbol)}/range/5/minute/${today}/${today}`,
+		{ sort: "asc", limit: "5000" },
+		"intraday-bars",
+	);
+	if (typeof data !== "object" || data === null) return null;
+
+	const results = (data as Record<string, unknown>).results;
+	if (!Array.isArray(results)) return null;
+
+	const closes: number[] = [];
+	for (const bar of results) {
+		if (typeof bar !== "object" || bar === null) continue;
+		const c = (bar as Record<string, unknown>).c;
+		if (typeof c === "number" && Number.isFinite(c)) {
+			closes.push(c);
+		}
+	}
+
+	return closes.length > 0 ? closes : null;
+}
+
+/**
  * Fetch previous close for a single symbol.
  *
  * Uses `/v2/aggs/ticker/{symbol}/prev?adjusted=true`.
