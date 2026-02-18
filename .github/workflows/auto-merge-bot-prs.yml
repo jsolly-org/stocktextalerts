@@ -1,6 +1,6 @@
 # Automatically enables squash-merge for PRs labeled "bot-generated" once all
 # required status checks pass. Covers nightly agent PRs (code-quality, security,
-# performance, issue-grooming).
+# performance) and post-push follow-up PRs.
 name: Auto-merge bot PRs
 
 on:
