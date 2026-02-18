@@ -25,7 +25,7 @@ New app with no users — optimize for simplicity and correctness over backwards
 ## Local Dev Login
 - Test user email: `test@jsolly.com` (defined in `scripts/data/users.json`)
 - Password: the `DEFAULT_PASSWORD` value from `.env.local`
-- Created by `supabase/seed.sql` (regenerated via `npm run db:gen-seed`)
+- Created by `supabase/seed.sql` (regenerated via `npm run db:generate-seed`)
 
 ## Guidelines
 - [Code Style & Structure](.agents/code-style.md)
