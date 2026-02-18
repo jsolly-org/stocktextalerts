@@ -204,6 +204,8 @@ const MESSAGE_ALLOWLIST = {
 	delete_orphaned_auth_failed:
 		"Failed to complete account deletion. Please try again.",
 	assets_limit: `Maximum ${MAX_TRACKED_ASSETS} assets allowed`,
+	password_changed: "Password updated successfully.",
+	password_change_failed: "Failed to update password. Please try again.",
 } as const;
 
 type MessageKey = keyof typeof MESSAGE_ALLOWLIST;
