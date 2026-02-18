@@ -349,7 +349,8 @@ The `vercel.json` file configures three cron jobs. All must include `Authorizati
 
 ## Security Features
 
-- Row Level Security (RLS) on all database tables
+- Row Level Security (RLS) on all database tables (authenticated users have SELECT-only on assets; service_role handles sector updates)
+- URL sanitization in notification links (only http/https allowed in headline URLs, blocks javascript:, data:, etc.)
 - Cron endpoint protected by secret header
 - Phone verification via Twilio Verify API
 - SMS opt-out support (STOP keyword compliance)
