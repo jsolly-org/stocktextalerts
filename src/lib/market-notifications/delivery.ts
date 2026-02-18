@@ -2,13 +2,15 @@ import { DASHBOARD_SECTION_HASHES } from "../constants";
 import { getSiteUrl } from "../db/env";
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
-import { escapeHtml } from "../messaging/asset-formatting";
+import { escapeHtml, getChangeColor } from "../messaging/asset-formatting";
 import { sendUserEmail } from "../messaging/email/index";
 import { createEmailUnsubscribeUrl } from "../messaging/email/unsubscribe";
 import type { EmailSender } from "../messaging/email/utils";
 import { recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import type { SmsSender } from "../messaging/sms/twilio-utils";
+import { toSparkline } from "../messaging/sparkline";
+import { toSvgSparklineImg } from "../messaging/svg-sparkline";
 import type { EnrichedAlert } from "./enrichment";
 import type { PriceAlertUser } from "./users";
 
@@ -27,21 +29,27 @@ function formatPriceAlertSms(alert: EnrichedAlert): string {
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const optOutSuffix = "Reply STOP to opt out.";
 
+	const sparkline = alert.intradayCloses
+		? toSparkline(alert.intradayCloses)
+		: "";
+	const priceContextLine = sparkline
+		? `${alert.priceContext} Today: ${sparkline}`
+		: alert.priceContext;
+
 	const sections = [
-		`ALERT: ${alert.symbol} price shock`,
-		alert.priceContext,
+		"StockTextAlerts — Asset Price Alert 🚨",
+		priceContextLine,
 		`Signals: ${alert.signalContext}`,
 	];
 
-	if (alert.headlines.length > 0) {
-		const headlineLines = alert.headlines
-			.map((h) => `- ${h.headline}`)
-			.join("\n");
-		sections.push(`Headlines:\n${headlineLines}`);
-	}
-
 	if (alert.aiSummary) {
-		sections.push(alert.aiSummary);
+		const headlineUrls = alert.headlines
+			.filter((h) => h.url)
+			.map((h) => h.url)
+			.join("\n");
+		sections.push(
+			headlineUrls ? `${alert.aiSummary}\n${headlineUrls}` : alert.aiSummary,
+		);
 	}
 
 	sections.push(`Manage your settings: ${dashboardUrl}`);
@@ -65,9 +73,16 @@ function formatPriceAlertEmail(
 	});
 
 	// Plaintext
+	const textSparkline = alert.intradayCloses
+		? toSparkline(alert.intradayCloses)
+		: "";
+	const textPriceContextLine = textSparkline
+		? `${alert.priceContext} Today: ${textSparkline}`
+		: alert.priceContext;
+
 	const textSections = [
 		`Asset Price Alert: ${alert.symbol}`,
-		alert.priceContext,
+		textPriceContextLine,
 		`Signals: ${alert.signalContext}`,
 	];
 
@@ -83,7 +98,7 @@ function formatPriceAlertEmail(
 	}
 
 	textSections.push(`Manage your settings: ${scheduleUrl}`);
-	textSections.push(`Unsubscribe: ${unsubscribeUrl}`);
+	textSections.push(`Unsubscribe from all emails: ${unsubscribeUrl}`);
 
 	const text = textSections.join("\n\n");
 
@@ -130,9 +145,25 @@ function formatPriceAlertEmail(
 		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Asset Price Alert</h1>
 	</div>
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">${escapeHtml(alert.symbol)} — Price Shock</h2>
+		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">${escapeHtml(alert.symbol)}</h2>
 		<div style="background: #fffbeb; padding: 16px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #fde68a;">
-			<p style="color: #92400e; font-size: 16px; font-weight: 500; margin: 0;">${escapeHtml(alert.priceContext)}</p>
+			<p style="color: #92400e; font-size: 16px; font-weight: 500; margin: 0;">${escapeHtml(alert.priceContext)}</p>${(() => {
+				if (!alert.intradayCloses || alert.intradayCloses.length < 2) return "";
+				const color = getChangeColor(
+					alert.intradayCloses[alert.intradayCloses.length - 1] -
+						alert.intradayCloses[0],
+				);
+				const sparklineImg = toSvgSparklineImg(
+					alert.intradayCloses,
+					color,
+					200,
+					40,
+				);
+				if (!sparklineImg) return "";
+				return `
+			<p style="color: #92400e; font-size: 12px; margin: 8px 0 0 0;">Today since open:</p>
+			<div style="margin-top: 4px;">${sparklineImg}</div>`;
+			})()}
 		</div>
 		<div style="margin-bottom: 20px;">
 			<p style="color: #6b7280; font-size: 14px; margin: 0;"><strong>Signals:</strong> ${escapeHtml(alert.signalContext)}</p>
@@ -147,7 +178,7 @@ function formatPriceAlertEmail(
 		<p style="color: #6b7280; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
 			<a href="${escapedScheduleUrl}" style="color: #667eea; text-decoration: none;">Manage alerts</a>
 			<span style="color: #d1d5db; padding: 0 8px;">•</span>
-			<a href="${escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
+			<a href="${escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe from all emails</a>
 		</p>
 	</div>
 </body>

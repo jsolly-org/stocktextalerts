@@ -1,6 +1,7 @@
 import { rootLogger } from "../logging";
 import { createEmailSender } from "../messaging/email/utils";
 import type { CompanyNewsItem } from "../providers/company-news";
+import { fetchIntradayBars } from "../providers/massive";
 import {
 	type ExtendedAssetQuote,
 	type ExtendedQuoteMap,
@@ -414,14 +415,30 @@ export async function processPriceAlerts(options: {
 
 		totals.alertsTriggered++;
 
+		const [newsResult, intradayResult] = await Promise.allSettled([
+			fetchBreakingNews(symbol),
+			fetchIntradayBars(symbol),
+		]);
+
 		let news: CompanyNewsItem[] = [];
-		try {
-			news = await fetchBreakingNews(symbol);
-		} catch (error) {
+		if (newsResult.status === "fulfilled") {
+			news = newsResult.value;
+		} else {
 			rootLogger.warn(
 				"Failed to fetch breaking news for price alert enrichment",
 				{ symbol },
-				error,
+				newsResult.reason,
+			);
+		}
+
+		let intradayCloses: number[] | null = null;
+		if (intradayResult.status === "fulfilled") {
+			intradayCloses = intradayResult.value;
+		} else {
+			rootLogger.warn(
+				"Failed to fetch intraday bars for price alert enrichment",
+				{ symbol },
+				intradayResult.reason,
 			);
 		}
 
@@ -439,6 +456,7 @@ export async function processPriceAlerts(options: {
 					benchmarkLabel,
 				}),
 				news,
+				intradayCloses,
 			});
 
 			if (user.market_asset_price_alerts_include_sms && !smsSender) {
