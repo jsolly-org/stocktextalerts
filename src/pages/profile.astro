@@ -70,7 +70,7 @@ const minutes =
 let errorMessage = "";
 if (error) {
 	if (error === "rate_limit" && minutes) {
-		errorMessage = `Too many password change attempts. Please wait ${minutes} minutes and try again.`;
+		errorMessage = `You've made too many requests. Please wait ${minutes} minutes and try again.`;
 	} else {
 		errorMessage = getAuthErrorMessage(error);
 	}
