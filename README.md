@@ -102,9 +102,9 @@ TWILIO_PHONE_NUMBER=+1234567890
 TWILIO_VERIFY_SERVICE_SID=your-verify-service-sid
 
 # Vercel
-CRON_SECRET=your-random-secret-string
+CRON_SECRET=your-random-secret-string  # Minimum 12 characters; use `openssl rand -hex 32` for production
 
-EMAIL_FROM=notifications@updates.example.com
+EMAIL_FROM="Your Project Name <notifications@updates.example.com>"
 
 # Massive (asset prices / dividends / splits / news)
 MASSIVE_API_KEY=your-massive-api-key
@@ -127,7 +127,7 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - `SUPABASE_SECRET_KEY`: Supabase Dashboard → Project Settings → API Keys → Secret keys
 - `DATABASE_URL`: Supabase Dashboard → Project Settings → Database → Connection String → Transaction mode (pooler)
 - Twilio credentials: Twilio Console → Account Dashboard
-- `CRON_SECRET`: Generate a random string (e.g., `openssl rand -hex 32`)
+- `CRON_SECRET`: Generate a random string (minimum 12 characters; e.g., `openssl rand -hex 32`)
 - Massive credentials: Massive Dashboard → API Keys
 - Finnhub credentials: Finnhub Dashboard → API Keys
 - xAI credentials: xAI Console → API Keys
