@@ -383,8 +383,12 @@ Daily Aggregates
 ============= */
 
 /**
- * Parse closing prices from Polygon/Massive bars API response payload.
- * Returns an array of valid closing prices in order, or null for invalid payloads.
+ * Extract closing prices from a Polygon/Massive bars API response.
+ *
+ * Expects a payload with a `results` array of bar objects, each with an optional `c` (close) field.
+ * Returns `null` for non-object payloads, missing or invalid `results`, or when no valid bars exist.
+ * Extracts only finite numeric `c` values; ignores non-numeric, NaN, and Infinity.
+ * Returns closes in the same order as the bars in `results`.
  */
 export function extractClosesFromBars(payload: unknown): number[] | null {
 	if (typeof payload !== "object" || payload === null) return null;
