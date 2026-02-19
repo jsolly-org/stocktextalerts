@@ -150,11 +150,17 @@ const isMobile = useMediaQuery("(max-width: 767.99px)");
 const activeIndex = ref(0);
 const visitedIndices = ref(new Set<number>([0]));
 
-watch(activeIndex, (i) => visitedIndices.value.add(i));
+watch(activeIndex, (i) => {
+	// Replace Set to trigger reactivity; .add() mutates in place and Vue doesn't detect it.
+	if (visitedIndices.value.has(i)) return;
+	visitedIndices.value = new Set([...visitedIndices.value, i]);
+});
 
 // When switching to desktop, mark all panels as visited so they stay mounted on resize back to mobile
 watch(isMobile, (mobile) => {
-	if (!mobile) for (let i = 0; i < 5; i++) visitedIndices.value.add(i);
+	if (!mobile) {
+		visitedIndices.value = new Set([0, 1, 2, 3, 4]);
+	}
 }, { immediate: true });
 
 function shouldRender(panelIndex: number): boolean {
