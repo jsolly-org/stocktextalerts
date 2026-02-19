@@ -233,8 +233,10 @@ function scrollToHashTarget(hash: string, cardIndex: number) {
 		// Element already in the DOM — wait for the card-switch scroll to land.
 		const track = trackRef.value;
 		if (!track) { doScroll(existing); return; }
-		const timer = setTimeout(() => doScroll(existing), 400);
-		track.addEventListener("scrollend", () => { clearTimeout(timer); doScroll(existing); }, { once: true });
+		let scrolled = false;
+		const scrollOnce = () => { if (!scrolled) { scrolled = true; doScroll(existing); } };
+		const timer = setTimeout(scrollOnce, 400);
+		track.addEventListener("scrollend", () => { clearTimeout(timer); scrollOnce(); }, { once: true });
 		return;
 	}
 
