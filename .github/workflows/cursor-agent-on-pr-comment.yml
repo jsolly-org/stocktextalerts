@@ -228,6 +228,7 @@ jobs:
         continue-on-error: true
         env:
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
           COMMENT_ID: ${{ steps.context.outputs.comment_id }}
           COMMENT_EVENT: ${{ steps.context.outputs.event_name }}
@@ -254,6 +255,47 @@ jobs:
             BODY_CONTENT=$(cat "$RESOLVED_BODY_FILE")
           else
             BODY_CONTENT="$COMMENT_BODY"
+          fi
+
+          # Detect placeholder/meta comments that lack concrete code change instructions.
+          # When the resolution chain ends at these, provide fallback with PR diff context.
+          if [[ "$BODY_CONTENT" == *"Cursor Agent: No changes needed"* ]] || \
+             [[ "$BODY_CONTENT" == *"Could not fetch referenced comment"* ]] || \
+             [[ "$BODY_CONTENT" == *"Please re-post the review feedback"* ]] || \
+             [[ "$BODY_CONTENT" == *"The agent reviewed the comment but did not apply"* ]]; then
+            FALLBACK="**Workflow: The trigger comment does not contain concrete code change instructions.** (It may be a meta-comment like 'No changes needed' or the resolution chain ended without actionable feedback.)
+
+          Please review the PR diff below and apply any common code-quality improvements:
+          - Remove dead code and unused imports
+          - Fix lint and type errors
+          - Address any obvious issues in the changed files
+
+          Apply fixes as uncommitted changes."
+            PR_DIFF=""
+            PR_FILES=""
+            if [[ -n "${GH_TOKEN:-}" ]]; then
+              BASE_SHA=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.base.sha' 2>/dev/null || true)
+              if [[ -n "$BASE_SHA" && "$BASE_SHA" != "null" ]]; then
+                git fetch "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "$BASE_SHA" 2>/dev/null || true
+                PR_DIFF=$(git diff "$BASE_SHA"..HEAD --stat 2>/dev/null || true)
+                PR_FILES=$(git diff --name-only "$BASE_SHA"..HEAD 2>/dev/null | head -80 || true)
+              fi
+            fi
+            if [[ -n "$PR_DIFF" || -n "$PR_FILES" ]]; then
+              BODY_CONTENT="${FALLBACK}
+
+          **PR changed files:**
+          \`\`\`
+          ${PR_FILES:- (could not fetch)}
+          \`\`\`
+
+          **Diff stat:**
+          \`\`\`
+          ${PR_DIFF:- (could not fetch)}
+          \`\`\`"
+            else
+              BODY_CONTENT="$FALLBACK"
+            fi
           fi
 
           # Write body to temp file to avoid heredoc escaping issues.
