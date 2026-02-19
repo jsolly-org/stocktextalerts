@@ -507,7 +507,9 @@ jobs:
             ORIGINAL_PROMPT_SECTION=$'\n\n<!-- CURSOR_AGENT_ORIGINAL_PROMPT\n'"$PROMPT_BODY"$'\nCURSOR_AGENT_ORIGINAL_PROMPT_END -->'
           fi
           
-          NOOP_BODY=$(cat <<EOF
+          # Use heredoc for fixed parts only; append ORIGINAL_PROMPT_SECTION after to avoid user
+          # content containing EOF from truncating the heredoc (same pattern as PROMPT construction).
+          NOOP_BODY_PREFIX=$(cat <<EOF
           ## ✅ Cursor Agent: No changes needed
           
           The agent reviewed the comment but did not apply code changes (no commit was pushed).
@@ -516,11 +518,11 @@ jobs:
           $WARNINGS_SECTION
           $OUTPUT_SECTION
           [Workflow run]($RUN_URL)
-          $ORIGINAL_PROMPT_SECTION
-          
-          $INTERNAL_MARKER
           EOF
           )
+          NOOP_BODY="${NOOP_BODY_PREFIX}${ORIGINAL_PROMPT_SECTION}
+
+          $INTERNAL_MARKER"
           
           gh pr comment "${{ steps.context.outputs.pr_number }}" \
             --body "$NOOP_BODY"
