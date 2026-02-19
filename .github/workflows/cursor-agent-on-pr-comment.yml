@@ -47,7 +47,6 @@ jobs:
           repo: ${{ github.repository }}
           repo_owner: ${{ github.repository_owner }}
           event_name: ${{ github.event_name }}
-          comment_body: ${{ github.event.comment.body || github.event.review.body }}
           comment_user: ${{ github.event.comment.user.login || github.event.review.user.login }}
           comment_id: ${{ github.event.comment.id || github.event.review.id }}
           pr_number: ${{ github.event.issue.number || github.event.pull_request.number }}
