@@ -1,6 +1,6 @@
 # Scheduled nightly job that discovers open PRs with failing CI, merge
 # conflicts, or unresolved review comments and uses the Cursor agent to fix
-# them automatically. Also approves bot-generated PRs that are ready to merge.
+# them automatically.
 # Runs last in the nightly schedule so other workflows' PRs exist with CI results.
 name: "Nightly: PR Grooming"
 
@@ -380,86 +380,3 @@ jobs:
           <!-- nightly-pr-grooming-attempt -->
           EOF
           )"
-
-  approve-ready-prs:
-    if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.actor != 'nektos/act' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Approve bot PRs that are ready to merge
-        env:
-          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
-        run: |
-          # Fetch open bot-generated PRs
-          BOT_PRS=$(gh pr list \
-            --repo "${{ github.repository }}" \
-            --state open \
-            --label "bot-generated" \
-            --json number,headRefName \
-            --limit 50)
-
-          if [ "$(echo "$BOT_PRS" | jq length)" -eq 0 ]; then
-            echo "No open bot-generated PRs found."
-            exit 0
-          fi
-
-          OWNER="${{ github.repository_owner }}"
-          REPO_NAME=$(echo "${{ github.repository }}" | cut -d/ -f2)
-          APPROVED=0
-
-          for ROW in $(echo "$BOT_PRS" | jq -c '.[]'); do
-            PR_NUMBER=$(echo "$ROW" | jq -r '.number')
-
-            # Skip if already approved
-            APPROVALS=$(gh pr view "$PR_NUMBER" \
-              --repo "${{ github.repository }}" \
-              --json reviews \
-              --jq '[.reviews[] | select(.state == "APPROVED")] | length' 2>/dev/null || echo "0")
-            if [ "$APPROVALS" -gt 0 ]; then
-              echo "PR #$PR_NUMBER: already approved, skipping."
-              continue
-            fi
-
-            # Check CI status — all checks must pass
-            FAILED_CHECKS=$(gh pr checks "$PR_NUMBER" \
-              --repo "${{ github.repository }}" \
-              --json state \
-              --jq '[.[] | select(.state == "FAILURE" or .state == "PENDING")] | length' 2>/dev/null || echo "1")
-            if [ "$FAILED_CHECKS" -gt 0 ]; then
-              echo "PR #$PR_NUMBER: has failing or pending checks, skipping."
-              continue
-            fi
-
-            # Check for merge conflicts
-            MERGE_STATE=$(gh pr view "$PR_NUMBER" \
-              --repo "${{ github.repository }}" \
-              --json mergeStateStatus \
-              --jq '.mergeStateStatus' 2>/dev/null || echo "UNKNOWN")
-            if [ "$MERGE_STATE" = "DIRTY" ]; then
-              echo "PR #$PR_NUMBER: has merge conflicts, skipping."
-              continue
-            fi
-
-            # Check for unresolved review threads
-            UNRESOLVED_THREAD_QUERY='query($owner:String!,$repo:String!,$prNumber:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$prNumber){reviewThreads(first:100){nodes{isResolved}}}}}'
-            UNRESOLVED=$(gh api graphql \
-              -f query="$UNRESOLVED_THREAD_QUERY" \
-              -f owner="$OWNER" \
-              -f repo="$REPO_NAME" \
-              -F prNumber="$PR_NUMBER" \
-              --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length' 2>/dev/null || echo "1")
-            if [ "$UNRESOLVED" -gt 0 ]; then
-              echo "PR #$PR_NUMBER: has $UNRESOLVED unresolved review threads, skipping."
-              continue
-            fi
-
-            # All checks pass — approve
-            echo "PR #$PR_NUMBER: all checks passing, no conflicts, no unresolved comments. Approving."
-            gh pr review "$PR_NUMBER" \
-              --repo "${{ github.repository }}" \
-              --approve \
-              --body "All CI checks pass and no unresolved review comments. Auto-approved by nightly PR grooming."
-            APPROVED=$((APPROVED + 1))
-          done
-
-          echo "---"
-          echo "Approved $APPROVED PR(s)."
