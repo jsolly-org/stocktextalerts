@@ -383,13 +383,15 @@ Daily Aggregates
 ============= */
 
 /**
- * Extract closing prices from Polygon/Massive bars API response.
- * Returns an array of closes, or null if parsing fails or no valid bars.
+ * Parse closing prices from Polygon/Massive bars API response payload.
+ * Returns an array of valid closing prices in order, or null for invalid payloads.
  */
-function extractClosesFromBars(data: unknown): number[] | null {
-	if (typeof data !== "object" || data === null) return null;
-	const results = (data as Record<string, unknown>).results;
+export function extractClosesFromBars(payload: unknown): number[] | null {
+	if (typeof payload !== "object" || payload === null) return null;
+
+	const results = (payload as Record<string, unknown>).results;
 	if (!Array.isArray(results)) return null;
+
 	const closes: number[] = [];
 	for (const bar of results) {
 		if (typeof bar !== "object" || bar === null) continue;

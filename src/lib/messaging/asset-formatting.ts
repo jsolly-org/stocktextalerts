@@ -8,6 +8,19 @@ type AssetWithName = { symbol: string; name: string };
 export const NO_TRACKED_ASSETS_MESSAGE = "You don't have any tracked assets";
 
 /**
+ * Returns a URL safe for use in href attributes, or null if the URL is not safe.
+ * Only allows http: and https: schemes to prevent javascript:, data:, and similar XSS.
+ */
+export function getSafeHrefUrl(url: string): string | null {
+	if (typeof url !== "string" || url.trim() === "") return null;
+	const trimmed = url.trim().toLowerCase();
+	if (trimmed.startsWith("https://") || trimmed.startsWith("http://")) {
+		return url.trim();
+	}
+	return null;
+}
+
+/**
  * Escape a string for safe HTML embedding.
  */
 export function escapeHtml(value: string): string {
@@ -55,6 +68,7 @@ export function formatAssetTextLine(
 	return `${base} — ${formatAssetPriceText(price, effectiveSparkline)}`;
 }
 
+/** Return CSS hex color for price change (green for positive, red for negative). */
 export function getChangeColor(changePercent: number): string {
 	return changePercent >= 0 ? "#15803d" : "#dc2626";
 }

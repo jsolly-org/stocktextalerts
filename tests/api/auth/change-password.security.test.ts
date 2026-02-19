@@ -122,11 +122,66 @@ describe("Password change endpoint enforces authentication, form validation, and
 			} as unknown as APIContext);
 
 			expect(response.status).toBe(302);
-			expect(response.headers.get("Location")).toBe(
-				"/profile?error=rate_limit",
-			);
+			const location = response.headers.get("Location");
+			expect(location).toContain("/profile?error=rate_limit");
+			expect(location).toContain("minutes=");
 		} finally {
 			await cleanupTestUser(testUser.id);
 		}
+	});
+});
+
+describe("Password change endpoint enforces rate limiting.", () => {
+	it("When rate limit is exceeded, the request is redirected with rate_limit error.", async () => {
+		const originalPassword = "TestPassword123!";
+		const testUser = await createTestUser({
+			email: `test-${randomUUID()}@resend.dev`,
+			password: originalPassword,
+			confirmed: true,
+		});
+		registerTestUserForCleanup(testUser.id);
+
+		const attempts =
+			Number.parseInt(
+				process.env.CHANGE_PASSWORD_RATE_LIMIT_ATTEMPTS ?? "5",
+				10,
+			) || 5;
+
+		await adminClient.from("rate_limit_log").insert(
+			Array.from({ length: attempts }, () => ({
+				user_id: testUser.id,
+				endpoint: "change_password",
+			})),
+		);
+
+		const cookies = await createAuthenticatedCookies(
+			testUser.email,
+			originalPassword,
+		);
+
+		const request = new Request("http://localhost/api/auth/change-password", {
+			method: "POST",
+			body: new URLSearchParams({
+				password: NEW_PASSWORD,
+				confirm: NEW_PASSWORD,
+			}),
+		});
+
+		const response = await POST({
+			request,
+			cookies: {
+				get: (name: string) => {
+					const value = cookies.get(name);
+					return value ? { value } : undefined;
+				},
+				set: () => {},
+			},
+			redirect: toRedirect,
+		} as unknown as APIContext);
+
+		expect(response.status).toBe(302);
+		const location = response.headers.get("Location");
+		expect(location).toContain("/profile?error=rate_limit");
+		expect(location).toContain("minutes=");
 	});
 });
