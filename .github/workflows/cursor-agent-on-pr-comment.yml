@@ -508,7 +508,7 @@ jobs:
 
           $COMMENT_REFERENCE
 
-          Please fix lint/type errors locally (e.g. \`npm run fix\` or \`npx lint-staged\` and \`npm run check:ts\`) and push, or review the [workflow run]($RUN_URL) for details.
+          Please fix lint/type errors locally (e.g. \`npx lint-staged\` and \`npm run check:ts\`) and push, or review the [workflow run]($RUN_URL) for details.
 
           $INTERNAL_MARKER
           EOF

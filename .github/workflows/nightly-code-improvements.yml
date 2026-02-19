@@ -81,6 +81,7 @@ jobs:
           Improve code quality and refactor for simplicity:
           - Find and fix dead code, unused imports/exports, lint issues, and other quality problems.
           - Reduce duplication, lower complexity, improve type safety, and clean up code structure.
+          - Look for performance issues: slow queries, unnecessary re-renders, bundle size problems, and opportunities to use static/precomputed values.
 
           # Guidelines
           - Read \`AGENTS.md\` and the \`.agents/\` directory for project conventions and guidelines.

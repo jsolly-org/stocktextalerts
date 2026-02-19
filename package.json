@@ -22,7 +22,6 @@
 		"check:ts": "tsc --noEmit --skipLibCheck",
 		"check:biome": "biome check --write --no-errors-on-unmatched",
 		"check:yaml": "yamllint '.github/**/*.yml' '.coderabbit.yaml'",
-		"fix": "npm run check:biome && npm run check:yaml && npm run check:ts && npm run test:all",
 		"db:start": "supabase start",
 		"db:stop": "supabase stop",
 		"db:reset": "supabase status && npm run db:generate-seed && supabase db reset && npm run db:gen-types",
