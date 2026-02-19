@@ -1,6 +1,6 @@
-# Scheduled nightly job that discovers open PRs with failing CI, merge
-# conflicts, or unresolved review comments and uses the Cursor agent to fix
-# them automatically.
+# Scheduled nightly job that enables auto-merge on bot-generated PRs, then
+# discovers open PRs with failing CI, merge conflicts, or unresolved review
+# comments and uses the Cursor agent to fix them automatically.
 # Runs last in the nightly schedule so other workflows' PRs exist with CI results.
 name: "Nightly: PR Grooming"
 
@@ -19,6 +19,29 @@ env:
   GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
 
 jobs:
+  enable-auto-merge:
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.actor != 'nektos/act' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable auto-merge on bot-generated PRs
+        run: |
+          PRS=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --state open \
+            --label "bot-generated" \
+            --json number \
+            --jq '.[].number')
+
+          if [ -z "$PRS" ]; then
+            echo "No open bot-generated PRs found."
+            exit 0
+          fi
+
+          for PR_NUMBER in $PRS; do
+            echo "Enabling auto-merge for PR #$PR_NUMBER..."
+            gh pr merge "$PR_NUMBER" --repo "${{ github.repository }}" --auto --squash || echo "Failed to enable auto-merge for PR #$PR_NUMBER (may already be enabled)"
+          done
+
   discover-prs:
     if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.actor != 'nektos/act' }}
     runs-on: ubuntu-latest
