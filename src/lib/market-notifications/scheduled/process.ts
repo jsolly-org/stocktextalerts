@@ -14,11 +14,13 @@ import type {
 	DeliveryMethod,
 	ScheduledNotificationTotals,
 	SupabaseAdminClient,
+	UserAssetsMap,
 } from "../../schedule/helpers";
 import { loadUserAssets } from "../../schedule/helpers";
 import type { SmsSenderProvider } from "../../schedule/sms-sender";
 import { upsertStagedNotification } from "../../staged-notifications/db";
 import type { StagedMarketData } from "../../staged-notifications/types";
+import type { MarketClosureInfo } from "../../time/market-calendar";
 import { getUsMarketClosureInfoForInstant } from "../../time/market-calendar";
 import { getLocalMinutesFromDateTime } from "../../time/scheduled-times";
 import {
@@ -37,8 +39,12 @@ export async function processMarketScheduledUser(options: {
 	getSmsSender: SmsSenderProvider;
 	priceMap: AssetPriceMap;
 	marketOpen: boolean;
+	/** Market closure info for banner when marketOpen is false. */
+	marketClosureInfo?: MarketClosureInfo | null;
 	/** When true, stage content for later delivery instead of sending now. */
 	stageOnly?: boolean;
+	/** Pre-fetched user assets (avoids N+1 when batch processing). */
+	userAssetsMap?: UserAssetsMap;
 }): Promise<ScheduledNotificationTotals> {
 	const stats: ScheduledNotificationTotals = {
 		skipped: 0,
@@ -58,7 +64,9 @@ export async function processMarketScheduledUser(options: {
 		getSmsSender,
 		priceMap,
 		marketOpen,
+		marketClosureInfo,
 		stageOnly,
+		userAssetsMap,
 	} = options;
 
 	try {
@@ -140,7 +148,8 @@ export async function processMarketScheduledUser(options: {
 			return stats;
 		}
 
-		const userAssets = await loadUserAssets(supabase, user.id);
+		const userAssets =
+			userAssetsMap?.get(user.id) ?? (await loadUserAssets(supabase, user.id));
 		const formatPrefs = {
 			show_sparklines: user.show_sparklines,
 		};
@@ -206,6 +215,7 @@ export async function processMarketScheduledUser(options: {
 							marketOpen,
 							formatPrefs,
 							getSparkline,
+							marketClosureInfo,
 						);
 						return {
 							subject: "Your Scheduled Price Notification",
@@ -216,7 +226,14 @@ export async function processMarketScheduledUser(options: {
 				: null;
 
 			const smsContent = wantsSms
-				? { message: formatSmsMessage(assetsList, marketOpen) }
+				? {
+						message: formatSmsMessage(
+							assetsList,
+							marketOpen,
+							undefined,
+							marketClosureInfo,
+						),
+					}
 				: null;
 
 			const stagedData: StagedMarketData = {
@@ -264,6 +281,7 @@ export async function processMarketScheduledUser(options: {
 				sendEmail,
 				priceMap,
 				marketOpen,
+				marketClosureInfo,
 				stats,
 				formatPrefs,
 				getSparkline,
@@ -283,6 +301,7 @@ export async function processMarketScheduledUser(options: {
 				assetsList,
 				getSmsSender,
 				marketOpen,
+				marketClosureInfo,
 				stats,
 			});
 		}

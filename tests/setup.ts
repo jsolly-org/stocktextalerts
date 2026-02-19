@@ -26,7 +26,16 @@ vi.mock("../src/lib/db/env", () => ({
 assertLiveProviderKey({ provider: "massive", envVar: "MASSIVE_API_KEY" });
 assertLiveProviderKey({ provider: "finnhub", envVar: "FINNHUB_API_KEY" });
 assertLiveProviderKey({ provider: "xai", envVar: "XAI_API_KEY" });
+assertLiveProviderKey({ provider: "email", envVar: "RESEND_API_KEY" });
+assertLiveProviderKey({ provider: "sms", envVar: "TWILIO_ACCOUNT_SID" });
 
+// Data-provider stubs blank the API key so provider code skips real HTTP calls.
+// NOTE: vi.stubEnv only affects the test module context, NOT source code in src/.
+// Source code reads import.meta.env from Vite's env loading, which is unaffected
+// by vi.stubEnv. The data-provider stubs still work because provider code checks
+// for an empty key and bails out. Email/SMS mocking is handled by the MODE check
+// combined with LIVE_API_PROVIDERS in the source code itself (see createEmailSender
+// and createSmsSender), so no stubs are needed for those.
 if (!isLiveProviderEnabled("massive")) {
 	vi.stubEnv("MASSIVE_API_KEY", "");
 }
@@ -38,13 +47,6 @@ if (!isLiveProviderEnabled("finnhub")) {
 if (!isLiveProviderEnabled("xai")) {
 	vi.stubEnv("XAI_API_KEY", "");
 }
-
-// Keep messaging providers fake/stubbed in tests by default.
-vi.stubEnv("TWILIO_ACCOUNT_SID", "AC_TEST_SID");
-vi.stubEnv("TWILIO_AUTH_TOKEN", "TEST_TOKEN");
-vi.stubEnv("TWILIO_PHONE_NUMBER", "+15555550123");
-vi.stubEnv("TWILIO_VERIFY_SERVICE_SID", "VA_TEST_SERVICE");
-vi.stubEnv("RESEND_API_KEY", "RESEND_TEST_KEY");
 
 function getDatabaseUrl(): string {
 	const databaseUrl = process.env.DATABASE_URL;

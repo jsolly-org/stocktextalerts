@@ -41,9 +41,11 @@ export function toSparkline(values: number[]): string {
 		.join("");
 }
 
+/** Numeric values plus the precomputed Unicode block-character sparkline string. */
 export interface SparklineData {
 	values: number[];
 	ascii: string;
 }
 
+/** Map of symbol to sparkline data (values + ASCII) or null when unavailable. */
 export type SparklineMap = Map<string, SparklineData | null>;

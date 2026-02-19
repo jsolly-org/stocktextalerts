@@ -89,7 +89,7 @@ if (success === "true") {
   </main>
 </Layout>
 
-<script define:vars={{ success, error }}>
+<script is:inline define:vars={{ success, error }}>
 	(function setupResendVerification() {
 		const resendBtn = document.getElementById("resend-btn");
 		const resendForm = document.getElementById("resend-form");

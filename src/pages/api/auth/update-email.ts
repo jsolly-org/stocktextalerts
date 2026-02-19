@@ -1,10 +1,29 @@
 import type { APIRoute } from "astro";
+import { enforceAuthRateLimit } from "../../../lib/auth/enforce-auth-rate-limit";
 import { createUserService } from "../../../lib/db";
 import { getSiteUrl } from "../../../lib/db/env";
-import { createSupabaseServerClient } from "../../../lib/db/supabase";
+import {
+	createSupabaseAdminClient,
+	createSupabaseServerClient,
+} from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { createLogger } from "../../../lib/logging";
 
+/*
+ * Rate limit: N attempts per user per time window.
+ * Can be overridden via CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS and
+ * CHANGE_EMAIL_RATE_LIMIT_MINUTES env vars.
+ */
+const CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS =
+	Number.parseInt(
+		import.meta.env.CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS ?? "5",
+		10,
+	) || 5;
+const CHANGE_EMAIL_RATE_LIMIT_MINUTES =
+	Number.parseInt(
+		import.meta.env.CHANGE_EMAIL_RATE_LIMIT_MINUTES ?? "15",
+		10,
+	) || 15;
 export const POST: APIRoute = async ({
 	request,
 	redirect,
@@ -55,6 +74,18 @@ export const POST: APIRoute = async ({
 		});
 		return redirect("/profile?error=email_unchanged");
 	}
+
+	const adminSupabase = createSupabaseAdminClient();
+	const rateLimitRedirect = await enforceAuthRateLimit({
+		adminSupabase,
+		userId: authUser.id,
+		endpoint: "change_email",
+		maxRequests: CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS,
+		windowMinutes: CHANGE_EMAIL_RATE_LIMIT_MINUTES,
+		logger,
+		contextLabel: "email change",
+	});
+	if (rateLimitRedirect) return rateLimitRedirect;
 
 	const origin = getSiteUrl();
 	const emailRedirectTo = `${origin}/auth/verified`;

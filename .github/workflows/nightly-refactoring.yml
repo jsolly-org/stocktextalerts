@@ -51,7 +51,7 @@ jobs:
         run: |
           EXISTING_PR=$(gh pr list \
             --repo "${{ github.repository }}" \
-            --label "nightly" \
+            --label "bot-generated" \
             --search "refactor(nightly): code improvements" \
             --state open \
             --json number,url \
@@ -114,6 +114,11 @@ jobs:
           if git diff --name-only -- .github/workflows .github/actions | grep -q .; then
             echo "Reverting workflow and action file edits from agent output."
             git restore --staged --worktree -- .github/workflows .github/actions
+          fi
+          UNTRACKED=$(git ls-files --others --exclude-standard -- .github/workflows .github/actions)
+          if [ -n "$UNTRACKED" ]; then
+            echo "Removing untracked workflow/action files from agent output."
+            echo "$UNTRACKED" | xargs rm -f
           fi
 
       - name: Check for changes
