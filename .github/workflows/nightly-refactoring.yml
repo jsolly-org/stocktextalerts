@@ -1,11 +1,11 @@
-# Scheduled nightly job that uses the Cursor agent to find and fix security
-# issues such as hardcoded secrets, RLS policy gaps, input validation holes,
-# and OWASP vulnerabilities. Opens a PR with the hardening changes.
-name: "Nightly: Security"
+# Scheduled nightly job that uses the Cursor agent to refactor code for
+# simplicity — reducing duplication, lowering complexity, improving type safety,
+# and cleaning up project structure. Opens a PR with the changes.
+name: "Nightly: Refactoring"
 
 on:
   schedule:
-    - cron: "0 6 * * *" # 1 AM ET
+    - cron: "0 8 * * *" # 3 AM ET
   workflow_dispatch:
 
 permissions:
@@ -17,24 +17,49 @@ env:
   GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
 
 jobs:
-  security:
+  refactoring:
     if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.actor != 'nektos/act' }}
     runs-on: ubuntu-latest
     steps:
+      - name: Ensure GitHub CLI (act only)
+        if: ${{ env.ACT == 'true' }}
+        run: |
+          if command -v gh >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+            exit 0
+          fi
+          SUDO=""
+          if command -v sudo >/dev/null 2>&1; then
+            SUDO="sudo"
+          fi
+          $SUDO apt-get update
+          if ! command -v jq >/dev/null 2>&1; then
+            $SUDO apt-get install -y jq
+          fi
+          if ! command -v gh >/dev/null 2>&1; then
+            if ! $SUDO apt-get install -y gh; then
+              type -p curl >/dev/null 2>&1 || $SUDO apt-get install -y curl
+              curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | $SUDO dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+              $SUDO chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | $SUDO tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+              $SUDO apt-get update
+              $SUDO apt-get install -y gh
+            fi
+          fi
+
       - name: Check for existing nightly PR
         id: check-pr
         run: |
           EXISTING_PR=$(gh pr list \
             --repo "${{ github.repository }}" \
-            --label "nightly" \
-            --search "security(nightly): security hardening" \
+            --label "bot-generated" \
+            --search "refactor(nightly): code improvements" \
             --state open \
             --json number,url \
             --limit 1)
           if [ "$(echo "$EXISTING_PR" | jq length)" -gt 0 ]; then
             PR_URL=$(echo "$EXISTING_PR" | jq -r '.[0].url')
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "Existing nightly security PR found: $PR_URL"
+            echo "Existing nightly refactoring PR found: $PR_URL"
             gh pr comment "$PR_URL" --body "Nightly run skipped — this PR is still open."
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
@@ -63,7 +88,7 @@ jobs:
 
       - name: Create branch
         if: steps.check-pr.outputs.skip != 'true'
-        run: git checkout -b "nightly/security-$(date +%Y-%m-%d)-${{ github.run_id }}-${{ github.run_attempt }}"
+        run: git checkout -b "nightly/refactoring-$(date +%Y-%m-%d)-${{ github.run_id }}-${{ github.run_attempt }}"
 
       - name: Run agent
         if: steps.check-pr.outputs.skip != 'true'
@@ -75,7 +100,7 @@ jobs:
           agent -p "You are operating in a GitHub Actions runner. Git and the \`gh\` CLI are available and authenticated.
 
           # Goal
-          Find and fix security issues — hardcoded secrets, RLS policy gaps, input validation holes, and other OWASP-category vulnerabilities.
+          Refactor for simplicity and correctness — reduce duplication, lower complexity, improve type safety, and clean up code structure.
 
           # Guidelines
           - Read \`AGENTS.md\` and the \`.agents/\` directory for project conventions and guidelines.
@@ -115,7 +140,7 @@ jobs:
         if: steps.check-pr.outputs.skip != 'true' && steps.changes.outputs.has_changes == 'true'
         run: |
           git add -A
-          git commit -m "security(nightly): security hardening — $(date +%Y-%m-%d)"
+          git commit -m "refactor(nightly): code improvements — $(date +%Y-%m-%d)"
           git push origin HEAD
 
       - name: Create pull request
@@ -124,13 +149,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
         run: |
           gh pr create \
-            --title "security(nightly): security hardening — $(date +%Y-%m-%d)" \
+            --title "refactor(nightly): code improvements — $(date +%Y-%m-%d)" \
             --label "bot-generated" \
             --body "$(cat <<'EOF'
           ## Summary
-          Automated security hardening — secrets audit, RLS policy review, input validation, and OWASP issue fixes.
+          Automated refactoring — duplication reduction, complexity simplification, type safety improvements, and structural cleanup.
 
           ---
-          *Auto-generated by the nightly-security workflow.*
+          *Auto-generated by the nightly-refactoring workflow.*
           EOF
           )"

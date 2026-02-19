@@ -6,6 +6,7 @@ import type { UserRecord } from "../messaging/types";
 import type {
 	ScheduledNotificationTotals,
 	SupabaseAdminClient,
+	UserAssetsMap,
 } from "../schedule/helpers";
 import { loadUserAssets } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
@@ -34,6 +35,8 @@ export async function processAssetEventsUser(options: {
 	currentTime: DateTime;
 	sendEmail: EmailSender;
 	getSmsSender: SmsSenderProvider;
+	/** Pre-fetched user assets (avoids N+1 when batch processing). */
+	userAssetsMap?: UserAssetsMap;
 	/** Prefetched market closure info (avoids per-user API calls when provided). */
 	marketClosureInfo?: MarketClosureInfo | null;
 }): Promise<ScheduledNotificationTotals> {
@@ -52,6 +55,7 @@ export async function processAssetEventsUser(options: {
 		currentTime,
 		sendEmail,
 		getSmsSender,
+		userAssetsMap,
 		marketClosureInfo: passedMarketClosureInfo,
 	} = options;
 
@@ -120,7 +124,8 @@ export async function processAssetEventsUser(options: {
 			return stats;
 		}
 
-		const userAssets = await loadUserAssets(supabase, user.id);
+		const userAssets =
+			userAssetsMap?.get(user.id) ?? (await loadUserAssets(supabase, user.id));
 		const tickers = userAssets.map((s) => s.symbol);
 
 		const emailEnabled = user.email_notifications_enabled;

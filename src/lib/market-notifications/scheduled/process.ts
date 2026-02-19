@@ -14,6 +14,7 @@ import type {
 	DeliveryMethod,
 	ScheduledNotificationTotals,
 	SupabaseAdminClient,
+	UserAssetsMap,
 } from "../../schedule/helpers";
 import { loadUserAssets } from "../../schedule/helpers";
 import type { SmsSenderProvider } from "../../schedule/sms-sender";
@@ -42,6 +43,8 @@ export async function processMarketScheduledUser(options: {
 	marketClosureInfo?: MarketClosureInfo | null;
 	/** When true, stage content for later delivery instead of sending now. */
 	stageOnly?: boolean;
+	/** Pre-fetched user assets (avoids N+1 when batch processing). */
+	userAssetsMap?: UserAssetsMap;
 }): Promise<ScheduledNotificationTotals> {
 	const stats: ScheduledNotificationTotals = {
 		skipped: 0,
@@ -63,6 +66,7 @@ export async function processMarketScheduledUser(options: {
 		marketOpen,
 		marketClosureInfo,
 		stageOnly,
+		userAssetsMap,
 	} = options;
 
 	try {
@@ -144,7 +148,8 @@ export async function processMarketScheduledUser(options: {
 			return stats;
 		}
 
-		const userAssets = await loadUserAssets(supabase, user.id);
+		const userAssets =
+			userAssetsMap?.get(user.id) ?? (await loadUserAssets(supabase, user.id));
 		const formatPrefs = {
 			show_sparklines: user.show_sparklines,
 		};
