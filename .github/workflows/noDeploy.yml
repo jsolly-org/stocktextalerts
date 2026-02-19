@@ -26,6 +26,8 @@ jobs:
         run: npm ci
       - name: Run Biome
         run: npx biome ci . --error-on-warnings
+      - name: Lint YAML
+        run: npm run check:yaml
       - name: Type check
         run: npm run check:ts
 
