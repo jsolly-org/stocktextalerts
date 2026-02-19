@@ -299,8 +299,12 @@ jobs:
           - Focus only on fixing the identified problems — do not make unrelated changes.
           " --force --model "$MODEL" --output-format=text
 
-      - name: Drop workflow file edits
-        uses: ./.github/actions/drop-workflow-edits
+      # NOTE: We intentionally do NOT drop workflow file edits here.
+      # An agent that can write source code could write malicious source code
+      # just as easily as malicious workflow code — the trust boundary is the
+      # same, so singling out workflow files provides no real security benefit
+      # while preventing legitimate fixes (e.g. merge conflict resolution in
+      # workflow files).
 
       - name: Check for changes
         id: changes
