@@ -15,6 +15,8 @@ runs:
             git restore --staged --worktree -- .github/workflows .github/actions
           fi
           if [[ -n "$UNTRACKED" ]]; then
-            echo "$UNTRACKED" | xargs rm -f
+            while IFS= read -r file; do
+              rm -f "$file"
+            done <<< "$UNTRACKED"
           fi
         fi
