@@ -24,6 +24,11 @@ New app with no users — optimize for simplicity and correctness over backwards
 - Password: the `DEFAULT_PASSWORD` value from `.env.local`
 - Created by `supabase/seed.sql` (regenerated via `npm run db:gen-seed`)
 
+## GitHub Composite Actions
+- **When to create:** Extract a reusable composite action when the same step(s) appear in 2+ workflows — apply the DRY pattern.
+- **Where they live:** `.github/actions/<action-name>/action.yml` (each action in its own directory).
+- **Reference implementation:** `drop-workflow-edits` (`.github/actions/drop-workflow-edits/action.yml`) — reverts agent-produced workflow/action edits; used by post-dev-push, nightly-performance, nightly-pr-grooming, nightly-code-quality, and nightly-security.
+
 ## Guidelines
 - [Code Style & Structure](.agents/code-style.md)
 - [Error Handling & Validation](.agents/error-handling.md)
