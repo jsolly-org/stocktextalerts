@@ -146,6 +146,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 3
       matrix:
         pr: ${{ fromJson(needs.discover-prs.outputs.prs) }}
     steps:
