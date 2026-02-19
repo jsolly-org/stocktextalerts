@@ -11,13 +11,13 @@ import {
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
-describe("Password change endpoint enforces authentication and form validation.", () => {
+describe("Password change endpoint enforces authentication, form validation, and rate limiting.", () => {
 	it("Unauthenticated requests are redirected to sign-in.", async () => {
 		const request = new Request("http://localhost/api/auth/change-password", {
 			method: "POST",
 			body: new URLSearchParams({
-				password: "NewPassword123!",
-				confirm: "NewPassword123!",
+				password: NEW_PASSWORD,
+				confirm: NEW_PASSWORD,
 			}),
 		});
 
