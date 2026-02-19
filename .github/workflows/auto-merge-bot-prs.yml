@@ -18,6 +18,7 @@ jobs:
       contains(github.event.pull_request.labels.*.name, 'bot-generated')
       && github.actor != 'nektos/act'
     steps:
+      - uses: actions/checkout@v4
       - name: Enable auto-merge for bot PR
         run: gh pr merge ${{ github.event.pull_request.number }} --auto --squash
         env:
