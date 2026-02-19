@@ -16,3 +16,4 @@ npx biome ci . --error-on-warnings
 npm run check:yaml
 npm run check:ts
 npm run test
+npm run test:smoke
