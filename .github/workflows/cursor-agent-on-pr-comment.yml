@@ -133,8 +133,10 @@ jobs:
 
       - name: Validate resolved prompt when re-running from noop comment
         if: steps.context.outputs.run_agent == 'true' && steps.context.outputs.resolved_from_link == 'true'
+        env:
+          PROMPT_BODY: ${{ steps.context.outputs.prompt_body }}
         run: |
-          if [[ -z "${{ steps.context.outputs.prompt_body }}" ]]; then
+          if [[ -z "$PROMPT_BODY" ]]; then
             echo "##[error]Re-run from 'No changes needed' comment: could not resolve the original comment body. The agent would receive the wrong prompt. Failing to avoid applying changes to the wrong context."
             exit 1
           fi
