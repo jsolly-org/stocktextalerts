@@ -164,8 +164,8 @@ export function useOnboardingExamples(
 				return `${percentThreshold}% (~${formatDollar(pctDollar)}) or ${formatDollar(dollarThreshold)}, whichever comes first`;
 			}
 
-			const hiLine = `A large asset like ${hi.symbol} (${formatDollar(hi.prevClose)}) alerts on moves of ${moveDescription(hi.prevClose)}.`;
-			const loLine = `A smaller asset like ${lo.symbol} (${formatDollar(lo.prevClose)}) will alert when it moves ${moveDescription(lo.prevClose)}.`;
+			const hiLine = `A higher-priced asset like ${hi.symbol} (${formatDollar(hi.prevClose)}) alerts on moves of ${moveDescription(hi.prevClose)}.`;
+			const loLine = `A lower-priced asset like ${lo.symbol} (${formatDollar(lo.prevClose)}) alerts on moves of ${moveDescription(lo.prevClose)}.`;
 			return `${hiLine}\n${loLine}`;
 		}
 
