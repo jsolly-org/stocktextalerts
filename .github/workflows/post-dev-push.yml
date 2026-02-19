@@ -12,6 +12,10 @@ on:
       - 'src/components/landing/HowItWorks.astro'
   workflow_dispatch:
 
+concurrency:
+  group: post-dev-push
+  cancel-in-progress: false
+
 permissions:
   contents: write
   pull-requests: write
