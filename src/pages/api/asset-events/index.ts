@@ -82,6 +82,7 @@ const handler: APIRoute = async ({ request, locals }) => {
 			weekStart: string;
 			weekEnd: string;
 			upserted: number;
+			failedProviders: string[];
 		}> = [];
 		for (const { weekStart, weekEnd } of weeks) {
 			const result = await fetchAndStoreAssetEvents({
@@ -93,15 +94,21 @@ const handler: APIRoute = async ({ request, locals }) => {
 			results.push({ weekStart, weekEnd, ...result });
 		}
 
+		const hasFailures = results.some((r) => r.failedProviders.length > 0);
+
 		logger.info("Daily asset events fetch complete", {
 			action: "daily_asset_events_cron",
 			results,
+			hasFailures,
 		});
 
-		return new Response(JSON.stringify({ success: true, weeks: results }), {
-			status: 200,
-			headers: { "Content-Type": "application/json" },
-		});
+		return new Response(
+			JSON.stringify({ success: !hasFailures, weeks: results }),
+			{
+				status: 200,
+				headers: { "Content-Type": "application/json" },
+			},
+		);
 	} catch (error) {
 		logger.error(
 			"Daily asset events cron error",

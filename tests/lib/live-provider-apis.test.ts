@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { finnhubFetch } from "../../src/lib/providers/finnhub";
 import {
+	fetchDailyCloses,
 	fetchSnapshotQuotes,
 	marketDataFetch,
 } from "../../src/lib/providers/massive";
@@ -36,6 +37,24 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 		const close = (results?.[0] as { c?: unknown } | undefined)?.c;
 		expect(typeof close).toBe("number");
 		expect((close as number) > 0).toBe(true);
+	});
+
+	it("returns daily closes for SPY over a recent date range (URL, API, parsing)", async () => {
+		const to = new Date();
+		const from = new Date(to);
+		from.setDate(from.getDate() - 7);
+		const fromStr = from.toISOString().slice(0, 10);
+		const toStr = to.toISOString().slice(0, 10);
+
+		const closes = await fetchDailyCloses("SPY", fromStr, toStr);
+
+		expect(closes).not.toBeNull();
+		expect(Array.isArray(closes)).toBe(true);
+		expect((closes as number[]).length).toBeGreaterThan(0);
+		for (const c of closes as number[]) {
+			expect(typeof c).toBe("number");
+			expect(Number.isFinite(c)).toBe(true);
+		}
 	});
 
 	it("returns at least one non-null quote from snapshot for liquid controls", async () => {

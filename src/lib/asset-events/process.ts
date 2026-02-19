@@ -6,9 +6,14 @@ import type { UserRecord } from "../messaging/types";
 import type {
 	ScheduledNotificationTotals,
 	SupabaseAdminClient,
+	UserAssetsMap,
 } from "../schedule/helpers";
 import { loadUserAssets } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
+import {
+	getUsMarketClosureInfoForInstant,
+	type MarketClosureInfo,
+} from "../time/market-calendar";
 import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
 import { buildAssetEventsContent } from "./content";
 import {
@@ -30,6 +35,10 @@ export async function processAssetEventsUser(options: {
 	currentTime: DateTime;
 	sendEmail: EmailSender;
 	getSmsSender: SmsSenderProvider;
+	/** Pre-fetched user assets (avoids N+1 when batch processing). */
+	userAssetsMap?: UserAssetsMap;
+	/** Prefetched market closure info (avoids per-user API calls when provided). */
+	marketClosureInfo?: MarketClosureInfo | null;
 }): Promise<ScheduledNotificationTotals> {
 	const stats: ScheduledNotificationTotals = {
 		skipped: 0,
@@ -39,8 +48,16 @@ export async function processAssetEventsUser(options: {
 		smsSent: 0,
 		smsFailed: 0,
 	};
-	const { user, supabase, logger, currentTime, sendEmail, getSmsSender } =
-		options;
+	const {
+		user,
+		supabase,
+		logger,
+		currentTime,
+		sendEmail,
+		getSmsSender,
+		userAssetsMap,
+		marketClosureInfo: passedMarketClosureInfo,
+	} = options;
 
 	try {
 		const dueAt = user.asset_events_next_send_at
@@ -107,7 +124,8 @@ export async function processAssetEventsUser(options: {
 			return stats;
 		}
 
-		const userAssets = await loadUserAssets(supabase, user.id);
+		const userAssets =
+			userAssetsMap?.get(user.id) ?? (await loadUserAssets(supabase, user.id));
 		const tickers = userAssets.map((s) => s.symbol);
 
 		const emailEnabled = user.email_notifications_enabled;
@@ -125,6 +143,11 @@ export async function processAssetEventsUser(options: {
 		}
 
 		const localDate = dueAtLocal.toISODate() ?? "";
+
+		const marketClosureInfo =
+			passedMarketClosureInfo !== undefined
+				? passedMarketClosureInfo
+				: await getUsMarketClosureInfoForInstant(currentTime);
 
 		const wantsEmail =
 			emailEnabled &&
@@ -180,6 +203,7 @@ export async function processAssetEventsUser(options: {
 				iposSection: emailContent.eventsSection?.ipos ?? null,
 				analystSection: emailContent.analystSection,
 				insiderSection: emailContent.insiderSection,
+				marketClosureInfo,
 				sendEmail,
 				stats,
 			});
@@ -198,6 +222,7 @@ export async function processAssetEventsUser(options: {
 				iposSection: smsContent.eventsSection?.ipos ?? null,
 				analystSection: smsContent.analystSection,
 				insiderSection: smsContent.insiderSection,
+				marketClosureInfo,
 				getSmsSender,
 				stats,
 			});

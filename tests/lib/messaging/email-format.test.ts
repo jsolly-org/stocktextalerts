@@ -64,8 +64,10 @@ describe("Email scheduled update includes asset price data.", () => {
 			false,
 		);
 
-		expect(text).toContain("Prices as of last market close");
-		expect(html).toContain("Prices as of last market close");
+		expect(text).toContain("Market Closed");
+		expect(text).toContain("Prices below reflect the last market close.");
+		expect(html).toContain("Market Closed");
+		expect(html).toContain("Prices below reflect the last market close.");
 	});
 
 	it("Market-closed disclaimer is absent when market is open.", () => {

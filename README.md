@@ -102,9 +102,9 @@ TWILIO_PHONE_NUMBER=+1234567890
 TWILIO_VERIFY_SERVICE_SID=your-verify-service-sid
 
 # Vercel
-CRON_SECRET=your-random-secret-string
+CRON_SECRET=your-random-secret-string  # Minimum 12 characters; use `openssl rand -hex 32` for production
 
-EMAIL_FROM=notifications@updates.example.com
+EMAIL_FROM="Your Project Name <notifications@updates.example.com>"
 
 # Massive (asset prices / dividends / splits / news)
 MASSIVE_API_KEY=your-massive-api-key
@@ -127,7 +127,7 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - `SUPABASE_SECRET_KEY`: Supabase Dashboard → Project Settings → API Keys → Secret keys
 - `DATABASE_URL`: Supabase Dashboard → Project Settings → Database → Connection String → Transaction mode (pooler)
 - Twilio credentials: Twilio Console → Account Dashboard
-- `CRON_SECRET`: Generate a random string (e.g., `openssl rand -hex 32`)
+- `CRON_SECRET`: Generate a random string (minimum 12 characters; e.g., `openssl rand -hex 32`)
 - Massive credentials: Massive Dashboard → API Keys
 - Finnhub credentials: Finnhub Dashboard → API Keys
 - xAI credentials: xAI Console → API Keys
@@ -286,6 +286,7 @@ Notes:
 - `POST /api/auth/delete-account`
 - `POST /api/auth/update-email`
 - `POST /api/auth/update-password`
+- `POST /api/auth/change-password`
 - `POST /api/auth/sms/send-verification`
 - `POST /api/auth/sms/verify-code`
 
@@ -320,19 +321,20 @@ After deployment, configure the Twilio webhook for incoming SMS:
 3. Under "Messaging", set the webhook URL to: `https://yourdomain.com/api/messaging/inbound`
 4. Save changes
 
-### 4. Verify Cron Job
+### 4. Verify Cron Jobs
 
-The `vercel.json` file configures a scheduled cron job that runs once per minute.
+The `vercel.json` file configures three cron jobs. All must include `Authorization: Bearer <CRON_SECRET>`.
 
-The cron job calls `/api/schedule` and must include:
-- `Authorization: Bearer <CRON_SECRET>`
-
-The cron job:
+**`/api/schedule`** (runs every minute) — main notification pipeline:
 1. Runs asset price alerts during US market hours (Massive snapshot quotes)
 2. Runs scheduled asset price notifications (batched via Massive snapshot quotes)
 3. Sends asset events notifications (earnings/dividends/splits/IPOs/analyst/insider) at the user’s daily delivery time
 4. Sends daily digest notifications (News/Rumors) at the user’s chosen daily time
 5. Sends via email and/or SMS based on settings and logs attempts to the `notification_log` table
+
+**`/api/asset-events`** (runs daily at 00:00 UTC) — pre-populates the `asset_events` table with earnings, dividends, splits, and IPOs.
+
+**`/api/sector-backfill`** (runs weekly on Sunday at 06:00 UTC) — backfills missing sector metadata on tracked assets.
 
 ## Project Structure
 
@@ -347,10 +349,12 @@ The cron job:
 
 ## Security Features
 
-- Row Level Security (RLS) on all database tables
+- Row Level Security (RLS) on all database tables (authenticated users have SELECT-only on assets; service_role handles sector updates)
+- URL sanitization in notification links (only http/https allowed in headline URLs, blocks javascript:, data:, etc.)
 - Cron endpoint protected by secret header
 - Phone verification via Twilio Verify API
 - SMS opt-out support (STOP keyword compliance)
+- Rate limiting on sensitive actions: password change (`CHANGE_PASSWORD_RATE_LIMIT_ATTEMPTS` / `CHANGE_PASSWORD_RATE_LIMIT_MINUTES`), email change (`CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS` / `CHANGE_EMAIL_RATE_LIMIT_MINUTES`), and account deletion (`DELETE_ACCOUNT_RATE_LIMIT_ATTEMPTS` / `DELETE_ACCOUNT_RATE_LIMIT_MINUTES`); defaults: 5 attempts per 15 minutes for each
 - Service role key never exposed to client
 - Traditional form submissions (some UI components like Vue dashboard panels and autosave maintain client-side state)
 

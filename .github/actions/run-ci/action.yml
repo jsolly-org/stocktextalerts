@@ -1,6 +1,12 @@
 name: Run CI
 description: Shared CI steps (lint, typecheck, Supabase, test, build)
 
+inputs:
+  skip-lint:
+    description: 'Skip Biome and type check (when a separate lint job already covers them)'
+    required: false
+    default: 'false'
+
 runs:
   using: composite
   steps:
@@ -101,14 +107,32 @@ runs:
       with:
         version: 2.76.9
     - name: Run Biome
+      if: inputs.skip-lint != 'true'
       shell: bash
       run: npx biome ci . --error-on-warnings
     - name: Deep Type check
+      if: inputs.skip-lint != 'true'
       shell: bash
       run: npm run check:ts
-    - name: Start Supabase
+    - name: Cache Playwright browsers
+      id: playwright-cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+    - name: Start Supabase and install Playwright
       shell: bash
-      run: supabase start -x studio,imgproxy,logflare,vector,postgres-meta,edge-runtime,realtime,storage-api
+      run: |
+        supabase start -x studio,imgproxy,logflare,vector,postgres-meta,edge-runtime,realtime,storage-api &
+        SB_PID=$!
+        if [[ "${{ steps.playwright-cache.outputs.cache-hit }}" == "true" ]]; then
+          npx playwright install-deps &
+        else
+          npx playwright install --with-deps &
+        fi
+        PW_PID=$!
+        wait $SB_PID
+        wait $PW_PID
     - name: Load Supabase env
       shell: bash
       run: |
@@ -162,6 +186,9 @@ runs:
     - name: Test
       shell: bash
       run: npm run test:ci
+    - name: Smoke tests
+      shell: bash
+      run: npm run test:smoke
     - name: Build application
       shell: bash
       run: npm run build

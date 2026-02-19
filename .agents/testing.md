@@ -12,6 +12,13 @@
 - **Assert via behavior, not mocks**: Prefer asserting on DB state, response payloads, and status codes rather than on mocked return values or call counts.
 - **Delivery-related tests**: Assert "send attempted" or outcome via stub invocation counts, log rows, or response payloads — not real API responses.
 
+### Test Style
+- **Scenario-based, grounded in reality**: Every test should read like a real scenario that could happen in production. Frame `describe`/`it` blocks around user journeys or system events, not abstract technical operations.
+  - Good: `"User in Pacific timezone receives market update after close"`
+  - Bad: `"returns correct value when input is 2"`
+- **Realistic data**: Use real ticker symbols (AAPL, MSFT, SPY), realistic prices, real timezone names (America/New_York), and plausible user details. Never use placeholder values like `foo`, `bar`, `test123`, or round-number prices (100.0) when a realistic value (187.42) would work.
+- **Test builders should reflect reality**: When helpers like `makeQuote()` or `makeSnapshot()` supply defaults, those defaults should be realistic values, not abstract round numbers.
+
 ### Test Structure
 - **Use shared utilities**: Reuse helpers from `tests/helpers/` (`test-user.ts`, `test-env.ts`, `asset-data.ts`, `asset-update.ts`). Import from the defining module.
 - **Setup/teardown**: Rely on `tests/setup.ts` for global hooks (schema verification, cleanup, console spies). Use `registerTestUserForCleanup` for users created during a test.

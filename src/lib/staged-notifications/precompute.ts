@@ -28,7 +28,10 @@ import type {
 	ScheduledNotificationTotals,
 	SupabaseAdminClient,
 } from "../schedule/helpers";
-import { USER_PROCESS_BATCH_SIZE } from "../schedule/helpers";
+import {
+	batchLoadUserAssets,
+	USER_PROCESS_BATCH_SIZE,
+} from "../schedule/helpers";
 import { createSmsSenderProvider } from "../schedule/sms-sender";
 import { toIsoOrThrow } from "../time/format";
 import { getUsMarketClosureInfoForInstant } from "../time/market-calendar";
@@ -92,32 +95,48 @@ export async function precomputeMarketScheduled(options: {
 		window: `${afterTimeIso} → ${beforeTimeIso}`,
 	});
 
-	// Batch-fetch prices for all upcoming users' assets
+	// Batch-fetch user assets and prices for all upcoming users
 	const userIds = upcomingUsers.map((u) => u.id);
 	let priceMap: AssetPriceMap = new Map();
+	let userAssetsMap: Awaited<ReturnType<typeof batchLoadUserAssets>> =
+		new Map();
 
-	const { data: allUserAssets, error: userAssetsError } = await supabase
-		.from("user_assets")
-		.select("symbol")
-		.in("user_id", userIds);
-
-	if (userAssetsError) {
+	try {
+		userAssetsMap = await batchLoadUserAssets(supabase, userIds);
+		const uniqueSymbols = [
+			...new Set(
+				[...userAssetsMap.values()].flatMap((assets) =>
+					assets.map((a) => a.symbol),
+				),
+			),
+		];
+		if (uniqueSymbols.length > 0) {
+			priceMap = await fetchAssetPrices(uniqueSymbols);
+		}
+	} catch (error) {
 		logger.error(
-			"Failed to load user assets for precompute",
+			"Failed to precompute market data (user assets or price fetch)",
 			{ action: "precompute_market", userIdsCount: userIds.length },
-			userAssetsError,
+			error,
 		);
 		return stats;
 	}
 
-	const uniqueSymbols = [
-		...new Set((allUserAssets ?? []).map((s) => s.symbol)),
-	];
-	if (uniqueSymbols.length > 0) {
-		priceMap = await fetchAssetPrices(uniqueSymbols);
-	}
-
 	const marketOpen = await fetchMarketStatus();
+	let marketClosureInfo: Awaited<
+		ReturnType<typeof getUsMarketClosureInfoForInstant>
+	> = null;
+	if (!marketOpen) {
+		try {
+			marketClosureInfo = await getUsMarketClosureInfoForInstant(currentTime);
+		} catch (error) {
+			logger.warn(
+				"Market closure lookup failed for precompute (continuing without closure info)",
+				{ action: "precompute_market" },
+				error,
+			);
+		}
+	}
 	const sendEmail = createEmailSender();
 	const getSmsSender = createSmsSenderProvider();
 
@@ -138,7 +157,9 @@ export async function precomputeMarketScheduled(options: {
 					getSmsSender,
 					priceMap,
 					marketOpen,
+					marketClosureInfo: !marketOpen ? marketClosureInfo : undefined,
 					stageOnly: true,
+					userAssetsMap,
 				}),
 			),
 		);
