@@ -89,7 +89,7 @@ jobs:
       - name: Cache Playwright browsers
         if: steps.check-pr.outputs.skip != 'true'
         id: playwright-cache
-        uses: actions/cache@v5
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -217,6 +217,7 @@ jobs:
           gh pr create \
             --title "a11y(nightly): accessibility improvements — $(date +%Y-%m-%d)" \
             --label "bot-generated" \
+            --label "nightly" \
             --body "$(cat <<'EOF'
           ## Summary
           Automated accessibility improvements based on Lighthouse + axe-core WCAG 2.1 AA audits — color contrast fixes, missing ARIA attributes, heading hierarchy, form labels, and more.

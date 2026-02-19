@@ -115,6 +115,7 @@ jobs:
           gh pr create \
             --title "security(nightly): security hardening — $(date +%Y-%m-%d)" \
             --label "bot-generated" \
+            --label "nightly" \
             --body "$(cat <<'EOF'
           ## Summary
           Automated security hardening — secrets audit, RLS policy review, input validation, and OWASP issue fixes.

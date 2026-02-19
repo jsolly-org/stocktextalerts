@@ -207,6 +207,9 @@ function handleTouchCancel() {
 	resetTouch();
 }
 
+let activeHashObserver: MutationObserver | null = null;
+let activeHashTimeout: ReturnType<typeof setTimeout> | null = null;
+
 /**
  * After switching cards on mobile, scroll the hash-target element into view
  * within the card's inner scroller. The target panel may be lazy-loaded (async
@@ -217,6 +220,16 @@ function scrollToHashTarget(hash: string, cardIndex: number) {
 	const card = cardRefs.value[cardIndex];
 	const scroller = card?.querySelector<HTMLElement>(".carousel-card-inner");
 	if (!scroller) return;
+
+	// Clean up any previous observer
+	if (activeHashObserver) {
+		activeHashObserver.disconnect();
+		activeHashObserver = null;
+	}
+	if (activeHashTimeout) {
+		clearTimeout(activeHashTimeout);
+		activeHashTimeout = null;
+	}
 
 	const doScroll = (el: HTMLElement) => {
 		const scrollerRect = scroller.getBoundingClientRect();
@@ -241,16 +254,21 @@ function scrollToHashTarget(hash: string, cardIndex: number) {
 	}
 
 	// Element not yet mounted (lazy panel). Watch the card subtree for it.
-	const observer = new MutationObserver(() => {
+	activeHashObserver = new MutationObserver(() => {
 		const el = document.getElementById(hash);
 		if (!el) return;
-		observer.disconnect();
-		clearTimeout(fallback);
-		// Small delay so the async panel finishes layout.
+		activeHashObserver?.disconnect();
+		activeHashObserver = null;
+		if (activeHashTimeout) clearTimeout(activeHashTimeout);
+		activeHashTimeout = null;
 		requestAnimationFrame(() => doScroll(el));
 	});
-	observer.observe(card, { childList: true, subtree: true });
-	const fallback = setTimeout(() => observer.disconnect(), 2000);
+	activeHashObserver.observe(card, { childList: true, subtree: true });
+	activeHashTimeout = setTimeout(() => {
+		activeHashObserver?.disconnect();
+		activeHashObserver = null;
+		activeHashTimeout = null;
+	}, 2000);
 }
 
 function handleTrackClick(event: MouseEvent) {
@@ -297,6 +315,14 @@ onMounted(() => {
 
 onUnmounted(() => {
 	window.removeEventListener("hashchange", syncToHash);
+	if (activeHashObserver) {
+		activeHashObserver.disconnect();
+		activeHashObserver = null;
+	}
+	if (activeHashTimeout) {
+		clearTimeout(activeHashTimeout);
+		activeHashTimeout = null;
+	}
 });
 </script>
 

@@ -7,11 +7,17 @@ const FALLBACK_PORT = 4322;
 function isPortInUse(port: number): Promise<boolean> {
 	return new Promise((resolve) => {
 		const socket = net.createConnection({ port, host: "localhost" });
+		socket.setTimeout(1000);
 		socket.once("connect", () => {
 			socket.destroy();
 			resolve(true);
 		});
 		socket.once("error", () => {
+			socket.destroy();
+			resolve(false);
+		});
+		socket.once("timeout", () => {
+			socket.destroy();
 			resolve(false);
 		});
 	});
