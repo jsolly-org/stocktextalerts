@@ -141,6 +141,7 @@ runs:
 
         # Internal workflow comments: skip unless it's a "No changes needed" comment with a
         # resolvable "In response to" link — in that case we run the agent with the linked comment.
+        RESOLVED_FROM_LINK=""
         if [[ "$COMMENT_BODY" == *"$INTERNAL_MARKER"* ]]; then
           RESOLVE_ID=""
           RESOLVE_TYPE=""
@@ -158,6 +159,7 @@ runs:
           fi
           echo "resolve_from_comment_id=$RESOLVE_ID" >> "$GITHUB_OUTPUT"
           echo "resolve_from_comment_type=$RESOLVE_TYPE" >> "$GITHUB_OUTPUT"
+          RESOLVED_FROM_LINK="1"
         fi
 
         COMMENT_BODY_LC="${COMMENT_BODY,,}"
@@ -173,8 +175,8 @@ runs:
         [[ "$EVENT_NAME" == "pull_request_review" && ( -z "$COMMENT_BODY" || "$COMMENT_BODY" == "null" ) ]] && skip "review without body"
 
         echo "skip=false" >> "$GITHUB_OUTPUT"
-        echo "resolve_from_comment_id=" >> "$GITHUB_OUTPUT"
-        echo "resolve_from_comment_type=" >> "$GITHUB_OUTPUT"
+        [[ -z "$RESOLVED_FROM_LINK" ]] && echo "resolve_from_comment_id=" >> "$GITHUB_OUTPUT"
+        [[ -z "$RESOLVED_FROM_LINK" ]] && echo "resolve_from_comment_type=" >> "$GITHUB_OUTPUT"
 
     - name: Extract PR metadata
       id: pr_meta
