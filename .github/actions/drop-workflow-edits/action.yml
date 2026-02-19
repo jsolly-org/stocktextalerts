@@ -1,0 +1,22 @@
+name: Drop workflow file edits
+description: Reverts any agent-produced changes to workflow and action files.
+
+runs:
+  using: composite
+  steps:
+    - name: Drop workflow file edits
+      shell: bash
+      run: |
+        CHANGED=$(git diff --name-only -- .github/workflows .github/actions || true)
+        UNTRACKED=$(git ls-files --others --exclude-standard -- .github/workflows .github/actions || true)
+        if [[ -n "$CHANGED" || -n "$UNTRACKED" ]]; then
+          echo "Reverting workflow and action file edits from agent output."
+          if [[ -n "$CHANGED" ]]; then
+            git restore --staged --worktree -- .github/workflows .github/actions
+          fi
+          if [[ -n "$UNTRACKED" ]]; then
+            while IFS= read -r file; do
+              rm -f "$file"
+            done <<< "$UNTRACKED"
+          fi
+        fi
