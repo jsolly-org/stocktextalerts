@@ -432,6 +432,7 @@ import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
 import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
 import InformationCircleIcon from "../../../icons/information-circle-20.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
+import { prefersReducedMotion } from "../../../lib/accessibility";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_MARKET_FORM_ID,
@@ -935,6 +936,7 @@ function handleRetuneNext() {
 
 function autoAdvanceFromStep(step: number) {
 	if (activeRetuneStep.value !== step || isLastRetuneStep.value) return;
+	if (prefersReducedMotion()) return;
 	setTimeout(() => {
 		if (activeRetuneStep.value === step && !isLastRetuneStep.value) {
 			handleRetuneNext();
