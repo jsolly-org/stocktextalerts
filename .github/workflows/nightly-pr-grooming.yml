@@ -299,19 +299,7 @@ jobs:
           " --force --model "$MODEL" --output-format=text
 
       - name: Drop workflow file edits
-        run: |
-          # Check for modified (tracked) AND new (untracked) workflow/action files
-          CHANGED=$(git diff --name-only -- .github/workflows .github/actions || true)
-          UNTRACKED=$(git ls-files --others --exclude-standard -- .github/workflows .github/actions || true)
-          if [[ -n "$CHANGED" || -n "$UNTRACKED" ]]; then
-            echo "Reverting workflow and action file edits from agent output."
-            if [[ -n "$CHANGED" ]]; then
-              git restore --staged --worktree -- .github/workflows .github/actions
-            fi
-            if [[ -n "$UNTRACKED" ]]; then
-              echo "$UNTRACKED" | xargs rm -f
-            fi
-          fi
+        uses: ./.github/actions/drop-workflow-edits
 
       - name: Check for changes
         id: changes
