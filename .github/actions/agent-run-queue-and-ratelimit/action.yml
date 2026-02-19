@@ -51,27 +51,31 @@ runs:
             exit 1
           fi
 
-          RUNS_JSON=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_FILE_NAME/runs?per_page=100" 2>&1)
-          RUNS_EXIT=$?
-          if [[ $RUNS_EXIT -ne 0 ]]; then
-            echo "Error: Could not query workflow runs for $WORKFLOW_FILE_NAME:"
-            echo "$RUNS_JSON"
-            exit 1
+          RUNS_JSON=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_FILE_NAME/runs?per_page=100" 2>&1) || true
+
+          # Parse blockers from the API response. If the API call or jq parsing fails
+          # (transient rate-limit, malformed response), retry on the next loop iteration
+          # instead of killing the step. This avoids silent failures from pipefail.
+          BLOCKERS=""
+          BLOCKER_COUNT=""
+          if [[ -n "$RUNS_JSON" ]]; then
+            BLOCKERS=$(echo "$RUNS_JSON" | jq --arg marker "$PR_MARKER" --argjson current "$CURRENT_RUN_ID" -r '
+              [.workflow_runs[]
+                | select((.display_title // "") | contains($marker))
+                | select((.id // 0) < $current)
+                | select((.status // "") != "completed")
+                | {id, status, html_url}
+              ]
+              | sort_by(.id)
+            ' 2>/dev/null) || true
+            BLOCKER_COUNT=$(echo "$BLOCKERS" | jq 'length' 2>/dev/null) || true
           fi
 
-          # We use run-name to reliably tag each run with pr-<number>.
-          # Wait for any earlier run IDs for this PR that are not completed.
-          BLOCKERS=$(echo "$RUNS_JSON" | jq --arg marker "$PR_MARKER" --argjson current "$CURRENT_RUN_ID" -r '
-            [.workflow_runs[]
-              | select((.display_title // "") | contains($marker))
-              | select((.id // 0) < $current)
-              | select((.status // "") != "completed")
-              | {id, status, html_url}
-            ]
-            | sort_by(.id)
-          ')
-
-          BLOCKER_COUNT=$(echo "$BLOCKERS" | jq 'length')
+          if [[ -z "$BLOCKER_COUNT" ]] || ! [[ "$BLOCKER_COUNT" =~ ^[0-9]+$ ]]; then
+            echo "Warning: Could not parse workflow runs response; will retry in 20s."
+            sleep 20
+            continue
+          fi
           if [[ "$BLOCKER_COUNT" -eq 0 ]]; then
             echo "No earlier agent runs for $PR_MARKER are active; proceeding."
             exit 0
