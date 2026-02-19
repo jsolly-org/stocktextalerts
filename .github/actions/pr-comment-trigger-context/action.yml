@@ -114,6 +114,9 @@ outputs:
   prompt_diff_hunk:
     description: Diff hunk for prompt context
     value: ${{ steps.prompt_body.outputs.diff_hunk }}
+  resolve_failed:
+    description: True when we tried to resolve from a linked comment but the fetch failed or returned empty body
+    value: ${{ steps.prompt_body.outputs.resolve_failed }}
 
 runs:
   using: composite
@@ -291,6 +294,7 @@ runs:
         LINE_OUT=""
         START_LINE_OUT=""
         DIFF_HUNK_OUT=""
+        RESOLVE_FAILED="false"
 
         if [[ -n "$RESOLVE_ID" ]] && [[ -n "$RESOLVE_TYPE" ]]; then
           if [[ "$RESOLVE_TYPE" == "issue" ]]; then
@@ -307,6 +311,10 @@ runs:
               START_LINE_OUT=$(echo "$JSON" | jq -r '.start_line // ""')
               DIFF_HUNK_OUT=$(echo "$JSON" | jq -r '.diff_hunk // ""')
             fi
+          fi
+          # If we resolved from a link but got no usable body, mark resolve as failed so we skip the agent
+          if [[ -z "$JSON" ]] || [[ -z "$BODY" ]]; then
+            RESOLVE_FAILED="true"
           fi
         else
           PATH_OUT="$REVIEW_PATH"
@@ -326,6 +334,7 @@ runs:
         echo "diff_hunk<<DIFFEOF" >> "$GITHUB_OUTPUT"
         echo "$DIFF_HUNK_OUT" >> "$GITHUB_OUTPUT"
         echo "DIFFEOF" >> "$GITHUB_OUTPUT"
+        echo "resolve_failed=$RESOLVE_FAILED" >> "$GITHUB_OUTPUT"
 
     - name: Set run flags
       id: guard
@@ -334,9 +343,10 @@ runs:
         SKIP: ${{ steps.should_skip.outputs.skip }}
         IS_PR: ${{ steps.pr_meta.outputs.is_pr }}
         IS_AUTHOR: ${{ steps.pr_meta.outputs.is_author }}
+        RESOLVE_FAILED: ${{ steps.prompt_body.outputs.resolve_failed }}
       run: |
         RUN_AGENT="false"
-        if [[ "$SKIP" != "true" && "$IS_PR" == "true" && "$IS_AUTHOR" == "true" ]]; then
+        if [[ "$SKIP" != "true" && "$IS_PR" == "true" && "$IS_AUTHOR" == "true" && "$RESOLVE_FAILED" != "true" ]]; then
           RUN_AGENT="true"
         fi
         echo "run_agent=$RUN_AGENT" >> "$GITHUB_OUTPUT"
