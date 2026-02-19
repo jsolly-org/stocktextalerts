@@ -312,9 +312,15 @@ runs:
               DIFF_HUNK_OUT=$(echo "$JSON" | jq -r '.diff_hunk // ""')
             fi
           fi
-          # If we resolved from a link but got no usable body, mark resolve as failed so we skip the agent
+          # If fetch failed, try fallback: extract embedded original prompt from previous no-op comment
           if [[ -z "$JSON" ]] || [[ -z "$BODY" ]]; then
-            RESOLVE_FAILED="true"
+            if [[ "$COMMENT_BODY" == *"<!-- CURSOR_AGENT_ORIGINAL_PROMPT"*"CURSOR_AGENT_ORIGINAL_PROMPT_END -->"* ]]; then
+              BODY=$(echo "$COMMENT_BODY" | sed -n '/<!-- CURSOR_AGENT_ORIGINAL_PROMPT/,/CURSOR_AGENT_ORIGINAL_PROMPT_END -->/p' | sed '1d;$d')
+              # Use fallback only if we got non-empty content
+              [[ -n "$BODY" ]] && RESOLVE_FAILED="false" || RESOLVE_FAILED="true"
+            else
+              RESOLVE_FAILED="true"
+            fi
           fi
         else
           PATH_OUT="$REVIEW_PATH"

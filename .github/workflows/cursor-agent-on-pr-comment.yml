@@ -462,6 +462,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           COMMENT_REFERENCE: ${{ steps.context.outputs.comment_reference }}
+          PROMPT_BODY: ${{ steps.context.outputs.prompt_body }}
           RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
           # Include truncated agent output so you can see why no commits were pushed (optional; sometimes no-op is expected)
@@ -477,6 +478,13 @@ jobs:
             WARNINGS_LIST=$(sed 's/^/- /' "$WARNINGS_FILE")
             WARNINGS_SECTION=$'\n\n**Warnings:**\n'"$WARNINGS_LIST"
           fi
+
+          # Embed original prompt in HTML comment so re-runs triggered by this comment can use it
+          # when the linked comment fetch fails (e.g. rate limit, deleted comment).
+          ORIGINAL_PROMPT_SECTION=""
+          if [[ -n "$PROMPT_BODY" ]]; then
+            ORIGINAL_PROMPT_SECTION=$'\n\n<!-- CURSOR_AGENT_ORIGINAL_PROMPT\n'"$PROMPT_BODY"$'\nCURSOR_AGENT_ORIGINAL_PROMPT_END -->'
+          fi
           
           NOOP_BODY=$(cat <<EOF
           ## ✅ Cursor Agent: No changes needed
@@ -487,6 +495,7 @@ jobs:
           $WARNINGS_SECTION
           $OUTPUT_SECTION
           [Workflow run]($RUN_URL)
+          $ORIGINAL_PROMPT_SECTION
           
           $INTERNAL_MARKER
           EOF
