@@ -140,15 +140,15 @@ jobs:
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
           COMMENT_ID: ${{ steps.context.outputs.comment_id }}
           COMMENT_EVENT: ${{ steps.context.outputs.event_name }}
-          COMMENT_BODY: ${{ github.event.comment.body || github.event.review.body }}
+          COMMENT_BODY: ${{ steps.context.outputs.prompt_body || github.event.comment.body || github.event.review.body }}
           HEAD_REF: ${{ steps.context.outputs.head_ref }}
           HEAD_SHA: ${{ steps.context.outputs.head_sha }}
           REPO: ${{ github.repository }}
-          COMMENT_PATH: ${{ steps.context.outputs.comment_path }}
-          COMMENT_SIDE: ${{ steps.context.outputs.comment_side }}
-          COMMENT_LINE: ${{ steps.context.outputs.comment_line }}
-          COMMENT_START_LINE: ${{ steps.context.outputs.comment_start_line }}
-          COMMENT_DIFF_HUNK: ${{ steps.context.outputs.comment_diff_hunk }}
+          COMMENT_PATH: ${{ steps.context.outputs.prompt_path || steps.context.outputs.comment_path }}
+          COMMENT_SIDE: ${{ steps.context.outputs.prompt_side || steps.context.outputs.comment_side }}
+          COMMENT_LINE: ${{ steps.context.outputs.prompt_line || steps.context.outputs.comment_line }}
+          COMMENT_START_LINE: ${{ steps.context.outputs.prompt_start_line || steps.context.outputs.comment_start_line }}
+          COMMENT_DIFF_HUNK: ${{ steps.context.outputs.prompt_diff_hunk || steps.context.outputs.comment_diff_hunk }}
         run: |
           BEFORE_SHA="$(git rev-parse HEAD)"
           AGENT_OUTPUT_FILE=$(mktemp)

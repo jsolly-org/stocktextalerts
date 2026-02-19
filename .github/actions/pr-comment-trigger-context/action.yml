@@ -96,6 +96,24 @@ outputs:
   comment_diff_hunk:
     description: Review comment diff hunk
     value: ${{ steps.review_context.outputs.comment_diff_hunk }}
+  prompt_body:
+    description: Comment body to use for the agent prompt (resolved from linked comment when internal no-op triggers)
+    value: ${{ steps.prompt_body.outputs.body }}
+  prompt_path:
+    description: File path for prompt context (when resolved from review comment)
+    value: ${{ steps.prompt_body.outputs.path }}
+  prompt_side:
+    description: Diff side for prompt context
+    value: ${{ steps.prompt_body.outputs.side }}
+  prompt_line:
+    description: Line number for prompt context
+    value: ${{ steps.prompt_body.outputs.line }}
+  prompt_start_line:
+    description: Start line for prompt context
+    value: ${{ steps.prompt_body.outputs.start_line }}
+  prompt_diff_hunk:
+    description: Diff hunk for prompt context
+    value: ${{ steps.prompt_body.outputs.diff_hunk }}
 
 runs:
   using: composite
@@ -121,8 +139,26 @@ runs:
           *) skip "commenter is not in the allowlist" ;;
         esac
 
-        # Internal workflow comments
-        [[ "$COMMENT_BODY" == *"$INTERNAL_MARKER"* ]] && skip "internal workflow comment"
+        # Internal workflow comments: skip unless it's a "No changes needed" comment with a
+        # resolvable "In response to" link — in that case we run the agent with the linked comment.
+        if [[ "$COMMENT_BODY" == *"$INTERNAL_MARKER"* ]]; then
+          RESOLVE_ID=""
+          RESOLVE_TYPE=""
+          if [[ "$COMMENT_BODY" == *"No changes needed"* ]] && [[ "$COMMENT_BODY" == *"In response to"* ]]; then
+            if [[ "$COMMENT_BODY" =~ \#issuecomment-([0-9]+) ]]; then
+              RESOLVE_ID="${BASH_REMATCH[1]}"
+              RESOLVE_TYPE="issue"
+            elif [[ "$COMMENT_BODY" =~ \#discussion_r([0-9]+) ]]; then
+              RESOLVE_ID="${BASH_REMATCH[1]}"
+              RESOLVE_TYPE="review"
+            fi
+          fi
+          if [[ -z "$RESOLVE_ID" ]]; then
+            skip "internal workflow comment"
+          fi
+          echo "resolve_from_comment_id=$RESOLVE_ID" >> "$GITHUB_OUTPUT"
+          echo "resolve_from_comment_type=$RESOLVE_TYPE" >> "$GITHUB_OUTPUT"
+        fi
 
         COMMENT_BODY_LC="${COMMENT_BODY,,}"
         # Skip comments that contain "full review" text (case-insensitive).
@@ -137,6 +173,8 @@ runs:
         [[ "$EVENT_NAME" == "pull_request_review" && ( -z "$COMMENT_BODY" || "$COMMENT_BODY" == "null" ) ]] && skip "review without body"
 
         echo "skip=false" >> "$GITHUB_OUTPUT"
+        echo "resolve_from_comment_id=" >> "$GITHUB_OUTPUT"
+        echo "resolve_from_comment_type=" >> "$GITHUB_OUTPUT"
 
     - name: Extract PR metadata
       id: pr_meta
@@ -228,6 +266,64 @@ runs:
           echo "$COMMENT_DIFF_HUNK"
           echo "EOF"
         } >> "$GITHUB_OUTPUT"
+
+    - name: Compute prompt body
+      id: prompt_body
+      if: ${{ steps.should_skip.outputs.skip != 'true' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.gh_token }}
+        REPO: ${{ inputs.repo }}
+        COMMENT_BODY: ${{ inputs.comment_body }}
+        RESOLVE_ID: ${{ steps.should_skip.outputs.resolve_from_comment_id }}
+        RESOLVE_TYPE: ${{ steps.should_skip.outputs.resolve_from_comment_type }}
+        REVIEW_PATH: ${{ steps.review_context.outputs.comment_path }}
+        REVIEW_SIDE: ${{ steps.review_context.outputs.comment_side }}
+        REVIEW_LINE: ${{ steps.review_context.outputs.comment_line }}
+        REVIEW_START_LINE: ${{ steps.review_context.outputs.comment_start_line }}
+        REVIEW_DIFF_HUNK: ${{ steps.review_context.outputs.comment_diff_hunk }}
+      run: |
+        BODY="$COMMENT_BODY"
+        PATH_OUT=""
+        SIDE_OUT=""
+        LINE_OUT=""
+        START_LINE_OUT=""
+        DIFF_HUNK_OUT=""
+
+        if [[ -n "$RESOLVE_ID" ]] && [[ -n "$RESOLVE_TYPE" ]]; then
+          if [[ "$RESOLVE_TYPE" == "issue" ]]; then
+            JSON=$(gh api "repos/$REPO/issues/comments/$RESOLVE_ID" 2>/dev/null) || JSON=""
+          else
+            JSON=$(gh api "repos/$REPO/pulls/comments/$RESOLVE_ID" 2>/dev/null) || JSON=""
+          fi
+          if [[ -n "$JSON" ]]; then
+            BODY=$(echo "$JSON" | jq -r '.body // ""')
+            if [[ "$RESOLVE_TYPE" == "review" ]]; then
+              PATH_OUT=$(echo "$JSON" | jq -r '.path // ""')
+              SIDE_OUT=$(echo "$JSON" | jq -r '.side // ""')
+              LINE_OUT=$(echo "$JSON" | jq -r '.line // ""')
+              START_LINE_OUT=$(echo "$JSON" | jq -r '.start_line // ""')
+              DIFF_HUNK_OUT=$(echo "$JSON" | jq -r '.diff_hunk // ""')
+            fi
+          fi
+        else
+          PATH_OUT="$REVIEW_PATH"
+          SIDE_OUT="$REVIEW_SIDE"
+          LINE_OUT="$REVIEW_LINE"
+          START_LINE_OUT="$REVIEW_START_LINE"
+          DIFF_HUNK_OUT="$REVIEW_DIFF_HUNK"
+        fi
+
+        echo "body<<EOF" >> "$GITHUB_OUTPUT"
+        echo "$BODY" >> "$GITHUB_OUTPUT"
+        echo "EOF" >> "$GITHUB_OUTPUT"
+        echo "path=$PATH_OUT" >> "$GITHUB_OUTPUT"
+        echo "side=$SIDE_OUT" >> "$GITHUB_OUTPUT"
+        echo "line=$LINE_OUT" >> "$GITHUB_OUTPUT"
+        echo "start_line=$START_LINE_OUT" >> "$GITHUB_OUTPUT"
+        echo "diff_hunk<<DIFFEOF" >> "$GITHUB_OUTPUT"
+        echo "$DIFF_HUNK_OUT" >> "$GITHUB_OUTPUT"
+        echo "DIFFEOF" >> "$GITHUB_OUTPUT"
 
     - name: Set run flags
       id: guard
