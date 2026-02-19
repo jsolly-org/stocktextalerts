@@ -883,7 +883,7 @@ watch([priceAlertRiskPriority, priceAlertMarketContext, priceAlertMoveSize, pric
 	}
 	if (
 		riskPriority === normalizeRiskPriority(user.value.market_asset_price_alert_risk_priority) &&
-		marketContext === (user.value.market_asset_price_alert_market_context ?? "standout") &&
+		marketContext === normalizeMarketContext(user.value.market_asset_price_alert_market_context) &&
 		moveSize === normalizeMoveSize(user.value.market_asset_price_alert_move_size) &&
 		followUpMode === normalizeFollowUpMode(user.value.market_asset_price_alert_follow_up_mode)
 	) {
