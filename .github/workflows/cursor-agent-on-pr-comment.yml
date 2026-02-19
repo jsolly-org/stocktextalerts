@@ -181,7 +181,7 @@ jobs:
 
             RESOLVED="$FETCHED"
             CURRENT="$FETCHED"
-            ((DEPTH++))
+            DEPTH=$((DEPTH + 1))
           done
 
           if [[ -n "$RESOLVED" ]]; then
