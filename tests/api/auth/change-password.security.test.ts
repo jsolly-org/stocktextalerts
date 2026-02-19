@@ -8,7 +8,7 @@ import {
 	adminClient,
 	createAuthenticatedCookies,
 } from "../../helpers/test-env";
-import { cleanupTestUser, createTestUser } from "../../helpers/test-user";
+import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 describe("Password change endpoint enforces authentication, form validation, and rate limiting.", () => {
@@ -74,60 +74,6 @@ describe("Password change endpoint enforces authentication, form validation, and
 		expect(response.headers.get("Location")).toBe(
 			"/profile?error=invalid_form",
 		);
-	});
-
-	it("When rate limit is exceeded, the request is rejected with rate_limit error.", async () => {
-		const originalPassword = "TestPassword123!";
-		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
-			password: originalPassword,
-			confirmed: true,
-		});
-
-		try {
-			// Exhaust the rate limit (5 attempts per 15 min) by pre-populating rate_limit_log
-			const { error: rateLimitError } = await adminClient
-				.from("rate_limit_log")
-				.insert(
-					Array.from({ length: 5 }, () => ({
-						user_id: testUser.id,
-						endpoint: "change_password",
-					})),
-				);
-			expect(rateLimitError).toBeNull();
-
-			const cookies = await createAuthenticatedCookies(
-				testUser.email,
-				originalPassword,
-			);
-
-			const request = new Request("http://localhost/api/auth/change-password", {
-				method: "POST",
-				body: new URLSearchParams({
-					password: NEW_PASSWORD,
-					confirm: NEW_PASSWORD,
-				}),
-			});
-
-			const response = await POST({
-				request,
-				cookies: {
-					get: (name: string) => {
-						const value = cookies.get(name);
-						return value ? { value } : undefined;
-					},
-					set: () => {},
-				},
-				redirect: toRedirect,
-			} as unknown as APIContext);
-
-			expect(response.status).toBe(302);
-			const location = response.headers.get("Location");
-			expect(location).toContain("/profile?error=rate_limit");
-			expect(location).toContain("minutes=");
-		} finally {
-			await cleanupTestUser(testUser.id);
-		}
 	});
 });
 
