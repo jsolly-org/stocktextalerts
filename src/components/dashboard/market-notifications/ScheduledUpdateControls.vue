@@ -109,14 +109,16 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, defineAsyncComponent, onMounted, ref } from "vue";
 
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 import PlusIcon from "../../../icons/plus.svg?component";
 import PresentationChartLineIcon from "../../../icons/presentation-chart-line.svg?component";
 import StatusMessage from "../../StatusMessage.vue";
-import TimePicker from "../shared/TimePicker.vue";
+
+/* Lazy-load TimePicker (pulls in ~210 KB vue-datepicker) until component mounts. */
+const TimePicker = defineAsyncComponent(() => import("../shared/TimePicker.vue"));
 
 interface Props {
 	scheduledUpdateTimes: string[];

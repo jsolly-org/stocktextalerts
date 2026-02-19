@@ -55,6 +55,9 @@ if (!vercelUrl) {
 	site = `https://${vercelUrl}`;
 }
 
+/* Precomputed set for O(1) exact-path exclusion in sitemap filter. */
+const EXCLUDED_PATH_SET = new Set(EXCLUDED_ROUTE_PREFIXES);
+
 /**
  * Exclude auth flow, authenticated, and utility pages from the sitemap.
  *
@@ -62,9 +65,8 @@ if (!vercelUrl) {
  */
 function sitemapFilter(page: string): boolean {
 	const pathname = new URL(page).pathname.replace(/\/$/, "") || "/";
-	return !EXCLUDED_ROUTE_PREFIXES.some(
-		(p) => pathname === p || pathname.startsWith(`${p}/`),
-	);
+	if (EXCLUDED_PATH_SET.has(pathname)) return false;
+	return !EXCLUDED_ROUTE_PREFIXES.some((p) => pathname.startsWith(`${p}/`));
 }
 
 // https://astro.build/config

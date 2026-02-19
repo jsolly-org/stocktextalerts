@@ -115,13 +115,15 @@
 </template>
 
 <script lang="ts" setup>
-import { computed } from "vue";
+import { computed, defineAsyncComponent } from "vue";
 import PresentationChartLineIcon from "../../../icons/presentation-chart-line.svg?component";
 import { DASHBOARD_SECTION_HASHES, DASHBOARD_SECTION_IDS } from "../../../lib/constants";
 import StatusMessage from "../../StatusMessage.vue";
 import ToggleSwitch from "../../ToggleSwitch.vue";
-import TimePicker from "../shared/TimePicker.vue";
 import SmsVerificationSection from "./SmsVerificationSection.vue";
+
+/* Lazy-load TimePicker (pulls in ~210 KB vue-datepicker) until component mounts. */
+const TimePicker = defineAsyncComponent(() => import("../shared/TimePicker.vue"));
 
 interface Props {
 	emailEnabled: boolean;

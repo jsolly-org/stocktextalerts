@@ -43,7 +43,7 @@
 					:aria-describedby="showError ? 'phone-error' : undefined"
 					:aria-invalid="showError ? 'true' : undefined"
 					class="w-full min-w-0 rounded-r-lg py-2.5 px-3 text-base text-heading placeholder:text-faint focus:outline-none"
-					:placeholder="computedPlaceholder"
+					:placeholder="PHONE_PLACEHOLDER"
 					name="phone"
 					:required="isRequired"
 					inputmode="tel"
@@ -72,10 +72,8 @@
 import {
 	AsYouType,
 	getCountryCallingCode,
-	getExampleNumber,
 	isValidPhoneNumber,
 } from "libphonenumber-js";
-import examples from "libphonenumber-js/examples.mobile.json";
 import { computed, ref, watch } from "vue";
 import CheckCircleIcon from "../../../icons/check-circle-24.svg?component";
 import ChevronDownIcon from "../../../icons/chevron-down.svg?component";
@@ -130,10 +128,8 @@ watch(country, () => {
 	}
 });
 
-const computedPlaceholder = computed(() => {
-	const exampleNumber = getExampleNumber(country.value, examples);
-	return exampleNumber ? exampleNumber.formatNational() : "(555) 555-5555";
-});
+/* Static US placeholder; country is fixed to US in this form. */
+const PHONE_PLACEHOLDER = "(555) 555-5555";
 
 function handlePhoneInput(e: Event) {
 	touched.value = true;

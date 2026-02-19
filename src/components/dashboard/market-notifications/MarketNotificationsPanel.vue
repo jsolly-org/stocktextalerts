@@ -708,64 +708,38 @@ const outsideMarketHoursIndices = computed<Set<number>>(() => {
 	return indices;
 });
 
+/* Single watcher syncs user fields to local refs; fewer watchers reduce overhead. */
 watch(
-	() => user.value.market_scheduled_asset_price_include_email,
-	(value) => {
-		marketIncludeEmail.value = value;
-	},
-);
-watch(
-	() => user.value.market_scheduled_asset_price_include_sms,
-	(value) => {
-		marketIncludeSms.value = value;
-	},
-);
-watch(
-	() => user.value.market_asset_price_alerts_include_email,
-	(value) => {
-		priceAlertsIncludeEmail.value = value;
-	},
-);
-watch(
-	() => user.value.market_asset_price_alerts_include_sms,
-	(value) => {
-		priceAlertsIncludeSms.value = value;
-	},
-);
-watch(
-	() => user.value.market_asset_price_alert_onboarding_completed,
-	(value) => {
-		priceAlertOnboardingCompleted.value = value ?? false;
-	},
-);
-watch(
-	() => user.value.market_asset_price_alert_risk_priority,
-	(value) => {
-		priceAlertRiskPriority.value = value ?? "both_equally";
-	},
-);
-watch(
-	() => user.value.market_asset_price_alert_market_context,
-	(value) => {
-		priceAlertMarketContext.value = normalizeMarketContext(value);
-	},
-);
-watch(
-	() => user.value.market_asset_price_alert_move_size,
-	(value) => {
-		priceAlertMoveSize.value = value ?? "large";
-	},
-);
-watch(
-	() => user.value.market_asset_price_alert_follow_up_mode,
-	(value) => {
-		priceAlertFollowUpMode.value = value ?? "first_only";
-	},
-);
-watch(
-	() => user.value.market_scheduled_asset_price_times,
-	(value) => {
-		scheduledUpdateTimesMinutes.value = normalizeScheduledTimes(value ?? []);
+	() => ({
+		marketIncludeEmail: user.value.market_scheduled_asset_price_include_email,
+		marketIncludeSms: user.value.market_scheduled_asset_price_include_sms,
+		priceAlertsIncludeEmail: user.value.market_asset_price_alerts_include_email,
+		priceAlertsIncludeSms: user.value.market_asset_price_alerts_include_sms,
+		priceAlertOnboardingCompleted:
+			user.value.market_asset_price_alert_onboarding_completed ?? false,
+		priceAlertRiskPriority:
+			user.value.market_asset_price_alert_risk_priority ?? "both_equally",
+		priceAlertMarketContext: normalizeMarketContext(
+			user.value.market_asset_price_alert_market_context,
+		),
+		priceAlertMoveSize: user.value.market_asset_price_alert_move_size ?? "large",
+		priceAlertFollowUpMode:
+			user.value.market_asset_price_alert_follow_up_mode ?? "first_only",
+		marketScheduledTimes: user.value.market_scheduled_asset_price_times ?? [],
+	}),
+	(synced) => {
+		marketIncludeEmail.value = synced.marketIncludeEmail;
+		marketIncludeSms.value = synced.marketIncludeSms;
+		priceAlertsIncludeEmail.value = synced.priceAlertsIncludeEmail;
+		priceAlertsIncludeSms.value = synced.priceAlertsIncludeSms;
+		priceAlertOnboardingCompleted.value = synced.priceAlertOnboardingCompleted;
+		priceAlertRiskPriority.value = synced.priceAlertRiskPriority;
+		priceAlertMarketContext.value = synced.priceAlertMarketContext;
+		priceAlertMoveSize.value = synced.priceAlertMoveSize;
+		priceAlertFollowUpMode.value = synced.priceAlertFollowUpMode;
+		scheduledUpdateTimesMinutes.value = normalizeScheduledTimes(
+			synced.marketScheduledTimes,
+		);
 	},
 );
 
