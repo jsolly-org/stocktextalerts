@@ -86,12 +86,6 @@ jobs:
         if: steps.check-pr.outputs.skip != 'true'
         run: npm ci
 
-      - name: Setup Supabase CLI
-        if: steps.check-pr.outputs.skip != 'true'
-        uses: supabase/setup-cli@v1.6.0
-        with:
-          version: 2.76.9
-
       - name: Cache Playwright browsers
         if: steps.check-pr.outputs.skip != 'true'
         id: playwright-cache
@@ -100,87 +94,37 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
-      - name: Start Supabase and install Playwright
+      - name: Install Playwright
         if: steps.check-pr.outputs.skip != 'true'
         run: |
-          supabase start -x studio,imgproxy,logflare,vector,postgres-meta,edge-runtime,realtime,storage-api &
-          SB_PID=$!
           if [[ "${{ steps.playwright-cache.outputs.cache-hit }}" == "true" ]]; then
-            npx playwright install-deps &
+            npx playwright install-deps
           else
-            npx playwright install --with-deps &
+            npx playwright install --with-deps
           fi
-          PW_PID=$!
-          wait $SB_PID
-          wait $PW_PID
 
-      - name: Load Supabase env
+      - name: Get Vercel dev deployment URL
         if: steps.check-pr.outputs.skip != 'true'
+        id: vercel-url
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          supabase status -o json > /tmp/sb-status.json
-          DB_VARS=$(jq -r '
-            "SUPABASE_URL=\(.API_URL // "")",
-            "SUPABASE_PUBLISHABLE_KEY=\(.ANON_KEY // "")",
-            "SUPABASE_SECRET_KEY=\(.SERVICE_ROLE_KEY // "")",
-            "DATABASE_URL=\(.DB_URL // "")"
-          ' /tmp/sb-status.json)
-          INVALID_DB_VARS=0
-          DB_VARS_NONEMPTY_LINES=0
-          declare -A DB_VARS_SEEN_KEYS=()
-          while IFS= read -r LINE; do
-            [[ -z "$LINE" ]] && continue
-            DB_VARS_NONEMPTY_LINES=$((DB_VARS_NONEMPTY_LINES + 1))
-            if [[ "$LINE" != *"="* ]]; then
-              echo "Error: Supabase env var line is malformed (expected KEY=VALUE): $LINE" >&2
-              INVALID_DB_VARS=1
-              continue
-            fi
-            KEY="${LINE%%=*}"
-            VALUE="${LINE#*=}"
-            DB_VARS_SEEN_KEYS["$KEY"]=1
-            VALUE_TRIMMED="${VALUE//[[:space:]]/}"
-            if [[ -z "$VALUE_TRIMMED" || "$VALUE" == "null" ]]; then
-              echo "Error: Supabase status did not provide a valid value for $KEY (got '$VALUE')." >&2
-              INVALID_DB_VARS=1
-            fi
-          done <<< "$DB_VARS"
-          for KEY in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY DATABASE_URL; do
-            if [[ -z "${DB_VARS_SEEN_KEYS[$KEY]:-}" ]]; then
-              echo "Error: Supabase env var $KEY was not produced by jq." >&2
-              INVALID_DB_VARS=1
-            fi
-          done
-          if [[ "$DB_VARS_NONEMPTY_LINES" -eq 0 ]]; then
-            echo "Error: jq produced no Supabase env vars." >&2
-            INVALID_DB_VARS=1
-          fi
-          if [[ "$INVALID_DB_VARS" -ne 0 ]]; then
-            echo "Error: Refusing to export Supabase env vars with null/empty values." >&2
+          DEPLOY_URL=$(curl -s \
+            "https://api.vercel.com/v6/deployments?projectId=prj_wrSGjuWe4w82AdjlQAI3b60PSypJ&state=READY&limit=20" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            | jq -r '[.deployments[] | select(.meta.githubCommitRef == "dev")] | first | .url')
+          if [ -z "$DEPLOY_URL" ] || [ "$DEPLOY_URL" = "null" ]; then
+            echo "No READY deployment found for dev branch"
             exit 1
           fi
-          STATIC_VARS=$'CRON_SECRET=ci-cron-secret\nVERCEL_URL=http://localhost:4322\nTWILIO_ACCOUNT_SID=AC00000000000000000000000000000000\nTWILIO_AUTH_TOKEN=ci-twilio-auth-token\nTWILIO_PHONE_NUMBER=+15555550100\nTWILIO_VERIFY_SERVICE_SID=VA00000000000000000000000000000000\nRESEND_API_KEY=re_ci_dummy_key\nEMAIL_FROM=ci@example.com\nMASSIVE_API_KEY=ci-massive-api-key\nFINNHUB_API_KEY=ci-finnhub-api-key'
-          printf '%s\n%s\n' "$DB_VARS" "$STATIC_VARS" > .env.local
-          printf '%s\n%s\n' "$DB_VARS" "$STATIC_VARS" >> $GITHUB_ENV
-
-      - name: Start dev server
-        if: steps.check-pr.outputs.skip != 'true'
-        run: |
-          MODE=test npm run dev -- --port 4322 &
-          # Wait for server to be ready
-          for i in $(seq 1 60); do
-            if curl -s http://localhost:4322 > /dev/null 2>&1; then
-              echo "Dev server is ready."
-              break
-            fi
-            if [ "$i" -eq 60 ]; then
-              echo "Dev server failed to start within 60 seconds."
-              exit 1
-            fi
-            sleep 1
-          done
+          echo "url=https://$DEPLOY_URL" >> "$GITHUB_OUTPUT"
 
       - name: Run accessibility audit
         if: steps.check-pr.outputs.skip != 'true'
+        env:
+          AUDIT_BASE_URL: ${{ steps.vercel-url.outputs.url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          DEFAULT_PASSWORD: ${{ secrets.DEFAULT_PASSWORD }}
         run: node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/a11y-audit.ts
 
       - name: Check audit findings
