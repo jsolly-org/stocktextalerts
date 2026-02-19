@@ -530,7 +530,15 @@ test.describe("sanity tests", () => {
 				? "America/New_York"
 				: "America/Chicago";
 
-		await timezoneSelect.selectOption(targetTimezone);
+		await Promise.all([
+			page.waitForResponse(
+				(response) =>
+					response.url().includes("/api/notification-preferences/timezone") &&
+					response.status() === 200,
+				{ timeout: 15_000 },
+			),
+			timezoneSelect.selectOption(targetTimezone),
+		]);
 		await expect(page.getByText("Timezone updated.")).toBeVisible({
 			timeout: 10_000,
 		});
