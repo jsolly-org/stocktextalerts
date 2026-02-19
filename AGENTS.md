@@ -25,7 +25,7 @@ New app with no users — optimize for simplicity and correctness over backwards
 - Created by `supabase/seed.sql` (regenerated via `npm run db:gen-seed`)
 
 ## GH_AGENT_TOKEN (CI Secret)
-Many workflows use `GH_AGENT_TOKEN` because `GITHUB_TOKEN` lacks the `workflows` permission. Without it, auto-merge, branch updates, and agent pushes that touch `.github/workflows/` will fail.
+Many workflows use `GH_AGENT_TOKEN` because GitHub's `GITHUB_TOKEN` lacks the `workflows` permission. Without it, auto-merge, branch updates, and agent pushes that touch `.github/workflows/` will fail.
 
 **Where to add:** Repository Settings → Secrets and variables → Actions → New repository secret → name: `GH_AGENT_TOKEN`.
 
