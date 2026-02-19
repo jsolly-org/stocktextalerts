@@ -32,7 +32,7 @@ const DEMO_LOW: DemoAsset = {
 const LOW_PRICE_CEILING = 50;
 
 function formatDollar(n: number): string {
-	return `$${Math.round(n)}`;
+	return `$${n.toFixed(2).replace(/\.00$/, "")}`;
 }
 
 function sectorPeerLabel(sector: string): string {
