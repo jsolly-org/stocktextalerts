@@ -116,13 +116,14 @@ describe("Scheduled notification scenarios", () => {
 		} as APIContext);
 		expect(response.status).toBe(200);
 
-		const { data: smsLogs } = await adminClient
+		const { data: smsLogs, error: smsLogError } = await adminClient
 			.from("notification_log")
 			.select("*")
 			.eq("user_id", testUser.id)
 			.eq("type", "market")
 			.eq("delivery_method", "sms");
-		expect(smsLogs ?? []).toHaveLength(0);
+		expect(smsLogError).toBeNull();
+		expect(smsLogs).toHaveLength(0);
 	});
 
 	it("User with both email and SMS enabled receives both at scheduled time.", async () => {
@@ -160,20 +161,22 @@ describe("Scheduled notification scenarios", () => {
 		} as APIContext);
 		expect(response.status).toBe(200);
 
-		const { data: emailLogs } = await adminClient
+		const { data: emailLogs, error: emailLogError } = await adminClient
 			.from("notification_log")
 			.select("*")
 			.eq("user_id", id)
 			.eq("type", "market")
 			.eq("delivery_method", "email");
+		expect(emailLogError).toBeNull();
 		expect(emailLogs).toHaveLength(1);
 
-		const { data: smsLogs } = await adminClient
+		const { data: smsLogs, error: smsLogError } = await adminClient
 			.from("notification_log")
 			.select("*")
 			.eq("user_id", id)
 			.eq("type", "market")
 			.eq("delivery_method", "sms");
+		expect(smsLogError).toBeNull();
 		expect(smsLogs).toHaveLength(1);
 		expect(smsLogs?.[0]?.message_delivered).toBe(true);
 	});
