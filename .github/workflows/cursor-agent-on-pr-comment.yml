@@ -37,7 +37,7 @@ jobs:
       - name: Checkout workflow and actions
         uses: actions/checkout@v6.0.2
         with:
-          ref: main
+          ref: dev # default branch is dev
           fetch-depth: 1
 
       - name: Derive comment context
