@@ -165,11 +165,21 @@ jobs:
             elif [[ "$CURRENT" =~ /pull/[0-9]+/comments/([0-9]+) ]]; then
               REF_ID="${BASH_REMATCH[1]}"
               API_TYPE="pulls"
+            elif [[ "$CURRENT" =~ [cC]omment\s+#?([0-9]{8,}) ]]; then
+              REF_ID="${BASH_REMATCH[1]}"
+              API_TYPE="try_both"
             fi
 
             if [[ -n "$REF_ID" && -n "$API_TYPE" ]]; then
               if [[ "$API_TYPE" == "issues" ]]; then
                 FETCHED=$(gh api "repos/$REPO/issues/comments/$REF_ID" --jq '.body' 2>/dev/null || true)
+                # Fallback: inline review comments use pulls/comments, not issues/comments.
+                if [[ -z "$FETCHED" || "$FETCHED" == "null" ]]; then
+                  FETCHED=$(gh api "repos/$REPO/pulls/comments/$REF_ID" --jq '.body' 2>/dev/null || true)
+                fi
+              elif [[ "$API_TYPE" == "try_both" ]]; then
+                FETCHED=$(gh api "repos/$REPO/issues/comments/$REF_ID" --jq '.body' 2>/dev/null || true)
+                [[ -z "$FETCHED" || "$FETCHED" == "null" ]] && FETCHED=$(gh api "repos/$REPO/pulls/comments/$REF_ID" --jq '.body' 2>/dev/null || true)
               else
                 FETCHED=$(gh api "repos/$REPO/pulls/comments/$REF_ID" --jq '.body' 2>/dev/null || true)
               fi
