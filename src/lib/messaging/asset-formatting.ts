@@ -54,7 +54,7 @@ function formatAssetPriceText(
 /**
  * Format a single asset line for plaintext contexts (email text / SMS / previews).
  */
-export function formatAssetTextLine(
+function formatAssetTextLine(
 	asset: AssetWithName,
 	price: AssetPrice | undefined,
 	formatPrefs: FormatPreferences,
