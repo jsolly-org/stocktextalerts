@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
-import { POST } from "../../../src/pages/api/auth/update-email";
+import { POST } from "../../../src/pages/api/auth/delete-account";
 import { TEST_PASSWORD } from "../../helpers/constants";
 import { toRedirect } from "../../helpers/request-helpers";
 import {
@@ -11,11 +11,10 @@ import {
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
-describe("Update email requires authentication.", () => {
-	it("An unauthenticated request is redirected to sign-in with an error.", async () => {
-		const request = new Request("http://localhost/api/auth/update-email", {
+describe("Delete account requires authentication.", () => {
+	it("An unauthenticated request is redirected to the home page.", async () => {
+		const request = new Request("http://localhost/api/auth/delete-account", {
 			method: "POST",
-			body: new URLSearchParams({ email: "new@example.com" }),
 		});
 
 		const response = await POST({
@@ -23,18 +22,17 @@ describe("Update email requires authentication.", () => {
 			cookies: {
 				get: () => undefined,
 				set: () => {},
+				delete: () => {},
 			},
 			redirect: toRedirect,
 		} as unknown as APIContext);
 
 		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe(
-			"/auth/signin?error=unauthorized",
-		);
+		expect(response.headers.get("Location")).toBe("/");
 	});
 });
 
-describe("Update email endpoint enforces rate limiting.", () => {
+describe("Delete account endpoint enforces rate limiting.", () => {
 	it("When rate limit is exceeded, the request is redirected with rate_limit error.", async () => {
 		const testUser = await createTestUser({
 			email: `test-${randomUUID()}@resend.dev`,
@@ -45,30 +43,24 @@ describe("Update email endpoint enforces rate limiting.", () => {
 
 		const attempts =
 			Number.parseInt(
-				process.env.CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS ?? "5",
+				process.env.DELETE_ACCOUNT_RATE_LIMIT_ATTEMPTS ?? "5",
 				10,
 			) || 5;
 
-		const { error: insertError } = await adminClient
-			.from("rate_limit_log")
-			.insert(
-				Array.from({ length: attempts }, () => ({
-					user_id: testUser.id,
-					endpoint: "change_email",
-				})),
-			);
-		if (insertError) {
-			throw new Error(`Failed to seed rate_limit_log: ${insertError.message}`);
-		}
+		await adminClient.from("rate_limit_log").insert(
+			Array.from({ length: attempts }, () => ({
+				user_id: testUser.id,
+				endpoint: "delete_account",
+			})),
+		);
 
 		const cookies = await createAuthenticatedCookies(
 			testUser.email,
 			TEST_PASSWORD,
 		);
 
-		const request = new Request("http://localhost/api/auth/update-email", {
+		const request = new Request("http://localhost/api/auth/delete-account", {
 			method: "POST",
-			body: new URLSearchParams({ email: `new-${randomUUID()}@resend.dev` }),
 		});
 
 		const response = await POST({
@@ -79,6 +71,7 @@ describe("Update email endpoint enforces rate limiting.", () => {
 					return value ? { value } : undefined;
 				},
 				set: () => {},
+				delete: () => {},
 			},
 			redirect: toRedirect,
 		} as unknown as APIContext);
