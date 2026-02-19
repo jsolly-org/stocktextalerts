@@ -222,34 +222,16 @@ jobs:
             echo "resolved=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Run Cursor agent
+      - name: Fetch PR diff for fallback prompt
         if: steps.context.outputs.run_agent == 'true'
-        id: agent
-        continue-on-error: true
+        id: fetch_diff
         env:
-          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+          REPO: ${{ github.repository }}
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
-          COMMENT_ID: ${{ steps.context.outputs.comment_id }}
-          COMMENT_EVENT: ${{ steps.context.outputs.event_name }}
           COMMENT_BODY: ${{ github.event.comment.body || github.event.review.body }}
           RESOLVED_BODY_FILE: /tmp/resolved_comment_body.txt
-          HEAD_REF: ${{ steps.context.outputs.head_ref }}
-          HEAD_SHA: ${{ steps.context.outputs.head_sha }}
-          REPO: ${{ github.repository }}
-          COMMENT_PATH: ${{ steps.context.outputs.comment_path }}
-          COMMENT_SIDE: ${{ steps.context.outputs.comment_side }}
-          COMMENT_LINE: ${{ steps.context.outputs.comment_line }}
-          COMMENT_START_LINE: ${{ steps.context.outputs.comment_start_line }}
-          COMMENT_DIFF_HUNK: ${{ steps.context.outputs.comment_diff_hunk }}
         run: |
-          BEFORE_SHA="$(git rev-parse HEAD)"
-          AGENT_OUTPUT_FILE=$(mktemp)
-          AGENT_ERROR_FILE=$(mktemp)
-          echo "before_sha=$BEFORE_SHA" >> "$GITHUB_OUTPUT"
-          echo "noop=false" >> "$GITHUB_OUTPUT"
-          echo "changes_present=false" >> "$GITHUB_OUTPUT"
-
           # Use resolved comment body when available; otherwise use trigger comment body.
           if [[ -f "${RESOLVED_BODY_FILE:-}" ]] && [[ -s "$RESOLVED_BODY_FILE" ]]; then
             BODY_CONTENT=$(cat "$RESOLVED_BODY_FILE")
@@ -258,7 +240,7 @@ jobs:
           fi
 
           # Detect placeholder/meta comments that lack concrete code change instructions.
-          # When the resolution chain ends at these, provide fallback with PR diff context.
+          # When the resolution chain ends at these, fetch PR diff and prepare fallback prompt.
           if [[ "$BODY_CONTENT" == *"Cursor Agent: No changes needed"* ]] || \
              [[ "$BODY_CONTENT" == *"Could not fetch referenced comment"* ]] || \
              [[ "$BODY_CONTENT" == *"Please re-post the review feedback"* ]] || \
@@ -296,10 +278,51 @@ jobs:
             else
               BODY_CONTENT="$FALLBACK"
             fi
+            printf '%s' "$BODY_CONTENT" > /tmp/agent_user_input.txt
+            echo "use_prepared_input=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "use_prepared_input=false" >> "$GITHUB_OUTPUT"
           fi
 
-          # Write body to temp file to avoid heredoc escaping issues.
-          printf '%s' "$BODY_CONTENT" > /tmp/agent_user_input.txt
+      - name: Run Cursor agent
+        if: steps.context.outputs.run_agent == 'true'
+        id: agent
+        continue-on-error: true
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          COMMENT_ID: ${{ steps.context.outputs.comment_id }}
+          COMMENT_EVENT: ${{ steps.context.outputs.event_name }}
+          COMMENT_BODY: ${{ github.event.comment.body || github.event.review.body }}
+          RESOLVED_BODY_FILE: /tmp/resolved_comment_body.txt
+          HEAD_REF: ${{ steps.context.outputs.head_ref }}
+          HEAD_SHA: ${{ steps.context.outputs.head_sha }}
+          REPO: ${{ github.repository }}
+          COMMENT_PATH: ${{ steps.context.outputs.comment_path }}
+          COMMENT_SIDE: ${{ steps.context.outputs.comment_side }}
+          COMMENT_LINE: ${{ steps.context.outputs.comment_line }}
+          COMMENT_START_LINE: ${{ steps.context.outputs.comment_start_line }}
+          COMMENT_DIFF_HUNK: ${{ steps.context.outputs.comment_diff_hunk }}
+        run: |
+          BEFORE_SHA="$(git rev-parse HEAD)"
+          AGENT_OUTPUT_FILE=$(mktemp)
+          AGENT_ERROR_FILE=$(mktemp)
+          echo "before_sha=$BEFORE_SHA" >> "$GITHUB_OUTPUT"
+          echo "noop=false" >> "$GITHUB_OUTPUT"
+          echo "changes_present=false" >> "$GITHUB_OUTPUT"
+
+          # Use pre-fetched fallback input when available; otherwise resolve from comment body.
+          if [[ "${{ steps.fetch_diff.outputs.use_prepared_input }}" == "true" ]] && [[ -f /tmp/agent_user_input.txt ]] && [[ -s /tmp/agent_user_input.txt ]]; then
+            :
+            # /tmp/agent_user_input.txt already written by "Fetch PR diff for fallback prompt" step
+          else
+            if [[ -f "${RESOLVED_BODY_FILE:-}" ]] && [[ -s "$RESOLVED_BODY_FILE" ]]; then
+              BODY_CONTENT=$(cat "$RESOLVED_BODY_FILE")
+            else
+              BODY_CONTENT="$COMMENT_BODY"
+            fi
+            printf '%s' "$BODY_CONTENT" > /tmp/agent_user_input.txt
+          fi
 
           PROMPT="$(
             cat <<'PROMPT_HEAD'
