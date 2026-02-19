@@ -90,21 +90,3 @@ export function createFormPostRequest(
 		headers: { Accept: "application/json" },
 	});
 }
-
-/**
- * Build a JSON Request for API route tests.
- */
-export function createJsonRequest(
-	path: string,
-	method: "POST" | "PUT" | "PATCH",
-	body: unknown,
-): Request {
-	return new Request(`http://localhost${path}`, {
-		method,
-		headers: {
-			"Content-Type": "application/json",
-			Accept: "application/json",
-		},
-		body: JSON.stringify(body),
-	});
-}
