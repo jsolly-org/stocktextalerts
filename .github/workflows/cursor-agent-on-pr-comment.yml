@@ -142,6 +142,8 @@ jobs:
           fi
           echo "Using resolved prompt from linked comment (resolved_from_link=true)"
 
+      # When resolved_from_link, PROMPT_BODY is the resolved original/linked comment (from embedded
+      # block or API). Use it exclusively — never fall back to the trigger comment (the no-op meta-report).
       - name: Run Cursor agent
         if: steps.context.outputs.run_agent == 'true'
         id: agent
@@ -151,7 +153,10 @@ jobs:
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
           COMMENT_ID: ${{ steps.context.outputs.comment_id }}
           COMMENT_EVENT: ${{ steps.context.outputs.event_name }}
-          COMMENT_BODY: ${{ steps.context.outputs.resolved_from_link == 'true' && steps.context.outputs.prompt_body || steps.context.outputs.prompt_body || github.event.comment.body || github.event.review.body }}
+          # Prefer prompt_body (expanded/resolved) so agent always gets the actual change request
+          PROMPT_BODY: ${{ steps.context.outputs.prompt_body }}
+          # Raw event body only when prompt_body is not available (normal first run)
+          COMMENT_BODY_FALLBACK: ${{ github.event.comment.body || github.event.review.body }}
           HEAD_REF: ${{ steps.context.outputs.head_ref }}
           HEAD_SHA: ${{ steps.context.outputs.head_sha }}
           REPO: ${{ github.repository }}
@@ -168,8 +173,13 @@ jobs:
           echo "noop=false" >> "$GITHUB_OUTPUT"
           echo "changes_present=false" >> "$GITHUB_OUTPUT"
 
-          PROMPT="$(
-            cat <<EOF
+          # Use resolved prompt when available; otherwise raw comment. Never use trigger body when it's
+          # a no-op meta-report (resolved_from_link case is validated earlier).
+          USER_INPUT="${PROMPT_BODY:-$COMMENT_BODY_FALLBACK}"
+
+          # Build prompt: system part uses heredoc (with var expansion); user input appended after to
+          # avoid heredoc delimiter (e.g. EOF) appearing in comment text and breaking the block.
+          SYSTEM_PART="$(cat <<EOF
             ---SYSTEM_INSTRUCTIONS_START---
             You are running in GitHub Actions on a checked-out PR branch.
 
@@ -200,10 +210,10 @@ jobs:
             ---SYSTEM_INSTRUCTIONS_END---
 
             ---USER_INPUT_START---
-            $COMMENT_BODY
-            ---USER_INPUT_END---
           EOF
           )"
+          PROMPT="${SYSTEM_PART}${USER_INPUT}
+            ---USER_INPUT_END---"
 
           # Use --print for non-interactive runs (enables tool access) and pass the prompt as the
           # positional argument, per Cursor CLI docs.
