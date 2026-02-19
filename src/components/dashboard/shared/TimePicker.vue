@@ -197,7 +197,6 @@ const inputAttributes = computed(() => {
 		id: props.inputId,
 		class: `input cursor-pointer ${paddingClass}`.trim(),
 		"aria-label": props.inputAriaLabel,
-		placeholder: props.placeholder,
 		// vue-datepicker v12 clear button is controlled by inputAttrs, not a top-level prop.
 		clearable: false,
 		alwaysClearable: false,
