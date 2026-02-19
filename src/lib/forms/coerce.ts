@@ -139,6 +139,20 @@ export function coerceValue(
 				return { value: undefined };
 			}
 
+			const maxLength = spec.maxLength ?? 100;
+			const maxRawLength = 50_000;
+
+			if (raw.length > maxRawLength) {
+				return {
+					value: undefined,
+					error: {
+						reason: "json_array_too_large",
+						key: "",
+						value: raw,
+					},
+				};
+			}
+
 			try {
 				const parsedValue = JSON.parse(raw);
 
@@ -146,6 +160,17 @@ export function coerceValue(
 					return {
 						value: undefined,
 						error: { reason: "invalid_json_array", key: "", value: raw },
+					};
+				}
+
+				if (parsedValue.length > maxLength) {
+					return {
+						value: undefined,
+						error: {
+							reason: "json_array_too_long",
+							key: "",
+							value: raw,
+						},
 					};
 				}
 

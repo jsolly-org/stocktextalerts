@@ -3,6 +3,11 @@ import { getSiteUrl } from "../../db/env";
 
 const DEFAULT_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 
+function getUnsubscribeSecret(): string | null {
+	const secret = import.meta.env.CRON_SECRET;
+	return typeof secret === "string" && secret.trim().length > 0 ? secret : null;
+}
+
 function toBase64Url(buffer: Buffer): string {
 	return buffer
 		.toString("base64")
@@ -30,7 +35,10 @@ export function createEmailUnsubscribeToken(options: {
 	expiresAtMs?: number;
 }): string {
 	const expiresAtMs = options.expiresAtMs ?? Date.now() + DEFAULT_TOKEN_TTL_MS;
-	const secret = import.meta.env.CRON_SECRET;
+	const secret = getUnsubscribeSecret();
+	if (!secret) {
+		throw new Error("CRON_SECRET is required for email unsubscribe tokens");
+	}
 	const payload = `${options.userId}.${options.email}.${expiresAtMs}`;
 	const signature = createHmac("sha256", secret).update(payload).digest();
 	return `${expiresAtMs}.${toBase64Url(signature)}`;
@@ -59,7 +67,10 @@ export function verifyEmailUnsubscribeToken(options: {
 		return { ok: false, reason: "expired_token" };
 	}
 
-	const secret = import.meta.env.CRON_SECRET;
+	const secret = getUnsubscribeSecret();
+	if (!secret) {
+		return { ok: false, reason: "invalid_token" };
+	}
 	const payload = `${options.userId}.${options.email}.${expiresAtMs}`;
 	const expected = createHmac("sha256", secret).update(payload).digest();
 	const provided = fromBase64Url(rawSignature);
