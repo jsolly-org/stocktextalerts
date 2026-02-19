@@ -249,7 +249,6 @@ function scrollToHashTarget(hash: string, cardIndex: number) {
 		// Small delay so the async panel finishes layout.
 		requestAnimationFrame(() => doScroll(el));
 	});
-	if (!card) return;
 	observer.observe(card, { childList: true, subtree: true });
 	const fallback = setTimeout(() => observer.disconnect(), 2000);
 }
