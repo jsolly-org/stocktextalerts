@@ -16,15 +16,12 @@ import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 const twilioMocks = vi.hoisted(() => ({
 	validateRequest: vi.fn(),
-	createClient: vi.fn(() => ({
-		messages: {
-			create: vi.fn().mockResolvedValue({ sid: "test-sms-sid" }),
-		},
-	})),
 }));
 
-vi.mock("twilio", () => {
-	const fn = (..._args: unknown[]) => twilioMocks.createClient();
+vi.mock("twilio", async () => {
+	const actual = await vi.importActual<typeof import("twilio")>("twilio");
+	const RealTwilio = actual.default;
+	const fn = (...args: Parameters<typeof RealTwilio>) => RealTwilio(...args);
 	fn.validateRequest = twilioMocks.validateRequest;
 	return { default: fn };
 });
@@ -149,13 +146,14 @@ describe("Scheduled notification scenarios", () => {
 		});
 		registerTestUserForCleanup(id);
 
-		await adminClient
+		const { error: updateError } = await adminClient
 			.from("users")
 			.update({
 				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
 				market_scheduled_asset_price_enabled: true,
 			})
 			.eq("id", id);
+		expect(updateError).toBeNull();
 
 		const response = await SchedulePost({
 			request: createScheduleRequest(),
