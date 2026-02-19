@@ -1,0 +1,256 @@
+# Nightly job that uses the Cursor agent to identify untested real-world
+# scenarios (user journeys, system events, business logic paths) and write
+# Vitest tests for them. Opens a PR with the new tests if any are added.
+name: "Nightly: Scenario Tests"
+
+on:
+  schedule:
+    - cron: "0 9 * * *" # 4 AM ET
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+env:
+  GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+
+jobs:
+  scenario-tests:
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.actor != 'nektos/act' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for existing nightly PR
+        id: check-pr
+        run: |
+          EXISTING_PR=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --label "bot-generated" \
+            --search "test(nightly): add scenario tests" \
+            --state open \
+            --json number,url \
+            --limit 1)
+          if [ "$(echo "$EXISTING_PR" | jq length)" -gt 0 ]; then
+            PR_URL=$(echo "$EXISTING_PR" | jq -r '.[0].url')
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Existing nightly scenario-tests PR found: $PR_URL"
+            gh pr comment "$PR_URL" --body "Nightly run skipped — this PR is still open."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+
+      - name: Checkout repository
+        if: steps.check-pr.outputs.skip != 'true'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: dev
+          fetch-depth: 0
+          token: ${{ secrets.GH_AGENT_TOKEN }}
+
+      - name: Setup Node.js
+        if: steps.check-pr.outputs.skip != 'true'
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        if: steps.check-pr.outputs.skip != 'true'
+        run: npm ci
+
+      - name: Setup Supabase CLI
+        if: steps.check-pr.outputs.skip != 'true'
+        uses: supabase/setup-cli@v1.6.0
+        with:
+          version: 2.76.9
+
+      - name: Start Supabase
+        if: steps.check-pr.outputs.skip != 'true'
+        run: supabase start -x studio,imgproxy,logflare,vector,postgres-meta,edge-runtime,realtime,storage-api
+
+      - name: Load Supabase env
+        if: steps.check-pr.outputs.skip != 'true'
+        run: |
+          supabase status -o json > /tmp/sb-status.json
+          DB_VARS=$(jq -r '
+            "SUPABASE_URL=\(.API_URL // "")",
+            "SUPABASE_PUBLISHABLE_KEY=\(.ANON_KEY // "")",
+            "SUPABASE_SECRET_KEY=\(.SERVICE_ROLE_KEY // "")",
+            "DATABASE_URL=\(.DB_URL // "")"
+          ' /tmp/sb-status.json)
+          INVALID_DB_VARS=0
+          DB_VARS_NONEMPTY_LINES=0
+          declare -A DB_VARS_SEEN_KEYS=()
+          while IFS= read -r LINE; do
+            [[ -z "$LINE" ]] && continue
+            DB_VARS_NONEMPTY_LINES=$((DB_VARS_NONEMPTY_LINES + 1))
+            if [[ "$LINE" != *"="* ]]; then
+              echo "Error: Supabase env var line is malformed (expected KEY=VALUE): $LINE" >&2
+              INVALID_DB_VARS=1
+              continue
+            fi
+            KEY="${LINE%%=*}"
+            VALUE="${LINE#*=}"
+            DB_VARS_SEEN_KEYS["$KEY"]=1
+            VALUE_TRIMMED="${VALUE//[[:space:]]/}"
+            if [[ -z "$VALUE_TRIMMED" || "$VALUE" == "null" ]]; then
+              echo "Error: Supabase status did not provide a valid value for $KEY (got '$VALUE')." >&2
+              INVALID_DB_VARS=1
+            fi
+          done <<< "$DB_VARS"
+          for KEY in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY DATABASE_URL; do
+            if [[ -z "${DB_VARS_SEEN_KEYS[$KEY]:-}" ]]; then
+              echo "Error: Supabase env var $KEY was not produced by jq." >&2
+              INVALID_DB_VARS=1
+            fi
+          done
+          if [[ "$DB_VARS_NONEMPTY_LINES" -eq 0 ]]; then
+            echo "Error: jq produced no Supabase env vars." >&2
+            INVALID_DB_VARS=1
+          fi
+          if [[ "$INVALID_DB_VARS" -ne 0 ]]; then
+            echo "Error: Refusing to export Supabase env vars with null/empty values." >&2
+            exit 1
+          fi
+          STATIC_VARS=$'CRON_SECRET=ci-cron-secret\nVERCEL_URL=http://localhost:4321\nTWILIO_ACCOUNT_SID=AC00000000000000000000000000000000\nTWILIO_AUTH_TOKEN=ci-twilio-auth-token\nTWILIO_PHONE_NUMBER=+15555550100\nTWILIO_VERIFY_SERVICE_SID=VA00000000000000000000000000000000\nRESEND_API_KEY=re_ci_dummy_key\nEMAIL_FROM=ci@example.com\nMASSIVE_API_KEY=ci-massive-api-key\nFINNHUB_API_KEY=ci-finnhub-api-key'
+          printf '%s\n%s\n' "$DB_VARS" "$STATIC_VARS" > .env.local
+          printf '%s\n%s\n' "$DB_VARS" "$STATIC_VARS" >> "$GITHUB_ENV"
+
+      - name: Setup Cursor CLI
+        if: steps.check-pr.outputs.skip != 'true'
+        uses: ./.github/actions/setup-cursor
+
+      - name: Create branch
+        if: steps.check-pr.outputs.skip != 'true'
+        run: git checkout -b "nightly/scenario-tests-$(date +%Y-%m-%d)-${{ github.run_id }}-${{ github.run_attempt }}"
+
+      - name: Run agent
+        if: steps.check-pr.outputs.skip != 'true'
+        env:
+          MODEL: ${{ vars.AGENT_MODEL }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+        run: |
+          agent -p "You are operating in a GitHub Actions runner. Git and the \`gh\` CLI are available and authenticated.
+
+          # Goal
+          Identify real-world scenarios that are not yet tested and write Vitest tests for them.
+
+          # Approach — scenario-first, not file-first
+          Do NOT think \"which source files lack test coverage?\" Instead, think about what actually happens in this system and whether those scenarios are tested.
+
+          ## Step 1: Understand the system
+          Read \`AGENTS.md\` and the \`.agents/\` directory (especially \`.agents/testing.md\`) to understand conventions.
+          Explore the source code in \`src/\` to understand:
+          - What users do (sign up, track assets, set notification preferences, receive alerts)
+          - What cron jobs do (fetch market data, compute digests, detect anomalies, send notifications)
+          - What the notification pipeline looks like (scheduling, timezone handling, format preferences, delivery)
+          - What external integrations exist (Twilio SMS, Resend email, Finnhub market data)
+
+          ## Step 2: Identify untested scenarios
+          Think about real things that happen in production:
+          - **User journeys**: signs up → tracks assets → receives first notification → changes preferences → unsubscribes
+          - **System events**: market closes → cron fires → digest computed → anomaly detected → SMS inbound received
+          - **Business logic paths**: timezone edge cases, notification scheduling across DST, format preferences applied to output, rate limiting, duplicate detection
+          - **Data integrity**: what happens when a user tracks the same asset twice, when market data is stale, when a notification has already been sent
+
+          ## Step 3: Cross-reference with existing tests
+          Read existing test files in \`tests/\` to understand what scenarios are already covered. Focus your effort on gaps — scenarios that could happen in production but have no test.
+
+          ## Step 4: Write scenario-based tests
+          Each test should read like a real story:
+          - Good: \`\"User who disabled email still receives SMS notification on schedule\"\`
+          - Good: \`\"Digest for Pacific timezone user is computed after NYSE close in their local time\"\`
+          - Bad: \`\"returns true when isEnabled is true\"\`
+
+          Follow ALL conventions from \`.agents/testing.md\`:
+          - Vitest only, no Jest
+          - Use real Supabase (no mocking Supabase), mock only paid external services
+          - Use shared helpers from \`tests/helpers/\`
+          - Realistic data (real tickers, realistic prices, real timezone names)
+          - Assert via behavior (DB state, response payloads), not mock call counts
+
+          ## Step 5: Validate
+          Run \`npm test\` after writing tests. If tests fail, fix them. If a test still fails after 2 fix attempts, delete it rather than shipping a broken test.
+
+          # Rules
+          - Only create or modify files in \`tests/\`. Never modify \`src/\` or \`.github/\`.
+          - You may add new \`describe\`/\`it\` blocks to existing test files for uncovered scenarios, or create new test files — whichever fits better.
+          - Leave all changes uncommitted. The workflow will handle commit, push, and PR creation.
+          - Do not create issues or PRs yourself.
+          " --force --model "$MODEL" --output-format=text
+
+      - name: Drop workflow file edits
+        if: steps.check-pr.outputs.skip != 'true'
+        run: |
+          if git diff --name-only -- .github/workflows .github/actions | grep -q .; then
+            echo "Reverting workflow and action file edits from agent output."
+            git restore --staged --worktree -- .github/workflows .github/actions
+          fi
+          UNTRACKED=$(git ls-files --others --exclude-standard -- .github/workflows .github/actions)
+          if [ -n "$UNTRACKED" ]; then
+            echo "Removing untracked workflow/action files from agent output."
+            echo "$UNTRACKED" | xargs rm -f
+          fi
+
+      - name: Drop src file edits
+        if: steps.check-pr.outputs.skip != 'true'
+        run: |
+          if git diff --name-only -- src/ | grep -q .; then
+            echo "Reverting src/ file edits from agent output."
+            git restore --staged --worktree -- src/
+          fi
+          UNTRACKED=$(git ls-files --others --exclude-standard -- src/)
+          if [ -n "$UNTRACKED" ]; then
+            echo "Removing untracked src/ files from agent output."
+            echo "$UNTRACKED" | xargs rm -f
+          fi
+
+      - name: Check for changes
+        if: steps.check-pr.outputs.skip != 'true'
+        id: changes
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No changes detected."
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run pre-commit checks
+        if: steps.check-pr.outputs.skip != 'true' && steps.changes.outputs.has_changes == 'true'
+        uses: ./.github/actions/run-precommit-checks
+
+      - name: Run tests
+        if: steps.check-pr.outputs.skip != 'true' && steps.changes.outputs.has_changes == 'true'
+        run: npm test
+
+      - name: Commit and push
+        if: steps.check-pr.outputs.skip != 'true' && steps.changes.outputs.has_changes == 'true'
+        run: |
+          git add -A
+          git commit -m "test(nightly): add scenario tests — $(date +%Y-%m-%d)"
+          git push origin HEAD
+
+      - name: Create pull request
+        if: steps.check-pr.outputs.skip != 'true' && steps.changes.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+        run: |
+          gh pr create \
+            --title "test(nightly): add scenario tests — $(date +%Y-%m-%d)" \
+            --label "bot-generated" \
+            --body "$(cat <<'EOF'
+          ## Summary
+          Automated scenario test additions — identifies real-world user journeys, system events, and business logic paths that lack test coverage, then writes Vitest tests for them.
+
+          All new tests pass against the Supabase emulator (`npm test` gate in CI).
+
+          ---
+          *Auto-generated by the nightly-scenario-tests workflow.*
+          EOF
+          )"

@@ -110,6 +110,10 @@ runs:
       if: inputs.skip-lint != 'true'
       shell: bash
       run: npx biome ci . --error-on-warnings
+    - name: Lint YAML
+      if: inputs.skip-lint != 'true'
+      shell: bash
+      run: npm run check:yaml
     - name: Deep Type check
       if: inputs.skip-lint != 'true'
       shell: bash
