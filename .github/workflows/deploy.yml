@@ -36,7 +36,7 @@ jobs:
           TWILIO_PHONE_NUMBER=$TWILIO_PHONE_NUMBER
           TWILIO_VERIFY_SERVICE_SID=$TWILIO_VERIFY_SERVICE_SID
           RESEND_API_KEY=$RESEND_API_KEY
-          EMAIL_FROM="$EMAIL_FROM"
+          EMAIL_FROM=$EMAIL_FROM
           MASSIVE_API_KEY=$MASSIVE_API_KEY
           FINNHUB_API_KEY=$FINNHUB_API_KEY
           XAI_API_KEY=$XAI_API_KEY
@@ -48,7 +48,7 @@ jobs:
           TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
           TWILIO_VERIFY_SERVICE_SID: ${{ secrets.TWILIO_VERIFY_SERVICE_SID }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
           MASSIVE_API_KEY: ${{ secrets.MASSIVE_API_KEY }}
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
