@@ -10,6 +10,10 @@ const FLOAT_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
  *
  * Returns `{ value: undefined }` for empty optional fields and includes a structured `FormIssue`
  * when coercion fails.
+ *
+ * For `json_string_array` fields: enforces a max raw string size of 50KB (DoS mitigation) and
+ * a max parsed array length (default 100, overridable via spec.maxLength). Rejects non-arrays
+ * and arrays containing non-string elements.
  */
 export function coerceValue(
 	spec: FieldSpec,
@@ -140,6 +144,7 @@ export function coerceValue(
 			}
 
 			const maxLength = spec.maxLength ?? 100;
+			/** Max raw JSON string size (bytes) to limit parse cost and memory use. */
 			const maxRawLength = 50_000;
 
 			if (raw.length > maxRawLength) {

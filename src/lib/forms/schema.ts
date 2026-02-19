@@ -40,6 +40,7 @@ type TimeFieldSpec = {
 	required?: boolean;
 };
 
+/** JSON string array field: parses raw JSON into string[]. Enforces size limits for DoS mitigation. */
 type JsonStringArrayFieldSpec = {
 	type: "json_string_array";
 	required?: boolean;

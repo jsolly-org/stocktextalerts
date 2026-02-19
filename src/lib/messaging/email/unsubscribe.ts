@@ -3,11 +3,16 @@ import { getSiteUrl } from "../../db/env";
 
 const DEFAULT_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 
+/**
+ * Read CRON_SECRET from the environment for use in signing unsubscribe tokens.
+ * Returns null when the secret is missing or not a non-empty string.
+ */
 function getUnsubscribeSecret(): string | null {
 	const secret = import.meta.env.CRON_SECRET;
 	return typeof secret === "string" && secret.trim().length > 0 ? secret : null;
 }
 
+/** Encode a buffer to base64url (URL-safe, no padding). */
 function toBase64Url(buffer: Buffer): string {
 	return buffer
 		.toString("base64")
@@ -16,6 +21,7 @@ function toBase64Url(buffer: Buffer): string {
 		.replace(/=+$/u, "");
 }
 
+/** Decode a base64url string back to a Buffer. */
 function fromBase64Url(value: string): Buffer {
 	const normalized = value.replaceAll("-", "+").replaceAll("_", "/");
 	const padding = normalized.length % 4;
