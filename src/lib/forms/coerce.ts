@@ -153,7 +153,7 @@ export function coerceValue(
 					error: {
 						reason: "json_array_too_large",
 						key: "",
-						value: raw,
+						value: "[payload exceeds 50KB limit]",
 					},
 				};
 			}
