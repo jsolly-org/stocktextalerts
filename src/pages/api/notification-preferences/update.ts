@@ -33,23 +33,19 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	market_asset_price_alert_onboarding_completed: { type: "boolean" },
 	market_asset_price_alert_risk_priority: {
 		type: "enum",
-		values: ["big_drops", "big_gains", "both_equally"],
+		values: ["both_equally"],
 	},
 	market_asset_price_alert_market_context: {
 		type: "enum",
-		values: ["standout", "any_major", "extreme_only"],
+		values: ["standout", "any_major"],
 	},
 	market_asset_price_alert_move_size: {
 		type: "enum",
-		values: ["moderate", "large", "very_large"],
+		values: ["moderate", "large"],
 	},
 	market_asset_price_alert_follow_up_mode: {
 		type: "enum",
-		values: [
-			"first_only",
-			"allow_acceleration_follow_up",
-			"allow_recovery_follow_up",
-		],
+		values: ["first_only", "allow_follow_up"],
 	},
 } as const satisfies FormSchema;
 

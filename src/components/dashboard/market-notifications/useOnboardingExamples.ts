@@ -133,33 +133,7 @@ export function useOnboardingExamples(
 	const primary = computed(() =>
 		pickPrimaryAsset(trackedAssets.value, prices.value),
 	);
-	// --- Q1: Risk Priority ---
-	const riskPriorityOptions = computed(() => {
-		const { symbol, prevClose } = primary.value;
-		const pct = 5;
-		const dropPrice = (prevClose * (1 - pct / 100)).toFixed(2);
-		const gainPrice = (prevClose * (1 + pct / 100)).toFixed(2);
-
-		return [
-			{
-				value: "big_drops" as const,
-				label: "Big drops",
-				example: `${symbol} falls from $${prevClose} \u2192 $${dropPrice} (\u2212${pct}%) \u2014 you'd get a text.`,
-			},
-			{
-				value: "big_gains" as const,
-				label: "Big gains",
-				example: `${symbol} rises from $${prevClose} \u2192 $${gainPrice} (+${pct}%) \u2014 you'd get a text.`,
-			},
-			{
-				value: "both_equally" as const,
-				label: "Both equally",
-				example: `${symbol} moves \u00B1${pct}% from $${prevClose} \u2014 you'd get a text either way.`,
-			},
-		];
-	});
-
-	// --- Q2: Market Context ---
+	// --- Q1: Market Context (relative to market; magnitude is Q2) ---
 	const marketContextOptions = computed(() => {
 		const { symbol, sector } = primary.value;
 		const peers = sectorPeerLabel(sector);
@@ -168,90 +142,67 @@ export function useOnboardingExamples(
 			{
 				value: "any_major" as const,
 				label: "Any big move",
-				example: `${symbol} drops 5% on a day ${peers} are also down 4% \u2014 you'd still get a text.`,
+				example: `When ${symbol} moves and ${peers} are moving in the same direction \u2014 you'd still get a text.`,
 			},
 			{
 				value: "standout" as const,
 				label: "Only standouts",
-				example: `${symbol} drops 5% while ${peers} only drop 2% \u2014 you'd get a text because ${symbol} is an outlier. If all dropped ~5%, we'd skip it.`,
-			},
-			{
-				value: "extreme_only" as const,
-				label: "Extreme only",
-				example: `We'd only text you if ${symbol} moves dramatically beyond ${peers} \u2014 like \u221210% when they're down 2%.`,
+				example: `When ${symbol} moves more than ${peers} \u2014 you'd get a text because ${symbol} stands out. If the whole sector moved together, we'd skip it.`,
 			},
 		];
 	});
 
-	// --- Q3: Move Size ---
+	// --- Q2: Move Size ---
 	const moveSizeOptions = computed(() => {
 		const { hi, lo } = pickHighLowPair(trackedAssets.value, prices.value);
 
-		function describeThreshold(
-			tier: "moderate" | "large" | "very_large",
-		): string {
+		function describeThreshold(tier: "moderate" | "large"): string {
 			const { percentThreshold, dollarThreshold } = MOVE_SIZE_THRESHOLDS[tier];
-			const hiDollar = hi.prevClose * (percentThreshold / 100);
-			const loDollar = lo.prevClose * (percentThreshold / 100);
 
-			const hiTrigger =
-				hiDollar >= dollarThreshold
-					? `alerts at ~${formatDollar(hiDollar)} move (${percentThreshold}%)`
-					: `alerts at ${formatDollar(dollarThreshold)} move (${formatDollar(dollarThreshold)} floor > ${percentThreshold}%)`;
+			function moveDescription(prevClose: number): string {
+				const pctDollar = prevClose * (percentThreshold / 100);
+				return `${percentThreshold}% (~${formatDollar(pctDollar)}) or ${formatDollar(dollarThreshold)}, whichever comes first`;
+			}
 
-			const loTrigger =
-				loDollar >= dollarThreshold
-					? `alerts at ~${formatDollar(loDollar)} move (${percentThreshold}%)`
-					: `alerts at ${formatDollar(dollarThreshold)} move (${formatDollar(dollarThreshold)} floor > ${percentThreshold}%)`;
-
-			return `${hi.symbol} ($${hi.prevClose}) \u2014 ${hiTrigger}\n${lo.symbol} ($${lo.prevClose}) \u2014 ${loTrigger}`;
+			const hiLine = `A higher-priced asset like ${hi.symbol} (${formatDollar(hi.prevClose)}) alerts on moves of ${moveDescription(hi.prevClose)}.`;
+			const loLine = `A lower-priced asset like ${lo.symbol} (${formatDollar(lo.prevClose)}) alerts on moves of ${moveDescription(lo.prevClose)}.`;
+			return `${hiLine}\n${loLine}`;
 		}
 
 		return [
 			{
-				value: "very_large" as const,
-				label: "Very large only",
-				example: describeThreshold("very_large"),
+				value: "moderate" as const,
+				label: "Moderate",
+				example: describeThreshold("moderate"),
 			},
 			{
 				value: "large" as const,
 				label: "Large",
 				example: describeThreshold("large"),
 			},
-			{
-				value: "moderate" as const,
-				label: "Moderate but meaningful",
-				example: describeThreshold("moderate"),
-			},
 		];
 	});
 
-	// --- Q4: Follow-up ---
+	// --- Q3: Follow-up ---
 	const followUpOptions = computed(() => {
 		const { symbol } = primary.value;
 
 		return [
 			{
 				value: "first_only" as const,
-				label: "First move only",
-				example: `Once we text you about ${symbol}, we wait until the next trading day.`,
+				label: "First alert only",
+				example: `Once we text you about ${symbol}, we won't notify you again for this asset until the next trading day.`,
 			},
 			{
-				value: "allow_acceleration_follow_up" as const,
-				label: "Alert on acceleration",
-				example: `If ${symbol}'s drop accelerates from \u22125% to \u22128% later the same day, we send one follow-up.`,
-			},
-			{
-				value: "allow_recovery_follow_up" as const,
-				label: "Alert on recovery",
-				example: `If ${symbol} drops 5% and then recovers back near flat, we send one follow-up so you know the spike reversed.`,
+				value: "allow_follow_up" as const,
+				label: "Allow one follow-up",
+				example: `If ${symbol}'s move accelerates later the same day, or reverses (e.g. drops then recovers), we will send one follow-up. Max two alerts per asset per day.`,
 			},
 		];
 	});
 
 	return {
 		loading,
-		riskPriorityOptions,
 		marketContextOptions,
 		moveSizeOptions,
 		followUpOptions,

@@ -45,9 +45,11 @@ describe("A signed-in user updates their notification channels.", () => {
 
 		const formData = new FormData();
 		formData.append("market_asset_price_alerts_include_email", "true");
-		formData.append("market_asset_price_alert_risk_priority", "big_drops");
-		formData.append("market_asset_price_alert_market_context", "extreme_only");
-		formData.append("market_asset_price_alert_move_size", "very_large");
+		formData.append("market_asset_price_alert_risk_priority", "both_equally");
+		formData.append("market_asset_price_alert_market_context", "standout");
+		formData.append("market_asset_price_alert_move_size", "large");
+		formData.append("market_asset_price_alert_follow_up_mode", "first_only");
+		formData.append("market_asset_price_alert_onboarding_completed", "true");
 
 		const response = await postNotificationPreferencesUpdate({
 			formData,
@@ -62,35 +64,135 @@ describe("A signed-in user updates their notification channels.", () => {
 				market_asset_price_alert_risk_priority: string;
 				market_asset_price_alert_market_context: string;
 				market_asset_price_alert_move_size: string;
+				market_asset_price_alert_follow_up_mode: string;
+				market_asset_price_alert_onboarding_completed: boolean;
 			};
 		};
 		expect(payload.ok).toBe(true);
 		expect(payload.message).toBe("settings_updated");
 		expect(
 			payload.notificationPreferences.market_asset_price_alert_risk_priority,
-		).toBe("big_drops");
+		).toBe("both_equally");
 		expect(
 			payload.notificationPreferences.market_asset_price_alert_market_context,
-		).toBe("extreme_only");
+		).toBe("standout");
 		expect(
 			payload.notificationPreferences.market_asset_price_alert_move_size,
-		).toBe("very_large");
+		).toBe("large");
+		expect(
+			payload.notificationPreferences.market_asset_price_alert_follow_up_mode,
+		).toBe("first_only");
+		expect(
+			payload.notificationPreferences
+				.market_asset_price_alert_onboarding_completed,
+		).toBe(true);
 
 		const { data: updatedUser } = await adminClient
 			.from("users")
 			.select(
-				"market_asset_price_alert_risk_priority,market_asset_price_alert_market_context,market_asset_price_alert_move_size",
+				"market_asset_price_alert_risk_priority,market_asset_price_alert_market_context,market_asset_price_alert_move_size,market_asset_price_alert_follow_up_mode,market_asset_price_alert_onboarding_completed",
 			)
 			.eq("id", testUser.id)
 			.single();
 
 		expect(updatedUser.market_asset_price_alert_risk_priority).toBe(
-			"big_drops",
+			"both_equally",
 		);
 		expect(updatedUser.market_asset_price_alert_market_context).toBe(
-			"extreme_only",
+			"standout",
 		);
-		expect(updatedUser.market_asset_price_alert_move_size).toBe("very_large");
+		expect(updatedUser.market_asset_price_alert_move_size).toBe("large");
+		expect(updatedUser.market_asset_price_alert_follow_up_mode).toBe(
+			"first_only",
+		);
+		expect(updatedUser.market_asset_price_alert_onboarding_completed).toBe(
+			true,
+		);
+	});
+
+	it("The API rejects legacy price-alert enum values with 400.", async () => {
+		const testUser = await createTestUser({
+			email: `test-${randomUUID()}@resend.dev`,
+			password: TEST_PASSWORD,
+			confirmed: true,
+		});
+		registerTestUserForCleanup(testUser.id);
+
+		const cookies = await createAuthenticatedCookies(
+			testUser.email,
+			TEST_PASSWORD,
+		);
+
+		const formData = new FormData();
+		formData.append("market_asset_price_alerts_include_email", "true");
+		formData.append("market_asset_price_alert_risk_priority", "big_drops");
+		formData.append("market_asset_price_alert_market_context", "extreme_only");
+		formData.append("market_asset_price_alert_move_size", "very_large");
+		formData.append("market_asset_price_alert_follow_up_mode", "first_only");
+		formData.append("market_asset_price_alert_onboarding_completed", "true");
+
+		const response = await postNotificationPreferencesUpdate({
+			formData,
+			cookies,
+		});
+
+		expect(response.status).toBe(400);
+		const payload = (await response.json()) as { ok: boolean; message: string };
+		expect(payload.ok).toBe(false);
+		expect(payload.message).toBe("invalid_form");
+	});
+
+	it("The user can update price-alert follow-up mode to allow_follow_up.", async () => {
+		const testUser = await createTestUser({
+			email: `test-${randomUUID()}@resend.dev`,
+			password: TEST_PASSWORD,
+			confirmed: true,
+		});
+		registerTestUserForCleanup(testUser.id);
+
+		const cookies = await createAuthenticatedCookies(
+			testUser.email,
+			TEST_PASSWORD,
+		);
+
+		const formData = new FormData();
+		formData.append("market_asset_price_alerts_include_email", "true");
+		formData.append("market_asset_price_alert_risk_priority", "both_equally");
+		formData.append("market_asset_price_alert_market_context", "any_major");
+		formData.append("market_asset_price_alert_move_size", "moderate");
+		formData.append(
+			"market_asset_price_alert_follow_up_mode",
+			"allow_follow_up",
+		);
+		formData.append("market_asset_price_alert_onboarding_completed", "true");
+
+		const response = await postNotificationPreferencesUpdate({
+			formData,
+			cookies,
+		});
+
+		expect(response.status).toBe(200);
+		const payload = (await response.json()) as {
+			ok: boolean;
+			message: string;
+			notificationPreferences: {
+				market_asset_price_alert_follow_up_mode: string;
+			};
+		};
+		expect(payload.ok).toBe(true);
+		expect(
+			payload.notificationPreferences.market_asset_price_alert_follow_up_mode,
+		).toBe("allow_follow_up");
+
+		const { data: updatedUser } = await adminClient
+			.from("users")
+			.select("market_asset_price_alert_follow_up_mode")
+			.eq("id", testUser.id)
+			.single();
+
+		expect(updatedUser.market_asset_price_alert_follow_up_mode).toBe(
+			"allow_follow_up",
+		);
 	});
 
 	it("When the user enables their first notification channel, scheduled updates are enabled at the default time.", async () => {
