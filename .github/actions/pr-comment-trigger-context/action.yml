@@ -100,7 +100,10 @@ runs:
       id: should_skip
       shell: bash
       env:
+        GH_TOKEN: ${{ inputs.gh_token }}
         COMMENT_USER: ${{ inputs.comment_user }}
+        COMMENT_ID: ${{ inputs.comment_id }}
+        PR_NUMBER: ${{ inputs.pr_number }}
         REPO: ${{ inputs.repo }}
         REPO_OWNER: ${{ inputs.repo_owner }}
         INTERNAL_MARKER: ${{ inputs.internal_marker }}
