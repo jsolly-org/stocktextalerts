@@ -1,5 +1,35 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getScrollBehavior } from "../../src/lib/accessibility";
+import {
+	getScrollBehavior,
+	prefersReducedMotion,
+} from "../../src/lib/accessibility";
+
+describe("prefersReducedMotion", () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it("returns true when prefers-reduced-motion: reduce matches", () => {
+		vi.stubGlobal("window", {
+			matchMedia: (query: string) => ({
+				matches: query === "(prefers-reduced-motion: reduce)",
+			}),
+		});
+		expect(prefersReducedMotion()).toBe(true);
+	});
+
+	it("returns false when reduced motion is not preferred", () => {
+		vi.stubGlobal("window", {
+			matchMedia: () => ({ matches: false }),
+		});
+		expect(prefersReducedMotion()).toBe(false);
+	});
+
+	it("returns false when window is undefined (e.g. SSR)", () => {
+		vi.stubGlobal("window", undefined);
+		expect(prefersReducedMotion()).toBe(false);
+	});
+});
 
 describe("getScrollBehavior", () => {
 	afterEach(() => {
