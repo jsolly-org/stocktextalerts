@@ -161,10 +161,7 @@ export function useOnboardingExamples(
 
 			function moveDescription(prevClose: number): string {
 				const pctDollar = prevClose * (percentThreshold / 100);
-				if (pctDollar >= dollarThreshold) {
-					return `${formatDollar(pctDollar)} or more`;
-				}
-				return `${formatDollar(dollarThreshold)} or more (minimum floor)`;
+				return `${percentThreshold}% (~${formatDollar(pctDollar)}) or ${formatDollar(dollarThreshold)}, whichever comes first`;
 			}
 
 			const hiLine = `A large asset like ${hi.symbol} (${formatDollar(hi.prevClose)}) alerts on moves of ${moveDescription(hi.prevClose)}.`;
