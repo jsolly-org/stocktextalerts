@@ -1,0 +1,138 @@
+# Runs once daily after all other nightly agents finish. Reviews the current
+# state of dev and updates user-facing docs (README, FAQ, HowItWorks) to
+# reflect the latest code. Creates a PR that is auto-merged if checks pass.
+name: "Nightly: Docs"
+
+on:
+  schedule:
+    - cron: "0 9 * * *" # 4 AM ET — after PR grooming (2 AM ET)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: nightly-docs
+  cancel-in-progress: true
+
+env:
+  GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+
+jobs:
+  update-docs:
+    if: ${{ github.actor != 'nektos/act' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6.0.2
+        with:
+          ref: dev
+          fetch-depth: 0
+          token: ${{ secrets.GH_AGENT_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6.2.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Setup Cursor CLI
+        uses: ./.github/actions/setup-cursor
+
+      - name: Update docs
+        env:
+          MODEL: ${{ vars.AGENT_MODEL }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+        run: |
+          agent -p "You are operating in a GitHub Actions runner.
+
+          The GitHub CLI is available as \`gh\` and authenticated via \`GH_TOKEN\`. Git is available.
+
+          # Context:
+          - Repo: ${{ github.repository }}
+          - Owner: ${{ github.repository_owner }}
+          - Trigger: ${{ github.event_name }}
+
+          # Goal:
+          - Review the current state of the codebase on \`dev\` and update user-facing docs to accurately reflect it.
+          - Leave all changes uncommitted — the workflow will handle commit and push.
+
+          # Allowed files (ONLY these may be modified):
+          - \`README.md\` — project documentation
+          - \`src/pages/faq.astro\` — FAQ page (question/answer pairs in the \`faqs\` array and page copy)
+          - \`src/components/landing/HowItWorks.astro\` — \"How it works\" section (steps in the \`steps\` array and section copy)
+
+          # Requirements:
+          1) Review the current state of the codebase on \`dev\` and update the allowed files to accurately reflect it.
+          2) Only modify the allowed files listed above. Do NOT touch any other files.
+          3) For \`src/pages/faq.astro\`: only update the \`faqs\` array entries and surrounding page copy. Do NOT change the component imports, layout structure, JSON-LD logic, or Tailwind classes.
+          4) For \`src/components/landing/HowItWorks.astro\`: only update the \`steps\` array entries and surrounding section copy. Do NOT change the component imports, template structure, or Tailwind classes.
+          5) Do NOT create commits, push, or create/edit pull requests.
+
+          # Inputs and conventions:
+          - If no updates are necessary, make no changes.
+          - Keep changes minimal and consistent with repo style.
+          " --force --model "$MODEL" --output-format=text
+
+      - name: Drop workflow file edits
+        uses: ./.github/actions/drop-workflow-edits
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No changes detected."
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run pre-commit checks (lint + type-check)
+        if: steps.changes.outputs.has_changes == 'true'
+        id: precommit_checks
+        continue-on-error: true
+        uses: ./.github/actions/run-precommit-checks
+
+      - name: Auto-fix lint/type errors
+        if: steps.changes.outputs.has_changes == 'true' && steps.precommit_checks.outcome == 'failure'
+        id: autofix
+        continue-on-error: true
+        uses: ./.github/actions/autofix-lint-type-errors
+        with:
+          cursor_api_key: ${{ secrets.CURSOR_API_KEY }}
+          agent_model: ${{ vars.AGENT_MODEL }}
+          max_fix_attempts: "2"
+
+      - name: Create PR with doc updates
+        if: steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
+        run: |
+          # Verify only allowed files were changed
+          UNEXPECTED=$(git status --porcelain | grep -v -E '^.. (README\.md|src/pages/faq\.astro|src/components/landing/HowItWorks\.astro)$' || true)
+          if [[ -n "$UNEXPECTED" ]]; then
+            echo "##[warning]Unexpected file changes detected:"
+            echo "$UNEXPECTED"
+          fi
+
+          DATE=$(date -u +%Y-%m-%d)
+          BRANCH="docs/nightly-${DATE}"
+
+          git checkout -b "$BRANCH"
+          git add -A
+          git commit -m "docs(nightly): update docs — ${DATE}"
+          git push origin "$BRANCH"
+
+          PR_URL=$(gh pr create \
+            --base dev \
+            --head "$BRANCH" \
+            --title "docs(nightly): update docs — ${DATE}" \
+            --body "Automated nightly doc updates.
+
+          Date: ${DATE}
+          Trigger: ${{ github.event_name }}")
+
+          echo "PR created: $PR_URL"
+          gh pr merge "$PR_URL" --admin --merge --delete-branch
+          echo "PR merged successfully."
