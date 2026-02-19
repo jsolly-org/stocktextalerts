@@ -344,18 +344,8 @@ jobs:
         continue-on-error: true
         uses: ./.github/actions/run-precommit-checks
 
-      - name: Auto-fix lint/type errors
-        if: steps.changes.outputs.has_changes == 'true' && steps.precommit_checks.outcome == 'failure'
-        id: autofix
-        continue-on-error: true
-        uses: ./.github/actions/autofix-lint-type-errors
-        with:
-          cursor_api_key: ${{ secrets.CURSOR_API_KEY }}
-          agent_model: ${{ vars.AGENT_MODEL }}
-          max_fix_attempts: "2"
-
       - name: Commit and push
-        if: steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
+        if: steps.changes.outputs.has_changes == 'true' && steps.precommit_checks.outcome == 'success'
         env:
           GH_AGENT_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           HEAD_REF: ${{ matrix.pr.headRefName }}
@@ -374,7 +364,7 @@ jobs:
           git push "$REMOTE_URL" HEAD:"$HEAD_REF"
 
       - name: Post fix-attempt comment
-        if: steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
+        if: steps.changes.outputs.has_changes == 'true' && steps.precommit_checks.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           PR_NUMBER: ${{ matrix.pr.number }}

@@ -216,18 +216,8 @@ jobs:
         continue-on-error: true
         uses: ./.github/actions/run-precommit-checks
 
-      - name: Auto-fix lint/type errors
-        if: steps.changes.outputs.has_changes == 'true' && steps.precommit_checks.outcome == 'failure'
-        id: autofix
-        continue-on-error: true
-        uses: ./.github/actions/autofix-lint-type-errors
-        with:
-          cursor_api_key: ${{ secrets.CURSOR_API_KEY }}
-          agent_model: ${{ vars.AGENT_MODEL }}
-          max_fix_attempts: "2"
-
       - name: Commit and push
-        if: steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
+        if: steps.changes.outputs.has_changes == 'true' && steps.precommit_checks.outcome == 'success'
         env:
           TASK_TITLE: ${{ matrix.followup.title }}
         run: |
@@ -236,7 +226,7 @@ jobs:
           git push origin HEAD
 
       - name: Create pull request
-        if: steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
+        if: steps.changes.outputs.has_changes == 'true' && steps.precommit_checks.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           TASK_TITLE: ${{ matrix.followup.title }}
@@ -355,18 +345,8 @@ jobs:
         continue-on-error: true
         uses: ./.github/actions/run-precommit-checks
 
-      - name: Auto-fix lint/type errors
-        if: steps.changes.outputs.has_changes == 'true' && steps.precommit_checks.outcome == 'failure'
-        id: autofix
-        continue-on-error: true
-        uses: ./.github/actions/autofix-lint-type-errors
-        with:
-          cursor_api_key: ${{ secrets.CURSOR_API_KEY }}
-          agent_model: ${{ vars.AGENT_MODEL }}
-          max_fix_attempts: "2"
-
       - name: Create PR with doc updates
-        if: steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
+        if: steps.changes.outputs.has_changes == 'true' && steps.precommit_checks.outcome == 'success'
         run: |
           # Verify only allowed files were changed
           UNEXPECTED=$(git status --porcelain | grep -v -E '^.. (README\.md|src/pages/faq\.astro|src/components/landing/HowItWorks\.astro)$' || true)
