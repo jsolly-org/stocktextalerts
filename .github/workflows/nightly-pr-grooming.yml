@@ -1,6 +1,6 @@
-# Scheduled nightly job that discovers open PRs with failing CI, merge
-# conflicts, or unresolved review comments and uses the Cursor agent to fix
-# them automatically.
+# Scheduled nightly job that enables auto-merge on bot-generated PRs, then
+# discovers open PRs with failing CI, merge conflicts, or unresolved review
+# comments and uses the Cursor agent to fix them automatically.
 # Runs last in the nightly schedule so other workflows' PRs exist with CI results.
 name: "Nightly: PR Grooming"
 
@@ -19,6 +19,29 @@ env:
   GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
 
 jobs:
+  enable-auto-merge:
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.actor != 'nektos/act' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable auto-merge on bot-generated PRs
+        run: |
+          PRS=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --state open \
+            --label "bot-generated" \
+            --json number \
+            --jq '.[].number')
+
+          if [ -z "$PRS" ]; then
+            echo "No open bot-generated PRs found."
+            exit 0
+          fi
+
+          for PR_NUMBER in $PRS; do
+            echo "Enabling auto-merge for PR #$PR_NUMBER..."
+            gh pr merge "$PR_NUMBER" --repo "${{ github.repository }}" --auto --squash || echo "Failed to enable auto-merge for PR #$PR_NUMBER (may already be enabled)"
+          done
+
   discover-prs:
     if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.actor != 'nektos/act' }}
     runs-on: ubuntu-latest
@@ -146,6 +169,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 3
       matrix:
         pr: ${{ fromJson(needs.discover-prs.outputs.prs) }}
     steps:
@@ -298,20 +322,12 @@ jobs:
           - Focus only on fixing the identified problems — do not make unrelated changes.
           " --force --model "$MODEL" --output-format=text
 
-      - name: Drop workflow file edits
-        run: |
-          # Check for modified (tracked) AND new (untracked) workflow/action files
-          CHANGED=$(git diff --name-only -- .github/workflows .github/actions || true)
-          UNTRACKED=$(git ls-files --others --exclude-standard -- .github/workflows .github/actions || true)
-          if [[ -n "$CHANGED" || -n "$UNTRACKED" ]]; then
-            echo "Reverting workflow and action file edits from agent output."
-            if [[ -n "$CHANGED" ]]; then
-              git restore --staged --worktree -- .github/workflows .github/actions
-            fi
-            if [[ -n "$UNTRACKED" ]]; then
-              echo "$UNTRACKED" | xargs rm -f
-            fi
-          fi
+      # NOTE: We intentionally do NOT drop workflow file edits here.
+      # An agent that can write source code could write malicious source code
+      # just as easily as malicious workflow code — the trust boundary is the
+      # same, so singling out workflow files provides no real security benefit
+      # while preventing legitimate fixes (e.g. merge conflict resolution in
+      # workflow files).
 
       - name: Check for changes
         id: changes

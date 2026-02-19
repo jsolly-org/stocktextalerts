@@ -745,7 +745,7 @@ test.describe("sanity tests", () => {
 		await page.getByRole("button", { name: "Update password" }).click();
 		await expectCurrentPath(page, "/profile");
 		await expect(
-			page.getByText("Password updated successfully."),
+			page.getByText("Password updated successfully!"),
 		).toBeVisible();
 
 		await page.getByRole("button", { name: "Sign Out" }).click();

@@ -1,8 +1,11 @@
 import { randomUUID } from "node:crypto";
-import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_MARKET_UPDATE_TIME_MINUTES } from "../../../src/lib/constants";
 import { POST } from "../../../src/pages/api/notification-preferences/update";
+import {
+	createApiContext,
+	createFormPostRequest,
+} from "../../helpers/api-context";
 import { TEST_PASSWORD } from "../../helpers/constants";
 import {
 	adminClient,
@@ -10,6 +13,21 @@ import {
 } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
+
+async function postNotificationPreferencesUpdate(options: {
+	formData: FormData;
+	cookies: Map<string, string>;
+}) {
+	return POST(
+		createApiContext({
+			request: createFormPostRequest(
+				"/api/notification-preferences/update",
+				options.formData,
+			),
+			cookies: options.cookies,
+		}),
+	);
+}
 
 describe("A signed-in user updates their notification channels.", () => {
 	it("The user can update realtime price-alert onboarding answers.", async () => {
@@ -31,25 +49,10 @@ describe("A signed-in user updates their notification channels.", () => {
 		formData.append("market_asset_price_alert_market_context", "extreme_only");
 		formData.append("market_asset_price_alert_move_size", "very_large");
 
-		const request = new Request(
-			"http://localhost/api/notification-preferences/update",
-			{
-				method: "POST",
-				body: formData,
-				headers: { Accept: "application/json" },
-			},
-		);
-
-		const response = await POST({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const cookie = cookies.get(name);
-					return cookie ? { value: cookie } : undefined;
-				},
-				set: () => {},
-			},
-		} as unknown as APIContext);
+		const response = await postNotificationPreferencesUpdate({
+			formData,
+			cookies,
+		});
 
 		expect(response.status).toBe(200);
 		const payload = (await response.json()) as {
@@ -109,25 +112,10 @@ describe("A signed-in user updates their notification channels.", () => {
 		const formData = new FormData();
 		formData.append("email_notifications_enabled", "true");
 
-		const request = new Request(
-			"http://localhost/api/notification-preferences/update",
-			{
-				method: "POST",
-				body: formData,
-				headers: { Accept: "application/json" },
-			},
-		);
-
-		const response = await POST({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const cookie = cookies.get(name);
-					return cookie ? { value: cookie } : undefined;
-				},
-				set: () => {},
-			},
-		} as unknown as APIContext);
+		const response = await postNotificationPreferencesUpdate({
+			formData,
+			cookies,
+		});
 
 		expect(response.status).toBe(200);
 		const payload = (await response.json()) as {
@@ -181,24 +169,10 @@ describe("A signed-in user updates their notification channels.", () => {
 			JSON.stringify(["12:00"]),
 		);
 
-		const request = new Request(
-			"http://localhost/api/notification-preferences/update",
-			{
-				method: "POST",
-				body: formData,
-			},
-		);
-
-		const response = await POST({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const cookie = cookies.get(name);
-					return cookie ? { value: cookie } : undefined;
-				},
-				set: () => {},
-			},
-		} as unknown as APIContext);
+		const response = await postNotificationPreferencesUpdate({
+			formData,
+			cookies,
+		});
 
 		expect(response.status).toBe(200);
 		const payload = (await response.json()) as { ok: boolean; message: string };
@@ -233,24 +207,10 @@ describe("A signed-in user updates their notification channels.", () => {
 			JSON.stringify(["10:00", "08:00", "10:00", "11:00"]),
 		);
 
-		const request = new Request(
-			"http://localhost/api/notification-preferences/update",
-			{
-				method: "POST",
-				body: formData,
-			},
-		);
-
-		const response = await POST({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const cookie = cookies.get(name);
-					return cookie ? { value: cookie } : undefined;
-				},
-				set: () => {},
-			},
-		} as unknown as APIContext);
+		const response = await postNotificationPreferencesUpdate({
+			formData,
+			cookies,
+		});
 
 		expect(response.status).toBe(200);
 
@@ -283,25 +243,10 @@ describe("A signed-in user updates their notification channels.", () => {
 		const formData = new FormData();
 		formData.append("market_scheduled_asset_price_times", "[]");
 
-		const request = new Request(
-			"http://localhost/api/notification-preferences/update",
-			{
-				method: "POST",
-				body: formData,
-				headers: { Accept: "application/json" },
-			},
-		);
-
-		const response = await POST({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const cookie = cookies.get(name);
-					return cookie ? { value: cookie } : undefined;
-				},
-				set: () => {},
-			},
-		} as unknown as APIContext);
+		const response = await postNotificationPreferencesUpdate({
+			formData,
+			cookies,
+		});
 
 		expect(response.status).toBe(200);
 		const payload = (await response.json()) as {
