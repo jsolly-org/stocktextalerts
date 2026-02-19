@@ -24,6 +24,12 @@ New app with no users — optimize for simplicity and correctness over backwards
 - Password: the `DEFAULT_PASSWORD` value from `.env.local`
 - Created by `supabase/seed.sql` (regenerated via `npm run db:gen-seed`)
 
+## GitHub Actions / CI
+- **Workflow concurrency:** Workflows that run on `pull_request` or `push` should use `concurrency` to avoid stale runs on rapid commits.
+- **Group naming:** Use `group: <workflow-name>-${{ github.head_ref || github.ref }}` for PR/branch-scoped workflows (e.g. `noDeploy`) so different branches run in parallel; use `group: <workflow-name>` for branch-push-only workflows (e.g. `update-open-pr-branches`) where a single group is sufficient.
+- **cancel-in-progress:** Set `cancel-in-progress: true` so new runs cancel in-progress ones in the same group, preventing outdated results and wasted CI time.
+- See `.github/actions/` READMEs for composite actions (run-precommit-checks, run-ci with skip-lint, agent-run-queue-and-ratelimit) and post-dev-push flow.
+
 ## Guidelines
 - [Code Style & Structure](.agents/code-style.md)
 - [Error Handling & Validation](.agents/error-handling.md)
