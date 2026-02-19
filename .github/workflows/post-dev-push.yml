@@ -360,11 +360,12 @@ jobs:
       - name: Create PR with doc updates
         if: steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
         run: |
-          # Verify only allowed files were changed
+          # Verify only allowed files were changed — fail if agent modified disallowed files
           UNEXPECTED=$(git status --porcelain | grep -v -E '^.. (README\.md|src/pages/faq\.astro|src/components/landing/HowItWorks\.astro)$' || true)
           if [[ -n "$UNEXPECTED" ]]; then
-            echo "##[warning]Unexpected file changes detected:"
+            echo "::error::Agent modified disallowed files — refusing to push:"
             echo "$UNEXPECTED"
+            exit 1
           fi
 
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
