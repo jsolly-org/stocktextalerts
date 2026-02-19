@@ -55,7 +55,7 @@
 		/* WCAG 2.1 AA: 4.5:1 contrast on white for normal text */
 		--heading: #111827;
 		--label: #374151;
-		--body-secondary: #4b5563;
+		--body-secondary: var(--color-gray-700);
 		--muted: #4b5563;
 		--faint: #6b7280;
 		--edge: var(--color-gray-200);
