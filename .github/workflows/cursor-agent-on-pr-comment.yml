@@ -325,49 +325,40 @@ jobs:
           fi
 
           PROMPT="$(
-            cat <<'PROMPT_HEAD'
+            cat <<PROMPT_EOF
           ---SYSTEM_INSTRUCTIONS_START---
           You are running in GitHub Actions on a checked-out PR branch.
 
           Hard rules:
           - Do NOT create commits.
           - Do NOT push.
-          - Do NOT use GitHub APIs or post comments/reactions (no `gh`).
+          - Do NOT use GitHub APIs or post comments/reactions (no \`gh\`).
 
           Context:
-          PROMPT_HEAD
-          echo "- Repo: $REPO"
-          echo "- PR Number: $PR_NUMBER"
-          echo "- Head Branch: $HEAD_REF"
-          echo "- Trigger Event: $COMMENT_EVENT"
-          echo "- Trigger Comment ID: $COMMENT_ID"
-          cat <<'PROMPT_BODY'
+          - Repo: ${REPO}
+          - PR Number: ${PR_NUMBER}
+          - Head Branch: ${HEAD_REF}
+          - Trigger Event: ${COMMENT_EVENT}
+          - Trigger Comment ID: ${COMMENT_ID}
           Do this:
           1) Make the necessary code changes requested in the user comment below.
           2) Leave all changes as uncommitted working tree changes. The workflow will run checks, commit, and push.
 
           If this was triggered by a PR review comment, use this context to locate the exact spot:
-          PROMPT_BODY
-          echo "- Path: $COMMENT_PATH"
-          echo "- Side: $COMMENT_SIDE"
-          echo "- Line: $COMMENT_LINE"
-          echo "- Start line: $COMMENT_START_LINE"
-          cat <<'PROMPT_BODY5'
+          - Path: ${COMMENT_PATH}
+          - Side: ${COMMENT_SIDE}
+          - Line: ${COMMENT_LINE}
+          - Start line: ${COMMENT_START_LINE}
           - Diff hunk:
 
-          PROMPT_BODY5
-          echo "$COMMENT_DIFF_HUNK"
-          cat <<'PROMPT_TAIL'
+          $(printf '%s' "$COMMENT_DIFF_HUNK")
           ---SYSTEM_INSTRUCTIONS_END---
 
           ---USER_INPUT_START---
-          PROMPT_TAIL
-          cat /tmp/agent_user_input.txt
-          cat <<'PROMPT_END'
-
-
-          ---USER_INPUT_END---
-          PROMPT_END
+          PROMPT_EOF
+            cat /tmp/agent_user_input.txt
+            echo ""
+            echo "---USER_INPUT_END---"
           )"
 
           # Use --print for non-interactive runs (enables tool access) and pass the prompt as the
