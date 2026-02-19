@@ -333,3 +333,38 @@ jobs:
           cursor_api_key: ${{ secrets.CURSOR_API_KEY }}
           agent_model: ${{ vars.AGENT_MODEL }}
           max_fix_attempts: "2"
+
+      - name: Create PR with doc updates
+        if: steps.changes.outputs.has_changes == 'true' && (steps.precommit_checks.outcome == 'success' || steps.autofix.outputs.fixed == 'true')
+        run: |
+          # Verify only allowed files were changed
+          UNEXPECTED=$(git status --porcelain | grep -v -E '^.. (README\.md|src/pages/faq\.astro|src/components/landing/HowItWorks\.astro)$' || true)
+          if [[ -n "$UNEXPECTED" ]]; then
+            echo "##[warning]Unexpected file changes detected:"
+            echo "$UNEXPECTED"
+          fi
+
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          BRANCH="docs/auto-update-${SHORT_SHA}"
+
+          git checkout -b "$BRANCH"
+          git add -A
+          if [ "${{ github.event_name }}" = "push" ]; then
+            git commit -m "docs: update docs for ${{ github.sha }}"
+          else
+            git commit -m "docs: update docs (manual trigger)"
+          fi
+          git push origin "$BRANCH"
+
+          PR_URL=$(gh pr create \
+            --base dev \
+            --head "$BRANCH" \
+            --title "docs: auto-update docs for ${SHORT_SHA}" \
+            --body "Automated doc updates triggered by push to dev.
+
+          Source commit: ${{ github.sha }}
+          Trigger: ${{ github.event_name }}")
+
+          echo "PR created: $PR_URL"
+          gh pr merge "$PR_URL" --admin --merge --delete-branch
+          echo "PR merged successfully."
