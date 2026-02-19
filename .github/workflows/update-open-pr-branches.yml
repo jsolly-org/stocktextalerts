@@ -1,6 +1,6 @@
 # Keeps open PR branches up to date with dev. When a push lands on dev, this
-# workflow finds all non-draft PRs and calls the GitHub API to update their
-# branches. Skips draft PRs. PRs already up to date are handled gracefully.
+# workflow finds all open PRs and calls the GitHub API to update their
+# branches (including drafts). PRs already up to date are handled gracefully.
 name: Update Open PR Branches
 
 on:
@@ -35,7 +35,7 @@ jobs:
             --state open \
             --base dev \
             --limit 200 \
-            --json number,isDraft,url)"
+            --json number,url)"
 
           count="$(jq 'length' <<<"$prs")"
           echo "Found $count open PR(s)."
@@ -47,18 +47,12 @@ jobs:
           updated=0
           already_up_to_date=0
           update_failed=0
-          skipped_drafts=0
+          merge_conflict=0
+          head_sha_mismatch=0
 
           while IFS= read -r pr; do
             number="$(jq -r '.number' <<<"$pr")"
-            draft="$(jq -r '.isDraft' <<<"$pr")"
             url="$(jq -r '.url' <<<"$pr")"
-
-            if [[ "$draft" == "true" ]]; then
-              echo "Skipping draft PR #$number ($url)."
-              skipped_drafts=$((skipped_drafts + 1))
-              continue
-            fi
 
             echo "Updating PR #$number ($url)."
             if err="$(gh api \
@@ -70,6 +64,12 @@ jobs:
               if echo "$err" | grep -qi "already up.to.date"; then
                 echo "PR #$number is already up to date."
                 already_up_to_date=$((already_up_to_date + 1))
+              elif echo "$err" | grep -qi "merge conflict"; then
+                echo "::warning::PR #$number has a merge conflict — skipping ($url): $err"
+                merge_conflict=$((merge_conflict + 1))
+              elif echo "$err" | grep -qi "expected head sha"; then
+                echo "::warning::PR #$number head SHA changed during update — skipping ($url): $err"
+                head_sha_mismatch=$((head_sha_mismatch + 1))
               else
                 echo "::error::Failed to update PR #$number ($url): $err"
                 update_failed=$((update_failed + 1))
@@ -81,8 +81,9 @@ jobs:
           echo "Summary:"
           echo "- updated=$updated"
           echo "- already_up_to_date=$already_up_to_date"
+          echo "- merge_conflict=$merge_conflict"
+          echo "- head_sha_mismatch=$head_sha_mismatch"
           echo "- update_failed=$update_failed"
-          echo "- skipped_drafts=$skipped_drafts"
 
           if [[ "$update_failed" -gt 0 ]]; then
             echo "::warning::$update_failed PR(s) failed to update."
