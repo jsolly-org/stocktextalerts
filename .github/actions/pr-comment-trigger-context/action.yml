@@ -125,6 +125,7 @@ runs:
       id: should_skip
       shell: bash
       env:
+        GH_TOKEN: ${{ inputs.gh_token }}
         COMMENT_BODY: ${{ inputs.comment_body }}
         COMMENT_USER: ${{ inputs.comment_user }}
         REPO: ${{ inputs.repo }}
@@ -144,6 +145,7 @@ runs:
 
         # Internal workflow comments: skip unless it's a "No changes needed" comment with a
         # resolvable "In response to" link — in that case we run the agent with the linked comment.
+        # Skip when the linked comment is itself a noop to avoid unbounded retry loops.
         RESOLVED_FROM_LINK=""
         if [[ "$COMMENT_BODY" == *"$INTERNAL_MARKER"* ]]; then
           RESOLVE_ID=""
@@ -159,6 +161,19 @@ runs:
           fi
           if [[ -z "$RESOLVE_ID" ]]; then
             skip "internal workflow comment"
+          fi
+          # Avoid noop retry loop: if the linked comment is itself a noop report, skip.
+          LINKED_JSON=""
+          if [[ "$RESOLVE_TYPE" == "issue" ]]; then
+            LINKED_JSON=$(gh api "repos/$REPO/issues/comments/$RESOLVE_ID" 2>/dev/null) || true
+          else
+            LINKED_JSON=$(gh api "repos/$REPO/pulls/comments/$RESOLVE_ID" 2>/dev/null) || true
+          fi
+          if [[ -n "$LINKED_JSON" ]]; then
+            LINKED_BODY=$(echo "$LINKED_JSON" | jq -r '.body // ""')
+            if [[ "$LINKED_BODY" == *"$INTERNAL_MARKER"* ]] && [[ "$LINKED_BODY" == *"No changes needed"* ]]; then
+              skip "noop retry chain (linked comment is a noop report)"
+            fi
           fi
           echo "resolve_from_comment_id=$RESOLVE_ID" >> "$GITHUB_OUTPUT"
           echo "resolve_from_comment_type=$RESOLVE_TYPE" >> "$GITHUB_OUTPUT"
