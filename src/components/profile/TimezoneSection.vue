@@ -63,7 +63,7 @@ import {
 import { CARD_GRADIENT_ACCENTS, DEFAULT_TIMEZONE } from "../../lib/constants";
 import type { NotificationPreferencesSnapshot, User } from "../../lib/db";
 import { rootLogger } from "../../lib/logging";
-import type { TimezoneOption } from "../../lib/time/cache";
+import type { TimezoneOption } from "../../lib/time/types";
 import StatusMessage from "../StatusMessage.vue";
 import TimezoneMismatchBanner from "./TimezoneMismatchBanner.vue";
 import TimezoneSelect from "./TimezoneSelect.vue";
