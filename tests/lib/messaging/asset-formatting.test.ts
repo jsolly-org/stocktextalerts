@@ -20,6 +20,7 @@ describe("getSafeHrefUrl prevents XSS via dangerous URL schemes.", () => {
 
 	it("Returns null for javascript: scheme.", () => {
 		expect(getSafeHrefUrl("javascript:alert(1)")).toBeNull();
+		expect(getSafeHrefUrl("  javascript:alert(1)")).toBeNull();
 	});
 
 	it("Returns null for data: scheme.", () => {
