@@ -1,0 +1,89 @@
+# Keeps open PR branches up to date with dev. When a push lands on dev, this
+# workflow finds all non-draft PRs and calls the GitHub API to update their
+# branches. Skips draft PRs. PRs already up to date are handled gracefully.
+name: Update Open PR Branches
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-open-pr-branches
+  cancel-in-progress: true
+
+jobs:
+  update-branches:
+    runs-on: ubuntu-latest
+    if: ${{ github.actor != 'nektos/act' }}
+    steps:
+      - name: Update open PR branches that are behind dev
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          prs="$(gh pr list \
+            --repo "$GH_REPO" \
+            --state open \
+            --base dev \
+            --limit 200 \
+            --json number,isDraft,url)"
+
+          count="$(jq 'length' <<<"$prs")"
+          echo "Found $count open PR(s)."
+
+          if [[ "$count" -eq 0 ]]; then
+            exit 0
+          fi
+
+          updated=0
+          already_up_to_date=0
+          update_failed=0
+          skipped_drafts=0
+
+          while IFS= read -r pr; do
+            number="$(jq -r '.number' <<<"$pr")"
+            draft="$(jq -r '.isDraft' <<<"$pr")"
+            url="$(jq -r '.url' <<<"$pr")"
+
+            if [[ "$draft" == "true" ]]; then
+              echo "Skipping draft PR #$number ($url)."
+              skipped_drafts=$((skipped_drafts + 1))
+              continue
+            fi
+
+            echo "Updating PR #$number ($url)."
+            if err="$(gh api \
+              --method PUT \
+              "repos/$GH_REPO/pulls/$number/update-branch" \
+              --silent 2>&1)"; then
+              updated=$((updated + 1))
+            else
+              if echo "$err" | grep -qi "already up.to.date"; then
+                echo "PR #$number is already up to date."
+                already_up_to_date=$((already_up_to_date + 1))
+              else
+                echo "::error::Failed to update PR #$number ($url): $err"
+                update_failed=$((update_failed + 1))
+              fi
+            fi
+
+          done < <(jq -c '.[]' <<<"$prs")
+
+          echo "Summary:"
+          echo "- updated=$updated"
+          echo "- already_up_to_date=$already_up_to_date"
+          echo "- update_failed=$update_failed"
+          echo "- skipped_drafts=$skipped_drafts"
+
+          if [[ "$update_failed" -gt 0 ]]; then
+            echo "::warning::$update_failed PR(s) failed to update."
+            exit 1
+          fi
