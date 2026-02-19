@@ -16,6 +16,10 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: post-dev-push
+  cancel-in-progress: true
+
 env:
   GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
 
