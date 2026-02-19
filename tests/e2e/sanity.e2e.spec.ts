@@ -523,6 +523,9 @@ test.describe("sanity tests", () => {
 		await page.goto("/profile");
 		await expectCurrentPath(page, "/profile");
 
+		// Wait for the TimezoneSection Vue component to hydrate (client:idle).
+		await page.locator("[data-hydrated]").waitFor({ timeout: 15_000 });
+
 		const timezoneSelect = page.locator("#profile-timezone");
 		const currentTimezone = await timezoneSelect.inputValue();
 		const targetTimezone =
