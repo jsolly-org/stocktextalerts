@@ -100,7 +100,7 @@ const omitManifestOnVercel =
     <meta name="twitter:image" content={socialImageURL} />
 
     {jsonLdHtml && (
-      <script type="application/ld+json" set:html={jsonLdHtml} />
+      <script is:inline type="application/ld+json" set:html={jsonLdHtml} />
     )}
 
     <slot name="head" />
