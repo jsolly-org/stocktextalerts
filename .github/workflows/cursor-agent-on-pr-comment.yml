@@ -147,6 +147,7 @@ jobs:
           MAX_DEPTH=5
           DEPTH=0
           RESOLVED=""
+          UNREACHABLE_REF=""
 
           while [[ $DEPTH -lt $MAX_DEPTH ]]; do
             REF_ID=""
@@ -185,7 +186,17 @@ jobs:
               fi
             fi
 
-            if [[ -z "$REF_ID" || -z "$FETCHED" || "$FETCHED" == "null" ]]; then
+            if [[ -z "$REF_ID" ]]; then
+              break
+            fi
+
+            if [[ -z "$FETCHED" || "$FETCHED" == "null" ]]; then
+              # Found a reference but could not fetch it. Record it so the agent can explain.
+              if [[ "$API_TYPE" == "pulls" ]]; then
+                UNREACHABLE_REF="#discussion_r$REF_ID"
+              else
+                UNREACHABLE_REF="#issuecomment-$REF_ID"
+              fi
               break
             fi
 
@@ -196,6 +207,16 @@ jobs:
 
           if [[ -n "$RESOLVED" ]]; then
             printf '%s' "$RESOLVED" > /tmp/resolved_comment_body.txt
+            echo "resolved=true" >> "$GITHUB_OUTPUT"
+          elif [[ -n "$UNREACHABLE_REF" ]]; then
+            # Pass a clear message so the agent can ask the user to re-post the feedback.
+            {
+              echo "**Workflow: Could not fetch referenced comment**"
+              echo ""
+              echo "The trigger comment references $UNREACHABLE_REF, but the workflow could not fetch its content (API may have failed due to permissions). The actual review feedback is in that comment."
+              echo ""
+              echo "**Please re-post the review feedback** in this thread so the agent can apply the requested changes."
+            } > /tmp/resolved_comment_body.txt
             echo "resolved=true" >> "$GITHUB_OUTPUT"
           else
             echo "resolved=false" >> "$GITHUB_OUTPUT"
