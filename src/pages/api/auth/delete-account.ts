@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { clearAuthCookies } from "../../../lib/auth/cookies";
 import { deleteUserAccount } from "../../../lib/auth/delete-account";
+import { enforceAuthRateLimit } from "../../../lib/auth/enforce-auth-rate-limit";
 import { createUserService } from "../../../lib/db";
 import {
 	createSupabaseAdminClient,
@@ -50,43 +51,17 @@ export const POST: APIRoute = async ({
 
 	try {
 		const adminSupabase = createSupabaseAdminClient();
+		const rateLimitRedirect = await enforceAuthRateLimit({
+			adminSupabase,
+			userId: authUser.id,
+			endpoint: "delete_account",
+			maxRequests: DELETE_ACCOUNT_RATE_LIMIT_ATTEMPTS,
+			windowMinutes: DELETE_ACCOUNT_RATE_LIMIT_MINUTES,
+			logger,
+			contextLabel: "account deletion",
+		});
+		if (rateLimitRedirect) return rateLimitRedirect;
 
-		const { data: rateLimitAllowed, error: rateLimitError } =
-			await adminSupabase.rpc("check_rate_limit", {
-				p_user_id: authUser.id,
-				p_endpoint: "delete_account",
-				p_max_requests: DELETE_ACCOUNT_RATE_LIMIT_ATTEMPTS,
-				p_window_minutes: DELETE_ACCOUNT_RATE_LIMIT_MINUTES,
-			});
-
-		if (rateLimitError) {
-			logger.error(
-				"Rate limit check failed for account deletion",
-				{ userId: authUser.id },
-				rateLimitError,
-			);
-			return redirect("/profile?error=failed");
-		}
-
-		if (rateLimitAllowed === false) {
-			logger.info("User rate-limited for account deletion attempts", {
-				userId: authUser.id,
-			});
-			return redirect(
-				`/profile?error=rate_limit&minutes=${DELETE_ACCOUNT_RATE_LIMIT_MINUTES}`,
-			);
-		}
-
-		if (rateLimitAllowed !== true) {
-			logger.error(
-				"Account deletion rate limit check returned unexpected value",
-				{
-					userId: authUser.id,
-					rateLimitAllowed,
-				},
-			);
-			return redirect("/profile?error=failed");
-		}
 		const result = await deleteUserAccount({
 			adminSupabase,
 			userId: authUser.id,
