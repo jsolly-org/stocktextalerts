@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/auth/signin";
+import { createApiContext } from "../../helpers/api-context";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
@@ -25,20 +25,14 @@ async function signInAndAssertRedirect(
 	});
 
 	const cookies = new Map<string, string>();
-	const response = await POST({
-		request,
-		cookies: {
-			set: (name: string, value: string) => {
+	const response = await POST(
+		createApiContext({
+			request,
+			onSetCookie: (name, value) => {
 				cookies.set(name, value);
 			},
-		},
-		redirect: (url: string) => {
-			return new Response(null, {
-				status: 302,
-				headers: { Location: url },
-			});
-		},
-	} as unknown as APIContext);
+		}),
+	);
 
 	expect(response.status).toBe(302);
 	expect(response.headers.get("Location")).toBe(expectedLocation);
@@ -108,18 +102,11 @@ describe("Sign in with incorrect credentials.", () => {
 			}),
 		});
 
-		const response = await POST({
-			request,
-			cookies: {
-				set: () => {},
-			},
-			redirect: (url: string) => {
-				return new Response(null, {
-					status: 302,
-					headers: { Location: url },
-				});
-			},
-		} as unknown as APIContext);
+		const response = await POST(
+			createApiContext({
+				request,
+			}),
+		);
 
 		expect(response.status).toBe(302);
 		const location = response.headers.get("Location");
@@ -143,18 +130,11 @@ describe("Sign in with incorrect credentials.", () => {
 			}),
 		});
 
-		const response = await POST({
-			request,
-			cookies: {
-				set: () => {},
-			},
-			redirect: (url: string) => {
-				return new Response(null, {
-					status: 302,
-					headers: { Location: url },
-				});
-			},
-		} as unknown as APIContext);
+		const response = await POST(
+			createApiContext({
+				request,
+			}),
+		);
 
 		expect(response.status).toBe(302);
 		const location = response.headers.get("Location");
