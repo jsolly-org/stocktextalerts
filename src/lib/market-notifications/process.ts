@@ -144,8 +144,8 @@ function buildSignalContext(options: {
 		benchmarkLabel,
 	} = options;
 	const direction = percentMove >= 0 ? "up" : "down";
-	const base = `${direction} ${Math.abs(percentMove).toFixed(2)}% ($${Math.round(Math.abs(dollarMove))}) from previous close`;
-	const threshold = `triggered at >=${percentThreshold.toFixed(1)}% or >=$${Math.round(dollarThreshold)}`;
+	const base = `${direction} ${Math.abs(percentMove).toFixed(2)}% ($${Math.abs(dollarMove).toFixed(2)}) from previous close`;
+	const threshold = `triggered at >=${percentThreshold.toFixed(1)}% or >=$${dollarThreshold.toFixed(2)}`;
 	const marketContext =
 		benchmarkMovePercentAbs !== null
 			? `${benchmarkLabel} moved ${benchmarkMovePercentAbs.toFixed(2)}%`

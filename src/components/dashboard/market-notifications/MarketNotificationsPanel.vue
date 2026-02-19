@@ -492,8 +492,15 @@ const priceAlertsEnabled = computed(
 const priceAlertOnboardingCompleted = ref(
 	user.value.market_asset_price_alert_onboarding_completed ?? false,
 );
+function normalizeRiskPriority(
+	value: AlertRiskPriority | string | null | undefined,
+): AlertRiskPriority {
+	if (value === "both_equally") return value;
+	// Legacy: map big_drops/big_gains to combined option
+	return "both_equally";
+}
 const priceAlertRiskPriority = ref<AlertRiskPriority>(
-	user.value.market_asset_price_alert_risk_priority ?? "both_equally",
+	normalizeRiskPriority(user.value.market_asset_price_alert_risk_priority),
 );
 function normalizeMarketContext(
 	value: AlertMarketContext | null | undefined,
@@ -767,7 +774,7 @@ watch(
 watch(
 	() => user.value.market_asset_price_alert_risk_priority,
 	(value) => {
-		priceAlertRiskPriority.value = value ?? "both_equally";
+		priceAlertRiskPriority.value = normalizeRiskPriority(value);
 	},
 );
 watch(
@@ -875,7 +882,7 @@ watch([priceAlertRiskPriority, priceAlertMarketContext, priceAlertMoveSize, pric
 		return;
 	}
 	if (
-		riskPriority === (user.value.market_asset_price_alert_risk_priority ?? "both_equally") &&
+		riskPriority === normalizeRiskPriority(user.value.market_asset_price_alert_risk_priority) &&
 		marketContext === (user.value.market_asset_price_alert_market_context ?? "standout") &&
 		moveSize === normalizeMoveSize(user.value.market_asset_price_alert_move_size) &&
 		followUpMode === normalizeFollowUpMode(user.value.market_asset_price_alert_follow_up_mode)
