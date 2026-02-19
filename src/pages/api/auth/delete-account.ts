@@ -8,6 +8,22 @@ import {
 } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 
+/*
+ * Rate limit: N attempts per user per time window.
+ * Can be overridden via DELETE_ACCOUNT_RATE_LIMIT_ATTEMPTS and
+ * DELETE_ACCOUNT_RATE_LIMIT_MINUTES env vars.
+ */
+const DELETE_ACCOUNT_RATE_LIMIT_ATTEMPTS =
+	Number.parseInt(
+		import.meta.env.DELETE_ACCOUNT_RATE_LIMIT_ATTEMPTS ?? "5",
+		10,
+	) || 5;
+const DELETE_ACCOUNT_RATE_LIMIT_MINUTES =
+	Number.parseInt(
+		import.meta.env.DELETE_ACCOUNT_RATE_LIMIT_MINUTES ?? "15",
+		10,
+	) || 15;
+
 export const POST: APIRoute = async ({
 	cookies,
 	redirect,
@@ -34,6 +50,43 @@ export const POST: APIRoute = async ({
 
 	try {
 		const adminSupabase = createSupabaseAdminClient();
+
+		const { data: rateLimitAllowed, error: rateLimitError } =
+			await adminSupabase.rpc("check_rate_limit", {
+				p_user_id: authUser.id,
+				p_endpoint: "delete_account",
+				p_max_requests: DELETE_ACCOUNT_RATE_LIMIT_ATTEMPTS,
+				p_window_minutes: DELETE_ACCOUNT_RATE_LIMIT_MINUTES,
+			});
+
+		if (rateLimitError) {
+			logger.error(
+				"Rate limit check failed for account deletion",
+				{ userId: authUser.id },
+				rateLimitError,
+			);
+			return redirect("/profile?error=failed");
+		}
+
+		if (rateLimitAllowed === false) {
+			logger.info("User rate-limited for account deletion attempts", {
+				userId: authUser.id,
+			});
+			return redirect(
+				`/profile?error=rate_limit&minutes=${DELETE_ACCOUNT_RATE_LIMIT_MINUTES}`,
+			);
+		}
+
+		if (rateLimitAllowed !== true) {
+			logger.error(
+				"Account deletion rate limit check returned unexpected value",
+				{
+					userId: authUser.id,
+					rateLimitAllowed,
+				},
+			);
+			return redirect("/profile?error=failed");
+		}
 		const result = await deleteUserAccount({
 			adminSupabase,
 			userId: authUser.id,
