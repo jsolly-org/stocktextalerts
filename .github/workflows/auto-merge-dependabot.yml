@@ -20,9 +20,10 @@ jobs:
         id: metadata
         uses: dependabot/fetch-metadata@v2.5.0
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_AGENT_TOKEN }}
       - name: Enable auto-merge for Dependabot PR
         if: steps.metadata.outputs.update-type != 'version-update:semver-major'
         run: gh pr merge ${{ github.event.pull_request.number }} --auto --squash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Use GH_AGENT_TOKEN so auto-merge works on PRs that modify workflow files (default GITHUB_TOKEN lacks workflows permission)
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
