@@ -68,9 +68,9 @@ function formatAssetTextLine(
 	return `${base} — ${formatAssetPriceText(price, effectiveSparkline)}`;
 }
 
-/** Return CSS hex color for price change (green for positive, red for negative). */
+/** Return CSS hex color for price change (green for positive, red for negative). WCAG 2.1 AA 4.5:1 on light bg. */
 export function getChangeColor(changePercent: number): string {
-	return changePercent >= 0 ? "#15803d" : "#dc2626";
+	return changePercent >= 0 ? "#166534" : "#b91c1c";
 }
 
 function formatAssetHtmlLine(
