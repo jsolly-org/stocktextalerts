@@ -49,12 +49,17 @@ describe("Update email endpoint enforces rate limiting.", () => {
 				10,
 			) || 5;
 
-		await adminClient.from("rate_limit_log").insert(
-			Array.from({ length: attempts }, () => ({
-				user_id: testUser.id,
-				endpoint: "change_email",
-			})),
-		);
+		const { error: insertError } = await adminClient
+			.from("rate_limit_log")
+			.insert(
+				Array.from({ length: attempts }, () => ({
+					user_id: testUser.id,
+					endpoint: "change_email",
+				})),
+			);
+		if (insertError) {
+			throw new Error(`Failed to seed rate_limit_log: ${insertError.message}`);
+		}
 
 		const cookies = await createAuthenticatedCookies(
 			testUser.email,

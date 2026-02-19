@@ -13,7 +13,6 @@ import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 describe("Delete account requires authentication.", () => {
 	it("An unauthenticated request is redirected to the home page.", async () => {
-		const deleteSpy = () => {};
 		const request = new Request("http://localhost/api/auth/delete-account", {
 			method: "POST",
 		});
@@ -23,7 +22,7 @@ describe("Delete account requires authentication.", () => {
 			cookies: {
 				get: () => undefined,
 				set: () => {},
-				delete: deleteSpy,
+				delete: () => {},
 			},
 			redirect: toRedirect,
 		} as unknown as APIContext);
