@@ -61,7 +61,7 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
-  live-email-test:
+  live-tests:
     runs-on: ubuntu-latest
     needs: deploy
     if: ${{ github.actor != 'nektos/act' }}
@@ -92,18 +92,26 @@ jobs:
           $DB_VARS
           CRON_SECRET=ci-cron-secret
           VERCEL_URL=http://localhost:4321
-          TWILIO_ACCOUNT_SID=AC00000000000000000000000000000000
-          TWILIO_AUTH_TOKEN=ci-twilio-auth-token
-          TWILIO_PHONE_NUMBER=+15555550100
-          TWILIO_VERIFY_SERVICE_SID=VA00000000000000000000000000000000
+          TWILIO_ACCOUNT_SID=$TWILIO_ACCOUNT_SID
+          TWILIO_AUTH_TOKEN=$TWILIO_AUTH_TOKEN
+          TWILIO_PHONE_NUMBER=$TWILIO_PHONE_NUMBER
+          TWILIO_VERIFY_SERVICE_SID=$TWILIO_VERIFY_SERVICE_SID
           RESEND_API_KEY=$RESEND_API_KEY
           EMAIL_FROM=$EMAIL_FROM
-          MASSIVE_API_KEY=ci-massive-api-key
-          FINNHUB_API_KEY=ci-finnhub-api-key
+          MASSIVE_API_KEY=$MASSIVE_API_KEY
+          FINNHUB_API_KEY=$FINNHUB_API_KEY
+          XAI_API_KEY=$XAI_API_KEY
           EOF
           cat .env.local >> $GITHUB_ENV
         env:
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
+          TWILIO_VERIFY_SERVICE_SID: ${{ secrets.TWILIO_VERIFY_SERVICE_SID }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
-      - name: Run live email tests
-        run: npm run test:live:email
+          MASSIVE_API_KEY: ${{ secrets.MASSIVE_API_KEY }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+      - name: Run all live tests
+        run: npm run test:live:all
