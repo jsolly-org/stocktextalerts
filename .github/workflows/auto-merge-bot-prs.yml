@@ -22,4 +22,5 @@ jobs:
       - name: Enable auto-merge for bot PR
         run: gh pr merge ${{ github.event.pull_request.number }} --auto --squash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Use GH_AGENT_TOKEN so auto-merge works on PRs that modify workflow files (default GITHUB_TOKEN lacks workflows permission)
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
