@@ -297,27 +297,29 @@ runs:
         RESOLVE_FAILED="false"
 
         if [[ -n "$RESOLVE_ID" ]] && [[ -n "$RESOLVE_TYPE" ]]; then
-          if [[ "$RESOLVE_TYPE" == "issue" ]]; then
-            JSON=$(gh api "repos/$REPO/issues/comments/$RESOLVE_ID" 2>/dev/null) || JSON=""
-          else
-            JSON=$(gh api "repos/$REPO/pulls/comments/$RESOLVE_ID" 2>/dev/null) || JSON=""
+          BODY=""
+          # Prefer embedded CURSOR_AGENT_ORIGINAL_PROMPT when present: it is the exact prompt
+          # that was sent to the agent, whereas API fetch can fail or return unexpected content.
+          if [[ "$COMMENT_BODY" == *"<!-- CURSOR_AGENT_ORIGINAL_PROMPT"*"CURSOR_AGENT_ORIGINAL_PROMPT_END -->"* ]]; then
+            BODY=$(echo "$COMMENT_BODY" | sed -n '/<!-- CURSOR_AGENT_ORIGINAL_PROMPT/,/CURSOR_AGENT_ORIGINAL_PROMPT_END -->/p' | sed '1d;$d')
           fi
-          if [[ -n "$JSON" ]]; then
-            BODY=$(echo "$JSON" | jq -r '.body // ""')
-            if [[ "$RESOLVE_TYPE" == "review" ]]; then
-              PATH_OUT=$(echo "$JSON" | jq -r '.path // ""')
-              SIDE_OUT=$(echo "$JSON" | jq -r '.side // ""')
-              LINE_OUT=$(echo "$JSON" | jq -r '.line // ""')
-              START_LINE_OUT=$(echo "$JSON" | jq -r '.start_line // ""')
-              DIFF_HUNK_OUT=$(echo "$JSON" | jq -r '.diff_hunk // ""')
+          # Fall back to API fetch when embedded prompt is missing or empty
+          if [[ -z "$BODY" ]]; then
+            if [[ "$RESOLVE_TYPE" == "issue" ]]; then
+              JSON=$(gh api "repos/$REPO/issues/comments/$RESOLVE_ID" 2>/dev/null) || JSON=""
+            else
+              JSON=$(gh api "repos/$REPO/pulls/comments/$RESOLVE_ID" 2>/dev/null) || JSON=""
             fi
-          fi
-          # If fetch failed, try fallback: extract embedded original prompt from previous no-op comment
-          if [[ -z "$JSON" ]] || [[ -z "$BODY" ]]; then
-            if [[ "$COMMENT_BODY" == *"<!-- CURSOR_AGENT_ORIGINAL_PROMPT"*"CURSOR_AGENT_ORIGINAL_PROMPT_END -->"* ]]; then
-              BODY=$(echo "$COMMENT_BODY" | sed -n '/<!-- CURSOR_AGENT_ORIGINAL_PROMPT/,/CURSOR_AGENT_ORIGINAL_PROMPT_END -->/p' | sed '1d;$d')
-              # Use fallback only if we got non-empty content
-              [[ -n "$BODY" ]] && RESOLVE_FAILED="false" || RESOLVE_FAILED="true"
+            if [[ -n "$JSON" ]]; then
+              BODY=$(echo "$JSON" | jq -r '.body // ""')
+              if [[ "$RESOLVE_TYPE" == "review" ]]; then
+                PATH_OUT=$(echo "$JSON" | jq -r '.path // ""')
+                SIDE_OUT=$(echo "$JSON" | jq -r '.side // ""')
+                LINE_OUT=$(echo "$JSON" | jq -r '.line // ""')
+                START_LINE_OUT=$(echo "$JSON" | jq -r '.start_line // ""')
+                DIFF_HUNK_OUT=$(echo "$JSON" | jq -r '.diff_hunk // ""')
+              fi
+              [[ -z "$BODY" ]] && RESOLVE_FAILED="true" || RESOLVE_FAILED="false"
             else
               RESOLVE_FAILED="true"
             fi
