@@ -35,10 +35,10 @@ Many workflows use `GH_AGENT_TOKEN` because `GITHUB_TOKEN` lacks the `workflows`
 
 | Token type   | Permissions |
 |--------------|-------------|
-| Classic PAT  | `repo` (full control of private repositories) |
+| Classic PAT  | `repo` and `workflow` |
 | Fine-grained | `Contents: Read and write`, `Pull requests: Read and write`, `Workflows: Read and write`, `Issues: Read and write` |
 
-Fine-grained: restrict to "Only select repositories" → this repo. Classic: no additional scopes beyond `repo`.
+Fine-grained: restrict to "Only select repositories" → this repo. Classic: no additional scopes beyond `repo` and `workflow`.
 
 **Token lifecycle:**
 - Set an expiration period appropriate for your security policy (recommended: 90 days).
