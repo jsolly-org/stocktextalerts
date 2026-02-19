@@ -24,16 +24,16 @@ const { createSupabaseAdminClientMock, marketDataFetchMock } = vi.hoisted(
 	}),
 );
 
-vi.mock("../../../src/lib/db/supabase", () => ({
+vi.mock("../../src/lib/db/supabase", () => ({
 	createSupabaseAdminClient: createSupabaseAdminClientMock,
 }));
 
-vi.mock("../../../src/lib/providers/massive", () => ({
+vi.mock("../../src/lib/providers/massive", () => ({
 	marketDataFetch: marketDataFetchMock,
 }));
 
 async function loadSectorBackfillHandler() {
-	const module = await import("../../../src/pages/api/sector-backfill");
+	const module = await import("../../src/pages/api/sector-backfill");
 	return module.GET;
 }
 
