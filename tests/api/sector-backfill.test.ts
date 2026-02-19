@@ -52,6 +52,7 @@ describe("A cron worker backfills missing asset sectors.", () => {
 		state.queryError = null;
 		state.updateCalls = [];
 		state.updateErrorForSymbol = null;
+		createSupabaseAdminClientMock.mockReset();
 		marketDataFetchMock.mockReset();
 
 		const mockSupabase = {
