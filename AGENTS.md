@@ -40,6 +40,11 @@ Many workflows use `GH_AGENT_TOKEN` because `GITHUB_TOKEN` lacks the `workflows`
 
 Fine-grained: restrict to "Only select repositories" → this repo. Classic: no additional scopes beyond `repo`.
 
+**Token lifecycle:**
+- Set an expiration period appropriate for your security policy (recommended: 90 days).
+- When the token expires, workflows will fail with authentication errors. Create a new token and update the repository secret.
+- Consider setting a calendar reminder for token renewal.
+
 ## Guidelines
 - [Code Style & Structure](.agents/code-style.md)
 - [Error Handling & Validation](.agents/error-handling.md)
