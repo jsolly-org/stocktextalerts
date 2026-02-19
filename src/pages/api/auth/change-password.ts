@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { enforceAuthRateLimit } from "../../../lib/auth/enforce-auth-rate-limit";
 import { MIN_PASSWORD_LENGTH } from "../../../lib/constants";
 import { createUserService } from "../../../lib/db";
 import {
@@ -79,39 +80,16 @@ export const POST: APIRoute = async ({
 	}
 
 	const adminSupabase = createSupabaseAdminClient();
-	const { data: rateLimitAllowed, error: rateLimitError } =
-		await adminSupabase.rpc("check_rate_limit", {
-			p_user_id: authUser.id,
-			p_endpoint: "change_password",
-			p_max_requests: CHANGE_PASSWORD_RATE_LIMIT_ATTEMPTS,
-			p_window_minutes: CHANGE_PASSWORD_RATE_LIMIT_MINUTES,
-		});
-
-	if (rateLimitError) {
-		logger.error(
-			"Rate limit check failed for password change",
-			{ userId: authUser.id },
-			rateLimitError,
-		);
-		return redirect("/profile?error=failed");
-	}
-
-	if (rateLimitAllowed === false) {
-		logger.info("User rate-limited for password change attempts", {
-			userId: authUser.id,
-		});
-		return redirect(
-			`/profile?error=rate_limit&minutes=${CHANGE_PASSWORD_RATE_LIMIT_MINUTES}`,
-		);
-	}
-
-	if (rateLimitAllowed !== true) {
-		logger.error("Password change rate limit check returned unexpected value", {
-			userId: authUser.id,
-			rateLimitAllowed,
-		});
-		return redirect("/profile?error=failed");
-	}
+	const rateLimitRedirect = await enforceAuthRateLimit({
+		adminSupabase,
+		userId: authUser.id,
+		endpoint: "change_password",
+		maxRequests: CHANGE_PASSWORD_RATE_LIMIT_ATTEMPTS,
+		windowMinutes: CHANGE_PASSWORD_RATE_LIMIT_MINUTES,
+		logger,
+		contextLabel: "password change",
+	});
+	if (rateLimitRedirect) return rateLimitRedirect;
 
 	const { error } = await supabase.auth.updateUser({ password });
 	if (error) {
