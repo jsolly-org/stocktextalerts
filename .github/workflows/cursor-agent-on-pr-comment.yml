@@ -131,6 +131,15 @@ jobs:
           git_name: ${{ env.CURSOR_AGENT_NAME }}
           git_email: ${{ env.CURSOR_AGENT_EMAIL }}
 
+      - name: Validate resolved prompt when re-running from noop comment
+        if: steps.context.outputs.run_agent == 'true' && steps.context.outputs.resolved_from_link == 'true'
+        run: |
+          if [[ -z "${{ steps.context.outputs.prompt_body }}" ]]; then
+            echo "##[error]Re-run from 'No changes needed' comment: could not resolve the original comment body. The agent would receive the wrong prompt. Failing to avoid applying changes to the wrong context."
+            exit 1
+          fi
+          echo "Using resolved prompt from linked comment (resolved_from_link=true)"
+
       - name: Run Cursor agent
         if: steps.context.outputs.run_agent == 'true'
         id: agent
@@ -140,7 +149,7 @@ jobs:
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
           COMMENT_ID: ${{ steps.context.outputs.comment_id }}
           COMMENT_EVENT: ${{ steps.context.outputs.event_name }}
-          COMMENT_BODY: ${{ steps.context.outputs.prompt_body || github.event.comment.body || github.event.review.body }}
+          COMMENT_BODY: ${{ steps.context.outputs.resolved_from_link == 'true' && steps.context.outputs.prompt_body || steps.context.outputs.prompt_body || github.event.comment.body || github.event.review.body }}
           HEAD_REF: ${{ steps.context.outputs.head_ref }}
           HEAD_SHA: ${{ steps.context.outputs.head_sha }}
           REPO: ${{ github.repository }}
