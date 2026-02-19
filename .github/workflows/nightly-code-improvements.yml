@@ -49,6 +49,8 @@ jobs:
         with:
           ref: dev # default branch is dev
           fetch-depth: 0
+          # Use GH_AGENT_TOKEN so git push can modify workflow files (default GITHUB_TOKEN lacks workflows permission)
+          token: ${{ secrets.GH_AGENT_TOKEN }}
 
       - name: Setup Node.js
         if: steps.check-pr.outputs.skip != 'true'
