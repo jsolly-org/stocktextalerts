@@ -5,6 +5,7 @@ import { getAssetData, getRealAssetSymbols } from "../../helpers/asset-data";
 import { updateTrackedAssets } from "../../helpers/asset-update";
 import { adminClient } from "../../helpers/test-env";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
+import { allowConsoleErrors } from "../../setup";
 
 describe("A signed-in user updates their tracked assets.", () => {
 	it("A user cannot track more than the maximum allowed assets.", async () => {
@@ -199,5 +200,21 @@ describe("A signed-in user updates their tracked assets.", () => {
 
 		expect(trackedAssets).toHaveLength(2);
 		expect(trackedAssets?.map((s) => s.symbol)).toEqual(["VOO", "VTI"]);
+	});
+
+	it("User submitting duplicate symbols receives validation error.", async () => {
+		allowConsoleErrors();
+		const { response, trackedAssets, payload } = await updateTrackedAssets(
+			["AAPL"],
+			["AAPL", "AAPL", "MSFT"],
+			{},
+			registerTestUserForCleanup,
+		);
+
+		expect(response.status).toBe(500);
+		expect(payload.ok).toBe(false);
+		expect(payload.message).toBe("failed_to_update_assets");
+		// RPC rolls back on duplicate error — initial assets preserved
+		expect(trackedAssets ?? []).toHaveLength(1);
 	});
 });
