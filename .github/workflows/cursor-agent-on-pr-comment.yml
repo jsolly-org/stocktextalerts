@@ -141,20 +141,51 @@ jobs:
         run: |
           # If the trigger comment references another comment (e.g. #issuecomment-123 or #discussion_r123),
           # fetch that comment's body so the agent receives the actual review feedback.
-          REF_ID=""
+          # Follow chained references (e.g. "No changes needed" -> "In response to #issuecomment-X" -> actual review)
+          # until we reach a leaf comment or hit max depth.
+          CURRENT="$COMMENT_BODY"
+          MAX_DEPTH=5
+          DEPTH=0
+          RESOLVED=""
 
-          if [[ "$COMMENT_BODY" =~ \#issuecomment-([0-9]+) ]]; then
-            REF_ID="${BASH_REMATCH[1]}"
-            FETCHED=$(gh api "repos/$REPO/issues/comments/$REF_ID" --jq '.body' 2>/dev/null || true)
-          elif [[ "$COMMENT_BODY" =~ \#discussion_r([0-9]+) ]]; then
-            REF_ID="${BASH_REMATCH[1]}"
-            FETCHED=$(gh api "repos/$REPO/pulls/comments/$REF_ID" --jq '.body' 2>/dev/null || true)
-          fi
+          while [[ $DEPTH -lt $MAX_DEPTH ]]; do
+            REF_ID=""
+            FETCHED=""
+            API_TYPE=""
 
-          if [[ -n "$REF_ID" && -n "$FETCHED" && "$FETCHED" != "null" ]]; then
-            # Trigger is a reference; use the referenced comment's body as the primary content.
-            # Write to /tmp to avoid appearing in git status.
-            printf '%s' "$FETCHED" > /tmp/resolved_comment_body.txt
+            if [[ "$CURRENT" =~ \#issuecomment-([0-9]+) ]]; then
+              REF_ID="${BASH_REMATCH[1]}"
+              API_TYPE="issues"
+            elif [[ "$CURRENT" =~ /issues/comments/([0-9]+) ]]; then
+              REF_ID="${BASH_REMATCH[1]}"
+              API_TYPE="issues"
+            elif [[ "$CURRENT" =~ \#discussion_r([0-9]+) ]]; then
+              REF_ID="${BASH_REMATCH[1]}"
+              API_TYPE="pulls"
+            elif [[ "$CURRENT" =~ /pull/[0-9]+/comments/([0-9]+) ]]; then
+              REF_ID="${BASH_REMATCH[1]}"
+              API_TYPE="pulls"
+            fi
+
+            if [[ -n "$REF_ID" && -n "$API_TYPE" ]]; then
+              if [[ "$API_TYPE" == "issues" ]]; then
+                FETCHED=$(gh api "repos/$REPO/issues/comments/$REF_ID" --jq '.body' 2>/dev/null || true)
+              else
+                FETCHED=$(gh api "repos/$REPO/pulls/comments/$REF_ID" --jq '.body' 2>/dev/null || true)
+              fi
+            fi
+
+            if [[ -z "$REF_ID" || -z "$FETCHED" || "$FETCHED" == "null" ]]; then
+              break
+            fi
+
+            RESOLVED="$FETCHED"
+            CURRENT="$FETCHED"
+            ((DEPTH++))
+          done
+
+          if [[ -n "$RESOLVED" ]]; then
+            printf '%s' "$RESOLVED" > /tmp/resolved_comment_body.txt
             echo "resolved=true" >> "$GITHUB_OUTPUT"
           else
             echo "resolved=false" >> "$GITHUB_OUTPUT"
