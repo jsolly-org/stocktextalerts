@@ -131,6 +131,35 @@ jobs:
           git_name: ${{ env.CURSOR_AGENT_NAME }}
           git_email: ${{ env.CURSOR_AGENT_EMAIL }}
 
+      - name: Resolve referenced comment
+        if: steps.context.outputs.run_agent == 'true'
+        id: resolve_comment
+        env:
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+          REPO: ${{ github.repository }}
+          COMMENT_BODY: ${{ github.event.comment.body || github.event.review.body }}
+        run: |
+          # If the trigger comment references another comment (e.g. #issuecomment-123 or #discussion_r123),
+          # fetch that comment's body so the agent receives the actual review feedback.
+          REF_ID=""
+
+          if [[ "$COMMENT_BODY" =~ \#issuecomment-([0-9]+) ]]; then
+            REF_ID="${BASH_REMATCH[1]}"
+            FETCHED=$(gh api "repos/$REPO/issues/comments/$REF_ID" --jq '.body' 2>/dev/null || true)
+          elif [[ "$COMMENT_BODY" =~ \#discussion_r([0-9]+) ]]; then
+            REF_ID="${BASH_REMATCH[1]}"
+            FETCHED=$(gh api "repos/$REPO/pulls/comments/$REF_ID" --jq '.body' 2>/dev/null || true)
+          fi
+
+          if [[ -n "$REF_ID" && -n "$FETCHED" && "$FETCHED" != "null" ]]; then
+            # Trigger is a reference; use the referenced comment's body as the primary content.
+            # Write to /tmp to avoid appearing in git status.
+            printf '%s' "$FETCHED" > /tmp/resolved_comment_body.txt
+            echo "resolved=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "resolved=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run Cursor agent
         if: steps.context.outputs.run_agent == 'true'
         id: agent
@@ -141,6 +170,7 @@ jobs:
           COMMENT_ID: ${{ steps.context.outputs.comment_id }}
           COMMENT_EVENT: ${{ steps.context.outputs.event_name }}
           COMMENT_BODY: ${{ github.event.comment.body || github.event.review.body }}
+          RESOLVED_BODY_FILE: /tmp/resolved_comment_body.txt
           HEAD_REF: ${{ steps.context.outputs.head_ref }}
           HEAD_SHA: ${{ steps.context.outputs.head_sha }}
           REPO: ${{ github.repository }}
@@ -157,41 +187,83 @@ jobs:
           echo "noop=false" >> "$GITHUB_OUTPUT"
           echo "changes_present=false" >> "$GITHUB_OUTPUT"
 
+          # Use resolved comment body when available; otherwise use trigger comment body.
+          if [[ -f "${RESOLVED_BODY_FILE:-}" ]] && [[ -s "$RESOLVED_BODY_FILE" ]]; then
+            BODY_CONTENT=$(cat "$RESOLVED_BODY_FILE")
+          else
+            BODY_CONTENT="$COMMENT_BODY"
+          fi
+
+          # Write body to temp file to avoid heredoc escaping issues.
+          printf '%s' "$BODY_CONTENT" > /tmp/agent_user_input.txt
+
           PROMPT="$(
-            cat <<EOF
-            ---SYSTEM_INSTRUCTIONS_START---
-            You are running in GitHub Actions on a checked-out PR branch.
+            cat <<'PROMPT_HEAD'
+          ---SYSTEM_INSTRUCTIONS_START---
+          You are running in GitHub Actions on a checked-out PR branch.
 
-            Hard rules:
-            - Do NOT create commits.
-            - Do NOT push.
-            - Do NOT use GitHub APIs or post comments/reactions (no \`gh\`).
+          Hard rules:
+          - Do NOT create commits.
+          - Do NOT push.
+          - Do NOT use GitHub APIs or post comments/reactions (no `gh`).
 
-            Context:
-            - Repo: $REPO
-            - PR Number: $PR_NUMBER
-            - Head Branch: $HEAD_REF
-            - Trigger Event: $COMMENT_EVENT
-            - Trigger Comment ID: $COMMENT_ID
+          Context:
+          - Repo:
+          PROMPT_HEAD
+          echo "          - $REPO"
+          cat <<'PROMPT_MID'
+          - PR Number:
+          PROMPT_MID
+          echo "          - $PR_NUMBER"
+          cat <<'PROMPT_MID2'
+          - Head Branch:
+          PROMPT_MID2
+          echo "          - $HEAD_REF"
+          cat <<'PROMPT_MID3'
+          - Trigger Event:
+          PROMPT_MID3
+          echo "          - $COMMENT_EVENT"
+          cat <<'PROMPT_MID4'
+          - Trigger Comment ID:
+          PROMPT_MID4
+          echo "          - $COMMENT_ID"
+          cat <<'PROMPT_BODY'
+          Do this:
+          1) Make the necessary code changes requested in the user comment below.
+          2) Leave all changes as uncommitted working tree changes. The workflow will run checks, commit, and push.
 
-            Do this:
-            1) Make the necessary code changes requested in the user comment below.
-            2) Leave all changes as uncommitted working tree changes. The workflow will run checks, commit, and push.
+          If this was triggered by a PR review comment, use this context to locate the exact spot:
+          - Path:
+          PROMPT_BODY
+          echo "          - $COMMENT_PATH"
+          cat <<'PROMPT_BODY2'
+          - Side:
+          PROMPT_BODY2
+          echo "          - $COMMENT_SIDE"
+          cat <<'PROMPT_BODY3'
+          - Line:
+          PROMPT_BODY3
+          echo "          - $COMMENT_LINE"
+          cat <<'PROMPT_BODY4'
+          - Start line:
+          PROMPT_BODY4
+          echo "          - $COMMENT_START_LINE"
+          cat <<'PROMPT_BODY5'
+          - Diff hunk:
 
-            If this was triggered by a PR review comment, use this context to locate the exact spot:
-            - Path: $COMMENT_PATH
-            - Side: $COMMENT_SIDE
-            - Line: $COMMENT_LINE
-            - Start line: $COMMENT_START_LINE
-            - Diff hunk:
-            $COMMENT_DIFF_HUNK
+          PROMPT_BODY5
+          echo "          $COMMENT_DIFF_HUNK"
+          cat <<'PROMPT_TAIL'
+          ---SYSTEM_INSTRUCTIONS_END---
 
-            ---SYSTEM_INSTRUCTIONS_END---
+          ---USER_INPUT_START---
+          PROMPT_TAIL
+          cat /tmp/agent_user_input.txt
+          cat <<'PROMPT_END'
 
-            ---USER_INPUT_START---
-            $COMMENT_BODY
-            ---USER_INPUT_END---
-          EOF
+
+          ---USER_INPUT_END---
+          PROMPT_END
           )"
 
           # Use --print for non-interactive runs (enables tool access) and pass the prompt as the
