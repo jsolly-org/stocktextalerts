@@ -45,9 +45,9 @@ describe("Email scheduled update includes asset price data.", () => {
 		expect(html).toContain("$187.42");
 		expect(html).toContain("$412.10");
 
-		// Green for positive change, red for negative
-		expect(html).toContain("color: #15803d;");
-		expect(html).toContain("color: #dc2626;");
+		// Green for positive (green-800), red for negative (red-700) — WCAG contrast
+		expect(html).toContain("color: #166534;");
+		expect(html).toContain("color: #b91c1c;");
 	});
 
 	it("Market-closed disclaimer appears when market is closed.", () => {
@@ -143,8 +143,8 @@ describe("Email scheduled update includes asset price data.", () => {
 		expect(html).toContain("QQQ");
 		expect(html).toContain("$441.20");
 
-		// Green for positive change, red for negative
-		expect(html).toContain("color: #15803d;");
-		expect(html).toContain("color: #dc2626;");
+		// Green for positive (green-800), red for negative (red-700) — WCAG contrast
+		expect(html).toContain("color: #166534;");
+		expect(html).toContain("color: #b91c1c;");
 	});
 });

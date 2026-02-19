@@ -102,7 +102,8 @@ export function formatPreviewEmailHtml(
 				sparklineHtml = ` ${toSvgSparklineImg(asset.sparklineValues, color)}`;
 			}
 
-			return `<div style="margin-bottom: 8px;">${symbol} &mdash; ${priceStr} <span style="color: ${color}; font-weight: 600;">${changeStr}</span>${sparklineHtml}</div>`;
+			/* color: #374151 meets WCAG 2.1 AA 4.5:1 on light bg */
+			return `<div style="margin-bottom: 8px; color: #374151;">${symbol} &mdash; ${priceStr} <span style="color: ${color}; font-weight: 600;">${changeStr}</span>${sparklineHtml}</div>`;
 		})
 		.join("");
 }

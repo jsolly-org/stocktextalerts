@@ -15,7 +15,8 @@
 
 	--color-warning-bg: var(--color-yellow-50);
 	--color-warning-border: var(--color-yellow-200);
-	--color-warning-text: var(--color-yellow-900);
+	/* WCAG 2.1 AA: 4.5:1 on yellow-50 (#fefce8) */
+	--color-warning-text: #713f12;
 	--color-warning-strong: var(--color-yellow-600);
 	--color-warning-strong-hover: var(--color-yellow-700);
 
@@ -51,11 +52,12 @@
 		--surface: white;
 		--surface-alt: var(--color-gray-50);
 		--surface-active: var(--color-gray-100);
-		--heading: var(--color-gray-900);
-		--label: var(--color-gray-700);
+		/* WCAG 2.1 AA: 4.5:1 contrast on white for normal text */
+		--heading: #111827;
+		--label: #374151;
 		--body-secondary: var(--color-gray-700);
-		--muted: var(--color-gray-600);
-		--faint: var(--color-gray-400);
+		--muted: #4b5563;
+		--faint: #6b7280;
 		--edge: var(--color-gray-200);
 		--edge-strong: var(--color-gray-300);
 		--divider: var(--color-gray-100);
