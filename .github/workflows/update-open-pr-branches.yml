@@ -24,7 +24,8 @@ jobs:
     steps:
       - name: Update open PR branches that are behind dev
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Use GH_AGENT_TOKEN so branch updates work on PRs that modify workflow files (default GITHUB_TOKEN lacks workflows permission)
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
