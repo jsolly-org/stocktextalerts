@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { enforceAuthRateLimit } from "../../../lib/auth/enforce-auth-rate-limit";
 import { createUserService } from "../../../lib/db";
 import { getSiteUrl } from "../../../lib/db/env";
 import {
@@ -75,39 +76,16 @@ export const POST: APIRoute = async ({
 	}
 
 	const adminSupabase = createSupabaseAdminClient();
-	const { data: rateLimitAllowed, error: rateLimitError } =
-		await adminSupabase.rpc("check_rate_limit", {
-			p_user_id: authUser.id,
-			p_endpoint: "change_email",
-			p_max_requests: CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS,
-			p_window_minutes: CHANGE_EMAIL_RATE_LIMIT_MINUTES,
-		});
-
-	if (rateLimitError) {
-		logger.error(
-			"Rate limit check failed for email change",
-			{ userId: authUser.id },
-			rateLimitError,
-		);
-		return redirect("/profile?error=failed");
-	}
-
-	if (rateLimitAllowed === false) {
-		logger.info("User rate-limited for email change attempts", {
-			userId: authUser.id,
-		});
-		return redirect(
-			`/profile?error=rate_limit&minutes=${CHANGE_EMAIL_RATE_LIMIT_MINUTES}`,
-		);
-	}
-
-	if (rateLimitAllowed !== true) {
-		logger.error("Email change rate limit check returned unexpected value", {
-			userId: authUser.id,
-			rateLimitAllowed,
-		});
-		return redirect("/profile?error=failed");
-	}
+	const rateLimitRedirect = await enforceAuthRateLimit({
+		adminSupabase,
+		userId: authUser.id,
+		endpoint: "change_email",
+		maxRequests: CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS,
+		windowMinutes: CHANGE_EMAIL_RATE_LIMIT_MINUTES,
+		logger,
+		contextLabel: "email change",
+	});
+	if (rateLimitRedirect) return rateLimitRedirect;
 
 	const origin = getSiteUrl();
 	const emailRedirectTo = `${origin}/auth/verified`;
