@@ -83,10 +83,9 @@ describe("Daily digest email prices", () => {
 			extras,
 		});
 
-		// Green for positive
-		expect(message.html).toContain("color: #15803d");
-		// Red for negative
-		expect(message.html).toContain("color: #dc2626");
+		// Green for positive (green-800), red for negative (red-700) — WCAG contrast
+		expect(message.html).toContain("color: #166534");
+		expect(message.html).toContain("color: #b91c1c");
 	});
 
 	it("hides sparklines when show_sparklines is disabled but still shows change%", () => {
