@@ -270,51 +270,28 @@ jobs:
           - Do NOT use GitHub APIs or post comments/reactions (no `gh`).
 
           Context:
-          - Repo:
           PROMPT_HEAD
-          echo "          - $REPO"
-          cat <<'PROMPT_MID'
-          - PR Number:
-          PROMPT_MID
-          echo "          - $PR_NUMBER"
-          cat <<'PROMPT_MID2'
-          - Head Branch:
-          PROMPT_MID2
-          echo "          - $HEAD_REF"
-          cat <<'PROMPT_MID3'
-          - Trigger Event:
-          PROMPT_MID3
-          echo "          - $COMMENT_EVENT"
-          cat <<'PROMPT_MID4'
-          - Trigger Comment ID:
-          PROMPT_MID4
-          echo "          - $COMMENT_ID"
+          echo "- Repo: $REPO"
+          echo "- PR Number: $PR_NUMBER"
+          echo "- Head Branch: $HEAD_REF"
+          echo "- Trigger Event: $COMMENT_EVENT"
+          echo "- Trigger Comment ID: $COMMENT_ID"
           cat <<'PROMPT_BODY'
           Do this:
           1) Make the necessary code changes requested in the user comment below.
           2) Leave all changes as uncommitted working tree changes. The workflow will run checks, commit, and push.
 
           If this was triggered by a PR review comment, use this context to locate the exact spot:
-          - Path:
           PROMPT_BODY
-          echo "          - $COMMENT_PATH"
-          cat <<'PROMPT_BODY2'
-          - Side:
-          PROMPT_BODY2
-          echo "          - $COMMENT_SIDE"
-          cat <<'PROMPT_BODY3'
-          - Line:
-          PROMPT_BODY3
-          echo "          - $COMMENT_LINE"
-          cat <<'PROMPT_BODY4'
-          - Start line:
-          PROMPT_BODY4
-          echo "          - $COMMENT_START_LINE"
+          echo "- Path: $COMMENT_PATH"
+          echo "- Side: $COMMENT_SIDE"
+          echo "- Line: $COMMENT_LINE"
+          echo "- Start line: $COMMENT_START_LINE"
           cat <<'PROMPT_BODY5'
           - Diff hunk:
 
           PROMPT_BODY5
-          echo "          $COMMENT_DIFF_HUNK"
+          echo "$COMMENT_DIFF_HUNK"
           cat <<'PROMPT_TAIL'
           ---SYSTEM_INSTRUCTIONS_END---
 
