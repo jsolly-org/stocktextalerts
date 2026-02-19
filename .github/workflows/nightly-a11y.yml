@@ -1,0 +1,293 @@
+# Scheduled nightly job that runs Lighthouse + axe-core accessibility audits,
+# then feeds findings to the Cursor agent for auto-fix. Opens a PR with fixes.
+name: "Nightly: Accessibility"
+
+on:
+  schedule:
+    - cron: "0 8 * * *" # 3 AM ET — after Docs (2 AM ET)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+env:
+  GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+
+jobs:
+  accessibility:
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.actor != 'nektos/act' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure GitHub CLI (act only)
+        if: ${{ env.ACT == 'true' }}
+        run: |
+          if command -v gh >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+            exit 0
+          fi
+          SUDO=""
+          if command -v sudo >/dev/null 2>&1; then
+            SUDO="sudo"
+          fi
+          $SUDO apt-get update
+          if ! command -v jq >/dev/null 2>&1; then
+            $SUDO apt-get install -y jq
+          fi
+          if ! command -v gh >/dev/null 2>&1; then
+            if ! $SUDO apt-get install -y gh; then
+              type -p curl >/dev/null 2>&1 || $SUDO apt-get install -y curl
+              curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | $SUDO dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+              $SUDO chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | $SUDO tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+              $SUDO apt-get update
+              $SUDO apt-get install -y gh
+            fi
+          fi
+
+      - name: Check for existing nightly PR
+        id: check-pr
+        run: |
+          EXISTING_PR=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --label "nightly" \
+            --search "a11y(nightly): accessibility improvements" \
+            --state open \
+            --json number,url \
+            --limit 1)
+          if [ "$(echo "$EXISTING_PR" | jq length)" -gt 0 ]; then
+            PR_URL=$(echo "$EXISTING_PR" | jq -r '.[0].url')
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Existing nightly accessibility PR found: $PR_URL"
+            gh pr comment "$PR_URL" --body "Nightly run skipped — this PR is still open."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+
+      - name: Checkout repository
+        if: steps.check-pr.outputs.skip != 'true'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: dev
+          fetch-depth: 0
+          token: ${{ secrets.GH_AGENT_TOKEN }}
+
+      - name: Setup Node.js
+        if: steps.check-pr.outputs.skip != 'true'
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        if: steps.check-pr.outputs.skip != 'true'
+        run: npm ci
+
+      - name: Setup Supabase CLI
+        if: steps.check-pr.outputs.skip != 'true'
+        uses: supabase/setup-cli@v1.6.0
+        with:
+          version: 2.76.9
+
+      - name: Cache Playwright browsers
+        if: steps.check-pr.outputs.skip != 'true'
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Start Supabase and install Playwright
+        if: steps.check-pr.outputs.skip != 'true'
+        run: |
+          supabase start -x studio,imgproxy,logflare,vector,postgres-meta,edge-runtime,realtime,storage-api &
+          SB_PID=$!
+          if [[ "${{ steps.playwright-cache.outputs.cache-hit }}" == "true" ]]; then
+            npx playwright install-deps &
+          else
+            npx playwright install --with-deps &
+          fi
+          PW_PID=$!
+          wait $SB_PID
+          wait $PW_PID
+
+      - name: Load Supabase env
+        if: steps.check-pr.outputs.skip != 'true'
+        run: |
+          supabase status -o json > /tmp/sb-status.json
+          DB_VARS=$(jq -r '
+            "SUPABASE_URL=\(.API_URL // "")",
+            "SUPABASE_PUBLISHABLE_KEY=\(.ANON_KEY // "")",
+            "SUPABASE_SECRET_KEY=\(.SERVICE_ROLE_KEY // "")",
+            "DATABASE_URL=\(.DB_URL // "")"
+          ' /tmp/sb-status.json)
+          INVALID_DB_VARS=0
+          DB_VARS_NONEMPTY_LINES=0
+          declare -A DB_VARS_SEEN_KEYS=()
+          while IFS= read -r LINE; do
+            [[ -z "$LINE" ]] && continue
+            DB_VARS_NONEMPTY_LINES=$((DB_VARS_NONEMPTY_LINES + 1))
+            if [[ "$LINE" != *"="* ]]; then
+              echo "Error: Supabase env var line is malformed (expected KEY=VALUE): $LINE" >&2
+              INVALID_DB_VARS=1
+              continue
+            fi
+            KEY="${LINE%%=*}"
+            VALUE="${LINE#*=}"
+            DB_VARS_SEEN_KEYS["$KEY"]=1
+            VALUE_TRIMMED="${VALUE//[[:space:]]/}"
+            if [[ -z "$VALUE_TRIMMED" || "$VALUE" == "null" ]]; then
+              echo "Error: Supabase status did not provide a valid value for $KEY (got '$VALUE')." >&2
+              INVALID_DB_VARS=1
+            fi
+          done <<< "$DB_VARS"
+          for KEY in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY DATABASE_URL; do
+            if [[ -z "${DB_VARS_SEEN_KEYS[$KEY]:-}" ]]; then
+              echo "Error: Supabase env var $KEY was not produced by jq." >&2
+              INVALID_DB_VARS=1
+            fi
+          done
+          if [[ "$DB_VARS_NONEMPTY_LINES" -eq 0 ]]; then
+            echo "Error: jq produced no Supabase env vars." >&2
+            INVALID_DB_VARS=1
+          fi
+          if [[ "$INVALID_DB_VARS" -ne 0 ]]; then
+            echo "Error: Refusing to export Supabase env vars with null/empty values." >&2
+            exit 1
+          fi
+          STATIC_VARS=$'CRON_SECRET=ci-cron-secret\nVERCEL_URL=http://localhost:4322\nTWILIO_ACCOUNT_SID=AC00000000000000000000000000000000\nTWILIO_AUTH_TOKEN=ci-twilio-auth-token\nTWILIO_PHONE_NUMBER=+15555550100\nTWILIO_VERIFY_SERVICE_SID=VA00000000000000000000000000000000\nRESEND_API_KEY=re_ci_dummy_key\nEMAIL_FROM=ci@example.com\nMASSIVE_API_KEY=ci-massive-api-key\nFINNHUB_API_KEY=ci-finnhub-api-key'
+          printf '%s\n%s\n' "$DB_VARS" "$STATIC_VARS" > .env.local
+          printf '%s\n%s\n' "$DB_VARS" "$STATIC_VARS" >> $GITHUB_ENV
+
+      - name: Start dev server
+        if: steps.check-pr.outputs.skip != 'true'
+        run: |
+          MODE=test npm run dev -- --port 4322 &
+          # Wait for server to be ready
+          for i in $(seq 1 60); do
+            if curl -s http://localhost:4322 > /dev/null 2>&1; then
+              echo "Dev server is ready."
+              break
+            fi
+            if [ "$i" -eq 60 ]; then
+              echo "Dev server failed to start within 60 seconds."
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Run accessibility audit
+        if: steps.check-pr.outputs.skip != 'true'
+        run: node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/a11y-audit.ts
+
+      - name: Check audit findings
+        if: steps.check-pr.outputs.skip != 'true'
+        id: audit
+        run: |
+          if [ ! -f a11y-report.md ]; then
+            echo "has_findings=false" >> "$GITHUB_OUTPUT"
+            echo "No report generated."
+            exit 0
+          fi
+          # Check if there are violations or scores below 90
+          ACTION_LINE=$(grep "^- Action needed:" a11y-report.md || true)
+          if echo "$ACTION_LINE" | grep -q "yes"; then
+            echo "has_findings=true" >> "$GITHUB_OUTPUT"
+            echo "Accessibility findings detected."
+          else
+            echo "has_findings=false" >> "$GITHUB_OUTPUT"
+            echo "No accessibility issues found — all scores pass and no violations."
+          fi
+
+      - name: Setup Cursor CLI
+        if: steps.check-pr.outputs.skip != 'true' && steps.audit.outputs.has_findings == 'true'
+        uses: ./.github/actions/setup-cursor
+
+      - name: Create branch
+        if: steps.check-pr.outputs.skip != 'true' && steps.audit.outputs.has_findings == 'true'
+        run: git checkout -b "nightly/a11y-$(date +%Y-%m-%d)-${{ github.run_id }}-${{ github.run_attempt }}"
+
+      - name: Run agent
+        if: steps.check-pr.outputs.skip != 'true' && steps.audit.outputs.has_findings == 'true'
+        env:
+          MODEL: ${{ vars.AGENT_MODEL }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+        run: |
+          agent -p "You are operating in a GitHub Actions runner. Git and the \`gh\` CLI are available and authenticated.
+
+          # Goal
+          Fix the accessibility issues described in \`a11y-report.md\` at the repo root.
+
+          The report contains:
+          - Lighthouse accessibility scores per page (target: 90+)
+          - axe-core WCAG 2.1 AA violations grouped by rule, with affected HTML elements
+
+          # Guidelines
+          - Read \`AGENTS.md\` and the \`.agents/\` directory for project conventions and guidelines.
+          - Read \`a11y-report.md\` to understand what needs fixing.
+          - Fix violations in priority order: critical > serious > moderate > minor.
+          - Common fixes: add missing alt text, fix color contrast, add ARIA labels, fix heading hierarchy, ensure form labels, fix link purposes.
+          - Leave all changes uncommitted. The workflow will handle commit, push, and PR creation.
+          - Do not create issues or PRs yourself.
+          - Do not modify \`a11y-report.md\` — it will be cleaned up by the workflow.
+          " --force --model "$MODEL" --output-format=text
+
+      - name: Clean up audit report
+        if: steps.check-pr.outputs.skip != 'true' && steps.audit.outputs.has_findings == 'true'
+        run: rm -f a11y-report.md
+
+      - name: Drop workflow file edits
+        if: steps.check-pr.outputs.skip != 'true' && steps.audit.outputs.has_findings == 'true'
+        run: |
+          if git diff --name-only -- .github/workflows .github/actions | grep -q .; then
+            echo "Reverting workflow and action file edits from agent output."
+            git restore --staged --worktree -- .github/workflows .github/actions
+          fi
+          UNTRACKED=$(git ls-files --others --exclude-standard -- .github/workflows .github/actions)
+          if [ -n "$UNTRACKED" ]; then
+            echo "Removing untracked workflow/action files from agent output."
+            echo "$UNTRACKED" | xargs rm -f
+          fi
+
+      - name: Check for changes
+        if: steps.check-pr.outputs.skip != 'true' && steps.audit.outputs.has_findings == 'true'
+        id: changes
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No changes detected."
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run pre-commit checks
+        if: steps.check-pr.outputs.skip != 'true' && steps.audit.outputs.has_findings == 'true' && steps.changes.outputs.has_changes == 'true'
+        uses: ./.github/actions/run-precommit-checks
+
+      - name: Commit and push
+        if: steps.check-pr.outputs.skip != 'true' && steps.audit.outputs.has_findings == 'true' && steps.changes.outputs.has_changes == 'true'
+        run: |
+          git add -A
+          git commit -m "a11y(nightly): accessibility improvements — $(date +%Y-%m-%d)"
+          git push origin HEAD
+
+      - name: Create pull request
+        if: steps.check-pr.outputs.skip != 'true' && steps.audit.outputs.has_findings == 'true' && steps.changes.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+        run: |
+          gh pr create \
+            --title "a11y(nightly): accessibility improvements — $(date +%Y-%m-%d)" \
+            --label "bot-generated" \
+            --body "$(cat <<'EOF'
+          ## Summary
+          Automated accessibility improvements based on Lighthouse + axe-core WCAG 2.1 AA audits — color contrast fixes, missing ARIA attributes, heading hierarchy, form labels, and more.
+
+          ---
+          *Auto-generated by the nightly-a11y workflow.*
+          EOF
+          )"

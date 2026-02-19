@@ -40,7 +40,8 @@ function parseArgs(args: string[]): ParsedArgs {
  */
 function ensureNoWatch(vitestArgs: string[]): string[] {
 	const hasWatchArg = vitestArgs.some(
-		(arg) => arg === "--watch" || arg === "--no-watch" || arg === "--watch=false",
+		(arg) =>
+			arg === "--watch" || arg === "--no-watch" || arg === "--watch=false",
 	);
 	if (hasWatchArg) return vitestArgs;
 	return ["--no-watch", ...vitestArgs];
