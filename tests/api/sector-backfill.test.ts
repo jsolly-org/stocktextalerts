@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApiContext } from "../helpers/api-context";
 import { createCronRequest } from "../helpers/cron";
+import { allowConsoleErrors, allowConsoleWarnings } from "../setup";
 
 type QueryRow = { symbol: string };
 type UpdateCall = {
@@ -11,10 +12,14 @@ type UpdateCall = {
 
 const state: {
 	queryRows: QueryRow[];
+	queryError: { message: string } | null;
 	updateCalls: UpdateCall[];
+	updateErrorForSymbol: string | null;
 } = {
 	queryRows: [],
+	queryError: null,
 	updateCalls: [],
+	updateErrorForSymbol: null,
 };
 
 const { createSupabaseAdminClientMock, marketDataFetchMock } = vi.hoisted(
@@ -44,7 +49,9 @@ describe("A cron worker backfills missing asset sectors.", () => {
 		vi.resetModules();
 		vi.stubEnv("CRON_SECRET", testCronSecret);
 		state.queryRows = [];
+		state.queryError = null;
 		state.updateCalls = [];
+		state.updateErrorForSymbol = null;
 		marketDataFetchMock.mockReset();
 
 		const mockSupabase = {
@@ -56,13 +63,20 @@ describe("A cron worker backfills missing asset sectors.", () => {
 				return {
 					select: () => ({
 						is: () => ({
-							limit: async () => ({ data: state.queryRows, error: null }),
+							limit: async () =>
+								state.queryError
+									? { data: null, error: state.queryError }
+									: { data: state.queryRows, error: null },
 						}),
 					}),
 					update: (payload: Record<string, unknown>) => ({
 						eq: async (column: string, value: unknown) => {
 							state.updateCalls.push({ payload, column, value });
-							return { error: null };
+							const failForSymbol = state.updateErrorForSymbol;
+							const symbol = String(value);
+							return failForSymbol === symbol
+								? { error: { message: "Constraint violation" } }
+								: { error: null };
 						},
 					}),
 				};
@@ -158,5 +172,133 @@ describe("A cron worker backfills missing asset sectors.", () => {
 
 		expect(response.status).toBe(401);
 		expect(createSupabaseAdminClientMock).not.toHaveBeenCalled();
+	});
+
+	it("Returns 500 when the database query for assets fails.", async () => {
+		allowConsoleErrors();
+		state.queryError = { message: "Connection refused" };
+
+		const runSectorBackfill = await loadSectorBackfillHandler();
+		const response = await runSectorBackfill(
+			createApiContext({
+				request: createCronRequest({
+					path: "/api/sector-backfill",
+					cronSecret: testCronSecret,
+					method: "GET",
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(500);
+		const payload = (await response.json()) as {
+			success: boolean;
+			error: string;
+		};
+		expect(payload.success).toBe(false);
+		expect(payload.error).toBe("Connection refused");
+		expect(marketDataFetchMock).not.toHaveBeenCalled();
+	});
+
+	it("Skips assets when market data fetch fails and reports skipped count.", async () => {
+		allowConsoleWarnings();
+		state.queryRows = [{ symbol: "AAPL" }, { symbol: "XOM" }];
+		marketDataFetchMock
+			.mockRejectedValueOnce(new Error("Network timeout"))
+			.mockResolvedValueOnce({ results: { sic_code: "1311" } });
+
+		const runSectorBackfill = await loadSectorBackfillHandler();
+		const response = await runSectorBackfill(
+			createApiContext({
+				request: createCronRequest({
+					path: "/api/sector-backfill",
+					cronSecret: testCronSecret,
+					method: "GET",
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		const payload = (await response.json()) as {
+			success: boolean;
+			updated: number;
+			skipped: number;
+		};
+		expect(payload.success).toBe(true);
+		expect(payload.updated).toBe(1);
+		expect(payload.skipped).toBe(1);
+		expect(state.updateCalls).toHaveLength(1);
+		expect(state.updateCalls[0]).toEqual({
+			payload: { sector: "Energy" },
+			column: "symbol",
+			value: "XOM",
+		});
+	});
+
+	it("Skips assets when database update fails and reports skipped count.", async () => {
+		allowConsoleWarnings();
+		state.queryRows = [{ symbol: "AAPL" }, { symbol: "XOM" }];
+		state.updateErrorForSymbol = "AAPL";
+		marketDataFetchMock
+			.mockResolvedValueOnce({ results: { sic_code: "3571" } })
+			.mockResolvedValueOnce({ results: { sic_code: "1311" } });
+
+		const runSectorBackfill = await loadSectorBackfillHandler();
+		const response = await runSectorBackfill(
+			createApiContext({
+				request: createCronRequest({
+					path: "/api/sector-backfill",
+					cronSecret: testCronSecret,
+					method: "GET",
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		const payload = (await response.json()) as {
+			success: boolean;
+			updated: number;
+			skipped: number;
+		};
+		expect(payload.success).toBe(true);
+		expect(payload.updated).toBe(1);
+		expect(payload.skipped).toBe(1);
+		expect(state.updateCalls).toHaveLength(2);
+		expect(state.updateCalls[0].payload).toEqual({ sector: "Technology" });
+		expect(state.updateCalls[1].payload).toEqual({ sector: "Energy" });
+	});
+
+	it("Maps unknown SIC codes to Other and updates the asset.", async () => {
+		state.queryRows = [{ symbol: "OBSCURE" }];
+		marketDataFetchMock.mockResolvedValueOnce({
+			results: { sic_code: "99999" },
+		});
+
+		const runSectorBackfill = await loadSectorBackfillHandler();
+		const response = await runSectorBackfill(
+			createApiContext({
+				request: createCronRequest({
+					path: "/api/sector-backfill",
+					cronSecret: testCronSecret,
+					method: "GET",
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		const payload = (await response.json()) as {
+			success: boolean;
+			updated: number;
+			skipped: number;
+		};
+		expect(payload.success).toBe(true);
+		expect(payload.updated).toBe(1);
+		expect(payload.skipped).toBe(0);
+		expect(state.updateCalls).toEqual([
+			{
+				payload: { sector: "Other" },
+				column: "symbol",
+				value: "OBSCURE",
+			},
+		]);
 	});
 });
