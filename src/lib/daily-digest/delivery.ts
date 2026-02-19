@@ -184,8 +184,9 @@ function formatDailyDigestPriceLineHtml(
 	sparkline?: SparklineData | null,
 ): string {
 	const symbol = escapeHtml(asset.symbol);
+	/* color: #374151 meets WCAG 2.1 AA 4.5:1 on light bg */
 	if (!quote) {
-		return `<div style="margin-bottom: 8px;">${symbol} &mdash; <span style="color: #6b7280;">price unavailable</span></div>`;
+		return `<div style="margin-bottom: 8px; color: #374151;">${symbol} &mdash; <span style="color: #6b7280;">price unavailable</span></div>`;
 	}
 	const priceStr = escapeHtml(`$${quote.price.toFixed(2)}`);
 	const sign = quote.changePercent >= 0 ? "+" : "";
@@ -201,7 +202,7 @@ function formatDailyDigestPriceLineHtml(
 		sparklineHtml = ` ${toSvgSparklineImg(sparkline.values, color)}`;
 	}
 
-	return `<div style="margin-bottom: 8px;">${symbol} &mdash; ${priceStr} <span style="color: ${color}; font-weight: 600;">${changeStr}</span>${sparklineHtml}</div>`;
+	return `<div style="margin-bottom: 8px; color: #374151;">${symbol} &mdash; ${priceStr} <span style="color: ${color}; font-weight: 600;">${changeStr}</span>${sparklineHtml}</div>`;
 }
 
 /** Build the plain-text “Your Assets” section for the digest. */

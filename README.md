@@ -216,7 +216,6 @@ npm run db:reset
 npm run test
 npm run test:ci
 npm run test:e2e
-npm run fix
 ```
 
 For local development, run `npm run db:reset` before `npm run test` to ensure your Supabase DB matches the current migrations and seed data.

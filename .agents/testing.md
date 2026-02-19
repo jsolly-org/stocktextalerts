@@ -2,7 +2,7 @@
 
 ### Framework
 - **Vitest only**: Do not use Jest.
-- **Happy path coverage only**: Focus on success paths and essential validation; avoid exhaustive edge-case coverage. Exception: security tests (`.security.test.ts` suffix) may keep negative-path cases for validating rejection of invalid input.
+- **Scenario-based coverage**: The goal is to cover real-world scenarios that could happen in production — not to maximize code coverage or add a test file per source file. Each test should represent a plausible user journey or system event. Focus on success paths and essential validation; avoid exhaustive edge-case coverage. Exception: security tests (`.security.test.ts` suffix) may keep negative-path cases for validating rejection of invalid input.
 
 ### Mocking
 - **Integration over isolation**: Prefer integration tests that use real dependencies. Only mock external services that consume paid API allocations (e.g., Resend, Twilio, Finnhub).
@@ -13,9 +13,11 @@
 - **Delivery-related tests**: Assert "send attempted" or outcome via stub invocation counts, log rows, or response payloads — not real API responses.
 
 ### Test Style
-- **Scenario-based, grounded in reality**: Every test should read like a real scenario that could happen in production. Frame `describe`/`it` blocks around user journeys or system events, not abstract technical operations.
+- **Scenario-based, grounded in reality**: This is the primary organizing principle for all tests — not a style preference. Every test should read like a real scenario that could happen in production. Frame `describe`/`it` blocks around user journeys or system events, not abstract technical operations. If you can't describe what you're testing as a real scenario that matters, don't write the test.
   - Good: `"User in Pacific timezone receives market update after close"`
+  - Good: `"User who disabled email still receives SMS notification on schedule"`
   - Bad: `"returns correct value when input is 2"`
+  - Bad: `"formatPrice returns string"` (tests a function, not a scenario)
 - **Realistic data**: Use real ticker symbols (AAPL, MSFT, SPY), realistic prices, real timezone names (America/New_York), and plausible user details. Never use placeholder values like `foo`, `bar`, `test123`, or round-number prices (100.0) when a realistic value (187.42) would work.
 - **Test builders should reflect reality**: When helpers like `makeQuote()` or `makeSnapshot()` supply defaults, those defaults should be realistic values, not abstract round numbers.
 

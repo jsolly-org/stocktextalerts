@@ -6,8 +6,6 @@ import type { TimezoneOption } from "./types";
 
 type DbTimezoneRow = Database["public"]["Tables"]["timezones"]["Row"];
 
-export type { TimezoneOption };
-
 const ALL_TIMEZONES_TTL_MS = 24 * 60 * 60 * 1000;
 
 // Module-level cache resets on serverless cold starts, but provides
@@ -104,11 +102,7 @@ async function getAllTimezonesCached(
 	return allTimezonesInFlight;
 }
 
-/**
- * Return timezone options for a UI select, optionally including additional inactive values.
- *
- * Results are cached in-memory for a short TTL to reduce database load.
- */
+// Cached in-memory for short TTL to reduce DB load during sustained traffic.
 export async function getTimezoneOptions(
 	supabase: AppSupabaseClient,
 	options?: { includeValues?: string[] },
@@ -153,11 +147,7 @@ export async function getTimezoneOptions(
 	return [...extras, ...activeTimezones];
 }
 
-/**
- * Resolve the best timezone value to persist for a user.
- *
- * Prefers a detected timezone when it exists in the DB; otherwise falls back to `DEFAULT_TIMEZONE`.
- */
+// Prefers detected timezone when it exists in DB; otherwise falls back to DEFAULT_TIMEZONE.
 export async function resolveTimezone(options: {
 	supabase: AppSupabaseClient;
 	detectedTimezone: string | null | undefined;

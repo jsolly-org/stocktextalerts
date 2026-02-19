@@ -93,7 +93,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			return new Response("Invalid form submission", { status: 400 });
 		}
 
-		const params = parsed.data as Record<string, string | undefined>;
+		// Strip undefined values so that only fields actually present in the
+		// request are forwarded to Twilio signature validation.  The schema
+		// parser sets missing optional fields to `undefined`, but Twilio's
+		// `validateRequest` includes every key in signature computation —
+		// concatenating undefined values as "keyundefined" — which breaks
+		// the HMAC check.
+		const params: Record<string, string | undefined> = {};
+		for (const [key, value] of Object.entries(
+			parsed.data as Record<string, string | undefined>,
+		)) {
+			if (value !== undefined) {
+				params[key] = value;
+			}
+		}
 
 		const supabase = createSupabaseAdminClient();
 		const twilioConfig = readTwilioConfig();

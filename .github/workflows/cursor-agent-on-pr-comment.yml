@@ -508,7 +508,7 @@ jobs:
 
           $COMMENT_REFERENCE
 
-          Please fix lint/type errors locally (e.g. \`npm run fix\` or \`npx lint-staged\` and \`npm run check:ts\`) and push, or review the [workflow run]($RUN_URL) for details.
+          Please fix lint/type errors locally (e.g. \`npx lint-staged\` and \`npm run check:ts\`) and push, or review the [workflow run]($RUN_URL) for details.
 
           $INTERNAL_MARKER
           EOF
@@ -555,3 +555,26 @@ jobs:
       - name: Fail job if workflow had errors
         if: steps.context.outputs.run_agent == 'true' && (steps.agent.outcome == 'failure' || steps.precommit_checks.outcome == 'failure')
         run: exit 1
+
+      # Catch-all: report any failure not already covered by the specific reporters above
+      # (e.g. queue timeout, rate-limit step crash, unexpected infrastructure errors).
+      - name: Report unexpected workflow failure
+        if: failure() && steps.context.outputs.run_agent == 'true' && steps.agent.outcome != 'failure' && steps.precommit_checks.outcome != 'failure' && steps.commit_push.outcome != 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
+          COMMENT_REFERENCE: ${{ steps.context.outputs.comment_reference }}
+          RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        run: |
+          BODY=$(cat <<EOF
+          ## ❌ Cursor Agent: Workflow error
+
+          The agent workflow failed before the agent could run (e.g. queue timeout or infrastructure error).
+
+          $COMMENT_REFERENCE
+
+          See the [workflow run]($RUN_URL) for details.
+
+          $INTERNAL_MARKER
+          EOF
+          )
+          gh pr comment "${{ steps.context.outputs.pr_number }}" --body "$BODY"

@@ -207,6 +207,70 @@ function handleTouchCancel() {
 	resetTouch();
 }
 
+let activeHashObserver: MutationObserver | null = null;
+let activeHashTimeout: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * After switching cards on mobile, scroll the hash-target element into view
+ * within the card's inner scroller. The target panel may be lazy-loaded (async
+ * component), so the element might not exist yet — we observe the card subtree
+ * for up to 2 s until it appears.
+ */
+function scrollToHashTarget(hash: string, cardIndex: number) {
+	const card = cardRefs.value[cardIndex];
+	const scroller = card?.querySelector<HTMLElement>(".carousel-card-inner");
+	if (!scroller) return;
+
+	// Clean up any previous observer
+	if (activeHashObserver) {
+		activeHashObserver.disconnect();
+		activeHashObserver = null;
+	}
+	if (activeHashTimeout) {
+		clearTimeout(activeHashTimeout);
+		activeHashTimeout = null;
+	}
+
+	const doScroll = (el: HTMLElement) => {
+		const scrollerRect = scroller.getBoundingClientRect();
+		const elRect = el.getBoundingClientRect();
+		const offset = elRect.top - scrollerRect.top + scroller.scrollTop;
+		scroller.scrollTo({
+			top: Math.max(0, offset - scroller.clientHeight / 2 + elRect.height / 2),
+			behavior: getScrollBehavior(),
+		});
+	};
+
+	const existing = document.getElementById(hash);
+	if (existing) {
+		// Element already in the DOM — wait for the card-switch scroll to land.
+		const track = trackRef.value;
+		if (!track) { doScroll(existing); return; }
+		let scrolled = false;
+		const scrollOnce = () => { if (!scrolled) { scrolled = true; doScroll(existing); } };
+		const timer = setTimeout(scrollOnce, 400);
+		track.addEventListener("scrollend", () => { clearTimeout(timer); scrollOnce(); }, { once: true });
+		return;
+	}
+
+	// Element not yet mounted (lazy panel). Watch the card subtree for it.
+	activeHashObserver = new MutationObserver(() => {
+		const el = document.getElementById(hash);
+		if (!el) return;
+		activeHashObserver?.disconnect();
+		activeHashObserver = null;
+		if (activeHashTimeout) clearTimeout(activeHashTimeout);
+		activeHashTimeout = null;
+		requestAnimationFrame(() => doScroll(el));
+	});
+	activeHashObserver.observe(card, { childList: true, subtree: true });
+	activeHashTimeout = setTimeout(() => {
+		activeHashObserver?.disconnect();
+		activeHashObserver = null;
+		activeHashTimeout = null;
+	}, 2000);
+}
+
 function handleTrackClick(event: MouseEvent) {
 	const target = event.target as HTMLElement | null;
 	const anchor = target?.closest("a[href]") as HTMLAnchorElement | null;
@@ -229,6 +293,8 @@ function handleTrackClick(event: MouseEvent) {
 	if (window.location.hash.slice(1) !== hash) {
 		window.history.pushState(null, "", `#${hash}`);
 	}
+
+	scrollToHashTarget(hash, index);
 }
 
 /** Sync tab highlight and scroll position when user navigates via hash link. */
@@ -249,6 +315,14 @@ onMounted(() => {
 
 onUnmounted(() => {
 	window.removeEventListener("hashchange", syncToHash);
+	if (activeHashObserver) {
+		activeHashObserver.disconnect();
+		activeHashObserver = null;
+	}
+	if (activeHashTimeout) {
+		clearTimeout(activeHashTimeout);
+		activeHashTimeout = null;
+	}
 });
 </script>
 

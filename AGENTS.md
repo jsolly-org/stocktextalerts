@@ -7,7 +7,6 @@ New app with no users — optimize for simplicity and correctness over backwards
 - `npm run test:e2e` — Playwright E2E tests
 - `npm run check:ts` — TypeScript check
 - `npm run check:biome` — Lint check
-- `npm run fix` — Auto-fix lint issues
 - `npm run db:reset` — Reset local Supabase DB
 - `npm run db:gen-types` — Regenerate DB types
 - `supabase migration new <name>` — Create a new migration file (auto-generates timestamp)

@@ -5,7 +5,7 @@ name: "Nightly: Docs"
 
 on:
   schedule:
-    - cron: "0 9 * * *" # 4 AM ET — after PR grooming (2 AM ET)
+    - cron: "0 7 * * *" # 7:00 UTC (2 AM EST / 3 AM EDT) — after PR grooming
   workflow_dispatch:
 
 permissions:

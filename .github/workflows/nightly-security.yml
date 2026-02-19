@@ -5,13 +5,12 @@ name: "Nightly: Security"
 
 on:
   schedule:
-    - cron: "0 6 * * *" # 1 AM ET
+    - cron: "0 3 * * *" # 10 PM ET
   workflow_dispatch:
 
 permissions:
   contents: write
   pull-requests: write
-  issues: write
 
 env:
   GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
@@ -83,18 +82,8 @@ jobs:
           - Do not create issues or PRs yourself.
           " --force --model "$MODEL" --output-format=text
 
-      - name: Drop workflow file edits
-        if: steps.check-pr.outputs.skip != 'true'
-        run: |
-          if git diff --name-only -- .github/workflows .github/actions | grep -q .; then
-            echo "Reverting workflow and action file edits from agent output."
-            git restore --staged --worktree -- .github/workflows .github/actions
-          fi
-          UNTRACKED=$(git ls-files --others --exclude-standard -- .github/workflows .github/actions)
-          if [ -n "$UNTRACKED" ]; then
-            echo "Removing untracked workflow/action files from agent output."
-            echo "$UNTRACKED" | xargs rm -f
-          fi
+      # Note: we intentionally keep agent edits to .github/ — the PR review
+      # process is the right place to catch bad workflow changes, not a blanket revert.
 
       - name: Check for changes
         if: steps.check-pr.outputs.skip != 'true'
@@ -126,6 +115,7 @@ jobs:
           gh pr create \
             --title "security(nightly): security hardening — $(date +%Y-%m-%d)" \
             --label "bot-generated" \
+            --label "nightly" \
             --body "$(cat <<'EOF'
           ## Summary
           Automated security hardening — secrets audit, RLS policy review, input validation, and OWASP issue fixes.

@@ -13,7 +13,7 @@
 					</div>
 					<div class="sms-body">
 						<div class="message-bubble-received">
-							<p class="text-sm leading-relaxed whitespace-pre-line">{{ formattedSmsText }}</p>
+							<p class="text-sm leading-relaxed whitespace-pre-line text-label">{{ formattedSmsText }}</p>
 						</div>
 					</div>
 					<div class="phone-home-indicator" aria-hidden="true"></div>
