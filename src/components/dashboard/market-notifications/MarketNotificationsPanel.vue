@@ -725,7 +725,6 @@ watch(
 		priceAlertMoveSize: user.value.market_asset_price_alert_move_size ?? "large",
 		priceAlertFollowUpMode:
 			user.value.market_asset_price_alert_follow_up_mode ?? "first_only",
-		marketScheduledTimes: user.value.market_scheduled_asset_price_times ?? [],
 	}),
 	(synced) => {
 		marketIncludeEmail.value = synced.marketIncludeEmail;
@@ -737,9 +736,15 @@ watch(
 		priceAlertMarketContext.value = synced.priceAlertMarketContext;
 		priceAlertMoveSize.value = synced.priceAlertMoveSize;
 		priceAlertFollowUpMode.value = synced.priceAlertFollowUpMode;
-		scheduledUpdateTimesMinutes.value = normalizeScheduledTimes(
-			synced.marketScheduledTimes,
-		);
+	},
+);
+
+/* Separate watcher for scheduled times: only update when times change to avoid
+ * unnecessary array re-creation and downstream re-renders on unrelated preference changes. */
+watch(
+	() => user.value.market_scheduled_asset_price_times,
+	(times) => {
+		scheduledUpdateTimesMinutes.value = normalizeScheduledTimes(times ?? []);
 	},
 );
 
