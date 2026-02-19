@@ -404,6 +404,10 @@
 </template>
 
 <script lang="ts" setup>
+/**
+ * Market notifications panel: realtime price alerts (Massive/Grok) and scheduled asset price updates.
+ * Syncs preferences to shared user ref via consolidated watchers; auto-saves form changes.
+ */
 import { computed, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
@@ -495,6 +499,7 @@ const priceAlertOnboardingCompleted = ref(
 const priceAlertRiskPriority = ref<AlertRiskPriority>(
 	user.value.market_asset_price_alert_risk_priority ?? "both_equally",
 );
+/** Normalize stored market-context value to a valid AlertMarketContext. */
 function normalizeMarketContext(
 	value: AlertMarketContext | null | undefined,
 ): AlertMarketContext {
@@ -577,6 +582,7 @@ const QUICK_ADD_INCREMENTS: [number, number][] = [
 	[21 * 60, 60],
 ];
 
+/** Return the quick-add time increment (minutes) based on latest scheduled time. */
 function getQuickAddIncrementMinutes(latestMinutes: number): number {
 	for (const [threshold, increment] of QUICK_ADD_INCREMENTS) {
 		if (latestMinutes >= threshold) return increment;
@@ -584,6 +590,7 @@ function getQuickAddIncrementMinutes(latestMinutes: number): number {
 	return 180;
 }
 
+/** Return the next suggested minute for "Add time", or null when all slots are used. */
 function getNextQuickAddMinute(
 	existingTimes: number[],
 	fallbackLatest: number,
@@ -609,6 +616,7 @@ function getNextQuickAddMinute(
 	return null;
 }
 
+/** Filter, dedupe, and sort scheduled times into valid minute values. */
 function normalizeScheduledTimes(times: number[]): number[] {
 	const filtered = times.filter(
 		(value) =>

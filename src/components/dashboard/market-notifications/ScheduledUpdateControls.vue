@@ -109,6 +109,10 @@
 </template>
 
 <script lang="ts" setup>
+/**
+ * Scheduled update controls: time pickers for delivery slots, add/remove times, market-open shortcut.
+ * Lazy-loads TimePicker to defer vue-datepicker (~210 KB) until component mounts.
+ */
 import { computed, defineAsyncComponent, onMounted, ref } from "vue";
 
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
@@ -168,6 +172,7 @@ const HOLIDAY_EMOJIS: Record<string, string> = {
 	"Christmas": "\u{1F384}",             // 🎄
 };
 
+/** Human-readable label for countdown delay (weekend/holiday). */
 const delayReasonLabel = computed(() => {
 	const reasons = props.countdownDelayReasons;
 	const hasWeekend = reasons.includes("weekend");

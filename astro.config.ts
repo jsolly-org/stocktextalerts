@@ -55,12 +55,12 @@ if (!vercelUrl) {
 	site = `https://${vercelUrl}`;
 }
 
-/* Precomputed set for O(1) exact-path exclusion in sitemap filter. */
+/** Precomputed set for O(1) exact-path exclusion in sitemap filter. */
 const EXCLUDED_PATH_SET = new Set(EXCLUDED_ROUTE_PREFIXES);
 
 /**
  * Exclude auth flow, authenticated, and utility pages from the sitemap.
- *
+ * Uses EXCLUDED_PATH_SET for O(1) exact-path lookups and prefix checks for subpaths.
  * These routes have no SEO value and are better left out of crawl budgets.
  */
 function sitemapFilter(page: string): boolean {

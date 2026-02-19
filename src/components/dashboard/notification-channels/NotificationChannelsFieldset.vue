@@ -115,6 +115,10 @@
 </template>
 
 <script lang="ts" setup>
+/**
+ * Notification channels section: email/SMS toggles, phone verification, daily digest time picker.
+ * Lazy-loads TimePicker to defer vue-datepicker (~210 KB) until component mounts.
+ */
 import { computed, defineAsyncComponent } from "vue";
 import PresentationChartLineIcon from "../../../icons/presentation-chart-line.svg?component";
 import { DASHBOARD_SECTION_HASHES, DASHBOARD_SECTION_IDS } from "../../../lib/constants";

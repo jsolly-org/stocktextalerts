@@ -69,6 +69,10 @@
 </template>
 
 <script lang="ts" setup>
+/**
+ * Phone number input with US country code, AsYouType formatting, and libphonenumber validation.
+ * Uses a static placeholder (country fixed to US) to avoid dynamic placeholder generation.
+ */
 import {
 	AsYouType,
 	getCountryCallingCode,
@@ -108,6 +112,7 @@ const touched = ref(false);
 
 const isRequired = computed(() => props.required ?? false);
 
+/** Format raw digits as US phone string via AsYouType. */
 function formatPhone(digits: string): string {
 	return new AsYouType(country.value).input(digits);
 }
@@ -131,6 +136,7 @@ watch(country, () => {
 /* Static US placeholder; country is fixed to US in this form. */
 const PHONE_PLACEHOLDER = "(555) 555-5555";
 
+/** Handle input events: format as user types and manage caret position on backspace. */
 function handlePhoneInput(e: Event) {
 	touched.value = true;
 	if (!(e.target instanceof HTMLInputElement)) {
@@ -218,6 +224,7 @@ watch(
 	{ immediate: true },
 );
 
+/** Validate phone on blur: set showError if invalid or required but empty. */
 function validate() {
 	if (phoneNumber.value) {
 		showError.value = !isValidPhoneNumber(phoneNumber.value, country.value);
