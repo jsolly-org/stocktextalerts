@@ -1,10 +1,28 @@
 import type { APIRoute } from "astro";
 import { createUserService } from "../../../lib/db";
 import { getSiteUrl } from "../../../lib/db/env";
-import { createSupabaseServerClient } from "../../../lib/db/supabase";
+import {
+	createSupabaseAdminClient,
+	createSupabaseServerClient,
+} from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { createLogger } from "../../../lib/logging";
 
+/*
+ * Rate limit: N attempts per user per time window.
+ * Can be overridden via CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS and
+ * CHANGE_EMAIL_RATE_LIMIT_MINUTES env vars.
+ */
+const CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS =
+	Number.parseInt(
+		import.meta.env.CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS ?? "5",
+		10,
+	) || 5;
+const CHANGE_EMAIL_RATE_LIMIT_MINUTES =
+	Number.parseInt(
+		import.meta.env.CHANGE_EMAIL_RATE_LIMIT_MINUTES ?? "15",
+		10,
+	) || 15;
 export const POST: APIRoute = async ({
 	request,
 	redirect,
@@ -54,6 +72,41 @@ export const POST: APIRoute = async ({
 			userId: authUser.id,
 		});
 		return redirect("/profile?error=email_unchanged");
+	}
+
+	const adminSupabase = createSupabaseAdminClient();
+	const { data: rateLimitAllowed, error: rateLimitError } =
+		await adminSupabase.rpc("check_rate_limit", {
+			p_user_id: authUser.id,
+			p_endpoint: "change_email",
+			p_max_requests: CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS,
+			p_window_minutes: CHANGE_EMAIL_RATE_LIMIT_MINUTES,
+		});
+
+	if (rateLimitError) {
+		logger.error(
+			"Rate limit check failed for email change",
+			{ userId: authUser.id },
+			rateLimitError,
+		);
+		return redirect("/profile?error=failed");
+	}
+
+	if (rateLimitAllowed === false) {
+		logger.info("User rate-limited for email change attempts", {
+			userId: authUser.id,
+		});
+		return redirect(
+			`/profile?error=rate_limit&minutes=${CHANGE_EMAIL_RATE_LIMIT_MINUTES}`,
+		);
+	}
+
+	if (rateLimitAllowed !== true) {
+		logger.error("Email change rate limit check returned unexpected value", {
+			userId: authUser.id,
+			rateLimitAllowed,
+		});
+		return redirect("/profile?error=failed");
 	}
 
 	const origin = getSiteUrl();
