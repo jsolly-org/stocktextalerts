@@ -18,7 +18,6 @@ import { claimCooldown, fetchPriceAlertUsers } from "./users";
 
 const MARKET_CONTEXT_ACTIVE_MOVE_PCT = 2;
 const MARKET_CONTEXT_STANDOUT_DELTA_PCT = 1;
-const MARKET_CONTEXT_EXTREME_DELTA_PCT = 2.5;
 const MARKET_BENCHMARK_SYMBOL = "SPY";
 
 /**
@@ -105,7 +104,7 @@ function passesDirectionPreference(options: {
 }
 
 function passesMarketContext(options: {
-	marketContext: "standout" | "any_major" | "extreme_only";
+	marketContext: "standout" | "any_major";
 	marketMovePercentAbs: number | null;
 	symbolMovePercentAbs: number;
 }): boolean {
@@ -119,15 +118,10 @@ function passesMarketContext(options: {
 	if (marketContext === "any_major") {
 		return true;
 	}
-	if (marketContext === "standout") {
-		return (
-			symbolMovePercentAbs >=
-			marketMovePercentAbs + MARKET_CONTEXT_STANDOUT_DELTA_PCT
-		);
-	}
+	// standout: symbol must move meaningfully more than market
 	return (
 		symbolMovePercentAbs >=
-		marketMovePercentAbs + MARKET_CONTEXT_EXTREME_DELTA_PCT
+		marketMovePercentAbs + MARKET_CONTEXT_STANDOUT_DELTA_PCT
 	);
 }
 
@@ -150,8 +144,8 @@ function buildSignalContext(options: {
 		benchmarkLabel,
 	} = options;
 	const direction = percentMove >= 0 ? "up" : "down";
-	const base = `${direction} ${Math.abs(percentMove).toFixed(2)}% ($${Math.abs(dollarMove).toFixed(2)}) from previous close`;
-	const threshold = `triggered at >=${percentThreshold.toFixed(1)}% or >=$${dollarThreshold.toFixed(2)}`;
+	const base = `${direction} ${Math.abs(percentMove).toFixed(2)}% ($${Math.round(Math.abs(dollarMove))}) from previous close`;
+	const threshold = `triggered at >=${percentThreshold.toFixed(1)}% or >=$${Math.round(dollarThreshold)}`;
 	const marketContext =
 		benchmarkMovePercentAbs !== null
 			? `${benchmarkLabel} moved ${benchmarkMovePercentAbs.toFixed(2)}%`
@@ -392,14 +386,15 @@ export async function processPriceAlerts(options: {
 				continue;
 			}
 
+			const allowFollowUp = profile.followUpMode === "allow_follow_up";
 			const claimed = await claimCooldown(
 				supabase,
 				user.id,
 				symbol,
 				symbolMovePercentAbs,
 				symbolMoveDollarAbs,
-				profile.followUpMode === "allow_acceleration_follow_up",
-				profile.followUpMode === "allow_recovery_follow_up",
+				allowFollowUp,
+				allowFollowUp,
 				percentMove < 0 ? "down" : "up",
 			);
 			if (!claimed) {

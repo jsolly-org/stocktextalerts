@@ -45,9 +45,9 @@ describe("A signed-in user updates their notification channels.", () => {
 
 		const formData = new FormData();
 		formData.append("market_asset_price_alerts_include_email", "true");
-		formData.append("market_asset_price_alert_risk_priority", "big_drops");
-		formData.append("market_asset_price_alert_market_context", "extreme_only");
-		formData.append("market_asset_price_alert_move_size", "very_large");
+		formData.append("market_asset_price_alert_risk_priority", "both_equally");
+		formData.append("market_asset_price_alert_market_context", "standout");
+		formData.append("market_asset_price_alert_move_size", "large");
 
 		const response = await postNotificationPreferencesUpdate({
 			formData,
@@ -68,13 +68,13 @@ describe("A signed-in user updates their notification channels.", () => {
 		expect(payload.message).toBe("settings_updated");
 		expect(
 			payload.notificationPreferences.market_asset_price_alert_risk_priority,
-		).toBe("big_drops");
+		).toBe("both_equally");
 		expect(
 			payload.notificationPreferences.market_asset_price_alert_market_context,
-		).toBe("extreme_only");
+		).toBe("standout");
 		expect(
 			payload.notificationPreferences.market_asset_price_alert_move_size,
-		).toBe("very_large");
+		).toBe("large");
 
 		const { data: updatedUser } = await adminClient
 			.from("users")
@@ -85,12 +85,12 @@ describe("A signed-in user updates their notification channels.", () => {
 			.single();
 
 		expect(updatedUser.market_asset_price_alert_risk_priority).toBe(
-			"big_drops",
+			"both_equally",
 		);
 		expect(updatedUser.market_asset_price_alert_market_context).toBe(
-			"extreme_only",
+			"standout",
 		);
-		expect(updatedUser.market_asset_price_alert_move_size).toBe("very_large");
+		expect(updatedUser.market_asset_price_alert_move_size).toBe("large");
 	});
 
 	it("When the user enables their first notification channel, scheduled updates are enabled at the default time.", async () => {

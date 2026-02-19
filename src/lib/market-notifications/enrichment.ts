@@ -33,7 +33,7 @@ export async function fetchBreakingNews(
 function buildPriceContext(symbol: string, quote: ExtendedAssetQuote): string {
 	const direction = quote.changePercent >= 0 ? "up" : "down";
 	const absChange = Math.abs(quote.changePercent).toFixed(1);
-	return `${symbol} is ${direction} ${absChange}% today ($${quote.price.toFixed(2)})`;
+	return `${symbol} is ${direction} ${absChange}% today ($${Math.round(quote.price)})`;
 }
 
 /** Enrich a triggered alert with news context, optional AI summary, and intraday closes for sparklines. */

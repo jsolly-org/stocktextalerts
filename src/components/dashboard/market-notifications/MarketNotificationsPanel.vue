@@ -151,52 +151,8 @@
 								     sizes to the tallest step, preventing layout shift. -->
 								<div class="grid [&>*]:col-start-1 [&>*]:row-start-1">
 									<div :class="activeRetuneStep === 0 ? 'visible' : 'invisible'" :inert="activeRetuneStep !== 0 || undefined">
-										<p class="text-sm text-label mb-1.5">Which moves would you want a text about?</p>
-										<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
-											<label
-												v-for="option in riskPriorityOptions"
-												:key="option.value"
-												class="rounded-lg border px-2.5 py-2 text-sm text-label cursor-pointer transition-colors duration-150 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-emerald-500"
-												:class="priceAlertRiskPriority === option.value ? 'border-emerald-500 bg-emerald-500/10' : 'border-edge bg-surface-alt hover:border-edge-strong'"
-											>
-												<input
-													v-model="priceAlertRiskPriority"
-													type="radio"
-													name="price_alert_risk_priority"
-													:value="option.value"
-													class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-0 align-middle"
-												/>
-												<span class="ml-1.5 align-middle">{{ option.label }}</span>
-												<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
-											</label>
-										</div>
-									</div>
-
-									<div :class="activeRetuneStep === 1 ? 'visible' : 'invisible'" :inert="activeRetuneStep !== 1 || undefined">
-										<p class="text-sm text-label mb-1.5">Should we text you when all stocks are moving, or only when yours stands out?</p>
-										<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
-											<label
-												v-for="option in marketContextOptions"
-												:key="option.value"
-												class="rounded-lg border px-2.5 py-2 text-sm text-label cursor-pointer transition-colors duration-150 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-emerald-500"
-												:class="priceAlertMarketContext === option.value ? 'border-emerald-500 bg-emerald-500/10' : 'border-edge bg-surface-alt hover:border-edge-strong'"
-											>
-												<input
-													v-model="priceAlertMarketContext"
-													type="radio"
-													name="price_alert_market_context"
-													:value="option.value"
-													class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-0 align-middle"
-												/>
-												<span class="ml-1.5 align-middle">{{ option.label }}</span>
-												<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
-											</label>
-										</div>
-									</div>
-
-									<div :class="activeRetuneStep === 2 ? 'visible' : 'invisible'" :inert="activeRetuneStep !== 2 || undefined">
 										<p class="text-sm text-label mb-1.5">How big should a move be before it deserves an alert?</p>
-										<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+										<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 											<label
 												v-for="option in moveSizeOptions"
 												:key="option.value"
@@ -215,10 +171,32 @@
 											</label>
 										</div>
 									</div>
-									<div :class="activeRetuneStep === 3 ? 'visible' : 'invisible'" :inert="activeRetuneStep !== 3 || undefined">
+
+									<div :class="activeRetuneStep === 1 ? 'visible' : 'invisible'" :inert="activeRetuneStep !== 1 || undefined">
+										<p class="text-sm text-label mb-1.5">Should we text you when all stocks are moving, or only when yours stands out?</p>
+										<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+											<label
+												v-for="option in marketContextOptions"
+												:key="option.value"
+												class="rounded-lg border px-2.5 py-2 text-sm text-label cursor-pointer transition-colors duration-150 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-emerald-500"
+												:class="priceAlertMarketContext === option.value ? 'border-emerald-500 bg-emerald-500/10' : 'border-edge bg-surface-alt hover:border-edge-strong'"
+											>
+												<input
+													v-model="priceAlertMarketContext"
+													type="radio"
+													name="price_alert_market_context"
+													:value="option.value"
+													class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-0 align-middle"
+												/>
+												<span class="ml-1.5 align-middle">{{ option.label }}</span>
+												<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
+											</label>
+										</div>
+									</div>
+									<div :class="activeRetuneStep === 2 ? 'visible' : 'invisible'" :inert="activeRetuneStep !== 2 || undefined">
 										<p class="text-sm text-label mb-1.5">After your first alert, what should happen?</p>
 										<p class="text-xs text-body-secondary mb-2">Maximum of two notifications per asset per day.</p>
-										<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+										<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 											<label
 												v-for="option in followUpOptions"
 												:key="option.value"
@@ -269,20 +247,20 @@
 									>
 										{{ retunePrimaryActionLabel }}
 									</button>
-									<div v-else />
+									<button
+										v-else
+										type="button"
+										class="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 cursor-pointer"
+										@click="handleRetuneNext"
+									>
+										Next
+									</button>
 								</div>
 							</div>
 						</fieldset>
 					</div>
 					<div v-else-if="priceAlertsEnabled && !showWizard" key="summary" class="mt-3 border-t border-divider pt-3 pl-3 sm:pl-4">
-						<div class="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs sm:grid-cols-4">
-							<div class="flex items-start gap-1.5">
-								<span class="text-base leading-none mt-px" aria-hidden="true">🎯</span>
-								<div>
-									<p class="text-muted">Alert on</p>
-									<p class="text-label font-medium">{{ RISK_PRIORITY_LABELS[priceAlertRiskPriority] }}</p>
-								</div>
-							</div>
+						<div class="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs sm:grid-cols-3">
 							<div class="flex items-start gap-1.5">
 								<span class="text-base leading-none mt-px" aria-hidden="true">📊</span>
 								<div>
@@ -389,7 +367,7 @@
 								role="note"
 							>
 								<InformationCircleIcon class="size-5 shrink-0 mt-0.5" aria-hidden="true" />
-								<span>No scheduled asset price notification delivery times selected.</span>
+								<span>Select one or more delivery times to receive scheduled asset price notifications.</span>
 							</p>
 						</FadeTransition>
 
@@ -521,28 +499,41 @@ function normalizeMarketContext(
 	value: AlertMarketContext | null | undefined,
 ): AlertMarketContext {
 	if (value === "any_major" || value === "standout") return value;
-	return "extreme_only";
+	return "standout";
 }
 const priceAlertMarketContext = ref<AlertMarketContext>(
 	normalizeMarketContext(user.value.market_asset_price_alert_market_context),
 );
+function normalizeMoveSize(value: string | null | undefined): AlertMoveSize {
+	if (value === "moderate" || value === "large") return value;
+	return "large";
+}
 const priceAlertMoveSize = ref<AlertMoveSize>(
-	user.value.market_asset_price_alert_move_size ?? "very_large",
+	normalizeMoveSize(user.value.market_asset_price_alert_move_size),
 );
+function normalizeFollowUpMode(value: string | null | undefined): AlertFollowUpMode {
+	if (value === "first_only" || value === "allow_follow_up") return value;
+	// Legacy: map acceleration/recovery to combined option
+	if (
+		value === "allow_acceleration_follow_up" ||
+		value === "allow_recovery_follow_up"
+	)
+		return "allow_follow_up";
+	return "first_only";
+}
 const priceAlertFollowUpMode = ref<AlertFollowUpMode>(
-	user.value.market_asset_price_alert_follow_up_mode ?? "first_only",
+	normalizeFollowUpMode(user.value.market_asset_price_alert_follow_up_mode),
 );
 
 // Composable fetches prices lazily when the wizard is visible
 const wizardVisible = computed(() => priceAlertsEnabled.value);
 const {
-	riskPriorityOptions,
 	marketContextOptions,
 	moveSizeOptions,
 	followUpOptions,
 } = useOnboardingExamples(trackedAssets, wizardVisible);
 
-const TOTAL_RETUNE_STEPS = 4;
+const TOTAL_RETUNE_STEPS = 3;
 const activeRetuneStep = ref(0);
 const isFirstRetuneStep = computed(() => activeRetuneStep.value === 0);
 const isLastRetuneStep = computed(
@@ -572,10 +563,9 @@ function autoAdvanceFromStep(step: number) {
 	}, AUTO_ADVANCE_DELAY_MS);
 }
 
-watch(priceAlertRiskPriority, () => autoAdvanceFromStep(0));
+watch(priceAlertMoveSize, () => autoAdvanceFromStep(0));
 watch(priceAlertMarketContext, () => autoAdvanceFromStep(1));
-watch(priceAlertMoveSize, () => autoAdvanceFromStep(2));
-watch(priceAlertFollowUpMode, () => autoAdvanceFromStep(3));
+watch(priceAlertFollowUpMode, () => autoAdvanceFromStep(2));
 
 const isPriceAlertAutosaveLocked = computed(
 	() => !priceAlertOnboardingCompleted.value,
@@ -586,25 +576,17 @@ const retunePrimaryActionLabel = computed(() => {
 	return "Next";
 });
 
-const RISK_PRIORITY_LABELS: Record<AlertRiskPriority, string> = {
-	big_drops: "Big drops only",
-	big_gains: "Big gains only",
-	both_equally: "Drops and gains",
-};
 const MARKET_CONTEXT_LABELS: Record<AlertMarketContext, string> = {
 	any_major: "Any big move",
 	standout: "Standouts only",
-	extreme_only: "Extreme outliers",
 };
 const MOVE_SIZE_LABELS: Record<AlertMoveSize, string> = {
 	moderate: "Moderate (\u22653% or $5)",
 	large: "Large (\u22655% or $10)",
-	very_large: "Very large (\u22658% or $20)",
 };
 const FOLLOW_UP_LABELS: Record<AlertFollowUpMode, string> = {
-	first_only: "None",
-	allow_acceleration_follow_up: "If move accelerates",
-	allow_recovery_follow_up: "If move reverses",
+	first_only: "First alert only",
+	allow_follow_up: "Allow one follow-up",
 };
 
 const MAX_SCHEDULED_UPDATE_MINUTES = 23 * 60 + 59;
@@ -797,13 +779,13 @@ watch(
 watch(
 	() => user.value.market_asset_price_alert_move_size,
 	(value) => {
-		priceAlertMoveSize.value = value ?? "very_large";
+		priceAlertMoveSize.value = normalizeMoveSize(value);
 	},
 );
 watch(
 	() => user.value.market_asset_price_alert_follow_up_mode,
 	(value) => {
-		priceAlertFollowUpMode.value = value ?? "first_only";
+		priceAlertFollowUpMode.value = normalizeFollowUpMode(value);
 	},
 );
 watch(
@@ -894,9 +876,9 @@ watch([priceAlertRiskPriority, priceAlertMarketContext, priceAlertMoveSize, pric
 	}
 	if (
 		riskPriority === (user.value.market_asset_price_alert_risk_priority ?? "both_equally") &&
-		marketContext === (user.value.market_asset_price_alert_market_context ?? "extreme_only") &&
-		moveSize === (user.value.market_asset_price_alert_move_size ?? "very_large") &&
-		followUpMode === (user.value.market_asset_price_alert_follow_up_mode ?? "first_only")
+		marketContext === (user.value.market_asset_price_alert_market_context ?? "standout") &&
+		moveSize === normalizeMoveSize(user.value.market_asset_price_alert_move_size) &&
+		followUpMode === normalizeFollowUpMode(user.value.market_asset_price_alert_follow_up_mode)
 	) {
 		return;
 	}

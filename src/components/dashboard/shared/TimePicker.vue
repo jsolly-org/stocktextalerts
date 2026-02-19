@@ -21,7 +21,7 @@
 			ref="datepicker"
 			v-model="selectedTime"
 			time-picker
-			placeholder="Select time"
+			:placeholder="props.placeholder"
 			:time-config="timeConfig"
 			:config="datepickerConfig"
 			:min-time="minTime"
@@ -90,21 +90,26 @@ type TimeModel = {
 	seconds?: number | string;
 };
 
-const props = defineProps<{
-	inputId: string;
-	inputName: string;
-	initialTime: string | null;
-	disabled?: boolean;
-	inputAriaLabel?: string;
-	/** Show amber warning triangle inside the input */
-	outsideMarketHours?: boolean;
-	/** Show X clear button inside the input */
-	clearable?: boolean;
-	/** Accessible label for the clear button */
-	clearAriaLabel?: string;
-	/** Force 24-hour / 12-hour display. Falls back to locale detection when omitted. */
-	is24?: boolean;
-}>();
+const props = withDefaults(
+	defineProps<{
+		inputId: string;
+		inputName: string;
+		initialTime: string | null;
+		disabled?: boolean;
+		inputAriaLabel?: string;
+		/** Placeholder when no time selected */
+		placeholder?: string;
+		/** Show amber warning triangle inside the input */
+		outsideMarketHours?: boolean;
+		/** Show X clear button inside the input */
+		clearable?: boolean;
+		/** Accessible label for the clear button */
+		clearAriaLabel?: string;
+		/** Force 24-hour / 12-hour display. Falls back to locale detection when omitted. */
+		is24?: boolean;
+	}>(),
+	{ placeholder: "Select time" },
+);
 
 const emit = defineEmits<{
 	(event: "time-change", value: string): void;
@@ -192,7 +197,7 @@ const inputAttributes = computed(() => {
 		id: props.inputId,
 		class: `input cursor-pointer ${paddingClass}`.trim(),
 		"aria-label": props.inputAriaLabel,
-		placeholder: "Select time",
+		placeholder: props.placeholder,
 		// vue-datepicker v12 clear button is controlled by inputAttrs, not a top-level prop.
 		clearable: false,
 		alwaysClearable: false,
