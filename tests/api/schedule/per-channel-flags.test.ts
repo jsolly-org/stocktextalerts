@@ -6,6 +6,10 @@ import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
+vi.mock("../../../src/lib/time/market-calendar", () => ({
+	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
+}));
+
 /**
  * Tests that per-channel include flags (market_scheduled_asset_price_include_email, market_scheduled_asset_price_include_sms)
  * correctly gate delivery for scheduled price updates.
@@ -109,5 +113,55 @@ describe("Per-channel include flags gate scheduled notification delivery.", () =
 			.eq("delivery_method", "sms");
 
 		expect(logs ?? []).toHaveLength(0);
+	});
+
+	it("User who disabled email for scheduled updates still receives SMS notification on schedule.", async () => {
+		const nowLocal = DateTime.now().setZone(timezone);
+		if (!nowLocal.isValid) throw new Error("Invalid timezone");
+		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
+
+		vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
+		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+		vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
+
+		const { id } = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: true,
+			phoneVerified: true,
+			scheduledUpdateTimes: [scheduledTime],
+			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceIncludeEmail: false,
+			marketScheduledAssetPriceIncludeSms: true,
+		});
+		registerTestUserForCleanup(id);
+
+		await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", id);
+
+		const response = await POST({ request: createRequest() } as APIContext);
+		expect(response.status).toBe(200);
+
+		const { data: emailLogs } = await adminClient
+			.from("notification_log")
+			.select("*")
+			.eq("user_id", id)
+			.eq("type", "market")
+			.eq("delivery_method", "email");
+		expect(emailLogs ?? []).toHaveLength(0);
+
+		const { data: smsLogs } = await adminClient
+			.from("notification_log")
+			.select("*")
+			.eq("user_id", id)
+			.eq("type", "market")
+			.eq("delivery_method", "sms");
+		expect(smsLogs).toHaveLength(1);
+		expect(smsLogs?.[0]?.message_delivered).toBe(true);
 	});
 });
