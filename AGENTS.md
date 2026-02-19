@@ -12,6 +12,11 @@ New app with no users — optimize for simplicity and correctness over backwards
 - `npm run db:gen-types` — Regenerate DB types
 - `supabase migration new <name>` — Create a new migration file (auto-generates timestamp)
 
+## CI Pipeline
+The shared `.github/actions/run-ci` composite runs lint (Biome + typecheck), Supabase setup, tests, and build. It accepts `skip-lint`:
+- **skip-lint** — When `'true'`, skips Biome and type check. Use when a separate lint job already covers them to avoid duplicate work.
+- **Workflows:** `noDeploy` uses two jobs: a lightweight `lint` job for fast feedback, and `test-and-build` with `skip-lint: 'true'` so it does not rerun Biome/typecheck. The `deploy` workflow uses run-ci without skip-lint (single job, full pipeline).
+
 ## Supabase Migrations
 - **Always** create migrations with `supabase migration new <name>` — never create files manually or rename timestamps.
 - The CLI generates a precise timestamp (e.g., `20260209223746`). This timestamp is recorded in the remote `schema_migrations` table when `supabase db push` runs in CI. Renaming the file (e.g., to `20260209200000`) causes a mismatch that breaks CI.
