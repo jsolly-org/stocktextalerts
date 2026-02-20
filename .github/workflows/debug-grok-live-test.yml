@@ -3,6 +3,9 @@
 name: Debug Grok Live Test
 
 on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/debug-grok-live-test.yml]
   workflow_dispatch:
 
 permissions:
