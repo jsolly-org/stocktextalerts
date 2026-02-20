@@ -148,6 +148,7 @@ jobs:
           COMMENT_LINE: ${{ steps.context.outputs.comment_line }}
           COMMENT_START_LINE: ${{ steps.context.outputs.comment_start_line }}
           COMMENT_DIFF_HUNK: ${{ steps.context.outputs.comment_diff_hunk }}
+          INLINE_REVIEW_COMMENTS: ${{ steps.context.outputs.inline_review_comments }}
         run: |
           BEFORE_SHA="$(git rev-parse HEAD)"
           AGENT_OUTPUT_FILE=$(mktemp)
@@ -189,6 +190,7 @@ jobs:
 
             ---USER_INPUT_START---
             $COMMENT_BODY
+            $([[ -n "$INLINE_REVIEW_COMMENTS" ]] && echo -e "\n\n--- Inline review comments (actionable feedback) ---\n\n$INLINE_REVIEW_COMMENTS")
             ---USER_INPUT_END---
           EOF
           )"
