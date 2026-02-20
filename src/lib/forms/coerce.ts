@@ -98,7 +98,7 @@ export function coerceValue(
 					error: {
 						reason: "timezone_too_long",
 						key: "",
-						value: raw,
+						value: "[timezone exceeds 64 character limit]",
 					},
 				};
 			}
