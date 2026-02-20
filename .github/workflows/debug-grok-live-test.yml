@@ -28,15 +28,7 @@ jobs:
         run: npm ci
 
       - name: Load env vars
-        run: |
-          cat > .env.local <<EOF
-          XAI_API_KEY=$XAI_API_KEY
-          SUPABASE_URL=http://localhost:54321
-          SUPABASE_PUBLISHABLE_KEY=dummy-key-for-ci
-          SUPABASE_SECRET_KEY=dummy-key-for-ci
-          DATABASE_URL=postgresql://dummy@localhost:54322/postgres
-          EOF
-          cat .env.local >> $GITHUB_ENV
+        run: echo "XAI_API_KEY=$XAI_API_KEY" >> $GITHUB_ENV
         env:
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
 
@@ -48,7 +40,10 @@ jobs:
           curl -o /dev/null -s -w "dns: %{time_namelookup}s\nconnect: %{time_connect}s\ntls: %{time_appconnect}s\nfirst_byte: %{time_starttransfer}s\ntotal: %{time_total}s\n" \
             https://api.x.ai/ || true
 
-      - name: Run xAI live test (with verbose logging)
-        run: npm run test:live:xai
-        env:
-          DEBUG: "*"
+      - name: Run xAI live test (no setup, 120s timeout)
+        run: |
+          LIVE_API_PROVIDERS=xai npx vitest run \
+            tests/lib/live-xai-apis.test.ts \
+            --no-setup-files \
+            --test-timeout 120000 \
+            --no-file-parallelism
