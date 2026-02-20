@@ -27,12 +27,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Load xAI secret
+      - name: Load env vars
         run: |
           cat > .env.local <<EOF
           XAI_API_KEY=$XAI_API_KEY
+          SUPABASE_URL=http://localhost:54321
+          SUPABASE_PUBLISHABLE_KEY=dummy-key-for-ci
+          SUPABASE_SECRET_KEY=dummy-key-for-ci
+          DATABASE_URL=postgresql://dummy@localhost:54322/postgres
           EOF
-          echo "XAI_API_KEY=$XAI_API_KEY" >> $GITHUB_ENV
+          cat .env.local >> $GITHUB_ENV
         env:
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
 
