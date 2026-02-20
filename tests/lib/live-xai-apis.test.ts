@@ -15,7 +15,7 @@ describeXaiLive("xAI live API (opt-in)", () => {
 
 	it(
 		"returns live news content for ticker prompts",
-		{ timeout: 60_000 },
+		{ timeout: 150_000 },
 		async () => {
 			const result = await generateNewsWithGrok({
 				tickers: ["AAPL"],
@@ -34,7 +34,7 @@ describeXaiLive("xAI live API (opt-in)", () => {
 
 	it(
 		"returns live rumors content for ticker prompts",
-		{ timeout: 60_000 },
+		{ timeout: 150_000 },
 		async () => {
 			const result = await generateRumorsWithGrok({
 				tickers: ["TSLA"],

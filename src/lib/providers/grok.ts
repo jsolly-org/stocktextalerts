@@ -79,13 +79,12 @@ export type GrokSectionResult = {
 };
 
 /**
- * Per-attempt timeouts for Grok API calls.
+ * Per-attempt timeouts for Grok API calls (escalating).
  *
- * Early attempts use a shorter timeout so we fail fast and retry quickly.
- * The final attempt gets more patience. Total worst-case across all attempts
- * (including backoff delays): 15s + 1s + 20s + 2s + 45s = 83s.
+ * Total worst-case across all attempts (including backoff delays):
+ * 30s + 1s + 45s + 2s + 60s = 138s.
  */
-const GROK_TIMEOUT_BY_ATTEMPT_MS = [15_000, 20_000, 45_000] as const;
+const GROK_TIMEOUT_BY_ATTEMPT_MS = [30_000, 45_000, 60_000] as const;
 
 /** Well-known domains → short display names for news citation links. */
 const DOMAIN_LABELS: Record<string, string> = {
