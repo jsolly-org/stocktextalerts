@@ -45,7 +45,12 @@ export function createTestEmail(prefix = "test"): string {
 	// random suffix instead of full UUIDs which would exceed the limit.
 	if (isLiveProviderEnabled("email")) {
 		const shortId = randomUUID().replace(/-/g, "").slice(0, 12);
-		return `delivered+${normalizedPrefix}-${shortId}@resend.dev`;
+		const maxPrefixLength = 64 - "delivered+".length - 1 - shortId.length;
+		const cappedPrefix = normalizedPrefix.slice(
+			0,
+			Math.max(1, maxPrefixLength),
+		);
+		return `delivered+${cappedPrefix}-${shortId}@resend.dev`;
 	}
 
 	const label = `${normalizedPrefix}-${TEST_RUN_ID}-${randomUUID()}`;
