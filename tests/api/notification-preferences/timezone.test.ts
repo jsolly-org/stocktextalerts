@@ -114,4 +114,77 @@ describe("A signed-in user updates their timezone.", () => {
 		expect(updatedUser).not.toBeNull();
 		expect(updatedUser.timezone).toBe("Etc/UTC");
 	});
+
+	it("Changing timezone recomputes next_send_at for scheduled updates so delivery aligns with user's local time.", async () => {
+		const testUser = await createTestUser({
+			email: `test-tz-next-${randomUUID()}@resend.dev`,
+			password: TEST_PASSWORD,
+			confirmed: true,
+			timezone: "America/New_York",
+			scheduledUpdateTimes: [9 * 60], // 09:00 local
+			trackedAssets: ["AAPL"],
+		});
+		registerTestUserForCleanup(testUser.id);
+
+		const { data: beforeTz } = await adminClient
+			.from("users")
+			.select(
+				"timezone,market_scheduled_asset_price_next_send_at,market_scheduled_asset_price_times",
+			)
+			.eq("id", testUser.id)
+			.single();
+		expect(beforeTz?.market_scheduled_asset_price_next_send_at).toBeTruthy();
+		const nextSendAtBefore =
+			beforeTz?.market_scheduled_asset_price_next_send_at;
+
+		const cookies = await createAuthenticatedCookies(
+			testUser.email,
+			TEST_PASSWORD,
+		);
+
+		const formData = new FormData();
+		formData.append("timezone", "America/Los_Angeles");
+
+		const request = new Request(
+			"http://localhost/api/notification-preferences/timezone",
+			{
+				method: "POST",
+				body: formData,
+			},
+		);
+
+		const response = await POSTTimezone({
+			request,
+			cookies: {
+				get: (name: string) => {
+					const cookie = cookies.get(name);
+					return cookie ? { value: cookie } : undefined;
+				},
+				set: () => {},
+			},
+		} as unknown as APIContext);
+
+		expect(response.status).toBe(200);
+		const json = await response.json();
+		expect(json.ok).toBe(true);
+		expect(json.notificationPreferences.timezone).toBe("America/Los_Angeles");
+		expect(
+			json.notificationPreferences.market_scheduled_asset_price_next_send_at,
+		).toBeTruthy();
+
+		// 9am Eastern and 9am Pacific are 3 hours apart in UTC — next_send_at must change
+		const nextSendAtAfter =
+			json.notificationPreferences.market_scheduled_asset_price_next_send_at;
+		expect(nextSendAtAfter).not.toBe(nextSendAtBefore);
+
+		const { data: updatedUser } = await adminClient
+			.from("users")
+			.select("timezone,market_scheduled_asset_price_next_send_at")
+			.eq("id", testUser.id)
+			.single();
+		expect(updatedUser?.timezone).toBe("America/Los_Angeles");
+		expect(updatedUser?.market_scheduled_asset_price_next_send_at).toBe(
+			nextSendAtAfter,
+		);
+	});
 });

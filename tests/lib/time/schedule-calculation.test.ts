@@ -62,4 +62,16 @@ describe("A user schedules their notification time.", () => {
 		expect(parts.ymd).toBe("2025-11-02");
 		expect(parts.hm).toBe("01:30");
 	});
+
+	it("Pacific timezone user scheduling 9am receives next send at 17:00 UTC in winter (9am PST).", () => {
+		const timezone = "America/Los_Angeles";
+		const now = DateTime.fromISO("2026-01-14T16:00:00.000Z"); // 08:00 PST
+		const next = calculateNextSendAt(9 * 60, timezone, now);
+
+		expect(next).not.toBeNull();
+		expect(next?.toISO()).toBe("2026-01-14T17:00:00.000Z"); // 09:00 PST
+		const parts = formatLocalParts(next as DateTime, timezone);
+		expect(parts.ymd).toBe("2026-01-14");
+		expect(parts.hm).toBe("09:00");
+	});
 });

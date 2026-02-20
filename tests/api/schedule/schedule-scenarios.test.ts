@@ -180,4 +180,131 @@ describe("Scheduled notification scenarios", () => {
 		expect(smsLogs).toHaveLength(1);
 		expect(smsLogs?.[0]?.message_delivered).toBe(true);
 	});
+
+	it("User with scheduled times but no tracked assets receives no-assets message and next_send_at advances.", async () => {
+		const timezone = "America/New_York";
+		const nowLocal = DateTime.now().setZone(timezone);
+		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
+
+		// User has scheduled times but no tracked assets (e.g. removed all)
+		const { id } = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			scheduledUpdateTimes: [scheduledTime],
+			trackedAssets: [],
+		});
+		registerTestUserForCleanup(id);
+
+		const { error: updateError } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", id);
+		expect(updateError).toBeNull();
+
+		const { data: before } = await adminClient
+			.from("users")
+			.select("market_scheduled_asset_price_next_send_at")
+			.eq("id", id)
+			.single();
+		const nextSendAtBefore = before?.market_scheduled_asset_price_next_send_at;
+		expect(nextSendAtBefore).toBeTruthy();
+
+		const response = await SchedulePost({
+			request: createScheduleRequest(),
+		} as APIContext);
+		expect(response.status).toBe(200);
+
+		// Notification attempted (email with "no tracked assets" content)
+		const { data: logs } = await adminClient
+			.from("notification_log")
+			.select("message,message_delivered")
+			.eq("user_id", id)
+			.eq("type", "market")
+			.eq("delivery_method", "email");
+		expect(logs).toHaveLength(1);
+		expect(logs?.[0]?.message).toContain("don't have any tracked assets");
+
+		// next_send_at advanced to tomorrow's slot
+		const { data: after } = await adminClient
+			.from("users")
+			.select("market_scheduled_asset_price_next_send_at")
+			.eq("id", id)
+			.single();
+		expect(after?.market_scheduled_asset_price_next_send_at).not.toBe(
+			nextSendAtBefore,
+		);
+	});
+
+	it("User who texted START and re-enabled SMS in dashboard receives next scheduled notification by SMS.", async () => {
+		vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
+		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+		vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
+		twilioMocks.validateRequest.mockReturnValue(true);
+
+		const timezone = "America/New_York";
+		const nowLocal = DateTime.now().setZone(timezone);
+		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
+
+		const testUser = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: false,
+			smsNotificationsEnabled: true,
+			phoneVerified: true,
+			scheduledUpdateTimes: [scheduledTime],
+			trackedAssets: ["AAPL"],
+			smsOptedOut: false,
+			marketScheduledAssetPriceIncludeSms: true,
+		});
+		registerTestUserForCleanup(testUser.id);
+
+		// Simulate STOP
+		const from = await getTestUserPhone(testUser.id);
+		const stopResponse = await InboundPost({
+			request: buildSmsInboundRequest({
+				from,
+				body: "STOP",
+				includeSignature: true,
+			}),
+		} as APIContext);
+		expect(stopResponse.status).toBe(200);
+
+		// Simulate START (clears sms_opted_out)
+		const startResponse = await InboundPost({
+			request: buildSmsInboundRequest({
+				from,
+				body: "START",
+				includeSignature: true,
+			}),
+		} as APIContext);
+		expect(startResponse.status).toBe(200);
+
+		// Re-enable SMS via dashboard (user must set sms_notifications_enabled true)
+		const { error: prefError } = await adminClient
+			.from("users")
+			.update({
+				sms_notifications_enabled: true,
+				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", testUser.id);
+		expect(prefError).toBeNull();
+
+		const response = await SchedulePost({
+			request: createScheduleRequest(),
+		} as APIContext);
+		expect(response.status).toBe(200);
+
+		const { data: smsLogs } = await adminClient
+			.from("notification_log")
+			.select("*")
+			.eq("user_id", testUser.id)
+			.eq("type", "market")
+			.eq("delivery_method", "sms");
+		expect(smsLogs).toHaveLength(1);
+		expect(smsLogs?.[0]?.message_delivered).toBe(true);
+	});
 });
