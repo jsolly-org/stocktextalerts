@@ -44,6 +44,4 @@ jobs:
         run: |
           LIVE_API_PROVIDERS=xai npx vitest run \
             tests/lib/live-xai-apis.test.ts \
-            --no-setup-files \
-            --test-timeout 120000 \
-            --no-file-parallelism
+            --config vitest.debug-grok.config.ts
