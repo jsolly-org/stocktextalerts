@@ -18,10 +18,7 @@ type SmsEligibilityUser = Pick<
 	market_asset_price_alerts_include_sms?: boolean;
 };
 
-/**
- * Send an SMS to a user using the provided sender implementation.
- * Caller should verify opt-in/verification (e.g., shouldSendSms) before calling.
- */
+// Caller must verify opt-in/verification (e.g. shouldSendSms) before calling.
 export async function sendUserSms(
 	user: SmsUser,
 	message: string,
@@ -58,11 +55,6 @@ export async function sendUserSms(
 	}
 }
 
-/**
- * Returns true when an SMS should be attempted for the user.
- *
- * Enforces opt-out and phone verification invariants.
- */
 export function shouldSendSms(user: SmsEligibilityUser): boolean {
 	if (user.sms_opted_out) {
 		return false;

@@ -26,11 +26,6 @@ async function cleanupOrphanedAuthUser(
 	}
 }
 
-/**
- * Register a new user via Supabase Auth and upsert a corresponding `users` profile row.
- *
- * Redirects back to the registration flow on validation errors or expected failures.
- */
 export async function POST({
 	request,
 	redirect,
