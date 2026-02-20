@@ -78,7 +78,14 @@ export type GrokSectionResult = {
 	citations: string[];
 };
 
-const GROK_TIMEOUT_MS = 45_000;
+/**
+ * Per-attempt timeouts for Grok API calls.
+ *
+ * Early attempts use a shorter timeout so we fail fast and retry quickly.
+ * The final attempt gets more patience. Total worst-case across all attempts
+ * (including backoff delays): 15s + 1s + 20s + 2s + 45s = 83s.
+ */
+const GROK_TIMEOUT_BY_ATTEMPT_MS = [15_000, 20_000, 45_000] as const;
 
 /** Well-known domains → short display names for news citation links. */
 const DOMAIN_LABELS: Record<string, string> = {
@@ -467,7 +474,10 @@ async function callGrokApi(options: {
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify(options.requestBody),
-				signal: AbortSignal.timeout(GROK_TIMEOUT_MS),
+				signal: AbortSignal.timeout(
+					GROK_TIMEOUT_BY_ATTEMPT_MS[attempt - 1] ??
+						GROK_TIMEOUT_BY_ATTEMPT_MS.at(-1)!,
+				),
 			});
 
 			if (!response.ok) {
