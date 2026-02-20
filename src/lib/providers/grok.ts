@@ -474,8 +474,9 @@ async function callGrokApi(options: {
 				},
 				body: JSON.stringify(options.requestBody),
 				signal: AbortSignal.timeout(
-					GROK_TIMEOUT_BY_ATTEMPT_MS[attempt - 1] ??
-						GROK_TIMEOUT_BY_ATTEMPT_MS.at(-1)!,
+					GROK_TIMEOUT_BY_ATTEMPT_MS[
+						Math.min(attempt - 1, GROK_TIMEOUT_BY_ATTEMPT_MS.length - 1)
+					],
 				),
 			});
 
