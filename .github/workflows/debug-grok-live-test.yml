@@ -1,0 +1,47 @@
+# Temporary workflow for troubleshooting xAI Grok live test timeout in CI.
+# Remove this file once the issue is resolved.
+name: Debug Grok Live Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  grok-live-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6.2.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Load xAI secret
+        run: |
+          cat > .env.local <<EOF
+          XAI_API_KEY=$XAI_API_KEY
+          EOF
+          echo "XAI_API_KEY=$XAI_API_KEY" >> $GITHUB_ENV
+        env:
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+
+      - name: Debug network connectivity
+        run: |
+          echo "--- DNS resolution ---"
+          dig +short api.x.ai || echo "dig not available"
+          echo "--- Curl timing to xAI API ---"
+          curl -o /dev/null -s -w "dns: %{time_namelookup}s\nconnect: %{time_connect}s\ntls: %{time_appconnect}s\nfirst_byte: %{time_starttransfer}s\ntotal: %{time_total}s\n" \
+            https://api.x.ai/ || true
+
+      - name: Run xAI live test (with verbose logging)
+        run: npm run test:live:xai
+        env:
+          DEBUG: "*"
