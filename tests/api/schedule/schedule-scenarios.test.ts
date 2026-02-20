@@ -10,8 +10,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST as InboundPost } from "../../../src/pages/api/messaging/inbound";
 import { POST as SchedulePost } from "../../../src/pages/api/schedule";
 import { buildSmsInboundRequest } from "../../helpers/request-helpers";
+import { createScheduleRequest } from "../../helpers/schedule-request";
 import { adminClient } from "../../helpers/test-env";
-import { createTestUser } from "../../helpers/test-user";
+import { createTestUser, getTestUserPhone } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 const twilioMocks = vi.hoisted(() => ({
@@ -29,16 +30,6 @@ vi.mock("twilio", async () => {
 vi.mock("../../../src/lib/time/market-calendar", () => ({
 	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
 }));
-
-async function getTestUserPhone(userId: string): Promise<string> {
-	const { data: user } = await adminClient
-		.from("users")
-		.select("phone_country_code,phone_number")
-		.eq("id", userId)
-		.single();
-	if (!user) throw new Error("expected user row");
-	return `${user.phone_country_code}${user.phone_number}`;
-}
 
 describe("Scheduled notification scenarios", () => {
 	const testCronSecret = "test-cron-secret";
@@ -58,13 +49,6 @@ describe("Scheduled notification scenarios", () => {
 		vi.useRealTimers();
 		vi.unstubAllEnvs();
 	});
-
-	function createScheduleRequest() {
-		return new Request("http://localhost/api/schedule", {
-			method: "POST",
-			headers: { Authorization: `Bearer ${testCronSecret}` },
-		});
-	}
 
 	it("User who opted out via STOP does not receive SMS when schedule fires.", async () => {
 		twilioMocks.validateRequest.mockReturnValue(true);
@@ -112,7 +96,7 @@ describe("Scheduled notification scenarios", () => {
 		expect(afterStop?.sms_notifications_enabled).toBe(false);
 
 		const response = await SchedulePost({
-			request: createScheduleRequest(),
+			request: createScheduleRequest(testCronSecret),
 		} as APIContext);
 		expect(response.status).toBe(200);
 
@@ -157,7 +141,7 @@ describe("Scheduled notification scenarios", () => {
 		expect(updateError).toBeNull();
 
 		const response = await SchedulePost({
-			request: createScheduleRequest(),
+			request: createScheduleRequest(testCronSecret),
 		} as APIContext);
 		expect(response.status).toBe(200);
 
@@ -214,7 +198,7 @@ describe("Scheduled notification scenarios", () => {
 		expect(nextSendAtBefore).toBeTruthy();
 
 		const response = await SchedulePost({
-			request: createScheduleRequest(),
+			request: createScheduleRequest(testCronSecret),
 		} as APIContext);
 		expect(response.status).toBe(200);
 
@@ -294,7 +278,7 @@ describe("Scheduled notification scenarios", () => {
 		expect(prefError).toBeNull();
 
 		const response = await SchedulePost({
-			request: createScheduleRequest(),
+			request: createScheduleRequest(testCronSecret),
 		} as APIContext);
 		expect(response.status).toBe(200);
 
