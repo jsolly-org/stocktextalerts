@@ -230,15 +230,16 @@ runs:
         # Fetch all review comments for this PR, filter by this review's ID.
         # When CodeRabbit posts "Actionable comments posted: N", the actual feedback
         # is in these inline comments, not in the review body.
-        COMMENTS_JSON=$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments" 2>/dev/null || echo "[]")
+        COMMENTS_JSON=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/comments" 2>/dev/null | jq -s 'add' || echo "[]")
         INLINE_BODIES=$(echo "$COMMENTS_JSON" | jq -r --argjson rid "$REVIEW_ID" '
           [.[] | select(.pull_request_review_id == $rid) | "**File:** \(.path)\(if .line then " (line \(.line))" else "" end)\n\(.body)\n"]
           | join("\n---\n")'
         )
+        DELIM=$(openssl rand -hex 16)
         {
-          echo "inline_review_comments<<EOF"
-          echo "$INLINE_BODIES"
-          echo "EOF"
+          echo "inline_review_comments<<${DELIM}"
+          printf '%s\n' "$INLINE_BODIES"
+          echo "${DELIM}"
         } >> "$GITHUB_OUTPUT"
 
     - name: Fetch review comment context
