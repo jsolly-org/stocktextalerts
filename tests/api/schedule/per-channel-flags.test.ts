@@ -2,6 +2,7 @@ import type { APIContext } from "astro";
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../../../src/pages/api/schedule";
+import { isLiveProviderEnabled } from "../../helpers/live-api";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
@@ -120,9 +121,11 @@ describe("Per-channel include flags gate scheduled notification delivery.", () =
 		if (!nowLocal.isValid) throw new Error("Invalid timezone");
 		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
 
-		vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
-		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-		vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
+		if (!isLiveProviderEnabled("sms")) {
+			vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
+			vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+			vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
+		}
 
 		const { id } = await createTestUser({
 			timezone,

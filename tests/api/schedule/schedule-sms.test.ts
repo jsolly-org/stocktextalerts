@@ -2,6 +2,7 @@ import type { APIContext } from "astro";
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../../../src/pages/api/schedule";
+import { isLiveProviderEnabled } from "../../helpers/live-api";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
@@ -31,9 +32,14 @@ describe("Users receive scheduled asset update notifications.", () => {
 		}
 		const scheduledUpdateTime = nowLocal.hour * 60 + nowLocal.minute;
 
-		vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
-		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-		vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
+		// Only stub fake Twilio credentials when not in live SMS mode.
+		// vi.stubEnv affects import.meta.env in source code, so stubbing fake
+		// credentials would break real Twilio API calls in live mode.
+		if (!isLiveProviderEnabled("sms")) {
+			vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
+			vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+			vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
+		}
 
 		const user = await createTestUser({
 			timezone,

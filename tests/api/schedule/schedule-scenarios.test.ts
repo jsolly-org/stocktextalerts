@@ -9,6 +9,7 @@ import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST as InboundPost } from "../../../src/pages/api/messaging/inbound";
 import { POST as SchedulePost } from "../../../src/pages/api/schedule";
+import { isLiveProviderEnabled } from "../../helpers/live-api";
 import { buildSmsInboundRequest } from "../../helpers/request-helpers";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
@@ -50,7 +51,9 @@ describe("Scheduled notification scenarios", () => {
 		vi.stubEnv("SMS_TEST_BEHAVIOR", "success");
 		vi.stubEnv("SMS_TEST_MESSAGE_SID", "test-sms-sid");
 		vi.stubEnv("SCHEDULE_PASS_DELAY_MS", "0");
-		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+		if (!isLiveProviderEnabled("sms")) {
+			vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+		}
 		twilioMocks.validateRequest.mockReset();
 	});
 
@@ -127,9 +130,11 @@ describe("Scheduled notification scenarios", () => {
 	});
 
 	it("User with both email and SMS enabled receives both at scheduled time.", async () => {
-		vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
-		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-		vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
+		if (!isLiveProviderEnabled("sms")) {
+			vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
+			vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+			vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
+		}
 
 		const timezone = "America/New_York";
 		const nowLocal = DateTime.now().setZone(timezone);
