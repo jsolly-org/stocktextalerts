@@ -403,14 +403,13 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onUnmounted, ref, toRefs, watch } from "vue";
+import { computed, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
 import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
 import InformationCircleIcon from "../../../icons/information-circle-20.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
-import { prefersReducedMotion } from "../../../lib/accessibility";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_MARKET_FORM_ID,
@@ -554,25 +553,6 @@ const showWizard = computed(
 	() => !priceAlertOnboardingCompleted.value || retuning.value,
 );
 
-/* ============= Retune wizard: prefers-reduced-motion ============= */
-const AUTO_ADVANCE_DELAY_MS = 350;
-let autoAdvanceTimeoutId: ReturnType<typeof setTimeout> | null = null;
-function autoAdvanceFromStep(step: number) {
-	// Respect prefers-reduced-motion: skip auto-advance when user requests reduced motion
-	if (prefersReducedMotion()) return;
-	if (activeRetuneStep.value !== step || isLastRetuneStep.value) return;
-	if (autoAdvanceTimeoutId !== null) clearTimeout(autoAdvanceTimeoutId);
-	autoAdvanceTimeoutId = setTimeout(() => {
-		autoAdvanceTimeoutId = null;
-		if (activeRetuneStep.value === step && !isLastRetuneStep.value) {
-			handleRetuneNext();
-		}
-	}, AUTO_ADVANCE_DELAY_MS);
-}
-
-watch(priceAlertMoveSize, () => autoAdvanceFromStep(0));
-watch(priceAlertMarketContext, () => autoAdvanceFromStep(1));
-watch(priceAlertFollowUpMode, () => autoAdvanceFromStep(2));
 
 const isPriceAlertAutosaveLocked = computed(
 	() => !priceAlertOnboardingCompleted.value,
@@ -1028,10 +1008,4 @@ function handleRemoveTime(index: number) {
 	notifyChange();
 }
 
-onUnmounted(() => {
-	if (autoAdvanceTimeoutId !== null) {
-		clearTimeout(autoAdvanceTimeoutId);
-		autoAdvanceTimeoutId = null;
-	}
-});
 </script>
