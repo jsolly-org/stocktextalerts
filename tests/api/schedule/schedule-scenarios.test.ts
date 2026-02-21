@@ -252,8 +252,8 @@ describe("Scheduled notification scenarios", () => {
 			.single();
 		expect(userAfter).not.toBeNull();
 		expect(userAfter?.market_scheduled_asset_price_next_send_at).not.toBeNull();
-		expect(
-			userAfter?.market_scheduled_asset_price_next_send_at !== beforeSend,
-		).toBe(true);
+		expect(userAfter?.market_scheduled_asset_price_next_send_at).not.toBe(
+			beforeSend,
+		);
 	});
 });
