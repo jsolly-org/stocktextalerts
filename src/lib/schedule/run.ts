@@ -113,11 +113,20 @@ async function runPass(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
 	cronSecret: string;
+	sendEmail: ReturnType<typeof createEmailSender>;
+	getSmsSender: ReturnType<typeof createSmsSenderProvider>;
 	priceAlertQuoteMap?: ExtendedQuoteMap;
 	/** When true, run asset events processing (only in the first pass). */
 	includeAssetEvents: boolean;
 }): Promise<ScheduledNotificationTotals> {
-	const { supabase, logger, cronSecret, priceAlertQuoteMap } = options;
+	const {
+		supabase,
+		logger,
+		cronSecret,
+		sendEmail,
+		getSmsSender,
+		priceAlertQuoteMap,
+	} = options;
 
 	// Use actual UTC time — NOT rounded to end-of-minute like the old single-pass approach.
 	// Users set times at minute granularity so next_send_at is always at :00 seconds.
@@ -127,9 +136,6 @@ async function runPass(options: {
 		currentTime,
 		"Failed to format UTC ISO string",
 	);
-
-	const sendEmail = createEmailSender();
-	const getSmsSender = createSmsSenderProvider();
 
 	/* ============= Phase 1: DELIVER staged ============= */
 	let stagedStats = { ...EMPTY_TOTALS };
@@ -465,6 +471,9 @@ export async function runScheduledNotifications(options: {
 		);
 	}
 
+	const sendEmail = createEmailSender();
+	const getSmsSender = createSmsSenderProvider();
+
 	/* =============
 	Force-send: bypass staging, single pass via existing pipeline.
 	Manual sends (--force via run-scheduled-cron.sh) process all notification-enabled
@@ -472,8 +481,6 @@ export async function runScheduledNotifications(options: {
 	scheduled time — the user wants delivery now.
 	============= */
 	if (forceSend) {
-		const sendEmail = createEmailSender();
-		const getSmsSender = createSmsSenderProvider();
 		const currentTime = options.now ?? DateTime.utc();
 		const currentTimeIso = toIsoOrThrow(
 			currentTime,
@@ -699,6 +706,8 @@ export async function runScheduledNotifications(options: {
 		supabase,
 		logger,
 		cronSecret,
+		sendEmail,
+		getSmsSender,
 		priceAlertQuoteMap,
 		includeAssetEvents: true,
 	});
@@ -717,6 +726,8 @@ export async function runScheduledNotifications(options: {
 		supabase,
 		logger,
 		cronSecret,
+		sendEmail,
+		getSmsSender,
 		includeAssetEvents: false,
 	});
 

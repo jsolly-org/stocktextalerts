@@ -10,11 +10,6 @@ import {
 } from "./scheduled-times";
 import type { ParsedTime, TimeValue } from "./types";
 
-/**
- * Format a human-readable countdown string (hours/minutes/seconds) from a seconds value.
- *
- * Negative values are clamped to 0.
- */
 export function formatCountdownWithSeconds(secondsUntil: number): string {
 	const safeSeconds = Math.max(secondsUntil, 0);
 	const duration = Duration.fromObject({ seconds: safeSeconds });
@@ -33,9 +28,6 @@ export function formatCountdownWithSeconds(secondsUntil: number): string {
 	return parts.join(", ");
 }
 
-/**
- * Convert a Luxon DateTime to an ISO string, throwing when formatting fails.
- */
 export function toIsoOrThrow(
 	dateTime: DateTime,
 	errorMessage = "Failed to format ISO string",
@@ -47,11 +39,6 @@ export function toIsoOrThrow(
 	return iso;
 }
 
-/**
- * Parse a `HH:MM` time string to minutes since midnight.
- *
- * Returns `null` for invalid inputs.
- */
 export function parseTimeToMinutes(value: string): number | null {
 	const parts = value.split(":");
 	if (parts.length !== 2) {
@@ -82,11 +69,6 @@ export function parseTimeToMinutes(value: string): number | null {
 	return hours * 60 + minutes;
 }
 
-/**
- * Parse a `HH:MM` or `HH:MM:SS` string into discrete parts.
- *
- * Returns `null` for invalid inputs.
- */
 export function parseTimeString(
 	value: string | null | undefined,
 ): ParsedTime | null {
@@ -136,9 +118,6 @@ export function parseTimeString(
 	return { hours, minutes, seconds };
 }
 
-/**
- * Convert minutes since midnight into a `HH:MM` string suitable for `<input type="time">`.
- */
 export function minutesToTimeInputValue(minutes: number): string {
 	const safeMinutes = Number.isFinite(minutes) ? minutes : 0;
 	const clamped = Math.max(0, Math.min(1439, Math.floor(safeMinutes)));
@@ -147,11 +126,6 @@ export function minutesToTimeInputValue(minutes: number): string {
 	return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
 }
 
-/**
- * Normalize a time value (numbers or numeric strings) into a `HH:MM` string.
- *
- * Out-of-range/NaN values are clamped to a safe range.
- */
 export function formatTimeValue(value: TimeValue): string {
 	const hours =
 		typeof value.hours === "string"
@@ -170,27 +144,13 @@ export function formatTimeValue(value: TimeValue): string {
 	return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-/**
- * Return true when the runtime locale uses a 24-hour clock.
- *
- * Used as a fallback when no stored user preference is available (e.g. the
- * `is24` prop isn't passed to TimePicker).  The stored `use_24_hour_time`
- * preference is the primary path — this detection is only a best-effort hint.
- */
+// Fallback when no stored user preference; stored use_24_hour_time is primary.
 export function resolveIs24(): boolean {
 	const formatter = new Intl.DateTimeFormat(undefined, { hour: "numeric" });
 	const { hourCycle } = formatter.resolvedOptions();
 	return hourCycle === "h23" || hourCycle === "h24";
 }
 
-/**
- * Return the current local time (with seconds) in the given IANA timezone.
- *
- * When `is24` is provided the format is forced to 24-hour or 12-hour;
- * otherwise it falls back to the locale default.
- *
- * Returns `null` when the timezone is invalid.
- */
 export function getNowInTimezone(
 	timezone: string,
 	is24?: boolean,
@@ -212,12 +172,6 @@ export function getNowInTimezone(
 	return now.toLocaleString(DateTime.TIME_WITH_SECONDS);
 }
 
-/**
- * Compute the number of seconds until the next send time for a user.
- *
- * Prefers `next_send_at` when present and in the future; otherwise falls back to the configured
- * delivery time(s). Returns `null` when inputs are invalid or no schedule is configured.
- */
 export function getSecondsUntilNextSend(options: {
 	timezone: string;
 	nextSendAtIso?: string | null;
@@ -301,9 +255,6 @@ export function getSecondsUntilNextSend(options: {
 /* =============
 Use Eastern-market baseline so local conversions stay aligned with exchange hours
 ============= */
-/**
- * Convert US market open (9:30 AM ET) to the user's local minutes since midnight.
- */
 export function getUsMarketOpenLocalMinutes(userTimezone: string): number {
 	const marketOpenHour = Math.floor(US_MARKET_OPEN_EASTERN_MINUTES / 60);
 	const marketOpenMinute = US_MARKET_OPEN_EASTERN_MINUTES % 60;
@@ -320,9 +271,6 @@ export function getUsMarketOpenLocalMinutes(userTimezone: string): number {
 	return local.hour * 60 + local.minute;
 }
 
-/**
- * Convert US market close (4:00 PM ET) to the user's local minutes since midnight.
- */
 function getUsMarketCloseLocalMinutes(userTimezone: string): number {
 	const marketCloseHour = Math.floor(US_MARKET_CLOSE_EASTERN_MINUTES / 60);
 	const marketCloseMinute = US_MARKET_CLOSE_EASTERN_MINUTES % 60;
@@ -339,10 +287,6 @@ function getUsMarketCloseLocalMinutes(userTimezone: string): number {
 	return local.hour * 60 + local.minute;
 }
 
-/**
- * Returns true when a local minute-of-day falls outside regular US market
- * hours (9:30 AM – 4:00 PM ET) converted to the user's timezone.
- */
 export function isOutsideMarketHours(
 	timeMinutes: number,
 	userTimezone: string,
@@ -362,12 +306,6 @@ export function isOutsideMarketHours(
 /* =============
 Format minute-of-day for UI display in the runtime locale
 ============= */
-/**
- * Format a minute-of-day value into a locale-aware time string.
- *
- * When `is24` is provided the format is forced to 24-hour or 12-hour;
- * otherwise it falls back to the locale default.
- */
 export function formatMinutesAsLocalTime(
 	minutes: number,
 	is24?: boolean,
