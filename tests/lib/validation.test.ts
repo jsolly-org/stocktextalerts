@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { isValidUuid } from "../../src/lib/validation";
 
 describe("isValidUuid security validation", () => {
-	it("accepts valid UUID v4 format", () => {
+	it("accepts valid UUID format", () => {
 		expect(isValidUuid("550e8400-e29b-41d4-a716-446655440000")).toBe(true);
 		expect(isValidUuid("550E8400-E29B-41D4-A716-446655440000")).toBe(true);
 		expect(isValidUuid("00000000-0000-0000-0000-000000000000")).toBe(true);
@@ -21,6 +21,9 @@ describe("isValidUuid security validation", () => {
 	it("rejects SQL injection attempts", () => {
 		expect(isValidUuid("'; DROP TABLE users; --")).toBe(false);
 		expect(isValidUuid("1' OR '1'='1")).toBe(false);
+	});
+
+	it("rejects path traversal attempts", () => {
 		expect(isValidUuid("../etc/passwd")).toBe(false);
 	});
 
