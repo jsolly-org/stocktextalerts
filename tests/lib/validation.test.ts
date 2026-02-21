@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isValidUuid } from "../../../src/lib/validation";
+import { isValidUuid } from "../../src/lib/validation";
 
 describe("isValidUuid security validation", () => {
 	it("accepts valid UUID v4 format", () => {
