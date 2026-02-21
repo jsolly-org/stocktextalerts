@@ -8,6 +8,7 @@ import type { UserRecord } from "../../../lib/messaging/types";
 import { verifyCronSecret } from "../../../lib/schedule/cron-auth";
 import { createSmsSenderProvider } from "../../../lib/schedule/sms-sender";
 import type { MarketClosureInfo } from "../../../lib/time/market-calendar";
+import { isValidUuid } from "../../../lib/validation";
 
 type DailyDigestUserRow = Pick<
 	UserRecord,
@@ -75,14 +76,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			? DateTime.fromISO(currentTimeIso, { zone: "utc" })
 			: null;
 	if (
-		typeof userId !== "string" ||
-		userId.trim() === "" ||
+		!isValidUuid(userId) ||
 		typeof currentTimeIso !== "string" ||
 		currentTimeIso.trim() === "" ||
 		parsedCurrentTime === null ||
 		!parsedCurrentTime.isValid
 	) {
-		return new Response("Bad Request: missing required fields", {
+		return new Response("Bad Request: missing or invalid required fields", {
 			status: 400,
 		});
 	}

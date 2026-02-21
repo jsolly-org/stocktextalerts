@@ -4,6 +4,7 @@ import StatusMessage from "../../components/StatusMessage.astro";
 import { createSupabaseAdminClient } from "../../lib/db/supabase";
 import { createLogger } from "../../lib/logging";
 import { verifyEmailUnsubscribeToken } from "../../lib/messaging/email/unsubscribe";
+import { isValidUuid } from "../../lib/validation";
 
 const logger = createLogger({
 	requestId: Astro.locals?.requestId,
@@ -14,9 +15,6 @@ const logger = createLogger({
 const userId = Astro.url.searchParams.get("user");
 const token = Astro.url.searchParams.get("token");
 
-/** UUID v4 format; validates user ID before DB lookup to avoid injection. */
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
-const isValidUuid = (s: string | null) => typeof s === "string" && UUID_REGEX.test(s);
 /** Token length cap to reject malformed or oversized values early. */
 const MAX_TOKEN_LENGTH = 200;
 const isValidToken = (s: string | null) =>
