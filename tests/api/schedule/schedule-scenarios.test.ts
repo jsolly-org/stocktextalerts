@@ -192,6 +192,7 @@ describe("Scheduled notification scenarios", () => {
 			smsNotificationsEnabled: false,
 			scheduledUpdateTimes: [scheduledTime],
 			trackedAssets: [],
+			marketScheduledAssetPriceIncludeEmail: true,
 		});
 		registerTestUserForCleanup(id);
 
