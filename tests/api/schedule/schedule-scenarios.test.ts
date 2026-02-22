@@ -26,9 +26,22 @@ vi.mock("twilio", async () => {
 	return { default: fn };
 });
 
-vi.mock("../../../src/lib/time/market-calendar", () => ({
+const marketCalendarMocks = vi.hoisted(() => ({
 	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
 }));
+
+vi.mock("../../../src/lib/time/market-calendar", async (importOriginal) => {
+	const mod =
+		await importOriginal<
+			typeof import("../../../src/lib/time/market-calendar")
+		>();
+	return {
+		...mod,
+		getUsMarketClosureInfoForInstant: (
+			dt: Parameters<typeof mod.getUsMarketClosureInfoForInstant>[0],
+		) => marketCalendarMocks.getUsMarketClosureInfoForInstant(dt),
+	};
+});
 
 async function getTestUserPhone(userId: string): Promise<string> {
 	const { data: user } = await adminClient
@@ -52,6 +65,9 @@ describe("Scheduled notification scenarios", () => {
 		vi.stubEnv("SCHEDULE_PASS_DELAY_MS", "0");
 		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
 		twilioMocks.validateRequest.mockReset();
+		marketCalendarMocks.getUsMarketClosureInfoForInstant.mockResolvedValue(
+			null,
+		);
 	});
 
 	afterEach(() => {
@@ -179,5 +195,65 @@ describe("Scheduled notification scenarios", () => {
 		expect(smsLogError).toBeNull();
 		expect(smsLogs).toHaveLength(1);
 		expect(smsLogs?.[0]?.message_delivered).toBe(true);
+	});
+
+	it("Scheduled market notification is skipped when US market is closed (holiday) and next_send_at advances.", async () => {
+		vi.setSystemTime(DateTime.fromISO("2026-01-14T15:00:00.000Z").toJSDate());
+		const holidayDate = "2026-01-14";
+		marketCalendarMocks.getUsMarketClosureInfoForInstant.mockImplementation(
+			async (dt: { toISODate: () => string }) => {
+				const dateStr = dt.toISODate?.() ?? "";
+				return dateStr === holidayDate
+					? { reason: "holiday" as const, holidayName: "Test Holiday" }
+					: null;
+			},
+		);
+
+		const timezone = "America/New_York";
+		const nowLocal = DateTime.now().setZone(timezone);
+		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
+
+		const { id } = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			scheduledUpdateTimes: [scheduledTime],
+			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceIncludeEmail: true,
+		});
+		registerTestUserForCleanup(id);
+
+		const beforeSend = DateTime.utc().toISO();
+		const { error: seedError } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: beforeSend,
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", id);
+		expect(seedError).toBeNull();
+
+		const response = await SchedulePost({
+			request: createScheduleRequest(),
+		} as APIContext);
+		expect(response.status).toBe(200);
+
+		const { data: logs } = await adminClient
+			.from("notification_log")
+			.select("id")
+			.eq("user_id", id)
+			.eq("type", "market");
+		expect(logs ?? []).toHaveLength(0);
+
+		const { data: userAfter } = await adminClient
+			.from("users")
+			.select("market_scheduled_asset_price_next_send_at")
+			.eq("id", id)
+			.single();
+		expect(userAfter).not.toBeNull();
+		expect(userAfter?.market_scheduled_asset_price_next_send_at).not.toBeNull();
+		expect(userAfter?.market_scheduled_asset_price_next_send_at).not.toBe(
+			beforeSend,
+		);
 	});
 });
