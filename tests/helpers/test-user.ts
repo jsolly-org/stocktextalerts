@@ -12,6 +12,20 @@ export function generateUniquePhoneNumber(): string {
 	return `555${String(suffix)}`;
 }
 
+export async function getTestUserPhone(userId: string): Promise<string> {
+	const { data: user, error } = await adminClient
+		.from("users")
+		.select("phone_country_code,phone_number")
+		.eq("id", userId)
+		.single();
+	if (error) throw new Error(`getTestUserPhone failed: ${error.message}`);
+	if (!user) throw new Error("expected user row");
+	if (!user.phone_country_code || !user.phone_number) {
+		throw new Error("expected user phone fields");
+	}
+	return `${user.phone_country_code}${user.phone_number}`;
+}
+
 export type CreateTestUserOptions = {
 	email?: string;
 	password?: string;

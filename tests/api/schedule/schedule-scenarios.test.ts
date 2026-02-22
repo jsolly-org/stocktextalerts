@@ -10,8 +10,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST as InboundPost } from "../../../src/pages/api/messaging/inbound";
 import { POST as SchedulePost } from "../../../src/pages/api/schedule";
 import { buildSmsInboundRequest } from "../../helpers/request-helpers";
+import { createScheduleRequest } from "../../helpers/schedule-request";
 import { adminClient } from "../../helpers/test-env";
-import { createTestUser } from "../../helpers/test-user";
+import { createTestUser, getTestUserPhone } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 const twilioMocks = vi.hoisted(() => ({
@@ -43,16 +44,6 @@ vi.mock("../../../src/lib/time/market-calendar", async (importOriginal) => {
 	};
 });
 
-async function getTestUserPhone(userId: string): Promise<string> {
-	const { data: user } = await adminClient
-		.from("users")
-		.select("phone_country_code,phone_number")
-		.eq("id", userId)
-		.single();
-	if (!user) throw new Error("expected user row");
-	return `${user.phone_country_code}${user.phone_number}`;
-}
-
 describe("Scheduled notification scenarios", () => {
 	const testCronSecret = "test-cron-secret";
 
@@ -74,13 +65,6 @@ describe("Scheduled notification scenarios", () => {
 		vi.useRealTimers();
 		vi.unstubAllEnvs();
 	});
-
-	function createScheduleRequest() {
-		return new Request("http://localhost/api/schedule", {
-			method: "POST",
-			headers: { Authorization: `Bearer ${testCronSecret}` },
-		});
-	}
 
 	it("User who opted out via STOP does not receive SMS when schedule fires.", async () => {
 		twilioMocks.validateRequest.mockReturnValue(true);
@@ -128,7 +112,7 @@ describe("Scheduled notification scenarios", () => {
 		expect(afterStop?.sms_notifications_enabled).toBe(false);
 
 		const response = await SchedulePost({
-			request: createScheduleRequest(),
+			request: createScheduleRequest(testCronSecret),
 		} as APIContext);
 		expect(response.status).toBe(200);
 
@@ -173,7 +157,7 @@ describe("Scheduled notification scenarios", () => {
 		expect(updateError).toBeNull();
 
 		const response = await SchedulePost({
-			request: createScheduleRequest(),
+			request: createScheduleRequest(testCronSecret),
 		} as APIContext);
 		expect(response.status).toBe(200);
 
@@ -195,6 +179,62 @@ describe("Scheduled notification scenarios", () => {
 		expect(smsLogError).toBeNull();
 		expect(smsLogs).toHaveLength(1);
 		expect(smsLogs?.[0]?.message_delivered).toBe(true);
+	});
+
+	it("User with scheduled times but no tracked assets receives no-assets message and next_send_at advances.", async () => {
+		const timezone = "America/New_York";
+		const nowLocal = DateTime.now().setZone(timezone);
+		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
+
+		const { id } = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			scheduledUpdateTimes: [scheduledTime],
+			trackedAssets: [],
+			marketScheduledAssetPriceIncludeEmail: true,
+		});
+		registerTestUserForCleanup(id);
+
+		const { error: updateError } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", id);
+		expect(updateError).toBeNull();
+
+		const { data: before } = await adminClient
+			.from("users")
+			.select("market_scheduled_asset_price_next_send_at")
+			.eq("id", id)
+			.single();
+		const nextSendAtBefore = before?.market_scheduled_asset_price_next_send_at;
+		expect(nextSendAtBefore).toBeTruthy();
+
+		const response = await SchedulePost({
+			request: createScheduleRequest(testCronSecret),
+		} as APIContext);
+		expect(response.status).toBe(200);
+
+		const { data: logs } = await adminClient
+			.from("notification_log")
+			.select("message,message_delivered")
+			.eq("user_id", id)
+			.eq("type", "market")
+			.eq("delivery_method", "email");
+		expect(logs).toHaveLength(1);
+		expect(logs?.[0]?.message).toContain("don't have any tracked assets");
+
+		const { data: after } = await adminClient
+			.from("users")
+			.select("market_scheduled_asset_price_next_send_at")
+			.eq("id", id)
+			.single();
+		expect(after?.market_scheduled_asset_price_next_send_at).not.toBe(
+			nextSendAtBefore,
+		);
 	});
 
 	it("Scheduled market notification is skipped when US market is closed (holiday) and next_send_at advances.", async () => {
@@ -234,7 +274,7 @@ describe("Scheduled notification scenarios", () => {
 		expect(seedError).toBeNull();
 
 		const response = await SchedulePost({
-			request: createScheduleRequest(),
+			request: createScheduleRequest(testCronSecret),
 		} as APIContext);
 		expect(response.status).toBe(200);
 
@@ -255,5 +295,71 @@ describe("Scheduled notification scenarios", () => {
 		expect(userAfter?.market_scheduled_asset_price_next_send_at).not.toBe(
 			beforeSend,
 		);
+	});
+
+	it("User who texted START and re-enabled SMS in dashboard receives next scheduled notification by SMS.", async () => {
+		vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
+		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+		vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
+		twilioMocks.validateRequest.mockReturnValue(true);
+
+		const timezone = "America/New_York";
+		const nowLocal = DateTime.now().setZone(timezone);
+		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
+
+		const testUser = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: false,
+			smsNotificationsEnabled: true,
+			phoneVerified: true,
+			scheduledUpdateTimes: [scheduledTime],
+			trackedAssets: ["AAPL"],
+			smsOptedOut: false,
+			marketScheduledAssetPriceIncludeSms: true,
+		});
+		registerTestUserForCleanup(testUser.id);
+
+		const from = await getTestUserPhone(testUser.id);
+		const stopResponse = await InboundPost({
+			request: buildSmsInboundRequest({
+				from,
+				body: "STOP",
+				includeSignature: true,
+			}),
+		} as APIContext);
+		expect(stopResponse.status).toBe(200);
+
+		const startResponse = await InboundPost({
+			request: buildSmsInboundRequest({
+				from,
+				body: "START",
+				includeSignature: true,
+			}),
+		} as APIContext);
+		expect(startResponse.status).toBe(200);
+
+		const { error: prefError } = await adminClient
+			.from("users")
+			.update({
+				sms_notifications_enabled: true,
+				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", testUser.id);
+		expect(prefError).toBeNull();
+
+		const response = await SchedulePost({
+			request: createScheduleRequest(testCronSecret),
+		} as APIContext);
+		expect(response.status).toBe(200);
+
+		const { data: smsLogs } = await adminClient
+			.from("notification_log")
+			.select("*")
+			.eq("user_id", testUser.id)
+			.eq("type", "market")
+			.eq("delivery_method", "sms");
+		expect(smsLogs).toHaveLength(1);
+		expect(smsLogs?.[0]?.message_delivered).toBe(true);
 	});
 });
