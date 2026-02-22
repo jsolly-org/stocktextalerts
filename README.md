@@ -22,13 +22,13 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - **UI**: Vue 3 components with Tailwind CSS
 - **Icons**: Local SVGs in `/src/icons` loaded via `astro-icon` in `.astro` files; Vue components import SVGs via `vite-svg-loader` using the `?component` suffix
 - **Database**: Supabase (PostgreSQL)
-- **Market Data**: Massive (prices/dividends/splits/IPOs) + Finnhub (earnings, market hours, analyst/insider extras)
+- **Market Data**: Massive (prices/dividends/splits/IPOs) + Finnhub (symbols, earnings, market hours, analyst/insider extras)
 - **AI Summaries**: xAI (Grok) for optional News/Rumors add-ons and asset price alert summaries
 - **Email**: Resend
 - **SMS**: Twilio Verify API + Messaging API
 - **Hosting**: Vercel with Cron Jobs
 - **Phone Validation**: libphonenumber-js
-- **Search**: Finnhub symbol lookup API (server-side)
+- **Search**: Server-side search over Finnhub-sourced asset data (local DB)
 - **Linting**: Biome (no ESLint or Prettier)
 - **Testing**: Vitest + Playwright
 
