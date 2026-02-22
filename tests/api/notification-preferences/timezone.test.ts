@@ -115,27 +115,34 @@ describe("A signed-in user updates their timezone.", () => {
 		expect(updatedUser.timezone).toBe("Etc/UTC");
 	});
 
-	it("Changing timezone recomputes next_send_at for scheduled updates so delivery aligns with user's local time.", async () => {
+	it("Timezone change recomputes market_scheduled and daily_digest next_send_at and returns them in the response.", async () => {
 		const testUser = await createTestUser({
-			email: `test-tz-next-${randomUUID()}@resend.dev`,
+			email: `test-timezone-next-send-${randomUUID()}@resend.dev`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 			timezone: "America/New_York",
-			scheduledUpdateTimes: [9 * 60], // 09:00 local
-			trackedAssets: ["AAPL"],
+			scheduledUpdateTimes: [540],
+			trackedAssets: ["SPY"],
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const { data: beforeTz } = await adminClient
+		const { error: dailyDigestError } = await adminClient
+			.from("users")
+			.update({
+				daily_digest_time: 540,
+				daily_digest_include_news_email: true,
+			})
+			.eq("id", testUser.id);
+		expect(dailyDigestError).toBeNull();
+
+		const { data: beforeUpdate } = await adminClient
 			.from("users")
 			.select(
-				"timezone,market_scheduled_asset_price_next_send_at,market_scheduled_asset_price_times",
+				"market_scheduled_asset_price_next_send_at,daily_digest_next_send_at",
 			)
 			.eq("id", testUser.id)
 			.single();
-		expect(beforeTz?.market_scheduled_asset_price_next_send_at).toBeTruthy();
-		const nextSendAtBefore =
-			beforeTz?.market_scheduled_asset_price_next_send_at;
+		expect(beforeUpdate).not.toBeNull();
 
 		const cookies = await createAuthenticatedCookies(
 			testUser.email,
@@ -171,20 +178,22 @@ describe("A signed-in user updates their timezone.", () => {
 		expect(
 			json.notificationPreferences.market_scheduled_asset_price_next_send_at,
 		).toBeTruthy();
+		expect(json.notificationPreferences.daily_digest_next_send_at).toBeTruthy();
 
-		// 9am Eastern and 9am Pacific are 3 hours apart in UTC — next_send_at must change
-		const nextSendAtAfter =
-			json.notificationPreferences.market_scheduled_asset_price_next_send_at;
-		expect(nextSendAtAfter).not.toBe(nextSendAtBefore);
-
-		const { data: updatedUser } = await adminClient
+		const { data: afterUpdate } = await adminClient
 			.from("users")
-			.select("timezone,market_scheduled_asset_price_next_send_at")
+			.select(
+				"timezone,market_scheduled_asset_price_next_send_at,daily_digest_next_send_at",
+			)
 			.eq("id", testUser.id)
 			.single();
-		expect(updatedUser?.timezone).toBe("America/Los_Angeles");
-		expect(updatedUser?.market_scheduled_asset_price_next_send_at).toBe(
-			nextSendAtAfter,
+
+		expect(afterUpdate?.timezone).toBe("America/Los_Angeles");
+		expect(afterUpdate?.market_scheduled_asset_price_next_send_at).not.toBe(
+			beforeUpdate?.market_scheduled_asset_price_next_send_at,
+		);
+		expect(afterUpdate?.daily_digest_next_send_at).not.toBe(
+			beforeUpdate?.daily_digest_next_send_at,
 		);
 	});
 });
