@@ -14,6 +14,10 @@ function isSafeRedirectPath(value: string): boolean {
 	if (value.includes("\\")) {
 		return false;
 	}
+	// Reject CRLF to prevent HTTP response splitting (Location header injection)
+	if (value.includes("\n") || value.includes("\r")) {
+		return false;
+	}
 
 	return true;
 }
