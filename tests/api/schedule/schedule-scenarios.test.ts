@@ -362,4 +362,195 @@ describe("Scheduled notification scenarios", () => {
 		expect(smsLogs).toHaveLength(1);
 		expect(smsLogs?.[0]?.message_delivered).toBe(true);
 	});
+
+	it("Pacific timezone user receives scheduled market notification when cron fires at 9 AM their local time.", async () => {
+		// 9 AM Pacific (PST) = 17:00 UTC in winter
+		vi.setSystemTime(DateTime.fromISO("2026-01-14T17:00:00.000Z").toJSDate());
+
+		const timezone = "America/Los_Angeles";
+		const scheduledMinutes = 9 * 60; // 9:00 AM local
+
+		const { id } = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			scheduledUpdateTimes: [scheduledMinutes],
+			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceIncludeEmail: true,
+		});
+		registerTestUserForCleanup(id);
+
+		const { error: updateError } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", id);
+		expect(updateError).toBeNull();
+
+		const response = await SchedulePost({
+			request: createScheduleRequest(testCronSecret),
+		} as APIContext);
+		expect(response.status).toBe(200);
+
+		const { data: logs } = await adminClient
+			.from("notification_log")
+			.select("*")
+			.eq("user_id", id)
+			.eq("type", "market")
+			.eq("delivery_method", "email");
+		expect(logs).toHaveLength(1);
+	});
+
+	it("Two users in different timezones: only the user due at cron fire time receives notification.", async () => {
+		// 15:00 UTC = 10:00 AM Eastern, 7:00 AM Pacific (winter)
+		vi.setSystemTime(DateTime.fromISO("2026-01-14T15:00:00.000Z").toJSDate());
+
+		const userA = await createTestUser({
+			timezone: "America/New_York",
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			scheduledUpdateTimes: [10 * 60],
+			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceIncludeEmail: true,
+		});
+		registerTestUserForCleanup(userA.id);
+
+		const userB = await createTestUser({
+			timezone: "America/Los_Angeles",
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			scheduledUpdateTimes: [8 * 60],
+			trackedAssets: ["MSFT"],
+			marketScheduledAssetPriceIncludeEmail: true,
+		});
+		registerTestUserForCleanup(userB.id);
+
+		const { error: updateA } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", userA.id);
+		expect(updateA).toBeNull();
+
+		const eightAmPacificUtc = DateTime.fromISO(
+			"2026-01-14T16:00:00.000Z",
+		).toISO();
+		const { error: updateB } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: eightAmPacificUtc,
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", userB.id);
+		expect(updateB).toBeNull();
+
+		const response = await SchedulePost({
+			request: createScheduleRequest(testCronSecret),
+		} as APIContext);
+		expect(response.status).toBe(200);
+
+		const { data: logsA } = await adminClient
+			.from("notification_log")
+			.select("id")
+			.eq("user_id", userA.id)
+			.eq("type", "market");
+		expect(logsA).toHaveLength(1);
+
+		const { data: logsB } = await adminClient
+			.from("notification_log")
+			.select("id")
+			.eq("user_id", userB.id)
+			.eq("type", "market");
+		expect(logsB ?? []).toHaveLength(0);
+	});
+
+	it("User who disabled email before schedule fire receives no notification.", async () => {
+		const timezone = "America/New_York";
+		const nowLocal = DateTime.now().setZone(timezone);
+		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
+
+		const { id } = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			scheduledUpdateTimes: [scheduledTime],
+			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceIncludeEmail: true,
+		});
+		registerTestUserForCleanup(id);
+
+		const { error: seedError } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", id);
+		expect(seedError).toBeNull();
+
+		const { error: disableError } = await adminClient
+			.from("users")
+			.update({ email_notifications_enabled: false })
+			.eq("id", id);
+		expect(disableError).toBeNull();
+
+		const response = await SchedulePost({
+			request: createScheduleRequest(testCronSecret),
+		} as APIContext);
+		expect(response.status).toBe(200);
+
+		const { data: logs } = await adminClient
+			.from("notification_log")
+			.select("id")
+			.eq("user_id", id)
+			.eq("type", "market");
+		expect(logs ?? []).toHaveLength(0);
+	});
+
+	it("User who disabled market_scheduled_asset_price_enabled does not receive scheduled notification.", async () => {
+		const timezone = "America/New_York";
+		const nowLocal = DateTime.now().setZone(timezone);
+		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
+
+		const { id } = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			scheduledUpdateTimes: [scheduledTime],
+			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceIncludeEmail: true,
+		});
+		registerTestUserForCleanup(id);
+
+		const { error: seedError } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", id);
+		expect(seedError).toBeNull();
+
+		const { error: disableError } = await adminClient
+			.from("users")
+			.update({ market_scheduled_asset_price_enabled: false })
+			.eq("id", id);
+		expect(disableError).toBeNull();
+
+		const response = await SchedulePost({
+			request: createScheduleRequest(testCronSecret),
+		} as APIContext);
+		expect(response.status).toBe(200);
+
+		const { data: logs } = await adminClient
+			.from("notification_log")
+			.select("id")
+			.eq("user_id", id)
+			.eq("type", "market");
+		expect(logs ?? []).toHaveLength(0);
+	});
 });
