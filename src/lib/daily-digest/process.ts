@@ -535,7 +535,7 @@ export async function processDailyDigestUser(options: {
 		/* =============
 		Build extras per channel
 		============= */
-		function buildExtras(channel: "email" | "sms"): SmsExtras {
+		const buildExtras = (channel: "email" | "sms"): SmsExtras => {
 			const isSms = channel === "sms";
 			return {
 				news: isSms ? null : (newsResult?.content ?? null),
@@ -545,7 +545,7 @@ export async function processDailyDigestUser(options: {
 				citations:
 					!isSms && mergedCitations.length > 0 ? mergedCitations : undefined,
 			};
-		}
+		};
 
 		const emailExtras = emailEnabled ? buildExtras("email") : null;
 		const smsExtras = smsEnabled ? buildExtras("sms") : null;
