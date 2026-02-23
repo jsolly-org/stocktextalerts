@@ -1,4 +1,5 @@
 import type { buildAssetEventsContent } from "../asset-events/content";
+import { US_MARKET_TIMEZONE } from "../constants";
 import { getSiteUrl } from "../db/env";
 import type { Logger } from "../logging";
 import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
@@ -32,7 +33,6 @@ import type { SmsSenderProvider } from "../schedule/sms-sender";
 import type { MarketClosureInfo } from "../time/market-calendar";
 
 const TICKER_LINE_RE = /^[A-Z][A-Z0-9.-]{0,9}:\s/;
-const MARKET_TIME_ZONE = "America/New_York";
 
 /**
  * Ensure each ticker snippet starts after a blank line so entries are visually separated.
@@ -79,7 +79,7 @@ function getLatestQuoteTimestamp(assetPrices: AssetPriceMap): number | null {
 /** Format a Unix timestamp in Eastern time for display. */
 function formatQuoteTimestamp(timestamp: number): string {
 	return new Intl.DateTimeFormat("en-US", {
-		timeZone: MARKET_TIME_ZONE,
+		timeZone: US_MARKET_TIMEZONE,
 		month: "short",
 		day: "numeric",
 		year: "numeric",
