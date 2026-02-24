@@ -38,3 +38,36 @@ describe("json_string_array security limits", () => {
 		expect(output.arr).toEqual(arr);
 	});
 });
+
+describe("timezone security limits", () => {
+	const SCHEMA = {
+		tz: { type: "timezone" as const, required: true },
+	} satisfies FormSchema;
+
+	it("rejects timezone exceeding 64 chars", () => {
+		const longTz = "A".repeat(65);
+		const { errors } = processFields(["tz"], { tz: longTz }, SCHEMA);
+		expect(errors).toHaveLength(1);
+		expect(errors[0].reason).toBe("timezone_too_long");
+	});
+
+	it("rejects timezone with whitespace", () => {
+		const { errors } = processFields(
+			["tz"],
+			{ tz: "America/New York" },
+			SCHEMA,
+		);
+		expect(errors).toHaveLength(1);
+		expect(errors[0].reason).toBe("invalid_timezone");
+	});
+
+	it("accepts valid timezone within limits", () => {
+		const { errors, output } = processFields(
+			["tz"],
+			{ tz: "America/New_York" },
+			SCHEMA,
+		);
+		expect(errors).toHaveLength(0);
+		expect(output.tz).toBe("America/New_York");
+	});
+});

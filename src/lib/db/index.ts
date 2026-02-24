@@ -218,11 +218,6 @@ type NonUndefined<T> = {
 	[K in keyof T]: Exclude<T[K], undefined>;
 };
 
-/**
- * Return a shallow copy of `input` with all `undefined` values removed.
- *
- * Useful for building update payloads where omitted keys should not be persisted.
- */
 export function omitUndefined<T extends Record<string, unknown | undefined>>(
 	input: T,
 ) {

@@ -1,3 +1,4 @@
+import { US_MARKET_TIMEZONE } from "../constants";
 import { rootLogger } from "../logging";
 import { finnhubFetch } from "./finnhub";
 
@@ -436,7 +437,7 @@ export async function fetchIntradayBars(
 	symbol: string,
 ): Promise<number[] | null> {
 	const today = new Date().toLocaleDateString("en-CA", {
-		timeZone: "America/New_York",
+		timeZone: US_MARKET_TIMEZONE,
 	});
 	const data = await marketDataFetch(
 		`/v2/aggs/ticker/${encodeURIComponent(symbol)}/range/5/minute/${today}/${today}`,

@@ -92,6 +92,9 @@ outputs:
   comment_diff_hunk:
     description: Review comment diff hunk
     value: ${{ steps.review_context.outputs.comment_diff_hunk }}
+  inline_review_comments:
+    description: Inline comments from a full PR review (pull_request_review only)
+    value: ${{ steps.inline_comments.outputs.inline_review_comments }}
 
 runs:
   using: composite
@@ -212,6 +215,31 @@ runs:
           echo "is_author=$IS_AUTHOR"
           echo "comment_url=$COMMENT_URL"
           echo "comment_reference=$COMMENT_REFERENCE"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Fetch inline review comments
+      id: inline_comments
+      if: ${{ steps.should_skip.outputs.skip != 'true' && steps.pr_meta.outputs.is_pr == 'true' && inputs.event_name == 'pull_request_review' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.gh_token }}
+        REPO: ${{ inputs.repo }}
+        PR_NUMBER: ${{ steps.pr_meta.outputs.pr_number }}
+        REVIEW_ID: ${{ inputs.comment_id }}
+      run: |
+        # Fetch all review comments for this PR, filter by this review's ID.
+        # When CodeRabbit posts "Actionable comments posted: N", the actual feedback
+        # is in these inline comments, not in the review body.
+        COMMENTS_JSON=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/comments" 2>/dev/null | jq -s 'add' || echo "[]")
+        INLINE_BODIES=$(echo "$COMMENTS_JSON" | jq -r --argjson rid "$REVIEW_ID" '
+          [.[] | select(.pull_request_review_id == $rid) | "**File:** \(.path)\(if .line then " (line \(.line))" else "" end)\n\(.body)\n"]
+          | join("\n---\n")'
+        )
+        DELIM=$(openssl rand -hex 16)
+        {
+          echo "inline_review_comments<<${DELIM}"
+          printf '%s\n' "$INLINE_BODIES"
+          echo "${DELIM}"
         } >> "$GITHUB_OUTPUT"
 
     - name: Fetch review comment context
