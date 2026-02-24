@@ -101,6 +101,7 @@ export async function marketDataFetch(
 	endpoint: string,
 	params: Record<string, string>,
 	label: string,
+	logContext?: Record<string, unknown>,
 ): Promise<unknown> {
 	const apiKey = getMassiveApiKey();
 	if (!apiKey) return null;
@@ -127,6 +128,7 @@ export async function marketDataFetch(
 					endpoint,
 					attempt,
 					status: 429,
+					...logContext,
 				});
 				if (!isLastAttempt) {
 					await new Promise((r) =>
@@ -152,6 +154,7 @@ export async function marketDataFetch(
 					attempt,
 					status: response.status,
 					apiStatus,
+					...logContext,
 				});
 				if (!isLastAttempt) {
 					await new Promise((r) =>
@@ -168,6 +171,7 @@ export async function marketDataFetch(
 				endpoint,
 				attempt,
 				error: error instanceof Error ? error.message : String(error),
+				...logContext,
 			});
 			if (!isLastAttempt) {
 				await new Promise((r) =>
@@ -558,6 +562,7 @@ export async function fetchSnapshotQuotes(
 		"/v2/snapshot/locale/us/markets/stocks/tickers",
 		{ tickers: symbols.join(",") },
 		"snapshot-quotes",
+		{ tickerCount: symbols.length },
 	);
 
 	if (typeof data !== "object" || data === null) return result;
