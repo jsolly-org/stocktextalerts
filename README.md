@@ -13,7 +13,7 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - **Market Notifications** - Choose up to 5 delivery times for scheduled asset price updates, and decide if they're delivered by email, SMS, or both
 - **Daily Digest** - Once-daily email digest with optional extras (News/Rumors are email-only and may include clickable source links)
 - **Asset Events** - Daily notification of upcoming calendar events (earnings/dividends/splits) and IPOs, plus optional insider trades and analyst consensus (delivered by email and/or SMS; calendar events are toggled together per channel)
-- **Format Preferences** - Customize how your updates look with live SMS/email previews
+- **Format Preferences** - Customize how your updates look with live SMS/email previews and optional sparklines (weekly price trend)
 - **SMS Opt-out** - Reply STOP to opt out of SMS; reply START to opt back in (then re-enable SMS in your dashboard)
 
 ## Tech Stack
