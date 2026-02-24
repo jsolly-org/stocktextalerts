@@ -1,42 +1,24 @@
 import type { APIRoute } from "astro";
 import { clearAuthCookies } from "../../../lib/auth/cookies";
 import { getSafeRedirectPath } from "../../../lib/auth/redirects";
+import { escapeHtml } from "../../../lib/messaging/asset-formatting";
 
 function getSafeNext(nextParam: string | null): string {
 	return getSafeRedirectPath(nextParam) ?? "/";
 }
 
-function escapeHtmlAttribute(value: string): string {
-	return value
-		.replaceAll("&", "&amp;")
-		.replaceAll('"', "&quot;")
-		.replaceAll("<", "&lt;")
-		.replaceAll(">", "&gt;");
-}
-
-/**
- * Sign the user out by clearing auth cookies.
- *
- * This endpoint is intentionally state-changing and should be invoked via POST.
- */
 export const POST: APIRoute = async ({ cookies, redirect, url }) => {
 	clearAuthCookies(cookies);
 	const next = getSafeNext(url?.searchParams.get("next") ?? null);
 	return redirect(next);
 };
 
-/**
- * Render a safe "Confirm sign out" page for direct GET navigation.
- *
- * Keeping GET non-state-changing avoids accidental sign-outs via prefetches,
- * crawlers, or cross-site requests while still matching user expectations when
- * navigating directly to this endpoint.
- */
+// GET is non-state-changing to avoid accidental sign-outs via prefetches/crawlers.
 export const GET: APIRoute = async ({ url }) => {
 	const next = getSafeNext(url.searchParams.get("next"));
 	const action = `/api/auth/signout?next=${encodeURIComponent(next)}`;
-	const safeAction = escapeHtmlAttribute(action);
-	const safeNext = escapeHtmlAttribute(next);
+	const safeAction = escapeHtml(action);
+	const safeNext = escapeHtml(next);
 	const html = `<!doctype html>
 <html lang="en">
   <head>

@@ -98,5 +98,5 @@ export async function purgeStaleStaged(
 		return 0;
 	}
 
-	return data?.length ?? 0;
+	return (data ?? []).length;
 }

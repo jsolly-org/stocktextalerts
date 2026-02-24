@@ -7,17 +7,8 @@ import {
 	cleanupTestUser,
 	createTestUser,
 	generateUniquePhoneNumber,
+	getTestUserPhone,
 } from "../../helpers/test-user";
-
-async function getTestUserPhone(userId: string): Promise<string> {
-	const { data: user } = await adminClient
-		.from("users")
-		.select("phone_country_code,phone_number")
-		.eq("id", userId)
-		.single();
-	if (!user) throw new Error("expected user row");
-	return `${user.phone_country_code}${user.phone_number}`;
-}
 
 const { validateRequestMock } = vi.hoisted(() => ({
 	validateRequestMock: vi.fn(),
