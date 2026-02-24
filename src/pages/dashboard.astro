@@ -1,6 +1,5 @@
 ---
 
-import { parsePhoneNumberFromString } from "libphonenumber-js";
 import DashboardPanels from "../components/dashboard/DashboardPanels.vue";
 import Navigation from "../components/Navigation.astro";
 import Layout from "../layouts/Layout.astro";
@@ -8,7 +7,7 @@ import { buildSigninRedirectUrl } from "../lib/auth/redirects";
 import { createUserService, getUserAssets } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 import { rootLogger } from "../lib/logging";
-import { formatPhoneForDisplay } from "../lib/messaging/format-phone";
+import { formatPhoneFromE164 } from "../lib/messaging/format-phone";
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
@@ -37,11 +36,7 @@ const user = dbUser;
 const initialAssets = userAssets.map((asset) => ({ symbol: asset.symbol, name: asset.name, type: asset.type }));
 
 const rawTwilioNumber = import.meta.env.TWILIO_PHONE_NUMBER ?? "";
-let smsPhoneNumber = rawTwilioNumber;
-const parsed = parsePhoneNumberFromString(rawTwilioNumber);
-if (parsed) {
-	smsPhoneNumber = formatPhoneForDisplay(`+${parsed.countryCallingCode}`, String(parsed.nationalNumber));
-}
+const smsPhoneNumber = formatPhoneFromE164(rawTwilioNumber);
 ---
 <Layout title="Dashboard" description="Review and manage your asset notifications. Add or remove tracked assets, set your delivery schedule, and choose email or SMS delivery." noindex>
 	<div class="min-h-screen bg-surface-alt">

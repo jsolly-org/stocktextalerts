@@ -1,4 +1,4 @@
-import { AsYouType } from "libphonenumber-js";
+import { AsYouType, parsePhoneNumberFromString } from "libphonenumber-js";
 
 /**
  * Format a phone number for display given a country code and national number.
@@ -19,4 +19,18 @@ export function formatPhoneForDisplay(
 		return `${countryCode} ${formattedNational}`;
 	}
 	return `${countryCode} ${nationalNumber}`;
+}
+
+/**
+ * Format an E.164 phone string for display. Returns the raw string if parsing fails.
+ */
+export function formatPhoneFromE164(raw: string): string {
+	const trimmed = raw.trim();
+	if (!trimmed) return "";
+	const parsed = parsePhoneNumberFromString(trimmed, { extract: false });
+	if (!parsed) return trimmed;
+	return formatPhoneForDisplay(
+		`+${parsed.countryCallingCode}`,
+		String(parsed.nationalNumber),
+	);
 }
