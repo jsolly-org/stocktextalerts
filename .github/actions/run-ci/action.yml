@@ -130,9 +130,9 @@ runs:
         supabase start -x studio,imgproxy,logflare,vector,postgres-meta,edge-runtime,realtime,storage-api &
         SB_PID=$!
         if [[ "${{ steps.playwright-cache.outputs.cache-hit }}" == "true" ]]; then
-          npx playwright install-deps &
+          npx playwright install-deps chromium &
         else
-          npx playwright install --with-deps &
+          npx playwright install chromium --with-deps &
         fi
         PW_PID=$!
         wait $SB_PID
