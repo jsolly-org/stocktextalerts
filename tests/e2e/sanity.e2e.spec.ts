@@ -523,6 +523,9 @@ test.describe("sanity tests", () => {
 		await page.goto("/profile");
 		await expectCurrentPath(page, "/profile");
 
+		// Wait for the TimezoneSection Vue component to hydrate (client:idle).
+		await page.locator("[data-hydrated]").waitFor({ timeout: 15_000 });
+
 		const timezoneSelect = page.locator("#profile-timezone");
 		const currentTimezone = await timezoneSelect.inputValue();
 		const targetTimezone =
@@ -530,7 +533,15 @@ test.describe("sanity tests", () => {
 				? "America/New_York"
 				: "America/Chicago";
 
-		await timezoneSelect.selectOption(targetTimezone);
+		await Promise.all([
+			page.waitForResponse(
+				(response) =>
+					response.url().includes("/api/notification-preferences/timezone") &&
+					response.status() === 200,
+				{ timeout: 15_000 },
+			),
+			timezoneSelect.selectOption(targetTimezone),
+		]);
 		await expect(page.getByText("Timezone updated.")).toBeVisible({
 			timeout: 10_000,
 		});

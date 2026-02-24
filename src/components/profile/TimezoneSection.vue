@@ -2,6 +2,7 @@
 	<section
 		class="card"
 		aria-labelledby="timezone-heading"
+		:data-hydrated="isClient || undefined"
 	>
 		<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.gray}`"></div>
 		<div class="card-body">

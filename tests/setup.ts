@@ -30,12 +30,12 @@ assertLiveProviderKey({ provider: "email", envVar: "RESEND_API_KEY" });
 assertLiveProviderKey({ provider: "sms", envVar: "TWILIO_ACCOUNT_SID" });
 
 // Data-provider stubs blank the API key so provider code skips real HTTP calls.
-// NOTE: vi.stubEnv only affects the test module context, NOT source code in src/.
-// Source code reads import.meta.env from Vite's env loading, which is unaffected
-// by vi.stubEnv. The data-provider stubs still work because provider code checks
-// for an empty key and bails out. Email/SMS mocking is handled by the MODE check
-// combined with LIVE_API_PROVIDERS in the source code itself (see createEmailSender
-// and createSmsSender), so no stubs are needed for those.
+// NOTE: vi.stubEnv affects import.meta.env globally (including source code in src/),
+// so stubbing a key to "" causes provider code to see an empty key and bail out.
+// Email/SMS mocking is handled by the MODE check combined with LIVE_API_PROVIDERS
+// in the source code itself (see createEmailSender and createSmsSender), so no
+// stubs are needed for those. Tests that stub Twilio credentials must guard those
+// stubs with isLiveProviderEnabled("sms") to avoid overriding real credentials.
 if (!isLiveProviderEnabled("massive")) {
 	vi.stubEnv("MASSIVE_API_KEY", "");
 }
