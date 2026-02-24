@@ -2,17 +2,35 @@
  * Scenario-based tests for the scheduled notification pipeline.
  *
  * Covers real-world user journeys: opt-out propagation, dual-channel delivery,
- * and timezone handling.
+ * timezone handling, and unsubscribe-to-schedule flow.
  */
+import { getContainerRenderer as getVueRenderer } from "@astrojs/vue";
 import type { APIContext } from "astro";
+import { experimental_AstroContainer as AstroContainer } from "astro/container";
+import { loadRenderers } from "astro/virtual-modules/container.js";
 import { DateTime } from "luxon";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+	afterEach,
+	beforeAll,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	vi,
+} from "vitest";
+import { createEmailUnsubscribeToken } from "../../../src/lib/messaging/email/unsubscribe";
 import { POST as InboundPost } from "../../../src/pages/api/messaging/inbound";
 import { POST as SchedulePost } from "../../../src/pages/api/schedule";
+import EmailUnsubscribePage from "../../../src/pages/email/unsubscribe.astro";
+import { isLiveProviderEnabled } from "../../helpers/live-api";
 import { buildSmsInboundRequest } from "../../helpers/request-helpers";
 import { createScheduleRequest } from "../../helpers/schedule-request";
 import { adminClient } from "../../helpers/test-env";
-import { createTestUser, getTestUserPhone } from "../../helpers/test-user";
+import {
+	createTestEmail,
+	createTestUser,
+	getTestUserPhone,
+} from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 const twilioMocks = vi.hoisted(() => ({
@@ -47,6 +65,12 @@ vi.mock("../../../src/lib/time/market-calendar", async (importOriginal) => {
 describe("Scheduled notification scenarios", () => {
 	const testCronSecret = "test-cron-secret";
 
+	let renderers: Awaited<ReturnType<typeof loadRenderers>>;
+
+	beforeAll(async () => {
+		renderers = await loadRenderers([getVueRenderer()]);
+	});
+
 	beforeEach(() => {
 		vi.useFakeTimers();
 		vi.setSystemTime(DateTime.fromISO("2026-01-12T15:00:00.000Z").toJSDate());
@@ -54,7 +78,9 @@ describe("Scheduled notification scenarios", () => {
 		vi.stubEnv("SMS_TEST_BEHAVIOR", "success");
 		vi.stubEnv("SMS_TEST_MESSAGE_SID", "test-sms-sid");
 		vi.stubEnv("SCHEDULE_PASS_DELAY_MS", "0");
-		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+		if (!isLiveProviderEnabled("sms")) {
+			vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+		}
 		twilioMocks.validateRequest.mockReset();
 		marketCalendarMocks.getUsMarketClosureInfoForInstant.mockResolvedValue(
 			null,
@@ -127,9 +153,11 @@ describe("Scheduled notification scenarios", () => {
 	});
 
 	it("User with both email and SMS enabled receives both at scheduled time.", async () => {
-		vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
-		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-		vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
+		if (!isLiveProviderEnabled("sms")) {
+			vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
+			vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+			vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
+		}
 
 		const timezone = "America/New_York";
 		const nowLocal = DateTime.now().setZone(timezone);
@@ -179,6 +207,48 @@ describe("Scheduled notification scenarios", () => {
 		expect(smsLogError).toBeNull();
 		expect(smsLogs).toHaveLength(1);
 		expect(smsLogs?.[0]?.message_delivered).toBe(true);
+	});
+
+	it("User with show_sparklines disabled receives scheduled notification without sparkline characters in message.", async () => {
+		const timezone = "America/New_York";
+		const nowLocal = DateTime.now().setZone(timezone);
+		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
+
+		const { id } = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			scheduledUpdateTimes: [scheduledTime],
+			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceIncludeEmail: true,
+		});
+		registerTestUserForCleanup(id);
+
+		const { error: updateError } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+				market_scheduled_asset_price_enabled: true,
+				show_sparklines: false,
+			})
+			.eq("id", id);
+		expect(updateError).toBeNull();
+
+		const response = await SchedulePost({
+			request: createScheduleRequest(testCronSecret),
+		} as APIContext);
+		expect(response.status).toBe(200);
+
+		const { data: logs } = await adminClient
+			.from("notification_log")
+			.select("message")
+			.eq("user_id", id)
+			.eq("type", "market")
+			.eq("delivery_method", "email");
+		expect(logs).toHaveLength(1);
+		const message = logs?.[0]?.message ?? "";
+		expect(message).not.toMatch(/[▁▂▃▄▅▆▇█]/);
+		expect(message).toContain("AAPL");
 	});
 
 	it("User with scheduled times but no tracked assets receives no-assets message and next_send_at advances.", async () => {
@@ -361,6 +431,46 @@ describe("Scheduled notification scenarios", () => {
 			.eq("delivery_method", "sms");
 		expect(smsLogs).toHaveLength(1);
 		expect(smsLogs?.[0]?.message_delivered).toBe(true);
+	});
+
+	it("User in London timezone receives scheduled market notification when cron fires at 9 AM their local time.", async () => {
+		// 9 AM GMT (London winter) = 09:00 UTC
+		vi.setSystemTime(DateTime.fromISO("2026-01-14T09:00:00.000Z").toJSDate());
+
+		const timezone = "Europe/London";
+		const scheduledMinutes = 9 * 60; // 9:00 AM local
+
+		const { id } = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			scheduledUpdateTimes: [scheduledMinutes],
+			trackedAssets: ["MSFT"],
+			marketScheduledAssetPriceIncludeEmail: true,
+		});
+		registerTestUserForCleanup(id);
+
+		const { error: updateError } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", id);
+		expect(updateError).toBeNull();
+
+		const response = await SchedulePost({
+			request: createScheduleRequest(testCronSecret),
+		} as APIContext);
+		expect(response.status).toBe(200);
+
+		const { data: logs } = await adminClient
+			.from("notification_log")
+			.select("*")
+			.eq("user_id", id)
+			.eq("type", "market")
+			.eq("delivery_method", "email");
+		expect(logs).toHaveLength(1);
 	});
 
 	it("Pacific timezone user receives scheduled market notification when cron fires at 9 AM their local time.", async () => {
@@ -551,6 +661,67 @@ describe("Scheduled notification scenarios", () => {
 			.select("id")
 			.eq("user_id", id)
 			.eq("type", "market");
+		expect(logs ?? []).toHaveLength(0);
+	});
+
+	it("User who unsubscribes via email link does not receive email when schedule fires.", async () => {
+		const timezone = "America/New_York";
+		const nowLocal = DateTime.now().setZone(timezone);
+		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
+
+		const testUser = await createTestUser({
+			email: createTestEmail("unsub-schedule"),
+			timezone,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			scheduledUpdateTimes: [scheduledTime],
+			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceIncludeEmail: true,
+		});
+		registerTestUserForCleanup(testUser.id);
+
+		const { error: seedError } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", testUser.id);
+		expect(seedError).toBeNull();
+
+		const token = createEmailUnsubscribeToken({
+			userId: testUser.id,
+			email: testUser.email,
+		});
+		const url = new URL("http://localhost/email/unsubscribe");
+		url.searchParams.set("user", testUser.id);
+		url.searchParams.set("token", token);
+
+		const container = await AstroContainer.create({ renderers });
+		const unsubscribeResponse = await container.renderToResponse(
+			EmailUnsubscribePage,
+			{ request: new Request(url.toString()) },
+		);
+		expect(unsubscribeResponse.status).toBe(200);
+
+		const { data: afterUnsub } = await adminClient
+			.from("users")
+			.select("email_notifications_enabled")
+			.eq("id", testUser.id)
+			.single();
+		expect(afterUnsub?.email_notifications_enabled).toBe(false);
+
+		const response = await SchedulePost({
+			request: createScheduleRequest(testCronSecret),
+		} as APIContext);
+		expect(response.status).toBe(200);
+
+		const { data: logs } = await adminClient
+			.from("notification_log")
+			.select("id")
+			.eq("user_id", testUser.id)
+			.eq("type", "market")
+			.eq("delivery_method", "email");
 		expect(logs ?? []).toHaveLength(0);
 	});
 });
