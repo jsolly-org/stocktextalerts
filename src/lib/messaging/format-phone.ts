@@ -28,7 +28,7 @@ export function formatPhoneFromE164(raw: string): string {
 	const trimmed = raw.trim();
 	if (!trimmed) return "";
 	const parsed = parsePhoneNumberFromString(trimmed, { extract: false });
-	if (!parsed) return raw;
+	if (!parsed) return trimmed;
 	return formatPhoneForDisplay(
 		`+${parsed.countryCallingCode}`,
 		String(parsed.nationalNumber),
