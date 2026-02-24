@@ -25,8 +25,9 @@ export function formatPhoneForDisplay(
  * Format an E.164 phone string for display. Returns the raw string if parsing fails.
  */
 export function formatPhoneFromE164(raw: string): string {
-	if (!raw.trim()) return "";
-	const parsed = parsePhoneNumberFromString(raw, { extract: false });
+	const trimmed = raw.trim();
+	if (!trimmed) return "";
+	const parsed = parsePhoneNumberFromString(trimmed, { extract: false });
 	if (!parsed) return raw;
 	return formatPhoneForDisplay(
 		`+${parsed.countryCallingCode}`,
