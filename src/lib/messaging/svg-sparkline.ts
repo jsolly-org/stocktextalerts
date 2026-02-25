@@ -1,5 +1,18 @@
 import { escapeHtml } from "./asset-formatting";
 
+/** A time label to render on the sparkline's x-axis. */
+export interface SparklineTimeLabel {
+	/** Position as fraction 0–1 along the x-axis. */
+	position: number;
+	/** Label text, e.g. "9:30a". */
+	label: string;
+}
+
+const AXIS_HEIGHT = 14;
+const LABEL_COLOR = "#9ca3af";
+const LABEL_FONT_SIZE = 8;
+const TICK_HEIGHT = 3;
+
 /**
  * Generate an inline SVG area-chart sparkline as a base64 `<img>` tag.
  *
@@ -12,8 +25,12 @@ export function toSvgSparklineImg(
 	width = 120,
 	height = 30,
 	alt = "sparkline",
+	timeLabels?: SparklineTimeLabel[],
 ): string {
 	if (values.length < 2) return "";
+
+	const hasAxis = timeLabels && timeLabels.length > 0;
+	const totalHeight = hasAxis ? height + AXIS_HEIGHT : height;
 
 	const min = Math.min(...values);
 	const max = Math.max(...values);
@@ -33,20 +50,45 @@ export function toSvgSparklineImg(
 	const areaPoints = `${polylinePoints} ${(padding + chartW).toFixed(1)},${(padding + chartH).toFixed(1)} ${padding.toFixed(1)},${(padding + chartH).toFixed(1)}`;
 
 	const gradientId = "sg";
-	const svg = [
-		`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`,
+	const svgParts = [
+		`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${totalHeight}" viewBox="0 0 ${width} ${totalHeight}">`,
 		`<defs><linearGradient id="${gradientId}" x1="0" y1="0" x2="0" y2="1">`,
 		`<stop offset="0%" stop-color="${color}" stop-opacity="0.3"/>`,
 		`<stop offset="100%" stop-color="${color}" stop-opacity="0.05"/>`,
 		`</linearGradient></defs>`,
 		`<polygon points="${areaPoints}" fill="url(#${gradientId})"/>`,
 		`<polyline points="${polylinePoints}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`,
-		`</svg>`,
-	].join("");
+	];
+
+	if (hasAxis) {
+		const axisY = height;
+		// Baseline
+		svgParts.push(
+			`<line x1="${padding}" y1="${axisY}" x2="${padding + chartW}" y2="${axisY}" stroke="${LABEL_COLOR}" stroke-width="0.5"/>`,
+		);
+
+		for (let i = 0; i < timeLabels.length; i++) {
+			const tl = timeLabels[i];
+			const x = padding + tl.position * chartW;
+			// Tick mark
+			svgParts.push(
+				`<line x1="${x.toFixed(1)}" y1="${axisY}" x2="${x.toFixed(1)}" y2="${axisY + TICK_HEIGHT}" stroke="${LABEL_COLOR}" stroke-width="0.5"/>`,
+			);
+			// Text anchor: first=start, last=end, middle=middle
+			const anchor =
+				i === 0 ? "start" : i === timeLabels.length - 1 ? "end" : "middle";
+			svgParts.push(
+				`<text x="${x.toFixed(1)}" y="${axisY + AXIS_HEIGHT - 1}" font-family="sans-serif" font-size="${LABEL_FONT_SIZE}" fill="${LABEL_COLOR}" text-anchor="${anchor}">${escapeHtml(tl.label)}</text>`,
+			);
+		}
+	}
+
+	svgParts.push(`</svg>`);
+	const svg = svgParts.join("");
 
 	const base64 =
 		typeof btoa === "function"
 			? btoa(svg)
 			: Buffer.from(svg).toString("base64");
-	return `<img src="data:image/svg+xml;base64,${base64}" alt="${escapeHtml(alt)}" width="${width}" height="${height}" style="vertical-align: middle;" />`;
+	return `<img src="data:image/svg+xml;base64,${base64}" alt="${escapeHtml(alt)}" width="${width}" height="${totalHeight}" style="vertical-align: middle;" />`;
 }

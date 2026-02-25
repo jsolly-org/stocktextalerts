@@ -171,13 +171,14 @@ export async function processMarketScheduledUser(options: {
 				);
 			}
 		}
-		const getSparkline = (symbol: string) => sparklines.get(symbol)?.ascii;
+		const getSparkline = (symbol: string) => sparklines.get(symbol) ?? null;
+		const getAsciiSparkline = (symbol: string) => sparklines.get(symbol)?.ascii;
 
 		const assetsList = formatAssetsTextList(
 			userAssets,
 			(symbol) => priceMap.get(symbol) ?? undefined,
 			formatPrefs,
-			getSparkline,
+			getAsciiSparkline,
 		);
 
 		const shouldAttemptSms = shouldSendSms(user);

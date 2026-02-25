@@ -9,6 +9,7 @@ import {
 	buildMarketClosedBannerHtml,
 	buildMarketClosedBannerText,
 } from "../market-closure-banner";
+import type { SparklineData } from "../sparkline";
 import type {
 	DeliveryResult,
 	EmailUser,
@@ -126,7 +127,7 @@ export function formatEmailMessage(
 	priceMap: AssetPriceMap,
 	marketOpen: boolean,
 	formatPrefs?: FormatPreferences,
-	getSparkline?: (symbol: string) => string | null | undefined,
+	getSparkline?: (symbol: string) => SparklineData | null | undefined,
 	marketClosureInfo?: MarketClosureInfo | null,
 ): { text: string; html: string } {
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();

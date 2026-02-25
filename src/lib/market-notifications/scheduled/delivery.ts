@@ -7,6 +7,7 @@ import { processEmailUpdate } from "../../messaging/email/delivery";
 import type { EmailSender } from "../../messaging/email/utils";
 import { recordNotification } from "../../messaging/shared";
 import { processSmsUpdate } from "../../messaging/sms/delivery";
+import type { SparklineData } from "../../messaging/sparkline";
 import type {
 	FormatPreferences,
 	UserAssetRow,
@@ -44,7 +45,7 @@ export async function processMarketScheduledEmailDelivery(options: {
 	marketClosureInfo?: MarketClosureInfo | null;
 	stats: ScheduledNotificationTotals;
 	formatPrefs?: FormatPreferences;
-	getSparkline?: (symbol: string) => string | null | undefined;
+	getSparkline?: (symbol: string) => SparklineData | null | undefined;
 }): Promise<void> {
 	const {
 		user,
