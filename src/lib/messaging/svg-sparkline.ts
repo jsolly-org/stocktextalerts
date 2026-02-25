@@ -58,16 +58,18 @@ export function toSvgSparklineImg(
 			? timeAxis.endTimestamp - timeAxis.startTimestamp
 			: 0;
 
+	// Use time-based x only when all timestamps are present; otherwise fall back to
+	// index-based positioning for the whole series to avoid non-monotonic points.
+	const canUseTimeAxis =
+		timeAxis &&
+		timeSpan > 0 &&
+		timeAxis.timestamps.length === values.length &&
+		timeAxis.timestamps.every((t) => t != null && Number.isFinite(t));
+
 	const points = values.map((v, i) => {
 		let x: number;
 		const ts = timeAxis?.timestamps[i] ?? null;
-		if (
-			timeAxis &&
-			timeSpan > 0 &&
-			timeAxis.timestamps.length === values.length &&
-			ts != null &&
-			Number.isFinite(ts)
-		) {
+		if (canUseTimeAxis && ts != null && Number.isFinite(ts)) {
 			const frac = (ts - timeAxis.startTimestamp) / timeSpan;
 			x = padding + Math.max(0, Math.min(1, frac)) * chartW;
 		} else {
