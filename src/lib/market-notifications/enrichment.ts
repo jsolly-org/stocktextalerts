@@ -13,6 +13,10 @@ export interface EnrichedAlert {
 	headlines: CompanyNewsItem[];
 	aiSummary: string | null;
 	intradayCloses: number[] | null;
+	/** First bar timestamp (ms) for sparkline axis; null when bars lack timestamps. */
+	intradayStartTimestamp: number | null;
+	/** Last bar timestamp (ms) for sparkline axis; null when bars lack timestamps. */
+	intradayEndTimestamp: number | null;
 	/** True when price moved up (changePercent >= 0). Used for subject-line direction. */
 	isPositiveMove: boolean;
 }
@@ -45,8 +49,18 @@ export async function enrichAlert(options: {
 	signalContext: string;
 	news: CompanyNewsItem[];
 	intradayCloses: number[] | null;
+	intradayStartTimestamp: number | null;
+	intradayEndTimestamp: number | null;
 }): Promise<EnrichedAlert> {
-	const { symbol, quote, signalContext, news, intradayCloses } = options;
+	const {
+		symbol,
+		quote,
+		signalContext,
+		news,
+		intradayCloses,
+		intradayStartTimestamp,
+		intradayEndTimestamp,
+	} = options;
 
 	const priceContext = buildPriceContext(symbol, quote);
 
@@ -68,6 +82,8 @@ export async function enrichAlert(options: {
 		headlines: news,
 		aiSummary,
 		intradayCloses,
+		intradayStartTimestamp,
+		intradayEndTimestamp,
 		isPositiveMove: quote.changePercent >= 0,
 	};
 }

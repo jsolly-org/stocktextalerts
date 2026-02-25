@@ -412,6 +412,51 @@ export function extractClosesFromBars(payload: unknown): number[] | null {
 	return closes.length > 0 ? closes : null;
 }
 
+/** Result of extracting closes and timestamps from intraday bars. */
+export interface IntradayBarsResult {
+	closes: number[];
+	/** First bar timestamp (ms since epoch), or null if bars lack timestamps. */
+	startTimestamp: number | null;
+	/** Last bar timestamp (ms since epoch), or null if bars lack timestamps. */
+	endTimestamp: number | null;
+}
+
+/**
+ * Extract closing prices and bar timestamps from a Polygon/Massive bars API response.
+ *
+ * Expects bar objects with `c` (close) and `t` (timestamp in ms). Returns `null` when
+ * no valid bars exist. Uses first and last valid bar timestamps for axis labeling.
+ */
+export function extractClosesAndTimestampsFromBars(
+	payload: unknown,
+): IntradayBarsResult | null {
+	if (typeof payload !== "object" || payload === null) return null;
+
+	const results = (payload as Record<string, unknown>).results;
+	if (!Array.isArray(results)) return null;
+
+	const closes: number[] = [];
+	let startTimestamp: number | null = null;
+	let endTimestamp: number | null = null;
+
+	for (const bar of results) {
+		if (typeof bar !== "object" || bar === null) continue;
+		const rec = bar as Record<string, unknown>;
+		const c = rec.c;
+		const t = rec.t;
+		if (typeof c !== "number" || !Number.isFinite(c)) continue;
+		const ts = typeof t === "number" && Number.isFinite(t) ? t : null;
+		closes.push(c);
+		if (ts !== null) {
+			if (startTimestamp === null) startTimestamp = ts;
+			endTimestamp = ts;
+		}
+	}
+
+	if (closes.length === 0) return null;
+	return { closes, startTimestamp, endTimestamp };
+}
+
 /**
  * Fetch daily closing prices for a single symbol over a date range.
  *
@@ -435,11 +480,11 @@ export async function fetchDailyCloses(
  * Fetch intraday 5-minute closing prices for a single symbol (today, ET timezone).
  *
  * Uses `/v2/aggs/ticker/{symbol}/range/5/minute/{today}/{today}?sort=asc&limit=5000`.
- * Returns an array of closing prices, or null on failure.
+ * Returns closes and bar timestamps for axis labeling, or null on failure.
  */
 export async function fetchIntradayBars(
 	symbol: string,
-): Promise<number[] | null> {
+): Promise<IntradayBarsResult | null> {
 	const today = new Date().toLocaleDateString("en-CA", {
 		timeZone: US_MARKET_TIMEZONE,
 	});
@@ -448,7 +493,7 @@ export async function fetchIntradayBars(
 		{ sort: "asc", limit: "5000" },
 		"intraday-bars",
 	);
-	return extractClosesFromBars(data);
+	return extractClosesAndTimestampsFromBars(data);
 }
 
 /**

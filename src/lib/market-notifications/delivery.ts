@@ -1,4 +1,4 @@
-import { DASHBOARD_SECTION_HASHES } from "../constants";
+import { DASHBOARD_SECTION_HASHES, US_MARKET_TIMEZONE } from "../constants";
 import { getSiteUrl } from "../db/env";
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
@@ -115,24 +115,54 @@ function formatCompactTime(totalMinutes: number, is24: boolean): string {
 		: `${h12}:${String(m).padStart(2, "0")}${period}`;
 }
 
-/** Build time-axis labels for an intraday sparkline (market open → alert time). */
+/** Convert timestamp (ms) to minutes-from-midnight in ET. */
+function getMinutesFromMidnightET(ms: number): number {
+	const parts = new Intl.DateTimeFormat("en-CA", {
+		timeZone: US_MARKET_TIMEZONE,
+		hour: "numeric",
+		minute: "numeric",
+		hour12: false,
+	}).formatToParts(new Date(ms));
+	const hour = Number.parseInt(
+		parts.find((p) => p.type === "hour")?.value ?? "0",
+		10,
+	);
+	const minute = Number.parseInt(
+		parts.find((p) => p.type === "minute")?.value ?? "0",
+		10,
+	);
+	return hour * 60 + minute;
+}
+
+/** Build time-axis labels for an intraday sparkline (market open → alert time).
+ *  Uses real bar timestamps when available; falls back to bar-count inference for backwards compat. */
 function buildIntradayTimeLabels(
 	barCount: number,
 	is24: boolean,
+	startTimestampMs?: number | null,
+	endTimestampMs?: number | null,
 ): SparklineTimeLabel[] {
 	if (barCount < 2) return [];
+
+	const startMinutes =
+		startTimestampMs != null
+			? getMinutesFromMidnightET(startTimestampMs)
+			: MARKET_OPEN_MINUTES;
 	const endMinutes =
-		MARKET_OPEN_MINUTES + (barCount - 1) * INTRADAY_BAR_MINUTES;
+		endTimestampMs != null
+			? getMinutesFromMidnightET(endTimestampMs)
+			: MARKET_OPEN_MINUTES + (barCount - 1) * INTRADAY_BAR_MINUTES;
+
 	const labels: SparklineTimeLabel[] = [
-		{ position: 0, label: formatCompactTime(MARKET_OPEN_MINUTES, is24) },
+		{ position: 0, label: formatCompactTime(startMinutes, is24) },
 	];
 
-	// Add hourly ticks between open and end (if room)
-	const totalSpan = endMinutes - MARKET_OPEN_MINUTES;
+	// Add hourly ticks between start and end (if room)
+	const totalSpan = endMinutes - startMinutes;
 	if (totalSpan > 60) {
-		const firstHour = Math.ceil(MARKET_OPEN_MINUTES / 60) * 60; // 10:00
+		const firstHour = Math.ceil(startMinutes / 60) * 60;
 		for (let min = firstHour; min < endMinutes; min += 60) {
-			const pos = (min - MARKET_OPEN_MINUTES) / totalSpan;
+			const pos = (min - startMinutes) / totalSpan;
 			if (pos > 0.15 && pos < 0.85) {
 				labels.push({ position: pos, label: formatCompactTime(min, is24) });
 			}
@@ -146,6 +176,8 @@ function buildIntradayTimeLabels(
 function renderHtmlSparkline(
 	intradayCloses: number[] | null,
 	is24: boolean,
+	startTimestampMs?: number | null,
+	endTimestampMs?: number | null,
 ): string {
 	if (!intradayCloses || intradayCloses.length < 2) return "";
 	if (intradayCloses.some((v) => !Number.isFinite(v))) return "";
@@ -154,7 +186,12 @@ function renderHtmlSparkline(
 	const changePercent =
 		openPrice === 0 ? 0 : ((lastPrice - openPrice) / openPrice) * 100;
 	const color = getChangeColor(changePercent);
-	const timeLabels = buildIntradayTimeLabels(intradayCloses.length, is24);
+	const timeLabels = buildIntradayTimeLabels(
+		intradayCloses.length,
+		is24,
+		startTimestampMs,
+		endTimestampMs,
+	);
 	const sparklineImg = toSvgSparklineImg(
 		intradayCloses,
 		color,
@@ -167,6 +204,18 @@ function renderHtmlSparkline(
 	return `
 			<p style="color: #92400e; font-size: 12px; margin: 8px 0 0 0;">Today since open:</p>
 			<div style="margin-top: 4px;">${sparklineImg}</div>`;
+}
+
+function renderHtmlSparklineForAlert(
+	alert: EnrichedAlert,
+	is24: boolean,
+): string {
+	return renderHtmlSparkline(
+		alert.intradayCloses,
+		is24,
+		alert.intradayStartTimestamp,
+		alert.intradayEndTimestamp,
+	);
 }
 
 /**
@@ -260,7 +309,7 @@ function formatPriceAlertEmail(
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
 		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">${escapeHtml(alert.symbol)}</h2>
 		<div style="background: #fffbeb; padding: 16px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #fde68a;">
-			<p style="color: #92400e; font-size: 16px; font-weight: 500; margin: 0;">${escapeHtml(alert.priceContext)}</p>${renderHtmlSparkline(alert.intradayCloses, user.use_24_hour_time)}
+			<p style="color: #92400e; font-size: 16px; font-weight: 500; margin: 0;">${escapeHtml(alert.priceContext)}</p>${renderHtmlSparklineForAlert(alert, user.use_24_hour_time)}
 		</div>
 		<div style="margin-bottom: 20px;">
 			<p style="color: #6b7280; font-size: 14px; margin: 0;"><strong>Signals:</strong> ${escapeHtml(alert.signalContext)}</p>

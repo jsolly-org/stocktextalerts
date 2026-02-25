@@ -428,8 +428,15 @@ export async function processPriceAlerts(options: {
 		}
 
 		let intradayCloses: number[] | null = null;
+		let intradayStartTimestamp: number | null = null;
+		let intradayEndTimestamp: number | null = null;
 		if (intradayResult.status === "fulfilled") {
-			intradayCloses = intradayResult.value;
+			const bars = intradayResult.value;
+			if (bars) {
+				intradayCloses = bars.closes;
+				intradayStartTimestamp = bars.startTimestamp;
+				intradayEndTimestamp = bars.endTimestamp;
+			}
 		} else {
 			rootLogger.warn(
 				"Failed to fetch intraday bars for price alert enrichment",
@@ -453,6 +460,8 @@ export async function processPriceAlerts(options: {
 				}),
 				news,
 				intradayCloses,
+				intradayStartTimestamp,
+				intradayEndTimestamp,
 			});
 
 			if (user.market_asset_price_alerts_include_sms && !smsSender) {

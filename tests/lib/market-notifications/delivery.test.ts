@@ -34,6 +34,8 @@ function makeAlert(overrides: Partial<EnrichedAlert> = {}): EnrichedAlert {
 		headlines: [],
 		aiSummary: null,
 		intradayCloses: null,
+		intradayStartTimestamp: null,
+		intradayEndTimestamp: null,
 		isPositiveMove: false,
 		...overrides,
 	};
@@ -243,10 +245,13 @@ describe("deliverPriceAlert intraday sparklines", () => {
 	});
 
 	it("email HTML sparkline uses 24-hour time labels when use_24_hour_time is true", async () => {
-		// Use enough bars (15) so span > 60 min and hourly labels appear (e.g. "10:00")
+		// Use real bar timestamps: 9:30 ET → 10:40 ET so hourly tick "10:00" appears
 		const intradayWithHourlyTick = [
 			100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114,
 		];
+		// 2025-02-25 9:30 ET and 10:40 ET (EST = UTC-5)
+		const startTs = Date.UTC(2025, 1, 25, 14, 30, 0);
+		const endTs = Date.UTC(2025, 1, 25, 15, 40, 0);
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
 
@@ -256,7 +261,11 @@ describe("deliverPriceAlert intraday sparklines", () => {
 				market_asset_price_alerts_include_sms: false,
 				use_24_hour_time: true,
 			}),
-			alert: makeAlert({ intradayCloses: intradayWithHourlyTick }),
+			alert: makeAlert({
+				intradayCloses: intradayWithHourlyTick,
+				intradayStartTimestamp: startTs,
+				intradayEndTimestamp: endTs,
+			}),
 			supabase: makeSupabaseMock(),
 			sendEmail: sendEmail,
 			sendSms: vi.fn(async () => ({ success: true })),

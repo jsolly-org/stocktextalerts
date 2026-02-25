@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { extractClosesFromBars } from "../../src/lib/providers/massive";
+import {
+	extractClosesAndTimestampsFromBars,
+	extractClosesFromBars,
+} from "../../src/lib/providers/massive";
 
 describe("extractClosesFromBars", () => {
 	it("returns null for non-object payloads", () => {
@@ -72,5 +75,56 @@ describe("extractClosesFromBars", () => {
 			results: [{ c: 10 }, { c: "invalid" }, { c: 20 }, { c: NaN }, { c: 30 }],
 		});
 		expect(result).toEqual([10, 20, 30]);
+	});
+});
+
+describe("extractClosesAndTimestampsFromBars", () => {
+	it("returns null when no valid bars", () => {
+		expect(extractClosesAndTimestampsFromBars({ results: [] })).toBeNull();
+		expect(extractClosesAndTimestampsFromBars({ results: [{}] })).toBeNull();
+	});
+
+	it("extracts closes and timestamps when bars have c and t", () => {
+		const t1 = 1737817200000; // 2025-01-25 14:30 UTC (9:30 ET)
+		const t2 = 1737820800000; // 2025-01-25 15:40 UTC (10:40 ET)
+		const result = extractClosesAndTimestampsFromBars({
+			results: [
+				{ c: 100, t: t1 },
+				{ c: 105, t: t2 },
+			],
+		});
+		expect(result).toEqual({
+			closes: [100, 105],
+			startTimestamp: t1,
+			endTimestamp: t2,
+		});
+	});
+
+	it("returns null timestamps when bars lack t", () => {
+		const result = extractClosesAndTimestampsFromBars({
+			results: [{ c: 100 }, { c: 105 }],
+		});
+		expect(result).toEqual({
+			closes: [100, 105],
+			startTimestamp: null,
+			endTimestamp: null,
+		});
+	});
+
+	it("uses first and last valid t for start/end", () => {
+		const t1 = 1000;
+		const t3 = 3000;
+		const result = extractClosesAndTimestampsFromBars({
+			results: [
+				{ c: 10, t: t1 },
+				{ c: 20, t: "invalid" },
+				{ c: 30, t: t3 },
+			],
+		});
+		expect(result).toEqual({
+			closes: [10, 20, 30],
+			startTimestamp: t1,
+			endTimestamp: t3,
+		});
 	});
 });
