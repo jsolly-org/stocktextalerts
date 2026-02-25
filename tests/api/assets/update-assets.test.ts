@@ -228,6 +228,8 @@ describe("A signed-in user updates their tracked assets.", () => {
 
 	it("User submitting invalid asset symbol (not in assets table) receives error and assets remain unchanged.", async () => {
 		allowConsoleErrors();
+		const invalidSymbol = `ZZ${randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase()}`;
+
 		const testUser = await createTestUser({
 			email: `assets-invalid-${randomUUID()}@resend.dev`,
 			password: TEST_PASSWORD,
@@ -236,13 +238,22 @@ describe("A signed-in user updates their tracked assets.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
+		const { data: existingInvalidSymbol, error: existingInvalidSymbolError } =
+			await adminClient
+				.from("assets")
+				.select("symbol")
+				.eq("symbol", invalidSymbol)
+				.maybeSingle();
+		expect(existingInvalidSymbolError).toBeNull();
+		expect(existingInvalidSymbol).toBeNull();
+
 		const cookies = await createAuthenticatedCookies(
 			testUser.email,
 			TEST_PASSWORD,
 		);
 
 		const formData = new FormData();
-		formData.append("tracked_assets", JSON.stringify(["INVALIDX"]));
+		formData.append("tracked_assets", JSON.stringify([invalidSymbol]));
 
 		const response = await POST({
 			request: new Request("http://localhost/api/assets/update", {
@@ -263,11 +274,12 @@ describe("A signed-in user updates their tracked assets.", () => {
 		expect(payload.ok).toBe(false);
 		expect(payload.message).toBe("failed_to_update_assets");
 
-		const { data: trackedAssets } = await adminClient
+		const { data: trackedAssets, error: trackedAssetsError } = await adminClient
 			.from("user_assets")
 			.select("symbol")
 			.eq("user_id", testUser.id)
 			.order("symbol");
+		expect(trackedAssetsError).toBeNull();
 		expect(trackedAssets).toHaveLength(1);
 		expect(trackedAssets?.[0]?.symbol).toBe("AAPL");
 	});
