@@ -918,6 +918,9 @@ watch([priceAlertsIncludeEmail, priceAlertsIncludeSms], ([email, sms]) => {
 });
 
 // ── Wizard swipe navigation (mobile) ──
+// Note: wizardTouch* are module-scoped (outside Vue reactivity). This is intentional
+// since they don't need to trigger re-renders, but it means only one instance of
+// this panel should be mounted at a time (fine for the singleton dashboard).
 const SWIPE_THRESHOLD_PX = 30;
 const AXIS_LOCK_PX = 10;
 let wizardTouchStartX: number | null = null;

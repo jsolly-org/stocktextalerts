@@ -112,7 +112,7 @@ SET search_path = public, pg_temp
 AS $$
   SELECT
     times IS NULL OR (
-      COALESCE(array_length(times, 1), 0) <= 8
+      COALESCE(array_length(times, 1), 0) <= 5
       AND NOT EXISTS (
         SELECT 1 FROM unnest(times) AS t(val)
         WHERE val < 0 OR val >= 1440
