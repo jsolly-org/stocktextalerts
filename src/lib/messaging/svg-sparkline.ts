@@ -49,15 +49,16 @@ export function toSvgSparklineImg(
 	// Close the area path along the bottom edge
 	const areaPoints = `${polylinePoints} ${(padding + chartW).toFixed(1)},${(padding + chartH).toFixed(1)} ${padding.toFixed(1)},${(padding + chartH).toFixed(1)}`;
 
+	const safeColor = escapeHtml(color);
 	const gradientId = "sg";
 	const svgParts = [
 		`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${totalHeight}" viewBox="0 0 ${width} ${totalHeight}">`,
 		`<defs><linearGradient id="${gradientId}" x1="0" y1="0" x2="0" y2="1">`,
-		`<stop offset="0%" stop-color="${color}" stop-opacity="0.3"/>`,
-		`<stop offset="100%" stop-color="${color}" stop-opacity="0.05"/>`,
+		`<stop offset="0%" stop-color="${safeColor}" stop-opacity="0.3"/>`,
+		`<stop offset="100%" stop-color="${safeColor}" stop-opacity="0.05"/>`,
 		`</linearGradient></defs>`,
 		`<polygon points="${areaPoints}" fill="url(#${gradientId})"/>`,
-		`<polyline points="${polylinePoints}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`,
+		`<polyline points="${polylinePoints}" fill="none" stroke="${safeColor}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`,
 	];
 
 	if (hasAxis) {

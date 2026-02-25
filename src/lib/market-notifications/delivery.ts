@@ -302,7 +302,7 @@ export async function deliverPriceAlert(options: {
 		const message = formatPriceAlertEmail(user, alert);
 		const result = await sendUserEmail(
 			user,
-			`${alert.symbol} ${alert.priceContext.includes(" up ") ? "Rally" : "Selloff"} Alert`,
+			`${alert.symbol} ${alert.isPositiveMove ? "Rally" : "Selloff"} Alert`,
 			message,
 			sendEmail,
 		);

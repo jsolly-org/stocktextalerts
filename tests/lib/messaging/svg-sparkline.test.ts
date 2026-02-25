@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { SparklineTimeLabel } from "../../../src/lib/messaging/svg-sparkline";
 import { toSvgSparklineImg } from "../../../src/lib/messaging/svg-sparkline";
 
+function decodeSvg(imgTag: string): string {
+	const base64 = imgTag.match(/base64,([^"]+)/)?.[1] ?? "";
+	return Buffer.from(base64, "base64").toString("utf-8");
+}
+
 describe("toSvgSparklineImg", () => {
 	it("returns an <img> tag with base64 data URI", () => {
 		const result = toSvgSparklineImg([1, 2, 3, 5, 7, 5, 3], "#15803d");
@@ -17,16 +22,13 @@ describe("toSvgSparklineImg", () => {
 
 	it("uses the provided color in the SVG", () => {
 		const result = toSvgSparklineImg([1, 2, 3], "#dc2626");
-		// Decode the base64 to check SVG content
-		const base64 = result.match(/base64,([^"]+)/)?.[1] ?? "";
-		const svg = Buffer.from(base64, "base64").toString("utf-8");
+		const svg = decodeSvg(result);
 		expect(svg).toContain("#dc2626");
 	});
 
 	it("produces valid SVG with polyline and polygon", () => {
 		const result = toSvgSparklineImg([10, 20, 15], "#15803d");
-		const base64 = result.match(/base64,([^"]+)/)?.[1] ?? "";
-		const svg = Buffer.from(base64, "base64").toString("utf-8");
+		const svg = decodeSvg(result);
 		expect(svg).toContain("<polyline");
 		expect(svg).toContain("<polygon");
 		expect(svg).toContain("linearGradient");
@@ -57,8 +59,7 @@ describe("toSvgSparklineImg", () => {
 			"chart",
 			labels,
 		);
-		const base64 = result.match(/base64,([^"]+)/)?.[1] ?? "";
-		const svg = Buffer.from(base64, "base64").toString("utf-8");
+		const svg = decodeSvg(result);
 		expect(svg).toContain("9:30a");
 		expect(svg).toContain("2:15p");
 		expect(svg).toContain("<text");
@@ -98,8 +99,7 @@ describe("toSvgSparklineImg", () => {
 			"chart",
 			labels,
 		);
-		const base64 = result.match(/base64,([^"]+)/)?.[1] ?? "";
-		const svg = Buffer.from(base64, "base64").toString("utf-8");
+		const svg = decodeSvg(result);
 		expect(svg).toContain('text-anchor="start"');
 		expect(svg).toContain('text-anchor="middle"');
 		expect(svg).toContain('text-anchor="end"');

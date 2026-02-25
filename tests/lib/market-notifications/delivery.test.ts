@@ -34,6 +34,7 @@ function makeAlert(overrides: Partial<EnrichedAlert> = {}): EnrichedAlert {
 		headlines: [],
 		aiSummary: null,
 		intradayCloses: null,
+		isPositiveMove: false,
 		...overrides,
 	};
 }
@@ -239,5 +240,33 @@ describe("deliverPriceAlert intraday sparklines", () => {
 		expect(sendEmail).toHaveBeenCalledOnce();
 		const emailCall = sendEmail.mock.calls[0][0] as { html: string };
 		expect(emailCall.html).not.toContain("Today since open:");
+	});
+
+	it("email HTML sparkline uses 24-hour time labels when use_24_hour_time is true", async () => {
+		// Use enough bars (15) so span > 60 min and hourly labels appear (e.g. "10:00")
+		const intradayWithHourlyTick = [
+			100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114,
+		];
+		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const stats = makeStats();
+
+		await deliverPriceAlert({
+			user: makeUser({
+				market_asset_price_alerts_include_email: true,
+				market_asset_price_alerts_include_sms: false,
+				use_24_hour_time: true,
+			}),
+			alert: makeAlert({ intradayCloses: intradayWithHourlyTick }),
+			supabase: makeSupabaseMock(),
+			sendEmail: sendEmail,
+			sendSms: vi.fn(async () => ({ success: true })),
+			stats,
+		});
+
+		expect(sendEmail).toHaveBeenCalledOnce();
+		const emailCall = sendEmail.mock.calls[0][0] as { html: string };
+		expect(emailCall.html).toContain("Today since open:");
+		// 24h format shows "10:00" for 10:00; 12h would show "10a"
+		expect(emailCall.html).toContain("10:00");
 	});
 });

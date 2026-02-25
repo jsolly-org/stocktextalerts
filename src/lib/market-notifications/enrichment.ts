@@ -13,6 +13,8 @@ export interface EnrichedAlert {
 	headlines: CompanyNewsItem[];
 	aiSummary: string | null;
 	intradayCloses: number[] | null;
+	/** True when price moved up (changePercent >= 0). Used for subject-line direction. */
+	isPositiveMove: boolean;
 }
 
 /** Fetch breaking news for a symbol (top 3 headlines from the last 24h). */
@@ -66,5 +68,6 @@ export async function enrichAlert(options: {
 		headlines: news,
 		aiSummary,
 		intradayCloses,
+		isPositiveMove: quote.changePercent >= 0,
 	};
 }
