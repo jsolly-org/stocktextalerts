@@ -101,7 +101,7 @@ function formatCompactTime(totalMinutes: number, is24: boolean): string {
 	const h24 = Math.floor(totalMinutes / 60);
 	const m = totalMinutes % 60;
 	if (is24) {
-		return m === 0 ? `${h24}:00` : `${h24}:${String(m).padStart(2, "0")}`;
+		return `${String(h24).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 	}
 	const h12 = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24;
 	const period = h24 >= 12 ? "p" : "a";
@@ -166,7 +166,7 @@ function renderHtmlSparkline(
 	is24: boolean,
 	startTimestampMs?: number | null,
 	endTimestampMs?: number | null,
-	timestamps?: number[] | null,
+	timestamps?: (number | null)[] | null,
 ): string {
 	if (!intradayCloses || intradayCloses.length < 2) return "";
 	if (intradayCloses.some((v) => !Number.isFinite(v))) return "";

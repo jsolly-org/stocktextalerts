@@ -13,8 +13,8 @@ export interface EnrichedAlert {
 	headlines: CompanyNewsItem[];
 	aiSummary: string | null;
 	intradayCloses: number[] | null;
-	/** Per-bar timestamps (ms) for time-axis sparkline; null when any bar lacks t. */
-	intradayTimestamps: number[] | null;
+	/** Per-bar timestamps (ms) for time-axis sparkline; null for bars lacking t; null when no bars have timestamps. */
+	intradayTimestamps: (number | null)[] | null;
 	/** First bar timestamp (ms) for sparkline axis; null when bars lack timestamps. */
 	intradayStartTimestamp: number | null;
 	/** Last bar timestamp (ms) for sparkline axis; null when bars lack timestamps. */
@@ -51,7 +51,7 @@ export async function enrichAlert(options: {
 	signalContext: string;
 	news: CompanyNewsItem[];
 	intradayCloses: number[] | null;
-	intradayTimestamps: number[] | null;
+	intradayTimestamps: (number | null)[] | null;
 	intradayStartTimestamp: number | null;
 	intradayEndTimestamp: number | null;
 }): Promise<EnrichedAlert> {

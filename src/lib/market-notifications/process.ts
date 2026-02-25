@@ -428,7 +428,7 @@ export async function processPriceAlerts(options: {
 		}
 
 		let intradayCloses: number[] | null = null;
-		let intradayTimestamps: number[] | null = null;
+		let intradayTimestamps: (number | null)[] | null = null;
 		let intradayStartTimestamp: number | null = null;
 		let intradayEndTimestamp: number | null = null;
 		if (intradayResult.status === "fulfilled") {

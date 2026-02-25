@@ -415,11 +415,11 @@ export function extractClosesFromBars(payload: unknown): number[] | null {
 /** Result of extracting closes and timestamps from intraday bars. */
 export interface IntradayBarsResult {
 	closes: number[];
-	/** Per-bar timestamps (ms since epoch), same length as closes. NaN for bars lacking t; downstream places points at real time for valid entries. Null when no bars have timestamps. */
-	timestamps: number[] | null;
+	/** Per-bar timestamps (ms since epoch), same length as closes. null for bars lacking t; downstream places points at real time for valid entries. Null when no bars have timestamps. */
+	timestamps: (number | null)[] | null;
 	/** First bar timestamp (ms since epoch), or null if bars lack timestamps. */
 	startTimestamp: number | null;
-	/** Last bar timestamp (ms since epoch), or null if bars lack timestamps. */
+	/** Last bar timestamp (ms since epoch), or null if bars lack timestamps. May lag behind the last data point when trailing bars lack timestamps. */
 	endTimestamp: number | null;
 }
 
@@ -439,7 +439,7 @@ export function extractClosesAndTimestampsFromBars(
 	if (!Array.isArray(results)) return null;
 
 	const closes: number[] = [];
-	const timestamps: number[] = [];
+	const timestamps: (number | null)[] = [];
 	let startTimestamp: number | null = null;
 	let endTimestamp: number | null = null;
 
@@ -456,16 +456,16 @@ export function extractClosesAndTimestampsFromBars(
 			if (startTimestamp === null) startTimestamp = ts;
 			endTimestamp = ts;
 		} else {
-			timestamps.push(NaN); // Sentinel: bar lacks timestamp
+			timestamps.push(null); // Sentinel: bar lacks timestamp
 		}
 	}
 
 	if (closes.length === 0) return null;
 
-	// Expose per-bar timestamps when we have any valid t; use NaN for bars lacking t
+	// Expose per-bar timestamps when we have any valid t; use null for bars lacking t
 	return {
 		closes,
-		timestamps: startTimestamp != null ? timestamps : null,
+		timestamps: startTimestamp !== null ? timestamps : null,
 		startTimestamp,
 		endTimestamp,
 	};

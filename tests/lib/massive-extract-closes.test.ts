@@ -113,7 +113,7 @@ describe("extractClosesAndTimestampsFromBars", () => {
 		});
 	});
 
-	it("uses first and last valid t for start/end and preserves per-bar timestamps with NaN for missing", () => {
+	it("uses first and last valid t for start/end and preserves per-bar timestamps with null for missing", () => {
 		const t1 = 1000;
 		const t3 = 3000;
 		const result = extractClosesAndTimestampsFromBars({
@@ -125,7 +125,7 @@ describe("extractClosesAndTimestampsFromBars", () => {
 		});
 		expect(result).toEqual({
 			closes: [10, 20, 30],
-			timestamps: [t1, Number.NaN, t3],
+			timestamps: [t1, null, t3],
 			startTimestamp: t1,
 			endTimestamp: t3,
 		});

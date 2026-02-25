@@ -15,8 +15,8 @@ const TICK_HEIGHT = 3;
 
 /** Options for time-axis sparkline positioning. */
 export interface SparklineTimeAxisOptions {
-	/** Per-bar timestamps (ms), same length as values. Points are placed at real time positions. */
-	timestamps: number[];
+	/** Per-bar timestamps (ms), same length as values. null for bars lacking t; points at real time for valid entries. */
+	timestamps: (number | null)[];
 	/** First bar timestamp (ms). */
 	startTimestamp: number;
 	/** Last bar timestamp (ms). */
@@ -64,6 +64,7 @@ export function toSvgSparklineImg(
 			timeAxis &&
 			timeSpan > 0 &&
 			timeAxis.timestamps.length === values.length &&
+			timeAxis.timestamps[i] != null &&
 			Number.isFinite(timeAxis.timestamps[i])
 		) {
 			const frac =
