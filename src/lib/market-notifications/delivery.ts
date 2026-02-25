@@ -95,11 +95,6 @@ function formatPriceAlertSms(alert: EnrichedAlert): string {
 	return sections.join("\n\n");
 }
 
-/** US market open: 9:30 AM ET = 570 minutes from midnight. */
-const MARKET_OPEN_MINUTES = 9 * 60 + 30;
-/** Intraday bar interval in minutes. */
-const INTRADAY_BAR_MINUTES = 5;
-
 /** Format minutes-from-midnight as compact time for sparkline axis labels.
  *  12h: "9:30a", "2p", "12:45p"   24h: "9:30", "14:00", "12:45" */
 function formatCompactTime(totalMinutes: number, is24: boolean): string {
@@ -134,24 +129,17 @@ function getMinutesFromMidnightET(ms: number): number {
 	return hour * 60 + minute;
 }
 
-/** Build time-axis labels for an intraday sparkline (market open → alert time).
- *  Uses real bar timestamps when available; falls back to bar-count inference for backwards compat. */
+/** Build time-axis labels for an intraday sparkline from real bar timestamps.
+ *  Returns empty when timestamps are missing (avoids wrong labels from bar-count inference). */
 function buildIntradayTimeLabels(
-	barCount: number,
 	is24: boolean,
-	startTimestampMs?: number | null,
-	endTimestampMs?: number | null,
+	startTimestampMs: number | null | undefined,
+	endTimestampMs: number | null | undefined,
 ): SparklineTimeLabel[] {
-	if (barCount < 2) return [];
+	if (startTimestampMs == null || endTimestampMs == null) return [];
 
-	const startMinutes =
-		startTimestampMs != null
-			? getMinutesFromMidnightET(startTimestampMs)
-			: MARKET_OPEN_MINUTES;
-	const endMinutes =
-		endTimestampMs != null
-			? getMinutesFromMidnightET(endTimestampMs)
-			: MARKET_OPEN_MINUTES + (barCount - 1) * INTRADAY_BAR_MINUTES;
+	const startMinutes = getMinutesFromMidnightET(startTimestampMs);
+	const endMinutes = getMinutesFromMidnightET(endTimestampMs);
 
 	const labels: SparklineTimeLabel[] = [
 		{ position: 0, label: formatCompactTime(startMinutes, is24) },
@@ -187,7 +175,6 @@ function renderHtmlSparkline(
 		openPrice === 0 ? 0 : ((lastPrice - openPrice) / openPrice) * 100;
 	const color = getChangeColor(changePercent);
 	const timeLabels = buildIntradayTimeLabels(
-		intradayCloses.length,
 		is24,
 		startTimestampMs,
 		endTimestampMs,
