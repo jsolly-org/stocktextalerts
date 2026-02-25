@@ -2,7 +2,7 @@
 	<section class="card relative">
 		<FadeTransition>
 			<div
-				v-if="statusMessage"
+				v-if="statusMessage && statusTone === 'error'"
 				:id="DASHBOARD_ASSETS_STATUS_ID"
 				class="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium z-10"
 				:class="[statusTone === 'error' ? 'bg-error-bg text-error-text' : 'bg-info-bg text-info-text']"

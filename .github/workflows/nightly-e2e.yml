@@ -4,7 +4,7 @@ name: "Nightly: E2E"
 
 on:
   schedule:
-    - cron: "0 7 * * *" # 2 AM ET
+    - cron: "0 3 * * *" # 10 PM ET
   workflow_dispatch:
 
 permissions:
@@ -44,7 +44,7 @@ jobs:
         run: |
           EXISTING_PR=$(gh pr list \
             --repo "${{ github.repository }}" \
-            --label "bot-generated" \
+            --label "nightly" \
             --search "fix(nightly): e2e test fixes" \
             --state open \
             --json number,url \
@@ -152,6 +152,7 @@ jobs:
           gh pr create \
             --title "fix(nightly): e2e test fixes — $(date +%Y-%m-%d)" \
             --label "bot-generated" \
+            --label "nightly" \
             --body "$(cat <<'EOF'
           ## Summary
           Automated E2E test failure fixes based on Playwright report analysis — diagnosed and fixed root causes of failing end-to-end tests.

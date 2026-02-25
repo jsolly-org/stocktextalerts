@@ -135,6 +135,25 @@ export const DASHBOARD_SECTION_HASHES: Record<DashboardSection, string> = {
 	dailyNotifications: `#${DASHBOARD_SECTION_IDS.dailyNotifications}`,
 };
 
+/** Map hash fragment (without #) → carousel tab index. */
+export const DASHBOARD_HASH_TO_TAB_INDEX: Record<string, number> = {
+	[DASHBOARD_SECTION_IDS.assets]: 0,
+	[DASHBOARD_SECTION_IDS.notificationChannels]: 1,
+	[DASHBOARD_SECTION_IDS.dailyNotifications]: 2,
+	[DASHBOARD_SECTION_IDS.marketNotifications]: 3,
+	[DASHBOARD_SECTION_IDS.assetEvents]: 4,
+	daily_digest_time: 1,
+};
+
+/** Reverse map: tab index → canonical hash for URL persistence. */
+export const DASHBOARD_TAB_INDEX_TO_HASH: string[] = [
+	DASHBOARD_SECTION_IDS.assets,
+	DASHBOARD_SECTION_IDS.notificationChannels,
+	DASHBOARD_SECTION_IDS.dailyNotifications,
+	DASHBOARD_SECTION_IDS.marketNotifications,
+	DASHBOARD_SECTION_IDS.assetEvents,
+];
+
 /* =============
 Status Messages
 ============= */

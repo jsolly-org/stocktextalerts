@@ -44,6 +44,12 @@ Fine-grained: restrict to "Only select repositories" → this repo. Classic: no 
 - When the token expires, workflows will fail with authentication errors. Create a new token and update the repository secret.
 - Consider setting a calendar reminder for token renewal.
 
+## `vars.AGENT_MODEL`
+
+All 8 nightly agent workflows read the model name from the GitHub repository variable `AGENT_MODEL` (e.g. `claude-sonnet-4-20250514`). This lets you change which model every workflow uses from a single place.
+
+**Where to set:** Repository Settings → Secrets and variables → Actions → Variables tab → `AGENT_MODEL`.
+
 ## Guidelines
 - [Code Style & Structure](.agents/code-style.md)
 - [Error Handling & Validation](.agents/error-handling.md)
