@@ -307,6 +307,77 @@ describe("Scheduled notification scenarios", () => {
 		);
 	});
 
+	it("User who received no-assets message then adds an asset receives notification with that asset at next schedule fire.", async () => {
+		const timezone = "America/New_York";
+		vi.setSystemTime(DateTime.fromISO("2026-01-12T15:00:00.000Z").toJSDate());
+		const nowLocal = DateTime.now().setZone(timezone);
+		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
+
+		const { id } = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			scheduledUpdateTimes: [scheduledTime],
+			trackedAssets: [],
+			marketScheduledAssetPriceIncludeEmail: true,
+		});
+		registerTestUserForCleanup(id);
+
+		const { error: seedError } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", id);
+		expect(seedError).toBeNull();
+
+		const firstResponse = await SchedulePost({
+			request: createScheduleRequest(testCronSecret),
+		} as APIContext);
+		expect(firstResponse.status).toBe(200);
+
+		const { data: firstLogs } = await adminClient
+			.from("notification_log")
+			.select("message")
+			.eq("user_id", id)
+			.eq("type", "market")
+			.eq("delivery_method", "email");
+		expect(firstLogs).toHaveLength(1);
+		expect(firstLogs?.[0]?.message).toContain("don't have any tracked assets");
+
+		const { error: assetError } = await adminClient
+			.from("assets")
+			.upsert([{ symbol: "AAPL", name: "Apple Inc", type: "stock" }], {
+				onConflict: "symbol",
+			});
+		expect(assetError).toBeNull();
+		const { error: userAssetError } = await adminClient
+			.from("user_assets")
+			.insert({ user_id: id, symbol: "AAPL" });
+		expect(userAssetError).toBeNull();
+
+		vi.setSystemTime(DateTime.fromISO("2026-01-13T15:00:00.000Z").toJSDate());
+
+		const secondResponse = await SchedulePost({
+			request: createScheduleRequest(testCronSecret),
+		} as APIContext);
+		expect(secondResponse.status).toBe(200);
+
+		const { data: secondLogs } = await adminClient
+			.from("notification_log")
+			.select("message")
+			.eq("user_id", id)
+			.eq("type", "market")
+			.eq("delivery_method", "email")
+			.order("created_at", { ascending: false })
+			.limit(2);
+		expect(secondLogs).toHaveLength(2);
+		const latestMessage = secondLogs?.[0]?.message ?? "";
+		expect(latestMessage).toContain("AAPL");
+		expect(latestMessage).not.toContain("don't have any tracked assets");
+	});
+
 	it("Scheduled market notification is skipped when US market is closed (holiday) and next_send_at advances.", async () => {
 		vi.setSystemTime(DateTime.fromISO("2026-01-14T15:00:00.000Z").toJSDate());
 		const holidayDate = "2026-01-14";
@@ -511,6 +582,47 @@ describe("Scheduled notification scenarios", () => {
 			.eq("type", "market")
 			.eq("delivery_method", "email");
 		expect(logs).toHaveLength(1);
+	});
+
+	it("User in Tokyo timezone receives scheduled market notification when cron fires at 9 AM their local time.", async () => {
+		// 9 AM JST (UTC+9) = 00:00 UTC
+		vi.setSystemTime(DateTime.fromISO("2026-01-14T00:00:00.000Z").toJSDate());
+
+		const timezone = "Asia/Tokyo";
+		const scheduledMinutes = 9 * 60; // 9:00 AM local
+
+		const { id } = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			scheduledUpdateTimes: [scheduledMinutes],
+			trackedAssets: ["MSFT"],
+			marketScheduledAssetPriceIncludeEmail: true,
+		});
+		registerTestUserForCleanup(id);
+
+		const { error: updateError } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", id);
+		expect(updateError).toBeNull();
+
+		const response = await SchedulePost({
+			request: createScheduleRequest(testCronSecret),
+		} as APIContext);
+		expect(response.status).toBe(200);
+
+		const { data: logs } = await adminClient
+			.from("notification_log")
+			.select("*")
+			.eq("user_id", id)
+			.eq("type", "market")
+			.eq("delivery_method", "email");
+		expect(logs).toHaveLength(1);
+		expect(logs?.[0]?.message).toContain("MSFT");
 	});
 
 	it("Two users in different timezones: only the user due at cron fire time receives notification.", async () => {
