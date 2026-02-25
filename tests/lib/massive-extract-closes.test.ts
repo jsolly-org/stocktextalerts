@@ -130,4 +130,22 @@ describe("extractClosesAndTimestampsFromBars", () => {
 			endTimestamp: t3,
 		});
 	});
+
+	it("extrapolates endTimestamp when trailing bars lack timestamps so time axis aligns with last plotted point", () => {
+		const t1 = 1000;
+		const t2 = 2000;
+		const result = extractClosesAndTimestampsFromBars({
+			results: [
+				{ c: 10, t: t1 },
+				{ c: 20, t: t2 },
+				{ c: 30 }, // trailing bar without t
+			],
+		});
+		expect(result).toEqual({
+			closes: [10, 20, 30],
+			timestamps: [t1, t2, null],
+			startTimestamp: t1,
+			endTimestamp: 3000, // t2 + 1 * (t2-t1) = 2000 + 1000
+		});
+	});
 });

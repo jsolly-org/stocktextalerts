@@ -419,7 +419,7 @@ export interface IntradayBarsResult {
 	timestamps: (number | null)[] | null;
 	/** First bar timestamp (ms since epoch), or null if bars lack timestamps. */
 	startTimestamp: number | null;
-	/** Last bar timestamp (ms since epoch), or null if bars lack timestamps. May lag behind the last data point when trailing bars lack timestamps. */
+	/** Last bar timestamp (ms since epoch), or null if bars lack timestamps. When trailing bars lack timestamps, extrapolated from the average interval so the time axis aligns with the last plotted point. */
 	endTimestamp: number | null;
 }
 
@@ -442,6 +442,7 @@ export function extractClosesAndTimestampsFromBars(
 	const timestamps: (number | null)[] = [];
 	let startTimestamp: number | null = null;
 	let endTimestamp: number | null = null;
+	let lastValidTimestampIndex = -1;
 
 	for (const bar of results) {
 		if (typeof bar !== "object" || bar === null) continue;
@@ -455,12 +456,29 @@ export function extractClosesAndTimestampsFromBars(
 			timestamps.push(ts);
 			if (startTimestamp === null) startTimestamp = ts;
 			endTimestamp = ts;
+			lastValidTimestampIndex = closes.length - 1;
 		} else {
 			timestamps.push(null); // Sentinel: bar lacks timestamp
 		}
 	}
 
 	if (closes.length === 0) return null;
+
+	// Reconcile endTimestamp when trailing bars lack timestamps: extrapolate from average
+	// interval so the SVG time axis end-label aligns with the last plotted data point.
+	if (
+		lastValidTimestampIndex >= 0 &&
+		lastValidTimestampIndex < closes.length - 1 &&
+		startTimestamp !== null &&
+		endTimestamp !== null
+	) {
+		const validCount = lastValidTimestampIndex + 1;
+		if (validCount >= 2) {
+			const avgInterval = (endTimestamp - startTimestamp) / (validCount - 1);
+			const trailingCount = closes.length - 1 - lastValidTimestampIndex;
+			endTimestamp = endTimestamp + trailingCount * avgInterval;
+		}
+	}
 
 	// Expose per-bar timestamps when we have any valid t; use null for bars lacking t
 	return {
