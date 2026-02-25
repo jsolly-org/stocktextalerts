@@ -101,7 +101,7 @@ function formatAssetHtmlLine(
 		sparklineHtml = ` ${toSvgSparklineImg(sparkline.values, color)}`;
 	}
 
-	return `${assetInfo} &mdash; ${priceStr} <span style="color: ${color};">${changeStr}</span>${sparklineHtml}`;
+	return `<strong>${assetInfo}</strong> &mdash; ${priceStr} <span style="color: ${color};">${changeStr}</span>${sparklineHtml}`;
 }
 
 /**

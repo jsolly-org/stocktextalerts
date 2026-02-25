@@ -5,7 +5,7 @@ name: "Nightly: Patch Test Gaps"
 
 on:
   schedule:
-    - cron: "0 9 * * *" # 4 AM ET
+    - cron: "0 8 * * *" # 3 AM ET
   workflow_dispatch:
 
 permissions:

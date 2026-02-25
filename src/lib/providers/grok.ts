@@ -428,12 +428,10 @@ function buildRumorsPrompt(options: {
 		"- Each bullet starts with the ticker (e.g. 'AAPL: ...').\n" +
 		"- Attribute claims to specific X posters using their @handle.\n" +
 		"- Do NOT include full URLs or citation markers — they are added automatically.\n" +
-		"- End with: 'Unverified chatter — double-check before acting.'\n" +
 		"- Output the bullets directly — no wrappers, tags, or preamble.\n" +
 		"\nExample output:\n" +
 		"AAPL: Chatter about Siri delays pressuring shares, with @TechBullish flagging supply chain friction and @MarketWatcher noting strong China sales as an offset.\n" +
-		"NVDA: @ChipAnalyst reports UBS raising PT to $245 ahead of earnings, while @OptionsFlow highlights aggressive upside bets.\n" +
-		"Unverified chatter — double-check before acting.";
+		"NVDA: @ChipAnalyst reports UBS raising PT to $245 ahead of earnings, while @OptionsFlow highlights aggressive upside bets.";
 
 	return { system, user };
 }

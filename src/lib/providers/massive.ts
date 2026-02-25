@@ -600,9 +600,23 @@ function parseSnapshotTicker(t: SnapshotTicker): SnapshotQuote | null {
 	if (typeof price !== "number" || !Number.isFinite(price) || price === 0)
 		return null;
 
-	const changePercent = t.todaysChangePerc;
+	let changePercent = t.todaysChangePerc;
 	if (typeof changePercent !== "number" || !Number.isFinite(changePercent))
 		return null;
+
+	// When market is closed, todaysChangePerc is 0 because there are no trades
+	// today. Fall back to the last trading day's change (day.c vs prevDay.c)
+	// so notifications don't confusingly show +(0.00%).
+	const prevClose = t.prevDay?.c;
+	if (
+		changePercent === 0 &&
+		typeof prevClose === "number" &&
+		Number.isFinite(prevClose) &&
+		prevClose !== 0 &&
+		price !== prevClose
+	) {
+		changePercent = ((price - prevClose) / prevClose) * 100;
+	}
 
 	const numPrice = (v: unknown): number | null =>
 		typeof v === "number" && Number.isFinite(v) && v !== 0 ? v : null;

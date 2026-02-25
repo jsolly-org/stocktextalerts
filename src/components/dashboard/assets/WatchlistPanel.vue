@@ -101,7 +101,7 @@
 				>
 					<span class="min-w-0 flex items-center gap-2 text-sm font-medium text-heading truncate">
 						<span
-							class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium shrink-0"
+							class="inline-flex items-center justify-center w-10 py-0.5 rounded text-xs font-medium shrink-0"
 							:class="
 								asset.type === 'etf'
 									? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'

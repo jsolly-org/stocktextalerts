@@ -435,7 +435,7 @@ import type {
 } from "../../../lib/market-notifications/alert-profile";
 import {
 	formatMinutesAsLocalTime,
-	getUsMarketOpenLocalMinutes,
+	getUsAfterOpenLocalMinutes,
 	isOutsideMarketHours,
 	minutesToTimeInputValue,
 	parseTimeToMinutes,
@@ -700,7 +700,7 @@ const canAddTime = computed(() => {
 const marketOpenLocalMinutes = computed(() => {
 	const tz = timezone.value;
 	if (tz === "") return null;
-	return getUsMarketOpenLocalMinutes(tz);
+	return getUsAfterOpenLocalMinutes(tz);
 });
 
 const marketOpenLabel = computed(() => {

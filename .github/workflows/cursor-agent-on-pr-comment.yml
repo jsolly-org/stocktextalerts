@@ -7,8 +7,12 @@ run-name: cursor-agent pr-${{ github.event.issue.number || github.event.pull_req
 on:
   issue_comment:
     types: [created]
-  pull_request_review_comment:
-    types: [created]
+  # NOTE: pull_request_review_comment is intentionally omitted. When bots submit
+  # a review with inline comments, GitHub fires both pull_request_review AND
+  # pull_request_review_comment (one per inline comment). The pull_request_review
+  # handler already fetches all inline comments via the "Fetch inline review
+  # comments" step, so listening for individual review comments would cause
+  # duplicate agent runs (observed: 12 redundant runs in one PR).
   pull_request_review:
     types: [submitted]
 

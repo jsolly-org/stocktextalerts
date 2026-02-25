@@ -38,11 +38,11 @@
 						type="button"
 						class="btn btn-sm btn-secondary self-start"
 						:disabled="!canAddMarketOpen"
-						:aria-label="`Set delivery time to US market open (${marketOpenLabel})`"
+						:aria-label="`Set delivery time to after US market open (${marketOpenLabel})`"
 						@click="emit('add-market-open')"
 					>
-						<PresentationChartLineIcon class="size-4 shrink-0" aria-hidden="true" />
-						Market open
+						<PresentationChartLineIcon class="size-4 shrink-0 me-1" aria-hidden="true" />
+						After open
 					</button>
 				</div>
 			<div
@@ -75,19 +75,19 @@
 						aria-label="Add time"
 						@click="emit('add-time')"
 					>
-						<PlusIcon class="size-4 shrink-0" aria-hidden="true" />
-					Add time
-				</button>
+						<PlusIcon class="size-4 shrink-0 me-1" aria-hidden="true" />
+						Add time
+					</button>
 				<button
 					v-if="marketOpenLabel && scheduledUpdateTimes.length > 0"
 					type="button"
 					class="btn btn-sm btn-secondary self-start"
 					:disabled="!canAddMarketOpen"
-					:aria-label="`Set delivery time to US market open (${marketOpenLabel})`"
+					:aria-label="`Set delivery time to after US market open (${marketOpenLabel})`"
 					@click="emit('add-market-open')"
 				>
-				<PresentationChartLineIcon class="size-4 shrink-0" aria-hidden="true" />
-				Market open
+				<PresentationChartLineIcon class="size-4 shrink-0 me-1" aria-hidden="true" />
+				After open
 				</button>
 			</div>
 				<StatusMessage v-if="maxTimesReached" tone="warning">

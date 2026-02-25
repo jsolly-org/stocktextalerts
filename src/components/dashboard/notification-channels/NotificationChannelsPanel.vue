@@ -88,7 +88,7 @@ import {
 } from "../../../lib/constants";
 import {
 	formatMinutesAsLocalTime,
-	getUsMarketOpenLocalMinutes,
+	getUsBeforeOpenLocalMinutes,
 	minutesToTimeInputValue,
 	parseTimeToMinutes,
 } from "../../../lib/time/format";
@@ -270,7 +270,7 @@ const dailyDeliveryTimeInput = computed(() =>
 );
 
 const marketOpenLocalMinutes = computed(() =>
-	user.value.timezone ? getUsMarketOpenLocalMinutes(user.value.timezone) : null,
+	user.value.timezone ? getUsBeforeOpenLocalMinutes(user.value.timezone) : null,
 );
 
 const marketOpenLabel = computed(() =>

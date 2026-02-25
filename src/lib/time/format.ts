@@ -1,5 +1,7 @@
 import { DateTime, Duration } from "luxon";
 import {
+	US_AFTER_OPEN_EASTERN_MINUTES,
+	US_BEFORE_OPEN_EASTERN_MINUTES,
 	US_MARKET_CLOSE_EASTERN_MINUTES,
 	US_MARKET_OPEN_EASTERN_MINUTES,
 	US_MARKET_TIMEZONE,
@@ -267,6 +269,40 @@ export function getUsMarketOpenLocalMinutes(userTimezone: string): number {
 	const local = eastern.setZone(userTimezone);
 	if (!local.isValid) {
 		return US_MARKET_OPEN_EASTERN_MINUTES; // fallback to Eastern
+	}
+	return local.hour * 60 + local.minute;
+}
+
+/** 30 min before US market open (9:00 AM ET) converted to the user's local timezone. */
+export function getUsBeforeOpenLocalMinutes(userTimezone: string): number {
+	const beforeOpenHour = Math.floor(US_BEFORE_OPEN_EASTERN_MINUTES / 60);
+	const beforeOpenMinute = US_BEFORE_OPEN_EASTERN_MINUTES % 60;
+	const eastern = DateTime.now().setZone(US_MARKET_TIMEZONE).set({
+		hour: beforeOpenHour,
+		minute: beforeOpenMinute,
+		second: 0,
+		millisecond: 0,
+	});
+	const local = eastern.setZone(userTimezone);
+	if (!local.isValid) {
+		return US_BEFORE_OPEN_EASTERN_MINUTES; // fallback to Eastern
+	}
+	return local.hour * 60 + local.minute;
+}
+
+/** 30 min after US market open (10:00 AM ET) converted to the user's local timezone. */
+export function getUsAfterOpenLocalMinutes(userTimezone: string): number {
+	const afterOpenHour = Math.floor(US_AFTER_OPEN_EASTERN_MINUTES / 60);
+	const afterOpenMinute = US_AFTER_OPEN_EASTERN_MINUTES % 60;
+	const eastern = DateTime.now().setZone(US_MARKET_TIMEZONE).set({
+		hour: afterOpenHour,
+		minute: afterOpenMinute,
+		second: 0,
+		millisecond: 0,
+	});
+	const local = eastern.setZone(userTimezone);
+	if (!local.isValid) {
+		return US_AFTER_OPEN_EASTERN_MINUTES; // fallback to Eastern
 	}
 	return local.hour * 60 + local.minute;
 }

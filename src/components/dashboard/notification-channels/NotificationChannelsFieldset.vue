@@ -101,11 +101,11 @@
 						type="button"
 						class="btn btn-md btn-secondary h-[41px] shrink-0 whitespace-nowrap"
 						:disabled="!canSetMarketOpen"
-						:aria-label="`Set delivery time to US market open (${props.marketOpenLabel})`"
+						:aria-label="`Set delivery time to before US market open (${props.marketOpenLabel})`"
 						@click="emit('setMarketOpen')"
 					>
-						<PresentationChartLineIcon class="size-4 shrink-0" aria-hidden="true" />
-						Market open
+						<PresentationChartLineIcon class="size-4 shrink-0 me-1" aria-hidden="true" />
+						Before open
 					</button>
 				</div>
 			</div>
