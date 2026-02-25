@@ -1,4 +1,9 @@
-import { DASHBOARD_SECTION_HASHES, US_MARKET_TIMEZONE } from "../constants";
+import { DateTime } from "luxon";
+import {
+	DASHBOARD_SECTION_HASHES,
+	US_MARKET_OPEN_EASTERN_MINUTES,
+	US_MARKET_TIMEZONE,
+} from "../constants";
 import { getSiteUrl } from "../db/env";
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
@@ -110,6 +115,15 @@ function formatCompactTime(totalMinutes: number, is24: boolean): string {
 		: `${h12}:${String(m).padStart(2, "0")}${period}`;
 }
 
+/** Market-open timestamp (ms) for the calendar day of the given timestamp, in ET. */
+function getMarketOpenTimestampMs(referenceMs: number): number {
+	return DateTime.fromMillis(referenceMs)
+		.setZone(US_MARKET_TIMEZONE)
+		.startOf("day")
+		.plus({ minutes: US_MARKET_OPEN_EASTERN_MINUTES })
+		.toMillis();
+}
+
 /** Convert timestamp (ms) to minutes-from-midnight in ET. */
 function getMinutesFromMidnightET(ms: number): number {
 	const parts = new Intl.DateTimeFormat("en-CA", {
@@ -129,16 +143,16 @@ function getMinutesFromMidnightET(ms: number): number {
 	return hour * 60 + minute;
 }
 
-/** Build time-axis labels for an intraday sparkline from real bar timestamps.
- *  Returns empty when timestamps are missing (avoids wrong labels from bar-count inference). */
+/** Build time-axis labels for an intraday sparkline anchored to market open (9:30 ET).
+ *  Returns empty when endTimestampMs is missing. Axis spans market-open to end (not first-bar to end). */
 function buildIntradayTimeLabels(
 	is24: boolean,
-	startTimestampMs: number | null | undefined,
 	endTimestampMs: number | null | undefined,
 ): SparklineTimeLabel[] {
-	if (startTimestampMs == null || endTimestampMs == null) return [];
+	if (endTimestampMs == null) return [];
 
-	const startMinutes = getMinutesFromMidnightET(startTimestampMs);
+	const marketOpenMs = getMarketOpenTimestampMs(endTimestampMs);
+	const startMinutes = getMinutesFromMidnightET(marketOpenMs);
 	const endMinutes = getMinutesFromMidnightET(endTimestampMs);
 
 	const labels: SparklineTimeLabel[] = [
@@ -166,7 +180,6 @@ function buildIntradayTimeLabels(
 function renderHtmlSparkline(
 	intradayCloses: number[] | null,
 	is24: boolean,
-	startTimestampMs?: number | null,
 	endTimestampMs?: number | null,
 	timestamps?: (number | null)[] | null,
 ): string {
@@ -177,19 +190,17 @@ function renderHtmlSparkline(
 	const changePercent =
 		openPrice === 0 ? 0 : ((lastPrice - openPrice) / openPrice) * 100;
 	const color = getChangeColor(changePercent);
-	const timeLabels = buildIntradayTimeLabels(
-		is24,
-		startTimestampMs,
-		endTimestampMs,
-	);
+	const timeLabels = buildIntradayTimeLabels(is24, endTimestampMs);
+	const marketOpenMs =
+		endTimestampMs != null ? getMarketOpenTimestampMs(endTimestampMs) : null;
 	const timeAxis =
 		timestamps &&
 		timestamps.length === intradayCloses.length &&
-		startTimestampMs != null &&
+		marketOpenMs != null &&
 		endTimestampMs != null
 			? {
 					timestamps,
-					startTimestamp: startTimestampMs,
+					startTimestamp: marketOpenMs,
 					endTimestamp: endTimestampMs,
 				}
 			: undefined;
@@ -215,7 +226,6 @@ function renderHtmlSparklineForAlert(
 	return renderHtmlSparkline(
 		alert.intradayCloses,
 		is24,
-		alert.intradayStartTimestamp,
 		alert.intradayEndTimestamp,
 		alert.intradayTimestamps,
 	);
