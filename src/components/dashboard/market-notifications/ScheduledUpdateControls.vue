@@ -34,12 +34,12 @@
 						@time-change="emit('add-initial-time', $event)"
 					/>
 					<button
-						v-if="marketOpenLabel"
+						v-if="afterOpenLabel"
 						type="button"
 						class="btn btn-sm btn-secondary self-start"
-						:disabled="!canAddMarketOpen"
-						:aria-label="`Set delivery time to after US market open (${marketOpenLabel})`"
-						@click="emit('add-market-open')"
+						:disabled="!canAddAfterOpen"
+						:aria-label="`Set delivery time to after US market open (${afterOpenLabel})`"
+						@click="emit('add-after-open')"
 					>
 						<PresentationChartLineIcon class="size-4 shrink-0 me-1" aria-hidden="true" />
 						After open
@@ -79,12 +79,12 @@
 						Add time
 					</button>
 				<button
-					v-if="marketOpenLabel && scheduledUpdateTimes.length > 0"
+					v-if="afterOpenLabel && scheduledUpdateTimes.length > 0"
 					type="button"
 					class="btn btn-sm btn-secondary self-start"
-					:disabled="!canAddMarketOpen"
-					:aria-label="`Set delivery time to after US market open (${marketOpenLabel})`"
-					@click="emit('add-market-open')"
+					:disabled="!canAddAfterOpen"
+					:aria-label="`Set delivery time to after US market open (${afterOpenLabel})`"
+					@click="emit('add-after-open')"
 				>
 				<PresentationChartLineIcon class="size-4 shrink-0 me-1" aria-hidden="true" />
 				After open
@@ -125,8 +125,8 @@ interface Props {
 	needsChannelSelection: boolean;
 	timePickerDisabled: boolean;
 	canAddTime: boolean;
-	canAddMarketOpen: boolean;
-	marketOpenLabel: string | null;
+	canAddAfterOpen: boolean;
+	afterOpenLabel: string | null;
 	maxTimes: number;
 	maxTimesReached: boolean;
 	countdownText: string | null;
@@ -145,7 +145,7 @@ const emit = defineEmits<{
 	(event: "time-change", index: number, value: string): void;
 	(event: "add-time"): void;
 	(event: "add-initial-time", value: string): void;
-	(event: "add-market-open"): void;
+	(event: "add-after-open"): void;
 	(event: "remove-time", index: number): void;
 }>();
 

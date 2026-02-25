@@ -385,8 +385,8 @@
 							:needsChannelSelection="notificationSetupBlocked"
 							:timePickerDisabled="timePickerDisabled"
 							:canAddTime="canAddTime"
-							:canAddMarketOpen="canAddMarketOpen"
-							:marketOpenLabel="marketOpenLabel"
+							:canAddAfterOpen="canAddAfterOpen"
+							:afterOpenLabel="afterOpenLabel"
 							:maxTimes="MAX_DELIVERY_TIMES"
 							:maxTimesReached="maxTimesReached"
 							:countdownText="countdownText"
@@ -397,7 +397,7 @@
 							@time-change="handleTimeChange"
 							@add-time="handleAddTime"
 							@add-initial-time="handleAddInitialTime"
-							@add-market-open="handleAddMarketOpen"
+							@add-after-open="handleAddAfterOpen"
 							@remove-time="handleRemoveTime"
 						/>
 					</div>
@@ -697,24 +697,24 @@ const canAddTime = computed(() => {
 	return getNextQuickAddMinute(times, 0) !== null;
 });
 
-const marketOpenLocalMinutes = computed(() => {
+const afterOpenLocalMinutes = computed(() => {
 	const tz = timezone.value;
 	if (tz === "") return null;
 	return getUsAfterOpenLocalMinutes(tz);
 });
 
-const marketOpenLabel = computed(() => {
-	if (marketOpenLocalMinutes.value === null) return null;
-	return formatMinutesAsLocalTime(marketOpenLocalMinutes.value, user.value.use_24_hour_time);
+const afterOpenLabel = computed(() => {
+	if (afterOpenLocalMinutes.value === null) return null;
+	return formatMinutesAsLocalTime(afterOpenLocalMinutes.value, user.value.use_24_hour_time);
 });
 
-const hasMarketOpenTime = computed(() => {
-	if (marketOpenLocalMinutes.value === null) return true;
-	return scheduledUpdateTimesMinutes.value.includes(marketOpenLocalMinutes.value);
+const hasAfterOpenTime = computed(() => {
+	if (afterOpenLocalMinutes.value === null) return true;
+	return scheduledUpdateTimesMinutes.value.includes(afterOpenLocalMinutes.value);
 });
 
-const canAddMarketOpen = computed(
-	() => !timePickerDisabled.value && !hasMarketOpenTime.value && !maxTimesReached.value,
+const canAddAfterOpen = computed(
+	() => !timePickerDisabled.value && !hasAfterOpenTime.value && !maxTimesReached.value,
 );
 
 const outsideMarketHoursIndices = computed<Set<number>>(() => {
@@ -1057,9 +1057,9 @@ function handleTimeChange(index: number, value: string) {
 function handleAddTime() {
 	if (!canAddTime.value) return;
 	const times = normalizeScheduledTimes(scheduledUpdateTimesMinutes.value);
-	// When empty, use market open as the first suggested time (falls back to 9:00 AM)
+	// When empty, use after-open time as the first suggested time (falls back to 9:00 AM)
 	if (times.length === 0) {
-		scheduledUpdateTimesMinutes.value = [marketOpenLocalMinutes.value ?? DEFAULT_MARKET_UPDATE_TIME_MINUTES];
+		scheduledUpdateTimesMinutes.value = [afterOpenLocalMinutes.value ?? DEFAULT_MARKET_UPDATE_TIME_MINUTES];
 		notifyChange();
 		return;
 	}
@@ -1078,13 +1078,13 @@ function handleAddInitialTime(value: string) {
 	notifyChange();
 }
 
-function handleAddMarketOpen() {
-	if (!canAddMarketOpen.value || marketOpenLocalMinutes.value === null) {
+function handleAddAfterOpen() {
+	if (!canAddAfterOpen.value || afterOpenLocalMinutes.value === null) {
 		return;
 	}
 	const times = normalizeScheduledTimes(scheduledUpdateTimesMinutes.value);
 	const baseTimes =
-		times.length === 0 ? [marketOpenLocalMinutes.value] : [...times, marketOpenLocalMinutes.value];
+		times.length === 0 ? [afterOpenLocalMinutes.value] : [...times, afterOpenLocalMinutes.value];
 	scheduledUpdateTimesMinutes.value = normalizeScheduledTimes(baseTimes);
 	notifyChange();
 }
