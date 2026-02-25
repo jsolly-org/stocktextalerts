@@ -415,7 +415,7 @@ export function extractClosesFromBars(payload: unknown): number[] | null {
 /** Result of extracting closes and timestamps from intraday bars. */
 export interface IntradayBarsResult {
 	closes: number[];
-	/** Per-bar timestamps (ms since epoch), same length as closes. Null when any bar lacks t. */
+	/** Per-bar timestamps (ms since epoch), same length as closes. NaN for bars lacking t; downstream places points at real time for valid entries. Null when no bars have timestamps. */
 	timestamps: number[] | null;
 	/** First bar timestamp (ms since epoch), or null if bars lack timestamps. */
 	startTimestamp: number | null;
@@ -462,11 +462,10 @@ export function extractClosesAndTimestampsFromBars(
 
 	if (closes.length === 0) return null;
 
-	// Only expose per-bar timestamps when all bars have valid t
-	const allHaveTimestamps = timestamps.every((t) => Number.isFinite(t));
+	// Expose per-bar timestamps when we have any valid t; use NaN for bars lacking t
 	return {
 		closes,
-		timestamps: allHaveTimestamps ? timestamps : null,
+		timestamps: startTimestamp != null ? timestamps : null,
 		startTimestamp,
 		endTimestamp,
 	};
