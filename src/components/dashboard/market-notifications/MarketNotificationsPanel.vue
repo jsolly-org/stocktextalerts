@@ -934,6 +934,10 @@ function resetWizardTouch() {
 }
 
 function handleWizardTouchStart(event: TouchEvent) {
+	if (event.touches.length !== 1) {
+		resetWizardTouch();
+		return;
+	}
 	const touch = event.touches[0];
 	if (!touch) return;
 	wizardTouchStartX = touch.clientX;
@@ -942,6 +946,10 @@ function handleWizardTouchStart(event: TouchEvent) {
 }
 
 function handleWizardTouchMove(event: TouchEvent) {
+	if (event.touches.length !== 1) {
+		resetWizardTouch();
+		return;
+	}
 	if (wizardTouchStartX == null || wizardTouchStartY == null) return;
 	const touch = event.touches[0];
 	if (!touch) return;
@@ -959,6 +967,10 @@ function handleWizardTouchMove(event: TouchEvent) {
 }
 
 function handleWizardTouchEnd(event: TouchEvent) {
+	if (event.changedTouches.length !== 1) {
+		resetWizardTouch();
+		return;
+	}
 	if (wizardTouchStartX == null) {
 		resetWizardTouch();
 		return;

@@ -276,7 +276,11 @@ describe("deliverPriceAlert intraday sparklines", () => {
 		expect(sendEmail).toHaveBeenCalledOnce();
 		const emailCall = sendEmail.mock.calls[0][0] as { html: string };
 		expect(emailCall.html).toContain("Today since open:");
+		// Labels are inside the base64-encoded SVG image payload.
+		const svgBase64 =
+			emailCall.html.match(/data:image\/svg\+xml;base64,([^"]+)/)?.[1] ?? "";
+		const svg = Buffer.from(svgBase64, "base64").toString("utf-8");
 		// 24h format shows "10:00" for 10:00; 12h would show "10a"
-		expect(emailCall.html).toContain("10:00");
+		expect(svg).toContain("10:00");
 	});
 });
