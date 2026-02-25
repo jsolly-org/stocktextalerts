@@ -1,6 +1,5 @@
 import { DateTime } from "luxon";
 import {
-	DASHBOARD_SECTION_HASHES,
 	US_MARKET_OPEN_EASTERN_MINUTES,
 	US_MARKET_TIMEZONE,
 } from "../constants";
@@ -13,7 +12,7 @@ import {
 	getSafeHrefUrl,
 } from "../messaging/asset-formatting";
 import { sendUserEmail } from "../messaging/email/index";
-import { createEmailUnsubscribeUrl } from "../messaging/email/unsubscribe";
+import { buildEmailUrls } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
 import { recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
@@ -245,12 +244,7 @@ function formatPriceAlertEmail(
 	user: PriceAlertUser,
 	alert: EnrichedAlert,
 ): { text: string; html: string } {
-	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
-	const scheduleUrl = `${dashboardUrl}${DASHBOARD_SECTION_HASHES.marketNotifications}`;
-	const unsubscribeUrl = createEmailUnsubscribeUrl({
-		userId: user.id,
-		email: user.email,
-	});
+	const urls = buildEmailUrls(user.id, user.email, "marketNotifications");
 
 	// Plaintext
 	const textPriceContextLine = formatPriceContextWithSparkline(
@@ -278,15 +272,12 @@ function formatPriceAlertEmail(
 		textSections.push(alert.aiSummary);
 	}
 
-	textSections.push(`Manage your settings: ${scheduleUrl}`);
-	textSections.push(`Unsubscribe from all emails: ${unsubscribeUrl}`);
+	textSections.push(`Manage your settings: ${urls.scheduleUrl}`);
+	textSections.push(`Unsubscribe from all emails: ${urls.unsubscribeUrl}`);
 
 	const text = textSections.join("\n\n");
 
 	// HTML
-	const escapedDashboardUrl = escapeHtml(dashboardUrl);
-	const escapedScheduleUrl = escapeHtml(scheduleUrl);
-	const escapedUnsubscribeUrl = escapeHtml(unsubscribeUrl);
 
 	const headlinesHtml =
 		alert.headlines.length > 0
@@ -337,14 +328,14 @@ function formatPriceAlertEmail(
 		${headlinesHtml}
 		${aiSummaryHtml}
 		<div style="text-align: center; margin-top: 30px;">
-			<a href="${escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
+			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
 				View Dashboard →
 			</a>
 		</div>
 		<p style="color: #6b7280; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-			<a href="${escapedScheduleUrl}" style="color: #667eea; text-decoration: none;">Manage alerts</a>
+			<a href="${urls.escapedScheduleUrl}" style="color: #667eea; text-decoration: none;">Manage alerts</a>
 			<span style="color: #d1d5db; padding: 0 8px;">•</span>
-			<a href="${escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe from all emails</a>
+			<a href="${urls.escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe from all emails</a>
 		</p>
 	</div>
 </body>
