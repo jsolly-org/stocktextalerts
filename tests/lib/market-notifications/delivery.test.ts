@@ -35,7 +35,6 @@ function makeAlert(overrides: Partial<EnrichedAlert> = {}): EnrichedAlert {
 		aiSummary: null,
 		intradayCloses: null,
 		intradayTimestamps: null,
-		intradayStartTimestamp: null,
 		intradayEndTimestamp: null,
 		isPositiveMove: false,
 		...overrides,
@@ -250,8 +249,7 @@ describe("deliverPriceAlert intraday sparklines", () => {
 		const intradayWithHourlyTick = [
 			100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114,
 		];
-		// 2025-02-25 9:30 ET and 10:40 ET (EST = UTC-5)
-		const startTs = Date.UTC(2025, 1, 25, 14, 30, 0);
+		// 2025-02-25 10:40 ET (EST = UTC-5)
 		const endTs = Date.UTC(2025, 1, 25, 15, 40, 0);
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
@@ -264,7 +262,6 @@ describe("deliverPriceAlert intraday sparklines", () => {
 			}),
 			alert: makeAlert({
 				intradayCloses: intradayWithHourlyTick,
-				intradayStartTimestamp: startTs,
 				intradayEndTimestamp: endTs,
 			}),
 			supabase: makeSupabaseMock(),

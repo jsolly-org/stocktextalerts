@@ -117,10 +117,17 @@ function formatCompactTime(totalMinutes: number, is24: boolean): string {
 
 /** Market-open timestamp (ms) for the calendar day of the given timestamp, in ET. */
 function getMarketOpenTimestampMs(referenceMs: number): number {
+	const marketOpenHour = Math.floor(US_MARKET_OPEN_EASTERN_MINUTES / 60);
+	const marketOpenMinute = US_MARKET_OPEN_EASTERN_MINUTES % 60;
 	return DateTime.fromMillis(referenceMs)
 		.setZone(US_MARKET_TIMEZONE)
 		.startOf("day")
-		.plus({ minutes: US_MARKET_OPEN_EASTERN_MINUTES })
+		.set({
+			hour: marketOpenHour,
+			minute: marketOpenMinute,
+			second: 0,
+			millisecond: 0,
+		})
 		.toMillis();
 }
 
