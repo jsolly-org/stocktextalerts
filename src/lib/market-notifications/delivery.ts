@@ -101,7 +101,7 @@ function formatCompactTime(totalMinutes: number, is24: boolean): string {
 	const h24 = Math.floor(totalMinutes / 60);
 	const m = totalMinutes % 60;
 	if (is24) {
-		return `${String(h24).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+		return `${h24}:${String(m).padStart(2, "0")}`;
 	}
 	const h12 = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24;
 	const period = h24 >= 12 ? "p" : "a";
@@ -151,6 +151,8 @@ function buildIntradayTimeLabels(
 		const firstHour = Math.ceil(startMinutes / 60) * 60;
 		for (let min = firstHour; min < endMinutes; min += 60) {
 			const pos = (min - startMinutes) / totalSpan;
+			// Suppress ticks within 15% of start/end to avoid crowding the edge labels
+			// (e.g., a 10:00 AM tick at pos≈0.08 would overlap "9:30a" for a full session).
 			if (pos > 0.15 && pos < 0.85) {
 				labels.push({ position: pos, label: formatCompactTime(min, is24) });
 			}
