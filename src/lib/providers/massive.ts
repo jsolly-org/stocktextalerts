@@ -415,6 +415,8 @@ export function extractClosesFromBars(payload: unknown): number[] | null {
 /** Result of extracting closes and timestamps from intraday bars. */
 export interface IntradayBarsResult {
 	closes: number[];
+	/** Per-bar timestamps (ms since epoch), same length as closes. Null when any bar lacks t. */
+	timestamps: number[] | null;
 	/** First bar timestamp (ms since epoch), or null if bars lack timestamps. */
 	startTimestamp: number | null;
 	/** Last bar timestamp (ms since epoch), or null if bars lack timestamps. */
@@ -425,7 +427,8 @@ export interface IntradayBarsResult {
  * Extract closing prices and bar timestamps from a Polygon/Massive bars API response.
  *
  * Expects bar objects with `c` (close) and `t` (timestamp in ms). Returns `null` when
- * no valid bars exist. Uses first and last valid bar timestamps for axis labeling.
+ * no valid bars exist. Preserves per-bar timestamps so downstream can place points on
+ * real time positions (avoids misalignment when intraday bars are non-uniform).
  */
 export function extractClosesAndTimestampsFromBars(
 	payload: unknown,
@@ -436,6 +439,7 @@ export function extractClosesAndTimestampsFromBars(
 	if (!Array.isArray(results)) return null;
 
 	const closes: number[] = [];
+	const timestamps: number[] = [];
 	let startTimestamp: number | null = null;
 	let endTimestamp: number | null = null;
 
@@ -448,13 +452,24 @@ export function extractClosesAndTimestampsFromBars(
 		const ts = typeof t === "number" && Number.isFinite(t) ? t : null;
 		closes.push(c);
 		if (ts !== null) {
+			timestamps.push(ts);
 			if (startTimestamp === null) startTimestamp = ts;
 			endTimestamp = ts;
+		} else {
+			timestamps.push(NaN); // Sentinel: bar lacks timestamp
 		}
 	}
 
 	if (closes.length === 0) return null;
-	return { closes, startTimestamp, endTimestamp };
+
+	// Only expose per-bar timestamps when all bars have valid t
+	const allHaveTimestamps = timestamps.every((t) => Number.isFinite(t));
+	return {
+		closes,
+		timestamps: allHaveTimestamps ? timestamps : null,
+		startTimestamp,
+		endTimestamp,
+	};
 }
 
 /**

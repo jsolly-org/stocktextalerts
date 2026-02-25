@@ -166,6 +166,7 @@ function renderHtmlSparkline(
 	is24: boolean,
 	startTimestampMs?: number | null,
 	endTimestampMs?: number | null,
+	timestamps?: number[] | null,
 ): string {
 	if (!intradayCloses || intradayCloses.length < 2) return "";
 	if (intradayCloses.some((v) => !Number.isFinite(v))) return "";
@@ -179,6 +180,17 @@ function renderHtmlSparkline(
 		startTimestampMs,
 		endTimestampMs,
 	);
+	const timeAxis =
+		timestamps &&
+		timestamps.length === intradayCloses.length &&
+		startTimestampMs != null &&
+		endTimestampMs != null
+			? {
+					timestamps,
+					startTimestamp: startTimestampMs,
+					endTimestamp: endTimestampMs,
+				}
+			: undefined;
 	const sparklineImg = toSvgSparklineImg(
 		intradayCloses,
 		color,
@@ -186,6 +198,7 @@ function renderHtmlSparkline(
 		40,
 		"Intraday price chart since market open",
 		timeLabels,
+		timeAxis,
 	);
 	if (!sparklineImg) return "";
 	return `
@@ -202,6 +215,7 @@ function renderHtmlSparklineForAlert(
 		is24,
 		alert.intradayStartTimestamp,
 		alert.intradayEndTimestamp,
+		alert.intradayTimestamps,
 	);
 }
 

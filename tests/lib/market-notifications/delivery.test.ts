@@ -34,6 +34,7 @@ function makeAlert(overrides: Partial<EnrichedAlert> = {}): EnrichedAlert {
 		headlines: [],
 		aiSummary: null,
 		intradayCloses: null,
+		intradayTimestamps: null,
 		intradayStartTimestamp: null,
 		intradayEndTimestamp: null,
 		isPositiveMove: false,

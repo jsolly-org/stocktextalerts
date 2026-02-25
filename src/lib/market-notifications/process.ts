@@ -428,12 +428,14 @@ export async function processPriceAlerts(options: {
 		}
 
 		let intradayCloses: number[] | null = null;
+		let intradayTimestamps: number[] | null = null;
 		let intradayStartTimestamp: number | null = null;
 		let intradayEndTimestamp: number | null = null;
 		if (intradayResult.status === "fulfilled") {
 			const bars = intradayResult.value;
 			if (bars) {
 				intradayCloses = bars.closes;
+				intradayTimestamps = bars.timestamps;
 				intradayStartTimestamp = bars.startTimestamp;
 				intradayEndTimestamp = bars.endTimestamp;
 			}
@@ -460,6 +462,7 @@ export async function processPriceAlerts(options: {
 				}),
 				news,
 				intradayCloses,
+				intradayTimestamps,
 				intradayStartTimestamp,
 				intradayEndTimestamp,
 			});

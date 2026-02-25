@@ -95,6 +95,7 @@ describe("extractClosesAndTimestampsFromBars", () => {
 		});
 		expect(result).toEqual({
 			closes: [100, 105],
+			timestamps: [t1, t2],
 			startTimestamp: t1,
 			endTimestamp: t2,
 		});
@@ -106,6 +107,7 @@ describe("extractClosesAndTimestampsFromBars", () => {
 		});
 		expect(result).toEqual({
 			closes: [100, 105],
+			timestamps: null,
 			startTimestamp: null,
 			endTimestamp: null,
 		});
@@ -123,6 +125,7 @@ describe("extractClosesAndTimestampsFromBars", () => {
 		});
 		expect(result).toEqual({
 			closes: [10, 20, 30],
+			timestamps: null, // middle bar lacks t, so per-bar timestamps not exposed
 			startTimestamp: t1,
 			endTimestamp: t3,
 		});

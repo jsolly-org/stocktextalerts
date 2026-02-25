@@ -13,11 +13,24 @@ const LABEL_COLOR = "#9ca3af";
 const LABEL_FONT_SIZE = 8;
 const TICK_HEIGHT = 3;
 
+/** Options for time-axis sparkline positioning. */
+export interface SparklineTimeAxisOptions {
+	/** Per-bar timestamps (ms), same length as values. Points are placed at real time positions. */
+	timestamps: number[];
+	/** First bar timestamp (ms). */
+	startTimestamp: number;
+	/** Last bar timestamp (ms). */
+	endTimestamp: number;
+}
+
 /**
  * Generate an inline SVG area-chart sparkline as a base64 `<img>` tag.
  *
  * Uses the same `data:image/svg+xml;base64,...` pattern as the Finnhub/Grok
  * logos in `html-section.ts` for maximum email-client compatibility.
+ *
+ * When timeAxis is provided, points are placed at real time positions (not uniform
+ * index spacing), so the line aligns with the time-axis labels for non-uniform bars.
  */
 export function toSvgSparklineImg(
 	values: number[],
@@ -26,6 +39,7 @@ export function toSvgSparklineImg(
 	height = 30,
 	alt = "sparkline",
 	timeLabels?: SparklineTimeLabel[],
+	timeAxis?: SparklineTimeAxisOptions,
 ): string {
 	if (values.length < 2) return "";
 
@@ -39,8 +53,25 @@ export function toSvgSparklineImg(
 	const chartW = width - padding * 2;
 	const chartH = height - padding * 2;
 
+	const timeSpan =
+		timeAxis && timeAxis.endTimestamp > timeAxis.startTimestamp
+			? timeAxis.endTimestamp - timeAxis.startTimestamp
+			: 0;
+
 	const points = values.map((v, i) => {
-		const x = padding + (i / (values.length - 1)) * chartW;
+		let x: number;
+		if (
+			timeAxis &&
+			timeSpan > 0 &&
+			timeAxis.timestamps.length === values.length &&
+			Number.isFinite(timeAxis.timestamps[i])
+		) {
+			const frac =
+				(timeAxis.timestamps[i] - timeAxis.startTimestamp) / timeSpan;
+			x = padding + Math.max(0, Math.min(1, frac)) * chartW;
+		} else {
+			x = padding + (i / (values.length - 1)) * chartW;
+		}
 		const y = padding + chartH - ((v - min) / range) * chartH;
 		return `${x.toFixed(1)},${y.toFixed(1)}`;
 	});
