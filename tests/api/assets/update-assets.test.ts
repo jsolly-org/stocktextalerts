@@ -1,9 +1,17 @@
+import { randomUUID } from "node:crypto";
+import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { MAX_TRACKED_ASSETS } from "../../../src/lib/db/database-errors";
 import { rootLogger } from "../../../src/lib/logging";
+import { POST } from "../../../src/pages/api/assets/update";
 import { getAssetData, getRealAssetSymbols } from "../../helpers/asset-data";
 import { updateTrackedAssets } from "../../helpers/asset-update";
-import { adminClient } from "../../helpers/test-env";
+import { TEST_PASSWORD } from "../../helpers/constants";
+import {
+	adminClient,
+	createAuthenticatedCookies,
+} from "../../helpers/test-env";
+import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 import { allowConsoleErrors } from "../../setup";
 
@@ -216,5 +224,51 @@ describe("A signed-in user updates their tracked assets.", () => {
 		expect(payload.message).toBe("failed_to_update_assets");
 		// RPC rolls back on duplicate error — initial assets preserved
 		expect(trackedAssets ?? []).toHaveLength(1);
+	});
+
+	it("User submitting invalid asset symbol (not in assets table) receives error and assets remain unchanged.", async () => {
+		allowConsoleErrors();
+		const testUser = await createTestUser({
+			email: `assets-invalid-${randomUUID()}@resend.dev`,
+			password: TEST_PASSWORD,
+			confirmed: true,
+			trackedAssets: ["AAPL"],
+		});
+		registerTestUserForCleanup(testUser.id);
+
+		const cookies = await createAuthenticatedCookies(
+			testUser.email,
+			TEST_PASSWORD,
+		);
+
+		const formData = new FormData();
+		formData.append("tracked_assets", JSON.stringify(["INVALIDX"]));
+
+		const response = await POST({
+			request: new Request("http://localhost/api/assets/update", {
+				method: "POST",
+				body: formData,
+			}),
+			cookies: {
+				get: (name: string) => {
+					const value = cookies.get(name);
+					return value ? { value } : undefined;
+				},
+				set: () => {},
+			},
+		} as unknown as APIContext);
+
+		expect(response.status).toBe(500);
+		const payload = (await response.json()) as { ok: boolean; message: string };
+		expect(payload.ok).toBe(false);
+		expect(payload.message).toBe("failed_to_update_assets");
+
+		const { data: trackedAssets } = await adminClient
+			.from("user_assets")
+			.select("symbol")
+			.eq("user_id", testUser.id)
+			.order("symbol");
+		expect(trackedAssets).toHaveLength(1);
+		expect(trackedAssets?.[0]?.symbol).toBe("AAPL");
 	});
 });
