@@ -442,6 +442,7 @@ export function extractClosesAndTimestampsFromBars(
 	const timestamps: (number | null)[] = [];
 	let startTimestamp: number | null = null;
 	let endTimestamp: number | null = null;
+	let firstValidTimestampIndex = -1;
 	let lastValidTimestampIndex = -1;
 
 	for (const bar of results) {
@@ -454,7 +455,10 @@ export function extractClosesAndTimestampsFromBars(
 		closes.push(c);
 		if (ts !== null) {
 			timestamps.push(ts);
-			if (startTimestamp === null) startTimestamp = ts;
+			if (startTimestamp === null) {
+				startTimestamp = ts;
+				firstValidTimestampIndex = closes.length - 1;
+			}
 			endTimestamp = ts;
 			lastValidTimestampIndex = closes.length - 1;
 		} else {
@@ -467,12 +471,13 @@ export function extractClosesAndTimestampsFromBars(
 	// Reconcile endTimestamp when trailing bars lack timestamps: extrapolate from average
 	// interval so the SVG time axis end-label aligns with the last plotted data point.
 	if (
-		lastValidTimestampIndex >= 0 &&
+		firstValidTimestampIndex >= 0 &&
+		lastValidTimestampIndex >= firstValidTimestampIndex &&
 		lastValidTimestampIndex < closes.length - 1 &&
 		startTimestamp !== null &&
 		endTimestamp !== null
 	) {
-		const validCount = lastValidTimestampIndex + 1;
+		const validCount = lastValidTimestampIndex - firstValidTimestampIndex + 1;
 		if (validCount >= 2) {
 			const avgInterval = (endTimestamp - startTimestamp) / (validCount - 1);
 			const trailingCount = closes.length - 1 - lastValidTimestampIndex;
