@@ -144,7 +144,16 @@
 				</div>
 
 				<FadeTransition>
-					<div v-if="priceAlertsEnabled && showWizard" key="wizard" class="mt-3 border-t border-divider pt-3 pl-3 sm:pl-4">
+					<div
+					v-if="priceAlertsEnabled && showWizard"
+					key="wizard"
+					class="mt-3 border-t border-divider pt-3 pl-3 sm:pl-4"
+					data-horizontal-scroll
+					@touchstart="handleWizardTouchStart"
+					@touchmove="handleWizardTouchMove"
+					@touchend="handleWizardTouchEnd"
+					@touchcancel="resetWizardTouch"
+				>
 						<fieldset :disabled="notificationSetupBlocked">
 							<div class="space-y-3">
 								<!-- All steps rendered in the same grid cell so the container
@@ -288,7 +297,7 @@
 							class="mt-3 inline-flex items-center gap-1 rounded-md border border-edge px-2.5 py-1 text-xs font-medium text-label transition hover:bg-surface-alt focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 cursor-pointer"
 							@click="startRetune"
 						>
-							⚙️ Re-tune
+							⚙️ Adjust Alerts
 						</button>
 					</div>
 				</FadeTransition>
@@ -577,7 +586,7 @@ const FOLLOW_UP_LABELS: Record<AlertFollowUpMode, string> = {
 
 const MAX_SCHEDULED_UPDATE_MINUTES = 23 * 60 + 59;
 const SCHEDULED_UPDATE_INCREMENT_MINUTES = 1;
-const MAX_DELIVERY_TIMES = 5;
+const MAX_DELIVERY_TIMES = 8;
 const MINUTES_PER_DAY = MAX_SCHEDULED_UPDATE_MINUTES + 1;
 
 // [threshold in minutes, increment] — checked high-to-low
@@ -907,6 +916,71 @@ watch([priceAlertsIncludeEmail, priceAlertsIncludeSms], ([email, sms]) => {
 	};
 	notifyChange();
 });
+
+// ── Wizard swipe navigation (mobile) ──
+const SWIPE_THRESHOLD_PX = 30;
+const AXIS_LOCK_PX = 10;
+let wizardTouchStartX: number | null = null;
+let wizardTouchStartY: number | null = null;
+let wizardTouchAxis: "horizontal" | "vertical" | null = null;
+
+function resetWizardTouch() {
+	wizardTouchStartX = null;
+	wizardTouchStartY = null;
+	wizardTouchAxis = null;
+}
+
+function handleWizardTouchStart(event: TouchEvent) {
+	const touch = event.touches[0];
+	if (!touch) return;
+	wizardTouchStartX = touch.clientX;
+	wizardTouchStartY = touch.clientY;
+	wizardTouchAxis = null;
+}
+
+function handleWizardTouchMove(event: TouchEvent) {
+	if (wizardTouchStartX == null || wizardTouchStartY == null) return;
+	const touch = event.touches[0];
+	if (!touch) return;
+
+	const deltaX = Math.abs(touch.clientX - wizardTouchStartX);
+	const deltaY = Math.abs(touch.clientY - wizardTouchStartY);
+
+	if (wizardTouchAxis == null && (deltaX >= AXIS_LOCK_PX || deltaY >= AXIS_LOCK_PX)) {
+		wizardTouchAxis = deltaX >= deltaY ? "horizontal" : "vertical";
+	}
+
+	if (wizardTouchAxis === "horizontal") {
+		event.preventDefault();
+	}
+}
+
+function handleWizardTouchEnd(event: TouchEvent) {
+	if (wizardTouchStartX == null) {
+		resetWizardTouch();
+		return;
+	}
+	const touch = event.changedTouches[0];
+	if (!touch) {
+		resetWizardTouch();
+		return;
+	}
+
+	const deltaX = touch.clientX - wizardTouchStartX;
+	const axis = wizardTouchAxis;
+	resetWizardTouch();
+
+	if (axis !== "horizontal") return;
+	if (Math.abs(deltaX) < SWIPE_THRESHOLD_PX) return;
+
+	if (deltaX < 0) {
+		// Swipe left → next
+		handleRetuneNext();
+	} else {
+		// Swipe right → back
+		handleRetunePrevious();
+	}
+}
 
 function goToRetuneStep(step: number) {
 	activeRetuneStep.value = step;

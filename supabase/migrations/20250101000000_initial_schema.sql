@@ -205,7 +205,7 @@ IMMUTABLE
 AS $$
   SELECT
     times IS NULL OR (
-      COALESCE(array_length(times, 1), 0) <= 5
+      COALESCE(array_length(times, 1), 0) <= 8
       AND NOT EXISTS (
         SELECT 1
         FROM unnest(times) AS entry
