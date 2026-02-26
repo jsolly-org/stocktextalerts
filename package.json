@@ -44,7 +44,7 @@
 	},
 	"dependencies": {
 		"@astrojs/vercel": "^9.0.4",
-		"@supabase/supabase-js": "^2.97.0",
+		"@supabase/supabase-js": "^2.98.0",
 		"@vuepic/vue-datepicker": "^12.1.0",
 		"@vueuse/core": "^14.2.1",
 		"astro-icon": "^1.1.5",
