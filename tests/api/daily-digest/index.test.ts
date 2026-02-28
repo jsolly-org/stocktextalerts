@@ -6,7 +6,7 @@ import { TEST_PASSWORD } from "../../helpers/constants";
 import { createCronRequest } from "../../helpers/cron";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
-import { allowConsoleWarnings } from "../../setup";
+import { expectConsoleWarning } from "../../setup";
 
 const { processDailyDigestUserMock } = vi.hoisted(() => ({
 	processDailyDigestUserMock: vi.fn(),
@@ -87,7 +87,7 @@ describe("A cron fan-out worker runs daily digest processing per user.", () => {
 	});
 
 	it("Returns a no-op stats payload when the user id does not exist.", async () => {
-		allowConsoleWarnings();
+		expectConsoleWarning("User not found for daily dispatch");
 		const response = await runDailyDigestUser(
 			createApiContext({
 				request: createCronRequest({

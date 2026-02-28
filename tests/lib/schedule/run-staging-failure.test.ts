@@ -16,13 +16,15 @@ import { createScheduleRequest } from "../../helpers/schedule-request";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
-import { allowConsoleErrors } from "../../setup";
+import { expectConsoleError } from "../../setup";
 
 describe("runScheduledNotifications: staging failure fallback", () => {
 	const testCronSecret = "test-cron-secret";
 
 	beforeEach(() => {
-		allowConsoleErrors();
+		expectConsoleError(
+			"Staged delivery phase failed (falling back to full pipeline)",
+		);
 		vi.useFakeTimers();
 		vi.setSystemTime(DateTime.fromISO("2026-01-12T15:00:00.000Z").toJSDate());
 		vi.stubEnv("CRON_SECRET", testCronSecret);
