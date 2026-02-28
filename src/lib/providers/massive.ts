@@ -348,7 +348,7 @@ export async function fetchIpos(
 	to: string,
 ): Promise<ProviderResult<IpoEvent>> {
 	const data = await marketDataFetch(
-		"/v3/reference/ipos",
+		"/vX/reference/ipos",
 		{
 			"listing_date.gte": from,
 			"listing_date.lte": to,
