@@ -106,7 +106,7 @@ if (tokenHash && type === null) {
 	// This handles cases where Supabase already verified the token before redirect
 	const user = await userService.getCurrentUser();
 	if (!user || !user.email_confirmed_at) {
-		rootLogger.error("No valid session or email not confirmed", {
+		rootLogger.info("No valid session or email not confirmed", {
 			hasSession: Boolean(user),
 			emailConfirmed: Boolean(user?.email_confirmed_at),
 		});

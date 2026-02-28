@@ -12,6 +12,20 @@ export function generateUniquePhoneNumber(): string {
 	return `555${String(suffix)}`;
 }
 
+export async function getTestUserPhone(userId: string): Promise<string> {
+	const { data: user, error } = await adminClient
+		.from("users")
+		.select("phone_country_code,phone_number")
+		.eq("id", userId)
+		.single();
+	if (error) throw new Error(`getTestUserPhone failed: ${error.message}`);
+	if (!user) throw new Error("expected user row");
+	if (!user.phone_country_code || !user.phone_number) {
+		throw new Error("expected user phone fields");
+	}
+	return `${user.phone_country_code}${user.phone_number}`;
+}
+
 export type CreateTestUserOptions = {
 	email?: string;
 	password?: string;
@@ -45,7 +59,12 @@ export function createTestEmail(prefix = "test"): string {
 	// random suffix instead of full UUIDs which would exceed the limit.
 	if (isLiveProviderEnabled("email")) {
 		const shortId = randomUUID().replace(/-/g, "").slice(0, 12);
-		return `delivered+${normalizedPrefix}-${shortId}@resend.dev`;
+		const maxPrefixLength = 64 - "delivered+".length - 1 - shortId.length;
+		const cappedPrefix = normalizedPrefix.slice(
+			0,
+			Math.max(1, maxPrefixLength),
+		);
+		return `delivered+${cappedPrefix}-${shortId}@resend.dev`;
 	}
 
 	const label = `${normalizedPrefix}-${TEST_RUN_ID}-${randomUUID()}`;

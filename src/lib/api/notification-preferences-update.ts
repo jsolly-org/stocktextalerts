@@ -352,7 +352,7 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 	return safeNotificationPreferenceUpdates;
 }
 
-export interface TimezoneUpdatePayload {
+interface TimezoneUpdatePayload {
 	timezone: string;
 	market_scheduled_asset_price_next_send_at?: string | null;
 	daily_digest_next_send_at?: string | null;

@@ -1,6 +1,4 @@
 import { Resend } from "resend";
-import { DASHBOARD_SECTION_HASHES } from "../../constants";
-import { getSiteUrl } from "../../db/env";
 import { rootLogger } from "../../logging";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
 import type { MarketClosureInfo } from "../../time/market-calendar";
@@ -9,13 +7,14 @@ import {
 	buildMarketClosedBannerHtml,
 	buildMarketClosedBannerText,
 } from "../market-closure-banner";
+import type { SparklineData } from "../sparkline";
 import type {
 	DeliveryResult,
 	EmailUser,
 	FormatPreferences,
 	UserAssetRow,
 } from "../types";
-import { createEmailUnsubscribeUrl } from "./unsubscribe";
+import { buildEmailUrls } from "./layout";
 
 interface EmailRequest {
 	to: string;
@@ -126,28 +125,20 @@ export function formatEmailMessage(
 	priceMap: AssetPriceMap,
 	marketOpen: boolean,
 	formatPrefs?: FormatPreferences,
-	getSparkline?: (symbol: string) => string | null | undefined,
+	getSparkline?: (symbol: string) => SparklineData | null | undefined,
 	marketClosureInfo?: MarketClosureInfo | null,
 ): { text: string; html: string } {
-	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
-	const escapedDashboardUrl = escapeHtml(dashboardUrl);
-	const scheduleUrl = `${dashboardUrl}${DASHBOARD_SECTION_HASHES.marketNotifications}`;
-	const escapedScheduleUrl = escapeHtml(scheduleUrl);
-	const unsubscribeUrl = createEmailUnsubscribeUrl({
-		userId: user.id,
-		email: user.email,
-	});
-	const escapedUnsubscribeUrl = escapeHtml(unsubscribeUrl);
-	const textFooter = `\n\nManage your delivery schedule: ${scheduleUrl}\nUnsubscribe from all emails: ${unsubscribeUrl}`;
+	const urls = buildEmailUrls(user.id, user.email, "marketNotifications");
+	const textFooter = `\n\nManage your delivery schedule: ${urls.scheduleUrl}\nUnsubscribe from all emails: ${urls.unsubscribeUrl}`;
 	const htmlFooter = `
 		<p style="color: #6b7280; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-			<a href="${escapedScheduleUrl}" style="color: #667eea; text-decoration: none;">Adjust delivery schedule</a>
+			<a href="${urls.escapedScheduleUrl}" style="color: #667eea; text-decoration: none;">Adjust delivery schedule</a>
 			<span style="color: #d1d5db; padding: 0 8px;">•</span>
-			<a href="${escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe from all emails</a>
+			<a href="${urls.escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe from all emails</a>
 		</p>`;
 
 	if (userAssets.length === 0) {
-		const text = `You don't have any tracked assets yet.\n\nVisit your dashboard to add assets to track: ${dashboardUrl}${textFooter}`;
+		const text = `You don't have any tracked assets yet.\n\nVisit your dashboard to add assets to track: ${urls.dashboardUrl}${textFooter}`;
 		const html = `
 <!DOCTYPE html>
 <html>
@@ -157,7 +148,7 @@ export function formatEmailMessage(
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
 	<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 8px 8px 0 0; text-align: center;">
-		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">📈 StockTextAlerts</h1>
+		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Scheduled Price Update</h1>
 	</div>
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
 		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Get Started Tracking Assets</h2>
@@ -165,7 +156,7 @@ export function formatEmailMessage(
 			You don't have any tracked assets yet. Start tracking your favorite assets to receive regular updates!
 		</p>
 		<div style="text-align: center; margin: 40px 0;">
-			<a href="${escapedDashboardUrl}" style="display: inline-block; background: #667eea; color: white; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-weight: 600; font-size: 16px; transition: background 0.2s;">
+			<a href="${urls.escapedDashboardUrl}" style="display: inline-block; background: #667eea; color: white; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-weight: 600; font-size: 16px; transition: background 0.2s;">
 				Add Assets to Track →
 			</a>
 		</div>
@@ -201,7 +192,7 @@ export function formatEmailMessage(
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
 	<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 8px 8px 0 0; text-align: center;">
-		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">📈 StockTextAlerts</h1>
+		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Scheduled Price Update</h1>
 	</div>
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
 		${marketClosedBannerHtml}
@@ -212,7 +203,7 @@ export function formatEmailMessage(
 			</p>
 		</div>
 		<div style="text-align: center; margin-top: 30px;">
-			<a href="${escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
+			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
 				Manage your settings →
 			</a>
 		</div>

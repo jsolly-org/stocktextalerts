@@ -5,6 +5,7 @@ import { createUserService, type User } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { createLogger } from "../../../lib/logging";
+import { createErrorForLogging } from "../../../lib/logging/errors";
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
@@ -44,12 +45,10 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	try {
 		dbUser = await users.getById(authUser.id);
 	} catch (error) {
-		const errorObject =
-			error instanceof Error ? error : new Error(String(error));
 		logger.error(
 			"Failed to fetch user for notification-preferences timezone update",
 			{ userId: authUser.id },
-			errorObject,
+			createErrorForLogging(error),
 		);
 		return jsonResponse(500, {
 			ok: false,
@@ -69,15 +68,13 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 			logger,
 		);
 	} catch (error) {
-		const errorObject =
-			error instanceof Error ? error : new Error(String(error));
 		logger.error(
 			"Failed to compute timezone update payload",
 			{
 				userId: authUser.id,
 				timezone: parsed.data.timezone,
 			},
-			errorObject,
+			createErrorForLogging(error),
 		);
 		return jsonResponse(500, {
 			ok: false,
@@ -89,15 +86,13 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	try {
 		updatedUser = await users.update(authUser.id, updatePayload);
 	} catch (error) {
-		const errorObject =
-			error instanceof Error ? error : new Error(String(error));
 		logger.error(
 			"Failed to update timezone",
 			{
 				userId: authUser.id,
 				timezone: parsed.data.timezone,
 			},
-			errorObject,
+			createErrorForLogging(error),
 		);
 		return jsonResponse(500, {
 			ok: false,

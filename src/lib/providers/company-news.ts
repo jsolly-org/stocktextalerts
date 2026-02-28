@@ -7,7 +7,16 @@ export interface CompanyNewsItem {
 	datetime: number;
 	url: string;
 	source: string;
+	/** Ticker symbols associated with this article (from API). */
+	tickers: string[];
 }
+
+/**
+ * Maximum number of tickers an article can be tagged with before we consider
+ * it a generic roundup piece (e.g. "5 Smart Stocks to Buy Right Now") and
+ * filter it out for relevance.
+ */
+const MAX_TICKERS_PER_ARTICLE = 5;
 
 /** Fetch recent company news headlines for a ticker within a date range. */
 export async function fetchCompanyNews(
@@ -43,6 +52,15 @@ export async function fetchCompanyNews(
 			const parsed = Date.parse(row.published_utc);
 			if (Number.isNaN(parsed)) return [];
 
+			const tickers = Array.isArray(row.tickers)
+				? (row.tickers as unknown[]).filter(
+						(t): t is string => typeof t === "string",
+					)
+				: [];
+
+			// Skip generic roundup articles that tag many tickers
+			if (tickers.length > MAX_TICKERS_PER_ARTICLE) return [];
+
 			return [
 				{
 					headline: row.title,
@@ -55,6 +73,7 @@ export async function fetchCompanyNews(
 						typeof (row.publisher as Record<string, unknown>).name === "string"
 							? ((row.publisher as Record<string, unknown>).name as string)
 							: "",
+					tickers,
 				},
 			];
 		})

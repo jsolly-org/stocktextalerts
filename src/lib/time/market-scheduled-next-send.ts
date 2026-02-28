@@ -7,7 +7,7 @@ import { calculateNextSendAtFromTimes } from "./scheduled-times";
 
 const MAX_CANDIDATE_ITERATIONS = 400;
 
-export interface NextMarketScheduledSendResult {
+interface NextMarketScheduledSendResult {
 	nextSendAt: DateTime | null;
 	delayReasons: MarketClosureReason[];
 	/** Name of the first holiday encountered (e.g. "Presidents' Day"), if available. */

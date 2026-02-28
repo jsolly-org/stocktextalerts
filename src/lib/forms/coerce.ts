@@ -90,6 +90,25 @@ export function coerceValue(
 			if (raw === "") {
 				return { value: undefined };
 			}
+			/** IANA timezone names are ~50 chars max; cap to prevent DoS from oversized payloads. */
+			const MAX_TIMEZONE_LENGTH = 64;
+			if (raw.length > MAX_TIMEZONE_LENGTH) {
+				return {
+					value: undefined,
+					error: {
+						reason: "timezone_too_long",
+						key: "",
+						value: "[timezone exceeds 64 character limit]",
+					},
+				};
+			}
+			/** DB enforces has_no_whitespace(timezone); reject early for clearer errors. */
+			if (/\s/.test(raw)) {
+				return {
+					value: undefined,
+					error: { reason: "invalid_timezone", key: "", value: raw },
+				};
+			}
 			return { value: raw };
 		}
 		case "integer": {

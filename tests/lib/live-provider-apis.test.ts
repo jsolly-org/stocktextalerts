@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { finnhubFetch } from "../../src/lib/providers/finnhub";
+import { fetchCompanyNews } from "../../src/lib/providers/company-news";
+import {
+	fetchFinnhubExtras,
+	finnhubFetch,
+} from "../../src/lib/providers/finnhub";
 import {
 	fetchDailyCloses,
+	fetchDividends,
+	fetchIntradayBars,
+	fetchIpos,
 	fetchSnapshotQuotes,
+	fetchSplits,
 	marketDataFetch,
 } from "../../src/lib/providers/massive";
 import { fetchAssetPrices } from "../../src/lib/providers/price-fetcher";
@@ -79,6 +87,97 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 		expect(nonNullCount).toBeGreaterThan(0);
 	});
 
+	it("returns IPO data from the /vX/reference/ipos endpoint", async () => {
+		const from = new Date().toISOString().slice(0, 10);
+		const to = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+			.toISOString()
+			.slice(0, 10);
+
+		const result = await fetchIpos(from, to);
+
+		expect(result.failed).toBe(false);
+		expect(Array.isArray(result.data)).toBe(true);
+	});
+
+	it("returns dividend data from the /v3/reference/dividends endpoint", async () => {
+		const to = new Date();
+		const from = new Date(to);
+		from.setDate(from.getDate() - 30);
+		const fromStr = from.toISOString().slice(0, 10);
+		const toStr = to.toISOString().slice(0, 10);
+
+		const result = await fetchDividends(fromStr, toStr);
+
+		expect(result.failed).toBe(false);
+		expect(Array.isArray(result.data)).toBe(true);
+		expect(result.data.length).toBeGreaterThan(0);
+
+		const first = result.data[0];
+		expect(typeof first.ticker).toBe("string");
+		expect(typeof first.exDividendDate).toBe("string");
+		expect(typeof first.cashAmount).toBe("number");
+	});
+
+	it("returns splits data from the /v3/reference/splits endpoint", async () => {
+		// Use a wide range to increase odds of finding splits
+		const to = new Date();
+		const from = new Date(to);
+		from.setDate(from.getDate() - 90);
+		const fromStr = from.toISOString().slice(0, 10);
+		const toStr = to.toISOString().slice(0, 10);
+
+		const result = await fetchSplits(fromStr, toStr);
+
+		expect(result.failed).toBe(false);
+		expect(Array.isArray(result.data)).toBe(true);
+		// Splits are less frequent; just verify the endpoint doesn't error
+	});
+
+	it("returns intraday bars for SPY from the 5-minute aggregates endpoint", async () => {
+		const result = await fetchIntradayBars("SPY");
+
+		// Intraday bars may be null outside market hours on weekends
+		if (result !== null) {
+			expect(result.closes.length).toBeGreaterThan(0);
+			for (const c of result.closes) {
+				expect(typeof c).toBe("number");
+				expect(Number.isFinite(c)).toBe(true);
+			}
+		}
+	});
+
+	it("returns upcoming market holidays from the /v1/marketstatus/upcoming endpoint", async () => {
+		const payload = await marketDataFetch(
+			"/v1/marketstatus/upcoming",
+			{},
+			"live-market-holidays",
+		);
+
+		expect(Array.isArray(payload)).toBe(true);
+		expect((payload as unknown[]).length).toBeGreaterThan(0);
+
+		const first = (payload as Record<string, unknown>[])[0];
+		expect(typeof first.exchange).toBe("string");
+		expect(typeof first.date).toBe("string");
+		expect(typeof first.status).toBe("string");
+	});
+
+	it("returns company news from the /v2/reference/news endpoint", async () => {
+		const to = new Date().toISOString().slice(0, 10);
+		const from = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
+			.toISOString()
+			.slice(0, 10);
+
+		const items = await fetchCompanyNews("AAPL", from, to);
+
+		expect(Array.isArray(items)).toBe(true);
+		expect(items.length).toBeGreaterThan(0);
+
+		const first = items[0];
+		expect(typeof first.headline).toBe("string");
+		expect(typeof first.datetime).toBe("number");
+	});
+
 	it("handles SPIT snapshot correctly (null-snapshot vs valid-snapshot)", async () => {
 		const productionSnapshot = await fetchSnapshotQuotes(["SPIT", "SPY"]);
 		const spitQuote = productionSnapshot.get("SPIT");
@@ -147,6 +246,33 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 
 describeFinnhubLive("Finnhub live API (opt-in)", () => {
 	assertLiveProviderKey({ provider: "finnhub", envVar: "FINNHUB_API_KEY" });
+
+	it("returns analyst recommendations for a liquid ticker", async () => {
+		const result = await fetchFinnhubExtras(["AAPL"], {
+			includeNews: false,
+			includeAnalyst: true,
+			includeInsider: false,
+		});
+
+		const analystData = result.analyst.get("AAPL");
+		expect(analystData).not.toBeNull();
+		expect(typeof analystData?.buy).toBe("number");
+		expect(typeof analystData?.hold).toBe("number");
+		expect(typeof analystData?.sell).toBe("number");
+		expect(typeof analystData?.period).toBe("string");
+	});
+
+	it("returns insider transactions without error", async () => {
+		const result = await fetchFinnhubExtras(["AAPL"], {
+			includeNews: false,
+			includeAnalyst: false,
+			includeInsider: true,
+		});
+
+		const insiderData = result.insider.get("AAPL");
+		expect(Array.isArray(insiderData)).toBe(true);
+		// Insider transactions may be empty for recent 24h window; just verify no error
+	});
 
 	it("returns an earnings calendar payload for current date range", async () => {
 		const from = new Date().toISOString().slice(0, 10);

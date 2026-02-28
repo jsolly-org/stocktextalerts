@@ -10,11 +10,10 @@ import StatusMessage from "../components/StatusMessage.astro";
 import Layout from "../layouts/Layout.astro";
 import { getAuthErrorMessage } from "../lib/auth/messages";
 import { buildSigninRedirectUrl } from "../lib/auth/redirects";
-import { CARD_GRADIENT_ACCENTS } from "../lib/constants";
+import { CARD_GRADIENT_ACCENTS, formatMessage } from "../lib/constants";
 import { createUserService } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 import { rootLogger } from "../lib/logging";
-import { formatMessage } from "../lib/constants";
 import { getTimezoneOptions } from "../lib/time/cache";
 
 const supabase = createSupabaseServerClient();

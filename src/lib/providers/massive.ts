@@ -1,3 +1,4 @@
+import { US_MARKET_TIMEZONE } from "../constants";
 import { rootLogger } from "../logging";
 import { finnhubFetch } from "./finnhub";
 
@@ -100,6 +101,7 @@ export async function marketDataFetch(
 	endpoint: string,
 	params: Record<string, string>,
 	label: string,
+	logContext?: Record<string, unknown>,
 ): Promise<unknown> {
 	const apiKey = getMassiveApiKey();
 	if (!apiKey) return null;
@@ -126,6 +128,7 @@ export async function marketDataFetch(
 					endpoint,
 					attempt,
 					status: 429,
+					...logContext,
 				});
 				if (!isLastAttempt) {
 					await new Promise((r) =>
@@ -151,6 +154,7 @@ export async function marketDataFetch(
 					attempt,
 					status: response.status,
 					apiStatus,
+					...logContext,
 				});
 				if (!isLastAttempt) {
 					await new Promise((r) =>
@@ -167,6 +171,7 @@ export async function marketDataFetch(
 				endpoint,
 				attempt,
 				error: error instanceof Error ? error.message : String(error),
+				...logContext,
 			});
 			if (!isLastAttempt) {
 				await new Promise((r) =>
@@ -343,7 +348,7 @@ export async function fetchIpos(
 	to: string,
 ): Promise<ProviderResult<IpoEvent>> {
 	const data = await marketDataFetch(
-		"/v3/reference/ipos",
+		"/vX/reference/ipos",
 		{
 			"listing_date.gte": from,
 			"listing_date.lte": to,
@@ -407,6 +412,88 @@ export function extractClosesFromBars(payload: unknown): number[] | null {
 	return closes.length > 0 ? closes : null;
 }
 
+/** Result of extracting closes and timestamps from intraday bars. */
+interface IntradayBarsResult {
+	closes: number[];
+	/** Per-bar timestamps (ms since epoch), same length as closes. null for bars lacking t; downstream places points at real time for valid entries. Null when no bars have timestamps. */
+	timestamps: (number | null)[] | null;
+	/** First bar timestamp (ms since epoch), or null if bars lack timestamps. */
+	startTimestamp: number | null;
+	/** Last bar timestamp (ms since epoch), or null if bars lack timestamps. When trailing bars lack timestamps, extrapolated from the average interval so the time axis aligns with the last plotted point. */
+	endTimestamp: number | null;
+}
+
+/**
+ * Extract closing prices and bar timestamps from a Polygon/Massive bars API response.
+ *
+ * Expects bar objects with `c` (close) and `t` (timestamp in ms). Returns `null` when
+ * no valid bars exist. Preserves per-bar timestamps so downstream can place points on
+ * real time positions (avoids misalignment when intraday bars are non-uniform).
+ */
+export function extractClosesAndTimestampsFromBars(
+	payload: unknown,
+): IntradayBarsResult | null {
+	if (typeof payload !== "object" || payload === null) return null;
+
+	const results = (payload as Record<string, unknown>).results;
+	if (!Array.isArray(results)) return null;
+
+	const closes: number[] = [];
+	const timestamps: (number | null)[] = [];
+	let startTimestamp: number | null = null;
+	let endTimestamp: number | null = null;
+	let firstValidTimestampIndex = -1;
+	let lastValidTimestampIndex = -1;
+
+	for (const bar of results) {
+		if (typeof bar !== "object" || bar === null) continue;
+		const rec = bar as Record<string, unknown>;
+		const c = rec.c;
+		const t = rec.t;
+		if (typeof c !== "number" || !Number.isFinite(c)) continue;
+		const ts = typeof t === "number" && Number.isFinite(t) ? t : null;
+		closes.push(c);
+		if (ts !== null) {
+			timestamps.push(ts);
+			if (startTimestamp === null) {
+				startTimestamp = ts;
+				firstValidTimestampIndex = closes.length - 1;
+			}
+			endTimestamp = ts;
+			lastValidTimestampIndex = closes.length - 1;
+		} else {
+			timestamps.push(null); // Sentinel: bar lacks timestamp
+		}
+	}
+
+	if (closes.length === 0) return null;
+
+	// Reconcile endTimestamp when trailing bars lack timestamps: extrapolate from average
+	// interval so the SVG time axis end-label aligns with the last plotted data point.
+	if (
+		firstValidTimestampIndex >= 0 &&
+		lastValidTimestampIndex >= firstValidTimestampIndex &&
+		lastValidTimestampIndex < closes.length - 1 &&
+		startTimestamp !== null &&
+		endTimestamp !== null
+	) {
+		const validCount = lastValidTimestampIndex - firstValidTimestampIndex + 1;
+		if (validCount >= 2) {
+			const avgInterval = (endTimestamp - startTimestamp) / (validCount - 1);
+			const trailingCount = closes.length - 1 - lastValidTimestampIndex;
+			endTimestamp = endTimestamp + trailingCount * avgInterval;
+		}
+	}
+
+	// Expose per-bar timestamps when we have any valid t; use null for bars lacking t
+	return {
+		closes,
+		timestamps: startTimestamp !== null ? timestamps : null,
+		startTimestamp,
+		endTimestamp,
+	};
+}
+
 /**
  * Fetch daily closing prices for a single symbol over a date range.
  *
@@ -430,20 +517,20 @@ export async function fetchDailyCloses(
  * Fetch intraday 5-minute closing prices for a single symbol (today, ET timezone).
  *
  * Uses `/v2/aggs/ticker/{symbol}/range/5/minute/{today}/{today}?sort=asc&limit=5000`.
- * Returns an array of closing prices, or null on failure.
+ * Returns closes and bar timestamps for axis labeling, or null on failure.
  */
 export async function fetchIntradayBars(
 	symbol: string,
-): Promise<number[] | null> {
+): Promise<IntradayBarsResult | null> {
 	const today = new Date().toLocaleDateString("en-CA", {
-		timeZone: "America/New_York",
+		timeZone: US_MARKET_TIMEZONE,
 	});
 	const data = await marketDataFetch(
 		`/v2/aggs/ticker/${encodeURIComponent(symbol)}/range/5/minute/${today}/${today}`,
 		{ sort: "asc", limit: "5000" },
 		"intraday-bars",
 	);
-	return extractClosesFromBars(data);
+	return extractClosesAndTimestampsFromBars(data);
 }
 
 /**
@@ -513,9 +600,23 @@ function parseSnapshotTicker(t: SnapshotTicker): SnapshotQuote | null {
 	if (typeof price !== "number" || !Number.isFinite(price) || price === 0)
 		return null;
 
-	const changePercent = t.todaysChangePerc;
+	let changePercent = t.todaysChangePerc;
 	if (typeof changePercent !== "number" || !Number.isFinite(changePercent))
 		return null;
+
+	// When market is closed, todaysChangePerc is 0 because there are no trades
+	// today. Fall back to the last trading day's change (day.c vs prevDay.c)
+	// so notifications don't confusingly show +(0.00%).
+	const prevClose = t.prevDay?.c;
+	if (
+		changePercent === 0 &&
+		typeof prevClose === "number" &&
+		Number.isFinite(prevClose) &&
+		prevClose !== 0 &&
+		price !== prevClose
+	) {
+		changePercent = ((price - prevClose) / prevClose) * 100;
+	}
 
 	const numPrice = (v: unknown): number | null =>
 		typeof v === "number" && Number.isFinite(v) && v !== 0 ? v : null;
@@ -557,6 +658,7 @@ export async function fetchSnapshotQuotes(
 		"/v2/snapshot/locale/us/markets/stocks/tickers",
 		{ tickers: symbols.join(",") },
 		"snapshot-quotes",
+		{ tickerCount: symbols.length },
 	);
 
 	if (typeof data !== "object" || data === null) return result;

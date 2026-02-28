@@ -1,5 +1,19 @@
 {
   "enabledPlugins": {
     "coderabbit@claude-plugins-official": true
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".agents/hooks/typecheck.sh",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
   }
 }

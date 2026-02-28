@@ -6,8 +6,8 @@ name: "Nightly: PR Grooming"
 
 on:
   schedule:
-    - cron: "0 6 * * *" # 1 AM ET
-    - cron: "30 6 * * *" # 1:30 AM ET (re-run to merge fixed PRs)
+    - cron: "0 2 * * *" # 9 PM ET (groom existing PRs before new nightly jobs)
+    - cron: "0 8 * * *" # 3 AM ET (re-run to merge fixed PRs, after all other nightly jobs)
   workflow_dispatch:
 
 permissions:
@@ -241,12 +241,21 @@ jobs:
           ${LOGS}"
           fi
 
-          # --- Merge conflict context: merge base branch to surface markers ---
-          if [ "$HAS_CONFLICTS" = "true" ]; then
-            echo "Merging $BASE_REF to surface conflict markers..."
-            git fetch origin "$BASE_REF"
-            git merge "origin/$BASE_REF" --no-commit --no-ff 2>/dev/null || true
+          # --- Always update to latest base branch ---
+          echo "Merging $BASE_REF into PR branch..."
+          git fetch origin "$BASE_REF"
+          if ! git merge "origin/$BASE_REF" --no-commit --no-ff 2>/dev/null; then
+            # Allow conflict-driven flow, but fail on non-conflict merge errors.
+            if git ls-files -u | grep -q .; then
+              echo "Merge conflicts detected while merging $BASE_REF into PR branch."
+            else
+              echo "Failed to merge $BASE_REF into PR branch for a non-conflict reason."
+              exit 1
+            fi
+          fi
 
+          # --- Merge conflict context ---
+          if [ "$HAS_CONFLICTS" = "true" ]; then
             CONTEXT="${CONTEXT}
           ## Merge conflicts
           This PR has merge conflicts with the $BASE_REF branch. The conflicts have been
@@ -421,11 +430,29 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
           PR_NUMBER: ${{ matrix.pr.number }}
           RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          FAILED_CHECKS: ${{ toJson(matrix.pr.failedChecks) }}
+          HAS_CONFLICTS: ${{ matrix.pr.hasConflicts }}
+          HAS_UNRESOLVED: ${{ matrix.pr.hasUnresolved }}
         run: |
+          ISSUES=""
+          FAILED_COUNT=$(echo "$FAILED_CHECKS" | jq 'length')
+          if [ "$FAILED_COUNT" -gt 0 ]; then
+            NAMES=$(echo "$FAILED_CHECKS" | jq -r 'join(", ")')
+            ISSUES="${ISSUES}- **Failing CI checks:** ${NAMES}\n"
+          fi
+          if [ "$HAS_CONFLICTS" = "true" ]; then
+            ISSUES="${ISSUES}- **Merge conflicts** with base branch\n"
+          fi
+          if [ "$HAS_UNRESOLVED" = "true" ]; then
+            ISSUES="${ISSUES}- **Unresolved review comments**\n"
+          fi
+
           gh pr comment "$PR_NUMBER" --body "$(cat <<EOF
           ## Nightly PR Grooming: Fix applied
 
-          The nightly PR grooming workflow detected issues and pushed a fix commit.
+          **Issues detected:**
+          $(echo -e "$ISSUES")
+          The nightly PR grooming workflow pushed a fix commit to address the above.
 
           [Workflow run]($RUN_URL)
 

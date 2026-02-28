@@ -144,7 +144,16 @@
 				</div>
 
 				<FadeTransition>
-					<div v-if="priceAlertsEnabled && showWizard" key="wizard" class="mt-3 border-t border-divider pt-3 pl-3 sm:pl-4">
+					<div
+					v-if="priceAlertsEnabled && showWizard"
+					key="wizard"
+					class="mt-3 border-t border-divider pt-3 pl-3 sm:pl-4"
+					data-horizontal-scroll
+					@touchstart="handleWizardTouchStart"
+					@touchmove="handleWizardTouchMove"
+					@touchend="handleWizardTouchEnd"
+					@touchcancel="resetWizardTouch"
+				>
 						<fieldset :disabled="notificationSetupBlocked">
 							<div class="space-y-3">
 								<!-- All steps rendered in the same grid cell so the container
@@ -288,7 +297,7 @@
 							class="mt-3 inline-flex items-center gap-1 rounded-md border border-edge px-2.5 py-1 text-xs font-medium text-label transition hover:bg-surface-alt focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 cursor-pointer"
 							@click="startRetune"
 						>
-							⚙️ Re-tune
+							⚙️ Adjust Alerts
 						</button>
 					</div>
 				</FadeTransition>
@@ -376,8 +385,8 @@
 							:needsChannelSelection="notificationSetupBlocked"
 							:timePickerDisabled="timePickerDisabled"
 							:canAddTime="canAddTime"
-							:canAddMarketOpen="canAddMarketOpen"
-							:marketOpenLabel="marketOpenLabel"
+							:canAddAfterOpen="canAddAfterOpen"
+							:afterOpenLabel="afterOpenLabel"
 							:maxTimes="MAX_DELIVERY_TIMES"
 							:maxTimesReached="maxTimesReached"
 							:countdownText="countdownText"
@@ -388,7 +397,7 @@
 							@time-change="handleTimeChange"
 							@add-time="handleAddTime"
 							@add-initial-time="handleAddInitialTime"
-							@add-market-open="handleAddMarketOpen"
+							@add-after-open="handleAddAfterOpen"
 							@remove-time="handleRemoveTime"
 						/>
 					</div>
@@ -426,7 +435,7 @@ import type {
 } from "../../../lib/market-notifications/alert-profile";
 import {
 	formatMinutesAsLocalTime,
-	getUsMarketOpenLocalMinutes,
+	getUsAfterOpenLocalMinutes,
 	isOutsideMarketHours,
 	minutesToTimeInputValue,
 	parseTimeToMinutes,
@@ -553,7 +562,6 @@ const showWizard = computed(
 	() => !priceAlertOnboardingCompleted.value || retuning.value,
 );
 
-
 const isPriceAlertAutosaveLocked = computed(
 	() => !priceAlertOnboardingCompleted.value,
 );
@@ -578,7 +586,7 @@ const FOLLOW_UP_LABELS: Record<AlertFollowUpMode, string> = {
 
 const MAX_SCHEDULED_UPDATE_MINUTES = 23 * 60 + 59;
 const SCHEDULED_UPDATE_INCREMENT_MINUTES = 1;
-const MAX_DELIVERY_TIMES = 5;
+const MAX_DELIVERY_TIMES = 8;
 const MINUTES_PER_DAY = MAX_SCHEDULED_UPDATE_MINUTES + 1;
 
 // [threshold in minutes, increment] — checked high-to-low
@@ -689,24 +697,24 @@ const canAddTime = computed(() => {
 	return getNextQuickAddMinute(times, 0) !== null;
 });
 
-const marketOpenLocalMinutes = computed(() => {
+const afterOpenLocalMinutes = computed(() => {
 	const tz = timezone.value;
 	if (tz === "") return null;
-	return getUsMarketOpenLocalMinutes(tz);
+	return getUsAfterOpenLocalMinutes(tz);
 });
 
-const marketOpenLabel = computed(() => {
-	if (marketOpenLocalMinutes.value === null) return null;
-	return formatMinutesAsLocalTime(marketOpenLocalMinutes.value, user.value.use_24_hour_time);
+const afterOpenLabel = computed(() => {
+	if (afterOpenLocalMinutes.value === null) return null;
+	return formatMinutesAsLocalTime(afterOpenLocalMinutes.value, user.value.use_24_hour_time);
 });
 
-const hasMarketOpenTime = computed(() => {
-	if (marketOpenLocalMinutes.value === null) return true;
-	return scheduledUpdateTimesMinutes.value.includes(marketOpenLocalMinutes.value);
+const hasAfterOpenTime = computed(() => {
+	if (afterOpenLocalMinutes.value === null) return true;
+	return scheduledUpdateTimesMinutes.value.includes(afterOpenLocalMinutes.value);
 });
 
-const canAddMarketOpen = computed(
-	() => !timePickerDisabled.value && !hasMarketOpenTime.value && !maxTimesReached.value,
+const canAddAfterOpen = computed(
+	() => !timePickerDisabled.value && !hasAfterOpenTime.value && !maxTimesReached.value,
 );
 
 const outsideMarketHoursIndices = computed<Set<number>>(() => {
@@ -909,6 +917,86 @@ watch([priceAlertsIncludeEmail, priceAlertsIncludeSms], ([email, sms]) => {
 	notifyChange();
 });
 
+// ── Wizard swipe navigation (mobile) ──
+// Note: wizardTouch* are module-scoped (outside Vue reactivity). This is intentional
+// since they don't need to trigger re-renders, but it means only one instance of
+// this panel should be mounted at a time (fine for the singleton dashboard).
+const SWIPE_THRESHOLD_PX = 30;
+const AXIS_LOCK_PX = 10;
+let wizardTouchStartX: number | null = null;
+let wizardTouchStartY: number | null = null;
+let wizardTouchAxis: "horizontal" | "vertical" | null = null;
+
+function resetWizardTouch() {
+	wizardTouchStartX = null;
+	wizardTouchStartY = null;
+	wizardTouchAxis = null;
+}
+
+function handleWizardTouchStart(event: TouchEvent) {
+	if (event.touches.length !== 1) {
+		resetWizardTouch();
+		return;
+	}
+	const touch = event.touches[0];
+	if (!touch) return;
+	wizardTouchStartX = touch.clientX;
+	wizardTouchStartY = touch.clientY;
+	wizardTouchAxis = null;
+}
+
+function handleWizardTouchMove(event: TouchEvent) {
+	if (event.touches.length !== 1) {
+		resetWizardTouch();
+		return;
+	}
+	if (wizardTouchStartX == null || wizardTouchStartY == null) return;
+	const touch = event.touches[0];
+	if (!touch) return;
+
+	const deltaX = Math.abs(touch.clientX - wizardTouchStartX);
+	const deltaY = Math.abs(touch.clientY - wizardTouchStartY);
+
+	if (wizardTouchAxis == null && (deltaX >= AXIS_LOCK_PX || deltaY >= AXIS_LOCK_PX)) {
+		wizardTouchAxis = deltaX >= deltaY ? "horizontal" : "vertical";
+	}
+
+	if (wizardTouchAxis === "horizontal") {
+		event.preventDefault();
+	}
+}
+
+function handleWizardTouchEnd(event: TouchEvent) {
+	if (event.changedTouches.length !== 1) {
+		resetWizardTouch();
+		return;
+	}
+	if (wizardTouchStartX == null) {
+		resetWizardTouch();
+		return;
+	}
+	const touch = event.changedTouches[0];
+	if (!touch) {
+		resetWizardTouch();
+		return;
+	}
+
+	const deltaX = touch.clientX - wizardTouchStartX;
+	const axis = wizardTouchAxis;
+	resetWizardTouch();
+
+	if (axis !== "horizontal") return;
+	if (Math.abs(deltaX) < SWIPE_THRESHOLD_PX) return;
+
+	if (deltaX < 0) {
+		// Swipe left → next
+		handleRetuneNext();
+	} else {
+		// Swipe right → back
+		handleRetunePrevious();
+	}
+}
+
 function goToRetuneStep(step: number) {
 	activeRetuneStep.value = step;
 }
@@ -969,9 +1057,9 @@ function handleTimeChange(index: number, value: string) {
 function handleAddTime() {
 	if (!canAddTime.value) return;
 	const times = normalizeScheduledTimes(scheduledUpdateTimesMinutes.value);
-	// When empty, use market open as the first suggested time (falls back to 9:00 AM)
+	// When empty, use after-open time as the first suggested time (falls back to 9:00 AM)
 	if (times.length === 0) {
-		scheduledUpdateTimesMinutes.value = [marketOpenLocalMinutes.value ?? DEFAULT_MARKET_UPDATE_TIME_MINUTES];
+		scheduledUpdateTimesMinutes.value = [afterOpenLocalMinutes.value ?? DEFAULT_MARKET_UPDATE_TIME_MINUTES];
 		notifyChange();
 		return;
 	}
@@ -990,13 +1078,13 @@ function handleAddInitialTime(value: string) {
 	notifyChange();
 }
 
-function handleAddMarketOpen() {
-	if (!canAddMarketOpen.value || marketOpenLocalMinutes.value === null) {
+function handleAddAfterOpen() {
+	if (!canAddAfterOpen.value || afterOpenLocalMinutes.value === null) {
 		return;
 	}
 	const times = normalizeScheduledTimes(scheduledUpdateTimesMinutes.value);
 	const baseTimes =
-		times.length === 0 ? [marketOpenLocalMinutes.value] : [...times, marketOpenLocalMinutes.value];
+		times.length === 0 ? [afterOpenLocalMinutes.value] : [...times, afterOpenLocalMinutes.value];
 	scheduledUpdateTimesMinutes.value = normalizeScheduledTimes(baseTimes);
 	notifyChange();
 }

@@ -5,7 +5,7 @@ name: "Nightly: Docs"
 
 on:
   schedule:
-    - cron: "0 7 * * *" # 7:00 UTC (2 AM EST / 3 AM EDT) — after PR grooming
+    - cron: "0 9 * * *" # 4 AM ET
   workflow_dispatch:
 
 permissions:
@@ -115,6 +115,8 @@ jobs:
             --base dev \
             --head "$BRANCH" \
             --title "docs(nightly): update docs — ${DATE}" \
+            --label "bot-generated" \
+            --label "nightly" \
             --body "Automated nightly doc updates.
 
           Date: ${DATE}

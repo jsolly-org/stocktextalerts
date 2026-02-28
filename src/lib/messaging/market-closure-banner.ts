@@ -21,7 +21,7 @@ export function buildMarketClosureLabel(
 	return "Market Closed";
 }
 
-export type MarketClosedBannerContext = "prices" | "events";
+type MarketClosedBannerContext = "prices" | "events";
 
 /** Build a plain-text market-closed banner. */
 export function buildMarketClosedBannerText(

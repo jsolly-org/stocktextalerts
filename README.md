@@ -7,13 +7,13 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - **Asset Tracking** - Search and track US stocks and ETFs
 - **Email Notifications** - Receive updates via email (Resend)
 - **SMS Notifications** - Optional SMS delivery (Twilio)
-- **Asset Price Alerts** - Get alerted during US market hours when tracked assets show significant price movement (up or down), with configurable sensitivity (Chill/Balanced/Aggressive)
+- **Asset Price Alerts** - Get alerted during US market hours when tracked assets show significant price movement (up or down), with configurable move size (Moderate/Large) and market context (Standouts only / Any big move)
 - **Phone Verification** - Secure phone verification via Twilio Verify
 - **Timezone Support** - Browser-detected timezones with user overrides
 - **Market Notifications** - Choose up to 5 delivery times for scheduled asset price updates, and decide if they're delivered by email, SMS, or both
 - **Daily Digest** - Once-daily email digest with optional extras (News/Rumors are email-only and may include clickable source links)
 - **Asset Events** - Daily notification of upcoming calendar events (earnings/dividends/splits) and IPOs, plus optional insider trades and analyst consensus (delivered by email and/or SMS; calendar events are toggled together per channel)
-- **Format Preferences** - Customize how your updates look with live SMS/email previews
+- **Format Preferences** - Customize how your updates look with live SMS/email previews and optional sparklines (weekly price trend)
 - **SMS Opt-out** - Reply STOP to opt out of SMS; reply START to opt back in (then re-enable SMS in your dashboard)
 
 ## Tech Stack
@@ -22,13 +22,13 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - **UI**: Vue 3 components with Tailwind CSS
 - **Icons**: Local SVGs in `/src/icons` loaded via `astro-icon` in `.astro` files; Vue components import SVGs via `vite-svg-loader` using the `?component` suffix
 - **Database**: Supabase (PostgreSQL)
-- **Market Data**: Massive (prices/dividends/splits/IPOs) + Finnhub (earnings, market hours, analyst/insider extras)
+- **Market Data**: Massive (prices/dividends/splits/IPOs) + Finnhub (symbols, earnings, market hours, analyst/insider extras)
 - **AI Summaries**: xAI (Grok) for optional News/Rumors add-ons and asset price alert summaries
 - **Email**: Resend
 - **SMS**: Twilio Verify API + Messaging API
 - **Hosting**: Vercel with Cron Jobs
 - **Phone Validation**: libphonenumber-js
-- **Search**: Finnhub symbol lookup API (server-side)
+- **Search**: Server-side search over Finnhub-sourced asset data (local DB)
 - **Linting**: Biome (no ESLint or Prettier)
 - **Testing**: Vitest + Playwright
 

@@ -1,11 +1,5 @@
-import { AsYouType } from "libphonenumber-js";
+import { AsYouType, parsePhoneNumberFromString } from "libphonenumber-js";
 
-/**
- * Format a phone number for display given a country code and national number.
- *
- * US numbers (`+1`) are formatted using `AsYouType`; other numbers are returned as-is with the
- * country code prefix.
- */
 export function formatPhoneForDisplay(
 	countryCode: string,
 	nationalNumber: string,
@@ -19,4 +13,15 @@ export function formatPhoneForDisplay(
 		return `${countryCode} ${formattedNational}`;
 	}
 	return `${countryCode} ${nationalNumber}`;
+}
+
+export function formatPhoneFromE164(raw: string): string {
+	const trimmed = raw.trim();
+	if (!trimmed) return "";
+	const parsed = parsePhoneNumberFromString(trimmed, { extract: false });
+	if (!parsed) return trimmed;
+	return formatPhoneForDisplay(
+		`+${parsed.countryCallingCode}`,
+		String(parsed.nationalNumber),
+	);
 }

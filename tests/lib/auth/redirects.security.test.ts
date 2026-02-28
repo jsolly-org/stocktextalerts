@@ -22,6 +22,14 @@ describe("getSafeRedirectPath open-redirect protection", () => {
 		expect(getSafeRedirectPath("/\\/evil.com")).toBeNull();
 	});
 
+	it("rejects paths containing CRLF to prevent HTTP response splitting", () => {
+		expect(getSafeRedirectPath("/foo\nEvil: bar")).toBeNull();
+		expect(
+			getSafeRedirectPath("/foo\r\nLocation: https://evil.com"),
+		).toBeNull();
+		expect(getSafeRedirectPath("/dashboard\r")).toBeNull();
+	});
+
 	it("rejects null, empty string, and whitespace-only", () => {
 		expect(getSafeRedirectPath(null)).toBeNull();
 		expect(getSafeRedirectPath("")).toBeNull();

@@ -4,7 +4,7 @@ import { escapeHtml } from "../asset-formatting";
 import { createEmailUnsubscribeUrl } from "./unsubscribe";
 
 /** Precomputed URLs used in email templates (both raw and HTML-escaped). */
-export interface EmailUrls {
+interface EmailUrls {
 	dashboardUrl: string;
 	escapedDashboardUrl: string;
 	scheduleUrl: string;
@@ -14,7 +14,7 @@ export interface EmailUrls {
 }
 
 /** Dashboard section keys used to build schedule/deep-link URLs in emails. */
-export type DashboardSection = keyof typeof DASHBOARD_SECTION_HASHES;
+type DashboardSection = keyof typeof DASHBOARD_SECTION_HASHES;
 
 /**
  * Build all standard email URLs (dashboard, schedule section, unsubscribe) and
