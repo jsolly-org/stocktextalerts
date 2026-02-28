@@ -76,6 +76,7 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 
 		const tickers = (payload as { tickers?: unknown }).tickers;
 		expect(Array.isArray(tickers)).toBe(true);
+		expect((tickers as unknown[]).length).toBeGreaterThan(0);
 
 		const nonNullCount = (tickers as Array<{ day?: { c?: unknown } | null }>)
 			.map((ticker) => ticker.day?.c)
@@ -84,7 +85,20 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 					typeof value === "number" && Number.isFinite(value) && value > 0,
 			).length;
 
-		expect(nonNullCount).toBeGreaterThan(0);
+		// On weekends/holidays day.c is 0 (no trades); only assert non-null when market is open.
+		const marketStatus = await marketDataFetch(
+			"/v1/marketstatus/now",
+			{},
+			"live-market-status-controls",
+		);
+		const market =
+			typeof marketStatus === "object" && marketStatus !== null
+				? (marketStatus as { market?: unknown }).market
+				: null;
+
+		if (market === "open" || market === "extended-hours") {
+			expect(nonNullCount).toBeGreaterThan(0);
+		}
 	});
 
 	it("returns IPO data from the /vX/reference/ipos endpoint", async () => {
@@ -183,8 +197,21 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 		const spitQuote = productionSnapshot.get("SPIT");
 		const spyQuote = productionSnapshot.get("SPY");
 
-		// SPY should always have a valid quote.
-		expect(spyQuote).not.toBeNull();
+		const marketStatus = await marketDataFetch(
+			"/v1/marketstatus/now",
+			{},
+			"live-market-status",
+		);
+		const market =
+			typeof marketStatus === "object" && marketStatus !== null
+				? (marketStatus as { market?: unknown }).market
+				: null;
+
+		// SPY should have a valid snapshot quote when the market is open.
+		// On weekends/holidays, day.c is 0 so parseSnapshotTicker returns null.
+		if (market === "open" || market === "extended-hours") {
+			expect(spyQuote).not.toBeNull();
+		}
 
 		// SPIT may have a null or valid snapshot depending on current market data.
 		// When null: the parser correctly filters zero-valued snapshots.
@@ -213,16 +240,6 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 			// SPIT now has valid trading data; verify the quote is well-formed.
 			expect(spitQuote.price).toBeGreaterThan(0);
 		}
-
-		const marketStatus = await marketDataFetch(
-			"/v1/marketstatus/now",
-			{},
-			"live-market-status",
-		);
-		const market =
-			typeof marketStatus === "object" && marketStatus !== null
-				? (marketStatus as { market?: unknown }).market
-				: null;
 
 		// When market is closed, production pricing should backfill missing snapshot rows via prev-close.
 		if (market === "closed") {

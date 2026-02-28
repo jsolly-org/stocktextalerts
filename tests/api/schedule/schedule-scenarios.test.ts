@@ -78,6 +78,9 @@ describe("Scheduled notification scenarios", () => {
 		vi.stubEnv("SMS_TEST_BEHAVIOR", "success");
 		vi.stubEnv("SMS_TEST_MESSAGE_SID", "test-sms-sid");
 		vi.stubEnv("SCHEDULE_PASS_DELAY_MS", "0");
+		// Force mock senders even when --live=all is set. These tests verify
+		// schedule logic, not provider APIs, and fake timers break real DNS.
+		vi.stubEnv("LIVE_API_PROVIDERS", "");
 		if (!isLiveProviderEnabled("sms")) {
 			vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
 		}
