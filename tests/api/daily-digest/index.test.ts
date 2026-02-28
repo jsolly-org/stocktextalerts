@@ -95,7 +95,7 @@ describe("A cron fan-out worker runs daily digest processing per user.", () => {
 					cronSecret: testCronSecret,
 					method: "POST",
 					body: {
-						userId: "00000000-0000-0000-0000-000000000999",
+						userId: "10000000-0000-4000-a000-000000000999",
 						currentTimeIso: "2026-01-14T15:00:00.000Z",
 					},
 				}),

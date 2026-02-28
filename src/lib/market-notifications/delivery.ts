@@ -148,12 +148,14 @@ function buildIntradayTimeLabels(
 	const startMinutes = getMinutesFromMidnightET(marketOpenMs);
 	const endMinutes = getMinutesFromMidnightET(endTimestampMs);
 
+	const totalSpan = endMinutes - startMinutes;
+	if (totalSpan <= 0) return [];
+
 	const labels: SparklineTimeLabel[] = [
 		{ position: 0, label: formatCompactTime(startMinutes, is24) },
 	];
 
 	// Add hourly ticks between start and end (if room)
-	const totalSpan = endMinutes - startMinutes;
 	if (totalSpan > 60) {
 		const firstHour = Math.ceil(startMinutes / 60) * 60;
 		for (let min = firstHour; min < endMinutes; min += 60) {

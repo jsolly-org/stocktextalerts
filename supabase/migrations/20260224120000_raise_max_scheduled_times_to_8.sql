@@ -13,7 +13,7 @@ AS $$
       COALESCE(array_length(times, 1), 0) <= 8
       AND NOT EXISTS (
         SELECT 1 FROM unnest(times) AS t(val)
-        WHERE val < 0 OR val >= 1440
+        WHERE val IS NULL OR val < 0 OR val >= 1440
       )
     );
 $$;

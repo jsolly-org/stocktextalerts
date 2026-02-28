@@ -25,8 +25,7 @@ jobs:
         run: |
           EXISTING_PR=$(gh pr list \
             --repo "${{ github.repository }}" \
-            --label "nightly" \
-            --search "test(nightly): add scenario tests" \
+            --search "test(nightly): add scenario tests label:nightly,bot-generated" \
             --state open \
             --json number,url \
             --limit 1)
