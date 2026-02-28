@@ -1,3 +1,4 @@
+import { setTimeout as realDelay } from "node:timers/promises";
 import { FINNHUB_BASE_URL } from "../constants";
 import { rootLogger } from "../logging";
 import { type CompanyNewsItem, fetchCompanyNews } from "./company-news";
@@ -125,9 +126,7 @@ export async function finnhubFetch(
 					status: 429,
 				});
 				if (!isLastAttempt) {
-					await new Promise((r) =>
-						setTimeout(r, computeRetryDelayMs(attempt, retryAfterMs)),
-					);
+					await realDelay(computeRetryDelayMs(attempt, retryAfterMs));
 					continue;
 				}
 				return null;
@@ -140,9 +139,7 @@ export async function finnhubFetch(
 					status: response.status,
 				});
 				if (!isLastAttempt) {
-					await new Promise((r) =>
-						setTimeout(r, computeRetryDelayMs(attempt, null)),
-					);
+					await realDelay(computeRetryDelayMs(attempt, null));
 					continue;
 				}
 				return null;
@@ -172,9 +169,7 @@ export async function finnhubFetch(
 				safeError,
 			);
 			if (!isLastAttempt) {
-				await new Promise((r) =>
-					setTimeout(r, computeRetryDelayMs(attempt, null)),
-				);
+				await realDelay(computeRetryDelayMs(attempt, null));
 				continue;
 			}
 			return null;
@@ -332,7 +327,7 @@ export async function fetchFinnhubExtras(
 
 		// Parallel fetches for the same symbol, sequential across symbols
 		await Promise.all(fetches);
-		await new Promise((r) => setTimeout(r, INTER_REQUEST_DELAY_MS));
+		await realDelay(INTER_REQUEST_DELAY_MS);
 	}
 
 	return result;

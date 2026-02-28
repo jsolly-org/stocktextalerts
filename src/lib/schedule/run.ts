@@ -31,6 +31,7 @@
  * pass through the full pipeline, preserving the original behavior.
  */
 
+import { setTimeout as realDelay } from "node:timers/promises";
 import { DateTime } from "luxon";
 import { processAssetEventsUser } from "../asset-events/process";
 import { fetchAssetEventsUsers } from "../asset-events/query";
@@ -718,7 +719,7 @@ export async function runScheduledNotifications(options: {
 	const waitMs = Math.max(0, passDelayMs - elapsed);
 	if (waitMs > 0) {
 		// Wait silently — pass lifecycle is an implementation detail
-		await new Promise((resolve) => setTimeout(resolve, waitMs));
+		await realDelay(waitMs);
 	}
 
 	// Pass 2: DELIVER staged + fallback + PRE-COMPUTE (no asset events)

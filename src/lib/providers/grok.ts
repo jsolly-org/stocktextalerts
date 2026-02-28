@@ -1,15 +1,15 @@
+import { setTimeout as realDelay } from "node:timers/promises";
 import { rootLogger } from "../logging";
 
 const BASE_RETRY_DELAY_MS = 1_000;
 /**
  * Exponential backoff helper for Grok retries.
  *
- * Uses `BASE_RETRY_DELAY_MS * 2^(attempt-1)` with `setTimeout`.
+ * Uses `node:timers/promises` so delays work even when vitest's
+ * `vi.useFakeTimers()` has replaced the global `setTimeout`.
  */
 const delay = (attempt: number) =>
-	new Promise<void>((r) =>
-		setTimeout(r, BASE_RETRY_DELAY_MS * 2 ** (attempt - 1)),
-	);
+	realDelay(BASE_RETRY_DELAY_MS * 2 ** (attempt - 1));
 
 type ResponsesRequest = {
 	model: string;

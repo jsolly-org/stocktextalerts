@@ -1,3 +1,4 @@
+import { setTimeout as realDelay } from "node:timers/promises";
 import { US_MARKET_TIMEZONE } from "../constants";
 import { rootLogger } from "../logging";
 import { finnhubFetch } from "./finnhub";
@@ -131,9 +132,7 @@ export async function marketDataFetch(
 					...logContext,
 				});
 				if (!isLastAttempt) {
-					await new Promise((r) =>
-						setTimeout(r, computeRetryDelayMs(attempt, retryAfterMs)),
-					);
+					await realDelay(computeRetryDelayMs(attempt, retryAfterMs));
 					continue;
 				}
 				return null;
@@ -157,9 +156,7 @@ export async function marketDataFetch(
 					...logContext,
 				});
 				if (!isLastAttempt) {
-					await new Promise((r) =>
-						setTimeout(r, computeRetryDelayMs(attempt, null)),
-					);
+					await realDelay(computeRetryDelayMs(attempt, null));
 					continue;
 				}
 				return null;
@@ -174,9 +171,7 @@ export async function marketDataFetch(
 				...logContext,
 			});
 			if (!isLastAttempt) {
-				await new Promise((r) =>
-					setTimeout(r, computeRetryDelayMs(attempt, null)),
-				);
+				await realDelay(computeRetryDelayMs(attempt, null));
 				continue;
 			}
 			return null;
