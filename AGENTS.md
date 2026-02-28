@@ -94,6 +94,12 @@ All 8 nightly agent workflows read the model name from the GitHub repository var
 
 **Where to set:** Repository Settings → Secrets and variables → Actions → Variables tab → `AGENT_MODEL`.
 
+## `vars.PRODUCTION_SITE_URL` (Deploy)
+
+The deploy workflow builds the site with this URL so the prebuilt output (prerendered pages, sitemap, canonicals, OG images, JSON-LD) uses the production domain instead of localhost. Required for correct production deploys when using `vercel deploy --prebuilt` and `ignoreCommand` to skip Vercel's Git build.
+
+**Where to set:** Repository Settings → Secrets and variables → Actions → Variables tab → `PRODUCTION_SITE_URL` (e.g. `https://stocktextalerts.com`).
+
 ## Key Constraints
 
 - **Biome** for all formatting/linting. `noConsole` is an error — use `src/lib/logging/` instead.
