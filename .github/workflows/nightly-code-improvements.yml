@@ -6,7 +6,7 @@ name: "Nightly: Code Improvements"
 
 on:
   schedule:
-    - cron: "0 4 * * *" # 11 PM ET
+    - cron: "0 5 * * *" # 12 AM ET
   workflow_dispatch:
 
 permissions:
@@ -26,7 +26,7 @@ jobs:
         run: |
           EXISTING_PR=$(gh pr list \
             --repo "${{ github.repository }}" \
-            --label "bot-generated" \
+            --label "nightly" \
             --search "chore(nightly): code improvements" \
             --state open \
             --json number,url \
@@ -86,7 +86,7 @@ jobs:
           - Read \`AGENTS.md\` and the \`.agents/\` directory for project conventions and guidelines.
           - Leave all changes uncommitted. The workflow will handle commit, push, and PR creation.
           - Do not create issues or PRs yourself.
-          " --force --model "$MODEL" --output-format=text
+          " --force --mode auto --model "$MODEL" --output-format=text
 
       # Note: we intentionally keep agent edits to .github/ — the PR review
       # process is the right place to catch bad workflow changes, not a blanket revert.
@@ -121,6 +121,7 @@ jobs:
           gh pr create \
             --title "chore(nightly): code improvements — $(date +%Y-%m-%d)" \
             --label "bot-generated" \
+            --label "nightly" \
             --body "$(cat <<'EOF'
           ## Summary
           Automated code improvements — dead code removal, unused import cleanup, lint fixes, duplication reduction, complexity simplification, type safety improvements, and structural cleanup.

@@ -36,6 +36,7 @@ describe("fetchCompanyNews", () => {
 			datetime: Math.floor(Date.parse("2026-02-14T10:30:00Z") / 1000),
 			url: "https://example.com/apple-macbook",
 			source: "TechCrunch",
+			tickers: [],
 		});
 	});
 
@@ -140,6 +141,7 @@ describe("fetchCompanyNews", () => {
 			datetime: Math.floor(Date.parse("2026-02-14T12:00:00Z") / 1000),
 			url: "",
 			source: "",
+			tickers: [],
 		});
 	});
 
@@ -170,6 +172,40 @@ describe("fetchCompanyNews", () => {
 		await vi.runAllTimersAsync();
 
 		await expect(promise).resolves.toEqual([]);
+	});
+
+	it("filters out generic roundup articles with too many tickers", async () => {
+		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(
+			new Response(
+				JSON.stringify({
+					results: [
+						{
+							title: "AVGO beats earnings expectations",
+							published_utc: "2026-02-14T10:00:00Z",
+							tickers: ["AVGO"],
+						},
+						{
+							title: "5 Smart Stocks to Buy Right Now",
+							published_utc: "2026-02-14T09:00:00Z",
+							tickers: ["AVGO", "AAPL", "MSFT", "GOOG", "AMZN", "NVDA"],
+						},
+						{
+							title: "Chip sector update",
+							published_utc: "2026-02-14T08:00:00Z",
+							tickers: ["AVGO", "NVDA", "AMD"],
+						},
+					],
+				}),
+				{ status: 200, headers: { "Content-Type": "application/json" } },
+			),
+		);
+
+		const items = await fetchCompanyNews("AVGO", "2026-02-07", "2026-02-14");
+
+		expect(items).toHaveLength(2);
+		expect(items[0].headline).toBe("AVGO beats earnings expectations");
+		expect(items[1].headline).toBe("Chip sector update");
 	});
 
 	it("filters out items with invalid published_utc", async () => {

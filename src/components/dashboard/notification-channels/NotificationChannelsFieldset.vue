@@ -97,15 +97,15 @@
 						@clear="emit('clearDeliveryTime')"
 					/>
 					<button
-						v-if="props.marketOpenLabel"
+						v-if="props.beforeOpenLabel"
 						type="button"
 						class="btn btn-md btn-secondary h-[41px] shrink-0 whitespace-nowrap"
-						:disabled="!canSetMarketOpen"
-						:aria-label="`Set delivery time to US market open (${props.marketOpenLabel})`"
-						@click="emit('setMarketOpen')"
+						:disabled="!canSetBeforeOpen"
+						:aria-label="`Set delivery time to before US market open (${props.beforeOpenLabel})`"
+						@click="emit('setBeforeOpen')"
 					>
-						<PresentationChartLineIcon class="size-4 shrink-0" aria-hidden="true" />
-						Market open
+						<PresentationChartLineIcon class="size-4 shrink-0 me-1" aria-hidden="true" />
+						Before open
 					</button>
 				</div>
 			</div>
@@ -139,10 +139,10 @@ interface Props {
 	dailyDeliveryTimeMinutes: number | null;
 	/** Whether the user uses 24-hour time format. */
 	is24: boolean;
-	/** Human-readable label for market-open time (e.g. "9:30 AM"), or null if unavailable. */
-	marketOpenLabel: string | null;
-	/** Whether the current delivery time already matches market-open. */
-	isMarketOpenTime: boolean;
+	/** Human-readable label for before-open time (e.g. "9:00 AM"), or null if unavailable. */
+	beforeOpenLabel: string | null;
+	/** Whether the current delivery time already matches before-open. */
+	isBeforeOpenTime: boolean;
 }
 
 const props = defineProps<Props>();
@@ -152,7 +152,7 @@ const emit = defineEmits<{
 	(event: "update:smsNotificationsEnabled", value: boolean): void;
 	(event: "dailyTimeChange", value: string): void;
 	(event: "clearDeliveryTime"): void;
-	(event: "setMarketOpen"): void;
+	(event: "setBeforeOpen"): void;
 }>();
 
 const emailEnabledModel = computed({
@@ -165,7 +165,7 @@ const smsEnabledModel = computed({
 	set: (value: boolean) => emit("update:smsNotificationsEnabled", value),
 });
 
-const canSetMarketOpen = computed(
-	() => !props.isMarketOpenTime,
+const canSetBeforeOpen = computed(
+	() => !props.isBeforeOpenTime,
 );
 </script>

@@ -49,7 +49,8 @@ import NewspaperIcon from "../../icons/newspaper.svg?component";
 import PresentationChartLineIcon from "../../icons/presentation-chart-line.svg?component";
 import { getScrollBehavior } from "../../lib/accessibility";
 import {
-	DASHBOARD_SECTION_IDS,
+	DASHBOARD_HASH_TO_TAB_INDEX,
+	DASHBOARD_TAB_INDEX_TO_HASH,
 } from "../../lib/constants";
 
 interface Tab {
@@ -65,17 +66,6 @@ const tabs: Tab[] = [
 	{ id: "market-notifications", label: "Market Notifications", icon: ChartBarIcon },
 	{ id: "asset-events", label: "Asset Events", icon: CalendarDaysIcon },
 ];
-
-/** Map hash fragment (without #) to tab index for hash-link sync. */
-const HASH_TO_TAB_INDEX: Record<string, number> = {
-	[DASHBOARD_SECTION_IDS.assets]: 0,
-	[DASHBOARD_SECTION_IDS.notificationChannels]: 1,
-	[DASHBOARD_SECTION_IDS.dailyNotifications]: 2,
-	[DASHBOARD_SECTION_IDS.marketNotifications]: 3,
-	[DASHBOARD_SECTION_IDS.assetEvents]: 4,
-	// daily_digest_time input lives in schedule (Alerts) card
-	daily_digest_time: 1,
-};
 
 const activeIndex = defineModel<number>('activeIndex', { default: 0 });
 const trackRef = ref<HTMLElement | null>(null);
@@ -107,6 +97,12 @@ function scrollToCard(index: number) {
 		left: card.offsetLeft,
 		behavior: getScrollBehavior(),
 	});
+
+	// Persist active tab in the URL so pull-to-refresh restores the same tab.
+	const hash = DASHBOARD_TAB_INDEX_TO_HASH[index];
+	if (hash && window.location.hash.slice(1) !== hash) {
+		window.history.replaceState(null, "", `#${hash}`);
+	}
 }
 
 /**
@@ -283,7 +279,7 @@ function handleTrackClick(event: MouseEvent) {
 	if (!isMobileQuery?.matches) return;
 
 	const hash = href.slice(1);
-	const index = HASH_TO_TAB_INDEX[hash];
+	const index = DASHBOARD_HASH_TO_TAB_INDEX[hash];
 	if (index === undefined) return;
 
 	event.preventDefault();
@@ -301,15 +297,26 @@ function handleTrackClick(event: MouseEvent) {
 function syncToHash() {
 	const hash = window.location.hash.slice(1);
 	if (!hash) return;
-	const index = HASH_TO_TAB_INDEX[hash];
+	const index = DASHBOARD_HASH_TO_TAB_INDEX[hash];
 	if (index === undefined || index === activeIndex.value) return;
 	scrollToCard(index);
 }
 
 onMounted(() => {
 	isMobileQuery = window.matchMedia("(max-width: 767.99px)");
-	// Sync tab highlight when user follows hash links (e.g. Daily Digest link from Alerts tab)
-	syncToHash();
+	// Restore the active tab from the URL hash (client-only to avoid SSR mismatch).
+	const hash = window.location.hash.slice(1);
+	if (hash) {
+		const index = DASHBOARD_HASH_TO_TAB_INDEX[hash];
+		if (index !== undefined && index !== 0) {
+			activeIndex.value = index;
+			const card = cardRefs.value[index];
+			const track = trackRef.value;
+			if (card && track) {
+				track.scrollTo({ left: card.offsetLeft, behavior: "instant" });
+			}
+		}
+	}
 	window.addEventListener("hashchange", syncToHash);
 });
 
