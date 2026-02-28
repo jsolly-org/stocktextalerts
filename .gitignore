@@ -26,6 +26,7 @@ node_modules/
 
 # Other
 /.cursor/
+!/.cursor/hooks.json
 .tmp/
 .playwright-mcp/
 plans/
