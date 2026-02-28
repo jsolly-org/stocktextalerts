@@ -566,11 +566,11 @@ const showWizard = computed(
 const isPriceAlertAutosaveLocked = computed(
 	() => !priceAlertOnboardingCompleted.value,
 );
-const retunePrimaryActionLabel = computed(() => {
-	if (showFinishSetupButton.value) return "Finish setup";
-	if (retuning.value && isLastRetuneStep.value) return "Save";
-	return "Next";
-});
+const retunePrimaryActionLabel = computed(() =>
+	showFinishSetupButton.value || (retuning.value && isLastRetuneStep.value)
+		? "Save"
+		: "Next",
+);
 
 const MARKET_CONTEXT_LABELS: Record<AlertMarketContext, string> = {
 	any_major: "Any big move",

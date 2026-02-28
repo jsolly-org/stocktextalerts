@@ -1,3 +1,4 @@
+import { setTimeout as realDelay } from "node:timers/promises";
 import type { Logger } from "../logging";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 
@@ -61,7 +62,7 @@ export async function fetchUsersWithRetry<T>(options: {
 			maxRetries: MAX_RETRIES,
 			errorMessage,
 		});
-		await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+		await realDelay(RETRY_DELAY_MS);
 	}
 
 	throw new Error(`Failed to fetch ${label}: retries exhausted`);
