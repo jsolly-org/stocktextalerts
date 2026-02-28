@@ -11,7 +11,7 @@ Environment Helpers
 function getCronSecret(): string | undefined {
 	try {
 		const fromMeta = import.meta.env.CRON_SECRET;
-		if (typeof fromMeta === "string") return fromMeta;
+		if (typeof fromMeta === "string" && fromMeta.trim() !== "") return fromMeta;
 	} catch {
 		// import.meta.env not available outside Vite/Astro
 	}
