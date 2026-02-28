@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { getCronSecret, getSiteUrl } from "../../db/env";
+import { getSiteUrl, getValidatedCronSecret } from "../../db/env";
 
 const DEFAULT_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 
@@ -32,9 +32,11 @@ export function createEmailUnsubscribeToken(options: {
 	expiresAtMs?: number;
 }): string {
 	const expiresAtMs = options.expiresAtMs ?? Date.now() + DEFAULT_TOKEN_TTL_MS;
-	const secret = getCronSecret();
+	const secret = getValidatedCronSecret();
 	if (!secret) {
-		throw new Error("CRON_SECRET is required for email unsubscribe tokens");
+		throw new Error(
+			"CRON_SECRET does not meet policy for email unsubscribe tokens",
+		);
 	}
 	const payload = `${options.userId}.${options.email}.${expiresAtMs}`;
 	const signature = createHmac("sha256", secret).update(payload).digest();
@@ -64,7 +66,7 @@ export function verifyEmailUnsubscribeToken(options: {
 		return { ok: false, reason: "expired_token" };
 	}
 
-	const secret = getCronSecret();
+	const secret = getValidatedCronSecret();
 	if (!secret) {
 		return { ok: false, reason: "invalid_token" };
 	}

@@ -21,6 +21,24 @@ export function getCronSecret(): string | undefined {
 		: undefined;
 }
 
+/** Minimum length for CRON_SECRET (policy only; presence is enforced by middleware). */
+const CRON_SECRET_MIN_LENGTH = 12;
+
+/**
+ * Returns CRON_SECRET if it meets policy (format + minimum length).
+ * Presence is enforced by middleware; this validates policy only.
+ */
+export function getValidatedCronSecret(): string | null {
+	const value = getCronSecret();
+	if (
+		typeof value !== "string" ||
+		value.trim().length < CRON_SECRET_MIN_LENGTH
+	) {
+		return null;
+	}
+	return value;
+}
+
 /**
  * Compute the canonical site base URL for links in emails/SMS.
  *

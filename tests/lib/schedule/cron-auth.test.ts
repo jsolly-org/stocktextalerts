@@ -124,7 +124,7 @@ describe("Cron secret verification protects scheduled endpoints.", () => {
 
 		expect(result).toBeNull();
 		expect(logger.error).toHaveBeenCalledWith(
-			"CRON_SECRET is missing or too short (minimum 12 characters)",
+			"CRON_SECRET does not meet policy (minimum 12 characters)",
 			expect.objectContaining({ action: "cron_auth" }),
 		);
 	});
