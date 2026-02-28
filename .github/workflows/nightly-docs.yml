@@ -75,7 +75,7 @@ jobs:
           # Inputs and conventions:
           - If no updates are necessary, make no changes.
           - Keep changes minimal and consistent with repo style.
-          " --force --model "$MODEL" --output-format=text
+          " --force --mode auto --model "$MODEL" --output-format=text
 
       - name: Check for changes
         id: changes
