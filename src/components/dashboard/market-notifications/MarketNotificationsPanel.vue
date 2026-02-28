@@ -159,9 +159,9 @@
 								<!-- All steps rendered in the same grid cell so the container
 								     sizes to the tallest step, preventing layout shift. -->
 								<div class="grid [&>*]:col-start-1 [&>*]:row-start-1">
-									<div :class="activeRetuneStep === 0 ? 'visible' : 'invisible'" :inert="activeRetuneStep !== 0 || undefined">
+									<div class="flex flex-col" :class="activeRetuneStep === 0 ? 'visible' : 'invisible'" :inert="activeRetuneStep !== 0 || undefined">
 										<p class="text-sm text-label mb-1.5">How big should a move be before it deserves an alert?</p>
-										<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+										<div class="grid flex-1 auto-rows-fr grid-cols-1 gap-2 sm:grid-cols-2">
 											<label
 												v-for="option in moveSizeOptions"
 												:key="option.value"
@@ -181,9 +181,9 @@
 										</div>
 									</div>
 
-									<div :class="activeRetuneStep === 1 ? 'visible' : 'invisible'" :inert="activeRetuneStep !== 1 || undefined">
+									<div class="flex flex-col" :class="activeRetuneStep === 1 ? 'visible' : 'invisible'" :inert="activeRetuneStep !== 1 || undefined">
 										<p class="text-sm text-label mb-1.5">Should we text you when all stocks are moving, or only when yours stands out?</p>
-										<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+										<div class="grid flex-1 auto-rows-fr grid-cols-1 gap-2 sm:grid-cols-2">
 											<label
 												v-for="option in marketContextOptions"
 												:key="option.value"
@@ -202,10 +202,10 @@
 											</label>
 										</div>
 									</div>
-									<div :class="activeRetuneStep === 2 ? 'visible' : 'invisible'" :inert="activeRetuneStep !== 2 || undefined">
+									<div class="flex flex-col" :class="activeRetuneStep === 2 ? 'visible' : 'invisible'" :inert="activeRetuneStep !== 2 || undefined">
 										<p class="text-sm text-label mb-1.5">After your first alert, what should happen?</p>
 										<p class="text-xs text-body-secondary mb-2">Maximum of two notifications per asset per day.</p>
-										<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+										<div class="grid flex-1 auto-rows-fr grid-cols-1 gap-2 sm:grid-cols-2">
 											<label
 												v-for="option in followUpOptions"
 												:key="option.value"
@@ -226,45 +226,46 @@
 									</div>
 								</div>
 
-								<div class="flex items-center justify-between pt-1">
+							<div class="grid grid-cols-[1fr_auto_1fr] items-center pt-1">
+								<button
+									type="button"
+									class="justify-self-start rounded-md border border-edge px-2.5 py-1.5 text-xs font-medium text-label transition hover:bg-surface-alt cursor-pointer"
+									:class="{ invisible: isFirstRetuneStep }"
+									:tabindex="isFirstRetuneStep ? -1 : undefined"
+									:aria-hidden="isFirstRetuneStep || undefined"
+									@click="handleRetunePrevious"
+								>
+									Back
+								</button>
+								<nav class="flex items-center gap-2" aria-label="Wizard steps">
 									<button
-										v-show="!isFirstRetuneStep"
+										v-for="step in TOTAL_RETUNE_STEPS"
+										:key="step"
 										type="button"
-										class="rounded-md border border-edge px-2.5 py-1.5 text-xs font-medium text-label transition hover:bg-surface-alt cursor-pointer"
-										@click="handleRetunePrevious"
-									>
-										Back
-									</button>
-									<div v-show="isFirstRetuneStep" />
-									<nav class="flex items-center gap-2" aria-label="Wizard steps">
-										<button
-											v-for="step in TOTAL_RETUNE_STEPS"
-											:key="step"
-											type="button"
-											class="size-2.5 rounded-full transition-colors duration-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
-											:class="step - 1 === activeRetuneStep ? 'bg-emerald-500 scale-125' : step - 1 < activeRetuneStep ? 'bg-emerald-500/40 hover:bg-emerald-500/60' : 'bg-edge-strong hover:bg-muted'"
-											:aria-label="`Go to step ${step}`"
-											:aria-current="step - 1 === activeRetuneStep ? 'step' : undefined"
-											@click="goToRetuneStep(step - 1)"
-										/>
-									</nav>
-									<button
-										v-if="isLastRetuneStep"
-										type="button"
-										class="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 cursor-pointer"
-										@click="handleRetunePrimaryAction"
-									>
-										{{ retunePrimaryActionLabel }}
-									</button>
-									<button
-										v-else
-										type="button"
-										class="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 cursor-pointer"
-										@click="handleRetuneNext"
-									>
-										Next
-									</button>
-								</div>
+										class="size-2.5 rounded-full transition-colors duration-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
+										:class="step - 1 === activeRetuneStep ? 'bg-emerald-500 scale-125' : step - 1 < activeRetuneStep ? 'bg-emerald-500/40 hover:bg-emerald-500/60' : 'bg-edge-strong hover:bg-muted'"
+										:aria-label="`Go to step ${step}`"
+										:aria-current="step - 1 === activeRetuneStep ? 'step' : undefined"
+										@click="goToRetuneStep(step - 1)"
+									/>
+								</nav>
+								<button
+									v-if="isLastRetuneStep"
+									type="button"
+									class="justify-self-end rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 cursor-pointer"
+									@click="handleRetunePrimaryAction"
+								>
+									{{ retunePrimaryActionLabel }}
+								</button>
+								<button
+									v-else
+									type="button"
+									class="justify-self-end rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 cursor-pointer"
+									@click="handleRetuneNext"
+								>
+									Next
+								</button>
+							</div>
 							</div>
 						</fieldset>
 					</div>
