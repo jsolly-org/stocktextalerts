@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApiContext } from "../helpers/api-context";
 import { createCronRequest } from "../helpers/cron";
-import { allowConsoleErrors, allowConsoleWarnings } from "../setup";
+import { expectConsoleError, expectConsoleWarning } from "../setup";
 
 type QueryRow = { symbol: string };
 type UpdateCall = {
@@ -176,7 +176,7 @@ describe("A cron worker backfills missing asset sectors.", () => {
 	});
 
 	it("Returns 500 when the database query for assets fails.", async () => {
-		allowConsoleErrors();
+		expectConsoleError("Failed to query assets missing sector");
 		state.queryError = { message: "Connection refused" };
 
 		const runSectorBackfill = await loadSectorBackfillHandler();
@@ -201,7 +201,7 @@ describe("A cron worker backfills missing asset sectors.", () => {
 	});
 
 	it("Skips assets when market data fetch fails and reports skipped count.", async () => {
-		allowConsoleWarnings();
+		expectConsoleWarning("Failed to fetch sector for asset during backfill");
 		state.queryRows = [{ symbol: "AAPL" }, { symbol: "XOM" }];
 		marketDataFetchMock
 			.mockRejectedValueOnce(new Error("Network timeout"))
@@ -236,7 +236,7 @@ describe("A cron worker backfills missing asset sectors.", () => {
 	});
 
 	it("Skips assets when database update fails and reports skipped count.", async () => {
-		allowConsoleWarnings();
+		expectConsoleWarning("Supabase update failed for sector backfill");
 		state.queryRows = [{ symbol: "AAPL" }, { symbol: "XOM" }];
 		state.updateErrorForSymbol = "AAPL";
 		marketDataFetchMock

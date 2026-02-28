@@ -605,7 +605,7 @@ test.describe("sanity tests", () => {
 		}
 
 		const marketOpenButton = marketNotificationsForm.getByRole("button", {
-			name: /Set delivery time to US market open/i,
+			name: /Set delivery time to after US market open/i,
 		});
 		if (await marketOpenButton.isVisible()) {
 			await marketOpenButton.click();

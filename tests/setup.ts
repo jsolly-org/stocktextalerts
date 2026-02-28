@@ -209,29 +209,58 @@ afterEach(async () => {
 export const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 export const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-let allowWarnings = false;
-let allowErrors = false;
+type ConsolePattern = string | RegExp;
+let expectedErrors: ConsolePattern[] = [];
+let expectedWarnings: ConsolePattern[] = [];
 
-export function allowConsoleWarnings() {
-	allowWarnings = true;
+export function expectConsoleError(pattern: ConsolePattern) {
+	expectedErrors.push(pattern);
 }
 
-export function allowConsoleErrors() {
-	allowErrors = true;
+export function expectConsoleWarning(pattern: ConsolePattern) {
+	expectedWarnings.push(pattern);
 }
 
 export function resetConsoleAssertions() {
-	allowWarnings = false;
-	allowErrors = false;
+	expectedErrors = [];
+	expectedWarnings = [];
+}
+
+function extractLogMessage(raw: unknown): string {
+	if (typeof raw !== "string") return String(raw);
+	try {
+		return (JSON.parse(raw) as { message?: string }).message ?? raw;
+	} catch {
+		return raw;
+	}
+}
+
+function matchesPattern(message: string, pattern: ConsolePattern): boolean {
+	if (typeof pattern === "string") return message === pattern;
+	return pattern.test(message);
 }
 
 afterEach(() => {
 	try {
-		if (!allowWarnings) {
+		if (expectedWarnings.length === 0) {
 			expect(warnSpy.mock.calls, "Unexpected console.warn").toEqual([]);
+		} else {
+			for (const call of warnSpy.mock.calls) {
+				const message = extractLogMessage(call[0]);
+				const matched = expectedWarnings.some((p) =>
+					matchesPattern(message, p),
+				);
+				expect(matched, `Unexpected console.warn: ${message}`).toBe(true);
+			}
 		}
-		if (!allowErrors) {
+		if (expectedErrors.length === 0) {
 			expect(errorSpy.mock.calls, "Unexpected console.error").toEqual([]);
+		} else {
+			for (const call of errorSpy.mock.calls) {
+				const message = extractLogMessage(call[0]);
+				const matched = expectedErrors.some((p) => matchesPattern(message, p));
+				expect(matched, `Unexpected console.error: ${message}`).toBe(true);
+			}
 		}
 	} finally {
 		warnSpy.mockClear();

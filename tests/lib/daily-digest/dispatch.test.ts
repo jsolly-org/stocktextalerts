@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { dispatchDailyDigestUser } from "../../../src/lib/daily-digest/dispatch";
-import { allowConsoleErrors } from "../../setup";
+import { expectConsoleError } from "../../setup";
 
 vi.mock("../../../src/lib/db/env", () => ({
 	getSiteUrl: () => "http://localhost:4321",
@@ -65,7 +65,7 @@ describe("Daily digest fan-out dispatch", () => {
 	});
 
 	it("Falls back to safe skipped stats when downstream returns non-OK.", async () => {
-		allowConsoleErrors();
+		expectConsoleError("Fan-out dispatch failed");
 		const fetchMock = vi.mocked(fetch);
 		fetchMock.mockResolvedValueOnce(new Response("boom", { status: 500 }));
 
@@ -86,7 +86,7 @@ describe("Daily digest fan-out dispatch", () => {
 	});
 
 	it("Falls back to safe skipped stats when fetch throws.", async () => {
-		allowConsoleErrors();
+		expectConsoleError("Fan-out dispatch errored");
 		const fetchMock = vi.mocked(fetch);
 		fetchMock.mockRejectedValueOnce(new Error("network failure"));
 

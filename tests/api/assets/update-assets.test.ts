@@ -13,7 +13,7 @@ import {
 } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
-import { allowConsoleErrors } from "../../setup";
+import { expectConsoleError } from "../../setup";
 
 describe("A signed-in user updates their tracked assets.", () => {
 	it("A user cannot track more than the maximum allowed assets.", async () => {
@@ -211,7 +211,7 @@ describe("A signed-in user updates their tracked assets.", () => {
 	});
 
 	it("User submitting duplicate symbols receives validation error.", async () => {
-		allowConsoleErrors();
+		expectConsoleError("Failed to update tracked assets");
 		const { response, trackedAssets, payload } = await updateTrackedAssets(
 			["AAPL"],
 			["AAPL", "AAPL", "MSFT"],
@@ -227,7 +227,7 @@ describe("A signed-in user updates their tracked assets.", () => {
 	});
 
 	it("User submitting invalid asset symbol (not in assets table) receives error and assets remain unchanged.", async () => {
-		allowConsoleErrors();
+		expectConsoleError("Failed to update tracked assets");
 		const invalidSymbol = `ZZ${randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase()}`;
 
 		const testUser = await createTestUser({

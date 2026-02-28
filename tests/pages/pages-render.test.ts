@@ -21,7 +21,7 @@ import {
 	createTestEmail,
 	createTestUser,
 } from "../helpers/test-user";
-import { allowConsoleWarnings, errorSpy, warnSpy } from "../setup";
+import { expectConsoleWarning } from "../setup";
 
 function buildRequest(path: string, cookies?: Map<string, string>) {
 	const headers = new Headers();
@@ -45,53 +45,7 @@ describe("Users can load pages without unexpected errors.", () => {
 	});
 
 	afterEach(() => {
-		const unexpectedWarns: string[] = [];
-		const unexpectedErrors: string[] = [];
-
-		for (const call of warnSpy.mock.calls) {
-			const [raw] = call;
-			try {
-				const log = JSON.parse(raw as string) as {
-					level: string;
-					message: string;
-				};
-				if (log.level === "warn" && !log.message.startsWith("Cleanup failed")) {
-					unexpectedWarns.push(log.message);
-				}
-			} catch {
-				unexpectedWarns.push(String(raw));
-			}
-		}
-
-		for (const call of errorSpy.mock.calls) {
-			const [raw] = call;
-			try {
-				const log = JSON.parse(raw as string) as {
-					level: string;
-					message: string;
-				};
-				if (log.level === "error") {
-					unexpectedErrors.push(log.message);
-				}
-			} catch {
-				unexpectedErrors.push(String(raw));
-			}
-		}
-
-		if (unexpectedWarns.length > 0 || unexpectedErrors.length > 0) {
-			const messages: string[] = [];
-			if (unexpectedWarns.length > 0) {
-				messages.push(`Unexpected warnings: ${unexpectedWarns.join(", ")}`);
-			}
-			if (unexpectedErrors.length > 0) {
-				messages.push(`Unexpected errors: ${unexpectedErrors.join(", ")}`);
-			}
-			throw new Error(messages.join("; "));
-		}
-
-		if (warnSpy.mock.calls.length > 0) {
-			allowConsoleWarnings();
-		}
+		expectConsoleWarning(/^Cleanup failed/);
 	});
 
 	it("A visitor can view the landing page.", async () => {

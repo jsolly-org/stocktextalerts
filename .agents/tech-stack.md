@@ -26,7 +26,7 @@
 - Do NOT modify `src/lib/db/generated/database.types.ts`. Regenerate with `npm run db:gen-types` or use type assertions.
 
 ### Available CLIs (Machine-Specific Audit)
-Last audited: 2026-02-14.
+Last audited: 2026-02-28.
 
 Installed and verified:
 - `codex`, `claude`, `cursor`
@@ -38,6 +38,7 @@ Installed and verified:
 - `docker`
 - `terraform`, `kubectl`
 - `vercel`, `aws`
+- `twilio` (profile: `solly`, manages phone numbers, API keys, and debugging)
 - `python3`, `pipx`
 - `delta`, `lazygit`, `direnv`, `zoxide`
 - `make`, `tree`, `curl`

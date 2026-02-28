@@ -478,9 +478,11 @@ describe("Scheduled notification scenarios", () => {
 	});
 
 	it("User who texted START and re-enabled SMS in dashboard receives next scheduled notification by SMS.", async () => {
-		vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
-		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-		vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
+		if (!isLiveProviderEnabled("sms")) {
+			vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
+			vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+			vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
+		}
 		twilioMocks.validateRequest.mockReturnValue(true);
 
 		const timezone = "America/New_York";
