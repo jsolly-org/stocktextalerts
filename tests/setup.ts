@@ -17,6 +17,7 @@ import { takeTestUserIdsForCleanup } from "./helpers/test-user-cleanup";
 
 vi.mock("../src/lib/db/env", () => ({
 	getSiteUrl: () => "http://localhost",
+	getValidatedCronSecret: () => "test-cron-secret-for-unit-tests",
 }));
 
 // Live API tests are opt-in by provider:
