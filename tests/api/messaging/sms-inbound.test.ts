@@ -351,4 +351,93 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 			vi.unstubAllEnvs();
 		}
 	});
+
+	it("When a user texts an unknown command, they receive the unknown-command message.", async () => {
+		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+		validateRequestMock.mockReturnValueOnce(true);
+
+		const testUser = await createTestUser({
+			smsNotificationsEnabled: true,
+			phoneVerified: true,
+		});
+
+		try {
+			const from = await getTestUserPhone(testUser.id);
+
+			const response = await POST({
+				request: buildSmsInboundRequest({
+					from,
+					body: "random text",
+					includeSignature: true,
+				}),
+			} as APIContext);
+
+			expect(response.status).toBe(200);
+			const body = await response.text();
+			expect(body).toContain("Unknown command");
+			expect(body).toContain("HELP");
+		} finally {
+			await cleanupTestUser(testUser.id);
+			vi.unstubAllEnvs();
+		}
+	});
+
+	it("When a user with unverified phone texts STOP, they receive the verification prompt.", async () => {
+		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+		validateRequestMock.mockReturnValueOnce(true);
+
+		const testUser = await createTestUser({
+			smsNotificationsEnabled: true,
+			phoneVerified: false,
+			phoneCountryCode: "+1",
+			phoneNumber: generateUniquePhoneNumber(),
+		});
+
+		try {
+			const from = await getTestUserPhone(testUser.id);
+
+			const response = await POST({
+				request: buildSmsInboundRequest({
+					from,
+					body: "STOP",
+					includeSignature: true,
+				}),
+			} as APIContext);
+
+			expect(response.status).toBe(200);
+			const body = await response.text();
+			expect(body).toContain("Phone number not verified");
+			expect(body).toContain("verify your phone number first");
+
+			const { data: updated } = await adminClient
+				.from("users")
+				.select("sms_opted_out,sms_notifications_enabled")
+				.eq("id", testUser.id)
+				.single();
+			expect(updated).not.toBeNull();
+			expect(updated?.sms_opted_out).toBe(false);
+			expect(updated?.sms_notifications_enabled).toBe(true);
+		} finally {
+			await cleanupTestUser(testUser.id);
+			vi.unstubAllEnvs();
+		}
+	});
+
+	it("When an unknown phone number texts STOP, the response is empty and no error is returned.", async () => {
+		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+		validateRequestMock.mockReturnValueOnce(true);
+
+		const response = await POST({
+			request: buildSmsInboundRequest({
+				from: "+15559999999",
+				body: "STOP",
+				includeSignature: true,
+			}),
+		} as APIContext);
+
+		expect(response.status).toBe(200);
+		const body = await response.text();
+		expect(body).not.toContain("unsubscribed");
+		expect(body).not.toContain("error");
+	});
 });

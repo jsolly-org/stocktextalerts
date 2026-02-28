@@ -92,6 +92,45 @@ describe("Scheduled notification scenarios", () => {
 		vi.unstubAllEnvs();
 	});
 
+	it("User with unverified phone does not receive SMS when schedule fires.", async () => {
+		const timezone = "America/New_York";
+		const nowLocal = DateTime.now().setZone(timezone);
+		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
+
+		const { id } = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: false,
+			smsNotificationsEnabled: true,
+			phoneVerified: false,
+			scheduledUpdateTimes: [scheduledTime],
+			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceIncludeSms: true,
+		});
+		registerTestUserForCleanup(id);
+
+		const { error: seedError } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", id);
+		expect(seedError).toBeNull();
+
+		const response = await SchedulePost({
+			request: createScheduleRequest(testCronSecret),
+		} as APIContext);
+		expect(response.status).toBe(200);
+
+		const { data: smsLogs } = await adminClient
+			.from("notification_log")
+			.select("*")
+			.eq("user_id", id)
+			.eq("type", "market")
+			.eq("delivery_method", "sms");
+		expect(smsLogs ?? []).toHaveLength(0);
+	});
+
 	it("User who opted out via STOP does not receive SMS when schedule fires.", async () => {
 		twilioMocks.validateRequest.mockReturnValue(true);
 
@@ -835,5 +874,64 @@ describe("Scheduled notification scenarios", () => {
 			.eq("type", "market")
 			.eq("delivery_method", "email");
 		expect(logs ?? []).toHaveLength(0);
+	});
+
+	it("User who texts STOP EMAIL does not receive email when schedule fires.", async () => {
+		twilioMocks.validateRequest.mockReturnValue(true);
+
+		const timezone = "America/New_York";
+		const nowLocal = DateTime.now().setZone(timezone);
+		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
+
+		const testUser = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: true,
+			phoneVerified: true,
+			scheduledUpdateTimes: [scheduledTime],
+			trackedAssets: ["MSFT"],
+			marketScheduledAssetPriceIncludeEmail: true,
+			marketScheduledAssetPriceIncludeSms: false,
+		});
+		registerTestUserForCleanup(testUser.id);
+
+		const from = await getTestUserPhone(testUser.id);
+		const stopEmailResponse = await InboundPost({
+			request: buildSmsInboundRequest({
+				from,
+				body: "STOP EMAIL",
+				includeSignature: true,
+			}),
+		} as APIContext);
+		expect(stopEmailResponse.status).toBe(200);
+
+		const { data: afterStopEmail } = await adminClient
+			.from("users")
+			.select("email_notifications_enabled")
+			.eq("id", testUser.id)
+			.single();
+		expect(afterStopEmail?.email_notifications_enabled).toBe(false);
+
+		const { error: seedError } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", testUser.id);
+		expect(seedError).toBeNull();
+
+		const response = await SchedulePost({
+			request: createScheduleRequest(testCronSecret),
+		} as APIContext);
+		expect(response.status).toBe(200);
+
+		const { data: emailLogs } = await adminClient
+			.from("notification_log")
+			.select("id")
+			.eq("user_id", testUser.id)
+			.eq("type", "market")
+			.eq("delivery_method", "email");
+		expect(emailLogs ?? []).toHaveLength(0);
 	});
 });
