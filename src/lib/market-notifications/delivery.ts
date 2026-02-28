@@ -132,21 +132,8 @@ function getMarketOpenTimestampMs(referenceMs: number): number {
 
 /** Convert timestamp (ms) to minutes-from-midnight in ET. */
 function getMinutesFromMidnightET(ms: number): number {
-	const parts = new Intl.DateTimeFormat("en-CA", {
-		timeZone: US_MARKET_TIMEZONE,
-		hour: "numeric",
-		minute: "numeric",
-		hour12: false,
-	}).formatToParts(new Date(ms));
-	const hour = Number.parseInt(
-		parts.find((p) => p.type === "hour")?.value ?? "0",
-		10,
-	);
-	const minute = Number.parseInt(
-		parts.find((p) => p.type === "minute")?.value ?? "0",
-		10,
-	);
-	return hour * 60 + minute;
+	const dt = DateTime.fromMillis(ms).setZone(US_MARKET_TIMEZONE);
+	return dt.hour * 60 + dt.minute;
 }
 
 /** Build time-axis labels for an intraday sparkline anchored to market open (9:30 ET).
