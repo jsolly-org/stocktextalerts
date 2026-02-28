@@ -427,17 +427,21 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
 		validateRequestMock.mockReturnValueOnce(true);
 
-		const response = await POST({
-			request: buildSmsInboundRequest({
-				from: "+15559999999",
-				body: "STOP",
-				includeSignature: true,
-			}),
-		} as APIContext);
+		try {
+			const response = await POST({
+				request: buildSmsInboundRequest({
+					from: "+15559999999",
+					body: "STOP",
+					includeSignature: true,
+				}),
+			} as APIContext);
 
-		expect(response.status).toBe(200);
-		const body = await response.text();
-		expect(body).not.toContain("unsubscribed");
-		expect(body).not.toContain("error");
+			expect(response.status).toBe(200);
+			const body = await response.text();
+			expect(body).not.toContain("unsubscribed");
+			expect(body).not.toContain("error");
+		} finally {
+			vi.unstubAllEnvs();
+		}
 	});
 });
