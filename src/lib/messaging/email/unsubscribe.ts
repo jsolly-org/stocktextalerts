@@ -5,11 +5,22 @@ const DEFAULT_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 
 /**
  * Read CRON_SECRET from the environment for use in signing unsubscribe tokens.
+ * Prefers import.meta.env (Vite/Astro build), falls back to process.env (Vercel runtime).
  * Returns null when the secret is missing or not a non-empty string.
  */
 function getUnsubscribeSecret(): string | null {
-	const secret = import.meta.env.CRON_SECRET;
-	return typeof secret === "string" && secret.trim().length > 0 ? secret : null;
+	try {
+		const fromMeta = import.meta.env.CRON_SECRET;
+		if (typeof fromMeta === "string" && fromMeta.trim().length > 0) {
+			return fromMeta;
+		}
+	} catch {
+		// import.meta.env not available outside Vite/Astro
+	}
+	const fromProcess = process.env.CRON_SECRET;
+	return typeof fromProcess === "string" && fromProcess.trim().length > 0
+		? fromProcess
+		: null;
 }
 
 /** Encode a buffer to base64url (URL-safe, no padding). */

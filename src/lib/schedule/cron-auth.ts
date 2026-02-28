@@ -2,6 +2,25 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import type { Logger } from "../logging";
 
 /**
+ * Read CRON_SECRET from environment. Prefers import.meta.env (Vite/Astro build),
+ * falls back to process.env (Vercel runtime, standalone scripts).
+ */
+function getCronSecret(): string | undefined {
+	try {
+		const fromMeta = import.meta.env.CRON_SECRET;
+		if (typeof fromMeta === "string" && fromMeta.trim().length > 0) {
+			return fromMeta;
+		}
+	} catch {
+		// import.meta.env not available outside Vite/Astro
+	}
+	const fromProcess = process.env.CRON_SECRET;
+	return typeof fromProcess === "string" && fromProcess.trim().length > 0
+		? fromProcess
+		: undefined;
+}
+
+/**
  * Verifies that the supplied cron secret matches the expected CRON_SECRET env var.
  * Uses SHA256 + timing-safe comparison to prevent timing attacks.
  *
@@ -19,7 +38,7 @@ export function verifyCronSecret(
 	logger: Logger,
 ): string | null {
 	const authHeader = request.headers.get("authorization");
-	const envCronSecret = import.meta.env.CRON_SECRET;
+	const envCronSecret = getCronSecret();
 
 	if (!isAcceptableSecret(envCronSecret)) {
 		logger.error(
@@ -47,7 +66,14 @@ export function verifyCronSecret(
 		return null;
 	}
 
-	const cronSecret = authHeader.split("Bearer ")[1];
+	const cronSecret = authHeader.slice(7); // "Bearer " is 7 chars
+	if (!cronSecret || cronSecret.trim().length === 0) {
+		logger.info("Unauthorized cron request", {
+			action: "cron_auth",
+			reason: "empty_bearer_token",
+		});
+		return null;
+	}
 
 	try {
 		const suppliedSecret = createHash("sha256").update(cronSecret).digest();

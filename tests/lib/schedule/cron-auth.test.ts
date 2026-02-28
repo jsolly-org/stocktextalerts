@@ -69,6 +69,26 @@ describe("Cron secret verification protects scheduled endpoints.", () => {
 		);
 	});
 
+	it("Rejects empty Bearer token.", () => {
+		vi.stubEnv("CRON_SECRET", "long-enough-secret");
+		const logger = createLoggerMock();
+
+		const request = new Request("http://localhost/api/schedule", {
+			method: "POST",
+			headers: {
+				authorization: "Bearer ",
+			},
+		});
+
+		const result = verifyCronSecret(request, logger);
+
+		expect(result).toBeNull();
+		expect(logger.info).toHaveBeenCalledWith(
+			"Unauthorized cron request",
+			expect.objectContaining({ reason: "empty_bearer_token" }),
+		);
+	});
+
 	it("Rejects incorrect secrets even with Bearer formatting.", () => {
 		vi.stubEnv("CRON_SECRET", "long-enough-secret");
 		const logger = createLoggerMock();
