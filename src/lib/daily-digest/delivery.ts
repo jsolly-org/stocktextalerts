@@ -114,7 +114,7 @@ function buildDigestMarketClosedHtml(
 		</div>`;
 }
 
-export type AssetEventsResult = Awaited<
+type AssetEventsResult = Awaited<
 	ReturnType<typeof buildAssetEventsContent>
 > | null;
 

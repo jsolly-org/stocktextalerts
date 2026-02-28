@@ -14,7 +14,7 @@ const LABEL_FONT_SIZE = 8;
 const TICK_HEIGHT = 3;
 
 /** Options for time-axis sparkline positioning. */
-export interface SparklineTimeAxisOptions {
+interface SparklineTimeAxisOptions {
 	/** Per-bar timestamps (ms), same length as values. null for bars lacking t; points at real time for valid entries. */
 	timestamps: (number | null)[];
 	/** First bar timestamp (ms). */

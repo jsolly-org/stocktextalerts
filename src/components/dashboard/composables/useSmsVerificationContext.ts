@@ -1,6 +1,6 @@
 import { type InjectionKey, inject, provide, type Ref } from "vue";
 
-export interface SmsVerificationContext {
+interface SmsVerificationContext {
 	isEditingPhone: Ref<boolean>;
 	smsSuccessMessage: Ref<string | null>;
 	sendVerificationDisabled: Ref<boolean>;

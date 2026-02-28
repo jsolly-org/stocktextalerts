@@ -4,7 +4,7 @@ export type AlertMoveSize = "moderate" | "large";
 export type AlertFollowUpMode = "first_only" | "allow_follow_up";
 type AlertDirectionPreference = "downside" | "upside" | "both";
 
-export interface AlertProfile {
+interface AlertProfile {
 	riskPriority: AlertRiskPriority;
 	marketContext: AlertMarketContext;
 	moveSize: AlertMoveSize;

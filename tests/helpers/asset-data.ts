@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-export type AssetData = {
+type AssetData = {
 	symbol: string;
 	name: string;
 	type: string;
@@ -73,35 +73,6 @@ export function getRealAssetSymbols(count: number): string[] {
 	if (symbols.length < count) {
 		throw new Error(
 			`Requested ${count} asset symbols but only ${symbols.length} available in asset data`,
-		);
-	}
-
-	// Shuffle array using Fisher-Yates algorithm for varied test data
-	const shuffled = [...symbols];
-	for (let i = shuffled.length - 1; i > 0; i--) {
-		const j = randomInt(0, i + 1);
-		[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-	}
-
-	return shuffled.slice(0, count);
-}
-
-export function getRealAssetSymbolsByType(
-	type: "stock" | "etf",
-	count: number,
-): string[] {
-	if (count < 0) {
-		throw new Error(`Requested negative symbol count: ${count}`);
-	}
-
-	const assetData = loadAssetData();
-	const symbols = Array.from(assetData.entries())
-		.filter(([, asset]) => asset.type === type)
-		.map(([symbol]) => symbol);
-
-	if (symbols.length < count) {
-		throw new Error(
-			`Requested ${count} ${type} symbols but only ${symbols.length} available in asset data`,
 		);
 	}
 

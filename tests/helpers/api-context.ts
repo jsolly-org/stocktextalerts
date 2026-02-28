@@ -14,7 +14,7 @@ type CookieAdapterOptions = {
  * This keeps API route tests concise while preserving cookie behavior used by
  * auth/session handlers.
  */
-export function createCookieAdapter(
+function createCookieAdapter(
 	options: CookieAdapterOptions = {},
 ): APIContext["cookies"] {
 	const cookieStore = options.cookies ?? new Map<string, string>();

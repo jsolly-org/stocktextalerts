@@ -21,6 +21,7 @@
 		"gha:local:test-build": "scripts/ci/run-local-actions.sh --job test-and-build",
 		"check:ts": "tsc --noEmit --skipLibCheck",
 		"check:biome": "biome check --write --no-errors-on-unmatched",
+		"check:knip": "knip",
 		"check:yaml": "yamllint '.github/**/*.yml' '.coderabbit.yaml'",
 		"db:start": "supabase start",
 		"db:stop": "supabase stop",
@@ -58,7 +59,6 @@
 		"lodash": "4.17.23"
 	},
 	"devDependencies": {
-		"@astrojs/check": "^0.9.6",
 		"@astrojs/sitemap": "^3.7.0",
 		"@astrojs/ts-plugin": "^1.10.6",
 		"@astrojs/vue": "^5.1.4",
@@ -70,6 +70,7 @@
 		"@types/pg": "^8.16.0",
 		"astro": "^5.18.0",
 		"husky": "^9.1.7",
+		"knip": "^5.85.0",
 		"lighthouse": "^13.0.3",
 		"lint-staged": "^16.2.7",
 		"pg": "^8.19.0",

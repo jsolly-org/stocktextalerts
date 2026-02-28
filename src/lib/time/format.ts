@@ -276,7 +276,7 @@ function getEasternTimeAsLocalMinutes(
 	return local.hour * 60 + local.minute;
 }
 
-export function getUsMarketOpenLocalMinutes(userTimezone: string): number {
+function getUsMarketOpenLocalMinutes(userTimezone: string): number {
 	return getEasternTimeAsLocalMinutes(
 		US_MARKET_OPEN_EASTERN_MINUTES,
 		userTimezone,

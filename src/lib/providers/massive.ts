@@ -413,7 +413,7 @@ export function extractClosesFromBars(payload: unknown): number[] | null {
 }
 
 /** Result of extracting closes and timestamps from intraday bars. */
-export interface IntradayBarsResult {
+interface IntradayBarsResult {
 	closes: number[];
 	/** Per-bar timestamps (ms since epoch), same length as closes. null for bars lacking t; downstream places points at real time for valid entries. Null when no bars have timestamps. */
 	timestamps: (number | null)[] | null;
