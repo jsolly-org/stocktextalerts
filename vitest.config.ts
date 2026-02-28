@@ -1,4 +1,14 @@
 import { getViteConfig } from "astro/config";
+import { loadEnv } from "vite";
+
+// Load .env / .env.local into process.env so tests work regardless of
+// invocation method (npm test, npx vitest, IDE test runner, etc.).
+const env = loadEnv("test", process.cwd(), "");
+for (const [key, value] of Object.entries(env)) {
+	if (process.env[key] === undefined) {
+		process.env[key] = value;
+	}
+}
 
 export default getViteConfig(
 	{

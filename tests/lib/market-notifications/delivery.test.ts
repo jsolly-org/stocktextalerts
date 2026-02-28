@@ -34,6 +34,9 @@ function makeAlert(overrides: Partial<EnrichedAlert> = {}): EnrichedAlert {
 		headlines: [],
 		aiSummary: null,
 		intradayCloses: null,
+		intradayTimestamps: null,
+		intradayEndTimestamp: null,
+		isPositiveMove: false,
 		...overrides,
 	};
 }
@@ -53,6 +56,7 @@ function makeUser(overrides: Partial<PriceAlertUser> = {}): PriceAlertUser {
 		market_asset_price_alert_market_context: "standout",
 		market_asset_price_alert_move_size: "large",
 		market_asset_price_alert_follow_up_mode: "first_only",
+		use_24_hour_time: false,
 		...overrides,
 	};
 }
@@ -238,5 +242,42 @@ describe("deliverPriceAlert intraday sparklines", () => {
 		expect(sendEmail).toHaveBeenCalledOnce();
 		const emailCall = sendEmail.mock.calls[0][0] as { html: string };
 		expect(emailCall.html).not.toContain("Today since open:");
+	});
+
+	it("email HTML sparkline uses 24-hour time labels when use_24_hour_time is true", async () => {
+		// Use real bar timestamps: 9:30 ET → 10:40 ET so hourly tick "10:00" appears
+		const intradayWithHourlyTick = [
+			100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114,
+		];
+		// 2025-02-25 10:40 ET (EST = UTC-5)
+		const endTs = Date.UTC(2025, 1, 25, 15, 40, 0);
+		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const stats = makeStats();
+
+		await deliverPriceAlert({
+			user: makeUser({
+				market_asset_price_alerts_include_email: true,
+				market_asset_price_alerts_include_sms: false,
+				use_24_hour_time: true,
+			}),
+			alert: makeAlert({
+				intradayCloses: intradayWithHourlyTick,
+				intradayEndTimestamp: endTs,
+			}),
+			supabase: makeSupabaseMock(),
+			sendEmail: sendEmail,
+			sendSms: vi.fn(async () => ({ success: true })),
+			stats,
+		});
+
+		expect(sendEmail).toHaveBeenCalledOnce();
+		const emailCall = sendEmail.mock.calls[0][0] as { html: string };
+		expect(emailCall.html).toContain("Today since open:");
+		// Labels are inside the base64-encoded SVG image payload.
+		const svgBase64 =
+			emailCall.html.match(/data:image\/svg\+xml;base64,([^"]+)/)?.[1] ?? "";
+		const svg = Buffer.from(svgBase64, "base64").toString("utf-8");
+		// 24h format shows "10:00" for 10:00; 12h would show "10a"
+		expect(svg).toContain("10:00");
 	});
 });

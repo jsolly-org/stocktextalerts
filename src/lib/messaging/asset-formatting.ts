@@ -1,3 +1,5 @@
+import type { SparklineData } from "./sparkline";
+import { toSvgSparklineImg } from "./svg-sparkline";
 import type { FormatPreferences } from "./types";
 
 export type AssetPrice = { price: number; changePercent: number };
@@ -69,7 +71,7 @@ function formatAssetHtmlLine(
 	asset: AssetWithName,
 	price: AssetPrice | undefined,
 	formatPrefs: FormatPreferences,
-	sparkline?: string | null,
+	sparkline?: SparklineData | null,
 ): string {
 	const assetInfo = escapeHtml(asset.symbol);
 
@@ -82,12 +84,16 @@ function formatAssetHtmlLine(
 	const color = getChangeColor(price.changePercent);
 	const changeStr = escapeHtml(`(${sign}${price.changePercent.toFixed(2)}%)`);
 
-	const effectiveSparkline = formatPrefs.show_sparklines ? sparkline : null;
-	const sparklineHtml = effectiveSparkline
-		? ` <span style="letter-spacing:1px">${escapeHtml(effectiveSparkline)}</span>`
-		: "";
+	let sparklineHtml = "";
+	if (
+		formatPrefs.show_sparklines &&
+		sparkline?.values &&
+		sparkline.values.length >= 2
+	) {
+		sparklineHtml = ` ${toSvgSparklineImg(sparkline.values, color)}`;
+	}
 
-	return `${assetInfo} &mdash; ${priceStr} <span style="color: ${color};">${changeStr}</span>${sparklineHtml}`;
+	return `<strong>${assetInfo}</strong> &mdash; ${priceStr} <span style="color: ${color};">${changeStr}</span>${sparklineHtml}`;
 }
 
 export function formatAssetsTextList(
@@ -116,7 +122,7 @@ export function formatAssetsHtmlList(
 	assets: AssetWithName[],
 	getPrice: (symbol: string) => AssetPrice | undefined,
 	formatPrefs: FormatPreferences,
-	getSparkline?: (symbol: string) => string | null | undefined,
+	getSparkline?: (symbol: string) => SparklineData | null | undefined,
 ): string {
 	if (assets.length === 0) {
 		return escapeHtml(NO_TRACKED_ASSETS_MESSAGE);

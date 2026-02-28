@@ -1,3 +1,8 @@
+import { DateTime } from "luxon";
+import {
+	US_MARKET_OPEN_EASTERN_MINUTES,
+	US_MARKET_TIMEZONE,
+} from "../constants";
 import { getSiteUrl } from "../db/env";
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
@@ -13,7 +18,10 @@ import { recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import type { SmsSender } from "../messaging/sms/twilio-utils";
 import { toSparkline } from "../messaging/sparkline";
-import { toSvgSparklineImg } from "../messaging/svg-sparkline";
+import {
+	type SparklineTimeLabel,
+	toSvgSparklineImg,
+} from "../messaging/svg-sparkline";
 import type { EnrichedAlert } from "./enrichment";
 import type { PriceAlertUser } from "./users";
 
@@ -91,7 +99,83 @@ function formatPriceAlertSms(alert: EnrichedAlert): string {
 	return sections.join("\n\n");
 }
 
-function renderHtmlSparkline(intradayCloses: number[] | null): string {
+/** Format minutes-from-midnight as compact time for sparkline axis labels.
+ *  12h: "9:30a", "2p", "12:45p"   24h: "9:30", "14:00", "12:45" */
+function formatCompactTime(totalMinutes: number, is24: boolean): string {
+	const h24 = Math.floor(totalMinutes / 60);
+	const m = totalMinutes % 60;
+	if (is24) {
+		return `${h24}:${String(m).padStart(2, "0")}`;
+	}
+	const h12 = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24;
+	const period = h24 >= 12 ? "p" : "a";
+	return m === 0
+		? `${h12}${period}`
+		: `${h12}:${String(m).padStart(2, "0")}${period}`;
+}
+
+/** Market-open timestamp (ms) for the calendar day of the given timestamp, in ET. */
+function getMarketOpenTimestampMs(referenceMs: number): number {
+	const marketOpenHour = Math.floor(US_MARKET_OPEN_EASTERN_MINUTES / 60);
+	const marketOpenMinute = US_MARKET_OPEN_EASTERN_MINUTES % 60;
+	return DateTime.fromMillis(referenceMs)
+		.setZone(US_MARKET_TIMEZONE)
+		.startOf("day")
+		.set({
+			hour: marketOpenHour,
+			minute: marketOpenMinute,
+			second: 0,
+			millisecond: 0,
+		})
+		.toMillis();
+}
+
+/** Convert timestamp (ms) to minutes-from-midnight in ET. */
+function getMinutesFromMidnightET(ms: number): number {
+	const dt = DateTime.fromMillis(ms).setZone(US_MARKET_TIMEZONE);
+	return dt.hour * 60 + dt.minute;
+}
+
+/** Build time-axis labels for an intraday sparkline anchored to market open (9:30 ET).
+ *  Returns empty when endTimestampMs is missing. Axis spans market-open to end (not first-bar to end). */
+function buildIntradayTimeLabels(
+	is24: boolean,
+	endTimestampMs: number | null | undefined,
+): SparklineTimeLabel[] {
+	if (endTimestampMs == null) return [];
+
+	const marketOpenMs = getMarketOpenTimestampMs(endTimestampMs);
+	const startMinutes = getMinutesFromMidnightET(marketOpenMs);
+	const endMinutes = getMinutesFromMidnightET(endTimestampMs);
+
+	const labels: SparklineTimeLabel[] = [
+		{ position: 0, label: formatCompactTime(startMinutes, is24) },
+	];
+
+	// Add hourly ticks between start and end (if room)
+	const totalSpan = endMinutes - startMinutes;
+	if (totalSpan > 60) {
+		const firstHour = Math.ceil(startMinutes / 60) * 60;
+		for (let min = firstHour; min < endMinutes; min += 60) {
+			const pos = (min - startMinutes) / totalSpan;
+			// Suppress ticks within 15% of start/end to avoid crowding the edge labels
+			// (e.g., a 10:00 AM tick at pos≈0.08 would overlap "9:30a" for a full session).
+			if (pos > 0.15 && pos < 0.85) {
+				labels.push({ position: pos, label: formatCompactTime(min, is24) });
+			}
+		}
+	}
+
+	labels.push({ position: 1, label: formatCompactTime(endMinutes, is24) });
+	return labels;
+}
+
+function renderHtmlSparkline(
+	intradayCloses: number[] | null,
+	is24: boolean,
+	endTimestampMs?: number | null,
+	timestamps?: (number | null)[] | null,
+): string {
 	if (!intradayCloses || intradayCloses.length < 2) return "";
 	if (intradayCloses.some((v) => !Number.isFinite(v))) return "";
 	const openPrice = intradayCloses[0];
@@ -99,17 +183,45 @@ function renderHtmlSparkline(intradayCloses: number[] | null): string {
 	const changePercent =
 		openPrice === 0 ? 0 : ((lastPrice - openPrice) / openPrice) * 100;
 	const color = getChangeColor(changePercent);
+	const timeLabels = buildIntradayTimeLabels(is24, endTimestampMs);
+	const marketOpenMs =
+		endTimestampMs != null ? getMarketOpenTimestampMs(endTimestampMs) : null;
+	const timeAxis =
+		timestamps &&
+		timestamps.length === intradayCloses.length &&
+		marketOpenMs != null &&
+		endTimestampMs != null
+			? {
+					timestamps,
+					startTimestamp: marketOpenMs,
+					endTimestamp: endTimestampMs,
+				}
+			: undefined;
 	const sparklineImg = toSvgSparklineImg(
 		intradayCloses,
 		color,
 		200,
 		40,
 		"Intraday price chart since market open",
+		timeLabels,
+		timeAxis,
 	);
 	if (!sparklineImg) return "";
 	return `
 			<p style="color: #92400e; font-size: 12px; margin: 8px 0 0 0;">Today since open:</p>
 			<div style="margin-top: 4px;">${sparklineImg}</div>`;
+}
+
+function renderHtmlSparklineForAlert(
+	alert: EnrichedAlert,
+	is24: boolean,
+): string {
+	return renderHtmlSparkline(
+		alert.intradayCloses,
+		is24,
+		alert.intradayEndTimestamp,
+		alert.intradayTimestamps,
+	);
 }
 
 /**
@@ -195,7 +307,7 @@ function formatPriceAlertEmail(
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
 		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">${escapeHtml(alert.symbol)}</h2>
 		<div style="background: #fffbeb; padding: 16px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #fde68a;">
-			<p style="color: #92400e; font-size: 16px; font-weight: 500; margin: 0;">${escapeHtml(alert.priceContext)}</p>${renderHtmlSparkline(alert.intradayCloses)}
+			<p style="color: #92400e; font-size: 16px; font-weight: 500; margin: 0;">${escapeHtml(alert.priceContext)}</p>${renderHtmlSparklineForAlert(alert, user.use_24_hour_time)}
 		</div>
 		<div style="margin-bottom: 20px;">
 			<p style="color: #6b7280; font-size: 14px; margin: 0;"><strong>Signals:</strong> ${escapeHtml(alert.signalContext)}</p>
@@ -237,7 +349,7 @@ export async function deliverPriceAlert(options: {
 		const message = formatPriceAlertEmail(user, alert);
 		const result = await sendUserEmail(
 			user,
-			`Alert: ${alert.symbol} price shock`,
+			`${alert.symbol} ${alert.isPositiveMove ? "Rally" : "Selloff"} Alert`,
 			message,
 			sendEmail,
 		);

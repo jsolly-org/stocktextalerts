@@ -5,7 +5,7 @@ name: "Nightly: Patch Test Gaps"
 
 on:
   schedule:
-    - cron: "0 9 * * *" # 4 AM ET
+    - cron: "0 7 * * *" # 2 AM ET
   workflow_dispatch:
 
 permissions:
@@ -25,7 +25,7 @@ jobs:
         run: |
           EXISTING_PR=$(gh pr list \
             --repo "${{ github.repository }}" \
-            --label "bot-generated" \
+            --label "nightly" \
             --search "test(nightly): add scenario tests" \
             --state open \
             --json number,url \
@@ -173,7 +173,39 @@ jobs:
           - Realistic data (real tickers, realistic prices, real timezone names)
           - Assert via behavior (DB state, response payloads), not mock call counts
 
-          ## Step 5: Validate
+          ## Step 5: Audit live provider API test coverage
+          Every external API call made by a provider in \`src/lib/providers/\` MUST have a corresponding live test that exercises the real endpoint when run with \`--live\`.
+
+          ### How live tests work
+          - Live tests are opt-in, gated by \`isLiveProviderEnabled()\` / \`assertLiveProviderKey()\` from \`tests/helpers/live-api.ts\`.
+          - Tests use the pattern: \`const describeXxxLive = isLiveProviderEnabled(\"xxx\") ? describe : describe.skip;\`
+          - They run via \`npm run test:live:data\` (massive+finnhub), \`npm run test:live:xai\` (xai), etc.
+
+          ### What to check
+          Scan each provider source file and catalog every distinct API endpoint/call:
+          - \`src/lib/providers/massive.ts\` — \`marketDataFetch()\` calls to various Massive/Polygon endpoints
+          - \`src/lib/providers/finnhub.ts\` — \`finnhubFetch()\` calls to Finnhub endpoints
+          - \`src/lib/providers/company-news.ts\` — uses \`marketDataFetch()\` for \`/v2/reference/news\`
+          - \`src/lib/providers/price-fetcher.ts\` — higher-level wrappers (\`fetchAssetPrices\`, \`fetchExtendedQuotes\`, \`fetchSparklines\`, \`fetchMarketStatus\`) that call Massive
+          - \`src/lib/providers/grok.ts\` — \`callGrokApi()\` for xAI news/rumors generation
+
+          Then cross-reference against existing live test files:
+          - \`tests/lib/live-provider-apis.test.ts\` (Massive + Finnhub live tests)
+          - \`tests/lib/live-xai-apis.test.ts\` (xAI live tests)
+
+          For every API call that lacks a live test, write one. Each live test should:
+          - Call the real exported function (not raw fetch)
+          - Verify the response shape and basic data validity
+          - Use realistic parameters (real tickers like SPY/AAPL, recent date ranges)
+          - Be placed in the appropriate existing live test file under the matching \`describe\` block
+          - Follow the existing pattern: \`assertLiveProviderKey()\` at describe level, shape assertions in each \`it\`
+
+          ### Examples of API calls that need live tests
+          If \`fetchPrevClose()\` exists in massive.ts but has no dedicated \`it()\` block in live-provider-apis.test.ts, add one.
+          If \`fetchMarketStatus()\` is called but only tested indirectly inside another test, add a standalone test for it.
+          If \`fetchExtendedQuotes()\` or \`fetchSparklines()\` in price-fetcher.ts have no live test, add them.
+
+          ## Step 6: Validate
           Run \`npm test\` after writing tests. If tests fail, fix them. If a test still fails after 2 fix attempts, delete it rather than shipping a broken test.
 
           # Rules
@@ -181,7 +213,7 @@ jobs:
           - You may add new \`describe\`/\`it\` blocks to existing test files for uncovered scenarios, or create new test files — whichever fits better.
           - Leave all changes uncommitted. The workflow will handle commit, push, and PR creation.
           - Do not create issues or PRs yourself.
-          " --force --model "$MODEL" --output-format=text
+          " --force --mode auto --model "$MODEL" --output-format=text
 
       # Note: we intentionally keep agent edits to .github/ — the PR review
       # process is the right place to catch bad workflow changes, not a blanket revert.
@@ -233,6 +265,7 @@ jobs:
           gh pr create \
             --title "test(nightly): add scenario tests — $(date +%Y-%m-%d)" \
             --label "bot-generated" \
+            --label "nightly" \
             --body "$(cat <<'EOF'
           ## Summary
           Automated scenario test additions — identifies real-world user journeys, system events, and business logic paths that lack test coverage, then writes Vitest tests for them.

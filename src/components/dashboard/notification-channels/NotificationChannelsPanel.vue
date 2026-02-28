@@ -17,7 +17,7 @@
 		>
 			<FadeTransition>
 				<div
-					v-if="statusMessage"
+					v-if="statusMessage && statusTone === 'error'"
 					:id="DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID"
 					class="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium z-10 border"
 					:class="STATUS_TONE_CLASSES[statusTone]"
@@ -61,11 +61,11 @@
 				:daily-delivery-time-input="dailyDeliveryTimeInput"
 				:daily-delivery-time-minutes="dailyDeliveryTimeMinutes"
 				:is24="user.use_24_hour_time"
-				:market-open-label="marketOpenLabel"
-				:is-market-open-time="isMarketOpenTime"
+				:before-open-label="beforeOpenLabel"
+				:is-before-open-time="isBeforeOpenTime"
 				@daily-time-change="handleDailyTimeChange"
 				@clear-delivery-time="handleClearDeliveryTime"
-				@set-market-open="handleSetMarketOpen"
+				@set-before-open="handleSetBeforeOpen"
 			/>
 			</div>
 		</section>
@@ -88,7 +88,7 @@ import {
 } from "../../../lib/constants";
 import {
 	formatMinutesAsLocalTime,
-	getUsMarketOpenLocalMinutes,
+	getUsBeforeOpenLocalMinutes,
 	minutesToTimeInputValue,
 	parseTimeToMinutes,
 } from "../../../lib/time/format";
@@ -269,19 +269,19 @@ const dailyDeliveryTimeInput = computed(() =>
 		: null,
 );
 
-const marketOpenLocalMinutes = computed(() =>
-	user.value.timezone ? getUsMarketOpenLocalMinutes(user.value.timezone) : null,
+const beforeOpenLocalMinutes = computed(() =>
+	user.value.timezone ? getUsBeforeOpenLocalMinutes(user.value.timezone) : null,
 );
 
-const marketOpenLabel = computed(() =>
-	marketOpenLocalMinutes.value !== null
-		? formatMinutesAsLocalTime(marketOpenLocalMinutes.value, user.value.use_24_hour_time)
+const beforeOpenLabel = computed(() =>
+	beforeOpenLocalMinutes.value !== null
+		? formatMinutesAsLocalTime(beforeOpenLocalMinutes.value, user.value.use_24_hour_time)
 		: null,
 );
 
-const isMarketOpenTime = computed(() => {
-	if (marketOpenLocalMinutes.value === null) return true;
-	return dailyDeliveryTimeMinutes.value === marketOpenLocalMinutes.value;
+const isBeforeOpenTime = computed(() => {
+	if (beforeOpenLocalMinutes.value === null) return true;
+	return dailyDeliveryTimeMinutes.value === beforeOpenLocalMinutes.value;
 });
 
 function handleDailyTimeChange(value: string) {
@@ -296,9 +296,9 @@ function handleClearDeliveryTime() {
 	notifyChange();
 }
 
-function handleSetMarketOpen() {
-	if (marketOpenLocalMinutes.value === null || isMarketOpenTime.value) return;
-	dailyDeliveryTimeMinutes.value = marketOpenLocalMinutes.value;
+function handleSetBeforeOpen() {
+	if (beforeOpenLocalMinutes.value === null || isBeforeOpenTime.value) return;
+	dailyDeliveryTimeMinutes.value = beforeOpenLocalMinutes.value;
 	notifyChange();
 }
 

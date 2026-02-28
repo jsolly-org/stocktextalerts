@@ -4,7 +4,7 @@ name: "Nightly: Accessibility"
 
 on:
   schedule:
-    - cron: "0 8 * * *" # 3 AM ET — after Docs (2 AM ET)
+    - cron: "0 6 * * *" # 1 AM ET
   workflow_dispatch:
 
 permissions:
@@ -21,8 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ensure GitHub CLI (act only)
-        if: ${{ env.ACT == 'true' }}
         run: |
+          [ "${ACT}" = "true" ] || exit 0
           if command -v gh >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
             exit 0
           fi
@@ -178,7 +178,7 @@ jobs:
           - Leave all changes uncommitted. The workflow will handle commit, push, and PR creation.
           - Do not create issues or PRs yourself.
           - Do not modify \`a11y-report.md\` — it will be cleaned up by the workflow.
-          " --force --model "$MODEL" --output-format=text
+          " --force --mode auto --model "$MODEL" --output-format=text
 
       - name: Clean up audit report
         if: steps.check-pr.outputs.skip != 'true' && steps.audit.outputs.has_findings == 'true'

@@ -222,9 +222,8 @@ describe("Daily digest email prices", () => {
 		expect(message.text).toContain(
 			"🤫 Rumors\nAAPL: First rumor line\n\nMSFT: Second rumor line",
 		);
-		expect(message.html).toContain(
-			"AAPL: First rumor line\n\nMSFT: Second rumor line",
-		);
+		expect(message.html).toContain("<strong>AAPL:</strong> First rumor line");
+		expect(message.html).toContain("<strong>MSFT:</strong> Second rumor line");
 	});
 
 	it("preserves single blank-line spacing when rumors already contain it", () => {
@@ -270,9 +269,8 @@ describe("Daily digest email prices", () => {
 		expect(message.text).toContain(
 			"🗞️ News\nAAPL: First news line\n\nMSFT: Second news line",
 		);
-		expect(message.html).toContain(
-			"AAPL: First news line\n\nMSFT: Second news line",
-		);
+		expect(message.html).toContain("<strong>AAPL:</strong> First news line");
+		expect(message.html).toContain("<strong>MSFT:</strong> Second news line");
 	});
 
 	it("omits price disclaimer when market is open (no closure info)", () => {

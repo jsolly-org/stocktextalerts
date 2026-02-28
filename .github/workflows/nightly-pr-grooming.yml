@@ -6,8 +6,8 @@ name: "Nightly: PR Grooming"
 
 on:
   schedule:
-    - cron: "0 6 * * *" # 1 AM ET
-    - cron: "30 6 * * *" # 1:30 AM ET (re-run to merge fixed PRs)
+    - cron: "0 2 * * *" # 9 PM ET (groom existing PRs before new nightly jobs)
+    - cron: "0 8 * * *" # 3 AM ET (re-run to merge fixed PRs, after all other nightly jobs)
   workflow_dispatch:
 
 permissions:
@@ -321,7 +321,7 @@ jobs:
           - Leave all changes uncommitted. The workflow will handle commit, push, and PR creation.
           - Do not create issues or PRs yourself.
           - Focus only on fixing the identified problems — do not make unrelated changes.
-          " --force --model "$MODEL" --output-format=text
+          " --force --mode auto --model "$MODEL" --output-format=text
 
       # NOTE: We intentionally do NOT drop workflow file edits here.
       # An agent that can write source code could write malicious source code

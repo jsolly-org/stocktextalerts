@@ -100,7 +100,10 @@ export function renderEmailSection(
 		.filter(Boolean)
 		.join("");
 
-	const htmlContent = markdownLinksToHtml(content);
+	const htmlContent = markdownLinksToHtml(content).replace(
+		/^([A-Z][A-Z0-9.-]{0,9}:)/gm,
+		"<strong>$1</strong>",
+	);
 	const outlookContent = htmlToOutlookPreLike(htmlContent);
 
 	return `<h3 style="margin: 16px 0 6px; font-size: 14px;">${escapeHtml(emoji)} ${escapeHtml(title)}${logos}</h3><!--[if mso]><div style="margin: 0; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px; line-height: 18px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; mso-line-height-rule: exactly;">${outlookContent}</div><![endif]--><!--[if !mso]><!--><pre style="white-space: pre-wrap; margin: 0; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">${htmlContent}</pre><!--<![endif]-->`;

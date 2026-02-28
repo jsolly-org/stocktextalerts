@@ -21,6 +21,7 @@ export interface PriceAlertUser {
 	market_asset_price_alert_market_context: AlertMarketContext;
 	market_asset_price_alert_move_size: AlertMoveSize;
 	market_asset_price_alert_follow_up_mode: AlertFollowUpMode;
+	use_24_hour_time: boolean;
 }
 
 /**
@@ -33,7 +34,7 @@ export async function fetchPriceAlertUsers(
 	const { data, error } = await (supabase
 		.from("users")
 		.select(
-			"id, email, phone_country_code, phone_number, phone_verified, sms_notifications_enabled, sms_opted_out, market_asset_price_alerts_include_email, market_asset_price_alerts_include_sms, market_asset_price_alert_risk_priority, market_asset_price_alert_market_context, market_asset_price_alert_move_size, market_asset_price_alert_follow_up_mode",
+			"id, email, phone_country_code, phone_number, phone_verified, sms_notifications_enabled, sms_opted_out, market_asset_price_alerts_include_email, market_asset_price_alerts_include_sms, market_asset_price_alert_risk_priority, market_asset_price_alert_market_context, market_asset_price_alert_move_size, market_asset_price_alert_follow_up_mode, use_24_hour_time",
 		)
 		.eq("market_asset_price_alerts_enabled", true)
 		.or(
