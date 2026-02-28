@@ -21,7 +21,16 @@ vi.mock("../src/lib/db/env", async (importOriginal) => {
 	return {
 		...actual,
 		getSiteUrl: () => "http://localhost",
-		getValidatedCronSecret: actual.getValidatedCronSecret,
+		getValidatedCronSecret: () => {
+			const fromProcess = process.env.CRON_SECRET;
+			if (
+				typeof fromProcess !== "string" ||
+				fromProcess.trim().length < 12
+			) {
+				return null;
+			}
+			return fromProcess;
+		},
 	};
 });
 
