@@ -1,3 +1,14 @@
+/**
+ * Module-level rate limiter for Resend API (free tier: 2 req/s).
+ * Shared across all `createEmailSender()` instances so concurrent callers
+ * never exceed the global rate limit.
+ *
+ * Uses `node:timers/promises` so the delay works even when vitest's
+ * `vi.useFakeTimers()` has replaced the global `setTimeout`.
+ * Uses `performance.now()` instead of `Date.now()` because vitest's
+ * fake timers replace `Date.now()` but not `performance.now()`.
+ */
+import { setTimeout as realDelay } from "node:timers/promises";
 import { Resend } from "resend";
 import { rootLogger } from "../../logging";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
@@ -14,6 +25,37 @@ import type {
 	FormatPreferences,
 	UserAssetRow,
 } from "../types";
+
+const RESEND_MAX_PER_SECOND = 2;
+const recentSendTimestamps: number[] = [];
+
+async function waitForRateLimit(): Promise<void> {
+	const now = performance.now();
+	// Discard timestamps older than 1 second
+	while (recentSendTimestamps.length > 0) {
+		const oldest = recentSendTimestamps[0];
+		if (oldest === undefined || oldest > now - 1000) break;
+		recentSendTimestamps.shift();
+	}
+	if (recentSendTimestamps.length >= RESEND_MAX_PER_SECOND) {
+		const earliest = recentSendTimestamps[0];
+		if (earliest !== undefined) {
+			const waitMs = earliest + 1000 - now;
+			if (waitMs > 0) {
+				await realDelay(waitMs);
+			}
+		}
+		// Clean up again after waiting
+		const afterWait = performance.now();
+		while (recentSendTimestamps.length > 0) {
+			const oldest = recentSendTimestamps[0];
+			if (oldest === undefined || oldest > afterWait - 1000) break;
+			recentSendTimestamps.shift();
+		}
+	}
+	recentSendTimestamps.push(performance.now());
+}
+
 import { buildEmailUrls } from "./layout";
 
 interface EmailRequest {
@@ -75,6 +117,7 @@ export function createEmailSender(): EmailSender {
 				...(replyToValue ? { replyTo: replyToValue } : {}),
 			};
 			const sendOptions = idempotencyKey ? { idempotencyKey } : undefined;
+			await waitForRateLimit();
 			const { data, error } = await resend.emails.send(
 				emailPayload,
 				sendOptions,

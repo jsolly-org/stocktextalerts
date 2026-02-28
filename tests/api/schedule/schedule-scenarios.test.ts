@@ -32,7 +32,6 @@ import {
 	getTestUserPhone,
 } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
-import { allowConsoleErrors } from "../../setup";
 
 const twilioMocks = vi.hoisted(() => ({
 	validateRequest: vi.fn(),
@@ -348,7 +347,6 @@ describe("Scheduled notification scenarios", () => {
 	});
 
 	it("User who received no-assets message then adds an asset receives notification with that asset at next schedule fire.", async () => {
-		if (isLiveProviderEnabled("email")) allowConsoleErrors();
 		const timezone = "America/New_York";
 		vi.setSystemTime(DateTime.fromISO("2026-01-12T15:00:00.000Z").toJSDate());
 		const nowLocal = DateTime.now().setZone(timezone);
@@ -628,7 +626,6 @@ describe("Scheduled notification scenarios", () => {
 	});
 
 	it("User in Tokyo timezone receives scheduled market notification when cron fires at 9 AM their local time.", async () => {
-		if (isLiveProviderEnabled("email")) allowConsoleErrors();
 		// 9 AM JST (UTC+9) = 00:00 UTC
 		vi.setSystemTime(DateTime.fromISO("2026-01-14T00:00:00.000Z").toJSDate());
 
@@ -670,7 +667,6 @@ describe("Scheduled notification scenarios", () => {
 	});
 
 	it("Two users in different timezones: only the user due at cron fire time receives notification.", async () => {
-		if (isLiveProviderEnabled("email")) allowConsoleErrors();
 		// 15:00 UTC = 10:00 AM Eastern, 7:00 AM Pacific (winter)
 		vi.setSystemTime(DateTime.fromISO("2026-01-14T15:00:00.000Z").toJSDate());
 
