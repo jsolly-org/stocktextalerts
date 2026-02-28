@@ -50,11 +50,15 @@ Fine-grained: restrict to "Only select repositories" → this repo. Classic: no 
 - [Tech Stack & Tools](.agents/tech-stack.md)
 - [Testing](.agents/testing.md)
 
-## Cursor Cloud specific instructions
+## Cursor Cloud-specific instructions
 
 ### System dependencies
 - **Node.js 24** — required (`.nvmrc`). Use `source ~/.nvm/nvm.sh && nvm use 24` before any npm command.
-- **Docker** — required for local Supabase. Start the daemon with `sudo dockerd &>/tmp/dockerd.log &` and fix socket permissions with `sudo chmod 666 /var/run/docker.sock`. Docker is configured with `fuse-overlayfs` storage driver and `iptables-legacy` for the nested container environment.
+- **Docker** — required for local Supabase. Start the daemon with `sudo dockerd &>/tmp/dockerd.log &`.
+  Avoid `chmod 666 /var/run/docker.sock`; prefer either:
+  - running Docker commands with `sudo`, or
+  - adding your user to the `docker` group (`sudo usermod -aG docker "$USER"`), then re-login.
+  Docker is configured with `fuse-overlayfs` storage driver and `iptables-legacy` for the nested container environment.
 
 ### Service startup sequence
 1. Start Docker daemon (see above)
@@ -63,6 +67,7 @@ Fine-grained: restrict to "Only select repositories" → this repo. Classic: no 
 4. `npm run dev` — starts Astro dev server at `http://localhost:4321`
 
 ### Key local URLs
+
 | Service | URL |
 |---------|-----|
 | Astro dev server | http://localhost:4321 |
@@ -71,7 +76,7 @@ Fine-grained: restrict to "Only select repositories" → this repo. Classic: no 
 
 ### Gotchas
 - The `.env.local` file must exist before running tests or the dev server. Copy from `env.example` and fill in Supabase keys from `supabase status` output. For external APIs (Twilio, Massive, Finnhub), use fake/placeholder values — tests stub them.
-- `scripts/data/users.json` is gitignored and must be created manually (copy from `scripts/data/sample-users.json` or create with a `test@jsolly.com` entry). Without it, `db:generate-seed` still works but creates no test users.
+- `scripts/data/users.json` is gitignored and must be created manually (copy from `scripts/data/sample-users.json` or create with a `test@jsolly.com` entry). Without it, `npm run db:gen-seed` still works but creates no test users.
 - `supabase db reset` may emit a transient 502 during container restart — this is harmless. Run `npm run db:gen-types` separately if it fails mid-pipeline.
 - `npm run check:ts` has a pre-existing TS error in `src/pages/api/auth/sms/send-verification.ts` (Type 'string | null' not assignable to type 'string'). This is in the existing codebase, not introduced by setup.
 - Vitest tests require a running Supabase instance. Always `npm run db:start` + `npm run db:reset` before `npm test`.
