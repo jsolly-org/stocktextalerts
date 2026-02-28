@@ -2,14 +2,58 @@
 New app with no users — optimize for simplicity and correctness over backwards compatibility. Prefer aggressively simplifying redesigns, even if breaking. Remove legacy code instead of preserving it.
 
 ## Commands
-- `npm run build` — Production build
-- `npm test` — Run Vitest tests
-- `npm run test:e2e` — Playwright E2E tests
-- `npm run check:ts` — TypeScript check
-- `npm run check:biome` — Lint check
-- `npm run db:reset` — Reset local Supabase DB
-- `npm run db:gen-types` — Regenerate DB types
-- `supabase migration new <name>` — Create a new migration file (auto-generates timestamp)
+
+```bash
+npm run dev                # Dev server at http://localhost:4321
+npm run build              # Production build
+npm test                   # Vitest (requires local Supabase running)
+npm run test:e2e           # Playwright E2E tests
+npm run test:smoke         # Quick smoke tests
+npm run check:ts           # TypeScript check
+npm run check:biome        # Biome format + lint check
+npm run db:start           # Start local Supabase (Docker)
+npm run db:reset           # Reset DB: regenerate seed, apply migrations, regen types
+npm run db:gen-types       # Regenerate src/lib/db/generated/database.types.ts
+supabase migration new <name>  # Create new migration (never rename timestamps)
+```
+
+**Single test file:** `npm test -- tests/lib/some-file.test.ts`
+
+**Live provider tests:** `npm test -- --live=massive,finnhub tests/lib/live-provider-apis.test.ts`
+
+**Always use `npm test`**, never `npx vitest` directly — the npm script loads `.env.local` via `--env-file-if-exists`.
+
+## Architecture
+
+**StockTextAlerts** — securities notification platform sending scheduled SMS/email updates for tracked US stocks and ETFs.
+
+**Stack:** Astro 5 (SSR) on Vercel, Vue 3 interactive components, Tailwind CSS 4, Supabase (PostgreSQL + Auth), Twilio (SMS), Resend (email), Massive (prices), Finnhub (symbols/earnings), xAI/Grok (optional AI summaries).
+
+### Notification Pipeline (three-phase)
+
+1. **Pre-compute** — Cron jobs render HTML/SMS content into `staged_notifications` table with `scheduled_for` timestamps
+   - `/api/asset-events` (daily 00:00 UTC) — earnings, dividends, splits, IPOs
+   - `/api/daily-digest` — news/rumors digest
+2. **Delivery** — `/api/schedule` (every minute) fetches due `staged_notifications` rows and sends via email/SMS
+3. **Real-time alerts** — `/api/schedule` also runs price alert detection during market hours via Massive snapshots
+
+All cron endpoints require `Authorization: Bearer <CRON_SECRET>`.
+
+### Key Directories
+
+- `src/pages/api/` — API endpoints (auth, assets, schedule, notifications)
+- `src/lib/` — Server logic: `db/`, `auth/`, `providers/`, `market-notifications/`, `daily-digest/`, `asset-events/`, `messaging/`, `schedule/`, `time/`, `logging/`
+- `src/components/dashboard/` — Vue dashboard panels with composables
+- `supabase/migrations/` — SQL migrations (source of truth; CI pushes to production)
+- `tests/helpers/` — `test-user.ts`, `test-env.ts`, `asset-data.ts`
+
+### Database
+
+Supabase with RLS on all tables. Core tables: `users`, `assets`, `user_assets`, `staged_notifications`, `notification_log`, `asset_events`, `market_snapshots`. Service role key for privileged server ops only.
+
+### Middleware (`src/middleware.ts`)
+
+Validates required env vars (once), assigns per-request ID, applies security headers (CSP, HSTS, X-Frame-Options), enforces CSRF origin checks for mutation requests.
 
 ## Supabase Migrations
 - **Always** create migrations with `supabase migration new <name>` — never create files manually or rename timestamps.
@@ -50,11 +94,19 @@ All 8 nightly agent workflows read the model name from the GitHub repository var
 
 **Where to set:** Repository Settings → Secrets and variables → Actions → Variables tab → `AGENT_MODEL`.
 
+## Key Constraints
+
+- **Biome** for all formatting/linting. `noConsole` is an error — use `src/lib/logging/` instead.
+- **Astro files excluded from Biome** due to `---` delimiter formatter bug.
+- **Tests share DB state** — `fileParallelism: false` in vitest config. Use `registerTestUserForCleanup` for test users.
+- **Node 24.x** (see `.nvmrc`), **npm** (not yarn/pnpm).
+
 ## Guidelines
 - [Code Style & Structure](.agents/code-style.md)
 - [Error Handling & Validation](.agents/error-handling.md)
 - [Tech Stack & Tools](.agents/tech-stack.md)
 - [Testing](.agents/testing.md)
+- [CI Security](.agents/ci-security.md)
 
 ## Cursor Cloud-specific instructions
 
