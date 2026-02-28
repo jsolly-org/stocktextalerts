@@ -3,6 +3,7 @@ import { jsonResponse } from "../../../lib/api/json-response";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
+import { createErrorForLogging } from "../../../lib/logging/errors";
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const url = new URL(request.url);
@@ -35,10 +36,8 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	} catch (error) {
 		logger.error(
 			"Failed to dismiss timezone banner",
-			{
-				userId: authUser.id,
-			},
-			error instanceof Error ? error : new Error(String(error)),
+			{ userId: authUser.id },
+			createErrorForLogging(error),
 		);
 		return jsonResponse(500, {
 			ok: false,

@@ -1,16 +1,11 @@
 import type { FormatPreferences } from "./types";
 
-/** Price quote subset required for rendering asset lines. */
 export type AssetPrice = { price: number; changePercent: number };
 type AssetWithName = { symbol: string; name: string };
 
-/** User-facing fallback shown when no assets are tracked. */
 export const NO_TRACKED_ASSETS_MESSAGE = "You don't have any tracked assets";
 
-/**
- * Returns a URL safe for use in href attributes, or null if the URL is not safe.
- * Only allows http: and https: schemes to prevent javascript:, data:, and similar XSS.
- */
+// Only allows http: and https: schemes to prevent javascript:, data:, and similar XSS.
 export function getSafeHrefUrl(url: string): string | null {
 	if (typeof url !== "string" || url.trim() === "") return null;
 	const trimmed = url.trim().toLowerCase();
@@ -20,9 +15,6 @@ export function getSafeHrefUrl(url: string): string | null {
 	return null;
 }
 
-/**
- * Escape a string for safe HTML embedding.
- */
 export function escapeHtml(value: string): string {
 	return value
 		.replaceAll("&", "&amp;")
@@ -68,7 +60,7 @@ function formatAssetTextLine(
 	return `${base} — ${formatAssetPriceText(price, effectiveSparkline)}`;
 }
 
-/** Return CSS hex color for price change (green for positive, red for negative). WCAG 2.1 AA 4.5:1 on light bg. */
+// WCAG 2.1 AA 4.5:1 on light bg.
 export function getChangeColor(changePercent: number): string {
 	return changePercent >= 0 ? "#166534" : "#b91c1c";
 }
@@ -98,9 +90,6 @@ function formatAssetHtmlLine(
 	return `${assetInfo} &mdash; ${priceStr} <span style="color: ${color};">${changeStr}</span>${sparklineHtml}`;
 }
 
-/**
- * Format a list of assets as plaintext, using the user's formatting preferences.
- */
 export function formatAssetsTextList(
 	assets: AssetWithName[],
 	getPrice: (symbol: string) => AssetPrice | undefined,
@@ -123,9 +112,6 @@ export function formatAssetsTextList(
 		.join("\n\n");
 }
 
-/**
- * Format a list of assets as HTML, using the user's formatting preferences.
- */
 export function formatAssetsHtmlList(
 	assets: AssetWithName[],
 	getPrice: (symbol: string) => AssetPrice | undefined,
