@@ -80,7 +80,7 @@ jobs:
           - Read \`AGENTS.md\` and the \`.agents/\` directory for project conventions and guidelines.
           - Leave all changes uncommitted. The workflow will handle commit, push, and PR creation.
           - Do not create issues or PRs yourself.
-          " --force --mode auto --model "$MODEL" --output-format=text
+          " --force --model "$MODEL" --output-format=text
 
       # Note: we intentionally keep agent edits to .github/ — the PR review
       # process is the right place to catch bad workflow changes, not a blanket revert.
