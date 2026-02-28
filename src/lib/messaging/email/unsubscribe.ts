@@ -1,27 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { getSiteUrl } from "../../db/env";
+import { getCronSecret, getSiteUrl } from "../../db/env";
 
 const DEFAULT_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 30;
-
-/**
- * Read CRON_SECRET from the environment for use in signing unsubscribe tokens.
- * Prefers import.meta.env (Vite/Astro build), falls back to process.env (Vercel runtime).
- * Returns null when the secret is missing or not a non-empty string.
- */
-function getUnsubscribeSecret(): string | null {
-	try {
-		const fromMeta = import.meta.env.CRON_SECRET;
-		if (typeof fromMeta === "string" && fromMeta.trim().length > 0) {
-			return fromMeta;
-		}
-	} catch {
-		// import.meta.env not available outside Vite/Astro
-	}
-	const fromProcess = process.env.CRON_SECRET;
-	return typeof fromProcess === "string" && fromProcess.trim().length > 0
-		? fromProcess
-		: null;
-}
 
 /** Encode a buffer to base64url (URL-safe, no padding). */
 function toBase64Url(buffer: Buffer): string {
@@ -52,7 +32,7 @@ export function createEmailUnsubscribeToken(options: {
 	expiresAtMs?: number;
 }): string {
 	const expiresAtMs = options.expiresAtMs ?? Date.now() + DEFAULT_TOKEN_TTL_MS;
-	const secret = getUnsubscribeSecret();
+	const secret = getCronSecret();
 	if (!secret) {
 		throw new Error("CRON_SECRET is required for email unsubscribe tokens");
 	}
@@ -84,7 +64,7 @@ export function verifyEmailUnsubscribeToken(options: {
 		return { ok: false, reason: "expired_token" };
 	}
 
-	const secret = getUnsubscribeSecret();
+	const secret = getCronSecret();
 	if (!secret) {
 		return { ok: false, reason: "invalid_token" };
 	}

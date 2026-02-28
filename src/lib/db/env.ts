@@ -3,6 +3,25 @@ Environment Helpers
 ============= */
 
 /**
+ * Read CRON_SECRET from environment. Prefers import.meta.env (Vite/Astro build),
+ * falls back to process.env (Vercel runtime, standalone scripts).
+ */
+export function getCronSecret(): string | undefined {
+	try {
+		const fromMeta = import.meta.env.CRON_SECRET;
+		if (typeof fromMeta === "string" && fromMeta.trim().length > 0) {
+			return fromMeta;
+		}
+	} catch {
+		// import.meta.env not available outside Vite/Astro
+	}
+	const fromProcess = process.env.CRON_SECRET;
+	return typeof fromProcess === "string" && fromProcess.trim().length > 0
+		? fromProcess
+		: undefined;
+}
+
+/**
  * Compute the canonical site base URL for links in emails/SMS.
  *
  * Prefers the production domain (when available) over a deployment-specific Vercel URL.
