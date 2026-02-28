@@ -44,7 +44,7 @@ jobs:
         run: |
           EXISTING_PR=$(gh pr list \
             --repo "${{ github.repository }}" \
-            --search "fix(nightly): e2e test fixes label:nightly,bot-generated" \
+            --search "fix(nightly): e2e test fixes label:bot-generated" \
             --state open \
             --json number,url \
             --limit 1)

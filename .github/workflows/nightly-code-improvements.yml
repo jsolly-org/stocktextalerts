@@ -26,7 +26,7 @@ jobs:
         run: |
           EXISTING_PR=$(gh pr list \
             --repo "${{ github.repository }}" \
-            --search "chore(nightly): code improvements label:nightly,bot-generated" \
+            --search "chore(nightly): code improvements label:bot-generated" \
             --state open \
             --json number,url \
             --limit 1)
