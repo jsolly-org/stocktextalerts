@@ -16,17 +16,13 @@ import { cleanupTestUser } from "./helpers/test-user";
 import { takeTestUserIdsForCleanup } from "./helpers/test-user-cleanup";
 
 vi.mock("../src/lib/db/env", async (importOriginal) => {
-	const actual =
-		await importOriginal<typeof import("../src/lib/db/env")>();
+	const actual = await importOriginal<typeof import("../src/lib/db/env")>();
 	return {
 		...actual,
 		getSiteUrl: () => "http://localhost",
 		getValidatedCronSecret: () => {
 			const fromProcess = process.env.CRON_SECRET;
-			if (
-				typeof fromProcess !== "string" ||
-				fromProcess.trim().length < 12
-			) {
+			if (typeof fromProcess !== "string" || fromProcess.trim().length < 12) {
 				return null;
 			}
 			return fromProcess;
@@ -61,6 +57,11 @@ if (!isLiveProviderEnabled("finnhub")) {
 
 if (!isLiveProviderEnabled("xai")) {
 	vi.stubEnv("XAI_API_KEY", "");
+}
+
+// Provide a valid CRON_SECRET for tests that generate unsubscribe tokens
+if (!process.env.CRON_SECRET || process.env.CRON_SECRET.trim().length < 12) {
+	vi.stubEnv("CRON_SECRET", "test-cron-secret-12chars");
 }
 
 function getDatabaseUrl(): string {
