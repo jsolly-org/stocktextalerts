@@ -15,10 +15,15 @@ import { adminClient } from "./helpers/test-env";
 import { cleanupTestUser } from "./helpers/test-user";
 import { takeTestUserIdsForCleanup } from "./helpers/test-user-cleanup";
 
-vi.mock("../src/lib/db/env", () => ({
-	getSiteUrl: () => "http://localhost",
-	getValidatedCronSecret: () => "test-cron-secret-for-unit-tests",
-}));
+vi.mock("../src/lib/db/env", async (importOriginal) => {
+	const actual =
+		await importOriginal<typeof import("../src/lib/db/env")>();
+	return {
+		...actual,
+		getSiteUrl: () => "http://localhost",
+		getValidatedCronSecret: actual.getValidatedCronSecret,
+	};
+});
 
 // Live API tests are opt-in by provider:
 //   npm run test:live:data

@@ -8,7 +8,7 @@ Environment Helpers
  *
  * Presence is enforced by middleware; this returns the raw value for policy validation.
  */
-export function getCronSecret(): string | undefined {
+function getCronSecret(): string | undefined {
 	try {
 		const fromMeta = import.meta.env.CRON_SECRET;
 		if (typeof fromMeta === "string") return fromMeta;
