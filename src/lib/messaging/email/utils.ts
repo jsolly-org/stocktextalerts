@@ -29,31 +29,43 @@ import type {
 const RESEND_MAX_PER_SECOND = 2;
 const recentSendTimestamps: number[] = [];
 
+/** Serialize check/wait/push so concurrent waiters don't all proceed after the same delay and exceed the limit. */
+let mutexPromise = Promise.resolve<void>(undefined);
+function acquireMutex(): Promise<() => void> {
+	const prev = mutexPromise;
+	let release!: () => void;
+	mutexPromise = new Promise<void>((r) => {
+		release = r;
+	});
+	return prev.then(() => release);
+}
+
 async function waitForRateLimit(): Promise<void> {
-	const now = performance.now();
-	// Discard timestamps older than 1 second
-	while (recentSendTimestamps.length > 0) {
-		const oldest = recentSendTimestamps[0];
-		if (oldest === undefined || oldest > now - 1000) break;
-		recentSendTimestamps.shift();
-	}
-	if (recentSendTimestamps.length >= RESEND_MAX_PER_SECOND) {
-		const earliest = recentSendTimestamps[0];
-		if (earliest !== undefined) {
-			const waitMs = earliest + 1000 - now;
-			if (waitMs > 0) {
-				await realDelay(waitMs);
+	for (;;) {
+		const release = await acquireMutex();
+		let waitMs = 0;
+		let shouldWait = false;
+		try {
+			const now = performance.now();
+			while (recentSendTimestamps.length > 0) {
+				const oldest = recentSendTimestamps[0];
+				if (oldest === undefined || oldest > now - 1000) break;
+				recentSendTimestamps.shift();
 			}
+			if (recentSendTimestamps.length < RESEND_MAX_PER_SECOND) {
+				recentSendTimestamps.push(performance.now());
+				return;
+			}
+			const earliest = recentSendTimestamps[0];
+			if (earliest !== undefined) {
+				waitMs = earliest + 1000 - now;
+				shouldWait = waitMs > 0;
+			}
+		} finally {
+			release();
 		}
-		// Clean up again after waiting
-		const afterWait = performance.now();
-		while (recentSendTimestamps.length > 0) {
-			const oldest = recentSendTimestamps[0];
-			if (oldest === undefined || oldest > afterWait - 1000) break;
-			recentSendTimestamps.shift();
-		}
+		if (shouldWait) await realDelay(waitMs);
 	}
-	recentSendTimestamps.push(performance.now());
 }
 
 import { buildEmailUrls } from "./layout";

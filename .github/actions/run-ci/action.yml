@@ -6,6 +6,10 @@ inputs:
     description: 'Skip Biome and type check (when a separate lint job already covers them)'
     required: false
     default: 'false'
+  production-site-url:
+    description: 'Canonical production URL (e.g. https://stocktextalerts.com). When set, the build uses it for site, sitemap, canonicals, and OG URLs so prebuilt deploys are correct.'
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -196,3 +200,6 @@ runs:
     - name: Build application
       shell: bash
       run: npm run build
+      env:
+        # When deploy workflow passes production-site-url, Astro bakes it into prerendered pages, sitemap, canonicals, and OG/JSON-LD (replacing localhost from STATIC_VARS).
+        VERCEL_PROJECT_PRODUCTION_URL: ${{ inputs.production-site-url }}

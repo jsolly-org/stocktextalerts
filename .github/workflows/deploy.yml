@@ -19,7 +19,15 @@ jobs:
     if: ${{ github.actor != 'nektos/act' }}
     steps:
       - uses: actions/checkout@v6.0.2
+      - name: Require production site URL for prebuilt deploy
+        run: |
+          if [[ -z "${{ vars.PRODUCTION_SITE_URL }}" ]]; then
+            echo "::error::PRODUCTION_SITE_URL repo variable is not set. Set it (e.g. https://stocktextalerts.com) so the prebuilt build bakes the correct domain into prerendered pages, sitemap, canonicals, and OG/JSON-LD."
+            exit 1
+          fi
       - uses: ./.github/actions/run-ci
+        with:
+          production-site-url: ${{ vars.PRODUCTION_SITE_URL }}
       - name: E2E tests
         run: npm run test:e2e
       - name: Load live-test secrets
