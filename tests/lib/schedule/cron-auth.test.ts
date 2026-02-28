@@ -69,10 +69,12 @@ describe("Cron secret verification protects scheduled endpoints.", () => {
 		);
 	});
 
-	it("Rejects empty Bearer token.", () => {
+	it("Rejects empty Bearer token (header trimmed by Request API).", () => {
 		vi.stubEnv("CRON_SECRET", "long-enough-secret");
 		const logger = createLoggerMock();
 
+		// The Request API trims trailing whitespace from header values,
+		// so "Bearer " becomes "Bearer", which fails the startsWith("Bearer ") check.
 		const request = new Request("http://localhost/api/schedule", {
 			method: "POST",
 			headers: {
@@ -85,7 +87,7 @@ describe("Cron secret verification protects scheduled endpoints.", () => {
 		expect(result).toBeNull();
 		expect(logger.info).toHaveBeenCalledWith(
 			"Unauthorized cron request",
-			expect.objectContaining({ reason: "empty_bearer_token" }),
+			expect.objectContaining({ reason: "malformed_authorization_header" }),
 		);
 	});
 
