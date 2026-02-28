@@ -1,6 +1,3 @@
-/**
- * Extract a best-effort error message string from an unknown error-like value.
- */
 export function extractErrorMessage(error: unknown): string {
 	if (error instanceof Error) {
 		return error.message;
@@ -16,9 +13,6 @@ export function extractErrorMessage(error: unknown): string {
 	return String(error);
 }
 
-/**
- * Convert an unknown error-like value into an `Error` for logging.
- */
 export function createErrorForLogging(error: unknown): Error {
 	if (error instanceof Error) {
 		return error;
