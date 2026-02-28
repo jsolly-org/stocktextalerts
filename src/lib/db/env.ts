@@ -5,20 +5,18 @@ Environment Helpers
 /**
  * Read CRON_SECRET from environment. Prefers import.meta.env (Vite/Astro build),
  * falls back to process.env (Vercel runtime, standalone scripts).
+ *
+ * Presence is enforced by middleware; this returns the raw value for policy validation.
  */
 export function getCronSecret(): string | undefined {
 	try {
 		const fromMeta = import.meta.env.CRON_SECRET;
-		if (typeof fromMeta === "string" && fromMeta.trim().length > 0) {
-			return fromMeta;
-		}
+		if (typeof fromMeta === "string") return fromMeta;
 	} catch {
 		// import.meta.env not available outside Vite/Astro
 	}
 	const fromProcess = process.env.CRON_SECRET;
-	return typeof fromProcess === "string" && fromProcess.trim().length > 0
-		? fromProcess
-		: undefined;
+	return typeof fromProcess === "string" ? fromProcess : undefined;
 }
 
 /** Minimum length for CRON_SECRET (policy only; presence is enforced by middleware). */
