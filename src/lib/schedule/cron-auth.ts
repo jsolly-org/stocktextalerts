@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { getValidatedCronSecret } from "../db/env";
 import type { Logger } from "../logging";
 
 /**
@@ -8,26 +9,17 @@ import type { Logger } from "../logging";
  * Returns the extracted secret string on success, or `null` on failure
  * (after logging the reason).
  */
-/** Reject weak or missing secrets; defensively handles absent env var for graceful failure. */
-function isAcceptableSecret(value: string | undefined): value is string {
-	if (value == null || typeof value !== "string") return false;
-	return value.trim().length >= 12;
-}
-
 export function verifyCronSecret(
 	request: Request,
 	logger: Logger,
 ): string | null {
 	const authHeader = request.headers.get("authorization");
-	const envCronSecret = import.meta.env.CRON_SECRET;
+	const envCronSecret = getValidatedCronSecret();
 
-	if (!isAcceptableSecret(envCronSecret)) {
-		logger.error(
-			"CRON_SECRET is missing or too short (minimum 12 characters)",
-			{
-				action: "cron_auth",
-			},
-		);
+	if (!envCronSecret) {
+		logger.error("CRON_SECRET does not meet policy (minimum 12 characters)", {
+			action: "cron_auth",
+		});
 		return null;
 	}
 
@@ -47,7 +39,14 @@ export function verifyCronSecret(
 		return null;
 	}
 
-	const cronSecret = authHeader.split("Bearer ")[1];
+	const cronSecret = authHeader.slice(7); // "Bearer " is 7 chars
+	if (!cronSecret || cronSecret.trim().length === 0) {
+		logger.info("Unauthorized cron request", {
+			action: "cron_auth",
+			reason: "empty_bearer_token",
+		});
+		return null;
+	}
 
 	try {
 		const suppliedSecret = createHash("sha256").update(cronSecret).digest();
