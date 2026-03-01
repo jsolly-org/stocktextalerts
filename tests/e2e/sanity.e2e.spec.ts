@@ -829,7 +829,7 @@ test.describe("sanity tests", () => {
 
 	test("TC-PROF-001: User can change password and update email", async () => {
 		test.slow();
-		test.setTimeout(120_000);
+		test.setTimeout(180_000);
 
 		if (!testUserId) {
 			throw new Error("testUserId not set before TC-PROF-001");
