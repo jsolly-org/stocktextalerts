@@ -111,6 +111,7 @@ if (Astro.request.method === "POST") {
 	if (tokenHash && type === null) {
 		const cleanedUrl = new URL(Astro.url);
 		cleanedUrl.searchParams.delete("token_hash");
+		cleanedUrl.searchParams.delete("type");
 		return Astro.redirect(
 			`${cleanedUrl.pathname}${cleanedUrl.search}${cleanedUrl.hash}`,
 		);
