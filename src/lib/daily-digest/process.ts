@@ -441,7 +441,7 @@ export async function processDailyDigestUser(options: {
 			? buildNewsContextForGrok(finnhubData.news)
 			: undefined;
 
-		// Grok news/rumors are email-only (SMS body can exceed Twilio's 1600-char limit)
+		// Grok news/rumors are email-only (SMS body can exceed the 1600-char limit)
 		let newsResult: GrokSectionResult | null = null;
 		let rumorsResult: GrokSectionResult | null = null;
 

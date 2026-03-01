@@ -14,7 +14,7 @@ import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 describe("A signed-in user dismisses the timezone mismatch banner.", () => {
 	it("The banner dismissal is saved so it no longer appears.", async () => {
 		const testUser = await createTestUser({
-			email: `test-dismiss-banner-${randomUUID()}@resend.dev`,
+			email: `test-dismiss-banner-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 			timezone: "America/New_York",
@@ -64,7 +64,7 @@ describe("A signed-in user dismisses the timezone mismatch banner.", () => {
 describe("A signed-in user updates their timezone.", () => {
 	it("The new timezone is saved and the user sees a confirmation.", async () => {
 		const testUser = await createTestUser({
-			email: `test-timezone-${randomUUID()}@resend.dev`,
+			email: `test-timezone-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 			timezone: "America/New_York",
@@ -117,7 +117,7 @@ describe("A signed-in user updates their timezone.", () => {
 
 	it("Timezone change recomputes market_scheduled and daily_digest next_send_at and returns them in the response.", async () => {
 		const testUser = await createTestUser({
-			email: `test-timezone-next-send-${randomUUID()}@resend.dev`,
+			email: `test-timezone-next-send-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 			timezone: "America/New_York",

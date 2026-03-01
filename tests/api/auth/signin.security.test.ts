@@ -9,7 +9,7 @@ import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 describe("A user signs in with an email and password.", () => {
 	it("If the redirect is unsafe, the user is redirected to the default dashboard.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: "TestPassword123!",
 			confirmed: true,
 		});

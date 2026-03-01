@@ -1,14 +1,14 @@
 # 📈 StockTextAlerts.com
 
-A securities notification app that sends scheduled SMS and email updates (scheduled asset price notifications, daily digests, and asset events) plus optional asset price alerts about tracked assets (stocks and ETFs). Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email and SMS are sent via Resend and Twilio. 🔔
+A securities notification app that sends scheduled SMS and email updates (scheduled asset price notifications, daily digests, and asset events) plus optional asset price alerts about tracked assets (stocks and ETFs). Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email is sent via AWS SES; SMS via AWS End User Messaging. 🔔
 
 ## Features
 
 - **Asset Tracking** - Search and track US stocks and ETFs
-- **Email Notifications** - Receive updates via email (Resend)
-- **SMS Notifications** - Optional SMS delivery (Twilio)
+- **Email Notifications** - Receive updates via email (AWS SES)
+- **SMS Notifications** - Optional SMS delivery (AWS End User Messaging)
 - **Asset Price Alerts** - Get alerted during US market hours when tracked assets show significant price movement (up or down), with configurable move size (Moderate/Large) and market context (Standouts only / Any big move)
-- **Phone Verification** - Secure phone verification via Twilio Verify
+- **Phone Verification** - Secure phone verification via AWS Pinpoint OTP
 - **Timezone Support** - Browser-detected timezones with user overrides
 - **Market Notifications** - Choose up to 5 delivery times for scheduled asset price updates, and decide if they're delivered by email, SMS, or both
 - **Daily Digest** - Once-daily email digest with optional extras (News/Rumors are email-only and may include clickable source links)
@@ -24,8 +24,8 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - **Database**: Supabase (PostgreSQL)
 - **Market Data**: Massive (prices/dividends/splits/IPOs) + Finnhub (symbols, earnings, market hours, analyst/insider extras)
 - **AI Summaries**: xAI (Grok) for optional News/Rumors add-ons and asset price alert summaries
-- **Email**: Resend
-- **SMS**: Twilio Verify API + Messaging API
+- **Email**: AWS SES
+- **SMS**: AWS End User Messaging (outbound) + AWS Pinpoint (OTP verification)
 - **Hosting**: Vercel with Cron Jobs
 - **Phone Validation**: libphonenumber-js
 - **Search**: Server-side search over Finnhub-sourced asset data (local DB)
@@ -43,7 +43,7 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - Node.js (see `.nvmrc` for the required version)
 - Docker (Docker Desktop or Docker Engine)
 - Supabase account
-- Twilio account with Verify API enabled
+- AWS account with End User Messaging SMS and Pinpoint configured
 - Massive account (API key)
 - Finnhub account (API key)
 - xAI account (optional, only needed for News/Rumors add-ons)
@@ -66,11 +66,10 @@ npm install
 2. Choose a project name, database password, and region
 3. Wait for the project to finish provisioning
 
-**Twilio:**
-1. Go to [twilio.com](https://www.twilio.com) and create an account
-2. Purchase a phone number (or use trial number)
-3. Create a Verify Service in Console → Verify → Services
-4. Note your Account SID, Auth Token, Phone Number, and Verify Service SID
+**AWS End User Messaging / Pinpoint:**
+1. In the AWS Console, navigate to End User Messaging → SMS and register an origination identity (phone number or sender ID)
+2. Create a Pinpoint application for OTP verification
+3. Note your origination identity and Pinpoint application ID
 
 **Vercel:**
 1. Push your code to GitHub (if you haven't already)
@@ -79,7 +78,7 @@ npm install
 
 ### 3. Environment Variables
 
-> **Note:** Where possible, use official [Supabase integrations](https://supabase.com/docs/guides/platform/marketplace) (e.g. Resend, Twilio) instead of manually managing API keys as environment variables. Integrations are configured in the Supabase Dashboard and inject credentials automatically — no env vars needed.
+> **Note:** Where possible, use official [Supabase integrations](https://supabase.com/docs/guides/platform/marketplace) instead of manually managing API keys as environment variables. Integrations are configured in the Supabase Dashboard and inject credentials automatically — no env vars needed.
 
 Create a `.env.local` file in the root directory (you can copy from `env.example` and fill in secrets). This file is gitignored and **must not** be committed.
 
@@ -95,11 +94,9 @@ SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 SUPABASE_SECRET_KEY=your-service-role-key
 DATABASE_URL=postgresql://postgres:password@host:5432/database
 
-# Twilio
-TWILIO_ACCOUNT_SID=your-twilio-account-sid
-TWILIO_AUTH_TOKEN=your-twilio-auth-token
-TWILIO_PHONE_NUMBER=+1234567890
-TWILIO_VERIFY_SERVICE_SID=your-verify-service-sid
+# AWS SMS / Pinpoint (uses AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION from your AWS config)
+AWS_SMS_ORIGINATION_IDENTITY=+1234567890
+AWS_PINPOINT_APP_ID=your-pinpoint-app-id
 
 # Vercel
 CRON_SECRET=your-random-secret-string  # Minimum 12 characters; use `openssl rand -hex 32` for production
@@ -126,7 +123,7 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`: Supabase Dashboard → Project Settings → API Keys
 - `SUPABASE_SECRET_KEY`: Supabase Dashboard → Project Settings → API Keys → Secret keys
 - `DATABASE_URL`: Supabase Dashboard → Project Settings → Database → Connection String → Transaction mode (pooler)
-- Twilio credentials: Twilio Console → Account Dashboard
+- AWS SMS credentials: Use existing AWS IAM credentials; `AWS_SMS_ORIGINATION_IDENTITY` from End User Messaging console; `AWS_PINPOINT_APP_ID` from Pinpoint console
 - `CRON_SECRET`: Generate a random string (minimum 12 characters; e.g., `openssl rand -hex 32`)
 - Massive credentials: Massive Dashboard → API Keys
 - Finnhub credentials: Finnhub Dashboard → API Keys
@@ -189,7 +186,7 @@ This repo includes a styled confirmation email template that matches the app’s
 
 ### 6. Expose Local Webhooks (ngrok)
 
-If you want Twilio inbound SMS webhooks (STOP/START/HELP) to hit your local dev server, expose port 4321 with ngrok and point Twilio at the public URL.
+If you want AWS SNS inbound SMS webhooks (STOP/START/HELP) to hit your local dev server, expose port 4321 with ngrok and configure AWS SNS to point at the public URL.
 
 1. Install ngrok and authenticate (see [ngrok setup](https://ngrok.com/docs/getting-started/)).
 2. Start a tunnel to your local dev server:
@@ -205,7 +202,7 @@ VERCEL_URL=https://YOUR_NGROK_HOSTNAME
 ```
 
 4. Restart `npm run dev` so the app uses the new base URL.
-5. In Twilio Console → Phone Numbers → Messaging, set the inbound webhook to:
+5. In the AWS Console → End User Messaging → Two-way SMS, set the SNS topic subscription endpoint to:
    - `https://YOUR_NGROK_HOSTNAME/api/messaging/inbound`
 
 ## Testing
@@ -261,7 +258,7 @@ npm run test:live:xai
 
 Notes:
 - `MASSIVE_API_KEY`, `FINNHUB_API_KEY`, and/or `XAI_API_KEY` must be present in your environment when enabled.
-- Twilio and Resend remain fake/stubbed in tests.
+- AWS SMS/Pinpoint and AWS SES remain fake/stubbed in tests.
 
 ## Usage
 
@@ -296,7 +293,7 @@ The canonical endpoint for fetching current user preferences is `GET /api/notifi
 - `POST /api/notification-preferences/timezone`
 - `POST /api/notification-preferences/dismiss-timezone-banner`
 - `POST /api/schedule` (cron, protected by `CRON_SECRET`)
-- `POST /api/messaging/inbound` (Twilio webhook for STOP/START/HELP)
+- `POST /api/messaging/inbound` (AWS SNS webhook for STOP/START/HELP)
 
 ## Deployment to Vercel
 
@@ -312,13 +309,12 @@ In your Vercel project settings (Settings → Environment Variables), add all va
 
 Push to your main branch or click "Redeploy" in Vercel. The application will automatically build and deploy.
 
-### 3. Configure Twilio Webhook
+### 3. Configure AWS SNS Webhook
 
-After deployment, configure the Twilio webhook for incoming SMS:
-1. Go to Twilio Console → Phone Numbers → Manage → Active numbers
-2. Select your phone number
-3. Under "Messaging", set the webhook URL to: `https://yourdomain.com/api/messaging/inbound`
-4. Save changes
+After deployment, configure the AWS SNS subscription for incoming SMS:
+1. In the AWS Console, navigate to End User Messaging → Two-way SMS settings
+2. Create an SNS topic subscription with the endpoint: `https://yourdomain.com/api/messaging/inbound`
+3. The endpoint will automatically confirm the SNS subscription
 
 ### 4. Verify Cron Jobs
 
@@ -351,7 +347,7 @@ The `vercel.json` file configures three cron jobs. All must include `Authorizati
 - Row Level Security (RLS) on all database tables (authenticated users have SELECT-only on assets; service_role handles sector updates)
 - URL sanitization in notification links (only http/https allowed in headline URLs, blocks javascript:, data:, etc.)
 - Cron endpoint protected by secret header
-- Phone verification via Twilio Verify API
+- Phone verification via AWS Pinpoint OTP API
 - SMS opt-out support (STOP keyword compliance)
 - Rate limiting on sensitive actions: password change (`CHANGE_PASSWORD_RATE_LIMIT_ATTEMPTS` / `CHANGE_PASSWORD_RATE_LIMIT_MINUTES`), email change (`CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS` / `CHANGE_EMAIL_RATE_LIMIT_MINUTES`), and account deletion (`DELETE_ACCOUNT_RATE_LIMIT_ATTEMPTS` / `DELETE_ACCOUNT_RATE_LIMIT_MINUTES`); defaults: 5 attempts per 15 minutes for each
 - Service role key never exposed to client

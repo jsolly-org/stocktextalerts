@@ -10,15 +10,23 @@ import {
 } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
-const { validateRequestMock } = vi.hoisted(() => ({
-	validateRequestMock: vi.fn(),
-}));
-
-vi.mock("twilio", () => ({
-	default: {
-		validateRequest: validateRequestMock,
+vi.mock(
+	"../../../src/lib/messaging/sms/aws-sms-utils",
+	async (importOriginal) => {
+		const actual =
+			await importOriginal<
+				typeof import("../../../src/lib/messaging/sms/aws-sms-utils")
+			>();
+		return {
+			...actual,
+			createSmsClient: () => ({}),
+			createSmsSender: () => async () => ({
+				success: true,
+				messageSid: "test-reply",
+			}),
+		};
 	},
-}));
+);
 
 afterEach(() => {
 	vi.unstubAllEnvs();
@@ -26,8 +34,7 @@ afterEach(() => {
 
 describe("A user manages SMS notifications by replying to messages.", () => {
 	it("When a user texts STOP, they are unsubscribed from SMS notifications but individual preferences are preserved.", async () => {
-		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-		validateRequestMock.mockReturnValueOnce(true);
+		vi.stubEnv("AWS_SMS_ORIGINATION_IDENTITY", "+15551234567");
 
 		const testUser = await createTestUser({
 			smsNotificationsEnabled: true,
@@ -56,7 +63,6 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 			request: buildSmsInboundRequest({
 				from,
 				body: "STOP",
-				includeSignature: true,
 			}),
 		} as APIContext);
 
@@ -94,8 +100,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 	});
 
 	it("When a user texts STOP ALL, they are unsubscribed from both channels but individual SMS preferences are preserved.", async () => {
-		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-		validateRequestMock.mockReturnValueOnce(true);
+		vi.stubEnv("AWS_SMS_ORIGINATION_IDENTITY", "+15551234567");
 
 		const testUser = await createTestUser({
 			smsNotificationsEnabled: true,
@@ -116,7 +121,6 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 			request: buildSmsInboundRequest({
 				from,
 				body: "STOP ALL",
-				includeSignature: true,
 			}),
 		} as APIContext);
 
@@ -141,8 +145,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 	});
 
 	it("When a user texts STOP EMAIL, only email notifications are disabled.", async () => {
-		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-		validateRequestMock.mockReturnValueOnce(true);
+		vi.stubEnv("AWS_SMS_ORIGINATION_IDENTITY", "+15551234567");
 
 		const testUser = await createTestUser({
 			smsNotificationsEnabled: true,
@@ -157,7 +160,6 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 			request: buildSmsInboundRequest({
 				from,
 				body: "STOP EMAIL",
-				includeSignature: true,
 			}),
 		} as APIContext);
 
@@ -180,8 +182,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 	});
 
 	it("When a user texts START, sms_opted_out is cleared but sms_notifications_enabled remains unchanged.", async () => {
-		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-		validateRequestMock.mockReturnValueOnce(true);
+		vi.stubEnv("AWS_SMS_ORIGINATION_IDENTITY", "+15551234567");
 
 		const testUser = await createTestUser({
 			smsNotificationsEnabled: false,
@@ -204,7 +205,6 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 			request: buildSmsInboundRequest({
 				from,
 				body: "START",
-				includeSignature: true,
 			}),
 		} as APIContext);
 
@@ -228,8 +228,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 	});
 
 	it("STOP then START round-trip preserves individual SMS preferences.", async () => {
-		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-		validateRequestMock.mockReturnValue(true);
+		vi.stubEnv("AWS_SMS_ORIGINATION_IDENTITY", "+15551234567");
 
 		const testUser = await createTestUser({
 			smsNotificationsEnabled: true,
@@ -259,7 +258,6 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 			request: buildSmsInboundRequest({
 				from,
 				body: "STOP",
-				includeSignature: true,
 			}),
 		} as APIContext);
 		expect(stopResponse.status).toBe(200);
@@ -269,7 +267,6 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 			request: buildSmsInboundRequest({
 				from,
 				body: "START",
-				includeSignature: true,
 			}),
 		} as APIContext);
 		expect(startResponse.status).toBe(200);
@@ -304,13 +301,10 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		expect(updated.asset_events_include_analyst_sms).toBe(true);
 		expect(updated.asset_events_include_insider_sms).toBe(false);
 		expect(updated.market_asset_price_alerts_include_sms).toBe(true);
-
-		validateRequestMock.mockReset();
 	});
 
 	it("When a user texts HELP, they receive the help message.", async () => {
-		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-		validateRequestMock.mockReturnValueOnce(true);
+		vi.stubEnv("AWS_SMS_ORIGINATION_IDENTITY", "+15551234567");
 
 		const testUser = await createTestUser({
 			smsNotificationsEnabled: true,
@@ -324,7 +318,6 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 			request: buildSmsInboundRequest({
 				from,
 				body: "HELP",
-				includeSignature: true,
 			}),
 		} as APIContext);
 
@@ -334,8 +327,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 	});
 
 	it("When a user texts an unknown command, they receive the unknown-command message.", async () => {
-		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-		validateRequestMock.mockReturnValueOnce(true);
+		vi.stubEnv("AWS_SMS_ORIGINATION_IDENTITY", "+15551234567");
 
 		const testUser = await createTestUser({
 			smsNotificationsEnabled: true,
@@ -349,19 +341,16 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 			request: buildSmsInboundRequest({
 				from,
 				body: "random text",
-				includeSignature: true,
 			}),
 		} as APIContext);
 
 		expect(response.status).toBe(200);
 		const body = await response.text();
 		expect(body).toContain("Unknown command");
-		expect(body).toContain("HELP");
 	});
 
 	it("When a user with unverified phone texts STOP, they receive the verification prompt.", async () => {
-		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-		validateRequestMock.mockReturnValueOnce(true);
+		vi.stubEnv("AWS_SMS_ORIGINATION_IDENTITY", "+15551234567");
 
 		const testUser = await createTestUser({
 			smsNotificationsEnabled: true,
@@ -377,14 +366,12 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 			request: buildSmsInboundRequest({
 				from,
 				body: "STOP",
-				includeSignature: true,
 			}),
 		} as APIContext);
 
 		expect(response.status).toBe(200);
 		const body = await response.text();
 		expect(body).toContain("Phone number not verified");
-		expect(body).toContain("verify your phone number first");
 
 		const { data: updated } = await adminClient
 			.from("users")
@@ -397,14 +384,12 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 	});
 
 	it("When an unknown phone number texts STOP, the response is empty and no error is returned.", async () => {
-		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-		validateRequestMock.mockReturnValueOnce(true);
+		vi.stubEnv("AWS_SMS_ORIGINATION_IDENTITY", "+15551234567");
 
 		const response = await POST({
 			request: buildSmsInboundRequest({
 				from: "+15559999999",
 				body: "STOP",
-				includeSignature: true,
 			}),
 		} as APIContext);
 

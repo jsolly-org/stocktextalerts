@@ -1,15 +1,4 @@
-/**
- * Module-level rate limiter for Resend API (free tier: 2 req/s).
- * Shared across all `createEmailSender()` instances so concurrent callers
- * never exceed the global rate limit.
- *
- * Uses `node:timers/promises` so the delay works even when vitest's
- * `vi.useFakeTimers()` has replaced the global `setTimeout`.
- * Uses `performance.now()` instead of `Date.now()` because vitest's
- * fake timers replace `Date.now()` but not `performance.now()`.
- */
-import { setTimeout as realDelay } from "node:timers/promises";
-import { Resend } from "resend";
+import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { rootLogger } from "../../logging";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
 import type { MarketClosureInfo } from "../../time/market-calendar";
@@ -26,48 +15,6 @@ import type {
 	UserAssetRow,
 } from "../types";
 
-const RESEND_MAX_PER_SECOND = 2;
-const recentSendTimestamps: number[] = [];
-
-/** Serialize check/wait/push so concurrent waiters don't all proceed after the same delay and exceed the limit. */
-let mutexPromise = Promise.resolve<void>(undefined);
-function acquireMutex(): Promise<() => void> {
-	const prev = mutexPromise;
-	let release!: () => void;
-	mutexPromise = new Promise<void>((r) => {
-		release = r;
-	});
-	return prev.then(() => release);
-}
-
-async function waitForRateLimit(): Promise<void> {
-	for (;;) {
-		const release = await acquireMutex();
-		let waitMs = 0;
-		let shouldWait = false;
-		try {
-			const now = performance.now();
-			while (recentSendTimestamps.length > 0) {
-				const oldest = recentSendTimestamps[0];
-				if (oldest === undefined || oldest > now - 1000) break;
-				recentSendTimestamps.shift();
-			}
-			if (recentSendTimestamps.length < RESEND_MAX_PER_SECOND) {
-				recentSendTimestamps.push(performance.now());
-				return;
-			}
-			const earliest = recentSendTimestamps[0];
-			if (earliest !== undefined) {
-				waitMs = earliest + 1000 - now;
-				shouldWait = waitMs > 0;
-			}
-		} finally {
-			release();
-		}
-		if (shouldWait) await realDelay(waitMs);
-	}
-}
-
 import { buildEmailUrls } from "./layout";
 
 interface EmailRequest {
@@ -75,15 +22,13 @@ interface EmailRequest {
 	subject: string;
 	body: string;
 	html?: string;
-	idempotencyKey?: string;
 	replyTo?: string;
 }
 
 export type EmailSender = (request: EmailRequest) => Promise<DeliveryResult>;
 
-/** Create a Resend-backed email sender (mocked in test mode). */
+/** Create an AWS SES-backed email sender (mocked in test mode). */
 export function createEmailSender(): EmailSender {
-	const apiKey = import.meta.env.RESEND_API_KEY;
 	const fromEmail = import.meta.env.EMAIL_FROM;
 	const defaultReplyTo = import.meta.env.EMAIL_REPLY_TO;
 
@@ -104,63 +49,31 @@ export function createEmailSender(): EmailSender {
 		});
 	}
 
-	if (!apiKey.startsWith("re_")) {
-		rootLogger.warn(
-			"RESEND_API_KEY has invalid format. Expected key starting with 're_'.",
-			{ action: "create_email_sender" },
-		);
-		return async () => ({
-			success: false,
-			error: "RESEND_API_KEY has invalid format",
-		});
-	}
+	const ses = new SESv2Client({ region: import.meta.env.AWS_REGION });
 
-	const resend = new Resend(apiKey);
-
-	return async ({ to, subject, body, html, idempotencyKey, replyTo }) => {
+	return async ({ to, subject, body, html, replyTo }) => {
 		try {
 			const replyToValue = replyTo || defaultReplyTo;
-			const emailPayload = {
-				from: fromEmail,
-				to,
-				subject,
-				text: body,
-				html: html ?? escapeHtml(body),
-				...(replyToValue ? { replyTo: replyToValue } : {}),
-			};
-			const sendOptions = idempotencyKey ? { idempotencyKey } : undefined;
-			await waitForRateLimit();
-			const { data, error } = await resend.emails.send(
-				emailPayload,
-				sendOptions,
-			);
+			const command = new SendEmailCommand({
+				FromEmailAddress: fromEmail,
+				Destination: { ToAddresses: [to] },
+				ReplyToAddresses: replyToValue ? [replyToValue] : undefined,
+				Content: {
+					Simple: {
+						Subject: { Data: subject, Charset: "UTF-8" },
+						Body: {
+							Text: { Data: body, Charset: "UTF-8" },
+							Html: { Data: html ?? escapeHtml(body), Charset: "UTF-8" },
+						},
+					},
+				},
+			});
 
-			if (error) {
-				// Resend SDK returns structured errors with 'type' field for error codes.
-				// Common error types: 'validation_error', 'invalid_api_key', 'rate_limit_exceeded',
-				// 'monthly_quota_exceeded', 'daily_quota_exceeded', 'invalid_from_address', etc.
-				// Error objects also have 'message' and 'status' fields.
-				const err = error as {
-					type?: string;
-					message?: string;
-					status?: number;
-				};
-				rootLogger.error("Resend error", {
-					type: err.type,
-					message: err.message,
-					status: err.status,
-				});
-				const errorMessage =
-					typeof err.message === "string"
-						? err.message
-						: "Failed to send email";
-				return { success: false, error: errorMessage };
-			}
-
-			return { success: true, messageSid: data?.id };
+			const response = await ses.send(command);
+			return { success: true, messageSid: response.MessageId };
 		} catch (error) {
 			rootLogger.error(
-				"Unexpected error sending email",
+				"SES error sending email",
 				{ action: "send_email_notification" },
 				error,
 			);

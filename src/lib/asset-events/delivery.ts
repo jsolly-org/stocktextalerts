@@ -268,7 +268,6 @@ export async function processAssetEventsEmailDelivery(options: {
 		return;
 	}
 
-	const emailIdempotencyKey = `asset-events/${user.id}/${scheduledDate}/${scheduledMinutes}/email`;
 	const message = formatAssetEventsEmail({
 		user,
 		earningsSection,
@@ -284,7 +283,6 @@ export async function processAssetEventsEmailDelivery(options: {
 		message.subject,
 		{ text: message.text, html: message.html },
 		sendEmail,
-		emailIdempotencyKey,
 	);
 
 	const logged = await recordNotification(supabase, {

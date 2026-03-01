@@ -2,23 +2,20 @@ import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { getSiteUrl } from "../../db/env";
 import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
-import { wrapInTwiml } from "./twiml";
+import {
+	createSmsClient,
+	createSmsSender,
+	readSmsConfig,
+} from "./aws-sms-utils";
 
 interface InboundSmsDependencies {
-	authToken: string;
-	validateRequest: (
-		authToken: string,
-		signature: string,
-		url: string,
-		params: Record<string, string | undefined>,
-	) => boolean;
 	supabase: AppSupabaseClient;
 }
 
 interface InboundSmsRequest {
-	url: string;
-	signature: string;
-	params: Record<string, string | undefined>;
+	originationNumber: string;
+	messageBody: string;
+	destinationNumber: string;
 }
 
 interface InboundSmsResponse {
@@ -28,7 +25,7 @@ interface InboundSmsResponse {
 }
 
 /**
- * Apply a `users` table update and return a Twilio-friendly error response on failure.
+ * Apply a `users` table update and return an error response on failure.
  *
  * Returns `null` on success so callers can continue handling the inbound command.
  */
@@ -57,6 +54,24 @@ async function applyUserUpdate(
 	return null;
 }
 
+/**
+ * Send a reply SMS back to the user via AWS End User Messaging.
+ */
+async function sendReply(to: string, message: string): Promise<void> {
+	try {
+		const config = readSmsConfig();
+		const client = createSmsClient(config);
+		const sender = createSmsSender(client, config.originationIdentity);
+		await sender({ to, body: message });
+	} catch (error) {
+		rootLogger.error(
+			"Failed to send inbound SMS reply",
+			{ to: to.slice(-4).padStart(to.length, "*") },
+			error,
+		);
+	}
+}
+
 const STOP_ALL_RE = /\bSTOP\s*ALL\b|\bSTOPALL\b/;
 const STOP_EMAIL_RE = /\bSTOP\s*EMAIL\b|\bSTOPEMAIL\b/;
 const STOP_RE = /\b(STOP|UNSUBSCRIBE|CANCEL|END|QUIT|REVOKE|OPTOUT)\b/;
@@ -64,45 +79,20 @@ const START_RE = /\b(START|SUBSCRIBE|YES|UNSTOP)\b/;
 const HELP_RE = /\b(HELP|INFO)\b/;
 
 /**
- * Handle inbound Twilio SMS webhooks.
+ * Handle inbound SMS messages from AWS SNS two-way messaging.
  *
- * Validates the request signature, looks up the user by phone number, and processes
+ * Looks up the user by phone number, and processes
  * STOP/START/HELP commands to update notification preferences and opt-out state.
+ * Sends reply SMS via outbound API.
  */
 export async function handleInboundSms(
 	request: InboundSmsRequest,
 	deps: InboundSmsDependencies,
 ): Promise<InboundSmsResponse> {
-	const { authToken, validateRequest, supabase } = deps;
+	const { supabase } = deps;
 
-	if (!authToken) {
-		rootLogger.error("Missing TWILIO_AUTH_TOKEN for webhook validation", {
-			envVar: "TWILIO_AUTH_TOKEN",
-		});
-		return {
-			status: 500,
-			body: "Server misconfigured",
-		};
-	}
-
-	const isValid = validateRequest(
-		authToken,
-		request.signature,
-		request.url,
-		request.params,
-	);
-
-	if (!isValid) {
-		return {
-			status: 403,
-			body: "Invalid signature",
-		};
-	}
-
-	const from = request.params.From;
-	// Twilio can deliver `Body` as whitespace-only (e.g. "   "), which is truthy.
-	// Trim first so whitespace-only messages hit the missing-parameter 400 path.
-	const body = request.params.Body?.trim().toUpperCase();
+	const from = request.originationNumber;
+	const body = request.messageBody?.trim().toUpperCase();
 
 	if (!from || !body) {
 		return {
@@ -128,7 +118,6 @@ export async function handleInboundSms(
 		countryCode = `+${parsed.countryCallingCode}`;
 		phoneNumber = parsed.nationalNumber;
 	} catch {
-		// PII masking (phone numbers) is handled automatically by the logger
 		rootLogger.error("Failed to parse phone number", { from });
 		return {
 			status: 400,
@@ -145,7 +134,6 @@ export async function handleInboundSms(
 		.eq("phone_number", phoneNumber);
 
 	if (error) {
-		// PII masking (phone numbers) is handled automatically by the logger
 		rootLogger.error(
 			"Inbound SMS user lookup failed",
 			{
@@ -156,16 +144,14 @@ export async function handleInboundSms(
 		);
 		return {
 			status: 200,
-			body: wrapInTwiml(""),
-			contentType: "text/xml",
+			body: "",
 		};
 	}
 
 	if (users.length === 0) {
 		return {
 			status: 200,
-			body: wrapInTwiml(""),
-			contentType: "text/xml",
+			body: "",
 		};
 	}
 
@@ -173,18 +159,18 @@ export async function handleInboundSms(
 	const phoneVerified = users[0].phone_verified;
 	const emailNotificationsEnabled = users[0].email_notifications_enabled;
 	const smsNotificationsEnabled = users[0].sms_notifications_enabled;
-	// Use pre-update channel state for STOP copy; reflects prior SMS enablement.
 	const hasBothChannelsEnabled =
 		emailNotificationsEnabled && smsNotificationsEnabled;
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 
 	if (!phoneVerified) {
+		await sendReply(
+			from,
+			"Phone number not verified. Please verify your phone number first.",
+		);
 		return {
 			status: 200,
-			body: wrapInTwiml(
-				"Phone number not verified. Please verify your phone number first.",
-			),
-			contentType: "text/xml",
+			body: "Phone number not verified",
 		};
 	}
 
@@ -201,12 +187,13 @@ export async function handleInboundSms(
 		);
 		if (err) return err;
 
+		await sendReply(
+			from,
+			`You have been unsubscribed from SMS and email notifications. Manage notification-preferences at ${dashboardUrl}.`,
+		);
 		return {
 			status: 200,
-			body: wrapInTwiml(
-				`You have been unsubscribed from SMS and email notifications. Manage notification-preferences at ${dashboardUrl}.`,
-			),
-			contentType: "text/xml",
+			body: "unsubscribed from SMS and email",
 		};
 	}
 
@@ -225,10 +212,10 @@ export async function handleInboundSms(
 			? `Email notifications are now off. To stop SMS too, reply STOP ALL or visit ${dashboardUrl}.`
 			: `Email notifications are now off. Manage notification-preferences at ${dashboardUrl}.`;
 
+		await sendReply(from, stopEmailMessage);
 		return {
 			status: 200,
-			body: wrapInTwiml(stopEmailMessage),
-			contentType: "text/xml",
+			body: "Email notifications are now off",
 		};
 	}
 
@@ -248,10 +235,10 @@ export async function handleInboundSms(
 			? `You have been unsubscribed from SMS notifications. To stop email too, reply STOP EMAIL or visit ${dashboardUrl}.`
 			: `You have been unsubscribed from SMS notifications. Manage notification-preferences at ${dashboardUrl}.`;
 
+		await sendReply(from, stopSmsMessage);
 		return {
 			status: 200,
-			body: wrapInTwiml(stopSmsMessage),
-			contentType: "text/xml",
+			body: "unsubscribed from SMS notifications",
 		};
 	}
 
@@ -266,28 +253,30 @@ export async function handleInboundSms(
 		);
 		if (err) return err;
 
+		await sendReply(
+			from,
+			`You can receive SMS again. Re-enable SMS notifications from your dashboard: ${dashboardUrl}.`,
+		);
 		return {
 			status: 200,
-			body: wrapInTwiml(
-				`You can receive SMS again. Re-enable SMS notifications from your dashboard: ${dashboardUrl}.`,
-			),
-			contentType: "text/xml",
+			body: "Re-enable SMS notifications from your dashboard",
 		};
 	}
 
 	if (HELP_RE.test(body)) {
+		await sendReply(
+			from,
+			`StockTextDashboard: Reply STOP to unsubscribe from SMS, STOP EMAIL to unsubscribe from email, STOP ALL to unsubscribe from both. Manage settings at ${dashboardUrl}.`,
+		);
 		return {
 			status: 200,
-			body: wrapInTwiml(
-				`StockTextDashboard: Reply STOP to unsubscribe from SMS, STOP EMAIL to unsubscribe from email, STOP ALL to unsubscribe from both. Manage settings at ${dashboardUrl}.`,
-			),
-			contentType: "text/xml",
+			body: "STOP ALL",
 		};
 	}
 
+	await sendReply(from, "Unknown command. Reply HELP for options.");
 	return {
 		status: 200,
-		body: wrapInTwiml("Unknown command. Reply HELP for options."),
-		contentType: "text/xml",
+		body: "Unknown command",
 	};
 }

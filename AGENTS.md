@@ -28,7 +28,7 @@ supabase migration new <name>  # Create new migration (never rename timestamps)
 
 **StockTextAlerts** — securities notification platform sending scheduled SMS/email updates for tracked US stocks and ETFs.
 
-**Stack:** Astro 5 (SSR) on Vercel, Vue 3, Tailwind CSS 4, Supabase (PostgreSQL + Auth), Twilio (SMS), Resend (email), Massive (prices), Finnhub (symbols/earnings), xAI/Grok (optional AI summaries).
+**Stack:** Astro 5 (SSR) on Vercel, Vue 3, Tailwind CSS 4, Supabase (PostgreSQL + Auth), AWS SES (email), AWS End User Messaging (SMS), AWS Pinpoint (OTP), Massive (prices), Finnhub (symbols/earnings), xAI/Grok (optional AI summaries).
 
 ### Key Directories
 

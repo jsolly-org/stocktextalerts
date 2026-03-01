@@ -114,7 +114,7 @@ jobs:
             echo "Error: Refusing to export Supabase env vars with null/empty values." >&2
             exit 1
           fi
-          STATIC_VARS=$'CRON_SECRET=ci-cron-secret\nVERCEL_URL=http://localhost:4321\nTWILIO_ACCOUNT_SID=AC00000000000000000000000000000000\nTWILIO_AUTH_TOKEN=ci-twilio-auth-token\nTWILIO_PHONE_NUMBER=+15555550100\nTWILIO_VERIFY_SERVICE_SID=VA00000000000000000000000000000000\nRESEND_API_KEY=re_ci_dummy_key\nEMAIL_FROM=ci@example.com\nMASSIVE_API_KEY=ci-massive-api-key\nFINNHUB_API_KEY=ci-finnhub-api-key'
+          STATIC_VARS=$'CRON_SECRET=ci-cron-secret\nVERCEL_URL=http://localhost:4321\nAWS_SMS_ORIGINATION_IDENTITY=+15555550100\nAWS_PINPOINT_APP_ID=ci-pinpoint-app-id\nAWS_ACCESS_KEY_ID=ci-aws-key\nAWS_SECRET_ACCESS_KEY=ci-aws-secret\nAWS_REGION=us-east-1\nEMAIL_FROM=ci@example.com\nMASSIVE_API_KEY=ci-massive-api-key\nFINNHUB_API_KEY=ci-finnhub-api-key'
           printf '%s\n%s\n' "$DB_VARS" "$STATIC_VARS" > .env.local
           printf '%s\n%s\n' "$DB_VARS" "$STATIC_VARS" >> "$GITHUB_ENV"
 
@@ -147,7 +147,7 @@ jobs:
           - What users do (sign up, track assets, set notification preferences, receive alerts)
           - What cron jobs do (fetch market data, compute digests, detect anomalies, send notifications)
           - What the notification pipeline looks like (scheduling, timezone handling, format preferences, delivery)
-          - What external integrations exist (Twilio SMS, Resend email, Finnhub market data)
+          - What external integrations exist (AWS End User Messaging SMS, AWS SES email, Finnhub market data)
 
           ## Step 2: Identify untested scenarios
           Think about real things that happen in production:

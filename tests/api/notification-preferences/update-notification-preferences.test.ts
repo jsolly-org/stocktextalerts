@@ -32,7 +32,7 @@ async function postNotificationPreferencesUpdate(options: {
 describe("A signed-in user updates their notification channels.", () => {
 	it("The user can update realtime price-alert onboarding answers.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 		});
@@ -112,7 +112,7 @@ describe("A signed-in user updates their notification channels.", () => {
 
 	it("The API rejects legacy price-alert enum values with 400.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 		});
@@ -144,7 +144,7 @@ describe("A signed-in user updates their notification channels.", () => {
 
 	it("The user can update price-alert follow-up mode to allow_follow_up.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 		});
@@ -197,7 +197,7 @@ describe("A signed-in user updates their notification channels.", () => {
 
 	it("When the user enables their first notification channel, scheduled updates are enabled at the default time.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 			scheduledUpdatesEnabled: false,
@@ -253,7 +253,7 @@ describe("A signed-in user updates their notification channels.", () => {
 
 	it("The user updates the notification time to a new hour.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 		});
@@ -292,7 +292,7 @@ describe("A signed-in user updates their notification channels.", () => {
 
 	it("Submitted scheduled times are cleaned up and stored in order.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 		});
@@ -329,7 +329,7 @@ describe("A signed-in user updates their notification channels.", () => {
 
 	it("When all notification times are removed, scheduled updates are cleared.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 			scheduledUpdatesEnabled: true,

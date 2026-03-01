@@ -1,52 +1,75 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { POST } from "../../../src/pages/api/messaging/inbound";
-import { buildSmsInboundRequest } from "../../helpers/request-helpers";
 
-const { validateRequestMock } = vi.hoisted(() => ({
-	validateRequestMock: vi.fn(),
-}));
-
-vi.mock("twilio", () => ({
-	default: {
-		validateRequest: validateRequestMock,
+vi.mock(
+	"../../../src/lib/messaging/sms/aws-sms-utils",
+	async (importOriginal) => {
+		const actual =
+			await importOriginal<
+				typeof import("../../../src/lib/messaging/sms/aws-sms-utils")
+			>();
+		return {
+			...actual,
+			createSmsClient: () => ({}),
+			createSmsSender: () => async () => ({
+				success: true,
+				messageSid: "test-reply",
+			}),
+		};
 	},
-}));
+);
 
-describe("A user manages SMS notifications by replying to messages.", () => {
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	it("Requests without a valid signature are rejected before processing.", async () => {
-		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-
+describe("Inbound SMS webhook security.", () => {
+	it("Requests with non-JSON content type are rejected.", async () => {
 		const response = await POST({
-			request: buildSmsInboundRequest({
-				from: "+15005550006",
-				body: "STOP",
-				includeSignature: false,
+			request: new Request("http://localhost/api/messaging/inbound", {
+				method: "POST",
+				body: "not json",
+				headers: { "Content-Type": "text/html" },
 			}),
 		} as never);
 
-		expect(response.status).toBe(401);
+		expect(response.status).toBe(400);
 		const body = await response.text();
-		expect(body).toBe("Missing Twilio signature");
+		expect(body).toBe("Unsupported content type");
 	});
 
-	it("Requests with an invalid signature are rejected.", async () => {
-		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-		validateRequestMock.mockReturnValueOnce(false);
-
+	it("Requests with invalid JSON body are rejected.", async () => {
 		const response = await POST({
-			request: buildSmsInboundRequest({
-				from: "+15005550006",
-				body: "STOP",
-				includeSignature: true,
+			request: new Request("http://localhost/api/messaging/inbound", {
+				method: "POST",
+				body: "not valid json{",
+				headers: { "Content-Type": "application/json" },
 			}),
 		} as never);
 
-		expect(response.status).toBe(403);
+		expect(response.status).toBe(400);
 		const body = await response.text();
-		expect(body).toBe("Invalid signature");
+		expect(body).toBe("Invalid JSON");
+	});
+
+	it("SNS messages with missing SMS payload fields are rejected.", async () => {
+		const snsMessage = {
+			Type: "Notification",
+			MessageId: "test",
+			TopicArn: "arn:aws:sns:us-east-1:123:test",
+			Message: JSON.stringify({ originationNumber: "", messageBody: "" }),
+			Timestamp: new Date().toISOString(),
+			SignatureVersion: "1",
+			Signature: "test",
+			SigningCertURL: "https://sns.us-east-1.amazonaws.com/cert.pem",
+		};
+
+		const response = await POST({
+			request: new Request("http://localhost/api/messaging/inbound", {
+				method: "POST",
+				body: JSON.stringify(snsMessage),
+				headers: { "Content-Type": "application/json" },
+			}),
+		} as never);
+
+		expect(response.status).toBe(400);
+		const body = await response.text();
+		expect(body).toBe("Missing required fields");
 	});
 });

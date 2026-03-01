@@ -377,7 +377,7 @@ Verify HELP, STOP, and START SMS keyword handling and dashboard state synchroniz
 ### Notes
 
 - Keywords are case-insensitive (STOP, stop, Stop all work).
-- The STOP/START behavior follows Twilio's compliance requirements.
+- The STOP/START behavior follows SMS compliance requirements.
 - If carrier re-opt-in behavior differs, the product requirement is: **dashboard state remains the source of truth**.
 
 ---
@@ -422,7 +422,7 @@ The tests above are designed to run sequentially in a single session:
 
 ## Known Considerations
 
-- Twilio SMS delivery can have carrier-dependent delays.
+- SMS delivery can have carrier-dependent delays.
 - Cron runs every minute, so notification delivery should be near-immediate.
 - SMS messages may span multiple segments when tracking many assets with price data.
 - Email updates via Supabase Auth may require verifying both old and new addresses depending on configuration.

@@ -1,28 +1,32 @@
-import twilio, { type RestException } from "twilio";
+import { createHash } from "node:crypto";
+import {
+	PinpointClient,
+	SendOTPMessageCommand,
+	VerifyOTPMessageCommand,
+} from "@aws-sdk/client-pinpoint";
 import { rootLogger } from "../logging";
 
-function handleTwilioError(
+function handleAwsError(
 	error: unknown,
 	defaultMessage: string,
 	logPrefix: string,
 ): { success: false; error: string } {
-	// Twilio SDK throws RestException for API errors (HTTP 400-5xx).
-	// RestException has: status (HTTP status), code (numeric Twilio error code),
-	// message, and moreInfo.
-	if (error instanceof Error && "status" in error && "code" in error) {
-		const twilioError = error as RestException;
+	if (error instanceof Error) {
+		const awsError = error as Error & {
+			name?: string;
+			$metadata?: { httpStatusCode?: number };
+		};
 		rootLogger.error(
 			logPrefix,
 			{
-				code: twilioError.code,
-				status: twilioError.status,
-				moreInfo: twilioError.moreInfo,
+				name: awsError.name,
+				httpStatus: awsError.$metadata?.httpStatusCode,
 			},
-			twilioError,
+			awsError,
 		);
 		return {
 			success: false,
-			error: twilioError.message,
+			error: awsError.message,
 		};
 	}
 
@@ -42,18 +46,27 @@ function handleTwilioError(
 	};
 }
 
-function createVerificationClient(): {
-	client: ReturnType<typeof twilio>;
-	serviceSid: string;
+function createOtpClient(): {
+	client: PinpointClient;
+	applicationId: string;
+	originationIdentity: string;
 } {
-	const twilioAccountSid = import.meta.env.TWILIO_ACCOUNT_SID;
-	const twilioAuthToken = import.meta.env.TWILIO_AUTH_TOKEN;
-	const twilioVerifyServiceSid = import.meta.env.TWILIO_VERIFY_SERVICE_SID;
+	const region = import.meta.env.AWS_REGION;
+	const applicationId = import.meta.env.AWS_PINPOINT_APP_ID;
+	const originationIdentity = import.meta.env.AWS_SMS_ORIGINATION_IDENTITY;
 
 	return {
-		client: twilio(twilioAccountSid, twilioAuthToken),
-		serviceSid: twilioVerifyServiceSid,
+		client: new PinpointClient({ region }),
+		applicationId,
+		originationIdentity,
 	};
+}
+
+/**
+ * Derive a stable reference ID from a phone number for matching send/verify pairs.
+ */
+function deriveReferenceId(fullPhone: string): string {
+	return createHash("sha256").update(fullPhone).digest("hex").slice(0, 48);
 }
 
 /**
@@ -63,14 +76,25 @@ export async function sendVerification(
 	fullPhone: string,
 ): Promise<{ success: boolean; error?: string }> {
 	try {
-		const { client, serviceSid } = createVerificationClient();
-		await client.verify.v2
-			.services(serviceSid)
-			.verifications.create({ to: fullPhone, channel: "sms" });
+		const { client, applicationId, originationIdentity } = createOtpClient();
+		const command = new SendOTPMessageCommand({
+			ApplicationId: applicationId,
+			SendOTPMessageRequestParameters: {
+				Channel: "SMS",
+				BrandName: "StockTextAlerts",
+				CodeLength: 6,
+				ValidityPeriod: 10,
+				AllowedAttempts: 5,
+				OriginationIdentity: originationIdentity,
+				DestinationIdentity: fullPhone,
+				ReferenceId: deriveReferenceId(fullPhone),
+			},
+		});
 
+		await client.send(command);
 		return { success: true };
 	} catch (error) {
-		return handleTwilioError(
+		return handleAwsError(
 			error,
 			"Failed to send verification",
 			"Verification send error",
@@ -86,18 +110,25 @@ export async function checkVerification(
 	code: string,
 ): Promise<{ success: boolean; error?: string }> {
 	try {
-		const { client, serviceSid } = createVerificationClient();
-		const verificationCheck = await client.verify.v2
-			.services(serviceSid)
-			.verificationChecks.create({ to: fullPhone, code });
+		const { client, applicationId } = createOtpClient();
+		const command = new VerifyOTPMessageCommand({
+			ApplicationId: applicationId,
+			VerifyOTPMessageRequestParameters: {
+				DestinationIdentity: fullPhone,
+				Otp: code,
+				ReferenceId: deriveReferenceId(fullPhone),
+			},
+		});
 
-		if (verificationCheck.status === "approved") {
+		const response = await client.send(command);
+
+		if (response.VerificationResponse?.Valid) {
 			return { success: true };
 		}
 
 		return { success: false, error: "Invalid verification code" };
 	} catch (error) {
-		return handleTwilioError(
+		return handleAwsError(
 			error,
 			"Failed to check verification",
 			"Verification check error",

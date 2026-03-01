@@ -1,16 +1,18 @@
 /* =============
-Twilio SMS
+AWS End User Messaging SMS
 ============= */
 
-import twilio, { type RestException } from "twilio";
+import {
+	PinpointSMSVoiceV2Client,
+	SendTextMessageCommand,
+} from "@aws-sdk/client-pinpoint-sms-voice-v2";
 import { rootLogger } from "../../logging";
 
 import type { DeliveryResult } from "../types";
 
-interface TwilioConfig {
-	accountSid: string;
-	authToken: string;
-	phoneNumber: string;
+interface SmsConfig {
+	region: string;
+	originationIdentity: string;
 }
 
 interface SmsRequest {
@@ -21,36 +23,33 @@ interface SmsRequest {
 
 export type SmsSender = (request: SmsRequest) => Promise<DeliveryResult>;
 
-type TwilioClient = ReturnType<typeof twilio>;
+type SmsClient = PinpointSMSVoiceV2Client;
 
-// Reads Twilio credentials from import.meta.env.
-// Presence is guaranteed by middleware env validation; types reflect this via ImportMetaEnv.
 /**
- * Read validated Twilio credentials from environment variables.
+ * Read validated AWS SMS credentials from environment variables.
  */
-export function readTwilioConfig(): TwilioConfig {
+export function readSmsConfig(): SmsConfig {
 	return {
-		accountSid: import.meta.env.TWILIO_ACCOUNT_SID,
-		authToken: import.meta.env.TWILIO_AUTH_TOKEN,
-		phoneNumber: import.meta.env.TWILIO_PHONE_NUMBER,
+		region: import.meta.env.AWS_REGION,
+		originationIdentity: import.meta.env.AWS_SMS_ORIGINATION_IDENTITY,
 	};
 }
 
 /**
- * Create a Twilio REST client from validated config.
+ * Create an AWS End User Messaging SMS client from validated config.
  */
-export function createTwilioClient(config: TwilioConfig): TwilioClient {
-	return twilio(config.accountSid, config.authToken);
+export function createSmsClient(config: SmsConfig): SmsClient {
+	return new PinpointSMSVoiceV2Client({ region: config.region });
 }
 
 /**
- * Create an SMS sender function backed by Twilio.
+ * Create an SMS sender function backed by AWS End User Messaging.
  *
  * In `test` mode, returns a deterministic mock sender to avoid external API calls.
  */
 export function createSmsSender(
-	client: TwilioClient,
-	defaultFromNumber: string,
+	client: SmsClient,
+	defaultOriginationIdentity: string,
 ): SmsSender {
 	// In test mode, return a mock sender unless --live=sms is set.
 	// LIVE_API_PROVIDERS is set by run-vitest.ts before Vitest starts, making it
@@ -89,45 +88,37 @@ export function createSmsSender(
 	}
 
 	return async (request: SmsRequest): Promise<DeliveryResult> => {
-		const from = request.from ?? defaultFromNumber;
+		const originationIdentity = request.from ?? defaultOriginationIdentity;
 
 		try {
-			const message = await client.messages.create({
-				body: request.body,
-				from,
-				to: request.to,
+			const command = new SendTextMessageCommand({
+				DestinationPhoneNumber: request.to,
+				MessageBody: request.body,
+				OriginationIdentity: originationIdentity,
 			});
+
+			const response = await client.send(command);
 
 			return {
 				success: true,
-				messageSid: message.sid,
+				messageSid: response.MessageId,
 			};
 		} catch (error) {
 			const maskedTo = request.to.slice(-4).padStart(request.to.length, "*");
 			rootLogger.error(
-				"Twilio SMS send error",
-				{ action: "send_sms", from, to: maskedTo },
+				"AWS SMS send error",
+				{ action: "send_sms", originationIdentity, to: maskedTo },
 				error,
 			);
 
-			// Twilio SDK throws RestException for API errors (HTTP 400-5xx).
-			// RestException has: status (HTTP status), code (numeric Twilio error code),
-			// message, and moreInfo.
-			if (error instanceof Error && "status" in error && "code" in error) {
-				const twilioError = error as RestException;
-				return {
-					success: false,
-					error: twilioError.message,
-					errorCode: twilioError.code ? String(twilioError.code) : undefined,
-				};
-			}
-
 			const errorMessage =
 				error instanceof Error ? error.message : "Failed to send SMS";
+			const errorCode = (error as { name?: string })?.name;
 
 			return {
 				success: false,
 				error: errorMessage,
+				errorCode: errorCode ?? undefined,
 			};
 		}
 	};

@@ -12,7 +12,7 @@ describe("A signed-in user changes their password from profile.", () => {
 	it("A valid password update redirects with success and allows sign-in with the new password.", async () => {
 		const originalPassword = "TestPassword123!";
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: originalPassword,
 			confirmed: true,
 		});
@@ -59,7 +59,7 @@ describe("A signed-in user changes their password from profile.", () => {
 	it("Mismatched passwords are rejected.", async () => {
 		const originalPassword = "TestPassword123!";
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: originalPassword,
 			confirmed: true,
 		});
@@ -99,7 +99,7 @@ describe("A signed-in user changes their password from profile.", () => {
 	it("Weak passwords are rejected.", async () => {
 		const originalPassword = "TestPassword123!";
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: originalPassword,
 			confirmed: true,
 		});

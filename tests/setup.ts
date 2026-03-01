@@ -37,15 +37,18 @@ vi.mock("../src/lib/db/env", async (importOriginal) => {
 assertLiveProviderKey({ provider: "massive", envVar: "MASSIVE_API_KEY" });
 assertLiveProviderKey({ provider: "finnhub", envVar: "FINNHUB_API_KEY" });
 assertLiveProviderKey({ provider: "xai", envVar: "XAI_API_KEY" });
-assertLiveProviderKey({ provider: "email", envVar: "RESEND_API_KEY" });
-assertLiveProviderKey({ provider: "sms", envVar: "TWILIO_ACCOUNT_SID" });
+assertLiveProviderKey({ provider: "email", envVar: "AWS_ACCESS_KEY_ID" });
+assertLiveProviderKey({
+	provider: "sms",
+	envVar: "AWS_SMS_ORIGINATION_IDENTITY",
+});
 
 // Data-provider stubs blank the API key so provider code skips real HTTP calls.
 // NOTE: vi.stubEnv affects import.meta.env globally (including source code in src/),
 // so stubbing a key to "" causes provider code to see an empty key and bail out.
 // Email/SMS mocking is handled by the MODE check combined with LIVE_API_PROVIDERS
 // in the source code itself (see createEmailSender and createSmsSender), so no
-// stubs are needed for those. Tests that stub Twilio credentials must guard those
+// stubs are needed for those. Tests that stub AWS SMS credentials must guard those
 // stubs with isLiveProviderEnabled("sms") to avoid overriding real credentials.
 if (!isLiveProviderEnabled("massive")) {
 	vi.stubEnv("MASSIVE_API_KEY", "");

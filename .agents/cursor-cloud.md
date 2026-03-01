@@ -26,7 +26,7 @@
 
 ### Gotchas
 
-- The `.env.local` file must exist before running tests or the dev server. Copy from `env.example` and fill in Supabase keys from `supabase status` output. For external APIs (Twilio, Massive, Finnhub), use fake/placeholder values — tests stub them.
+- The `.env.local` file must exist before running tests or the dev server. Copy from `env.example` and fill in Supabase keys from `supabase status` output. For external APIs (AWS SMS, Massive, Finnhub), use fake/placeholder values — tests stub them.
 - `scripts/data/users.json` is gitignored and must be created manually (copy from `scripts/data/sample-users.json` or create with a `test@jsolly.com` entry). Without it, `npm run db:gen-seed` still works but creates no test users.
 - `supabase db reset` may emit a transient 502 during container restart — this is harmless. Run `npm run db:gen-types` separately if it fails mid-pipeline.
 - `npm run check:ts` has a pre-existing TS error in `src/pages/api/auth/sms/send-verification.ts` (Type 'string | null' not assignable to type 'string'). This is in the existing codebase, not introduced by setup.

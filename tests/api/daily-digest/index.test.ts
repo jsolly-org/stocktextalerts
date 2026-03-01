@@ -30,7 +30,7 @@ describe("A cron fan-out worker runs daily digest processing per user.", () => {
 
 	it("Processes a valid user request and returns delivery stats.", async () => {
 		const testUser = await createTestUser({
-			email: `daily-digest-${randomUUID()}@resend.dev`,
+			email: `daily-digest-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 		});

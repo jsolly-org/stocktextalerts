@@ -8,23 +8,30 @@ export function toRedirect(url: string, status = 302): Response {
 export function buildSmsInboundRequest(options: {
 	from: string;
 	body: string;
-	includeSignature?: boolean;
 }): Request {
-	const formData = new FormData();
-	formData.append("MessageSid", "SM123");
-	formData.append("AccountSid", "AC123");
-	formData.append("From", options.from);
-	formData.append("To", "+15551234567");
-	formData.append("Body", options.body);
+	const smsPayload = {
+		originationNumber: options.from,
+		messageBody: options.body,
+		destinationNumber: "+15551234567",
+		messageKeyword: "keyword",
+	};
 
-	const headers: Record<string, string> = {};
-	if (options.includeSignature) {
-		headers["x-twilio-signature"] = "test-signature";
-	}
+	const snsMessage = {
+		Type: "Notification",
+		MessageId: "test-message-id",
+		TopicArn: "arn:aws:sns:us-east-1:123456789:test-topic",
+		Message: JSON.stringify(smsPayload),
+		Timestamp: new Date().toISOString(),
+		SignatureVersion: "1",
+		Signature: "test-signature",
+		SigningCertURL: "https://sns.us-east-1.amazonaws.com/cert.pem",
+	};
 
 	return new Request("http://localhost/api/messaging/inbound", {
 		method: "POST",
-		body: formData,
-		headers,
+		body: JSON.stringify(snsMessage),
+		headers: {
+			"Content-Type": "application/json",
+		},
 	});
 }

@@ -8,7 +8,7 @@ import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
 
 describe("A user resends their email verification from the unconfirmed page.", () => {
 	it("A user requests their verification email (first or resend) and sees a success confirmation.", async () => {
-		const testEmail = `test-${randomUUID()}@resend.dev`;
+		const testEmail = `test-${randomUUID()}@example.com`;
 		const { data, error } = await adminClient.auth.admin.createUser({
 			email: testEmail,
 			password: "TestPassword123!",

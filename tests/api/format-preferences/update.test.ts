@@ -16,7 +16,7 @@ import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 describe("A signed-in user updates format preferences from dashboard previews.", () => {
 	it("Saves the show-sparklines toggle and returns the updated snapshot.", async () => {
 		const testUser = await createTestUser({
-			email: `format-pref-${randomUUID()}@resend.dev`,
+			email: `format-pref-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 		});

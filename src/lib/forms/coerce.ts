@@ -42,7 +42,7 @@ export function coerceValue(
 			};
 		}
 		case "string": {
-			// Trimming is only used for untrusted external input (e.g., webhooks like Twilio SMS).
+			// Trimming is only used for untrusted external input (e.g., inbound SMS webhooks).
 			// Normal app forms should not set trim: true and should validate input strictly.
 			const value = spec.trim === true ? raw.trim() : raw;
 			if (value === "") {

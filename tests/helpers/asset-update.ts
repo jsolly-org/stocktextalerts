@@ -41,7 +41,7 @@ export async function updateTrackedAssets(
 	notificationPreferencesAfter: NotificationPreferences | null;
 }> {
 	const testUser = await createTestUser({
-		email: `test-${randomUUID()}@resend.dev`,
+		email: `test-${randomUUID()}@example.com`,
 		password: TEST_PASSWORD,
 		trackedAssets: initialAssets,
 		...userOverrides,

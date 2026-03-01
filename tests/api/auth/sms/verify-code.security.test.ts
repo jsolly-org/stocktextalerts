@@ -24,7 +24,7 @@ describe("A signed-in user verifies their phone number with an SMS code.", () =>
 
 	it("An invalid code is rejected and the phone number remains unverified.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: "TestPassword123!",
 			confirmed: true,
 			smsNotificationsEnabled: true,
@@ -87,7 +87,7 @@ describe("A signed-in user verifies their phone number with an SMS code.", () =>
 
 	it("If rate limits are exceeded, verification is blocked and no update occurs.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: "TestPassword123!",
 			confirmed: true,
 			smsNotificationsEnabled: true,

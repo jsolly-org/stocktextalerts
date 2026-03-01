@@ -5,10 +5,10 @@ import { NO_TRACKED_ASSETS_MESSAGE } from "../asset-formatting";
 import { buildMarketClosedBannerText } from "../market-closure-banner";
 import { recordNotification } from "../shared";
 import type { ProcessingStats, SmsUser } from "../types";
+import type { SmsSender } from "./aws-sms-utils";
 import { formatExtrasSection } from "./formatting";
 import { sendUserSms } from "./index";
 import { padUrlsToSegmentBoundaries } from "./segment-utils";
-import type { SmsSender } from "./twilio-utils";
 import { shortenUrl } from "./url-shortener";
 
 export type SmsExtras = {

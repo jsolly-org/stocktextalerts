@@ -45,14 +45,15 @@
 	},
 	"dependencies": {
 		"@astrojs/vercel": "^9.0.4",
+		"@aws-sdk/client-pinpoint": "^3.1000.0",
+		"@aws-sdk/client-pinpoint-sms-voice-v2": "^3.1000.0",
+		"@aws-sdk/client-sesv2": "^3.1000.0",
 		"@supabase/supabase-js": "^2.98.0",
 		"@vuepic/vue-datepicker": "^12.1.0",
 		"@vueuse/core": "^14.2.1",
 		"astro-icon": "^1.1.5",
 		"libphonenumber-js": "^1.12.38",
 		"luxon": "^3.7.2",
-		"resend": "^6.9.2",
-		"twilio": "^5.12.2",
 		"vue": "^3.5.29"
 	},
 	"overrides": {

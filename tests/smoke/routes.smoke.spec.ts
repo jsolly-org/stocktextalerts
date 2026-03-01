@@ -81,7 +81,7 @@ test("A signed-in user can navigate all routes without console errors.", async (
 
 	try {
 		testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 		});

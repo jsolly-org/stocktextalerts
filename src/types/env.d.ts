@@ -5,11 +5,11 @@ interface ImportMetaEnv {
 	readonly SUPABASE_URL: string;
 	readonly SUPABASE_PUBLISHABLE_KEY: string;
 	readonly SUPABASE_SECRET_KEY: string;
-	readonly TWILIO_ACCOUNT_SID: string;
-	readonly TWILIO_AUTH_TOKEN: string;
-	readonly TWILIO_PHONE_NUMBER: string;
-	readonly TWILIO_VERIFY_SERVICE_SID: string;
-	readonly RESEND_API_KEY: string;
+	readonly AWS_ACCESS_KEY_ID: string;
+	readonly AWS_SECRET_ACCESS_KEY: string;
+	readonly AWS_REGION: string;
+	readonly AWS_SMS_ORIGINATION_IDENTITY: string;
+	readonly AWS_PINPOINT_APP_ID: string;
 	readonly EMAIL_FROM: string;
 	readonly EMAIL_REPLY_TO?: string;
 	readonly CRON_SECRET: string;

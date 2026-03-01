@@ -122,9 +122,7 @@ describe("Per-channel include flags gate scheduled notification delivery.", () =
 		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
 
 		if (!isLiveProviderEnabled("sms")) {
-			vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
-			vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-			vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
+			vi.stubEnv("AWS_SMS_ORIGINATION_IDENTITY", "+15551234567");
 		}
 
 		const { id } = await createTestUser({

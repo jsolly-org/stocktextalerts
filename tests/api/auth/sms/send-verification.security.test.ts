@@ -58,7 +58,7 @@ describe("A signed-in user requests an SMS verification code.", () => {
 
 	it("If the phone number format is invalid, the request is rejected.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: "TestPassword123!",
 			confirmed: true,
 		});
@@ -106,7 +106,7 @@ describe("A signed-in user requests an SMS verification code.", () => {
 
 	it("If the form is incomplete, the request is rejected with a validation error.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: "TestPassword123!",
 			confirmed: true,
 		});
@@ -153,7 +153,7 @@ describe("A signed-in user requests an SMS verification code.", () => {
 
 	it("When a verified phone number is changed, the user must verify the new number again.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: "TestPassword123!",
 			confirmed: true,
 		});
@@ -229,7 +229,7 @@ describe("A signed-in user requests an SMS verification code.", () => {
 
 	it("If a verification code was sent recently, the user is asked to wait before requesting another.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: "TestPassword123!",
 			confirmed: true,
 		});
@@ -291,7 +291,7 @@ describe("A signed-in user requests an SMS verification code.", () => {
 
 	it("After the cooldown expires, the user can request another verification code.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: "TestPassword123!",
 			confirmed: true,
 		});

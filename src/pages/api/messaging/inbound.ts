@@ -1,68 +1,33 @@
 import type { APIRoute } from "astro";
-import twilio from "twilio";
 import { createSupabaseAdminClient } from "../../../lib/db/supabase";
-import { parseWithSchema } from "../../../lib/forms/parse";
-import type { FormSchema } from "../../../lib/forms/schema";
 import { createLogger } from "../../../lib/logging";
 import { handleInboundSms } from "../../../lib/messaging/sms/inbound-utils";
-import { readTwilioConfig } from "../../../lib/messaging/sms/twilio-utils";
 
-const MEDIA_SLOT_COUNT = 10;
-
-function buildInboundSmsSchema(): FormSchema {
-	const schema: FormSchema = {
-		MessageSid: { type: "string", required: true },
-		SmsSid: { type: "string" },
-		SmsMessageSid: { type: "string" },
-		AccountSid: { type: "string", required: true },
-		MessagingServiceSid: { type: "string" },
-		From: { type: "string", required: true, trim: true },
-		FromCity: { type: "string" },
-		FromState: { type: "string" },
-		FromZip: { type: "string" },
-		FromCountry: { type: "string" },
-		To: { type: "string", required: true },
-		ToCity: { type: "string" },
-		ToState: { type: "string" },
-		ToZip: { type: "string" },
-		ToCountry: { type: "string" },
-		Body: { type: "string", required: true, trim: true },
-		NumSegments: { type: "string" },
-		NumMedia: { type: "string" },
-		ApiVersion: { type: "string" },
-		SmsStatus: { type: "string" },
-		ForwardedFrom: { type: "string" },
-		CallerName: { type: "string" },
-	};
-
-	for (let index = 0; index < MEDIA_SLOT_COUNT; index += 1) {
-		schema[`MediaUrl${index}`] = { type: "string" };
-		schema[`MediaContentType${index}`] = { type: "string" };
-	}
-
-	return schema;
+interface SnsMessage {
+	Type: string;
+	MessageId: string;
+	TopicArn: string;
+	Message: string;
+	Timestamp: string;
+	SignatureVersion: string;
+	Signature: string;
+	SigningCertURL: string;
+	SubscribeURL?: string;
 }
 
-const INBOUND_SMS_SCHEMA = buildInboundSmsSchema();
-
-function reconstructUrl(request: Request, url: URL): string {
-	const forwardedProto = request.headers.get("x-forwarded-proto") ?? "";
-	const forwardedHost = request.headers.get("x-forwarded-host") ?? "";
-
-	// Trim to normalize whitespace in proxy headers (can contain spaces from multiple proxy chains)
-	const protocol = forwardedProto.split(",")[0]?.trim() ?? "";
-	const host = forwardedHost.split(",")[0]?.trim() ?? "";
-	if (
-		protocol.length > 0 &&
-		host.length > 0 &&
-		(protocol === "http" || protocol === "https")
-	) {
-		return `${protocol}://${host}${url.pathname}${url.search}`;
-	}
-
-	return request.url;
+interface SnsSmsTwoWayPayload {
+	originationNumber: string;
+	messageBody: string;
+	destinationNumber: string;
+	messageKeyword: string;
 }
 
+/**
+ * POST /api/messaging/inbound
+ *
+ * Handles inbound SMS messages via AWS SNS two-way messaging notifications.
+ * Accepts JSON POST with SNS notification format.
+ */
 export const POST: APIRoute = async ({ request, locals }) => {
 	const url = new URL(request.url);
 	const logger = createLogger({
@@ -71,69 +36,89 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		method: request.method,
 	});
 	try {
-		const signatureHeader = request.headers.get("x-twilio-signature");
-
-		if (!signatureHeader) {
-			// Expected rejection (probes, non-Twilio); info to avoid inflating error metrics.
-			logger.info("Inbound SMS request missing x-twilio-signature header", {
-				header: "x-twilio-signature",
+		const contentType = request.headers.get("content-type") ?? "";
+		if (
+			!contentType.includes("application/json") &&
+			!contentType.includes("text/plain")
+		) {
+			logger.info("Inbound SMS request with unexpected content-type", {
+				contentType,
 			});
-			return new Response("Missing Twilio signature", { status: 401 });
+			return new Response("Unsupported content type", { status: 400 });
 		}
 
-		const signature = signatureHeader;
-		const formData = await request.formData();
-		const parsed = parseWithSchema(formData, INBOUND_SMS_SCHEMA);
-
-		if (!parsed.ok) {
-			// Expected rejection (malformed webhooks, etc.); info to avoid inflating error metrics.
-			logger.info("Inbound SMS rejected due to invalid form data", {
-				errors: parsed.allErrors,
-			});
-			return new Response("Invalid form submission", { status: 400 });
+		const rawBody = await request.text();
+		let snsMessage: SnsMessage;
+		try {
+			snsMessage = JSON.parse(rawBody) as SnsMessage;
+		} catch {
+			logger.info("Inbound SMS request with invalid JSON body");
+			return new Response("Invalid JSON", { status: 400 });
 		}
 
-		// Strip undefined values so that only fields actually present in the
-		// request are forwarded to Twilio signature validation.  The schema
-		// parser sets missing optional fields to `undefined`, but Twilio's
-		// `validateRequest` includes every key in signature computation —
-		// concatenating undefined values as "keyundefined" — which breaks
-		// the HMAC check.
-		const params: Record<string, string | undefined> = {};
-		for (const [key, value] of Object.entries(
-			parsed.data as Record<string, string | undefined>,
-		)) {
-			if (value !== undefined) {
-				params[key] = value;
+		// Handle SNS subscription confirmation
+		if (
+			snsMessage.Type === "SubscriptionConfirmation" &&
+			snsMessage.SubscribeURL
+		) {
+			logger.info("Confirming SNS subscription", {
+				topicArn: snsMessage.TopicArn,
+			});
+			try {
+				await fetch(snsMessage.SubscribeURL);
+				return new Response("Subscription confirmed", { status: 200 });
+			} catch (error) {
+				logger.error(
+					"Failed to confirm SNS subscription",
+					{
+						topicArn: snsMessage.TopicArn,
+					},
+					error,
+				);
+				return new Response("Subscription confirmation failed", {
+					status: 500,
+				});
 			}
 		}
 
-		const supabase = createSupabaseAdminClient();
-		const twilioConfig = readTwilioConfig();
+		// Only process Notification type
+		if (snsMessage.Type !== "Notification") {
+			logger.info("Ignoring non-notification SNS message", {
+				type: snsMessage.Type,
+			});
+			return new Response("OK", { status: 200 });
+		}
 
-		const webhookUrl = reconstructUrl(request, url);
+		// Parse the inner SMS payload from the SNS message
+		let smsPayload: SnsSmsTwoWayPayload;
+		try {
+			smsPayload = JSON.parse(snsMessage.Message) as SnsSmsTwoWayPayload;
+		} catch {
+			logger.info("Inbound SMS notification with invalid inner message JSON");
+			return new Response("Invalid SMS payload", { status: 400 });
+		}
+
+		if (!smsPayload.originationNumber || !smsPayload.messageBody) {
+			logger.info("Inbound SMS notification missing required fields", {
+				hasOriginationNumber: Boolean(smsPayload.originationNumber),
+				hasMessageBody: Boolean(smsPayload.messageBody),
+			});
+			return new Response("Missing required fields", { status: 400 });
+		}
+
+		const supabase = createSupabaseAdminClient();
 
 		const result = await handleInboundSms(
 			{
-				url: webhookUrl,
-				signature,
-				params,
+				originationNumber: smsPayload.originationNumber,
+				messageBody: smsPayload.messageBody,
+				destinationNumber: smsPayload.destinationNumber,
 			},
-			{
-				authToken: twilioConfig.authToken,
-				validateRequest: twilio.validateRequest,
-				supabase,
-			},
+			{ supabase },
 		);
-
-		const headers: Record<string, string> = {};
-		if (result.contentType) {
-			headers["Content-Type"] = result.contentType;
-		}
 
 		return new Response(result.body, {
 			status: result.status,
-			headers,
 		});
 	} catch (error) {
 		logger.error("SMS webhook error", { action: "inbound_sms_webhook" }, error);

@@ -33,17 +33,23 @@ import {
 } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
-const twilioMocks = vi.hoisted(() => ({
-	validateRequest: vi.fn(),
-}));
-
-vi.mock("twilio", async () => {
-	const actual = await vi.importActual<typeof import("twilio")>("twilio");
-	const RealTwilio = actual.default;
-	const fn = (...args: Parameters<typeof RealTwilio>) => RealTwilio(...args);
-	fn.validateRequest = twilioMocks.validateRequest;
-	return { default: fn };
-});
+vi.mock(
+	"../../../src/lib/messaging/sms/aws-sms-utils",
+	async (importOriginal) => {
+		const actual =
+			await importOriginal<
+				typeof import("../../../src/lib/messaging/sms/aws-sms-utils")
+			>();
+		return {
+			...actual,
+			createSmsClient: () => ({}),
+			createSmsSender: () => async () => ({
+				success: true,
+				messageSid: "test-reply",
+			}),
+		};
+	},
+);
 
 const marketCalendarMocks = vi.hoisted(() => ({
 	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
@@ -82,9 +88,8 @@ describe("Scheduled notification scenarios", () => {
 		// schedule logic, not provider APIs, and fake timers break real DNS.
 		vi.stubEnv("LIVE_API_PROVIDERS", "");
 		if (!isLiveProviderEnabled("sms")) {
-			vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
+			vi.stubEnv("AWS_SMS_ORIGINATION_IDENTITY", "+15551234567");
 		}
-		twilioMocks.validateRequest.mockReset();
 		marketCalendarMocks.getUsMarketClosureInfoForInstant.mockResolvedValue(
 			null,
 		);
@@ -135,8 +140,6 @@ describe("Scheduled notification scenarios", () => {
 	});
 
 	it("User who opted out via STOP does not receive SMS when schedule fires.", async () => {
-		twilioMocks.validateRequest.mockReturnValue(true);
-
 		const timezone = "America/New_York";
 		const nowLocal = DateTime.now().setZone(timezone);
 		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
@@ -166,7 +169,6 @@ describe("Scheduled notification scenarios", () => {
 			request: buildSmsInboundRequest({
 				from,
 				body: "STOP",
-				includeSignature: true,
 			}),
 		} as APIContext);
 		expect(stopResponse.status).toBe(200);
@@ -196,9 +198,7 @@ describe("Scheduled notification scenarios", () => {
 
 	it("User with both email and SMS enabled receives both at scheduled time.", async () => {
 		if (!isLiveProviderEnabled("sms")) {
-			vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
-			vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-			vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
+			vi.stubEnv("AWS_SMS_ORIGINATION_IDENTITY", "+15551234567");
 		}
 
 		const timezone = "America/New_York";
@@ -482,12 +482,8 @@ describe("Scheduled notification scenarios", () => {
 
 	it("User who texted START and re-enabled SMS in dashboard receives next scheduled notification by SMS.", async () => {
 		if (!isLiveProviderEnabled("sms")) {
-			vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
-			vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
-			vi.stubEnv("TWILIO_PHONE_NUMBER", "+15551234567");
+			vi.stubEnv("AWS_SMS_ORIGINATION_IDENTITY", "+15551234567");
 		}
-		twilioMocks.validateRequest.mockReturnValue(true);
-
 		const timezone = "America/New_York";
 		const nowLocal = DateTime.now().setZone(timezone);
 		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
@@ -509,7 +505,6 @@ describe("Scheduled notification scenarios", () => {
 			request: buildSmsInboundRequest({
 				from,
 				body: "STOP",
-				includeSignature: true,
 			}),
 		} as APIContext);
 		expect(stopResponse.status).toBe(200);
@@ -518,7 +513,6 @@ describe("Scheduled notification scenarios", () => {
 			request: buildSmsInboundRequest({
 				from,
 				body: "START",
-				includeSignature: true,
 			}),
 		} as APIContext);
 		expect(startResponse.status).toBe(200);
@@ -882,8 +876,6 @@ describe("Scheduled notification scenarios", () => {
 	});
 
 	it("User who texts STOP EMAIL does not receive email when schedule fires.", async () => {
-		twilioMocks.validateRequest.mockReturnValue(true);
-
 		const timezone = "America/New_York";
 		const nowLocal = DateTime.now().setZone(timezone);
 		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
@@ -905,7 +897,6 @@ describe("Scheduled notification scenarios", () => {
 			request: buildSmsInboundRequest({
 				from,
 				body: "STOP EMAIL",
-				includeSignature: true,
 			}),
 		} as APIContext);
 		expect(stopEmailResponse.status).toBe(200);

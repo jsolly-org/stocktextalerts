@@ -23,7 +23,6 @@ export async function processEmailUpdate(
 	sendEmail: EmailSender,
 	priceMap: AssetPriceMap,
 	marketOpen: boolean,
-	idempotencyKey?: string,
 	formatPrefs?: FormatPreferences,
 	getSparkline?: (symbol: string) => SparklineData | null | undefined,
 	marketClosureInfo?: MarketClosureInfo | null,
@@ -43,7 +42,6 @@ export async function processEmailUpdate(
 		"Your Scheduled Price Notification",
 		message,
 		sendEmail,
-		idempotencyKey,
 	);
 
 	const logged = await recordNotification(supabase, {

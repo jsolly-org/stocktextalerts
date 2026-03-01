@@ -25,6 +25,23 @@
 ### Generated Files
 - Do NOT modify `src/lib/db/generated/database.types.ts`. Regenerate with `npm run db:gen-types` or use type assertions.
 
+### External Services & Access
+
+#### AWS (profile: `prod-admin`, region: `us-east-1`)
+- **SES**: Email delivery via `@aws-sdk/client-sesv2`. Domain `stocktextalerts.com` verified with DKIM. Dedicated IAM user `stocktextalerts-ses` with `SESsendOnly` policy.
+- **SMS/Pinpoint**: AWS End User Messaging for SMS delivery and Pinpoint for OTP verification.
+- Env vars: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_SMS_ORIGINATION_IDENTITY`, `AWS_PINPOINT_APP_ID`.
+
+#### Cloudflare (DNS for `stocktextalerts.com`)
+- Nameservers: `amanda.ns.cloudflare.com`, `vin.ns.cloudflare.com`.
+- Zone ID: `964861175cbbb7133fc09c7e3f1e362f`.
+- CLI: `wrangler` (installed globally via npm). Authenticate with `wrangler login`.
+- DNS API requires an API token with "Edit zone DNS" permission scoped to `stocktextalerts.com`. The wrangler OAuth token only has `zone:read` — use a separate API token for DNS writes.
+
+#### Vercel
+- Deployment platform. Env vars managed via `vercel env add/rm`.
+- `EMAIL_FROM` must match the sending domain verified in the active email provider.
+
 ### Available CLIs (Machine-Specific Audit)
 Last audited: 2026-02-28.
 
@@ -37,8 +54,7 @@ Installed and verified:
 - `psql`, `sqlite3`
 - `docker`
 - `terraform`, `kubectl`
-- `vercel`, `aws`
-- `twilio` (profile: `solly`, manages phone numbers, API keys, and debugging)
+- `vercel`, `aws`, `wrangler`
 - `python3`, `pipx`
 - `delta`, `lazygit`, `direnv`, `zoxide`
 - `make`, `tree`, `curl`

@@ -82,7 +82,6 @@ export async function processMarketScheduledEmailDelivery(options: {
 		return;
 	}
 
-	const emailIdempotencyKey = `scheduled-update/${user.id}/${scheduledDate}/${scheduledMinutes}/email`;
 	const { sent, logged, error } = await processEmailUpdate(
 		supabase,
 		user,
@@ -91,7 +90,6 @@ export async function processMarketScheduledEmailDelivery(options: {
 		sendEmail,
 		priceMap,
 		marketOpen,
-		emailIdempotencyKey,
 		formatPrefs,
 		getSparkline,
 		marketClosureInfo,
@@ -124,7 +122,7 @@ export async function processMarketScheduledEmailDelivery(options: {
  * Deliver a scheduled market asset update via SMS and record the result.
  *
  * Uses `claim_scheduled_notification` for idempotency. SMS sender initialization can fail
- * (e.g. missing Twilio config); that failure is recorded and the notification is marked failed.
+ * (e.g. missing AWS SMS config); that failure is recorded and the notification is marked failed.
  */
 export async function processMarketScheduledSmsDelivery(options: {
 	user: UserRecord;

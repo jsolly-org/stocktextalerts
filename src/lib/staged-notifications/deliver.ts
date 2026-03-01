@@ -299,13 +299,11 @@ async function deliverStagedMarket(options: {
 		});
 
 		if (claim.status === "claimed") {
-			const idempotencyKey = `scheduled-update/${user.id}/${scheduledDate}/${scheduledMinutes}/email`;
 			const result = await sendUserEmail(
 				user,
 				stagedData.email.subject,
 				{ text: stagedData.email.text, html: stagedData.email.html },
 				sendEmail,
-				idempotencyKey,
 			);
 
 			// IMPORTANT: mark this user/type as delivered immediately after a successful send
@@ -484,13 +482,11 @@ async function deliverStagedDaily(options: {
 		});
 
 		if (claim.status === "claimed") {
-			const idempotencyKey = `daily-digest/${user.id}/${scheduledDate}/${scheduledMinutes}/email`;
 			const result = await sendUserEmail(
 				user,
 				stagedData.email.subject,
 				{ text: stagedData.email.text, html: stagedData.email.html },
 				sendEmail,
-				idempotencyKey,
 			);
 
 			// Mark as delivered immediately after a successful send so fallback doesn't

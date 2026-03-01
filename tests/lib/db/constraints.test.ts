@@ -78,7 +78,7 @@ describe("User input is validated against required data format rules.", () => {
 		await expect(
 			client.query("insert into public.users (id, email) values ($1, $2)", [
 				randomUUID(),
-				"has space@resend.dev",
+				"has space@example.com",
 			]),
 		).rejects.toMatchObject({
 			code: "23514",
@@ -91,7 +91,7 @@ describe("User input is validated against required data format rules.", () => {
 		const userId = randomUUID();
 		await client.query("insert into public.users (id, email) values ($1, $2)", [
 			userId,
-			`test-${randomUUID()}@resend.dev`,
+			`test-${randomUUID()}@example.com`,
 		]);
 
 		const aaplAsset = getAssetData("AAPL");
@@ -117,7 +117,7 @@ describe("User input is validated against required data format rules.", () => {
 		const userId = randomUUID();
 		await client.query("insert into public.users (id, email) values ($1, $2)", [
 			userId,
-			`test-${randomUUID()}@resend.dev`,
+			`test-${randomUUID()}@example.com`,
 		]);
 
 		const aaplAsset = getAssetData("AAPL");
@@ -143,7 +143,7 @@ describe("User input is validated against required data format rules.", () => {
 		const userId = randomUUID();
 		await client.query("insert into public.users (id, email) values ($1, $2)", [
 			userId,
-			`test-${randomUUID()}@resend.dev`,
+			`test-${randomUUID()}@example.com`,
 		]);
 
 		const aaplAsset = getAssetData("AAPL");
@@ -196,7 +196,7 @@ describe("User input is validated against required data format rules.", () => {
 					"id, email, sms_opted_out, sms_notifications_enabled",
 					") values ($1, $2, $3, $4)",
 				].join(" "),
-				[randomUUID(), `test-${randomUUID()}@resend.dev`, true, true],
+				[randomUUID(), `test-${randomUUID()}@example.com`, true, true],
 			),
 		).rejects.toMatchObject({
 			code: "23514",
@@ -209,7 +209,7 @@ describe("User input is validated against required data format rules.", () => {
 		await expect(
 			client.query(
 				"insert into public.users (id, email, phone_verified) values ($1, $2, $3)",
-				[randomUUID(), `test-${randomUUID()}@resend.dev`, true],
+				[randomUUID(), `test-${randomUUID()}@example.com`, true],
 			),
 		).rejects.toMatchObject({
 			code: "23514",
@@ -224,7 +224,7 @@ describe("User input is validated against required data format rules.", () => {
 
 		await client.query("insert into public.users (id, email) values ($1, $2)", [
 			userId,
-			`test-${randomUUID()}@resend.dev`,
+			`test-${randomUUID()}@example.com`,
 		]);
 
 		const aaplAsset = getAssetData(symbol);
@@ -301,7 +301,7 @@ describe("User input is validated against required data format rules.", () => {
 
 		await client.query("insert into public.users (id, email) values ($1, $2)", [
 			userId,
-			`test-${randomUUID()}@resend.dev`,
+			`test-${randomUUID()}@example.com`,
 		]);
 
 		const msftAsset = getAssetData(symbol);

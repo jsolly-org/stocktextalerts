@@ -35,8 +35,8 @@ if (!dbUser) {
 const user = dbUser;
 const initialAssets = userAssets.map((asset) => ({ symbol: asset.symbol, name: asset.name, type: asset.type }));
 
-const rawTwilioNumber = import.meta.env.TWILIO_PHONE_NUMBER ?? "";
-const smsPhoneNumber = formatPhoneFromE164(rawTwilioNumber);
+const rawSmsNumber = import.meta.env.AWS_SMS_ORIGINATION_IDENTITY ?? "";
+const smsPhoneNumber = formatPhoneFromE164(rawSmsNumber);
 ---
 <Layout title="Dashboard" description="Review and manage your asset notifications. Add or remove tracked assets, set your delivery schedule, and choose email or SMS delivery." noindex>
 	<div class="min-h-screen bg-surface-alt">

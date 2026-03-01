@@ -15,9 +15,9 @@ import { sendUserEmail } from "../messaging/email/index";
 import { buildEmailUrls } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
 import { recordNotification } from "../messaging/shared";
+import type { SmsSender } from "../messaging/sms/aws-sms-utils";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
-import type { SmsSender } from "../messaging/sms/twilio-utils";
 import { shortenUrl, shortenUrls } from "../messaging/sms/url-shortener";
 import { toSparkline } from "../messaging/sparkline";
 import {

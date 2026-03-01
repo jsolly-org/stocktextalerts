@@ -419,7 +419,6 @@ export async function processDailyDigestEmailDelivery(options: {
 		return;
 	}
 
-	const emailIdempotencyKey = `daily-digest/${user.id}/${scheduledDate}/${scheduledMinutes}/email`;
 	const message = formatDailyDigestEmail({
 		user,
 		userAssets,
@@ -435,7 +434,6 @@ export async function processDailyDigestEmailDelivery(options: {
 		message.subject,
 		{ text: message.text, html: message.html },
 		sendEmail,
-		emailIdempotencyKey,
 	);
 
 	const logged = await recordNotification(supabase, {

@@ -3,7 +3,7 @@ BEGIN;
 -- Re-add the global SMS toggle column.
 -- Two separate fields serve two purposes:
 --   sms_notifications_enabled — user-controlled global SMS preference (UI toggle)
---   sms_opted_out            — Twilio regulatory opt-out (locks/disables the toggle)
+--   sms_opted_out            — carrier regulatory opt-out (locks/disables the toggle)
 ALTER TABLE public.users
   ADD COLUMN IF NOT EXISTS sms_notifications_enabled boolean NOT NULL DEFAULT false;
 

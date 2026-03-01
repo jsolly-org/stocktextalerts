@@ -1,6 +1,6 @@
 import { rootLogger } from "../../logging";
 import type { DeliveryResult, SmsUser, UserRecord } from "../types";
-import type { SmsSender } from "./twilio-utils";
+import type { SmsSender } from "./aws-sms-utils";
 
 type SmsEligibilityUser = Pick<
 	UserRecord,
@@ -36,7 +36,7 @@ export async function sendUserSms(
 			body: message,
 		});
 	} catch (error) {
-		// sendSms (from createSmsSender) already catches Twilio RestException errors
+		// sendSms (from createSmsSender) already catches AWS SDK errors
 		// and returns a DeliveryResult, so this catch block only handles unexpected
 		// errors like network failures, timeouts, or implementation errors.
 		rootLogger.error(

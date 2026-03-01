@@ -61,55 +61,24 @@ function createEmailUnsubscribeToken(userId: string, email: string): string {
 	return `${expiresAtMs}.${toBase64Url(signature)}`;
 }
 
-function computeTwilioSignature(
-	authToken: string,
-	url: string,
-	params: Record<string, string | undefined>,
-): string {
-	const sortedKeys = Object.keys(params)
-		.filter((key) => params[key] != null)
-		.sort();
-	let data = url;
-	for (const key of sortedKeys) {
-		data += key + params[key];
-	}
-	return createHmac("sha1", authToken).update(data, "utf-8").digest("base64");
-}
-
-function buildInboundSignatureParams(
-	params: Record<string, string>,
-): Record<string, string | undefined> {
-	const signatureParams: Record<string, string | undefined> = {
-		MessageSid: undefined,
-		SmsSid: undefined,
-		SmsMessageSid: undefined,
-		AccountSid: undefined,
-		MessagingServiceSid: undefined,
-		From: undefined,
-		FromCity: undefined,
-		FromState: undefined,
-		FromZip: undefined,
-		FromCountry: undefined,
-		To: undefined,
-		ToCity: undefined,
-		ToState: undefined,
-		ToZip: undefined,
-		ToCountry: undefined,
-		Body: undefined,
-		NumSegments: undefined,
-		NumMedia: undefined,
-		ApiVersion: undefined,
-		SmsStatus: undefined,
-		ForwardedFrom: undefined,
-		CallerName: undefined,
+function buildSnsInboundBody(from: string, body: string): string {
+	const smsPayload = {
+		originationNumber: from,
+		messageBody: body,
+		destinationNumber: "+15551234567",
+		messageKeyword: "keyword",
 	};
-
-	for (let index = 0; index < 10; index += 1) {
-		signatureParams[`MediaUrl${index}`] = undefined;
-		signatureParams[`MediaContentType${index}`] = undefined;
-	}
-
-	return { ...signatureParams, ...params };
+	const snsMessage = {
+		Type: "Notification",
+		MessageId: randomUUID(),
+		TopicArn: "arn:aws:sns:us-east-1:123456789:inbound-sms",
+		Message: JSON.stringify(smsPayload),
+		Timestamp: new Date().toISOString(),
+		SignatureVersion: "1",
+		Signature: "test-signature",
+		SigningCertURL: "https://sns.us-east-1.amazonaws.com/cert.pem",
+	};
+	return JSON.stringify(snsMessage);
 }
 
 function rewriteLinkOrigin(link: string, baseOrigin: string): string {
@@ -470,8 +439,8 @@ test.describe("sanity tests", () => {
 		test.slow();
 		test.setTimeout(120_000);
 
-		testEmail = `sanity-${randomUUID()}@resend.dev`;
-		secondEmail = `sanity-second-${randomUUID()}@resend.dev`;
+		testEmail = `sanity-${randomUUID()}@example.com`;
+		secondEmail = `sanity-second-${randomUUID()}@example.com`;
 
 		await page.goto("/auth/register");
 		await page.locator("#email").fill(testEmail);
@@ -827,7 +796,7 @@ test.describe("sanity tests", () => {
 
 	test("TC-INBOUND-001: Inbound SMS keywords", async () => {
 		const inboundUser = await createTestUser({
-			email: `inbound-${randomUUID()}@resend.dev`,
+			email: `inbound-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 			smsNotificationsEnabled: true,
@@ -849,34 +818,14 @@ test.describe("sanity tests", () => {
 			return `${data.phone_country_code}${data.phone_number}`;
 		})();
 
-		const authToken = process.env.TWILIO_AUTH_TOKEN;
-		if (!authToken) {
-			throw new Error("TWILIO_AUTH_TOKEN is required for inbound signature");
-		}
-
 		const webhookUrl = `${baseOrigin}/api/messaging/inbound`;
 		async function postInbound(bodyValue: string) {
-			const formParams = {
-				MessageSid: `SM${randomUUID().replaceAll("-", "").slice(0, 16)}`,
-				AccountSid: "AC1234567890",
-				From: inboundUserPhone,
-				To: "+15551234567",
-				Body: bodyValue,
-			};
-			const signatureParams = buildInboundSignatureParams(formParams);
-			const signature = computeTwilioSignature(
-				authToken,
-				webhookUrl,
-				signatureParams,
-			);
-			const body = new URLSearchParams(formParams);
 			return fetch(webhookUrl, {
 				method: "POST",
 				headers: {
-					"x-twilio-signature": signature,
-					"content-type": "application/x-www-form-urlencoded",
+					"content-type": "application/json",
 				},
-				body: body.toString(),
+				body: buildSnsInboundBody(inboundUserPhone, bodyValue),
 			});
 		}
 

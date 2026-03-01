@@ -10,7 +10,7 @@ import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 describe("A signed-in user requests to change their email address.", () => {
 	it("A valid request triggers the email change flow and returns the user to their profile with success.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: "TestPassword123!",
 			confirmed: true,
 		});
@@ -46,7 +46,7 @@ describe("A signed-in user requests to change their email address.", () => {
 
 	it("Submitting the same email the user already has is rejected.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: "TestPassword123!",
 			confirmed: true,
 		});
