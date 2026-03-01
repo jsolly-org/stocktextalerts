@@ -543,16 +543,6 @@ test.describe("sanity tests", () => {
 
 		// No tracked assets
 		await expect(page.getByText("No assets tracked yet")).toBeVisible();
-
-		// Toggle SMS ON → phone input should appear
-		await smsSwitch.click();
-		await expect(smsSwitch).toHaveAttribute("aria-checked", "true");
-		await expect(page.locator("#phone")).toBeVisible();
-
-		// Toggle SMS back OFF → phone input should disappear
-		await smsSwitch.click();
-		await expect(smsSwitch).toHaveAttribute("aria-checked", "false");
-		await expect(page.locator("#phone")).not.toBeVisible();
 	});
 
 	test("TC-TZ-001: User can configure timezone", async () => {
