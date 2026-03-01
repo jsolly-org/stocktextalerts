@@ -35,8 +35,11 @@ if (Astro.request.method === "POST") {
 	// before the real user clicks. See:
 	// https://supabase.com/docs/guides/troubleshooting/otp-verification-failures-token-has-expired-or-otp_expired-errors-5ee4d0
 	const formData = await Astro.request.formData();
-	const tokenHash = formData.get("token_hash") as string | null;
-	const type = parseOtpType(formData.get("type") as string | null);
+	const tokenHashValue = formData.get("token_hash");
+	const typeValue = formData.get("type");
+	const tokenHash =
+		typeof tokenHashValue === "string" ? tokenHashValue : null;
+	const type = parseOtpType(typeof typeValue === "string" ? typeValue : null);
 
 	if (!tokenHash || !type) {
 		return Astro.redirect("/auth/signin?error=invalid_verification");
