@@ -71,10 +71,6 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		}
 
 		const updatedUser = await userService.update(user.id, updates);
-		if (!updatedUser) {
-			logger.error("User update returned null", { userId: user.id });
-			return jsonResponse(404, { ok: false, message: "user_not_found" });
-		}
 
 		return jsonResponse(200, {
 			ok: true,

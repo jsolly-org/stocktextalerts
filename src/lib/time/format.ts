@@ -283,7 +283,6 @@ function getUsMarketOpenLocalMinutes(userTimezone: string): number {
 	);
 }
 
-/** 30 min before US market open (9:00 AM ET) converted to the user's local timezone. */
 export function getUsBeforeOpenLocalMinutes(userTimezone: string): number {
 	return getEasternTimeAsLocalMinutes(
 		US_BEFORE_OPEN_EASTERN_MINUTES,
@@ -291,7 +290,6 @@ export function getUsBeforeOpenLocalMinutes(userTimezone: string): number {
 	);
 }
 
-/** 30 min after US market open (10:00 AM ET) converted to the user's local timezone. */
 export function getUsAfterOpenLocalMinutes(userTimezone: string): number {
 	return getEasternTimeAsLocalMinutes(
 		US_AFTER_OPEN_EASTERN_MINUTES,

@@ -18,15 +18,12 @@ type DbUserAssetRow = Database["public"]["Tables"]["user_assets"]["Row"];
 Public Types
 ============= */
 
-/** Full `users` table row type (public schema). */
 export type User = DbUserRow;
-/** A user's tracked asset joined with canonical asset details. */
 export type UserAsset = Pick<DbUserAssetRow, "symbol" | "created_at"> & {
 	name: DbAssetRow["name"];
 	type: DbAssetRow["type"];
 };
 
-/** Snapshot of user notification-related columns used for quick comparisons/decisions. */
 export type NotificationPreferencesSnapshot = Pick<
 	User,
 	| "market_scheduled_asset_price_enabled"
@@ -64,7 +61,6 @@ export type NotificationPreferencesSnapshot = Pick<
 	| "market_asset_price_alert_follow_up_mode"
 >;
 
-/** Subset of notification preferences editable from the dashboard UI. */
 export type NotificationPreferences = Pick<
 	User,
 	| "email_notifications_enabled"
@@ -76,25 +72,15 @@ export type NotificationPreferences = Pick<
 Users
 ============= */
 
-/** Allowed update payload for the `users` table. */
 export type UserUpdateInput = DbUserUpdate;
 
-/**
- * Create a small, cookie-aware user service wrapper around the Supabase client.
- *
- * This centralizes session refresh + cookie updates so RLS-backed queries keep working.
- */
+/* Centralizes session refresh + cookie updates so RLS-backed queries keep working. */
 export function createUserService(
 	supabase: AppSupabaseClient,
 	cookies: AstroCookies,
 ) {
 	return {
-		/**
-		 * Resolve the current authenticated user from auth cookies.
-		 *
-		 * Refreshes the Supabase session and updates cookies when tokens rotate.
-		 * Returns `null` when unauthenticated or when tokens are invalid/expired.
-		 */
+		/* Refreshes session and cookies when tokens rotate; null when unauthenticated or invalid. */
 		async getCurrentUser() {
 			const accessToken = cookies.get("sb-access-token");
 			const refreshToken = cookies.get("sb-refresh-token");
@@ -149,9 +135,6 @@ export function createUserService(
 			return sessionResponse.data.user ?? null;
 		},
 
-		/**
-		 * Fetch a user row by id using RLS.
-		 */
 		async getById(id: string): Promise<User | null> {
 			const { data, error } = await supabase
 				.from("users")
@@ -163,9 +146,6 @@ export function createUserService(
 			return data as User | null;
 		},
 
-		/**
-		 * Update a user row by id and return the updated record.
-		 */
 		async update(id: string, updates: UserUpdateInput): Promise<User> {
 			const { data, error } = await supabase
 				.from("users")
@@ -184,9 +164,6 @@ export function createUserService(
 Assets
 ============= */
 
-/**
- * Load a user's tracked assets (symbol + created_at + asset name).
- */
 export async function getUserAssets(
 	supabase: AppSupabaseClient,
 	userId: string,

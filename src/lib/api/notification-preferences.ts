@@ -5,11 +5,7 @@ import {
 import type { NotificationPreferencesSnapshot } from "../db";
 import { rootLogger } from "../logging";
 
-/**
- * Fetch the latest notification-preferences snapshot from the server.
- *
- * Returns `null` on failure; redirects to sign-in when the session is unauthorized.
- */
+/* Returns null on failure; redirects to sign-in when session is unauthorized. */
 export async function fetchCurrentNotificationPreferences(): Promise<NotificationPreferencesSnapshot | null> {
 	try {
 		const method = "GET";

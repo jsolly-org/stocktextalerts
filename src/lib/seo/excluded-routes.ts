@@ -1,9 +1,4 @@
-/**
- * Single source of truth for route prefixes excluded from SEO crawling.
- *
- * Used by both the sitemap filter (astro.config.ts) and robots.txt generation
- * to keep the two in sync.
- */
+/* Single source of truth for route prefixes excluded from SEO (sitemap + robots.txt). */
 export const EXCLUDED_ROUTE_PREFIXES = [
 	"/auth/forgot",
 	"/auth/recover",
@@ -18,8 +13,5 @@ export const EXCLUDED_ROUTE_PREFIXES = [
 	"/500",
 ] as const;
 
-/**
- * Additional prefixes disallowed in robots.txt but not relevant to the sitemap
- * (e.g. API routes that never appear in the sitemap).
- */
+/* Disallowed in robots.txt only (e.g. /api/); not relevant to sitemap. */
 export const ROBOTS_ONLY_DISALLOW_PREFIXES = ["/api/"] as const;

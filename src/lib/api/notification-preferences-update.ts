@@ -37,11 +37,7 @@ interface ParsedNotificationPreferencesForm {
 	market_asset_price_alert_follow_up_mode?: "first_only" | "allow_follow_up";
 }
 
-/**
- * Compute `market_scheduled_asset_price_next_send_at` for scheduled update notifications when timezone or schedule changes.
- *
- * Mutates `updates` in-place so callers can compose a single `users` table update payload.
- */
+/* Mutates updates in-place so callers can compose a single users table update. */
 function computeScheduledNextSendAt(
 	updates: UserUpdateInput,
 	dbUser: User,
@@ -69,11 +65,6 @@ function computeScheduledNextSendAt(
 	}
 }
 
-/**
- * Compute `daily_digest_next_send_at` when the daily delivery time or timezone changes.
- *
- * Mutates `updates` in-place so callers can compose a single `users` table update payload.
- */
 function computeDailyNextSendAt(
 	updates: UserUpdateInput,
 	dbUser: User,
@@ -100,11 +91,6 @@ function computeDailyNextSendAt(
 	}
 }
 
-/**
- * Compute `asset_events_next_send_at` when asset events preferences, daily delivery time, or timezone changes.
- *
- * Mutates `updates` in-place so callers can compose a single `users` table update payload.
- */
 function computeAssetEventsNextSendAt(
 	updates: UserUpdateInput,
 	dbUser: User,
