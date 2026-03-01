@@ -25,6 +25,16 @@ interface ImportMetaEnv {
 	readonly LIVE_API_PROVIDERS?: string;
 }
 
+declare module "sns-validator" {
+	class MessageValidator {
+		validate(
+			message: Record<string, unknown>,
+			callback: (err: Error | null, message: Record<string, unknown>) => void,
+		): void;
+	}
+	export default MessageValidator;
+}
+
 declare module "*.svg?component" {
 	import type { DefineComponent } from "vue";
 	const component: DefineComponent;

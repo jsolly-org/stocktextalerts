@@ -94,7 +94,11 @@ SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 SUPABASE_SECRET_KEY=your-service-role-key
 DATABASE_URL=postgresql://postgres:password@host:5432/database
 
-# AWS SMS / Pinpoint (uses AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION from your AWS config)
+# AWS (shared across SES email + SMS + Pinpoint OTP)
+AWS_ACCESS_KEY_ID=your-aws-access-key-id
+AWS_SECRET_ACCESS_KEY=your-aws-secret-access-key
+AWS_REGION=us-east-1
+# AWS SMS / Pinpoint
 AWS_SMS_ORIGINATION_IDENTITY=+1234567890
 AWS_PINPOINT_APP_ID=your-pinpoint-app-id
 
@@ -123,7 +127,8 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`: Supabase Dashboard → Project Settings → API Keys
 - `SUPABASE_SECRET_KEY`: Supabase Dashboard → Project Settings → API Keys → Secret keys
 - `DATABASE_URL`: Supabase Dashboard → Project Settings → Database → Connection String → Transaction mode (pooler)
-- AWS SMS credentials: Use existing AWS IAM credentials; `AWS_SMS_ORIGINATION_IDENTITY` from End User Messaging console; `AWS_PINPOINT_APP_ID` from Pinpoint console
+- AWS credentials: `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` from IAM user or role credentials, `AWS_REGION` from your AWS deployment region
+- AWS SMS identifiers: `AWS_SMS_ORIGINATION_IDENTITY` from End User Messaging console; `AWS_PINPOINT_APP_ID` from Pinpoint console
 - `CRON_SECRET`: Generate a random string (minimum 12 characters; e.g., `openssl rand -hex 32`)
 - Massive credentials: Massive Dashboard → API Keys
 - Finnhub credentials: Finnhub Dashboard → API Keys

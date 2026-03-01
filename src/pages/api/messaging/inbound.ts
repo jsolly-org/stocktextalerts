@@ -1,7 +1,10 @@
 import type { APIRoute } from "astro";
+import MessageValidator from "sns-validator";
 import { createSupabaseAdminClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 import { handleInboundSms } from "../../../lib/messaging/sms/inbound-utils";
+
+const snsValidator = new MessageValidator();
 
 interface SnsMessage {
 	Type: string;
@@ -13,6 +16,26 @@ interface SnsMessage {
 	Signature: string;
 	SigningCertURL: string;
 	SubscribeURL?: string;
+}
+
+/** Validate SNS message signature before processing; returns the parsed message or throws. */
+function validateSnsMessage(rawBody: string): Promise<SnsMessage> {
+	return new Promise((resolve, reject) => {
+		let parsed: SnsMessage;
+		try {
+			parsed = JSON.parse(rawBody) as SnsMessage;
+		} catch {
+			reject(new Error("Invalid JSON"));
+			return;
+		}
+		snsValidator.validate(
+			parsed as unknown as Record<string, unknown>,
+			(err: Error | null, _validated: Record<string, unknown>) => {
+				if (err) reject(err);
+				else resolve(parsed);
+			},
+		);
+	});
 }
 
 interface SnsSmsTwoWayPayload {
@@ -50,17 +73,32 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		const rawBody = await request.text();
 		let snsMessage: SnsMessage;
 		try {
-			snsMessage = JSON.parse(rawBody) as SnsMessage;
-		} catch {
-			logger.info("Inbound SMS request with invalid JSON body");
-			return new Response("Invalid JSON", { status: 400 });
+			snsMessage = await validateSnsMessage(rawBody);
+		} catch (err) {
+			const isJson = err instanceof Error && err.message === "Invalid JSON";
+			logger.info(
+				isJson
+					? "Inbound SMS request with invalid JSON body"
+					: "SNS message signature validation failed",
+				isJson ? undefined : { error: err },
+			);
+			return new Response(isJson ? "Invalid JSON" : "Invalid signature", {
+				status: isJson ? 400 : 403,
+			});
 		}
 
-		// Handle SNS subscription confirmation
+		// Handle SNS subscription confirmation (only after signature validation)
 		if (
 			snsMessage.Type === "SubscriptionConfirmation" &&
 			snsMessage.SubscribeURL
 		) {
+			const subscribeUrl = new URL(snsMessage.SubscribeURL);
+			if (!subscribeUrl.hostname.endsWith(".amazonaws.com")) {
+				logger.warn("Rejecting non-AWS SubscribeURL", {
+					hostname: subscribeUrl.hostname,
+				});
+				return new Response("Invalid SubscribeURL", { status: 400 });
+			}
 			logger.info("Confirming SNS subscription", {
 				topicArn: snsMessage.TopicArn,
 			});

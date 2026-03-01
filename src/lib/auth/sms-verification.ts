@@ -30,19 +30,18 @@ function handleAwsError(
 		};
 	}
 
-	const errorMessage = error instanceof Error ? error.message : defaultMessage;
 	const errorType = error?.constructor?.name || typeof error;
 	rootLogger.error(
 		logPrefix,
 		{
 			errorType,
-			message: errorMessage,
+			message: defaultMessage,
 		},
-		error instanceof Error ? error : undefined,
+		undefined,
 	);
 	return {
 		success: false,
-		error: errorMessage,
+		error: defaultMessage,
 	};
 }
 

@@ -10,6 +10,14 @@ import {
 } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
+vi.mock("sns-validator", () => ({
+	default: class MessageValidator {
+		validate(msg: unknown, cb: (err: Error | null, m: unknown) => void) {
+			cb(null, msg);
+		}
+	},
+}));
+
 vi.mock(
 	"../../../src/lib/messaging/sms/aws-sms-utils",
 	async (importOriginal) => {

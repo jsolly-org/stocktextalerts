@@ -56,19 +56,22 @@ async function applyUserUpdate(
 
 /**
  * Send a reply SMS back to the user via AWS End User Messaging.
+ * Returns whether the reply was sent successfully so callers can handle failures.
  */
-async function sendReply(to: string, message: string): Promise<void> {
+async function sendReply(to: string, message: string): Promise<boolean> {
 	try {
 		const config = readSmsConfig();
 		const client = createSmsClient(config);
 		const sender = createSmsSender(client, config.originationIdentity);
-		await sender({ to, body: message });
+		const result = await sender({ to, body: message });
+		return result.success;
 	} catch (error) {
 		rootLogger.error(
 			"Failed to send inbound SMS reply",
 			{ to: to.slice(-4).padStart(to.length, "*") },
 			error,
 		);
+		return false;
 	}
 }
 
