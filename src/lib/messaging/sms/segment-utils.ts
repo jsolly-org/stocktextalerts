@@ -53,7 +53,7 @@ export function padUrlsToSegmentBoundaries(message: string): string {
 				(Math.floor(adjustedStart / SMS_UCS2_SEGMENT_SIZE) + 1) *
 				SMS_UCS2_SEGMENT_SIZE;
 			const padding = nextSegmentStart - adjustedStart;
-			const pad = "\n".repeat(padding);
+			const pad = " ".repeat(padding);
 			result =
 				result.slice(0, adjustedStart) + pad + result.slice(adjustedStart);
 			offset += padding;
