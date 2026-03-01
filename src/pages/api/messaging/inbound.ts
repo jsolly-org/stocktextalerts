@@ -41,8 +41,8 @@ function validateSnsMessage(rawBody: string): Promise<SnsMessage> {
 interface SnsSmsTwoWayPayload {
 	originationNumber: string;
 	messageBody: string;
-	destinationNumber: string;
-	messageKeyword: string;
+	destinationNumber?: string;
+	messageKeyword?: string;
 }
 
 /**

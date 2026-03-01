@@ -15,7 +15,7 @@ interface InboundSmsDependencies {
 interface InboundSmsRequest {
 	originationNumber: string;
 	messageBody: string;
-	destinationNumber: string;
+	destinationNumber?: string;
 }
 
 interface InboundSmsResponse {
@@ -78,6 +78,23 @@ async function sendReply(to: string, message: string): Promise<boolean> {
 			error,
 		);
 		return false;
+	}
+}
+
+/**
+ * Send a reply and log a warning if delivery fails (for observability).
+ */
+async function sendReplyAndLog(
+	to: string,
+	message: string,
+	context: string,
+): Promise<void> {
+	const sent = await sendReply(to, message);
+	if (!sent) {
+		rootLogger.warn("Failed to send reply for inbound SMS", {
+			context,
+			phone: to.slice(-4).padStart(to.length, "*"),
+		});
 	}
 }
 
@@ -173,9 +190,10 @@ export async function handleInboundSms(
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 
 	if (!phoneVerified) {
-		await sendReply(
+		await sendReplyAndLog(
 			from,
 			"Phone number not verified. Please verify your phone number first.",
+			"unverified_phone",
 		);
 		return {
 			status: 200,
@@ -196,9 +214,10 @@ export async function handleInboundSms(
 		);
 		if (err) return err;
 
-		await sendReply(
+		await sendReplyAndLog(
 			from,
 			`You have been unsubscribed from SMS and email notifications. Manage notification-preferences at ${dashboardUrl}.`,
+			"stop_all",
 		);
 		return {
 			status: 200,
@@ -221,7 +240,7 @@ export async function handleInboundSms(
 			? `Email notifications are now off. To stop SMS too, reply STOP ALL or visit ${dashboardUrl}.`
 			: `Email notifications are now off. Manage notification-preferences at ${dashboardUrl}.`;
 
-		await sendReply(from, stopEmailMessage);
+		await sendReplyAndLog(from, stopEmailMessage, "stop_email");
 		return {
 			status: 200,
 			body: "Email notifications are now off",
@@ -244,7 +263,7 @@ export async function handleInboundSms(
 			? `You have been unsubscribed from SMS notifications. To stop email too, reply STOP EMAIL or visit ${dashboardUrl}.`
 			: `You have been unsubscribed from SMS notifications. Manage notification-preferences at ${dashboardUrl}.`;
 
-		await sendReply(from, stopSmsMessage);
+		await sendReplyAndLog(from, stopSmsMessage, "stop_sms");
 		return {
 			status: 200,
 			body: "unsubscribed from SMS notifications",
@@ -262,9 +281,10 @@ export async function handleInboundSms(
 		);
 		if (err) return err;
 
-		await sendReply(
+		await sendReplyAndLog(
 			from,
 			`You can receive SMS again. Re-enable SMS notifications from your dashboard: ${dashboardUrl}.`,
+			"start",
 		);
 		return {
 			status: 200,
@@ -273,9 +293,10 @@ export async function handleInboundSms(
 	}
 
 	if (HELP_RE.test(body)) {
-		await sendReply(
+		await sendReplyAndLog(
 			from,
 			`StockTextDashboard: Reply STOP to unsubscribe from SMS, STOP EMAIL to unsubscribe from email, STOP ALL to unsubscribe from both. Manage settings at ${dashboardUrl}.`,
+			"help",
 		);
 		return {
 			status: 200,
@@ -283,7 +304,11 @@ export async function handleInboundSms(
 		};
 	}
 
-	await sendReply(from, "Unknown command. Reply HELP for options.");
+	await sendReplyAndLog(
+		from,
+		"Unknown command. Reply HELP for options.",
+		"unknown_command",
+	);
 	return {
 		status: 200,
 		body: "Unknown command",
