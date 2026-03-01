@@ -64,7 +64,13 @@ async function sendReply(to: string, message: string): Promise<boolean> {
 		const client = createSmsClient(config);
 		const sender = createSmsSender(client, config.originationIdentity);
 		const result = await sender({ to, body: message });
-		return result.success;
+		if (!result.success) {
+			rootLogger.warn("Inbound SMS reply send returned success: false", {
+				to: to.slice(-4).padStart(to.length, "*"),
+			});
+			return false;
+		}
+		return true;
 	} catch (error) {
 		rootLogger.error(
 			"Failed to send inbound SMS reply",

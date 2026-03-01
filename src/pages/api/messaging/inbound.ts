@@ -102,10 +102,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			logger.info("Confirming SNS subscription", {
 				topicArn: snsMessage.TopicArn,
 			});
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 10000);
 			try {
-				await fetch(snsMessage.SubscribeURL);
+				await fetch(snsMessage.SubscribeURL, {
+					signal: controller.signal,
+				});
+				clearTimeout(timeoutId);
 				return new Response("Subscription confirmed", { status: 200 });
 			} catch (error) {
+				clearTimeout(timeoutId);
 				logger.error(
 					"Failed to confirm SNS subscription",
 					{
@@ -117,6 +123,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
 					status: 500,
 				});
 			}
+		}
+
+		// Optional: reject messages from unexpected SNS topics when configured
+		const expectedTopicArn = import.meta.env.AWS_SNS_TOPIC_ARN;
+		if (
+			typeof expectedTopicArn === "string" &&
+			expectedTopicArn !== "" &&
+			snsMessage.TopicArn !== expectedTopicArn
+		) {
+			logger.warn("Rejecting message from unexpected topic", {
+				topicArn: snsMessage.TopicArn,
+			});
+			return new Response("Forbidden", { status: 403 });
 		}
 
 		// Only process Notification type

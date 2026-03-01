@@ -50,7 +50,6 @@ vi.mock(
 			>();
 		return {
 			...actual,
-			createSmsClient: () => ({}),
 			createSmsSender: () => async () => ({
 				success: true,
 				messageSid: "test-reply",
@@ -205,10 +204,6 @@ describe("Scheduled notification scenarios", () => {
 	});
 
 	it("User with both email and SMS enabled receives both at scheduled time.", async () => {
-		if (!isLiveProviderEnabled("sms")) {
-			vi.stubEnv("AWS_SMS_ORIGINATION_IDENTITY", "+15551234567");
-		}
-
 		const timezone = "America/New_York";
 		const nowLocal = DateTime.now().setZone(timezone);
 		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
@@ -489,9 +484,6 @@ describe("Scheduled notification scenarios", () => {
 	});
 
 	it("User who texted START and re-enabled SMS in dashboard receives next scheduled notification by SMS.", async () => {
-		if (!isLiveProviderEnabled("sms")) {
-			vi.stubEnv("AWS_SMS_ORIGINATION_IDENTITY", "+15551234567");
-		}
 		const timezone = "America/New_York";
 		const nowLocal = DateTime.now().setZone(timezone);
 		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;

@@ -23,12 +23,13 @@ interface ImportMetaEnv {
 	readonly SMS_TEST_ERROR?: string;
 	readonly SMS_TEST_ERROR_CODE?: string;
 	readonly LIVE_API_PROVIDERS?: string;
+	readonly AWS_SNS_TOPIC_ARN?: string;
 }
 
 declare module "sns-validator" {
 	class MessageValidator {
 		validate(
-			message: Record<string, unknown>,
+			message: Record<string, unknown> | string,
 			callback: (err: Error | null, message: Record<string, unknown>) => void,
 		): void;
 	}
