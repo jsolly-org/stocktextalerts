@@ -445,7 +445,8 @@ test.describe("sanity tests", () => {
 		await page.goto("/auth/register");
 		await page.locator("#email").fill(testEmail);
 		await page.locator("#password").fill(testPassword);
-		await page.getByRole("button", { name: "Register" }).click();
+		await page.locator("#confirm").fill(testPassword);
+		await page.getByRole("button", { name: "Create account" }).click();
 		await expectCurrentPath(page, "/auth/unconfirmed");
 
 		const confirmationEmail = await waitForEmail(
@@ -463,6 +464,8 @@ test.describe("sanity tests", () => {
 
 		await page.goto(rewriteLinkOrigin(confirmationLink, baseOrigin));
 		await expectCurrentPath(page, "/auth/verified");
+		await page.getByRole("button", { name: "Verify my email" }).click();
+		await expect(page.getByText("Email Verified!")).toBeVisible();
 
 		await signIn(page, testEmail, testPassword);
 
@@ -486,6 +489,39 @@ test.describe("sanity tests", () => {
 		await expectCurrentPath(page, "/auth/signin");
 
 		await signIn(page, testEmail, testPassword);
+	});
+
+	test("TC-DASH-001: New user dashboard has correct initial state", async () => {
+		await page.goto("/dashboard");
+		await expectCurrentPath(page, "/dashboard");
+
+		// Email toggle should be ON by default
+		const emailSwitch = page.getByRole("switch", {
+			name: "Email notifications",
+		});
+		await expect(emailSwitch).toHaveAttribute("aria-checked", "true");
+
+		// SMS toggle should be OFF by default
+		const smsSwitch = page.getByRole("switch", {
+			name: "SMS notifications",
+		});
+		await expect(smsSwitch).toHaveAttribute("aria-checked", "false");
+
+		// Phone input should NOT be visible when SMS is off
+		await expect(page.locator("#phone")).not.toBeVisible();
+
+		// No tracked assets
+		await expect(page.getByText("No assets tracked yet")).toBeVisible();
+
+		// Toggle SMS ON → phone input should appear
+		await smsSwitch.click();
+		await expect(smsSwitch).toHaveAttribute("aria-checked", "true");
+		await expect(page.locator("#phone")).toBeVisible();
+
+		// Toggle SMS back OFF → phone input should disappear
+		await smsSwitch.click();
+		await expect(smsSwitch).toHaveAttribute("aria-checked", "false");
+		await expect(page.locator("#phone")).not.toBeVisible();
 	});
 
 	test("TC-TZ-001: User can configure timezone", async () => {
@@ -519,6 +555,61 @@ test.describe("sanity tests", () => {
 		await page.reload();
 		await expectCurrentPath(page, "/profile");
 		await expect(page.locator("#profile-timezone")).toHaveValue(targetTimezone);
+	});
+
+	test("TC-TIME-001: User can toggle 24-hour time format", async () => {
+		await page.goto("/profile");
+		await expectCurrentPath(page, "/profile");
+
+		// Wait for the TimeFormatSection Vue component to hydrate.
+		await page.locator("[data-hydrated]").waitFor({ timeout: 15_000 });
+
+		const timeSwitch = page.getByRole("switch", {
+			name: "Use 24-hour time",
+		});
+
+		// Default should be OFF (12-hour)
+		await expect(timeSwitch).toHaveAttribute("aria-checked", "false");
+
+		// Toggle ON and verify save confirmation
+		await Promise.all([
+			page.waitForResponse(
+				(response) =>
+					response.url().includes("/api/profile/time-format") &&
+					response.status() === 200,
+				{ timeout: 15_000 },
+			),
+			timeSwitch.click(),
+		]);
+		await expect(timeSwitch).toHaveAttribute("aria-checked", "true");
+		await expect(page.getByText("Time format updated.")).toBeVisible({
+			timeout: 10_000,
+		});
+
+		// Reload and verify it persisted
+		await page.reload();
+		await page.locator("[data-hydrated]").waitFor({ timeout: 15_000 });
+		await expect(
+			page.getByRole("switch", { name: "Use 24-hour time" }),
+		).toHaveAttribute("aria-checked", "true");
+
+		// Toggle back OFF so we don't affect other tests
+		const timeSwitchAfterReload = page.getByRole("switch", {
+			name: "Use 24-hour time",
+		});
+		await Promise.all([
+			page.waitForResponse(
+				(response) =>
+					response.url().includes("/api/profile/time-format") &&
+					response.status() === 200,
+				{ timeout: 15_000 },
+			),
+			timeSwitchAfterReload.click(),
+		]);
+		await expect(timeSwitchAfterReload).toHaveAttribute(
+			"aria-checked",
+			"false",
+		);
 	});
 
 	test("TC-AST-001: User can add assets to track", async () => {
@@ -633,33 +724,57 @@ test.describe("sanity tests", () => {
 		}
 
 		await page.goto("/dashboard");
-		const localPhone = generateUniquePhoneNumber();
-		if (await page.locator("#phone").isVisible()) {
-			await page.locator("#phone").fill(localPhone);
-		}
 
+		// Toggle SMS ON via UI — phone input should appear
+		const smsSwitch = page.getByRole("switch", { name: "SMS notifications" });
+		if ((await smsSwitch.getAttribute("aria-checked")) !== "true") {
+			await smsSwitch.click();
+		}
+		await expect(smsSwitch).toHaveAttribute("aria-checked", "true");
+		await expect(page.locator("#phone")).toBeVisible();
+		await expect
+			.poll(
+				async () => {
+					const { data, error } = await adminClient
+						.from("users")
+						.select("sms_notifications_enabled")
+						.eq("id", testUserId)
+						.single();
+					if (error) {
+						throw new Error(
+							`Failed to verify SMS notification state: ${error.message}`,
+						);
+					}
+					return data.sms_notifications_enabled;
+				},
+				{ timeout: 30_000 },
+			)
+			.toBe(true);
+
+		// Fill phone number via UI
 		const adminPhone = generateUniquePhoneNumber();
-		const { error: updateError } = await adminClient
+		await page.locator("#phone").fill(adminPhone);
+
+		// Admin shortcut: mark phone as verified (can't receive OTP in E2E)
+		const { error: verifyError } = await adminClient
 			.from("users")
 			.update({
 				phone_country_code: "+1",
 				phone_number: adminPhone,
 				phone_verified: true,
-				sms_notifications_enabled: true,
 				sms_opted_out: false,
-				market_scheduled_asset_price_include_sms: true,
 			})
 			.eq("id", testUserId);
-		if (updateError) {
+		if (verifyError) {
 			throw new Error(
-				`Failed to enable SMS in admin update: ${updateError.message}`,
+				`Failed to verify phone via admin: ${verifyError.message}`,
 			);
 		}
 
 		await page.reload();
-		const smsSwitch = page.getByRole("switch", { name: "SMS notifications" });
 		await expect(smsSwitch).toHaveAttribute("aria-checked", "true");
 
+		// Enable scheduled SMS checkbox via UI
 		const marketNotificationsForm = page.locator(
 			'form[aria-label="Market notifications"]',
 		);
@@ -670,6 +785,7 @@ test.describe("sanity tests", () => {
 			await scheduledSmsCheckbox.click();
 		}
 
+		// Admin shortcut: reset next_send_at (no UI for this) and trigger schedule
 		const { error: resetSmsNextSendError } = await adminClient
 			.from("users")
 			.update({ market_scheduled_asset_price_next_send_at: null })
@@ -709,6 +825,49 @@ test.describe("sanity tests", () => {
 		await waitForEmailNotificationsEnabled(testUserId, true);
 		await page.reload();
 		await expect(emailSwitch).toHaveAttribute("aria-checked", "true");
+	});
+
+	test("TC-AUTH-002: Dashboard state persists across sign-out and sign-in", async () => {
+		await page.goto("/dashboard");
+
+		// Verify tracked assets still present
+		await expect(
+			page.getByRole("button", { name: "Remove AAPL" }),
+		).toBeVisible();
+
+		// Verify email toggle is ON
+		const emailSwitch = page.getByRole("switch", {
+			name: "Email notifications",
+		});
+		await expect(emailSwitch).toHaveAttribute("aria-checked", "true");
+
+		// Verify SMS toggle is ON (was enabled in TC-SMS-001)
+		const smsSwitch = page.getByRole("switch", {
+			name: "SMS notifications",
+		});
+		await expect(smsSwitch).toHaveAttribute("aria-checked", "true");
+
+		// Sign out
+		await page.getByRole("button", { name: "Sign Out" }).click();
+		await expectCurrentPath(page, "/");
+
+		// Dashboard should redirect to sign-in
+		await page.goto("/dashboard");
+		await expectCurrentPath(page, "/auth/signin");
+
+		// Sign back in
+		await signIn(page, testEmail, testPassword);
+
+		// Verify state persisted
+		await expect(
+			page.getByRole("button", { name: "Remove AAPL" }),
+		).toBeVisible();
+		await expect(
+			page.getByRole("switch", { name: "Email notifications" }),
+		).toHaveAttribute("aria-checked", "true");
+		await expect(
+			page.getByRole("switch", { name: "SMS notifications" }),
+		).toHaveAttribute("aria-checked", "true");
 	});
 
 	test("TC-PROF-001: User can change password and update email", async () => {

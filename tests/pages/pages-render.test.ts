@@ -180,6 +180,21 @@ describe("Users can load pages without unexpected errors.", () => {
 		expect(response.status).toBe(200);
 	});
 
+	it("A GET with token_hash renders a confirm button instead of immediately verifying.", async () => {
+		const container = await AstroContainer.create({ renderers });
+		const response = await container.renderToResponse(AuthVerifiedPage, {
+			request: buildRequest("/auth/verified?token_hash=abc123&type=email"),
+		});
+
+		expect(response.status).toBe(200);
+		const html = await response.text();
+		expect(html).toContain('name="token_hash"');
+		expect(html).toContain('value="abc123"');
+		expect(html).toContain("Verify my email");
+		expect(html).not.toContain("Email Verified!");
+		expect(html).not.toContain("all set.");
+	});
+
 	it("A signed-in user can view the verified page.", async () => {
 		await withTestUser(
 			{

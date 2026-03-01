@@ -37,7 +37,7 @@
 			</div>
 
 			<div>
-				<div v-if="props.phoneVerified" class="flex items-center justify-between gap-3 py-4">
+				<div class="flex items-center justify-between gap-3 py-4">
 					<input
 						type="hidden"
 						name="sms_notifications_enabled"
@@ -63,6 +63,7 @@
 				</StatusMessage>
 
 				<SmsVerificationSection
+					v-if="smsEnabledModel"
 					:sms-opted-out="props.smsOptedOut"
 				/>
 			</div>
@@ -126,7 +127,6 @@ import SmsVerificationSection from "./SmsVerificationSection.vue";
 interface Props {
 	emailEnabled: boolean;
 	smsNotificationsEnabled: boolean;
-	phoneVerified: boolean;
 	smsOptedOut: boolean;
 	smsPhoneNumber: string;
 	emailNotificationsEnabledId: string;
