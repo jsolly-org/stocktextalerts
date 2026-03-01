@@ -30,7 +30,7 @@
 #### AWS (region: `us-east-1`)
 - **SES**: Email delivery via `@aws-sdk/client-sesv2`. Domain `stocktextalerts.com` verified with DKIM. Dedicated IAM user with SES send-only policy (profile and IAM names in env/docs, not committed).
 - **SMS/Pinpoint**: AWS End User Messaging for SMS delivery and Pinpoint for OTP verification.
-- Env vars: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_SMS_ORIGINATION_IDENTITY`, `AWS_PINPOINT_APP_ID`.
+- **Credentials**: For CI and production runtime, use short-lived credentials via IAM role or OIDC (e.g. GitHub Actions OIDC, Vercel runtime role). Use static keys only as a local-development fallback. Env vars: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (local dev only), `AWS_REGION`, `AWS_SMS_ORIGINATION_IDENTITY`, `AWS_PINPOINT_APP_ID`.
 
 #### Cloudflare (DNS for `stocktextalerts.com`)
 - Nameservers and Zone ID: query via `dig NS stocktextalerts.com` or Cloudflare dashboard — do not commit Zone ID.
