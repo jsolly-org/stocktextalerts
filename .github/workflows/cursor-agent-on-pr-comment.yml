@@ -403,6 +403,7 @@ jobs:
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
           COMMENT_ID: ${{ steps.context.outputs.comment_id }}
           EVENT_NAME: ${{ steps.context.outputs.event_name }}
+          INLINE_COMMENT_IDS: ${{ steps.context.outputs.inline_review_comment_ids }}
         run: |
           touch "$WARNINGS_FILE"
           log_warning() {
@@ -457,6 +458,67 @@ jobs:
 
           elif [[ "$EVENT_NAME" == "issue_comment" ]]; then
             gh api -X POST "/repos/$REPO/issues/comments/$COMMENT_ID/reactions" -f content=eyes 2> /tmp/gh-err.txt || log_warning "Failed to add reaction for issue comment $COMMENT_ID. API stderr: $(cat /tmp/gh-err.txt)"
+
+          elif [[ "$EVENT_NAME" == "pull_request_review" ]]; then
+            # Resolve all inline comment threads from this review
+            if [[ -z "$INLINE_COMMENT_IDS" ]]; then
+              echo "No inline comment IDs to resolve for pull_request_review event."
+            else
+              OWNER="${REPO%%/*}"
+              REPO_NAME="${REPO##*/}"
+
+              THREAD_QUERY='query($owner:String!,$repo:String!,$prNumber:Int!,$cursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$prNumber){reviewThreads(first:100,after:$cursor){pageInfo{hasNextPage endCursor}nodes{id isResolved comments(first:100){nodes{databaseId}}}}}}}'
+
+              # Fetch all review threads once (paginated)
+              ALL_THREADS="[]"
+              CURSOR=""
+              while true; do
+                CURSOR_ARG=()
+                [[ -n "$CURSOR" ]] && CURSOR_ARG=(-f cursor="$CURSOR")
+                THREAD_JSON=$(gh api graphql \
+                  -f query="$THREAD_QUERY" \
+                  -f owner="$OWNER" \
+                  -f repo="$REPO_NAME" \
+                  -F prNumber="$PR_NUMBER" \
+                  "${CURSOR_ARG[@]}" \
+                  2> /tmp/gh-err.txt) || { log_warning "Failed to fetch review threads for PR $PR_NUMBER. API stderr: $(cat /tmp/gh-err.txt)"; break; }
+
+                PAGE_THREADS=$(echo "$THREAD_JSON" | jq '.data.repository.pullRequest.reviewThreads.nodes')
+                ALL_THREADS=$(echo "$ALL_THREADS" "$PAGE_THREADS" | jq -s 'add')
+
+                HAS_NEXT=$(echo "$THREAD_JSON" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage')
+                [[ "$HAS_NEXT" != "true" ]] && break
+                CURSOR=$(echo "$THREAD_JSON" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor')
+              done
+
+              RESOLVE_MUTATION='mutation($threadId:ID!){resolveReviewThread(input:{threadId:$threadId}){thread{isResolved}}}'
+              RESOLVED_COUNT=0
+              SKIPPED_COUNT=0
+
+              while IFS= read -r CID; do
+                [[ -z "$CID" ]] && continue
+                THREAD_ID=$(echo "$ALL_THREADS" | jq -r --argjson cid "$CID" '
+                  .[] | select(.comments.nodes | any(.databaseId == $cid)) | .id' | head -1)
+
+                if [[ -z "$THREAD_ID" ]]; then
+                  log_warning "Could not find review thread for inline comment $CID in PR $PR_NUMBER."
+                  continue
+                fi
+
+                IS_RESOLVED=$(echo "$ALL_THREADS" | jq -r --argjson cid "$CID" '
+                  .[] | select(.comments.nodes | any(.databaseId == $cid)) | .isResolved' | head -1)
+
+                if [[ "$IS_RESOLVED" == "true" ]]; then
+                  SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+                  continue
+                fi
+
+                gh api graphql -f query="$RESOLVE_MUTATION" -f threadId="$THREAD_ID" 2> /tmp/gh-err.txt || log_warning "Failed to resolve review thread for inline comment $CID. API stderr: $(cat /tmp/gh-err.txt)"
+                RESOLVED_COUNT=$((RESOLVED_COUNT + 1))
+              done <<< "$INLINE_COMMENT_IDS"
+
+              echo "Resolved $RESOLVED_COUNT inline review thread(s), skipped $SKIPPED_COUNT already-resolved."
+            fi
 
           else
             echo "No comment processing action needed for event: $EVENT_NAME"
