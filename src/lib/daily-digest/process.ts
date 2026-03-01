@@ -626,13 +626,14 @@ export async function processDailyDigestUser(options: {
 			const smsContent =
 				hasSmsContent && smsExtras
 					? {
-							message: formatDailyDigestSmsMessage({
+							message: await formatDailyDigestSmsMessage({
 								userAssets,
 								assetPrices,
 								formatPrefs: { show_sparklines: user.show_sparklines },
 								extras: smsExtras,
 								assetEvents: smsAssetEvents,
 								sparklines,
+								supabase,
 							}),
 						}
 					: null;

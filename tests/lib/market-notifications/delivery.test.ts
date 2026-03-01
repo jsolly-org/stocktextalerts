@@ -9,10 +9,20 @@ import type { PriceAlertUser } from "../../../src/lib/market-notifications/users
 import type { DeliveryResult } from "../../../src/lib/messaging/types";
 
 function makeSupabaseMock(): AppSupabaseClient {
-	return {
-		from: () => ({
-			insert: async () => ({ error: null }),
+	const noopChain = {
+		select: () => ({
+			eq: () => ({
+				gt: () => ({
+					limit: () => ({
+						single: () => Promise.resolve({ data: null, error: null }),
+					}),
+				}),
+			}),
 		}),
+		insert: async () => ({ error: null }),
+	};
+	return {
+		from: () => noopChain,
 	} as unknown as AppSupabaseClient;
 }
 

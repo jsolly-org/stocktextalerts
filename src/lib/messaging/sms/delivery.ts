@@ -7,7 +7,9 @@ import { recordNotification } from "../shared";
 import type { ProcessingStats, SmsUser } from "../types";
 import { formatExtrasSection } from "./formatting";
 import { sendUserSms } from "./index";
+import { padUrlsToSegmentBoundaries } from "./segment-utils";
 import type { SmsSender } from "./twilio-utils";
+import { shortenUrl } from "./url-shortener";
 
 export type SmsExtras = {
 	news?: string | null;
@@ -34,19 +36,25 @@ function formatSmsExtras(extras?: SmsExtras): string {
 }
 
 /** Format the SMS body for a scheduled asset update. */
-export function formatSmsMessage(
+export async function formatSmsMessage(
 	assetsList: string,
 	marketOpen: boolean,
 	extras?: SmsExtras,
 	marketClosureInfo?: MarketClosureInfo | null,
-): string {
+	supabase?: AppSupabaseClient,
+): Promise<string> {
 	const optOutSuffix = "Reply STOP to opt out.";
-	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
+	const rawDashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
+	const dashboardUrl = supabase
+		? await shortenUrl(rawDashboardUrl, supabase)
+		: rawDashboardUrl;
 
 	const header = "StockTextAlerts — Your scheduled price notification 📈";
 
 	if (assetsList.trim() === NO_TRACKED_ASSETS_MESSAGE) {
-		return `${header}\n\n${NO_TRACKED_ASSETS_MESSAGE}.\n\nManage your settings: ${dashboardUrl}\n\n${optOutSuffix}`;
+		return padUrlsToSegmentBoundaries(
+			`${header}\n\n${NO_TRACKED_ASSETS_MESSAGE}.\n\nManage your settings: ${dashboardUrl}\n\n${optOutSuffix}`,
+		);
 	}
 
 	const marketDisclaimer = marketOpen
@@ -63,7 +71,7 @@ export function formatSmsMessage(
 		optOutSuffix,
 	].filter(Boolean);
 
-	return sections.join("\n\n");
+	return padUrlsToSegmentBoundaries(sections.join("\n\n"));
 }
 
 /** Send and record an SMS scheduled update for a user. */
@@ -76,11 +84,12 @@ export async function processSmsUpdate(
 	extras?: SmsExtras,
 	marketClosureInfo?: MarketClosureInfo | null,
 ): Promise<ProcessingStats> {
-	const smsMessage = formatSmsMessage(
+	const smsMessage = await formatSmsMessage(
 		assetsList,
 		marketOpen,
 		extras,
 		marketClosureInfo,
+		supabase,
 	);
 
 	const result = await sendUserSms(user, smsMessage, sendSms);

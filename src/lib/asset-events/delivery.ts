@@ -11,6 +11,8 @@ import {
 } from "../messaging/market-closure-banner";
 import { recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
+import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
+import { shortenUrl } from "../messaging/sms/url-shortener";
 import type { UserRecord } from "../messaging/types";
 import type {
 	ScheduledNotificationTotals,
@@ -28,7 +30,7 @@ SMS formatting
 ============= */
 
 /** Build the SMS body for an asset-events digest. */
-function formatAssetEventsSmsMessage(options: {
+async function formatAssetEventsSmsMessage(options: {
 	earningsSection: string | null;
 	dividendsSection: string | null;
 	splitsSection: string | null;
@@ -36,9 +38,11 @@ function formatAssetEventsSmsMessage(options: {
 	analystSection: string | null;
 	insiderSection: string | null;
 	marketClosureInfo?: MarketClosureInfo | null;
-}): string {
+	supabase: SupabaseAdminClient;
+}): Promise<string> {
 	const optOutSuffix = "Reply STOP to opt out.";
-	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
+	const rawDashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
+	const dashboardUrl = await shortenUrl(rawDashboardUrl, options.supabase);
 
 	const parts: string[] = ["StockTextAlerts — Asset Events 🗓️"];
 
@@ -72,7 +76,7 @@ function formatAssetEventsSmsMessage(options: {
 	parts.push(`Manage your settings: ${dashboardUrl}`);
 	parts.push(optOutSuffix);
 
-	return parts.join("\n\n");
+	return padUrlsToSegmentBoundaries(parts.join("\n\n"));
 }
 
 /* =============
@@ -399,7 +403,7 @@ export async function processAssetEventsSmsDelivery(options: {
 		return;
 	}
 
-	const smsMessage = formatAssetEventsSmsMessage({
+	const smsMessage = await formatAssetEventsSmsMessage({
 		earningsSection,
 		dividendsSection,
 		splitsSection,
@@ -407,6 +411,7 @@ export async function processAssetEventsSmsDelivery(options: {
 		analystSection,
 		insiderSection,
 		marketClosureInfo: options.marketClosureInfo,
+		supabase,
 	});
 	const result = await sendUserSms(user, smsMessage, smsSenderResult.sender);
 	const logged = await recordNotification(supabase, {

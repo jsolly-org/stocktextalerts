@@ -140,7 +140,7 @@ describe("Daily digest email prices", () => {
 		expect(message.html).toContain("<img ");
 	});
 
-	it("SMS uses ASCII sparklines, not SVG", () => {
+	it("SMS uses ASCII sparklines, not SVG", async () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 		]);
@@ -149,7 +149,7 @@ describe("Daily digest email prices", () => {
 			show_sparklines: true,
 		};
 
-		const message = formatDailyDigestSmsMessage({
+		const message = await formatDailyDigestSmsMessage({
 			userAssets: [userAssets[0]],
 			assetPrices,
 			formatPrefs: prefs,
@@ -180,7 +180,7 @@ describe("Daily digest email prices", () => {
 		expect(message.text).toContain("MSFT — price unavailable");
 	});
 
-	it("formats daily digest SMS with a Your Assets section", () => {
+	it("formats daily digest SMS with a Your Assets section", async () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 			["MSFT", { price: 412.1, changePercent: -0.31 }],
@@ -189,7 +189,7 @@ describe("Daily digest email prices", () => {
 			show_sparklines: false,
 		};
 
-		const message = formatDailyDigestSmsMessage({
+		const message = await formatDailyDigestSmsMessage({
 			userAssets,
 			assetPrices,
 			formatPrefs: prefs,

@@ -29,13 +29,13 @@
 ### Environment
 - Tests run against the Supabase instance configured in the test environment (local emulator). The setup mocks `getSiteUrl` via `src/lib/db/env` to a test host.
 - Do not add extra env presence checks in test files — `src/middleware.ts` handles this.
-- No `setTimeout`/`nextTick`/artificial delays to paper over races; fix the root cause.
 
 ### Running Tests
 - **Always use `npm test`** — never `npx vitest run` directly. The `npm test` script uses `node --env-file-if-exists=.env.local` to load required Supabase environment variables (`SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY`, `DATABASE_URL`). Running vitest directly will fail with `supabaseUrl is required`.
 - **Local Supabase must be running**: Start with `npx supabase start` before running tests. After a `supabase db reset`, also restart with `npx supabase stop && npx supabase start` to refresh the PostgREST schema cache.
 - **Schema version**: When adding migrations, update the schema version in the migration SQL (`app_metadata.schema_version`) and the expected version in `tests/helpers/constants.ts` (`EXPECTED_DB_SCHEMA_VERSION`). Tests will fail with a schema mismatch error if these are out of sync.
 
-### Linting
-- This project does not use ESLint or Prettier. There is no lint script in `package.json`.
-- Use `npx tsc --noEmit` for TypeScript checking and `npx vue-tsc --noEmit` for Vue component type checking.
+### Local Dev Login
+- Test user email: `test@jsolly.com` (defined in `scripts/data/users.json`)
+- Password: the `DEFAULT_PASSWORD` value from `.env.local`
+- Created by `supabase/seed.sql` (regenerated via `npm run db:gen-seed`)

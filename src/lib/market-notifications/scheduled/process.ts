@@ -228,11 +228,12 @@ export async function processMarketScheduledUser(options: {
 
 			const smsContent = wantsSms
 				? {
-						message: formatSmsMessage(
+						message: await formatSmsMessage(
 							assetsList,
 							marketOpen,
 							undefined,
 							marketClosureInfo,
+							supabase,
 						),
 					}
 				: null;

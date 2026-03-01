@@ -13,6 +13,8 @@ import { recordNotification } from "../messaging/shared";
 import type { SmsExtras } from "../messaging/sms/delivery";
 import { formatExtrasSection } from "../messaging/sms/formatting";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
+import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
+import { shortenUrl } from "../messaging/sms/url-shortener";
 import type { SparklineData, SparklineMap } from "../messaging/sparkline";
 import { toSvgSparklineImg } from "../messaging/svg-sparkline";
 import type {
@@ -119,16 +121,20 @@ type AssetEventsResult = Awaited<
 > | null;
 
 /** Format the daily digest message body for SMS delivery. */
-export function formatDailyDigestSmsMessage(options: {
+export async function formatDailyDigestSmsMessage(options: {
 	userAssets: UserAssetRow[];
 	assetPrices: AssetPriceMap;
 	formatPrefs: FormatPreferences;
 	extras: SmsExtras;
 	assetEvents?: AssetEventsResult;
 	sparklines?: SparklineMap;
-}): string {
+	supabase?: SupabaseAdminClient;
+}): Promise<string> {
 	const optOutSuffix = "Reply STOP to opt out.";
-	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
+	const rawDashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
+	const dashboardUrl = options.supabase
+		? await shortenUrl(rawDashboardUrl, options.supabase)
+		: rawDashboardUrl;
 	const prices = buildDailyDigestPricesSummary(
 		options.userAssets,
 		options.assetPrices,
@@ -153,7 +159,7 @@ export function formatDailyDigestSmsMessage(options: {
 		optOutSuffix,
 	].filter((value) => Boolean(value));
 
-	return sections.join("\n\n");
+	return padUrlsToSegmentBoundaries(sections.join("\n\n"));
 }
 
 /** Format a single asset price line for the SMS/plain-text digest. */
@@ -540,7 +546,7 @@ export async function processDailyDigestSmsDelivery(options: {
 		return;
 	}
 
-	const smsMessage = formatDailyDigestSmsMessage({
+	const smsMessage = await formatDailyDigestSmsMessage({
 		userAssets,
 		assetPrices,
 		formatPrefs: {
@@ -549,6 +555,7 @@ export async function processDailyDigestSmsDelivery(options: {
 		extras,
 		assetEvents,
 		sparklines: options.sparklines,
+		supabase,
 	});
 	const result = await sendUserSms(user, smsMessage, smsSenderResult.sender);
 	const logged = await recordNotification(supabase, {

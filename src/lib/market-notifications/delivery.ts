@@ -16,7 +16,9 @@ import { buildEmailUrls } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
 import { recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
+import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import type { SmsSender } from "../messaging/sms/twilio-utils";
+import { shortenUrl, shortenUrls } from "../messaging/sms/url-shortener";
 import { toSparkline } from "../messaging/sparkline";
 import {
 	type SparklineTimeLabel,
@@ -67,8 +69,12 @@ export interface PriceAlertDeliveryStats {
 /**
  * Format the SMS body for a price alert.
  */
-function formatPriceAlertSms(alert: EnrichedAlert): string {
-	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
+async function formatPriceAlertSms(
+	alert: EnrichedAlert,
+	supabase: AppSupabaseClient,
+): Promise<string> {
+	const rawDashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
+	const dashboardUrl = await shortenUrl(rawDashboardUrl, supabase);
 	const optOutSuffix = "Reply STOP to opt out.";
 
 	const priceContextLine = formatPriceContextWithSparkline(
@@ -84,9 +90,12 @@ function formatPriceAlertSms(alert: EnrichedAlert): string {
 	];
 
 	if (alert.aiSummary) {
-		const headlineUrls = alert.headlines
+		const rawUrls = alert.headlines
 			.map((h) => getSafeHrefUrl(h.url))
-			.filter((url): url is string => url !== null)
+			.filter((url): url is string => url !== null);
+		const urlMap = await shortenUrls(rawUrls, supabase);
+		const headlineUrls = rawUrls
+			.map((url) => urlMap.get(url) ?? url)
 			.join("\n");
 		sections.push(
 			headlineUrls ? `${alert.aiSummary}\n${headlineUrls}` : alert.aiSummary,
@@ -96,7 +105,7 @@ function formatPriceAlertSms(alert: EnrichedAlert): string {
 	sections.push(`Manage your settings: ${dashboardUrl}`);
 	sections.push(optOutSuffix);
 
-	return sections.join("\n\n");
+	return padUrlsToSegmentBoundaries(sections.join("\n\n"));
 }
 
 /** Format minutes-from-midnight as compact time for sparkline axis labels.
@@ -386,7 +395,7 @@ export async function deliverPriceAlert(options: {
 			});
 			stats.smsFailed++;
 		} else {
-			const smsBody = formatPriceAlertSms(alert);
+			const smsBody = await formatPriceAlertSms(alert, supabase);
 			const result = await sendUserSms(user, smsBody, sendSms);
 
 			if (result.success) {
