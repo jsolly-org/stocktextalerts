@@ -10,7 +10,7 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - **Asset Price Alerts** - Get alerted during US market hours when tracked assets show significant price movement (up or down), with configurable move size (Moderate/Large) and market context (Standouts only / Any big move)
 - **Phone Verification** - Secure phone verification via Twilio Verify
 - **Timezone Support** - Browser-detected timezones with user overrides
-- **Market Notifications** - Choose up to 5 delivery times for scheduled asset price updates, and decide if they're delivered by email, SMS, or both
+- **Market Notifications** - Choose up to 8 delivery times for scheduled asset price updates, and decide if they're delivered by email, SMS, or both
 - **Daily Digest** - Once-daily email digest with optional extras (News/Rumors are email-only and may include clickable source links)
 - **Asset Events** - Daily notification of upcoming calendar events (earnings/dividends/splits) and IPOs, plus optional insider trades and analyst consensus (delivered by email and/or SMS; calendar events are toggled together per channel)
 - **Format Preferences** - Customize how your updates look with live SMS/email previews and optional sparklines (weekly price trend)
@@ -235,7 +235,7 @@ npm run gha:local:lint
 npm run gha:local:test-build
 ```
 
-Full setup and troubleshooting: `docs/testing-github-actions-locally.md`
+Full setup and troubleshooting: `.agents/local-ci.md`
 
 ### Optional: Live Provider Tests (Massive/Finnhub/xAI)
 
