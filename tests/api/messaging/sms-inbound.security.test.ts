@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { POST } from "../../../src/pages/api/messaging/inbound";
 
-const validateStub = vi.fn(
-	(msg: unknown, cb: (err: Error | null, m: unknown) => void) => {
-		cb(null, msg);
-	},
-);
+const { validateStub } = vi.hoisted(() => ({
+	validateStub: vi.fn(
+		(msg: unknown, cb: (err: Error | null, m: unknown) => void) => {
+			cb(null, msg);
+		},
+	),
+}));
 vi.mock("sns-validator", () => ({
 	default: class MessageValidator {
 		validate = validateStub;
