@@ -100,6 +100,11 @@ jobs:
         run: supabase db push --include-all --yes
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      - name: Inject crons into Vercel output config
+        run: |
+          config=".vercel/output/config.json"
+          crons=$(jq '.crons' vercel.json)
+          jq --argjson crons "$crons" '.crons = $crons' "$config" > tmp.json && mv tmp.json "$config"
       - name: Deploy to Vercel production
         run: npx vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
         env:
