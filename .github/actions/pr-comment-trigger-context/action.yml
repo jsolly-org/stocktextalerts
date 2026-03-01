@@ -95,6 +95,9 @@ outputs:
   inline_review_comments:
     description: Inline comments from a full PR review (pull_request_review only)
     value: ${{ steps.inline_comments.outputs.inline_review_comments }}
+  inline_review_comment_ids:
+    description: Newline-separated database IDs of inline review comments (pull_request_review only)
+    value: ${{ steps.inline_comments.outputs.inline_review_comment_ids }}
 
 runs:
   using: composite
@@ -239,11 +242,20 @@ runs:
           [.[] | select(.pull_request_review_id == $rid) | "**File:** \(.path)\(if .line then " (line \(.line))" else "" end)\n\(.body)\n"]
           | join("\n---\n")'
         )
+        INLINE_IDS=$(echo "$COMMENTS_JSON" | jq -r --argjson rid "$REVIEW_ID" '
+          [.[] | select(.pull_request_review_id == $rid) | .id] | .[] | tostring'
+        )
         DELIM=$(openssl rand -hex 16)
         {
           echo "inline_review_comments<<${DELIM}"
           printf '%s\n' "$INLINE_BODIES"
           echo "${DELIM}"
+        } >> "$GITHUB_OUTPUT"
+        DELIM2=$(openssl rand -hex 16)
+        {
+          echo "inline_review_comment_ids<<${DELIM2}"
+          printf '%s\n' "$INLINE_IDS"
+          echo "${DELIM2}"
         } >> "$GITHUB_OUTPUT"
 
     - name: Fetch review comment context

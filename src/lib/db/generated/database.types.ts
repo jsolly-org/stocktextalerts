@@ -316,6 +316,27 @@ export type Database = {
           },
         ]
       }
+      short_urls: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          original_url: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id: string
+          original_url: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          original_url?: string
+        }
+        Relationships: []
+      }
       staged_notifications: {
         Row: {
           id: string
@@ -606,6 +627,7 @@ export type Database = {
         Args: { times: number[] }
         Returns: boolean
       }
+      purge_expired_short_urls: { Args: never; Returns: number }
       purge_old_asset_snapshots: {
         Args: { p_retention_minutes?: number }
         Returns: number
@@ -626,7 +648,7 @@ export type Database = {
       rollback_sms_verification_reservation: {
         Args: {
           p_expected_verification_sent_at: string
-          p_restore_verification_sent_at: string | null
+          p_restore_verification_sent_at: string
           p_user_id: string
         }
         Returns: boolean

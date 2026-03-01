@@ -45,6 +45,8 @@ export async function processMarketScheduledUser(options: {
 	stageOnly?: boolean;
 	/** Pre-fetched user assets (avoids N+1 when batch processing). */
 	userAssetsMap?: UserAssetsMap;
+	/** Pre-shortened dashboard URL for SMS; avoids per-message shortenUrl when set. */
+	dashboardUrl?: string;
 }): Promise<ScheduledNotificationTotals> {
 	const stats: ScheduledNotificationTotals = {
 		skipped: 0,
@@ -67,6 +69,7 @@ export async function processMarketScheduledUser(options: {
 		marketClosureInfo,
 		stageOnly,
 		userAssetsMap,
+		dashboardUrl,
 	} = options;
 
 	try {
@@ -228,11 +231,13 @@ export async function processMarketScheduledUser(options: {
 
 			const smsContent = wantsSms
 				? {
-						message: formatSmsMessage(
+						message: await formatSmsMessage(
 							assetsList,
 							marketOpen,
 							undefined,
 							marketClosureInfo,
+							supabase,
+							dashboardUrl,
 						),
 					}
 				: null;
@@ -304,6 +309,7 @@ export async function processMarketScheduledUser(options: {
 				marketOpen,
 				marketClosureInfo,
 				stats,
+				dashboardUrl,
 			});
 		}
 

@@ -70,6 +70,16 @@ export const US_MARKET_CLOSE_EASTERN_MINUTES = 16 * 60; // 4:00 PM ET
 export const US_MARKET_TIMEZONE = "America/New_York";
 
 /* =============
+SMS Segment Constants
+============= */
+
+/** UCS-2 segment size in characters (our messages use emoji → always UCS-2). */
+export const SMS_UCS2_SEGMENT_SIZE = 67;
+
+/** Number of days before short URLs expire and are purged. */
+export const SHORT_URL_TTL_DAYS = 30;
+
+/* =============
 Password Policy
 ============= */
 

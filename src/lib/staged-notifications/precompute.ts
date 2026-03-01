@@ -15,10 +15,12 @@
 import type { DateTime } from "luxon";
 import { dispatchDailyDigestUser } from "../daily-digest/dispatch";
 import { fetchUpcomingDailyDigestUsers } from "../daily-digest/query-upcoming";
+import { getSiteUrl } from "../db/env";
 import type { Logger } from "../logging";
 import { processMarketScheduledUser } from "../market-notifications/scheduled/process";
 import { fetchUpcomingMarketScheduledUsers } from "../market-notifications/scheduled/query-upcoming";
 import { createEmailSender } from "../messaging/email/utils";
+import { shortenUrl } from "../messaging/sms/url-shortener";
 import {
 	type AssetPriceMap,
 	fetchAssetPrices,
@@ -140,6 +142,12 @@ export async function precomputeMarketScheduled(options: {
 	const sendEmail = createEmailSender();
 	const getSmsSender = createSmsSenderProvider();
 
+	// Resolve dashboard URL once per batch for SMS (avoids per-message shortenUrl)
+	const dashboardUrl = await shortenUrl(
+		new URL("/dashboard", getSiteUrl()).toString(),
+		supabase,
+	);
+
 	for (
 		let index = 0;
 		index < upcomingUsers.length;
@@ -160,6 +168,7 @@ export async function precomputeMarketScheduled(options: {
 					marketClosureInfo: !marketOpen ? marketClosureInfo : undefined,
 					stageOnly: true,
 					userAssetsMap,
+					dashboardUrl,
 				}),
 			),
 		);
