@@ -761,6 +761,24 @@ test.describe("sanity tests", () => {
 		}
 		await expect(smsSwitch).toHaveAttribute("aria-checked", "true");
 		await expect(page.locator("#phone")).toBeVisible();
+		await expect
+			.poll(
+				async () => {
+					const { data, error } = await adminClient
+						.from("users")
+						.select("sms_notifications_enabled")
+						.eq("id", testUserId)
+						.single();
+					if (error) {
+						throw new Error(
+							`Failed to verify SMS notification state: ${error.message}`,
+						);
+					}
+					return data.sms_notifications_enabled;
+				},
+				{ timeout: 30_000 },
+			)
+			.toBe(true);
 
 		// Fill phone number via UI
 		const adminPhone = generateUniquePhoneNumber();

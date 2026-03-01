@@ -191,6 +191,8 @@ describe("Users can load pages without unexpected errors.", () => {
 		expect(html).toContain('name="token_hash"');
 		expect(html).toContain('value="abc123"');
 		expect(html).toContain("Verify my email");
+		expect(html).not.toContain("Email Verified!");
+		expect(html).not.toContain("all set.");
 	});
 
 	it("A signed-in user can view the verified page.", async () => {

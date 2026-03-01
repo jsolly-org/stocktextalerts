@@ -18,13 +18,7 @@ const supabase = createSupabaseServerClient();
 const userService = createUserService(supabase, Astro.cookies);
 
 function parseOtpType(value: string | null): SupabaseEmailOtpType | null {
-	if (
-		value === "email" ||
-		value === "invite" ||
-		value === "magiclink" ||
-		value === "recovery" ||
-		value === "email_change"
-	) {
+	if (value === "email" || value === "email_change") {
 		return value;
 	}
 	return null;
