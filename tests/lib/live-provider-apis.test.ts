@@ -9,11 +9,17 @@ import {
 	fetchDividends,
 	fetchIntradayBars,
 	fetchIpos,
+	fetchPrevClose,
 	fetchSnapshotQuotes,
 	fetchSplits,
 	marketDataFetch,
 } from "../../src/lib/providers/massive";
-import { fetchAssetPrices } from "../../src/lib/providers/price-fetcher";
+import {
+	fetchAssetPrices,
+	fetchExtendedQuotes,
+	fetchMarketStatus,
+	fetchSparklines,
+} from "../../src/lib/providers/price-fetcher";
 import {
 	assertLiveProviderKey,
 	isLiveProviderEnabled,
@@ -45,6 +51,56 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 		const close = (results?.[0] as { c?: unknown } | undefined)?.c;
 		expect(typeof close).toBe("number");
 		expect((close as number) > 0).toBe(true);
+	});
+
+	it("returns previous close for a symbol via fetchPrevClose", async () => {
+		const prev = await fetchPrevClose("SPY");
+		expect(prev).not.toBeNull();
+		expect(typeof prev).toBe("number");
+		expect(Number.isFinite(prev)).toBe(true);
+		expect((prev as number) > 0).toBe(true);
+	});
+
+	it("returns market open or closed from fetchMarketStatus", async () => {
+		const isOpen = await fetchMarketStatus();
+		expect(typeof isOpen).toBe("boolean");
+	});
+
+	it("returns extended quotes (day high/low/open/volume) for symbols via fetchExtendedQuotes", async () => {
+		const quoteMap = await fetchExtendedQuotes(["SPY", "AAPL"]);
+		expect(quoteMap).toBeInstanceOf(Map);
+		expect(quoteMap.size).toBe(2);
+
+		const spyQuote = quoteMap.get("SPY");
+		const aaplQuote = quoteMap.get("AAPL");
+		// When market is closed, snapshot may still return prevDay; when open, day fields are set.
+		expect(spyQuote === null || typeof spyQuote?.price === "number").toBe(true);
+		expect(aaplQuote === null || typeof aaplQuote?.price === "number").toBe(
+			true,
+		);
+		if (spyQuote) {
+			expect(Number.isFinite(spyQuote.price)).toBe(true);
+			expect(typeof spyQuote.changePercent).toBe("number");
+		}
+	});
+
+	it("returns sparkline data for symbols via fetchSparklines", async () => {
+		const sparklineMap = await fetchSparklines(["SPY"]);
+		expect(sparklineMap).toBeInstanceOf(Map);
+		expect(sparklineMap.size).toBe(1);
+
+		const entry = sparklineMap.get("SPY");
+		// Live: may have real values or null when insufficient daily bars
+		if (entry !== null && entry !== undefined) {
+			expect(Array.isArray(entry.values)).toBe(true);
+			expect(typeof entry.ascii).toBe("string");
+			if (entry.values.length > 0) {
+				for (const v of entry.values) {
+					expect(typeof v).toBe("number");
+					expect(Number.isFinite(v)).toBe(true);
+				}
+			}
+		}
 	});
 
 	it("returns daily closes for SPY over a recent date range (URL, API, parsing)", async () => {
