@@ -8,13 +8,6 @@
 - **Relative paths only**: No `@`-style aliases.
 - **No barrel files / re-exports**: Import from the defining module, not intermediary files.
 
-### Comments
-- **No TSDoc/JSDoc**: Use inline comments only to explain *why* (constraints, trade-offs), not *what*.
-- **Section comments**:
-  ```text
-  /* ============= Section Title ============= */
-  ```
-
 ### Styling
 - **Tailwind utilities** over custom CSS.
 - **Semantic tokens** in `src/global.css` via Tailwind v4 `@theme` (primary, success, warning, error, info).
