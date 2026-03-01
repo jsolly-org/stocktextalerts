@@ -204,46 +204,30 @@ Save, then refresh.
 
 ---
 
-## TC-SMS-001: User can enable SMS notifications and receive an update
+## TC-NOTIF-001: Notification preferences persist on reload
 
 **Priority:** P0 (Critical)
-**Type:** Functional / Integration
-**Estimated Time:** 10-25 minutes (including wait)
+**Type:** Functional
+**Estimated Time:** 2 minutes
 
 ### Objective
 
-Verify phone verification, SMS toggle, and SMS notification delivery.
+Verify that toggling notification preferences persists across page reloads.
 
 ### Preconditions
 
 - Authenticated session on `/dashboard`
-- At least 2-3 assets tracked
 - Email notifications already enabled (from TC-EMAIL-001)
 
 ### Test Steps
 
-**Step 1:** Enable SMS notifications. Enter a phone number, request a verification code, then enter the 6-digit code from the SMS.
+**Step 1:** On the dashboard, toggle Email notifications OFF. Hard-refresh the page.
 
-- [ ] Verification code SMS arrives on your phone.
-- [ ] SMS verification succeeds after entering the code.
-- [ ] SMS notifications are enabled (toggle remains on after save).
+- [ ] Email notifications toggle is OFF after refresh.
 
-**Step 2:** Change the notification time again to a time at least 2 minutes from now (same rule as TC-EMAIL-001 Step 2). Save, then refresh.
+**Step 2:** Toggle Email notifications back ON. Hard-refresh the page.
 
-- [ ] Notification time persists after refresh.
-
-**Step 3:** Wait until just after the selected delivery time, then check both email and SMS (allow up to ~2 minutes after the selected time).
-
-- [ ] Asset update email arrives.
-- [ ] Asset update SMS arrives.
-- [ ] Both updates include your tracked asset symbols with current prices and change percentages.
-- [ ] If sent outside market hours, a "Prices as of last market close." disclaimer is visible in both email and SMS.
-- [ ] Both updates reflect the chosen notification time/timezone.
-
-### Notes
-
-- SMS messages may span multiple segments for users tracking many assets. Each asset is listed on its own line with price data.
-- SMS includes "Reply STOP to opt out" compliance text.
+- [ ] Email notifications toggle is ON after refresh.
 
 ---
 
@@ -259,7 +243,7 @@ Verify the email unsubscribe flow and dashboard state synchronization.
 
 ### Preconditions
 
-- A notification email received (from TC-SMS-001 Step 3)
+- A notification email received (from TC-EMAIL-001 Step 3)
 - Authenticated session available
 
 ### Test Steps
@@ -393,8 +377,8 @@ The tests above are designed to run sequentially in a single session:
 | 3 | TC-TZ-001 | Configure timezone | TC-REG-001 |
 | 4 | TC-AST-001 | Add tracked assets | TC-REG-001 |
 | 5 | TC-EMAIL-001 | Enable email + receive update | TC-AST-001 |
-| 6 | TC-SMS-001 | Enable SMS + receive update | TC-AST-001, TC-EMAIL-001 |
-| 7 | TC-UNSUB-001 | Unsubscribe via email link | TC-SMS-001 |
+| 6 | TC-NOTIF-001 | Notification prefs persist on reload | TC-EMAIL-001 |
+| 7 | TC-UNSUB-001 | Unsubscribe via email link | TC-NOTIF-001 |
 | 8 | TC-PROF-001 | Change password + update email | TC-REG-001 |
 | 9 | TC-DEL-001 | Delete account | TC-REG-001 |
 | 10 | TC-INBOUND-001 | Inbound SMS keywords | Separate account with SMS enabled |

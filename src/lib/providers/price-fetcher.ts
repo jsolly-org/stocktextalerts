@@ -119,7 +119,7 @@ export async function fetchSparklines(
 	const result: SparklineMap = new Map();
 	if (symbols.length === 0) return result;
 
-	if (import.meta.env.MODE === "test") {
+	if (import.meta.env.MODE === "test" && !isLiveMassiveEnabledInTests()) {
 		const stubValues = [1, 2, 3, 5, 7, 5, 3];
 		for (const s of symbols) {
 			result.set(s, { values: stubValues, ascii: "▁▂▃▅▇▅▃" });
