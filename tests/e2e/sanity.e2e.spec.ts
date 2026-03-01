@@ -857,16 +857,10 @@ test.describe("sanity tests", () => {
 			),
 		).toBeVisible();
 
-		const newEmailMessage = await waitForEmail(
-			secondEmail,
-			"email change",
-			60_000,
-		);
-		const oldEmailMessage = await maybeWaitForEmail(
-			testEmail,
-			"email change",
-			60_000,
-		);
+		const [newEmailMessage, oldEmailMessage] = await Promise.all([
+			waitForEmail(secondEmail, "email change", 60_000),
+			maybeWaitForEmail(testEmail, "email change", 60_000),
+		]);
 
 		const candidateLinks = [
 			...extractLinks(newEmailMessage),
