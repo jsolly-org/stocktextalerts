@@ -86,6 +86,7 @@ const { email } = Astro.props;
 				method="post"
 				data-min-length={MIN_PASSWORD_LENGTH}
 			>
+				<input type="hidden" name="email" autocomplete="username" value={email} />
 				<fieldset class="space-y-4">
 					<legend class="text-sm font-medium text-label">
 						Change password

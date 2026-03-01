@@ -4,6 +4,7 @@ import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_TIMEZONE } from "../../../../src/lib/constants";
 import { POST } from "../../../../src/pages/api/auth/email/register";
+import { TEST_PASSWORD } from "../../../helpers/constants";
 import { toRedirect } from "../../../helpers/request-helpers";
 import { adminClient } from "../../../helpers/test-env";
 import { cleanupTestUser } from "../../../helpers/test-user";
@@ -12,7 +13,8 @@ describe("A visitor registers for a new account with email and password.", () =>
 	it("The account is created, stored with the chosen timezone, and the user is redirected to the unconfirmed email page.", async () => {
 		const payload = {
 			email: `test-${randomUUID()}@resend.dev`,
-			password: "TestPassword123!",
+			password: TEST_PASSWORD,
+			confirm: TEST_PASSWORD,
 			timezone: "America/New_York",
 		};
 		let userId: string | undefined;
@@ -68,7 +70,8 @@ describe("A visitor registers for a new account with email and password.", () =>
 	it("When the detected timezone is invalid, the account is created with the default timezone.", async () => {
 		const payload = {
 			email: `test-fallback-${randomUUID()}@resend.dev`,
-			password: "TestPassword123!",
+			password: TEST_PASSWORD,
+			confirm: TEST_PASSWORD,
 			timezone: "Fake/Zone",
 		};
 		let userId: string | undefined;
@@ -115,7 +118,8 @@ describe("A visitor registers for a new account with email and password.", () =>
 		const chosenTimezone = "America/Chicago";
 		const payload = {
 			email: `test-chosen-${randomUUID()}@resend.dev`,
-			password: "TestPassword123!",
+			password: TEST_PASSWORD,
+			confirm: TEST_PASSWORD,
 			timezone: chosenTimezone,
 		};
 		let userId: string | undefined;
@@ -159,7 +163,8 @@ describe("A visitor registers for a new account with email and password.", () =>
 	it("After registering, the email remains unverified until confirmation is completed.", async () => {
 		const payload = {
 			email: `test-verify-${randomUUID()}@resend.dev`,
-			password: "TestPassword123!",
+			password: TEST_PASSWORD,
+			confirm: TEST_PASSWORD,
 			timezone: "America/New_York",
 		};
 		let userId: string | undefined;
