@@ -3,7 +3,8 @@ import path from "node:path";
 
 // Update EXPECTED_DB_SCHEMA_VERSION whenever migrations are applied or regenerated
 // (use the latest migration commit/tag or schema version timestamp and update tests).
-export const EXPECTED_DB_SCHEMA_VERSION = "20260225200000_add_short_urls";
+export const EXPECTED_DB_SCHEMA_VERSION =
+	"20260301050000_fix_short_urls_permissions";
 export const POSTGRES_UNDEFINED_TABLE = "42P01";
 export const PRESERVED_USER_ID = "00000000-0000-0000-0000-000000000000";
 export const PRESERVED_TEST_EMAIL = "test@jsolly.com";

@@ -16,6 +16,8 @@ CREATE INDEX IF NOT EXISTS idx_short_urls_expires_at ON public.short_urls (expir
 
 -- RLS: only service_role can access short URLs.
 ALTER TABLE public.short_urls ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.short_urls FROM anon, authenticated;
+GRANT SELECT, INSERT, DELETE ON TABLE public.short_urls TO service_role;
 
 -- Purge expired short URLs. Returns the number of rows deleted.
 CREATE OR REPLACE FUNCTION public.purge_expired_short_urls()
