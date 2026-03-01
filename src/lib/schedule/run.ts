@@ -37,6 +37,7 @@ import { processAssetEventsUser } from "../asset-events/process";
 import { fetchAssetEventsUsers } from "../asset-events/query";
 import { dispatchDailyDigestUser } from "../daily-digest/dispatch";
 import { fetchDailyDigestUsers } from "../daily-digest/query";
+import { getSiteUrl } from "../db/env";
 import type { Logger } from "../logging";
 import {
 	type PriceAlertTotals,
@@ -46,6 +47,7 @@ import { processMarketScheduledUser } from "../market-notifications/scheduled/pr
 import { fetchMarketScheduledUsers } from "../market-notifications/scheduled/query";
 import { purgeOldAssetSnapshots } from "../market-notifications/snapshot-store";
 import { createEmailSender } from "../messaging/email/utils";
+import { shortenUrl } from "../messaging/sms/url-shortener";
 import {
 	type AssetPriceMap,
 	type ExtendedQuoteMap,
@@ -291,6 +293,15 @@ async function runPass(options: {
 
 	const results: ScheduledNotificationTotals[] = [];
 
+	// Resolve dashboard URL once per pass for SMS (avoids per-message shortenUrl)
+	let fallbackDashboardUrl: string | undefined;
+	if (fallbackMarketUsers.length > 0) {
+		fallbackDashboardUrl = await shortenUrl(
+			new URL("/dashboard", getSiteUrl()).toString(),
+			supabase,
+		);
+	}
+
 	// Process fallback market users
 	for (
 		let index = 0;
@@ -314,6 +325,7 @@ async function runPass(options: {
 					marketOpen,
 					userAssetsMap,
 					marketClosureInfo,
+					dashboardUrl: fallbackDashboardUrl,
 				}),
 			),
 		);
@@ -597,6 +609,15 @@ export async function runScheduledNotifications(options: {
 
 		const results: ScheduledNotificationTotals[] = [];
 
+		// Resolve dashboard URL once for SMS (avoids per-message shortenUrl)
+		let forceSendDashboardUrl: string | undefined;
+		if (marketUsers.length > 0) {
+			forceSendDashboardUrl = await shortenUrl(
+				new URL("/dashboard", getSiteUrl()).toString(),
+				supabase,
+			);
+		}
+
 		for (
 			let index = 0;
 			index < marketUsers.length;
@@ -616,6 +637,7 @@ export async function runScheduledNotifications(options: {
 						marketOpen,
 						userAssetsMap: forceSendUserAssetsMap,
 						marketClosureInfo: forceSendMarketClosure,
+						dashboardUrl: forceSendDashboardUrl,
 					}),
 				),
 			);

@@ -2,7 +2,7 @@
 -- Short IDs (6-char base62) map to original URLs for 302 redirects.
 
 CREATE TABLE IF NOT EXISTS public.short_urls (
-  id text PRIMARY KEY CHECK (char_length(id) = 6),
+  id text PRIMARY KEY CHECK (id ~ '^[A-Za-z0-9]{6}$'),
   original_url text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   expires_at timestamptz NOT NULL DEFAULT (now() + interval '30 days')

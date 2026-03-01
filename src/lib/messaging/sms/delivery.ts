@@ -35,25 +35,32 @@ function formatSmsExtras(extras?: SmsExtras): string {
 	return sections.join("\n\n");
 }
 
-/** Format the SMS body for a scheduled asset update. */
+/** Format the SMS body for a scheduled asset update.
+ * Pass `dashboardUrl` when calling in a batch to avoid per-message DB shortening. */
 export async function formatSmsMessage(
 	assetsList: string,
 	marketOpen: boolean,
 	extras?: SmsExtras,
 	marketClosureInfo?: MarketClosureInfo | null,
 	supabase?: AppSupabaseClient,
+	/** Pre-shortened dashboard URL; when set, skips per-message shortenUrl. */
+	dashboardUrl?: string,
 ): Promise<string> {
 	const optOutSuffix = "Reply STOP to opt out.";
-	const rawDashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
-	const dashboardUrl = supabase
-		? await shortenUrl(rawDashboardUrl, supabase)
-		: rawDashboardUrl;
+	const resolvedDashboardUrl =
+		dashboardUrl ??
+		(supabase
+			? await shortenUrl(
+					new URL("/dashboard", getSiteUrl()).toString(),
+					supabase,
+				)
+			: new URL("/dashboard", getSiteUrl()).toString());
 
 	const header = "StockTextAlerts — Your scheduled price notification 📈";
 
 	if (assetsList.trim() === NO_TRACKED_ASSETS_MESSAGE) {
 		return padUrlsToSegmentBoundaries(
-			`${header}\n\n${NO_TRACKED_ASSETS_MESSAGE}.\n\nManage your settings: ${dashboardUrl}\n\n${optOutSuffix}`,
+			`${header}\n\n${NO_TRACKED_ASSETS_MESSAGE}.\n\nManage your settings: ${resolvedDashboardUrl}\n\n${optOutSuffix}`,
 		);
 	}
 
@@ -67,14 +74,15 @@ export async function formatSmsMessage(
 		marketDisclaimer,
 		assetsList,
 		extrasBlock,
-		`Manage your settings: ${dashboardUrl}`,
+		`Manage your settings: ${resolvedDashboardUrl}`,
 		optOutSuffix,
 	].filter(Boolean);
 
 	return padUrlsToSegmentBoundaries(sections.join("\n\n"));
 }
 
-/** Send and record an SMS scheduled update for a user. */
+/** Send and record an SMS scheduled update for a user.
+ * Pass `dashboardUrl` when processing a batch to avoid per-message DB shortening. */
 export async function processSmsUpdate(
 	supabase: AppSupabaseClient,
 	user: SmsUser,
@@ -83,6 +91,8 @@ export async function processSmsUpdate(
 	marketOpen: boolean,
 	extras?: SmsExtras,
 	marketClosureInfo?: MarketClosureInfo | null,
+	/** Pre-shortened dashboard URL; when set, skips per-message shortenUrl. */
+	dashboardUrl?: string,
 ): Promise<ProcessingStats> {
 	const smsMessage = await formatSmsMessage(
 		assetsList,
@@ -90,6 +100,7 @@ export async function processSmsUpdate(
 		extras,
 		marketClosureInfo,
 		supabase,
+		dashboardUrl,
 	);
 
 	const result = await sendUserSms(user, smsMessage, sendSms);

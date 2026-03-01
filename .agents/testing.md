@@ -35,7 +35,9 @@
 - **Local Supabase must be running**: Start with `npx supabase start` before running tests. After a `supabase db reset`, also restart with `npx supabase stop && npx supabase start` to refresh the PostgREST schema cache.
 - **Schema version**: When adding migrations, update the schema version in the migration SQL (`app_metadata.schema_version`) and the expected version in `tests/helpers/constants.ts` (`EXPECTED_DB_SCHEMA_VERSION`). Tests will fail with a schema mismatch error if these are out of sync.
 
-### Local Dev Login
+### Local Development
+
+#### Dev Login Credentials
 - Test user email: `test@jsolly.com` (defined in `scripts/data/users.json`)
 - Password: the `DEFAULT_PASSWORD` value from `.env.local`
 - Created by `supabase/seed.sql` (regenerated via `npm run db:gen-seed`)

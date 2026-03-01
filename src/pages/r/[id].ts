@@ -19,7 +19,10 @@ export const GET: APIRoute = async ({ params }) => {
 		.eq("id", id)
 		.single();
 
-	if (error || !data) {
+	if (error) {
+		return new Response("Internal Server Error", { status: 500 });
+	}
+	if (!data) {
 		return new Response("Not Found", { status: 404 });
 	}
 

@@ -74,9 +74,20 @@ const handler: APIRoute = async ({ request, locals }) => {
 
 		// Purge expired short URLs (non-blocking)
 		try {
-			const { data: purgedUrls } = await supabase.rpc(
+			const { data: purgedUrls, error: purgeError } = await supabase.rpc(
 				"purge_expired_short_urls",
 			);
+			if (purgeError) {
+				logger.warn(
+					"Failed to purge expired short URLs",
+					{ action: "purge_short_urls" },
+					purgeError,
+				);
+				return new Response(JSON.stringify({ success: true, ...totals }), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				});
+			}
 			if (purgedUrls && purgedUrls > 0) {
 				logger.info("Purged expired short URLs", {
 					action: "purge_short_urls",
