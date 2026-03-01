@@ -27,14 +27,13 @@
 
 ### External Services & Access
 
-#### AWS (profile: `prod-admin`, region: `us-east-1`)
-- **SES**: Email delivery via `@aws-sdk/client-sesv2`. Domain `stocktextalerts.com` verified with DKIM. Dedicated IAM user `stocktextalerts-ses` with `SESsendOnly` policy.
+#### AWS (region: `us-east-1`)
+- **SES**: Email delivery via `@aws-sdk/client-sesv2`. Domain `stocktextalerts.com` verified with DKIM. Dedicated IAM user with SES send-only policy (profile and IAM names in env/docs, not committed).
 - **SMS/Pinpoint**: AWS End User Messaging for SMS delivery and Pinpoint for OTP verification.
 - Env vars: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_SMS_ORIGINATION_IDENTITY`, `AWS_PINPOINT_APP_ID`.
 
 #### Cloudflare (DNS for `stocktextalerts.com`)
-- Nameservers: `amanda.ns.cloudflare.com`, `vin.ns.cloudflare.com`.
-- Zone ID: `964861175cbbb7133fc09c7e3f1e362f`.
+- Nameservers and Zone ID: query via `dig NS stocktextalerts.com` or Cloudflare dashboard — do not commit Zone ID.
 - CLI: `wrangler` (installed globally via npm). Authenticate with `wrangler login`.
 - DNS API requires an API token with "Edit zone DNS" permission scoped to `stocktextalerts.com`. The wrangler OAuth token only has `zone:read` — use a separate API token for DNS writes.
 
