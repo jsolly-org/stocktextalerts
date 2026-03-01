@@ -43,6 +43,7 @@ export async function POST({
 	const parsed = parseWithSchema(formData, {
 		email: { type: "string", required: true },
 		password: { type: "string", required: true, trim: false },
+		confirm: { type: "string", required: true, trim: false },
 		timezone: { type: "timezone" },
 	} as const);
 
@@ -53,7 +54,7 @@ export async function POST({
 		return redirect("/auth/register?error=invalid_form");
 	}
 
-	const { email: rawEmail, password, timezone } = parsed.data;
+	const { email: rawEmail, password, confirm, timezone } = parsed.data;
 
 	if (password.length < MIN_PASSWORD_LENGTH) {
 		logger.info("Registration rejected: password too short", {
@@ -61,6 +62,11 @@ export async function POST({
 			minLength: MIN_PASSWORD_LENGTH,
 		});
 		return redirect("/auth/register?error=weak_password");
+	}
+
+	if (password !== confirm) {
+		logger.info("Registration rejected: password mismatch");
+		return redirect("/auth/register?error=password_mismatch");
 	}
 
 	// Trim email to satisfy our database constraints (no leading/trailing whitespace).

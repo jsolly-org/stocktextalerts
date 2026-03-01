@@ -16,45 +16,57 @@ import { rootLogger } from "../../lib/logging";
 
 const supabase = createSupabaseServerClient();
 const userService = createUserService(supabase, Astro.cookies);
-// Check for token_hash in query params (PKCE flow for SSR)
-const tokenHash = Astro.url.searchParams.get("token_hash");
-const typeParam = Astro.url.searchParams.get("type");
-const type: SupabaseEmailOtpType | null =
-	typeParam === "email" ||
-	typeParam === "invite" ||
-	typeParam === "magiclink" ||
-	typeParam === "recovery" ||
-	typeParam === "email_change"
-		? typeParam
-		: null;
-// If token_hash is present but type is invalid/missing, treat link as invalid and
-// immediately remove the raw token from the URL.
-if (tokenHash && type === null) {
-	const cleanedUrl = new URL(Astro.url);
-	cleanedUrl.searchParams.delete("token_hash");
-	return Astro.redirect(
-		`${cleanedUrl.pathname}${cleanedUrl.search}${cleanedUrl.hash}`,
-	);
+
+function parseOtpType(value: string | null): SupabaseEmailOtpType | null {
+	if (
+		value === "email" ||
+		value === "invite" ||
+		value === "magiclink" ||
+		value === "recovery" ||
+		value === "email_change"
+	) {
+		return value;
+	}
+	return null;
 }
-// If token_hash is provided, verify it
-	if (tokenHash && type) {
-		const { data, error } = await verifySupabaseOtp(supabase, {
-			token_hash: tokenHash,
-			type,
-		});
-		if (error || !data?.user) {
-			rootLogger.error(
-				"Email verification token validation failed",
-				{
-					tokenHashPresent: true,
-					type,
-					hasUser: Boolean(data?.user),
-				},
-				error,
-			);
-			return Astro.redirect("/auth/signin?error=invalid_verification");
-		}
-	// Verify the user's email is actually confirmed
+
+let verified = false;
+let showConfirmForm = false;
+let formTokenHash = "";
+let formType: SupabaseEmailOtpType = "email";
+
+if (Astro.request.method === "POST") {
+	// ── POST: user clicked "Verify my email" ──
+	// Token verification is deferred to POST so that email link scanners
+	// (which prefetch GET URLs) don't consume the single-use OTP token
+	// before the real user clicks. See:
+	// https://supabase.com/docs/guides/troubleshooting/otp-verification-failures-token-has-expired-or-otp_expired-errors-5ee4d0
+	const formData = await Astro.request.formData();
+	const tokenHash = formData.get("token_hash") as string | null;
+	const type = parseOtpType(formData.get("type") as string | null);
+
+	if (!tokenHash || !type) {
+		return Astro.redirect("/auth/signin?error=invalid_verification");
+	}
+
+	const { data, error } = await verifySupabaseOtp(supabase, {
+		token_hash: tokenHash,
+		type,
+	});
+
+	if (error || !data?.user) {
+		rootLogger.error(
+			"Email verification token validation failed",
+			{
+				tokenHashPresent: true,
+				type,
+				hasUser: Boolean(data?.user),
+			},
+			error,
+		);
+		return Astro.redirect("/auth/signin?error=invalid_verification");
+	}
+
 	if (!data.user.email_confirmed_at) {
 		rootLogger.error("User email not confirmed after token verification", {
 			userId: data.user.id,
@@ -78,8 +90,6 @@ if (tokenHash && type === null) {
 			return Astro.redirect("/profile?error=email_change_failed");
 		}
 
-		// Trim email to satisfy our database constraints (no leading/trailing whitespace).
-		// Supabase Auth doesn't enforce this constraint (external service owns its storage/constraints).
 		const normalizedEmail = authData.user.email.trim();
 		const { error: updateError } = await adminClient
 			.from("users")
@@ -99,62 +109,99 @@ if (tokenHash && type === null) {
 		return Astro.redirect("/auth/signin?success=email_updated");
 	}
 
-	// Verification succeeded — fall through to render the success page.
-	// The token_hash stays in the URL but is already consumed and cannot be reused.
+	verified = true;
 } else {
-	// If no token_hash, check if user has a valid session with confirmed email
-	// This handles cases where Supabase already verified the token before redirect
-	const user = await userService.getCurrentUser();
-	if (!user || !user.email_confirmed_at) {
-		rootLogger.info("No valid session or email not confirmed", {
-			hasSession: Boolean(user),
-			emailConfirmed: Boolean(user?.email_confirmed_at),
-		});
-		return Astro.redirect("/auth/signin?error=invalid_verification");
+	// ── GET ──
+	const tokenHash = Astro.url.searchParams.get("token_hash");
+	const type = parseOtpType(Astro.url.searchParams.get("type"));
+
+	// If token_hash is present but type is invalid/missing, treat link as invalid
+	// and immediately remove the raw token from the URL.
+	if (tokenHash && type === null) {
+		const cleanedUrl = new URL(Astro.url);
+		cleanedUrl.searchParams.delete("token_hash");
+		return Astro.redirect(
+			`${cleanedUrl.pathname}${cleanedUrl.search}${cleanedUrl.hash}`,
+		);
+	}
+
+	if (tokenHash && type) {
+		// Don't verify yet — render a confirmation form so email link
+		// prefetchers don't consume the single-use token.
+		showConfirmForm = true;
+		formTokenHash = tokenHash;
+		formType = type;
+	} else {
+		// No token_hash — check if user has a valid session with confirmed email.
+		// This handles cases where Supabase already verified the token before redirect.
+		const user = await userService.getCurrentUser();
+		if (!user || !user.email_confirmed_at) {
+			rootLogger.info("No valid session or email not confirmed", {
+				hasSession: Boolean(user),
+				emailConfirmed: Boolean(user?.email_confirmed_at),
+			});
+			return Astro.redirect("/auth/signin?error=invalid_verification");
+		}
+		verified = true;
 	}
 }
-const title = "Email Verified";
-const description =
-	"Your email has been successfully verified. You can now sign in to StockTextAlerts to manage your tracked assets and notification channels.";
+
+const title = showConfirmForm ? "Confirm Your Email" : "Email Verified";
+const description = showConfirmForm
+	? "Click the button below to confirm your email address."
+	: "Your email has been successfully verified. You can now sign in to StockTextAlerts to manage your tracked assets and notification channels.";
 ---
 <Layout title={title} description={description} noindex>
   <main id="main-content" class="min-h-screen flex items-center justify-center bg-surface-alt py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-md w-full space-y-8">
-      <header class="text-center">
-        <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-success-bg">
-          <Icon name="check" class="h-6 w-6 text-success-text" aria-hidden="true" />
-        </div>
-        <h1 class="mt-6 text-center text-2xl sm:text-3xl font-extrabold text-heading">
-          Email Verified!
-        </h1>
-        <p class="mt-2 text-center text-sm text-body-secondary">
-          Your email address has been successfully verified.
-        </p>
-      </header>
-
-      <section class="mt-8" aria-labelledby="verified-message-heading">
-        <div class="rounded-md border p-4 status-tone-success">
-          <div class="flex">
-            <div class="shrink-0">
-              <Icon name="check-circle-20" class="h-5 w-5 text-success-text" aria-hidden="true" />
+      {showConfirmForm ? (
+        <>
+          <header class="text-center">
+            <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-info-bg">
+              <Icon name="envelope" class="h-6 w-6 text-info-text" aria-hidden="true" />
             </div>
-            <div class="ml-3">
-              <p id="verified-message-heading" class="text-sm font-medium">
-                You&rsquo;re all set. <span class="font-normal">You can now sign in to your account.</span>
-              </p>
-            </div>
-          </div>
-        </div>
+            <h1 class="mt-6 text-center text-2xl sm:text-3xl font-extrabold text-heading">
+              Confirm Your Email
+            </h1>
+            <p class="mt-2 text-center text-sm text-body-secondary">
+              Click the button below to finish verifying your email address.
+            </p>
+          </header>
 
-        <div class="mt-6">
-          <a
-            href="/auth/signin"
-            class="btn btn-md btn-primary w-full"
-          >
-            Sign In
-          </a>
-        </div>
-      </section>
+          <section class="mt-8">
+            <form method="POST" action="/auth/verified">
+              <input type="hidden" name="token_hash" value={formTokenHash} />
+              <input type="hidden" name="type" value={formType} />
+              <button type="submit" class="btn btn-md btn-primary w-full">
+                Verify my email
+              </button>
+            </form>
+          </section>
+        </>
+      ) : (
+        <>
+          <header class="text-center">
+            <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-success-bg">
+              <Icon name="check" class="h-6 w-6 text-success-text" aria-hidden="true" />
+            </div>
+            <h1 class="mt-6 text-center text-2xl sm:text-3xl font-extrabold text-heading">
+              Email Verified!
+            </h1>
+            <p class="mt-2 text-center text-sm text-body-secondary">
+              You&rsquo;re all set. You can now sign in to your account.
+            </p>
+          </header>
+
+          <section class="mt-8">
+            <a
+              href="/auth/signin"
+              class="btn btn-md btn-primary w-full"
+            >
+              Sign In
+            </a>
+          </section>
+        </>
+      )}
     </div>
   </main>
 </Layout>

@@ -201,6 +201,13 @@
 					</p>
 				</header>
 
+				<SetupRequiredNotice
+					:needsTrackedAssets="needsTrackedAssets"
+					:needsChannelSelection="needsChannelSelection"
+					:needsPhoneVerification="false"
+					phoneVerificationSectionId=""
+				/>
+
 				<div
 					class="transition-opacity duration-200"
 					:class="{ 'opacity-50': notificationSetupBlocked }"
@@ -238,13 +245,6 @@
 							Swipe left or right to switch between SMS and email previews.
 						</p>
 					</div>
-
-					<SetupRequiredNotice
-						:needsTrackedAssets="needsTrackedAssets"
-						:needsChannelSelection="needsChannelSelection"
-						:needsPhoneVerification="false"
-						phoneVerificationSectionId=""
-					/>
 
 					<FormatToggles
 						:showSparklines="showSparklines"
