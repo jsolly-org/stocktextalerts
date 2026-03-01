@@ -753,16 +753,17 @@ test.describe("sanity tests", () => {
 		await emailSwitch.click();
 		await waitForEmailNotificationsEnabled(testUserId, false);
 
-		// Reload and verify OFF persisted
-		await page.reload();
+		// Full navigation to verify OFF persisted (goto ensures async
+		// component hydration completes before Playwright interacts)
+		await page.goto("/dashboard");
 		await expect(emailSwitch).toHaveAttribute("aria-checked", "false");
 
 		// Toggle email back ON
 		await emailSwitch.click();
 		await waitForEmailNotificationsEnabled(testUserId, true);
 
-		// Reload and verify ON persisted
-		await page.reload();
+		// Full navigation to verify ON persisted
+		await page.goto("/dashboard");
 		await expect(emailSwitch).toHaveAttribute("aria-checked", "true");
 	});
 
