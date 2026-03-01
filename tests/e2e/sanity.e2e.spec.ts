@@ -495,6 +495,8 @@ test.describe("sanity tests", () => {
 
 		await page.goto(rewriteLinkOrigin(confirmationLink, baseOrigin));
 		await expectCurrentPath(page, "/auth/verified");
+		await page.getByRole("button", { name: "Verify my email" }).click();
+		await expect(page.getByText("Email Verified!")).toBeVisible();
 
 		await signIn(page, testEmail, testPassword);
 

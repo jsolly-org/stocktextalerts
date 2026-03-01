@@ -24,7 +24,6 @@ function parseOtpType(value: string | null): SupabaseEmailOtpType | null {
 	return null;
 }
 
-let verified = false;
 let showConfirmForm = false;
 let formTokenHash = "";
 let formType: SupabaseEmailOtpType = "email";
@@ -102,8 +101,6 @@ if (Astro.request.method === "POST") {
 		clearAuthCookies(Astro.cookies);
 		return Astro.redirect("/auth/signin?success=email_updated");
 	}
-
-	verified = true;
 } else {
 	// ── GET ──
 	const tokenHash = Astro.url.searchParams.get("token_hash");
@@ -136,7 +133,6 @@ if (Astro.request.method === "POST") {
 			});
 			return Astro.redirect("/auth/signin?error=invalid_verification");
 		}
-		verified = true;
 	}
 }
 
