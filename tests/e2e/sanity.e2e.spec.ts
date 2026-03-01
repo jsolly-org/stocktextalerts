@@ -859,8 +859,8 @@ test.describe("sanity tests", () => {
 		).toBeVisible();
 
 		const [newEmailMessage, oldEmailMessage] = await Promise.all([
-			waitForEmail(secondEmail, "email change", 60_000),
-			maybeWaitForEmail(testEmail, "email change", 60_000),
+			waitForEmail(secondEmail, "email change", 30_000),
+			maybeWaitForEmail(testEmail, "email change", 15_000),
 		]);
 
 		const candidateLinks = [
