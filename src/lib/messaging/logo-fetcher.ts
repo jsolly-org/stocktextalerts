@@ -9,8 +9,12 @@ export function createLogoCache(): LogoCache {
 	return new Map();
 }
 
+/** In-flight fetch promises keyed by symbol to de-duplicate concurrent requests. */
+const inFlight = new Map<string, Promise<string | null>>();
+
 const FETCH_TIMEOUT_MS = 5000;
 const PREFETCH_CONCURRENCY = 5;
+const MAX_LOGO_BYTES = 100 * 1024; // 100KB upper bound for inline email logos
 const ALLOWED_IMAGE_MIME_TYPES = new Set([
 	"image/png",
 	"image/jpeg",
@@ -44,6 +48,14 @@ async function fetchLogoFromApi(iconUrl: string): Promise<string | null> {
 		return null;
 	}
 
+	const contentLengthHeader = response.headers.get("content-length");
+	if (contentLengthHeader) {
+		const contentLength = Number(contentLengthHeader);
+		if (Number.isFinite(contentLength) && contentLength > MAX_LOGO_BYTES) {
+			return null;
+		}
+	}
+
 	const rawContentType = response.headers.get("content-type") ?? "image/png";
 	const contentType =
 		rawContentType.split(";")[0]?.trim().toLowerCase() || "image/png";
@@ -51,6 +63,9 @@ async function fetchLogoFromApi(iconUrl: string): Promise<string | null> {
 		return null;
 	}
 	const arrayBuffer = await response.arrayBuffer();
+	if (arrayBuffer.byteLength > MAX_LOGO_BYTES) {
+		return null;
+	}
 	const base64 = Buffer.from(arrayBuffer).toString("base64");
 	return `data:${contentType};base64,${base64}`;
 }
@@ -107,24 +122,34 @@ export async function fetchLogoBase64(
 		return null;
 	}
 
-	try {
-		const dataUri = await fetchLogoFromApi(iconUrl);
-		cache.set(symbol, dataUri);
+	let promise = inFlight.get(symbol);
+	if (!promise) {
+		promise = (async (): Promise<string | null> => {
+			try {
+				const dataUri = await fetchLogoFromApi(iconUrl);
+				cache.set(symbol, dataUri);
 
-		// Persist to DB for future runs
-		if (dataUri && supabase) {
-			await persistLogoToDb(symbol, dataUri, supabase);
-		}
+				// Persist to DB for future runs
+				if (dataUri && supabase) {
+					await persistLogoToDb(symbol, dataUri, supabase);
+				}
 
-		return dataUri;
-	} catch (error) {
-		rootLogger.warn("Failed to fetch logo for asset", {
-			symbol,
-			error: error instanceof Error ? error.message : String(error),
-		});
-		cache.set(symbol, null);
-		return null;
+				return dataUri;
+			} catch (error) {
+				rootLogger.warn("Failed to fetch logo for asset", {
+					symbol,
+					error: error instanceof Error ? error.message : String(error),
+				});
+				cache.set(symbol, null);
+				return null;
+			} finally {
+				inFlight.delete(symbol);
+			}
+		})();
+		inFlight.set(symbol, promise);
 	}
+
+	return promise;
 }
 
 /**
