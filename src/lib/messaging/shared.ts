@@ -1,6 +1,19 @@
 import type { Database } from "../db/generated/database.types";
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
+import type { DeliveryResult } from "./types";
+
+/** Map a delivery result to notification_log error/error_code fields. */
+export function deliveryResultToLogFields(result: DeliveryResult): {
+	error?: string | null;
+	error_code?: string | null;
+} {
+	if (result.success) return {};
+	return {
+		error: result.error,
+		error_code: result.errorCode ?? null,
+	};
+}
 
 /**
  * Record a notification attempt in `notification_log`.

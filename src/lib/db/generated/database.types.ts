@@ -120,18 +120,21 @@ export type Database = {
       }
       assets: {
         Row: {
+          icon_url: string | null
           name: string
           sector: string | null
           symbol: string
           type: string
         }
         Insert: {
+          icon_url?: string | null
           name: string
           sector?: string | null
           symbol: string
           type?: string
         }
         Update: {
+          icon_url?: string | null
           name?: string
           sector?: string | null
           symbol?: string
@@ -227,6 +230,45 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "notification_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      price_targets: {
+        Row: {
+          created_at: string
+          direction: string
+          symbol: string
+          target_price: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          direction: string
+          symbol: string
+          target_price: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          direction?: string
+          symbol?: string
+          target_price?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_targets_symbol_fkey"
+            columns: ["symbol"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["symbol"]
+          },
+          {
+            foreignKeyName: "price_targets_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"

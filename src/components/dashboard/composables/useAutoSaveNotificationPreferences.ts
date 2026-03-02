@@ -33,7 +33,7 @@ export type NotificationPreferencesData = {
 	market_asset_price_alert_onboarding_completed: boolean;
 	market_asset_price_alert_risk_priority: "both_equally";
 	market_asset_price_alert_market_context: "standout" | "any_major";
-	market_asset_price_alert_move_size: "moderate" | "large";
+	market_asset_price_alert_move_size: "significant" | "extreme";
 	market_asset_price_alert_follow_up_mode: "first_only" | "allow_follow_up";
 };
 

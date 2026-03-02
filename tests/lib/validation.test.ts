@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isValidUuid } from "../../src/lib/validation";
+import { isSafeRedirectUrl, isValidUuid } from "../../src/lib/validation";
 
 describe("isValidUuid security validation", () => {
 	it("accepts valid RFC 4122 UUID format", () => {
@@ -40,5 +40,36 @@ describe("isValidUuid security validation", () => {
 		expect(isValidUuid(" 550e8400-e29b-41d4-a716-446655440000")).toBe(false);
 		expect(isValidUuid("550e8400-e29b-41d4-a716-446655440000 ")).toBe(false);
 		expect(isValidUuid("{550e8400-e29b-41d4-a716-446655440000}")).toBe(false);
+	});
+});
+
+describe("isSafeRedirectUrl", () => {
+	it("accepts http and https URLs", () => {
+		expect(isSafeRedirectUrl("https://example.com/path")).toBe(true);
+		expect(isSafeRedirectUrl("http://example.com")).toBe(true);
+		expect(isSafeRedirectUrl("  https://a.co  ")).toBe(true);
+	});
+
+	it("rejects javascript:, data:, vbscript:, file:", () => {
+		expect(isSafeRedirectUrl("javascript:alert(1)")).toBe(false);
+		expect(isSafeRedirectUrl("JavaScript:void(0)")).toBe(false);
+		expect(isSafeRedirectUrl("data:text/html,<script>")).toBe(false);
+		expect(isSafeRedirectUrl("vbscript:msgbox(1)")).toBe(false);
+		expect(isSafeRedirectUrl("file:///etc/passwd")).toBe(false);
+	});
+
+	it("rejects URLs containing CR or LF (response splitting)", () => {
+		expect(isSafeRedirectUrl("https://example.com\r\nX-Injected: true")).toBe(
+			false,
+		);
+		expect(isSafeRedirectUrl("https://example.com\n")).toBe(false);
+		expect(isSafeRedirectUrl("https://example.com\r")).toBe(false);
+	});
+
+	it("rejects null, undefined, and empty", () => {
+		expect(isSafeRedirectUrl(null)).toBe(false);
+		expect(isSafeRedirectUrl(undefined)).toBe(false);
+		expect(isSafeRedirectUrl("")).toBe(false);
+		expect(isSafeRedirectUrl("   ")).toBe(false);
 	});
 });

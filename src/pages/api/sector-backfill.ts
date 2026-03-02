@@ -31,13 +31,13 @@ const handler: APIRoute = async ({ request, locals }) => {
 	try {
 		const { data: rows, error } = await supabase
 			.from("assets")
-			.select("symbol")
-			.is("sector", null)
+			.select("symbol, sector, icon_url")
+			.or("sector.is.null,icon_url.is.null")
 			.limit(BACKFILL_BATCH_SIZE);
 
 		if (error) {
 			logger.error(
-				"Failed to query assets missing sector",
+				"Failed to query assets missing sector/icon_url",
 				{ action: "sector_backfill" },
 				error,
 			);
@@ -47,9 +47,9 @@ const handler: APIRoute = async ({ request, locals }) => {
 			);
 		}
 
-		const symbols = (rows ?? []).map((r) => r.symbol);
-		if (symbols.length === 0) {
-			logger.info("No assets missing sector — nothing to backfill", {
+		const items = rows ?? [];
+		if (items.length === 0) {
+			logger.info("No assets missing sector/icon_url — nothing to backfill", {
 				action: "sector_backfill",
 			});
 			return new Response(
@@ -61,7 +61,8 @@ const handler: APIRoute = async ({ request, locals }) => {
 		let updated = 0;
 		let skipped = 0;
 
-		for (const symbol of symbols) {
+		for (const row of items) {
+			const { symbol } = row;
 			try {
 				const data = await marketDataFetch(
 					`/v3/reference/tickers/${encodeURIComponent(symbol)}`,
@@ -78,19 +79,40 @@ const handler: APIRoute = async ({ request, locals }) => {
 					continue;
 				}
 				const sicCode = (results as Record<string, unknown>).sic_code;
-				if (typeof sicCode !== "string" && typeof sicCode !== "number") {
+				const branding = (results as Record<string, unknown>).branding;
+				const iconUrl =
+					typeof branding === "object" && branding !== null
+						? (branding as Record<string, unknown>).icon_url
+						: undefined;
+
+				const updatePayload: Record<string, unknown> = {};
+				const needsSector = row.sector == null;
+				if (
+					needsSector &&
+					(typeof sicCode === "string" || typeof sicCode === "number")
+				) {
+					updatePayload.sector = sicCodeToSector(String(sicCode));
+				}
+				// Reject blank icon_url so the row stays eligible for backfill and UI doesn't stick on fallback
+				if (
+					row.icon_url == null &&
+					typeof iconUrl === "string" &&
+					iconUrl.trim() !== ""
+				) {
+					updatePayload.icon_url = iconUrl;
+				}
+				if (Object.keys(updatePayload).length === 0) {
 					skipped++;
 					continue;
 				}
-				const sector = sicCodeToSector(String(sicCode));
 				const { error: updateError } = await supabase
 					.from("assets")
-					.update({ sector } as Record<string, unknown>)
+					.update(updatePayload)
 					.eq("symbol", symbol);
 				if (updateError) {
 					logger.warn(
 						"Supabase update failed for sector backfill",
-						{ symbol, sector },
+						{ symbol, ...updatePayload },
 						updateError,
 					);
 					skipped++;
@@ -109,7 +131,7 @@ const handler: APIRoute = async ({ request, locals }) => {
 
 		logger.info("Sector backfill complete", {
 			action: "sector_backfill",
-			total: symbols.length,
+			total: items.length,
 			updated,
 			skipped,
 		});

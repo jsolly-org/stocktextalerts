@@ -13,9 +13,9 @@ import { sicCodeToSector } from "../../../lib/providers/sector-mapping";
 /**
  * GET /api/assets/prices
  *
- * Returns prevClose and sector for the user's tracked assets.
+ * Returns prevClose, sector, and iconUrl for the user's tracked assets.
  * Used by the onboarding wizard to show asset-grounded examples.
- * Lazy-backfills sector from Massive for assets missing it (writes via admin client;
+ * Lazy-backfills sector and icon_url from Massive for assets missing them (writes via admin client;
  * authenticated user has SELECT-only on assets).
  */
 export const GET: APIRoute = async ({ request, cookies, locals }) => {
@@ -49,7 +49,7 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 		// Load existing sector values from assets table
 		const { data: assetRows, error: assetRowsError } = await supabase
 			.from("assets")
-			.select("symbol, sector")
+			.select("symbol, sector, icon_url")
 			.in("symbol", symbols);
 		if (assetRowsError) {
 			logger.error(
@@ -61,17 +61,24 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 		}
 
 		const sectorMap = new Map<string, string | null>();
+		const iconUrlMap = new Map<string, string | null>();
 		for (const row of assetRows) {
-			sectorMap.set(
-				row.symbol,
-				(row as { symbol: string; sector: string | null }).sector,
-			);
+			const r = row as {
+				symbol: string;
+				sector: string | null;
+				icon_url: string | null;
+			};
+			sectorMap.set(r.symbol, r.sector);
+			iconUrlMap.set(r.symbol, r.icon_url);
 		}
 
-		// Lazy backfill: fetch sector from Massive for assets missing it.
+		// Lazy backfill: fetch sector + icon_url from Massive for assets missing either.
+		// Include null icon_url rows so existing assets can get icons when available.
 		// Use admin client for updates — authenticated has SELECT only on assets.
 		// Process sequentially to avoid unbounded fan-out of Massive API calls.
-		const missingSectorSymbols = symbols.filter((s) => !sectorMap.get(s));
+		const missingSectorSymbols = symbols.filter(
+			(s) => sectorMap.get(s) == null || iconUrlMap.get(s) == null,
+		);
 		if (missingSectorSymbols.length > 0) {
 			const adminSupabase = createSupabaseAdminClient();
 			for (const symbol of missingSectorSymbols) {
@@ -85,37 +92,66 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 					const results = (data as Record<string, unknown>).results;
 					if (typeof results !== "object" || results === null) continue;
 					const sicCode = (results as Record<string, unknown>).sic_code;
-					if (typeof sicCode !== "string" && typeof sicCode !== "number")
-						continue;
-					const sector = sicCodeToSector(String(sicCode));
-					sectorMap.set(symbol, sector);
+					const branding = (results as Record<string, unknown>).branding;
+					const iconUrl =
+						typeof branding === "object" && branding !== null
+							? (branding as Record<string, unknown>).icon_url
+							: undefined;
+
+					const updatePayload: Record<string, unknown> = {};
+					if (
+						sectorMap.get(symbol) == null &&
+						(typeof sicCode === "string" || typeof sicCode === "number")
+					) {
+						const sector = sicCodeToSector(String(sicCode));
+						sectorMap.set(symbol, sector);
+						updatePayload.sector = sector;
+					}
+					if (
+						iconUrlMap.get(symbol) == null &&
+						typeof iconUrl === "string" &&
+						iconUrl.length > 0
+					) {
+						iconUrlMap.set(symbol, iconUrl);
+						updatePayload.icon_url = iconUrl;
+					}
+					if (Object.keys(updatePayload).length === 0) continue;
 
 					const { error: updateError } = await adminSupabase
 						.from("assets")
-						.update({ sector } as Record<string, unknown>)
+						.update(updatePayload)
 						.eq("symbol", symbol);
 					if (updateError) {
 						logger.warn(
-							"Supabase sector update failed",
-							{ symbol, sector },
+							"Supabase asset metadata (sector/icon) update failed",
+							{ symbol, ...updatePayload },
 							updateError,
 						);
 					}
 				} catch (err) {
-					logger.warn("Failed to fetch sector for asset", { symbol }, err);
+					logger.warn(
+						"Failed to fetch asset metadata (sector/icon) for asset",
+						{ symbol },
+						err,
+					);
 				}
 			}
 		}
 
 		const assets: Record<
 			string,
-			{ prevClose: number | null; sector: string | null }
+			{
+				prevClose: number | null;
+				sector: string | null;
+				iconUrl: string | null;
+			}
 		> = {};
 		for (const symbol of symbols) {
 			const quote = quoteMap.get(symbol);
 			assets[symbol] = {
 				prevClose: quote?.prevClose ?? null,
 				sector: sectorMap.get(symbol) ?? null,
+				iconUrl: iconUrlMap.get(symbol) ?? null,
 			};
 		}
 

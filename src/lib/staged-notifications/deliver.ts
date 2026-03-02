@@ -19,7 +19,10 @@ import type { Logger } from "../logging";
 import { updateUserMarketScheduledNextSendAt } from "../market-notifications/scheduled/next-send-at";
 import { sendUserEmail } from "../messaging/email/index";
 import type { EmailSender } from "../messaging/email/utils";
-import { recordNotification } from "../messaging/shared";
+import {
+	deliveryResultToLogFields,
+	recordNotification,
+} from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import type { UserRecord } from "../messaging/types";
 import type {
@@ -320,7 +323,7 @@ async function deliverStagedMarket(options: {
 				delivery_method: "email",
 				message_delivered: result.success,
 				message: stagedData.email.text,
-				error: result.success ? undefined : result.error,
+				...deliveryResultToLogFields(result),
 			});
 			if (!logged) stats.logFailures++;
 
@@ -385,7 +388,7 @@ async function deliverStagedMarket(options: {
 						delivery_method: "sms",
 						message_delivered: result.success,
 						message: stagedData.sms.message,
-						error: result.success ? undefined : result.error,
+						...deliveryResultToLogFields(result),
 					});
 					if (!logged) stats.logFailures++;
 
@@ -506,7 +509,7 @@ async function deliverStagedDaily(options: {
 				delivery_method: "email",
 				message_delivered: result.success,
 				message: stagedData.email.text,
-				error: result.success ? undefined : result.error,
+				...deliveryResultToLogFields(result),
 			});
 			if (!logged) stats.logFailures++;
 
@@ -572,7 +575,7 @@ async function deliverStagedDaily(options: {
 						delivery_method: "sms",
 						message_delivered: result.success,
 						message: stagedData.sms.message,
-						error: result.success ? undefined : result.error,
+						...deliveryResultToLogFields(result),
 					});
 					if (!logged) stats.logFailures++;
 

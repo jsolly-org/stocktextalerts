@@ -8,3 +8,38 @@ const UUID_REGEX =
 export function isValidUuid(value: string | null | undefined): value is string {
 	return typeof value === "string" && UUID_REGEX.test(value);
 }
+
+/** Forbidden protocol prefixes for redirect URLs (XSS / open redirect). */
+const UNSAFE_REDIRECT_PREFIXES = [
+	"javascript:",
+	"data:",
+	"vbscript:",
+	"file:",
+] as const;
+
+/** CR/LF in redirect URL would allow HTTP response splitting. */
+const CRLF_RE = /\r|\n/;
+
+/**
+ * Returns true if the value is safe to use as an HTTP Location header.
+ * Allows only http: and https: URLs; rejects CR/LF and script/data protocols.
+ */
+export function isSafeRedirectUrl(value: string | null | undefined): boolean {
+	if (typeof value !== "string") {
+		return false;
+	}
+	if (CRLF_RE.test(value)) {
+		return false;
+	}
+	const trimmed = value.trim();
+	if (trimmed === "") {
+		return false;
+	}
+	const lower = trimmed.toLowerCase();
+	for (const prefix of UNSAFE_REDIRECT_PREFIXES) {
+		if (lower.startsWith(prefix)) {
+			return false;
+		}
+	}
+	return lower.startsWith("http://") || lower.startsWith("https://");
+}

@@ -262,7 +262,17 @@ async function expectCurrentPath(
 
 async function signIn(page: Page, email: string, password: string) {
 	await page.goto("/auth/signin");
-	await page.locator("#email").fill(email);
+	const emailInput = page.locator("#email");
+	// Poll-fill email until Vue hydration finishes and stops clearing the value
+	await expect
+		.poll(
+			async () => {
+				await emailInput.fill(email);
+				return emailInput.inputValue();
+			},
+			{ timeout: 10_000, message: "Email value cleared by hydration" },
+		)
+		.toBe(email);
 	await page.locator("#password").fill(password);
 	await page.getByRole("button", { name: "Sign In" }).click();
 	await expectCurrentPath(page, "/dashboard");
@@ -658,6 +668,120 @@ test.describe("sanity tests", () => {
 		await expect(
 			page.getByRole("button", { name: "Remove GOOGL" }),
 		).toBeVisible();
+	});
+
+	test("TC-BADGE-001: Asset badges show logo, Stock, or ETF", async () => {
+		if (!testUserId) {
+			throw new Error("testUserId not set before TC-BADGE-001");
+		}
+
+		const assertNoDbError = (
+			error: { message: string } | null,
+			action: string,
+		) => {
+			if (error) throw new Error(`${action}: ${error.message}`);
+		};
+
+		const msftIconUrl =
+			"https://api.massive.com/v1/reference/company-branding/d3d3Lm1pY3Jvc29mdC5jb20/images/2022-01-10_icon.png";
+
+		try {
+			const { error: aaplErr } = await adminClient
+				.from("assets")
+				.update({ icon_url: null })
+				.eq("symbol", "AAPL");
+			assertNoDbError(aaplErr, "Failed to clear AAPL icon_url");
+
+			const { error: msftErr } = await adminClient
+				.from("assets")
+				.update({ icon_url: msftIconUrl })
+				.eq("symbol", "MSFT");
+			assertNoDbError(msftErr, "Failed to set MSFT icon_url");
+
+			const { error: googlErr } = await adminClient
+				.from("assets")
+				.update({ icon_url: "https://invalid.test/broken-icon.png" })
+				.eq("symbol", "GOOGL");
+			assertNoDbError(googlErr, "Failed to set GOOGL icon_url");
+
+			await ensureAssetsExist(["VOO"]);
+			await page.goto("/dashboard");
+			await expectCurrentPath(page, "/dashboard");
+			await addAsset(page, "VOO");
+			await waitForTrackedAssets(testUserId, ["AAPL", "GOOGL", "MSFT", "VOO"]);
+
+			await page.reload();
+
+			const getRow = (symbol: string) =>
+				page
+					.getByRole("button", { name: `Remove ${symbol}` })
+					.locator("xpath=ancestor::li");
+
+			await expect(getRow("MSFT").locator(`img[alt="MSFT logo"]`)).toBeVisible({
+				timeout: 15_000,
+			});
+
+			await expect(getRow("AAPL").getByText("Stock")).toBeVisible();
+
+			await expect(getRow("GOOGL").getByText("Stock")).toBeVisible({
+				timeout: 15_000,
+			});
+
+			await expect(
+				getRow("VOO").getByText("ETF", { exact: true }),
+			).toBeVisible();
+
+			await ensureAssetsExist(["NVDA"]);
+			const { error: nvdaErr } = await adminClient
+				.from("assets")
+				.update({ icon_url: msftIconUrl })
+				.eq("symbol", "NVDA");
+			assertNoDbError(nvdaErr, "Failed to set NVDA icon_url");
+
+			const input = page.locator("#asset_search");
+			await Promise.all([
+				page.waitForResponse(
+					(response) =>
+						response.url().includes("/api/assets/search") &&
+						response.status() === 200,
+					{ timeout: 15_000 },
+				),
+				input.fill("NVDA"),
+			]);
+
+			const dropdown = page.locator("#asset_dropdown");
+			const nvdaOption = dropdown
+				.getByRole("option")
+				.filter({ hasText: "NVDA - NVIDIA" });
+			await expect(nvdaOption).toBeVisible({ timeout: 15_000 });
+			await expect(nvdaOption.locator(`img[alt="NVDA logo"]`)).toBeVisible();
+
+			await input.fill("");
+		} finally {
+			await page
+				.getByRole("button", { name: "Remove VOO" })
+				.click()
+				.catch(() => {});
+			await waitForTrackedAssets(testUserId, ["AAPL", "GOOGL", "MSFT"]).catch(
+				() => {},
+			);
+			await adminClient
+				.from("assets")
+				.update({ icon_url: null })
+				.eq("symbol", "AAPL");
+			await adminClient
+				.from("assets")
+				.update({ icon_url: null })
+				.eq("symbol", "MSFT");
+			await adminClient
+				.from("assets")
+				.update({ icon_url: null })
+				.eq("symbol", "GOOGL");
+			await adminClient
+				.from("assets")
+				.update({ icon_url: null })
+				.eq("symbol", "NVDA");
+		}
 	});
 
 	test("TC-EMAIL-001: User can enable email notifications and receive an update", async () => {
