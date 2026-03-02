@@ -94,7 +94,11 @@ const handler: APIRoute = async ({ request, locals }) => {
 					updatePayload.sector = sicCodeToSector(String(sicCode));
 				}
 				// Reject blank icon_url so the row stays eligible for backfill and UI doesn't stick on fallback
-				if (typeof iconUrl === "string" && iconUrl.trim() !== "") {
+				if (
+					row.icon_url == null &&
+					typeof iconUrl === "string" &&
+					iconUrl.trim() !== ""
+				) {
 					updatePayload.icon_url = iconUrl;
 				}
 				if (Object.keys(updatePayload).length === 0) {
