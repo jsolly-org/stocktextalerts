@@ -357,7 +357,16 @@ export async function processDailyDigestUser(options: {
 
 		const logoCache = createLogoCache();
 		if (emailEnabled) {
-			await prefetchLogos(userAssets, logoCache, supabase);
+			try {
+				await prefetchLogos(userAssets, logoCache, supabase);
+			} catch (error) {
+				logger.warn("Failed to prefetch logos for daily digest", {
+					action: "daily_run",
+					userId: user.id,
+					assetCount: userAssets.length,
+					error: error instanceof Error ? error.message : String(error),
+				});
+			}
 		}
 		const getLogoHtml = (symbol: string): string | undefined => {
 			const dataUri = logoCache.get(symbol);

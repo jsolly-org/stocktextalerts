@@ -111,7 +111,7 @@ describe("Email scheduled update includes asset price data.", () => {
 		expect(html).not.toContain("MSFT &mdash;");
 	});
 
-	it("Logo img tags appear in HTML when getLogoHtml is provided.", () => {
+	it("A scheduled-email recipient sees an inline AAPL logo while symbols without logos remain text-only.", () => {
 		const priceMap: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 			["MSFT", { price: 412.1, changePercent: -0.31 }],

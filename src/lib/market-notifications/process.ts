@@ -1,5 +1,6 @@
 import { rootLogger } from "../logging";
 import { createEmailSender } from "../messaging/email/utils";
+import { createLogoCache } from "../messaging/logo-fetcher";
 import type { CompanyNewsItem } from "../providers/company-news";
 import { fetchIntradayBars } from "../providers/massive";
 import {
@@ -309,6 +310,7 @@ export async function processPriceAlerts(options: {
 	const sendEmail = createEmailSender();
 	const getSmsSender = createSmsSenderProvider();
 	let smsSender: ReturnType<typeof getSmsSender>["sender"] | null = null;
+	const logoCache = createLogoCache();
 
 	// Pre-compute benchmark moves for SPY and all sector ETFs
 	const benchmarkMoveCache = new Map<string, number | null>();
@@ -496,6 +498,7 @@ export async function processPriceAlerts(options: {
 				sendEmail,
 				sendSms: smsSender,
 				stats: totals,
+				logoCache,
 			});
 		}
 	}

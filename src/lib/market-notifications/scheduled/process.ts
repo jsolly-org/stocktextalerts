@@ -182,12 +182,19 @@ export async function processMarketScheduledUser(options: {
 		const getSparkline = (symbol: string) => sparklines.get(symbol) ?? null;
 		const getAsciiSparkline = (symbol: string) => sparklines.get(symbol)?.ascii;
 
-		const logoCache = createLogoCache();
-		await prefetchLogos(userAssets, logoCache, supabase);
-		const getLogoHtml = (symbol: string): string | undefined => {
-			const dataUri = logoCache.get(symbol);
-			return dataUri ? renderLogoImg(dataUri) : undefined;
-		};
+		const shouldPrepareEmail =
+			user.email_notifications_enabled &&
+			user.market_scheduled_asset_price_include_email;
+		const logoCache = shouldPrepareEmail ? createLogoCache() : null;
+		if (logoCache) {
+			await prefetchLogos(userAssets, logoCache, supabase);
+		}
+		const getLogoHtml = logoCache
+			? (symbol: string): string | undefined => {
+					const dataUri = logoCache.get(symbol);
+					return dataUri ? renderLogoImg(dataUri) : undefined;
+				}
+			: undefined;
 
 		const assetsList = formatAssetsTextList(
 			userAssets,

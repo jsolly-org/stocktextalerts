@@ -133,13 +133,14 @@ export async function deliverPriceTargetAlert(options: {
 	sendEmail: EmailSender;
 	sendSms: SmsSender | null;
 	stats: PriceTargetDeliveryStats;
+	logoCache?: ReturnType<typeof createLogoCache>;
 }): Promise<boolean> {
 	const { user, target, supabase, sendEmail, sendSms, stats } = options;
+	const logoCache = options.logoCache ?? createLogoCache();
 	let delivered = false;
 
 	// Email delivery
 	if (user.price_targets_include_email) {
-		const logoCache = createLogoCache();
 		const logoDataUri = await fetchLogoBase64(
 			target.symbol,
 			target.iconUrl,

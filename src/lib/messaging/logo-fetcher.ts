@@ -140,5 +140,9 @@ export async function prefetchLogos(
 
 /** Render an inline `<img>` tag for a base64-encoded logo. */
 export function renderLogoImg(base64DataUri: string): string {
+	// Sanity check: ensure it's actually a data URI
+	if (!base64DataUri.startsWith("data:image/")) {
+		return "";
+	}
 	return `<img src="${base64DataUri}" alt="" width="20" height="20" style="vertical-align: middle; border-radius: 4px; margin-right: 4px;" />`;
 }

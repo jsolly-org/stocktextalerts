@@ -811,7 +811,8 @@ const hasNotificationChannel = computed(
 	() =>
 		emailEnabled.value ||
 		(user.value.market_scheduled_asset_price_include_sms ||
-			user.value.market_asset_price_alerts_include_sms) &&
+			user.value.market_asset_price_alerts_include_sms ||
+			user.value.price_targets_include_sms) &&
 			smsReady.value,
 );
 const needsChannelSelection = computed(() => !hasNotificationChannel.value);
@@ -824,7 +825,8 @@ const notificationSetupBlocked = computed(
 const needsPhoneVerification = computed(
 	() =>
 		(user.value.market_scheduled_asset_price_include_sms ||
-			user.value.market_asset_price_alerts_include_sms) &&
+			user.value.market_asset_price_alerts_include_sms ||
+			user.value.price_targets_include_sms) &&
 		!phoneVerified.value,
 );
 const timePickerDisabled = computed(() => notificationSetupBlocked.value);

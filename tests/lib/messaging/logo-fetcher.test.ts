@@ -202,12 +202,17 @@ describe("logo-fetcher", () => {
 		});
 	});
 
-	describe("renderLogoImg", () => {
-		it("Produces correct img tag.", () => {
+	describe("When a logo data URI is available for email", () => {
+		it("the subscriber sees an inline 20x20 rounded logo image in the message.", () => {
 			const result = renderLogoImg("data:image/png;base64,abc123");
 			expect(result).toBe(
 				'<img src="data:image/png;base64,abc123" alt="" width="20" height="20" style="vertical-align: middle; border-radius: 4px; margin-right: 4px;" />',
 			);
+		});
+
+		it("invalid or non-image data is not rendered and the subscriber sees no img tag.", () => {
+			expect(renderLogoImg("not-a-data-uri")).toBe("");
+			expect(renderLogoImg("data:text/plain,foo")).toBe("");
 		});
 	});
 });

@@ -361,16 +361,18 @@ export async function deliverPriceAlert(options: {
 	sendEmail: EmailSender;
 	sendSms: SmsSender | null;
 	stats: PriceAlertDeliveryStats;
+	logoCache?: ReturnType<typeof createLogoCache>;
 }): Promise<void> {
-	const { user, alert, supabase, sendEmail, sendSms, stats } = options;
+	const { user, alert, supabase, sendEmail, sendSms, stats, logoCache } =
+		options;
 
 	// Email delivery
 	if (user.market_asset_price_alerts_include_email) {
-		const logoCache = createLogoCache();
+		const effectiveLogoCache = logoCache ?? createLogoCache();
 		const logoDataUri = await fetchLogoBase64(
 			alert.symbol,
 			alert.iconUrl,
-			logoCache,
+			effectiveLogoCache,
 			alert.iconBase64,
 			supabase,
 		);
