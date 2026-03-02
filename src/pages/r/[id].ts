@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { createSupabaseAdminClient } from "../../lib/db/supabase";
+import { isSafeRedirectUrl } from "../../lib/validation";
 
 export const prerender = false;
 
@@ -30,10 +31,17 @@ export const GET: APIRoute = async ({ params }) => {
 		return new Response("Gone", { status: 410 });
 	}
 
+	const rawLocation =
+		typeof data.original_url === "string" ? data.original_url : "";
+	if (!isSafeRedirectUrl(rawLocation)) {
+		return new Response("Gone", { status: 410 });
+	}
+	const location = rawLocation.trim();
+
 	return new Response(null, {
 		status: 302,
 		headers: {
-			Location: data.original_url,
+			Location: location,
 			"Cache-Control": "no-cache",
 		},
 	});
