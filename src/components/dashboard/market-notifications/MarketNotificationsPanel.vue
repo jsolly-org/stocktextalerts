@@ -433,6 +433,7 @@
 									:key="asset.symbol"
 									class="flex items-center gap-3 rounded-lg border border-edge bg-surface-alt px-3 py-2"
 								>
+									<AssetBadge :type="asset.type as 'stock' | 'etf'" :symbol="asset.symbol" :icon-url="asset.icon_url" />
 									<div class="min-w-0 flex-1">
 										<div class="flex items-center gap-2">
 											<span class="text-sm font-semibold text-heading">{{ asset.symbol }}</span>
@@ -550,6 +551,7 @@ import {
 	parseTimeToMinutes,
 } from "../../../lib/time/format";
 import FadeTransition from "../../FadeTransition.vue";
+import AssetBadge from "../assets/AssetBadge.vue";
 import type { InitialAsset } from "../assets/types";
 import {
 	type NotificationPreferencesData,
@@ -1044,7 +1046,7 @@ function formatCurrentPrice(price: number): string {
 const pricesFetchedAtLabel = computed(() => {
 	const d = pricesFetchedAt.value;
 	if (!d) return null;
-	return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+	return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: !is24.value });
 });
 
 function getCurrentPrice(symbol: string): number | null {

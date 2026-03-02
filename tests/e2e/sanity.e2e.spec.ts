@@ -262,7 +262,17 @@ async function expectCurrentPath(
 
 async function signIn(page: Page, email: string, password: string) {
 	await page.goto("/auth/signin");
-	await page.locator("#email").fill(email);
+	const emailInput = page.locator("#email");
+	// Poll-fill email until Vue hydration finishes and stops clearing the value
+	await expect
+		.poll(
+			async () => {
+				await emailInput.fill(email);
+				return emailInput.inputValue();
+			},
+			{ timeout: 10_000, message: "Email value cleared by hydration" },
+		)
+		.toBe(email);
 	await page.locator("#password").fill(password);
 	await page.getByRole("button", { name: "Sign In" }).click();
 	await expectCurrentPath(page, "/dashboard");
@@ -676,6 +686,12 @@ test.describe("sanity tests", () => {
 			"https://api.massive.com/v1/reference/company-branding/d3d3Lm1pY3Jvc29mdC5jb20/images/2022-01-10_icon.png";
 
 		try {
+			const { error: aaplErr } = await adminClient
+				.from("assets")
+				.update({ icon_url: null })
+				.eq("symbol", "AAPL");
+			assertNoDbError(aaplErr, "Failed to clear AAPL icon_url");
+
 			const { error: msftErr } = await adminClient
 				.from("assets")
 				.update({ icon_url: msftIconUrl })
@@ -711,7 +727,9 @@ test.describe("sanity tests", () => {
 				timeout: 15_000,
 			});
 
-			await expect(getRow("VOO").getByText("ETF")).toBeVisible();
+			await expect(
+				getRow("VOO").getByText("ETF", { exact: true }),
+			).toBeVisible();
 
 			await ensureAssetsExist(["NVDA"]);
 			const { error: nvdaErr } = await adminClient
@@ -734,7 +752,7 @@ test.describe("sanity tests", () => {
 			const dropdown = page.locator("#asset_dropdown");
 			const nvdaOption = dropdown
 				.getByRole("option")
-				.filter({ hasText: "NVDA" });
+				.filter({ hasText: "NVDA - NVIDIA" });
 			await expect(nvdaOption).toBeVisible({ timeout: 15_000 });
 			await expect(nvdaOption.locator(`img[alt="NVDA logo"]`)).toBeVisible();
 
@@ -747,6 +765,10 @@ test.describe("sanity tests", () => {
 			await waitForTrackedAssets(testUserId, ["AAPL", "GOOGL", "MSFT"]).catch(
 				() => {},
 			);
+			await adminClient
+				.from("assets")
+				.update({ icon_url: null })
+				.eq("symbol", "AAPL");
 			await adminClient
 				.from("assets")
 				.update({ icon_url: null })

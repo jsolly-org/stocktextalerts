@@ -95,6 +95,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, '..', '..');
 
 const ASSETS_FILE = path.join(projectRoot, 'scripts', 'data', 'us-assets.json');
+const BRANDING_FILE = path.join(projectRoot, 'scripts', 'data', 'asset-branding.json');
 const USERS_FILE = path.join(projectRoot, 'scripts', 'data', 'users.json');
 const SEED_FILE = path.join(projectRoot, 'supabase', 'seed.sql');
 
@@ -140,6 +141,60 @@ function getErrorStatus(error: unknown): number | null {
 function isNetworkError(error: unknown): boolean {
   const code = getErrorCode(error);
   return code ? NETWORK_ERROR_CODES.has(code) : false;
+}
+
+function generateBrandingSql(): string {
+  if (!fs.existsSync(BRANDING_FILE)) return '';
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(fs.readFileSync(BRANDING_FILE, 'utf-8'));
+  } catch (error) {
+    throw new SeedError(
+      "assets_read_failed",
+      `Failed to read ${BRANDING_FILE}: ${error instanceof Error ? error.message : error}`,
+      { cause: error },
+    );
+  }
+
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new SeedError(
+      "assets_read_failed",
+      `${BRANDING_FILE} must contain a JSON object with a 'data' property`,
+    );
+  }
+
+  const data = (parsed as Record<string, unknown>).data;
+  if (data === null || typeof data !== "object" || Array.isArray(data)) {
+    throw new SeedError(
+      "assets_read_failed",
+      `${BRANDING_FILE}: 'data' property must be a { symbol: url } object`,
+    );
+  }
+
+  const entries = Object.entries(data as Record<string, unknown>).filter(
+    ([, url]) => typeof url === "string" && url.trim() !== "",
+  );
+  if (entries.length === 0) return '';
+
+  const updates = entries
+    .map(
+      ([symbol, url]) =>
+        `  WHEN '${escapeSql(symbol)}' THEN '${escapeSql(url as string)}'`,
+    )
+    .join('\n');
+
+  const symbols = entries
+    .map(([symbol]) => `'${escapeSql(symbol)}'`)
+    .join(', ');
+
+  return `
+UPDATE public.assets
+SET icon_url = CASE symbol
+${updates}
+END
+WHERE symbol IN (${symbols}) AND icon_url IS NULL;
+`;
 }
 
 function generateAssetsSql(assets: Asset[]): string {
@@ -442,12 +497,14 @@ async function main() {
 
   // 3. Generate SQL
   const assetsSql = generateAssetsSql(assets);
+  const brandingSql = generateBrandingSql();
   const usersSql = await generateUsersSql(users, supabase);
 
   const sections = [
     `-- 1. Assets\n${assetsSql.trimEnd()}`.trimEnd(),
-    `-- 2. Users (auth + public profile + tracked assets)\n${usersSql.trimEnd()}`.trimEnd(),
-  ];
+    brandingSql ? `-- 2. Asset branding (icon_url)\n${brandingSql.trimEnd()}`.trimEnd() : '',
+    `-- ${brandingSql ? '3' : '2'}. Users (auth + public profile + tracked assets)\n${usersSql.trimEnd()}`.trimEnd(),
+  ].filter(Boolean);
 
   const fullSql = `/*
   Auto-generated seed file. 
