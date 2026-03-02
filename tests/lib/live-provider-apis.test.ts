@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { fetchCompanyNews } from "../../src/lib/providers/company-news";
 import {
 	fetchFinnhubExtras,
@@ -24,6 +24,7 @@ import {
 	assertLiveProviderKey,
 	isLiveProviderEnabled,
 } from "../helpers/live-api";
+import { expectConsoleError, expectConsoleWarning } from "../setup";
 
 const describeMassiveLive = isLiveProviderEnabled("massive")
 	? describe
@@ -336,6 +337,12 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 
 describeFinnhubLive("Finnhub live API (opt-in)", () => {
 	assertLiveProviderKey({ provider: "finnhub", envVar: "FINNHUB_API_KEY" });
+
+	// Live API calls may experience transient timeouts/rate-limits that trigger retries
+	beforeEach(() => {
+		expectConsoleWarning(/Finnhub/);
+		expectConsoleError(/Finnhub/);
+	});
 
 	it("returns analyst recommendations for a liquid ticker", async () => {
 		const result = await fetchFinnhubExtras(["AAPL"], {
