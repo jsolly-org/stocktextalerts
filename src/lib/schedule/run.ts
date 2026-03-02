@@ -474,10 +474,12 @@ export async function runScheduledNotifications(options: {
 	// that could be reused by scheduled notifications to avoid duplicate API calls.
 	let priceAlertTotals: PriceAlertTotals | undefined;
 	let priceAlertQuoteMap: ExtendedQuoteMap | undefined;
+	let priceAlertIsMarketOpen: boolean | undefined;
 	try {
 		const priceAlertResult = await processPriceAlerts({ supabase });
 		priceAlertTotals = priceAlertResult.totals;
 		priceAlertQuoteMap = priceAlertResult.quoteMap;
+		priceAlertIsMarketOpen = priceAlertResult.isMarketOpen;
 
 		if (priceAlertTotals.alertsTriggered > 0) {
 			logger.info("Price alerts processed", {
@@ -494,12 +496,13 @@ export async function runScheduledNotifications(options: {
 	}
 
 	// Run price target checks — piggybacks on the same market-hours window.
-	// Reuses the quote map from price alerts to avoid duplicate API calls.
+	// Reuses the quote map and market status from price alerts to avoid duplicate API calls.
 	let priceTargetTotals: PriceTargetTotals | undefined;
 	try {
 		priceTargetTotals = await processPriceTargets({
 			supabase,
 			quoteMap: priceAlertQuoteMap,
+			isMarketOpen: priceAlertIsMarketOpen,
 		});
 
 		if (priceTargetTotals.targetsTriggered > 0) {

@@ -535,11 +535,12 @@ import {
 	DEFAULT_MARKET_UPDATE_TIME_MINUTES,
 	STATUS_TONE_CLASSES,
 } from "../../../lib/constants";
-import type {
-	AlertFollowUpMode,
-	AlertMarketContext,
-	AlertMoveSize,
-	AlertRiskPriority,
+import {
+	type AlertFollowUpMode,
+	type AlertMarketContext,
+	type AlertMoveSize,
+	type AlertRiskPriority,
+	normalizeMoveSize,
 } from "../../../lib/market-notifications/alert-profile";
 import {
 	formatMinutesAsLocalTime,
@@ -627,10 +628,6 @@ function normalizeMarketContext(
 const priceAlertMarketContext = ref<AlertMarketContext>(
 	normalizeMarketContext(user.value.market_asset_price_alert_market_context),
 );
-function normalizeMoveSize(value: string | null | undefined): AlertMoveSize {
-	if (value === "significant" || value === "extreme") return value;
-	return "extreme";
-}
 const priceAlertMoveSize = ref<AlertMoveSize>(
 	normalizeMoveSize(user.value.market_asset_price_alert_move_size),
 );

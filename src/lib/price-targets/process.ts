@@ -48,10 +48,12 @@ interface PriceTargetRow {
  * deliver notifications for triggered targets, and delete triggered rows.
  *
  * Accepts an optional `quoteMap` to reuse quotes already fetched by processPriceAlerts.
+ * Accepts an optional `isMarketOpen` to reuse market status already fetched by processPriceAlerts.
  */
 export async function processPriceTargets(options: {
 	supabase: SupabaseAdminClient;
 	quoteMap?: ExtendedQuoteMap;
+	isMarketOpen?: boolean;
 }): Promise<PriceTargetTotals> {
 	const { supabase } = options;
 	const totals: PriceTargetTotals = {
@@ -64,8 +66,8 @@ export async function processPriceTargets(options: {
 		logFailures: 0,
 	};
 
-	// Only process during market hours
-	const isMarketOpen = await fetchMarketStatus();
+	// Only process during market hours (use pre-fetched status when available)
+	const isMarketOpen = options.isMarketOpen ?? (await fetchMarketStatus());
 	if (!isMarketOpen) {
 		return totals;
 	}
