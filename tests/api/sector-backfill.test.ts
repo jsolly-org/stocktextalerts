@@ -303,7 +303,7 @@ describe("A cron worker backfills missing asset sectors.", () => {
 		]);
 	});
 
-	it("Includes icon_url in update when branding.icon_url is present.", async () => {
+	it("A scheduled sector backfill run stores the logo URL when market branding includes one.", async () => {
 		state.queryRows = [{ symbol: "AAPL" }];
 		marketDataFetchMock.mockResolvedValueOnce({
 			results: {
@@ -338,7 +338,7 @@ describe("A cron worker backfills missing asset sectors.", () => {
 		});
 	});
 
-	it("Updates asset when only icon_url is available (no sic_code).", async () => {
+	it("A scheduled sector backfill run updates an asset when only a logo URL is available.", async () => {
 		state.queryRows = [{ symbol: "XOM" }];
 		marketDataFetchMock.mockResolvedValueOnce({
 			results: {
@@ -370,8 +370,8 @@ describe("A cron worker backfills missing asset sectors.", () => {
 		});
 	});
 
-	it("Skips assets when neither sic_code nor icon_url is available.", async () => {
-		state.queryRows = [{ symbol: "NODATA" }];
+	it("A scheduled sector backfill run skips an asset when market data has no sector or logo.", async () => {
+		state.queryRows = [{ symbol: "SPY" }];
 		marketDataFetchMock.mockResolvedValueOnce({ results: {} });
 
 		const runSectorBackfill = await loadSectorBackfillHandler();

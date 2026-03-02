@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createApiContext } from "../../helpers/api-context";
 
-// Mock modules before importing the handler
 vi.mock("../../../src/lib/db/supabase", () => ({
 	createSupabaseServerClient: vi.fn(),
 }));
@@ -43,22 +42,18 @@ function setupMocks(options: {
 		created_at: string;
 	}>;
 	prices?: Map<string, { price: number; changePercent: number } | null>;
-	upsertError?: unknown;
-	deleteError?: unknown;
 }) {
 	const {
 		user = { id: "user-1" },
 		watchlist = [],
 		prices = new Map(),
-		upsertError = null,
-		deleteError = null,
 	} = options;
 	const supabaseMock = {
 		from: () => ({
-			upsert: () => Promise.resolve({ error: upsertError }),
+			upsert: () => Promise.resolve({ error: null }),
 			delete: () => ({
 				eq: () => ({
-					eq: () => Promise.resolve({ error: deleteError }),
+					eq: () => Promise.resolve({ error: null }),
 				}),
 			}),
 		}),
@@ -71,7 +66,7 @@ function setupMocks(options: {
 	mockFetchAssetPrices.mockResolvedValue(prices);
 }
 
-describe("A signed-in user saves or removes a price target for a watched symbol", () => {
+describe("Price target save API rejects unauthorized or invalid requests", () => {
 	let handler: (ctx: ReturnType<typeof createApiContext>) => Promise<Response>;
 
 	beforeEach(async () => {
@@ -82,57 +77,59 @@ describe("A signed-in user saves or removes a price target for a watched symbol"
 		) => Promise<Response>;
 	});
 
-	it("A user saves an above target and receives direction in the response", async () => {
-		setupMocks({
-			watchlist: [
-				{
-					symbol: "AAPL",
-					name: "Apple",
-					type: "stock",
-					created_at: "2025-01-01",
-				},
-			],
-			prices: new Map([["AAPL", { price: 195, changePercent: 1 }]]),
-		});
+	it("An unauthenticated user receives 401", async () => {
+		setupMocks({ user: null });
 		const response = await handler(
 			makeContext({ symbol: "AAPL", target_price: 200 }),
 		);
-		expect(response.status).toBe(200);
-		const data = await response.json();
-		expect(data.direction).toBe("above");
+		expect(response.status).toBe(401);
 	});
 
-	it("A user saves a below target and receives direction in the response", async () => {
-		setupMocks({
-			watchlist: [
-				{
-					symbol: "AAPL",
-					name: "Apple",
-					type: "stock",
-					created_at: "2025-01-01",
-				},
-			],
-			prices: new Map([["AAPL", { price: 205, changePercent: 1 }]]),
-		});
-		const response = await handler(
-			makeContext({ symbol: "AAPL", target_price: 200 }),
-		);
-		expect(response.status).toBe(200);
-		const data = await response.json();
-		expect(data.direction).toBe("below");
-	});
-
-	it("A user removes a target by sending null target_price", async () => {
+	it("A request with missing symbol receives 400", async () => {
 		setupMocks({});
 		const response = await handler(
-			makeContext({ symbol: "AAPL", target_price: null }),
+			makeContext({ symbol: "", target_price: 200 }),
 		);
-		expect(response.status).toBe(200);
-		const data = await response.json();
-		expect(data.message).toBe("target_removed");
+		expect(response.status).toBe(400);
 	});
 
-	it("Symbol is normalized (trimmed and uppercased) before validation and save", async () => {
+	it("A request with invalid target_price receives 400", async () => {
+		setupMocks({});
+		const response = await handler(
+			makeContext({ symbol: "AAPL", target_price: -5 }),
+		);
+		expect(response.status).toBe(400);
+	});
+
+	it("A request with zero target_price receives 400", async () => {
+		setupMocks({});
+		const response = await handler(
+			makeContext({ symbol: "AAPL", target_price: 0 }),
+		);
+		expect(response.status).toBe(400);
+	});
+
+	it("A user cannot set a target for a symbol not on their watchlist", async () => {
+		setupMocks({
+			watchlist: [
+				{
+					symbol: "GOOG",
+					name: "Alphabet",
+					type: "stock",
+					created_at: "2025-01-01",
+				},
+			],
+			prices: new Map([["AAPL", { price: 195, changePercent: 1 }]]),
+		});
+		const response = await handler(
+			makeContext({ symbol: "AAPL", target_price: 200 }),
+		);
+		expect(response.status).toBe(400);
+		const data = await response.json();
+		expect(data.message).toBe("symbol_not_in_watchlist");
+	});
+
+	it("A user cannot set a target equal to current price", async () => {
 		setupMocks({
 			watchlist: [
 				{
@@ -142,13 +139,13 @@ describe("A signed-in user saves or removes a price target for a watched symbol"
 					created_at: "2025-01-01",
 				},
 			],
-			prices: new Map([["AAPL", { price: 195, changePercent: 1 }]]),
+			prices: new Map([["AAPL", { price: 200, changePercent: 1 }]]),
 		});
 		const response = await handler(
-			makeContext({ symbol: " aapl ", target_price: 200 }),
+			makeContext({ symbol: "AAPL", target_price: 200 }),
 		);
-		expect(response.status).toBe(200);
+		expect(response.status).toBe(400);
 		const data = await response.json();
-		expect(data.direction).toBe("above");
+		expect(data.message).toBe("target_equals_current");
 	});
 });

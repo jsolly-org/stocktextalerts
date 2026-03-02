@@ -161,6 +161,9 @@ describe("Price target alert delivery", () => {
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
 
+		// Suppress expected error log when SMS sender is unavailable
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
 		await deliverPriceTargetAlert({
 			user: makeUser({ market_asset_price_alerts_include_sms: true }),
 			target: makeTarget(),
@@ -172,6 +175,8 @@ describe("Price target alert delivery", () => {
 
 		expect(sendEmail).toHaveBeenCalledOnce();
 		expect(stats.smsFailed).toBe(1);
+
+		errorSpy.mockRestore();
 	});
 
 	it("A user sees direction and target in the price target email", async () => {
