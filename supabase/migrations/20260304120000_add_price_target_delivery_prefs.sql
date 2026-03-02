@@ -2,8 +2,8 @@
 -- Previously price targets reused the realtime alert delivery columns.
 
 ALTER TABLE public.users
-  ADD COLUMN price_targets_include_email BOOLEAN NOT NULL DEFAULT true,
-  ADD COLUMN price_targets_include_sms   BOOLEAN NOT NULL DEFAULT true;
+  ADD COLUMN price_targets_include_email BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN price_targets_include_sms   BOOLEAN NOT NULL DEFAULT false;
 
 -- Preserve existing user preferences: copy from market_asset_price_alerts_* columns
 UPDATE public.users

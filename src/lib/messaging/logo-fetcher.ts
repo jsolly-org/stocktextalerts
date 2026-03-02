@@ -153,7 +153,11 @@ export async function fetchLogoBase64(
 		inFlight.set(inFlightKey, promise);
 	}
 
-	return promise;
+	// Ensure this caller's cache is populated when the shared promise resolves
+	return promise.then((dataUri) => {
+		cache.set(symbol, dataUri);
+		return dataUri;
+	});
 }
 
 /**
