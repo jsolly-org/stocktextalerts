@@ -187,7 +187,19 @@ export async function processMarketScheduledUser(options: {
 			user.market_scheduled_asset_price_include_email;
 		const logoCache = shouldPrepareEmail ? createLogoCache() : null;
 		if (logoCache) {
-			await prefetchLogos(userAssets, logoCache, supabase);
+			try {
+				await prefetchLogos(userAssets, logoCache, supabase);
+			} catch (error) {
+				logger.warn(
+					"Failed to prefetch logos for scheduled market notification",
+					{
+						action: "market_notifications_run",
+						userId: user.id,
+						assetCount: userAssets.length,
+						error: error instanceof Error ? error.message : String(error),
+					},
+				);
+			}
 		}
 		const getLogoHtml = logoCache
 			? (symbol: string): string | undefined => {
