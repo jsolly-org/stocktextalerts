@@ -814,6 +814,58 @@ describe("Scheduled notification scenarios", () => {
 		expect(logs ?? []).toHaveLength(0);
 	});
 
+	it("Second schedule fire at same wall-clock time does not send again to the same user (next_send_at already advanced).", async () => {
+		const timezone = "America/New_York";
+		const nowLocal = DateTime.now().setZone(timezone);
+		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
+
+		const { id } = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			scheduledUpdateTimes: [scheduledTime],
+			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceIncludeEmail: true,
+		});
+		registerTestUserForCleanup(id);
+
+		const { error: seedError } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", id);
+		expect(seedError).toBeNull();
+
+		const firstResponse = await SchedulePost({
+			request: createScheduleRequest(testCronSecret),
+		} as APIContext);
+		expect(firstResponse.status).toBe(200);
+
+		const { data: logsAfterFirst } = await adminClient
+			.from("notification_log")
+			.select("id")
+			.eq("user_id", id)
+			.eq("type", "market")
+			.eq("delivery_method", "email");
+		expect(logsAfterFirst).toHaveLength(1);
+
+		// Fire schedule again with same system time; user's next_send_at was advanced, so they are not due again.
+		const secondResponse = await SchedulePost({
+			request: createScheduleRequest(testCronSecret),
+		} as APIContext);
+		expect(secondResponse.status).toBe(200);
+
+		const { data: logsAfterSecond } = await adminClient
+			.from("notification_log")
+			.select("id")
+			.eq("user_id", id)
+			.eq("type", "market")
+			.eq("delivery_method", "email");
+		expect(logsAfterSecond).toHaveLength(1);
+	});
+
 	it("User who unsubscribes via email link does not receive email when schedule fires.", async () => {
 		const timezone = "America/New_York";
 		const nowLocal = DateTime.now().setZone(timezone);

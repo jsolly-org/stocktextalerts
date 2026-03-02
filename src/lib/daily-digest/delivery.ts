@@ -9,7 +9,10 @@ import { sendUserEmail } from "../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
 import { buildMarketClosureLabel } from "../messaging/market-closure-banner";
-import { recordNotification } from "../messaging/shared";
+import {
+	deliveryResultToLogFields,
+	recordNotification,
+} from "../messaging/shared";
 import type { SmsExtras } from "../messaging/sms/delivery";
 import { formatExtrasSection } from "../messaging/sms/formatting";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
@@ -442,8 +445,7 @@ export async function processDailyDigestEmailDelivery(options: {
 		delivery_method: "email",
 		message_delivered: result.success,
 		message: message.text,
-		error: result.success ? undefined : result.error,
-		error_code: result.success ? undefined : result.errorCode,
+		...deliveryResultToLogFields(result),
 	});
 	if (!logged) {
 		stats.logFailures++;
@@ -562,8 +564,7 @@ export async function processDailyDigestSmsDelivery(options: {
 		delivery_method: "sms",
 		message_delivered: result.success,
 		message: smsMessage,
-		error: result.success ? undefined : result.error,
-		error_code: result.success ? undefined : result.errorCode,
+		...deliveryResultToLogFields(result),
 	});
 	if (!logged) {
 		stats.logFailures++;

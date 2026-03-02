@@ -9,7 +9,10 @@ import {
 	buildMarketClosedBannerHtml,
 	buildMarketClosedBannerText,
 } from "../messaging/market-closure-banner";
-import { recordNotification } from "../messaging/shared";
+import {
+	deliveryResultToLogFields,
+	recordNotification,
+} from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import { shortenUrl } from "../messaging/sms/url-shortener";
@@ -291,8 +294,7 @@ export async function processAssetEventsEmailDelivery(options: {
 		delivery_method: "email",
 		message_delivered: result.success,
 		message: message.text,
-		error: result.success ? undefined : result.error,
-		error_code: result.success ? undefined : result.errorCode,
+		...deliveryResultToLogFields(result),
 	});
 	if (!logged) {
 		stats.logFailures++;
@@ -418,8 +420,7 @@ export async function processAssetEventsSmsDelivery(options: {
 		delivery_method: "sms",
 		message_delivered: result.success,
 		message: smsMessage,
-		error: result.success ? undefined : result.error,
-		error_code: result.success ? undefined : result.errorCode,
+		...deliveryResultToLogFields(result),
 	});
 	if (!logged) {
 		stats.logFailures++;

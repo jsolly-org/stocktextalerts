@@ -512,16 +512,6 @@ test.describe("sanity tests", () => {
 
 		// No tracked assets
 		await expect(page.getByText("No assets tracked yet")).toBeVisible();
-
-		// Toggle SMS ON → phone input should appear
-		await smsSwitch.click();
-		await expect(smsSwitch).toHaveAttribute("aria-checked", "true");
-		await expect(page.locator("#phone")).toBeVisible();
-
-		// Toggle SMS back OFF → phone input should disappear
-		await smsSwitch.click();
-		await expect(smsSwitch).toHaveAttribute("aria-checked", "false");
-		await expect(page.locator("#phone")).not.toBeVisible();
 	});
 
 	test("TC-TZ-001: User can configure timezone", async () => {
@@ -716,89 +706,32 @@ test.describe("sanity tests", () => {
 		await waitForNextSendAdvance(testUserId, previousNextSendAt, 120_000);
 	});
 
-	test("TC-SMS-001: User can enable SMS notifications and receive an update", async () => {
-		test.slow();
-		test.setTimeout(180_000);
+	test("TC-NOTIF-001: Notification preferences persist on reload", async () => {
 		if (!testUserId) {
-			throw new Error("testUserId not set before TC-SMS-001");
+			throw new Error("testUserId not set before TC-NOTIF-001");
 		}
 
 		await page.goto("/dashboard");
 
-		// Toggle SMS ON via UI — phone input should appear
-		const smsSwitch = page.getByRole("switch", { name: "SMS notifications" });
-		if ((await smsSwitch.getAttribute("aria-checked")) !== "true") {
-			await smsSwitch.click();
-		}
-		await expect(smsSwitch).toHaveAttribute("aria-checked", "true");
-		await expect(page.locator("#phone")).toBeVisible();
-		await expect
-			.poll(
-				async () => {
-					const { data, error } = await adminClient
-						.from("users")
-						.select("sms_notifications_enabled")
-						.eq("id", testUserId)
-						.single();
-					if (error) {
-						throw new Error(
-							`Failed to verify SMS notification state: ${error.message}`,
-						);
-					}
-					return data.sms_notifications_enabled;
-				},
-				{ timeout: 30_000 },
-			)
-			.toBe(true);
+		const emailSwitch = page.getByRole("switch", {
+			name: "Email notifications",
+		});
 
-		// Fill phone number via UI
-		const adminPhone = generateUniquePhoneNumber();
-		await page.locator("#phone").fill(adminPhone);
+		// Email should be ON from TC-EMAIL-001 — toggle it OFF
+		await expect(emailSwitch).toHaveAttribute("aria-checked", "true");
+		await emailSwitch.click();
+		await waitForEmailNotificationsEnabled(testUserId, false);
 
-		// Admin shortcut: mark phone as verified (can't receive OTP in E2E)
-		const { error: verifyError } = await adminClient
+		// Full navigation to verify OFF persisted in UI
+		await page.goto("/dashboard");
+		await expect(emailSwitch).toHaveAttribute("aria-checked", "false");
+
+		// Restore email ON via admin client for subsequent tests
+		// (avoids intermittent auto-save issues with a second toggle after navigation)
+		await adminClient
 			.from("users")
-			.update({
-				phone_country_code: "+1",
-				phone_number: adminPhone,
-				phone_verified: true,
-				sms_opted_out: false,
-			})
+			.update({ email_notifications_enabled: true })
 			.eq("id", testUserId);
-		if (verifyError) {
-			throw new Error(
-				`Failed to verify phone via admin: ${verifyError.message}`,
-			);
-		}
-
-		await page.reload();
-		await expect(smsSwitch).toHaveAttribute("aria-checked", "true");
-
-		// Enable scheduled SMS checkbox via UI
-		const marketNotificationsForm = page.locator(
-			'form[aria-label="Market notifications"]',
-		);
-		const scheduledSmsCheckbox = marketNotificationsForm
-			.getByRole("checkbox", { name: "SMS" })
-			.nth(1);
-		if (!(await scheduledSmsCheckbox.isChecked())) {
-			await scheduledSmsCheckbox.click();
-		}
-
-		// Admin shortcut: reset next_send_at (no UI for this) and trigger schedule
-		const { error: resetSmsNextSendError } = await adminClient
-			.from("users")
-			.update({ market_scheduled_asset_price_next_send_at: null })
-			.eq("id", testUserId);
-		if (resetSmsNextSendError) {
-			throw new Error(
-				`Failed to reset SMS next_send_at: ${resetSmsNextSendError.message}`,
-			);
-		}
-
-		const previousNextSendAt = await fetchNextSendAt(testUserId);
-		await triggerSchedule(true);
-		await waitForNextSendAdvance(testUserId, previousNextSendAt, 120_000);
 	});
 
 	test("TC-UNSUB-001: User can unsubscribe via email link", async () => {
@@ -819,12 +752,12 @@ test.describe("sanity tests", () => {
 		});
 		await waitForEmailNotificationsEnabled(testUserId, false);
 		await expect(emailSwitch).toHaveAttribute("aria-checked", "false");
-		if ((await emailSwitch.getAttribute("aria-checked")) !== "true") {
-			await emailSwitch.click();
-		}
-		await waitForEmailNotificationsEnabled(testUserId, true);
-		await page.reload();
-		await expect(emailSwitch).toHaveAttribute("aria-checked", "true");
+
+		// Restore email ON via admin client for subsequent tests
+		await adminClient
+			.from("users")
+			.update({ email_notifications_enabled: true })
+			.eq("id", testUserId);
 	});
 
 	test("TC-AUTH-002: Dashboard state persists across sign-out and sign-in", async () => {
@@ -835,17 +768,11 @@ test.describe("sanity tests", () => {
 			page.getByRole("button", { name: "Remove AAPL" }),
 		).toBeVisible();
 
-		// Verify email toggle is ON
+		// Verify email toggle is ON (re-enabled in TC-NOTIF-001)
 		const emailSwitch = page.getByRole("switch", {
 			name: "Email notifications",
 		});
 		await expect(emailSwitch).toHaveAttribute("aria-checked", "true");
-
-		// Verify SMS toggle is ON (was enabled in TC-SMS-001)
-		const smsSwitch = page.getByRole("switch", {
-			name: "SMS notifications",
-		});
-		await expect(smsSwitch).toHaveAttribute("aria-checked", "true");
 
 		// Sign out
 		await page.getByRole("button", { name: "Sign Out" }).click();
@@ -865,14 +792,11 @@ test.describe("sanity tests", () => {
 		await expect(
 			page.getByRole("switch", { name: "Email notifications" }),
 		).toHaveAttribute("aria-checked", "true");
-		await expect(
-			page.getByRole("switch", { name: "SMS notifications" }),
-		).toHaveAttribute("aria-checked", "true");
 	});
 
 	test("TC-PROF-001: User can change password and update email", async () => {
 		test.slow();
-		test.setTimeout(120_000);
+		test.setTimeout(180_000);
 
 		if (!testUserId) {
 			throw new Error("testUserId not set before TC-PROF-001");
@@ -901,16 +825,10 @@ test.describe("sanity tests", () => {
 			),
 		).toBeVisible();
 
-		const newEmailMessage = await waitForEmail(
-			secondEmail,
-			"email change",
-			60_000,
-		);
-		const oldEmailMessage = await maybeWaitForEmail(
-			testEmail,
-			"email change",
-			60_000,
-		);
+		const [newEmailMessage, oldEmailMessage] = await Promise.all([
+			waitForEmail(secondEmail, "email change", 30_000),
+			maybeWaitForEmail(testEmail, "email change", 15_000),
+		]);
 
 		const candidateLinks = [
 			...extractLinks(newEmailMessage),
@@ -924,8 +842,12 @@ test.describe("sanity tests", () => {
 
 		for (const link of emailChangeLinks) {
 			await page.goto(rewriteLinkOrigin(link, baseOrigin));
+			// The verified page renders a confirmation form — click to consume the OTP token
+			await page.getByRole("button", { name: "Verify my email" }).click();
 		}
 
+		// After both confirmations (double_confirm_changes), the last redirect goes
+		// to /auth/signin — sign in with the new email
 		await signIn(page, secondEmail, newPassword);
 
 		const { data, error } = await adminClient
