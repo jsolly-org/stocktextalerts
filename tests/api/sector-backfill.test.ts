@@ -63,7 +63,7 @@ describe("A cron worker backfills missing asset sectors.", () => {
 
 				return {
 					select: () => ({
-						is: () => ({
+						or: () => ({
 							limit: async () =>
 								state.queryError
 									? { data: null, error: state.queryError }

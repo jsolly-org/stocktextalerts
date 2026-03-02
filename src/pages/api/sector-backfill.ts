@@ -32,7 +32,7 @@ const handler: APIRoute = async ({ request, locals }) => {
 		const { data: rows, error } = await supabase
 			.from("assets")
 			.select("symbol")
-			.is("sector", null)
+			.or("sector.is.null,icon_url.is.null")
 			.limit(BACKFILL_BATCH_SIZE);
 
 		if (error) {
@@ -78,19 +78,31 @@ const handler: APIRoute = async ({ request, locals }) => {
 					continue;
 				}
 				const sicCode = (results as Record<string, unknown>).sic_code;
-				if (typeof sicCode !== "string" && typeof sicCode !== "number") {
+				const branding = (results as Record<string, unknown>).branding;
+				const iconUrl =
+					typeof branding === "object" && branding !== null
+						? (branding as Record<string, unknown>).icon_url
+						: undefined;
+
+				const updatePayload: Record<string, unknown> = {};
+				if (typeof sicCode === "string" || typeof sicCode === "number") {
+					updatePayload.sector = sicCodeToSector(String(sicCode));
+				}
+				if (typeof iconUrl === "string") {
+					updatePayload.icon_url = iconUrl;
+				}
+				if (Object.keys(updatePayload).length === 0) {
 					skipped++;
 					continue;
 				}
-				const sector = sicCodeToSector(String(sicCode));
 				const { error: updateError } = await supabase
 					.from("assets")
-					.update({ sector } as Record<string, unknown>)
+					.update(updatePayload)
 					.eq("symbol", symbol);
 				if (updateError) {
 					logger.warn(
 						"Supabase update failed for sector backfill",
-						{ symbol, sector },
+						{ symbol, ...updatePayload },
 						updateError,
 					);
 					skipped++;

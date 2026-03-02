@@ -49,6 +49,10 @@ import { purgeOldAssetSnapshots } from "../market-notifications/snapshot-store";
 import { createEmailSender } from "../messaging/email/utils";
 import { shortenUrl } from "../messaging/sms/url-shortener";
 import {
+	type PriceTargetTotals,
+	processPriceTargets,
+} from "../price-targets/process";
+import {
 	type AssetPriceMap,
 	type ExtendedQuoteMap,
 	fetchAssetPrices,
@@ -441,7 +445,12 @@ export async function runScheduledNotifications(options: {
 	forceSend: boolean;
 	cronSecret: string;
 	now?: DateTime;
-}): Promise<ScheduledNotificationTotals & { priceAlerts?: PriceAlertTotals }> {
+}): Promise<
+	ScheduledNotificationTotals & {
+		priceAlerts?: PriceAlertTotals;
+		priceTargets?: PriceTargetTotals;
+	}
+> {
 	const { supabase, logger, forceSend, cronSecret } = options;
 
 	// Purge old asset_snapshots (60-minute retention) so the table does not grow unbounded
@@ -480,6 +489,29 @@ export async function runScheduledNotifications(options: {
 		logger.error(
 			"Price alerts processing failed (non-fatal)",
 			{ action: "price_alerts" },
+			error,
+		);
+	}
+
+	// Run price target checks — piggybacks on the same market-hours window.
+	// Reuses the quote map from price alerts to avoid duplicate API calls.
+	let priceTargetTotals: PriceTargetTotals | undefined;
+	try {
+		priceTargetTotals = await processPriceTargets({
+			supabase,
+			quoteMap: priceAlertQuoteMap,
+		});
+
+		if (priceTargetTotals.targetsTriggered > 0) {
+			logger.info("Price targets processed", {
+				action: "price_targets",
+				...priceTargetTotals,
+			});
+		}
+	} catch (error) {
+		logger.error(
+			"Price targets processing failed (non-fatal)",
+			{ action: "price_targets" },
 			error,
 		);
 	}
@@ -718,7 +750,11 @@ export async function runScheduledNotifications(options: {
 			{ ...EMPTY_TOTALS },
 		);
 
-		return { ...scheduledTotals, priceAlerts: priceAlertTotals };
+		return {
+			...scheduledTotals,
+			priceAlerts: priceAlertTotals,
+			priceTargets: priceTargetTotals,
+		};
 	}
 
 	/* ============= Normal cron: two-pass execution ============= */
@@ -759,5 +795,6 @@ export async function runScheduledNotifications(options: {
 	return {
 		...combinedTotals,
 		priceAlerts: priceAlertTotals,
+		priceTargets: priceTargetTotals,
 	};
 }

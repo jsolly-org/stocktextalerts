@@ -45,7 +45,7 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	},
 	market_asset_price_alert_move_size: {
 		type: "enum",
-		values: ["moderate", "large"],
+		values: ["significant", "extreme"],
 	},
 	market_asset_price_alert_follow_up_mode: {
 		type: "enum",

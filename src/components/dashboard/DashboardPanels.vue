@@ -59,6 +59,7 @@
 				:hasTrackedAssets="hasTrackedAssets"
 			/>
 		</template>
+
 	</DashboardCarousel>
 </template>
 
@@ -94,7 +95,6 @@ const AsyncMarketNotificationsPanel = defineAsyncComponent({
 	loader: () => import("./market-notifications/MarketNotificationsPanel.vue"),
 	loadingComponent: PanelSkeleton,
 });
-
 interface Props {
 	user: User;
 	initialAssets: InitialAsset[];

@@ -405,6 +405,112 @@
 				</FadeTransition>
 			</div>
 
+			<div
+				class="mt-4 rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200"
+				:class="{ 'opacity-50': notificationSetupBlocked }"
+			>
+				<div class="mb-3">
+					<span class="text-base font-semibold text-heading">
+						Price Targets
+					</span>
+					<p class="text-sm text-body-secondary mt-0.5">
+						Set a target price on any watchlist asset. Get notified once when it's hit, then the target clears automatically. Uses your existing realtime price alert delivery channels (email/SMS).
+					</p>
+				</div>
+
+				<FadeTransition>
+					<div v-if="!notificationSetupBlocked">
+						<div class="border-t border-divider pt-3">
+							<div
+								v-if="trackedAssets.length === 0"
+								class="text-sm text-muted py-4 text-center"
+							>
+								Add assets to your watchlist to set price targets.
+							</div>
+							<div v-else class="space-y-2">
+								<div
+									v-for="asset in trackedAssets"
+									:key="asset.symbol"
+									class="flex items-center gap-3 rounded-lg border border-edge bg-surface-alt px-3 py-2"
+								>
+									<div class="min-w-0 flex-1">
+										<div class="flex items-center gap-2">
+											<span class="text-sm font-semibold text-heading">{{ asset.symbol }}</span>
+											<span
+												v-if="getCurrentPrice(asset.symbol) !== null"
+												class="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs tabular-nums text-emerald-700 dark:text-emerald-400"
+											>{{ formatCurrentPrice(getCurrentPrice(asset.symbol) ?? 0) }}</span>
+										</div>
+										<span class="text-xs text-muted truncate block">{{ asset.name }}</span>
+									</div>
+
+									<div class="flex items-center gap-2 shrink-0">
+										<span
+											v-if="getTargetDirection(asset.symbol)"
+											class="text-xs"
+											:class="getTargetDirection(asset.symbol) === 'above' ? 'text-emerald-600' : 'text-red-500'"
+										>
+											{{ getTargetDirection(asset.symbol) === 'above' ? '&#9650;' : '&#9660;' }}
+										</span>
+
+										<div class="relative">
+											<span class="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted pointer-events-none">$</span>
+											<input
+												type="number"
+												:value="getTargetValue(asset.symbol)"
+												step="0.01"
+												min="0.01"
+												:placeholder="'Target'"
+												class="w-24 pl-5 pr-2 py-1 text-sm text-right rounded-md border border-edge bg-surface focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 placeholder:text-muted [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+												:aria-label="`Price target for ${asset.symbol}`"
+												@input="handleTargetInput(asset.symbol, $event)"
+												@keydown.enter.prevent="handleSaveTarget(asset.symbol)"
+											/>
+										</div>
+
+										<button
+											v-if="hasPendingInput(asset.symbol)"
+											type="button"
+											class="px-2 py-1 rounded-md text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+											:disabled="isSavingTarget(asset.symbol)"
+											:aria-label="`Save price target for ${asset.symbol}`"
+											@click="handleSaveTarget(asset.symbol)"
+										>
+											{{ isSavingTarget(asset.symbol) ? 'Saving...' : 'Save' }}
+										</button>
+										<button
+											v-else-if="hasTarget(asset.symbol)"
+											type="button"
+											class="p-1 rounded text-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
+											:aria-label="`Clear price target for ${asset.symbol}`"
+											@click="clearTarget(asset.symbol)"
+										>
+											<XMarkIcon class="size-4" aria-hidden="true" />
+										</button>
+										<div v-else class="w-6" />
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<FadeTransition>
+							<p
+								v-if="targetSaveError"
+								class="mt-2 text-xs text-red-600"
+								role="alert"
+							>
+								{{ targetSaveError }}
+							</p>
+						</FadeTransition>
+
+						<div class="mt-3 space-y-1 text-xs text-muted">
+							<p>Prices as of {{ pricesFetchedAtLabel ?? 'page load' }}. Refresh the page for the latest prices.</p>
+							<p>Prices are checked every minute during market hours. If a price briefly crosses your target and bounces back within the same minute, the notification may not be sent.</p>
+						</div>
+					</div>
+				</FadeTransition>
+			</div>
+
 			</fieldset>
 			</div>
 		</section>
@@ -413,13 +519,14 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, toRefs, watch } from "vue";
+import { computed, onMounted, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
 import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
 import InformationCircleIcon from "../../../icons/information-circle-20.svg?component";
 import MassiveLogoIcon from "../../../icons/massive.svg?component";
+import XMarkIcon from "../../../icons/x-mark.svg?component";
 import {
 	CARD_GRADIENT_ACCENTS,
 	DASHBOARD_MARKET_FORM_ID,
@@ -521,8 +628,8 @@ const priceAlertMarketContext = ref<AlertMarketContext>(
 	normalizeMarketContext(user.value.market_asset_price_alert_market_context),
 );
 function normalizeMoveSize(value: string | null | undefined): AlertMoveSize {
-	if (value === "moderate" || value === "large") return value;
-	return "large";
+	if (value === "significant" || value === "extreme") return value;
+	return "extreme";
 }
 const priceAlertMoveSize = ref<AlertMoveSize>(
 	normalizeMoveSize(user.value.market_asset_price_alert_move_size),
@@ -577,8 +684,8 @@ const MARKET_CONTEXT_LABELS: Record<AlertMarketContext, string> = {
 	standout: "Standouts only",
 };
 const MOVE_SIZE_LABELS: Record<AlertMoveSize, string> = {
-	moderate: "Moderate (\u22653% or $5)",
-	large: "Large (\u22655% or $10)",
+	significant: "Significant (\u22655% or $10)",
+	extreme: "Extreme (\u22658% or $15)",
 };
 const FOLLOW_UP_LABELS: Record<AlertFollowUpMode, string> = {
 	first_only: "First alert only",
@@ -845,7 +952,7 @@ watch(
 			...(newData.market_asset_price_alert_follow_up_mode !== undefined && {
 				market_asset_price_alert_follow_up_mode: newData.market_asset_price_alert_follow_up_mode,
 			}),
-		};
+			};
 		}
 	},
 );
@@ -916,6 +1023,185 @@ watch([priceAlertsIncludeEmail, priceAlertsIncludeSms], ([email, sms]) => {
 		market_asset_price_alerts_enabled: email || sms,
 	};
 	notifyChange();
+});
+
+// ── Price Targets ──
+interface PriceTarget {
+	symbol: string;
+	target_price: number;
+	direction: "above" | "below";
+	created_at: string;
+}
+
+const targets = ref<Map<string, PriceTarget>>(new Map());
+const currentPrices = ref<Map<string, number>>(new Map());
+const pricesFetchedAt = ref<Date | null>(null);
+const pendingInputs = ref<Map<string, string>>(new Map());
+const savingTargets = ref<Set<string>>(new Set());
+const targetSaveError = ref<string | null>(null);
+
+function formatCurrentPrice(price: number): string {
+	return `$${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+const pricesFetchedAtLabel = computed(() => {
+	const d = pricesFetchedAt.value;
+	if (!d) return null;
+	return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+});
+
+function getCurrentPrice(symbol: string): number | null {
+	return currentPrices.value.get(symbol) ?? null;
+}
+
+function getTargetValue(symbol: string): string {
+	const pending = pendingInputs.value.get(symbol);
+	if (pending !== undefined) return pending;
+	const target = targets.value.get(symbol);
+	return target ? String(target.target_price) : "";
+}
+
+function getTargetDirection(symbol: string): "above" | "below" | null {
+	const price = currentPrices.value.get(symbol);
+	if (price === undefined) return null;
+
+	// Use pending input if the user is typing, otherwise use saved target
+	const pending = pendingInputs.value.get(symbol);
+	if (pending !== undefined) {
+		const num = Number.parseFloat(pending);
+		if (!Number.isFinite(num) || num <= 0 || num === price) return null;
+		return num > price ? "above" : "below";
+	}
+
+	const saved = targets.value.get(symbol);
+	if (!saved) return null;
+	return saved.target_price > price ? "above" : "below";
+}
+
+function hasTarget(symbol: string): boolean {
+	return targets.value.has(symbol);
+}
+
+function hasPendingInput(symbol: string): boolean {
+	const pending = pendingInputs.value.get(symbol);
+	if (pending === undefined) return false;
+	const saved = targets.value.get(symbol);
+	return pending !== (saved ? String(saved.target_price) : "");
+}
+
+function isSavingTarget(symbol: string): boolean {
+	return savingTargets.value.has(symbol);
+}
+
+function handleTargetInput(symbol: string, event: Event) {
+	const input = event.target as HTMLInputElement;
+	const updated = new Map(pendingInputs.value);
+	updated.set(symbol, input.value);
+	pendingInputs.value = updated;
+}
+
+async function fetchTargets() {
+	try {
+		const response = await fetch("/api/price-targets");
+		if (!response.ok) return;
+		const data = await response.json();
+		if (!data.ok) return;
+
+		const map = new Map<string, PriceTarget>();
+		for (const t of data.targets) {
+			map.set(t.symbol, t);
+		}
+		targets.value = map;
+
+		if (data.prices) {
+			const priceMap = new Map<string, number>();
+			for (const [symbol, price] of Object.entries(data.prices)) {
+				if (typeof price === "number") priceMap.set(symbol, price);
+			}
+			currentPrices.value = priceMap;
+			if (priceMap.size > 0) pricesFetchedAt.value = new Date();
+		}
+	} catch {
+		// Silently fail — targets will just show as empty
+	}
+}
+
+async function saveTarget(symbol: string, targetPrice: number | null) {
+	targetSaveError.value = null;
+	const updated = new Set(savingTargets.value);
+	updated.add(symbol);
+	savingTargets.value = updated;
+	try {
+		const response = await fetch("/api/price-targets/save", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ symbol, target_price: targetPrice }),
+		});
+		const data = await response.json();
+		if (!data.ok) {
+			if (data.message === "target_equals_current") {
+				targetSaveError.value = "Target price cannot equal the current price.";
+			} else if (data.message === "price_unavailable") {
+				targetSaveError.value = "Could not fetch current price. Try again.";
+			} else {
+				targetSaveError.value = "Failed to save target. Please try again.";
+			}
+			return;
+		}
+
+		if (targetPrice === null) {
+			targets.value.delete(symbol);
+			targets.value = new Map(targets.value);
+		} else {
+			targets.value.set(symbol, {
+				symbol,
+				target_price: targetPrice,
+				direction: data.direction ?? "above",
+				created_at: new Date().toISOString(),
+			});
+			targets.value = new Map(targets.value);
+		}
+		// Clear pending input after successful save
+		const pendingUpdated = new Map(pendingInputs.value);
+		pendingUpdated.delete(symbol);
+		pendingInputs.value = pendingUpdated;
+	} catch {
+		targetSaveError.value = "Failed to save target. Please try again.";
+	} finally {
+		const cleared = new Set(savingTargets.value);
+		cleared.delete(symbol);
+		savingTargets.value = cleared;
+	}
+}
+
+function handleSaveTarget(symbol: string) {
+	const value = (pendingInputs.value.get(symbol) ?? "").trim();
+
+	if (value === "") {
+		if (hasTarget(symbol)) {
+			saveTarget(symbol, null);
+		}
+		return;
+	}
+
+	const num = Number.parseFloat(value);
+	if (!Number.isFinite(num) || num <= 0) {
+		targetSaveError.value = "Target price must be a positive number.";
+		return;
+	}
+
+	saveTarget(symbol, num);
+}
+
+function clearTarget(symbol: string) {
+	const pendingUpdated = new Map(pendingInputs.value);
+	pendingUpdated.delete(symbol);
+	pendingInputs.value = pendingUpdated;
+	saveTarget(symbol, null);
+}
+
+onMounted(() => {
+	fetchTargets();
 });
 
 // ── Wizard swipe navigation (mobile) ──

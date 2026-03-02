@@ -660,6 +660,100 @@ test.describe("sanity tests", () => {
 		).toBeVisible();
 	});
 
+	test("TC-BADGE-001: Asset badges show logo, Stock, or ETF", async () => {
+		if (!testUserId) {
+			throw new Error("testUserId not set before TC-BADGE-001");
+		}
+
+		// -- Setup: give MSFT a valid icon, GOOGL a broken icon, add VOO (ETF) --
+		const msftIconUrl =
+			"https://api.massive.com/v1/reference/company-branding/d3d3Lm1pY3Jvc29mdC5jb20/images/2022-01-10_icon.png";
+		await adminClient
+			.from("assets")
+			.update({ icon_url: msftIconUrl })
+			.eq("symbol", "MSFT");
+
+		await adminClient
+			.from("assets")
+			.update({ icon_url: "https://invalid.test/broken-icon.png" })
+			.eq("symbol", "GOOGL");
+
+		await ensureAssetsExist(["VOO"]);
+		await page.goto("/dashboard");
+		await expectCurrentPath(page, "/dashboard");
+		await addAsset(page, "VOO");
+		await waitForTrackedAssets(testUserId, ["AAPL", "GOOGL", "MSFT", "VOO"]);
+
+		await page.reload();
+
+		// -- Watchlist assertions --
+		const getRow = (symbol: string) =>
+			page
+				.getByRole("button", { name: `Remove ${symbol}` })
+				.locator("xpath=ancestor::li");
+
+		// MSFT: valid icon_url → renders <img> logo
+		await expect(getRow("MSFT").locator(`img[alt="MSFT logo"]`)).toBeVisible({
+			timeout: 15_000,
+		});
+
+		// AAPL: no icon_url → "Stock" text badge
+		await expect(getRow("AAPL").getByText("Stock")).toBeVisible();
+
+		// GOOGL: broken icon_url → @error fallback → "Stock" text badge
+		await expect(getRow("GOOGL").getByText("Stock")).toBeVisible({
+			timeout: 15_000,
+		});
+
+		// VOO: ETF type → "ETF" text badge
+		await expect(getRow("VOO").getByText("ETF")).toBeVisible();
+
+		// -- Search-result assertion: logo appears in the dropdown --
+		// Give NVDA a valid icon_url (not in the watchlist); reuse a known-good
+		// Massive branding URL so the proxy returns a real image.
+		await ensureAssetsExist(["NVDA"]);
+		await adminClient
+			.from("assets")
+			.update({ icon_url: msftIconUrl })
+			.eq("symbol", "NVDA");
+
+		const input = page.locator("#asset_search");
+		await Promise.all([
+			page.waitForResponse(
+				(response) =>
+					response.url().includes("/api/assets/search") &&
+					response.status() === 200,
+				{ timeout: 15_000 },
+			),
+			input.fill("NVDA"),
+		]);
+
+		const dropdown = page.locator("#asset_dropdown");
+		const nvdaOption = dropdown.getByRole("option").filter({ hasText: "NVDA" });
+		await expect(nvdaOption).toBeVisible({ timeout: 15_000 });
+		await expect(nvdaOption.locator(`img[alt="NVDA logo"]`)).toBeVisible();
+
+		// Clear the search input (dismiss dropdown without selecting)
+		await input.fill("");
+
+		// -- Cleanup: remove VOO, restore icon_url values --
+		await page.getByRole("button", { name: "Remove VOO" }).click();
+		await waitForTrackedAssets(testUserId, ["AAPL", "GOOGL", "MSFT"]);
+
+		await adminClient
+			.from("assets")
+			.update({ icon_url: null })
+			.eq("symbol", "MSFT");
+		await adminClient
+			.from("assets")
+			.update({ icon_url: null })
+			.eq("symbol", "GOOGL");
+		await adminClient
+			.from("assets")
+			.update({ icon_url: null })
+			.eq("symbol", "NVDA");
+	});
+
 	test("TC-EMAIL-001: User can enable email notifications and receive an update", async () => {
 		test.slow();
 		test.setTimeout(180_000);

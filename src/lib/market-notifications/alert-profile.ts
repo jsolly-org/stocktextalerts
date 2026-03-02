@@ -1,6 +1,6 @@
 export type AlertRiskPriority = "both_equally";
 export type AlertMarketContext = "standout" | "any_major";
-export type AlertMoveSize = "moderate" | "large";
+export type AlertMoveSize = "significant" | "extreme";
 export type AlertFollowUpMode = "first_only" | "allow_follow_up";
 type AlertDirectionPreference = "downside" | "upside" | "both";
 
@@ -18,8 +18,8 @@ export const MOVE_SIZE_THRESHOLDS: Record<
 	AlertMoveSize,
 	{ percentThreshold: number; dollarThreshold: number }
 > = {
-	moderate: { percentThreshold: 3, dollarThreshold: 5 },
-	large: { percentThreshold: 5, dollarThreshold: 10 },
+	significant: { percentThreshold: 5, dollarThreshold: 10 },
+	extreme: { percentThreshold: 8, dollarThreshold: 15 },
 };
 
 function toDirectionPreference(
@@ -41,7 +41,7 @@ export function deriveAlertProfile(options: {
 		followUpMode = "first_only",
 	} = options;
 	const threshold =
-		MOVE_SIZE_THRESHOLDS[moveSize] ?? MOVE_SIZE_THRESHOLDS.large;
+		MOVE_SIZE_THRESHOLDS[moveSize] ?? MOVE_SIZE_THRESHOLDS.extreme;
 	return {
 		riskPriority,
 		marketContext,
