@@ -40,6 +40,7 @@ function setupMocks(options: {
 		name: string;
 		type: string;
 		created_at: string;
+		icon_url: string | null;
 	}>;
 	prices?: Map<string, { price: number; changePercent: number } | null>;
 }) {
@@ -123,6 +124,7 @@ describe("Price target save API rejects unauthorized or invalid requests", () =>
 					name: "Alphabet",
 					type: "stock",
 					created_at: "2025-01-01",
+					icon_url: null,
 				},
 			],
 			prices: new Map([["AAPL", { price: 195, changePercent: 1 }]]),
@@ -143,6 +145,7 @@ describe("Price target save API rejects unauthorized or invalid requests", () =>
 					name: "Apple",
 					type: "stock",
 					created_at: "2025-01-01",
+					icon_url: null,
 				},
 			],
 			prices: new Map([["AAPL", { price: 200, changePercent: 1 }]]),

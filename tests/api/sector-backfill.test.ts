@@ -45,6 +45,19 @@ async function loadSectorBackfillHandler() {
 describe("A cron worker backfills missing asset sectors.", () => {
 	const testCronSecret = "sector-backfill-test-secret";
 
+	async function runBackfill(cronSecret: string) {
+		const runSectorBackfill = await loadSectorBackfillHandler();
+		return runSectorBackfill(
+			createApiContext({
+				request: createCronRequest({
+					path: "/api/sector-backfill",
+					cronSecret,
+					method: "GET",
+				}),
+			}),
+		);
+	}
+
 	beforeEach(() => {
 		vi.resetModules();
 		vi.stubEnv("CRON_SECRET", testCronSecret);
@@ -316,16 +329,7 @@ describe("A cron worker backfills missing asset sectors.", () => {
 			},
 		});
 
-		const runSectorBackfill = await loadSectorBackfillHandler();
-		const response = await runSectorBackfill(
-			createApiContext({
-				request: createCronRequest({
-					path: "/api/sector-backfill",
-					cronSecret: testCronSecret,
-					method: "GET",
-				}),
-			}),
-		);
+		const response = await runBackfill(testCronSecret);
 
 		expect(response.status).toBe(200);
 		const payload = (await response.json()) as {
@@ -350,16 +354,7 @@ describe("A cron worker backfills missing asset sectors.", () => {
 			},
 		});
 
-		const runSectorBackfill = await loadSectorBackfillHandler();
-		const response = await runSectorBackfill(
-			createApiContext({
-				request: createCronRequest({
-					path: "/api/sector-backfill",
-					cronSecret: testCronSecret,
-					method: "GET",
-				}),
-			}),
-		);
+		const response = await runBackfill(testCronSecret);
 
 		expect(response.status).toBe(200);
 		const payload = (await response.json()) as {
@@ -378,16 +373,7 @@ describe("A cron worker backfills missing asset sectors.", () => {
 		state.queryRows = [{ symbol: "SPY" }];
 		marketDataFetchMock.mockResolvedValueOnce({ results: {} });
 
-		const runSectorBackfill = await loadSectorBackfillHandler();
-		const response = await runSectorBackfill(
-			createApiContext({
-				request: createCronRequest({
-					path: "/api/sector-backfill",
-					cronSecret: testCronSecret,
-					method: "GET",
-				}),
-			}),
-		);
+		const response = await runBackfill(testCronSecret);
 
 		expect(response.status).toBe(200);
 		const payload = (await response.json()) as {
