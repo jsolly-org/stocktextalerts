@@ -450,7 +450,7 @@
 											class="text-xs"
 											:class="getTargetDirection(asset.symbol) === 'above' ? 'text-emerald-600' : 'text-red-500'"
 										>
-											{{ getTargetDirection(asset.symbol) === 'above' ? '&#9650;' : '&#9660;' }}
+											{{ getTargetDirection(asset.symbol) === 'above' ? '▲' : '▼' }}
 										</span>
 
 										<div class="relative">

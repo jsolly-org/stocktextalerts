@@ -176,7 +176,7 @@ describe("A cron worker backfills missing asset sectors.", () => {
 	});
 
 	it("Returns 500 when the database query for assets fails.", async () => {
-		expectConsoleError("Failed to query assets missing sector");
+		expectConsoleError("Failed to query assets missing sector/icon_url");
 		state.queryError = { message: "Connection refused" };
 
 		const runSectorBackfill = await loadSectorBackfillHandler();
@@ -301,5 +301,99 @@ describe("A cron worker backfills missing asset sectors.", () => {
 				value: "OBSCURE",
 			},
 		]);
+	});
+
+	it("Includes icon_url in update when branding.icon_url is present.", async () => {
+		state.queryRows = [{ symbol: "AAPL" }];
+		marketDataFetchMock.mockResolvedValueOnce({
+			results: {
+				sic_code: "3571",
+				branding: { icon_url: "https://api.massive.com/aapl-icon.png" },
+			},
+		});
+
+		const runSectorBackfill = await loadSectorBackfillHandler();
+		const response = await runSectorBackfill(
+			createApiContext({
+				request: createCronRequest({
+					path: "/api/sector-backfill",
+					cronSecret: testCronSecret,
+					method: "GET",
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		const payload = (await response.json()) as {
+			success: boolean;
+			updated: number;
+			skipped: number;
+		};
+		expect(payload.success).toBe(true);
+		expect(payload.updated).toBe(1);
+		expect(state.updateCalls).toHaveLength(1);
+		expect(state.updateCalls[0].payload).toEqual({
+			sector: "Technology",
+			icon_url: "https://api.massive.com/aapl-icon.png",
+		});
+	});
+
+	it("Updates asset when only icon_url is available (no sic_code).", async () => {
+		state.queryRows = [{ symbol: "XOM" }];
+		marketDataFetchMock.mockResolvedValueOnce({
+			results: {
+				branding: { icon_url: "https://api.massive.com/xom-icon.png" },
+			},
+		});
+
+		const runSectorBackfill = await loadSectorBackfillHandler();
+		const response = await runSectorBackfill(
+			createApiContext({
+				request: createCronRequest({
+					path: "/api/sector-backfill",
+					cronSecret: testCronSecret,
+					method: "GET",
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		const payload = (await response.json()) as {
+			success: boolean;
+			updated: number;
+			skipped: number;
+		};
+		expect(payload.success).toBe(true);
+		expect(payload.updated).toBe(1);
+		expect(state.updateCalls[0].payload).toEqual({
+			icon_url: "https://api.massive.com/xom-icon.png",
+		});
+	});
+
+	it("Skips assets when neither sic_code nor icon_url is available.", async () => {
+		state.queryRows = [{ symbol: "NODATA" }];
+		marketDataFetchMock.mockResolvedValueOnce({ results: {} });
+
+		const runSectorBackfill = await loadSectorBackfillHandler();
+		const response = await runSectorBackfill(
+			createApiContext({
+				request: createCronRequest({
+					path: "/api/sector-backfill",
+					cronSecret: testCronSecret,
+					method: "GET",
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		const payload = (await response.json()) as {
+			success: boolean;
+			updated: number;
+			skipped: number;
+		};
+		expect(payload.success).toBe(true);
+		expect(payload.updated).toBe(0);
+		expect(payload.skipped).toBe(1);
+		expect(state.updateCalls).toHaveLength(0);
 	});
 });

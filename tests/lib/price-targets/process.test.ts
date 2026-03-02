@@ -108,8 +108,8 @@ beforeEach(() => {
 	vi.clearAllMocks();
 });
 
-describe("processPriceTargets", () => {
-	it("skips when market is closed", async () => {
+describe("Price target processing", () => {
+	it("No targets are checked when the market is closed", async () => {
 		mockFetchMarketStatus.mockResolvedValue(false);
 
 		const totals = await processPriceTargets({
@@ -120,7 +120,7 @@ describe("processPriceTargets", () => {
 		expect(totals.targetsTriggered).toBe(0);
 	});
 
-	it("triggers target when price meets above direction", async () => {
+	it("A user receives an alert when price reaches their above target", async () => {
 		mockFetchMarketStatus.mockResolvedValue(true);
 
 		const quoteMap = new Map([["AAPL", makeQuote(205)]]);
@@ -146,7 +146,7 @@ describe("processPriceTargets", () => {
 		expect(mockDeliverPriceTargetAlert).toHaveBeenCalledOnce();
 	});
 
-	it("triggers target when price meets below direction", async () => {
+	it("A user receives an alert when price reaches their below target", async () => {
 		mockFetchMarketStatus.mockResolvedValue(true);
 
 		const quoteMap = new Map([["TSLA", makeQuote(145)]]);
@@ -171,7 +171,7 @@ describe("processPriceTargets", () => {
 		expect(totals.targetsTriggered).toBe(1);
 	});
 
-	it("does not trigger when price has not reached target", async () => {
+	it("No alert is sent when price has not reached the target", async () => {
 		mockFetchMarketStatus.mockResolvedValue(true);
 
 		const quoteMap = new Map([["AAPL", makeQuote(195)]]);
@@ -197,7 +197,7 @@ describe("processPriceTargets", () => {
 		expect(mockDeliverPriceTargetAlert).not.toHaveBeenCalled();
 	});
 
-	it("triggers at exact boundary (above: current == target)", async () => {
+	it("An alert is sent when price exactly equals the above target", async () => {
 		mockFetchMarketStatus.mockResolvedValue(true);
 
 		const quoteMap = new Map([["AAPL", makeQuote(200)]]);
@@ -221,7 +221,7 @@ describe("processPriceTargets", () => {
 		expect(totals.targetsTriggered).toBe(1);
 	});
 
-	it("returns empty when no targets exist", async () => {
+	it("No targets are checked when none exist", async () => {
 		mockFetchMarketStatus.mockResolvedValue(true);
 
 		const supabase = makeSupabaseMock({ targets: [], users: [] });

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createApiContext } from "../../helpers/api-context";
 
 // Mock modules before importing the handler
 vi.mock("../../../src/lib/db/supabase", () => ({
@@ -24,15 +25,13 @@ const mockGetUserAssets = vi.mocked(getUserAssets);
 const mockFetchAssetPrices = vi.mocked(fetchAssetPrices);
 
 function makeContext(body: unknown) {
-	return {
+	return createApiContext({
 		request: new Request("http://localhost/api/price-targets/save", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(body),
 		}),
-		cookies: {} as never,
-		locals: { requestId: "test-req" },
-	} as never;
+	});
 }
 
 function setupMocks(options: {
@@ -73,15 +72,17 @@ function setupMocks(options: {
 }
 
 describe("POST /api/price-targets/save", () => {
-	let handler: (ctx: never) => Promise<Response>;
+	let handler: (ctx: ReturnType<typeof createApiContext>) => Promise<Response>;
 
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		const mod = await import("../../../src/pages/api/price-targets/save");
-		handler = mod.POST as (ctx: never) => Promise<Response>;
+		handler = mod.POST as (
+			ctx: ReturnType<typeof createApiContext>,
+		) => Promise<Response>;
 	});
 
-	it("returns 401 when unauthenticated", async () => {
+	it("An unauthenticated user receives 401", async () => {
 		setupMocks({ user: null });
 		const response = await handler(
 			makeContext({ symbol: "AAPL", target_price: 200 }),
@@ -89,7 +90,7 @@ describe("POST /api/price-targets/save", () => {
 		expect(response.status).toBe(401);
 	});
 
-	it("returns 400 for missing symbol", async () => {
+	it("A request with missing symbol receives 400", async () => {
 		setupMocks({});
 		const response = await handler(
 			makeContext({ symbol: "", target_price: 200 }),
@@ -97,7 +98,7 @@ describe("POST /api/price-targets/save", () => {
 		expect(response.status).toBe(400);
 	});
 
-	it("returns 400 for invalid target_price", async () => {
+	it("A request with invalid target_price receives 400", async () => {
 		setupMocks({});
 		const response = await handler(
 			makeContext({ symbol: "AAPL", target_price: -5 }),
@@ -105,7 +106,7 @@ describe("POST /api/price-targets/save", () => {
 		expect(response.status).toBe(400);
 	});
 
-	it("returns 400 for zero target_price", async () => {
+	it("A request with zero target_price receives 400", async () => {
 		setupMocks({});
 		const response = await handler(
 			makeContext({ symbol: "AAPL", target_price: 0 }),
@@ -113,7 +114,7 @@ describe("POST /api/price-targets/save", () => {
 		expect(response.status).toBe(400);
 	});
 
-	it("returns 400 when symbol not in watchlist", async () => {
+	it("A user cannot set a target for a symbol not on their watchlist", async () => {
 		setupMocks({
 			watchlist: [
 				{
@@ -133,7 +134,7 @@ describe("POST /api/price-targets/save", () => {
 		expect(data.message).toBe("symbol_not_in_watchlist");
 	});
 
-	it("returns 400 when target equals current price", async () => {
+	it("A user cannot set a target equal to current price", async () => {
 		setupMocks({
 			watchlist: [
 				{
@@ -153,7 +154,7 @@ describe("POST /api/price-targets/save", () => {
 		expect(data.message).toBe("target_equals_current");
 	});
 
-	it("infers above direction when target > current", async () => {
+	it("A user saves an above target and receives direction in the response", async () => {
 		setupMocks({
 			watchlist: [
 				{
@@ -173,7 +174,7 @@ describe("POST /api/price-targets/save", () => {
 		expect(data.direction).toBe("above");
 	});
 
-	it("infers below direction when target < current", async () => {
+	it("A user saves a below target and receives direction in the response", async () => {
 		setupMocks({
 			watchlist: [
 				{
@@ -193,7 +194,7 @@ describe("POST /api/price-targets/save", () => {
 		expect(data.direction).toBe("below");
 	});
 
-	it("deletes target when target_price is null", async () => {
+	it("A user removes a target by sending null target_price", async () => {
 		setupMocks({});
 		const response = await handler(
 			makeContext({ symbol: "AAPL", target_price: null }),
@@ -201,5 +202,25 @@ describe("POST /api/price-targets/save", () => {
 		expect(response.status).toBe(200);
 		const data = await response.json();
 		expect(data.message).toBe("target_removed");
+	});
+
+	it("Symbol is normalized (trimmed and uppercased) before validation and save", async () => {
+		setupMocks({
+			watchlist: [
+				{
+					symbol: "AAPL",
+					name: "Apple",
+					type: "stock",
+					created_at: "2025-01-01",
+				},
+			],
+			prices: new Map([["AAPL", { price: 195, changePercent: 1 }]]),
+		});
+		const response = await handler(
+			makeContext({ symbol: " aapl ", target_price: 200 }),
+		);
+		expect(response.status).toBe(200);
+		const data = await response.json();
+		expect(data.direction).toBe("above");
 	});
 });

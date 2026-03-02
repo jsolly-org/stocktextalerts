@@ -66,8 +66,8 @@ function makeUser(overrides: Partial<PriceTargetUser> = {}): PriceTargetUser {
 	};
 }
 
-describe("formatPriceTargetSms", () => {
-	it("includes symbol, target price, and current price", async () => {
+describe("Price target SMS body", () => {
+	it("A user sees symbol, target price, and current price in the SMS", async () => {
 		const body = await formatPriceTargetSms(makeTarget(), makeSupabaseMock());
 		expect(body).toContain("AAPL");
 		expect(body).toContain("$200.00");
@@ -76,8 +76,8 @@ describe("formatPriceTargetSms", () => {
 	});
 });
 
-describe("deliverPriceTargetAlert", () => {
-	it("sends email when email channel is enabled", async () => {
+describe("Price target alert delivery", () => {
+	it("A user with email alerts enabled receives the price target email", async () => {
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
 
@@ -94,7 +94,7 @@ describe("deliverPriceTargetAlert", () => {
 		expect(stats.emailsSent).toBe(1);
 	});
 
-	it("sends SMS when SMS channel is enabled", async () => {
+	it("A user with SMS alerts enabled receives the price target SMS", async () => {
 		const sendSms = vi.fn<
 			(_: { to: string; body: string }) => Promise<DeliveryResult>
 		>(async () => ({ success: true }));
@@ -114,7 +114,7 @@ describe("deliverPriceTargetAlert", () => {
 		expect(stats.smsSent).toBe(1);
 	});
 
-	it("does not attempt SMS when user is opted out", async () => {
+	it("SMS is not sent and failure is counted when user is opted out", async () => {
 		const sendSms = vi.fn<
 			(_: { to: string; body: string }) => Promise<DeliveryResult>
 		>(async () => ({ success: true }));
@@ -134,7 +134,7 @@ describe("deliverPriceTargetAlert", () => {
 		expect(stats.smsFailed).toBe(1);
 	});
 
-	it("does not attempt SMS when phone number is missing", async () => {
+	it("SMS is not sent and failure is counted when phone number is missing", async () => {
 		const sendSms = vi.fn<
 			(_: { to: string; body: string }) => Promise<DeliveryResult>
 		>(async () => ({ success: true }));
@@ -157,7 +157,24 @@ describe("deliverPriceTargetAlert", () => {
 		expect(stats.smsFailed).toBe(1);
 	});
 
-	it("formats email with direction context", async () => {
+	it("SMS failure is counted when user has SMS enabled but sender is unavailable", async () => {
+		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const stats = makeStats();
+
+		await deliverPriceTargetAlert({
+			user: makeUser({ market_asset_price_alerts_include_sms: true }),
+			target: makeTarget(),
+			supabase: makeSupabaseMock(),
+			sendEmail,
+			sendSms: null,
+			stats,
+		});
+
+		expect(sendEmail).toHaveBeenCalledOnce();
+		expect(stats.smsFailed).toBe(1);
+	});
+
+	it("A user sees direction and target in the price target email", async () => {
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
 

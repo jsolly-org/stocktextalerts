@@ -160,8 +160,13 @@ export async function deliverPriceTargetAlert(options: {
 	}
 
 	// SMS delivery
-	if (user.market_asset_price_alerts_include_sms && sendSms) {
-		if (!shouldSendSms(user)) {
+	if (user.market_asset_price_alerts_include_sms) {
+		if (!sendSms) {
+			rootLogger.error("Price target SMS sender unavailable", {
+				userId: user.id,
+			});
+			stats.smsFailed++;
+		} else if (!shouldSendSms(user)) {
 			rootLogger.info("Price target SMS skipped: user not eligible", {
 				userId: user.id,
 			});

@@ -665,93 +665,101 @@ test.describe("sanity tests", () => {
 			throw new Error("testUserId not set before TC-BADGE-001");
 		}
 
-		// -- Setup: give MSFT a valid icon, GOOGL a broken icon, add VOO (ETF) --
+		const assertNoDbError = (
+			error: { message: string } | null,
+			action: string,
+		) => {
+			if (error) throw new Error(`${action}: ${error.message}`);
+		};
+
 		const msftIconUrl =
 			"https://api.massive.com/v1/reference/company-branding/d3d3Lm1pY3Jvc29mdC5jb20/images/2022-01-10_icon.png";
-		await adminClient
-			.from("assets")
-			.update({ icon_url: msftIconUrl })
-			.eq("symbol", "MSFT");
 
-		await adminClient
-			.from("assets")
-			.update({ icon_url: "https://invalid.test/broken-icon.png" })
-			.eq("symbol", "GOOGL");
+		try {
+			const { error: msftErr } = await adminClient
+				.from("assets")
+				.update({ icon_url: msftIconUrl })
+				.eq("symbol", "MSFT");
+			assertNoDbError(msftErr, "Failed to set MSFT icon_url");
 
-		await ensureAssetsExist(["VOO"]);
-		await page.goto("/dashboard");
-		await expectCurrentPath(page, "/dashboard");
-		await addAsset(page, "VOO");
-		await waitForTrackedAssets(testUserId, ["AAPL", "GOOGL", "MSFT", "VOO"]);
+			const { error: googlErr } = await adminClient
+				.from("assets")
+				.update({ icon_url: "https://invalid.test/broken-icon.png" })
+				.eq("symbol", "GOOGL");
+			assertNoDbError(googlErr, "Failed to set GOOGL icon_url");
 
-		await page.reload();
+			await ensureAssetsExist(["VOO"]);
+			await page.goto("/dashboard");
+			await expectCurrentPath(page, "/dashboard");
+			await addAsset(page, "VOO");
+			await waitForTrackedAssets(testUserId, ["AAPL", "GOOGL", "MSFT", "VOO"]);
 
-		// -- Watchlist assertions --
-		const getRow = (symbol: string) =>
-			page
-				.getByRole("button", { name: `Remove ${symbol}` })
-				.locator("xpath=ancestor::li");
+			await page.reload();
 
-		// MSFT: valid icon_url → renders <img> logo
-		await expect(getRow("MSFT").locator(`img[alt="MSFT logo"]`)).toBeVisible({
-			timeout: 15_000,
-		});
+			const getRow = (symbol: string) =>
+				page
+					.getByRole("button", { name: `Remove ${symbol}` })
+					.locator("xpath=ancestor::li");
 
-		// AAPL: no icon_url → "Stock" text badge
-		await expect(getRow("AAPL").getByText("Stock")).toBeVisible();
+			await expect(getRow("MSFT").locator(`img[alt="MSFT logo"]`)).toBeVisible({
+				timeout: 15_000,
+			});
 
-		// GOOGL: broken icon_url → @error fallback → "Stock" text badge
-		await expect(getRow("GOOGL").getByText("Stock")).toBeVisible({
-			timeout: 15_000,
-		});
+			await expect(getRow("AAPL").getByText("Stock")).toBeVisible();
 
-		// VOO: ETF type → "ETF" text badge
-		await expect(getRow("VOO").getByText("ETF")).toBeVisible();
+			await expect(getRow("GOOGL").getByText("Stock")).toBeVisible({
+				timeout: 15_000,
+			});
 
-		// -- Search-result assertion: logo appears in the dropdown --
-		// Give NVDA a valid icon_url (not in the watchlist); reuse a known-good
-		// Massive branding URL so the proxy returns a real image.
-		await ensureAssetsExist(["NVDA"]);
-		await adminClient
-			.from("assets")
-			.update({ icon_url: msftIconUrl })
-			.eq("symbol", "NVDA");
+			await expect(getRow("VOO").getByText("ETF")).toBeVisible();
 
-		const input = page.locator("#asset_search");
-		await Promise.all([
-			page.waitForResponse(
-				(response) =>
-					response.url().includes("/api/assets/search") &&
-					response.status() === 200,
-				{ timeout: 15_000 },
-			),
-			input.fill("NVDA"),
-		]);
+			await ensureAssetsExist(["NVDA"]);
+			const { error: nvdaErr } = await adminClient
+				.from("assets")
+				.update({ icon_url: msftIconUrl })
+				.eq("symbol", "NVDA");
+			assertNoDbError(nvdaErr, "Failed to set NVDA icon_url");
 
-		const dropdown = page.locator("#asset_dropdown");
-		const nvdaOption = dropdown.getByRole("option").filter({ hasText: "NVDA" });
-		await expect(nvdaOption).toBeVisible({ timeout: 15_000 });
-		await expect(nvdaOption.locator(`img[alt="NVDA logo"]`)).toBeVisible();
+			const input = page.locator("#asset_search");
+			await Promise.all([
+				page.waitForResponse(
+					(response) =>
+						response.url().includes("/api/assets/search") &&
+						response.status() === 200,
+					{ timeout: 15_000 },
+				),
+				input.fill("NVDA"),
+			]);
 
-		// Clear the search input (dismiss dropdown without selecting)
-		await input.fill("");
+			const dropdown = page.locator("#asset_dropdown");
+			const nvdaOption = dropdown
+				.getByRole("option")
+				.filter({ hasText: "NVDA" });
+			await expect(nvdaOption).toBeVisible({ timeout: 15_000 });
+			await expect(nvdaOption.locator(`img[alt="NVDA logo"]`)).toBeVisible();
 
-		// -- Cleanup: remove VOO, restore icon_url values --
-		await page.getByRole("button", { name: "Remove VOO" }).click();
-		await waitForTrackedAssets(testUserId, ["AAPL", "GOOGL", "MSFT"]);
-
-		await adminClient
-			.from("assets")
-			.update({ icon_url: null })
-			.eq("symbol", "MSFT");
-		await adminClient
-			.from("assets")
-			.update({ icon_url: null })
-			.eq("symbol", "GOOGL");
-		await adminClient
-			.from("assets")
-			.update({ icon_url: null })
-			.eq("symbol", "NVDA");
+			await input.fill("");
+		} finally {
+			await page
+				.getByRole("button", { name: "Remove VOO" })
+				.click()
+				.catch(() => {});
+			await waitForTrackedAssets(testUserId, ["AAPL", "GOOGL", "MSFT"]).catch(
+				() => {},
+			);
+			await adminClient
+				.from("assets")
+				.update({ icon_url: null })
+				.eq("symbol", "MSFT");
+			await adminClient
+				.from("assets")
+				.update({ icon_url: null })
+				.eq("symbol", "GOOGL");
+			await adminClient
+				.from("assets")
+				.update({ icon_url: null })
+				.eq("symbol", "NVDA");
+		}
 	});
 
 	test("TC-EMAIL-001: User can enable email notifications and receive an update", async () => {

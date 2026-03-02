@@ -103,12 +103,19 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 							: undefined;
 
 					const updatePayload: Record<string, unknown> = {};
-					if (typeof sicCode === "string" || typeof sicCode === "number") {
+					if (
+						sectorMap.get(symbol) == null &&
+						(typeof sicCode === "string" || typeof sicCode === "number")
+					) {
 						const sector = sicCodeToSector(String(sicCode));
 						sectorMap.set(symbol, sector);
 						updatePayload.sector = sector;
 					}
-					if (typeof iconUrl === "string") {
+					if (
+						iconUrlMap.get(symbol) == null &&
+						typeof iconUrl === "string" &&
+						iconUrl.length > 0
+					) {
 						iconUrlMap.set(symbol, iconUrl);
 						updatePayload.icon_url = iconUrl;
 					}

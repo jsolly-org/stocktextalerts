@@ -25,15 +25,21 @@ export const GET: APIRoute = async ({ params, request, cookies, locals }) => {
 		return new Response("Unauthorized", { status: 401 });
 	}
 
-	const symbol = params.symbol;
-	if (!symbol) {
+	const rawSymbol = params.symbol;
+	if (!rawSymbol) {
+		return new Response("Bad request", { status: 400 });
+	}
+	let symbol: string;
+	try {
+		symbol = decodeURIComponent(rawSymbol).toUpperCase();
+	} catch {
 		return new Response("Bad request", { status: 400 });
 	}
 
 	const { data, error } = await supabase
 		.from("assets")
 		.select("icon_url")
-		.eq("symbol", symbol.toUpperCase())
+		.eq("symbol", symbol)
 		.maybeSingle();
 
 	if (error) {
@@ -55,8 +61,23 @@ export const GET: APIRoute = async ({ params, request, cookies, locals }) => {
 		return new Response("Internal server error", { status: 500 });
 	}
 
-	const separator = iconUrl.includes("?") ? "&" : "?";
-	const upstreamUrl = `${iconUrl}${separator}apiKey=${apiKey}`;
+	let upstreamUrl: string;
+	try {
+		const parsed = new URL(iconUrl);
+		const allowedHosts = new Set(["api.massive.com"]);
+		if (parsed.protocol !== "https:" || !allowedHosts.has(parsed.hostname)) {
+			logger.warn("Rejected icon_url host for logo proxy", {
+				symbol,
+				host: parsed.hostname,
+			});
+			return new Response("Not found", { status: 404 });
+		}
+		parsed.searchParams.set("apiKey", apiKey);
+		upstreamUrl = parsed.toString();
+	} catch (error) {
+		logger.warn("Invalid icon_url for logo proxy", { symbol }, error);
+		return new Response("Not found", { status: 404 });
+	}
 
 	try {
 		const upstream = await fetch(upstreamUrl, {
@@ -78,7 +99,8 @@ export const GET: APIRoute = async ({ params, request, cookies, locals }) => {
 			status: 200,
 			headers: {
 				"Content-Type": contentType,
-				"Cache-Control": "public, max-age=604800",
+				"Cache-Control":
+					"public, max-age=604800, s-maxage=604800, stale-while-revalidate=86400",
 			},
 		});
 	} catch (err) {

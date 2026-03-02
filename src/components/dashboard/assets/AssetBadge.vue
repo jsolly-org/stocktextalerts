@@ -9,7 +9,7 @@
 	<!-- biome-ignore lint/a11y/useAltText: Vue dynamic :alt binding is not visible to static analysis -->
 	<img
 		v-else-if="iconUrl && !imgFailed"
-		:src="`/api/assets/logo/${symbol}`"
+		:src="`/api/assets/logo/${encodeURIComponent(symbol)}`"
 		:alt="`${symbol} logo`"
 		loading="lazy"
 		class="shrink-0 rounded object-contain"
@@ -41,9 +41,9 @@ const props = withDefaults(defineProps<Props>(), {
 
 const imgFailed = ref(false);
 
-// Reset failure state when the icon URL changes (e.g. new asset selected)
+// Reset failure state when the icon URL or symbol changes (e.g. new asset selected)
 watch(
-	() => props.iconUrl,
+	() => [props.iconUrl, props.symbol],
 	() => {
 		imgFailed.value = false;
 	},

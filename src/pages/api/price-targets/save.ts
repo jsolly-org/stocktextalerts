@@ -46,8 +46,10 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		symbol: unknown;
 		target_price: unknown;
 	};
+	const normalizedSymbol =
+		typeof symbol === "string" ? symbol.trim().toUpperCase() : "";
 
-	if (typeof symbol !== "string" || symbol.length === 0) {
+	if (!normalizedSymbol) {
 		return jsonResponse(400, { ok: false, message: "invalid_symbol" });
 	}
 
@@ -58,12 +60,12 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 				.from("price_targets")
 				.delete()
 				.eq("user_id", user.id)
-				.eq("symbol", symbol);
+				.eq("symbol", normalizedSymbol);
 
 			if (error) {
 				logger.error(
 					"Failed to delete price target",
-					{ userId: user.id, symbol },
+					{ userId: user.id, symbol: normalizedSymbol },
 					error,
 				);
 				return jsonResponse(500, {
@@ -76,7 +78,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		} catch (error) {
 			logger.error("Failed to delete price target", {
 				userId: user.id,
-				symbol,
+				symbol: normalizedSymbol,
 				error: extractErrorMessage(error),
 			});
 			return jsonResponse(500, { ok: false, message: "failed_to_save" });
@@ -96,7 +98,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		// Verify symbol is in user's watchlist
 		const userAssets = await getUserAssets(supabase, user.id);
 		const watchlistSymbols = new Set(userAssets.map((a) => a.symbol));
-		if (!watchlistSymbols.has(symbol)) {
+		if (!watchlistSymbols.has(normalizedSymbol)) {
 			return jsonResponse(400, {
 				ok: false,
 				message: "symbol_not_in_watchlist",
@@ -104,8 +106,8 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		}
 
 		// Fetch current price to infer direction
-		const priceMap = await fetchAssetPrices([symbol]);
-		const currentQuote = priceMap.get(symbol);
+		const priceMap = await fetchAssetPrices([normalizedSymbol]);
+		const currentQuote = priceMap.get(normalizedSymbol);
 		if (!currentQuote) {
 			return jsonResponse(400, {
 				ok: false,
@@ -126,7 +128,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		const { error } = await supabase.from("price_targets").upsert(
 			{
 				user_id: user.id,
-				symbol,
+				symbol: normalizedSymbol,
 				target_price,
 				direction,
 				created_at: new Date().toISOString(),
@@ -137,7 +139,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		if (error) {
 			logger.error(
 				"Failed to upsert price target",
-				{ userId: user.id, symbol },
+				{ userId: user.id, symbol: normalizedSymbol },
 				error,
 			);
 			return jsonResponse(500, { ok: false, message: "failed_to_save" });
@@ -151,7 +153,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	} catch (error) {
 		logger.error("Failed to save price target", {
 			userId: user.id,
-			symbol,
+			symbol: normalizedSymbol,
 			error: extractErrorMessage(error),
 		});
 		return jsonResponse(500, { ok: false, message: "failed_to_save" });

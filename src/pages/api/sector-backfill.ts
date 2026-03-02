@@ -37,7 +37,7 @@ const handler: APIRoute = async ({ request, locals }) => {
 
 		if (error) {
 			logger.error(
-				"Failed to query assets missing sector",
+				"Failed to query assets missing sector/icon_url",
 				{ action: "sector_backfill" },
 				error,
 			);
@@ -49,7 +49,7 @@ const handler: APIRoute = async ({ request, locals }) => {
 
 		const symbols = (rows ?? []).map((r) => r.symbol);
 		if (symbols.length === 0) {
-			logger.info("No assets missing sector — nothing to backfill", {
+			logger.info("No assets missing sector/icon_url — nothing to backfill", {
 				action: "sector_backfill",
 			});
 			return new Response(
