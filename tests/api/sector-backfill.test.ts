@@ -63,12 +63,16 @@ describe("A cron worker backfills missing asset sectors.", () => {
 
 				return {
 					select: () => ({
-						or: () => ({
-							limit: async () =>
-								state.queryError
-									? { data: null, error: state.queryError }
-									: { data: state.queryRows, error: null },
-						}),
+						or: (filter: string) => {
+							expect(filter).toContain("sector.is.null");
+							expect(filter).toContain("icon_url.is.null");
+							return {
+								limit: async () =>
+									state.queryError
+										? { data: null, error: state.queryError }
+										: { data: state.queryRows, error: null },
+							};
+						},
 					}),
 					update: (payload: Record<string, unknown>) => ({
 						eq: async (column: string, value: unknown) => {

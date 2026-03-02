@@ -91,6 +91,8 @@ describe("Price target save API rejects unauthorized or invalid requests", () =>
 			makeContext({ symbol: "", target_price: 200 }),
 		);
 		expect(response.status).toBe(400);
+		const data = await response.json();
+		expect(data).toMatchObject({ message: expect.any(String) });
 	});
 
 	it("A request with invalid target_price receives 400", async () => {
@@ -99,6 +101,8 @@ describe("Price target save API rejects unauthorized or invalid requests", () =>
 			makeContext({ symbol: "AAPL", target_price: -5 }),
 		);
 		expect(response.status).toBe(400);
+		const data = await response.json();
+		expect(data).toMatchObject({ message: expect.any(String) });
 	});
 
 	it("A request with zero target_price receives 400", async () => {
@@ -107,6 +111,8 @@ describe("Price target save API rejects unauthorized or invalid requests", () =>
 			makeContext({ symbol: "AAPL", target_price: 0 }),
 		);
 		expect(response.status).toBe(400);
+		const data = await response.json();
+		expect(data).toMatchObject({ message: expect.any(String) });
 	});
 
 	it("A user cannot set a target for a symbol not on their watchlist", async () => {
