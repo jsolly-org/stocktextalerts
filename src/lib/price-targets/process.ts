@@ -183,14 +183,25 @@ export async function processPriceTargets(options: {
 			}
 		}
 
-		const delivered = await deliverPriceTargetAlert({
-			user,
-			target: triggeredTarget,
-			supabase,
-			sendEmail,
-			sendSms: smsSender,
-			stats: totals,
-		});
+		let delivered = false;
+		try {
+			delivered = await deliverPriceTargetAlert({
+				user,
+				target: triggeredTarget,
+				supabase,
+				sendEmail,
+				sendSms: smsSender,
+				stats: totals,
+			});
+		} catch (error) {
+			rootLogger.error(
+				"Failed to deliver price target alert",
+				{ userId: target.user_id, symbol: target.symbol },
+				error,
+			);
+			totals.logFailures++;
+			continue;
+		}
 
 		// Delete the triggered target only when at least one channel delivered
 		// (avoids silently dropping the target when no channel was deliverable)

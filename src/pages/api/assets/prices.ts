@@ -13,9 +13,9 @@ import { sicCodeToSector } from "../../../lib/providers/sector-mapping";
 /**
  * GET /api/assets/prices
  *
- * Returns prevClose and sector for the user's tracked assets.
+ * Returns prevClose, sector, and iconUrl for the user's tracked assets.
  * Used by the onboarding wizard to show asset-grounded examples.
- * Lazy-backfills sector from Massive for assets missing it (writes via admin client;
+ * Lazy-backfills sector and icon_url from Massive for assets missing them (writes via admin client;
  * authenticated user has SELECT-only on assets).
  */
 export const GET: APIRoute = async ({ request, cookies, locals }) => {
@@ -80,8 +80,8 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 		// Process sequentially to avoid unbounded fan-out of Massive API calls.
 		const missingSectorSymbols = symbols.filter(
 			(s) =>
-				!sectorMap.get(s) ||
-				(!iconUrlMap.get(s) && !knownNullIconSymbols.has(s)),
+				sectorMap.get(s) == null ||
+				(iconUrlMap.get(s) == null && !knownNullIconSymbols.has(s)),
 		);
 		if (missingSectorSymbols.length > 0) {
 			const adminSupabase = createSupabaseAdminClient();
@@ -127,13 +127,17 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 						.eq("symbol", symbol);
 					if (updateError) {
 						logger.warn(
-							"Supabase sector update failed",
+							"Supabase asset metadata (sector/icon) update failed",
 							{ symbol, ...updatePayload },
 							updateError,
 						);
 					}
 				} catch (err) {
-					logger.warn("Failed to fetch sector for asset", { symbol }, err);
+					logger.warn(
+						"Failed to fetch asset metadata (sector/icon) for asset",
+						{ symbol },
+						err,
+					);
 				}
 			}
 		}
