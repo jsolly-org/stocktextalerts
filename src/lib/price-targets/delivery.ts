@@ -12,7 +12,7 @@ import {
 	renderLogoImg,
 } from "../messaging/logo-fetcher";
 import { recordNotification } from "../messaging/shared";
-import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
+import { isSmsChannelUsable, sendUserSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import type { SmsSender } from "../messaging/sms/twilio-utils";
 import { shortenUrl } from "../messaging/sms/url-shortener";
@@ -182,7 +182,7 @@ export async function deliverPriceTargetAlert(options: {
 				userId: user.id,
 			});
 			stats.smsFailed++;
-		} else if (!shouldSendSms(user)) {
+		} else if (!isSmsChannelUsable(user)) {
 			rootLogger.info("Price target SMS skipped: user not eligible", {
 				userId: user.id,
 			});

@@ -69,6 +69,8 @@ export function shouldSendSms(user: SmsEligibilityUser): boolean {
 		user.phone_verified &&
 		Boolean(user.phone_country_code) &&
 		Boolean(user.phone_number);
+	// Exclude price_targets_include_sms so that enabling only price-target SMS does not
+	// make users eligible for unrelated flows (e.g. daily digest) that gate on shouldSendSms.
 	const hasAnySmsFeatureEnabled = [
 		user.market_scheduled_asset_price_include_sms,
 		user.asset_events_include_calendar_sms,
@@ -76,8 +78,18 @@ export function shouldSendSms(user: SmsEligibilityUser): boolean {
 		user.asset_events_include_analyst_sms,
 		user.asset_events_include_insider_sms,
 		user.market_asset_price_alerts_include_sms,
-		user.price_targets_include_sms,
 	].some((value) => value === true);
 
 	return hasVerifiedPhone && hasAnySmsFeatureEnabled;
+}
+
+/** True if SMS channel is usable (not opted out, enabled, verified phone). Use for flows that have their own feature-specific opt-in (e.g. price targets). */
+export function isSmsChannelUsable(user: SmsEligibilityUser): boolean {
+	if (user.sms_opted_out) return false;
+	if (!user.sms_notifications_enabled) return false;
+	return (
+		Boolean(user.phone_verified) &&
+		Boolean(user.phone_country_code) &&
+		Boolean(user.phone_number)
+	);
 }
