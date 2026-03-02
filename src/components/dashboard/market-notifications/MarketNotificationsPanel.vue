@@ -1175,7 +1175,7 @@ async function saveTarget(symbol: string, targetPrice: number | null) {
 }
 
 function handleSaveTarget(symbol: string) {
-	const value = (pendingInputs.value.get(symbol) ?? "").trim();
+	const value = (pendingInputs.value.get(symbol) ?? getTargetValue(symbol)).trim();
 
 	if (value === "") {
 		if (hasTarget(symbol)) {
