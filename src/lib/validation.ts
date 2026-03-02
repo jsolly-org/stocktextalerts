@@ -28,10 +28,10 @@ export function isSafeRedirectUrl(value: string | null | undefined): boolean {
 	if (typeof value !== "string" || value.trim() === "") {
 		return false;
 	}
-	const trimmed = value.trim();
-	if (CRLF_RE.test(trimmed)) {
+	if (CRLF_RE.test(value)) {
 		return false;
 	}
+	const trimmed = value.trim();
 	const lower = trimmed.toLowerCase();
 	for (const prefix of UNSAFE_REDIRECT_PREFIXES) {
 		if (lower.startsWith(prefix)) {
