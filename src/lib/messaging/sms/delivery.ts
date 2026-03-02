@@ -3,7 +3,7 @@ import type { AppSupabaseClient } from "../../db/supabase";
 import type { MarketClosureInfo } from "../../time/market-calendar";
 import { NO_TRACKED_ASSETS_MESSAGE } from "../asset-formatting";
 import { buildMarketClosedBannerText } from "../market-closure-banner";
-import { recordNotification } from "../shared";
+import { deliveryResultToLogFields, recordNotification } from "../shared";
 import type { ProcessingStats, SmsUser } from "../types";
 import { formatExtrasSection } from "./formatting";
 import { sendUserSms } from "./index";
@@ -111,8 +111,7 @@ export async function processSmsUpdate(
 		delivery_method: "sms",
 		message_delivered: result.success,
 		message: smsMessage,
-		error: result.success ? undefined : result.error,
-		error_code: result.success ? undefined : result.errorCode,
+		...deliveryResultToLogFields(result),
 	});
 
 	return {

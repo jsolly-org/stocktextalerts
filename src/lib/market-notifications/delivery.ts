@@ -14,7 +14,10 @@ import {
 import { sendUserEmail } from "../messaging/email/index";
 import { buildEmailUrls } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
-import { recordNotification } from "../messaging/shared";
+import {
+	deliveryResultToLogFields,
+	recordNotification,
+} from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import type { SmsSender } from "../messaging/sms/twilio-utils";
@@ -377,7 +380,7 @@ export async function deliverPriceAlert(options: {
 			delivery_method: "email",
 			message_delivered: result.success,
 			message: message.text,
-			error: result.success ? undefined : result.error,
+			...deliveryResultToLogFields(result),
 		});
 		if (!logged) stats.logFailures++;
 	}
@@ -410,7 +413,7 @@ export async function deliverPriceAlert(options: {
 				delivery_method: "sms",
 				message_delivered: result.success,
 				message: smsBody,
-				error: result.success ? undefined : result.error,
+				...deliveryResultToLogFields(result),
 			});
 			if (!logged) stats.logFailures++;
 		}

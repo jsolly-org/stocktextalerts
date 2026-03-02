@@ -1,7 +1,7 @@
 import type { AppSupabaseClient } from "../../db/supabase";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
 import type { MarketClosureInfo } from "../../time/market-calendar";
-import { recordNotification } from "../shared";
+import { deliveryResultToLogFields, recordNotification } from "../shared";
 import type { SparklineData } from "../sparkline";
 import type {
 	EmailUser,
@@ -52,8 +52,7 @@ export async function processEmailUpdate(
 		delivery_method: "email",
 		message_delivered: result.success,
 		message: message.text,
-		error: result.success ? undefined : result.error,
-		error_code: result.success ? undefined : result.errorCode,
+		...deliveryResultToLogFields(result),
 	});
 
 	return {
