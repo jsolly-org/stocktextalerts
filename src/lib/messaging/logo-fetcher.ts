@@ -111,10 +111,13 @@ export async function fetchLogoBase64(
 		return cache.get(symbol) ?? null;
 	}
 
-	// Use DB-cached base64 if available
-	if (iconBase64) {
+	// Use DB-cached base64 only if it is a safe image data URI
+	if (iconBase64 && SAFE_IMAGE_DATA_URI.test(iconBase64)) {
 		cache.set(symbol, iconBase64);
 		return iconBase64;
+	}
+	if (iconBase64) {
+		rootLogger.warn("Ignoring invalid DB-cached logo data URI", { symbol });
 	}
 
 	if (!iconUrl) {
@@ -122,7 +125,8 @@ export async function fetchLogoBase64(
 		return null;
 	}
 
-	let promise = inFlight.get(symbol);
+	const inFlightKey = `${symbol}::${iconUrl ?? ""}`;
+	let promise = inFlight.get(inFlightKey);
 	if (!promise) {
 		promise = (async (): Promise<string | null> => {
 			try {
@@ -143,10 +147,10 @@ export async function fetchLogoBase64(
 				cache.set(symbol, null);
 				return null;
 			} finally {
-				inFlight.delete(symbol);
+				inFlight.delete(inFlightKey);
 			}
 		})();
-		inFlight.set(symbol, promise);
+		inFlight.set(inFlightKey, promise);
 	}
 
 	return promise;
