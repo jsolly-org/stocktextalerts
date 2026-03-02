@@ -45,7 +45,7 @@ export async function loadUserAssets(
 ): Promise<UserAssetRow[]> {
 	const { data: assets, error } = await supabase
 		.from("user_assets")
-		.select("symbol, assets!inner(name, icon_url)")
+		.select("symbol, assets!inner(name, icon_url, icon_base64)")
 		.eq("user_id", userId);
 
 	if (error) {
@@ -56,6 +56,7 @@ export async function loadUserAssets(
 		symbol: asset.symbol,
 		name: asset.assets.name,
 		icon_url: asset.assets.icon_url,
+		icon_base64: asset.assets.icon_base64,
 	}));
 }
 
@@ -100,7 +101,7 @@ export async function batchLoadUserAssets(
 		for (let from = 0; ; from += pageSize) {
 			const { data: rows, error } = await supabase
 				.from("user_assets")
-				.select("user_id, symbol, assets!inner(name, icon_url)")
+				.select("user_id, symbol, assets!inner(name, icon_url, icon_base64)")
 				.in("user_id", chunk)
 				.order("user_id", { ascending: true })
 				.order("symbol", { ascending: true })
@@ -117,6 +118,7 @@ export async function batchLoadUserAssets(
 					assets: {
 						name: string;
 						icon_url: string | null;
+						icon_base64: string | null;
 					};
 				};
 				const entry = map.get(typed.user_id) ?? [];
@@ -124,6 +126,7 @@ export async function batchLoadUserAssets(
 					symbol: typed.symbol,
 					name: typed.assets.name,
 					icon_url: typed.assets.icon_url,
+					icon_base64: typed.assets.icon_base64,
 				});
 				map.set(typed.user_id, entry);
 			}
