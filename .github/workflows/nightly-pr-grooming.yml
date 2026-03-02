@@ -19,11 +19,11 @@ env:
   GH_TOKEN: ${{ secrets.GH_AGENT_TOKEN }}
 
 jobs:
-  enable-auto-merge:
+  merge-bot-prs:
     if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.actor != 'nektos/act' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Enable auto-merge on bot-generated PRs
+      - name: Merge bot-generated PRs
         run: |
           PRS=$(gh pr list \
             --repo "${{ github.repository }}" \
@@ -38,8 +38,12 @@ jobs:
           fi
 
           for PR_NUMBER in $PRS; do
-            echo "Enabling auto-merge for PR #$PR_NUMBER..."
-            gh pr merge "$PR_NUMBER" --repo "${{ github.repository }}" --auto --squash || echo "Failed to enable auto-merge for PR #$PR_NUMBER (may already be enabled)"
+            echo "Merging PR #$PR_NUMBER..."
+            if ! gh pr merge "$PR_NUMBER" --repo "${{ github.repository }}" --squash --delete-branch 2>/dev/null; then
+              echo "  Direct merge failed, enabling auto-merge as fallback..."
+              gh pr merge "$PR_NUMBER" --repo "${{ github.repository }}" --auto --squash \
+                || echo "  Could not enable auto-merge for PR #$PR_NUMBER"
+            fi
           done
 
   resolve-bot-comments:

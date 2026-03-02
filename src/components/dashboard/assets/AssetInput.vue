@@ -56,16 +56,7 @@
 				:class="{ 'bg-info-border': highlightedIndex === index }"
 			>
 				<span class="flex items-center gap-2">
-					<span
-						class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium shrink-0"
-						:class="
-							result.type === 'etf'
-								? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
-								: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-						"
-					>
-						{{ result.type === "etf" ? "ETF" : "Stock" }}
-					</span>
+					<AssetBadge :type="result.type" :symbol="result.symbol" :icon-url="result.icon_url" size="compact" />
 					<span class="truncate">{{ result.symbol }} - {{ result.name }}</span>
 				</span>
 			</li>
@@ -76,11 +67,13 @@
 <script lang="ts" setup>
 import { onClickOutside, refDebounced } from "@vueuse/core";
 import { onMounted, ref, watch } from "vue";
+import AssetBadge from "./AssetBadge.vue";
 
 export interface AssetSearchResult {
 	symbol: string;
 	name: string;
 	type: "stock" | "etf";
+	icon_url: string | null;
 }
 
 interface Props {

@@ -100,16 +100,7 @@
 					class="group flex items-center justify-between gap-3 p-3 bg-surface-alt rounded-lg hover:bg-surface-active transition-colors"
 				>
 					<span class="min-w-0 flex items-center gap-2 text-sm font-medium text-heading truncate">
-						<span
-							class="inline-flex items-center justify-center w-10 py-0.5 rounded text-xs font-medium shrink-0"
-							:class="
-								asset.type === 'etf'
-									? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
-									: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-							"
-						>
-							{{ asset.type === "etf" ? "ETF" : "Stock" }}
-						</span>
+						<AssetBadge :type="asset.type" :symbol="asset.symbol" :icon-url="asset.icon_url" />
 						<span class="truncate">
 							<span class="font-semibold">{{ asset.symbol }}</span>
 							<span class="text-muted"> · {{ asset.name }}</span>
@@ -144,6 +135,7 @@ import {
 import { MAX_TRACKED_ASSETS } from "../../../lib/db/database-errors";
 import FadeTransition from "../../FadeTransition.vue";
 import StatusMessage from "../../StatusMessage.vue";
+import AssetBadge from "./AssetBadge.vue";
 import type { AssetSearchResult } from "./AssetInput.vue";
 import AssetInput from "./AssetInput.vue";
 import type { InitialAsset } from "./types";
@@ -227,7 +219,7 @@ function handleSelect(result: AssetSearchResult) {
 
 	draftAssets.value = [
 		...draftAssets.value,
-		{ symbol: result.symbol, name: result.name, type: result.type },
+		{ symbol: result.symbol, name: result.name, type: result.type, icon_url: result.icon_url },
 	];
 }
 

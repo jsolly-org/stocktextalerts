@@ -170,6 +170,7 @@ export async function processPriceAlerts(options: {
 }): Promise<{
 	totals: PriceAlertTotals;
 	quoteMap: ExtendedQuoteMap;
+	isMarketOpen: boolean;
 }> {
 	const { supabase } = options;
 	const totals: PriceAlertTotals = {
@@ -182,7 +183,11 @@ export async function processPriceAlerts(options: {
 		smsFailed: 0,
 		logFailures: 0,
 	};
-	const emptyResult = { totals, quoteMap: new Map<string, null>() };
+	const emptyResult = {
+		totals,
+		quoteMap: new Map<string, null>(),
+		isMarketOpen: false,
+	};
 
 	const isMarketOpen = await fetchMarketStatus();
 	if (!isMarketOpen) {
@@ -260,7 +265,7 @@ export async function processPriceAlerts(options: {
 		for (const symbol of uniqueSymbols) {
 			filteredQuoteMap.set(symbol, quoteMap.get(symbol) ?? null);
 		}
-		return { totals, quoteMap: filteredQuoteMap };
+		return { totals, quoteMap: filteredQuoteMap, isMarketOpen: true };
 	}
 
 	const { data: userAssetRows, error: userAssetsError } = await supabase
@@ -281,7 +286,7 @@ export async function processPriceAlerts(options: {
 		for (const symbol of uniqueSymbols) {
 			filteredQuoteMap.set(symbol, quoteMap.get(symbol) ?? null);
 		}
-		return { totals, quoteMap: filteredQuoteMap };
+		return { totals, quoteMap: filteredQuoteMap, isMarketOpen: true };
 	}
 
 	const userSymbolMap = new Map<string, Set<string>>();
@@ -488,5 +493,5 @@ export async function processPriceAlerts(options: {
 		filteredQuoteMap.set(symbol, quoteMap.get(symbol) ?? null);
 	}
 
-	return { totals, quoteMap: filteredQuoteMap };
+	return { totals, quoteMap: filteredQuoteMap, isMarketOpen: true };
 }

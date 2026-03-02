@@ -94,7 +94,7 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 		// Symbol prefix match (exact start) OR name substring match
 		const { data, error } = await supabase
 			.from("assets")
-			.select("symbol, name, type")
+			.select("symbol, name, type, icon_url")
 			.or(
 				`symbol.ilike.${quotedSymbolPrefixPattern},name.ilike.${quotedNameContainsPattern}`,
 			)
@@ -133,6 +133,7 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 				symbol: row.symbol,
 				name: row.name,
 				type: row.type,
+				icon_url: row.icon_url,
 			}));
 
 		return jsonResponse(200, { ok: true, message: "ok", results });

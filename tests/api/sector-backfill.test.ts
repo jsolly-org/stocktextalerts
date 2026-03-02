@@ -45,6 +45,19 @@ async function loadSectorBackfillHandler() {
 describe("A cron worker backfills missing asset sectors.", () => {
 	const testCronSecret = "sector-backfill-test-secret";
 
+	async function runBackfill(cronSecret: string) {
+		const runSectorBackfill = await loadSectorBackfillHandler();
+		return runSectorBackfill(
+			createApiContext({
+				request: createCronRequest({
+					path: "/api/sector-backfill",
+					cronSecret,
+					method: "GET",
+				}),
+			}),
+		);
+	}
+
 	beforeEach(() => {
 		vi.resetModules();
 		vi.stubEnv("CRON_SECRET", testCronSecret);
@@ -63,12 +76,16 @@ describe("A cron worker backfills missing asset sectors.", () => {
 
 				return {
 					select: () => ({
-						is: () => ({
-							limit: async () =>
-								state.queryError
-									? { data: null, error: state.queryError }
-									: { data: state.queryRows, error: null },
-						}),
+						or: (filter: string) => {
+							expect(filter).toContain("sector.is.null");
+							expect(filter).toContain("icon_url.is.null");
+							return {
+								limit: async () =>
+									state.queryError
+										? { data: null, error: state.queryError }
+										: { data: state.queryRows, error: null },
+							};
+						},
 					}),
 					update: (payload: Record<string, unknown>) => ({
 						eq: async (column: string, value: unknown) => {
@@ -176,7 +193,7 @@ describe("A cron worker backfills missing asset sectors.", () => {
 	});
 
 	it("Returns 500 when the database query for assets fails.", async () => {
-		expectConsoleError("Failed to query assets missing sector");
+		expectConsoleError("Failed to query assets missing sector/icon_url");
 		state.queryError = { message: "Connection refused" };
 
 		const runSectorBackfill = await loadSectorBackfillHandler();
@@ -301,5 +318,72 @@ describe("A cron worker backfills missing asset sectors.", () => {
 				value: "OBSCURE",
 			},
 		]);
+	});
+
+	it("A scheduled sector backfill run stores the logo URL when market branding includes one.", async () => {
+		state.queryRows = [{ symbol: "AAPL" }];
+		marketDataFetchMock.mockResolvedValueOnce({
+			results: {
+				sic_code: "3571",
+				branding: { icon_url: "https://api.massive.com/aapl-icon.png" },
+			},
+		});
+
+		const response = await runBackfill(testCronSecret);
+
+		expect(response.status).toBe(200);
+		const payload = (await response.json()) as {
+			success: boolean;
+			updated: number;
+			skipped: number;
+		};
+		expect(payload.success).toBe(true);
+		expect(payload.updated).toBe(1);
+		expect(state.updateCalls).toHaveLength(1);
+		expect(state.updateCalls[0].payload).toEqual({
+			sector: "Technology",
+			icon_url: "https://api.massive.com/aapl-icon.png",
+		});
+	});
+
+	it("A scheduled sector backfill run updates an asset when only a logo URL is available.", async () => {
+		state.queryRows = [{ symbol: "XOM" }];
+		marketDataFetchMock.mockResolvedValueOnce({
+			results: {
+				branding: { icon_url: "https://api.massive.com/xom-icon.png" },
+			},
+		});
+
+		const response = await runBackfill(testCronSecret);
+
+		expect(response.status).toBe(200);
+		const payload = (await response.json()) as {
+			success: boolean;
+			updated: number;
+			skipped: number;
+		};
+		expect(payload.success).toBe(true);
+		expect(payload.updated).toBe(1);
+		expect(state.updateCalls[0].payload).toEqual({
+			icon_url: "https://api.massive.com/xom-icon.png",
+		});
+	});
+
+	it("A scheduled sector backfill run skips an asset when market data has no sector or logo.", async () => {
+		state.queryRows = [{ symbol: "SPY" }];
+		marketDataFetchMock.mockResolvedValueOnce({ results: {} });
+
+		const response = await runBackfill(testCronSecret);
+
+		expect(response.status).toBe(200);
+		const payload = (await response.json()) as {
+			success: boolean;
+			updated: number;
+			skipped: number;
+		};
+		expect(payload.success).toBe(true);
+		expect(payload.updated).toBe(0);
+		expect(payload.skipped).toBe(1);
+		expect(state.updateCalls).toHaveLength(0);
 	});
 });

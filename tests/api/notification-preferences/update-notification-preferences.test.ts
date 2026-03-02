@@ -47,7 +47,7 @@ describe("A signed-in user updates their notification channels.", () => {
 		formData.append("market_asset_price_alerts_include_email", "true");
 		formData.append("market_asset_price_alert_risk_priority", "both_equally");
 		formData.append("market_asset_price_alert_market_context", "standout");
-		formData.append("market_asset_price_alert_move_size", "large");
+		formData.append("market_asset_price_alert_move_size", "extreme");
 		formData.append("market_asset_price_alert_follow_up_mode", "first_only");
 		formData.append("market_asset_price_alert_onboarding_completed", "true");
 
@@ -78,7 +78,7 @@ describe("A signed-in user updates their notification channels.", () => {
 		).toBe("standout");
 		expect(
 			payload.notificationPreferences.market_asset_price_alert_move_size,
-		).toBe("large");
+		).toBe("extreme");
 		expect(
 			payload.notificationPreferences.market_asset_price_alert_follow_up_mode,
 		).toBe("first_only");
@@ -101,7 +101,7 @@ describe("A signed-in user updates their notification channels.", () => {
 		expect(updatedUser.market_asset_price_alert_market_context).toBe(
 			"standout",
 		);
-		expect(updatedUser.market_asset_price_alert_move_size).toBe("large");
+		expect(updatedUser.market_asset_price_alert_move_size).toBe("extreme");
 		expect(updatedUser.market_asset_price_alert_follow_up_mode).toBe(
 			"first_only",
 		);
@@ -159,7 +159,7 @@ describe("A signed-in user updates their notification channels.", () => {
 		formData.append("market_asset_price_alerts_include_email", "true");
 		formData.append("market_asset_price_alert_risk_priority", "both_equally");
 		formData.append("market_asset_price_alert_market_context", "any_major");
-		formData.append("market_asset_price_alert_move_size", "moderate");
+		formData.append("market_asset_price_alert_move_size", "significant");
 		formData.append(
 			"market_asset_price_alert_follow_up_mode",
 			"allow_follow_up",
