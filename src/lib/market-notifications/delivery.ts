@@ -15,6 +15,11 @@ import { sendUserEmail } from "../messaging/email/index";
 import { buildEmailUrls } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
 import {
+	createLogoCache,
+	fetchLogoBase64,
+	renderLogoImg,
+} from "../messaging/logo-fetcher";
+import {
 	deliveryResultToLogFields,
 	recordNotification,
 } from "../messaging/shared";
@@ -244,6 +249,7 @@ function renderHtmlSparklineForAlert(
 function formatPriceAlertEmail(
 	user: PriceAlertUser,
 	alert: EnrichedAlert,
+	logoHtml?: string,
 ): { text: string; html: string } {
 	const urls = buildEmailUrls(user.id, user.email, "marketNotifications");
 
@@ -319,7 +325,7 @@ function formatPriceAlertEmail(
 		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Asset Price Alert</h1>
 	</div>
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">${escapeHtml(alert.symbol)}</h2>
+		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">${logoHtml ?? ""}${escapeHtml(alert.symbol)}</h2>
 		<div style="background: #fffbeb; padding: 16px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #fde68a;">
 			<p style="color: #92400e; font-size: 16px; font-weight: 500; margin: 0;">${escapeHtml(alert.priceContext)}</p>${renderHtmlSparklineForAlert(alert, user.use_24_hour_time)}
 		</div>
@@ -360,7 +366,16 @@ export async function deliverPriceAlert(options: {
 
 	// Email delivery
 	if (user.market_asset_price_alerts_include_email) {
-		const message = formatPriceAlertEmail(user, alert);
+		const logoCache = createLogoCache();
+		const logoDataUri = await fetchLogoBase64(
+			alert.symbol,
+			alert.iconUrl,
+			logoCache,
+			alert.iconBase64,
+			supabase,
+		);
+		const logoHtml = logoDataUri ? renderLogoImg(logoDataUri) : undefined;
+		const message = formatPriceAlertEmail(user, alert, logoHtml);
 		const result = await sendUserEmail(
 			user,
 			`${alert.symbol} ${alert.isPositiveMove ? "Rally" : "Selloff"} Alert`,

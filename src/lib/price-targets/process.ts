@@ -20,8 +20,8 @@ export interface PriceTargetUser {
 	phone_verified: boolean;
 	sms_notifications_enabled: boolean;
 	sms_opted_out: boolean;
-	market_asset_price_alerts_include_email: boolean;
-	market_asset_price_alerts_include_sms: boolean;
+	price_targets_include_email: boolean;
+	price_targets_include_sms: boolean;
 }
 
 export interface TriggeredPriceTarget {
@@ -29,6 +29,8 @@ export interface TriggeredPriceTarget {
 	targetPrice: number;
 	currentPrice: number;
 	direction: "above" | "below";
+	iconUrl?: string | null;
+	iconBase64?: string | null;
 }
 
 export interface PriceTargetTotals extends PriceTargetDeliveryStats {
@@ -98,7 +100,7 @@ export async function processPriceTargets(options: {
 	const { data: userData, error: usersError } = await (supabase
 		.from("users")
 		.select(
-			"id, email, phone_country_code, phone_number, phone_verified, sms_notifications_enabled, sms_opted_out, market_asset_price_alerts_include_email, market_asset_price_alerts_include_sms",
+			"id, email, phone_country_code, phone_number, phone_verified, sms_notifications_enabled, sms_opted_out, price_targets_include_email, price_targets_include_sms",
 		)
 		.in("id", userIds) as unknown as Promise<{
 		data: PriceTargetUser[] | null;
@@ -147,6 +149,23 @@ export async function processPriceTargets(options: {
 		quoteMap = await fetchExtendedQuotes(uniqueSymbols);
 	}
 
+	// Fetch icon URLs for triggered symbols (for email logos)
+	const iconUrlMap = new Map<string, string | null>();
+	const iconBase64Map = new Map<string, string | null>();
+	const { data: iconRows } = await supabase
+		.from("assets")
+		.select("symbol, icon_url, icon_base64")
+		.in("symbol", uniqueSymbols);
+	for (const row of iconRows ?? []) {
+		const r = row as {
+			symbol: string;
+			icon_url: string | null;
+			icon_base64: string | null;
+		};
+		iconUrlMap.set(r.symbol, r.icon_url);
+		iconBase64Map.set(r.symbol, r.icon_base64);
+	}
+
 	const sendEmail = createEmailSender();
 	const getSmsSender = createSmsSenderProvider();
 	let smsSender: ReturnType<typeof getSmsSender>["sender"] | null = null;
@@ -174,10 +193,12 @@ export async function processPriceTargets(options: {
 			targetPrice: target.target_price,
 			currentPrice,
 			direction: target.direction as "above" | "below",
+			iconUrl: iconUrlMap.get(target.symbol) ?? null,
+			iconBase64: iconBase64Map.get(target.symbol) ?? null,
 		};
 
 		// Initialize SMS sender lazily
-		if (user.market_asset_price_alerts_include_sms && !smsSender) {
+		if (user.price_targets_include_sms && !smsSender) {
 			try {
 				smsSender = getSmsSender().sender;
 			} catch {

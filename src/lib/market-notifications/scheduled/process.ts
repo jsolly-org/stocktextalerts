@@ -3,6 +3,11 @@ import type { Logger } from "../../logging";
 import { formatAssetsTextList } from "../../messaging/asset-formatting";
 import type { EmailSender } from "../../messaging/email/utils";
 import { formatEmailMessage } from "../../messaging/email/utils";
+import {
+	createLogoCache,
+	prefetchLogos,
+	renderLogoImg,
+} from "../../messaging/logo-fetcher";
 import { recordNotification } from "../../messaging/shared";
 import { shouldSendSms } from "../../messaging/sms";
 import { formatSmsMessage } from "../../messaging/sms/delivery";
@@ -177,6 +182,13 @@ export async function processMarketScheduledUser(options: {
 		const getSparkline = (symbol: string) => sparklines.get(symbol) ?? null;
 		const getAsciiSparkline = (symbol: string) => sparklines.get(symbol)?.ascii;
 
+		const logoCache = createLogoCache();
+		await prefetchLogos(userAssets, logoCache, supabase);
+		const getLogoHtml = (symbol: string): string | undefined => {
+			const dataUri = logoCache.get(symbol);
+			return dataUri ? renderLogoImg(dataUri) : undefined;
+		};
+
 		const assetsList = formatAssetsTextList(
 			userAssets,
 			(symbol) => priceMap.get(symbol) ?? undefined,
@@ -220,6 +232,7 @@ export async function processMarketScheduledUser(options: {
 							formatPrefs,
 							getSparkline,
 							marketClosureInfo,
+							getLogoHtml,
 						);
 						return {
 							subject: "Your Scheduled Price Notification",
@@ -291,6 +304,7 @@ export async function processMarketScheduledUser(options: {
 				stats,
 				formatPrefs,
 				getSparkline,
+				getLogoHtml,
 			});
 		}
 

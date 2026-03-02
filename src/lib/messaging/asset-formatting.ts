@@ -72,8 +72,9 @@ function formatAssetHtmlLine(
 	price: AssetPrice | undefined,
 	formatPrefs: FormatPreferences,
 	sparkline?: SparklineData | null,
+	logoHtml?: string,
 ): string {
-	const assetInfo = escapeHtml(asset.symbol);
+	const assetInfo = `${logoHtml ?? ""}${escapeHtml(asset.symbol)}`;
 
 	if (!price) {
 		return assetInfo;
@@ -123,6 +124,7 @@ export function formatAssetsHtmlList(
 	getPrice: (symbol: string) => AssetPrice | undefined,
 	formatPrefs: FormatPreferences,
 	getSparkline?: (symbol: string) => SparklineData | null | undefined,
+	getLogoHtml?: (symbol: string) => string | undefined,
 ): string {
 	if (assets.length === 0) {
 		return escapeHtml(NO_TRACKED_ASSETS_MESSAGE);
@@ -135,6 +137,7 @@ export function formatAssetsHtmlList(
 				getPrice(asset.symbol),
 				formatPrefs,
 				getSparkline?.(asset.symbol),
+				getLogoHtml?.(asset.symbol),
 			),
 		)
 		.join("<br>");

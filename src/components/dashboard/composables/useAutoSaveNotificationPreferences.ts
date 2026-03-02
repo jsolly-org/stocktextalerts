@@ -35,6 +35,8 @@ export type NotificationPreferencesData = {
 	market_asset_price_alert_market_context: "standout" | "any_major";
 	market_asset_price_alert_move_size: "significant" | "extreme";
 	market_asset_price_alert_follow_up_mode: "first_only" | "allow_follow_up";
+	price_targets_include_email: boolean;
+	price_targets_include_sms: boolean;
 };
 
 type AutoSaveOptions = Omit<AutoSaveFormOptions, "payloadKey" | "logAction">;

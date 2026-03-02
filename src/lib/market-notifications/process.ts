@@ -214,10 +214,10 @@ export async function processPriceAlerts(options: {
 		return emptyResult;
 	}
 
-	// Load sector data for all tracked assets
+	// Load sector data and icon URLs for all tracked assets
 	const { data: assetRows, error: assetSectorError } = await supabase
 		.from("assets")
-		.select("symbol, sector, type")
+		.select("symbol, sector, type, icon_url, icon_base64")
 		.in("symbol", uniqueSymbols);
 
 	if (assetSectorError) {
@@ -230,10 +230,20 @@ export async function processPriceAlerts(options: {
 
 	const assetSectorMap = new Map<string, string | null>();
 	const assetTypeMap = new Map<string, string>();
+	const assetIconUrlMap = new Map<string, string | null>();
+	const assetIconBase64Map = new Map<string, string | null>();
 	for (const row of assetRows ?? []) {
-		const r = row as { symbol: string; sector: string | null; type: string };
+		const r = row as {
+			symbol: string;
+			sector: string | null;
+			type: string;
+			icon_url: string | null;
+			icon_base64: string | null;
+		};
 		assetSectorMap.set(r.symbol, r.sector);
 		assetTypeMap.set(r.symbol, r.type);
+		assetIconUrlMap.set(r.symbol, r.icon_url);
+		assetIconBase64Map.set(r.symbol, r.icon_base64);
 	}
 
 	// Determine which sector ETFs we need as benchmarks
@@ -467,6 +477,8 @@ export async function processPriceAlerts(options: {
 				intradayCloses,
 				intradayTimestamps,
 				intradayEndTimestamp,
+				iconUrl: assetIconUrlMap.get(symbol) ?? null,
+				iconBase64: assetIconBase64Map.get(symbol) ?? null,
 			});
 
 			if (user.market_asset_price_alerts_include_sms && !smsSender) {

@@ -56,8 +56,8 @@ function makeSupabaseMock(options: {
 		phone_verified: boolean;
 		sms_notifications_enabled: boolean;
 		sms_opted_out: boolean;
-		market_asset_price_alerts_include_email: boolean;
-		market_asset_price_alerts_include_sms: boolean;
+		price_targets_include_email: boolean;
+		price_targets_include_sms: boolean;
 	}>;
 }) {
 	const { targets = [], users = [] } = options;
@@ -88,6 +88,13 @@ function makeSupabaseMock(options: {
 					}),
 				};
 			}
+			if (table === "assets") {
+				return {
+					select: () => ({
+						in: () => Promise.resolve({ data: [], error: null }),
+					}),
+				};
+			}
 			// notification_log
 			return {
 				insert: async () => ({ error: null }),
@@ -104,8 +111,8 @@ const testUser = {
 	phone_verified: true,
 	sms_notifications_enabled: true,
 	sms_opted_out: false,
-	market_asset_price_alerts_include_email: true,
-	market_asset_price_alerts_include_sms: false,
+	price_targets_include_email: true,
+	price_targets_include_sms: false,
 };
 
 beforeEach(() => {

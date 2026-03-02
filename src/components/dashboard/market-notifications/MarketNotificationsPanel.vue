@@ -409,13 +409,52 @@
 				class="mt-4 rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200"
 				:class="{ 'opacity-50': notificationSetupBlocked }"
 			>
-				<div class="mb-3">
-					<span class="text-base font-semibold text-heading">
-						Price Targets
-					</span>
-					<p class="text-sm text-body-secondary mt-0.5">
-						Set a target price on any watchlist asset. Get notified once when it's hit, then the target clears automatically. Uses your existing realtime price alert delivery channels (email/SMS).
-					</p>
+				<input
+					type="hidden"
+					name="price_targets_include_email"
+					:value="priceTargetsIncludeEmail ? 'on' : 'off'"
+				/>
+				<input
+					type="hidden"
+					name="price_targets_include_sms"
+					:value="priceTargetsIncludeSms ? 'on' : 'off'"
+				/>
+				<div class="flex items-start justify-between gap-3 mb-3">
+					<div class="min-w-0">
+						<span
+							id="price_targets_label"
+							class="text-base font-semibold text-heading"
+						>
+							Price Targets
+						</span>
+						<p id="price_targets_description" class="text-sm text-body-secondary mt-0.5">
+							Set a target price on any watchlist asset. Get notified once when it's hit, then the target clears automatically.
+						</p>
+					</div>
+					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
+						<label class="inline-flex items-center gap-1.5" :class="!notificationSetupBlocked && emailEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+							<input
+								type="checkbox"
+								v-model="priceTargetsIncludeEmail"
+								:disabled="notificationSetupBlocked || !emailEnabled"
+								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								aria-label="Enable email for price targets"
+								aria-describedby="price_targets_description"
+							/>
+							<span class="text-sm font-normal text-label" aria-hidden="true">Email</span>
+						</label>
+						<label class="inline-flex items-center gap-1.5" :class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+							<input
+								type="checkbox"
+								v-model="priceTargetsIncludeSms"
+								:disabled="notificationSetupBlocked || !smsReady"
+								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								aria-label="Enable SMS for price targets"
+								aria-describedby="price_targets_description"
+							/>
+							<span class="text-sm font-normal text-label" aria-hidden="true">SMS</span>
+						</label>
+					</div>
 				</div>
 
 				<FadeTransition>
@@ -608,6 +647,9 @@ const priceAlertsIncludeSms = ref(user.value.market_asset_price_alerts_include_s
 const priceAlertsEnabled = computed(
 	() => priceAlertsIncludeEmail.value || priceAlertsIncludeSms.value,
 );
+const priceTargetsIncludeEmail = ref(user.value.price_targets_include_email);
+const priceTargetsIncludeSms = ref(user.value.price_targets_include_sms);
+
 const priceAlertOnboardingCompleted = ref(
 	user.value.market_asset_price_alert_onboarding_completed ?? false,
 );
@@ -861,6 +903,18 @@ watch(
 	},
 );
 watch(
+	() => user.value.price_targets_include_email,
+	(value) => {
+		priceTargetsIncludeEmail.value = value;
+	},
+);
+watch(
+	() => user.value.price_targets_include_sms,
+	(value) => {
+		priceTargetsIncludeSms.value = value;
+	},
+);
+watch(
 	() => user.value.market_asset_price_alert_onboarding_completed,
 	(value) => {
 		priceAlertOnboardingCompleted.value = value ?? false;
@@ -951,6 +1005,12 @@ watch(
 			...(newData.market_asset_price_alert_follow_up_mode !== undefined && {
 				market_asset_price_alert_follow_up_mode: newData.market_asset_price_alert_follow_up_mode,
 			}),
+			...(newData.price_targets_include_email !== undefined && {
+				price_targets_include_email: newData.price_targets_include_email,
+			}),
+			...(newData.price_targets_include_sms !== undefined && {
+				price_targets_include_sms: newData.price_targets_include_sms,
+			}),
 			};
 		}
 	},
@@ -1020,6 +1080,21 @@ watch([priceAlertsIncludeEmail, priceAlertsIncludeSms], ([email, sms]) => {
 		market_asset_price_alerts_include_email: email,
 		market_asset_price_alerts_include_sms: sms,
 		market_asset_price_alerts_enabled: email || sms,
+	};
+	notifyChange();
+});
+
+watch([priceTargetsIncludeEmail, priceTargetsIncludeSms], ([email, sms]) => {
+	if (
+		email === user.value.price_targets_include_email &&
+		sms === user.value.price_targets_include_sms
+	) {
+		return;
+	}
+	user.value = {
+		...user.value,
+		price_targets_include_email: email,
+		price_targets_include_sms: sms,
 	};
 	notifyChange();
 });

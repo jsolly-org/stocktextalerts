@@ -96,6 +96,8 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 					dbUser.market_asset_price_alert_move_size,
 				market_asset_price_alert_follow_up_mode:
 					dbUser.market_asset_price_alert_follow_up_mode,
+				price_targets_include_email: dbUser.price_targets_include_email,
+				price_targets_include_sms: dbUser.price_targets_include_sms,
 			},
 		});
 	} catch (error) {

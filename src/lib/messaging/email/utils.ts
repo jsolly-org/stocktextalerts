@@ -182,6 +182,7 @@ export function formatEmailMessage(
 	formatPrefs?: FormatPreferences,
 	getSparkline?: (symbol: string) => SparklineData | null | undefined,
 	marketClosureInfo?: MarketClosureInfo | null,
+	getLogoHtml?: (symbol: string) => string | undefined,
 ): { text: string; html: string } {
 	const urls = buildEmailUrls(user.id, user.email, "marketNotifications");
 	const textFooter = `\n\nManage your delivery schedule: ${urls.scheduleUrl}\nUnsubscribe from all emails: ${urls.unsubscribeUrl}`;
@@ -234,6 +235,7 @@ export function formatEmailMessage(
 		(symbol) => priceMap.get(symbol) ?? undefined,
 		formatPrefs ?? { show_sparklines: false },
 		getSparkline,
+		getLogoHtml,
 	);
 	const marketClosedBannerHtml = marketOpen
 		? ""

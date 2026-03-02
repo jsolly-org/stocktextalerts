@@ -16,6 +16,7 @@ type SmsEligibilityUser = Pick<
 	asset_events_include_analyst_sms?: boolean;
 	asset_events_include_insider_sms?: boolean;
 	market_asset_price_alerts_include_sms?: boolean;
+	price_targets_include_sms?: boolean;
 };
 
 // Caller must verify opt-in/verification (e.g. shouldSendSms) before calling.
@@ -75,6 +76,7 @@ export function shouldSendSms(user: SmsEligibilityUser): boolean {
 		user.asset_events_include_analyst_sms,
 		user.asset_events_include_insider_sms,
 		user.market_asset_price_alerts_include_sms,
+		user.price_targets_include_sms,
 	].some((value) => value === true);
 
 	return hasVerifiedPhone && hasAnySmsFeatureEnabled;
