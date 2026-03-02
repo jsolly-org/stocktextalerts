@@ -31,14 +31,16 @@ export const GET: APIRoute = async ({ params }) => {
 		return new Response("Gone", { status: 410 });
 	}
 
-	if (!isSafeRedirectUrl(data.original_url)) {
+	const location =
+		typeof data.original_url === "string" ? data.original_url.trim() : "";
+	if (!isSafeRedirectUrl(location)) {
 		return new Response("Gone", { status: 410 });
 	}
 
 	return new Response(null, {
 		status: 302,
 		headers: {
-			Location: data.original_url,
+			Location: location,
 			"Cache-Control": "no-cache",
 		},
 	});

@@ -25,13 +25,16 @@ const CRLF_RE = /\r|\n/;
  * Allows only http: and https: URLs; rejects CR/LF and script/data protocols.
  */
 export function isSafeRedirectUrl(value: string | null | undefined): boolean {
-	if (typeof value !== "string" || value.trim() === "") {
+	if (typeof value !== "string") {
 		return false;
 	}
 	if (CRLF_RE.test(value)) {
 		return false;
 	}
 	const trimmed = value.trim();
+	if (trimmed === "") {
+		return false;
+	}
 	const lower = trimmed.toLowerCase();
 	for (const prefix of UNSAFE_REDIRECT_PREFIXES) {
 		if (lower.startsWith(prefix)) {

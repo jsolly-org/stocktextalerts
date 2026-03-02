@@ -43,12 +43,14 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		typeof body.timezone === "string" && body.timezone.trim() !== ""
 			? body.timezone
 			: null;
-	const rawTimeInputs = Array.isArray(body.timeInputs)
-		? body.timeInputs.filter(
-				(value): value is string => typeof value === "string",
-			)
-		: [];
-	const timeInputs = rawTimeInputs.slice(0, MAX_TIME_INPUTS);
+	const timeInputs: string[] = [];
+	if (Array.isArray(body.timeInputs)) {
+		for (const value of body.timeInputs) {
+			if (typeof value !== "string") continue;
+			timeInputs.push(value);
+			if (timeInputs.length >= MAX_TIME_INPUTS) break;
+		}
+	}
 
 	if (!timezone || timeInputs.length === 0) {
 		return jsonResponse(200, {
