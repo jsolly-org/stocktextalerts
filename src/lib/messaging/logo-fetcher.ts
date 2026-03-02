@@ -11,6 +11,14 @@ export function createLogoCache(): LogoCache {
 
 const FETCH_TIMEOUT_MS = 5000;
 const PREFETCH_CONCURRENCY = 5;
+const ALLOWED_IMAGE_MIME_TYPES = new Set([
+	"image/png",
+	"image/jpeg",
+	"image/jpg",
+	"image/gif",
+	"image/webp",
+	"image/svg+xml",
+]);
 
 /**
  * Fetch a single asset logo from the Massive API and return a base64 data URI.
@@ -36,7 +44,12 @@ async function fetchLogoFromApi(iconUrl: string): Promise<string | null> {
 		return null;
 	}
 
-	const contentType = response.headers.get("content-type") ?? "image/png";
+	const rawContentType = response.headers.get("content-type") ?? "image/png";
+	const contentType =
+		rawContentType.split(";")[0]?.trim().toLowerCase() || "image/png";
+	if (!ALLOWED_IMAGE_MIME_TYPES.has(contentType)) {
+		return null;
+	}
 	const arrayBuffer = await response.arrayBuffer();
 	const base64 = Buffer.from(arrayBuffer).toString("base64");
 	return `data:${contentType};base64,${base64}`;
