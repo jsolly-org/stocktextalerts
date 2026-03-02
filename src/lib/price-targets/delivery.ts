@@ -118,6 +118,7 @@ function formatPriceTargetEmail(
 
 /**
  * Deliver a price target alert to a user via their preferred channels.
+ * @returns true if at least one notification was successfully sent (email or SMS).
  */
 export async function deliverPriceTargetAlert(options: {
 	user: PriceTargetUser;
@@ -126,8 +127,9 @@ export async function deliverPriceTargetAlert(options: {
 	sendEmail: EmailSender;
 	sendSms: SmsSender | null;
 	stats: PriceTargetDeliveryStats;
-}): Promise<void> {
+}): Promise<boolean> {
 	const { user, target, supabase, sendEmail, sendSms, stats } = options;
+	let delivered = false;
 
 	// Email delivery — reuse realtime price alert email/SMS preferences
 	if (user.market_asset_price_alerts_include_email) {
@@ -141,6 +143,7 @@ export async function deliverPriceTargetAlert(options: {
 
 		if (result.success) {
 			stats.emailsSent++;
+			delivered = true;
 		} else {
 			stats.emailsFailed++;
 		}
@@ -174,6 +177,7 @@ export async function deliverPriceTargetAlert(options: {
 
 			if (result.success) {
 				stats.smsSent++;
+				delivered = true;
 			} else {
 				stats.smsFailed++;
 			}
@@ -189,4 +193,6 @@ export async function deliverPriceTargetAlert(options: {
 			if (!logged) stats.logFailures++;
 		}
 	}
+
+	return delivered;
 }

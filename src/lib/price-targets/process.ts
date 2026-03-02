@@ -183,7 +183,7 @@ export async function processPriceTargets(options: {
 			}
 		}
 
-		await deliverPriceTargetAlert({
+		const delivered = await deliverPriceTargetAlert({
 			user,
 			target: triggeredTarget,
 			supabase,
@@ -192,19 +192,22 @@ export async function processPriceTargets(options: {
 			stats: totals,
 		});
 
-		// Delete the triggered target row
-		const { error: deleteError } = await supabase
-			.from("price_targets")
-			.delete()
-			.eq("user_id", target.user_id)
-			.eq("symbol", target.symbol);
+		// Delete the triggered target only when at least one channel delivered
+		// (avoids silently dropping the target when no channel was deliverable)
+		if (delivered) {
+			const { error: deleteError } = await supabase
+				.from("price_targets")
+				.delete()
+				.eq("user_id", target.user_id)
+				.eq("symbol", target.symbol);
 
-		if (deleteError) {
-			rootLogger.error(
-				"Failed to delete triggered price target",
-				{ userId: target.user_id, symbol: target.symbol },
-				deleteError,
-			);
+			if (deleteError) {
+				rootLogger.error(
+					"Failed to delete triggered price target",
+					{ userId: target.user_id, symbol: target.symbol },
+					deleteError,
+				);
+			}
 		}
 	}
 
