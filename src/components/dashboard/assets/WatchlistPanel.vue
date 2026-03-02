@@ -97,18 +97,23 @@
 				<li
 					v-for="asset in draftAssets"
 					:key="asset.symbol"
-					class="group flex items-center justify-between gap-3 p-3 bg-surface-alt rounded-lg hover:bg-surface-active transition-colors"
+					class="group flex items-center gap-3 p-3 bg-surface-alt rounded-lg hover:bg-surface-active transition-colors"
 				>
-					<span class="min-w-0 flex items-center gap-2 text-sm font-medium text-heading truncate">
-						<AssetBadge :type="asset.type" :symbol="asset.symbol" :icon-url="asset.icon_url" />
-						<span class="truncate">
-							<span class="font-semibold">{{ asset.symbol }}</span>
-							<span class="text-muted"> · {{ asset.name }}</span>
+					<span class="min-w-0 flex-1 flex items-center gap-2 text-sm font-medium text-heading">
+						<AssetBadge :type="asset.type as 'stock' | 'etf'" :symbol="asset.symbol" :icon-url="asset.icon_url" />
+						<span class="min-w-0">
+							<span class="font-semibold block">{{ asset.symbol }}</span>
+							<span class="text-xs text-muted truncate block">{{ asset.name }}</span>
 						</span>
 					</span>
+					<SparklineSvg
+						v-if="sparklines.get(asset.symbol)"
+						class="hidden sm:block shrink-0 w-12 h-5 opacity-70"
+						:values="sparklines.get(asset.symbol) ?? []"
+					/>
 					<button
 						type="button"
-						class="btn-icon-danger p-1.5"
+						class="btn-icon-danger p-1.5 shrink-0"
 						:aria-label="`Remove ${asset.symbol}`"
 						@click="removeSymbol(asset.symbol)"
 					>
@@ -138,6 +143,7 @@ import StatusMessage from "../../StatusMessage.vue";
 import AssetBadge from "./AssetBadge.vue";
 import type { AssetSearchResult } from "./AssetInput.vue";
 import AssetInput from "./AssetInput.vue";
+import SparklineSvg from "./SparklineSvg.vue";
 import type { InitialAsset } from "./types";
 
 interface Props {
@@ -163,6 +169,30 @@ const emit = defineEmits<{
 const { flashMessages, isSaving, statusMessage, statusTone } = toRefs(props);
 
 const draftAssets = ref<InitialAsset[]>([...props.initialAssets]);
+
+const sparklines = ref<Map<string, number[] | null>>(new Map());
+
+async function fetchAllSparklines(symbols: string[]): Promise<void> {
+	if (symbols.length === 0) return;
+	try {
+		const params = `?symbols=${symbols.join(",")}`;
+		const res = await fetch(`/api/assets/sparklines${params}`);
+		if (!res.ok) return;
+		const json = await res.json() as { ok: boolean; sparklines: Record<string, number[] | null> };
+		if (!json.ok) return;
+		for (const [symbol, values] of Object.entries(json.sparklines)) {
+			sparklines.value.set(symbol, values);
+		}
+	} catch {
+		// Sparklines are non-critical; silently ignore fetch failures
+	}
+}
+
+// Fetch sparklines immediately during setup — avoids hydration-bailout edge cases
+// where onMounted on a discarded component writes to an orphaned ref.
+if (typeof window !== "undefined") {
+	fetchAllSparklines(props.initialAssets.map((a) => a.symbol));
+}
 
 const trackedAssetsValue = computed(() =>
 	JSON.stringify(draftAssets.value.map((s) => s.symbol)),
@@ -221,9 +251,12 @@ function handleSelect(result: AssetSearchResult) {
 		...draftAssets.value,
 		{ symbol: result.symbol, name: result.name, type: result.type, icon_url: result.icon_url },
 	];
+
+	fetchAllSparklines([result.symbol]);
 }
 
 function removeSymbol(symbol: string) {
 	draftAssets.value = draftAssets.value.filter((s) => s.symbol !== symbol);
+	sparklines.value.delete(symbol);
 }
 </script>
