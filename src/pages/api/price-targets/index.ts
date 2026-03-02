@@ -42,15 +42,23 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 			});
 		}
 
-		// Also fetch current prices for tracked assets
+		// Fetch current prices for tracked assets; on provider failure still return saved targets
 		const userAssets = await getUserAssets(supabase, user.id);
 		const symbols = userAssets.map((a) => a.symbol);
 		const prices: Record<string, number | null> = {};
 
 		if (symbols.length > 0) {
-			const priceMap = await fetchAssetPrices(symbols);
-			for (const symbol of symbols) {
-				prices[symbol] = priceMap.get(symbol)?.price ?? null;
+			try {
+				const priceMap = await fetchAssetPrices(symbols);
+				for (const symbol of symbols) {
+					prices[symbol] = priceMap.get(symbol)?.price ?? null;
+				}
+			} catch (priceErr) {
+				logger.warn(
+					"Price fetch failed for price-targets; returning targets without prices",
+					{ userId: user.id, symbolCount: symbols.length },
+					priceErr,
+				);
 			}
 		}
 
