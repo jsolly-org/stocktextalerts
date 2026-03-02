@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { createSupabaseAdminClient } from "../../lib/db/supabase";
+import { isSafeRedirectUrl } from "../../lib/validation";
 
 export const prerender = false;
 
@@ -27,6 +28,10 @@ export const GET: APIRoute = async ({ params }) => {
 	}
 
 	if (new Date(data.expires_at) < new Date()) {
+		return new Response("Gone", { status: 410 });
+	}
+
+	if (!isSafeRedirectUrl(data.original_url)) {
 		return new Response("Gone", { status: 410 });
 	}
 

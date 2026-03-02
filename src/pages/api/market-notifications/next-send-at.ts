@@ -7,6 +7,9 @@ import { createLogger } from "../../../lib/logging";
 import { calculateNextMarketScheduledSendAtFromTimes } from "../../../lib/time/market-scheduled-next-send";
 import { parseScheduledTimes } from "../../../lib/time/scheduled-times";
 
+/** Max time inputs to accept (DoS mitigation; DB allows fewer). */
+const MAX_TIME_INPUTS = 32;
+
 interface NextSendAtRequestBody {
 	timezone?: unknown;
 	timeInputs?: unknown;
@@ -40,11 +43,12 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 		typeof body.timezone === "string" && body.timezone.trim() !== ""
 			? body.timezone
 			: null;
-	const timeInputs = Array.isArray(body.timeInputs)
+	const rawTimeInputs = Array.isArray(body.timeInputs)
 		? body.timeInputs.filter(
 				(value): value is string => typeof value === "string",
 			)
 		: [];
+	const timeInputs = rawTimeInputs.slice(0, MAX_TIME_INPUTS);
 
 	if (!timezone || timeInputs.length === 0) {
 		return jsonResponse(200, {
