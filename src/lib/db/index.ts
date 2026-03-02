@@ -24,6 +24,7 @@ export type User = DbUserRow;
 export type UserAsset = Pick<DbUserAssetRow, "symbol" | "created_at"> & {
 	name: DbAssetRow["name"];
 	type: DbAssetRow["type"];
+	icon_url: DbAssetRow["icon_url"];
 };
 
 /** Snapshot of user notification-related columns used for quick comparisons/decisions. */
@@ -193,19 +194,22 @@ export async function getUserAssets(
 ): Promise<UserAsset[]> {
 	const { data, error } = await supabase
 		.from("user_assets")
-		.select("symbol, created_at, assets!inner(name, type)")
+		.select("symbol, created_at, assets!inner(name, type, icon_url)")
 		.eq("user_id", userId)
 		.order("created_at", { ascending: false });
 
 	if (error) throw error;
 
 	return data.map((row) => {
-		const { assets } = row as { assets: Pick<DbAssetRow, "name" | "type"> };
+		const { assets } = row as {
+			assets: Pick<DbAssetRow, "name" | "type" | "icon_url">;
+		};
 		return {
 			symbol: row.symbol,
 			created_at: row.created_at,
 			name: assets.name,
 			type: assets.type,
+			icon_url: assets.icon_url,
 		};
 	});
 }

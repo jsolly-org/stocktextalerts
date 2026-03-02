@@ -33,7 +33,7 @@ if (!dbUser) {
 	return Astro.redirect("/?error=user_not_found");
 }
 const user = dbUser;
-const initialAssets = userAssets.map((asset) => ({ symbol: asset.symbol, name: asset.name, type: asset.type }));
+const initialAssets = userAssets.map((asset) => ({ symbol: asset.symbol, name: asset.name, type: asset.type, icon_url: asset.icon_url }));
 
 const rawTwilioNumber = import.meta.env.TWILIO_PHONE_NUMBER ?? "";
 const smsPhoneNumber = formatPhoneFromE164(rawTwilioNumber);

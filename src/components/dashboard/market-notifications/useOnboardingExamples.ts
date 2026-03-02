@@ -156,7 +156,7 @@ export function useOnboardingExamples(
 	const moveSizeOptions = computed(() => {
 		const { hi, lo } = pickHighLowPair(trackedAssets.value, prices.value);
 
-		function describeThreshold(tier: "moderate" | "large"): string {
+		function describeThreshold(tier: "significant" | "extreme"): string {
 			const { percentThreshold, dollarThreshold } = MOVE_SIZE_THRESHOLDS[tier];
 
 			function moveDescription(prevClose: number): string {
@@ -171,14 +171,14 @@ export function useOnboardingExamples(
 
 		return [
 			{
-				value: "moderate" as const,
-				label: "Moderate",
-				example: describeThreshold("moderate"),
+				value: "significant" as const,
+				label: "Significant",
+				example: describeThreshold("significant"),
 			},
 			{
-				value: "large" as const,
-				label: "Large",
-				example: describeThreshold("large"),
+				value: "extreme" as const,
+				label: "Extreme",
+				example: describeThreshold("extreme"),
 			},
 		];
 	});

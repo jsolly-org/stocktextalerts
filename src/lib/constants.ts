@@ -132,6 +132,7 @@ export const DASHBOARD_SECTION_IDS = {
 	marketNotifications: "market-notifications",
 	assetEvents: "asset-events-notifications",
 	dailyNotifications: "daily-notifications",
+	priceTargets: "price-targets",
 } as const;
 
 type DashboardSection = keyof typeof DASHBOARD_SECTION_IDS;
@@ -143,6 +144,7 @@ export const DASHBOARD_SECTION_HASHES: Record<DashboardSection, string> = {
 	marketNotifications: `#${DASHBOARD_SECTION_IDS.marketNotifications}`,
 	assetEvents: `#${DASHBOARD_SECTION_IDS.assetEvents}`,
 	dailyNotifications: `#${DASHBOARD_SECTION_IDS.dailyNotifications}`,
+	priceTargets: `#${DASHBOARD_SECTION_IDS.priceTargets}`,
 };
 
 /** Map hash fragment (without #) → carousel tab index. */
@@ -152,6 +154,7 @@ export const DASHBOARD_HASH_TO_TAB_INDEX: Record<string, number> = {
 	[DASHBOARD_SECTION_IDS.dailyNotifications]: 2,
 	[DASHBOARD_SECTION_IDS.marketNotifications]: 3,
 	[DASHBOARD_SECTION_IDS.assetEvents]: 4,
+	[DASHBOARD_SECTION_IDS.priceTargets]: 3,
 	daily_digest_time: 1,
 };
 
