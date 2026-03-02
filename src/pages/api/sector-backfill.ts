@@ -31,7 +31,7 @@ const handler: APIRoute = async ({ request, locals }) => {
 	try {
 		const { data: rows, error } = await supabase
 			.from("assets")
-			.select("symbol")
+			.select("symbol, sector, icon_url")
 			.or("sector.is.null,icon_url.is.null")
 			.limit(BACKFILL_BATCH_SIZE);
 
@@ -47,8 +47,8 @@ const handler: APIRoute = async ({ request, locals }) => {
 			);
 		}
 
-		const symbols = (rows ?? []).map((r) => r.symbol);
-		if (symbols.length === 0) {
+		const items = rows ?? [];
+		if (items.length === 0) {
 			logger.info("No assets missing sector/icon_url — nothing to backfill", {
 				action: "sector_backfill",
 			});
@@ -61,7 +61,8 @@ const handler: APIRoute = async ({ request, locals }) => {
 		let updated = 0;
 		let skipped = 0;
 
-		for (const symbol of symbols) {
+		for (const row of items) {
+			const { symbol } = row;
 			try {
 				const data = await marketDataFetch(
 					`/v3/reference/tickers/${encodeURIComponent(symbol)}`,
@@ -85,7 +86,11 @@ const handler: APIRoute = async ({ request, locals }) => {
 						: undefined;
 
 				const updatePayload: Record<string, unknown> = {};
-				if (typeof sicCode === "string" || typeof sicCode === "number") {
+				const needsSector = row.sector == null;
+				if (
+					needsSector &&
+					(typeof sicCode === "string" || typeof sicCode === "number")
+				) {
 					updatePayload.sector = sicCodeToSector(String(sicCode));
 				}
 				if (typeof iconUrl === "string") {
@@ -121,7 +126,7 @@ const handler: APIRoute = async ({ request, locals }) => {
 
 		logger.info("Sector backfill complete", {
 			action: "sector_backfill",
-			total: symbols.length,
+			total: items.length,
 			updated,
 			skipped,
 		});
