@@ -61,6 +61,23 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 		expect((prev as number) > 0).toBe(true);
 	});
 
+	it("returns asset prices for symbols via fetchAssetPrices", async () => {
+		const priceMap = await fetchAssetPrices(["SPY", "AAPL"]);
+		expect(priceMap).toBeInstanceOf(Map);
+		expect(priceMap.size).toBe(2);
+
+		const spyQuote = priceMap.get("SPY");
+		const aaplQuote = priceMap.get("AAPL");
+		expect(spyQuote === null || typeof spyQuote?.price === "number").toBe(true);
+		expect(aaplQuote === null || typeof aaplQuote?.price === "number").toBe(
+			true,
+		);
+		if (spyQuote) {
+			expect(Number.isFinite(spyQuote.price)).toBe(true);
+			expect(typeof spyQuote.changePercent).toBe("number");
+		}
+	});
+
 	it("returns market open or closed from fetchMarketStatus", async () => {
 		const isOpen = await fetchMarketStatus();
 		expect(typeof isOpen).toBe("boolean");
@@ -364,5 +381,21 @@ describeFinnhubLive("Finnhub live API (opt-in)", () => {
 		const events = (payload as { earningsCalendar?: unknown }).earningsCalendar;
 		expect(Array.isArray(events)).toBe(true);
 		expect((events as unknown[]).length).toBeGreaterThan(0);
+	});
+
+	it("returns company news for symbols when includeNews is true", async () => {
+		const result = await fetchFinnhubExtras(["AAPL"], {
+			includeNews: true,
+			includeAnalyst: false,
+			includeInsider: false,
+		});
+
+		expect(result.news).toBeInstanceOf(Map);
+		const aaplNews = result.news.get("AAPL");
+		expect(Array.isArray(aaplNews)).toBe(true);
+		if (aaplNews && aaplNews.length > 0) {
+			expect(typeof aaplNews[0].headline).toBe("string");
+			expect(typeof aaplNews[0].datetime).toBe("number");
+		}
 	});
 });
