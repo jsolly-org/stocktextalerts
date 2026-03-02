@@ -203,14 +203,16 @@ export async function processPriceTargets(options: {
 			continue;
 		}
 
-		// Delete the triggered target only when at least one channel delivered
-		// (avoids silently dropping the target when no channel was deliverable)
+		// Delete only the triggered row (by target_price + direction) so a user
+		// edit to the same symbol while cron is in flight does not remove the new target.
 		if (delivered) {
 			const { error: deleteError } = await supabase
 				.from("price_targets")
 				.delete()
 				.eq("user_id", target.user_id)
-				.eq("symbol", target.symbol);
+				.eq("symbol", target.symbol)
+				.eq("target_price", target.target_price)
+				.eq("direction", target.direction);
 
 			if (deleteError) {
 				rootLogger.error(

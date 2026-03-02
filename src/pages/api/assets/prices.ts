@@ -62,7 +62,6 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 
 		const sectorMap = new Map<string, string | null>();
 		const iconUrlMap = new Map<string, string | null>();
-		const knownNullIconSymbols = new Set<string>();
 		for (const row of assetRows) {
 			const r = row as {
 				symbol: string;
@@ -71,17 +70,14 @@ export const GET: APIRoute = async ({ request, cookies, locals }) => {
 			};
 			sectorMap.set(r.symbol, r.sector);
 			iconUrlMap.set(r.symbol, r.icon_url);
-			if (r.icon_url === null) knownNullIconSymbols.add(r.symbol);
 		}
 
 		// Lazy backfill: fetch sector + icon_url from Massive for assets missing either.
-		// Treat stored null icon_url as "known no icon" so we don't re-fetch every request.
+		// Include null icon_url rows so existing assets can get icons when available.
 		// Use admin client for updates — authenticated has SELECT only on assets.
 		// Process sequentially to avoid unbounded fan-out of Massive API calls.
 		const missingSectorSymbols = symbols.filter(
-			(s) =>
-				sectorMap.get(s) == null ||
-				(iconUrlMap.get(s) == null && !knownNullIconSymbols.has(s)),
+			(s) => sectorMap.get(s) == null || iconUrlMap.get(s) == null,
 		);
 		if (missingSectorSymbols.length > 0) {
 			const adminSupabase = createSupabaseAdminClient();
