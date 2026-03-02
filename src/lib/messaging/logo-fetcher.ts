@@ -19,7 +19,7 @@ const PREFETCH_CONCURRENCY = 5;
  */
 async function fetchLogoFromApi(iconUrl: string): Promise<string | null> {
 	const parsed = new URL(iconUrl);
-	if (parsed.hostname !== "api.massive.com") {
+	if (parsed.hostname !== "api.massive.com" || parsed.protocol !== "https:") {
 		return null;
 	}
 
@@ -127,7 +127,12 @@ export async function prefetchLogos(
 	cache: LogoCache,
 	supabase?: AppSupabaseClient,
 ): Promise<void> {
-	const uncached = assets.filter((a) => !cache.has(a.symbol));
+	const seen = new Set<string>();
+	const uncached = assets.filter((a) => {
+		if (cache.has(a.symbol) || seen.has(a.symbol)) return false;
+		seen.add(a.symbol);
+		return true;
+	});
 	for (let i = 0; i < uncached.length; i += PREFETCH_CONCURRENCY) {
 		const batch = uncached.slice(i, i + PREFETCH_CONCURRENCY);
 		await Promise.all(
@@ -138,10 +143,12 @@ export async function prefetchLogos(
 	}
 }
 
+const SAFE_IMAGE_DATA_URI =
+	/^data:image\/(?:png|jpeg|jpg|gif|webp|svg\+xml);base64,[A-Za-z0-9+/=]+$/;
+
 /** Render an inline `<img>` tag for a base64-encoded logo. */
 export function renderLogoImg(base64DataUri: string): string {
-	// Sanity check: ensure it's actually a data URI
-	if (!base64DataUri.startsWith("data:image/")) {
+	if (!SAFE_IMAGE_DATA_URI.test(base64DataUri)) {
 		return "";
 	}
 	return `<img src="${base64DataUri}" alt="" width="20" height="20" style="vertical-align: middle; border-radius: 4px; margin-right: 4px;" />`;
