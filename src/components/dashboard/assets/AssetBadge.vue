@@ -1,7 +1,7 @@
 <template>
 	<span
 		v-if="type === 'etf'"
-		class="inline-flex items-center justify-center rounded text-xs font-medium shrink-0 bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
+		class="inline-flex items-center justify-center rounded font-medium shrink-0 bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
 		:class="sizeClasses"
 	>
 		ETF
@@ -18,7 +18,7 @@
 	/>
 	<span
 		v-else
-		class="inline-flex items-center justify-center rounded text-xs font-medium shrink-0 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+		class="inline-flex items-center justify-center rounded font-medium shrink-0 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
 		:class="sizeClasses"
 	>
 		Stock

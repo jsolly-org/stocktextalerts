@@ -183,9 +183,8 @@ export async function processPriceTargets(options: {
 			}
 		}
 
-		let delivered = false;
 		try {
-			delivered = await deliverPriceTargetAlert({
+			await deliverPriceTargetAlert({
 				user,
 				target: triggeredTarget,
 				supabase,
@@ -203,24 +202,23 @@ export async function processPriceTargets(options: {
 			continue;
 		}
 
-		// Delete only the triggered row (by target_price + direction) so a user
-		// edit to the same symbol while cron is in flight does not remove the new target.
-		if (delivered) {
-			const { error: deleteError } = await supabase
-				.from("price_targets")
-				.delete()
-				.eq("user_id", target.user_id)
-				.eq("symbol", target.symbol)
-				.eq("target_price", target.target_price)
-				.eq("direction", target.direction);
+		// Always clear the triggered target so it is not re-triggered on every cron run.
+		// Clear even when no channel was enabled (user had both email and SMS off), so
+		// the row does not accumulate and loop indefinitely.
+		const { error: deleteError } = await supabase
+			.from("price_targets")
+			.delete()
+			.eq("user_id", target.user_id)
+			.eq("symbol", target.symbol)
+			.eq("target_price", target.target_price)
+			.eq("direction", target.direction);
 
-			if (deleteError) {
-				rootLogger.error(
-					"Failed to delete triggered price target",
-					{ userId: target.user_id, symbol: target.symbol },
-					deleteError,
-				);
-			}
+		if (deleteError) {
+			rootLogger.error(
+				"Failed to delete triggered price target",
+				{ userId: target.user_id, symbol: target.symbol },
+				deleteError,
+			);
 		}
 	}
 

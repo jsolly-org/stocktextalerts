@@ -68,7 +68,11 @@ function makeSupabaseMock(options: {
 					select: () => Promise.resolve({ data: targets, error: null }),
 					delete: () => ({
 						eq: () => ({
-							eq: () => Promise.resolve({ error: null }),
+							eq: () => ({
+								eq: () => ({
+									eq: () => Promise.resolve({ error: null }),
+								}),
+							}),
 						}),
 					}),
 				};
