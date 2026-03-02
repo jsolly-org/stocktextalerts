@@ -31,11 +31,12 @@ export const GET: APIRoute = async ({ params }) => {
 		return new Response("Gone", { status: 410 });
 	}
 
-	const location =
-		typeof data.original_url === "string" ? data.original_url.trim() : "";
-	if (!isSafeRedirectUrl(location)) {
+	const rawLocation =
+		typeof data.original_url === "string" ? data.original_url : "";
+	if (!isSafeRedirectUrl(rawLocation)) {
 		return new Response("Gone", { status: 410 });
 	}
+	const location = rawLocation.trim();
 
 	return new Response(null, {
 		status: 302,
