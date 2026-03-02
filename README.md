@@ -4,7 +4,7 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 
 ## Features
 
-- **Asset Tracking** - Search and track US stocks and ETFs
+- **Asset Tracking** - Search and track US stocks and ETFs (up to 10)
 - **Email Notifications** - Receive updates via email (Resend)
 - **SMS Notifications** - Optional SMS delivery (Twilio)
 - **Asset Price Alerts** - Get alerted during US market hours when tracked assets show significant price movement (up or down), with configurable move size (Moderate/Large) and market context (Standouts only / Any big move)
@@ -142,7 +142,7 @@ The `db:generate-seed` script tries to list existing Supabase Auth users (via `s
 Start Supabase (recommended):
 
 ```bash
-npx supabase start
+npm run db:start
 ```
 
 Then generate the seed file (this uses your `DEFAULT_PASSWORD` from `.env.local`):
