@@ -35,6 +35,10 @@ export const GET: APIRoute = async ({ params, request, cookies, locals }) => {
 	} catch {
 		return new Response("Bad request", { status: 400 });
 	}
+	// Match DB constraint (assets.symbol VARCHAR(10)); reject oversized to avoid abuse
+	if (symbol.length > 10) {
+		return new Response("Bad request", { status: 400 });
+	}
 
 	const { data, error } = await supabase
 		.from("assets")
@@ -52,14 +56,14 @@ export const GET: APIRoute = async ({ params, request, cookies, locals }) => {
 		return new Response("Not found", { status: 404 });
 	}
 
-	const apiKey =
+	const rawApiKey =
 		(import.meta.env.MASSIVE_API_KEY as string | undefined) ??
-		process.env.MASSIVE_API_KEY ??
-		"";
-	if (!apiKey) {
+		process.env.MASSIVE_API_KEY;
+	if (typeof rawApiKey !== "string" || rawApiKey.trim() === "") {
 		logger.error("MASSIVE_API_KEY not configured", { symbol });
 		return new Response("Internal server error", { status: 500 });
 	}
+	const apiKey = rawApiKey.trim();
 
 	let upstreamUrl: string;
 	try {
