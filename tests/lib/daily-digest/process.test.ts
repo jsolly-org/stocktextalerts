@@ -2,7 +2,7 @@
  * Scenario-based tests for daily digest process.
  *
  * Covers real-world cases: user with no assets and no digest options is skipped
- * and next_send_at is advanced; user who disabled email still receives digest via SMS only.
+ * and next_send_at is advanced; user who disabled email still receives price summary via SMS only.
  */
 import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
@@ -84,7 +84,9 @@ describe("Daily digest process scenarios", () => {
 		expect(after?.daily_digest_next_send_at).not.toBe(nextSendAtBefore);
 	});
 
-	it("User who disabled email but has SMS enabled receives daily digest via SMS only.", async () => {
+	it("User who disabled email but has SMS enabled receives price summary via SMS only.", async () => {
+		// Grok content (news/rumors) is email-only by design; with email disabled,
+		// SMS contains only tracked asset prices.
 		const now = DateTime.utc();
 		const nowIso = now.toISO();
 		expect(nowIso).toBeTruthy();
