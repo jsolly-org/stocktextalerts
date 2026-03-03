@@ -65,7 +65,7 @@ BEGIN
       END IF;
     END LOOP;
 
-    IF changed THEN
+    IF changed OR new_times IS DISTINCT FROM r.market_scheduled_asset_price_times THEN
       UPDATE public.users
       SET market_scheduled_asset_price_times = new_times
       WHERE id = r.id;

@@ -13,7 +13,9 @@
 			<fieldset class="grid gap-3">
 				<legend class="block text-base font-semibold text-heading mb-1">
 					Delivery times
-					<span class="block text-sm font-normal text-body-secondary mt-0.5">Choose up to 5 time slots. Notifications are only sent during US market hours (10:00 AM – 4:00 PM ET).</span>
+					<span class="block text-sm font-normal text-body-secondary mt-0.5">
+						Choose up to {{ maxTimes }} time slots. Notifications are only sent during US market hours (10:00 AM – 3:59 PM ET).
+					</span>
 				</legend>
 				<input
 					type="hidden"

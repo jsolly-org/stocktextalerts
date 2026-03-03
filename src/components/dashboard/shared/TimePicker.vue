@@ -88,9 +88,16 @@ const props = withDefaults(
 		clearAriaLabel?: string;
 		/** Force 24-hour / 12-hour display. Falls back to locale detection when omitted. */
 		is24?: boolean;
-		/** Minimum selectable time (hours/minutes). Defaults to 00:00. */
+		/**
+		 * Minimum selectable time (hours/minutes). Defaults to 00:00.
+		 * Same-day window only: @vuepic/vue-datepicker does not support cross-midnight ranges.
+		 * minTimeOverride must be <= maxTimeOverride; otherwise behavior is undefined.
+		 */
 		minTimeOverride?: { hours: number; minutes: number };
-		/** Maximum selectable time (hours/minutes). Defaults to 23:59. */
+		/**
+		 * Maximum selectable time (hours/minutes). Defaults to 23:59.
+		 * Same-day window only: must be >= minTimeOverride (no overnight ranges).
+		 */
 		maxTimeOverride?: { hours: number; minutes: number };
 	}>(),
 	{ placeholder: "Select time" },
@@ -104,11 +111,28 @@ const emit = defineEmits<{
 const PADDING_ONE_ICON = "!pr-9";
 
 const minutesIncrement = 1;
-const minTime = computed<TimeModel>(() =>
-	props.minTimeOverride
+
+function minutesSinceMidnight(t: { hours: number; minutes: number }): number {
+	return t.hours * 60 + t.minutes;
+}
+
+const minTime = computed<TimeModel>(() => {
+	const min = props.minTimeOverride
 		? { hours: props.minTimeOverride.hours, minutes: props.minTimeOverride.minutes, seconds: 0 }
-		: { hours: 0, minutes: 0, seconds: 0 },
-);
+		: { hours: 0, minutes: 0, seconds: 0 };
+	if (
+		props.minTimeOverride &&
+		props.maxTimeOverride &&
+		minutesSinceMidnight(props.minTimeOverride) >
+			minutesSinceMidnight(props.maxTimeOverride)
+	) {
+		// Same-day window only; cross-midnight (e.g. 22:00–06:00) is not supported by the picker.
+		throw new Error(
+			"TimePicker: minTimeOverride must be <= maxTimeOverride (same-day window only; overnight ranges are not supported).",
+		);
+	}
+	return min;
+});
 const maxTime = computed<TimeModel>(() =>
 	props.maxTimeOverride
 		? { hours: props.maxTimeOverride.hours, minutes: props.maxTimeOverride.minutes, seconds: 0 }
