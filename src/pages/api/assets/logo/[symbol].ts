@@ -56,13 +56,14 @@ export const GET: APIRoute = async ({ params, request, cookies, locals }) => {
 		return new Response("Not found", { status: 404 });
 	}
 
-	const apiKey =
+	const rawApiKey =
 		(import.meta.env.MASSIVE_API_KEY as string | undefined) ??
 		process.env.MASSIVE_API_KEY;
-	if (typeof apiKey !== "string" || apiKey.trim() === "") {
+	if (typeof rawApiKey !== "string" || rawApiKey.trim() === "") {
 		logger.error("MASSIVE_API_KEY not configured", { symbol });
 		return new Response("Internal server error", { status: 500 });
 	}
+	const apiKey = rawApiKey.trim();
 
 	let upstreamUrl: string;
 	try {
