@@ -96,6 +96,16 @@ describe("Price target save API rejects unauthorized or invalid requests", () =>
 		expect(data).toMatchObject({ message: expect.any(String) });
 	});
 
+	it("A request with symbol longer than 10 chars receives 400 invalid_symbol", async () => {
+		setupMocks({});
+		const response = await handler(
+			makeContext({ symbol: "ABCDEFGHIJK", target_price: 200 }),
+		);
+		expect(response.status).toBe(400);
+		const data = await response.json();
+		expect(data.message).toBe("invalid_symbol");
+	});
+
 	it("A request with invalid target_price receives 400", async () => {
 		setupMocks({});
 		const response = await handler(
