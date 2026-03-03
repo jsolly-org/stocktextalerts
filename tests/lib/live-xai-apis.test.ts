@@ -31,7 +31,7 @@ describeXaiLive("xAI live API (opt-in)", () => {
 		expect(Array.isArray(result?.citations)).toBe(true);
 	});
 
-	it("returns price alert summary with links", {
+	it("when requesting a price alert summary, returns summary text and up to three links", {
 		timeout: 150_000,
 	}, async () => {
 		const result = await generatePriceAlertSummary({

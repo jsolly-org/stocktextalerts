@@ -445,27 +445,35 @@ export async function processPriceAlerts(options: {
 			);
 		}
 
-		// Build signal context once per symbol (same for all users with identical thresholds
-		// is unlikely, but enrichAlert calls Grok which is the expensive part — call per user).
+		const enrichedBySignal = new Map<
+			string,
+			Awaited<ReturnType<typeof enrichAlert>>
+		>();
 		for (const user of eligibleUsers) {
-			const enrichedAlert = await enrichAlert({
-				symbol,
-				quote,
-				signalContext: buildSignalContext({
-					percentMove,
-					dollarMove,
-					percentThreshold: user.profile.percentThreshold,
-					dollarThreshold: user.profile.dollarThreshold,
-					hasEarningsNearby: earningsSymbols.has(symbol),
-					benchmarkMovePercentAbs,
-					benchmarkLabel,
-				}),
-				intradayCloses,
-				intradayTimestamps,
-				intradayEndTimestamp,
-				iconUrl: assetIconUrlMap.get(symbol) ?? null,
-				iconBase64: assetIconBase64Map.get(symbol) ?? null,
+			const signalContext = buildSignalContext({
+				percentMove,
+				dollarMove,
+				percentThreshold: user.profile.percentThreshold,
+				dollarThreshold: user.profile.dollarThreshold,
+				hasEarningsNearby: earningsSymbols.has(symbol),
+				benchmarkMovePercentAbs,
+				benchmarkLabel,
 			});
+
+			let enrichedAlert = enrichedBySignal.get(signalContext);
+			if (!enrichedAlert) {
+				enrichedAlert = await enrichAlert({
+					symbol,
+					quote,
+					signalContext,
+					intradayCloses,
+					intradayTimestamps,
+					intradayEndTimestamp,
+					iconUrl: assetIconUrlMap.get(symbol) ?? null,
+					iconBase64: assetIconBase64Map.get(symbol) ?? null,
+				});
+				enrichedBySignal.set(signalContext, enrichedAlert);
+			}
 
 			if (user.market_asset_price_alerts_include_sms && !smsSender) {
 				try {

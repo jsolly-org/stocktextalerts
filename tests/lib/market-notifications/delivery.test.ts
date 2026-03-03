@@ -181,8 +181,8 @@ describe("deliverPriceAlert SMS eligibility", () => {
 	});
 });
 
-describe("deliverPriceAlert Grok summary + links", () => {
-	it("SMS includes Grok summary and shortened link URLs", async () => {
+describe("when delivering a price alert with Grok summary and links", () => {
+	it("SMS body includes the Grok summary and shortened link URLs", async () => {
 		const sendSms = vi.fn<
 			(_: { to: string; body: string }) => Promise<DeliveryResult>
 		>(async () => ({ success: true }));
@@ -205,7 +205,7 @@ describe("deliverPriceAlert Grok summary + links", () => {
 		expect(smsBody).toMatch(/https?:\/\//);
 	});
 
-	it("SMS includes summary but no links when grokResult has empty links", async () => {
+	it("SMS body includes summary but no links when grokResult has empty links", async () => {
 		const sendSms = vi.fn<
 			(_: { to: string; body: string }) => Promise<DeliveryResult>
 		>(async () => ({ success: true }));
@@ -229,7 +229,7 @@ describe("deliverPriceAlert Grok summary + links", () => {
 		expect(smsBody).not.toContain("reuters.com");
 	});
 
-	it("SMS has no summary or links when grokResult is null", async () => {
+	it("SMS body omits summary and links when grokResult is null", async () => {
 		const sendSms = vi.fn<
 			(_: { to: string; body: string }) => Promise<DeliveryResult>
 		>(async () => ({ success: true }));
@@ -252,7 +252,7 @@ describe("deliverPriceAlert Grok summary + links", () => {
 		expect(smsBody).toContain("Signals:");
 	});
 
-	it("email HTML contains 'Why it's moving' section with source labels", async () => {
+	it("email HTML includes 'Why it's moving' section with source labels", async () => {
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
 
@@ -279,7 +279,7 @@ describe("deliverPriceAlert Grok summary + links", () => {
 		expect(emailCall.html).toContain("weaker-than-expected guidance");
 	});
 
-	it("email plaintext contains 'Why it's moving' section", async () => {
+	it("email plaintext includes 'Why it's moving' section", async () => {
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
 
@@ -302,7 +302,7 @@ describe("deliverPriceAlert Grok summary + links", () => {
 		expect(emailCall.body).toContain("via @analyst123 on X");
 	});
 
-	it("email omits 'Why it's moving' when grokResult is null", async () => {
+	it("email omits 'Why it's moving' section when grokResult is null", async () => {
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
 

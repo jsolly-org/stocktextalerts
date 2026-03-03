@@ -70,17 +70,15 @@ function parseGrokPriceAlertResponse(
 
 				// Extract links from annotations
 				for (const ann of part.annotations ?? []) {
-					if (
-						typeof ann.url !== "string" ||
-						ann.url.trim() === "" ||
-						seenUrls.has(ann.url)
-					) {
+					const normalizedUrl =
+						typeof ann.url === "string" ? ann.url.trim() : "";
+					if (normalizedUrl === "" || seenUrls.has(normalizedUrl)) {
 						continue;
 					}
 					if (links.length >= 3) break;
 
-					seenUrls.add(ann.url);
-					const url = ann.url.trim();
+					seenUrls.add(normalizedUrl);
+					const url = normalizedUrl;
 					const sourceType: "x" | "web" = isXUrl(url) ? "x" : "web";
 					const source =
 						linkLabelFromUrl(url) ??
