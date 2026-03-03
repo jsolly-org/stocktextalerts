@@ -7,7 +7,7 @@ import {
 } from "../../../src/lib/messaging/logo-fetcher";
 import { expectConsoleWarning } from "../../setup";
 
-describe("logo-fetcher", () => {
+describe("When the app fetches or renders asset logos for email", () => {
 	beforeEach(() => {
 		vi.stubEnv("MASSIVE_API_KEY", "test-api-key");
 	});
@@ -18,7 +18,7 @@ describe("logo-fetcher", () => {
 	});
 
 	describe("fetchLogoBase64", () => {
-		it("Returns base64 data URI on success.", async () => {
+		it("a subscriber receives a valid base64 data URI when the API returns an image.", async () => {
 			const pngBytes = new Uint8Array([137, 80, 78, 71]); // PNG magic bytes
 			const mockResponse = new Response(pngBytes, {
 				status: 200,
@@ -39,7 +39,7 @@ describe("logo-fetcher", () => {
 			expect(cache.get("AAPL")).toBe(result);
 		});
 
-		it("Returns null when iconUrl is null.", async () => {
+		it("a subscriber sees no logo when no icon URL is provided (null).", async () => {
 			const cache = createLogoCache();
 			const result = await fetchLogoBase64("AAPL", null, cache);
 
@@ -47,14 +47,14 @@ describe("logo-fetcher", () => {
 			expect(cache.get("AAPL")).toBeNull();
 		});
 
-		it("Returns null when iconUrl is undefined.", async () => {
+		it("a subscriber sees no logo when icon URL is undefined.", async () => {
 			const cache = createLogoCache();
 			const result = await fetchLogoBase64("AAPL", undefined, cache);
 
 			expect(result).toBeNull();
 		});
 
-		it("Returns null when host is not api.massive.com.", async () => {
+		it("a subscriber is protected from non-Massive hosts (no logo fetched).", async () => {
 			const cache = createLogoCache();
 			const result = await fetchLogoBase64(
 				"AAPL",
@@ -66,7 +66,7 @@ describe("logo-fetcher", () => {
 			expect(cache.get("AAPL")).toBeNull();
 		});
 
-		it("Returns null on fetch error.", async () => {
+		it("a subscriber sees no logo when the external fetch fails.", async () => {
 			vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
 				new Error("Network error"),
 			);
@@ -83,7 +83,7 @@ describe("logo-fetcher", () => {
 			expect(cache.get("AAPL")).toBeNull();
 		});
 
-		it("Returns null on non-OK response.", async () => {
+		it("a subscriber sees no logo when the API returns a non-OK response.", async () => {
 			const mockResponse = new Response("Not Found", { status: 404 });
 			vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(mockResponse);
 
@@ -97,7 +97,7 @@ describe("logo-fetcher", () => {
 			expect(result).toBeNull();
 		});
 
-		it("Caches results (fetch called only once per symbol).", async () => {
+		it("the same symbol is fetched only once and then served from cache.", async () => {
 			const pngBytes = new Uint8Array([137, 80, 78, 71]);
 			const mockResponse = new Response(pngBytes, {
 				status: 200,
@@ -123,7 +123,7 @@ describe("logo-fetcher", () => {
 			expect(fetchSpy).toHaveBeenCalledTimes(1);
 		});
 
-		it("Appends MASSIVE_API_KEY to the URL.", async () => {
+		it("the Massive API key is included when requesting the icon URL.", async () => {
 			const pngBytes = new Uint8Array([137, 80, 78, 71]);
 			const mockResponse = new Response(pngBytes, {
 				status: 200,
@@ -146,7 +146,7 @@ describe("logo-fetcher", () => {
 	});
 
 	describe("prefetchLogos", () => {
-		it("Populates cache for multiple symbols.", async () => {
+		it("subscribers receive logos for multiple assets when URLs are available.", async () => {
 			const pngBytes = new Uint8Array([137, 80, 78, 71]);
 			vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
 				return new Response(pngBytes, {
@@ -181,7 +181,7 @@ describe("logo-fetcher", () => {
 			expect(cache.get("UNKNOWN")).toBeNull();
 		});
 
-		it("Skips already-cached symbols.", async () => {
+		it("already-cached symbols are not re-fetched.", async () => {
 			const fetchSpy = vi.spyOn(globalThis, "fetch");
 
 			const cache = createLogoCache();

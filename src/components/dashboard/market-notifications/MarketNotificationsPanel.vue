@@ -559,7 +559,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref, toRefs, watch } from "vue";
+import { computed, onMounted, type Ref, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
@@ -880,41 +880,39 @@ const outsideMarketHoursIndices = computed<Set<number>>(() => {
 	return indices;
 });
 
-watch(
+/** Sync a user preference into a local ref so UI and server stay aligned. */
+function watchUserPreference<T>(
+	getValue: () => T,
+	localRef: Ref<T>,
+): void {
+	watch(getValue, (value) => {
+		localRef.value = value;
+	});
+}
+
+watchUserPreference(
 	() => user.value.market_scheduled_asset_price_include_email,
-	(value) => {
-		marketIncludeEmail.value = value;
-	},
+	marketIncludeEmail,
 );
-watch(
+watchUserPreference(
 	() => user.value.market_scheduled_asset_price_include_sms,
-	(value) => {
-		marketIncludeSms.value = value;
-	},
+	marketIncludeSms,
 );
-watch(
+watchUserPreference(
 	() => user.value.market_asset_price_alerts_include_email,
-	(value) => {
-		priceAlertsIncludeEmail.value = value;
-	},
+	priceAlertsIncludeEmail,
 );
-watch(
+watchUserPreference(
 	() => user.value.market_asset_price_alerts_include_sms,
-	(value) => {
-		priceAlertsIncludeSms.value = value;
-	},
+	priceAlertsIncludeSms,
 );
-watch(
+watchUserPreference(
 	() => user.value.price_targets_include_email,
-	(value) => {
-		priceTargetsIncludeEmail.value = value;
-	},
+	priceTargetsIncludeEmail,
 );
-watch(
+watchUserPreference(
 	() => user.value.price_targets_include_sms,
-	(value) => {
-		priceTargetsIncludeSms.value = value;
-	},
+	priceTargetsIncludeSms,
 );
 watch(
 	() => user.value.market_asset_price_alert_onboarding_completed,

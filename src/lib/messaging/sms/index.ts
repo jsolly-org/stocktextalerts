@@ -88,7 +88,7 @@ export function isSmsChannelUsable(user: SmsEligibilityUser): boolean {
 	if (user.sms_opted_out) return false;
 	if (!user.sms_notifications_enabled) return false;
 	return (
-		Boolean(user.phone_verified) &&
+		user.phone_verified &&
 		Boolean(user.phone_country_code) &&
 		Boolean(user.phone_number)
 	);

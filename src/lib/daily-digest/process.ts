@@ -285,7 +285,9 @@ export async function processDailyDigestUser(options: {
 			return stats;
 		}
 
-		const userAssets = await loadUserAssets(supabase, user.id);
+		const userAssets = await loadUserAssets(supabase, user.id, {
+			includeLogoData: true,
+		});
 		const tickers = userAssets.map((s) => s.symbol);
 
 		const needsGrok =

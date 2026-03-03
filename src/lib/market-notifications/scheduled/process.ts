@@ -157,7 +157,8 @@ export async function processMarketScheduledUser(options: {
 		}
 
 		const userAssets =
-			userAssetsMap?.get(user.id) ?? (await loadUserAssets(supabase, user.id));
+			userAssetsMap?.get(user.id) ??
+			(await loadUserAssets(supabase, user.id, { includeLogoData: true }));
 		const formatPrefs = {
 			show_sparklines: user.show_sparklines,
 		};

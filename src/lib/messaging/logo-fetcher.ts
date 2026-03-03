@@ -108,7 +108,11 @@ export async function fetchLogoBase64(
 	supabase?: AppSupabaseClient,
 ): Promise<string | null> {
 	if (cache.has(symbol)) {
-		return cache.get(symbol) ?? null;
+		const cached = cache.get(symbol) ?? null;
+		// Allow retry when a prior call cached null without a usable URL.
+		if (cached !== null || !iconUrl) {
+			return cached;
+		}
 	}
 
 	// Use DB-cached base64 only if it is a safe image data URI

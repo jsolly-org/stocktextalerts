@@ -104,7 +104,9 @@ export async function precomputeMarketScheduled(options: {
 		new Map();
 
 	try {
-		userAssetsMap = await batchLoadUserAssets(supabase, userIds);
+		userAssetsMap = await batchLoadUserAssets(supabase, userIds, {
+			includeLogoData: true,
+		});
 		const uniqueSymbols = [
 			...new Set(
 				[...userAssetsMap.values()].flatMap((assets) =>

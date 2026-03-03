@@ -187,11 +187,6 @@ export async function deliverPriceTargetAlert(options: {
 				userId: user.id,
 			});
 			stats.smsFailed++;
-		} else if (!user.phone_country_code || !user.phone_number) {
-			rootLogger.warn("Price target SMS skipped: no phone number", {
-				userId: user.id,
-			});
-			stats.smsFailed++;
 		} else {
 			const smsBody = await formatPriceTargetSms(target, supabase);
 			const result = await sendUserSms(user, smsBody, sendSms);

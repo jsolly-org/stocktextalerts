@@ -218,7 +218,9 @@ async function runPass(options: {
 	let userAssetsMap: UserAssetsMap = new Map();
 	if (userAssetsUserIds.length > 0) {
 		try {
-			userAssetsMap = await batchLoadUserAssets(supabase, userAssetsUserIds);
+			userAssetsMap = await batchLoadUserAssets(supabase, userAssetsUserIds, {
+				includeLogoData: true,
+			});
 		} catch (error) {
 			logger.error(
 				"Failed to batch-load user assets (aborting fallback pass)",
@@ -573,6 +575,7 @@ export async function runScheduledNotifications(options: {
 				forceSendUserAssetsMap = await batchLoadUserAssets(
 					supabase,
 					forceSendUserAssetsUserIds,
+					{ includeLogoData: true },
 				);
 			} catch (error) {
 				logger.error(

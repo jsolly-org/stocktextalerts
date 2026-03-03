@@ -59,7 +59,7 @@ describe("getSafeHrefUrl prevents XSS via dangerous URL schemes.", () => {
 	});
 });
 
-describe("formatAssetsHtmlList with getLogoHtml callback.", () => {
+describe("A subscriber receives email asset rows with logos when logo data is available.", () => {
 	const assets = [
 		{ symbol: "AAPL", name: "Apple Inc." },
 		{ symbol: "MSFT", name: "Microsoft Corporation" },
@@ -71,7 +71,7 @@ describe("formatAssetsHtmlList with getLogoHtml callback.", () => {
 	};
 	const formatPrefs = { show_sparklines: false };
 
-	it("Renders logo before symbol when getLogoHtml is provided.", () => {
+	it("A subscriber sees the asset logo before the ticker symbol in each email row.", () => {
 		const getLogoHtml = (symbol: string) =>
 			symbol === "AAPL"
 				? '<img src="data:image/png;base64,abc" alt="" width="20" height="20" />'
@@ -95,7 +95,7 @@ describe("formatAssetsHtmlList with getLogoHtml callback.", () => {
 		expect(msftLine).toContain("<strong>MSFT</strong>");
 	});
 
-	it("Output is unchanged when getLogoHtml is not provided.", () => {
+	it("A subscriber still sees standard asset rows when no logo is available.", () => {
 		const withoutLogo = formatAssetsHtmlList(assets, getPrice, formatPrefs);
 		const withUndefined = formatAssetsHtmlList(
 			assets,

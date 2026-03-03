@@ -153,25 +153,30 @@ export async function processPriceTargets(options: {
 	// Fetch icon URLs for triggered symbols (for email logos)
 	const iconUrlMap = new Map<string, string | null>();
 	const iconBase64Map = new Map<string, string | null>();
-	const { data: iconRows, error: iconRowsError } = await supabase
-		.from("assets")
-		.select("symbol, icon_url, icon_base64")
-		.in("symbol", uniqueSymbols);
-	if (iconRowsError) {
-		rootLogger.warn(
-			"Failed to fetch asset icons for price target alerts",
-			{ action: "price_targets" },
-			iconRowsError,
-		);
-	}
-	for (const row of iconRows ?? []) {
-		const r = row as {
-			symbol: string;
-			icon_url: string | null;
-			icon_base64: string | null;
-		};
-		iconUrlMap.set(r.symbol, r.icon_url);
-		iconBase64Map.set(r.symbol, r.icon_base64);
+	const hasAnyEmailTargets = activeTargets.some(
+		(t) => userMap.get(t.user_id)?.price_targets_include_email,
+	);
+	if (hasAnyEmailTargets) {
+		const { data: iconRows, error: iconRowsError } = await supabase
+			.from("assets")
+			.select("symbol, icon_url, icon_base64")
+			.in("symbol", uniqueSymbols);
+		if (iconRowsError) {
+			rootLogger.warn(
+				"Failed to fetch asset icons for price target alerts",
+				{ action: "price_targets" },
+				iconRowsError,
+			);
+		}
+		for (const row of iconRows ?? []) {
+			const r = row as {
+				symbol: string;
+				icon_url: string | null;
+				icon_base64: string | null;
+			};
+			iconUrlMap.set(r.symbol, r.icon_url);
+			iconBase64Map.set(r.symbol, r.icon_base64);
+		}
 	}
 
 	const sendEmail = createEmailSender();
