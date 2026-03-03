@@ -120,6 +120,7 @@ export type Database = {
       }
       assets: {
         Row: {
+          icon_base64: string | null
           icon_url: string | null
           name: string
           sector: string | null
@@ -127,6 +128,7 @@ export type Database = {
           type: string
         }
         Insert: {
+          icon_base64?: string | null
           icon_url?: string | null
           name: string
           sector?: string | null
@@ -134,6 +136,7 @@ export type Database = {
           type?: string
         }
         Update: {
+          icon_base64?: string | null
           icon_url?: string | null
           name?: string
           sector?: string | null
@@ -509,6 +512,8 @@ export type Database = {
           phone_country_code: string | null
           phone_number: string | null
           phone_verified: boolean
+          price_targets_include_email: boolean
+          price_targets_include_sms: boolean
           show_sparklines: boolean
           sms_notifications_enabled: boolean
           sms_opted_out: boolean
@@ -557,6 +562,8 @@ export type Database = {
           phone_country_code?: string | null
           phone_number?: string | null
           phone_verified?: boolean
+          price_targets_include_email?: boolean
+          price_targets_include_sms?: boolean
           show_sparklines?: boolean
           sms_notifications_enabled?: boolean
           sms_opted_out?: boolean
@@ -605,6 +612,8 @@ export type Database = {
           phone_country_code?: string | null
           phone_number?: string | null
           phone_verified?: boolean
+          price_targets_include_email?: boolean
+          price_targets_include_sms?: boolean
           show_sparklines?: boolean
           sms_notifications_enabled?: boolean
           sms_opted_out?: boolean

@@ -51,6 +51,8 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 		type: "enum",
 		values: ["first_only", "allow_follow_up"],
 	},
+	price_targets_include_email: { type: "boolean" },
+	price_targets_include_sms: { type: "boolean" },
 } as const satisfies FormSchema;
 
 const SMS_INCLUDE_FIELDS = [
@@ -60,6 +62,7 @@ const SMS_INCLUDE_FIELDS = [
 	"asset_events_include_analyst_sms",
 	"asset_events_include_insider_sms",
 	"market_asset_price_alerts_include_sms",
+	"price_targets_include_sms",
 ] as const;
 
 /**
@@ -286,6 +289,8 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 					updatedUser.market_asset_price_alert_move_size,
 				market_asset_price_alert_follow_up_mode:
 					updatedUser.market_asset_price_alert_follow_up_mode,
+				price_targets_include_email: updatedUser.price_targets_include_email,
+				price_targets_include_sms: updatedUser.price_targets_include_sms,
 			},
 		});
 	} catch (error) {

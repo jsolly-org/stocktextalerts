@@ -19,6 +19,10 @@ export interface EnrichedAlert {
 	intradayEndTimestamp: number | null;
 	/** True when price moved up (changePercent >= 0). Used for subject-line direction. */
 	isPositiveMove: boolean;
+	/** Logo URL from the assets table (fetched at delivery time). */
+	iconUrl?: string | null;
+	/** Pre-cached base64 logo data URI from the assets table. */
+	iconBase64?: string | null;
 }
 
 /** Fetch breaking news for a symbol (top 3 headlines from the last 24h). */
@@ -51,6 +55,8 @@ export async function enrichAlert(options: {
 	intradayCloses: number[] | null;
 	intradayTimestamps: (number | null)[] | null;
 	intradayEndTimestamp: number | null;
+	iconUrl?: string | null;
+	iconBase64?: string | null;
 }): Promise<EnrichedAlert> {
 	const {
 		symbol,
@@ -60,6 +66,8 @@ export async function enrichAlert(options: {
 		intradayCloses,
 		intradayTimestamps,
 		intradayEndTimestamp,
+		iconUrl,
+		iconBase64,
 	} = options;
 
 	const priceContext = buildPriceContext(symbol, quote);
@@ -85,5 +93,7 @@ export async function enrichAlert(options: {
 		intradayTimestamps,
 		intradayEndTimestamp,
 		isPositiveMove: quote.changePercent >= 0,
+		iconUrl,
+		iconBase64,
 	};
 }

@@ -35,6 +35,8 @@ interface ParsedNotificationPreferencesForm {
 	market_asset_price_alert_market_context?: "standout" | "any_major";
 	market_asset_price_alert_move_size?: "significant" | "extreme";
 	market_asset_price_alert_follow_up_mode?: "first_only" | "allow_follow_up";
+	price_targets_include_email?: boolean;
+	price_targets_include_sms?: boolean;
 }
 
 /**
@@ -231,6 +233,8 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		"market_asset_price_alerts_include_email",
 		"market_asset_price_alerts_include_sms",
 		"market_asset_price_alert_onboarding_completed",
+		"price_targets_include_email",
+		"price_targets_include_sms",
 	] as const satisfies ReadonlyArray<keyof ParsedNotificationPreferencesForm>;
 
 	const boolUpdates: Record<string, boolean> = {};

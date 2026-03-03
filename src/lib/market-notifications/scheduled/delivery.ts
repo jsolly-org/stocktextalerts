@@ -46,6 +46,7 @@ export async function processMarketScheduledEmailDelivery(options: {
 	stats: ScheduledNotificationTotals;
 	formatPrefs?: FormatPreferences;
 	getSparkline?: (symbol: string) => SparklineData | null | undefined;
+	getLogoHtml?: (symbol: string) => string | undefined;
 }): Promise<void> {
 	const {
 		user,
@@ -62,6 +63,7 @@ export async function processMarketScheduledEmailDelivery(options: {
 		stats,
 		formatPrefs,
 		getSparkline,
+		getLogoHtml,
 	} = options;
 
 	const claim = await claimNotification({
@@ -95,6 +97,7 @@ export async function processMarketScheduledEmailDelivery(options: {
 		formatPrefs,
 		getSparkline,
 		marketClosureInfo,
+		getLogoHtml,
 	);
 
 	if (sent) {

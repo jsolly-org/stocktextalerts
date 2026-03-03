@@ -79,4 +79,6 @@ export type UserAssetRow = Pick<
 	"symbol"
 > & {
 	name: Database["public"]["Tables"]["assets"]["Row"]["name"];
+	icon_url?: Database["public"]["Tables"]["assets"]["Row"]["icon_url"];
+	icon_base64?: Database["public"]["Tables"]["assets"]["Row"]["icon_base64"];
 };
