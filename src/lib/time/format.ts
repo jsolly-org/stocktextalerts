@@ -296,6 +296,14 @@ export function isOutsideMarketHours(
 	timeMinutes: number,
 	userTimezone: string,
 ): boolean {
+	if (
+		!Number.isInteger(timeMinutes) ||
+		timeMinutes < 0 ||
+		timeMinutes > 23 * 60 + 59
+	) {
+		return true;
+	}
+
 	const { min, max } = getMarketNotificationLocalRange(userTimezone);
 
 	// When min < max (same calendar day), valid range is [min, max].
