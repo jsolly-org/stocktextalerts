@@ -117,10 +117,12 @@ function parseGrokPriceAlertResponse(
 		.replace(/\s{2,}/g, " ")
 		.trim();
 
-	// Truncate to ~2 sentences if Grok got verbose
-	const sentences = cleanSummary.match(/[^.!?]+[.!?]+/g);
-	if (sentences && sentences.length > 2) {
-		cleanSummary = sentences.slice(0, 2).join("").trim();
+	// Truncate by character count to avoid splitting on abbreviations (e.g. "U.S.")
+	if (cleanSummary.length > 300) {
+		const truncated = cleanSummary.slice(0, 300);
+		const lastPeriod = truncated.lastIndexOf(".");
+		cleanSummary =
+			lastPeriod > 200 ? truncated.slice(0, lastPeriod + 1) : truncated + "...";
 	}
 
 	return { summary: cleanSummary, links };

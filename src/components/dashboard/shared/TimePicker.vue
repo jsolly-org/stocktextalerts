@@ -39,7 +39,6 @@
 			class="absolute inset-y-0 right-0 flex items-center gap-0.5 pr-2 pointer-events-none"
 		>
 			<button
-				v-if="clearable"
 				type="button"
 				class="pointer-events-auto btn-icon-danger p-1.5"
 				:aria-label="clearAriaLabel ?? 'Clear time'"
@@ -61,6 +60,7 @@ const VueDatePicker = defineAsyncComponent(() =>
 );
 
 import XMarkIcon from "../../../icons/x-mark.svg?component";
+import { rootLogger } from "../../../lib/logging";
 import {
 	formatTimeValue,
 	parseTimeString,
@@ -117,21 +117,24 @@ function minutesSinceMidnight(t: { hours: number; minutes: number }): number {
 }
 
 const minTime = computed<TimeModel>(() => {
-	const min = props.minTimeOverride
-		? { hours: props.minTimeOverride.hours, minutes: props.minTimeOverride.minutes, seconds: 0 }
-		: { hours: 0, minutes: 0, seconds: 0 };
 	if (
 		props.minTimeOverride &&
 		props.maxTimeOverride &&
 		minutesSinceMidnight(props.minTimeOverride) >
 			minutesSinceMidnight(props.maxTimeOverride)
 	) {
-		// Same-day window only; cross-midnight (e.g. 22:00–06:00) is not supported by the picker.
-		throw new Error(
+		rootLogger.error(
 			"TimePicker: minTimeOverride must be <= maxTimeOverride (same-day window only; overnight ranges are not supported).",
 		);
+		return { hours: 0, minutes: 0, seconds: 0 };
 	}
-	return min;
+	return props.minTimeOverride
+		? {
+				hours: props.minTimeOverride.hours,
+				minutes: props.minTimeOverride.minutes,
+				seconds: 0,
+			}
+		: { hours: 0, minutes: 0, seconds: 0 };
 });
 const maxTime = computed<TimeModel>(() =>
 	props.maxTimeOverride

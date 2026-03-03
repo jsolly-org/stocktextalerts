@@ -26,7 +26,7 @@ BEGIN
 
     FOREACH local_min IN ARRAY r.market_scheduled_asset_price_times
     LOOP
-      -- Convert local minutes to Eastern Time
+      -- Convert local minutes to Eastern Time (anchored to CURRENT_DATE; DST at run-time may differ from typical usage for edge-case users).
       et_time := (
         (CURRENT_DATE + (local_min * INTERVAL '1 minute'))
         AT TIME ZONE r.timezone
