@@ -3,6 +3,11 @@ import { buildAssetEventsContent } from "../asset-events/content";
 import { updateUserAssetEventsNextSendAt } from "../asset-events/next-send-at";
 import type { Logger } from "../logging";
 import type { EmailSender } from "../messaging/email/utils";
+import {
+	createLogoCache,
+	prefetchLogos,
+	renderLogoImg,
+} from "../messaging/logo-fetcher";
 import { shouldSendSms } from "../messaging/sms";
 import type { SmsExtras } from "../messaging/sms/delivery";
 import type { SparklineMap } from "../messaging/sparkline";
@@ -280,7 +285,9 @@ export async function processDailyDigestUser(options: {
 			return stats;
 		}
 
-		const userAssets = await loadUserAssets(supabase, user.id);
+		const userAssets = await loadUserAssets(supabase, user.id, {
+			includeLogoData: true,
+		});
 		const tickers = userAssets.map((s) => s.symbol);
 
 		const needsGrok =
@@ -349,6 +356,24 @@ export async function processDailyDigestUser(options: {
 				});
 			}
 		}
+
+		const logoCache = createLogoCache();
+		if (emailEnabled) {
+			try {
+				await prefetchLogos(userAssets, logoCache, supabase);
+			} catch (error) {
+				logger.warn("Failed to prefetch logos for daily digest", {
+					action: "daily_run",
+					userId: user.id,
+					assetCount: userAssets.length,
+					error: error instanceof Error ? error.message : String(error),
+				});
+			}
+		}
+		const getLogoHtml = (symbol: string): string | undefined => {
+			const dataUri = logoCache.get(symbol);
+			return dataUri ? renderLogoImg(dataUri) : undefined;
+		};
 
 		if (tickers.length > 0 && (emailEnabled || smsEnabled)) {
 			const missingTickers = tickers.filter(
@@ -620,6 +645,7 @@ export async function processDailyDigestUser(options: {
 							assetEvents: emailAssetEvents,
 							sparklines,
 							marketClosureInfo,
+							getLogoHtml,
 						})
 					: null;
 
@@ -694,6 +720,7 @@ export async function processDailyDigestUser(options: {
 				marketClosureInfo,
 				sendEmail,
 				stats,
+				getLogoHtml,
 			});
 		}
 

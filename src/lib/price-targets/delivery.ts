@@ -6,8 +6,13 @@ import { escapeHtml } from "../messaging/asset-formatting";
 import { sendUserEmail } from "../messaging/email/index";
 import { createEmailUnsubscribeUrl } from "../messaging/email/unsubscribe";
 import type { EmailSender } from "../messaging/email/utils";
+import {
+	createLogoCache,
+	fetchLogoBase64,
+	renderLogoImg,
+} from "../messaging/logo-fetcher";
 import { recordNotification } from "../messaging/shared";
-import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
+import { isSmsChannelUsable, sendUserSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import type { SmsSender } from "../messaging/sms/twilio-utils";
 import { shortenUrl } from "../messaging/sms/url-shortener";
@@ -53,6 +58,7 @@ export async function formatPriceTargetSms(
 function formatPriceTargetEmail(
 	user: PriceTargetUser,
 	target: TriggeredPriceTarget,
+	logoHtml?: string,
 ): { text: string; html: string } {
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const scheduleUrl = `${dashboardUrl}${DASHBOARD_SECTION_HASHES.marketNotifications}`;
@@ -90,7 +96,7 @@ function formatPriceTargetEmail(
 		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Price Target Hit</h1>
 	</div>
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">${escapedSymbol}</h2>
+		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">${logoHtml ?? ""}${escapedSymbol}</h2>
 		<div style="background: #eef2ff; padding: 16px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #c7d2fe;">
 			<p style="color: #4338ca; font-size: 16px; font-weight: 500; margin: 0;">
 				${escapedSymbol} ${directionLabel} ${formatPrice(target.currentPrice)}, hitting your target of ${formatPrice(target.targetPrice)}.
@@ -127,13 +133,23 @@ export async function deliverPriceTargetAlert(options: {
 	sendEmail: EmailSender;
 	sendSms: SmsSender | null;
 	stats: PriceTargetDeliveryStats;
+	logoCache?: ReturnType<typeof createLogoCache>;
 }): Promise<boolean> {
 	const { user, target, supabase, sendEmail, sendSms, stats } = options;
+	const logoCache = options.logoCache ?? createLogoCache();
 	let delivered = false;
 
-	// Email delivery — reuse realtime price alert email/SMS preferences
-	if (user.market_asset_price_alerts_include_email) {
-		const message = formatPriceTargetEmail(user, target);
+	// Email delivery
+	if (user.price_targets_include_email) {
+		const logoDataUri = await fetchLogoBase64(
+			target.symbol,
+			target.iconUrl,
+			logoCache,
+			target.iconBase64,
+			supabase,
+		);
+		const logoHtml = logoDataUri ? renderLogoImg(logoDataUri) : undefined;
+		const message = formatPriceTargetEmail(user, target, logoHtml);
 		const result = await sendUserEmail(
 			user,
 			`${target.symbol} Price Target Hit`,
@@ -160,19 +176,14 @@ export async function deliverPriceTargetAlert(options: {
 	}
 
 	// SMS delivery
-	if (user.market_asset_price_alerts_include_sms) {
+	if (user.price_targets_include_sms) {
 		if (!sendSms) {
 			rootLogger.error("Price target SMS sender unavailable", {
 				userId: user.id,
 			});
 			stats.smsFailed++;
-		} else if (!shouldSendSms(user)) {
+		} else if (!isSmsChannelUsable(user)) {
 			rootLogger.info("Price target SMS skipped: user not eligible", {
-				userId: user.id,
-			});
-			stats.smsFailed++;
-		} else if (!user.phone_country_code || !user.phone_number) {
-			rootLogger.warn("Price target SMS skipped: no phone number", {
 				userId: user.id,
 			});
 			stats.smsFailed++;

@@ -27,6 +27,7 @@ export async function processEmailUpdate(
 	formatPrefs?: FormatPreferences,
 	getSparkline?: (symbol: string) => SparklineData | null | undefined,
 	marketClosureInfo?: MarketClosureInfo | null,
+	getLogoHtml?: (symbol: string) => string | undefined,
 ): Promise<ProcessingStats> {
 	const message = formatEmailMessage(
 		user,
@@ -37,6 +38,7 @@ export async function processEmailUpdate(
 		formatPrefs,
 		getSparkline,
 		marketClosureInfo,
+		getLogoHtml,
 	);
 	const result = await sendUserEmail(
 		user,

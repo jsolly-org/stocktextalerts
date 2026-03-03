@@ -191,8 +191,9 @@ function formatDailyDigestPriceLineHtml(
 	quote: { price: number; changePercent: number } | null | undefined,
 	formatPrefs: FormatPreferences,
 	sparkline?: SparklineData | null,
+	logoHtml?: string,
 ): string {
-	const symbol = escapeHtml(asset.symbol);
+	const symbol = `${logoHtml ?? ""}${escapeHtml(asset.symbol)}`;
 	/* color: #374151 meets WCAG 2.1 AA 4.5:1 on light bg */
 	if (!quote) {
 		return `<div style="margin-bottom: 8px; color: #374151;"><strong>${symbol}</strong> &mdash; <span style="color: #6b7280;">price unavailable</span></div>`;
@@ -214,7 +215,7 @@ function formatDailyDigestPriceLineHtml(
 	return `<div style="margin-bottom: 8px; color: #374151;"><strong>${symbol}</strong> &mdash; ${priceStr} <span style="color: ${color}; font-weight: 600;">${changeStr}</span>${sparklineHtml}</div>`;
 }
 
-/** Build the plain-text “Your Assets” section for the digest. */
+/** Build the plain-text "Your Assets" section for the digest. */
 function buildDailyDigestPricesSummary(
 	userAssets: UserAssetRow[],
 	assetPrices: AssetPriceMap,
@@ -237,12 +238,13 @@ function buildDailyDigestPricesSummary(
 		.join(separator);
 }
 
-/** Build the HTML “Your Assets” section for the digest. */
+/** Build the HTML "Your Assets" section for the digest. */
 function buildDailyDigestPricesHtml(
 	userAssets: UserAssetRow[],
 	assetPrices: AssetPriceMap,
 	formatPrefs: FormatPreferences,
 	sparklines?: SparklineMap,
+	getLogoHtml?: (symbol: string) => string | undefined,
 ): string {
 	if (userAssets.length === 0) {
 		return "";
@@ -254,6 +256,7 @@ function buildDailyDigestPricesHtml(
 				assetPrices.get(asset.symbol),
 				formatPrefs,
 				sparklines?.get(asset.symbol),
+				getLogoHtml?.(asset.symbol),
 			),
 		)
 		.join("");
@@ -269,6 +272,7 @@ export function formatDailyDigestEmail(options: {
 	assetEvents?: AssetEventsResult;
 	sparklines?: SparklineMap;
 	marketClosureInfo?: MarketClosureInfo | null;
+	getLogoHtml?: (symbol: string) => string | undefined;
 }): { subject: string; text: string; html: string } {
 	const tickers = options.userAssets.map((s) => s.symbol).filter(Boolean);
 	const tickersLine =
@@ -307,6 +311,7 @@ export function formatDailyDigestEmail(options: {
 			options.assetPrices,
 			options.formatPrefs,
 			options.sparklines,
+			options.getLogoHtml,
 		) || escapeHtml(tickersLine);
 	const closureInfo = options.marketClosureInfo ?? null;
 	const marketClosedText = closureInfo
@@ -388,6 +393,7 @@ export async function processDailyDigestEmailDelivery(options: {
 	marketClosureInfo?: MarketClosureInfo | null;
 	sendEmail: EmailSender;
 	stats: ScheduledNotificationTotals;
+	getLogoHtml?: (symbol: string) => string | undefined;
 }): Promise<void> {
 	const {
 		user,
@@ -432,6 +438,7 @@ export async function processDailyDigestEmailDelivery(options: {
 		assetEvents,
 		sparklines: options.sparklines,
 		marketClosureInfo: options.marketClosureInfo,
+		getLogoHtml: options.getLogoHtml,
 	});
 	const result = await sendUserEmail(
 		user,

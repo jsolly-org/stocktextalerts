@@ -111,6 +111,39 @@ describe("Email scheduled update includes asset price data.", () => {
 		expect(html).not.toContain("MSFT &mdash;");
 	});
 
+	it("A scheduled-email recipient sees an inline AAPL logo while symbols without logos remain text-only.", () => {
+		const priceMap: AssetPriceMap = new Map([
+			["AAPL", { price: 187.42, changePercent: 1.23 }],
+			["MSFT", { price: 412.1, changePercent: -0.31 }],
+		]);
+		const assetsList =
+			"AAPL - Apple Inc. — $187.42 (+1.23%)\nMSFT - Microsoft Corporation — $412.10 (-0.31%)";
+
+		const getLogoHtml = (symbol: string) =>
+			symbol === "AAPL"
+				? '<img src="data:image/png;base64,aapllogo" alt="" width="20" height="20" />'
+				: undefined;
+
+		const { html } = formatEmailMessage(
+			testUser,
+			testAssets,
+			assetsList,
+			priceMap,
+			true,
+			{ show_sparklines: false },
+			undefined,
+			undefined,
+			getLogoHtml,
+		);
+
+		expect(html).toContain("base64,aapllogo");
+		expect(html).toContain(
+			'<img src="data:image/png;base64,aapllogo" alt="" width="20" height="20" />AAPL',
+		);
+		// MSFT should not have a logo img
+		expect(html).not.toContain("msftlogo");
+	});
+
 	it("ETF assets render with the same format as stocks in email.", () => {
 		const etfAssets: UserAssetRow[] = [
 			{ symbol: "SPY", name: "SS SPDR S&P 500 ETF TRUST-US" },

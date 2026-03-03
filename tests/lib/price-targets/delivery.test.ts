@@ -60,8 +60,8 @@ function makeUser(overrides: Partial<PriceTargetUser> = {}): PriceTargetUser {
 		phone_verified: true,
 		sms_notifications_enabled: true,
 		sms_opted_out: false,
-		market_asset_price_alerts_include_email: true,
-		market_asset_price_alerts_include_sms: true,
+		price_targets_include_email: true,
+		price_targets_include_sms: true,
 		...overrides,
 	};
 }
@@ -82,7 +82,7 @@ describe("Price target alert delivery", () => {
 		const stats = makeStats();
 
 		await deliverPriceTargetAlert({
-			user: makeUser({ market_asset_price_alerts_include_sms: false }),
+			user: makeUser({ price_targets_include_sms: false }),
 			target: makeTarget(),
 			supabase: makeSupabaseMock(),
 			sendEmail,
@@ -165,7 +165,7 @@ describe("Price target alert delivery", () => {
 		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
 		await deliverPriceTargetAlert({
-			user: makeUser({ market_asset_price_alerts_include_sms: true }),
+			user: makeUser({ price_targets_include_sms: true }),
 			target: makeTarget(),
 			supabase: makeSupabaseMock(),
 			sendEmail,
@@ -184,7 +184,7 @@ describe("Price target alert delivery", () => {
 		const stats = makeStats();
 
 		await deliverPriceTargetAlert({
-			user: makeUser({ market_asset_price_alerts_include_sms: false }),
+			user: makeUser({ price_targets_include_sms: false }),
 			target: makeTarget({
 				direction: "below",
 				targetPrice: 150,
