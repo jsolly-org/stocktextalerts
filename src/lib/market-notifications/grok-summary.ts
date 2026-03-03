@@ -96,7 +96,7 @@ function parseGrokPriceAlertResponse(
 		const mdLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
 		for (const match of summaryText.matchAll(mdLinkRegex)) {
 			if (links.length >= 3) break;
-			const url = match[2];
+			const url = match[2].trim();
 			if (seenUrls.has(url)) continue;
 			seenUrls.add(url);
 			const sourceType: "x" | "web" = isXUrl(url) ? "x" : "web";
