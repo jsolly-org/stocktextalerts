@@ -548,12 +548,12 @@ describe("Scheduled notification scenarios", () => {
 		expect(smsLogs?.[0]?.message_delivered).toBe(true);
 	});
 
-	it("User in London timezone receives scheduled market notification when cron fires at 9 AM their local time.", async () => {
-		// 9 AM GMT (London winter) = 09:00 UTC
-		vi.setSystemTime(DateTime.fromISO("2026-01-14T09:00:00.000Z").toJSDate());
+	it("User in London timezone receives scheduled market notification when cron fires at 3 PM their local time (10 AM ET).", async () => {
+		// 3 PM GMT (London winter) = 15:00 UTC = 10:00 AM ET
+		vi.setSystemTime(DateTime.fromISO("2026-01-14T15:00:00.000Z").toJSDate());
 
 		const timezone = "Europe/London";
-		const scheduledMinutes = 9 * 60; // 9:00 AM local
+		const scheduledMinutes = 15 * 60; // 3:00 PM local
 
 		const { id } = await createTestUser({
 			timezone,
@@ -628,12 +628,12 @@ describe("Scheduled notification scenarios", () => {
 		expect(logs).toHaveLength(1);
 	});
 
-	it("User in Tokyo timezone receives scheduled market notification when cron fires at 9 AM their local time.", async () => {
-		// 9 AM JST (UTC+9) = 00:00 UTC
-		vi.setSystemTime(DateTime.fromISO("2026-01-14T00:00:00.000Z").toJSDate());
+	it("User in Tokyo timezone receives scheduled market notification when cron fires at 2 AM their local time (12 PM ET).", async () => {
+		// 2 AM JST (UTC+9) on Jan 15 = 17:00 UTC Jan 14 = 12:00 PM ET
+		vi.setSystemTime(DateTime.fromISO("2026-01-14T17:00:00.000Z").toJSDate());
 
 		const timezone = "Asia/Tokyo";
-		const scheduledMinutes = 9 * 60; // 9:00 AM local
+		const scheduledMinutes = 2 * 60; // 2:00 AM local (= 12:00 PM ET)
 
 		const { id } = await createTestUser({
 			timezone,
