@@ -2,10 +2,8 @@ import { DateTime, Duration } from "luxon";
 import {
 	US_AFTER_OPEN_EASTERN_MINUTES,
 	US_BEFORE_OPEN_EASTERN_MINUTES,
-	US_MARKET_CLOSE_EASTERN_MINUTES,
 	US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES,
 	US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES,
-	US_MARKET_OPEN_EASTERN_MINUTES,
 	US_MARKET_TIMEZONE,
 } from "../constants";
 import {
@@ -278,13 +276,6 @@ function getEasternTimeAsLocalMinutes(
 	return local.hour * 60 + local.minute;
 }
 
-function _getUsMarketOpenLocalMinutes(userTimezone: string): number {
-	return getEasternTimeAsLocalMinutes(
-		US_MARKET_OPEN_EASTERN_MINUTES,
-		userTimezone,
-	);
-}
-
 /** 30 min before US market open (9:00 AM ET) converted to the user's local timezone. */
 export function getUsBeforeOpenLocalMinutes(userTimezone: string): number {
 	return getEasternTimeAsLocalMinutes(
@@ -297,13 +288,6 @@ export function getUsBeforeOpenLocalMinutes(userTimezone: string): number {
 export function getUsAfterOpenLocalMinutes(userTimezone: string): number {
 	return getEasternTimeAsLocalMinutes(
 		US_AFTER_OPEN_EASTERN_MINUTES,
-		userTimezone,
-	);
-}
-
-function _getUsMarketCloseLocalMinutes(userTimezone: string): number {
-	return getEasternTimeAsLocalMinutes(
-		US_MARKET_CLOSE_EASTERN_MINUTES,
 		userTimezone,
 	);
 }

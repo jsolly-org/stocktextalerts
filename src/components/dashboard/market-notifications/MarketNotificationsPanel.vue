@@ -872,14 +872,18 @@ const canAddAfterOpen = computed(
 const marketMinTime = computed<{ hours: number; minutes: number } | null>(() => {
 	const tz = timezone.value;
 	if (tz === "") return null;
-	const { min } = getMarketNotificationLocalRange(tz);
+	const { min, max } = getMarketNotificationLocalRange(tz);
+	// TimePicker does not support cross-midnight ranges (min > max); omit constraints.
+	if (min > max) return null;
 	return { hours: Math.floor(min / 60), minutes: min % 60 };
 });
 
 const marketMaxTime = computed<{ hours: number; minutes: number } | null>(() => {
 	const tz = timezone.value;
 	if (tz === "") return null;
-	const { max } = getMarketNotificationLocalRange(tz);
+	const { min, max } = getMarketNotificationLocalRange(tz);
+	// TimePicker does not support cross-midnight ranges (min > max); omit constraints.
+	if (min > max) return null;
 	return { hours: Math.floor(max / 60), minutes: max % 60 };
 });
 

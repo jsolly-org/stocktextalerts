@@ -117,12 +117,12 @@ function parseGrokPriceAlertResponse(
 		.replace(/\s{2,}/g, " ")
 		.trim();
 
-	// Truncate by character count to avoid splitting on abbreviations (e.g. "U.S.")
-	if (cleanSummary.length > 300) {
-		const truncated = cleanSummary.slice(0, 300);
-		const lastPeriod = truncated.lastIndexOf(".");
-		cleanSummary =
-			lastPeriod > 200 ? truncated.slice(0, lastPeriod + 1) : truncated + "...";
+	// Truncate to ~2 sentences if Grok got verbose.
+	// Split on sentence boundaries (period/excl/question followed by space and capital letter)
+	// to avoid false splits on decimals (5.2%) and abbreviations (U.S., S&P).
+	const parts = cleanSummary.split(/(?<=[.!?])\s+(?=[A-Z])/);
+	if (parts.length > 2) {
+		cleanSummary = parts.slice(0, 2).join(" ").trim();
 	}
 
 	return { summary: cleanSummary, links };
