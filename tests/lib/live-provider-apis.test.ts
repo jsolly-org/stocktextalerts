@@ -7,6 +7,7 @@ import {
 import {
 	fetchDailyCloses,
 	fetchDividends,
+	fetchEarnings,
 	fetchIntradayBars,
 	fetchIpos,
 	fetchPrevClose,
@@ -403,6 +404,24 @@ describeFinnhubLive("Finnhub live API (opt-in)", () => {
 		if (aaplNews && aaplNews.length > 0) {
 			expect(typeof aaplNews[0].headline).toBe("string");
 			expect(typeof aaplNews[0].datetime).toBe("number");
+		}
+	});
+
+	it("returns earnings calendar via fetchEarnings (canonical earnings API)", async () => {
+		const from = new Date().toISOString().slice(0, 10);
+		const to = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+			.toISOString()
+			.slice(0, 10);
+
+		const result = await fetchEarnings(from, to);
+
+		expect(result.failed).toBe(false);
+		expect(Array.isArray(result.data)).toBe(true);
+		if (result.data.length > 0) {
+			const first = result.data[0];
+			expect(typeof first.ticker).toBe("string");
+			expect(typeof first.date).toBe("string");
+			expect(first.date.length).toBeGreaterThanOrEqual(10);
 		}
 	});
 });
