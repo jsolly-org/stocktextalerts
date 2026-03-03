@@ -5,27 +5,13 @@
  * and next_send_at is advanced; user who disabled email still receives digest via SMS only.
  */
 import { DateTime } from "luxon";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { processDailyDigestUser } from "../../../src/lib/daily-digest/process";
 import { rootLogger } from "../../../src/lib/logging";
 import type { UserRecord } from "../../../src/lib/messaging/types";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
-
-vi.mock("../../../src/lib/providers/grok", () => ({
-	generateNewsWithGrok: vi.fn().mockResolvedValue(null),
-	generateRumorsWithGrok: vi.fn().mockResolvedValue(null),
-}));
-
-vi.mock("../../../src/lib/providers/finnhub", () => ({
-	buildNewsContextForGrok: vi.fn().mockReturnValue(""),
-	fetchFinnhubExtras: vi.fn().mockResolvedValue({
-		news: new Map(),
-		analyst: new Map(),
-		insider: new Map(),
-	}),
-}));
 
 describe("Daily digest process scenarios", () => {
 	it("User with no tracked assets and no digest or asset-events options is skipped and next_send_at is advanced.", async () => {

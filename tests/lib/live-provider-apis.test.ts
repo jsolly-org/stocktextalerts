@@ -407,7 +407,7 @@ describeFinnhubLive("Finnhub live API (opt-in)", () => {
 		}
 	});
 
-	it("returns earnings calendar via fetchEarnings (canonical earnings API)", async () => {
+	it("Upcoming earnings events are available through the canonical earnings feed.", async () => {
 		const from = new Date().toISOString().slice(0, 10);
 		const to = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
 			.toISOString()
