@@ -948,10 +948,11 @@ describe("Scheduled notification scenarios", () => {
 		});
 		registerTestUserForCleanup(id);
 
+		const beforeNextSendAt = DateTime.utc().toISO();
 		const { error: seedError } = await adminClient
 			.from("users")
 			.update({
-				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+				market_scheduled_asset_price_next_send_at: beforeNextSendAt,
 				market_scheduled_asset_price_enabled: true,
 			})
 			.eq("id", id);
@@ -983,6 +984,9 @@ describe("Scheduled notification scenarios", () => {
 			.eq("id", id)
 			.single();
 		expect(after?.market_scheduled_asset_price_next_send_at).not.toBeNull();
+		expect(after?.market_scheduled_asset_price_next_send_at).not.toBe(
+			beforeNextSendAt,
+		);
 	});
 
 	it("User who texts STOP EMAIL does not receive email when schedule fires.", async () => {
