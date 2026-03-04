@@ -933,6 +933,63 @@ describe("Scheduled notification scenarios", () => {
 		expect(logs ?? []).toHaveLength(0);
 	});
 
+	it("User who had tracked assets then removes all receives no-assets message at next schedule fire.", async () => {
+		const timezone = "America/New_York";
+		const nowLocal = DateTime.now().setZone(timezone);
+		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
+
+		const { id } = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			scheduledUpdateTimes: [scheduledTime],
+			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceIncludeEmail: true,
+		});
+		registerTestUserForCleanup(id);
+
+		const beforeNextSendAt = DateTime.utc().toISO();
+		const { error: seedError } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: beforeNextSendAt,
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", id);
+		expect(seedError).toBeNull();
+
+		const { error: removeError } = await adminClient
+			.from("user_assets")
+			.delete()
+			.eq("user_id", id);
+		expect(removeError).toBeNull();
+
+		const response = await SchedulePost({
+			request: createScheduleRequest(testCronSecret),
+		} as APIContext);
+		expect(response.status).toBe(200);
+
+		const { data: logs } = await adminClient
+			.from("notification_log")
+			.select("message,message_delivered")
+			.eq("user_id", id)
+			.eq("type", "market")
+			.eq("delivery_method", "email");
+		expect(logs).toHaveLength(1);
+		expect(logs?.[0]?.message).toContain("don't have any tracked assets");
+		expect(logs?.[0]?.message_delivered).toBe(true);
+
+		const { data: after } = await adminClient
+			.from("users")
+			.select("market_scheduled_asset_price_next_send_at")
+			.eq("id", id)
+			.single();
+		expect(after?.market_scheduled_asset_price_next_send_at).not.toBeNull();
+		expect(after?.market_scheduled_asset_price_next_send_at).not.toBe(
+			beforeNextSendAt,
+		);
+	});
+
 	it("User who texts STOP EMAIL does not receive email when schedule fires.", async () => {
 		twilioMocks.validateRequest.mockReturnValue(true);
 
