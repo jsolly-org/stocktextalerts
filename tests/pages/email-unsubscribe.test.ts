@@ -83,12 +83,13 @@ describe("A user clicks the email unsubscribe link.", () => {
 
 		const { data: updated, error } = await adminClient
 			.from("users")
-			.select("email_notifications_enabled")
+			.select("email_notifications_enabled,sms_notifications_enabled")
 			.eq("id", user.id)
 			.maybeSingle();
 
 		expect(error).toBeNull();
 		expect(updated?.email_notifications_enabled).toBe(true);
+		expect(updated?.sms_notifications_enabled).toBe(false);
 	});
 
 	it("Email unsubscribe can also disable SMS when requested.", async () => {
