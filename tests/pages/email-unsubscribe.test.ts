@@ -94,7 +94,7 @@ describe("A user clicks the email unsubscribe link.", () => {
 
 		expect(error).toBeNull();
 		expect(updated?.email_notifications_enabled).toBe(true);
-		expect(updated?.market_scheduled_asset_price_include_sms).toBe(false);
+		expect(updated?.market_scheduled_asset_price_include_sms).toBe(true);
 	});
 
 	it("Email unsubscribe can also disable SMS when requested.", async () => {

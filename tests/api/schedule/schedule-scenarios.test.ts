@@ -977,6 +977,7 @@ describe("Scheduled notification scenarios", () => {
 			.eq("delivery_method", "email");
 		expect(logs).toHaveLength(1);
 		expect(logs?.[0]?.message).toContain("don't have any tracked assets");
+		expect(logs?.[0]?.message_delivered).toBe(true);
 
 		const { data: after } = await adminClient
 			.from("users")
