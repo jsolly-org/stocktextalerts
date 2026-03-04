@@ -10,8 +10,7 @@ import { runScheduledNotifications } from "../../../lib/schedule/run";
  * GET  – used by Vercel cron.
  * POST – manual trigger endpoint (accepts `{ "force": true }`).
  */
-const handler: APIRoute = async ({ request, locals }) => {
-	const url = new URL(request.url);
+const handler: APIRoute = async ({ url, request, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

@@ -9,8 +9,7 @@ import { createLogger } from "../../../lib/logging";
  *
  * Returns a single snapshot of preferences used by the dashboard UI.
  */
-export const GET: APIRoute = async ({ request, cookies, locals }) => {
-	const url = new URL(request.url);
+export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

@@ -14,8 +14,7 @@ import { createLogger } from "../../../../lib/logging";
  * Expects form fields: phone_country_code, phone_number.
  * Applies cooldown between sends; returns 429 if a verification was recently sent.
  */
-export const POST: APIRoute = async ({ request, cookies, locals }) => {
-	const url = new URL(request.url);
+export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

@@ -5,8 +5,7 @@ import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 import { createErrorForLogging } from "../../../lib/logging/errors";
 
-export const POST: APIRoute = async ({ request, cookies, locals }) => {
-	const url = new URL(request.url);
+export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

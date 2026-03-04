@@ -4,8 +4,7 @@ import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
 import { createLogger } from "../../../../lib/logging";
 
-export const POST: APIRoute = async ({ request, redirect, locals }) => {
-	const url = new URL(request.url);
+export const POST: APIRoute = async ({ url, request, redirect, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

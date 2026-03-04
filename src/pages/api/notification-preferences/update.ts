@@ -71,8 +71,7 @@ const SMS_INCLUDE_FIELDS = [
  * Accepts a form POST, validates input, enforces SMS opt-out/phone invariants,
  * persists the update, and returns the updated preference snapshot.
  */
-export const POST: APIRoute = async ({ request, cookies, locals }) => {
-	const url = new URL(request.url);
+export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

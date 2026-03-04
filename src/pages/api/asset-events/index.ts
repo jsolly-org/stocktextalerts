@@ -12,8 +12,7 @@ import { verifyCronSecret } from "../../../lib/schedule/cron-auth";
  * Runs daily at 00:00 UTC so newly-listed events and newly-tracked symbols
  * are picked up promptly. The DB unique index handles deduplication via upsert.
  */
-const handler: APIRoute = async ({ request, locals }) => {
-	const url = new URL(request.url);
+const handler: APIRoute = async ({ url, request, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

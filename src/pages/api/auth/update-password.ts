@@ -16,8 +16,7 @@ function buildRecoverRedirect(error: string, tokenHash?: string | null) {
 	return `/auth/recover?${params.toString()}`;
 }
 
-export const POST: APIRoute = async ({ request, redirect, locals }) => {
-	const url = new URL(request.url);
+export const POST: APIRoute = async ({ url, request, redirect, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

@@ -14,8 +14,7 @@ const FORMAT_PREFERENCES_SCHEMA = {
 	show_sparklines: { type: "boolean" },
 } as const satisfies FormSchema;
 
-export const POST: APIRoute = async ({ request, cookies, locals }) => {
-	const url = new URL(request.url);
+export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

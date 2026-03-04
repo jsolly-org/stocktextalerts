@@ -27,11 +27,11 @@ async function cleanupOrphanedAuthUser(
 }
 
 export async function POST({
+	url,
 	request,
 	redirect,
 	locals,
 }: APIContext): Promise<Response> {
-	const url = new URL(request.url);
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

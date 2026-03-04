@@ -45,8 +45,7 @@ type DailyDigestUserRow = Pick<
  * Per-user daily endpoint — called by the fan-out dispatcher.
  * Each invocation gets its own Vercel function timeout budget.
  */
-export const POST: APIRoute = async ({ request, locals }) => {
-	const url = new URL(request.url);
+export const POST: APIRoute = async ({ url, request, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,
