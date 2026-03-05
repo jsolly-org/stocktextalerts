@@ -8,7 +8,10 @@ import {
 export interface EnrichedAlert {
 	symbol: string;
 	priceContext: string;
+	/** User-facing signal summary (no anomaly internals). */
 	signalContext: string;
+	/** Detailed context for Grok enrichment (includes anomaly score). */
+	grokContext: string;
 	/** Grok-sourced summary + links, or null if Grok failed/unavailable. */
 	grokResult: PriceAlertGrokResult | null;
 	intradayCloses: number[] | null;
@@ -35,7 +38,8 @@ function buildPriceContext(symbol: string, quote: ExtendedAssetQuote): string {
 export async function enrichAlert(options: {
 	symbol: string;
 	quote: ExtendedAssetQuote;
-	signalContext: string;
+	grokContext: string;
+	userSignalContext: string;
 	intradayCloses: number[] | null;
 	intradayTimestamps: (number | null)[] | null;
 	intradayEndTimestamp: number | null;
@@ -45,7 +49,8 @@ export async function enrichAlert(options: {
 	const {
 		symbol,
 		quote,
-		signalContext,
+		grokContext,
+		userSignalContext,
 		intradayCloses,
 		intradayTimestamps,
 		intradayEndTimestamp,
@@ -58,13 +63,14 @@ export async function enrichAlert(options: {
 	const grokResult = await generatePriceAlertSummary({
 		symbol,
 		priceContext,
-		signalContext,
+		signalContext: grokContext,
 	});
 
 	return {
 		symbol,
 		priceContext,
-		signalContext,
+		signalContext: userSignalContext,
+		grokContext,
 		grokResult,
 		intradayCloses,
 		intradayTimestamps,

@@ -11,18 +11,11 @@ const MIN_SNAPSHOTS = 5;
 /** Volume multiplier when volume data is unavailable (penalizes missing data). */
 const UNKNOWN_VOLUME_MULTIPLIER = 0.8;
 
-/** Return the alert threshold for a sensitivity level (3=most sensitive, 1=most conservative). */
-export function getThresholdForSensitivity(sensitivity: number): number {
-	if (sensitivity === 3) return 60;
-	if (sensitivity === 2) return 70;
-	return 80; // default to very_large (most conservative)
-}
-
 /* =============
 Types
 ============= */
 
-interface SignalBreakdown {
+export interface SignalBreakdown {
 	name: string;
 	points: number;
 	maxPoints: number;
@@ -30,9 +23,8 @@ interface SignalBreakdown {
 	detail: string;
 }
 
-interface AnomalyResult {
+export interface AnomalyResult {
 	score: number;
-	triggered: boolean;
 	signals: SignalBreakdown[];
 	summary: string;
 }
@@ -228,42 +220,79 @@ function computeEarningsProximity(hasEarningsNearby: boolean): SignalBreakdown {
 Composite Scoring
 ============= */
 
-/** Compute the composite anomaly score for a symbol. */
+/** Compute the composite anomaly score for a symbol.
+ *
+ *  When `benchmarkMovePct` is provided, the price signal is dampened
+ *  proportionally to how much of the stock's move is explained by
+ *  the sector/market benchmark moving in the same direction.
+ */
 export function computeAnomalyScore(options: {
 	currentQuote: ExtendedAssetQuote;
 	snapshots: AssetSnapshot[];
 	news: CompanyNewsItem[] | null;
 	hasEarningsNearby: boolean;
-	sensitivity?: number;
+	/** Benchmark (sector ETF or SPY) percent move, signed. */
+	benchmarkMovePct?: number | null;
 }): AnomalyResult {
-	const {
-		currentQuote,
-		snapshots,
-		news,
-		hasEarningsNearby,
-		sensitivity = 1,
-	} = options;
-	const threshold = getThresholdForSensitivity(sensitivity);
+	const { currentQuote, snapshots, news, hasEarningsNearby, benchmarkMovePct } =
+		options;
 
 	// Need enough data to make meaningful comparisons
 	if (snapshots.length < MIN_SNAPSHOTS) {
 		return {
 			score: 0,
-			triggered: false,
 			signals: [],
 			summary: `Insufficient data (${snapshots.length}/${MIN_SNAPSHOTS} snapshots)`,
 		};
 	}
 
+	const priceSignal = computePriceMove(currentQuote, snapshots);
+
+	// Dampen price score when the move tracks the benchmark direction.
+	// Use intraday signal direction/magnitude (snapshot-relative), not day-level
+	// changePercent — a stock can be up on the day but crashing intraday.
+	if (
+		benchmarkMovePct != null &&
+		priceSignal.points > 0 &&
+		snapshots.length > 0
+	) {
+		const oldest = snapshots[0];
+		const latest = snapshots[snapshots.length - 1];
+		const sustainedSigned =
+			oldest.price > 0
+				? ((currentQuote.price - oldest.price) / oldest.price) * 100
+				: 0;
+		const suddenSigned =
+			latest.price > 0
+				? ((currentQuote.price - latest.price) / latest.price) * 100
+				: 0;
+		const signalMovePct =
+			Math.abs(sustainedSigned) >= Math.abs(suddenSigned)
+				? sustainedSigned
+				: suddenSigned;
+		const stockDir = Math.sign(signalMovePct);
+		const benchDir = Math.sign(benchmarkMovePct);
+		if (stockDir === benchDir && Math.abs(signalMovePct) > 0) {
+			const explainedRatio = Math.min(
+				Math.abs(benchmarkMovePct) / Math.abs(signalMovePct),
+				1.0,
+			);
+			// Keep at least 30% of the price score even when fully explained
+			const dampening = 1.0 - explainedRatio * 0.7;
+			priceSignal.points = Math.round(priceSignal.points * dampening);
+			priceSignal.triggered = priceSignal.points > 0;
+			priceSignal.detail += `, benchmark ${benchmarkMovePct >= 0 ? "+" : ""}${benchmarkMovePct.toFixed(2)}%`;
+		}
+	}
+
 	const signals: SignalBreakdown[] = [
-		computePriceMove(currentQuote, snapshots),
+		priceSignal,
 		computeRangeBreakout(currentQuote.price, snapshots),
 		computeNewsSignal(news),
 		computeEarningsProximity(hasEarningsNearby),
 	];
 
 	const score = signals.reduce((sum, s) => sum + s.points, 0);
-	const triggered = score >= threshold;
 
 	const triggeredSignals = signals.filter((s) => s.triggered);
 	const summary =
@@ -271,7 +300,7 @@ export function computeAnomalyScore(options: {
 			? triggeredSignals.map((s) => s.detail).join(", ")
 			: "no significant signals";
 
-	return { score, triggered, signals, summary };
+	return { score, signals, summary };
 }
 
 /** Compute the price-only score (before any news fetch). */
@@ -279,7 +308,7 @@ export function computePriceOnlyScore(options: {
 	currentQuote: ExtendedAssetQuote;
 	snapshots: AssetSnapshot[];
 	hasEarningsNearby: boolean;
-	sensitivity?: number;
+	benchmarkMovePct?: number | null;
 }): number {
 	return computeAnomalyScore({
 		...options,

@@ -156,7 +156,7 @@ export async function generatePriceAlertSummary(options: {
 	const prompt =
 		`${options.symbol}: ${options.priceContext}. ` +
 		`Signals: ${options.signalContext}.\n\n` +
-		"Search the web and X/Twitter for the most relevant explanations of this stock move. " +
+		"Search the web and X/Twitter for the most relevant explanations of this price move. " +
 		"Write 1-2 neutral, factual sentences summarizing why this move is happening. " +
 		"Do not give investment advice. " +
 		"Include up to 3 of the most relevant source links (news articles or X posts).";

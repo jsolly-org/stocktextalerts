@@ -11,9 +11,11 @@ import {
 import { SECTOR_ETF_MAP } from "../providers/sector-mapping";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 import { createSmsSenderProvider } from "../schedule/sms-sender";
-import { deriveAlertProfile } from "./alert-profile";
+import { getAnomalyThreshold } from "./alert-profile";
+import { computeAnomalyScore } from "./anomaly-detection";
 import { deliverPriceAlert, type PriceAlertDeliveryStats } from "./delivery";
-import { enrichAlert } from "./enrichment";
+import { type EnrichedAlert, enrichAlert } from "./enrichment";
+import { getSnapshotsForSymbols, storeSnapshots } from "./snapshot-store";
 import { claimCooldown, fetchPriceAlertUsers } from "./users";
 
 const MARKET_BENCHMARK_SYMBOL = "SPY";
@@ -91,45 +93,62 @@ function calculateDollarMove(
 	return quote.price - inferredPrevClose;
 }
 
-function buildSignalContext(options: {
+function buildSignalContexts(options: {
 	percentMove: number;
 	dollarMove: number;
-	percentThreshold: number;
-	dollarThreshold: number;
+	anomalyScore: number;
+	anomalySummary: string;
 	hasEarningsNearby: boolean;
 	benchmarkMovePercentAbs: number | null;
 	benchmarkLabel: string;
-}): string {
+}): { grokContext: string; userSignalContext: string } {
 	const {
 		percentMove,
 		dollarMove,
-		percentThreshold,
-		dollarThreshold,
+		anomalyScore,
+		anomalySummary,
 		hasEarningsNearby,
 		benchmarkMovePercentAbs,
 		benchmarkLabel,
 	} = options;
-	const direction = percentMove >= 0 ? "up" : "down";
-	const base = `${direction} ${Math.abs(percentMove).toFixed(2)}% ($${Math.abs(dollarMove).toFixed(2)}) from previous close`;
-	const threshold = `triggered at >=${percentThreshold.toFixed(1)}% or >=$${dollarThreshold.toFixed(2)}`;
-	const marketContext =
+	const direction = percentMove >= 0 ? "Up" : "Down";
+	const absPct = Math.abs(percentMove).toFixed(2);
+	const absDollar = Math.abs(dollarMove).toFixed(2);
+
+	// Grok context: technical detail for AI enrichment
+	const grokBase = `${direction.toLowerCase()} ${absPct}% ($${absDollar}) from previous close`;
+	const scoreLabel = `anomaly score ${anomalyScore}/75 (${anomalySummary})`;
+	const grokMarket =
 		benchmarkMovePercentAbs !== null
 			? `${benchmarkLabel} moved ${benchmarkMovePercentAbs.toFixed(2)}%`
 			: null;
-	const earningsContext = hasEarningsNearby
-		? "earnings are within ~2 days"
-		: null;
+	const grokEarnings = hasEarningsNearby ? "earnings are within ~2 days" : null;
 
-	return [base, threshold, marketContext, earningsContext]
+	const grokContext = [grokBase, scoreLabel, grokMarket, grokEarnings]
 		.filter((value): value is string => value !== null)
 		.join(", ");
+
+	// User context: additional info beyond the price move (which priceContext already covers)
+	const userMarket =
+		benchmarkMovePercentAbs !== null
+			? `The ${benchmarkLabel} moved ${benchmarkMovePercentAbs.toFixed(2)}% today.`
+			: null;
+	const userEarnings = hasEarningsNearby
+		? "Earnings are expected within the next couple of days."
+		: null;
+
+	const userSignalContext = [userMarket, userEarnings]
+		.filter((value): value is string => value !== null)
+		.join(" ");
+
+	return { grokContext, userSignalContext };
 }
 
 /**
- * Run the price-alert pipeline: fetch quotes, evaluate thresholds, atomically
- * claim trading-day slots via claimCooldown (INSERT ... ON CONFLICT DO UPDATE),
- * enrich with news and intraday bars (fetched in parallel), then deliver via email/SMS.
- * Only runs when US market is open.
+ * Run the price-alert pipeline: fetch quotes, score anomalies against rolling
+ * snapshot history, atomically claim trading-day slots via claimCooldown
+ * (INSERT ... ON CONFLICT DO UPDATE), enrich with news and intraday bars,
+ * then deliver via email/SMS. Only runs when US market is open.
  */
 export async function processPriceAlerts(options: {
 	supabase: SupabaseAdminClient;
@@ -235,6 +254,38 @@ export async function processPriceAlerts(options: {
 		fetchEarningsSymbols(supabase),
 	]);
 
+	// Load rolling 60-minute snapshot history for anomaly scoring (before storing
+	// current tick, so history excludes the current quote and sudden-move detection works)
+	let snapshotMap: Awaited<ReturnType<typeof getSnapshotsForSymbols>> =
+		new Map();
+	try {
+		snapshotMap = await getSnapshotsForSymbols(supabase, [...uniqueSymbols]);
+	} catch (err) {
+		rootLogger.warn(
+			"Failed to load snapshots for anomaly scoring; continuing with empty history",
+			{ symbolCount: uniqueSymbols.length },
+			err,
+		);
+	}
+
+	// Persist current tick for the rolling anomaly-detection window.
+	// Only store snapshots for user-tracked symbols (uniqueSymbols); benchmark
+	// ETFs may not exist in assets table, and FK would fail the entire batch.
+	const quoteMapForSnapshots: ExtendedQuoteMap = new Map();
+	for (const symbol of uniqueSymbols) {
+		const quote = quoteMap.get(symbol);
+		if (quote) quoteMapForSnapshots.set(symbol, quote);
+	}
+	try {
+		await storeSnapshots(supabase, quoteMapForSnapshots);
+	} catch (err) {
+		rootLogger.warn(
+			"Failed to persist snapshots for anomaly scoring; continuing alert run",
+			{ symbolCount: quoteMapForSnapshots.size },
+			err,
+		);
+	}
+
 	const users = await fetchPriceAlertUsers(supabase);
 	if (users.length === 0) {
 		const filteredQuoteMap: ExtendedQuoteMap = new Map();
@@ -279,6 +330,7 @@ export async function processPriceAlerts(options: {
 
 	// Pre-compute benchmark moves for SPY and all sector ETFs
 	const benchmarkMoveCache = new Map<string, number | null>();
+	const benchmarkMoveSignedCache = new Map<string, number | null>();
 	for (const etfSymbol of benchmarkSymbols) {
 		const etfQuote = quoteMap.get(etfSymbol) ?? null;
 		const pctMove = etfQuote === null ? null : calculatePercentMove(etfQuote);
@@ -286,6 +338,7 @@ export async function processPriceAlerts(options: {
 			etfSymbol,
 			pctMove === null ? null : Math.abs(pctMove),
 		);
+		benchmarkMoveSignedCache.set(etfSymbol, pctMove);
 	}
 
 	const spyMovePercentAbs =
@@ -322,30 +375,36 @@ export async function processPriceAlerts(options: {
 			benchmarkMoveCache.get(benchmarkEtf) ?? spyMovePercentAbs;
 		const benchmarkLabel = sectorEtf
 			? `${assetSector} sector (${sectorEtf})`
-			: `market (${MARKET_BENCHMARK_SYMBOL})`;
+			: `broader market (${MARKET_BENCHMARK_SYMBOL})`;
 
-		const eligibleUsers = [] as Array<
-			(typeof users)[number] & {
-				profile: ReturnType<typeof deriveAlertProfile>;
-			}
-		>;
+		// Per-symbol anomaly scoring (score is universal; threshold is per-user)
+		const snapshots = snapshotMap.get(symbol) ?? [];
+		const hasEarningsNearby = earningsSymbols.has(symbol);
+		const benchmarkMoveSigned =
+			benchmarkMoveSignedCache.get(benchmarkEtf) ??
+			benchmarkMoveSignedCache.get(MARKET_BENCHMARK_SYMBOL) ??
+			null;
+		const anomalyResult = computeAnomalyScore({
+			currentQuote: quote,
+			snapshots,
+			news: null,
+			hasEarningsNearby,
+			benchmarkMovePct: benchmarkMoveSigned,
+		});
+
 		const symbolMovePercentAbs = Math.abs(percentMove);
 		const symbolMoveDollarAbs = Math.abs(dollarMove);
+
+		const eligibleUsers = [] as Array<(typeof users)[number]>;
 
 		for (const user of users) {
 			const userSymbols = userSymbolMap.get(user.id);
 			if (!userSymbols?.has(symbol)) continue;
 
-			const profile = deriveAlertProfile(
+			const userThreshold = getAnomalyThreshold(
 				user.market_asset_price_alert_move_size,
 			);
-
-			// Either threshold triggers: percent catches proportional moves while
-			// dollar catches absolute moves on higher-priced assets.
-			const meetsShockThreshold =
-				symbolMovePercentAbs >= profile.percentThreshold ||
-				symbolMoveDollarAbs >= profile.dollarThreshold;
-			if (!meetsShockThreshold) {
+			if (anomalyResult.score < userThreshold) {
 				continue;
 			}
 
@@ -361,12 +420,20 @@ export async function processPriceAlerts(options: {
 				continue;
 			}
 
-			eligibleUsers.push({ ...user, profile });
+			eligibleUsers.push(user);
 		}
 
 		if (eligibleUsers.length === 0) {
 			continue;
 		}
+
+		rootLogger.info("Anomaly score triggered", {
+			symbol,
+			score: anomalyResult.score,
+			summary: anomalyResult.summary,
+			snapshotCount: snapshots.length,
+			eligibleUserCount: eligibleUsers.length,
+		});
 
 		totals.alertsTriggered++;
 
@@ -388,36 +455,40 @@ export async function processPriceAlerts(options: {
 			);
 		}
 
-		const enrichedBySignal = new Map<
-			string,
-			Awaited<ReturnType<typeof enrichAlert>>
-		>();
-		for (const user of eligibleUsers) {
-			const signalContext = buildSignalContext({
-				percentMove,
-				dollarMove,
-				percentThreshold: user.profile.percentThreshold,
-				dollarThreshold: user.profile.dollarThreshold,
-				hasEarningsNearby: earningsSymbols.has(symbol),
-				benchmarkMovePercentAbs,
-				benchmarkLabel,
+		// Signal context is per-symbol (universal), so enrich once per symbol
+		const { grokContext, userSignalContext } = buildSignalContexts({
+			percentMove,
+			dollarMove,
+			anomalyScore: anomalyResult.score,
+			anomalySummary: anomalyResult.summary,
+			hasEarningsNearby,
+			benchmarkMovePercentAbs,
+			benchmarkLabel,
+		});
+
+		let enrichedAlert: EnrichedAlert;
+		try {
+			enrichedAlert = await enrichAlert({
+				symbol,
+				quote,
+				grokContext,
+				userSignalContext,
+				intradayCloses,
+				intradayTimestamps,
+				intradayEndTimestamp,
+				iconUrl: assetIconUrlMap.get(symbol) ?? null,
+				iconBase64: assetIconBase64Map.get(symbol) ?? null,
 			});
+		} catch (err) {
+			rootLogger.error(
+				"Failed to enrich price alert",
+				{ symbol, eligibleUserCount: eligibleUsers.length },
+				err,
+			);
+			continue;
+		}
 
-			let enrichedAlert = enrichedBySignal.get(signalContext);
-			if (!enrichedAlert) {
-				enrichedAlert = await enrichAlert({
-					symbol,
-					quote,
-					signalContext,
-					intradayCloses,
-					intradayTimestamps,
-					intradayEndTimestamp,
-					iconUrl: assetIconUrlMap.get(symbol) ?? null,
-					iconBase64: assetIconBase64Map.get(symbol) ?? null,
-				});
-				enrichedBySignal.set(signalContext, enrichedAlert);
-			}
-
+		for (const user of eligibleUsers) {
 			if (user.market_asset_price_alerts_include_sms && !smsSender) {
 				try {
 					smsSender = getSmsSender().sender;

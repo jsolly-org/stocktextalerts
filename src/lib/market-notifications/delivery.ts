@@ -95,10 +95,12 @@ async function formatPriceAlertSms(
 	);
 
 	const sections = [
-		"StockTextAlerts — Asset Price Alert 🚨",
+		"StockTextAlerts — Unusual Price Move 🚨",
 		priceContextLine,
-		`Signals: ${alert.signalContext}`,
 	];
+	if (alert.signalContext) {
+		sections.push(alert.signalContext);
+	}
 
 	if (alert.grokResult) {
 		const { summary, links } = alert.grokResult;
@@ -306,10 +308,12 @@ function formatPriceAlertEmail(
 	);
 
 	const textSections = [
-		`Asset Price Alert: ${alert.symbol}`,
+		`Unusual Price Move: ${alert.symbol}`,
 		textPriceContextLine,
-		`Signals: ${alert.signalContext}`,
 	];
+	if (alert.signalContext) {
+		textSections.push(alert.signalContext);
+	}
 
 	if (alert.grokResult) {
 		const { summary, links } = alert.grokResult;
@@ -345,16 +349,20 @@ function formatPriceAlertEmail(
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
 	<div style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); padding: 30px; border-radius: 8px 8px 0 0; text-align: center;">
-		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Asset Price Alert</h1>
+		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Unusual Price Move</h1>
 	</div>
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
 		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">${logoHtml ?? ""}${escapeHtml(alert.symbol)}</h2>
 		<div style="background: #fffbeb; padding: 16px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #fde68a;">
 			<p style="color: #92400e; font-size: 16px; font-weight: 500; margin: 0;">${escapeHtml(alert.priceContext)}</p>${renderHtmlSparklineForAlert(alert, user.use_24_hour_time)}
 		</div>
-		<div style="margin-bottom: 20px;">
-			<p style="color: #6b7280; font-size: 14px; margin: 0;"><strong>Signals:</strong> ${escapeHtml(alert.signalContext)}</p>
-		</div>
+		${
+			alert.signalContext
+				? `<div style="margin-bottom: 20px;">
+			<p style="color: #6b7280; font-size: 14px; margin: 0;">${escapeHtml(alert.signalContext)}</p>
+		</div>`
+				: ""
+		}
 		${whyMovingHtml}
 		<div style="text-align: center; margin-top: 30px;">
 			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
@@ -402,7 +410,7 @@ export async function deliverPriceAlert(options: {
 		const message = formatPriceAlertEmail(user, alert, logoHtml);
 		const result = await sendUserEmail(
 			user,
-			`${alert.symbol} ${alert.isPositiveMove ? "Rally" : "Selloff"} Alert`,
+			`${alert.symbol} Unusual ${alert.isPositiveMove ? "Rally" : "Selloff"}`,
 			message,
 			sendEmail,
 		);
