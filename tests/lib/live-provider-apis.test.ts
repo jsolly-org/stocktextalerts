@@ -171,7 +171,7 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 				? (marketStatus as { market?: unknown }).market
 				: null;
 
-		if (market === "open" || market === "extended-hours") {
+		if (market === "open") {
 			expect(nonNullCount).toBeGreaterThan(0);
 		}
 	});
@@ -304,7 +304,8 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 
 		// SPY should have a valid snapshot quote when the market is open.
 		// On weekends/holidays, day.c is 0 so parseSnapshotTicker returns null.
-		if (market === "open" || market === "extended-hours") {
+		// During pre-market extended-hours, day.c is also 0 (no regular trades yet).
+		if (market === "open") {
 			expect(spyQuote).not.toBeNull();
 		}
 
