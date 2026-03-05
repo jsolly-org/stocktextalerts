@@ -19,7 +19,14 @@ runs:
           return "$rc"
         }
 
-        run_cmd "npm-ci" npm ci || exit $?
+        # Skip npm ci if node_modules already exists (caller already ran it)
+        if [ ! -d node_modules ]; then
+          run_cmd "npm-ci" npm ci || exit $?
+        else
+          echo "::group::npm-ci"
+          echo "Skipped — node_modules already present."
+          echo "::endgroup::"
+        fi
         # Apply safe Biome fixes (format + organize imports) so agent runs don't fail on trivial issues.
         run_cmd "biome-fix" npm run check:biome || exit $?
         # Keep agent pushes strict: block on any unresolved Biome warning or error.

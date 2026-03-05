@@ -74,7 +74,7 @@
 
 		<SetupRequiredNotice
 			:needsTrackedAssets="needsTrackedAssets"
-			trackedAssetsMessage="Add at least one tracked stock to enable calendar events, analyst consensus, and insider trades"
+			trackedAssetsMessage="Add at least one tracked asset to enable calendar events, analyst consensus, and insider trades"
 			:needsChannelSelection="needsChannelSelection"
 			:needsPhoneVerification="needsPhoneVerification"
 			:phoneVerificationSectionId="phoneVerificationSectionId"

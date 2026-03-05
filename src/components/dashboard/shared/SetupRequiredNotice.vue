@@ -11,7 +11,7 @@
 		</p>
 		<ul class="mt-2 space-y-1.5 text-sm text-warning-text list-disc list-inside ml-0.5">
 			<li v-if="needsTrackedAssets">
-				{{ trackedAssetsMessage ?? "Add at least one tracked stock" }} in
+				{{ trackedAssetsMessage ?? "Add at least one tracked asset" }} in
 				<a
 					:href="DASHBOARD_SECTION_HASHES.assets"
 					class="font-medium text-warning-text underline rounded-sm hover:text-warning-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning-strong focus-visible:ring-offset-1 focus-visible:ring-offset-warning-bg"

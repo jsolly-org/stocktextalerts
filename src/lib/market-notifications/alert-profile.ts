@@ -1,17 +1,11 @@
 export type AlertMoveSize = "significant" | "extreme";
 
-interface AlertProfile {
-	moveSize: AlertMoveSize;
-	percentThreshold: number;
-	dollarThreshold: number;
-}
-
-export const MOVE_SIZE_THRESHOLDS: Record<
-	AlertMoveSize,
-	{ percentThreshold: number; dollarThreshold: number }
-> = {
-	significant: { percentThreshold: 5, dollarThreshold: 10 },
-	extreme: { percentThreshold: 8, dollarThreshold: 15 },
+/** Anomaly-score thresholds per move-size tier.
+ *  Lower = more sensitive (fires on smaller anomalies).
+ *  Max price-only score is 75 (45 price + 15 breakout + 15 earnings). */
+export const ANOMALY_THRESHOLDS: Record<AlertMoveSize, number> = {
+	significant: 25,
+	extreme: 35,
 };
 
 /** Normalize legacy move-size values to current tiers (moderate→significant, large→extreme). */
@@ -24,14 +18,7 @@ export function normalizeMoveSize(
 	return "extreme";
 }
 
-export function deriveAlertProfile(
-	moveSize: AlertMoveSize | string,
-): AlertProfile {
-	const normalizedMoveSize = normalizeMoveSize(moveSize);
-	const threshold = MOVE_SIZE_THRESHOLDS[normalizedMoveSize];
-	return {
-		moveSize: normalizedMoveSize,
-		percentThreshold: threshold.percentThreshold,
-		dollarThreshold: threshold.dollarThreshold,
-	};
+export function getAnomalyThreshold(moveSize: AlertMoveSize | string): number {
+	const normalized = normalizeMoveSize(moveSize);
+	return ANOMALY_THRESHOLDS[normalized];
 }
