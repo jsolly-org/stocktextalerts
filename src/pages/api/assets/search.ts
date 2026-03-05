@@ -41,8 +41,7 @@ function getAssetSearchRank(
  * Requires authentication. Query length is limited to prevent abuse.
  * Returns results sorted by relevance (exact symbol > symbol prefix > name prefix > name contains).
  */
-export const GET: APIRoute = async ({ request, cookies, locals }) => {
-	const url = new URL(request.url);
+export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

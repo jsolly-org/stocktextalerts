@@ -5,7 +5,6 @@
  * timezone handling, and unsubscribe-to-schedule flow.
  */
 import { getContainerRenderer as getVueRenderer } from "@astrojs/vue";
-import type { APIContext } from "astro";
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import { loadRenderers } from "astro/virtual-modules/container.js";
 import { DateTime } from "luxon";
@@ -22,6 +21,7 @@ import { createEmailUnsubscribeToken } from "../../../src/lib/messaging/email/un
 import { POST as InboundPost } from "../../../src/pages/api/messaging/inbound";
 import { POST as SchedulePost } from "../../../src/pages/api/schedule";
 import EmailUnsubscribePage from "../../../src/pages/email/unsubscribe.astro";
+import { createApiContext } from "../../helpers/api-context";
 import { isLiveProviderEnabled } from "../../helpers/live-api";
 import { buildSmsInboundRequest } from "../../helpers/request-helpers";
 import { createScheduleRequest } from "../../helpers/schedule-request";
@@ -120,9 +120,11 @@ describe("Scheduled notification scenarios", () => {
 			.eq("id", id);
 		expect(seedError).toBeNull();
 
-		const response = await SchedulePost({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const response = await SchedulePost(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		const { data: smsLogs } = await adminClient
@@ -162,13 +164,15 @@ describe("Scheduled notification scenarios", () => {
 		expect(seedError).toBeNull();
 
 		const from = await getTestUserPhone(testUser.id);
-		const stopResponse = await InboundPost({
-			request: buildSmsInboundRequest({
-				from,
-				body: "STOP",
-				includeSignature: true,
+		const stopResponse = await InboundPost(
+			createApiContext({
+				request: buildSmsInboundRequest({
+					from,
+					body: "STOP",
+					includeSignature: true,
+				}),
 			}),
-		} as APIContext);
+		);
 		expect(stopResponse.status).toBe(200);
 
 		const { data: afterStop } = await adminClient
@@ -179,9 +183,11 @@ describe("Scheduled notification scenarios", () => {
 		expect(afterStop?.sms_opted_out).toBe(true);
 		expect(afterStop?.sms_notifications_enabled).toBe(false);
 
-		const response = await SchedulePost({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const response = await SchedulePost(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		const { data: smsLogs, error: smsLogError } = await adminClient
@@ -226,9 +232,11 @@ describe("Scheduled notification scenarios", () => {
 			.eq("id", id);
 		expect(updateError).toBeNull();
 
-		const response = await SchedulePost({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const response = await SchedulePost(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		const { data: emailLogs, error: emailLogError } = await adminClient
@@ -276,9 +284,11 @@ describe("Scheduled notification scenarios", () => {
 			.eq("id", id);
 		expect(updateError).toBeNull();
 
-		const response = await SchedulePost({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const response = await SchedulePost(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		const { data: logs } = await adminClient
@@ -325,9 +335,11 @@ describe("Scheduled notification scenarios", () => {
 		const nextSendAtBefore = before?.market_scheduled_asset_price_next_send_at;
 		expect(nextSendAtBefore).toBeTruthy();
 
-		const response = await SchedulePost({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const response = await SchedulePost(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		const { data: logs } = await adminClient
@@ -374,9 +386,11 @@ describe("Scheduled notification scenarios", () => {
 			.eq("id", id);
 		expect(seedError).toBeNull();
 
-		const firstResponse = await SchedulePost({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const firstResponse = await SchedulePost(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(firstResponse.status).toBe(200);
 
 		const { data: firstLogs } = await adminClient
@@ -401,9 +415,11 @@ describe("Scheduled notification scenarios", () => {
 
 		vi.setSystemTime(DateTime.fromISO("2026-01-13T15:00:00.000Z").toJSDate());
 
-		const secondResponse = await SchedulePost({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const secondResponse = await SchedulePost(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(secondResponse.status).toBe(200);
 
 		const { data: secondLogs } = await adminClient
@@ -456,9 +472,11 @@ describe("Scheduled notification scenarios", () => {
 			.eq("id", id);
 		expect(seedError).toBeNull();
 
-		const response = await SchedulePost({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const response = await SchedulePost(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		const { data: logs } = await adminClient
@@ -505,22 +523,26 @@ describe("Scheduled notification scenarios", () => {
 		registerTestUserForCleanup(testUser.id);
 
 		const from = await getTestUserPhone(testUser.id);
-		const stopResponse = await InboundPost({
-			request: buildSmsInboundRequest({
-				from,
-				body: "STOP",
-				includeSignature: true,
+		const stopResponse = await InboundPost(
+			createApiContext({
+				request: buildSmsInboundRequest({
+					from,
+					body: "STOP",
+					includeSignature: true,
+				}),
 			}),
-		} as APIContext);
+		);
 		expect(stopResponse.status).toBe(200);
 
-		const startResponse = await InboundPost({
-			request: buildSmsInboundRequest({
-				from,
-				body: "START",
-				includeSignature: true,
+		const startResponse = await InboundPost(
+			createApiContext({
+				request: buildSmsInboundRequest({
+					from,
+					body: "START",
+					includeSignature: true,
+				}),
 			}),
-		} as APIContext);
+		);
 		expect(startResponse.status).toBe(200);
 
 		const { error: prefError } = await adminClient
@@ -533,9 +555,11 @@ describe("Scheduled notification scenarios", () => {
 			.eq("id", testUser.id);
 		expect(prefError).toBeNull();
 
-		const response = await SchedulePost({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const response = await SchedulePost(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		const { data: smsLogs } = await adminClient
@@ -574,9 +598,11 @@ describe("Scheduled notification scenarios", () => {
 			.eq("id", id);
 		expect(updateError).toBeNull();
 
-		const response = await SchedulePost({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const response = await SchedulePost(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		const { data: logs } = await adminClient
@@ -614,9 +640,11 @@ describe("Scheduled notification scenarios", () => {
 			.eq("id", id);
 		expect(updateError).toBeNull();
 
-		const response = await SchedulePost({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const response = await SchedulePost(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		const { data: logs } = await adminClient
@@ -654,9 +682,11 @@ describe("Scheduled notification scenarios", () => {
 			.eq("id", id);
 		expect(updateError).toBeNull();
 
-		const response = await SchedulePost({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const response = await SchedulePost(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		const { data: logs } = await adminClient
@@ -714,9 +744,11 @@ describe("Scheduled notification scenarios", () => {
 			.eq("id", userB.id);
 		expect(updateB).toBeNull();
 
-		const response = await SchedulePost({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const response = await SchedulePost(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		const { data: logsA } = await adminClient
@@ -764,9 +796,11 @@ describe("Scheduled notification scenarios", () => {
 			.eq("id", id);
 		expect(disableError).toBeNull();
 
-		const response = await SchedulePost({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const response = await SchedulePost(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		const { data: logs } = await adminClient
@@ -807,9 +841,11 @@ describe("Scheduled notification scenarios", () => {
 			.eq("id", id);
 		expect(disableError).toBeNull();
 
-		const response = await SchedulePost({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const response = await SchedulePost(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		const { data: logs } = await adminClient
@@ -844,9 +880,11 @@ describe("Scheduled notification scenarios", () => {
 			.eq("id", id);
 		expect(seedError).toBeNull();
 
-		const firstResponse = await SchedulePost({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const firstResponse = await SchedulePost(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(firstResponse.status).toBe(200);
 
 		const { data: logsAfterFirst } = await adminClient
@@ -858,9 +896,11 @@ describe("Scheduled notification scenarios", () => {
 		expect(logsAfterFirst).toHaveLength(1);
 
 		// Fire schedule again with same system time; user's next_send_at was advanced, so they are not due again.
-		const secondResponse = await SchedulePost({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const secondResponse = await SchedulePost(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(secondResponse.status).toBe(200);
 
 		const { data: logsAfterSecond } = await adminClient
@@ -919,9 +959,11 @@ describe("Scheduled notification scenarios", () => {
 			.single();
 		expect(afterUnsub?.email_notifications_enabled).toBe(false);
 
-		const response = await SchedulePost({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const response = await SchedulePost(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		const { data: logs } = await adminClient
@@ -964,9 +1006,11 @@ describe("Scheduled notification scenarios", () => {
 			.eq("user_id", id);
 		expect(removeError).toBeNull();
 
-		const response = await SchedulePost({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const response = await SchedulePost(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		const { data: logs } = await adminClient
@@ -1010,13 +1054,15 @@ describe("Scheduled notification scenarios", () => {
 		registerTestUserForCleanup(testUser.id);
 
 		const from = await getTestUserPhone(testUser.id);
-		const stopEmailResponse = await InboundPost({
-			request: buildSmsInboundRequest({
-				from,
-				body: "STOP EMAIL",
-				includeSignature: true,
+		const stopEmailResponse = await InboundPost(
+			createApiContext({
+				request: buildSmsInboundRequest({
+					from,
+					body: "STOP EMAIL",
+					includeSignature: true,
+				}),
 			}),
-		} as APIContext);
+		);
 		expect(stopEmailResponse.status).toBe(200);
 
 		const { data: afterStopEmail } = await adminClient
@@ -1035,9 +1081,11 @@ describe("Scheduled notification scenarios", () => {
 			.eq("id", testUser.id);
 		expect(seedError).toBeNull();
 
-		const response = await SchedulePost({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const response = await SchedulePost(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		const { data: emailLogs } = await adminClient

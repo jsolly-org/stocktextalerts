@@ -1,7 +1,8 @@
-import type { APIContext } from "astro";
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../../../src/pages/api/schedule";
+import { createApiContext } from "../../helpers/api-context";
+import { createCronRequest } from "../../helpers/cron";
 import { isLiveProviderEnabled } from "../../helpers/live-api";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
@@ -36,13 +37,6 @@ describe("Per-channel include flags gate scheduled notification delivery.", () =
 		vi.unstubAllEnvs();
 	});
 
-	function createRequest() {
-		return new Request("http://localhost/api/schedule", {
-			method: "POST",
-			headers: { Authorization: `Bearer ${testCronSecret}` },
-		});
-	}
-
 	it("No email is sent when email_notifications_enabled=true but market_scheduled_asset_price_include_email=false.", async () => {
 		const nowLocal = DateTime.now().setZone(timezone);
 		if (!nowLocal.isValid) throw new Error("Invalid timezone");
@@ -65,7 +59,14 @@ describe("Per-channel include flags gate scheduled notification delivery.", () =
 			})
 			.eq("id", id);
 
-		const response = await POST({ request: createRequest() } as APIContext);
+		const response = await POST(
+			createApiContext({
+				request: createCronRequest({
+					path: "/api/schedule",
+					cronSecret: testCronSecret,
+				}),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		// No email notification should have been logged
@@ -102,7 +103,14 @@ describe("Per-channel include flags gate scheduled notification delivery.", () =
 			})
 			.eq("id", id);
 
-		const response = await POST({ request: createRequest() } as APIContext);
+		const response = await POST(
+			createApiContext({
+				request: createCronRequest({
+					path: "/api/schedule",
+					cronSecret: testCronSecret,
+				}),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		// No SMS notification should have been logged
@@ -147,7 +155,14 @@ describe("Per-channel include flags gate scheduled notification delivery.", () =
 			})
 			.eq("id", id);
 
-		const response = await POST({ request: createRequest() } as APIContext);
+		const response = await POST(
+			createApiContext({
+				request: createCronRequest({
+					path: "/api/schedule",
+					cronSecret: testCronSecret,
+				}),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		const { data: emailLogs } = await adminClient

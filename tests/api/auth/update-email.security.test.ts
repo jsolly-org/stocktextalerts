@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/auth/update-email";
+import { createApiContext } from "../../helpers/api-context";
 import { TEST_PASSWORD } from "../../helpers/constants";
-import { toRedirect } from "../../helpers/request-helpers";
 import {
 	adminClient,
 	createAuthenticatedCookies,
@@ -18,14 +17,7 @@ describe("Update email requires authentication.", () => {
 			body: new URLSearchParams({ email: "new@example.com" }),
 		});
 
-		const response = await POST({
-			request,
-			cookies: {
-				get: () => undefined,
-				set: () => {},
-			},
-			redirect: toRedirect,
-		} as unknown as APIContext);
+		const response = await POST(createApiContext({ request }));
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toBe(
@@ -71,17 +63,7 @@ describe("Update email endpoint enforces rate limiting.", () => {
 			body: new URLSearchParams({ email: `new-${randomUUID()}@resend.dev` }),
 		});
 
-		const response = await POST({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const value = cookies.get(name);
-					return value ? { value } : undefined;
-				},
-				set: () => {},
-			},
-			redirect: toRedirect,
-		} as unknown as APIContext);
+		const response = await POST(createApiContext({ request, cookies }));
 
 		expect(response.status).toBe(302);
 		const location = response.headers.get("Location");

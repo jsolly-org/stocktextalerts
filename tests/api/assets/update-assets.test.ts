@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { MAX_TRACKED_ASSETS } from "../../../src/lib/db/database-errors";
 import { rootLogger } from "../../../src/lib/logging";
 import { POST } from "../../../src/pages/api/assets/update";
+import { createApiContext } from "../../helpers/api-context";
 import { getAssetData, getRealAssetSymbols } from "../../helpers/asset-data";
 import { updateTrackedAssets } from "../../helpers/asset-update";
 import { TEST_PASSWORD } from "../../helpers/constants";
@@ -255,19 +255,15 @@ describe("A signed-in user updates their tracked assets.", () => {
 		const formData = new FormData();
 		formData.append("tracked_assets", JSON.stringify([invalidSymbol]));
 
-		const response = await POST({
-			request: new Request("http://localhost/api/assets/update", {
-				method: "POST",
-				body: formData,
+		const response = await POST(
+			createApiContext({
+				request: new Request("http://localhost/api/assets/update", {
+					method: "POST",
+					body: formData,
+				}),
+				cookies,
 			}),
-			cookies: {
-				get: (name: string) => {
-					const value = cookies.get(name);
-					return value ? { value } : undefined;
-				},
-				set: () => {},
-			},
-		} as unknown as APIContext);
+		);
 
 		expect(response.status).toBe(500);
 		const payload = (await response.json()) as { ok: boolean; message: string };

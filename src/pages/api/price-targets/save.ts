@@ -14,8 +14,7 @@ import { fetchAssetPrices } from "../../../lib/providers/price-fetcher";
  * - null target_price → DELETE the target
  * - number → validate, infer direction, UPSERT to price_targets
  */
-export const POST: APIRoute = async ({ request, cookies, locals }) => {
-	const url = new URL(request.url);
+export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

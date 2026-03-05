@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { APIContext } from "astro";
 import { DateTime } from "luxon";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../../../src/pages/api/market-notifications/next-send-at";
+import { createApiContext } from "../../helpers/api-context";
 import { TEST_PASSWORD } from "../../helpers/constants";
 import { createAuthenticatedCookies } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
@@ -46,17 +46,12 @@ describe("An authenticated user requests the next market notification send time.
 			},
 		);
 
-		const response = await POST({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const value = cookies.get(name);
-					return value ? { value } : undefined;
-				},
-				set: () => {},
-			},
-			locals: {},
-		} as unknown as APIContext);
+		const response = await POST(
+			createApiContext({
+				request,
+				cookies,
+			}),
+		);
 
 		expect(response.status).toBe(200);
 		const payload = (await response.json()) as {

@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/auth/change-password";
+import { createApiContext } from "../../helpers/api-context";
 import { NEW_PASSWORD } from "../../helpers/constants";
-import { toRedirect } from "../../helpers/request-helpers";
 import {
 	adminClient,
 	createAuthenticatedCookies,
@@ -21,14 +20,7 @@ describe("Password change endpoint enforces authentication, form validation, and
 			}),
 		});
 
-		const response = await POST({
-			request,
-			cookies: {
-				get: () => undefined,
-				set: () => {},
-			},
-			redirect: toRedirect,
-		} as unknown as APIContext);
+		const response = await POST(createApiContext({ request }));
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toBe(
@@ -58,17 +50,7 @@ describe("Password change endpoint enforces authentication, form validation, and
 			}),
 		});
 
-		const response = await POST({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const value = cookies.get(name);
-					return value ? { value } : undefined;
-				},
-				set: () => {},
-			},
-			redirect: toRedirect,
-		} as unknown as APIContext);
+		const response = await POST(createApiContext({ request, cookies }));
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toBe(
@@ -113,17 +95,7 @@ describe("Password change endpoint enforces rate limiting.", () => {
 			}),
 		});
 
-		const response = await POST({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const value = cookies.get(name);
-					return value ? { value } : undefined;
-				},
-				set: () => {},
-			},
-			redirect: toRedirect,
-		} as unknown as APIContext);
+		const response = await POST(createApiContext({ request, cookies }));
 
 		expect(response.status).toBe(302);
 		const location = response.headers.get("Location");

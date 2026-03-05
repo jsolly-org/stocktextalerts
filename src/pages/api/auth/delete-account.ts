@@ -26,12 +26,12 @@ const DELETE_ACCOUNT_RATE_LIMIT_MINUTES =
 	) || 15;
 
 export const POST: APIRoute = async ({
+	url,
 	cookies,
 	redirect,
 	request,
 	locals,
 }) => {
-	const url = new URL(request.url);
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

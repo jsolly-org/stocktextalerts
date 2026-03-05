@@ -4,7 +4,6 @@
  * Covers: fallback phase skips users already delivered by staging (no double-send),
  * and fallback still delivers when staging has no rows (missing/invalid path).
  */
-import type { APIContext } from "astro";
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -16,6 +15,7 @@ import { upsertStagedNotification } from "../../../src/lib/staged-notifications/
 import type { StagedMarketData } from "../../../src/lib/staged-notifications/types";
 import { toIsoOrThrow } from "../../../src/lib/time/format";
 import { POST } from "../../../src/pages/api/schedule";
+import { createApiContext } from "../../helpers/api-context";
 import { createScheduleRequest } from "../../helpers/schedule-request";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
@@ -83,9 +83,11 @@ describe("runScheduledNotifications: staged + fallback pipeline", () => {
 		});
 		expect(upsertError).toBeNull();
 
-		const response = await POST({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const response = await POST(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		const { data: logs } = await adminClient
@@ -120,9 +122,11 @@ describe("runScheduledNotifications: staged + fallback pipeline", () => {
 			.eq("id", id);
 		expect(updateError).toBeNull();
 
-		const response = await POST({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const response = await POST(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		const { data: logs } = await adminClient

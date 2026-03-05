@@ -11,8 +11,13 @@ import { createLogger } from "../../../../lib/logging";
  * The API key is appended server-side so it never reaches the browser.
  * Returns the upstream image bytes with a 7-day browser cache.
  */
-export const GET: APIRoute = async ({ params, request, cookies, locals }) => {
-	const url = new URL(request.url);
+export const GET: APIRoute = async ({
+	url,
+	params,
+	request,
+	cookies,
+	locals,
+}) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/notification-preferences/update";
+import { createApiContext } from "../../helpers/api-context";
 import { TEST_PASSWORD } from "../../helpers/constants";
 import {
 	adminClient,
@@ -44,16 +44,7 @@ describe("A signed-in opted-out user attempts to re-enable SMS options.", () => 
 			},
 		);
 
-		const response = await POST({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const cookie = cookies.get(name);
-					return cookie ? { value: cookie } : undefined;
-				},
-				set: () => {},
-			},
-		} as unknown as APIContext);
+		const response = await POST(createApiContext({ request, cookies }));
 
 		expect(response.status).toBe(400);
 		const payload = (await response.json()) as { ok: boolean; message: string };
@@ -103,16 +94,7 @@ describe("A signed-in opted-out user attempts to re-enable SMS options.", () => 
 			},
 		);
 
-		const response = await POST({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const cookie = cookies.get(name);
-					return cookie ? { value: cookie } : undefined;
-				},
-				set: () => {},
-			},
-		} as unknown as APIContext);
+		const response = await POST(createApiContext({ request, cookies }));
 
 		expect(response.status).toBe(200);
 		const payload = (await response.json()) as { ok: boolean; message: string };

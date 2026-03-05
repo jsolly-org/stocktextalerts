@@ -18,8 +18,7 @@ import { sicCodeToSector } from "../../../lib/providers/sector-mapping";
  * Lazy-backfills sector and icon_url from Massive for assets missing them (writes via admin client;
  * authenticated user has SELECT-only on assets).
  */
-export const GET: APIRoute = async ({ request, cookies, locals }) => {
-	const url = new URL(request.url);
+export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

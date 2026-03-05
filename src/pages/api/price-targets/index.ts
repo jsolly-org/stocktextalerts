@@ -10,8 +10,7 @@ import { fetchAssetPrices } from "../../../lib/providers/price-fetcher";
  *
  * Returns all active price targets for the authenticated user.
  */
-export const GET: APIRoute = async ({ request, cookies, locals }) => {
-	const url = new URL(request.url);
+export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

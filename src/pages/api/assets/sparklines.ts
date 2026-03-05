@@ -12,8 +12,7 @@ import { fetchSparklines } from "../../../lib/providers/price-fetcher";
  * Accepts an optional `symbols` query param (comma-separated) to fetch
  * sparklines for specific symbols instead of all user assets.
  */
-export const GET: APIRoute = async ({ request, cookies, locals }) => {
-	const url = new URL(request.url);
+export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,
