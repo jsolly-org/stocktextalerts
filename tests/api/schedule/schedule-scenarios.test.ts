@@ -1096,4 +1096,148 @@ describe("Scheduled notification scenarios", () => {
 			.eq("delivery_method", "email");
 		expect(emailLogs ?? []).toHaveLength(0);
 	});
+
+	it("New user signs up, confirms email, adds one tracked asset, sets a scheduled time, and receives their first market notification when the cron runs.", async () => {
+		const timezone = "America/New_York";
+		const nowLocal = DateTime.now().setZone(timezone);
+		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
+
+		const { id } = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			scheduledUpdateTimes: [scheduledTime],
+			trackedAssets: ["AAPL"],
+			confirmed: true,
+			marketScheduledAssetPriceIncludeEmail: true,
+		});
+		registerTestUserForCleanup(id);
+
+		const { error: seedError } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", id);
+		expect(seedError).toBeNull();
+
+		const response = await SchedulePost(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
+		expect(response.status).toBe(200);
+
+		const { data: logs } = await adminClient
+			.from("notification_log")
+			.select("id,message")
+			.eq("user_id", id)
+			.eq("type", "market")
+			.eq("delivery_method", "email");
+		expect(logs).toHaveLength(1);
+		expect(logs?.[0]?.message).toContain("AAPL");
+	});
+
+	it("Daily digest user due at cron fire is dispatched to the digest worker; market user still receives market notification.", async () => {
+		const timezone = "America/New_York";
+		const nowLocal = DateTime.now().setZone(timezone);
+		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
+		const nowIso = DateTime.utc().toISO();
+		expect(nowIso).toBeTruthy();
+
+		const marketUser = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			scheduledUpdateTimes: [scheduledTime],
+			trackedAssets: ["MSFT"],
+			marketScheduledAssetPriceIncludeEmail: true,
+		});
+		registerTestUserForCleanup(marketUser.id);
+
+		const dailyUser = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceIncludeEmail: false,
+		});
+		registerTestUserForCleanup(dailyUser.id);
+
+		const { error: marketSeedError } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: nowIso,
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", marketUser.id);
+		expect(marketSeedError).toBeNull();
+
+		const nineAmLocal = 9 * 60;
+		const { error: dailySeedError } = await adminClient
+			.from("users")
+			.update({
+				daily_digest_time: nineAmLocal,
+				daily_digest_next_send_at: nowIso,
+				daily_digest_include_news_email: true,
+			})
+			.eq("id", dailyUser.id);
+		expect(dailySeedError).toBeNull();
+
+		const digestStats = {
+			skipped: 0,
+			logFailures: 0,
+			emailsSent: 1,
+			emailsFailed: 0,
+			smsSent: 0,
+			smsFailed: 0,
+		};
+		const dailyDigestCalls: Array<{ url: string; body: string }> = [];
+		const originalFetch = globalThis.fetch;
+		const conditionalFetch = vi.fn(
+			async (input: RequestInfo | URL, init?: RequestInit) => {
+				const url =
+					typeof input === "string"
+						? input
+						: input instanceof URL
+							? input.toString()
+							: (input as Request).url;
+				if (url.includes("/api/daily-digest")) {
+					const body = typeof init?.body === "string" ? init.body : undefined;
+					if (body) dailyDigestCalls.push({ url, body });
+					return new Response(JSON.stringify(digestStats), {
+						status: 200,
+						headers: { "Content-Type": "application/json" },
+					});
+				}
+				return originalFetch(input as RequestInfo, init);
+			},
+		);
+		vi.stubGlobal("fetch", conditionalFetch);
+
+		try {
+			const response = await SchedulePost(
+				createApiContext({
+					request: createScheduleRequest(testCronSecret),
+				}),
+			);
+			expect(response.status).toBe(200);
+
+			const { data: marketLogs } = await adminClient
+				.from("notification_log")
+				.select("id")
+				.eq("user_id", marketUser.id)
+				.eq("type", "market");
+			expect(marketLogs).toHaveLength(1);
+
+			expect(dailyDigestCalls.length).toBeGreaterThan(0);
+			const parsed = JSON.parse(dailyDigestCalls[0].body) as {
+				userId?: string;
+			};
+			expect(parsed.userId).toBe(dailyUser.id);
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
 });
