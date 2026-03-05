@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
 	computeAnomalyScore,
 	computePriceOnlyScore,
-	getThresholdForSensitivity,
 } from "../../../src/lib/market-notifications/anomaly-detection";
 import type { AssetSnapshot } from "../../../src/lib/market-notifications/snapshot-store";
 import type { ExtendedAssetQuote } from "../../../src/lib/providers/price-fetcher";
@@ -62,22 +61,6 @@ function makeNewsItem(
 	};
 }
 
-describe("getThresholdForSensitivity", () => {
-	it("returns 80 for very_large move size (1)", () => {
-		expect(getThresholdForSensitivity(1)).toBe(80);
-	});
-	it("returns 70 for large move size (2)", () => {
-		expect(getThresholdForSensitivity(2)).toBe(70);
-	});
-	it("returns 60 for moderate move size (3)", () => {
-		expect(getThresholdForSensitivity(3)).toBe(60);
-	});
-	it("defaults to 80 for unknown values", () => {
-		expect(getThresholdForSensitivity(0)).toBe(80);
-		expect(getThresholdForSensitivity(99)).toBe(80);
-	});
-});
-
 describe("computeAnomalyScore", () => {
 	it("AAPL with only 3 snapshots collected so far returns insufficient data", () => {
 		const result = computeAnomalyScore({
@@ -88,7 +71,6 @@ describe("computeAnomalyScore", () => {
 		});
 
 		expect(result.score).toBe(0);
-		expect(result.triggered).toBe(false);
 		expect(result.summary).toContain("Insufficient data");
 	});
 
@@ -111,10 +93,10 @@ describe("computeAnomalyScore", () => {
 			snapshots,
 			news: null,
 			hasEarningsNearby: false,
-			sensitivity: 3, // even at moderate (most sensitive)
 		});
 
-		expect(result.triggered).toBe(false);
+		// Low score because the move is small relative to the stock's own intraday range
+		expect(result.score).toBeLessThan(25);
 	});
 
 	it("AAPL 2% move on a tight 1.5% range day scores high (normalization amplifies)", () => {
@@ -205,7 +187,6 @@ describe("computeAnomalyScore", () => {
 			snapshots,
 			news: null,
 			hasEarningsNearby: false,
-			sensitivity: 3,
 		});
 
 		const priceSignal = result.signals.find((s) => s.name === "price_move");
@@ -248,11 +229,9 @@ describe("computeAnomalyScore", () => {
 				}),
 			],
 			hasEarningsNearby: true,
-			sensitivity: 1, // very_large (highest threshold)
 		});
 
 		expect(result.score).toBeGreaterThanOrEqual(80);
-		expect(result.triggered).toBe(true);
 	});
 
 	it("AAPL morning headline published 12 hours ago scores 10 pts for stale news", () => {
@@ -353,8 +332,8 @@ describe("computeAnomalyScore", () => {
 		expect(largeBreakout?.points).toBe(15);
 	});
 
-	it("GOOGL 4% move triggers moderate-sensitivity user but not very_large-sensitivity user", () => {
-		// Same market event, different move size thresholds — moderate catches it, very_large does not
+	it("GOOGL 4% drop scores lower when Technology sector also dropped 3%", () => {
+		// When the whole sector is down, the stock's move is less anomalous
 		const snapshots = makeSnapshots(10, 176.85).map((s) => ({
 			...s,
 			symbol: "GOOGL",
@@ -364,44 +343,65 @@ describe("computeAnomalyScore", () => {
 		}));
 
 		const quote = makeQuote({
-			price: 183.92, // ~4% move
-			dayHigh: 183.92,
-			dayLow: 175.1,
+			price: 169.78, // ~4% drop
+			changePercent: -4.0,
+			dayHigh: 178.62,
+			dayLow: 169.78,
 			volume: 42_000_000, // 1.5x median
 		});
 
-		// Just 1 stale headline = 10 pts news
-		const news = [
-			makeNewsItem({
-				headline: "Google faces new antitrust scrutiny in EU",
-				datetime: Date.now() / 1000 - 12 * 60 * 60,
-			}),
-		];
-
-		const moderateResult = computeAnomalyScore({
+		const withoutBenchmark = computeAnomalyScore({
 			currentQuote: quote,
 			snapshots,
-			news,
+			news: null,
 			hasEarningsNearby: false,
-			sensitivity: 3, // moderate — lowest threshold (60)
 		});
 
-		const veryLargeResult = computeAnomalyScore({
+		const withSectorDown = computeAnomalyScore({
 			currentQuote: quote,
 			snapshots,
-			news,
+			news: null,
 			hasEarningsNearby: false,
-			sensitivity: 1, // very_large — highest threshold (80)
+			benchmarkMovePct: -3.0, // sector dropped 3% too
 		});
 
-		// Same score, different trigger outcomes
-		expect(moderateResult.score).toBe(veryLargeResult.score);
+		// Score should be lower when sector explains much of the move
+		expect(withSectorDown.score).toBeLessThan(withoutBenchmark.score);
+	});
 
-		// If the score is between 60-79, it triggers at moderate but not very_large
-		if (moderateResult.score >= 60 && moderateResult.score < 80) {
-			expect(moderateResult.triggered).toBe(true);
-			expect(veryLargeResult.triggered).toBe(false);
-		}
+	it("AAPL 3% drop scores the same when benchmark moved in opposite direction", () => {
+		// Stock drops while market rallies — not dampened, it's contrarian
+		const snapshots = makeSnapshots(10, 187.42).map((s) => ({
+			...s,
+			dayHigh: 189.29,
+			dayLow: 187.42,
+		}));
+
+		const quote = makeQuote({
+			price: 181.79, // ~3% drop
+			changePercent: -3.0,
+			dayHigh: 189.29,
+			dayLow: 181.79,
+			volume: null,
+		});
+
+		const withoutBenchmark = computeAnomalyScore({
+			currentQuote: quote,
+			snapshots,
+			news: null,
+			hasEarningsNearby: false,
+		});
+
+		const withMarketUp = computeAnomalyScore({
+			currentQuote: quote,
+			snapshots,
+			news: null,
+			hasEarningsNearby: false,
+			benchmarkMovePct: 1.5, // market is UP while stock is DOWN
+		});
+
+		// No dampening when directions differ
+		expect(withMarketUp.score).toBe(withoutBenchmark.score);
 	});
 
 	it("AAPL with earnings in 2 days adds 15 pts for earnings proximity", () => {
@@ -415,7 +415,6 @@ describe("computeAnomalyScore", () => {
 		const earningsSignal = result.signals.find(
 			(s) => s.name === "earnings_proximity",
 		);
-		expect(earningsSignal?.triggered).toBe(true);
 		expect(earningsSignal?.points).toBe(15);
 	});
 });

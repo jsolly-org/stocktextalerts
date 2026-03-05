@@ -65,7 +65,9 @@ function makeAlert(overrides: Partial<EnrichedAlert> = {}): EnrichedAlert {
 	return {
 		symbol: "LDOS",
 		priceContext: "LDOS is down 11.1% today ($173.00)",
-		signalContext: "down 11.1% (sudden, vol 1.2x)",
+		signalContext: "The broader market (SPY) moved 0.85% today.",
+		grokContext:
+			"down 11.10% ($21.42) from previous close, anomaly score 52/100 (sustained, vol 1.2x)",
 		grokResult: null,
 		intradayCloses: null,
 		intradayTimestamps: null,
@@ -246,7 +248,7 @@ describe("A user with price alerts enabled receives Grok-enriched move context",
 		const smsBody = sendSms.mock.calls[0][0].body;
 		expect(smsBody).not.toContain("guidance");
 		expect(smsBody).toContain("LDOS is down");
-		expect(smsBody).toContain("Signals:");
+		expect(smsBody).toContain("broader market");
 	});
 
 	it("email HTML includes a why-moving section with source labels", async () => {

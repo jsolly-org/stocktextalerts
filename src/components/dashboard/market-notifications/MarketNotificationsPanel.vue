@@ -86,14 +86,14 @@
 								id="market_asset_price_alerts_enabled_label"
 								class="text-base font-semibold text-heading"
 							>
-								Realtime Asset Price Alerts
+								Smart Price Alerts
 							</span>
 							<MassiveLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
 							<GrokLogoLightIcon class="h-4.5 w-auto shrink-0 dark:hidden" aria-label="Powered by Grok" role="img" />
 							<GrokLogoDarkIcon class="hidden h-4.5 w-auto shrink-0 dark:inline" aria-label="Powered by Grok" role="img" />
 						</div>
 						<p id="market_asset_price_alerts_enabled_description" class="text-sm text-body-secondary mt-0.5">
-							Immediate alerts for significant price moves during US trading hours. One notification per asset per day.
+							Automatically detects unusual price movements for your tracked assets during US trading hours. Adapts to each stock's typical volatility — one alert per asset per day.
 						</p>
 					</div>
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
@@ -103,7 +103,7 @@
 								v-model="priceAlertsIncludeEmail"
 								:disabled="notificationSetupBlocked || !emailEnabled"
 								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
-								aria-label="Enable email for realtime price alerts"
+								aria-label="Enable email for smart price alerts"
 								aria-describedby="market_asset_price_alerts_enabled_description"
 							/>
 							<span class="text-sm font-normal text-label" aria-hidden="true">Email</span>
@@ -114,7 +114,7 @@
 								v-model="priceAlertsIncludeSms"
 								:disabled="notificationSetupBlocked || !smsReady"
 								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
-								aria-label="Enable SMS for realtime price alerts"
+								aria-label="Enable SMS for smart price alerts"
 								aria-describedby="market_asset_price_alerts_enabled_description"
 							/>
 							<span class="text-sm font-normal text-label" aria-hidden="true">SMS</span>
@@ -128,8 +128,8 @@
 						class="mt-3 border-t border-divider pt-3 pl-3 sm:pl-4"
 					>
 						<fieldset :disabled="notificationSetupBlocked">
-							<legend class="sr-only">Price alert move-size threshold</legend>
-							<p id="price-alert-move-size-help" class="text-sm text-label mb-1.5">How big should a move be before it deserves an alert?</p>
+							<legend class="sr-only">Alert sensitivity</legend>
+							<p id="price-alert-move-size-help" class="text-sm text-label mb-1.5">How sensitive should anomaly detection be?</p>
 							<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 								<label
 									v-for="option in moveSizeOptions"
@@ -145,13 +145,13 @@
 										class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-0 align-middle"
 									/>
 									<span class="ml-1.5 align-middle">{{ option.label }}</span>
-									<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
+									<p class="mt-1 text-xs text-muted">{{ option.description }}</p>
 								</label>
 							</div>
 						</fieldset>
 					</div>
 				</FadeTransition>
-			</div>
+				</div>
 
 			<div
 				class="mt-4 rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200"
@@ -452,7 +452,6 @@ import { useDashboardUser } from "../composables/useDashboardUser";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 import { useScheduledUpdateTiming } from "./helpers";
 import ScheduledUpdateControls from "./ScheduledUpdateControls.vue";
-import { useOnboardingExamples } from "./useOnboardingExamples";
 
 interface Props {
 	emailEnabled: boolean;
@@ -506,11 +505,18 @@ const priceAlertMoveSize = ref<AlertMoveSize>(
 	normalizeMoveSize(user.value.market_asset_price_alert_move_size),
 );
 
-const {
-	moveSizeOptions,
-} = useOnboardingExamples(trackedAssets, priceAlertsEnabled);
-
-
+const moveSizeOptions = [
+	{
+		value: "significant" as const,
+		label: "Significant",
+		description: "More sensitive — alerts on moderate anomalies relative to each stock's typical volatility.",
+	},
+	{
+		value: "extreme" as const,
+		label: "Extreme",
+		description: "Less sensitive — only alerts on large anomalies that strongly deviate from normal trading.",
+	},
+];
 
 const MAX_SCHEDULED_UPDATE_MINUTES = 23 * 60 + 59;
 const SCHEDULED_UPDATE_INCREMENT_MINUTES = 1;
@@ -798,7 +804,6 @@ watch(priceAlertMoveSize, (moveSize) => {
 	};
 	notifyChange();
 });
-
 
 watch([priceAlertsIncludeEmail, priceAlertsIncludeSms], ([email, sms]) => {
 	if (

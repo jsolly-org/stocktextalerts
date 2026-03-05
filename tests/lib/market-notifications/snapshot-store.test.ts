@@ -19,6 +19,12 @@ describe("snapshot-store purge", () => {
 					{ onConflict: "symbol" },
 				);
 
+			// Clean up any pre-existing snapshots for this symbol (from other tests)
+			await adminClient
+				.from("asset_snapshots")
+				.delete()
+				.eq("symbol", asset.symbol);
+
 			// Insert snapshots: one recent, one older than retention
 			const now = new Date();
 			const oldCutoff = new Date(
