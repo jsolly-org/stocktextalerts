@@ -149,12 +149,15 @@ runs:
         [[ "$COMMENT_BODY_LC" =~ (usage|rate)[-_[:space:]]+limit ]] && skip "usage/rate limit notice"
         # Skip CodeRabbit "reviews paused" notices.
         [[ "$COMMENT_BODY_LC" =~ reviews?[[:space:]]+paused ]] && skip "reviews paused notice"
-        # Skip CodeRabbit auto-generated comments (summaries, walkthrough, auto-replies).
+        # Skip CodeRabbit auto-generated comments (summaries, walkthrough, auto-replies),
+        # but NOT actionable reviews (which also embed an auto-generated HTML marker).
         # Covers markers like:
         #   <!-- This is an auto-generated reply by CodeRabbit -->
         #   <!-- This is an auto-generated comment: summarize by coderabbit.ai -->
-        [[ "$COMMENT_BODY" == *"<!-- This is an auto-generated"*"by CodeRabbit -->"* ]] && skip "CodeRabbit auto-generated comment"
-        [[ "$COMMENT_BODY" == *"<!-- This is an auto-generated"*"by coderabbit.ai -->"* ]] && skip "CodeRabbit auto-generated comment"
+        if [[ "$COMMENT_BODY_LC" != *"actionable comments posted"* ]]; then
+          [[ "$COMMENT_BODY" == *"<!-- This is an auto-generated"*"by CodeRabbit -->"* ]] && skip "CodeRabbit auto-generated comment"
+          [[ "$COMMENT_BODY" == *"<!-- This is an auto-generated"*"by coderabbit.ai -->"* ]] && skip "CodeRabbit auto-generated comment"
+        fi
 
         # Review events without body text
         [[ "$EVENT_NAME" == "pull_request_review" && ( -z "$COMMENT_BODY" || "$COMMENT_BODY" == "null" ) ]] && skip "review without body"
