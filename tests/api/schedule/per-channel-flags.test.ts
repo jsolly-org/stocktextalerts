@@ -1,7 +1,7 @@
-import type { APIContext } from "astro";
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../../../src/pages/api/schedule";
+import { createApiContext } from "../../helpers/api-context";
 import { isLiveProviderEnabled } from "../../helpers/live-api";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
@@ -65,7 +65,7 @@ describe("Per-channel include flags gate scheduled notification delivery.", () =
 			})
 			.eq("id", id);
 
-		const response = await POST({ request: createRequest() } as APIContext);
+		const response = await POST(createApiContext({ request: createRequest() }));
 		expect(response.status).toBe(200);
 
 		// No email notification should have been logged
@@ -102,7 +102,7 @@ describe("Per-channel include flags gate scheduled notification delivery.", () =
 			})
 			.eq("id", id);
 
-		const response = await POST({ request: createRequest() } as APIContext);
+		const response = await POST(createApiContext({ request: createRequest() }));
 		expect(response.status).toBe(200);
 
 		// No SMS notification should have been logged
@@ -147,7 +147,7 @@ describe("Per-channel include flags gate scheduled notification delivery.", () =
 			})
 			.eq("id", id);
 
-		const response = await POST({ request: createRequest() } as APIContext);
+		const response = await POST(createApiContext({ request: createRequest() }));
 		expect(response.status).toBe(200);
 
 		const { data: emailLogs } = await adminClient

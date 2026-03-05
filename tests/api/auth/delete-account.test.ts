@@ -1,6 +1,6 @@
-import type { APIContext } from "astro";
 import { describe, expect, it, vi } from "vitest";
 import { POST } from "../../../src/pages/api/auth/delete-account";
+import { createApiContext } from "../../helpers/api-context";
 import { TEST_PASSWORD } from "../../helpers/constants";
 import {
 	adminClient,
@@ -27,22 +27,13 @@ describe("A signed-in user deletes their account from the profile page.", () => 
 				method: "POST",
 			});
 
-			const response = await POST({
-				request,
-				cookies: {
-					get: (name: string) => {
-						const value = authCookies.get(name);
-						return value ? { value } : undefined;
-					},
-					set: () => {},
-					delete: deleteSpy,
-				},
-				redirect: (url: string) =>
-					new Response(null, {
-						status: 302,
-						headers: { Location: url },
-					}),
-			} as unknown as APIContext);
+			const response = await POST(
+				createApiContext({
+					request,
+					cookies: authCookies,
+					onDeleteCookie: deleteSpy,
+				}),
+			);
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toBe(

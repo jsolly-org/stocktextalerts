@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/auth/update-password";
+import { createApiContext } from "../../helpers/api-context";
 import { NEW_PASSWORD } from "../../helpers/constants";
-import { toRedirect } from "../../helpers/request-helpers";
 import { adminClient } from "../../helpers/test-env";
 import { cleanupTestUser, createTestUser } from "../../helpers/test-user";
 
@@ -39,10 +38,7 @@ describe("A user resets their password from the recovery flow.", () => {
 				}),
 			});
 
-			const response = await POST({
-				request,
-				redirect: toRedirect,
-			} as unknown as APIContext);
+			const response = await POST(createApiContext({ request }));
 
 			expect(response.status).toBe(303);
 			expect(response.headers.get("Location")).toBe(
@@ -69,10 +65,7 @@ describe("A user resets their password from the recovery flow.", () => {
 			}),
 		});
 
-		const response = await POST({
-			request,
-			redirect: toRedirect,
-		} as unknown as APIContext);
+		const response = await POST(createApiContext({ request }));
 
 		expect(response.status).toBe(303);
 		const location = response.headers.get("Location");
@@ -90,10 +83,7 @@ describe("A user resets their password from the recovery flow.", () => {
 			}),
 		});
 
-		const response = await POST({
-			request,
-			redirect: toRedirect,
-		} as unknown as APIContext);
+		const response = await POST(createApiContext({ request }));
 
 		expect(response.status).toBe(303);
 		const location = response.headers.get("Location");

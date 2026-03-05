@@ -1,6 +1,6 @@
-import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/market-notifications/next-send-at";
+import { createApiContext } from "../../helpers/api-context";
 
 describe("The next-send-at API requires authentication.", () => {
 	it("Unauthenticated requests receive 401.", async () => {
@@ -16,14 +16,7 @@ describe("The next-send-at API requires authentication.", () => {
 			},
 		);
 
-		const response = await POST({
-			request,
-			cookies: {
-				get: () => undefined,
-				set: () => {},
-			},
-			locals: {},
-		} as unknown as APIContext);
+		const response = await POST(createApiContext({ request }));
 
 		expect(response.status).toBe(401);
 		const payload = (await response.json()) as { ok: boolean; message: string };

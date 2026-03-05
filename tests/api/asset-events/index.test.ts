@@ -1,4 +1,3 @@
-import type { APIContext } from "astro";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET as runAssetEventsCron } from "../../../src/pages/api/asset-events/index";
 import { createApiContext } from "../../helpers/api-context";
@@ -32,16 +31,18 @@ describe("A cron worker preloads upcoming asset events.", () => {
 			.mockResolvedValueOnce({ upserted: 4, failedProviders: [] })
 			.mockResolvedValueOnce({ upserted: 3, failedProviders: [] });
 
-		const response = await runAssetEventsCron({
-			request: createCronRequest({
-				path: "/api/asset-events",
-				cronSecret: testCronSecret,
-				method: "GET",
+		const response = await runAssetEventsCron(
+			createApiContext({
+				request: createCronRequest({
+					path: "/api/asset-events",
+					cronSecret: testCronSecret,
+					method: "GET",
+				}),
+				locals: {
+					requestId: "asset-events-cron-test",
+				},
 			}),
-			locals: {
-				requestId: "asset-events-cron-test",
-			},
-		} as APIContext);
+		);
 
 		expect(response.status).toBe(200);
 		expect(fetchAndStoreAssetEventsMock).toHaveBeenCalledTimes(2);
@@ -78,13 +79,15 @@ describe("A cron worker preloads upcoming asset events.", () => {
 				failedProviders: ["finnhub"],
 			});
 
-		const response = await runAssetEventsCron({
-			request: createCronRequest({
-				path: "/api/asset-events",
-				cronSecret: testCronSecret,
-				method: "GET",
+		const response = await runAssetEventsCron(
+			createApiContext({
+				request: createCronRequest({
+					path: "/api/asset-events",
+					cronSecret: testCronSecret,
+					method: "GET",
+				}),
 			}),
-		} as APIContext);
+		);
 
 		expect(response.status).toBe(200);
 		const payload = (await response.json()) as { success: boolean };

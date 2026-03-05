@@ -65,6 +65,10 @@ BEGIN
       END IF;
     END LOOP;
 
+    SELECT COALESCE(array_agg(v ORDER BY v), '{}')
+    INTO new_times
+    FROM unnest(new_times) AS v;
+
     IF changed OR new_times IS DISTINCT FROM r.market_scheduled_asset_price_times THEN
       UPDATE public.users
       SET market_scheduled_asset_price_times = new_times

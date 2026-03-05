@@ -1,6 +1,6 @@
-import type { APIContext } from "astro";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../../../src/pages/api/messaging/inbound";
+import { createApiContext } from "../../helpers/api-context";
 import { buildSmsInboundRequest } from "../../helpers/request-helpers";
 import { adminClient } from "../../helpers/test-env";
 import {
@@ -52,13 +52,15 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 			throw new Error(seedSmsFieldsError.message);
 		}
 
-		const response = await POST({
-			request: buildSmsInboundRequest({
-				from,
-				body: "STOP",
-				includeSignature: true,
+		const response = await POST(
+			createApiContext({
+				request: buildSmsInboundRequest({
+					from,
+					body: "STOP",
+					includeSignature: true,
+				}),
 			}),
-		} as APIContext);
+		);
 
 		expect(response.status).toBe(200);
 		const body = await response.text();
@@ -112,13 +114,15 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 			.eq("id", testUser.id);
 		if (seedError) throw new Error(seedError.message);
 
-		const response = await POST({
-			request: buildSmsInboundRequest({
-				from,
-				body: "STOP ALL",
-				includeSignature: true,
+		const response = await POST(
+			createApiContext({
+				request: buildSmsInboundRequest({
+					from,
+					body: "STOP ALL",
+					includeSignature: true,
+				}),
 			}),
-		} as APIContext);
+		);
 
 		expect(response.status).toBe(200);
 		const body = await response.text();
@@ -153,13 +157,15 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 		const from = await getTestUserPhone(testUser.id);
 
-		const response = await POST({
-			request: buildSmsInboundRequest({
-				from,
-				body: "STOP EMAIL",
-				includeSignature: true,
+		const response = await POST(
+			createApiContext({
+				request: buildSmsInboundRequest({
+					from,
+					body: "STOP EMAIL",
+					includeSignature: true,
+				}),
 			}),
-		} as APIContext);
+		);
 
 		expect(response.status).toBe(200);
 		const body = await response.text();
@@ -200,13 +206,15 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 			.eq("id", testUser.id);
 		if (seedError) throw new Error(seedError.message);
 
-		const response = await POST({
-			request: buildSmsInboundRequest({
-				from,
-				body: "START",
-				includeSignature: true,
+		const response = await POST(
+			createApiContext({
+				request: buildSmsInboundRequest({
+					from,
+					body: "START",
+					includeSignature: true,
+				}),
 			}),
-		} as APIContext);
+		);
 
 		expect(response.status).toBe(200);
 		const body = await response.text();
@@ -255,23 +263,27 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		if (seedError) throw new Error(seedError.message);
 
 		// STOP
-		const stopResponse = await POST({
-			request: buildSmsInboundRequest({
-				from,
-				body: "STOP",
-				includeSignature: true,
+		const stopResponse = await POST(
+			createApiContext({
+				request: buildSmsInboundRequest({
+					from,
+					body: "STOP",
+					includeSignature: true,
+				}),
 			}),
-		} as APIContext);
+		);
 		expect(stopResponse.status).toBe(200);
 
 		// START
-		const startResponse = await POST({
-			request: buildSmsInboundRequest({
-				from,
-				body: "START",
-				includeSignature: true,
+		const startResponse = await POST(
+			createApiContext({
+				request: buildSmsInboundRequest({
+					from,
+					body: "START",
+					includeSignature: true,
+				}),
 			}),
-		} as APIContext);
+		);
 		expect(startResponse.status).toBe(200);
 
 		const { data: updated } = await adminClient
@@ -320,13 +332,15 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 		const from = await getTestUserPhone(testUser.id);
 
-		const response = await POST({
-			request: buildSmsInboundRequest({
-				from,
-				body: "HELP",
-				includeSignature: true,
+		const response = await POST(
+			createApiContext({
+				request: buildSmsInboundRequest({
+					from,
+					body: "HELP",
+					includeSignature: true,
+				}),
 			}),
-		} as APIContext);
+		);
 
 		expect(response.status).toBe(200);
 		const body = await response.text();
@@ -345,13 +359,15 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 		const from = await getTestUserPhone(testUser.id);
 
-		const response = await POST({
-			request: buildSmsInboundRequest({
-				from,
-				body: "random text",
-				includeSignature: true,
+		const response = await POST(
+			createApiContext({
+				request: buildSmsInboundRequest({
+					from,
+					body: "random text",
+					includeSignature: true,
+				}),
 			}),
-		} as APIContext);
+		);
 
 		expect(response.status).toBe(200);
 		const body = await response.text();
@@ -373,13 +389,15 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 		const from = await getTestUserPhone(testUser.id);
 
-		const response = await POST({
-			request: buildSmsInboundRequest({
-				from,
-				body: "STOP",
-				includeSignature: true,
+		const response = await POST(
+			createApiContext({
+				request: buildSmsInboundRequest({
+					from,
+					body: "STOP",
+					includeSignature: true,
+				}),
 			}),
-		} as APIContext);
+		);
 
 		expect(response.status).toBe(200);
 		const body = await response.text();
@@ -400,13 +418,15 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
 		validateRequestMock.mockReturnValueOnce(true);
 
-		const response = await POST({
-			request: buildSmsInboundRequest({
-				from: "+15559999999",
-				body: "STOP",
-				includeSignature: true,
+		const response = await POST(
+			createApiContext({
+				request: buildSmsInboundRequest({
+					from: "+15559999999",
+					body: "STOP",
+					includeSignature: true,
+				}),
 			}),
-		} as APIContext);
+		);
 
 		expect(response.status).toBe(200);
 		const body = await response.text();

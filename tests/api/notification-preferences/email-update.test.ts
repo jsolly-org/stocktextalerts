@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/notification-preferences/update";
+import { createApiContext } from "../../helpers/api-context";
 import {
 	adminClient,
 	createAuthenticatedCookies,
@@ -35,16 +35,7 @@ describe("A signed-in user updates their email notification preference.", () => 
 			},
 		);
 
-		const response = await POST({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const cookie = cookies.get(name);
-					return cookie ? { value: cookie } : undefined;
-				},
-				set: () => {},
-			},
-		} as unknown as APIContext);
+		const response = await POST(createApiContext({ request, cookies }));
 
 		expect(response.status).toBe(200);
 
@@ -84,16 +75,7 @@ describe("A signed-in user updates their email notification preference.", () => 
 			},
 		);
 
-		const response = await POST({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const cookie = cookies.get(name);
-					return cookie ? { value: cookie } : undefined;
-				},
-				set: () => {},
-			},
-		} as unknown as APIContext);
+		const response = await POST(createApiContext({ request, cookies }));
 
 		expect(response.status).toBe(200);
 

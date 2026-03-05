@@ -1,6 +1,6 @@
-import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/assets/update";
+import { createApiContext } from "../../helpers/api-context";
 
 describe("A logged-out user cannot update tracked assets.", () => {
 	it("A logged-out user cannot update tracked assets.", async () => {
@@ -12,13 +12,7 @@ describe("A logged-out user cannot update tracked assets.", () => {
 			body: formData,
 		});
 
-		const response = await POST({
-			request,
-			cookies: {
-				get: () => undefined,
-				set: () => {},
-			},
-		} as unknown as APIContext);
+		const response = await POST(createApiContext({ request }));
 
 		expect(response.status).toBe(401);
 		const payload = (await response.json()) as { ok: boolean; message: string };

@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { MIN_PASSWORD_LENGTH } from "../../../../src/lib/constants";
 import { POST } from "../../../../src/pages/api/auth/email/register";
-import { toRedirect } from "../../../helpers/request-helpers";
+import { createApiContext } from "../../../helpers/api-context";
 
 describe("A visitor attempts to register with an invalid password.", () => {
 	it("The request is rejected when the password is shorter than the minimum length.", async () => {
@@ -18,10 +17,7 @@ describe("A visitor attempts to register with an invalid password.", () => {
 			}),
 		});
 
-		const response = await POST({
-			request,
-			redirect: toRedirect,
-		} as APIContext);
+		const response = await POST(createApiContext({ request }));
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toContain(
@@ -41,10 +37,7 @@ describe("A visitor attempts to register with an invalid password.", () => {
 			}),
 		});
 
-		const response = await POST({
-			request,
-			redirect: toRedirect,
-		} as APIContext);
+		const response = await POST(createApiContext({ request }));
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toContain(

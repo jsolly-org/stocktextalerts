@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
-import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/auth/signin";
-import { toRedirect } from "../../helpers/request-helpers";
+import { createApiContext } from "../../helpers/api-context";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
@@ -23,13 +22,7 @@ describe("A user signs in with an email and password.", () => {
 				}),
 			});
 
-			const response = await POST({
-				request,
-				cookies: {
-					set: () => {},
-				},
-				redirect: toRedirect,
-			} as unknown as APIContext);
+			const response = await POST(createApiContext({ request }));
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toBe("/dashboard");
@@ -47,13 +40,7 @@ describe("A user signs in with an email and password.", () => {
 			}),
 		});
 
-		const response = await POST({
-			request,
-			cookies: {
-				set: () => {},
-			},
-			redirect: toRedirect,
-		} as unknown as APIContext);
+		const response = await POST(createApiContext({ request }));
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toContain(

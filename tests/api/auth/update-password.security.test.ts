@@ -1,7 +1,6 @@
-import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/auth/update-password";
-import { toRedirect } from "../../helpers/request-helpers";
+import { createApiContext } from "../../helpers/api-context";
 
 describe("A user submits the password recovery form.", () => {
 	it("The request is rejected when the form is incomplete.", async () => {
@@ -14,10 +13,7 @@ describe("A user submits the password recovery form.", () => {
 			}),
 		});
 
-		const response = await POST({
-			request,
-			redirect: toRedirect,
-		} as unknown as APIContext);
+		const response = await POST(createApiContext({ request }));
 
 		expect(response.status).toBe(303);
 		const location = response.headers.get("Location");

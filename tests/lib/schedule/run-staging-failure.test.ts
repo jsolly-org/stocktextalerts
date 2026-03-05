@@ -2,7 +2,6 @@
  * Tests that when staged delivery fails (throws), fallback still runs.
  * Uses a scoped spy so we can simulate the failure path without affecting other tests.
  */
-import type { APIContext } from "astro";
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,6 +11,7 @@ vi.mock("../../../src/lib/time/market-calendar", () => ({
 
 import * as deliverModule from "../../../src/lib/staged-notifications/deliver";
 import { POST } from "../../../src/pages/api/schedule";
+import { createApiContext } from "../../helpers/api-context";
 import { createScheduleRequest } from "../../helpers/schedule-request";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
@@ -64,9 +64,11 @@ describe("runScheduledNotifications: staging failure fallback", () => {
 			.eq("id", id);
 		expect(updateError).toBeNull();
 
-		const response = await POST({
-			request: createScheduleRequest(testCronSecret),
-		} as APIContext);
+		const response = await POST(
+			createApiContext({
+				request: createScheduleRequest(testCronSecret),
+			}),
+		);
 		expect(response.status).toBe(200);
 
 		const { data: logs } = await adminClient
