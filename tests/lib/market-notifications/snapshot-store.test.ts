@@ -20,10 +20,11 @@ describe("snapshot-store purge", () => {
 				);
 
 			// Clean up any pre-existing snapshots for this symbol (from other tests)
-			await adminClient
+			const { error: cleanupError } = await adminClient
 				.from("asset_snapshots")
 				.delete()
 				.eq("symbol", asset.symbol);
+			expect(cleanupError).toBeNull();
 
 			// Insert snapshots: one recent, one older than retention
 			const now = new Date();
