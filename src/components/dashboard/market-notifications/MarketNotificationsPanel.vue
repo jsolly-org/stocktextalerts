@@ -128,7 +128,8 @@
 						class="mt-3 border-t border-divider pt-3 pl-3 sm:pl-4"
 					>
 						<fieldset :disabled="notificationSetupBlocked">
-							<p class="text-sm text-label mb-1.5">How big should a move be before it deserves an alert?</p>
+							<legend class="sr-only">Price alert move-size threshold</legend>
+							<p id="price-alert-move-size-help" class="text-sm text-label mb-1.5">How big should a move be before it deserves an alert?</p>
 							<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 								<label
 									v-for="option in moveSizeOptions"
@@ -939,9 +940,9 @@ async function fetchTargets() {
 				if (typeof price === "number") priceMap.set(symbol, price);
 			}
 			currentPrices.value = priceMap;
+			marketOpen.value = isMarketCurrentlyOpen();
 			if (priceMap.size > 0) {
 				pricesFetchedAt.value = new Date();
-				marketOpen.value = isMarketCurrentlyOpen();
 			}
 		}
 	} catch {
