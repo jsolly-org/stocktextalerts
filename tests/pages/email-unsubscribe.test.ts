@@ -60,6 +60,43 @@ describe("A user clicks the email unsubscribe link.", () => {
 		expect(updated?.market_scheduled_asset_price_include_sms).toBe(true);
 	});
 
+	it("Invalid or expired unsubscribe token does not change user preferences.", async () => {
+		const user = await createTestUser({
+			email: createTestEmail("invalid-token"),
+			password: "TestPassword123!",
+			confirmed: true,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: true,
+			phoneCountryCode: "+1",
+			phoneNumber: generateUniquePhoneNumber(),
+			marketScheduledAssetPriceIncludeSms: true,
+		});
+		registerTestUserForCleanup(user.id);
+
+		const url = new URL("http://localhost/email/unsubscribe");
+		url.searchParams.set("user", user.id);
+		url.searchParams.set("token", "invalid-token-value");
+
+		const container = await AstroContainer.create({ renderers });
+		const response = await container.renderToResponse(EmailUnsubscribePage, {
+			request: new Request(url.toString()),
+		});
+
+		expect(response.status).toBe(200);
+
+		const { data: updated, error } = await adminClient
+			.from("users")
+			.select(
+				"email_notifications_enabled,market_scheduled_asset_price_include_sms",
+			)
+			.eq("id", user.id)
+			.maybeSingle();
+
+		expect(error).toBeNull();
+		expect(updated?.email_notifications_enabled).toBe(true);
+		expect(updated?.market_scheduled_asset_price_include_sms).toBe(true);
+	});
+
 	it("Email unsubscribe can also disable SMS when requested.", async () => {
 		const user = await createTestUser({
 			email: createTestEmail("sms-unsub"),

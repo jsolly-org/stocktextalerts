@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { jsonResponse } from "../../../lib/api/json-response";
+import { ASSET_SYMBOL_MAX_LENGTH } from "../../../lib/constants";
 import { createUserService, getUserAssets } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
@@ -13,8 +14,7 @@ import { fetchAssetPrices } from "../../../lib/providers/price-fetcher";
  * - null target_price → DELETE the target
  * - number → validate, infer direction, UPSERT to price_targets
  */
-export const POST: APIRoute = async ({ request, cookies, locals }) => {
-	const url = new URL(request.url);
+export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,
@@ -49,7 +49,11 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const normalizedSymbol =
 		typeof symbol === "string" ? symbol.trim().toUpperCase() : "";
 
+	// Keep in sync with assets.symbol DB constraint.
 	if (!normalizedSymbol) {
+		return jsonResponse(400, { ok: false, message: "invalid_symbol" });
+	}
+	if (normalizedSymbol.length > ASSET_SYMBOL_MAX_LENGTH) {
 		return jsonResponse(400, { ok: false, message: "invalid_symbol" });
 	}
 

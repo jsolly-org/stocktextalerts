@@ -1,7 +1,8 @@
-import type { APIContext } from "astro";
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../../../src/pages/api/schedule";
+import { createApiContext } from "../../helpers/api-context";
+import { createCronRequest } from "../../helpers/cron";
 import { isLiveProviderEnabled } from "../../helpers/live-api";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
@@ -62,14 +63,14 @@ describe("Users receive scheduled asset update notifications.", () => {
 			.eq("id", id);
 		expect(updateError).toBeNull();
 
-		const response = await POST({
-			request: new Request("http://localhost/api/schedule", {
-				method: "POST",
-				headers: {
-					Authorization: `Bearer ${testCronSecret}`,
-				},
+		const response = await POST(
+			createApiContext({
+				request: createCronRequest({
+					path: "/api/schedule",
+					cronSecret: testCronSecret,
+				}),
 			}),
-		} as APIContext);
+		);
 
 		expect(response.status).toBe(200);
 		const json = await response.json();

@@ -1,11 +1,10 @@
 import { randomUUID } from "node:crypto";
-import type { APIContext } from "astro";
 import { DateTime } from "luxon";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_TIMEZONE } from "../../../../src/lib/constants";
 import { POST } from "../../../../src/pages/api/auth/email/register";
+import { createApiContext } from "../../../helpers/api-context";
 import { TEST_PASSWORD } from "../../../helpers/constants";
-import { toRedirect } from "../../../helpers/request-helpers";
 import { adminClient } from "../../../helpers/test-env";
 import { cleanupTestUser } from "../../../helpers/test-user";
 
@@ -25,10 +24,7 @@ describe("A visitor registers for a new account with email and password.", () =>
 		});
 
 		try {
-			const response = await POST({
-				request,
-				redirect: toRedirect,
-			} as APIContext);
+			const response = await POST(createApiContext({ request }));
 
 			// Verify redirect to unconfirmed email page
 			expect(response.status).toBe(302);
@@ -82,10 +78,7 @@ describe("A visitor registers for a new account with email and password.", () =>
 		});
 
 		try {
-			const response = await POST({
-				request,
-				redirect: toRedirect,
-			} as APIContext);
+			const response = await POST(createApiContext({ request }));
 
 			// Verify redirect to unconfirmed email page
 			expect(response.status).toBe(302);
@@ -130,10 +123,7 @@ describe("A visitor registers for a new account with email and password.", () =>
 		});
 
 		try {
-			const response = await POST({
-				request,
-				redirect: toRedirect,
-			} as APIContext);
+			const response = await POST(createApiContext({ request }));
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toContain("/auth/unconfirmed");
@@ -175,10 +165,7 @@ describe("A visitor registers for a new account with email and password.", () =>
 		});
 
 		try {
-			const response = await POST({
-				request,
-				redirect: toRedirect,
-			} as APIContext);
+			const response = await POST(createApiContext({ request }));
 
 			// Verify registration succeeded
 			expect(response.status).toBe(302);

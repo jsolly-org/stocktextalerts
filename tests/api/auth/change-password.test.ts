@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/auth/change-password";
+import { createApiContext } from "../../helpers/api-context";
 import { NEW_PASSWORD } from "../../helpers/constants";
-import { toRedirect } from "../../helpers/request-helpers";
 import { createAuthenticatedCookies } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
@@ -31,17 +30,7 @@ describe("A signed-in user changes their password from profile.", () => {
 			}),
 		});
 
-		const response = await POST({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const value = cookies.get(name);
-					return value ? { value } : undefined;
-				},
-				set: () => {},
-			},
-			redirect: toRedirect,
-		} as unknown as APIContext);
+		const response = await POST(createApiContext({ request, cookies }));
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toBe(
@@ -78,17 +67,7 @@ describe("A signed-in user changes their password from profile.", () => {
 			}),
 		});
 
-		const response = await POST({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const value = cookies.get(name);
-					return value ? { value } : undefined;
-				},
-				set: () => {},
-			},
-			redirect: toRedirect,
-		} as unknown as APIContext);
+		const response = await POST(createApiContext({ request, cookies }));
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toBe(
@@ -118,17 +97,7 @@ describe("A signed-in user changes their password from profile.", () => {
 			}),
 		});
 
-		const response = await POST({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const value = cookies.get(name);
-					return value ? { value } : undefined;
-				},
-				set: () => {},
-			},
-			redirect: toRedirect,
-		} as unknown as APIContext);
+		const response = await POST(createApiContext({ request, cookies }));
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toBe(

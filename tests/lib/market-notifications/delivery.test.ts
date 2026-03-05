@@ -5,6 +5,7 @@ import {
 	type PriceAlertDeliveryStats,
 } from "../../../src/lib/market-notifications/delivery";
 import type { EnrichedAlert } from "../../../src/lib/market-notifications/enrichment";
+import type { PriceAlertGrokResult } from "../../../src/lib/market-notifications/grok-summary";
 import type { PriceAlertUser } from "../../../src/lib/market-notifications/users";
 import type { DeliveryResult } from "../../../src/lib/messaging/types";
 
@@ -36,13 +37,36 @@ function makeStats(): PriceAlertDeliveryStats {
 	};
 }
 
+function makeGrokResult(
+	overrides: Partial<PriceAlertGrokResult> = {},
+): PriceAlertGrokResult {
+	return {
+		summary:
+			"LDOS shares fell after the company reported weaker-than-expected guidance amid reduced federal spending.",
+		links: [
+			{
+				url: "https://www.reuters.com/example",
+				title: "Leidos cuts guidance",
+				source: "Reuters",
+				sourceType: "web",
+			},
+			{
+				url: "https://x.com/analyst123/status/123456",
+				title: "LDOS selloff analysis",
+				source: "@analyst123",
+				sourceType: "x",
+			},
+		],
+		...overrides,
+	};
+}
+
 function makeAlert(overrides: Partial<EnrichedAlert> = {}): EnrichedAlert {
 	return {
 		symbol: "LDOS",
 		priceContext: "LDOS is down 11.1% today ($173.00)",
 		signalContext: "down 11.1% (sudden, vol 1.2x)",
-		headlines: [],
-		aiSummary: null,
+		grokResult: null,
 		intradayCloses: null,
 		intradayTimestamps: null,
 		intradayEndTimestamp: null,
@@ -154,6 +178,149 @@ describe("deliverPriceAlert SMS eligibility", () => {
 		expect(sendSms).not.toHaveBeenCalled();
 		expect(stats.smsSent).toBe(0);
 		expect(stats.smsFailed).toBe(1);
+	});
+});
+
+describe("A user with price alerts enabled receives Grok-enriched move context", () => {
+	it("includes a concise why-moving summary and source links in SMS", async () => {
+		const sendSms = vi.fn<
+			(_: { to: string; body: string }) => Promise<DeliveryResult>
+		>(async () => ({ success: true }));
+		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const stats = makeStats();
+
+		await deliverPriceAlert({
+			user: makeUser(),
+			alert: makeAlert({ grokResult: makeGrokResult() }),
+			supabase: makeSupabaseMock(),
+			sendEmail,
+			sendSms,
+			stats,
+		});
+
+		expect(sendSms).toHaveBeenCalledOnce();
+		const smsBody = sendSms.mock.calls[0][0].body;
+		expect(smsBody).toContain("weaker-than-expected guidance");
+		// URLs should be present (shortened or original)
+		expect(smsBody).toMatch(/https?:\/\//);
+	});
+
+	it("includes summary but no links in SMS when Grok returns no links", async () => {
+		const sendSms = vi.fn<
+			(_: { to: string; body: string }) => Promise<DeliveryResult>
+		>(async () => ({ success: true }));
+		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const stats = makeStats();
+
+		await deliverPriceAlert({
+			user: makeUser(),
+			alert: makeAlert({
+				grokResult: makeGrokResult({ links: [] }),
+			}),
+			supabase: makeSupabaseMock(),
+			sendEmail,
+			sendSms,
+			stats,
+		});
+
+		expect(sendSms).toHaveBeenCalledOnce();
+		const smsBody = sendSms.mock.calls[0][0].body;
+		expect(smsBody).toContain("weaker-than-expected guidance");
+		expect(smsBody).not.toContain("reuters.com");
+	});
+
+	it("omits why-moving section in SMS when Grok result is unavailable", async () => {
+		const sendSms = vi.fn<
+			(_: { to: string; body: string }) => Promise<DeliveryResult>
+		>(async () => ({ success: true }));
+		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const stats = makeStats();
+
+		await deliverPriceAlert({
+			user: makeUser(),
+			alert: makeAlert({ grokResult: null }),
+			supabase: makeSupabaseMock(),
+			sendEmail,
+			sendSms,
+			stats,
+		});
+
+		expect(sendSms).toHaveBeenCalledOnce();
+		const smsBody = sendSms.mock.calls[0][0].body;
+		expect(smsBody).not.toContain("guidance");
+		expect(smsBody).toContain("LDOS is down");
+		expect(smsBody).toContain("Signals:");
+	});
+
+	it("email HTML includes a why-moving section with source labels", async () => {
+		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const stats = makeStats();
+
+		await deliverPriceAlert({
+			user: makeUser({
+				market_asset_price_alerts_include_email: true,
+				market_asset_price_alerts_include_sms: false,
+			}),
+			alert: makeAlert({ grokResult: makeGrokResult() }),
+			supabase: makeSupabaseMock(),
+			sendEmail,
+			sendSms: vi.fn(async () => ({ success: true })),
+			stats,
+		});
+
+		expect(sendEmail).toHaveBeenCalledOnce();
+		const emailCall = sendEmail.mock.calls[0][0] as {
+			html: string;
+			body: string;
+		};
+		expect(emailCall.html).toContain("Why it's moving");
+		expect(emailCall.html).toContain("via Reuters");
+		expect(emailCall.html).toContain("via @analyst123 on X");
+		expect(emailCall.html).toContain("weaker-than-expected guidance");
+	});
+
+	it("email plaintext includes the why-moving section", async () => {
+		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const stats = makeStats();
+
+		await deliverPriceAlert({
+			user: makeUser({
+				market_asset_price_alerts_include_email: true,
+				market_asset_price_alerts_include_sms: false,
+			}),
+			alert: makeAlert({ grokResult: makeGrokResult() }),
+			supabase: makeSupabaseMock(),
+			sendEmail,
+			sendSms: vi.fn(async () => ({ success: true })),
+			stats,
+		});
+
+		expect(sendEmail).toHaveBeenCalledOnce();
+		const emailCall = sendEmail.mock.calls[0][0] as { body: string };
+		expect(emailCall.body).toContain("Why it's moving");
+		expect(emailCall.body).toContain("via Reuters");
+		expect(emailCall.body).toContain("via @analyst123 on X");
+	});
+
+	it("email omits why-moving section when Grok result is unavailable", async () => {
+		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const stats = makeStats();
+
+		await deliverPriceAlert({
+			user: makeUser({
+				market_asset_price_alerts_include_email: true,
+				market_asset_price_alerts_include_sms: false,
+			}),
+			alert: makeAlert({ grokResult: null }),
+			supabase: makeSupabaseMock(),
+			sendEmail,
+			sendSms: vi.fn(async () => ({ success: true })),
+			stats,
+		});
+
+		expect(sendEmail).toHaveBeenCalledOnce();
+		const emailCall = sendEmail.mock.calls[0][0] as { html: string };
+		expect(emailCall.html).not.toContain("Why it");
 	});
 });
 

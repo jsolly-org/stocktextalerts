@@ -15,8 +15,7 @@ const PASSWORD_RESET_RATE_LIMIT_SECONDS =
 		10,
 	) || 60;
 
-export const POST: APIRoute = async ({ request, redirect, locals }) => {
-	const url = new URL(request.url);
+export const POST: APIRoute = async ({ url, request, redirect, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

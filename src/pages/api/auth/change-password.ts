@@ -25,12 +25,12 @@ const CHANGE_PASSWORD_RATE_LIMIT_MINUTES =
 		10,
 	) || 15;
 export const POST: APIRoute = async ({
+	url,
 	request,
 	redirect,
 	locals,
 	cookies,
 }) => {
-	const url = new URL(request.url);
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

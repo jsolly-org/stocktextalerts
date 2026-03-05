@@ -393,7 +393,9 @@
 							:countdownText="countdownText"
 							:countdownDelayReasons="countdownDelayReasons"
 							:countdownHolidayName="countdownHolidayName"
-							:outsideMarketHoursIndices="outsideMarketHoursIndices"
+							:minTime="marketMinTime"
+							:maxTime="marketMaxTime"
+							:marketHoursCrossMidnightHint="marketHoursCrossMidnightHint"
 							:is24="is24"
 							@time-change="handleTimeChange"
 							@add-time="handleAddTime"
@@ -584,8 +586,8 @@ import {
 } from "../../../lib/market-notifications/alert-profile";
 import {
 	formatMinutesAsLocalTime,
+	getMarketNotificationLocalRange,
 	getUsAfterOpenLocalMinutes,
-	isOutsideMarketHours,
 	minutesToTimeInputValue,
 	parseTimeToMinutes,
 } from "../../../lib/time/format";
@@ -868,16 +870,31 @@ const canAddAfterOpen = computed(
 	() => !timePickerDisabled.value && !hasAfterOpenTime.value && !maxTimesReached.value,
 );
 
-const outsideMarketHoursIndices = computed<Set<number>>(() => {
+const marketMinTime = computed<{ hours: number; minutes: number } | null>(() => {
 	const tz = timezone.value;
-	if (tz === "") return new Set();
-	const indices = new Set<number>();
-	for (let i = 0; i < scheduledUpdateTimesMinutes.value.length; i++) {
-		if (isOutsideMarketHours(scheduledUpdateTimesMinutes.value[i], tz)) {
-			indices.add(i);
-		}
-	}
-	return indices;
+	if (tz === "") return null;
+	const { min, max } = getMarketNotificationLocalRange(tz);
+	// TimePicker does not support cross-midnight ranges (min > max); omit constraints.
+	if (min > max) return null;
+	return { hours: Math.floor(min / 60), minutes: min % 60 };
+});
+
+const marketMaxTime = computed<{ hours: number; minutes: number } | null>(() => {
+	const tz = timezone.value;
+	if (tz === "") return null;
+	const { min, max } = getMarketNotificationLocalRange(tz);
+	// TimePicker does not support cross-midnight ranges (min > max); omit constraints.
+	if (min > max) return null;
+	return { hours: Math.floor(max / 60), minutes: max % 60 };
+});
+
+/** When the market window crosses midnight locally, show this hint so users know only 10:00 AM–3:59 PM ET is accepted. */
+const marketHoursCrossMidnightHint = computed<string | null>(() => {
+	const tz = timezone.value;
+	if (tz === "") return null;
+	const { min, max } = getMarketNotificationLocalRange(tz);
+	if (min <= max) return null;
+	return "In your timezone the valid window (10:00 AM–3:59 PM ET) crosses midnight. Only times within that ET window are accepted.";
 });
 
 /** Sync a user preference into a local ref so UI and server stay aligned. */

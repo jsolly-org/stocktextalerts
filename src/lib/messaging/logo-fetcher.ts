@@ -2,7 +2,7 @@ import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 
 /** In-memory cache of fetched logo base64 data URIs (or null on failure). */
-export type LogoCache = Map<string, string | null>;
+type LogoCache = Map<string, string | null>;
 
 /** Create a fresh logo cache for a scheduler run. */
 export function createLogoCache(): LogoCache {

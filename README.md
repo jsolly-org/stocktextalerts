@@ -1,6 +1,6 @@
 # 📈 StockTextAlerts.com
 
-A securities notification app that sends scheduled SMS and email updates (scheduled asset price notifications, daily digests, and asset events) plus optional asset price alerts about tracked assets (stocks and ETFs). Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email and SMS are sent via Resend and Twilio. 🔔
+A securities notification app that sends scheduled SMS and email updates (scheduled asset price notifications, daily digests, and asset events), optional asset price alerts, and one-shot price target alerts for tracked US stocks and ETFs. Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email and SMS are sent via Resend and Twilio. 🔔
 
 ## Features
 
@@ -8,6 +8,7 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - **Email Notifications** - Receive updates via email (Resend)
 - **SMS Notifications** - Optional SMS delivery (Twilio)
 - **Asset Price Alerts** - Get alerted during US market hours when tracked assets show significant price movement (up or down), with configurable move size (Moderate/Large) and market context (Standouts only / Any big move)
+- **Price Targets** - Set a target price for any watchlist symbol and get a one-shot email and/or SMS when the price is reached (target is cleared after delivery)
 - **Phone Verification** - Secure phone verification via Twilio Verify
 - **Timezone Support** - Browser-detected timezones with user overrides
 - **Market Notifications** - Choose up to 8 delivery times for scheduled asset price updates, and decide if they're delivered by email, SMS, or both
@@ -295,6 +296,8 @@ The canonical endpoint for fetching current user preferences is `GET /api/notifi
 - `POST /api/notification-preferences/update`
 - `POST /api/notification-preferences/timezone`
 - `POST /api/notification-preferences/dismiss-timezone-banner`
+- `GET /api/price-targets`
+- `POST /api/price-targets/save`
 - `POST /api/schedule` (cron, protected by `CRON_SECRET`)
 - `POST /api/messaging/inbound` (Twilio webhook for STOP/START/HELP)
 
@@ -325,7 +328,7 @@ After deployment, configure the Twilio webhook for incoming SMS:
 The `vercel.json` file configures three cron jobs. All must include `Authorization: Bearer <CRON_SECRET>`.
 
 **`/api/schedule`** (runs every minute) — main notification pipeline:
-1. Runs asset price alerts during US market hours (Massive snapshot quotes)
+1. Runs asset price alerts and price target checks during US market hours (Massive snapshot quotes)
 2. Runs scheduled asset price notifications (batched via Massive snapshot quotes)
 3. Sends asset events notifications (earnings/dividends/splits/IPOs/analyst/insider) at the user’s daily delivery time
 4. Sends daily digest notifications (News/Rumors) at the user’s chosen daily time
@@ -340,7 +343,7 @@ The `vercel.json` file configures three cron jobs. All must include `Authorizati
 - `src/components/`: Astro + Vue UI components (landing, dashboard, profile)
 - `src/layouts/`: Base layouts
 - `src/pages/`: Routes and API endpoints
-- `src/lib/`: Server utilities (auth, db, logging, time)
+- `src/lib/`: Server logic (auth, db, providers, market-notifications, daily-digest, asset-events, messaging, schedule, time, logging)
 - `supabase/`: Local Supabase config + migrations
 - `scripts/`: Seed generation utilities and asset data
 - `tests/`: Vitest + Playwright tests

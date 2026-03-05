@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { ASSET_SYMBOL_MAX_LENGTH } from "../../../../lib/constants";
 import { createUserService } from "../../../../lib/db";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { createLogger } from "../../../../lib/logging";
@@ -10,8 +11,13 @@ import { createLogger } from "../../../../lib/logging";
  * The API key is appended server-side so it never reaches the browser.
  * Returns the upstream image bytes with a 7-day browser cache.
  */
-export const GET: APIRoute = async ({ params, request, cookies, locals }) => {
-	const url = new URL(request.url);
+export const GET: APIRoute = async ({
+	url,
+	params,
+	request,
+	cookies,
+	locals,
+}) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,
@@ -35,6 +41,14 @@ export const GET: APIRoute = async ({ params, request, cookies, locals }) => {
 	} catch {
 		return new Response("Bad request", { status: 400 });
 	}
+	// Match DB constraint (assets.symbol); reject oversized to avoid abuse
+	if (symbol.length > ASSET_SYMBOL_MAX_LENGTH) {
+		return new Response("Bad request", { status: 400 });
+	}
+	// Restrict to valid ticker characters (alphanumeric, dot, hyphen) to avoid injection edge cases
+	if (!/^[A-Z0-9.-]+$/u.test(symbol)) {
+		return new Response("Bad request", { status: 400 });
+	}
 
 	const { data, error } = await supabase
 		.from("assets")
@@ -52,14 +66,14 @@ export const GET: APIRoute = async ({ params, request, cookies, locals }) => {
 		return new Response("Not found", { status: 404 });
 	}
 
-	const apiKey =
+	const rawApiKey =
 		(import.meta.env.MASSIVE_API_KEY as string | undefined) ??
-		process.env.MASSIVE_API_KEY ??
-		"";
-	if (!apiKey) {
+		process.env.MASSIVE_API_KEY;
+	if (typeof rawApiKey !== "string" || rawApiKey.trim() === "") {
 		logger.error("MASSIVE_API_KEY not configured", { symbol });
 		return new Response("Internal server error", { status: 500 });
 	}
+	const apiKey = rawApiKey.trim();
 
 	let upstreamUrl: string;
 	try {

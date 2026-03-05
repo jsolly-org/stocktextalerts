@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { generatePriceAlertSummary } from "../../src/lib/market-notifications/grok-summary";
 import {
 	generateNewsWithGrok,
 	generateRumorsWithGrok,
@@ -28,6 +29,30 @@ describeXaiLive("xAI live API (opt-in)", () => {
 		expect((result?.content.length ?? 0) > 0).toBe(true);
 		expect(result?.content).toMatch(/\bAAPL\s*:/i);
 		expect(Array.isArray(result?.citations)).toBe(true);
+	});
+
+	it("A user receives a price-alert summary with text and no more than three source links", {
+		timeout: 150_000,
+	}, async () => {
+		const result = await generatePriceAlertSummary({
+			symbol: "AAPL",
+			priceContext: "AAPL is down 5.2% today ($187.50)",
+			signalContext:
+				"down 5.20% ($10.30) from previous close, triggered at >=5.0% or >=$10.00",
+		});
+
+		expect(result).not.toBeNull();
+		expect(typeof result?.summary).toBe("string");
+		expect((result?.summary.length ?? 0) > 0).toBe(true);
+		expect(Array.isArray(result?.links)).toBe(true);
+		expect(result?.links.length ?? 0).toBeLessThanOrEqual(3);
+		// Links should have the expected shape when present
+		for (const link of result?.links ?? []) {
+			expect(link.url).toMatch(/^https?:\/\//);
+			expect(typeof link.title).toBe("string");
+			expect(typeof link.source).toBe("string");
+			expect(["x", "web"]).toContain(link.sourceType);
+		}
 	});
 
 	it("returns live rumors content for ticker prompts", {

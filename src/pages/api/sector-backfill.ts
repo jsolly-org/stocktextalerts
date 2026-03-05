@@ -14,8 +14,7 @@ const BACKFILL_BATCH_SIZE = 20;
  * details endpoint and maps it to a sector name. Runs daily at 06:00 UTC so
  * sectors are populated before market open.
  */
-const handler: APIRoute = async ({ request, locals }) => {
-	const url = new URL(request.url);
+const handler: APIRoute = async ({ url, request, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

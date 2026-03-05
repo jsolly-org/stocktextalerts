@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
-import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/auth/update-email";
-import { toRedirect } from "../../helpers/request-helpers";
+import { createApiContext } from "../../helpers/api-context";
 import { createAuthenticatedCookies } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
@@ -26,17 +25,7 @@ describe("A signed-in user requests to change their email address.", () => {
 			body: new URLSearchParams({ email: "  new@example.com " }),
 		});
 
-		const response = await POST({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const value = cookies.get(name);
-					return value ? { value } : undefined;
-				},
-				set: () => {},
-			},
-			redirect: toRedirect,
-		} as unknown as APIContext);
+		const response = await POST(createApiContext({ request, cookies }));
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toBe(
@@ -62,17 +51,7 @@ describe("A signed-in user requests to change their email address.", () => {
 			body: new URLSearchParams({ email: testUser.email }),
 		});
 
-		const response = await POST({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const value = cookies.get(name);
-					return value ? { value } : undefined;
-				},
-				set: () => {},
-			},
-			redirect: toRedirect,
-		} as unknown as APIContext);
+		const response = await POST(createApiContext({ request, cookies }));
 
 		expect(response.status).toBe(302);
 		expect(response.headers.get("Location")).toBe(

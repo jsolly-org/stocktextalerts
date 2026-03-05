@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { APIContext } from "astro";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { VERIFICATION_RESEND_COOLDOWN_MS } from "../../../../src/lib/constants";
 import { POST as sendVerificationPost } from "../../../../src/pages/api/auth/sms/send-verification";
+import { createApiContext } from "../../../helpers/api-context";
 import {
 	adminClient,
 	createAuthenticatedCookies,
@@ -41,13 +41,7 @@ describe("A signed-in user requests an SMS verification code.", () => {
 			},
 		);
 
-		const response = await sendVerificationPost({
-			request,
-			cookies: {
-				get: () => undefined,
-				set: () => {},
-			},
-		} as unknown as APIContext);
+		const response = await sendVerificationPost(createApiContext({ request }));
 
 		expect(response.status).toBe(401);
 		const payload = (await response.json()) as { ok: boolean; message: string };
@@ -80,16 +74,9 @@ describe("A signed-in user requests an SMS verification code.", () => {
 				},
 			);
 
-			const response = await sendVerificationPost({
-				request,
-				cookies: {
-					get: (name: string) => {
-						const cookie = cookies.get(name);
-						return cookie ? { value: cookie } : undefined;
-					},
-					set: () => {},
-				},
-			} as unknown as APIContext);
+			const response = await sendVerificationPost(
+				createApiContext({ request, cookies }),
+			);
 
 			expect(response.status).toBe(400);
 			const payload = (await response.json()) as {
@@ -127,16 +114,9 @@ describe("A signed-in user requests an SMS verification code.", () => {
 				},
 			);
 
-			const response = await sendVerificationPost({
-				request,
-				cookies: {
-					get: (name: string) => {
-						const cookie = cookies.get(name);
-						return cookie ? { value: cookie } : undefined;
-					},
-					set: () => {},
-				},
-			} as unknown as APIContext);
+			const response = await sendVerificationPost(
+				createApiContext({ request, cookies }),
+			);
 
 			expect(response.status).toBe(400);
 			const payload = (await response.json()) as {
@@ -189,16 +169,9 @@ describe("A signed-in user requests an SMS verification code.", () => {
 				},
 			);
 
-			const response = await sendVerificationPost({
-				request,
-				cookies: {
-					get: (name: string) => {
-						const cookie = cookies.get(name);
-						return cookie ? { value: cookie } : undefined;
-					},
-					set: () => {},
-				},
-			} as unknown as APIContext);
+			const response = await sendVerificationPost(
+				createApiContext({ request, cookies }),
+			);
 
 			expect(response.status).toBe(200);
 			const payload = (await response.json()) as {
@@ -262,16 +235,9 @@ describe("A signed-in user requests an SMS verification code.", () => {
 				},
 			);
 
-			const response = await sendVerificationPost({
-				request,
-				cookies: {
-					get: (name: string) => {
-						const cookie = cookies.get(name);
-						return cookie ? { value: cookie } : undefined;
-					},
-					set: () => {},
-				},
-			} as unknown as APIContext);
+			const response = await sendVerificationPost(
+				createApiContext({ request, cookies }),
+			);
 
 			expect(response.status).toBe(429);
 			const payload = (await response.json()) as {
@@ -326,16 +292,9 @@ describe("A signed-in user requests an SMS verification code.", () => {
 				},
 			);
 
-			const response = await sendVerificationPost({
-				request,
-				cookies: {
-					get: (name: string) => {
-						const cookie = cookies.get(name);
-						return cookie ? { value: cookie } : undefined;
-					},
-					set: () => {},
-				},
-			} as unknown as APIContext);
+			const response = await sendVerificationPost(
+				createApiContext({ request, cookies }),
+			);
 
 			expect(response.status).toBe(200);
 			const payload = (await response.json()) as {

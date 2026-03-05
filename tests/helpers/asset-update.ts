@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import type { APIContext } from "astro";
 import type { NotificationPreferences } from "../../src/lib/db";
 import { POST as assetsUpdatePost } from "../../src/pages/api/assets/update";
+import { createApiContext } from "./api-context";
 import { getAssetData } from "./asset-data";
 import { TEST_PASSWORD } from "./constants";
 import { adminClient, createAuthenticatedCookies } from "./test-env";
@@ -81,16 +81,9 @@ export async function updateTrackedAssets(
 		body: formData,
 	});
 
-	const response = await assetsUpdatePost({
-		request,
-		cookies: {
-			get: (name: string) => {
-				const value = cookies.get(name);
-				return value ? { value } : undefined;
-			},
-			set: () => {},
-		},
-	} as unknown as APIContext);
+	const response = await assetsUpdatePost(
+		createApiContext({ request, cookies }),
+	);
 	const payload = (await response.json()) as { ok: boolean; message: string };
 
 	const { data: trackedAssets } = await adminClient

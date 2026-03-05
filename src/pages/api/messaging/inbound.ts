@@ -63,8 +63,7 @@ function reconstructUrl(request: Request, url: URL): string {
 	return request.url;
 }
 
-export const POST: APIRoute = async ({ request, locals }) => {
-	const url = new URL(request.url);
+export const POST: APIRoute = async ({ url, request, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

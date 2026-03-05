@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { APIContext } from "astro";
 import { describe, expect, it } from "vitest";
 import { POST as POSTDismissBanner } from "../../../src/pages/api/notification-preferences/dismiss-timezone-banner";
 import { POST as POSTTimezone } from "../../../src/pages/api/notification-preferences/timezone";
+import { createApiContext } from "../../helpers/api-context";
 import { TEST_PASSWORD } from "../../helpers/constants";
 import {
 	adminClient,
@@ -33,16 +33,9 @@ describe("A signed-in user dismisses the timezone mismatch banner.", () => {
 			},
 		);
 
-		const response = await POSTDismissBanner({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const cookie = cookies.get(name);
-					return cookie ? { value: cookie } : undefined;
-				},
-				set: () => {},
-			},
-		} as unknown as APIContext);
+		const response = await POSTDismissBanner(
+			createApiContext({ request, cookies }),
+		);
 
 		expect(response.status).toBe(200);
 		const json = await response.json();
@@ -87,16 +80,7 @@ describe("A signed-in user updates their timezone.", () => {
 			},
 		);
 
-		const response = await POSTTimezone({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const cookie = cookies.get(name);
-					return cookie ? { value: cookie } : undefined;
-				},
-				set: () => {},
-			},
-		} as unknown as APIContext);
+		const response = await POSTTimezone(createApiContext({ request, cookies }));
 
 		expect(response.status).toBe(200);
 		const json = await response.json();
@@ -160,16 +144,7 @@ describe("A signed-in user updates their timezone.", () => {
 			},
 		);
 
-		const response = await POSTTimezone({
-			request,
-			cookies: {
-				get: (name: string) => {
-					const cookie = cookies.get(name);
-					return cookie ? { value: cookie } : undefined;
-				},
-				set: () => {},
-			},
-		} as unknown as APIContext);
+		const response = await POSTTimezone(createApiContext({ request, cookies }));
 
 		expect(response.status).toBe(200);
 		const json = await response.json();

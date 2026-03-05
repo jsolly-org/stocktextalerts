@@ -31,12 +31,12 @@ function buildSigninErrorRedirect(
 }
 
 export const POST: APIRoute = async ({
+	url,
 	request,
 	cookies,
 	redirect,
 	locals,
 }) => {
-	const url = new URL(request.url);
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

@@ -18,8 +18,7 @@ import { createLogger } from "../../../../lib/logging";
  * Marks phone_verified and enables sms_notifications if not opted out.
  * Rate-limited and rejects expired codes.
  */
-export const POST: APIRoute = async ({ request, cookies, locals }) => {
-	const url = new URL(request.url);
+export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

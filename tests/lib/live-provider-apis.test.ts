@@ -7,6 +7,7 @@ import {
 import {
 	fetchDailyCloses,
 	fetchDividends,
+	fetchEarnings,
 	fetchIntradayBars,
 	fetchIpos,
 	fetchPrevClose,
@@ -219,6 +220,26 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 		expect(result.failed).toBe(false);
 		expect(Array.isArray(result.data)).toBe(true);
 		// Splits are less frequent; just verify the endpoint doesn't error
+	});
+
+	// fetchEarnings delegates to Finnhub; skip when only Massive is enabled.
+	it("Upcoming earnings events are available through the canonical earnings feed.", async () => {
+		if (!isLiveProviderEnabled("finnhub")) return;
+		const from = new Date().toISOString().slice(0, 10);
+		const to = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+			.toISOString()
+			.slice(0, 10);
+
+		const result = await fetchEarnings(from, to);
+
+		expect(result.failed).toBe(false);
+		expect(Array.isArray(result.data)).toBe(true);
+		if (result.data.length > 0) {
+			const first = result.data[0];
+			expect(typeof first.ticker).toBe("string");
+			expect(typeof first.date).toBe("string");
+			expect(first.date.length).toBeGreaterThanOrEqual(10);
+		}
 	});
 
 	it("returns intraday bars for SPY from the 5-minute aggregates endpoint", async () => {

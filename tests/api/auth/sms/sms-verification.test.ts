@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { APIContext } from "astro";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { POST as sendVerificationPost } from "../../../../src/pages/api/auth/sms/send-verification";
 import { POST as verifyCodePost } from "../../../../src/pages/api/auth/sms/verify-code";
+import { createApiContext } from "../../../helpers/api-context";
 import {
 	adminClient,
 	createAuthenticatedCookies,
@@ -59,16 +59,9 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 				},
 			);
 
-			const response = await sendVerificationPost({
-				request,
-				cookies: {
-					get: (name: string) => {
-						const cookie = cookies.get(name);
-						return cookie ? { value: cookie } : undefined;
-					},
-					set: () => {},
-				},
-			} as unknown as APIContext);
+			const response = await sendVerificationPost(
+				createApiContext({ request, cookies }),
+			);
 
 			expect(response.status).toBe(200);
 			const payload = (await response.json()) as {
@@ -133,19 +126,15 @@ describe("A signed-in user verifies their phone number with an SMS code.", () =>
 			const formData = new FormData();
 			formData.append("code", "123456");
 
-			const response = await verifyCodePost({
-				request: new Request("http://localhost/api/auth/sms/verify-code", {
-					method: "POST",
-					body: formData,
+			const response = await verifyCodePost(
+				createApiContext({
+					request: new Request("http://localhost/api/auth/sms/verify-code", {
+						method: "POST",
+						body: formData,
+					}),
+					cookies,
 				}),
-				cookies: {
-					get: (name: string) => {
-						const cookie = cookies.get(name);
-						return cookie ? { value: cookie } : undefined;
-					},
-					set: () => {},
-				},
-			} as unknown as APIContext);
+			);
 
 			expect(response.status).toBe(200);
 			const json = await response.json();

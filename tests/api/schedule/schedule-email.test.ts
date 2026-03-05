@@ -1,7 +1,8 @@
-import type { APIContext } from "astro";
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../../../src/pages/api/schedule";
+import { createApiContext } from "../../helpers/api-context";
+import { createCronRequest } from "../../helpers/cron";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
@@ -52,15 +53,14 @@ describe("Users receive scheduled asset update notifications.", () => {
 
 		// 2. Execute Scheduled Job
 		const createRequest = () =>
-			new Request("http://localhost/api/schedule", {
-				method: "POST",
-				headers: {
-					Authorization: `Bearer ${testCronSecret}`,
-				},
+			createCronRequest({
+				path: "/api/schedule",
+				cronSecret: testCronSecret,
 			});
-
-		const response = await POST({ request: createRequest() } as APIContext);
-		const response2 = await POST({ request: createRequest() } as APIContext);
+		const response = await POST(createApiContext({ request: createRequest() }));
+		const response2 = await POST(
+			createApiContext({ request: createRequest() }),
+		);
 
 		// 3. Assertions
 		// Check Status

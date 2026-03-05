@@ -33,10 +33,13 @@ import {
 	toSvgSparklineImg,
 } from "../messaging/svg-sparkline";
 import type { EnrichedAlert } from "./enrichment";
+import type { PriceAlertLink } from "./grok-summary";
 import type { PriceAlertUser } from "./users";
 
 /** Max sparkline length for SMS. Unicode blocks use UCS-2 (70 chars/segment). Truncating reduces segment count and cost. */
 const SMS_SPARKLINE_MAX_LENGTH = 12;
+/** Cap Grok summary length in SMS to avoid segment/cost spikes from long model output. */
+const MAX_SMS_SUMMARY_CHARS = 280;
 
 function formatPriceContextWithSparkline(
 	priceContext: string,
@@ -97,17 +100,18 @@ async function formatPriceAlertSms(
 		`Signals: ${alert.signalContext}`,
 	];
 
-	if (alert.aiSummary) {
-		const rawUrls = alert.headlines
-			.map((h) => getSafeHrefUrl(h.url))
+	if (alert.grokResult) {
+		const { summary, links } = alert.grokResult;
+		const smsSummary =
+			summary.length > MAX_SMS_SUMMARY_CHARS
+				? `${summary.slice(0, MAX_SMS_SUMMARY_CHARS - 1)}…`
+				: summary;
+		const rawUrls = links
+			.map((l) => getSafeHrefUrl(l.url))
 			.filter((url): url is string => url !== null);
 		const urlMap = await shortenUrls(rawUrls, supabase);
-		const headlineUrls = rawUrls
-			.map((url) => urlMap.get(url) ?? url)
-			.join("\n");
-		sections.push(
-			headlineUrls ? `${alert.aiSummary}\n${headlineUrls}` : alert.aiSummary,
-		);
+		const linkLines = rawUrls.map((url) => urlMap.get(url) ?? url).join("\n");
+		sections.push(linkLines ? `${smsSummary}\n${linkLines}` : smsSummary);
 	}
 
 	sections.push(`Manage your settings: ${dashboardUrl}`);
@@ -243,6 +247,48 @@ function renderHtmlSparklineForAlert(
 	);
 }
 
+/** Build the "Why it's moving" HTML section for price alert emails. */
+function buildWhyMovingHtml(grokResult: EnrichedAlert["grokResult"]): string {
+	if (!grokResult) return "";
+
+	const summaryHtml = `
+		<div style="margin-top: 16px; padding: 12px 16px; background: #f9fafb; border-radius: 6px; border-left: 3px solid #f59e0b;">
+			<p style="color: #4b5563; font-size: 14px; margin: 0; font-style: italic;">${escapeHtml(grokResult.summary)}</p>
+		</div>`;
+
+	if (grokResult.links.length === 0) {
+		return `
+		<div style="margin-top: 20px;">
+			<h3 style="color: #1f2937; font-size: 16px; font-weight: 600; margin: 0 0 10px 0;">Why it's moving</h3>
+			${summaryHtml}
+		</div>`;
+	}
+
+	const linksHtml = grokResult.links
+		.map((link: PriceAlertLink) => {
+			const title = escapeHtml(link.title);
+			const safeUrl = getSafeHrefUrl(link.url);
+			const viaLabel =
+				link.sourceType === "x"
+					? `via ${escapeHtml(link.source)} on X`
+					: `via ${escapeHtml(link.source)}`;
+			const linkEl = safeUrl
+				? `<a href="${escapeHtml(safeUrl)}" style="color: #667eea; text-decoration: none;">${title}</a>`
+				: title;
+			return `<li style="margin-bottom: 6px;">${linkEl} <span style="color: #9ca3af;">(${viaLabel})</span></li>`;
+		})
+		.join("\n\t\t\t\t");
+
+	return `
+		<div style="margin-top: 20px;">
+			<h3 style="color: #1f2937; font-size: 16px; font-weight: 600; margin: 0 0 10px 0;">Why it's moving</h3>
+			${summaryHtml}
+			<ul style="margin: 10px 0 0 0; padding-left: 20px; color: #4b5563;">
+				${linksHtml}
+			</ul>
+		</div>`;
+}
+
 /**
  * Format the email body for a price alert.
  */
@@ -265,18 +311,20 @@ function formatPriceAlertEmail(
 		`Signals: ${alert.signalContext}`,
 	];
 
-	if (alert.headlines.length > 0) {
-		const headlineLines = alert.headlines
-			.map((h) => {
-				const safeUrl = getSafeHrefUrl(h.url);
-				return `- ${h.headline}${safeUrl ? ` (${safeUrl})` : ""}`;
-			})
-			.join("\n");
-		textSections.push(`Breaking News:\n${headlineLines}`);
-	}
-
-	if (alert.aiSummary) {
-		textSections.push(alert.aiSummary);
+	if (alert.grokResult) {
+		const { summary, links } = alert.grokResult;
+		textSections.push(`Why it's moving:\n${summary}`);
+		if (links.length > 0) {
+			const linkLines = links
+				.map((l) => {
+					const via =
+						l.sourceType === "x" ? `via ${l.source} on X` : `via ${l.source}`;
+					const safeUrl = getSafeHrefUrl(l.url);
+					return `- ${l.title} (${via})${safeUrl ? ` ${safeUrl}` : ""}`;
+				})
+				.join("\n");
+			textSections.push(linkLines);
+		}
 	}
 
 	textSections.push(`Manage your settings: ${urls.scheduleUrl}`);
@@ -286,32 +334,7 @@ function formatPriceAlertEmail(
 
 	// HTML
 
-	const headlinesHtml =
-		alert.headlines.length > 0
-			? `
-		<div style="margin-top: 20px;">
-			<h3 style="color: #1f2937; font-size: 16px; font-weight: 600; margin: 0 0 10px 0;">Breaking News</h3>
-			<ul style="margin: 0; padding-left: 20px; color: #4b5563;">
-				${alert.headlines
-					.map((h) => {
-						const headline = escapeHtml(h.headline);
-						const source = h.source ? escapeHtml(h.source) : "";
-						const safeUrl = getSafeHrefUrl(h.url);
-						return safeUrl
-							? `<li style="margin-bottom: 6px;"><a href="${escapeHtml(safeUrl)}" style="color: #667eea; text-decoration: none;">${headline}</a>${source ? ` <span style="color: #9ca3af;">(${source})</span>` : ""}</li>`
-							: `<li style="margin-bottom: 6px;">${headline}${source ? ` <span style="color: #9ca3af;">(${source})</span>` : ""}</li>`;
-					})
-					.join("\n\t\t\t\t")}
-			</ul>
-		</div>`
-			: "";
-
-	const aiSummaryHtml = alert.aiSummary
-		? `
-		<div style="margin-top: 16px; padding: 12px 16px; background: #f9fafb; border-radius: 6px; border-left: 3px solid #f59e0b;">
-			<p style="color: #4b5563; font-size: 14px; margin: 0; font-style: italic;">${escapeHtml(alert.aiSummary)}</p>
-		</div>`
-		: "";
+	const whyMovingHtml = buildWhyMovingHtml(alert.grokResult);
 
 	const html = `
 <!DOCTYPE html>
@@ -332,8 +355,7 @@ function formatPriceAlertEmail(
 		<div style="margin-bottom: 20px;">
 			<p style="color: #6b7280; font-size: 14px; margin: 0;"><strong>Signals:</strong> ${escapeHtml(alert.signalContext)}</p>
 		</div>
-		${headlinesHtml}
-		${aiSummaryHtml}
+		${whyMovingHtml}
 		<div style="text-align: center; margin-top: 30px;">
 			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
 				View Dashboard →

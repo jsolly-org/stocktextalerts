@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../../../src/pages/api/messaging/inbound";
+import { createApiContext } from "../../helpers/api-context";
 import { buildSmsInboundRequest } from "../../helpers/request-helpers";
 
 const { validateRequestMock } = vi.hoisted(() => ({
@@ -20,13 +21,15 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 	it("Requests without a valid signature are rejected before processing.", async () => {
 		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
 
-		const response = await POST({
-			request: buildSmsInboundRequest({
-				from: "+15005550006",
-				body: "STOP",
-				includeSignature: false,
+		const response = await POST(
+			createApiContext({
+				request: buildSmsInboundRequest({
+					from: "+15005550006",
+					body: "STOP",
+					includeSignature: false,
+				}),
 			}),
-		} as never);
+		);
 
 		expect(response.status).toBe(401);
 		const body = await response.text();
@@ -37,13 +40,15 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
 		validateRequestMock.mockReturnValueOnce(false);
 
-		const response = await POST({
-			request: buildSmsInboundRequest({
-				from: "+15005550006",
-				body: "STOP",
-				includeSignature: true,
+		const response = await POST(
+			createApiContext({
+				request: buildSmsInboundRequest({
+					from: "+15005550006",
+					body: "STOP",
+					includeSignature: true,
+				}),
 			}),
-		} as never);
+		);
 
 		expect(response.status).toBe(403);
 		const body = await response.text();
