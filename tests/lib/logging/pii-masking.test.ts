@@ -85,7 +85,7 @@ describe("Sensitive user data is masked in logs.", () => {
 		expect(payload.context.phone).toBe("[REDACTED]");
 	});
 
-	it("Secret-like context keys are always redacted regardless of LOG_MASK_PII.", () => {
+	it("A service logs auth context and secret-like keys are redacted even when PII masking is disabled.", () => {
 		vi.stubEnv("LOG_MASK_PII", "false");
 
 		rootLogger.info("Auth attempt", {
