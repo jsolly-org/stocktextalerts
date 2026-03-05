@@ -77,28 +77,10 @@ BEGIN
   ON CONFLICT (user_id, symbol) DO UPDATE
     SET
       last_alerted_at = now(),
-      trading_day_key = CASE
-        WHEN public.market_asset_price_alert_cooldowns.trading_day_key < claim_trading_day THEN claim_trading_day
-        ELSE public.market_asset_price_alert_cooldowns.trading_day_key
-      END,
-      alerts_sent_count = CASE
-        WHEN public.market_asset_price_alert_cooldowns.trading_day_key < claim_trading_day THEN 1
-        ELSE public.market_asset_price_alert_cooldowns.alerts_sent_count + 1
-      END,
-      max_abs_move_percent = CASE
-        WHEN public.market_asset_price_alert_cooldowns.trading_day_key < claim_trading_day THEN v_abs_move_percent
-        ELSE GREATEST(
-          public.market_asset_price_alert_cooldowns.max_abs_move_percent,
-          v_abs_move_percent
-        )
-      END,
-      max_abs_move_dollar = CASE
-        WHEN public.market_asset_price_alert_cooldowns.trading_day_key < claim_trading_day THEN v_abs_move_dollar
-        ELSE GREATEST(
-          public.market_asset_price_alert_cooldowns.max_abs_move_dollar,
-          v_abs_move_dollar
-        )
-      END
+      trading_day_key = claim_trading_day,
+      alerts_sent_count = 1,
+      max_abs_move_percent = v_abs_move_percent,
+      max_abs_move_dollar = v_abs_move_dollar
     WHERE
       public.market_asset_price_alert_cooldowns.trading_day_key < claim_trading_day
   RETURNING true INTO claimed;
