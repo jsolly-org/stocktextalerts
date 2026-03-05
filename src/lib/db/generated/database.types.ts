@@ -149,7 +149,6 @@ export type Database = {
         Row: {
           alerts_sent_count: number
           last_alerted_at: string
-          last_alerted_move_direction: string | null
           max_abs_move_dollar: number
           max_abs_move_percent: number
           symbol: string
@@ -159,7 +158,6 @@ export type Database = {
         Insert: {
           alerts_sent_count?: number
           last_alerted_at?: string
-          last_alerted_move_direction?: string | null
           max_abs_move_dollar?: number
           max_abs_move_percent?: number
           symbol: string
@@ -169,7 +167,6 @@ export type Database = {
         Update: {
           alerts_sent_count?: number
           last_alerted_at?: string
-          last_alerted_move_direction?: string | null
           max_abs_move_dollar?: number
           max_abs_move_percent?: number
           symbol?: string
@@ -496,11 +493,7 @@ export type Database = {
           grok_window_start: string | null
           id: string
           last_grok_rumors_at: string | null
-          market_asset_price_alert_follow_up_mode: string
-          market_asset_price_alert_market_context: string
           market_asset_price_alert_move_size: string
-          market_asset_price_alert_onboarding_completed: boolean
-          market_asset_price_alert_risk_priority: string
           market_asset_price_alerts_enabled: boolean
           market_asset_price_alerts_include_email: boolean
           market_asset_price_alerts_include_sms: boolean
@@ -546,11 +539,7 @@ export type Database = {
           grok_window_start?: string | null
           id?: string
           last_grok_rumors_at?: string | null
-          market_asset_price_alert_follow_up_mode?: string
-          market_asset_price_alert_market_context?: string
           market_asset_price_alert_move_size?: string
-          market_asset_price_alert_onboarding_completed?: boolean
-          market_asset_price_alert_risk_priority?: string
           market_asset_price_alerts_enabled?: boolean
           market_asset_price_alerts_include_email?: boolean
           market_asset_price_alerts_include_sms?: boolean
@@ -596,11 +585,7 @@ export type Database = {
           grok_window_start?: string | null
           id?: string
           last_grok_rumors_at?: string | null
-          market_asset_price_alert_follow_up_mode?: string
-          market_asset_price_alert_market_context?: string
           market_asset_price_alert_move_size?: string
-          market_asset_price_alert_onboarding_completed?: boolean
-          market_asset_price_alert_risk_priority?: string
           market_asset_price_alerts_enabled?: boolean
           market_asset_price_alerts_include_email?: boolean
           market_asset_price_alerts_include_sms?: boolean
@@ -650,10 +635,6 @@ export type Database = {
         Args: {
           p_abs_move_dollar?: number
           p_abs_move_percent?: number
-          p_allow_acceleration_follow_up?: boolean
-          p_allow_recovery_follow_up?: boolean
-          p_move_direction?: string
-          p_observed_at?: string
           p_symbol: string
           p_user_id: string
         }

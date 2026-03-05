@@ -1,12 +1,13 @@
 import { DateTime } from "luxon";
 import type { Logger } from "../../logging";
+import { extractErrorMessage } from "../../logging/errors";
 import { formatAssetsTextList } from "../../messaging/asset-formatting";
 import type { EmailSender } from "../../messaging/email/utils";
 import { formatEmailMessage } from "../../messaging/email/utils";
 import {
 	createLogoCache,
+	createLogoHtmlGetter,
 	prefetchLogos,
-	renderLogoImg,
 } from "../../messaging/logo-fetcher";
 import { recordNotification } from "../../messaging/shared";
 import { shouldSendSms } from "../../messaging/sms";
@@ -199,7 +200,7 @@ export async function processMarketScheduledUser(options: {
 						action: "market_notifications_run",
 						userId: user.id,
 						tickerCount: tickers.length,
-						error: error instanceof Error ? error.message : String(error),
+						error: extractErrorMessage(error),
 					},
 				);
 			}
@@ -221,17 +222,12 @@ export async function processMarketScheduledUser(options: {
 						action: "market_notifications_run",
 						userId: user.id,
 						assetCount: userAssets.length,
-						error: error instanceof Error ? error.message : String(error),
+						error: extractErrorMessage(error),
 					},
 				);
 			}
 		}
-		const getLogoHtml = logoCache
-			? (symbol: string): string | undefined => {
-					const dataUri = logoCache.get(symbol);
-					return dataUri ? renderLogoImg(dataUri) : undefined;
-				}
-			: undefined;
+		const getLogoHtml = logoCache ? createLogoHtmlGetter(logoCache) : undefined;
 
 		const assetsList = formatAssetsTextList(
 			userAssets,
@@ -412,7 +408,7 @@ export async function processMarketScheduledUser(options: {
 					delivery_method: deliveryMethod,
 					message_delivered: false,
 					message: "Error processing notification",
-					error: error instanceof Error ? error.message : String(error),
+					error: extractErrorMessage(error),
 				});
 				if (!logged) {
 					stats.logFailures++;

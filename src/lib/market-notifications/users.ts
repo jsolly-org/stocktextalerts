@@ -75,9 +75,6 @@ export async function claimCooldown(
 		p_symbol: symbol,
 		p_abs_move_percent: absMovePercent,
 		p_abs_move_dollar: absMoveDollar,
-		p_allow_acceleration_follow_up: false,
-		p_allow_recovery_follow_up: false,
-		p_move_direction: null,
 	});
 
 	if (error) {
