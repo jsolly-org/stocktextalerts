@@ -362,7 +362,10 @@ export function formatMinutesAsLocalTime(
 	return dt.toLocaleString(DateTime.TIME_SIMPLE);
 }
 
-/** Returns true if the US stock market is currently open (weekday, 9:30 AM – 4:00 PM ET). */
+/**
+ * Returns true if current time is within US market hours (weekday, 9:30 AM – 4:00 PM ET).
+ * Does not account for US market holidays; treats all weekdays as trading days.
+ */
 export function isMarketCurrentlyOpen(now?: DateTime): boolean {
 	const eastern = (now ?? DateTime.now()).setZone(US_MARKET_TIMEZONE);
 	const weekday = eastern.weekday; // 1=Mon … 7=Sun
@@ -374,7 +377,10 @@ export function isMarketCurrentlyOpen(now?: DateTime): boolean {
 	);
 }
 
-/** Returns the DateTime of the most recent US market close (4:00 PM ET on a weekday). */
+/**
+ * Returns the DateTime of the most recent 4:00 PM ET on a weekday.
+ * Does not account for US market holidays; treats all weekdays as trading days.
+ */
 export function getLastMarketClose(now?: DateTime): DateTime {
 	const eastern = (now ?? DateTime.now()).setZone(US_MARKET_TIMEZONE);
 	const closeHour = Math.floor(US_MARKET_CLOSE_EASTERN_MINUTES / 60);
