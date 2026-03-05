@@ -93,7 +93,7 @@
 							<GrokLogoDarkIcon class="hidden h-4.5 w-auto shrink-0 dark:inline" aria-label="Powered by Grok" role="img" />
 						</div>
 						<p id="market_asset_price_alerts_enabled_description" class="text-sm text-body-secondary mt-0.5">
-							Automatically detects unusual price movements for your tracked assets during US trading hours. Adapts to each stock's typical volatility — one alert per asset per day.
+							Automatically detects unusual price movements for your tracked assets during US trading hours. Adapts to each asset's typical volatility — one alert per asset per day.
 						</p>
 					</div>
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
@@ -509,7 +509,7 @@ const moveSizeOptions = [
 	{
 		value: "significant" as const,
 		label: "Significant",
-		description: "More sensitive — alerts on moderate anomalies relative to each stock's typical volatility.",
+		description: "More sensitive — alerts on moderate anomalies relative to each asset's typical volatility.",
 	},
 	{
 		value: "extreme" as const,
