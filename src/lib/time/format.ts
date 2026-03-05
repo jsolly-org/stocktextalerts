@@ -2,8 +2,8 @@ import { DateTime, Duration } from "luxon";
 import {
 	US_AFTER_OPEN_EASTERN_MINUTES,
 	US_BEFORE_OPEN_EASTERN_MINUTES,
-	US_MARKET_CLOSE_EASTERN_MINUTES,
-	US_MARKET_OPEN_EASTERN_MINUTES,
+	US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES,
+	US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES,
 	US_MARKET_TIMEZONE,
 } from "../constants";
 import {
@@ -276,13 +276,6 @@ function getEasternTimeAsLocalMinutes(
 	return local.hour * 60 + local.minute;
 }
 
-function getUsMarketOpenLocalMinutes(userTimezone: string): number {
-	return getEasternTimeAsLocalMinutes(
-		US_MARKET_OPEN_EASTERN_MINUTES,
-		userTimezone,
-	);
-}
-
 /** 30 min before US market open (9:00 AM ET) converted to the user's local timezone. */
 export function getUsBeforeOpenLocalMinutes(userTimezone: string): number {
 	return getEasternTimeAsLocalMinutes(
@@ -299,27 +292,45 @@ export function getUsAfterOpenLocalMinutes(userTimezone: string): number {
 	);
 }
 
-function getUsMarketCloseLocalMinutes(userTimezone: string): number {
-	return getEasternTimeAsLocalMinutes(
-		US_MARKET_CLOSE_EASTERN_MINUTES,
-		userTimezone,
-	);
-}
-
 export function isOutsideMarketHours(
 	timeMinutes: number,
 	userTimezone: string,
 ): boolean {
-	const openLocal = getUsMarketOpenLocalMinutes(userTimezone);
-	const closeLocal = getUsMarketCloseLocalMinutes(userTimezone);
-
-	// When open < close (same calendar day), valid range is [open, close).
-	// When open >= close (crosses midnight, e.g. far-east timezones),
-	// valid range wraps: [open, 1440) ∪ [0, close).
-	if (openLocal < closeLocal) {
-		return timeMinutes < openLocal || timeMinutes >= closeLocal;
+	if (
+		!Number.isInteger(timeMinutes) ||
+		timeMinutes < 0 ||
+		timeMinutes > 23 * 60 + 59
+	) {
+		return true;
 	}
-	return timeMinutes >= closeLocal && timeMinutes < openLocal;
+
+	const { min, max } = getMarketNotificationLocalRange(userTimezone);
+
+	// When min < max (same calendar day), valid range is [min, max].
+	// When min > max (crosses midnight, e.g. far-east timezones),
+	// valid range wraps: [min, 1440) ∪ [0, max].
+	if (min <= max) {
+		return timeMinutes < min || timeMinutes > max;
+	}
+	return timeMinutes > max && timeMinutes < min;
+}
+
+/** Returns the valid local-minute range for scheduled price notifications.
+ *  Maps the 10:00 AM – 3:59 PM ET window into the user's timezone. */
+export function getMarketNotificationLocalRange(userTimezone: string): {
+	min: number;
+	max: number;
+} {
+	return {
+		min: getEasternTimeAsLocalMinutes(
+			US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES,
+			userTimezone,
+		),
+		max: getEasternTimeAsLocalMinutes(
+			US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES,
+			userTimezone,
+		),
+	};
 }
 
 /* =============

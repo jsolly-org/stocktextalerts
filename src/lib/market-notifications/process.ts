@@ -1,7 +1,6 @@
 import { rootLogger } from "../logging";
 import { createEmailSender } from "../messaging/email/utils";
 import { createLogoCache } from "../messaging/logo-fetcher";
-import type { CompanyNewsItem } from "../providers/company-news";
 import { fetchIntradayBars } from "../providers/massive";
 import {
 	type ExtendedAssetQuote,
@@ -14,7 +13,7 @@ import type { SupabaseAdminClient } from "../schedule/helpers";
 import { createSmsSenderProvider } from "../schedule/sms-sender";
 import { deriveAlertProfile } from "./alert-profile";
 import { deliverPriceAlert, type PriceAlertDeliveryStats } from "./delivery";
-import { enrichAlert, fetchBreakingNews } from "./enrichment";
+import { enrichAlert } from "./enrichment";
 import { claimCooldown, fetchPriceAlertUsers } from "./users";
 
 const MARKET_CONTEXT_ACTIVE_MOVE_PCT = 2;
@@ -428,60 +427,53 @@ export async function processPriceAlerts(options: {
 
 		totals.alertsTriggered++;
 
-		const [newsResult, intradayResult] = await Promise.allSettled([
-			fetchBreakingNews(symbol),
-			fetchIntradayBars(symbol),
-		]);
-
-		let news: CompanyNewsItem[] = [];
-		if (newsResult.status === "fulfilled") {
-			news = newsResult.value;
-		} else {
-			rootLogger.warn(
-				"Failed to fetch breaking news for price alert enrichment",
-				{ symbol },
-				newsResult.reason,
-			);
-		}
-
 		let intradayCloses: number[] | null = null;
 		let intradayTimestamps: (number | null)[] | null = null;
 		let intradayEndTimestamp: number | null = null;
-		if (intradayResult.status === "fulfilled") {
-			const bars = intradayResult.value;
+		try {
+			const bars = await fetchIntradayBars(symbol);
 			if (bars) {
 				intradayCloses = bars.closes;
 				intradayTimestamps = bars.timestamps;
 				intradayEndTimestamp = bars.endTimestamp;
 			}
-		} else {
+		} catch (err) {
 			rootLogger.warn(
 				"Failed to fetch intraday bars for price alert enrichment",
 				{ symbol },
-				intradayResult.reason,
+				err,
 			);
 		}
 
+		const enrichedBySignal = new Map<
+			string,
+			Awaited<ReturnType<typeof enrichAlert>>
+		>();
 		for (const user of eligibleUsers) {
-			const enrichedAlert = await enrichAlert({
-				symbol,
-				quote,
-				signalContext: buildSignalContext({
-					percentMove,
-					dollarMove,
-					percentThreshold: user.profile.percentThreshold,
-					dollarThreshold: user.profile.dollarThreshold,
-					hasEarningsNearby: earningsSymbols.has(symbol),
-					benchmarkMovePercentAbs,
-					benchmarkLabel,
-				}),
-				news,
-				intradayCloses,
-				intradayTimestamps,
-				intradayEndTimestamp,
-				iconUrl: assetIconUrlMap.get(symbol) ?? null,
-				iconBase64: assetIconBase64Map.get(symbol) ?? null,
+			const signalContext = buildSignalContext({
+				percentMove,
+				dollarMove,
+				percentThreshold: user.profile.percentThreshold,
+				dollarThreshold: user.profile.dollarThreshold,
+				hasEarningsNearby: earningsSymbols.has(symbol),
+				benchmarkMovePercentAbs,
+				benchmarkLabel,
 			});
+
+			let enrichedAlert = enrichedBySignal.get(signalContext);
+			if (!enrichedAlert) {
+				enrichedAlert = await enrichAlert({
+					symbol,
+					quote,
+					signalContext,
+					intradayCloses,
+					intradayTimestamps,
+					intradayEndTimestamp,
+					iconUrl: assetIconUrlMap.get(symbol) ?? null,
+					iconBase64: assetIconBase64Map.get(symbol) ?? null,
+				});
+				enrichedBySignal.set(signalContext, enrichedAlert);
+			}
 
 			if (user.market_asset_price_alerts_include_sms && !smsSender) {
 				try {

@@ -1,11 +1,11 @@
-# Runs once daily after all other nightly agents finish. Reviews the current
-# state of dev and updates user-facing docs (README, FAQ, HowItWorks) to
-# reflect the latest code. Creates a PR that is auto-merged if checks pass.
-name: "Nightly: Docs"
+# Runs once a week (Monday). Reviews the current state of dev and updates
+# user-facing docs (README, FAQ, HowItWorks) to reflect the latest code.
+# Creates a PR that is auto-merged if checks pass.
+name: "Weekly: Docs"
 
 on:
   schedule:
-    - cron: "0 9 * * *" # 4 AM ET
+    - cron: "0 9 * * 1" # 9:00 UTC every Monday (4 AM EST / 5 AM EDT)
   workflow_dispatch:
 
 permissions:
@@ -13,7 +13,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: nightly-docs
+  group: weekly-docs
   cancel-in-progress: true
 
 env:
@@ -104,20 +104,20 @@ jobs:
           fi
 
           DATE=$(date -u +%Y-%m-%d)
-          BRANCH="docs/nightly-${DATE}"
+          BRANCH="docs/weekly-${DATE}"
 
           git checkout -b "$BRANCH"
           git add -A
-          git commit -m "docs(nightly): update docs — ${DATE}"
+          git commit -m "docs(weekly): update docs — ${DATE}"
           git push origin "$BRANCH"
 
           PR_URL=$(gh pr create \
             --base dev \
             --head "$BRANCH" \
-            --title "docs(nightly): update docs — ${DATE}" \
+            --title "docs(weekly): update docs — ${DATE}" \
             --label "bot-generated" \
-            --label "nightly" \
-            --body "Automated nightly doc updates.
+            --label "weekly" \
+            --body "Automated weekly doc updates.
 
           Date: ${DATE}
           Trigger: ${{ github.event_name }}")
