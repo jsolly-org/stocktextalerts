@@ -306,7 +306,7 @@ describe("A signed-in user updates their notification channels.", () => {
 		const formData = new FormData();
 		formData.append(
 			"market_scheduled_asset_price_times",
-			JSON.stringify(["10:00", "08:00", "10:00", "11:00"]),
+			JSON.stringify(["10:00", "14:00", "10:00", "11:00"]),
 		);
 
 		const response = await postNotificationPreferencesUpdate({
@@ -323,7 +323,7 @@ describe("A signed-in user updates their notification channels.", () => {
 			.single();
 
 		expect(updatedUser.market_scheduled_asset_price_times).toEqual([
-			480, 600, 660,
+			600, 660, 840,
 		]);
 	});
 

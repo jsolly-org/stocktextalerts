@@ -393,7 +393,8 @@
 							:countdownText="countdownText"
 							:countdownDelayReasons="countdownDelayReasons"
 							:countdownHolidayName="countdownHolidayName"
-							:outsideMarketHoursIndices="outsideMarketHoursIndices"
+							:minTime="marketMinTime"
+							:maxTime="marketMaxTime"
 							:is24="is24"
 							@time-change="handleTimeChange"
 							@add-time="handleAddTime"
@@ -584,8 +585,8 @@ import {
 } from "../../../lib/market-notifications/alert-profile";
 import {
 	formatMinutesAsLocalTime,
+	getMarketNotificationLocalRange,
 	getUsAfterOpenLocalMinutes,
-	isOutsideMarketHours,
 	minutesToTimeInputValue,
 	parseTimeToMinutes,
 } from "../../../lib/time/format";
@@ -868,16 +869,22 @@ const canAddAfterOpen = computed(
 	() => !timePickerDisabled.value && !hasAfterOpenTime.value && !maxTimesReached.value,
 );
 
-const outsideMarketHoursIndices = computed<Set<number>>(() => {
+const marketMinTime = computed<{ hours: number; minutes: number } | null>(() => {
 	const tz = timezone.value;
-	if (tz === "") return new Set();
-	const indices = new Set<number>();
-	for (let i = 0; i < scheduledUpdateTimesMinutes.value.length; i++) {
-		if (isOutsideMarketHours(scheduledUpdateTimesMinutes.value[i], tz)) {
-			indices.add(i);
-		}
-	}
-	return indices;
+	if (tz === "") return null;
+	const { min, max } = getMarketNotificationLocalRange(tz);
+	// TimePicker does not support cross-midnight ranges (min > max); omit constraints.
+	if (min > max) return null;
+	return { hours: Math.floor(min / 60), minutes: min % 60 };
+});
+
+const marketMaxTime = computed<{ hours: number; minutes: number } | null>(() => {
+	const tz = timezone.value;
+	if (tz === "") return null;
+	const { min, max } = getMarketNotificationLocalRange(tz);
+	// TimePicker does not support cross-midnight ranges (min > max); omit constraints.
+	if (min > max) return null;
+	return { hours: Math.floor(max / 60), minutes: max % 60 };
 });
 
 /** Sync a user preference into a local ref so UI and server stay aligned. */
