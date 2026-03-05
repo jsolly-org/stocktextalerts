@@ -1,11 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchCompanyNews } from "../../src/lib/providers/company-news";
 
+// Mock retry delays so error/retry tests don't wait real seconds
+vi.mock("node:timers/promises", () => ({
+	setTimeout: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe("fetchCompanyNews", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 		vi.unstubAllEnvs();
-		vi.useRealTimers();
 	});
 
 	it("maps Massive fields to CompanyNewsItem shape", async () => {
@@ -146,20 +150,17 @@ describe("fetchCompanyNews", () => {
 	});
 
 	it("returns empty array on network error", async () => {
-		vi.useFakeTimers();
 		vi.stubEnv("MASSIVE_API_KEY", "test-key");
 		vi.spyOn(globalThis, "fetch").mockRejectedValue(
 			new Error("Network failure"),
 		);
 
-		const promise = fetchCompanyNews("AAPL", "2026-02-01", "2026-02-14");
-		await vi.runAllTimersAsync();
-
-		await expect(promise).resolves.toEqual([]);
+		await expect(
+			fetchCompanyNews("AAPL", "2026-02-01", "2026-02-14"),
+		).resolves.toEqual([]);
 	});
 
 	it("returns empty array on non-200 response", async () => {
-		vi.useFakeTimers();
 		vi.stubEnv("MASSIVE_API_KEY", "test-key");
 		vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
 			return new Response(JSON.stringify({ error: "Rate limited" }), {
@@ -168,10 +169,9 @@ describe("fetchCompanyNews", () => {
 			});
 		});
 
-		const promise = fetchCompanyNews("AAPL", "2026-02-01", "2026-02-14");
-		await vi.runAllTimersAsync();
-
-		await expect(promise).resolves.toEqual([]);
+		await expect(
+			fetchCompanyNews("AAPL", "2026-02-01", "2026-02-14"),
+		).resolves.toEqual([]);
 	});
 
 	it("filters out generic roundup articles with too many tickers", async () => {

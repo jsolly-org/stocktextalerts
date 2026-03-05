@@ -1,5 +1,6 @@
 import { rootLogger } from "../logging";
 import { type SparklineMap, toSparkline } from "../messaging/sparkline";
+import { fetchFinnhubQuote } from "./finnhub";
 import {
 	fetchDailyCloses,
 	fetchPrevClose,
@@ -56,12 +57,34 @@ export async function fetchAssetPrices(
 		return snapshot as AssetPriceMap;
 	}
 
+	// Fallback: fetch missing symbols (typically OTC tickers) from Finnhub
+	for (const symbol of missingSymbols) {
+		try {
+			const quote = await fetchFinnhubQuote(symbol);
+			if (quote !== null) {
+				snapshot.set(symbol, quote);
+			}
+		} catch (error) {
+			rootLogger.warn("Failed to fetch Finnhub quote fallback", {
+				symbol,
+				error: error instanceof Error ? error.message : String(error),
+			});
+		}
+	}
+
+	const stillMissing = symbols.filter(
+		(symbol) => snapshot.get(symbol) === null,
+	);
+	if (stillMissing.length === 0) {
+		return snapshot as AssetPriceMap;
+	}
+
 	const isMarketOpen = await fetchMarketStatus();
 	if (isMarketOpen) {
 		return snapshot as AssetPriceMap;
 	}
 
-	for (const symbol of missingSymbols) {
+	for (const symbol of stillMissing) {
 		try {
 			const prevClose = await fetchPrevClose(symbol);
 			if (prevClose !== null) {
@@ -109,6 +132,25 @@ export async function fetchExtendedQuotes(
 		);
 	}
 	const snapshot = await fetchSnapshotQuotes(symbols);
+
+	// Fallback: fetch missing symbols (typically OTC tickers) from Finnhub
+	const missingSymbols = symbols.filter(
+		(symbol) => snapshot.get(symbol) === null,
+	);
+	for (const symbol of missingSymbols) {
+		try {
+			const quote = await fetchFinnhubQuote(symbol);
+			if (quote !== null) {
+				snapshot.set(symbol, quote);
+			}
+		} catch (error) {
+			rootLogger.warn("Failed to fetch Finnhub quote fallback", {
+				symbol,
+				error: error instanceof Error ? error.message : String(error),
+			});
+		}
+	}
+
 	return snapshot as ExtendedQuoteMap;
 }
 
