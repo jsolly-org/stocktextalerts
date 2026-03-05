@@ -5,7 +5,15 @@ name: No Deploy (Test and Build)
 on:
   push:
     branches: [dev]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
   pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
   workflow_dispatch:
 
 concurrency:
