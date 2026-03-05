@@ -119,12 +119,8 @@ export function useOnboardingExamples(
 			dollarThreshold: number,
 		): string {
 			const pctDollar = asset.prevClose * (percentThreshold / 100);
-			const dollarBinds = pctDollar < dollarThreshold;
 			const priceLabel = isHighPriced ? "higher-priced" : "lower-priced";
-			if (dollarBinds) {
-				return `For ${priceLabel} stocks like ${asset.symbol} (${formatDollar(asset.prevClose)}), alerts trigger on moves of ${formatDollar(dollarThreshold)} or more to filter out noise.`;
-			}
-			return `For ${priceLabel} stocks like ${asset.symbol} (${formatDollar(asset.prevClose)}), alerts trigger on ${percentThreshold}% moves (~${formatDollar(pctDollar)}).`;
+			return `For ${priceLabel} stocks like ${asset.symbol} (${formatDollar(asset.prevClose)}), alerts trigger on ${percentThreshold}% (~${formatDollar(pctDollar)}) or ${formatDollar(dollarThreshold)}, whichever comes first.`;
 		}
 
 		function describeThreshold(tier: "significant" | "extreme"): string {
