@@ -98,7 +98,7 @@ describe("Sensitive user data is masked in logs.", () => {
 		const [raw] = infoSpy.mock.calls[0];
 		const payload = JSON.parse(raw as string);
 
-		expect(payload.context.requestId).toBe("req-1");
+		expect(payload.requestId).toBe("req-1");
 		expect(payload.context.password).toBe("[REDACTED]");
 		expect(payload.context.cronSecret).toBe("[REDACTED]");
 		expect(payload.context.authToken).toBe("[REDACTED]");
