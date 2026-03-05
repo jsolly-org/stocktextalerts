@@ -256,9 +256,17 @@ export async function processPriceAlerts(options: {
 
 	// Load rolling 60-minute snapshot history for anomaly scoring (before storing
 	// current tick, so history excludes the current quote and sudden-move detection works)
-	const snapshotMap = await getSnapshotsForSymbols(supabase, [
-		...uniqueSymbols,
-	]);
+	let snapshotMap: Awaited<ReturnType<typeof getSnapshotsForSymbols>> =
+		new Map();
+	try {
+		snapshotMap = await getSnapshotsForSymbols(supabase, [...uniqueSymbols]);
+	} catch (err) {
+		rootLogger.warn(
+			"Failed to load snapshots for anomaly scoring; continuing with empty history",
+			{ symbolCount: uniqueSymbols.length },
+			err,
+		);
+	}
 
 	// Persist current tick for the rolling anomaly-detection window.
 	// Only store snapshots for user-tracked symbols (uniqueSymbols); benchmark
@@ -268,7 +276,15 @@ export async function processPriceAlerts(options: {
 		const quote = quoteMap.get(symbol);
 		if (quote) quoteMapForSnapshots.set(symbol, quote);
 	}
-	await storeSnapshots(supabase, quoteMapForSnapshots);
+	try {
+		await storeSnapshots(supabase, quoteMapForSnapshots);
+	} catch (err) {
+		rootLogger.warn(
+			"Failed to persist snapshots for anomaly scoring; continuing alert run",
+			{ symbolCount: quoteMapForSnapshots.size },
+			err,
+		);
+	}
 
 	const users = await fetchPriceAlertUsers(supabase);
 	if (users.length === 0) {
