@@ -117,7 +117,7 @@ function buildSignalContexts(options: {
 
 	// Grok context: technical detail for AI enrichment
 	const grokBase = `${direction.toLowerCase()} ${absPct}% ($${absDollar}) from previous close`;
-	const scoreLabel = `anomaly score ${anomalyScore}/100 (${anomalySummary})`;
+	const scoreLabel = `anomaly score ${anomalyScore}/75 (${anomalySummary})`;
 	const grokMarket =
 		benchmarkMovePercentAbs !== null
 			? `${benchmarkLabel} moved ${benchmarkMovePercentAbs.toFixed(2)}%`

@@ -67,7 +67,7 @@ function makeAlert(overrides: Partial<EnrichedAlert> = {}): EnrichedAlert {
 		priceContext: "LDOS is down 11.1% today ($173.00)",
 		signalContext: "The broader market (SPY) moved 0.85% today.",
 		grokContext:
-			"down 11.10% ($21.42) from previous close, anomaly score 52/100 (sustained, vol 1.2x)",
+			"down 11.10% ($21.42) from previous close, anomaly score 52/75 (sustained, vol 1.2x)",
 		grokResult: null,
 		intradayCloses: null,
 		intradayTimestamps: null,
