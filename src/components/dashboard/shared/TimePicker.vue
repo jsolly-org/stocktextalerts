@@ -35,27 +35,10 @@
 		/>
 		<!-- Overlay icons inside the right edge of the input -->
 		<div
-			v-if="hasOverlayIcons"
+			v-if="clearable"
 			class="absolute inset-y-0 right-0 flex items-center gap-0.5 pr-2 pointer-events-none"
 		>
-			<span v-if="outsideMarketHours" class="relative inline-flex items-center group/warn pointer-events-auto">
-				<button
-					type="button"
-					class="text-amber-500 hover:text-amber-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 rounded p-0.5"
-					aria-label="Outside market hours"
-					@click.stop
-				>
-					<ExclamationTriangleIcon class="size-4" aria-hidden="true" />
-				</button>
-				<span
-					class="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-1 w-48 text-center rounded border border-edge-strong bg-surface-active px-2 py-1 text-xs text-heading shadow-md opacity-0 transition-opacity group-focus-within/warn:opacity-100 group-hover/warn:opacity-100 z-10"
-					role="tooltip"
-				>
-					Outside market hours — prices may reflect the last close
-				</span>
-			</span>
 			<button
-				v-if="clearable"
 				type="button"
 				class="pointer-events-auto btn-icon-danger p-1.5"
 				:aria-label="clearAriaLabel ?? 'Clear time'"
@@ -76,8 +59,8 @@ const VueDatePicker = defineAsyncComponent(() =>
 	import("@vuepic/vue-datepicker").then((m) => m.VueDatePicker),
 );
 
-import ExclamationTriangleIcon from "../../../icons/exclamation-triangle-24.svg?component";
 import XMarkIcon from "../../../icons/x-mark.svg?component";
+import { rootLogger } from "../../../lib/logging";
 import {
 	formatTimeValue,
 	parseTimeString,
@@ -99,14 +82,23 @@ const props = withDefaults(
 		inputAriaLabel?: string;
 		/** Placeholder when no time selected */
 		placeholder?: string;
-		/** Show amber warning triangle inside the input */
-		outsideMarketHours?: boolean;
 		/** Show X clear button inside the input */
 		clearable?: boolean;
 		/** Accessible label for the clear button */
 		clearAriaLabel?: string;
 		/** Force 24-hour / 12-hour display. Falls back to locale detection when omitted. */
 		is24?: boolean;
+		/**
+		 * Minimum selectable time (hours/minutes). Defaults to 00:00.
+		 * Same-day window only: @vuepic/vue-datepicker does not support cross-midnight ranges.
+		 * minTimeOverride must be <= maxTimeOverride; otherwise behavior is undefined.
+		 */
+		minTimeOverride?: { hours: number; minutes: number };
+		/**
+		 * Maximum selectable time (hours/minutes). Defaults to 23:59.
+		 * Same-day window only: must be >= minTimeOverride (no overnight ranges).
+		 */
+		maxTimeOverride?: { hours: number; minutes: number };
 	}>(),
 	{ placeholder: "Select time" },
 );
@@ -116,14 +108,39 @@ const emit = defineEmits<{
 	(event: "clear"): void;
 }>();
 
-const hasOverlayIcons = computed(() => props.outsideMarketHours || props.clearable);
-
-const PADDING_TWO_ICONS = "!pr-14";
 const PADDING_ONE_ICON = "!pr-9";
 
 const minutesIncrement = 1;
-const minTime: TimeModel = { hours: 0, minutes: 0, seconds: 0 };
-const maxTime: TimeModel = { hours: 23, minutes: 59, seconds: 0 };
+
+function minutesSinceMidnight(t: { hours: number; minutes: number }): number {
+	return t.hours * 60 + t.minutes;
+}
+
+const minTime = computed<TimeModel>(() => {
+	if (
+		props.minTimeOverride &&
+		props.maxTimeOverride &&
+		minutesSinceMidnight(props.minTimeOverride) >
+			minutesSinceMidnight(props.maxTimeOverride)
+	) {
+		rootLogger.error(
+			"TimePicker: minTimeOverride must be <= maxTimeOverride (same-day window only; overnight ranges are not supported).",
+		);
+		return { hours: 0, minutes: 0, seconds: 0 };
+	}
+	return props.minTimeOverride
+		? {
+				hours: props.minTimeOverride.hours,
+				minutes: props.minTimeOverride.minutes,
+				seconds: 0,
+			}
+		: { hours: 0, minutes: 0, seconds: 0 };
+});
+const maxTime = computed<TimeModel>(() =>
+	props.maxTimeOverride
+		? { hours: props.maxTimeOverride.hours, minutes: props.maxTimeOverride.minutes, seconds: 0 }
+		: { hours: 23, minutes: 59, seconds: 0 },
+);
 const isMounted = ref(false);
 const lastSyncedValue = ref<string | null>(null);
 const selectedTime = ref<TimeModel | null>(
@@ -190,9 +207,7 @@ function handleBackdropPointerCancel() {
 }
 
 const inputAttributes = computed(() => {
-	const iconCount = (props.outsideMarketHours ? 1 : 0) + (props.clearable ? 1 : 0);
-	const paddingClass =
-		iconCount > 1 ? PADDING_TWO_ICONS : iconCount === 1 ? PADDING_ONE_ICON : "";
+	const paddingClass = props.clearable ? PADDING_ONE_ICON : "";
 	return {
 		id: props.inputId,
 		class: `input cursor-pointer ${paddingClass}`.trim(),
