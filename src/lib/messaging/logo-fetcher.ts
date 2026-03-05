@@ -3,7 +3,7 @@ import { rootLogger } from "../logging";
 import { extractErrorMessage } from "../logging/errors";
 
 /** In-memory cache of fetched logo base64 data URIs (or null on failure). */
-type LogoCache = Map<string, string | null>;
+export type LogoCache = Map<string, string | null>;
 
 /** Create a fresh logo cache for a scheduler run. */
 export function createLogoCache(): LogoCache {
@@ -213,4 +213,37 @@ export function renderLogoImg(base64DataUri: string): string {
 		return "";
 	}
 	return `<img src="${base64DataUri}" alt="" width="20" height="20" style="vertical-align: middle; border-radius: 4px; margin-right: 4px;" />`;
+}
+
+/**
+ * Encapsulates the repeated createLogoCache → try { prefetchLogos } catch { warn } → createLogoHtmlGetter pattern.
+ * When `shouldPrefetch` is false, returns a getter backed by an empty cache.
+ */
+export async function safePrefetchLogos(options: {
+	assets: Array<{
+		symbol: string;
+		icon_url?: string | null;
+		icon_base64?: string | null;
+	}>;
+	shouldPrefetch: boolean;
+	supabase?: AppSupabaseClient;
+	logger: { warn: (msg: string, meta: Record<string, unknown>) => void };
+	logContext: Record<string, unknown>;
+}): Promise<{
+	cache: LogoCache;
+	getLogoHtml: (symbol: string) => string | undefined;
+}> {
+	const cache = createLogoCache();
+	if (options.shouldPrefetch) {
+		try {
+			await prefetchLogos(options.assets, cache, options.supabase);
+		} catch (error) {
+			options.logger.warn("Failed to prefetch logos", {
+				...options.logContext,
+				assetCount: options.assets.length,
+				error: extractErrorMessage(error),
+			});
+		}
+	}
+	return { cache, getLogoHtml: createLogoHtmlGetter(cache) };
 }

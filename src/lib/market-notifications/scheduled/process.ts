@@ -4,11 +4,7 @@ import { extractErrorMessage } from "../../logging/errors";
 import { formatAssetsTextList } from "../../messaging/asset-formatting";
 import type { EmailSender } from "../../messaging/email/utils";
 import { formatEmailMessage } from "../../messaging/email/utils";
-import {
-	createLogoCache,
-	createLogoHtmlGetter,
-	prefetchLogos,
-} from "../../messaging/logo-fetcher";
+import { safePrefetchLogos } from "../../messaging/logo-fetcher";
 import { recordNotification } from "../../messaging/shared";
 import { shouldSendSms } from "../../messaging/sms";
 import { formatSmsMessage } from "../../messaging/sms/delivery";
@@ -211,23 +207,13 @@ export async function processMarketScheduledUser(options: {
 		const shouldPrepareEmail =
 			user.email_notifications_enabled &&
 			user.market_scheduled_asset_price_include_email;
-		const logoCache = shouldPrepareEmail ? createLogoCache() : null;
-		if (logoCache) {
-			try {
-				await prefetchLogos(userAssets, logoCache, supabase);
-			} catch (error) {
-				logger.warn(
-					"Failed to prefetch logos for scheduled market notification",
-					{
-						action: "market_notifications_run",
-						userId: user.id,
-						assetCount: userAssets.length,
-						error: extractErrorMessage(error),
-					},
-				);
-			}
-		}
-		const getLogoHtml = logoCache ? createLogoHtmlGetter(logoCache) : undefined;
+		const { getLogoHtml } = await safePrefetchLogos({
+			assets: userAssets,
+			shouldPrefetch: shouldPrepareEmail,
+			supabase,
+			logger,
+			logContext: { action: "market_notifications_run", userId: user.id },
+		});
 
 		const assetsList = formatAssetsTextList(
 			userAssets,
@@ -269,10 +255,7 @@ export async function processMarketScheduledUser(options: {
 							assetsList,
 							priceMap,
 							marketOpen,
-							formatPrefs,
-							getSparkline,
-							marketClosureInfo,
-							getLogoHtml,
+							{ formatPrefs, getSparkline, marketClosureInfo, getLogoHtml },
 						);
 						return {
 							subject: "Your Scheduled Price Notification",

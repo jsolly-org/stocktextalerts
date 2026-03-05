@@ -77,13 +77,9 @@ describe("A subscriber receives email asset rows with logos when logo data is av
 				? '<img src="data:image/png;base64,abc" alt="" width="20" height="20" />'
 				: undefined;
 
-		const result = formatAssetsHtmlList(
-			assets,
-			getPrice,
-			formatPrefs,
-			undefined,
+		const result = formatAssetsHtmlList(assets, getPrice, formatPrefs, {
 			getLogoHtml,
-		);
+		});
 
 		const [aaplLine, msftLine] = result.split("<br>");
 		// AAPL should have the logo img before its symbol
@@ -97,13 +93,7 @@ describe("A subscriber receives email asset rows with logos when logo data is av
 
 	it("A subscriber still sees standard asset rows when no logo is available.", () => {
 		const withoutLogo = formatAssetsHtmlList(assets, getPrice, formatPrefs);
-		const withUndefined = formatAssetsHtmlList(
-			assets,
-			getPrice,
-			formatPrefs,
-			undefined,
-			undefined,
-		);
+		const withUndefined = formatAssetsHtmlList(assets, getPrice, formatPrefs);
 
 		expect(withoutLogo).toBe(withUndefined);
 		expect(withoutLogo).toContain("<strong>AAPL</strong>");

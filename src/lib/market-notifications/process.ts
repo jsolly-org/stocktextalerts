@@ -340,6 +340,8 @@ export async function processPriceAlerts(options: {
 				user.market_asset_price_alert_move_size,
 			);
 
+			// Either threshold triggers: percent catches proportional moves while
+			// dollar catches absolute moves on higher-priced assets.
 			const meetsShockThreshold =
 				symbolMovePercentAbs >= profile.percentThreshold ||
 				symbolMoveDollarAbs >= profile.dollarThreshold;
