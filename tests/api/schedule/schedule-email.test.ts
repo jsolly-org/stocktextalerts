@@ -52,12 +52,15 @@ describe("Users receive scheduled asset update notifications.", () => {
 		expect(updateError).toBeNull();
 
 		// 2. Execute Scheduled Job
-		const request = createCronRequest({
-			path: "/api/schedule",
-			cronSecret: testCronSecret,
-		});
-		const response = await POST(createApiContext({ request }));
-		const response2 = await POST(createApiContext({ request }));
+		const createRequest = () =>
+			createCronRequest({
+				path: "/api/schedule",
+				cronSecret: testCronSecret,
+			});
+		const response = await POST(createApiContext({ request: createRequest() }));
+		const response2 = await POST(
+			createApiContext({ request: createRequest() }),
+		);
 
 		// 3. Assertions
 		// Check Status
