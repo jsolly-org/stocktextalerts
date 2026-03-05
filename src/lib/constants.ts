@@ -64,8 +64,6 @@ export const US_MARKET_OPEN_EASTERN_MINUTES = 9 * 60 + 30;
 export const US_BEFORE_OPEN_EASTERN_MINUTES = 9 * 60; // 9:00 AM ET
 /** 30 min after open — used as the default preset time for scheduled price notifications. */
 export const US_AFTER_OPEN_EASTERN_MINUTES = 10 * 60; // 10:00 AM ET
-/** US market close time in ET (minutes since midnight). */
-export const US_MARKET_CLOSE_EASTERN_MINUTES = 16 * 60; // 4:00 PM ET
 /** Earliest allowed scheduled price notification time in ET (minutes since midnight). */
 export const US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES = 10 * 60; // 10:00 AM ET
 /** Latest allowed scheduled price notification time in ET (minutes since midnight). */

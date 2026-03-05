@@ -106,6 +106,19 @@ describe("Price target save API rejects unauthorized or invalid requests", () =>
 		expect(data.message).toBe("invalid_symbol");
 	});
 
+	it("A request with symbol containing invalid characters receives 400 invalid_symbol", async () => {
+		setupMocks({});
+		const response = await handler(
+			makeContext({
+				symbol: "AAPL'; DROP TABLE price_targets;--",
+				target_price: 200,
+			}),
+		);
+		expect(response.status).toBe(400);
+		const data = await response.json();
+		expect(data.message).toBe("invalid_symbol");
+	});
+
 	it("A request with invalid target_price receives 400", async () => {
 		setupMocks({});
 		const response = await handler(
