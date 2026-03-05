@@ -9,6 +9,7 @@
 	<!-- biome-ignore lint/a11y/useAltText: Vue dynamic :alt binding is not visible to static analysis -->
 	<img
 		v-else-if="iconUrl && !imgFailed"
+		ref="imgRef"
 		:src="`/api/assets/logo/${encodeURIComponent(symbol)}`"
 		:alt="`${symbol} logo`"
 		loading="lazy"
@@ -26,7 +27,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, ref, useTemplateRef, watch } from "vue";
 
 interface Props {
 	type: "stock" | "etf";
@@ -40,6 +41,15 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const imgFailed = ref(false);
+const imgRef = useTemplateRef<HTMLImageElement>("imgRef");
+
+// Catch images that errored before Vue hydration attached the @error handler
+onMounted(() => {
+	const el = imgRef.value;
+	if (el?.complete && el.naturalWidth === 0) {
+		imgFailed.value = true;
+	}
+});
 
 // Reset failure state when the icon URL or symbol changes (e.g. new asset selected)
 watch(
