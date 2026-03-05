@@ -249,18 +249,32 @@ export function computeAnomalyScore(options: {
 	const priceSignal = computePriceMove(currentQuote, snapshots);
 
 	// Dampen price score when the move tracks the benchmark direction.
-	// If stock dropped 5% and sector dropped 4%, 80% is "explained" → dampen heavily.
-	// If directions differ (stock down, benchmark up), no dampening.
+	// Use intraday signal direction/magnitude (snapshot-relative), not day-level
+	// changePercent — a stock can be up on the day but crashing intraday.
 	if (
 		benchmarkMovePct != null &&
 		priceSignal.points > 0 &&
-		currentQuote.changePercent !== 0
+		snapshots.length > 0
 	) {
-		const stockDir = Math.sign(currentQuote.changePercent);
+		const oldest = snapshots[0];
+		const latest = snapshots[snapshots.length - 1];
+		const sustainedSigned =
+			oldest.price > 0
+				? ((currentQuote.price - oldest.price) / oldest.price) * 100
+				: 0;
+		const suddenSigned =
+			latest.price > 0
+				? ((currentQuote.price - latest.price) / latest.price) * 100
+				: 0;
+		const signalMovePct =
+			Math.abs(sustainedSigned) >= Math.abs(suddenSigned)
+				? sustainedSigned
+				: suddenSigned;
+		const stockDir = Math.sign(signalMovePct);
 		const benchDir = Math.sign(benchmarkMovePct);
-		if (stockDir === benchDir && Math.abs(currentQuote.changePercent) > 0) {
+		if (stockDir === benchDir && Math.abs(signalMovePct) > 0) {
 			const explainedRatio = Math.min(
-				Math.abs(benchmarkMovePct) / Math.abs(currentQuote.changePercent),
+				Math.abs(benchmarkMovePct) / Math.abs(signalMovePct),
 				1.0,
 			);
 			// Keep at least 30% of the price score even when fully explained

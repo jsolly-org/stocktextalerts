@@ -260,8 +260,15 @@ export async function processPriceAlerts(options: {
 		...uniqueSymbols,
 	]);
 
-	// Persist current tick for the rolling anomaly-detection window
-	await storeSnapshots(supabase, quoteMap);
+	// Persist current tick for the rolling anomaly-detection window.
+	// Only store snapshots for user-tracked symbols (uniqueSymbols); benchmark
+	// ETFs may not exist in assets table, and FK would fail the entire batch.
+	const quoteMapForSnapshots: ExtendedQuoteMap = new Map();
+	for (const symbol of uniqueSymbols) {
+		const quote = quoteMap.get(symbol);
+		if (quote) quoteMapForSnapshots.set(symbol, quote);
+	}
+	await storeSnapshots(supabase, quoteMapForSnapshots);
 
 	const users = await fetchPriceAlertUsers(supabase);
 	if (users.length === 0) {
