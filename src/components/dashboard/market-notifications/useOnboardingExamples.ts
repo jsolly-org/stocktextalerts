@@ -35,29 +35,8 @@ function formatDollar(n: number): string {
 	return `$${n.toFixed(2).replace(/\.00$/, "")}`;
 }
 
-function sectorPeerLabel(sector: string): string {
-	return `other ${sector.toLowerCase()} stocks`;
-}
-
-function pickPrimaryAsset(
-	trackedAssets: InitialAsset[],
-	prices: FetchedPrices,
-): DemoAsset {
-	for (const a of trackedAssets) {
-		const data = prices[a.symbol];
-		if (data?.prevClose && data.prevClose > 0) {
-			return {
-				symbol: a.symbol,
-				prevClose: data.prevClose,
-				sector: data.sector ?? "Technology",
-			};
-		}
-	}
-	return DEMO_HIGH;
-}
-
 /**
- * Pick a high-priced and low-priced asset for Q3 (move size) examples.
+ * Pick a high-priced and low-priced asset for move size examples.
  * Uses absolute thresholds — a stock under $50 is "low-priced" regardless of
  * what else the user tracks. Falls back to demo stocks when the user's
  * portfolio doesn't span both ranges.
@@ -93,7 +72,7 @@ function pickHighLowPair(
 
 export function useOnboardingExamples(
 	trackedAssets: Ref<InitialAsset[]>,
-	wizardVisible: Ref<boolean>,
+	priceAlertsEnabled: Ref<boolean>,
 ) {
 	const prices = ref<FetchedPrices>({});
 	const fetched = ref(false);
@@ -121,51 +100,36 @@ export function useOnboardingExamples(
 		}
 	}
 
-	// Fetch lazily when the wizard becomes visible
+	// Fetch lazily when price alerts become enabled
 	watch(
-		wizardVisible,
-		(visible) => {
-			if (visible) fetchPrices();
+		priceAlertsEnabled,
+		(enabled) => {
+			if (enabled) fetchPrices();
 		},
 		{ immediate: true },
 	);
 
-	const primary = computed(() =>
-		pickPrimaryAsset(trackedAssets.value, prices.value),
-	);
-	// --- Q1: Market Context (relative to market; magnitude is Q2) ---
-	const marketContextOptions = computed(() => {
-		const { symbol, sector } = primary.value;
-		const peers = sectorPeerLabel(sector);
-
-		return [
-			{
-				value: "any_major" as const,
-				label: "Any big move",
-				example: `When ${symbol} moves and ${peers} are moving in the same direction \u2014 you'd still get a text.`,
-			},
-			{
-				value: "standout" as const,
-				label: "Only standouts",
-				example: `When ${symbol} moves more than ${peers} \u2014 you'd get a text because ${symbol} stands out. If the whole sector moved together, we'd skip it.`,
-			},
-		];
-	});
-
-	// --- Q2: Move Size ---
 	const moveSizeOptions = computed(() => {
 		const { hi, lo } = pickHighLowPair(trackedAssets.value, prices.value);
+
+		function describeAsset(
+			asset: DemoAsset,
+			percentThreshold: number,
+			dollarThreshold: number,
+		): string {
+			const pctDollar = asset.prevClose * (percentThreshold / 100);
+			const dollarBinds = pctDollar < dollarThreshold;
+			if (dollarBinds) {
+				return `For lower-priced stocks like ${asset.symbol} (${formatDollar(asset.prevClose)}), alerts trigger on moves of ${formatDollar(dollarThreshold)} or more to filter out noise.`;
+			}
+			return `For higher-priced stocks like ${asset.symbol} (${formatDollar(asset.prevClose)}), alerts trigger on ${percentThreshold}% moves (~${formatDollar(pctDollar)}).`;
+		}
 
 		function describeThreshold(tier: "significant" | "extreme"): string {
 			const { percentThreshold, dollarThreshold } = MOVE_SIZE_THRESHOLDS[tier];
 
-			function moveDescription(prevClose: number): string {
-				const pctDollar = prevClose * (percentThreshold / 100);
-				return `${percentThreshold}% (~${formatDollar(pctDollar)}) or ${formatDollar(dollarThreshold)}, whichever comes first`;
-			}
-
-			const hiLine = `A higher-priced asset like ${hi.symbol} (${formatDollar(hi.prevClose)}) alerts on moves of ${moveDescription(hi.prevClose)}.`;
-			const loLine = `A lower-priced asset like ${lo.symbol} (${formatDollar(lo.prevClose)}) alerts on moves of ${moveDescription(lo.prevClose)}.`;
+			const hiLine = describeAsset(hi, percentThreshold, dollarThreshold);
+			const loLine = describeAsset(lo, percentThreshold, dollarThreshold);
 			return `${hiLine}\n${loLine}`;
 		}
 
@@ -183,28 +147,8 @@ export function useOnboardingExamples(
 		];
 	});
 
-	// --- Q3: Follow-up ---
-	const followUpOptions = computed(() => {
-		const { symbol } = primary.value;
-
-		return [
-			{
-				value: "first_only" as const,
-				label: "First alert only",
-				example: `Once we text you about ${symbol}, we won't notify you again for this asset until the next trading day.`,
-			},
-			{
-				value: "allow_follow_up" as const,
-				label: "Allow one follow-up",
-				example: `If ${symbol}'s move accelerates later the same day, or reverses (e.g. drops then recovers), we will send one follow-up. Max two alerts per asset per day.`,
-			},
-		];
-	});
-
 	return {
 		loading,
-		marketContextOptions,
 		moveSizeOptions,
-		followUpOptions,
 	};
 }

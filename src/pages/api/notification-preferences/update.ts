@@ -35,22 +35,9 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	market_asset_price_alerts_enabled: { type: "boolean" },
 	market_asset_price_alerts_include_email: { type: "boolean" },
 	market_asset_price_alerts_include_sms: { type: "boolean" },
-	market_asset_price_alert_onboarding_completed: { type: "boolean" },
-	market_asset_price_alert_risk_priority: {
-		type: "enum",
-		values: ["both_equally"],
-	},
-	market_asset_price_alert_market_context: {
-		type: "enum",
-		values: ["standout", "any_major"],
-	},
 	market_asset_price_alert_move_size: {
 		type: "enum",
 		values: ["significant", "extreme"],
-	},
-	market_asset_price_alert_follow_up_mode: {
-		type: "enum",
-		values: ["first_only", "allow_follow_up"],
 	},
 	price_targets_include_email: { type: "boolean" },
 	price_targets_include_sms: { type: "boolean" },
@@ -298,16 +285,8 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 					updatedUser.market_asset_price_alerts_include_email,
 				market_asset_price_alerts_include_sms:
 					updatedUser.market_asset_price_alerts_include_sms,
-				market_asset_price_alert_onboarding_completed:
-					updatedUser.market_asset_price_alert_onboarding_completed,
-				market_asset_price_alert_risk_priority:
-					updatedUser.market_asset_price_alert_risk_priority,
-				market_asset_price_alert_market_context:
-					updatedUser.market_asset_price_alert_market_context,
 				market_asset_price_alert_move_size:
 					updatedUser.market_asset_price_alert_move_size,
-				market_asset_price_alert_follow_up_mode:
-					updatedUser.market_asset_price_alert_follow_up_mode,
 				price_targets_include_email: updatedUser.price_targets_include_email,
 				price_targets_include_sms: updatedUser.price_targets_include_sms,
 			},

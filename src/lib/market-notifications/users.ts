@@ -1,11 +1,6 @@
 import { rootLogger } from "../logging";
 import type { SupabaseAdminClient } from "../schedule/helpers";
-import type {
-	AlertFollowUpMode,
-	AlertMarketContext,
-	AlertMoveSize,
-	AlertRiskPriority,
-} from "./alert-profile";
+import type { AlertMoveSize } from "./alert-profile";
 
 export interface PriceAlertUser {
 	id: string;
@@ -17,10 +12,7 @@ export interface PriceAlertUser {
 	sms_opted_out: boolean;
 	market_asset_price_alerts_include_email: boolean;
 	market_asset_price_alerts_include_sms: boolean;
-	market_asset_price_alert_risk_priority: AlertRiskPriority;
-	market_asset_price_alert_market_context: AlertMarketContext;
 	market_asset_price_alert_move_size: AlertMoveSize;
-	market_asset_price_alert_follow_up_mode: AlertFollowUpMode;
 	use_24_hour_time: boolean;
 }
 
@@ -34,7 +26,7 @@ export async function fetchPriceAlertUsers(
 	const { data, error } = await (supabase
 		.from("users")
 		.select(
-			"id, email, phone_country_code, phone_number, phone_verified, sms_notifications_enabled, sms_opted_out, market_asset_price_alerts_include_email, market_asset_price_alerts_include_sms, market_asset_price_alert_risk_priority, market_asset_price_alert_market_context, market_asset_price_alert_move_size, market_asset_price_alert_follow_up_mode, use_24_hour_time",
+			"id, email, phone_country_code, phone_number, phone_verified, sms_notifications_enabled, sms_opted_out, market_asset_price_alerts_include_email, market_asset_price_alerts_include_sms, market_asset_price_alert_move_size, use_24_hour_time",
 		)
 		.eq("market_asset_price_alerts_enabled", true)
 		.or(
@@ -62,8 +54,7 @@ export async function fetchPriceAlertUsers(
  * DO UPDATE). Prevents duplicate alerts when overlapping cron ticks or retries
  * race.
  *
- * @returns true when alert delivery should proceed; false when already sent today
- *   or slot is denied by follow-up rules (acceleration/recovery).
+ * @returns true when alert delivery should proceed; false when already sent today.
  */
 export async function claimCooldown(
 	supabase: SupabaseAdminClient,
@@ -71,9 +62,6 @@ export async function claimCooldown(
 	symbol: string,
 	absMovePercent: number,
 	absMoveDollar: number,
-	allowAccelerationFollowUp: boolean,
-	allowRecoveryFollowUp = false,
-	moveDirection: "up" | "down" | null = null,
 ): Promise<boolean> {
 	const { data: claimed, error } = await (
 		supabase as unknown as {
@@ -87,9 +75,9 @@ export async function claimCooldown(
 		p_symbol: symbol,
 		p_abs_move_percent: absMovePercent,
 		p_abs_move_dollar: absMoveDollar,
-		p_allow_acceleration_follow_up: allowAccelerationFollowUp,
-		p_allow_recovery_follow_up: allowRecoveryFollowUp,
-		p_move_direction: moveDirection,
+		p_allow_acceleration_follow_up: false,
+		p_allow_recovery_follow_up: false,
+		p_move_direction: null,
 	});
 
 	if (error) {

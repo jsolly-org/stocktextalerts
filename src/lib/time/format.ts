@@ -2,8 +2,10 @@ import { DateTime, Duration } from "luxon";
 import {
 	US_AFTER_OPEN_EASTERN_MINUTES,
 	US_BEFORE_OPEN_EASTERN_MINUTES,
+	US_MARKET_CLOSE_EASTERN_MINUTES,
 	US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES,
 	US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES,
+	US_MARKET_OPEN_EASTERN_MINUTES,
 	US_MARKET_TIMEZONE,
 } from "../constants";
 import {
@@ -358,4 +360,52 @@ export function formatMinutesAsLocalTime(
 		});
 	}
 	return dt.toLocaleString(DateTime.TIME_SIMPLE);
+}
+
+/** Returns true if the US stock market is currently open (weekday, 9:30 AM – 4:00 PM ET). */
+export function isMarketCurrentlyOpen(now?: DateTime): boolean {
+	const eastern = (now ?? DateTime.now()).setZone(US_MARKET_TIMEZONE);
+	const weekday = eastern.weekday; // 1=Mon … 7=Sun
+	if (weekday > 5) return false;
+	const minutesSinceMidnight = eastern.hour * 60 + eastern.minute;
+	return (
+		minutesSinceMidnight >= US_MARKET_OPEN_EASTERN_MINUTES &&
+		minutesSinceMidnight < US_MARKET_CLOSE_EASTERN_MINUTES
+	);
+}
+
+/** Returns the DateTime of the most recent US market close (4:00 PM ET on a weekday). */
+export function getLastMarketClose(now?: DateTime): DateTime {
+	const eastern = (now ?? DateTime.now()).setZone(US_MARKET_TIMEZONE);
+	const closeHour = Math.floor(US_MARKET_CLOSE_EASTERN_MINUTES / 60);
+	const closeMinute = US_MARKET_CLOSE_EASTERN_MINUTES % 60;
+
+	const todayClose = eastern.set({
+		hour: closeHour,
+		minute: closeMinute,
+		second: 0,
+		millisecond: 0,
+	});
+
+	// If it's a weekday and past market close, today's close is the most recent
+	if (eastern.weekday <= 5 && eastern >= todayClose) {
+		return todayClose;
+	}
+
+	// Otherwise, walk back to the most recent weekday's close
+	let candidate = todayClose;
+	if (eastern < todayClose) {
+		// Haven't reached today's close yet, start from yesterday
+		candidate = candidate.minus({ days: 1 });
+	}
+	// Skip weekends
+	while (candidate.weekday > 5) {
+		candidate = candidate.minus({ days: 1 });
+	}
+	return candidate.set({
+		hour: closeHour,
+		minute: closeMinute,
+		second: 0,
+		millisecond: 0,
+	});
 }

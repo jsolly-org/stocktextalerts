@@ -58,7 +58,6 @@
 			<div
 				class="rounded-xl border border-edge bg-surface p-4 transition-opacity duration-200"
 				:class="{ 'opacity-50': notificationSetupBlocked }"
-				:data-autosave-ignore="isPriceAlertAutosaveLocked ? '' : null"
 			>
 				<div class="flex items-center justify-between gap-3">
 					<input
@@ -78,28 +77,8 @@
 					/>
 					<input
 						type="hidden"
-						name="market_asset_price_alert_onboarding_completed"
-						:value="priceAlertOnboardingCompleted ? 'on' : 'off'"
-					/>
-					<input
-						type="hidden"
-						name="market_asset_price_alert_risk_priority"
-						:value="priceAlertRiskPriority"
-					/>
-					<input
-						type="hidden"
-						name="market_asset_price_alert_market_context"
-						:value="priceAlertMarketContext"
-					/>
-					<input
-						type="hidden"
 						name="market_asset_price_alert_move_size"
 						:value="priceAlertMoveSize"
-					/>
-					<input
-						type="hidden"
-						name="market_asset_price_alert_follow_up_mode"
-						:value="priceAlertFollowUpMode"
 					/>
 					<div class="min-w-0">
 						<div class="flex items-center gap-2">
@@ -114,7 +93,7 @@
 							<GrokLogoDarkIcon class="hidden h-4.5 w-auto shrink-0 dark:inline" aria-label="Powered by Grok" role="img" />
 						</div>
 						<p id="market_asset_price_alerts_enabled_description" class="text-sm text-body-secondary mt-0.5">
-							Immediate alerts for significant price moves during US trading hours. Maximum of two notifications per asset per day.
+							Immediate alerts for significant price moves during US trading hours. One notification per asset per day.
 						</p>
 					</div>
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
@@ -145,161 +124,30 @@
 
 				<FadeTransition>
 					<div
-					v-if="priceAlertsEnabled && showWizard"
-					key="wizard"
-					class="mt-3 border-t border-divider pt-3 pl-3 sm:pl-4"
-					data-horizontal-scroll
-					@touchstart="handleWizardTouchStart"
-					@touchmove="handleWizardTouchMove"
-					@touchend="handleWizardTouchEnd"
-					@touchcancel="resetWizardTouch"
-				>
+						v-if="priceAlertsEnabled"
+						class="mt-3 border-t border-divider pt-3 pl-3 sm:pl-4"
+					>
 						<fieldset :disabled="notificationSetupBlocked">
-							<div class="space-y-3">
-								<!-- All steps rendered in the same grid cell so the container
-								     sizes to the tallest step, preventing layout shift. -->
-								<div class="grid [&>*]:col-start-1 [&>*]:row-start-1">
-									<div class="flex flex-col" :class="activeRetuneStep === 0 ? 'visible' : 'invisible'" :inert="activeRetuneStep !== 0 || undefined">
-										<p class="text-sm text-label mb-1.5">How big should a move be before it deserves an alert?</p>
-										<div class="grid flex-1 auto-rows-fr grid-cols-1 gap-2 sm:grid-cols-2">
-											<label
-												v-for="option in moveSizeOptions"
-												:key="option.value"
-												class="rounded-lg border px-2.5 py-2 text-sm text-label cursor-pointer transition-colors duration-150 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-emerald-500"
-												:class="priceAlertMoveSize === option.value ? 'border-emerald-500 bg-emerald-500/10' : 'border-edge bg-surface-alt hover:border-edge-strong'"
-											>
-												<input
-													v-model="priceAlertMoveSize"
-													type="radio"
-													name="price_alert_move_size"
-													:value="option.value"
-													class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-0 align-middle"
-												/>
-												<span class="ml-1.5 align-middle">{{ option.label }}</span>
-												<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
-											</label>
-										</div>
-									</div>
-
-									<div class="flex flex-col" :class="activeRetuneStep === 1 ? 'visible' : 'invisible'" :inert="activeRetuneStep !== 1 || undefined">
-										<p class="text-sm text-label mb-1.5">Should we text you when all stocks are moving, or only when yours stands out?</p>
-										<div class="grid flex-1 auto-rows-fr grid-cols-1 gap-2 sm:grid-cols-2">
-											<label
-												v-for="option in marketContextOptions"
-												:key="option.value"
-												class="rounded-lg border px-2.5 py-2 text-sm text-label cursor-pointer transition-colors duration-150 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-emerald-500"
-												:class="priceAlertMarketContext === option.value ? 'border-emerald-500 bg-emerald-500/10' : 'border-edge bg-surface-alt hover:border-edge-strong'"
-											>
-												<input
-													v-model="priceAlertMarketContext"
-													type="radio"
-													name="price_alert_market_context"
-													:value="option.value"
-													class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-0 align-middle"
-												/>
-												<span class="ml-1.5 align-middle">{{ option.label }}</span>
-												<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
-											</label>
-										</div>
-									</div>
-									<div class="flex flex-col" :class="activeRetuneStep === 2 ? 'visible' : 'invisible'" :inert="activeRetuneStep !== 2 || undefined">
-										<p class="text-sm text-label mb-1.5">After your first alert, what should happen?</p>
-										<p class="text-xs text-body-secondary mb-2">Maximum of two notifications per asset per day.</p>
-										<div class="grid flex-1 auto-rows-fr grid-cols-1 gap-2 sm:grid-cols-2">
-											<label
-												v-for="option in followUpOptions"
-												:key="option.value"
-												class="rounded-lg border px-2.5 py-2 text-sm text-label cursor-pointer transition-colors duration-150 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-emerald-500"
-												:class="priceAlertFollowUpMode === option.value ? 'border-emerald-500 bg-emerald-500/10' : 'border-edge bg-surface-alt hover:border-edge-strong'"
-											>
-												<input
-													v-model="priceAlertFollowUpMode"
-													type="radio"
-													name="price_alert_follow_up_mode"
-													:value="option.value"
-													class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-0 align-middle"
-												/>
-												<span class="ml-1.5 align-middle">{{ option.label }}</span>
-												<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
-											</label>
-										</div>
-									</div>
-								</div>
-
-							<div class="grid grid-cols-[1fr_auto_1fr] items-center pt-1">
-								<button
-									type="button"
-									class="justify-self-start rounded-md border border-edge px-2.5 py-1.5 text-xs font-medium text-label transition hover:bg-surface-alt cursor-pointer"
-									:class="{ invisible: isFirstRetuneStep }"
-									:tabindex="isFirstRetuneStep ? -1 : undefined"
-									:aria-hidden="isFirstRetuneStep || undefined"
-									@click="handleRetunePrevious"
+							<p class="text-sm text-label mb-1.5">How big should a move be before it deserves an alert?</p>
+							<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+								<label
+									v-for="option in moveSizeOptions"
+									:key="option.value"
+									class="rounded-lg border px-2.5 py-2 text-sm text-label cursor-pointer transition-colors duration-150 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-emerald-500"
+									:class="priceAlertMoveSize === option.value ? 'border-emerald-500 bg-emerald-500/10' : 'border-edge bg-surface-alt hover:border-edge-strong'"
 								>
-									Back
-								</button>
-								<nav class="flex items-center gap-2" aria-label="Wizard steps">
-									<button
-										v-for="step in TOTAL_RETUNE_STEPS"
-										:key="step"
-										type="button"
-										class="size-2.5 rounded-full transition-colors duration-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
-										:class="step - 1 === activeRetuneStep ? 'bg-emerald-500 scale-125' : step - 1 < activeRetuneStep ? 'bg-emerald-500/40 hover:bg-emerald-500/60' : 'bg-edge-strong hover:bg-muted'"
-										:aria-label="`Go to step ${step}`"
-										:aria-current="step - 1 === activeRetuneStep ? 'step' : undefined"
-										@click="goToRetuneStep(step - 1)"
+									<input
+										v-model="priceAlertMoveSize"
+										type="radio"
+										name="price_alert_move_size"
+										:value="option.value"
+										class="h-4 w-4 border-edge-strong text-emerald-600 focus:ring-0 align-middle"
 									/>
-								</nav>
-								<button
-									v-if="isLastRetuneStep"
-									type="button"
-									class="justify-self-end rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 cursor-pointer"
-									@click="handleRetunePrimaryAction"
-								>
-									{{ retunePrimaryActionLabel }}
-								</button>
-								<button
-									v-else
-									type="button"
-									class="justify-self-end rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 cursor-pointer"
-									@click="handleRetuneNext"
-								>
-									Next
-								</button>
-							</div>
+									<span class="ml-1.5 align-middle">{{ option.label }}</span>
+									<p class="mt-1 text-xs text-muted whitespace-pre-line">{{ option.example }}</p>
+								</label>
 							</div>
 						</fieldset>
-					</div>
-					<div v-else-if="priceAlertsEnabled && !showWizard" key="summary" class="mt-3 border-t border-divider pt-3 pl-3 sm:pl-4">
-						<div class="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs sm:grid-cols-3">
-							<div class="flex items-start gap-1.5">
-								<span class="text-base leading-none mt-px" aria-hidden="true">📊</span>
-								<div>
-									<p class="text-muted">Market filter</p>
-									<p class="text-label font-medium">{{ MARKET_CONTEXT_LABELS[priceAlertMarketContext] }}</p>
-								</div>
-							</div>
-							<div class="flex items-start gap-1.5">
-								<span class="text-base leading-none mt-px" aria-hidden="true">📏</span>
-								<div>
-									<p class="text-muted">Move size</p>
-									<p class="text-label font-medium">{{ MOVE_SIZE_LABELS[priceAlertMoveSize] }}</p>
-								</div>
-							</div>
-							<div class="flex items-start gap-1.5">
-								<span class="text-base leading-none mt-px" aria-hidden="true">🔁</span>
-								<div>
-									<p class="text-muted">Same-day follow-up</p>
-									<p class="text-label font-medium">{{ FOLLOW_UP_LABELS[priceAlertFollowUpMode] }}</p>
-								</div>
-							</div>
-						</div>
-						<button
-							type="button"
-							class="mt-3 inline-flex items-center gap-1 rounded-md border border-edge px-2.5 py-1 text-xs font-medium text-label transition hover:bg-surface-alt focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 cursor-pointer"
-							@click="startRetune"
-						>
-							⚙️ Adjust Alerts
-						</button>
 					</div>
 				</FadeTransition>
 			</div>
@@ -546,7 +394,8 @@
 						</FadeTransition>
 
 						<div class="mt-3 space-y-1 text-xs text-muted">
-							<p>Prices as of {{ pricesFetchedAtLabel ?? 'page load' }}. Refresh the page for the latest prices.</p>
+							<p v-if="marketOpen">Prices as of {{ pricesFetchedAtLabel ?? 'page load' }} ET. Refresh the page for the latest prices.</p>
+							<p v-else>Market closed. Prices as of last close{{ lastCloseLabel ? `, ${lastCloseLabel}` : '' }}.</p>
 							<p>Prices are checked every minute during market hours. If a price briefly crosses your target and bounces back within the same minute, the notification may not be sent.</p>
 						</div>
 					</div>
@@ -576,18 +425,18 @@ import {
 	DASHBOARD_SECTION_IDS,
 	DEFAULT_MARKET_UPDATE_TIME_MINUTES,
 	STATUS_TONE_CLASSES,
+	US_MARKET_TIMEZONE,
 } from "../../../lib/constants";
 import {
-	type AlertFollowUpMode,
-	type AlertMarketContext,
 	type AlertMoveSize,
-	type AlertRiskPriority,
 	normalizeMoveSize,
 } from "../../../lib/market-notifications/alert-profile";
 import {
 	formatMinutesAsLocalTime,
+	getLastMarketClose,
 	getMarketNotificationLocalRange,
 	getUsAfterOpenLocalMinutes,
+	isMarketCurrentlyOpen,
 	minutesToTimeInputValue,
 	parseTimeToMinutes,
 } from "../../../lib/time/format";
@@ -652,88 +501,15 @@ const priceAlertsEnabled = computed(
 const priceTargetsIncludeEmail = ref(user.value.price_targets_include_email);
 const priceTargetsIncludeSms = ref(user.value.price_targets_include_sms);
 
-const priceAlertOnboardingCompleted = ref(
-	user.value.market_asset_price_alert_onboarding_completed ?? false,
-);
-function normalizeRiskPriority(
-	value: AlertRiskPriority | string | null | undefined,
-): AlertRiskPriority {
-	if (value === "both_equally") return value;
-	// Legacy: map big_drops/big_gains to combined option
-	return "both_equally";
-}
-const priceAlertRiskPriority = ref<AlertRiskPriority>(
-	normalizeRiskPriority(user.value.market_asset_price_alert_risk_priority),
-);
-function normalizeMarketContext(
-	value: AlertMarketContext | null | undefined,
-): AlertMarketContext {
-	if (value === "any_major" || value === "standout") return value;
-	return "standout";
-}
-const priceAlertMarketContext = ref<AlertMarketContext>(
-	normalizeMarketContext(user.value.market_asset_price_alert_market_context),
-);
 const priceAlertMoveSize = ref<AlertMoveSize>(
 	normalizeMoveSize(user.value.market_asset_price_alert_move_size),
 );
-function normalizeFollowUpMode(value: string | null | undefined): AlertFollowUpMode {
-	if (value === "first_only" || value === "allow_follow_up") return value;
-	// Legacy: map acceleration/recovery to combined option
-	if (
-		value === "allow_acceleration_follow_up" ||
-		value === "allow_recovery_follow_up"
-	)
-		return "allow_follow_up";
-	return "first_only";
-}
-const priceAlertFollowUpMode = ref<AlertFollowUpMode>(
-	normalizeFollowUpMode(user.value.market_asset_price_alert_follow_up_mode),
-);
 
-// Composable fetches prices lazily when the wizard is visible
-const wizardVisible = computed(() => priceAlertsEnabled.value);
 const {
-	marketContextOptions,
 	moveSizeOptions,
-	followUpOptions,
-} = useOnboardingExamples(trackedAssets, wizardVisible);
+} = useOnboardingExamples(trackedAssets, priceAlertsEnabled);
 
-const TOTAL_RETUNE_STEPS = 3;
-const activeRetuneStep = ref(0);
-const isFirstRetuneStep = computed(() => activeRetuneStep.value === 0);
-const isLastRetuneStep = computed(
-	() => activeRetuneStep.value === TOTAL_RETUNE_STEPS - 1,
-);
-const showFinishSetupButton = computed(
-	() => !priceAlertOnboardingCompleted.value && isLastRetuneStep.value,
-);
-const retuning = ref(false);
-const showWizard = computed(
-	() => !priceAlertOnboardingCompleted.value || retuning.value,
-);
 
-const isPriceAlertAutosaveLocked = computed(
-	() => !priceAlertOnboardingCompleted.value,
-);
-const retunePrimaryActionLabel = computed(() =>
-	showFinishSetupButton.value || (retuning.value && isLastRetuneStep.value)
-		? "Save"
-		: "Next",
-);
-
-const MARKET_CONTEXT_LABELS: Record<AlertMarketContext, string> = {
-	any_major: "Any big move",
-	standout: "Standouts only",
-};
-const MOVE_SIZE_LABELS: Record<AlertMoveSize, string> = {
-	significant: "Significant (\u22655% or $10)",
-	extreme: "Extreme (\u22658% or $15)",
-};
-const FOLLOW_UP_LABELS: Record<AlertFollowUpMode, string> = {
-	first_only: "First alert only",
-	allow_follow_up: "Allow one follow-up",
-};
 
 const MAX_SCHEDULED_UPDATE_MINUTES = 23 * 60 + 59;
 const SCHEDULED_UPDATE_INCREMENT_MINUTES = 1;
@@ -932,33 +708,9 @@ watchUserPreference(
 	priceTargetsIncludeSms,
 );
 watch(
-	() => user.value.market_asset_price_alert_onboarding_completed,
-	(value) => {
-		priceAlertOnboardingCompleted.value = value ?? false;
-	},
-);
-watch(
-	() => user.value.market_asset_price_alert_risk_priority,
-	(value) => {
-		priceAlertRiskPriority.value = normalizeRiskPriority(value);
-	},
-);
-watch(
-	() => user.value.market_asset_price_alert_market_context,
-	(value) => {
-		priceAlertMarketContext.value = normalizeMarketContext(value);
-	},
-);
-watch(
 	() => user.value.market_asset_price_alert_move_size,
 	(value) => {
 		priceAlertMoveSize.value = normalizeMoveSize(value);
-	},
-);
-watch(
-	() => user.value.market_asset_price_alert_follow_up_mode,
-	(value) => {
-		priceAlertFollowUpMode.value = normalizeFollowUpMode(value);
 	},
 );
 watch(
@@ -1007,20 +759,8 @@ watch(
 			...(newData.market_asset_price_alerts_include_sms !== undefined && {
 				market_asset_price_alerts_include_sms: newData.market_asset_price_alerts_include_sms,
 			}),
-			...(newData.market_asset_price_alert_onboarding_completed !== undefined && {
-				market_asset_price_alert_onboarding_completed: newData.market_asset_price_alert_onboarding_completed,
-			}),
-			...(newData.market_asset_price_alert_risk_priority !== undefined && {
-				market_asset_price_alert_risk_priority: newData.market_asset_price_alert_risk_priority,
-			}),
-			...(newData.market_asset_price_alert_market_context !== undefined && {
-				market_asset_price_alert_market_context: newData.market_asset_price_alert_market_context,
-			}),
 			...(newData.market_asset_price_alert_move_size !== undefined && {
 				market_asset_price_alert_move_size: newData.market_asset_price_alert_move_size,
-			}),
-			...(newData.market_asset_price_alert_follow_up_mode !== undefined && {
-				market_asset_price_alert_follow_up_mode: newData.market_asset_price_alert_follow_up_mode,
 			}),
 			...(newData.price_targets_include_email !== undefined && {
 				price_targets_include_email: newData.price_targets_include_email,
@@ -1049,43 +789,19 @@ watch([marketIncludeEmail, marketIncludeSms], ([email, sms]) => {
 	notifyChange();
 });
 
-watch([priceAlertRiskPriority, priceAlertMarketContext, priceAlertMoveSize, priceAlertFollowUpMode], ([riskPriority, marketContext, moveSize, followUpMode]) => {
-	if (!priceAlertOnboardingCompleted.value) {
-		return;
-	}
-	if (
-		riskPriority === normalizeRiskPriority(user.value.market_asset_price_alert_risk_priority) &&
-		marketContext === normalizeMarketContext(user.value.market_asset_price_alert_market_context) &&
-		moveSize === normalizeMoveSize(user.value.market_asset_price_alert_move_size) &&
-		followUpMode === normalizeFollowUpMode(user.value.market_asset_price_alert_follow_up_mode)
-	) {
+watch(priceAlertMoveSize, (moveSize) => {
+	if (moveSize === normalizeMoveSize(user.value.market_asset_price_alert_move_size)) {
 		return;
 	}
 	user.value = {
 		...user.value,
-		market_asset_price_alert_risk_priority: riskPriority,
-		market_asset_price_alert_market_context: marketContext,
 		market_asset_price_alert_move_size: moveSize,
-		market_asset_price_alert_follow_up_mode: followUpMode,
 	};
 	notifyChange();
 });
 
-watch(priceAlertOnboardingCompleted, (value) => {
-	if (value === (user.value.market_asset_price_alert_onboarding_completed ?? false)) {
-		return;
-	}
-	user.value = {
-		...user.value,
-		market_asset_price_alert_onboarding_completed: value,
-	};
-	notifyChange();
-});
 
 watch([priceAlertsIncludeEmail, priceAlertsIncludeSms], ([email, sms]) => {
-	if (!priceAlertOnboardingCompleted.value) {
-		return;
-	}
 	if (
 		email === user.value.market_asset_price_alerts_include_email &&
 		sms === user.value.market_asset_price_alerts_include_sms
@@ -1135,10 +851,25 @@ function formatCurrentPrice(price: number): string {
 	return `$${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+const marketOpen = ref(isMarketCurrentlyOpen());
+
 const pricesFetchedAtLabel = computed(() => {
 	const d = pricesFetchedAt.value;
 	if (!d) return null;
-	return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: !is24.value });
+	return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: !is24.value, timeZone: US_MARKET_TIMEZONE });
+});
+
+const lastCloseLabel = computed(() => {
+	const lastClose = getLastMarketClose();
+	const dateTimePart = lastClose.toLocaleString({
+		month: "short",
+		day: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+		hourCycle: is24.value ? "h23" : "h12",
+	});
+	const relative = lastClose.toRelative();
+	return `${dateTimePart} ET (${relative})`;
 });
 
 function getCurrentPrice(symbol: string): number | null {
@@ -1210,7 +941,10 @@ async function fetchTargets() {
 				if (typeof price === "number") priceMap.set(symbol, price);
 			}
 			currentPrices.value = priceMap;
-			if (priceMap.size > 0) pricesFetchedAt.value = new Date();
+			if (priceMap.size > 0) {
+				pricesFetchedAt.value = new Date();
+				marketOpen.value = isMarketCurrentlyOpen();
+			}
 		}
 	} catch {
 		// Silently fail — targets will just show as empty
@@ -1294,132 +1028,6 @@ function clearTarget(symbol: string) {
 onMounted(() => {
 	fetchTargets();
 });
-
-// ── Wizard swipe navigation (mobile) ──
-// Note: wizardTouch* are module-scoped (outside Vue reactivity). This is intentional
-// since they don't need to trigger re-renders, but it means only one instance of
-// this panel should be mounted at a time (fine for the singleton dashboard).
-const SWIPE_THRESHOLD_PX = 30;
-const AXIS_LOCK_PX = 10;
-let wizardTouchStartX: number | null = null;
-let wizardTouchStartY: number | null = null;
-let wizardTouchAxis: "horizontal" | "vertical" | null = null;
-
-function resetWizardTouch() {
-	wizardTouchStartX = null;
-	wizardTouchStartY = null;
-	wizardTouchAxis = null;
-}
-
-function handleWizardTouchStart(event: TouchEvent) {
-	if (event.touches.length !== 1) {
-		resetWizardTouch();
-		return;
-	}
-	const touch = event.touches[0];
-	if (!touch) return;
-	wizardTouchStartX = touch.clientX;
-	wizardTouchStartY = touch.clientY;
-	wizardTouchAxis = null;
-}
-
-function handleWizardTouchMove(event: TouchEvent) {
-	if (event.touches.length !== 1) {
-		resetWizardTouch();
-		return;
-	}
-	if (wizardTouchStartX == null || wizardTouchStartY == null) return;
-	const touch = event.touches[0];
-	if (!touch) return;
-
-	const deltaX = Math.abs(touch.clientX - wizardTouchStartX);
-	const deltaY = Math.abs(touch.clientY - wizardTouchStartY);
-
-	if (wizardTouchAxis == null && (deltaX >= AXIS_LOCK_PX || deltaY >= AXIS_LOCK_PX)) {
-		wizardTouchAxis = deltaX >= deltaY ? "horizontal" : "vertical";
-	}
-
-	if (wizardTouchAxis === "horizontal") {
-		event.preventDefault();
-	}
-}
-
-function handleWizardTouchEnd(event: TouchEvent) {
-	if (event.changedTouches.length !== 1) {
-		resetWizardTouch();
-		return;
-	}
-	if (wizardTouchStartX == null) {
-		resetWizardTouch();
-		return;
-	}
-	const touch = event.changedTouches[0];
-	if (!touch) {
-		resetWizardTouch();
-		return;
-	}
-
-	const deltaX = touch.clientX - wizardTouchStartX;
-	const axis = wizardTouchAxis;
-	resetWizardTouch();
-
-	if (axis !== "horizontal") return;
-	if (Math.abs(deltaX) < SWIPE_THRESHOLD_PX) return;
-
-	if (deltaX < 0) {
-		// Swipe left → next
-		handleRetuneNext();
-	} else {
-		// Swipe right → back
-		handleRetunePrevious();
-	}
-}
-
-function goToRetuneStep(step: number) {
-	activeRetuneStep.value = step;
-}
-
-function handleRetunePrevious() {
-	if (isFirstRetuneStep.value) return;
-	activeRetuneStep.value -= 1;
-}
-
-function handleRetuneNext() {
-	if (isLastRetuneStep.value) return;
-	activeRetuneStep.value += 1;
-}
-
-function startRetune() {
-	activeRetuneStep.value = 0;
-	retuning.value = true;
-}
-
-function handleRetunePrimaryAction() {
-	if (showFinishSetupButton.value) {
-		user.value = {
-			...user.value,
-			market_asset_price_alerts_include_email: priceAlertsIncludeEmail.value,
-			market_asset_price_alerts_include_sms: priceAlertsIncludeSms.value,
-			market_asset_price_alerts_enabled:
-				priceAlertsIncludeEmail.value || priceAlertsIncludeSms.value,
-			market_asset_price_alert_risk_priority: priceAlertRiskPriority.value,
-			market_asset_price_alert_market_context: priceAlertMarketContext.value,
-			market_asset_price_alert_move_size: priceAlertMoveSize.value,
-			market_asset_price_alert_follow_up_mode: priceAlertFollowUpMode.value,
-			market_asset_price_alert_onboarding_completed: true,
-		};
-		priceAlertOnboardingCompleted.value = true;
-		retuning.value = false;
-		notifyChange();
-		return;
-	}
-	if (retuning.value && isLastRetuneStep.value) {
-		retuning.value = false;
-		notifyChange();
-		return;
-	}
-	handleRetuneNext();
-}
 
 function handleTimeChange(index: number, value: string) {
 	const parsedMinutes = parseTimeToMinutes(value);
