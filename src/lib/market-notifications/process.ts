@@ -254,13 +254,14 @@ export async function processPriceAlerts(options: {
 		fetchEarningsSymbols(supabase),
 	]);
 
-	// Persist current tick for the rolling anomaly-detection window
-	await storeSnapshots(supabase, quoteMap);
-
-	// Load rolling 60-minute snapshot history for anomaly scoring
+	// Load rolling 60-minute snapshot history for anomaly scoring (before storing
+	// current tick, so history excludes the current quote and sudden-move detection works)
 	const snapshotMap = await getSnapshotsForSymbols(supabase, [
 		...uniqueSymbols,
 	]);
+
+	// Persist current tick for the rolling anomaly-detection window
+	await storeSnapshots(supabase, quoteMap);
 
 	const users = await fetchPriceAlertUsers(supabase);
 	if (users.length === 0) {
