@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { jsonResponse } from "../../../lib/api/json-response";
+import { ASSET_SYMBOL_MAX_LENGTH } from "../../../lib/constants";
 import { createUserService, getUserAssets } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
@@ -49,12 +50,11 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 	const normalizedSymbol =
 		typeof symbol === "string" ? symbol.trim().toUpperCase() : "";
 
-	// Match DB constraint (assets.symbol VARCHAR(10)) to return clear 400 and avoid DB errors
-	const MAX_SYMBOL_LENGTH = 10;
+	// Keep in sync with assets.symbol DB constraint.
 	if (!normalizedSymbol) {
 		return jsonResponse(400, { ok: false, message: "invalid_symbol" });
 	}
-	if (normalizedSymbol.length > MAX_SYMBOL_LENGTH) {
+	if (normalizedSymbol.length > ASSET_SYMBOL_MAX_LENGTH) {
 		return jsonResponse(400, { ok: false, message: "invalid_symbol" });
 	}
 

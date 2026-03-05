@@ -53,9 +53,8 @@ describe("isOutsideMarketHours", () => {
 	});
 
 	it("A timezone where market hours cross midnight (e.g. Tokyo) is handled correctly.", () => {
-		// Tokyo is UTC+9, ET is UTC-4 (DST) = 13-hour offset
-		// 10:00 AM ET = 11:00 PM JST, 3:59 PM ET = 4:59 AM+1 JST
-		// A time at 1:00 AM JST should be inside notification window (wraps midnight)
+		// Tokyo is UTC+9; ET shifts with DST (-5/-4), so the local window can vary seasonally.
+		// 1:00 AM JST should remain inside the mapped notification window.
 		const oneAmTokyo = 1 * 60;
 		expect(isOutsideMarketHours(oneAmTokyo, "Asia/Tokyo")).toBe(false);
 

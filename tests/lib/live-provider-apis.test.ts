@@ -222,7 +222,9 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 		// Splits are less frequent; just verify the endpoint doesn't error
 	});
 
+	// fetchEarnings delegates to Finnhub; skip when only Massive is enabled.
 	it("Upcoming earnings events are available through the canonical earnings feed.", async () => {
+		if (!isLiveProviderEnabled("finnhub")) return;
 		const from = new Date().toISOString().slice(0, 10);
 		const to = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
 			.toISOString()

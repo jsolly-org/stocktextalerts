@@ -31,7 +31,7 @@ describeXaiLive("xAI live API (opt-in)", () => {
 		expect(Array.isArray(result?.citations)).toBe(true);
 	});
 
-	it("when requesting a price alert summary, returns summary text and up to three links", {
+	it("A user receives a price-alert summary with text and no more than three source links", {
 		timeout: 150_000,
 	}, async () => {
 		const result = await generatePriceAlertSummary({
@@ -45,6 +45,7 @@ describeXaiLive("xAI live API (opt-in)", () => {
 		expect(typeof result?.summary).toBe("string");
 		expect((result?.summary.length ?? 0) > 0).toBe(true);
 		expect(Array.isArray(result?.links)).toBe(true);
+		expect(result?.links.length ?? 0).toBeLessThanOrEqual(3);
 		// Links should have the expected shape when present
 		for (const link of result?.links ?? []) {
 			expect(link.url).toMatch(/^https?:\/\//);

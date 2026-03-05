@@ -38,6 +38,8 @@ import type { PriceAlertUser } from "./users";
 
 /** Max sparkline length for SMS. Unicode blocks use UCS-2 (70 chars/segment). Truncating reduces segment count and cost. */
 const SMS_SPARKLINE_MAX_LENGTH = 12;
+/** Cap Grok summary length in SMS to avoid segment/cost spikes from long model output. */
+const MAX_SMS_SUMMARY_CHARS = 280;
 
 function formatPriceContextWithSparkline(
 	priceContext: string,
@@ -100,12 +102,16 @@ async function formatPriceAlertSms(
 
 	if (alert.grokResult) {
 		const { summary, links } = alert.grokResult;
+		const smsSummary =
+			summary.length > MAX_SMS_SUMMARY_CHARS
+				? `${summary.slice(0, MAX_SMS_SUMMARY_CHARS - 1)}…`
+				: summary;
 		const rawUrls = links
 			.map((l) => getSafeHrefUrl(l.url))
 			.filter((url): url is string => url !== null);
 		const urlMap = await shortenUrls(rawUrls, supabase);
 		const linkLines = rawUrls.map((url) => urlMap.get(url) ?? url).join("\n");
-		sections.push(linkLines ? `${summary}\n${linkLines}` : summary);
+		sections.push(linkLines ? `${smsSummary}\n${linkLines}` : smsSummary);
 	}
 
 	sections.push(`Manage your settings: ${dashboardUrl}`);

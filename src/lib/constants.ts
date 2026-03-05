@@ -105,6 +105,13 @@ export const VERIFICATION_RESEND_COOLDOWN_MS =
 	VERIFICATION_RESEND_COOLDOWN_SECONDS * 1000;
 
 /* =============
+Asset symbol (DB constraint)
+============= */
+
+/** Max length for asset symbols; must match assets.symbol VARCHAR(n) in DB. */
+export const ASSET_SYMBOL_MAX_LENGTH = 10;
+
+/* =============
 Finnhub API
 ============= */
 

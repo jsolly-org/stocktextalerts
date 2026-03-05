@@ -115,14 +115,17 @@ function minutesSinceMidnight(t: { hours: number; minutes: number }): number {
 	return t.hours * 60 + t.minutes;
 }
 
+const hasInvalidOverrideRange = computed(() => {
+	if (!props.minTimeOverride || !props.maxTimeOverride) return false;
+	return (
+		minutesSinceMidnight(props.minTimeOverride) >
+		minutesSinceMidnight(props.maxTimeOverride)
+	);
+});
+
 const minTime = computed<TimeModel>(() => {
 	// Parent must pass min <= max (same-day window only); vue-datepicker does not support cross-midnight.
-	if (
-		props.minTimeOverride &&
-		props.maxTimeOverride &&
-		minutesSinceMidnight(props.minTimeOverride) >
-			minutesSinceMidnight(props.maxTimeOverride)
-	) {
+	if (hasInvalidOverrideRange.value) {
 		return { hours: 0, minutes: 0, seconds: 0 };
 	}
 	return props.minTimeOverride
@@ -133,11 +136,18 @@ const minTime = computed<TimeModel>(() => {
 			}
 		: { hours: 0, minutes: 0, seconds: 0 };
 });
-const maxTime = computed<TimeModel>(() =>
-	props.maxTimeOverride
-		? { hours: props.maxTimeOverride.hours, minutes: props.maxTimeOverride.minutes, seconds: 0 }
-		: { hours: 23, minutes: 59, seconds: 0 },
-);
+const maxTime = computed<TimeModel>(() => {
+	if (hasInvalidOverrideRange.value) {
+		return { hours: 23, minutes: 59, seconds: 0 };
+	}
+	return props.maxTimeOverride
+		? {
+				hours: props.maxTimeOverride.hours,
+				minutes: props.maxTimeOverride.minutes,
+				seconds: 0,
+			}
+		: { hours: 23, minutes: 59, seconds: 0 };
+});
 const isMounted = ref(false);
 const lastSyncedValue = ref<string | null>(null);
 const selectedTime = ref<TimeModel | null>(

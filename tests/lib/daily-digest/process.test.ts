@@ -5,7 +5,7 @@
  * and next_send_at is advanced; user who disabled email still receives price summary via SMS only.
  */
 import { DateTime } from "luxon";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { processDailyDigestUser } from "../../../src/lib/daily-digest/process";
 import { rootLogger } from "../../../src/lib/logging";
 import type { UserRecord } from "../../../src/lib/messaging/types";
@@ -129,19 +129,25 @@ describe("Daily digest process scenarios", () => {
 		expect(selectError).toBeNull();
 		expect(userRow).not.toBeNull();
 
+		const sendEmail = vi.fn(async () => ({ success: true }));
+		const smsSender = vi.fn(async () => ({ success: true }));
 		const stats = await processDailyDigestUser({
 			user: userRow as UserRecord,
 			supabase: adminClient,
 			logger: rootLogger,
 			currentTime: now,
-			sendEmail: async () => ({ success: true }),
+			sendEmail,
 			getSmsSender: () => ({
-				sender: async () => ({ success: true }),
+				sender: smsSender,
 			}),
 		});
 
 		expect(stats.skipped).toBe(0);
 		expect(stats.emailsSent).toBe(0);
 		expect(stats.smsSent).toBe(1);
+		expect(stats.emailsFailed).toBe(0);
+		expect(stats.smsFailed).toBe(0);
+		expect(sendEmail).not.toHaveBeenCalled();
+		expect(smsSender).toHaveBeenCalledTimes(1);
 	});
 });

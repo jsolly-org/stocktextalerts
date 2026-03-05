@@ -22,6 +22,19 @@ function isXUrl(url: string): boolean {
 	return /^https?:\/\/(?:x|twitter)\.com\//.test(url);
 }
 
+/** Validate and normalize model-sourced URLs to http(s) only; reject other schemes. */
+function normalizeHttpUrl(raw: string): string | null {
+	try {
+		const parsed = new URL(raw);
+		if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+			return null;
+		}
+		return parsed.toString();
+	} catch {
+		return null;
+	}
+}
+
 // xAI Responses API types (minimal subset for price alert parsing)
 type XaiAnnotation = {
 	type: string;
@@ -71,8 +84,10 @@ function parseGrokPriceAlertResponse(
 				// Extract links from annotations
 				for (const ann of part.annotations ?? []) {
 					const normalizedUrl =
-						typeof ann.url === "string" ? ann.url.trim() : "";
-					if (normalizedUrl === "" || seenUrls.has(normalizedUrl)) {
+						typeof ann.url === "string"
+							? normalizeHttpUrl(ann.url.trim())
+							: null;
+					if (!normalizedUrl || seenUrls.has(normalizedUrl)) {
 						continue;
 					}
 					if (links.length >= 3) break;
@@ -81,7 +96,7 @@ function parseGrokPriceAlertResponse(
 					const url = normalizedUrl;
 					const sourceType: "x" | "web" = isXUrl(url) ? "x" : "web";
 					const source =
-						linkLabelFromUrl(url) ??
+						linkLabelFromUrl(url) ||
 						(sourceType === "x" ? "X post" : "article");
 					const title = ann.title?.trim() || source;
 
@@ -96,12 +111,12 @@ function parseGrokPriceAlertResponse(
 		const mdLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
 		for (const match of summaryText.matchAll(mdLinkRegex)) {
 			if (links.length >= 3) break;
-			const url = match[2].trim();
-			if (seenUrls.has(url)) continue;
+			const url = normalizeHttpUrl(match[2].trim());
+			if (!url || seenUrls.has(url)) continue;
 			seenUrls.add(url);
 			const sourceType: "x" | "web" = isXUrl(url) ? "x" : "web";
 			const source =
-				linkLabelFromUrl(url) ?? (sourceType === "x" ? "X post" : "article");
+				linkLabelFromUrl(url) || (sourceType === "x" ? "X post" : "article");
 			const title = match[1].trim() || source;
 			links.push({ url, title, source, sourceType });
 		}

@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { ASSET_SYMBOL_MAX_LENGTH } from "../../../../lib/constants";
 import { createUserService } from "../../../../lib/db";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { createLogger } from "../../../../lib/logging";
@@ -35,8 +36,8 @@ export const GET: APIRoute = async ({ params, request, cookies, locals }) => {
 	} catch {
 		return new Response("Bad request", { status: 400 });
 	}
-	// Match DB constraint (assets.symbol VARCHAR(10)); reject oversized to avoid abuse
-	if (symbol.length > 10) {
+	// Match DB constraint (assets.symbol); reject oversized to avoid abuse
+	if (symbol.length > ASSET_SYMBOL_MAX_LENGTH) {
 		return new Response("Bad request", { status: 400 });
 	}
 	// Restrict to valid ticker characters (alphanumeric, dot, hyphen) to avoid injection edge cases
