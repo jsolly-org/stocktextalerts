@@ -13,7 +13,9 @@
 			<fieldset class="grid gap-3">
 				<legend class="block text-base font-semibold text-heading mb-1">
 					Delivery times
-					<span class="block text-sm font-normal text-body-secondary mt-0.5">Choose up to 5 time slots.</span>
+					<span class="block text-sm font-normal text-body-secondary mt-0.5">
+						Choose up to {{ maxTimes }} time slots. Notifications are only sent during US market hours (10:00 AM – 3:59 PM ET).
+					</span>
 				</legend>
 				<input
 					type="hidden"
@@ -31,6 +33,8 @@
 						inputAriaLabel="Pick a delivery time"
 						:disabled="timePickerDisabled"
 						:is24="is24"
+						:minTimeOverride="props.minTime ?? undefined"
+						:maxTimeOverride="props.maxTime ?? undefined"
 						@time-change="emit('add-initial-time', $event)"
 					/>
 					<button
@@ -56,10 +60,11 @@
 					placeholder="Select notification time"
 					:inputAriaLabel="`Delivery time ${index + 1}`"
 					:disabled="timePickerDisabled"
-					:outsideMarketHours="outsideMarketHoursIndices.has(index)"
 					clearable
 					:clearAriaLabel="`Remove delivery time ${index + 1}`"
 					:is24="is24"
+					:minTimeOverride="props.minTime ?? undefined"
+					:maxTimeOverride="props.maxTime ?? undefined"
 					@time-change="emit('time-change', index, $event)"
 					@clear="emit('remove-time', index)"
 				/>
@@ -132,7 +137,10 @@ interface Props {
 	countdownText: string | null;
 	countdownDelayReasons: Array<"weekend" | "holiday">;
 	countdownHolidayName: string | null;
-	outsideMarketHoursIndices: Set<number>;
+	/** Minimum selectable time for the picker (local timezone). */
+	minTime: { hours: number; minutes: number } | null;
+	/** Maximum selectable time for the picker (local timezone). */
+	maxTime: { hours: number; minutes: number } | null;
 	/** Force 24-hour / 12-hour display on time pickers. */
 	is24?: boolean;
 }

@@ -118,7 +118,7 @@ const DOMAIN_LABELS: Record<string, string> = {
  * - Known news domains → friendly name (e.g. "CNBC")
  * - Other URLs → bare domain (e.g. "example.com")
  */
-function linkLabelFromUrl(url: string): string | null {
+export function linkLabelFromUrl(url: string): string | null {
 	// X/Twitter posts: show @handle
 	const xMatch = url.match(
 		/^https?:\/\/(?:x|twitter)\.com\/([^/]+)\/status\/\d+/,

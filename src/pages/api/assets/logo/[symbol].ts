@@ -44,6 +44,10 @@ export const GET: APIRoute = async ({
 	if (symbol.length > 10) {
 		return new Response("Bad request", { status: 400 });
 	}
+	// Restrict to valid ticker characters (alphanumeric, dot, hyphen) to avoid injection edge cases
+	if (!/^[A-Z0-9.-]+$/u.test(symbol)) {
+		return new Response("Bad request", { status: 400 });
+	}
 
 	const { data, error } = await supabase
 		.from("assets")

@@ -548,12 +548,12 @@ describe("Scheduled notification scenarios", () => {
 		expect(smsLogs?.[0]?.message_delivered).toBe(true);
 	});
 
-	it("User in London timezone receives scheduled market notification when cron fires at 9 AM their local time.", async () => {
-		// 9 AM GMT (London winter) = 09:00 UTC
-		vi.setSystemTime(DateTime.fromISO("2026-01-14T09:00:00.000Z").toJSDate());
+	it("User in London timezone receives scheduled market notification when cron fires at 3 PM their local time (10 AM ET).", async () => {
+		// 3 PM GMT (London winter) = 15:00 UTC = 10:00 AM ET
+		vi.setSystemTime(DateTime.fromISO("2026-01-14T15:00:00.000Z").toJSDate());
 
 		const timezone = "Europe/London";
-		const scheduledMinutes = 9 * 60; // 9:00 AM local
+		const scheduledMinutes = 15 * 60; // 3:00 PM local
 
 		const { id } = await createTestUser({
 			timezone,
@@ -628,12 +628,12 @@ describe("Scheduled notification scenarios", () => {
 		expect(logs).toHaveLength(1);
 	});
 
-	it("User in Tokyo timezone receives scheduled market notification when cron fires at 9 AM their local time.", async () => {
-		// 9 AM JST (UTC+9) = 00:00 UTC
-		vi.setSystemTime(DateTime.fromISO("2026-01-14T00:00:00.000Z").toJSDate());
+	it("User in Tokyo timezone receives scheduled market notification when cron fires at 2 AM their local time (12 PM ET).", async () => {
+		// 2 AM JST (UTC+9) on Jan 15 = 17:00 UTC Jan 14 = 12:00 PM ET
+		vi.setSystemTime(DateTime.fromISO("2026-01-14T17:00:00.000Z").toJSDate());
 
 		const timezone = "Asia/Tokyo";
-		const scheduledMinutes = 9 * 60; // 9:00 AM local
+		const scheduledMinutes = 2 * 60; // 2:00 AM local (= 12:00 PM ET)
 
 		const { id } = await createTestUser({
 			timezone,
@@ -931,6 +931,63 @@ describe("Scheduled notification scenarios", () => {
 			.eq("type", "market")
 			.eq("delivery_method", "email");
 		expect(logs ?? []).toHaveLength(0);
+	});
+
+	it("User who had tracked assets then removes all receives no-assets message at next schedule fire.", async () => {
+		const timezone = "America/New_York";
+		const nowLocal = DateTime.now().setZone(timezone);
+		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
+
+		const { id } = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			scheduledUpdateTimes: [scheduledTime],
+			trackedAssets: ["AAPL"],
+			marketScheduledAssetPriceIncludeEmail: true,
+		});
+		registerTestUserForCleanup(id);
+
+		const beforeNextSendAt = DateTime.utc().toISO();
+		const { error: seedError } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: beforeNextSendAt,
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", id);
+		expect(seedError).toBeNull();
+
+		const { error: removeError } = await adminClient
+			.from("user_assets")
+			.delete()
+			.eq("user_id", id);
+		expect(removeError).toBeNull();
+
+		const response = await SchedulePost({
+			request: createScheduleRequest(testCronSecret),
+		} as APIContext);
+		expect(response.status).toBe(200);
+
+		const { data: logs } = await adminClient
+			.from("notification_log")
+			.select("message,message_delivered")
+			.eq("user_id", id)
+			.eq("type", "market")
+			.eq("delivery_method", "email");
+		expect(logs).toHaveLength(1);
+		expect(logs?.[0]?.message).toContain("don't have any tracked assets");
+		expect(logs?.[0]?.message_delivered).toBe(true);
+
+		const { data: after } = await adminClient
+			.from("users")
+			.select("market_scheduled_asset_price_next_send_at")
+			.eq("id", id)
+			.single();
+		expect(after?.market_scheduled_asset_price_next_send_at).not.toBeNull();
+		expect(after?.market_scheduled_asset_price_next_send_at).not.toBe(
+			beforeNextSendAt,
+		);
 	});
 
 	it("User who texts STOP EMAIL does not receive email when schedule fires.", async () => {

@@ -343,7 +343,7 @@ The `vercel.json` file configures three cron jobs. All must include `Authorizati
 - `src/components/`: Astro + Vue UI components (landing, dashboard, profile)
 - `src/layouts/`: Base layouts
 - `src/pages/`: Routes and API endpoints
-- `src/lib/`: Server utilities (auth, db, logging, time)
+- `src/lib/`: Server logic (auth, db, providers, market-notifications, daily-digest, asset-events, messaging, schedule, time, logging)
 - `supabase/`: Local Supabase config + migrations
 - `scripts/`: Seed generation utilities and asset data
 - `tests/`: Vitest + Playwright tests

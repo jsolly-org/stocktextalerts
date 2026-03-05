@@ -10,6 +10,7 @@ import {
 	createErrorForLogging,
 	extractErrorMessage,
 } from "../../../lib/logging/errors";
+import { isOutsideMarketHours } from "../../../lib/time/format";
 import { parseScheduledTimes } from "../../../lib/time/scheduled-times";
 
 const NOTIFICATION_PREFERENCES_SCHEMA = {
@@ -161,6 +162,25 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			userId: user.id,
 		});
 		return jsonResponse(404, { ok: false, message: "user_not_found" });
+	}
+
+	// Validate scheduled times are within market hours (10:00 AM – 3:59 PM ET)
+	if (parsedMarketScheduledAssetPriceTimes?.length) {
+		const tz = (parsed.data.timezone as string | undefined) ?? dbUser.timezone;
+		const invalidTime = parsedMarketScheduledAssetPriceTimes.find((m) =>
+			isOutsideMarketHours(m, tz),
+		);
+		if (invalidTime !== undefined) {
+			logger.info(
+				"Notification-preferences update rejected: scheduled time outside market hours",
+				{
+					userId: user.id,
+					invalidTime,
+					timezone: tz,
+				},
+			);
+			return jsonResponse(400, { ok: false, message: "invalid_form" });
+		}
 	}
 
 	let safeNotificationPreferenceUpdates: ReturnType<
