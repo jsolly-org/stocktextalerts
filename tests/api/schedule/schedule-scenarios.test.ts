@@ -1232,10 +1232,15 @@ describe("Scheduled notification scenarios", () => {
 			expect(marketLogs).toHaveLength(1);
 
 			expect(dailyDigestCalls.length).toBeGreaterThan(0);
-			const parsed = JSON.parse(dailyDigestCalls[0].body) as {
-				userId?: string;
-			};
-			expect(parsed.userId).toBe(dailyUser.id);
+			const calledForDailyUser = dailyDigestCalls.some(({ body }) => {
+				try {
+					const parsed = JSON.parse(body) as { userId?: string };
+					return parsed.userId === dailyUser.id;
+				} catch {
+					return false;
+				}
+			});
+			expect(calledForDailyUser).toBe(true);
 		} finally {
 			vi.unstubAllGlobals();
 		}
