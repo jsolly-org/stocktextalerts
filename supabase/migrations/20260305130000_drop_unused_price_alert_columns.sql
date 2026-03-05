@@ -24,7 +24,7 @@ ALTER TABLE public.users
 ALTER TABLE public.market_asset_price_alert_cooldowns
   DROP COLUMN IF EXISTS last_alerted_move_direction;
 
--- 4. Replace the 8-param claim RPC with a simplified 5-param version
+-- 4. Replace the 8-param claim RPC with a simplified 4-param version
 --    that only supports one-per-trading-day (no follow-up).
 DROP FUNCTION IF EXISTS public.claim_market_asset_price_alert_slot(
   uuid, text, timestamptz, numeric, numeric, boolean, boolean, text
@@ -44,7 +44,12 @@ DECLARE
   claimed boolean;
   claim_local_ts timestamp;
   claim_trading_day date;
+  v_abs_move_percent numeric;
+  v_abs_move_dollar numeric;
 BEGIN
+  v_abs_move_percent := GREATEST(COALESCE(p_abs_move_percent, 0), 0);
+  v_abs_move_dollar := GREATEST(COALESCE(p_abs_move_dollar, 0), 0);
+
   claim_local_ts := now() AT TIME ZONE 'America/New_York';
   claim_trading_day := claim_local_ts::date;
   IF claim_local_ts::time >= time '16:00:00' THEN
@@ -66,8 +71,8 @@ BEGIN
     now(),
     claim_trading_day,
     1,
-    GREATEST(p_abs_move_percent, 0),
-    GREATEST(p_abs_move_dollar, 0)
+    v_abs_move_percent,
+    v_abs_move_dollar
   )
   ON CONFLICT (user_id, symbol) DO UPDATE
     SET
@@ -81,17 +86,17 @@ BEGIN
         ELSE public.market_asset_price_alert_cooldowns.alerts_sent_count + 1
       END,
       max_abs_move_percent = CASE
-        WHEN public.market_asset_price_alert_cooldowns.trading_day_key < claim_trading_day THEN GREATEST(p_abs_move_percent, 0)
+        WHEN public.market_asset_price_alert_cooldowns.trading_day_key < claim_trading_day THEN v_abs_move_percent
         ELSE GREATEST(
           public.market_asset_price_alert_cooldowns.max_abs_move_percent,
-          GREATEST(p_abs_move_percent, 0)
+          v_abs_move_percent
         )
       END,
       max_abs_move_dollar = CASE
-        WHEN public.market_asset_price_alert_cooldowns.trading_day_key < claim_trading_day THEN GREATEST(p_abs_move_dollar, 0)
+        WHEN public.market_asset_price_alert_cooldowns.trading_day_key < claim_trading_day THEN v_abs_move_dollar
         ELSE GREATEST(
           public.market_asset_price_alert_cooldowns.max_abs_move_dollar,
-          GREATEST(p_abs_move_dollar, 0)
+          v_abs_move_dollar
         )
       END
     WHERE
