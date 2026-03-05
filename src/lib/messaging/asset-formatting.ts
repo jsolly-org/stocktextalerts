@@ -48,7 +48,7 @@ function formatAssetPriceText(
 /**
  * Format a single asset line for plaintext contexts (email text / SMS / previews).
  */
-function formatAssetTextLine(
+export function formatAssetTextLine(
 	asset: AssetWithName,
 	price: AssetPrice | undefined,
 	formatPrefs: FormatPreferences,
@@ -56,7 +56,7 @@ function formatAssetTextLine(
 ): string {
 	const base = formatAssetBaseText(asset, formatPrefs);
 	if (!price) {
-		return base;
+		return `${base} — price unavailable`;
 	}
 	const effectiveSparkline = formatPrefs.show_sparklines ? sparkline : null;
 	return `${base} — ${formatAssetPriceText(price, effectiveSparkline)}`;
@@ -67,7 +67,7 @@ export function getChangeColor(changePercent: number): string {
 	return changePercent >= 0 ? "#166534" : "#b91c1c";
 }
 
-function formatAssetHtmlLine(
+export function formatAssetHtmlLine(
 	asset: AssetWithName,
 	price: AssetPrice | undefined,
 	formatPrefs: FormatPreferences,
@@ -77,7 +77,7 @@ function formatAssetHtmlLine(
 	const assetInfo = `${logoHtml ?? ""}${escapeHtml(asset.symbol)}`;
 
 	if (!price) {
-		return assetInfo;
+		return `<strong>${assetInfo}</strong> &mdash; <span style="color: #6b7280;">price unavailable</span>`;
 	}
 
 	const priceStr = escapeHtml(`$${price.price.toFixed(2)}`);
