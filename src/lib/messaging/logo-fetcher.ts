@@ -3,7 +3,7 @@ import { rootLogger } from "../logging";
 import { extractErrorMessage } from "../logging/errors";
 
 /** In-memory cache of fetched logo base64 data URIs (or null on failure). */
-export type LogoCache = Map<string, string | null>;
+type LogoCache = Map<string, string | null>;
 
 /** Create a fresh logo cache for a scheduler run. */
 export function createLogoCache(): LogoCache {
@@ -198,7 +198,7 @@ const SAFE_IMAGE_DATA_URI =
 	/^data:image\/(?:png|jpeg|jpg|gif|webp|svg\+xml);base64,[A-Za-z0-9+/=]+$/;
 
 /** Create a callback that maps symbol → `<img>` HTML from a logo cache. */
-export function createLogoHtmlGetter(
+function createLogoHtmlGetter(
 	cache: LogoCache,
 ): (symbol: string) => string | undefined {
 	return (symbol) => {
