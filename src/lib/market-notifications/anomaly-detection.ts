@@ -280,6 +280,7 @@ export function computeAnomalyScore(options: {
 			// Keep at least 30% of the price score even when fully explained
 			const dampening = 1.0 - explainedRatio * 0.7;
 			priceSignal.points = Math.round(priceSignal.points * dampening);
+			priceSignal.triggered = priceSignal.points > 0;
 			priceSignal.detail += `, benchmark ${benchmarkMovePct >= 0 ? "+" : ""}${benchmarkMovePct.toFixed(2)}%`;
 		}
 	}

@@ -14,7 +14,7 @@ import { createSmsSenderProvider } from "../schedule/sms-sender";
 import { getAnomalyThreshold } from "./alert-profile";
 import { computeAnomalyScore } from "./anomaly-detection";
 import { deliverPriceAlert, type PriceAlertDeliveryStats } from "./delivery";
-import { enrichAlert } from "./enrichment";
+import { type EnrichedAlert, enrichAlert } from "./enrichment";
 import { getSnapshotsForSymbols, storeSnapshots } from "./snapshot-store";
 import { claimCooldown, fetchPriceAlertUsers } from "./users";
 
@@ -450,17 +450,27 @@ export async function processPriceAlerts(options: {
 			benchmarkLabel,
 		});
 
-		const enrichedAlert = await enrichAlert({
-			symbol,
-			quote,
-			grokContext,
-			userSignalContext,
-			intradayCloses,
-			intradayTimestamps,
-			intradayEndTimestamp,
-			iconUrl: assetIconUrlMap.get(symbol) ?? null,
-			iconBase64: assetIconBase64Map.get(symbol) ?? null,
-		});
+		let enrichedAlert: EnrichedAlert;
+		try {
+			enrichedAlert = await enrichAlert({
+				symbol,
+				quote,
+				grokContext,
+				userSignalContext,
+				intradayCloses,
+				intradayTimestamps,
+				intradayEndTimestamp,
+				iconUrl: assetIconUrlMap.get(symbol) ?? null,
+				iconBase64: assetIconBase64Map.get(symbol) ?? null,
+			});
+		} catch (err) {
+			rootLogger.error(
+				"Failed to enrich price alert",
+				{ symbol, eligibleUserCount: eligibleUsers.length },
+				err,
+			);
+			continue;
+		}
 
 		for (const user of eligibleUsers) {
 			if (user.market_asset_price_alerts_include_sms && !smsSender) {
