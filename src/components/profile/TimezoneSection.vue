@@ -121,13 +121,7 @@ function buildSavedNotificationPreferences(
 		market_asset_price_alerts_enabled: sourceUser.market_asset_price_alerts_enabled,
 		market_asset_price_alerts_include_email: sourceUser.market_asset_price_alerts_include_email,
 		market_asset_price_alerts_include_sms: sourceUser.market_asset_price_alerts_include_sms,
-		market_asset_price_alert_onboarding_completed:
-			sourceUser.market_asset_price_alert_onboarding_completed,
-		market_asset_price_alert_risk_priority: sourceUser.market_asset_price_alert_risk_priority,
-		market_asset_price_alert_market_context: sourceUser.market_asset_price_alert_market_context,
 		market_asset_price_alert_move_size: sourceUser.market_asset_price_alert_move_size,
-		market_asset_price_alert_follow_up_mode:
-			sourceUser.market_asset_price_alert_follow_up_mode,
 	};
 }
 

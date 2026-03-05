@@ -1,6 +1,6 @@
 import type { SparklineData } from "./sparkline";
 import { toSvgSparklineImg } from "./svg-sparkline";
-import type { FormatPreferences } from "./types";
+import type { EmailFormatContext, FormatPreferences } from "./types";
 
 export type AssetPrice = { price: number; changePercent: number };
 type AssetWithName = { symbol: string; name: string };
@@ -123,8 +123,7 @@ export function formatAssetsHtmlList(
 	assets: AssetWithName[],
 	getPrice: (symbol: string) => AssetPrice | undefined,
 	formatPrefs: FormatPreferences,
-	getSparkline?: (symbol: string) => SparklineData | null | undefined,
-	getLogoHtml?: (symbol: string) => string | undefined,
+	context?: Pick<EmailFormatContext, "getSparkline" | "getLogoHtml">,
 ): string {
 	if (assets.length === 0) {
 		return escapeHtml(NO_TRACKED_ASSETS_MESSAGE);
@@ -136,8 +135,8 @@ export function formatAssetsHtmlList(
 				asset,
 				getPrice(asset.symbol),
 				formatPrefs,
-				getSparkline?.(asset.symbol),
-				getLogoHtml?.(asset.symbol),
+				context?.getSparkline?.(asset.symbol),
+				context?.getLogoHtml?.(asset.symbol),
 			),
 		)
 		.join("<br>");

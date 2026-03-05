@@ -81,7 +81,7 @@
 					id="daily_digest_time_description"
 					class="text-sm text-body-secondary mt-0.5"
 				>
-					Controls when your <a :href="DASHBOARD_SECTION_HASHES.dailyNotifications" class="font-medium text-primary underline rounded-sm hover:text-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1">Daily Digest</a> is sent each day (if enabled).
+					Controls when your <a :href="DASHBOARD_SECTION_HASHES.dailyNotifications" class="font-medium text-primary underline rounded-sm hover:text-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1">Daily Digest</a> is sent each day.
 				</p>
 			</div>
 			<div class="sm:shrink-0">

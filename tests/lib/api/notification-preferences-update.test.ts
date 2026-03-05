@@ -31,7 +31,6 @@ function makeUser(overrides: Partial<User> = {}): User {
 		market_asset_price_alerts_enabled: false,
 		market_asset_price_alerts_include_email: false,
 		market_asset_price_alerts_include_sms: false,
-		market_asset_price_alert_onboarding_completed: false,
 		...overrides,
 	} as unknown as User;
 }

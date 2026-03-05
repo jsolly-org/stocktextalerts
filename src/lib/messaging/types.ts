@@ -1,4 +1,6 @@
 import type { Database } from "../db/generated/database.types";
+import type { MarketClosureInfo } from "../time/market-calendar";
+import type { SparklineData } from "./sparkline";
 
 /** Result of attempting to deliver a single notification (email or SMS). */
 export type DeliveryResult =
@@ -72,6 +74,14 @@ export type SmsUser = Pick<
 	Database["public"]["Tables"]["users"]["Row"],
 	"id" | "phone_country_code" | "phone_number"
 >;
+
+/** Optional context for email rendering: sparklines, logos, market closure banners. */
+export interface EmailFormatContext {
+	formatPrefs?: FormatPreferences;
+	getSparkline?: (symbol: string) => SparklineData | null | undefined;
+	marketClosureInfo?: MarketClosureInfo | null;
+	getLogoHtml?: (symbol: string) => string | undefined;
+}
 
 /** User asset joined with its canonical asset name. */
 export type UserAssetRow = Pick<

@@ -86,10 +86,7 @@ function makeUser(overrides: Partial<PriceAlertUser> = {}): PriceAlertUser {
 		sms_opted_out: false,
 		market_asset_price_alerts_include_email: false,
 		market_asset_price_alerts_include_sms: true,
-		market_asset_price_alert_risk_priority: "both_equally",
-		market_asset_price_alert_market_context: "standout",
 		market_asset_price_alert_move_size: "extreme",
-		market_asset_price_alert_follow_up_mode: "first_only",
 		use_24_hour_time: false,
 		...overrides,
 	};

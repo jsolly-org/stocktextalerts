@@ -12,17 +12,15 @@ import { setTimeout as realDelay } from "node:timers/promises";
 import { Resend } from "resend";
 import { rootLogger } from "../../logging";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
-import type { MarketClosureInfo } from "../../time/market-calendar";
 import { escapeHtml, formatAssetsHtmlList } from "../asset-formatting";
 import {
 	buildMarketClosedBannerHtml,
 	buildMarketClosedBannerText,
 } from "../market-closure-banner";
-import type { SparklineData } from "../sparkline";
 import type {
 	DeliveryResult,
+	EmailFormatContext,
 	EmailUser,
-	FormatPreferences,
 	UserAssetRow,
 } from "../types";
 
@@ -179,11 +177,10 @@ export function formatEmailMessage(
 	assetsList: string,
 	priceMap: AssetPriceMap,
 	marketOpen: boolean,
-	formatPrefs?: FormatPreferences,
-	getSparkline?: (symbol: string) => SparklineData | null | undefined,
-	marketClosureInfo?: MarketClosureInfo | null,
-	getLogoHtml?: (symbol: string) => string | undefined,
+	context?: EmailFormatContext,
 ): { text: string; html: string } {
+	const { formatPrefs, getSparkline, marketClosureInfo, getLogoHtml } =
+		context ?? {};
 	const urls = buildEmailUrls(user.id, user.email, "marketNotifications");
 	const textFooter = `\n\nManage your delivery schedule: ${urls.scheduleUrl}\nUnsubscribe from all emails: ${urls.unsubscribeUrl}`;
 	const htmlFooter = `
@@ -234,8 +231,7 @@ export function formatEmailMessage(
 		userAssets,
 		(symbol) => priceMap.get(symbol) ?? undefined,
 		formatPrefs ?? { show_sparklines: false },
-		getSparkline,
-		getLogoHtml,
+		{ getSparkline, getLogoHtml },
 	);
 	const marketClosedBannerHtml = marketOpen
 		? ""

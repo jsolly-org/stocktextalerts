@@ -14,7 +14,7 @@ import { sicCodeToSector } from "../../../lib/providers/sector-mapping";
  * GET /api/assets/prices
  *
  * Returns prevClose, sector, and iconUrl for the user's tracked assets.
- * Used by the onboarding wizard to show asset-grounded examples.
+ * Used by the move-size selector to show asset-grounded examples.
  * Lazy-backfills sector and icon_url from Massive for assets missing them (writes via admin client;
  * authenticated user has SELECT-only on assets).
  */

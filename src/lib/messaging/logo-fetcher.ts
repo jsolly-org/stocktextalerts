@@ -1,5 +1,6 @@
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
+import { extractErrorMessage } from "../logging/errors";
 
 /** In-memory cache of fetched logo base64 data URIs (or null on failure). */
 type LogoCache = Map<string, string | null>;
@@ -129,7 +130,7 @@ export async function fetchLogoBase64(
 		return null;
 	}
 
-	const inFlightKey = `${symbol}::${iconUrl ?? ""}`;
+	const inFlightKey = `${symbol}::${iconUrl}`;
 	let promise = inFlight.get(inFlightKey);
 	if (!promise) {
 		promise = (async (): Promise<string | null> => {
@@ -146,7 +147,7 @@ export async function fetchLogoBase64(
 			} catch (error) {
 				rootLogger.warn("Failed to fetch logo for asset", {
 					symbol,
-					error: error instanceof Error ? error.message : String(error),
+					error: extractErrorMessage(error),
 				});
 				cache.set(symbol, null);
 				return null;
@@ -196,10 +197,53 @@ export async function prefetchLogos(
 const SAFE_IMAGE_DATA_URI =
 	/^data:image\/(?:png|jpeg|jpg|gif|webp|svg\+xml);base64,[A-Za-z0-9+/=]+$/;
 
+/** Create a callback that maps symbol → `<img>` HTML from a logo cache. */
+function createLogoHtmlGetter(
+	cache: LogoCache,
+): (symbol: string) => string | undefined {
+	return (symbol) => {
+		const dataUri = cache.get(symbol);
+		return dataUri ? renderLogoImg(dataUri) : undefined;
+	};
+}
+
 /** Render an inline `<img>` tag for a base64-encoded logo. */
 export function renderLogoImg(base64DataUri: string): string {
 	if (!SAFE_IMAGE_DATA_URI.test(base64DataUri)) {
 		return "";
 	}
 	return `<img src="${base64DataUri}" alt="" width="20" height="20" style="vertical-align: middle; border-radius: 4px; margin-right: 4px;" />`;
+}
+
+/**
+ * Encapsulates the repeated createLogoCache → try { prefetchLogos } catch { warn } → createLogoHtmlGetter pattern.
+ * When `shouldPrefetch` is false, returns a getter backed by an empty cache.
+ */
+export async function safePrefetchLogos(options: {
+	assets: Array<{
+		symbol: string;
+		icon_url?: string | null;
+		icon_base64?: string | null;
+	}>;
+	shouldPrefetch: boolean;
+	supabase?: AppSupabaseClient;
+	logger: { warn: (msg: string, meta: Record<string, unknown>) => void };
+	logContext: Record<string, unknown>;
+}): Promise<{
+	cache: LogoCache;
+	getLogoHtml: (symbol: string) => string | undefined;
+}> {
+	const cache = createLogoCache();
+	if (options.shouldPrefetch) {
+		try {
+			await prefetchLogos(options.assets, cache, options.supabase);
+		} catch (error) {
+			options.logger.warn("Failed to prefetch logos", {
+				...options.logContext,
+				assetCount: options.assets.length,
+				error: extractErrorMessage(error),
+			});
+		}
+	}
+	return { cache, getLogoHtml: createLogoHtmlGetter(cache) };
 }
