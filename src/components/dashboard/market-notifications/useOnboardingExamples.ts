@@ -114,22 +114,29 @@ export function useOnboardingExamples(
 
 		function describeAsset(
 			asset: DemoAsset,
+			isHighPriced: boolean,
 			percentThreshold: number,
 			dollarThreshold: number,
 		): string {
 			const pctDollar = asset.prevClose * (percentThreshold / 100);
 			const dollarBinds = pctDollar < dollarThreshold;
+			const priceLabel = isHighPriced ? "higher-priced" : "lower-priced";
 			if (dollarBinds) {
-				return `For lower-priced stocks like ${asset.symbol} (${formatDollar(asset.prevClose)}), alerts trigger on moves of ${formatDollar(dollarThreshold)} or more to filter out noise.`;
+				return `For ${priceLabel} stocks like ${asset.symbol} (${formatDollar(asset.prevClose)}), alerts trigger on moves of ${formatDollar(dollarThreshold)} or more to filter out noise.`;
 			}
-			return `For higher-priced stocks like ${asset.symbol} (${formatDollar(asset.prevClose)}), alerts trigger on ${percentThreshold}% moves (~${formatDollar(pctDollar)}).`;
+			return `For ${priceLabel} stocks like ${asset.symbol} (${formatDollar(asset.prevClose)}), alerts trigger on ${percentThreshold}% moves (~${formatDollar(pctDollar)}).`;
 		}
 
 		function describeThreshold(tier: "significant" | "extreme"): string {
 			const { percentThreshold, dollarThreshold } = MOVE_SIZE_THRESHOLDS[tier];
 
-			const hiLine = describeAsset(hi, percentThreshold, dollarThreshold);
-			const loLine = describeAsset(lo, percentThreshold, dollarThreshold);
+			const hiLine = describeAsset(hi, true, percentThreshold, dollarThreshold);
+			const loLine = describeAsset(
+				lo,
+				false,
+				percentThreshold,
+				dollarThreshold,
+			);
 			return `${hiLine}\n${loLine}`;
 		}
 
