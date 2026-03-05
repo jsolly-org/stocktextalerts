@@ -84,4 +84,23 @@ describe("Sensitive user data is masked in logs.", () => {
 		expect(payload.message).toBe("Contact [REDACTED]");
 		expect(payload.context.phone).toBe("[REDACTED]");
 	});
+
+	it("Secret-like context keys are always redacted regardless of LOG_MASK_PII.", () => {
+		vi.stubEnv("LOG_MASK_PII", "false");
+
+		rootLogger.info("Auth attempt", {
+			password: "secret123",
+			cronSecret: "bearer-token-value",
+			authToken: "twilio-token",
+			requestId: "req-1",
+		});
+
+		const [raw] = infoSpy.mock.calls[0];
+		const payload = JSON.parse(raw as string);
+
+		expect(payload.context.requestId).toBe("req-1");
+		expect(payload.context.password).toBe("[REDACTED]");
+		expect(payload.context.cronSecret).toBe("[REDACTED]");
+		expect(payload.context.authToken).toBe("[REDACTED]");
+	});
 });
