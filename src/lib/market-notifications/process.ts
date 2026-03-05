@@ -341,7 +341,7 @@ export async function processPriceAlerts(options: {
 			);
 
 			const meetsShockThreshold =
-				symbolMovePercentAbs >= profile.percentThreshold &&
+				symbolMovePercentAbs >= profile.percentThreshold ||
 				symbolMoveDollarAbs >= profile.dollarThreshold;
 			if (!meetsShockThreshold) {
 				continue;
