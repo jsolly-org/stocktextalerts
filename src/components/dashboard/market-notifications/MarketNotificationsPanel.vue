@@ -395,6 +395,7 @@
 							:countdownHolidayName="countdownHolidayName"
 							:minTime="marketMinTime"
 							:maxTime="marketMaxTime"
+							:marketHoursCrossMidnightHint="marketHoursCrossMidnightHint"
 							:is24="is24"
 							@time-change="handleTimeChange"
 							@add-time="handleAddTime"
@@ -885,6 +886,15 @@ const marketMaxTime = computed<{ hours: number; minutes: number } | null>(() => 
 	// TimePicker does not support cross-midnight ranges (min > max); omit constraints.
 	if (min > max) return null;
 	return { hours: Math.floor(max / 60), minutes: max % 60 };
+});
+
+/** When the market window crosses midnight locally, show this hint so users know only 10:00 AM–3:59 PM ET is accepted. */
+const marketHoursCrossMidnightHint = computed<string | null>(() => {
+	const tz = timezone.value;
+	if (tz === "") return null;
+	const { min, max } = getMarketNotificationLocalRange(tz);
+	if (min <= max) return null;
+	return "In your timezone the valid window (10:00 AM–3:59 PM ET) crosses midnight. Only times within that ET window are accepted.";
 });
 
 /** Sync a user preference into a local ref so UI and server stay aligned. */

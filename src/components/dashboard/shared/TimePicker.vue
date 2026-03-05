@@ -60,7 +60,6 @@ const VueDatePicker = defineAsyncComponent(() =>
 );
 
 import XMarkIcon from "../../../icons/x-mark.svg?component";
-import { rootLogger } from "../../../lib/logging";
 import {
 	formatTimeValue,
 	parseTimeString,
@@ -117,15 +116,13 @@ function minutesSinceMidnight(t: { hours: number; minutes: number }): number {
 }
 
 const minTime = computed<TimeModel>(() => {
+	// Parent must pass min <= max (same-day window only); vue-datepicker does not support cross-midnight.
 	if (
 		props.minTimeOverride &&
 		props.maxTimeOverride &&
 		minutesSinceMidnight(props.minTimeOverride) >
 			minutesSinceMidnight(props.maxTimeOverride)
 	) {
-		rootLogger.error(
-			"TimePicker: minTimeOverride must be <= maxTimeOverride (same-day window only; overnight ranges are not supported).",
-		);
 		return { hours: 0, minutes: 0, seconds: 0 };
 	}
 	return props.minTimeOverride

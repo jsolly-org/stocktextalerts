@@ -16,6 +16,13 @@
 					<span class="block text-sm font-normal text-body-secondary mt-0.5">
 						Choose up to {{ maxTimes }} time slots. Notifications are only sent during US market hours (10:00 AM – 3:59 PM ET).
 					</span>
+					<span
+						v-if="marketHoursCrossMidnightHint"
+						class="block text-sm font-normal text-warning-text mt-1"
+						role="status"
+					>
+						{{ marketHoursCrossMidnightHint }}
+					</span>
 				</legend>
 				<input
 					type="hidden"
@@ -143,6 +150,8 @@ interface Props {
 	maxTime: { hours: number; minutes: number } | null;
 	/** Force 24-hour / 12-hour display on time pickers. */
 	is24?: boolean;
+	/** When set, the market window crosses midnight in the user's timezone; show this hint so they know only 10:00 AM–3:59 PM ET is accepted. */
+	marketHoursCrossMidnightHint?: string | null;
 }
 
 const props = defineProps<Props>();
