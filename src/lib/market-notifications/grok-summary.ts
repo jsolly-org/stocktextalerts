@@ -1,5 +1,5 @@
 import { rootLogger } from "../logging";
-import { linkLabelFromUrl } from "../providers/grok";
+import { isXUrl, linkLabelFromUrl } from "../providers/grok";
 
 const GROK_TIMEOUT_MS = 60_000;
 
@@ -15,11 +15,6 @@ export interface PriceAlertLink {
 export interface PriceAlertGrokResult {
 	summary: string;
 	links: PriceAlertLink[];
-}
-
-/** Determine whether a URL is from X/Twitter. */
-function isXUrl(url: string): boolean {
-	return /^https?:\/\/(?:x|twitter)\.com\//.test(url);
 }
 
 /** Validate and normalize model-sourced URLs to http(s) only; reject other schemes. */

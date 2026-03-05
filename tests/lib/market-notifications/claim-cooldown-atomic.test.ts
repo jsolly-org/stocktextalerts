@@ -17,16 +17,11 @@ describe("Claim cooldown atomicity under concurrency", () => {
 		registerTestUserForCleanup(testUser.id);
 
 		const concurrency = 5;
-		const observedAt = "2026-02-17T15:30:00Z";
 		const args = {
 			p_user_id: testUser.id,
 			p_symbol: "AAPL",
-			p_observed_at: observedAt,
 			p_abs_move_percent: 5,
 			p_abs_move_dollar: 10,
-			p_allow_acceleration_follow_up: false,
-			p_allow_recovery_follow_up: false,
-			p_move_direction: "down" as const,
 		};
 
 		const results = await Promise.all(

@@ -49,11 +49,15 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const normalizedSymbol =
 		typeof symbol === "string" ? symbol.trim().toUpperCase() : "";
 
-	// Keep in sync with assets.symbol DB constraint.
+	// Keep in sync with assets.symbol DB constraint and logo route validation.
 	if (!normalizedSymbol) {
 		return jsonResponse(400, { ok: false, message: "invalid_symbol" });
 	}
 	if (normalizedSymbol.length > ASSET_SYMBOL_MAX_LENGTH) {
+		return jsonResponse(400, { ok: false, message: "invalid_symbol" });
+	}
+	// Restrict to valid ticker characters (alphanumeric, dot, hyphen) to avoid injection edge cases.
+	if (!/^[A-Z0-9.-]+$/u.test(normalizedSymbol)) {
 		return jsonResponse(400, { ok: false, message: "invalid_symbol" });
 	}
 

@@ -1,11 +1,9 @@
 import type { AppSupabaseClient } from "../../db/supabase";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
-import type { MarketClosureInfo } from "../../time/market-calendar";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
-import type { SparklineData } from "../sparkline";
 import type {
+	EmailFormatContext,
 	EmailUser,
-	FormatPreferences,
 	ProcessingStats,
 	UserAssetRow,
 } from "../types";
@@ -24,10 +22,7 @@ export async function processEmailUpdate(
 	priceMap: AssetPriceMap,
 	marketOpen: boolean,
 	idempotencyKey?: string,
-	formatPrefs?: FormatPreferences,
-	getSparkline?: (symbol: string) => SparklineData | null | undefined,
-	marketClosureInfo?: MarketClosureInfo | null,
-	getLogoHtml?: (symbol: string) => string | undefined,
+	context?: EmailFormatContext,
 ): Promise<ProcessingStats> {
 	const message = formatEmailMessage(
 		user,
@@ -35,10 +30,7 @@ export async function processEmailUpdate(
 		assetsList,
 		priceMap,
 		marketOpen,
-		formatPrefs,
-		getSparkline,
-		marketClosureInfo,
-		getLogoHtml,
+		context,
 	);
 	const result = await sendUserEmail(
 		user,

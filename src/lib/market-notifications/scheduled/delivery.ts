@@ -94,10 +94,7 @@ export async function processMarketScheduledEmailDelivery(options: {
 		priceMap,
 		marketOpen,
 		emailIdempotencyKey,
-		formatPrefs,
-		getSparkline,
-		marketClosureInfo,
-		getLogoHtml,
+		{ formatPrefs, getSparkline, marketClosureInfo, getLogoHtml },
 	);
 
 	if (sent) {

@@ -25,16 +25,43 @@ const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
 const PHONE_CANDIDATE_RE =
 	/(?:\+\d{1,3}[\s().-]*)?\(?\d{3}\)?[\s().-]*\d{3}[\s().-]*\d{4}/g;
 
+/** Context keys that indicate secrets; always redact to avoid leaking credentials. */
+const SENSITIVE_KEY_PATTERNS = [
+	"secret",
+	"password",
+	"apikey",
+	"api_key",
+	"credential",
+	"authtoken",
+	"auth_token",
+	"access_token",
+	"refresh_token",
+];
+
+function isSensitiveKey(key: string): boolean {
+	const lower = key.toLowerCase();
+	return (
+		lower === "token" ||
+		lower.endsWith("token") ||
+		SENSITIVE_KEY_PATTERNS.some((p) => lower.includes(p))
+	);
+}
+
 function maskPiiInContext(
 	context: LogContext,
 	maskPiiEnabled: boolean,
 ): LogContext {
-	if (!maskPiiEnabled) {
-		return context;
-	}
 	const masked: Record<string, unknown> = {};
 	for (const [key, value] of Object.entries(context)) {
 		if (key === "requestId") {
+			masked[key] = value;
+			continue;
+		}
+		if (isSensitiveKey(key)) {
+			masked[key] = "[REDACTED]";
+			continue;
+		}
+		if (!maskPiiEnabled) {
 			masked[key] = value;
 			continue;
 		}

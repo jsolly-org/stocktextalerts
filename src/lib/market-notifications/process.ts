@@ -16,8 +16,6 @@ import { deliverPriceAlert, type PriceAlertDeliveryStats } from "./delivery";
 import { enrichAlert } from "./enrichment";
 import { claimCooldown, fetchPriceAlertUsers } from "./users";
 
-const MARKET_CONTEXT_ACTIVE_MOVE_PCT = 2;
-const MARKET_CONTEXT_STANDOUT_DELTA_PCT = 1;
 const MARKET_BENCHMARK_SYMBOL = "SPY";
 
 /**
@@ -91,38 +89,6 @@ function calculateDollarMove(
 	}
 	const inferredPrevClose = quote.price / denominator;
 	return quote.price - inferredPrevClose;
-}
-
-function passesDirectionPreference(options: {
-	percentMove: number;
-	directionPreference: "downside" | "upside" | "both";
-}): boolean {
-	const { percentMove, directionPreference } = options;
-	if (directionPreference === "both") return true;
-	if (directionPreference === "downside") return percentMove < 0;
-	return percentMove > 0;
-}
-
-function passesMarketContext(options: {
-	marketContext: "standout" | "any_major";
-	marketMovePercentAbs: number | null;
-	symbolMovePercentAbs: number;
-}): boolean {
-	const { marketContext, marketMovePercentAbs, symbolMovePercentAbs } = options;
-	if (
-		marketMovePercentAbs === null ||
-		marketMovePercentAbs < MARKET_CONTEXT_ACTIVE_MOVE_PCT
-	) {
-		return true;
-	}
-	if (marketContext === "any_major") {
-		return true;
-	}
-	// standout: symbol must move meaningfully more than market
-	return (
-		symbolMovePercentAbs >=
-		marketMovePercentAbs + MARKET_CONTEXT_STANDOUT_DELTA_PCT
-	);
 }
 
 function buildSignalContext(options: {
@@ -370,21 +336,12 @@ export async function processPriceAlerts(options: {
 			const userSymbols = userSymbolMap.get(user.id);
 			if (!userSymbols?.has(symbol)) continue;
 
-			const profile = deriveAlertProfile({
-				riskPriority: user.market_asset_price_alert_risk_priority,
-				marketContext: user.market_asset_price_alert_market_context,
-				moveSize: user.market_asset_price_alert_move_size,
-				followUpMode: user.market_asset_price_alert_follow_up_mode,
-			});
-			if (
-				!passesDirectionPreference({
-					percentMove,
-					directionPreference: profile.directionPreference,
-				})
-			) {
-				continue;
-			}
+			const profile = deriveAlertProfile(
+				user.market_asset_price_alert_move_size,
+			);
 
+			// Either threshold triggers: percent catches proportional moves while
+			// dollar catches absolute moves on higher-priced assets.
 			const meetsShockThreshold =
 				symbolMovePercentAbs >= profile.percentThreshold ||
 				symbolMoveDollarAbs >= profile.dollarThreshold;
@@ -392,26 +349,12 @@ export async function processPriceAlerts(options: {
 				continue;
 			}
 
-			if (
-				!passesMarketContext({
-					marketContext: profile.marketContext,
-					marketMovePercentAbs: benchmarkMovePercentAbs,
-					symbolMovePercentAbs,
-				})
-			) {
-				continue;
-			}
-
-			const allowFollowUp = profile.followUpMode === "allow_follow_up";
 			const claimed = await claimCooldown(
 				supabase,
 				user.id,
 				symbol,
 				symbolMovePercentAbs,
 				symbolMoveDollarAbs,
-				allowFollowUp,
-				allowFollowUp,
-				percentMove < 0 ? "down" : "up",
 			);
 			if (!claimed) {
 				totals.cooldownSkips++;
