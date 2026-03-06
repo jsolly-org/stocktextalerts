@@ -45,8 +45,8 @@ export async function shortenUrl(
 			urlLength: trimmed.length,
 			rejected: trimmed.length > 100 ? `${trimmed.slice(0, 100)}...` : trimmed,
 		});
-		// Return original so callers never receive an unsafe string we validated against.
-		return url;
+		// Return trimmed for consistency with DB error path.
+		return trimmed;
 	}
 
 	try {
