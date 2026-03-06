@@ -1,8 +1,8 @@
 import type { APIRoute } from "astro";
-import { ASSET_SYMBOL_MAX_LENGTH } from "../../../../lib/constants";
 import { createUserService } from "../../../../lib/db";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { createLogger } from "../../../../lib/logging";
+import { isValidAssetSymbol } from "../../../../lib/validation";
 
 /**
  * GET /api/assets/logo/:symbol
@@ -37,16 +37,11 @@ export const GET: APIRoute = async ({
 	}
 	let symbol: string;
 	try {
-		symbol = decodeURIComponent(rawSymbol).toUpperCase();
+		symbol = decodeURIComponent(rawSymbol).trim().toUpperCase();
 	} catch {
 		return new Response("Bad request", { status: 400 });
 	}
-	// Match DB constraint (assets.symbol); reject oversized to avoid abuse
-	if (symbol.length > ASSET_SYMBOL_MAX_LENGTH) {
-		return new Response("Bad request", { status: 400 });
-	}
-	// Restrict to valid ticker characters (alphanumeric, dot, hyphen) to avoid injection edge cases
-	if (!/^[A-Z0-9.-]+$/u.test(symbol)) {
+	if (!isValidAssetSymbol(symbol)) {
 		return new Response("Bad request", { status: 400 });
 	}
 

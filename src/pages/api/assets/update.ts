@@ -14,6 +14,7 @@ import {
 	createErrorForLogging,
 	extractErrorMessage,
 } from "../../../lib/logging/errors";
+import { isValidAssetSymbol } from "../../../lib/validation";
 
 const ASSETS_SCHEMA = {
 	tracked_assets: { type: "json_string_array", required: true },
@@ -62,10 +63,24 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	}
 
 	const trackedSymbols = parsed.data.tracked_assets;
-	if (trackedSymbols.length > MAX_TRACKED_ASSETS) {
+
+	// Validate symbol format and length (align with DB and logo/search routes).
+	const normalizedSymbols = trackedSymbols.map((s) =>
+		typeof s === "string" ? s.trim().toUpperCase() : "",
+	);
+	const invalidSymbol = normalizedSymbols.find((s) => !isValidAssetSymbol(s));
+	if (invalidSymbol !== undefined) {
+		logger.info("Tracked assets update rejected: invalid symbol format", {
+			userId: user.id,
+		});
+		return jsonResponse(400, { ok: false, message: "invalid_form" });
+	}
+
+	const uniqueSymbols = [...new Set(normalizedSymbols.filter(Boolean))];
+	if (uniqueSymbols.length > MAX_TRACKED_ASSETS) {
 		logger.info("Tracked assets limit exceeded", {
 			userId: user.id,
-			count: trackedSymbols.length,
+			count: uniqueSymbols.length,
 		});
 		return jsonResponse(400, { ok: false, message: "assets_limit" });
 	}
@@ -73,7 +88,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	try {
 		const { error } = await supabase.rpc("replace_user_assets", {
 			user_id: user.id,
-			symbols: trackedSymbols,
+			symbols: uniqueSymbols,
 		});
 		if (error) {
 			throw error;
@@ -91,7 +106,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				"Failed to update tracked assets",
 				{
 					userId: user.id,
-					symbols: trackedSymbols,
+					symbols: uniqueSymbols,
 					error: errorMessage,
 				},
 				createErrorForLogging(error),
