@@ -10,11 +10,8 @@ export interface PreviewAsset {
 
 import {
 	type AssetPrice,
-	escapeHtml,
 	formatAssetsTextList,
-	getChangeColor,
 } from "../../../../lib/messaging/asset-formatting";
-import { toSvgSparklineImg } from "../../../../lib/messaging/svg-sparkline";
 
 /** Stable demo assets used to render previews without a live API call. */
 export const DEMO_ASSETS: PreviewAsset[] = [
@@ -62,36 +59,4 @@ export function formatPreviewAssetsList(assets: PreviewAsset[]): string {
 		(symbol) => prices.get(symbol),
 		(symbol) => sparklines.get(symbol),
 	);
-}
-
-/**
- * Format an HTML preview block for a set of demo assets (email-like rendering).
- *
- * Uses SVG sparklines and colored change percentages to match the actual
- * daily digest email output.
- */
-export function formatPreviewEmailHtml(assets: PreviewAsset[]): string {
-	if (assets.length === 0) {
-		return '<p style="color: #4b5563;">You don\'t have any tracked assets yet.</p>';
-	}
-
-	return assets
-		.map((asset) => {
-			const symbol = escapeHtml(asset.symbol);
-			const priceStr = escapeHtml(`$${asset.price.toFixed(2)}`);
-			const sign = asset.changePercent >= 0 ? "+" : "";
-			const color = getChangeColor(asset.changePercent);
-			const changeStr = escapeHtml(
-				`(${sign}${asset.changePercent.toFixed(2)}%)`,
-			);
-
-			let sparklineHtml = "";
-			if (asset.sparklineValues && asset.sparklineValues.length >= 2) {
-				sparklineHtml = ` ${toSvgSparklineImg(asset.sparklineValues, color)}`;
-			}
-
-			/* color: #374151 meets WCAG 2.1 AA 4.5:1 on light bg */
-			return `<div style="margin-bottom: 8px; color: #374151;">${symbol} &mdash; ${priceStr} <span style="color: ${color}; font-weight: 600;">${changeStr}</span>${sparklineHtml}</div>`;
-		})
-		.join("");
 }
