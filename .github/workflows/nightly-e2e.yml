@@ -1,4 +1,4 @@
-# Nightly E2E tests on dev to catch regressions before code reaches main.
+# Nightly E2E tests to catch regressions.
 # When tests fail, the Cursor agent attempts to fix the failures and opens a PR.
 name: "Nightly: E2E"
 
@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
         with:
-          ref: dev
+          ref: main
       - uses: ./.github/actions/run-ci
         with:
           skip-lint: "true"
@@ -63,7 +63,7 @@ jobs:
         if: steps.check-pr.outputs.skip != 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          ref: dev
+          ref: main
           fetch-depth: 0
           token: ${{ secrets.GH_AGENT_TOKEN }}
 

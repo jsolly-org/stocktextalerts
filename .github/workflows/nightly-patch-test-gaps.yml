@@ -44,7 +44,7 @@ jobs:
         if: steps.check-pr.outputs.skip != 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          ref: dev
+          ref: main
           fetch-depth: 0
           token: ${{ secrets.GH_AGENT_TOKEN }}
 

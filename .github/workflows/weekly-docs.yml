@@ -1,4 +1,4 @@
-# Runs once a week (Monday). Reviews the current state of dev and updates
+# Runs once a week (Monday). Reviews the current state of main and updates
 # user-facing docs (README, FAQ, HowItWorks) to reflect the latest code.
 # Creates a PR that is auto-merged if checks pass.
 name: "Weekly: Docs"
@@ -27,7 +27,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6.0.2
         with:
-          ref: dev
+          ref: main
           fetch-depth: 0
           token: ${{ secrets.GH_AGENT_TOKEN }}
 
@@ -57,7 +57,7 @@ jobs:
           - Trigger: ${{ github.event_name }}
 
           # Goal:
-          - Review the current state of the codebase on \`dev\` and update user-facing docs to accurately reflect it.
+          - Review the current state of the codebase on \`main\` and update user-facing docs to accurately reflect it.
           - Leave all changes uncommitted — the workflow will handle commit and push.
 
           # Allowed files (ONLY these may be modified):
@@ -66,7 +66,7 @@ jobs:
           - \`src/components/landing/HowItWorks.astro\` — \"How it works\" section (steps in the \`steps\` array and section copy)
 
           # Requirements:
-          1) Review the current state of the codebase on \`dev\` and update the allowed files to accurately reflect it.
+          1) Review the current state of the codebase on \`main\` and update the allowed files to accurately reflect it.
           2) Only modify the allowed files listed above. Do NOT touch any other files.
           3) For \`src/pages/faq.astro\`: only update the \`faqs\` array entries and surrounding page copy. Do NOT change the component imports, layout structure, JSON-LD logic, or Tailwind classes.
           4) For \`src/components/landing/HowItWorks.astro\`: only update the \`steps\` array entries and surrounding section copy. Do NOT change the component imports, template structure, or Tailwind classes.
@@ -112,7 +112,7 @@ jobs:
           git push origin "$BRANCH"
 
           PR_URL=$(gh pr create \
-            --base dev \
+            --base main \
             --head "$BRANCH" \
             --title "docs(weekly): update docs — ${DATE}" \
             --label "bot-generated" \

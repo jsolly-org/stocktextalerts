@@ -28,38 +28,8 @@ jobs:
       - uses: ./.github/actions/run-ci
         with:
           production-site-url: ${{ vars.PRODUCTION_SITE_URL }}
-      - name: Load live-test secrets
-        run: |
-          cat > .env.local <<EOF
-          SUPABASE_URL=$SUPABASE_URL
-          SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY
-          SUPABASE_SECRET_KEY=$SUPABASE_SECRET_KEY
-          DATABASE_URL=$DATABASE_URL
-          CRON_SECRET=ci-cron-secret
-          VERCEL_URL=http://localhost:4321
-          TWILIO_ACCOUNT_SID=$TWILIO_ACCOUNT_SID
-          TWILIO_AUTH_TOKEN=$TWILIO_AUTH_TOKEN
-          TWILIO_PHONE_NUMBER=$TWILIO_PHONE_NUMBER
-          TWILIO_VERIFY_SERVICE_SID=$TWILIO_VERIFY_SERVICE_SID
-          RESEND_API_KEY=$RESEND_API_KEY
-          EMAIL_FROM=$EMAIL_FROM
-          MASSIVE_API_KEY=$MASSIVE_API_KEY
-          FINNHUB_API_KEY=$FINNHUB_API_KEY
-          XAI_API_KEY=$XAI_API_KEY
-          EOF
-          cat .env.local >> $GITHUB_ENV
-        env:
-          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
-          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
-          TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
-          TWILIO_VERIFY_SERVICE_SID: ${{ secrets.TWILIO_VERIFY_SERVICE_SID }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
-          MASSIVE_API_KEY: ${{ secrets.MASSIVE_API_KEY }}
-          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
-          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
-      - name: Run live tests
-        run: npm run test:live:all
+      - name: E2E tests
+        run: npm run test:e2e
       - name: Link Supabase project
         run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
         env:

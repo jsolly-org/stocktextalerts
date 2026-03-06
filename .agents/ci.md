@@ -8,7 +8,7 @@ Our nightly CI workflows give the Cursor agent write access to the repository (v
 
 ### Mitigations
 
-- **Branch protection**: Agent commits land on feature branches, never directly on `main` or `dev`. All changes go through PR review.
+- **Branch protection**: Agent commits land on feature branches, never directly on `main`. All changes go through PR review.
 - **Attempt limits**: Nightly grooming stops after 2 fix attempts per PR to prevent runaway loops.
 - **Scoped tokens**: `GH_AGENT_TOKEN` is a fine-grained PAT with only the permissions the workflows need.
 

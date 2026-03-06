@@ -1,20 +1,18 @@
-# Runs live data-provider API tests (Massive + Finnhub) during US market hours
-# when snapshot data is guaranteed to be fresh. Mon-Fri only.
-name: "Live Provider API Tests"
+# Runs all live integration tests (provider APIs, SMS, email, xAI) once daily.
+# Extracted from deploy.yml so deployments aren't gated on live-service availability.
+name: "Daily Live Tests"
 
 on:
   schedule:
-    # 4 PM UTC = 12 PM ET — solidly mid-session (market open 9:30 AM – 4 PM ET)
-    - cron: "0 16 * * 1-5"
+    # 4 PM UTC = 12 PM ET — mid-session on market days, still useful baseline on weekends
+    - cron: "0 16 * * *"
   workflow_dispatch:
 
 jobs:
-  live-data-tests:
+  live-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
-        with:
-          ref: main
 
       - name: Setup Node.js
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
@@ -35,7 +33,7 @@ jobs:
           npm ci
           wait $SB_PID
 
-      - name: Load Supabase env and provider secrets
+      - name: Load Supabase env and live-test secrets
         run: |
           supabase status -o json > /tmp/sb-status.json
           DB_VARS=$(jq -r '
@@ -49,12 +47,26 @@ jobs:
             echo "$DB_VARS"
             echo "CRON_SECRET=ci-cron-secret"
             echo "VERCEL_URL=http://localhost:4321"
+            echo "TWILIO_ACCOUNT_SID=$TWILIO_ACCOUNT_SID"
+            echo "TWILIO_AUTH_TOKEN=$TWILIO_AUTH_TOKEN"
+            echo "TWILIO_PHONE_NUMBER=$TWILIO_PHONE_NUMBER"
+            echo "TWILIO_VERIFY_SERVICE_SID=$TWILIO_VERIFY_SERVICE_SID"
+            echo "RESEND_API_KEY=$RESEND_API_KEY"
+            echo "EMAIL_FROM=$EMAIL_FROM"
             echo "MASSIVE_API_KEY=$MASSIVE_API_KEY"
             echo "FINNHUB_API_KEY=$FINNHUB_API_KEY"
+            echo "XAI_API_KEY=$XAI_API_KEY"
           } | tee .env.local >> "$GITHUB_ENV"
         env:
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
+          TWILIO_VERIFY_SERVICE_SID: ${{ secrets.TWILIO_VERIFY_SERVICE_SID }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
           MASSIVE_API_KEY: ${{ secrets.MASSIVE_API_KEY }}
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
 
-      - name: Run live provider tests
-        run: npm run test:live:data
+      - name: Run live tests
+        run: npm run test:live:all
