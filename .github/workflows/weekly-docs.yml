@@ -5,7 +5,7 @@ name: "Weekly: Docs"
 
 on:
   schedule:
-    - cron: "0 9 * * 1" # 9:00 UTC every Monday (4 AM EST / 5 AM EDT)
+    - cron: "0 8 * * 1" # 8:00 UTC every Monday (3 AM EST / 4 AM EDT)
   workflow_dispatch:
 
 permissions:

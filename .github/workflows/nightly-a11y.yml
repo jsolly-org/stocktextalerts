@@ -4,7 +4,7 @@ name: "Nightly: Accessibility"
 
 on:
   schedule:
-    - cron: "0 6 * * *" # 1 AM ET
+    - cron: "0 5 * * *" # 12 AM ET
   workflow_dispatch:
 
 permissions:

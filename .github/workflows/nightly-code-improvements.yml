@@ -6,7 +6,7 @@ name: "Nightly: Code Improvements"
 
 on:
   schedule:
-    - cron: "0 5 * * *" # 12 AM ET
+    - cron: "0 4 * * *" # 11 PM ET
   workflow_dispatch:
 
 permissions:
