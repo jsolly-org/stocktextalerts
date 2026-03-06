@@ -31,8 +31,7 @@ export const MARKET_SCHEDULED_USER_SELECT = `
 	market_asset_price_alerts_include_sms,
 	last_grok_rumors_at,
 	grok_window_start,
-	grok_sends_in_window,
-	show_sparklines
+	grok_sends_in_window
 `;
 
 /** Filter: user has at least one delivery channel for market-scheduled updates. */

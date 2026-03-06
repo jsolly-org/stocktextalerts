@@ -167,6 +167,7 @@ export const DASHBOARD_HASH_TO_TAB_INDEX: Record<string, number> = {
 	[DASHBOARD_SECTION_IDS.assetEvents]: 4,
 	[DASHBOARD_SECTION_IDS.priceTargets]: 3,
 	daily_digest_time: 1,
+	[`${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-phone-verification-section`]: 1,
 };
 
 /** Reverse map: tab index → canonical hash for URL persistence. */

@@ -130,7 +130,7 @@ describe("Email scheduled update includes asset price data.", () => {
 			assetsList,
 			priceMap,
 			true,
-			{ formatPrefs: { show_sparklines: false }, getLogoHtml },
+			{ getLogoHtml },
 		);
 
 		expect(html).toContain("base64,aapllogo");

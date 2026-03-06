@@ -5,10 +5,7 @@ import {
 } from "../../src/lib/daily-digest/delivery";
 import type { SmsExtras } from "../../src/lib/messaging/sms/delivery";
 import type { SparklineData } from "../../src/lib/messaging/sparkline";
-import type {
-	FormatPreferences,
-	UserAssetRow,
-} from "../../src/lib/messaging/types";
+import type { UserAssetRow } from "../../src/lib/messaging/types";
 import type { AssetPriceMap } from "../../src/lib/providers/price-fetcher";
 
 describe("Daily digest email prices", () => {
@@ -22,9 +19,6 @@ describe("Daily digest email prices", () => {
 		rumors: null,
 		analyst: null,
 		insider: null,
-	};
-	const defaultPrefs: FormatPreferences = {
-		show_sparklines: true,
 	};
 
 	const sparklineData: SparklineData = {
@@ -51,7 +45,6 @@ describe("Daily digest email prices", () => {
 			user,
 			userAssets,
 			assetPrices,
-			formatPrefs: defaultPrefs,
 			extras,
 		});
 
@@ -79,7 +72,6 @@ describe("Daily digest email prices", () => {
 			user,
 			userAssets,
 			assetPrices,
-			formatPrefs: defaultPrefs,
 			extras,
 		});
 
@@ -88,46 +80,16 @@ describe("Daily digest email prices", () => {
 		expect(message.html).toContain("color: #b91c1c");
 	});
 
-	it("hides sparklines when show_sparklines is disabled but still shows change%", () => {
+	it("shows ASCII sparklines in plaintext and SVG in HTML when sparklines provided", () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 		]);
 		const sparklines = new Map([["AAPL", sparklineData]]);
-		const prefs: FormatPreferences = {
-			show_sparklines: false,
-		};
 
 		const message = formatDailyDigestEmail({
 			user,
 			userAssets: [userAssets[0]],
 			assetPrices,
-			formatPrefs: prefs,
-			extras,
-			sparklines,
-		});
-
-		// Change% should always be shown
-		expect(message.text).toContain("+1.23%");
-		// ASCII sparklines should NOT appear in plaintext
-		expect(message.text).not.toContain("▁▂▃▅▇▅▃");
-		// SVG sparklines should NOT appear in HTML
-		expect(message.html).not.toContain("data:image/svg+xml;base64,");
-	});
-
-	it("shows ASCII sparklines in plaintext and SVG in HTML when enabled", () => {
-		const assetPrices: AssetPriceMap = new Map([
-			["AAPL", { price: 187.42, changePercent: 1.23 }],
-		]);
-		const sparklines = new Map([["AAPL", sparklineData]]);
-		const prefs: FormatPreferences = {
-			show_sparklines: true,
-		};
-
-		const message = formatDailyDigestEmail({
-			user,
-			userAssets: [userAssets[0]],
-			assetPrices,
-			formatPrefs: prefs,
 			extras,
 			sparklines,
 		});
@@ -145,14 +107,10 @@ describe("Daily digest email prices", () => {
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 		]);
 		const sparklines = new Map([["AAPL", sparklineData]]);
-		const prefs: FormatPreferences = {
-			show_sparklines: true,
-		};
 
 		const message = await formatDailyDigestSmsMessage({
 			userAssets: [userAssets[0]],
 			assetPrices,
-			formatPrefs: prefs,
 			extras,
 			sparklines,
 		});
@@ -163,15 +121,11 @@ describe("Daily digest email prices", () => {
 
 	it("always shows change% even with price unavailable", () => {
 		const assetPrices: AssetPriceMap = new Map([["AAPL", null]]);
-		const prefs: FormatPreferences = {
-			show_sparklines: false,
-		};
 
 		const message = formatDailyDigestEmail({
 			user,
 			userAssets,
 			assetPrices,
-			formatPrefs: prefs,
 			extras,
 		});
 
@@ -185,14 +139,10 @@ describe("Daily digest email prices", () => {
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 			["MSFT", { price: 412.1, changePercent: -0.31 }],
 		]);
-		const prefs: FormatPreferences = {
-			show_sparklines: false,
-		};
 
 		const message = await formatDailyDigestSmsMessage({
 			userAssets,
 			assetPrices,
-			formatPrefs: prefs,
 			extras,
 		});
 
@@ -212,7 +162,6 @@ describe("Daily digest email prices", () => {
 			user,
 			userAssets: [userAssets[0]],
 			assetPrices,
-			formatPrefs: defaultPrefs,
 			extras: {
 				...extras,
 				rumors: "AAPL: First rumor line\nMSFT: Second rumor line",
@@ -235,7 +184,6 @@ describe("Daily digest email prices", () => {
 			user,
 			userAssets: [userAssets[0]],
 			assetPrices,
-			formatPrefs: defaultPrefs,
 			extras: {
 				...extras,
 				rumors: "AAPL: First rumor line\n\nMSFT: Second rumor line",
@@ -259,7 +207,6 @@ describe("Daily digest email prices", () => {
 			user,
 			userAssets: [userAssets[0]],
 			assetPrices,
-			formatPrefs: defaultPrefs,
 			extras: {
 				...extras,
 				news: "AAPL: First news line\nMSFT: Second news line",
@@ -282,7 +229,6 @@ describe("Daily digest email prices", () => {
 			user,
 			userAssets: [userAssets[0]],
 			assetPrices,
-			formatPrefs: defaultPrefs,
 			extras,
 		});
 
@@ -300,7 +246,6 @@ describe("Daily digest email prices", () => {
 			user,
 			userAssets: [userAssets[0]],
 			assetPrices,
-			formatPrefs: defaultPrefs,
 			extras,
 			marketClosureInfo: { reason: "weekend" },
 		});
@@ -327,7 +272,6 @@ describe("Daily digest email prices", () => {
 			user,
 			userAssets: [userAssets[0]],
 			assetPrices,
-			formatPrefs: defaultPrefs,
 			extras,
 			marketClosureInfo: { reason: "holiday", holidayName: "Presidents' Day" },
 		});
@@ -345,7 +289,6 @@ describe("Daily digest email prices", () => {
 			user,
 			userAssets: [userAssets[0]],
 			assetPrices,
-			formatPrefs: defaultPrefs,
 			extras,
 			marketClosureInfo: { reason: "weekend" },
 		});

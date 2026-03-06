@@ -25,7 +25,6 @@
 
 <script lang="ts" setup>
 import { computed } from "vue";
-import type { FormatPreferences } from "../../../../lib/messaging/types";
 import {
 	formatPreviewAssetsList,
 	type PreviewAsset,
@@ -33,13 +32,12 @@ import {
 
 interface Props {
 	assets: PreviewAsset[];
-	formatPreferences: FormatPreferences;
 }
 
 const props = defineProps<Props>();
 
 const formattedSmsText = computed(() =>
-	`Your tracked assets:\n${formatPreviewAssetsList(props.assets, props.formatPreferences)}`,
+	`Your tracked assets:\n${formatPreviewAssetsList(props.assets)}`,
 );
 </script>
 

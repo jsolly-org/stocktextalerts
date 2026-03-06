@@ -107,8 +107,8 @@ function scrollToCard(index: number) {
 
 /**
  * Returns true when the touch originated inside a nested element that is
- * intentionally horizontally scrollable (e.g. the Daily Digest preview
- * carousel). Such elements opt in with `data-horizontal-scroll`.
+ * intentionally horizontally scrollable. Such elements opt in with
+ * `data-horizontal-scroll`.
  *
  * We can't simply check `getComputedStyle(el).overflowX` because the CSS
  * spec forces `overflow-x` to `auto` whenever `overflow-y` is non-visible,
@@ -138,7 +138,7 @@ function handleTouchStart(event: TouchEvent) {
 	if (!touch) return;
 
 	// If the touch is inside a nested horizontal scroller, bail out so
-	// the inner element (e.g. SMS ↔ Email preview carousel) scrolls instead.
+	// the inner element scrolls instead.
 	if (isNestedHorizontalScroll(event.target)) {
 		resetTouch();
 		return;

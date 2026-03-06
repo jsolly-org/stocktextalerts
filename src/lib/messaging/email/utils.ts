@@ -179,8 +179,7 @@ export function formatEmailMessage(
 	marketOpen: boolean,
 	context?: EmailFormatContext,
 ): { text: string; html: string } {
-	const { formatPrefs, getSparkline, marketClosureInfo, getLogoHtml } =
-		context ?? {};
+	const { getSparkline, marketClosureInfo, getLogoHtml } = context ?? {};
 	const urls = buildEmailUrls(user.id, user.email, "marketNotifications");
 	const textFooter = `\n\nManage your delivery schedule: ${urls.scheduleUrl}\nUnsubscribe from all emails: ${urls.unsubscribeUrl}`;
 	const htmlFooter = `
@@ -230,7 +229,6 @@ export function formatEmailMessage(
 	const escapedAssetsListHtml = formatAssetsHtmlList(
 		userAssets,
 		(symbol) => priceMap.get(symbol) ?? undefined,
-		formatPrefs ?? { show_sparklines: false },
 		{ getSparkline, getLogoHtml },
 	);
 	const marketClosedBannerHtml = marketOpen

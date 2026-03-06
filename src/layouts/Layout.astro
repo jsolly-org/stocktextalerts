@@ -126,6 +126,188 @@ const omitManifestOnVercel =
     </a>
     <script>
       (() => {
+        const MOBILE_MEDIA_QUERY = "(max-width: 767.99px)";
+        const FOCUSED_FIELD_PADDING_PX = 16;
+        const FOCUSED_FIELD_CENTER_TOLERANCE_PX = 12;
+        const FOCUS_RETRY_DELAY_MS = 300;
+
+        let activeFocusedField: HTMLElement | null = null;
+        let focusScrollFrame: number | null = null;
+        let focusScrollTimeout: ReturnType<typeof setTimeout> | null = null;
+
+        const getScrollBehavior = () =>
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches
+            ? "auto"
+            : "smooth";
+
+        const isMobileViewport = () => window.matchMedia(MOBILE_MEDIA_QUERY).matches;
+
+        const clearPendingFocusScroll = () => {
+          if (focusScrollFrame !== null) {
+            cancelAnimationFrame(focusScrollFrame);
+            focusScrollFrame = null;
+          }
+          if (focusScrollTimeout !== null) {
+            clearTimeout(focusScrollTimeout);
+            focusScrollTimeout = null;
+          }
+        };
+
+        const getScrollableFormField = (target: EventTarget | null): HTMLElement | null => {
+          const field =
+            target instanceof HTMLElement
+              ? target.closest(
+                  "input, textarea, select, [contenteditable]:not([contenteditable='false'])",
+                )
+              : null;
+          if (!(field instanceof HTMLElement)) return null;
+          if (field instanceof HTMLInputElement && field.type === "hidden") return null;
+          if (field instanceof HTMLInputElement && field.readOnly) return null;
+          return field;
+        };
+
+        const isScrollableElement = (element: HTMLElement | null): boolean => {
+          if (!(element instanceof HTMLElement)) return false;
+          const style = window.getComputedStyle(element);
+          const overflowY = style.overflowY;
+          if (overflowY !== "auto" && overflowY !== "scroll") return false;
+          return element.scrollHeight > element.clientHeight + 1;
+        };
+
+        const isViewportScrollContainer = (element: HTMLElement): boolean =>
+          element === document.scrollingElement ||
+          element === document.documentElement ||
+          element === document.body;
+
+        const getScrollContainer = (field: HTMLElement): HTMLElement => {
+          let current = field.parentElement;
+          while (current) {
+            if (isScrollableElement(current)) {
+              return current;
+            }
+            current = current.parentElement;
+          }
+          return document.scrollingElement instanceof HTMLElement
+            ? document.scrollingElement
+            : document.documentElement;
+        };
+
+        const scrollFieldIntoView = (field: HTMLElement): void => {
+          if (!isMobileViewport() || !field.isConnected) return;
+
+          const container = getScrollContainer(field);
+          if (!(container instanceof HTMLElement)) return;
+
+          const isViewportContainer = isViewportScrollContainer(container);
+          const fieldRect = field.getBoundingClientRect();
+          const containerRect =
+            isViewportContainer
+              ? { top: 0, bottom: window.innerHeight, height: window.innerHeight }
+              : container.getBoundingClientRect();
+
+          const visualViewport = window.visualViewport;
+          const viewportTop = visualViewport?.offsetTop ?? 0;
+          const viewportBottom =
+            (visualViewport?.offsetTop ?? 0) +
+            (visualViewport?.height ?? window.innerHeight);
+          const visibleTop =
+            Math.max(containerRect.top, viewportTop) + FOCUSED_FIELD_PADDING_PX;
+          const visibleBottom =
+            Math.min(containerRect.bottom, viewportBottom) - FOCUSED_FIELD_PADDING_PX;
+
+          const fallbackScrollIntoView = () => {
+            field.scrollIntoView({
+              behavior: getScrollBehavior(),
+              block: "center",
+              inline: "nearest",
+            });
+          };
+
+          if (visibleBottom <= visibleTop) {
+            fallbackScrollIntoView();
+            return;
+          }
+
+          const desiredCenter = visibleTop + (visibleBottom - visibleTop) / 2;
+          const fieldCenter = fieldRect.top + fieldRect.height / 2;
+
+          if (
+            Math.abs(fieldCenter - desiredCenter) <= FOCUSED_FIELD_CENTER_TOLERANCE_PX
+          ) {
+            return;
+          }
+
+          const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+
+          if (maxScrollTop === 0) {
+            fallbackScrollIntoView();
+            return;
+          }
+
+          const currentScrollTop = isViewportContainer ? window.scrollY : container.scrollTop;
+
+          const fieldOffsetTop = fieldRect.top - containerRect.top + currentScrollTop;
+          const desiredCenterWithinContainer = desiredCenter - containerRect.top;
+          const nextScrollTop = Math.max(
+            0,
+            Math.min(
+              fieldOffsetTop + fieldRect.height / 2 - desiredCenterWithinContainer,
+              maxScrollTop,
+            ),
+          );
+
+          if (Math.abs(nextScrollTop - currentScrollTop) <= 1) {
+            return;
+          }
+
+          if (isViewportContainer) {
+            window.scrollTo({ top: nextScrollTop, behavior: getScrollBehavior() });
+            return;
+          }
+
+          container.scrollTo({ top: nextScrollTop, behavior: getScrollBehavior() });
+        };
+
+        const syncFocusedFieldIntoView = () => {
+          const field = getScrollableFormField(document.activeElement);
+          if (!field) {
+            activeFocusedField = null;
+            clearPendingFocusScroll();
+            return;
+          }
+
+          activeFocusedField = field;
+          clearPendingFocusScroll();
+          focusScrollFrame = requestAnimationFrame(() => {
+            scrollFieldIntoView(field);
+            // iOS often reports the final keyboard-adjusted viewport slightly later.
+            focusScrollTimeout = setTimeout(() => {
+              scrollFieldIntoView(field);
+            }, FOCUS_RETRY_DELAY_MS);
+          });
+        };
+
+        const handleFocusIn = (event: FocusEvent): void => {
+          if (!isMobileViewport()) return;
+          const field = getScrollableFormField(event.target);
+          if (!field) return;
+          activeFocusedField = field;
+          syncFocusedFieldIntoView();
+        };
+
+        const handleFocusOut = (): void => {
+          requestAnimationFrame(() => {
+            if (getScrollableFormField(document.activeElement)) return;
+            activeFocusedField = null;
+            clearPendingFocusScroll();
+          });
+        };
+
+        const handleVisualViewportChange = () => {
+          if (!isMobileViewport() || !activeFocusedField) return;
+          syncFocusedFieldIntoView();
+        };
+
         document.addEventListener(
           "submit",
           (event) => {
@@ -153,6 +335,11 @@ const omitManifestOnVercel =
           },
           { capture: true },
         );
+
+        document.addEventListener("focusin", handleFocusIn, { capture: true });
+        document.addEventListener("focusout", handleFocusOut, { capture: true });
+        window.visualViewport?.addEventListener("resize", handleVisualViewportChange);
+        window.visualViewport?.addEventListener("scroll", handleVisualViewportChange);
       })();
     </script>
   </body>

@@ -18,7 +18,6 @@ const DAILY_DIGEST_USER_SELECT = `
 	email_notifications_enabled,
 	sms_notifications_enabled,
 	sms_opted_out,
-	show_sparklines,
 	daily_digest_include_prices_email,
 	daily_digest_include_prices_sms,
 	daily_digest_include_news_email,

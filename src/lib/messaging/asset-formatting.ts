@@ -1,6 +1,6 @@
 import type { SparklineData } from "./sparkline";
 import { toSvgSparklineImg } from "./svg-sparkline";
-import type { EmailFormatContext, FormatPreferences } from "./types";
+import type { EmailFormatContext } from "./types";
 
 export type AssetPrice = { price: number; changePercent: number };
 type AssetWithName = { symbol: string; name: string };
@@ -26,13 +26,6 @@ export function escapeHtml(value: string): string {
 		.replaceAll("'", "&#39;");
 }
 
-function formatAssetBaseText(
-	asset: AssetWithName,
-	_formatPrefs: FormatPreferences,
-): string {
-	return asset.symbol;
-}
-
 function formatAssetPriceText(
 	price: AssetPrice,
 	sparkline?: string | null,
@@ -51,15 +44,12 @@ function formatAssetPriceText(
 export function formatAssetTextLine(
 	asset: AssetWithName,
 	price: AssetPrice | undefined,
-	formatPrefs: FormatPreferences,
 	sparkline?: string | null,
 ): string {
-	const base = formatAssetBaseText(asset, formatPrefs);
 	if (!price) {
-		return `${base} — price unavailable`;
+		return `${asset.symbol} — price unavailable`;
 	}
-	const effectiveSparkline = formatPrefs.show_sparklines ? sparkline : null;
-	return `${base} — ${formatAssetPriceText(price, effectiveSparkline)}`;
+	return `${asset.symbol} — ${formatAssetPriceText(price, sparkline)}`;
 }
 
 // WCAG 2.1 AA 4.5:1 on light bg.
@@ -70,7 +60,6 @@ export function getChangeColor(changePercent: number): string {
 export function formatAssetHtmlLine(
 	asset: AssetWithName,
 	price: AssetPrice | undefined,
-	formatPrefs: FormatPreferences,
 	sparkline?: SparklineData | null,
 	logoHtml?: string,
 ): string {
@@ -86,11 +75,7 @@ export function formatAssetHtmlLine(
 	const changeStr = escapeHtml(`(${sign}${price.changePercent.toFixed(2)}%)`);
 
 	let sparklineHtml = "";
-	if (
-		formatPrefs.show_sparklines &&
-		sparkline?.values &&
-		sparkline.values.length >= 2
-	) {
+	if (sparkline?.values && sparkline.values.length >= 2) {
 		sparklineHtml = ` ${toSvgSparklineImg(sparkline.values, color)}`;
 	}
 
@@ -100,7 +85,6 @@ export function formatAssetHtmlLine(
 export function formatAssetsTextList(
 	assets: AssetWithName[],
 	getPrice: (symbol: string) => AssetPrice | undefined,
-	formatPrefs: FormatPreferences,
 	getSparkline?: (symbol: string) => string | null | undefined,
 ): string {
 	if (assets.length === 0) {
@@ -112,7 +96,6 @@ export function formatAssetsTextList(
 			formatAssetTextLine(
 				asset,
 				getPrice(asset.symbol),
-				formatPrefs,
 				getSparkline?.(asset.symbol),
 			),
 		)
@@ -122,7 +105,6 @@ export function formatAssetsTextList(
 export function formatAssetsHtmlList(
 	assets: AssetWithName[],
 	getPrice: (symbol: string) => AssetPrice | undefined,
-	formatPrefs: FormatPreferences,
 	context?: Pick<EmailFormatContext, "getSparkline" | "getLogoHtml">,
 ): string {
 	if (assets.length === 0) {
@@ -134,7 +116,6 @@ export function formatAssetsHtmlList(
 			formatAssetHtmlLine(
 				asset,
 				getPrice(asset.symbol),
-				formatPrefs,
 				context?.getSparkline?.(asset.symbol),
 				context?.getLogoHtml?.(asset.symbol),
 			),

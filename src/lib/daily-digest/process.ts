@@ -304,7 +304,7 @@ export async function processDailyDigestUser(options: {
 			}
 		}
 		let sparklines: SparklineMap = new Map();
-		if (needsPrices && user.show_sparklines && tickers.length > 0) {
+		if (needsPrices && tickers.length > 0) {
 			try {
 				sparklines = await fetchSparklines(tickers);
 			} catch (error) {
@@ -592,7 +592,6 @@ export async function processDailyDigestUser(options: {
 							user,
 							userAssets: emailPriceAssets,
 							assetPrices: emailPriceMap,
-							formatPrefs: { show_sparklines: user.show_sparklines },
 							extras: emailExtras,
 							assetEvents: emailAssetEvents,
 							sparklines,
@@ -607,7 +606,6 @@ export async function processDailyDigestUser(options: {
 							message: await formatDailyDigestSmsMessage({
 								userAssets: smsPriceAssets,
 								assetPrices: smsPriceMap,
-								formatPrefs: { show_sparklines: user.show_sparklines },
 								extras: smsExtras,
 								assetEvents: smsAssetEvents,
 								sparklines,
@@ -663,9 +661,6 @@ export async function processDailyDigestUser(options: {
 				scheduledMinutes,
 				userAssets: emailPriceAssets,
 				assetPrices: emailPriceMap,
-				formatPrefs: {
-					show_sparklines: user.show_sparklines,
-				},
 				extras: emailExtras,
 				assetEvents: emailAssetEvents,
 				sparklines,
