@@ -12,8 +12,7 @@
 	>
 		<section class="card relative">
 			<FormStatusBadge
-				v-if="statusMessage && statusTone === 'error'"
-				:status-message="statusMessage"
+				:status-message="statusTone === 'error' ? statusMessage : null"
 				:status-tone="statusTone"
 				:is-saving="isSaving"
 			/>
