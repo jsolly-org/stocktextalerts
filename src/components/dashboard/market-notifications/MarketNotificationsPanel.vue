@@ -950,7 +950,9 @@ function filterNumericInput(event: KeyboardEvent) {
 function handleTargetInput(symbol: string, event: Event) {
 	const input = event.target as HTMLInputElement;
 	// Strip any non-numeric characters that might have gotten through (e.g. paste)
-	const cleaned = input.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+	const stripped = input.value.replace(/[^0-9.]/g, "");
+	const parts = stripped.split(".");
+	const cleaned = parts.length <= 1 ? stripped : parts[0] + "." + parts.slice(1).join("");
 	if (cleaned !== input.value) {
 		input.value = cleaned;
 	}
