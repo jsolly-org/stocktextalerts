@@ -29,6 +29,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_FILE = path.join(__dirname, "..", "data", "us-assets.json");
 
 const MASSIVE_BASE_URL = "https://api.massive.com";
+const MASSIVE_ALLOWED_HOST = "api.massive.com";
+const MASSIVE_TICKERS_PATH_PREFIX = "/v3/reference/tickers";
 
 // Massive ticker types we care about, mapped to our normalized types.
 const TICKER_TYPES: Array<{ apiType: string; normalizedType: "stock" | "etf" }> = [
@@ -70,8 +72,36 @@ interface OutputFile {
 }
 
 /**
+ * Validates that a pagination next_url is safe to use (same host and path prefix).
+ * Prevents secret exfiltration if next_url is ever untrusted (e.g. compromised upstream).
+ * @throws Error if the URL is invalid or points outside api.massive.com tickers endpoint
+ */
+function validateNextUrl(nextUrl: string): URL {
+	let parsed: URL;
+	try {
+		parsed = new URL(nextUrl);
+	} catch {
+		throw new Error(`Invalid next_url: not a valid URL (${nextUrl})`);
+	}
+	if (parsed.protocol !== "https:") {
+		throw new Error(`Invalid next_url: must use https (got ${parsed.protocol})`);
+	}
+	if (parsed.hostname !== MASSIVE_ALLOWED_HOST) {
+		throw new Error(
+			`Invalid next_url: host must be ${MASSIVE_ALLOWED_HOST} (got ${parsed.hostname})`,
+		);
+	}
+	if (!parsed.pathname.startsWith(MASSIVE_TICKERS_PATH_PREFIX)) {
+		throw new Error(
+			`Invalid next_url: path must start with ${MASSIVE_TICKERS_PATH_PREFIX} (got ${parsed.pathname})`,
+		);
+	}
+	return parsed;
+}
+
+/**
  * Paginate through the Massive list tickers endpoint for a single type.
- * Follows `next_url` for pagination.
+ * Follows `next_url` for pagination (validated to prevent secret exfiltration).
  */
 async function listTickersForType(
 	apiType: string,
@@ -116,9 +146,10 @@ async function listTickersForType(
 			}
 		}
 
-		// Follow pagination
+		// Follow pagination (validate next_url to prevent secret exfiltration)
 		const nextUrl = data.next_url;
 		if (typeof nextUrl === "string" && nextUrl.length > 0) {
+			validateNextUrl(nextUrl);
 			// next_url doesn't include the API key
 			const separator = nextUrl.includes("?") ? "&" : "?";
 			url = `${nextUrl}${separator}apiKey=${apiKey}`;
