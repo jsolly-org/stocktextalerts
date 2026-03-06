@@ -94,6 +94,61 @@ describe("Notification preference update payloads stay aligned with user schedul
 		expect(payload.sms_notifications_enabled).toBeUndefined();
 	});
 
+	it("Enabling a single asset-events option triggers next_send_at.", () => {
+		const user = makeUser({
+			asset_events_include_calendar_email: false,
+			asset_events_include_insider_sms: false,
+		});
+		const formData = new FormData();
+		formData.set("asset_events_include_insider_sms", "on");
+
+		const payload = buildNotificationPreferencesUpdatePayload({
+			parsedData: { asset_events_include_insider_sms: true },
+			formData,
+			rawTimesValue: null,
+			dbUser: user,
+		});
+
+		expect(payload.asset_events_next_send_at).toBeTruthy();
+	});
+
+	it("Disabling the only active asset-events option nullifies next_send_at.", () => {
+		const user = makeUser({
+			asset_events_include_calendar_email: true,
+		});
+		const formData = new FormData();
+		formData.set("asset_events_include_calendar_email", "on");
+
+		const payload = buildNotificationPreferencesUpdatePayload({
+			parsedData: { asset_events_include_calendar_email: false },
+			formData,
+			rawTimesValue: null,
+			dbUser: user,
+		});
+
+		expect(payload.asset_events_next_send_at).toBeNull();
+	});
+
+	it("Timezone change recomputes asset_events_next_send_at when an option is enabled.", () => {
+		const user = makeUser({
+			asset_events_include_insider_sms: true,
+		});
+
+		const payload = computeTimezoneUpdatePayload("America/Chicago", user);
+
+		expect(payload.asset_events_next_send_at).toBeTruthy();
+	});
+
+	it("Timezone change skips asset_events when no options are enabled.", () => {
+		const user = makeUser({
+			asset_events_include_calendar_email: false,
+		});
+
+		const payload = computeTimezoneUpdatePayload("America/Chicago", user);
+
+		expect(payload.asset_events_next_send_at).toBeUndefined();
+	});
+
 	it("Normalizes and sorts submitted scheduled times before persistence.", () => {
 		const user = makeUser();
 		const formData = new FormData();
