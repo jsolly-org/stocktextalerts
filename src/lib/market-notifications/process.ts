@@ -100,6 +100,7 @@ function buildSignalContexts(options: {
 	anomalySummary: string;
 	hasEarningsNearby: boolean;
 	benchmarkMovePercentAbs: number | null;
+	benchmarkMoveSigned: number | null;
 	benchmarkLabel: string;
 }): { grokContext: string; userSignalContext: string } {
 	const {
@@ -109,6 +110,7 @@ function buildSignalContexts(options: {
 		anomalySummary,
 		hasEarningsNearby,
 		benchmarkMovePercentAbs,
+		benchmarkMoveSigned,
 		benchmarkLabel,
 	} = options;
 	const direction = percentMove >= 0 ? "Up" : "Down";
@@ -129,9 +131,15 @@ function buildSignalContexts(options: {
 		.join(", ");
 
 	// User context: additional info beyond the price move (which priceContext already covers)
+	const benchmarkDirection =
+		benchmarkMoveSigned !== null
+			? benchmarkMoveSigned >= 0
+				? "up"
+				: "down"
+			: null;
 	const userMarket =
-		benchmarkMovePercentAbs !== null
-			? `The ${benchmarkLabel} moved ${benchmarkMovePercentAbs.toFixed(2)}% today.`
+		benchmarkMovePercentAbs !== null && benchmarkDirection !== null
+			? `The ${benchmarkLabel} moved ${benchmarkDirection} ${benchmarkMovePercentAbs.toFixed(2)}% today.`
 			: null;
 	const userEarnings = hasEarningsNearby
 		? "Earnings are expected within the next couple of days."
@@ -463,6 +471,7 @@ export async function processPriceAlerts(options: {
 			anomalySummary: anomalyResult.summary,
 			hasEarningsNearby,
 			benchmarkMovePercentAbs,
+			benchmarkMoveSigned,
 			benchmarkLabel,
 		});
 
@@ -478,6 +487,12 @@ export async function processPriceAlerts(options: {
 				intradayEndTimestamp,
 				iconUrl: assetIconUrlMap.get(symbol) ?? null,
 				iconBase64: assetIconBase64Map.get(symbol) ?? null,
+				benchmarkDirection:
+					benchmarkMoveSigned != null
+						? benchmarkMoveSigned >= 0
+							? "up"
+							: "down"
+						: null,
 			});
 		} catch (err) {
 			rootLogger.error(

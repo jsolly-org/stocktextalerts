@@ -25,6 +25,8 @@ export interface EnrichedAlert {
 	iconUrl?: string | null;
 	/** Pre-cached base64 logo data URI from the assets table. */
 	iconBase64?: string | null;
+	/** Direction of the benchmark (sector/market) move, for color-coding in emails. */
+	benchmarkDirection?: "up" | "down" | null;
 }
 
 /** Build a human-readable price context string. */
@@ -45,6 +47,7 @@ export async function enrichAlert(options: {
 	intradayEndTimestamp: number | null;
 	iconUrl?: string | null;
 	iconBase64?: string | null;
+	benchmarkDirection?: "up" | "down" | null;
 }): Promise<EnrichedAlert> {
 	const {
 		symbol,
@@ -56,6 +59,7 @@ export async function enrichAlert(options: {
 		intradayEndTimestamp,
 		iconUrl,
 		iconBase64,
+		benchmarkDirection,
 	} = options;
 
 	const priceContext = buildPriceContext(symbol, quote);
@@ -78,5 +82,6 @@ export async function enrichAlert(options: {
 		isPositiveMove: quote.changePercent >= 0,
 		iconUrl,
 		iconBase64,
+		benchmarkDirection,
 	};
 }

@@ -359,7 +359,7 @@ function formatPriceAlertEmail(
 		${
 			alert.signalContext
 				? `<div style="margin-bottom: 20px;">
-			<p style="color: #6b7280; font-size: 14px; margin: 0;">${escapeHtml(alert.signalContext)}</p>
+			<p style="color: ${alert.benchmarkDirection === "up" ? "#16a34a" : alert.benchmarkDirection === "down" ? "#dc2626" : "#6b7280"}; font-size: 14px; margin: 0;">${escapeHtml(alert.signalContext)}</p>
 		</div>`
 				: ""
 		}
