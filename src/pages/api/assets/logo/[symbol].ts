@@ -37,7 +37,7 @@ export const GET: APIRoute = async ({
 	}
 	let symbol: string;
 	try {
-		symbol = decodeURIComponent(rawSymbol).toUpperCase();
+		symbol = decodeURIComponent(rawSymbol).trim().toUpperCase();
 	} catch {
 		return new Response("Bad request", { status: 400 });
 	}

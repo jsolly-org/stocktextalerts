@@ -210,7 +210,7 @@ describe("A signed-in user updates their tracked assets.", () => {
 		expect(trackedAssets?.map((s) => s.symbol)).toEqual(["VOO", "VTI"]);
 	});
 
-	it("User submitting duplicate symbols receives success; duplicates are deduplicated.", async () => {
+	it("A signed-in user submits duplicate symbols and receives a successful deduplicated update.", async () => {
 		const { response, trackedAssets, payload } = await updateTrackedAssets(
 			["AAPL"],
 			["AAPL", "AAPL", "MSFT"],
