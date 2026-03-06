@@ -10,6 +10,7 @@ type SmsEligibilityUser = Pick<
 	| "phone_country_code"
 	| "phone_number"
 > & {
+	daily_digest_include_prices_sms?: boolean;
 	market_scheduled_asset_price_include_sms?: boolean;
 	asset_events_include_calendar_sms?: boolean;
 	asset_events_include_ipo_sms?: boolean;
@@ -72,6 +73,7 @@ export function shouldSendSms(user: SmsEligibilityUser): boolean {
 	// Exclude price_targets_include_sms so that enabling only price-target SMS does not
 	// make users eligible for unrelated flows (e.g. daily digest) that gate on shouldSendSms.
 	const hasAnySmsFeatureEnabled = [
+		user.daily_digest_include_prices_sms,
 		user.market_scheduled_asset_price_include_sms,
 		user.asset_events_include_calendar_sms,
 		user.asset_events_include_ipo_sms,

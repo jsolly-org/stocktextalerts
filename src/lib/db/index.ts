@@ -41,6 +41,8 @@ export type NotificationPreferencesSnapshot = Pick<
 	| "daily_digest_next_send_at"
 	| "market_scheduled_asset_price_next_send_at"
 	| "dismiss_timezone_mismatch_prompts"
+	| "daily_digest_include_prices_email"
+	| "daily_digest_include_prices_sms"
 	| "daily_digest_include_news_email"
 	| "daily_digest_include_rumors_email"
 	| "market_scheduled_asset_price_include_email"

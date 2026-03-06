@@ -14,6 +14,8 @@ export type NotificationPreferencesData = {
 	daily_digest_next_send_at: string | null;
 	market_scheduled_asset_price_next_send_at: string | null;
 	dismiss_timezone_mismatch_prompts: boolean;
+	daily_digest_include_prices_email: boolean;
+	daily_digest_include_prices_sms: boolean;
 	daily_digest_include_news_email: boolean;
 	daily_digest_include_rumors_email: boolean;
 	market_scheduled_asset_price_include_email: boolean;

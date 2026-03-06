@@ -24,6 +24,8 @@ type DailyDigestUserRow = Pick<
 	| "sms_notifications_enabled"
 	| "sms_opted_out"
 	| "show_sparklines"
+	| "daily_digest_include_prices_email"
+	| "daily_digest_include_prices_sms"
 	| "daily_digest_include_news_email"
 	| "daily_digest_include_rumors_email"
 	| "asset_events_include_calendar_email"
@@ -36,6 +38,7 @@ type DailyDigestUserRow = Pick<
 	| "asset_events_include_insider_sms"
 	| "asset_events_next_send_at"
 	| "asset_events_last_analyst_sent_month"
+	| "market_asset_price_alerts_include_sms"
 	| "last_grok_rumors_at"
 	| "grok_window_start"
 	| "grok_sends_in_window"
@@ -107,6 +110,8 @@ export const POST: APIRoute = async ({ url, request, locals }) => {
 			sms_notifications_enabled,
 			sms_opted_out,
 			show_sparklines,
+			daily_digest_include_prices_email,
+			daily_digest_include_prices_sms,
 			daily_digest_include_news_email,
 			daily_digest_include_rumors_email,
 			asset_events_include_calendar_email,
@@ -119,6 +124,7 @@ export const POST: APIRoute = async ({ url, request, locals }) => {
 			asset_events_include_insider_sms,
 			asset_events_next_send_at,
 			asset_events_last_analyst_sent_month,
+			market_asset_price_alerts_include_sms,
 			last_grok_rumors_at,
 			grok_window_start,
 			grok_sends_in_window
@@ -163,7 +169,6 @@ export const POST: APIRoute = async ({ url, request, locals }) => {
 		market_scheduled_asset_price_include_email: false,
 		market_scheduled_asset_price_include_sms: false,
 		market_scheduled_asset_price_times: null,
-		market_asset_price_alerts_include_sms: false,
 	};
 
 	const stats = await processDailyDigestUser({
