@@ -609,6 +609,7 @@ export async function processDailyDigestUser(options: {
 								extras: smsExtras,
 								assetEvents: smsAssetEvents,
 								sparklines,
+								marketClosureInfo,
 								supabase,
 							}),
 						}
@@ -683,6 +684,7 @@ export async function processDailyDigestUser(options: {
 				extras: smsExtras,
 				assetEvents: smsAssetEvents,
 				sparklines,
+				marketClosureInfo,
 				getSmsSender,
 				stats,
 			});

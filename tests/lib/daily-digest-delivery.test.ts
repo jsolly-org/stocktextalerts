@@ -134,6 +134,38 @@ describe("Daily digest email prices", () => {
 		expect(message.text).toContain("MSFT — price unavailable");
 	});
 
+	it("SMS includes market closed banner when marketClosureInfo is provided", async () => {
+		const assetPrices: AssetPriceMap = new Map([
+			["AAPL", { price: 187.42, changePercent: 1.23 }],
+		]);
+
+		const message = await formatDailyDigestSmsMessage({
+			userAssets: [userAssets[0]],
+			assetPrices,
+			extras,
+			marketClosureInfo: { reason: "weekend" },
+		});
+
+		expect(message).toContain("Market Closed");
+		expect(message).toContain("Weekend");
+		expect(message).toContain("Prices below reflect the last market close.");
+	});
+
+	it("SMS omits market closed banner when marketClosureInfo is null", async () => {
+		const assetPrices: AssetPriceMap = new Map([
+			["AAPL", { price: 187.42, changePercent: 1.23 }],
+		]);
+
+		const message = await formatDailyDigestSmsMessage({
+			userAssets: [userAssets[0]],
+			assetPrices,
+			extras,
+			marketClosureInfo: null,
+		});
+
+		expect(message).not.toContain("Market Closed");
+	});
+
 	it("formats daily digest SMS with a Your Assets section", async () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],

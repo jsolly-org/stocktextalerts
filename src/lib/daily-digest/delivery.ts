@@ -12,7 +12,10 @@ import { renderEmailSection } from "../messaging/email/html-section";
 import { sendUserEmail } from "../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
-import { buildMarketClosureLabel } from "../messaging/market-closure-banner";
+import {
+	buildMarketClosedBannerText,
+	buildMarketClosureLabel,
+} from "../messaging/market-closure-banner";
 import {
 	deliveryResultToLogFields,
 	recordNotification,
@@ -129,6 +132,7 @@ export async function formatDailyDigestSmsMessage(options: {
 	extras: SmsExtras;
 	assetEvents?: AssetEventsResult;
 	sparklines?: SparklineMap;
+	marketClosureInfo?: MarketClosureInfo | null;
 	supabase?: SupabaseAdminClient;
 }): Promise<string> {
 	const optOutSuffix = "Reply STOP to opt out.";
@@ -143,9 +147,13 @@ export async function formatDailyDigestSmsMessage(options: {
 		"\n\n",
 	);
 
+	const marketDisclaimer = options.marketClosureInfo
+		? buildMarketClosedBannerText(options.marketClosureInfo)
+		: "";
 	const ae = options.assetEvents;
 	const sections = [
 		"StockTextAlerts — Your daily digest 🗓️",
+		marketDisclaimer,
 		prices ? `💰 Your Assets\n${prices}` : "",
 		formatExtrasSection("🗞️ News", options.extras.news),
 		formatExtrasSection("🤫 Rumors", options.extras.rumors),
@@ -456,6 +464,7 @@ export async function processDailyDigestSmsDelivery(options: {
 	extras: SmsExtras;
 	assetEvents?: AssetEventsResult;
 	sparklines?: SparklineMap;
+	marketClosureInfo?: MarketClosureInfo | null;
 	getSmsSender: SmsSenderProvider;
 	stats: ScheduledNotificationTotals;
 }): Promise<void> {
@@ -526,6 +535,7 @@ export async function processDailyDigestSmsDelivery(options: {
 		extras,
 		assetEvents,
 		sparklines: options.sparklines,
+		marketClosureInfo: options.marketClosureInfo,
 		supabase,
 	});
 	const result = await sendUserSms(user, smsMessage, smsSenderResult.sender);
