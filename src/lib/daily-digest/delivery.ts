@@ -3,7 +3,11 @@ import { US_MARKET_TIMEZONE } from "../constants";
 import { getSiteUrl } from "../db/env";
 import type { Logger } from "../logging";
 import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
-import { escapeHtml, getChangeColor } from "../messaging/asset-formatting";
+import {
+	escapeHtml,
+	formatAssetHtmlLine,
+	formatAssetTextLine,
+} from "../messaging/asset-formatting";
 import { renderEmailSection } from "../messaging/email/html-section";
 import { sendUserEmail } from "../messaging/email/index";
 import { buildEmailUrls, renderEmailFooter } from "../messaging/email/layout";
@@ -19,7 +23,6 @@ import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import { shortenUrl } from "../messaging/sms/url-shortener";
 import type { SparklineData, SparklineMap } from "../messaging/sparkline";
-import { toSvgSparklineImg } from "../messaging/svg-sparkline";
 import type {
 	FormatPreferences,
 	UserAssetRow,
@@ -172,17 +175,12 @@ function formatDailyDigestPriceLine(
 	formatPrefs: FormatPreferences,
 	sparkline?: SparklineData | null,
 ): string {
-	const base = asset.symbol;
-	if (!quote) {
-		return `${base} — price unavailable`;
-	}
-	const sign = quote.changePercent >= 0 ? "+" : "";
-	const priceStr = `$${quote.price.toFixed(2)} (${sign}${quote.changePercent.toFixed(2)}%)`;
-	const ascii =
-		formatPrefs.show_sparklines && sparkline?.ascii
-			? ` ${sparkline.ascii}`
-			: "";
-	return `${base} — ${priceStr}${ascii}`;
+	return formatAssetTextLine(
+		asset,
+		quote ?? undefined,
+		formatPrefs,
+		formatPrefs.show_sparklines ? sparkline?.ascii : null,
+	);
 }
 
 /** Format a single asset price line for the HTML digest. */
@@ -193,26 +191,14 @@ function formatDailyDigestPriceLineHtml(
 	sparkline?: SparklineData | null,
 	logoHtml?: string,
 ): string {
-	const symbol = `${logoHtml ?? ""}${escapeHtml(asset.symbol)}`;
-	/* color: #374151 meets WCAG 2.1 AA 4.5:1 on light bg */
-	if (!quote) {
-		return `<div style="margin-bottom: 8px; color: #374151;"><strong>${symbol}</strong> &mdash; <span style="color: #6b7280;">price unavailable</span></div>`;
-	}
-	const priceStr = escapeHtml(`$${quote.price.toFixed(2)}`);
-	const sign = quote.changePercent >= 0 ? "+" : "";
-	const color = getChangeColor(quote.changePercent);
-	const changeStr = escapeHtml(`(${sign}${quote.changePercent.toFixed(2)}%)`);
-
-	let sparklineHtml = "";
-	if (
-		formatPrefs.show_sparklines &&
-		sparkline?.values &&
-		sparkline.values.length >= 2
-	) {
-		sparklineHtml = ` ${toSvgSparklineImg(sparkline.values, color)}`;
-	}
-
-	return `<div style="margin-bottom: 8px; color: #374151;"><strong>${symbol}</strong> &mdash; ${priceStr} <span style="color: ${color}; font-weight: 600;">${changeStr}</span>${sparklineHtml}</div>`;
+	const innerHtml = formatAssetHtmlLine(
+		asset,
+		quote ?? undefined,
+		formatPrefs,
+		sparkline,
+		logoHtml,
+	);
+	return `<div style="margin-bottom: 8px; color: #374151;">${innerHtml}</div>`;
 }
 
 /** Build the plain-text "Your Assets" section for the digest. */
@@ -274,9 +260,6 @@ export function formatDailyDigestEmail(options: {
 	marketClosureInfo?: MarketClosureInfo | null;
 	getLogoHtml?: (symbol: string) => string | undefined;
 }): { subject: string; text: string; html: string } {
-	const tickers = options.userAssets.map((s) => s.symbol).filter(Boolean);
-	const tickersLine =
-		tickers.length > 0 ? `Tickers: ${tickers.join(", ")}` : "(none)";
 	const urls = buildEmailUrls(
 		options.user.id,
 		options.user.email,
@@ -304,15 +287,13 @@ export function formatDailyDigestEmail(options: {
 		options.sparklines,
 		"\n",
 	);
-	const digestTickerBody = prices || tickersLine;
-	const pricesHtml =
-		buildDailyDigestPricesHtml(
-			options.userAssets,
-			options.assetPrices,
-			options.formatPrefs,
-			options.sparklines,
-			options.getLogoHtml,
-		) || escapeHtml(tickersLine);
+	const pricesHtml = buildDailyDigestPricesHtml(
+		options.userAssets,
+		options.assetPrices,
+		options.formatPrefs,
+		options.sparklines,
+		options.getLogoHtml,
+	);
 	const closureInfo = options.marketClosureInfo ?? null;
 	const marketClosedText = closureInfo
 		? buildDigestMarketClosedText(closureInfo, options.assetPrices)
@@ -324,7 +305,7 @@ export function formatDailyDigestEmail(options: {
 	const sectionsText = [
 		"StockTextAlerts — Your daily digest 🗓️",
 		marketClosedText ?? "",
-		`💰 Your Assets\n${digestTickerBody}`,
+		prices ? `💰 Your Assets\n${prices}` : "",
 		news ? `\n🗞️ News\n${news}` : "",
 		rumors ? `\n🤫 Rumors\n${rumors}` : "",
 		earnings ? `\n📈 Earnings\n${earnings}` : "",
@@ -354,8 +335,12 @@ export function formatDailyDigestEmail(options: {
 	</div>
 	<div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
 		${marketClosedHtml}
-		<h2 style="margin: 0 0 8px; font-size: 18px;">💰 Your Assets</h2>
-		<div style="margin: 0 0 16px; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">${pricesHtml}</div>
+		${
+			pricesHtml
+				? `<h2 style="margin: 0 0 8px; font-size: 18px;">💰 Your Assets</h2>
+		<div style="margin: 0 0 16px; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">${pricesHtml}</div>`
+				: ""
+		}
 		${renderEmailSection("🗞️", "News", news, { showGrokLogo: true, showMassiveLogo: true })}
 		${renderEmailSection("🤫", "Rumors", rumors, { showGrokLogo: true })}
 		${renderEmailSection("📈", "Earnings", earnings)}

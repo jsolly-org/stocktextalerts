@@ -61,6 +61,9 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 					dbUser.market_scheduled_asset_price_next_send_at,
 				dismiss_timezone_mismatch_prompts:
 					dbUser.dismiss_timezone_mismatch_prompts,
+				daily_digest_include_prices_email:
+					dbUser.daily_digest_include_prices_email,
+				daily_digest_include_prices_sms: dbUser.daily_digest_include_prices_sms,
 				daily_digest_include_news_email: dbUser.daily_digest_include_news_email,
 				daily_digest_include_rumors_email:
 					dbUser.daily_digest_include_rumors_email,

@@ -16,8 +16,11 @@ const DAILY_DIGEST_USER_SELECT = `
 	daily_digest_next_send_at,
 	market_scheduled_asset_price_next_send_at,
 	email_notifications_enabled,
+	sms_notifications_enabled,
 	sms_opted_out,
 	show_sparklines,
+	daily_digest_include_prices_email,
+	daily_digest_include_prices_sms,
 	daily_digest_include_news_email,
 	daily_digest_include_rumors_email,
 	asset_events_include_calendar_email,
@@ -39,7 +42,7 @@ const DAILY_DIGEST_USER_SELECT = `
 `;
 
 const HAS_DELIVERY_CHANNEL_OR =
-	"email_notifications_enabled.eq.true,market_scheduled_asset_price_include_sms.eq.true,asset_events_include_calendar_sms.eq.true,asset_events_include_ipo_sms.eq.true,asset_events_include_analyst_sms.eq.true,asset_events_include_insider_sms.eq.true,market_asset_price_alerts_include_sms.eq.true";
+	"email_notifications_enabled.eq.true,sms_notifications_enabled.eq.true";
 
 /**
  * Fetch users eligible for a daily digest run.
@@ -73,13 +76,7 @@ export async function fetchDailyDigestUsers(options: {
 			const { data, error } = await query;
 			if (error) return { data: null, error };
 
-			const users = (data ?? []) as UserRecord[];
-			const filtered = users.filter(
-				(user) =>
-					user.daily_digest_include_news_email ||
-					user.daily_digest_include_rumors_email,
-			);
-			return { data: filtered, error: null };
+			return { data: (data ?? []) as UserRecord[], error: null };
 		},
 	});
 }
