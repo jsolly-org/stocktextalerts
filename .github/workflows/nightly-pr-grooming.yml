@@ -6,8 +6,7 @@ name: "Nightly: PR Grooming"
 
 on:
   schedule:
-    - cron: "0 2 * * *" # 9 PM ET (groom existing PRs before new nightly jobs)
-    - cron: "0 7 * * *" # 2 AM ET (re-run to merge fixed PRs, after all other nightly jobs)
+    - cron: "0 9 * * *" # 4 AM ET
   workflow_dispatch:
 
 permissions:
