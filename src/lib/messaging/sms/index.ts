@@ -1,3 +1,4 @@
+import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
 import type { DeliveryResult, SmsUser, UserRecord } from "../types";
 import type { SmsSender } from "./twilio-utils";
@@ -25,6 +26,7 @@ export async function sendUserSms(
 	user: SmsUser,
 	message: string,
 	sendSms: SmsSender,
+	supabase?: AppSupabaseClient,
 ): Promise<DeliveryResult> {
 	if (!user.phone_country_code || !user.phone_number) {
 		return { success: false, error: "Missing phone number" };
@@ -32,8 +34,9 @@ export async function sendUserSms(
 
 	const fullPhone = `${user.phone_country_code}${user.phone_number}`;
 
+	let result: DeliveryResult;
 	try {
-		return await sendSms({
+		result = await sendSms({
 			to: fullPhone,
 			body: message,
 		});
@@ -49,11 +52,35 @@ export async function sendUserSms(
 
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		const errorCode = (error as { code?: string | number })?.code;
-		return {
+		result = {
 			success: false,
 			error: errorMessage,
 			errorCode: errorCode ? String(errorCode) : undefined,
 		};
+	}
+
+	if (!result.success && result.errorCode === "21610" && supabase) {
+		await autoOptOutUser(supabase, user.id);
+	}
+
+	return result;
+}
+
+async function autoOptOutUser(
+	supabase: AppSupabaseClient,
+	userId: string,
+): Promise<void> {
+	const { error } = await supabase
+		.from("users")
+		.update({ sms_opted_out: true, sms_notifications_enabled: false })
+		.eq("id", userId);
+	if (error) {
+		rootLogger.error("Failed to auto opt-out user after 21610", {
+			userId,
+			error: error.message,
+		});
+	} else {
+		rootLogger.warn("Auto opted-out user due to Twilio 21610", { userId });
 	}
 }
 

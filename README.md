@@ -336,8 +336,6 @@ The `vercel.json` file configures three cron jobs. All must include `Authorizati
 
 **`/api/asset-events`** (runs daily at 00:00 UTC) — pre-populates the `asset_events` table with earnings, dividends, splits, and IPOs.
 
-**`/api/sector-backfill`** (runs weekly on Sunday at 06:00 UTC) — backfills missing sector metadata on tracked assets.
-
 ## Project Structure
 
 - `src/components/`: Astro + Vue UI components (landing, dashboard, profile)

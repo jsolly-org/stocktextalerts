@@ -446,7 +446,7 @@ export async function deliverPriceAlert(options: {
 			stats.smsFailed++;
 		} else {
 			const smsBody = await formatPriceAlertSms(alert, supabase);
-			const result = await sendUserSms(user, smsBody, sendSms);
+			const result = await sendUserSms(user, smsBody, sendSms, supabase);
 
 			if (result.success) {
 				stats.smsSent++;
