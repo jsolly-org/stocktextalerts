@@ -2,10 +2,10 @@ export type AlertMoveSize = "significant" | "extreme";
 
 /** Anomaly-score thresholds per move-size tier.
  *  Lower = more sensitive (fires on smaller anomalies).
- *  Max price-only score is 75 (45 price + 15 breakout + 15 earnings). */
+ *  Max total score is 100 (45 price + 15 breakout + 25 news + 15 earnings). */
 export const ANOMALY_THRESHOLDS: Record<AlertMoveSize, number> = {
-	significant: 25,
-	extreme: 35,
+	significant: 45,
+	extreme: 60,
 };
 
 /** Normalize legacy move-size values to current tiers (moderate→significant, large→extreme). */
