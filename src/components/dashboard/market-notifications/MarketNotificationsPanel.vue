@@ -932,8 +932,12 @@ function filterNumericInput(event: KeyboardEvent) {
 		event.key === "ArrowRight" ||
 		event.key === "Home" ||
 		event.key === "End" ||
-		// Allow Ctrl/Cmd+A, C, V, X
-		((event.ctrlKey || event.metaKey) && ["a", "c", "v", "x"].includes(event.key.toLowerCase()))
+		// Allow Ctrl/Cmd+A, C, V, X, Z, Y (undo/redo)
+		((event.ctrlKey || event.metaKey) &&
+			["a", "c", "v", "x", "z", "y"].includes(event.key.toLowerCase())) ||
+		((event.ctrlKey || event.metaKey) &&
+			event.shiftKey &&
+			event.key.toLowerCase() === "z")
 	) {
 		return;
 	}

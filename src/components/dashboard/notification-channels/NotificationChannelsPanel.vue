@@ -79,7 +79,7 @@
 					Notification Preview
 				</h2>
 				<p class="text-sm text-body-secondary mt-1">
-					Preview your SMS notification. Formatting changes still apply to both SMS and email.
+					Preview your SMS notification. This preview reflects how asset updates appear in notifications.
 				</p>
 			</header>
 
@@ -381,19 +381,17 @@ const previewAssets = computed<PreviewAsset[]>(() => {
 	if (assets.length === 0) {
 		return DEMO_ASSETS;
 	}
-	const demoData = [
-		{ price: 195.5, changePercent: 2.4, sparkline: "▁▂▃▅▇▅▆", sparklineValues: [188, 190, 191, 193, 196, 194, 195] },
-		{ price: 178.2, changePercent: 1.8, sparkline: "▃▂▁▃▅▆▇", sparklineValues: [174, 173, 172, 174, 176, 177, 178] },
-		{ price: 248.3, changePercent: -0.5, sparkline: "▇▆▅▃▂▃▁", sparklineValues: [255, 253, 252, 250, 249, 250, 248] },
-	];
-	return assets.slice(0, 3).map((asset, i) => ({
-		symbol: asset.symbol,
-		name: asset.name,
-		price: demoData[i % demoData.length].price,
-		changePercent: demoData[i % demoData.length].changePercent,
-		sparkline: demoData[i % demoData.length].sparkline,
-		sparklineValues: demoData[i % demoData.length].sparklineValues,
-	}));
+	return assets.slice(0, 3).map((asset, i) => {
+		const demo = DEMO_ASSETS[i % DEMO_ASSETS.length];
+		return {
+			symbol: asset.symbol,
+			name: asset.name,
+			price: demo.price,
+			changePercent: demo.changePercent,
+			sparkline: demo.sparkline,
+			sparklineValues: demo.sparklineValues,
+		};
+	});
 });
 </script>
 

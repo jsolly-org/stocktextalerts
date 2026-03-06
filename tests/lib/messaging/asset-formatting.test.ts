@@ -90,11 +90,9 @@ describe("A subscriber receives email asset rows with logos when logo data is av
 	});
 
 	it("A subscriber still sees standard asset rows when no logo is available.", () => {
-		const withoutLogo = formatAssetsHtmlList(assets, getPrice);
-		const withUndefined = formatAssetsHtmlList(assets, getPrice);
+		const result = formatAssetsHtmlList(assets, getPrice);
 
-		expect(withoutLogo).toBe(withUndefined);
-		expect(withoutLogo).toContain("<strong>AAPL</strong>");
-		expect(withoutLogo).not.toContain("<img");
+		expect(result).toContain("<strong>AAPL</strong>");
+		expect(result).not.toContain("<img");
 	});
 });
