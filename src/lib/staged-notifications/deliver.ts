@@ -149,7 +149,6 @@ export async function deliverStagedNotifications(options: {
 			email_notifications_enabled,
 			sms_notifications_enabled,
 			sms_opted_out,
-			show_sparklines,
 			daily_digest_include_news_email,
 			daily_digest_include_rumors_email,
 			asset_events_include_calendar_email,

@@ -85,6 +85,24 @@ describe("shortenUrl", () => {
 		);
 	});
 
+	it("returns original URL without storing when URL is unsafe (javascript:)", async () => {
+		expectConsoleWarning("URL shortener rejected unsafe or invalid URL");
+		const mockSupabase = { from: vi.fn() };
+		const unsafe = "javascript:alert(1)";
+		const result = await shortenUrl(unsafe, mockSupabase as never);
+		expect(result).toBe(unsafe);
+		expect(mockSupabase.from).not.toHaveBeenCalled();
+	});
+
+	it("returns original URL when URL exceeds max length", async () => {
+		expectConsoleWarning("URL shortener rejected unsafe or invalid URL");
+		const longUrl = `https://example.com/${"a".repeat(2048)}`;
+		const mockSupabase = { from: vi.fn() };
+		const result = await shortenUrl(longUrl, mockSupabase as never);
+		expect(result).toBe(longUrl);
+		expect(mockSupabase.from).not.toHaveBeenCalled();
+	});
+
 	it("falls back to original URL on DB error", async () => {
 		expectConsoleWarning("URL shortener insert failed");
 		const mockSupabase = {

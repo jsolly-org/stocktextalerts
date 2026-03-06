@@ -69,15 +69,13 @@ describe("A subscriber receives email asset rows with logos when logo data is av
 		if (symbol === "MSFT") return { price: 412.1, changePercent: -0.31 };
 		return undefined;
 	};
-	const formatPrefs = { show_sparklines: false };
-
 	it("A subscriber sees the asset logo before the ticker symbol in each email row.", () => {
 		const getLogoHtml = (symbol: string) =>
 			symbol === "AAPL"
 				? '<img src="data:image/png;base64,abc" alt="" width="20" height="20" />'
 				: undefined;
 
-		const result = formatAssetsHtmlList(assets, getPrice, formatPrefs, {
+		const result = formatAssetsHtmlList(assets, getPrice, {
 			getLogoHtml,
 		});
 
@@ -92,11 +90,9 @@ describe("A subscriber receives email asset rows with logos when logo data is av
 	});
 
 	it("A subscriber still sees standard asset rows when no logo is available.", () => {
-		const withoutLogo = formatAssetsHtmlList(assets, getPrice, formatPrefs);
-		const withUndefined = formatAssetsHtmlList(assets, getPrice, formatPrefs);
+		const result = formatAssetsHtmlList(assets, getPrice);
 
-		expect(withoutLogo).toBe(withUndefined);
-		expect(withoutLogo).toContain("<strong>AAPL</strong>");
-		expect(withoutLogo).not.toContain("<img");
+		expect(result).toContain("<strong>AAPL</strong>");
+		expect(result).not.toContain("<img");
 	});
 });

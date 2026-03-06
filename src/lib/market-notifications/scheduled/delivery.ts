@@ -8,11 +8,7 @@ import type { EmailSender } from "../../messaging/email/utils";
 import { recordNotification } from "../../messaging/shared";
 import { processSmsUpdate } from "../../messaging/sms/delivery";
 import type { SparklineData } from "../../messaging/sparkline";
-import type {
-	FormatPreferences,
-	UserAssetRow,
-	UserRecord,
-} from "../../messaging/types";
+import type { UserAssetRow, UserRecord } from "../../messaging/types";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
 import type {
 	ScheduledNotificationTotals,
@@ -44,7 +40,6 @@ export async function processMarketScheduledEmailDelivery(options: {
 	marketOpen: boolean;
 	marketClosureInfo?: MarketClosureInfo | null;
 	stats: ScheduledNotificationTotals;
-	formatPrefs?: FormatPreferences;
 	getSparkline?: (symbol: string) => SparklineData | null | undefined;
 	getLogoHtml?: (symbol: string) => string | undefined;
 }): Promise<void> {
@@ -61,7 +56,6 @@ export async function processMarketScheduledEmailDelivery(options: {
 		marketOpen,
 		marketClosureInfo,
 		stats,
-		formatPrefs,
 		getSparkline,
 		getLogoHtml,
 	} = options;
@@ -94,7 +88,7 @@ export async function processMarketScheduledEmailDelivery(options: {
 		priceMap,
 		marketOpen,
 		emailIdempotencyKey,
-		{ formatPrefs, getSparkline, marketClosureInfo, getLogoHtml },
+		{ getSparkline, marketClosureInfo, getLogoHtml },
 	);
 
 	if (sent) {

@@ -105,7 +105,6 @@ function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {
 		email_notifications_enabled: true,
 		sms_notifications_enabled: false,
 		sms_opted_out: false,
-		show_sparklines: false,
 		market_scheduled_asset_price_enabled: false,
 		market_scheduled_asset_price_include_email: false,
 		market_scheduled_asset_price_include_sms: false,

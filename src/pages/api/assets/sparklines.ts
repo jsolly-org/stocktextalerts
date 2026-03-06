@@ -1,10 +1,10 @@
 import type { APIRoute } from "astro";
 import { jsonResponse } from "../../../lib/api/json-response";
-import { ASSET_SYMBOL_MAX_LENGTH } from "../../../lib/constants";
 import { createUserService, getUserAssets } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 import { fetchSparklines } from "../../../lib/providers/price-fetcher";
+import { isValidAssetSymbol } from "../../../lib/validation";
 
 /**
  * GET /api/assets/sparklines
@@ -30,7 +30,6 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 		return jsonResponse(401, { ok: false, message: "unauthorized" });
 	}
 
-	const VALID_SYMBOL_RE = /^[A-Z0-9.-]+$/u;
 	const MAX_SPARKLINE_SYMBOLS = 50;
 
 	try {
@@ -43,11 +42,10 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 				.map((s) => s.trim().toUpperCase())
 				.filter(Boolean);
 			// Validate format and length; cap count to avoid abuse.
-			symbols = raw
-				.filter(
-					(s) => s.length <= ASSET_SYMBOL_MAX_LENGTH && VALID_SYMBOL_RE.test(s),
-				)
-				.slice(0, MAX_SPARKLINE_SYMBOLS);
+			symbols = [...new Set(raw.filter(isValidAssetSymbol))].slice(
+				0,
+				MAX_SPARKLINE_SYMBOLS,
+			);
 		} else {
 			const userAssets = await getUserAssets(supabase, user.id);
 			symbols = userAssets.map((a) => a.symbol);

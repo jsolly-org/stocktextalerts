@@ -4,7 +4,7 @@ import path from "node:path";
 // Update EXPECTED_DB_SCHEMA_VERSION whenever migrations are applied or regenerated
 // (use the latest migration commit/tag or schema version timestamp and update tests).
 export const EXPECTED_DB_SCHEMA_VERSION =
-	"20260306130000_add_daily_digest_include_prices";
+	"20260306140000_remove_show_sparklines_column";
 export const POSTGRES_UNDEFINED_TABLE = "42P01";
 export const PRESERVED_USER_ID = "00000000-0000-0000-0000-000000000000";
 export const PRESERVED_TEST_EMAIL = "test@jsolly.com";

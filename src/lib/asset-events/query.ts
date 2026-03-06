@@ -35,8 +35,7 @@ const ASSET_EVENTS_USER_SELECT = `
 	market_asset_price_alerts_include_sms,
 	last_grok_rumors_at,
 	grok_window_start,
-	grok_sends_in_window,
-	show_sparklines
+	grok_sends_in_window
 `;
 
 const ASSET_EVENTS_ENABLED_OR =
