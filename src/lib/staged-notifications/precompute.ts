@@ -236,8 +236,11 @@ export async function precomputeDailyDigest(options: {
 		window: `${afterTimeIso} → ${beforeTimeIso}`,
 	});
 
-	// Fetch market closure once for fan-out (avoids per-user API calls)
-	const marketClosureInfo = await getUsMarketClosureInfoForInstant(currentTime);
+	// Fetch market status + closure once for fan-out (avoids per-user API calls)
+	const marketOpen = await fetchMarketStatus();
+	const marketClosureInfo = !marketOpen
+		? await getUsMarketClosureInfoForInstant(currentTime)
+		: null;
 
 	for (
 		let index = 0;
@@ -252,6 +255,7 @@ export async function precomputeDailyDigest(options: {
 					currentTimeIso,
 					cronSecret,
 					precompute: true,
+					marketOpen,
 					marketClosureInfo,
 				}),
 			),

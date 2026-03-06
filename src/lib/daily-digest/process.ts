@@ -22,6 +22,7 @@ import { fetchSnapshotQuotes } from "../providers/massive";
 import {
 	type AssetPriceMap,
 	fetchAssetPrices,
+	fetchMarketStatus,
 	fetchSparklines,
 } from "../providers/price-fetcher";
 import type {
@@ -212,6 +213,8 @@ export async function processDailyDigestUser(options: {
 	getSmsSender: SmsSenderProvider;
 	/** When true, stage content for later delivery instead of sending now. */
 	stageOnly?: boolean;
+	/** Pre-fetched market open status (avoids per-user API calls in fan-out). */
+	marketOpen?: boolean;
 	/** Pre-fetched market closure info (avoids per-user API calls in fan-out). */
 	marketClosureInfo?: MarketClosureInfo | null;
 }): Promise<ScheduledNotificationTotals> {
@@ -231,6 +234,7 @@ export async function processDailyDigestUser(options: {
 		sendEmail,
 		getSmsSender,
 		stageOnly,
+		marketOpen: marketOpenParam,
 		marketClosureInfo: marketClosureInfoParam,
 	} = options;
 
@@ -401,6 +405,11 @@ export async function processDailyDigestUser(options: {
 			marketClosureInfoParam !== undefined
 				? marketClosureInfoParam
 				: await getUsMarketClosureInfoForInstant(closureRefInstant);
+
+		const marketOpen =
+			marketOpenParam !== undefined
+				? marketOpenParam
+				: await fetchMarketStatus();
 
 		/* =============
 		Fetch Finnhub data (non-blocking — failures omit that section)
@@ -595,6 +604,7 @@ export async function processDailyDigestUser(options: {
 							extras: emailExtras,
 							assetEvents: emailAssetEvents,
 							sparklines,
+							marketOpen,
 							marketClosureInfo,
 							getLogoHtml,
 						})
@@ -609,6 +619,7 @@ export async function processDailyDigestUser(options: {
 								extras: smsExtras,
 								assetEvents: smsAssetEvents,
 								sparklines,
+								marketOpen,
 								marketClosureInfo,
 								supabase,
 							}),
@@ -665,6 +676,7 @@ export async function processDailyDigestUser(options: {
 				extras: emailExtras,
 				assetEvents: emailAssetEvents,
 				sparklines,
+				marketOpen,
 				marketClosureInfo,
 				sendEmail,
 				stats,
@@ -684,6 +696,7 @@ export async function processDailyDigestUser(options: {
 				extras: smsExtras,
 				assetEvents: smsAssetEvents,
 				sparklines,
+				marketOpen,
 				marketClosureInfo,
 				getSmsSender,
 				stats,

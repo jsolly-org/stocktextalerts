@@ -134,7 +134,7 @@ describe("Daily digest email prices", () => {
 		expect(message.text).toContain("MSFT — price unavailable");
 	});
 
-	it("SMS includes market closed banner when marketClosureInfo is provided", async () => {
+	it("SMS includes market closed banner when marketOpen is false", async () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 		]);
@@ -143,6 +143,7 @@ describe("Daily digest email prices", () => {
 			userAssets: [userAssets[0]],
 			assetPrices,
 			extras,
+			marketOpen: false,
 			marketClosureInfo: { reason: "weekend" },
 		});
 
@@ -151,7 +152,7 @@ describe("Daily digest email prices", () => {
 		expect(message).toContain("Prices below reflect the last market close.");
 	});
 
-	it("SMS omits market closed banner when marketClosureInfo is null", async () => {
+	it("SMS omits market closed banner when marketOpen is true", async () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 		]);
@@ -160,7 +161,7 @@ describe("Daily digest email prices", () => {
 			userAssets: [userAssets[0]],
 			assetPrices,
 			extras,
-			marketClosureInfo: null,
+			marketOpen: true,
 		});
 
 		expect(message).not.toContain("Market Closed");
@@ -279,6 +280,7 @@ describe("Daily digest email prices", () => {
 			userAssets: [userAssets[0]],
 			assetPrices,
 			extras,
+			marketOpen: false,
 			marketClosureInfo: { reason: "weekend" },
 		});
 
@@ -305,6 +307,7 @@ describe("Daily digest email prices", () => {
 			userAssets: [userAssets[0]],
 			assetPrices,
 			extras,
+			marketOpen: false,
 			marketClosureInfo: { reason: "holiday", holidayName: "Presidents' Day" },
 		});
 
@@ -322,6 +325,7 @@ describe("Daily digest email prices", () => {
 			userAssets: [userAssets[0]],
 			assetPrices,
 			extras,
+			marketOpen: false,
 			marketClosureInfo: { reason: "weekend" },
 		});
 

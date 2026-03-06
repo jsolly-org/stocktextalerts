@@ -98,10 +98,12 @@ function formatQuoteTimestamp(timestamp: number): string {
 
 /** Build a plain-text market-closed banner for the digest. */
 function buildDigestMarketClosedText(
-	closureInfo: MarketClosureInfo,
+	closureInfo: MarketClosureInfo | null,
 	assetPrices: AssetPriceMap,
 ): string {
-	const label = buildMarketClosureLabel(closureInfo);
+	const label = closureInfo
+		? buildMarketClosureLabel(closureInfo)
+		: "Market Closed";
 	const ts = getLatestQuoteTimestamp(assetPrices);
 	const asOf = ts ? ` (as of ${formatQuoteTimestamp(ts)})` : "";
 	return `🔔 ${label}\nPrices below reflect the last market close${asOf}.`;
@@ -109,10 +111,12 @@ function buildDigestMarketClosedText(
 
 /** Build an HTML market-closed banner for the digest. */
 function buildDigestMarketClosedHtml(
-	closureInfo: MarketClosureInfo,
+	closureInfo: MarketClosureInfo | null,
 	assetPrices: AssetPriceMap,
 ): string {
-	const label = escapeHtml(buildMarketClosureLabel(closureInfo));
+	const label = escapeHtml(
+		closureInfo ? buildMarketClosureLabel(closureInfo) : "Market Closed",
+	);
 	const ts = getLatestQuoteTimestamp(assetPrices);
 	const asOf = ts ? ` (as of ${escapeHtml(formatQuoteTimestamp(ts))})` : "";
 	return `<div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; text-align: center;">
@@ -132,6 +136,7 @@ export async function formatDailyDigestSmsMessage(options: {
 	extras: SmsExtras;
 	assetEvents?: AssetEventsResult;
 	sparklines?: SparklineMap;
+	marketOpen?: boolean;
 	marketClosureInfo?: MarketClosureInfo | null;
 	supabase?: SupabaseAdminClient;
 }): Promise<string> {
@@ -147,9 +152,10 @@ export async function formatDailyDigestSmsMessage(options: {
 		"\n\n",
 	);
 
-	const marketDisclaimer = options.marketClosureInfo
-		? buildMarketClosedBannerText(options.marketClosureInfo)
-		: "";
+	const marketDisclaimer =
+		options.marketOpen === false
+			? buildMarketClosedBannerText(options.marketClosureInfo)
+			: "";
 	const ae = options.assetEvents;
 	const sections = [
 		"StockTextAlerts — Your daily digest 🗓️",
@@ -250,6 +256,7 @@ export function formatDailyDigestEmail(options: {
 	extras: SmsExtras;
 	assetEvents?: AssetEventsResult;
 	sparklines?: SparklineMap;
+	marketOpen?: boolean;
 	marketClosureInfo?: MarketClosureInfo | null;
 	getLogoHtml?: (symbol: string) => string | undefined;
 }): { subject: string; text: string; html: string } {
@@ -286,12 +293,22 @@ export function formatDailyDigestEmail(options: {
 		options.getLogoHtml,
 	);
 	const closureInfo = options.marketClosureInfo ?? null;
-	const marketClosedText = closureInfo
+	const showClosureBanner = options.marketOpen === false;
+	const marketClosedText = showClosureBanner
 		? buildDigestMarketClosedText(closureInfo, options.assetPrices)
 		: null;
-	const marketClosedHtml = closureInfo
+	const marketClosedHtml = showClosureBanner
 		? buildDigestMarketClosedHtml(closureInfo, options.assetPrices)
 		: "";
+
+	const closureLabel = showClosureBanner
+		? closureInfo
+			? buildMarketClosureLabel(closureInfo)
+			: "Market Closed"
+		: null;
+	const subject = closureLabel
+		? `Daily digest — ${closureLabel}`
+		: "Daily digest";
 
 	const sectionsText = [
 		"StockTextAlerts — Your daily digest 🗓️",
@@ -310,7 +327,6 @@ export function formatDailyDigestEmail(options: {
 		`Unsubscribe from all emails: ${urls.unsubscribeUrl}`,
 	].filter(Boolean);
 
-	const subject = "Daily digest";
 	const text = sectionsText.join("\n");
 
 	const html = `
@@ -365,6 +381,7 @@ export async function processDailyDigestEmailDelivery(options: {
 	extras: SmsExtras;
 	assetEvents?: AssetEventsResult;
 	sparklines?: SparklineMap;
+	marketOpen?: boolean;
 	marketClosureInfo?: MarketClosureInfo | null;
 	sendEmail: EmailSender;
 	stats: ScheduledNotificationTotals;
@@ -410,6 +427,7 @@ export async function processDailyDigestEmailDelivery(options: {
 		extras,
 		assetEvents,
 		sparklines: options.sparklines,
+		marketOpen: options.marketOpen,
 		marketClosureInfo: options.marketClosureInfo,
 		getLogoHtml: options.getLogoHtml,
 	});
@@ -464,6 +482,7 @@ export async function processDailyDigestSmsDelivery(options: {
 	extras: SmsExtras;
 	assetEvents?: AssetEventsResult;
 	sparklines?: SparklineMap;
+	marketOpen?: boolean;
 	marketClosureInfo?: MarketClosureInfo | null;
 	getSmsSender: SmsSenderProvider;
 	stats: ScheduledNotificationTotals;
@@ -535,6 +554,7 @@ export async function processDailyDigestSmsDelivery(options: {
 		extras,
 		assetEvents,
 		sparklines: options.sparklines,
+		marketOpen: options.marketOpen,
 		marketClosureInfo: options.marketClosureInfo,
 		supabase,
 	});

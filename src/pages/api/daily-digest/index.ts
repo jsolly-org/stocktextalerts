@@ -63,6 +63,7 @@ export const POST: APIRoute = async ({ url, request, locals }) => {
 		userId?: string;
 		currentTimeIso?: string;
 		precompute?: boolean;
+		marketOpen?: boolean;
 		marketClosureInfo?: MarketClosureInfo | null;
 	};
 	try {
@@ -71,7 +72,8 @@ export const POST: APIRoute = async ({ url, request, locals }) => {
 		return new Response("Bad Request", { status: 400 });
 	}
 
-	const { userId, currentTimeIso, precompute, marketClosureInfo } = body;
+	const { userId, currentTimeIso, precompute, marketOpen, marketClosureInfo } =
+		body;
 	const parsedCurrentTime =
 		typeof currentTimeIso === "string"
 			? DateTime.fromISO(currentTimeIso, { zone: "utc" })
@@ -177,6 +179,7 @@ export const POST: APIRoute = async ({ url, request, locals }) => {
 		sendEmail,
 		getSmsSender,
 		stageOnly: precompute === true,
+		marketOpen,
 		marketClosureInfo,
 	});
 

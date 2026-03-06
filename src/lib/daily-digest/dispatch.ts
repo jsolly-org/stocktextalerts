@@ -21,11 +21,19 @@ export async function dispatchDailyDigestUser(options: {
 	cronSecret: string;
 	/** When true, the fan-out endpoint stages content instead of delivering. */
 	precompute?: boolean;
+	/** Pre-fetched market open status (avoids per-user API calls in fan-out). */
+	marketOpen?: boolean;
 	/** Pre-fetched market closure info (avoids per-user API calls in fan-out). */
 	marketClosureInfo?: MarketClosureInfo | null;
 }): Promise<ScheduledNotificationTotals> {
-	const { userId, currentTimeIso, cronSecret, precompute, marketClosureInfo } =
-		options;
+	const {
+		userId,
+		currentTimeIso,
+		cronSecret,
+		precompute,
+		marketOpen,
+		marketClosureInfo,
+	} = options;
 	const url = new URL("/api/daily-digest", getSiteUrl()).toString();
 
 	try {
@@ -39,6 +47,7 @@ export async function dispatchDailyDigestUser(options: {
 				userId,
 				currentTimeIso,
 				precompute,
+				...(marketOpen !== undefined && { marketOpen }),
 				...(marketClosureInfo !== undefined && { marketClosureInfo }),
 			}),
 			signal: AbortSignal.timeout(DISPATCH_TIMEOUT_MS),
