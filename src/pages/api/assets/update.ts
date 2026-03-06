@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { jsonResponse } from "../../../lib/api/json-response";
+import { ASSET_SYMBOL_MAX_LENGTH } from "../../../lib/constants";
 import { createUserService } from "../../../lib/db";
 import {
 	isAssetsLimitError,
@@ -70,10 +71,29 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		return jsonResponse(400, { ok: false, message: "assets_limit" });
 	}
 
+	// Validate symbol format and length (align with DB and logo/search routes).
+	const VALID_SYMBOL_RE = /^[A-Z0-9.-]+$/u;
+	const normalizedSymbols = trackedSymbols.map((s) =>
+		typeof s === "string" ? s.trim().toUpperCase() : "",
+	);
+	const invalidSymbol = normalizedSymbols.find(
+		(s) =>
+			s.length === 0 ||
+			s.length > ASSET_SYMBOL_MAX_LENGTH ||
+			!VALID_SYMBOL_RE.test(s),
+	);
+	if (invalidSymbol !== undefined) {
+		logger.info("Tracked assets update rejected: invalid symbol format", {
+			userId: user.id,
+		});
+		return jsonResponse(400, { ok: false, message: "invalid_form" });
+	}
+
+	const uniqueSymbols = [...new Set(normalizedSymbols.filter(Boolean))];
 	try {
 		const { error } = await supabase.rpc("replace_user_assets", {
 			user_id: user.id,
-			symbols: trackedSymbols,
+			symbols: uniqueSymbols,
 		});
 		if (error) {
 			throw error;
@@ -91,7 +111,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				"Failed to update tracked assets",
 				{
 					userId: user.id,
-					symbols: trackedSymbols,
+					symbols: uniqueSymbols,
 					error: errorMessage,
 				},
 				createErrorForLogging(error),

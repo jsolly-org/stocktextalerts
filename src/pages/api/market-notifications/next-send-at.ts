@@ -9,6 +9,8 @@ import { parseScheduledTimes } from "../../../lib/time/scheduled-times";
 
 /** Max time inputs to accept (DoS mitigation; DB allows fewer). */
 const MAX_TIME_INPUTS = 32;
+/** Max timezone string length (IANA names are ~40 chars; cap to avoid abuse). */
+const MAX_TIMEZONE_LENGTH = 64;
 
 interface NextSendAtRequestBody {
 	timezone?: unknown;
@@ -38,9 +40,11 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		return jsonResponse(400, { ok: false, message: "invalid_form" });
 	}
 
+	const rawTimezone =
+		typeof body.timezone === "string" ? body.timezone.trim() : "";
 	const timezone =
-		typeof body.timezone === "string" && body.timezone.trim() !== ""
-			? body.timezone
+		rawTimezone.length > 0 && rawTimezone.length <= MAX_TIMEZONE_LENGTH
+			? rawTimezone
 			: null;
 	const timeInputs: string[] = [];
 	if (Array.isArray(body.timeInputs)) {
