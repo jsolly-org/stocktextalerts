@@ -15,25 +15,12 @@
 			data-notification-channels-card
 			:data-form-id="DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID"
 		>
-			<FadeTransition>
-				<div
-					v-if="statusMessage"
-					:id="DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID"
-					class="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium z-10 border"
-					:class="STATUS_TONE_CLASSES[statusTone]"
-					role="status"
-					aria-live="polite"
-					:aria-busy="isSaving"
-					:data-tone="statusTone"
-				>
-					<ArrowPathIcon
-						v-show="isSaving"
-						class="animate-spin size-3 shrink-0"
-						aria-hidden="true"
-					/>
-					{{ statusMessage }}
-				</div>
-			</FadeTransition>
+			<FormStatusBadge
+				:status-message="statusMessage"
+				:status-tone="statusTone"
+				:is-saving="isSaving"
+				:id="DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID"
+			/>
 
 			<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.primary}`"></div>
 			<div class="card-body">
@@ -107,7 +94,6 @@
 <script lang="ts" setup>
 import { computed, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
-import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import { fetchCurrentNotificationPreferences } from "../../../lib/api/notification-preferences";
 import {
 	CARD_GRADIENT_ACCENTS,
@@ -116,7 +102,6 @@ import {
 	type FlashMessage,
 	type FlashTone,
 	formatMessage,
-	STATUS_TONE_CLASSES,
 } from "../../../lib/constants";
 import {
 	formatMinutesAsLocalTime,
@@ -124,7 +109,6 @@ import {
 	minutesToTimeInputValue,
 	parseTimeToMinutes,
 } from "../../../lib/time/format";
-import FadeTransition from "../../FadeTransition.vue";
 import StatusMessage from "../../StatusMessage.vue";
 import type { InitialAsset } from "../assets/types";
 import {
@@ -136,6 +120,7 @@ import { provideSmsVerificationContext } from "../composables/useSmsVerification
 import { useSmsVerificationSubmission } from "../composables/useSmsVerificationSubmission";
 import { DEMO_ASSETS, type PreviewAsset } from "../daily-digest/preview/preview-data";
 import SmsPreview from "../daily-digest/preview/SmsPreview.vue";
+import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 import NotificationChannelsFieldset from "./NotificationChannelsFieldset.vue";
 

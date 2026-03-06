@@ -119,9 +119,9 @@ runs:
 
         echo "Commenter: '$COMMENT_USER' | Event: $EVENT_NAME"
 
-        # Allowlist: coderabbitai[bot], chatgpt-codex-connector[bot]
+        # Allowlist: coderabbitai[bot], chatgpt-codex-connector[bot], cursor[bot]
         case "$COMMENT_USER" in
-          "coderabbitai[bot]"|"chatgpt-codex-connector[bot]") ;;
+          "coderabbitai[bot]"|"chatgpt-codex-connector[bot]"|"cursor[bot]") ;;
           *) skip "commenter is not in the allowlist" ;;
         esac
 
@@ -139,6 +139,12 @@ runs:
 
         # Internal workflow comments
         [[ "$COMMENT_BODY" == *"$INTERNAL_MARKER"* ]] && skip "internal workflow comment"
+
+        # cursor[bot]: only process Cursor Automation comments (contain "View Automation" link).
+        # BugBot comments from cursor[bot] lack this link and are handled by autofix.
+        if [[ "$COMMENT_USER" == "cursor[bot]" ]]; then
+          [[ "$COMMENT_BODY" != *"cursor.com/automations/"* ]] && skip "cursor[bot] comment without automation link (likely BugBot)"
+        fi
 
         COMMENT_BODY_LC="${COMMENT_BODY,,}"
         # Skip comments that contain "full review" text (case-insensitive).

@@ -1,4 +1,8 @@
 import { DateTime } from "luxon";
+import {
+	ASSET_EVENTS_OPTION_FIELDS,
+	computeAssetEventsNextSendAt,
+} from "../asset-events/scheduling-helpers";
 import { omitUndefined, type User, type UserUpdateInput } from "../db";
 import type { Logger } from "../logging";
 import {
@@ -97,58 +101,6 @@ function computeDailyNextSendAt(
 		updates.daily_digest_next_send_at = nextDailyUtc?.toISO() ?? null;
 	} else if (dailyTimeChanged && !hasDailyTime) {
 		updates.daily_digest_next_send_at = null;
-	}
-}
-
-/**
- * Compute `asset_events_next_send_at` when asset events preferences, daily delivery time, or timezone changes.
- *
- * Mutates `updates` in-place so callers can compose a single `users` table update payload.
- */
-function computeAssetEventsNextSendAt(
-	updates: UserUpdateInput,
-	dbUser: User,
-	finalDailyTime: number | null,
-	finalTimezone: string,
-	timezoneChanged: boolean,
-	dailyTimeChanged: boolean,
-	assetEventsOptionsChanged: boolean,
-): void {
-	const hasAnyAssetEventsOption = [
-		"asset_events_include_calendar_email",
-		"asset_events_include_calendar_sms",
-		"asset_events_include_ipo_email",
-		"asset_events_include_ipo_sms",
-		"asset_events_include_analyst_email",
-		"asset_events_include_analyst_sms",
-		"asset_events_include_insider_email",
-		"asset_events_include_insider_sms",
-	].some(
-		(field) =>
-			(updates[field as keyof UserUpdateInput] as boolean | undefined) ??
-			(dbUser[field as keyof typeof dbUser] as boolean),
-	);
-
-	const needsRepair =
-		hasAnyAssetEventsOption &&
-		dbUser.asset_events_next_send_at === null &&
-		updates.asset_events_next_send_at === undefined;
-
-	if (
-		(timezoneChanged ||
-			dailyTimeChanged ||
-			assetEventsOptionsChanged ||
-			needsRepair) &&
-		hasAnyAssetEventsOption
-	) {
-		const nextUtc = calculateNextSendAt(
-			finalDailyTime ?? 540,
-			finalTimezone,
-			DateTime.utc(),
-		);
-		updates.asset_events_next_send_at = nextUtc?.toISO() ?? null;
-	} else if (assetEventsOptionsChanged && !hasAnyAssetEventsOption) {
-		updates.asset_events_next_send_at = null;
 	}
 }
 
@@ -288,16 +240,7 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 			? safeNotificationPreferenceUpdates.daily_digest_time
 			: dbUser.daily_digest_time;
 
-	const assetEventsOptionsChanged = [
-		"asset_events_include_calendar_email",
-		"asset_events_include_calendar_sms",
-		"asset_events_include_ipo_email",
-		"asset_events_include_ipo_sms",
-		"asset_events_include_analyst_email",
-		"asset_events_include_analyst_sms",
-		"asset_events_include_insider_email",
-		"asset_events_include_insider_sms",
-	].some(
+	const assetEventsOptionsChanged = ASSET_EVENTS_OPTION_FIELDS.some(
 		(field) =>
 			safeNotificationPreferenceUpdates[
 				field as keyof typeof safeNotificationPreferenceUpdates
@@ -388,15 +331,9 @@ export function computeTimezoneUpdatePayload(
 		payload.daily_digest_next_send_at = nextDailyUtc?.toISO() ?? null;
 	}
 
-	const hasAnyAssetEvents =
-		dbUser.asset_events_include_calendar_email ||
-		dbUser.asset_events_include_calendar_sms ||
-		dbUser.asset_events_include_ipo_email ||
-		dbUser.asset_events_include_ipo_sms ||
-		dbUser.asset_events_include_analyst_email ||
-		dbUser.asset_events_include_analyst_sms ||
-		dbUser.asset_events_include_insider_email ||
-		dbUser.asset_events_include_insider_sms;
+	const hasAnyAssetEvents = ASSET_EVENTS_OPTION_FIELDS.some(
+		(field) => dbUser[field as keyof typeof dbUser],
+	);
 	if (hasAnyAssetEvents) {
 		const nextUtc = calculateNextSendAt(
 			dbUser.daily_digest_time ?? 540,

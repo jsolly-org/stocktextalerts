@@ -11,24 +11,11 @@
 		@submit="handleFormSubmit"
 	>
 		<section class="card relative">
-			<FadeTransition>
-				<div
-					v-if="statusMessage"
-					class="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium z-10 border"
-					:class="STATUS_TONE_CLASSES[statusTone]"
-					role="status"
-					aria-live="polite"
-					:aria-busy="isSaving"
-					:data-tone="statusTone"
-				>
-					<ArrowPathIcon
-						v-show="isSaving"
-						class="animate-spin size-3 shrink-0"
-						aria-hidden="true"
-					/>
-					{{ statusMessage }}
-				</div>
-			</FadeTransition>
+			<FormStatusBadge
+				:status-message="statusMessage"
+				:status-tone="statusTone"
+				:is-saving="isSaving"
+			/>
 
 			<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.success}`"></div>
 		<div class="card-body">
@@ -413,7 +400,6 @@
 <script lang="ts" setup>
 import { computed, onMounted, type Ref, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
-import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import GrokLogoDarkIcon from "../../../icons/grok-dark.svg?component";
 import GrokLogoLightIcon from "../../../icons/grok-light.svg?component";
 import InformationCircleIcon from "../../../icons/information-circle-20.svg?component";
@@ -425,7 +411,6 @@ import {
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 	DASHBOARD_SECTION_IDS,
 	DEFAULT_MARKET_UPDATE_TIME_MINUTES,
-	STATUS_TONE_CLASSES,
 	US_MARKET_TIMEZONE,
 } from "../../../lib/constants";
 import {
@@ -449,6 +434,7 @@ import {
 	useAutoSaveForm,
 } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
+import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 import { useScheduledUpdateTiming } from "./helpers";
 import ScheduledUpdateControls from "./ScheduledUpdateControls.vue";
