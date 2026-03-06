@@ -8,6 +8,17 @@ import {
 	serializeTimes,
 } from "../time/scheduled-times";
 
+const ASSET_EVENTS_OPTION_FIELDS = [
+	"asset_events_include_calendar_email",
+	"asset_events_include_calendar_sms",
+	"asset_events_include_ipo_email",
+	"asset_events_include_ipo_sms",
+	"asset_events_include_analyst_email",
+	"asset_events_include_analyst_sms",
+	"asset_events_include_insider_email",
+	"asset_events_include_insider_sms",
+] as const;
+
 interface ParsedNotificationPreferencesForm {
 	market_scheduled_asset_price_enabled?: boolean;
 	timezone?: string;
@@ -114,16 +125,7 @@ function computeAssetEventsNextSendAt(
 	dailyTimeChanged: boolean,
 	assetEventsOptionsChanged: boolean,
 ): void {
-	const hasAnyAssetEventsOption = [
-		"asset_events_include_calendar_email",
-		"asset_events_include_calendar_sms",
-		"asset_events_include_ipo_email",
-		"asset_events_include_ipo_sms",
-		"asset_events_include_analyst_email",
-		"asset_events_include_analyst_sms",
-		"asset_events_include_insider_email",
-		"asset_events_include_insider_sms",
-	].some(
+	const hasAnyAssetEventsOption = ASSET_EVENTS_OPTION_FIELDS.some(
 		(field) =>
 			(updates[field as keyof UserUpdateInput] as boolean | undefined) ??
 			(dbUser[field as keyof typeof dbUser] as boolean),
@@ -288,16 +290,7 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 			? safeNotificationPreferenceUpdates.daily_digest_time
 			: dbUser.daily_digest_time;
 
-	const assetEventsOptionsChanged = [
-		"asset_events_include_calendar_email",
-		"asset_events_include_calendar_sms",
-		"asset_events_include_ipo_email",
-		"asset_events_include_ipo_sms",
-		"asset_events_include_analyst_email",
-		"asset_events_include_analyst_sms",
-		"asset_events_include_insider_email",
-		"asset_events_include_insider_sms",
-	].some(
+	const assetEventsOptionsChanged = ASSET_EVENTS_OPTION_FIELDS.some(
 		(field) =>
 			safeNotificationPreferenceUpdates[
 				field as keyof typeof safeNotificationPreferenceUpdates
@@ -388,15 +381,9 @@ export function computeTimezoneUpdatePayload(
 		payload.daily_digest_next_send_at = nextDailyUtc?.toISO() ?? null;
 	}
 
-	const hasAnyAssetEvents =
-		dbUser.asset_events_include_calendar_email ||
-		dbUser.asset_events_include_calendar_sms ||
-		dbUser.asset_events_include_ipo_email ||
-		dbUser.asset_events_include_ipo_sms ||
-		dbUser.asset_events_include_analyst_email ||
-		dbUser.asset_events_include_analyst_sms ||
-		dbUser.asset_events_include_insider_email ||
-		dbUser.asset_events_include_insider_sms;
+	const hasAnyAssetEvents = ASSET_EVENTS_OPTION_FIELDS.some(
+		(field) => dbUser[field as keyof typeof dbUser],
+	);
 	if (hasAnyAssetEvents) {
 		const nextUtc = calculateNextSendAt(
 			dbUser.daily_digest_time ?? 540,

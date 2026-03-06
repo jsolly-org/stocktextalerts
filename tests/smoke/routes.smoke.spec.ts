@@ -2,11 +2,14 @@ import { randomUUID } from "node:crypto";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { test } from "@playwright/test";
-import {
-	CONSOLE_ALLOWLIST,
-	ROUTES_DIR,
-	TEST_PASSWORD,
-} from "../helpers/constants";
+import { TEST_PASSWORD } from "../helpers/constants";
+
+const ROUTES_DIR = path.join(process.cwd(), "src", "pages");
+const CONSOLE_ALLOWLIST: Array<string | RegExp> = [
+	// Astro dev toolbar audit may fail to fetch in E2E test environment
+	/Error while running audit's match function: TypeError: Failed to fetch/,
+];
+
 import { createAuthenticatedCookies } from "../helpers/test-env";
 import { cleanupTestUser, createTestUser } from "../helpers/test-user";
 

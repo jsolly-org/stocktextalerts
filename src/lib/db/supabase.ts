@@ -19,17 +19,17 @@ const SUPABASE_CLIENT_OPTIONS = {
 
 export type AppSupabaseClient = SupabaseClient<Database>;
 
+function createTypedClient(key: string): AppSupabaseClient {
+	return createClient<Database>(supabaseUrl, key, SUPABASE_CLIENT_OPTIONS);
+}
+
 /**
  * Create a Supabase client configured for server-side usage (publishable key).
  *
  * Auth session persistence/refresh is disabled because Astro routes manage cookies explicitly.
  */
 export function createSupabaseServerClient(): AppSupabaseClient {
-	return createClient<Database>(
-		supabaseUrl,
-		supabasePublishableKey,
-		SUPABASE_CLIENT_OPTIONS,
-	);
+	return createTypedClient(supabasePublishableKey);
 }
 
 /**
@@ -38,9 +38,5 @@ export function createSupabaseServerClient(): AppSupabaseClient {
  * Only use this in server environments; never ship the secret key to the browser.
  */
 export function createSupabaseAdminClient(): AppSupabaseClient {
-	return createClient<Database>(
-		supabaseUrl,
-		supabaseSecretKey,
-		SUPABASE_CLIENT_OPTIONS,
-	);
+	return createTypedClient(supabaseSecretKey);
 }

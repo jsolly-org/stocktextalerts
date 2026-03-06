@@ -11,24 +11,12 @@
 		@submit="handleFormSubmit"
 	>
 		<section class="card relative">
-			<FadeTransition>
-				<div
-					v-if="statusMessage && statusTone === 'error'"
-					class="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium z-10 border"
-					:class="STATUS_TONE_CLASSES[statusTone]"
-					role="status"
-					aria-live="polite"
-					:aria-busy="isSaving"
-					:data-tone="statusTone"
-				>
-					<ArrowPathIcon
-						v-show="isSaving"
-						class="animate-spin size-3 shrink-0"
-						aria-hidden="true"
-					/>
-					{{ statusMessage }}
-				</div>
-			</FadeTransition>
+			<FormStatusBadge
+				v-if="statusMessage && statusTone === 'error'"
+				:status-message="statusMessage"
+				:status-tone="statusTone"
+				:is-saving="isSaving"
+			/>
 
 			<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.purple}`"></div>
 		<div class="card-body">
@@ -207,7 +195,6 @@
 import { DateTime } from "luxon";
 import { computed, onMounted, onUnmounted, ref, toRefs, watch, watchEffect } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
-import ArrowPathIcon from "../../../icons/arrow-path.svg?component";
 import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 import ClockIcon from "../../../icons/clock.svg?component";
 import FinnhubLogoIcon from "../../../icons/finnhub.svg?component";
@@ -218,19 +205,18 @@ import {
 	DASHBOARD_ASSET_EVENTS_FORM_ID,
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 	DASHBOARD_SECTION_IDS,
-	STATUS_TONE_CLASSES,
 } from "../../../lib/constants";
 import {
 	formatCountdownWithSeconds,
 	formatMinutesAsLocalTime,
 } from "../../../lib/time/format";
 import { calculateNextSendAt } from "../../../lib/time/scheduled-times";
-import FadeTransition from "../../FadeTransition.vue";
 import {
 	type NotificationPreferencesData,
 	useAutoSaveForm,
 } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
+import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 
 interface Props {
