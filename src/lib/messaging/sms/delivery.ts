@@ -103,7 +103,7 @@ export async function processSmsUpdate(
 		dashboardUrl,
 	);
 
-	const result = await sendUserSms(user, smsMessage, sendSms);
+	const result = await sendUserSms(user, smsMessage, sendSms, supabase);
 
 	const logged = await recordNotification(supabase, {
 		user_id: user.id,

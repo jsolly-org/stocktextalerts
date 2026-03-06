@@ -558,7 +558,12 @@ export async function processDailyDigestSmsDelivery(options: {
 		marketClosureInfo: options.marketClosureInfo,
 		supabase,
 	});
-	const result = await sendUserSms(user, smsMessage, smsSenderResult.sender);
+	const result = await sendUserSms(
+		user,
+		smsMessage,
+		smsSenderResult.sender,
+		supabase,
+	);
 	const logged = await recordNotification(supabase, {
 		user_id: user.id,
 		type: "daily",

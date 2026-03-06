@@ -189,7 +189,7 @@ export async function deliverPriceTargetAlert(options: {
 			stats.smsFailed++;
 		} else {
 			const smsBody = await formatPriceTargetSms(target, supabase);
-			const result = await sendUserSms(user, smsBody, sendSms);
+			const result = await sendUserSms(user, smsBody, sendSms, supabase);
 
 			if (result.success) {
 				stats.smsSent++;

@@ -373,6 +373,7 @@ async function deliverStagedMarket(options: {
 						user,
 						stagedData.sms.message,
 						sender,
+						supabase,
 					);
 
 					// Mark this user/type as delivered immediately after a successful send
@@ -559,6 +560,7 @@ async function deliverStagedDaily(options: {
 						user,
 						stagedData.sms.message,
 						sender,
+						supabase,
 					);
 
 					// Mark as delivered immediately after a successful send so fallback doesn't
