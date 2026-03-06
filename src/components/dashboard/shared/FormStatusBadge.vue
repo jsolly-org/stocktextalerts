@@ -1,7 +1,7 @@
 <template>
 	<FadeTransition>
 		<div
-			v-if="statusMessage"
+			v-if="statusMessage && (!showOnlyForTone || statusTone === showOnlyForTone)"
 			:id="id"
 			class="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium z-10 border"
 			:class="STATUS_TONE_CLASSES[statusTone]"
@@ -30,5 +30,7 @@ defineProps<{
 	statusTone: StatusTone;
 	isSaving: boolean;
 	id?: string;
+	/** When set, only show the badge for this tone (e.g. "error" for error-only panels). */
+	showOnlyForTone?: StatusTone;
 }>();
 </script>

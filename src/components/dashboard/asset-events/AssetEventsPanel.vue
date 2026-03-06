@@ -15,6 +15,7 @@
 			:status-message="statusMessage"
 			:status-tone="statusTone"
 			:is-saving="isSaving"
+			show-only-for-tone="error"
 		/>
 
 			<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.purple}`"></div>
