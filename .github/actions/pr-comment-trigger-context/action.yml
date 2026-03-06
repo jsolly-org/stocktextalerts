@@ -119,9 +119,9 @@ runs:
 
         echo "Commenter: '$COMMENT_USER' | Event: $EVENT_NAME"
 
-        # Allowlist: coderabbitai[bot], chatgpt-codex-connector[bot], cursor[bot]
+        # Allowlist: coderabbitai[bot], chatgpt-codex-connector[bot]
         case "$COMMENT_USER" in
-          "coderabbitai[bot]"|"chatgpt-codex-connector[bot]"|"cursor[bot]") ;;
+          "coderabbitai[bot]"|"chatgpt-codex-connector[bot]") ;;
           *) skip "commenter is not in the allowlist" ;;
         esac
 
@@ -140,12 +140,6 @@ runs:
         # Internal workflow comments
         [[ "$COMMENT_BODY" == *"$INTERNAL_MARKER"* ]] && skip "internal workflow comment"
 
-        # cursor[bot]: only process Cursor Automation comments (contain "View Automation" link).
-        # BugBot comments from cursor[bot] lack this link and are handled by autofix.
-        if [[ "$COMMENT_USER" == "cursor[bot]" ]]; then
-          [[ "$COMMENT_BODY" != *"cursor.com/automations/"* ]] && skip "cursor[bot] comment without automation link (likely BugBot)"
-        fi
-
         COMMENT_BODY_LC="${COMMENT_BODY,,}"
         # Skip comments that contain "full review" text (case-insensitive).
         [[ "$COMMENT_BODY_LC" =~ full[[:space:]]+review ]] && skip "comment contains full review text"
@@ -160,7 +154,7 @@ runs:
         # Covers markers like:
         #   <!-- This is an auto-generated reply by CodeRabbit -->
         #   <!-- This is an auto-generated comment: summarize by coderabbit.ai -->
-        if [[ "$COMMENT_BODY_LC" != *"actionable comments posted"* ]]; then
+        if [[ "$COMMENT_BODY_LC" != *"actionable comments posted"* ]] && [[ "$COMMENT_BODY_LC" != *"nitpick comments"* ]]; then
           [[ "$COMMENT_BODY" == *"<!-- This is an auto-generated"*"by CodeRabbit -->"* ]] && skip "CodeRabbit auto-generated comment"
           [[ "$COMMENT_BODY" == *"<!-- This is an auto-generated"*"by coderabbit.ai -->"* ]] && skip "CodeRabbit auto-generated comment"
         fi
@@ -198,7 +192,7 @@ runs:
           HEAD_REF=$(echo "$PR_JSON" | jq -r '.head.ref')
           HEAD_SHA=$(echo "$PR_JSON" | jq -r '.head.sha')
           PR_AUTHOR=$(echo "$PR_JSON" | jq -r '.user.login // ""')
-          IS_AUTHOR=$([[ "$PR_AUTHOR" == "$REPO_OWNER" ]] && echo "true" || echo "false")
+          IS_AUTHOR=$([[ "$PR_AUTHOR" == "$REPO_OWNER" || "$PR_AUTHOR" == "cursor[bot]" ]] && echo "true" || echo "false")
         else
           HEAD_REPO=""
           HEAD_REF=""
