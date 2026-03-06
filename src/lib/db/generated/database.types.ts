@@ -509,7 +509,6 @@ export type Database = {
           phone_verified: boolean
           price_targets_include_email: boolean
           price_targets_include_sms: boolean
-          show_sparklines: boolean
           sms_notifications_enabled: boolean
           sms_opted_out: boolean
           timezone: string
@@ -557,7 +556,6 @@ export type Database = {
           phone_verified?: boolean
           price_targets_include_email?: boolean
           price_targets_include_sms?: boolean
-          show_sparklines?: boolean
           sms_notifications_enabled?: boolean
           sms_opted_out?: boolean
           timezone?: string
@@ -605,7 +603,6 @@ export type Database = {
           phone_verified?: boolean
           price_targets_include_email?: boolean
           price_targets_include_sms?: boolean
-          show_sparklines?: boolean
           sms_notifications_enabled?: boolean
           sms_opted_out?: boolean
           timezone?: string

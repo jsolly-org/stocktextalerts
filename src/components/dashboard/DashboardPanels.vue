@@ -28,13 +28,14 @@
 				v-if="shouldRender(1)"
 				v-model:emailEnabled="emailEnabled"
 				:sms-phone-number="smsPhoneNumber"
+				:initialAssets="currentAssets"
+				:hasTrackedAssets="hasTrackedAssets"
 			/>
 		</template>
 
 		<template #daily>
 			<AsyncDailyNotificationsPanel
 				v-if="shouldRender(2)"
-				:initialAssets="currentAssets"
 				:emailEnabled="emailEnabled"
 				:phoneVerified="phoneVerified"
 				:hasTrackedAssets="hasTrackedAssets"

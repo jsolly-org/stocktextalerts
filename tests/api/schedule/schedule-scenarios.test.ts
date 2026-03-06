@@ -259,50 +259,6 @@ describe("Scheduled notification scenarios", () => {
 		expect(smsLogs?.[0]?.message_delivered).toBe(true);
 	});
 
-	it("User with show_sparklines disabled receives scheduled notification without sparkline characters in message.", async () => {
-		const timezone = "America/New_York";
-		const nowLocal = DateTime.now().setZone(timezone);
-		const scheduledTime = nowLocal.hour * 60 + nowLocal.minute;
-
-		const { id } = await createTestUser({
-			timezone,
-			emailNotificationsEnabled: true,
-			smsNotificationsEnabled: false,
-			scheduledUpdateTimes: [scheduledTime],
-			trackedAssets: ["AAPL"],
-			marketScheduledAssetPriceIncludeEmail: true,
-		});
-		registerTestUserForCleanup(id);
-
-		const { error: updateError } = await adminClient
-			.from("users")
-			.update({
-				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
-				market_scheduled_asset_price_enabled: true,
-				show_sparklines: false,
-			})
-			.eq("id", id);
-		expect(updateError).toBeNull();
-
-		const response = await SchedulePost(
-			createApiContext({
-				request: createScheduleRequest(testCronSecret),
-			}),
-		);
-		expect(response.status).toBe(200);
-
-		const { data: logs } = await adminClient
-			.from("notification_log")
-			.select("message")
-			.eq("user_id", id)
-			.eq("type", "market")
-			.eq("delivery_method", "email");
-		expect(logs).toHaveLength(1);
-		const message = logs?.[0]?.message ?? "";
-		expect(message).not.toMatch(/[▁▂▃▄▅▆▇█]/);
-		expect(message).toContain("AAPL");
-	});
-
 	it("User with scheduled times but no tracked assets receives no-assets message and next_send_at advances.", async () => {
 		const timezone = "America/New_York";
 		const nowLocal = DateTime.now().setZone(timezone);

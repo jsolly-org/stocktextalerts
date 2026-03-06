@@ -321,64 +321,64 @@
 								<div
 									v-for="asset in trackedAssets"
 									:key="asset.symbol"
-									class="flex items-center gap-3 rounded-lg border border-edge bg-surface-alt px-3 py-2"
+									class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-edge bg-surface-alt px-3 py-2"
 								>
 									<AssetBadge :type="asset.type as 'stock' | 'etf'" :symbol="asset.symbol" :icon-url="asset.icon_url" />
 									<div class="min-w-0 flex-1">
-										<div class="flex items-center gap-2">
-											<span class="text-sm font-semibold text-heading">{{ asset.symbol }}</span>
+										<div class="flex items-center gap-2 min-w-0">
+											<span class="text-sm font-semibold text-heading shrink-0">{{ asset.symbol }}</span>
 											<span
 												v-if="getCurrentPrice(asset.symbol) !== null"
-												class="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs tabular-nums text-emerald-700 dark:text-emerald-400"
+												class="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs tabular-nums text-emerald-700 dark:text-emerald-400 truncate"
 											>{{ formatCurrentPrice(getCurrentPrice(asset.symbol) ?? 0) }}</span>
 										</div>
 										<span class="text-xs text-muted truncate block">{{ asset.name }}</span>
 									</div>
 
-									<div class="flex items-center gap-2 shrink-0">
+									<div class="flex items-center gap-2 basis-full sm:basis-auto ml-auto">
 										<span
-											v-if="getTargetDirection(asset.symbol)"
-											class="text-xs"
-											:class="getTargetDirection(asset.symbol) === 'above' ? 'text-emerald-600' : 'text-red-500'"
-										>
-											{{ getTargetDirection(asset.symbol) === 'above' ? '▲' : '▼' }}
-										</span>
+											class="w-3 text-xs text-center"
+											:class="getTargetDirection(asset.symbol) === 'above' ? 'text-emerald-600' : getTargetDirection(asset.symbol) === 'below' ? 'text-red-500' : 'invisible'"
+											aria-hidden="true"
+										>{{ getTargetDirection(asset.symbol) === 'above' ? '▲' : '▼' }}</span>
 
 										<div class="relative">
 											<span class="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted pointer-events-none">$</span>
 											<input
-												type="number"
+												type="text"
+												inputmode="decimal"
+												pattern="[0-9]*\.?[0-9]*"
 												:value="getTargetValue(asset.symbol)"
-												step="0.01"
-												min="0.01"
 												:placeholder="'Target'"
-												class="w-24 pl-5 pr-2 py-1 text-sm text-right rounded-md border border-edge bg-surface focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 placeholder:text-muted [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+												class="price-target-input w-24 pl-5 pr-2 py-1 text-base sm:text-sm text-right rounded-md border border-edge bg-surface focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 placeholder:text-muted"
 												:aria-label="`Price target for ${asset.symbol}`"
 												@input="handleTargetInput(asset.symbol, $event)"
+												@keydown="filterNumericInput"
 												@keydown.enter.prevent="handleSaveTarget(asset.symbol)"
 											/>
 										</div>
 
-										<button
-											v-if="hasPendingInput(asset.symbol)"
-											type="button"
-											class="px-2 py-1 rounded-md text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-											:disabled="isSavingTarget(asset.symbol)"
-											:aria-label="`Save price target for ${asset.symbol}`"
-											@click="handleSaveTarget(asset.symbol)"
-										>
-											{{ isSavingTarget(asset.symbol) ? 'Saving...' : 'Save' }}
-										</button>
-										<button
-											v-else-if="hasTarget(asset.symbol)"
-											type="button"
-											class="p-1 rounded text-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
-											:aria-label="`Clear price target for ${asset.symbol}`"
-											@click="clearTarget(asset.symbol)"
-										>
-											<XMarkIcon class="size-4" aria-hidden="true" />
-										</button>
-										<div v-else class="w-6" />
+										<div class="w-12 flex justify-center">
+											<button
+												v-if="hasPendingInput(asset.symbol)"
+												type="button"
+												class="price-target-action px-2 py-1 rounded-md text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+												:disabled="isSavingTarget(asset.symbol)"
+												:aria-label="`Save price target for ${asset.symbol}`"
+												@click="handleSaveTarget(asset.symbol)"
+											>
+												{{ isSavingTarget(asset.symbol) ? '...' : 'Save' }}
+											</button>
+											<button
+												v-else-if="hasTarget(asset.symbol)"
+												type="button"
+												class="p-1 rounded text-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
+												:aria-label="`Clear price target for ${asset.symbol}`"
+												@click="clearTarget(asset.symbol)"
+											>
+												<XMarkIcon class="size-4" aria-hidden="true" />
+											</button>
+										</div>
 									</div>
 								</div>
 							</div>
@@ -919,10 +919,39 @@ function isSavingTarget(symbol: string): boolean {
 	return savingTargets.value.has(symbol);
 }
 
+/** Allow only digits, decimal point, and control keys in price target inputs. */
+function filterNumericInput(event: KeyboardEvent) {
+	// Allow control keys: backspace, delete, tab, escape, enter, arrows
+	if (
+		event.key === "Backspace" ||
+		event.key === "Delete" ||
+		event.key === "Tab" ||
+		event.key === "Escape" ||
+		event.key === "Enter" ||
+		event.key === "ArrowLeft" ||
+		event.key === "ArrowRight" ||
+		event.key === "Home" ||
+		event.key === "End" ||
+		// Allow Ctrl/Cmd+A, C, V, X
+		((event.ctrlKey || event.metaKey) && ["a", "c", "v", "x"].includes(event.key.toLowerCase()))
+	) {
+		return;
+	}
+	// Allow digits and one decimal point
+	if (/^[0-9]$/.test(event.key)) return;
+	if (event.key === "." && !(event.target as HTMLInputElement).value.includes(".")) return;
+	event.preventDefault();
+}
+
 function handleTargetInput(symbol: string, event: Event) {
 	const input = event.target as HTMLInputElement;
+	// Strip any non-numeric characters that might have gotten through (e.g. paste)
+	const cleaned = input.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+	if (cleaned !== input.value) {
+		input.value = cleaned;
+	}
 	const updated = new Map(pendingInputs.value);
-	updated.set(symbol, input.value);
+	updated.set(symbol, cleaned);
 	pendingInputs.value = updated;
 }
 
@@ -1087,3 +1116,11 @@ function handleRemoveTime(index: number) {
 }
 
 </script>
+
+<style scoped>
+/* Make the target field explicitly mobile-safe and avoid Safari double-tap zoom. */
+.price-target-input,
+.price-target-action {
+	touch-action: manipulation;
+}
+</style>

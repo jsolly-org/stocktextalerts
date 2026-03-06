@@ -180,13 +180,9 @@ export async function processMarketScheduledUser(options: {
 		const userAssets =
 			userAssetsMap?.get(user.id) ??
 			(await loadUserAssets(supabase, user.id, { includeLogoData: true }));
-		const formatPrefs = {
-			show_sparklines: user.show_sparklines,
-		};
-
 		const tickers = userAssets.map((a) => a.symbol);
 		let sparklines: SparklineMap = new Map();
-		if (user.show_sparklines && tickers.length > 0) {
+		if (tickers.length > 0) {
 			try {
 				sparklines = await fetchSparklines(tickers);
 			} catch (error) {
@@ -218,7 +214,6 @@ export async function processMarketScheduledUser(options: {
 		const assetsList = formatAssetsTextList(
 			userAssets,
 			(symbol) => priceMap.get(symbol) ?? undefined,
-			formatPrefs,
 			getAsciiSparkline,
 		);
 
@@ -255,7 +250,7 @@ export async function processMarketScheduledUser(options: {
 							assetsList,
 							priceMap,
 							marketOpen,
-							{ formatPrefs, getSparkline, marketClosureInfo, getLogoHtml },
+							{ getSparkline, marketClosureInfo, getLogoHtml },
 						);
 						return {
 							subject: "Your Scheduled Price Notification",
@@ -325,7 +320,6 @@ export async function processMarketScheduledUser(options: {
 				marketOpen,
 				marketClosureInfo,
 				stats,
-				formatPrefs,
 				getSparkline,
 				getLogoHtml,
 			});

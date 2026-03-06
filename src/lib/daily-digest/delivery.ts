@@ -23,11 +23,7 @@ import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import { shortenUrl } from "../messaging/sms/url-shortener";
 import type { SparklineData, SparklineMap } from "../messaging/sparkline";
-import type {
-	FormatPreferences,
-	UserAssetRow,
-	UserRecord,
-} from "../messaging/types";
+import type { UserAssetRow, UserRecord } from "../messaging/types";
 import type { AssetPriceMap } from "../providers/price-fetcher";
 import type {
 	ScheduledNotificationTotals,
@@ -130,7 +126,6 @@ type AssetEventsResult = Awaited<
 export async function formatDailyDigestSmsMessage(options: {
 	userAssets: UserAssetRow[];
 	assetPrices: AssetPriceMap;
-	formatPrefs: FormatPreferences;
 	extras: SmsExtras;
 	assetEvents?: AssetEventsResult;
 	sparklines?: SparklineMap;
@@ -144,7 +139,6 @@ export async function formatDailyDigestSmsMessage(options: {
 	const prices = buildDailyDigestPricesSummary(
 		options.userAssets,
 		options.assetPrices,
-		options.formatPrefs,
 		options.sparklines,
 		"\n\n",
 	);
@@ -172,14 +166,12 @@ export async function formatDailyDigestSmsMessage(options: {
 function formatDailyDigestPriceLine(
 	asset: UserAssetRow,
 	quote: { price: number; changePercent: number } | null | undefined,
-	formatPrefs: FormatPreferences,
 	sparkline?: SparklineData | null,
 ): string {
 	return formatAssetTextLine(
 		asset,
 		quote ?? undefined,
-		formatPrefs,
-		formatPrefs.show_sparklines ? sparkline?.ascii : null,
+		sparkline?.ascii ?? null,
 	);
 }
 
@@ -187,14 +179,12 @@ function formatDailyDigestPriceLine(
 function formatDailyDigestPriceLineHtml(
 	asset: UserAssetRow,
 	quote: { price: number; changePercent: number } | null | undefined,
-	formatPrefs: FormatPreferences,
 	sparkline?: SparklineData | null,
 	logoHtml?: string,
 ): string {
 	const innerHtml = formatAssetHtmlLine(
 		asset,
 		quote ?? undefined,
-		formatPrefs,
 		sparkline,
 		logoHtml,
 	);
@@ -205,7 +195,6 @@ function formatDailyDigestPriceLineHtml(
 function buildDailyDigestPricesSummary(
 	userAssets: UserAssetRow[],
 	assetPrices: AssetPriceMap,
-	formatPrefs: FormatPreferences,
 	sparklines?: SparklineMap,
 	separator = "\n",
 ): string {
@@ -217,7 +206,6 @@ function buildDailyDigestPricesSummary(
 			formatDailyDigestPriceLine(
 				asset,
 				assetPrices.get(asset.symbol),
-				formatPrefs,
 				sparklines?.get(asset.symbol),
 			),
 		)
@@ -228,7 +216,6 @@ function buildDailyDigestPricesSummary(
 function buildDailyDigestPricesHtml(
 	userAssets: UserAssetRow[],
 	assetPrices: AssetPriceMap,
-	formatPrefs: FormatPreferences,
 	sparklines?: SparklineMap,
 	getLogoHtml?: (symbol: string) => string | undefined,
 ): string {
@@ -240,7 +227,6 @@ function buildDailyDigestPricesHtml(
 			formatDailyDigestPriceLineHtml(
 				asset,
 				assetPrices.get(asset.symbol),
-				formatPrefs,
 				sparklines?.get(asset.symbol),
 				getLogoHtml?.(asset.symbol),
 			),
@@ -253,7 +239,6 @@ export function formatDailyDigestEmail(options: {
 	user: { id: string; email: string };
 	userAssets: UserAssetRow[];
 	assetPrices: AssetPriceMap;
-	formatPrefs: FormatPreferences;
 	extras: SmsExtras;
 	assetEvents?: AssetEventsResult;
 	sparklines?: SparklineMap;
@@ -283,14 +268,12 @@ export function formatDailyDigestEmail(options: {
 	const prices = buildDailyDigestPricesSummary(
 		options.userAssets,
 		options.assetPrices,
-		options.formatPrefs,
 		options.sparklines,
 		"\n",
 	);
 	const pricesHtml = buildDailyDigestPricesHtml(
 		options.userAssets,
 		options.assetPrices,
-		options.formatPrefs,
 		options.sparklines,
 		options.getLogoHtml,
 	);
@@ -371,7 +354,6 @@ export async function processDailyDigestEmailDelivery(options: {
 	scheduledMinutes: number;
 	userAssets: UserAssetRow[];
 	assetPrices: AssetPriceMap;
-	formatPrefs: FormatPreferences;
 	extras: SmsExtras;
 	assetEvents?: AssetEventsResult;
 	sparklines?: SparklineMap;
@@ -388,7 +370,6 @@ export async function processDailyDigestEmailDelivery(options: {
 		scheduledMinutes,
 		userAssets,
 		assetPrices,
-		formatPrefs,
 		extras,
 		assetEvents,
 		sendEmail,
@@ -418,7 +399,6 @@ export async function processDailyDigestEmailDelivery(options: {
 		user,
 		userAssets,
 		assetPrices,
-		formatPrefs,
 		extras,
 		assetEvents,
 		sparklines: options.sparklines,
@@ -543,9 +523,6 @@ export async function processDailyDigestSmsDelivery(options: {
 	const smsMessage = await formatDailyDigestSmsMessage({
 		userAssets,
 		assetPrices,
-		formatPrefs: {
-			show_sparklines: user.show_sparklines,
-		},
 		extras,
 		assetEvents,
 		sparklines: options.sparklines,

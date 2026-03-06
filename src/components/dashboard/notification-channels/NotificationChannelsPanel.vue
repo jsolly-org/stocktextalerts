@@ -69,6 +69,39 @@
 			</div>
 		</section>
 	</form>
+
+	<!-- Notification Preview -->
+	<section class="card">
+		<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.gray}`"></div>
+		<div class="card-body">
+			<header class="mb-4">
+				<h2 class="text-xl sm:text-2xl font-bold text-heading">
+					Notification Preview
+				</h2>
+				<p class="text-sm text-body-secondary mt-1">
+					Preview your SMS notification. Formatting changes still apply to both SMS and email.
+				</p>
+			</header>
+
+			<SetupRequiredNotice
+				:needsTrackedAssets="needsTrackedAssets"
+				:needsChannelSelection="needsChannelSelection"
+				:needsPhoneVerification="false"
+				phoneVerificationSectionId=""
+			/>
+
+			<div
+				class="transition-opacity duration-200"
+				:class="{ 'opacity-50': notificationSetupBlocked }"
+			>
+				<div class="mb-6">
+					<div class="preview-slide">
+						<SmsPreview :assets="previewAssets" />
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
 </template>
 
 <script lang="ts" setup>
@@ -93,6 +126,7 @@ import {
 } from "../../../lib/time/format";
 import FadeTransition from "../../FadeTransition.vue";
 import StatusMessage from "../../StatusMessage.vue";
+import type { InitialAsset } from "../assets/types";
 import {
 	type NotificationPreferencesData,
 	useAutoSaveForm,
@@ -100,11 +134,16 @@ import {
 import { useDashboardUser } from "../composables/useDashboardUser";
 import { provideSmsVerificationContext } from "../composables/useSmsVerificationContext";
 import { useSmsVerificationSubmission } from "../composables/useSmsVerificationSubmission";
+import { DEMO_ASSETS, type PreviewAsset } from "../daily-digest/preview/preview-data";
+import SmsPreview from "../daily-digest/preview/SmsPreview.vue";
+import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 import NotificationChannelsFieldset from "./NotificationChannelsFieldset.vue";
 
 interface Props {
 	emailEnabled: boolean;
 	smsPhoneNumber: string;
+	initialAssets: InitialAsset[];
+	hasTrackedAssets: boolean;
 }
 
 const props = defineProps<Props>();
@@ -316,4 +355,52 @@ watch(
 			times && times.length > 0 ? getEarliestMarketNotificationTime() : null;
 	},
 );
+
+/* ============= Notification Preview ============= */
+const needsTrackedAssets = computed(() => !props.hasTrackedAssets);
+const hasAnySmsFeatureEnabled = computed(
+	() =>
+		user.value.daily_digest_include_prices_sms ||
+		user.value.market_scheduled_asset_price_include_sms ||
+		user.value.asset_events_include_calendar_sms ||
+		user.value.asset_events_include_ipo_sms ||
+		user.value.asset_events_include_analyst_sms ||
+		user.value.asset_events_include_insider_sms ||
+		user.value.market_asset_price_alerts_include_sms,
+);
+const hasNotificationChannel = computed(
+	() => emailEnabledProp.value || (smsNotificationsEnabled.value && hasAnySmsFeatureEnabled.value && phoneVerified.value && !smsOptedOut.value),
+);
+const needsChannelSelection = computed(() => !hasNotificationChannel.value);
+const notificationSetupBlocked = computed(
+	() => needsChannelSelection.value || needsTrackedAssets.value,
+);
+
+const previewAssets = computed<PreviewAsset[]>(() => {
+	const assets = props.initialAssets;
+	if (assets.length === 0) {
+		return DEMO_ASSETS;
+	}
+	const demoData = [
+		{ price: 195.5, changePercent: 2.4, sparkline: "▁▂▃▅▇▅▆", sparklineValues: [188, 190, 191, 193, 196, 194, 195] },
+		{ price: 178.2, changePercent: 1.8, sparkline: "▃▂▁▃▅▆▇", sparklineValues: [174, 173, 172, 174, 176, 177, 178] },
+		{ price: 248.3, changePercent: -0.5, sparkline: "▇▆▅▃▂▃▁", sparklineValues: [255, 253, 252, 250, 249, 250, 248] },
+	];
+	return assets.slice(0, 3).map((asset, i) => ({
+		symbol: asset.symbol,
+		name: asset.name,
+		price: demoData[i % demoData.length].price,
+		changePercent: demoData[i % demoData.length].changePercent,
+		sparkline: demoData[i % demoData.length].sparkline,
+		sparklineValues: demoData[i % demoData.length].sparklineValues,
+	}));
+});
 </script>
+
+<style scoped>
+.preview-slide {
+	min-width: 0;
+	display: flex;
+	justify-content: center;
+}
+</style>

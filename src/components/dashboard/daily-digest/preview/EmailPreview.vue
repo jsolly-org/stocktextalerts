@@ -22,7 +22,6 @@
 
 <script lang="ts" setup>
 import { computed } from "vue";
-import type { FormatPreferences } from "../../../../lib/messaging/types";
 import {
 	formatPreviewEmailHtml,
 	type PreviewAsset,
@@ -30,23 +29,30 @@ import {
 
 interface Props {
 	assets: PreviewAsset[];
-	formatPreferences: FormatPreferences;
 }
 
 const props = defineProps<Props>();
 
 const formattedEmailHtml = computed(() =>
-	formatPreviewEmailHtml(props.assets, props.formatPreferences),
+	formatPreviewEmailHtml(props.assets),
 );
 </script>
 
 <style scoped>
+.email-preview {
+	width: min(100%, 280px);
+	margin: 0 auto;
+}
+
 .email-card {
 	border: 1px solid #dbe4f0;
 	border-radius: 0.625rem;
 	overflow: hidden;
 	background: #fff;
 	box-shadow: 0 4px 12px rgba(30, 41, 59, 0.08);
+	min-height: 350px;
+	display: flex;
+	flex-direction: column;
 }
 
 .email-client-toolbar {
@@ -89,6 +95,7 @@ const formattedEmailHtml = computed(() =>
 	padding: 1.25rem;
 	background: #ffffff;
 	border-top: none;
+	flex: 1;
 }
 
 .email-assets-section {

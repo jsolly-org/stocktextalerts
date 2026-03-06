@@ -15,7 +15,6 @@ import {
 	getChangeColor,
 } from "../../../../lib/messaging/asset-formatting";
 import { toSvgSparklineImg } from "../../../../lib/messaging/svg-sparkline";
-import type { FormatPreferences } from "../../../../lib/messaging/types";
 
 /** Stable demo assets used to render previews without a live API call. */
 export const DEMO_ASSETS: PreviewAsset[] = [
@@ -48,10 +47,7 @@ export const DEMO_ASSETS: PreviewAsset[] = [
 /**
  * Format a plaintext preview list for a set of demo assets.
  */
-export function formatPreviewAssetsList(
-	assets: PreviewAsset[],
-	prefs: FormatPreferences,
-): string {
+export function formatPreviewAssetsList(assets: PreviewAsset[]): string {
 	const prices = new Map<string, AssetPrice>(
 		assets.map((asset) => [
 			asset.symbol,
@@ -64,7 +60,6 @@ export function formatPreviewAssetsList(
 	return formatAssetsTextList(
 		assets,
 		(symbol) => prices.get(symbol),
-		prefs,
 		(symbol) => sparklines.get(symbol),
 	);
 }
@@ -75,10 +70,7 @@ export function formatPreviewAssetsList(
  * Uses SVG sparklines and colored change percentages to match the actual
  * daily digest email output.
  */
-export function formatPreviewEmailHtml(
-	assets: PreviewAsset[],
-	prefs: FormatPreferences,
-): string {
+export function formatPreviewEmailHtml(assets: PreviewAsset[]): string {
 	if (assets.length === 0) {
 		return '<p style="color: #4b5563;">You don\'t have any tracked assets yet.</p>';
 	}
@@ -94,11 +86,7 @@ export function formatPreviewEmailHtml(
 			);
 
 			let sparklineHtml = "";
-			if (
-				prefs.show_sparklines &&
-				asset.sparklineValues &&
-				asset.sparklineValues.length >= 2
-			) {
+			if (asset.sparklineValues && asset.sparklineValues.length >= 2) {
 				sparklineHtml = ` ${toSvgSparklineImg(asset.sparklineValues, color)}`;
 			}
 

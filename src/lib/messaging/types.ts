@@ -17,11 +17,6 @@ export interface ProcessingStats {
 
 type DbUserRow = Database["public"]["Tables"]["users"]["Row"];
 
-/** User-controlled formatting toggles for rendered notifications. */
-export interface FormatPreferences {
-	show_sparklines: boolean;
-}
-
 type GrokRumorsPreferences = {
 	daily_digest_include_news_email: boolean;
 	daily_digest_include_rumors_email: boolean;
@@ -43,7 +38,6 @@ export type UserRecord = Pick<
 	| "email_notifications_enabled"
 	| "sms_notifications_enabled"
 	| "sms_opted_out"
-	| "show_sparklines"
 > & {
 	market_scheduled_asset_price_enabled: boolean;
 	market_scheduled_asset_price_include_email: boolean;
@@ -79,7 +73,6 @@ export type SmsUser = Pick<
 
 /** Optional context for email rendering: sparklines, logos, market closure banners. */
 export interface EmailFormatContext {
-	formatPrefs?: FormatPreferences;
 	getSparkline?: (symbol: string) => SparklineData | null | undefined;
 	marketClosureInfo?: MarketClosureInfo | null;
 	getLogoHtml?: (symbol: string) => string | undefined;
