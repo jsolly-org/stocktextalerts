@@ -11,11 +11,11 @@
 		@submit="handleFormSubmit"
 	>
 		<section class="card relative">
-			<FormStatusBadge
-				:status-message="statusTone === 'error' ? statusMessage : null"
-				:status-tone="statusTone"
-				:is-saving="isSaving"
-			/>
+		<FormStatusBadge
+			:status-message="statusMessage"
+			:status-tone="statusTone"
+			:is-saving="isSaving"
+		/>
 
 			<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.purple}`"></div>
 		<div class="card-body">
