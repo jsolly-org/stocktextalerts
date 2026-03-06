@@ -482,6 +482,8 @@ export type Database = {
           asset_events_next_send_at: string | null
           created_at: string
           daily_digest_include_news_email: boolean
+          daily_digest_include_prices_email: boolean
+          daily_digest_include_prices_sms: boolean
           daily_digest_include_rumors_email: boolean
           daily_digest_next_send_at: string | null
           daily_digest_time: number | null
@@ -528,6 +530,8 @@ export type Database = {
           asset_events_next_send_at?: string | null
           created_at?: string
           daily_digest_include_news_email?: boolean
+          daily_digest_include_prices_email?: boolean
+          daily_digest_include_prices_sms?: boolean
           daily_digest_include_rumors_email?: boolean
           daily_digest_next_send_at?: string | null
           daily_digest_time?: number | null
@@ -574,6 +578,8 @@ export type Database = {
           asset_events_next_send_at?: string | null
           created_at?: string
           daily_digest_include_news_email?: boolean
+          daily_digest_include_prices_email?: boolean
+          daily_digest_include_prices_sms?: boolean
           daily_digest_include_rumors_email?: boolean
           daily_digest_next_send_at?: string | null
           daily_digest_time?: number | null

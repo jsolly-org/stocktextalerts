@@ -122,7 +122,7 @@ function parseDailyScheduleContext(
 	return { scheduledDate, scheduledMinutes };
 }
 
-/** Resolve whether Grok can be used and whether the run should be skipped. */
+/** Resolve whether Grok can be used for this digest run. */
 function resolveGrokEligibility(
 	user: UserRecord,
 	needsGrok: boolean,
@@ -130,7 +130,7 @@ function resolveGrokEligibility(
 	logger: Logger,
 	scheduledDate: string,
 	scheduledMinutes: number,
-): { grokAllowed: boolean; skip: boolean } {
+): { grokAllowed: boolean } {
 	const grokAllowed =
 		needsGrok &&
 		canInvokeGrokWithinLimit({
@@ -140,33 +140,20 @@ function resolveGrokEligibility(
 		});
 
 	if (needsGrok && !grokAllowed) {
-		// Grok limit reached, but asset events bundled into daily can still proceed
-		const hasAnyAssetEventsOption =
-			user.asset_events_include_calendar_email ||
-			user.asset_events_include_calendar_sms ||
-			user.asset_events_include_ipo_email ||
-			user.asset_events_include_ipo_sms ||
-			user.asset_events_include_analyst_email ||
-			user.asset_events_include_analyst_sms ||
-			user.asset_events_include_insider_email ||
-			user.asset_events_include_insider_sms;
-		if (!hasAnyAssetEventsOption) {
-			logger.info(
-				"Skipping daily digest: Grok send limit reached for this window",
-				{
-					action: "daily_run",
-					reason: "grok_limit",
-					userId: user.id,
-					scheduledDate,
-					scheduledMinutes,
-					grokSendsInWindow: user.grok_sends_in_window,
-				},
-			);
-			return { grokAllowed, skip: true };
-		}
+		logger.info(
+			"Grok send limit reached for this window; digest will proceed without news/rumors",
+			{
+				action: "daily_run",
+				reason: "grok_limit",
+				userId: user.id,
+				scheduledDate,
+				scheduledMinutes,
+				grokSendsInWindow: user.grok_sends_in_window,
+			},
+		);
 	}
 
-	return { grokAllowed, skip: false };
+	return { grokAllowed };
 }
 
 /** Persist Grok usage counters after at least one successful delivery. */
@@ -255,10 +242,6 @@ export async function processDailyDigestUser(options: {
 		}
 		const { scheduledDate, scheduledMinutes } = scheduleCtx;
 
-		const hasAnyDailyOption =
-			user.daily_digest_include_news_email ||
-			user.daily_digest_include_rumors_email;
-
 		const hasAnyAssetEventsOption =
 			user.asset_events_include_calendar_email ||
 			user.asset_events_include_calendar_sms ||
@@ -269,19 +252,6 @@ export async function processDailyDigestUser(options: {
 			user.asset_events_include_insider_email ||
 			user.asset_events_include_insider_sms;
 
-		if (!hasAnyDailyOption && !hasAnyAssetEventsOption) {
-			stats.skipped++;
-			if (!stageOnly) {
-				await updateUserDailyDigestNextSendAt({
-					user,
-					supabase,
-					logger,
-					currentTime,
-				});
-			}
-			return stats;
-		}
-
 		const userAssets = await loadUserAssets(supabase, user.id, {
 			includeLogoData: true,
 		});
@@ -290,7 +260,7 @@ export async function processDailyDigestUser(options: {
 		const needsGrok =
 			user.daily_digest_include_news_email ||
 			user.daily_digest_include_rumors_email;
-		const { grokAllowed, skip: grokSkip } = resolveGrokEligibility(
+		const { grokAllowed } = resolveGrokEligibility(
 			user,
 			needsGrok,
 			currentTime,
@@ -298,18 +268,6 @@ export async function processDailyDigestUser(options: {
 			scheduledDate,
 			scheduledMinutes,
 		);
-		if (grokSkip) {
-			stats.skipped++;
-			if (!stageOnly) {
-				await updateUserDailyDigestNextSendAt({
-					user,
-					supabase,
-					logger,
-					currentTime,
-				});
-			}
-			return stats;
-		}
 
 		const emailEnabled = user.email_notifications_enabled;
 		const smsEnabled = shouldSendSms(user);
@@ -327,8 +285,13 @@ export async function processDailyDigestUser(options: {
 			return stats;
 		}
 
+		const includePricesEmail = user.daily_digest_include_prices_email;
+		const includePricesSms = user.daily_digest_include_prices_sms;
+		const needsPrices =
+			(includePricesEmail && emailEnabled) || (includePricesSms && smsEnabled);
+
 		let assetPrices: AssetPriceMap = new Map();
-		if ((emailEnabled || smsEnabled) && tickers.length > 0) {
+		if (needsPrices && tickers.length > 0) {
 			try {
 				assetPrices = await fetchAssetPrices(tickers);
 			} catch (error) {
@@ -341,7 +304,7 @@ export async function processDailyDigestUser(options: {
 			}
 		}
 		let sparklines: SparklineMap = new Map();
-		if (user.show_sparklines && tickers.length > 0) {
+		if (needsPrices && user.show_sparklines && tickers.length > 0) {
 			try {
 				sparklines = await fetchSparklines(tickers);
 			} catch (error) {
@@ -356,13 +319,13 @@ export async function processDailyDigestUser(options: {
 
 		const { getLogoHtml } = await safePrefetchLogos({
 			assets: userAssets,
-			shouldPrefetch: emailEnabled,
+			shouldPrefetch: needsPrices && emailEnabled,
 			supabase,
 			logger,
 			logContext: { action: "daily_run", userId: user.id },
 		});
 
-		if (tickers.length > 0 && (emailEnabled || smsEnabled)) {
+		if (tickers.length > 0 && needsPrices) {
 			const missingTickers = tickers.filter(
 				(ticker) => assetPrices.get(ticker) === null,
 			);
@@ -562,16 +525,18 @@ export async function processDailyDigestUser(options: {
 		const emailExtras = emailEnabled ? buildExtras("email") : null;
 		const smsExtras = smsEnabled ? buildExtras("sms") : null;
 
+		const emailPriceAssets = includePricesEmail ? userAssets : [];
+		const emailPriceMap = includePricesEmail ? assetPrices : new Map();
+		const smsPriceAssets = includePricesSms ? userAssets : [];
+		const smsPriceMap = includePricesSms ? assetPrices : new Map();
 		const hasEmailContent = !!(
-			(userAssets.length > 0 && emailEnabled) ||
+			(includePricesEmail && userAssets.length > 0 && emailEnabled) ||
 			emailExtras?.news ||
 			emailExtras?.rumors ||
 			emailAssetEvents?.hasAnyContent
 		);
 		const hasSmsContent = !!(
-			(userAssets.length > 0 && smsEnabled) ||
-			smsExtras?.news ||
-			smsExtras?.rumors ||
+			(includePricesSms && userAssets.length > 0 && smsEnabled) ||
 			smsAssetEvents?.hasAnyContent
 		);
 
@@ -625,8 +590,8 @@ export async function processDailyDigestUser(options: {
 				hasEmailContent && emailExtras
 					? formatDailyDigestEmail({
 							user,
-							userAssets,
-							assetPrices,
+							userAssets: emailPriceAssets,
+							assetPrices: emailPriceMap,
 							formatPrefs: { show_sparklines: user.show_sparklines },
 							extras: emailExtras,
 							assetEvents: emailAssetEvents,
@@ -640,8 +605,8 @@ export async function processDailyDigestUser(options: {
 				hasSmsContent && smsExtras
 					? {
 							message: await formatDailyDigestSmsMessage({
-								userAssets,
-								assetPrices,
+								userAssets: smsPriceAssets,
+								assetPrices: smsPriceMap,
 								formatPrefs: { show_sparklines: user.show_sparklines },
 								extras: smsExtras,
 								assetEvents: smsAssetEvents,
@@ -696,8 +661,8 @@ export async function processDailyDigestUser(options: {
 				logger,
 				scheduledDate,
 				scheduledMinutes,
-				userAssets,
-				assetPrices,
+				userAssets: emailPriceAssets,
+				assetPrices: emailPriceMap,
 				formatPrefs: {
 					show_sparklines: user.show_sparklines,
 				},
@@ -718,8 +683,8 @@ export async function processDailyDigestUser(options: {
 				logger,
 				scheduledDate,
 				scheduledMinutes,
-				userAssets,
-				assetPrices,
+				userAssets: smsPriceAssets,
+				assetPrices: smsPriceMap,
 				extras: smsExtras,
 				assetEvents: smsAssetEvents,
 				sparklines,

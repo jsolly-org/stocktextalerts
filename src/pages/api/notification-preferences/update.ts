@@ -20,6 +20,8 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	timezone: { type: "timezone" },
 	market_scheduled_asset_price_times: { type: "json_string_array" },
 	daily_digest_time: { type: "time" },
+	daily_digest_include_prices_email: { type: "boolean" },
+	daily_digest_include_prices_sms: { type: "boolean" },
 	daily_digest_include_news_email: { type: "boolean" },
 	daily_digest_include_rumors_email: { type: "boolean" },
 	market_scheduled_asset_price_include_email: { type: "boolean" },
@@ -259,6 +261,10 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 					updatedUser.market_scheduled_asset_price_next_send_at,
 				dismiss_timezone_mismatch_prompts:
 					updatedUser.dismiss_timezone_mismatch_prompts,
+				daily_digest_include_prices_email:
+					updatedUser.daily_digest_include_prices_email,
+				daily_digest_include_prices_sms:
+					updatedUser.daily_digest_include_prices_sms,
 				daily_digest_include_news_email:
 					updatedUser.daily_digest_include_news_email,
 				daily_digest_include_rumors_email:

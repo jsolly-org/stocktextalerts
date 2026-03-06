@@ -71,6 +71,61 @@
 				<div class="flex items-center justify-between gap-3 py-3">
 					<input
 						type="hidden"
+					name="daily_digest_include_prices_email"
+					:value="includePricesEmail ? 'on' : 'off'"
+				/>
+					<input
+						type="hidden"
+					name="daily_digest_include_prices_sms"
+					:value="includePricesSms ? 'on' : 'off'"
+				/>
+				<div class="min-w-0">
+					<div class="flex items-center gap-2">
+						<span
+							id="daily_digest_include_prices_label"
+								class="text-base font-semibold text-heading"
+							>
+								💰 Asset Prices
+							</span>
+						</div>
+						<p
+							id="daily_digest_include_prices_description"
+							class="text-sm text-body-secondary mt-0.5"
+						>
+							Include current prices and change percentages for your tracked assets.
+						</p>
+					</div>
+				<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
+					<label class="inline-flex items-center gap-1.5" :class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'">
+						<input
+							type="checkbox"
+							v-model="includePricesEmail"
+							:disabled="emailOnlyDisabled"
+							class="rounded border-edge-strong text-teal-600 focus:ring-teal-500 h-4 w-4"
+							:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
+							aria-label="Asset Prices Email"
+							aria-describedby="daily_digest_include_prices_description"
+						/>
+						<span class="text-sm text-label">Email</span>
+					</label>
+					<label class="inline-flex items-center gap-1.5" :class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+						<input
+							type="checkbox"
+							v-model="includePricesSms"
+							:disabled="notificationSetupBlocked || !smsReady"
+							class="rounded border-edge-strong text-teal-600 focus:ring-teal-500 h-4 w-4"
+							:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed'"
+							aria-label="Asset Prices SMS"
+							aria-describedby="daily_digest_include_prices_description"
+						/>
+						<span class="text-sm text-label">SMS</span>
+					</label>
+				</div>
+				</div>
+
+				<div class="flex items-center justify-between gap-3 py-3">
+					<input
+						type="hidden"
 					name="daily_digest_include_news_email"
 					:value="includeNewsEmail ? 'on' : 'off'"
 				/>
@@ -378,10 +433,14 @@ const {
 	formRef: extrasFormElement,
 });
 
+const includePricesEmail = ref(user.value.daily_digest_include_prices_email);
+const includePricesSms = ref(user.value.daily_digest_include_prices_sms);
 const includeNewsEmail = ref(user.value.daily_digest_include_news_email);
 const includeRumorsEmail = ref(user.value.daily_digest_include_rumors_email);
 
 const dailyEnabled = computed(() =>
+	includePricesEmail.value ||
+	includePricesSms.value ||
 	includeNewsEmail.value ||
 	includeRumorsEmail.value,
 );
@@ -467,10 +526,22 @@ const nextDailyDeliveryText = computed(() => {
 	return secondsUntil <= 0 ? "is due soon" : `in ${formatCountdownWithSeconds(secondsUntil)}`;
 });
 
-watch([includeNewsEmail, includeRumorsEmail], () => {
+watch([includePricesEmail, includePricesSms, includeNewsEmail, includeRumorsEmail], () => {
 	notifyChange();
 });
 
+watch(
+	() => user.value.daily_digest_include_prices_email,
+	(value) => {
+		includePricesEmail.value = value;
+	},
+);
+watch(
+	() => user.value.daily_digest_include_prices_sms,
+	(value) => {
+		includePricesSms.value = value;
+	},
+);
 watch(
 	() => user.value.daily_digest_include_news_email,
 	(value) => {
@@ -491,6 +562,8 @@ watch(savedData, (newData) => {
 	if (!newData) return;
 	user.value = {
 		...user.value,
+		daily_digest_include_prices_email: newData.daily_digest_include_prices_email,
+		daily_digest_include_prices_sms: newData.daily_digest_include_prices_sms,
 		daily_digest_include_news_email: newData.daily_digest_include_news_email,
 		daily_digest_include_rumors_email: newData.daily_digest_include_rumors_email,
 		daily_digest_time: newData.daily_digest_time,
