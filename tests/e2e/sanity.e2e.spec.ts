@@ -722,12 +722,19 @@ test.describe("sanity tests", () => {
 			await expect(
 				getRow("MSFT")
 					.locator(`img[alt="MSFT logo"]`)
-					.or(getRow("MSFT").getByText("Stock")),
+					.or(getRow("MSFT").getByText("Stock", { exact: true })),
 			).toBeVisible({ timeout: 15_000 });
 
-			await expect(getRow("AAPL").getByText("Stock")).toBeVisible();
+			await expect(
+				getRow("AAPL").getByText("Stock", { exact: true }),
+			).toBeVisible();
 
-			await expect(getRow("GOOGL").getByText("Stock")).toBeVisible({
+			// GOOGL may also have a logo if icon_url is populated
+			await expect(
+				getRow("GOOGL")
+					.locator(`img[alt="GOOGL logo"]`)
+					.or(getRow("GOOGL").getByText("Stock", { exact: true })),
+			).toBeVisible({
 				timeout: 15_000,
 			});
 
