@@ -124,8 +124,9 @@ async function listTickersForType(
 		});
 
 		if (!response.ok) {
-			console.error(`  Failed to list tickers for type ${apiType}: HTTP ${response.status}`);
-			break;
+			throw new Error(
+				`Failed to list tickers for type ${apiType}: HTTP ${response.status}`,
+			);
 		}
 
 		const data = (await response.json()) as Record<string, unknown>;
@@ -191,7 +192,7 @@ async function listAllTickers(): Promise<ListedTicker[]> {
  */
 async function fetchTickerDetails(
 	symbol: string,
-): Promise<{ icon_url: string | null; sector: string | null }> {
+): Promise<{ ok: boolean; icon_url: string | null; sector: string | null }> {
 	const data = await marketDataFetch(
 		`/v3/reference/tickers/${encodeURIComponent(symbol)}`,
 		{},
@@ -199,12 +200,12 @@ async function fetchTickerDetails(
 	);
 
 	if (typeof data !== "object" || data === null) {
-		return { icon_url: null, sector: null };
+		return { ok: false, icon_url: null, sector: null };
 	}
 
 	const results = (data as Record<string, unknown>).results;
 	if (typeof results !== "object" || results === null) {
-		return { icon_url: null, sector: null };
+		return { ok: false, icon_url: null, sector: null };
 	}
 
 	const rec = results as Record<string, unknown>;
@@ -224,7 +225,7 @@ async function fetchTickerDetails(
 		sector = sicCodeToSector(String(sicCode));
 	}
 
-	return { icon_url, sector };
+	return { ok: true, icon_url, sector };
 }
 
 /**
@@ -243,7 +244,11 @@ async function fetchAllDetails(
 		const promises = batch.map(async (t) => {
 			try {
 				const details = await fetchTickerDetails(t.symbol);
-				results.set(t.symbol, details);
+				if (!details.ok) failed++;
+				results.set(t.symbol, {
+					icon_url: details.icon_url,
+					sector: details.sector,
+				});
 			} catch {
 				results.set(t.symbol, { icon_url: null, sector: null });
 				failed++;
@@ -287,9 +292,7 @@ async function main() {
 
 	const stockCount = symbols.filter((s) => s.type === "stock").length;
 	const etfCount = symbols.filter((s) => s.type === "etf").length;
-	const detailsFetched = symbols.filter(
-		(s) => s.icon_url !== null || s.sector !== null,
-	).length;
+	const detailsFetched = symbols.length - failed;
 
 	const output: OutputFile = {
 		metadata: {

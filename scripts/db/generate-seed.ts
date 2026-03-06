@@ -408,16 +408,16 @@ async function main() {
         `${ASSETS_FILE}: assets[${i}] must have string properties 'symbol', 'name', and 'type'. Received: ${JSON.stringify(asset)}`,
       );
     }
-    if (asset.icon_url !== null && asset.icon_url !== undefined && typeof asset.icon_url !== "string") {
+    if (!("icon_url" in asset) || (asset.icon_url !== null && typeof asset.icon_url !== "string")) {
       throw new SeedError(
         "assets_read_failed",
-        `${ASSETS_FILE}: assets[${i}].icon_url must be a string or null. Received: ${typeof asset.icon_url}`,
+        `${ASSETS_FILE}: assets[${i}].icon_url must be present and be a string or null. Received: ${typeof asset.icon_url}`,
       );
     }
-    if (asset.sector !== null && asset.sector !== undefined && typeof asset.sector !== "string") {
+    if (!("sector" in asset) || (asset.sector !== null && typeof asset.sector !== "string")) {
       throw new SeedError(
         "assets_read_failed",
-        `${ASSETS_FILE}: assets[${i}].sector must be a string or null. Received: ${typeof asset.sector}`,
+        `${ASSETS_FILE}: assets[${i}].sector must be present and be a string or null. Received: ${typeof asset.sector}`,
       );
     }
   }
