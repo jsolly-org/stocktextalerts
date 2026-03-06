@@ -89,17 +89,30 @@ function validateNextUrl(nextUrl: string): URL {
 	if (parsed.protocol !== "https:") {
 		throw new Error(`Invalid next_url: must use https (got ${parsed.protocol})`);
 	}
-	if (parsed.hostname !== MASSIVE_ALLOWED_HOST) {
+	if (parsed.host !== MASSIVE_ALLOWED_HOST) {
 		throw new Error(
-			`Invalid next_url: host must be ${MASSIVE_ALLOWED_HOST} (got ${parsed.hostname})`,
+			`Invalid next_url: host must be ${MASSIVE_ALLOWED_HOST} (got ${parsed.host})`,
 		);
 	}
-	if (!parsed.pathname.startsWith(MASSIVE_TICKERS_PATH_PREFIX)) {
+	if (
+		parsed.pathname !== MASSIVE_TICKERS_PATH_PREFIX &&
+		!parsed.pathname.startsWith(`${MASSIVE_TICKERS_PATH_PREFIX}/`)
+	) {
 		throw new Error(
 			`Invalid next_url: path must start with ${MASSIVE_TICKERS_PATH_PREFIX} (got ${parsed.pathname})`,
 		);
 	}
 	return parsed;
+}
+
+/** Parse Retry-After header (seconds) to milliseconds; returns null if missing/invalid. */
+function parseRetryAfterMs(headerValue: string | null): number | null {
+	if (!headerValue) return null;
+	const seconds = Number(headerValue);
+	if (Number.isFinite(seconds) && seconds >= 0) {
+		return seconds * 1_000;
+	}
+	return null;
 }
 
 /**
@@ -162,7 +175,14 @@ async function listTickersForType(
 				);
 			}
 
-			const retryDelay = LIST_BASE_DELAY_MS * 2 ** (attempt - 1);
+			const retryAfterMs =
+				response.status === 429
+					? parseRetryAfterMs(response.headers.get("Retry-After"))
+					: null;
+			const retryDelay =
+				retryAfterMs !== null
+					? Math.min(retryAfterMs, 60_000)
+					: LIST_BASE_DELAY_MS * 2 ** (attempt - 1);
 			console.warn(
 				`  Retrying list for ${apiType} (attempt ${attempt}/${LIST_MAX_RETRIES}, HTTP ${response.status}, waiting ${retryDelay}ms)`,
 			);
@@ -198,10 +218,9 @@ async function listTickersForType(
 			);
 		}
 		if (typeof nextUrl === "string" && nextUrl.length > 0) {
-			validateNextUrl(nextUrl);
-			// next_url doesn't include the API key
-			const separator = nextUrl.includes("?") ? "&" : "?";
-			url = `${nextUrl}${separator}apiKey=${apiKey}`;
+			const nextPageUrl = validateNextUrl(nextUrl);
+			nextPageUrl.searchParams.set("apiKey", apiKey);
+			url = nextPageUrl.toString();
 		} else {
 			url = null;
 		}
