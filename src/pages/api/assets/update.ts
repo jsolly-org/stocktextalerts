@@ -1,6 +1,5 @@
 import type { APIRoute } from "astro";
 import { jsonResponse } from "../../../lib/api/json-response";
-import { ASSET_SYMBOL_MAX_LENGTH } from "../../../lib/constants";
 import { createUserService } from "../../../lib/db";
 import {
 	isAssetsLimitError,
@@ -15,6 +14,7 @@ import {
 	createErrorForLogging,
 	extractErrorMessage,
 } from "../../../lib/logging/errors";
+import { isValidAssetSymbol } from "../../../lib/validation";
 
 const ASSETS_SCHEMA = {
 	tracked_assets: { type: "json_string_array", required: true },
@@ -63,25 +63,12 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	}
 
 	const trackedSymbols = parsed.data.tracked_assets;
-	if (trackedSymbols.length > MAX_TRACKED_ASSETS) {
-		logger.info("Tracked assets limit exceeded", {
-			userId: user.id,
-			count: trackedSymbols.length,
-		});
-		return jsonResponse(400, { ok: false, message: "assets_limit" });
-	}
 
 	// Validate symbol format and length (align with DB and logo/search routes).
-	const VALID_SYMBOL_RE = /^[A-Z0-9.-]+$/u;
 	const normalizedSymbols = trackedSymbols.map((s) =>
 		typeof s === "string" ? s.trim().toUpperCase() : "",
 	);
-	const invalidSymbol = normalizedSymbols.find(
-		(s) =>
-			s.length === 0 ||
-			s.length > ASSET_SYMBOL_MAX_LENGTH ||
-			!VALID_SYMBOL_RE.test(s),
-	);
+	const invalidSymbol = normalizedSymbols.find((s) => !isValidAssetSymbol(s));
 	if (invalidSymbol !== undefined) {
 		logger.info("Tracked assets update rejected: invalid symbol format", {
 			userId: user.id,
@@ -90,6 +77,14 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	}
 
 	const uniqueSymbols = [...new Set(normalizedSymbols.filter(Boolean))];
+	if (uniqueSymbols.length > MAX_TRACKED_ASSETS) {
+		logger.info("Tracked assets limit exceeded", {
+			userId: user.id,
+			count: uniqueSymbols.length,
+		});
+		return jsonResponse(400, { ok: false, message: "assets_limit" });
+	}
+
 	try {
 		const { error } = await supabase.rpc("replace_user_assets", {
 			user_id: user.id,

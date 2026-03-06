@@ -210,8 +210,7 @@ describe("A signed-in user updates their tracked assets.", () => {
 		expect(trackedAssets?.map((s) => s.symbol)).toEqual(["VOO", "VTI"]);
 	});
 
-	it("User submitting duplicate symbols receives validation error.", async () => {
-		expectConsoleError("Failed to update tracked assets");
+	it("User submitting duplicate symbols receives success; duplicates are deduplicated.", async () => {
 		const { response, trackedAssets, payload } = await updateTrackedAssets(
 			["AAPL"],
 			["AAPL", "AAPL", "MSFT"],
@@ -219,11 +218,10 @@ describe("A signed-in user updates their tracked assets.", () => {
 			registerTestUserForCleanup,
 		);
 
-		expect(response.status).toBe(500);
-		expect(payload.ok).toBe(false);
-		expect(payload.message).toBe("failed_to_update_assets");
-		// RPC rolls back on duplicate error — initial assets preserved
-		expect(trackedAssets ?? []).toHaveLength(1);
+		expect(response.status).toBe(200);
+		expect(payload.ok).toBe(true);
+		expect(payload.message).toBe("assets_updated");
+		expect(trackedAssets?.map((s) => s.symbol)).toEqual(["AAPL", "MSFT"]);
 	});
 
 	it("User submitting invalid asset symbol (not in assets table) receives error and assets remain unchanged.", async () => {

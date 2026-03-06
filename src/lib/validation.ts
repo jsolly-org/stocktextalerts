@@ -1,3 +1,20 @@
+import { ASSET_SYMBOL_MAX_LENGTH } from "./constants";
+
+/** Valid asset symbol format (alphanumeric, dot, hyphen). Matches DB constraint. */
+const VALID_SYMBOL_RE = /^[A-Z0-9.-]+$/u;
+
+/**
+ * Returns true if the value is a valid asset symbol (non-empty, within length, valid format).
+ * Caller must normalize (trim, uppercase) before calling.
+ */
+export function isValidAssetSymbol(value: string): boolean {
+	return (
+		value.length > 0 &&
+		value.length <= ASSET_SYMBOL_MAX_LENGTH &&
+		VALID_SYMBOL_RE.test(value)
+	);
+}
+
 /**
  * UUID format validation (RFC 4122 structure).
  * Use before DB lookups to reject malformed input and avoid injection edge cases.
