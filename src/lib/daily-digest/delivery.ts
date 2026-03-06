@@ -260,9 +260,6 @@ export function formatDailyDigestEmail(options: {
 	marketClosureInfo?: MarketClosureInfo | null;
 	getLogoHtml?: (symbol: string) => string | undefined;
 }): { subject: string; text: string; html: string } {
-	const tickers = options.userAssets.map((s) => s.symbol).filter(Boolean);
-	const tickersLine =
-		tickers.length > 0 ? `Tickers: ${tickers.join(", ")}` : "(none)";
 	const urls = buildEmailUrls(
 		options.user.id,
 		options.user.email,
@@ -290,15 +287,13 @@ export function formatDailyDigestEmail(options: {
 		options.sparklines,
 		"\n",
 	);
-	const digestTickerBody = prices || tickersLine;
-	const pricesHtml =
-		buildDailyDigestPricesHtml(
-			options.userAssets,
-			options.assetPrices,
-			options.formatPrefs,
-			options.sparklines,
-			options.getLogoHtml,
-		) || escapeHtml(tickersLine);
+	const pricesHtml = buildDailyDigestPricesHtml(
+		options.userAssets,
+		options.assetPrices,
+		options.formatPrefs,
+		options.sparklines,
+		options.getLogoHtml,
+	);
 	const closureInfo = options.marketClosureInfo ?? null;
 	const marketClosedText = closureInfo
 		? buildDigestMarketClosedText(closureInfo, options.assetPrices)
@@ -310,7 +305,7 @@ export function formatDailyDigestEmail(options: {
 	const sectionsText = [
 		"StockTextAlerts — Your daily digest 🗓️",
 		marketClosedText ?? "",
-		`💰 Your Assets\n${digestTickerBody}`,
+		prices ? `💰 Your Assets\n${prices}` : "",
 		news ? `\n🗞️ News\n${news}` : "",
 		rumors ? `\n🤫 Rumors\n${rumors}` : "",
 		earnings ? `\n📈 Earnings\n${earnings}` : "",
@@ -340,8 +335,12 @@ export function formatDailyDigestEmail(options: {
 	</div>
 	<div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
 		${marketClosedHtml}
-		<h2 style="margin: 0 0 8px; font-size: 18px;">💰 Your Assets</h2>
-		<div style="margin: 0 0 16px; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">${pricesHtml}</div>
+		${
+			pricesHtml
+				? `<h2 style="margin: 0 0 8px; font-size: 18px;">💰 Your Assets</h2>
+		<div style="margin: 0 0 16px; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">${pricesHtml}</div>`
+				: ""
+		}
 		${renderEmailSection("🗞️", "News", news, { showGrokLogo: true, showMassiveLogo: true })}
 		${renderEmailSection("🤫", "Rumors", rumors, { showGrokLogo: true })}
 		${renderEmailSection("📈", "Earnings", earnings)}
