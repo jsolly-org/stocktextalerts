@@ -125,9 +125,21 @@ async function listTickersForType(
 		let data: Record<string, unknown> | undefined;
 
 		for (let attempt = 1; attempt <= LIST_MAX_RETRIES; attempt++) {
-			const response = await fetch(url, {
-				signal: AbortSignal.timeout(30_000),
-			});
+			let response: Response;
+			try {
+				response = await fetch(url, {
+					signal: AbortSignal.timeout(30_000),
+				});
+			} catch (error) {
+				if (attempt === LIST_MAX_RETRIES) throw error;
+
+				const retryDelay = LIST_BASE_DELAY_MS * 2 ** (attempt - 1);
+				console.warn(
+					`  Retrying list for ${apiType} (attempt ${attempt}/${LIST_MAX_RETRIES}, ${error instanceof Error ? error.message : String(error)}, waiting ${retryDelay}ms)`,
+				);
+				await delay(retryDelay);
+				continue;
+			}
 
 			if (response.ok) {
 				data = (await response.json()) as Record<string, unknown>;
@@ -297,7 +309,9 @@ async function main() {
 
 	console.info("\nPass 2: Fetching ticker details (branding + sector)...");
 	const { results: detailsMap, failed } = await fetchAllDetails(tickers);
-	console.info(`  Details fetched: ${detailsMap.size}, failed: ${failed}`);
+	console.info(
+		`  Detail requests succeeded: ${tickers.length - failed}, failed: ${failed}`,
+	);
 
 	// Build output
 	const symbols: OutputSymbol[] = tickers.map((t) => {
@@ -337,7 +351,7 @@ async function main() {
 			"",
 			`Written to ${OUTPUT_FILE}`,
 			`  ${stockCount} stocks + ${etfCount} ETFs = ${symbols.length} total`,
-			`  Details: ${detailsFetched} with data, ${failed} failed`,
+			`  Details: ${detailsFetched} succeeded, ${failed} failed`,
 		].join("\n"),
 	);
 }
