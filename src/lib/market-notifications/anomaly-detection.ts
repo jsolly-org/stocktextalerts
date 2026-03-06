@@ -15,7 +15,7 @@ const UNKNOWN_VOLUME_MULTIPLIER = 0.8;
 Types
 ============= */
 
-interface SignalBreakdown {
+export interface SignalBreakdown {
 	name: string;
 	points: number;
 	maxPoints: number;
@@ -23,7 +23,7 @@ interface SignalBreakdown {
 	detail: string;
 }
 
-interface AnomalyResult {
+export interface AnomalyResult {
 	score: number;
 	signals: SignalBreakdown[];
 	summary: string;
