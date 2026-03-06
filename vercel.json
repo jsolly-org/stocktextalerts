@@ -8,10 +8,6 @@
 		{
 			"path": "/api/asset-events",
 			"schedule": "0 0 * * *"
-		},
-		{
-			"path": "/api/sector-backfill",
-			"schedule": "0 6 * * 0"
 		}
 	]
 }

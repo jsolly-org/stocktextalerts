@@ -8,6 +8,8 @@ type Asset = {
   symbol: string;
   name: string;
   type: string;
+  icon_url: string | null;
+  sector: string | null;
 };
 import { rootLogger } from '../../src/lib/logging';
 import {
@@ -95,7 +97,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, '..', '..');
 
 const ASSETS_FILE = path.join(projectRoot, 'scripts', 'data', 'us-assets.json');
-const BRANDING_FILE = path.join(projectRoot, 'scripts', 'data', 'asset-branding.json');
 const USERS_FILE = path.join(projectRoot, 'scripts', 'data', 'users.json');
 const SEED_FILE = path.join(projectRoot, 'supabase', 'seed.sql');
 
@@ -143,75 +144,28 @@ function isNetworkError(error: unknown): boolean {
   return code ? NETWORK_ERROR_CODES.has(code) : false;
 }
 
-function generateBrandingSql(): string {
-  if (!fs.existsSync(BRANDING_FILE)) return '';
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(fs.readFileSync(BRANDING_FILE, 'utf-8'));
-  } catch (error) {
-    throw new SeedError(
-      "assets_read_failed",
-      `Failed to read ${BRANDING_FILE}: ${error instanceof Error ? error.message : error}`,
-      { cause: error },
-    );
-  }
-
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new SeedError(
-      "assets_read_failed",
-      `${BRANDING_FILE} must contain a JSON object with a 'data' property`,
-    );
-  }
-
-  const data = (parsed as Record<string, unknown>).data;
-  if (data === null || typeof data !== "object" || Array.isArray(data)) {
-    throw new SeedError(
-      "assets_read_failed",
-      `${BRANDING_FILE}: 'data' property must be a { symbol: url } object`,
-    );
-  }
-
-  const entries = Object.entries(data as Record<string, unknown>).filter(
-    ([, url]) => typeof url === "string" && url.trim() !== "",
-  );
-  if (entries.length === 0) return '';
-
-  const updates = entries
-    .map(
-      ([symbol, url]) =>
-        `  WHEN '${escapeSql(symbol)}' THEN '${escapeSql(url as string)}'`,
-    )
-    .join('\n');
-
-  const symbols = entries
-    .map(([symbol]) => `'${escapeSql(symbol)}'`)
-    .join(', ');
-
-  return `
-UPDATE public.assets
-SET icon_url = CASE symbol
-${updates}
-END
-WHERE symbol IN (${symbols}) AND icon_url IS NULL;
-`;
-}
-
 function generateAssetsSql(assets: Asset[]): string {
   if (assets.length === 0) return '';
 
   const values = assets
     .map(
-      (s) =>
-        `('${escapeSql(s.symbol)}', '${escapeSql(s.name)}', '${escapeSql(s.type)}')`
+      (s) => {
+        const iconUrl = s.icon_url ? `'${escapeSql(s.icon_url)}'` : 'NULL';
+        const sector = s.sector ? `'${escapeSql(s.sector)}'` : 'NULL';
+        return `('${escapeSql(s.symbol)}', '${escapeSql(s.name)}', '${escapeSql(s.type)}', ${iconUrl}, ${sector})`;
+      }
     )
     .join(',\n  ');
 
   return `
-INSERT INTO public.assets (symbol, name, type)
+INSERT INTO public.assets (symbol, name, type, icon_url, sector)
 VALUES
   ${values}
-ON CONFLICT (symbol) DO UPDATE SET name = EXCLUDED.name, type = EXCLUDED.type;
+ON CONFLICT (symbol) DO UPDATE SET
+  name = EXCLUDED.name,
+  type = EXCLUDED.type,
+  icon_url = COALESCE(EXCLUDED.icon_url, assets.icon_url),
+  sector = COALESCE(EXCLUDED.sector, assets.sector);
 `;
 }
 
@@ -454,6 +408,18 @@ async function main() {
         `${ASSETS_FILE}: assets[${i}] must have string properties 'symbol', 'name', and 'type'. Received: ${JSON.stringify(asset)}`,
       );
     }
+    if (asset.icon_url !== null && asset.icon_url !== undefined && typeof asset.icon_url !== "string") {
+      throw new SeedError(
+        "assets_read_failed",
+        `${ASSETS_FILE}: assets[${i}].icon_url must be a string or null. Received: ${typeof asset.icon_url}`,
+      );
+    }
+    if (asset.sector !== null && asset.sector !== undefined && typeof asset.sector !== "string") {
+      throw new SeedError(
+        "assets_read_failed",
+        `${ASSETS_FILE}: assets[${i}].sector must be a string or null. Received: ${typeof asset.sector}`,
+      );
+    }
   }
 
   const assets = assetsRaw as Asset[];
@@ -497,13 +463,11 @@ async function main() {
 
   // 3. Generate SQL
   const assetsSql = generateAssetsSql(assets);
-  const brandingSql = generateBrandingSql();
   const usersSql = await generateUsersSql(users, supabase);
 
   const sections = [
     `-- 1. Assets\n${assetsSql.trimEnd()}`.trimEnd(),
-    brandingSql ? `-- 2. Asset branding (icon_url)\n${brandingSql.trimEnd()}`.trimEnd() : '',
-    `-- ${brandingSql ? '3' : '2'}. Users (auth + public profile + tracked assets)\n${usersSql.trimEnd()}`.trimEnd(),
+    `-- 2. Users (auth + public profile + tracked assets)\n${usersSql.trimEnd()}`.trimEnd(),
   ].filter(Boolean);
 
   const fullSql = `/*
