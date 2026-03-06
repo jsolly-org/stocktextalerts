@@ -21,6 +21,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { marketDataFetch } from "../../src/lib/providers/massive";
 import { sicCodeToSector } from "../../src/lib/providers/sector-mapping";
@@ -44,6 +45,8 @@ const TICKER_TYPES: Array<{ apiType: string; normalizedType: "stock" | "etf" }> 
 ];
 
 const CONCURRENCY = 20;
+const LIST_MAX_RETRIES = 3;
+const LIST_BASE_DELAY_MS = 2_000;
 
 interface ListedTicker {
 	symbol: string;
@@ -119,18 +122,33 @@ async function listTickersForType(
 		`${MASSIVE_BASE_URL}/v3/reference/tickers?market=stocks&active=true&limit=1000&type=${apiType}&apiKey=${apiKey}`;
 
 	while (url) {
-		const response = await fetch(url, {
-			signal: AbortSignal.timeout(30_000),
-		});
+		let data: Record<string, unknown> | undefined;
 
-		if (!response.ok) {
-			throw new Error(
-				`Failed to list tickers for type ${apiType}: HTTP ${response.status}`,
+		for (let attempt = 1; attempt <= LIST_MAX_RETRIES; attempt++) {
+			const response = await fetch(url, {
+				signal: AbortSignal.timeout(30_000),
+			});
+
+			if (response.ok) {
+				data = (await response.json()) as Record<string, unknown>;
+				break;
+			}
+
+			const isRetryable = response.status === 429 || response.status >= 500;
+			if (!isRetryable || attempt === LIST_MAX_RETRIES) {
+				throw new Error(
+					`Failed to list tickers for type ${apiType}: HTTP ${response.status}`,
+				);
+			}
+
+			const retryDelay = LIST_BASE_DELAY_MS * 2 ** (attempt - 1);
+			console.warn(
+				`  Retrying list for ${apiType} (attempt ${attempt}/${LIST_MAX_RETRIES}, HTTP ${response.status}, waiting ${retryDelay}ms)`,
 			);
+			await delay(retryDelay);
 		}
 
-		const data = (await response.json()) as Record<string, unknown>;
-		const results = data.results;
+		const results = data!.results;
 
 		if (Array.isArray(results)) {
 			for (const item of results) {
@@ -148,7 +166,7 @@ async function listTickersForType(
 		}
 
 		// Follow pagination (validate next_url to prevent secret exfiltration)
-		const nextUrl = data.next_url;
+		const nextUrl = data!.next_url;
 		if (typeof nextUrl === "string" && nextUrl.length > 0) {
 			validateNextUrl(nextUrl);
 			// next_url doesn't include the API key
@@ -175,12 +193,18 @@ async function listAllTickers(): Promise<ListedTicker[]> {
 		allTickers.push(...tickers);
 	}
 
-	// Deduplicate by symbol (keep first occurrence)
-	const seen = new Set<string>();
+	// Deduplicate by symbol — keep the first occurrence (type ordering follows TICKER_TYPES).
+	// If a symbol appears in multiple API types (e.g., listed as both CS and ETF),
+	// the first match wins. This is rare in practice.
+	const seen = new Map<string, string>();
 	const unique: ListedTicker[] = [];
 	for (const t of allTickers) {
-		if (seen.has(t.symbol)) continue;
-		seen.add(t.symbol);
+		const existingType = seen.get(t.symbol);
+		if (existingType) {
+			console.warn(`  Duplicate symbol ${t.symbol}: keeping type "${existingType}", skipping "${t.type}"`);
+			continue;
+		}
+		seen.set(t.symbol, t.type);
 		unique.push(t);
 	}
 
