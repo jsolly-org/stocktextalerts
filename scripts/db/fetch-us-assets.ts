@@ -118,10 +118,19 @@ async function listTickersForType(
 	}
 
 	const tickers: ListedTicker[] = [];
+	const seenPageUrls = new Set<string>();
 	let url: string | null =
 		`${MASSIVE_BASE_URL}/v3/reference/tickers?market=stocks&active=true&limit=1000&type=${apiType}&apiKey=${apiKey}`;
 
 	while (url) {
+		const pageUrl = new URL(url);
+		pageUrl.searchParams.delete("apiKey");
+		const canonicalPageUrl = pageUrl.toString();
+		if (seenPageUrls.has(canonicalPageUrl)) {
+			throw new Error(`Repeated ticker pagination URL for type ${apiType}`);
+		}
+		seenPageUrls.add(canonicalPageUrl);
+
 		let data: Record<string, unknown> | undefined;
 
 		for (let attempt = 1; attempt <= LIST_MAX_RETRIES; attempt++) {
@@ -162,23 +171,32 @@ async function listTickersForType(
 
 		const results = data!.results;
 
-		if (Array.isArray(results)) {
-			for (const item of results) {
-				if (typeof item !== "object" || item === null) continue;
-				const rec = item as Record<string, unknown>;
-				const symbol = typeof rec.ticker === "string" ? rec.ticker.trim().toUpperCase() : "";
-				const name = typeof rec.name === "string" ? rec.name.trim() : "";
+		if (!Array.isArray(results)) {
+			throw new Error(
+				`Unexpected ticker list payload for type ${apiType}: missing results[]`,
+			);
+		}
+		for (const item of results) {
+			if (typeof item !== "object" || item === null) continue;
+			const rec = item as Record<string, unknown>;
+			const symbol =
+				typeof rec.ticker === "string" ? rec.ticker.trim().toUpperCase() : "";
+			const name = typeof rec.name === "string" ? rec.name.trim() : "";
 
-				// Skip symbols with dots (e.g., BRK.A) and empty names
-				if (!symbol || symbol.includes(".")) continue;
-				if (!name) continue;
+			// Skip symbols with dots (e.g., BRK.A) and empty names
+			if (!symbol || symbol.includes(".")) continue;
+			if (!name) continue;
 
-				tickers.push({ symbol, name, type: normalizedType });
-			}
+			tickers.push({ symbol, name, type: normalizedType });
 		}
 
 		// Follow pagination (validate next_url to prevent secret exfiltration)
 		const nextUrl = data!.next_url;
+		if (nextUrl != null && typeof nextUrl !== "string") {
+			throw new Error(
+				`Unexpected ticker list payload for type ${apiType}: invalid next_url`,
+			);
+		}
 		if (typeof nextUrl === "string" && nextUrl.length > 0) {
 			validateNextUrl(nextUrl);
 			// next_url doesn't include the API key
@@ -309,6 +327,11 @@ async function main() {
 
 	console.info("\nPass 2: Fetching ticker details (branding + sector)...");
 	const { results: detailsMap, failed } = await fetchAllDetails(tickers);
+	if (failed > 0) {
+		throw new Error(
+			`Failed to fetch details for ${failed} tickers; aborting write to avoid partial enrichment.`,
+		);
+	}
 	console.info(
 		`  Detail requests succeeded: ${tickers.length - failed}, failed: ${failed}`,
 	);
