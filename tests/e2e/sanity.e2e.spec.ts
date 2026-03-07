@@ -1136,6 +1136,6 @@ test.describe("sanity tests", () => {
 			throw new Error(`Failed to validate START state: ${startError.message}`);
 		}
 		expect(afterStart.sms_opted_out).toBe(false);
-		expect(afterStart.sms_notifications_enabled).toBe(false);
+		expect(afterStart.sms_notifications_enabled).toBe(true);
 	});
 });
