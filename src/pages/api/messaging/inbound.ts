@@ -112,6 +112,15 @@ export const POST: APIRoute = async ({ url, request, locals }) => {
 
 		const webhookUrl = reconstructUrl(request, url);
 
+		logger.info("Inbound SMS signature validation context", {
+			webhookUrl,
+			requestUrl: request.url,
+			forwardedProto: request.headers.get("x-forwarded-proto"),
+			forwardedHost: request.headers.get("x-forwarded-host"),
+			host: request.headers.get("host"),
+			paramKeys: Object.keys(params),
+		});
+
 		const result = await handleInboundSms(
 			{
 				url: webhookUrl,

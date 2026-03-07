@@ -93,6 +93,11 @@ export async function handleInboundSms(
 	);
 
 	if (!isValid) {
+		rootLogger.warn("Twilio signature validation failed", {
+			url: request.url,
+			signatureLength: request.signature.length,
+			paramKeys: Object.keys(request.params),
+		});
 		return {
 			status: 403,
 			body: "Invalid signature",
