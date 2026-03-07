@@ -115,24 +115,8 @@ export async function buildAssetEventsContent(options: {
 		})),
 	];
 
-	// 3. Filter by user's per-type channel-specific toggles
-	const filteredEvents = rawEvents.filter((event) => {
-		if (
-			event.event_type === "earnings" ||
-			event.event_type === "dividend" ||
-			event.event_type === "split"
-		) {
-			return channel === "email"
-				? user.asset_events_include_calendar_email
-				: user.asset_events_include_calendar_sms;
-		}
-		if (event.event_type === "ipo") {
-			return channel === "email"
-				? user.asset_events_include_ipo_email
-				: user.asset_events_include_ipo_sms;
-		}
-		return false;
-	});
+	// Events already filtered at query time via includeCalendar/includeIpos
+	const filteredEvents = rawEvents;
 
 	// 4. Compute daysUntil for each event
 	const eventsWithDaysUntil = filteredEvents.map((event) => ({
