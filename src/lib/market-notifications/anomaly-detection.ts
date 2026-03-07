@@ -127,8 +127,7 @@ function computeExcessPriceMoveWithMetrics(
 		}
 		normalizationBase = Math.max(intradayRangePct, RANGE_FLOOR_PCT);
 	}
-	const normalizedMove =
-		excessMovePct / Math.max(normalizationBase, RANGE_FLOOR_PCT);
+	const normalizedMove = excessMovePct / normalizationBase;
 
 	const priceRatio = Math.min(normalizedMove / 2.0, 1.0);
 	const points = Math.round(priceRatio * maxPoints);
