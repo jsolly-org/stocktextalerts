@@ -107,6 +107,11 @@ export const POST: APIRoute = async ({ url, request, locals }) => {
 
 		const webhookUrl = buildWebhookUrl(url);
 
+		logger.info("Webhook URL debug", {
+			webhookUrl,
+			siteUrl: getSiteUrl(),
+		});
+
 		const result = await handleInboundSms(
 			{
 				url: webhookUrl,
