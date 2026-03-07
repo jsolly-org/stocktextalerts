@@ -22,6 +22,7 @@ Computation
 
 /** Compute 20-day average daily volume from OHLCV bars. */
 export function computeADV(bars: DailyOHLCVBar[]): number | null {
+	if (bars.length < 20) return null;
 	const volumes = bars
 		.map((b) => b.volume)
 		.filter((v) => Number.isFinite(v) && v > 0);
@@ -32,7 +33,7 @@ export function computeADV(bars: DailyOHLCVBar[]): number | null {
 
 /** Compute 14-day Average True Range (Wilder's method, SMA variant). */
 export function computeATR(bars: DailyOHLCVBar[]): number | null {
-	if (bars.length < 2) return null;
+	if (bars.length < 15) return null;
 
 	const trueRanges: number[] = [];
 	for (let i = 1; i < bars.length; i++) {
@@ -47,9 +48,7 @@ export function computeATR(bars: DailyOHLCVBar[]): number | null {
 		trueRanges.push(tr);
 	}
 
-	// Need at least 14 TR values for a proper ATR-14
-	const period = Math.min(14, trueRanges.length);
-	const recent = trueRanges.slice(-period);
+	const recent = trueRanges.slice(-14);
 	return recent.reduce((sum, tr) => sum + tr, 0) / recent.length;
 }
 
