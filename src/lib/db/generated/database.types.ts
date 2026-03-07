@@ -145,6 +145,27 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_asset_stats: {
+        Row: {
+          atr_14: number | null
+          avg_volume_20d: number | null
+          computed_at: string
+          symbol: string
+        }
+        Insert: {
+          atr_14?: number | null
+          avg_volume_20d?: number | null
+          computed_at?: string
+          symbol: string
+        }
+        Update: {
+          atr_14?: number | null
+          avg_volume_20d?: number | null
+          computed_at?: string
+          symbol?: string
+        }
+        Relationships: []
+      }
       market_asset_price_alert_cooldowns: {
         Row: {
           alerts_sent_count: number

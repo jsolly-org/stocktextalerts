@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-	computeAnomalyScore,
-	computePriceOnlyScore,
-} from "../../../src/lib/market-notifications/anomaly-detection";
+import { computeAnomalyScore } from "../../../src/lib/market-notifications/anomaly-detection";
 import type { AssetSnapshot } from "../../../src/lib/market-notifications/snapshot-store";
 import type { ExtendedAssetQuote } from "../../../src/lib/providers/price-fetcher";
 
@@ -48,25 +45,11 @@ function makeSnapshots(count: number, basePrice = 187.42): AssetSnapshot[] {
 	);
 }
 
-function makeNewsItem(
-	overrides: Partial<{ headline: string; datetime: number }> = {},
-) {
-	return {
-		headline:
-			overrides.headline ?? "Apple announces new AI features for iPhone",
-		summary: "",
-		datetime: overrides.datetime ?? Date.now() / 1000,
-		url: "https://reuters.com/technology/apple-ai-features",
-		source: "Reuters",
-	};
-}
-
 describe("computeAnomalyScore", () => {
 	it("AAPL with only 3 snapshots collected so far returns insufficient data", () => {
 		const result = computeAnomalyScore({
 			currentQuote: makeQuote(),
 			snapshots: makeSnapshots(3),
-			news: null,
 			hasEarningsNearby: false,
 		});
 
@@ -75,74 +58,68 @@ describe("computeAnomalyScore", () => {
 	});
 
 	it("MRNA 5% move on a volatile 8% range day does NOT trigger (volatility normalization)", () => {
-		// Biotech like MRNA swings wide intraday — a 5% move within an 8% range is normal
 		const snapshots = makeSnapshots(10, 34.8).map((s) => ({
 			...s,
 			symbol: "MRNA",
-			dayHigh: 37.58, // 8% range above low
+			dayHigh: 37.58,
 			dayLow: 34.8,
 		}));
 
 		const result = computeAnomalyScore({
 			currentQuote: makeQuote({
-				price: 36.54, // ~5% above snapshot base
+				price: 36.54,
 				dayHigh: 37.58,
 				dayLow: 34.8,
 				volume: null,
 			}),
 			snapshots,
-			news: null,
 			hasEarningsNearby: false,
 		});
 
-		// Low score because the move is small relative to the stock's own intraday range
-		expect(result.score).toBeLessThan(25);
+		expect(result.score).toBeLessThan(30);
 	});
 
 	it("AAPL 2% move on a tight 1.5% range day scores high (normalization amplifies)", () => {
-		// AAPL typically has narrow intraday range — a 2% move is unusual
 		const snapshots = makeSnapshots(10, 187.42).map((s) => ({
 			...s,
-			dayHigh: 190.23, // ~1.5% range
+			dayHigh: 190.23,
 			dayLow: 187.42,
 		}));
 
 		const result = computeAnomalyScore({
 			currentQuote: makeQuote({
-				price: 191.17, // ~2% above snapshot base
+				price: 191.17,
 				dayHigh: 191.17,
 				dayLow: 187.42,
 				volume: null,
 			}),
 			snapshots,
-			news: null,
 			hasEarningsNearby: false,
 		});
 
-		const priceSignal = result.signals.find((s) => s.name === "price_move");
-		// 2% move on 2% range → normalized 1.0 → ratio 0.5 → ~22 raw pts, vol 0.8x → ~18
+		const priceSignal = result.signals.find(
+			(s) => s.name === "excess_price_move",
+		);
 		expect(priceSignal?.points).toBeGreaterThan(0);
 	});
 
 	it("NVDA surge on high volume scores higher than same move on low volume", () => {
-		// NVDA averages ~45M shares/day; compare 1.5x spike vs 0.5x dry-up
 		const snapshots = makeSnapshots(10, 131.25).map((s) => ({
 			...s,
 			symbol: "NVDA",
 			volume: 45_000_000,
-			dayHigh: 133.18, // ~1.5% range
+			dayHigh: 133.18,
 			dayLow: 130.5,
 		}));
 
 		const highVolResult = computeAnomalyScore({
 			currentQuote: makeQuote({
-				price: 135.17, // ~3% move
+				price: 135.17,
 				dayHigh: 135.17,
 				dayLow: 130.5,
-				volume: 67_500_000, // 1.5x median
+				volume: 67_500_000,
 			}),
 			snapshots,
-			news: null,
 			hasEarningsNearby: false,
 		});
 
@@ -151,24 +128,17 @@ describe("computeAnomalyScore", () => {
 				price: 135.17,
 				dayHigh: 135.17,
 				dayLow: 130.5,
-				volume: 22_500_000, // 0.5x median
+				volume: 22_500_000,
 			}),
 			snapshots,
-			news: null,
 			hasEarningsNearby: false,
 		});
 
-		const highVolPrice = highVolResult.signals.find(
-			(s) => s.name === "price_move",
-		);
-		const lowVolPrice = lowVolResult.signals.find(
-			(s) => s.name === "price_move",
-		);
-		expect(highVolPrice?.points).toBeGreaterThan(lowVolPrice?.points);
+		// High volume should produce a higher total score (both price + volume signals)
+		expect(highVolResult.score).toBeGreaterThan(lowVolResult.score);
 	});
 
-	it("TSLA 10% crash with heavy volume still caps price-only score at 60", () => {
-		// Even an extreme TSLA selloff can't trigger alerts on price alone — needs confirming signals
+	it("TSLA 10% crash with heavy volume produces high score via price + volume + breakout", () => {
 		const snapshots = makeSnapshots(10, 248.5).map((s) => ({
 			...s,
 			symbol: "TSLA",
@@ -179,28 +149,24 @@ describe("computeAnomalyScore", () => {
 
 		const result = computeAnomalyScore({
 			currentQuote: makeQuote({
-				price: 223.65, // ~10% drop
+				price: 223.65,
 				dayHigh: 251.0,
 				dayLow: 223.65,
-				volume: 160_000_000, // 2x median
+				volume: 160_000_000,
 			}),
 			snapshots,
-			news: null,
 			hasEarningsNearby: false,
 		});
 
-		const priceSignal = result.signals.find((s) => s.name === "price_move");
-		const breakoutSignal = result.signals.find(
-			(s) => s.name === "range_breakout",
+		// Should score high with price, volume, and breakout all contributing
+		expect(result.score).toBeGreaterThanOrEqual(45);
+		const volumeSignal = result.signals.find(
+			(s) => s.name === "volume_confirmation",
 		);
-		const priceOnlyTotal =
-			(priceSignal?.points ?? 0) + (breakoutSignal?.points ?? 0);
-
-		expect(priceOnlyTotal).toBeLessThanOrEqual(60);
+		expect(volumeSignal?.points).toBeGreaterThan(0);
 	});
 
-	it("MSFT drops 6% with earnings tomorrow and 3 headlines triggers even at very_large threshold", () => {
-		// Multi-signal convergence: price crash + breaking news + upcoming earnings
+	it("MSFT drops 6% with earnings tomorrow triggers even at extreme threshold", () => {
 		const snapshots = makeSnapshots(10, 415.3).map((s) => ({
 			...s,
 			symbol: "MSFT",
@@ -211,79 +177,20 @@ describe("computeAnomalyScore", () => {
 
 		const result = computeAnomalyScore({
 			currentQuote: makeQuote({
-				price: 390.38, // ~6% drop
+				price: 390.38,
 				dayHigh: 419.45,
 				dayLow: 390.38,
-				volume: 44_000_000, // 2x median
+				volume: 44_000_000,
 			}),
 			snapshots,
-			news: [
-				makeNewsItem({
-					headline: "Microsoft cloud revenue misses expectations",
-				}),
-				makeNewsItem({
-					headline: "Azure growth slows amid enterprise spending pullback",
-				}),
-				makeNewsItem({
-					headline: "Analysts downgrade MSFT ahead of earnings call",
-				}),
-			],
 			hasEarningsNearby: true,
 		});
 
-		expect(result.score).toBeGreaterThanOrEqual(80);
-	});
-
-	it("AAPL morning headline published 12 hours ago scores 10 pts for stale news", () => {
-		const snapshots = makeSnapshots(10);
-		const oldTimestamp = Date.now() / 1000 - 12 * 60 * 60; // 12 hours ago
-
-		const result = computeAnomalyScore({
-			currentQuote: makeQuote(),
-			snapshots,
-			news: [
-				makeNewsItem({
-					headline: "Apple supplier warns of component shortage",
-					datetime: oldTimestamp,
-				}),
-			],
-			hasEarningsNearby: false,
-		});
-
-		const newsSignal = result.signals.find((s) => s.name === "breaking_news");
-		expect(newsSignal?.points).toBe(10);
-	});
-
-	it("3 recent NVDA headlines within 30 minutes scores max 25 pts for breaking news", () => {
-		const snapshots = makeSnapshots(10);
-		const recentTimestamp = Date.now() / 1000 - 30 * 60; // 30 min ago
-
-		const result = computeAnomalyScore({
-			currentQuote: makeQuote(),
-			snapshots,
-			news: [
-				makeNewsItem({
-					headline: "NVIDIA unveils next-gen GPU architecture",
-					datetime: recentTimestamp,
-				}),
-				makeNewsItem({
-					headline: "Jensen Huang keynote drives NVDA to session highs",
-					datetime: recentTimestamp,
-				}),
-				makeNewsItem({
-					headline: "Analysts raise NVDA price targets after product launch",
-					datetime: recentTimestamp,
-				}),
-			],
-			hasEarningsNearby: false,
-		});
-
-		const newsSignal = result.signals.find((s) => s.name === "breaking_news");
-		expect(newsSignal?.points).toBe(25);
+		// Price + volume + breakout + earnings should easily exceed 60
+		expect(result.score).toBeGreaterThanOrEqual(60);
 	});
 
 	it("SPY small breakout 0.5% above day high scores 1 pt, 2%+ breakout scores 15 pts", () => {
-		// Small breakout: SPY edges just above session high
 		const snapshotsSmall = makeSnapshots(10, 518.3).map((s) => ({
 			...s,
 			symbol: "SPY",
@@ -293,13 +200,12 @@ describe("computeAnomalyScore", () => {
 
 		const smallResult = computeAnomalyScore({
 			currentQuote: makeQuote({
-				price: 520.92, // ~0.5% above day high
+				price: 520.92,
 				dayHigh: 520.92,
 				dayLow: 508.15,
 				volume: null,
 			}),
 			snapshots: snapshotsSmall,
-			news: null,
 			hasEarningsNearby: false,
 		});
 		const smallBreakout = smallResult.signals.find(
@@ -307,7 +213,6 @@ describe("computeAnomalyScore", () => {
 		);
 		expect(smallBreakout?.points).toBe(1);
 
-		// Large breakout: SPY surges 2%+ above session high
 		const snapshotsLarge = makeSnapshots(10, 518.3).map((s) => ({
 			...s,
 			symbol: "SPY",
@@ -317,13 +222,12 @@ describe("computeAnomalyScore", () => {
 
 		const largeResult = computeAnomalyScore({
 			currentQuote: makeQuote({
-				price: 528.67, // ~2% above day high
+				price: 528.67,
 				dayHigh: 528.67,
 				dayLow: 508.15,
 				volume: null,
 			}),
 			snapshots: snapshotsLarge,
-			news: null,
 			hasEarningsNearby: false,
 		});
 		const largeBreakout = largeResult.signals.find(
@@ -333,7 +237,6 @@ describe("computeAnomalyScore", () => {
 	});
 
 	it("GOOGL 4% drop scores lower when Technology sector also dropped 3%", () => {
-		// When the whole sector is down, the stock's move is less anomalous
 		const snapshots = makeSnapshots(10, 176.85).map((s) => ({
 			...s,
 			symbol: "GOOGL",
@@ -343,34 +246,30 @@ describe("computeAnomalyScore", () => {
 		}));
 
 		const quote = makeQuote({
-			price: 169.78, // ~4% drop
+			price: 169.78,
 			changePercent: -4.0,
 			dayHigh: 178.62,
 			dayLow: 169.78,
-			volume: 42_000_000, // 1.5x median
+			volume: 42_000_000,
 		});
 
 		const withoutBenchmark = computeAnomalyScore({
 			currentQuote: quote,
 			snapshots,
-			news: null,
 			hasEarningsNearby: false,
 		});
 
 		const withSectorDown = computeAnomalyScore({
 			currentQuote: quote,
 			snapshots,
-			news: null,
 			hasEarningsNearby: false,
-			benchmarkMovePct: -3.0, // sector dropped 3% too
+			benchmarkMovePct: -3.0,
 		});
 
-		// Score should be lower when sector explains much of the move
 		expect(withSectorDown.score).toBeLessThan(withoutBenchmark.score);
 	});
 
 	it("AAPL 3% drop scores the same when benchmark moved in opposite direction", () => {
-		// Stock drops while market rallies — not dampened, it's contrarian
 		const snapshots = makeSnapshots(10, 187.42).map((s) => ({
 			...s,
 			dayHigh: 189.29,
@@ -378,7 +277,7 @@ describe("computeAnomalyScore", () => {
 		}));
 
 		const quote = makeQuote({
-			price: 181.79, // ~3% drop
+			price: 181.79,
 			changePercent: -3.0,
 			dayHigh: 189.29,
 			dayLow: 181.79,
@@ -388,19 +287,16 @@ describe("computeAnomalyScore", () => {
 		const withoutBenchmark = computeAnomalyScore({
 			currentQuote: quote,
 			snapshots,
-			news: null,
 			hasEarningsNearby: false,
 		});
 
 		const withMarketUp = computeAnomalyScore({
 			currentQuote: quote,
 			snapshots,
-			news: null,
 			hasEarningsNearby: false,
-			benchmarkMovePct: 1.5, // market is UP while stock is DOWN
+			benchmarkMovePct: 1.5,
 		});
 
-		// No dampening when directions differ
 		expect(withMarketUp.score).toBe(withoutBenchmark.score);
 	});
 
@@ -408,7 +304,6 @@ describe("computeAnomalyScore", () => {
 		const result = computeAnomalyScore({
 			currentQuote: makeQuote(),
 			snapshots: makeSnapshots(10),
-			news: null,
 			hasEarningsNearby: true,
 		});
 
@@ -417,36 +312,272 @@ describe("computeAnomalyScore", () => {
 		);
 		expect(earningsSignal?.points).toBe(15);
 	});
-});
 
-describe("computePriceOnlyScore", () => {
-	it("AAPL 3% move with no news still produces a non-zero price score", () => {
-		const snapshots = makeSnapshots(10, 187.42).map((s) => ({
+	// --- New tests for the overhaul ---
+
+	it("Volume signal: 3x RVOL surge with price move = notable points; surge with no move = 0", () => {
+		const snapshots = makeSnapshots(10, 100).map((s) => ({
 			...s,
-			dayHigh: 189.29, // ~1% range
-			dayLow: 187.42,
+			volume: 1_000_000,
+			dayHigh: 101,
+			dayLow: 99,
 		}));
-		const score = computePriceOnlyScore({
+
+		// With price move (3% move, 3x volume)
+		const withMove = computeAnomalyScore({
 			currentQuote: makeQuote({
-				price: 193.04, // ~3% move
-				dayHigh: 193.04,
-				dayLow: 187.42,
+				price: 103,
+				dayHigh: 103,
+				dayLow: 99,
+				volume: 3_000_000,
+			}),
+			snapshots,
+			hasEarningsNearby: false,
+			avgVolume20d: 1_000_000,
+		});
+		const volSignal = withMove.signals.find(
+			(s) => s.name === "volume_confirmation",
+		);
+		expect(volSignal?.points).toBeGreaterThan(5);
+
+		// No price move (same price, 3x volume)
+		const noMove = computeAnomalyScore({
+			currentQuote: makeQuote({
+				price: 100.1,
+				dayHigh: 101,
+				dayLow: 99,
+				volume: 3_000_000,
+			}),
+			snapshots,
+			hasEarningsNearby: false,
+			avgVolume20d: 1_000_000,
+		});
+		const noMoveVol = noMove.signals.find(
+			(s) => s.name === "volume_confirmation",
+		);
+		expect(noMoveVol?.points).toBe(0);
+	});
+
+	it("ATR normalization: 5% move on stock with 8% ATR scores low; 2% move on 1% ATR scores high", () => {
+		// High volatility stock: 5% move but ATR is 8%
+		const highVolSnapshots = makeSnapshots(10, 100).map((s) => ({
+			...s,
+			dayHigh: 108,
+			dayLow: 100,
+		}));
+		const highVolResult = computeAnomalyScore({
+			currentQuote: makeQuote({
+				price: 105,
+				dayHigh: 108,
+				dayLow: 100,
+				volume: null,
+			}),
+			snapshots: highVolSnapshots,
+			hasEarningsNearby: false,
+			atr14: 8, // $8 ATR on $100 stock = 8%
+		});
+
+		// Low volatility stock: 2% move but ATR is 1%
+		const lowVolSnapshots = makeSnapshots(10, 100).map((s) => ({
+			...s,
+			dayHigh: 101,
+			dayLow: 99.5,
+		}));
+		const lowVolResult = computeAnomalyScore({
+			currentQuote: makeQuote({
+				price: 102,
+				dayHigh: 102,
+				dayLow: 99.5,
+				volume: null,
+			}),
+			snapshots: lowVolSnapshots,
+			hasEarningsNearby: false,
+			atr14: 1, // $1 ATR on $100 stock = 1%
+		});
+
+		const highVolPrice = highVolResult.signals.find(
+			(s) => s.name === "excess_price_move",
+		);
+		const lowVolPrice = lowVolResult.signals.find(
+			(s) => s.name === "excess_price_move",
+		);
+		// 2% move on 1% ATR stock should score higher than 5% move on 8% ATR stock
+		expect(lowVolPrice?.points).toBeGreaterThan(highVolPrice?.points ?? 0);
+	});
+
+	it("Excess move: GOOGL -4% with sector -3% scores much lower than GOOGL -4% sector flat", () => {
+		const snapshots = makeSnapshots(10, 176.85).map((s) => ({
+			...s,
+			symbol: "GOOGL",
+			dayHigh: 178.62,
+			dayLow: 175.1,
+			volume: 28_000_000,
+		}));
+
+		const quote = makeQuote({
+			price: 169.78,
+			dayHigh: 178.62,
+			dayLow: 169.78,
+			volume: 42_000_000,
+		});
+
+		const sectorFlat = computeAnomalyScore({
+			currentQuote: quote,
+			snapshots,
+			hasEarningsNearby: false,
+			benchmarkMovePct: 0,
+		});
+
+		const sectorDown3 = computeAnomalyScore({
+			currentQuote: quote,
+			snapshots,
+			hasEarningsNearby: false,
+			benchmarkMovePct: -3.0,
+		});
+
+		const priceFlat = sectorFlat.signals.find(
+			(s) => s.name === "excess_price_move",
+		);
+		const priceDown = sectorDown3.signals.find(
+			(s) => s.name === "excess_price_move",
+		);
+		expect(priceFlat?.points).toBeGreaterThan(priceDown?.points ?? 0);
+	});
+
+	it("V-reversal: scanning all snapshots catches moves that oldest/latest would miss", () => {
+		// Stock was at 100, dipped to 90 mid-window, now back at 100
+		const snapshots: AssetSnapshot[] = [
+			makeSnapshot({ price: 100 }, 60), // oldest
+			makeSnapshot({ price: 98 }, 50),
+			makeSnapshot({ price: 95 }, 40),
+			makeSnapshot({ price: 90 }, 30), // trough
+			makeSnapshot({ price: 93 }, 20),
+			makeSnapshot({ price: 96 }, 10),
+			makeSnapshot({ price: 99 }, 5), // latest
+		];
+
+		// Current price is 100 (same as oldest → sustained move = 0%)
+		// But max move from trough (90) = 11.1%
+		const result = computeAnomalyScore({
+			currentQuote: makeQuote({
+				price: 100,
+				dayHigh: 101,
+				dayLow: 89,
 				volume: null,
 			}),
 			snapshots,
 			hasEarningsNearby: false,
 		});
 
-		expect(score).toBeGreaterThan(0);
+		const priceSignal = result.signals.find(
+			(s) => s.name === "excess_price_move",
+		);
+		// Should detect the V-reversal (move from 90→100 = 11.1%)
+		expect(priceSignal?.points).toBeGreaterThan(10);
 	});
 
-	it("AAPL with only 2 snapshots returns 0 due to insufficient data", () => {
-		const score = computePriceOnlyScore({
-			currentQuote: makeQuote(),
-			snapshots: makeSnapshots(2),
+	it("Graceful degradation: no daily stats = uses snapshot-based fallbacks", () => {
+		const snapshots = makeSnapshots(10, 100).map((s) => ({
+			...s,
+			volume: 1_000_000,
+			dayHigh: 102,
+			dayLow: 98,
+		}));
+
+		// Without daily stats
+		const withoutStats = computeAnomalyScore({
+			currentQuote: makeQuote({
+				price: 105,
+				dayHigh: 105,
+				dayLow: 98,
+				volume: 2_000_000,
+			}),
+			snapshots,
 			hasEarningsNearby: false,
 		});
 
-		expect(score).toBe(0);
+		// With daily stats
+		const withStats = computeAnomalyScore({
+			currentQuote: makeQuote({
+				price: 105,
+				dayHigh: 105,
+				dayLow: 98,
+				volume: 2_000_000,
+			}),
+			snapshots,
+			hasEarningsNearby: false,
+			avgVolume20d: 1_000_000,
+			atr14: 2,
+		});
+
+		// Both should produce non-zero scores
+		expect(withoutStats.score).toBeGreaterThan(0);
+		expect(withStats.score).toBeGreaterThan(0);
+	});
+
+	it("Early-day range breakout capped at 10 pts", () => {
+		const snapshots = makeSnapshots(10, 518.3).map((s) => ({
+			...s,
+			dayHigh: 518.3,
+			dayLow: 508.15,
+		}));
+
+		const normalResult = computeAnomalyScore({
+			currentQuote: makeQuote({
+				price: 528.67,
+				dayHigh: 528.67,
+				dayLow: 508.15,
+				volume: null,
+			}),
+			snapshots,
+			hasEarningsNearby: false,
+			isEarlyDay: false,
+		});
+
+		const earlyResult = computeAnomalyScore({
+			currentQuote: makeQuote({
+				price: 528.67,
+				dayHigh: 528.67,
+				dayLow: 508.15,
+				volume: null,
+			}),
+			snapshots,
+			hasEarningsNearby: false,
+			isEarlyDay: true,
+		});
+
+		const normalBreakout = normalResult.signals.find(
+			(s) => s.name === "range_breakout",
+		);
+		const earlyBreakout = earlyResult.signals.find(
+			(s) => s.name === "range_breakout",
+		);
+
+		expect(normalBreakout?.points).toBe(15);
+		expect(earlyBreakout?.points).toBeLessThanOrEqual(10);
+	});
+
+	it("has 4 signals with correct names when enough snapshots", () => {
+		const result = computeAnomalyScore({
+			currentQuote: makeQuote(),
+			snapshots: makeSnapshots(10),
+			hasEarningsNearby: false,
+		});
+
+		expect(result.signals).toHaveLength(4);
+		const names = result.signals.map((s) => s.name);
+		expect(names).toContain("excess_price_move");
+		expect(names).toContain("volume_confirmation");
+		expect(names).toContain("range_breakout");
+		expect(names).toContain("earnings_proximity");
+	});
+
+	it("max possible score is 100", () => {
+		const maxPoints = computeAnomalyScore({
+			currentQuote: makeQuote(),
+			snapshots: makeSnapshots(10),
+			hasEarningsNearby: false,
+		}).signals.reduce((sum, s) => sum + s.maxPoints, 0);
+		expect(maxPoints).toBe(100);
 	});
 });
