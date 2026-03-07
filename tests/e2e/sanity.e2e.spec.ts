@@ -891,6 +891,7 @@ test.describe("sanity tests", () => {
 		// Email should be ON from TC-EMAIL-001 — toggle it OFF
 		await expect(emailSwitch).toHaveAttribute("aria-checked", "true");
 		await emailSwitch.click();
+		await expect(emailSwitch).toHaveAttribute("aria-checked", "false");
 		await waitForEmailNotificationsEnabled(testUserId, false);
 
 		// Full navigation to verify OFF persisted in UI
