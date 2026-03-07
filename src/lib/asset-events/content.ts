@@ -97,6 +97,7 @@ export async function buildAssetEventsContent(options: {
 			calendarError: calendarResult.error?.message ?? null,
 			ipoError: ipoResult.error?.message ?? null,
 		});
+		return nullResult;
 	}
 
 	const calendarRows = calendarResult.error ? [] : (calendarResult.data ?? []);
