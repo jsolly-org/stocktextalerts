@@ -1,4 +1,3 @@
-import type { CompanyNewsItem } from "../providers/company-news";
 import type { ExtendedAssetQuote } from "../providers/price-fetcher";
 import type { AssetSnapshot } from "./snapshot-store";
 
@@ -8,14 +7,17 @@ Configuration
 
 const MIN_SNAPSHOTS = 5;
 
-/** Volume multiplier when volume data is unavailable (penalizes missing data). */
-const UNKNOWN_VOLUME_MULTIPLIER = 0.8;
+/** Minimum intraday range percentage to prevent early-day inflation. */
+const RANGE_FLOOR_PCT = 0.3;
+
+/** Minimum excess move required for volume signal to trigger. */
+const VOLUME_GATE_PCT = 0.5;
 
 /* =============
 Types
 ============= */
 
-interface SignalBreakdown {
+export interface SignalBreakdown {
 	name: string;
 	points: number;
 	maxPoints: number;
@@ -23,7 +25,7 @@ interface SignalBreakdown {
 	detail: string;
 }
 
-interface AnomalyResult {
+export interface AnomalyResult {
 	score: number;
 	signals: SignalBreakdown[];
 	summary: string;
@@ -33,77 +35,204 @@ interface AnomalyResult {
 Signal Calculations
 ============= */
 
-/** Estimate median volume from snapshots (or `null` when unavailable). */
-function estimateAverageVolume(snapshots: AssetSnapshot[]): number | null {
-	const volumes = snapshots
-		.map((s) => s.volume)
-		.filter((v): v is number => v !== null && v > 0);
-
-	if (volumes.length === 0) return null;
-
-	volumes.sort((a, b) => a - b);
-	const mid = Math.floor(volumes.length / 2);
-	return volumes.length % 2 === 0
-		? (volumes[mid - 1] + volumes[mid]) / 2
-		: volumes[mid];
+interface PriceSignalResult {
+	signal: SignalBreakdown;
+	rawMovePct: number;
+	excessMovePct: number;
 }
 
-/** Compute the price-move signal (volatility-normalized and volume-scaled). */
-function computePriceMove(
+/**
+ * Compute the excess price-move signal and raw/excess move metrics.
+ *
+ * Scans ALL snapshots for the max absolute move (catches V-reversals),
+ * subtracts benchmark contribution when moving in the same direction,
+ * and normalizes by ATR-14 (preferred) or intraday range with a floor.
+ * Returns the signal plus rawMovePct and excessMovePct for use in volume gating.
+ */
+function computeExcessPriceMoveWithMetrics(
 	currentQuote: ExtendedAssetQuote,
 	snapshots: AssetSnapshot[],
-): SignalBreakdown {
-	const maxPoints = 45;
-	const oldest = snapshots[0];
-	const latest = snapshots[snapshots.length - 1];
+	benchmarkMovePct: number | null | undefined,
+	atr14: number | null | undefined,
+): PriceSignalResult {
+	const maxPoints = 50;
 
-	// Sustained move: oldest snapshot → current
-	const sustainedMovePct =
-		oldest.price > 0
-			? Math.abs(((currentQuote.price - oldest.price) / oldest.price) * 100)
-			: 0;
-
-	// Sudden move: latest snapshot → current
-	const suddenMovePct =
-		latest.price > 0
-			? Math.abs(((currentQuote.price - latest.price) / latest.price) * 100)
-			: 0;
-
-	const rawMovePct = Math.max(sustainedMovePct, suddenMovePct);
-
-	// Intraday range for volatility normalization
-	const dayHigh = currentQuote.dayHigh ?? currentQuote.price;
-	const dayLow = currentQuote.dayLow ?? currentQuote.price;
-	const intradayRangePct = dayLow > 0 ? ((dayHigh - dayLow) / dayLow) * 100 : 0;
-	const normalizedMove = rawMovePct / Math.max(intradayRangePct, 0.5);
-
-	// Scale: normalizedMove / 2.0 (a move of 2x the day's range = max points)
-	const priceRatio = Math.min(normalizedMove / 2.0, 1.0);
-	const rawPts = Math.round(priceRatio * maxPoints);
-
-	// Volume multiplier: 0.5x–1.5x based on currentVolume / medianSnapshotVolume
-	const medianVolume = estimateAverageVolume(snapshots);
-	let volumeMultiplier = UNKNOWN_VOLUME_MULTIPLIER;
-	if (
-		currentQuote.volume !== null &&
-		medianVolume !== null &&
-		medianVolume > 0
-	) {
-		const volRatio = currentQuote.volume / medianVolume;
-		volumeMultiplier = Math.max(0.5, Math.min(volRatio, 1.5));
+	// Scan all snapshots for max absolute move (catches V-reversals)
+	let maxMovePct = 0;
+	let maxMoveRef = snapshots[0].price;
+	for (const snap of snapshots) {
+		if (snap.price <= 0) continue;
+		const movePct = Math.abs(
+			((currentQuote.price - snap.price) / snap.price) * 100,
+		);
+		if (movePct > maxMovePct) {
+			maxMovePct = movePct;
+			maxMoveRef = snap.price;
+		}
 	}
 
-	const points = Math.min(Math.round(rawPts * volumeMultiplier), maxPoints);
-	const moveType = sustainedMovePct >= suddenMovePct ? "sustained" : "sudden";
-	const referencePrice = moveType === "sustained" ? oldest.price : latest.price;
-	const direction = currentQuote.price >= referencePrice ? "up" : "down";
+	const rawMovePct = maxMovePct;
+	const referencePrice = maxMoveRef;
 
-	return {
-		name: "price_move",
+	// Compute signed move for benchmark comparison
+	const signedMovePct =
+		referencePrice > 0
+			? ((currentQuote.price - referencePrice) / referencePrice) * 100
+			: 0;
+
+	// Compute excess move: subtract benchmark contribution when same direction
+	let excessMovePct = rawMovePct;
+	let benchmarkDetail = "";
+	if (benchmarkMovePct != null && Math.abs(signedMovePct) > 0) {
+		const stockDir = Math.sign(signedMovePct);
+		const benchDir = Math.sign(benchmarkMovePct);
+		if (stockDir === benchDir) {
+			// Subtract benchmark, but floor at 30% of stock move
+			const explained = Math.min(
+				Math.abs(benchmarkMovePct),
+				Math.abs(signedMovePct),
+			);
+			excessMovePct = Math.max(rawMovePct - explained, rawMovePct * 0.3);
+			benchmarkDetail = `, benchmark ${benchmarkMovePct >= 0 ? "+" : ""}${benchmarkMovePct.toFixed(2)}%`;
+		}
+		// Opposite directions or no benchmark: full credit (no deduction)
+	}
+
+	// Normalize by ATR-14 percentage when available, else intraday range with floor
+	let normalizationBase: number;
+	if (atr14 != null && atr14 > 0 && currentQuote.price > 0) {
+		normalizationBase = (atr14 / currentQuote.price) * 100;
+	} else {
+		const dayHigh = currentQuote.dayHigh ?? currentQuote.price;
+		const dayLow = currentQuote.dayLow ?? currentQuote.price;
+		// When price is at day's extreme (crash/surge), current range is self-inclusive
+		// and caps normalizedMove at ~1. Use snapshot range instead to avoid self-limiting.
+		const isAtExtreme =
+			(dayLow > 0 && currentQuote.price <= dayLow * 1.001) ||
+			(dayHigh > 0 && currentQuote.price >= dayHigh * 0.999);
+		let intradayRangePct: number;
+		if (isAtExtreme && snapshots.length > 0) {
+			const snapHighs = snapshots
+				.map((s) => s.dayHigh)
+				.filter((h): h is number => h != null);
+			const snapLows = snapshots
+				.map((s) => s.dayLow)
+				.filter((l): l is number => l != null);
+			const rangeHigh = snapHighs.length > 0 ? Math.max(...snapHighs) : dayHigh;
+			const rangeLow = snapLows.length > 0 ? Math.min(...snapLows) : dayLow;
+			const denom = Math.min(rangeLow, currentQuote.price);
+			intradayRangePct = denom > 0 ? ((rangeHigh - rangeLow) / denom) * 100 : 0;
+		} else {
+			intradayRangePct = dayLow > 0 ? ((dayHigh - dayLow) / dayLow) * 100 : 0;
+		}
+		normalizationBase = Math.max(intradayRangePct, RANGE_FLOOR_PCT);
+	}
+	const normalizedMove = excessMovePct / normalizationBase;
+
+	const priceRatio = Math.min(normalizedMove / 2.0, 1.0);
+	const points = Math.round(priceRatio * maxPoints);
+
+	const direction = currentQuote.price >= referencePrice ? "up" : "down";
+	const moveType = "max-snap";
+
+	const signal: SignalBreakdown = {
+		name: "excess_price_move",
 		points,
 		maxPoints,
 		triggered: points > 0,
-		detail: `${direction} ${rawMovePct.toFixed(2)}% (${moveType}, vol ${volumeMultiplier.toFixed(1)}x)`,
+		detail: `${direction} ${rawMovePct.toFixed(2)}% (${moveType}, excess ${excessMovePct.toFixed(2)}%${benchmarkDetail})`,
+	};
+	return { signal, rawMovePct, excessMovePct };
+}
+
+/** Minimum fraction of trading day for RVOL baseline (avoids noisy RVOL at open). */
+const RVOL_FRACTION_FLOOR = 0.05;
+
+/**
+ * Compute the volume confirmation signal (standalone).
+ *
+ * Uses time-of-day-adjusted RVOL: current cumulative volume vs expected volume
+ * at this point in the session (avgVolume20d * fractionOfDayElapsed). This
+ * correctly compares partial-day volume to a proportional baseline instead of
+ * the full-day average, enabling the 2x threshold to trigger during morning hours.
+ * Gated on excess move >= 0.5% to prevent volume-only triggers.
+ */
+function computeVolumeSignal(
+	currentQuote: ExtendedAssetQuote,
+	_snapshots: AssetSnapshot[],
+	excessMovePct: number,
+	avgVolume20d: number | null | undefined,
+	fractionOfTradingDayElapsed: number,
+): SignalBreakdown {
+	const maxPoints = 20;
+
+	// Gate: volume alone is not alertable
+	if (excessMovePct < VOLUME_GATE_PCT) {
+		return {
+			name: "volume_confirmation",
+			points: 0,
+			maxPoints,
+			triggered: false,
+			detail: `move too small for volume signal (${excessMovePct.toFixed(2)}% < ${VOLUME_GATE_PCT}%)`,
+		};
+	}
+
+	if (currentQuote.volume === null || currentQuote.volume <= 0) {
+		return {
+			name: "volume_confirmation",
+			points: 0,
+			maxPoints,
+			triggered: false,
+			detail: "no volume data",
+		};
+	}
+
+	// Determine baseline: use ADV-20 only. A same-session snapshot median is not
+	// comparable to daily volume and biases RVOL when daily stats are unavailable.
+	const avgVolume = avgVolume20d;
+	if (avgVolume == null || avgVolume <= 0) {
+		return {
+			name: "volume_confirmation",
+			points: 0,
+			maxPoints,
+			triggered: false,
+			detail: "no ADV-20 baseline",
+		};
+	}
+
+	// Time-of-day adjustment: compare partial-day volume to expected volume at
+	// this point in the session (linear approximation of intraday volume curve).
+	const fraction = Math.max(fractionOfTradingDayElapsed, RVOL_FRACTION_FLOOR);
+	const expectedVolumeAtTime = avgVolume * fraction;
+	const rvol = currentQuote.volume / expectedVolumeAtTime;
+
+	// Piecewise linear scaling aligned with industry RVOL thresholds
+	let points: number;
+	if (rvol < 2.0) {
+		points = 0;
+	} else if (rvol < 3.0) {
+		// 2.0x–3.0x → 1–10 pts
+		points = Math.round(1 + ((rvol - 2.0) / 1.0) * 9);
+	} else if (rvol < 5.0) {
+		// 3.0x–5.0x → 10–16 pts
+		points = Math.round(10 + ((rvol - 3.0) / 2.0) * 6);
+	} else {
+		// 5.0x+ → 16–20 pts (log scale)
+		// log2(5)=2.32, log2(10)=3.32, log2(20)=4.32
+		const logPts =
+			16 +
+			((Math.log2(rvol) - Math.log2(5)) / (Math.log2(20) - Math.log2(5))) * 4;
+		points = Math.round(Math.min(logPts, maxPoints));
+	}
+
+	points = Math.min(points, maxPoints);
+
+	return {
+		name: "volume_confirmation",
+		points,
+		maxPoints,
+		triggered: points > 0,
+		detail: `RVOL ${rvol.toFixed(1)}x`,
 	};
 }
 
@@ -111,8 +240,11 @@ function computePriceMove(
 function computeRangeBreakout(
 	currentPrice: number,
 	snapshots: AssetSnapshot[],
+	isEarlyDay?: boolean,
 ): SignalBreakdown {
-	const maxPoints = 15;
+	const fullMaxPoints = 15;
+	// Cap at 10 pts before 10 AM ET (early-day noise reduction)
+	const maxPoints = isEarlyDay ? 10 : fullMaxPoints;
 
 	const dayHighs = snapshots
 		.map((s) => s.dayHigh)
@@ -145,7 +277,7 @@ function computeRangeBreakout(
 
 	const breakoutPct = Math.max(highBreakoutPct, lowBreakoutPct);
 
-	// Linear scale: 0.5% = 1 pt, 2.0% = 15 pts
+	// Linear scale: 0.5% = 1 pt, 2.0% = max pts
 	let points = 0;
 	if (breakoutPct >= 0.5) {
 		const ratio = Math.min((breakoutPct - 0.5) / (2.0 - 0.5), 1.0);
@@ -161,43 +293,8 @@ function computeRangeBreakout(
 		maxPoints,
 		triggered,
 		detail: triggered
-			? `${direction} breakout +${breakoutPct.toFixed(2)}%`
+			? `${direction} breakout ${direction === "low" ? "-" : "+"}${breakoutPct.toFixed(2)}%${isEarlyDay ? " (early-day cap)" : ""}`
 			: "within day range",
-	};
-}
-
-/** Compute the breaking-news signal (headlines count + recency). */
-function computeNewsSignal(news: CompanyNewsItem[] | null): SignalBreakdown {
-	const maxPoints = 25;
-
-	if (!news || news.length === 0) {
-		return {
-			name: "breaking_news",
-			points: 0,
-			maxPoints,
-			triggered: false,
-			detail: "no breaking news",
-		};
-	}
-
-	let points = 10; // base for any news
-
-	if (news.length >= 2) points += 5; // corroboration
-	if (news.length >= 3) points += 5; // significant coverage
-
-	// Recency: any headline from last 2 hours
-	const twoHoursAgo = Date.now() / 1000 - 2 * 60 * 60;
-	const hasRecentHeadline = news.some((n) => n.datetime >= twoHoursAgo);
-	if (hasRecentHeadline) points += 5;
-
-	points = Math.min(points, maxPoints);
-
-	return {
-		name: "breaking_news",
-		points,
-		maxPoints,
-		triggered: true,
-		detail: `${news.length} headline${news.length === 1 ? "" : "s"}${hasRecentHeadline ? " (recent)" : ""}`,
 	};
 }
 
@@ -220,22 +317,42 @@ function computeEarningsProximity(hasEarningsNearby: boolean): SignalBreakdown {
 Composite Scoring
 ============= */
 
-/** Compute the composite anomaly score for a symbol.
+/**
+ * Compute the composite anomaly score for a symbol.
  *
- *  When `benchmarkMovePct` is provided, the price signal is dampened
- *  proportionally to how much of the stock's move is explained by
- *  the sector/market benchmark moving in the same direction.
+ * 4 signals:
+ *   - Regular hours max: 100 points
+ *   - Before 10:00 AM ET: 95 points (range-breakout capped at 10)
+ *   - Excess Price Move (50 pts): stock move beyond benchmark, normalized by ATR/range
+ *   - Volume Confirmation (20 pts): standalone RVOL signal, gated on price move
+ *   - Range Breakout (15 pts): session high/low breakout
+ *   - Earnings Proximity (15 pts): binary if earnings within ~2 days
  */
 export function computeAnomalyScore(options: {
 	currentQuote: ExtendedAssetQuote;
 	snapshots: AssetSnapshot[];
-	news: CompanyNewsItem[] | null;
 	hasEarningsNearby: boolean;
 	/** Benchmark (sector ETF or SPY) percent move, signed. */
 	benchmarkMovePct?: number | null;
+	/** 20-day average daily volume for true RVOL (from daily_asset_stats). */
+	avgVolume20d?: number | null;
+	/** 14-day Average True Range in dollars (from daily_asset_stats). */
+	atr14?: number | null;
+	/** Whether current time is before 10 AM ET (early-day noise reduction). */
+	isEarlyDay?: boolean;
+	/** Fraction of trading session elapsed (0–1) for time-of-day RVOL adjustment. */
+	fractionOfTradingDayElapsed?: number;
 }): AnomalyResult {
-	const { currentQuote, snapshots, news, hasEarningsNearby, benchmarkMovePct } =
-		options;
+	const {
+		currentQuote,
+		snapshots,
+		hasEarningsNearby,
+		benchmarkMovePct,
+		avgVolume20d,
+		atr14,
+		isEarlyDay,
+		fractionOfTradingDayElapsed = 1,
+	} = options;
 
 	// Need enough data to make meaningful comparisons
 	if (snapshots.length < MIN_SNAPSHOTS) {
@@ -246,49 +363,26 @@ export function computeAnomalyScore(options: {
 		};
 	}
 
-	const priceSignal = computePriceMove(currentQuote, snapshots);
+	const { signal: priceSignal, excessMovePct: excessForGate } =
+		computeExcessPriceMoveWithMetrics(
+			currentQuote,
+			snapshots,
+			benchmarkMovePct,
+			atr14,
+		);
 
-	// Dampen price score when the move tracks the benchmark direction.
-	// Use intraday signal direction/magnitude (snapshot-relative), not day-level
-	// changePercent — a stock can be up on the day but crashing intraday.
-	if (
-		benchmarkMovePct != null &&
-		priceSignal.points > 0 &&
-		snapshots.length > 0
-	) {
-		const oldest = snapshots[0];
-		const latest = snapshots[snapshots.length - 1];
-		const sustainedSigned =
-			oldest.price > 0
-				? ((currentQuote.price - oldest.price) / oldest.price) * 100
-				: 0;
-		const suddenSigned =
-			latest.price > 0
-				? ((currentQuote.price - latest.price) / latest.price) * 100
-				: 0;
-		const signalMovePct =
-			Math.abs(sustainedSigned) >= Math.abs(suddenSigned)
-				? sustainedSigned
-				: suddenSigned;
-		const stockDir = Math.sign(signalMovePct);
-		const benchDir = Math.sign(benchmarkMovePct);
-		if (stockDir === benchDir && Math.abs(signalMovePct) > 0) {
-			const explainedRatio = Math.min(
-				Math.abs(benchmarkMovePct) / Math.abs(signalMovePct),
-				1.0,
-			);
-			// Keep at least 30% of the price score even when fully explained
-			const dampening = 1.0 - explainedRatio * 0.7;
-			priceSignal.points = Math.round(priceSignal.points * dampening);
-			priceSignal.triggered = priceSignal.points > 0;
-			priceSignal.detail += `, benchmark ${benchmarkMovePct >= 0 ? "+" : ""}${benchmarkMovePct.toFixed(2)}%`;
-		}
-	}
+	const volumeSignal = computeVolumeSignal(
+		currentQuote,
+		snapshots,
+		excessForGate,
+		avgVolume20d,
+		fractionOfTradingDayElapsed,
+	);
 
 	const signals: SignalBreakdown[] = [
 		priceSignal,
-		computeRangeBreakout(currentQuote.price, snapshots),
-		computeNewsSignal(news),
+		volumeSignal,
+		computeRangeBreakout(currentQuote.price, snapshots, isEarlyDay),
 		computeEarningsProximity(hasEarningsNearby),
 	];
 
@@ -301,17 +395,4 @@ export function computeAnomalyScore(options: {
 			: "no significant signals";
 
 	return { score, signals, summary };
-}
-
-/** Compute the price-only score (before any news fetch). */
-export function computePriceOnlyScore(options: {
-	currentQuote: ExtendedAssetQuote;
-	snapshots: AssetSnapshot[];
-	hasEarningsNearby: boolean;
-	benchmarkMovePct?: number | null;
-}): number {
-	return computeAnomalyScore({
-		...options,
-		news: null,
-	}).score;
 }

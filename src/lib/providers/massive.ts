@@ -508,6 +508,72 @@ export async function fetchDailyCloses(
 	return extractClosesFromBars(data);
 }
 
+/** Single daily OHLCV bar extracted from Massive aggregates. */
+export interface DailyOHLCVBar {
+	open: number;
+	high: number;
+	low: number;
+	close: number;
+	volume: number;
+}
+
+/**
+ * Extract full OHLCV bars from a Massive bars API response.
+ *
+ * Returns `null` for non-object payloads, missing results, or no valid bars.
+ */
+export function extractOHLCVFromBars(payload: unknown): DailyOHLCVBar[] | null {
+	if (typeof payload !== "object" || payload === null) return null;
+
+	const results = (payload as Record<string, unknown>).results;
+	if (!Array.isArray(results)) return null;
+
+	const bars: DailyOHLCVBar[] = [];
+	for (const bar of results) {
+		if (typeof bar !== "object" || bar === null) continue;
+		const rec = bar as Record<string, unknown>;
+		const o = rec.o;
+		const h = rec.h;
+		const l = rec.l;
+		const c = rec.c;
+		const v = rec.v;
+		if (
+			typeof o === "number" &&
+			Number.isFinite(o) &&
+			typeof h === "number" &&
+			Number.isFinite(h) &&
+			typeof l === "number" &&
+			Number.isFinite(l) &&
+			typeof c === "number" &&
+			Number.isFinite(c) &&
+			typeof v === "number" &&
+			Number.isFinite(v)
+		) {
+			bars.push({ open: o, high: h, low: l, close: c, volume: v });
+		}
+	}
+	return bars.length > 0 ? bars : null;
+}
+
+/**
+ * Fetch daily OHLCV bars for a single symbol over a date range.
+ *
+ * Uses `/v2/aggs/ticker/{symbol}/range/1/day/{from}/{to}?sort=asc&limit=50`.
+ * Returns full OHLCV bars for computing ATR-14 and ADV-20, or null on failure.
+ */
+export async function fetchDailyOHLCV(
+	symbol: string,
+	from: string,
+	to: string,
+): Promise<DailyOHLCVBar[] | null> {
+	const data = await marketDataFetch(
+		`/v2/aggs/ticker/${encodeURIComponent(symbol)}/range/1/day/${from}/${to}`,
+		{ sort: "asc", limit: "50" },
+		"daily-ohlcv",
+	);
+	return extractOHLCVFromBars(data);
+}
+
 /**
  * Fetch intraday 5-minute closing prices for a single symbol (today, ET timezone).
  *

@@ -1,3 +1,9 @@
+import { DateTime } from "luxon";
+import {
+	US_MARKET_CLOSE_EASTERN_MINUTES,
+	US_MARKET_OPEN_EASTERN_MINUTES,
+	US_MARKET_TIMEZONE,
+} from "../constants";
 import { rootLogger } from "../logging";
 import { createEmailSender } from "../messaging/email/utils";
 import { createLogoCache } from "../messaging/logo-fetcher";
@@ -13,6 +19,7 @@ import type { SupabaseAdminClient } from "../schedule/helpers";
 import { createSmsSenderProvider } from "../schedule/sms-sender";
 import { getAnomalyThreshold } from "./alert-profile";
 import { computeAnomalyScore } from "./anomaly-detection";
+import { fetchDailyStats } from "./daily-stats";
 import { deliverPriceAlert, type PriceAlertDeliveryStats } from "./delivery";
 import { type EnrichedAlert, enrichAlert } from "./enrichment";
 import { getSnapshotsForSymbols, storeSnapshots } from "./snapshot-store";
@@ -97,6 +104,7 @@ function buildSignalContexts(options: {
 	percentMove: number;
 	dollarMove: number;
 	anomalyScore: number;
+	maxPossibleScore: number;
 	anomalySummary: string;
 	hasEarningsNearby: boolean;
 	benchmarkMovePercentAbs: number | null;
@@ -107,6 +115,7 @@ function buildSignalContexts(options: {
 		percentMove,
 		dollarMove,
 		anomalyScore,
+		maxPossibleScore,
 		anomalySummary,
 		hasEarningsNearby,
 		benchmarkMovePercentAbs,
@@ -119,7 +128,7 @@ function buildSignalContexts(options: {
 
 	// Grok context: technical detail for AI enrichment
 	const grokBase = `${direction.toLowerCase()} ${absPct}% ($${absDollar}) from previous close`;
-	const scoreLabel = `anomaly score ${anomalyScore}/75 (${anomalySummary})`;
+	const scoreLabel = `anomaly score ${anomalyScore}/${maxPossibleScore} (${anomalySummary})`;
 	const grokMarket =
 		benchmarkMovePercentAbs !== null
 			? `${benchmarkLabel} moved ${benchmarkMovePercentAbs.toFixed(2)}%`
@@ -257,9 +266,17 @@ export async function processPriceAlerts(options: {
 		...[...benchmarkSymbols].filter((s) => !uniqueSymbols.includes(s)),
 	];
 
-	const [quoteMap, earningsSymbols] = await Promise.all([
+	const [quoteMap, earningsSymbols, dailyStatsMap] = await Promise.all([
 		fetchExtendedQuotes(symbolsWithBenchmarks),
 		fetchEarningsSymbols(supabase),
+		fetchDailyStats(supabase, uniqueSymbols).catch((err) => {
+			rootLogger.warn(
+				"Failed to load daily_asset_stats; continuing without stats",
+				{ symbolCount: uniqueSymbols.length },
+				err,
+			);
+			return new Map();
+		}),
 	]);
 
 	// Load rolling 60-minute snapshot history for anomaly scoring (before storing
@@ -352,6 +369,20 @@ export async function processPriceAlerts(options: {
 	const spyMovePercentAbs =
 		benchmarkMoveCache.get(MARKET_BENCHMARK_SYMBOL) ?? null;
 
+	// Freeze early-day flag and time-of-day fraction once per run
+	const eastern = DateTime.now().setZone(US_MARKET_TIMEZONE);
+	const minutesSinceMidnight = eastern.hour * 60 + eastern.minute;
+	const minutesSinceOpen =
+		minutesSinceMidnight - US_MARKET_OPEN_EASTERN_MINUTES;
+	const tradingMinutes =
+		US_MARKET_CLOSE_EASTERN_MINUTES - US_MARKET_OPEN_EASTERN_MINUTES;
+	const fractionOfTradingDayElapsed = Math.min(
+		1,
+		Math.max(0, minutesSinceOpen / tradingMinutes),
+	);
+	const isEarlyDay = eastern.hour < 10;
+	const maxPossibleScore = isEarlyDay ? 95 : 100;
+
 	for (const symbol of uniqueSymbols) {
 		totals.symbolsChecked++;
 
@@ -392,12 +423,17 @@ export async function processPriceAlerts(options: {
 			benchmarkMoveSignedCache.get(benchmarkEtf) ??
 			benchmarkMoveSignedCache.get(MARKET_BENCHMARK_SYMBOL) ??
 			null;
+
+		const stats = dailyStatsMap.get(symbol);
 		const anomalyResult = computeAnomalyScore({
 			currentQuote: quote,
 			snapshots,
-			news: null,
 			hasEarningsNearby,
 			benchmarkMovePct: benchmarkMoveSigned,
+			avgVolume20d: stats?.avgVolume20d,
+			atr14: stats?.atr14,
+			isEarlyDay,
+			fractionOfTradingDayElapsed,
 		});
 
 		const symbolMovePercentAbs = Math.abs(percentMove);
@@ -468,6 +504,7 @@ export async function processPriceAlerts(options: {
 			percentMove,
 			dollarMove,
 			anomalyScore: anomalyResult.score,
+			maxPossibleScore,
 			anomalySummary: anomalyResult.summary,
 			hasEarningsNearby,
 			benchmarkMovePercentAbs,
