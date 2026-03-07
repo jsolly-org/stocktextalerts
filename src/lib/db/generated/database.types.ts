@@ -194,7 +194,7 @@ export type Database = {
           event_type: string
           fetched_at: string
           id: number
-          symbol: string | null
+          symbol: string
           week_of: string
         }
         Insert: {
@@ -203,7 +203,7 @@ export type Database = {
           event_type: string
           fetched_at?: string
           id?: number
-          symbol?: string | null
+          symbol: string
           week_of: string
         }
         Update: {
@@ -212,7 +212,7 @@ export type Database = {
           event_type?: string
           fetched_at?: string
           id?: number
-          symbol?: string | null
+          symbol?: string
           week_of?: string
         }
         Relationships: []
