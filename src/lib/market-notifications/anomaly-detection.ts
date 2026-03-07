@@ -53,26 +53,27 @@ function estimateMedianVolume(snapshots: AssetSnapshot[]): number | null {
 		: volumes[mid];
 }
 
-/** Result of excess price-move computation: signal breakdown and raw excess pct for gating. */
-interface ExcessPriceMoveResult {
+interface PriceSignalResult {
 	signal: SignalBreakdown;
+	rawMovePct: number;
 	excessMovePct: number;
 }
 
 /**
- * Compute the excess price-move signal.
+ * Compute the excess price-move signal and raw/excess move metrics.
  *
  * Scans ALL snapshots for the max absolute move (catches V-reversals),
  * subtracts benchmark contribution when moving in the same direction,
  * and normalizes by ATR-14 (preferred) or intraday range with a floor.
+ * Returns the signal plus rawMovePct and excessMovePct for use in volume gating.
  */
-function computeExcessPriceMove(
+function computeExcessPriceMoveWithMetrics(
 	currentQuote: ExtendedAssetQuote,
 	snapshots: AssetSnapshot[],
 	benchmarkMovePct: number | null | undefined,
 	avgVolume20d: number | null | undefined,
 	atr14: number | null | undefined,
-): ExcessPriceMoveResult {
+): PriceSignalResult {
 	const maxPoints = 50;
 
 	// Scan all snapshots for max absolute move (catches V-reversals)
@@ -156,16 +157,14 @@ function computeExcessPriceMove(
 	const direction = currentQuote.price >= referencePrice ? "up" : "down";
 	const moveType = maxMovePct >= sustainedMovePct ? "max-snap" : "sustained";
 
-	return {
-		signal: {
-			name: "excess_price_move",
-			points,
-			maxPoints,
-			triggered: points > 0,
-			detail: `${direction} ${rawMovePct.toFixed(2)}% (${moveType}, excess ${excessMovePct.toFixed(2)}%, vol ${volumeMultiplier.toFixed(1)}x${benchmarkDetail})`,
-		},
-		excessMovePct,
+	const signal: SignalBreakdown = {
+		name: "excess_price_move",
+		points,
+		maxPoints,
+		triggered: points > 0,
+		detail: `${direction} ${rawMovePct.toFixed(2)}% (${moveType}, excess ${excessMovePct.toFixed(2)}%, vol ${volumeMultiplier.toFixed(1)}x${benchmarkDetail})`,
 	};
+	return { signal, rawMovePct, excessMovePct };
 }
 
 /**
@@ -372,13 +371,14 @@ export function computeAnomalyScore(options: {
 		};
 	}
 
-	const { signal: priceSignal, excessMovePct } = computeExcessPriceMove(
-		currentQuote,
-		snapshots,
-		benchmarkMovePct,
-		avgVolume20d,
-		atr14,
-	);
+	const { signal: priceSignal, excessMovePct: excessForGate } =
+		computeExcessPriceMoveWithMetrics(
+			currentQuote,
+			snapshots,
+			benchmarkMovePct,
+			avgVolume20d,
+			atr14,
+		);
 
 	const volumeSignal = computeVolumeSignal(
 		currentQuote,

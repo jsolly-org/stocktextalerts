@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS public.daily_asset_stats (
+CREATE TABLE public.daily_asset_stats (
   symbol VARCHAR(10) NOT NULL,
   computed_at DATE NOT NULL DEFAULT CURRENT_DATE,
   avg_volume_20d NUMERIC(16, 0),

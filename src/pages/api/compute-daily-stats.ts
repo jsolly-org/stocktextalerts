@@ -14,11 +14,14 @@ const BATCH_SIZE = 50;
 /** Delay between batches (ms). */
 const BATCH_DELAY_MS = 600;
 
+/** Calendar days to fetch for ~20 trading days of data. */
+const LOOKBACK_DAYS = 35;
+
 /**
  * Daily cron endpoint to compute and upsert daily_asset_stats (ADV-20, ATR-14)
  * for all user-tracked symbols.
  *
- * Scheduled weekdays at 9 PM UTC (4-5 PM ET, after market close).
+ * Scheduled weekdays at 10 PM UTC (5-6 PM ET, after market close).
  */
 const handler: APIRoute = async ({ url, request, locals }) => {
 	const logger = createLogger({
@@ -54,9 +57,9 @@ const handler: APIRoute = async ({ url, request, locals }) => {
 		return new Response(JSON.stringify({ computed: 0 }), { status: 200 });
 	}
 
-	// Date range: 35 calendar days back to ensure ~20 trading days
+	// Date range: LOOKBACK_DAYS calendar days back to ensure ~20 trading days
 	const to = new Date().toISOString().slice(0, 10);
-	const from = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000)
+	const from = new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000)
 		.toISOString()
 		.slice(0, 10);
 
@@ -83,6 +86,12 @@ const handler: APIRoute = async ({ url, request, locals }) => {
 
 		for (const result of results) {
 			if (result.status === "rejected" || result.value === null) {
+				if (result.status === "rejected") {
+					logger.debug("Failed to fetch OHLCV for symbol", {
+						action: "compute_daily_stats",
+						reason: (result.reason as Error)?.message ?? "unknown",
+					});
+				}
 				failed++;
 				continue;
 			}

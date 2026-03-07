@@ -362,6 +362,13 @@ export async function processPriceAlerts(options: {
 	const spyMovePercentAbs =
 		benchmarkMoveCache.get(MARKET_BENCHMARK_SYMBOL) ?? null;
 
+	// Freeze early-day flag once per run so all symbols in the batch use the same cap
+	const nowET = new Date().toLocaleString("en-US", {
+		timeZone: US_MARKET_TIMEZONE,
+	});
+	const etHour = new Date(nowET).getHours();
+	const isEarlyDay = etHour < 10;
+
 	for (const symbol of uniqueSymbols) {
 		totals.symbolsChecked++;
 
@@ -402,12 +409,6 @@ export async function processPriceAlerts(options: {
 			benchmarkMoveSignedCache.get(benchmarkEtf) ??
 			benchmarkMoveSignedCache.get(MARKET_BENCHMARK_SYMBOL) ??
 			null;
-		// Determine if it's early in the trading day (before 10 AM ET)
-		const nowET = new Date().toLocaleString("en-US", {
-			timeZone: US_MARKET_TIMEZONE,
-		});
-		const etHour = new Date(nowET).getHours();
-		const isEarlyDay = etHour < 10;
 
 		const stats = dailyStatsMap.get(symbol);
 		const anomalyResult = computeAnomalyScore({

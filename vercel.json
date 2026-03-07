@@ -11,7 +11,7 @@
 		},
 		{
 			"path": "/api/compute-daily-stats",
-			"schedule": "0 21 * * 1-5"
+			"schedule": "0 22 * * 1-5"
 		}
 	]
 }

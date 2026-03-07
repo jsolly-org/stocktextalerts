@@ -1,12 +1,8 @@
 import { describe, expect, it } from "vitest";
-import {
-	computeADV,
-	computeATR,
-} from "../../src/lib/market-notifications/daily-stats";
-import { extractOHLCVFromBars } from "../../src/lib/providers/massive";
+import { extractOHLCVFromBars } from "../../../src/lib/providers/massive";
 
-describe("compute-daily-stats integration", () => {
-	it("extractOHLCVFromBars extracts full OHLCV bars correctly", () => {
+describe("Massive OHLCV bar extraction", () => {
+	it("extracts full OHLCV bars from a valid aggregates response", () => {
 		const payload = {
 			results: [
 				{ o: 100, h: 105, l: 95, c: 102, v: 1_000_000, t: 1700000000000 },
@@ -26,7 +22,7 @@ describe("compute-daily-stats integration", () => {
 		});
 	});
 
-	it("extractOHLCVFromBars returns null for invalid payloads", () => {
+	it("returns null for invalid or empty payloads", () => {
 		expect(extractOHLCVFromBars(null)).toBeNull();
 		expect(extractOHLCVFromBars("not an object")).toBeNull();
 		expect(extractOHLCVFromBars({ results: [] })).toBeNull();
@@ -37,7 +33,7 @@ describe("compute-daily-stats integration", () => {
 		).toBeNull();
 	});
 
-	it("extractOHLCVFromBars skips bars with missing fields", () => {
+	it("skips bars with missing or invalid fields and returns the rest", () => {
 		const payload = {
 			results: [
 				{ o: 100, h: 105, l: 95, c: 102, v: 1_000_000 },
@@ -48,30 +44,5 @@ describe("compute-daily-stats integration", () => {
 
 		const bars = extractOHLCVFromBars(payload);
 		expect(bars).toHaveLength(2);
-	});
-
-	it("end-to-end: extract bars → compute ADV + ATR", () => {
-		const payload = {
-			results: Array.from({ length: 25 }, (_, i) => ({
-				o: 100 + i * 0.5,
-				h: 105 + i * 0.5,
-				l: 95 + i * 0.5,
-				c: 102 + i * 0.5,
-				v: 1_000_000 + i * 50_000,
-				t: 1700000000000 + i * 86400000,
-			})),
-		};
-
-		const bars = extractOHLCVFromBars(payload);
-		expect(bars).not.toBeNull();
-		if (!bars) return;
-
-		const adv = computeADV(bars);
-		expect(adv).not.toBeNull();
-		expect(adv).toBeGreaterThan(0);
-
-		const atr = computeATR(bars);
-		expect(atr).not.toBeNull();
-		expect(atr).toBeGreaterThan(0);
 	});
 });

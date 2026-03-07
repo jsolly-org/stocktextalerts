@@ -1,11 +1,14 @@
+import { createLogger } from "../logging";
 import type { DailyOHLCVBar } from "../providers/massive";
 import type { SupabaseAdminClient } from "../schedule/helpers";
+
+export type { DailyOHLCVBar } from "../providers/massive";
+
+const logger = createLogger({ module: "daily-stats" });
 
 /* =============
 Types
 ============= */
-
-export type { DailyOHLCVBar };
 
 export interface DailyAssetStats {
 	symbol: string;
@@ -67,7 +70,15 @@ export async function fetchDailyStats(
 		.select("symbol, avg_volume_20d, atr_14")
 		.in("symbol", symbols);
 
-	if (error || !data) return result;
+	if (error) {
+		logger.warn(
+			"Failed to fetch daily stats",
+			{ symbolCount: symbols.length },
+			error,
+		);
+		return result;
+	}
+	if (!data) return result;
 
 	for (const row of data) {
 		result.set(row.symbol, {

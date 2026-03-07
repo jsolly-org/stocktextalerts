@@ -4,6 +4,7 @@ import {
 	computeATR,
 	type DailyOHLCVBar,
 } from "../../../src/lib/market-notifications/daily-stats";
+import { extractOHLCVFromBars } from "../../../src/lib/providers/massive";
 
 function makeBar(overrides: Partial<DailyOHLCVBar> = {}): DailyOHLCVBar {
 	return {
@@ -16,8 +17,8 @@ function makeBar(overrides: Partial<DailyOHLCVBar> = {}): DailyOHLCVBar {
 	};
 }
 
-describe("computeADV", () => {
-	it("returns average of last 20 bars' volumes", () => {
+describe("20-day average daily volume", () => {
+	it("uses the last 20 bars' volumes when more than 20 bars are provided", () => {
 		const bars = Array.from({ length: 25 }, (_, i) =>
 			makeBar({ volume: (i + 1) * 100_000 }),
 		);
@@ -30,16 +31,16 @@ describe("computeADV", () => {
 		expect(computeADV(bars)).toBeCloseTo(expected);
 	});
 
-	it("returns average of all bars when fewer than 20", () => {
+	it("averages all bars when fewer than 20 are available", () => {
 		const bars = [makeBar({ volume: 500_000 }), makeBar({ volume: 1_500_000 })];
 		expect(computeADV(bars)).toBe(1_000_000);
 	});
 
-	it("returns null for empty bars", () => {
+	it("returns null when no bars are provided", () => {
 		expect(computeADV([])).toBeNull();
 	});
 
-	it("skips zero/negative volumes", () => {
+	it("ignores zero and negative volumes when computing the average", () => {
 		const bars = [
 			makeBar({ volume: 0 }),
 			makeBar({ volume: -100 }),
@@ -49,8 +50,8 @@ describe("computeADV", () => {
 	});
 });
 
-describe("computeATR", () => {
-	it("computes ATR from known OHLCV data", () => {
+describe("14-day average true range (ATR)", () => {
+	it("computes ATR from OHLCV bars using high, low, and previous close", () => {
 		// 3 bars: TR is max(H-L, |H-prevC|, |L-prevC|)
 		const bars: DailyOHLCVBar[] = [
 			{ open: 100, high: 105, low: 95, close: 102, volume: 1_000_000 },
@@ -63,12 +64,12 @@ describe("computeATR", () => {
 		expect(computeATR(bars)).toBeCloseTo(7.5);
 	});
 
-	it("returns null for fewer than 2 bars", () => {
+	it("returns null when fewer than two bars are provided", () => {
 		expect(computeATR([])).toBeNull();
 		expect(computeATR([makeBar()])).toBeNull();
 	});
 
-	it("uses up to 14 most recent TR values", () => {
+	it("uses the 14 most recent true-range values when many bars exist", () => {
 		// 20 bars: only last 14 TR values should be used
 		const bars: DailyOHLCVBar[] = Array.from({ length: 20 }, (_, i) => ({
 			open: 100 + i,
@@ -87,12 +88,39 @@ describe("computeATR", () => {
 		expect(atr).toBeCloseTo(10);
 	});
 
-	it("handles gap-up scenario (TR uses prev close)", () => {
+	it("uses previous close in true range when price gaps up between bars", () => {
 		const bars: DailyOHLCVBar[] = [
 			{ open: 100, high: 102, low: 98, close: 100, volume: 1_000_000 },
 			{ open: 110, high: 112, low: 109, close: 111, volume: 1_500_000 },
 		];
 		// TR = max(112-109, |112-100|, |109-100|) = max(3, 12, 9) = 12
 		expect(computeATR(bars)).toBeCloseTo(12);
+	});
+});
+
+describe("Daily stats pipeline (extract OHLCV → ADV and ATR)", () => {
+	it("produces positive ADV and ATR when given enough valid bars from a Massive-style payload", () => {
+		const payload = {
+			results: Array.from({ length: 25 }, (_, i) => ({
+				o: 100 + i * 0.5,
+				h: 105 + i * 0.5,
+				l: 95 + i * 0.5,
+				c: 102 + i * 0.5,
+				v: 1_000_000 + i * 50_000,
+				t: 1700000000000 + i * 86400000,
+			})),
+		};
+
+		const bars = extractOHLCVFromBars(payload);
+		expect(bars).not.toBeNull();
+		if (!bars) return;
+
+		const adv = computeADV(bars);
+		expect(adv).not.toBeNull();
+		expect(adv).toBeGreaterThan(0);
+
+		const atr = computeATR(bars);
+		expect(atr).not.toBeNull();
+		expect(atr).toBeGreaterThan(0);
 	});
 });
