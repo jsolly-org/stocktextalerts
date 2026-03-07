@@ -185,7 +185,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		expect(updated.market_scheduled_asset_price_include_sms).toBe(true);
 	});
 
-	it("When a user texts START, sms_opted_out is cleared but sms_notifications_enabled remains unchanged.", async () => {
+	it("When a user texts START, sms_opted_out is cleared and sms_notifications_enabled is turned on.", async () => {
 		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
 		validateRequestMock.mockReturnValueOnce(true);
 
@@ -218,7 +218,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 		expect(response.status).toBe(200);
 		const body = await response.text();
-		expect(body).toContain("Re-enable SMS notifications from your dashboard");
+		expect(body).toContain("SMS notifications are now on");
 
 		const { data: updated } = await adminClient
 			.from("users")
@@ -230,7 +230,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		expect(updated).not.toBeNull();
 		if (!updated) throw new Error("expected user row");
 		expect(updated.sms_opted_out).toBe(false);
-		expect(updated.sms_notifications_enabled).toBe(false);
+		expect(updated.sms_notifications_enabled).toBe(true);
 		// Individual field stays unchanged (seeded true, stays true)
 		expect(updated.market_scheduled_asset_price_include_sms).toBe(true);
 	});
@@ -305,9 +305,9 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		expect(updated).not.toBeNull();
 		if (!updated) throw new Error("expected user row");
 
-		// STOP opt-out flag is cleared, but global SMS flag remains unchanged (still disabled)
+		// STOP opt-out flag is cleared, and global SMS toggle is re-enabled
 		expect(updated.sms_opted_out).toBe(false);
-		expect(updated.sms_notifications_enabled).toBe(false);
+		expect(updated.sms_notifications_enabled).toBe(true);
 
 		// Individual preferences fully preserved through the round trip
 		expect(updated.market_scheduled_asset_price_include_sms).toBe(true);

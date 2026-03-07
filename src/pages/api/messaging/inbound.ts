@@ -17,7 +17,7 @@ function buildInboundSmsSchema(): FormSchema {
 		SmsMessageSid: { type: "string" },
 		AccountSid: { type: "string", required: true },
 		MessagingServiceSid: { type: "string" },
-		From: { type: "string", required: true, trim: true },
+		From: { type: "string", required: true },
 		FromCity: { type: "string" },
 		FromState: { type: "string" },
 		FromZip: { type: "string" },
@@ -27,7 +27,7 @@ function buildInboundSmsSchema(): FormSchema {
 		ToState: { type: "string" },
 		ToZip: { type: "string" },
 		ToCountry: { type: "string" },
-		Body: { type: "string", required: true, trim: true },
+		Body: { type: "string", required: true },
 		NumSegments: { type: "string" },
 		NumMedia: { type: "string" },
 		ApiVersion: { type: "string" },
@@ -88,6 +88,9 @@ export const POST: APIRoute = async ({ url, request, locals }) => {
 			}
 		}
 
+		// Schema validation only — checks required fields are present.
+		// Raw params (not parsed data) are used for signature validation and
+		// business logic so that Twilio's HMAC covers all posted fields.
 		const parsed = parseWithSchema(formData, INBOUND_SMS_SCHEMA);
 
 		if (!parsed.ok) {

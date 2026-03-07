@@ -454,7 +454,7 @@ describe("Scheduled notification scenarios", () => {
 		);
 	});
 
-	it("User who texted START and re-enabled SMS in dashboard receives next scheduled notification by SMS.", async () => {
+	it("User who texted START receives next scheduled notification by SMS.", async () => {
 		if (!isLiveProviderEnabled("sms")) {
 			vi.stubEnv("TWILIO_ACCOUNT_SID", "AC123");
 			vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
