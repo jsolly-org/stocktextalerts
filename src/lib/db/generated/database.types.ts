@@ -37,7 +37,6 @@ export type Database = {
           event_type: Database["public"]["Enums"]["asset_event_type"]
           fetched_at: string
           id: number
-          scope: Database["public"]["Enums"]["asset_event_scope"]
           symbol: string
           week_of: string
         }
@@ -47,7 +46,6 @@ export type Database = {
           event_type: Database["public"]["Enums"]["asset_event_type"]
           fetched_at?: string
           id?: number
-          scope?: Database["public"]["Enums"]["asset_event_scope"]
           symbol: string
           week_of: string
         }
@@ -57,7 +55,6 @@ export type Database = {
           event_type?: Database["public"]["Enums"]["asset_event_type"]
           fetched_at?: string
           id?: number
-          scope?: Database["public"]["Enums"]["asset_event_scope"]
           symbol?: string
           week_of?: string
         }
@@ -189,6 +186,36 @@ export type Database = {
             referencedColumns: ["symbol"]
           },
         ]
+      }
+      market_events: {
+        Row: {
+          data: Json
+          event_date: string
+          event_type: string
+          fetched_at: string
+          id: number
+          symbol: string | null
+          week_of: string
+        }
+        Insert: {
+          data?: Json
+          event_date: string
+          event_type: string
+          fetched_at?: string
+          id?: number
+          symbol?: string | null
+          week_of: string
+        }
+        Update: {
+          data?: Json
+          event_date?: string
+          event_type?: string
+          fetched_at?: string
+          id?: number
+          symbol?: string | null
+          week_of?: string
+        }
+        Relationships: []
       }
       notification_log: {
         Row: {
@@ -692,8 +719,7 @@ export type Database = {
       show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
-      asset_event_scope: "watchlist" | "global"
-      asset_event_type: "earnings" | "dividend" | "split" | "ipo"
+      asset_event_type: "earnings" | "dividend" | "split"
       delivery_method: "email" | "sms"
       scheduled_notification_status: "sending" | "sent" | "failed"
       scheduled_notification_type: "market" | "daily" | "asset_events"
@@ -824,8 +850,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      asset_event_scope: ["watchlist", "global"],
-      asset_event_type: ["earnings", "dividend", "split", "ipo"],
+      asset_event_type: ["earnings", "dividend", "split"],
       delivery_method: ["email", "sms"],
       scheduled_notification_status: ["sending", "sent", "failed"],
       scheduled_notification_type: ["market", "daily", "asset_events"],

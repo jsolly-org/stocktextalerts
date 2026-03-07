@@ -73,7 +73,6 @@ export async function buildAssetEventsContent(options: {
 			? supabase
 					.from("asset_events")
 					.select("symbol,event_type,event_date,data")
-					.eq("scope", "watchlist")
 					.in("event_type", ["earnings", "dividend", "split"])
 					.in("symbol", [...tickers])
 					.gte("event_date", localDate)
@@ -81,9 +80,8 @@ export async function buildAssetEventsContent(options: {
 			: Promise.resolve({ data: [], error: null });
 	const ipoPromise = includeIpos
 		? supabase
-				.from("asset_events")
+				.from("market_events")
 				.select("symbol,event_type,event_date,data")
-				.eq("scope", "global")
 				.eq("event_type", "ipo")
 				.gte("event_date", localDate)
 				.lte("event_date", endDate)
@@ -109,12 +107,12 @@ export async function buildAssetEventsContent(options: {
 			event_date: string;
 			data: Record<string, unknown> | null;
 		}>),
-		...((ipoResult.data ?? []) as Array<{
-			symbol: string;
-			event_type: "earnings" | "dividend" | "split" | "ipo";
-			event_date: string;
-			data: Record<string, unknown> | null;
-		}>),
+		...(ipoResult.data ?? []).map((row) => ({
+			symbol: row.symbol as string,
+			event_type: "ipo" as const,
+			event_date: row.event_date as string,
+			data: row.data as Record<string, unknown> | null,
+		})),
 	];
 
 	// 3. Filter by user's per-type channel-specific toggles

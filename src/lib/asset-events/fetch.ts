@@ -8,16 +8,16 @@ import {
 } from "../providers/massive";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 
-/** Number of weeks to retain in the asset_events table. */
+/** Number of weeks to retain in the asset_events / market_events tables. */
 const RETENTION_WEEKS = 4;
 
 /**
  * Fetch earnings (Finnhub) plus dividends/splits/IPOs (Massive) for the given week,
  * filter calendar events to symbols tracked by any user, and upsert into the
- * `asset_events` table. IPOs are stored market-wide (not watchlist-scoped).
+ * `asset_events` table. IPOs go into `market_events` (no FK to `assets`).
  *
- * Deduplication is handled by the DB unique index `(symbol, event_type, event_date)`
- * via upsert, so this function is safe to call repeatedly for the same week.
+ * Deduplication is handled by DB unique indexes via upsert, so this function
+ * is safe to call repeatedly for the same week.
  * Cleans up rows older than RETENTION_WEEKS.
  */
 export async function fetchAndStoreAssetEvents(options: {
@@ -43,21 +43,6 @@ export async function fetchAndStoreAssetEvents(options: {
 
 	const symbolSet = new Set((trackedSymbols ?? []).map((row) => row.symbol));
 	const hasTrackedSymbols = symbolSet.size > 0;
-
-	// Get all symbols in the assets table (needed to filter IPOs by FK constraint)
-	const { data: allAssets, error: assetsError } = await supabase
-		.from("assets")
-		.select("symbol");
-
-	if (assetsError) {
-		logger.error("Failed to load assets", {
-			action: "fetch_asset_events",
-			error: assetsError.message,
-		});
-		throw new Error(`Failed to load assets: ${assetsError.message}`);
-	}
-
-	const assetSymbolSet = new Set((allAssets ?? []).map((row) => row.symbol));
 
 	// Fetch all four event types from providers:
 	// - earnings from Finnhub
@@ -106,11 +91,9 @@ export async function fetchAndStoreAssetEvents(options: {
 	});
 
 	// Filter calendar events to tracked symbols and build insert rows.
-	// IPOs are intentionally global and should not depend on tracked symbols.
 	type AssetEventInsert = {
 		symbol: string;
-		event_type: "earnings" | "dividend" | "split" | "ipo";
-		scope: "watchlist" | "global";
+		event_type: "earnings" | "dividend" | "split";
 		event_date: string;
 		data: Record<string, string | number | null>;
 		week_of: string;
@@ -123,7 +106,6 @@ export async function fetchAndStoreAssetEvents(options: {
 		rows.push({
 			symbol: e.ticker,
 			event_type: "earnings",
-			scope: "watchlist",
 			event_date: e.date,
 			data: {
 				time: e.time,
@@ -139,7 +121,6 @@ export async function fetchAndStoreAssetEvents(options: {
 		rows.push({
 			symbol: d.ticker,
 			event_type: "dividend",
-			scope: "watchlist",
 			event_date: d.exDividendDate,
 			data: {
 				cashAmount: d.cashAmount,
@@ -156,7 +137,6 @@ export async function fetchAndStoreAssetEvents(options: {
 		rows.push({
 			symbol: s.ticker,
 			event_type: "split",
-			scope: "watchlist",
 			event_date: s.executionDate,
 			data: {
 				splitFrom: s.splitFrom,
@@ -167,26 +147,31 @@ export async function fetchAndStoreAssetEvents(options: {
 		});
 	}
 
-	for (const ipo of ipos) {
-		if (!assetSymbolSet.has(ipo.ticker)) continue;
-		rows.push({
-			symbol: ipo.ticker,
-			event_type: "ipo",
-			scope: "global",
-			event_date: ipo.listingDate,
-			data: {
-				issuerName: ipo.issuerName,
-				securityType: ipo.securityType,
-			},
-			week_of: weekStart,
-		});
-	}
+	// Build IPO rows for market_events table (no FK constraint on symbol)
+	type MarketEventInsert = {
+		event_type: string;
+		symbol: string;
+		event_date: string;
+		week_of: string;
+		data: Record<string, string | number | null>;
+	};
 
+	const ipoRows: MarketEventInsert[] = ipos.map((ipo) => ({
+		event_type: "ipo",
+		symbol: ipo.ticker,
+		event_date: ipo.listingDate,
+		week_of: weekStart,
+		data: {
+			issuerName: ipo.issuerName,
+			securityType: ipo.securityType,
+		},
+	}));
+
+	// Upsert calendar events into asset_events
 	if (rows.length > 0) {
 		const { error: insertError } = await supabase
 			.from("asset_events")
 			.upsert(rows, {
-				// Matches DB unique index (week_of is not part of uniqueness)
 				onConflict: "symbol,event_type,event_date",
 			});
 
@@ -203,30 +188,60 @@ export async function fetchAndStoreAssetEvents(options: {
 		}
 	}
 
+	// Upsert IPOs into market_events
+	if (ipoRows.length > 0) {
+		const { error: ipoError } = await supabase
+			.from("market_events")
+			.upsert(ipoRows, {
+				onConflict: "event_type,symbol,event_date",
+			});
+
+		if (ipoError) {
+			logger.error("Failed to insert market_events (IPOs)", {
+				action: "fetch_asset_events",
+				weekStart,
+				rowCount: ipoRows.length,
+				error: ipoError.message,
+			});
+			throw new Error(
+				`Failed to insert market_events for ${weekStart}: ${ipoError.message}`,
+			);
+		}
+	}
+
+	const totalUpserted = rows.length + ipoRows.length;
+
 	logger.info("Asset events stored", {
 		action: "fetch_asset_events",
 		weekStart,
-		upserted: rows.length,
+		upserted: totalUpserted,
 	});
 
 	// Cleanup old rows
 	const cutoff = new Date();
-	// Use UTC explicitly to avoid timezone-dependent cutoffs.
 	cutoff.setUTCDate(cutoff.getUTCDate() - RETENTION_WEEKS * 7);
 	const cutoffDate = cutoff.toISOString().slice(0, 10);
 
-	const { error: deleteError } = await supabase
-		.from("asset_events")
-		.delete()
-		.lt("week_of", cutoffDate);
+	const [assetDeleteResult, marketDeleteResult] = await Promise.all([
+		supabase.from("asset_events").delete().lt("week_of", cutoffDate),
+		supabase.from("market_events").delete().lt("week_of", cutoffDate),
+	]);
 
-	if (deleteError) {
+	if (assetDeleteResult.error) {
 		logger.warn("Failed to clean up old asset_events rows", {
 			action: "fetch_asset_events",
 			cutoffDate,
-			error: deleteError.message,
+			error: assetDeleteResult.error.message,
 		});
 	}
 
-	return { upserted: rows.length, failedProviders };
+	if (marketDeleteResult.error) {
+		logger.warn("Failed to clean up old market_events rows", {
+			action: "fetch_asset_events",
+			cutoffDate,
+			error: marketDeleteResult.error.message,
+		});
+	}
+
+	return { upserted: totalUpserted, failedProviders };
 }
