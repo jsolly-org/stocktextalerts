@@ -121,6 +121,7 @@ describe("computeAnomalyScore", () => {
 			}),
 			snapshots,
 			hasEarningsNearby: false,
+			avgVolume20d: 22_500_000,
 		});
 
 		const lowVolResult = computeAnomalyScore({
@@ -132,6 +133,7 @@ describe("computeAnomalyScore", () => {
 			}),
 			snapshots,
 			hasEarningsNearby: false,
+			avgVolume20d: 22_500_000,
 		});
 
 		// High volume should produce a higher total score (both price + volume signals)
@@ -156,6 +158,7 @@ describe("computeAnomalyScore", () => {
 			}),
 			snapshots,
 			hasEarningsNearby: false,
+			avgVolume20d: 50_000_000,
 		});
 
 		// Should score high with price, volume, and breakout all contributing
@@ -184,6 +187,7 @@ describe("computeAnomalyScore", () => {
 			}),
 			snapshots,
 			hasEarningsNearby: true,
+			avgVolume20d: 20_000_000,
 		});
 
 		// Price + volume + breakout + earnings should easily exceed 60
