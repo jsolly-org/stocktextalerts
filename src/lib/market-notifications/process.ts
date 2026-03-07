@@ -1,4 +1,9 @@
-import { US_MARKET_TIMEZONE } from "../constants";
+import { DateTime } from "luxon";
+import {
+	US_MARKET_CLOSE_EASTERN_MINUTES,
+	US_MARKET_OPEN_EASTERN_MINUTES,
+	US_MARKET_TIMEZONE,
+} from "../constants";
 import { rootLogger } from "../logging";
 import { createEmailSender } from "../messaging/email/utils";
 import { createLogoCache } from "../messaging/logo-fetcher";
@@ -99,6 +104,7 @@ function buildSignalContexts(options: {
 	percentMove: number;
 	dollarMove: number;
 	anomalyScore: number;
+	maxPossibleScore: number;
 	anomalySummary: string;
 	hasEarningsNearby: boolean;
 	benchmarkMovePercentAbs: number | null;
@@ -109,6 +115,7 @@ function buildSignalContexts(options: {
 		percentMove,
 		dollarMove,
 		anomalyScore,
+		maxPossibleScore,
 		anomalySummary,
 		hasEarningsNearby,
 		benchmarkMovePercentAbs,
@@ -121,7 +128,7 @@ function buildSignalContexts(options: {
 
 	// Grok context: technical detail for AI enrichment
 	const grokBase = `${direction.toLowerCase()} ${absPct}% ($${absDollar}) from previous close`;
-	const scoreLabel = `anomaly score ${anomalyScore}/100 (${anomalySummary})`;
+	const scoreLabel = `anomaly score ${anomalyScore}/${maxPossibleScore} (${anomalySummary})`;
 	const grokMarket =
 		benchmarkMovePercentAbs !== null
 			? `${benchmarkLabel} moved ${benchmarkMovePercentAbs.toFixed(2)}%`
@@ -362,12 +369,19 @@ export async function processPriceAlerts(options: {
 	const spyMovePercentAbs =
 		benchmarkMoveCache.get(MARKET_BENCHMARK_SYMBOL) ?? null;
 
-	// Freeze early-day flag once per run so all symbols in the batch use the same cap
-	const nowET = new Date().toLocaleString("en-US", {
-		timeZone: US_MARKET_TIMEZONE,
-	});
-	const etHour = new Date(nowET).getHours();
-	const isEarlyDay = etHour < 10;
+	// Freeze early-day flag and time-of-day fraction once per run
+	const eastern = DateTime.now().setZone(US_MARKET_TIMEZONE);
+	const minutesSinceMidnight = eastern.hour * 60 + eastern.minute;
+	const minutesSinceOpen =
+		minutesSinceMidnight - US_MARKET_OPEN_EASTERN_MINUTES;
+	const tradingMinutes =
+		US_MARKET_CLOSE_EASTERN_MINUTES - US_MARKET_OPEN_EASTERN_MINUTES;
+	const fractionOfTradingDayElapsed = Math.min(
+		1,
+		Math.max(0, minutesSinceOpen / tradingMinutes),
+	);
+	const isEarlyDay = eastern.hour < 10;
+	const maxPossibleScore = isEarlyDay ? 95 : 100;
 
 	for (const symbol of uniqueSymbols) {
 		totals.symbolsChecked++;
@@ -419,6 +433,7 @@ export async function processPriceAlerts(options: {
 			avgVolume20d: stats?.avgVolume20d,
 			atr14: stats?.atr14,
 			isEarlyDay,
+			fractionOfTradingDayElapsed,
 		});
 
 		const symbolMovePercentAbs = Math.abs(percentMove);
@@ -489,6 +504,7 @@ export async function processPriceAlerts(options: {
 			percentMove,
 			dollarMove,
 			anomalyScore: anomalyResult.score,
+			maxPossibleScore,
 			anomalySummary: anomalyResult.summary,
 			hasEarningsNearby,
 			benchmarkMovePercentAbs,

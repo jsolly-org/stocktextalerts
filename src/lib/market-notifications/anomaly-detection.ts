@@ -146,10 +146,16 @@ function computeExcessPriceMoveWithMetrics(
 	return { signal, rawMovePct, excessMovePct };
 }
 
+/** Minimum fraction of trading day for RVOL baseline (avoids noisy RVOL at open). */
+const RVOL_FRACTION_FLOOR = 0.05;
+
 /**
  * Compute the volume confirmation signal (standalone).
  *
- * Uses RVOL (current volume / 20-day average) with piecewise scaling.
+ * Uses time-of-day-adjusted RVOL: current cumulative volume vs expected volume
+ * at this point in the session (avgVolume20d * fractionOfDayElapsed). This
+ * correctly compares partial-day volume to a proportional baseline instead of
+ * the full-day average, enabling the 2x threshold to trigger during morning hours.
  * Gated on excess move >= 0.5% to prevent volume-only triggers.
  */
 function computeVolumeSignal(
@@ -157,6 +163,7 @@ function computeVolumeSignal(
 	_snapshots: AssetSnapshot[],
 	excessMovePct: number,
 	avgVolume20d: number | null | undefined,
+	fractionOfTradingDayElapsed: number,
 ): SignalBreakdown {
 	const maxPoints = 20;
 
@@ -183,8 +190,8 @@ function computeVolumeSignal(
 
 	// Determine baseline: use ADV-20 only. A same-session snapshot median is not
 	// comparable to daily volume and biases RVOL when daily stats are unavailable.
-	const baseline = avgVolume20d;
-	if (baseline == null || baseline <= 0) {
+	const avgVolume = avgVolume20d;
+	if (avgVolume == null || avgVolume <= 0) {
 		return {
 			name: "volume_confirmation",
 			points: 0,
@@ -194,7 +201,11 @@ function computeVolumeSignal(
 		};
 	}
 
-	const rvol = currentQuote.volume / baseline;
+	// Time-of-day adjustment: compare partial-day volume to expected volume at
+	// this point in the session (linear approximation of intraday volume curve).
+	const fraction = Math.max(fractionOfTradingDayElapsed, RVOL_FRACTION_FLOOR);
+	const expectedVolumeAtTime = avgVolume * fraction;
+	const rvol = currentQuote.volume / expectedVolumeAtTime;
 
 	// Piecewise linear scaling aligned with industry RVOL thresholds
 	let points: number;
@@ -330,6 +341,8 @@ export function computeAnomalyScore(options: {
 	atr14?: number | null;
 	/** Whether current time is before 10 AM ET (early-day noise reduction). */
 	isEarlyDay?: boolean;
+	/** Fraction of trading session elapsed (0–1) for time-of-day RVOL adjustment. */
+	fractionOfTradingDayElapsed?: number;
 }): AnomalyResult {
 	const {
 		currentQuote,
@@ -339,6 +352,7 @@ export function computeAnomalyScore(options: {
 		avgVolume20d,
 		atr14,
 		isEarlyDay,
+		fractionOfTradingDayElapsed = 1,
 	} = options;
 
 	// Need enough data to make meaningful comparisons
@@ -363,6 +377,7 @@ export function computeAnomalyScore(options: {
 		snapshots,
 		excessForGate,
 		avgVolume20d,
+		fractionOfTradingDayElapsed,
 	);
 
 	const signals: SignalBreakdown[] = [
