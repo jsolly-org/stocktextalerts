@@ -7,9 +7,6 @@ Configuration
 
 const MIN_SNAPSHOTS = 5;
 
-/** Volume multiplier when volume data is unavailable (penalizes missing data). */
-const UNKNOWN_VOLUME_MULTIPLIER = 0.8;
-
 /** Minimum intraday range percentage to prevent early-day inflation. */
 const RANGE_FLOOR_PCT = 0.3;
 
@@ -38,21 +35,6 @@ export interface AnomalyResult {
 Signal Calculations
 ============= */
 
-/** Estimate median volume from snapshots (or `null` when unavailable). */
-function estimateMedianVolume(snapshots: AssetSnapshot[]): number | null {
-	const volumes = snapshots
-		.map((s) => s.volume)
-		.filter((v): v is number => v !== null && v > 0);
-
-	if (volumes.length === 0) return null;
-
-	volumes.sort((a, b) => a - b);
-	const mid = Math.floor(volumes.length / 2);
-	return volumes.length % 2 === 0
-		? (volumes[mid - 1] + volumes[mid]) / 2
-		: volumes[mid];
-}
-
 interface PriceSignalResult {
 	signal: SignalBreakdown;
 	rawMovePct: number;
@@ -71,7 +53,6 @@ function computeExcessPriceMoveWithMetrics(
 	currentQuote: ExtendedAssetQuote,
 	snapshots: AssetSnapshot[],
 	benchmarkMovePct: number | null | undefined,
-	avgVolume20d: number | null | undefined,
 	atr14: number | null | undefined,
 ): PriceSignalResult {
 	const maxPoints = 50;
@@ -131,20 +112,8 @@ function computeExcessPriceMoveWithMetrics(
 	const normalizedMove =
 		excessMovePct / Math.max(normalizationBase, RANGE_FLOOR_PCT);
 
-	// Mild volume adjustment (0.7x–1.3x): light confirmation
-	const medianVolume = estimateMedianVolume(snapshots);
-	let volumeMultiplier = UNKNOWN_VOLUME_MULTIPLIER;
-	if (currentQuote.volume !== null && currentQuote.volume > 0) {
-		const baseline = avgVolume20d ?? medianVolume;
-		if (baseline !== null && baseline > 0) {
-			const volRatio = currentQuote.volume / baseline;
-			volumeMultiplier = Math.max(0.7, Math.min(volRatio, 1.3));
-		}
-	}
-
 	const priceRatio = Math.min(normalizedMove / 2.0, 1.0);
-	const rawPts = Math.round(priceRatio * maxPoints);
-	const points = Math.min(Math.round(rawPts * volumeMultiplier), maxPoints);
+	const points = Math.round(priceRatio * maxPoints);
 
 	const direction = currentQuote.price >= referencePrice ? "up" : "down";
 	const moveType = "max-snap";
@@ -154,7 +123,7 @@ function computeExcessPriceMoveWithMetrics(
 		points,
 		maxPoints,
 		triggered: points > 0,
-		detail: `${direction} ${rawMovePct.toFixed(2)}% (${moveType}, excess ${excessMovePct.toFixed(2)}%, vol ${volumeMultiplier.toFixed(1)}x${benchmarkDetail})`,
+		detail: `${direction} ${rawMovePct.toFixed(2)}% (${moveType}, excess ${excessMovePct.toFixed(2)}%${benchmarkDetail})`,
 	};
 	return { signal, rawMovePct, excessMovePct };
 }
@@ -167,7 +136,7 @@ function computeExcessPriceMoveWithMetrics(
  */
 function computeVolumeSignal(
 	currentQuote: ExtendedAssetQuote,
-	snapshots: AssetSnapshot[],
+	_snapshots: AssetSnapshot[],
 	excessMovePct: number,
 	avgVolume20d: number | null | undefined,
 ): SignalBreakdown {
@@ -194,15 +163,16 @@ function computeVolumeSignal(
 		};
 	}
 
-	// Determine baseline: prefer ADV-20, fall back to median snapshot volume
-	const baseline = avgVolume20d ?? estimateMedianVolume(snapshots);
-	if (baseline === null || baseline <= 0) {
+	// Determine baseline: use ADV-20 only. A same-session snapshot median is not
+	// comparable to daily volume and biases RVOL when daily stats are unavailable.
+	const baseline = avgVolume20d;
+	if (baseline == null || baseline <= 0) {
 		return {
 			name: "volume_confirmation",
 			points: 0,
 			maxPoints,
 			triggered: false,
-			detail: "no volume baseline",
+			detail: "no ADV-20 baseline",
 		};
 	}
 
@@ -368,7 +338,6 @@ export function computeAnomalyScore(options: {
 			currentQuote,
 			snapshots,
 			benchmarkMovePct,
-			avgVolume20d,
 			atr14,
 		);
 
