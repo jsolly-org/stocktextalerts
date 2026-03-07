@@ -97,21 +97,23 @@ export async function buildAssetEventsContent(options: {
 			calendarError: calendarResult.error?.message ?? null,
 			ipoError: ipoResult.error?.message ?? null,
 		});
-		return nullResult;
 	}
 
+	const calendarRows = calendarResult.error ? [] : (calendarResult.data ?? []);
+	const ipoRows = ipoResult.error ? [] : (ipoResult.data ?? []);
+
 	const rawEvents = [
-		...((calendarResult.data ?? []) as Array<{
+		...(calendarRows as Array<{
 			symbol: string;
 			event_type: "earnings" | "dividend" | "split";
 			event_date: string;
 			data: Record<string, unknown> | null;
 		}>),
-		...(ipoResult.data ?? []).map((row) => ({
-			symbol: row.symbol as string,
+		...ipoRows.map((row) => ({
+			symbol: row.symbol,
 			event_type: "ipo" as const,
-			event_date: row.event_date as string,
-			data: row.data as Record<string, unknown> | null,
+			event_date: row.event_date,
+			data: row.data as Record<string, unknown>,
 		})),
 	];
 
