@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS public.market_events (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_market_events_type_symbol_date
-  ON public.market_events (event_type, symbol, event_date);
+  ON public.market_events (event_type, symbol, event_date) NULLS NOT DISTINCT;
 
 CREATE INDEX IF NOT EXISTS idx_market_events_type_date
   ON public.market_events (event_type, event_date);
