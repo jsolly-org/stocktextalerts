@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../../../src/pages/api/messaging/inbound";
 import { createApiContext } from "../../helpers/api-context";
 import { buildSmsInboundRequest } from "../../helpers/request-helpers";
-import { expectConsoleWarning } from "../../setup";
 
 const { validateRequestMock } = vi.hoisted(() => ({
 	validateRequestMock: vi.fn(),
@@ -40,7 +39,6 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 	it("Requests with an invalid signature are rejected.", async () => {
 		vi.stubEnv("TWILIO_AUTH_TOKEN", "test-token");
 		validateRequestMock.mockReturnValueOnce(false);
-		expectConsoleWarning(/Twilio signature validation failed/);
 
 		const response = await POST(
 			createApiContext({
