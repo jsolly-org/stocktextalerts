@@ -53,6 +53,12 @@ function estimateMedianVolume(snapshots: AssetSnapshot[]): number | null {
 		: volumes[mid];
 }
 
+/** Result of excess price-move computation: signal breakdown and raw excess pct for gating. */
+interface ExcessPriceMoveResult {
+	signal: SignalBreakdown;
+	excessMovePct: number;
+}
+
 /**
  * Compute the excess price-move signal.
  *
@@ -66,7 +72,7 @@ function computeExcessPriceMove(
 	benchmarkMovePct: number | null | undefined,
 	avgVolume20d: number | null | undefined,
 	atr14: number | null | undefined,
-): SignalBreakdown {
+): ExcessPriceMoveResult {
 	const maxPoints = 50;
 
 	// Scan all snapshots for max absolute move (catches V-reversals)
@@ -151,11 +157,14 @@ function computeExcessPriceMove(
 	const moveType = maxMovePct >= sustainedMovePct ? "max-snap" : "sustained";
 
 	return {
-		name: "excess_price_move",
-		points,
-		maxPoints,
-		triggered: points > 0,
-		detail: `${direction} ${rawMovePct.toFixed(2)}% (${moveType}, excess ${excessMovePct.toFixed(2)}%, vol ${volumeMultiplier.toFixed(1)}x${benchmarkDetail})`,
+		signal: {
+			name: "excess_price_move",
+			points,
+			maxPoints,
+			triggered: points > 0,
+			detail: `${direction} ${rawMovePct.toFixed(2)}% (${moveType}, excess ${excessMovePct.toFixed(2)}%, vol ${volumeMultiplier.toFixed(1)}x${benchmarkDetail})`,
+		},
+		excessMovePct,
 	};
 }
 
@@ -363,7 +372,7 @@ export function computeAnomalyScore(options: {
 		};
 	}
 
-	const priceSignal = computeExcessPriceMove(
+	const { signal: priceSignal, excessMovePct } = computeExcessPriceMove(
 		currentQuote,
 		snapshots,
 		benchmarkMovePct,
@@ -371,61 +380,10 @@ export function computeAnomalyScore(options: {
 		atr14,
 	);
 
-	// Derive excess move pct for volume gating from the price signal detail
-	// Parse it from the computation directly instead
-	const oldest = snapshots[0];
-	let maxMovePct = 0;
-	for (const snap of snapshots) {
-		if (snap.price <= 0) continue;
-		const movePct = Math.abs(
-			((currentQuote.price - snap.price) / snap.price) * 100,
-		);
-		if (movePct > maxMovePct) maxMovePct = movePct;
-	}
-	const sustainedMovePct =
-		oldest.price > 0
-			? Math.abs(((currentQuote.price - oldest.price) / oldest.price) * 100)
-			: 0;
-	const rawMovePct = Math.max(maxMovePct, sustainedMovePct);
-
-	// Compute excess for volume gating
-	let excessForGate = rawMovePct;
-	if (benchmarkMovePct != null && rawMovePct > 0) {
-		const refPrice =
-			maxMovePct >= sustainedMovePct
-				? (() => {
-						let ref = oldest.price;
-						let best = 0;
-						for (const snap of snapshots) {
-							if (snap.price <= 0) continue;
-							const m = Math.abs(
-								((currentQuote.price - snap.price) / snap.price) * 100,
-							);
-							if (m > best) {
-								best = m;
-								ref = snap.price;
-							}
-						}
-						return ref;
-					})()
-				: oldest.price;
-		const signedMove =
-			refPrice > 0 ? ((currentQuote.price - refPrice) / refPrice) * 100 : 0;
-		const stockDir = Math.sign(signedMove);
-		const benchDir = Math.sign(benchmarkMovePct);
-		if (stockDir === benchDir) {
-			const explained = Math.min(
-				Math.abs(benchmarkMovePct),
-				Math.abs(signedMove),
-			);
-			excessForGate = Math.max(rawMovePct - explained, rawMovePct * 0.3);
-		}
-	}
-
 	const volumeSignal = computeVolumeSignal(
 		currentQuote,
 		snapshots,
-		excessForGate,
+		excessMovePct,
 		avgVolume20d,
 	);
 

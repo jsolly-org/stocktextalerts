@@ -1,16 +1,11 @@
+import type { DailyOHLCVBar } from "../providers/massive";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 
 /* =============
 Types
 ============= */
 
-export interface DailyOHLCVBar {
-	open: number;
-	high: number;
-	low: number;
-	close: number;
-	volume: number;
-}
+export type { DailyOHLCVBar };
 
 export interface DailyAssetStats {
 	symbol: string;
