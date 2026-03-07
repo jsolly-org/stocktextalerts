@@ -383,7 +383,7 @@ export function computeAnomalyScore(options: {
 	const volumeSignal = computeVolumeSignal(
 		currentQuote,
 		snapshots,
-		excessMovePct,
+		excessForGate,
 		avgVolume20d,
 	);
 
