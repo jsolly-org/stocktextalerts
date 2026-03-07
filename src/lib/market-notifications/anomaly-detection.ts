@@ -90,16 +90,8 @@ function computeExcessPriceMoveWithMetrics(
 		}
 	}
 
-	// Also check sustained move (oldest → current)
-	const oldest = snapshots[0];
-	const sustainedMovePct =
-		oldest.price > 0
-			? Math.abs(((currentQuote.price - oldest.price) / oldest.price) * 100)
-			: 0;
-
-	const rawMovePct = Math.max(maxMovePct, sustainedMovePct);
-	const referencePrice =
-		maxMovePct >= sustainedMovePct ? maxMoveRef : oldest.price;
+	const rawMovePct = maxMovePct;
+	const referencePrice = maxMoveRef;
 
 	// Compute signed move for benchmark comparison
 	const signedMovePct =
@@ -155,7 +147,7 @@ function computeExcessPriceMoveWithMetrics(
 	const points = Math.min(Math.round(rawPts * volumeMultiplier), maxPoints);
 
 	const direction = currentQuote.price >= referencePrice ? "up" : "down";
-	const moveType = maxMovePct >= sustainedMovePct ? "max-snap" : "sustained";
+	const moveType = "max-snap";
 
 	const signal: SignalBreakdown = {
 		name: "excess_price_move",
