@@ -26,6 +26,7 @@ describe("A user clicks the email unsubscribe link.", () => {
 			confirmed: true,
 			emailNotificationsEnabled: true,
 			smsNotificationsEnabled: true,
+			phoneVerified: true,
 			scheduledUpdatesEnabled: true,
 			phoneCountryCode: "+1",
 			phoneNumber: generateUniquePhoneNumber(),
@@ -97,6 +98,37 @@ describe("A user clicks the email unsubscribe link.", () => {
 		expect(updated?.market_scheduled_asset_price_include_sms).toBe(true);
 	});
 
+	it("SMS opt-out is not offered when phone is not verified.", async () => {
+		const user = await createTestUser({
+			email: createTestEmail("no-phone-verified"),
+			password: "TestPassword123!",
+			confirmed: true,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: true,
+			phoneVerified: false,
+			phoneCountryCode: "+1",
+			phoneNumber: generateUniquePhoneNumber(),
+		});
+		registerTestUserForCleanup(user.id);
+
+		const token = createEmailUnsubscribeToken({
+			userId: user.id,
+			email: user.email,
+		});
+		const url = new URL("http://localhost/email/unsubscribe");
+		url.searchParams.set("user", user.id);
+		url.searchParams.set("token", token);
+
+		const container = await AstroContainer.create({ renderers });
+		const response = await container.renderToResponse(EmailUnsubscribePage, {
+			request: new Request(url.toString()),
+		});
+
+		expect(response.status).toBe(200);
+		const html = await response.text();
+		expect(html).not.toContain("Also unsubscribe from SMS");
+	});
+
 	it("Email unsubscribe can also disable SMS when requested.", async () => {
 		const user = await createTestUser({
 			email: createTestEmail("sms-unsub"),
@@ -104,6 +136,7 @@ describe("A user clicks the email unsubscribe link.", () => {
 			confirmed: true,
 			emailNotificationsEnabled: true,
 			smsNotificationsEnabled: true,
+			phoneVerified: true,
 			phoneCountryCode: "+1",
 			phoneNumber: generateUniquePhoneNumber(),
 		});

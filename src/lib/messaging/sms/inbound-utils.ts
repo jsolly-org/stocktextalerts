@@ -261,6 +261,7 @@ export async function handleInboundSms(
 			userId,
 			{
 				sms_opted_out: false,
+				sms_notifications_enabled: true,
 			},
 			"sms_start",
 		);
@@ -269,7 +270,7 @@ export async function handleInboundSms(
 		return {
 			status: 200,
 			body: wrapInTwiml(
-				`You can receive SMS again. Re-enable SMS notifications from your dashboard: ${dashboardUrl}.`,
+				`SMS notifications are now on. Manage notification-preferences at ${dashboardUrl}.`,
 			),
 			contentType: "text/xml",
 		};
