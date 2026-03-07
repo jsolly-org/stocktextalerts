@@ -44,6 +44,21 @@ export async function fetchAndStoreAssetEvents(options: {
 	const symbolSet = new Set((trackedSymbols ?? []).map((row) => row.symbol));
 	const hasTrackedSymbols = symbolSet.size > 0;
 
+	// Get all symbols in the assets table (needed to filter IPOs by FK constraint)
+	const { data: allAssets, error: assetsError } = await supabase
+		.from("assets")
+		.select("symbol");
+
+	if (assetsError) {
+		logger.error("Failed to load assets", {
+			action: "fetch_asset_events",
+			error: assetsError.message,
+		});
+		throw new Error(`Failed to load assets: ${assetsError.message}`);
+	}
+
+	const assetSymbolSet = new Set((allAssets ?? []).map((row) => row.symbol));
+
 	// Fetch all four event types from providers:
 	// - earnings from Finnhub
 	// - dividends/splits/IPOs from Massive
@@ -153,6 +168,7 @@ export async function fetchAndStoreAssetEvents(options: {
 	}
 
 	for (const ipo of ipos) {
+		if (!assetSymbolSet.has(ipo.ticker)) continue;
 		rows.push({
 			symbol: ipo.ticker,
 			event_type: "ipo",

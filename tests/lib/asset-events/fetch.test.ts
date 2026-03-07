@@ -23,8 +23,10 @@ type AssetEventRow = {
 	week_of: string;
 };
 
-function createSupabaseStub(trackedSymbols: string[]) {
+function createSupabaseStub(trackedSymbols: string[], allAssets?: string[]) {
 	const state: { upsertRows: AssetEventRow[] } = { upsertRows: [] };
+	// Default: all tracked symbols exist as assets
+	const assetSymbols = allAssets ?? trackedSymbols;
 
 	const supabase = {
 		from(table: string) {
@@ -33,6 +35,17 @@ function createSupabaseStub(trackedSymbols: string[]) {
 					select() {
 						return Promise.resolve({
 							data: trackedSymbols.map((symbol) => ({ symbol })),
+							error: null,
+						});
+					},
+				};
+			}
+
+			if (table === "assets") {
+				return {
+					select() {
+						return Promise.resolve({
+							data: assetSymbols.map((symbol) => ({ symbol })),
 							error: null,
 						});
 					},
@@ -74,7 +87,7 @@ describe("fetchAndStoreAssetEvents", () => {
 	});
 
 	it("stores IPO events even when no symbols are tracked", async () => {
-		const { supabase, state } = createSupabaseStub([]);
+		const { supabase, state } = createSupabaseStub([], ["ACME"]);
 
 		vi.mocked(fetchEarnings).mockResolvedValue({ data: [], failed: false });
 		vi.mocked(fetchDividends).mockResolvedValue({ data: [], failed: false });
@@ -109,7 +122,7 @@ describe("fetchAndStoreAssetEvents", () => {
 	});
 
 	it("keeps calendar events watchlist-scoped while IPOs stay global", async () => {
-		const { supabase, state } = createSupabaseStub(["AAPL"]);
+		const { supabase, state } = createSupabaseStub(["AAPL"], ["AAPL", "NEWC"]);
 
 		vi.mocked(fetchEarnings).mockResolvedValue({
 			data: [
