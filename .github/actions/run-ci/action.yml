@@ -188,7 +188,7 @@ runs:
         fi
         # CI only needs these values to exist (Astro prerender runs middleware during build).
         # Real production values live in Vercel env.
-        STATIC_VARS=$'CRON_SECRET=ci-cron-secret\nVERCEL_URL=http://localhost:4321\nTWILIO_ACCOUNT_SID=AC00000000000000000000000000000000\nTWILIO_AUTH_TOKEN=ci-twilio-auth-token\nTWILIO_PHONE_NUMBER=+15555550100\nTWILIO_VERIFY_SERVICE_SID=VA00000000000000000000000000000000\nRESEND_API_KEY=re_ci_dummy_key\nEMAIL_FROM=ci@example.com\nMASSIVE_API_KEY=ci-massive-api-key\nFINNHUB_API_KEY=ci-finnhub-api-key'
+        STATIC_VARS=$'CRON_SECRET=ci-cron-secret\nVERCEL_URL=http://localhost:4322\nTWILIO_ACCOUNT_SID=AC00000000000000000000000000000000\nTWILIO_AUTH_TOKEN=ci-twilio-auth-token\nTWILIO_PHONE_NUMBER=+15555550100\nTWILIO_VERIFY_SERVICE_SID=VA00000000000000000000000000000000\nRESEND_API_KEY=re_ci_dummy_key\nEMAIL_FROM=ci@example.com\nMASSIVE_API_KEY=ci-massive-api-key\nFINNHUB_API_KEY=ci-finnhub-api-key'
         printf '%s\n%s\n' "$DB_VARS" "$STATIC_VARS" > .env.local
         printf '%s\n%s\n' "$DB_VARS" "$STATIC_VARS" >> $GITHUB_ENV
     - name: Test

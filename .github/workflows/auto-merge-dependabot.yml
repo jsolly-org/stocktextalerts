@@ -22,7 +22,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Enable auto-merge for Dependabot PR
-        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major' && !contains(steps.metadata.outputs.dependency-names, '@biomejs/biome')
         run: gh pr merge ${{ github.event.pull_request.number }} --auto --squash
         env:
           # Use GH_AGENT_TOKEN so auto-merge works on PRs that modify workflow files (default GITHUB_TOKEN lacks workflows permission)
