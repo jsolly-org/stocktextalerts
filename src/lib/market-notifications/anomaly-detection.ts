@@ -265,7 +265,7 @@ function computeRangeBreakout(
 		maxPoints,
 		triggered,
 		detail: triggered
-			? `${direction} breakout +${breakoutPct.toFixed(2)}%${isEarlyDay ? " (early-day cap)" : ""}`
+			? `${direction} breakout ${direction === "low" ? "-" : "+"}${breakoutPct.toFixed(2)}%${isEarlyDay ? " (early-day cap)" : ""}`
 			: "within day range",
 	};
 }
@@ -292,7 +292,9 @@ Composite Scoring
 /**
  * Compute the composite anomaly score for a symbol.
  *
- * 4 signals, max 100 points:
+ * 4 signals:
+ *   - Regular hours max: 100 points
+ *   - Before 10:00 AM ET: 95 points (range-breakout capped at 10)
  *   - Excess Price Move (50 pts): stock move beyond benchmark, normalized by ATR/range
  *   - Volume Confirmation (20 pts): standalone RVOL signal, gated on price move
  *   - Range Breakout (15 pts): session high/low breakout
