@@ -77,6 +77,17 @@ export const POST: APIRoute = async ({ url, request, locals }) => {
 
 		const signature = signatureHeader;
 		const formData = await request.formData();
+
+		// Collect ALL raw form fields for signature validation.
+		// Twilio computes the HMAC over every posted parameter, so we must
+		// include fields even if they aren't in our schema.
+		const rawParams: Record<string, string> = {};
+		for (const [key, value] of formData.entries()) {
+			if (typeof value === "string") {
+				rawParams[key] = value;
+			}
+		}
+
 		const parsed = parseWithSchema(formData, INBOUND_SMS_SCHEMA);
 
 		if (!parsed.ok) {
@@ -87,36 +98,16 @@ export const POST: APIRoute = async ({ url, request, locals }) => {
 			return new Response("Invalid form submission", { status: 400 });
 		}
 
-		// Strip undefined values so that only fields actually present in the
-		// request are forwarded to Twilio signature validation.  The schema
-		// parser sets missing optional fields to `undefined`, but Twilio's
-		// `validateRequest` includes every key in signature computation —
-		// concatenating undefined values as "keyundefined" — which breaks
-		// the HMAC check.
-		const params: Record<string, string | undefined> = {};
-		for (const [key, value] of Object.entries(
-			parsed.data as Record<string, string | undefined>,
-		)) {
-			if (value !== undefined) {
-				params[key] = value;
-			}
-		}
-
 		const supabase = createSupabaseAdminClient();
 		const twilioConfig = readTwilioConfig();
 
 		const webhookUrl = buildWebhookUrl(url);
 
-		logger.info("Webhook URL debug", {
-			webhookUrl,
-			siteUrl: getSiteUrl(),
-		});
-
 		const result = await handleInboundSms(
 			{
 				url: webhookUrl,
 				signature,
-				params,
+				params: rawParams,
 			},
 			{
 				authToken: twilioConfig.authToken,

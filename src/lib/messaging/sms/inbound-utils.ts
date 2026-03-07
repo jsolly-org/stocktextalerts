@@ -10,7 +10,7 @@ interface InboundSmsDependencies {
 		authToken: string,
 		signature: string,
 		url: string,
-		params: Record<string, string | undefined>,
+		params: Record<string, string>,
 	) => boolean;
 	supabase: AppSupabaseClient;
 }
@@ -18,7 +18,7 @@ interface InboundSmsDependencies {
 interface InboundSmsRequest {
 	url: string;
 	signature: string;
-	params: Record<string, string | undefined>;
+	params: Record<string, string>;
 }
 
 interface InboundSmsResponse {
