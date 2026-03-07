@@ -6,6 +6,7 @@
 		action="/api/notification-preferences/update"
 		aria-label="Notification preferences"
 		:aria-busy="isSaving"
+		:data-hydrated="isHydrated || undefined"
 		@input="handleFormInput"
 		@change="handleFormChange"
 		@submit="handleFormSubmitWrapper"
@@ -92,7 +93,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, toRefs, watch } from "vue";
+import { computed, onMounted, ref, toRefs, watch } from "vue";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import { fetchCurrentNotificationPreferences } from "../../../lib/api/notification-preferences";
 import {
@@ -140,6 +141,8 @@ const emit = defineEmits<(event: "update:emailEnabled", value: boolean) => void>
 const user = useDashboardUser();
 
 const isEditingPhone = ref(false);
+const isHydrated = ref(false);
+onMounted(() => { isHydrated.value = true; });
 
 /* ============= Auto-save composable ============= */
 const notificationPreferencesFormElement = ref<HTMLFormElement | null>(null);

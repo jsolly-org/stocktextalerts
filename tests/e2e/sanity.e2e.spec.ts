@@ -884,6 +884,11 @@ test.describe("sanity tests", () => {
 
 		await page.goto("/dashboard");
 
+		// Wait for the notification form's Vue component to hydrate so click handlers are attached
+		await page
+			.locator('form[aria-label="Notification preferences"][data-hydrated]')
+			.waitFor({ timeout: 15_000 });
+
 		const emailSwitch = page.getByRole("switch", {
 			name: "Email notifications",
 		});
