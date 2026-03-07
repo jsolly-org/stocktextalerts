@@ -1,7 +1,8 @@
 ---
 import Layout from "../../layouts/Layout.astro";
 import StatusMessage from "../../components/StatusMessage.astro";
-import { createSupabaseAdminClient } from "../../lib/db/supabase";
+import { createUserService } from "../../lib/db";
+import { createSupabaseAdminClient, createSupabaseServerClient } from "../../lib/db/supabase";
 import { createLogger } from "../../lib/logging";
 import { verifyEmailUnsubscribeToken } from "../../lib/messaging/email/unsubscribe";
 import { isValidUuid } from "../../lib/validation";
@@ -19,6 +20,10 @@ const token = Astro.url.searchParams.get("token");
 const MAX_TOKEN_LENGTH = 200;
 const isValidToken = (s: string | null) =>
 	typeof s === "string" && s.length > 0 && s.length <= MAX_TOKEN_LENGTH;
+
+const serverSupabase = createSupabaseServerClient();
+const users = createUserService(serverSupabase, Astro.cookies);
+const isLoggedIn = !!(await users.getCurrentUser());
 
 let tone: "success" | "error" = "error";
 let message =
@@ -93,8 +98,8 @@ if (userId && token && isValidUuid(userId) && isValidToken(token)) {
 				tone = "success";
 				message =
 					wantsSmsOptOut && canOptOutSms
-						? "Email and SMS notifications are now turned off. You can sign in anytime to adjust your delivery schedule."
-						: "Email notifications are now turned off. You can sign in anytime to adjust your delivery schedule.";
+						? `Email and SMS notifications are now turned off. You can ${isLoggedIn ? "visit your dashboard" : "sign in"} anytime to adjust your delivery schedule.`
+						: `Email notifications are now turned off. You can ${isLoggedIn ? "visit your dashboard" : "sign in"} anytime to adjust your delivery schedule.`;
 
 				if (canOptOutSms && !wantsSmsOptOut) {
 					const params = new URLSearchParams({
@@ -143,9 +148,15 @@ if (userId && token && isValidUuid(userId) && isValidToken(token)) {
 			)}
 
 			<div>
-				<a href="/auth/signin" class="btn btn-md btn-primary w-full">
-					Sign in to adjust schedule
-				</a>
+				{isLoggedIn ? (
+					<a href="/dashboard" class="btn btn-md btn-primary w-full">
+						Go to Dashboard
+					</a>
+				) : (
+					<a href="/auth/signin" class="btn btn-md btn-primary w-full">
+						Sign in to adjust schedule
+					</a>
+				)}
 			</div>
 		</div>
 	</main>
