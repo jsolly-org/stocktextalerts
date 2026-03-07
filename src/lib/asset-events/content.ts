@@ -113,7 +113,7 @@ export async function buildAssetEventsContent(options: {
 			symbol: row.symbol,
 			event_type: "ipo" as const,
 			event_date: row.event_date,
-			data: row.data as Record<string, unknown>,
+			data: row.data as Record<string, unknown> | null,
 		})),
 	];
 
