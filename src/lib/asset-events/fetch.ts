@@ -149,7 +149,7 @@ export async function fetchAndStoreAssetEvents(options: {
 
 	// Build IPO rows for market_events table (no FK constraint on symbol)
 	type MarketEventInsert = {
-		event_type: string;
+		event_type: "ipo";
 		symbol: string;
 		event_date: string;
 		week_of: string;

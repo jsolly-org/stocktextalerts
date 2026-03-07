@@ -93,7 +93,7 @@ export async function buildAssetEventsContent(options: {
 	]);
 
 	if (calendarResult.error || ipoResult.error) {
-		logger.error("Failed to query asset_events", {
+		logger.error("Failed to query asset/market events", {
 			calendarError: calendarResult.error?.message ?? null,
 			ipoError: ipoResult.error?.message ?? null,
 		});
