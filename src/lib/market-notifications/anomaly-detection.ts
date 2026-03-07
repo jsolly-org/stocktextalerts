@@ -180,14 +180,11 @@ function computeVolumeSignal(
 
 	// Piecewise linear scaling aligned with industry RVOL thresholds
 	let points: number;
-	if (rvol < 1.0) {
+	if (rvol < 2.0) {
 		points = 0;
-	} else if (rvol < 1.5) {
-		// 1.0x–1.5x → 0–3 pts
-		points = Math.round(((rvol - 1.0) / 0.5) * 3);
 	} else if (rvol < 3.0) {
-		// 1.5x–3.0x → 3–10 pts
-		points = Math.round(3 + ((rvol - 1.5) / 1.5) * 7);
+		// 2.0x–3.0x → 1–10 pts
+		points = Math.round(1 + ((rvol - 2.0) / 1.0) * 9);
 	} else if (rvol < 5.0) {
 		// 3.0x–5.0x → 10–16 pts
 		points = Math.round(10 + ((rvol - 3.0) / 2.0) * 6);
@@ -265,7 +262,7 @@ function computeRangeBreakout(
 	return {
 		name: "range_breakout",
 		points,
-		maxPoints: fullMaxPoints,
+		maxPoints,
 		triggered,
 		detail: triggered
 			? `${direction} breakout +${breakoutPct.toFixed(2)}%${isEarlyDay ? " (early-day cap)" : ""}`
