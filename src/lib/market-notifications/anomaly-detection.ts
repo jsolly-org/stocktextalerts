@@ -105,8 +105,26 @@ function computeExcessPriceMoveWithMetrics(
 	} else {
 		const dayHigh = currentQuote.dayHigh ?? currentQuote.price;
 		const dayLow = currentQuote.dayLow ?? currentQuote.price;
-		const intradayRangePct =
-			dayLow > 0 ? ((dayHigh - dayLow) / dayLow) * 100 : 0;
+		// When price is at day's extreme (crash/surge), current range is self-inclusive
+		// and caps normalizedMove at ~1. Use snapshot range instead to avoid self-limiting.
+		const isAtExtreme =
+			(dayLow > 0 && currentQuote.price <= dayLow * 1.001) ||
+			(dayHigh > 0 && currentQuote.price >= dayHigh * 0.999);
+		let intradayRangePct: number;
+		if (isAtExtreme && snapshots.length > 0) {
+			const snapHighs = snapshots
+				.map((s) => s.dayHigh)
+				.filter((h): h is number => h != null);
+			const snapLows = snapshots
+				.map((s) => s.dayLow)
+				.filter((l): l is number => l != null);
+			const rangeHigh = snapHighs.length > 0 ? Math.max(...snapHighs) : dayHigh;
+			const rangeLow = snapLows.length > 0 ? Math.min(...snapLows) : dayLow;
+			const denom = Math.min(rangeLow, currentQuote.price);
+			intradayRangePct = denom > 0 ? ((rangeHigh - rangeLow) / denom) * 100 : 0;
+		} else {
+			intradayRangePct = dayLow > 0 ? ((dayHigh - dayLow) / dayLow) * 100 : 0;
+		}
 		normalizationBase = Math.max(intradayRangePct, RANGE_FLOOR_PCT);
 	}
 	const normalizedMove =
