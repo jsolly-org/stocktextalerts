@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import twilio from "twilio";
+import { getSiteUrl } from "../../../lib/db/env";
 import { createSupabaseAdminClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
@@ -45,22 +46,16 @@ function buildInboundSmsSchema(): FormSchema {
 
 const INBOUND_SMS_SCHEMA = buildInboundSmsSchema();
 
-function reconstructUrl(request: Request, url: URL): string {
-	const forwardedProto = request.headers.get("x-forwarded-proto") ?? "";
-	const forwardedHost = request.headers.get("x-forwarded-host") ?? "";
-
-	// Trim to normalize whitespace in proxy headers (can contain spaces from multiple proxy chains)
-	const protocol = forwardedProto.split(",")[0]?.trim() ?? "";
-	const host = forwardedHost.split(",")[0]?.trim() ?? "";
-	if (
-		protocol.length > 0 &&
-		host.length > 0 &&
-		(protocol === "http" || protocol === "https")
-	) {
-		return `${protocol}://${host}${url.pathname}${url.search}`;
-	}
-
-	return request.url;
+/**
+ * Build the canonical webhook URL for Twilio signature validation.
+ *
+ * Uses `getSiteUrl()` (the configured canonical domain) instead of proxy
+ * headers so the URL always matches the one configured in the Twilio console,
+ * regardless of how reverse proxies rewrite Host / X-Forwarded-Host.
+ */
+function buildWebhookUrl(url: URL): string {
+	const base = getSiteUrl().replace(/\/+$/, "");
+	return `${base}${url.pathname}`;
 }
 
 export const POST: APIRoute = async ({ url, request, locals }) => {
@@ -82,6 +77,17 @@ export const POST: APIRoute = async ({ url, request, locals }) => {
 
 		const signature = signatureHeader;
 		const formData = await request.formData();
+
+		// Collect ALL raw form fields for signature validation.
+		// Twilio computes the HMAC over every posted parameter, so we must
+		// include fields even if they aren't in our schema.
+		const rawParams: Record<string, string> = {};
+		for (const [key, value] of formData.entries()) {
+			if (typeof value === "string") {
+				rawParams[key] = value;
+			}
+		}
+
 		const parsed = parseWithSchema(formData, INBOUND_SMS_SCHEMA);
 
 		if (!parsed.ok) {
@@ -92,40 +98,16 @@ export const POST: APIRoute = async ({ url, request, locals }) => {
 			return new Response("Invalid form submission", { status: 400 });
 		}
 
-		// Strip undefined values so that only fields actually present in the
-		// request are forwarded to Twilio signature validation.  The schema
-		// parser sets missing optional fields to `undefined`, but Twilio's
-		// `validateRequest` includes every key in signature computation —
-		// concatenating undefined values as "keyundefined" — which breaks
-		// the HMAC check.
-		const params: Record<string, string | undefined> = {};
-		for (const [key, value] of Object.entries(
-			parsed.data as Record<string, string | undefined>,
-		)) {
-			if (value !== undefined) {
-				params[key] = value;
-			}
-		}
-
 		const supabase = createSupabaseAdminClient();
 		const twilioConfig = readTwilioConfig();
 
-		const webhookUrl = reconstructUrl(request, url);
-
-		logger.info("Inbound SMS signature validation context", {
-			webhookUrl,
-			requestUrl: request.url,
-			forwardedProto: request.headers.get("x-forwarded-proto"),
-			forwardedHost: request.headers.get("x-forwarded-host"),
-			host: request.headers.get("host"),
-			paramKeys: Object.keys(params),
-		});
+		const webhookUrl = buildWebhookUrl(url);
 
 		const result = await handleInboundSms(
 			{
 				url: webhookUrl,
 				signature,
-				params,
+				params: rawParams,
 			},
 			{
 				authToken: twilioConfig.authToken,

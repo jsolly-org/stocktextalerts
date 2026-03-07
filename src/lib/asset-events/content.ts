@@ -73,7 +73,6 @@ export async function buildAssetEventsContent(options: {
 			? supabase
 					.from("asset_events")
 					.select("symbol,event_type,event_date,data")
-					.eq("scope", "watchlist")
 					.in("event_type", ["earnings", "dividend", "split"])
 					.in("symbol", [...tickers])
 					.gte("event_date", localDate)
@@ -81,9 +80,8 @@ export async function buildAssetEventsContent(options: {
 			: Promise.resolve({ data: [], error: null });
 	const ipoPromise = includeIpos
 		? supabase
-				.from("asset_events")
+				.from("market_events")
 				.select("symbol,event_type,event_date,data")
-				.eq("scope", "global")
 				.eq("event_type", "ipo")
 				.gte("event_date", localDate)
 				.lte("event_date", endDate)
@@ -95,46 +93,33 @@ export async function buildAssetEventsContent(options: {
 	]);
 
 	if (calendarResult.error || ipoResult.error) {
-		logger.error("Failed to query asset_events", {
+		logger.error("Failed to query asset/market events", {
 			calendarError: calendarResult.error?.message ?? null,
 			ipoError: ipoResult.error?.message ?? null,
 		});
 		return nullResult;
 	}
 
+	const calendarRows = calendarResult.error ? [] : (calendarResult.data ?? []);
+	const ipoRows = ipoResult.error ? [] : (ipoResult.data ?? []);
+
 	const rawEvents = [
-		...((calendarResult.data ?? []) as Array<{
+		...(calendarRows as Array<{
 			symbol: string;
-			event_type: "earnings" | "dividend" | "split" | "ipo";
+			event_type: "earnings" | "dividend" | "split";
 			event_date: string;
 			data: Record<string, unknown> | null;
 		}>),
-		...((ipoResult.data ?? []) as Array<{
-			symbol: string;
-			event_type: "earnings" | "dividend" | "split" | "ipo";
-			event_date: string;
-			data: Record<string, unknown> | null;
-		}>),
+		...ipoRows.map((row) => ({
+			symbol: row.symbol,
+			event_type: "ipo" as const,
+			event_date: row.event_date,
+			data: row.data as Record<string, unknown> | null,
+		})),
 	];
 
-	// 3. Filter by user's per-type channel-specific toggles
-	const filteredEvents = rawEvents.filter((event) => {
-		if (
-			event.event_type === "earnings" ||
-			event.event_type === "dividend" ||
-			event.event_type === "split"
-		) {
-			return channel === "email"
-				? user.asset_events_include_calendar_email
-				: user.asset_events_include_calendar_sms;
-		}
-		if (event.event_type === "ipo") {
-			return channel === "email"
-				? user.asset_events_include_ipo_email
-				: user.asset_events_include_ipo_sms;
-		}
-		return false;
-	});
+	// Events already filtered at query time via includeCalendar/includeIpos
+	const filteredEvents = rawEvents;
 
 	// 4. Compute daysUntil for each event
 	const eventsWithDaysUntil = filteredEvents.map((event) => ({

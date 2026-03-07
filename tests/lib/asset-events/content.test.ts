@@ -11,84 +11,100 @@ vi.mock("../../../src/lib/providers/finnhub", async () => {
 	};
 });
 
-type AssetEventRow = {
+type CalendarEventRow = {
 	symbol: string;
-	event_type: "earnings" | "dividend" | "split" | "ipo";
-	scope: "watchlist" | "global";
+	event_type: "earnings" | "dividend" | "split";
 	event_date: string;
 	data: Record<string, unknown> | null;
 };
 
-function createAssetEventsSupabase(events: AssetEventRow[]) {
+type MarketEventRow = {
+	symbol: string;
+	event_type: string;
+	event_date: string;
+	data: Record<string, unknown> | null;
+};
+
+function createAssetEventsSupabase(
+	calendarEvents: CalendarEventRow[],
+	marketEvents: MarketEventRow[],
+) {
 	return {
 		from(table: string) {
-			if (table !== "asset_events") {
-				throw new Error(`Unexpected table: ${table}`);
+			if (table === "asset_events") {
+				return buildQueryChain(calendarEvents, (row, filters) => {
+					if (
+						filters.eventTypeIn &&
+						!filters.eventTypeIn.includes(row.event_type)
+					)
+						return false;
+					if (filters.symbolIn && !filters.symbolIn.includes(row.symbol))
+						return false;
+					return true;
+				});
 			}
 
-			return {
-				select() {
-					const filters: {
-						eventTypeEq?: string;
-						eventTypeIn?: string[];
-						scopeEq?: string;
-						symbolIn?: string[];
-						gteDate?: string;
-					} = {};
+			if (table === "market_events") {
+				return buildQueryChain(marketEvents, (row, filters) => {
+					if (filters.eventTypeEq && row.event_type !== filters.eventTypeEq)
+						return false;
+					return true;
+				});
+			}
 
-					const query = {
-						eq(column: string, value: string) {
-							if (column === "event_type") filters.eventTypeEq = value;
-							if (column === "scope") filters.scopeEq = value;
-							return query;
-						},
-						in(column: string, values: string[]) {
-							if (column === "event_type") filters.eventTypeIn = values;
-							if (column === "symbol") filters.symbolIn = values;
-							return query;
-						},
-						gte(_column: string, value: string) {
-							filters.gteDate = value;
-							return query;
-						},
-						lte(_column: string, value: string) {
-							const rows = events.filter((row) => {
-								if (
-									filters.eventTypeEq &&
-									row.event_type !== filters.eventTypeEq
-								) {
-									return false;
-								}
-								if (filters.scopeEq && row.scope !== filters.scopeEq) {
-									return false;
-								}
-								if (
-									filters.eventTypeIn &&
-									!filters.eventTypeIn.includes(row.event_type)
-								) {
-									return false;
-								}
-								if (
-									filters.symbolIn &&
-									!filters.symbolIn.includes(row.symbol)
-								) {
-									return false;
-								}
-								if (filters.gteDate && row.event_date < filters.gteDate) {
-									return false;
-								}
-								if (row.event_date > value) {
-									return false;
-								}
-								return true;
-							});
-							return Promise.resolve({ data: rows, error: null });
-						},
-					};
+			throw new Error(`Unexpected table: ${table}`);
+		},
+	};
+}
 
+function buildQueryChain<T extends { event_date: string }>(
+	rows: T[],
+	filterFn: (
+		row: T,
+		filters: {
+			eventTypeEq?: string;
+			eventTypeIn?: string[];
+			symbolIn?: string[];
+			gteDate?: string;
+		},
+	) => boolean,
+) {
+	return {
+		select() {
+			const filters: {
+				eventTypeEq?: string;
+				eventTypeIn?: string[];
+				symbolIn?: string[];
+				gteDate?: string;
+			} = {};
+
+			const query = {
+				eq(column: string, value: string) {
+					if (column === "event_type") filters.eventTypeEq = value;
 					return query;
 				},
+				in(column: string, values: string[]) {
+					if (column === "event_type") filters.eventTypeIn = values;
+					if (column === "symbol") filters.symbolIn = values;
+					return query;
+				},
+				gte(_column: string, value: string) {
+					filters.gteDate = value;
+					return query;
+				},
+				lte(_column: string, value: string) {
+					const filtered = rows.filter((row) => {
+						if (!filterFn(row, filters)) return false;
+						if (filters.gteDate && row.event_date < filters.gteDate)
+							return false;
+						if (row.event_date > value) return false;
+						return true;
+					});
+					return Promise.resolve({ data: filtered, error: null });
+				},
 			};
+
+			return query;
 		},
 	};
 }
@@ -142,22 +158,24 @@ describe("buildAssetEventsContent", () => {
 	});
 
 	it("includes IPO content even when user has no tracked assets", async () => {
-		const supabase = createAssetEventsSupabase([
-			{
-				symbol: "ACME",
-				event_type: "ipo",
-				scope: "global",
-				event_date: "2026-02-11",
-				data: { issuerName: "Acme Corp" },
-			},
-			{
-				symbol: "AAPL",
-				event_type: "earnings",
-				scope: "watchlist",
-				event_date: "2026-02-11",
-				data: {},
-			},
-		]);
+		const supabase = createAssetEventsSupabase(
+			[
+				{
+					symbol: "AAPL",
+					event_type: "earnings",
+					event_date: "2026-02-11",
+					data: {},
+				},
+			],
+			[
+				{
+					symbol: "ACME",
+					event_type: "ipo",
+					event_date: "2026-02-11",
+					data: { issuerName: "Acme Corp" },
+				},
+			],
+		);
 		vi.mocked(fetchFinnhubExtras).mockResolvedValue({
 			news: [],
 			analyst: [],

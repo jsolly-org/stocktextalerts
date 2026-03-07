@@ -10,7 +10,7 @@ interface InboundSmsDependencies {
 		authToken: string,
 		signature: string,
 		url: string,
-		params: Record<string, string | undefined>,
+		params: Record<string, string>,
 	) => boolean;
 	supabase: AppSupabaseClient;
 }
@@ -18,7 +18,7 @@ interface InboundSmsDependencies {
 interface InboundSmsRequest {
 	url: string;
 	signature: string;
-	params: Record<string, string | undefined>;
+	params: Record<string, string>;
 }
 
 interface InboundSmsResponse {
@@ -93,11 +93,6 @@ export async function handleInboundSms(
 	);
 
 	if (!isValid) {
-		rootLogger.warn("Twilio signature validation failed", {
-			url: request.url,
-			signatureLength: request.signature.length,
-			paramKeys: Object.keys(request.params),
-		});
 		return {
 			status: 403,
 			body: "Invalid signature",

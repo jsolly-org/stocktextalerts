@@ -16,15 +16,25 @@ vi.mock("../../../src/lib/providers/massive", () => ({
 
 type AssetEventRow = {
 	symbol: string;
-	event_type: "earnings" | "dividend" | "split" | "ipo";
-	scope: "watchlist" | "global";
+	event_type: "earnings" | "dividend" | "split";
 	event_date: string;
 	data: Record<string, unknown>;
 	week_of: string;
 };
 
+type MarketEventRow = {
+	event_type: string;
+	symbol: string;
+	event_date: string;
+	week_of: string;
+	data: Record<string, unknown>;
+};
+
 function createSupabaseStub(trackedSymbols: string[]) {
-	const state: { upsertRows: AssetEventRow[] } = { upsertRows: [] };
+	const state: { upsertRows: AssetEventRow[]; marketRows: MarketEventRow[] } = {
+		upsertRows: [],
+		marketRows: [],
+	};
 
 	const supabase = {
 		from(table: string) {
@@ -55,6 +65,22 @@ function createSupabaseStub(trackedSymbols: string[]) {
 				};
 			}
 
+			if (table === "market_events") {
+				return {
+					upsert(rows: MarketEventRow[]) {
+						state.marketRows = rows;
+						return Promise.resolve({ error: null });
+					},
+					delete() {
+						return {
+							lt() {
+								return Promise.resolve({ error: null });
+							},
+						};
+					},
+				};
+			}
+
 			throw new Error(`Unexpected table: ${table}`);
 		},
 	};
@@ -73,7 +99,7 @@ describe("fetchAndStoreAssetEvents", () => {
 		vi.clearAllMocks();
 	});
 
-	it("stores IPO events even when no symbols are tracked", async () => {
+	it("stores IPO events in market_events even when no symbols are tracked", async () => {
 		const { supabase, state } = createSupabaseStub([]);
 
 		vi.mocked(fetchEarnings).mockResolvedValue({ data: [], failed: false });
@@ -99,16 +125,16 @@ describe("fetchAndStoreAssetEvents", () => {
 		});
 
 		expect(result).toEqual({ upserted: 1, failedProviders: [] });
-		expect(state.upsertRows).toHaveLength(1);
-		expect(state.upsertRows[0]).toMatchObject({
+		expect(state.upsertRows).toHaveLength(0);
+		expect(state.marketRows).toHaveLength(1);
+		expect(state.marketRows[0]).toMatchObject({
 			symbol: "ACME",
 			event_type: "ipo",
-			scope: "global",
 			event_date: "2026-02-16",
 		});
 	});
 
-	it("keeps calendar events watchlist-scoped while IPOs stay global", async () => {
+	it("puts calendar events in asset_events and IPOs in market_events", async () => {
 		const { supabase, state } = createSupabaseStub(["AAPL"]);
 
 		vi.mocked(fetchEarnings).mockResolvedValue({
@@ -158,25 +184,27 @@ describe("fetchAndStoreAssetEvents", () => {
 		});
 
 		expect(result).toEqual({ upserted: 3, failedProviders: [] });
-		expect(state.upsertRows).toEqual(
+		// Calendar event in asset_events
+		expect(state.upsertRows).toEqual([
+			expect.objectContaining({
+				symbol: "AAPL",
+				event_type: "earnings",
+			}),
+		]);
+		// IPOs in market_events
+		expect(state.marketRows).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
 					symbol: "AAPL",
-					event_type: "earnings",
-					scope: "watchlist",
-				}),
-				expect.objectContaining({
-					symbol: "AAPL",
 					event_type: "ipo",
-					scope: "global",
 				}),
 				expect.objectContaining({
 					symbol: "NEWC",
 					event_type: "ipo",
-					scope: "global",
 				}),
 			]),
 		);
+		// MSFT not tracked, not in asset_events
 		expect(
 			state.upsertRows.some(
 				(row) => row.symbol === "MSFT" && row.event_type === "earnings",
