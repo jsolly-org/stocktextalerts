@@ -19,6 +19,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_market_events_type_symbol_date
 CREATE INDEX IF NOT EXISTS idx_market_events_type_date
   ON public.market_events (event_type, event_date);
 
+CREATE INDEX IF NOT EXISTS idx_market_events_week_of
+  ON public.market_events (week_of);
+
 ALTER TABLE public.market_events ENABLE ROW LEVEL SECURITY;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.market_events TO service_role;

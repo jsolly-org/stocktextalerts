@@ -103,7 +103,7 @@ export async function buildAssetEventsContent(options: {
 	const rawEvents = [
 		...((calendarResult.data ?? []) as Array<{
 			symbol: string;
-			event_type: "earnings" | "dividend" | "split" | "ipo";
+			event_type: "earnings" | "dividend" | "split";
 			event_date: string;
 			data: Record<string, unknown> | null;
 		}>),
