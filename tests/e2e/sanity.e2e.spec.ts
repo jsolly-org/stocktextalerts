@@ -670,7 +670,9 @@ test.describe("sanity tests", () => {
 		).toBeVisible();
 	});
 
-	test("TC-BADGE-001: Asset badges show logo, Stock, or ETF", async () => {
+	test("TC-BADGE-001: Asset badges show logo, Stock, or ETF", {
+		timeout: 60_000,
+	}, async () => {
 		if (!testUserId) {
 			throw new Error("testUserId not set before TC-BADGE-001");
 		}

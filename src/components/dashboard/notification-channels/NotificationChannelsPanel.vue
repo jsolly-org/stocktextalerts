@@ -54,6 +54,13 @@
 				@clear-delivery-time="handleClearDeliveryTime"
 				@set-before-open="handleSetBeforeOpen"
 			/>
+
+			<div v-if="isHydrated && nextDailyDeliveryText" class="mt-4 border-t border-edge pt-4">
+				<p class="inline-flex items-center gap-2 text-sm text-body-secondary">
+					<BellAlertIcon class="size-4 shrink-0 text-success-strong" aria-hidden="true" />
+					<span>Next delivery <span class="font-medium text-heading">{{ nextDailyDeliveryText }}</span>.</span>
+				</p>
+			</div>
 			</div>
 		</section>
 	</form>
@@ -93,7 +100,9 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref, toRefs, watch } from "vue";
+import { DateTime } from "luxon";
+import { computed, onMounted, onUnmounted, ref, toRefs, watch } from "vue";
+import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 // ?component suffix required: Astro Icon cannot be used in Vue; vite-svg-loader compiles this to a Vue component.
 import { fetchCurrentNotificationPreferences } from "../../../lib/api/notification-preferences";
 import {
@@ -105,7 +114,9 @@ import {
 	formatMessage,
 } from "../../../lib/constants";
 import {
+	formatCountdownWithSeconds,
 	formatMinutesAsLocalTime,
+	getSecondsUntilNextSend,
 	getUsBeforeOpenLocalMinutes,
 	minutesToTimeInputValue,
 	parseTimeToMinutes,
@@ -142,7 +153,21 @@ const user = useDashboardUser();
 
 const isEditingPhone = ref(false);
 const isHydrated = ref(false);
-onMounted(() => { isHydrated.value = true; });
+const tick = ref(0);
+let intervalId: number | null = null;
+
+onMounted(() => {
+	isHydrated.value = true;
+	tick.value = Date.now();
+	intervalId = window.setInterval(() => {
+		tick.value = Date.now();
+	}, 1000);
+});
+onUnmounted(() => {
+	if (intervalId === null) return;
+	window.clearInterval(intervalId);
+	intervalId = null;
+});
 
 /* ============= Auto-save composable ============= */
 const notificationPreferencesFormElement = ref<HTMLFormElement | null>(null);
@@ -343,6 +368,25 @@ watch(
 			times && times.length > 0 ? getEarliestMarketNotificationTime() : null;
 	},
 );
+
+/* ============= Next delivery countdown ============= */
+const nextDailyDeliveryText = computed(() => {
+	if (!isHydrated.value || !user.value.timezone) return null;
+	void tick.value;
+	const hasDeliveryTime =
+		user.value.daily_digest_next_send_at != null ||
+		dailyDeliveryTimeInput.value != null;
+	if (!hasDeliveryTime) return null;
+
+	const secondsUntil = getSecondsUntilNextSend({
+		nextSendAtIso: user.value.daily_digest_next_send_at,
+		timeInput: dailyDeliveryTimeInput.value,
+		timezone: user.value.timezone,
+		now: DateTime.utc(),
+	});
+	if (secondsUntil === null) return null;
+	return secondsUntil <= 0 ? "is due soon" : `in ${formatCountdownWithSeconds(secondsUntil)}`;
+});
 
 /* ============= Notification Preview ============= */
 const needsTrackedAssets = computed(() => !props.hasTrackedAssets);
