@@ -74,7 +74,7 @@
 		"lighthouse": "^13.0.3",
 		"lint-staged": "^16.3.2",
 		"pg": "^8.20.0",
-		"supabase": "^2.76.17",
+		"supabase": "^2.77.1",
 		"tailwindcss": "^4.2.1",
 		"tsx": "^4.21.0",
 		"typescript": "^5.9.3",
