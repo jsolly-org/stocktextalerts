@@ -60,7 +60,7 @@
 	},
 	"devDependencies": {
 		"@astrojs/sitemap": "^3.7.0",
-		"@astrojs/ts-plugin": "^1.10.6",
+		"@astrojs/ts-plugin": "^1.10.7",
 		"@astrojs/vue": "^5.1.4",
 		"@axe-core/playwright": "^4.11.1",
 		"@biomejs/biome": "2.4.6",
