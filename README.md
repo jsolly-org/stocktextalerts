@@ -15,7 +15,7 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - **Daily Digest** - Once-daily digest with asset prices by email and/or SMS, plus optional News/Rumors add-ons (email-only and may include clickable source links)
 - **Asset Events** - Daily notification of upcoming calendar events (earnings/dividends/splits) and IPOs, plus optional insider trades and analyst consensus (each event type can be toggled per channel and delivered by email and/or SMS)
 - **Format Preferences** - Customize how your updates look with live SMS/email previews and optional sparklines (weekly price trend)
-- **SMS Opt-out** - Reply STOP to opt out of SMS; reply START to opt back in (then re-enable SMS in your dashboard)
+- **SMS Controls** - Reply STOP to pause SMS, START to resume SMS, STOP EMAIL to disable email notifications, or STOP ALL to disable both channels
 
 ## Tech Stack
 
@@ -299,7 +299,7 @@ The canonical endpoint for fetching current user preferences is `GET /api/notifi
 - `GET /api/price-targets`
 - `POST /api/price-targets/save`
 - `POST /api/schedule` (cron, protected by `CRON_SECRET`)
-- `POST /api/messaging/inbound` (Twilio webhook for STOP/START/HELP)
+- `POST /api/messaging/inbound` (Twilio webhook for STOP/START/STOP EMAIL/STOP ALL/HELP)
 
 ## Deployment to Vercel
 
@@ -335,6 +335,8 @@ The `vercel.json` file configures three cron jobs. All must include `Authorizati
 5. Sends via email and/or SMS based on settings and logs attempts to the `notification_log` table
 
 **`/api/asset-events`** (runs daily at 00:00 UTC) — pre-populates the `asset_events` table with earnings, dividends, splits, and IPOs.
+
+**`/api/compute-daily-stats`** (runs weekdays at 22:00 UTC) — computes and upserts per-symbol daily stats used by asset price alerts (ADV-20 and ATR-14) for tracked assets.
 
 ## Project Structure
 

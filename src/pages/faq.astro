@@ -24,7 +24,7 @@ const faqs = [
 	},
 	{
 		question: "Can I choose which notifications are sent via email vs SMS?",
-		answer: "Yes. Enable email and/or SMS, then choose which notification types are delivered to each channel (including Asset Price Alerts, Price Targets, and Asset Events). Some add-ons (like News and Rumors) are email-only."
+		answer: "Yes. Enable email and/or SMS, then choose which notification types are delivered to each channel (including Asset Price Alerts, Price Targets, and Asset Events). Some add-ons (like News and Rumors) are email-only. You can also manage channels by SMS command: reply STOP to pause SMS, START to resume SMS, STOP EMAIL to disable email notifications, STOP ALL to disable both, or HELP for options."
 	},
 	{
 		question: "I didn\u2019t receive my verification email. What should I do?",
@@ -44,7 +44,7 @@ const faqs = [
 	},
 	{
 		question: "How do I get asset alerts by text message?",
-		answer: 'After <a href="/auth/register" class="link-primary">signing up</a>, go to your dashboard and enable SMS as a notification channel. Add your phone number, verify it, and your updates will be sent as a text message in addition to (or instead of) email. To change SMS delivery preferences, update your notification settings in your dashboard.'
+		answer: 'After <a href="/auth/register" class="link-primary">signing up</a>, go to your dashboard and enable SMS as a notification channel. Add your phone number, verify it, and your updates will be sent as a text message in addition to (or instead of) email. You can reply STOP to pause SMS and START to turn SMS back on, or update notification settings in your dashboard.'
 	},
 	{
 		question: "When are updates sent?",
@@ -117,7 +117,7 @@ const jsonLd = [
     </header>
     <main id="main-content" class="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
       <h1 class="text-4xl font-bold mb-4 text-balance">Stock & ETF Alert FAQ</h1>
-      <p class="text-lg text-body-secondary mb-10">Everything you need to know about tracking assets and choosing how you receive notifications (scheduled updates and Asset Price Alerts by email, SMS, or both).</p>
+      <p class="text-lg text-body-secondary mb-10">Everything you need to know about tracking assets and choosing how you receive notifications (scheduled updates, Asset Price Alerts, and Price Targets by email, SMS, or both).</p>
 
       <div class="space-y-8">
         {faqs.map((faq) => (
