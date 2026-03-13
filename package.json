@@ -52,7 +52,7 @@
 		"libphonenumber-js": "^1.12.39",
 		"luxon": "^3.7.2",
 		"resend": "^6.9.3",
-		"twilio": "^5.12.2",
+		"twilio": "^5.13.0",
 		"vue": "^3.5.30"
 	},
 	"overrides": {
