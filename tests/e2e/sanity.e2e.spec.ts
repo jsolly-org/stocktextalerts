@@ -491,6 +491,7 @@ test.describe("sanity tests", () => {
 				password: testPassword,
 				confirmed: true,
 				emailNotificationsEnabled: true,
+				marketScheduledAssetPriceIncludeEmail: false,
 			});
 			testUserId = user.id;
 			await signIn(page, testEmail, testPassword);
@@ -844,7 +845,10 @@ test.describe("sanity tests", () => {
 		const marketOpenButton = marketNotificationsForm.getByRole("button", {
 			name: /Set delivery time to after US market open/i,
 		});
-		if (await marketOpenButton.isVisible()) {
+		if (
+			(await marketOpenButton.isVisible()) &&
+			(await marketOpenButton.isEnabled())
+		) {
 			await marketOpenButton.click();
 		}
 
