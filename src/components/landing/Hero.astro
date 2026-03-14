@@ -1,5 +1,6 @@
 ---
 import NotificationPreview from "./NotificationPreview.astro";
+import { REGISTRATION_ENABLED } from "../../lib/constants";
 
 interface Props {
 	isAuthenticated: boolean;
@@ -41,18 +42,29 @@ const { isAuthenticated } = Astro.props;
                 </div>
               ) : (
                 <div class="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
-                  <a
-                    href="/auth/register"
-                    class="btn btn-lg btn-primary shadow-lg hover:shadow-xl md:py-4 md:text-lg md:px-10"
-                  >
-                    Start Tracking for Free
-                  </a>
-                  <a
-                    href="/auth/signin"
-                    class="btn btn-lg btn-ghost md:py-4 md:text-lg md:px-10"
-                  >
-                    Sign in to your dashboard
-                  </a>
+                  {REGISTRATION_ENABLED ? (
+                    <a
+                      href="/auth/register"
+                      class="btn btn-lg btn-primary shadow-lg hover:shadow-xl md:py-4 md:text-lg md:px-10"
+                    >
+                      Start Tracking for Free
+                    </a>
+                  ) : (
+                    <a
+                      href="/auth/signin"
+                      class="btn btn-lg btn-primary shadow-lg hover:shadow-xl md:py-4 md:text-lg md:px-10"
+                    >
+                      Sign in to your dashboard
+                    </a>
+                  )}
+                  {REGISTRATION_ENABLED && (
+                    <a
+                      href="/auth/signin"
+                      class="btn btn-lg btn-ghost md:py-4 md:text-lg md:px-10"
+                    >
+                      Sign in to your dashboard
+                    </a>
+                  )}
                 </div>
               )}
           </div>

@@ -7,8 +7,12 @@ import StatusMessage from "../../components/StatusMessage.astro";
 import Layout from "../../layouts/Layout.astro";
 import { createSupabaseServerClient } from "../../lib/db/supabase";
 import { rootLogger } from "../../lib/logging";
-import { formatMessage, MIN_PASSWORD_LENGTH } from "../../lib/constants";
+import { formatMessage, MIN_PASSWORD_LENGTH, REGISTRATION_ENABLED } from "../../lib/constants";
 import { getTimezoneOptions } from "../../lib/time/cache";
+
+if (!REGISTRATION_ENABLED) {
+	return Astro.redirect("/auth/signin?error=registration_closed");
+}
 
 const search = Astro.url.searchParams;
 const error = search.get("error");

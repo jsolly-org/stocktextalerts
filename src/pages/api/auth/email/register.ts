@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { APIContext } from "astro";
-import { MIN_PASSWORD_LENGTH } from "../../../../lib/constants";
+import {
+	MIN_PASSWORD_LENGTH,
+	REGISTRATION_ENABLED,
+} from "../../../../lib/constants";
 import { getSiteUrl } from "../../../../lib/db/env";
 import {
 	createSupabaseAdminClient,
@@ -37,6 +40,11 @@ export async function POST({
 		path: url.pathname,
 		method: request.method,
 	});
+
+	if (!REGISTRATION_ENABLED) {
+		return redirect("/auth/signin?error=registration_closed");
+	}
+
 	const supabase = createSupabaseServerClient();
 
 	const formData = await request.formData();

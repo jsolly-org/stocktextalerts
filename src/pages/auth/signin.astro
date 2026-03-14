@@ -8,6 +8,7 @@ import {
 	getAuthErrorMessage,
 	getAuthSuccessMessage,
 } from "../../lib/auth/messages";
+import { REGISTRATION_ENABLED } from "../../lib/constants";
 import {
 	getPostSigninRedirect,
 	getSafeRedirectPath,
@@ -46,9 +47,11 @@ if (user) {
       <p class="mt-2 text-center text-sm text-body-secondary">
         Manage tracked assets, notification schedules, and alert preferences.
       </p>
-      <p class="mt-2 text-center text-sm text-body-secondary">
-        New here? <a href="/auth/register" class="link-primary">Create a free account</a>
-      </p>
+      {REGISTRATION_ENABLED && (
+        <p class="mt-2 text-center text-sm text-body-secondary">
+          New here? <a href="/auth/register" class="link-primary">Create a free account</a>
+        </p>
+      )}
     </header>
 
     <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
