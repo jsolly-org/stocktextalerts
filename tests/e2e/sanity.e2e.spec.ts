@@ -490,6 +490,7 @@ test.describe("sanity tests", () => {
 				email: testEmail,
 				password: testPassword,
 				confirmed: true,
+				emailNotificationsEnabled: true,
 			});
 			testUserId = user.id;
 			await signIn(page, testEmail, testPassword);
