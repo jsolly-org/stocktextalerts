@@ -42,7 +42,7 @@ function makeGrokResult(
 ): PriceAlertGrokResult {
 	return {
 		summary:
-			"LDOS shares fell after the company reported weaker-than-expected guidance amid reduced federal spending.",
+			"LDOS shares fell after the company reported weaker-than-expected guidance amid reduced federal spending.[[Reuters]](https://www.reuters.com/example)[[@analyst123]](https://x.com/analyst123/status/123456)",
 		links: [
 			{
 				url: "https://www.reuters.com/example",
@@ -214,7 +214,11 @@ describe("A user with price alerts enabled receives Grok-enriched move context",
 		await deliverPriceAlert({
 			user: makeUser(),
 			alert: makeAlert({
-				grokResult: makeGrokResult({ links: [] }),
+				grokResult: makeGrokResult({
+					summary:
+						"LDOS shares fell after the company reported weaker-than-expected guidance amid reduced federal spending.",
+					links: [],
+				}),
 			}),
 			supabase: makeSupabaseMock(),
 			sendEmail,
@@ -273,9 +277,14 @@ describe("A user with price alerts enabled receives Grok-enriched move context",
 			body: string;
 		};
 		expect(emailCall.html).toContain("Why it's moving");
-		expect(emailCall.html).toContain("via Reuters");
-		expect(emailCall.html).toContain("via @analyst123 on X");
+		expect(emailCall.html).toContain("Reuters");
+		expect(emailCall.html).toContain("@analyst123");
 		expect(emailCall.html).toContain("weaker-than-expected guidance");
+		// Links are rendered inline as <a> tags (not a separate list)
+		expect(emailCall.html).toContain('href="https://www.reuters.com/example"');
+		expect(emailCall.html).toContain(
+			'href="https://x.com/analyst123/status/123456"',
+		);
 	});
 
 	it("email plaintext includes the why-moving section", async () => {

@@ -11,6 +11,10 @@ import {
 	getChangeColor,
 	getSafeHrefUrl,
 } from "../messaging/asset-formatting";
+import {
+	markdownLinksToHtml,
+	stripMarkdownLinks,
+} from "../messaging/email/html-section";
 import { sendUserEmail } from "../messaging/email/index";
 import { buildEmailUrls } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
@@ -33,7 +37,6 @@ import {
 	toSvgSparklineImg,
 } from "../messaging/svg-sparkline";
 import type { EnrichedAlert } from "./enrichment";
-import type { PriceAlertLink } from "./grok-summary";
 import type { PriceAlertUser } from "./users";
 
 /** Max sparkline length for SMS. Unicode blocks use UCS-2 (70 chars/segment). Truncating reduces segment count and cost. */
@@ -104,10 +107,12 @@ async function formatPriceAlertSms(
 
 	if (alert.grokResult) {
 		const { summary, links } = alert.grokResult;
+		// Strip inline markdown links for SMS — URLs are added separately (shortened)
+		const smsSummaryText = stripMarkdownLinks(summary, "remove");
 		const smsSummary =
-			summary.length > MAX_SMS_SUMMARY_CHARS
-				? `${summary.slice(0, MAX_SMS_SUMMARY_CHARS - 1)}…`
-				: summary;
+			smsSummaryText.length > MAX_SMS_SUMMARY_CHARS
+				? `${smsSummaryText.slice(0, MAX_SMS_SUMMARY_CHARS - 1)}…`
+				: smsSummaryText;
 		const rawUrls = links
 			.map((l) => getSafeHrefUrl(l.url))
 			.filter((url): url is string => url !== null);
@@ -253,41 +258,17 @@ function renderHtmlSparklineForAlert(
 function buildWhyMovingHtml(grokResult: EnrichedAlert["grokResult"]): string {
 	if (!grokResult) return "";
 
+	// Summary contains inline markdown links from applyAnnotationsInline —
+	// convert them to HTML <a> tags the same way the daily digest does.
 	const summaryHtml = `
 		<div style="margin-top: 16px; padding: 12px 16px; background: #f9fafb; border-radius: 6px; border-left: 3px solid #f59e0b;">
-			<p style="color: #4b5563; font-size: 14px; margin: 0; font-style: italic;">${escapeHtml(grokResult.summary)}</p>
+			<p style="color: #4b5563; font-size: 14px; margin: 0; font-style: italic;">${markdownLinksToHtml(grokResult.summary)}</p>
 		</div>`;
-
-	if (grokResult.links.length === 0) {
-		return `
-		<div style="margin-top: 20px;">
-			<h3 style="color: #1f2937; font-size: 16px; font-weight: 600; margin: 0 0 10px 0;">Why it's moving</h3>
-			${summaryHtml}
-		</div>`;
-	}
-
-	const linksHtml = grokResult.links
-		.map((link: PriceAlertLink) => {
-			const title = escapeHtml(link.title);
-			const safeUrl = getSafeHrefUrl(link.url);
-			const viaLabel =
-				link.sourceType === "x"
-					? `via ${escapeHtml(link.source)} on X`
-					: `via ${escapeHtml(link.source)}`;
-			const linkEl = safeUrl
-				? `<a href="${escapeHtml(safeUrl)}" style="color: #667eea; text-decoration: none;">${title}</a>`
-				: title;
-			return `<li style="margin-bottom: 6px;">${linkEl} <span style="color: #9ca3af;">(${viaLabel})</span></li>`;
-		})
-		.join("\n\t\t\t\t");
 
 	return `
 		<div style="margin-top: 20px;">
 			<h3 style="color: #1f2937; font-size: 16px; font-weight: 600; margin: 0 0 10px 0;">Why it's moving</h3>
 			${summaryHtml}
-			<ul style="margin: 10px 0 0 0; padding-left: 20px; color: #4b5563;">
-				${linksHtml}
-			</ul>
 		</div>`;
 }
 
@@ -317,7 +298,10 @@ function formatPriceAlertEmail(
 
 	if (alert.grokResult) {
 		const { summary, links } = alert.grokResult;
-		textSections.push(`Why it's moving:\n${summary}`);
+		// Strip inline markdown links for plaintext — links are listed separately below
+		textSections.push(
+			`Why it's moving:\n${stripMarkdownLinks(summary, "keep-text")}`,
+		);
 		if (links.length > 0) {
 			const linkLines = links
 				.map((l) => {

@@ -1,5 +1,10 @@
 import { rootLogger } from "../logging";
-import { isXUrl, linkLabelFromUrl } from "../providers/grok";
+import {
+	applyAnnotationsInline,
+	isXUrl,
+	linkLabelFromUrl,
+	type XaiAnnotation,
+} from "../providers/grok";
 
 const GROK_TIMEOUT_MS = 60_000;
 
@@ -13,7 +18,9 @@ export interface PriceAlertLink {
 
 /** Structured result from a Grok price alert call: summary + up to 3 links. */
 export interface PriceAlertGrokResult {
+	/** Summary with inline markdown links (e.g. `[[Reuters]](url)`). */
 	summary: string;
+	/** Extracted links for plaintext/SMS fallback. */
 	links: PriceAlertLink[];
 }
 
@@ -31,14 +38,6 @@ function normalizeHttpUrl(raw: string): string | null {
 }
 
 // xAI Responses API types (minimal subset for price alert parsing)
-type XaiAnnotation = {
-	type: string;
-	url: string;
-	title?: string;
-	start_index?: number | null;
-	end_index?: number | null;
-};
-
 type XaiOutputContentPart = {
 	type?: string;
 	text?: string;
@@ -56,11 +55,15 @@ type ResponsesResponse = {
 
 /**
  * Extract the summary text and up to 3 unique links from a Grok Responses API payload.
+ *
+ * Uses the same `applyAnnotationsInline` pipeline as the daily digest so that
+ * citation references become inline markdown links (e.g. `[[Reuters]](url)`).
  */
 function parseGrokPriceAlertResponse(
 	data: ResponsesResponse,
 ): PriceAlertGrokResult | null {
 	let summaryText: string | null = null;
+	let summaryAnnotations: XaiAnnotation[] = [];
 	const seenUrls = new Set<string>();
 	const links: PriceAlertLink[] = [];
 
@@ -74,9 +77,10 @@ function parseGrokPriceAlertResponse(
 			) {
 				if (!summaryText) {
 					summaryText = part.text.trim();
+					summaryAnnotations = part.annotations ?? [];
 				}
 
-				// Extract links from annotations
+				// Extract links from annotations for plaintext/SMS fallback
 				for (const ann of part.annotations ?? []) {
 					const normalizedUrl =
 						typeof ann.url === "string"
@@ -101,8 +105,23 @@ function parseGrokPriceAlertResponse(
 		}
 	}
 
-	// Also extract links from inline markdown in the text (Grok sometimes embeds [text](url) directly)
-	if (summaryText && links.length < 3) {
+	if (!summaryText) return null;
+
+	// Apply annotations as inline markdown links (same pipeline as daily digest)
+	let summary = applyAnnotationsInline(summaryText, summaryAnnotations);
+
+	// Strip bare URLs that Grok embeds alongside citation markers —
+	// the annotation pipeline converts markers to markdown links but leaves
+	// the raw URL text in place (e.g. "https://url [[source]](url)").
+	// The lookbehind (?<!\]\() preserves URLs inside markdown link syntax.
+	summary = summary
+		.replace(/(?<!\]\()https?:\/\/[^\s)[\]]+/g, "")
+		.replace(/\n{2,}/g, "\n")
+		.replace(/\s{2,}/g, " ")
+		.trim();
+
+	// Also extract links from any inline markdown the model embedded directly
+	if (links.length < 3) {
 		const mdLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
 		for (const match of summaryText.matchAll(mdLinkRegex)) {
 			if (links.length >= 3) break;
@@ -117,25 +136,15 @@ function parseGrokPriceAlertResponse(
 		}
 	}
 
-	if (!summaryText) return null;
-
-	// Strip inline markdown links and citation markers from the summary for clean display
-	let cleanSummary = summaryText
-		.replace(/\[([^\]]+)\]\(https?:\/\/[^)]+\)/g, "$1")
-		.replace(/\[\[(\d+)\]\]/g, "")
-		.replace(/<grok:render[^>]*>[\s\S]*?<\/grok:render>/g, "")
-		.replace(/\s{2,}/g, " ")
-		.trim();
-
 	// Truncate to ~2 sentences if Grok got verbose.
 	// Split on sentence boundaries (period/excl/question followed by space and capital letter)
 	// to avoid false splits on decimals (5.2%) and abbreviations (U.S., S&P).
-	const parts = cleanSummary.split(/(?<=[.!?])\s+(?=[A-Z])/);
+	const parts = summary.split(/(?<=[.!?])\s+(?=[A-Z])/);
 	if (parts.length > 2) {
-		cleanSummary = parts.slice(0, 2).join(" ").trim();
+		summary = parts.slice(0, 2).join(" ").trim();
 	}
 
-	return { summary: cleanSummary, links };
+	return { summary, links };
 }
 
 /**
