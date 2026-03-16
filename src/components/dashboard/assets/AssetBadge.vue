@@ -6,7 +6,6 @@
 	>
 		ETF
 	</span>
-	<!-- biome-ignore lint/a11y/useAltText: Vue dynamic :alt binding is not visible to static analysis -->
 	<img
 		v-else-if="iconUrl && !imgFailed"
 		ref="imgRef"
