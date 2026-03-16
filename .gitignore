@@ -42,3 +42,4 @@ supabase/seed.sql
 
 # User seed data (may contain real email addresses)
 scripts/data/users.json
+.vercel
