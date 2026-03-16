@@ -1,7 +1,14 @@
 import { randomUUID } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { MIN_PASSWORD_LENGTH } from "../../../../src/lib/constants";
 import { POST } from "../../../../src/pages/api/auth/email/register";
+
+vi.mock("../../../../src/lib/constants", async (importOriginal) => {
+	const actual =
+		await importOriginal<typeof import("../../../../src/lib/constants")>();
+	return { ...actual, REGISTRATION_ENABLED: true };
+});
+
 import { createApiContext } from "../../../helpers/api-context";
 
 describe("A visitor attempts to register with an invalid password.", () => {

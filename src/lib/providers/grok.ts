@@ -22,9 +22,10 @@ type ResponsesRequest = {
 };
 
 // xAI Responses API (OpenAPI `ModelResponse`)
-type XaiAnnotation = {
+export type XaiAnnotation = {
 	type: string;
 	url: string;
+	title?: string;
 	start_index?: number | null;
 	end_index?: number | null;
 };
@@ -154,7 +155,7 @@ export function linkLabelFromUrl(url: string): string | null {
  * markdown links. Processes annotations from end to start so character
  * positions remain valid during replacement.
  */
-function applyAnnotationsInline(
+export function applyAnnotationsInline(
 	text: string,
 	annotations: XaiAnnotation[],
 ): string {

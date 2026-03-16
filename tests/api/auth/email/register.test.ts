@@ -1,12 +1,18 @@
 import { randomUUID } from "node:crypto";
 import { DateTime } from "luxon";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_TIMEZONE } from "../../../../src/lib/constants";
 import { POST } from "../../../../src/pages/api/auth/email/register";
 import { createApiContext } from "../../../helpers/api-context";
 import { TEST_PASSWORD } from "../../../helpers/constants";
 import { adminClient } from "../../../helpers/test-env";
 import { cleanupTestUser } from "../../../helpers/test-user";
+
+vi.mock("../../../../src/lib/constants", async (importOriginal) => {
+	const actual =
+		await importOriginal<typeof import("../../../../src/lib/constants")>();
+	return { ...actual, REGISTRATION_ENABLED: true };
+});
 
 describe("A visitor registers for a new account with email and password.", () => {
 	it("The account is created, stored with the chosen timezone, and the user is redirected to the unconfirmed email page.", async () => {

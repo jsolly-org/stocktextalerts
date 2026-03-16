@@ -2,6 +2,7 @@
 
 import StatusMessage from "./StatusMessage.astro";
 import EmailInput from "./EmailInput.vue";
+import { REGISTRATION_ENABLED } from "../lib/constants";
 
 interface Props {
 	emailPrefill?: string;
@@ -29,8 +30,11 @@ const {
   {errorMessage && (
     <StatusMessage class="mb-4" tone="error">
       {errorMessage}
-      {errorCode === "invalid_credentials" && (
+      {errorCode === "invalid_credentials" && REGISTRATION_ENABLED && (
         <> You can <a href="/auth/register" class="underline hover:no-underline">create an account</a> or <a href="/auth/forgot" class="underline hover:no-underline">reset your password</a>.</>
+      )}
+      {errorCode === "invalid_credentials" && !REGISTRATION_ENABLED && (
+        <> You can <a href="/auth/forgot" class="underline hover:no-underline">reset your password</a>.</>
       )}
     </StatusMessage>
   )}
@@ -81,7 +85,9 @@ const {
       <span>Sign In</span>
     </button>
   </form>
-  <p class="mt-6 text-center text-sm text-body-secondary">
-    New here? <a href="/auth/register" class="link-primary">Create an account</a>
-  </p>
+  {REGISTRATION_ENABLED && (
+    <p class="mt-6 text-center text-sm text-body-secondary">
+      New here? <a href="/auth/register" class="link-primary">Create an account</a>
+    </p>
+  )}
 </section>

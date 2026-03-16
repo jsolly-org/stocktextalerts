@@ -1,7 +1,14 @@
 import { getContainerRenderer as getVueRenderer } from "@astrojs/vue";
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import { loadRenderers } from "astro/virtual-modules/container.js";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+
+vi.mock("../../src/lib/constants", async (importOriginal) => {
+	const actual =
+		await importOriginal<typeof import("../../src/lib/constants")>();
+	return { ...actual, REGISTRATION_ENABLED: true };
+});
+
 import { rootLogger } from "../../src/lib/logging";
 import AuthForgotPage from "../../src/pages/auth/forgot.astro";
 import AuthRecoverPage from "../../src/pages/auth/recover.astro";

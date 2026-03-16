@@ -1,6 +1,7 @@
 import { createHmac, randomUUID } from "node:crypto";
 import type { BrowserContext, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
+import { REGISTRATION_ENABLED } from "../../src/lib/constants";
 import { rootLogger } from "../../src/lib/logging";
 import { getAssetData } from "../helpers/asset-data";
 import { NEW_PASSWORD, TEST_PASSWORD } from "../helpers/constants";
@@ -483,6 +484,20 @@ test.describe("sanity tests", () => {
 		testEmail = `sanity-${randomUUID()}@resend.dev`;
 		secondEmail = `sanity-second-${randomUUID()}@resend.dev`;
 
+		if (!REGISTRATION_ENABLED) {
+			// Registration is gated — create user via admin API and sign in directly
+			const user = await createTestUser({
+				email: testEmail,
+				password: testPassword,
+				confirmed: true,
+				emailNotificationsEnabled: true,
+				marketScheduledAssetPriceIncludeEmail: false,
+			});
+			testUserId = user.id;
+			await signIn(page, testEmail, testPassword);
+			return;
+		}
+
 		await page.goto("/auth/register");
 		await page.locator("#email").fill(testEmail);
 		await page.locator("#password").fill(testPassword);
@@ -830,7 +845,10 @@ test.describe("sanity tests", () => {
 		const marketOpenButton = marketNotificationsForm.getByRole("button", {
 			name: /Set delivery time to after US market open/i,
 		});
-		if (await marketOpenButton.isVisible()) {
+		if (
+			(await marketOpenButton.isVisible()) &&
+			(await marketOpenButton.isEnabled())
+		) {
 			await marketOpenButton.click();
 		}
 

@@ -183,10 +183,14 @@ test("A signed-in user can navigate all routes without console errors.", async (
 				throw new Error(`Route ${route} returned status ${status}`);
 			}
 
-			const finalPath = new URL(page.url()).pathname;
+			const finalUrl = new URL(page.url());
+			const finalPath = finalUrl.pathname;
 			const isSigninRedirect =
 				route === "/auth/signin" && finalPath === "/dashboard";
-			if (!isSigninRedirect && finalPath !== route) {
+			const isRegisterGateRedirect =
+				route === "/auth/register" &&
+				(finalPath === "/auth/signin" || finalPath === "/dashboard");
+			if (!isSigninRedirect && !isRegisterGateRedirect && finalPath !== route) {
 				throw new Error(`Route ${route} redirected to ${finalPath}`);
 			}
 

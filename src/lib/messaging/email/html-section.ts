@@ -11,19 +11,38 @@ const GROK_LOGO_IMG = `<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0c
 
 const LINK_STYLE = "color: #667eea; text-decoration: underline;";
 
+/**
+ * Match markdown links `[text](url)` where the URL is http(s) and may contain
+ * balanced parentheses (common in Wikipedia URLs like `JavaScript_(programming_language)`).
+ *
+ * Notes:
+ * - The link text allows one level of nested brackets so citation-style links
+ *   like `[[1]](url)` are matched (Grok outputs these for numbered references).
+ * - We keep the URL "no whitespace" rule to avoid swallowing following text.
+ * - This supports nested parentheses up to 2 levels, which is sufficient for
+ *   common real-world links while remaining regex-friendly in JS.
+ */
+const MARKDOWN_LINK_RE =
+	/\[((?:[^[\]]+|\[[^\]]*\])+)\]\(((?:https?:\/\/)(?:[^\s()]+|\((?:[^\s()]+|\([^\s()]*\))*\))*)\)/g;
+
+/**
+ * Strip markdown links from text, keeping only the link text (for plaintext email)
+ * or removing them entirely (for SMS). Handles nested bracket patterns like `[[Reuters]](url)`.
+ */
+export function stripMarkdownLinks(
+	content: string,
+	mode: "keep-text" | "remove",
+): string {
+	const stripped = content.replace(MARKDOWN_LINK_RE, (_, linkText: string) => {
+		if (mode === "remove") return "";
+		// Remove surrounding brackets from citation-style text: [Reuters] → Reuters
+		return linkText.replace(/^\[|\]$/g, "");
+	});
+	return stripped.replace(/\s{2,}/g, " ").trim();
+}
+
 /** Convert markdown links (`[text](https://...)`) into safe HTML `<a>` tags. */
 export function markdownLinksToHtml(content: string): string {
-	// Match markdown links `[text](url)` where the URL is http(s) and may contain
-	// balanced parentheses (common in Wikipedia URLs like `JavaScript_(programming_language)`).
-	//
-	// Notes:
-	// - The link text allows one level of nested brackets so citation-style links
-	//   like `[[1]](url)` are matched (Grok outputs these for numbered references).
-	// - We keep the URL "no whitespace" rule to avoid swallowing following text.
-	// - This supports nested parentheses up to 2 levels, which is sufficient for
-	//   common real-world links while remaining regex-friendly in JS.
-	const MARKDOWN_LINK_RE =
-		/\[((?:[^[\]]+|\[[^\]]*\])+)\]\(((?:https?:\/\/)(?:[^\s()]+|\((?:[^\s()]+|\([^\s()]*\))*\))*)\)/g;
 	const parts: string[] = [];
 	let lastIndex = 0;
 	let prevWasLink = false;

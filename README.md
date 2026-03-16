@@ -15,7 +15,7 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - **Daily Digest** - Once-daily digest with asset prices by email and/or SMS, plus optional News/Rumors add-ons (email-only and may include clickable source links)
 - **Asset Events** - Daily notification of upcoming calendar events (earnings/dividends/splits) and IPOs, plus optional insider trades and analyst consensus (each event type can be toggled per channel and delivered by email and/or SMS)
 - **Format Preferences** - Customize how your updates look with live SMS/email previews and optional sparklines (weekly price trend)
-- **SMS Opt-out** - Reply STOP to opt out of SMS; reply START to opt back in (then re-enable SMS in your dashboard)
+- **SMS Controls** - Reply STOP to pause SMS, START to resume SMS, STOP EMAIL to disable email notifications, or STOP ALL to disable both channels
 
 ## Tech Stack
 
@@ -105,6 +105,11 @@ TWILIO_VERIFY_SERVICE_SID=your-verify-service-sid
 # Vercel
 CRON_SECRET=your-random-secret-string  # Minimum 12 characters; use `openssl rand -hex 32` for production
 
+# Resend
+# Required locally because middleware validates it on first request.
+# In Vercel production, prefer the Resend integration instead of storing this manually.
+RESEND_API_KEY=re_local_test_key
+
 EMAIL_FROM="Your Project Name <notifications@updates.example.com>"
 
 # Massive (asset prices / dividends / splits / news)
@@ -129,12 +134,20 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - `DATABASE_URL`: Supabase Dashboard → Project Settings → Database → Connection String → Transaction mode (pooler)
 - Twilio credentials: Twilio Console → Account Dashboard
 - `CRON_SECRET`: Generate a random string (minimum 12 characters; e.g., `openssl rand -hex 32`)
+- `RESEND_API_KEY`: Resend Dashboard → API Keys (for local dev, a placeholder like `re_local_test_key` is fine unless you are running live email tests)
+- `EMAIL_FROM`: A verified sender/domain in Resend
 - Massive credentials: Massive Dashboard → API Keys
 - Finnhub credentials: Finnhub Dashboard → API Keys
 - xAI credentials: xAI Console → API Keys
 - LOG masking: optional, defaults to true
 
 **Security Note:** The `SUPABASE_SECRET_KEY` bypasses Row Level Security. Never expose it on the client side. The `.env.local` file (and all `.env*` files) are excluded from version control via `.gitignore`.
+
+**Platform-only config (not part of `.env.local`):**
+- **Vercel-managed/injected:** `VERCEL_URL` is set automatically on hosted deployments. If you use the Vercel Supabase and Resend integrations, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, and `RESEND_API_KEY` come from those integrations instead of a committed/shared env file.
+- **Local-only values:** `DATABASE_URL` and `DEFAULT_PASSWORD` are for local Supabase + seed generation and should not be added to Vercel.
+- **GitHub Actions repository secrets:** `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `POSTGRES_PASSWORD`, `GH_AGENT_TOKEN`, and `ALERT_PHONE_NUMBER`.
+- **GitHub Actions repository variables:** `PRODUCTION_SITE_URL`.
 
 ### 4. Generate Seed File
 
@@ -299,17 +312,37 @@ The canonical endpoint for fetching current user preferences is `GET /api/notifi
 - `GET /api/price-targets`
 - `POST /api/price-targets/save`
 - `POST /api/schedule` (cron, protected by `CRON_SECRET`)
-- `POST /api/messaging/inbound` (Twilio webhook for STOP/START/HELP)
+- `POST /api/messaging/inbound` (Twilio webhook for STOP/START/STOP EMAIL/STOP ALL/HELP)
 
 ## Deployment to Vercel
 
 ### 1. Add Environment Variables
 
-In your Vercel project settings (Settings → Environment Variables), add all variables from your `.env.local` file.
+Do not mirror `.env.local` into Vercel 1:1.
+
+Add the runtime app variables your hosted app needs in Vercel project settings (Settings → Environment Variables), such as `TWILIO_*`, `CRON_SECRET`, `EMAIL_FROM`, `MASSIVE_API_KEY`, `FINNHUB_API_KEY`, and optional `XAI_API_KEY`.
+
+Do **not** add these local-only values to Vercel:
+- `VERCEL_URL` (Vercel sets this automatically)
+- `DATABASE_URL`
+- `DEFAULT_PASSWORD`
+
+If you use marketplace/integration-managed credentials, you also do **not** manually add:
+- `SUPABASE_URL`
+- `SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_SECRET_KEY`
+- `RESEND_API_KEY`
 
 **Important for Astro SSR:**
 - Ensure variables are available for **Production**, **Preview**, and **Development**
 - Enable "Available during Build" so `import.meta.env` works in serverless functions
+
+### 1a. GitHub Actions Secrets And Variables
+
+These are repository-level GitHub settings used by workflows and should not go in `.env.local`:
+
+- **Secrets:** `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `POSTGRES_PASSWORD`, `GH_AGENT_TOKEN`, `ALERT_PHONE_NUMBER`
+- **Variables:** `PRODUCTION_SITE_URL`
 
 ### 2. Deploy
 
@@ -335,6 +368,8 @@ The `vercel.json` file configures three cron jobs. All must include `Authorizati
 5. Sends via email and/or SMS based on settings and logs attempts to the `notification_log` table
 
 **`/api/asset-events`** (runs daily at 00:00 UTC) — pre-populates the `asset_events` table with earnings, dividends, splits, and IPOs.
+
+**`/api/compute-daily-stats`** (runs weekdays at 22:00 UTC) — computes and upserts per-symbol daily stats used by asset price alerts (ADV-20 and ATR-14) for tracked assets.
 
 ## Project Structure
 

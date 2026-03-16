@@ -1,4 +1,5 @@
 ---
+import { REGISTRATION_ENABLED } from "../../lib/constants";
 
 interface Props {
 	isAuthenticated: boolean;
@@ -13,10 +14,10 @@ const { isAuthenticated } = Astro.props;
     <p class="mt-6 text-xl leading-relaxed text-blue-100">
       Track your assets and let us handle the rest. Get updates via email, text messages, or both—your choice.
     </p>
-    {!isAuthenticated && (
+    {!isAuthenticated && REGISTRATION_ENABLED && (
       <div class="mt-10">
-        <a 
-          href="/auth/register" 
+        <a
+          href="/auth/register"
           class="btn btn-lg btn-secondary shadow-lg hover:shadow-xl motion-safe:hover:scale-105"
         >
           Create Free Account
