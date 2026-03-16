@@ -71,8 +71,6 @@ function sitemapFilter(page: string): boolean {
 export default defineConfig({
 	output: "server",
 	adapter: vercel({
-		// Enable if you later use edge middleware helpers; keep serverless for Supabase SSR consistency
-		edgeMiddleware: false,
 		...(vercelMaxDurationSeconds
 			? { maxDuration: vercelMaxDurationSeconds }
 			: {}),
