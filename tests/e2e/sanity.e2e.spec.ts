@@ -1100,7 +1100,17 @@ test.describe("sanity tests", () => {
 			throw new Error("TWILIO_AUTH_TOKEN is required for inbound signature");
 		}
 
-		const webhookUrl = `${baseOrigin}/api/messaging/inbound`;
+		// The server validates Twilio signatures against the canonical site URL
+		// (VERCEL_URL from .env.local, e.g. http://localhost:4321), not the
+		// E2E dev-server URL (e.g. http://localhost:4322). Compute the signature
+		// with the canonical URL but send the request to the actual server.
+		const siteUrl = (
+			process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+			process.env.VERCEL_URL ||
+			baseOrigin
+		).replace(/\/+$/, "");
+		const signatureUrl = `${siteUrl}/api/messaging/inbound`;
+		const requestUrl = `${baseOrigin}/api/messaging/inbound`;
 		async function postInbound(bodyValue: string) {
 			const formParams = {
 				MessageSid: `SM${randomUUID().replaceAll("-", "").slice(0, 16)}`,
@@ -1112,11 +1122,11 @@ test.describe("sanity tests", () => {
 			const signatureParams = buildInboundSignatureParams(formParams);
 			const signature = computeTwilioSignature(
 				authToken,
-				webhookUrl,
+				signatureUrl,
 				signatureParams,
 			);
 			const body = new URLSearchParams(formParams);
-			return fetch(webhookUrl, {
+			return fetch(requestUrl, {
 				method: "POST",
 				headers: {
 					"x-twilio-signature": signature,

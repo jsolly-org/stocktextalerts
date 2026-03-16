@@ -229,7 +229,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
 	// Keep Astro checkOrigin disabled and enforce origin checks here so
 	// same-origin validation can account for proxy headers.
-	if (ORIGIN_CHECK_METHODS.has(context.request.method)) {
+	// Webhook endpoints use their own authentication (e.g. Twilio signature
+	// validation) and must not be blocked by browser-oriented CSRF checks.
+	const WEBHOOK_PATHS = ["/api/messaging/inbound"];
+	const isWebhookPath = WEBHOOK_PATHS.some((p) => requestUrl.pathname === p);
+	if (ORIGIN_CHECK_METHODS.has(context.request.method) && !isWebhookPath) {
 		// If Astro's built-in origin enforcement is enabled, avoid duplicate checks.
 		const astroCheckOriginEnabled =
 			readEnv("ASTRO_SECURITY_CHECK_ORIGIN")?.toLowerCase() === "true";
