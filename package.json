@@ -44,7 +44,7 @@
 		]
 	},
 	"dependencies": {
-		"@astrojs/vercel": "^9.0.4",
+		"@astrojs/vercel": "^10.0.0",
 		"@supabase/supabase-js": "^2.99.0",
 		"@vuepic/vue-datepicker": "^12.1.0",
 		"@vueuse/core": "^14.2.1",
@@ -61,14 +61,14 @@
 	"devDependencies": {
 		"@astrojs/sitemap": "^3.7.1",
 		"@astrojs/ts-plugin": "^1.10.7",
-		"@astrojs/vue": "^5.1.4",
+		"@astrojs/vue": "^6.0.0",
 		"@axe-core/playwright": "^4.11.1",
 		"@biomejs/biome": "2.4.6",
 		"@playwright/test": "^1.58.2",
 		"@tailwindcss/vite": "^4.2.1",
 		"@types/luxon": "^3.7.1",
 		"@types/pg": "^8.18.0",
-		"astro": "^5.18.0",
+		"astro": "^6.0.4",
 		"husky": "^9.1.7",
 		"knip": "^5.86.0",
 		"lighthouse": "^13.0.3",
