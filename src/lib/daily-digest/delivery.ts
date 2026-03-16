@@ -40,6 +40,15 @@ import type { SmsSenderProvider } from "../schedule/sms-sender";
 import type { MarketClosureInfo } from "../time/market-calendar";
 
 const TICKER_LINE_RE = /^[A-Z][A-Z0-9.-]{0,9}:\s/;
+const QUOTE_TIMESTAMP_FORMATTER = new Intl.DateTimeFormat("en-US", {
+	timeZone: US_MARKET_TIMEZONE,
+	month: "short",
+	day: "numeric",
+	year: "numeric",
+	hour: "numeric",
+	minute: "2-digit",
+	timeZoneName: "short",
+});
 
 /**
  * Ensure each ticker snippet starts after a blank line so entries are visually separated.
@@ -85,40 +94,38 @@ function getLatestQuoteTimestamp(assetPrices: AssetPriceMap): number | null {
 
 /** Format a Unix timestamp in Eastern time for display. */
 function formatQuoteTimestamp(timestamp: number): string {
-	return new Intl.DateTimeFormat("en-US", {
-		timeZone: US_MARKET_TIMEZONE,
-		month: "short",
-		day: "numeric",
-		year: "numeric",
-		hour: "numeric",
-		minute: "2-digit",
-		timeZoneName: "short",
-	}).format(new Date(timestamp * 1000));
+	return QUOTE_TIMESTAMP_FORMATTER.format(new Date(timestamp * 1000));
+}
+
+type DigestMarketClosedContent = {
+	label: string;
+	quoteTimestamp: string | null;
+};
+
+/** Build market-closed banner content shared by text and HTML rendering. */
+function buildDigestMarketClosedContent(
+	closureInfo: MarketClosureInfo | null,
+	assetPrices: AssetPriceMap,
+): DigestMarketClosedContent {
+	const label = closureInfo ? buildMarketClosureLabel(closureInfo) : "Market Closed";
+	const ts = getLatestQuoteTimestamp(assetPrices);
+	return { label, quoteTimestamp: ts ? formatQuoteTimestamp(ts) : null };
 }
 
 /** Build a plain-text market-closed banner for the digest. */
-function buildDigestMarketClosedText(
-	closureInfo: MarketClosureInfo | null,
-	assetPrices: AssetPriceMap,
-): string {
-	const label = closureInfo
-		? buildMarketClosureLabel(closureInfo)
-		: "Market Closed";
-	const ts = getLatestQuoteTimestamp(assetPrices);
-	const asOf = ts ? ` (as of ${formatQuoteTimestamp(ts)})` : "";
-	return `🔔 ${label}\nPrices below reflect the last market close${asOf}.`;
+function buildDigestMarketClosedText(content: DigestMarketClosedContent): string {
+	const asOf = content.quoteTimestamp ? ` (as of ${content.quoteTimestamp})` : "";
+	return `🔔 ${content.label}\nPrices below reflect the last market close${asOf}.`;
 }
 
 /** Build an HTML market-closed banner for the digest. */
 function buildDigestMarketClosedHtml(
-	closureInfo: MarketClosureInfo | null,
-	assetPrices: AssetPriceMap,
+	content: DigestMarketClosedContent,
 ): string {
-	const label = escapeHtml(
-		closureInfo ? buildMarketClosureLabel(closureInfo) : "Market Closed",
-	);
-	const ts = getLatestQuoteTimestamp(assetPrices);
-	const asOf = ts ? ` (as of ${escapeHtml(formatQuoteTimestamp(ts))})` : "";
+	const label = escapeHtml(content.label);
+	const asOf = content.quoteTimestamp
+		? ` (as of ${escapeHtml(content.quoteTimestamp)})`
+		: "";
 	return `<div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; text-align: center;">
 			<div style="font-size: 14px; color: #92400e; font-weight: 600;">🔔 ${label}</div>
 			<div style="font-size: 12px; color: #92400e; margin-top: 4px;">Prices below reflect the last market close${asOf}.</div>
@@ -294,18 +301,16 @@ export function formatDailyDigestEmail(options: {
 	);
 	const closureInfo = options.marketClosureInfo ?? null;
 	const showClosureBanner = options.marketOpen === false;
-	const marketClosedText = showClosureBanner
-		? buildDigestMarketClosedText(closureInfo, options.assetPrices)
+	const marketClosedContent = showClosureBanner
+		? buildDigestMarketClosedContent(closureInfo, options.assetPrices)
 		: null;
-	const marketClosedHtml = showClosureBanner
-		? buildDigestMarketClosedHtml(closureInfo, options.assetPrices)
+	const marketClosedText = marketClosedContent
+		? buildDigestMarketClosedText(marketClosedContent)
+		: null;
+	const marketClosedHtml = marketClosedContent
+		? buildDigestMarketClosedHtml(marketClosedContent)
 		: "";
-
-	const closureLabel = showClosureBanner
-		? closureInfo
-			? buildMarketClosureLabel(closureInfo)
-			: "Market Closed"
-		: null;
+	const closureLabel = marketClosedContent?.label ?? null;
 	const subject = closureLabel
 		? `Daily digest — ${closureLabel}`
 		: "Daily digest";
