@@ -84,7 +84,10 @@ describe("A nightly cron computes and persists shared daily stats for tracked sy
 			}),
 		);
 		expect(response.status).toBe(200);
-		const payload = (await response.json()) as { computed: number; failed: number };
+		const payload = (await response.json()) as {
+			computed: number;
+			failed: number;
+		};
 		expect(payload).toEqual({ computed: 1, failed: 0 });
 
 		expect(fetchDailyOHLCVMock).toHaveBeenCalledTimes(1);
@@ -139,7 +142,10 @@ describe("A nightly cron computes and persists shared daily stats for tracked sy
 			}),
 		);
 		expect(response.status).toBe(200);
-		const payload = (await response.json()) as { computed: number; failed: number };
+		const payload = (await response.json()) as {
+			computed: number;
+			failed: number;
+		};
 		expect(payload).toEqual({ computed: 1, failed: 1 });
 		expect(fetchDailyOHLCVMock).toHaveBeenCalledTimes(2);
 

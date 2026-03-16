@@ -56,12 +56,13 @@ describe("Manual cron force-send scenarios", () => {
 		);
 		expect(normalRun.status).toBe(200);
 
-		const { data: logsBeforeForce, error: logsBeforeForceError } = await adminClient
-			.from("notification_log")
-			.select("id")
-			.eq("user_id", testUser.id)
-			.eq("type", "market")
-			.eq("delivery_method", "email");
+		const { data: logsBeforeForce, error: logsBeforeForceError } =
+			await adminClient
+				.from("notification_log")
+				.select("id")
+				.eq("user_id", testUser.id)
+				.eq("type", "market")
+				.eq("delivery_method", "email");
 		expect(logsBeforeForceError).toBeNull();
 		expect(logsBeforeForce ?? []).toHaveLength(0);
 
@@ -79,12 +80,13 @@ describe("Manual cron force-send scenarios", () => {
 		const forcePayload = (await forceRun.json()) as { success: boolean };
 		expect(forcePayload.success).toBe(true);
 
-		const { data: logsAfterForce, error: logsAfterForceError } = await adminClient
-			.from("notification_log")
-			.select("id,message")
-			.eq("user_id", testUser.id)
-			.eq("type", "market")
-			.eq("delivery_method", "email");
+		const { data: logsAfterForce, error: logsAfterForceError } =
+			await adminClient
+				.from("notification_log")
+				.select("id,message")
+				.eq("user_id", testUser.id)
+				.eq("type", "market")
+				.eq("delivery_method", "email");
 		expect(logsAfterForceError).toBeNull();
 		expect(logsAfterForce ?? []).toHaveLength(1);
 		expect(logsAfterForce?.[0]?.message).toContain("AAPL");
