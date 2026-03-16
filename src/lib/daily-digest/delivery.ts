@@ -107,14 +107,20 @@ function buildDigestMarketClosedContent(
 	closureInfo: MarketClosureInfo | null,
 	assetPrices: AssetPriceMap,
 ): DigestMarketClosedContent {
-	const label = closureInfo ? buildMarketClosureLabel(closureInfo) : "Market Closed";
+	const label = closureInfo
+		? buildMarketClosureLabel(closureInfo)
+		: "Market Closed";
 	const ts = getLatestQuoteTimestamp(assetPrices);
 	return { label, quoteTimestamp: ts ? formatQuoteTimestamp(ts) : null };
 }
 
 /** Build a plain-text market-closed banner for the digest. */
-function buildDigestMarketClosedText(content: DigestMarketClosedContent): string {
-	const asOf = content.quoteTimestamp ? ` (as of ${content.quoteTimestamp})` : "";
+function buildDigestMarketClosedText(
+	content: DigestMarketClosedContent,
+): string {
+	const asOf = content.quoteTimestamp
+		? ` (as of ${content.quoteTimestamp})`
+		: "";
 	return `🔔 ${content.label}\nPrices below reflect the last market close${asOf}.`;
 }
 
