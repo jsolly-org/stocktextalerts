@@ -7,11 +7,11 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - **Asset Tracking** - Search and track US stocks and ETFs (up to 10)
 - **Email Notifications** - Receive updates via email (Resend)
 - **SMS Notifications** - Optional SMS delivery (Twilio)
-- **Asset Price Alerts** - Get alerted during US market hours when tracked assets show significant price movement (up or down), with configurable move size (Moderate/Large) and market context (Standouts only / Any big move)
+- **Asset Price Alerts** - Optional smart alerts for tracked stocks (not ETFs) during US market hours, with configurable sensitivity (Significant/Extreme). Alerts are capped at one alert per symbol per US trading day
 - **Price Targets** - Set a target price for any watchlist symbol and get a one-shot email and/or SMS when the price is reached (target is cleared after delivery)
 - **Phone Verification** - Secure phone verification via Twilio Verify
 - **Timezone Support** - Browser-detected timezones with user overrides
-- **Market Notifications** - Choose up to 8 delivery times for scheduled asset price updates, and decide if they're delivered by email, SMS, or both
+- **Market Notifications** - Choose up to 8 delivery times for scheduled asset price updates (10:00 AM–3:59 PM ET on market-open days), and decide if they're delivered by email, SMS, or both
 - **Daily Digest** - Once-daily digest with asset prices by email and/or SMS, plus optional News/Rumors add-ons (email-only and may include clickable source links)
 - **Asset Events** - Daily notification of upcoming calendar events (earnings/dividends/splits) and IPOs, plus optional insider trades and analyst consensus (each event type can be toggled per channel and delivered by email and/or SMS)
 - **Format Preferences** - Customize how your updates look with live SMS/email previews and optional sparklines (weekly price trend)
