@@ -51,7 +51,7 @@
 		"astro-icon": "^1.1.5",
 		"libphonenumber-js": "^1.12.40",
 		"luxon": "^3.7.2",
-		"resend": "^6.9.3",
+		"resend": "^6.9.4",
 		"twilio": "^5.13.0",
 		"vue": "^3.5.30"
 	},
