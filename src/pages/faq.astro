@@ -21,7 +21,7 @@ const faqs = [
 	},
 	{
 		question: "What are Asset Price Alerts?",
-		answer: "Asset Price Alerts are optional, near real-time alerts that run during US market hours. They watch the symbols you track and send an alert when our price-movement score crosses your configured threshold. You can adjust Move size (Moderate or Large) and Market context (Standouts only or Any big move), plus choose how follow-up alerts work. We apply a per-symbol cooldown to avoid repeated alerts in a short window."
+		answer: "Asset Price Alerts are optional smart alerts for tracked stocks (not ETFs) during US market hours. You can choose sensitivity (Significant or Extreme). We evaluate alert conditions throughout the trading day and limit delivery to one alert per symbol per US trading day."
 	},
 	{
 		question: "What are Price Targets?",
@@ -57,7 +57,7 @@ const faqs = [
 	},
 	{
 		question: "When are updates sent?",
-		answer: "You can choose up to eight delivery times for scheduled market asset price notifications. Asset Price Alerts (if enabled) run during US market hours and can trigger as activity happens (with per-symbol cooldowns). Price targets (if set) trigger when the market price reaches your target, then are cleared. The daily digest is sent once per day at your selected daily delivery time, and asset events (calendar events like earnings/dividends/splits, upcoming IPOs, and optional extras like insider trades and analyst consensus) are delivered at the same time (note: analyst consensus may be sent up to once per month)."
+		answer: "You can choose up to eight delivery times for scheduled market asset price notifications (10:00 AM–3:59 PM ET on market-open days). Asset Price Alerts (if enabled) run during US market hours and can trigger as activity happens, with delivery limited to one alert per symbol per US trading day. Price targets (if set) trigger when the market price reaches your target, then are cleared. The daily digest is sent once per day at your selected daily delivery time, and asset events (calendar events like earnings/dividends/splits, upcoming IPOs, and optional extras like insider trades and analyst consensus) are delivered at the same time (note: analyst consensus may be sent up to once per month)."
 	},
 	{
 		question: "What is the Daily Digest?",
