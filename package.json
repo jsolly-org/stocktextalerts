@@ -68,7 +68,7 @@
 		"@tailwindcss/vite": "^4.2.1",
 		"@types/luxon": "^3.7.1",
 		"@types/pg": "^8.18.0",
-		"astro": "^6.0.5",
+		"astro": "^6.0.6",
 		"husky": "^9.1.7",
 		"knip": "^5.88.1",
 		"lighthouse": "^13.0.3",
