@@ -75,7 +75,7 @@
 		"lint-staged": "^16.4.0",
 		"pg": "^8.20.0",
 		"supabase": "^2.82.0",
-		"tailwindcss": "^4.2.1",
+		"tailwindcss": "^4.2.2",
 		"tsx": "^4.21.0",
 		"typescript": "^5.9.3",
 		"vite-svg-loader": "^5.1.1",
