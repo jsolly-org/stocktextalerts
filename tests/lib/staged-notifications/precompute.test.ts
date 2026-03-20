@@ -18,8 +18,8 @@ vi.mock("../../../src/lib/time/market-calendar", () => ({
 	getUsMarketClosureInfoForInstant: vi.fn(),
 }));
 
-import { fetchUpcomingDailyDigestUsers } from "../../../src/lib/daily-digest/query-upcoming";
 import { dispatchDailyDigestUser } from "../../../src/lib/daily-digest/dispatch";
+import { fetchUpcomingDailyDigestUsers } from "../../../src/lib/daily-digest/query-upcoming";
 import { createLogger } from "../../../src/lib/logging";
 import { fetchMarketStatus } from "../../../src/lib/providers/price-fetcher";
 import { precomputeDailyDigest } from "../../../src/lib/staged-notifications/precompute";
