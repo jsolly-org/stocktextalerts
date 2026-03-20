@@ -278,7 +278,10 @@ async function runPass(options: {
 
 	const marketOpen = marketStatusPromise ? await marketStatusPromise : false;
 
-	// Fetch market closure once for daily digest fan-out, market-scheduled banners, and asset-events (avoids per-user API calls)
+	// Fetch market closure once for market-scheduled banners and asset-events.
+	// Daily digests derive weekend/holiday labels from each user's scheduled send
+	// instant inside the worker, so reusing the scheduler's current-time closure
+	// info can misclassify digests near US midnight.
 	let marketClosureInfo: MarketClosureInfo | null = null;
 	const needsClosureInfo =
 		!marketOpen &&
@@ -383,7 +386,6 @@ async function runPass(options: {
 						currentTimeIso,
 						cronSecret,
 						marketOpen,
-						marketClosureInfo,
 					}),
 				),
 			);
@@ -626,7 +628,9 @@ export async function runScheduledNotifications(options: {
 
 		const marketOpen = marketStatusPromise ? await marketStatusPromise : false;
 
-		// Fetch market closure once for daily digest fan-out, market-scheduled banners, and asset-events (avoids per-user API calls)
+		// Fetch market closure once for market-scheduled banners and asset-events.
+		// Daily digests must classify closure status from each user's scheduled send
+		// instant instead of the current cron time.
 		let forceSendMarketClosure: MarketClosureInfo | null = null;
 		const forceSendNeedsClosure =
 			!marketOpen &&
@@ -726,7 +730,6 @@ export async function runScheduledNotifications(options: {
 							currentTimeIso,
 							cronSecret,
 							marketOpen,
-							marketClosureInfo: forceSendMarketClosure,
 						}),
 					),
 				);

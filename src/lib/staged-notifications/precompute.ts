@@ -236,11 +236,11 @@ export async function precomputeDailyDigest(options: {
 		window: `${afterTimeIso} → ${beforeTimeIso}`,
 	});
 
-	// Fetch market status + closure once for fan-out (avoids per-user API calls)
+	// Fetch market status once for fan-out (avoids per-user API calls).
+	// Do not prefetch closure info here: daily digests derive weekend/holiday labels
+	// from each user's scheduled send instant, which can differ from the scheduler's
+	// current time near US midnight.
 	const marketOpen = await fetchMarketStatus();
-	const marketClosureInfo = !marketOpen
-		? await getUsMarketClosureInfoForInstant(currentTime)
-		: null;
 
 	for (
 		let index = 0;
@@ -256,7 +256,6 @@ export async function precomputeDailyDigest(options: {
 					cronSecret,
 					precompute: true,
 					marketOpen,
-					marketClosureInfo,
 				}),
 			),
 		);
