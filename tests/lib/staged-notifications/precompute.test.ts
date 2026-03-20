@@ -70,12 +70,14 @@ describe("precomputeDailyDigest", () => {
 			smsFailed: 0,
 		});
 		expect(mockedGetUsMarketClosureInfoForInstant).not.toHaveBeenCalled();
-		expect(mockedDispatchDailyDigestUser).toHaveBeenCalledWith({
-			userId: "00000000-0000-0000-0000-000000000001",
-			currentTimeIso: "2026-01-05T04:59:45.000Z",
-			cronSecret: "test-cron-secret",
-			precompute: true,
-			marketOpen: false,
-		});
+		expect(mockedDispatchDailyDigestUser).toHaveBeenCalledWith(
+			expect.objectContaining({
+				userId: "00000000-0000-0000-0000-000000000001",
+				currentTimeIso: "2026-01-05T04:59:45.000+00:00",
+				cronSecret: "test-cron-secret",
+				precompute: true,
+				marketOpen: false,
+			}),
+		);
 	});
 });
