@@ -59,8 +59,9 @@ function makeSupabaseMock(options: {
 		price_targets_include_email: boolean;
 		price_targets_include_sms: boolean;
 	}>;
+	onDelete?: () => void;
 }) {
-	const { targets = [], users = [] } = options;
+	const { targets = [], users = [], onDelete } = options;
 	return {
 		from: (table: string) => {
 			if (table === "price_targets") {
@@ -70,7 +71,10 @@ function makeSupabaseMock(options: {
 						eq: () => ({
 							eq: () => ({
 								eq: () => ({
-									eq: () => Promise.resolve({ error: null }),
+									eq: () => {
+										onDelete?.();
+										return Promise.resolve({ error: null });
+									},
 								}),
 							}),
 						}),
@@ -230,6 +234,45 @@ describe("Price target processing", () => {
 		});
 
 		expect(totals.targetsTriggered).toBe(1);
+	});
+
+	it("A triggered target is still cleared when delivery throws unexpectedly", async () => {
+		mockFetchMarketStatus.mockResolvedValue(true);
+		mockDeliverPriceTargetAlert.mockRejectedValueOnce(
+			new Error("Unexpected delivery failure"),
+		);
+
+		let deleted = false;
+		const supabase = makeSupabaseMock({
+			targets: [
+				{
+					user_id: "user-1",
+					symbol: "AAPL",
+					target_price: 200,
+					direction: "above",
+				},
+			],
+			users: [testUser],
+			onDelete: () => {
+				deleted = true;
+			},
+		});
+		const consoleErrorSpy = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => undefined);
+
+		try {
+			const totals = await processPriceTargets({
+				supabase,
+				quoteMap: new Map([["AAPL", makeQuote(205)]]),
+			});
+
+			expect(totals.targetsTriggered).toBe(1);
+			expect(totals.logFailures).toBe(1);
+			expect(deleted).toBe(true);
+		} finally {
+			consoleErrorSpy.mockRestore();
+		}
 	});
 
 	it("No targets are checked when none exist", async () => {
