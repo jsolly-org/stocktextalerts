@@ -383,7 +383,6 @@ async function runPass(options: {
 						currentTimeIso,
 						cronSecret,
 						marketOpen,
-						marketClosureInfo,
 					}),
 				),
 			);

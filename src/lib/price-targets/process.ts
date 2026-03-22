@@ -237,7 +237,6 @@ export async function processPriceTargets(options: {
 				error,
 			);
 			totals.logFailures++;
-			continue;
 		}
 
 		// Always clear the triggered target so it is not re-triggered on every cron run.
