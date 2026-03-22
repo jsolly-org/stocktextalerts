@@ -3,6 +3,7 @@ Twilio SMS
 ============= */
 
 import twilio, { type RestException } from "twilio";
+import { readEnv } from "../../db/env";
 import { rootLogger } from "../../logging";
 
 import type { DeliveryResult } from "../types";
@@ -23,16 +24,15 @@ export type SmsSender = (request: SmsRequest) => Promise<DeliveryResult>;
 
 type TwilioClient = ReturnType<typeof twilio>;
 
-// Reads Twilio credentials from import.meta.env.
-// Presence is guaranteed by middleware env validation; types reflect this via ImportMetaEnv.
 /**
  * Read validated Twilio credentials from environment variables.
+ * Uses process.env — Astro 6 statically inlines import.meta.env at build time.
  */
 export function readTwilioConfig(): TwilioConfig {
 	return {
-		accountSid: import.meta.env.TWILIO_ACCOUNT_SID,
-		authToken: import.meta.env.TWILIO_AUTH_TOKEN,
-		phoneNumber: import.meta.env.TWILIO_PHONE_NUMBER,
+		accountSid: readEnv("TWILIO_ACCOUNT_SID") as string,
+		authToken: readEnv("TWILIO_AUTH_TOKEN") as string,
+		phoneNumber: readEnv("TWILIO_PHONE_NUMBER") as string,
 	};
 }
 

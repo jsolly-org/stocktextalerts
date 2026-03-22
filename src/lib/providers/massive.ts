@@ -1,5 +1,6 @@
 import { setTimeout as realDelay } from "node:timers/promises";
 import { US_MARKET_TIMEZONE } from "../constants";
+import { readEnv } from "../db/env";
 import { rootLogger } from "../logging";
 import { finnhubFetch } from "./finnhub";
 
@@ -61,15 +62,7 @@ Helpers
 const MASSIVE_BASE_URL = "https://api.massive.com";
 
 function getMassiveApiKey(): string {
-	// import.meta.env is available in Astro/Vitest (transformed by Vite).
-	// Falls back to process.env for standalone scripts (tsx, node).
-	try {
-		const key = import.meta.env.MASSIVE_API_KEY;
-		if (key) return key;
-	} catch {
-		// import.meta.env not available outside Vite/Astro
-	}
-	return process.env.MASSIVE_API_KEY ?? "";
+	return readEnv("MASSIVE_API_KEY") ?? "";
 }
 
 function computeRetryDelayMs(

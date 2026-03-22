@@ -7,10 +7,7 @@ import { createAuthenticatedCookies } from "../helpers/test-env";
 import { cleanupTestUser, createTestUser } from "../helpers/test-user";
 
 const ROUTES_DIR = path.join(process.cwd(), "src", "pages");
-const CONSOLE_ALLOWLIST: Array<string | RegExp> = [
-	// Astro dev toolbar audit may fail to fetch in E2E test environment
-	/Error while running audit's match function: TypeError: Failed to fetch/,
-];
+const CONSOLE_ALLOWLIST: Array<string | RegExp> = [];
 
 type ConsoleIssue = {
 	route: string;
@@ -87,8 +84,10 @@ test("A signed-in user can navigate all routes without console errors.", async (
 			password: TEST_PASSWORD,
 			confirmed: true,
 		});
-		// Extract baseOrigin from Playwright's baseURL by navigating to a route
-		await page.goto("/", { waitUntil: "domcontentloaded" });
+		// Warm up the dev server and extract baseOrigin. Use networkidle to
+		// ensure Vite has finished optimizing deps before we start checking
+		// for console errors.
+		await page.goto("/", { waitUntil: "networkidle" });
 		const baseOrigin = new URL(page.url()).origin;
 
 		const consoleIssues: ConsoleIssue[] = [];

@@ -1,3 +1,4 @@
+import { readEnv } from "../db/env";
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { extractErrorMessage } from "../logging/errors";
@@ -36,7 +37,7 @@ async function fetchLogoFromApi(iconUrl: string): Promise<string | null> {
 		return null;
 	}
 
-	const apiKey = import.meta.env.MASSIVE_API_KEY;
+	const apiKey = readEnv("MASSIVE_API_KEY");
 	if (apiKey) {
 		parsed.searchParams.set("apiKey", apiKey);
 	}
