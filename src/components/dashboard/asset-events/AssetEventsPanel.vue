@@ -20,7 +20,7 @@
 
 			<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.purple}`"></div>
 		<div class="card-body">
-		<fieldset :disabled="isSaving" class="min-w-0">
+		<fieldset class="min-w-0">
 			<header class="mb-4">
 				<h2
 					:id="DASHBOARD_SECTION_IDS.assetEvents"

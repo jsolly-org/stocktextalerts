@@ -49,7 +49,6 @@
 	<fieldset
 			class="divide-y divide-divider transition-opacity duration-200"
 				:class="{ 'opacity-50': notificationSetupBlocked }"
-				:disabled="isSaving"
 				:aria-disabled="notificationSetupBlocked ? 'true' : undefined"
 			>
 					<legend class="sr-only">Daily digest settings</legend>
