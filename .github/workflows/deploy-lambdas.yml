@@ -64,8 +64,8 @@ jobs:
               FinnhubApiKey=${{ secrets.FINNHUB_API_KEY }} \
               XaiApiKey=${{ secrets.XAI_API_KEY }} \
               ResendApiKey=${{ secrets.RESEND_API_KEY }} \
-              EmailFrom=${{ secrets.EMAIL_FROM }} \
-              EmailReplyTo=${{ secrets.EMAIL_REPLY_TO }} \
+              EmailFrom="${{ vars.EMAIL_FROM }}" \
+              EmailReplyTo="${{ vars.EMAIL_REPLY_TO }}" \
               TwilioAccountSid=${{ secrets.TWILIO_ACCOUNT_SID }} \
               TwilioAuthToken=${{ secrets.TWILIO_AUTH_TOKEN }} \
               TwilioPhoneNumber=${{ secrets.TWILIO_PHONE_NUMBER }} \

@@ -3,8 +3,14 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"build": "tsx esbuild.config.ts",
-		"typecheck": "tsc --noEmit"
+		"build": "cd .. && npx tsx aws/esbuild.config.ts",
+		"typecheck": "tsc --noEmit",
+		"deploy": "npm run build && sam deploy --profile prod-admin",
+		"deploy:guided": "npm run build && sam deploy --guided --profile prod-admin",
+		"local:invoke": "sam local invoke --env-vars env.json --event -",
+		"local:schedule": "echo '{\"source\":\"aws.scheduler\"}' | npm run local:invoke -- ScheduleFunction",
+		"local:asset-events": "echo '{\"source\":\"aws.scheduler\"}' | npm run local:invoke -- AssetEventsFunction",
+		"local:daily-stats": "echo '{\"source\":\"aws.scheduler\"}' | npm run local:invoke -- ComputeDailyStatsFunction"
 	},
 	"devDependencies": {
 		"@types/aws-lambda": "^8.10.145",

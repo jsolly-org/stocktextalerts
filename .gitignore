@@ -16,6 +16,7 @@ logs/
 # environment variables
 .env*
 .act.secrets
+aws/env.json
 
 # macOS-specific files
 .DS_Store
