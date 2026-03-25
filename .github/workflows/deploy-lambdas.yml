@@ -17,6 +17,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
+env:
+  STACK_NAME: stocktextalerts-crons
+
 jobs:
   deploy:
     runs-on: ubuntu-24.04-arm
@@ -47,26 +50,47 @@ jobs:
           role-to-assume: arn:aws:iam::730335616323:role/GitHubActionsDeploymentRole
           aws-region: us-east-1
 
-      - name: Setup SAM CLI
-        uses: aws-actions/setup-sam@v2
-
-      - name: SAM deploy
-        working-directory: aws
+      - name: Get Lambda function names from CloudFormation
+        id: functions
         run: |
-          sam deploy \
-            --no-confirm-changeset \
-            --no-fail-on-empty-changeset \
-            --parameter-overrides \
-              SupabaseUrl=${{ secrets.SUPABASE_URL_PROD }} \
-              SupabaseSecretKey=${{ secrets.SUPABASE_SECRET_KEY_PROD }} \
-              SiteUrl=${{ vars.PRODUCTION_SITE_URL }} \
-              MassiveApiKey=${{ secrets.MASSIVE_API_KEY }} \
-              FinnhubApiKey=${{ secrets.FINNHUB_API_KEY }} \
-              XaiApiKey=${{ secrets.XAI_API_KEY }} \
-              ResendApiKey=${{ secrets.RESEND_API_KEY }} \
-              EmailFrom="${{ vars.EMAIL_FROM }}" \
-              EmailReplyTo="${{ vars.EMAIL_REPLY_TO }}" \
-              TwilioAccountSid=${{ secrets.TWILIO_ACCOUNT_SID }} \
-              TwilioAuthToken=${{ secrets.TWILIO_AUTH_TOKEN }} \
-              TwilioPhoneNumber=${{ secrets.TWILIO_PHONE_NUMBER }} \
-              CronSecret=${{ secrets.CRON_SECRET }}
+          get_physical_id() {
+            aws cloudformation describe-stack-resource \
+              --stack-name "$STACK_NAME" \
+              --logical-resource-id "$1" \
+              --query 'StackResourceDetail.PhysicalResourceId' \
+              --output text
+          }
+          echo "schedule=$(get_physical_id ScheduleFunction)" >> "$GITHUB_OUTPUT"
+          echo "asset_events=$(get_physical_id AssetEventsFunction)" >> "$GITHUB_OUTPUT"
+          echo "daily_stats=$(get_physical_id ComputeDailyStatsFunction)" >> "$GITHUB_OUTPUT"
+
+      - name: Zip Lambda bundles
+        working-directory: aws/dist/handlers
+        run: |
+          zip schedule.zip schedule.mjs
+          zip asset-events.zip asset-events.mjs
+          zip compute-daily-stats.zip compute-daily-stats.mjs
+
+      - name: Deploy ScheduleFunction
+        run: |
+          aws lambda update-function-code \
+            --function-name "${{ steps.functions.outputs.schedule }}" \
+            --zip-file fileb://aws/dist/handlers/schedule.zip
+          aws lambda wait function-updated-v2 \
+            --function-name "${{ steps.functions.outputs.schedule }}"
+
+      - name: Deploy AssetEventsFunction
+        run: |
+          aws lambda update-function-code \
+            --function-name "${{ steps.functions.outputs.asset_events }}" \
+            --zip-file fileb://aws/dist/handlers/asset-events.zip
+          aws lambda wait function-updated-v2 \
+            --function-name "${{ steps.functions.outputs.asset_events }}"
+
+      - name: Deploy ComputeDailyStatsFunction
+        run: |
+          aws lambda update-function-code \
+            --function-name "${{ steps.functions.outputs.daily_stats }}" \
+            --zip-file fileb://aws/dist/handlers/compute-daily-stats.zip
+          aws lambda wait function-updated-v2 \
+            --function-name "${{ steps.functions.outputs.daily_stats }}"
