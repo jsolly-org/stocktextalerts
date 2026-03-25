@@ -1,10 +1,16 @@
 import { DateTime } from "luxon";
 import { createSupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
-import { createEmailSender } from "../messaging/email/utils";
+import { createEmailSender, type EmailSender } from "../messaging/email/utils";
 import type { UserRecord } from "../messaging/types";
-import type { ScheduledNotificationTotals } from "../schedule/helpers";
-import { createSmsSenderProvider } from "../schedule/sms-sender";
+import type {
+	ScheduledNotificationTotals,
+	SupabaseAdminClient,
+} from "../schedule/helpers";
+import {
+	createSmsSenderProvider,
+	type SmsSenderProvider,
+} from "../schedule/sms-sender";
 import type { MarketClosureInfo } from "../time/market-calendar";
 import { processDailyDigestUser } from "./process";
 
@@ -60,9 +66,23 @@ export async function dispatchDailyDigestUser(options: {
 	marketOpen?: boolean;
 	/** Pre-fetched market closure info (avoids per-user API calls). */
 	marketClosureInfo?: MarketClosureInfo | null;
+	/** Shared scheduler client (avoids per-user Supabase construction). */
+	supabase?: SupabaseAdminClient;
+	/** Shared email sender from the cron run (reuses Resend setup). */
+	sendEmail?: EmailSender;
+	/** Shared SMS provider from the cron run (reuses Twilio client cache). */
+	getSmsSender?: SmsSenderProvider;
 }): Promise<ScheduledNotificationTotals> {
-	const { userId, currentTimeIso, precompute, marketOpen, marketClosureInfo } =
-		options;
+	const {
+		userId,
+		currentTimeIso,
+		precompute,
+		marketOpen,
+		marketClosureInfo,
+		supabase: supabaseOption,
+		sendEmail: sendEmailOption,
+		getSmsSender: getSmsSenderOption,
+	} = options;
 
 	try {
 		const currentTime = DateTime.fromISO(currentTimeIso, { zone: "utc" });
@@ -75,7 +95,7 @@ export async function dispatchDailyDigestUser(options: {
 			return { ...EMPTY_STATS };
 		}
 
-		const supabase = createSupabaseAdminClient();
+		const supabase = supabaseOption ?? createSupabaseAdminClient();
 
 		const { data: user, error: fetchError } = await supabase
 			.from("users")
@@ -132,8 +152,8 @@ export async function dispatchDailyDigestUser(options: {
 			return { ...EMPTY_STATS };
 		}
 
-		const sendEmail = createEmailSender();
-		const getSmsSender = createSmsSenderProvider();
+		const sendEmail = sendEmailOption ?? createEmailSender();
+		const getSmsSender = getSmsSenderOption ?? createSmsSenderProvider();
 
 		const dailyDigestUser: UserRecord = {
 			...(user as DailyDigestUserRow),

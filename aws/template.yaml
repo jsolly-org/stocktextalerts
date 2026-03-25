@@ -69,7 +69,7 @@ Resources:
     Properties:
       Handler: schedule.handler
       CodeUri: dist/handlers/
-      Timeout: 90
+      Timeout: 300
       MemorySize: 512
       Events:
         EveryMinute:

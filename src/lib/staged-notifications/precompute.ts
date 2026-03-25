@@ -242,6 +242,8 @@ export async function precomputeDailyDigest(options: {
 	// instant, not the scheduler's current clock time. Near US midnight those can
 	// land on different market dates.
 	const marketOpen = await fetchMarketStatus();
+	const sendEmail = createEmailSender();
+	const getSmsSender = createSmsSenderProvider();
 
 	for (
 		let index = 0;
@@ -256,6 +258,9 @@ export async function precomputeDailyDigest(options: {
 					currentTimeIso,
 					precompute: true,
 					marketOpen,
+					supabase,
+					sendEmail,
+					getSmsSender,
 				}),
 			),
 		);

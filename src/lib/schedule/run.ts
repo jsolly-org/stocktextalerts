@@ -375,6 +375,9 @@ async function runPass(options: {
 						userId: user.id,
 						currentTimeIso,
 						marketOpen,
+						supabase,
+						sendEmail,
+						getSmsSender,
 					}),
 				),
 			);
