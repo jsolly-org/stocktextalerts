@@ -71,6 +71,7 @@ Resources:
       CodeUri: dist/handlers/
       Timeout: 300
       MemorySize: 512
+      ReservedConcurrentExecutions: 1
       Events:
         EveryMinute:
           Type: ScheduleV2
