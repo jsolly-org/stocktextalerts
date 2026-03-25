@@ -37,6 +37,9 @@ Parameters:
   TwilioPhoneNumber:
     Type: String
     NoEcho: true
+  CronSecret:
+    Type: String
+    NoEcho: true
 
 Globals:
   Function:
@@ -58,6 +61,7 @@ Globals:
         TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
         TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
         TWILIO_PHONE_NUMBER: !Ref TwilioPhoneNumber
+        CRON_SECRET: !Ref CronSecret
 
 Resources:
   ScheduleFunction:

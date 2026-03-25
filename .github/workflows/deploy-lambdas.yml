@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -68,4 +68,5 @@ jobs:
               EmailReplyTo=${{ secrets.EMAIL_REPLY_TO }} \
               TwilioAccountSid=${{ secrets.TWILIO_ACCOUNT_SID }} \
               TwilioAuthToken=${{ secrets.TWILIO_AUTH_TOKEN }} \
-              TwilioPhoneNumber=${{ secrets.TWILIO_PHONE_NUMBER }}
+              TwilioPhoneNumber=${{ secrets.TWILIO_PHONE_NUMBER }} \
+              CronSecret=${{ secrets.CRON_SECRET }}
