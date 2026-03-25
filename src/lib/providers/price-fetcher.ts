@@ -1,3 +1,4 @@
+import { US_MARKET_TIMEZONE } from "../constants";
 import { rootLogger } from "../logging";
 import { type SparklineMap, toSparkline } from "../messaging/sparkline";
 import { fetchFinnhubQuote } from "./finnhub";
@@ -169,9 +170,13 @@ export async function fetchSparklines(
 		return result;
 	}
 
-	const today = new Date();
-	const to = today.toISOString().slice(0, 10);
-	const from = new Date(today.getTime() - 9 * 24 * 60 * 60 * 1000)
+	const todayET = new Date().toLocaleDateString("en-CA", {
+		timeZone: US_MARKET_TIMEZONE,
+	});
+	const to = todayET;
+	const from = new Date(
+		new Date(`${todayET}T12:00:00Z`).getTime() - 9 * 24 * 60 * 60 * 1000,
+	)
 		.toISOString()
 		.slice(0, 10);
 
