@@ -439,7 +439,6 @@ async function runPass(options: {
 export async function runScheduledNotifications(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	now?: DateTime;
 }): Promise<
 	ScheduledNotificationTotals & {
 		priceAlerts?: PriceAlertTotals;
