@@ -10,6 +10,7 @@
  */
 import { setTimeout as realDelay } from "node:timers/promises";
 import { Resend } from "resend";
+import { readEnv } from "../../db/env";
 import { rootLogger } from "../../logging";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
 import { escapeHtml, formatAssetsHtmlList } from "../asset-formatting";
@@ -81,9 +82,9 @@ export type EmailSender = (request: EmailRequest) => Promise<DeliveryResult>;
 
 /** Create a Resend-backed email sender (mocked in test mode). */
 export function createEmailSender(): EmailSender {
-	const apiKey = import.meta.env.RESEND_API_KEY;
-	const fromEmail = import.meta.env.EMAIL_FROM;
-	const defaultReplyTo = import.meta.env.EMAIL_REPLY_TO;
+	const apiKey = readEnv("RESEND_API_KEY") as string;
+	const fromEmail = readEnv("EMAIL_FROM") as string;
+	const defaultReplyTo = readEnv("EMAIL_REPLY_TO");
 
 	// In test mode, return a mock sender unless --live=email is set.
 	// LIVE_API_PROVIDERS is set by run-vitest.ts before Vitest starts, making it

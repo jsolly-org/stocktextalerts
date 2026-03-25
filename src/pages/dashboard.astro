@@ -7,6 +7,7 @@ import { buildSigninRedirectUrl } from "../lib/auth/redirects";
 import { createUserService, getUserAssets } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
 import { rootLogger } from "../lib/logging";
+import { readEnv } from "../lib/db/env";
 import { formatPhoneFromE164 } from "../lib/messaging/format-phone";
 
 const supabase = createSupabaseServerClient();
@@ -35,7 +36,7 @@ if (!dbUser) {
 const user = dbUser;
 const initialAssets = userAssets.map((asset) => ({ symbol: asset.symbol, name: asset.name, type: asset.type, icon_url: asset.icon_url }));
 
-const rawTwilioNumber = import.meta.env.TWILIO_PHONE_NUMBER ?? "";
+const rawTwilioNumber = readEnv("TWILIO_PHONE_NUMBER") ?? "";
 const smsPhoneNumber = formatPhoneFromE164(rawTwilioNumber);
 ---
 <Layout title="Dashboard" description="Review and manage your asset notifications. Add or remove tracked assets, set your delivery schedule, and choose email or SMS delivery." noindex>

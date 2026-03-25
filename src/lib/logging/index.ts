@@ -121,10 +121,14 @@ function serializeError(error: unknown): LogEntry["error"] {
 }
 
 function getMaskPiiEnabled(): boolean {
+	// readEnv would create a circular import (logging ← env ← logging),
+	// so access process.env directly here. LOG_MASK_PII is a non-secret config
+	// flag, safe to read from either source.
 	const value =
-		typeof import.meta !== "undefined" && import.meta.env
+		process.env.LOG_MASK_PII ??
+		(typeof import.meta !== "undefined" && import.meta.env
 			? import.meta.env.LOG_MASK_PII
-			: process.env.LOG_MASK_PII;
+			: undefined);
 	const normalized = typeof value === "string" ? value : String(value ?? "");
 	return normalized.toLowerCase() !== "false";
 }

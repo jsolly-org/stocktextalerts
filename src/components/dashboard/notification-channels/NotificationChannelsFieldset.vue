@@ -11,7 +11,6 @@
 
 		<fieldset
 			class="divide-y divide-edge"
-			:disabled="props.isSaving"
 			:aria-describedby="props.notificationChannelsDescId"
 		>
 			<legend class="sr-only">Notification channels</legend>
@@ -132,7 +131,6 @@ interface Props {
 	emailNotificationsEnabledId: string;
 	smsStatusId: string;
 	notificationChannelsDescId: string;
-	isSaving?: boolean;
 	/** Current daily delivery time as an HH:MM string, or null. */
 	dailyDeliveryTimeInput: string | null;
 	/** Current daily delivery time in minutes since midnight, or null. */

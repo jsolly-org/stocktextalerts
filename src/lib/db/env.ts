@@ -3,20 +3,40 @@ Environment Helpers
 ============= */
 
 /**
- * Read CRON_SECRET from environment. Prefers import.meta.env (Vite/Astro build),
- * falls back to process.env (Vercel runtime, standalone scripts).
+ * Read an environment variable at runtime.
  *
- * Presence is enforced by middleware; this returns the raw value for policy validation.
+ * Prefers `process.env` (always correct at runtime on Vercel / Node) and falls
+ * back to `import.meta.env` for Vite dev-server mode where `.env.local` vars
+ * are only loaded into `import.meta.env`.
+ *
+ * Astro 6 statically inlines `import.meta.env` values at build time, so the
+ * fallback may contain stale build-time values in production — but
+ * `process.env` will always be checked first in that case.
+ *
+ * Callers cast the result with `as string` because the middleware validates
+ * all required env vars on first request (see REQUIRED_ENV_VARS in
+ * `src/middleware.ts`). No additional null checks are needed at call sites.
  */
-function getCronSecret(): string | undefined {
+export function readEnv(name: string): string | undefined {
+	const fromProcess = process.env[name];
+	if (typeof fromProcess === "string" && fromProcess.trim() !== "") {
+		return fromProcess;
+	}
 	try {
-		const fromMeta = import.meta.env.CRON_SECRET;
-		if (typeof fromMeta === "string" && fromMeta.trim() !== "") return fromMeta;
+		const fromMeta = (
+			import.meta.env as unknown as Record<string, string | undefined>
+		)[name];
+		if (typeof fromMeta === "string" && fromMeta.trim() !== "") {
+			return fromMeta;
+		}
 	} catch {
 		// import.meta.env not available outside Vite/Astro
 	}
-	const fromProcess = process.env.CRON_SECRET;
-	return typeof fromProcess === "string" ? fromProcess : undefined;
+	return undefined;
+}
+
+function getCronSecret(): string | undefined {
+	return readEnv("CRON_SECRET");
 }
 
 /** Minimum length for CRON_SECRET (policy only; presence is enforced by middleware). */
@@ -45,11 +65,7 @@ export function getValidatedCronSecret(): string | null {
 export function getSiteUrl(): string {
 	// Prefer VERCEL_PROJECT_PRODUCTION_URL (custom domain like "stocktextalerts.com")
 	// over VERCEL_URL which is the deployment-specific URL (e.g., "app-abc123.vercel.app")
-	const url =
-		import.meta.env.VERCEL_PROJECT_PRODUCTION_URL ||
-		import.meta.env.VERCEL_URL ||
-		process.env.VERCEL_PROJECT_PRODUCTION_URL ||
-		process.env.VERCEL_URL;
+	const url = readEnv("VERCEL_PROJECT_PRODUCTION_URL") || readEnv("VERCEL_URL");
 
 	if (!url || url.trim() === "") {
 		throw new Error(

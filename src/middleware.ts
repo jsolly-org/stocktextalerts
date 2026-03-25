@@ -25,27 +25,9 @@ const REQUIRED_ENV_VARS = [
 // Lazy validation flag - only validate once on first request
 let envValidated = false;
 
-const metaEnv = import.meta.env as unknown as Record<
-	string,
-	string | undefined
->;
-
-/**
- * Read an environment variable from the runtime environment.
- *
- * Prefers `import.meta.env` (Vite/Astro build/runtime) and falls back to
- * `process.env` (Node/Vercel runtime). Empty strings are treated as unset.
- */
-function readEnv(name: string): string | undefined {
-	const fromMeta = metaEnv[name];
-	if (typeof fromMeta === "string" && fromMeta.trim() !== "") {
-		return fromMeta;
-	}
-	const fromProcess = process.env[name];
-	return typeof fromProcess === "string" && fromProcess.trim() !== ""
-		? fromProcess
-		: undefined;
-}
+// Re-use the shared readEnv helper (prefers process.env, falls back to
+// import.meta.env for Vite dev-server mode).
+import { readEnv } from "./lib/db/env";
 
 /**
  * Returns true when the `Content-Type` indicates a form-like submission.

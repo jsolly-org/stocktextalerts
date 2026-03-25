@@ -26,7 +26,7 @@
 - Do NOT modify `src/lib/db/generated/database.types.ts`. Regenerate with `npm run db:gen-types` or use type assertions.
 
 ### Available CLIs (Machine-Specific Audit)
-Last audited: 2026-02-28.
+Last audited: 2026-03-22.
 
 Installed and verified:
 - `codex`, `claude`, `cursor`
@@ -42,3 +42,4 @@ Installed and verified:
 - `python3`, `pipx`
 - `delta`, `lazygit`, `direnv`, `zoxide`
 - `make`, `tree`, `curl`
+- `playwright` (Playwright CLI for browser automation, E2E testing, screenshots, codegen)

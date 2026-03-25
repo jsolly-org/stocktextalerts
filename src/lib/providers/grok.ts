@@ -1,4 +1,5 @@
 import { setTimeout as realDelay } from "node:timers/promises";
+import { readEnv } from "../db/env";
 import { rootLogger } from "../logging";
 
 const BASE_RETRY_DELAY_MS = 1_000;
@@ -370,11 +371,6 @@ function extractTextAndCitationsFromXaiResponse(response: ResponsesResponse): {
 	return { text: text === "" ? null : text, citations: [...citationUrls] };
 }
 
-/** Read Vite `import.meta.env` in a way that also works in Node contexts. */
-function getMetaEnv(): Record<string, string | undefined> | undefined {
-	return (import.meta as { env?: Record<string, string | undefined> }).env;
-}
-
 function buildNewsPrompt(options: {
 	tickers: string[];
 	localDateIso: string;
@@ -451,8 +447,7 @@ async function callGrokApi(options: {
 	requestBody: ResponsesRequest;
 	logContext: Record<string, unknown>;
 }): Promise<GrokSectionResult | null> {
-	const metaEnv = getMetaEnv();
-	const apiKey = metaEnv?.XAI_API_KEY ?? process.env.XAI_API_KEY;
+	const apiKey = readEnv("XAI_API_KEY");
 	if (!apiKey || apiKey.trim() === "") {
 		rootLogger.info("Skipping Grok call: XAI_API_KEY is not set", {
 			...options.logContext,

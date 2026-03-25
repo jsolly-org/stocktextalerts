@@ -109,7 +109,13 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 		submittedSignature: string,
 	) {
 		isSaving.value = true;
-		setStatus("Saving...", "info");
+
+		// Only show "Saving…" if the request takes longer than 200 ms.
+		// Fast saves (local dev, fast network) complete before the user
+		// notices, so flashing the badge is distracting rather than helpful.
+		const savingIndicatorHandle = window.setTimeout(() => {
+			setStatus("Saving...", "info");
+		}, 200);
 
 		try {
 			const response = await fetch(form.action, {
@@ -158,6 +164,7 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 				error,
 			);
 		} finally {
+			window.clearTimeout(savingIndicatorHandle);
 			isSaving.value = false;
 			if (pendingSave) {
 				pendingSave = false;

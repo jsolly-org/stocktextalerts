@@ -41,7 +41,6 @@
 				v-model:smsNotificationsEnabled="smsNotificationsEnabled"
 				:sms-opted-out="smsOptedOut"
 				:sms-phone-number="props.smsPhoneNumber"
-				:is-saving="isSaving"
 				:email-notifications-enabled-id="emailNotificationsEnabledId"
 				:sms-status-id="smsStatusId"
 				:notification-channels-desc-id="notificationChannelsDescId"

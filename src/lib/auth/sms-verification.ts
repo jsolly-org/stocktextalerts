@@ -1,4 +1,5 @@
 import twilio, { type RestException } from "twilio";
+import { readEnv } from "../db/env";
 import { rootLogger } from "../logging";
 
 function handleTwilioError(
@@ -46,9 +47,9 @@ function createVerificationClient(): {
 	client: ReturnType<typeof twilio>;
 	serviceSid: string;
 } {
-	const twilioAccountSid = import.meta.env.TWILIO_ACCOUNT_SID;
-	const twilioAuthToken = import.meta.env.TWILIO_AUTH_TOKEN;
-	const twilioVerifyServiceSid = import.meta.env.TWILIO_VERIFY_SERVICE_SID;
+	const twilioAccountSid = readEnv("TWILIO_ACCOUNT_SID") as string;
+	const twilioAuthToken = readEnv("TWILIO_AUTH_TOKEN") as string;
+	const twilioVerifyServiceSid = readEnv("TWILIO_VERIFY_SERVICE_SID") as string;
 
 	return {
 		client: twilio(twilioAccountSid, twilioAuthToken),
