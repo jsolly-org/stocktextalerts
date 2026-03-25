@@ -1,0 +1,71 @@
+name: Deploy Lambdas
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "aws/**"
+      - "src/lib/**"
+      - ".github/workflows/deploy-lambdas.yml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+          cache-dependency-path: "**/package-lock.json"
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install Lambda dependencies
+        working-directory: aws
+        run: npm ci
+
+      - name: Build Lambda bundles
+        run: npx tsx aws/esbuild.config.ts
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: arn:aws:iam::730335616323:role/GitHubActionsDeploymentRole
+          aws-region: us-east-1
+
+      - name: Setup SAM CLI
+        uses: aws-actions/setup-sam@v2
+
+      - name: SAM deploy
+        working-directory: aws
+        run: |
+          sam deploy \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides \
+              SupabaseUrl=${{ secrets.SUPABASE_URL_PROD }} \
+              SupabaseSecretKey=${{ secrets.SUPABASE_SECRET_KEY_PROD }} \
+              SiteUrl=${{ vars.PRODUCTION_SITE_URL }} \
+              MassiveApiKey=${{ secrets.MASSIVE_API_KEY }} \
+              FinnhubApiKey=${{ secrets.FINNHUB_API_KEY }} \
+              XaiApiKey=${{ secrets.XAI_API_KEY }} \
+              ResendApiKey=${{ secrets.RESEND_API_KEY }} \
+              EmailFrom=${{ secrets.EMAIL_FROM }} \
+              EmailReplyTo=${{ secrets.EMAIL_REPLY_TO }} \
+              TwilioAccountSid=${{ secrets.TWILIO_ACCOUNT_SID }} \
+              TwilioAuthToken=${{ secrets.TWILIO_AUTH_TOKEN }} \
+              TwilioPhoneNumber=${{ secrets.TWILIO_PHONE_NUMBER }}

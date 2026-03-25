@@ -178,8 +178,6 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 				warn: vi.fn(),
 				error: vi.fn(),
 			} as never,
-			forceSend: false,
-			cronSecret: "cron-secret",
 		});
 
 		expect(dispatchDailyDigestUserMock).toHaveBeenCalledWith(

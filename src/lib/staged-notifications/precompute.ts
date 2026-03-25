@@ -188,9 +188,8 @@ export async function precomputeDailyDigest(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
 	currentTime: DateTime;
-	cronSecret: string;
 }): Promise<ScheduledNotificationTotals> {
-	const { supabase, logger, currentTime, cronSecret } = options;
+	const { supabase, logger, currentTime } = options;
 	const stats: ScheduledNotificationTotals = {
 		skipped: 0,
 		logFailures: 0,
@@ -255,7 +254,6 @@ export async function precomputeDailyDigest(options: {
 				dispatchDailyDigestUser({
 					userId: user.id,
 					currentTimeIso,
-					cronSecret,
 					precompute: true,
 					marketOpen,
 				}),

@@ -45,6 +45,7 @@ const CRON_SECRET_MIN_LENGTH = 12;
 /**
  * Returns CRON_SECRET if it meets policy (format + minimum length).
  * Presence is enforced by middleware; this validates policy only.
+ * Used by the unsubscribe token HMAC in the Astro dashboard.
  */
 export function getValidatedCronSecret(): string | null {
 	const value = getCronSecret();
@@ -60,16 +61,18 @@ export function getValidatedCronSecret(): string | null {
 /**
  * Compute the canonical site base URL for links in emails/SMS.
  *
- * Prefers the production domain (when available) over a deployment-specific Vercel URL.
+ * Prefers SITE_URL (explicit override, used in Lambda), then falls back to
+ * Vercel-provided variables for dashboard deployments.
  */
 export function getSiteUrl(): string {
-	// Prefer VERCEL_PROJECT_PRODUCTION_URL (custom domain like "stocktextalerts.com")
-	// over VERCEL_URL which is the deployment-specific URL (e.g., "app-abc123.vercel.app")
-	const url = readEnv("VERCEL_PROJECT_PRODUCTION_URL") || readEnv("VERCEL_URL");
+	const url =
+		readEnv("SITE_URL") ||
+		readEnv("VERCEL_PROJECT_PRODUCTION_URL") ||
+		readEnv("VERCEL_URL");
 
 	if (!url || url.trim() === "") {
 		throw new Error(
-			"Site URL is not configured. Set VERCEL_PROJECT_PRODUCTION_URL or VERCEL_URL.",
+			"Site URL is not configured. Set SITE_URL, VERCEL_PROJECT_PRODUCTION_URL, or VERCEL_URL.",
 		);
 	}
 	const trimmed = url.trim();

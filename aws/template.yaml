@@ -1,0 +1,103 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: StockTextAlerts cron Lambda functions
+
+Parameters:
+  SupabaseUrl:
+    Type: String
+    NoEcho: true
+  SupabaseSecretKey:
+    Type: String
+    NoEcho: true
+  SiteUrl:
+    Type: String
+  MassiveApiKey:
+    Type: String
+    NoEcho: true
+  FinnhubApiKey:
+    Type: String
+    NoEcho: true
+  XaiApiKey:
+    Type: String
+    NoEcho: true
+  ResendApiKey:
+    Type: String
+    NoEcho: true
+  EmailFrom:
+    Type: String
+  EmailReplyTo:
+    Type: String
+    Default: ""
+  TwilioAccountSid:
+    Type: String
+    NoEcho: true
+  TwilioAuthToken:
+    Type: String
+    NoEcho: true
+  TwilioPhoneNumber:
+    Type: String
+    NoEcho: true
+
+Globals:
+  Function:
+    Runtime: nodejs24.x
+    Architectures:
+      - arm64
+    MemorySize: 512
+    Environment:
+      Variables:
+        SUPABASE_URL: !Ref SupabaseUrl
+        SUPABASE_SECRET_KEY: !Ref SupabaseSecretKey
+        SITE_URL: !Ref SiteUrl
+        MASSIVE_API_KEY: !Ref MassiveApiKey
+        FINNHUB_API_KEY: !Ref FinnhubApiKey
+        XAI_API_KEY: !Ref XaiApiKey
+        RESEND_API_KEY: !Ref ResendApiKey
+        EMAIL_FROM: !Ref EmailFrom
+        EMAIL_REPLY_TO: !Ref EmailReplyTo
+        TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
+        TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
+        TWILIO_PHONE_NUMBER: !Ref TwilioPhoneNumber
+
+Resources:
+  ScheduleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: schedule.handler
+      CodeUri: dist/handlers/
+      Timeout: 90
+      MemorySize: 512
+      Events:
+        EveryMinute:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: "rate(1 minute)"
+            State: ENABLED
+
+  AssetEventsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: asset-events.handler
+      CodeUri: dist/handlers/
+      Timeout: 300
+      MemorySize: 256
+      Events:
+        DailyMidnight:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: "cron(0 0 * * ? *)"
+            State: ENABLED
+
+  ComputeDailyStatsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: compute-daily-stats.handler
+      CodeUri: dist/handlers/
+      Timeout: 600
+      MemorySize: 256
+      Events:
+        WeekdayEvening:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: "cron(0 22 ? * MON-FRI *)"
+            State: ENABLED

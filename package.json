@@ -39,7 +39,10 @@
 		"**/*.{ts,tsx,json,css,md,astro,html,vue}": [
 			"biome check --write --no-errors-on-unmatched --files-ignore-unknown=true"
 		],
-		"**/*.{yml,yaml}": [
+		".github/**/*.{yml,yaml}": [
+			"yamllint"
+		],
+		".coderabbit.yaml": [
 			"yamllint"
 		]
 	},
