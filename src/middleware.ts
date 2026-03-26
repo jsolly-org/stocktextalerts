@@ -19,7 +19,6 @@ const REQUIRED_ENV_VARS = [
 	"RESEND_API_KEY",
 	"EMAIL_FROM",
 	"MASSIVE_API_KEY",
-	"FINNHUB_API_KEY",
 ] as const;
 
 // Lazy validation flag - only validate once on first request
