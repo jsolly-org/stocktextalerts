@@ -321,37 +321,6 @@ async function ensureAssetsExist(symbols: string[]): Promise<void> {
 	}
 }
 
-async function fetchNextSendAt(userId: string): Promise<string | null> {
-	const { data, error } = await adminClient
-		.from("users")
-		.select("market_scheduled_asset_price_next_send_at")
-		.eq("id", userId)
-		.single();
-	if (error) {
-		throw new Error(`Failed to read next_send_at: ${error.message}`);
-	}
-	return data.market_scheduled_asset_price_next_send_at;
-}
-
-async function waitForNextSendAdvance(
-	userId: string,
-	previousValue: string | null,
-	timeoutMs = 120_000,
-): Promise<string> {
-	const startedAt = Date.now();
-	while (Date.now() - startedAt < timeoutMs) {
-		const currentValue = await fetchNextSendAt(userId);
-		if (currentValue && currentValue !== previousValue) {
-			return currentValue;
-		}
-		await new Promise((resolve) => setTimeout(resolve, 2000));
-	}
-
-	throw new Error(
-		`Timed out waiting for market_scheduled_asset_price_next_send_at to advance from ${String(previousValue)}`,
-	);
-}
-
 async function waitForTrackedAssets(
 	userId: string,
 	expectedSymbols: string[],
@@ -425,25 +394,6 @@ test.describe("sanity tests", () => {
 
 	let inboundUserId: string | null = null;
 	let inboundUserPhone = "";
-
-	async function triggerSchedule(force = true) {
-		const cronSecret = process.env.CRON_SECRET;
-		if (!cronSecret) {
-			throw new Error("CRON_SECRET is required to trigger /api/schedule");
-		}
-		const response = await fetch(`${baseOrigin}/api/schedule`, {
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${cronSecret}`,
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({ force }),
-		});
-		if (!response.ok) {
-			const body = await response.text();
-			throw new Error(`Schedule trigger failed: ${response.status} ${body}`);
-		}
-	}
 
 	test.beforeAll(async ({ browser }) => {
 		context = await browser.newContext();
@@ -819,9 +769,7 @@ test.describe("sanity tests", () => {
 		}
 	});
 
-	test.skip("TC-EMAIL-001: User can enable email notifications and receive an update — skipped: schedule endpoint removed, Lambda handles delivery", async () => {
-		test.slow();
-		test.setTimeout(180_000);
+	test("TC-EMAIL-001: User can enable email notifications via dashboard", async () => {
 		if (!testUserId) {
 			throw new Error("testUserId not set before TC-EMAIL-001");
 		}
@@ -883,20 +831,6 @@ test.describe("sanity tests", () => {
 		await page.reload();
 		await expect(emailSwitch).toHaveAttribute("aria-checked", "true");
 		await expect(scheduledEmailCheckbox).toBeChecked();
-
-		const { error: resetEmailNextSendError } = await adminClient
-			.from("users")
-			.update({ market_scheduled_asset_price_next_send_at: null })
-			.eq("id", testUserId);
-		if (resetEmailNextSendError) {
-			throw new Error(
-				`Failed to reset email next_send_at: ${resetEmailNextSendError.message}`,
-			);
-		}
-
-		const previousNextSendAt = await fetchNextSendAt(testUserId);
-		await triggerSchedule(true);
-		await waitForNextSendAdvance(testUserId, previousNextSendAt, 120_000);
 	});
 
 	test("TC-NOTIF-001: Notification preferences persist on reload", async () => {

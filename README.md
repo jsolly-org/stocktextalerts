@@ -27,7 +27,7 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - **AI Summaries**: xAI (Grok) for optional News/Rumors add-ons and asset price alert summaries
 - **Email**: Resend
 - **SMS**: Twilio Verify API + Messaging API
-- **Hosting**: Vercel with Cron Jobs
+- **Hosting**: Vercel (dashboard) + AWS Lambda (notification crons via SAM)
 - **Phone Validation**: libphonenumber-js
 - **Search**: Server-side search over Finnhub-sourced asset data (local DB)
 - **Linting**: Biome (no ESLint or Prettier)
@@ -48,7 +48,8 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - Massive account (API key)
 - Finnhub account (API key)
 - xAI account (optional, only needed for News/Rumors add-ons)
-- Vercel account (for deployment and cron jobs)
+- Vercel account (for dashboard deployment)
+- AWS account with SAM CLI (for notification Lambda crons)
 
 ## Development Setup
 
@@ -102,8 +103,8 @@ TWILIO_AUTH_TOKEN=your-twilio-auth-token
 TWILIO_PHONE_NUMBER=+1234567890
 TWILIO_VERIFY_SERVICE_SID=your-verify-service-sid
 
-# Vercel
-CRON_SECRET=your-random-secret-string  # Minimum 12 characters; use `openssl rand -hex 32` for production
+# Email unsubscribe token signing
+UNSUBSCRIBE_TOKEN_SECRET=your-random-secret-string  # Minimum 12 characters; use `openssl rand -hex 32`
 
 # Resend
 # Required locally because middleware validates it on first request.
@@ -133,7 +134,7 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - `SUPABASE_SECRET_KEY`: Supabase Dashboard → Project Settings → API Keys → Secret keys
 - `DATABASE_URL`: Supabase Dashboard → Project Settings → Database → Connection String → Transaction mode (pooler)
 - Twilio credentials: Twilio Console → Account Dashboard
-- `CRON_SECRET`: Generate a random string (minimum 12 characters; e.g., `openssl rand -hex 32`)
+- `UNSUBSCRIBE_TOKEN_SECRET`: Generate a random string (minimum 12 characters; e.g., `openssl rand -hex 32`)
 - `RESEND_API_KEY`: Resend Dashboard → API Keys (for local dev, a placeholder like `re_local_test_key` is fine unless you are running live email tests)
 - `EMAIL_FROM`: A verified sender/domain in Resend
 - Massive credentials: Massive Dashboard → API Keys
@@ -311,7 +312,6 @@ The canonical endpoint for fetching current user preferences is `GET /api/notifi
 - `POST /api/notification-preferences/dismiss-timezone-banner`
 - `GET /api/price-targets`
 - `POST /api/price-targets/save`
-- `POST /api/schedule` (cron, protected by `CRON_SECRET`)
 - `POST /api/messaging/inbound` (Twilio webhook for STOP/START/STOP EMAIL/STOP ALL/HELP)
 
 ## Deployment to Vercel
@@ -320,7 +320,7 @@ The canonical endpoint for fetching current user preferences is `GET /api/notifi
 
 Do not mirror `.env.local` into Vercel 1:1.
 
-Add the runtime app variables your hosted app needs in Vercel project settings (Settings → Environment Variables), such as `TWILIO_*`, `CRON_SECRET`, `EMAIL_FROM`, `MASSIVE_API_KEY`, `FINNHUB_API_KEY`, and optional `XAI_API_KEY`.
+Add the runtime app variables your hosted app needs in Vercel project settings (Settings → Environment Variables), such as `TWILIO_*`, `UNSUBSCRIBE_TOKEN_SECRET`, `EMAIL_FROM`, `MASSIVE_API_KEY`, `FINNHUB_API_KEY`, and optional `XAI_API_KEY`.
 
 Do **not** add these local-only values to Vercel:
 - `VERCEL_URL` (Vercel sets this automatically)
@@ -356,20 +356,26 @@ After deployment, configure the Twilio webhook for incoming SMS:
 3. Under "Messaging", set the webhook URL to: `https://yourdomain.com/api/messaging/inbound`
 4. Save changes
 
-### 4. Verify Cron Jobs
+### 4. AWS Lambda Crons
 
-The `vercel.json` file configures three cron jobs. All must include `Authorization: Bearer <CRON_SECRET>`.
+Notification crons run as AWS Lambda functions deployed via SAM (see `aws/`). EventBridge Scheduler triggers them automatically.
 
-**`/api/schedule`** (runs every minute) — main notification pipeline:
+**`ScheduleFunction`** (every minute) — main notification pipeline:
 1. Runs asset price alerts and price target checks during US market hours (Massive snapshot quotes)
 2. Runs scheduled asset price notifications (batched via Massive snapshot quotes)
 3. Sends asset events notifications (earnings/dividends/splits/IPOs/analyst/insider) at the user’s daily delivery time
 4. Sends daily digest notifications (News/Rumors) at the user’s chosen daily time
 5. Sends via email and/or SMS based on settings and logs attempts to the `notification_log` table
 
-**`/api/asset-events`** (runs daily at 00:00 UTC) — pre-populates the `asset_events` table with earnings, dividends, splits, and IPOs.
+**`AssetEventsFunction`** (daily at 00:00 UTC) — pre-populates the `asset_events` table with earnings, dividends, splits, and IPOs.
 
-**`/api/compute-daily-stats`** (runs weekdays at 22:00 UTC) — computes and upserts per-symbol daily stats used by asset price alerts (ADV-20 and ATR-14) for tracked assets.
+**`ComputeDailyStatsFunction`** (weekdays at 22:00 UTC) — computes and upserts per-symbol daily stats used by asset price alerts (ADV-20 and ATR-14) for tracked assets.
+
+**Local testing:** `cd aws && npm run local:schedule` (requires Docker and `aws/env.json`).
+
+**Deploying infrastructure changes:** `cd aws && npm run deploy` (uses `deploy.sh` which reads `.env.local`).
+
+**Code-only updates** are deployed automatically via GitHub Actions on push to main.
 
 ## Project Structure
 
