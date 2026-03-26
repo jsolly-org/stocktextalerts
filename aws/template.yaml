@@ -43,6 +43,10 @@ Parameters:
   AlertPhoneNumber:
     Type: String
     NoEcho: true
+  # Default "false" for local dev (sam local invoke); deploy.sh overrides to "true" for production
+  LogMaskPii:
+    Type: String
+    Default: "false"
 
 Globals:
   Function:
@@ -64,6 +68,7 @@ Globals:
         TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
         TWILIO_PHONE_NUMBER: !Ref TwilioPhoneNumber
         UNSUBSCRIBE_TOKEN_SECRET: !Ref UnsubscribeTokenSecret
+        LOG_MASK_PII: !Ref LogMaskPii
 
 Resources:
   ScheduleFunction:

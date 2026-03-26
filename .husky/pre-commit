@@ -14,6 +14,10 @@ echo "Running checks..."
 # Strict Biome gate: unresolved warnings or errors must block the commit.
 npx biome ci . --error-on-warnings
 npm run check:yaml
+if git diff --cached --name-only | grep -q '^aws/template\.yaml$'; then
+  echo "Validating SAM template..."
+  sam validate --lint --template-file aws/template.yaml
+fi
 npm run check:ts
 npm run test
 npm run test:smoke
