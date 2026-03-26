@@ -10,6 +10,7 @@ const ASSET_EVENTS_USER_SELECT = `
 	phone_number,
 	phone_verified,
 	timezone,
+	use_24_hour_time,
 	market_scheduled_asset_price_enabled,
 	market_scheduled_asset_price_include_email,
 	market_scheduled_asset_price_include_sms,

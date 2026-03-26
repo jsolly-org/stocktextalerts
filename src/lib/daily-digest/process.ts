@@ -3,6 +3,10 @@ import { buildAssetEventsContent } from "../asset-events/content";
 import { updateUserAssetEventsNextSendAt } from "../asset-events/next-send-at";
 import type { Logger } from "../logging";
 import { extractErrorMessage } from "../logging/errors";
+import {
+	buildDelayBannerHtml,
+	buildDelayBannerText,
+} from "../messaging/delay-banner";
 import type { EmailSender } from "../messaging/email/utils";
 import { safePrefetchLogos } from "../messaging/logo-fetcher";
 import { shouldSendSms } from "../messaging/sms";
@@ -245,6 +249,22 @@ export async function processDailyDigestUser(options: {
 			return stats;
 		}
 		const { scheduledDate, scheduledMinutes } = scheduleCtx;
+
+		const dueAt = user.daily_digest_next_send_at
+			? DateTime.fromISO(user.daily_digest_next_send_at, { zone: "utc" })
+			: currentTime;
+		const delayBannerOpts = {
+			scheduledFor: dueAt.isValid ? dueAt : currentTime,
+			now: currentTime,
+			userTimezone: user.timezone,
+			use24Hour: user.use_24_hour_time,
+		};
+		const delayBannerText = stageOnly
+			? null
+			: buildDelayBannerText(delayBannerOpts);
+		const delayBannerHtml = stageOnly
+			? null
+			: buildDelayBannerHtml(delayBannerOpts);
 
 		const hasAnyAssetEventsOption =
 			user.asset_events_include_calendar_email ||
@@ -681,6 +701,8 @@ export async function processDailyDigestUser(options: {
 				sendEmail,
 				stats,
 				getLogoHtml,
+				delayBannerText,
+				delayBannerHtml,
 			});
 		}
 
@@ -700,6 +722,7 @@ export async function processDailyDigestUser(options: {
 				marketClosureInfo,
 				getSmsSender,
 				stats,
+				delayBanner: delayBannerText,
 			});
 		}
 

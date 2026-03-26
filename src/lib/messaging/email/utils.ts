@@ -179,6 +179,11 @@ export function formatEmailMessage(
 	priceMap: AssetPriceMap,
 	marketOpen: boolean,
 	context?: EmailFormatContext,
+	/** Optional delay banners for late notifications. */
+	delayBanners?: {
+		text?: string | null;
+		html?: string | null;
+	},
 ): { text: string; html: string } {
 	const { getSparkline, marketClosureInfo, getLogoHtml } = context ?? {};
 	const urls = buildEmailUrls(user.id, user.email, "marketNotifications");
@@ -223,10 +228,11 @@ export function formatEmailMessage(
 		return { text, html };
 	}
 
+	const delayText = delayBanners?.text ? `\n${delayBanners.text}\n` : "";
 	const marketDisclaimer = marketOpen
 		? ""
 		: `\n${buildMarketClosedBannerText(marketClosureInfo ?? null)}\n`;
-	const text = `Your tracked assets:\n${marketDisclaimer}${assetsList}${textFooter}`;
+	const text = `Your tracked assets:\n${delayText}${marketDisclaimer}${assetsList}${textFooter}`;
 	const escapedAssetsListHtml = formatAssetsHtmlList(
 		userAssets,
 		(symbol) => priceMap.get(symbol) ?? undefined,
@@ -247,6 +253,7 @@ export function formatEmailMessage(
 		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Scheduled Price Update</h1>
 	</div>
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+		${delayBanners?.html || ""}
 		${marketClosedBannerHtml}
 		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Your Scheduled Price Notification</h2>
 		<div style="background: #f9fafb; padding: 20px; border-radius: 6px; margin-bottom: 30px;">

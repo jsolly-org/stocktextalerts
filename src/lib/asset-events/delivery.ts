@@ -42,12 +42,18 @@ async function formatAssetEventsSmsMessage(options: {
 	insiderSection: string | null;
 	marketClosureInfo?: MarketClosureInfo | null;
 	supabase: SupabaseAdminClient;
+	/** Optional delay banner text (inserted after header when notification is late). */
+	delayBanner?: string | null;
 }): Promise<string> {
 	const optOutSuffix = "Reply STOP to opt out.";
 	const rawDashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const dashboardUrl = await shortenUrl(rawDashboardUrl, options.supabase);
 
 	const parts: string[] = ["StockTextAlerts — Asset Events 🗓️"];
+
+	if (options.delayBanner) {
+		parts.push(options.delayBanner);
+	}
 
 	if (options.marketClosureInfo) {
 		parts.push(
@@ -96,6 +102,10 @@ function formatAssetEventsEmail(options: {
 	analystSection: string | null;
 	insiderSection: string | null;
 	marketClosureInfo?: MarketClosureInfo | null;
+	/** Optional delay banner (text for plain-text body, inserted after header). */
+	delayBannerText?: string | null;
+	/** Optional delay banner (HTML for rich email body). */
+	delayBannerHtml?: string | null;
 }): { subject: string; text: string; html: string } {
 	const urls = buildEmailUrls(
 		options.user.id,
@@ -104,6 +114,10 @@ function formatAssetEventsEmail(options: {
 	);
 
 	const textParts: string[] = ["Asset Events"];
+
+	if (options.delayBannerText) {
+		textParts.push(options.delayBannerText);
+	}
 
 	if (options.marketClosureInfo) {
 		textParts.push(
@@ -199,6 +213,7 @@ function formatAssetEventsEmail(options: {
 		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Asset Events</h1>
 	</div>
 	<div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+		${options.delayBannerHtml || ""}
 		${marketClosedHtml}
 		<h2 style="margin: 0 0 8px; font-size: 18px;">Asset Events</h2>
 		<p style="margin: 0 0 16px; color: #6b7280; font-size: 14px;">Upcoming events for your tracked assets</p>
@@ -236,6 +251,8 @@ export async function processAssetEventsEmailDelivery(options: {
 	marketClosureInfo?: MarketClosureInfo | null;
 	sendEmail: EmailSender;
 	stats: ScheduledNotificationTotals;
+	delayBannerText?: string | null;
+	delayBannerHtml?: string | null;
 }): Promise<void> {
 	const {
 		user,
@@ -281,6 +298,8 @@ export async function processAssetEventsEmailDelivery(options: {
 		analystSection,
 		insiderSection,
 		marketClosureInfo: options.marketClosureInfo,
+		delayBannerText: options.delayBannerText,
+		delayBannerHtml: options.delayBannerHtml,
 	});
 	const result = await sendUserEmail(
 		user,
@@ -341,6 +360,8 @@ export async function processAssetEventsSmsDelivery(options: {
 	marketClosureInfo?: MarketClosureInfo | null;
 	getSmsSender: SmsSenderProvider;
 	stats: ScheduledNotificationTotals;
+	/** Optional delay banner text for late notifications. */
+	delayBanner?: string | null;
 }): Promise<void> {
 	const {
 		user,
@@ -414,6 +435,7 @@ export async function processAssetEventsSmsDelivery(options: {
 		insiderSection,
 		marketClosureInfo: options.marketClosureInfo,
 		supabase,
+		delayBanner: options.delayBanner,
 	});
 	const result = await sendUserSms(
 		user,

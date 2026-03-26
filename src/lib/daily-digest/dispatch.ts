@@ -22,6 +22,7 @@ type DailyDigestUserRow = Pick<
 	| "phone_number"
 	| "phone_verified"
 	| "timezone"
+	| "use_24_hour_time"
 	| "daily_digest_time"
 	| "daily_digest_next_send_at"
 	| "email_notifications_enabled"
@@ -107,6 +108,7 @@ export async function dispatchDailyDigestUser(options: {
 				phone_number,
 				phone_verified,
 				timezone,
+				use_24_hour_time,
 				daily_digest_time,
 				daily_digest_next_send_at,
 				email_notifications_enabled,

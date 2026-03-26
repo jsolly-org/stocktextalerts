@@ -152,6 +152,8 @@ export async function formatDailyDigestSmsMessage(options: {
 	marketOpen?: boolean;
 	marketClosureInfo?: MarketClosureInfo | null;
 	supabase?: SupabaseAdminClient;
+	/** Optional delay banner text (inserted after header when notification is late). */
+	delayBanner?: string | null;
 }): Promise<string> {
 	const optOutSuffix = "Reply STOP to opt out.";
 	const rawDashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
@@ -172,6 +174,7 @@ export async function formatDailyDigestSmsMessage(options: {
 	const ae = options.assetEvents;
 	const sections = [
 		"StockTextAlerts — Your daily digest 🗓️",
+		options.delayBanner || "",
 		marketDisclaimer,
 		prices ? `💰 Your Assets\n${prices}` : "",
 		formatExtrasSection("🗞️ News", options.extras.news),
@@ -272,6 +275,10 @@ export function formatDailyDigestEmail(options: {
 	marketOpen?: boolean;
 	marketClosureInfo?: MarketClosureInfo | null;
 	getLogoHtml?: (symbol: string) => string | undefined;
+	/** Optional delay banner (text for plain-text body, inserted after header). */
+	delayBannerText?: string | null;
+	/** Optional delay banner (HTML for rich email body). */
+	delayBannerHtml?: string | null;
 }): { subject: string; text: string; html: string } {
 	const urls = buildEmailUrls(
 		options.user.id,
@@ -323,6 +330,7 @@ export function formatDailyDigestEmail(options: {
 
 	const sectionsText = [
 		"StockTextAlerts — Your daily digest 🗓️",
+		options.delayBannerText || "",
 		marketClosedText ?? "",
 		prices ? `💰 Your Assets\n${prices}` : "",
 		news ? `\n🗞️ News\n${news}` : "",
@@ -352,6 +360,7 @@ export function formatDailyDigestEmail(options: {
 		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Daily Digest</h1>
 	</div>
 	<div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+		${options.delayBannerHtml || ""}
 		${marketClosedHtml}
 		${
 			pricesHtml
@@ -397,6 +406,8 @@ export async function processDailyDigestEmailDelivery(options: {
 	sendEmail: EmailSender;
 	stats: ScheduledNotificationTotals;
 	getLogoHtml?: (symbol: string) => string | undefined;
+	delayBannerText?: string | null;
+	delayBannerHtml?: string | null;
 }): Promise<void> {
 	const {
 		user,
@@ -441,6 +452,8 @@ export async function processDailyDigestEmailDelivery(options: {
 		marketOpen: options.marketOpen,
 		marketClosureInfo: options.marketClosureInfo,
 		getLogoHtml: options.getLogoHtml,
+		delayBannerText: options.delayBannerText,
+		delayBannerHtml: options.delayBannerHtml,
 	});
 	const result = await sendUserEmail(
 		user,
@@ -497,6 +510,8 @@ export async function processDailyDigestSmsDelivery(options: {
 	marketClosureInfo?: MarketClosureInfo | null;
 	getSmsSender: SmsSenderProvider;
 	stats: ScheduledNotificationTotals;
+	/** Optional delay banner text for late notifications. */
+	delayBanner?: string | null;
 }): Promise<void> {
 	const {
 		user,
@@ -568,6 +583,7 @@ export async function processDailyDigestSmsDelivery(options: {
 		marketOpen: options.marketOpen,
 		marketClosureInfo: options.marketClosureInfo,
 		supabase,
+		delayBanner: options.delayBanner,
 	});
 	const result = await sendUserSms(
 		user,

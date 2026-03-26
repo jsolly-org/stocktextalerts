@@ -42,6 +42,7 @@ export async function processMarketScheduledEmailDelivery(options: {
 	stats: ScheduledNotificationTotals;
 	getSparkline?: (symbol: string) => SparklineData | null | undefined;
 	getLogoHtml?: (symbol: string) => string | undefined;
+	delayBanners?: { text?: string | null; html?: string | null };
 }): Promise<void> {
 	const {
 		user,
@@ -89,6 +90,7 @@ export async function processMarketScheduledEmailDelivery(options: {
 		marketOpen,
 		emailIdempotencyKey,
 		{ getSparkline, marketClosureInfo, getLogoHtml },
+		options.delayBanners,
 	);
 
 	if (sent) {
@@ -134,6 +136,8 @@ export async function processMarketScheduledSmsDelivery(options: {
 	stats: ScheduledNotificationTotals;
 	/** Pre-shortened dashboard URL for SMS; avoids per-message shortenUrl when set. */
 	dashboardUrl?: string;
+	/** Optional delay banner text for late notifications. */
+	delayBanner?: string | null;
 }): Promise<void> {
 	const {
 		user,
@@ -222,6 +226,7 @@ export async function processMarketScheduledSmsDelivery(options: {
 		undefined,
 		marketClosureInfo,
 		dashboardUrl,
+		options.delayBanner,
 	);
 
 	if (sent) {

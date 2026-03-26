@@ -1,5 +1,9 @@
 import { DateTime } from "luxon";
 import type { Logger } from "../logging";
+import {
+	buildDelayBannerHtml,
+	buildDelayBannerText,
+} from "../messaging/delay-banner";
 import type { EmailSender } from "../messaging/email/utils";
 import { shouldSendSms } from "../messaging/sms";
 import type { UserRecord } from "../messaging/types";
@@ -102,6 +106,15 @@ export async function processAssetEventsUser(options: {
 			stats.skipped++;
 			return stats;
 		}
+
+		const delayBannerOpts = {
+			scheduledFor: dueAt,
+			now: currentTime,
+			userTimezone: user.timezone,
+			use24Hour: user.use_24_hour_time,
+		};
+		const delayBannerText = buildDelayBannerText(delayBannerOpts);
+		const delayBannerHtml = buildDelayBannerHtml(delayBannerOpts);
 
 		const hasAnyAssetEventsOption =
 			user.asset_events_include_calendar_email ||
@@ -206,6 +219,8 @@ export async function processAssetEventsUser(options: {
 				marketClosureInfo,
 				sendEmail,
 				stats,
+				delayBannerText,
+				delayBannerHtml,
 			});
 		}
 
@@ -225,6 +240,7 @@ export async function processAssetEventsUser(options: {
 				marketClosureInfo,
 				getSmsSender,
 				stats,
+				delayBanner: delayBannerText,
 			});
 		}
 

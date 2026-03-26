@@ -17,6 +17,12 @@ import { updateUserAssetEventsNextSendAt } from "../asset-events/next-send-at";
 import { updateUserDailyDigestNextSendAt } from "../daily-digest/next-send-at";
 import type { Logger } from "../logging";
 import { updateUserMarketScheduledNextSendAt } from "../market-notifications/scheduled/next-send-at";
+import {
+	buildDelayBannerHtml,
+	buildDelayBannerText,
+	prependDelayBannerToEmail,
+	prependDelayBannerToSms,
+} from "../messaging/delay-banner";
 import { sendUserEmail } from "../messaging/email/index";
 import type { EmailSender } from "../messaging/email/utils";
 import {
@@ -139,6 +145,7 @@ export async function deliverStagedNotifications(options: {
 			phone_number,
 			phone_verified,
 			timezone,
+			use_24_hour_time,
 			market_scheduled_asset_price_enabled,
 			market_scheduled_asset_price_include_email,
 			market_scheduled_asset_price_include_sms,
@@ -288,8 +295,35 @@ async function deliverStagedMarket(options: {
 	const { scheduledDate, scheduledMinutes } = stagedData;
 	const deliveredKey = `${row.user_id}:market`;
 
+	// Detect delay for staged content delivered after scheduled time
+	const scheduledFor = DateTime.fromISO(row.scheduled_for, { zone: "utc" });
+	const delayBannerOpts = scheduledFor.isValid
+		? {
+				scheduledFor,
+				now: currentTime,
+				userTimezone: user.timezone,
+				use24Hour: user.use_24_hour_time,
+			}
+		: null;
+	const delayText = delayBannerOpts
+		? buildDelayBannerText(delayBannerOpts)
+		: null;
+	const delayHtml = delayBannerOpts
+		? buildDelayBannerHtml(delayBannerOpts)
+		: null;
+
 	// Email delivery
 	if (stagedData.email) {
+		const emailContent =
+			delayText && delayHtml
+				? prependDelayBannerToEmail(
+						stagedData.email.text,
+						stagedData.email.html,
+						delayText,
+						delayHtml,
+					)
+				: { text: stagedData.email.text, html: stagedData.email.html };
+
 		const claim = await claimNotification({
 			supabase,
 			userId: user.id,
@@ -305,7 +339,7 @@ async function deliverStagedMarket(options: {
 			const result = await sendUserEmail(
 				user,
 				stagedData.email.subject,
-				{ text: stagedData.email.text, html: stagedData.email.html },
+				{ text: emailContent.text, html: emailContent.html },
 				sendEmail,
 				idempotencyKey,
 			);
@@ -321,7 +355,7 @@ async function deliverStagedMarket(options: {
 				type: "market",
 				delivery_method: "email",
 				message_delivered: result.success,
-				message: stagedData.email.text,
+				message: emailContent.text,
 				...deliveryResultToLogFields(result),
 			});
 			if (!logged) stats.logFailures++;
@@ -354,6 +388,10 @@ async function deliverStagedMarket(options: {
 
 	// SMS delivery
 	if (stagedData.sms) {
+		const smsMessage = delayText
+			? prependDelayBannerToSms(stagedData.sms.message, delayText)
+			: stagedData.sms.message;
+
 		const smsEnabled = shouldSendSms(user);
 		if (smsEnabled) {
 			const claim = await claimNotification({
@@ -369,12 +407,7 @@ async function deliverStagedMarket(options: {
 			if (claim.status === "claimed") {
 				try {
 					const { sender } = getSmsSender();
-					const result = await sendUserSms(
-						user,
-						stagedData.sms.message,
-						sender,
-						supabase,
-					);
+					const result = await sendUserSms(user, smsMessage, sender, supabase);
 
 					// Mark this user/type as delivered immediately after a successful send
 					// so fallback doesn't reprocess if later bookkeeping fails.
@@ -387,7 +420,7 @@ async function deliverStagedMarket(options: {
 						type: "market",
 						delivery_method: "sms",
 						message_delivered: result.success,
-						message: stagedData.sms.message,
+						message: smsMessage,
 						...deliveryResultToLogFields(result),
 					});
 					if (!logged) stats.logFailures++;
@@ -474,8 +507,37 @@ async function deliverStagedDaily(options: {
 	let localEmailDelivered = false;
 	let localSmsDelivered = false;
 
+	// Detect delay for staged content delivered after scheduled time
+	const dailyScheduledFor = DateTime.fromISO(row.scheduled_for, {
+		zone: "utc",
+	});
+	const dailyDelayOpts = dailyScheduledFor.isValid
+		? {
+				scheduledFor: dailyScheduledFor,
+				now: currentTime,
+				userTimezone: user.timezone,
+				use24Hour: user.use_24_hour_time,
+			}
+		: null;
+	const dailyDelayText = dailyDelayOpts
+		? buildDelayBannerText(dailyDelayOpts)
+		: null;
+	const dailyDelayHtml = dailyDelayOpts
+		? buildDelayBannerHtml(dailyDelayOpts)
+		: null;
+
 	// Email delivery
 	if (stagedData.email) {
+		const emailContent =
+			dailyDelayText && dailyDelayHtml
+				? prependDelayBannerToEmail(
+						stagedData.email.text,
+						stagedData.email.html,
+						dailyDelayText,
+						dailyDelayHtml,
+					)
+				: { text: stagedData.email.text, html: stagedData.email.html };
+
 		const claim = await claimNotification({
 			supabase,
 			userId: user.id,
@@ -491,7 +553,7 @@ async function deliverStagedDaily(options: {
 			const result = await sendUserEmail(
 				user,
 				stagedData.email.subject,
-				{ text: stagedData.email.text, html: stagedData.email.html },
+				{ text: emailContent.text, html: emailContent.html },
 				sendEmail,
 				idempotencyKey,
 			);
@@ -508,7 +570,7 @@ async function deliverStagedDaily(options: {
 				type: "daily",
 				delivery_method: "email",
 				message_delivered: result.success,
-				message: stagedData.email.text,
+				message: emailContent.text,
 				...deliveryResultToLogFields(result),
 			});
 			if (!logged) stats.logFailures++;
@@ -541,6 +603,10 @@ async function deliverStagedDaily(options: {
 
 	// SMS delivery
 	if (stagedData.sms) {
+		const dailySmsMessage = dailyDelayText
+			? prependDelayBannerToSms(stagedData.sms.message, dailyDelayText)
+			: stagedData.sms.message;
+
 		const smsEnabled = shouldSendSms(user);
 		if (smsEnabled) {
 			const claim = await claimNotification({
@@ -558,7 +624,7 @@ async function deliverStagedDaily(options: {
 					const { sender } = getSmsSender();
 					const result = await sendUserSms(
 						user,
-						stagedData.sms.message,
+						dailySmsMessage,
 						sender,
 						supabase,
 					);
@@ -575,7 +641,7 @@ async function deliverStagedDaily(options: {
 						type: "daily",
 						delivery_method: "sms",
 						message_delivered: result.success,
-						message: stagedData.sms.message,
+						message: dailySmsMessage,
 						...deliveryResultToLogFields(result),
 					});
 					if (!logged) stats.logFailures++;

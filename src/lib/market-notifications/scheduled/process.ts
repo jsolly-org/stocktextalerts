@@ -2,6 +2,10 @@ import { DateTime } from "luxon";
 import type { Logger } from "../../logging";
 import { extractErrorMessage } from "../../logging/errors";
 import { formatAssetsTextList } from "../../messaging/asset-formatting";
+import {
+	buildDelayBannerHtml,
+	buildDelayBannerText,
+} from "../../messaging/delay-banner";
 import type { EmailSender } from "../../messaging/email/utils";
 import { formatEmailMessage } from "../../messaging/email/utils";
 import { safePrefetchLogos } from "../../messaging/logo-fetcher";
@@ -177,6 +181,15 @@ export async function processMarketScheduledUser(options: {
 			return stats;
 		}
 
+		const delayBannerOpts = {
+			scheduledFor: dueAt,
+			now: currentTime,
+			userTimezone: user.timezone,
+			use24Hour: user.use_24_hour_time,
+		};
+		const delayBannerText = buildDelayBannerText(delayBannerOpts);
+		const delayBannerHtml = buildDelayBannerHtml(delayBannerOpts);
+
 		const userAssets =
 			userAssetsMap?.get(user.id) ??
 			(await loadUserAssets(supabase, user.id, { includeLogoData: true }));
@@ -322,6 +335,10 @@ export async function processMarketScheduledUser(options: {
 				stats,
 				getSparkline,
 				getLogoHtml,
+				delayBanners: {
+					text: delayBannerText,
+					html: delayBannerHtml,
+				},
 			});
 		}
 
@@ -341,6 +358,7 @@ export async function processMarketScheduledUser(options: {
 				marketClosureInfo,
 				stats,
 				dashboardUrl,
+				delayBanner: delayBannerText,
 			});
 		}
 

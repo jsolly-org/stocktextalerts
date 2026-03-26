@@ -45,6 +45,8 @@ export async function formatSmsMessage(
 	supabase?: AppSupabaseClient,
 	/** Pre-shortened dashboard URL; when set, skips per-message shortenUrl. */
 	dashboardUrl?: string,
+	/** Optional delay banner text (inserted after header when notification is late). */
+	delayBanner?: string | null,
 ): Promise<string> {
 	const optOutSuffix = "Reply STOP to opt out.";
 	const resolvedDashboardUrl =
@@ -71,6 +73,7 @@ export async function formatSmsMessage(
 
 	const sections = [
 		header,
+		delayBanner || "",
 		marketDisclaimer,
 		assetsList,
 		extrasBlock,
@@ -93,6 +96,8 @@ export async function processSmsUpdate(
 	marketClosureInfo?: MarketClosureInfo | null,
 	/** Pre-shortened dashboard URL; when set, skips per-message shortenUrl. */
 	dashboardUrl?: string,
+	/** Optional delay banner text for late notifications. */
+	delayBanner?: string | null,
 ): Promise<ProcessingStats> {
 	const smsMessage = await formatSmsMessage(
 		assetsList,
@@ -101,6 +106,7 @@ export async function processSmsUpdate(
 		marketClosureInfo,
 		supabase,
 		dashboardUrl,
+		delayBanner,
 	);
 
 	const result = await sendUserSms(user, smsMessage, sendSms, supabase);

@@ -12,13 +12,13 @@ const REQUIRED_ENV_VARS = [
 	"SUPABASE_PUBLISHABLE_KEY",
 	"SUPABASE_SECRET_KEY",
 	"TWILIO_ACCOUNT_SID",
-	"TWILIO_AUTH_TOKEN",
+	"TWILIO_AUTH_TOKEN", // Used by /api/messaging/send-sms
 	"TWILIO_PHONE_NUMBER",
 	"TWILIO_VERIFY_SERVICE_SID",
 	"UNSUBSCRIBE_TOKEN_SECRET",
-	"RESEND_API_KEY",
+	"RESEND_API_KEY", // Used by /api/messaging/send-email
 	"EMAIL_FROM",
-	"MASSIVE_API_KEY",
+	"MASSIVE_API_KEY", // Used by /api/assets/logo/[symbol] proxy — Massive branding images require auth
 ] as const;
 
 // Lazy validation flag - only validate once on first request

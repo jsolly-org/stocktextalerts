@@ -34,6 +34,7 @@ export type UserRecord = Pick<
 	| "phone_number"
 	| "phone_verified"
 	| "timezone"
+	| "use_24_hour_time"
 	| "market_scheduled_asset_price_next_send_at"
 	| "email_notifications_enabled"
 	| "sms_notifications_enabled"

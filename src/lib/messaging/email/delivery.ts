@@ -23,6 +23,7 @@ export async function processEmailUpdate(
 	marketOpen: boolean,
 	idempotencyKey?: string,
 	context?: EmailFormatContext,
+	delayBanners?: { text?: string | null; html?: string | null },
 ): Promise<ProcessingStats> {
 	const message = formatEmailMessage(
 		user,
@@ -31,6 +32,7 @@ export async function processEmailUpdate(
 		priceMap,
 		marketOpen,
 		context,
+		delayBanners,
 	);
 	const result = await sendUserEmail(
 		user,
