@@ -26,9 +26,6 @@
  *
  * Price staleness from pre-compute is at most ~30 seconds, which is acceptable
  * for informational scheduled notifications.
- *
- * forceSend mode (manual --force) bypasses staging entirely and runs a single
- * pass through the full pipeline, preserving the original behavior.
  */
 
 import { setTimeout as realDelay } from "node:timers/promises";
@@ -119,21 +116,14 @@ function mergeTotals(
 async function runPass(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	cronSecret: string;
 	sendEmail: ReturnType<typeof createEmailSender>;
 	getSmsSender: ReturnType<typeof createSmsSenderProvider>;
 	priceAlertQuoteMap?: ExtendedQuoteMap;
 	/** When true, run asset events processing (only in the first pass). */
 	includeAssetEvents: boolean;
 }): Promise<ScheduledNotificationTotals> {
-	const {
-		supabase,
-		logger,
-		cronSecret,
-		sendEmail,
-		getSmsSender,
-		priceAlertQuoteMap,
-	} = options;
+	const { supabase, logger, sendEmail, getSmsSender, priceAlertQuoteMap } =
+		options;
 
 	// Use actual UTC time — NOT rounded to end-of-minute like the old single-pass approach.
 	// Users set times at minute granularity so next_send_at is always at :00 seconds.
@@ -384,8 +374,10 @@ async function runPass(options: {
 					dispatchDailyDigestUser({
 						userId: user.id,
 						currentTimeIso,
-						cronSecret,
 						marketOpen,
+						supabase,
+						sendEmail,
+						getSmsSender,
 					}),
 				),
 			);
@@ -420,7 +412,7 @@ async function runPass(options: {
 	try {
 		const [preMarket, preDaily] = await Promise.all([
 			precomputeMarketScheduled({ supabase, logger, currentTime }),
-			precomputeDailyDigest({ supabase, logger, currentTime, cronSecret }),
+			precomputeDailyDigest({ supabase, logger, currentTime }),
 		]);
 		// Pre-compute stats are informational only (no actual delivery)
 		if (preMarket.skipped > 0 || preDaily.skipped > 0) {
@@ -442,21 +434,18 @@ async function runPass(options: {
 }
 
 /**
- * Run the scheduled notification cron (two-pass) or force-send (single-pass).
+ * Run the scheduled notification cron (two-pass).
  */
 export async function runScheduledNotifications(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
-	forceSend: boolean;
-	cronSecret: string;
-	now?: DateTime;
 }): Promise<
 	ScheduledNotificationTotals & {
 		priceAlerts?: PriceAlertTotals;
 		priceTargets?: PriceTargetTotals;
 	}
 > {
-	const { supabase, logger, forceSend, cronSecret } = options;
+	const { supabase, logger } = options;
 
 	// Purge old asset_snapshots (60-minute retention) so the table does not grow unbounded
 	try {
@@ -527,255 +516,13 @@ export async function runScheduledNotifications(options: {
 	const sendEmail = createEmailSender();
 	const getSmsSender = createSmsSenderProvider();
 
-	/* =============
-	Force-send: bypass staging, single pass via existing pipeline.
-	Manual sends (--force via run-scheduled-cron.sh) process all notification-enabled
-	users immediately. Staging adds no value here because we're not waiting for a
-	scheduled time — the user wants delivery now.
-	============= */
-	if (forceSend) {
-		const currentTime = options.now ?? DateTime.utc();
-		const currentTimeIso = toIsoOrThrow(
-			currentTime,
-			"Failed to format UTC ISO string",
-		);
-
-		const [marketUsers, dailyUsers, assetEventsUsers] = await Promise.all([
-			fetchMarketScheduledUsers({
-				supabase,
-				logger,
-				forceSend: true,
-				currentTimeIso,
-			}),
-			fetchDailyDigestUsers({
-				supabase,
-				logger,
-				forceSend: true,
-				currentTimeIso,
-			}),
-			fetchAssetEventsUsers({
-				supabase,
-				logger,
-				forceSend: true,
-				currentTimeIso,
-			}),
-		]);
-
-		let priceMap: AssetPriceMap = new Map();
-		const hasAnyUsers =
-			marketUsers.length > 0 ||
-			dailyUsers.length > 0 ||
-			assetEventsUsers.length > 0;
-		const marketStatusPromise = hasAnyUsers ? fetchMarketStatus() : null;
-
-		const forceSendUserAssetsUserIds = [
-			...marketUsers.map((u) => u.id),
-			...assetEventsUsers.map((u) => u.id),
-		];
-		let forceSendUserAssetsMap: UserAssetsMap = new Map();
-		if (forceSendUserAssetsUserIds.length > 0) {
-			try {
-				forceSendUserAssetsMap = await batchLoadUserAssets(
-					supabase,
-					forceSendUserAssetsUserIds,
-					{ includeLogoData: true },
-				);
-			} catch (error) {
-				logger.error(
-					"Failed to batch-load user assets for force-send",
-					{
-						action: "force_send",
-						userCount: forceSendUserAssetsUserIds.length,
-					},
-					error,
-				);
-				throw error;
-			}
-		}
-
-		if (marketUsers.length > 0) {
-			const uniqueSymbols = [
-				...new Set(
-					marketUsers.flatMap((u) => {
-						const assets = forceSendUserAssetsMap.get(u.id);
-						return assets ? assets.map((a) => a.symbol) : [];
-					}),
-				),
-			];
-
-			if (uniqueSymbols.length > 0) {
-				if (priceAlertQuoteMap && priceAlertQuoteMap.size > 0) {
-					const missingSymbols: string[] = [];
-					for (const symbol of uniqueSymbols) {
-						const cached = priceAlertQuoteMap.get(symbol);
-						if (cached) {
-							priceMap.set(symbol, cached);
-						} else {
-							missingSymbols.push(symbol);
-						}
-					}
-					if (missingSymbols.length > 0) {
-						const extraPrices = await fetchAssetPrices(missingSymbols);
-						for (const [symbol, price] of extraPrices) {
-							priceMap.set(symbol, price);
-						}
-					}
-				} else {
-					priceMap = await fetchAssetPrices(uniqueSymbols);
-				}
-			}
-		}
-
-		const marketOpen = marketStatusPromise ? await marketStatusPromise : false;
-
-		// Fetch market closure once for market-scheduled banners and asset-events.
-		// Daily digests must classify closure status from each user's scheduled send
-		// instant instead of the current cron time.
-		let forceSendMarketClosure: MarketClosureInfo | null = null;
-		const forceSendNeedsClosure =
-			!marketOpen &&
-			(dailyUsers.length > 0 ||
-				marketUsers.length > 0 ||
-				assetEventsUsers.length > 0);
-		if (forceSendNeedsClosure) {
-			try {
-				forceSendMarketClosure =
-					await getUsMarketClosureInfoForInstant(currentTime);
-			} catch (error) {
-				logger.error(
-					"Market closure lookup failed (continuing without closure info)",
-					{ action: "market_closure_prefetch" },
-					error,
-				);
-			}
-		}
-
-		const results: ScheduledNotificationTotals[] = [];
-
-		// Resolve dashboard URL once for SMS (avoids per-message shortenUrl)
-		let forceSendDashboardUrl: string | undefined;
-		if (marketUsers.length > 0) {
-			forceSendDashboardUrl = await shortenUrl(
-				new URL("/dashboard", getSiteUrl()).toString(),
-				supabase,
-			);
-		}
-
-		for (
-			let index = 0;
-			index < marketUsers.length;
-			index += USER_PROCESS_BATCH_SIZE
-		) {
-			const batch = marketUsers.slice(index, index + USER_PROCESS_BATCH_SIZE);
-			const batchResults = await Promise.all(
-				batch.map((user) =>
-					processMarketScheduledUser({
-						user,
-						supabase,
-						logger,
-						currentTime,
-						sendEmail,
-						getSmsSender,
-						priceMap,
-						marketOpen,
-						userAssetsMap: forceSendUserAssetsMap,
-						marketClosureInfo: forceSendMarketClosure,
-						dashboardUrl: forceSendDashboardUrl,
-					}),
-				),
-			);
-			results.push(...batchResults);
-		}
-
-		for (
-			let index = 0;
-			index < assetEventsUsers.length;
-			index += USER_PROCESS_BATCH_SIZE
-		) {
-			const batch = assetEventsUsers.slice(
-				index,
-				index + USER_PROCESS_BATCH_SIZE,
-			);
-			const batchResults = await Promise.all(
-				batch.map((user) =>
-					processAssetEventsUser({
-						user,
-						supabase,
-						logger,
-						currentTime,
-						sendEmail,
-						getSmsSender,
-						userAssetsMap: forceSendUserAssetsMap,
-						marketClosureInfo: forceSendMarketClosure,
-					}),
-				),
-			);
-			results.push(...batchResults);
-		}
-
-		if (dailyUsers.length > 0) {
-			for (
-				let index = 0;
-				index < dailyUsers.length;
-				index += DAILY_DISPATCH_BATCH_SIZE
-			) {
-				const batch = dailyUsers.slice(
-					index,
-					index + DAILY_DISPATCH_BATCH_SIZE,
-				);
-				const dispatchResults = await Promise.allSettled(
-					batch.map((user) =>
-						dispatchDailyDigestUser({
-							userId: user.id,
-							currentTimeIso,
-							cronSecret,
-							marketOpen,
-						}),
-					),
-				);
-
-				for (const result of dispatchResults) {
-					if (result.status === "fulfilled") {
-						results.push(result.value);
-					} else {
-						logger.error(
-							"Fan-out dispatch rejected",
-							{ action: "dispatch_daily_user" },
-							result.reason,
-						);
-						results.push({
-							skipped: 1,
-							logFailures: 0,
-							emailsSent: 0,
-							emailsFailed: 0,
-							smsSent: 0,
-							smsFailed: 0,
-						});
-					}
-				}
-			}
-		}
-
-		const scheduledTotals = results.reduce(
-			(acc, curr) => mergeTotals(acc, curr),
-			{ ...EMPTY_TOTALS },
-		);
-
-		return {
-			...scheduledTotals,
-			priceAlerts: priceAlertTotals,
-			priceTargets: priceTargetTotals,
-		};
-	}
-
-	/* ============= Normal cron: two-pass execution ============= */
+	/* ============= Two-pass execution ============= */
 	const passStartTime = Date.now();
 
 	// Pass 1: DELIVER staged + fallback + PRE-COMPUTE
 	const pass1Totals = await runPass({
 		supabase,
 		logger,
-		cronSecret,
 		sendEmail,
 		getSmsSender,
 		priceAlertQuoteMap,
@@ -795,7 +542,6 @@ export async function runScheduledNotifications(options: {
 	const pass2Totals = await runPass({
 		supabase,
 		logger,
-		cronSecret,
 		sendEmail,
 		getSmsSender,
 		includeAssetEvents: false,

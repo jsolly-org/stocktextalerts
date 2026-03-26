@@ -11,23 +11,18 @@ vi.mock("../../../src/lib/time/market-calendar", () => ({
 	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
 }));
 
+import { runScheduledNotifications } from "../../../src/lib/schedule/run";
 import { upsertStagedNotification } from "../../../src/lib/staged-notifications/db";
 import type { StagedMarketData } from "../../../src/lib/staged-notifications/types";
 import { toIsoOrThrow } from "../../../src/lib/time/format";
-import { POST } from "../../../src/pages/api/schedule";
-import { createApiContext } from "../../helpers/api-context";
-import { createScheduleRequest } from "../../helpers/schedule-request";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 describe("runScheduledNotifications: staged + fallback pipeline", () => {
-	const testCronSecret = "test-cron-secret";
-
 	beforeEach(() => {
 		vi.useFakeTimers();
 		vi.setSystemTime(DateTime.fromISO("2026-01-12T15:00:00.000Z").toJSDate());
-		vi.stubEnv("CRON_SECRET", testCronSecret);
 		vi.stubEnv("SMS_TEST_BEHAVIOR", "success");
 		vi.stubEnv("SCHEDULE_PASS_DELAY_MS", "0");
 	});
@@ -83,12 +78,17 @@ describe("runScheduledNotifications: staged + fallback pipeline", () => {
 		});
 		expect(upsertError).toBeNull();
 
-		const response = await POST(
-			createApiContext({
-				request: createScheduleRequest(testCronSecret),
-			}),
-		);
-		expect(response.status).toBe(200);
+		const logger = {
+			debug: vi.fn(),
+			info: vi.fn(),
+			warn: vi.fn(),
+			error: vi.fn(),
+		};
+
+		await runScheduledNotifications({
+			supabase: adminClient,
+			logger: logger as never,
+		});
 
 		const { data: logs } = await adminClient
 			.from("notification_log")
@@ -122,12 +122,17 @@ describe("runScheduledNotifications: staged + fallback pipeline", () => {
 			.eq("id", id);
 		expect(updateError).toBeNull();
 
-		const response = await POST(
-			createApiContext({
-				request: createScheduleRequest(testCronSecret),
-			}),
-		);
-		expect(response.status).toBe(200);
+		const logger = {
+			debug: vi.fn(),
+			info: vi.fn(),
+			warn: vi.fn(),
+			error: vi.fn(),
+		};
+
+		await runScheduledNotifications({
+			supabase: adminClient,
+			logger: logger as never,
+		});
 
 		const { data: logs } = await adminClient
 			.from("notification_log")

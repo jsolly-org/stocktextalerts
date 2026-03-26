@@ -68,7 +68,6 @@ describe("A cron job precomputes daily digest content for upcoming users.", () =
 			supabase: {} as never,
 			logger: logger as never,
 			currentTime,
-			cronSecret: "test-secret",
 		});
 
 		expect(dispatchDailyDigestUserMock).toHaveBeenCalledTimes(2);
@@ -76,7 +75,6 @@ describe("A cron job precomputes daily digest content for upcoming users.", () =
 		for (const [args] of dispatchDailyDigestUserMock.mock.calls) {
 			expect(args).toMatchObject({
 				currentTimeIso,
-				cronSecret: "test-secret",
 				precompute: true,
 				marketOpen: false,
 			});

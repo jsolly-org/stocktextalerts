@@ -1,12 +1,11 @@
-import type { APIRoute } from "astro";
-import { createSupabaseAdminClient } from "../../lib/db/supabase";
-import { createLogger } from "../../lib/logging";
+import type { ScheduledEvent } from "aws-lambda";
+import { createSupabaseAdminClient } from "../../../src/lib/db/supabase";
+import { createLogger } from "../../../src/lib/logging";
 import {
 	computeADV,
 	computeATR,
-} from "../../lib/market-notifications/daily-stats";
-import { fetchDailyOHLCV } from "../../lib/providers/massive";
-import { verifyCronSecret } from "../../lib/schedule/cron-auth";
+} from "../../../src/lib/market-notifications/daily-stats";
+import { fetchDailyOHLCV } from "../../../src/lib/providers/massive";
 
 /** Batch size for Massive API calls to stay under ~100 req/s. */
 const BATCH_SIZE = 50;
@@ -17,23 +16,11 @@ const BATCH_DELAY_MS = 600;
 /** Calendar days to fetch for ~20 trading days of data. */
 const LOOKBACK_DAYS = 35;
 
-/**
- * Daily cron endpoint to compute and upsert daily_asset_stats (ADV-20, ATR-14)
- * for all user-tracked symbols.
- *
- * Scheduled weekdays at 10 PM UTC (5-6 PM ET, after market close).
- */
-const handler: APIRoute = async ({ url, request, locals }) => {
+export async function handler(_event: ScheduledEvent): Promise<void> {
 	const logger = createLogger({
-		requestId: locals?.requestId,
-		path: url.pathname,
-		method: request.method,
+		source: "lambda",
+		function: "compute-daily-stats",
 	});
-
-	if (!verifyCronSecret(request, logger)) {
-		return new Response("Unauthorized", { status: 401 });
-	}
-
 	const supabase = createSupabaseAdminClient();
 
 	// Get all unique tracked symbols
@@ -47,14 +34,15 @@ const handler: APIRoute = async ({ url, request, locals }) => {
 			{ action: "compute_daily_stats" },
 			assetsError,
 		);
-		return new Response(JSON.stringify({ error: "Failed to load assets" }), {
-			status: 500,
-		});
+		throw new Error("Failed to load user assets");
 	}
 
 	const symbols = [...new Set((allUserAssets ?? []).map((a) => a.symbol))];
 	if (symbols.length === 0) {
-		return new Response(JSON.stringify({ computed: 0 }), { status: 200 });
+		logger.info("No symbols to compute daily stats for", {
+			action: "compute_daily_stats",
+		});
+		return;
 	}
 
 	// Date range: LOOKBACK_DAYS calendar days back to ensure ~20 trading days
@@ -72,7 +60,6 @@ const handler: APIRoute = async ({ url, request, locals }) => {
 		atr_14: number | null;
 	}> = [];
 
-	// Process in batches
 	for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
 		const batch = symbols.slice(i, i + BATCH_SIZE);
 
@@ -127,10 +114,7 @@ const handler: APIRoute = async ({ url, request, locals }) => {
 				{ rowCount: rows.length },
 				upsertError,
 			);
-			return new Response(
-				JSON.stringify({ error: "Upsert failed", computed, failed }),
-				{ status: 500 },
-			);
+			throw new Error("Upsert failed");
 		}
 	}
 
@@ -140,9 +124,4 @@ const handler: APIRoute = async ({ url, request, locals }) => {
 		computed,
 		failed,
 	});
-
-	return new Response(JSON.stringify({ computed, failed }), { status: 200 });
-};
-
-export const GET = handler;
-export const POST = handler;
+}

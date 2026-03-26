@@ -9,25 +9,20 @@ vi.mock("../../../src/lib/time/market-calendar", () => ({
 	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
 }));
 
+import { runScheduledNotifications } from "../../../src/lib/schedule/run";
 import * as deliverModule from "../../../src/lib/staged-notifications/deliver";
-import { POST } from "../../../src/pages/api/schedule";
-import { createApiContext } from "../../helpers/api-context";
-import { createScheduleRequest } from "../../helpers/schedule-request";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 import { expectConsoleError } from "../../setup";
 
 describe("runScheduledNotifications: staging failure fallback", () => {
-	const testCronSecret = "test-cron-secret";
-
 	beforeEach(() => {
 		expectConsoleError(
 			"Staged delivery phase failed (falling back to full pipeline)",
 		);
 		vi.useFakeTimers();
 		vi.setSystemTime(DateTime.fromISO("2026-01-12T15:00:00.000Z").toJSDate());
-		vi.stubEnv("CRON_SECRET", testCronSecret);
 		vi.stubEnv("SMS_TEST_BEHAVIOR", "success");
 		vi.stubEnv("SCHEDULE_PASS_DELAY_MS", "0");
 		vi.spyOn(deliverModule, "deliverStagedNotifications").mockRejectedValue(
@@ -64,12 +59,17 @@ describe("runScheduledNotifications: staging failure fallback", () => {
 			.eq("id", id);
 		expect(updateError).toBeNull();
 
-		const response = await POST(
-			createApiContext({
-				request: createScheduleRequest(testCronSecret),
-			}),
-		);
-		expect(response.status).toBe(200);
+		const logger = {
+			debug: vi.fn(),
+			info: vi.fn(),
+			warn: vi.fn(),
+			error: vi.fn(),
+		};
+
+		await runScheduledNotifications({
+			supabase: adminClient,
+			logger: logger as never,
+		});
 
 		const { data: logs } = await adminClient
 			.from("notification_log")

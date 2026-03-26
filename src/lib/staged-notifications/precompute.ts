@@ -188,9 +188,8 @@ export async function precomputeDailyDigest(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
 	currentTime: DateTime;
-	cronSecret: string;
 }): Promise<ScheduledNotificationTotals> {
-	const { supabase, logger, currentTime, cronSecret } = options;
+	const { supabase, logger, currentTime } = options;
 	const stats: ScheduledNotificationTotals = {
 		skipped: 0,
 		logFailures: 0,
@@ -243,6 +242,8 @@ export async function precomputeDailyDigest(options: {
 	// instant, not the scheduler's current clock time. Near US midnight those can
 	// land on different market dates.
 	const marketOpen = await fetchMarketStatus();
+	const sendEmail = createEmailSender();
+	const getSmsSender = createSmsSenderProvider();
 
 	for (
 		let index = 0;
@@ -255,9 +256,11 @@ export async function precomputeDailyDigest(options: {
 				dispatchDailyDigestUser({
 					userId: user.id,
 					currentTimeIso,
-					cronSecret,
 					precompute: true,
 					marketOpen,
+					supabase,
+					sendEmail,
+					getSmsSender,
 				}),
 			),
 		);
