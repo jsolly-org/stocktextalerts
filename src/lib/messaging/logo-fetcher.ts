@@ -1,4 +1,4 @@
-import { readEnv } from "../db/env";
+import { requireEnv } from "../db/env";
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { extractErrorMessage } from "../logging/errors";
@@ -37,10 +37,8 @@ async function fetchLogoFromApi(iconUrl: string): Promise<string | null> {
 		return null;
 	}
 
-	const apiKey = readEnv("MASSIVE_API_KEY");
-	if (apiKey) {
-		parsed.searchParams.set("apiKey", apiKey);
-	}
+	const apiKey = requireEnv("MASSIVE_API_KEY");
+	parsed.searchParams.set("apiKey", apiKey);
 
 	const response = await fetch(parsed.toString(), {
 		signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),

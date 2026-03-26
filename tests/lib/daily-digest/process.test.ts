@@ -13,6 +13,11 @@ import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
+// Mock market calendar to avoid real Massive API calls with test keys.
+vi.mock("../../../src/lib/time/market-calendar", () => ({
+	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
+}));
+
 describe("Daily digest process scenarios", () => {
 	it("User with no tracked assets and no digest or asset-events options is skipped and next_send_at is advanced.", async () => {
 		const now = DateTime.utc();

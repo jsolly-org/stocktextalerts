@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { createUserService } from "../../../../lib/db";
-import { readEnv } from "../../../../lib/db/env";
+import { requireEnv } from "../../../../lib/db/env";
 import { createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { createLogger } from "../../../../lib/logging";
 import { isValidAssetSymbol } from "../../../../lib/validation";
@@ -62,12 +62,7 @@ export const GET: APIRoute = async ({
 		return new Response("Not found", { status: 404 });
 	}
 
-	const rawApiKey = readEnv("MASSIVE_API_KEY");
-	if (typeof rawApiKey !== "string" || rawApiKey.trim() === "") {
-		logger.error("MASSIVE_API_KEY not configured", { symbol });
-		return new Response("Internal server error", { status: 500 });
-	}
-	const apiKey = rawApiKey.trim();
+	const apiKey = requireEnv("MASSIVE_API_KEY");
 
 	let upstreamUrl: string;
 	try {

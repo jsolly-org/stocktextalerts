@@ -1,6 +1,6 @@
 import { setTimeout as realDelay } from "node:timers/promises";
 import { FINNHUB_BASE_URL } from "../constants";
-import { readEnv } from "../db/env";
+import { requireEnv } from "../db/env";
 import { rootLogger } from "../logging";
 import { type CompanyNewsItem, fetchCompanyNews } from "./company-news";
 
@@ -47,9 +47,9 @@ const REQUEST_TIMEOUT_MS = 10_000;
 Helpers
 ============= */
 
-/** Read the Finnhub API key from env (or return empty string). */
+/** Read the Finnhub API key from env. Throws if not set. */
 function getFinnhubApiKey(): string {
-	return readEnv("FINNHUB_API_KEY") ?? "";
+	return requireEnv("FINNHUB_API_KEY");
 }
 
 /** Parse `Retry-After` into a delay (ms), or `null` when missing/unparseable. */
@@ -93,7 +93,6 @@ export async function finnhubFetch(
 	label: string,
 ): Promise<unknown> {
 	const apiKey = getFinnhubApiKey();
-	if (!apiKey) return null;
 
 	const query = new URLSearchParams({ ...params, token: apiKey });
 	const url = `${FINNHUB_BASE_URL}${endpoint}?${query.toString()}`;

@@ -40,19 +40,19 @@ assertLiveProviderKey({ provider: "xai", envVar: "XAI_API_KEY" });
 assertLiveProviderKey({ provider: "email", envVar: "RESEND_API_KEY" });
 assertLiveProviderKey({ provider: "sms", envVar: "TWILIO_ACCOUNT_SID" });
 
-// Data-provider stubs blank the API key so provider code skips real HTTP calls.
-// NOTE: vi.stubEnv affects import.meta.env globally (including source code in src/),
-// so stubbing a key to "" causes provider code to see an empty key and bail out.
-// Email/SMS mocking is handled by the MODE check combined with LIVE_API_PROVIDERS
-// in the source code itself (see createEmailSender and createSmsSender), so no
-// stubs are needed for those. Tests that stub Twilio credentials must guard those
-// stubs with isLiveProviderEnabled("sms") to avoid overriding real credentials.
+// Data-provider stubs set a dummy API key so requireEnv() doesn't throw.
+// Actual HTTP calls are prevented by fetch mocks or module-level mocks in
+// individual test files. Email/SMS mocking is handled by the MODE check
+// combined with LIVE_API_PROVIDERS in the source code itself (see
+// createEmailSender and createSmsSender), so no stubs are needed for those.
+// Tests that stub Twilio credentials must guard those stubs with
+// isLiveProviderEnabled("sms") to avoid overriding real credentials.
 if (!isLiveProviderEnabled("massive")) {
-	vi.stubEnv("MASSIVE_API_KEY", "");
+	vi.stubEnv("MASSIVE_API_KEY", "test-massive-key");
 }
 
 if (!isLiveProviderEnabled("finnhub")) {
-	vi.stubEnv("FINNHUB_API_KEY", "");
+	vi.stubEnv("FINNHUB_API_KEY", "test-finnhub-key");
 }
 
 if (!isLiveProviderEnabled("xai")) {

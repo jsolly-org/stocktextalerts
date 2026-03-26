@@ -13,9 +13,9 @@ Environment Helpers
  * fallback may contain stale build-time values in production — but
  * `process.env` will always be checked first in that case.
  *
- * Callers cast the result with `as string` because the middleware validates
- * all required env vars on first request (see REQUIRED_ENV_VARS in
- * `src/middleware.ts`). No additional null checks are needed at call sites.
+ * For required env vars, prefer `requireEnv()` which throws on missing values
+ * and returns `string` (no cast needed). Use `readEnv()` directly only for
+ * genuinely optional variables.
  */
 export function readEnv(name: string): string | undefined {
 	const fromProcess = process.env[name];
@@ -33,6 +33,24 @@ export function readEnv(name: string): string | undefined {
 		// import.meta.env not available outside Vite/Astro
 	}
 	return undefined;
+}
+
+/**
+ * Read a required environment variable. Throws if missing or blank.
+ *
+ * Use this for env vars that MUST be present at runtime. The middleware
+ * validates these on first HTTP request, but this also covers Lambda/cron
+ * code paths that bypass middleware.
+ */
+export function requireEnv(name: string): string {
+	const value = readEnv(name);
+	if (value === undefined) {
+		throw new Error(
+			`Required environment variable ${name} is not set. ` +
+				"Check your .env file or deployment configuration.",
+		);
+	}
+	return value;
 }
 
 function getUnsubscribeTokenSecret(): string | undefined {

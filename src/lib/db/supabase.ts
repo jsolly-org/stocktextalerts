@@ -1,10 +1,10 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { readEnv } from "./env";
+import { requireEnv } from "./env";
 import type { Database } from "./generated/database.types";
 
-const supabaseUrl = readEnv("SUPABASE_URL") as string;
-const supabasePublishableKey = readEnv("SUPABASE_PUBLISHABLE_KEY") as string;
-const supabaseSecretKey = readEnv("SUPABASE_SECRET_KEY") as string;
+const supabaseUrl = requireEnv("SUPABASE_URL");
+const supabasePublishableKey = requireEnv("SUPABASE_PUBLISHABLE_KEY");
+const supabaseSecretKey = requireEnv("SUPABASE_SECRET_KEY");
 
 const SUPABASE_CLIENT_OPTIONS = {
 	auth: {

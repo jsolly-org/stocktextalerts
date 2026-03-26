@@ -3,7 +3,7 @@ Twilio SMS
 ============= */
 
 import twilio, { type RestException } from "twilio";
-import { readEnv } from "../../db/env";
+import { requireEnv } from "../../db/env";
 import { rootLogger } from "../../logging";
 
 import type { DeliveryResult } from "../types";
@@ -30,9 +30,9 @@ type TwilioClient = ReturnType<typeof twilio>;
  */
 export function readTwilioConfig(): TwilioConfig {
 	return {
-		accountSid: readEnv("TWILIO_ACCOUNT_SID") as string,
-		authToken: readEnv("TWILIO_AUTH_TOKEN") as string,
-		phoneNumber: readEnv("TWILIO_PHONE_NUMBER") as string,
+		accountSid: requireEnv("TWILIO_ACCOUNT_SID"),
+		authToken: requireEnv("TWILIO_AUTH_TOKEN"),
+		phoneNumber: requireEnv("TWILIO_PHONE_NUMBER"),
 	};
 }
 

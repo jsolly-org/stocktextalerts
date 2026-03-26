@@ -1,6 +1,6 @@
 import { setTimeout as realDelay } from "node:timers/promises";
 import { US_MARKET_TIMEZONE } from "../constants";
-import { readEnv } from "../db/env";
+import { requireEnv } from "../db/env";
 import { rootLogger } from "../logging";
 import { finnhubFetch } from "./finnhub";
 
@@ -62,7 +62,7 @@ Helpers
 const MASSIVE_BASE_URL = "https://api.massive.com";
 
 function getMassiveApiKey(): string {
-	return readEnv("MASSIVE_API_KEY") ?? "";
+	return requireEnv("MASSIVE_API_KEY");
 }
 
 function computeRetryDelayMs(
@@ -89,7 +89,7 @@ function parseRetryAfterMs(headerValue: string | null): number | null {
 /**
  * Low-level Massive fetch wrapper with retries, rate-limit handling, and timeouts.
  *
- * Returns `null` when the API key is missing or the request ultimately fails.
+ * Returns `null` when the request ultimately fails.
  */
 export async function marketDataFetch(
 	endpoint: string,
@@ -98,7 +98,6 @@ export async function marketDataFetch(
 	logContext?: Record<string, unknown>,
 ): Promise<unknown> {
 	const apiKey = getMassiveApiKey();
-	if (!apiKey) return null;
 
 	const query = new URLSearchParams({ ...params, apiKey });
 	const url = `${MASSIVE_BASE_URL}${endpoint}?${query.toString()}`;
