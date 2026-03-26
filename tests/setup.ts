@@ -20,8 +20,8 @@ vi.mock("../src/lib/db/env", async (importOriginal) => {
 	return {
 		...actual,
 		getSiteUrl: () => "http://localhost",
-		getValidatedCronSecret: () => {
-			const fromProcess = process.env.CRON_SECRET;
+		getValidatedUnsubscribeTokenSecret: () => {
+			const fromProcess = process.env.UNSUBSCRIBE_TOKEN_SECRET;
 			if (typeof fromProcess !== "string" || fromProcess.trim().length < 12) {
 				return null;
 			}
@@ -59,9 +59,12 @@ if (!isLiveProviderEnabled("xai")) {
 	vi.stubEnv("XAI_API_KEY", "");
 }
 
-// Provide a valid CRON_SECRET for tests that generate unsubscribe tokens
-if (!process.env.CRON_SECRET || process.env.CRON_SECRET.trim().length < 12) {
-	vi.stubEnv("CRON_SECRET", "test-cron-secret-12chars");
+// Provide a valid UNSUBSCRIBE_TOKEN_SECRET for tests that generate unsubscribe tokens
+if (
+	!process.env.UNSUBSCRIBE_TOKEN_SECRET ||
+	process.env.UNSUBSCRIBE_TOKEN_SECRET.trim().length < 12
+) {
+	vi.stubEnv("UNSUBSCRIBE_TOKEN_SECRET", "test-unsubscribe-secret");
 }
 
 function getDatabaseUrl(): string {

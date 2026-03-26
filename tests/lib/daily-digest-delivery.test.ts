@@ -27,7 +27,7 @@ describe("Daily digest email prices", () => {
 	};
 
 	beforeEach(() => {
-		vi.stubEnv("CRON_SECRET", "test-secret-key");
+		vi.stubEnv("UNSUBSCRIBE_TOKEN_SECRET", "test-secret-key");
 		vi.stubEnv("VERCEL_URL", "http://localhost:4321");
 	});
 

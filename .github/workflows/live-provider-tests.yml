@@ -47,7 +47,7 @@ jobs:
 
           {
             echo "$DB_VARS"
-            echo "CRON_SECRET=ci-cron-secret"
+            echo "UNSUBSCRIBE_TOKEN_SECRET=ci-unsubscribe-secret"
             echo "VERCEL_URL=http://localhost:4321"
             echo "MASSIVE_API_KEY=$MASSIVE_API_KEY"
             echo "FINNHUB_API_KEY=$FINNHUB_API_KEY"

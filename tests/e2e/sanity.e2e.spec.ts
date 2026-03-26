@@ -52,9 +52,11 @@ function toBase64Url(buffer: Buffer): string {
 }
 
 function createEmailUnsubscribeToken(userId: string, email: string): string {
-	const secret = process.env.CRON_SECRET;
+	const secret = process.env.UNSUBSCRIBE_TOKEN_SECRET;
 	if (!secret) {
-		throw new Error("CRON_SECRET is required to build unsubscribe token");
+		throw new Error(
+			"UNSUBSCRIBE_TOKEN_SECRET is required to build unsubscribe token",
+		);
 	}
 	const expiresAtMs = Date.now() + 1000 * 60 * 60 * 24 * 30;
 	const payload = `${userId}.${email}.${expiresAtMs}`;

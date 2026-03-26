@@ -6,3 +6,6 @@ region = "us-east-1"
 confirm_changeset = false
 capabilities = "CAPABILITY_IAM"
 resolve_s3 = true
+s3_prefix = "stocktextalerts-crons"
+profile = "prod-admin"
+image_repositories = []

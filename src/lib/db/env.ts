@@ -35,23 +35,22 @@ export function readEnv(name: string): string | undefined {
 	return undefined;
 }
 
-function getCronSecret(): string | undefined {
-	return readEnv("CRON_SECRET");
+function getUnsubscribeTokenSecret(): string | undefined {
+	return readEnv("UNSUBSCRIBE_TOKEN_SECRET");
 }
 
-/** Minimum length for CRON_SECRET (policy only; presence is enforced by middleware). */
-const CRON_SECRET_MIN_LENGTH = 12;
+/** Minimum length for UNSUBSCRIBE_TOKEN_SECRET (policy only; presence is enforced by middleware). */
+const UNSUBSCRIBE_SECRET_MIN_LENGTH = 12;
 
 /**
- * Returns CRON_SECRET if it meets policy (format + minimum length).
- * Presence is enforced by middleware; this validates policy only.
- * Used by the unsubscribe token HMAC in the Astro dashboard.
+ * Returns UNSUBSCRIBE_TOKEN_SECRET if it meets policy (format + minimum length).
+ * Used to HMAC-sign email unsubscribe tokens.
  */
-export function getValidatedCronSecret(): string | null {
-	const value = getCronSecret();
+export function getValidatedUnsubscribeTokenSecret(): string | null {
+	const value = getUnsubscribeTokenSecret();
 	if (
 		typeof value !== "string" ||
-		value.trim().length < CRON_SECRET_MIN_LENGTH
+		value.trim().length < UNSUBSCRIBE_SECRET_MIN_LENGTH
 	) {
 		return null;
 	}

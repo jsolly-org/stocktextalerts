@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { getSiteUrl, getValidatedCronSecret } from "../../db/env";
+import { getSiteUrl, getValidatedUnsubscribeTokenSecret } from "../../db/env";
 
 const DEFAULT_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 
@@ -24,7 +24,7 @@ function fromBase64Url(value: string): Buffer {
 /**
  * Create a signed unsubscribe token for a specific user+email pair.
  *
- * The token embeds an expiry timestamp and an HMAC signature using `CRON_SECRET`.
+ * The token embeds an expiry timestamp and an HMAC signature using `UNSUBSCRIBE_TOKEN_SECRET`.
  */
 export function createEmailUnsubscribeToken(options: {
 	userId: string;
@@ -32,10 +32,10 @@ export function createEmailUnsubscribeToken(options: {
 	expiresAtMs?: number;
 }): string {
 	const expiresAtMs = options.expiresAtMs ?? Date.now() + DEFAULT_TOKEN_TTL_MS;
-	const secret = getValidatedCronSecret();
+	const secret = getValidatedUnsubscribeTokenSecret();
 	if (!secret) {
 		throw new Error(
-			"CRON_SECRET does not meet policy for email unsubscribe tokens",
+			"UNSUBSCRIBE_TOKEN_SECRET does not meet policy for email unsubscribe tokens",
 		);
 	}
 	const payload = `${options.userId}.${options.email}.${expiresAtMs}`;
@@ -66,7 +66,7 @@ export function verifyEmailUnsubscribeToken(options: {
 		return { ok: false, reason: "expired_token" };
 	}
 
-	const secret = getValidatedCronSecret();
+	const secret = getValidatedUnsubscribeTokenSecret();
 	if (!secret) {
 		return { ok: false, reason: "invalid_token" };
 	}

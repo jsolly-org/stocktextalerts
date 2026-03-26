@@ -11,8 +11,7 @@ interface ImportMetaEnv {
 	readonly TWILIO_VERIFY_SERVICE_SID: string;
 	readonly RESEND_API_KEY: string;
 	readonly EMAIL_FROM: string;
-	readonly EMAIL_REPLY_TO?: string;
-	readonly CRON_SECRET: string;
+	readonly UNSUBSCRIBE_TOKEN_SECRET: string;
 	readonly VERCEL_URL?: string;
 	readonly VERCEL_PROJECT_PRODUCTION_URL?: string;
 	readonly MASSIVE_API_KEY: string;

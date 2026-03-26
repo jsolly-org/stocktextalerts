@@ -25,9 +25,6 @@ Parameters:
     NoEcho: true
   EmailFrom:
     Type: String
-  EmailReplyTo:
-    Type: String
-    Default: ""
   TwilioAccountSid:
     Type: String
     NoEcho: true
@@ -37,7 +34,7 @@ Parameters:
   TwilioPhoneNumber:
     Type: String
     NoEcho: true
-  CronSecret:
+  UnsubscribeTokenSecret:
     Type: String
     NoEcho: true
 
@@ -57,11 +54,10 @@ Globals:
         XAI_API_KEY: !Ref XaiApiKey
         RESEND_API_KEY: !Ref ResendApiKey
         EMAIL_FROM: !Ref EmailFrom
-        EMAIL_REPLY_TO: !Ref EmailReplyTo
         TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
         TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
         TWILIO_PHONE_NUMBER: !Ref TwilioPhoneNumber
-        CRON_SECRET: !Ref CronSecret
+        UNSUBSCRIBE_TOKEN_SECRET: !Ref UnsubscribeTokenSecret
 
 Resources:
   ScheduleFunction:
@@ -71,7 +67,6 @@ Resources:
       CodeUri: dist/handlers/
       Timeout: 300
       MemorySize: 512
-      ReservedConcurrentExecutions: 1
       Events:
         EveryMinute:
           Type: ScheduleV2

@@ -20,6 +20,12 @@ await esbuild.build({
 	banner: {
 		js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);",
 	},
+	// Replace Vite/Astro-specific import.meta.env references at build time.
+	// In Lambda, import.meta.env doesn't exist — these guards are for test mode only.
+	define: {
+		"import.meta.env.MODE": '"production"',
+		"import.meta.env.LIVE_API_PROVIDERS": '""',
+	},
 	// Nothing is external — bundle everything for fast Lambda cold starts.
 	external: [],
 });
