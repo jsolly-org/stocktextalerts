@@ -114,7 +114,7 @@ Resources:
     Type: AWS::SNS::Topic
     Properties:
       TopicName: stocktextalerts-lambda-alerts
-      Subscriptions:
+      Subscription:
         - Protocol: email
           Endpoint: !Ref AlertEmail
         - Protocol: sms
@@ -143,14 +143,14 @@ Resources:
   AssetEventsFunctionErrorAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmDescription: "AssetEventsFunction any error in 24 hours"
+      AlarmDescription: "AssetEventsFunction any error in 1 hour"
       Namespace: AWS/Lambda
       MetricName: Errors
       Dimensions:
         - Name: FunctionName
           Value: !Ref AssetEventsFunction
       Statistic: Sum
-      Period: 86400
+      Period: 3600
       EvaluationPeriods: 1
       Threshold: 1
       ComparisonOperator: GreaterThanOrEqualToThreshold
@@ -163,14 +163,14 @@ Resources:
   ComputeDailyStatsFunctionErrorAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmDescription: "ComputeDailyStatsFunction any error in 24 hours"
+      AlarmDescription: "ComputeDailyStatsFunction any error in 1 hour"
       Namespace: AWS/Lambda
       MetricName: Errors
       Dimensions:
         - Name: FunctionName
           Value: !Ref ComputeDailyStatsFunction
       Statistic: Sum
-      Period: 86400
+      Period: 3600
       EvaluationPeriods: 1
       Threshold: 1
       ComparisonOperator: GreaterThanOrEqualToThreshold

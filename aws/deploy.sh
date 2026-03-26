@@ -24,7 +24,8 @@ SUPABASE_SECRET_KEY="${SUPABASE_SECRET_KEY_PROD:?SUPABASE_SECRET_KEY_PROD not se
 # Build first
 npm run build
 
-# Deploy — use SAM's key=value format with proper quoting
+# Deploy from aws/ dir so samconfig.toml is picked up
+cd "$SCRIPT_DIR"
 sam deploy \
   --parameter-overrides \
     SupabaseUrl="$SUPABASE_URL" \
@@ -38,4 +39,6 @@ sam deploy \
     TwilioAccountSid="$TWILIO_ACCOUNT_SID" \
     TwilioAuthToken="$TWILIO_AUTH_TOKEN" \
     TwilioPhoneNumber="$TWILIO_PHONE_NUMBER" \
-    UnsubscribeTokenSecret="$UNSUBSCRIBE_TOKEN_SECRET"
+    UnsubscribeTokenSecret="$UNSUBSCRIBE_TOKEN_SECRET" \
+    AlertEmail="$ALERT_EMAIL" \
+    AlertPhoneNumber="$ALERT_PHONE_NUMBER"
