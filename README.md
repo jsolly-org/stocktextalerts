@@ -371,11 +371,9 @@ Notification crons run as AWS Lambda functions deployed via SAM (see `aws/`). Ev
 
 **`ComputeDailyStatsFunction`** (weekdays at 22:00 UTC) — computes and upserts per-symbol daily stats used by asset price alerts (ADV-20 and ATR-14) for tracked assets.
 
-**Local testing:** `cd aws && npm run local:schedule` (requires Docker and `aws/env.json`).
+**Local testing:** `cd aws && npm run local:test-all` builds and invokes all three functions locally via `sam local invoke` (requires Docker). To test a single function: `npm run local:schedule`, `npm run local:asset-events`, or `npm run local:daily-stats`. Run `npm run local:gen-env` first to generate `env.json` from `.env.local` with per-function env var scoping.
 
-**Deploying infrastructure changes:** `cd aws && npm run deploy` (uses `deploy.sh` which reads `.env.local`).
-
-**Code-only updates** are deployed automatically via GitHub Actions on push to main.
+**Deploying:** `cd aws && npm run deploy` (uses `deploy.sh` which reads `.env.local`). **A SAM deploy is required whenever `aws/template.yaml`, `aws/deploy.sh`, or Lambda handler code (`aws/src/handlers/`) changes.** Code-only updates to `src/lib/` that are imported by handlers also require a deploy since the handlers bundle everything at build time. GitHub Actions does **not** deploy the SAM stack — only the Vercel dashboard.
 
 ## Project Structure
 

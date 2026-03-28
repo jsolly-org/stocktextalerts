@@ -38,6 +38,10 @@ supabase migration new <name>  # Create new migration (never rename timestamps)
 - `supabase/migrations/` — SQL migrations (source of truth; CI pushes to production)
 - `tests/helpers/` — `test-user.ts`, `test-env.ts`, `asset-data.ts`
 
+## Pre-Commit Rules
+
+- **SAM deploy required** when committing changes to `aws/template.yaml`, `aws/deploy.sh`, `aws/src/handlers/`, or `src/lib/`. After the commit, run `cd aws && npm run deploy`. See `.agents/hooks/check-sam-deploy.sh` for the automated check (wired into Claude Code via `.claude/settings.json`).
+
 ## Key Constraints
 
 - **Biome** for all formatting/linting. `noConsole` is an error — use `src/lib/logging/` instead.

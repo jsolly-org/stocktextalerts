@@ -14,6 +14,20 @@ Use `--profile prod-admin` for all production AWS commands.
 | `/aws/lambda/textnotifications-app-prod-message-sender` | SMS/message delivery |
 | `/aws/lambda/textnotifications-app-prod-signup-processor` | Signup processing |
 
+### Deploying
+
+**A SAM deploy is required** whenever any of these change:
+- `aws/template.yaml` (infrastructure/env var config)
+- `aws/deploy.sh` (deploy script)
+- `aws/src/handlers/` (Lambda handler code)
+- `src/lib/` code imported by handlers (bundled at build time)
+
+GitHub Actions does **not** deploy the SAM stack. Deploy manually:
+
+```bash
+cd aws && npm run deploy
+```
+
 ### Local Lambda Testing
 
 Requires Docker running. Builds the Lambda bundles, generates `env.json` from `.env.local` with per-function env var scoping, and invokes all three handlers locally.
