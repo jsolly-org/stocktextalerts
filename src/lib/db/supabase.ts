@@ -3,7 +3,6 @@ import { requireEnv } from "./env";
 import type { Database } from "./generated/database.types";
 
 const supabaseUrl = requireEnv("SUPABASE_URL");
-const supabasePublishableKey = requireEnv("SUPABASE_PUBLISHABLE_KEY");
 const supabaseSecretKey = requireEnv("SUPABASE_SECRET_KEY");
 
 const SUPABASE_CLIENT_OPTIONS = {
@@ -30,7 +29,7 @@ function createTypedClient(key: string): AppSupabaseClient {
  * Auth session persistence/refresh is disabled because Astro routes manage cookies explicitly.
  */
 export function createSupabaseServerClient(): AppSupabaseClient {
-	return createTypedClient(supabasePublishableKey);
+	return createTypedClient(requireEnv("SUPABASE_PUBLISHABLE_KEY"));
 }
 
 /**
