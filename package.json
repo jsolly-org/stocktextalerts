@@ -9,12 +9,14 @@
 	"scripts": {
 		"dev": "astro dev",
 		"build": "astro build",
-		"preview": "npm run build && vercel deploy --prebuilt",
+		"build:preview": "ASTRO_ADAPTER=node astro build",
+		"preview": "ASTRO_ADAPTER=node astro preview --port 4323",
 		"prepare": "if [ -z \"$CI\" ]; then husky; fi",
 		"test": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-vitest.ts",
 		"test:ci": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-vitest.ts",
 		"test:smoke": "node --env-file-if-exists=.env.local ./node_modules/.bin/playwright test --config playwright.smoke.config.ts",
 		"test:e2e": "node --env-file-if-exists=.env.local ./node_modules/.bin/playwright test",
+		"test:e2e:preview": "node --env-file-if-exists=.env.local ./node_modules/.bin/playwright test --config playwright.preview.config.ts",
 		"test:all": "npm run test && npm run test:smoke && npm run test:e2e",
 		"gha:local": "scripts/ci/run-local-actions.sh",
 		"gha:local:lint": "scripts/ci/run-local-actions.sh --job lint",
@@ -59,6 +61,7 @@
 		"lodash": "4.17.23"
 	},
 	"devDependencies": {
+		"@astrojs/node": "^10.0.4",
 		"@astrojs/sitemap": "^3.7.2",
 		"@astrojs/ts-plugin": "^1.10.7",
 		"@astrojs/vue": "^6.0.1",
