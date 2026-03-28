@@ -14,6 +14,25 @@ Use `--profile prod-admin` for all production AWS commands.
 | `/aws/lambda/textnotifications-app-prod-message-sender` | SMS/message delivery |
 | `/aws/lambda/textnotifications-app-prod-signup-processor` | Signup processing |
 
+### Local Lambda Testing
+
+Requires Docker running. Builds the Lambda bundles, generates `env.json` from `.env.local` with per-function env var scoping, and invokes all three handlers locally.
+
+```bash
+cd aws
+
+# Test all functions
+npm run local:test-all
+
+# Test a single function
+npm run build && npm run local:gen-env
+npm run local:schedule
+npm run local:asset-events
+npm run local:daily-stats
+```
+
+This catches packaging, env var, and init errors that Vitest-based tests miss. The GitHub Actions live tests (`live-provider-tests.yml`) test provider APIs directly without SAM — they are a separate concern.
+
 ### Checking CloudWatch Logs
 
 ```bash

@@ -71,6 +71,7 @@ Resources:
       Environment:
         Variables:
           SITE_URL: !Ref SiteUrl
+          MASSIVE_API_KEY: !Ref MassiveApiKey
           FINNHUB_API_KEY: !Ref FinnhubApiKey
           XAI_API_KEY: !Ref XaiApiKey
           RESEND_API_KEY: !Ref ResendApiKey
