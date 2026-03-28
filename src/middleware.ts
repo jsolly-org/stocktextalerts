@@ -41,53 +41,78 @@ function hasFormLikeContentType(contentType: string | null): boolean {
 	return FORM_CONTENT_TYPES.some((candidate) => normalized.includes(candidate));
 }
 
+/** CSP directives keyed by directive name. */
+type CspDirectives = Record<string, string[]>;
+
+/** Shared CSP directives applied in every environment. */
+const BASE_CSP: CspDirectives = {
+	"default-src": ["'self'"],
+	"base-uri": ["'self'"],
+	"object-src": ["'none'"],
+	"frame-ancestors": ["'none'"],
+	"frame-src": ["'self'"],
+	"img-src": ["'self'", "data:", "https:"],
+	"script-src": ["'self'", "'unsafe-inline'"],
+	"script-src-attr": ["'none'"],
+	"style-src": ["'self'", "'unsafe-inline'"],
+	"connect-src": ["'self'", "https:", "wss:"],
+	"worker-src": ["'self'"],
+	"font-src": ["'self'", "data:"],
+	"form-action": ["'self'"],
+};
+
+/** Vercel preview/live toolbar support. */
+const VERCEL_CSP: CspDirectives = {
+	"frame-src": ["https://vercel.live"],
+	"script-src": ["https://vercel.live"],
+	"connect-src": ["https://vercel.live"],
+};
+
+/** Dev-only: Astro HMR workers + ANDI accessibility bookmarklet (SSA + jQuery). */
+const DEV_CSP: CspDirectives = {
+	"script-src": ["https://www.ssa.gov", "https://ajax.googleapis.com"],
+	"style-src": ["https://www.ssa.gov"],
+	"worker-src": ["blob:"],
+};
+
+/** Merge additional sources into a base set of CSP directives (non-mutating). */
+function mergeCsp(
+	base: CspDirectives,
+	...layers: CspDirectives[]
+): CspDirectives {
+	const merged: CspDirectives = {};
+	for (const [key, values] of Object.entries(base)) {
+		merged[key] = [...values];
+	}
+	for (const layer of layers) {
+		for (const [key, values] of Object.entries(layer)) {
+			merged[key] = [...(merged[key] ?? []), ...values];
+		}
+	}
+	return merged;
+}
+
 /**
  * Build the Content Security Policy header value.
  *
- * Allows `vercel.live` when running on Vercel (or when the request host looks
- * like a Vercel deployment) to support preview tooling.
+ * Layers environment-specific sources (Vercel preview, dev tooling) on top of
+ * the shared base directives.
  */
 function buildCsp(requestHost?: string): string {
-	// Allow vercel.live when on Vercel (env at runtime) or when request host is a Vercel deployment (fallback if env unset).
 	const isVercel =
 		process.env.VERCEL === "1" ||
 		(typeof requestHost === "string" && requestHost.endsWith(".vercel.app"));
+	const isDev = import.meta.env.DEV;
 
-	const frameSrc = [
-		"'self'",
-		...(isVercel ? ["https://vercel.live"] : []),
-	].join(" ");
+	const layers: CspDirectives[] = [];
+	if (isVercel) layers.push(VERCEL_CSP);
+	if (isDev) layers.push(DEV_CSP);
 
-	const scriptSrc = [
-		"'self'",
-		"'unsafe-inline'",
-		"https://www.ssa.gov",
-		"https://ajax.googleapis.com",
-		...(isVercel ? ["https://vercel.live"] : []),
-	].join(" "); // ANDI: SSA + jQuery
+	const directives = mergeCsp(BASE_CSP, ...layers);
 
-	// https: does not include wss:; Vercel Live/Preview uses Pusher over wss://
-	const connectSrc = [
-		"'self'",
-		"https:",
-		"wss:",
-		...(isVercel ? ["https://vercel.live"] : []),
-	].join(" ");
-
-	return [
-		"default-src 'self'",
-		"base-uri 'self'",
-		"object-src 'none'",
-		"frame-ancestors 'none'",
-		`frame-src ${frameSrc}`,
-		"img-src 'self' data: https:",
-		`script-src ${scriptSrc}`,
-		"script-src-attr 'none'",
-		"style-src 'self' 'unsafe-inline' https://www.ssa.gov", // ANDI stylesheet
-		`connect-src ${connectSrc}`,
-		"font-src 'self' data:",
-		"form-action 'self'",
-	].join("; ");
+	return Object.entries(directives)
+		.map(([key, values]) => `${key} ${values.join(" ")}`)
+		.join("; ");
 }
 
 /**
