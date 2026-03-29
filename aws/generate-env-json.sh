@@ -30,7 +30,6 @@ cat > "$SCRIPT_DIR/env.json" <<ENDJSON
     "MASSIVE_API_KEY": "$MASSIVE_API_KEY",
     "FINNHUB_API_KEY": "$FINNHUB_API_KEY",
     "XAI_API_KEY": "${XAI_API_KEY:-}",
-    "RESEND_API_KEY": "$RESEND_API_KEY",
     "EMAIL_FROM": "StockTextAlerts <notifications@stocktextalerts.com>",
     "TWILIO_ACCOUNT_SID": "$TWILIO_ACCOUNT_SID",
     "TWILIO_AUTH_TOKEN": "$TWILIO_AUTH_TOKEN",

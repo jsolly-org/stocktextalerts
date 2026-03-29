@@ -16,7 +16,7 @@ const REQUIRED_ENV_VARS = [
 	"TWILIO_PHONE_NUMBER",
 	"TWILIO_VERIFY_SERVICE_SID",
 	"UNSUBSCRIBE_TOKEN_SECRET",
-	"RESEND_API_KEY", // Used by /api/messaging/send-email
+	"AWS_ACCESS_KEY_ID", // Used by SES email sender on Vercel
 	"EMAIL_FROM",
 	"MASSIVE_API_KEY", // Used by /api/assets/logo/[symbol] proxy — Massive branding images require auth
 ] as const;

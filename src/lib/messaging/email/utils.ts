@@ -1,5 +1,5 @@
 /**
- * Module-level rate limiter for Resend API (free tier: 2 req/s).
+ * Module-level rate limiter for outbound email (14 req/s default).
  * Shared across all `createEmailSender()` instances so concurrent callers
  * never exceed the global rate limit.
  *
@@ -9,7 +9,7 @@
  * fake timers replace `Date.now()` but not `performance.now()`.
  */
 import { setTimeout as realDelay } from "node:timers/promises";
-import { Resend } from "resend";
+import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { readEnv, requireEnv } from "../../db/env";
 import { rootLogger } from "../../logging";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
@@ -25,7 +25,7 @@ import type {
 	UserAssetRow,
 } from "../types";
 
-const RESEND_MAX_PER_SECOND = 2;
+const EMAIL_MAX_PER_SECOND = 14;
 const recentSendTimestamps: number[] = [];
 
 /** Serialize check/wait/push so concurrent waiters don't all proceed after the same delay and exceed the limit. */
@@ -51,7 +51,7 @@ async function waitForRateLimit(): Promise<void> {
 				if (oldest === undefined || oldest > now - 1000) break;
 				recentSendTimestamps.shift();
 			}
-			if (recentSendTimestamps.length < RESEND_MAX_PER_SECOND) {
+			if (recentSendTimestamps.length < EMAIL_MAX_PER_SECOND) {
 				recentSendTimestamps.push(performance.now());
 				return;
 			}
@@ -80,9 +80,8 @@ interface EmailRequest {
 
 export type EmailSender = (request: EmailRequest) => Promise<DeliveryResult>;
 
-/** Create a Resend-backed email sender (mocked in test mode). */
+/** Create an SES-backed email sender (mocked in test mode). */
 export function createEmailSender(): EmailSender {
-	const apiKey = requireEnv("RESEND_API_KEY");
 	const fromEmail = requireEnv("EMAIL_FROM");
 	const defaultReplyTo = readEnv("EMAIL_REPLY_TO");
 
@@ -103,69 +102,46 @@ export function createEmailSender(): EmailSender {
 		});
 	}
 
-	if (!apiKey.startsWith("re_")) {
-		rootLogger.warn(
-			"RESEND_API_KEY has invalid format. Expected key starting with 're_'.",
-			{ action: "create_email_sender" },
-		);
-		return async () => ({
-			success: false,
-			error: "RESEND_API_KEY has invalid format",
-		});
-	}
+	// In Lambda, the default credential chain uses the execution role automatically.
+	// On Vercel/local dev, AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY must be set.
+	const sesClient = new SESv2Client({
+		region: readEnv("AWS_REGION") || "us-east-1",
+	});
 
-	const resend = new Resend(apiKey);
-
-	return async ({ to, subject, body, html, idempotencyKey, replyTo }) => {
+	return async ({ to, subject, body, html, replyTo }) => {
 		try {
 			const replyToValue = replyTo || defaultReplyTo;
-			const emailPayload = {
-				from: fromEmail,
-				to,
-				subject,
-				text: body,
-				html: html ?? escapeHtml(body),
-				...(replyToValue ? { replyTo: replyToValue } : {}),
-			};
-			const sendOptions = idempotencyKey ? { idempotencyKey } : undefined;
+			const command = new SendEmailCommand({
+				FromEmailAddress: fromEmail,
+				Destination: { ToAddresses: [to] },
+				ReplyToAddresses: replyToValue ? [replyToValue] : undefined,
+				Content: {
+					Simple: {
+						Subject: { Data: subject, Charset: "UTF-8" },
+						Body: {
+							Text: { Data: body, Charset: "UTF-8" },
+							Html: {
+								Data: html ?? escapeHtml(body),
+								Charset: "UTF-8",
+							},
+						},
+					},
+				},
+			});
 			await waitForRateLimit();
-			const { data, error } = await resend.emails.send(
-				emailPayload,
-				sendOptions,
-			);
+			const response = await sesClient.send(command);
 
-			if (error) {
-				// Resend SDK returns structured errors with 'type' field for error codes.
-				// Common error types: 'validation_error', 'invalid_api_key', 'rate_limit_exceeded',
-				// 'monthly_quota_exceeded', 'daily_quota_exceeded', 'invalid_from_address', etc.
-				// Error objects also have 'message' and 'status' fields.
-				const err = error as {
-					type?: string;
-					message?: string;
-					status?: number;
-				};
-				rootLogger.error("Resend error", {
-					type: err.type,
-					message: err.message,
-					status: err.status,
-				});
-				const errorMessage =
-					typeof err.message === "string"
-						? err.message
-						: "Failed to send email";
-				return { success: false, error: errorMessage };
-			}
-
-			return { success: true, messageSid: data?.id };
+			return { success: true, messageSid: response.MessageId };
 		} catch (error) {
 			rootLogger.error(
-				"Unexpected error sending email",
+				"SES error sending email",
 				{ action: "send_email_notification" },
 				error,
 			);
 			return {
 				success: false,
 				error: error instanceof Error ? error.message : String(error),
+				errorCode: error instanceof Error ? error.name : undefined,
 			};
 		}
 	};
