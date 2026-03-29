@@ -38,9 +38,9 @@ export function readEnv(name: string): string | undefined {
 /**
  * Read a required environment variable. Throws if missing or blank.
  *
- * Use this for env vars that MUST be present at runtime. The middleware
- * validates these on first HTTP request, but this also covers Lambda/cron
- * code paths that bypass middleware.
+ * Use this for env vars that MUST be present at runtime. Each module
+ * validates the vars it needs at point-of-use rather than centrally,
+ * so errors surface only when a code path that needs the var is hit.
  */
 export function requireEnv(name: string): string {
 	const value = readEnv(name);
@@ -57,7 +57,7 @@ function getUnsubscribeTokenSecret(): string | undefined {
 	return readEnv("UNSUBSCRIBE_TOKEN_SECRET");
 }
 
-/** Minimum length for UNSUBSCRIBE_TOKEN_SECRET (policy only; presence is enforced by middleware). */
+/** Minimum length for UNSUBSCRIBE_TOKEN_SECRET. */
 const UNSUBSCRIBE_SECRET_MIN_LENGTH = 12;
 
 /**
