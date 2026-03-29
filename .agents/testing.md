@@ -28,7 +28,7 @@
 
 ### Environment
 - Tests run against the Supabase instance configured in the test environment (local emulator). The setup mocks `getSiteUrl` via `src/lib/db/env` to a test host.
-- Do not add extra env presence checks in test files — `src/middleware.ts` handles this.
+- Do not add extra env presence checks in test files — `requireEnv()` at point-of-use in source modules handles this.
 
 ### Running Tests
 - **Always use `npm test`** — never `npx vitest run` directly. The `npm test` script uses `node --env-file-if-exists=.env.local` to load required Supabase environment variables (`SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY`, `DATABASE_URL`). Running vitest directly will fail with `supabaseUrl is required`.

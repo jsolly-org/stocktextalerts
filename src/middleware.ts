@@ -1,32 +1,13 @@
 import { defineMiddleware } from "astro:middleware";
 
+import { readEnv } from "./lib/db/env";
+
 const ORIGIN_CHECK_METHODS = new Set(["POST", "PATCH", "DELETE", "PUT"]);
 const FORM_CONTENT_TYPES = [
 	"application/x-www-form-urlencoded",
 	"multipart/form-data",
 	"text/plain",
 ];
-
-const REQUIRED_ENV_VARS = [
-	"SUPABASE_URL",
-	"SUPABASE_PUBLISHABLE_KEY",
-	"SUPABASE_SECRET_KEY",
-	"TWILIO_ACCOUNT_SID",
-	"TWILIO_AUTH_TOKEN", // Used by /api/messaging/send-sms
-	"TWILIO_PHONE_NUMBER",
-	"TWILIO_VERIFY_SERVICE_SID",
-	"UNSUBSCRIBE_TOKEN_SECRET",
-	"RESEND_API_KEY", // Used by /api/messaging/send-email
-	"EMAIL_FROM",
-	"MASSIVE_API_KEY", // Used by /api/assets/logo/[symbol] proxy — Massive branding images require auth
-] as const;
-
-// Lazy validation flag - only validate once on first request
-let envValidated = false;
-
-// Re-use the shared readEnv helper (prefers process.env, falls back to
-// import.meta.env for Vite dev-server mode).
-import { readEnv } from "./lib/db/env";
 
 /**
  * Returns true when the `Content-Type` indicates a form-like submission.
@@ -206,29 +187,11 @@ const applySecurityHeaders = (
 /**
  * Global Astro middleware.
  *
- * - Validates required environment variables (once, lazily).
  * - Assigns a per-request ID available via `context.locals.requestId`.
  * - Applies security headers (CSP, HSTS, etc).
  * - Enforces CSRF-style same-origin checks for mutation requests.
  */
 export const onRequest = defineMiddleware(async (context, next) => {
-	// Validate environment variables on first request
-	// This ensures validation happens after Vercel injects env vars at runtime
-	if (!envValidated) {
-		const missing: string[] = REQUIRED_ENV_VARS.filter(
-			(name) => !readEnv(name),
-		);
-		if (!readEnv("VERCEL_URL") && !readEnv("VERCEL_PROJECT_PRODUCTION_URL")) {
-			missing.push("VERCEL_PROJECT_PRODUCTION_URL or VERCEL_URL");
-		}
-		if (missing.length > 0) {
-			throw new Error(
-				`Missing required environment variables: ${missing.join(", ")}\n` +
-					"Please check your .env file and ensure all required variables are set.",
-			);
-		}
-		envValidated = true;
-	}
 	const requestId = crypto.randomUUID();
 	context.locals.requestId = requestId;
 	const requestUrl = new URL(context.request.url);
