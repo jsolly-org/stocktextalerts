@@ -40,7 +40,7 @@
 </template>
 
 <script lang="ts" setup>
-import { type Component, onMounted, onUnmounted, ref } from "vue";
+import { type Component, nextTick, onMounted, onUnmounted, ref } from "vue";
 
 import BellAlertIcon from "../../icons/bell-alert.svg?component";
 import CalendarDaysIcon from "../../icons/calendar-days.svg?component";
@@ -298,8 +298,18 @@ function syncToHash() {
 	const hash = window.location.hash.slice(1);
 	if (!hash) return;
 	const index = DASHBOARD_HASH_TO_TAB_INDEX[hash];
-	if (index === undefined || index === activeIndex.value) return;
-	scrollToCard(index);
+	if (index === undefined) return;
+	if (index !== activeIndex.value) {
+		scrollToCard(index);
+	}
+	if (isMobileQuery?.matches) {
+		scrollToHashTarget(hash, index);
+	} else {
+		const el = document.getElementById(hash);
+		if (el) {
+			el.scrollIntoView({ behavior: getScrollBehavior(), block: "center" });
+		}
+	}
 }
 
 onMounted(() => {
@@ -308,12 +318,26 @@ onMounted(() => {
 	const hash = window.location.hash.slice(1);
 	if (hash) {
 		const index = DASHBOARD_HASH_TO_TAB_INDEX[hash];
-		if (index !== undefined && index !== 0) {
-			activeIndex.value = index;
-			const card = cardRefs.value[index];
-			const track = trackRef.value;
-			if (card && track) {
-				track.scrollTo({ left: card.offsetLeft, behavior: "instant" });
+		if (index !== undefined) {
+			if (isMobileQuery.matches) {
+				if (index !== 0) {
+					activeIndex.value = index;
+					const card = cardRefs.value[index];
+					const track = trackRef.value;
+					if (card && track) {
+						track.scrollTo({ left: card.offsetLeft, behavior: "instant" });
+					}
+				}
+				scrollToHashTarget(hash, index);
+			} else {
+				// Desktop: Vue renders async so the target element may not exist
+				// yet when the browser processes the hash. Scroll after render.
+				nextTick(() => {
+					const el = document.getElementById(hash);
+					if (el) {
+						el.scrollIntoView({ behavior: getScrollBehavior(), block: "center" });
+					}
+				});
 			}
 		}
 	}

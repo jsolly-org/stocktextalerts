@@ -4,7 +4,7 @@
 - **Trust the type system**: Skip defensive null/undefined checks when strict TypeScript or DB constraints guarantee safety. Add checks only when values can legitimately be missing (parsed JSON, nullable columns, third-party payloads).
 - **Deterministic error checking**: Use structured error properties (`error.code`, `error.status`), not string matching (`.includes()`) on messages.
 - **Fail fast**: No silent fallbacks or default values on unexpected errors. If a fallback is needed for resilience, gate it on structured error properties and log with context.
-- **Env var validation**: Don't add presence checks — `src/middleware.ts` validates all required env vars on every request. Only validate format/type (e.g., `RESEND_API_KEY` starts with "re_") or handle optional env vars.
+- **Env var validation**: Use `requireEnv()` from `src/lib/db/env.ts` at point-of-use for required env vars. Only validate format/type (e.g., `RESEND_API_KEY` starts with "re_") beyond presence checks.
 
 ### Validation & Normalization
 - **Database is the integrity layer**: Enforce correctness via DB constraints; handle constraint failures at boundaries. Front-end validation is UX-only.

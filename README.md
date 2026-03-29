@@ -107,7 +107,7 @@ TWILIO_VERIFY_SERVICE_SID=your-verify-service-sid
 UNSUBSCRIBE_TOKEN_SECRET=your-random-secret-string  # Minimum 12 characters; use `openssl rand -hex 32`
 
 # Resend
-# Required locally because middleware validates it on first request.
+# Required at runtime by the email sender module.
 # In Vercel production, prefer the Resend integration instead of storing this manually.
 RESEND_API_KEY=re_local_test_key
 
