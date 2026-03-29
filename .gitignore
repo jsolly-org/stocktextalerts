@@ -27,6 +27,7 @@ node_modules/
 .vercel/
 
 # Other
+auth.json
 .tmp/
 .playwright-cli/
 plans/
