@@ -24,6 +24,27 @@ const vercelUrl =
 // CI is set by the runner (e.g. GitHub Actions), not .env.local.
 const isCI = process.env.CI === "true";
 
+/**
+ * Local production preview via @astrojs/node.
+ *
+ * The Vercel adapter does not support `astro preview`, so there is no built-in
+ * way to serve a production build locally. This matters because Vite's dev
+ * server skips code-splitting, CSS chunk extraction, and asset hashing — bugs
+ * in those areas (e.g. phantom CSS references that 404 at runtime) only surface
+ * in production builds.
+ *
+ * When ASTRO_ADAPTER=node (set by the `build:preview` / `preview` npm scripts),
+ * we swap in @astrojs/node in standalone mode. The Vite build pipeline is
+ * identical regardless of adapter, so code-splitting and CSS chunking behave
+ * exactly as they do in a real Vercel deployment. Only the serving layer
+ * differs (local Node server vs. Vercel serverless).
+ *
+ * This lets us run E2E tests against a production-equivalent build locally,
+ * catching issues that the dev server would miss.
+ */
+const useNodeAdapter =
+	env.ASTRO_ADAPTER === "node" || process.env.ASTRO_ADAPTER === "node";
+
 // Vercel Serverless max duration (seconds).
 // Only set this when explicitly configured, since the effective limit depends on
 // plan + whether Fluid Compute is enabled for the project.
@@ -39,7 +60,7 @@ const vercelMaxDurationSeconds =
 // In CI, VERCEL_URL may be unset (e.g. unit tests); use a placeholder so config still works.
 let site: string;
 if (!vercelUrl) {
-	if (isCI) {
+	if (isCI || useNodeAdapter) {
 		site = "https://placeholder.example.com";
 	} else {
 		throw new Error(
@@ -70,11 +91,13 @@ function sitemapFilter(page: string): boolean {
 // https://astro.build/config
 export default defineConfig({
 	output: "server",
-	adapter: vercel({
-		...(vercelMaxDurationSeconds
-			? { maxDuration: vercelMaxDurationSeconds }
-			: {}),
-	}),
+	adapter: useNodeAdapter
+		? (await import("@astrojs/node")).default({ mode: "standalone" })
+		: vercel({
+				...(vercelMaxDurationSeconds
+					? { maxDuration: vercelMaxDurationSeconds }
+					: {}),
+			}),
 
 	site,
 	security: {

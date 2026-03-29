@@ -28,7 +28,7 @@ node_modules/
 
 # Other
 .tmp/
-.playwright-mcp/
+.playwright-cli/
 plans/
 scripts/one-off-testing/preview-digest.html
 

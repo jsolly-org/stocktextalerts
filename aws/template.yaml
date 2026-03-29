@@ -58,16 +58,6 @@ Globals:
       Variables:
         SUPABASE_URL: !Ref SupabaseUrl
         SUPABASE_SECRET_KEY: !Ref SupabaseSecretKey
-        SITE_URL: !Ref SiteUrl
-        MASSIVE_API_KEY: !Ref MassiveApiKey
-        FINNHUB_API_KEY: !Ref FinnhubApiKey
-        XAI_API_KEY: !Ref XaiApiKey
-        RESEND_API_KEY: !Ref ResendApiKey
-        EMAIL_FROM: !Ref EmailFrom
-        TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
-        TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
-        TWILIO_PHONE_NUMBER: !Ref TwilioPhoneNumber
-        UNSUBSCRIBE_TOKEN_SECRET: !Ref UnsubscribeTokenSecret
         LOG_MASK_PII: !Ref LogMaskPii
 
 Resources:
@@ -78,6 +68,18 @@ Resources:
       CodeUri: dist/handlers/
       Timeout: 300
       MemorySize: 512
+      Environment:
+        Variables:
+          SITE_URL: !Ref SiteUrl
+          MASSIVE_API_KEY: !Ref MassiveApiKey
+          FINNHUB_API_KEY: !Ref FinnhubApiKey
+          XAI_API_KEY: !Ref XaiApiKey
+          RESEND_API_KEY: !Ref ResendApiKey
+          EMAIL_FROM: !Ref EmailFrom
+          TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
+          TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
+          TWILIO_PHONE_NUMBER: !Ref TwilioPhoneNumber
+          UNSUBSCRIBE_TOKEN_SECRET: !Ref UnsubscribeTokenSecret
       Events:
         EveryMinute:
           Type: ScheduleV2
@@ -92,6 +94,10 @@ Resources:
       CodeUri: dist/handlers/
       Timeout: 300
       MemorySize: 256
+      Environment:
+        Variables:
+          MASSIVE_API_KEY: !Ref MassiveApiKey
+          FINNHUB_API_KEY: !Ref FinnhubApiKey
       Events:
         DailyMidnight:
           Type: ScheduleV2
@@ -106,6 +112,9 @@ Resources:
       CodeUri: dist/handlers/
       Timeout: 600
       MemorySize: 256
+      Environment:
+        Variables:
+          MASSIVE_API_KEY: !Ref MassiveApiKey
       Events:
         WeekdayEvening:
           Type: ScheduleV2

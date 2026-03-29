@@ -6,10 +6,12 @@
 		"build": "cd .. && npx tsx aws/esbuild.config.ts",
 		"typecheck": "tsc --noEmit",
 		"deploy": "bash deploy.sh",
+		"local:gen-env": "bash generate-env-json.sh",
 		"local:invoke": "sam local invoke --env-vars env.json --event -",
 		"local:schedule": "echo '{\"source\":\"aws.scheduler\"}' | npm run local:invoke -- ScheduleFunction",
 		"local:asset-events": "echo '{\"source\":\"aws.scheduler\"}' | npm run local:invoke -- AssetEventsFunction",
-		"local:daily-stats": "echo '{\"source\":\"aws.scheduler\"}' | npm run local:invoke -- ComputeDailyStatsFunction"
+		"local:daily-stats": "echo '{\"source\":\"aws.scheduler\"}' | npm run local:invoke -- ComputeDailyStatsFunction",
+		"local:test-all": "bash test-local-lambdas.sh"
 	},
 	"devDependencies": {
 		"@types/aws-lambda": "^8.10.145",
