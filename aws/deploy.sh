@@ -34,7 +34,6 @@ sam deploy \
     MassiveApiKey="$MASSIVE_API_KEY" \
     FinnhubApiKey="$FINNHUB_API_KEY" \
     XaiApiKey="$XAI_API_KEY" \
-    ResendApiKey="$RESEND_API_KEY" \
     EmailFrom="$EMAIL_FROM" \
     TwilioAccountSid="$TWILIO_ACCOUNT_SID" \
     TwilioAuthToken="$TWILIO_AUTH_TOKEN" \

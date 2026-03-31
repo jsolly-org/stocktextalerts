@@ -17,7 +17,7 @@ describe("A visitor attempts to register with an invalid password.", () => {
 		const request = new Request("http://localhost/api/auth/email/register", {
 			method: "POST",
 			body: new URLSearchParams({
-				email: `test-${randomUUID()}@resend.dev`,
+				email: `test-${randomUUID()}@example.com`,
 				password: shortPassword,
 				confirm: shortPassword,
 				timezone: "America/New_York",
@@ -37,7 +37,7 @@ describe("A visitor attempts to register with an invalid password.", () => {
 		const request = new Request("http://localhost/api/auth/email/register", {
 			method: "POST",
 			body: new URLSearchParams({
-				email: `test-${randomUUID()}@resend.dev`,
+				email: `test-${randomUUID()}@example.com`,
 				password,
 				confirm: `${password}DIFFERENT`,
 				timezone: "America/New_York",

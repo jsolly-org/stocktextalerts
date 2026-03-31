@@ -31,7 +31,7 @@ async function searchAssets(
 describe("Asset search ranking", () => {
 	it("returns exact symbol matches before name-only matches", async () => {
 		const testUser = await createTestUser({
-			email: `test-search-exact-${randomUUID()}@resend.dev`,
+			email: `test-search-exact-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 		});
@@ -73,7 +73,7 @@ describe("Asset search ranking", () => {
 
 	it("returns symbol-prefix matches before name-only matches", async () => {
 		const testUser = await createTestUser({
-			email: `test-search-prefix-${randomUUID()}@resend.dev`,
+			email: `test-search-prefix-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 		});

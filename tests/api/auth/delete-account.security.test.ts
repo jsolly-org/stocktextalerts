@@ -26,7 +26,7 @@ describe("Delete account requires authentication.", () => {
 describe("Delete account endpoint enforces rate limiting.", () => {
 	it("When rate limit is exceeded, the request is redirected with rate_limit error.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 		});

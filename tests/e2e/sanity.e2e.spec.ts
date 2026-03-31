@@ -433,8 +433,8 @@ test.describe("sanity tests", () => {
 		test.slow();
 		test.setTimeout(120_000);
 
-		testEmail = `sanity-${randomUUID()}@resend.dev`;
-		secondEmail = `sanity-second-${randomUUID()}@resend.dev`;
+		testEmail = `sanity-${randomUUID()}@example.com`;
+		secondEmail = `sanity-second-${randomUUID()}@example.com`;
 
 		if (!REGISTRATION_ENABLED) {
 			// Registration is gated — create user via admin API and sign in directly
@@ -1009,7 +1009,7 @@ test.describe("sanity tests", () => {
 
 	test("TC-INBOUND-001: Inbound SMS keywords", async () => {
 		const inboundUser = await createTestUser({
-			email: `inbound-${randomUUID()}@resend.dev`,
+			email: `inbound-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 			smsNotificationsEnabled: true,

@@ -16,7 +16,7 @@ import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 describe("A signed-in opted-out user attempts to re-enable SMS options.", () => {
 	it("When sms_opted_out is true, SMS include flags cannot be enabled.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 			smsNotificationsEnabled: false,
@@ -63,7 +63,7 @@ describe("A signed-in opted-out user attempts to re-enable SMS options.", () => 
 
 	it("When sms_opted_out is true, submitting already-enabled SMS include flags still allows unrelated saves.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 			smsNotificationsEnabled: false,

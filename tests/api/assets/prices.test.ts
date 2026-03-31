@@ -13,7 +13,7 @@ import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 describe("GET /api/assets/prices", () => {
 	it("Returns prev-close and sector data for tracked assets.", async () => {
 		const testUser = await createTestUser({
-			email: `asset-prices-${randomUUID()}@resend.dev`,
+			email: `asset-prices-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 			trackedAssets: ["AAPL", "MSFT"],
@@ -65,7 +65,7 @@ describe("GET /api/assets/prices", () => {
 
 	it("Returns an empty asset payload when the user has not tracked anything yet.", async () => {
 		const testUser = await createTestUser({
-			email: `asset-prices-empty-${randomUUID()}@resend.dev`,
+			email: `asset-prices-empty-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 		});

@@ -53,22 +53,16 @@ export function createTestEmail(prefix = "test"): string {
 		.toLowerCase();
 	const normalizedPrefix = safePrefix.length > 0 ? safePrefix : "test";
 
-	// When email provider is live, Resend only delivers to their test address.
-	// Use plus-addressing on delivered@resend.dev so each test gets a unique address.
-	// RFC 5321 limits the local part (before @) to 64 octets, so use a short
-	// random suffix instead of full UUIDs which would exceed the limit.
+	// When email provider is live, use the AWS SES mailbox simulator.
+	// Plus-addressing keeps each test unique while the simulator treats
+	// all success+*@ addresses identically (accepted, not delivered).
 	if (isLiveProviderEnabled("email")) {
 		const shortId = randomUUID().replace(/-/g, "").slice(0, 12);
-		const maxPrefixLength = 64 - "delivered+".length - 1 - shortId.length;
-		const cappedPrefix = normalizedPrefix.slice(
-			0,
-			Math.max(1, maxPrefixLength),
-		);
-		return `delivered+${cappedPrefix}-${shortId}@resend.dev`;
+		return `success+${normalizedPrefix}-${shortId}@simulator.amazonses.com`;
 	}
 
 	const label = `${normalizedPrefix}-${TEST_RUN_ID}-${randomUUID()}`;
-	return `${label}@resend.dev`;
+	return `${label}@example.com`;
 }
 
 function tagEmailAddress(baseEmail: string): string {

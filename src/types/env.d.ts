@@ -9,7 +9,9 @@ interface ImportMetaEnv {
 	readonly TWILIO_AUTH_TOKEN: string;
 	readonly TWILIO_PHONE_NUMBER: string;
 	readonly TWILIO_VERIFY_SERVICE_SID: string;
-	readonly RESEND_API_KEY: string;
+	readonly AWS_ACCESS_KEY_ID?: string;
+	readonly AWS_SECRET_ACCESS_KEY?: string;
+	readonly AWS_REGION?: string;
 	readonly EMAIL_FROM: string;
 	readonly UNSUBSCRIBE_TOKEN_SECRET: string;
 	readonly VERCEL_URL?: string;
