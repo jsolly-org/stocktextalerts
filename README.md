@@ -1,11 +1,11 @@
 # 📈 StockTextAlerts.com
 
-A securities notification app that sends scheduled SMS and email updates (scheduled asset price notifications, daily digests, and asset events), optional asset price alerts, and one-shot price target alerts for tracked US stocks and ETFs. Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email and SMS are sent via Resend and Twilio. 🔔
+A securities notification app that sends scheduled SMS and email updates (scheduled asset price notifications, daily digests, and asset events), optional asset price alerts, and one-shot price target alerts for tracked US stocks and ETFs. Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email and SMS are sent via AWS SES and Twilio. 🔔
 
 ## Features
 
 - **Asset Tracking** - Search and track US stocks and ETFs (up to 10)
-- **Email Notifications** - Receive updates via email (Resend)
+- **Email Notifications** - Receive updates via email (AWS SES)
 - **SMS Notifications** - Optional SMS delivery (Twilio)
 - **Asset Price Alerts** - Optional smart alerts for tracked stocks (not ETFs) during US market hours, with configurable sensitivity (Significant/Extreme). Alerts are capped at one alert per symbol per US trading day
 - **Price Targets** - Set a target price for any watchlist symbol and get a one-shot email and/or SMS when the price is reached (target is cleared after delivery)
@@ -25,7 +25,7 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - **Database**: Supabase (PostgreSQL)
 - **Market Data**: Massive (prices/dividends/splits/IPOs) + Finnhub (symbols, earnings, market hours, analyst/insider extras)
 - **AI Summaries**: xAI (Grok) for optional News/Rumors add-ons and asset price alert summaries
-- **Email**: Resend
+- **Email**: AWS SES
 - **SMS**: Twilio Verify API + Messaging API
 - **Hosting**: Vercel (dashboard) + AWS Lambda (notification crons via SAM)
 - **Phone Validation**: libphonenumber-js
@@ -81,7 +81,7 @@ npm install
 
 ### 3. Environment Variables
 
-> **Note:** Where possible, use official [Supabase integrations](https://supabase.com/docs/guides/platform/marketplace) (e.g. Resend, Twilio) instead of manually managing API keys as environment variables. Integrations are configured in the Supabase Dashboard and inject credentials automatically — no env vars needed.
+> **Note:** Where possible, use official [Supabase integrations](https://supabase.com/docs/guides/platform/marketplace) (e.g. Twilio) instead of manually managing API keys as environment variables. Integrations are configured in the Supabase Dashboard and inject credentials automatically — no env vars needed.
 
 Create a `.env.local` file in the root directory (you can copy from `env.example` and fill in secrets). This file is gitignored and **must not** be committed.
 
@@ -277,7 +277,7 @@ npm run test:live:xai
 
 Notes:
 - `MASSIVE_API_KEY`, `FINNHUB_API_KEY`, and/or `XAI_API_KEY` must be present in your environment when enabled.
-- Twilio and Resend remain fake/stubbed in tests.
+- Twilio and SES remain fake/stubbed in tests.
 
 ## Usage
 

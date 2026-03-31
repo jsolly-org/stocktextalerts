@@ -69,7 +69,7 @@ export async function dispatchDailyDigestUser(options: {
 	marketClosureInfo?: MarketClosureInfo | null;
 	/** Shared scheduler client (avoids per-user Supabase construction). */
 	supabase?: SupabaseAdminClient;
-	/** Shared email sender from the cron run (reuses Resend setup). */
+	/** Shared email sender from the cron run (reuses SES setup). */
 	sendEmail?: EmailSender;
 	/** Shared SMS provider from the cron run (reuses Twilio client cache). */
 	getSmsSender?: SmsSenderProvider;

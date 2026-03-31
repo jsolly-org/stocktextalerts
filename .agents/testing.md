@@ -5,7 +5,7 @@
 - **Scenario-based coverage**: The goal is to cover real-world scenarios that could happen in production — not to maximize code coverage or add a test file per source file. Each test should represent a plausible user journey or system event. Focus on success paths and essential validation; avoid exhaustive edge-case coverage. Exception: security tests (`.security.test.ts` suffix) may keep negative-path cases for validating rejection of invalid input.
 
 ### Mocking
-- **Integration over isolation**: Prefer integration tests that use real dependencies. Only mock external services that consume paid API allocations (e.g., Resend, Twilio, Finnhub).
+- **Integration over isolation**: Prefer integration tests that use real dependencies. Only mock external services that consume paid API allocations (e.g., AWS SES, Twilio, Finnhub).
 - **Do not mock Supabase**: Route tests through the real Supabase client and seeded data using helpers (`createTestUser` from `test-user.ts`, `adminClient` from `test-env.ts`).
 
 ### Assertions

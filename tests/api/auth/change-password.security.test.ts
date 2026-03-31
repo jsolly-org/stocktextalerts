@@ -31,7 +31,7 @@ describe("Password change endpoint enforces authentication, form validation, and
 	it("Authenticated requests with missing fields are rejected as invalid form.", async () => {
 		const originalPassword = "TestPassword123!";
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: originalPassword,
 			confirmed: true,
 		});
@@ -63,7 +63,7 @@ describe("Password change endpoint enforces rate limiting.", () => {
 	it("When rate limit is exceeded, the request is redirected with rate_limit error.", async () => {
 		const originalPassword = "TestPassword123!";
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: originalPassword,
 			confirmed: true,
 		});

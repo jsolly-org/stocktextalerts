@@ -229,7 +229,7 @@ describe("A signed-in user updates their tracked assets.", () => {
 		const invalidSymbol = `ZZ${randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase()}`;
 
 		const testUser = await createTestUser({
-			email: `assets-invalid-${randomUUID()}@resend.dev`,
+			email: `assets-invalid-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 			trackedAssets: ["AAPL"],

@@ -23,7 +23,7 @@ describe("An authenticated user requests the next market notification send time.
 
 	it("The API returns the computed next send time for valid timezone and times.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 		});
