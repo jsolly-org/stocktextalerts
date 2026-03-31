@@ -46,16 +46,16 @@
 		]
 	},
 	"dependencies": {
-		"@astrojs/vercel": "^10.0.2",
+		"@astrojs/vercel": "^10.0.3",
 		"@aws-sdk/client-sesv2": "^3.1019.0",
-		"@supabase/supabase-js": "^2.100.0",
+		"@supabase/supabase-js": "^2.101.0",
 		"@vuepic/vue-datepicker": "^12.1.0",
 		"@vueuse/core": "^14.2.1",
 		"astro-icon": "^1.1.5",
 		"libphonenumber-js": "^1.12.40",
 		"luxon": "^3.7.2",
 		"twilio": "^5.13.1",
-		"vue": "^3.5.30"
+		"vue": "^3.5.31"
 	},
 	"overrides": {
 		"lodash": "4.17.23"
@@ -73,11 +73,11 @@
 		"@types/pg": "^8.20.0",
 		"astro": "^6.1.1",
 		"husky": "^9.1.7",
-		"knip": "^6.0.3",
+		"knip": "^6.1.1",
 		"lighthouse": "^13.0.3",
 		"lint-staged": "^16.4.0",
 		"pg": "^8.20.0",
-		"supabase": "^2.83.0",
+		"supabase": "^2.84.5",
 		"tailwindcss": "^4.2.2",
 		"tsx": "^4.21.0",
 		"typescript": "^5.9.3",
