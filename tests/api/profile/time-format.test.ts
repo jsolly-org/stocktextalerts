@@ -16,7 +16,7 @@ import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 describe("A signed-in user updates profile time display format.", () => {
 	it("Persists the 24-hour preference from the profile page.", async () => {
 		const testUser = await createTestUser({
-			email: `time-format-${randomUUID()}@resend.dev`,
+			email: `time-format-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 		});
@@ -64,7 +64,7 @@ describe("A signed-in user updates profile time display format.", () => {
 
 	it("Treats a missing checkbox value as opting out of 24-hour time.", async () => {
 		const testUser = await createTestUser({
-			email: `time-format-empty-${randomUUID()}@resend.dev`,
+			email: `time-format-empty-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 		});

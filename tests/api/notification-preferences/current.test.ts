@@ -10,7 +10,7 @@ import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 describe("A signed-in user loads their current notification settings.", () => {
 	it("Returns the saved notification preferences snapshot for dashboard hydration.", async () => {
 		const testUser = await createTestUser({
-			email: `pref-current-${randomUUID()}@resend.dev`,
+			email: `pref-current-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 			timezone: "America/Chicago",

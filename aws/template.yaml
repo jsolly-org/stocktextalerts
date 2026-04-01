@@ -20,9 +20,6 @@ Parameters:
   XaiApiKey:
     Type: String
     NoEcho: true
-  ResendApiKey:
-    Type: String
-    NoEcho: true
   EmailFrom:
     Type: String
   TwilioAccountSid:
@@ -68,13 +65,20 @@ Resources:
       CodeUri: dist/handlers/
       Timeout: 300
       MemorySize: 512
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: "arn:aws:ses:us-east-1:730335616323:identity/stocktextalerts.com"
       Environment:
         Variables:
           SITE_URL: !Ref SiteUrl
           MASSIVE_API_KEY: !Ref MassiveApiKey
           FINNHUB_API_KEY: !Ref FinnhubApiKey
           XAI_API_KEY: !Ref XaiApiKey
-          RESEND_API_KEY: !Ref ResendApiKey
           EMAIL_FROM: !Ref EmailFrom
           TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
           TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken

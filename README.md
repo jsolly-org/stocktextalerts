@@ -1,11 +1,11 @@
 # 📈 StockTextAlerts.com
 
-A securities notification app that sends scheduled SMS and email updates (scheduled asset price notifications, daily digests, and asset events), optional asset price alerts, and one-shot price target alerts for tracked US stocks and ETFs. Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email and SMS are sent via Resend and Twilio. 🔔
+A securities notification app that sends scheduled SMS and email updates (scheduled asset price notifications, daily digests, and asset events), optional asset price alerts, and one-shot price target alerts for tracked US stocks and ETFs. Built with Astro, deployed on Vercel, with Supabase authentication and a PostgreSQL database. Email and SMS are sent via AWS SES and Twilio. 🔔
 
 ## Features
 
 - **Asset Tracking** - Search and track US stocks and ETFs (up to 10)
-- **Email Notifications** - Receive updates via email (Resend)
+- **Email Notifications** - Receive updates via email (AWS SES)
 - **SMS Notifications** - Optional SMS delivery (Twilio)
 - **Asset Price Alerts** - Optional smart alerts for tracked stocks (not ETFs) during US market hours, with configurable sensitivity (Significant/Extreme). Alerts are capped at one alert per symbol per US trading day
 - **Price Targets** - Set a target price for any watchlist symbol and get a one-shot email and/or SMS when the price is reached (target is cleared after delivery)
@@ -25,7 +25,7 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 - **Database**: Supabase (PostgreSQL)
 - **Market Data**: Massive (prices/dividends/splits/IPOs) + Finnhub (symbols, earnings, market hours, analyst/insider extras)
 - **AI Summaries**: xAI (Grok) for optional News/Rumors add-ons and asset price alert summaries
-- **Email**: Resend
+- **Email**: AWS SES
 - **SMS**: Twilio Verify API + Messaging API
 - **Hosting**: Vercel (dashboard) + AWS Lambda (notification crons via SAM)
 - **Phone Validation**: libphonenumber-js
@@ -81,7 +81,7 @@ npm install
 
 ### 3. Environment Variables
 
-> **Note:** Where possible, use official [Supabase integrations](https://supabase.com/docs/guides/platform/marketplace) (e.g. Resend, Twilio) instead of manually managing API keys as environment variables. Integrations are configured in the Supabase Dashboard and inject credentials automatically — no env vars needed.
+> **Note:** Where possible, use official [Supabase integrations](https://supabase.com/docs/guides/platform/marketplace) (e.g. Twilio) instead of manually managing API keys as environment variables. Integrations are configured in the Supabase Dashboard and inject credentials automatically — no env vars needed.
 
 Create a `.env.local` file in the root directory (you can copy from `env.example` and fill in secrets). This file is gitignored and **must not** be committed.
 
@@ -106,10 +106,11 @@ TWILIO_VERIFY_SERVICE_SID=your-verify-service-sid
 # Email unsubscribe token signing
 UNSUBSCRIBE_TOKEN_SECRET=your-random-secret-string  # Minimum 12 characters; use `openssl rand -hex 32`
 
-# Resend
-# Required at runtime by the email sender module.
-# In Vercel production, prefer the Resend integration instead of storing this manually.
-RESEND_API_KEY=re_local_test_key
+# Email (AWS SES)
+# AWS credentials for SES email sending. In Lambda, the execution role provides these automatically.
+AWS_ACCESS_KEY_ID=your-aws-access-key-id
+AWS_SECRET_ACCESS_KEY=your-aws-secret-access-key
+AWS_REGION=us-east-1
 
 EMAIL_FROM="Your Project Name <notifications@updates.example.com>"
 
@@ -135,8 +136,8 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - `DATABASE_URL`: Supabase Dashboard → Project Settings → Database → Connection String → Transaction mode (pooler)
 - Twilio credentials: Twilio Console → Account Dashboard
 - `UNSUBSCRIBE_TOKEN_SECRET`: Generate a random string (minimum 12 characters; e.g., `openssl rand -hex 32`)
-- `RESEND_API_KEY`: Resend Dashboard → API Keys (for local dev, a placeholder like `re_local_test_key` is fine unless you are running live email tests)
-- `EMAIL_FROM`: A verified sender/domain in Resend
+- `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`: AWS IAM credentials with SES send permissions
+- `EMAIL_FROM`: A verified sender address/domain in AWS SES
 - Massive credentials: Massive Dashboard → API Keys
 - Finnhub credentials: Finnhub Dashboard → API Keys
 - xAI credentials: xAI Console → API Keys
@@ -145,7 +146,7 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 **Security Note:** The `SUPABASE_SECRET_KEY` bypasses Row Level Security. Never expose it on the client side. The `.env.local` file (and all `.env*` files) are excluded from version control via `.gitignore`.
 
 **Platform-only config (not part of `.env.local`):**
-- **Vercel-managed/injected:** `VERCEL_URL` is set automatically on hosted deployments. If you use the Vercel Supabase and Resend integrations, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, and `RESEND_API_KEY` come from those integrations instead of a committed/shared env file.
+- **Vercel-managed/injected:** `VERCEL_URL` is set automatically on hosted deployments. If you use the Vercel Supabase integration, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SECRET_KEY` come from that integration instead of a committed/shared env file. AWS credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`) must be set manually in Vercel for SES email sending.
 - **Local-only values:** `DATABASE_URL` and `DEFAULT_PASSWORD` are for local Supabase + seed generation and should not be added to Vercel.
 - **GitHub Actions repository secrets:** `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `POSTGRES_PASSWORD`, `GH_AGENT_TOKEN`, and `ALERT_PHONE_NUMBER`.
 - **GitHub Actions repository variables:** `PRODUCTION_SITE_URL`.
@@ -276,7 +277,7 @@ npm run test:live:xai
 
 Notes:
 - `MASSIVE_API_KEY`, `FINNHUB_API_KEY`, and/or `XAI_API_KEY` must be present in your environment when enabled.
-- Twilio and Resend remain fake/stubbed in tests.
+- Twilio and SES remain fake/stubbed in tests.
 
 ## Usage
 
@@ -331,7 +332,6 @@ If you use marketplace/integration-managed credentials, you also do **not** manu
 - `SUPABASE_URL`
 - `SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_SECRET_KEY`
-- `RESEND_API_KEY`
 
 **Important for Astro SSR:**
 - Ensure variables are available for **Production**, **Preview**, and **Development**

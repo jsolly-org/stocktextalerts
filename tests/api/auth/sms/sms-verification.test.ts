@@ -32,7 +32,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 
 	it("A signed-in user requests a verification code for their phone number and receives a confirmation.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: "TestPassword123!",
 			confirmed: true,
 		});
@@ -100,7 +100,7 @@ describe("A signed-in user verifies their phone number with an SMS code.", () =>
 
 	it("A valid code confirms the phone number and clears the pending verification.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: "TestPassword123!",
 			confirmed: true,
 			smsNotificationsEnabled: false,

@@ -43,7 +43,7 @@ async function signInAndAssertRedirect(
 describe("Sign in with correct email and password.", () => {
 	it("User signs in from home route and is sent to /dashboard.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: "TestPassword123!",
 			confirmed: true,
 		});
@@ -59,7 +59,7 @@ describe("Sign in with correct email and password.", () => {
 
 	it("Unauthenticated user attempts /dashboard, is prompted to sign in, then is redirected to /dashboard.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: "TestPassword123!",
 			confirmed: true,
 		});
@@ -75,7 +75,7 @@ describe("Sign in with correct email and password.", () => {
 
 	it("Unauthenticated user attempts /profile, is prompted to sign in, then is redirected to /profile.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: "TestPassword123!",
 			confirmed: true,
 		});
@@ -92,7 +92,7 @@ describe("Sign in with correct email and password.", () => {
 
 describe("Sign in with incorrect credentials.", () => {
 	it("If the email is not found, the user sees an invalid credentials message.", async () => {
-		const nonExistentEmail = `nonexistent-${randomUUID()}@resend.dev`;
+		const nonExistentEmail = `nonexistent-${randomUUID()}@example.com`;
 
 		const request = new Request("http://localhost/api/auth/signin", {
 			method: "POST",
@@ -116,7 +116,7 @@ describe("Sign in with incorrect credentials.", () => {
 
 	it("If the password is incorrect, the user sees an invalid credentials message.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: "CorrectPassword123!",
 			confirmed: true,
 		});

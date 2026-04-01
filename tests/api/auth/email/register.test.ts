@@ -17,7 +17,7 @@ vi.mock("../../../../src/lib/constants", async (importOriginal) => {
 describe("A visitor registers for a new account with email and password.", () => {
 	it("The account is created, stored with the chosen timezone, and the user is redirected to the unconfirmed email page.", async () => {
 		const payload = {
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirm: TEST_PASSWORD,
 			timezone: "America/New_York",
@@ -71,7 +71,7 @@ describe("A visitor registers for a new account with email and password.", () =>
 
 	it("When the detected timezone is invalid, the account is created with the default timezone.", async () => {
 		const payload = {
-			email: `test-fallback-${randomUUID()}@resend.dev`,
+			email: `test-fallback-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirm: TEST_PASSWORD,
 			timezone: "Fake/Zone",
@@ -116,7 +116,7 @@ describe("A visitor registers for a new account with email and password.", () =>
 	it("User's timezone is detected, but they choose a different one. It is saved based on their choice.", async () => {
 		const chosenTimezone = "America/Chicago";
 		const payload = {
-			email: `test-chosen-${randomUUID()}@resend.dev`,
+			email: `test-chosen-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirm: TEST_PASSWORD,
 			timezone: chosenTimezone,
@@ -158,7 +158,7 @@ describe("A visitor registers for a new account with email and password.", () =>
 
 	it("After registering, the email remains unverified until confirmation is completed.", async () => {
 		const payload = {
-			email: `test-verify-${randomUUID()}@resend.dev`,
+			email: `test-verify-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirm: TEST_PASSWORD,
 			timezone: "America/New_York",

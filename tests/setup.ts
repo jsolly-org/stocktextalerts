@@ -37,7 +37,7 @@ vi.mock("../src/lib/db/env", async (importOriginal) => {
 assertLiveProviderKey({ provider: "massive", envVar: "MASSIVE_API_KEY" });
 assertLiveProviderKey({ provider: "finnhub", envVar: "FINNHUB_API_KEY" });
 assertLiveProviderKey({ provider: "xai", envVar: "XAI_API_KEY" });
-assertLiveProviderKey({ provider: "email", envVar: "RESEND_API_KEY" });
+assertLiveProviderKey({ provider: "email", envVar: "AWS_ACCESS_KEY_ID" });
 assertLiveProviderKey({ provider: "sms", envVar: "TWILIO_ACCOUNT_SID" });
 
 // Data-provider stubs set a dummy API key so requireEnv() doesn't throw.

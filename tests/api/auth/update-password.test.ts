@@ -9,7 +9,7 @@ import { cleanupTestUser, createTestUser } from "../../helpers/test-user";
 describe("A user resets their password from the recovery flow.", () => {
 	it("With a valid token and password, the user is redirected to the sign-in page.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: "OldPassword123!",
 			confirmed: true,
 		});

@@ -29,7 +29,7 @@ describe("Update email requires authentication.", () => {
 describe("Update email endpoint enforces rate limiting.", () => {
 	it("When rate limit is exceeded, the request is redirected with rate_limit error.", async () => {
 		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@resend.dev`,
+			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
 		});
@@ -60,7 +60,7 @@ describe("Update email endpoint enforces rate limiting.", () => {
 
 		const request = new Request("http://localhost/api/auth/update-email", {
 			method: "POST",
-			body: new URLSearchParams({ email: `new-${randomUUID()}@resend.dev` }),
+			body: new URLSearchParams({ email: `new-${randomUUID()}@example.com` }),
 		});
 
 		const response = await POST(createApiContext({ request, cookies }));
