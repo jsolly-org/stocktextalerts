@@ -56,7 +56,7 @@ The PR should include:
 - GitHub CLI should be used to open the PR.
 
 ## Guidelines
-- Read `AGENTS.md` and `.agents/` for project conventions before auditing.
+- Read `AGENTS.md` for project conventions before auditing.
 - Be concise and actionable in the PR body.
 - Do not make speculative fixes without clear evidence from the audit results or code.
 - Prefer the best high-confidence remediation that fully addresses the accessibility issue within a safe automation scope.

@@ -22,7 +22,7 @@ Evaluate the current `main` state for:
 
 ## Steps
 1. Check out the latest `main` state.
-2. Read `AGENTS.md` and relevant `.agents/` guidance before reviewing.
+2. Read `AGENTS.md` for project conventions before reviewing.
 3. Inspect the application code, configuration, scripts, and dependency manifests that are most likely to contain security-sensitive behavior.
 4. Review the current `main` state against the threat checklist.
 5. Base every finding on concrete code evidence from the repository:

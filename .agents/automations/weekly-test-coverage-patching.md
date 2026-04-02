@@ -17,7 +17,7 @@ This is a scheduled `main` coverage patching run:
 
 ## Steps
 1. Check out the latest `main` state.
-2. Read `AGENTS.md` and the `.agents/` directory, especially `.agents/testing.md`, to understand conventions.
+2. Read `AGENTS.md` to understand conventions, especially the Testing section.
 3. Explore the source code in `src/` to understand:
    - What users do, such as sign up, track assets, manage notification preferences, and receive alerts
    - What cron jobs do, such as fetch market data, compute digests, detect anomalies, and send notifications

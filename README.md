@@ -251,7 +251,7 @@ npm run gha:local:lint
 npm run gha:local:test-build
 ```
 
-Full setup and troubleshooting: `.agents/local-ci.md`
+Requires Docker and `act` (`brew install act`). Defaults are in `.actrc`.
 
 ### Optional: Live Provider Tests (Massive/Finnhub/xAI)
 

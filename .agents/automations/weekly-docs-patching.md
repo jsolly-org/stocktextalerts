@@ -20,7 +20,7 @@ ONLY these files may be modified:
 
 ## Instructions
 1. Check out the latest `main` state.
-2. Read `AGENTS.md` and the `.agents/` directory for project conventions and guidance.
+2. Read `AGENTS.md` for project conventions and guidance.
 3. Review the current codebase and identify user-facing documentation that is out of date, missing, or misleading.
 4. Modify ONLY the allowed files listed above.
 5. For `src/pages/faq.astro`:

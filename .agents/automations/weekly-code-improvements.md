@@ -17,7 +17,7 @@ This is a scheduled `main` improvement run:
 
 ## Instructions
 1. Check out the latest `main` state.
-2. Read `AGENTS.md` and the `.agents/` directory for project conventions and guidelines.
+2. Read `AGENTS.md` for project conventions and guidelines.
 3. Analyze the codebase for quality issues across the files most likely to benefit from cleanup.
 4. Choose improvements that are high-value, safe, and reasonably scoped for an automated PR:
    - Prefer changes that simplify the codebase or remove real maintenance burden
