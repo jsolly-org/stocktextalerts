@@ -36,44 +36,33 @@ supabase migration new <name>  # Create new migration (never rename timestamps)
 - `supabase/migrations/` — SQL migrations (source of truth; CI pushes to production)
 - `tests/helpers/` — `test-user.ts`, `test-env.ts`, `asset-data.ts`
 
-## Code Style
+## Project-Specific Style
 
 - **Biome** for all formatting/linting. `noConsole` is an error — use `src/lib/logging/` instead.
 - **Astro files excluded from Biome** due to `---` delimiter formatter bug.
-- **Relative paths only**: No `@`-style aliases. No barrel files / re-exports.
-- **No compatibility layers**: No shims, adapters, deprecations, or re-exports for legacy behavior.
-- **No browser polyfills**: Modern browser APIs assumed. Server-side polyfills fine when Node.js lacks the API.
-- **No timing hacks**: No `setTimeout`/`nextTick`/`requestAnimationFrame` to mask race conditions.
 - **Tailwind utilities** over custom CSS. Semantic tokens via `@theme` in `src/global.css`.
 - **Icons (Astro):** `Icon` from `astro-icon/components`, loads from `src/icons/*.svg`.
 - **Icons (Vue):** Import SVGs via `vite-svg-loader` with `?component` suffix. No `astro-icon` in Vue.
 - **No inline `<svg>` markup** — store all SVGs in `src/icons/`.
-
-## Error Handling
-
-- **Trust the type system**: Skip defensive null checks when TS or DB constraints guarantee safety.
-- **Deterministic error checking**: Use `error.code`/`error.status`, not string matching on messages.
-- **Fail fast**: No silent fallbacks on unexpected errors.
-- **Env vars**: Use `requireEnv()` from `src/lib/db/env.ts` at point-of-use.
 - **DB is the integrity layer**: Enforce via constraints; front-end validation is UX-only.
 - **Trust DB values**: No null checks for NOT NULL columns or FK-guaranteed data.
 
-### Logging
+## Logging
 
 - Use `src/lib/logging.ts` (`createLogger`, `logInfo`, `logWarn`, `logError`) — structured JSON with `timestamp`, `level`, `message`, `context`.
 - Always pass a named context object (no `{}`/`undefined`).
-- Expected rejections (auth failures, invalid input, rate limits) → `info`, not `warn`/`error`.
+- **Env vars**: Use `requireEnv()` from `src/lib/db/env.ts` at point-of-use.
 
-## Testing
+## Testing (Project-Specific)
 
-- **Vitest only**. Tests share DB state — `fileParallelism: false`. Use `registerTestUserForCleanup` for test users.
-- **Scenario-based**: Each test represents a plausible user journey or system event, not abstract operations.
-- **Integration over isolation**: Use real dependencies. Only mock external paid services (SES, Twilio, Finnhub).
+- Tests share DB state — `fileParallelism: false`. Use `registerTestUserForCleanup` for test users.
 - **Do not mock Supabase**: Use real client with seeded data via helpers in `tests/helpers/`.
-- **Assert via behavior**: DB state, response payloads, status codes — not mock return values.
-- **Realistic data**: Real tickers (AAPL, MSFT), realistic prices (187.42 not 100.0), real timezones.
 - **Console spies**: Tests fail on unexpected `console.warn`/`console.error`. Use `expectConsoleWarning()`/`expectConsoleError()` from `tests/setup.ts`.
 - **Schema version**: When adding migrations, update `app_metadata.schema_version` in SQL and `EXPECTED_DB_SCHEMA_VERSION` in `tests/helpers/constants.ts`.
+- Pre-existing type error in `src/pages/api/auth/sms/send-verification.ts:201` (nullable param to RPC) — not ours, ignore.
+- `formatSmsMessage`, `formatDailyDigestSmsMessage`, `formatPriceAlertSms`, `formatAssetEventsSmsMessage` are all **async** (URL shortening).
+- Mock supabase for SMS formatters must include a `.from().select().eq().gt().limit().single()` chain for the URL shortener dedup lookup.
+- **Live API tests**: `npm run test:live:email`, `test:live:sms`, `test:live:all`. Always reproduce live test failures locally before fixing.
 
 ## Supabase Migrations
 
@@ -91,6 +80,52 @@ supabase migration new <name>  # Create new migration (never rename timestamps)
 ## AWS / SAM Deploy
 
 **SAM deploy required** when committing changes to `aws/template.yaml`, `aws/deploy.sh`, `aws/src/handlers/`, or `src/lib/`. After the commit: `cd aws && npm run deploy`. Use `--profile prod-admin` for all production AWS commands.
+
+## External APIs
+
+- **Massive** (formerly Polygon.io, rebranded Oct 2025) — paid $29/mo plan (unlimited requests, recommended <100 req/s). API at `api.massive.com` (legacy `api.polygon.io` still works). Always refer to as "Massive" in code/comments.
+- **Finnhub** — free tier only. Used for fetching US assets list.
+- **Massive ticker counts** (as of 2026-03-06): ~5,257 CS + ~378 ADRC = ~5,635 stocks; ~5,021 ETFs. Finnhub has ~27,686 total.
+
+## AWS IAM
+
+- `jsolly-prod-admin` — admin user for local CLI (prod-admin profile)
+- `stocktextalerts-ses` — SES send-only, keys used in Vercel + .env.local for email sending
+- `amplify-admin` — Amplify deployments
+- `GitHubActionsDeploymentRole` — OIDC role for GitHub Actions CI (S3, CloudFront, ECR, Lambda, CloudFormation)
+- `stocktextalerts-crons-*` — SAM-managed Lambda execution roles (auto-created)
+
+## Production Supabase
+
+- Credentials in `.env.local`: `SUPABASE_URL_PROD`, `DATABASE_URL_PROD`, `SUPABASE_SECRET_KEY_PROD`
+- Project ref: `japesagairjvvuebzpvr`
+- **psql**: `psql "$DATABASE_URL_PROD"` (pooler on port 6543)
+- Access token in `.env.local` as `SUPABASE_ACCESS_TOKEN`
+
+## Vercel CLI
+
+Authenticated via `npx vercel` to `jsollys-projects` scope. Useful commands: `npx vercel ls`, `npx vercel inspect <url> --logs`, `npx vercel env ls`.
+
+## Cloudflare CLI
+
+`wrangler` is installed globally. Auth uses Global API Key (`CLOUDFLARE_API_KEY` + `CLOUDFLARE_EMAIL` in `~/.zshrc`). Account: John Solly (`cloudflare@jsolly.com`), Account ID: `fe860aed6545e6e55e2808d66decf186`.
+
+## SMS Provider
+
+Evaluating cheaper alternatives to Twilio (as of 2026-04-05). AWS SNS preferred (~$0.00645/segment, no monthly number fee) unless inbound SMS is needed. No decision made yet — exploratory.
+
+## Dev Environment
+
+- Login: `test@jsolly.com` with `DEFAULT_PASSWORD` env var
+- **Act** for testing GitHub Actions locally: `brew install act`, `act -l` to list jobs. Deploy workflow skips under act (`github.actor != 'nektos/act'`).
+
+## SES Migration History
+
+Resend→SES email migration (PR #414) merged 2026-03-31. Notifications were down Mar 29–31 due to premature SAM deploy from feature branch that removed RESEND_API_KEY before merge. Lesson: always merge to main before SAM deploy that changes env vars.
+
+## UI Conventions
+
+- **All times shown to the user must respect `use_24_hour_time`** — pass `hour12: !is24` to `toLocaleTimeString` / `Intl.DateTimeFormat`. Stored on `users.use_24_hour_time` in DB, exposed as `user.value.use_24_hour_time` in Vue composables. Helper: `formatMinutesAsLocalTime(minutes, is24)` in `src/lib/time/format.ts`.
 
 ## Security
 

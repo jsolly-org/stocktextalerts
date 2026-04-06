@@ -39,6 +39,4 @@ sam deploy \
     TwilioAuthToken="$TWILIO_AUTH_TOKEN" \
     TwilioPhoneNumber="$TWILIO_PHONE_NUMBER" \
     UnsubscribeTokenSecret="$UNSUBSCRIBE_TOKEN_SECRET" \
-    AlertEmail="$ALERT_EMAIL" \
-    AlertPhoneNumber="$ALERT_PHONE_NUMBER" \
     LogMaskPii="true"
