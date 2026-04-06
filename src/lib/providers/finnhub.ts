@@ -101,7 +101,7 @@ export async function finnhubFetch(
 		const isLastAttempt = attempt === MAX_RETRIES;
 		const log = isLastAttempt
 			? rootLogger.error.bind(rootLogger)
-			: rootLogger.warn.bind(rootLogger);
+			: rootLogger.info.bind(rootLogger);
 
 		try {
 			const response = await fetch(url, {

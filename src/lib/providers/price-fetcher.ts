@@ -59,18 +59,31 @@ export async function fetchAssetPrices(
 	}
 
 	// Fallback: fetch missing symbols (typically OTC tickers) from Finnhub
+	const finnhubFailures: string[] = [];
 	for (const symbol of missingSymbols) {
 		try {
 			const quote = await fetchFinnhubQuote(symbol);
 			if (quote !== null) {
 				snapshot.set(symbol, quote);
+			} else {
+				finnhubFailures.push(symbol);
 			}
 		} catch (error) {
-			rootLogger.warn("Failed to fetch Finnhub quote fallback", {
+			finnhubFailures.push(symbol);
+			rootLogger.info("Finnhub quote fallback failed", {
 				symbol,
 				error: error instanceof Error ? error.message : String(error),
 			});
 		}
+	}
+	if (
+		finnhubFailures.length > 0 &&
+		finnhubFailures.length === missingSymbols.length
+	) {
+		rootLogger.warn("All Finnhub quote fallbacks failed", {
+			failedSymbols: finnhubFailures,
+			total: missingSymbols.length,
+		});
 	}
 
 	const stillMissing = symbols.filter(
@@ -138,18 +151,31 @@ export async function fetchExtendedQuotes(
 	const missingSymbols = symbols.filter(
 		(symbol) => snapshot.get(symbol) === null,
 	);
+	const extFinnhubFailures: string[] = [];
 	for (const symbol of missingSymbols) {
 		try {
 			const quote = await fetchFinnhubQuote(symbol);
 			if (quote !== null) {
 				snapshot.set(symbol, quote);
+			} else {
+				extFinnhubFailures.push(symbol);
 			}
 		} catch (error) {
-			rootLogger.warn("Failed to fetch Finnhub quote fallback", {
+			extFinnhubFailures.push(symbol);
+			rootLogger.info("Finnhub quote fallback failed", {
 				symbol,
 				error: error instanceof Error ? error.message : String(error),
 			});
 		}
+	}
+	if (
+		extFinnhubFailures.length > 0 &&
+		extFinnhubFailures.length === missingSymbols.length
+	) {
+		rootLogger.warn("All Finnhub quote fallbacks failed", {
+			failedSymbols: extFinnhubFailures,
+			total: missingSymbols.length,
+		});
 	}
 
 	return snapshot as ExtendedQuoteMap;
