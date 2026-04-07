@@ -53,7 +53,7 @@ Constants
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2_000;
-const REQUEST_TIMEOUT_MS = 10_000;
+const REQUEST_TIMEOUT_MS = 25_000;
 
 /* =============
 Helpers
