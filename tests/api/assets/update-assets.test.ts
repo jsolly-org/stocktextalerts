@@ -277,4 +277,70 @@ describe("A signed-in user updates their tracked assets.", () => {
 		expect(trackedAssets).toHaveLength(1);
 		expect(trackedAssets?.[0]?.symbol).toBe("AAPL");
 	});
+
+	it("Rejects an update that contains a delisted symbol.", async () => {
+		// Seed a unique delisted asset row. Using a Z-prefix keeps us clear of
+		// real tickers in the shared local DB.
+		const delistedSymbol = `ZDEL${randomUUID().replace(/-/g, "").slice(0, 4).toUpperCase()}`;
+		const { error: insertErr } = await adminClient.from("assets").upsert(
+			{
+				symbol: delistedSymbol,
+				name: "Test Delisted Inc",
+				type: "stock",
+				delisted_at: "2026-03-27T00:00:00+00:00",
+			},
+			{ onConflict: "symbol" },
+		);
+		expect(insertErr).toBeNull();
+
+		try {
+			const testUser = await createTestUser({
+				email: `delisted-reject-${randomUUID()}@example.com`,
+				password: TEST_PASSWORD,
+				confirmed: true,
+				trackedAssets: ["AAPL"],
+			});
+			registerTestUserForCleanup(testUser.id);
+
+			const cookies = await createAuthenticatedCookies(
+				testUser.email,
+				TEST_PASSWORD,
+			);
+			const formData = new FormData();
+			formData.append(
+				"tracked_assets",
+				JSON.stringify(["AAPL", delistedSymbol]),
+			);
+
+			const response = await POST(
+				createApiContext({
+					request: new Request("http://localhost/api/assets/update", {
+						method: "POST",
+						body: formData,
+					}),
+					cookies,
+				}),
+			);
+
+			expect(response.status).toBe(400);
+			const payload = (await response.json()) as {
+				ok: boolean;
+				message: string;
+				blocked?: string[];
+			};
+			expect(payload.ok).toBe(false);
+			expect(payload.message).toBe("delisted_symbols");
+			expect(payload.blocked).toEqual([delistedSymbol]);
+
+			// User's tracked assets are unchanged — the guard fires before the
+			// replace_user_assets RPC runs.
+			const { data: trackedAssets } = await adminClient
+				.from("user_assets")
+				.select("symbol")
+				.eq("user_id", testUser.id);
+			expect(trackedAssets?.map((s) => s.symbol)).toEqual(["AAPL"]);
+		} finally {
+			await adminClient.from("assets").delete().eq("symbol", delistedSymbol);
+		}
+	});
 });

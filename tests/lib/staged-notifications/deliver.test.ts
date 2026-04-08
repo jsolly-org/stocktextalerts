@@ -24,6 +24,7 @@ import { upsertStagedNotification } from "../../../src/lib/staged-notifications/
 import { deliverStagedNotifications } from "../../../src/lib/staged-notifications/deliver";
 import type { StagedMarketData } from "../../../src/lib/staged-notifications/types";
 import { toIsoOrThrow } from "../../../src/lib/time/format";
+import { isLiveProviderEnabled } from "../../helpers/live-api";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
@@ -33,9 +34,19 @@ describe("deliverStagedNotifications", () => {
 	let sendEmail: EmailSender;
 	let getSmsSender: SmsSenderProvider;
 
+	// Fake timers are incompatible with live SES sends: AWS SDK v3 signs
+	// SES requests with Date.now(), and vi.useFakeTimers() freezes Date.now()
+	// to the fake system time. The frozen timestamp falls outside AWS's
+	// 15-minute signing window, so the SES call hangs on a signature the
+	// service silently rejects. Skip fake timers in live email mode so real
+	// SES calls succeed; offline mode still gets deterministic time.
+	const useFakeTimers = !isLiveProviderEnabled("email");
+
 	beforeEach(() => {
-		vi.useFakeTimers();
-		vi.setSystemTime(DateTime.fromISO("2026-01-15T15:00:00.000Z").toJSDate());
+		if (useFakeTimers) {
+			vi.useFakeTimers();
+			vi.setSystemTime(DateTime.fromISO("2026-01-15T15:00:00.000Z").toJSDate());
+		}
 		vi.stubEnv("SMS_TEST_BEHAVIOR", "success");
 
 		sendEmail = createEmailSender();
@@ -43,7 +54,9 @@ describe("deliverStagedNotifications", () => {
 	});
 
 	afterEach(() => {
-		vi.useRealTimers();
+		if (useFakeTimers) {
+			vi.useRealTimers();
+		}
 		vi.unstubAllEnvs();
 	});
 

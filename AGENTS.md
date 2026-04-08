@@ -26,7 +26,7 @@ supabase migration new <name>  # Create new migration (never rename timestamps)
 
 **StockTextAlerts** — securities notification platform sending scheduled SMS/email updates for tracked US stocks and ETFs.
 
-**Stack:** Astro 5 (SSR) on Vercel, Vue 3, Tailwind CSS 4, Supabase (PostgreSQL + Auth), Twilio (SMS), AWS SES (email), Massive (prices), Finnhub (symbols/earnings), xAI/Grok (optional AI summaries).
+**Stack:** Astro 5 (SSR) on Vercel, Vue 3, Tailwind CSS 4, Supabase (PostgreSQL + Auth), Twilio (SMS), AWS SES (email), Massive (prices + asset reference), Finnhub (earnings calendar + analyst/insider extras), xAI/Grok (optional AI summaries).
 
 ### Key Directories
 
@@ -83,9 +83,9 @@ supabase migration new <name>  # Create new migration (never rename timestamps)
 
 ## External APIs
 
-- **Massive** (formerly Polygon.io, rebranded Oct 2025) — paid $29/mo plan (unlimited requests, recommended <100 req/s). API at `api.massive.com` (legacy `api.polygon.io` still works). Always refer to as "Massive" in code/comments.
-- **Finnhub** — free tier only. Used for fetching US assets list.
-- **Massive ticker counts** (as of 2026-03-06): ~5,257 CS + ~378 ADRC = ~5,635 stocks; ~5,021 ETFs. Finnhub has ~27,686 total.
+- **Massive** (formerly Polygon.io, rebranded Oct 2025) — paid $29/mo plan (unlimited requests, recommended <100 req/s). API at `api.massive.com` (legacy `api.polygon.io` still works). Always refer to as "Massive" in code/comments. Also the sole source of live snapshot quotes, prev-day bars, and the asset reference universe used to seed `scripts/data/us-assets.json`.
+- **Finnhub** — free tier only. Used for the earnings calendar (`/calendar/earnings` via `fetchFinnhubEarnings` in `src/lib/providers/massive.ts`, because Massive's earnings endpoint isn't entitled on our plan) and the "extras" bundle (analyst recommendations + insider transactions via `fetchFinnhubExtras` in `src/lib/providers/finnhub.ts`). Never used for live quotes — the quote path is Massive-only, falling back to prev-day bars for snapshot misses.
+- **Massive ticker counts** (as of 2026-03-06): ~5,257 CS + ~378 ADRC = ~5,635 stocks; ~5,021 ETFs.
 
 ## AWS IAM
 

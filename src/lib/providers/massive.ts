@@ -102,11 +102,15 @@ export async function marketDataFetch(
 	const query = new URLSearchParams({ ...params, apiKey });
 	const url = `${MASSIVE_BASE_URL}${endpoint}?${query.toString()}`;
 
+	// All per-attempt failures log at info — aggregating callers (price fetcher,
+	// delisting sweep, asset-events) escalate severity based on overall outcome.
+	// Per AGENTS.md, rate limits and transient upstream errors are not error-level
+	// events. This also prevents the alert-hub monitor from flagging transient
+	// Massive flaps as production errors.
+	const log = rootLogger.info.bind(rootLogger);
+
 	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
 		const isLastAttempt = attempt === MAX_RETRIES;
-		const log = isLastAttempt
-			? rootLogger.error.bind(rootLogger)
-			: rootLogger.warn.bind(rootLogger);
 
 		try {
 			const response = await fetch(url, {
@@ -731,6 +735,195 @@ export async function fetchSnapshotQuotes(
 	}
 
 	return result;
+}
+
+/* =============
+Previous-day bar + reference lookup
+============= */
+
+/**
+ * Full previous-day bar returned by `fetchPrevDayBar`. Shape is compatible
+ * with `ExtendedAssetQuote` so callers can drop it into snapshot maps.
+ * `changePercent` is always 0 for this path — it represents stale data
+ * from the last trading day, not today's change.
+ */
+export interface PrevDayBar {
+	price: number;
+	changePercent: number;
+	dayHigh: number | null;
+	dayLow: number | null;
+	dayOpen: number | null;
+	prevClose: number | null;
+	timestamp: number | null;
+	volume: number | null;
+}
+
+/**
+ * Fetch the previous-day OHLCV bar for a single symbol.
+ *
+ * Uses `/v2/aggs/ticker/{symbol}/prev?adjusted=true` — same endpoint as
+ * `fetchPrevClose`, but returns the full bar so snapshot-miss fallbacks can
+ * populate dayHigh/Low/Open/volume instead of null-filling them.
+ *
+ * Returns `null` when the symbol has no prev-day data or the response shape
+ * is unexpected.
+ */
+export async function fetchPrevDayBar(
+	symbol: string,
+): Promise<PrevDayBar | null> {
+	const data = await marketDataFetch(
+		`/v2/aggs/ticker/${encodeURIComponent(symbol)}/prev`,
+		{ adjusted: "true" },
+		"prev-day-bar",
+	);
+	if (typeof data !== "object" || data === null) return null;
+
+	const results = (data as Record<string, unknown>).results;
+	if (!Array.isArray(results) || results.length === 0) return null;
+
+	const first = results[0];
+	if (typeof first !== "object" || first === null) return null;
+	const row = first as Record<string, unknown>;
+
+	const close = row.c;
+	if (typeof close !== "number" || !Number.isFinite(close) || close === 0) {
+		return null;
+	}
+
+	const numPrice = (v: unknown): number | null =>
+		typeof v === "number" && Number.isFinite(v) && v !== 0 ? v : null;
+	const numVolume = (v: unknown): number | null =>
+		typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : null;
+	const numTimestamp = (v: unknown): number | null =>
+		typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null;
+
+	return {
+		price: close,
+		changePercent: 0,
+		dayHigh: numPrice(row.h),
+		dayLow: numPrice(row.l),
+		dayOpen: numPrice(row.o),
+		// `prevClose` would require a second /aggs call (the close of the day
+		// before this bar's day). Leave it null rather than duplicating `price`
+		// — the live snapshot path uses prevClose to show "yesterday's close
+		// vs today's price"; reusing `close` here would display the same
+		// number twice to end users.
+		prevClose: null,
+		timestamp: numTimestamp(row.t),
+		volume: numVolume(row.v),
+	};
+}
+
+/**
+ * Authoritative delisting record for a single symbol, as returned by
+ * Massive's reference-tickers endpoint.
+ */
+export interface TickerReferenceResult {
+	symbol: string;
+	active: false;
+	/** YYYY-MM-DD — always present in a `delisted` status. */
+	delistedUtc: string;
+	primaryExchange: string | null;
+	name: string | null;
+}
+
+/**
+ * Discriminated result of a single reference lookup:
+ * - `delisted` — Massive explicitly returned `active: false` with a `delisted_utc`.
+ * - `unknown` — Massive returned no results, OR a result without the strict
+ *   delisting fields. Treat as "still listed or not in Massive." Must NOT
+ *   be interpreted as a delisting signal (OTC/SPAC pre-listing tickers fall
+ *   into this bucket).
+ * - `provider_error` — Transient fetch failure after retries. Caller should
+ *   skip this symbol without changing state and retry on the next run.
+ */
+export type TickerReferenceStatus =
+	| { status: "delisted"; result: TickerReferenceResult }
+	| { status: "unknown"; symbol: string }
+	| { status: "provider_error"; symbol: string };
+
+/**
+ * Look up a single symbol in Massive's reference-tickers endpoint filtered
+ * to `active=false`.
+ *
+ * Uses `/v3/reference/tickers?ticker={symbol}&active=false&limit=1`. When
+ * the ticker is still active (or unknown to Massive), the endpoint returns
+ * an empty `results` array, and this function yields `{status: "unknown"}`.
+ *
+ * Strict validation: only returns `{status: "delisted"}` when the response
+ * row has `active === false` AND a `delisted_utc` string of length ≥ 10.
+ * Everything else is `unknown` — never infer a delisting from absence.
+ */
+export async function fetchTickerReference(
+	symbol: string,
+): Promise<TickerReferenceStatus> {
+	const data = await marketDataFetch(
+		"/v3/reference/tickers",
+		{ ticker: symbol, active: "false", limit: "1" },
+		"ticker-reference",
+		{ symbol },
+	);
+
+	if (data === null) return { status: "provider_error", symbol };
+	if (typeof data !== "object") return { status: "unknown", symbol };
+
+	const results = (data as Record<string, unknown>).results;
+	if (!Array.isArray(results) || results.length === 0) {
+		return { status: "unknown", symbol };
+	}
+
+	const first = results[0];
+	if (typeof first !== "object" || first === null) {
+		return { status: "unknown", symbol };
+	}
+	const row = first as Record<string, unknown>;
+
+	if (row.active !== false) return { status: "unknown", symbol };
+
+	const rawDelistedUtc = row.delisted_utc;
+	if (typeof rawDelistedUtc !== "string" || rawDelistedUtc.length < 10) {
+		return { status: "unknown", symbol };
+	}
+
+	return {
+		status: "delisted",
+		result: {
+			symbol,
+			active: false,
+			delistedUtc: rawDelistedUtc.slice(0, 10),
+			primaryExchange:
+				typeof row.primary_exchange === "string" ? row.primary_exchange : null,
+			name: typeof row.name === "string" ? row.name : null,
+		},
+	};
+}
+
+/**
+ * Concurrent reference lookup for multiple symbols with bounded parallelism.
+ *
+ * Returns one status per input symbol; order is not guaranteed.
+ * Mirrors the worker-pool pattern used by `fetchSparklines` in
+ * `src/lib/providers/price-fetcher.ts`.
+ */
+export async function fetchTickerReferences(
+	symbols: string[],
+	concurrency = 5,
+): Promise<TickerReferenceStatus[]> {
+	if (symbols.length === 0) return [];
+	const results: TickerReferenceStatus[] = [];
+	const queue = [...symbols];
+
+	async function worker(): Promise<void> {
+		while (true) {
+			const next = queue.shift();
+			if (next === undefined) return;
+			results.push(await fetchTickerReference(next));
+		}
+	}
+
+	const workerCount = Math.min(concurrency, symbols.length);
+	await Promise.all(Array.from({ length: workerCount }, () => worker()));
+	return results;
 }
 
 /* =============

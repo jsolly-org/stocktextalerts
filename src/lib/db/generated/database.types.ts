@@ -117,6 +117,7 @@ export type Database = {
       }
       assets: {
         Row: {
+          delisted_at: string | null
           icon_base64: string | null
           icon_url: string | null
           name: string
@@ -125,6 +126,7 @@ export type Database = {
           type: string
         }
         Insert: {
+          delisted_at?: string | null
           icon_base64?: string | null
           icon_url?: string | null
           name: string
@@ -133,6 +135,7 @@ export type Database = {
           type?: string
         }
         Update: {
+          delisted_at?: string | null
           icon_base64?: string | null
           icon_url?: string | null
           name?: string

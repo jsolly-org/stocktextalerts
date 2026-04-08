@@ -1,10 +1,9 @@
 import { US_MARKET_TIMEZONE } from "../constants";
 import { rootLogger } from "../logging";
 import { type SparklineMap, toSparkline } from "../messaging/sparkline";
-import { fetchFinnhubQuote } from "./finnhub";
 import {
 	fetchDailyCloses,
-	fetchPrevClose,
+	fetchPrevDayBar,
 	fetchSnapshotQuotes,
 	marketDataFetch,
 } from "./massive";
@@ -50,77 +49,7 @@ export async function fetchAssetPrices(
 		);
 	}
 	const snapshot = await fetchSnapshotQuotes(symbols);
-
-	const missingSymbols = symbols.filter(
-		(symbol) => snapshot.get(symbol) === null,
-	);
-	if (missingSymbols.length === 0) {
-		return snapshot as AssetPriceMap;
-	}
-
-	// Fallback: fetch missing symbols (typically OTC tickers) from Finnhub
-	const finnhubFailures: string[] = [];
-	for (const symbol of missingSymbols) {
-		try {
-			const quote = await fetchFinnhubQuote(symbol);
-			if (quote !== null) {
-				snapshot.set(symbol, quote);
-			} else {
-				finnhubFailures.push(symbol);
-			}
-		} catch (error) {
-			finnhubFailures.push(symbol);
-			rootLogger.info("Finnhub quote fallback failed", {
-				symbol,
-				error: error instanceof Error ? error.message : String(error),
-			});
-		}
-	}
-	if (
-		finnhubFailures.length > 0 &&
-		finnhubFailures.length === missingSymbols.length
-	) {
-		rootLogger.warn("All Finnhub quote fallbacks failed", {
-			failedSymbols: finnhubFailures,
-			total: missingSymbols.length,
-		});
-	}
-
-	const stillMissing = symbols.filter(
-		(symbol) => snapshot.get(symbol) === null,
-	);
-	if (stillMissing.length === 0) {
-		return snapshot as AssetPriceMap;
-	}
-
-	const isMarketOpen = await fetchMarketStatus();
-	if (isMarketOpen) {
-		return snapshot as AssetPriceMap;
-	}
-
-	for (const symbol of stillMissing) {
-		try {
-			const prevClose = await fetchPrevClose(symbol);
-			if (prevClose !== null) {
-				snapshot.set(symbol, {
-					price: prevClose,
-					changePercent: 0,
-					dayHigh: null,
-					dayLow: null,
-					dayOpen: null,
-					prevClose,
-					timestamp: null,
-					volume: null,
-				});
-			}
-		} catch (error) {
-			rootLogger.warn("Failed to fetch prev-close fallback", {
-				symbol,
-				error: error instanceof Error ? error.message : String(error),
-			});
-		}
-	}
-
+	await fillSnapshotMissesWithPrevDayBar(symbols, snapshot);
 	return snapshot as AssetPriceMap;
 }
 
@@ -146,39 +75,54 @@ export async function fetchExtendedQuotes(
 		);
 	}
 	const snapshot = await fetchSnapshotQuotes(symbols);
+	await fillSnapshotMissesWithPrevDayBar(symbols, snapshot);
+	return snapshot as ExtendedQuoteMap;
+}
 
-	// Fallback: fetch missing symbols (typically OTC tickers) from Finnhub
-	const missingSymbols = symbols.filter(
-		(symbol) => snapshot.get(symbol) === null,
-	);
-	const extFinnhubFailures: string[] = [];
-	for (const symbol of missingSymbols) {
+/**
+ * Fill snapshot misses with Massive's previous-day bar.
+ *
+ * Fires only for symbols Massive's live snapshot doesn't return. In practice
+ * that means either (a) a legitimately delisted ticker that the daily sweep
+ * hasn't cleaned up yet, or (b) a truly OTC ticker Massive's snapshot doesn't
+ * cover (rare, but historically why the Finnhub fallback existed).
+ *
+ * **Market-hours guard**: during trading hours we intentionally skip this
+ * fallback. A snapshot miss during RTH is more likely transient (rate limit,
+ * brief Massive outage) than structural, and serving yesterday's bar labeled
+ * as "current" would mislead users whose alerts compare against live price.
+ * When the market is closed, the prev-day bar is the freshest data available
+ * and serving it is the right call. This preserves the semantic the old
+ * `fetchPrevClose` fallback had before the Finnhub removal refactor.
+ */
+async function fillSnapshotMissesWithPrevDayBar(
+	symbols: string[],
+	snapshot: Map<string, unknown>,
+): Promise<void> {
+	const missing = symbols.filter((symbol) => snapshot.get(symbol) === null);
+	if (missing.length === 0) return;
+
+	const isMarketOpen = await fetchMarketStatus();
+	if (isMarketOpen) {
+		// Leave misses as null rather than serving stale data during RTH —
+		// downstream callers already handle null quotes gracefully.
+		return;
+	}
+
+	for (const symbol of missing) {
 		try {
-			const quote = await fetchFinnhubQuote(symbol);
-			if (quote !== null) {
-				snapshot.set(symbol, quote);
-			} else {
-				extFinnhubFailures.push(symbol);
+			const bar = await fetchPrevDayBar(symbol);
+			if (bar !== null) {
+				snapshot.set(symbol, bar);
 			}
 		} catch (error) {
-			extFinnhubFailures.push(symbol);
-			rootLogger.info("Finnhub quote fallback failed", {
-				symbol,
-				error: error instanceof Error ? error.message : String(error),
-			});
+			rootLogger.info(
+				"Prev-day-bar fallback failed",
+				{ symbol },
+				error instanceof Error ? error : new Error(String(error)),
+			);
 		}
 	}
-	if (
-		extFinnhubFailures.length > 0 &&
-		extFinnhubFailures.length === missingSymbols.length
-	) {
-		rootLogger.warn("All Finnhub quote fallbacks failed", {
-			failedSymbols: extFinnhubFailures,
-			total: missingSymbols.length,
-		});
-	}
-
-	return snapshot as ExtendedQuoteMap;
 }
 
 /** Fetch 7-point sparklines for the last ~week of closes. */

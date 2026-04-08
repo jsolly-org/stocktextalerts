@@ -261,6 +261,8 @@ const MESSAGE_ALLOWLIST = {
 	delete_orphaned_auth_failed:
 		"Failed to complete account deletion. Please try again.",
 	assets_limit: `Maximum ${MAX_TRACKED_ASSETS} assets allowed`,
+	delisted_symbols:
+		"One or more symbols have been delisted and can no longer be tracked.",
 	registration_closed: "Registration is currently closed.",
 } as const;
 

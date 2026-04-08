@@ -99,9 +99,16 @@ export async function batchLoadUserAssets(
 	}
 
 	const includeLogoData = options?.includeLogoData === true;
+	// Include assets.delisted_at so we can filter out delisted holdings at
+	// the loader level (defense in depth). The sweep sets assets.delisted_at
+	// and deletes the user_assets row in the same Lambda run, but if the
+	// email send fails the sweep intentionally skips cleanup so it can retry
+	// next day — leaving an assets row flagged delisted while user_assets
+	// still references it. This filter keeps the price fetcher from ever
+	// seeing such a row, regardless of sweep state.
 	const assetSelect = includeLogoData
-		? "user_id, symbol, assets!inner(name, icon_url, icon_base64)"
-		: "user_id, symbol, assets!inner(name)";
+		? "user_id, symbol, assets!inner(name, icon_url, icon_base64, delisted_at)"
+		: "user_id, symbol, assets!inner(name, delisted_at)";
 
 	const uniqueIds = [...new Set(userIds)];
 	const map = new Map<string, UserAssetRow[]>();
@@ -124,6 +131,7 @@ export async function batchLoadUserAssets(
 				.from("user_assets")
 				.select(assetSelect)
 				.in("user_id", chunk)
+				.is("assets.delisted_at", null)
 				.order("user_id", { ascending: true })
 				.order("symbol", { ascending: true })
 				.range(from, from + pageSize - 1);
@@ -136,11 +144,18 @@ export async function batchLoadUserAssets(
 				const typed = row as {
 					user_id: string;
 					symbol: string;
-					assets: { name: string } & (
+					assets: {
+						name: string;
+						delisted_at: string | null;
+					} & (
 						| { icon_url: string | null; icon_base64: string | null }
 						| Record<string, never>
 					);
 				};
+				// Belt-and-suspenders: the PostgREST .is() filter above should
+				// already exclude delisted rows, but double-check in case the
+				// query ever gets refactored.
+				if (typed.assets.delisted_at !== null) continue;
 				const entry = map.get(typed.user_id) ?? [];
 				const base = { symbol: typed.symbol, name: typed.assets.name };
 				if (includeLogoData && "icon_url" in typed.assets) {

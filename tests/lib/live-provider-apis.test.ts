@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { fetchCompanyNews } from "../../src/lib/providers/company-news";
 import {
 	fetchFinnhubExtras,
-	fetchFinnhubQuote,
 	finnhubFetch,
 } from "../../src/lib/providers/finnhub";
 import {
@@ -411,14 +410,6 @@ describeFinnhubLive("Finnhub live API (opt-in)", () => {
 		const events = (payload as { earningsCalendar?: unknown }).earningsCalendar;
 		expect(Array.isArray(events)).toBe(true);
 		expect((events as unknown[]).length).toBeGreaterThan(0);
-	});
-
-	it("returns a quote for an OTC ticker via fetchFinnhubQuote", async () => {
-		const quote = await fetchFinnhubQuote("DWAHF");
-		expect(quote).not.toBeNull();
-		expect(quote?.price).toBeGreaterThan(0);
-		expect(typeof quote?.changePercent).toBe("number");
-		expect(typeof quote?.prevClose).toBe("number");
 	});
 
 	it("returns company news for symbols when includeNews is true", async () => {

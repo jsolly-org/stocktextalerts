@@ -40,6 +40,17 @@ assertLiveProviderKey({ provider: "xai", envVar: "XAI_API_KEY" });
 assertLiveProviderKey({ provider: "email", envVar: "AWS_ACCESS_KEY_ID" });
 assertLiveProviderKey({ provider: "sms", envVar: "TWILIO_ACCOUNT_SID" });
 
+// AWS SDK v3 logs a console.warn on every call when both AWS_PROFILE and
+// AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY are set — the SDK picks one but
+// complains about ambiguity. The test harness below treats unexpected
+// console.warn as a test failure, so a developer who has AWS_PROFILE
+// exported in their shell can't run live email tests without workarounds.
+// Unset AWS_PROFILE here so tests always use the static credentials from
+// .env.local regardless of shell configuration.
+if (isLiveProviderEnabled("email") && process.env.AWS_PROFILE) {
+	delete process.env.AWS_PROFILE;
+}
+
 // Data-provider stubs set a dummy API key so requireEnv() doesn't throw.
 // Actual HTTP calls are prevented by fetch mocks or module-level mocks in
 // individual test files. Email/SMS mocking is handled by the MODE check

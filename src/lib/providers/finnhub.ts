@@ -97,11 +97,13 @@ export async function finnhubFetch(
 	const query = new URLSearchParams({ ...params, token: apiKey });
 	const url = `${FINNHUB_BASE_URL}${endpoint}?${query.toString()}`;
 
+	// All per-attempt failures log at info — the aggregating callers
+	// (price-fetcher, asset-events) escalate severity based on overall outcome.
+	// Per AGENTS.md, rate limits and transient upstream errors are not error-level events.
+	const log = rootLogger.info.bind(rootLogger);
+
 	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
 		const isLastAttempt = attempt === MAX_RETRIES;
-		const log = isLastAttempt
-			? rootLogger.error.bind(rootLogger)
-			: rootLogger.info.bind(rootLogger);
 
 		try {
 			const response = await fetch(url, {
@@ -173,52 +175,6 @@ export async function finnhubFetch(
 /* =============
 Individual Fetchers
 ============= */
-
-/** Finnhub /quote response shape. */
-interface FinnhubQuoteResponse {
-	c: number; // current price
-	d: number; // dollar change
-	dp: number; // percent change
-	h: number; // day high
-	l: number; // day low
-	o: number; // day open
-	pc: number; // previous close
-	t: number; // timestamp (seconds)
-}
-
-/** Fetch a quote for a single symbol from Finnhub's /quote endpoint. */
-export async function fetchFinnhubQuote(symbol: string): Promise<{
-	price: number;
-	changePercent: number;
-	dayHigh: number | null;
-	dayLow: number | null;
-	dayOpen: number | null;
-	prevClose: number | null;
-	timestamp: number | null;
-	volume: number | null;
-} | null> {
-	const data = await finnhubFetch("/quote", { symbol }, "quote");
-	if (typeof data !== "object" || data === null) return null;
-
-	const q = data as FinnhubQuoteResponse;
-	if (typeof q.c !== "number" || !Number.isFinite(q.c) || q.c === 0)
-		return null;
-
-	const numPrice = (v: unknown): number | null =>
-		typeof v === "number" && Number.isFinite(v) && v !== 0 ? v : null;
-
-	return {
-		price: q.c,
-		changePercent: typeof q.dp === "number" && Number.isFinite(q.dp) ? q.dp : 0,
-		dayHigh: numPrice(q.h),
-		dayLow: numPrice(q.l),
-		dayOpen: numPrice(q.o),
-		prevClose: numPrice(q.pc),
-		timestamp:
-			typeof q.t === "number" && Number.isFinite(q.t) && q.t > 0 ? q.t : null,
-		volume: null, // Finnhub /quote doesn't include volume
-	};
-}
 
 /** Fetch the latest analyst recommendation trend for a ticker (or `null`). */
 async function fetchRecommendationTrends(

@@ -85,6 +85,42 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		return jsonResponse(400, { ok: false, message: "assets_limit" });
 	}
 
+	// Reject any delisted symbols. The daily sweep populates assets.delisted_at;
+	// this guard prevents users from re-adding a dead ticker the sweep just
+	// cleaned up.
+	if (uniqueSymbols.length > 0) {
+		const { data: delistedRows, error: delistedErr } = await supabase
+			.from("assets")
+			.select("symbol")
+			.in("symbol", uniqueSymbols)
+			.not("delisted_at", "is", null);
+
+		if (delistedErr) {
+			logger.error(
+				"Failed to check for delisted symbols",
+				{ userId: user.id, error: extractErrorMessage(delistedErr) },
+				createErrorForLogging(delistedErr),
+			);
+			return jsonResponse(500, {
+				ok: false,
+				message: "failed_to_update_assets",
+			});
+		}
+
+		if (delistedRows && delistedRows.length > 0) {
+			const blocked = delistedRows.map((r) => r.symbol);
+			logger.info("Tracked assets update rejected: contains delisted symbols", {
+				userId: user.id,
+				blocked,
+			});
+			return jsonResponse(400, {
+				ok: false,
+				message: "delisted_symbols",
+				blocked,
+			});
+		}
+	}
+
 	try {
 		const { error } = await supabase.rpc("replace_user_assets", {
 			user_id: user.id,

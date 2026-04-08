@@ -144,7 +144,14 @@ function parseGrokPriceAlertResponse(
 		summary = parts.slice(0, 2).join(" ").trim();
 	}
 
-	return { summary, links };
+	// Truncation may have dropped sentences that contained the only reference
+	// to some of the collected links. Filter `links` down to URLs that are
+	// still reachable from the surviving summary so the invariant
+	// "every link in result.links appears as an href in the rendered HTML"
+	// holds for downstream callers (email/SMS rendering, tests).
+	const reachableLinks = links.filter((link) => summary.includes(link.url));
+
+	return { summary, links: reachableLinks };
 }
 
 /**

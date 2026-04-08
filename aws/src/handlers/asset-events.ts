@@ -1,8 +1,10 @@
 import type { ScheduledEvent } from "aws-lambda";
 import { DateTime } from "luxon";
 import { fetchAndStoreAssetEvents } from "../../../src/lib/asset-events/fetch";
+import { runDelistingSweep } from "../../../src/lib/assets/delisting-sweep";
 import { createSupabaseAdminClient } from "../../../src/lib/db/supabase";
 import { createLogger } from "../../../src/lib/logging";
+import { createEmailSender } from "../../../src/lib/messaging/email/utils";
 
 export async function handler(_event: ScheduledEvent): Promise<void> {
 	const logger = createLogger({
@@ -79,5 +81,26 @@ export async function handler(_event: ScheduledEvent): Promise<void> {
 			action: "daily_asset_events_cron",
 			failedProviders: results.flatMap((r) => r.failedProviders),
 		});
+	}
+
+	// Independent try/catch so sweep failures never invalidate the calendar-
+	// events job's success — the sweep runs again tomorrow.
+	try {
+		const sendEmail = createEmailSender();
+		const sweepResult = await runDelistingSweep({
+			supabase,
+			logger,
+			sendEmail,
+		});
+		logger.info("Delisting sweep complete", {
+			action: "daily_delisting_sweep",
+			...sweepResult,
+		});
+	} catch (error) {
+		logger.error(
+			"Delisting sweep failed",
+			{ action: "daily_delisting_sweep" },
+			error,
+		);
 	}
 }
