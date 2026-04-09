@@ -41,7 +41,9 @@ Constants
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2_000;
 const INTER_REQUEST_DELAY_MS = 100;
-const REQUEST_TIMEOUT_MS = 10_000;
+// Finnhub's /calendar/earnings regularly takes >10s at 00:00 UTC; 25s matches
+// Massive and eliminates systematic attempt-1 timeouts observed in production.
+const REQUEST_TIMEOUT_MS = 25_000;
 
 /* =============
 Helpers
@@ -86,6 +88,12 @@ function computeRetryDelayMs(
 	return base + jitter;
 }
 
+type FinnhubFailure =
+	| { reason: "rate_limited"; status: 429 }
+	| { reason: "api_error"; status: number }
+	| { reason: "timeout"; error: Error }
+	| { reason: "request_failed"; error: Error };
+
 /** Low-level Finnhub fetch wrapper with retries, timeouts, and rate-limit handling. */
 export async function finnhubFetch(
 	endpoint: string,
@@ -97,10 +105,11 @@ export async function finnhubFetch(
 	const query = new URLSearchParams({ ...params, token: apiKey });
 	const url = `${FINNHUB_BASE_URL}${endpoint}?${query.toString()}`;
 
-	// All per-attempt failures log at info — the aggregating callers
-	// (price-fetcher, asset-events) escalate severity based on overall outcome.
-	// Per AGENTS.md, rate limits and transient upstream errors are not error-level events.
-	const log = rootLogger.info.bind(rootLogger);
+	// Per-attempt failures are silent — the aggregating callers (asset-events,
+	// daily-digest) escalate severity based on overall outcome via
+	// ProviderResult.failed. Only the terminal exhaustion is logged (warn),
+	// so alerts fire on genuine outages rather than transient retry churn.
+	let lastFailure: FinnhubFailure | null = null;
 
 	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
 		const isLastAttempt = attempt === MAX_RETRIES;
@@ -111,41 +120,31 @@ export async function finnhubFetch(
 			});
 
 			if (response.status === 429) {
-				const retryAfterMs = parseRetryAfterMs(
-					response.headers.get("Retry-After"),
-				);
-				log(`Finnhub ${label} rate limited (429)`, {
-					endpoint,
-					attempt,
-					status: 429,
-				});
+				lastFailure = { reason: "rate_limited", status: 429 };
 				if (!isLastAttempt) {
+					const retryAfterMs = parseRetryAfterMs(
+						response.headers.get("Retry-After"),
+					);
 					await realDelay(computeRetryDelayMs(attempt, retryAfterMs));
 					continue;
 				}
-				return null;
+				break;
 			}
 
 			if (!response.ok) {
-				log(`Finnhub ${label} API error`, {
-					endpoint,
-					attempt,
-					status: response.status,
-				});
+				lastFailure = { reason: "api_error", status: response.status };
 				if (!isLastAttempt) {
 					await realDelay(computeRetryDelayMs(attempt, null));
 					continue;
 				}
-				return null;
+				break;
 			}
 
-			const data: unknown = await response.json();
-			return data;
+			return (await response.json()) as unknown;
 		} catch (error) {
 			const isTimeout =
 				error instanceof Error &&
 				(error.name === "TimeoutError" || error.name === "AbortError");
-			const reason = isTimeout ? "timeout" : "request_failed";
 			const safeError =
 				error instanceof Error
 					? (() => {
@@ -157,16 +156,35 @@ export async function finnhubFetch(
 							return sanitized;
 						})()
 					: new Error(redactFinnhubToken(String(error)));
-			log(
-				`Failed to fetch Finnhub ${label}`,
-				{ endpoint, attempt, reason },
-				safeError,
-			);
+			lastFailure = isTimeout
+				? { reason: "timeout", error: safeError }
+				: { reason: "request_failed", error: safeError };
 			if (!isLastAttempt) {
 				await realDelay(computeRetryDelayMs(attempt, null));
 				continue;
 			}
-			return null;
+			break;
+		}
+	}
+
+	if (lastFailure) {
+		const context: Record<string, unknown> = {
+			endpoint,
+			attempts: MAX_RETRIES,
+			reason: lastFailure.reason,
+		};
+		if (
+			lastFailure.reason === "rate_limited" ||
+			lastFailure.reason === "api_error"
+		) {
+			context.status = lastFailure.status;
+			rootLogger.warn(`Finnhub ${label} exhausted retries`, context);
+		} else {
+			rootLogger.warn(
+				`Finnhub ${label} exhausted retries`,
+				context,
+				lastFailure.error,
+			);
 		}
 	}
 	return null;
