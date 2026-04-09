@@ -94,7 +94,8 @@ Resources:
       MemorySize: 256
       Policies:
         # Required by the daily delisting sweep, which emails affected
-        # users when one of their holdings gets delisted.
+        # users when one of their holdings gets delisted. SMS is delivered
+        # via Twilio REST so no additional IAM permissions are needed.
         - Version: "2012-10-17"
           Statement:
             - Effect: Allow
@@ -109,6 +110,9 @@ Resources:
           FINNHUB_API_KEY: !Ref FinnhubApiKey
           EMAIL_FROM: !Ref EmailFrom
           UNSUBSCRIBE_TOKEN_SECRET: !Ref UnsubscribeTokenSecret
+          TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
+          TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
+          TWILIO_PHONE_NUMBER: !Ref TwilioPhoneNumber
       Events:
         DailyMidnight:
           Type: ScheduleV2
