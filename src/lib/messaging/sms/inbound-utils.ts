@@ -1,8 +1,11 @@
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { getSiteUrl } from "../../db/env";
+import type { Database } from "../../db/generated/database.types";
 import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
 import { wrapInTwiml } from "./twiml";
+
+type UsersUpdate = Database["public"]["Tables"]["users"]["Update"];
 
 interface InboundSmsDependencies {
 	authToken: string;
@@ -35,7 +38,7 @@ interface InboundSmsResponse {
 async function applyUserUpdate(
 	supabase: AppSupabaseClient,
 	userId: string,
-	update: Record<string, unknown>,
+	update: UsersUpdate,
 	action: string,
 ): Promise<InboundSmsResponse | null> {
 	const { error: updateError } = await supabase

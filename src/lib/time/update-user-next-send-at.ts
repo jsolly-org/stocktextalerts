@@ -31,9 +31,13 @@ export async function updateUserNextSendAtSingleTime(options: {
 
 	const localMinutes = getLocalMinutes(user);
 	if (localMinutes === null) {
+		const clearUpdate =
+			column === "asset_events_next_send_at"
+				? { asset_events_next_send_at: null }
+				: { daily_digest_next_send_at: null };
 		const { error } = await supabase
 			.from("users")
-			.update({ [column]: null })
+			.update(clearUpdate)
 			.eq("id", user.id);
 		if (error) {
 			logger.error(
@@ -52,9 +56,13 @@ export async function updateUserNextSendAtSingleTime(options: {
 	);
 	const nextSendAtIso = nextSendAt?.toISO() ?? null;
 
+	const setUpdate =
+		column === "asset_events_next_send_at"
+			? { asset_events_next_send_at: nextSendAtIso }
+			: { daily_digest_next_send_at: nextSendAtIso };
 	const { error } = await supabase
 		.from("users")
-		.update({ [column]: nextSendAtIso })
+		.update(setUpdate)
 		.eq("id", user.id);
 
 	if (error) {
