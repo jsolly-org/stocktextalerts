@@ -38,6 +38,14 @@ Parameters:
   LogMaskPii:
     Type: String
     Default: "false"
+  AlertTopicArn:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /alert-hub/alert-topic-arn
+    Description: Alert-hub SNS topic ARN
+  GitSha:
+    Type: String
+    Default: unknown
+    Description: Git SHA (short) baked into each Lambda at deploy time
 
 Globals:
   Function:
@@ -50,6 +58,8 @@ Globals:
         SUPABASE_URL: !Ref SupabaseUrl
         SUPABASE_SECRET_KEY: !Ref SupabaseSecretKey
         LOG_MASK_PII: !Ref LogMaskPii
+        ALERT_TOPIC_ARN: !Ref AlertTopicArn
+        GIT_SHA: !Ref GitSha
 
 Resources:
   ScheduleFunction:
@@ -67,6 +77,10 @@ Resources:
                 - ses:SendEmail
                 - ses:SendRawEmail
               Resource: "arn:aws:ses:us-east-1:730335616323:identity/stocktextalerts.com"
+        - Statement:
+            - Effect: Allow
+              Action: sns:Publish
+              Resource: !Ref AlertTopicArn
       Environment:
         Variables:
           SITE_URL: !Ref SiteUrl
@@ -103,6 +117,10 @@ Resources:
                 - ses:SendEmail
                 - ses:SendRawEmail
               Resource: "arn:aws:ses:us-east-1:730335616323:identity/stocktextalerts.com"
+        - Statement:
+            - Effect: Allow
+              Action: sns:Publish
+              Resource: !Ref AlertTopicArn
       Environment:
         Variables:
           SITE_URL: !Ref SiteUrl
@@ -127,6 +145,11 @@ Resources:
       CodeUri: dist/handlers/
       Timeout: 600
       MemorySize: 256
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: sns:Publish
+              Resource: !Ref AlertTopicArn
       Environment:
         Variables:
           MASSIVE_API_KEY: !Ref MassiveApiKey
@@ -136,4 +159,122 @@ Resources:
           Properties:
             ScheduleExpression: "cron(0 22 ? * MON-FRI *)"
             State: ENABLED
+
+  # ---------- CloudWatch Alarms ----------
+
+  # Lambda Errors alarms (thrown exceptions, timeouts, OOMs)
+  ScheduleFunctionErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: ScheduleFunction threw / timed out / OOMed
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ScheduleFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopicArn
+
+  AssetEventsFunctionErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: AssetEventsFunction threw / timed out / OOMed
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref AssetEventsFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopicArn
+
+  ComputeDailyStatsFunctionErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: ComputeDailyStatsFunction threw / timed out / OOMed
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ComputeDailyStatsFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopicArn
+
+  # EventBridge Scheduler TargetErrorCount alarms (failed to invoke target)
+  ScheduleFunctionEveryMinuteFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: ScheduleFunctionEveryMinute failed to invoke target
+      Namespace: AWS/Scheduler
+      MetricName: TargetErrorCount
+      Dimensions:
+        - Name: ScheduleGroup
+          Value: default
+        - Name: ScheduleName
+          Value: ScheduleFunctionEveryMinute
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopicArn
+
+  AssetEventsFunctionDailyMidnightFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: AssetEventsFunctionDailyMidnight failed to invoke target
+      Namespace: AWS/Scheduler
+      MetricName: TargetErrorCount
+      Dimensions:
+        - Name: ScheduleGroup
+          Value: default
+        - Name: ScheduleName
+          Value: AssetEventsFunctionDailyMidnight
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopicArn
+
+  ComputeDailyStatsFunctionWeekdayEveningFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: ComputeDailyStatsFunctionWeekdayEvening failed to invoke target
+      Namespace: AWS/Scheduler
+      MetricName: TargetErrorCount
+      Dimensions:
+        - Name: ScheduleGroup
+          Value: default
+        - Name: ScheduleName
+          Value: ComputeDailyStatsFunctionWeekdayEvening
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopicArn
 

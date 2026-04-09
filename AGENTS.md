@@ -49,7 +49,7 @@ supabase migration new <name>  # Create new migration (never rename timestamps)
 
 ## Logging
 
-- Use `src/lib/logging.ts` (`createLogger`, `logInfo`, `logWarn`, `logError`) — structured JSON with `timestamp`, `level`, `message`, `context`.
+- Use `src/lib/logging/` (`createLogger`, `rootLogger`) — structured JSON with `timestamp`, `level`, `message`, `context`.
 - Always pass a named context object (no `{}`/`undefined`).
 - **Env vars**: Use `requireEnv()` from `src/lib/db/env.ts` at point-of-use.
 

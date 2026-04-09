@@ -1,4 +1,4 @@
-import type { ScheduledEvent } from "aws-lambda";
+import type { Context, ScheduledEvent } from "aws-lambda";
 import { DateTime } from "luxon";
 import { fetchAndStoreAssetEvents } from "../../../src/lib/asset-events/fetch";
 import { runDelistingSweep } from "../../../src/lib/assets/delisting-sweep";
@@ -7,10 +7,10 @@ import { createLogger } from "../../../src/lib/logging";
 import { createEmailSender } from "../../../src/lib/messaging/email/utils";
 import { createSmsSenderProvider } from "../../../src/lib/schedule/sms-sender";
 
-export async function handler(_event: ScheduledEvent): Promise<void> {
+export async function handler(_event: ScheduledEvent, context: Context): Promise<void> {
 	const logger = createLogger({
-		source: "lambda",
-		function: "asset-events",
+		baseContext: { source: "lambda", function: "asset-events" },
+		lambdaContext: context,
 	});
 	const supabase = createSupabaseAdminClient();
 

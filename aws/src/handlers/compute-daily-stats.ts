@@ -1,4 +1,4 @@
-import type { ScheduledEvent } from "aws-lambda";
+import type { Context, ScheduledEvent } from "aws-lambda";
 import { createSupabaseAdminClient } from "../../../src/lib/db/supabase";
 import { createLogger } from "../../../src/lib/logging";
 import {
@@ -16,10 +16,10 @@ const BATCH_DELAY_MS = 600;
 /** Calendar days to fetch for ~20 trading days of data. */
 const LOOKBACK_DAYS = 35;
 
-export async function handler(_event: ScheduledEvent): Promise<void> {
+export async function handler(_event: ScheduledEvent, context: Context): Promise<void> {
 	const logger = createLogger({
-		source: "lambda",
-		function: "compute-daily-stats",
+		baseContext: { source: "lambda", function: "compute-daily-stats" },
+		lambdaContext: context,
 	});
 	const supabase = createSupabaseAdminClient();
 

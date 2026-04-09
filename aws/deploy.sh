@@ -24,6 +24,8 @@ SUPABASE_SECRET_KEY="${SUPABASE_SECRET_KEY_PROD:?SUPABASE_SECRET_KEY_PROD not se
 # Build first
 npm run build
 
+GIT_SHA="$(git -C "$SCRIPT_DIR/.." rev-parse --short HEAD 2>/dev/null || echo unknown)"
+
 # Deploy from aws/ dir so samconfig.toml is picked up
 cd "$SCRIPT_DIR"
 sam deploy \
@@ -39,4 +41,5 @@ sam deploy \
     TwilioAuthToken="$TWILIO_AUTH_TOKEN" \
     TwilioPhoneNumber="$TWILIO_PHONE_NUMBER" \
     UnsubscribeTokenSecret="$UNSUBSCRIBE_TOKEN_SECRET" \
-    LogMaskPii="true"
+    LogMaskPii="true" \
+    GitSha="$GIT_SHA"

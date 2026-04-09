@@ -1,3 +1,6 @@
+import type { AlertSeverity, LambdaContext } from "./publishAlert";
+import { publishAlert } from "./publishAlert";
+
 type LogLevel = "debug" | "info" | "warn" | "error";
 
 type LogContext = Record<string, unknown> & {
@@ -219,10 +222,47 @@ export type Logger = {
 	error: (message: string, context?: LogContext, error?: unknown) => void;
 };
 
+type CreateLoggerOptions = {
+	baseContext?: LogContext;
+	lambdaContext?: LambdaContext;
+};
+
 /**
  * Create a structured logger with optional base context merged into every log call.
+ * When `lambdaContext` is provided, `warn()` and `error()` also publish to alert-hub.
  */
-export function createLogger(baseContext: LogContext = {}): Logger {
+export function createLogger(
+	baseContextOrOptions: LogContext | CreateLoggerOptions = {},
+): Logger {
+	const { baseContext, lambdaContext } =
+		"lambdaContext" in baseContextOrOptions ||
+		"baseContext" in baseContextOrOptions
+			? {
+					baseContext:
+						(baseContextOrOptions as CreateLoggerOptions).baseContext ?? {},
+					lambdaContext: (baseContextOrOptions as CreateLoggerOptions)
+						.lambdaContext,
+				}
+			: {
+					baseContext: baseContextOrOptions as LogContext,
+					lambdaContext: undefined,
+				};
+
+	function fireAlert(
+		severity: AlertSeverity,
+		message: string,
+		context?: LogContext,
+		error?: unknown,
+	) {
+		if (!lambdaContext) return;
+		const details: Record<string, unknown> = { ...baseContext, ...context };
+		if (error !== undefined) {
+			details.error = serializeError(error);
+		}
+		const title = (baseContext.function as string) ?? message.slice(0, 60);
+		publishAlert(lambdaContext, severity, title, message, details);
+	}
+
 	return {
 		debug(message, context) {
 			writeLog("debug", message, { ...baseContext, ...context });
@@ -232,9 +272,11 @@ export function createLogger(baseContext: LogContext = {}): Logger {
 		},
 		warn(message, context, error) {
 			writeLog("warn", message, { ...baseContext, ...context }, error);
+			fireAlert("warn", message, context, error);
 		},
 		error(message, context, error) {
 			writeLog("error", message, { ...baseContext, ...context }, error);
+			fireAlert("error", message, context, error);
 		},
 	};
 }
