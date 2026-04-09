@@ -74,7 +74,7 @@ export async function fetchAndStoreAssetEvents(options: {
 	if (iposResult.failed) failedProviders.push("ipos");
 
 	if (failedProviders.length > 0) {
-		logger.warn("One or more asset event providers failed", {
+		logger.error("One or more asset event providers failed", {
 			action: "fetch_asset_events",
 			failedProviders,
 		});
@@ -228,7 +228,7 @@ export async function fetchAndStoreAssetEvents(options: {
 	]);
 
 	if (assetDeleteResult.error) {
-		logger.warn("Failed to clean up old asset_events rows", {
+		logger.error("Failed to clean up old asset_events rows", {
 			action: "fetch_asset_events",
 			cutoffDate,
 			error: assetDeleteResult.error.message,
@@ -236,7 +236,7 @@ export async function fetchAndStoreAssetEvents(options: {
 	}
 
 	if (marketDeleteResult.error) {
-		logger.warn("Failed to clean up old market_events rows", {
+		logger.error("Failed to clean up old market_events rows", {
 			action: "fetch_asset_events",
 			cutoffDate,
 			error: marketDeleteResult.error.message,

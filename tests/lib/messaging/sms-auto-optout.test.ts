@@ -3,7 +3,7 @@ import type { AppSupabaseClient } from "../../../src/lib/db/supabase";
 import { sendUserSms } from "../../../src/lib/messaging/sms/index";
 import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import type { SmsUser } from "../../../src/lib/messaging/types";
-import { expectConsoleError, expectConsoleWarning } from "../../setup";
+import { expectConsoleError } from "../../setup";
 
 const testUser: SmsUser = {
 	id: "user-123",
@@ -23,7 +23,6 @@ function createMockSupabase() {
 
 describe("sendUserSms 21610 auto opt-out", () => {
 	it("auto opts out user when Twilio returns error 21610", async () => {
-		expectConsoleWarning("Auto opted-out user due to Twilio 21610");
 		const sender: SmsSender = async () => ({
 			success: false as const,
 			error: "Attempt to send to unsubscribed recipient",
@@ -67,7 +66,6 @@ describe("sendUserSms 21610 auto opt-out", () => {
 
 	it("handles 21610 from unexpected errors in catch block", async () => {
 		expectConsoleError("Unexpected error sending SMS");
-		expectConsoleWarning("Auto opted-out user due to Twilio 21610");
 		const error = new Error("Unsubscribed recipient") as Error & {
 			code: string;
 		};

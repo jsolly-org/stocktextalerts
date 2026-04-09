@@ -3,11 +3,8 @@ import { createSupabaseAdminClient } from "../../../src/lib/db/supabase";
 import { createLogger } from "../../../src/lib/logging";
 import { runScheduledNotifications } from "../../../src/lib/schedule/run";
 
-export async function handler(_event: ScheduledEvent, context: Context): Promise<void> {
-	const logger = createLogger({
-		baseContext: { source: "lambda", function: "schedule" },
-		lambdaContext: context,
-	});
+export async function handler(_event: ScheduledEvent, _context: Context): Promise<void> {
+	const logger = createLogger({ source: "lambda", function: "schedule" });
 	const supabase = createSupabaseAdminClient();
 
 	try {
@@ -19,7 +16,7 @@ export async function handler(_event: ScheduledEvent, context: Context): Promise
 				"purge_expired_short_urls",
 			);
 			if (purgeError) {
-				logger.warn(
+				logger.error(
 					"Failed to purge expired short URLs",
 					{ action: "purge_short_urls" },
 					purgeError,
@@ -31,7 +28,7 @@ export async function handler(_event: ScheduledEvent, context: Context): Promise
 				});
 			}
 		} catch (error) {
-			logger.warn(
+			logger.error(
 				"Failed to purge expired short URLs",
 				{ action: "purge_short_urls" },
 				error,

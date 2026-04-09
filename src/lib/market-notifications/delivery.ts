@@ -424,7 +424,7 @@ export async function deliverPriceAlert(options: {
 			});
 			stats.smsFailed++;
 		} else if (!user.phone_country_code || !user.phone_number) {
-			rootLogger.warn("Price alert SMS skipped: no phone number", {
+			rootLogger.info("Price alert SMS skipped: no phone number", {
 				userId: user.id,
 			});
 			stats.smsFailed++;

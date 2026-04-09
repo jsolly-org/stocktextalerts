@@ -105,8 +105,8 @@ export async function marketDataFetch(
 	// All per-attempt failures log at info — aggregating callers (price fetcher,
 	// delisting sweep, asset-events) escalate severity based on overall outcome.
 	// Per AGENTS.md, rate limits and transient upstream errors are not error-level
-	// events. This also prevents the alert-hub monitor from flagging transient
-	// Massive flaps as production errors.
+	// events. This also prevents the ErrorLogAlarm metric filter from flagging
+	// transient Massive flaps as production errors.
 	const log = rootLogger.info.bind(rootLogger);
 
 	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {

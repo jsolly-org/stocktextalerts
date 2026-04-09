@@ -16,11 +16,8 @@ const BATCH_DELAY_MS = 600;
 /** Calendar days to fetch for ~20 trading days of data. */
 const LOOKBACK_DAYS = 35;
 
-export async function handler(_event: ScheduledEvent, context: Context): Promise<void> {
-	const logger = createLogger({
-		baseContext: { source: "lambda", function: "compute-daily-stats" },
-		lambdaContext: context,
-	});
+export async function handler(_event: ScheduledEvent, _context: Context): Promise<void> {
+	const logger = createLogger({ source: "lambda", function: "compute-daily-stats" });
 	const supabase = createSupabaseAdminClient();
 
 	// Get all unique tracked symbols

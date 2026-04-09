@@ -319,7 +319,7 @@ export async function processDailyDigestUser(options: {
 			try {
 				assetPrices = await fetchAssetPrices(tickers);
 			} catch (error) {
-				logger.warn("Failed to fetch daily digest prices", {
+				logger.error("Failed to fetch daily digest prices", {
 					action: "daily_run",
 					userId: user.id,
 					tickerCount: tickers.length,
@@ -332,7 +332,7 @@ export async function processDailyDigestUser(options: {
 			try {
 				sparklines = await fetchSparklines(tickers);
 			} catch (error) {
-				logger.warn("Failed to fetch sparklines for daily digest", {
+				logger.error("Failed to fetch sparklines for daily digest", {
 					action: "daily_run",
 					userId: user.id,
 					tickerCount: tickers.length,
@@ -396,7 +396,7 @@ export async function processDailyDigestUser(options: {
 						});
 					}
 					if (stillMissingTickers.length > 0) {
-						logger.warn("Snapshot retry missing daily digest prices", {
+						logger.error("Snapshot retry missing daily digest prices", {
 							action: "daily_run",
 							userId: user.id,
 							missingCount: stillMissingTickers.length,
@@ -404,7 +404,7 @@ export async function processDailyDigestUser(options: {
 						});
 					}
 				} catch (error) {
-					logger.warn("Failed snapshot retry for daily digest prices", {
+					logger.error("Failed snapshot retry for daily digest prices", {
 						action: "daily_run",
 						userId: user.id,
 						missingCount: missingTickers.length,

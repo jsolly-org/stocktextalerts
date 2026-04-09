@@ -58,7 +58,6 @@ Globals:
         SUPABASE_URL: !Ref SupabaseUrl
         SUPABASE_SECRET_KEY: !Ref SupabaseSecretKey
         LOG_MASK_PII: !Ref LogMaskPii
-        ALERT_TOPIC_ARN: !Ref AlertTopicArn
         GIT_SHA: !Ref GitSha
 
 Resources:
@@ -77,10 +76,6 @@ Resources:
                 - ses:SendEmail
                 - ses:SendRawEmail
               Resource: "arn:aws:ses:us-east-1:730335616323:identity/stocktextalerts.com"
-        - Statement:
-            - Effect: Allow
-              Action: sns:Publish
-              Resource: !Ref AlertTopicArn
       Environment:
         Variables:
           SITE_URL: !Ref SiteUrl
@@ -117,10 +112,6 @@ Resources:
                 - ses:SendEmail
                 - ses:SendRawEmail
               Resource: "arn:aws:ses:us-east-1:730335616323:identity/stocktextalerts.com"
-        - Statement:
-            - Effect: Allow
-              Action: sns:Publish
-              Resource: !Ref AlertTopicArn
       Environment:
         Variables:
           SITE_URL: !Ref SiteUrl
@@ -145,11 +136,6 @@ Resources:
       CodeUri: dist/handlers/
       Timeout: 600
       MemorySize: 256
-      Policies:
-        - Statement:
-            - Effect: Allow
-              Action: sns:Publish
-              Resource: !Ref AlertTopicArn
       Environment:
         Variables:
           MASSIVE_API_KEY: !Ref MassiveApiKey
@@ -180,6 +166,8 @@ Resources:
       TreatMissingData: notBreaching
       AlarmActions:
         - !Ref AlertTopicArn
+      OKActions:
+        - !Ref AlertTopicArn
 
   AssetEventsFunctionErrorAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -198,6 +186,8 @@ Resources:
       TreatMissingData: notBreaching
       AlarmActions:
         - !Ref AlertTopicArn
+      OKActions:
+        - !Ref AlertTopicArn
 
   ComputeDailyStatsFunctionErrorAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -215,6 +205,8 @@ Resources:
       ComparisonOperator: GreaterThanOrEqualToThreshold
       TreatMissingData: notBreaching
       AlarmActions:
+        - !Ref AlertTopicArn
+      OKActions:
         - !Ref AlertTopicArn
 
   # EventBridge Scheduler TargetErrorCount alarms (failed to invoke target)
@@ -237,6 +229,8 @@ Resources:
       TreatMissingData: notBreaching
       AlarmActions:
         - !Ref AlertTopicArn
+      OKActions:
+        - !Ref AlertTopicArn
 
   AssetEventsFunctionDailyMidnightFailureAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -257,6 +251,8 @@ Resources:
       TreatMissingData: notBreaching
       AlarmActions:
         - !Ref AlertTopicArn
+      OKActions:
+        - !Ref AlertTopicArn
 
   ComputeDailyStatsFunctionWeekdayEveningFailureAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -276,5 +272,62 @@ Resources:
       ComparisonOperator: GreaterThanOrEqualToThreshold
       TreatMissingData: notBreaching
       AlarmActions:
+        - !Ref AlertTopicArn
+      OKActions:
+        - !Ref AlertTopicArn
+
+  # ---------- Error Log Metric Filters ----------
+
+  ScheduleErrorLogFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${ScheduleFunction}
+      FilterPattern: '{ $.level = "error" }'
+      MetricTransformations:
+        - MetricNamespace: stocktextalerts-crons
+          MetricName: ErrorLogCount
+          MetricValue: "1"
+          DefaultValue: 0
+
+  AssetEventsErrorLogFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AssetEventsFunction}
+      FilterPattern: '{ $.level = "error" }'
+      MetricTransformations:
+        - MetricNamespace: stocktextalerts-crons
+          MetricName: ErrorLogCount
+          MetricValue: "1"
+          DefaultValue: 0
+
+  ComputeDailyStatsErrorLogFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${ComputeDailyStatsFunction}
+      FilterPattern: '{ $.level = "error" }'
+      MetricTransformations:
+        - MetricNamespace: stocktextalerts-crons
+          MetricName: ErrorLogCount
+          MetricValue: "1"
+          DefaultValue: 0
+
+  # ---------- Aggregate Error Log Alarm ----------
+
+  ErrorLogAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: stocktextalerts-crons-error-logs
+      AlarmDescription: ERROR logged in stocktextalerts Lambda functions
+      Namespace: stocktextalerts-crons
+      MetricName: ErrorLogCount
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopicArn
+      OKActions:
         - !Ref AlertTopicArn
 

@@ -335,7 +335,7 @@ export async function runDelistingSweep(
 	for (const [userId, holdings] of userHoldings) {
 		const user = userInfo.get(userId);
 		if (!user) {
-			logger.warn("Delisting sweep: affected user not found in users table", {
+			logger.error("Delisting sweep: affected user not found in users table", {
 				action: "delisting_sweep",
 				userId,
 			});

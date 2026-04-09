@@ -134,7 +134,7 @@ export async function precomputeMarketScheduled(options: {
 		try {
 			marketClosureInfo = await getUsMarketClosureInfoForInstant(currentTime);
 		} catch (error) {
-			logger.warn(
+			logger.error(
 				"Market closure lookup failed for precompute (continuing without closure info)",
 				{ action: "precompute_market" },
 				error,

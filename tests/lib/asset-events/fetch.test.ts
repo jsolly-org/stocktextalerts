@@ -278,7 +278,7 @@ describe("fetchAndStoreAssetEvents", () => {
 			symbol: "AAPL",
 			event_type: "dividend",
 		});
-		expect(logger.warn).toHaveBeenCalledWith(
+		expect(logger.error).toHaveBeenCalledWith(
 			"One or more asset event providers failed",
 			expect.objectContaining({ failedProviders: ["earnings"] }),
 		);
@@ -303,7 +303,7 @@ describe("fetchAndStoreAssetEvents", () => {
 			upserted: 0,
 			failedProviders: ["earnings", "dividends", "splits", "ipos"],
 		});
-		expect(logger.warn).toHaveBeenCalledWith(
+		expect(logger.error).toHaveBeenCalledWith(
 			"One or more asset event providers failed",
 			expect.objectContaining({
 				failedProviders: ["earnings", "dividends", "splits", "ipos"],
@@ -338,6 +338,6 @@ describe("fetchAndStoreAssetEvents", () => {
 		});
 
 		expect(result).toEqual({ upserted: 1, failedProviders: [] });
-		expect(logger.warn).not.toHaveBeenCalled();
+		expect(logger.error).not.toHaveBeenCalled();
 	});
 });

@@ -40,7 +40,7 @@ export async function buildAssetEventsContent(options: {
 
 	const localDt = DateTime.fromISO(localDate);
 	if (!localDt.isValid) {
-		logger.warn("Invalid localDate for asset events content", {
+		logger.error("Invalid localDate for asset events content", {
 			localDate,
 			localDtInvalidReason: localDt.invalidReason,
 		});
@@ -49,7 +49,7 @@ export async function buildAssetEventsContent(options: {
 	// "Next 3 days" inclusive: localDate, localDate+1, localDate+2
 	const endDate = localDt.plus({ days: 2 }).toISODate() ?? "";
 	if (!endDate) {
-		logger.warn("Failed to format endDate for asset events content", {
+		logger.error("Failed to format endDate for asset events content", {
 			localDate,
 			localDt: localDt.toString(),
 			localDtIsValid: localDt.isValid,

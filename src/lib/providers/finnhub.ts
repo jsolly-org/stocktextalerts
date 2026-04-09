@@ -173,14 +173,14 @@ export async function finnhubFetch(
 			attempts: MAX_RETRIES,
 			reason: lastFailure.reason,
 		};
-		if (
-			lastFailure.reason === "rate_limited" ||
-			lastFailure.reason === "api_error"
-		) {
+		if (lastFailure.reason === "rate_limited") {
 			context.status = lastFailure.status;
 			rootLogger.warn(`Finnhub ${label} exhausted retries`, context);
+		} else if (lastFailure.reason === "api_error") {
+			context.status = lastFailure.status;
+			rootLogger.error(`Finnhub ${label} exhausted retries`, context);
 		} else {
-			rootLogger.warn(
+			rootLogger.error(
 				`Finnhub ${label} exhausted retries`,
 				context,
 				lastFailure.error,
@@ -222,7 +222,7 @@ async function fetchRecommendationTrends(
 		typeof strongSell !== "number" ||
 		typeof period !== "string"
 	) {
-		rootLogger.warn("Invalid Finnhub recommendation fields", {
+		rootLogger.error("Invalid Finnhub recommendation fields", {
 			symbol,
 			payload: latest,
 		});

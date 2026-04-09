@@ -112,7 +112,7 @@ export async function fetchCurrentNotificationPreferences(): Promise<Notificatio
 
 		return payload.notificationPreferences;
 	} catch (error) {
-		rootLogger.warn(
+		rootLogger.error(
 			"Failed to refresh notification-preferences: unexpected error",
 			{ action: "refresh_notification-preferences" },
 			error,

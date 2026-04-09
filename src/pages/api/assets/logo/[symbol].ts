@@ -69,7 +69,7 @@ export const GET: APIRoute = async ({
 		const parsed = new URL(iconUrl);
 		const allowedHosts = new Set(["api.massive.com"]);
 		if (parsed.protocol !== "https:" || !allowedHosts.has(parsed.hostname)) {
-			logger.warn("Rejected icon_url host for logo proxy", {
+			logger.info("Rejected icon_url host for logo proxy", {
 				symbol,
 				host: parsed.hostname,
 			});
@@ -78,7 +78,7 @@ export const GET: APIRoute = async ({
 		parsed.searchParams.set("apiKey", apiKey);
 		upstreamUrl = parsed.toString();
 	} catch (error) {
-		logger.warn("Invalid icon_url for logo proxy", { symbol }, error);
+		logger.info("Invalid icon_url for logo proxy", { symbol }, error);
 		return new Response("Not found", { status: 404 });
 	}
 
@@ -88,7 +88,7 @@ export const GET: APIRoute = async ({
 		});
 
 		if (!upstream.ok) {
-			logger.warn("Upstream icon fetch failed", {
+			logger.error("Upstream icon fetch failed", {
 				symbol,
 				status: upstream.status,
 			});

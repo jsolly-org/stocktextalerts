@@ -162,7 +162,7 @@ export async function processMarketScheduledUser(options: {
 		(can happen when a DST shift makes a previously-valid local time
 		fall outside the 10:00 AM – 3:59 PM ET window) ============= */
 		if (isOutsideMarketHours(scheduledMinutes, user.timezone)) {
-			logger.warn(
+			logger.info(
 				"Skipping scheduled market delivery — time outside market hours (possible DST drift)",
 				{
 					userId: user.id,
@@ -199,7 +199,7 @@ export async function processMarketScheduledUser(options: {
 			try {
 				sparklines = await fetchSparklines(tickers);
 			} catch (error) {
-				logger.warn(
+				logger.error(
 					"Failed to fetch sparklines for scheduled market notification",
 					{
 						action: "market_notifications_run",

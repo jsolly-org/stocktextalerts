@@ -197,7 +197,7 @@ export async function generatePriceAlertSummary(options: {
 		});
 
 		if (!response.ok) {
-			rootLogger.warn("Grok price alert summary failed", {
+			rootLogger.error("Grok price alert summary failed", {
 				status: response.status,
 			});
 			return null;
@@ -210,7 +210,7 @@ export async function generatePriceAlertSummary(options: {
 			error instanceof Error && error.name === "TimeoutError"
 				? "timeout"
 				: "request_failed";
-		rootLogger.warn("Grok price alert summary error", { reason }, error);
+		rootLogger.error("Grok price alert summary error", { reason }, error);
 		return null;
 	}
 }

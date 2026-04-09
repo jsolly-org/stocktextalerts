@@ -85,7 +85,7 @@ async function persistLogoToDb(
 		.eq("symbol", symbol);
 
 	if (error) {
-		rootLogger.warn("Failed to persist logo base64 to DB", {
+		rootLogger.error("Failed to persist logo base64 to DB", {
 			symbol,
 			error: error.message,
 		});
@@ -121,7 +121,7 @@ export async function fetchLogoBase64(
 		return iconBase64;
 	}
 	if (iconBase64) {
-		rootLogger.warn("Ignoring invalid DB-cached logo data URI", { symbol });
+		rootLogger.error("Ignoring invalid DB-cached logo data URI", { symbol });
 	}
 
 	if (!iconUrl) {
@@ -144,7 +144,7 @@ export async function fetchLogoBase64(
 
 				return dataUri;
 			} catch (error) {
-				rootLogger.warn("Failed to fetch logo for asset", {
+				rootLogger.error("Failed to fetch logo for asset", {
 					symbol,
 					error: extractErrorMessage(error),
 				});
@@ -226,7 +226,7 @@ export async function safePrefetchLogos(options: {
 	}>;
 	shouldPrefetch: boolean;
 	supabase?: AppSupabaseClient;
-	logger: { warn: (msg: string, meta: Record<string, unknown>) => void };
+	logger: { error: (msg: string, meta: Record<string, unknown>) => void };
 	logContext: Record<string, unknown>;
 }): Promise<{
 	cache: LogoCache;
@@ -237,7 +237,7 @@ export async function safePrefetchLogos(options: {
 		try {
 			await prefetchLogos(options.assets, cache, options.supabase);
 		} catch (error) {
-			options.logger.warn("Failed to prefetch logos", {
+			options.logger.error("Failed to prefetch logos", {
 				...options.logContext,
 				assetCount: options.assets.length,
 				error: extractErrorMessage(error),

@@ -276,6 +276,6 @@ export function formatMessage(message: string | null): string {
 		return MESSAGE_ALLOWLIST[message as MessageKey];
 	}
 
-	rootLogger.warn("Unknown status message key", { message });
+	rootLogger.error("Unknown status message key", { message });
 	return "";
 }

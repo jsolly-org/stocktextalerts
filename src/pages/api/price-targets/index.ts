@@ -53,7 +53,7 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 					prices[symbol] = priceMap.get(symbol)?.price ?? null;
 				}
 			} catch (priceErr) {
-				logger.warn(
+				logger.error(
 					"Price fetch failed for price-targets; returning targets without prices",
 					{ userId: user.id, symbolCount: symbols.length },
 					priceErr,

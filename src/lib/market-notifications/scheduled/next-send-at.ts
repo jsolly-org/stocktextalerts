@@ -32,7 +32,7 @@ export async function updateUserMarketScheduledNextSendAt(options: {
 		);
 	}
 	if (!nextSendAt) {
-		logger.warn("calculateNextMarketScheduledSendAtFromTimes returned null", {
+		logger.error("calculateNextMarketScheduledSendAtFromTimes returned null", {
 			userId: user.id,
 			market_scheduled_asset_price_times:
 				user.market_scheduled_asset_price_times,

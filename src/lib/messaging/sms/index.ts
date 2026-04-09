@@ -80,7 +80,7 @@ async function autoOptOutUser(
 			error: error.message,
 		});
 	} else {
-		rootLogger.warn("Auto opted-out user due to Twilio 21610", { userId });
+		rootLogger.info("Auto opted-out user due to Twilio 21610", { userId });
 	}
 }
 

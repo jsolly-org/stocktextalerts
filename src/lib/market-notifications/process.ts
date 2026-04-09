@@ -56,16 +56,16 @@ async function fetchEarningsSymbols(
 			.gte("event_date", from)
 			.lte("event_date", to);
 		if (error) {
-			rootLogger.warn("Failed to query asset_events for price alerts", {
+			rootLogger.error("Failed to query asset_events for price alerts", {
 				error: error.message,
 			});
 			return new Set();
 		}
 		return new Set((data ?? []).map((e) => e.symbol));
 	} catch (err) {
-		rootLogger.warn(
+		rootLogger.error(
 			"Failed to fetch earnings symbols for price alerts",
-			{},
+			{ action: "fetch_earnings_symbols" },
 			err,
 		);
 		return new Set();
@@ -223,7 +223,7 @@ export async function processPriceAlerts(options: {
 		.in("symbol", uniqueSymbols);
 
 	if (assetSectorError) {
-		rootLogger.warn(
+		rootLogger.error(
 			"Failed to load asset sectors for price alerts",
 			{ action: "price_alerts" },
 			assetSectorError,
@@ -270,7 +270,7 @@ export async function processPriceAlerts(options: {
 		fetchExtendedQuotes(symbolsWithBenchmarks),
 		fetchEarningsSymbols(supabase),
 		fetchDailyStats(supabase, uniqueSymbols).catch((err) => {
-			rootLogger.warn(
+			rootLogger.error(
 				"Failed to load daily_asset_stats; continuing without stats",
 				{ symbolCount: uniqueSymbols.length },
 				err,
@@ -286,7 +286,7 @@ export async function processPriceAlerts(options: {
 	try {
 		snapshotMap = await getSnapshotsForSymbols(supabase, [...uniqueSymbols]);
 	} catch (err) {
-		rootLogger.warn(
+		rootLogger.error(
 			"Failed to load snapshots for anomaly scoring; continuing with empty history",
 			{ symbolCount: uniqueSymbols.length },
 			err,
@@ -304,7 +304,7 @@ export async function processPriceAlerts(options: {
 	try {
 		await storeSnapshots(supabase, quoteMapForSnapshots);
 	} catch (err) {
-		rootLogger.warn(
+		rootLogger.error(
 			"Failed to persist snapshots for anomaly scoring; continuing alert run",
 			{ symbolCount: quoteMapForSnapshots.size },
 			err,
@@ -492,7 +492,7 @@ export async function processPriceAlerts(options: {
 				intradayEndTimestamp = bars.endTimestamp;
 			}
 		} catch (err) {
-			rootLogger.warn(
+			rootLogger.error(
 				"Failed to fetch intraday bars for price alert enrichment",
 				{ symbol },
 				err,
@@ -544,8 +544,12 @@ export async function processPriceAlerts(options: {
 			if (user.market_asset_price_alerts_include_sms && !smsSender) {
 				try {
 					smsSender = getSmsSender().sender;
-				} catch {
-					rootLogger.warn("Failed to initialize SMS sender for price alerts");
+				} catch (error) {
+					rootLogger.error(
+						"Failed to initialize SMS sender for price alerts",
+						{ action: "price_alerts" },
+						error,
+					);
 				}
 			}
 

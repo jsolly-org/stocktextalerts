@@ -147,7 +147,7 @@ export async function dispatchDailyDigestUser(options: {
 		}
 
 		if (!user) {
-			rootLogger.warn("User not found for daily dispatch", {
+			rootLogger.error("User not found for daily dispatch", {
 				action: "dispatch_daily_user",
 				userId,
 			});

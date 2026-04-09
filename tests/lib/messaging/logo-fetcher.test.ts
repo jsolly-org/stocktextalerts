@@ -5,7 +5,7 @@ import {
 	prefetchLogos,
 	renderLogoImg,
 } from "../../../src/lib/messaging/logo-fetcher";
-import { expectConsoleWarning } from "../../setup";
+import { expectConsoleError } from "../../setup";
 
 describe("When the app fetches or renders asset logos for email", () => {
 	beforeEach(() => {
@@ -72,7 +72,7 @@ describe("When the app fetches or renders asset logos for email", () => {
 			);
 
 			const cache = createLogoCache();
-			expectConsoleWarning(/Failed to fetch logo/);
+			expectConsoleError(/Failed to fetch logo/);
 			const result = await fetchLogoBase64(
 				"AAPL",
 				"https://api.massive.com/v3/reference/tickers/AAPL/branding/icon.png",

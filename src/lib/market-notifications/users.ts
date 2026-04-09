@@ -78,7 +78,7 @@ export async function claimCooldown(
 	});
 
 	if (error) {
-		rootLogger.warn(
+		rootLogger.error(
 			"Failed to claim price alert trading-day cap",
 			{ userId, symbol },
 			error,

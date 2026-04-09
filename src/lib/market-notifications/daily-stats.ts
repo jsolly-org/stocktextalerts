@@ -70,7 +70,7 @@ export async function fetchDailyStats(
 		.in("symbol", symbols);
 
 	if (error) {
-		logger.warn(
+		logger.error(
 			"Failed to fetch daily stats",
 			{ symbolCount: symbols.length },
 			error,

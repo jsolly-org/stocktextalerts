@@ -187,7 +187,7 @@ export function computeNextSendAtIso(
 		DateTime.utc(),
 	);
 	if (!nextSendAt) {
-		logger?.warn("calculateNextSendAtFromTimes returned null", context);
+		logger?.error("calculateNextSendAtFromTimes returned null", context);
 		throw new Error(
 			`Failed to compute market_scheduled_asset_price_next_send_at: ${JSON.stringify(context)}`,
 		);
@@ -201,7 +201,7 @@ export function computeNextSendAtIso(
 			nextSendAtIsValid: nextSendAt.isValid,
 			nextSendAtInvalidReason: nextSendAt.invalidReason,
 		};
-		logger?.warn(
+		logger?.error(
 			"Failed to format market_scheduled_asset_price_next_send_at to ISO",
 			detail,
 		);

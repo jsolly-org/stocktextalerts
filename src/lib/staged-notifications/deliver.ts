@@ -93,7 +93,7 @@ export async function deliverStagedNotifications(options: {
 			});
 		}
 	} catch (error) {
-		logger.warn(
+		logger.error(
 			"Failed to purge stale staged notifications",
 			{ action: "staged_deliver" },
 			error,
@@ -193,7 +193,7 @@ export async function deliverStagedNotifications(options: {
 	for (const row of allRows) {
 		const user = userMap.get(row.user_id);
 		if (!user) {
-			logger.warn("User not found for staged delivery, deleting row", {
+			logger.error("User not found for staged delivery, deleting row", {
 				action: "staged_deliver",
 				stagedId: row.id,
 				userId: row.user_id,

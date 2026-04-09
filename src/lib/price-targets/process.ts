@@ -162,7 +162,7 @@ export async function processPriceTargets(options: {
 			.select("symbol, icon_url, icon_base64")
 			.in("symbol", uniqueSymbols);
 		if (iconRowsError) {
-			rootLogger.warn(
+			rootLogger.error(
 				"Failed to fetch asset icons for price target alerts",
 				{ action: "price_targets" },
 				iconRowsError,
@@ -215,8 +215,12 @@ export async function processPriceTargets(options: {
 		if (user.price_targets_include_sms && !smsSender) {
 			try {
 				smsSender = getSmsSender().sender;
-			} catch {
-				rootLogger.warn("Failed to initialize SMS sender for price targets");
+			} catch (error) {
+				rootLogger.error(
+					"Failed to initialize SMS sender for price targets",
+					{ action: "price_targets" },
+					error,
+				);
 			}
 		}
 

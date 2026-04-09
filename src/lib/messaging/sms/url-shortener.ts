@@ -41,7 +41,7 @@ export async function shortenUrl(
 		trimmed.length > MAX_ORIGINAL_URL_LENGTH ||
 		!isSafeRedirectUrl(trimmed)
 	) {
-		rootLogger.warn("URL shortener rejected unsafe or invalid URL", {
+		rootLogger.info("URL shortener rejected unsafe or invalid URL", {
 			urlLength: trimmed.length,
 			rejected: trimmed.length > 100 ? `${trimmed.slice(0, 100)}...` : trimmed,
 		});
@@ -82,7 +82,7 @@ export async function shortenUrl(
 
 			// 23505 = unique_violation (collision on id) — retry
 			if (error.code !== "23505") {
-				rootLogger.warn("URL shortener insert failed", {
+				rootLogger.error("URL shortener insert failed", {
 					url: trimmed,
 					attempt,
 					errorCode: error.code,
@@ -92,7 +92,7 @@ export async function shortenUrl(
 			}
 		}
 	} catch (error) {
-		rootLogger.warn(
+		rootLogger.error(
 			"URL shortener error, using original URL",
 			{
 				url: trimmed,

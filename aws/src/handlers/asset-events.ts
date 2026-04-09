@@ -7,11 +7,8 @@ import { createLogger } from "../../../src/lib/logging";
 import { createEmailSender } from "../../../src/lib/messaging/email/utils";
 import { createSmsSenderProvider } from "../../../src/lib/schedule/sms-sender";
 
-export async function handler(_event: ScheduledEvent, context: Context): Promise<void> {
-	const logger = createLogger({
-		baseContext: { source: "lambda", function: "asset-events" },
-		lambdaContext: context,
-	});
+export async function handler(_event: ScheduledEvent, _context: Context): Promise<void> {
+	const logger = createLogger({ source: "lambda", function: "asset-events" });
 	const supabase = createSupabaseAdminClient();
 
 	// Fetch two weeks: this week + next week.
@@ -78,7 +75,7 @@ export async function handler(_event: ScheduledEvent, context: Context): Promise
 	});
 
 	if (hasFailures) {
-		logger.warn("Some asset event providers failed", {
+		logger.error("Some asset event providers failed", {
 			action: "daily_asset_events_cron",
 			failedProviders: results.flatMap((r) => r.failedProviders),
 		});

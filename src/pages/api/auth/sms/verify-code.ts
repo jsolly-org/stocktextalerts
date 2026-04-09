@@ -84,7 +84,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		}
 
 		if (!userData.verification_sent_at) {
-			logger.warn("SMS verification attempted without prior code request", {
+			logger.info("SMS verification attempted without prior code request", {
 				userId: user.id,
 			});
 			return jsonResponse(400, {
