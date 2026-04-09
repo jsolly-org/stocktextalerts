@@ -92,10 +92,23 @@ Resources:
       CodeUri: dist/handlers/
       Timeout: 300
       MemorySize: 256
+      Policies:
+        # Required by the daily delisting sweep, which emails affected
+        # users when one of their holdings gets delisted.
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: "arn:aws:ses:us-east-1:730335616323:identity/stocktextalerts.com"
       Environment:
         Variables:
+          SITE_URL: !Ref SiteUrl
           MASSIVE_API_KEY: !Ref MassiveApiKey
           FINNHUB_API_KEY: !Ref FinnhubApiKey
+          EMAIL_FROM: !Ref EmailFrom
+          UNSUBSCRIBE_TOKEN_SECRET: !Ref UnsubscribeTokenSecret
       Events:
         DailyMidnight:
           Type: ScheduleV2
