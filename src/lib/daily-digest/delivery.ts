@@ -160,11 +160,13 @@ export async function formatDailyDigestSmsMessage(options: {
 	const dashboardUrl = options.supabase
 		? await shortenUrl(rawDashboardUrl, options.supabase)
 		: rawDashboardUrl;
+	const showChangePercent = options.marketOpen !== false;
 	const prices = buildDailyDigestPricesSummary(
 		options.userAssets,
 		options.assetPrices,
 		options.sparklines,
 		"\n\n",
+		showChangePercent,
 	);
 
 	const marketDisclaimer =
@@ -197,11 +199,13 @@ function formatDailyDigestPriceLine(
 	asset: UserAssetRow,
 	quote: { price: number; changePercent: number } | null | undefined,
 	sparkline?: SparklineData | null,
+	showChangePercent = true,
 ): string {
 	return formatAssetTextLine(
 		asset,
 		quote ?? undefined,
 		sparkline?.ascii ?? null,
+		showChangePercent,
 	);
 }
 
@@ -211,12 +215,14 @@ function formatDailyDigestPriceLineHtml(
 	quote: { price: number; changePercent: number } | null | undefined,
 	sparkline?: SparklineData | null,
 	logoHtml?: string,
+	showChangePercent = true,
 ): string {
 	const innerHtml = formatAssetHtmlLine(
 		asset,
 		quote ?? undefined,
 		sparkline,
 		logoHtml,
+		showChangePercent,
 	);
 	return `<div style="margin-bottom: 8px; color: #374151;">${innerHtml}</div>`;
 }
@@ -227,6 +233,7 @@ function buildDailyDigestPricesSummary(
 	assetPrices: AssetPriceMap,
 	sparklines?: SparklineMap,
 	separator = "\n",
+	showChangePercent = true,
 ): string {
 	if (userAssets.length === 0) {
 		return "";
@@ -237,6 +244,7 @@ function buildDailyDigestPricesSummary(
 				asset,
 				assetPrices.get(asset.symbol),
 				sparklines?.get(asset.symbol),
+				showChangePercent,
 			),
 		)
 		.join(separator);
@@ -248,6 +256,7 @@ function buildDailyDigestPricesHtml(
 	assetPrices: AssetPriceMap,
 	sparklines?: SparklineMap,
 	getLogoHtml?: (symbol: string) => string | undefined,
+	showChangePercent = true,
 ): string {
 	if (userAssets.length === 0) {
 		return "";
@@ -259,6 +268,7 @@ function buildDailyDigestPricesHtml(
 				assetPrices.get(asset.symbol),
 				sparklines?.get(asset.symbol),
 				getLogoHtml?.(asset.symbol),
+				showChangePercent,
 			),
 		)
 		.join("");
@@ -300,17 +310,20 @@ export function formatDailyDigestEmail(options: {
 	const ipos = (ae?.eventsSection?.ipos ?? "").trim();
 	const analyst = (ae?.analystSection ?? "").trim();
 	const insider = (ae?.insiderSection ?? "").trim();
+	const showChangePercent = options.marketOpen !== false;
 	const prices = buildDailyDigestPricesSummary(
 		options.userAssets,
 		options.assetPrices,
 		options.sparklines,
 		"\n",
+		showChangePercent,
 	);
 	const pricesHtml = buildDailyDigestPricesHtml(
 		options.userAssets,
 		options.assetPrices,
 		options.sparklines,
 		options.getLogoHtml,
+		showChangePercent,
 	);
 	const closureInfo = options.marketClosureInfo ?? null;
 	const showClosureBanner = options.marketOpen === false;

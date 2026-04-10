@@ -228,6 +228,7 @@ export async function processMarketScheduledUser(options: {
 			userAssets,
 			(symbol) => priceMap.get(symbol) ?? undefined,
 			getAsciiSparkline,
+			marketOpen !== false,
 		);
 
 		const shouldAttemptSms = shouldSendSms(user);

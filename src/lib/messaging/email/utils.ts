@@ -212,7 +212,7 @@ export function formatEmailMessage(
 	const escapedAssetsListHtml = formatAssetsHtmlList(
 		userAssets,
 		(symbol) => priceMap.get(symbol) ?? undefined,
-		{ getSparkline, getLogoHtml },
+		{ getSparkline, getLogoHtml, showChangePercent: marketOpen !== false },
 	);
 	const marketClosedBannerHtml = marketOpen
 		? ""

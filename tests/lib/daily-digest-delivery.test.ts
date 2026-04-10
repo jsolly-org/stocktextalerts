@@ -150,6 +150,9 @@ describe("Daily digest email prices", () => {
 		expect(message).toContain("Market Closed");
 		expect(message).toContain("Weekend");
 		expect(message).toContain("Prices below reflect the last market close.");
+		// Change percent is omitted outside market hours
+		expect(message).toContain("AAPL — $187.42");
+		expect(message).not.toContain("(+1.23%)");
 	});
 
 	it("SMS omits market closed banner when marketOpen is true", async () => {
@@ -165,6 +168,8 @@ describe("Daily digest email prices", () => {
 		});
 
 		expect(message).not.toContain("Market Closed");
+		// Change percent is shown when market is open
+		expect(message).toContain("AAPL — $187.42 (+1.23%)");
 	});
 
 	it("formats daily digest SMS with a Your Assets section", async () => {
@@ -295,6 +300,11 @@ describe("Daily digest email prices", () => {
 		);
 		// Banner uses amber styling
 		expect(message.html).toContain("#fef3c7");
+		// Change percent is omitted outside market hours
+		expect(message.text).toContain("AAPL — $187.42");
+		expect(message.text).not.toContain("(+1.23%)");
+		expect(message.html).toContain("$187.42");
+		expect(message.html).not.toContain("(+1.23%)");
 	});
 
 	it("shows market-closed banner with holiday name", () => {
@@ -313,6 +323,8 @@ describe("Daily digest email prices", () => {
 
 		expect(message.text).toContain("Market Closed — Presidents' Day");
 		expect(message.html).toContain("Market Closed — Presidents&#39; Day");
+		// Change percent omitted outside market hours
+		expect(message.text).not.toContain("(+1.23%)");
 	});
 
 	it("shows market-closed banner without timestamp when no quotes have timestamps", () => {
@@ -334,5 +346,7 @@ describe("Daily digest email prices", () => {
 			"Prices below reflect the last market close.",
 		);
 		expect(message.text).not.toContain("as of");
+		// Change percent omitted outside market hours
+		expect(message.text).not.toContain("(+1.23%)");
 	});
 });
