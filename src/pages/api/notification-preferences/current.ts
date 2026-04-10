@@ -64,6 +64,8 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 				daily_digest_include_prices_email:
 					dbUser.daily_digest_include_prices_email,
 				daily_digest_include_prices_sms: dbUser.daily_digest_include_prices_sms,
+				daily_digest_include_top_movers_email:
+					dbUser.daily_digest_include_top_movers_email,
 				daily_digest_include_news_email: dbUser.daily_digest_include_news_email,
 				daily_digest_include_rumors_email:
 					dbUser.daily_digest_include_rumors_email,

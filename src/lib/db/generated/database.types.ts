@@ -536,6 +536,7 @@ export type Database = {
           daily_digest_include_prices_email: boolean
           daily_digest_include_prices_sms: boolean
           daily_digest_include_rumors_email: boolean
+          daily_digest_include_top_movers_email: boolean
           daily_digest_next_send_at: string | null
           daily_digest_time: number | null
           dismiss_timezone_mismatch_prompts: boolean
@@ -583,6 +584,7 @@ export type Database = {
           daily_digest_include_prices_email?: boolean
           daily_digest_include_prices_sms?: boolean
           daily_digest_include_rumors_email?: boolean
+          daily_digest_include_top_movers_email?: boolean
           daily_digest_next_send_at?: string | null
           daily_digest_time?: number | null
           dismiss_timezone_mismatch_prompts?: boolean
@@ -630,6 +632,7 @@ export type Database = {
           daily_digest_include_prices_email?: boolean
           daily_digest_include_prices_sms?: boolean
           daily_digest_include_rumors_email?: boolean
+          daily_digest_include_top_movers_email?: boolean
           daily_digest_next_send_at?: string | null
           daily_digest_time?: number | null
           dismiss_timezone_mismatch_prompts?: boolean

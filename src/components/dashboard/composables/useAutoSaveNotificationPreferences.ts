@@ -16,6 +16,7 @@ export type NotificationPreferencesData = {
 	dismiss_timezone_mismatch_prompts: boolean;
 	daily_digest_include_prices_email: boolean;
 	daily_digest_include_prices_sms: boolean;
+	daily_digest_include_top_movers_email: boolean;
 	daily_digest_include_news_email: boolean;
 	daily_digest_include_rumors_email: boolean;
 	market_scheduled_asset_price_include_email: boolean;

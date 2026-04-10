@@ -349,4 +349,64 @@ describe("Daily digest email prices", () => {
 		// Change percent omitted outside market hours
 		expect(message.text).not.toContain("(+1.23%)");
 	});
+
+	it("renders top movers section in email when opted in", () => {
+		const assetPrices: AssetPriceMap = new Map([
+			["AAPL", { price: 187.42, changePercent: 1.23 }],
+		]);
+
+		const message = formatDailyDigestEmail({
+			user,
+			userAssets: [userAssets[0]],
+			assetPrices,
+			extras: {
+				...extras,
+				topMovers:
+					"Gainers:\nSKYQ — $12.59 (+74.49%)\nNVDA — $495.30 (+4.12%)\n\nLosers:\nBIIB — $212.45 (-18.67%)",
+			},
+		});
+
+		expect(message.text).toContain("🚀 Top Movers");
+		expect(message.text).toContain("Gainers:");
+		expect(message.text).toContain("SKYQ — $12.59 (+74.49%)");
+		expect(message.text).toContain("Losers:");
+		expect(message.text).toContain("BIIB — $212.45 (-18.67%)");
+		expect(message.html).toContain("Top Movers");
+		expect(message.html).toContain("SKYQ");
+		expect(message.html).toContain("BIIB");
+	});
+
+	it("omits top movers section from email when not opted in", () => {
+		const assetPrices: AssetPriceMap = new Map([
+			["AAPL", { price: 187.42, changePercent: 1.23 }],
+		]);
+
+		const message = formatDailyDigestEmail({
+			user,
+			userAssets: [userAssets[0]],
+			assetPrices,
+			extras,
+		});
+
+		expect(message.text).not.toContain("Top Movers");
+		expect(message.html).not.toContain("Top Movers");
+	});
+
+	it("omits top movers section from SMS even when extras.topMovers is set", async () => {
+		const assetPrices: AssetPriceMap = new Map([
+			["AAPL", { price: 187.42, changePercent: 1.23 }],
+		]);
+
+		const message = await formatDailyDigestSmsMessage({
+			userAssets: [userAssets[0]],
+			assetPrices,
+			extras: {
+				...extras,
+				topMovers: "Gainers:\nSKYQ — $12.59 (+74.49%)",
+			},
+		});
+
+		expect(message).not.toContain("Top Movers");
+		expect(message).not.toContain("SKYQ");
+	});
 });

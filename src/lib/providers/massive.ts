@@ -738,6 +738,77 @@ export async function fetchSnapshotQuotes(
 }
 
 /* =============
+Top Movers (market-wide gainers / losers)
+============= */
+
+export interface TopMover {
+	ticker: string;
+	price: number;
+	changePercent: number;
+}
+
+/**
+ * Fetch market-wide top gainers or losers for the current session.
+ *
+ * Uses `/v2/snapshot/locale/us/markets/stocks/{gainers|losers}`, which
+ * returns tickers already sorted by `todaysChangePerc`. Sub-$5 names are
+ * filtered out to cut penny-stock / warrant noise, and tickers showing
+ * `todaysChangePerc === 0` are skipped — `parseSnapshotTicker` would
+ * otherwise fall back to the prior session's change, which misrepresents
+ * why a ticker appeared on today's movers list.
+ *
+ * Returns up to `limit` results. Fewer may be returned if the upstream
+ * response is small or most tickers fail the price filter.
+ */
+export async function fetchTopMovers(
+	direction: "gainers" | "losers",
+	options?: { limit?: number; minPrice?: number },
+): Promise<TopMover[]> {
+	const limit = options?.limit ?? 5;
+	const minPrice = options?.minPrice ?? 5;
+
+	const data = await marketDataFetch(
+		`/v2/snapshot/locale/us/markets/stocks/${direction}`,
+		{},
+		`top-${direction}`,
+	);
+	if (typeof data !== "object" || data === null) return [];
+
+	const tickers = (data as Record<string, unknown>).tickers;
+	if (!Array.isArray(tickers)) return [];
+
+	const movers: TopMover[] = [];
+	for (const raw of tickers) {
+		if (typeof raw !== "object" || raw === null) continue;
+		const t = raw as SnapshotTicker;
+		if (typeof t.ticker !== "string") continue;
+
+		// Use the raw todaysChangePerc directly rather than parseSnapshotTicker's
+		// prev-day fallback: on the gainers/losers endpoint a 0% entry means the
+		// ticker genuinely hasn't moved today, not that the market is closed.
+		const changePercent = t.todaysChangePerc;
+		if (
+			typeof changePercent !== "number" ||
+			!Number.isFinite(changePercent) ||
+			changePercent === 0
+		) {
+			continue;
+		}
+
+		const price = t.day?.c;
+		if (typeof price !== "number" || !Number.isFinite(price) || price === 0) {
+			continue;
+		}
+		if (price < minPrice) continue;
+
+		movers.push({ ticker: t.ticker, price, changePercent });
+		if (movers.length >= limit) break;
+	}
+
+	return movers;
+}
+
+/* =============
 Previous-day bar + reference lookup
 ============= */
 

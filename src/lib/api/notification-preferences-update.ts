@@ -21,6 +21,7 @@ interface ParsedNotificationPreferencesForm {
 	daily_digest_time?: number;
 	daily_digest_include_prices_email?: boolean;
 	daily_digest_include_prices_sms?: boolean;
+	daily_digest_include_top_movers_email?: boolean;
 	daily_digest_include_news_email?: boolean;
 	daily_digest_include_rumors_email?: boolean;
 	market_scheduled_asset_price_include_email?: boolean;
@@ -169,6 +170,7 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		"market_scheduled_asset_price_include_sms",
 		"daily_digest_include_prices_email",
 		"daily_digest_include_prices_sms",
+		"daily_digest_include_top_movers_email",
 		"daily_digest_include_news_email",
 		"daily_digest_include_rumors_email",
 		"asset_events_include_calendar_email",

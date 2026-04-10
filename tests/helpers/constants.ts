@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 // Update EXPECTED_DB_SCHEMA_VERSION whenever migrations are applied or regenerated
 // (use the latest migration commit/tag or schema version timestamp and update tests).
 export const EXPECTED_DB_SCHEMA_VERSION =
-	"20260408180000_add_asset_delisted_at";
+	"20260410120000_add_daily_digest_include_top_movers";
 export const POSTGRES_UNDEFINED_TABLE = "42P01";
 export const PRESERVED_USER_ID = "00000000-0000-0000-0000-000000000000";
 export const PRESERVED_TEST_EMAIL = "test@jsolly.com";

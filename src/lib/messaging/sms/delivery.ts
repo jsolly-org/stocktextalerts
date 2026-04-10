@@ -16,10 +16,12 @@ export type SmsExtras = {
 	rumors?: string | null;
 	analyst?: string | null;
 	insider?: string | null;
+	topMovers?: string | null;
 	citations?: string[];
 };
 
-/** Format the optional “extras” block appended to some SMS messages. */
+/** Format the optional “extras” block appended to some SMS messages.
+ * `topMovers` is intentionally not rendered here — it's an email-only section. */
 function formatSmsExtras(extras?: SmsExtras): string {
 	if (!extras) {
 		return "";

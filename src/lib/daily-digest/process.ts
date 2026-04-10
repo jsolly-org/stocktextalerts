@@ -22,7 +22,11 @@ import {
 	generateNewsWithGrok,
 	generateRumorsWithGrok,
 } from "../providers/grok";
-import { fetchSnapshotQuotes } from "../providers/massive";
+import {
+	fetchSnapshotQuotes,
+	fetchTopMovers,
+	type TopMover,
+} from "../providers/massive";
 import {
 	type AssetPriceMap,
 	fetchAssetPrices,
@@ -52,6 +56,36 @@ import { updateUserDailyDigestNextSendAt } from "./next-send-at";
 
 const GROK_WINDOW_HOURS = 24;
 const GROK_MAX_SENDS_PER_WINDOW = 10;
+
+function formatMoverLine(mover: TopMover): string {
+	const sign = mover.changePercent >= 0 ? "+" : "";
+	return `${mover.ticker} — $${mover.price.toFixed(2)} (${sign}${mover.changePercent.toFixed(2)}%)`;
+}
+
+/**
+ * Fetch market-wide top gainers/losers and format them as a single email
+ * section body. Returns `null` when both lists are empty (upstream failure
+ * or all tickers filtered out) — callers skip the section in that case.
+ */
+async function buildTopMoversSection(): Promise<string | null> {
+	// `fetchTopMovers` never throws — `marketDataFetch` catches transport errors
+	// and returns `null`, which `fetchTopMovers` maps to `[]`. No try/catch needed.
+	const [gainers, losers] = await Promise.all([
+		fetchTopMovers("gainers"),
+		fetchTopMovers("losers"),
+	]);
+	const lines: string[] = [];
+	if (gainers.length > 0) {
+		lines.push("Gainers:");
+		for (const m of gainers) lines.push(formatMoverLine(m));
+	}
+	if (losers.length > 0) {
+		if (lines.length > 0) lines.push("");
+		lines.push("Losers:");
+		for (const m of losers) lines.push(formatMoverLine(m));
+	}
+	return lines.length > 0 ? lines.join("\n") : null;
+}
 
 /** Return whether Grok is allowed within the user's rolling window limit. */
 function canInvokeGrokWithinLimit(options: {
@@ -296,6 +330,9 @@ export async function processDailyDigestUser(options: {
 		const emailEnabled = user.email_notifications_enabled;
 		const smsEnabled = shouldSendSms(user);
 
+		const wantsTopMoversEmail =
+			user.daily_digest_include_top_movers_email && emailEnabled;
+
 		if (!emailEnabled && !smsEnabled) {
 			stats.skipped++;
 			if (!stageOnly) {
@@ -469,6 +506,13 @@ export async function processDailyDigestUser(options: {
 			]);
 		}
 
+		/* =============
+		Fetch market-wide top movers (email-only section)
+		============= */
+		const topMoversSection = wantsTopMoversEmail
+			? await buildTopMoversSection()
+			: null;
+
 		const mergedCitations = [
 			...new Set([
 				...(newsResult?.citations ?? []),
@@ -546,6 +590,7 @@ export async function processDailyDigestUser(options: {
 				rumors: isSms ? null : (rumorsResult?.content ?? null),
 				analyst: null,
 				insider: null,
+				topMovers: isSms ? null : topMoversSection,
 				citations:
 					!isSms && mergedCitations.length > 0 ? mergedCitations : undefined,
 			};
@@ -562,6 +607,7 @@ export async function processDailyDigestUser(options: {
 			(includePricesEmail && userAssets.length > 0 && emailEnabled) ||
 			emailExtras?.news ||
 			emailExtras?.rumors ||
+			emailExtras?.topMovers ||
 			emailAssetEvents?.hasAnyContent
 		);
 		const hasSmsContent = !!(

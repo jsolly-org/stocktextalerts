@@ -310,6 +310,7 @@ export function formatDailyDigestEmail(options: {
 	const ipos = (ae?.eventsSection?.ipos ?? "").trim();
 	const analyst = (ae?.analystSection ?? "").trim();
 	const insider = (ae?.insiderSection ?? "").trim();
+	const topMovers = (options.extras.topMovers ?? "").trim();
 	const showChangePercent = options.marketOpen !== false;
 	const prices = buildDailyDigestPricesSummary(
 		options.userAssets,
@@ -354,6 +355,7 @@ export function formatDailyDigestEmail(options: {
 		ipos ? `\n🆕 Upcoming IPOs\n${ipos}` : "",
 		analyst ? `\n📊 Analyst Consensus\n${analyst}` : "",
 		insider ? `\n🏦 Insider Trades\n${insider}` : "",
+		topMovers ? `\n🚀 Top Movers\n${topMovers}` : "",
 		`\nManage your settings: ${urls.dashboardUrl}`,
 		`Manage your delivery schedule: ${urls.scheduleUrl}`,
 		`Unsubscribe from all emails: ${urls.unsubscribeUrl}`,
@@ -389,6 +391,7 @@ export function formatDailyDigestEmail(options: {
 		${renderEmailSection("🆕", "Upcoming IPOs", ipos)}
 		${renderEmailSection("📊", "Analyst Consensus", analyst, { showFinnhubLogo: true })}
 		${renderEmailSection("🏦", "Insider Trades", insider, { showFinnhubLogo: true })}
+		${renderEmailSection("🚀", "Top Movers", topMovers, { showMassiveLogo: true })}
 		<div style="text-align: center; margin-top: 20px;">
 			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
 				Manage your settings →

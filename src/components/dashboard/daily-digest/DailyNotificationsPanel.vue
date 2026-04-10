@@ -151,6 +151,44 @@
 				<div class="flex items-center justify-between gap-3 py-3">
 					<input
 						type="hidden"
+					name="daily_digest_include_top_movers_email"
+					:value="includeTopMoversEmail ? 'on' : 'off'"
+				/>
+				<div class="min-w-0">
+					<div class="flex items-center gap-2">
+						<span
+							id="daily_digest_include_top_movers_label"
+								class="text-base font-semibold text-heading"
+							>
+								🚀 Top Movers
+							</span>
+						<MassiveLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
+						</div>
+						<p
+							id="daily_digest_include_top_movers_description"
+							class="text-sm text-body-secondary mt-0.5"
+						>
+							Include the day's biggest market-wide gainers and losers (US stocks priced $5+).
+						</p>
+					</div>
+				<div class="shrink-0">
+					<label class="inline-flex items-center gap-1.5" :class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'">
+						<input
+							type="checkbox"
+							v-model="includeTopMoversEmail"
+							:disabled="emailOnlyDisabled"
+							class="rounded border-edge-strong text-teal-600 focus:ring-teal-500 h-4 w-4"
+							:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
+							aria-describedby="daily_digest_include_top_movers_description"
+						/>
+						<span class="text-sm text-label">Email</span>
+					</label>
+				</div>
+				</div>
+
+				<div class="flex items-center justify-between gap-3 py-3">
+					<input
+						type="hidden"
 					name="daily_digest_include_rumors_email"
 					:value="includeRumorsEmail ? 'on' : 'off'"
 				/>
@@ -305,12 +343,16 @@ const {
 
 const includePricesEmail = ref(user.value.daily_digest_include_prices_email);
 const includePricesSms = ref(user.value.daily_digest_include_prices_sms);
+const includeTopMoversEmail = ref(
+	user.value.daily_digest_include_top_movers_email,
+);
 const includeNewsEmail = ref(user.value.daily_digest_include_news_email);
 const includeRumorsEmail = ref(user.value.daily_digest_include_rumors_email);
 
 const dailyEnabled = computed(() =>
 	includePricesEmail.value ||
 	includePricesSms.value ||
+	includeTopMoversEmail.value ||
 	includeNewsEmail.value ||
 	includeRumorsEmail.value,
 );
@@ -396,7 +438,7 @@ const nextDailyDeliveryText = computed(() => {
 	return secondsUntil <= 0 ? "is due soon" : `in ${formatCountdownWithSeconds(secondsUntil)}`;
 });
 
-watch([includePricesEmail, includePricesSms, includeNewsEmail, includeRumorsEmail], () => {
+watch([includePricesEmail, includePricesSms, includeTopMoversEmail, includeNewsEmail, includeRumorsEmail], () => {
 	notifyChange();
 });
 
@@ -410,6 +452,12 @@ watch(
 	() => user.value.daily_digest_include_prices_sms,
 	(value) => {
 		includePricesSms.value = value;
+	},
+);
+watch(
+	() => user.value.daily_digest_include_top_movers_email,
+	(value) => {
+		includeTopMoversEmail.value = value;
 	},
 );
 watch(
@@ -434,6 +482,8 @@ watch(savedData, (newData) => {
 		...user.value,
 		daily_digest_include_prices_email: newData.daily_digest_include_prices_email,
 		daily_digest_include_prices_sms: newData.daily_digest_include_prices_sms,
+		daily_digest_include_top_movers_email:
+			newData.daily_digest_include_top_movers_email,
 		daily_digest_include_news_email: newData.daily_digest_include_news_email,
 		daily_digest_include_rumors_email: newData.daily_digest_include_rumors_email,
 		daily_digest_time: newData.daily_digest_time,

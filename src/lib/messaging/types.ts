@@ -48,6 +48,7 @@ export type UserRecord = Pick<
 	daily_digest_next_send_at: string | null;
 	daily_digest_include_prices_email: boolean;
 	daily_digest_include_prices_sms: boolean;
+	daily_digest_include_top_movers_email: boolean;
 	asset_events_include_calendar_email: boolean;
 	asset_events_include_calendar_sms: boolean;
 	asset_events_include_ipo_email: boolean;
