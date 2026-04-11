@@ -37,6 +37,10 @@ import { fetchDailyDigestUsers } from "../daily-digest/query";
 import { getSiteUrl } from "../db/env";
 import type { Logger } from "../logging";
 import {
+	type FlatPriceAlertTotals,
+	processFlatPriceAlerts,
+} from "../market-notifications/flat-alerts/process";
+import {
 	type PriceAlertTotals,
 	processPriceAlerts,
 } from "../market-notifications/process";
@@ -443,6 +447,7 @@ export async function runScheduledNotifications(options: {
 	ScheduledNotificationTotals & {
 		priceAlerts?: PriceAlertTotals;
 		priceTargets?: PriceTargetTotals;
+		flatPriceAlerts?: FlatPriceAlertTotals;
 	}
 > {
 	const { supabase, logger } = options;
@@ -513,6 +518,39 @@ export async function runScheduledNotifications(options: {
 		);
 	}
 
+	// Run flat price alerts — own state, own users, own emails; shares the
+	// quote map and market-hours gating from processPriceAlerts to avoid
+	// duplicate Massive snapshot calls. If processPriceAlerts threw, the
+	// quote map is undefined and this is skipped — logged so the skip is
+	// observable, not silent.
+	let flatPriceAlertTotals: FlatPriceAlertTotals | undefined;
+	if (priceAlertQuoteMap && priceAlertIsMarketOpen !== undefined) {
+		try {
+			flatPriceAlertTotals = await processFlatPriceAlerts({
+				supabase,
+				quoteMap: priceAlertQuoteMap,
+				isMarketOpen: priceAlertIsMarketOpen,
+			});
+
+			logger.info("Flat price alerts processed", {
+				action: "flat_price_alerts",
+				...flatPriceAlertTotals,
+			});
+		} catch (error) {
+			logger.error(
+				"Flat price alerts processing failed (non-fatal)",
+				{ action: "flat_price_alerts" },
+				error,
+			);
+		}
+	} else {
+		logger.warn("Flat price alerts skipped: upstream quote fetch unavailable", {
+			action: "flat_price_alerts",
+			hasQuoteMap: Boolean(priceAlertQuoteMap),
+			hasMarketStatus: priceAlertIsMarketOpen !== undefined,
+		});
+	}
+
 	const sendEmail = createEmailSender();
 	const getSmsSender = createSmsSenderProvider();
 
@@ -553,5 +591,6 @@ export async function runScheduledNotifications(options: {
 		...combinedTotals,
 		priceAlerts: priceAlertTotals,
 		priceTargets: priceTargetTotals,
+		flatPriceAlerts: flatPriceAlertTotals,
 	};
 }

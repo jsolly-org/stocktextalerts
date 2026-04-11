@@ -34,6 +34,7 @@ export type NotificationPreferencesData = {
 	market_asset_price_alerts_include_email: boolean;
 	market_asset_price_alerts_include_sms: boolean;
 	market_asset_price_alert_move_size: "significant" | "extreme";
+	price_move_alerts_enabled: boolean;
 	price_targets_include_email: boolean;
 	price_targets_include_sms: boolean;
 };

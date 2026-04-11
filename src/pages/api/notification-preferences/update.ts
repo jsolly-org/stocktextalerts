@@ -42,6 +42,7 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 		type: "enum",
 		values: ["significant", "extreme"],
 	},
+	price_move_alerts_enabled: { type: "boolean" },
 	price_targets_include_email: { type: "boolean" },
 	price_targets_include_sms: { type: "boolean" },
 } as const satisfies FormSchema;
@@ -296,6 +297,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 					updatedUser.market_asset_price_alerts_include_sms,
 				market_asset_price_alert_move_size:
 					updatedUser.market_asset_price_alert_move_size,
+				price_move_alerts_enabled: updatedUser.price_move_alerts_enabled,
 				price_targets_include_email: updatedUser.price_targets_include_email,
 				price_targets_include_sms: updatedUser.price_targets_include_sms,
 			},

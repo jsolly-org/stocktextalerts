@@ -288,6 +288,42 @@ export type Database = {
           },
         ]
       }
+      price_move_alert_state: {
+        Row: {
+          last_notification_at: string
+          last_notification_price: number
+          symbol: string
+          user_id: string
+        }
+        Insert: {
+          last_notification_at?: string
+          last_notification_price: number
+          symbol: string
+          user_id: string
+        }
+        Update: {
+          last_notification_at?: string
+          last_notification_price?: number
+          symbol?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_move_alert_state_symbol_fkey"
+            columns: ["symbol"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["symbol"]
+          },
+          {
+            foreignKeyName: "price_move_alert_state_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       price_targets: {
         Row: {
           created_at: string
@@ -559,6 +595,7 @@ export type Database = {
           phone_country_code: string | null
           phone_number: string | null
           phone_verified: boolean
+          price_move_alerts_enabled: boolean
           price_targets_include_email: boolean
           price_targets_include_sms: boolean
           sms_notifications_enabled: boolean
@@ -607,6 +644,7 @@ export type Database = {
           phone_country_code?: string | null
           phone_number?: string | null
           phone_verified?: boolean
+          price_move_alerts_enabled?: boolean
           price_targets_include_email?: boolean
           price_targets_include_sms?: boolean
           sms_notifications_enabled?: boolean
@@ -655,6 +693,7 @@ export type Database = {
           phone_country_code?: string | null
           phone_number?: string | null
           phone_verified?: boolean
+          price_move_alerts_enabled?: boolean
           price_targets_include_email?: boolean
           price_targets_include_sms?: boolean
           sms_notifications_enabled?: boolean
@@ -685,6 +724,16 @@ export type Database = {
           p_max_requests: number
           p_user_id: string
           p_window_minutes: number
+        }
+        Returns: boolean
+      }
+      claim_flat_price_alert: {
+        Args: {
+          p_baseline_price: number
+          p_new_price: number
+          p_symbol: string
+          p_threshold_percent: number
+          p_user_id: string
         }
         Returns: boolean
       }
