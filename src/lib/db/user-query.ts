@@ -44,24 +44,22 @@ export async function fetchUsersWithRetry<T>(options: {
 			return (data ?? []) as T[];
 		}
 
-		const errorMessage =
-			error instanceof Error ? error.message.slice(0, 200) : String(error);
-
 		if (attempt === MAX_RETRIES) {
-			logger.error(`Failed to fetch ${label} after retries`, {
-				attempts: MAX_RETRIES + 1,
-				errorMessage,
-			});
+			logger.error(
+				`Failed to fetch ${label} after retries`,
+				{ attempts: MAX_RETRIES + 1 },
+				error,
+			);
 			throw new Error(
 				`Failed to fetch ${label} after ${MAX_RETRIES + 1} attempts`,
 			);
 		}
 
-		logger.warn(`Transient error fetching ${label}, retrying`, {
-			attempt: attempt + 1,
-			maxRetries: MAX_RETRIES,
-			errorMessage,
-		});
+		logger.warn(
+			`Transient error fetching ${label}, retrying`,
+			{ attempt: attempt + 1, maxRetries: MAX_RETRIES },
+			error,
+		);
 		await realDelay(RETRY_DELAY_MS);
 	}
 

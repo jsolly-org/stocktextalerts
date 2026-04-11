@@ -114,6 +114,21 @@ function serializeError(error: unknown): LogEntry["error"] {
 		return { message: error };
 	}
 
+	// Library errors like Supabase's PostgrestError are plain objects, not Error
+	// instances. Preserve the whole object in `raw` so code/hint/details survive
+	// without coupling to any library's type.
+	if (
+		error !== null &&
+		typeof error === "object" &&
+		"message" in error &&
+		typeof (error as { message: unknown }).message === "string"
+	) {
+		return {
+			message: (error as { message: string }).message,
+			raw: error,
+		};
+	}
+
 	return {
 		message: "Non-Error thrown",
 		raw: error,
@@ -135,7 +150,13 @@ function getMaskPiiEnabled(): boolean {
 
 function safeJsonStringify(value: unknown, maskPiiEnabled: boolean): string {
 	const seen = new WeakSet<object>();
-	return JSON.stringify(value, (_key, entry) => {
+	return JSON.stringify(value, (key, entry) => {
+		// Redact sensitive-named keys anywhere in the tree (maskPiiInContext only
+		// walks the top-level context, leaving nested objects like error.raw and
+		// entry.error.cause exposed).
+		if (key !== "" && isSensitiveKey(key)) {
+			return "[REDACTED]";
+		}
 		if (typeof entry === "bigint") {
 			return entry.toString();
 		}
