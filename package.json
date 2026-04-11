@@ -33,8 +33,7 @@
 		"db:generate-seed": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/generate-seed.ts",
 		"test:live:data": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-vitest.ts --live=massive,finnhub tests/lib/live-provider-apis.test.ts",
 		"test:live:xai": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-vitest.ts --live=xai tests/lib/live-xai-apis.test.ts",
-		"test:live:email": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-vitest.ts --live=email tests/lib/staged-notifications/deliver.test.ts",
-		"test:live:sms": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-vitest.ts --live=sms tests/api/schedule/schedule-sms.test.ts",
+		"test:live:email": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-vitest.ts --live=email tests/lib/staged-notifications/deliver.test.ts tests/lib/market-notifications/flat-alerts/process.live.test.ts",
 		"test:live:all": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-vitest.ts --live=all"
 	},
 	"lint-staged": {

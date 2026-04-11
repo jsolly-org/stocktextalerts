@@ -42,6 +42,7 @@
 						:is24="is24"
 						:minTimeOverride="props.minTime ?? undefined"
 						:maxTimeOverride="props.maxTime ?? undefined"
+						:disabledRangeTooltip="DISABLED_RANGE_TOOLTIP"
 						@time-change="emit('add-initial-time', $event)"
 					/>
 					<button
@@ -50,6 +51,7 @@
 						class="btn btn-sm btn-secondary self-start"
 						:disabled="!canAddAfterOpen"
 						:aria-label="`Set delivery time to after US market open (${afterOpenLabel})`"
+						:title="maxTimesReachedTitle"
 						@click="emit('add-after-open')"
 					>
 						<PresentationChartLineIcon class="size-4 shrink-0 me-1" aria-hidden="true" />
@@ -72,6 +74,7 @@
 					:is24="is24"
 					:minTimeOverride="props.minTime ?? undefined"
 					:maxTimeOverride="props.maxTime ?? undefined"
+					:disabledRangeTooltip="DISABLED_RANGE_TOOLTIP"
 					@time-change="emit('time-change', index, $event)"
 					@clear="emit('remove-time', index)"
 				/>
@@ -85,6 +88,7 @@
 						class="btn btn-sm btn-secondary self-start"
 						:disabled="!canAddTime"
 						aria-label="Add time"
+						:title="maxTimesReachedTitle"
 						@click="emit('add-time')"
 					>
 						<PlusIcon class="size-4 shrink-0 me-1" aria-hidden="true" />
@@ -96,6 +100,7 @@
 					class="btn btn-sm btn-secondary self-start"
 					:disabled="!canAddAfterOpen"
 					:aria-label="`Set delivery time to after US market open (${afterOpenLabel})`"
+					:title="maxTimesReachedTitle"
 					@click="emit('add-after-open')"
 				>
 				<PresentationChartLineIcon class="size-4 shrink-0 me-1" aria-hidden="true" />
@@ -131,6 +136,9 @@ import PlusIcon from "../../../icons/plus.svg?component";
 import PresentationChartLineIcon from "../../../icons/presentation-chart-line.svg?component";
 import StatusMessage from "../../StatusMessage.vue";
 import TimePicker from "../shared/TimePicker.vue";
+
+const DISABLED_RANGE_TOOLTIP =
+	"Outside US market hours (10:00 AM – 3:59 PM ET)";
 
 interface Props {
 	scheduledUpdateTimes: string[];
@@ -171,6 +179,12 @@ onMounted(() => {
 });
 
 const serializedTimes = computed(() => JSON.stringify(props.scheduledUpdateTimes));
+
+const maxTimesReachedTitle = computed<string | undefined>(() =>
+	props.maxTimesReached
+		? `You've reached the maximum of ${props.maxTimes} delivery times. Remove one to add another.`
+		: undefined,
+);
 
 const HOLIDAY_EMOJIS: Record<string, string> = {
 	"New Year's Day": "\u{1F389}",        // 🎉

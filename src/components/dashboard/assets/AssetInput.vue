@@ -18,6 +18,7 @@
 			"
 			:aria-describedby="inputAriaDescribedBy"
 			:disabled="props.disabled"
+			:title="props.disabled ? props.disabledTitle : undefined"
 			class="input disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
 			@focus="handleFocus"
 		/>
@@ -78,6 +79,7 @@ export interface AssetSearchResult {
 
 interface Props {
 	disabled?: boolean;
+	disabledTitle?: string;
 	inputAriaDescribedBy?: string;
 }
 

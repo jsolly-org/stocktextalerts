@@ -62,7 +62,7 @@ supabase migration new <name>  # Create new migration (never rename timestamps)
 - Pre-existing type error in `src/pages/api/auth/sms/send-verification.ts:201` (nullable param to RPC) — not ours, ignore.
 - `formatSmsMessage`, `formatDailyDigestSmsMessage`, `formatPriceAlertSms`, `formatAssetEventsSmsMessage` are all **async** (URL shortening).
 - Mock supabase for SMS formatters must include a `.from().select().eq().gt().limit().single()` chain for the URL shortener dedup lookup.
-- **Live API tests**: `npm run test:live:email`, `test:live:sms`, `test:live:all`. Always reproduce live test failures locally before fixing.
+- **Live API tests**: `npm run test:live:email`, `test:live:data`, `test:live:xai`, `test:live:all`. Always reproduce live test failures locally before fixing.
 
 ## Supabase Migrations
 

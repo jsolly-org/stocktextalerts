@@ -77,7 +77,11 @@
 				>
 				<span class="text-xs font-semibold uppercase tracking-wider text-faint select-none">Select all</span>
 				<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
-					<label class="inline-flex items-center gap-1.5" :class="needsChannelSelection ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'">
+					<label
+						class="inline-flex items-center gap-1.5"
+						:class="needsChannelSelection ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'"
+						:title="emailDisabledTitle"
+					>
 						<input
 							ref="selectAllEmailRef"
 							type="checkbox"
@@ -90,7 +94,11 @@
 						/>
 						<span class="text-sm font-medium text-body-secondary">Email</span>
 					</label>
-					<label class="inline-flex items-center gap-1.5" :class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+					<label
+						class="inline-flex items-center gap-1.5"
+						:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+						:title="smsDisabledTitle"
+					>
 						<input
 							ref="selectAllSmsRef"
 							type="checkbox"
@@ -148,7 +156,11 @@
 					</p>
 				</div>
 				<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
-					<label class="inline-flex items-center gap-1.5" :class="isEventTypeBlocked(eventType.key) ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'">
+					<label
+						class="inline-flex items-center gap-1.5"
+						:class="isEventTypeBlocked(eventType.key) ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'"
+						:title="emailDisabledTitle"
+					>
 						<input
 							type="checkbox"
 							v-model="assetEventRefs[eventType.key].email.value"
@@ -160,7 +172,11 @@
 						/>
 						<span class="text-sm font-normal text-label">Email</span>
 					</label>
-					<label class="inline-flex items-center gap-1.5" :class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+					<label
+						class="inline-flex items-center gap-1.5"
+						:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+						:title="smsDisabledTitle"
+					>
 						<input
 							type="checkbox"
 							v-model="assetEventRefs[eventType.key].sms.value"
@@ -216,6 +232,10 @@ import {
 	useAutoSaveForm,
 } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
+import {
+	getEmailChannelDisabledTitle,
+	getSmsChannelDisabledTitle,
+} from "../shared/channel-disabled-titles";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 
@@ -277,6 +297,22 @@ const needsPhoneVerification = computed(
 			user.value.asset_events_include_analyst_sms ||
 			user.value.asset_events_include_insider_sms) &&
 		!phoneVerified.value,
+);
+
+/**
+ * Hover-text reasons for disabled channel toggles. Populated only when the
+ * channel itself is unavailable — panel-level blocks (no tracked assets, no
+ * channel selected at all) are surfaced via SetupRequiredNotice instead.
+ */
+const emailDisabledTitle = computed(() =>
+	getEmailChannelDisabledTitle(emailEnabled.value),
+);
+const smsDisabledTitle = computed(() =>
+	getSmsChannelDisabledTitle({
+		smsNotificationsEnabled: smsNotificationsEnabled.value,
+		phoneVerified: phoneVerified.value,
+		smsOptedOut: smsOptedOut.value,
+	}),
 );
 
 /* =============

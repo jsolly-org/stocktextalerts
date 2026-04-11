@@ -11,18 +11,25 @@ vi.mock("../../../src/lib/time/market-calendar", () => ({
 
 import { runScheduledNotifications } from "../../../src/lib/schedule/run";
 import * as deliverModule from "../../../src/lib/staged-notifications/deliver";
+import { isLiveProviderEnabled } from "../../helpers/live-api";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 import { expectConsoleError } from "../../setup";
 
 describe("runScheduledNotifications: staging failure fallback", () => {
+	// See run.test.ts: fake timers freeze Date.now() outside AWS's SES
+	// signing window, so they must be skipped under --live=email.
+	const useFakeTimers = !isLiveProviderEnabled("email");
+
 	beforeEach(() => {
 		expectConsoleError(
 			"Staged delivery phase failed (falling back to full pipeline)",
 		);
-		vi.useFakeTimers();
-		vi.setSystemTime(DateTime.fromISO("2026-01-12T15:00:00.000Z").toJSDate());
+		if (useFakeTimers) {
+			vi.useFakeTimers();
+			vi.setSystemTime(DateTime.fromISO("2026-01-12T15:00:00.000Z").toJSDate());
+		}
 		vi.stubEnv("SMS_TEST_BEHAVIOR", "success");
 		vi.stubEnv("SCHEDULE_PASS_DELAY_MS", "0");
 		vi.spyOn(deliverModule, "deliverStagedNotifications").mockRejectedValue(
@@ -32,7 +39,9 @@ describe("runScheduledNotifications: staging failure fallback", () => {
 
 	afterEach(() => {
 		vi.restoreAllMocks();
-		vi.useRealTimers();
+		if (useFakeTimers) {
+			vi.useRealTimers();
+		}
 		vi.unstubAllEnvs();
 	});
 

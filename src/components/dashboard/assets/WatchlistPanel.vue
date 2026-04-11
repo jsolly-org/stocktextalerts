@@ -56,6 +56,7 @@
 				<label for="asset_search" class="sr-only">Search by symbol or company name</label>
 				<AssetInput
 					:disabled="isAtAssetLimit"
+					:disabled-title="assetInputDisabledTitle"
 					:input-aria-described-by="assetSearchInputDescribedBy"
 					@select="handleSelect"
 				/>
@@ -200,6 +201,12 @@ const trackedAssetsValue = computed(() =>
 
 const isAtAssetLimit = computed(
 	() => draftAssets.value.length >= MAX_TRACKED_ASSETS,
+);
+
+const assetInputDisabledTitle = computed<string | undefined>(() =>
+	isAtAssetLimit.value
+		? `You've reached the maximum of ${MAX_TRACKED_ASSETS} tracked assets. Remove one to add another.`
+		: undefined,
 );
 
 const ASSET_LIMIT_HINT_ID = "asset-limit-hint";

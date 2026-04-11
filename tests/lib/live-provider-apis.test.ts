@@ -13,6 +13,7 @@ import {
 	fetchPrevClose,
 	fetchSnapshotQuotes,
 	fetchSplits,
+	fetchTopMovers,
 	marketDataFetch,
 } from "../../src/lib/providers/massive";
 import {
@@ -285,6 +286,36 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 		const first = items[0];
 		expect(typeof first.headline).toBe("string");
 		expect(typeof first.datetime).toBe("number");
+	});
+
+	it("returns gainers and losers from the /v2/snapshot/.../{direction} endpoint", async () => {
+		// Validates the live top-movers feed used by the daily-digest "Top Movers"
+		// section. Filters apply (>= $5, non-zero todaysChangePerc), so the result
+		// can be sparse during pre-market or right after open — assert <= limit
+		// rather than exactly limit, and only enforce direction when the list is
+		// non-empty so weekend runs don't fail.
+		const gainers = await fetchTopMovers("gainers", { limit: 5 });
+		const losers = await fetchTopMovers("losers", { limit: 5 });
+
+		expect(Array.isArray(gainers)).toBe(true);
+		expect(Array.isArray(losers)).toBe(true);
+		expect(gainers.length).toBeLessThanOrEqual(5);
+		expect(losers.length).toBeLessThanOrEqual(5);
+
+		for (const mover of gainers) {
+			expect(typeof mover.ticker).toBe("string");
+			expect(mover.ticker.length).toBeGreaterThan(0);
+			expect(mover.price).toBeGreaterThanOrEqual(5);
+			expect(Number.isFinite(mover.changePercent)).toBe(true);
+			expect(mover.changePercent).toBeGreaterThan(0);
+		}
+		for (const mover of losers) {
+			expect(typeof mover.ticker).toBe("string");
+			expect(mover.ticker.length).toBeGreaterThan(0);
+			expect(mover.price).toBeGreaterThanOrEqual(5);
+			expect(Number.isFinite(mover.changePercent)).toBe(true);
+			expect(mover.changePercent).toBeLessThan(0);
+		}
 	});
 
 	it("handles SPIT snapshot correctly (null-snapshot vs valid-snapshot)", async () => {

@@ -84,23 +84,31 @@
 						</p>
 					</div>
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
-						<label class="inline-flex items-center gap-1.5" :class="!notificationSetupBlocked && emailEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+						<label
+							class="inline-flex items-center gap-1.5"
+							:class="!notificationSetupBlocked && emailEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+							:title="emailDisabledTitle"
+						>
 							<input
 								type="checkbox"
 								v-model="priceAlertsIncludeEmail"
 								:disabled="notificationSetupBlocked || !emailEnabled"
-								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
 								aria-label="Enable email for smart price alerts"
 								aria-describedby="market_asset_price_alerts_enabled_description"
 							/>
 							<span class="text-sm font-normal text-label" aria-hidden="true">Email</span>
 						</label>
-						<label class="inline-flex items-center gap-1.5" :class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+						<label
+							class="inline-flex items-center gap-1.5"
+							:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+							:title="smsDisabledTitle"
+						>
 							<input
 								type="checkbox"
 								v-model="priceAlertsIncludeSms"
 								:disabled="notificationSetupBlocked || !smsReady"
-								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
 								aria-label="Enable SMS for smart price alerts"
 								aria-describedby="market_asset_price_alerts_enabled_description"
 							/>
@@ -175,23 +183,31 @@
 						</p>
 					</div>
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
-						<label class="inline-flex items-center gap-1.5" :class="!notificationSetupBlocked && emailEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+						<label
+							class="inline-flex items-center gap-1.5"
+							:class="!notificationSetupBlocked && emailEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+							:title="emailDisabledTitle"
+						>
 							<input
 								type="checkbox"
 								v-model="marketIncludeEmail"
 								:disabled="notificationSetupBlocked || !emailEnabled"
-								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
 								aria-label="Enable email for scheduled price notifications"
 								aria-describedby="market_scheduled_asset_price_enabled_description"
 							/>
 							<span class="text-sm font-normal text-label" aria-hidden="true">Email</span>
 						</label>
-						<label class="inline-flex items-center gap-1.5" :class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+						<label
+							class="inline-flex items-center gap-1.5"
+							:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+							:title="smsDisabledTitle"
+						>
 							<input
 								type="checkbox"
 								v-model="marketIncludeSms"
 								:disabled="notificationSetupBlocked || !smsReady"
-								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
 								aria-label="Enable SMS for scheduled price notifications"
 								aria-describedby="market_scheduled_asset_price_enabled_description"
 							/>
@@ -269,12 +285,16 @@
 						</p>
 					</div>
 					<div class="shrink-0">
-						<label class="inline-flex items-center gap-1.5" :class="!notificationSetupBlocked && emailEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+						<label
+							class="inline-flex items-center gap-1.5"
+							:class="!notificationSetupBlocked && emailEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+							:title="emailDisabledTitle"
+						>
 							<input
 								type="checkbox"
 								v-model="priceMoveAlertsEnabled"
 								:disabled="notificationSetupBlocked || !emailEnabled"
-								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
 								aria-label="Enable email for 5% price move alerts"
 								aria-describedby="price_move_alerts_description"
 							/>
@@ -311,23 +331,31 @@
 						</p>
 					</div>
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
-						<label class="inline-flex items-center gap-1.5" :class="!notificationSetupBlocked && emailEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+						<label
+							class="inline-flex items-center gap-1.5"
+							:class="!notificationSetupBlocked && emailEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+							:title="emailDisabledTitle"
+						>
 							<input
 								type="checkbox"
 								v-model="priceTargetsIncludeEmail"
 								:disabled="notificationSetupBlocked || !emailEnabled"
-								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
 								aria-label="Enable email for price targets"
 								aria-describedby="price_targets_description"
 							/>
 							<span class="text-sm font-normal text-label" aria-hidden="true">Email</span>
 						</label>
-						<label class="inline-flex items-center gap-1.5" :class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+						<label
+							class="inline-flex items-center gap-1.5"
+							:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+							:title="smsDisabledTitle"
+						>
 							<input
 								type="checkbox"
 								v-model="priceTargetsIncludeSms"
 								:disabled="notificationSetupBlocked || !smsReady"
-								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
 								aria-label="Enable SMS for price targets"
 								aria-describedby="price_targets_description"
 							/>
@@ -475,6 +503,10 @@ import {
 	useAutoSaveForm,
 } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
+import {
+	getEmailChannelDisabledTitle,
+	getSmsChannelDisabledTitle,
+} from "../shared/channel-disabled-titles";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 import { useScheduledUpdateTiming } from "./helpers";
@@ -550,42 +582,65 @@ const moveSizeOptions = [
 const MAX_SCHEDULED_UPDATE_MINUTES = 23 * 60 + 59;
 const SCHEDULED_UPDATE_INCREMENT_MINUTES = 1;
 const MAX_DELIVERY_TIMES = 8;
-const MINUTES_PER_DAY = MAX_SCHEDULED_UPDATE_MINUTES + 1;
 
-// [threshold in minutes, increment] — checked high-to-low
+// [remaining-until-upper-bound, increment] — checked in order; first match wins.
+// Default step is 60 min; we shrink near market close so the final slots still fit.
 const QUICK_ADD_INCREMENTS: [number, number][] = [
-	[23 * 60 + 58, 1],
-	[23 * 60 + 45, 5],
-	[23 * 60 + 30, 15],
-	[23 * 60, 30],
-	[21 * 60, 60],
+	[2, 1],
+	[15, 5],
+	[30, 15],
+	[60, 30],
 ];
+const QUICK_ADD_DEFAULT_INCREMENT_MINUTES = 60;
 
-function getQuickAddIncrementMinutes(latestMinutes: number): number {
+function getQuickAddIncrementMinutes(
+	latestMinutes: number,
+	upperBound: number,
+): number {
+	const remaining = upperBound - latestMinutes;
 	for (const [threshold, increment] of QUICK_ADD_INCREMENTS) {
-		if (latestMinutes >= threshold) return increment;
+		if (remaining <= threshold) return increment;
 	}
-	return 180;
+	return QUICK_ADD_DEFAULT_INCREMENT_MINUTES;
 }
 
 function getNextQuickAddMinute(
 	existingTimes: number[],
-	fallbackLatest: number,
+	range: { min: number; max: number } | null,
 ): number | null {
 	const normalized = normalizeScheduledTimes(existingTimes);
-	const latestMinutes =
-		normalized.length > 0
-			? normalized[normalized.length - 1]
-			: fallbackLatest;
-	const incrementMinutes = getQuickAddIncrementMinutes(latestMinutes);
-	let candidate = latestMinutes + incrementMinutes;
-	if (candidate > MAX_SCHEDULED_UPDATE_MINUTES) {
-		candidate = 0;
+	// Clamp auto-add to the market window when it's a single daily span.
+	// Cross-midnight windows (far-east timezones) fall back to the whole day;
+	// users there must pick manually, since wrapping a virtual range gets messy.
+	const useMarketRange = range !== null && range.min <= range.max;
+	const lowerBound = useMarketRange ? range.min : 0;
+	const upperBound = useMarketRange ? range.max : MAX_SCHEDULED_UPDATE_MINUTES;
+	const span = upperBound - lowerBound + 1;
+
+	const inBounds = normalized.filter(
+		(t) => t >= lowerBound && t <= upperBound,
+	);
+	// When no in-bounds times exist yet, anchor the search at lowerBound itself
+	// (not lowerBound + increment) so the very first auto-suggestion can land
+	// on market open. The wrap branch below still handles the "after the last
+	// existing slot" case once times accumulate.
+	let candidate: number;
+	if (inBounds.length === 0) {
+		candidate = lowerBound;
+	} else {
+		const latestMinutes = inBounds[inBounds.length - 1];
+		candidate =
+			latestMinutes + getQuickAddIncrementMinutes(latestMinutes, upperBound);
+	}
+	// If the next step overshoots market close, wrap to the start of the window
+	// and scan forward for the first free slot — staying inside the market range.
+	if (candidate > upperBound) {
+		candidate = lowerBound;
 	}
 	const existingSet = new Set(normalized);
 
-	for (let offset = 0; offset < MINUTES_PER_DAY; offset += 1) {
-		const minute = (candidate + offset) % MINUTES_PER_DAY;
+	for (let offset = 0; offset < span; offset += 1) {
+		const minute = lowerBound + ((candidate - lowerBound + offset) % span);
 		if (!existingSet.has(minute)) {
 			return minute;
 		}
@@ -635,6 +690,22 @@ const notificationSetupBlocked = computed(
 	() => needsChannelSelection.value || needsTrackedAssets.value,
 );
 
+/**
+ * Hover-text reasons for disabled channel toggles. Populated only when the
+ * channel itself is unavailable — panel-level blocks (no tracked assets, no
+ * channel selected at all) are surfaced via SetupRequiredNotice instead.
+ */
+const emailDisabledTitle = computed(() =>
+	getEmailChannelDisabledTitle(emailEnabled.value),
+);
+const smsDisabledTitle = computed(() =>
+	getSmsChannelDisabledTitle({
+		smsNotificationsEnabled: smsNotificationsEnabled.value,
+		phoneVerified: phoneVerified.value,
+		smsOptedOut: smsOptedOut.value,
+	}),
+);
+
 
 const needsPhoneVerification = computed(
 	() =>
@@ -659,7 +730,7 @@ const canAddTime = computed(() => {
 	if (times.length === 0) {
 		return true;
 	}
-	return getNextQuickAddMinute(times, 0) !== null;
+	return getNextQuickAddMinute(times, marketLocalRange.value) !== null;
 });
 
 const afterOpenLocalMinutes = computed(() => {
@@ -1135,7 +1206,7 @@ function handleAddTime() {
 		notifyChange();
 		return;
 	}
-	const nextMinutes = getNextQuickAddMinute(times, 0);
+	const nextMinutes = getNextQuickAddMinute(times, marketLocalRange.value);
 	if (nextMinutes === null) return;
 	scheduledUpdateTimesMinutes.value = normalizeScheduledTimes([...times, nextMinutes]);
 	notifyChange();

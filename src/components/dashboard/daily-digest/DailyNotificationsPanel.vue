@@ -81,7 +81,11 @@
 						</p>
 					</div>
 				<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
-					<label class="inline-flex items-center gap-1.5" :class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'">
+					<label
+						class="inline-flex items-center gap-1.5"
+						:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
+						:title="emailDisabledTitle"
+					>
 						<input
 							type="checkbox"
 							v-model="includePricesEmail"
@@ -93,7 +97,11 @@
 						/>
 						<span class="text-sm text-label">Email</span>
 					</label>
-					<label class="inline-flex items-center gap-1.5" :class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'">
+					<label
+						class="inline-flex items-center gap-1.5"
+						:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+						:title="smsDisabledTitle"
+					>
 						<input
 							type="checkbox"
 							v-model="includePricesSms"
@@ -134,7 +142,11 @@
 						</p>
 					</div>
 				<div class="shrink-0">
-					<label class="inline-flex items-center gap-1.5" :class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'">
+					<label
+						class="inline-flex items-center gap-1.5"
+						:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
+						:title="emailDisabledTitle"
+					>
 						<input
 							type="checkbox"
 							v-model="includeNewsEmail"
@@ -172,7 +184,11 @@
 						</p>
 					</div>
 				<div class="shrink-0">
-					<label class="inline-flex items-center gap-1.5" :class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'">
+					<label
+						class="inline-flex items-center gap-1.5"
+						:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
+						:title="emailDisabledTitle"
+					>
 						<input
 							type="checkbox"
 							v-model="includeTopMoversEmail"
@@ -211,7 +227,11 @@
 						</p>
 					</div>
 				<div class="shrink-0">
-					<label class="inline-flex items-center gap-1.5" :class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'">
+					<label
+						class="inline-flex items-center gap-1.5"
+						:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
+						:title="emailDisabledTitle"
+					>
 						<input
 							type="checkbox"
 							v-model="includeRumorsEmail"
@@ -262,6 +282,10 @@ import {
 	useAutoSaveForm,
 } from "../composables/useAutoSaveNotificationPreferences";
 import { useDashboardUser } from "../composables/useDashboardUser";
+import {
+	getEmailChannelDisabledTitle,
+	getSmsChannelDisabledTitle,
+} from "../shared/channel-disabled-titles";
 import FormStatusBadge from "../shared/FormStatusBadge.vue";
 import SetupRequiredNotice from "../shared/SetupRequiredNotice.vue";
 
@@ -307,6 +331,22 @@ const needsPhoneVerification = computed(
 /** News & Rumors are email-only — disable when email channel isn't enabled */
 const emailOnlyDisabled = computed(
 	() => notificationSetupBlocked.value || !emailEnabled.value,
+);
+
+/**
+ * Hover-text reasons for disabled channel toggles. Populated only when the
+ * channel itself is unavailable — panel-level blocks (no tracked assets, no
+ * channel selected at all) are surfaced via SetupRequiredNotice instead.
+ */
+const emailDisabledTitle = computed(() =>
+	getEmailChannelDisabledTitle(emailEnabled.value),
+);
+const smsDisabledTitle = computed(() =>
+	getSmsChannelDisabledTitle({
+		smsNotificationsEnabled: smsNotificationsEnabled.value,
+		phoneVerified: phoneVerified.value,
+		smsOptedOut: smsOptedOut.value,
+	}),
 );
 const phoneVerificationSectionId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-phone-verification-section`;
 

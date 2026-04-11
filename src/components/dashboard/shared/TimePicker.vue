@@ -26,6 +26,7 @@
 			:config="datepickerConfig"
 			:min-time="minTime"
 			:max-time="maxTime"
+			:disabled-times="disabledTimes"
 			:minutes-grid-increment="minutesIncrement"
 			:disabled="isDisabled"
 			:format="displayFormat"
@@ -53,7 +54,7 @@
 <script lang="ts" setup>
 import "@vuepic/vue-datepicker/dist/main.css";
 import { VueDatePicker } from "@vuepic/vue-datepicker";
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import XMarkIcon from "../../../icons/x-mark.svg?component";
 import {
@@ -94,6 +95,8 @@ const props = withDefaults(
 		 * Same-day window only: must be >= minTimeOverride (no overnight ranges).
 		 */
 		maxTimeOverride?: { hours: number; minutes: number };
+		/** Tooltip text shown when hovering a time outside the allowed range. */
+		disabledRangeTooltip?: string;
 	}>(),
 	{ placeholder: "Select time" },
 );
@@ -144,6 +147,22 @@ const maxTime = computed<TimeModel>(() => {
 			}
 		: { hours: 23, minutes: 59, seconds: 0 };
 });
+
+// Disables hours/minutes outside the override range in the overlay grid and
+// on the inc/dec steppers. When no range is set (or the range is invalid),
+// every time is allowed.
+const disabledTimes = computed<
+	((time: { hours: number; minutes: number; seconds: number }) => boolean) | undefined
+>(() => {
+	if (!props.minTimeOverride || !props.maxTimeOverride) return undefined;
+	if (hasInvalidOverrideRange.value) return undefined;
+	const minMinutes = minutesSinceMidnight(props.minTimeOverride);
+	const maxMinutes = minutesSinceMidnight(props.maxTimeOverride);
+	return (time) => {
+		const total = time.hours * 60 + time.minutes;
+		return total < minMinutes || total > maxMinutes;
+	};
+});
 const isMounted = ref(false);
 const lastSyncedValue = ref<string | null>(null);
 const selectedTime = ref<TimeModel | null>(
@@ -170,15 +189,46 @@ const timeConfig = computed(() => {
 	};
 });
 
+const DISABLED_SELECTORS =
+	".dp__overlay_cell_disabled, .dp__overlay_cell_active_disabled, .dp__inc_dec_button_disabled";
+let disabledTooltipObserver: MutationObserver | null = null;
+
+function applyDisabledTooltips(root: ParentNode) {
+	const tooltip = props.disabledRangeTooltip;
+	if (!tooltip) return;
+	const nodes = root.querySelectorAll(DISABLED_SELECTORS);
+	for (const node of nodes) {
+		if (node instanceof HTMLElement && node.getAttribute("title") !== tooltip) {
+			node.setAttribute("title", tooltip);
+		}
+	}
+}
+
 function handleMenuOpen() {
 	isBackdropPointerDown.value = false;
 	isBackdropVisible.value = true;
+	if (!props.disabledRangeTooltip) return;
+	// vue-datepicker teleports the menu to <body>, and the overlay grid is
+	// rendered after the initial open (toggling between hours/minutes). Observe
+	// body mutations briefly so disabled cells get their tooltip no matter when
+	// they appear.
+	disabledTooltipObserver?.disconnect();
+	disabledTooltipObserver = new MutationObserver(() => {
+		applyDisabledTooltips(document.body);
+	});
+	disabledTooltipObserver.observe(document.body, {
+		childList: true,
+		subtree: true,
+	});
+	applyDisabledTooltips(document.body);
 }
 
 function handleMenuClosed() {
 	if (!isBackdropPointerDown.value) {
 		isBackdropVisible.value = false;
 	}
+	disabledTooltipObserver?.disconnect();
+	disabledTooltipObserver = null;
 }
 
 function handleBackdropPointerDown(event: PointerEvent) {
@@ -263,6 +313,15 @@ onMounted(() => {
 	isMounted.value = true;
 	is24Hour.value = props.is24 ?? resolveIs24();
 });
+
+onBeforeUnmount(() => {
+	// Disconnect any in-flight observer so it can't keep firing against
+	// document.body after this component is gone — handleMenuClosed normally
+	// handles this, but the picker can be removed mid-open (route change,
+	// parent v-if).
+	disabledTooltipObserver?.disconnect();
+	disabledTooltipObserver = null;
+});
 </script>
 
 <style>
@@ -280,6 +339,29 @@ onMounted(() => {
 .dp__button,
 .dp__pm_am_button {
 	touch-action: manipulation;
+}
+
+/*
+ * Stronger disabled-state affordance for out-of-range cells. vue-datepicker
+ * already applies cursor: not-allowed; we add fade + strike-through + a
+ * muted background so the contrast is unmistakable against our theme
+ * tokens (the default --dp-disabled-color is barely distinguishable).
+ *
+ * Selectors chain a second class to beat vue-datepicker's single-class
+ * rules without resorting to !important. The matching :hover variant
+ * pins the same look so the cell doesn't brighten on hover.
+ */
+.dp__overlay_cell_disabled.dp__overlay_cell_pad,
+.dp__overlay_cell_active_disabled.dp__overlay_cell_pad {
+	opacity: 0.4;
+	background-color: var(--surface-alt);
+	color: var(--muted);
+	text-decoration: line-through;
+}
+.dp__overlay_cell_disabled.dp__overlay_cell_pad:hover,
+.dp__overlay_cell_active_disabled.dp__overlay_cell_pad:hover {
+	background-color: var(--surface-alt);
+	color: var(--muted);
 }
 
 /*
