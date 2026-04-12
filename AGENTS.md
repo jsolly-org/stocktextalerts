@@ -134,7 +134,38 @@ Evaluating cheaper alternatives to Twilio (as of 2026-04-05). AWS SNS preferred 
 
 - **Prod dev-login account**: `test@jsolly.com` with `DEFAULT_PASSWORD` env var. This is the only place a real inbox is allowed to appear by name, and it exists as a row in production Supabase for interactive login during local dev against prod. It is **not** used by the test harness — `tests/helpers/constants.ts:PRESERVED_TEST_EMAIL` is `preserved-test@example.com`, deliberately non-routable.
 - **Mailpit for dev email**: `.env.local` sets `EMAIL_SMTP_HOST=localhost` and `EMAIL_SMTP_PORT=1025` so any email the dev server would otherwise send through SES lands in Mailpit at http://localhost:54324 instead. Requires local Supabase running (`npm run db:start`). `tests/run-vitest.ts` strips both env vars under plain `npm test` so unit tests stay on the in-process mock sender, and re-exports them when `--live=email` is passed.
-- **Act** for testing GitHub Actions locally: `brew install act`, `act -l` to list jobs. Deploy workflow skips under act (`github.actor != 'nektos/act'`).
+
+### Reproduce CI locally with Act
+
+**Use Act before pushing changes that affect CI, workflows, tests, or dev tooling.** On 2026-04-11 a one-line race in `delivery-times.e2e.spec.ts` passed 20/20 locally but failed twice in CI — caught only because we reproduced the E2E step locally with CI-matching env. Don't skip this step; it's the cheapest way to catch CI-only regressions before they land on `main`.
+
+- **Install**: `brew install act` (already installed; config in `.actrc`).
+- **List jobs**: `act -l`.
+- **Run the full test-and-build job locally** (composite action: migrations, npm test, test:smoke, build):
+  ```bash
+  npm run gha:local:test-build
+  ```
+  Uses `scripts/ci/run-local-actions.sh` → runs `noDeploy.yml`'s `test-and-build` job in a `catthehacker/ubuntu` container with the repo mounted. Matches CI's node version, Supabase CLI version, and exact step sequence.
+- **Run only the lint job**: `npm run gha:local:lint`.
+- **Custom workflow or job**: `scripts/ci/run-local-actions.sh --workflow .github/workflows/<file>.yml --job <name>`.
+
+**Limitations:**
+
+- `Deploy Website` (`.github/workflows/deploy.yml`) has `if: github.actor != 'nektos/act'` and **skips under act**. To reproduce the E2E step from Deploy Website, run `npm run test:e2e` locally with the **CI-matching env vars** baked into `.env.local` (see `.github/actions/run-ci/action.yml` for the canonical list: dummy TWILIO creds, dummy AWS creds, `EMAIL_FROM=ci@example.com`, and the live Supabase local DB vars from `supabase status -o json`). Back up `.env.local` first.
+- Act needs `DOCKER_HOST` pointing at Podman's socket. The `~/.zshrc` block that runs `podman machine inspect` to resolve the socket path should already be exporting it; check with `echo "$DOCKER_HOST"` before running act.
+- Act containers are x86_64 via `--container-architecture linux/amd64`; expect ~2× slower than native on Apple Silicon.
+
+**When to run it (checklist before `git push`):**
+
+1. Any change to `.github/workflows/**` or `.github/actions/**`.
+2. Any change to `tests/**` that isn't purely additive (moving/renaming tests, changing setup/teardown, test helpers, vitest config, playwright config).
+3. Any change to `tests/run-vitest.ts`, `playwright.config.ts`, `tests/setup.ts`, `tests/helpers/live-api.ts`, or anything else that gates test behavior on env vars.
+4. Any change to `supabase/config.toml` (service toggles, migration loader, SMTP settings).
+5. Any change to `package.json` scripts that CI calls (`test`, `test:ci`, `test:smoke`, `test:e2e`, `build`).
+6. Any change to core build tooling: `astro.config.mjs`, `vitest.config.ts`, `tsconfig*.json`.
+7. Any change that adds/removes a `@*/`-scoped dependency or shifts dev deps to runtime deps (or vice versa).
+
+For pure `src/lib/**` or `src/pages/**` changes that don't touch any of the above, local `npm test`/`npm run test:e2e` are sufficient — act adds latency for no signal.
 
 ### Local container runtime: Podman
 
