@@ -64,6 +64,22 @@ supabase migration new <name>  # Create new migration (never rename timestamps)
 - Mock supabase for SMS formatters must include a `.from().select().eq().gt().limit().single()` chain for the URL shortener dedup lookup.
 - **Live API tests**: `npm run test:live:email`, `test:live:data`, `test:live:xai`, `test:live:all`. Always reproduce live test failures locally before fixing.
 
+### Testing Philosophy: No real SES or Twilio, ever
+
+After the 2026-04-11 incident where a local `--live=email` run delivered a real notification to a real mailbox via prod SES credentials from `.env.local`, the harness enforces a zero-real-delivery rule:
+
+- **Tests never hit real AWS SES or real Twilio.** No exceptions, no opt-in flag that enables real credentials. Real credentials are reachable only from a production build (Lambda / Vercel SSR).
+- **The three sender factories** hard-gate on `import.meta.env.MODE === "production"`:
+  - `createEmailSender` — `src/lib/messaging/email/utils.ts`
+  - `createSmsSender` — `src/lib/messaging/sms/twilio-utils.ts`
+  - `sendVerification` / `checkVerification` (Twilio Verify) — `src/lib/auth/sms-verification.ts`
+- **Live email tests** route through local **Mailpit** (Supabase's bundled Inbucket container) via SMTP on `localhost:1025`. `tests/run-vitest.ts` auto-sets `EMAIL_SMTP_HOST=localhost` when `--live=email` is passed, which makes `createEmailSender` pick the `nodemailer` branch instead of constructing a real SES client. Inspect delivered messages at http://localhost:54324.
+- **Live SMS has no tier.** `--live=sms` was removed — the harness had no way to prevent real-number delivery or per-message Twilio charges. SMS code paths are covered by unit/integration tests that assert against the mock sender's recorded request shape.
+- **Twilio Verify** always mocks in non-prod. The mock accepts `000000` as the only approved OTP, so local signup OTP flows can exercise both success and failure paths without hitting Twilio.
+- **Test recipients are always `@example.com`.** Never reference real mailboxes or phone numbers in tests. `tests/helpers/test-user.ts:createTestEmail` generates `<prefix>-<runId>-<uuid>@example.com`.
+- **`astro dev`** routes email through Mailpit automatically when `EMAIL_SMTP_HOST=localhost` is set in `.env.local` (the new committed default). Never set real SES env vars in dev.
+- **Assertions**: use `tests/helpers/mailpit.ts` (`waitForMailpitMessage`, `waitForMailpitMessageTo`, `clearMailpit`) to inspect Mailpit content. For prod-safety unit assertions on the gates themselves, see `tests/lib/messaging/sender-gates.test.ts`.
+
 ## Supabase Migrations
 
 - **Local files are source of truth.** Create with `supabase migration new <name>`, write SQL, commit, merge. CI runs `supabase db push`.
@@ -116,8 +132,32 @@ Evaluating cheaper alternatives to Twilio (as of 2026-04-05). AWS SNS preferred 
 
 ## Dev Environment
 
-- Login: `test@jsolly.com` with `DEFAULT_PASSWORD` env var
+- **Prod dev-login account**: `test@jsolly.com` with `DEFAULT_PASSWORD` env var. This is the only place a real inbox is allowed to appear by name, and it exists as a row in production Supabase for interactive login during local dev against prod. It is **not** used by the test harness — `tests/helpers/constants.ts:PRESERVED_TEST_EMAIL` is `preserved-test@example.com`, deliberately non-routable.
+- **Mailpit for dev email**: `.env.local` sets `EMAIL_SMTP_HOST=localhost` and `EMAIL_SMTP_PORT=1025` so any email the dev server would otherwise send through SES lands in Mailpit at http://localhost:54324 instead. Requires local Supabase running (`npm run db:start`). `tests/run-vitest.ts` strips both env vars under plain `npm test` so unit tests stay on the in-process mock sender, and re-exports them when `--live=email` is passed.
 - **Act** for testing GitHub Actions locally: `brew install act`, `act -l` to list jobs. Deploy workflow skips under act (`github.actor != 'nektos/act'`).
+
+### Local container runtime: Podman
+
+Local Supabase runs in containers. This project is on **Podman** (not Docker Desktop). Docker Desktop was uninstalled on 2026-04-11 after it ate ~40G of disk.
+
+**One-time shell setup** — add to `~/.zshrc`:
+
+```zsh
+export PATH="/opt/podman/bin:$PATH"
+export DOCKER_HOST="unix://$(/opt/podman/bin/podman machine inspect podman-machine-default --format '{{.ConnectionInfo.PodmanSocket.Path}}' 2>/dev/null)"
+```
+
+(The `DOCKER_HOST` value resolves at shell-startup time to the current Podman machine's socket — it's `/var/folders/.../T/podman/podman-machine-default-api.sock` and changes if the machine is recreated.)
+
+**Gotchas we've hit:**
+
+- **Vector / Logflare analytics is disabled** in `supabase/config.toml` (`[analytics] enabled = false`). Supabase's `vector` container tries to read Docker logs from `/var/run/docker.sock` inside its own container, which Podman's Docker-compat shim doesn't plumb the same way — `supabase start` hangs on *"vector container is not ready: starting"* otherwise. We don't use the local analytics UI so this is a net win, not a workaround.
+- **`supabase stop` may emit** `failed to prune volumes: "all" is an invalid volume filter`. It's a warning from Podman's Docker-compat shim not recognizing Docker's `all=true` volume filter; safe to ignore.
+- **`podman` on PATH**: the `/opt/podman/bin` install location isn't in the default shell PATH. Add the export above or the `supabase` CLI won't find the podman binary for its auxiliary commands.
+
+**CI stays on Docker.** GitHub Actions Ubuntu runners ship with Docker preinstalled, and `.github/workflows/live-provider-tests.yml` already passes `supabase start -x studio,imgproxy,logflare,vector,postgres-meta,edge-runtime,realtime,storage-api`. Switching CI to Podman would add setup time for zero benefit.
+
+**SAM CLI (`sam local invoke`)** also honors `DOCKER_HOST`, so `cd aws && npm run local:test-all` works under Podman with the same setup.
 
 ## SES Migration History
 

@@ -42,7 +42,7 @@ A securities notification app that sends scheduled SMS and email updates (schedu
 ## Prerequisites
 
 - Node.js (see `.nvmrc` for the required version)
-- Docker (Docker Desktop or Docker Engine)
+- A container runtime: **Podman** (recommended) or Docker. Podman requires `DOCKER_HOST` to point at its socket; see `AGENTS.md#local-container-runtime-podman` for the one-time shell setup.
 - Supabase account
 - Twilio account with Verify API enabled
 - Massive account (API key)
@@ -251,7 +251,7 @@ npm run gha:local:lint
 npm run gha:local:test-build
 ```
 
-Requires Docker and `act` (`brew install act`). Defaults are in `.actrc`.
+Requires a Docker-compatible container runtime (Podman works via `DOCKER_HOST`; see `AGENTS.md`) and `act` (`brew install act`). Defaults are in `.actrc`.
 
 ### Optional: Live Provider Tests (Massive/Finnhub/xAI)
 
@@ -371,7 +371,7 @@ Notification crons run as AWS Lambda functions deployed via SAM (see `aws/`). Ev
 
 **`ComputeDailyStatsFunction`** (weekdays at 22:00 UTC) — computes and upserts per-symbol daily stats used by asset price alerts (ADV-20 and ATR-14) for tracked assets.
 
-**Local testing:** `cd aws && npm run local:test-all` builds and invokes all three functions locally via `sam local invoke` (requires Docker). To test a single function: `npm run local:schedule`, `npm run local:asset-events`, or `npm run local:daily-stats`. Run `npm run local:gen-env` first to generate `env.json` from `.env.local` with per-function env var scoping.
+**Local testing:** `cd aws && npm run local:test-all` builds and invokes all three functions locally via `sam local invoke` (requires Podman or Docker — SAM CLI uses `DOCKER_HOST`). To test a single function: `npm run local:schedule`, `npm run local:asset-events`, or `npm run local:daily-stats`. Run `npm run local:gen-env` first to generate `env.json` from `.env.local` with per-function env var scoping.
 
 **Deploying:** `cd aws && npm run deploy` (uses `deploy.sh` which reads `.env.local`). **A SAM deploy is required whenever `aws/template.yaml`, `aws/deploy.sh`, or Lambda handler code (`aws/src/handlers/`) changes.** Code-only updates to `src/lib/` that are imported by handlers also require a deploy since the handlers bundle everything at build time. GitHub Actions does **not** deploy the SAM stack — only the Vercel dashboard.
 

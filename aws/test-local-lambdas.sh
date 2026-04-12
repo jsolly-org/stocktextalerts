@@ -1,7 +1,8 @@
 #!/bin/bash
 # Build and invoke all Lambda handlers locally via sam local invoke.
 # Catches packaging/env-var/init errors that unit tests miss.
-# Requires Docker running.
+# Requires a container runtime (Podman or Docker) reachable via
+# DOCKER_HOST. See AGENTS.md#local-container-runtime-podman.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

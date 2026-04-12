@@ -1,16 +1,24 @@
 /**
- * Live SES delivery test for the 5% flat-price-alert pipeline.
+ * Live email delivery test for the 5% flat-price-alert pipeline,
+ * routed through local Mailpit (NOT real AWS SES).
  *
  * Skipped unless `LIVE_API_PROVIDERS` includes `email` (i.e. `npm run
- * test:live:email`). The email-delivery path is mocked in
- * `process.test.ts`; this file leaves the real `createEmailSender` in place
- * so an actual SES `SendEmail` call hits the AWS simulator address used by
- * `createTestEmail()`. Massive providers are still mocked so the test
- * doesn't depend on whether the real API is currently rate-limited.
+ * test:live:email`). `run-vitest.ts` sets `EMAIL_SMTP_HOST=localhost`
+ * alongside the flag so `createEmailSender` takes the nodemailer
+ * branch and delivers to Mailpit at http://localhost:54324 instead of
+ * constructing a real SES client. Tests never burn SES credits or
+ * deliver to real mailboxes — see AGENTS.md#testing-philosophy.
+ *
+ * Massive providers are still mocked so the test doesn't depend on
+ * whether the real API is currently rate-limited.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ExtendedAssetQuote } from "../../../../src/lib/providers/price-fetcher";
 import { isLiveProviderEnabled } from "../../../helpers/live-api";
+import {
+	clearMailpit,
+	waitForMailpitMessageTo,
+} from "../../../helpers/mailpit";
 import { adminClient } from "../../../helpers/test-env";
 import { createTestUser } from "../../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
@@ -69,12 +77,13 @@ function makeQuote(overrides: Partial<ExtendedAssetQuote>): ExtendedAssetQuote {
 	};
 }
 
-describeLiveEmail("5% flat-price alert delivery via live SES", () => {
-	beforeEach(() => {
+describeLiveEmail("5% flat-price alert delivery via local Mailpit", () => {
+	beforeEach(async () => {
 		vi.clearAllMocks();
+		await clearMailpit();
 	});
 
-	it("User in New York receives a real SES email when AAPL gaps +5.3% above prev close", {
+	it("User in New York receives a delivered email in Mailpit when AAPL gaps +5.3% above prev close", {
 		timeout: 30_000,
 	}, async () => {
 		const testUser = await createTestUser({
@@ -104,7 +113,7 @@ describeLiveEmail("5% flat-price alert delivery via live SES", () => {
 		expect(totals.emailsSent).toBe(1);
 		expect(totals.emailsFailed).toBe(0);
 
-		// Verify the notification was logged successfully (no SES error).
+		// Verify the notification was logged successfully.
 		const { data: log, error: logError } = await adminClient
 			.from("notification_log")
 			.select("id, type, delivery_method, message_delivered, error")
@@ -117,5 +126,20 @@ describeLiveEmail("5% flat-price alert delivery via live SES", () => {
 		expect(row.delivery_method).toBe("email");
 		expect(row.message_delivered).toBe(true);
 		expect(row.error).toBeNull();
+
+		// Verify the email actually landed in Mailpit with AAPL content:
+		// right recipient, ticker in subject, direction arrow, trigger
+		// percent, and rendered price. A blank-template regression would
+		// still leave "AAPL" somewhere but would drop the price — so we
+		// assert on the full subject shape from flat-alerts/delivery.ts.
+		const message = await waitForMailpitMessageTo(testUser.email, {
+			timeoutMs: 15_000,
+		});
+		expect(message.to).toContain(testUser.email);
+		expect(message.subject).toContain("AAPL");
+		expect(message.subject).toContain("↑");
+		expect(message.subject).toMatch(/5\.3%/);
+		expect(message.subject).toContain("$195.86");
+		expect(message.text).toContain("AAPL");
 	});
 });

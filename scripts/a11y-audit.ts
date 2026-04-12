@@ -6,7 +6,8 @@
  *
  * Runs against a Vercel deployment (AUDIT_BASE_URL) or falls back to localhost:4322.
  * Uses VERCEL_AUTOMATION_BYPASS_SECRET to bypass Deployment Protection.
- * Authenticates with test@jsolly.com for protected routes.
+ * Authenticates with AUDIT_TEST_EMAIL + DEFAULT_PASSWORD for protected routes
+ * (skipped if either env var is missing).
  * Outputs a11y-report.md with Lighthouse scores and axe violations.
  * Exits 0 even with violations (the nightly agent handles fixes).
  */
@@ -352,12 +353,17 @@ function buildReport(
 async function signInViaUI(): Promise<
 	{ name: string; value: string; domain: string; path: string }[] | null
 > {
-	const testEmail = process.env.AUDIT_TEST_EMAIL || "test@jsolly.com";
+	// AUDIT_TEST_EMAIL must be set explicitly. The hardcoded default was
+	// removed on 2026-04-11 to keep real test-account addresses out of
+	// checked-in code — the only place that address is allowed is a
+	// one-line note in AGENTS.md#dev-environment describing the prod
+	// dev-login account.
+	const testEmail = process.env.AUDIT_TEST_EMAIL;
 	const testPassword = process.env.DEFAULT_PASSWORD;
 
-	if (!testPassword) {
+	if (!testEmail || !testPassword) {
 		console.log(
-			"Skipping authenticated routes (DEFAULT_PASSWORD not set).",
+			"Skipping authenticated routes (AUDIT_TEST_EMAIL or DEFAULT_PASSWORD not set).",
 		);
 		return null;
 	}

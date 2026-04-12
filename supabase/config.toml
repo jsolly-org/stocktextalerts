@@ -33,6 +33,22 @@ content_path = "./supabase/auth-recovery.html"
 subject = "Confirm your email change — StockTextAlerts"
 content_path = "./supabase/auth-email-change.html"
 
+[inbucket]
+enabled = true
+port = 54324
+# Exposed so createEmailSender() can route dev/test emails through
+# Mailpit (http://localhost:54324) instead of real SES. See
+# src/lib/messaging/email/utils.ts.
+smtp_port = 1025
+
+# Vector/Logflare analytics disabled for Podman compatibility. The Vector
+# log shipper tries to read logs from the Docker socket inside its
+# container, which Podman's Docker-API shim doesn't expose cleanly —
+# `supabase start` hangs on `vector container is not ready` otherwise.
+# We don't use the local analytics UI, so turning it off is a net win.
+[analytics]
+enabled = false
+
 [experimental]
 orioledb_version = ""
 s3_host = "env(S3_HOST)"

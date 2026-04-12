@@ -46,25 +46,23 @@ export function createTwilioClient(config: TwilioConfig): TwilioClient {
 /**
  * Create an SMS sender function backed by Twilio.
  *
- * In `test` mode, returns a deterministic mock sender to avoid external API calls.
+ * SMS has **no live test tier**. Tests and `astro dev` always receive a
+ * deterministic mock; only production builds reach real Twilio. `--live=sms`
+ * was removed on 2026-04-11 — see AGENTS.md#testing-philosophy — because
+ * the harness had no way to prevent real-number delivery or per-message
+ * Twilio charges. SMS code paths are covered by unit/integration tests
+ * that assert against the mock's recorded request shape.
  */
 export function createSmsSender(
 	client: TwilioClient,
 	defaultFromNumber: string,
 ): SmsSender {
-	// In test mode, return a mock sender unless --live=sms is set.
-	// LIVE_API_PROVIDERS is set by run-vitest.ts before Vitest starts, making it
-	// visible in source code (unlike vi.stubEnv which only affects test context).
-	const liveProviders = import.meta.env.LIVE_API_PROVIDERS || "";
-	const liveSms =
-		liveProviders === "all" ||
-		liveProviders
-			.split(",")
-			.map((s: string) => s.trim())
-			.includes("sms");
-	if (import.meta.env.MODE === "test" && !liveSms) {
+	// Hard gate: non-production always mocks. The `client` arg is ignored in
+	// this branch, so even if upstream constructs a real Twilio client with
+	// prod credentials from .env.local, we never call .messages.create on it.
+	if (import.meta.env.MODE !== "production") {
 		const behavior = import.meta.env.SMS_TEST_BEHAVIOR ?? "success";
-		const testMessageSid = import.meta.env.SMS_TEST_MESSAGE_SID ?? "test";
+		const testMessageSid = import.meta.env.SMS_TEST_MESSAGE_SID ?? "mock";
 		const testError = import.meta.env.SMS_TEST_ERROR ?? "Test SMS failure";
 		const testErrorCode = import.meta.env.SMS_TEST_ERROR_CODE;
 		return async (request: SmsRequest) => {

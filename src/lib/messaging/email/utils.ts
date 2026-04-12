@@ -10,6 +10,7 @@
  */
 import { setTimeout as realDelay } from "node:timers/promises";
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
+import nodemailer, { type Transporter } from "nodemailer";
 import { readEnv, requireEnv } from "../../db/env";
 import { rootLogger } from "../../logging";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
@@ -80,30 +81,44 @@ interface EmailRequest {
 
 export type EmailSender = (request: EmailRequest) => Promise<DeliveryResult>;
 
-/** Create an SES-backed email sender (mocked in test mode). */
+/**
+ * Create an email sender.
+ *
+ * Three branches, in order:
+ *  1. `EMAIL_SMTP_HOST` set → route through local SMTP (Mailpit). Used by
+ *     `astro dev` and by live email tests; inspect at http://localhost:54324.
+ *  2. Non-production build → mock sender. Tests and dev can never reach
+ *     real SES by accident.
+ *  3. Production build → real AWS SES via `SESv2Client`.
+ *
+ * Rationale: on 2026-04-11 a local test run delivered a real "Scheduled
+ * Price Notification" email to a real inbox via prod credentials from
+ * `.env.local`. Do not add an ALLOW_REAL_EMAIL escape hatch — if you
+ * need to see a rendered email, point `EMAIL_SMTP_HOST` at Mailpit.
+ */
 export function createEmailSender(): EmailSender {
 	const fromEmail = requireEnv("EMAIL_FROM");
 	const defaultReplyTo = readEnv("EMAIL_REPLY_TO");
+	const smtpHost = readEnv("EMAIL_SMTP_HOST");
 
-	// In test mode, return a mock sender unless --live=email is set.
-	// LIVE_API_PROVIDERS is set by run-vitest.ts before Vitest starts, making it
-	// visible in source code (unlike vi.stubEnv which only affects test context).
-	const liveProviders = import.meta.env.LIVE_API_PROVIDERS || "";
-	const liveEmail =
-		liveProviders === "all" ||
-		liveProviders
-			.split(",")
-			.map((s: string) => s.trim())
-			.includes("email");
-	if (import.meta.env.MODE === "test" && !liveEmail) {
+	// 1. Local SMTP (Mailpit) branch. Used by dev + live email tests.
+	if (smtpHost) {
+		return createSmtpSender({ host: smtpHost, fromEmail, defaultReplyTo });
+	}
+
+	// 2. Hard gate: no real SES outside production builds, ever. Tests and
+	// `astro dev` receive a no-op mock so they can never burn SES credits
+	// or deliver to real mailboxes.
+	if (import.meta.env.MODE !== "production") {
 		return async () => ({
 			success: true,
-			messageSid: "test",
+			messageSid: "mock",
 		});
 	}
 
+	// 3. Production: real SES.
 	// In Lambda, the default credential chain uses the execution role automatically.
-	// On Vercel/local dev, AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY must be set.
+	// On Vercel, AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY must be set.
 	const sesClient = new SESv2Client({
 		region: readEnv("AWS_REGION") || "us-east-1",
 	});
@@ -136,6 +151,54 @@ export function createEmailSender(): EmailSender {
 			rootLogger.error(
 				"SES error sending email",
 				{ action: "send_email_notification" },
+				error,
+			);
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : String(error),
+				errorCode: error instanceof Error ? error.name : undefined,
+			};
+		}
+	};
+}
+
+/**
+ * SMTP-backed sender used when `EMAIL_SMTP_HOST` is set. Connects to
+ * Mailpit (Supabase's bundled Inbucket container) by default. No auth,
+ * no TLS — Mailpit is a local inbox, not a real SMTP relay.
+ */
+function createSmtpSender(options: {
+	host: string;
+	fromEmail: string;
+	defaultReplyTo: string | undefined;
+}): EmailSender {
+	const port = Number.parseInt(readEnv("EMAIL_SMTP_PORT") || "1025", 10);
+	const transporter: Transporter = nodemailer.createTransport({
+		host: options.host,
+		port,
+		secure: false,
+		ignoreTLS: true,
+	});
+
+	return async ({ to, subject, body, html, replyTo }) => {
+		try {
+			const info = await transporter.sendMail({
+				from: options.fromEmail,
+				to,
+				replyTo: replyTo || options.defaultReplyTo,
+				subject,
+				text: body,
+				html: html ?? escapeHtml(body),
+			});
+			return { success: true, messageSid: info.messageId };
+		} catch (error) {
+			// `warn` (not `error`) because the SMTP branch only runs in dev /
+			// tests — a failure here means "Mailpit isn't running" or the
+			// developer's SMTP config is off, not a production outage. A
+			// real SES outage logs at `error` from the production branch above.
+			rootLogger.warn(
+				"SMTP error sending email",
+				{ action: "send_email_notification_smtp", host: options.host, port },
 				error,
 			);
 			return {

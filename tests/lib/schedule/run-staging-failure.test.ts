@@ -11,16 +11,17 @@ vi.mock("../../../src/lib/time/market-calendar", () => ({
 
 import { runScheduledNotifications } from "../../../src/lib/schedule/run";
 import * as deliverModule from "../../../src/lib/staged-notifications/deliver";
-import { isLiveProviderEnabled } from "../../helpers/live-api";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 import { expectConsoleError } from "../../setup";
 
 describe("runScheduledNotifications: staging failure fallback", () => {
-	// See run.test.ts: fake timers freeze Date.now() outside AWS's SES
-	// signing window, so they must be skipped under --live=email.
-	const useFakeTimers = !isLiveProviderEnabled("email");
+	// Fake timers are skipped when live email routing is on. nodemailer's
+	// SMTP client uses setTimeout internally for connect timeouts and
+	// rate limiting, and `vi.useFakeTimers()` freezes setTimeout — the
+	// SMTP handshake never fires, and the test deadlocks.
+	const useFakeTimers = !process.env.EMAIL_SMTP_HOST;
 
 	beforeEach(() => {
 		expectConsoleError(

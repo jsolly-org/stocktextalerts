@@ -1,11 +1,16 @@
-type LiveProvider = "massive" | "finnhub" | "xai" | "email" | "sms";
+// `sms` was removed on 2026-04-11. SMS code paths are covered by
+// unit/integration tests with mocks — we never hit real Twilio from the
+// test harness. See AGENTS.md#testing-philosophy. `email` is still here
+// but its semantics changed: `--live=email` now routes delivery through
+// local Mailpit via SMTP, not through real AWS SES. `tests/run-vitest.ts`
+// sets EMAIL_SMTP_HOST=localhost alongside LIVE_API_PROVIDERS=email.
+type LiveProvider = "massive" | "finnhub" | "xai" | "email";
 
 const ALLOWED_PROVIDERS: LiveProvider[] = [
 	"massive",
 	"finnhub",
 	"xai",
 	"email",
-	"sms",
 ];
 
 function parseCsv(value: string | undefined): string[] {

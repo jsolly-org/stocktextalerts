@@ -15,19 +15,18 @@ import { runScheduledNotifications } from "../../../src/lib/schedule/run";
 import { upsertStagedNotification } from "../../../src/lib/staged-notifications/db";
 import type { StagedMarketData } from "../../../src/lib/staged-notifications/types";
 import { toIsoOrThrow } from "../../../src/lib/time/format";
-import { isLiveProviderEnabled } from "../../helpers/live-api";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 describe("runScheduledNotifications: staged + fallback pipeline", () => {
-	// Fake timers are incompatible with live SES sends: AWS SDK v3 signs SES
-	// requests with Date.now(), and vi.useFakeTimers() freezes the clock to a
-	// fixed instant that falls outside AWS's 15-minute signing window. The SES
-	// call then hangs on a signature the service silently rejects. Skip fake
-	// timers under --live=email so real SES calls succeed; offline mode still
-	// gets a deterministic clock.
-	const useFakeTimers = !isLiveProviderEnabled("email");
+	// Fake timers are skipped when live email routing is on. nodemailer's
+	// SMTP client uses setTimeout internally for connect timeouts and
+	// rate limiting, and `vi.useFakeTimers()` freezes setTimeout — the
+	// SMTP handshake never fires, and the test deadlocks. Previously this
+	// gate was keyed on the (now-removed) live SES path; it's the same
+	// fix for a different reason.
+	const useFakeTimers = !process.env.EMAIL_SMTP_HOST;
 
 	beforeEach(() => {
 		if (useFakeTimers) {

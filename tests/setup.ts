@@ -33,31 +33,26 @@ vi.mock("../src/lib/db/env", async (importOriginal) => {
 // Live API tests are opt-in by provider:
 //   npm run test:live:data
 //   npm run test:live:xai
+//   npm run test:live:email   (routes through local Mailpit, not real SES)
 // Providers not explicitly enabled are stubbed to prevent accidental network calls.
 assertLiveProviderKey({ provider: "massive", envVar: "MASSIVE_API_KEY" });
 assertLiveProviderKey({ provider: "finnhub", envVar: "FINNHUB_API_KEY" });
 assertLiveProviderKey({ provider: "xai", envVar: "XAI_API_KEY" });
-assertLiveProviderKey({ provider: "email", envVar: "AWS_ACCESS_KEY_ID" });
-assertLiveProviderKey({ provider: "sms", envVar: "TWILIO_ACCOUNT_SID" });
+// Live email requires EMAIL_SMTP_HOST (set by run-vitest.ts on --live=email).
+// It does NOT require AWS credentials — the Mailpit branch in
+// src/lib/messaging/email/utils.ts never constructs a SES client.
+assertLiveProviderKey({ provider: "email", envVar: "EMAIL_SMTP_HOST" });
 
-// AWS SDK v3 logs a console.warn on every call when both AWS_PROFILE and
-// AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY are set — the SDK picks one but
-// complains about ambiguity. The test harness below treats unexpected
-// console.warn as a test failure, so a developer who has AWS_PROFILE
-// exported in their shell can't run live email tests without workarounds.
-// Unset AWS_PROFILE here so tests always use the static credentials from
-// .env.local regardless of shell configuration.
-if (isLiveProviderEnabled("email") && process.env.AWS_PROFILE) {
-	delete process.env.AWS_PROFILE;
-}
-
+// Email/SMS mocking is handled in the source factories themselves:
+//   - createEmailSender (src/lib/messaging/email/utils.ts) gates on MODE
+//     and EMAIL_SMTP_HOST. Non-prod builds either mock or route to Mailpit.
+//   - createSmsSender (src/lib/messaging/sms/twilio-utils.ts) gates on
+//     MODE and always mocks outside production. No live SMS tier.
+//   - createVerificationClient (src/lib/auth/sms-verification.ts) gates
+//     on MODE and always mocks outside production.
 // Data-provider stubs set a dummy API key so requireEnv() doesn't throw.
 // Actual HTTP calls are prevented by fetch mocks or module-level mocks in
-// individual test files. Email/SMS mocking is handled by the MODE check
-// combined with LIVE_API_PROVIDERS in the source code itself (see
-// createEmailSender and createSmsSender), so no stubs are needed for those.
-// Tests that stub Twilio credentials must guard those stubs with
-// isLiveProviderEnabled("sms") to avoid overriding real credentials.
+// individual test files.
 if (!isLiveProviderEnabled("massive")) {
 	vi.stubEnv("MASSIVE_API_KEY", "test-massive-key");
 }

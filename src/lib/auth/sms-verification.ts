@@ -43,6 +43,19 @@ function handleTwilioError(
 	};
 }
 
+/**
+ * Twilio Verify API is paid per attempt and delivers a real SMS to a
+ * real phone. Tests and `astro dev` must never reach it. Non-production
+ * builds short-circuit at every entry point and use the mock code
+ * `MOCK_VERIFICATION_CODE` as the only accepted OTP. Real Verify is only
+ * reachable from a production build (Lambda / Vercel SSR).
+ *
+ * Added 2026-04-11 after a local test run delivered a real notification
+ * through prod SES credentials. The same "no real services from non-prod
+ * builds" rule applies to Twilio Verify as to `createEmailSender`.
+ */
+const MOCK_VERIFICATION_CODE = "000000";
+
 function createVerificationClient(): {
 	client: ReturnType<typeof twilio>;
 	serviceSid: string;
@@ -63,6 +76,11 @@ function createVerificationClient(): {
 export async function sendVerification(
 	fullPhone: string,
 ): Promise<{ success: boolean; error?: string }> {
+	// Hard gate: Twilio Verify charges per attempt and delivers real SMS.
+	// Tests and dev always succeed without network calls.
+	if (import.meta.env.MODE !== "production") {
+		return { success: true };
+	}
 	try {
 		const { client, serviceSid } = createVerificationClient();
 		await client.verify.v2
@@ -86,6 +104,15 @@ export async function checkVerification(
 	fullPhone: string,
 	code: string,
 ): Promise<{ success: boolean; error?: string }> {
+	// Hard gate: non-production accepts MOCK_VERIFICATION_CODE and rejects
+	// everything else, letting local OTP flows exercise both success and
+	// failure paths without calling Twilio.
+	if (import.meta.env.MODE !== "production") {
+		if (code === MOCK_VERIFICATION_CODE) {
+			return { success: true };
+		}
+		return { success: false, error: "Invalid verification code" };
+	}
 	try {
 		const { client, serviceSid } = createVerificationClient();
 		const verificationCheck = await client.verify.v2
