@@ -81,6 +81,14 @@ test.describe("delivery times and timepicker", () => {
 		context = await browser.newContext();
 		page = await context.newPage();
 
+		// Warm the Vite dev server on CI. Sanity tests do the same implicitly;
+		// jumping straight to /auth/signin as the first navigation races the
+		// cold-start route compile and leaves the Sign-In button's form submit
+		// on a not-yet-hydrated handler, so the post-click redirect never
+		// resolves and toHaveURL times out at /auth/signin. A one-shot goto("/")
+		// blocks until the server is serving real HTML.
+		await page.goto("/", { waitUntil: "networkidle" });
+
 		const user = await createTestUser({
 			confirmed: true,
 			emailNotificationsEnabled: true,
