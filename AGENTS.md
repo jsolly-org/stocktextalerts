@@ -153,7 +153,7 @@ Evaluating cheaper alternatives to Twilio (as of 2026-04-05). AWS SNS preferred 
 
 - `Deploy Website` (`.github/workflows/deploy.yml`) has `if: github.actor != 'nektos/act'` and **skips under act**. To reproduce the E2E step from Deploy Website, run `npm run test:e2e` locally with the **CI-matching env vars** baked into `.env.local` (see `.github/actions/run-ci/action.yml` for the canonical list: dummy TWILIO creds, dummy AWS creds, `EMAIL_FROM=ci@example.com`, and the live Supabase local DB vars from `supabase status -o json`). Back up `.env.local` first.
 - Act needs `DOCKER_HOST` pointing at Podman's socket. The `~/.zshrc` block that runs `podman machine inspect` to resolve the socket path should already be exporting it; check with `echo "$DOCKER_HOST"` before running act.
-- Act containers are x86_64 via `--container-architecture linux/amd64`; expect ~2× slower than native on Apple Silicon.
+- Act containers run the host's native architecture (arm64 on Apple Silicon, amd64 on Linux/Intel CI runners). Forcing `linux/amd64` via `--container-architecture` made Playwright's headless Chromium crash under QEMU on M-series Macs (`qemu: uncaught target signal 5`), so it's intentionally omitted from `.actrc`. CI still runs amd64 natively on GitHub's Ubuntu runners, and `catthehacker/ubuntu:act-latest` ships both arches — local runs now ~2× faster than the amd64-forced setup.
 
 **When to run it (checklist before `git push`):**
 
