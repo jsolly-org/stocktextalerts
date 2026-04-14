@@ -35,7 +35,7 @@ if (userId && token && isValidUuid(userId) && isValidToken(token)) {
 	const supabase = createSupabaseAdminClient();
 	const { data: user, error } = await supabase
 		.from("users")
-		.select("id,email,email_notifications_enabled,phone_verified,market_scheduled_asset_price_include_sms,asset_events_include_calendar_sms,asset_events_include_ipo_sms,asset_events_include_analyst_sms,asset_events_include_insider_sms,market_asset_price_alerts_include_sms")
+		.select("id,email,email_notifications_enabled,phone_verified,market_scheduled_asset_price_include_sms,asset_events_include_calendar_sms,asset_events_include_ipo_sms,asset_events_include_analyst_sms,asset_events_include_insider_sms,market_asset_price_alerts_include_sms,price_move_alerts_include_sms")
 		.eq("id", userId)
 		.maybeSingle();
 
@@ -68,7 +68,8 @@ if (userId && token && isValidUuid(userId) && isValidToken(token)) {
 				user.asset_events_include_ipo_sms ||
 				user.asset_events_include_analyst_sms ||
 				user.asset_events_include_insider_sms ||
-				user.market_asset_price_alerts_include_sms);
+				user.market_asset_price_alerts_include_sms ||
+				user.price_move_alerts_include_sms);
 			const updates = {
 				email_notifications_enabled: false,
 				...(wantsSmsOptOut && canOptOutSms
@@ -79,6 +80,7 @@ if (userId && token && isValidUuid(userId) && isValidToken(token)) {
 							asset_events_include_analyst_sms: false,
 							asset_events_include_insider_sms: false,
 							market_asset_price_alerts_include_sms: false,
+							price_move_alerts_include_sms: false,
 						}
 					: {}),
 			};

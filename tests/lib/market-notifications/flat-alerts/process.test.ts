@@ -53,6 +53,11 @@ vi.mock("../../../../src/lib/messaging/email/utils", async () => {
 	};
 });
 
+const mockSmsSender = vi.fn(async () => ({ success: true }));
+vi.mock("../../../../src/lib/schedule/sms-sender", () => ({
+	createSmsSenderProvider: () => () => ({ sender: mockSmsSender }),
+}));
+
 import { processFlatPriceAlerts } from "../../../../src/lib/market-notifications/flat-alerts/process";
 
 function makeQuote(overrides: Partial<ExtendedAssetQuote>): ExtendedAssetQuote {
@@ -69,13 +74,27 @@ function makeQuote(overrides: Partial<ExtendedAssetQuote>): ExtendedAssetQuote {
 	};
 }
 
-async function enableFlatAlerts(userId: string): Promise<void> {
+async function enableFlatAlerts(
+	userId: string,
+	channels: { email?: boolean; sms?: boolean } = {},
+): Promise<void> {
+	const wantEmail = channels.email ?? true;
+	const wantSms = channels.sms ?? false;
+	const updates: Record<string, unknown> = {
+		price_move_alerts_include_email: wantEmail,
+		price_move_alerts_include_sms: wantSms,
+		email_notifications_enabled: wantEmail,
+	};
+	if (wantSms) {
+		updates.sms_notifications_enabled = true;
+		updates.phone_verified = true;
+		updates.phone_country_code = "+1";
+		updates.phone_number = "5555550123";
+		updates.sms_opted_out = false;
+	}
 	const { error } = await adminClient
 		.from("users")
-		.update({
-			price_move_alerts_enabled: true,
-			email_notifications_enabled: true,
-		})
+		.update(updates)
 		.eq("id", userId);
 	if (error) throw new Error(`Failed to enable flat alerts: ${error.message}`);
 }
@@ -104,6 +123,7 @@ async function getStateRow(userId: string, symbol: string) {
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockEmailSender.mockResolvedValue({ success: true });
+	mockSmsSender.mockResolvedValue({ success: true });
 });
 
 describe("processFlatPriceAlerts", () => {
@@ -205,7 +225,7 @@ describe("processFlatPriceAlerts", () => {
 	it("User with alerts disabled receives no email even on a 10% move", async () => {
 		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
 		registerTestUserForCleanup(testUser.id);
-		// Explicitly keep price_move_alerts_enabled = false (default)
+		// Explicitly keep both channel flags false (the default)
 
 		const quoteMap = new Map([["AAPL", makeQuote({ price: 204.6 })]]);
 
@@ -426,5 +446,85 @@ describe("processFlatPriceAlerts", () => {
 		expect(mockEmailSender).not.toHaveBeenCalled();
 		// No state row written
 		expect(await getStateRow(testUser.id, "AAPL")).toBeNull();
+	});
+
+	it("User with SMS-only opt-in receives SMS but no email on AAPL 5% gap", async () => {
+		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
+		registerTestUserForCleanup(testUser.id);
+		await enableFlatAlerts(testUser.id, { email: false, sms: true });
+
+		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
+
+		const totals = await processFlatPriceAlerts({
+			supabase: adminClient,
+			quoteMap,
+			isMarketOpen: true,
+		});
+
+		expect(totals.alertsTriggered).toBe(1);
+		expect(totals.emailsSent).toBe(0);
+		expect(totals.smsSent).toBe(1);
+		expect(mockEmailSender).not.toHaveBeenCalled();
+		expect(mockSmsSender).toHaveBeenCalledOnce();
+
+		const smsCall = mockSmsSender.mock.calls[0]?.[0] as { body: string };
+		expect(smsCall.body).toContain("AAPL");
+		expect(smsCall.body).toContain("5% Price Move");
+		expect(smsCall.body).toContain("Reply STOP");
+	});
+
+	it("User with both channels on receives both email and SMS on a 5% gap", async () => {
+		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
+		registerTestUserForCleanup(testUser.id);
+		await enableFlatAlerts(testUser.id, { email: true, sms: true });
+
+		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
+
+		const totals = await processFlatPriceAlerts({
+			supabase: adminClient,
+			quoteMap,
+			isMarketOpen: true,
+		});
+
+		expect(totals.alertsTriggered).toBe(1);
+		expect(totals.emailsSent).toBe(1);
+		expect(totals.smsSent).toBe(1);
+		expect(mockEmailSender).toHaveBeenCalledOnce();
+		expect(mockSmsSender).toHaveBeenCalledOnce();
+
+		// Two notification_log rows — one per channel
+		expect(await getNotificationLogCount(testUser.id)).toBe(2);
+	});
+
+	it("User opted into SMS but phone unverified: SMS skipped as ineligible", async () => {
+		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
+		registerTestUserForCleanup(testUser.id);
+		// Turn on SMS intent but leave phone unverified
+		const { error } = await adminClient
+			.from("users")
+			.update({
+				price_move_alerts_include_email: false,
+				price_move_alerts_include_sms: true,
+				sms_notifications_enabled: true,
+				phone_verified: false,
+				phone_country_code: "+1",
+				phone_number: "5555550123",
+			})
+			.eq("id", testUser.id);
+		if (error) throw new Error(`setup failed: ${error.message}`);
+
+		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
+
+		const totals = await processFlatPriceAlerts({
+			supabase: adminClient,
+			quoteMap,
+			isMarketOpen: true,
+		});
+
+		expect(totals.alertsTriggered).toBe(1);
+		expect(totals.smsSent).toBe(0);
+		expect(totals.smsFailed).toBe(1);
+		expect(mockSmsSender).not.toHaveBeenCalled();
+		expect(mockEmailSender).not.toHaveBeenCalled();
 	});
 });

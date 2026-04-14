@@ -265,8 +265,13 @@
 			>
 				<input
 					type="hidden"
-					name="price_move_alerts_enabled"
-					:value="priceMoveAlertsEnabled ? 'on' : 'off'"
+					name="price_move_alerts_include_email"
+					:value="priceMoveAlertsIncludeEmail ? 'on' : 'off'"
+				/>
+				<input
+					type="hidden"
+					name="price_move_alerts_include_sms"
+					:value="priceMoveAlertsIncludeSms ? 'on' : 'off'"
 				/>
 				<div class="flex items-start justify-between gap-3">
 					<div class="min-w-0">
@@ -275,16 +280,15 @@
 							class="text-base font-semibold text-heading"
 						>
 							5% Price Move Alerts
-							<span class="ml-1 text-xs font-normal text-muted">(email only)</span>
 						</span>
 						<p id="price_move_alerts_description" class="text-sm text-body-secondary mt-0.5">
-							Get an email whenever any asset you track moves 5% or more in a trading day. Measured from yesterday's close on the first alert, then re-triggered on each additional 5% move from the last alert.
+							Get notified whenever any asset you track moves 5% or more in a trading day. Measured from yesterday's close on the first alert, then re-triggered on each additional 5% move from the last alert.
 						</p>
 						<p class="text-xs text-muted mt-1">
 							Applies to every asset in your watchlist — stocks and ETFs alike (although a 5% ETF move is rare). Independent of your other price alerts.
 						</p>
 					</div>
-					<div class="shrink-0">
+					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
 						<label
 							class="inline-flex items-center gap-1.5"
 							:class="!notificationSetupBlocked && emailEnabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
@@ -292,13 +296,28 @@
 						>
 							<input
 								type="checkbox"
-								v-model="priceMoveAlertsEnabled"
+								v-model="priceMoveAlertsIncludeEmail"
 								:disabled="notificationSetupBlocked || !emailEnabled"
 								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
 								aria-label="Enable email for 5% price move alerts"
 								aria-describedby="price_move_alerts_description"
 							/>
 							<span class="text-sm font-normal text-label" aria-hidden="true">Email</span>
+						</label>
+						<label
+							class="inline-flex items-center gap-1.5"
+							:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+							:title="smsDisabledTitle"
+						>
+							<input
+								type="checkbox"
+								v-model="priceMoveAlertsIncludeSms"
+								:disabled="notificationSetupBlocked || !smsReady"
+								class="rounded border-edge-strong text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
+								aria-label="Enable SMS for 5% price move alerts"
+								aria-describedby="price_move_alerts_description"
+							/>
+							<span class="text-sm font-normal text-label" aria-hidden="true">SMS</span>
 						</label>
 					</div>
 				</div>
@@ -560,7 +579,8 @@ const priceAlertsEnabled = computed(
 const priceTargetsIncludeEmail = ref(user.value.price_targets_include_email);
 const priceTargetsIncludeSms = ref(user.value.price_targets_include_sms);
 
-const priceMoveAlertsEnabled = ref(user.value.price_move_alerts_enabled);
+const priceMoveAlertsIncludeEmail = ref(user.value.price_move_alerts_include_email);
+const priceMoveAlertsIncludeSms = ref(user.value.price_move_alerts_include_sms);
 
 const priceAlertMoveSize = ref<AlertMoveSize>(
 	normalizeMoveSize(user.value.market_asset_price_alert_move_size),
@@ -813,8 +833,12 @@ watchUserPreference(
 	priceTargetsIncludeSms,
 );
 watchUserPreference(
-	() => user.value.price_move_alerts_enabled,
-	priceMoveAlertsEnabled,
+	() => user.value.price_move_alerts_include_email,
+	priceMoveAlertsIncludeEmail,
+);
+watchUserPreference(
+	() => user.value.price_move_alerts_include_sms,
+	priceMoveAlertsIncludeSms,
 );
 watch(
 	() => user.value.market_asset_price_alert_move_size,
@@ -877,8 +901,11 @@ watch(
 			...(newData.price_targets_include_sms !== undefined && {
 				price_targets_include_sms: newData.price_targets_include_sms,
 			}),
-			...(newData.price_move_alerts_enabled !== undefined && {
-				price_move_alerts_enabled: newData.price_move_alerts_enabled,
+			...(newData.price_move_alerts_include_email !== undefined && {
+				price_move_alerts_include_email: newData.price_move_alerts_include_email,
+			}),
+			...(newData.price_move_alerts_include_sms !== undefined && {
+				price_move_alerts_include_sms: newData.price_move_alerts_include_sms,
 			}),
 			};
 		}
@@ -943,13 +970,17 @@ watch([priceTargetsIncludeEmail, priceTargetsIncludeSms], ([email, sms]) => {
 	notifyChange();
 });
 
-watch(priceMoveAlertsEnabled, (enabled) => {
-	if (enabled === user.value.price_move_alerts_enabled) {
+watch([priceMoveAlertsIncludeEmail, priceMoveAlertsIncludeSms], ([email, sms]) => {
+	if (
+		email === user.value.price_move_alerts_include_email &&
+		sms === user.value.price_move_alerts_include_sms
+	) {
 		return;
 	}
 	user.value = {
 		...user.value,
-		price_move_alerts_enabled: enabled,
+		price_move_alerts_include_email: email,
+		price_move_alerts_include_sms: sms,
 	};
 	notifyChange();
 });

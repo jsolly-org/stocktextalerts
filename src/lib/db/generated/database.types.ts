@@ -595,7 +595,8 @@ export type Database = {
           phone_country_code: string | null
           phone_number: string | null
           phone_verified: boolean
-          price_move_alerts_enabled: boolean
+          price_move_alerts_include_email: boolean
+          price_move_alerts_include_sms: boolean
           price_targets_include_email: boolean
           price_targets_include_sms: boolean
           sms_notifications_enabled: boolean
@@ -644,7 +645,8 @@ export type Database = {
           phone_country_code?: string | null
           phone_number?: string | null
           phone_verified?: boolean
-          price_move_alerts_enabled?: boolean
+          price_move_alerts_include_email?: boolean
+          price_move_alerts_include_sms?: boolean
           price_targets_include_email?: boolean
           price_targets_include_sms?: boolean
           sms_notifications_enabled?: boolean
@@ -693,7 +695,8 @@ export type Database = {
           phone_country_code?: string | null
           phone_number?: string | null
           phone_verified?: boolean
-          price_move_alerts_enabled?: boolean
+          price_move_alerts_include_email?: boolean
+          price_move_alerts_include_sms?: boolean
           price_targets_include_email?: boolean
           price_targets_include_sms?: boolean
           sms_notifications_enabled?: boolean

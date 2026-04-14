@@ -13,6 +13,7 @@ import {
 	fetchSparklines,
 } from "../../providers/price-fetcher";
 import type { SupabaseAdminClient } from "../../schedule/helpers";
+import { createSmsSenderProvider } from "../../schedule/sms-sender";
 import { FLAT_PRICE_ALERT_THRESHOLD_PERCENT } from "./constants";
 import {
 	deliverFlatPriceAlert,
@@ -59,6 +60,8 @@ function emptyTotals(): FlatPriceAlertTotals {
 		reTriggerAlerts: 0,
 		emailsSent: 0,
 		emailsFailed: 0,
+		smsSent: 0,
+		smsFailed: 0,
 		logFailures: 0,
 	};
 }
@@ -293,6 +296,11 @@ export async function processFlatPriceAlerts(options: {
 
 	// Delivery
 	const sendEmail = createEmailSender();
+	const getSmsSender = createSmsSenderProvider();
+	const anySmsEnabled = eligibleAlerts.some(
+		(a) => a.user.price_move_alerts_include_sms,
+	);
+	const sendSms = anySmsEnabled ? getSmsSender().sender : null;
 	const logoCache = createLogoCache();
 	const nowMs = Date.now();
 
@@ -317,6 +325,7 @@ export async function processFlatPriceAlerts(options: {
 			iconBase64: alert.iconBase64,
 			supabase,
 			sendEmail,
+			sendSms,
 			logoCache,
 			stats: totals,
 		});

@@ -1,3 +1,4 @@
+import { getSiteUrl } from "../../db/env";
 import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
 import { escapeHtml, getChangeColor } from "../../messaging/asset-formatting";
@@ -14,7 +15,11 @@ import {
 	deliveryResultToLogFields,
 	recordNotification,
 } from "../../messaging/shared";
-import type { SparklineData } from "../../messaging/sparkline";
+import { sendUserSms, shouldSendSms } from "../../messaging/sms/index";
+import { padUrlsToSegmentBoundaries } from "../../messaging/sms/segment-utils";
+import type { SmsSender } from "../../messaging/sms/twilio-utils";
+import { shortenUrl } from "../../messaging/sms/url-shortener";
+import { type SparklineData, toSparkline } from "../../messaging/sparkline";
 import { toSvgSparklineImg } from "../../messaging/svg-sparkline";
 import type { IntradayBarsResult } from "../../providers/massive";
 import type { ExtendedAssetQuote } from "../../providers/price-fetcher";
@@ -24,8 +29,14 @@ import type { FlatPriceAlertUser } from "./users";
 export interface FlatPriceAlertDeliveryStats {
 	emailsSent: number;
 	emailsFailed: number;
+	smsSent: number;
+	smsFailed: number;
 	logFailures: number;
 }
+
+/** Unicode-block sparkline cap for SMS. UCS-2 segments fit 70 chars; keep the
+ *  sparkline short so it + price rows stay within 1–2 segments. */
+const SMS_SPARKLINE_LENGTH = 10;
 
 /** Format an elapsed duration in minutes/hours as "27 min ago", "1h 23m ago".
  *  Floors to a minimum of "1 min ago" — we never run sub-minute cadence. */
@@ -156,6 +167,95 @@ function buildPriceChangeRows(options: {
 	}
 
 	return rows;
+}
+
+function downsample(values: number[], target: number): number[] {
+	if (values.length <= target || target < 2) return values;
+	const out: number[] = [];
+	for (let i = 0; i < target; i++) {
+		const idx = Math.round((i / (target - 1)) * (values.length - 1));
+		out.push(values[idx]);
+	}
+	return out;
+}
+
+/** Build the SMS body for a flat price alert. Async because URL shortening
+ *  needs a DB round-trip for dedup. */
+export async function formatFlatPriceAlertSms(options: {
+	user: FlatPriceAlertUser;
+	symbol: string;
+	quote: ExtendedAssetQuote;
+	baseline: number;
+	triggerPercent: number;
+	isReTrigger: boolean;
+	lastNotificationAt: Date | null;
+	nowMs: number;
+	intraday: IntradayBarsResult | null;
+	sevenDaySparkline: SparklineData | null;
+	supabase: AppSupabaseClient;
+}): Promise<string> {
+	const {
+		symbol,
+		quote,
+		baseline,
+		triggerPercent,
+		isReTrigger,
+		lastNotificationAt,
+		nowMs,
+		intraday,
+		sevenDaySparkline,
+		supabase,
+	} = options;
+
+	const currentPrice = quote.price;
+	const arrow = triggerPercent >= 0 ? "↑" : "↓";
+	const absPct = Math.abs(triggerPercent).toFixed(1);
+	const since =
+		isReTrigger && lastNotificationAt !== null
+			? formatRelativeMinutesAgo(lastNotificationAt.getTime(), nowMs)
+			: "today";
+
+	const rows = buildPriceChangeRows({
+		currentPrice,
+		prevClose: quote.prevClose,
+		dayOpen: quote.dayOpen,
+		lastNotificationPrice: isReTrigger ? baseline : null,
+		sevenDayBaseline:
+			sevenDaySparkline && sevenDaySparkline.values.length > 0
+				? sevenDaySparkline.values[0]
+				: null,
+		relativeTime:
+			isReTrigger && lastNotificationAt !== null
+				? formatRelativeMinutesAgo(lastNotificationAt.getTime(), nowMs)
+				: null,
+	});
+
+	const intradayCloses = intraday?.closes ?? null;
+	const sparkline =
+		intradayCloses && intradayCloses.length >= 2
+			? toSparkline(downsample(intradayCloses, SMS_SPARKLINE_LENGTH))
+			: "";
+
+	const rawDashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
+	const dashboardUrl = await shortenUrl(rawDashboardUrl, supabase);
+
+	const headline = `${symbol} ${arrow} ${absPct}% ${since} — $${currentPrice.toFixed(2)}`;
+	const priceLines = rows.map(
+		(row) =>
+			`${row.label}: ${formatDollarChange(row.dollarChange)} (${formatPercentChange(row.percentChange)})`,
+	);
+	const sparklineLine = sparkline ? `Today: ${sparkline}` : null;
+
+	const sections = [
+		"StockTextAlerts — 5% Price Move 🚨",
+		headline,
+		...(sparklineLine ? [sparklineLine] : []),
+		priceLines.join("\n"),
+		`Manage your settings: ${dashboardUrl}`,
+		"Reply STOP to opt out.",
+	];
+
+	return padUrlsToSegmentBoundaries(sections.join("\n\n"));
 }
 
 function buildSubject(options: {
@@ -316,7 +416,8 @@ export function formatFlatPriceAlertEmail(options: {
 	return { text, html };
 }
 
-/** Deliver a flat price alert: send the email and record the outcome in notification_log. */
+/** Deliver a flat price alert across the channels the user has enabled
+ *  (email and/or SMS) and record each attempt in notification_log. */
 export async function deliverFlatPriceAlert(options: {
 	user: FlatPriceAlertUser;
 	symbol: string;
@@ -337,6 +438,7 @@ export async function deliverFlatPriceAlert(options: {
 	iconBase64: string | null;
 	supabase: AppSupabaseClient;
 	sendEmail: EmailSender;
+	sendSms: SmsSender | null;
 	logoCache: ReturnType<typeof createLogoCache>;
 	stats: FlatPriceAlertDeliveryStats;
 }): Promise<void> {
@@ -357,76 +459,130 @@ export async function deliverFlatPriceAlert(options: {
 		iconBase64,
 		supabase,
 		sendEmail,
+		sendSms,
 		logoCache,
 		stats,
 	} = options;
 
-	const logoDataUri = await fetchLogoBase64(
-		symbol,
-		iconUrl,
-		logoCache,
-		iconBase64,
-		supabase,
-	);
-	const logoHtml = logoDataUri ? renderLogoImg(logoDataUri) : undefined;
-
-	const message = formatFlatPriceAlertEmail({
-		user,
-		symbol,
-		companyName,
-		quote,
-		baseline,
-		isReTrigger,
-		lastNotificationAt,
-		nowMs,
-		intraday,
-		sevenDaySparkline,
-		logoHtml,
-	});
-
-	const subject = buildSubject({
-		symbol,
-		currentPrice: quote.price,
-		triggerPercent,
-		isReTrigger,
-	});
-
-	// Re-trigger keys off last_notification_at (stable until the next alert
-	// fires). First-of-day keys off the ET calendar date (stable across all
-	// cron ticks of the day), so if the claim RPC fails open and the email
-	// send fires again on the next tick, SES dedup collapses it to one send.
-	const idempotencyKey = lastNotificationAt
-		? `flat-price-alert-${user.id}-${symbol}-${lastNotificationAt.toISOString()}`
-		: `flat-price-alert-${user.id}-${symbol}-first-${todayEt}`;
-
-	const result = await sendUserEmail(
-		user,
-		subject,
-		message,
-		sendEmail,
-		idempotencyKey,
-	);
-
-	if (result.success) {
-		stats.emailsSent++;
-	} else {
-		stats.emailsFailed++;
-		rootLogger.error(
-			"Failed to send flat price alert email",
-			{ userId: user.id, symbol, triggerPercent, isReTrigger },
-			result.error,
+	// Email
+	if (
+		user.price_move_alerts_include_email &&
+		user.email_notifications_enabled
+	) {
+		const logoDataUri = await fetchLogoBase64(
+			symbol,
+			iconUrl,
+			logoCache,
+			iconBase64,
+			supabase,
 		);
+		const logoHtml = logoDataUri ? renderLogoImg(logoDataUri) : undefined;
+
+		const message = formatFlatPriceAlertEmail({
+			user,
+			symbol,
+			companyName,
+			quote,
+			baseline,
+			isReTrigger,
+			lastNotificationAt,
+			nowMs,
+			intraday,
+			sevenDaySparkline,
+			logoHtml,
+		});
+
+		const subject = buildSubject({
+			symbol,
+			currentPrice: quote.price,
+			triggerPercent,
+			isReTrigger,
+		});
+
+		// Re-trigger keys off last_notification_at (stable until the next alert
+		// fires). First-of-day keys off the ET calendar date (stable across all
+		// cron ticks of the day), so if the claim RPC fails open and the email
+		// send fires again on the next tick, SES dedup collapses it to one send.
+		const idempotencyKey = lastNotificationAt
+			? `flat-price-alert-${user.id}-${symbol}-${lastNotificationAt.toISOString()}`
+			: `flat-price-alert-${user.id}-${symbol}-first-${todayEt}`;
+
+		const result = await sendUserEmail(
+			user,
+			subject,
+			message,
+			sendEmail,
+			idempotencyKey,
+		);
+
+		if (result.success) {
+			stats.emailsSent++;
+		} else {
+			stats.emailsFailed++;
+			rootLogger.error(
+				"Failed to send flat price alert email",
+				{ userId: user.id, symbol, triggerPercent, isReTrigger },
+				result.error,
+			);
+		}
+
+		const logged = await recordNotification(supabase, {
+			user_id: user.id,
+			type: "flat_price_alert",
+			delivery_method: "email",
+			message_delivered: result.success,
+			message: message.text,
+			...deliveryResultToLogFields(result),
+		});
+		if (!logged) stats.logFailures++;
 	}
 
-	const logged = await recordNotification(supabase, {
-		user_id: user.id,
-		type: "flat_price_alert",
-		delivery_method: "email",
-		message_delivered: result.success,
-		message: message.text,
-		...deliveryResultToLogFields(result),
-	});
-	if (!logged) stats.logFailures++;
+	// SMS
+	if (user.price_move_alerts_include_sms && sendSms) {
+		if (!shouldSendSms(user)) {
+			rootLogger.info("Flat price alert SMS skipped: user not eligible", {
+				userId: user.id,
+				symbol,
+			});
+			stats.smsFailed++;
+		} else {
+			const smsBody = await formatFlatPriceAlertSms({
+				user,
+				symbol,
+				quote,
+				baseline,
+				triggerPercent,
+				isReTrigger,
+				lastNotificationAt,
+				nowMs,
+				intraday,
+				sevenDaySparkline,
+				supabase,
+			});
+			const result = await sendUserSms(user, smsBody, sendSms, supabase);
+
+			if (result.success) {
+				stats.smsSent++;
+			} else {
+				stats.smsFailed++;
+				rootLogger.error(
+					"Failed to send flat price alert SMS",
+					{ userId: user.id, symbol, triggerPercent, isReTrigger },
+					result.error,
+				);
+			}
+
+			const logged = await recordNotification(supabase, {
+				user_id: user.id,
+				type: "flat_price_alert",
+				delivery_method: "sms",
+				message_delivered: result.success,
+				message: smsBody,
+				...deliveryResultToLogFields(result),
+			});
+			if (!logged) stats.logFailures++;
+		}
+	}
 }
 
 // Export for test access

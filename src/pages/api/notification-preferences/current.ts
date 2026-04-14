@@ -92,7 +92,8 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 					dbUser.market_asset_price_alerts_include_sms,
 				market_asset_price_alert_move_size:
 					dbUser.market_asset_price_alert_move_size,
-				price_move_alerts_enabled: dbUser.price_move_alerts_enabled,
+				price_move_alerts_include_email: dbUser.price_move_alerts_include_email,
+				price_move_alerts_include_sms: dbUser.price_move_alerts_include_sms,
 				price_targets_include_email: dbUser.price_targets_include_email,
 				price_targets_include_sms: dbUser.price_targets_include_sms,
 			},

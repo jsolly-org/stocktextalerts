@@ -95,7 +95,7 @@ describeLiveEmail("5% flat-price alert delivery via local Mailpit", () => {
 
 		const { error: enableError } = await adminClient
 			.from("users")
-			.update({ price_move_alerts_enabled: true })
+			.update({ price_move_alerts_include_email: true })
 			.eq("id", testUser.id);
 		expect(enableError).toBeNull();
 

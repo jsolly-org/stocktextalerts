@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 // Update EXPECTED_DB_SCHEMA_VERSION whenever migrations are applied or regenerated
 // (use the latest migration commit/tag or schema version timestamp and update tests).
 export const EXPECTED_DB_SCHEMA_VERSION =
-	"20260410130000_add_flat_price_alerts";
+	"20260414120000_flat_price_alerts_add_sms";
 export const POSTGRES_UNDEFINED_TABLE = "42P01";
 export const PRESERVED_USER_ID = "00000000-0000-0000-0000-000000000000";
 // Non-routable by design. Was previously "test@jsolly.com" — a real inbox

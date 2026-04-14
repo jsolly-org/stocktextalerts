@@ -60,6 +60,8 @@ export type UserRecord = Pick<
 	asset_events_next_send_at: string | null;
 	asset_events_last_analyst_sent_month: string | null;
 	market_asset_price_alerts_include_sms: boolean;
+	price_move_alerts_include_email: boolean;
+	price_move_alerts_include_sms: boolean;
 } & GrokRumorsPreferences;
 
 /** Minimal user shape needed to send email. */

@@ -168,6 +168,8 @@ export async function dispatchDailyDigestUser(options: {
 			market_scheduled_asset_price_include_email: false,
 			market_scheduled_asset_price_include_sms: false,
 			market_scheduled_asset_price_times: null,
+			price_move_alerts_include_email: false,
+			price_move_alerts_include_sms: false,
 		};
 
 		return await processDailyDigestUser({
