@@ -145,7 +145,9 @@ export async function purgeOldAssetSnapshots(
 		p_retention_minutes: retentionMinutes,
 	});
 	if (error) {
-		rootLogger.error(
+		// Non-fatal: purge runs every cron tick, so a transient Supabase/Cloudflare
+		// 5xx self-heals on the next iteration. Alarm threshold catches sustained failures.
+		rootLogger.warn(
 			"Failed to purge old asset snapshots",
 			{ retentionMinutes },
 			error,
