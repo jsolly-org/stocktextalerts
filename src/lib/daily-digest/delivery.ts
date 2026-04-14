@@ -24,7 +24,6 @@ import type { SmsExtras } from "../messaging/sms/delivery";
 import { formatExtrasSection } from "../messaging/sms/formatting";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
-import { shortenUrl } from "../messaging/sms/url-shortener";
 import type { SparklineData, SparklineMap } from "../messaging/sparkline";
 import type { UserAssetRow, UserRecord } from "../messaging/types";
 import type { AssetPriceMap } from "../providers/price-fetcher";
@@ -143,7 +142,7 @@ type AssetEventsResult = Awaited<
 > | null;
 
 /** Format the daily digest message body for SMS delivery. */
-export async function formatDailyDigestSmsMessage(options: {
+export function formatDailyDigestSmsMessage(options: {
 	userAssets: UserAssetRow[];
 	assetPrices: AssetPriceMap;
 	extras: SmsExtras;
@@ -151,15 +150,11 @@ export async function formatDailyDigestSmsMessage(options: {
 	sparklines?: SparklineMap;
 	marketOpen?: boolean;
 	marketClosureInfo?: MarketClosureInfo | null;
-	supabase?: SupabaseAdminClient;
 	/** Optional delay banner text (inserted after header when notification is late). */
 	delayBanner?: string | null;
-}): Promise<string> {
+}): string {
 	const optOutSuffix = "Reply STOP to opt out.";
-	const rawDashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
-	const dashboardUrl = options.supabase
-		? await shortenUrl(rawDashboardUrl, options.supabase)
-		: rawDashboardUrl;
+	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const showChangePercent = options.marketOpen !== false;
 	const prices = buildDailyDigestPricesSummary(
 		options.userAssets,
@@ -187,7 +182,7 @@ export async function formatDailyDigestSmsMessage(options: {
 		formatExtrasSection("🆕 Upcoming IPOs", ae?.eventsSection?.ipos),
 		formatExtrasSection("📊 Analyst Consensus", ae?.analystSection),
 		formatExtrasSection("🏦 Insider Trades", ae?.insiderSection),
-		`Manage your settings: ${dashboardUrl}`,
+		`Manage your notifications: ${dashboardUrl}`,
 		optOutSuffix,
 	].filter((value) => Boolean(value));
 
@@ -356,7 +351,7 @@ export function formatDailyDigestEmail(options: {
 		analyst ? `\n📊 Analyst Consensus\n${analyst}` : "",
 		insider ? `\n🏦 Insider Trades\n${insider}` : "",
 		topMovers ? `\n🚀 Top Movers\n${topMovers}` : "",
-		`\nManage your settings: ${urls.dashboardUrl}`,
+		`\nManage your notifications: ${urls.dashboardUrl}`,
 		`Manage your delivery schedule: ${urls.scheduleUrl}`,
 		`Unsubscribe from all emails: ${urls.unsubscribeUrl}`,
 	].filter(Boolean);
@@ -394,7 +389,7 @@ export function formatDailyDigestEmail(options: {
 		${renderEmailSection("🚀", "Top Movers", topMovers, { showMassiveLogo: true })}
 		<div style="text-align: center; margin-top: 20px;">
 			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
-				Manage your settings →
+				Manage your notifications →
 			</a>
 		</div>
 		${renderEmailFooter(urls)}
@@ -590,7 +585,7 @@ export async function processDailyDigestSmsDelivery(options: {
 		return;
 	}
 
-	const smsMessage = await formatDailyDigestSmsMessage({
+	const smsMessage = formatDailyDigestSmsMessage({
 		userAssets,
 		assetPrices,
 		extras,
@@ -598,7 +593,6 @@ export async function processDailyDigestSmsDelivery(options: {
 		sparklines: options.sparklines,
 		marketOpen: options.marketOpen,
 		marketClosureInfo: options.marketClosureInfo,
-		supabase,
 		delayBanner: options.delayBanner,
 	});
 	const result = await sendUserSms(

@@ -102,13 +102,13 @@ describe("Daily digest email prices", () => {
 		expect(message.html).toContain("<img ");
 	});
 
-	it("SMS uses ASCII sparklines, not SVG", async () => {
+	it("SMS uses ASCII sparklines, not SVG", () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 		]);
 		const sparklines = new Map([["AAPL", sparklineData]]);
 
-		const message = await formatDailyDigestSmsMessage({
+		const message = formatDailyDigestSmsMessage({
 			userAssets: [userAssets[0]],
 			assetPrices,
 			extras,
@@ -134,12 +134,12 @@ describe("Daily digest email prices", () => {
 		expect(message.text).toContain("MSFT — price unavailable");
 	});
 
-	it("SMS includes market closed banner when marketOpen is false", async () => {
+	it("SMS includes market closed banner when marketOpen is false", () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 		]);
 
-		const message = await formatDailyDigestSmsMessage({
+		const message = formatDailyDigestSmsMessage({
 			userAssets: [userAssets[0]],
 			assetPrices,
 			extras,
@@ -155,12 +155,12 @@ describe("Daily digest email prices", () => {
 		expect(message).not.toContain("(+1.23%)");
 	});
 
-	it("SMS omits market closed banner when marketOpen is true", async () => {
+	it("SMS omits market closed banner when marketOpen is true", () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 		]);
 
-		const message = await formatDailyDigestSmsMessage({
+		const message = formatDailyDigestSmsMessage({
 			userAssets: [userAssets[0]],
 			assetPrices,
 			extras,
@@ -172,13 +172,13 @@ describe("Daily digest email prices", () => {
 		expect(message).toContain("AAPL — $187.42 (+1.23%)");
 	});
 
-	it("formats daily digest SMS with a Your Assets section", async () => {
+	it("formats daily digest SMS with a Your Assets section", () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 			["MSFT", { price: 412.1, changePercent: -0.31 }],
 		]);
 
-		const message = await formatDailyDigestSmsMessage({
+		const message = formatDailyDigestSmsMessage({
 			userAssets,
 			assetPrices,
 			extras,
@@ -392,12 +392,12 @@ describe("Daily digest email prices", () => {
 		expect(message.html).not.toContain("Top Movers");
 	});
 
-	it("omits top movers section from SMS even when extras.topMovers is set", async () => {
+	it("omits top movers section from SMS even when extras.topMovers is set", () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 		]);
 
-		const message = await formatDailyDigestSmsMessage({
+		const message = formatDailyDigestSmsMessage({
 			userAssets: [userAssets[0]],
 			assetPrices,
 			extras: {

@@ -134,8 +134,6 @@ export async function processMarketScheduledSmsDelivery(options: {
 	marketOpen: boolean;
 	marketClosureInfo?: MarketClosureInfo | null;
 	stats: ScheduledNotificationTotals;
-	/** Pre-shortened dashboard URL for SMS; avoids per-message shortenUrl when set. */
-	dashboardUrl?: string;
 	/** Optional delay banner text for late notifications. */
 	delayBanner?: string | null;
 }): Promise<void> {
@@ -150,7 +148,6 @@ export async function processMarketScheduledSmsDelivery(options: {
 		marketOpen,
 		marketClosureInfo,
 		stats,
-		dashboardUrl,
 	} = options;
 
 	const claim = await claimNotification({
@@ -225,7 +222,6 @@ export async function processMarketScheduledSmsDelivery(options: {
 		marketOpen,
 		undefined,
 		marketClosureInfo,
-		dashboardUrl,
 		options.delayBanner,
 	);
 

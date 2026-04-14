@@ -679,7 +679,7 @@ export async function processDailyDigestUser(options: {
 			const smsContent =
 				hasSmsContent && smsExtras
 					? {
-							message: await formatDailyDigestSmsMessage({
+							message: formatDailyDigestSmsMessage({
 								userAssets: smsPriceAssets,
 								assetPrices: smsPriceMap,
 								extras: smsExtras,
@@ -687,7 +687,6 @@ export async function processDailyDigestUser(options: {
 								sparklines,
 								marketOpen,
 								marketClosureInfo,
-								supabase,
 							}),
 						}
 					: null;

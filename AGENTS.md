@@ -60,8 +60,7 @@ supabase migration new <name>  # Create new migration (never rename timestamps)
 - **Console spies**: Tests fail on unexpected `console.warn`/`console.error`. Use `expectConsoleWarning()`/`expectConsoleError()` from `tests/setup.ts`.
 - **Schema version**: When adding migrations, update `app_metadata.schema_version` in SQL and `EXPECTED_DB_SCHEMA_VERSION` in `tests/helpers/constants.ts`.
 - Pre-existing type error in `src/pages/api/auth/sms/send-verification.ts:201` (nullable param to RPC) — not ours, ignore.
-- `formatSmsMessage`, `formatDailyDigestSmsMessage`, `formatPriceAlertSms`, `formatAssetEventsSmsMessage` are all **async** (URL shortening).
-- Mock supabase for SMS formatters must include a `.from().select().eq().gt().limit().single()` chain for the URL shortener dedup lookup.
+- `formatPriceAlertSms` is **async** (shortens Grok link URLs via the `short_urls` table). Mock supabase for it must include a `.from().select().eq().gt().limit().single()` chain for the shortener dedup lookup. All other SMS formatters are sync.
 - **Live API tests**: `npm run test:live:email`, `test:live:data`, `test:live:xai`, `test:live:all`. Always reproduce live test failures locally before fixing.
 
 ### Testing Philosophy: No real SES or Twilio, ever

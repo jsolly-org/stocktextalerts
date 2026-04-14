@@ -9,7 +9,6 @@ import { formatExtrasSection } from "./formatting";
 import { sendUserSms } from "./index";
 import { padUrlsToSegmentBoundaries } from "./segment-utils";
 import type { SmsSender } from "./twilio-utils";
-import { shortenUrl } from "./url-shortener";
 
 export type SmsExtras = {
 	news?: string | null;
@@ -37,34 +36,23 @@ function formatSmsExtras(extras?: SmsExtras): string {
 	return sections.join("\n\n");
 }
 
-/** Format the SMS body for a scheduled asset update.
- * Pass `dashboardUrl` when calling in a batch to avoid per-message DB shortening. */
-export async function formatSmsMessage(
+/** Format the SMS body for a scheduled asset update. */
+export function formatSmsMessage(
 	assetsList: string,
 	marketOpen: boolean,
 	extras?: SmsExtras,
 	marketClosureInfo?: MarketClosureInfo | null,
-	supabase?: AppSupabaseClient,
-	/** Pre-shortened dashboard URL; when set, skips per-message shortenUrl. */
-	dashboardUrl?: string,
 	/** Optional delay banner text (inserted after header when notification is late). */
 	delayBanner?: string | null,
-): Promise<string> {
+): string {
 	const optOutSuffix = "Reply STOP to opt out.";
-	const resolvedDashboardUrl =
-		dashboardUrl ??
-		(supabase
-			? await shortenUrl(
-					new URL("/dashboard", getSiteUrl()).toString(),
-					supabase,
-				)
-			: new URL("/dashboard", getSiteUrl()).toString());
+	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 
 	const header = "StockTextAlerts — Your scheduled price notification 📈";
 
 	if (assetsList.trim() === NO_TRACKED_ASSETS_MESSAGE) {
 		return padUrlsToSegmentBoundaries(
-			`${header}\n\n${NO_TRACKED_ASSETS_MESSAGE}.\n\nManage your settings: ${resolvedDashboardUrl}\n\n${optOutSuffix}`,
+			`${header}\n\n${NO_TRACKED_ASSETS_MESSAGE}.\n\nManage your notifications: ${dashboardUrl}\n\n${optOutSuffix}`,
 		);
 	}
 
@@ -79,15 +67,14 @@ export async function formatSmsMessage(
 		marketDisclaimer,
 		assetsList,
 		extrasBlock,
-		`Manage your settings: ${resolvedDashboardUrl}`,
+		`Manage your notifications: ${dashboardUrl}`,
 		optOutSuffix,
 	].filter(Boolean);
 
 	return padUrlsToSegmentBoundaries(sections.join("\n\n"));
 }
 
-/** Send and record an SMS scheduled update for a user.
- * Pass `dashboardUrl` when processing a batch to avoid per-message DB shortening. */
+/** Send and record an SMS scheduled update for a user. */
 export async function processSmsUpdate(
 	supabase: AppSupabaseClient,
 	user: SmsUser,
@@ -96,18 +83,14 @@ export async function processSmsUpdate(
 	marketOpen: boolean,
 	extras?: SmsExtras,
 	marketClosureInfo?: MarketClosureInfo | null,
-	/** Pre-shortened dashboard URL; when set, skips per-message shortenUrl. */
-	dashboardUrl?: string,
 	/** Optional delay banner text for late notifications. */
 	delayBanner?: string | null,
 ): Promise<ProcessingStats> {
-	const smsMessage = await formatSmsMessage(
+	const smsMessage = formatSmsMessage(
 		assetsList,
 		marketOpen,
 		extras,
 		marketClosureInfo,
-		supabase,
-		dashboardUrl,
 		delayBanner,
 	);
 

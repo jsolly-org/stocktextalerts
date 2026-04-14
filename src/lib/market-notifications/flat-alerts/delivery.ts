@@ -18,7 +18,6 @@ import {
 import { sendUserSms, shouldSendSms } from "../../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../../messaging/sms/segment-utils";
 import type { SmsSender } from "../../messaging/sms/twilio-utils";
-import { shortenUrl } from "../../messaging/sms/url-shortener";
 import { type SparklineData, toSparkline } from "../../messaging/sparkline";
 import { toSvgSparklineImg } from "../../messaging/svg-sparkline";
 import type { IntradayBarsResult } from "../../providers/massive";
@@ -179,9 +178,8 @@ function downsample(values: number[], target: number): number[] {
 	return out;
 }
 
-/** Build the SMS body for a flat price alert. Async because URL shortening
- *  needs a DB round-trip for dedup. */
-export async function formatFlatPriceAlertSms(options: {
+/** Build the SMS body for a flat price alert. */
+export function formatFlatPriceAlertSms(options: {
 	user: FlatPriceAlertUser;
 	symbol: string;
 	quote: ExtendedAssetQuote;
@@ -192,8 +190,7 @@ export async function formatFlatPriceAlertSms(options: {
 	nowMs: number;
 	intraday: IntradayBarsResult | null;
 	sevenDaySparkline: SparklineData | null;
-	supabase: AppSupabaseClient;
-}): Promise<string> {
+}): string {
 	const {
 		symbol,
 		quote,
@@ -204,7 +201,6 @@ export async function formatFlatPriceAlertSms(options: {
 		nowMs,
 		intraday,
 		sevenDaySparkline,
-		supabase,
 	} = options;
 
 	const currentPrice = quote.price;
@@ -236,8 +232,7 @@ export async function formatFlatPriceAlertSms(options: {
 			? toSparkline(downsample(intradayCloses, SMS_SPARKLINE_LENGTH))
 			: "";
 
-	const rawDashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
-	const dashboardUrl = await shortenUrl(rawDashboardUrl, supabase);
+	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 
 	const headline = `${symbol} ${arrow} ${absPct}% ${since} — $${currentPrice.toFixed(2)}`;
 	const priceLines = rows.map(
@@ -251,7 +246,7 @@ export async function formatFlatPriceAlertSms(options: {
 		headline,
 		...(sparklineLine ? [sparklineLine] : []),
 		priceLines.join("\n"),
-		`Manage your settings: ${dashboardUrl}`,
+		`Manage your notifications: ${dashboardUrl}`,
 		"Reply STOP to opt out.",
 	];
 
@@ -546,7 +541,7 @@ export async function deliverFlatPriceAlert(options: {
 			});
 			stats.smsFailed++;
 		} else {
-			const smsBody = await formatFlatPriceAlertSms({
+			const smsBody = formatFlatPriceAlertSms({
 				user,
 				symbol,
 				quote,
@@ -557,7 +552,6 @@ export async function deliverFlatPriceAlert(options: {
 				nowMs,
 				intraday,
 				sevenDaySparkline,
-				supabase,
 			});
 			const result = await sendUserSms(user, smsBody, sendSms, supabase);
 

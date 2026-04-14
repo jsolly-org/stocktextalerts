@@ -15,7 +15,6 @@ import {
 } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
-import { shortenUrl } from "../messaging/sms/url-shortener";
 import type { UserRecord } from "../messaging/types";
 import type {
 	ScheduledNotificationTotals,
@@ -33,7 +32,7 @@ SMS formatting
 ============= */
 
 /** Build the SMS body for an asset-events digest. */
-async function formatAssetEventsSmsMessage(options: {
+function formatAssetEventsSmsMessage(options: {
 	earningsSection: string | null;
 	dividendsSection: string | null;
 	splitsSection: string | null;
@@ -41,13 +40,11 @@ async function formatAssetEventsSmsMessage(options: {
 	analystSection: string | null;
 	insiderSection: string | null;
 	marketClosureInfo?: MarketClosureInfo | null;
-	supabase: SupabaseAdminClient;
 	/** Optional delay banner text (inserted after header when notification is late). */
 	delayBanner?: string | null;
-}): Promise<string> {
+}): string {
 	const optOutSuffix = "Reply STOP to opt out.";
-	const rawDashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
-	const dashboardUrl = await shortenUrl(rawDashboardUrl, options.supabase);
+	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 
 	const parts: string[] = ["StockTextAlerts — Asset Events 🗓️"];
 
@@ -82,7 +79,7 @@ async function formatAssetEventsSmsMessage(options: {
 		);
 	}
 
-	parts.push(`Manage your settings: ${dashboardUrl}`);
+	parts.push(`Manage your notifications: ${dashboardUrl}`);
 	parts.push(optOutSuffix);
 
 	return padUrlsToSegmentBoundaries(parts.join("\n\n"));
@@ -145,7 +142,7 @@ function formatAssetEventsEmail(options: {
 			`\n📊 Analyst Consensus (published monthly on the 1st)\n${options.analystSection}`,
 		);
 	}
-	textParts.push(`\nManage your settings: ${urls.dashboardUrl}`);
+	textParts.push(`\nManage your notifications: ${urls.dashboardUrl}`);
 	textParts.push(`Manage your delivery schedule: ${urls.scheduleUrl}`);
 	textParts.push(`Unsubscribe from all emails: ${urls.unsubscribeUrl}`);
 
@@ -220,7 +217,7 @@ function formatAssetEventsEmail(options: {
 		${sectionsHtml}
 		<div style="text-align: center; margin-top: 20px;">
 			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
-				Manage your settings →
+				Manage your notifications →
 			</a>
 		</div>
 		${renderEmailFooter(urls)}
@@ -426,7 +423,7 @@ export async function processAssetEventsSmsDelivery(options: {
 		return;
 	}
 
-	const smsMessage = await formatAssetEventsSmsMessage({
+	const smsMessage = formatAssetEventsSmsMessage({
 		earningsSection,
 		dividendsSection,
 		splitsSection,
@@ -434,7 +431,6 @@ export async function processAssetEventsSmsDelivery(options: {
 		analystSection,
 		insiderSection,
 		marketClosureInfo: options.marketClosureInfo,
-		supabase,
 		delayBanner: options.delayBanner,
 	});
 	const result = await sendUserSms(

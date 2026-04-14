@@ -302,7 +302,7 @@ export function formatEmailMessage(
 		</div>
 		<div style="text-align: center; margin-top: 30px;">
 			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
-				Manage your settings →
+				Manage your notifications →
 			</a>
 		</div>
 		${htmlFooter}

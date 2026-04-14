@@ -22,7 +22,7 @@ import {
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import type { SmsSender } from "../messaging/sms/twilio-utils";
-import { shortenUrl, shortenUrls } from "../messaging/sms/url-shortener";
+import { shortenUrls } from "../messaging/sms/url-shortener";
 import { toSparkline } from "../messaging/sparkline";
 import type { EnrichedAlert } from "./enrichment";
 import type { PriceAlertUser } from "./users";
@@ -75,8 +75,7 @@ async function formatPriceAlertSms(
 	alert: EnrichedAlert,
 	supabase: AppSupabaseClient,
 ): Promise<string> {
-	const rawDashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
-	const dashboardUrl = await shortenUrl(rawDashboardUrl, supabase);
+	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const optOutSuffix = "Reply STOP to opt out.";
 
 	const priceContextLine = formatPriceContextWithSparkline(
@@ -109,7 +108,7 @@ async function formatPriceAlertSms(
 		sections.push(linkLines ? `${smsSummary}\n${linkLines}` : smsSummary);
 	}
 
-	sections.push(`Manage your settings: ${dashboardUrl}`);
+	sections.push(`Manage your notifications: ${dashboardUrl}`);
 	sections.push(optOutSuffix);
 
 	return padUrlsToSegmentBoundaries(sections.join("\n\n"));
@@ -192,7 +191,7 @@ function formatPriceAlertEmail(
 		}
 	}
 
-	textSections.push(`Manage your settings: ${urls.scheduleUrl}`);
+	textSections.push(`Manage your notifications: ${urls.scheduleUrl}`);
 	textSections.push(`Unsubscribe from all emails: ${urls.unsubscribeUrl}`);
 
 	const text = textSections.join("\n\n");

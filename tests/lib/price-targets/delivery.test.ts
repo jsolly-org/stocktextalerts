@@ -12,20 +12,10 @@ import type {
 } from "../../../src/lib/price-targets/process";
 
 function makeSupabaseMock(): AppSupabaseClient {
-	const noopChain = {
-		select: () => ({
-			eq: () => ({
-				gt: () => ({
-					limit: () => ({
-						single: () => Promise.resolve({ data: null, error: null }),
-					}),
-				}),
-			}),
-		}),
-		insert: async () => ({ error: null }),
-	};
 	return {
-		from: () => noopChain,
+		from: () => ({
+			insert: async () => ({ error: null }),
+		}),
 	} as unknown as AppSupabaseClient;
 }
 
@@ -67,8 +57,8 @@ function makeUser(overrides: Partial<PriceTargetUser> = {}): PriceTargetUser {
 }
 
 describe("Price target SMS body", () => {
-	it("A user sees symbol, target price, and current price in the SMS", async () => {
-		const body = await formatPriceTargetSms(makeTarget(), makeSupabaseMock());
+	it("A user sees symbol, target price, and current price in the SMS", () => {
+		const body = formatPriceTargetSms(makeTarget());
 		expect(body).toContain("AAPL");
 		expect(body).toContain("$200.00");
 		expect(body).toContain("$201.35");

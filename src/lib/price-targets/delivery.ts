@@ -15,7 +15,6 @@ import { recordNotification } from "../messaging/shared";
 import { isSmsChannelUsable, sendUserSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import type { SmsSender } from "../messaging/sms/twilio-utils";
-import { shortenUrl } from "../messaging/sms/url-shortener";
 import type { PriceTargetUser, TriggeredPriceTarget } from "./process";
 
 /** Per-run delivery counters for price target notifications. */
@@ -34,18 +33,14 @@ function formatPrice(price: number): string {
 /**
  * Format the SMS body for a price target alert.
  */
-export async function formatPriceTargetSms(
-	target: TriggeredPriceTarget,
-	supabase: AppSupabaseClient,
-): Promise<string> {
-	const rawDashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
-	const dashboardUrl = await shortenUrl(rawDashboardUrl, supabase);
+export function formatPriceTargetSms(target: TriggeredPriceTarget): string {
+	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const optOutSuffix = "Reply STOP to opt out.";
 
 	const sections = [
 		`StockTextAlerts — Price Target Hit`,
 		`${target.symbol} hit your price target of ${formatPrice(target.targetPrice)} (currently ${formatPrice(target.currentPrice)})`,
-		`Manage your settings: ${dashboardUrl}`,
+		`Manage your notifications: ${dashboardUrl}`,
 		optOutSuffix,
 	];
 
@@ -72,7 +67,7 @@ function formatPriceTargetEmail(
 		`Price Target Hit: ${target.symbol}`,
 		`${target.symbol} hit your price target of ${formatPrice(target.targetPrice)} (currently ${formatPrice(target.currentPrice)}).`,
 		`Your ${target.direction === "above" ? "upward" : "downward"} price target has been triggered and automatically cleared.`,
-		`Manage your settings: ${scheduleUrl}`,
+		`Manage your notifications: ${scheduleUrl}`,
 		`Unsubscribe from all emails: ${unsubscribeUrl}`,
 	];
 	const text = textSections.join("\n\n");
@@ -188,7 +183,7 @@ export async function deliverPriceTargetAlert(options: {
 			});
 			stats.smsFailed++;
 		} else {
-			const smsBody = await formatPriceTargetSms(target, supabase);
+			const smsBody = formatPriceTargetSms(target);
 			const result = await sendUserSms(user, smsBody, sendSms, supabase);
 
 			if (result.success) {
