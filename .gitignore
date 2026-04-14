@@ -33,6 +33,7 @@ auth.json
 auth.json
 plans/
 scripts/one-off-testing/preview-digest.html
+scheduled_tasks.lock
 
 # Test results
 test-results/
