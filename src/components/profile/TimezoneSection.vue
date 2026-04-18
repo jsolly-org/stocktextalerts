@@ -92,6 +92,7 @@ function buildSavedNotificationPreferences(
 	const marketScheduledAssetPriceTimes = sourceUser.market_scheduled_asset_price_times;
 	return {
 		email_notifications_enabled: sourceUser.email_notifications_enabled,
+		sms_notifications_enabled: sourceUser.sms_notifications_enabled,
 		sms_opted_out: sourceUser.sms_opted_out,
 		phone_verified: sourceUser.phone_verified,
 		timezone: sourceUser.timezone,
@@ -104,6 +105,12 @@ function buildSavedNotificationPreferences(
 		market_scheduled_asset_price_enabled: sourceUser.market_scheduled_asset_price_enabled,
 		daily_digest_time: sourceUser.daily_digest_time,
 		daily_digest_next_send_at: sourceUser.daily_digest_next_send_at,
+		daily_digest_include_prices_email: sourceUser.daily_digest_include_prices_email,
+		daily_digest_include_prices_sms: sourceUser.daily_digest_include_prices_sms,
+		daily_digest_include_top_movers_email:
+			sourceUser.daily_digest_include_top_movers_email,
+		daily_digest_include_top_movers_sms:
+			sourceUser.daily_digest_include_top_movers_sms,
 		daily_digest_include_news_email: sourceUser.daily_digest_include_news_email,
 		daily_digest_include_rumors_email: sourceUser.daily_digest_include_rumors_email,
 		market_scheduled_asset_price_include_email: sourceUser.market_scheduled_asset_price_include_email,
@@ -122,6 +129,10 @@ function buildSavedNotificationPreferences(
 		market_asset_price_alerts_include_email: sourceUser.market_asset_price_alerts_include_email,
 		market_asset_price_alerts_include_sms: sourceUser.market_asset_price_alerts_include_sms,
 		market_asset_price_alert_move_size: sourceUser.market_asset_price_alert_move_size,
+		price_move_alerts_include_email: sourceUser.price_move_alerts_include_email,
+		price_move_alerts_include_sms: sourceUser.price_move_alerts_include_sms,
+		price_targets_include_email: sourceUser.price_targets_include_email,
+		price_targets_include_sms: sourceUser.price_targets_include_sms,
 	};
 }
 

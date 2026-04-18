@@ -119,62 +119,23 @@
 				<div class="flex items-center justify-between gap-3 py-3">
 					<input
 						type="hidden"
-					name="daily_digest_include_news_email"
-					:value="includeNewsEmail ? 'on' : 'off'"
-				/>
-				<div class="min-w-0">
-					<div class="flex items-center gap-2">
-						<span
-							id="daily_digest_include_news_label"
-								class="text-base font-semibold text-heading"
-							>
-								🗞️ News
-							</span>
-							<GrokLogoLightIcon class="h-4.5 w-auto shrink-0 dark:hidden" aria-label="Powered by Grok" role="img" />
-							<GrokLogoDarkIcon class="hidden h-4.5 w-auto shrink-0 dark:inline" aria-label="Powered by Grok" role="img" />
-						<MassiveLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
-						</div>
-						<p
-							id="daily_digest_include_news_description"
-							class="text-sm text-body-secondary mt-0.5"
-						>
-							Add a short news summary about the assets you're tracking.
-						</p>
-					</div>
-				<div class="shrink-0">
-					<label
-						class="inline-flex items-center gap-1.5"
-						:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
-						:title="emailDisabledTitle"
-					>
-						<input
-							type="checkbox"
-							v-model="includeNewsEmail"
-							:disabled="emailOnlyDisabled"
-							class="rounded border-edge-strong text-teal-600 focus:ring-teal-500 h-4 w-4"
-							:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
-							aria-describedby="daily_digest_include_news_description"
-						/>
-						<span class="text-sm text-label">Email</span>
-					</label>
-				</div>
-				</div>
-
-				<div class="flex items-center justify-between gap-3 py-3">
+						name="daily_digest_include_top_movers_email"
+						:value="includeTopMoversEmail ? 'on' : 'off'"
+					/>
 					<input
 						type="hidden"
-					name="daily_digest_include_top_movers_email"
-					:value="includeTopMoversEmail ? 'on' : 'off'"
-				/>
-				<div class="min-w-0">
-					<div class="flex items-center gap-2">
-						<span
-							id="daily_digest_include_top_movers_label"
+						name="daily_digest_include_top_movers_sms"
+						:value="includeTopMoversSms ? 'on' : 'off'"
+					/>
+					<div class="min-w-0">
+						<div class="flex items-center gap-2">
+							<span
+								id="daily_digest_include_top_movers_label"
 								class="text-base font-semibold text-heading"
 							>
 								🚀 Top Movers
 							</span>
-						<MassiveLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
+							<MassiveLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
 						</div>
 						<p
 							id="daily_digest_include_top_movers_description"
@@ -183,23 +144,85 @@
 							Include the day's biggest market-wide gainers and losers (US stocks priced $5+).
 						</p>
 					</div>
-				<div class="shrink-0">
-					<label
-						class="inline-flex items-center gap-1.5"
-						:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
-						:title="emailDisabledTitle"
-					>
-						<input
-							type="checkbox"
-							v-model="includeTopMoversEmail"
-							:disabled="emailOnlyDisabled"
-							class="rounded border-edge-strong text-teal-600 focus:ring-teal-500 h-4 w-4"
+					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 shrink-0">
+						<label
+							class="inline-flex items-center gap-1.5"
 							:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
-							aria-describedby="daily_digest_include_top_movers_description"
-						/>
-						<span class="text-sm text-label">Email</span>
-					</label>
+							:title="emailDisabledTitle"
+						>
+							<input
+								type="checkbox"
+								v-model="includeTopMoversEmail"
+								:disabled="emailOnlyDisabled"
+								class="rounded border-edge-strong text-teal-600 focus:ring-teal-500 h-4 w-4"
+								:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
+								aria-label="Top Movers Email"
+								aria-describedby="daily_digest_include_top_movers_description"
+							/>
+							<span class="text-sm text-label">Email</span>
+						</label>
+						<label
+							class="inline-flex items-center gap-1.5"
+							:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+							:title="smsDisabledTitle"
+						>
+							<input
+								type="checkbox"
+								v-model="includeTopMoversSms"
+								:disabled="notificationSetupBlocked || !smsReady"
+								class="rounded border-edge-strong text-teal-600 focus:ring-teal-500 h-4 w-4"
+								:class="smsReady && !notificationSetupBlocked ? 'cursor-pointer' : 'cursor-not-allowed'"
+								aria-label="Top Movers SMS"
+								aria-describedby="daily_digest_include_top_movers_description"
+							/>
+							<span class="text-sm text-label">SMS</span>
+						</label>
+					</div>
 				</div>
+
+				<div class="flex items-center justify-between gap-3 py-3">
+					<input
+						type="hidden"
+						name="daily_digest_include_news_email"
+						:value="includeNewsEmail ? 'on' : 'off'"
+					/>
+					<div class="min-w-0">
+						<div class="flex items-center gap-2">
+							<span
+								id="daily_digest_include_news_label"
+								class="text-base font-semibold text-heading"
+							>
+								🗞️ News
+							</span>
+							<GrokLogoLightIcon class="h-4.5 w-auto shrink-0 dark:hidden" aria-label="Powered by Grok" role="img" />
+							<GrokLogoDarkIcon class="hidden h-4.5 w-auto shrink-0 dark:inline" aria-label="Powered by Grok" role="img" />
+							<MassiveLogoIcon class="h-4.5 w-auto shrink-0" aria-label="Powered by Massive" role="img" />
+						</div>
+						<p
+							id="daily_digest_include_news_description"
+							class="text-sm text-body-secondary mt-0.5"
+						>
+							Add a short news summary about the assets you're tracking.
+						</p>
+					</div>
+					<div class="shrink-0">
+						<label
+							class="inline-flex items-center gap-1.5"
+							:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
+							:title="emailDisabledTitle"
+						>
+							<input
+								type="checkbox"
+								v-model="includeNewsEmail"
+								:disabled="emailOnlyDisabled"
+								class="rounded border-edge-strong text-teal-600 focus:ring-teal-500 h-4 w-4"
+								:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
+								aria-label="News Email"
+								aria-describedby="daily_digest_include_news_description"
+							/>
+							<span class="text-sm text-label">Email</span>
+						</label>
+					</div>
 				</div>
 
 				<div class="flex items-center justify-between gap-3 py-3">
@@ -238,6 +261,7 @@
 							:disabled="emailOnlyDisabled"
 							class="rounded border-edge-strong text-teal-600 focus:ring-teal-500 h-4 w-4"
 							:class="emailOnlyDisabled ? 'cursor-not-allowed' : 'cursor-pointer'"
+							aria-label="Rumors Email"
 							aria-describedby="daily_digest_include_rumors_description"
 						/>
 						<span class="text-sm text-label">Email</span>
@@ -309,6 +333,7 @@ const smsReady = computed(
 const hasAnySmsFeatureEnabled = computed(
 	() =>
 		user.value.daily_digest_include_prices_sms ||
+		user.value.daily_digest_include_top_movers_sms ||
 		user.value.market_scheduled_asset_price_include_sms ||
 		user.value.asset_events_include_calendar_sms ||
 		user.value.asset_events_include_ipo_sms ||
@@ -386,6 +411,9 @@ const includePricesSms = ref(user.value.daily_digest_include_prices_sms);
 const includeTopMoversEmail = ref(
 	user.value.daily_digest_include_top_movers_email,
 );
+const includeTopMoversSms = ref(
+	user.value.daily_digest_include_top_movers_sms,
+);
 const includeNewsEmail = ref(user.value.daily_digest_include_news_email);
 const includeRumorsEmail = ref(user.value.daily_digest_include_rumors_email);
 
@@ -393,6 +421,7 @@ const dailyEnabled = computed(() =>
 	includePricesEmail.value ||
 	includePricesSms.value ||
 	includeTopMoversEmail.value ||
+	includeTopMoversSms.value ||
 	includeNewsEmail.value ||
 	includeRumorsEmail.value,
 );
@@ -478,9 +507,19 @@ const nextDailyDeliveryText = computed(() => {
 	return secondsUntil <= 0 ? "is due soon" : `in ${formatCountdownWithSeconds(secondsUntil)}`;
 });
 
-watch([includePricesEmail, includePricesSms, includeTopMoversEmail, includeNewsEmail, includeRumorsEmail], () => {
-	notifyChange();
-});
+watch(
+	[
+		includePricesEmail,
+		includePricesSms,
+		includeTopMoversEmail,
+		includeTopMoversSms,
+		includeNewsEmail,
+		includeRumorsEmail,
+	],
+	() => {
+		notifyChange();
+	},
+);
 
 watch(
 	() => user.value.daily_digest_include_prices_email,
@@ -498,6 +537,12 @@ watch(
 	() => user.value.daily_digest_include_top_movers_email,
 	(value) => {
 		includeTopMoversEmail.value = value;
+	},
+);
+watch(
+	() => user.value.daily_digest_include_top_movers_sms,
+	(value) => {
+		includeTopMoversSms.value = value;
 	},
 );
 watch(
@@ -524,6 +569,8 @@ watch(savedData, (newData) => {
 		daily_digest_include_prices_sms: newData.daily_digest_include_prices_sms,
 		daily_digest_include_top_movers_email:
 			newData.daily_digest_include_top_movers_email,
+		daily_digest_include_top_movers_sms:
+			newData.daily_digest_include_top_movers_sms,
 		daily_digest_include_news_email: newData.daily_digest_include_news_email,
 		daily_digest_include_rumors_email: newData.daily_digest_include_rumors_email,
 		daily_digest_time: newData.daily_digest_time,

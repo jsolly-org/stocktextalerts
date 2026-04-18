@@ -174,6 +174,7 @@ export function formatDailyDigestSmsMessage(options: {
 		options.delayBanner || "",
 		marketDisclaimer,
 		prices ? `💰 Your Assets\n${prices}` : "",
+		formatExtrasSection("🚀 Top Movers", options.extras.topMovers),
 		formatExtrasSection("🗞️ News", options.extras.news),
 		formatExtrasSection("🤫 Rumors", options.extras.rumors),
 		formatExtrasSection("📈 Earnings", ae?.eventsSection?.earnings),

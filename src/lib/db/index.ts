@@ -43,6 +43,8 @@ export type NotificationPreferencesSnapshot = Pick<
 	| "dismiss_timezone_mismatch_prompts"
 	| "daily_digest_include_prices_email"
 	| "daily_digest_include_prices_sms"
+	| "daily_digest_include_top_movers_email"
+	| "daily_digest_include_top_movers_sms"
 	| "daily_digest_include_news_email"
 	| "daily_digest_include_rumors_email"
 	| "market_scheduled_asset_price_include_email"

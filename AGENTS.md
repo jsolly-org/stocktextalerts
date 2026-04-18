@@ -12,8 +12,10 @@ npm run test:e2e           # Playwright E2E tests
 npm run test:smoke         # Quick smoke tests
 npm run check:ts           # TypeScript check
 npm run check:biome        # Biome format + lint check
-npm run db:start           # Start local Supabase (Docker)
+npm run db:start           # Start local Supabase (Docker/Podman)
 npm run db:reset           # Reset DB: regenerate seed, apply migrations, regen types
+npm run db:bootstrap       # Canonical first-run / "reset everything": db:start + db:reset + db:doctor
+npm run db:doctor          # Preflight: auth reachable + seed user login probe (~300ms)
 npm run db:gen-types       # Regenerate src/lib/db/generated/database.types.ts
 supabase migration new <name>  # Create new migration (never rename timestamps)
 ```
@@ -85,6 +87,17 @@ After the 2026-04-11 incident where a local `--live=email` run delivered a real 
 - **Never apply migrations directly to production** (no MCP against prod, no `db push` locally, no dashboard DDL).
 - After creating/modifying a migration: `npm run db:gen-types`.
 - Do NOT modify `src/lib/db/generated/database.types.ts` directly.
+
+### Local bootstrap + seed hardening
+
+- **Canonical bootstrap is `npm run db:bootstrap`** (runs `db:start`, `db:reset`, then `db:doctor`). Reach for this — not ad-hoc psql — whenever the local stack looks wedged (ECONNREFUSED from `@supabase/auth-js`, `invalid_credentials` on known-good password, empty `auth.users`, etc.). The 2026-04-18 "assets seeded but users didn't" incident was `supabase start` silently skipping half the seed; `db:reset` re-runs seed.sql through a fresh session and is reliable.
+- **`npm test` auto-runs `db:doctor` via `pretest`**; `npm run dev` runs it via `predev` (non-blocking — a failure prints a hint and still starts the dev server so frontend-only work isn't gated on Supabase being up). CI calls `npm run test:ci`, which does **not** trigger `pretest` (npm lifecycle hooks are per-script name), so CI is unaffected.
+- **`seed.sql` is hardened** by `scripts/db/generate-seed.ts`:
+  - Section order: **users (auth + profile) → assets → user tracked assets → verification**. Users come first so a partial seed surfaces as "login broken" (obvious) rather than "user silently missing while assets succeed" (the original regression).
+  - Each per-user block is wrapped in `BEGIN`/`COMMIT` for per-user atomicity.
+  - The final `DO $$ … $$` block `RAISE EXCEPTION`s if any expected `auth.users` / `public.users` row, or any user's tracked assets, didn't land. This fails `supabase db reset` loudly instead of leaving a half-seeded stack.
+  - Do **not** add psql meta-commands (`\set`, `\if`, etc.) to the generated SQL — `supabase db reset` streams it over a raw Postgres connection, not through psql, and those are syntax errors.
+- **After machine reinstalls, Podman upgrades, or Supabase CLI upgrades**, run `scripts/ci/verify-local-supabase.sh` once to confirm the full bootstrap still works end-to-end (wraps `db:bootstrap` + `db:doctor`).
 
 ## Supabase Auth OTP
 

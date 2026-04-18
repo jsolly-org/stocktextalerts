@@ -392,6 +392,7 @@ const needsTrackedAssets = computed(() => !props.hasTrackedAssets);
 const hasAnySmsFeatureEnabled = computed(
 	() =>
 		user.value.daily_digest_include_prices_sms ||
+		user.value.daily_digest_include_top_movers_sms ||
 		user.value.market_scheduled_asset_price_include_sms ||
 		user.value.asset_events_include_calendar_sms ||
 		user.value.asset_events_include_ipo_sms ||

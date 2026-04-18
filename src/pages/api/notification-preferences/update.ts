@@ -23,6 +23,7 @@ const NOTIFICATION_PREFERENCES_SCHEMA = {
 	daily_digest_include_prices_email: { type: "boolean" },
 	daily_digest_include_prices_sms: { type: "boolean" },
 	daily_digest_include_top_movers_email: { type: "boolean" },
+	daily_digest_include_top_movers_sms: { type: "boolean" },
 	daily_digest_include_news_email: { type: "boolean" },
 	daily_digest_include_rumors_email: { type: "boolean" },
 	market_scheduled_asset_price_include_email: { type: "boolean" },
@@ -57,6 +58,7 @@ const SMS_INCLUDE_FIELDS = [
 	"market_asset_price_alerts_include_sms",
 	"price_move_alerts_include_sms",
 	"price_targets_include_sms",
+	"daily_digest_include_top_movers_sms",
 ] as const;
 
 /**
@@ -271,6 +273,8 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 					updatedUser.daily_digest_include_prices_sms,
 				daily_digest_include_top_movers_email:
 					updatedUser.daily_digest_include_top_movers_email,
+				daily_digest_include_top_movers_sms:
+					updatedUser.daily_digest_include_top_movers_sms,
 				daily_digest_include_news_email:
 					updatedUser.daily_digest_include_news_email,
 				daily_digest_include_rumors_email:

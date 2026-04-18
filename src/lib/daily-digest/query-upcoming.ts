@@ -22,6 +22,7 @@ const UPCOMING_DAILY_USER_SELECT = `
 	daily_digest_include_prices_email,
 	daily_digest_include_prices_sms,
 	daily_digest_include_top_movers_email,
+	daily_digest_include_top_movers_sms,
 	daily_digest_include_news_email,
 	daily_digest_include_rumors_email,
 	asset_events_include_calendar_email,

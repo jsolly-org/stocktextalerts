@@ -94,6 +94,21 @@ describe("Notification preference update payloads stay aligned with user schedul
 		expect(payload.sms_notifications_enabled).toBeUndefined();
 	});
 
+	it("Includes daily_digest_include_top_movers_sms in the update payload when the field is submitted.", () => {
+		const user = makeUser();
+		const formData = new FormData();
+		formData.set("daily_digest_include_top_movers_sms", "on");
+
+		const payload = buildNotificationPreferencesUpdatePayload({
+			parsedData: { daily_digest_include_top_movers_sms: true },
+			formData,
+			rawTimesValue: null,
+			dbUser: user,
+		});
+
+		expect(payload.daily_digest_include_top_movers_sms).toBe(true);
+	});
+
 	it("Enabling a single asset-events option triggers next_send_at.", () => {
 		const user = makeUser({
 			asset_events_include_calendar_email: false,

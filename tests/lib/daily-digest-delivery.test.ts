@@ -392,7 +392,7 @@ describe("Daily digest email prices", () => {
 		expect(message.html).not.toContain("Top Movers");
 	});
 
-	it("omits top movers section from SMS even when extras.topMovers is set", () => {
+	it("renders top movers section in SMS when extras.topMovers is set", () => {
 		const assetPrices: AssetPriceMap = new Map([
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 		]);
@@ -404,6 +404,22 @@ describe("Daily digest email prices", () => {
 				...extras,
 				topMovers: "Gainers:\nSKYQ — $12.59 (+74.49%)",
 			},
+		});
+
+		expect(message).toContain("🚀 Top Movers");
+		expect(message).toContain("Gainers:");
+		expect(message).toContain("SKYQ — $12.59 (+74.49%)");
+	});
+
+	it("omits top movers section from SMS when extras.topMovers is absent", () => {
+		const assetPrices: AssetPriceMap = new Map([
+			["AAPL", { price: 187.42, changePercent: 1.23 }],
+		]);
+
+		const message = formatDailyDigestSmsMessage({
+			userAssets: [userAssets[0]],
+			assetPrices,
+			extras,
 		});
 
 		expect(message).not.toContain("Top Movers");

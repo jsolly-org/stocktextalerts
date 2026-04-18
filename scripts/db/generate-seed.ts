@@ -227,12 +227,18 @@ async function listAllAuthUsers(supabase: SupabaseClient): Promise<AuthUser[]> {
   return users;
 }
 
-async function generateUsersSql(
+type NormalizedSeedUser = {
+  userId: string;
+  emailRaw: string;
+  password: string;
+  user: SeedUser;
+  trackedAssets: string[];
+};
+
+async function normalizeSeedUsers(
   users: SeedUser[],
   supabase: SupabaseClient,
-): Promise<string> {
-  if (users.length === 0) return '';
-
+): Promise<NormalizedSeedUser[]> {
   // Security note: this script can be run against any Supabase project (including production).
   // If `scripts/data/users.json` is present, the generated `supabase/seed.sql` will create auth users
   // with a password derived from `DEFAULT_PASSWORD` (from `.env.local`).
@@ -263,7 +269,7 @@ async function generateUsersSql(
       .filter(([email]) => Boolean(email)),
   );
 
-  let sql = '';
+  const normalized: NormalizedSeedUser[] = [];
 
   for (const user of users) {
     // Normalize seed input since JSON files aren't constrained and auth.users is external.
@@ -282,7 +288,6 @@ async function generateUsersSql(
     }
 
     const userEmailLookup = userEmailRaw.toLowerCase();
-    const userPasswordRaw = defaultPassword;
 
     let trackedAssets: string[] = [];
     if (user.tracked_assets !== undefined && user.tracked_assets !== null) {
@@ -322,15 +327,107 @@ async function generateUsersSql(
     // We do NOT create the user here. The seed file will handle creation.
     const userId = existingUserIdByEmail.get(userEmailLookup) || randomUUID();
 
-    sql += `-- User: ${escapeSql(userEmailRaw)} (ID: ${userId})\n`;
-
-    sql += buildAuthUserSql(userId, userEmailRaw, userPasswordRaw);
-    sql += buildAuthIdentitySql(userId, userEmailRaw);
-    sql += buildPublicUserSql(userId, user);
-    sql += buildUserAssetsSql(userId, trackedAssets);
+    normalized.push({
+      userId,
+      emailRaw: userEmailRaw,
+      password: defaultPassword,
+      user,
+      trackedAssets,
+    });
   }
 
+  return normalized;
+}
+
+/**
+ * Per-user auth + public profile SQL, wrapped in BEGIN/COMMIT so a failure on
+ * one user aborts that user's block (under `\set ON_ERROR_STOP on`) without
+ * leaving `auth.users` populated and `public.users` empty.
+ *
+ * Assets/user_assets are emitted separately — this block must run BEFORE
+ * `public.assets` is seeded so a partial failure (e.g. empty assets) is not
+ * silently recoverable into a "logged-in user with no tracked assets" state.
+ */
+function generateUsersAuthSql(normalized: NormalizedSeedUser[]): string {
+  let sql = '';
+  for (const { userId, emailRaw, password, user } of normalized) {
+    sql += `-- User: ${escapeSql(emailRaw)} (ID: ${userId})\n`;
+    sql += `BEGIN;\n`;
+    sql += buildAuthUserSql(userId, emailRaw, password);
+    sql += buildAuthIdentitySql(userId, emailRaw);
+    sql += buildPublicUserSql(userId, user);
+    sql += `COMMIT;\n`;
+  }
   return sql;
+}
+
+/** Per-user `user_assets` inserts, emitted AFTER `public.assets` is seeded. */
+function generateUserAssetsSql(normalized: NormalizedSeedUser[]): string {
+  const blocks = normalized
+    .filter(({ trackedAssets }) => trackedAssets.length > 0)
+    .map(({ userId, emailRaw, trackedAssets }) => {
+      const header = `-- User assets: ${escapeSql(emailRaw)} (ID: ${userId})\n`;
+      return `${header}BEGIN;${buildUserAssetsSql(userId, trackedAssets)}COMMIT;\n`;
+    });
+  return blocks.join('');
+}
+
+/**
+ * Post-seed integrity check. Fails loudly if any expected user or any user's
+ * tracked assets didn't land — this is the guardrail against the silent
+ * partial-seed class of bugs where `supabase start` skips part of the seed.
+ *
+ * `seededSymbols` is the intersection with `public.assets` rows we're about
+ * to insert. We only verify symbols that are actually expected to land, so a
+ * `users.json` entry referencing a delisted or non-US ticker (absent from
+ * `us-assets.json`) doesn't cause the verification to false-positive.
+ */
+function generateSeedVerificationSql(
+  normalized: NormalizedSeedUser[],
+  seededSymbols: Set<string>,
+): string {
+  if (normalized.length === 0) return '';
+
+  const userChecks = normalized
+    .map(({ userId, emailRaw }) => {
+      const emailLit = `'${escapeSql(emailRaw)}'`;
+      const idLit = `'${userId}'::uuid`;
+      return `  IF NOT EXISTS (SELECT 1 FROM auth.users WHERE id = ${idLit}) THEN
+    RAISE EXCEPTION 'Seed verification failed: auth.users row for % (id %) was not created', ${emailLit}, ${idLit};
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.users WHERE id = ${idLit}) THEN
+    RAISE EXCEPTION 'Seed verification failed: public.users row for % (id %) was not created', ${emailLit}, ${idLit};
+  END IF;`;
+    })
+    .join('\n');
+
+  const assetChecks = normalized
+    .map(({ userId, emailRaw, trackedAssets }) => {
+      const expectedSymbols = trackedAssets.filter((s) => seededSymbols.has(s));
+      if (expectedSymbols.length === 0) return '';
+      const emailLit = `'${escapeSql(emailRaw)}'`;
+      const idLit = `'${userId}'::uuid`;
+      const symbolsLit = expectedSymbols
+        .map((s) => `'${escapeSql(s)}'`)
+        .join(', ');
+      return `  IF NOT EXISTS (
+    SELECT 1 FROM public.user_assets
+    WHERE user_id = ${idLit}
+      AND symbol IN (${symbolsLit})
+  ) THEN
+    RAISE EXCEPTION 'Seed verification failed: no tracked assets landed for % (id %); expected any of (${symbolsLit.replace(/'/g, "''")})', ${emailLit}, ${idLit};
+  END IF;`;
+    })
+    .filter(Boolean)
+    .join('\n');
+
+  return `
+DO $$
+BEGIN
+${userChecks}
+${assetChecks}
+END $$;
+`;
 }
 
 async function main() {
@@ -462,19 +559,40 @@ async function main() {
   }
 
   // 3. Generate SQL
+  const normalizedUsers = await normalizeSeedUsers(users, supabase);
   const assetsSql = generateAssetsSql(assets);
-  const usersSql = await generateUsersSql(users, supabase);
+  const usersAuthSql = generateUsersAuthSql(normalizedUsers);
+  const userAssetsSql = generateUserAssetsSql(normalizedUsers);
+  const seededSymbols = new Set(assets.map((a) => a.symbol));
+  const verificationSql = generateSeedVerificationSql(
+    normalizedUsers,
+    seededSymbols,
+  );
 
+  // Order matters: users come BEFORE assets so a partial-seed failure surfaces
+  // as "login broken" (loud + obvious) rather than "user silently missing while
+  // assets succeed" (the regression that motivated this hardening).
+  // user_assets runs last because its rows reference both auth.users and public.assets.
   const sections = [
-    `-- 1. Assets\n${assetsSql.trimEnd()}`.trimEnd(),
-    `-- 2. Users (auth + public profile + tracked assets)\n${usersSql.trimEnd()}`.trimEnd(),
+    `-- 1. Users (auth + public profile)\n${usersAuthSql.trimEnd()}`.trimEnd(),
+    `-- 2. Assets\n${assetsSql.trimEnd()}`.trimEnd(),
+    `-- 3. User tracked assets\n${userAssetsSql.trimEnd()}`.trimEnd(),
+    verificationSql.trim()
+      ? `-- 4. Seed integrity verification (fails loudly if any expected row is missing)\n${verificationSql.trimEnd()}`.trimEnd()
+      : '',
   ].filter(Boolean);
 
   const fullSql = `/*
-  Auto-generated seed file. 
+  Auto-generated seed file.
   Generated by scripts/db/generate-seed.ts
   Do not edit manually.
-  
+
+  Partial-seed safety:
+    - Per-user blocks are wrapped in BEGIN/COMMIT for per-user atomicity.
+    - Section 4 raises an exception if any expected row is missing, so any
+      silent partial seed fails the overall db:reset instead of leaving a
+      half-bootstrapped stack.
+
   If scripts/data/users.json exists, this seed includes auth user creation with passwords derived from DEFAULT_PASSWORD.
   Be careful applying this seed to production.
 */

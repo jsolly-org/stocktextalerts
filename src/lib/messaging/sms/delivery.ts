@@ -19,8 +19,8 @@ export type SmsExtras = {
 	citations?: string[];
 };
 
-/** Format the optional “extras” block appended to some SMS messages.
- * `topMovers` is intentionally not rendered here — it's an email-only section. */
+/** Format the optional “extras” block appended to scheduled market SMS messages.
+ * Daily digest SMS renders `topMovers` via `formatDailyDigestSmsMessage` instead. */
 function formatSmsExtras(extras?: SmsExtras): string {
 	if (!extras) {
 		return "";

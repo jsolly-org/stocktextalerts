@@ -332,6 +332,9 @@ export async function processDailyDigestUser(options: {
 
 		const wantsTopMoversEmail =
 			user.daily_digest_include_top_movers_email && emailEnabled;
+		const wantsTopMoversSms =
+			user.daily_digest_include_top_movers_sms && smsEnabled;
+		const wantsTopMovers = wantsTopMoversEmail || wantsTopMoversSms;
 
 		if (!emailEnabled && !smsEnabled) {
 			stats.skipped++;
@@ -507,9 +510,9 @@ export async function processDailyDigestUser(options: {
 		}
 
 		/* =============
-		Fetch market-wide top movers (email-only section)
+		Fetch market-wide top movers (email and/or SMS when opted in)
 		============= */
-		const topMoversSection = wantsTopMoversEmail
+		const topMoversSection = wantsTopMovers
 			? await buildTopMoversSection()
 			: null;
 
@@ -585,12 +588,15 @@ export async function processDailyDigestUser(options: {
 		============= */
 		const buildExtras = (channel: "email" | "sms"): SmsExtras => {
 			const isSms = channel === "sms";
+			const wantsTopMoversForChannel = isSms
+				? wantsTopMoversSms
+				: wantsTopMoversEmail;
 			return {
 				news: isSms ? null : (newsResult?.content ?? null),
 				rumors: isSms ? null : (rumorsResult?.content ?? null),
 				analyst: null,
 				insider: null,
-				topMovers: isSms ? null : topMoversSection,
+				topMovers: wantsTopMoversForChannel ? topMoversSection : null,
 				citations:
 					!isSms && mergedCitations.length > 0 ? mergedCitations : undefined,
 			};
@@ -612,6 +618,7 @@ export async function processDailyDigestUser(options: {
 		);
 		const hasSmsContent = !!(
 			(includePricesSms && userAssets.length > 0 && smsEnabled) ||
+			(smsEnabled && smsExtras?.topMovers) ||
 			smsAssetEvents?.hasAnyContent
 		);
 
