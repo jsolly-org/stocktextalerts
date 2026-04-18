@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Client } from "pg";
 import { afterAll, afterEach, beforeAll, expect, vi } from "vitest";
 import { getRealAssetSymbols } from "./helpers/asset-data";
@@ -85,6 +88,30 @@ function getDatabaseUrl(): string {
 }
 
 const databaseUrl = getDatabaseUrl();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.join(__dirname, "..");
+const SEED_USERS_FILE = path.join(projectRoot, "scripts", "data", "users.json");
+
+function getSeedUserEmailsForPreservation(): string[] {
+	if (!fs.existsSync(SEED_USERS_FILE)) return [];
+	try {
+		const parsed = JSON.parse(
+			fs.readFileSync(SEED_USERS_FILE, "utf-8"),
+		) as unknown;
+		if (!Array.isArray(parsed)) return [];
+		return parsed
+			.map((entry) => {
+				if (entry === null || typeof entry !== "object") return null;
+				const email = (entry as { email?: unknown }).email;
+				if (typeof email !== "string") return null;
+				const trimmed = email.trim().toLowerCase();
+				return trimmed.length > 0 ? trimmed : null;
+			})
+			.filter((email): email is string => email !== null);
+	} catch {
+		return [];
+	}
+}
 
 async function verifySupabaseAdminAccess() {
 	const { error } = await adminClient.auth.admin.listUsers({
@@ -120,6 +147,18 @@ async function cleanupAllNonPreservedUsers(): Promise<void> {
 		);
 		const preservedTestUserIds = preservedTestUsers.map((user) => user.id);
 		preservedUserIds.push(...preservedTestUserIds);
+
+		// Keep seed users defined in scripts/data/users.json so `npm test` can run
+		// repeatedly without deleting the account used by scripts/db/doctor.ts.
+		const seedEmails = getSeedUserEmailsForPreservation();
+		if (seedEmails.length > 0) {
+			const { rows: seededUsers } = await client.query(
+				`SELECT id FROM auth.users WHERE lower(email) = ANY($1::text[])`,
+				[seedEmails],
+			);
+			const seededUserIds = seededUsers.map((user) => user.id);
+			preservedUserIds.push(...seededUserIds);
+		}
 
 		// Deleting from users cascades to user_assets and notification_log
 		await client.query(`DELETE FROM public.users WHERE id != ALL($1::uuid[])`, [
