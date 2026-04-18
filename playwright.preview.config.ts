@@ -11,23 +11,15 @@
  *   npm run test:e2e:preview
  */
 import { defineConfig } from "@playwright/test";
-import { loadEnv } from "vite";
-
-const env = loadEnv("test", process.cwd(), "");
-for (const [key, value] of Object.entries(env)) {
-	if (process.env[key] === undefined) {
-		process.env[key] = value;
-	}
-}
+import { sharedDefaults } from "./playwright.shared";
 
 export default defineConfig({
+	...sharedDefaults,
 	testDir: "./tests/e2e",
 	testMatch: "**/*.e2e.spec.ts",
-	workers: 1,
 	use: {
+		...sharedDefaults.use,
 		baseURL: "http://localhost:4323",
-		trace: "retain-on-failure",
-		browserName: "chromium",
 	},
 	webServer: {
 		command:
