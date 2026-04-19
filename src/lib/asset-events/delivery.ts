@@ -159,6 +159,7 @@ function formatAssetEventsEmail(options: {
 			"📅",
 			"Earnings",
 			options.earningsSection,
+			{ showFinnhubLogo: true },
 		);
 	}
 	if (options.dividendsSection) {
@@ -166,6 +167,7 @@ function formatAssetEventsEmail(options: {
 			"💰",
 			"Ex-Dividend Dates",
 			options.dividendsSection,
+			{ showMassiveLogo: true },
 		);
 	}
 	if (options.splitsSection) {
@@ -173,6 +175,7 @@ function formatAssetEventsEmail(options: {
 			"✂️",
 			"Stock Splits",
 			options.splitsSection,
+			{ showMassiveLogo: true },
 		);
 	}
 	if (options.iposSection) {
@@ -180,6 +183,7 @@ function formatAssetEventsEmail(options: {
 			"🆕",
 			"Upcoming IPOs",
 			options.iposSection,
+			{ showMassiveLogo: true },
 		);
 	}
 	if (options.insiderSection) {

@@ -425,4 +425,36 @@ describe("Daily digest email prices", () => {
 		expect(message).not.toContain("Top Movers");
 		expect(message).not.toContain("SKYQ");
 	});
+
+	it("includes Finnhub logo on Earnings and Massive logos on calendar sections in digest HTML", () => {
+		const assetPrices: AssetPriceMap = new Map([
+			["AAPL", { price: 187.42, changePercent: 1.23 }],
+		]);
+
+		const message = formatDailyDigestEmail({
+			user,
+			userAssets: [userAssets[0]],
+			assetPrices,
+			extras,
+			assetEvents: {
+				eventsSection: {
+					earnings: "RTX: earnings in 2 days",
+					dividends: "AAPL: ex-div tomorrow",
+					splits: "TSLA: split next week",
+					ipos: "FOO: IPO Friday",
+				},
+				insiderSection: null,
+				analystSection: null,
+				shouldUpdateAnalystMonth: false,
+				hasAnyContent: true,
+			},
+		});
+
+		const finnhubAlts = message.html.match(/alt="Powered by Finnhub"/g) ?? [];
+		const massiveAlts = message.html.match(/alt="Powered by Massive"/g) ?? [];
+
+		// Earnings → Finnhub; dividends, splits, IPOs → Massive (no news/top movers in extras)
+		expect(finnhubAlts.length).toBe(1);
+		expect(massiveAlts.length).toBe(3);
+	});
 });

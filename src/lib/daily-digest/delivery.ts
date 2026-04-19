@@ -381,10 +381,16 @@ export function formatDailyDigestEmail(options: {
 		}
 		${renderEmailSection("🗞️", "News", news, { showGrokLogo: true, showMassiveLogo: true })}
 		${renderEmailSection("🤫", "Rumors", rumors, { showGrokLogo: true })}
-		${renderEmailSection("📈", "Earnings", earnings)}
-		${renderEmailSection("💰", "Dividends", dividends)}
-		${renderEmailSection("✂️", "Splits", splits)}
-		${renderEmailSection("🆕", "Upcoming IPOs", ipos)}
+		${renderEmailSection("📈", "Earnings", earnings, {
+			showFinnhubLogo: true,
+		})}
+		${renderEmailSection("💰", "Dividends", dividends, {
+			showMassiveLogo: true,
+		})}
+		${renderEmailSection("✂️", "Splits", splits, { showMassiveLogo: true })}
+		${renderEmailSection("🆕", "Upcoming IPOs", ipos, {
+			showMassiveLogo: true,
+		})}
 		${renderEmailSection("📊", "Analyst Consensus", analyst, { showFinnhubLogo: true })}
 		${renderEmailSection("🏦", "Insider Trades", insider, { showFinnhubLogo: true })}
 		${renderEmailSection("🚀", "Top Movers", topMovers, { showMassiveLogo: true })}
