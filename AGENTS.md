@@ -159,12 +159,14 @@ Evaluating cheaper alternatives to Twilio (as of 2026-04-05). AWS SNS preferred 
   ```
   Uses `scripts/ci/run-local-actions.sh` → runs `noDeploy.yml`'s `test-and-build` job in a `catthehacker/ubuntu` container with the repo mounted. Matches CI's node version, Supabase CLI version, and exact step sequence.
 - **Run only the lint job**: `npm run gha:local:lint`.
+- **Run the full E2E suite (workflow_dispatch-gated job)**: `npm run gha:local:e2e`. Reproduces the deploy workflow's E2E step against `run-ci` without prod credentials. Skipped on normal pushes to `main` to keep CI fast; opt in via `workflow_dispatch` or this script.
 - **Custom workflow or job**: `scripts/ci/run-local-actions.sh --workflow .github/workflows/<file>.yml --job <name>`.
 
 **Limitations:**
 
-- `Deploy Website` (`.github/workflows/deploy.yml`) has `if: github.actor != 'nektos/act'` and **skips under act**. To reproduce the E2E step from Deploy Website, run `npm run test:e2e` locally with the **CI-matching env vars** baked into `.env.local` (see `.github/actions/run-ci/action.yml` for the canonical list: dummy TWILIO creds, dummy AWS creds, `EMAIL_FROM=ci@example.com`, and the live Supabase local DB vars from `supabase status -o json`). Back up `.env.local` first.
+- `Deploy Website` (`.github/workflows/deploy.yml`) is **not act-runnable by design**. It links the live Supabase project, pushes migrations, deploys to Vercel, and updates Lambda code with real credentials. `scripts/ci/run-local-actions.sh` explicitly rejects `--workflow .github/workflows/deploy.yml` to prevent half-run production side effects. To reproduce its CI parts locally, use `npm run gha:local:test-build` (same `run-ci` composite) and `npm run gha:local:e2e` (same Playwright step).
 - Act needs `DOCKER_HOST` pointing at Podman's socket. The `~/.zshrc` block that runs `podman machine inspect` to resolve the socket path should already be exporting it; check with `echo "$DOCKER_HOST"` before running act.
+- **Podman VM needs ≥ 6144 MB of memory** for Vitest to complete without the in-VM OOM killer issuing `SIGKILL` (the exact failure chased on 2026-04-19 — Vitest died with no test-level error). `scripts/ci/run-local-actions.sh` preflight-checks the `podman-machine-default` VM and fails with the fix command if it's undersized. It also prunes stale `act-*` containers from prior runs that would otherwise keep the VM under memory pressure.
 - Act containers run the host's native architecture (arm64 on Apple Silicon, amd64 on Linux/Intel CI runners). Forcing `linux/amd64` via `--container-architecture` made Playwright's headless Chromium crash under QEMU on M-series Macs (`qemu: uncaught target signal 5`), so it's intentionally omitted from `.actrc`. CI still runs amd64 natively on GitHub's Ubuntu runners, and `catthehacker/ubuntu:act-latest` ships both arches — local runs now ~2× faster than the amd64-forced setup.
 
 **When to run it (checklist before `git push`):**

@@ -67,6 +67,59 @@ if [[ ! -f "$WORKFLOW" ]]; then
   exit 1
 fi
 
+# deploy.yml is intentionally not reproducible with act: it talks to Supabase,
+# Vercel, and AWS with production credentials. Fail fast instead of leaking
+# half-run production side effects.
+if [[ "$(basename "$WORKFLOW")" == "deploy.yml" ]]; then
+  cat >&2 <<'EOF'
+Error: .github/workflows/deploy.yml cannot be run locally with act.
+
+deploy.yml links the live Supabase project, pushes migrations, deploys to
+Vercel, and updates Lambda code with real credentials. Running it locally
+would hit production.
+
+To reproduce the CI parts of deploy.yml without credentials, run:
+  npm run gha:local:test-build   # runs the same run-ci composite action
+  npm run gha:local:e2e          # reproduces the E2E workflow job under act
+EOF
+  exit 1
+fi
+
+# Podman VM preflight: a too-small VM causes Vitest to be OOM-killed inside
+# the act container, and stale act-* containers from prior runs keep the VM
+# under memory pressure for the next one. Both fail loudly with SIGKILL but
+# without any test-level error, which was the exact failure we chased on
+# 2026-04-19 (see AGENTS.md "Reproduce CI locally with Act").
+MIN_PODMAN_MEMORY_MB=6144
+PODMAN_MACHINE_NAME="podman-machine-default"
+
+if command -v podman >/dev/null 2>&1; then
+  podman_memory_mb="$(podman machine inspect "$PODMAN_MACHINE_NAME" \
+    --format '{{.Resources.Memory}}' 2>/dev/null || true)"
+  if [[ -n "$podman_memory_mb" && "$podman_memory_mb" =~ ^[0-9]+$ ]] \
+    && (( podman_memory_mb < MIN_PODMAN_MEMORY_MB )); then
+    cat >&2 <<EOF
+Error: Podman VM "$PODMAN_MACHINE_NAME" has ${podman_memory_mb} MB of memory,
+but local \`act\` runs need at least ${MIN_PODMAN_MEMORY_MB} MB. Under this
+threshold the VM OOM-kills Vitest mid-run and reports only SIGKILL, with no
+test-level failure.
+
+Fix it once (persists across reboots):
+  podman machine stop $PODMAN_MACHINE_NAME
+  podman machine set --memory $MIN_PODMAN_MEMORY_MB $PODMAN_MACHINE_NAME
+  podman machine start $PODMAN_MACHINE_NAME
+EOF
+    exit 1
+  fi
+
+  stale_act_containers="$(podman ps -a --filter name=act- \
+    --format '{{.ID}}' 2>/dev/null || true)"
+  if [[ -n "$stale_act_containers" ]]; then
+    echo "Removing stale act-* containers to free VM memory..."
+    xargs podman rm -f <<<"$stale_act_containers" >/dev/null 2>&1 || true
+  fi
+fi
+
 mkdir -p .tmp
 EVENT_FILE=".tmp/act-event-${EVENT}.json"
 HEAD_SHA="$(git rev-parse HEAD)"

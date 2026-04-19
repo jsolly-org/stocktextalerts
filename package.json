@@ -23,6 +23,7 @@
 		"gha:local": "scripts/ci/run-local-actions.sh",
 		"gha:local:lint": "scripts/ci/run-local-actions.sh --job lint",
 		"gha:local:test-build": "scripts/ci/run-local-actions.sh --job test-and-build",
+		"gha:local:e2e": "scripts/ci/run-local-actions.sh --job e2e",
 		"check:ts": "tsc --noEmit --skipLibCheck",
 		"check:biome": "biome check --write --no-errors-on-unmatched",
 		"check:knip": "knip",

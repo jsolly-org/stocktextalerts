@@ -41,3 +41,19 @@ jobs:
       - uses: ./.github/actions/run-ci
         with:
           skip-lint: 'true'
+
+  # Full Playwright E2E suite. Skipped on normal pushes to keep CI fast;
+  # only runs on manual workflow_dispatch or under local `act` (so
+  # `npm run gha:local:e2e` reproduces the deploy workflow's E2E step
+  # without needing production credentials).
+  e2e:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.actor == 'nektos/act' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/run-ci
+        with:
+          skip-lint: 'true'
+      - name: E2E tests
+        shell: bash
+        run: npm run test:e2e

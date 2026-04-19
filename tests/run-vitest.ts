@@ -129,6 +129,7 @@ function main() {
 	}
 
 	const args = ensureNoWatch(vitestArgs);
+
 	const child = spawnSync("./node_modules/.bin/vitest", args, {
 		stdio: "inherit",
 		env: process.env,
