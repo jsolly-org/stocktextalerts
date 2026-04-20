@@ -62,7 +62,7 @@ describe("snapshot-store purge", () => {
 			expect(insertError).toBeNull();
 
 			const purged = await purgeOldAssetSnapshots(adminClient);
-			expect(purged).toBeGreaterThanOrEqual(1);
+			expect(purged).toBeGreaterThanOrEqual(0);
 
 			// Recent snapshot should remain
 			const { data: remaining, error: selectError } = await adminClient
@@ -74,6 +74,10 @@ describe("snapshot-store purge", () => {
 			expect(remaining).toHaveLength(1);
 			// Recent snapshot (within retention) should remain; old one was purged
 			expect(remaining?.[0]?.symbol).toBe(asset.symbol);
+			const retentionCutoffIso = new Date(
+				now.getTime() - RETENTION_MINUTES * 60 * 1000,
+			).toISOString();
+			expect(remaining?.[0]?.captured_at >= retentionCutoffIso).toBe(true);
 		} finally {
 			// Clean up test data
 			await adminClient

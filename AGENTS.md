@@ -54,6 +54,7 @@ supabase migration new <name>  # Create new migration (never rename timestamps)
 - Use `src/lib/logging/` (`createLogger`, `rootLogger`) — structured JSON with `timestamp`, `level`, `message`, `context`.
 - Always pass a named context object (no `{}`/`undefined`).
 - **Env vars**: Use `requireEnv()` from `src/lib/db/env.ts` at point-of-use.
+- **Lambdas also use the same logger** — `aws/src/handlers/*.ts` import `createLogger` from `src/lib/logging`. Each Lambda log group has an `AWS::Logs::MetricFilter` on `{ $.level = "error" }` feeding the shared `stocktextalerts-crons/ErrorLogCount` metric and `ErrorLogAlarm`, alongside per-function `AWS/Lambda Errors` alarms. This matches the cross-repo pattern in `~/.agents/AGENTS.md` → "Lambda Logging". Do not set `LogFormat: JSON` on the Node Lambdas — the app logger already emits JSON via `console.*`.
 
 ## Testing (Project-Specific)
 
@@ -217,3 +218,102 @@ Resend→SES email migration (PR #414) merged 2026-03-31. Notifications were dow
 
 - Astro v5 CSRF protection on by default (`security.checkOrigin: true`) for form POST/PATCH/DELETE/PUT.
 - **Node 24.x** (see `.nvmrc`), **npm** (not yarn/pnpm).
+
+<!-- BEGIN GLOBAL RULES (managed by sync-global-agents.sh) -->
+## Family Memory
+
+When the family-memory MCP is available, call `recall` (no args) at conversation start to load context about the user. Use `remember` to store notable new facts, preferences, or events that come up naturally.
+
+## Collaboration
+
+- Use `--headed --persistent` when launching playwright-cli for interactive browser sessions. Without `--headed`, it defaults to headless.
+- No pull requests for personal projects. `/review-fix-push` skill is the sole review gate — reviews local changes against remote, fixes issues, commits and pushes.
+- Custom skills live at `~/.agents/skills/` (e.g., `~/.agents/skills/review-fix-push/SKILL.md`), not `.claude/plugins/`.
+- `~/.cursor/skills/` and `~/.claude/skills/` must be **real directories** (not symlinks to `~/.agents/skills/`). The `npx skills add` installer stores content in `~/.agents/skills/<name>/` then creates per-skill symlinks from each agent dir — directory-level symlinks cause circular links.
+- Family/domain knowledge lives in the family-memory MCP, not in flat files.
+- Don't create new IAM users or roles when an existing one can be reused — these are personal projects, avoid role sprawl.
+- Always run `sam deploy` after modifying `aws/template.yaml` — there's no CI for SAM stacks, only code-only updates deploy via GitHub Actions.
+
+## AWS
+
+- Use `--profile prod-admin` for all production AWS commands.
+- SSO profiles: `prod-admin` (730335616323, production), `general-admin` (541310242108), `amplify-admin`, `jsolly-sandbox`, `jsolly-dev`.
+
+## Lambda Logging (standard pattern)
+
+All AWS Lambdas in personal projects must emit **structured JSON logs** so the alert-hub enricher (`~/code/alert-hub/aws/enricher/handler.py`) can attach real log lines to alarm emails. The enricher runs a CloudWatch Logs Insights query that filters on the `level` field — any plain-text log format silently produces empty alert emails.
+
+**Required per-Lambda resources in the SAM template:**
+
+1. **Explicit `AWS::Logs::LogGroup`** with `RetentionInDays: 30` (or a considered value), named `/aws/lambda/<FunctionName>` so the enricher's `AWS/Lambda` namespace path resolves it by `FunctionName` dimension.
+2. **`LoggingConfig.LogGroup: !Ref <LogGroup>`** on the `AWS::Serverless::Function`.
+3. **`AWS::Logs::MetricFilter`** with `FilterPattern: '{ $.level = "error" }'` publishing to a per-project metric namespace.
+4. **`AWS::CloudWatch::Alarm`** on that custom metric, wired to the alert-hub SNS topic via SSM param `/alert-hub/alert-topic-arn` on **both** `AlarmActions` and `OKActions`. This fires on `logger.error(...)` even when the Lambda invocation itself succeeds — catches swallowed per-item failures.
+5. Keep the existing `AWS/Lambda Errors` alarm too; the two alarms are complementary (runtime crash vs. application-logged error).
+
+**Logger choice by runtime:**
+
+- **Node.js:** Use an app-level logger that emits JSON via `console.error(JSON.stringify(...))`. Canonical implementation: `~/code/family-memory/src/shared/logging.ts` — copy verbatim into new Node Lambda projects. Features: lowercase `level`, ISO timestamp, `context`/`requestId`/`error`, circular-safe, BigInt-safe, PII masking (phones/emails/tokens auto-redacted), sensitive-key redaction. **Do not use Lambda runtime's `LogFormat: JSON` for Node** — it wraps each `console.*` call in an outer JSON envelope and fights with app-level structured logs; pick one layer.
+- **Python:** Use `LoggingConfig.LogFormat: JSON` on the `AWS::Serverless::Function`. Python's Lambda runtime emits proper structured records (`level`, `timestamp`, `message`, `requestId`, `stackTrace`, `errorType`) with no application-side logger work. Uppercase `level` values — the enricher matches both cases.
+
+**Logging rules:**
+
+- Never use raw `console.log`/`print` in Lambda code. Always go through the logger (Node) or stdlib `logging` (Python).
+- Pass context as a named object, not string interpolation: `logger.error("Failed to send", { recipient }, err)` — the logger auto-masks PII in values and redacts sensitive keys.
+- Reserve `error` for genuine failures (DB errors, service outages, delivery failures). Expected rejections (auth failures, invalid input, rate limits) use `info`.
+- `LOG_MASK_PII` env var defaults to `true` in the Node logger. Only set to `false` for explicit debugging in a non-prod account.
+
+**Canonical reference implementations:**
+
+- Node + app-level logger: `~/code/family-memory` and `~/code/misc-notifications` (same logger file).
+- Python + runtime JSON: `~/code/todoist-backlog-scheduler`.
+- Enricher contract: `~/code/alert-hub/aws/enricher/handler.py` (expects `level = "error"` or `level = "ERROR"`).
+
+## User Context
+
+Software engineer turned CTO at Leidos (FedCiv DIGMOD). When exploring ideas or thinking through design, be discursive and collaborative — follow the thread, steel-man arguments, don't lecture. Prefer being challenged over being reassured. Surface things I haven't considered.
+
+## Conversation Preferences
+
+- **Ask when ambiguous.** If there's one obvious approach, just do it. If there are meaningful tradeoffs or multiple paths, stop and ask.
+- **Layered questions.** Ask the 2-3 most critical questions first, start on what's clear, then follow up as you go.
+- **Present options with a recommendation.** "Here are approaches X, Y, Z. I'd recommend Y because..." — then wait.
+- **Brief rationale.** A sentence or two on the "why" is enough. Don't belabor it.
+- **Casual and direct.** Like a coworker on Slack. No hedging, no filler.
+- **Do what I asked, but flag concerns.** If you think the approach has issues, implement it and note the concern — don't silently diverge.
+- **Update at the end.** Show the result when done. Only interrupt mid-task if blocked.
+- **Proactively improve adjacent code.** If you see something nearby that could be better, clean it up. Prefer deep refactoring over preserving backwards compatibility.
+- **Concise responses.** Short, dense with information. I can ask for more detail.
+- **When uncertain, ask.** Don't guess at project conventions, intent, or technical details — even if it slows things down.
+
+## Commit Messages
+
+Use [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): description`
+
+Common types: `feat`, `fix`, `chore`, `docs`, `style`, `refactor`, `test`, `perf`. Scope is the area of the codebase (e.g., `auth`, `notifications`, `e2e`, `deps`).
+
+## Code Style
+
+- **No compatibility layers**: No shims, adapters, deprecations, or re-exports for legacy behavior.
+- **No browser polyfills**: Modern browser APIs (`fetch`, `URL`, `AbortController`, `crypto.randomUUID()`, etc.) are assumed. Server-side polyfills are fine when Node.js lacks the API.
+- **Relative paths only**: No `@`-style aliases.
+- **No barrel files / re-exports**: Import from the defining module, not intermediary files.
+- **No timing hacks**: No `setTimeout`/`nextTick`/`requestAnimationFrame` to mask race conditions. Fix the root cause. Legitimate uses (debouncing, throttling) are fine.
+
+## Error Handling
+
+- **Trust the type system**: Skip defensive null/undefined checks when strict TypeScript or DB constraints guarantee safety. Add checks only when values can legitimately be missing (parsed JSON, nullable columns, third-party payloads).
+- **Deterministic error checking**: Use structured error properties (`error.code`, `error.status`), not string matching (`.includes()`) on messages.
+- **Fail fast**: No silent fallbacks or default values on unexpected errors. If a fallback is needed for resilience, gate it on structured error properties and log with context.
+- **Logging levels**: Expected rejections (auth failures, invalid input, rate limits) → `info`, not `warn`/`error`. Reserve `warn`/`error` for genuine failures (DB errors, service outages).
+
+## Testing Philosophy
+
+- **Scenario-based coverage**: Cover real-world scenarios that could happen in production — not to maximize code coverage or add a test file per source file. Each test should represent a plausible user journey or system event.
+- **Integration over isolation**: Prefer integration tests that use real dependencies. Only mock external services that consume paid API allocations.
+- **Assert via behavior, not mocks**: Prefer asserting on DB state, response payloads, and status codes rather than on mocked return values or call counts.
+- **Realistic data**: Use real names, realistic values, and plausible details. Never use placeholder values like `foo`, `bar`, `test123`, or round numbers when a realistic value would work.
+- **Scenario-based test style**: Frame `describe`/`it` blocks around user journeys or system events, not abstract technical operations.
+  - Good: `"User in Pacific timezone receives market update after close"`
+  - Bad: `"returns correct value when input is 2"`
+<!-- END GLOBAL RULES (managed by sync-global-agents.sh) -->

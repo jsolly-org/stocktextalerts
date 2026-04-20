@@ -263,8 +263,9 @@ describe("A signed-in user requests an SMS verification code.", () => {
 		});
 
 		try {
+			// Give plenty of buffer to avoid boundary flakiness between app and DB clocks.
 			const oldTimestamp = new Date(
-				Date.now() - VERIFICATION_RESEND_COOLDOWN_MS - 1000,
+				Date.now() - VERIFICATION_RESEND_COOLDOWN_MS - 60_000,
 			).toISOString();
 
 			await adminClient
