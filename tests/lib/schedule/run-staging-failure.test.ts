@@ -17,20 +17,10 @@ import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 import { expectConsoleError } from "../../setup";
 
 describe("runScheduledNotifications: staging failure fallback", () => {
-	// Fake timers are skipped when live email routing is on. nodemailer's
-	// SMTP client uses setTimeout internally for connect timeouts and
-	// rate limiting, and `vi.useFakeTimers()` freezes setTimeout — the
-	// SMTP handshake never fires, and the test deadlocks.
-	const useFakeTimers = !process.env.EMAIL_SMTP_HOST;
-
 	beforeEach(() => {
 		expectConsoleError(
 			"Staged delivery phase failed (falling back to full pipeline)",
 		);
-		if (useFakeTimers) {
-			vi.useFakeTimers();
-			vi.setSystemTime(DateTime.fromISO("2026-01-12T15:00:00.000Z").toJSDate());
-		}
 		vi.stubEnv("SMS_TEST_BEHAVIOR", "success");
 		vi.stubEnv("SCHEDULE_PASS_DELAY_MS", "0");
 		vi.spyOn(deliverModule, "deliverStagedNotifications").mockRejectedValue(
@@ -40,16 +30,16 @@ describe("runScheduledNotifications: staging failure fallback", () => {
 
 	afterEach(() => {
 		vi.restoreAllMocks();
-		if (useFakeTimers) {
-			vi.useRealTimers();
-		}
 		vi.unstubAllEnvs();
 	});
 
 	it("fallback still delivers when staged delivery phase throws", async () => {
 		const timezone = "America/New_York";
-		const nowLocal = DateTime.now().setZone(timezone);
-		const scheduledUpdateTime = nowLocal.hour * 60 + nowLocal.minute;
+		const fixedDueAt = DateTime.fromISO("2026-01-12T15:00:00.000Z", {
+			zone: "utc",
+		});
+		const dueAtLocal = fixedDueAt.setZone(timezone);
+		const scheduledUpdateTime = dueAtLocal.hour * 60 + dueAtLocal.minute;
 
 		const { id } = await createTestUser({
 			timezone,
@@ -63,7 +53,7 @@ describe("runScheduledNotifications: staging failure fallback", () => {
 		const { error: updateError } = await adminClient
 			.from("users")
 			.update({
-				market_scheduled_asset_price_next_send_at: DateTime.utc().toISO(),
+				market_scheduled_asset_price_next_send_at: fixedDueAt.toISO(),
 				market_scheduled_asset_price_enabled: true,
 			})
 			.eq("id", id);

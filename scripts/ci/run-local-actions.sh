@@ -118,6 +118,29 @@ EOF
     echo "Removing stale act-* containers to free VM memory..."
     xargs podman rm -f <<<"$stale_act_containers" >/dev/null 2>&1 || true
   fi
+
+  # Host Supabase + act share the same Podman socket and the same
+  # supabase_*_<project_id> container names, so `supabase start` inside act
+  # can restart host containers (observed 2026-04-20: auth/db/realtime
+  # rotated while kong/studio stayed put). That shuffle desyncs seed state
+  # and is the main source of "db:doctor" flakes after a local CI run.
+  #
+  # Warn loudly but don't auto-stop — the user may want host stack up for
+  # parallel dev work. The fix after running act is `npm run db:bootstrap`.
+  running_host_supabase="$(podman ps --filter name=supabase_db_ \
+    --format '{{.Names}}' 2>/dev/null || true)"
+  if [[ -n "$running_host_supabase" ]]; then
+    cat >&2 <<EOF
+Warning: host Supabase is running ($running_host_supabase).
+act will share Podman with the host, so \`supabase start\` inside the act
+container may restart host Supabase services and desync local seed state.
+If \`npm run db:doctor\` starts failing after this run, fix it with:
+  npm run db:bootstrap
+
+To avoid the shuffle entirely, stop host Supabase first:
+  npm run db:stop
+EOF
+  fi
 fi
 
 mkdir -p .tmp

@@ -239,35 +239,13 @@ When the family-memory MCP is available, call `recall` (no args) at conversation
 - Use `--profile prod-admin` for all production AWS commands.
 - SSO profiles: `prod-admin` (730335616323, production), `general-admin` (541310242108), `amplify-admin`, `jsolly-sandbox`, `jsolly-dev`.
 
-## Lambda Logging (standard pattern)
+## Lambda Logging (TL;DR)
 
-All AWS Lambdas in personal projects must emit **structured JSON logs** so the alert-hub enricher (`~/code/alert-hub/aws/enricher/handler.py`) can attach real log lines to alarm emails. The enricher runs a CloudWatch Logs Insights query that filters on the `level` field — any plain-text log format silently produces empty alert emails.
-
-**Required per-Lambda resources in the SAM template:**
-
-1. **Explicit `AWS::Logs::LogGroup`** with `RetentionInDays: 30` (or a considered value), named `/aws/lambda/<FunctionName>` so the enricher's `AWS/Lambda` namespace path resolves it by `FunctionName` dimension.
-2. **`LoggingConfig.LogGroup: !Ref <LogGroup>`** on the `AWS::Serverless::Function`.
-3. **`AWS::Logs::MetricFilter`** with `FilterPattern: '{ $.level = "error" }'` publishing to a per-project metric namespace.
-4. **`AWS::CloudWatch::Alarm`** on that custom metric, wired to the alert-hub SNS topic via SSM param `/alert-hub/alert-topic-arn` on **both** `AlarmActions` and `OKActions`. This fires on `logger.error(...)` even when the Lambda invocation itself succeeds — catches swallowed per-item failures.
-5. Keep the existing `AWS/Lambda Errors` alarm too; the two alarms are complementary (runtime crash vs. application-logged error).
-
-**Logger choice by runtime:**
-
-- **Node.js:** Use an app-level logger that emits JSON via `console.error(JSON.stringify(...))`. Canonical implementation: `~/code/family-memory/src/shared/logging.ts` — copy verbatim into new Node Lambda projects. Features: lowercase `level`, ISO timestamp, `context`/`requestId`/`error`, circular-safe, BigInt-safe, PII masking (phones/emails/tokens auto-redacted), sensitive-key redaction. **Do not use Lambda runtime's `LogFormat: JSON` for Node** — it wraps each `console.*` call in an outer JSON envelope and fights with app-level structured logs; pick one layer.
-- **Python:** Use `LoggingConfig.LogFormat: JSON` on the `AWS::Serverless::Function`. Python's Lambda runtime emits proper structured records (`level`, `timestamp`, `message`, `requestId`, `stackTrace`, `errorType`) with no application-side logger work. Uppercase `level` values — the enricher matches both cases.
-
-**Logging rules:**
-
-- Never use raw `console.log`/`print` in Lambda code. Always go through the logger (Node) or stdlib `logging` (Python).
-- Pass context as a named object, not string interpolation: `logger.error("Failed to send", { recipient }, err)` — the logger auto-masks PII in values and redacts sensitive keys.
-- Reserve `error` for genuine failures (DB errors, service outages, delivery failures). Expected rejections (auth failures, invalid input, rate limits) use `info`.
-- `LOG_MASK_PII` env var defaults to `true` in the Node logger. Only set to `false` for explicit debugging in a non-prod account.
-
-**Canonical reference implementations:**
-
-- Node + app-level logger: `~/code/family-memory` and `~/code/misc-notifications` (same logger file).
-- Python + runtime JSON: `~/code/todoist-backlog-scheduler`.
-- Enricher contract: `~/code/alert-hub/aws/enricher/handler.py` (expects `level = "error"` or `level = "ERROR"`).
+- alert-hub enricher is alarm passthrough only (no Logs Insights dependency): `~/code/alert-hub/aws/enricher/handler.py`.
+- Use the standard SAM copy-paste resources for Lambda log group + metric filter + dual alarms: `~/code/alert-hub/templates/lambda-logging.yaml`.
+- Node source of truth for structured logger shape and masking: `~/code/family-memory/src/shared/logging.ts`.
+- Python reference for runtime JSON logging pattern: `~/code/todoist-backlog-scheduler/template.yaml`.
+- Keep behavior pinned with logging contract tests (`level=error`, stable JSON shape, PII masked): `tests/logging-contract.test.ts` in Node repos.
 
 ## User Context
 

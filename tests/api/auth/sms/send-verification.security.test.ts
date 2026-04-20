@@ -208,8 +208,10 @@ describe("A signed-in user requests an SMS verification code.", () => {
 		});
 
 		try {
+			// Keep the timestamp well inside the cooldown window so test execution time
+			// cannot accidentally cross the boundary.
 			const recentTimestamp = new Date(
-				Date.now() - VERIFICATION_RESEND_COOLDOWN_MS + 1000,
+				Date.now() - Math.floor(VERIFICATION_RESEND_COOLDOWN_MS / 2),
 			).toISOString();
 
 			await adminClient
@@ -263,9 +265,10 @@ describe("A signed-in user requests an SMS verification code.", () => {
 		});
 
 		try {
-			// Give plenty of buffer to avoid boundary flakiness between app and DB clocks.
+			// Stay far outside the cooldown window to avoid boundary flakiness between
+			// test runtime timing and DB timing.
 			const oldTimestamp = new Date(
-				Date.now() - VERIFICATION_RESEND_COOLDOWN_MS - 60_000,
+				Date.now() - VERIFICATION_RESEND_COOLDOWN_MS * 3,
 			).toISOString();
 
 			await adminClient

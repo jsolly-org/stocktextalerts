@@ -1,3 +1,17 @@
+# AGENTS.md
+
+## Project Test Rules
+
+- Tests share DB state (`fileParallelism: false`), so always register created users with `registerTestUserForCleanup`.
+- Do not mock Supabase for normal tests; use real seeded state and helpers in `tests/helpers/`.
+- Tests fail on unexpected `console.warn`/`console.error`; use `expectConsoleWarning()` and `expectConsoleError()` from `tests/setup.ts`.
+- Keep schema-version checks aligned: update both SQL `app_metadata.schema_version` and `EXPECTED_DB_SCHEMA_VERSION` in `tests/helpers/constants.ts`.
+- Live API test commands are `npm run test:live:email`, `npm run test:live:data`, `npm run test:live:xai`, `npm run test:live:twilio`, and `npm run test:live:all`; reproduce live failures locally before changing code.
+- No real delivery from tests ever: real SES/Twilio credentials must never be used by test runs.
+- Live email tests must route through local Mailpit (`localhost:1025`, UI `http://localhost:54324`) and assertions should use `tests/helpers/mailpit.ts`.
+- Twilio Verify stays mocked in non-production (`000000` success code), and test recipients must remain `@example.com` addresses.
+
+<!-- BEGIN GLOBAL TEST RULES (managed by sync-global-agents.sh) -->
 # Test Suite Architecture
 
 This project treats tests as production documentation for real user flows.
@@ -5,14 +19,14 @@ Each test should answer: **"what happened for a real user or system event?"**
 
 ## Folder structure
 
-- `tests/api/` — API route behavior (`src/pages/api/**`)
+- `tests/api/` - API route behavior (`src/pages/api/**`)
   - `*.test.ts` focuses on happy-path and expected behavior.
   - `*.security.test.ts` focuses on invalid/unauthorized/rejected paths.
-- `tests/lib/` — business logic and provider integration helpers (`src/lib/**`).
-- `tests/pages/` — route rendering and page-level behavior.
-- `tests/smoke/` — Playwright smoke tests for route and console sanity.
-- `tests/e2e/` — end-to-end user journeys (serial, production-like).
-- `tests/helpers/` — shared factories/builders and test environment utilities.
+- `tests/lib/` - business logic and provider integration helpers (`src/lib/**`).
+- `tests/pages/` - route rendering and page-level behavior.
+- `tests/smoke/` - Playwright smoke tests for route and console sanity.
+- `tests/e2e/` - end-to-end user journeys (serial, production-like).
+- `tests/helpers/` - shared factories/builders and test environment utilities.
 
 ## Naming conventions
 
@@ -20,10 +34,10 @@ Each test should answer: **"what happened for a real user or system event?"**
 
 Write `describe`/`it` text as production-like stories:
 
-- ✅ `A signed-in user updates their timezone and sees the next send time refresh`
-- ✅ `A cron job precomputes daily digest content for upcoming users`
-- ❌ `returns true when input is valid`
-- ❌ `calls helper function`
+- A signed-in user updates their timezone and sees the next send time refresh
+- A cron job precomputes daily digest content for upcoming users
+- Avoid: returns true when input is valid
+- Avoid: calls helper function
 
 ### File names
 
@@ -37,10 +51,10 @@ Write `describe`/`it` text as production-like stories:
 
 Use shared helpers before creating one-off fixtures:
 
-- `tests/helpers/test-user.ts` — create/cleanup users with realistic defaults.
-- `tests/helpers/test-env.ts` — authenticated cookies and admin client.
-- `tests/helpers/api-context.ts` — APIContext request/cookie builders for route handlers.
-- `tests/helpers/cron.ts` — cron request builders with Authorization header.
+- `tests/helpers/test-user.ts` - create/cleanup users with realistic defaults.
+- `tests/helpers/test-env.ts` - authenticated cookies and admin client.
+- `tests/helpers/api-context.ts` - APIContext request/cookie builders for route handlers.
+- `tests/helpers/cron.ts` - cron request builders with Authorization header.
 
 ## Assertions philosophy
 
@@ -55,3 +69,10 @@ Use shared helpers before creating one-off fixtures:
 
 - Use realistic ticker symbols (`AAPL`, `MSFT`, `SPY`), real timezones (`America/New_York`), and plausible user data.
 - Avoid placeholder symbols and unrealistic values unless testing validation.
+
+## Flaky test anti-patterns
+
+- Avoid boundary-time fixtures like `now - cooldown + 1000`; use clearly inside/outside windows (for example, half cooldown for reject-path, multiple cooldown windows for allow-path).
+- Prefer behavioral invariants over fragile counters when testing shared tables. Assert the correct rows remain/delete, not exact global delete counts unless the dataset is fully isolated.
+- Do not add sleeps or longer timeouts as a first fix for flakes. First remove nondeterminism (clock control, unique test IDs, deterministic fixtures).
+<!-- END GLOBAL TEST RULES (managed by sync-global-agents.sh) -->

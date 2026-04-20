@@ -255,10 +255,19 @@ async function normalizeSeedUsers(
   try {
     existingUsers = await listAllAuthUsers(supabase);
   } catch (err) {
-    // Supabase may be down or auth not ready (e.g. before first db reset). Proceed with no
-    // existing users so we assign new UUIDs; seed file is still valid and db reset will apply it.
-    rootLogger.info(
-      "Could not list existing auth users; proceeding with new IDs.",
+    // Supabase may be down or auth not ready (e.g. before first db reset).
+    // We proceed with no existing users so we assign fresh UUIDs; the seed
+    // file is still valid and `supabase db reset` will apply it.
+    //
+    // This used to be a silent `info` log, but that was a known source of
+    // seed↔DB desync: if a dev regenerated seed.sql while Supabase was
+    // transiently down, they'd later apply a seed whose user IDs don't
+    // match a previously-live DB row. Warn loudly so it's obvious in
+    // terminal output.
+    rootLogger.warn(
+      "Could not list existing auth users; proceeding with fresh UUIDs. " +
+        "If Supabase should be running, re-run `npm run db:start` and then " +
+        "`npm run db:generate-seed` to keep seed.sql aligned with live IDs.",
       { context: { cause: err instanceof Error ? err.message : String(err) } },
     );
     existingUsers = [];

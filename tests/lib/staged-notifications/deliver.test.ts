@@ -32,7 +32,6 @@ describe("deliverStagedNotifications", () => {
 	const logger = createLogger({ path: "staged-deliver-test" });
 	let sendEmail: EmailSender;
 	let getSmsSender: SmsSenderProvider;
-
 	// Fake timers are skipped when live email routing is on. nodemailer's
 	// SMTP client uses setTimeout internally for connect timeouts and
 	// rate limiting, and `vi.useFakeTimers()` freezes setTimeout — the

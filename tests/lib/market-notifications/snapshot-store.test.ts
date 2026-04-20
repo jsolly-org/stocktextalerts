@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
 	purgeOldAssetSnapshots,
@@ -8,7 +9,13 @@ import { adminClient } from "../../helpers/test-env";
 
 describe("snapshot-store purge", () => {
 	it("purgeOldAssetSnapshots deletes rows older than retention window", async () => {
-		const asset = getAssetData("AAPL");
+		const uniqueSymbol = `S${randomUUID().replace(/-/g, "").slice(0, 9)}`;
+		const assetData = getAssetData("AAPL");
+		const asset = {
+			symbol: uniqueSymbol,
+			name: `Snapshot Test ${uniqueSymbol}`,
+			type: assetData.type,
+		};
 
 		try {
 			// Ensure asset exists (required for FK)
@@ -28,11 +35,12 @@ describe("snapshot-store purge", () => {
 
 			// Insert snapshots: one recent, one older than retention
 			const now = new Date();
-			const oldCutoff = new Date(
+			const recentCapturedAt = now.toISOString();
+			const staleCapturedAt = new Date(
 				now.getTime() - (RETENTION_MINUTES + 10) * 60 * 1000,
 			).toISOString();
 
-			const { error: insertError } = await adminClient
+			const { data: insertedRows, error: insertError } = await adminClient
 				.from("asset_snapshots")
 				.insert([
 					{
@@ -44,7 +52,7 @@ describe("snapshot-store purge", () => {
 						day_open: 149,
 						prev_close: 148.5,
 						volume: null,
-						captured_at: now.toISOString(),
+						captured_at: recentCapturedAt,
 					},
 					{
 						symbol: asset.symbol,
@@ -55,11 +63,20 @@ describe("snapshot-store purge", () => {
 						day_open: 149,
 						prev_close: 148.5,
 						volume: null,
-						captured_at: oldCutoff,
+						captured_at: staleCapturedAt,
 					},
-				]);
+				])
+				.select("id,captured_at");
 
 			expect(insertError).toBeNull();
+			expect(insertedRows).toHaveLength(2);
+
+			const staleRow = insertedRows?.find(
+				(row) =>
+					new Date(row.captured_at).getTime() ===
+					new Date(staleCapturedAt).getTime(),
+			);
+			expect(staleRow).toBeDefined();
 
 			const purged = await purgeOldAssetSnapshots(adminClient);
 			expect(purged).toBeGreaterThanOrEqual(0);
@@ -72,8 +89,11 @@ describe("snapshot-store purge", () => {
 
 			expect(selectError).toBeNull();
 			expect(remaining).toHaveLength(1);
-			// Recent snapshot (within retention) should remain; old one was purged
 			expect(remaining?.[0]?.symbol).toBe(asset.symbol);
+			expect(
+				new Date(remaining?.[0]?.captured_at ?? 0).getTime(),
+			).toBeGreaterThanOrEqual(new Date(recentCapturedAt).getTime());
+			expect(remaining?.[0]?.id).not.toBe(staleRow?.id);
 			const retentionCutoffIso = new Date(
 				now.getTime() - RETENTION_MINUTES * 60 * 1000,
 			).toISOString();

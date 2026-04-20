@@ -3,7 +3,18 @@
  *
  * Catches the two failure modes that cost us most dev time today:
  *   1. Supabase containers stopped → auth endpoint unreachable (ECONNREFUSED flood).
- *   2. Partial seed → `auth.users` empty so login silently returns `invalid_credentials`.
+ *   2. Partial seed → `auth.users` row for a seeded user is missing so every
+ *      test that expects the seed account to exist misbehaves in confusing ways.
+ *
+ * Historical note: we used to probe `/auth/v1/token` with `DEFAULT_PASSWORD`
+ * to detect (2), but that check conflated three unrelated pieces of state
+ * (`.env.local`, the generated `supabase/seed.sql`, and the live DB hash) and
+ * kept false-negative-ing on benign drift (plaintext desync, `supabase db
+ * reset` without regenerating, act restarting host containers). Nothing in
+ * `pretest` / `pre-commit` actually depends on the seed user's login
+ * succeeding — tests create throwaway users with their own passwords — so
+ * doctor now checks row existence via SQL instead. Interactive dev login and
+ * the a11y audit still surface password drift loudly at the point of use.
  *
  * Runs in ~300ms against a healthy local stack. Safe to wire into `predev` /
  * `pretest`.
@@ -20,6 +31,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { Client } from "pg";
 
 import { rootLogger } from "../../src/lib/logging";
 import { isLocalHost } from "./is-local-host";
@@ -29,6 +41,9 @@ const projectRoot = path.join(__dirname, "..", "..");
 const USERS_FILE = path.join(projectRoot, "scripts", "data", "users.json");
 
 type SeedUserLite = { email?: unknown };
+
+/** Short read-timeout guard for SQL too; wedged postgres shouldn't hang doctor. */
+const DB_STATEMENT_TIMEOUT_MS = 3_000;
 
 const HINT = [
   "",
@@ -49,23 +64,116 @@ async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Pro
 	}
 }
 
-function readFirstSeedEmail(): string | null {
-	if (!fs.existsSync(USERS_FILE)) return null;
+function readSeedEmails(): string[] {
+	if (!fs.existsSync(USERS_FILE)) return [];
 	try {
 		const parsed = JSON.parse(fs.readFileSync(USERS_FILE, "utf-8")) as unknown;
-		if (!Array.isArray(parsed) || parsed.length === 0) return null;
-		const first = parsed[0] as SeedUserLite;
-		const email = typeof first?.email === "string" ? first.email.trim() : "";
-		return email || null;
+		if (!Array.isArray(parsed)) return [];
+		return parsed
+			.map((entry) => {
+				const email = (entry as SeedUserLite)?.email;
+				if (typeof email !== "string") return null;
+				const trimmed = email.trim().toLowerCase();
+				return trimmed.length > 0 ? trimmed : null;
+			})
+			.filter((email): email is string => email !== null);
 	} catch {
-		return null;
+		return [];
+	}
+}
+
+type SeedUserRow = {
+	email: string;
+	email_confirmed_at: Date | null;
+	encrypted_password: string | null;
+};
+
+/**
+ * Asserts each expected seed email has a fully-provisioned row in `auth.users`.
+ *
+ * "Fully-provisioned" means the row exists, its email is confirmed, and it
+ * has a non-empty `encrypted_password`. This is the drift-resistant
+ * equivalent of the old `/auth/v1/token` probe: it catches partial seeds
+ * without coupling to the plaintext of `DEFAULT_PASSWORD`.
+ */
+async function checkSeedUsersExist(
+	databaseUrl: string,
+	expectedEmails: string[],
+): Promise<{ ok: true } | { ok: false; reason: string; context: unknown }> {
+	const client = new Client({
+		connectionString: databaseUrl,
+		// Cheap guard so a wedged db doesn't hang `pretest`.
+		statement_timeout: DB_STATEMENT_TIMEOUT_MS,
+		connectionTimeoutMillis: DB_STATEMENT_TIMEOUT_MS,
+	});
+
+	try {
+		await client.connect();
+	} catch (err) {
+		return {
+			ok: false,
+			reason: "database_unreachable",
+			context: {
+				cause: err instanceof Error ? err.message : String(err),
+			},
+		};
+	}
+
+	try {
+		const { rows } = await client.query<SeedUserRow>(
+			`SELECT lower(email) AS email, email_confirmed_at, encrypted_password
+			 FROM auth.users
+			 WHERE lower(email) = ANY($1::text[])`,
+			[expectedEmails],
+		);
+
+		const found = new Map(rows.map((row) => [row.email, row]));
+		const missing = expectedEmails.filter((email) => !found.has(email));
+		if (missing.length > 0) {
+			return {
+				ok: false,
+				reason: "seed_users_missing",
+				context: { missingEmails: missing },
+			};
+		}
+
+		const unconfirmed: string[] = [];
+		const passwordless: string[] = [];
+		for (const email of expectedEmails) {
+			const row = found.get(email);
+			if (!row) continue;
+			if (!row.email_confirmed_at) unconfirmed.push(email);
+			if (!row.encrypted_password || row.encrypted_password.length === 0) {
+				passwordless.push(email);
+			}
+		}
+
+		if (unconfirmed.length > 0 || passwordless.length > 0) {
+			return {
+				ok: false,
+				reason: "seed_users_incomplete",
+				context: { unconfirmed, passwordless },
+			};
+		}
+
+		return { ok: true };
+	} catch (err) {
+		return {
+			ok: false,
+			reason: "auth_users_query_failed",
+			context: {
+				cause: err instanceof Error ? err.message : String(err),
+			},
+		};
+	} finally {
+		await client.end().catch(() => {
+			// Swallow close errors; the caller already has its verdict.
+		});
 	}
 }
 
 async function main(): Promise<void> {
 	const supabaseUrl = process.env.SUPABASE_URL;
-	const publishableKey =
-		process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
 
 	if (!supabaseUrl) {
 		rootLogger.error("db:doctor — missing SUPABASE_URL in env", {
@@ -98,16 +206,6 @@ async function main(): Promise<void> {
 		return;
 	}
 
-	if (!publishableKey) {
-		rootLogger.error(
-			"db:doctor — missing SUPABASE_PUBLISHABLE_KEY (or SUPABASE_ANON_KEY) in env",
-			{ action: "db_doctor" },
-		);
-		process.stderr.write(HINT);
-		process.exitCode = 1;
-		return;
-	}
-
 	// 1. Auth health — catches "containers stopped" instantly.
 	const healthUrl = new URL("/auth/v1/health", supabaseUrl).toString();
 	try {
@@ -134,68 +232,45 @@ async function main(): Promise<void> {
 		return;
 	}
 
-	// 2. Login probe — catches partial seeds where auth.users wasn't populated.
-	// Only runs if users.json exists (dev-only) and DEFAULT_PASSWORD is set.
-	const defaultPassword = process.env.DEFAULT_PASSWORD;
-	const seedEmail = readFirstSeedEmail();
-
-	if (!seedEmail || !defaultPassword) {
-		rootLogger.info("db:doctor — ok (health only; no seed user to probe)", {
+	// 2. Seed-user existence — catches partial seeds where auth.users wasn't
+	// populated. This is a drift-resistant replacement for the old
+	// `/auth/v1/token` login probe; see the module header for rationale.
+	const seedEmails = readSeedEmails();
+	if (seedEmails.length === 0) {
+		rootLogger.info("db:doctor — ok (health only; no seed users to check)", {
 			action: "db_doctor",
-			reason: !seedEmail ? "no_users_json" : "no_default_password",
+			reason: "no_users_json",
 		});
 		return;
 	}
 
-	const tokenUrl = new URL(
-		"/auth/v1/token?grant_type=password",
-		supabaseUrl,
-	).toString();
-	try {
-		const res = await fetchWithTimeout(
-			tokenUrl,
-			{
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					apikey: publishableKey,
-				},
-				body: JSON.stringify({ email: seedEmail, password: defaultPassword }),
-			},
-			3_000,
-		);
-		if (!res.ok) {
-			let bodySnippet = "";
-			try {
-				bodySnippet = (await res.text()).slice(0, 200);
-			} catch {
-				// ignore body read failures; the status code is enough to act on.
-			}
-			rootLogger.error("db:doctor — seed user login probe failed", {
-				action: "db_doctor",
-				seedEmail,
-				status: res.status,
-				bodySnippet,
-			});
-			process.stderr.write(HINT);
-			process.exitCode = 1;
-			return;
-		}
-	} catch (err) {
-		const cause = err instanceof Error ? err.message : String(err);
-		rootLogger.error("db:doctor — seed user login probe errored", {
+	const databaseUrl = process.env.DATABASE_URL;
+	if (!databaseUrl) {
+		// Tests already require DATABASE_URL (tests/setup.ts), and `supabase
+		// status` emits it, so missing-in-dev means .env.local is out of date.
+		rootLogger.error("db:doctor — missing DATABASE_URL in env", {
 			action: "db_doctor",
-			seedEmail,
-			cause,
 		});
 		process.stderr.write(HINT);
 		process.exitCode = 1;
 		return;
 	}
 
-	rootLogger.info("db:doctor — ok (auth reachable; seed user login succeeded)", {
+	const result = await checkSeedUsersExist(databaseUrl, seedEmails);
+	if (!result.ok) {
+		rootLogger.error("db:doctor — seed user check failed", {
+			action: "db_doctor",
+			reason: result.reason,
+			context: result.context,
+		});
+		process.stderr.write(HINT);
+		process.exitCode = 1;
+		return;
+	}
+
+	rootLogger.info("db:doctor — ok (auth reachable; seed users present)", {
 		action: "db_doctor",
-		seedEmail,
+		seedEmailsChecked: seedEmails.length,
 	});
 }
 
