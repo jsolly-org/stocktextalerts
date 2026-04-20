@@ -8,11 +8,9 @@ function createSupabaseTimezonesStub(options: {
 		display_order?: number;
 		active?: boolean;
 	}>;
-	delayMs?: number;
 }) {
 	let selectCount = 0;
 
-	const delayMs = options.delayMs ?? 0;
 	const rows = options.rows.map((row, index) => ({
 		value: row.value,
 		label: row.label ?? row.value,
@@ -35,11 +33,6 @@ function createSupabaseTimezonesStub(options: {
 					return {
 						range: async (from: number, to: number) => {
 							selectCount += 1;
-
-							if (delayMs > 0) {
-								await new Promise((resolve) => setTimeout(resolve, delayMs));
-							}
-
 							return { data: rows.slice(from, to + 1), error: null };
 						},
 					};
@@ -83,7 +76,6 @@ describe("A user's detected timezone is resolved consistently.", () => {
 
 		const stub = createSupabaseTimezonesStub({
 			rows: [{ value: "Etc/UTC" }],
-			delayMs: 20,
 		});
 
 		const [first, second] = await Promise.all([
@@ -147,7 +139,6 @@ describe("A user sees available timezone options consistently.", () => {
 				{ value: "America/New_York", display_order: 1, active: true },
 				{ value: "Europe/London", display_order: 2, active: true },
 			],
-			delayMs: 20,
 		});
 
 		const [first, second] = await Promise.all([

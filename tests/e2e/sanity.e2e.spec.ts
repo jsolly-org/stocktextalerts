@@ -220,22 +220,35 @@ async function waitForEmail(
 	subjectContains: string,
 	timeoutMs = 30_000,
 ): Promise<InbucketMessage> {
-	const startedAt = Date.now();
-	while (Date.now() - startedAt < timeoutMs) {
-		const messages = await getInbucketMessages(email);
-		const match = messages.find((message) =>
-			(message.subject ?? "").includes(subjectContains),
+	let matchedId: string | undefined;
+	await expect
+		.poll(
+			async () => {
+				const messages = await getInbucketMessages(email);
+				const match = messages.find((message) =>
+					(message.subject ?? "").includes(subjectContains),
+				);
+				if (match?.id) {
+					matchedId = match.id;
+					return true;
+				}
+				return false;
+			},
+			{
+				timeout: timeoutMs,
+				intervals: [100, 250, 500, 1000],
+				message: `Timed out waiting for email "${subjectContains}" for ${email}`,
+			},
+		)
+		.toBe(true);
+
+	if (!matchedId) {
+		// expect.poll throws on timeout, so this only triggers on the true branch.
+		throw new Error(
+			`Email "${subjectContains}" for ${email} had no message id`,
 		);
-		if (match?.id) {
-			return getInbucketMessage(email, match.id);
-		}
-
-		await new Promise((resolve) => setTimeout(resolve, 1000));
 	}
-
-	throw new Error(
-		`Timed out waiting for email "${subjectContains}" for ${email} after ${timeoutMs}ms`,
-	);
+	return getInbucketMessage(email, matchedId);
 }
 
 async function maybeWaitForEmail(
@@ -327,29 +340,26 @@ async function waitForTrackedAssets(
 	timeoutMs = 30_000,
 ): Promise<void> {
 	const expected = [...expectedSymbols].sort();
-	const startedAt = Date.now();
-	while (Date.now() - startedAt < timeoutMs) {
-		const { data, error } = await adminClient
-			.from("user_assets")
-			.select("symbol")
-			.eq("user_id", userId)
-			.order("symbol");
-		if (error) {
-			throw new Error(`Failed to read tracked assets: ${error.message}`);
-		}
-		const symbols = (data ?? []).map((row) => row.symbol).sort();
-		if (
-			symbols.length === expected.length &&
-			symbols.every((value, idx) => value === expected[idx])
-		) {
-			return;
-		}
-		await new Promise((resolve) => setTimeout(resolve, 1000));
-	}
-
-	throw new Error(
-		`Timed out waiting for tracked assets to become [${expected.join(", ")}]`,
-	);
+	await expect
+		.poll(
+			async () => {
+				const { data, error } = await adminClient
+					.from("user_assets")
+					.select("symbol")
+					.eq("user_id", userId)
+					.order("symbol");
+				if (error) {
+					throw new Error(`Failed to read tracked assets: ${error.message}`);
+				}
+				return (data ?? []).map((row) => row.symbol).sort();
+			},
+			{
+				timeout: timeoutMs,
+				intervals: [100, 250, 500, 1000],
+				message: `Timed out waiting for tracked assets to become [${expected.join(", ")}]`,
+			},
+		)
+		.toEqual(expected);
 }
 
 async function waitForEmailNotificationsEnabled(
