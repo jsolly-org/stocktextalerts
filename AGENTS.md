@@ -65,17 +65,18 @@ supabase migration new <name>  # Create new migration (never rename timestamps)
 - `formatPriceAlertSms` is **async** (shortens Grok link URLs via the `short_urls` table). Mock supabase for it must include a `.from().select().eq().gt().limit().single()` chain for the shortener dedup lookup. All other SMS formatters are sync.
 - **Live API tests**: `npm run test:live:email`, `test:live:data`, `test:live:xai`, `test:live:all`. Always reproduce live test failures locally before fixing.
 
-### Testing Philosophy: No real SES or Twilio, ever
+### Testing Philosophy: No real delivery from tests, ever
 
 After the 2026-04-11 incident where a local `--live=email` run delivered a real notification to a real mailbox via prod SES credentials from `.env.local`, the harness enforces a zero-real-delivery rule:
 
-- **Tests never hit real AWS SES or real Twilio.** No exceptions, no opt-in flag that enables real credentials. Real credentials are reachable only from a production build (Lambda / Vercel SSR).
+- **Tests never hit real AWS SES or real Twilio credentials.** Real credentials are reachable only from a production build (Lambda / Vercel SSR).
 - **The three sender factories** hard-gate on `import.meta.env.MODE === "production"`:
   - `createEmailSender` — `src/lib/messaging/email/utils.ts`
   - `createSmsSender` — `src/lib/messaging/sms/twilio-utils.ts`
   - `sendVerification` / `checkVerification` (Twilio Verify) — `src/lib/auth/sms-verification.ts`
 - **Live email tests** route through local **Mailpit** (Supabase's bundled Inbucket container) via SMTP on `localhost:1025`. `tests/run-vitest.ts` auto-sets `EMAIL_SMTP_HOST=localhost` when `--live=email` is passed, which makes `createEmailSender` pick the `nodemailer` branch instead of constructing a real SES client. Inspect delivered messages at http://localhost:54324.
-- **Live SMS has no tier.** `--live=sms` was removed — the harness had no way to prevent real-number delivery or per-message Twilio charges. SMS code paths are covered by unit/integration tests that assert against the mock sender's recorded request shape.
+- **Live Twilio tests use Twilio test credentials only** (`test:live:twilio` / `--live=twilio`). They call Twilio's API with magic numbers (`+15005550006`, `+15005550009`) and do not deliver real SMS or incur charges.
+- **App SMS sender remains production-gated.** `createSmsSender` still mocks outside production mode; live Twilio API tests run in a dedicated test file and do not route through app delivery flows.
 - **Twilio Verify** always mocks in non-prod. The mock accepts `000000` as the only approved OTP, so local signup OTP flows can exercise both success and failure paths without hitting Twilio.
 - **Test recipients are always `@example.com`.** Never reference real mailboxes or phone numbers in tests. `tests/helpers/test-user.ts:createTestEmail` generates `<prefix>-<runId>-<uuid>@example.com`.
 - **`astro dev`** routes email through Mailpit automatically when `EMAIL_SMTP_HOST=localhost` is set in `.env.local` (the new committed default). Never set real SES env vars in dev.

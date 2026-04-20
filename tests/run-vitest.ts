@@ -48,25 +48,20 @@ function ensureNoWatch(vitestArgs: string[]): string[] {
 }
 
 /**
- * Parse an `--live=a,b,c` list and strip any providers we refuse to
- * enable from the test harness. Currently:
+ * Parse an `--live=a,b,c` list and normalize provider aliases.
  *
- *   - `sms` is dropped unconditionally. `--live=sms` was removed on
- *     2026-04-11 — the harness had no way to prevent real-number
- *     delivery or per-message Twilio charges, and SMS code paths are
- *     now covered by unit/integration tests with mocks only. See
- *     AGENTS.md#testing-philosophy.
+ * `sms` is retained as a backward-compatible alias for `twilio`.
  */
 function filterLiveProviders(raw: string): string {
 	if (raw.trim().toLowerCase() === "all") {
-		// Expand "all" so we can drop the disallowed providers cleanly.
-		return ["massive", "finnhub", "xai", "email"].join(",");
+		return ["massive", "finnhub", "xai", "email", "twilio"].join(",");
 	}
-	return raw
+	const normalized = raw
 		.split(",")
 		.map((item) => item.trim())
-		.filter((item) => item && item.toLowerCase() !== "sms")
-		.join(",");
+		.map((item) => (item.toLowerCase() === "sms" ? "twilio" : item))
+		.filter(Boolean);
+	return [...new Set(normalized)].join(",");
 }
 
 /**
@@ -82,27 +77,31 @@ function main() {
 		liveProviders !== null ? filterLiveProviders(liveProviders) : "";
 	const liveEmail = filtered.split(",").some((item) => item.trim() === "email");
 
-	// Surface silent drops so `--live=sms` doesn't look like a quiet success.
+	// Surface unsupported providers so typos don't look like silent success.
 	if (liveProviders !== null) {
-		const requested = new Set(
-			liveProviders
-				.split(",")
-				.map((item) => item.trim().toLowerCase())
-				.filter(Boolean),
-		);
-		const kept = new Set(
-			filtered
-				.split(",")
-				.map((item) => item.trim().toLowerCase())
-				.filter(Boolean),
-		);
-		const dropped = [...requested].filter((item) => !kept.has(item));
-		if (dropped.length > 0) {
-			// biome-ignore lint/suspicious/noConsole: this is a dev-facing CLI
-			console.warn(
-				`run-vitest: ignoring unsupported --live provider(s): ${dropped.join(", ")}. ` +
-					"SMS has no live tier — see AGENTS.md#testing-philosophy.",
+		const isAllKeyword = liveProviders.trim().toLowerCase() === "all";
+		if (!isAllKeyword) {
+			const requested = new Set(
+				liveProviders
+					.split(",")
+					.map((item) => item.trim().toLowerCase())
+					.map((item) => (item === "sms" ? "twilio" : item))
+					.filter(Boolean),
 			);
+			const kept = new Set(
+				filtered
+					.split(",")
+					.map((item) => item.trim().toLowerCase())
+					.filter(Boolean),
+			);
+			const dropped = [...requested].filter((item) => !kept.has(item));
+			if (dropped.length > 0) {
+				// biome-ignore lint/suspicious/noConsole: this is a dev-facing CLI
+				console.warn(
+					`run-vitest: ignoring unsupported --live provider(s): ${dropped.join(", ")}. ` +
+						"See tests/helpers/live-api.ts for allowed provider keys.",
+				);
+			}
 		}
 	}
 

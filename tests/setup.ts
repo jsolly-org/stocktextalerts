@@ -45,6 +45,14 @@ assertLiveProviderKey({ provider: "xai", envVar: "XAI_API_KEY" });
 // It does NOT require AWS credentials — the Mailpit branch in
 // src/lib/messaging/email/utils.ts never constructs a SES client.
 assertLiveProviderKey({ provider: "email", envVar: "EMAIL_SMTP_HOST" });
+assertLiveProviderKey({
+	provider: "twilio",
+	envVar: "TWILIO_TEST_ACCOUNT_SID",
+});
+assertLiveProviderKey({
+	provider: "twilio",
+	envVar: "TWILIO_TEST_AUTH_TOKEN",
+});
 
 // Email/SMS mocking is handled in the source factories themselves:
 //   - createEmailSender (src/lib/messaging/email/utils.ts) gates on MODE

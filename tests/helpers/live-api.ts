@@ -1,16 +1,14 @@
-// `sms` was removed on 2026-04-11. SMS code paths are covered by
-// unit/integration tests with mocks — we never hit real Twilio from the
-// test harness. See AGENTS.md#testing-philosophy. `email` is still here
-// but its semantics changed: `--live=email` now routes delivery through
-// local Mailpit via SMTP, not through real AWS SES. `tests/run-vitest.ts`
-// sets EMAIL_SMTP_HOST=localhost alongside LIVE_API_PROVIDERS=email.
-type LiveProvider = "massive" | "finnhub" | "xai" | "email";
+// Live provider toggles for the test harness. Note:
+// - `email` routes through local Mailpit via SMTP, not real SES.
+// - `twilio` uses Twilio *test credentials* only (no real delivery, no charges).
+type LiveProvider = "massive" | "finnhub" | "xai" | "email" | "twilio";
 
 const ALLOWED_PROVIDERS: LiveProvider[] = [
 	"massive",
 	"finnhub",
 	"xai",
 	"email",
+	"twilio",
 ];
 
 function parseCsv(value: string | undefined): string[] {
