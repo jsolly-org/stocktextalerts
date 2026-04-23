@@ -5,7 +5,7 @@ Environment Helpers
 /**
  * Read an environment variable at runtime.
  *
- * Astro 5 loads `.env.local` into `process.env` for both dev and SSR, and
+ * Astro loads `.env.local` into `process.env` for both dev and SSR, and
  * Lambda injects env vars through `process.env` directly, so a single
  * `process.env` lookup covers every runtime. For required env vars, prefer
  * `requireEnv()` which throws on missing values and returns `string` (no

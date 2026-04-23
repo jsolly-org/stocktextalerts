@@ -139,7 +139,9 @@ function getMaskPiiEnabled(): boolean {
 	// readEnv would create a circular import (logging ← env ← logging),
 	// so access process.env directly here. LOG_MASK_PII is a non-secret config
 	// flag, passed as a Lambda env var and available on Vercel/Node runtimes.
-	const value = process.env.LOG_MASK_PII;
+	// Guard `process` for client-side Vue bundles where it's undefined.
+	const value =
+		typeof process !== "undefined" ? process.env.LOG_MASK_PII : undefined;
 	const normalized = typeof value === "string" ? value : String(value ?? "");
 	return normalized.toLowerCase() !== "false";
 }
