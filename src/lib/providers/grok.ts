@@ -255,12 +255,15 @@ export function applyAnnotationsInline(
 	// Process per-line so URLs from one ticker bullet don't bleed into another.
 	const lines = result.split("\n");
 	for (let i = 0; i < lines.length; i++) {
-		let line = lines[i];
+		const original = lines[i];
+		if (original === undefined) continue;
+		let line = original;
 		const anonXUrls: string[] = [];
 		for (const m of line.matchAll(
 			/\[\[\d+\]\]\((https?:\/\/(?:x|twitter)\.com\/i\/status\/\d+)\)/g,
 		)) {
-			anonXUrls.push(m[1]);
+			const [, captured] = m;
+			if (captured) anonXUrls.push(captured);
 		}
 		if (anonXUrls.length > 0) {
 			// Remove the [[N]](anonymous-url) citation markers
@@ -271,8 +274,10 @@ export function applyAnnotationsInline(
 			// Link unlinked @handle mentions with the anonymous URLs, in order
 			let anonIdx = 0;
 			line = line.replace(/(?<!\[)@([A-Za-z0-9_]+)/g, (match) => {
-				if (anonIdx < anonXUrls.length) {
-					return `[[${match}]](${anonXUrls[anonIdx++]})`;
+				const anonUrl = anonXUrls[anonIdx];
+				if (anonUrl !== undefined) {
+					anonIdx++;
+					return `[[${match}]](${anonUrl})`;
 				}
 				return match;
 			});
@@ -475,7 +480,9 @@ async function callGrokApi(options: {
 				signal: AbortSignal.timeout(
 					GROK_TIMEOUT_BY_ATTEMPT_MS[
 						Math.min(attempt - 1, GROK_TIMEOUT_BY_ATTEMPT_MS.length - 1)
-					],
+					] ??
+						GROK_TIMEOUT_BY_ATTEMPT_MS[GROK_TIMEOUT_BY_ATTEMPT_MS.length - 1] ??
+						30_000,
 				),
 			});
 

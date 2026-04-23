@@ -125,13 +125,15 @@ function parseGrokPriceAlertResponse(
 		const mdLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
 		for (const match of summaryText.matchAll(mdLinkRegex)) {
 			if (links.length >= 3) break;
-			const url = normalizeHttpUrl(match[2].trim());
+			const [, captureTitle, captureUrl] = match;
+			if (!captureUrl) continue;
+			const url = normalizeHttpUrl(captureUrl.trim());
 			if (!url || seenUrls.has(url)) continue;
 			seenUrls.add(url);
 			const sourceType: "x" | "web" = isXUrl(url) ? "x" : "web";
 			const source =
 				linkLabelFromUrl(url) || (sourceType === "x" ? "X post" : "article");
-			const title = match[1].trim() || source;
+			const title = captureTitle?.trim() || source;
 			links.push({ url, title, source, sourceType });
 		}
 	}

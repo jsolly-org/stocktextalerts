@@ -173,7 +173,8 @@ function downsample(values: number[], target: number): number[] {
 	const out: number[] = [];
 	for (let i = 0; i < target; i++) {
 		const idx = Math.round((i / (target - 1)) * (values.length - 1));
-		out.push(values[idx]);
+		const v = values[idx];
+		if (v !== undefined) out.push(v);
 	}
 	return out;
 }
@@ -218,7 +219,7 @@ export function formatFlatPriceAlertSms(options: {
 		lastNotificationPrice: isReTrigger ? baseline : null,
 		sevenDayBaseline:
 			sevenDaySparkline && sevenDaySparkline.values.length > 0
-				? sevenDaySparkline.values[0]
+				? (sevenDaySparkline.values[0] ?? null)
 				: null,
 		relativeTime:
 			isReTrigger && lastNotificationAt !== null
@@ -298,7 +299,7 @@ export function formatFlatPriceAlertEmail(options: {
 	const dayOpen = quote.dayOpen;
 	const sevenDayBaseline =
 		sevenDaySparkline && sevenDaySparkline.values.length > 0
-			? sevenDaySparkline.values[0]
+			? (sevenDaySparkline.values[0] ?? null)
 			: null;
 
 	const relativeTime =
@@ -343,7 +344,9 @@ export function formatFlatPriceAlertEmail(options: {
 		const lastVal =
 			sevenDaySparkline.values[sevenDaySparkline.values.length - 1];
 		const direction =
-			firstVal > 0 ? ((lastVal - firstVal) / firstVal) * 100 : 0;
+			firstVal !== undefined && lastVal !== undefined && firstVal > 0
+				? ((lastVal - firstVal) / firstVal) * 100
+				: 0;
 		const sparkColor = getChangeColor(direction);
 		sevenDaySparklineHtml = toSvgSparklineImg(
 			sevenDaySparkline.values,

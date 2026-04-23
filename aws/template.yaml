@@ -55,6 +55,7 @@ Globals:
     MemorySize: 512
     Environment:
       Variables:
+        NODE_ENV: production
         SUPABASE_URL: !Ref SupabaseUrl
         SUPABASE_SECRET_KEY: !Ref SupabaseSecretKey
         LOG_MASK_PII: !Ref LogMaskPii
@@ -63,9 +64,17 @@ Globals:
 Resources:
   ScheduleFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Format: cjs
+        Target: node24
+        Sourcemap: true
+        EntryPoints:
+          - schedule.ts
     Properties:
       Handler: schedule.handler
-      CodeUri: dist/handlers/
+      CodeUri: src/handlers
       Timeout: 300
       MemorySize: 512
       Policies:
@@ -96,9 +105,17 @@ Resources:
 
   AssetEventsFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Format: cjs
+        Target: node24
+        Sourcemap: true
+        EntryPoints:
+          - asset-events.ts
     Properties:
       Handler: asset-events.handler
-      CodeUri: dist/handlers/
+      CodeUri: src/handlers
       Timeout: 300
       MemorySize: 256
       Policies:
@@ -131,9 +148,17 @@ Resources:
 
   ComputeDailyStatsFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Format: cjs
+        Target: node24
+        Sourcemap: true
+        EntryPoints:
+          - compute-daily-stats.ts
     Properties:
       Handler: compute-daily-stats.handler
-      CodeUri: dist/handlers/
+      CodeUri: src/handlers
       Timeout: 600
       MemorySize: 256
       Environment:

@@ -1,4 +1,6 @@
 const BLOCKS = "▁▂▃▄▅▆▇█";
+const MID_BLOCK = "▄";
+const LOW_BLOCK = "▁";
 
 /**
  * Convert an array of numeric values into a Unicode block-character sparkline.
@@ -18,12 +20,12 @@ export function toSparkline(values: number[]): string {
 	if (min === max) {
 		// Preserve the "all values equal" fast path for fully-finite inputs.
 		if (finiteValues.length === values.length) {
-			return BLOCKS[3].repeat(values.length);
+			return MID_BLOCK.repeat(values.length);
 		}
 
 		// If any values are non-finite, treat them as the lowest value.
 		return values
-			.map((v) => (Number.isFinite(v) ? BLOCKS[3] : BLOCKS[0]))
+			.map((v) => (Number.isFinite(v) ? MID_BLOCK : LOW_BLOCK))
 			.join("");
 	}
 

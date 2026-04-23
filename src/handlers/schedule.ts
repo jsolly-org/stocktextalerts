@@ -1,9 +1,12 @@
 import type { Context, ScheduledEvent } from "aws-lambda";
-import { createSupabaseAdminClient } from "../../../src/lib/db/supabase";
-import { createLogger } from "../../../src/lib/logging";
-import { runScheduledNotifications } from "../../../src/lib/schedule/run";
+import { createSupabaseAdminClient } from "../lib/db/supabase";
+import { createLogger } from "../lib/logging";
+import { runScheduledNotifications } from "../lib/schedule/run";
 
-export async function handler(_event: ScheduledEvent, _context: Context): Promise<void> {
+export async function handler(
+	_event: ScheduledEvent,
+	_context: Context,
+): Promise<void> {
 	const logger = createLogger({ source: "lambda", function: "schedule" });
 	const supabase = createSupabaseAdminClient();
 

@@ -37,9 +37,12 @@ export function computeATR(bars: DailyOHLCVBar[]): number | null {
 
 	const trueRanges: number[] = [];
 	for (let i = 1; i < bars.length; i++) {
-		const high = bars[i].high;
-		const low = bars[i].low;
-		const prevClose = bars[i - 1].close;
+		const bar = bars[i];
+		const prev = bars[i - 1];
+		if (!bar || !prev) continue;
+		const high = bar.high;
+		const low = bar.low;
+		const prevClose = prev.close;
 		const tr = Math.max(
 			high - low,
 			Math.abs(high - prevClose),

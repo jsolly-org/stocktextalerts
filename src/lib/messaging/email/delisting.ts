@@ -36,7 +36,8 @@ export function formatDelistingEmail(
 	user: EmailUser,
 	holdings: DelistedHolding[],
 ): { subject: string; text: string; html: string } {
-	if (holdings.length === 0) {
+	const first = holdings[0];
+	if (!first) {
 		throw new Error(
 			"formatDelistingEmail requires at least one delisted holding",
 		);
@@ -44,7 +45,6 @@ export function formatDelistingEmail(
 
 	const urls = buildEmailUrls(user.id, user.email, "assets");
 	const isSingle = holdings.length === 1;
-	const first = holdings[0];
 
 	// Subject
 	const subject = isSingle

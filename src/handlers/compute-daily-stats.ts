@@ -1,11 +1,11 @@
 import type { Context, ScheduledEvent } from "aws-lambda";
-import { createSupabaseAdminClient } from "../../../src/lib/db/supabase";
-import { createLogger } from "../../../src/lib/logging";
+import { createSupabaseAdminClient } from "../lib/db/supabase";
+import { createLogger } from "../lib/logging";
 import {
 	computeADV,
 	computeATR,
-} from "../../../src/lib/market-notifications/daily-stats";
-import { fetchDailyOHLCV } from "../../../src/lib/providers/massive";
+} from "../lib/market-notifications/daily-stats";
+import { fetchDailyOHLCV } from "../lib/providers/massive";
 
 /** Batch size for Massive API calls to stay under ~100 req/s. */
 const BATCH_SIZE = 50;
@@ -16,8 +16,14 @@ const BATCH_DELAY_MS = 600;
 /** Calendar days to fetch for ~20 trading days of data. */
 const LOOKBACK_DAYS = 35;
 
-export async function handler(_event: ScheduledEvent, _context: Context): Promise<void> {
-	const logger = createLogger({ source: "lambda", function: "compute-daily-stats" });
+export async function handler(
+	_event: ScheduledEvent,
+	_context: Context,
+): Promise<void> {
+	const logger = createLogger({
+		source: "lambda",
+		function: "compute-daily-stats",
+	});
 	const supabase = createSupabaseAdminClient();
 
 	// Get all unique tracked symbols

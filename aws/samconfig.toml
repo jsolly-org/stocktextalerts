@@ -1,5 +1,11 @@
 version = 0.1
 
+[default.build.parameters]
+# CodeUri paths in aws/template.yaml are relative to repo root so SAM's
+# native esbuild integration can find the shared src/ modules and the
+# root node_modules.
+base_dir = ".."
+
 [default.deploy.parameters]
 stack_name = "stocktextalerts-crons"
 region = "us-east-1"
