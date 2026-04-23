@@ -1,10 +1,11 @@
 /**
  * Runtime-mode helpers used by code shared between Astro SSR and AWS Lambda.
  *
- * Both runtimes populate `process.env.NODE_ENV`: Astro/Vite sets it at build
- * time, Vercel sets it at runtime, Vitest sets `test`, and the SAM template
- * sets `production` for each Lambda. `process.env.MODE` is checked as a
- * fallback because Vitest mirrors its `import.meta.env.MODE` value there.
+ * Every runtime populates `process.env.NODE_ENV` at call time: Astro/Vite
+ * sets it during dev + build, Vercel sets it in the SSR runtime, Vitest
+ * (via `vitest.config.ts` + `tests/run-vitest.ts`) forces `test`, and the
+ * SAM template sets `production` for each Lambda. `process.env.MODE` is a
+ * belt-and-suspenders fallback for any runtime that skips NODE_ENV.
  */
 
 export type RuntimeMode = "production" | "development" | "test";

@@ -54,7 +54,7 @@ supabase migration new <name>  # Create new migration (never rename timestamps)
 - Use `src/lib/logging/` (`createLogger`, `rootLogger`) — structured JSON with `timestamp`, `level`, `message`, `context`.
 - Always pass a named context object (no `{}`/`undefined`).
 - **Env vars**: Use `requireEnv()` from `src/lib/db/env.ts` at point-of-use.
-- **Lambdas also use the same logger** — `aws/src/handlers/*.ts` import `createLogger` from `src/lib/logging`. Each Lambda log group has an `AWS::Logs::MetricFilter` on `{ $.level = "error" }` feeding the shared `stocktextalerts-crons/ErrorLogCount` metric and `ErrorLogAlarm`, alongside per-function `AWS/Lambda Errors` alarms. This matches the cross-repo pattern in `~/.agents/AGENTS.md` → "Lambda Logging". Do not set `LogFormat: JSON` on the Node Lambdas — the app logger already emits JSON via `console.*`.
+- **Lambdas also use the same logger** — `src/handlers/*.ts` import `createLogger` from `src/lib/logging`. Each Lambda log group has an `AWS::Logs::MetricFilter` on `{ $.level = "error" }` feeding the shared `stocktextalerts-crons/ErrorLogCount` metric and `ErrorLogAlarm`, alongside per-function `AWS/Lambda Errors` alarms. This matches the cross-repo pattern in `~/.agents/AGENTS.md` → "Lambda Logging". Do not set `LogFormat: JSON` on the Node Lambdas — the app logger already emits JSON via `console.*`.
 
 ## Testing (Project-Specific)
 
@@ -71,7 +71,7 @@ supabase migration new <name>  # Create new migration (never rename timestamps)
 After the 2026-04-11 incident where a local `--live=email` run delivered a real notification to a real mailbox via prod SES credentials from `.env.local`, the harness enforces a zero-real-delivery rule:
 
 - **Tests never hit real AWS SES or real Twilio credentials.** Real credentials are reachable only from a production build (Lambda / Vercel SSR).
-- **The three sender factories** hard-gate on `import.meta.env.MODE === "production"`:
+- **The three sender factories** hard-gate via `isProduction()` from `src/lib/runtime/mode.ts` (reads `process.env.NODE_ENV`):
   - `createEmailSender` — `src/lib/messaging/email/utils.ts`
   - `createSmsSender` — `src/lib/messaging/sms/twilio-utils.ts`
   - `sendVerification` / `checkVerification` (Twilio Verify) — `src/lib/auth/sms-verification.ts`
@@ -109,7 +109,7 @@ After the 2026-04-11 incident where a local `--live=email` run delivered a real 
 
 ## AWS / SAM Deploy
 
-**SAM deploy required** when committing changes to `aws/template.yaml`, `aws/deploy.sh`, `aws/src/handlers/`, or `src/lib/`. After the commit: `cd aws && npm run deploy`. Use `--profile prod-admin` for all production AWS commands.
+**SAM deploy required** when committing changes to `aws/template.yaml`, `aws/deploy.sh`, `src/handlers/`, or `src/lib/`. After the commit: `cd aws && npm run deploy` (or `npm run deploy:aws` from repo root). Use `--profile prod-admin` for all production AWS commands.
 
 ## External APIs
 
@@ -204,7 +204,7 @@ export DOCKER_HOST="unix://$(/opt/podman/bin/podman machine inspect podman-machi
 
 **CI stays on Docker.** GitHub Actions Ubuntu runners ship with Docker preinstalled, and `.github/workflows/live-provider-tests.yml` already passes `supabase start -x studio,imgproxy,logflare,vector,postgres-meta,edge-runtime,realtime,storage-api`. Switching CI to Podman would add setup time for zero benefit.
 
-**SAM CLI (`sam local invoke`)** also honors `DOCKER_HOST`, so `cd aws && npm run local:test-all` works under Podman with the same setup.
+**SAM CLI (`sam local invoke`)** also honors `DOCKER_HOST`, so `cd aws && npm run local:all` works under Podman with the same setup.
 
 ## SES Migration History
 

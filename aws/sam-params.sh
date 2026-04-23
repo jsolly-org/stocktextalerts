@@ -23,6 +23,12 @@ done < "$_ENV_FILE"
 
 : "${SUPABASE_URL_PROD:?SUPABASE_URL_PROD not set in .env.local}"
 : "${SUPABASE_SECRET_KEY_PROD:?SUPABASE_SECRET_KEY_PROD not set in .env.local}"
+: "${MASSIVE_API_KEY:?MASSIVE_API_KEY not set in .env.local}"
+: "${FINNHUB_API_KEY:?FINNHUB_API_KEY not set in .env.local}"
+: "${TWILIO_ACCOUNT_SID:?TWILIO_ACCOUNT_SID not set in .env.local}"
+: "${TWILIO_AUTH_TOKEN:?TWILIO_AUTH_TOKEN not set in .env.local}"
+: "${TWILIO_PHONE_NUMBER:?TWILIO_PHONE_NUMBER not set in .env.local}"
+: "${UNSUBSCRIBE_TOKEN_SECRET:?UNSUBSCRIBE_TOKEN_SECRET not set in .env.local}"
 
 _GIT_SHA="$(git -C "$_PARAMS_DIR/.." rev-parse --short HEAD 2>/dev/null || echo unknown)"
 
