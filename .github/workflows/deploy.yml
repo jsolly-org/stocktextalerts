@@ -147,7 +147,7 @@ jobs:
         run: |
           aws lambda update-function-code \
             --function-name "${{ steps.functions.outputs.schedule }}" \
-            --zip-file fileb://aws/schedule.zip
+            --zip-file fileb://aws/.aws-sam/schedule.zip
           aws lambda wait function-updated-v2 \
             --function-name "${{ steps.functions.outputs.schedule }}"
 
@@ -155,7 +155,7 @@ jobs:
         run: |
           aws lambda update-function-code \
             --function-name "${{ steps.functions.outputs.asset_events }}" \
-            --zip-file fileb://aws/asset-events.zip
+            --zip-file fileb://aws/.aws-sam/asset-events.zip
           aws lambda wait function-updated-v2 \
             --function-name "${{ steps.functions.outputs.asset_events }}"
 
@@ -163,6 +163,6 @@ jobs:
         run: |
           aws lambda update-function-code \
             --function-name "${{ steps.functions.outputs.daily_stats }}" \
-            --zip-file fileb://aws/compute-daily-stats.zip
+            --zip-file fileb://aws/.aws-sam/compute-daily-stats.zip
           aws lambda wait function-updated-v2 \
             --function-name "${{ steps.functions.outputs.daily_stats }}"
