@@ -93,6 +93,7 @@ export function renderIntradaySparklineImg(options: {
 
 	const openPrice = intradayCloses[0];
 	const lastPrice = intradayCloses[intradayCloses.length - 1];
+	if (openPrice === undefined || lastPrice === undefined) return "";
 	const changePercent =
 		openPrice === 0 ? 0 : ((lastPrice - openPrice) / openPrice) * 100;
 	const color = getChangeColor(changePercent);

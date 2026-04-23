@@ -59,7 +59,9 @@ function computeExcessPriceMoveWithMetrics(
 
 	// Scan all snapshots for max absolute move (catches V-reversals)
 	let maxMovePct = 0;
-	let maxMoveRef = snapshots[0].price;
+	// Caller guarantees snapshots.length >= MIN_SNAPSHOTS before reaching here.
+	const firstSnapshot = snapshots[0];
+	let maxMoveRef = firstSnapshot ? firstSnapshot.price : 0;
 	for (const snap of snapshots) {
 		if (snap.price <= 0) continue;
 		const movePct = Math.abs(

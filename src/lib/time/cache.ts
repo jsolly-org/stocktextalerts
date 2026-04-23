@@ -18,14 +18,7 @@ let allTimezonesCache: {
 let allTimezonesInFlight: Promise<DbTimezoneRow[]> | null = null;
 
 function getTimezoneCacheBuster(): string {
-	if (typeof process !== "undefined" && typeof process.env === "object") {
-		const fromProcess = process.env.TIMEZONE_CACHE_BUSTER;
-		if (typeof fromProcess === "string" && fromProcess.trim() !== "") {
-			return fromProcess.trim();
-		}
-	}
-
-	return (import.meta.env.TIMEZONE_CACHE_BUSTER ?? "").trim();
+	return (process.env.TIMEZONE_CACHE_BUSTER ?? "").trim();
 }
 
 async function loadAllTimezones(

@@ -1,17 +1,21 @@
 {
 	"compilerOptions": {
 		"target": "ES2024",
-		"module": "ESNext",
-		"moduleResolution": "bundler",
-		"esModuleInterop": true,
+		"lib": ["ES2024"],
+		"module": "Preserve",
+		"moduleResolution": "Bundler",
+		"isolatedModules": true,
+		"verbatimModuleSyntax": true,
+		"noEmit": true,
 		"strict": true,
-		"strictNullChecks": true,
+		"noUncheckedIndexedAccess": true,
+		"noImplicitOverride": true,
+		"noFallthroughCasesInSwitch": true,
+		"esModuleInterop": true,
+		"resolveJsonModule": true,
 		"skipLibCheck": true,
-		"outDir": "dist",
-		"rootDir": ".",
 		"baseUrl": "..",
-		"declaration": false
+		"types": ["node", "aws-lambda"]
 	},
-	"include": ["src/**/*.ts"],
-	"exclude": ["node_modules", "dist"]
+	"include": ["../src/handlers/**/*.ts"]
 }

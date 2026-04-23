@@ -104,6 +104,7 @@ export function toSvgSparklineImg(
 
 		for (let i = 0; i < timeLabels.length; i++) {
 			const tl = timeLabels[i];
+			if (!tl) continue;
 			const x = padding + tl.position * chartW;
 			// Tick mark
 			svgParts.push(

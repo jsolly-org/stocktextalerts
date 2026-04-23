@@ -1,45 +1,18 @@
-#!/bin/bash
-# Deploy SAM stack using values from ../.env.local
+#!/usr/bin/env bash
+# Deploy the SAM stack using values from ../.env.local. Run via:
+#   cd aws && ./deploy.sh
+# or from repo root:
+#   npm run deploy:aws
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-ENV_FILE="$SCRIPT_DIR/../.env.local"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-if [ ! -f "$ENV_FILE" ]; then
-  echo "Error: .env.local not found at $ENV_FILE"
-  exit 1
-fi
+# shellcheck source=./sam-params.sh
+source "$SCRIPT_DIR/sam-params.sh"
 
-# Source env vars (without expanding globs or splitting)
-while IFS='=' read -r key value; do
-  # Skip comments and empty lines
-  [[ -z "$key" || "$key" == \#* ]] && continue
-  export "$key=$value"
-done < "$ENV_FILE"
-
-# Use prod Supabase values
-SUPABASE_URL="${SUPABASE_URL_PROD:?SUPABASE_URL_PROD not set in .env.local}"
-SUPABASE_SECRET_KEY="${SUPABASE_SECRET_KEY_PROD:?SUPABASE_SECRET_KEY_PROD not set in .env.local}"
-
-# Build first
-npm run build
-
-GIT_SHA="$(git -C "$SCRIPT_DIR/.." rev-parse --short HEAD 2>/dev/null || echo unknown)"
-
-# Deploy from aws/ dir so samconfig.toml is picked up
 cd "$SCRIPT_DIR"
-sam deploy \
-  --parameter-overrides \
-    SupabaseUrl="$SUPABASE_URL" \
-    SupabaseSecretKey="$SUPABASE_SECRET_KEY" \
-    SiteUrl="https://stocktextalerts.com" \
-    MassiveApiKey="$MASSIVE_API_KEY" \
-    FinnhubApiKey="$FINNHUB_API_KEY" \
-    XaiApiKey="$XAI_API_KEY" \
-    EmailFrom="$EMAIL_FROM" \
-    TwilioAccountSid="$TWILIO_ACCOUNT_SID" \
-    TwilioAuthToken="$TWILIO_AUTH_TOKEN" \
-    TwilioPhoneNumber="$TWILIO_PHONE_NUMBER" \
-    UnsubscribeTokenSecret="$UNSUBSCRIBE_TOKEN_SECRET" \
-    LogMaskPii="true" \
-    GitSha="$GIT_SHA"
+# Prepend repo node_modules/.bin so SAM's native esbuild integration finds
+# the pinned esbuild binary (not whatever is globally installed).
+PATH="$REPO_ROOT/node_modules/.bin:$PATH" sam build
+sam deploy --parameter-overrides "${SAM_PARAMS[@]}"

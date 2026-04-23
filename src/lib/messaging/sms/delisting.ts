@@ -24,8 +24,8 @@ export function formatDelistingSms(holdings: DelistedHolding[]): string {
 	const sorted = [...holdings].sort((a, b) => a.symbol.localeCompare(b.symbol));
 	const isSingle = sorted.length === 1;
 
-	if (isSingle) {
-		const h = sorted[0];
+	const h = sorted[0];
+	if (isSingle && h) {
 		const exchange = h.exchange ? ` on ${h.exchange}` : "";
 		const body = `StockTextAlerts: ${h.symbol} (${h.name}) was delisted${exchange} on ${h.delistedDate} and has been removed from your tracked assets.`;
 		return truncateSms(body);

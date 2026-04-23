@@ -14,6 +14,7 @@ import nodemailer, { type Transporter } from "nodemailer";
 import { readEnv, requireEnv } from "../../db/env";
 import { rootLogger } from "../../logging";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
+import { isProduction } from "../../runtime/mode";
 import { escapeHtml, formatAssetsHtmlList } from "../asset-formatting";
 import {
 	buildMarketClosedBannerHtml,
@@ -109,7 +110,7 @@ export function createEmailSender(): EmailSender {
 	// 2. Hard gate: no real SES outside production builds, ever. Tests and
 	// `astro dev` receive a no-op mock so they can never burn SES credits
 	// or deliver to real mailboxes.
-	if (import.meta.env.MODE !== "production") {
+	if (!isProduction()) {
 		return async () => ({
 			success: true,
 			messageSid: "mock",

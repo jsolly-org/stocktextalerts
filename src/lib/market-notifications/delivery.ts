@@ -50,7 +50,8 @@ function formatPriceContextWithSparkline(
 			const idx = Math.round(
 				(i / (maxSparklineLength - 1)) * (values.length - 1),
 			);
-			sampled.push(values[idx]);
+			const v = values[idx];
+			if (v !== undefined) sampled.push(v);
 		}
 		values = sampled;
 	}

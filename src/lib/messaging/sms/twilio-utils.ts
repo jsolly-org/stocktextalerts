@@ -5,6 +5,7 @@ Twilio SMS
 import twilio, { type RestException } from "twilio";
 import { requireEnv } from "../../db/env";
 import { rootLogger } from "../../logging";
+import { isProduction } from "../../runtime/mode";
 
 import type { DeliveryResult } from "../types";
 
@@ -26,7 +27,6 @@ type TwilioClient = ReturnType<typeof twilio>;
 
 /**
  * Read validated Twilio credentials from environment variables.
- * Uses process.env — Astro 6 statically inlines import.meta.env at build time.
  */
 export function readTwilioConfig(): TwilioConfig {
 	return {
@@ -60,11 +60,11 @@ export function createSmsSender(
 	// Hard gate: non-production always mocks. The `client` arg is ignored in
 	// this branch, so even if upstream constructs a real Twilio client with
 	// prod credentials from .env.local, we never call .messages.create on it.
-	if (import.meta.env.MODE !== "production") {
-		const behavior = import.meta.env.SMS_TEST_BEHAVIOR ?? "success";
-		const testMessageSid = import.meta.env.SMS_TEST_MESSAGE_SID ?? "mock";
-		const testError = import.meta.env.SMS_TEST_ERROR ?? "Test SMS failure";
-		const testErrorCode = import.meta.env.SMS_TEST_ERROR_CODE;
+	if (!isProduction()) {
+		const behavior = process.env.SMS_TEST_BEHAVIOR ?? "success";
+		const testMessageSid = process.env.SMS_TEST_MESSAGE_SID ?? "mock";
+		const testError = process.env.SMS_TEST_ERROR ?? "Test SMS failure";
+		const testErrorCode = process.env.SMS_TEST_ERROR_CODE;
 		return async (request: SmsRequest) => {
 			if (!request.to || !request.body) {
 				return {

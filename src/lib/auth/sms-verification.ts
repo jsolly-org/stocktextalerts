@@ -1,6 +1,7 @@
 import twilio, { type RestException } from "twilio";
 import { requireEnv } from "../db/env";
 import { rootLogger } from "../logging";
+import { isProduction } from "../runtime/mode";
 
 function handleTwilioError(
 	error: unknown,
@@ -78,7 +79,7 @@ export async function sendVerification(
 ): Promise<{ success: boolean; error?: string }> {
 	// Hard gate: Twilio Verify charges per attempt and delivers real SMS.
 	// Tests and dev always succeed without network calls.
-	if (import.meta.env.MODE !== "production") {
+	if (!isProduction()) {
 		return { success: true };
 	}
 	try {
@@ -107,7 +108,7 @@ export async function checkVerification(
 	// Hard gate: non-production accepts MOCK_VERIFICATION_CODE and rejects
 	// everything else, letting local OTP flows exercise both success and
 	// failure paths without calling Twilio.
-	if (import.meta.env.MODE !== "production") {
+	if (!isProduction()) {
 		if (code === MOCK_VERIFICATION_CODE) {
 			return { success: true };
 		}

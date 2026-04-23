@@ -57,8 +57,10 @@ export function markdownLinksToHtml(content: string): string {
 			// Insert a space between adjacent links so underlines don't merge.
 			parts.push(" ");
 		}
-		const linkText = escapeHtml(match[1]);
-		const url = escapeHtml(match[2]);
+		const [, captureText, captureUrl] = match;
+		if (!captureText || !captureUrl) continue;
+		const linkText = escapeHtml(captureText);
+		const url = escapeHtml(captureUrl);
 		parts.push(
 			`<a href="${url}" style="${LINK_STYLE}" target="_blank" rel="noopener noreferrer">${linkText}</a>`,
 		);

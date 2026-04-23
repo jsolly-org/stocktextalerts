@@ -105,8 +105,16 @@ jobs:
         working-directory: aws
         run: npm ci
 
-      - name: Build Lambda bundles
-        run: npx tsx aws/esbuild.config.ts
+      - name: Setup SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      - name: Build Lambda bundles (SAM-native esbuild)
+        working-directory: aws
+        # Prepend repo node_modules/.bin so SAM's esbuild integration finds
+        # the pinned esbuild binary (it resolves via walk-up from base_dir).
+        run: PATH="$GITHUB_WORKSPACE/node_modules/.bin:$PATH" sam build
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v6.0.0
@@ -129,17 +137,17 @@ jobs:
           echo "daily_stats=$(get_physical_id ComputeDailyStatsFunction)" >> "$GITHUB_OUTPUT"
 
       - name: Zip Lambda bundles
-        working-directory: aws/dist/handlers
+        working-directory: aws/.aws-sam/build
         run: |
-          zip schedule.zip schedule.mjs
-          zip asset-events.zip asset-events.mjs
-          zip compute-daily-stats.zip compute-daily-stats.mjs
+          (cd ScheduleFunction && zip -r ../../schedule.zip .)
+          (cd AssetEventsFunction && zip -r ../../asset-events.zip .)
+          (cd ComputeDailyStatsFunction && zip -r ../../compute-daily-stats.zip .)
 
       - name: Deploy ScheduleFunction
         run: |
           aws lambda update-function-code \
             --function-name "${{ steps.functions.outputs.schedule }}" \
-            --zip-file fileb://aws/dist/handlers/schedule.zip
+            --zip-file fileb://aws/schedule.zip
           aws lambda wait function-updated-v2 \
             --function-name "${{ steps.functions.outputs.schedule }}"
 
@@ -147,7 +155,7 @@ jobs:
         run: |
           aws lambda update-function-code \
             --function-name "${{ steps.functions.outputs.asset_events }}" \
-            --zip-file fileb://aws/dist/handlers/asset-events.zip
+            --zip-file fileb://aws/asset-events.zip
           aws lambda wait function-updated-v2 \
             --function-name "${{ steps.functions.outputs.asset_events }}"
 
@@ -155,6 +163,6 @@ jobs:
         run: |
           aws lambda update-function-code \
             --function-name "${{ steps.functions.outputs.daily_stats }}" \
-            --zip-file fileb://aws/dist/handlers/compute-daily-stats.zip
+            --zip-file fileb://aws/compute-daily-stats.zip
           aws lambda wait function-updated-v2 \
             --function-name "${{ steps.functions.outputs.daily_stats }}"

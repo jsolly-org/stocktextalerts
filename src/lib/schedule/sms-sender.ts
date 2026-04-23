@@ -3,6 +3,7 @@ import {
 	createTwilioClient,
 	readTwilioConfig,
 } from "../messaging/sms/twilio-utils";
+import { isProduction } from "../runtime/mode";
 
 interface SmsSenderResult {
 	sender: ReturnType<typeof createSmsSender>;
@@ -30,7 +31,7 @@ export function createSmsSenderProvider(): SmsSenderProvider {
 			return { sender: sendSms };
 		}
 
-		if (import.meta.env.MODE !== "production") {
+		if (!isProduction()) {
 			// Pass a sentinel client object — the mock branch inside
 			// createSmsSender ignores the `client` arg entirely, so this
 			// never touches the Twilio SDK.

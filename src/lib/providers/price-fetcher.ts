@@ -1,6 +1,7 @@
 import { US_MARKET_TIMEZONE } from "../constants";
 import { rootLogger } from "../logging";
 import { type SparklineMap, toSparkline } from "../messaging/sparkline";
+import { isTest } from "../runtime/mode";
 import {
 	fetchDailyCloses,
 	fetchPrevDayBar,
@@ -43,7 +44,7 @@ function isLiveMassiveEnabledInTests(): boolean {
 export async function fetchAssetPrices(
 	symbols: string[],
 ): Promise<AssetPriceMap> {
-	if (import.meta.env.MODE === "test" && !isLiveMassiveEnabledInTests()) {
+	if (isTest() && !isLiveMassiveEnabledInTests()) {
 		return new Map(
 			symbols.map((s) => [s, { price: 150.0, changePercent: 1.25 }]),
 		);
@@ -57,7 +58,7 @@ export async function fetchAssetPrices(
 export async function fetchExtendedQuotes(
 	symbols: string[],
 ): Promise<ExtendedQuoteMap> {
-	if (import.meta.env.MODE === "test" && !isLiveMassiveEnabledInTests()) {
+	if (isTest() && !isLiveMassiveEnabledInTests()) {
 		return new Map(
 			symbols.map((s) => [
 				s,
@@ -132,7 +133,7 @@ export async function fetchSparklines(
 	const result: SparklineMap = new Map();
 	if (symbols.length === 0) return result;
 
-	if (import.meta.env.MODE === "test" && !isLiveMassiveEnabledInTests()) {
+	if (isTest() && !isLiveMassiveEnabledInTests()) {
 		const stubValues = [1, 2, 3, 5, 7, 5, 3];
 		for (const s of symbols) {
 			result.set(s, { values: stubValues, ascii: "▁▂▃▅▇▅▃" });
@@ -187,7 +188,7 @@ export async function fetchSparklines(
 
 /** Return whether the US market is currently open (best-effort; defaults to closed). */
 export async function fetchMarketStatus(): Promise<boolean> {
-	if (import.meta.env.MODE === "test" && !isLiveMassiveEnabledInTests()) {
+	if (isTest() && !isLiveMassiveEnabledInTests()) {
 		return true;
 	}
 

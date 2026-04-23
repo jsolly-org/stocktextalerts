@@ -18,12 +18,6 @@ interface ImportMetaEnv {
 	readonly VERCEL_PROJECT_PRODUCTION_URL?: string;
 	readonly MASSIVE_API_KEY: string;
 	readonly FINNHUB_API_KEY: string;
-	readonly TIMEZONE_CACHE_BUSTER?: string;
-	readonly SMS_TEST_BEHAVIOR?: "success" | "fail";
-	readonly SMS_TEST_MESSAGE_SID?: string;
-	readonly SMS_TEST_ERROR?: string;
-	readonly SMS_TEST_ERROR_CODE?: string;
-	readonly LIVE_API_PROVIDERS?: string;
 }
 
 declare module "*.svg?component" {

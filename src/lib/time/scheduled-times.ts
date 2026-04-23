@@ -30,7 +30,7 @@ function pickLaterOffset(candidate: DateTime): DateTime {
 		return candidate;
 	}
 
-	return possibleOffsets[possibleOffsets.length - 1];
+	return possibleOffsets[possibleOffsets.length - 1] ?? candidate;
 }
 
 /**

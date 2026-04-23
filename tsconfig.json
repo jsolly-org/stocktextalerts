@@ -14,7 +14,6 @@
 				"name": "@astrojs/ts-plugin"
 			}
 		],
-		"strictNullChecks": true,
 		"allowJs": true,
 		"baseUrl": ".",
 		"skipLibCheck": true

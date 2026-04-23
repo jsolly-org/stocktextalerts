@@ -11,6 +11,7 @@
 		"dev": "astro dev",
 		"build": "astro build",
 		"build:preview": "ASTRO_ADAPTER=node astro build",
+		"deploy:aws": "npm --prefix aws run deploy",
 		"preview": "ASTRO_ADAPTER=node astro preview --port 4323",
 		"prepare": "if [ -z \"$CI\" ]; then husky; fi",
 		"pretest": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/doctor.ts",
@@ -63,9 +64,6 @@
 		"twilio": "^5.13.1",
 		"vue": "^3.5.32"
 	},
-	"overrides": {
-		"lodash": "4.17.23"
-	},
 	"devDependencies": {
 		"@astrojs/node": "^10.0.4",
 		"@astrojs/sitemap": "^3.7.2",
@@ -75,10 +73,11 @@
 		"@biomejs/biome": "2.4.7",
 		"@playwright/test": "^1.59.1",
 		"@tailwindcss/vite": "^4.2.2",
+		"@types/aws-lambda": "^8.10.161",
 		"@types/luxon": "^3.7.1",
 		"@types/nodemailer": "^8.0.0",
 		"@types/pg": "^8.20.0",
-		"astro": "^6.1.1",
+		"astro": "^6.1.9",
 		"husky": "^9.1.7",
 		"knip": "^6.2.0",
 		"lighthouse": "^13.0.3",
