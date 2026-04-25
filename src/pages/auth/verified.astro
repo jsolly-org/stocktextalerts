@@ -63,7 +63,12 @@ if (Astro.request.method === "POST") {
 		return Astro.redirect("/auth/signin?error=invalid_verification");
 	}
 
-	if (!data.user.email_confirmed_at) {
+	// Only meaningful for signup confirmation. For email_change with
+	// double_confirm_changes, the user is already confirmed (we're swapping
+	// which email, not creating a new account), and the second click of the
+	// double-confirm fires with no session — Supabase returns a partial user
+	// shape there, which would falsely trip this check.
+	if (type === "email" && !data.user.email_confirmed_at) {
 		rootLogger.error("User email not confirmed after token verification", {
 			userId: data.user.id,
 		});
