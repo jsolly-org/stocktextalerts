@@ -363,7 +363,10 @@ async function logRetriesExhausted(options: {
 	}
 
 	if (data.attempt_count >= MAX_NOTIFICATION_RETRIES) {
-		options.logger.warn("Retries exhausted; will retry next local day", {
+		// Terminal delivery failure for today (any cause: Twilio outage, DB
+		// error, sustained rate limit). Next-day cron tick reattempts, but
+		// the user missed today's notification — alarm should see this.
+		options.logger.error("Retries exhausted; will retry next local day", {
 			userId: options.userId,
 			channel: options.channel,
 		});

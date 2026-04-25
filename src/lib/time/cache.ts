@@ -158,6 +158,9 @@ export async function resolveTimezone(options: {
 			return detectedTimezone;
 		}
 
+		// Browser-supplied timezone we don't recognize — falls back to
+		// DEFAULT_TIMEZONE. Treated as invalid user input (info), not a
+		// system failure.
 		rootLogger.info("Detected timezone not found in database", {
 			detectedTimezone,
 		});

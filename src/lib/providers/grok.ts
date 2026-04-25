@@ -454,7 +454,7 @@ async function callGrokApi(options: {
 }): Promise<GrokSectionResult | null> {
 	const apiKey = readEnv("XAI_API_KEY");
 	if (!apiKey || apiKey.trim() === "") {
-		rootLogger.info("Skipping Grok call: XAI_API_KEY is not set", {
+		rootLogger.error("XAI_API_KEY is not set; skipping Grok call", {
 			...options.logContext,
 			reason: "missing_api_key",
 		});
@@ -465,6 +465,9 @@ async function callGrokApi(options: {
 
 	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
 		const isLastAttempt = attempt === MAX_RETRIES;
+		// warn for non-final attempts because they will escalate to error on
+		// exhaustion; the alarm metric filter only fires on error so transient
+		// retry churn doesn't page, but a sustained outage does.
 		const log = isLastAttempt
 			? rootLogger.error.bind(rootLogger)
 			: rootLogger.warn.bind(rootLogger);
@@ -487,12 +490,23 @@ async function callGrokApi(options: {
 			});
 
 			if (!response.ok) {
-				log("Grok request failed", {
+				const failureContext = {
 					...options.logContext,
 					attempt,
 					status: response.status,
 					statusText: response.statusText,
-				});
+				};
+				// 429 is an expected rejection even on exhaustion — sustained
+				// rate limiting isn't pageable. Other final-attempt failures
+				// log at error so genuine outages surface.
+				if (response.status === 429 && isLastAttempt) {
+					rootLogger.info(
+						"Grok request rate limited (retries exhausted)",
+						failureContext,
+					);
+					return null;
+				}
+				log("Grok request failed", failureContext);
 				if (!isLastAttempt) {
 					await delay(attempt);
 					continue;

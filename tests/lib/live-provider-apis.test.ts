@@ -26,7 +26,7 @@ import {
 	assertLiveProviderKey,
 	isLiveProviderEnabled,
 } from "../helpers/live-api";
-import { expectConsoleError, expectConsoleWarning } from "../setup";
+import { expectConsoleError } from "../setup";
 
 const describeMassiveLive = isLiveProviderEnabled("massive")
 	? describe
@@ -391,9 +391,10 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 describeFinnhubLive("Finnhub live API (opt-in)", () => {
 	assertLiveProviderKey({ provider: "finnhub", envVar: "FINNHUB_API_KEY" });
 
-	// Live API calls may experience transient timeouts/rate-limits that trigger retries
+	// Live API calls may experience transient timeouts/rate-limits that trigger retries.
+	// Rate-limit exhaustion logs at info (not pageable on free tier); other failures
+	// log at error.
 	beforeEach(() => {
-		expectConsoleWarning(/Finnhub/);
 		expectConsoleError(/Finnhub/);
 	});
 

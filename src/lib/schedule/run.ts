@@ -532,7 +532,10 @@ export async function runScheduledNotifications(options: {
 			);
 		}
 	} else {
-		logger.warn("Flat price alerts skipped: upstream quote fetch unavailable", {
+		// Upstream price-alert processing already logged at error if it threw;
+		// this is a defensive trace explaining why the downstream step is
+		// skipped, not a separate failure to alarm on.
+		logger.info("Flat price alerts skipped: upstream quote fetch unavailable", {
 			action: "flat_price_alerts",
 			hasQuoteMap: Boolean(priceAlertQuoteMap),
 			hasMarketStatus: priceAlertIsMarketOpen !== undefined,

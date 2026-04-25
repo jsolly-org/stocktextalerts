@@ -52,12 +52,24 @@ export async function storeSnapshots(
 
 	if (rows.length === 0) return;
 
-	const { error } = await supabase.from("asset_snapshots").insert(rows);
-	if (error) {
+	// Catch transport-level throws (ECONNREFUSED, AbortError) too — supabase-js
+	// resolves to { error } for HTTP failures but can throw before reaching the
+	// response. Anomaly detection degrades gracefully if this fails, so we
+	// log and swallow rather than aborting the alert run.
+	try {
+		const { error } = await supabase.from("asset_snapshots").insert(rows);
+		if (error) {
+			rootLogger.error(
+				"Failed to insert asset snapshots",
+				{ count: rows.length },
+				error,
+			);
+		}
+	} catch (error) {
 		rootLogger.error(
 			"Failed to insert asset snapshots",
 			{ count: rows.length },
-			error,
+			error instanceof Error ? error : new Error(String(error)),
 		);
 	}
 }
@@ -145,9 +157,7 @@ export async function purgeOldAssetSnapshots(
 		p_retention_minutes: retentionMinutes,
 	});
 	if (error) {
-		// Non-fatal: purge runs every cron tick, so a transient Supabase/Cloudflare
-		// 5xx self-heals on the next iteration. Alarm threshold catches sustained failures.
-		rootLogger.warn(
+		rootLogger.error(
 			"Failed to purge old asset snapshots",
 			{ retentionMinutes },
 			error,

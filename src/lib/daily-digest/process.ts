@@ -401,6 +401,9 @@ export async function processDailyDigestUser(options: {
 					tickers: missingTickers,
 				});
 			} else if (missingTickers.length > 0) {
+				// warn because the snapshot retry below escalates to error if
+				// any tickers remain missing — keeps transient partial gaps
+				// from alarming while sustained data loss surfaces.
 				logger.warn("Partial price data missing for daily digest tickers", {
 					action: "daily_run",
 					userId: user.id,

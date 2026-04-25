@@ -193,11 +193,10 @@ function createSmtpSender(options: {
 			});
 			return { success: true, messageSid: info.messageId };
 		} catch (error) {
-			// `warn` (not `error`) because the SMTP branch only runs in dev /
-			// tests — a failure here means "Mailpit isn't running" or the
-			// developer's SMTP config is off, not a production outage. A
-			// real SES outage logs at `error` from the production branch above.
-			rootLogger.warn(
+			// SMTP branch is dev/test-only (Mailpit) — never runs in prod, so
+			// it can't trip ErrorLogAlarm. info because there's no retry to
+			// escalate: it's just "your local Mailpit isn't running."
+			rootLogger.info(
 				"SMTP error sending email",
 				{ action: "send_email_notification_smtp", host: options.host, port },
 				error,

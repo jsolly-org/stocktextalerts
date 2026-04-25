@@ -1,3 +1,4 @@
+import { readEnv } from "../db/env";
 import { rootLogger } from "../logging";
 import {
 	applyAnnotationsInline,
@@ -166,8 +167,15 @@ export async function generatePriceAlertSummary(options: {
 	priceContext: string;
 	signalContext: string;
 }): Promise<PriceAlertGrokResult | null> {
-	const apiKey = process.env.XAI_API_KEY;
-	if (!apiKey || apiKey.trim() === "") {
+	const apiKey = readEnv("XAI_API_KEY");
+	if (!apiKey) {
+		rootLogger.error(
+			"XAI_API_KEY is not set; skipping Grok price alert summary",
+			{
+				symbol: options.symbol,
+				reason: "missing_api_key",
+			},
+		);
 		return null;
 	}
 
@@ -199,20 +207,37 @@ export async function generatePriceAlertSummary(options: {
 		});
 
 		if (!response.ok) {
-			rootLogger.error("Grok price alert summary failed", {
+			const context = {
+				symbol: options.symbol,
 				status: response.status,
-			});
+			};
+			// 429 is an expected rejection (info). Everything else terminates
+			// this single-attempt call with no retry, so it's either upstream
+			// outage (5xx) or misconfiguration (4xx) — both error-level so
+			// sustained Grok failures surface via ErrorLogAlarm rather than
+			// silently stripping AI summaries from price alerts.
+			if (response.status === 429) {
+				rootLogger.info("Grok price alert summary rate limited", context);
+			} else {
+				rootLogger.error("Grok price alert summary failed", context);
+			}
 			return null;
 		}
 
 		const data = (await response.json()) as ResponsesResponse;
 		return parseGrokPriceAlertResponse(data);
 	} catch (error) {
-		const reason =
-			error instanceof Error && error.name === "TimeoutError"
-				? "timeout"
-				: "request_failed";
-		rootLogger.error("Grok price alert summary error", { reason }, error);
+		const isTimeout = error instanceof Error && error.name === "TimeoutError";
+		// Single attempt with no retry — log at error so sustained Grok
+		// unreachability surfaces rather than silently stripping summaries.
+		rootLogger.error(
+			"Grok price alert summary error",
+			{
+				symbol: options.symbol,
+				reason: isTimeout ? "timeout" : "request_failed",
+			},
+			error,
+		);
 		return null;
 	}
 }

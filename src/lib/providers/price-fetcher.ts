@@ -117,7 +117,7 @@ async function fillSnapshotMissesWithPrevDayBar(
 				snapshot.set(symbol, bar);
 			}
 		} catch (error) {
-			rootLogger.info(
+			rootLogger.error(
 				"Prev-day-bar fallback failed",
 				{ symbol },
 				error instanceof Error ? error : new Error(String(error)),
@@ -165,7 +165,12 @@ export async function fetchSparklines(
 			const last7 = closes.slice(-7);
 			const ascii = toSparkline(last7);
 			result.set(symbol, ascii ? { values: last7, ascii } : null);
-		} catch {
+		} catch (error) {
+			rootLogger.error(
+				"Sparkline fetch failed",
+				{ symbol },
+				error instanceof Error ? error : new Error(String(error)),
+			);
 			result.set(symbol, null);
 		}
 	}
@@ -198,6 +203,9 @@ export async function fetchMarketStatus(): Promise<boolean> {
 		"market-status",
 	);
 	if (typeof data !== "object" || data === null) {
+		rootLogger.error("Invalid Massive market status payload shape", {
+			payloadType: typeof data,
+		});
 		return false;
 	}
 

@@ -105,10 +105,9 @@ export async function finnhubFetch(
 	const query = new URLSearchParams({ ...params, token: apiKey });
 	const url = `${FINNHUB_BASE_URL}${endpoint}?${query.toString()}`;
 
-	// Per-attempt failures are silent — the aggregating callers (asset-events,
-	// daily-digest) escalate severity based on overall outcome via
-	// ProviderResult.failed. Only the terminal exhaustion is logged (warn),
-	// so alerts fire on genuine outages rather than transient retry churn.
+	// Per-attempt failures are silent. Only terminal exhaustion is logged:
+	// rate-limit exhaustion at info (expected on free tier), other failures
+	// at error (genuine outage).
 	let lastFailure: FinnhubFailure | null = null;
 
 	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -175,7 +174,14 @@ export async function finnhubFetch(
 		};
 		if (lastFailure.reason === "rate_limited") {
 			context.status = lastFailure.status;
-			rootLogger.warn(`Finnhub ${label} exhausted retries`, context);
+			// Rate-limit exhaustion is an expected operational reality on
+			// Finnhub's free tier — not pageable. Terminal state, no further
+			// retry, so info (not warn) per project rule that warn requires
+			// an escalation path.
+			rootLogger.info(
+				`Finnhub ${label} exhausted retries (rate limited)`,
+				context,
+			);
 		} else if (lastFailure.reason === "api_error") {
 			context.status = lastFailure.status;
 			rootLogger.error(`Finnhub ${label} exhausted retries`, context);
@@ -241,10 +247,25 @@ async function fetchInsiderTransactions(
 		{ symbol },
 		"insider-transactions",
 	);
-	if (typeof data !== "object" || data === null) return [];
+	// `null` means finnhubFetch already logged the failure; don't double-log.
+	if (data === null) return [];
+
+	if (typeof data !== "object") {
+		rootLogger.error("Invalid Finnhub insider-transactions payload shape", {
+			symbol,
+			payloadType: typeof data,
+		});
+		return [];
+	}
 
 	const transactions = (data as Record<string, unknown>).data;
-	if (!Array.isArray(transactions)) return [];
+	if (!Array.isArray(transactions)) {
+		rootLogger.error("Invalid Finnhub insider-transactions data field", {
+			symbol,
+			dataType: typeof transactions,
+		});
+		return [];
+	}
 
 	// Only include transactions from the last 24 hours
 	const cutoffDate = new Date(Date.now() - 24 * 60 * 60 * 1000)

@@ -301,15 +301,9 @@ export async function processPriceAlerts(options: {
 		const quote = quoteMap.get(symbol);
 		if (quote) quoteMapForSnapshots.set(symbol, quote);
 	}
-	try {
-		await storeSnapshots(supabase, quoteMapForSnapshots);
-	} catch (err) {
-		rootLogger.error(
-			"Failed to persist snapshots for anomaly scoring; continuing alert run",
-			{ symbolCount: quoteMapForSnapshots.size },
-			err,
-		);
-	}
+	// storeSnapshots logs its own errors and never throws — anomaly detection
+	// degrades gracefully if persistence fails, so we continue the alert run.
+	await storeSnapshots(supabase, quoteMapForSnapshots);
 
 	const users = await fetchPriceAlertUsers(supabase);
 	if (users.length === 0) {

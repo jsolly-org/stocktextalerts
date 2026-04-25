@@ -102,13 +102,10 @@ export async function marketDataFetch(
 	const query = new URLSearchParams({ ...params, apiKey });
 	const url = `${MASSIVE_BASE_URL}${endpoint}?${query.toString()}`;
 
-	// All per-attempt failures log at info — aggregating callers (price fetcher,
-	// delisting sweep, asset-events) escalate severity based on overall outcome.
-	// Per AGENTS.md, rate limits and transient upstream errors are not error-level
-	// events. This also prevents the ErrorLogAlarm metric filter from flagging
-	// transient Massive flaps as production errors.
-	const log = rootLogger.info.bind(rootLogger);
-
+	// Per-attempt failures log at info (transient retry churn). Final-attempt
+	// failures escalate: 429 stays info (rate limiting is an expected rejection),
+	// non-429 errors and exception paths log at error so the ErrorLogAlarm
+	// catches sustained Massive outages that take the price feed down.
 	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
 		const isLastAttempt = attempt === MAX_RETRIES;
 
@@ -121,7 +118,7 @@ export async function marketDataFetch(
 				const retryAfterMs = parseRetryAfterMs(
 					response.headers.get("Retry-After"),
 				);
-				log(`Massive ${label} rate limited (429)`, {
+				rootLogger.info(`Massive ${label} rate limited (429)`, {
 					endpoint,
 					attempt,
 					status: 429,
@@ -144,33 +141,43 @@ export async function marketDataFetch(
 					// Ignore malformed/non-JSON error bodies.
 				}
 
-				log(`Massive ${label} API error`, {
+				const apiErrorContext = {
 					endpoint,
 					attempt,
 					status: response.status,
 					apiStatus,
 					...logContext,
-				});
-				if (!isLastAttempt) {
-					await realDelay(computeRetryDelayMs(attempt, null));
-					continue;
+				};
+				if (isLastAttempt) {
+					rootLogger.error(
+						`Massive ${label} exhausted retries`,
+						apiErrorContext,
+					);
+					return null;
 				}
-				return null;
+				rootLogger.info(`Massive ${label} API error`, apiErrorContext);
+				await realDelay(computeRetryDelayMs(attempt, null));
+				continue;
 			}
 
 			return await response.json();
 		} catch (error) {
-			log(`Massive ${label} request failed`, {
+			const requestErrorContext = {
 				endpoint,
 				attempt,
 				error: error instanceof Error ? error.message : String(error),
 				...logContext,
-			});
-			if (!isLastAttempt) {
-				await realDelay(computeRetryDelayMs(attempt, null));
-				continue;
+			};
+			if (isLastAttempt) {
+				rootLogger.error(
+					`Massive ${label} exhausted retries`,
+					requestErrorContext,
+					error instanceof Error ? error : new Error(String(error)),
+				);
+				return null;
 			}
-			return null;
+			rootLogger.info(`Massive ${label} request failed`, requestErrorContext);
+			await realDelay(computeRetryDelayMs(attempt, null));
 		}
 	}
 
