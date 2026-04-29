@@ -77,10 +77,13 @@ Resources:
         EntryPoints:
           - schedule.ts
     Properties:
+      FunctionName: stocktextalerts-schedule
       Handler: schedule.handler
       CodeUri: src/handlers
       Timeout: 300
       MemorySize: 512
+      LoggingConfig:
+        LogGroup: !Ref ScheduleLogGroup
       Policies:
         - Version: "2012-10-17"
           Statement:
@@ -122,10 +125,13 @@ Resources:
         EntryPoints:
           - asset-events.ts
     Properties:
+      FunctionName: stocktextalerts-asset-events
       Handler: asset-events.handler
       CodeUri: src/handlers
       Timeout: 300
       MemorySize: 256
+      LoggingConfig:
+        LogGroup: !Ref AssetEventsLogGroup
       Policies:
         # Required by the daily delisting sweep, which emails affected
         # users when one of their holdings gets delisted. SMS is delivered
@@ -169,10 +175,13 @@ Resources:
         EntryPoints:
           - compute-daily-stats.ts
     Properties:
+      FunctionName: stocktextalerts-compute-daily-stats
       Handler: compute-daily-stats.handler
       CodeUri: src/handlers
       Timeout: 600
       MemorySize: 256
+      LoggingConfig:
+        LogGroup: !Ref ComputeDailyStatsLogGroup
       Environment:
         Variables:
           MASSIVE_API_KEY: !Ref MassiveApiKey
@@ -313,15 +322,38 @@ Resources:
       OKActions:
         - !Ref AlertTopicArn
 
+  # ---------- Lambda Log Groups ----------
+  # Explicit log groups with 30-day retention, named after each Lambda's
+  # FunctionName so the alert-hub enricher's prefix discovery
+  # (describe_log_groups prefix=/aws/lambda/<namespace>) finds them.
+
+  ScheduleLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/stocktextalerts-schedule
+      RetentionInDays: 30
+
+  AssetEventsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/stocktextalerts-asset-events
+      RetentionInDays: 30
+
+  ComputeDailyStatsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/stocktextalerts-compute-daily-stats
+      RetentionInDays: 30
+
   # ---------- Error Log Metric Filters ----------
 
   ScheduleErrorLogFilter:
     Type: AWS::Logs::MetricFilter
     Properties:
-      LogGroupName: !Sub /aws/lambda/${ScheduleFunction}
+      LogGroupName: !Ref ScheduleLogGroup
       FilterPattern: '{ $.level = "error" }'
       MetricTransformations:
-        - MetricNamespace: stocktextalerts-crons
+        - MetricNamespace: stocktextalerts
           MetricName: ErrorLogCount
           MetricValue: "1"
           DefaultValue: 0
@@ -329,10 +361,10 @@ Resources:
   AssetEventsErrorLogFilter:
     Type: AWS::Logs::MetricFilter
     Properties:
-      LogGroupName: !Sub /aws/lambda/${AssetEventsFunction}
+      LogGroupName: !Ref AssetEventsLogGroup
       FilterPattern: '{ $.level = "error" }'
       MetricTransformations:
-        - MetricNamespace: stocktextalerts-crons
+        - MetricNamespace: stocktextalerts
           MetricName: ErrorLogCount
           MetricValue: "1"
           DefaultValue: 0
@@ -340,10 +372,10 @@ Resources:
   ComputeDailyStatsErrorLogFilter:
     Type: AWS::Logs::MetricFilter
     Properties:
-      LogGroupName: !Sub /aws/lambda/${ComputeDailyStatsFunction}
+      LogGroupName: !Ref ComputeDailyStatsLogGroup
       FilterPattern: '{ $.level = "error" }'
       MetricTransformations:
-        - MetricNamespace: stocktextalerts-crons
+        - MetricNamespace: stocktextalerts
           MetricName: ErrorLogCount
           MetricValue: "1"
           DefaultValue: 0
@@ -353,9 +385,9 @@ Resources:
   ErrorLogAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: stocktextalerts-crons-error-logs
+      AlarmName: stocktextalerts-error-logs
       AlarmDescription: ERROR logged in stocktextalerts Lambda functions (sustained)
-      Namespace: stocktextalerts-crons
+      Namespace: stocktextalerts
       MetricName: ErrorLogCount
       Statistic: Sum
       Period: 300
