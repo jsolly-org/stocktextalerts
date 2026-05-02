@@ -11,6 +11,7 @@ echo "Ensuring staged files are linted/formatted..."
 npx lint-staged
 
 echo "Running checks..."
+bash "$HOME/code/family-memory/scripts/check-biome-rules.sh" biome.jsonc
 # Strict Biome gate: unresolved warnings or errors must block the commit.
 npx biome ci . --error-on-warnings
 npm run check:yaml
