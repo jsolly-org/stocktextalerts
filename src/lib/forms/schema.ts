@@ -86,15 +86,13 @@ type InferField<TSpec> = TSpec extends {
 	: InferNonEnumField<TSpec>;
 
 type RequiredFields<TSchema extends FormSchema> = {
-	[K in keyof TSchema as TSchema[K] extends { required: true }
-		? K
-		: never]: InferField<TSchema[K]>;
+	[K in keyof TSchema as TSchema[K] extends { required: true } ? K : never]: InferField<TSchema[K]>;
 };
 
 type OptionalFields<TSchema extends FormSchema> = {
-	[K in keyof TSchema as TSchema[K] extends { required: true }
-		? never
-		: K]?: InferField<TSchema[K]>;
+	[K in keyof TSchema as TSchema[K] extends { required: true } ? never : K]?: InferField<
+		TSchema[K]
+	>;
 };
 
 export type InferSchema<TSchema extends FormSchema> = RequiredFields<TSchema> &

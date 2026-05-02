@@ -9,9 +9,7 @@ const ANOMALY_THRESHOLDS: Record<AlertMoveSize, number> = {
 };
 
 /** Normalize legacy move-size values to current tiers (moderate→significant, large→extreme). */
-export function normalizeMoveSize(
-	value: string | null | undefined,
-): AlertMoveSize {
+export function normalizeMoveSize(value: string | null | undefined): AlertMoveSize {
 	if (value === "significant" || value === "extreme") return value;
 	if (value === "moderate") return "significant";
 	if (value === "large") return "extreme";

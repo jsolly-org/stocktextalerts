@@ -37,9 +37,7 @@ function makeStats(): PriceAlertDeliveryStats {
 	};
 }
 
-function makeGrokResult(
-	overrides: Partial<PriceAlertGrokResult> = {},
-): PriceAlertGrokResult {
+function makeGrokResult(overrides: Partial<PriceAlertGrokResult> = {}): PriceAlertGrokResult {
 	return {
 		summary:
 			"LDOS shares fell after the company reported weaker-than-expected guidance amid reduced federal spending.[[Reuters]](https://www.reuters.com/example)[[@analyst123]](https://x.com/analyst123/status/123456)",
@@ -96,9 +94,9 @@ function makeUser(overrides: Partial<PriceAlertUser> = {}): PriceAlertUser {
 
 describe("deliverPriceAlert SMS eligibility", () => {
 	it("does not attempt SMS when user is opted out", async () => {
-		const sendSms = vi.fn<
-			(_: { to: string; body: string }) => Promise<DeliveryResult>
-		>(async () => ({ success: true }));
+		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
+			async () => ({ success: true }),
+		);
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
 
@@ -117,9 +115,9 @@ describe("deliverPriceAlert SMS eligibility", () => {
 	});
 
 	it("does not attempt SMS when phone number is missing", async () => {
-		const sendSms = vi.fn<
-			(_: { to: string; body: string }) => Promise<DeliveryResult>
-		>(async () => ({ success: true }));
+		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
+			async () => ({ success: true }),
+		);
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
 
@@ -138,9 +136,9 @@ describe("deliverPriceAlert SMS eligibility", () => {
 	});
 
 	it("does not attempt SMS when phone is not verified", async () => {
-		const sendSms = vi.fn<
-			(_: { to: string; body: string }) => Promise<DeliveryResult>
-		>(async () => ({ success: true }));
+		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
+			async () => ({ success: true }),
+		);
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
 
@@ -159,9 +157,9 @@ describe("deliverPriceAlert SMS eligibility", () => {
 	});
 
 	it("does not attempt SMS when sms_notifications_enabled is false", async () => {
-		const sendSms = vi.fn<
-			(_: { to: string; body: string }) => Promise<DeliveryResult>
-		>(async () => ({ success: true }));
+		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
+			async () => ({ success: true }),
+		);
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
 
@@ -182,9 +180,9 @@ describe("deliverPriceAlert SMS eligibility", () => {
 
 describe("A user with price alerts enabled receives Grok-enriched move context", () => {
 	it("includes a concise why-moving summary and source links in SMS", async () => {
-		const sendSms = vi.fn<
-			(_: { to: string; body: string }) => Promise<DeliveryResult>
-		>(async () => ({ success: true }));
+		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
+			async () => ({ success: true }),
+		);
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
 
@@ -205,9 +203,9 @@ describe("A user with price alerts enabled receives Grok-enriched move context",
 	});
 
 	it("includes summary but no links in SMS when Grok returns no links", async () => {
-		const sendSms = vi.fn<
-			(_: { to: string; body: string }) => Promise<DeliveryResult>
-		>(async () => ({ success: true }));
+		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
+			async () => ({ success: true }),
+		);
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
 
@@ -233,9 +231,9 @@ describe("A user with price alerts enabled receives Grok-enriched move context",
 	});
 
 	it("omits why-moving section in SMS when Grok result is unavailable", async () => {
-		const sendSms = vi.fn<
-			(_: { to: string; body: string }) => Promise<DeliveryResult>
-		>(async () => ({ success: true }));
+		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
+			async () => ({ success: true }),
+		);
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
 
@@ -282,9 +280,7 @@ describe("A user with price alerts enabled receives Grok-enriched move context",
 		expect(emailCall.html).toContain("weaker-than-expected guidance");
 		// Links are rendered inline as <a> tags (not a separate list)
 		expect(emailCall.html).toContain('href="https://www.reuters.com/example"');
-		expect(emailCall.html).toContain(
-			'href="https://x.com/analyst123/status/123456"',
-		);
+		expect(emailCall.html).toContain('href="https://x.com/analyst123/status/123456"');
 	});
 
 	it("email plaintext includes the why-moving section", async () => {
@@ -336,9 +332,9 @@ describe("deliverPriceAlert intraday sparklines", () => {
 	const intradayCloses = [100, 102, 105, 103, 108, 110, 107];
 
 	it("SMS body contains Unicode sparkline when intradayCloses has data", async () => {
-		const sendSms = vi.fn<
-			(_: { to: string; body: string }) => Promise<DeliveryResult>
-		>(async () => ({ success: true }));
+		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
+			async () => ({ success: true }),
+		);
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
 
@@ -359,9 +355,9 @@ describe("deliverPriceAlert intraday sparklines", () => {
 	});
 
 	it("SMS body has no sparkline when intradayCloses is null", async () => {
-		const sendSms = vi.fn<
-			(_: { to: string; body: string }) => Promise<DeliveryResult>
-		>(async () => ({ success: true }));
+		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
+			async () => ({ success: true }),
+		);
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
 
@@ -380,9 +376,9 @@ describe("deliverPriceAlert intraday sparklines", () => {
 	});
 
 	it("email HTML contains sparkline img when intradayCloses has data", async () => {
-		const sendSms = vi.fn<
-			(_: { to: string; body: string }) => Promise<DeliveryResult>
-		>(async () => ({ success: true }));
+		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
+			async () => ({ success: true }),
+		);
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
 
@@ -406,9 +402,9 @@ describe("deliverPriceAlert intraday sparklines", () => {
 	});
 
 	it("email HTML has no sparkline when intradayCloses is null", async () => {
-		const sendSms = vi.fn<
-			(_: { to: string; body: string }) => Promise<DeliveryResult>
-		>(async () => ({ success: true }));
+		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
+			async () => ({ success: true }),
+		);
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
 
@@ -459,8 +455,7 @@ describe("deliverPriceAlert intraday sparklines", () => {
 		const emailCall = sendEmail.mock.calls[0][0] as { html: string };
 		expect(emailCall.html).toContain("Today since open:");
 		// Labels are inside the base64-encoded SVG image payload.
-		const svgBase64 =
-			emailCall.html.match(/data:image\/svg\+xml;base64,([^"]+)/)?.[1] ?? "";
+		const svgBase64 = emailCall.html.match(/data:image\/svg\+xml;base64,([^"]+)/)?.[1] ?? "";
 		const svg = Buffer.from(svgBase64, "base64").toString("utf-8");
 		// 24h format shows "10:00" for 10:00; 12h would show "10a"
 		expect(svg).toContain("10:00");

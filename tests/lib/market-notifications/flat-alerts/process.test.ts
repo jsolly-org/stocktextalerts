@@ -9,9 +9,9 @@ import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
  * Supabase stays real so RPC/DB semantics are tested end-to-end.
  * ============= */
 vi.mock("../../../../src/lib/providers/massive", async () => {
-	const actual = await vi.importActual<
-		typeof import("../../../../src/lib/providers/massive")
-	>("../../../../src/lib/providers/massive");
+	const actual = await vi.importActual<typeof import("../../../../src/lib/providers/massive")>(
+		"../../../../src/lib/providers/massive",
+	);
 	return {
 		...actual,
 		fetchIntradayBars: vi.fn(async () => ({
@@ -44,9 +44,9 @@ vi.mock("../../../../src/lib/providers/price-fetcher", async () => {
 
 const mockEmailSender = vi.fn(async () => ({ success: true }));
 vi.mock("../../../../src/lib/messaging/email/utils", async () => {
-	const actual = await vi.importActual<
-		typeof import("../../../../src/lib/messaging/email/utils")
-	>("../../../../src/lib/messaging/email/utils");
+	const actual = await vi.importActual<typeof import("../../../../src/lib/messaging/email/utils")>(
+		"../../../../src/lib/messaging/email/utils",
+	);
 	return {
 		...actual,
 		createEmailSender: () => mockEmailSender,
@@ -92,10 +92,7 @@ async function enableFlatAlerts(
 		updates.phone_number = "5555550123";
 		updates.sms_opted_out = false;
 	}
-	const { error } = await adminClient
-		.from("users")
-		.update(updates)
-		.eq("id", userId);
+	const { error } = await adminClient.from("users").update(updates).eq("id", userId);
 	if (error) throw new Error(`Failed to enable flat alerts: ${error.message}`);
 }
 
@@ -352,9 +349,7 @@ describe("processFlatPriceAlerts", () => {
 		// Massive occasionally omits prev_close for thinly-traded symbols or OTC
 		// names. First-of-day path has no baseline to measure from, so the
 		// symbol is skipped with an info log — no email, no state row.
-		const quoteMap = new Map([
-			["AAPL", makeQuote({ price: 200, prevClose: null })],
-		]);
+		const quoteMap = new Map([["AAPL", makeQuote({ price: 200, prevClose: null })]]);
 
 		const totals = await processFlatPriceAlerts({
 			supabase: adminClient,
@@ -374,12 +369,8 @@ describe("processFlatPriceAlerts", () => {
 		await enableFlatAlerts(testUser.id);
 
 		// Simulate a transient Massive 5xx during market hours
-		const { fetchIntradayBars } = await import(
-			"../../../../src/lib/providers/massive"
-		);
-		vi.mocked(fetchIntradayBars).mockRejectedValueOnce(
-			new Error("Massive 502 bad gateway"),
-		);
+		const { fetchIntradayBars } = await import("../../../../src/lib/providers/massive");
+		vi.mocked(fetchIntradayBars).mockRejectedValueOnce(new Error("Massive 502 bad gateway"));
 
 		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
 

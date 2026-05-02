@@ -72,9 +72,7 @@ describe("snapshot-store purge", () => {
 			expect(insertedRows).toHaveLength(2);
 
 			const staleRow = insertedRows?.find(
-				(row) =>
-					new Date(row.captured_at).getTime() ===
-					new Date(staleCapturedAt).getTime(),
+				(row) => new Date(row.captured_at).getTime() === new Date(staleCapturedAt).getTime(),
 			);
 			expect(staleRow).toBeDefined();
 
@@ -90,9 +88,9 @@ describe("snapshot-store purge", () => {
 			expect(selectError).toBeNull();
 			expect(remaining).toHaveLength(1);
 			expect(remaining?.[0]?.symbol).toBe(asset.symbol);
-			expect(
-				new Date(remaining?.[0]?.captured_at ?? 0).getTime(),
-			).toBeGreaterThanOrEqual(new Date(recentCapturedAt).getTime());
+			expect(new Date(remaining?.[0]?.captured_at ?? 0).getTime()).toBeGreaterThanOrEqual(
+				new Date(recentCapturedAt).getTime(),
+			);
 			expect(remaining?.[0]?.id).not.toBe(staleRow?.id);
 			const retentionCutoffIso = new Date(
 				now.getTime() - RETENTION_MINUTES * 60 * 1000,
@@ -100,10 +98,7 @@ describe("snapshot-store purge", () => {
 			expect(remaining?.[0]?.captured_at >= retentionCutoffIso).toBe(true);
 		} finally {
 			// Clean up test data
-			await adminClient
-				.from("asset_snapshots")
-				.delete()
-				.eq("symbol", asset.symbol);
+			await adminClient.from("asset_snapshots").delete().eq("symbol", asset.symbol);
 		}
 	});
 });

@@ -1,12 +1,6 @@
 import { nextTick, ref } from "vue";
-import {
-	isUnauthorizedResponse,
-	redirectToSignIn,
-} from "../../../lib/auth/session-expired";
-import {
-	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
-	type FlashTone,
-} from "../../../lib/constants";
+import { isUnauthorizedResponse, redirectToSignIn } from "../../../lib/auth/session-expired";
+import { DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID, type FlashTone } from "../../../lib/constants";
 import type { User } from "../../../lib/db";
 
 type SmsVerificationPayload = {
@@ -25,10 +19,7 @@ export function useSmsVerificationSubmission(options: {
 	user: { value: User };
 	isEditingPhone: { value: boolean };
 	smsSuccessMessage: { value: string | null };
-	setNotificationPreferencesFlashMessage: (
-		tone: FlashTone,
-		messageKey: string,
-	) => void;
+	setNotificationPreferencesFlashMessage: (tone: FlashTone, messageKey: string) => void;
 	clearNotificationPreferencesFlashTone: (tone: FlashTone) => void;
 	handleNotificationPreferencesUpdated: () => Promise<void>;
 }) {
@@ -36,9 +27,7 @@ export function useSmsVerificationSubmission(options: {
 	const isSendingVerification = ref(false);
 
 	/** Parse a JSON response into the expected payload shape, returning null on parse failure. */
-	const parseResponsePayload = async (
-		res: Response,
-	): Promise<SmsVerificationPayload | null> => {
+	const parseResponsePayload = async (res: Response): Promise<SmsVerificationPayload | null> => {
 		try {
 			return (await res.json()) as SmsVerificationPayload;
 		} catch {
@@ -53,10 +42,7 @@ export function useSmsVerificationSubmission(options: {
 	const updateLocalUserAfterVerificationSent = (formData: FormData) => {
 		const phoneCountryCode = formData.get("phone_country_code");
 		const phoneNumber = formData.get("phone_number");
-		if (
-			typeof phoneCountryCode !== "string" ||
-			typeof phoneNumber !== "string"
-		) {
+		if (typeof phoneCountryCode !== "string" || typeof phoneNumber !== "string") {
 			return;
 		}
 		if (phoneCountryCode === "" || phoneNumber === "") {
@@ -103,13 +89,9 @@ export function useSmsVerificationSubmission(options: {
 	 */
 	const handleSmsVerificationSubmit = async (event: SubmitEvent) => {
 		const submitter = event.submitter;
-		const action =
-			submitter instanceof HTMLElement
-				? submitter.getAttribute("formaction")
-				: null;
+		const action = submitter instanceof HTMLElement ? submitter.getAttribute("formaction") : null;
 		const isVerifyCodeSubmission = action === "/api/auth/sms/verify-code";
-		const isSendVerificationSubmission =
-			action === "/api/auth/sms/send-verification";
+		const isSendVerificationSubmission = action === "/api/auth/sms/send-verification";
 		if (!isVerifyCodeSubmission && !isSendVerificationSubmission) {
 			return false;
 		}

@@ -89,9 +89,7 @@ describe("formatAssetEventsSection", () => {
 
 		const result = formatAssetEventsSection(events, "email");
 
-		expect(result.dividends).toContain(
-			"KO: ex-div 02-14 — $0.50/share (pays 04-01), quarterly",
-		);
+		expect(result.dividends).toContain("KO: ex-div 02-14 — $0.50/share (pays 04-01), quarterly");
 	});
 
 	it("formats forward splits", () => {

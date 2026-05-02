@@ -1,14 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { APIContext } from "astro";
-import {
-	MIN_PASSWORD_LENGTH,
-	REGISTRATION_ENABLED,
-} from "../../../../lib/constants";
+import { MIN_PASSWORD_LENGTH, REGISTRATION_ENABLED } from "../../../../lib/constants";
 import { getSiteUrl } from "../../../../lib/db/env";
-import {
-	createSupabaseAdminClient,
-	createSupabaseServerClient,
-} from "../../../../lib/db/supabase";
+import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
 import { createLogger, type Logger } from "../../../../lib/logging";
 import { resolveTimezone } from "../../../../lib/time/cache";
@@ -18,8 +12,7 @@ async function cleanupOrphanedAuthUser(
 	userId: string,
 	logger: Logger,
 ): Promise<void> {
-	const { error: deleteError } =
-		await adminSupabase.auth.admin.deleteUser(userId);
+	const { error: deleteError } = await adminSupabase.auth.admin.deleteUser(userId);
 	if (deleteError) {
 		logger.error(
 			"Failed to cleanup orphaned auth user after profile creation failure",
@@ -29,12 +22,7 @@ async function cleanupOrphanedAuthUser(
 	}
 }
 
-export async function POST({
-	url,
-	request,
-	redirect,
-	locals,
-}: APIContext): Promise<Response> {
+export async function POST({ url, request, redirect, locals }: APIContext): Promise<Response> {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,
@@ -123,11 +111,9 @@ export async function POST({
 			timezone: userTimezone,
 		};
 
-		const { error: profileError } = await adminSupabase
-			.from("users")
-			.upsert(userProfileData, {
-				onConflict: "id",
-			});
+		const { error: profileError } = await adminSupabase.from("users").upsert(userProfileData, {
+			onConflict: "id",
+		});
 
 		if (profileError) {
 			logger.error(
@@ -140,7 +126,5 @@ export async function POST({
 		}
 	}
 
-	return redirect(
-		`/auth/unconfirmed?email=${encodeURIComponent(trimmedEmail)}`,
-	);
+	return redirect(`/auth/unconfirmed?email=${encodeURIComponent(trimmedEmail)}`);
 }

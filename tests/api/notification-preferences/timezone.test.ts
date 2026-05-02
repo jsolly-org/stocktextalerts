@@ -4,10 +4,7 @@ import { POST as POSTDismissBanner } from "../../../src/pages/api/notification-p
 import { POST as POSTTimezone } from "../../../src/pages/api/notification-preferences/timezone";
 import { createApiContext } from "../../helpers/api-context";
 import { TEST_PASSWORD } from "../../helpers/constants";
-import {
-	adminClient,
-	createAuthenticatedCookies,
-} from "../../helpers/test-env";
+import { adminClient, createAuthenticatedCookies } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
@@ -21,10 +18,7 @@ describe("A signed-in user dismisses the timezone mismatch banner.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const request = new Request(
 			"http://localhost/api/notification-preferences/dismiss-timezone-banner",
@@ -33,9 +27,7 @@ describe("A signed-in user dismisses the timezone mismatch banner.", () => {
 			},
 		);
 
-		const response = await POSTDismissBanner(
-			createApiContext({ request, cookies }),
-		);
+		const response = await POSTDismissBanner(createApiContext({ request, cookies }));
 
 		expect(response.status).toBe(200);
 		const json = await response.json();
@@ -64,21 +56,15 @@ describe("A signed-in user updates their timezone.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const formData = new FormData();
 		formData.append("timezone", "Etc/UTC");
 
-		const request = new Request(
-			"http://localhost/api/notification-preferences/timezone",
-			{
-				method: "POST",
-				body: formData,
-			},
-		);
+		const request = new Request("http://localhost/api/notification-preferences/timezone", {
+			method: "POST",
+			body: formData,
+		});
 
 		const response = await POSTTimezone(createApiContext({ request, cookies }));
 
@@ -121,28 +107,20 @@ describe("A signed-in user updates their timezone.", () => {
 
 		const { data: beforeUpdate } = await adminClient
 			.from("users")
-			.select(
-				"market_scheduled_asset_price_next_send_at,daily_digest_next_send_at",
-			)
+			.select("market_scheduled_asset_price_next_send_at,daily_digest_next_send_at")
 			.eq("id", testUser.id)
 			.single();
 		expect(beforeUpdate).not.toBeNull();
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const formData = new FormData();
 		formData.append("timezone", "America/Los_Angeles");
 
-		const request = new Request(
-			"http://localhost/api/notification-preferences/timezone",
-			{
-				method: "POST",
-				body: formData,
-			},
-		);
+		const request = new Request("http://localhost/api/notification-preferences/timezone", {
+			method: "POST",
+			body: formData,
+		});
 
 		const response = await POSTTimezone(createApiContext({ request, cookies }));
 
@@ -150,16 +128,12 @@ describe("A signed-in user updates their timezone.", () => {
 		const json = await response.json();
 		expect(json.ok).toBe(true);
 		expect(json.notificationPreferences.timezone).toBe("America/Los_Angeles");
-		expect(
-			json.notificationPreferences.market_scheduled_asset_price_next_send_at,
-		).toBeTruthy();
+		expect(json.notificationPreferences.market_scheduled_asset_price_next_send_at).toBeTruthy();
 		expect(json.notificationPreferences.daily_digest_next_send_at).toBeTruthy();
 
 		const { data: afterUpdate } = await adminClient
 			.from("users")
-			.select(
-				"timezone,market_scheduled_asset_price_next_send_at,daily_digest_next_send_at",
-			)
+			.select("timezone,market_scheduled_asset_price_next_send_at,daily_digest_next_send_at")
 			.eq("id", testUser.id)
 			.single();
 

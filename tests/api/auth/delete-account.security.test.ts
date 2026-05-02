@@ -3,10 +3,7 @@ import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/auth/delete-account";
 import { createApiContext } from "../../helpers/api-context";
 import { TEST_PASSWORD } from "../../helpers/constants";
-import {
-	adminClient,
-	createAuthenticatedCookies,
-} from "../../helpers/test-env";
+import { adminClient, createAuthenticatedCookies } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
@@ -33,10 +30,7 @@ describe("Delete account endpoint enforces rate limiting.", () => {
 		registerTestUserForCleanup(testUser.id);
 
 		const attempts =
-			Number.parseInt(
-				process.env.DELETE_ACCOUNT_RATE_LIMIT_ATTEMPTS ?? "5",
-				10,
-			) || 5;
+			Number.parseInt(process.env.DELETE_ACCOUNT_RATE_LIMIT_ATTEMPTS ?? "5", 10) || 5;
 
 		await adminClient.from("rate_limit_log").insert(
 			Array.from({ length: attempts }, () => ({
@@ -45,10 +39,7 @@ describe("Delete account endpoint enforces rate limiting.", () => {
 			})),
 		);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const request = new Request("http://localhost/api/auth/delete-account", {
 			method: "POST",

@@ -36,10 +36,7 @@ describe("SEO exclusion lists stay in sync.", () => {
 	});
 
 	it("All prefixes start with a forward slash.", () => {
-		const allPrefixes = [
-			...EXCLUDED_ROUTE_PREFIXES,
-			...ROBOTS_ONLY_DISALLOW_PREFIXES,
-		];
+		const allPrefixes = [...EXCLUDED_ROUTE_PREFIXES, ...ROBOTS_ONLY_DISALLOW_PREFIXES];
 		for (const prefix of allPrefixes) {
 			expect(prefix.startsWith("/")).toBe(true);
 		}

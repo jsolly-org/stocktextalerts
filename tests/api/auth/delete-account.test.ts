@@ -2,10 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { POST } from "../../../src/pages/api/auth/delete-account";
 import { createApiContext } from "../../helpers/api-context";
 import { TEST_PASSWORD } from "../../helpers/constants";
-import {
-	adminClient,
-	createAuthenticatedCookies,
-} from "../../helpers/test-env";
+import { adminClient, createAuthenticatedCookies } from "../../helpers/test-env";
 import { cleanupTestUser, createTestUser } from "../../helpers/test-user";
 
 describe("A signed-in user deletes their account from the profile page.", () => {
@@ -17,10 +14,7 @@ describe("A signed-in user deletes their account from the profile page.", () => 
 		let cleanupNeeded = true;
 
 		try {
-			const authCookies = await createAuthenticatedCookies(
-				testUser.email,
-				TEST_PASSWORD,
-			);
+			const authCookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 			const deleteSpy = vi.fn();
 
 			const request = new Request("http://localhost/api/auth/delete-account", {
@@ -36,9 +30,7 @@ describe("A signed-in user deletes their account from the profile page.", () => 
 			);
 
 			expect(response.status).toBe(302);
-			expect(response.headers.get("Location")).toBe(
-				"/?success=account_deleted",
-			);
+			expect(response.headers.get("Location")).toBe("/?success=account_deleted");
 			expect(deleteSpy).toHaveBeenCalled();
 
 			const { data: dbUser, error: dbError } = await adminClient
@@ -49,8 +41,9 @@ describe("A signed-in user deletes their account from the profile page.", () => 
 			expect(dbError).toBeNull();
 			expect(dbUser).toBeNull();
 
-			const { data: authUserData, error: authError } =
-				await adminClient.auth.admin.getUserById(testUser.id);
+			const { data: authUserData, error: authError } = await adminClient.auth.admin.getUserById(
+				testUser.id,
+			);
 			if (authError) {
 				expect(authError.status).toBe(404);
 			} else {

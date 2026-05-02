@@ -23,9 +23,7 @@ vi.mock("../../../src/lib/asset-events/content", async () => {
 });
 
 vi.mock("../../../src/lib/asset-events/delivery", async () => {
-	const actual = await vi.importActual(
-		"../../../src/lib/asset-events/delivery",
-	);
+	const actual = await vi.importActual("../../../src/lib/asset-events/delivery");
 	return {
 		...actual,
 		processAssetEventsEmailDelivery: vi.fn(),

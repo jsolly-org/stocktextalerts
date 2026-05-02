@@ -9,8 +9,7 @@ const BASE_RETRY_DELAY_MS = 1_000;
  * Uses `node:timers/promises` so delays work even when vitest's
  * `vi.useFakeTimers()` has replaced the global `setTimeout`.
  */
-const delay = (attempt: number) =>
-	realDelay(BASE_RETRY_DELAY_MS * 2 ** (attempt - 1));
+const delay = (attempt: number) => realDelay(BASE_RETRY_DELAY_MS * 2 ** (attempt - 1));
 
 type ResponsesRequest = {
 	model: string;
@@ -127,9 +126,7 @@ export function isXUrl(url: string): boolean {
  */
 export function linkLabelFromUrl(url: string): string | null {
 	// X/Twitter posts: show @handle
-	const xMatch = url.match(
-		/^https?:\/\/(?:x|twitter)\.com\/([^/]+)\/status\/\d+/,
-	);
+	const xMatch = url.match(/^https?:\/\/(?:x|twitter)\.com\/([^/]+)\/status\/\d+/);
 	if (xMatch) {
 		const handle = xMatch[1];
 		return handle === "i" ? null : `@${handle}`;
@@ -156,10 +153,7 @@ export function linkLabelFromUrl(url: string): string | null {
  * markdown links. Processes annotations from end to start so character
  * positions remain valid during replacement.
  */
-export function applyAnnotationsInline(
-	text: string,
-	annotations: XaiAnnotation[],
-): string {
+export function applyAnnotationsInline(text: string, annotations: XaiAnnotation[]): string {
 	const valid = annotations
 		.filter(
 			(a): a is XaiAnnotation & { start_index: number; end_index: number } =>
@@ -204,10 +198,7 @@ export function applyAnnotationsInline(
 		}
 
 		const markdownLink = `[${linkText}](${ann.url})`;
-		result =
-			result.slice(0, ann.start_index) +
-			markdownLink +
-			result.slice(ann.end_index);
+		result = result.slice(0, ann.start_index) + markdownLink + result.slice(ann.end_index);
 	}
 
 	// Phase 2: Resolve remaining [post:N] / [web:N] markers from search results.
@@ -240,13 +231,10 @@ export function applyAnnotationsInline(
 	// Phase 4: Rewrite numeric citation text (e.g. `[[1]](url)`) to readable labels.
 	// Grok's web_search embeds `[[N]](url)` natively — Phase 1 preserves these.
 	// Replace the opaque `[N]` text with the source name derived from the URL.
-	result = result.replace(
-		/\[\[(\d+)\]\]\((https?:\/\/[^)]+)\)/g,
-		(_match, _num, url) => {
-			const label = linkLabelFromUrl(url as string);
-			return label ? `[[${label}]](${url})` : _match;
-		},
-	);
+	result = result.replace(/\[\[(\d+)\]\]\((https?:\/\/[^)]+)\)/g, (_match, _num, url) => {
+		const label = linkLabelFromUrl(url as string);
+		return label ? `[[${label}]](${url})` : _match;
+	});
 
 	// Phase 5: Link inline @handle mentions to anonymous x_search citation URLs.
 	// Grok's x_search often produces anonymous /i/ URLs that lack the poster's
@@ -267,10 +255,7 @@ export function applyAnnotationsInline(
 		}
 		if (anonXUrls.length > 0) {
 			// Remove the [[N]](anonymous-url) citation markers
-			line = line.replace(
-				/\[\[\d+\]\]\(https?:\/\/(?:x|twitter)\.com\/i\/status\/\d+\)/g,
-				"",
-			);
+			line = line.replace(/\[\[\d+\]\]\(https?:\/\/(?:x|twitter)\.com\/i\/status\/\d+\)/g, "");
 			// Link unlinked @handle mentions with the anonymous URLs, in order
 			let anonIdx = 0;
 			line = line.replace(/(?<!\[)@([A-Za-z0-9_]+)/g, (match) => {
@@ -321,10 +306,7 @@ function extractTextAndCitationsFromXaiResponse(response: ResponsesResponse): {
 				const url = typeof a.url === "string" ? a.url.trim() : "";
 				if (url === "") continue;
 				// Only collect URLs that weren't applied inline (no position data).
-				if (
-					typeof a.start_index === "number" &&
-					typeof a.end_index === "number"
-				) {
+				if (typeof a.start_index === "number" && typeof a.end_index === "number") {
 					continue;
 				}
 				citationUrls.add(url);
@@ -364,8 +346,7 @@ function extractTextAndCitationsFromXaiResponse(response: ResponsesResponse): {
 						const type = (part as { type?: unknown }).type;
 						const text = (part as { text?: unknown }).text;
 						const annotations = (part as { annotations?: unknown }).annotations;
-						if (type === "output_text" || type === "text")
-							addText(text, annotations);
+						if (type === "output_text" || type === "text") addText(text, annotations);
 					}
 				}
 			}
@@ -500,10 +481,7 @@ async function callGrokApi(options: {
 				// rate limiting isn't pageable. Other final-attempt failures
 				// log at error so genuine outages surface.
 				if (response.status === 429 && isLastAttempt) {
-					rootLogger.info(
-						"Grok request rate limited (retries exhausted)",
-						failureContext,
-					);
+					rootLogger.info("Grok request rate limited (retries exhausted)", failureContext);
 					return null;
 				}
 				log("Grok request failed", failureContext);
@@ -531,14 +509,8 @@ async function callGrokApi(options: {
 			return { content: text, citations };
 		} catch (error) {
 			const reason =
-				error instanceof Error && error.name === "TimeoutError"
-					? "timeout"
-					: "request_failed";
-			log(
-				"Grok request errored",
-				{ ...options.logContext, attempt, reason },
-				error,
-			);
+				error instanceof Error && error.name === "TimeoutError" ? "timeout" : "request_failed";
+			log("Grok request errored", { ...options.logContext, attempt, reason }, error);
 			if (!isLastAttempt) {
 				await delay(attempt);
 				continue;

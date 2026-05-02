@@ -56,9 +56,7 @@ export function formatSmsMessage(
 		);
 	}
 
-	const marketDisclaimer = marketOpen
-		? ""
-		: buildMarketClosedBannerText(marketClosureInfo ?? null);
+	const marketDisclaimer = marketOpen ? "" : buildMarketClosedBannerText(marketClosureInfo ?? null);
 	const extrasBlock = formatSmsExtras(extras);
 
 	const sections = [

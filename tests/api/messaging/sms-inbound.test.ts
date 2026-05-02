@@ -173,9 +173,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 		const { data: updated } = await adminClient
 			.from("users")
-			.select(
-				"email_notifications_enabled,sms_opted_out,market_scheduled_asset_price_include_sms",
-			)
+			.select("email_notifications_enabled,sms_opted_out,market_scheduled_asset_price_include_sms")
 			.eq("id", testUser.id)
 			.single();
 		expect(updated).not.toBeNull();
@@ -222,9 +220,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 
 		const { data: updated } = await adminClient
 			.from("users")
-			.select(
-				"sms_opted_out,sms_notifications_enabled,market_scheduled_asset_price_include_sms",
-			)
+			.select("sms_opted_out,sms_notifications_enabled,market_scheduled_asset_price_include_sms")
 			.eq("id", testUser.id)
 			.single();
 		expect(updated).not.toBeNull();

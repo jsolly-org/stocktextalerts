@@ -14,9 +14,7 @@ type CookieAdapterOptions = {
  * This keeps API route tests concise while preserving cookie behavior used by
  * auth/session handlers.
  */
-function createCookieAdapter(
-	options: CookieAdapterOptions = {},
-): APIContext["cookies"] {
+function createCookieAdapter(options: CookieAdapterOptions = {}): APIContext["cookies"] {
 	const cookieStore = options.cookies ?? new Map<string, string>();
 
 	return {
@@ -80,10 +78,7 @@ export function createApiContext(options: ApiContextOptions): APIContext {
 /**
  * Build a form POST Request for API route tests.
  */
-export function createFormPostRequest(
-	path: string,
-	formData: FormData,
-): Request {
+export function createFormPostRequest(path: string, formData: FormData): Request {
 	return new Request(`http://localhost${path}`, {
 		method: "POST",
 		body: formData,

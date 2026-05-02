@@ -3,10 +3,7 @@ import { clearAuthCookies } from "../../../lib/auth/cookies";
 import { deleteUserAccount } from "../../../lib/auth/delete-account";
 import { enforceAuthRateLimit } from "../../../lib/auth/enforce-auth-rate-limit";
 import { createUserService } from "../../../lib/db";
-import {
-	createSupabaseAdminClient,
-	createSupabaseServerClient,
-} from "../../../lib/db/supabase";
+import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 
 /*
@@ -15,23 +12,11 @@ import { createLogger } from "../../../lib/logging";
  * DELETE_ACCOUNT_RATE_LIMIT_MINUTES env vars.
  */
 const DELETE_ACCOUNT_RATE_LIMIT_ATTEMPTS =
-	Number.parseInt(
-		import.meta.env.DELETE_ACCOUNT_RATE_LIMIT_ATTEMPTS ?? "5",
-		10,
-	) || 5;
+	Number.parseInt(import.meta.env.DELETE_ACCOUNT_RATE_LIMIT_ATTEMPTS ?? "5", 10) || 5;
 const DELETE_ACCOUNT_RATE_LIMIT_MINUTES =
-	Number.parseInt(
-		import.meta.env.DELETE_ACCOUNT_RATE_LIMIT_MINUTES ?? "15",
-		10,
-	) || 15;
+	Number.parseInt(import.meta.env.DELETE_ACCOUNT_RATE_LIMIT_MINUTES ?? "15", 10) || 15;
 
-export const POST: APIRoute = async ({
-	url,
-	cookies,
-	redirect,
-	request,
-	locals,
-}) => {
+export const POST: APIRoute = async ({ url, cookies, redirect, request, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

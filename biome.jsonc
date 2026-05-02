@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.4.7/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.4.10/schema.json",
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
@@ -18,6 +18,12 @@
 	"html": {
 		"experimentalFullSupportEnabled": true
 	},
+	"formatter": {
+		"enabled": true,
+		"formatWithErrors": false,
+		"indentStyle": "tab",
+		"lineWidth": 100
+	},
 	"linter": {
 		"enabled": true,
 		"rules": {
@@ -27,15 +33,17 @@
 				"noUnusedVariables": "error"
 			},
 			"suspicious": {
-				"noConsole": {
-					"level": "error"
-				}
+				"noConsole": "error",
+				"noEmptyBlockStatements": "error"
+			},
+			"style": {
+				"useThrowOnlyError": "error",
+				"noNonNullAssertion": "off"
+			},
+			"nursery": {
+				"noFloatingPromises": "error"
 			}
 		}
-	},
-	"formatter": {
-		"enabled": true,
-		"formatWithErrors": false
 	},
 	"overrides": [
 		{
@@ -68,9 +76,18 @@
 			"linter": {
 				"rules": {
 					"suspicious": {
-						"noConsole": {
-							"level": "off"
-						}
+						"noConsole": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["tests/**"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsole": "off",
+						"noEmptyBlockStatements": "off"
 					}
 				}
 			}

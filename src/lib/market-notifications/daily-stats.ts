@@ -23,9 +23,7 @@ Computation
 /** Compute 20-day average daily volume from OHLCV bars. */
 export function computeADV(bars: DailyOHLCVBar[]): number | null {
 	if (bars.length < 20) return null;
-	const volumes = bars
-		.map((b) => b.volume)
-		.filter((v) => Number.isFinite(v) && v > 0);
+	const volumes = bars.map((b) => b.volume).filter((v) => Number.isFinite(v) && v > 0);
 	if (volumes.length === 0) return null;
 	const recent = volumes.slice(-20);
 	return recent.reduce((sum, v) => sum + v, 0) / recent.length;
@@ -43,11 +41,7 @@ export function computeATR(bars: DailyOHLCVBar[]): number | null {
 		const high = bar.high;
 		const low = bar.low;
 		const prevClose = prev.close;
-		const tr = Math.max(
-			high - low,
-			Math.abs(high - prevClose),
-			Math.abs(low - prevClose),
-		);
+		const tr = Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
 		trueRanges.push(tr);
 	}
 
@@ -73,11 +67,7 @@ export async function fetchDailyStats(
 		.in("symbol", symbols);
 
 	if (error) {
-		logger.error(
-			"Failed to fetch daily stats",
-			{ symbolCount: symbols.length },
-			error,
-		);
+		logger.error("Failed to fetch daily stats", { symbolCount: symbols.length }, error);
 		return result;
 	}
 	if (!data) return result;
@@ -85,8 +75,7 @@ export async function fetchDailyStats(
 	for (const row of data) {
 		result.set(row.symbol, {
 			symbol: row.symbol,
-			avgVolume20d:
-				row.avg_volume_20d !== null ? Number(row.avg_volume_20d) : null,
+			avgVolume20d: row.avg_volume_20d !== null ? Number(row.avg_volume_20d) : null,
 			atr14: row.atr_14 !== null ? Number(row.atr_14) : null,
 		});
 	}

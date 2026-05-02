@@ -62,9 +62,7 @@ export async function buildAssetEventsContent(options: {
 			? user.asset_events_include_calendar_email
 			: user.asset_events_include_calendar_sms;
 	const includeIpos =
-		channel === "email"
-			? user.asset_events_include_ipo_email
-			: user.asset_events_include_ipo_sms;
+		channel === "email" ? user.asset_events_include_ipo_email : user.asset_events_include_ipo_sms;
 
 	// Query asset_events table for the relevant date range (pre-populated by weekly cron).
 	// Calendar events are watchlist-scoped; IPOs are global for all users.
@@ -87,10 +85,7 @@ export async function buildAssetEventsContent(options: {
 				.lte("event_date", endDate)
 		: Promise.resolve({ data: [], error: null });
 
-	const [calendarResult, ipoResult] = await Promise.all([
-		calendarPromise,
-		ipoPromise,
-	]);
+	const [calendarResult, ipoResult] = await Promise.all([calendarPromise, ipoPromise]);
 
 	if (calendarResult.error || ipoResult.error) {
 		logger.error("Failed to query asset/market events", {
@@ -127,16 +122,12 @@ export async function buildAssetEventsContent(options: {
 		event_type: event.event_type,
 		event_date: event.event_date,
 		data: (event.data ?? {}) as Record<string, unknown>,
-		daysUntil: Math.round(
-			DateTime.fromISO(event.event_date).diff(localDt, "days").days,
-		),
+		daysUntil: Math.round(DateTime.fromISO(event.event_date).diff(localDt, "days").days),
 	}));
 
 	// 5. Format asset events section
 	const eventsSection =
-		eventsWithDaysUntil.length > 0
-			? formatAssetEventsSection(eventsWithDaysUntil, channel)
-			: null;
+		eventsWithDaysUntil.length > 0 ? formatAssetEventsSection(eventsWithDaysUntil, channel) : null;
 
 	// 6. Determine if insider should be fetched
 	const includeInsider =
@@ -177,9 +168,7 @@ export async function buildAssetEventsContent(options: {
 
 	// 9. Compute hasAnyContent
 	const hasAnyContent =
-		eventsSection !== null ||
-		insiderSection !== null ||
-		analystSection !== null;
+		eventsSection !== null || insiderSection !== null || analystSection !== null;
 
 	// 10. Return all sections
 	return {

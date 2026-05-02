@@ -8,14 +8,8 @@ import {
 	markdownLinksToHtml,
 	stripMarkdownLinks,
 } from "../../src/lib/messaging/email/html-section";
-import {
-	generateNewsWithGrok,
-	generateRumorsWithGrok,
-} from "../../src/lib/providers/grok";
-import {
-	assertLiveProviderKey,
-	isLiveProviderEnabled,
-} from "../helpers/live-api";
+import { generateNewsWithGrok, generateRumorsWithGrok } from "../../src/lib/providers/grok";
+import { assertLiveProviderKey, isLiveProviderEnabled } from "../helpers/live-api";
 
 /** Bare URL pattern — should not appear in processed summary or rendered output. */
 const BARE_URL_RE = /(?<!\(|"|=)https?:\/\/[^\s)<"]+/;
@@ -90,8 +84,7 @@ function assertValidPriceAlertShape(
 	).toEqual([]);
 	// Above assertion throws on any shape error, but the explicit narrow
 	// helps TypeScript understand `result` is non-null from here on.
-	if (result === null)
-		throw new Error("unreachable — shape check already threw");
+	if (result === null) throw new Error("unreachable — shape check already threw");
 }
 
 const describeXaiLive = isLiveProviderEnabled("xai") ? describe : describe.skip;
@@ -115,10 +108,7 @@ describeXaiLive("xAI live API (opt-in)", () => {
 			"generateNewsWithGrok returned null — check XAI_API_KEY, rate limit, or content filter",
 		).not.toBeNull();
 		expect(typeof result?.content).toBe("string");
-		expect(
-			(result?.content.length ?? 0) > 0,
-			"Grok news content is empty",
-		).toBe(true);
+		expect((result?.content.length ?? 0) > 0, "Grok news content is empty").toBe(true);
 		expect(
 			result?.content.toUpperCase().includes("AAPL"),
 			"Grok news content does not mention the requested ticker (AAPL)",
@@ -140,8 +130,7 @@ describeXaiLive("xAI live API (opt-in)", () => {
 		const result = await generatePriceAlertSummary({
 			symbol: "AAPL",
 			priceContext: "AAPL is down 5.2% today ($187.50)",
-			signalContext:
-				"down 5.20% ($10.30) from previous close, triggered at >=5.0% or >=$10.00",
+			signalContext: "down 5.20% ($10.30) from previous close, triggered at >=5.0% or >=$10.00",
 		});
 
 		// Shape-first: surfaces xAI contract drift or parser regressions
@@ -233,10 +222,7 @@ describeXaiLive("xAI live API (opt-in)", () => {
 			"generateRumorsWithGrok returned null — check XAI_API_KEY, rate limit, or content filter",
 		).not.toBeNull();
 		expect(typeof result?.content).toBe("string");
-		expect(
-			(result?.content.length ?? 0) > 0,
-			"Grok rumors content is empty",
-		).toBe(true);
+		expect((result?.content.length ?? 0) > 0, "Grok rumors content is empty").toBe(true);
 		expect(
 			result?.content.toUpperCase().includes("TSLA"),
 			"Grok rumors content does not mention the requested ticker (TSLA)",

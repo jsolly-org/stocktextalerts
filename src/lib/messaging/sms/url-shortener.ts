@@ -5,8 +5,7 @@ import { rootLogger } from "../../logging";
 import { isSafeRedirectUrl } from "../../validation";
 
 const SHORT_ID_LENGTH = 6;
-const BASE62_CHARS =
-	"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const BASE62_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const MAX_INSERT_ATTEMPTS = 3;
 /** Max length for stored URLs to prevent abuse (RFC 7230 suggests 8000+ but we cap for storage). */
 const MAX_ORIGINAL_URL_LENGTH = 2048;
@@ -31,10 +30,7 @@ export function buildShortUrl(id: string): string {
  * Rejects unsafe redirect URLs (javascript:, data:, etc.) and oversized URLs.
  * Falls back to the original URL on validation failure or DB error.
  */
-export async function shortenUrl(
-	url: string,
-	supabase: AppSupabaseClient,
-): Promise<string> {
+export async function shortenUrl(url: string, supabase: AppSupabaseClient): Promise<string> {
 	const trimmed = typeof url === "string" ? url.trim() : "";
 	if (
 		trimmed.length === 0 ||

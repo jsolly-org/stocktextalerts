@@ -6,11 +6,7 @@ import { escapeHtml } from "../messaging/asset-formatting";
 import { sendUserEmail } from "../messaging/email/index";
 import { createEmailUnsubscribeUrl } from "../messaging/email/unsubscribe";
 import type { EmailSender } from "../messaging/email/utils";
-import {
-	createLogoCache,
-	fetchLogoBase64,
-	renderLogoImg,
-} from "../messaging/logo-fetcher";
+import { createLogoCache, fetchLogoBase64, renderLogoImg } from "../messaging/logo-fetcher";
 import { recordNotification } from "../messaging/shared";
 import { isSmsChannelUsable, sendUserSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";

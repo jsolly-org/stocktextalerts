@@ -46,11 +46,7 @@ export async function sendUserSms(
 		// sendSms (from createSmsSender) already catches Twilio RestException errors
 		// and returns a DeliveryResult, so this catch block only handles unexpected
 		// errors like network failures, timeouts, or implementation errors.
-		rootLogger.error(
-			"Unexpected error sending SMS",
-			{ userId: user.id },
-			error,
-		);
+		rootLogger.error("Unexpected error sending SMS", { userId: user.id }, error);
 
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		const errorCode = (error as { code?: string | number })?.code;
@@ -68,10 +64,7 @@ export async function sendUserSms(
 	return result;
 }
 
-async function autoOptOutUser(
-	supabase: AppSupabaseClient,
-	userId: string,
-): Promise<void> {
+async function autoOptOutUser(supabase: AppSupabaseClient, userId: string): Promise<void> {
 	const { error } = await supabase
 		.from("users")
 		.update({ sms_opted_out: true, sms_notifications_enabled: false })
@@ -96,9 +89,7 @@ export function shouldSendSms(user: SmsEligibilityUser): boolean {
 	}
 
 	const hasVerifiedPhone =
-		user.phone_verified &&
-		Boolean(user.phone_country_code) &&
-		Boolean(user.phone_number);
+		user.phone_verified && Boolean(user.phone_country_code) && Boolean(user.phone_number);
 	// Exclude price_targets_include_sms so that enabling only price-target SMS does not
 	// make users eligible for unrelated flows (e.g. daily digest) that gate on shouldSendSms.
 	const hasAnySmsFeatureEnabled = [
@@ -120,9 +111,5 @@ export function shouldSendSms(user: SmsEligibilityUser): boolean {
 export function isSmsChannelUsable(user: SmsEligibilityUser): boolean {
 	if (user.sms_opted_out) return false;
 	if (!user.sms_notifications_enabled) return false;
-	return (
-		user.phone_verified &&
-		Boolean(user.phone_country_code) &&
-		Boolean(user.phone_number)
-	);
+	return user.phone_verified && Boolean(user.phone_country_code) && Boolean(user.phone_number);
 }

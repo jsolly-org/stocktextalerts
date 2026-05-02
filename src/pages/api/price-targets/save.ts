@@ -46,8 +46,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		symbol: unknown;
 		target_price: unknown;
 	};
-	const normalizedSymbol =
-		typeof symbol === "string" ? symbol.trim().toUpperCase() : "";
+	const normalizedSymbol = typeof symbol === "string" ? symbol.trim().toUpperCase() : "";
 
 	// Keep in sync with assets.symbol DB constraint and logo route validation.
 	if (!normalizedSymbol) {
@@ -94,11 +93,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	}
 
 	// UPSERT flow: validate and save target
-	if (
-		typeof target_price !== "number" ||
-		!Number.isFinite(target_price) ||
-		target_price <= 0
-	) {
+	if (typeof target_price !== "number" || !Number.isFinite(target_price) || target_price <= 0) {
 		return jsonResponse(400, { ok: false, message: "invalid_target_price" });
 	}
 

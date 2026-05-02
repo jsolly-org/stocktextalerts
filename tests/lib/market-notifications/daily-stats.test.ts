@@ -19,15 +19,10 @@ function makeBar(overrides: Partial<DailyOHLCVBar> = {}): DailyOHLCVBar {
 
 describe("20-day average daily volume", () => {
 	it("uses the last 20 bars' volumes when more than 20 bars are provided", () => {
-		const bars = Array.from({ length: 25 }, (_, i) =>
-			makeBar({ volume: (i + 1) * 100_000 }),
-		);
+		const bars = Array.from({ length: 25 }, (_, i) => makeBar({ volume: (i + 1) * 100_000 }));
 		// Last 20 bars: volumes 600k..2500k
 		const expected =
-			Array.from({ length: 20 }, (_, i) => (i + 6) * 100_000).reduce(
-				(a, b) => a + b,
-				0,
-			) / 20;
+			Array.from({ length: 20 }, (_, i) => (i + 6) * 100_000).reduce((a, b) => a + b, 0) / 20;
 		expect(computeADV(bars)).toBeCloseTo(expected);
 	});
 

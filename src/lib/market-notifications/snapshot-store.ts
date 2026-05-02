@@ -59,11 +59,7 @@ export async function storeSnapshots(
 	try {
 		const { error } = await supabase.from("asset_snapshots").insert(rows);
 		if (error) {
-			rootLogger.error(
-				"Failed to insert asset snapshots",
-				{ count: rows.length },
-				error,
-			);
+			rootLogger.error("Failed to insert asset snapshots", { count: rows.length }, error);
 		}
 	} catch (error) {
 		rootLogger.error(
@@ -84,9 +80,7 @@ export async function getSnapshotsForSymbols(
 	const result = new Map<string, AssetSnapshot[]>();
 	if (symbols.length === 0) return result;
 
-	const cutoff = new Date(
-		Date.now() - RETENTION_MINUTES * 60 * 1000,
-	).toISOString();
+	const cutoff = new Date(Date.now() - RETENTION_MINUTES * 60 * 1000).toISOString();
 
 	const { data, error } = await (supabase
 		.from("asset_snapshots")
@@ -111,11 +105,7 @@ export async function getSnapshotsForSymbols(
 	}>);
 
 	if (error) {
-		rootLogger.error(
-			"Failed to fetch asset snapshots",
-			{ symbolCount: symbols.length },
-			error,
-		);
+		rootLogger.error("Failed to fetch asset snapshots", { symbolCount: symbols.length }, error);
 		return result;
 	}
 
@@ -157,11 +147,7 @@ export async function purgeOldAssetSnapshots(
 		p_retention_minutes: retentionMinutes,
 	});
 	if (error) {
-		rootLogger.error(
-			"Failed to purge old asset snapshots",
-			{ retentionMinutes },
-			error,
-		);
+		rootLogger.error("Failed to purge old asset snapshots", { retentionMinutes }, error);
 		return 0;
 	}
 	return typeof data === "number" ? data : 0;

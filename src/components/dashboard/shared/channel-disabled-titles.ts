@@ -1,6 +1,4 @@
-export function getEmailChannelDisabledTitle(
-	emailEnabled: boolean,
-): string | undefined {
+export function getEmailChannelDisabledTitle(emailEnabled: boolean): string | undefined {
 	if (emailEnabled) return undefined;
 	return "Enable email in your notification channels to select this option.";
 }
@@ -11,9 +9,7 @@ interface SmsChannelState {
 	smsOptedOut: boolean;
 }
 
-export function getSmsChannelDisabledTitle(
-	state: SmsChannelState,
-): string | undefined {
+export function getSmsChannelDisabledTitle(state: SmsChannelState): string | undefined {
 	// Opt-out is checked before phone-verification: a user who explicitly
 	// stopped messages should see re-subscribe instructions even if their
 	// phone is also unverified, since the opt-out is the actionable state.

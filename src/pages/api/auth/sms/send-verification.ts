@@ -58,9 +58,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 
 		// Normalize phone inputs: the external auth/storage service controls its own
 		// constraints, so E.164 format must be enforced at the application layer.
-		const rawCountryCode = parsed.data.phone_country_code
-			.trim()
-			.replace(/\s+/g, "");
+		const rawCountryCode = parsed.data.phone_country_code.trim().replace(/\s+/g, "");
 		const rawNational = parsed.data.phone_number.trim().replace(/\s+/g, "");
 
 		// Reject malformed country code before normalization: must be + followed by 1–4 digits.
@@ -118,15 +116,12 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 
 		const previousVerificationSentAt = dbUser.verification_sent_at ?? null;
 
-		const { data: reserved, error: reserveError } = await supabase.rpc(
-			"reserve_sms_verification",
-			{
-				p_user_id: dbUser.id,
-				p_phone_country_code: normalizedCountryCode,
-				p_phone_number: phoneNationalNumber,
-				p_cooldown_ms: VERIFICATION_RESEND_COOLDOWN_MS,
-			},
-		);
+		const { data: reserved, error: reserveError } = await supabase.rpc("reserve_sms_verification", {
+			p_user_id: dbUser.id,
+			p_phone_country_code: normalizedCountryCode,
+			p_phone_number: phoneNationalNumber,
+			p_cooldown_ms: VERIFICATION_RESEND_COOLDOWN_MS,
+		});
 
 		if (reserveError) throw reserveError;
 
@@ -145,13 +140,10 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		}
 
 		if (reserved !== true) {
-			logger.error(
-				"SMS verification cooldown reservation returned unexpected value",
-				{
-					userId: user.id,
-					reserved,
-				},
-			);
+			logger.error("SMS verification cooldown reservation returned unexpected value", {
+				userId: user.id,
+				reserved,
+			});
 			return jsonResponse(500, {
 				ok: false,
 				message: "server_error",
@@ -161,13 +153,10 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 
 		const dbUserAfterReserve = await userService.getById(user.id);
 		if (!dbUserAfterReserve) {
-			logger.error(
-				"Database user record missing after SMS verification reservation",
-				{
-					userId: user.id,
-					endpoint: "sms/send-verification",
-				},
-			);
+			logger.error("Database user record missing after SMS verification reservation", {
+				userId: user.id,
+				endpoint: "sms/send-verification",
+			});
 			return jsonResponse(500, {
 				ok: false,
 				message: "server_error",
@@ -178,12 +167,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		const reservedVerificationSentAt = dbUserAfterReserve.verification_sent_at;
 
 		if (!reservedVerificationSentAt) {
-			logger.error(
-				"SMS verification reservation succeeded but verification_sent_at was not set",
-				{
-					userId: user.id,
-				},
-			);
+			logger.error("SMS verification reservation succeeded but verification_sent_at was not set", {
+				userId: user.id,
+			});
 			return jsonResponse(500, {
 				ok: false,
 				message: "server_error",
@@ -215,9 +201,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				);
 			}
 
-			const sendError = new Error(
-				result.error ?? "Failed to send verification",
-			);
+			const sendError = new Error(result.error ?? "Failed to send verification");
 			logger.error("SMS verification failed", { userId: user.id }, sendError);
 			return jsonResponse(500, {
 				ok: false,

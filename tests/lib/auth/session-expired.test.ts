@@ -1,8 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-	isUnauthorizedResponse,
-	redirectToSignIn,
-} from "../../../src/lib/auth/session-expired";
+import { isUnauthorizedResponse, redirectToSignIn } from "../../../src/lib/auth/session-expired";
 
 describe("Session-expired helpers guide users back to sign-in safely.", () => {
 	const originalWindow = globalThis.window;
@@ -42,23 +39,13 @@ describe("Session-expired helpers guide users back to sign-in safely.", () => {
 
 		redirectToSignIn();
 
-		expect(globalThis.window.location.href).toBe(
-			"http://localhost/auth/signin?error=unauthorized",
-		);
+		expect(globalThis.window.location.href).toBe("http://localhost/auth/signin?error=unauthorized");
 	});
 
 	it("Treats 401 and 403 as unauthorized, and ignores other statuses.", () => {
-		expect(isUnauthorizedResponse(new Response(null, { status: 401 }))).toBe(
-			true,
-		);
-		expect(isUnauthorizedResponse(new Response(null, { status: 403 }))).toBe(
-			true,
-		);
-		expect(isUnauthorizedResponse(new Response(null, { status: 200 }))).toBe(
-			false,
-		);
-		expect(isUnauthorizedResponse(new Response(null, { status: 422 }))).toBe(
-			false,
-		);
+		expect(isUnauthorizedResponse(new Response(null, { status: 401 }))).toBe(true);
+		expect(isUnauthorizedResponse(new Response(null, { status: 403 }))).toBe(true);
+		expect(isUnauthorizedResponse(new Response(null, { status: 200 }))).toBe(false);
+		expect(isUnauthorizedResponse(new Response(null, { status: 422 }))).toBe(false);
 	});
 });

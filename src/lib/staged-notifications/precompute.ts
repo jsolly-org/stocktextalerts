@@ -24,14 +24,8 @@ import {
 	fetchAssetPrices,
 	fetchMarketStatus,
 } from "../providers/price-fetcher";
-import type {
-	ScheduledNotificationTotals,
-	SupabaseAdminClient,
-} from "../schedule/helpers";
-import {
-	batchLoadUserAssets,
-	USER_PROCESS_BATCH_SIZE,
-} from "../schedule/helpers";
+import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
+import { batchLoadUserAssets, USER_PROCESS_BATCH_SIZE } from "../schedule/helpers";
 import { createSmsSenderProvider } from "../schedule/sms-sender";
 import { toIsoOrThrow } from "../time/format";
 import { getUsMarketClosureInfoForInstant } from "../time/market-calendar";
@@ -66,9 +60,7 @@ export async function precomputeMarketScheduled(options: {
 	const beforeTime = currentTime.plus({ seconds: PRECOMPUTE_WINDOW_SECONDS });
 	const beforeTimeIso = toIsoOrThrow(beforeTime, "Failed to format beforeTime");
 
-	let upcomingUsers: Awaited<
-		ReturnType<typeof fetchUpcomingMarketScheduledUsers>
-	>;
+	let upcomingUsers: Awaited<ReturnType<typeof fetchUpcomingMarketScheduledUsers>>;
 	try {
 		upcomingUsers = await fetchUpcomingMarketScheduledUsers({
 			supabase,
@@ -98,19 +90,14 @@ export async function precomputeMarketScheduled(options: {
 	// Batch-fetch user assets and prices for all upcoming users
 	const userIds = upcomingUsers.map((u) => u.id);
 	let priceMap: AssetPriceMap = new Map();
-	let userAssetsMap: Awaited<ReturnType<typeof batchLoadUserAssets>> =
-		new Map();
+	let userAssetsMap: Awaited<ReturnType<typeof batchLoadUserAssets>> = new Map();
 
 	try {
 		userAssetsMap = await batchLoadUserAssets(supabase, userIds, {
 			includeLogoData: true,
 		});
 		const uniqueSymbols = [
-			...new Set(
-				[...userAssetsMap.values()].flatMap((assets) =>
-					assets.map((a) => a.symbol),
-				),
-			),
+			...new Set([...userAssetsMap.values()].flatMap((assets) => assets.map((a) => a.symbol))),
 		];
 		if (uniqueSymbols.length > 0) {
 			priceMap = await fetchAssetPrices(uniqueSymbols);
@@ -125,9 +112,7 @@ export async function precomputeMarketScheduled(options: {
 	}
 
 	const marketOpen = await fetchMarketStatus();
-	let marketClosureInfo: Awaited<
-		ReturnType<typeof getUsMarketClosureInfoForInstant>
-	> = null;
+	let marketClosureInfo: Awaited<ReturnType<typeof getUsMarketClosureInfoForInstant>> = null;
 	if (!marketOpen) {
 		try {
 			marketClosureInfo = await getUsMarketClosureInfoForInstant(currentTime);
@@ -142,11 +127,7 @@ export async function precomputeMarketScheduled(options: {
 	const sendEmail = createEmailSender();
 	const getSmsSender = createSmsSenderProvider();
 
-	for (
-		let index = 0;
-		index < upcomingUsers.length;
-		index += USER_PROCESS_BATCH_SIZE
-	) {
+	for (let index = 0; index < upcomingUsers.length; index += USER_PROCESS_BATCH_SIZE) {
 		const batch = upcomingUsers.slice(index, index + USER_PROCESS_BATCH_SIZE);
 		const batchResults = await Promise.all(
 			batch.map((user) =>
@@ -215,10 +196,7 @@ export async function precomputeDailyDigest(options: {
 		return stats;
 	}
 
-	const currentTimeIso = toIsoOrThrow(
-		currentTime,
-		"Failed to format currentTime",
-	);
+	const currentTimeIso = toIsoOrThrow(currentTime, "Failed to format currentTime");
 
 	logger.info("Pre-computing daily digest notifications", {
 		action: "precompute_daily",
@@ -236,11 +214,7 @@ export async function precomputeDailyDigest(options: {
 	const sendEmail = createEmailSender();
 	const getSmsSender = createSmsSenderProvider();
 
-	for (
-		let index = 0;
-		index < upcomingUsers.length;
-		index += DAILY_DISPATCH_BATCH_SIZE
-	) {
+	for (let index = 0; index < upcomingUsers.length; index += DAILY_DISPATCH_BATCH_SIZE) {
 		const batch = upcomingUsers.slice(index, index + DAILY_DISPATCH_BATCH_SIZE);
 		const dispatchResults = await Promise.allSettled(
 			batch.map((user) =>

@@ -9,9 +9,7 @@ import type { MarketClosureInfo } from "../time/market-calendar";
 import { escapeHtml } from "./asset-formatting";
 
 /** Build a human-readable market closure label. */
-export function buildMarketClosureLabel(
-	closureInfo: MarketClosureInfo,
-): string {
+export function buildMarketClosureLabel(closureInfo: MarketClosureInfo): string {
 	if (closureInfo.reason === "holiday" && closureInfo.holidayName) {
 		return `Market Closed — ${closureInfo.holidayName}`;
 	}
@@ -48,9 +46,7 @@ export function buildMarketClosedBannerHtml(
 		context === "events"
 			? "Event dates are as scheduled."
 			: "Prices below reflect the last market close.";
-	const label = closureInfo
-		? escapeHtml(buildMarketClosureLabel(closureInfo))
-		: "Market Closed";
+	const label = closureInfo ? escapeHtml(buildMarketClosureLabel(closureInfo)) : "Market Closed";
 	return `<div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; text-align: center;">
 			<div style="font-size: 14px; color: #92400e; font-weight: 600;">🔔 ${label}</div>
 			<div style="font-size: 12px; color: #92400e; margin-top: 4px;">${escapeHtml(subline)}</div>

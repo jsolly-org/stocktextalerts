@@ -32,13 +32,9 @@ async function signIn(page: Page, email: string, password: string) {
 	await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
 }
 
-async function waitForAutosave(
-	page: Page,
-	action: () => Promise<void>,
-): Promise<void> {
+async function waitForAutosave(page: Page, action: () => Promise<void>): Promise<void> {
 	const responsePromise = page.waitForResponse(
-		(response) =>
-			response.url().includes(UPDATE_URL_MATCH) && response.status() === 200,
+		(response) => response.url().includes(UPDATE_URL_MATCH) && response.status() === 200,
 		{ timeout: 15_000 },
 	);
 	await action();
@@ -162,9 +158,7 @@ test.describe("delivery times and timepicker", () => {
 		await expect(twelveCell).toHaveAttribute("aria-disabled", "true");
 		const twelveInner = twelveCell.locator(".dp__overlay_cell_disabled");
 		await expect(twelveInner).toHaveAttribute("title", OUTSIDE_HOURS_TOOLTIP);
-		const disabledCursor = await twelveInner.evaluate(
-			(el) => window.getComputedStyle(el).cursor,
-		);
+		const disabledCursor = await twelveInner.evaluate((el) => window.getComputedStyle(el).cursor);
 		expect(disabledCursor).toBe("not-allowed");
 
 		const nineCell = menu.locator('[role="gridcell"][data-test-id="09"]');
@@ -200,15 +194,11 @@ test.describe("delivery times and timepicker", () => {
 			await waitForAutosave(page, async () => {
 				await addTimeButton.click();
 			});
-			await expect(
-				form.locator(`#scheduled_update_time_${index}`),
-			).toBeVisible();
+			await expect(form.locator(`#scheduled_update_time_${index}`)).toBeVisible();
 		}
 
 		await expect(addTimeButton).toBeDisabled();
-		await expect(
-			form.getByText("You've reached the maximum of 8 delivery times."),
-		).toBeVisible();
+		await expect(form.getByText("You've reached the maximum of 8 delivery times.")).toBeVisible();
 
 		const times = await getScheduledTimes(userId as string);
 		expect(times).toHaveLength(MAX_DELIVERY_TIMES);
@@ -229,9 +219,7 @@ test.describe("delivery times and timepicker", () => {
 		const removedValue = before[3];
 
 		await waitForAutosave(page, async () => {
-			await form
-				.getByRole("button", { name: "Remove delivery time 4" })
-				.click();
+			await form.getByRole("button", { name: "Remove delivery time 4" }).click();
 		});
 
 		// 8th row is gone; rows re-index to [0..6].

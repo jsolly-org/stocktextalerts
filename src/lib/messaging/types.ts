@@ -66,10 +66,7 @@ export type UserRecord = Pick<
 } & GrokRumorsPreferences;
 
 /** Minimal user shape needed to send email. */
-export type EmailUser = Pick<
-	Database["public"]["Tables"]["users"]["Row"],
-	"id" | "email"
->;
+export type EmailUser = Pick<Database["public"]["Tables"]["users"]["Row"], "id" | "email">;
 /** Minimal user shape needed to send SMS. */
 export type SmsUser = Pick<
 	Database["public"]["Tables"]["users"]["Row"],
@@ -84,10 +81,7 @@ export interface EmailFormatContext {
 }
 
 /** User asset joined with its canonical asset name. */
-export type UserAssetRow = Pick<
-	Database["public"]["Tables"]["user_assets"]["Row"],
-	"symbol"
-> & {
+export type UserAssetRow = Pick<Database["public"]["Tables"]["user_assets"]["Row"], "symbol"> & {
 	name: Database["public"]["Tables"]["assets"]["Row"]["name"];
 	icon_url?: Database["public"]["Tables"]["assets"]["Row"]["icon_url"];
 	icon_base64?: Database["public"]["Tables"]["assets"]["Row"]["icon_base64"];

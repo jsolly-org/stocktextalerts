@@ -33,8 +33,6 @@ export async function updateUserAssetEventsNextSendAt(options: {
 		...options,
 		column: "asset_events_next_send_at",
 		getLocalMinutes: (user) =>
-			hasAssetEventsOption
-				? (user.daily_digest_time ?? DEFAULT_DELIVERY_MINUTES)
-				: null,
+			hasAssetEventsOption ? (user.daily_digest_time ?? DEFAULT_DELIVERY_MINUTES) : null,
 	});
 }

@@ -1,15 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { POST as updateProfileTimeFormat } from "../../../src/pages/api/profile/time-format";
-import {
-	createApiContext,
-	createFormPostRequest,
-} from "../../helpers/api-context";
+import { createApiContext, createFormPostRequest } from "../../helpers/api-context";
 import { TEST_PASSWORD } from "../../helpers/constants";
-import {
-	adminClient,
-	createAuthenticatedCookies,
-} from "../../helpers/test-env";
+import { adminClient, createAuthenticatedCookies } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
@@ -28,10 +22,7 @@ describe("A signed-in user updates profile time display format.", () => {
 			.eq("id", testUser.id);
 		expect(seedError).toBeNull();
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const formData = new FormData();
 		formData.append("use_24_hour_time", "on");
@@ -76,17 +67,11 @@ describe("A signed-in user updates profile time display format.", () => {
 			.eq("id", testUser.id);
 		expect(seedError).toBeNull();
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const response = await updateProfileTimeFormat(
 			createApiContext({
-				request: createFormPostRequest(
-					"/api/profile/time-format",
-					new FormData(),
-				),
+				request: createFormPostRequest("/api/profile/time-format", new FormData()),
 				cookies,
 			}),
 		);

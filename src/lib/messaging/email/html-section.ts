@@ -29,10 +29,7 @@ const MARKDOWN_LINK_RE =
  * Strip markdown links from text, keeping only the link text (for plaintext email)
  * or removing them entirely (for SMS). Handles nested bracket patterns like `[[Reuters]](url)`.
  */
-export function stripMarkdownLinks(
-	content: string,
-	mode: "keep-text" | "remove",
-): string {
+export function stripMarkdownLinks(content: string, mode: "keep-text" | "remove"): string {
 	const stripped = content.replace(MARKDOWN_LINK_RE, (_, linkText: string) => {
 		if (mode === "remove") return "";
 		// Remove surrounding brackets from citation-style text: [Reuters] → Reuters

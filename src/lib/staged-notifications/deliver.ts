@@ -25,32 +25,15 @@ import {
 } from "../messaging/delay-banner";
 import { sendUserEmail } from "../messaging/email/index";
 import type { EmailSender } from "../messaging/email/utils";
-import {
-	deliveryResultToLogFields,
-	recordNotification,
-} from "../messaging/shared";
+import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import type { UserRecord } from "../messaging/types";
-import type {
-	ScheduledNotificationTotals,
-	SupabaseAdminClient,
-} from "../schedule/helpers";
-import {
-	claimNotification,
-	updateScheduledNotificationRow,
-} from "../schedule/helpers";
+import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
+import { claimNotification, updateScheduledNotificationRow } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
 import { toIsoOrThrow } from "../time/format";
-import {
-	deleteStagedNotification,
-	fetchDueStagedNotifications,
-	purgeStaleStaged,
-} from "./db";
-import type {
-	StagedDailyData,
-	StagedMarketData,
-	StagedNotificationRow,
-} from "./types";
+import { deleteStagedNotification, fetchDueStagedNotifications, purgeStaleStaged } from "./db";
+import type { StagedDailyData, StagedMarketData, StagedNotificationRow } from "./types";
 
 const STALE_MAX_AGE_MINUTES = 5;
 
@@ -93,17 +76,10 @@ export async function deliverStagedNotifications(options: {
 			});
 		}
 	} catch (error) {
-		logger.error(
-			"Failed to purge stale staged notifications",
-			{ action: "staged_deliver" },
-			error,
-		);
+		logger.error("Failed to purge stale staged notifications", { action: "staged_deliver" }, error);
 	}
 
-	const currentTimeIso = toIsoOrThrow(
-		currentTime,
-		"Failed to format currentTime ISO",
-	);
+	const currentTimeIso = toIsoOrThrow(currentTime, "Failed to format currentTime ISO");
 
 	// Fetch due staged rows for both types
 	let marketRows: StagedNotificationRow[] = [];
@@ -120,11 +96,7 @@ export async function deliverStagedNotifications(options: {
 			}),
 		]);
 	} catch (error) {
-		logger.error(
-			"Failed to fetch due staged notifications",
-			{ action: "staged_deliver" },
-			error,
-		);
+		logger.error("Failed to fetch due staged notifications", { action: "staged_deliver" }, error);
 		return { stats, deliveredUserTypes };
 	}
 
@@ -311,12 +283,8 @@ async function deliverStagedMarket(options: {
 				use24Hour: user.use_24_hour_time,
 			}
 		: null;
-	const delayText = delayBannerOpts
-		? buildDelayBannerText(delayBannerOpts)
-		: null;
-	const delayHtml = delayBannerOpts
-		? buildDelayBannerHtml(delayBannerOpts)
-		: null;
+	const delayText = delayBannerOpts ? buildDelayBannerText(delayBannerOpts) : null;
+	const delayHtml = delayBannerOpts ? buildDelayBannerHtml(delayBannerOpts) : null;
 
 	// Email delivery
 	if (stagedData.email) {
@@ -525,12 +493,8 @@ async function deliverStagedDaily(options: {
 				use24Hour: user.use_24_hour_time,
 			}
 		: null;
-	const dailyDelayText = dailyDelayOpts
-		? buildDelayBannerText(dailyDelayOpts)
-		: null;
-	const dailyDelayHtml = dailyDelayOpts
-		? buildDelayBannerHtml(dailyDelayOpts)
-		: null;
+	const dailyDelayText = dailyDelayOpts ? buildDelayBannerText(dailyDelayOpts) : null;
+	const dailyDelayHtml = dailyDelayOpts ? buildDelayBannerHtml(dailyDelayOpts) : null;
 
 	// Email delivery
 	if (stagedData.email) {
@@ -628,12 +592,7 @@ async function deliverStagedDaily(options: {
 			if (claim.status === "claimed") {
 				try {
 					const { sender } = getSmsSender();
-					const result = await sendUserSms(
-						user,
-						dailySmsMessage,
-						sender,
-						supabase,
-					);
+					const result = await sendUserSms(user, dailySmsMessage, sender, supabase);
 
 					// Mark as delivered immediately after a successful send so fallback doesn't
 					// reprocess if later bookkeeping fails.
@@ -702,8 +661,7 @@ async function deliverStagedDaily(options: {
 				? DateTime.fromISO(user.grok_window_start, { zone: "utc" })
 				: null;
 			const windowExpired =
-				!windowStart?.isValid ||
-				currentTime.diff(windowStart, "hours").hours >= GROK_WINDOW_HOURS;
+				!windowStart?.isValid || currentTime.diff(windowStart, "hours").hours >= GROK_WINDOW_HOURS;
 
 			const newCount = windowExpired ? 1 : user.grok_sends_in_window + 1;
 			const newWindowStart = windowExpired ? now : user.grok_window_start;

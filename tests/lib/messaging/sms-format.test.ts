@@ -70,9 +70,7 @@ describe("SMS scheduled update includes asset price data.", () => {
 
 		const message = formatSmsMessage(assetsList, true);
 
-		expect(message).toMatch(
-			/^StockTextAlerts — Your scheduled price notification 📈\n\n/,
-		);
+		expect(message).toMatch(/^StockTextAlerts — Your scheduled price notification 📈\n\n/);
 	});
 
 	it("Includes dashboard link.", () => {

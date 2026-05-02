@@ -4,8 +4,7 @@ import { loadRenderers } from "astro/virtual-modules/container.js";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../src/lib/constants", async (importOriginal) => {
-	const actual =
-		await importOriginal<typeof import("../../src/lib/constants")>();
+	const actual = await importOriginal<typeof import("../../src/lib/constants")>();
 	return { ...actual, REGISTRATION_ENABLED: true };
 });
 
@@ -23,11 +22,7 @@ import ProfilePage from "../../src/pages/profile.astro";
 import TermsPage from "../../src/pages/terms.astro";
 import { TEST_PASSWORD } from "../helpers/constants";
 import { createAuthenticatedCookies } from "../helpers/test-env";
-import {
-	cleanupTestUser,
-	createTestEmail,
-	createTestUser,
-} from "../helpers/test-user";
+import { cleanupTestUser, createTestEmail, createTestUser } from "../helpers/test-user";
 import { expectConsoleWarning } from "../setup";
 
 function buildRequest(path: string, cookies?: Map<string, string>) {
@@ -80,9 +75,7 @@ describe("Users can load pages without unexpected errors.", () => {
 		});
 
 		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe(
-			"/auth/signin?redirect=%2Fdashboard",
-		);
+		expect(response.headers.get("Location")).toBe("/auth/signin?redirect=%2Fdashboard");
 	});
 
 	async function withTestUser<T>(
@@ -91,17 +84,11 @@ describe("Users can load pages without unexpected errors.", () => {
 			password: string;
 			confirmed: boolean;
 		},
-		callback: (
-			user: { id: string; email: string },
-			cookies: Map<string, string>,
-		) => Promise<T>,
+		callback: (user: { id: string; email: string }, cookies: Map<string, string>) => Promise<T>,
 	): Promise<T> {
 		const user = await createTestUser(options);
 		try {
-			const cookies = await createAuthenticatedCookies(
-				user.email,
-				options.password,
-			);
+			const cookies = await createAuthenticatedCookies(user.email, options.password);
 			return await callback(user, cookies);
 		} finally {
 			try {
@@ -163,10 +150,7 @@ describe("Users can load pages without unexpected errors.", () => {
 		{ component: TermsPage, path: "/terms" },
 	];
 
-	it.each(authPages)("A visitor can access auth page $path.", async ({
-		component,
-		path,
-	}) => {
+	it.each(authPages)("A visitor can access auth page $path.", async ({ component, path }) => {
 		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(component, {
 			request: buildRequest(path),
@@ -175,10 +159,7 @@ describe("Users can load pages without unexpected errors.", () => {
 		expect(response.status).toBe(200);
 	});
 
-	it.each(staticPages)("A visitor can access static page $path.", async ({
-		component,
-		path,
-	}) => {
+	it.each(staticPages)("A visitor can access static page $path.", async ({ component, path }) => {
 		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(component, {
 			request: buildRequest(path),
@@ -230,12 +211,9 @@ describe("Users can load pages without unexpected errors.", () => {
 			async (_user, cookies) => {
 				const container = await AstroContainer.create({ renderers });
 
-				const dashboardResponse = await container.renderToResponse(
-					DashboardPage,
-					{
-						request: buildRequest("/dashboard", cookies),
-					},
-				);
+				const dashboardResponse = await container.renderToResponse(DashboardPage, {
+					request: buildRequest("/dashboard", cookies),
+				});
 				expect(dashboardResponse.status).toBe(200);
 			},
 		);

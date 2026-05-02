@@ -1,11 +1,6 @@
 import type { Logger } from "../logging";
 import type { ProviderResult } from "../providers/massive";
-import {
-	fetchDividends,
-	fetchEarnings,
-	fetchIpos,
-	fetchSplits,
-} from "../providers/massive";
+import { fetchDividends, fetchEarnings, fetchIpos, fetchSplits } from "../providers/massive";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 
 /** Number of weeks to retain in the asset_events / market_events tables. */
@@ -48,19 +43,12 @@ export async function fetchAndStoreAssetEvents(options: {
 	// - earnings from Finnhub
 	// - dividends/splits/IPOs from Massive
 	const emptyResult: ProviderResult<never> = { data: [], failed: false };
-	const [earningsResult, dividendsResult, splitsResult, iposResult] =
-		await Promise.all([
-			hasTrackedSymbols
-				? fetchEarnings(weekStart, weekEnd)
-				: Promise.resolve(emptyResult),
-			hasTrackedSymbols
-				? fetchDividends(weekStart, weekEnd)
-				: Promise.resolve(emptyResult),
-			hasTrackedSymbols
-				? fetchSplits(weekStart, weekEnd)
-				: Promise.resolve(emptyResult),
-			fetchIpos(weekStart, weekEnd),
-		]);
+	const [earningsResult, dividendsResult, splitsResult, iposResult] = await Promise.all([
+		hasTrackedSymbols ? fetchEarnings(weekStart, weekEnd) : Promise.resolve(emptyResult),
+		hasTrackedSymbols ? fetchDividends(weekStart, weekEnd) : Promise.resolve(emptyResult),
+		hasTrackedSymbols ? fetchSplits(weekStart, weekEnd) : Promise.resolve(emptyResult),
+		fetchIpos(weekStart, weekEnd),
+	]);
 
 	const earnings = earningsResult.data;
 	const dividends = dividendsResult.data;
@@ -169,11 +157,9 @@ export async function fetchAndStoreAssetEvents(options: {
 
 	// Upsert calendar events into asset_events
 	if (rows.length > 0) {
-		const { error: insertError } = await supabase
-			.from("asset_events")
-			.upsert(rows, {
-				onConflict: "symbol,event_type,event_date",
-			});
+		const { error: insertError } = await supabase.from("asset_events").upsert(rows, {
+			onConflict: "symbol,event_type,event_date",
+		});
 
 		if (insertError) {
 			logger.error("Failed to insert asset_events", {
@@ -182,19 +168,15 @@ export async function fetchAndStoreAssetEvents(options: {
 				rowCount: rows.length,
 				error: insertError.message,
 			});
-			throw new Error(
-				`Failed to insert asset_events for ${weekStart}: ${insertError.message}`,
-			);
+			throw new Error(`Failed to insert asset_events for ${weekStart}: ${insertError.message}`);
 		}
 	}
 
 	// Upsert IPOs into market_events
 	if (ipoRows.length > 0) {
-		const { error: ipoError } = await supabase
-			.from("market_events")
-			.upsert(ipoRows, {
-				onConflict: "event_type,symbol,event_date",
-			});
+		const { error: ipoError } = await supabase.from("market_events").upsert(ipoRows, {
+			onConflict: "event_type,symbol,event_date",
+		});
 
 		if (ipoError) {
 			logger.error("Failed to insert market_events (IPOs)", {
@@ -203,9 +185,7 @@ export async function fetchAndStoreAssetEvents(options: {
 				rowCount: ipoRows.length,
 				error: ipoError.message,
 			});
-			throw new Error(
-				`Failed to insert market_events for ${weekStart}: ${ipoError.message}`,
-			);
+			throw new Error(`Failed to insert market_events for ${weekStart}: ${ipoError.message}`);
 		}
 	}
 

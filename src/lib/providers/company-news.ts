@@ -53,9 +53,7 @@ export async function fetchCompanyNews(
 			if (Number.isNaN(parsed)) return [];
 
 			const tickers = Array.isArray(row.tickers)
-				? (row.tickers as unknown[]).filter(
-						(t): t is string => typeof t === "string",
-					)
+				? (row.tickers as unknown[]).filter((t): t is string => typeof t === "string")
 				: [];
 
 			// Skip generic roundup articles that tag many tickers

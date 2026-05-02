@@ -94,9 +94,7 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 		const { data, error } = await supabase
 			.from("assets")
 			.select("symbol, name, type, icon_url")
-			.or(
-				`symbol.ilike.${quotedSymbolPrefixPattern},name.ilike.${quotedNameContainsPattern}`,
-			)
+			.or(`symbol.ilike.${quotedSymbolPrefixPattern},name.ilike.${quotedNameContainsPattern}`)
 			.order("symbol")
 			.limit(candidateLimit);
 
@@ -120,8 +118,7 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 		const results = candidates
 			.sort((left, right) => {
 				const rankDifference =
-					(rankCache.get(left.symbol) ?? 4) -
-					(rankCache.get(right.symbol) ?? 4);
+					(rankCache.get(left.symbol) ?? 4) - (rankCache.get(right.symbol) ?? 4);
 				if (rankDifference !== 0) {
 					return rankDifference;
 				}
@@ -137,11 +134,7 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 
 		return jsonResponse(200, { ok: true, message: "ok", results });
 	} catch (error) {
-		logger.error(
-			"Unexpected error in asset search",
-			{ userId: user.id, query },
-			error,
-		);
+		logger.error("Unexpected error in asset search", { userId: user.id, query }, error);
 		return jsonResponse(500, { ok: false, message: "search_failed" });
 	}
 };

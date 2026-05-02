@@ -5,19 +5,14 @@ const DEFAULT_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 
 /** Encode a buffer to base64url (URL-safe, no padding). */
 function toBase64Url(buffer: Buffer): string {
-	return buffer
-		.toString("base64")
-		.replaceAll("+", "-")
-		.replaceAll("/", "_")
-		.replace(/=+$/u, "");
+	return buffer.toString("base64").replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
 }
 
 /** Decode a base64url string back to a Buffer. */
 function fromBase64Url(value: string): Buffer {
 	const normalized = value.replaceAll("-", "+").replaceAll("_", "/");
 	const padding = normalized.length % 4;
-	const padded =
-		padding === 0 ? normalized : normalized + "=".repeat(4 - padding);
+	const padded = padding === 0 ? normalized : normalized + "=".repeat(4 - padding);
 	return Buffer.from(padded, "base64");
 }
 
@@ -34,9 +29,7 @@ export function createEmailUnsubscribeToken(options: {
 	const expiresAtMs = options.expiresAtMs ?? Date.now() + DEFAULT_TOKEN_TTL_MS;
 	const secret = getValidatedUnsubscribeTokenSecret();
 	if (!secret) {
-		throw new Error(
-			"UNSUBSCRIBE_TOKEN_SECRET does not meet policy for email unsubscribe tokens",
-		);
+		throw new Error("UNSUBSCRIBE_TOKEN_SECRET does not meet policy for email unsubscribe tokens");
 	}
 	const payload = `${options.userId}.${options.email}.${expiresAtMs}`;
 	const signature = createHmac("sha256", secret).update(payload).digest();
@@ -87,10 +80,7 @@ export function verifyEmailUnsubscribeToken(options: {
 /**
  * Create a fully-qualified unsubscribe URL that includes a signed token.
  */
-export function createEmailUnsubscribeUrl(options: {
-	userId: string;
-	email: string;
-}): string {
+export function createEmailUnsubscribeUrl(options: { userId: string; email: string }): string {
 	const token = createEmailUnsubscribeToken(options);
 	const baseUrl = `${getSiteUrl()}/email/unsubscribe`;
 	const params = new URLSearchParams({

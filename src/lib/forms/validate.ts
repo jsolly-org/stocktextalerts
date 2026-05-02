@@ -12,9 +12,7 @@ export function processFields(
 	for (const key of keys) {
 		const spec = schema[key];
 		if (!spec) {
-			throw new Error(
-				`processFields invariant failed: missing schema spec for key "${key}"`,
-			);
+			throw new Error(`processFields invariant failed: missing schema spec for key "${key}"`);
 		}
 		const raw = rawData[key];
 

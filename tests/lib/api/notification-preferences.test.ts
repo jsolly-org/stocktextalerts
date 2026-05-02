@@ -86,8 +86,7 @@ describe("Dashboard notification-preferences client helpers", () => {
 					ok: true,
 					notificationPreferences: {
 						timezone: "America/Chicago",
-						market_scheduled_asset_price_next_send_at:
-							"2026-01-14T15:00:00.000Z",
+						market_scheduled_asset_price_next_send_at: "2026-01-14T15:00:00.000Z",
 					},
 				}),
 				{
@@ -97,8 +96,7 @@ describe("Dashboard notification-preferences client helpers", () => {
 			),
 		);
 
-		const result =
-			await updateNotificationTimezonePreference("America/Chicago");
+		const result = await updateNotificationTimezonePreference("America/Chicago");
 
 		expect(result).toEqual({
 			timezone: "America/Chicago",
@@ -111,8 +109,7 @@ describe("Dashboard notification-preferences client helpers", () => {
 		const fetchMock = vi.mocked(fetch);
 		fetchMock.mockResolvedValueOnce(new Response(null, { status: 403 }));
 
-		const result =
-			await updateNotificationTimezonePreference("America/Chicago");
+		const result = await updateNotificationTimezonePreference("America/Chicago");
 
 		expect(result).toBeNull();
 		expect(redirectToSignInMock).toHaveBeenCalledTimes(1);

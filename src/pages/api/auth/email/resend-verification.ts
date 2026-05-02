@@ -47,12 +47,8 @@ export const POST: APIRoute = async ({ url, request, redirect, locals }) => {
 			{ email, errorCode: error.code, errorStatus: error.status },
 			error,
 		);
-		return redirect(
-			`/auth/unconfirmed?email=${encodeURIComponent(email)}&error=failed`,
-		);
+		return redirect(`/auth/unconfirmed?email=${encodeURIComponent(email)}&error=failed`);
 	}
 
-	return redirect(
-		`/auth/unconfirmed?email=${encodeURIComponent(email)}&success=true`,
-	);
+	return redirect(`/auth/unconfirmed?email=${encodeURIComponent(email)}&success=true`);
 };

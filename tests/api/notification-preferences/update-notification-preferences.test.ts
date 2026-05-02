@@ -2,15 +2,9 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_MARKET_UPDATE_TIME_MINUTES } from "../../../src/lib/constants";
 import { POST } from "../../../src/pages/api/notification-preferences/update";
-import {
-	createApiContext,
-	createFormPostRequest,
-} from "../../helpers/api-context";
+import { createApiContext, createFormPostRequest } from "../../helpers/api-context";
 import { TEST_PASSWORD } from "../../helpers/constants";
-import {
-	adminClient,
-	createAuthenticatedCookies,
-} from "../../helpers/test-env";
+import { adminClient, createAuthenticatedCookies } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
@@ -20,10 +14,7 @@ async function postNotificationPreferencesUpdate(options: {
 }) {
 	return POST(
 		createApiContext({
-			request: createFormPostRequest(
-				"/api/notification-preferences/update",
-				options.formData,
-			),
+			request: createFormPostRequest("/api/notification-preferences/update", options.formData),
 			cookies: options.cookies,
 		}),
 	);
@@ -38,10 +29,7 @@ describe("A signed-in user updates their notification channels.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const formData = new FormData();
 		formData.append("market_asset_price_alerts_include_email", "true");
@@ -62,9 +50,7 @@ describe("A signed-in user updates their notification channels.", () => {
 		};
 		expect(payload.ok).toBe(true);
 		expect(payload.message).toBe("settings_updated");
-		expect(
-			payload.notificationPreferences.market_asset_price_alert_move_size,
-		).toBe("extreme");
+		expect(payload.notificationPreferences.market_asset_price_alert_move_size).toBe("extreme");
 
 		const { data: updatedUser } = await adminClient
 			.from("users")
@@ -83,10 +69,7 @@ describe("A signed-in user updates their notification channels.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const formData = new FormData();
 		formData.append("market_asset_price_alerts_include_email", "true");
@@ -114,10 +97,7 @@ describe("A signed-in user updates their notification channels.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const formData = new FormData();
 		formData.append("email_notifications_enabled", "true");
@@ -138,18 +118,14 @@ describe("A signed-in user updates their notification channels.", () => {
 		};
 		expect(payload.ok).toBe(true);
 		expect(payload.message).toBe("settings_updated");
-		expect(
-			payload.notificationPreferences.market_scheduled_asset_price_times,
-		).toEqual([DEFAULT_MARKET_UPDATE_TIME_MINUTES]);
-		expect(
-			payload.notificationPreferences.market_scheduled_asset_price_next_send_at,
-		).toBeTruthy();
+		expect(payload.notificationPreferences.market_scheduled_asset_price_times).toEqual([
+			DEFAULT_MARKET_UPDATE_TIME_MINUTES,
+		]);
+		expect(payload.notificationPreferences.market_scheduled_asset_price_next_send_at).toBeTruthy();
 
 		const { data: updatedUser } = await adminClient
 			.from("users")
-			.select(
-				"market_scheduled_asset_price_times,market_scheduled_asset_price_next_send_at",
-			)
+			.select("market_scheduled_asset_price_times,market_scheduled_asset_price_next_send_at")
 			.eq("id", testUser.id)
 			.single();
 
@@ -167,17 +143,11 @@ describe("A signed-in user updates their notification channels.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const formData = new FormData();
 		formData.append("email_notifications_enabled", "true");
-		formData.append(
-			"market_scheduled_asset_price_times",
-			JSON.stringify(["12:00"]),
-		);
+		formData.append("market_scheduled_asset_price_times", JSON.stringify(["12:00"]));
 
 		const response = await postNotificationPreferencesUpdate({
 			formData,
@@ -206,10 +176,7 @@ describe("A signed-in user updates their notification channels.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const formData = new FormData();
 		formData.append(
@@ -230,9 +197,7 @@ describe("A signed-in user updates their notification channels.", () => {
 			.eq("id", testUser.id)
 			.single();
 
-		expect(updatedUser.market_scheduled_asset_price_times).toEqual([
-			600, 660, 840,
-		]);
+		expect(updatedUser.market_scheduled_asset_price_times).toEqual([600, 660, 840]);
 	});
 
 	it("When all notification times are removed, scheduled updates are cleared.", async () => {
@@ -245,10 +210,7 @@ describe("A signed-in user updates their notification channels.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const formData = new FormData();
 		formData.append("market_scheduled_asset_price_times", "[]");
@@ -270,11 +232,7 @@ describe("A signed-in user updates their notification channels.", () => {
 
 		expect(payload.ok).toBe(true);
 		expect(payload.message).toBe("settings_updated");
-		expect(
-			payload.notificationPreferences.market_scheduled_asset_price_times,
-		).toBeNull();
-		expect(
-			payload.notificationPreferences.market_scheduled_asset_price_next_send_at,
-		).toBeNull();
+		expect(payload.notificationPreferences.market_scheduled_asset_price_times).toBeNull();
+		expect(payload.notificationPreferences.market_scheduled_asset_price_next_send_at).toBeNull();
 	});
 });

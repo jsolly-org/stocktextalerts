@@ -8,15 +8,12 @@ interface SmsVerificationContext {
 	isSendingVerification: Ref<boolean>;
 }
 
-const SMS_VERIFICATION_KEY: InjectionKey<SmsVerificationContext> =
-	Symbol("sms-verification");
+const SMS_VERIFICATION_KEY: InjectionKey<SmsVerificationContext> = Symbol("sms-verification");
 
 /**
  * Provide shared SMS verification UI state for descendant components.
  */
-export function provideSmsVerificationContext(
-	context: SmsVerificationContext,
-): void {
+export function provideSmsVerificationContext(context: SmsVerificationContext): void {
 	provide(SMS_VERIFICATION_KEY, context);
 }
 

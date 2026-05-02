@@ -3,14 +3,8 @@ import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/notification-preferences/update";
 import { createApiContext } from "../../helpers/api-context";
 import { TEST_PASSWORD } from "../../helpers/constants";
-import {
-	adminClient,
-	createAuthenticatedCookies,
-} from "../../helpers/test-env";
-import {
-	createTestUser,
-	generateUniquePhoneNumber,
-} from "../../helpers/test-user";
+import { adminClient, createAuthenticatedCookies } from "../../helpers/test-env";
+import { createTestUser, generateUniquePhoneNumber } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 describe("A signed-in opted-out user attempts to re-enable SMS options.", () => {
@@ -27,22 +21,16 @@ describe("A signed-in opted-out user attempts to re-enable SMS options.", () => 
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const formData = new FormData();
 		formData.append("market_asset_price_alerts_include_sms", "true");
 
-		const request = new Request(
-			"http://localhost/api/notification-preferences/update",
-			{
-				method: "POST",
-				body: formData,
-				headers: { Accept: "application/json" },
-			},
-		);
+		const request = new Request("http://localhost/api/notification-preferences/update", {
+			method: "POST",
+			body: formData,
+			headers: { Accept: "application/json" },
+		});
 
 		const response = await POST(createApiContext({ request, cookies }));
 
@@ -75,24 +63,18 @@ describe("A signed-in opted-out user attempts to re-enable SMS options.", () => 
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const formData = new FormData();
 		// Mirrors hidden SMS field submission while saving an unrelated preference.
 		formData.append("market_scheduled_asset_price_include_sms", "true");
 		formData.append("daily_digest_include_news_email", "true");
 
-		const request = new Request(
-			"http://localhost/api/notification-preferences/update",
-			{
-				method: "POST",
-				body: formData,
-				headers: { Accept: "application/json" },
-			},
-		);
+		const request = new Request("http://localhost/api/notification-preferences/update", {
+			method: "POST",
+			body: formData,
+			headers: { Accept: "application/json" },
+		});
 
 		const response = await POST(createApiContext({ request, cookies }));
 
@@ -103,9 +85,7 @@ describe("A signed-in opted-out user attempts to re-enable SMS options.", () => 
 
 		const { data: updatedUser } = await adminClient
 			.from("users")
-			.select(
-				"market_scheduled_asset_price_include_sms,daily_digest_include_news_email",
-			)
+			.select("market_scheduled_asset_price_include_sms,daily_digest_include_news_email")
 			.eq("id", testUser.id)
 			.single();
 		expect(updatedUser).not.toBeNull();

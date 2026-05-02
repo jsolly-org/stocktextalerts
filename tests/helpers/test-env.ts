@@ -21,31 +21,23 @@ function getTestEnv(): TestEnv {
 
 const testEnv = getTestEnv();
 
-export const adminClient = createClient(
-	testEnv.supabaseUrl,
-	testEnv.supabaseSecretKey,
-	{
-		auth: {
-			autoRefreshToken: false,
-			persistSession: false,
-		},
+export const adminClient = createClient(testEnv.supabaseUrl, testEnv.supabaseSecretKey, {
+	auth: {
+		autoRefreshToken: false,
+		persistSession: false,
 	},
-);
+});
 
 export async function createAuthenticatedCookies(
 	email: string,
 	password: string,
 ): Promise<Map<string, string>> {
-	const supabase = createClient(
-		testEnv.supabaseUrl,
-		testEnv.supabasePublishableKey,
-		{
-			auth: {
-				autoRefreshToken: false,
-				persistSession: false,
-			},
+	const supabase = createClient(testEnv.supabaseUrl, testEnv.supabasePublishableKey, {
+		auth: {
+			autoRefreshToken: false,
+			persistSession: false,
 		},
-	);
+	});
 
 	const { data, error } = await supabase.auth.signInWithPassword({
 		email,

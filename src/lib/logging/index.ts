@@ -22,8 +22,7 @@ type LogEntry = {
 const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
 // Require separators or a country code to reduce false positives (may miss bare digits).
 // Matches: +1 (415) 555-1234, (415) 555-1234, 415-555-1234, etc.
-const PHONE_CANDIDATE_RE =
-	/(?:\+\d{1,3}[\s().-]*)?\(?\d{3}\)?[\s().-]*\d{3}[\s().-]*\d{4}/g;
+const PHONE_CANDIDATE_RE = /(?:\+\d{1,3}[\s().-]*)?\(?\d{3}\)?[\s().-]*\d{3}[\s().-]*\d{4}/g;
 
 /** Context keys that indicate secrets; always redact to avoid leaking credentials. */
 const SENSITIVE_KEY_PATTERNS = [
@@ -47,10 +46,7 @@ function isSensitiveKey(key: string): boolean {
 	);
 }
 
-function maskPiiInContext(
-	context: LogContext,
-	maskPiiEnabled: boolean,
-): LogContext {
+function maskPiiInContext(context: LogContext, maskPiiEnabled: boolean): LogContext {
 	const masked: Record<string, unknown> = {};
 	for (const [key, value] of Object.entries(context)) {
 		if (key === "requestId") {
@@ -67,9 +63,7 @@ function maskPiiInContext(
 		}
 		const lowerKey = key.toLowerCase();
 		const isPhoneKey =
-			lowerKey.includes("phone") ||
-			lowerKey === "countrycode" ||
-			lowerKey === "country_code";
+			lowerKey.includes("phone") || lowerKey === "countrycode" || lowerKey === "country_code";
 		let looksLikePhone = false;
 		if (typeof value === "string") {
 			looksLikePhone = PHONE_CANDIDATE_RE.test(value);
@@ -140,8 +134,7 @@ function getMaskPiiEnabled(): boolean {
 	// so access process.env directly here. LOG_MASK_PII is a non-secret config
 	// flag, passed as a Lambda env var and available on Vercel/Node runtimes.
 	// Guard `process` for client-side Vue bundles where it's undefined.
-	const value =
-		typeof process !== "undefined" ? process.env.LOG_MASK_PII : undefined;
+	const value = typeof process !== "undefined" ? process.env.LOG_MASK_PII : undefined;
 	const normalized = typeof value === "string" ? value : String(value ?? "");
 	return normalized.toLowerCase() !== "false";
 }
@@ -181,9 +174,7 @@ function buildEntry(
 	error: unknown | undefined,
 	maskPiiEnabled: boolean,
 ): LogEntry {
-	const maskedContext = context
-		? maskPiiInContext(context, maskPiiEnabled)
-		: undefined;
+	const maskedContext = context ? maskPiiInContext(context, maskPiiEnabled) : undefined;
 	const { requestId, ...rest } = maskedContext ?? {};
 	const entry: LogEntry = {
 		timestamp: new Date().toISOString(),
@@ -204,12 +195,7 @@ function buildEntry(
 	return entry;
 }
 
-function writeLog(
-	level: LogLevel,
-	message: string,
-	context?: LogContext,
-	error?: unknown,
-) {
+function writeLog(level: LogLevel, message: string, context?: LogContext, error?: unknown) {
 	const maskPiiEnabled = getMaskPiiEnabled();
 	const entry = buildEntry(level, message, context, error, maskPiiEnabled);
 	const output = safeJsonStringify(entry, maskPiiEnabled);

@@ -1,11 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { rootLogger } from "../../../src/lib/logging";
-import {
-	errorSpy,
-	expectConsoleError,
-	expectConsoleWarning,
-	warnSpy,
-} from "../../setup";
+import { errorSpy, expectConsoleError, expectConsoleWarning, warnSpy } from "../../setup";
 
 describe("Sensitive user data is masked in logs.", () => {
 	let infoSpy: ReturnType<typeof vi.spyOn>;

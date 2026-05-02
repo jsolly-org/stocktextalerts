@@ -3,13 +3,7 @@
 // - `twilio` uses Twilio *test credentials* only (no real delivery, no charges).
 type LiveProvider = "massive" | "finnhub" | "xai" | "email" | "twilio";
 
-const ALLOWED_PROVIDERS: LiveProvider[] = [
-	"massive",
-	"finnhub",
-	"xai",
-	"email",
-	"twilio",
-];
+const ALLOWED_PROVIDERS: LiveProvider[] = ["massive", "finnhub", "xai", "email", "twilio"];
 
 function parseCsv(value: string | undefined): string[] {
 	if (!value) return [];
@@ -20,8 +14,7 @@ function parseCsv(value: string | undefined): string[] {
 }
 
 function parseEnabledProviders(): Set<LiveProvider> {
-	const raw =
-		process.env.LIVE_API_PROVIDERS ?? process.env.TEST_LIVE_PROVIDERS ?? "";
+	const raw = process.env.LIVE_API_PROVIDERS ?? process.env.TEST_LIVE_PROVIDERS ?? "";
 
 	if (raw.trim().toLowerCase() === "all") {
 		return new Set<LiveProvider>(ALLOWED_PROVIDERS);
@@ -45,14 +38,9 @@ export function isLiveProviderEnabled(provider: LiveProvider): boolean {
 	return enabledProviders.has(provider);
 }
 
-export function assertLiveProviderKey(options: {
-	provider: LiveProvider;
-	envVar: string;
-}): void {
+export function assertLiveProviderKey(options: { provider: LiveProvider; envVar: string }): void {
 	const { provider, envVar } = options;
 	if (!isLiveProviderEnabled(provider)) return;
 	if (process.env[envVar]) return;
-	throw new Error(
-		`LIVE_API_PROVIDERS includes "${provider}" but ${envVar} is not set`,
-	);
+	throw new Error(`LIVE_API_PROVIDERS includes "${provider}" but ${envVar} is not set`);
 }

@@ -2,10 +2,7 @@ import { DateTime } from "luxon";
 import type { Logger } from "../../logging";
 import { extractErrorMessage } from "../../logging/errors";
 import { formatAssetsTextList } from "../../messaging/asset-formatting";
-import {
-	buildDelayBannerHtml,
-	buildDelayBannerText,
-} from "../../messaging/delay-banner";
+import { buildDelayBannerHtml, buildDelayBannerText } from "../../messaging/delay-banner";
 import type { EmailSender } from "../../messaging/email/utils";
 import { formatEmailMessage } from "../../messaging/email/utils";
 import { safePrefetchLogos } from "../../messaging/logo-fetcher";
@@ -30,10 +27,7 @@ import { isOutsideMarketHours } from "../../time/format";
 import type { MarketClosureInfo } from "../../time/market-calendar";
 import { getUsMarketClosureInfoForInstant } from "../../time/market-calendar";
 import { getLocalMinutesFromDateTime } from "../../time/scheduled-times";
-import {
-	processMarketScheduledEmailDelivery,
-	processMarketScheduledSmsDelivery,
-} from "./delivery";
+import { processMarketScheduledEmailDelivery, processMarketScheduledSmsDelivery } from "./delivery";
 import { updateUserMarketScheduledNextSendAt } from "./next-send-at";
 
 /** Process a single user's scheduled market asset update notification. */
@@ -89,14 +83,10 @@ export async function processMarketScheduledUser(options: {
 				})
 			: currentTime;
 		if (!dueAt.isValid) {
-			logger.error(
-				"Invalid market_scheduled_asset_price_next_send_at timestamp",
-				{
-					userId: user.id,
-					market_scheduled_asset_price_next_send_at:
-						user.market_scheduled_asset_price_next_send_at,
-				},
-			);
+			logger.error("Invalid market_scheduled_asset_price_next_send_at timestamp", {
+				userId: user.id,
+				market_scheduled_asset_price_next_send_at: user.market_scheduled_asset_price_next_send_at,
+			});
 			stats.skipped++;
 			return stats;
 		}
@@ -114,8 +104,7 @@ export async function processMarketScheduledUser(options: {
 			logger.error("Failed to format scheduled date", {
 				userId: user.id,
 				timezone: user.timezone,
-				market_scheduled_asset_price_next_send_at:
-					user.market_scheduled_asset_price_next_send_at,
+				market_scheduled_asset_price_next_send_at: user.market_scheduled_asset_price_next_send_at,
 				dueAt: dueAt.toISO(),
 				dueAtLocalIso: dueAtLocal.toISO(),
 			});
@@ -129,8 +118,7 @@ export async function processMarketScheduledUser(options: {
 				phase: "getLocalMinutesFromDateTime",
 				userId: user.id,
 				timezone: user.timezone,
-				market_scheduled_asset_price_next_send_at:
-					user.market_scheduled_asset_price_next_send_at,
+				market_scheduled_asset_price_next_send_at: user.market_scheduled_asset_price_next_send_at,
 				dueAt: dueAt.toISO(),
 				dueAtLocalIso: dueAtLocal.toISO(),
 				scheduledDate,
@@ -196,23 +184,19 @@ export async function processMarketScheduledUser(options: {
 			try {
 				sparklines = await fetchSparklines(tickers);
 			} catch (error) {
-				logger.error(
-					"Failed to fetch sparklines for scheduled market notification",
-					{
-						action: "market_notifications_run",
-						userId: user.id,
-						tickerCount: tickers.length,
-						error: extractErrorMessage(error),
-					},
-				);
+				logger.error("Failed to fetch sparklines for scheduled market notification", {
+					action: "market_notifications_run",
+					userId: user.id,
+					tickerCount: tickers.length,
+					error: extractErrorMessage(error),
+				});
 			}
 		}
 		const getSparkline = (symbol: string) => sparklines.get(symbol) ?? null;
 		const getAsciiSparkline = (symbol: string) => sparklines.get(symbol)?.ascii;
 
 		const shouldPrepareEmail =
-			user.email_notifications_enabled &&
-			user.market_scheduled_asset_price_include_email;
+			user.email_notifications_enabled && user.market_scheduled_asset_price_include_email;
 		const { getLogoHtml } = await safePrefetchLogos({
 			assets: userAssets,
 			shouldPrefetch: shouldPrepareEmail,
@@ -237,8 +221,7 @@ export async function processMarketScheduledUser(options: {
 		// record delivery here — the delivery phase (deliver.ts) handles both so
 		// the user's schedule only advances after the message is actually sent.
 		if (stageOnly) {
-			const scheduledForIso =
-				user.market_scheduled_asset_price_next_send_at ?? dueAt.toISO();
+			const scheduledForIso = user.market_scheduled_asset_price_next_send_at ?? dueAt.toISO();
 			if (!scheduledForIso) {
 				logger.error("Cannot determine scheduled_for for staging", {
 					userId: user.id,
@@ -248,21 +231,16 @@ export async function processMarketScheduledUser(options: {
 			}
 
 			const wantsEmail =
-				user.email_notifications_enabled &&
-				user.market_scheduled_asset_price_include_email;
-			const wantsSms =
-				shouldAttemptSms && user.market_scheduled_asset_price_include_sms;
+				user.email_notifications_enabled && user.market_scheduled_asset_price_include_email;
+			const wantsSms = shouldAttemptSms && user.market_scheduled_asset_price_include_sms;
 
 			const emailContent = wantsEmail
 				? (() => {
-						const msg = formatEmailMessage(
-							user,
-							userAssets,
-							assetsList,
-							priceMap,
-							marketOpen,
-							{ getSparkline, marketClosureInfo, getLogoHtml },
-						);
+						const msg = formatEmailMessage(user, userAssets, assetsList, priceMap, marketOpen, {
+							getSparkline,
+							marketClosureInfo,
+							getLogoHtml,
+						});
 						return {
 							subject: "Your Scheduled Price Notification",
 							text: msg.text,
@@ -273,12 +251,7 @@ export async function processMarketScheduledUser(options: {
 
 			const smsContent = wantsSms
 				? {
-						message: formatSmsMessage(
-							assetsList,
-							marketOpen,
-							undefined,
-							marketClosureInfo,
-						),
+						message: formatSmsMessage(assetsList, marketOpen, undefined, marketClosureInfo),
 					}
 				: null;
 
@@ -299,11 +272,7 @@ export async function processMarketScheduledUser(options: {
 			});
 
 			if (stageError) {
-				logger.error(
-					"Failed to stage market notification",
-					{ userId: user.id },
-					stageError,
-				);
+				logger.error("Failed to stage market notification", { userId: user.id }, stageError);
 				stats.skipped++;
 			}
 
@@ -311,10 +280,7 @@ export async function processMarketScheduledUser(options: {
 		}
 
 		/* ============= Process Email ============= */
-		if (
-			user.email_notifications_enabled &&
-			user.market_scheduled_asset_price_include_email
-		) {
+		if (user.email_notifications_enabled && user.market_scheduled_asset_price_include_email) {
 			attemptedDeliveryMethod = "email";
 			await processMarketScheduledEmailDelivery({
 				user,
@@ -378,10 +344,8 @@ export async function processMarketScheduledUser(options: {
 			if (deliveryAttempts === 0) {
 				const shouldAttemptSms = shouldSendSms(user);
 				const eligibleEmail =
-					user.email_notifications_enabled &&
-					user.market_scheduled_asset_price_include_email;
-				const eligibleSms =
-					shouldAttemptSms && user.market_scheduled_asset_price_include_sms;
+					user.email_notifications_enabled && user.market_scheduled_asset_price_include_email;
+				const eligibleSms = shouldAttemptSms && user.market_scheduled_asset_price_include_sms;
 
 				const deliveryMethod: DeliveryMethod =
 					attemptedDeliveryMethod ??
@@ -405,11 +369,7 @@ export async function processMarketScheduledUser(options: {
 				}
 			}
 		} catch (logError) {
-			logger.error(
-				"Failed to record notification for user",
-				{ userId: user.id },
-				logError,
-			);
+			logger.error("Failed to record notification for user", { userId: user.id }, logError);
 			stats.logFailures++;
 		}
 

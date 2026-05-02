@@ -182,9 +182,7 @@ describe("claim_flat_price_alert RPC", () => {
 		};
 
 		const results = await Promise.all(
-			Array.from({ length: concurrency }, () =>
-				adminClient.rpc("claim_flat_price_alert", args),
-			),
+			Array.from({ length: concurrency }, () => adminClient.rpc("claim_flat_price_alert", args)),
 		);
 
 		const errors = results.filter((r) => r.error);

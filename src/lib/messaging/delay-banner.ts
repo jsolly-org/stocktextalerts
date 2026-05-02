@@ -46,11 +46,7 @@ export function buildDelayBannerText(options: {
 	if (delayMinutes < DELAY_THRESHOLD_MINUTES) {
 		return null;
 	}
-	const time = formatScheduledTime(
-		options.scheduledFor,
-		options.userTimezone,
-		options.use24Hour,
-	);
+	const time = formatScheduledTime(options.scheduledFor, options.userTimezone, options.use24Hour);
 	return `⏰ Delayed — originally scheduled for ${time}.`;
 }
 
@@ -66,11 +62,7 @@ export function buildDelayBannerHtml(options: {
 		return "";
 	}
 	const time = escapeHtml(
-		formatScheduledTime(
-			options.scheduledFor,
-			options.userTimezone,
-			options.use24Hour,
-		),
+		formatScheduledTime(options.scheduledFor, options.userTimezone, options.use24Hour),
 	);
 	return `<div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; text-align: center;">
 			<div style="font-size: 14px; color: #92400e; font-weight: 600;">⏰ Delayed Notification</div>
@@ -82,10 +74,7 @@ export function buildDelayBannerHtml(options: {
  * Prepend a delay banner to a pre-rendered SMS message.
  * Inserts the banner after the first line (header) of the message.
  */
-export function prependDelayBannerToSms(
-	message: string,
-	bannerText: string,
-): string {
+export function prependDelayBannerToSms(message: string, bannerText: string): string {
 	const firstNewline = message.indexOf("\n\n");
 	if (firstNewline === -1) {
 		return `${bannerText}\n\n${message}`;

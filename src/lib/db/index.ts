@@ -85,10 +85,7 @@ export type UserUpdateInput = DbUserUpdate;
  *
  * This centralizes session refresh + cookie updates so RLS-backed queries keep working.
  */
-export function createUserService(
-	supabase: AppSupabaseClient,
-	cookies: AstroCookies,
-) {
+export function createUserService(supabase: AppSupabaseClient, cookies: AstroCookies) {
 	return {
 		/**
 		 * Resolve the current authenticated user from auth cookies.
@@ -116,8 +113,7 @@ export function createUserService(
 					// Only log unexpected errors (server errors, network issues)
 					// Status 400/401 are expected for invalid/expired tokens
 					const status = sessionResponse.error.status;
-					const isExpectedAuthFailure =
-						status === 400 || status === 401 || status === 403;
+					const isExpectedAuthFailure = status === 400 || status === 401 || status === 403;
 
 					if (!isExpectedAuthFailure) {
 						const userId =
@@ -140,10 +136,7 @@ export function createUserService(
 			// Update cookies with refreshed tokens if they changed
 			const newAccessToken = sessionResponse.data.session.access_token;
 			const newRefreshToken = sessionResponse.data.session.refresh_token;
-			if (
-				newAccessToken !== accessToken.value ||
-				newRefreshToken !== refreshToken.value
-			) {
+			if (newAccessToken !== accessToken.value || newRefreshToken !== refreshToken.value) {
 				setAuthCookies(cookies, newAccessToken, newRefreshToken);
 			}
 
@@ -154,11 +147,7 @@ export function createUserService(
 		 * Fetch a user row by id using RLS.
 		 */
 		async getById(id: string): Promise<User | null> {
-			const { data, error } = await supabase
-				.from("users")
-				.select("*")
-				.eq("id", id)
-				.maybeSingle();
+			const { data, error } = await supabase.from("users").select("*").eq("id", id).maybeSingle();
 
 			if (error) throw error;
 			return data as User | null;
@@ -222,11 +211,7 @@ type NonUndefined<T> = {
 	[K in keyof T]: Exclude<T[K], undefined>;
 };
 
-export function omitUndefined<T extends Record<string, unknown | undefined>>(
-	input: T,
-) {
-	const entries = Object.entries(input).filter(
-		([, value]) => value !== undefined,
-	);
+export function omitUndefined<T extends Record<string, unknown | undefined>>(input: T) {
+	const entries = Object.entries(input).filter(([, value]) => value !== undefined);
 	return Object.fromEntries(entries) as Partial<NonUndefined<T>>;
 }

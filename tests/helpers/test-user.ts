@@ -83,16 +83,12 @@ export async function cleanupTestUser(userId: string): Promise<void> {
 		errors.push(`user_assets: ${userAssetsError.message}`);
 	}
 
-	const { error: userRowError } = await adminClient
-		.from("users")
-		.delete()
-		.eq("id", userId);
+	const { error: userRowError } = await adminClient.from("users").delete().eq("id", userId);
 	if (userRowError) {
 		errors.push(`users: ${userRowError.message}`);
 	}
 
-	const { error: authDeleteError } =
-		await adminClient.auth.admin.deleteUser(userId);
+	const { error: authDeleteError } = await adminClient.auth.admin.deleteUser(userId);
 	if (authDeleteError) {
 		const status = (authDeleteError as { status?: number } | null)?.status;
 		const code = (authDeleteError as { code?: string } | null)?.code;
@@ -107,17 +103,12 @@ export async function cleanupTestUser(userId: string): Promise<void> {
 	}
 }
 
-type DbUserInsert = Omit<
-	TablesInsert<"users">,
-	"market_scheduled_asset_price_times"
-> & {
+type DbUserInsert = Omit<TablesInsert<"users">, "market_scheduled_asset_price_times"> & {
 	market_scheduled_asset_price_times?: number[] | null;
 };
 type DbUserAssetInsert = TablesInsert<"user_assets">;
 
-export async function createTestUser(
-	options: CreateTestUserOptions = {},
-): Promise<TestUser> {
+export async function createTestUser(options: CreateTestUserOptions = {}): Promise<TestUser> {
 	// TEST_EMAIL_RECIPIENT env fallback was removed on 2026-04-11. It
 	// allowed a real address (e.g. test@jsolly.com) to leak into test
 	// users and caused an accidental real-email delivery. Test users
@@ -131,11 +122,8 @@ export async function createTestUser(
 	const defaultPhoneNumber = `500555${String(randomInt(0, 10000)).padStart(4, "0")}`;
 
 	const phoneCountryCode =
-		options.phoneCountryCode ??
-		(smsNotificationsEnabled ? defaultPhoneCountryCode : null);
-	const phoneNumber =
-		options.phoneNumber ??
-		(smsNotificationsEnabled ? defaultPhoneNumber : null);
+		options.phoneCountryCode ?? (smsNotificationsEnabled ? defaultPhoneCountryCode : null);
+	const phoneNumber = options.phoneNumber ?? (smsNotificationsEnabled ? defaultPhoneNumber : null);
 	const phoneVerified = options.phoneVerified ?? false;
 	if (smsNotificationsEnabled && (!phoneCountryCode || !phoneNumber)) {
 		throw new Error(
@@ -167,10 +155,9 @@ export async function createTestUser(
 	try {
 		// Confirm user if requested
 		if (options.confirmed) {
-			const { error: confirmError } =
-				await adminClient.auth.admin.updateUserById(userId, {
-					email_confirm: true,
-				});
+			const { error: confirmError } = await adminClient.auth.admin.updateUserById(userId, {
+				email_confirm: true,
+			});
 			if (confirmError) {
 				throw new Error(`Failed to confirm user: ${confirmError.message}`);
 			}
@@ -186,27 +173,18 @@ export async function createTestUser(
 						...new Set(
 							rawNotificationTimes
 								.filter((value) => Number.isFinite(value))
-								.map(
-									(value) =>
-										Math.floor(Math.max(0, Math.min(1439, value)) / 15) * 15,
-								),
+								.map((value) => Math.floor(Math.max(0, Math.min(1439, value)) / 15) * 15),
 						),
 					].sort((a, b) => a - b);
 		const finalMarketScheduledPriceTimes =
 			normalizedTimes && normalizedTimes.length > 0 ? normalizedTimes : null;
 		const nextSendAt = finalMarketScheduledPriceTimes
-			? calculateNextSendAtFromTimes(
-					finalMarketScheduledPriceTimes,
-					timezone,
-					DateTime.utc(),
-				)
+			? calculateNextSendAtFromTimes(finalMarketScheduledPriceTimes, timezone, DateTime.utc())
 			: null;
 		const nextSendAtIso = nextSendAt?.toISO() ?? null;
 		if (finalMarketScheduledPriceTimes) {
 			if (!nextSendAtIso) {
-				throw new Error(
-					"Failed to generate market_scheduled_asset_price_next_send_at timestamp",
-				);
+				throw new Error("Failed to generate market_scheduled_asset_price_next_send_at timestamp");
 			}
 		}
 
@@ -223,9 +201,7 @@ export async function createTestUser(
 			market_scheduled_asset_price_times: finalMarketScheduledPriceTimes,
 			market_scheduled_asset_price_next_send_at: nextSendAtIso,
 			market_scheduled_asset_price_include_email:
-				options.marketScheduledAssetPriceIncludeEmail ??
-				options.emailNotificationsEnabled ??
-				false,
+				options.marketScheduledAssetPriceIncludeEmail ?? options.emailNotificationsEnabled ?? false,
 			market_scheduled_asset_price_include_sms:
 				options.marketScheduledAssetPriceIncludeSms ?? smsNotificationsEnabled,
 		};
@@ -242,9 +218,7 @@ export async function createTestUser(
 		if (options.trackedAssets && options.trackedAssets.length > 0) {
 			// Ensure assets exist in the assets table first
 			const uniqueSymbols = [
-				...new Set(
-					options.trackedAssets.map((symbol) => symbol.trim().toUpperCase()),
-				),
+				...new Set(options.trackedAssets.map((symbol) => symbol.trim().toUpperCase())),
 			];
 			const assetRecords = uniqueSymbols.map((symbol) => {
 				const assetData = getAssetData(symbol);
@@ -260,9 +234,7 @@ export async function createTestUser(
 				.upsert(assetRecords, { onConflict: "symbol" });
 
 			if (assetsTableError) {
-				throw new Error(
-					`Assets table setup failed: ${assetsTableError.message}`,
-				);
+				throw new Error(`Assets table setup failed: ${assetsTableError.message}`);
 			}
 
 			const assetInserts: DbUserAssetInsert[] = assetRecords.map((asset) => ({
@@ -270,9 +242,7 @@ export async function createTestUser(
 				symbol: asset.symbol,
 			}));
 
-			const { error: assetError } = await adminClient
-				.from("user_assets")
-				.insert(assetInserts);
+			const { error: assetError } = await adminClient.from("user_assets").insert(assetInserts);
 
 			if (assetError) {
 				throw new Error(`Asset setup failed: ${assetError.message}`);

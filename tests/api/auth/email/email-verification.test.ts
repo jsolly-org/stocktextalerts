@@ -18,15 +18,12 @@ describe("A user resends their email verification from the unconfirmed page.", (
 		}
 		const testUser = { id: data.user.id, email: testEmail };
 		registerTestUserForCleanup(testUser.id);
-		const request = new Request(
-			"http://localhost/api/auth/email/resend-verification",
-			{
-				method: "POST",
-				body: new URLSearchParams({
-					email: `  ${testUser.email} `,
-				}),
-			},
-		);
+		const request = new Request("http://localhost/api/auth/email/resend-verification", {
+			method: "POST",
+			body: new URLSearchParams({
+				email: `  ${testUser.email} `,
+			}),
+		});
 
 		{
 			const response = await emailResendPost(createApiContext({ request }));

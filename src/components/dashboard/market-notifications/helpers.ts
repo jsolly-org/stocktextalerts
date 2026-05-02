@@ -1,11 +1,4 @@
-import {
-	type ComputedRef,
-	computed,
-	onMounted,
-	onUnmounted,
-	ref,
-	watch,
-} from "vue";
+import { type ComputedRef, computed, onMounted, onUnmounted, ref, watch } from "vue";
 import {
 	formatCountdownWithSeconds,
 	getNowInTimezone,
@@ -78,14 +71,9 @@ export function useScheduledUpdateTiming(options: {
 				return;
 			}
 			adjustedNextSendAtIso.value =
-				typeof payload.nextSendAtIso === "string"
-					? payload.nextSendAtIso
-					: null;
-			delayReasons.value = Array.isArray(payload.delayReasons)
-				? payload.delayReasons
-				: [];
-			holidayName.value =
-				typeof payload.holidayName === "string" ? payload.holidayName : null;
+				typeof payload.nextSendAtIso === "string" ? payload.nextSendAtIso : null;
+			delayReasons.value = Array.isArray(payload.delayReasons) ? payload.delayReasons : [];
+			holidayName.value = typeof payload.holidayName === "string" ? payload.holidayName : null;
 		} catch {
 			clearAdjustedIfActive();
 			// Best-effort enhancement only; countdown will fall back to persisted next_send_at.

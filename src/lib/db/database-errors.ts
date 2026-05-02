@@ -50,8 +50,7 @@ function isPostgrestError(error: unknown): error is PostgrestError {
 		"code" in error &&
 		"message" in error &&
 		typeof (error as ErrorWithCode).message === "string" &&
-		(typeof (error as ErrorWithCode).code === "string" ||
-			(error as ErrorWithCode).code === null)
+		(typeof (error as ErrorWithCode).code === "string" || (error as ErrorWithCode).code === null)
 	);
 }
 
@@ -63,10 +62,7 @@ export function isAssetsLimitError(error: unknown): boolean {
 		return false;
 	}
 
-	return (
-		error.code === POSTGRES_RAISE_CODE &&
-		error.message === MESSAGE_ASSETS_LIMIT_EXCEEDED
-	);
+	return error.code === POSTGRES_RAISE_CODE && error.message === MESSAGE_ASSETS_LIMIT_EXCEEDED;
 }
 
 /**
@@ -77,8 +73,5 @@ export function isAssetsWhitespaceError(error: unknown): boolean {
 		return false;
 	}
 
-	return (
-		error.code === POSTGRES_RAISE_CODE &&
-		error.message === MESSAGE_ASSETS_WHITESPACE
-	);
+	return error.code === POSTGRES_RAISE_CODE && error.message === MESSAGE_ASSETS_WHITESPACE;
 }

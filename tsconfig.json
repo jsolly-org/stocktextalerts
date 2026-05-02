@@ -1,13 +1,7 @@
 {
 	"extends": "./node_modules/astro/tsconfigs/strict.json",
 	"include": [".astro/types.d.ts", "src/**/*"],
-	"exclude": [
-		"**/*.test.ts",
-		"**/node_modules/**",
-		"dist/**",
-		".astro",
-		"node_modules"
-	],
+	"exclude": ["**/*.test.ts", "**/node_modules/**", "dist/**", ".astro", "node_modules"],
 	"compilerOptions": {
 		"plugins": [
 			{

@@ -1,10 +1,7 @@
 import type { APIRoute } from "astro";
 import { verifySupabaseOtp } from "../../../lib/auth/supabase-otp";
 import { MIN_PASSWORD_LENGTH } from "../../../lib/constants";
-import {
-	createSupabaseAdminClient,
-	createSupabaseServerClient,
-} from "../../../lib/db/supabase";
+import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { createLogger } from "../../../lib/logging";
 
@@ -83,12 +80,9 @@ export const POST: APIRoute = async ({ url, request, redirect, locals }) => {
 	}
 
 	const adminClient = createSupabaseAdminClient();
-	const { error: updateError } = await adminClient.auth.admin.updateUserById(
-		data.user.id,
-		{
-			password,
-		},
-	);
+	const { error: updateError } = await adminClient.auth.admin.updateUserById(data.user.id, {
+		password,
+	});
 
 	if (updateError) {
 		logger.error("Password update failed", {

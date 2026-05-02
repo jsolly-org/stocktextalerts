@@ -8,10 +8,7 @@ import {
 	US_MARKET_OPEN_EASTERN_MINUTES,
 	US_MARKET_TIMEZONE,
 } from "../constants";
-import {
-	calculateNextSendAt,
-	calculateNextSendAtFromTimes,
-} from "./scheduled-times";
+import { calculateNextSendAt, calculateNextSendAtFromTimes } from "./scheduled-times";
 import type { ParsedTime, TimeValue } from "./types";
 
 export function formatCountdownWithSeconds(secondsUntil: number): string {
@@ -73,9 +70,7 @@ export function parseTimeToMinutes(value: string): number | null {
 	return hours * 60 + minutes;
 }
 
-export function parseTimeString(
-	value: string | null | undefined,
-): ParsedTime | null {
+export function parseTimeString(value: string | null | undefined): ParsedTime | null {
 	if (!value) {
 		return null;
 	}
@@ -131,20 +126,11 @@ export function minutesToTimeInputValue(minutes: number): string {
 }
 
 export function formatTimeValue(value: TimeValue): string {
-	const hours =
-		typeof value.hours === "string"
-			? Number.parseInt(value.hours, 10)
-			: value.hours;
+	const hours = typeof value.hours === "string" ? Number.parseInt(value.hours, 10) : value.hours;
 	const minutes =
-		typeof value.minutes === "string"
-			? Number.parseInt(value.minutes, 10)
-			: value.minutes;
-	const h = Number.isNaN(hours)
-		? 0
-		: Math.max(0, Math.min(23, Math.floor(hours)));
-	const m = Number.isNaN(minutes)
-		? 0
-		: Math.max(0, Math.min(59, Math.floor(minutes)));
+		typeof value.minutes === "string" ? Number.parseInt(value.minutes, 10) : value.minutes;
+	const h = Number.isNaN(hours) ? 0 : Math.max(0, Math.min(23, Math.floor(hours)));
+	const m = Number.isNaN(minutes) ? 0 : Math.max(0, Math.min(59, Math.floor(minutes)));
 	return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
@@ -155,10 +141,7 @@ export function resolveIs24(): boolean {
 	return hourCycle === "h23" || hourCycle === "h24";
 }
 
-export function getNowInTimezone(
-	timezone: string,
-	is24?: boolean,
-): string | null {
+export function getNowInTimezone(timezone: string, is24?: boolean): string | null {
 	const now = DateTime.now().setZone(timezone);
 	if (!now.isValid) {
 		return null;
@@ -185,17 +168,12 @@ export function getSecondsUntilNextSend(options: {
 }): number | null {
 	const now = options.now ?? DateTime.now();
 
-	if (
-		typeof options.nextSendAtIso === "string" &&
-		options.nextSendAtIso !== ""
-	) {
+	if (typeof options.nextSendAtIso === "string" && options.nextSendAtIso !== "") {
 		const nextSendAt = DateTime.fromISO(options.nextSendAtIso, { zone: "utc" });
 		if (!nextSendAt.isValid) {
 			return null;
 		}
-		const diffSeconds = Math.ceil(
-			nextSendAt.diff(now.toUTC(), "seconds").seconds,
-		);
+		const diffSeconds = Math.ceil(nextSendAt.diff(now.toUTC(), "seconds").seconds);
 		if (Number.isFinite(diffSeconds) && diffSeconds > 0) {
 			return diffSeconds;
 		}
@@ -211,18 +189,12 @@ export function getSecondsUntilNextSend(options: {
 			return null;
 		}
 
-		const nextSendAt = calculateNextSendAtFromTimes(
-			minutes,
-			options.timezone,
-			now,
-		);
+		const nextSendAt = calculateNextSendAtFromTimes(minutes, options.timezone, now);
 		if (!nextSendAt) {
 			return null;
 		}
 
-		const diffSeconds = Math.ceil(
-			nextSendAt.diff(now.toUTC(), "seconds").seconds,
-		);
+		const diffSeconds = Math.ceil(nextSendAt.diff(now.toUTC(), "seconds").seconds);
 		if (!Number.isFinite(diffSeconds) || diffSeconds <= 0) {
 			return null;
 		}
@@ -235,18 +207,12 @@ export function getSecondsUntilNextSend(options: {
 			return null;
 		}
 
-		const nextSendAt = calculateNextSendAt(
-			deliveryMinutes,
-			options.timezone,
-			now,
-		);
+		const nextSendAt = calculateNextSendAt(deliveryMinutes, options.timezone, now);
 		if (!nextSendAt) {
 			return null;
 		}
 
-		const diffSeconds = Math.ceil(
-			nextSendAt.diff(now.toUTC(), "seconds").seconds,
-		);
+		const diffSeconds = Math.ceil(nextSendAt.diff(now.toUTC(), "seconds").seconds);
 		if (!Number.isFinite(diffSeconds) || diffSeconds <= 0) {
 			return null;
 		}
@@ -259,10 +225,7 @@ export function getSecondsUntilNextSend(options: {
 /* =============
 Use Eastern-market baseline so local conversions stay aligned with exchange hours
 ============= */
-function getEasternTimeAsLocalMinutes(
-	easternMinutes: number,
-	userTimezone: string,
-): number {
+function getEasternTimeAsLocalMinutes(easternMinutes: number, userTimezone: string): number {
 	const hour = Math.floor(easternMinutes / 60);
 	const minute = easternMinutes % 60;
 	const eastern = DateTime.now().setZone(US_MARKET_TIMEZONE).set({
@@ -280,29 +243,16 @@ function getEasternTimeAsLocalMinutes(
 
 /** 30 min before US market open (9:00 AM ET) converted to the user's local timezone. */
 export function getUsBeforeOpenLocalMinutes(userTimezone: string): number {
-	return getEasternTimeAsLocalMinutes(
-		US_BEFORE_OPEN_EASTERN_MINUTES,
-		userTimezone,
-	);
+	return getEasternTimeAsLocalMinutes(US_BEFORE_OPEN_EASTERN_MINUTES, userTimezone);
 }
 
 /** 30 min after US market open (10:00 AM ET) converted to the user's local timezone. */
 export function getUsAfterOpenLocalMinutes(userTimezone: string): number {
-	return getEasternTimeAsLocalMinutes(
-		US_AFTER_OPEN_EASTERN_MINUTES,
-		userTimezone,
-	);
+	return getEasternTimeAsLocalMinutes(US_AFTER_OPEN_EASTERN_MINUTES, userTimezone);
 }
 
-export function isOutsideMarketHours(
-	timeMinutes: number,
-	userTimezone: string,
-): boolean {
-	if (
-		!Number.isInteger(timeMinutes) ||
-		timeMinutes < 0 ||
-		timeMinutes > 23 * 60 + 59
-	) {
+export function isOutsideMarketHours(timeMinutes: number, userTimezone: string): boolean {
+	if (!Number.isInteger(timeMinutes) || timeMinutes < 0 || timeMinutes > 23 * 60 + 59) {
 		return true;
 	}
 
@@ -328,20 +278,14 @@ export function getMarketNotificationLocalRange(userTimezone: string): {
 			US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES,
 			userTimezone,
 		),
-		max: getEasternTimeAsLocalMinutes(
-			US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES,
-			userTimezone,
-		),
+		max: getEasternTimeAsLocalMinutes(US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES, userTimezone),
 	};
 }
 
 /* =============
 Format minute-of-day for UI display in the runtime locale
 ============= */
-export function formatMinutesAsLocalTime(
-	minutes: number,
-	is24?: boolean,
-): string {
+export function formatMinutesAsLocalTime(minutes: number, is24?: boolean): string {
 	const safeMinutes = Number.isFinite(minutes) ? minutes : 0;
 	const clamped = Math.max(0, Math.min(1439, Math.floor(safeMinutes)));
 	const dt = DateTime.now().set({

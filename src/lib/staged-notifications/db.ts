@@ -5,11 +5,7 @@
 
 import type { Json } from "../db/generated/database.types";
 import type { SupabaseAdminClient } from "../schedule/helpers";
-import type {
-	StagedData,
-	StagedNotificationRow,
-	StagedNotificationType,
-} from "./types";
+import type { StagedData, StagedNotificationRow, StagedNotificationType } from "./types";
 
 /**
  * Insert a staged notification row (or ignore if already exists via unique constraint).
@@ -73,10 +69,7 @@ export async function deleteStagedNotification(
 	supabase: SupabaseAdminClient,
 	id: string,
 ): Promise<void> {
-	const { error } = await supabase
-		.from("staged_notifications")
-		.delete()
-		.eq("id", id);
+	const { error } = await supabase.from("staged_notifications").delete().eq("id", id);
 	if (error) throw error;
 }
 

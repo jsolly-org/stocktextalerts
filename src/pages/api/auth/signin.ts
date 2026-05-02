@@ -19,10 +19,7 @@ function buildSigninErrorRedirect(
 		redirectPath?: string | null;
 	},
 ): string {
-	const url = new URL(
-		buildSigninRedirectUrl(redirectPath ?? null),
-		"http://internal",
-	);
+	const url = new URL(buildSigninRedirectUrl(redirectPath ?? null), "http://internal");
 	url.searchParams.set("error", errorCode);
 	if (email) {
 		url.searchParams.set("email", email);
@@ -30,13 +27,7 @@ function buildSigninErrorRedirect(
 	return `${url.pathname}${url.search}`;
 }
 
-export const POST: APIRoute = async ({
-	url,
-	request,
-	cookies,
-	redirect,
-	locals,
-}) => {
+export const POST: APIRoute = async ({ url, request, cookies, redirect, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,
@@ -82,14 +73,9 @@ export const POST: APIRoute = async ({
 			return redirect(`/auth/unconfirmed?email=${encodeURIComponent(email)}`);
 		}
 
-		const shouldLogError =
-			typeof error.status === "number" && error.status >= 500;
+		const shouldLogError = typeof error.status === "number" && error.status >= 500;
 		if (shouldLogError) {
-			logger.error(
-				"Sign-in failed",
-				{ code: error.code, status: error.status },
-				error,
-			);
+			logger.error("Sign-in failed", { code: error.code, status: error.status }, error);
 		} else {
 			logger.info("Sign-in failed", {
 				code: error.code,

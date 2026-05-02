@@ -5,10 +5,7 @@ import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
 import { createLogger } from "../../../lib/logging";
-import {
-	createErrorForLogging,
-	extractErrorMessage,
-} from "../../../lib/logging/errors";
+import { createErrorForLogging, extractErrorMessage } from "../../../lib/logging/errors";
 
 const TIME_FORMAT_SCHEMA = {
 	use_24_hour_time: { type: "boolean" },

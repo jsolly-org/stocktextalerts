@@ -43,8 +43,6 @@ describe("A user signs in with an email and password.", () => {
 		const response = await POST(createApiContext({ request }));
 
 		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toContain(
-			"/auth/signin?error=invalid_form",
-		);
+		expect(response.headers.get("Location")).toContain("/auth/signin?error=invalid_form");
 	});
 });

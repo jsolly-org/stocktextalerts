@@ -16,10 +16,7 @@ import {
 	buildMarketClosedBannerText,
 	buildMarketClosureLabel,
 } from "../messaging/market-closure-banner";
-import {
-	deliveryResultToLogFields,
-	recordNotification,
-} from "../messaging/shared";
+import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import type { SmsExtras } from "../messaging/sms/delivery";
 import { formatExtrasSection } from "../messaging/sms/formatting";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
@@ -27,14 +24,8 @@ import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import type { SparklineData, SparklineMap } from "../messaging/sparkline";
 import type { UserAssetRow, UserRecord } from "../messaging/types";
 import type { AssetPriceMap } from "../providers/price-fetcher";
-import type {
-	ScheduledNotificationTotals,
-	SupabaseAdminClient,
-} from "../schedule/helpers";
-import {
-	claimNotification,
-	updateScheduledNotificationRow,
-} from "../schedule/helpers";
+import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
+import { claimNotification, updateScheduledNotificationRow } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
 import type { MarketClosureInfo } from "../time/market-calendar";
 
@@ -83,9 +74,7 @@ function getLatestQuoteTimestamp(assetPrices: AssetPriceMap): number | null {
 		if (!quote || typeof quote.timestamp !== "number") continue;
 		if (!Number.isFinite(quote.timestamp) || quote.timestamp <= 0) continue;
 		latestTimestamp =
-			latestTimestamp === null
-				? quote.timestamp
-				: Math.max(latestTimestamp, quote.timestamp);
+			latestTimestamp === null ? quote.timestamp : Math.max(latestTimestamp, quote.timestamp);
 	}
 
 	return latestTimestamp;
@@ -106,40 +95,28 @@ function buildDigestMarketClosedContent(
 	closureInfo: MarketClosureInfo | null,
 	assetPrices: AssetPriceMap,
 ): DigestMarketClosedContent {
-	const label = closureInfo
-		? buildMarketClosureLabel(closureInfo)
-		: "Market Closed";
+	const label = closureInfo ? buildMarketClosureLabel(closureInfo) : "Market Closed";
 	const ts = getLatestQuoteTimestamp(assetPrices);
 	return { label, quoteTimestamp: ts ? formatQuoteTimestamp(ts) : null };
 }
 
 /** Build a plain-text market-closed banner for the digest. */
-function buildDigestMarketClosedText(
-	content: DigestMarketClosedContent,
-): string {
-	const asOf = content.quoteTimestamp
-		? ` (as of ${content.quoteTimestamp})`
-		: "";
+function buildDigestMarketClosedText(content: DigestMarketClosedContent): string {
+	const asOf = content.quoteTimestamp ? ` (as of ${content.quoteTimestamp})` : "";
 	return `🔔 ${content.label}\nPrices below reflect the last market close${asOf}.`;
 }
 
 /** Build an HTML market-closed banner for the digest. */
-function buildDigestMarketClosedHtml(
-	content: DigestMarketClosedContent,
-): string {
+function buildDigestMarketClosedHtml(content: DigestMarketClosedContent): string {
 	const label = escapeHtml(content.label);
-	const asOf = content.quoteTimestamp
-		? ` (as of ${escapeHtml(content.quoteTimestamp)})`
-		: "";
+	const asOf = content.quoteTimestamp ? ` (as of ${escapeHtml(content.quoteTimestamp)})` : "";
 	return `<div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; text-align: center;">
 			<div style="font-size: 14px; color: #92400e; font-weight: 600;">🔔 ${label}</div>
 			<div style="font-size: 12px; color: #92400e; margin-top: 4px;">Prices below reflect the last market close${asOf}.</div>
 		</div>`;
 }
 
-type AssetEventsResult = Awaited<
-	ReturnType<typeof buildAssetEventsContent>
-> | null;
+type AssetEventsResult = Awaited<ReturnType<typeof buildAssetEventsContent>> | null;
 
 /** Format the daily digest message body for SMS delivery. */
 export function formatDailyDigestSmsMessage(options: {
@@ -165,9 +142,7 @@ export function formatDailyDigestSmsMessage(options: {
 	);
 
 	const marketDisclaimer =
-		options.marketOpen === false
-			? buildMarketClosedBannerText(options.marketClosureInfo)
-			: "";
+		options.marketOpen === false ? buildMarketClosedBannerText(options.marketClosureInfo) : "";
 	const ae = options.assetEvents;
 	const sections = [
 		"StockTextAlerts — Your daily digest 🗓️",
@@ -286,18 +261,10 @@ export function formatDailyDigestEmail(options: {
 	/** Optional delay banner (HTML for rich email body). */
 	delayBannerHtml?: string | null;
 }): { subject: string; text: string; html: string } {
-	const urls = buildEmailUrls(
-		options.user.id,
-		options.user.email,
-		"dailyNotifications",
-	);
+	const urls = buildEmailUrls(options.user.id, options.user.email, "dailyNotifications");
 
-	const news = ensureBlankLineBetweenTickerSnippets(
-		(options.extras.news ?? "").trim(),
-	);
-	const rumors = ensureBlankLineBetweenTickerSnippets(
-		(options.extras.rumors ?? "").trim(),
-	);
+	const news = ensureBlankLineBetweenTickerSnippets((options.extras.news ?? "").trim());
+	const rumors = ensureBlankLineBetweenTickerSnippets((options.extras.rumors ?? "").trim());
 
 	const ae = options.assetEvents;
 	const earnings = (ae?.eventsSection?.earnings ?? "").trim();
@@ -334,9 +301,7 @@ export function formatDailyDigestEmail(options: {
 		? buildDigestMarketClosedHtml(marketClosedContent)
 		: "";
 	const closureLabel = marketClosedContent?.label ?? null;
-	const subject = closureLabel
-		? `Daily digest — ${closureLabel}`
-		: "Daily digest";
+	const subject = closureLabel ? `Daily digest — ${closureLabel}` : "Daily digest";
 
 	const sectionsText = [
 		"StockTextAlerts — Your daily digest 🗓️",
@@ -602,12 +567,7 @@ export async function processDailyDigestSmsDelivery(options: {
 		marketClosureInfo: options.marketClosureInfo,
 		delayBanner: options.delayBanner,
 	});
-	const result = await sendUserSms(
-		user,
-		smsMessage,
-		smsSenderResult.sender,
-		supabase,
-	);
+	const result = await sendUserSms(user, smsMessage, smsSenderResult.sender, supabase);
 	const logged = await recordNotification(supabase, {
 		user_id: user.id,
 		type: "daily",

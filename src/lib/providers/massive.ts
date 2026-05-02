@@ -65,10 +65,7 @@ function getMassiveApiKey(): string {
 	return requireEnv("MASSIVE_API_KEY");
 }
 
-function computeRetryDelayMs(
-	attempt: number,
-	retryAfterMs: number | null,
-): number {
+function computeRetryDelayMs(attempt: number, retryAfterMs: number | null): number {
 	if (retryAfterMs !== null) {
 		return Math.min(retryAfterMs, 60_000);
 	}
@@ -115,9 +112,7 @@ export async function marketDataFetch(
 			});
 
 			if (response.status === 429) {
-				const retryAfterMs = parseRetryAfterMs(
-					response.headers.get("Retry-After"),
-				);
+				const retryAfterMs = parseRetryAfterMs(response.headers.get("Retry-After"));
 				rootLogger.info(`Massive ${label} rate limited (429)`, {
 					endpoint,
 					attempt,
@@ -135,8 +130,7 @@ export async function marketDataFetch(
 				let apiStatus: string | null = null;
 				try {
 					const payload = (await response.json()) as Record<string, unknown>;
-					apiStatus =
-						typeof payload.status === "string" ? payload.status : null;
+					apiStatus = typeof payload.status === "string" ? payload.status : null;
 				} catch {
 					// Ignore malformed/non-JSON error bodies.
 				}
@@ -149,10 +143,7 @@ export async function marketDataFetch(
 					...logContext,
 				};
 				if (isLastAttempt) {
-					rootLogger.error(
-						`Massive ${label} exhausted retries`,
-						apiErrorContext,
-					);
+					rootLogger.error(`Massive ${label} exhausted retries`, apiErrorContext);
 					return null;
 				}
 				rootLogger.info(`Massive ${label} API error`, apiErrorContext);
@@ -193,11 +184,7 @@ async function fetchFinnhubEarnings(
 	const toStringOrNull = (value: unknown): string | null =>
 		typeof value === "string" && value.trim() !== "" ? value : null;
 
-	const data = await finnhubFetch(
-		"/calendar/earnings",
-		{ from, to },
-		"earnings-calendar",
-	);
+	const data = await finnhubFetch("/calendar/earnings", { from, to }, "earnings-calendar");
 	if (data === null) return { data: [], failed: true };
 	if (typeof data !== "object") return { data: [], failed: false };
 
@@ -274,8 +261,7 @@ export async function fetchDividends(
 					typeof item === "object" &&
 					item !== null &&
 					typeof (item as Record<string, unknown>).ticker === "string" &&
-					typeof (item as Record<string, unknown>).ex_dividend_date ===
-						"string" &&
+					typeof (item as Record<string, unknown>).ex_dividend_date === "string" &&
 					typeof (item as Record<string, unknown>).cash_amount === "number",
 			)
 			.map((item: Record<string, unknown>) => ({
@@ -293,10 +279,7 @@ export async function fetchDividends(
 /**
  * Fetch all stock splits for a date range (market-wide).
  */
-export async function fetchSplits(
-	from: string,
-	to: string,
-): Promise<ProviderResult<SplitEvent>> {
+export async function fetchSplits(from: string, to: string): Promise<ProviderResult<SplitEvent>> {
 	const data = await marketDataFetch(
 		"/v3/reference/splits",
 		{
@@ -319,8 +302,7 @@ export async function fetchSplits(
 					typeof item === "object" &&
 					item !== null &&
 					typeof (item as Record<string, unknown>).ticker === "string" &&
-					typeof (item as Record<string, unknown>).execution_date ===
-						"string" &&
+					typeof (item as Record<string, unknown>).execution_date === "string" &&
 					typeof (item as Record<string, unknown>).split_from === "number" &&
 					typeof (item as Record<string, unknown>).split_to === "number",
 			)
@@ -330,9 +312,7 @@ export async function fetchSplits(
 				splitFrom: item.split_from as number,
 				splitTo: item.split_to as number,
 				adjustmentType:
-					typeof item.adjustment_type === "string"
-						? item.adjustment_type
-						: "forward_split",
+					typeof item.adjustment_type === "string" ? item.adjustment_type : "forward_split",
 			})),
 		failed: false,
 	};
@@ -341,10 +321,7 @@ export async function fetchSplits(
 /**
  * Fetch upcoming IPO events for a date range (market-wide).
  */
-export async function fetchIpos(
-	from: string,
-	to: string,
-): Promise<ProviderResult<IpoEvent>> {
+export async function fetchIpos(from: string, to: string): Promise<ProviderResult<IpoEvent>> {
 	const data = await marketDataFetch(
 		"/vX/reference/ipos",
 		{
@@ -372,10 +349,8 @@ export async function fetchIpos(
 			.map((item: Record<string, unknown>) => ({
 				ticker: item.ticker as string,
 				listingDate: item.listing_date as string,
-				issuerName:
-					typeof item.issuer_name === "string" ? item.issuer_name : null,
-				securityType:
-					typeof item.security_type === "string" ? item.security_type : null,
+				issuerName: typeof item.issuer_name === "string" ? item.issuer_name : null,
+				securityType: typeof item.security_type === "string" ? item.security_type : null,
 			})),
 		failed: false,
 	};
@@ -428,9 +403,7 @@ export interface IntradayBarsResult {
  * no valid bars exist. Preserves per-bar timestamps so downstream can place points on
  * real time positions (avoids misalignment when intraday bars are non-uniform).
  */
-export function extractClosesAndTimestampsFromBars(
-	payload: unknown,
-): IntradayBarsResult | null {
+export function extractClosesAndTimestampsFromBars(payload: unknown): IntradayBarsResult | null {
 	if (typeof payload !== "object" || payload === null) return null;
 
 	const results = (payload as Record<string, unknown>).results;
@@ -583,9 +556,7 @@ export async function fetchDailyOHLCV(
  * Uses `/v2/aggs/ticker/{symbol}/range/5/minute/{today}/{today}?sort=asc&limit=5000`.
  * Returns closes and bar timestamps for axis labeling, or null on failure.
  */
-export async function fetchIntradayBars(
-	symbol: string,
-): Promise<IntradayBarsResult | null> {
+export async function fetchIntradayBars(symbol: string): Promise<IntradayBarsResult | null> {
 	const today = new Date().toLocaleDateString("en-CA", {
 		timeZone: US_MARKET_TIMEZONE,
 	});
@@ -661,12 +632,10 @@ interface SnapshotQuote {
 
 function parseSnapshotTicker(t: SnapshotTicker): SnapshotQuote | null {
 	const price = t.day?.c;
-	if (typeof price !== "number" || !Number.isFinite(price) || price === 0)
-		return null;
+	if (typeof price !== "number" || !Number.isFinite(price) || price === 0) return null;
 
 	let changePercent = t.todaysChangePerc;
-	if (typeof changePercent !== "number" || !Number.isFinite(changePercent))
-		return null;
+	if (typeof changePercent !== "number" || !Number.isFinite(changePercent)) return null;
 
 	// When market is closed, todaysChangePerc is 0 because there are no trades
 	// today. Fall back to the last trading day's change (day.c vs prevDay.c)
@@ -846,9 +815,7 @@ export interface PrevDayBar {
  * Returns `null` when the symbol has no prev-day data or the response shape
  * is unexpected.
  */
-export async function fetchPrevDayBar(
-	symbol: string,
-): Promise<PrevDayBar | null> {
+export async function fetchPrevDayBar(symbol: string): Promise<PrevDayBar | null> {
 	const data = await marketDataFetch(
 		`/v2/aggs/ticker/${encodeURIComponent(symbol)}/prev`,
 		{ adjusted: "true" },
@@ -932,9 +899,7 @@ export type TickerReferenceStatus =
  * row has `active === false` AND a `delisted_utc` string of length ≥ 10.
  * Everything else is `unknown` — never infer a delisting from absence.
  */
-export async function fetchTickerReference(
-	symbol: string,
-): Promise<TickerReferenceStatus> {
+export async function fetchTickerReference(symbol: string): Promise<TickerReferenceStatus> {
 	const data = await marketDataFetch(
 		"/v3/reference/tickers",
 		{ ticker: symbol, active: "false", limit: "1" },
@@ -969,8 +934,7 @@ export async function fetchTickerReference(
 			symbol,
 			active: false,
 			delistedUtc: rawDelistedUtc.slice(0, 10),
-			primaryExchange:
-				typeof row.primary_exchange === "string" ? row.primary_exchange : null,
+			primaryExchange: typeof row.primary_exchange === "string" ? row.primary_exchange : null,
 			name: typeof row.name === "string" ? row.name : null,
 		},
 	};
@@ -1021,11 +985,7 @@ function formatRevenue(value: number): string {
 /**
  * Format a split ratio as a human-readable string (e.g. "10:1" or "1:5 reverse").
  */
-function formatSplitRatio(
-	splitFrom: number,
-	splitTo: number,
-	adjustmentType: string,
-): string {
+function formatSplitRatio(splitFrom: number, splitTo: number, adjustmentType: string): string {
 	const isReverse = adjustmentType === "reverse_split" || splitTo < splitFrom;
 	if (isReverse) {
 		return `${splitFrom}:${splitTo} reverse`;
@@ -1055,10 +1015,7 @@ const FREQUENCY_LABELS: Record<number, string> = {
  * - 2+ → "in N days (MM-DD)"
  * - undefined → MM-DD (backward compatible)
  */
-function formatDateLabel(
-	eventDate: string,
-	daysUntil: number | undefined,
-): string {
+function formatDateLabel(eventDate: string, daysUntil: number | undefined): string {
 	if (daysUntil === undefined) {
 		return eventDate.slice(5); // MM-DD
 	}
@@ -1104,35 +1061,25 @@ export function formatAssetEventsSection(
 			const time = event.data.time as string | null;
 			const timeLabel = time ? ` (${time})` : "";
 			if (channel === "sms") {
-				earningsLines.push(
-					`${event.symbol}: earnings ${dateLabel}${timeLabel}`,
-				);
+				earningsLines.push(`${event.symbol}: earnings ${dateLabel}${timeLabel}`);
 			} else {
 				const estimates: string[] = [];
 				const eps = event.data.epsEstimate as number | null;
 				const rev = event.data.revenueEstimate as number | null;
-				if (eps !== null && eps !== undefined)
-					estimates.push(`EPS est. $${eps.toFixed(2)}`);
-				if (rev !== null && rev !== undefined)
-					estimates.push(`Rev est. $${formatRevenue(rev)}`);
-				const estimateStr =
-					estimates.length > 0 ? ` — ${estimates.join(", ")}` : "";
-				earningsLines.push(
-					`${event.symbol}: earnings ${dateLabel}${timeLabel}${estimateStr}`,
-				);
+				if (eps !== null && eps !== undefined) estimates.push(`EPS est. $${eps.toFixed(2)}`);
+				if (rev !== null && rev !== undefined) estimates.push(`Rev est. $${formatRevenue(rev)}`);
+				const estimateStr = estimates.length > 0 ? ` — ${estimates.join(", ")}` : "";
+				earningsLines.push(`${event.symbol}: earnings ${dateLabel}${timeLabel}${estimateStr}`);
 			}
 		} else if (event.event_type === "dividend") {
 			const amount = event.data.cashAmount as number;
 			const payDate = event.data.payDate as string | null;
 			if (channel === "sms") {
-				dividendLines.push(
-					`${event.symbol}: ex-div ${dateLabel} $${amount.toFixed(2)}`,
-				);
+				dividendLines.push(`${event.symbol}: ex-div ${dateLabel} $${amount.toFixed(2)}`);
 			} else {
 				const payStr = payDate ? ` (pays ${payDate.slice(5)})` : "";
 				const freq = event.data.frequency as number | null;
-				const freqStr =
-					freq && FREQUENCY_LABELS[freq] ? `, ${FREQUENCY_LABELS[freq]}` : "";
+				const freqStr = freq && FREQUENCY_LABELS[freq] ? `, ${FREQUENCY_LABELS[freq]}` : "";
 				dividendLines.push(
 					`${event.symbol}: ex-div ${dateLabel} — $${amount.toFixed(2)}/share${payStr}${freqStr}`,
 				);
@@ -1146,13 +1093,9 @@ export function formatAssetEventsSection(
 				splitLines.push(`${event.symbol}: split ${dateLabel} ${ratio}`);
 			} else {
 				const isReverse = adjType === "reverse_split" || splitTo < splitFrom;
-				const numericRatio = isReverse
-					? `${splitFrom}:${splitTo}`
-					: `${splitTo}:${splitFrom}`;
+				const numericRatio = isReverse ? `${splitFrom}:${splitTo}` : `${splitTo}:${splitFrom}`;
 				const typeLabel = isReverse ? "reverse split" : "forward split";
-				splitLines.push(
-					`${event.symbol}: split ${dateLabel} — ${numericRatio} ${typeLabel}`,
-				);
+				splitLines.push(`${event.symbol}: split ${dateLabel} — ${numericRatio} ${typeLabel}`);
 			}
 		} else if (event.event_type === "ipo") {
 			const issuer = event.data.issuerName as string | undefined;

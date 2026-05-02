@@ -10,10 +10,7 @@ import {
 	PRESERVED_TEST_EMAIL,
 	PRESERVED_USER_ID,
 } from "./helpers/constants";
-import {
-	assertLiveProviderKey,
-	isLiveProviderEnabled,
-} from "./helpers/live-api";
+import { assertLiveProviderKey, isLiveProviderEnabled } from "./helpers/live-api";
 import { adminClient } from "./helpers/test-env";
 import { cleanupTestUser } from "./helpers/test-user";
 import { takeTestUserIdsForCleanup } from "./helpers/test-user-cleanup";
@@ -87,9 +84,7 @@ if (
 function getDatabaseUrl(): string {
 	const databaseUrl = process.env.DATABASE_URL;
 	if (!databaseUrl) {
-		throw new Error(
-			"Missing required environment variable for tests: DATABASE_URL must be set",
-		);
+		throw new Error("Missing required environment variable for tests: DATABASE_URL must be set");
 	}
 
 	return databaseUrl;
@@ -103,9 +98,7 @@ const SEED_USERS_FILE = path.join(projectRoot, "scripts", "data", "users.json");
 function getSeedUserEmailsForPreservation(): string[] {
 	if (!fs.existsSync(SEED_USERS_FILE)) return [];
 	try {
-		const parsed = JSON.parse(
-			fs.readFileSync(SEED_USERS_FILE, "utf-8"),
-		) as unknown;
+		const parsed = JSON.parse(fs.readFileSync(SEED_USERS_FILE, "utf-8")) as unknown;
 		if (!Array.isArray(parsed)) return [];
 		return parsed
 			.map((entry) => {
@@ -130,9 +123,7 @@ async function verifySupabaseAdminAccess() {
 
 	const errorDetail =
 		error.message ||
-		(typeof error === "object" && error !== null
-			? JSON.stringify(error)
-			: String(error));
+		(typeof error === "object" && error !== null ? JSON.stringify(error) : String(error));
 
 	throw new Error(
 		[
@@ -169,9 +160,7 @@ async function cleanupAllNonPreservedUsers(): Promise<void> {
 		}
 
 		// Deleting from users cascades to user_assets and notification_log
-		await client.query(`DELETE FROM public.users WHERE id != ALL($1::uuid[])`, [
-			preservedUserIds,
-		]);
+		await client.query(`DELETE FROM public.users WHERE id != ALL($1::uuid[])`, [preservedUserIds]);
 
 		const { rows: authUsers } = await client.query(
 			`SELECT id FROM auth.users WHERE id != ALL($1::uuid[])`,
@@ -180,9 +169,7 @@ async function cleanupAllNonPreservedUsers(): Promise<void> {
 
 		const results = await Promise.allSettled(
 			authUsers.map(async (user) => {
-				const { error: deleteError } = await adminClient.auth.admin.deleteUser(
-					user.id,
-				);
+				const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id);
 				if (deleteError) {
 					const code = (deleteError as { code?: string }).code;
 					const status = (deleteError as { status?: number }).status;
@@ -303,9 +290,7 @@ afterEach(() => {
 		} else {
 			for (const call of warnSpy.mock.calls) {
 				const message = extractLogMessage(call[0]);
-				const matched = expectedWarnings.some((p) =>
-					matchesPattern(message, p),
-				);
+				const matched = expectedWarnings.some((p) => matchesPattern(message, p));
 				expect(matched, `Unexpected console.warn: ${message}`).toBe(true);
 			}
 		}

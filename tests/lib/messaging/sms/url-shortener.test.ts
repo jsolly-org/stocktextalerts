@@ -30,9 +30,7 @@ describe("generateShortId", () => {
 
 describe("buildShortUrl", () => {
 	it("returns a full URL with the /r/ prefix", () => {
-		expect(buildShortUrl("Ab12Cd")).toBe(
-			"https://stocktextalerts.com/r/Ab12Cd",
-		);
+		expect(buildShortUrl("Ab12Cd")).toBe("https://stocktextalerts.com/r/Ab12Cd");
 	});
 });
 
@@ -44,8 +42,7 @@ describe("shortenUrl", () => {
 					eq: () => ({
 						gt: () => ({
 							limit: () => ({
-								single: () =>
-									Promise.resolve({ data: { id: "abc123" }, error: null }),
+								single: () => Promise.resolve({ data: { id: "abc123" }, error: null }),
 							}),
 						}),
 					}),
@@ -53,10 +50,7 @@ describe("shortenUrl", () => {
 			}),
 		};
 
-		const result = await shortenUrl(
-			"https://example.com/long",
-			mockSupabase as never,
-		);
+		const result = await shortenUrl("https://example.com/long", mockSupabase as never);
 		expect(result).toBe("https://stocktextalerts.com/r/abc123");
 	});
 
@@ -76,13 +70,8 @@ describe("shortenUrl", () => {
 			})),
 		};
 
-		const result = await shortenUrl(
-			"https://example.com/long",
-			mockSupabase as never,
-		);
-		expect(result).toMatch(
-			/^https:\/\/stocktextalerts\.com\/r\/[0-9A-Za-z]{6}$/,
-		);
+		const result = await shortenUrl("https://example.com/long", mockSupabase as never);
+		expect(result).toMatch(/^https:\/\/stocktextalerts\.com\/r\/[0-9A-Za-z]{6}$/);
 	});
 
 	it("returns original URL without storing when URL is unsafe (javascript:)", async () => {
@@ -160,11 +149,7 @@ describe("shortenUrls", () => {
 		const result = await shortenUrls(urls, mockSupabase as never);
 
 		expect(result.size).toBe(2); // deduped
-		expect(result.get("https://example.com/a")).toMatch(
-			/stocktextalerts\.com\/r\//,
-		);
-		expect(result.get("https://example.com/b")).toMatch(
-			/stocktextalerts\.com\/r\//,
-		);
+		expect(result.get("https://example.com/a")).toMatch(/stocktextalerts\.com\/r\//);
+		expect(result.get("https://example.com/b")).toMatch(/stocktextalerts\.com\/r\//);
 	});
 });

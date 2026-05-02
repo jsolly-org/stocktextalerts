@@ -1,8 +1,5 @@
 import type { ExtendedAssetQuote } from "../providers/price-fetcher";
-import {
-	generatePriceAlertSummary,
-	type PriceAlertGrokResult,
-} from "./grok-summary";
+import { generatePriceAlertSummary, type PriceAlertGrokResult } from "./grok-summary";
 
 /** Alert enriched with Grok-sourced context and intraday closing prices for sparkline rendering. */
 export interface EnrichedAlert {

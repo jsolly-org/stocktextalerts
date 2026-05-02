@@ -33,9 +33,7 @@ describe("When the app fetches or renders asset logos for email", () => {
 				cache,
 			);
 
-			expect(result).toBe(
-				`data:image/png;base64,${Buffer.from(pngBytes).toString("base64")}`,
-			);
+			expect(result).toBe(`data:image/png;base64,${Buffer.from(pngBytes).toString("base64")}`);
 			expect(cache.get("AAPL")).toBe(result);
 		});
 
@@ -56,20 +54,14 @@ describe("When the app fetches or renders asset logos for email", () => {
 
 		it("a subscriber is protected from non-Massive hosts (no logo fetched).", async () => {
 			const cache = createLogoCache();
-			const result = await fetchLogoBase64(
-				"AAPL",
-				"https://evil.example.com/icon.png",
-				cache,
-			);
+			const result = await fetchLogoBase64("AAPL", "https://evil.example.com/icon.png", cache);
 
 			expect(result).toBeNull();
 			expect(cache.get("AAPL")).toBeNull();
 		});
 
 		it("a subscriber sees no logo when the external fetch fails.", async () => {
-			vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
-				new Error("Network error"),
-			);
+			vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("Network error"));
 
 			const cache = createLogoCache();
 			expectConsoleError(/Failed to fetch logo/);
@@ -103,9 +95,7 @@ describe("When the app fetches or renders asset logos for email", () => {
 				status: 200,
 				headers: { "content-type": "image/png" },
 			});
-			const fetchSpy = vi
-				.spyOn(globalThis, "fetch")
-				.mockResolvedValueOnce(mockResponse);
+			const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(mockResponse);
 
 			const cache = createLogoCache();
 			const result1 = await fetchLogoBase64(
@@ -129,9 +119,7 @@ describe("When the app fetches or renders asset logos for email", () => {
 				status: 200,
 				headers: { "content-type": "image/png" },
 			});
-			const fetchSpy = vi
-				.spyOn(globalThis, "fetch")
-				.mockResolvedValueOnce(mockResponse);
+			const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(mockResponse);
 
 			const cache = createLogoCache();
 			await fetchLogoBase64(
@@ -160,13 +148,11 @@ describe("When the app fetches or renders asset logos for email", () => {
 				[
 					{
 						symbol: "AAPL",
-						icon_url:
-							"https://api.massive.com/v3/reference/tickers/AAPL/branding/icon.png",
+						icon_url: "https://api.massive.com/v3/reference/tickers/AAPL/branding/icon.png",
 					},
 					{
 						symbol: "MSFT",
-						icon_url:
-							"https://api.massive.com/v3/reference/tickers/MSFT/branding/icon.png",
+						icon_url: "https://api.massive.com/v3/reference/tickers/MSFT/branding/icon.png",
 					},
 					{ symbol: "UNKNOWN", icon_url: null },
 				],
@@ -191,8 +177,7 @@ describe("When the app fetches or renders asset logos for email", () => {
 				[
 					{
 						symbol: "AAPL",
-						icon_url:
-							"https://api.massive.com/v3/reference/tickers/AAPL/branding/icon.png",
+						icon_url: "https://api.massive.com/v3/reference/tickers/AAPL/branding/icon.png",
 					},
 				],
 				cache,

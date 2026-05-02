@@ -1,7 +1,4 @@
-import {
-	type AutoSaveFormOptions,
-	useAutoSaveFormBase,
-} from "./useAutoSaveFormBase";
+import { type AutoSaveFormOptions, useAutoSaveFormBase } from "./useAutoSaveFormBase";
 
 export type NotificationPreferencesData = {
 	market_scheduled_asset_price_enabled: boolean;

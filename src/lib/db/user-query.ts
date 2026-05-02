@@ -45,14 +45,8 @@ export async function fetchUsersWithRetry<T>(options: {
 		}
 
 		if (attempt === MAX_RETRIES) {
-			logger.error(
-				`Failed to fetch ${label} after retries`,
-				{ attempts: MAX_RETRIES + 1 },
-				error,
-			);
-			throw new Error(
-				`Failed to fetch ${label} after ${MAX_RETRIES + 1} attempts`,
-			);
+			logger.error(`Failed to fetch ${label} after retries`, { attempts: MAX_RETRIES + 1 }, error);
+			throw new Error(`Failed to fetch ${label} after ${MAX_RETRIES + 1} attempts`);
 		}
 
 		// warn for non-final attempts; the retry loop escalates to error and

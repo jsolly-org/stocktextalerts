@@ -29,22 +29,16 @@ describe("An authenticated user requests the next market notification send time.
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
-		const request = new Request(
-			"http://localhost/api/market-notifications/next-send-at",
-			{
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					timezone: "America/New_York",
-					timeInputs: ["09:30"],
-				}),
-			},
-		);
+		const request = new Request("http://localhost/api/market-notifications/next-send-at", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				timezone: "America/New_York",
+				timeInputs: ["09:30"],
+			}),
+		});
 
 		const response = await POST(
 			createApiContext({

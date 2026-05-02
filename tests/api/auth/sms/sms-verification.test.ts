@@ -3,14 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { POST as sendVerificationPost } from "../../../../src/pages/api/auth/sms/send-verification";
 import { POST as verifyCodePost } from "../../../../src/pages/api/auth/sms/verify-code";
 import { createApiContext } from "../../../helpers/api-context";
-import {
-	adminClient,
-	createAuthenticatedCookies,
-} from "../../../helpers/test-env";
-import {
-	createTestUser,
-	generateUniquePhoneNumber,
-} from "../../../helpers/test-user";
+import { adminClient, createAuthenticatedCookies } from "../../../helpers/test-env";
+import { createTestUser, generateUniquePhoneNumber } from "../../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
 
 const smsVerifyMocks = vi.hoisted(() => ({
@@ -39,10 +33,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 		registerTestUserForCleanup(testUser.id);
 
 		{
-			const cookies = await createAuthenticatedCookies(
-				testUser.email,
-				"TestPassword123!",
-			);
+			const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
 
 			smsVerifyMocks.sendVerificationMock.mockResolvedValue({ success: true });
 
@@ -51,17 +42,12 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 			formData.append("phone_country_code", "+1");
 			formData.append("phone_number", phoneNumber);
 
-			const request = new Request(
-				"http://localhost/api/auth/sms/send-verification",
-				{
-					method: "POST",
-					body: formData,
-				},
-			);
+			const request = new Request("http://localhost/api/auth/sms/send-verification", {
+				method: "POST",
+				body: formData,
+			});
 
-			const response = await sendVerificationPost(
-				createApiContext({ request, cookies }),
-			);
+			const response = await sendVerificationPost(createApiContext({ request, cookies }));
 
 			expect(response.status).toBe(200);
 			const payload = (await response.json()) as {
@@ -71,9 +57,7 @@ describe("A signed-in user verifies their phone number to enable SMS alerts.", (
 			expect(payload.ok).toBe(true);
 			expect(payload.message).toBe("verification_sent");
 
-			expect(smsVerifyMocks.sendVerificationMock).toHaveBeenCalledWith(
-				`+1${phoneNumber}`,
-			);
+			expect(smsVerifyMocks.sendVerificationMock).toHaveBeenCalledWith(`+1${phoneNumber}`);
 
 			const { data: updatedUser } = await adminClient
 				.from("users")
@@ -116,10 +100,7 @@ describe("A signed-in user verifies their phone number with an SMS code.", () =>
 				.update({ verification_sent_at: new Date().toISOString() })
 				.eq("id", testUser.id);
 
-			const cookies = await createAuthenticatedCookies(
-				testUser.email,
-				"TestPassword123!",
-			);
+			const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
 
 			smsVerifyMocks.checkVerificationMock.mockResolvedValue({ success: true });
 

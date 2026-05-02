@@ -17,14 +17,7 @@ function loadAssetData(): Map<string, AssetData> {
 	}
 
 	const __dirname = path.dirname(fileURLToPath(import.meta.url));
-	const assetsFile = path.join(
-		__dirname,
-		"..",
-		"..",
-		"scripts",
-		"data",
-		"us-assets.json",
-	);
+	const assetsFile = path.join(__dirname, "..", "..", "scripts", "data", "us-assets.json");
 
 	let assetsData: { data: AssetData[] };
 	try {
@@ -36,14 +29,10 @@ function loadAssetData(): Map<string, AssetData> {
 	}
 
 	if (!Array.isArray(assetsData.data)) {
-		throw new Error(
-			`Invalid asset data format: expected array in 'data' property`,
-		);
+		throw new Error(`Invalid asset data format: expected array in 'data' property`);
 	}
 
-	assetDataCache = new Map(
-		assetsData.data.map((asset) => [asset.symbol.toUpperCase(), asset]),
-	);
+	assetDataCache = new Map(assetsData.data.map((asset) => [asset.symbol.toUpperCase(), asset]));
 
 	return assetDataCache;
 }

@@ -4,26 +4,13 @@ import { createLogger } from "../../logging";
 import { createEmailSender } from "../../messaging/email/utils";
 import { createLogoCache } from "../../messaging/logo-fetcher";
 import type { SparklineData } from "../../messaging/sparkline";
-import {
-	fetchIntradayBars,
-	type IntradayBarsResult,
-} from "../../providers/massive";
-import {
-	type ExtendedQuoteMap,
-	fetchSparklines,
-} from "../../providers/price-fetcher";
+import { fetchIntradayBars, type IntradayBarsResult } from "../../providers/massive";
+import { type ExtendedQuoteMap, fetchSparklines } from "../../providers/price-fetcher";
 import type { SupabaseAdminClient } from "../../schedule/helpers";
 import { createSmsSenderProvider } from "../../schedule/sms-sender";
 import { FLAT_PRICE_ALERT_THRESHOLD_PERCENT } from "./constants";
-import {
-	deliverFlatPriceAlert,
-	type FlatPriceAlertDeliveryStats,
-} from "./delivery";
-import {
-	claimFlatPriceAlert,
-	fetchFlatPriceAlertState,
-	stateKey,
-} from "./state";
+import { deliverFlatPriceAlert, type FlatPriceAlertDeliveryStats } from "./delivery";
+import { claimFlatPriceAlert, fetchFlatPriceAlertState, stateKey } from "./state";
 import { type FlatPriceAlertUser, fetchFlatPriceAlertUsers } from "./users";
 
 const logger = createLogger({ module: "flat-price-alerts" });
@@ -297,9 +284,7 @@ export async function processFlatPriceAlerts(options: {
 	// Delivery
 	const sendEmail = createEmailSender();
 	const getSmsSender = createSmsSenderProvider();
-	const anySmsEnabled = eligibleAlerts.some(
-		(a) => a.user.price_move_alerts_include_sms,
-	);
+	const anySmsEnabled = eligibleAlerts.some((a) => a.user.price_move_alerts_include_sms);
 	const sendSms = anySmsEnabled ? getSmsSender().sender : null;
 	const logoCache = createLogoCache();
 	const nowMs = Date.now();

@@ -20,19 +20,13 @@ describe("A signed-in user loads their current notification settings.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const response = await getCurrentNotificationPreferences(
 			createApiContext({
-				request: new Request(
-					"http://localhost/api/notification-preferences/current",
-					{
-						method: "GET",
-					},
-				),
+				request: new Request("http://localhost/api/notification-preferences/current", {
+					method: "GET",
+				}),
 				cookies,
 			}),
 		);
@@ -50,27 +44,18 @@ describe("A signed-in user loads their current notification settings.", () => {
 		};
 		expect(payload.ok).toBe(true);
 		expect(payload.message).toBe("ok");
-		expect(payload.notificationPreferences.email_notifications_enabled).toBe(
-			true,
-		);
-		expect(payload.notificationPreferences.sms_notifications_enabled).toBe(
-			false,
-		);
+		expect(payload.notificationPreferences.email_notifications_enabled).toBe(true);
+		expect(payload.notificationPreferences.sms_notifications_enabled).toBe(false);
 		expect(payload.notificationPreferences.timezone).toBe("America/Chicago");
-		expect(
-			payload.notificationPreferences.market_scheduled_asset_price_times,
-		).toEqual([555, 900]);
+		expect(payload.notificationPreferences.market_scheduled_asset_price_times).toEqual([555, 900]);
 	});
 
 	it("Rejects a logged-out request.", async () => {
 		const response = await getCurrentNotificationPreferences(
 			createApiContext({
-				request: new Request(
-					"http://localhost/api/notification-preferences/current",
-					{
-						method: "GET",
-					},
-				),
+				request: new Request("http://localhost/api/notification-preferences/current", {
+					method: "GET",
+				}),
 			}),
 		);
 

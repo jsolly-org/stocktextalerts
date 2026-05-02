@@ -3,10 +3,7 @@ import { jsonResponse } from "../../../../lib/api/json-response";
 import { checkVerification } from "../../../../lib/auth/sms-verification";
 import { VERIFICATION_EXPIRATION_MS } from "../../../../lib/constants";
 import { createUserService } from "../../../../lib/db";
-import {
-	createSupabaseAdminClient,
-	createSupabaseServerClient,
-} from "../../../../lib/db/supabase";
+import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../../lib/db/supabase";
 import { parseWithSchema } from "../../../../lib/forms/parse";
 import { createLogger } from "../../../../lib/logging";
 
@@ -111,13 +108,15 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 
 		// Rate limit verification attempts to prevent brute force attacks
 		const adminSupabase = createSupabaseAdminClient();
-		const { data: rateLimitAllowed, error: rateLimitError } =
-			await adminSupabase.rpc("check_rate_limit", {
+		const { data: rateLimitAllowed, error: rateLimitError } = await adminSupabase.rpc(
+			"check_rate_limit",
+			{
 				p_user_id: user.id,
 				p_endpoint: "sms_verify_code",
 				p_max_requests: 10,
 				p_window_minutes: 15,
-			});
+			},
+		);
 
 		if (rateLimitError) {
 			logger.error(
@@ -144,13 +143,10 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		}
 
 		if (rateLimitAllowed !== true) {
-			logger.error(
-				"SMS verification rate limit check returned unexpected value",
-				{
-					userId: user.id,
-					rateLimitAllowed,
-				},
-			);
+			logger.error("SMS verification rate limit check returned unexpected value", {
+				userId: user.id,
+				rateLimitAllowed,
+			});
 			return jsonResponse(500, {
 				ok: false,
 				message: "server_error",
@@ -183,11 +179,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			tone: "success",
 		});
 	} catch (error) {
-		logger.error(
-			"Verify code error",
-			{ userId: user.id, action: "verify_sms_code" },
-			error,
-		);
+		logger.error("Verify code error", { userId: user.id, action: "verify_sms_code" }, error);
 		return jsonResponse(500, {
 			ok: false,
 			message: "server_error",

@@ -1,8 +1,5 @@
 import type { DateTime } from "luxon";
-import {
-	getUsMarketClosureInfoForInstant,
-	type MarketClosureReason,
-} from "./market-calendar";
+import { getUsMarketClosureInfoForInstant, type MarketClosureReason } from "./market-calendar";
 import { calculateNextSendAtFromTimes } from "./scheduled-times";
 
 const MAX_CANDIDATE_ITERATIONS = 400;
@@ -28,11 +25,7 @@ export async function calculateNextMarketScheduledSendAtFromTimes(options: {
 	let holidayName: string | undefined;
 
 	for (let i = 0; i < MAX_CANDIDATE_ITERATIONS; i++) {
-		const candidate = calculateNextSendAtFromTimes(
-			localMinutesList,
-			timezone,
-			cursor,
-		);
+		const candidate = calculateNextSendAtFromTimes(localMinutesList, timezone, cursor);
 		if (!candidate) {
 			return {
 				nextSendAt: null,

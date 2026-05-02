@@ -2,10 +2,7 @@ import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST as verifyCodePost } from "../../../../src/pages/api/auth/sms/verify-code";
 import { createApiContext } from "../../../helpers/api-context";
-import {
-	adminClient,
-	createAuthenticatedCookies,
-} from "../../../helpers/test-env";
+import { adminClient, createAuthenticatedCookies } from "../../../helpers/test-env";
 import { cleanupTestUser, createTestUser } from "../../../helpers/test-user";
 
 const { checkVerificationMock } = vi.hoisted(() => ({
@@ -39,10 +36,7 @@ describe("A signed-in user verifies their phone number with an SMS code.", () =>
 				.update({ verification_sent_at: new Date().toISOString() })
 				.eq("id", testUser.id);
 
-			const cookies = await createAuthenticatedCookies(
-				testUser.email,
-				"TestPassword123!",
-			);
+			const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
 
 			checkVerificationMock.mockResolvedValue({
 				success: false,
@@ -98,20 +92,15 @@ describe("A signed-in user verifies their phone number with an SMS code.", () =>
 				.update({ verification_sent_at: new Date().toISOString() })
 				.eq("id", testUser.id);
 
-			const { error: rateLimitError } = await adminClient
-				.from("rate_limit_log")
-				.insert(
-					Array.from({ length: 10 }, () => ({
-						user_id: testUser.id,
-						endpoint: "sms_verify_code",
-					})),
-				);
+			const { error: rateLimitError } = await adminClient.from("rate_limit_log").insert(
+				Array.from({ length: 10 }, () => ({
+					user_id: testUser.id,
+					endpoint: "sms_verify_code",
+				})),
+			);
 			expect(rateLimitError).toBeNull();
 
-			const cookies = await createAuthenticatedCookies(
-				testUser.email,
-				"TestPassword123!",
-			);
+			const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
 
 			checkVerificationMock.mockResolvedValue({ success: true });
 

@@ -31,9 +31,7 @@ describe("extractClosesFromBars", () => {
 	it("returns null when no valid bars (all entries missing or invalid c)", () => {
 		expect(extractClosesFromBars({ results: [] })).toBeNull();
 		expect(extractClosesFromBars({ results: [{}] })).toBeNull();
-		expect(
-			extractClosesFromBars({ results: [{ o: 1, h: 2, l: 1 }] }),
-		).toBeNull();
+		expect(extractClosesFromBars({ results: [{ o: 1, h: 2, l: 1 }] })).toBeNull();
 		expect(extractClosesFromBars({ results: [null] })).toBeNull();
 		expect(extractClosesFromBars({ results: ["string"] })).toBeNull();
 	});

@@ -18,12 +18,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 
 	const authUser = await users.getCurrentUser();
 	if (!authUser) {
-		logger.info(
-			"Notification-preferences timezone update attempt without authenticated user",
-			{
-				reason: "unauthenticated",
-			},
-		);
+		logger.info("Notification-preferences timezone update attempt without authenticated user", {
+			reason: "unauthenticated",
+		});
 		return jsonResponse(401, { ok: false, message: "unauthorized" });
 	}
 
@@ -61,11 +58,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 
 	let updatePayload: ReturnType<typeof computeTimezoneUpdatePayload>;
 	try {
-		updatePayload = computeTimezoneUpdatePayload(
-			parsed.data.timezone,
-			dbUser,
-			logger,
-		);
+		updatePayload = computeTimezoneUpdatePayload(parsed.data.timezone, dbUser, logger);
 	} catch (error) {
 		logger.error(
 			"Failed to compute timezone update payload",

@@ -1,8 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-	getScrollBehavior,
-	prefersReducedMotion,
-} from "../../src/lib/accessibility";
+import { getScrollBehavior, prefersReducedMotion } from "../../src/lib/accessibility";
 
 describe("prefersReducedMotion", () => {
 	afterEach(() => {

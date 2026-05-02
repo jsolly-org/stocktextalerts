@@ -24,9 +24,7 @@ export function toSparkline(values: number[]): string {
 		}
 
 		// If any values are non-finite, treat them as the lowest value.
-		return values
-			.map((v) => (Number.isFinite(v) ? MID_BLOCK : LOW_BLOCK))
-			.join("");
+		return values.map((v) => (Number.isFinite(v) ? MID_BLOCK : LOW_BLOCK)).join("");
 	}
 
 	const range = max - min;
@@ -34,10 +32,7 @@ export function toSparkline(values: number[]): string {
 		.map((v) => {
 			const normalized = Number.isFinite(v) ? (v - min) / range : 0;
 			const rawIndex = normalized * (BLOCKS.length - 1);
-			const index = Math.max(
-				0,
-				Math.min(BLOCKS.length - 1, Math.floor(rawIndex)),
-			);
+			const index = Math.max(0, Math.min(BLOCKS.length - 1, Math.floor(rawIndex)));
 			return BLOCKS.charAt(index);
 		})
 		.join("");

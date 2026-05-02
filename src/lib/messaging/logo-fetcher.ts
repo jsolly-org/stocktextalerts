@@ -57,8 +57,7 @@ async function fetchLogoFromApi(iconUrl: string): Promise<string | null> {
 	}
 
 	const rawContentType = response.headers.get("content-type") ?? "image/png";
-	const contentType =
-		rawContentType.split(";")[0]?.trim().toLowerCase() || "image/png";
+	const contentType = rawContentType.split(";")[0]?.trim().toLowerCase() || "image/png";
 	if (!ALLOWED_IMAGE_MIME_TYPES.has(contentType)) {
 		return null;
 	}
@@ -186,9 +185,7 @@ export async function prefetchLogos(
 	for (let i = 0; i < uncached.length; i += PREFETCH_CONCURRENCY) {
 		const batch = uncached.slice(i, i + PREFETCH_CONCURRENCY);
 		await Promise.all(
-			batch.map((a) =>
-				fetchLogoBase64(a.symbol, a.icon_url, cache, a.icon_base64, supabase),
-			),
+			batch.map((a) => fetchLogoBase64(a.symbol, a.icon_url, cache, a.icon_base64, supabase)),
 		);
 	}
 }
@@ -197,9 +194,7 @@ const SAFE_IMAGE_DATA_URI =
 	/^data:image\/(?:png|jpeg|jpg|gif|webp|svg\+xml);base64,[A-Za-z0-9+/=]+$/;
 
 /** Create a callback that maps symbol → `<img>` HTML from a logo cache. */
-function createLogoHtmlGetter(
-	cache: LogoCache,
-): (symbol: string) => string | undefined {
+function createLogoHtmlGetter(cache: LogoCache): (symbol: string) => string | undefined {
 	return (symbol) => {
 		const dataUri = cache.get(symbol);
 		return dataUri ? renderLogoImg(dataUri) : undefined;

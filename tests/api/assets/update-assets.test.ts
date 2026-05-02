@@ -7,10 +7,7 @@ import { createApiContext } from "../../helpers/api-context";
 import { getAssetData, getRealAssetSymbols } from "../../helpers/asset-data";
 import { updateTrackedAssets } from "../../helpers/asset-update";
 import { TEST_PASSWORD } from "../../helpers/constants";
-import {
-	adminClient,
-	createAuthenticatedCookies,
-} from "../../helpers/test-env";
+import { adminClient, createAuthenticatedCookies } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 import { expectConsoleError } from "../../setup";
@@ -18,19 +15,14 @@ import { expectConsoleError } from "../../setup";
 describe("A signed-in user updates their tracked assets.", () => {
 	it("A user cannot track more than the maximum allowed assets.", async () => {
 		const seedSymbols = getRealAssetSymbols(MAX_TRACKED_ASSETS + 1);
-		const { data: existingAssets, error: existingAssetsError } =
-			await adminClient
-				.from("assets")
-				.select("symbol")
-				.in("symbol", seedSymbols);
+		const { data: existingAssets, error: existingAssetsError } = await adminClient
+			.from("assets")
+			.select("symbol")
+			.in("symbol", seedSymbols);
 		expect(existingAssetsError).toBeNull();
 
-		const existingSymbolSet = new Set(
-			(existingAssets ?? []).map((row) => row.symbol),
-		);
-		const symbolsToInsert = seedSymbols.filter(
-			(symbol) => !existingSymbolSet.has(symbol),
-		);
+		const existingSymbolSet = new Set((existingAssets ?? []).map((row) => row.symbol));
+		const symbolsToInsert = seedSymbols.filter((symbol) => !existingSymbolSet.has(symbol));
 
 		const seedRecords = symbolsToInsert.map((symbol) => {
 			const assetData = getAssetData(symbol);
@@ -186,12 +178,7 @@ describe("A signed-in user updates their tracked assets.", () => {
 		expect(payload.message).toBe("assets_updated");
 
 		expect(trackedAssets).toHaveLength(4);
-		expect(trackedAssets?.map((s) => s.symbol)).toEqual([
-			"AAPL",
-			"MSFT",
-			"QQQ",
-			"SPY",
-		]);
+		expect(trackedAssets?.map((s) => s.symbol)).toEqual(["AAPL", "MSFT", "QQQ", "SPY"]);
 	});
 
 	it("A user replaces tracked stocks with ETFs.", async () => {
@@ -236,19 +223,15 @@ describe("A signed-in user updates their tracked assets.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const { data: existingInvalidSymbol, error: existingInvalidSymbolError } =
-			await adminClient
-				.from("assets")
-				.select("symbol")
-				.eq("symbol", invalidSymbol)
-				.maybeSingle();
+		const { data: existingInvalidSymbol, error: existingInvalidSymbolError } = await adminClient
+			.from("assets")
+			.select("symbol")
+			.eq("symbol", invalidSymbol)
+			.maybeSingle();
 		expect(existingInvalidSymbolError).toBeNull();
 		expect(existingInvalidSymbol).toBeNull();
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const formData = new FormData();
 		formData.append("tracked_assets", JSON.stringify([invalidSymbol]));
@@ -302,15 +285,9 @@ describe("A signed-in user updates their tracked assets.", () => {
 			});
 			registerTestUserForCleanup(testUser.id);
 
-			const cookies = await createAuthenticatedCookies(
-				testUser.email,
-				TEST_PASSWORD,
-			);
+			const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 			const formData = new FormData();
-			formData.append(
-				"tracked_assets",
-				JSON.stringify(["AAPL", delistedSymbol]),
-			);
+			formData.append("tracked_assets", JSON.stringify(["AAPL", delistedSymbol]));
 
 			const response = await POST(
 				createApiContext({

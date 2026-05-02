@@ -27,13 +27,7 @@ describe("Email scheduled update includes asset price data.", () => {
 		const assetsList =
 			"AAPL - Apple Inc. — $187.42 (+1.23%)\nMSFT - Microsoft Corporation — $412.10 (-0.31%)";
 
-		const { text, html } = formatEmailMessage(
-			testUser,
-			testAssets,
-			assetsList,
-			priceMap,
-			true,
-		);
+		const { text, html } = formatEmailMessage(testUser, testAssets, assetsList, priceMap, true);
 
 		// Plain text includes prices via assetsList
 		expect(text).toContain("$187.42");
@@ -51,9 +45,7 @@ describe("Email scheduled update includes asset price data.", () => {
 	});
 
 	it("Market-closed disclaimer appears when market is closed.", () => {
-		const priceMap: AssetPriceMap = new Map([
-			["AAPL", { price: 187.42, changePercent: 1.23 }],
-		]);
+		const priceMap: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
 		const assetsList = "AAPL - Apple Inc. — $187.42 (+1.23%)";
 
 		const { text, html } = formatEmailMessage(
@@ -71,9 +63,7 @@ describe("Email scheduled update includes asset price data.", () => {
 	});
 
 	it("Market-closed disclaimer is absent when market is open.", () => {
-		const priceMap: AssetPriceMap = new Map([
-			["AAPL", { price: 187.42, changePercent: 1.23 }],
-		]);
+		const priceMap: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
 		const assetsList = "AAPL - Apple Inc. — $187.42 (+1.23%)";
 
 		const { text, html } = formatEmailMessage(
@@ -93,16 +83,9 @@ describe("Email scheduled update includes asset price data.", () => {
 			["AAPL", { price: 187.42, changePercent: 1.23 }],
 			["MSFT", null],
 		]);
-		const assetsList =
-			"AAPL - Apple Inc. — $187.42 (+1.23%)\nMSFT - Microsoft Corporation";
+		const assetsList = "AAPL - Apple Inc. — $187.42 (+1.23%)\nMSFT - Microsoft Corporation";
 
-		const { html } = formatEmailMessage(
-			testUser,
-			testAssets,
-			assetsList,
-			priceMap,
-			true,
-		);
+		const { html } = formatEmailMessage(testUser, testAssets, assetsList, priceMap, true);
 
 		// AAPL has price in HTML
 		expect(html).toContain("$187.42");
@@ -124,14 +107,9 @@ describe("Email scheduled update includes asset price data.", () => {
 				? '<img src="data:image/png;base64,aapllogo" alt="" width="20" height="20" />'
 				: undefined;
 
-		const { html } = formatEmailMessage(
-			testUser,
-			testAssets,
-			assetsList,
-			priceMap,
-			true,
-			{ getLogoHtml },
-		);
+		const { html } = formatEmailMessage(testUser, testAssets, assetsList, priceMap, true, {
+			getLogoHtml,
+		});
 
 		expect(html).toContain("base64,aapllogo");
 		expect(html).toContain(
@@ -153,13 +131,7 @@ describe("Email scheduled update includes asset price data.", () => {
 		const assetsList =
 			"SPY - SS SPDR S&P 500 ETF TRUST-US — $523.45 (+0.87%)\nQQQ - INVESCO QQQ TRUST SERIES 1 — $441.20 (-1.15%)";
 
-		const { text, html } = formatEmailMessage(
-			testUser,
-			etfAssets,
-			assetsList,
-			priceMap,
-			true,
-		);
+		const { text, html } = formatEmailMessage(testUser, etfAssets, assetsList, priceMap, true);
 
 		// Plain text includes ETF prices
 		expect(text).toContain("$523.45");

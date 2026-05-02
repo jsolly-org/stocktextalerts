@@ -3,10 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { VERIFICATION_RESEND_COOLDOWN_MS } from "../../../../src/lib/constants";
 import { POST as sendVerificationPost } from "../../../../src/pages/api/auth/sms/send-verification";
 import { createApiContext } from "../../../helpers/api-context";
-import {
-	adminClient,
-	createAuthenticatedCookies,
-} from "../../../helpers/test-env";
+import { adminClient, createAuthenticatedCookies } from "../../../helpers/test-env";
 import {
 	cleanupTestUser,
 	createTestUser,
@@ -33,13 +30,10 @@ describe("A signed-in user requests an SMS verification code.", () => {
 		formData.append("phone_country_code", "+1");
 		formData.append("phone_number", phoneNumber);
 
-		const request = new Request(
-			"http://localhost/api/auth/sms/send-verification",
-			{
-				method: "POST",
-				body: formData,
-			},
-		);
+		const request = new Request("http://localhost/api/auth/sms/send-verification", {
+			method: "POST",
+			body: formData,
+		});
 
 		const response = await sendVerificationPost(createApiContext({ request }));
 
@@ -57,26 +51,18 @@ describe("A signed-in user requests an SMS verification code.", () => {
 			confirmed: true,
 		});
 		try {
-			const cookies = await createAuthenticatedCookies(
-				testUser.email,
-				"TestPassword123!",
-			);
+			const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
 
 			const formData = new FormData();
 			formData.append("phone_country_code", "1"); // missing +
 			formData.append("phone_number", "5551234567");
 
-			const request = new Request(
-				"http://localhost/api/auth/sms/send-verification",
-				{
-					method: "POST",
-					body: formData,
-				},
-			);
+			const request = new Request("http://localhost/api/auth/sms/send-verification", {
+				method: "POST",
+				body: formData,
+			});
 
-			const response = await sendVerificationPost(
-				createApiContext({ request, cookies }),
-			);
+			const response = await sendVerificationPost(createApiContext({ request, cookies }));
 
 			expect(response.status).toBe(400);
 			const payload = (await response.json()) as {
@@ -98,25 +84,17 @@ describe("A signed-in user requests an SMS verification code.", () => {
 			confirmed: true,
 		});
 		try {
-			const cookies = await createAuthenticatedCookies(
-				testUser.email,
-				"TestPassword123!",
-			);
+			const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
 
 			const formData = new FormData();
 			// Missing required fields
 
-			const request = new Request(
-				"http://localhost/api/auth/sms/send-verification",
-				{
-					method: "POST",
-					body: formData,
-				},
-			);
+			const request = new Request("http://localhost/api/auth/sms/send-verification", {
+				method: "POST",
+				body: formData,
+			});
 
-			const response = await sendVerificationPost(
-				createApiContext({ request, cookies }),
-			);
+			const response = await sendVerificationPost(createApiContext({ request, cookies }));
 
 			expect(response.status).toBe(400);
 			const payload = (await response.json()) as {
@@ -149,10 +127,7 @@ describe("A signed-in user requests an SMS verification code.", () => {
 				})
 				.eq("id", testUser.id);
 
-			const cookies = await createAuthenticatedCookies(
-				testUser.email,
-				"TestPassword123!",
-			);
+			const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
 
 			sendVerificationMock.mockResolvedValue({ success: true });
 
@@ -161,17 +136,12 @@ describe("A signed-in user requests an SMS verification code.", () => {
 			formData.append("phone_country_code", "+1");
 			formData.append("phone_number", newPhoneNumber);
 
-			const request = new Request(
-				"http://localhost/api/auth/sms/send-verification",
-				{
-					method: "POST",
-					body: formData,
-				},
-			);
+			const request = new Request("http://localhost/api/auth/sms/send-verification", {
+				method: "POST",
+				body: formData,
+			});
 
-			const response = await sendVerificationPost(
-				createApiContext({ request, cookies }),
-			);
+			const response = await sendVerificationPost(createApiContext({ request, cookies }));
 
 			expect(response.status).toBe(200);
 			const payload = (await response.json()) as {
@@ -219,27 +189,19 @@ describe("A signed-in user requests an SMS verification code.", () => {
 				.update({ verification_sent_at: recentTimestamp })
 				.eq("id", testUser.id);
 
-			const cookies = await createAuthenticatedCookies(
-				testUser.email,
-				"TestPassword123!",
-			);
+			const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
 
 			const phoneNumber = generateUniquePhoneNumber();
 			const formData = new FormData();
 			formData.append("phone_country_code", "+1");
 			formData.append("phone_number", phoneNumber);
 
-			const request = new Request(
-				"http://localhost/api/auth/sms/send-verification",
-				{
-					method: "POST",
-					body: formData,
-				},
-			);
+			const request = new Request("http://localhost/api/auth/sms/send-verification", {
+				method: "POST",
+				body: formData,
+			});
 
-			const response = await sendVerificationPost(
-				createApiContext({ request, cookies }),
-			);
+			const response = await sendVerificationPost(createApiContext({ request, cookies }));
 
 			expect(response.status).toBe(429);
 			const payload = (await response.json()) as {
@@ -267,19 +229,14 @@ describe("A signed-in user requests an SMS verification code.", () => {
 		try {
 			// Stay far outside the cooldown window to avoid boundary flakiness between
 			// test runtime timing and DB timing.
-			const oldTimestamp = new Date(
-				Date.now() - VERIFICATION_RESEND_COOLDOWN_MS * 3,
-			).toISOString();
+			const oldTimestamp = new Date(Date.now() - VERIFICATION_RESEND_COOLDOWN_MS * 3).toISOString();
 
 			await adminClient
 				.from("users")
 				.update({ verification_sent_at: oldTimestamp })
 				.eq("id", testUser.id);
 
-			const cookies = await createAuthenticatedCookies(
-				testUser.email,
-				"TestPassword123!",
-			);
+			const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
 
 			sendVerificationMock.mockResolvedValue({ success: true });
 
@@ -288,17 +245,12 @@ describe("A signed-in user requests an SMS verification code.", () => {
 			formData.append("phone_country_code", "+1");
 			formData.append("phone_number", phoneNumber);
 
-			const request = new Request(
-				"http://localhost/api/auth/sms/send-verification",
-				{
-					method: "POST",
-					body: formData,
-				},
-			);
+			const request = new Request("http://localhost/api/auth/sms/send-verification", {
+				method: "POST",
+				body: formData,
+			});
 
-			const response = await sendVerificationPost(
-				createApiContext({ request, cookies }),
-			);
+			const response = await sendVerificationPost(createApiContext({ request, cookies }));
 
 			expect(response.status).toBe(200);
 			const payload = (await response.json()) as {

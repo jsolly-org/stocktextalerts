@@ -1,9 +1,6 @@
 import { AsYouType, parsePhoneNumberFromString } from "libphonenumber-js";
 
-export function formatPhoneForDisplay(
-	countryCode: string,
-	nationalNumber: string,
-): string {
+export function formatPhoneForDisplay(countryCode: string, nationalNumber: string): string {
 	if (!countryCode || !nationalNumber) {
 		return "";
 	}
@@ -20,8 +17,5 @@ export function formatPhoneFromE164(raw: string): string {
 	if (!trimmed) return "";
 	const parsed = parsePhoneNumberFromString(trimmed, { extract: false });
 	if (!parsed) return trimmed;
-	return formatPhoneForDisplay(
-		`+${parsed.countryCallingCode}`,
-		String(parsed.nationalNumber),
-	);
+	return formatPhoneForDisplay(`+${parsed.countryCallingCode}`, String(parsed.nationalNumber));
 }

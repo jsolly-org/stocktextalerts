@@ -59,9 +59,7 @@ describe("isSafeRedirectUrl", () => {
 	});
 
 	it("rejects URLs containing CR or LF (response splitting)", () => {
-		expect(isSafeRedirectUrl("https://example.com\r\nX-Injected: true")).toBe(
-			false,
-		);
+		expect(isSafeRedirectUrl("https://example.com\r\nX-Injected: true")).toBe(false);
 		expect(isSafeRedirectUrl("https://example.com\n")).toBe(false);
 		expect(isSafeRedirectUrl("https://example.com\r")).toBe(false);
 	});

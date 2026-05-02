@@ -41,10 +41,7 @@ async function applyUserUpdate(
 	update: UsersUpdate,
 	action: string,
 ): Promise<InboundSmsResponse | null> {
-	const { error: updateError } = await supabase
-		.from("users")
-		.update(update)
-		.eq("id", userId);
+	const { error: updateError } = await supabase.from("users").update(update).eq("id", userId);
 
 	if (updateError) {
 		rootLogger.error(
@@ -88,12 +85,7 @@ export async function handleInboundSms(
 		};
 	}
 
-	const isValid = validateRequest(
-		authToken,
-		request.signature,
-		request.url,
-		request.params,
-	);
+	const isValid = validateRequest(authToken, request.signature, request.url, request.params);
 
 	if (!isValid) {
 		return {
@@ -141,9 +133,7 @@ export async function handleInboundSms(
 
 	const { data: users, error } = await supabase
 		.from("users")
-		.select(
-			"id, phone_verified, email_notifications_enabled, sms_notifications_enabled",
-		)
+		.select("id, phone_verified, email_notifications_enabled, sms_notifications_enabled")
 		.eq("phone_country_code", countryCode)
 		.eq("phone_number", phoneNumber);
 
@@ -177,16 +167,13 @@ export async function handleInboundSms(
 	const emailNotificationsEnabled = users[0].email_notifications_enabled;
 	const smsNotificationsEnabled = users[0].sms_notifications_enabled;
 	// Use pre-update channel state for STOP copy; reflects prior SMS enablement.
-	const hasBothChannelsEnabled =
-		emailNotificationsEnabled && smsNotificationsEnabled;
+	const hasBothChannelsEnabled = emailNotificationsEnabled && smsNotificationsEnabled;
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 
 	if (!phoneVerified) {
 		return {
 			status: 200,
-			body: wrapInTwiml(
-				"Phone number not verified. Please verify your phone number first.",
-			),
+			body: wrapInTwiml("Phone number not verified. Please verify your phone number first."),
 			contentType: "text/xml",
 		};
 	}

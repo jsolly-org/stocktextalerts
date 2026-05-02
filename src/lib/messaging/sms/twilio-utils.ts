@@ -53,10 +53,7 @@ export function createTwilioClient(config: TwilioConfig): TwilioClient {
  * Twilio charges. SMS code paths are covered by unit/integration tests
  * that assert against the mock's recorded request shape.
  */
-export function createSmsSender(
-	client: TwilioClient,
-	defaultFromNumber: string,
-): SmsSender {
+export function createSmsSender(client: TwilioClient, defaultFromNumber: string): SmsSender {
 	// Hard gate: non-production always mocks. The `client` arg is ignored in
 	// this branch, so even if upstream constructs a real Twilio client with
 	// prod credentials from .env.local, we never call .messages.create on it.
@@ -102,11 +99,7 @@ export function createSmsSender(
 			};
 		} catch (error) {
 			const maskedTo = request.to.slice(-4).padStart(request.to.length, "*");
-			rootLogger.error(
-				"Twilio SMS send error",
-				{ action: "send_sms", from, to: maskedTo },
-				error,
-			);
+			rootLogger.error("Twilio SMS send error", { action: "send_sms", from, to: maskedTo }, error);
 
 			// Twilio SDK throws RestException for API errors (HTTP 400-5xx).
 			// RestException has: status (HTTP status), code (numeric Twilio error code),
@@ -120,8 +113,7 @@ export function createSmsSender(
 				};
 			}
 
-			const errorMessage =
-				error instanceof Error ? error.message : "Failed to send SMS";
+			const errorMessage = error instanceof Error ? error.message : "Failed to send SMS";
 
 			return {
 				success: false,

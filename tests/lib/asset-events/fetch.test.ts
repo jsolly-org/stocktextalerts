@@ -206,9 +206,7 @@ describe("fetchAndStoreAssetEvents", () => {
 		);
 		// MSFT not tracked, not in asset_events
 		expect(
-			state.upsertRows.some(
-				(row) => row.symbol === "MSFT" && row.event_type === "earnings",
-			),
+			state.upsertRows.some((row) => row.symbol === "MSFT" && row.event_type === "earnings"),
 		).toBe(false);
 	});
 

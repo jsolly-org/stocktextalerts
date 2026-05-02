@@ -169,9 +169,7 @@ describe("formatInsiderSection formats insider transactions per ticker.", () => 
 			},
 		];
 
-		const data = new Map<string, InsiderTransaction[]>([
-			["AAPL", transactions],
-		]);
+		const data = new Map<string, InsiderTransaction[]>([["AAPL", transactions]]);
 
 		const result = formatInsiderSection(data, "sms");
 
@@ -184,20 +182,15 @@ describe("formatInsiderSection formats insider transactions per ticker.", () => 
 	});
 
 	it("Formats email insider section with more transactions.", () => {
-		const transactions: InsiderTransaction[] = Array.from(
-			{ length: 5 },
-			(_, i) => ({
-				name: `Insider ${i}`,
-				share: 1000,
-				change: i % 2 === 0 ? -1000 : 1000,
-				transactionType: i % 2 === 0 ? "S" : "P",
-				transactionDate: `2026-02-0${i + 1}`,
-			}),
-		);
+		const transactions: InsiderTransaction[] = Array.from({ length: 5 }, (_, i) => ({
+			name: `Insider ${i}`,
+			share: 1000,
+			change: i % 2 === 0 ? -1000 : 1000,
+			transactionType: i % 2 === 0 ? "S" : "P",
+			transactionDate: `2026-02-0${i + 1}`,
+		}));
 
-		const data = new Map<string, InsiderTransaction[]>([
-			["TSLA", transactions],
-		]);
+		const data = new Map<string, InsiderTransaction[]>([["TSLA", transactions]]);
 
 		const result = formatInsiderSection(data, "email");
 

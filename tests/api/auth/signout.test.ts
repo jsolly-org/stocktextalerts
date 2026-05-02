@@ -27,12 +27,9 @@ describe("A signed-in user signs out of the app.", () => {
 		const deleteSpy = vi.fn();
 		const response = await POST(
 			createApiContext({
-				request: new Request(
-					"http://localhost/api/auth/signout?next=/dashboard",
-					{
-						method: "POST",
-					},
-				),
+				request: new Request("http://localhost/api/auth/signout?next=/dashboard", {
+					method: "POST",
+				}),
 				onDeleteCookie: (name) => {
 					deleteSpy(name);
 				},
@@ -57,9 +54,7 @@ describe("A signed-in user signs out of the app.", () => {
 
 		expect(response.status).toBe(200);
 		const html = await response.text();
-		expect(html).toContain(
-			`href="/&quot;&gt;&lt;img src=x onerror=alert(1)&gt;"`,
-		);
+		expect(html).toContain(`href="/&quot;&gt;&lt;img src=x onerror=alert(1)&gt;"`);
 		expect(html).not.toContain(`<img src=x onerror=alert(1)>`);
 	});
 });

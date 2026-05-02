@@ -21,9 +21,7 @@ function getTimezoneCacheBuster(): string {
 	return (process.env.TIMEZONE_CACHE_BUSTER ?? "").trim();
 }
 
-async function loadAllTimezones(
-	supabase: AppSupabaseClient,
-): Promise<DbTimezoneRow[]> {
+async function loadAllTimezones(supabase: AppSupabaseClient): Promise<DbTimezoneRow[]> {
 	const pageSize = 1000;
 	const rows: DbTimezoneRow[] = [];
 
@@ -47,9 +45,7 @@ async function loadAllTimezones(
 	return rows.filter((row) => row.value !== "");
 }
 
-async function getAllTimezonesCached(
-	supabase: AppSupabaseClient,
-): Promise<DbTimezoneRow[]> {
+async function getAllTimezonesCached(supabase: AppSupabaseClient): Promise<DbTimezoneRow[]> {
 	const cacheBuster = getTimezoneCacheBuster();
 	const nowMs = Date.now();
 
@@ -100,9 +96,7 @@ export async function getTimezoneOptions(
 	supabase: AppSupabaseClient,
 	options?: { includeValues?: string[] },
 ): Promise<TimezoneOption[]> {
-	const includeValues = (options?.includeValues ?? []).filter(
-		(value) => value !== "",
-	);
+	const includeValues = (options?.includeValues ?? []).filter((value) => value !== "");
 	const uniqueIncludeValues = [...new Set(includeValues)];
 
 	const rows = await getAllTimezonesCached(supabase);
@@ -122,9 +116,7 @@ export async function getTimezoneOptions(
 
 	const byValue = new Map(rows.map((timezone) => [timezone.value, timezone]));
 
-	const activeValueSet = new Set(
-		activeTimezones.map((timezone) => timezone.value),
-	);
+	const activeValueSet = new Set(activeTimezones.map((timezone) => timezone.value));
 
 	const extras = uniqueIncludeValues
 		.map((value) => byValue.get(value))

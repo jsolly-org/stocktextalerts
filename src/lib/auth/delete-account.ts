@@ -5,10 +5,7 @@ type DeleteUserAccountResult =
 	| { ok: true }
 	| {
 			ok: false;
-			redirectError:
-				| "delete_failed"
-				| "delete_orphaned_auth_failed"
-				| "delete_partial";
+			redirectError: "delete_failed" | "delete_orphaned_auth_failed" | "delete_partial";
 	  };
 
 function isAuthUserNotFoundError(authError: unknown): boolean {
@@ -44,8 +41,7 @@ export async function deleteUserAccount(options: {
 	}
 
 	if (!existingUser) {
-		const { error: authError } =
-			await adminSupabase.auth.admin.deleteUser(userId);
+		const { error: authError } = await adminSupabase.auth.admin.deleteUser(userId);
 
 		if (authError) {
 			if (isAuthUserNotFoundError(authError)) {
@@ -67,8 +63,7 @@ export async function deleteUserAccount(options: {
 		return { ok: true };
 	}
 
-	const { error: authError } =
-		await adminSupabase.auth.admin.deleteUser(userId);
+	const { error: authError } = await adminSupabase.auth.admin.deleteUser(userId);
 
 	if (authError) {
 		if (isAuthUserNotFoundError(authError)) {
@@ -78,29 +73,20 @@ export async function deleteUserAccount(options: {
 				authError,
 			);
 		} else {
-			logger.error(
-				"Failed to delete auth user before DB deletion",
-				{ userId },
-				authError,
-			);
+			logger.error("Failed to delete auth user before DB deletion", { userId }, authError);
 			return { ok: false, redirectError: "delete_failed" };
 		}
 	}
 
 	// If auth deletion cascades to public.users (recommended), the row may already be gone.
-	const { data: afterAuthUser, error: afterAuthFetchError } =
-		await adminSupabase
-			.from("users")
-			.select("id")
-			.eq("id", userId)
-			.maybeSingle();
+	const { data: afterAuthUser, error: afterAuthFetchError } = await adminSupabase
+		.from("users")
+		.select("id")
+		.eq("id", userId)
+		.maybeSingle();
 
 	if (afterAuthFetchError) {
-		logger.error(
-			"Failed to load user after auth deletion",
-			{ userId },
-			afterAuthFetchError,
-		);
+		logger.error("Failed to load user after auth deletion", { userId }, afterAuthFetchError);
 		return { ok: false, redirectError: "delete_failed" };
 	}
 
@@ -108,10 +94,7 @@ export async function deleteUserAccount(options: {
 		return { ok: true };
 	}
 
-	const { error: dbError } = await adminSupabase
-		.from("users")
-		.delete()
-		.eq("id", userId);
+	const { error: dbError } = await adminSupabase.from("users").delete().eq("id", userId);
 
 	if (dbError) {
 		logger.error(

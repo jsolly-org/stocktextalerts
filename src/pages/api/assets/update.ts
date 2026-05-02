@@ -10,10 +10,7 @@ import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
 import { createLogger } from "../../../lib/logging";
-import {
-	createErrorForLogging,
-	extractErrorMessage,
-} from "../../../lib/logging/errors";
+import { createErrorForLogging, extractErrorMessage } from "../../../lib/logging/errors";
 import { isValidAssetSymbol } from "../../../lib/validation";
 
 const ASSETS_SCHEMA = {

@@ -43,9 +43,7 @@ export type MailpitMessage = {
 export async function listMailpitMessages(): Promise<MailpitListRow[]> {
 	const response = await fetch(`${MAILPIT_BASE}/api/v1/messages`);
 	if (!response.ok) {
-		throw new Error(
-			`Mailpit list failed: ${response.status} ${await response.text()}`,
-		);
+		throw new Error(`Mailpit list failed: ${response.status} ${await response.text()}`);
 	}
 	const payload = (await response.json()) as MailpitListResponse;
 	return payload.messages ?? [];
@@ -53,13 +51,9 @@ export async function listMailpitMessages(): Promise<MailpitListRow[]> {
 
 /** Fetch a single rendered message by ID. */
 export async function getMailpitMessage(id: string): Promise<MailpitMessage> {
-	const response = await fetch(
-		`${MAILPIT_BASE}/api/v1/message/${encodeURIComponent(id)}`,
-	);
+	const response = await fetch(`${MAILPIT_BASE}/api/v1/message/${encodeURIComponent(id)}`);
 	if (!response.ok) {
-		throw new Error(
-			`Mailpit fetch failed: ${response.status} ${await response.text()}`,
-		);
+		throw new Error(`Mailpit fetch failed: ${response.status} ${await response.text()}`);
 	}
 	const payload = (await response.json()) as MailpitMessageResponse;
 	return {
@@ -79,9 +73,7 @@ export async function clearMailpit(): Promise<void> {
 		method: "DELETE",
 	});
 	if (!response.ok) {
-		throw new Error(
-			`Mailpit clear failed: ${response.status} ${await response.text()}`,
-		);
+		throw new Error(`Mailpit clear failed: ${response.status} ${await response.text()}`);
 	}
 }
 
@@ -134,8 +126,7 @@ export async function waitForMailpitMessageTo(
 ): Promise<MailpitMessage> {
 	const target = recipient.toLowerCase();
 	return waitForMailpitMessage(
-		(row) =>
-			(row.To ?? []).some((to) => (to.Address ?? "").toLowerCase() === target),
+		(row) => (row.To ?? []).some((to) => (to.Address ?? "").toLowerCase() === target),
 		options,
 	);
 }

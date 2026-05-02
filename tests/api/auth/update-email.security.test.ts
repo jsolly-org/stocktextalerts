@@ -3,10 +3,7 @@ import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/auth/update-email";
 import { createApiContext } from "../../helpers/api-context";
 import { TEST_PASSWORD } from "../../helpers/constants";
-import {
-	adminClient,
-	createAuthenticatedCookies,
-} from "../../helpers/test-env";
+import { adminClient, createAuthenticatedCookies } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
@@ -20,9 +17,7 @@ describe("Update email requires authentication.", () => {
 		const response = await POST(createApiContext({ request }));
 
 		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe(
-			"/auth/signin?error=unauthorized",
-		);
+		expect(response.headers.get("Location")).toBe("/auth/signin?error=unauthorized");
 	});
 });
 
@@ -35,28 +30,19 @@ describe("Update email endpoint enforces rate limiting.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const attempts =
-			Number.parseInt(
-				process.env.CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS ?? "5",
-				10,
-			) || 5;
+		const attempts = Number.parseInt(process.env.CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS ?? "5", 10) || 5;
 
-		const { error: insertError } = await adminClient
-			.from("rate_limit_log")
-			.insert(
-				Array.from({ length: attempts }, () => ({
-					user_id: testUser.id,
-					endpoint: "change_email",
-				})),
-			);
+		const { error: insertError } = await adminClient.from("rate_limit_log").insert(
+			Array.from({ length: attempts }, () => ({
+				user_id: testUser.id,
+				endpoint: "change_email",
+			})),
+		);
 		if (insertError) {
 			throw new Error(`Failed to seed rate_limit_log: ${insertError.message}`);
 		}
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const request = new Request("http://localhost/api/auth/update-email", {
 			method: "POST",

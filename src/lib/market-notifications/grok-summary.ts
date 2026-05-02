@@ -60,9 +60,7 @@ type ResponsesResponse = {
  * Uses the same `applyAnnotationsInline` pipeline as the daily digest so that
  * citation references become inline markdown links (e.g. `[[Reuters]](url)`).
  */
-function parseGrokPriceAlertResponse(
-	data: ResponsesResponse,
-): PriceAlertGrokResult | null {
+function parseGrokPriceAlertResponse(data: ResponsesResponse): PriceAlertGrokResult | null {
 	let summaryText: string | null = null;
 	let summaryAnnotations: XaiAnnotation[] = [];
 	const seenUrls = new Set<string>();
@@ -84,9 +82,7 @@ function parseGrokPriceAlertResponse(
 				// Extract links from annotations for plaintext/SMS fallback
 				for (const ann of part.annotations ?? []) {
 					const normalizedUrl =
-						typeof ann.url === "string"
-							? normalizeHttpUrl(ann.url.trim())
-							: null;
+						typeof ann.url === "string" ? normalizeHttpUrl(ann.url.trim()) : null;
 					if (!normalizedUrl || seenUrls.has(normalizedUrl)) {
 						continue;
 					}
@@ -95,9 +91,7 @@ function parseGrokPriceAlertResponse(
 					seenUrls.add(normalizedUrl);
 					const url = normalizedUrl;
 					const sourceType: "x" | "web" = isXUrl(url) ? "x" : "web";
-					const source =
-						linkLabelFromUrl(url) ||
-						(sourceType === "x" ? "X post" : "article");
+					const source = linkLabelFromUrl(url) || (sourceType === "x" ? "X post" : "article");
 					const title = ann.title?.trim() || source;
 
 					links.push({ url, title, source, sourceType });
@@ -132,8 +126,7 @@ function parseGrokPriceAlertResponse(
 			if (!url || seenUrls.has(url)) continue;
 			seenUrls.add(url);
 			const sourceType: "x" | "web" = isXUrl(url) ? "x" : "web";
-			const source =
-				linkLabelFromUrl(url) || (sourceType === "x" ? "X post" : "article");
+			const source = linkLabelFromUrl(url) || (sourceType === "x" ? "X post" : "article");
 			const title = captureTitle?.trim() || source;
 			links.push({ url, title, source, sourceType });
 		}
@@ -169,13 +162,10 @@ export async function generatePriceAlertSummary(options: {
 }): Promise<PriceAlertGrokResult | null> {
 	const apiKey = readEnv("XAI_API_KEY");
 	if (!apiKey) {
-		rootLogger.error(
-			"XAI_API_KEY is not set; skipping Grok price alert summary",
-			{
-				symbol: options.symbol,
-				reason: "missing_api_key",
-			},
-		);
+		rootLogger.error("XAI_API_KEY is not set; skipping Grok price alert summary", {
+			symbol: options.symbol,
+			reason: "missing_api_key",
+		});
 		return null;
 	}
 

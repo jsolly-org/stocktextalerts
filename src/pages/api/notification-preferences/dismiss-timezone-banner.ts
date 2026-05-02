@@ -17,14 +17,11 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const authUser = await users.getCurrentUser();
 	if (!authUser) {
 		// Expected rejection (often bots); info to avoid inflating error metrics.
-		logger.info(
-			"Timezone banner dismissal attempt without authenticated user",
-			{
-				event: "unauthorized_timezone_banner_dismissal",
-				reason: "no_authenticated_user",
-				path: url.pathname,
-			},
-		);
+		logger.info("Timezone banner dismissal attempt without authenticated user", {
+			event: "unauthorized_timezone_banner_dismissal",
+			reason: "no_authenticated_user",
+			path: url.pathname,
+		});
 		return jsonResponse(401, { ok: false, message: "unauthorized" });
 	}
 

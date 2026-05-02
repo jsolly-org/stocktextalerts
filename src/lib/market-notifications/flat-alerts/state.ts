@@ -84,10 +84,7 @@ export async function claimFlatPriceAlert(
 
 	const { data: claimed, error } = await (
 		supabase as unknown as {
-			rpc: (
-				fn: string,
-				args: unknown,
-			) => Promise<{ data: unknown; error: unknown }>;
+			rpc: (fn: string, args: unknown) => Promise<{ data: unknown; error: unknown }>;
 		}
 	).rpc("claim_flat_price_alert", {
 		p_user_id: userId,
@@ -98,11 +95,7 @@ export async function claimFlatPriceAlert(
 	});
 
 	if (error) {
-		rootLogger.error(
-			"Failed to claim flat price alert slot",
-			{ userId, symbol },
-			error,
-		);
+		rootLogger.error("Failed to claim flat price alert slot", { userId, symbol }, error);
 		return true; // Fail open
 	}
 

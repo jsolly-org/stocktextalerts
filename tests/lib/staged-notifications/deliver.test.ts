@@ -12,10 +12,7 @@ vi.mock("../../../src/lib/time/market-calendar", () => ({
 }));
 
 import { createLogger } from "../../../src/lib/logging";
-import {
-	createEmailSender,
-	type EmailSender,
-} from "../../../src/lib/messaging/email/utils";
+import { createEmailSender, type EmailSender } from "../../../src/lib/messaging/email/utils";
 import {
 	createSmsSenderProvider,
 	type SmsSenderProvider,
@@ -169,25 +166,22 @@ describe("deliverStagedNotifications", () => {
 		});
 		expect(upsertError).toBeNull();
 
-		const { error: insertSnError } = await adminClient
-			.from("scheduled_notifications")
-			.upsert(
-				{
-					user_id: id,
-					notification_type: "market",
-					scheduled_date: scheduledDate,
-					scheduled_minutes: scheduledMinutes,
-					channel: "email",
-					status: "sent",
-					attempt_count: 1,
-					last_attempt_at: new Date().toISOString(),
-					error: null,
-				},
-				{
-					onConflict:
-						"user_id,notification_type,scheduled_date,scheduled_minutes,channel",
-				},
-			);
+		const { error: insertSnError } = await adminClient.from("scheduled_notifications").upsert(
+			{
+				user_id: id,
+				notification_type: "market",
+				scheduled_date: scheduledDate,
+				scheduled_minutes: scheduledMinutes,
+				channel: "email",
+				status: "sent",
+				attempt_count: 1,
+				last_attempt_at: new Date().toISOString(),
+				error: null,
+			},
+			{
+				onConflict: "user_id,notification_type,scheduled_date,scheduled_minutes,channel",
+			},
+		);
 		expect(insertSnError).toBeNull();
 
 		const result = await deliverStagedNotifications({
@@ -279,9 +273,7 @@ describe("deliverStagedNotifications", () => {
 
 	it("returns empty deliveredUserTypes when no staged rows are due", async () => {
 		// Explicitly clear staged rows to avoid depending on cleanup order from prior tests.
-		const { data: stagedRows } = await adminClient
-			.from("staged_notifications")
-			.select("id");
+		const { data: stagedRows } = await adminClient.from("staged_notifications").select("id");
 		if (stagedRows && stagedRows.length > 0) {
 			await adminClient
 				.from("staged_notifications")

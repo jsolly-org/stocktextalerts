@@ -16,16 +16,8 @@ import { rootLogger } from "../../logging";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
 import { isProduction } from "../../runtime/mode";
 import { escapeHtml, formatAssetsHtmlList } from "../asset-formatting";
-import {
-	buildMarketClosedBannerHtml,
-	buildMarketClosedBannerText,
-} from "../market-closure-banner";
-import type {
-	DeliveryResult,
-	EmailFormatContext,
-	EmailUser,
-	UserAssetRow,
-} from "../types";
+import { buildMarketClosedBannerHtml, buildMarketClosedBannerText } from "../market-closure-banner";
+import type { DeliveryResult, EmailFormatContext, EmailUser, UserAssetRow } from "../types";
 
 const EMAIL_MAX_PER_SECOND = 14;
 const recentSendTimestamps: number[] = [];
@@ -149,11 +141,7 @@ export function createEmailSender(): EmailSender {
 
 			return { success: true, messageSid: response.MessageId };
 		} catch (error) {
-			rootLogger.error(
-				"SES error sending email",
-				{ action: "send_email_notification" },
-				error,
-			);
+			rootLogger.error("SES error sending email", { action: "send_email_notification" }, error);
 			return {
 				success: false,
 				error: error instanceof Error ? error.message : String(error),

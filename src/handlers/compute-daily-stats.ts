@@ -1,10 +1,7 @@
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { createSupabaseAdminClient } from "../lib/db/supabase";
 import { createLogger } from "../lib/logging";
-import {
-	computeADV,
-	computeATR,
-} from "../lib/market-notifications/daily-stats";
+import { computeADV, computeATR } from "../lib/market-notifications/daily-stats";
 import { fetchDailyOHLCV } from "../lib/providers/massive";
 
 /** Batch size for Massive API calls to stay under ~100 req/s. */
@@ -16,10 +13,7 @@ const BATCH_DELAY_MS = 600;
 /** Calendar days to fetch for ~20 trading days of data. */
 const LOOKBACK_DAYS = 35;
 
-export async function handler(
-	_event: ScheduledEvent,
-	_context: Context,
-): Promise<void> {
+export async function handler(_event: ScheduledEvent, _context: Context): Promise<void> {
 	const logger = createLogger({
 		source: "lambda",
 		function: "compute-daily-stats",
@@ -112,11 +106,7 @@ export async function handler(
 			.upsert(rows, { onConflict: "symbol" });
 
 		if (upsertError) {
-			logger.error(
-				"Failed to upsert daily_asset_stats",
-				{ rowCount: rows.length },
-				upsertError,
-			);
+			logger.error("Failed to upsert daily_asset_stats", { rowCount: rows.length }, upsertError);
 			throw new Error("Upsert failed");
 		}
 	}

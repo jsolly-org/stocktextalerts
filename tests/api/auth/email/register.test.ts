@@ -9,8 +9,7 @@ import { adminClient } from "../../../helpers/test-env";
 import { cleanupTestUser } from "../../../helpers/test-user";
 
 vi.mock("../../../../src/lib/constants", async (importOriginal) => {
-	const actual =
-		await importOriginal<typeof import("../../../../src/lib/constants")>();
+	const actual = await importOriginal<typeof import("../../../../src/lib/constants")>();
 	return { ...actual, REGISTRATION_ENABLED: true };
 });
 
@@ -35,9 +34,7 @@ describe("A visitor registers for a new account with email and password.", () =>
 			// Verify redirect to unconfirmed email page
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toContain("/auth/unconfirmed");
-			expect(response.headers.get("Location")).toContain(
-				encodeURIComponent(payload.email),
-			);
+			expect(response.headers.get("Location")).toContain(encodeURIComponent(payload.email));
 
 			// Verify only one user was created
 			const { data: users, error: usersError } = await adminClient
@@ -56,11 +53,11 @@ describe("A visitor registers for a new account with email and password.", () =>
 			expect(user.timezone).toBe(payload.timezone);
 
 			// Verify user was created in auth
-			const { data: authUserData, error: authError } =
-				await adminClient.auth.admin.getUserById(user.id);
+			const { data: authUserData, error: authError } = await adminClient.auth.admin.getUserById(
+				user.id,
+			);
 			expect(authError).toBeNull();
-			if (!authUserData || !authUserData.user)
-				throw new Error("No auth user found");
+			if (!authUserData || !authUserData.user) throw new Error("No auth user found");
 			expect(authUserData.user.email).toBe(payload.email);
 		} finally {
 			if (userId) {
@@ -89,9 +86,7 @@ describe("A visitor registers for a new account with email and password.", () =>
 			// Verify redirect to unconfirmed email page
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toContain("/auth/unconfirmed");
-			expect(response.headers.get("Location")).toContain(
-				encodeURIComponent(payload.email),
-			);
+			expect(response.headers.get("Location")).toContain(encodeURIComponent(payload.email));
 
 			// Verify user was created with fallback timezone
 			const { data: users, error: usersError } = await adminClient
@@ -133,9 +128,7 @@ describe("A visitor registers for a new account with email and password.", () =>
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get("Location")).toContain("/auth/unconfirmed");
-			expect(response.headers.get("Location")).toContain(
-				encodeURIComponent(payload.email),
-			);
+			expect(response.headers.get("Location")).toContain(encodeURIComponent(payload.email));
 
 			const { data: users, error: usersError } = await adminClient
 				.from("users")
@@ -188,11 +181,11 @@ describe("A visitor registers for a new account with email and password.", () =>
 			userId = user.id;
 
 			// Verify user was created in auth
-			const { data: authUserData, error: authError } =
-				await adminClient.auth.admin.getUserById(user.id);
+			const { data: authUserData, error: authError } = await adminClient.auth.admin.getUserById(
+				user.id,
+			);
 			expect(authError).toBeNull();
-			if (!authUserData || !authUserData.user)
-				throw new Error("No auth user found");
+			if (!authUserData || !authUserData.user) throw new Error("No auth user found");
 
 			// Verify email is NOT confirmed initially
 			expect(authUserData.user.email_confirmed_at).toBeUndefined();
@@ -203,8 +196,7 @@ describe("A visitor registers for a new account with email and password.", () =>
 					email_confirm: true,
 				});
 			expect(updateError).toBeNull();
-			if (!updatedUserData || !updatedUserData.user)
-				throw new Error("Failed to update user");
+			if (!updatedUserData || !updatedUserData.user) throw new Error("Failed to update user");
 
 			// Verify email is now confirmed
 			const confirmedAt = updatedUserData.user.email_confirmed_at;

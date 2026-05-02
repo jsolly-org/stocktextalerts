@@ -10,10 +10,7 @@ import { createLogger } from "../../../../lib/logging";
  * Can be overridden via PASSWORD_RESET_RATE_LIMIT_SECONDS env var.
  */
 const PASSWORD_RESET_RATE_LIMIT_SECONDS =
-	Number.parseInt(
-		import.meta.env.PASSWORD_RESET_RATE_LIMIT_SECONDS ?? "60",
-		10,
-	) || 60;
+	Number.parseInt(import.meta.env.PASSWORD_RESET_RATE_LIMIT_SECONDS ?? "60", 10) || 60;
 
 export const POST: APIRoute = async ({ url, request, redirect, locals }) => {
 	const logger = createLogger({
@@ -39,10 +36,7 @@ export const POST: APIRoute = async ({ url, request, redirect, locals }) => {
 
 		const email = parsed.data.email.trim();
 
-		const redirectTo = new URL(
-			"/auth/recover?type=recovery",
-			getSiteUrl(),
-		).toString();
+		const redirectTo = new URL("/auth/recover?type=recovery", getSiteUrl()).toString();
 
 		const { error } = await supabase.auth.resetPasswordForEmail(email, {
 			redirectTo,
@@ -83,11 +77,7 @@ export const POST: APIRoute = async ({ url, request, redirect, locals }) => {
 
 		return redirect("/auth/forgot?success=true");
 	} catch (error) {
-		logger.error(
-			"Password reset request failed",
-			{ reason: "password_reset_exception" },
-			error,
-		);
+		logger.error("Password reset request failed", { reason: "password_reset_exception" }, error);
 		return redirect("/auth/forgot?error=failed");
 	}
 };

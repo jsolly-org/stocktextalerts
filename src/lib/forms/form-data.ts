@@ -13,10 +13,7 @@ type RawSchemaData = {
  * Returns a fixed key set, a raw data map (missing keys are `null`), and structured validation
  * errors for unsupported shapes (duplicate keys, non-string values, etc).
  */
-export function readRawSchemaData(
-	formData: FormData,
-	schema: FormSchema,
-): RawSchemaData {
+export function readRawSchemaData(formData: FormData, schema: FormSchema): RawSchemaData {
 	const keys = Object.keys(schema) as readonly string[];
 	const schemaKeySet = new Set(keys);
 	const rawData: Record<string, string | null> = {};

@@ -11,11 +11,7 @@ const URL_RE = /https?:\/\/\S+/g;
 export function findUrls(message: string): UrlSpan[] {
 	const spans: UrlSpan[] = [];
 	URL_RE.lastIndex = 0;
-	for (
-		let match = URL_RE.exec(message);
-		match !== null;
-		match = URL_RE.exec(message)
-	) {
+	for (let match = URL_RE.exec(message); match !== null; match = URL_RE.exec(message)) {
 		spans.push({ start: match.index, end: match.index + match[0].length });
 	}
 	return spans;
@@ -50,12 +46,10 @@ export function padUrlsToSegmentBoundaries(message: string): string {
 
 		if (urlStraddlesBoundary(adjustedStart, adjustedEnd)) {
 			const nextSegmentStart =
-				(Math.floor(adjustedStart / SMS_UCS2_SEGMENT_SIZE) + 1) *
-				SMS_UCS2_SEGMENT_SIZE;
+				(Math.floor(adjustedStart / SMS_UCS2_SEGMENT_SIZE) + 1) * SMS_UCS2_SEGMENT_SIZE;
 			const padding = nextSegmentStart - adjustedStart;
 			const pad = " ".repeat(padding);
-			result =
-				result.slice(0, adjustedStart) + pad + result.slice(adjustedStart);
+			result = result.slice(0, adjustedStart) + pad + result.slice(adjustedStart);
 			offset += padding;
 		}
 	}

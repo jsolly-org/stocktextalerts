@@ -15,10 +15,7 @@ const FLOAT_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
  * a max parsed array length (default 100, overridable via spec.maxLength). Rejects non-arrays
  * and arrays containing non-string elements.
  */
-export function coerceValue(
-	spec: FieldSpec,
-	raw: string,
-): { value: unknown; error?: FormIssue } {
+export function coerceValue(spec: FieldSpec, raw: string): { value: unknown; error?: FormIssue } {
 	switch (spec.type) {
 		case "boolean": {
 			const truthyValues = spec.truthyValues ?? DEFAULT_TRUTHY_VALUES;

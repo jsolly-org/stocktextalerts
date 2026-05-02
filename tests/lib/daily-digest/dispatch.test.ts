@@ -70,9 +70,7 @@ describe("Daily digest dispatch (direct function call)", () => {
 	});
 
 	it("calls processDailyDigestUser and returns stats on success", async () => {
-		const { dispatchDailyDigestUser } = await import(
-			"../../../src/lib/daily-digest/dispatch"
-		);
+		const { dispatchDailyDigestUser } = await import("../../../src/lib/daily-digest/dispatch");
 
 		mockMaybeSingle.mockResolvedValueOnce({
 			data: mockSupabaseUser,
@@ -116,9 +114,7 @@ describe("Daily digest dispatch (direct function call)", () => {
 
 	it("returns skipped stats when user is not found", async () => {
 		expectConsoleError("User not found for daily dispatch");
-		const { dispatchDailyDigestUser } = await import(
-			"../../../src/lib/daily-digest/dispatch"
-		);
+		const { dispatchDailyDigestUser } = await import("../../../src/lib/daily-digest/dispatch");
 
 		mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
 
@@ -140,9 +136,7 @@ describe("Daily digest dispatch (direct function call)", () => {
 
 	it("returns skipped stats when Supabase fetch fails", async () => {
 		expectConsoleError("Failed to fetch user for daily dispatch");
-		const { dispatchDailyDigestUser } = await import(
-			"../../../src/lib/daily-digest/dispatch"
-		);
+		const { dispatchDailyDigestUser } = await import("../../../src/lib/daily-digest/dispatch");
 
 		mockMaybeSingle.mockResolvedValueOnce({
 			data: null,
@@ -166,17 +160,13 @@ describe("Daily digest dispatch (direct function call)", () => {
 
 	it("returns skipped stats when processDailyDigestUser throws", async () => {
 		expectConsoleError("Daily digest dispatch failed");
-		const { dispatchDailyDigestUser } = await import(
-			"../../../src/lib/daily-digest/dispatch"
-		);
+		const { dispatchDailyDigestUser } = await import("../../../src/lib/daily-digest/dispatch");
 
 		mockMaybeSingle.mockResolvedValueOnce({
 			data: mockSupabaseUser,
 			error: null,
 		});
-		processDailyDigestUserMock.mockRejectedValueOnce(
-			new Error("processing failed"),
-		);
+		processDailyDigestUserMock.mockRejectedValueOnce(new Error("processing failed"));
 
 		const stats = await dispatchDailyDigestUser({
 			userId: "00000000-0000-0000-0000-000000000123",

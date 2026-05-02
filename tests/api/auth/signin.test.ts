@@ -49,12 +49,7 @@ describe("Sign in with correct email and password.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		await signInAndAssertRedirect(
-			testUser.email,
-			"TestPassword123!",
-			undefined,
-			"/dashboard",
-		);
+		await signInAndAssertRedirect(testUser.email, "TestPassword123!", undefined, "/dashboard");
 	});
 
 	it("Unauthenticated user attempts /dashboard, is prompted to sign in, then is redirected to /dashboard.", async () => {
@@ -65,12 +60,7 @@ describe("Sign in with correct email and password.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		await signInAndAssertRedirect(
-			testUser.email,
-			"TestPassword123!",
-			"/dashboard",
-			"/dashboard",
-		);
+		await signInAndAssertRedirect(testUser.email, "TestPassword123!", "/dashboard", "/dashboard");
 	});
 
 	it("Unauthenticated user attempts /profile, is prompted to sign in, then is redirected to /profile.", async () => {
@@ -81,12 +71,7 @@ describe("Sign in with correct email and password.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		await signInAndAssertRedirect(
-			testUser.email,
-			"TestPassword123!",
-			"/profile",
-			"/profile",
-		);
+		await signInAndAssertRedirect(testUser.email, "TestPassword123!", "/profile", "/profile");
 	});
 });
 

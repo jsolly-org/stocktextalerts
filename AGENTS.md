@@ -54,7 +54,7 @@ supabase migration new <name>  # Create new migration (never rename timestamps)
 - Use `src/lib/logging/` (`createLogger`, `rootLogger`) — structured JSON with `timestamp`, `level`, `message`, `context`.
 - Always pass a named context object (no `{}`/`undefined`).
 - **Env vars**: Use `requireEnv()` from `src/lib/db/env.ts` at point-of-use.
-- **Lambdas also use the same logger** — `src/handlers/*.ts` import `createLogger` from `src/lib/logging`. Each Lambda log group has an `AWS::Logs::MetricFilter` on `{ $.level = "error" }` feeding the shared `stocktextalerts-crons/ErrorLogCount` metric and `ErrorLogAlarm`, alongside per-function `AWS/Lambda Errors` alarms. This matches the cross-repo pattern in `~/.agents/AGENTS.md` → "Lambda Logging". Do not set `LogFormat: JSON` on the Node Lambdas — the app logger already emits JSON via `console.*`.
+- **Lambdas also use the same logger** — `src/handlers/*.ts` import `createLogger` from `src/lib/logging`. Each Lambda log group has an `AWS::Logs::MetricFilter` on `{ $.level = "error" }` feeding the shared `stocktextalerts-crons/ErrorLogCount` metric and `ErrorLogAlarm`, alongside per-function `AWS/Lambda Errors` alarms. This matches the cross-repo pattern in `~/.agents/AGENTS.md` → "Logging & alert-hub" (and the `alert-hub-lambda-setup` skill). Do not set `LogFormat: JSON` on the Node Lambdas — the app logger already emits JSON via `console.*`. Note: this repo's logger is bespoke (Vue browser-bundle compatibility via a `process` guard) — it is not a sync consumer of the canonical `~/code/family-memory/src/shared/logging.ts`.
 
 ## Testing (Project-Specific)
 
@@ -226,7 +226,6 @@ When the family-memory MCP is available, call `recall` (no args) at conversation
 
 ## Collaboration
 
-- Use `--headed --persistent` when launching playwright-cli for interactive browser sessions. Without `--headed`, it defaults to headless.
 - No pull requests for personal projects. `/review-fix-push` skill is the sole review gate — reviews local changes against remote, fixes issues, commits and pushes.
 - Custom skills live at `~/.agents/skills/` (e.g., `~/.agents/skills/review-fix-push/SKILL.md`), not `.claude/plugins/`.
 - `~/.cursor/skills/` and `~/.claude/skills/` must be **real directories** (not symlinks to `~/.agents/skills/`). The `npx skills add` installer stores content in `~/.agents/skills/<name>/` then creates per-skill symlinks from each agent dir — directory-level symlinks cause circular links.
@@ -241,7 +240,7 @@ When the family-memory MCP is available, call `recall` (no args) at conversation
 
 ## Logging & alert-hub
 
-Every personal-project Lambda is wired to **alert-hub**: structured JSON logs, CloudWatch alarms on `AWS/Lambda Errors` + a `level=error` MetricFilter, both routed to an SNS topic that an enricher Lambda turns into an email with the actual error text. To learn the patterns (logger shape, SAM wiring, retry helper, fan-out error handling), look at existing repos before adding a new one: `~/code/alert-hub` (the hub), `~/code/misc-notifications` (Node logger + retry helper + contract test), `~/code/family-memory` (Node logger + contract test), `~/code/todoist-backlog-scheduler` (Python equivalent).
+Every personal-project Lambda routes errors to john@jsolly.com via **alert-hub** (`~/code/alert-hub`): CloudWatch alarms → shared SNS topic → enricher Lambda → SES email. Node Lambdas use the canonical structured logger at `~/code/family-memory/src/shared/logging.ts`, distributed by `~/code/family-memory/scripts/sync-shared-logger.sh`. When adding a Lambda, wiring alarms, or bootstrapping a new alert-hub-wired repo, use the `alert-hub-lambda-setup` skill — it owns the contract checklist + SAM snippet.
 
 ## User Context
 

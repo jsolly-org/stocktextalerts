@@ -9,11 +9,7 @@ describe("json_string_array security limits", () => {
 
 	it("rejects arrays exceeding default max length (100)", () => {
 		const arr = Array.from({ length: 101 }, (_, i) => `item${i}`);
-		const { errors } = processFields(
-			["arr"],
-			{ arr: JSON.stringify(arr) },
-			SCHEMA,
-		);
+		const { errors } = processFields(["arr"], { arr: JSON.stringify(arr) }, SCHEMA);
 		expect(errors).toHaveLength(1);
 		expect(errors[0].reason).toBe("json_array_too_long");
 	});
@@ -29,11 +25,7 @@ describe("json_string_array security limits", () => {
 
 	it("accepts array within limits", () => {
 		const arr = ["AAPL", "MSFT", "GOOG"];
-		const { errors, output } = processFields(
-			["arr"],
-			{ arr: JSON.stringify(arr) },
-			SCHEMA,
-		);
+		const { errors, output } = processFields(["arr"], { arr: JSON.stringify(arr) }, SCHEMA);
 		expect(errors).toHaveLength(0);
 		expect(output.arr).toEqual(arr);
 	});
@@ -52,21 +44,13 @@ describe("timezone security limits", () => {
 	});
 
 	it("rejects timezone with whitespace", () => {
-		const { errors } = processFields(
-			["tz"],
-			{ tz: "America/New York" },
-			SCHEMA,
-		);
+		const { errors } = processFields(["tz"], { tz: "America/New York" }, SCHEMA);
 		expect(errors).toHaveLength(1);
 		expect(errors[0].reason).toBe("invalid_timezone");
 	});
 
 	it("accepts valid timezone within limits", () => {
-		const { errors, output } = processFields(
-			["tz"],
-			{ tz: "America/New_York" },
-			SCHEMA,
-		);
+		const { errors, output } = processFields(["tz"], { tz: "America/New_York" }, SCHEMA);
 		expect(errors).toHaveLength(0);
 		expect(output.tz).toBe("America/New_York");
 	});

@@ -2,10 +2,7 @@ import { fetchUsersWithRetry } from "../../db/user-query";
 import type { Logger } from "../../logging";
 import type { UserRecord } from "../../messaging/types";
 import type { SupabaseAdminClient } from "../../schedule/helpers";
-import {
-	HAS_DELIVERY_CHANNEL_OR,
-	MARKET_SCHEDULED_USER_SELECT,
-} from "./select";
+import { HAS_DELIVERY_CHANNEL_OR, MARKET_SCHEDULED_USER_SELECT } from "./select";
 
 /** Fetch users whose market scheduled update is due in an upcoming time window. */
 export async function fetchUpcomingMarketScheduledUsers(options: {
@@ -27,10 +24,7 @@ export async function fetchUpcomingMarketScheduledUsers(options: {
 				.or(HAS_DELIVERY_CHANNEL_OR)
 				.not("market_scheduled_asset_price_next_send_at", "is", null)
 				.gt("market_scheduled_asset_price_next_send_at", options.afterTimeIso)
-				.lte(
-					"market_scheduled_asset_price_next_send_at",
-					options.beforeTimeIso,
-				);
+				.lte("market_scheduled_asset_price_next_send_at", options.beforeTimeIso);
 
 			if (error) return { data: null, error };
 			return { data: (data ?? []) as UserRecord[], error: null };

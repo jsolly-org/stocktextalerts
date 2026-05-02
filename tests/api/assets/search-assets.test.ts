@@ -3,10 +3,7 @@ import { describe, expect, it } from "vitest";
 import { GET as GETAssetSearch } from "../../../src/pages/api/assets/search";
 import { createApiContext } from "../../helpers/api-context";
 import { TEST_PASSWORD } from "../../helpers/constants";
-import {
-	adminClient,
-	createAuthenticatedCookies,
-} from "../../helpers/test-env";
+import { adminClient, createAuthenticatedCookies } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
@@ -37,10 +34,7 @@ describe("Asset search ranking", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const seedAssets = [
 			{ symbol: "ZA100", name: "ZXQ10 Growth Basket", type: "etf" },
@@ -79,10 +73,7 @@ describe("Asset search ranking", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const seedAssets = [
 			{ symbol: "AA200", name: "QRT Sector Leaders", type: "etf" },

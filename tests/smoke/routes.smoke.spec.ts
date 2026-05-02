@@ -71,9 +71,7 @@ async function collectRoutes(): Promise<string[]> {
 	return [...new Set(routes)].sort();
 }
 
-test("A signed-in user can navigate all routes without console errors.", async ({
-	page,
-}) => {
+test("A signed-in user can navigate all routes without console errors.", async ({ page }) => {
 	let testUser: { id: string; email: string } | null = null;
 	let caughtError: unknown = null;
 	let cleanupError: Error | null = null;
@@ -146,15 +144,10 @@ test("A signed-in user can navigate all routes without console errors.", async (
 					(issue) =>
 						`${issue.type.toUpperCase()}: ${issue.message} (route: ${issue.route || "unknown"})`,
 				);
-			throw new Error(
-				`Unexpected console output on /auth/signin: ${newIssues.join("; ")}`,
-			);
+			throw new Error(`Unexpected console output on /auth/signin: ${newIssues.join("; ")}`);
 		}
 
-		const authCookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const authCookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 		await page.context().addCookies([
 			{
 				name: "sb-access-token",
@@ -184,11 +177,9 @@ test("A signed-in user can navigate all routes without console errors.", async (
 
 			const finalUrl = new URL(page.url());
 			const finalPath = finalUrl.pathname;
-			const isSigninRedirect =
-				route === "/auth/signin" && finalPath === "/dashboard";
+			const isSigninRedirect = route === "/auth/signin" && finalPath === "/dashboard";
 			const isRegisterGateRedirect =
-				route === "/auth/register" &&
-				(finalPath === "/auth/signin" || finalPath === "/dashboard");
+				route === "/auth/register" && (finalPath === "/auth/signin" || finalPath === "/dashboard");
 			if (!isSigninRedirect && !isRegisterGateRedirect && finalPath !== route) {
 				throw new Error(`Route ${route} redirected to ${finalPath}`);
 			}
@@ -200,9 +191,7 @@ test("A signed-in user can navigate all routes without console errors.", async (
 						(issue) =>
 							`${issue.type.toUpperCase()}: ${issue.message} (route: ${issue.route || "unknown"})`,
 					);
-				throw new Error(
-					`Unexpected console output on ${route}: ${newIssues.join("; ")}`,
-				);
+				throw new Error(`Unexpected console output on ${route}: ${newIssues.join("; ")}`);
 			}
 		}
 	} catch (error) {
@@ -220,9 +209,7 @@ test("A signed-in user can navigate all routes without console errors.", async (
 	if (cleanupError) {
 		if (caughtError) {
 			const caughtMessage =
-				caughtError instanceof Error
-					? caughtError.message
-					: String(caughtError);
+				caughtError instanceof Error ? caughtError.message : String(caughtError);
 			throw new Error(`${caughtMessage}; ${cleanupError.message}`, {
 				cause: caughtError,
 			});

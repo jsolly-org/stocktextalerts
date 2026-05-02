@@ -8,31 +8,21 @@ const VALID_SYMBOL_RE = /^[A-Z0-9.-]+$/u;
  * Caller must normalize (trim, uppercase) before calling.
  */
 export function isValidAssetSymbol(value: string): boolean {
-	return (
-		value.length > 0 &&
-		value.length <= ASSET_SYMBOL_MAX_LENGTH &&
-		VALID_SYMBOL_RE.test(value)
-	);
+	return value.length > 0 && value.length <= ASSET_SYMBOL_MAX_LENGTH && VALID_SYMBOL_RE.test(value);
 }
 
 /**
  * UUID format validation (RFC 4122 structure).
  * Use before DB lookups to reject malformed input and avoid injection edge cases.
  */
-const UUID_REGEX =
-	/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function isValidUuid(value: string | null | undefined): value is string {
 	return typeof value === "string" && UUID_REGEX.test(value);
 }
 
 /** Forbidden protocol prefixes for redirect URLs (XSS / open redirect). */
-const UNSAFE_REDIRECT_PREFIXES = [
-	"javascript:",
-	"data:",
-	"vbscript:",
-	"file:",
-] as const;
+const UNSAFE_REDIRECT_PREFIXES = ["javascript:", "data:", "vbscript:", "file:"] as const;
 
 /** CR/LF in redirect URL would allow HTTP response splitting. */
 const CRLF_RE = /\r|\n/;

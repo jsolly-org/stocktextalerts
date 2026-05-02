@@ -40,8 +40,7 @@ function parseArgs(args: string[]): ParsedArgs {
  */
 function ensureNoWatch(vitestArgs: string[]): string[] {
 	const hasWatchArg = vitestArgs.some(
-		(arg) =>
-			arg === "--watch" || arg === "--no-watch" || arg === "--watch=false",
+		(arg) => arg === "--watch" || arg === "--no-watch" || arg === "--watch=false",
 	);
 	if (hasWatchArg) return vitestArgs;
 	return ["--no-watch", ...vitestArgs];
@@ -82,8 +81,7 @@ function main() {
 	process.env.NODE_ENV = "test";
 
 	const { liveProviders, vitestArgs } = parseArgs(process.argv.slice(2));
-	const filtered =
-		liveProviders !== null ? filterLiveProviders(liveProviders) : "";
+	const filtered = liveProviders !== null ? filterLiveProviders(liveProviders) : "";
 	const liveEmail = filtered.split(",").some((item) => item.trim() === "email");
 
 	// Surface unsupported providers so typos don't look like silent success.
@@ -105,7 +103,6 @@ function main() {
 			);
 			const dropped = [...requested].filter((item) => !kept.has(item));
 			if (dropped.length > 0) {
-				// biome-ignore lint/suspicious/noConsole: this is a dev-facing CLI
 				console.warn(
 					`run-vitest: ignoring unsupported --live provider(s): ${dropped.join(", ")}. ` +
 						"See tests/helpers/live-api.ts for allowed provider keys.",

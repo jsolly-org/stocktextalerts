@@ -40,17 +40,10 @@ export function computeAssetEventsNextSendAt(
 		updates.asset_events_next_send_at === undefined;
 
 	if (
-		(timezoneChanged ||
-			dailyTimeChanged ||
-			assetEventsOptionsChanged ||
-			needsRepair) &&
+		(timezoneChanged || dailyTimeChanged || assetEventsOptionsChanged || needsRepair) &&
 		hasAnyAssetEventsOption
 	) {
-		const nextUtc = calculateNextSendAt(
-			finalDailyTime ?? 540,
-			finalTimezone,
-			DateTime.utc(),
-		);
+		const nextUtc = calculateNextSendAt(finalDailyTime ?? 540, finalTimezone, DateTime.utc());
 		updates.asset_events_next_send_at = nextUtc?.toISO() ?? null;
 	} else if (assetEventsOptionsChanged && !hasAnyAssetEventsOption) {
 		updates.asset_events_next_send_at = null;

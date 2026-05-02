@@ -15,11 +15,10 @@ describe("A user resets their password from the recovery flow.", () => {
 		});
 
 		try {
-			const { data: linkData, error: linkError } =
-				await adminClient.auth.admin.generateLink({
-					type: "recovery",
-					email: testUser.email,
-				});
+			const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
+				type: "recovery",
+				email: testUser.email,
+			});
 
 			if (linkError || !linkData?.properties?.hashed_token) {
 				throw new Error(
@@ -41,9 +40,7 @@ describe("A user resets their password from the recovery flow.", () => {
 			const response = await POST(createApiContext({ request }));
 
 			expect(response.status).toBe(303);
-			expect(response.headers.get("Location")).toBe(
-				"/auth/signin?success=password_reset",
-			);
+			expect(response.headers.get("Location")).toBe("/auth/signin?success=password_reset");
 
 			const { error: signInError } = await adminClient.auth.signInWithPassword({
 				email: testUser.email,

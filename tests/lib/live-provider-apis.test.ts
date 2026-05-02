@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { fetchCompanyNews } from "../../src/lib/providers/company-news";
-import {
-	fetchFinnhubExtras,
-	finnhubFetch,
-} from "../../src/lib/providers/finnhub";
+import { fetchFinnhubExtras, finnhubFetch } from "../../src/lib/providers/finnhub";
 import {
 	fetchDailyCloses,
 	fetchDividends,
@@ -22,18 +19,11 @@ import {
 	fetchMarketStatus,
 	fetchSparklines,
 } from "../../src/lib/providers/price-fetcher";
-import {
-	assertLiveProviderKey,
-	isLiveProviderEnabled,
-} from "../helpers/live-api";
+import { assertLiveProviderKey, isLiveProviderEnabled } from "../helpers/live-api";
 import { expectConsoleError } from "../setup";
 
-const describeMassiveLive = isLiveProviderEnabled("massive")
-	? describe
-	: describe.skip;
-const describeFinnhubLive = isLiveProviderEnabled("finnhub")
-	? describe
-	: describe.skip;
+const describeMassiveLive = isLiveProviderEnabled("massive") ? describe : describe.skip;
+const describeFinnhubLive = isLiveProviderEnabled("finnhub") ? describe : describe.skip;
 
 describeMassiveLive("Massive live API (opt-in)", () => {
 	assertLiveProviderKey({ provider: "massive", envVar: "MASSIVE_API_KEY" });
@@ -72,9 +62,7 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 		const spyQuote = priceMap.get("SPY");
 		const aaplQuote = priceMap.get("AAPL");
 		expect(spyQuote === null || typeof spyQuote?.price === "number").toBe(true);
-		expect(aaplQuote === null || typeof aaplQuote?.price === "number").toBe(
-			true,
-		);
+		expect(aaplQuote === null || typeof aaplQuote?.price === "number").toBe(true);
 		if (spyQuote) {
 			expect(Number.isFinite(spyQuote.price)).toBe(true);
 			expect(typeof spyQuote.changePercent).toBe("number");
@@ -95,9 +83,7 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 		const aaplQuote = quoteMap.get("AAPL");
 		// When market is closed, snapshot may still return prevDay; when open, day fields are set.
 		expect(spyQuote === null || typeof spyQuote?.price === "number").toBe(true);
-		expect(aaplQuote === null || typeof aaplQuote?.price === "number").toBe(
-			true,
-		);
+		expect(aaplQuote === null || typeof aaplQuote?.price === "number").toBe(true);
 		if (spyQuote) {
 			expect(Number.isFinite(spyQuote.price)).toBe(true);
 			expect(typeof spyQuote.changePercent).toBe("number");
@@ -156,10 +142,7 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 
 		const nonNullCount = (tickers as Array<{ day?: { c?: unknown } | null }>)
 			.map((ticker) => ticker.day?.c)
-			.filter(
-				(value) =>
-					typeof value === "number" && Number.isFinite(value) && value > 0,
-			).length;
+			.filter((value) => typeof value === "number" && Number.isFinite(value) && value > 0).length;
 
 		// On weekends/holidays day.c is 0 (no trades); only assert non-null when market is open.
 		const marketStatus = await marketDataFetch(
@@ -179,9 +162,7 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 
 	it("returns IPO data from the /vX/reference/ipos endpoint", async () => {
 		const from = new Date().toISOString().slice(0, 10);
-		const to = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-			.toISOString()
-			.slice(0, 10);
+		const to = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
 		const result = await fetchIpos(from, to);
 
@@ -227,9 +208,7 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 	it("Upcoming earnings events are available through the canonical earnings feed.", async () => {
 		if (!isLiveProviderEnabled("finnhub")) return;
 		const from = new Date().toISOString().slice(0, 10);
-		const to = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
-			.toISOString()
-			.slice(0, 10);
+		const to = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
 		const result = await fetchEarnings(from, to);
 
@@ -257,11 +236,7 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 	});
 
 	it("returns upcoming market holidays from the /v1/marketstatus/upcoming endpoint", async () => {
-		const payload = await marketDataFetch(
-			"/v1/marketstatus/upcoming",
-			{},
-			"live-market-holidays",
-		);
+		const payload = await marketDataFetch("/v1/marketstatus/upcoming", {}, "live-market-holidays");
 
 		expect(Array.isArray(payload)).toBe(true);
 		expect((payload as unknown[]).length).toBeGreaterThan(0);
@@ -274,9 +249,7 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 
 	it("returns company news from the /v2/reference/news endpoint", async () => {
 		const to = new Date().toISOString().slice(0, 10);
-		const from = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
-			.toISOString()
-			.slice(0, 10);
+		const from = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
 		const items = await fetchCompanyNews("AAPL", from, to);
 
@@ -323,11 +296,7 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 		const spitQuote = productionSnapshot.get("SPIT");
 		const spyQuote = productionSnapshot.get("SPY");
 
-		const marketStatus = await marketDataFetch(
-			"/v1/marketstatus/now",
-			{},
-			"live-market-status",
-		);
+		const marketStatus = await marketDataFetch("/v1/marketstatus/now", {}, "live-market-status");
 		const market =
 			typeof marketStatus === "object" && marketStatus !== null
 				? (marketStatus as { market?: unknown }).market
@@ -427,9 +396,7 @@ describeFinnhubLive("Finnhub live API (opt-in)", () => {
 
 	it("returns an earnings calendar payload for current date range", async () => {
 		const from = new Date().toISOString().slice(0, 10);
-		const to = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-			.toISOString()
-			.slice(0, 10);
+		const to = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
 		const payload = await finnhubFetch(
 			"/calendar/earnings",

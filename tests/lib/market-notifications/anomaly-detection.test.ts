@@ -4,9 +4,7 @@ import type { AssetSnapshot } from "../../../src/lib/market-notifications/snapsh
 import type { ExtendedAssetQuote } from "../../../src/lib/providers/price-fetcher";
 
 /** Defaults modeled on AAPL trading at ~$187 on a typical low-volatility day. */
-function makeQuote(
-	overrides: Partial<ExtendedAssetQuote> = {},
-): ExtendedAssetQuote {
+function makeQuote(overrides: Partial<ExtendedAssetQuote> = {}): ExtendedAssetQuote {
 	return {
 		price: 187.42,
 		changePercent: 0.83,
@@ -21,10 +19,7 @@ function makeQuote(
 }
 
 /** Defaults modeled on AAPL snapshot history at ~$187. */
-function makeSnapshot(
-	overrides: Partial<AssetSnapshot> = {},
-	minutesAgo = 0,
-): AssetSnapshot {
+function makeSnapshot(overrides: Partial<AssetSnapshot> = {}, minutesAgo = 0): AssetSnapshot {
 	return {
 		symbol: "AAPL",
 		price: 187.42,
@@ -40,9 +35,7 @@ function makeSnapshot(
 }
 
 function makeSnapshots(count: number, basePrice = 187.42): AssetSnapshot[] {
-	return Array.from({ length: count }, (_, i) =>
-		makeSnapshot({ price: basePrice }, count - i),
-	);
+	return Array.from({ length: count }, (_, i) => makeSnapshot({ price: basePrice }, count - i));
 }
 
 describe("computeAnomalyScore", () => {
@@ -97,9 +90,7 @@ describe("computeAnomalyScore", () => {
 			hasEarningsNearby: false,
 		});
 
-		const priceSignal = result.signals.find(
-			(s) => s.name === "excess_price_move",
-		);
+		const priceSignal = result.signals.find((s) => s.name === "excess_price_move");
 		expect(priceSignal?.points).toBeGreaterThan(0);
 	});
 
@@ -163,9 +154,7 @@ describe("computeAnomalyScore", () => {
 
 		// Should score high with price, volume, and breakout all contributing
 		expect(result.score).toBeGreaterThanOrEqual(45);
-		const volumeSignal = result.signals.find(
-			(s) => s.name === "volume_confirmation",
-		);
+		const volumeSignal = result.signals.find((s) => s.name === "volume_confirmation");
 		expect(volumeSignal?.points).toBeGreaterThan(0);
 	});
 
@@ -212,9 +201,7 @@ describe("computeAnomalyScore", () => {
 			snapshots: snapshotsSmall,
 			hasEarningsNearby: false,
 		});
-		const smallBreakout = smallResult.signals.find(
-			(s) => s.name === "range_breakout",
-		);
+		const smallBreakout = smallResult.signals.find((s) => s.name === "range_breakout");
 		expect(smallBreakout?.points).toBe(1);
 
 		const snapshotsLarge = makeSnapshots(10, 518.3).map((s) => ({
@@ -234,9 +221,7 @@ describe("computeAnomalyScore", () => {
 			snapshots: snapshotsLarge,
 			hasEarningsNearby: false,
 		});
-		const largeBreakout = largeResult.signals.find(
-			(s) => s.name === "range_breakout",
-		);
+		const largeBreakout = largeResult.signals.find((s) => s.name === "range_breakout");
 		expect(largeBreakout?.points).toBe(15);
 	});
 
@@ -311,9 +296,7 @@ describe("computeAnomalyScore", () => {
 			hasEarningsNearby: true,
 		});
 
-		const earningsSignal = result.signals.find(
-			(s) => s.name === "earnings_proximity",
-		);
+		const earningsSignal = result.signals.find((s) => s.name === "earnings_proximity");
 		expect(earningsSignal?.points).toBe(15);
 	});
 
@@ -339,9 +322,7 @@ describe("computeAnomalyScore", () => {
 			hasEarningsNearby: false,
 			avgVolume20d: 1_000_000,
 		});
-		const volSignal = withMove.signals.find(
-			(s) => s.name === "volume_confirmation",
-		);
+		const volSignal = withMove.signals.find((s) => s.name === "volume_confirmation");
 		expect(volSignal?.points).toBeGreaterThan(5);
 
 		// No price move (same price, 3x volume)
@@ -356,9 +337,7 @@ describe("computeAnomalyScore", () => {
 			hasEarningsNearby: false,
 			avgVolume20d: 1_000_000,
 		});
-		const noMoveVol = noMove.signals.find(
-			(s) => s.name === "volume_confirmation",
-		);
+		const noMoveVol = noMove.signals.find((s) => s.name === "volume_confirmation");
 		expect(noMoveVol?.points).toBe(0);
 	});
 
@@ -399,12 +378,8 @@ describe("computeAnomalyScore", () => {
 			atr14: 1, // $1 ATR on $100 stock = 1%
 		});
 
-		const highVolPrice = highVolResult.signals.find(
-			(s) => s.name === "excess_price_move",
-		);
-		const lowVolPrice = lowVolResult.signals.find(
-			(s) => s.name === "excess_price_move",
-		);
+		const highVolPrice = highVolResult.signals.find((s) => s.name === "excess_price_move");
+		const lowVolPrice = lowVolResult.signals.find((s) => s.name === "excess_price_move");
 		// 2% move on 1% ATR stock should score higher than 5% move on 8% ATR stock
 		expect(lowVolPrice?.points).toBeGreaterThan(highVolPrice?.points ?? 0);
 	});
@@ -439,12 +414,8 @@ describe("computeAnomalyScore", () => {
 			benchmarkMovePct: -3.0,
 		});
 
-		const priceFlat = sectorFlat.signals.find(
-			(s) => s.name === "excess_price_move",
-		);
-		const priceDown = sectorDown3.signals.find(
-			(s) => s.name === "excess_price_move",
-		);
+		const priceFlat = sectorFlat.signals.find((s) => s.name === "excess_price_move");
+		const priceDown = sectorDown3.signals.find((s) => s.name === "excess_price_move");
 		expect(priceFlat?.points).toBeGreaterThan(priceDown?.points ?? 0);
 	});
 
@@ -473,9 +444,7 @@ describe("computeAnomalyScore", () => {
 			hasEarningsNearby: false,
 		});
 
-		const priceSignal = result.signals.find(
-			(s) => s.name === "excess_price_move",
-		);
+		const priceSignal = result.signals.find((s) => s.name === "excess_price_move");
 		// Should detect the V-reversal (move from 90→100 = 11.1%)
 		expect(priceSignal?.points).toBeGreaterThan(10);
 	});
@@ -550,12 +519,8 @@ describe("computeAnomalyScore", () => {
 			isEarlyDay: true,
 		});
 
-		const normalBreakout = normalResult.signals.find(
-			(s) => s.name === "range_breakout",
-		);
-		const earlyBreakout = earlyResult.signals.find(
-			(s) => s.name === "range_breakout",
-		);
+		const normalBreakout = normalResult.signals.find((s) => s.name === "range_breakout");
+		const earlyBreakout = earlyResult.signals.find((s) => s.name === "range_breakout");
 
 		expect(normalBreakout?.points).toBe(15);
 		expect(earlyBreakout?.points).toBeLessThanOrEqual(10);

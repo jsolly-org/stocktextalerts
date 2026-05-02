@@ -16,9 +16,7 @@ const SMS_MAX_LENGTH = 320;
  */
 export function formatDelistingSms(holdings: DelistedHolding[]): string {
 	if (holdings.length === 0) {
-		throw new Error(
-			"formatDelistingSms requires at least one delisted holding",
-		);
+		throw new Error("formatDelistingSms requires at least one delisted holding");
 	}
 
 	const sorted = [...holdings].sort((a, b) => a.symbol.localeCompare(b.symbol));

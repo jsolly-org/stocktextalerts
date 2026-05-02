@@ -2,12 +2,7 @@ import { US_MARKET_TIMEZONE } from "../constants";
 import { rootLogger } from "../logging";
 import { type SparklineMap, toSparkline } from "../messaging/sparkline";
 import { isTest } from "../runtime/mode";
-import {
-	fetchDailyCloses,
-	fetchPrevDayBar,
-	fetchSnapshotQuotes,
-	marketDataFetch,
-} from "./massive";
+import { fetchDailyCloses, fetchPrevDayBar, fetchSnapshotQuotes, marketDataFetch } from "./massive";
 
 interface AssetPrice {
 	price: number;
@@ -31,8 +26,7 @@ export type AssetPriceMap = Map<string, AssetPrice | null>;
 export type ExtendedQuoteMap = Map<string, ExtendedAssetQuote | null>;
 
 function isLiveMassiveEnabledInTests(): boolean {
-	const enabled =
-		process.env.LIVE_API_PROVIDERS ?? process.env.TEST_LIVE_PROVIDERS;
+	const enabled = process.env.LIVE_API_PROVIDERS ?? process.env.TEST_LIVE_PROVIDERS;
 	if (!enabled) return false;
 	return enabled
 		.split(",")
@@ -41,13 +35,9 @@ function isLiveMassiveEnabledInTests(): boolean {
 }
 
 /** Fetch quotes for a list of symbols and return a map keyed by symbol. */
-export async function fetchAssetPrices(
-	symbols: string[],
-): Promise<AssetPriceMap> {
+export async function fetchAssetPrices(symbols: string[]): Promise<AssetPriceMap> {
 	if (isTest() && !isLiveMassiveEnabledInTests()) {
-		return new Map(
-			symbols.map((s) => [s, { price: 150.0, changePercent: 1.25 }]),
-		);
+		return new Map(symbols.map((s) => [s, { price: 150.0, changePercent: 1.25 }]));
 	}
 	const snapshot = await fetchSnapshotQuotes(symbols);
 	await fillSnapshotMissesWithPrevDayBar(symbols, snapshot);
@@ -55,9 +45,7 @@ export async function fetchAssetPrices(
 }
 
 /** Fetch extended quotes for symbols (day high/low/open/prevClose + volume). */
-export async function fetchExtendedQuotes(
-	symbols: string[],
-): Promise<ExtendedQuoteMap> {
+export async function fetchExtendedQuotes(symbols: string[]): Promise<ExtendedQuoteMap> {
 	if (isTest() && !isLiveMassiveEnabledInTests()) {
 		return new Map(
 			symbols.map((s) => [
@@ -127,9 +115,7 @@ async function fillSnapshotMissesWithPrevDayBar(
 }
 
 /** Fetch 7-point sparklines for the last ~week of closes. */
-export async function fetchSparklines(
-	symbols: string[],
-): Promise<SparklineMap> {
+export async function fetchSparklines(symbols: string[]): Promise<SparklineMap> {
 	const result: SparklineMap = new Map();
 	if (symbols.length === 0) return result;
 
@@ -145,9 +131,7 @@ export async function fetchSparklines(
 		timeZone: US_MARKET_TIMEZONE,
 	});
 	const to = todayET;
-	const from = new Date(
-		new Date(`${todayET}T12:00:00Z`).getTime() - 9 * 24 * 60 * 60 * 1000,
-	)
+	const from = new Date(new Date(`${todayET}T12:00:00Z`).getTime() - 9 * 24 * 60 * 60 * 1000)
 		.toISOString()
 		.slice(0, 10);
 
@@ -197,11 +181,7 @@ export async function fetchMarketStatus(): Promise<boolean> {
 		return true;
 	}
 
-	const data = await marketDataFetch(
-		"/v1/marketstatus/now",
-		{},
-		"market-status",
-	);
+	const data = await marketDataFetch("/v1/marketstatus/now", {}, "market-status");
 	if (typeof data !== "object" || data === null) {
 		rootLogger.error("Invalid Massive market status payload shape", {
 			payloadType: typeof data,

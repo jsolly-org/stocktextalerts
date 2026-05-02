@@ -9,10 +9,7 @@ import type { EmailSender } from "../messaging/email/utils";
 import { deliveryResultToLogFields } from "../messaging/shared";
 import { isSmsChannelUsable, sendUserSms } from "../messaging/sms";
 import { formatDelistingSms } from "../messaging/sms/delisting";
-import {
-	fetchTickerReferences,
-	type TickerReferenceStatus,
-} from "../providers/massive";
+import { fetchTickerReferences, type TickerReferenceStatus } from "../providers/massive";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
 
@@ -27,9 +24,7 @@ export interface DelistingSweepDeps {
 	 * the Massive provider. Tests pass a fake that returns pre-canned
 	 * statuses without hitting the network.
 	 */
-	lookupTickerReferences?: (
-		symbols: string[],
-	) => Promise<TickerReferenceStatus[]>;
+	lookupTickerReferences?: (symbols: string[]) => Promise<TickerReferenceStatus[]>;
 }
 
 /** Summary counters returned by `runDelistingSweep`. */
@@ -114,12 +109,9 @@ const NOTIFICATION_DEDUPE_WINDOW_MS = 48 * 60 * 60 * 1000;
  * usable) still get cleanup — their data is removed silently and the
  * notification_log records why no outbound message went out.
  */
-export async function runDelistingSweep(
-	deps: DelistingSweepDeps,
-): Promise<DelistingSweepResult> {
+export async function runDelistingSweep(deps: DelistingSweepDeps): Promise<DelistingSweepResult> {
 	const { supabase, logger, sendEmail, getSmsSender } = deps;
-	const lookupTickerReferences =
-		deps.lookupTickerReferences ?? fetchTickerReferences;
+	const lookupTickerReferences = deps.lookupTickerReferences ?? fetchTickerReferences;
 	const result: DelistingSweepResult = { ...EMPTY_RESULT };
 
 	// 1. Load distinct symbols.
@@ -173,10 +165,7 @@ export async function runDelistingSweep(
 	}
 
 	// 3. Reference lookup against Massive for unchecked symbols.
-	const statuses =
-		symbolsToCheck.length > 0
-			? await lookupTickerReferences(symbolsToCheck)
-			: [];
+	const statuses = symbolsToCheck.length > 0 ? await lookupTickerReferences(symbolsToCheck) : [];
 	const newlyDetected: Array<{
 		symbol: string;
 		name: string;
@@ -190,9 +179,7 @@ export async function runDelistingSweep(
 		}
 		if (status.status !== "delisted") continue;
 
-		const assetRow = (assetRows ?? []).find(
-			(r) => r.symbol === status.result.symbol,
-		);
+		const assetRow = (assetRows ?? []).find((r) => r.symbol === status.result.symbol);
 		const name = status.result.name ?? assetRow?.name ?? status.result.symbol;
 		const delistedIso = `${status.result.delistedUtc}T00:00:00Z`;
 		newlyDetected.push({
@@ -306,9 +293,7 @@ export async function runDelistingSweep(
 	// A successful delivered=true row on channel X within the dedupe window
 	// suppresses re-sending on channel X only, so a user who got email yesterday
 	// but had SMS flake today will get only the SMS retry tomorrow.
-	const cutoff = new Date(
-		Date.now() - NOTIFICATION_DEDUPE_WINDOW_MS,
-	).toISOString();
+	const cutoff = new Date(Date.now() - NOTIFICATION_DEDUPE_WINDOW_MS).toISOString();
 	const { data: recentNotes, error: recentErr } = await supabase
 		.from("notification_log")
 		.select("user_id, delivery_method")
@@ -342,9 +327,7 @@ export async function runDelistingSweep(
 			continue;
 		}
 
-		const sortedHoldings = [...holdings].sort((a, b) =>
-			a.symbol.localeCompare(b.symbol),
-		);
+		const sortedHoldings = [...holdings].sort((a, b) => a.symbol.localeCompare(b.symbol));
 		const summary = summaryText(sortedHoldings);
 
 		// Per-user per-channel outcome tracking. A channel blocks cleanup only
@@ -355,17 +338,15 @@ export async function runDelistingSweep(
 
 		// --- Email channel ---
 		if (!user.emailNotificationsEnabled) {
-			const { error: optOutLogErr } = await supabase
-				.from("notification_log")
-				.insert({
-					user_id: userId,
-					type: "delisting",
-					delivery_method: "email",
-					message_delivered: false,
-					message: summary,
-					error: "email_notifications_disabled",
-					error_code: null,
-				});
+			const { error: optOutLogErr } = await supabase.from("notification_log").insert({
+				user_id: userId,
+				type: "delisting",
+				delivery_method: "email",
+				message_delivered: false,
+				message: summary,
+				error: "email_notifications_disabled",
+				error_code: null,
+			});
 			if (optOutLogErr) {
 				logger.error(
 					"Delisting sweep failed to record email opt-out notification_log",
@@ -430,17 +411,15 @@ export async function runDelistingSweep(
 			phone_number: user.phoneNumber,
 		};
 		if (!isSmsChannelUsable(smsEligibility)) {
-			const { error: optOutLogErr } = await supabase
-				.from("notification_log")
-				.insert({
-					user_id: userId,
-					type: "delisting",
-					delivery_method: "sms",
-					message_delivered: false,
-					message: summary,
-					error: "sms_not_usable",
-					error_code: null,
-				});
+			const { error: optOutLogErr } = await supabase.from("notification_log").insert({
+				user_id: userId,
+				type: "delisting",
+				delivery_method: "sms",
+				message_delivered: false,
+				message: summary,
+				error: "sms_not_usable",
+				error_code: null,
+			});
 			if (optOutLogErr) {
 				logger.error(
 					"Delisting sweep failed to record SMS opt-out notification_log",

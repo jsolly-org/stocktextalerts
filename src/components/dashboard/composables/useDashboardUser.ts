@@ -32,9 +32,7 @@ export function provideDashboardUser(userProp: Ref<User>): Ref<User> {
 export function useDashboardUser(): Ref<User> {
 	const user = inject(DASHBOARD_USER_KEY);
 	if (!user) {
-		throw new Error(
-			"useDashboardUser() requires provideDashboardUser() in an ancestor component",
-		);
+		throw new Error("useDashboardUser() requires provideDashboardUser() in an ancestor component");
 	}
 	return user;
 }

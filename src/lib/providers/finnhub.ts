@@ -75,10 +75,7 @@ function redactFinnhubToken(value: string): string {
 }
 
 /** Compute retry delay with exponential backoff and jitter (respects Retry-After). */
-function computeRetryDelayMs(
-	attempt: number,
-	retryAfterMs: number | null,
-): number {
+function computeRetryDelayMs(attempt: number, retryAfterMs: number | null): number {
 	if (retryAfterMs !== null) {
 		// Cap Retry-After at 60 s to avoid excessively long waits.
 		return Math.min(retryAfterMs, 60_000);
@@ -121,9 +118,7 @@ export async function finnhubFetch(
 			if (response.status === 429) {
 				lastFailure = { reason: "rate_limited", status: 429 };
 				if (!isLastAttempt) {
-					const retryAfterMs = parseRetryAfterMs(
-						response.headers.get("Retry-After"),
-					);
+					const retryAfterMs = parseRetryAfterMs(response.headers.get("Retry-After"));
 					await realDelay(computeRetryDelayMs(attempt, retryAfterMs));
 					continue;
 				}
@@ -142,8 +137,7 @@ export async function finnhubFetch(
 			return (await response.json()) as unknown;
 		} catch (error) {
 			const isTimeout =
-				error instanceof Error &&
-				(error.name === "TimeoutError" || error.name === "AbortError");
+				error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
 			const safeError =
 				error instanceof Error
 					? (() => {
@@ -178,19 +172,12 @@ export async function finnhubFetch(
 			// Finnhub's free tier — not pageable. Terminal state, no further
 			// retry, so info (not warn) per project rule that warn requires
 			// an escalation path.
-			rootLogger.info(
-				`Finnhub ${label} exhausted retries (rate limited)`,
-				context,
-			);
+			rootLogger.info(`Finnhub ${label} exhausted retries (rate limited)`, context);
 		} else if (lastFailure.reason === "api_error") {
 			context.status = lastFailure.status;
 			rootLogger.error(`Finnhub ${label} exhausted retries`, context);
 		} else {
-			rootLogger.error(
-				`Finnhub ${label} exhausted retries`,
-				context,
-				lastFailure.error,
-			);
+			rootLogger.error(`Finnhub ${label} exhausted retries`, context, lastFailure.error);
 		}
 	}
 	return null;
@@ -201,14 +188,8 @@ Individual Fetchers
 ============= */
 
 /** Fetch the latest analyst recommendation trend for a ticker (or `null`). */
-async function fetchRecommendationTrends(
-	symbol: string,
-): Promise<RecommendationTrend | null> {
-	const data = await finnhubFetch(
-		"/stock/recommendation",
-		{ symbol },
-		"recommendation",
-	);
+async function fetchRecommendationTrends(symbol: string): Promise<RecommendationTrend | null> {
+	const data = await finnhubFetch("/stock/recommendation", { symbol }, "recommendation");
 	if (!Array.isArray(data) || data.length === 0) return null;
 
 	// Most recent recommendation period is first
@@ -239,9 +220,7 @@ async function fetchRecommendationTrends(
 }
 
 /** Fetch recent insider transactions for a ticker (validated and capped). */
-async function fetchInsiderTransactions(
-	symbol: string,
-): Promise<InsiderTransaction[]> {
+async function fetchInsiderTransactions(symbol: string): Promise<InsiderTransaction[]> {
 	const data = await finnhubFetch(
 		"/stock/insider-transactions",
 		{ symbol },
@@ -268,9 +247,7 @@ async function fetchInsiderTransactions(
 	}
 
 	// Only include transactions from the last 24 hours
-	const cutoffDate = new Date(Date.now() - 24 * 60 * 60 * 1000)
-		.toISOString()
-		.slice(0, 10);
+	const cutoffDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
 	return transactions
 		.filter(
@@ -280,8 +257,7 @@ async function fetchInsiderTransactions(
 				typeof (item as Record<string, unknown>).name === "string" &&
 				typeof (item as Record<string, unknown>).change === "number" &&
 				typeof (item as Record<string, unknown>).transactionDate === "string" &&
-				((item as Record<string, unknown>).transactionDate as string) >=
-					cutoffDate,
+				((item as Record<string, unknown>).transactionDate as string) >= cutoffDate,
 		)
 		.slice(0, 5)
 		.map((item: Record<string, unknown>) => ({
@@ -289,9 +265,7 @@ async function fetchInsiderTransactions(
 			share: typeof item.share === "number" ? (item.share as number) : 0,
 			change: item.change as number,
 			transactionType:
-				typeof item.transactionType === "string"
-					? (item.transactionType as string)
-					: "",
+				typeof item.transactionType === "string" ? (item.transactionType as string) : "",
 			transactionDate: item.transactionDate as string,
 		}));
 }
@@ -316,19 +290,12 @@ export async function fetchFinnhubExtras(
 	};
 
 	if (symbols.length === 0) return result;
-	if (
-		!options.includeNews &&
-		!options.includeAnalyst &&
-		!options.includeInsider
-	)
-		return result;
+	if (!options.includeNews && !options.includeAnalyst && !options.includeInsider) return result;
 
 	// Date range for company news: last 3 days
 	const now = new Date();
 	const to = now.toISOString().slice(0, 10);
-	const from = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000)
-		.toISOString()
-		.slice(0, 10);
+	const from = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
 	// Fetch sequentially per symbol with small delays to stay within rate limits
 	for (const symbol of symbols) {
@@ -371,9 +338,7 @@ Formatting: Build context string from Finnhub news for Grok
 ============= */
 
 /** Build a compact, line-based news context string for Grok. */
-export function buildNewsContextForGrok(
-	newsData: Map<string, CompanyNewsItem[]>,
-): string {
+export function buildNewsContextForGrok(newsData: Map<string, CompanyNewsItem[]>): string {
 	const lines: string[] = [];
 	for (const [symbol, items] of newsData) {
 		if (items.length === 0) continue;
@@ -398,9 +363,7 @@ export function formatAnalystSection(
 	for (const [symbol, trend] of data) {
 		if (!trend) continue;
 		if (channel === "sms") {
-			lines.push(
-				`${symbol}: ${trend.buy} Buy, ${trend.hold} Hold, ${trend.sell} Sell`,
-			);
+			lines.push(`${symbol}: ${trend.buy} Buy, ${trend.hold} Hold, ${trend.sell} Sell`);
 		} else {
 			lines.push(
 				`${symbol}: ${trend.strongBuy} Strong Buy, ${trend.buy} Buy, ${trend.hold} Hold, ${trend.sell} Sell, ${trend.strongSell} Strong Sell (${trend.period})`,

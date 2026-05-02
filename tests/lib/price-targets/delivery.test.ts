@@ -6,10 +6,7 @@ import {
 	formatPriceTargetSms,
 	type PriceTargetDeliveryStats,
 } from "../../../src/lib/price-targets/delivery";
-import type {
-	PriceTargetUser,
-	TriggeredPriceTarget,
-} from "../../../src/lib/price-targets/process";
+import type { PriceTargetUser, TriggeredPriceTarget } from "../../../src/lib/price-targets/process";
 
 function makeSupabaseMock(): AppSupabaseClient {
 	return {
@@ -29,9 +26,7 @@ function makeStats(): PriceTargetDeliveryStats {
 	};
 }
 
-function makeTarget(
-	overrides: Partial<TriggeredPriceTarget> = {},
-): TriggeredPriceTarget {
+function makeTarget(overrides: Partial<TriggeredPriceTarget> = {}): TriggeredPriceTarget {
 	return {
 		symbol: "AAPL",
 		targetPrice: 200,
@@ -85,9 +80,9 @@ describe("Price target alert delivery", () => {
 	});
 
 	it("A user with SMS alerts enabled receives the price target SMS", async () => {
-		const sendSms = vi.fn<
-			(_: { to: string; body: string }) => Promise<DeliveryResult>
-		>(async () => ({ success: true }));
+		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
+			async () => ({ success: true }),
+		);
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
 
@@ -105,9 +100,9 @@ describe("Price target alert delivery", () => {
 	});
 
 	it("SMS is not sent and failure is counted when user is opted out", async () => {
-		const sendSms = vi.fn<
-			(_: { to: string; body: string }) => Promise<DeliveryResult>
-		>(async () => ({ success: true }));
+		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
+			async () => ({ success: true }),
+		);
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
 
@@ -125,9 +120,9 @@ describe("Price target alert delivery", () => {
 	});
 
 	it("SMS is not sent and failure is counted when phone number is missing", async () => {
-		const sendSms = vi.fn<
-			(_: { to: string; body: string }) => Promise<DeliveryResult>
-		>(async () => ({ success: true }));
+		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
+			async () => ({ success: true }),
+		);
 		const sendEmail = vi.fn(async () => ({ success: true }) as const);
 		const stats = makeStats();
 

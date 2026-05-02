@@ -13,8 +13,7 @@ Dashboard Form IDs
 ============= */
 
 /** DOM id for the notification preferences form. */
-export const DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID =
-	"dashboard-notification-preferences-form";
+export const DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID = "dashboard-notification-preferences-form";
 /** DOM id for the "save status" element for notification preferences. */
 export const DASHBOARD_NOTIFICATION_PREFERENCES_STATUS_ID =
 	"dashboard-notification-preferences-save-status";
@@ -25,8 +24,7 @@ export const DASHBOARD_ASSETS_STATUS_ID = "dashboard-assets-save-status";
 /** DOM id for the market notifications form. */
 export const DASHBOARD_MARKET_FORM_ID = "dashboard-market-form";
 /** DOM id for the daily notifications form. */
-export const DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID =
-	"dashboard-daily-notifications-form";
+export const DASHBOARD_DAILY_NOTIFICATIONS_FORM_ID = "dashboard-daily-notifications-form";
 /** DOM id for the asset-events notification form. */
 export const DASHBOARD_ASSET_EVENTS_FORM_ID = "dashboard-asset-events-form";
 
@@ -103,13 +101,11 @@ SMS Verification Timing
 
 const VERIFICATION_EXPIRATION_MINUTES = 10;
 /** Verification code lifetime in milliseconds. */
-export const VERIFICATION_EXPIRATION_MS =
-	VERIFICATION_EXPIRATION_MINUTES * 60 * 1000;
+export const VERIFICATION_EXPIRATION_MS = VERIFICATION_EXPIRATION_MINUTES * 60 * 1000;
 
 const VERIFICATION_RESEND_COOLDOWN_SECONDS = 60;
 /** Minimum time between verification-code sends (milliseconds). */
-export const VERIFICATION_RESEND_COOLDOWN_MS =
-	VERIFICATION_RESEND_COOLDOWN_SECONDS * 1000;
+export const VERIFICATION_RESEND_COOLDOWN_MS = VERIFICATION_RESEND_COOLDOWN_SECONDS * 1000;
 
 /* =============
 Asset symbol (DB constraint)
@@ -132,8 +128,7 @@ Card Gradient Accents
 /** Tailwind class presets for card gradient accents. */
 export const CARD_GRADIENT_ACCENTS = {
 	primary: "bg-gradient-to-r from-primary via-blue-500 to-primary-soft",
-	success:
-		"bg-gradient-to-r from-success-strong via-green-400 to-success-strong",
+	success: "bg-gradient-to-r from-success-strong via-green-400 to-success-strong",
 	teal: "bg-gradient-to-r from-teal-500 via-teal-400 to-teal-500",
 	purple: "bg-gradient-to-r from-purple-500 via-purple-400 to-purple-500",
 	gray: "bg-gradient-to-r from-edge-strong via-muted to-edge-strong",
@@ -201,10 +196,8 @@ const MESSAGE_ALLOWLIST = {
 	unauthorized: "Please sign in to continue.",
 	failed_to_update_settings: "Failed to update settings. Please try again.",
 	failed_to_update_timezone: "Failed to update timezone. Please try again.",
-	failed_to_dismiss_timezone_banner:
-		"Failed to dismiss timezone banner. Please try again.",
-	invalid_form:
-		"There was a problem with your submission. Please check the form and try again.",
+	failed_to_dismiss_timezone_banner: "Failed to dismiss timezone banner. Please try again.",
+	invalid_form: "There was a problem with your submission. Please check the form and try again.",
 	invalid_phone_format:
 		"Invalid phone number format. Please enter a valid phone number and try again.",
 	invalid_credentials: "Invalid email or password.",
@@ -212,25 +205,20 @@ const MESSAGE_ALLOWLIST = {
 	email_required: "No email address found.",
 	missing_fields: "Email and password are required.",
 	user_already_exists: "An account with this email already exists.",
-	profile_creation_failed:
-		"Failed to create user profile. Please try again or contact support.",
+	profile_creation_failed: "Failed to create user profile. Please try again or contact support.",
 	failed: "Request failed. Please try again.",
 	rate_limit: "You've made too many requests. Please try again later.",
 	password_mismatch: "Passwords do not match.",
-	weak_password:
-		"Password does not meet security requirements. Please choose a stronger password.",
+	weak_password: "Password does not meet security requirements. Please choose a stronger password.",
 	expired: "This password reset link has expired.",
 	invalid_token: "This password reset link is invalid.",
-	password_reset_sent:
-		"If an account exists for that email, a reset link has been sent.",
+	password_reset_sent: "If an account exists for that email, a reset link has been sent.",
 	verification_email_sent: "Verification email sent! Check your inbox.",
-	email_change_requested:
-		"Check your old and new inboxes to confirm the email change.",
+	email_change_requested: "Check your old and new inboxes to confirm the email change.",
 	email_updated: "Email updated successfully.",
 	email_change_failed: "Email update failed. Please try again.",
 	email_unchanged: "The new email is the same as your current email.",
-	password_reset:
-		"Password updated successfully! You can now sign in with your new password.",
+	password_reset: "Password updated successfully! You can now sign in with your new password.",
 	password_changed: "Password updated successfully!",
 	password_change_failed: "Password update failed. Please try again.",
 	account_deleted: "Your account has been permanently deleted.",
@@ -249,20 +237,16 @@ const MESSAGE_ALLOWLIST = {
 	update_failed: "Failed to update. Please try again.",
 	server_error: "An error occurred. Please try again",
 	phone_not_set: "Add a phone number before verifying.",
-	sms_opted_out:
-		"SMS is currently paused. Text START to our number to resume SMS notifications.",
+	sms_opted_out: "SMS is currently paused. Text START to our number to resume SMS notifications.",
 	sms_notifications_disabled: "SMS notifications are disabled.",
-	notifications_not_configured:
-		"Enable at least one notification channel to send updates.",
+	notifications_not_configured: "Enable at least one notification channel to send updates.",
 	user_not_found: "User not found",
 	delete_failed: "Failed to delete account. Please try again.",
 	delete_partial:
 		"Your account data was deleted, but we couldn't fully remove your sign-in. Please sign out and try again.",
-	delete_orphaned_auth_failed:
-		"Failed to complete account deletion. Please try again.",
+	delete_orphaned_auth_failed: "Failed to complete account deletion. Please try again.",
 	assets_limit: `Maximum ${MAX_TRACKED_ASSETS} assets allowed`,
-	delisted_symbols:
-		"One or more symbols have been delisted and can no longer be tracked.",
+	delisted_symbols: "One or more symbols have been delisted and can no longer be tracked.",
 	registration_closed: "Registration is currently closed.",
 } as const;
 

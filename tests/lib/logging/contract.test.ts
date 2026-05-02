@@ -35,11 +35,7 @@ describe("logging contract", () => {
 				details: "Key (email)=(user@example.com) already exists",
 				apiKey: "sk-live-abcdef1234567890",
 			};
-			createLogger({ job: "contract-test" }).error(
-				"db error",
-				undefined,
-				postgrestLike,
-			);
+			createLogger({ job: "contract-test" }).error("db error", undefined, postgrestLike);
 
 			const serialized = spy.mock.calls[0][0] as string;
 			expect(serialized).not.toContain("sk-live-abcdef1234567890");

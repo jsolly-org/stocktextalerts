@@ -74,9 +74,7 @@ describe("fetchTopMovers", () => {
 		const fetchSpy = vi
 			.spyOn(globalThis, "fetch")
 			.mockResolvedValue(
-				snapshotResponse([
-					{ ticker: "BIIB", close: 212.45, changePercent: -18.67 },
-				]),
+				snapshotResponse([{ ticker: "BIIB", close: 212.45, changePercent: -18.67 }]),
 			);
 
 		const losers = await fetchTopMovers("losers");
@@ -88,9 +86,7 @@ describe("fetchTopMovers", () => {
 
 	it("returns an empty array when the upstream call fails", async () => {
 		vi.stubEnv("MASSIVE_API_KEY", "test-key");
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			new Response("boom", { status: 500 }),
-		);
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("boom", { status: 500 }));
 
 		const gainers = await fetchTopMovers("gainers");
 

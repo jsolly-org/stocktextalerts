@@ -64,9 +64,7 @@ function computeExcessPriceMoveWithMetrics(
 	let maxMoveRef = firstSnapshot ? firstSnapshot.price : 0;
 	for (const snap of snapshots) {
 		if (snap.price <= 0) continue;
-		const movePct = Math.abs(
-			((currentQuote.price - snap.price) / snap.price) * 100,
-		);
+		const movePct = Math.abs(((currentQuote.price - snap.price) / snap.price) * 100);
 		if (movePct > maxMovePct) {
 			maxMovePct = movePct;
 			maxMoveRef = snap.price;
@@ -78,9 +76,7 @@ function computeExcessPriceMoveWithMetrics(
 
 	// Compute signed move for benchmark comparison
 	const signedMovePct =
-		referencePrice > 0
-			? ((currentQuote.price - referencePrice) / referencePrice) * 100
-			: 0;
+		referencePrice > 0 ? ((currentQuote.price - referencePrice) / referencePrice) * 100 : 0;
 
 	// Compute excess move: subtract benchmark contribution when same direction
 	let excessMovePct = rawMovePct;
@@ -90,10 +86,7 @@ function computeExcessPriceMoveWithMetrics(
 		const benchDir = Math.sign(benchmarkMovePct);
 		if (stockDir === benchDir) {
 			// Subtract benchmark, but floor at 30% of stock move
-			const explained = Math.min(
-				Math.abs(benchmarkMovePct),
-				Math.abs(signedMovePct),
-			);
+			const explained = Math.min(Math.abs(benchmarkMovePct), Math.abs(signedMovePct));
 			excessMovePct = Math.max(rawMovePct - explained, rawMovePct * 0.3);
 			benchmarkDetail = `, benchmark ${benchmarkMovePct >= 0 ? "+" : ""}${benchmarkMovePct.toFixed(2)}%`;
 		}
@@ -114,12 +107,8 @@ function computeExcessPriceMoveWithMetrics(
 			(dayHigh > 0 && currentQuote.price >= dayHigh * 0.999);
 		let intradayRangePct: number;
 		if (isAtExtreme && snapshots.length > 0) {
-			const snapHighs = snapshots
-				.map((s) => s.dayHigh)
-				.filter((h): h is number => h != null);
-			const snapLows = snapshots
-				.map((s) => s.dayLow)
-				.filter((l): l is number => l != null);
+			const snapHighs = snapshots.map((s) => s.dayHigh).filter((h): h is number => h != null);
+			const snapLows = snapshots.map((s) => s.dayLow).filter((l): l is number => l != null);
 			const rangeHigh = snapHighs.length > 0 ? Math.max(...snapHighs) : dayHigh;
 			const rangeLow = snapLows.length > 0 ? Math.min(...snapLows) : dayLow;
 			const denom = Math.min(rangeLow, currentQuote.price);
@@ -221,9 +210,7 @@ function computeVolumeSignal(
 	} else {
 		// 5.0x+ → 16–20 pts (log scale)
 		// log2(5)=2.32, log2(10)=3.32, log2(20)=4.32
-		const logPts =
-			16 +
-			((Math.log2(rvol) - Math.log2(5)) / (Math.log2(20) - Math.log2(5))) * 4;
+		const logPts = 16 + ((Math.log2(rvol) - Math.log2(5)) / (Math.log2(20) - Math.log2(5))) * 4;
 		points = Math.round(Math.min(logPts, maxPoints));
 	}
 
@@ -248,21 +235,14 @@ function computeRangeBreakout(
 	// Cap at 10 pts before 10 AM ET (early-day noise reduction)
 	const maxPoints = isEarlyDay ? 10 : fullMaxPoints;
 
-	const dayHighs = snapshots
-		.map((s) => s.dayHigh)
-		.filter((h): h is number => h !== null);
-	const dayLows = snapshots
-		.map((s) => s.dayLow)
-		.filter((l): l is number => l !== null);
+	const dayHighs = snapshots.map((s) => s.dayHigh).filter((h): h is number => h !== null);
+	const dayLows = snapshots.map((s) => s.dayLow).filter((l): l is number => l !== null);
 
 	let highBreakoutPct = 0;
 	if (dayHighs.length > 0) {
 		const maxDayHigh = Math.max(...dayHighs);
 		if (maxDayHigh > 0) {
-			highBreakoutPct = Math.max(
-				0,
-				((currentPrice - maxDayHigh) / maxDayHigh) * 100,
-			);
+			highBreakoutPct = Math.max(0, ((currentPrice - maxDayHigh) / maxDayHigh) * 100);
 		}
 	}
 
@@ -270,10 +250,7 @@ function computeRangeBreakout(
 	if (dayLows.length > 0) {
 		const minDayLow = Math.min(...dayLows);
 		if (minDayLow > 0) {
-			lowBreakoutPct = Math.max(
-				0,
-				((minDayLow - currentPrice) / minDayLow) * 100,
-			);
+			lowBreakoutPct = Math.max(0, ((minDayLow - currentPrice) / minDayLow) * 100);
 		}
 	}
 
@@ -309,9 +286,7 @@ function computeEarningsProximity(hasEarningsNearby: boolean): SignalBreakdown {
 		points: hasEarningsNearby ? maxPoints : 0,
 		maxPoints,
 		triggered: hasEarningsNearby,
-		detail: hasEarningsNearby
-			? "earnings within 2 days"
-			: "no upcoming earnings",
+		detail: hasEarningsNearby ? "earnings within 2 days" : "no upcoming earnings",
 	};
 }
 
@@ -365,13 +340,12 @@ export function computeAnomalyScore(options: {
 		};
 	}
 
-	const { signal: priceSignal, excessMovePct: excessForGate } =
-		computeExcessPriceMoveWithMetrics(
-			currentQuote,
-			snapshots,
-			benchmarkMovePct,
-			atr14,
-		);
+	const { signal: priceSignal, excessMovePct: excessForGate } = computeExcessPriceMoveWithMetrics(
+		currentQuote,
+		snapshots,
+		benchmarkMovePct,
+		atr14,
+	);
 
 	const volumeSignal = computeVolumeSignal(
 		currentQuote,

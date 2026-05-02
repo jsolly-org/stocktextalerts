@@ -22,18 +22,12 @@ describe("Structured errors from library clients are logged readably.", () => {
 			hint: "Check pooler connection limits",
 		};
 
-		rootLogger.error(
-			"Failed to fetch daily users after retries",
-			{ attempts: 3 },
-			postgrestError,
-		);
+		rootLogger.error("Failed to fetch daily users after retries", { attempts: 3 }, postgrestError);
 
 		const [raw] = errorSpy.mock.calls[0];
 		const payload = JSON.parse(raw as string);
 
-		expect(payload.error.message).toBe(
-			"canceling statement due to statement timeout",
-		);
+		expect(payload.error.message).toBe("canceling statement due to statement timeout");
 		expect(payload.error.raw).toEqual(postgrestError);
 		expect(payload.context.attempts).toBe(3);
 	});
@@ -48,11 +42,7 @@ describe("Structured errors from library clients are logged readably.", () => {
 			requestId: "req-abc-123",
 		};
 
-		rootLogger.error(
-			"Upstream auth call failed",
-			{ userId: "u_1" },
-			upstreamError,
-		);
+		rootLogger.error("Upstream auth call failed", { userId: "u_1" }, upstreamError);
 
 		const [raw] = errorSpy.mock.calls[0];
 		const payload = JSON.parse(raw as string);

@@ -36,9 +36,7 @@ function makeUser(overrides: Partial<User> = {}): User {
 }
 
 describe("computeAssetEventsNextSendAt", () => {
-	it.each(
-		ASSET_EVENTS_OPTION_FIELDS,
-	)("Enabling %s schedules next send.", (field) => {
+	it.each(ASSET_EVENTS_OPTION_FIELDS)("Enabling %s schedules next send.", (field) => {
 		const user = makeUser();
 		const updates: UserUpdateInput = { [field]: true };
 
@@ -112,15 +110,7 @@ describe("computeAssetEventsNextSendAt", () => {
 		const user = makeUser({ asset_events_include_ipo_email: true });
 		const updates: UserUpdateInput = {};
 
-		computeAssetEventsNextSendAt(
-			updates,
-			user,
-			600,
-			user.timezone,
-			false,
-			true,
-			false,
-		);
+		computeAssetEventsNextSendAt(updates, user, 600, user.timezone, false, true, false);
 
 		expect(updates.asset_events_next_send_at).toBeTruthy();
 	});

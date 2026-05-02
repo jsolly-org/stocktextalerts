@@ -26,8 +26,7 @@ export async function updateUserNextSendAtSingleTime(options: {
 	column: "asset_events_next_send_at" | "daily_digest_next_send_at";
 	getLocalMinutes: (user: UserRecord) => number | null;
 }): Promise<void> {
-	const { user, supabase, logger, currentTime, column, getLocalMinutes } =
-		options;
+	const { user, supabase, logger, currentTime, column, getLocalMinutes } = options;
 
 	const localMinutes = getLocalMinutes(user);
 	if (localMinutes === null) {
@@ -35,41 +34,25 @@ export async function updateUserNextSendAtSingleTime(options: {
 			column === "asset_events_next_send_at"
 				? { asset_events_next_send_at: null }
 				: { daily_digest_next_send_at: null };
-		const { error } = await supabase
-			.from("users")
-			.update(clearUpdate)
-			.eq("id", user.id);
+		const { error } = await supabase.from("users").update(clearUpdate).eq("id", user.id);
 		if (error) {
-			logger.error(
-				`Failed to clear users.${column}`,
-				{ userId: user.id },
-				error,
-			);
+			logger.error(`Failed to clear users.${column}`, { userId: user.id }, error);
 		}
 		return;
 	}
 
-	const nextSendAt = calculateNextSendAt(
-		localMinutes,
-		user.timezone,
-		currentTime,
-	);
+	const nextSendAt = calculateNextSendAt(localMinutes, user.timezone, currentTime);
 	const nextSendAtIso = nextSendAt?.toISO() ?? null;
 
 	const setUpdate =
 		column === "asset_events_next_send_at"
 			? { asset_events_next_send_at: nextSendAtIso }
 			: { daily_digest_next_send_at: nextSendAtIso };
-	const { error } = await supabase
-		.from("users")
-		.update(setUpdate)
-		.eq("id", user.id);
+	const { error } = await supabase.from("users").update(setUpdate).eq("id", user.id);
 
 	if (error) {
 		logger.error(
-			nextSendAtIso
-				? `Failed to update users.${column}`
-				: `Failed to clear users.${column}`,
+			nextSendAtIso ? `Failed to update users.${column}` : `Failed to clear users.${column}`,
 			{ userId: user.id, [column]: nextSendAtIso },
 			error,
 		);

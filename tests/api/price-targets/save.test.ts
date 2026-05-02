@@ -77,9 +77,7 @@ describe("A signed-in user saves or removes a price target for a watched symbol"
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		const mod = await import("../../../src/pages/api/price-targets/save");
-		handler = mod.POST as (
-			ctx: ReturnType<typeof createApiContext>,
-		) => Promise<Response>;
+		handler = mod.POST as (ctx: ReturnType<typeof createApiContext>) => Promise<Response>;
 	});
 
 	it("A user saves an above target and receives direction in the response", async () => {
@@ -94,9 +92,7 @@ describe("A signed-in user saves or removes a price target for a watched symbol"
 			],
 			prices: new Map([["AAPL", { price: 195, changePercent: 1 }]]),
 		});
-		const response = await handler(
-			makeContext({ symbol: "AAPL", target_price: 200 }),
-		);
+		const response = await handler(makeContext({ symbol: "AAPL", target_price: 200 }));
 		expect(response.status).toBe(200);
 		const data = await response.json();
 		expect(data.direction).toBe("above");
@@ -114,9 +110,7 @@ describe("A signed-in user saves or removes a price target for a watched symbol"
 			],
 			prices: new Map([["AAPL", { price: 205, changePercent: 1 }]]),
 		});
-		const response = await handler(
-			makeContext({ symbol: "AAPL", target_price: 200 }),
-		);
+		const response = await handler(makeContext({ symbol: "AAPL", target_price: 200 }));
 		expect(response.status).toBe(200);
 		const data = await response.json();
 		expect(data.direction).toBe("below");
@@ -124,9 +118,7 @@ describe("A signed-in user saves or removes a price target for a watched symbol"
 
 	it("A user removes a target by sending null target_price", async () => {
 		setupMocks({});
-		const response = await handler(
-			makeContext({ symbol: "AAPL", target_price: null }),
-		);
+		const response = await handler(makeContext({ symbol: "AAPL", target_price: null }));
 		expect(response.status).toBe(200);
 		const data = await response.json();
 		expect(data.message).toBe("target_removed");
@@ -144,9 +136,7 @@ describe("A signed-in user saves or removes a price target for a watched symbol"
 			],
 			prices: new Map([["AAPL", { price: 195, changePercent: 1 }]]),
 		});
-		const response = await handler(
-			makeContext({ symbol: " aapl ", target_price: 200 }),
-		);
+		const response = await handler(makeContext({ symbol: " aapl ", target_price: 200 }));
 		expect(response.status).toBe(200);
 		const data = await response.json();
 		expect(data.direction).toBe("above");

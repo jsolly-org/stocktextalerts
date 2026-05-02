@@ -1,9 +1,6 @@
 import { DateTime } from "luxon";
 import type { Database } from "../db/generated/database.types";
-import type {
-	AppSupabaseClient,
-	createSupabaseAdminClient,
-} from "../db/supabase";
+import type { AppSupabaseClient, createSupabaseAdminClient } from "../db/supabase";
 import type { Logger } from "../logging";
 import { recordNotification } from "../messaging/shared";
 import type { UserAssetRow } from "../messaging/types";
@@ -18,8 +15,7 @@ export type DeliveryMethod = Database["public"]["Enums"]["delivery_method"];
 
 type ScheduledNotificationType = "market" | "daily" | "asset_events";
 
-type ScheduledNotificationStatus =
-	Database["public"]["Enums"]["scheduled_notification_status"];
+type ScheduledNotificationStatus = Database["public"]["Enums"]["scheduled_notification_status"];
 
 /** Supabase admin client type used by schedule jobs/RPCs. */
 export type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -65,8 +61,7 @@ export async function loadUserAssets(
 			return {
 				...base,
 				icon_url: (asset.assets as { icon_url: string | null }).icon_url,
-				icon_base64: (asset.assets as { icon_base64: string | null })
-					.icon_base64,
+				icon_base64: (asset.assets as { icon_base64: string | null }).icon_base64,
 			};
 		}
 		return base;
@@ -116,15 +111,8 @@ export async function batchLoadUserAssets(
 		map.set(id, []);
 	}
 
-	for (
-		let chunkStart = 0;
-		chunkStart < uniqueIds.length;
-		chunkStart += IN_FILTER_CHUNK_SIZE
-	) {
-		const chunk = uniqueIds.slice(
-			chunkStart,
-			chunkStart + IN_FILTER_CHUNK_SIZE,
-		);
+	for (let chunkStart = 0; chunkStart < uniqueIds.length; chunkStart += IN_FILTER_CHUNK_SIZE) {
+		const chunk = uniqueIds.slice(chunkStart, chunkStart + IN_FILTER_CHUNK_SIZE);
 		const pageSize = 1000;
 		for (let from = 0; ; from += pageSize) {
 			const { data: rows, error } = await supabase
@@ -147,10 +135,7 @@ export async function batchLoadUserAssets(
 					assets: {
 						name: string;
 						delisted_at: string | null;
-					} & (
-						| { icon_url: string | null; icon_base64: string | null }
-						| Record<string, never>
-					);
+					} & ({ icon_url: string | null; icon_base64: string | null } | Record<string, never>);
 				};
 				// Belt-and-suspenders: the PostgREST .is() filter above should
 				// already exclude delisted rows, but double-check in case the
@@ -203,17 +188,12 @@ export async function updateScheduledNotificationRow(options: {
 		options.status === "sent"
 			? {
 					status: "sent",
-					sent_at: toIsoOrThrow(
-						DateTime.utc(),
-						"Failed to format UTC ISO string",
-					),
+					sent_at: toIsoOrThrow(DateTime.utc(), "Failed to format UTC ISO string"),
 					error: null,
 				}
 			: { status: "failed", error: options.error ?? "Unknown error" };
 
-	const scheduledNotifications = options.supabase.from(
-		"scheduled_notifications",
-	) as unknown as {
+	const scheduledNotifications = options.supabase.from("scheduled_notifications") as unknown as {
 		update: (
 			payload: Database["public"]["Tables"]["scheduled_notifications"]["Update"],
 		) => UpdateChain;
@@ -258,22 +238,12 @@ export async function claimNotification(options: {
 	channel: DeliveryMethod;
 	logger: Logger;
 }): Promise<ClaimResult> {
-	const {
-		supabase,
-		userId,
-		notificationType,
-		scheduledDate,
-		scheduledMinutes,
-		channel,
-		logger,
-	} = options;
+	const { supabase, userId, notificationType, scheduledDate, scheduledMinutes, channel, logger } =
+		options;
 
 	const { data: claimed, error: claimError } = await (
 		supabase as unknown as {
-			rpc: (
-				fn: string,
-				args: unknown,
-			) => Promise<{ data: unknown; error: unknown }>;
+			rpc: (fn: string, args: unknown) => Promise<{ data: unknown; error: unknown }>;
 		}
 	).rpc("claim_scheduled_notification", {
 		p_user_id: userId,
@@ -328,9 +298,7 @@ async function logRetriesExhausted(options: {
 		maybeSingle: () => unknown;
 	};
 
-	const scheduledNotifications = options.supabase.from(
-		"scheduled_notifications",
-	) as unknown as {
+	const scheduledNotifications = options.supabase.from("scheduled_notifications") as unknown as {
 		select: (columns: string) => SelectChain;
 	};
 

@@ -95,8 +95,7 @@ describe("buildDelayBannerHtml", () => {
 
 describe("prependDelayBannerToSms", () => {
 	it("inserts banner after the header line", () => {
-		const message =
-			"StockTextAlerts — Your daily digest\n\nAPPL: $150.00\n\nReply STOP";
+		const message = "StockTextAlerts — Your daily digest\n\nAPPL: $150.00\n\nReply STOP";
 		const result = prependDelayBannerToSms(message, "⏰ Delayed banner");
 		const lines = result.split("\n\n");
 		expect(lines[0]).toBe("StockTextAlerts — Your daily digest");

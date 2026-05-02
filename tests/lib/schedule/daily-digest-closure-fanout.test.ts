@@ -26,9 +26,7 @@ vi.mock("../../../src/lib/asset-events/query", () => ({
 }));
 
 vi.mock("../../../src/lib/providers/price-fetcher", async () => {
-	const actual = await vi.importActual(
-		"../../../src/lib/providers/price-fetcher",
-	);
+	const actual = await vi.importActual("../../../src/lib/providers/price-fetcher");
 	return {
 		...actual,
 		fetchAssetPrices: vi.fn().mockResolvedValue(new Map()),
@@ -147,15 +145,11 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 	});
 
 	it("lets each daily user classify the market day from their own scheduled instant", async () => {
-		const { runScheduledNotifications } = await import(
-			"../../../src/lib/schedule/run"
-		);
+		const { runScheduledNotifications } = await import("../../../src/lib/schedule/run");
 
 		fetchDailyDigestUsersMock.mockResolvedValueOnce([{ id: "daily-user-1" }]);
 		fetchMarketScheduledUsersMock.mockResolvedValue([]);
-		fetchAssetEventsUsersMock
-			.mockResolvedValueOnce([])
-			.mockResolvedValueOnce([]);
+		fetchAssetEventsUsersMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
 		fetchDailyDigestUsersMock.mockResolvedValueOnce([]);
 		fetchMarketScheduledUsersMock.mockResolvedValueOnce([]);
 		fetchMarketStatusMock.mockResolvedValue(false);

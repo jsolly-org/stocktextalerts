@@ -51,14 +51,7 @@ describe("toSvgSparklineImg", () => {
 			{ position: 0, label: "9:30a" },
 			{ position: 1, label: "2:15p" },
 		];
-		const result = toSvgSparklineImg(
-			[1, 2, 3, 5, 7],
-			"#15803d",
-			200,
-			40,
-			"chart",
-			labels,
-		);
+		const result = toSvgSparklineImg([1, 2, 3, 5, 7], "#15803d", 200, 40, "chart", labels);
 		const svg = decodeSvg(result);
 		expect(svg).toContain("9:30a");
 		expect(svg).toContain("2:15p");
@@ -74,14 +67,7 @@ describe("toSvgSparklineImg", () => {
 	});
 
 	it("does not add axis when timeLabels is empty", () => {
-		const result = toSvgSparklineImg(
-			[1, 2, 3],
-			"#15803d",
-			120,
-			30,
-			"sparkline",
-			[],
-		);
+		const result = toSvgSparklineImg([1, 2, 3], "#15803d", 120, 30, "sparkline", []);
 		expect(result).toContain('height="30"');
 	});
 
@@ -91,14 +77,7 @@ describe("toSvgSparklineImg", () => {
 			{ position: 0.5, label: "12p" },
 			{ position: 1, label: "2:30p" },
 		];
-		const result = toSvgSparklineImg(
-			[1, 2, 3, 5, 7],
-			"#15803d",
-			200,
-			40,
-			"chart",
-			labels,
-		);
+		const result = toSvgSparklineImg([1, 2, 3, 5, 7], "#15803d", 200, 40, "chart", labels);
 		const svg = decodeSvg(result);
 		expect(svg).toContain('text-anchor="start"');
 		expect(svg).toContain('text-anchor="middle"');

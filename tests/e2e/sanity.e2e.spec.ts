@@ -6,11 +6,7 @@ import { rootLogger } from "../../src/lib/logging";
 import { getAssetData } from "../helpers/asset-data";
 import { NEW_PASSWORD, TEST_PASSWORD } from "../helpers/constants";
 import { adminClient } from "../helpers/test-env";
-import {
-	cleanupTestUser,
-	createTestUser,
-	generateUniquePhoneNumber,
-} from "../helpers/test-user";
+import { cleanupTestUser, createTestUser, generateUniquePhoneNumber } from "../helpers/test-user";
 
 type InbucketListItem = {
 	id: string;
@@ -44,19 +40,13 @@ type MailpitMessageResponse = {
 };
 
 function toBase64Url(buffer: Buffer): string {
-	return buffer
-		.toString("base64")
-		.replaceAll("+", "-")
-		.replaceAll("/", "_")
-		.replace(/=+$/u, "");
+	return buffer.toString("base64").replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
 }
 
 function createEmailUnsubscribeToken(userId: string, email: string): string {
 	const secret = process.env.UNSUBSCRIBE_TOKEN_SECRET;
 	if (!secret) {
-		throw new Error(
-			"UNSUBSCRIBE_TOKEN_SECRET is required to build unsubscribe token",
-		);
+		throw new Error("UNSUBSCRIBE_TOKEN_SECRET is required to build unsubscribe token");
 	}
 	const expiresAtMs = Date.now() + 1000 * 60 * 60 * 24 * 30;
 	const payload = `${userId}.${email}.${expiresAtMs}`;
@@ -142,21 +132,16 @@ async function getInbucketMessages(email: string): Promise<InbucketListItem[]> {
 		`http://localhost:54324/api/v1/mailbox/${encodeURIComponent(localPart)}`,
 	);
 	if (mailboxResponse.status === 404) {
-		const mailpitResponse = await fetch(
-			"http://localhost:54324/api/v1/messages",
-		);
+		const mailpitResponse = await fetch("http://localhost:54324/api/v1/messages");
 		if (!mailpitResponse.ok) {
 			const body = await mailpitResponse.text();
-			throw new Error(
-				`Failed to read Mailpit messages: ${mailpitResponse.status} ${body}`,
-			);
+			throw new Error(`Failed to read Mailpit messages: ${mailpitResponse.status} ${body}`);
 		}
 		const payload = (await mailpitResponse.json()) as MailpitListResponse;
 		return (payload.messages ?? [])
 			.filter((message) =>
 				(message.To ?? []).some(
-					(recipient) =>
-						recipient.Address?.toLowerCase() === email.toLowerCase(),
+					(recipient) => recipient.Address?.toLowerCase() === email.toLowerCase(),
 				),
 			)
 			.map((message) => ({
@@ -166,18 +151,13 @@ async function getInbucketMessages(email: string): Promise<InbucketListItem[]> {
 	}
 	if (!mailboxResponse.ok) {
 		const body = await mailboxResponse.text();
-		throw new Error(
-			`Failed to read Inbucket mailbox: ${mailboxResponse.status} ${body}`,
-		);
+		throw new Error(`Failed to read Inbucket mailbox: ${mailboxResponse.status} ${body}`);
 	}
 
 	return (await mailboxResponse.json()) as InbucketListItem[];
 }
 
-async function getInbucketMessage(
-	email: string,
-	messageId: string,
-): Promise<InbucketMessage> {
+async function getInbucketMessage(email: string, messageId: string): Promise<InbucketMessage> {
 	const localPart = email.split("@")[0];
 	if (!localPart) {
 		throw new Error("Invalid email local-part");
@@ -192,9 +172,7 @@ async function getInbucketMessage(
 		);
 		if (!mailpitResponse.ok) {
 			const body = await mailpitResponse.text();
-			throw new Error(
-				`Failed to fetch Mailpit message: ${mailpitResponse.status} ${body}`,
-			);
+			throw new Error(`Failed to fetch Mailpit message: ${mailpitResponse.status} ${body}`);
 		}
 		const payload = (await mailpitResponse.json()) as MailpitMessageResponse;
 		return {
@@ -207,9 +185,7 @@ async function getInbucketMessage(
 	}
 	if (!response.ok) {
 		const body = await response.text();
-		throw new Error(
-			`Failed to fetch Inbucket message: ${response.status} ${body}`,
-		);
+		throw new Error(`Failed to fetch Inbucket message: ${response.status} ${body}`);
 	}
 
 	return (await response.json()) as InbucketMessage;
@@ -225,9 +201,7 @@ async function waitForEmail(
 		.poll(
 			async () => {
 				const messages = await getInbucketMessages(email);
-				const match = messages.find((message) =>
-					(message.subject ?? "").includes(subjectContains),
-				);
+				const match = messages.find((message) => (message.subject ?? "").includes(subjectContains));
 				if (match?.id) {
 					matchedId = match.id;
 					return true;
@@ -244,9 +218,7 @@ async function waitForEmail(
 
 	if (!matchedId) {
 		// expect.poll throws on timeout, so this only triggers on the true branch.
-		throw new Error(
-			`Email "${subjectContains}" for ${email} had no message id`,
-		);
+		throw new Error(`Email "${subjectContains}" for ${email} had no message id`);
 	}
 	return getInbucketMessage(email, matchedId);
 }
@@ -263,11 +235,7 @@ async function maybeWaitForEmail(
 	}
 }
 
-async function expectCurrentPath(
-	page: Page,
-	expectedPath: string,
-	timeout = 15_000,
-) {
+async function expectCurrentPath(page: Page, expectedPath: string, timeout = 15_000) {
 	await expect
 		.poll(() => new URL(page.url()).pathname, {
 			message: `Expected path ${expectedPath}`,
@@ -298,9 +266,7 @@ async function addAsset(page: Page, symbol: string) {
 	const input = page.locator("#asset_search");
 	await Promise.all([
 		page.waitForResponse(
-			(response) =>
-				response.url().includes("/api/assets/search") &&
-				response.status() === 200,
+			(response) => response.url().includes("/api/assets/search") && response.status() === 200,
 			{
 				timeout: 15_000,
 			},
@@ -309,9 +275,7 @@ async function addAsset(page: Page, symbol: string) {
 	]);
 	await input.press("ArrowDown");
 	await input.press("Enter");
-	await expect(
-		page.getByRole("button", { name: `Remove ${symbol}` }),
-	).toBeVisible({
+	await expect(page.getByRole("button", { name: `Remove ${symbol}` })).toBeVisible({
 		timeout: 15_000,
 	});
 }
@@ -326,9 +290,7 @@ async function ensureAssetsExist(symbols: string[]): Promise<void> {
 			type: assetData.type,
 		};
 	});
-	const { error } = await adminClient
-		.from("assets")
-		.upsert(assetRecords, { onConflict: "symbol" });
+	const { error } = await adminClient.from("assets").upsert(assetRecords, { onConflict: "symbol" });
 	if (error) {
 		throw new Error(`Failed to ensure assets exist: ${error.message}`);
 	}
@@ -376,9 +338,7 @@ async function waitForEmailNotificationsEnabled(
 					.eq("id", userId)
 					.single();
 				if (error) {
-					throw new Error(
-						`Failed to read email notification state: ${error.message}`,
-					);
+					throw new Error(`Failed to read email notification state: ${error.message}`);
 				}
 				return data.email_notifications_enabled;
 			},
@@ -467,11 +427,7 @@ test.describe("sanity tests", () => {
 		await page.getByRole("button", { name: "Create account" }).click();
 		await expectCurrentPath(page, "/auth/unconfirmed");
 
-		const confirmationEmail = await waitForEmail(
-			testEmail,
-			"Confirm your email",
-			60_000,
-		);
+		const confirmationEmail = await waitForEmail(testEmail, "Confirm your email", 60_000);
 		const confirmationLink = extractLinks(confirmationEmail).find(
 			(link) => link.includes("token_hash=") && link.includes("type=email"),
 		);
@@ -542,9 +498,7 @@ test.describe("sanity tests", () => {
 		const timezoneSelect = page.locator("#profile-timezone");
 		const currentTimezone = await timezoneSelect.inputValue();
 		const targetTimezone =
-			currentTimezone === "America/Chicago"
-				? "America/New_York"
-				: "America/Chicago";
+			currentTimezone === "America/Chicago" ? "America/New_York" : "America/Chicago";
 
 		await Promise.all([
 			page.waitForResponse(
@@ -583,8 +537,7 @@ test.describe("sanity tests", () => {
 		await Promise.all([
 			page.waitForResponse(
 				(response) =>
-					response.url().includes("/api/profile/time-format") &&
-					response.status() === 200,
+					response.url().includes("/api/profile/time-format") && response.status() === 200,
 				{ timeout: 15_000 },
 			),
 			timeSwitch.click(),
@@ -597,9 +550,10 @@ test.describe("sanity tests", () => {
 		// Reload and verify it persisted
 		await page.reload();
 		await page.locator("[data-hydrated]").waitFor({ timeout: 15_000 });
-		await expect(
-			page.getByRole("switch", { name: "Use 24-hour time" }),
-		).toHaveAttribute("aria-checked", "true");
+		await expect(page.getByRole("switch", { name: "Use 24-hour time" })).toHaveAttribute(
+			"aria-checked",
+			"true",
+		);
 
 		// Toggle back OFF so we don't affect other tests
 		const timeSwitchAfterReload = page.getByRole("switch", {
@@ -608,16 +562,12 @@ test.describe("sanity tests", () => {
 		await Promise.all([
 			page.waitForResponse(
 				(response) =>
-					response.url().includes("/api/profile/time-format") &&
-					response.status() === 200,
+					response.url().includes("/api/profile/time-format") && response.status() === 200,
 				{ timeout: 15_000 },
 			),
 			timeSwitchAfterReload.click(),
 		]);
-		await expect(timeSwitchAfterReload).toHaveAttribute(
-			"aria-checked",
-			"false",
-		);
+		await expect(timeSwitchAfterReload).toHaveAttribute("aria-checked", "false");
 	});
 
 	test("TC-AST-001: User can add assets to track", async () => {
@@ -636,15 +586,9 @@ test.describe("sanity tests", () => {
 		await waitForTrackedAssets(testUserId, ["AAPL", "GOOGL", "MSFT"]);
 
 		await page.reload();
-		await expect(
-			page.getByRole("button", { name: "Remove AAPL" }),
-		).toBeVisible();
-		await expect(
-			page.getByRole("button", { name: "Remove MSFT" }),
-		).toBeVisible();
-		await expect(
-			page.getByRole("button", { name: "Remove GOOGL" }),
-		).toBeVisible();
+		await expect(page.getByRole("button", { name: "Remove AAPL" })).toBeVisible();
+		await expect(page.getByRole("button", { name: "Remove MSFT" })).toBeVisible();
+		await expect(page.getByRole("button", { name: "Remove GOOGL" })).toBeVisible();
 	});
 
 	test("TC-BADGE-001: Asset badges show logo, Stock, or ETF", {
@@ -654,10 +598,7 @@ test.describe("sanity tests", () => {
 			throw new Error("testUserId not set before TC-BADGE-001");
 		}
 
-		const assertNoDbError = (
-			error: { message: string } | null,
-			action: string,
-		) => {
+		const assertNoDbError = (error: { message: string } | null, action: string) => {
 			if (error) throw new Error(`${action}: ${error.message}`);
 		};
 
@@ -692,9 +633,7 @@ test.describe("sanity tests", () => {
 			await page.reload();
 
 			const getRow = (symbol: string) =>
-				page
-					.getByRole("button", { name: `Remove ${symbol}` })
-					.locator("xpath=ancestor::li");
+				page.getByRole("button", { name: `Remove ${symbol}` }).locator("xpath=ancestor::li");
 
 			// MSFT has an icon_url but the logo proxy may fail in CI (dummy API key),
 			// so accept either the logo image or the "Stock" fallback badge.
@@ -704,9 +643,7 @@ test.describe("sanity tests", () => {
 					.or(getRow("MSFT").getByText("Stock", { exact: true })),
 			).toBeVisible({ timeout: 15_000 });
 
-			await expect(
-				getRow("AAPL").getByText("Stock", { exact: true }),
-			).toBeVisible();
+			await expect(getRow("AAPL").getByText("Stock", { exact: true })).toBeVisible();
 
 			// GOOGL may also have a logo if icon_url is populated
 			await expect(
@@ -717,9 +654,7 @@ test.describe("sanity tests", () => {
 				timeout: 15_000,
 			});
 
-			await expect(
-				getRow("VOO").getByText("ETF", { exact: true }),
-			).toBeVisible();
+			await expect(getRow("VOO").getByText("ETF", { exact: true })).toBeVisible();
 
 			await ensureAssetsExist(["NVDA"]);
 			const { error: nvdaErr } = await adminClient
@@ -731,24 +666,18 @@ test.describe("sanity tests", () => {
 			const input = page.locator("#asset_search");
 			await Promise.all([
 				page.waitForResponse(
-					(response) =>
-						response.url().includes("/api/assets/search") &&
-						response.status() === 200,
+					(response) => response.url().includes("/api/assets/search") && response.status() === 200,
 					{ timeout: 15_000 },
 				),
 				input.fill("NVDA"),
 			]);
 
 			const dropdown = page.locator("#asset_dropdown");
-			const nvdaOption = dropdown
-				.getByRole("option")
-				.filter({ hasText: "NVDA - NVIDIA" });
+			const nvdaOption = dropdown.getByRole("option").filter({ hasText: "NVDA - NVIDIA" });
 			await expect(nvdaOption).toBeVisible({ timeout: 15_000 });
 			// Logo proxy may fail in CI (dummy API key), so accept logo or "Stock" fallback.
 			await expect(
-				nvdaOption
-					.locator(`img[alt="NVDA logo"]`)
-					.or(nvdaOption.getByText("Stock")),
+				nvdaOption.locator(`img[alt="NVDA logo"]`).or(nvdaOption.getByText("Stock")),
 			).toBeVisible();
 
 			await input.fill("");
@@ -757,25 +686,11 @@ test.describe("sanity tests", () => {
 				.getByRole("button", { name: "Remove VOO" })
 				.click()
 				.catch(() => {});
-			await waitForTrackedAssets(testUserId, ["AAPL", "GOOGL", "MSFT"]).catch(
-				() => {},
-			);
-			await adminClient
-				.from("assets")
-				.update({ icon_url: null })
-				.eq("symbol", "AAPL");
-			await adminClient
-				.from("assets")
-				.update({ icon_url: null })
-				.eq("symbol", "MSFT");
-			await adminClient
-				.from("assets")
-				.update({ icon_url: null })
-				.eq("symbol", "GOOGL");
-			await adminClient
-				.from("assets")
-				.update({ icon_url: null })
-				.eq("symbol", "NVDA");
+			await waitForTrackedAssets(testUserId, ["AAPL", "GOOGL", "MSFT"]).catch(() => {});
+			await adminClient.from("assets").update({ icon_url: null }).eq("symbol", "AAPL");
+			await adminClient.from("assets").update({ icon_url: null }).eq("symbol", "MSFT");
+			await adminClient.from("assets").update({ icon_url: null }).eq("symbol", "GOOGL");
+			await adminClient.from("assets").update({ icon_url: null }).eq("symbol", "NVDA");
 		}
 	});
 
@@ -792,9 +707,7 @@ test.describe("sanity tests", () => {
 			await emailSwitch.click();
 		}
 
-		const marketNotificationsForm = page.locator(
-			'form[aria-label="Market notifications"]',
-		);
+		const marketNotificationsForm = page.locator('form[aria-label="Market notifications"]');
 		const scheduledEmailCheckbox = marketNotificationsForm
 			.getByRole("checkbox", { name: "Email" })
 			.nth(1);
@@ -805,10 +718,7 @@ test.describe("sanity tests", () => {
 		const marketOpenButton = marketNotificationsForm.getByRole("button", {
 			name: /Set delivery time to after US market open/i,
 		});
-		if (
-			(await marketOpenButton.isVisible()) &&
-			(await marketOpenButton.isEnabled())
-		) {
+		if ((await marketOpenButton.isVisible()) && (await marketOpenButton.isEnabled())) {
 			await marketOpenButton.click();
 		}
 
@@ -823,9 +733,7 @@ test.describe("sanity tests", () => {
 						.eq("id", testUserId)
 						.single();
 					if (error) {
-						throw new Error(
-							`Failed to verify email notification preferences: ${error.message}`,
-						);
+						throw new Error(`Failed to verify email notification preferences: ${error.message}`);
 					}
 					return (
 						data.email_notifications_enabled === true &&
@@ -884,9 +792,7 @@ test.describe("sanity tests", () => {
 		const token = createEmailUnsubscribeToken(testUserId, testEmail);
 		const unsubscribeUrl = `${baseOrigin}/email/unsubscribe?user=${encodeURIComponent(testUserId)}&token=${encodeURIComponent(token)}`;
 		await page.goto(unsubscribeUrl);
-		await expect(
-			page.getByText("Email notifications are now turned off."),
-		).toBeVisible();
+		await expect(page.getByText("Email notifications are now turned off.")).toBeVisible();
 
 		await page.goto("/dashboard");
 		const emailSwitch = page.getByRole("switch", {
@@ -906,9 +812,7 @@ test.describe("sanity tests", () => {
 		await page.goto("/dashboard");
 
 		// Verify tracked assets still present
-		await expect(
-			page.getByRole("button", { name: "Remove AAPL" }),
-		).toBeVisible();
+		await expect(page.getByRole("button", { name: "Remove AAPL" })).toBeVisible();
 
 		// Verify email toggle is ON (re-enabled in TC-NOTIF-001)
 		const emailSwitch = page.getByRole("switch", {
@@ -928,12 +832,11 @@ test.describe("sanity tests", () => {
 		await signIn(page, testEmail, testPassword);
 
 		// Verify state persisted
-		await expect(
-			page.getByRole("button", { name: "Remove AAPL" }),
-		).toBeVisible();
-		await expect(
-			page.getByRole("switch", { name: "Email notifications" }),
-		).toHaveAttribute("aria-checked", "true");
+		await expect(page.getByRole("button", { name: "Remove AAPL" })).toBeVisible();
+		await expect(page.getByRole("switch", { name: "Email notifications" })).toHaveAttribute(
+			"aria-checked",
+			"true",
+		);
 	});
 
 	test("TC-PROF-001: User can change password and update email", async () => {
@@ -949,9 +852,7 @@ test.describe("sanity tests", () => {
 		await page.locator("#confirm-password").fill(newPassword);
 		await page.getByRole("button", { name: "Update password" }).click();
 		await expectCurrentPath(page, "/profile");
-		await expect(
-			page.getByText("Password updated successfully!"),
-		).toBeVisible();
+		await expect(page.getByText("Password updated successfully!")).toBeVisible();
 
 		await page.getByRole("button", { name: "Sign Out" }).click();
 		await expectCurrentPath(page, "/");
@@ -962,9 +863,7 @@ test.describe("sanity tests", () => {
 		await page.getByRole("button", { name: "Update email" }).click();
 		await expectCurrentPath(page, "/profile");
 		await expect(
-			page.getByText(
-				"Check your old and new inboxes to confirm the email change.",
-			),
+			page.getByText("Check your old and new inboxes to confirm the email change."),
 		).toBeVisible();
 
 		const [newEmailMessage, oldEmailMessage] = await Promise.all([
@@ -977,8 +876,7 @@ test.describe("sanity tests", () => {
 			...(oldEmailMessage ? extractLinks(oldEmailMessage) : []),
 		];
 		const emailChangeLinks = [...new Set(candidateLinks)].filter(
-			(link) =>
-				link.includes("token_hash=") && link.includes("type=email_change"),
+			(link) => link.includes("token_hash=") && link.includes("type=email_change"),
 		);
 		expect(emailChangeLinks.length).toBeGreaterThan(0);
 
@@ -1066,11 +964,7 @@ test.describe("sanity tests", () => {
 				Body: bodyValue,
 			};
 			const signatureParams = buildInboundSignatureParams(formParams);
-			const signature = computeTwilioSignature(
-				authToken,
-				signatureUrl,
-				signatureParams,
-			);
+			const signature = computeTwilioSignature(authToken, signatureUrl, signatureParams);
 			const body = new URLSearchParams(formParams);
 			return fetch(requestUrl, {
 				method: "POST",

@@ -15,10 +15,7 @@ describe("A signed-in user requests to change their email address.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			"TestPassword123!",
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
 
 		const request = new Request("http://localhost/api/auth/update-email", {
 			method: "POST",
@@ -28,9 +25,7 @@ describe("A signed-in user requests to change their email address.", () => {
 		const response = await POST(createApiContext({ request, cookies }));
 
 		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe(
-			"/profile?success=email_change_requested",
-		);
+		expect(response.headers.get("Location")).toBe("/profile?success=email_change_requested");
 	});
 
 	it("Submitting the same email the user already has is rejected.", async () => {
@@ -41,10 +36,7 @@ describe("A signed-in user requests to change their email address.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			"TestPassword123!",
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
 
 		const request = new Request("http://localhost/api/auth/update-email", {
 			method: "POST",
@@ -54,8 +46,6 @@ describe("A signed-in user requests to change their email address.", () => {
 		const response = await POST(createApiContext({ request, cookies }));
 
 		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe(
-			"/profile?error=email_unchanged",
-		);
+		expect(response.headers.get("Location")).toBe("/profile?error=email_unchanged");
 	});
 });

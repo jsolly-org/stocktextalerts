@@ -82,8 +82,7 @@ export async function fetchAssetEventsUsers(options: {
 				(user) =>
 					!(
 						user.daily_digest_time != null &&
-						(user.daily_digest_include_news_email ||
-							user.daily_digest_include_rumors_email)
+						(user.daily_digest_include_news_email || user.daily_digest_include_rumors_email)
 					),
 			);
 			return { data: filtered, error: null };

@@ -4,9 +4,7 @@ import { getSafeRedirectPath } from "../../../src/lib/auth/redirects";
 describe("getSafeRedirectPath open-redirect protection", () => {
 	it("accepts valid paths and returns trimmed value", () => {
 		expect(getSafeRedirectPath("/dashboard")).toBe("/dashboard");
-		expect(getSafeRedirectPath("/auth/signin?redirect=")).toBe(
-			"/auth/signin?redirect=",
-		);
+		expect(getSafeRedirectPath("/auth/signin?redirect=")).toBe("/auth/signin?redirect=");
 		expect(getSafeRedirectPath("/")).toBe("/");
 	});
 
@@ -24,9 +22,7 @@ describe("getSafeRedirectPath open-redirect protection", () => {
 
 	it("rejects paths containing CRLF to prevent HTTP response splitting", () => {
 		expect(getSafeRedirectPath("/foo\nEvil: bar")).toBeNull();
-		expect(
-			getSafeRedirectPath("/foo\r\nLocation: https://evil.com"),
-		).toBeNull();
+		expect(getSafeRedirectPath("/foo\r\nLocation: https://evil.com")).toBeNull();
 		expect(getSafeRedirectPath("/dashboard\r")).toBeNull();
 	});
 

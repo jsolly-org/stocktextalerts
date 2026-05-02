@@ -108,25 +108,15 @@ describe("A user sees available timezone options consistently.", () => {
 			],
 		});
 
-		const first = await getTimezoneOptions(
-			stub.supabase as unknown as AppSupabaseClient,
-			{ includeValues: ["Etc/UTC"] },
-		);
-		const second = await getTimezoneOptions(
-			stub.supabase as unknown as AppSupabaseClient,
-			{ includeValues: ["Etc/UTC"] },
-		);
+		const first = await getTimezoneOptions(stub.supabase as unknown as AppSupabaseClient, {
+			includeValues: ["Etc/UTC"],
+		});
+		const second = await getTimezoneOptions(stub.supabase as unknown as AppSupabaseClient, {
+			includeValues: ["Etc/UTC"],
+		});
 
-		expect(first.map((tz) => tz.value)).toEqual([
-			"Etc/UTC",
-			"America/New_York",
-			"Europe/London",
-		]);
-		expect(second.map((tz) => tz.value)).toEqual([
-			"Etc/UTC",
-			"America/New_York",
-			"Europe/London",
-		]);
+		expect(first.map((tz) => tz.value)).toEqual(["Etc/UTC", "America/New_York", "Europe/London"]);
+		expect(second.map((tz) => tz.value)).toEqual(["Etc/UTC", "America/New_York", "Europe/London"]);
 		expect(stub.getSelectCount()).toBe(1);
 	});
 
@@ -146,14 +136,8 @@ describe("A user sees available timezone options consistently.", () => {
 			getTimezoneOptions(stub.supabase as unknown as AppSupabaseClient),
 		]);
 
-		expect(first.map((tz) => tz.value)).toEqual([
-			"America/New_York",
-			"Europe/London",
-		]);
-		expect(second.map((tz) => tz.value)).toEqual([
-			"America/New_York",
-			"Europe/London",
-		]);
+		expect(first.map((tz) => tz.value)).toEqual(["America/New_York", "Europe/London"]);
+		expect(second.map((tz) => tz.value)).toEqual(["America/New_York", "Europe/London"]);
 		expect(stub.getSelectCount()).toBe(1);
 	});
 });

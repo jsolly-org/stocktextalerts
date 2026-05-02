@@ -15,18 +15,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ExtendedAssetQuote } from "../../../../src/lib/providers/price-fetcher";
 import { isLiveProviderEnabled } from "../../../helpers/live-api";
-import {
-	clearMailpit,
-	waitForMailpitMessageTo,
-} from "../../../helpers/mailpit";
+import { clearMailpit, waitForMailpitMessageTo } from "../../../helpers/mailpit";
 import { adminClient } from "../../../helpers/test-env";
 import { createTestUser } from "../../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../../helpers/test-user-cleanup";
 
 vi.mock("../../../../src/lib/providers/massive", async () => {
-	const actual = await vi.importActual<
-		typeof import("../../../../src/lib/providers/massive")
-	>("../../../../src/lib/providers/massive");
+	const actual = await vi.importActual<typeof import("../../../../src/lib/providers/massive")>(
+		"../../../../src/lib/providers/massive",
+	);
 	return {
 		...actual,
 		fetchIntradayBars: vi.fn(async () => ({
@@ -59,9 +56,7 @@ vi.mock("../../../../src/lib/providers/price-fetcher", async () => {
 
 import { processFlatPriceAlerts } from "../../../../src/lib/market-notifications/flat-alerts/process";
 
-const describeLiveEmail = isLiveProviderEnabled("email")
-	? describe
-	: describe.skip;
+const describeLiveEmail = isLiveProviderEnabled("email") ? describe : describe.skip;
 
 function makeQuote(overrides: Partial<ExtendedAssetQuote>): ExtendedAssetQuote {
 	return {

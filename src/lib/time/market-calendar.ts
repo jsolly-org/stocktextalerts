@@ -17,19 +17,13 @@ let holidayCache: {
 } | null = null;
 
 /** Fetch and cache upcoming full-day US market closures (NYSE/NASDAQ). */
-async function fetchUsMarketHolidays(): Promise<
-	Map<string, string | undefined>
-> {
+async function fetchUsMarketHolidays(): Promise<Map<string, string | undefined>> {
 	const now = Date.now();
 	if (holidayCache && holidayCache.expiresAt > now) {
 		return holidayCache.holidays;
 	}
 
-	const payload = await marketDataFetch(
-		"/v1/marketstatus/upcoming",
-		{},
-		"market-holidays",
-	);
+	const payload = await marketDataFetch("/v1/marketstatus/upcoming", {}, "market-holidays");
 
 	const holidays = new Map<string, string | undefined>();
 	if (!Array.isArray(payload)) return holidays;

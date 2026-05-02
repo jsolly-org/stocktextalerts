@@ -65,10 +65,7 @@ export async function claimCooldown(
 ): Promise<boolean> {
 	const { data: claimed, error } = await (
 		supabase as unknown as {
-			rpc: (
-				fn: string,
-				args: unknown,
-			) => Promise<{ data: unknown; error: unknown }>;
+			rpc: (fn: string, args: unknown) => Promise<{ data: unknown; error: unknown }>;
 		}
 	).rpc("claim_market_asset_price_alert_slot", {
 		p_user_id: userId,
@@ -78,11 +75,7 @@ export async function claimCooldown(
 	});
 
 	if (error) {
-		rootLogger.error(
-			"Failed to claim price alert trading-day cap",
-			{ userId, symbol },
-			error,
-		);
+		rootLogger.error("Failed to claim price alert trading-day cap", { userId, symbol }, error);
 		return true; // Allow alerting on error (fail open)
 	}
 

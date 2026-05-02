@@ -4,8 +4,7 @@ import { MIN_PASSWORD_LENGTH } from "../../../../src/lib/constants";
 import { POST } from "../../../../src/pages/api/auth/email/register";
 
 vi.mock("../../../../src/lib/constants", async (importOriginal) => {
-	const actual =
-		await importOriginal<typeof import("../../../../src/lib/constants")>();
+	const actual = await importOriginal<typeof import("../../../../src/lib/constants")>();
 	return { ...actual, REGISTRATION_ENABLED: true };
 });
 
@@ -27,9 +26,7 @@ describe("A visitor attempts to register with an invalid password.", () => {
 		const response = await POST(createApiContext({ request }));
 
 		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toContain(
-			"/auth/register?error=weak_password",
-		);
+		expect(response.headers.get("Location")).toContain("/auth/register?error=weak_password");
 	});
 
 	it("The request is rejected when the password and confirmation do not match.", async () => {
@@ -47,8 +44,6 @@ describe("A visitor attempts to register with an invalid password.", () => {
 		const response = await POST(createApiContext({ request }));
 
 		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toContain(
-			"/auth/register?error=password_mismatch",
-		);
+		expect(response.headers.get("Location")).toContain("/auth/register?error=password_mismatch");
 	});
 });

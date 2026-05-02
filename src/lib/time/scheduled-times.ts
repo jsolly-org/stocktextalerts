@@ -125,10 +125,7 @@ export function calculateNextSendAtFromTimes(
  *
  * Returns `null` when the timezone conversion is invalid.
  */
-export function getLocalMinutesFromDateTime(
-	timezone: string,
-	date: DateTime,
-): number | null {
+export function getLocalMinutesFromDateTime(timezone: string, date: DateTime): number | null {
 	const local = date.setZone(timezone);
 	if (!local.isValid) {
 		return null;
@@ -137,16 +134,12 @@ export function getLocalMinutesFromDateTime(
 	return local.hour * 60 + local.minute;
 }
 
-type ScheduledTimesParseResult =
-	| { ok: true; times: number[] }
-	| { ok: false; reason: string };
+type ScheduledTimesParseResult = { ok: true; times: number[] } | { ok: false; reason: string };
 
 /**
  * Parse `<input type="time">` string values into unique minutes-since-midnight values.
  */
-export function parseScheduledTimes(
-	values: string[],
-): ScheduledTimesParseResult {
+export function parseScheduledTimes(values: string[]): ScheduledTimesParseResult {
 	const minutes: number[] = [];
 	for (const value of values) {
 		const parsed = parseTimeToMinutes(value);
@@ -181,11 +174,7 @@ export function computeNextSendAtIso(
 	context: Record<string, unknown>,
 	logger?: Logger,
 ): string {
-	const nextSendAt = calculateNextSendAtFromTimes(
-		times,
-		timezone,
-		DateTime.utc(),
-	);
+	const nextSendAt = calculateNextSendAtFromTimes(times, timezone, DateTime.utc());
 	if (!nextSendAt) {
 		logger?.error("calculateNextSendAtFromTimes returned null", context);
 		throw new Error(
@@ -201,10 +190,7 @@ export function computeNextSendAtIso(
 			nextSendAtIsValid: nextSendAt.isValid,
 			nextSendAtInvalidReason: nextSendAt.invalidReason,
 		};
-		logger?.error(
-			"Failed to format market_scheduled_asset_price_next_send_at to ISO",
-			detail,
-		);
+		logger?.error("Failed to format market_scheduled_asset_price_next_send_at to ISO", detail);
 		throw new Error(
 			`Failed to format market_scheduled_asset_price_next_send_at: ${JSON.stringify(detail)}`,
 		);

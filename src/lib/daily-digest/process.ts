@@ -3,48 +3,29 @@ import { buildAssetEventsContent } from "../asset-events/content";
 import { updateUserAssetEventsNextSendAt } from "../asset-events/next-send-at";
 import type { Logger } from "../logging";
 import { extractErrorMessage } from "../logging/errors";
-import {
-	buildDelayBannerHtml,
-	buildDelayBannerText,
-} from "../messaging/delay-banner";
+import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/delay-banner";
 import type { EmailSender } from "../messaging/email/utils";
 import { safePrefetchLogos } from "../messaging/logo-fetcher";
 import { shouldSendSms } from "../messaging/sms";
 import type { SmsExtras } from "../messaging/sms/delivery";
 import type { SparklineMap } from "../messaging/sparkline";
 import type { UserRecord } from "../messaging/types";
-import {
-	buildNewsContextForGrok,
-	fetchFinnhubExtras,
-} from "../providers/finnhub";
+import { buildNewsContextForGrok, fetchFinnhubExtras } from "../providers/finnhub";
 import type { GrokSectionResult } from "../providers/grok";
-import {
-	generateNewsWithGrok,
-	generateRumorsWithGrok,
-} from "../providers/grok";
-import {
-	fetchSnapshotQuotes,
-	fetchTopMovers,
-	type TopMover,
-} from "../providers/massive";
+import { generateNewsWithGrok, generateRumorsWithGrok } from "../providers/grok";
+import { fetchSnapshotQuotes, fetchTopMovers, type TopMover } from "../providers/massive";
 import {
 	type AssetPriceMap,
 	fetchAssetPrices,
 	fetchMarketStatus,
 	fetchSparklines,
 } from "../providers/price-fetcher";
-import type {
-	ScheduledNotificationTotals,
-	SupabaseAdminClient,
-} from "../schedule/helpers";
+import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { loadUserAssets } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
 import { upsertStagedNotification } from "../staged-notifications/db";
 import type { StagedDailyData } from "../staged-notifications/types";
-import {
-	getUsMarketClosureInfoForInstant,
-	type MarketClosureInfo,
-} from "../time/market-calendar";
+import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market-calendar";
 import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
 import {
 	formatDailyDigestEmail,
@@ -214,8 +195,7 @@ async function updateGrokSendCounter(
 		? DateTime.fromISO(user.grok_window_start, { zone: "utc" })
 		: null;
 	const windowExpired =
-		!windowStart?.isValid ||
-		currentTime.diff(windowStart, "hours").hours >= GROK_WINDOW_HOURS;
+		!windowStart?.isValid || currentTime.diff(windowStart, "hours").hours >= GROK_WINDOW_HOURS;
 
 	const newCount = windowExpired ? 1 : user.grok_sends_in_window + 1;
 	const newWindowStart = windowExpired ? now : user.grok_window_start;
@@ -293,12 +273,8 @@ export async function processDailyDigestUser(options: {
 			userTimezone: user.timezone,
 			use24Hour: user.use_24_hour_time,
 		};
-		const delayBannerText = stageOnly
-			? null
-			: buildDelayBannerText(delayBannerOpts);
-		const delayBannerHtml = stageOnly
-			? null
-			: buildDelayBannerHtml(delayBannerOpts);
+		const delayBannerText = stageOnly ? null : buildDelayBannerText(delayBannerOpts);
+		const delayBannerHtml = stageOnly ? null : buildDelayBannerHtml(delayBannerOpts);
 
 		const hasAnyAssetEventsOption =
 			user.asset_events_include_calendar_email ||
@@ -316,8 +292,7 @@ export async function processDailyDigestUser(options: {
 		const tickers = userAssets.map((s) => s.symbol);
 
 		const needsGrok =
-			user.daily_digest_include_news_email ||
-			user.daily_digest_include_rumors_email;
+			user.daily_digest_include_news_email || user.daily_digest_include_rumors_email;
 		const { grokAllowed } = resolveGrokEligibility(
 			user,
 			needsGrok,
@@ -330,10 +305,8 @@ export async function processDailyDigestUser(options: {
 		const emailEnabled = user.email_notifications_enabled;
 		const smsEnabled = shouldSendSms(user);
 
-		const wantsTopMoversEmail =
-			user.daily_digest_include_top_movers_email && emailEnabled;
-		const wantsTopMoversSms =
-			user.daily_digest_include_top_movers_sms && smsEnabled;
+		const wantsTopMoversEmail = user.daily_digest_include_top_movers_email && emailEnabled;
+		const wantsTopMoversSms = user.daily_digest_include_top_movers_sms && smsEnabled;
 		const wantsTopMovers = wantsTopMoversEmail || wantsTopMoversSms;
 
 		if (!emailEnabled && !smsEnabled) {
@@ -351,8 +324,7 @@ export async function processDailyDigestUser(options: {
 
 		const includePricesEmail = user.daily_digest_include_prices_email;
 		const includePricesSms = user.daily_digest_include_prices_sms;
-		const needsPrices =
-			(includePricesEmail && emailEnabled) || (includePricesSms && smsEnabled);
+		const needsPrices = (includePricesEmail && emailEnabled) || (includePricesSms && smsEnabled);
 
 		let assetPrices: AssetPriceMap = new Map();
 		if (needsPrices && tickers.length > 0) {
@@ -390,9 +362,7 @@ export async function processDailyDigestUser(options: {
 		});
 
 		if (tickers.length > 0 && needsPrices) {
-			const missingTickers = tickers.filter(
-				(ticker) => assetPrices.get(ticker) === null,
-			);
+			const missingTickers = tickers.filter((ticker) => assetPrices.get(ticker) === null);
 			if (missingTickers.length === tickers.length) {
 				logger.error("No price data available for daily digest tickers", {
 					action: "daily_run",
@@ -469,10 +439,7 @@ export async function processDailyDigestUser(options: {
 				? marketClosureInfoParam
 				: await getUsMarketClosureInfoForInstant(closureRefInstant);
 
-		const marketOpen =
-			marketOpenParam !== undefined
-				? marketOpenParam
-				: await fetchMarketStatus();
+		const marketOpen = marketOpenParam !== undefined ? marketOpenParam : await fetchMarketStatus();
 
 		/* =============
 		Fetch Finnhub data (non-blocking — failures omit that section)
@@ -515,15 +482,10 @@ export async function processDailyDigestUser(options: {
 		/* =============
 		Fetch market-wide top movers (email and/or SMS when opted in)
 		============= */
-		const topMoversSection = wantsTopMovers
-			? await buildTopMoversSection()
-			: null;
+		const topMoversSection = wantsTopMovers ? await buildTopMoversSection() : null;
 
 		const mergedCitations = [
-			...new Set([
-				...(newsResult?.citations ?? []),
-				...(rumorsResult?.citations ?? []),
-			]),
+			...new Set([...(newsResult?.citations ?? []), ...(rumorsResult?.citations ?? [])]),
 		];
 		if (mergedCitations.length > 0) {
 			logger.info("Grok citations returned", {
@@ -544,12 +506,8 @@ export async function processDailyDigestUser(options: {
 		).setZone(user.timezone);
 		const localDate = dueAtLocal.toISODate() ?? "";
 
-		let emailAssetEvents: Awaited<
-			ReturnType<typeof buildAssetEventsContent>
-		> | null = null;
-		let smsAssetEvents: Awaited<
-			ReturnType<typeof buildAssetEventsContent>
-		> | null = null;
+		let emailAssetEvents: Awaited<ReturnType<typeof buildAssetEventsContent>> | null = null;
+		let smsAssetEvents: Awaited<ReturnType<typeof buildAssetEventsContent>> | null = null;
 
 		if (hasAnyAssetEventsOption) {
 			const wantsAssetEventsEmail =
@@ -591,17 +549,14 @@ export async function processDailyDigestUser(options: {
 		============= */
 		const buildExtras = (channel: "email" | "sms"): SmsExtras => {
 			const isSms = channel === "sms";
-			const wantsTopMoversForChannel = isSms
-				? wantsTopMoversSms
-				: wantsTopMoversEmail;
+			const wantsTopMoversForChannel = isSms ? wantsTopMoversSms : wantsTopMoversEmail;
 			return {
 				news: isSms ? null : (newsResult?.content ?? null),
 				rumors: isSms ? null : (rumorsResult?.content ?? null),
 				analyst: null,
 				insider: null,
 				topMovers: wantsTopMoversForChannel ? topMoversSection : null,
-				citations:
-					!isSms && mergedCitations.length > 0 ? mergedCitations : undefined,
+				citations: !isSms && mergedCitations.length > 0 ? mergedCitations : undefined,
 			};
 		};
 
@@ -661,8 +616,7 @@ export async function processDailyDigestUser(options: {
 		// handles all post-delivery side-effects using metadata captured below
 		// (grokAllowed, hasAnyAssetEventsOption, shouldUpdateAnalyst, analystMonth).
 		if (stageOnly) {
-			const scheduledForIso =
-				user.daily_digest_next_send_at ?? currentTime.toISO();
+			const scheduledForIso = user.daily_digest_next_send_at ?? currentTime.toISO();
 			if (!scheduledForIso) {
 				logger.error("Cannot determine scheduled_for for daily staging", {
 					userId: user.id,
@@ -702,8 +656,7 @@ export async function processDailyDigestUser(options: {
 					: null;
 
 			const shouldUpdateAnalyst = !!(
-				emailAssetEvents?.shouldUpdateAnalystMonth ||
-				smsAssetEvents?.shouldUpdateAnalystMonth
+				emailAssetEvents?.shouldUpdateAnalystMonth || smsAssetEvents?.shouldUpdateAnalystMonth
 			);
 
 			const stagedData: StagedDailyData = {
@@ -715,9 +668,7 @@ export async function processDailyDigestUser(options: {
 				grokAllowed,
 				hasAnyAssetEventsOption,
 				shouldUpdateAnalyst,
-				analystMonth: shouldUpdateAnalyst
-					? dueAtLocal.toFormat("yyyy-MM")
-					: null,
+				analystMonth: shouldUpdateAnalyst ? dueAtLocal.toFormat("yyyy-MM") : null,
 			};
 
 			const { error: stageError } = await upsertStagedNotification(supabase, {
@@ -728,11 +679,7 @@ export async function processDailyDigestUser(options: {
 			});
 
 			if (stageError) {
-				logger.error(
-					"Failed to stage daily digest notification",
-					{ userId: user.id },
-					stageError,
-				);
+				logger.error("Failed to stage daily digest notification", { userId: user.id }, stageError);
 				stats.skipped++;
 			}
 
@@ -781,14 +728,7 @@ export async function processDailyDigestUser(options: {
 			});
 		}
 
-		await updateGrokSendCounter(
-			user,
-			supabase,
-			grokAllowed,
-			stats,
-			currentTime,
-			logger,
-		);
+		await updateGrokSendCounter(user, supabase, grokAllowed, stats, currentTime, logger);
 
 		/* =============
 		Advance next-send-at for daily + asset events
@@ -811,8 +751,7 @@ export async function processDailyDigestUser(options: {
 
 		// Update analyst sent month if analyst content was included
 		const shouldUpdateAnalyst =
-			emailAssetEvents?.shouldUpdateAnalystMonth ||
-			smsAssetEvents?.shouldUpdateAnalystMonth;
+			emailAssetEvents?.shouldUpdateAnalystMonth || smsAssetEvents?.shouldUpdateAnalystMonth;
 		if (shouldUpdateAnalyst) {
 			const currentMonth = dueAtLocal.toFormat("yyyy-MM");
 			const { error: analystError } = await supabase
@@ -831,11 +770,7 @@ export async function processDailyDigestUser(options: {
 		return stats;
 	} catch (error) {
 		stats.skipped++;
-		logger.error(
-			"Error processing daily digest user",
-			{ userId: user.id },
-			error,
-		);
+		logger.error("Error processing daily digest user", { userId: user.id }, error);
 		/* =============
 		Best-effort reschedule to avoid retry storms on persistent failures.
 		============= */

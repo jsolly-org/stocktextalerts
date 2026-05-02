@@ -6,10 +6,7 @@ import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
 import { createLogger } from "../../../lib/logging";
-import {
-	createErrorForLogging,
-	extractErrorMessage,
-} from "../../../lib/logging/errors";
+import { createErrorForLogging, extractErrorMessage } from "../../../lib/logging/errors";
 import { isOutsideMarketHours } from "../../../lib/time/format";
 import { parseScheduledTimes } from "../../../lib/time/scheduled-times";
 
@@ -78,12 +75,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 
 	const user = await userService.getCurrentUser();
 	if (!user) {
-		logger.info(
-			"Notification-preferences update attempt without authenticated user",
-			{
-				reason: "unauthenticated",
-			},
-		);
+		logger.info("Notification-preferences update attempt without authenticated user", {
+			reason: "unauthenticated",
+		});
 		return jsonResponse(401, { ok: false, message: "unauthorized" });
 	}
 
@@ -105,32 +99,21 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 	const parsed = parseWithSchema(formData, NOTIFICATION_PREFERENCES_SCHEMA);
 
 	if (!parsed.ok) {
-		logger.info(
-			"Notification-preferences update rejected due to invalid form",
-			{
-				userId: user.id,
-				errors: parsed.allErrors,
-			},
-		);
+		logger.info("Notification-preferences update rejected due to invalid form", {
+			userId: user.id,
+			errors: parsed.allErrors,
+		});
 		return jsonResponse(400, { ok: false, message: "invalid_form" });
 	}
 
 	let parsedMarketScheduledAssetPriceTimes: number[] | undefined;
-	if (
-		rawTimesValue !== "" &&
-		parsed.data.market_scheduled_asset_price_times !== undefined
-	) {
-		const result = parseScheduledTimes(
-			parsed.data.market_scheduled_asset_price_times,
-		);
+	if (rawTimesValue !== "" && parsed.data.market_scheduled_asset_price_times !== undefined) {
+		const result = parseScheduledTimes(parsed.data.market_scheduled_asset_price_times);
 		if (!result.ok) {
-			logger.info(
-				"Notification-preferences update rejected due to invalid scheduled times",
-				{
-					userId: user.id,
-					reason: result.reason,
-				},
-			);
+			logger.info("Notification-preferences update rejected due to invalid scheduled times", {
+				userId: user.id,
+				reason: result.reason,
+			});
 			return jsonResponse(400, { ok: false, message: "invalid_form" });
 		}
 		parsedMarketScheduledAssetPriceTimes = result.times;
@@ -166,14 +149,11 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			isOutsideMarketHours(m, tz),
 		);
 		if (invalidTime !== undefined) {
-			logger.info(
-				"Notification-preferences update rejected: scheduled time outside market hours",
-				{
-					userId: user.id,
-					invalidTime,
-					timezone: tz,
-				},
-			);
+			logger.info("Notification-preferences update rejected: scheduled time outside market hours", {
+				userId: user.id,
+				invalidTime,
+				timezone: tz,
+			});
 			return jsonResponse(400, { ok: false, message: "invalid_form" });
 		}
 	}
@@ -182,15 +162,14 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		typeof buildNotificationPreferencesUpdatePayload
 	>;
 	try {
-		safeNotificationPreferenceUpdates =
-			buildNotificationPreferencesUpdatePayload({
-				parsedData: parsed.data,
-				formData,
-				rawTimesValue: rawTimesValue as string | null,
-				parsedMarketScheduledAssetPriceTimes,
-				dbUser,
-				logger,
-			});
+		safeNotificationPreferenceUpdates = buildNotificationPreferencesUpdatePayload({
+			parsedData: parsed.data,
+			formData,
+			rawTimesValue: rawTimesValue as string | null,
+			parsedMarketScheduledAssetPriceTimes,
+			dbUser,
+			logger,
+		});
 	} catch (error) {
 		logger.error(
 			"Notification-preferences update rejected due to invalid update schedule",
@@ -215,9 +194,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		}
 
 		const enablesAnySmsIncludeField = SMS_INCLUDE_FIELDS.some(
-			(field) =>
-				safeNotificationPreferenceUpdates[field] === true &&
-				dbUser[field] !== true,
+			(field) => safeNotificationPreferenceUpdates[field] === true && dbUser[field] !== true,
 		);
 		if (dbUser.sms_opted_out && enablesAnySmsIncludeField) {
 			logger.info("SMS enable rejected: user is sms_opted_out", {
@@ -225,20 +202,14 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			});
 			return jsonResponse(400, { ok: false, message: "sms_opted_out" });
 		}
-		if (
-			enablesAnySmsIncludeField &&
-			(!dbUser.phone_country_code || !dbUser.phone_number)
-		) {
+		if (enablesAnySmsIncludeField && (!dbUser.phone_country_code || !dbUser.phone_number)) {
 			logger.info("SMS notification-preferences enabled without phone number", {
 				userId: user.id,
 			});
 			return jsonResponse(400, { ok: false, message: "phone_not_set" });
 		}
 
-		const updatedUser = await userService.update(
-			user.id,
-			safeNotificationPreferenceUpdates,
-		);
+		const updatedUser = await userService.update(user.id, safeNotificationPreferenceUpdates);
 		if (!updatedUser) {
 			logger.error("User update returned null", { userId: user.id });
 			return jsonResponse(404, { ok: false, message: "user_not_found" });
@@ -248,8 +219,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			ok: true,
 			message: "settings_updated",
 			notificationPreferences: {
-				market_scheduled_asset_price_enabled:
-					updatedUser.market_scheduled_asset_price_enabled,
+				market_scheduled_asset_price_enabled: updatedUser.market_scheduled_asset_price_enabled,
 				market_scheduled_asset_price_include_email:
 					updatedUser.market_scheduled_asset_price_include_email,
 				market_scheduled_asset_price_include_sms:
@@ -259,54 +229,34 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 				sms_opted_out: updatedUser.sms_opted_out,
 				phone_verified: updatedUser.phone_verified,
 				timezone: updatedUser.timezone,
-				market_scheduled_asset_price_times:
-					updatedUser.market_scheduled_asset_price_times,
+				market_scheduled_asset_price_times: updatedUser.market_scheduled_asset_price_times,
 				daily_digest_time: updatedUser.daily_digest_time,
 				daily_digest_next_send_at: updatedUser.daily_digest_next_send_at,
 				market_scheduled_asset_price_next_send_at:
 					updatedUser.market_scheduled_asset_price_next_send_at,
-				dismiss_timezone_mismatch_prompts:
-					updatedUser.dismiss_timezone_mismatch_prompts,
-				daily_digest_include_prices_email:
-					updatedUser.daily_digest_include_prices_email,
-				daily_digest_include_prices_sms:
-					updatedUser.daily_digest_include_prices_sms,
-				daily_digest_include_top_movers_email:
-					updatedUser.daily_digest_include_top_movers_email,
-				daily_digest_include_top_movers_sms:
-					updatedUser.daily_digest_include_top_movers_sms,
-				daily_digest_include_news_email:
-					updatedUser.daily_digest_include_news_email,
-				daily_digest_include_rumors_email:
-					updatedUser.daily_digest_include_rumors_email,
-				asset_events_include_calendar_email:
-					updatedUser.asset_events_include_calendar_email,
-				asset_events_include_calendar_sms:
-					updatedUser.asset_events_include_calendar_sms,
-				asset_events_include_ipo_email:
-					updatedUser.asset_events_include_ipo_email,
+				dismiss_timezone_mismatch_prompts: updatedUser.dismiss_timezone_mismatch_prompts,
+				daily_digest_include_prices_email: updatedUser.daily_digest_include_prices_email,
+				daily_digest_include_prices_sms: updatedUser.daily_digest_include_prices_sms,
+				daily_digest_include_top_movers_email: updatedUser.daily_digest_include_top_movers_email,
+				daily_digest_include_top_movers_sms: updatedUser.daily_digest_include_top_movers_sms,
+				daily_digest_include_news_email: updatedUser.daily_digest_include_news_email,
+				daily_digest_include_rumors_email: updatedUser.daily_digest_include_rumors_email,
+				asset_events_include_calendar_email: updatedUser.asset_events_include_calendar_email,
+				asset_events_include_calendar_sms: updatedUser.asset_events_include_calendar_sms,
+				asset_events_include_ipo_email: updatedUser.asset_events_include_ipo_email,
 				asset_events_include_ipo_sms: updatedUser.asset_events_include_ipo_sms,
-				asset_events_include_analyst_email:
-					updatedUser.asset_events_include_analyst_email,
-				asset_events_include_analyst_sms:
-					updatedUser.asset_events_include_analyst_sms,
-				asset_events_include_insider_email:
-					updatedUser.asset_events_include_insider_email,
-				asset_events_include_insider_sms:
-					updatedUser.asset_events_include_insider_sms,
+				asset_events_include_analyst_email: updatedUser.asset_events_include_analyst_email,
+				asset_events_include_analyst_sms: updatedUser.asset_events_include_analyst_sms,
+				asset_events_include_insider_email: updatedUser.asset_events_include_insider_email,
+				asset_events_include_insider_sms: updatedUser.asset_events_include_insider_sms,
 				asset_events_next_send_at: updatedUser.asset_events_next_send_at,
-				market_asset_price_alerts_enabled:
-					updatedUser.market_asset_price_alerts_enabled,
+				market_asset_price_alerts_enabled: updatedUser.market_asset_price_alerts_enabled,
 				market_asset_price_alerts_include_email:
 					updatedUser.market_asset_price_alerts_include_email,
-				market_asset_price_alerts_include_sms:
-					updatedUser.market_asset_price_alerts_include_sms,
-				market_asset_price_alert_move_size:
-					updatedUser.market_asset_price_alert_move_size,
-				price_move_alerts_include_email:
-					updatedUser.price_move_alerts_include_email,
-				price_move_alerts_include_sms:
-					updatedUser.price_move_alerts_include_sms,
+				market_asset_price_alerts_include_sms: updatedUser.market_asset_price_alerts_include_sms,
+				market_asset_price_alert_move_size: updatedUser.market_asset_price_alert_move_size,
+				price_move_alerts_include_email: updatedUser.price_move_alerts_include_email,
+				price_move_alerts_include_sms: updatedUser.price_move_alerts_include_sms,
 				price_targets_include_email: updatedUser.price_targets_include_email,
 				price_targets_include_sms: updatedUser.price_targets_include_sms,
 			},

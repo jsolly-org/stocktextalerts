@@ -19,9 +19,7 @@ async function ensureAssetsExist(symbols: string[]): Promise<void> {
 			type: assetData.type,
 		};
 	});
-	const { error } = await adminClient
-		.from("assets")
-		.upsert(assetRecords, { onConflict: "symbol" });
+	const { error } = await adminClient.from("assets").upsert(assetRecords, { onConflict: "symbol" });
 	if (error) {
 		throw new Error(`Failed to ensure assets exist: ${error.message}`);
 	}
@@ -48,12 +46,9 @@ export async function updateTrackedAssets(
 	});
 	registerForCleanup?.(testUser.id);
 
-	const { error: confirmError } = await adminClient.auth.admin.updateUserById(
-		testUser.id,
-		{
-			email_confirm: true,
-		},
-	);
+	const { error: confirmError } = await adminClient.auth.admin.updateUserById(testUser.id, {
+		email_confirm: true,
+	});
 	if (confirmError) {
 		throw new Error(`Failed to confirm user: ${confirmError.message}`);
 	}
@@ -66,10 +61,7 @@ export async function updateTrackedAssets(
 		.eq("id", testUser.id)
 		.maybeSingle();
 
-	const cookies = await createAuthenticatedCookies(
-		testUser.email,
-		TEST_PASSWORD,
-	);
+	const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 	await ensureAssetsExist(assetsToUpdate);
 
@@ -81,9 +73,7 @@ export async function updateTrackedAssets(
 		body: formData,
 	});
 
-	const response = await assetsUpdatePost(
-		createApiContext({ request, cookies }),
-	);
+	const response = await assetsUpdatePost(createApiContext({ request, cookies }));
 	const payload = (await response.json()) as { ok: boolean; message: string };
 
 	const { data: trackedAssets } = await adminClient

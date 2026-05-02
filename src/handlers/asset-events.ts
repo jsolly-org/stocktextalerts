@@ -7,10 +7,7 @@ import { createLogger } from "../lib/logging";
 import { createEmailSender } from "../lib/messaging/email/utils";
 import { createSmsSenderProvider } from "../lib/schedule/sms-sender";
 
-export async function handler(
-	_event: ScheduledEvent,
-	_context: Context,
-): Promise<void> {
+export async function handler(_event: ScheduledEvent, _context: Context): Promise<void> {
 	const logger = createLogger({ source: "lambda", function: "asset-events" });
 	const supabase = createSupabaseAdminClient();
 
@@ -100,10 +97,6 @@ export async function handler(
 			...sweepResult,
 		});
 	} catch (error) {
-		logger.error(
-			"Delisting sweep failed",
-			{ action: "daily_delisting_sweep" },
-			error,
-		);
+		logger.error("Delisting sweep failed", { action: "daily_delisting_sweep" }, error);
 	}
 }

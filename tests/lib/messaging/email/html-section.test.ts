@@ -63,8 +63,7 @@ describe("markdownLinksToHtml", () => {
 	});
 
 	it("handles bold text alongside markdown links", () => {
-		const input =
-			"**NVDA**: Nvidia rose 5% [CNBC](https://www.cnbc.com/article)";
+		const input = "**NVDA**: Nvidia rose 5% [CNBC](https://www.cnbc.com/article)";
 
 		const html = markdownLinksToHtml(input);
 

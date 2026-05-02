@@ -2,10 +2,7 @@ import { fetchUsersWithRetry } from "../../db/user-query";
 import type { Logger } from "../../logging";
 import type { UserRecord } from "../../messaging/types";
 import type { SupabaseAdminClient } from "../../schedule/helpers";
-import {
-	HAS_DELIVERY_CHANNEL_OR,
-	MARKET_SCHEDULED_USER_SELECT,
-} from "./select";
+import { HAS_DELIVERY_CHANNEL_OR, MARKET_SCHEDULED_USER_SELECT } from "./select";
 
 /**
  * Fetch users eligible for a scheduled asset price update run.
@@ -37,10 +34,7 @@ export async function fetchMarketScheduledUsers(options: {
 			if (!options.forceSend) {
 				query = query
 					.not("market_scheduled_asset_price_next_send_at", "is", null)
-					.lte(
-						"market_scheduled_asset_price_next_send_at",
-						options.currentTimeIso,
-					);
+					.lte("market_scheduled_asset_price_next_send_at", options.currentTimeIso);
 			}
 
 			const { data, error } = await query;

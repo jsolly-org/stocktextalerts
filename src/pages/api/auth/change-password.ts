@@ -2,10 +2,7 @@ import type { APIRoute } from "astro";
 import { enforceAuthRateLimit } from "../../../lib/auth/enforce-auth-rate-limit";
 import { MIN_PASSWORD_LENGTH } from "../../../lib/constants";
 import { createUserService } from "../../../lib/db";
-import {
-	createSupabaseAdminClient,
-	createSupabaseServerClient,
-} from "../../../lib/db/supabase";
+import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { createLogger } from "../../../lib/logging";
 
@@ -15,22 +12,10 @@ import { createLogger } from "../../../lib/logging";
  * CHANGE_PASSWORD_RATE_LIMIT_MINUTES env vars.
  */
 const CHANGE_PASSWORD_RATE_LIMIT_ATTEMPTS =
-	Number.parseInt(
-		import.meta.env.CHANGE_PASSWORD_RATE_LIMIT_ATTEMPTS ?? "5",
-		10,
-	) || 5;
+	Number.parseInt(import.meta.env.CHANGE_PASSWORD_RATE_LIMIT_ATTEMPTS ?? "5", 10) || 5;
 const CHANGE_PASSWORD_RATE_LIMIT_MINUTES =
-	Number.parseInt(
-		import.meta.env.CHANGE_PASSWORD_RATE_LIMIT_MINUTES ?? "15",
-		10,
-	) || 15;
-export const POST: APIRoute = async ({
-	url,
-	request,
-	redirect,
-	locals,
-	cookies,
-}) => {
+	Number.parseInt(import.meta.env.CHANGE_PASSWORD_RATE_LIMIT_MINUTES ?? "15", 10) || 15;
+export const POST: APIRoute = async ({ url, request, redirect, locals, cookies }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,

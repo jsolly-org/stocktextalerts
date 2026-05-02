@@ -17,10 +17,7 @@ describe("A signed-in user changes their password from profile.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			originalPassword,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, originalPassword);
 
 		const request = new Request("http://localhost/api/auth/change-password", {
 			method: "POST",
@@ -33,14 +30,9 @@ describe("A signed-in user changes their password from profile.", () => {
 		const response = await POST(createApiContext({ request, cookies }));
 
 		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe(
-			"/profile?success=password_changed",
-		);
+		expect(response.headers.get("Location")).toBe("/profile?success=password_changed");
 
-		const newPasswordCookies = await createAuthenticatedCookies(
-			testUser.email,
-			NEW_PASSWORD,
-		);
+		const newPasswordCookies = await createAuthenticatedCookies(testUser.email, NEW_PASSWORD);
 		expect(newPasswordCookies.get("sb-access-token")).toBeTruthy();
 		expect(newPasswordCookies.get("sb-refresh-token")).toBeTruthy();
 	});
@@ -54,10 +46,7 @@ describe("A signed-in user changes their password from profile.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			originalPassword,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, originalPassword);
 
 		const request = new Request("http://localhost/api/auth/change-password", {
 			method: "POST",
@@ -70,9 +59,7 @@ describe("A signed-in user changes their password from profile.", () => {
 		const response = await POST(createApiContext({ request, cookies }));
 
 		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe(
-			"/profile?error=password_mismatch",
-		);
+		expect(response.headers.get("Location")).toBe("/profile?error=password_mismatch");
 	});
 
 	it("Weak passwords are rejected.", async () => {
@@ -84,10 +71,7 @@ describe("A signed-in user changes their password from profile.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			originalPassword,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, originalPassword);
 
 		const request = new Request("http://localhost/api/auth/change-password", {
 			method: "POST",
@@ -100,8 +84,6 @@ describe("A signed-in user changes their password from profile.", () => {
 		const response = await POST(createApiContext({ request, cookies }));
 
 		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe(
-			"/profile?error=weak_password",
-		);
+		expect(response.headers.get("Location")).toBe("/profile?error=weak_password");
 	});
 });

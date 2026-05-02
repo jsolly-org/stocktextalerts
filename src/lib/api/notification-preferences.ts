@@ -1,7 +1,4 @@
-import {
-	isUnauthorizedResponse,
-	redirectToSignIn,
-} from "../auth/session-expired";
+import { isUnauthorizedResponse, redirectToSignIn } from "../auth/session-expired";
 import type { NotificationPreferencesSnapshot } from "../db";
 import { rootLogger } from "../logging";
 
@@ -27,8 +24,7 @@ export async function fetchCurrentNotificationPreferences(): Promise<Notificatio
 				return null;
 			}
 
-			const isExpectedRejection =
-				response.status === 422 || response.status === 429;
+			const isExpectedRejection = response.status === 422 || response.status === 429;
 			const log = isExpectedRejection ? rootLogger.info : rootLogger.error;
 
 			const contentType = response.headers.get("content-type") ?? "";
@@ -83,17 +79,14 @@ export async function fetchCurrentNotificationPreferences(): Promise<Notificatio
 		};
 
 		if (!payload.ok) {
-			rootLogger.error(
-				"Failed to refresh notification-preferences: payload.ok is false",
-				{
-					action: "refresh_notification-preferences",
-					method,
-					url,
-					status: response.status,
-					statusText: response.statusText,
-					payload,
-				},
-			);
+			rootLogger.error("Failed to refresh notification-preferences: payload.ok is false", {
+				action: "refresh_notification-preferences",
+				method,
+				url,
+				status: response.status,
+				statusText: response.statusText,
+				payload,
+			});
 			return null;
 		}
 

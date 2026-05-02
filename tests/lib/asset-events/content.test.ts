@@ -33,21 +33,15 @@ function createAssetEventsSupabase(
 		from(table: string) {
 			if (table === "asset_events") {
 				return buildQueryChain(calendarEvents, (row, filters) => {
-					if (
-						filters.eventTypeIn &&
-						!filters.eventTypeIn.includes(row.event_type)
-					)
-						return false;
-					if (filters.symbolIn && !filters.symbolIn.includes(row.symbol))
-						return false;
+					if (filters.eventTypeIn && !filters.eventTypeIn.includes(row.event_type)) return false;
+					if (filters.symbolIn && !filters.symbolIn.includes(row.symbol)) return false;
 					return true;
 				});
 			}
 
 			if (table === "market_events") {
 				return buildQueryChain(marketEvents, (row, filters) => {
-					if (filters.eventTypeEq && row.event_type !== filters.eventTypeEq)
-						return false;
+					if (filters.eventTypeEq && row.event_type !== filters.eventTypeEq) return false;
 					return true;
 				});
 			}
@@ -95,8 +89,7 @@ function buildQueryChain<T extends { event_date: string }>(
 				lte(_column: string, value: string) {
 					const filtered = rows.filter((row) => {
 						if (!filterFn(row, filters)) return false;
-						if (filters.gteDate && row.event_date < filters.gteDate)
-							return false;
+						if (filters.gteDate && row.event_date < filters.gteDate) return false;
 						if (row.event_date > value) return false;
 						return true;
 					});

@@ -1,14 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
-import {
-	afterAll,
-	afterEach,
-	beforeAll,
-	beforeEach,
-	describe,
-	expect,
-	it,
-} from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { getAssetData } from "../../helpers/asset-data";
 
 function createDbClient(): Client {
@@ -63,10 +55,11 @@ describe("User input is validated against required data format rules.", () => {
 	it("An asset symbol with whitespace is rejected when adding it to the database.", async () => {
 		const realAsset = getAssetData("AAPL");
 		await expect(
-			client.query(
-				"insert into public.assets (symbol, name, type) values ($1, $2, $3)",
-				["A A", realAsset.name, "stock"],
-			),
+			client.query("insert into public.assets (symbol, name, type) values ($1, $2, $3)", [
+				"A A",
+				realAsset.name,
+				"stock",
+			]),
 		).rejects.toMatchObject({
 			code: "23514",
 			constraint: "assets_symbol_no_whitespace",
@@ -104,10 +97,7 @@ describe("User input is validated against required data format rules.", () => {
 			"select set_config('request.jwt.claims', '{\"role\":\"service_role\"}', true)",
 		);
 		await expect(
-			client.query("select public.replace_user_assets($1::uuid, $2::text[])", [
-				userId,
-				["AAPL "],
-			]),
+			client.query("select public.replace_user_assets($1::uuid, $2::text[])", [userId, ["AAPL "]]),
 		).rejects.toMatchObject({
 			code: "23514",
 		});
@@ -130,10 +120,7 @@ describe("User input is validated against required data format rules.", () => {
 			"select set_config('request.jwt.claims', '{\"role\":\"service_role\"}', true)",
 		);
 		await expect(
-			client.query("select public.replace_user_assets($1::uuid, $2::text[])", [
-				userId,
-				["aapl"],
-			]),
+			client.query("select public.replace_user_assets($1::uuid, $2::text[])", [userId, ["aapl"]]),
 		).rejects.toMatchObject({
 			code: "23514",
 		});
@@ -179,10 +166,11 @@ describe("User input is validated against required data format rules.", () => {
 
 	it("An asset with an invalid type is rejected by the database.", async () => {
 		await expect(
-			client.query(
-				"insert into public.assets (symbol, name, type) values ($1, $2, $3)",
-				["TESTMF", "Test Mutual Fund", "mutual_fund"],
-			),
+			client.query("insert into public.assets (symbol, name, type) values ($1, $2, $3)", [
+				"TESTMF",
+				"Test Mutual Fund",
+				"mutual_fund",
+			]),
 		).rejects.toMatchObject({
 			code: "23514",
 		});
@@ -207,10 +195,11 @@ describe("User input is validated against required data format rules.", () => {
 
 	it("A user cannot be marked phone_verified without a phone number.", async () => {
 		await expect(
-			client.query(
-				"insert into public.users (id, email, phone_verified) values ($1, $2, $3)",
-				[randomUUID(), `test-${randomUUID()}@example.com`, true],
-			),
+			client.query("insert into public.users (id, email, phone_verified) values ($1, $2, $3)", [
+				randomUUID(),
+				`test-${randomUUID()}@example.com`,
+				true,
+			]),
 		).rejects.toMatchObject({
 			code: "23514",
 			constraint: "users_phone_verified_requires_phone",

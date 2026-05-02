@@ -28,10 +28,7 @@ export function parseWithSchema<TSchema extends FormSchema, TResult>(
 	schema: TSchema,
 	transform?: (data: InferSchema<TSchema>) => TResult,
 ): ParseOutcome<InferSchema<TSchema> | TResult> {
-	const { keys, rawData, validationErrors } = readRawSchemaData(
-		formData,
-		schema,
-	);
+	const { keys, rawData, validationErrors } = readRawSchemaData(formData, schema);
 
 	if (validationErrors.length > 0) {
 		return {

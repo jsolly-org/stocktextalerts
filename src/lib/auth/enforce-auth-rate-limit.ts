@@ -1,10 +1,7 @@
 import type { AppSupabaseClient } from "../db/supabase";
 import type { Logger } from "../logging";
 
-type AuthRateLimitEndpoint =
-	| "change_password"
-	| "change_email"
-	| "delete_account";
+type AuthRateLimitEndpoint = "change_password" | "change_email" | "delete_account";
 
 /**
  * Checks auth rate limit via check_rate_limit RPC. Returns a redirect Response
@@ -19,30 +16,21 @@ export async function enforceAuthRateLimit(params: {
 	logger: Logger;
 	contextLabel: string;
 }): Promise<Response | null> {
-	const {
-		adminSupabase,
-		userId,
-		endpoint,
-		maxRequests,
-		windowMinutes,
-		logger,
-		contextLabel,
-	} = params;
+	const { adminSupabase, userId, endpoint, maxRequests, windowMinutes, logger, contextLabel } =
+		params;
 
-	const { data: rateLimitAllowed, error: rateLimitError } =
-		await adminSupabase.rpc("check_rate_limit", {
+	const { data: rateLimitAllowed, error: rateLimitError } = await adminSupabase.rpc(
+		"check_rate_limit",
+		{
 			p_user_id: userId,
 			p_endpoint: endpoint,
 			p_max_requests: maxRequests,
 			p_window_minutes: windowMinutes,
-		});
+		},
+	);
 
 	if (rateLimitError) {
-		logger.error(
-			`Rate limit check failed for ${contextLabel}`,
-			{ userId },
-			rateLimitError,
-		);
+		logger.error(`Rate limit check failed for ${contextLabel}`, { userId }, rateLimitError);
 		return new Response(null, {
 			status: 302,
 			headers: { Location: "/profile?error=failed" },

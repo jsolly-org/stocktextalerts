@@ -7,15 +7,12 @@ describe("A user requests a password reset email from the forgot password form."
 	it("A reset email request is accepted and the user sees a success confirmation.", async () => {
 		const email = createTestEmail("forgot-pw");
 
-		const request = new Request(
-			"http://localhost/api/auth/email/forgot-password",
-			{
-				method: "POST",
-				body: new URLSearchParams({
-					email,
-				}),
-			},
-		);
+		const request = new Request("http://localhost/api/auth/email/forgot-password", {
+			method: "POST",
+			body: new URLSearchParams({
+				email,
+			}),
+		});
 
 		const response = await POST(createApiContext({ request }));
 

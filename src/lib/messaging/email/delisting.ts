@@ -21,9 +21,7 @@ export function summaryText(holdings: DelistedHolding[]): string {
 		holdings.length === 1
 			? `Delisted: ${pieces[0]}`
 			: `Delisted ${holdings.length} holdings: ${pieces.join(", ")}`;
-	return full.length <= MAX_SUMMARY_LENGTH
-		? full
-		: `${full.slice(0, MAX_SUMMARY_LENGTH - 1)}…`;
+	return full.length <= MAX_SUMMARY_LENGTH ? full : `${full.slice(0, MAX_SUMMARY_LENGTH - 1)}…`;
 }
 
 /**
@@ -38,9 +36,7 @@ export function formatDelistingEmail(
 ): { subject: string; text: string; html: string } {
 	const first = holdings[0];
 	if (!first) {
-		throw new Error(
-			"formatDelistingEmail requires at least one delisted holding",
-		);
+		throw new Error("formatDelistingEmail requires at least one delisted holding");
 	}
 
 	const urls = buildEmailUrls(user.id, user.email, "assets");

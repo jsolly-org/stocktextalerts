@@ -44,11 +44,7 @@ function setupMocks(options: {
 	}>;
 	prices?: Map<string, { price: number; changePercent: number } | null>;
 }) {
-	const {
-		user = { id: "user-1" },
-		watchlist = [],
-		prices = new Map(),
-	} = options;
+	const { user = { id: "user-1" }, watchlist = [], prices = new Map() } = options;
 	const supabaseMock = {
 		from: () => ({
 			upsert: () => Promise.resolve({ error: null }),
@@ -73,24 +69,18 @@ describe("Price target save API rejects unauthorized or invalid requests", () =>
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		const mod = await import("../../../src/pages/api/price-targets/save");
-		handler = mod.POST as (
-			ctx: ReturnType<typeof createApiContext>,
-		) => Promise<Response>;
+		handler = mod.POST as (ctx: ReturnType<typeof createApiContext>) => Promise<Response>;
 	});
 
 	it("An unauthenticated user receives 401", async () => {
 		setupMocks({ user: null });
-		const response = await handler(
-			makeContext({ symbol: "AAPL", target_price: 200 }),
-		);
+		const response = await handler(makeContext({ symbol: "AAPL", target_price: 200 }));
 		expect(response.status).toBe(401);
 	});
 
 	it("A request with missing symbol receives 400", async () => {
 		setupMocks({});
-		const response = await handler(
-			makeContext({ symbol: "", target_price: 200 }),
-		);
+		const response = await handler(makeContext({ symbol: "", target_price: 200 }));
 		expect(response.status).toBe(400);
 		const data = await response.json();
 		expect(data).toMatchObject({ message: expect.any(String) });
@@ -98,9 +88,7 @@ describe("Price target save API rejects unauthorized or invalid requests", () =>
 
 	it("A request with symbol longer than 10 chars receives 400 invalid_symbol", async () => {
 		setupMocks({});
-		const response = await handler(
-			makeContext({ symbol: "ABCDEFGHIJK", target_price: 200 }),
-		);
+		const response = await handler(makeContext({ symbol: "ABCDEFGHIJK", target_price: 200 }));
 		expect(response.status).toBe(400);
 		const data = await response.json();
 		expect(data.message).toBe("invalid_symbol");
@@ -121,9 +109,7 @@ describe("Price target save API rejects unauthorized or invalid requests", () =>
 
 	it("A request with invalid target_price receives 400", async () => {
 		setupMocks({});
-		const response = await handler(
-			makeContext({ symbol: "AAPL", target_price: -5 }),
-		);
+		const response = await handler(makeContext({ symbol: "AAPL", target_price: -5 }));
 		expect(response.status).toBe(400);
 		const data = await response.json();
 		expect(data).toMatchObject({ message: expect.any(String) });
@@ -131,9 +117,7 @@ describe("Price target save API rejects unauthorized or invalid requests", () =>
 
 	it("A request with zero target_price receives 400", async () => {
 		setupMocks({});
-		const response = await handler(
-			makeContext({ symbol: "AAPL", target_price: 0 }),
-		);
+		const response = await handler(makeContext({ symbol: "AAPL", target_price: 0 }));
 		expect(response.status).toBe(400);
 		const data = await response.json();
 		expect(data).toMatchObject({ message: expect.any(String) });
@@ -152,9 +136,7 @@ describe("Price target save API rejects unauthorized or invalid requests", () =>
 			],
 			prices: new Map([["AAPL", { price: 195, changePercent: 1 }]]),
 		});
-		const response = await handler(
-			makeContext({ symbol: "AAPL", target_price: 200 }),
-		);
+		const response = await handler(makeContext({ symbol: "AAPL", target_price: 200 }));
 		expect(response.status).toBe(400);
 		const data = await response.json();
 		expect(data.message).toBe("symbol_not_in_watchlist");
@@ -173,9 +155,7 @@ describe("Price target save API rejects unauthorized or invalid requests", () =>
 			],
 			prices: new Map([["AAPL", { price: 200, changePercent: 1 }]]),
 		});
-		const response = await handler(
-			makeContext({ symbol: "AAPL", target_price: 200 }),
-		);
+		const response = await handler(makeContext({ symbol: "AAPL", target_price: 200 }));
 		expect(response.status).toBe(400);
 		const data = await response.json();
 		expect(data.message).toBe("target_equals_current");

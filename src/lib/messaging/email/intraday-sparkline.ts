@@ -1,8 +1,5 @@
 import { DateTime } from "luxon";
-import {
-	US_MARKET_OPEN_EASTERN_MINUTES,
-	US_MARKET_TIMEZONE,
-} from "../../constants";
+import { US_MARKET_OPEN_EASTERN_MINUTES, US_MARKET_TIMEZONE } from "../../constants";
 import { getChangeColor } from "../asset-formatting";
 import { type SparklineTimeLabel, toSvgSparklineImg } from "../svg-sparkline";
 
@@ -16,9 +13,7 @@ export function formatCompactTime(totalMinutes: number, is24: boolean): string {
 	}
 	const h12 = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24;
 	const period = h24 >= 12 ? "p" : "a";
-	return m === 0
-		? `${h12}${period}`
-		: `${h12}:${String(m).padStart(2, "0")}${period}`;
+	return m === 0 ? `${h12}${period}` : `${h12}:${String(m).padStart(2, "0")}${period}`;
 }
 
 /** Market-open timestamp (ms) for the calendar day of the given timestamp, in ET. */
@@ -94,12 +89,10 @@ export function renderIntradaySparklineImg(options: {
 	const openPrice = intradayCloses[0];
 	const lastPrice = intradayCloses[intradayCloses.length - 1];
 	if (openPrice === undefined || lastPrice === undefined) return "";
-	const changePercent =
-		openPrice === 0 ? 0 : ((lastPrice - openPrice) / openPrice) * 100;
+	const changePercent = openPrice === 0 ? 0 : ((lastPrice - openPrice) / openPrice) * 100;
 	const color = getChangeColor(changePercent);
 	const timeLabels = buildIntradayTimeLabels(is24, endTimestampMs);
-	const marketOpenMs =
-		endTimestampMs != null ? getMarketOpenTimestampMs(endTimestampMs) : null;
+	const marketOpenMs = endTimestampMs != null ? getMarketOpenTimestampMs(endTimestampMs) : null;
 	const timeAxis =
 		timestamps &&
 		timestamps.length === intradayCloses.length &&

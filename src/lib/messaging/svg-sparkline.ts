@@ -111,8 +111,7 @@ export function toSvgSparklineImg(
 				`<line x1="${x.toFixed(1)}" y1="${axisY}" x2="${x.toFixed(1)}" y2="${axisY + TICK_HEIGHT}" stroke="${LABEL_COLOR}" stroke-width="0.5"/>`,
 			);
 			// Text anchor: first=start, last=end, middle=middle
-			const anchor =
-				i === 0 ? "start" : i === timeLabels.length - 1 ? "end" : "middle";
+			const anchor = i === 0 ? "start" : i === timeLabels.length - 1 ? "end" : "middle";
 			svgParts.push(
 				`<text x="${x.toFixed(1)}" y="${axisY + AXIS_HEIGHT - 1}" font-family="sans-serif" font-size="${LABEL_FONT_SIZE}" fill="${LABEL_COLOR}" text-anchor="${anchor}">${escapeHtml(tl.label)}</text>`,
 			);
@@ -122,9 +121,6 @@ export function toSvgSparklineImg(
 	svgParts.push(`</svg>`);
 	const svg = svgParts.join("");
 
-	const base64 =
-		typeof btoa === "function"
-			? btoa(svg)
-			: Buffer.from(svg).toString("base64");
+	const base64 = typeof btoa === "function" ? btoa(svg) : Buffer.from(svg).toString("base64");
 	return `<img src="data:image/svg+xml;base64,${base64}" alt="${escapeHtml(alt)}" width="${width}" height="${totalHeight}" style="vertical-align: middle;" />`;
 }

@@ -90,11 +90,7 @@ export async function sendVerification(
 
 		return { success: true };
 	} catch (error) {
-		return handleTwilioError(
-			error,
-			"Failed to send verification",
-			"Verification send error",
-		);
+		return handleTwilioError(error, "Failed to send verification", "Verification send error");
 	}
 }
 
@@ -126,10 +122,6 @@ export async function checkVerification(
 
 		return { success: false, error: "Invalid verification code" };
 	} catch (error) {
-		return handleTwilioError(
-			error,
-			"Failed to check verification",
-			"Verification check error",
-		);
+		return handleTwilioError(error, "Failed to check verification", "Verification check error");
 	}
 }

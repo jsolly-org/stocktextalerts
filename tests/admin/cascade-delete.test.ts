@@ -17,9 +17,7 @@ describe("Deleting an auth user cascades to application data.", () => {
 			expect(before).not.toBeNull();
 
 			// Delete only the auth user — the trigger should cascade
-			const { error: deleteError } = await adminClient.auth.admin.deleteUser(
-				testUser.id,
-			);
+			const { error: deleteError } = await adminClient.auth.admin.deleteUser(testUser.id);
 			expect(deleteError).toBeNull();
 
 			// The public.users row should now be gone
@@ -55,9 +53,7 @@ describe("Deleting an auth user cascades to application data.", () => {
 			expect(assetsBefore).toHaveLength(2);
 
 			// Delete only the auth user
-			const { error: deleteError } = await adminClient.auth.admin.deleteUser(
-				testUser.id,
-			);
+			const { error: deleteError } = await adminClient.auth.admin.deleteUser(testUser.id);
 			expect(deleteError).toBeNull();
 
 			// Both public.users and user_assets should be gone

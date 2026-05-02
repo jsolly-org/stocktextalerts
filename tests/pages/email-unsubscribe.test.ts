@@ -5,11 +5,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { createEmailUnsubscribeToken } from "../../src/lib/messaging/email/unsubscribe";
 import EmailUnsubscribePage from "../../src/pages/email/unsubscribe.astro";
 import { adminClient } from "../helpers/test-env";
-import {
-	createTestEmail,
-	createTestUser,
-	generateUniquePhoneNumber,
-} from "../helpers/test-user";
+import { createTestEmail, createTestUser, generateUniquePhoneNumber } from "../helpers/test-user";
 import { registerTestUserForCleanup } from "../helpers/test-user-cleanup";
 
 describe("A user clicks the email unsubscribe link.", () => {
@@ -50,9 +46,7 @@ describe("A user clicks the email unsubscribe link.", () => {
 
 		const { data: updated, error } = await adminClient
 			.from("users")
-			.select(
-				"email_notifications_enabled,market_scheduled_asset_price_include_sms",
-			)
+			.select("email_notifications_enabled,market_scheduled_asset_price_include_sms")
 			.eq("id", user.id)
 			.maybeSingle();
 
@@ -87,9 +81,7 @@ describe("A user clicks the email unsubscribe link.", () => {
 
 		const { data: updated, error } = await adminClient
 			.from("users")
-			.select(
-				"email_notifications_enabled,market_scheduled_asset_price_include_sms",
-			)
+			.select("email_notifications_enabled,market_scheduled_asset_price_include_sms")
 			.eq("id", user.id)
 			.maybeSingle();
 
@@ -160,9 +152,7 @@ describe("A user clicks the email unsubscribe link.", () => {
 
 		const { data: updated, error } = await adminClient
 			.from("users")
-			.select(
-				"email_notifications_enabled,market_scheduled_asset_price_include_sms",
-			)
+			.select("email_notifications_enabled,market_scheduled_asset_price_include_sms")
 			.eq("id", user.id)
 			.maybeSingle();
 

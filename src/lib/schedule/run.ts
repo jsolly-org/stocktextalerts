@@ -39,18 +39,12 @@ import {
 	type FlatPriceAlertTotals,
 	processFlatPriceAlerts,
 } from "../market-notifications/flat-alerts/process";
-import {
-	type PriceAlertTotals,
-	processPriceAlerts,
-} from "../market-notifications/process";
+import { type PriceAlertTotals, processPriceAlerts } from "../market-notifications/process";
 import { processMarketScheduledUser } from "../market-notifications/scheduled/process";
 import { fetchMarketScheduledUsers } from "../market-notifications/scheduled/query";
 import { purgeOldAssetSnapshots } from "../market-notifications/snapshot-store";
 import { createEmailSender } from "../messaging/email/utils";
-import {
-	type PriceTargetTotals,
-	processPriceTargets,
-} from "../price-targets/process";
+import { type PriceTargetTotals, processPriceTargets } from "../price-targets/process";
 import {
 	type AssetPriceMap,
 	type ExtendedQuoteMap,
@@ -63,10 +57,7 @@ import {
 	precomputeMarketScheduled,
 } from "../staged-notifications/precompute";
 import { toIsoOrThrow } from "../time/format";
-import {
-	getUsMarketClosureInfoForInstant,
-	type MarketClosureInfo,
-} from "../time/market-calendar";
+import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market-calendar";
 import {
 	batchLoadUserAssets,
 	type ScheduledNotificationTotals,
@@ -124,17 +115,13 @@ async function runPass(options: {
 	/** When true, run asset events processing (only in the first pass). */
 	includeAssetEvents: boolean;
 }): Promise<ScheduledNotificationTotals> {
-	const { supabase, logger, sendEmail, getSmsSender, priceAlertQuoteMap } =
-		options;
+	const { supabase, logger, sendEmail, getSmsSender, priceAlertQuoteMap } = options;
 
 	// Use actual UTC time — NOT rounded to end-of-minute like the old single-pass approach.
 	// Users set times at minute granularity so next_send_at is always at :00 seconds.
 	// The two-pass system at ~:00 and ~:30 naturally covers the full minute window.
 	const currentTime = DateTime.utc();
-	const currentTimeIso = toIsoOrThrow(
-		currentTime,
-		"Failed to format UTC ISO string",
-	);
+	const currentTimeIso = toIsoOrThrow(currentTime, "Failed to format UTC ISO string");
 
 	/* ============= Phase 1: DELIVER staged ============= */
 	let stagedStats = { ...EMPTY_TOTALS };
@@ -150,11 +137,7 @@ async function runPass(options: {
 		stagedStats = staged.stats;
 		deliveredUserTypes = staged.deliveredUserTypes;
 
-		if (
-			stagedStats.emailsSent > 0 ||
-			stagedStats.smsSent > 0 ||
-			stagedStats.skipped > 0
-		) {
+		if (stagedStats.emailsSent > 0 || stagedStats.smsSent > 0 || stagedStats.skipped > 0) {
 			logger.info("Staged notifications delivered", {
 				action: "staged_deliver",
 				...stagedStats,
@@ -194,12 +177,8 @@ async function runPass(options: {
 
 	// Filter out users already delivered from staging so we don't double-send.
 	// The deliveredUserTypes set uses "userId:type" keys (e.g. "abc-123:market").
-	const fallbackMarketUsers = marketUsers.filter(
-		(u) => !deliveredUserTypes.has(`${u.id}:market`),
-	);
-	const fallbackDailyUsers = dailyUsers.filter(
-		(u) => !deliveredUserTypes.has(`${u.id}:daily`),
-	);
+	const fallbackMarketUsers = marketUsers.filter((u) => !deliveredUserTypes.has(`${u.id}:market`));
+	const fallbackDailyUsers = dailyUsers.filter((u) => !deliveredUserTypes.has(`${u.id}:daily`));
 
 	// Batch-load user assets for market + asset-events users first (single query).
 	// Derive unique symbols from the map for price fetching to avoid a redundant DB round-trip.
@@ -229,9 +208,7 @@ async function runPass(options: {
 	// Collect unique asset symbols across scheduled users and fetch prices in batch
 	let priceMap: AssetPriceMap = new Map();
 	const hasAnyUsers =
-		fallbackMarketUsers.length > 0 ||
-		fallbackDailyUsers.length > 0 ||
-		assetEventsUsers.length > 0;
+		fallbackMarketUsers.length > 0 || fallbackDailyUsers.length > 0 || assetEventsUsers.length > 0;
 	const marketStatusPromise = hasAnyUsers ? fetchMarketStatus() : null;
 
 	if (fallbackMarketUsers.length > 0) {
@@ -295,15 +272,8 @@ async function runPass(options: {
 	const results: ScheduledNotificationTotals[] = [];
 
 	// Process fallback market users
-	for (
-		let index = 0;
-		index < fallbackMarketUsers.length;
-		index += USER_PROCESS_BATCH_SIZE
-	) {
-		const batch = fallbackMarketUsers.slice(
-			index,
-			index + USER_PROCESS_BATCH_SIZE,
-		);
+	for (let index = 0; index < fallbackMarketUsers.length; index += USER_PROCESS_BATCH_SIZE) {
+		const batch = fallbackMarketUsers.slice(index, index + USER_PROCESS_BATCH_SIZE);
 		const batchResults = await Promise.all(
 			batch.map((user) =>
 				processMarketScheduledUser({
@@ -324,15 +294,8 @@ async function runPass(options: {
 	}
 
 	// In-process: process asset events users in batches (first pass only)
-	for (
-		let index = 0;
-		index < assetEventsUsers.length;
-		index += USER_PROCESS_BATCH_SIZE
-	) {
-		const batch = assetEventsUsers.slice(
-			index,
-			index + USER_PROCESS_BATCH_SIZE,
-		);
+	for (let index = 0; index < assetEventsUsers.length; index += USER_PROCESS_BATCH_SIZE) {
+		const batch = assetEventsUsers.slice(index, index + USER_PROCESS_BATCH_SIZE);
 		const batchResults = await Promise.all(
 			batch.map((user) =>
 				processAssetEventsUser({
@@ -352,15 +315,8 @@ async function runPass(options: {
 
 	// Fan-out: dispatch each fallback daily user to its own serverless function
 	if (fallbackDailyUsers.length > 0) {
-		for (
-			let index = 0;
-			index < fallbackDailyUsers.length;
-			index += DAILY_DISPATCH_BATCH_SIZE
-		) {
-			const batch = fallbackDailyUsers.slice(
-				index,
-				index + DAILY_DISPATCH_BATCH_SIZE,
-			);
+		for (let index = 0; index < fallbackDailyUsers.length; index += DAILY_DISPATCH_BATCH_SIZE) {
+			const batch = fallbackDailyUsers.slice(index, index + DAILY_DISPATCH_BATCH_SIZE);
 			const dispatchResults = await Promise.allSettled(
 				batch.map((user) =>
 					dispatchDailyDigestUser({
@@ -415,11 +371,7 @@ async function runPass(options: {
 			});
 		}
 	} catch (error) {
-		logger.error(
-			"Pre-compute phase failed (non-fatal)",
-			{ action: "precompute" },
-			error,
-		);
+		logger.error("Pre-compute phase failed (non-fatal)", { action: "precompute" }, error);
 	}
 
 	return mergeTotals(stagedStats, fallbackTotals);
@@ -475,11 +427,7 @@ export async function runScheduledNotifications(options: {
 			});
 		}
 	} catch (error) {
-		logger.error(
-			"Price alerts processing failed (non-fatal)",
-			{ action: "price_alerts" },
-			error,
-		);
+		logger.error("Price alerts processing failed (non-fatal)", { action: "price_alerts" }, error);
 	}
 
 	// Run price target checks — piggybacks on the same market-hours window.
@@ -499,11 +447,7 @@ export async function runScheduledNotifications(options: {
 			});
 		}
 	} catch (error) {
-		logger.error(
-			"Price targets processing failed (non-fatal)",
-			{ action: "price_targets" },
-			error,
-		);
+		logger.error("Price targets processing failed (non-fatal)", { action: "price_targets" }, error);
 	}
 
 	// Run flat price alerts — own state, own users, own emails; shares the

@@ -8,10 +8,7 @@ import {
 } from "../providers/price-fetcher";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 import { createSmsSenderProvider } from "../schedule/sms-sender";
-import {
-	deliverPriceTargetAlert,
-	type PriceTargetDeliveryStats,
-} from "./delivery";
+import { deliverPriceTargetAlert, type PriceTargetDeliveryStats } from "./delivery";
 
 export interface PriceTargetUser {
 	id: string;
@@ -84,11 +81,7 @@ export async function processPriceTargets(options: {
 	}>);
 
 	if (targetsError) {
-		rootLogger.error(
-			"Failed to fetch price targets",
-			{ action: "price_targets" },
-			targetsError,
-		);
+		rootLogger.error("Failed to fetch price targets", { action: "price_targets" }, targetsError);
 		return totals;
 	}
 
@@ -109,11 +102,7 @@ export async function processPriceTargets(options: {
 	}>);
 
 	if (usersError) {
-		rootLogger.error(
-			"Failed to fetch price target users",
-			{ action: "price_targets" },
-			usersError,
-		);
+		rootLogger.error("Failed to fetch price target users", { action: "price_targets" }, usersError);
 		return totals;
 	}
 

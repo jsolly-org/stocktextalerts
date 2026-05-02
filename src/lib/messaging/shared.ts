@@ -27,11 +27,7 @@ export async function recordNotification(
 	const { error } = await supabase.from("notification_log").insert(insert);
 
 	if (error) {
-		rootLogger.error(
-			"Failed to record notification",
-			{ user_id: insert.user_id ?? null },
-			error,
-		);
+		rootLogger.error("Failed to record notification", { user_id: insert.user_id ?? null }, error);
 		return false;
 	}
 

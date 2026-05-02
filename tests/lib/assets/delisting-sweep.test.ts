@@ -9,10 +9,7 @@ import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runDelistingSweep } from "../../../src/lib/assets/delisting-sweep";
 import { rootLogger } from "../../../src/lib/logging";
-import type {
-	EmailRequest,
-	EmailSender,
-} from "../../../src/lib/messaging/email/utils";
+import type { EmailRequest, EmailSender } from "../../../src/lib/messaging/email/utils";
 import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import type { DeliveryResult } from "../../../src/lib/messaging/types";
 import type { TickerReferenceStatus } from "../../../src/lib/providers/massive";
@@ -120,9 +117,7 @@ async function deleteAsset(symbol: string): Promise<void> {
 }
 
 async function attachUserAsset(userId: string, symbol: string): Promise<void> {
-	const { error } = await adminClient
-		.from("user_assets")
-		.insert({ user_id: userId, symbol });
+	const { error } = await adminClient.from("user_assets").insert({ user_id: userId, symbol });
 	if (error) throw new Error(`attachUserAsset failed: ${error.message}`);
 }
 
@@ -144,10 +139,7 @@ describe("runDelistingSweep", () => {
 		const activeSymbol = `${TEST_PREFIX}B`;
 		createdSymbols.push(delistedSymbol, activeSymbol);
 
-		await insertAsset(
-			delistedSymbol,
-			"Test Failed SPAC Acquisition Corp - Class A",
-		);
+		await insertAsset(delistedSymbol, "Test Failed SPAC Acquisition Corp - Class A");
 		await insertAsset(activeSymbol, "Test Healthy Company Inc");
 
 		const user = await createTestUser({
@@ -213,9 +205,7 @@ describe("runDelistingSweep", () => {
 			.from("assets")
 			.select("symbol, delisted_at")
 			.in("symbol", [delistedSymbol, activeSymbol]);
-		const bySymbol = new Map(
-			(assetRows ?? []).map((r) => [r.symbol, r.delisted_at]),
-		);
+		const bySymbol = new Map((assetRows ?? []).map((r) => [r.symbol, r.delisted_at]));
 		expect(bySymbol.get(delistedSymbol)).toBe("2026-03-27T00:00:00+00:00");
 		expect(bySymbol.get(activeSymbol)).toBeNull();
 
@@ -252,11 +242,7 @@ describe("runDelistingSweep", () => {
 	});
 
 	it("Consolidates multiple delisted holdings into a single email.", async () => {
-		const symbolsToDelist = [
-			`${TEST_PREFIX}M1`,
-			`${TEST_PREFIX}M2`,
-			`${TEST_PREFIX}M3`,
-		];
+		const symbolsToDelist = [`${TEST_PREFIX}M1`, `${TEST_PREFIX}M2`, `${TEST_PREFIX}M3`];
 		for (const s of symbolsToDelist) {
 			createdSymbols.push(s);
 			await insertAsset(s, `Test Multi Holding ${s}`);

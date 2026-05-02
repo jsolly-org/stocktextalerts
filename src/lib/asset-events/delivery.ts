@@ -9,21 +9,12 @@ import {
 	buildMarketClosedBannerHtml,
 	buildMarketClosedBannerText,
 } from "../messaging/market-closure-banner";
-import {
-	deliveryResultToLogFields,
-	recordNotification,
-} from "../messaging/shared";
+import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import type { UserRecord } from "../messaging/types";
-import type {
-	ScheduledNotificationTotals,
-	SupabaseAdminClient,
-} from "../schedule/helpers";
-import {
-	claimNotification,
-	updateScheduledNotificationRow,
-} from "../schedule/helpers";
+import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
+import { claimNotification, updateScheduledNotificationRow } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
 import type { MarketClosureInfo } from "../time/market-calendar";
 
@@ -53,9 +44,7 @@ function formatAssetEventsSmsMessage(options: {
 	}
 
 	if (options.marketClosureInfo) {
-		parts.push(
-			buildMarketClosedBannerText(options.marketClosureInfo, "events"),
-		);
+		parts.push(buildMarketClosedBannerText(options.marketClosureInfo, "events"));
 	}
 
 	if (options.earningsSection) {
@@ -74,9 +63,7 @@ function formatAssetEventsSmsMessage(options: {
 		parts.push(`🏦 Insider Trades\n${options.insiderSection}`);
 	}
 	if (options.analystSection) {
-		parts.push(
-			`📊 Analyst Consensus (published monthly on the 1st)\n${options.analystSection}`,
-		);
+		parts.push(`📊 Analyst Consensus (published monthly on the 1st)\n${options.analystSection}`);
 	}
 
 	parts.push(`Manage your notifications: ${dashboardUrl}`);
@@ -104,11 +91,7 @@ function formatAssetEventsEmail(options: {
 	/** Optional delay banner (HTML for rich email body). */
 	delayBannerHtml?: string | null;
 }): { subject: string; text: string; html: string } {
-	const urls = buildEmailUrls(
-		options.user.id,
-		options.user.email,
-		"assetEvents",
-	);
+	const urls = buildEmailUrls(options.user.id, options.user.email, "assetEvents");
 
 	const textParts: string[] = ["Asset Events"];
 
@@ -117,9 +100,7 @@ function formatAssetEventsEmail(options: {
 	}
 
 	if (options.marketClosureInfo) {
-		textParts.push(
-			buildMarketClosedBannerText(options.marketClosureInfo, "events"),
-		);
+		textParts.push(buildMarketClosedBannerText(options.marketClosureInfo, "events"));
 	}
 
 	if (options.earningsSection) {
@@ -155,44 +136,29 @@ function formatAssetEventsEmail(options: {
 
 	let sectionsHtml = "";
 	if (options.earningsSection) {
-		sectionsHtml += renderEmailSection(
-			"📅",
-			"Earnings",
-			options.earningsSection,
-			{ showFinnhubLogo: true },
-		);
+		sectionsHtml += renderEmailSection("📅", "Earnings", options.earningsSection, {
+			showFinnhubLogo: true,
+		});
 	}
 	if (options.dividendsSection) {
-		sectionsHtml += renderEmailSection(
-			"💰",
-			"Ex-Dividend Dates",
-			options.dividendsSection,
-			{ showMassiveLogo: true },
-		);
+		sectionsHtml += renderEmailSection("💰", "Ex-Dividend Dates", options.dividendsSection, {
+			showMassiveLogo: true,
+		});
 	}
 	if (options.splitsSection) {
-		sectionsHtml += renderEmailSection(
-			"✂️",
-			"Stock Splits",
-			options.splitsSection,
-			{ showMassiveLogo: true },
-		);
+		sectionsHtml += renderEmailSection("✂️", "Stock Splits", options.splitsSection, {
+			showMassiveLogo: true,
+		});
 	}
 	if (options.iposSection) {
-		sectionsHtml += renderEmailSection(
-			"🆕",
-			"Upcoming IPOs",
-			options.iposSection,
-			{ showMassiveLogo: true },
-		);
+		sectionsHtml += renderEmailSection("🆕", "Upcoming IPOs", options.iposSection, {
+			showMassiveLogo: true,
+		});
 	}
 	if (options.insiderSection) {
-		sectionsHtml += renderEmailSection(
-			"🏦",
-			"Insider Trades",
-			options.insiderSection,
-			{ showFinnhubLogo: true },
-		);
+		sectionsHtml += renderEmailSection("🏦", "Insider Trades", options.insiderSection, {
+			showFinnhubLogo: true,
+		});
 	}
 	if (options.analystSection) {
 		sectionsHtml += renderEmailSection(
@@ -437,12 +403,7 @@ export async function processAssetEventsSmsDelivery(options: {
 		marketClosureInfo: options.marketClosureInfo,
 		delayBanner: options.delayBanner,
 	});
-	const result = await sendUserSms(
-		user,
-		smsMessage,
-		smsSenderResult.sender,
-		supabase,
-	);
+	const result = await sendUserSms(user, smsMessage, smsSenderResult.sender, supabase);
 	const logged = await recordNotification(supabase, {
 		user_id: user.id,
 		type: "asset_events",

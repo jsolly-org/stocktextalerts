@@ -42,14 +42,10 @@ describe("isOutsideMarketHours", () => {
 	it("A US Pacific timezone user sees correct in-window and outside-window behavior.", () => {
 		// Notification window in Pacific: 7:00 AM – 12:59 PM
 		const nineAmPacific = 9 * 60; // 9:00 AM Pacific = 12:00 PM ET (in window)
-		expect(isOutsideMarketHours(nineAmPacific, "America/Los_Angeles")).toBe(
-			false,
-		);
+		expect(isOutsideMarketHours(nineAmPacific, "America/Los_Angeles")).toBe(false);
 
 		const twoAmPacific = 2 * 60; // 2:00 AM Pacific = 5:00 AM ET (outside window)
-		expect(isOutsideMarketHours(twoAmPacific, "America/Los_Angeles")).toBe(
-			true,
-		);
+		expect(isOutsideMarketHours(twoAmPacific, "America/Los_Angeles")).toBe(true);
 	});
 
 	it("A timezone where market hours cross midnight (e.g. Tokyo) is handled correctly.", () => {

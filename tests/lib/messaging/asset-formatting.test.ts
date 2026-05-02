@@ -1,15 +1,10 @@
 import { describe, expect, it } from "vitest";
-import {
-	formatAssetsHtmlList,
-	getSafeHrefUrl,
-} from "../../../src/lib/messaging/asset-formatting";
+import { formatAssetsHtmlList, getSafeHrefUrl } from "../../../src/lib/messaging/asset-formatting";
 
 describe("getSafeHrefUrl prevents XSS via dangerous URL schemes.", () => {
 	it("Returns trimmed URL for valid https URLs.", () => {
 		expect(getSafeHrefUrl("https://example.com")).toBe("https://example.com");
-		expect(getSafeHrefUrl("  https://example.com  ")).toBe(
-			"https://example.com",
-		);
+		expect(getSafeHrefUrl("  https://example.com  ")).toBe("https://example.com");
 	});
 
 	it("Returns trimmed URL for valid http URLs.", () => {

@@ -57,10 +57,7 @@ const DEV_CSP: CspDirectives = {
 };
 
 /** Merge additional sources into a base set of CSP directives (non-mutating). */
-function mergeCsp(
-	base: CspDirectives,
-	...layers: CspDirectives[]
-): CspDirectives {
+function mergeCsp(base: CspDirectives, ...layers: CspDirectives[]): CspDirectives {
 	const merged: CspDirectives = {};
 	for (const [key, values] of Object.entries(base)) {
 		merged[key] = [...values];
@@ -130,10 +127,7 @@ function firstHeaderValue(value: string | null): string | null {
  * browser-visible origin. Include host/proxy-derived origins to avoid
  * false positives while keeping strict cross-site blocking.
  */
-function collectExpectedOrigins(
-	request: Request,
-	requestUrl: URL,
-): Set<string> {
+function collectExpectedOrigins(request: Request, requestUrl: URL): Set<string> {
 	const expected = new Set<string>();
 	expected.add(requestUrl.origin);
 
@@ -142,12 +136,8 @@ function collectExpectedOrigins(
 		expected.add(`${requestUrl.protocol}//${host}`);
 	}
 
-	const forwardedHost = firstHeaderValue(
-		request.headers.get("x-forwarded-host"),
-	);
-	const forwardedProto = firstHeaderValue(
-		request.headers.get("x-forwarded-proto"),
-	);
+	const forwardedHost = firstHeaderValue(request.headers.get("x-forwarded-host"));
+	const forwardedProto = firstHeaderValue(request.headers.get("x-forwarded-proto"));
 	if (forwardedHost && forwardedProto) {
 		expected.add(`${forwardedProto}://${forwardedHost}`);
 	}
@@ -161,11 +151,7 @@ function collectExpectedOrigins(
  * Must be safe to call multiple times and should not assume mutable `Headers`
  * (some platforms return immutable header bags).
  */
-const applySecurityHeaders = (
-	headers: Headers,
-	requestId: string,
-	request?: Request,
-) => {
+const applySecurityHeaders = (headers: Headers, requestId: string, request?: Request) => {
 	headers.set("x-request-id", requestId);
 	headers.set(
 		"content-security-policy",
@@ -178,10 +164,7 @@ const applySecurityHeaders = (
 	headers.set("x-permitted-cross-domain-policies", "none");
 	headers.set("referrer-policy", "strict-origin-when-cross-origin");
 	headers.set("permissions-policy", "camera=(), microphone=(), geolocation=()");
-	headers.set(
-		"strict-transport-security",
-		"max-age=63072000; includeSubDomains; preload",
-	);
+	headers.set("strict-transport-security", "max-age=63072000; includeSubDomains; preload");
 };
 
 /**
@@ -212,24 +195,15 @@ export const onRequest = defineMiddleware(async (context, next) => {
 			const hasContentType = context.request.headers.has("content-type");
 			const formLikeContentType = hasFormLikeContentType(contentType);
 			// Only enforce cross-site form blocking when Origin is present and cross-origin.
-			const shouldEnforce =
-				origin !== null && (hasContentType ? formLikeContentType : true);
+			const shouldEnforce = origin !== null && (hasContentType ? formLikeContentType : true);
 			const normalizedOrigin = normalizeOrigin(origin);
-			const expectedOrigins = collectExpectedOrigins(
-				context.request,
-				requestUrl,
-			);
-			const isSameOrigin =
-				normalizedOrigin !== null && expectedOrigins.has(normalizedOrigin);
+			const expectedOrigins = collectExpectedOrigins(context.request, requestUrl);
+			const isSameOrigin = normalizedOrigin !== null && expectedOrigins.has(normalizedOrigin);
 			if (shouldEnforce && !isSameOrigin) {
 				const message = `Cross-site ${context.request.method} form submissions are forbidden`;
 				const blockedResponse = new Response(message, { status: 403 });
 				try {
-					applySecurityHeaders(
-						blockedResponse.headers,
-						requestId,
-						context.request,
-					);
+					applySecurityHeaders(blockedResponse.headers, requestId, context.request);
 					return blockedResponse;
 				} catch {
 					const headers = new Headers(blockedResponse.headers);

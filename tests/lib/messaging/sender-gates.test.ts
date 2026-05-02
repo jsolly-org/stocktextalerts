@@ -12,10 +12,7 @@
  */
 import twilio from "twilio";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-	checkVerification,
-	sendVerification,
-} from "../../../src/lib/auth/sms-verification";
+import { checkVerification, sendVerification } from "../../../src/lib/auth/sms-verification";
 import { createEmailSender } from "../../../src/lib/messaging/email/utils";
 import { createSmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import { clearMailpit, waitForMailpitMessageTo } from "../../helpers/mailpit";
@@ -82,10 +79,7 @@ describe("sender gates — no real SES/Twilio in tests", () => {
 
 	describe("createSmsSender", () => {
 		it("outbound SMS never reaches Twilio in test mode — mock sender intercepts", async () => {
-			const fakeClient = twilio(
-				STUB_TWILIO_ACCOUNT_SID,
-				STUB_TWILIO_AUTH_TOKEN,
-			);
+			const fakeClient = twilio(STUB_TWILIO_ACCOUNT_SID, STUB_TWILIO_AUTH_TOKEN);
 			const send = createSmsSender(fakeClient, STUB_TWILIO_FROM);
 			const result = await send({
 				to: "+15005550001",

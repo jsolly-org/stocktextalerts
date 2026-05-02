@@ -1,9 +1,6 @@
 import { DateTime } from "luxon";
 import type { Logger } from "../logging";
-import {
-	buildDelayBannerHtml,
-	buildDelayBannerText,
-} from "../messaging/delay-banner";
+import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/delay-banner";
 import type { EmailSender } from "../messaging/email/utils";
 import { shouldSendSms } from "../messaging/sms";
 import type { UserRecord } from "../messaging/types";
@@ -14,16 +11,10 @@ import type {
 } from "../schedule/helpers";
 import { loadUserAssets } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
-import {
-	getUsMarketClosureInfoForInstant,
-	type MarketClosureInfo,
-} from "../time/market-calendar";
+import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market-calendar";
 import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
 import { buildAssetEventsContent } from "./content";
-import {
-	processAssetEventsEmailDelivery,
-	processAssetEventsSmsDelivery,
-} from "./delivery";
+import { processAssetEventsEmailDelivery, processAssetEventsSmsDelivery } from "./delivery";
 import { updateUserAssetEventsNextSendAt } from "./next-send-at";
 
 /**
@@ -137,8 +128,7 @@ export async function processAssetEventsUser(options: {
 			return stats;
 		}
 
-		const userAssets =
-			userAssetsMap?.get(user.id) ?? (await loadUserAssets(supabase, user.id));
+		const userAssets = userAssetsMap?.get(user.id) ?? (await loadUserAssets(supabase, user.id));
 		const tickers = userAssets.map((s) => s.symbol);
 
 		const emailEnabled = user.email_notifications_enabled;
@@ -175,11 +165,8 @@ export async function processAssetEventsUser(options: {
 				user.asset_events_include_analyst_sms ||
 				user.asset_events_include_insider_sms);
 
-		let emailContent: Awaited<
-			ReturnType<typeof buildAssetEventsContent>
-		> | null = null;
-		let smsContent: Awaited<ReturnType<typeof buildAssetEventsContent>> | null =
-			null;
+		let emailContent: Awaited<ReturnType<typeof buildAssetEventsContent>> | null = null;
+		let smsContent: Awaited<ReturnType<typeof buildAssetEventsContent>> | null = null;
 
 		if (wantsEmail) {
 			emailContent = await buildAssetEventsContent({
@@ -246,8 +233,7 @@ export async function processAssetEventsUser(options: {
 
 		// Update analyst month tracking if analyst was included
 		const shouldUpdateAnalyst =
-			emailContent?.shouldUpdateAnalystMonth ||
-			smsContent?.shouldUpdateAnalystMonth;
+			emailContent?.shouldUpdateAnalystMonth || smsContent?.shouldUpdateAnalystMonth;
 		if (shouldUpdateAnalyst) {
 			const currentMonth = localDate.slice(0, 7); // YYYY-MM
 			const { error } = await supabase
@@ -273,11 +259,7 @@ export async function processAssetEventsUser(options: {
 		return stats;
 	} catch (error) {
 		stats.skipped++;
-		logger.error(
-			"Error processing asset events user",
-			{ userId: user.id },
-			error,
-		);
+		logger.error("Error processing asset events user", { userId: user.id }, error);
 		try {
 			await updateUserAssetEventsNextSendAt({
 				user,

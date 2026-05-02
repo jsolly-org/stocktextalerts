@@ -12,13 +12,7 @@ import { isValidAssetSymbol } from "../../../../lib/validation";
  * The API key is appended server-side so it never reaches the browser.
  * Returns the upstream image bytes with a 7-day browser cache.
  */
-export const GET: APIRoute = async ({
-	url,
-	params,
-	request,
-	cookies,
-	locals,
-}) => {
+export const GET: APIRoute = async ({ url, params, request, cookies, locals }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,
@@ -102,8 +96,7 @@ export const GET: APIRoute = async ({
 			status: 200,
 			headers: {
 				"Content-Type": contentType,
-				"Cache-Control":
-					"public, max-age=604800, s-maxage=604800, stale-while-revalidate=86400",
+				"Cache-Control": "public, max-age=604800, s-maxage=604800, stale-while-revalidate=86400",
 			},
 		});
 	} catch (err) {

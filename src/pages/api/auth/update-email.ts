@@ -2,10 +2,7 @@ import type { APIRoute } from "astro";
 import { enforceAuthRateLimit } from "../../../lib/auth/enforce-auth-rate-limit";
 import { createUserService } from "../../../lib/db";
 import { getSiteUrl } from "../../../lib/db/env";
-import {
-	createSupabaseAdminClient,
-	createSupabaseServerClient,
-} from "../../../lib/db/supabase";
+import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { createLogger } from "../../../lib/logging";
 
@@ -15,22 +12,10 @@ import { createLogger } from "../../../lib/logging";
  * CHANGE_EMAIL_RATE_LIMIT_MINUTES env vars.
  */
 const CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS =
-	Number.parseInt(
-		import.meta.env.CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS ?? "5",
-		10,
-	) || 5;
+	Number.parseInt(import.meta.env.CHANGE_EMAIL_RATE_LIMIT_ATTEMPTS ?? "5", 10) || 5;
 const CHANGE_EMAIL_RATE_LIMIT_MINUTES =
-	Number.parseInt(
-		import.meta.env.CHANGE_EMAIL_RATE_LIMIT_MINUTES ?? "15",
-		10,
-	) || 15;
-export const POST: APIRoute = async ({
-	url,
-	request,
-	redirect,
-	locals,
-	cookies,
-}) => {
+	Number.parseInt(import.meta.env.CHANGE_EMAIL_RATE_LIMIT_MINUTES ?? "15", 10) || 15;
+export const POST: APIRoute = async ({ url, request, redirect, locals, cookies }) => {
 	const logger = createLogger({
 		requestId: locals?.requestId,
 		path: url.pathname,
@@ -65,10 +50,7 @@ export const POST: APIRoute = async ({
 	// so we normalize at the application level before sending.
 	const trimmedEmail = parsed.data.email.trim();
 
-	if (
-		authUser.email &&
-		trimmedEmail.toLowerCase() === authUser.email.toLowerCase()
-	) {
+	if (authUser.email && trimmedEmail.toLowerCase() === authUser.email.toLowerCase()) {
 		logger.info("Email change request rejected: same as current email", {
 			userId: authUser.id,
 		});
@@ -90,14 +72,10 @@ export const POST: APIRoute = async ({
 	const origin = getSiteUrl();
 	const emailRedirectTo = `${origin}/auth/verified`;
 
-	const { error } = await supabase.auth.updateUser(
-		{ email: trimmedEmail },
-		{ emailRedirectTo },
-	);
+	const { error } = await supabase.auth.updateUser({ email: trimmedEmail }, { emailRedirectTo });
 
 	if (error) {
-		const isExpected =
-			error.status === 400 || error.status === 401 || error.status === 403;
+		const isExpected = error.status === 400 || error.status === 401 || error.status === 403;
 		const log = isExpected ? logger.info : logger.error;
 		log(
 			"Email change request failed",

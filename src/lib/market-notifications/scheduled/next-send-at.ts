@@ -15,39 +15,31 @@ export async function updateUserMarketScheduledNextSendAt(options: {
 
 	// Query filters out null market_scheduled_asset_price_times with .not()
 	const scheduledTimes = user.market_scheduled_asset_price_times as number[];
-	const { nextSendAt, delayReasons } =
-		await calculateNextMarketScheduledSendAtFromTimes({
-			localMinutesList: scheduledTimes,
-			timezone: user.timezone,
-			now: currentTime,
-		});
+	const { nextSendAt, delayReasons } = await calculateNextMarketScheduledSendAtFromTimes({
+		localMinutesList: scheduledTimes,
+		timezone: user.timezone,
+		now: currentTime,
+	});
 	const nextSendAtIso = nextSendAt ? nextSendAt.toISO() : null;
 	if (nextSendAt && !nextSendAtIso) {
-		logger.error(
-			"Failed to format market_scheduled_asset_price_next_send_at ISO string",
-			{
-				userId: user.id,
-				timezone: user.timezone,
-			},
-		);
+		logger.error("Failed to format market_scheduled_asset_price_next_send_at ISO string", {
+			userId: user.id,
+			timezone: user.timezone,
+		});
 	}
 	if (!nextSendAt) {
 		logger.error("calculateNextMarketScheduledSendAtFromTimes returned null", {
 			userId: user.id,
-			market_scheduled_asset_price_times:
-				user.market_scheduled_asset_price_times,
+			market_scheduled_asset_price_times: user.market_scheduled_asset_price_times,
 			timezone: user.timezone,
 		});
 	}
 	if (delayReasons.length > 0) {
-		logger.info(
-			"Advanced scheduled market next_send_at due to market closure",
-			{
-				userId: user.id,
-				reasons: delayReasons,
-				nextSendAt: nextSendAtIso ?? undefined,
-			},
-		);
+		logger.info("Advanced scheduled market next_send_at due to market closure", {
+			userId: user.id,
+			reasons: delayReasons,
+			nextSendAt: nextSendAtIso ?? undefined,
+		});
 	}
 
 	const { error: updateError } = await supabase

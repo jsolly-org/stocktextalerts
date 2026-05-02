@@ -6,15 +6,8 @@ import { sendUserEmail } from "../../messaging/email/index";
 import { renderIntradaySparklineImg } from "../../messaging/email/intraday-sparkline";
 import { buildEmailUrls } from "../../messaging/email/layout";
 import type { EmailSender } from "../../messaging/email/utils";
-import {
-	type createLogoCache,
-	fetchLogoBase64,
-	renderLogoImg,
-} from "../../messaging/logo-fetcher";
-import {
-	deliveryResultToLogFields,
-	recordNotification,
-} from "../../messaging/shared";
+import { type createLogoCache, fetchLogoBase64, renderLogoImg } from "../../messaging/logo-fetcher";
+import { deliveryResultToLogFields, recordNotification } from "../../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../../messaging/sms/segment-utils";
 import type { SmsSender } from "../../messaging/sms/twilio-utils";
@@ -118,10 +111,7 @@ function buildPriceChangeRows(options: {
 	const rows: PriceChangeRow[] = [];
 
 	if (lastNotificationPrice !== null && relativeTime !== null) {
-		const { dollarChange, percentChange } = computeChange(
-			lastNotificationPrice,
-			currentPrice,
-		);
+		const { dollarChange, percentChange } = computeChange(lastNotificationPrice, currentPrice);
 		rows.push({
 			label: `Since last alert (${relativeTime})`,
 			dollarChange,
@@ -130,10 +120,7 @@ function buildPriceChangeRows(options: {
 	}
 
 	if (dayOpen !== null && dayOpen > 0) {
-		const { dollarChange, percentChange } = computeChange(
-			dayOpen,
-			currentPrice,
-		);
+		const { dollarChange, percentChange } = computeChange(dayOpen, currentPrice);
 		rows.push({
 			label: "Since today's open",
 			dollarChange,
@@ -142,10 +129,7 @@ function buildPriceChangeRows(options: {
 	}
 
 	if (prevClose !== null && prevClose > 0) {
-		const { dollarChange, percentChange } = computeChange(
-			prevClose,
-			currentPrice,
-		);
+		const { dollarChange, percentChange } = computeChange(prevClose, currentPrice);
 		rows.push({
 			label: "Since prev close",
 			dollarChange,
@@ -154,10 +138,7 @@ function buildPriceChangeRows(options: {
 	}
 
 	if (sevenDayBaseline !== null && sevenDayBaseline > 0) {
-		const { dollarChange, percentChange } = computeChange(
-			sevenDayBaseline,
-			currentPrice,
-		);
+		const { dollarChange, percentChange } = computeChange(sevenDayBaseline, currentPrice);
 		rows.push({
 			label: "Past 7 trading days",
 			dollarChange,
@@ -341,8 +322,7 @@ export function formatFlatPriceAlertEmail(options: {
 	let sevenDaySparklineHtml = "";
 	if (sevenDaySparkline && sevenDaySparkline.values.length >= 2) {
 		const firstVal = sevenDaySparkline.values[0];
-		const lastVal =
-			sevenDaySparkline.values[sevenDaySparkline.values.length - 1];
+		const lastVal = sevenDaySparkline.values[sevenDaySparkline.values.length - 1];
 		const direction =
 			firstVal !== undefined && lastVal !== undefined && firstVal > 0
 				? ((lastVal - firstVal) / firstVal) * 100
@@ -463,17 +443,8 @@ export async function deliverFlatPriceAlert(options: {
 	} = options;
 
 	// Email
-	if (
-		user.price_move_alerts_include_email &&
-		user.email_notifications_enabled
-	) {
-		const logoDataUri = await fetchLogoBase64(
-			symbol,
-			iconUrl,
-			logoCache,
-			iconBase64,
-			supabase,
-		);
+	if (user.price_move_alerts_include_email && user.email_notifications_enabled) {
+		const logoDataUri = await fetchLogoBase64(symbol, iconUrl, logoCache, iconBase64, supabase);
 		const logoHtml = logoDataUri ? renderLogoImg(logoDataUri) : undefined;
 
 		const message = formatFlatPriceAlertEmail({
@@ -505,13 +476,7 @@ export async function deliverFlatPriceAlert(options: {
 			? `flat-price-alert-${user.id}-${symbol}-${lastNotificationAt.toISOString()}`
 			: `flat-price-alert-${user.id}-${symbol}-first-${todayEt}`;
 
-		const result = await sendUserEmail(
-			user,
-			subject,
-			message,
-			sendEmail,
-			idempotencyKey,
-		);
+		const result = await sendUserEmail(user, subject, message, sendEmail, idempotencyKey);
 
 		if (result.success) {
 			stats.emailsSent++;

@@ -3,10 +3,7 @@ import { describe, expect, it } from "vitest";
 import { GET as getAssetPrices } from "../../../src/pages/api/assets/prices";
 import { createApiContext } from "../../helpers/api-context";
 import { TEST_PASSWORD } from "../../helpers/constants";
-import {
-	adminClient,
-	createAuthenticatedCookies,
-} from "../../helpers/test-env";
+import { adminClient, createAuthenticatedCookies } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
@@ -27,10 +24,7 @@ describe("GET /api/assets/prices", () => {
 			.in("symbol", ["AAPL", "MSFT"]);
 		expect(sectorSeedError).toBeNull();
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const response = await getAssetPrices(
 			createApiContext({
@@ -57,8 +51,7 @@ describe("GET /api/assets/prices", () => {
 		expect(payload.assets.MSFT).toBeDefined();
 		// prevClose may be null if market data is unavailable
 		expect(
-			payload.assets.AAPL?.prevClose === null ||
-				typeof payload.assets.AAPL?.prevClose === "number",
+			payload.assets.AAPL?.prevClose === null || typeof payload.assets.AAPL?.prevClose === "number",
 		).toBe(true);
 		expect(payload.assets.AAPL?.sector).toBe("Technology");
 	});
@@ -71,10 +64,7 @@ describe("GET /api/assets/prices", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			TEST_PASSWORD,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
 		const response = await getAssetPrices(
 			createApiContext({

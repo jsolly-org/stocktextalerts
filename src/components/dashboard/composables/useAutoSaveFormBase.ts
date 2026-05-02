@@ -1,8 +1,5 @@
 import { onBeforeUnmount, type Ref, ref, watch } from "vue";
-import {
-	isUnauthorizedResponse,
-	redirectToSignIn,
-} from "../../../lib/auth/session-expired";
+import { isUnauthorizedResponse, redirectToSignIn } from "../../../lib/auth/session-expired";
 import { formatMessage } from "../../../lib/constants";
 import { rootLogger } from "../../../lib/logging";
 
@@ -27,13 +24,9 @@ export type AutoSaveFormOptions = {
  *
  * Prefers the submitter's `formAction` when present, otherwise uses the form's `action`.
  */
-function resolveActionPath(
-	form: HTMLFormElement,
-	submitter: HTMLElement | null,
-) {
+function resolveActionPath(form: HTMLFormElement, submitter: HTMLElement | null) {
 	const submitAction =
-		(submitter instanceof HTMLButtonElement ||
-			submitter instanceof HTMLInputElement) &&
+		(submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement) &&
 		submitter.formAction
 			? submitter.formAction
 			: form.action;
@@ -50,9 +43,7 @@ function serializeFormData(formData: FormData): string {
 	const entries: string[] = [];
 	for (const [name, value] of formData.entries()) {
 		const serializedValue =
-			value instanceof File
-				? `${value.name}:${value.size}:${value.lastModified}`
-				: String(value);
+			value instanceof File ? `${value.name}:${value.size}:${value.lastModified}` : String(value);
 		entries.push(`${name}=${serializedValue}`);
 	}
 	entries.sort();
@@ -103,11 +94,7 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 	 *
 	 * When another save is requested while a save is in-flight, the latest state is queued.
 	 */
-	async function sendUpdate(
-		form: HTMLFormElement,
-		formData: FormData,
-		submittedSignature: string,
-	) {
+	async function sendUpdate(form: HTMLFormElement, formData: FormData, submittedSignature: string) {
 		isSaving.value = true;
 
 		// Only show "Saving…" if the request takes longer than 200 ms.
@@ -135,11 +122,8 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 
 			if (!response.ok || !payload.ok) {
 				const formattedMessage =
-					payload && typeof payload.message === "string"
-						? formatMessage(payload.message)
-						: "";
-				const errorMessage =
-					formattedMessage || "Could not save changes. Please try again.";
+					payload && typeof payload.message === "string" ? formatMessage(payload.message) : "";
+				const errorMessage = formattedMessage || "Could not save changes. Please try again.";
 				setStatus(errorMessage, "error");
 				return;
 			}
@@ -150,9 +134,7 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 			savedData.value = payloadData ?? null;
 		} catch (error) {
 			const reason =
-				error instanceof Error && error.name === "TimeoutError"
-					? "timeout"
-					: "request_failed";
+				error instanceof Error && error.name === "TimeoutError" ? "timeout" : "request_failed";
 			if (reason === "timeout") {
 				setStatus("Save timed out. Please try again.", "error");
 			} else {
@@ -241,8 +223,7 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 		const submitter = event.submitter ?? null;
 		const path = resolveActionPath(form, submitter);
 		const expectedPath =
-			options.expectedActionPath ??
-			new URL(form.action, window.location.href).pathname;
+			options.expectedActionPath ?? new URL(form.action, window.location.href).pathname;
 		if (path !== expectedPath) {
 			return;
 		}
@@ -251,11 +232,7 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 		try {
 			await triggerSave(form);
 		} catch (error) {
-			rootLogger.error(
-				"Form submit autosave failed",
-				{ action: options.logAction },
-				error,
-			);
+			rootLogger.error("Form submit autosave failed", { action: options.logAction }, error);
 			setStatus("Could not save changes. Please try again.", "error");
 		}
 	}

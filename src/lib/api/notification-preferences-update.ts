@@ -97,11 +97,7 @@ function computeDailyNextSendAt(
 		updates.daily_digest_next_send_at === undefined;
 
 	if ((timezoneChanged || dailyTimeChanged || needsRepair) && hasDailyTime) {
-		const nextDailyUtc = calculateNextSendAt(
-			finalDailyTime,
-			finalTimezone,
-			DateTime.utc(),
-		);
+		const nextDailyUtc = calculateNextSendAt(finalDailyTime, finalTimezone, DateTime.utc());
 		updates.daily_digest_next_send_at = nextDailyUtc?.toISO() ?? null;
 	} else if (dailyTimeChanged && !hasDailyTime) {
 		updates.daily_digest_next_send_at = null;
@@ -138,18 +134,13 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		if (parsedMarketScheduledAssetPriceTimes !== undefined) {
 			parsedTimes = parsedMarketScheduledAssetPriceTimes;
 		} else {
-			const result = parseScheduledTimes(
-				parsedData.market_scheduled_asset_price_times,
-			);
+			const result = parseScheduledTimes(parsedData.market_scheduled_asset_price_times);
 			if (!result.ok) {
-				logger?.info(
-					"Invalid scheduled times in notification preferences payload",
-					{
-						action: "notification_preferences_update",
-						userId: dbUser.id,
-						reason: result.reason,
-					},
-				);
+				logger?.info("Invalid scheduled times in notification preferences payload", {
+					action: "notification_preferences_update",
+					userId: dbUser.id,
+					reason: result.reason,
+				});
 				throw new Error(`Invalid schedule: ${result.reason}`);
 			}
 			parsedTimes = result.times;
@@ -214,8 +205,7 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		...(formData.has("market_asset_price_alert_move_size") &&
 		parsedData.market_asset_price_alert_move_size !== undefined
 			? {
-					market_asset_price_alert_move_size:
-						parsedData.market_asset_price_alert_move_size,
+					market_asset_price_alert_move_size: parsedData.market_asset_price_alert_move_size,
 				}
 			: {}),
 	});
@@ -224,22 +214,17 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 		safeNotificationPreferenceUpdates.timezone !== undefined &&
 		safeNotificationPreferenceUpdates.timezone !== dbUser.timezone;
 	const timeChanged =
-		safeNotificationPreferenceUpdates.market_scheduled_asset_price_times !==
-			undefined &&
-		serializeTimes(
-			safeNotificationPreferenceUpdates.market_scheduled_asset_price_times,
-		) !== serializeTimes(dbUser.market_scheduled_asset_price_times ?? null);
+		safeNotificationPreferenceUpdates.market_scheduled_asset_price_times !== undefined &&
+		serializeTimes(safeNotificationPreferenceUpdates.market_scheduled_asset_price_times) !==
+			serializeTimes(dbUser.market_scheduled_asset_price_times ?? null);
 
 	const dailyTimeChanged =
 		safeNotificationPreferenceUpdates.daily_digest_time !== undefined &&
-		safeNotificationPreferenceUpdates.daily_digest_time !==
-			dbUser.daily_digest_time;
+		safeNotificationPreferenceUpdates.daily_digest_time !== dbUser.daily_digest_time;
 
-	const finalTimezone =
-		safeNotificationPreferenceUpdates.timezone ?? dbUser.timezone;
+	const finalTimezone = safeNotificationPreferenceUpdates.timezone ?? dbUser.timezone;
 	const finalTimes =
-		safeNotificationPreferenceUpdates.market_scheduled_asset_price_times !==
-		undefined
+		safeNotificationPreferenceUpdates.market_scheduled_asset_price_times !== undefined
 			? safeNotificationPreferenceUpdates.market_scheduled_asset_price_times
 			: dbUser.market_scheduled_asset_price_times;
 
@@ -250,9 +235,8 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 
 	const assetEventsOptionsChanged = ASSET_EVENTS_OPTION_FIELDS.some(
 		(field) =>
-			safeNotificationPreferenceUpdates[
-				field as keyof typeof safeNotificationPreferenceUpdates
-			] !== undefined,
+			safeNotificationPreferenceUpdates[field as keyof typeof safeNotificationPreferenceUpdates] !==
+			undefined,
 	);
 
 	computeScheduledNextSendAt(
@@ -331,11 +315,7 @@ export function computeTimezoneUpdatePayload(
 	}
 
 	if (dbUser.daily_digest_time != null) {
-		const nextDailyUtc = calculateNextSendAt(
-			dbUser.daily_digest_time,
-			newTimezone,
-			DateTime.utc(),
-		);
+		const nextDailyUtc = calculateNextSendAt(dbUser.daily_digest_time, newTimezone, DateTime.utc());
 		payload.daily_digest_next_send_at = nextDailyUtc?.toISO() ?? null;
 	}
 

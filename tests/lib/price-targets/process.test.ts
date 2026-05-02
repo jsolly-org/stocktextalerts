@@ -239,9 +239,7 @@ describe("Price target processing", () => {
 
 	it("A triggered target is still cleared when delivery throws unexpectedly", async () => {
 		mockFetchMarketStatus.mockResolvedValue(true);
-		mockDeliverPriceTargetAlert.mockRejectedValueOnce(
-			new Error("Unexpected delivery failure"),
-		);
+		mockDeliverPriceTargetAlert.mockRejectedValueOnce(new Error("Unexpected delivery failure"));
 
 		let deleted = false;
 		const supabase = makeSupabaseMock({
@@ -271,9 +269,7 @@ describe("Price target processing", () => {
 			},
 		});
 
-		const quoteMap = new Map<string, ExtendedAssetQuote>([
-			["AAPL", makeQuote(160)],
-		]);
+		const quoteMap = new Map<string, ExtendedAssetQuote>([["AAPL", makeQuote(160)]]);
 
 		expectConsoleError(/Failed to deliver price target alert/);
 

@@ -44,11 +44,7 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 			.select("symbol, sector, icon_url")
 			.in("symbol", symbols);
 		if (assetRowsError) {
-			logger.error(
-				"Failed to load asset sectors",
-				{ userId: user.id },
-				assetRowsError,
-			);
+			logger.error("Failed to load asset sectors", { userId: user.id }, assetRowsError);
 			return jsonResponse(500, { ok: false, message: "fetch_failed" });
 		}
 

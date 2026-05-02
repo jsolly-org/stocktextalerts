@@ -4,17 +4,14 @@ import { createApiContext } from "../../helpers/api-context";
 
 describe("The next-send-at API requires authentication.", () => {
 	it("Unauthenticated requests receive 401.", async () => {
-		const request = new Request(
-			"http://localhost/api/market-notifications/next-send-at",
-			{
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					timezone: "America/New_York",
-					timeInputs: ["09:30"],
-				}),
-			},
-		);
+		const request = new Request("http://localhost/api/market-notifications/next-send-at", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				timezone: "America/New_York",
+				timeInputs: ["09:30"],
+			}),
+		});
 
 		const response = await POST(createApiContext({ request }));
 

@@ -3,14 +3,8 @@ import { createSupabaseAdminClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { createEmailSender, type EmailSender } from "../messaging/email/utils";
 import type { UserRecord } from "../messaging/types";
-import type {
-	ScheduledNotificationTotals,
-	SupabaseAdminClient,
-} from "../schedule/helpers";
-import {
-	createSmsSenderProvider,
-	type SmsSenderProvider,
-} from "../schedule/sms-sender";
+import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
+import { createSmsSenderProvider, type SmsSenderProvider } from "../schedule/sms-sender";
 import type { MarketClosureInfo } from "../time/market-calendar";
 import { processDailyDigestUser } from "./process";
 

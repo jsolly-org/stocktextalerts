@@ -38,17 +38,11 @@ export interface PriceAlertTotals extends PriceAlertDeliveryStats {
 	cooldownSkips: number;
 }
 
-async function fetchEarningsSymbols(
-	supabase: SupabaseAdminClient,
-): Promise<Set<string>> {
+async function fetchEarningsSymbols(supabase: SupabaseAdminClient): Promise<Set<string>> {
 	try {
 		const now = new Date();
-		const from = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000)
-			.toISOString()
-			.slice(0, 10);
-		const to = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000)
-			.toISOString()
-			.slice(0, 10);
+		const from = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+		const to = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 		const { data, error } = await supabase
 			.from("asset_events")
 			.select("symbol")
@@ -82,10 +76,7 @@ function calculatePercentMove(quote: ExtendedAssetQuote): number | null {
 	return null;
 }
 
-function calculateDollarMove(
-	quote: ExtendedAssetQuote,
-	percentMove: number | null,
-): number | null {
+function calculateDollarMove(quote: ExtendedAssetQuote, percentMove: number | null): number | null {
 	if (quote.prevClose !== null && quote.prevClose > 0) {
 		return quote.price - quote.prevClose;
 	}
@@ -141,11 +132,7 @@ function buildSignalContexts(options: {
 
 	// User context: additional info beyond the price move (which priceContext already covers)
 	const benchmarkDirection =
-		benchmarkMoveSigned !== null
-			? benchmarkMoveSigned >= 0
-				? "up"
-				: "down"
-			: null;
+		benchmarkMoveSigned !== null ? (benchmarkMoveSigned >= 0 ? "up" : "down") : null;
 	const userMarket =
 		benchmarkMovePercentAbs !== null && benchmarkDirection !== null
 			? `The ${benchmarkLabel} moved ${benchmarkDirection} ${benchmarkMovePercentAbs.toFixed(2)}% today.`
@@ -167,9 +154,7 @@ function buildSignalContexts(options: {
  * (INSERT ... ON CONFLICT DO UPDATE), enrich with news and intraday bars,
  * then deliver via email/SMS. Only runs when US market is open.
  */
-export async function processPriceAlerts(options: {
-	supabase: SupabaseAdminClient;
-}): Promise<{
+export async function processPriceAlerts(options: { supabase: SupabaseAdminClient }): Promise<{
 	totals: PriceAlertTotals;
 	quoteMap: ExtendedQuoteMap;
 	isMarketOpen: boolean;
@@ -209,9 +194,7 @@ export async function processPriceAlerts(options: {
 		return emptyResult;
 	}
 
-	const uniqueSymbols = [
-		...new Set((allUserAssets ?? []).map((a) => a.symbol)),
-	];
+	const uniqueSymbols = [...new Set((allUserAssets ?? []).map((a) => a.symbol))];
 	if (uniqueSymbols.length === 0) {
 		return emptyResult;
 	}
@@ -257,10 +240,7 @@ export async function processPriceAlerts(options: {
 	}
 
 	// Build the full symbol list: user assets + SPY + needed sector ETFs
-	const benchmarkSymbols = new Set([
-		MARKET_BENCHMARK_SYMBOL,
-		...neededSectorEtfs,
-	]);
+	const benchmarkSymbols = new Set([MARKET_BENCHMARK_SYMBOL, ...neededSectorEtfs]);
 	const symbolsWithBenchmarks = [
 		...uniqueSymbols,
 		...[...benchmarkSymbols].filter((s) => !uniqueSymbols.includes(s)),
@@ -281,8 +261,7 @@ export async function processPriceAlerts(options: {
 
 	// Load rolling 60-minute snapshot history for anomaly scoring (before storing
 	// current tick, so history excludes the current quote and sudden-move detection works)
-	let snapshotMap: Awaited<ReturnType<typeof getSnapshotsForSymbols>> =
-		new Map();
+	let snapshotMap: Awaited<ReturnType<typeof getSnapshotsForSymbols>> = new Map();
 	try {
 		snapshotMap = await getSnapshotsForSymbols(supabase, [...uniqueSymbols]);
 	} catch (err) {
@@ -353,27 +332,18 @@ export async function processPriceAlerts(options: {
 	for (const etfSymbol of benchmarkSymbols) {
 		const etfQuote = quoteMap.get(etfSymbol) ?? null;
 		const pctMove = etfQuote === null ? null : calculatePercentMove(etfQuote);
-		benchmarkMoveCache.set(
-			etfSymbol,
-			pctMove === null ? null : Math.abs(pctMove),
-		);
+		benchmarkMoveCache.set(etfSymbol, pctMove === null ? null : Math.abs(pctMove));
 		benchmarkMoveSignedCache.set(etfSymbol, pctMove);
 	}
 
-	const spyMovePercentAbs =
-		benchmarkMoveCache.get(MARKET_BENCHMARK_SYMBOL) ?? null;
+	const spyMovePercentAbs = benchmarkMoveCache.get(MARKET_BENCHMARK_SYMBOL) ?? null;
 
 	// Freeze early-day flag and time-of-day fraction once per run
 	const eastern = DateTime.now().setZone(US_MARKET_TIMEZONE);
 	const minutesSinceMidnight = eastern.hour * 60 + eastern.minute;
-	const minutesSinceOpen =
-		minutesSinceMidnight - US_MARKET_OPEN_EASTERN_MINUTES;
-	const tradingMinutes =
-		US_MARKET_CLOSE_EASTERN_MINUTES - US_MARKET_OPEN_EASTERN_MINUTES;
-	const fractionOfTradingDayElapsed = Math.min(
-		1,
-		Math.max(0, minutesSinceOpen / tradingMinutes),
-	);
+	const minutesSinceOpen = minutesSinceMidnight - US_MARKET_OPEN_EASTERN_MINUTES;
+	const tradingMinutes = US_MARKET_CLOSE_EASTERN_MINUTES - US_MARKET_OPEN_EASTERN_MINUTES;
+	const fractionOfTradingDayElapsed = Math.min(1, Math.max(0, minutesSinceOpen / tradingMinutes));
 	const isEarlyDay = eastern.hour < 10;
 	const maxPossibleScore = isEarlyDay ? 95 : 100;
 
@@ -398,14 +368,11 @@ export async function processPriceAlerts(options: {
 
 		// Resolve sector-specific benchmark for this symbol
 		const assetSector = assetSectorMap.get(symbol) ?? null;
-		const sectorEtf = assetSector
-			? (SECTOR_ETF_MAP[assetSector] ?? null)
-			: null;
+		const sectorEtf = assetSector ? (SECTOR_ETF_MAP[assetSector] ?? null) : null;
 
 		// For stocks: prefer sector ETF benchmark, fall back to SPY.
 		const benchmarkEtf = sectorEtf ?? MARKET_BENCHMARK_SYMBOL;
-		const benchmarkMovePercentAbs =
-			benchmarkMoveCache.get(benchmarkEtf) ?? spyMovePercentAbs;
+		const benchmarkMovePercentAbs = benchmarkMoveCache.get(benchmarkEtf) ?? spyMovePercentAbs;
 		const benchmarkLabel = sectorEtf
 			? `${assetSector} sector (${sectorEtf})`
 			: `broader market (${MARKET_BENCHMARK_SYMBOL})`;
@@ -439,9 +406,7 @@ export async function processPriceAlerts(options: {
 			const userSymbols = userSymbolMap.get(user.id);
 			if (!userSymbols?.has(symbol)) continue;
 
-			const userThreshold = getAnomalyThreshold(
-				user.market_asset_price_alert_move_size,
-			);
+			const userThreshold = getAnomalyThreshold(user.market_asset_price_alert_move_size);
 			if (anomalyResult.score < userThreshold) {
 				continue;
 			}
@@ -486,11 +451,7 @@ export async function processPriceAlerts(options: {
 				intradayEndTimestamp = bars.endTimestamp;
 			}
 		} catch (err) {
-			rootLogger.error(
-				"Failed to fetch intraday bars for price alert enrichment",
-				{ symbol },
-				err,
-			);
+			rootLogger.error("Failed to fetch intraday bars for price alert enrichment", { symbol }, err);
 		}
 
 		// Signal context is per-symbol (universal), so enrich once per symbol
@@ -519,11 +480,7 @@ export async function processPriceAlerts(options: {
 				iconUrl: assetIconUrlMap.get(symbol) ?? null,
 				iconBase64: assetIconBase64Map.get(symbol) ?? null,
 				benchmarkDirection:
-					benchmarkMoveSigned != null
-						? benchmarkMoveSigned >= 0
-							? "up"
-							: "down"
-						: null,
+					benchmarkMoveSigned != null ? (benchmarkMoveSigned >= 0 ? "up" : "down") : null,
 			});
 		} catch (err) {
 			rootLogger.error(

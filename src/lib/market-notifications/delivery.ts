@@ -2,23 +2,13 @@ import { getSiteUrl } from "../db/env";
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { escapeHtml, getSafeHrefUrl } from "../messaging/asset-formatting";
-import {
-	markdownLinksToHtml,
-	stripMarkdownLinks,
-} from "../messaging/email/html-section";
+import { markdownLinksToHtml, stripMarkdownLinks } from "../messaging/email/html-section";
 import { sendUserEmail } from "../messaging/email/index";
 import { renderIntradaySparklineImg } from "../messaging/email/intraday-sparkline";
 import { buildEmailUrls } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
-import {
-	createLogoCache,
-	fetchLogoBase64,
-	renderLogoImg,
-} from "../messaging/logo-fetcher";
-import {
-	deliveryResultToLogFields,
-	recordNotification,
-} from "../messaging/shared";
+import { createLogoCache, fetchLogoBase64, renderLogoImg } from "../messaging/logo-fetcher";
+import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import type { SmsSender } from "../messaging/sms/twilio-utils";
@@ -47,9 +37,7 @@ function formatPriceContextWithSparkline(
 		// Downsample to preserve full-day shape; truncating would drop recent price data
 		const sampled: number[] = [];
 		for (let i = 0; i < maxSparklineLength; i++) {
-			const idx = Math.round(
-				(i / (maxSparklineLength - 1)) * (values.length - 1),
-			);
+			const idx = Math.round((i / (maxSparklineLength - 1)) * (values.length - 1));
 			const v = values[idx];
 			if (v !== undefined) sampled.push(v);
 		}
@@ -85,10 +73,7 @@ async function formatPriceAlertSms(
 		SMS_SPARKLINE_MAX_LENGTH,
 	);
 
-	const sections = [
-		"StockTextAlerts — Unusual Price Move 🚨",
-		priceContextLine,
-	];
+	const sections = ["StockTextAlerts — Unusual Price Move 🚨", priceContextLine];
 	if (alert.signalContext) {
 		sections.push(alert.signalContext);
 	}
@@ -115,10 +100,7 @@ async function formatPriceAlertSms(
 	return padUrlsToSegmentBoundaries(sections.join("\n\n"));
 }
 
-function renderHtmlSparklineForAlert(
-	alert: EnrichedAlert,
-	is24: boolean,
-): string {
+function renderHtmlSparklineForAlert(alert: EnrichedAlert, is24: boolean): string {
 	const sparklineImg = renderIntradaySparklineImg({
 		intradayCloses: alert.intradayCloses,
 		is24,
@@ -165,10 +147,7 @@ function formatPriceAlertEmail(
 		alert.intradayCloses,
 	);
 
-	const textSections = [
-		`Unusual Price Move: ${alert.symbol}`,
-		textPriceContextLine,
-	];
+	const textSections = [`Unusual Price Move: ${alert.symbol}`, textPriceContextLine];
 	if (alert.signalContext) {
 		textSections.push(alert.signalContext);
 	}
@@ -176,14 +155,11 @@ function formatPriceAlertEmail(
 	if (alert.grokResult) {
 		const { summary, links } = alert.grokResult;
 		// Strip inline markdown links for plaintext — links are listed separately below
-		textSections.push(
-			`Why it's moving:\n${stripMarkdownLinks(summary, "keep-text")}`,
-		);
+		textSections.push(`Why it's moving:\n${stripMarkdownLinks(summary, "keep-text")}`);
 		if (links.length > 0) {
 			const linkLines = links
 				.map((l) => {
-					const via =
-						l.sourceType === "x" ? `via ${l.source} on X` : `via ${l.source}`;
+					const via = l.sourceType === "x" ? `via ${l.source} on X` : `via ${l.source}`;
 					const safeUrl = getSafeHrefUrl(l.url);
 					return `- ${l.title} (${via})${safeUrl ? ` ${safeUrl}` : ""}`;
 				})
@@ -254,8 +230,7 @@ export async function deliverPriceAlert(options: {
 	stats: PriceAlertDeliveryStats;
 	logoCache?: ReturnType<typeof createLogoCache>;
 }): Promise<void> {
-	const { user, alert, supabase, sendEmail, sendSms, stats, logoCache } =
-		options;
+	const { user, alert, supabase, sendEmail, sendSms, stats, logoCache } = options;
 
 	// Email delivery
 	if (user.market_asset_price_alerts_include_email) {

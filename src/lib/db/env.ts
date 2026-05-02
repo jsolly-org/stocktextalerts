@@ -51,10 +51,7 @@ const UNSUBSCRIBE_SECRET_MIN_LENGTH = 12;
  */
 export function getValidatedUnsubscribeTokenSecret(): string | null {
 	const value = getUnsubscribeTokenSecret();
-	if (
-		typeof value !== "string" ||
-		value.trim().length < UNSUBSCRIBE_SECRET_MIN_LENGTH
-	) {
+	if (typeof value !== "string" || value.trim().length < UNSUBSCRIBE_SECRET_MIN_LENGTH) {
 		return null;
 	}
 	return value;
@@ -68,9 +65,7 @@ export function getValidatedUnsubscribeTokenSecret(): string | null {
  */
 export function getSiteUrl(): string {
 	const url =
-		readEnv("SITE_URL") ||
-		readEnv("VERCEL_PROJECT_PRODUCTION_URL") ||
-		readEnv("VERCEL_URL");
+		readEnv("SITE_URL") || readEnv("VERCEL_PROJECT_PRODUCTION_URL") || readEnv("VERCEL_URL");
 
 	if (!url || url.trim() === "") {
 		throw new Error(

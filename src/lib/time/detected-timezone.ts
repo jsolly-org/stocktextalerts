@@ -23,9 +23,7 @@ export function setupDetectedTimezoneOption(options?: {
 
 	const detected = DateTime.local().zoneName ?? "";
 
-	const knownValues = new Set(
-		Array.from(select.options).map((option) => option.value),
-	);
+	const knownValues = new Set(Array.from(select.options).map((option) => option.value));
 
 	if (detected !== "" && knownValues.has(detected)) {
 		select.value = detected;

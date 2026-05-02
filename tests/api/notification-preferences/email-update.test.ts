@@ -2,10 +2,7 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/notification-preferences/update";
 import { createApiContext } from "../../helpers/api-context";
-import {
-	adminClient,
-	createAuthenticatedCookies,
-} from "../../helpers/test-env";
+import { adminClient, createAuthenticatedCookies } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
@@ -19,21 +16,15 @@ describe("A signed-in user updates their email notification preference.", () => 
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			"TestPassword123!",
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
 
 		const formData = new FormData();
 		formData.append("email_notifications_enabled", "true");
 
-		const request = new Request(
-			"http://localhost/api/notification-preferences/update",
-			{
-				method: "POST",
-				body: formData,
-			},
-		);
+		const request = new Request("http://localhost/api/notification-preferences/update", {
+			method: "POST",
+			body: formData,
+		});
 
 		const response = await POST(createApiContext({ request, cookies }));
 
@@ -59,21 +50,15 @@ describe("A signed-in user updates their email notification preference.", () => 
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			"TestPassword123!",
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
 
 		const formData = new FormData();
 		formData.append("email_notifications_enabled", "false");
 
-		const request = new Request(
-			"http://localhost/api/notification-preferences/update",
-			{
-				method: "POST",
-				body: formData,
-			},
-		);
+		const request = new Request("http://localhost/api/notification-preferences/update", {
+			method: "POST",
+			body: formData,
+		});
 
 		const response = await POST(createApiContext({ request, cookies }));
 

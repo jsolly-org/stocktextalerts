@@ -52,9 +52,7 @@ describe("Daily digest email prices", () => {
 		expect(message.text).toContain("AAPL — $187.42 (+1.23%)");
 		expect(message.text).toContain("MSFT — $412.10 (-0.31%)");
 		// Email uses single newline separator
-		expect(message.text).toContain(
-			"AAPL — $187.42 (+1.23%)\nMSFT — $412.10 (-0.31%)",
-		);
+		expect(message.text).toContain("AAPL — $187.42 (+1.23%)\nMSFT — $412.10 (-0.31%)");
 		expect(message.html).not.toContain("💵 Prices");
 		expect(message.html).toContain("$187.42");
 		expect(message.html).toContain("(+1.23%)");
@@ -81,9 +79,7 @@ describe("Daily digest email prices", () => {
 	});
 
 	it("shows ASCII sparklines in plaintext and SVG in HTML when sparklines provided", () => {
-		const assetPrices: AssetPriceMap = new Map([
-			["AAPL", { price: 187.42, changePercent: 1.23 }],
-		]);
+		const assetPrices: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
 		const sparklines = new Map([["AAPL", sparklineData]]);
 
 		const message = formatDailyDigestEmail({
@@ -103,9 +99,7 @@ describe("Daily digest email prices", () => {
 	});
 
 	it("SMS uses ASCII sparklines, not SVG", () => {
-		const assetPrices: AssetPriceMap = new Map([
-			["AAPL", { price: 187.42, changePercent: 1.23 }],
-		]);
+		const assetPrices: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
 		const sparklines = new Map([["AAPL", sparklineData]]);
 
 		const message = formatDailyDigestSmsMessage({
@@ -135,9 +129,7 @@ describe("Daily digest email prices", () => {
 	});
 
 	it("SMS includes market closed banner when marketOpen is false", () => {
-		const assetPrices: AssetPriceMap = new Map([
-			["AAPL", { price: 187.42, changePercent: 1.23 }],
-		]);
+		const assetPrices: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
 
 		const message = formatDailyDigestSmsMessage({
 			userAssets: [userAssets[0]],
@@ -156,9 +148,7 @@ describe("Daily digest email prices", () => {
 	});
 
 	it("SMS omits market closed banner when marketOpen is true", () => {
-		const assetPrices: AssetPriceMap = new Map([
-			["AAPL", { price: 187.42, changePercent: 1.23 }],
-		]);
+		const assetPrices: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
 
 		const message = formatDailyDigestSmsMessage({
 			userAssets: [userAssets[0]],
@@ -192,9 +182,7 @@ describe("Daily digest email prices", () => {
 	});
 
 	it("formats rumor ticker sections with blank lines between tickers", () => {
-		const assetPrices: AssetPriceMap = new Map([
-			["AAPL", { price: 187.42, changePercent: 1.23 }],
-		]);
+		const assetPrices: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
 
 		const message = formatDailyDigestEmail({
 			user,
@@ -206,17 +194,13 @@ describe("Daily digest email prices", () => {
 			},
 		});
 
-		expect(message.text).toContain(
-			"🤫 Rumors\nAAPL: First rumor line\n\nMSFT: Second rumor line",
-		);
+		expect(message.text).toContain("🤫 Rumors\nAAPL: First rumor line\n\nMSFT: Second rumor line");
 		expect(message.html).toContain("<strong>AAPL:</strong> First rumor line");
 		expect(message.html).toContain("<strong>MSFT:</strong> Second rumor line");
 	});
 
 	it("preserves single blank-line spacing when rumors already contain it", () => {
-		const assetPrices: AssetPriceMap = new Map([
-			["AAPL", { price: 187.42, changePercent: 1.23 }],
-		]);
+		const assetPrices: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
 
 		const message = formatDailyDigestEmail({
 			user,
@@ -228,18 +212,14 @@ describe("Daily digest email prices", () => {
 			},
 		});
 
-		expect(message.text).toContain(
-			"🤫 Rumors\nAAPL: First rumor line\n\nMSFT: Second rumor line",
-		);
+		expect(message.text).toContain("🤫 Rumors\nAAPL: First rumor line\n\nMSFT: Second rumor line");
 		expect(message.text).not.toContain(
 			"🤫 Rumors\nAAPL: First rumor line\n\n\nMSFT: Second rumor line",
 		);
 	});
 
 	it("formats news ticker sections with blank lines between tickers", () => {
-		const assetPrices: AssetPriceMap = new Map([
-			["AAPL", { price: 187.42, changePercent: 1.23 }],
-		]);
+		const assetPrices: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
 
 		const message = formatDailyDigestEmail({
 			user,
@@ -251,9 +231,7 @@ describe("Daily digest email prices", () => {
 			},
 		});
 
-		expect(message.text).toContain(
-			"🗞️ News\nAAPL: First news line\n\nMSFT: Second news line",
-		);
+		expect(message.text).toContain("🗞️ News\nAAPL: First news line\n\nMSFT: Second news line");
 		expect(message.html).toContain("<strong>AAPL:</strong> First news line");
 		expect(message.html).toContain("<strong>MSFT:</strong> Second news line");
 	});
@@ -290,14 +268,10 @@ describe("Daily digest email prices", () => {
 		});
 
 		expect(message.text).toContain("Market Closed — Weekend");
-		expect(message.text).toContain(
-			"Prices below reflect the last market close",
-		);
+		expect(message.text).toContain("Prices below reflect the last market close");
 		expect(message.text).toMatch(/as of .+EST/);
 		expect(message.html).toContain("Market Closed — Weekend");
-		expect(message.html).toContain(
-			"Prices below reflect the last market close",
-		);
+		expect(message.html).toContain("Prices below reflect the last market close");
 		// Banner uses amber styling
 		expect(message.html).toContain("#fef3c7");
 		// Change percent is omitted outside market hours
@@ -328,9 +302,7 @@ describe("Daily digest email prices", () => {
 	});
 
 	it("shows market-closed banner without timestamp when no quotes have timestamps", () => {
-		const assetPrices: AssetPriceMap = new Map([
-			["AAPL", { price: 187.42, changePercent: 1.23 }],
-		]);
+		const assetPrices: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
 
 		const message = formatDailyDigestEmail({
 			user,
@@ -342,18 +314,14 @@ describe("Daily digest email prices", () => {
 		});
 
 		expect(message.text).toContain("Market Closed — Weekend");
-		expect(message.text).toContain(
-			"Prices below reflect the last market close.",
-		);
+		expect(message.text).toContain("Prices below reflect the last market close.");
 		expect(message.text).not.toContain("as of");
 		// Change percent omitted outside market hours
 		expect(message.text).not.toContain("(+1.23%)");
 	});
 
 	it("renders top movers section in email when opted in", () => {
-		const assetPrices: AssetPriceMap = new Map([
-			["AAPL", { price: 187.42, changePercent: 1.23 }],
-		]);
+		const assetPrices: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
 
 		const message = formatDailyDigestEmail({
 			user,
@@ -377,9 +345,7 @@ describe("Daily digest email prices", () => {
 	});
 
 	it("omits top movers section from email when not opted in", () => {
-		const assetPrices: AssetPriceMap = new Map([
-			["AAPL", { price: 187.42, changePercent: 1.23 }],
-		]);
+		const assetPrices: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
 
 		const message = formatDailyDigestEmail({
 			user,
@@ -393,9 +359,7 @@ describe("Daily digest email prices", () => {
 	});
 
 	it("renders top movers section in SMS when extras.topMovers is set", () => {
-		const assetPrices: AssetPriceMap = new Map([
-			["AAPL", { price: 187.42, changePercent: 1.23 }],
-		]);
+		const assetPrices: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
 
 		const message = formatDailyDigestSmsMessage({
 			userAssets: [userAssets[0]],
@@ -412,9 +376,7 @@ describe("Daily digest email prices", () => {
 	});
 
 	it("omits top movers section from SMS when extras.topMovers is absent", () => {
-		const assetPrices: AssetPriceMap = new Map([
-			["AAPL", { price: 187.42, changePercent: 1.23 }],
-		]);
+		const assetPrices: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
 
 		const message = formatDailyDigestSmsMessage({
 			userAssets: [userAssets[0]],
@@ -427,9 +389,7 @@ describe("Daily digest email prices", () => {
 	});
 
 	it("includes Finnhub logo on Earnings and Massive logos on calendar sections in digest HTML", () => {
-		const assetPrices: AssetPriceMap = new Map([
-			["AAPL", { price: 187.42, changePercent: 1.23 }],
-		]);
+		const assetPrices: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
 
 		const message = formatDailyDigestEmail({
 			user,

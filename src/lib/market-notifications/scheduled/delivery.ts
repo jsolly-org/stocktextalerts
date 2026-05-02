@@ -1,8 +1,5 @@
 import type { Logger } from "../../logging";
-import {
-	createErrorForLogging,
-	extractErrorMessage,
-} from "../../logging/errors";
+import { createErrorForLogging, extractErrorMessage } from "../../logging/errors";
 import { processEmailUpdate } from "../../messaging/email/delivery";
 import type { EmailSender } from "../../messaging/email/utils";
 import { recordNotification } from "../../messaging/shared";
@@ -10,14 +7,8 @@ import { processSmsUpdate } from "../../messaging/sms/delivery";
 import type { SparklineData } from "../../messaging/sparkline";
 import type { UserAssetRow, UserRecord } from "../../messaging/types";
 import type { AssetPriceMap } from "../../providers/price-fetcher";
-import type {
-	ScheduledNotificationTotals,
-	SupabaseAdminClient,
-} from "../../schedule/helpers";
-import {
-	claimNotification,
-	updateScheduledNotificationRow,
-} from "../../schedule/helpers";
+import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../../schedule/helpers";
+import { claimNotification, updateScheduledNotificationRow } from "../../schedule/helpers";
 import type { SmsSenderProvider } from "../../schedule/sms-sender";
 import type { MarketClosureInfo } from "../../time/market-calendar";
 

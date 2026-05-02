@@ -42,10 +42,7 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 				.map((s) => s.trim().toUpperCase())
 				.filter(Boolean);
 			// Validate format and length; cap count to avoid abuse.
-			symbols = [...new Set(raw.filter(isValidAssetSymbol))].slice(
-				0,
-				MAX_SPARKLINE_SYMBOLS,
-			);
+			symbols = [...new Set(raw.filter(isValidAssetSymbol))].slice(0, MAX_SPARKLINE_SYMBOLS);
 		} else {
 			const userAssets = await getUserAssets(supabase, user.id);
 			symbols = userAssets.map((a) => a.symbol);

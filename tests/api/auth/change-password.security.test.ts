@@ -3,10 +3,7 @@ import { describe, expect, it } from "vitest";
 import { POST } from "../../../src/pages/api/auth/change-password";
 import { createApiContext } from "../../helpers/api-context";
 import { NEW_PASSWORD } from "../../helpers/constants";
-import {
-	adminClient,
-	createAuthenticatedCookies,
-} from "../../helpers/test-env";
+import { adminClient, createAuthenticatedCookies } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
@@ -23,9 +20,7 @@ describe("Password change endpoint enforces authentication, form validation, and
 		const response = await POST(createApiContext({ request }));
 
 		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe(
-			"/auth/signin?error=unauthorized",
-		);
+		expect(response.headers.get("Location")).toBe("/auth/signin?error=unauthorized");
 	});
 
 	it("Authenticated requests with missing fields are rejected as invalid form.", async () => {
@@ -37,10 +32,7 @@ describe("Password change endpoint enforces authentication, form validation, and
 		});
 		registerTestUserForCleanup(testUser.id);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			originalPassword,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, originalPassword);
 
 		const request = new Request("http://localhost/api/auth/change-password", {
 			method: "POST",
@@ -53,9 +45,7 @@ describe("Password change endpoint enforces authentication, form validation, and
 		const response = await POST(createApiContext({ request, cookies }));
 
 		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe(
-			"/profile?error=invalid_form",
-		);
+		expect(response.headers.get("Location")).toBe("/profile?error=invalid_form");
 	});
 });
 
@@ -70,10 +60,7 @@ describe("Password change endpoint enforces rate limiting.", () => {
 		registerTestUserForCleanup(testUser.id);
 
 		const attempts =
-			Number.parseInt(
-				process.env.CHANGE_PASSWORD_RATE_LIMIT_ATTEMPTS ?? "5",
-				10,
-			) || 5;
+			Number.parseInt(process.env.CHANGE_PASSWORD_RATE_LIMIT_ATTEMPTS ?? "5", 10) || 5;
 
 		await adminClient.from("rate_limit_log").insert(
 			Array.from({ length: attempts }, () => ({
@@ -82,10 +69,7 @@ describe("Password change endpoint enforces rate limiting.", () => {
 			})),
 		);
 
-		const cookies = await createAuthenticatedCookies(
-			testUser.email,
-			originalPassword,
-		);
+		const cookies = await createAuthenticatedCookies(testUser.email, originalPassword);
 
 		const request = new Request("http://localhost/api/auth/change-password", {
 			method: "POST",

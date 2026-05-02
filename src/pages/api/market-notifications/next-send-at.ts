@@ -40,12 +40,9 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		return jsonResponse(400, { ok: false, message: "invalid_form" });
 	}
 
-	const rawTimezone =
-		typeof body.timezone === "string" ? body.timezone.trim() : "";
+	const rawTimezone = typeof body.timezone === "string" ? body.timezone.trim() : "";
 	const timezone =
-		rawTimezone.length > 0 && rawTimezone.length <= MAX_TIMEZONE_LENGTH
-			? rawTimezone
-			: null;
+		rawTimezone.length > 0 && rawTimezone.length <= MAX_TIMEZONE_LENGTH ? rawTimezone : null;
 	const timeInputs: string[] = [];
 	if (Array.isArray(body.timeInputs)) {
 		for (const value of body.timeInputs) {
