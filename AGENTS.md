@@ -1,7 +1,3 @@
-## Purpose
-
-New app with no users — optimize for simplicity and correctness over backwards compatibility. Prefer aggressively simplifying redesigns, even if breaking. Remove legacy code instead of preserving it.
-
 ## Commands
 
 ```bash
@@ -22,7 +18,7 @@ supabase migration new <name>  # Create new migration (never rename timestamps)
 
 **Single test file:** `npm test -- tests/lib/some-file.test.ts`
 **Live provider tests:** `npm test -- --live=massive,finnhub tests/lib/live-provider-apis.test.ts`
-**Always use `npm test`**, never `npx vitest` directly — the npm script loads `.env.local` via `--env-file-if-exists`.
+Run vitest via `npm test` so the npm script loads `.env.local` via `--env-file-if-exists`.
 
 ## Architecture
 
@@ -47,14 +43,13 @@ supabase migration new <name>  # Create new migration (never rename timestamps)
 - **Icons (Vue):** Import SVGs via `vite-svg-loader` with `?component` suffix. No `astro-icon` in Vue.
 - **No inline `<svg>` markup** — store all SVGs in `src/icons/`.
 - **DB is the integrity layer**: Enforce via constraints; front-end validation is UX-only.
-- **Trust DB values**: No null checks for NOT NULL columns or FK-guaranteed data.
 
 ## Logging
 
 - Use `src/lib/logging/` (`createLogger`, `rootLogger`) — structured JSON with `timestamp`, `level`, `message`, `context`.
 - Always pass a named context object (no `{}`/`undefined`).
 - **Env vars**: Use `requireEnv()` from `src/lib/db/env.ts` at point-of-use.
-- **Lambdas also use the same logger** — `src/handlers/*.ts` import `createLogger` from `src/lib/logging`. Each Lambda log group has an `AWS::Logs::MetricFilter` on `{ $.level = "error" }` feeding the shared `stocktextalerts-crons/ErrorLogCount` metric and `ErrorLogAlarm`, alongside per-function `AWS/Lambda Errors` alarms. This matches the cross-repo pattern in `~/.agents/AGENTS.md` → "Logging & alert-hub" (and the `alert-hub-lambda-setup` skill). Do not set `LogFormat: JSON` on the Node Lambdas — the app logger already emits JSON via `console.*`. Note: this repo's logger is bespoke (Vue browser-bundle compatibility via a `process` guard) — it is not a sync consumer of the canonical `~/code/family-memory/src/shared/logging.ts`.
+- **Lambdas also use the same logger** — `src/handlers/*.ts` import `createLogger` from `src/lib/logging`. Each Lambda log group has an `AWS::Logs::MetricFilter` on `{ $.level = "error" }` feeding the shared `stocktextalerts-crons/ErrorLogCount` metric and `ErrorLogAlarm`, alongside per-function `AWS/Lambda Errors` alarms. Cross-repo pattern: `~/.agents/rules/aws.md` → "Logging & alert-hub". Leave `LogFormat` unset on Node Lambdas — the app logger handles structure via `console.*`. Note: this repo's logger is bespoke (Vue browser-bundle compatibility via a `process` guard) — it is not a sync consumer of the canonical `~/code/family-memory/src/shared/logging.ts`.
 
 ## Testing (Project-Specific)
 
@@ -62,44 +57,19 @@ supabase migration new <name>  # Create new migration (never rename timestamps)
 - **Do not mock Supabase**: Use real client with seeded data via helpers in `tests/helpers/`.
 - **Console spies**: Tests fail on unexpected `console.warn`/`console.error`. Use `expectConsoleWarning()`/`expectConsoleError()` from `tests/setup.ts`.
 - **Schema version**: When adding migrations, update `app_metadata.schema_version` in SQL and `EXPECTED_DB_SCHEMA_VERSION` in `tests/helpers/constants.ts`.
-- Pre-existing type error in `src/pages/api/auth/sms/send-verification.ts:201` (nullable param to RPC) — not ours, ignore.
 - `formatPriceAlertSms` is **async** (shortens Grok link URLs via the `short_urls` table). Mock supabase for it must include a `.from().select().eq().gt().limit().single()` chain for the shortener dedup lookup. All other SMS formatters are sync.
 - **Live API tests**: `npm run test:live:email`, `test:live:data`, `test:live:xai`, `test:live:all`. Always reproduce live test failures locally before fixing.
 
-### Testing Philosophy: No real delivery from tests, ever
-
-After the 2026-04-11 incident where a local `--live=email` run delivered a real notification to a real mailbox via prod SES credentials from `.env.local`, the harness enforces a zero-real-delivery rule:
-
-- **Tests never hit real AWS SES or real Twilio credentials.** Real credentials are reachable only from a production build (Lambda / Vercel SSR).
-- **The three sender factories** hard-gate via `isProduction()` from `src/lib/runtime/mode.ts` (reads `process.env.NODE_ENV`):
-  - `createEmailSender` — `src/lib/messaging/email/utils.ts`
-  - `createSmsSender` — `src/lib/messaging/sms/twilio-utils.ts`
-  - `sendVerification` / `checkVerification` (Twilio Verify) — `src/lib/auth/sms-verification.ts`
-- **Live email tests** route through local **Mailpit** (Supabase's bundled Inbucket container) via SMTP on `localhost:1025`. `tests/run-vitest.ts` auto-sets `EMAIL_SMTP_HOST=localhost` when `--live=email` is passed, which makes `createEmailSender` pick the `nodemailer` branch instead of constructing a real SES client. Inspect delivered messages at http://localhost:54324.
-- **Live Twilio tests use Twilio test credentials only** (`test:live:twilio` / `--live=twilio`). They call Twilio's API with magic numbers (`+15005550006`, `+15005550009`) and do not deliver real SMS or incur charges.
-- **App SMS sender remains production-gated.** `createSmsSender` still mocks outside production mode; live Twilio API tests run in a dedicated test file and do not route through app delivery flows.
-- **Twilio Verify** always mocks in non-prod. The mock accepts `000000` as the only approved OTP, so local signup OTP flows can exercise both success and failure paths without hitting Twilio.
-- **Test recipients are always `@example.com`.** Never reference real mailboxes or phone numbers in tests. `tests/helpers/test-user.ts:createTestEmail` generates `<prefix>-<runId>-<uuid>@example.com`.
-- **`astro dev`** routes email through Mailpit automatically when `EMAIL_SMTP_HOST=localhost` is set in `.env.local` (the new committed default). Never set real SES env vars in dev.
-- **Assertions**: use `tests/helpers/mailpit.ts` (`waitForMailpitMessage`, `waitForMailpitMessageTo`, `clearMailpit`) to inspect Mailpit content. For prod-safety unit assertions on the gates themselves, see `tests/lib/messaging/sender-gates.test.ts`.
+See `docs/testing.md` for the production-credential gating model and Mailpit dev/test routing.
 
 ## Supabase Migrations
 
 - **Local files are source of truth.** Create with `supabase migration new <name>`, write SQL, commit, merge. CI runs `supabase db push`.
-- **Never apply migrations directly to production** (no MCP against prod, no `db push` locally, no dashboard DDL).
+- **Apply migrations to production only via CI's `supabase db push`.** Local-only paths: `supabase migration new <name>` then commit. (No MCP against prod, no `db push` locally, no dashboard DDL.)
 - After creating/modifying a migration: `npm run db:gen-types`.
-- Do NOT modify `src/lib/db/generated/database.types.ts` directly.
+- **Regenerate `src/lib/db/generated/database.types.ts` via `npm run db:gen-types`** — it's overwritten on every run.
 
-### Local bootstrap + seed hardening
-
-- **Canonical bootstrap is `npm run db:bootstrap`** (runs `db:start`, `db:reset`, then `db:doctor`). Reach for this — not ad-hoc psql — whenever the local stack looks wedged (ECONNREFUSED from `@supabase/auth-js`, `invalid_credentials` on known-good password, empty `auth.users`, etc.). The 2026-04-18 "assets seeded but users didn't" incident was `supabase start` silently skipping half the seed; `db:reset` re-runs seed.sql through a fresh session and is reliable.
-- **`npm test` auto-runs `db:doctor` via `pretest`**; `npm run dev` runs it via `predev` (non-blocking — a failure prints a hint and still starts the dev server so frontend-only work isn't gated on Supabase being up). CI calls `npm run test:ci`, which does **not** trigger `pretest` (npm lifecycle hooks are per-script name), so CI is unaffected.
-- **`seed.sql` is hardened** by `scripts/db/generate-seed.ts`:
-  - Section order: **users (auth + profile) → assets → user tracked assets → verification**. Users come first so a partial seed surfaces as "login broken" (obvious) rather than "user silently missing while assets succeed" (the original regression).
-  - Each per-user block is wrapped in `BEGIN`/`COMMIT` for per-user atomicity.
-  - The final `DO $$ … $$` block `RAISE EXCEPTION`s if any expected `auth.users` / `public.users` row, or any user's tracked assets, didn't land. This fails `supabase db reset` loudly instead of leaving a half-seeded stack.
-  - Do **not** add psql meta-commands (`\set`, `\if`, etc.) to the generated SQL — `supabase db reset` streams it over a raw Postgres connection, not through psql, and those are syntax errors.
-- **After machine reinstalls, Podman upgrades, or Supabase CLI upgrades**, run `scripts/ci/verify-local-supabase.sh` once to confirm the full bootstrap still works end-to-end (wraps `db:bootstrap` + `db:doctor`).
+See `docs/local-supabase.md` for `db:bootstrap`, seed hardening, and Podman setup.
 
 ## Supabase Auth OTP
 
@@ -109,19 +79,19 @@ After the 2026-04-11 incident where a local `--live=email` run delivered a real 
 
 ## AWS / SAM Deploy
 
-**SAM deploy required** when committing changes to `aws/template.yaml`, `aws/deploy.sh`, `src/handlers/`, or `src/lib/`. After the commit: `cd aws && npm run deploy` (or `npm run deploy:aws` from repo root). Use `--profile prod-admin` for all production AWS commands.
+**SAM deploy required** when committing changes to `aws/template.yaml`, `aws/deploy.sh`, `src/handlers/`, or `src/lib/`. After the commit: `cd aws && npm run deploy` (or `npm run deploy:aws` from repo root).
 
 ## External APIs
 
-- **Massive** (formerly Polygon.io, rebranded Oct 2025) — paid $29/mo plan (unlimited requests, recommended <100 req/s). API at `api.massive.com` (legacy `api.polygon.io` still works). Always refer to as "Massive" in code/comments. Also the sole source of live snapshot quotes, prev-day bars, and the asset reference universe used to seed `scripts/data/us-assets.json`.
-- **Finnhub** — free tier only. Used for the earnings calendar (`/calendar/earnings` via `fetchFinnhubEarnings` in `src/lib/providers/massive.ts`, because Massive's earnings endpoint isn't entitled on our plan) and the "extras" bundle (analyst recommendations + insider transactions via `fetchFinnhubExtras` in `src/lib/providers/finnhub.ts`). Never used for live quotes — the quote path is Massive-only, falling back to prev-day bars for snapshot misses.
-- **Massive ticker counts** (as of 2026-03-06): ~5,257 CS + ~378 ADRC = ~5,635 stocks; ~5,021 ETFs.
+See `docs/external-apis.md` for Massive (prices/reference) and Finnhub (earnings calendar + extras).
+
+## CI: Reproduce CI locally with Act
+
+See `docs/ci-with-act.md` for the 7-item pre-push checklist and act limitations (Podman socket, VM memory, deploy workflow rejection).
 
 ## AWS IAM
 
-- `jsolly-prod-admin` — admin user for local CLI (prod-admin profile)
 - `stocktextalerts-ses` — SES send-only, keys used in Vercel + .env.local for email sending
-- `amplify-admin` — Amplify deployments
 - `GitHubActionsDeploymentRole` — OIDC role for GitHub Actions CI (S3, CloudFront, ECR, Lambda, CloudFormation)
 - `stocktextalerts-crons-*` — SAM-managed Lambda execution roles (auto-created)
 
@@ -140,75 +110,14 @@ Authenticated via `npx vercel` to `jsollys-projects` scope. Useful commands: `np
 
 `wrangler` is installed globally. Auth uses Global API Key (`CLOUDFLARE_API_KEY` + `CLOUDFLARE_EMAIL` in `~/.zshrc`). Account: John Solly (`cloudflare@jsolly.com`), Account ID: `fe860aed6545e6e55e2808d66decf186`.
 
-## SMS Provider
-
-Evaluating cheaper alternatives to Twilio (as of 2026-04-05). AWS SNS preferred (~$0.00645/segment, no monthly number fee) unless inbound SMS is needed. No decision made yet — exploratory.
-
 ## Dev Environment
 
 - **Prod dev-login account**: `test@jsolly.com` with `DEFAULT_PASSWORD` env var. This is the only place a real inbox is allowed to appear by name, and it exists as a row in production Supabase for interactive login during local dev against prod. It is **not** used by the test harness — `tests/helpers/constants.ts:PRESERVED_TEST_EMAIL` is `preserved-test@example.com`, deliberately non-routable.
 - **Mailpit for dev email**: `.env.local` sets `EMAIL_SMTP_HOST=localhost` and `EMAIL_SMTP_PORT=1025` so any email the dev server would otherwise send through SES lands in Mailpit at http://localhost:54324 instead. Requires local Supabase running (`npm run db:start`). `tests/run-vitest.ts` strips both env vars under plain `npm test` so unit tests stay on the in-process mock sender, and re-exports them when `--live=email` is passed.
 
-### Reproduce CI locally with Act
+## Deploy gotchas
 
-**Use Act before pushing changes that affect CI, workflows, tests, or dev tooling.** On 2026-04-11 a one-line race in `delivery-times.e2e.spec.ts` passed 20/20 locally but failed twice in CI — caught only because we reproduced the E2E step locally with CI-matching env. Don't skip this step; it's the cheapest way to catch CI-only regressions before they land on `main`.
-
-- **Install**: `brew install act` (already installed; config in `.actrc`).
-- **List jobs**: `act -l`.
-- **Run the full test-and-build job locally** (composite action: migrations, npm test, test:smoke, build):
-  ```bash
-  npm run gha:local:test-build
-  ```
-  Uses `scripts/ci/run-local-actions.sh` → runs `noDeploy.yml`'s `test-and-build` job in a `catthehacker/ubuntu` container with the repo mounted. Matches CI's node version, Supabase CLI version, and exact step sequence.
-- **Run only the lint job**: `npm run gha:local:lint`.
-- **Run the full E2E suite (workflow_dispatch-gated job)**: `npm run gha:local:e2e`. Reproduces the deploy workflow's E2E step against `run-ci` without prod credentials. Skipped on normal pushes to `main` to keep CI fast; opt in via `workflow_dispatch` or this script.
-- **Custom workflow or job**: `scripts/ci/run-local-actions.sh --workflow .github/workflows/<file>.yml --job <name>`.
-
-**Limitations:**
-
-- `Deploy Website` (`.github/workflows/deploy.yml`) is **not act-runnable by design**. It links the live Supabase project, pushes migrations, deploys to Vercel, and updates Lambda code with real credentials. `scripts/ci/run-local-actions.sh` explicitly rejects `--workflow .github/workflows/deploy.yml` to prevent half-run production side effects. To reproduce its CI parts locally, use `npm run gha:local:test-build` (same `run-ci` composite) and `npm run gha:local:e2e` (same Playwright step).
-- Act needs `DOCKER_HOST` pointing at Podman's socket. The `~/.zshrc` block that runs `podman machine inspect` to resolve the socket path should already be exporting it; check with `echo "$DOCKER_HOST"` before running act.
-- **Podman VM needs ≥ 6144 MB of memory** for Vitest to complete without the in-VM OOM killer issuing `SIGKILL` (the exact failure chased on 2026-04-19 — Vitest died with no test-level error). `scripts/ci/run-local-actions.sh` preflight-checks the `podman-machine-default` VM and fails with the fix command if it's undersized. It also prunes stale `act-*` containers from prior runs that would otherwise keep the VM under memory pressure.
-- Act containers run the host's native architecture (arm64 on Apple Silicon, amd64 on Linux/Intel CI runners). Forcing `linux/amd64` via `--container-architecture` made Playwright's headless Chromium crash under QEMU on M-series Macs (`qemu: uncaught target signal 5`), so it's intentionally omitted from `.actrc`. CI still runs amd64 natively on GitHub's Ubuntu runners, and `catthehacker/ubuntu:act-latest` ships both arches — local runs now ~2× faster than the amd64-forced setup.
-
-**When to run it (checklist before `git push`):**
-
-1. Any change to `.github/workflows/**` or `.github/actions/**`.
-2. Any change to `tests/**` that isn't purely additive (moving/renaming tests, changing setup/teardown, test helpers, vitest config, playwright config).
-3. Any change to `tests/run-vitest.ts`, `playwright.config.ts`, `tests/setup.ts`, `tests/helpers/live-api.ts`, or anything else that gates test behavior on env vars.
-4. Any change to `supabase/config.toml` (service toggles, migration loader, SMTP settings).
-5. Any change to `package.json` scripts that CI calls (`test`, `test:ci`, `test:smoke`, `test:e2e`, `build`).
-6. Any change to core build tooling: `astro.config.mjs`, `vitest.config.ts`, `tsconfig*.json`.
-7. Any change that adds/removes a `@*/`-scoped dependency or shifts dev deps to runtime deps (or vice versa).
-
-For pure `src/lib/**` or `src/pages/**` changes that don't touch any of the above, local `npm test`/`npm run test:e2e` are sufficient — act adds latency for no signal.
-
-### Local container runtime: Podman
-
-Local Supabase runs in containers. This project is on **Podman** (not Docker Desktop). Docker Desktop was uninstalled on 2026-04-11 after it ate ~40G of disk.
-
-**One-time shell setup** — add to `~/.zshrc`:
-
-```zsh
-export PATH="/opt/podman/bin:$PATH"
-export DOCKER_HOST="unix://$(/opt/podman/bin/podman machine inspect podman-machine-default --format '{{.ConnectionInfo.PodmanSocket.Path}}' 2>/dev/null)"
-```
-
-(The `DOCKER_HOST` value resolves at shell-startup time to the current Podman machine's socket — it's `/var/folders/.../T/podman/podman-machine-default-api.sock` and changes if the machine is recreated.)
-
-**Gotchas we've hit:**
-
-- **Vector / Logflare analytics is disabled** in `supabase/config.toml` (`[analytics] enabled = false`). Supabase's `vector` container tries to read Docker logs from `/var/run/docker.sock` inside its own container, which Podman's Docker-compat shim doesn't plumb the same way — `supabase start` hangs on *"vector container is not ready: starting"* otherwise. We don't use the local analytics UI so this is a net win, not a workaround.
-- **`supabase stop` may emit** `failed to prune volumes: "all" is an invalid volume filter`. It's a warning from Podman's Docker-compat shim not recognizing Docker's `all=true` volume filter; safe to ignore.
-- **`podman` on PATH**: the `/opt/podman/bin` install location isn't in the default shell PATH. Add the export above or the `supabase` CLI won't find the podman binary for its auxiliary commands.
-
-**CI stays on Docker.** GitHub Actions Ubuntu runners ship with Docker preinstalled, and `.github/workflows/live-provider-tests.yml` already passes `supabase start -x studio,imgproxy,logflare,vector,postgres-meta,edge-runtime,realtime,storage-api`. Switching CI to Podman would add setup time for zero benefit.
-
-**SAM CLI (`sam local invoke`)** also honors `DOCKER_HOST`, so `cd aws && npm run local:all` works under Podman with the same setup.
-
-## SES Migration History
-
-Resend→SES email migration (PR #414) merged 2026-03-31. Notifications were down Mar 29–31 due to premature SAM deploy from feature branch that removed RESEND_API_KEY before merge. Lesson: always merge to main before SAM deploy that changes env vars.
+- **Merge to main before SAM deploy that changes env vars.** See `docs/deploy-gotchas.md`.
 
 ## UI Conventions
 
