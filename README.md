@@ -373,7 +373,7 @@ Notification crons run as AWS Lambda functions deployed via SAM (see `aws/`). Ev
 
 **Local testing:** `cd aws && npm run local:test-all` builds and invokes all three functions locally via `sam local invoke` (requires Podman or Docker — SAM CLI uses `DOCKER_HOST`). To test a single function: `npm run local:schedule`, `npm run local:asset-events`, or `npm run local:daily-stats`. Run `npm run local:gen-env` first to generate `env.json` from `.env.local` with per-function env var scoping.
 
-**Deploying:** `cd aws && npm run deploy` (uses `deploy.sh` which reads `.env.local`). **A SAM deploy is required whenever `aws/template.yaml` or `aws/deploy.sh` changes** (infrastructure/config updates). For code-only updates to `aws/src/handlers/` or `src/lib/` used by handlers, GitHub Actions now deploys Lambda code via the `Deploy Website` workflow's `deploy-lambdas` job after migrations + Vercel deploy.
+**Deploying:** `cd aws && npm run deploy` (uses `deploy.sh` which reads `.env.local`). **A SAM deploy is required whenever `aws/template.yaml` or `aws/deploy.sh` changes** (infrastructure/config updates). For code-only updates to `src/handlers/` or `src/lib/` used by handlers, GitHub Actions now deploys Lambda code via the `Deploy Website` workflow's `deploy-lambdas` job after migrations + Vercel deploy.
 
 ## Project Structure
 
