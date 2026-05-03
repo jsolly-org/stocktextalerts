@@ -37,7 +37,7 @@ Run vitest via `npm test` so the npm script loads `.env.local` via `--env-file-i
 ## Project-Specific Style
 
 - **Biome** for all formatting/linting. `noConsole` is an error — use `src/lib/logging/` instead.
-- **Astro files excluded from Biome** due to `---` delimiter formatter bug.
+- **Astro files use the editor's built-in Astro formatter**; Biome handles everything else.
 - **Tailwind utilities** over custom CSS. Semantic tokens via `@theme` in `src/global.css`.
 - **Icons (Astro):** `Icon` from `astro-icon/components`, loads from `src/icons/*.svg`.
 - **Icons (Vue):** Import SVGs via `vite-svg-loader` with `?component` suffix. No `astro-icon` in Vue.
@@ -46,15 +46,16 @@ Run vitest via `npm test` so the npm script loads `.env.local` via `--env-file-i
 
 ## Logging
 
-- Use `src/lib/logging/` (`createLogger`, `rootLogger`) — structured JSON with `timestamp`, `level`, `message`, `context`.
-- Always pass a named context object (no `{}`/`undefined`).
-- **Env vars**: Use `requireEnv()` from `src/lib/db/env.ts` at point-of-use.
-- **Lambdas also use the same logger** — `src/handlers/*.ts` import `createLogger` from `src/lib/logging`. Each Lambda log group has an `AWS::Logs::MetricFilter` on `{ $.level = "error" }` feeding the shared `stocktextalerts-crons/ErrorLogCount` metric and `ErrorLogAlarm`, alongside per-function `AWS/Lambda Errors` alarms. Cross-repo pattern: `~/.agents/rules/aws.md` → "Logging & alert-hub". Leave `LogFormat` unset on Node Lambdas — the app logger handles structure via `console.*`. Note: this repo's logger is bespoke (Vue browser-bundle compatibility via a `process` guard) — it is not a sync consumer of the canonical `~/code/family-memory/src/shared/logging.ts`.
+- Use `src/lib/logging/` (`createLogger`, `rootLogger`) — structured JSON with `timestamp`, `level`, `message`, `context`. Always pass a named context object.
+- **Env vars:** use `requireEnv()` from `src/lib/db/env.ts` at point-of-use.
+- **Lambdas (`src/handlers/*.ts`)** import `createLogger` from `src/lib/logging`. Each Lambda log group has an `AWS::Logs::MetricFilter` on `{ $.level = "error" }` feeding `stocktextalerts-crons/ErrorLogCount` + `ErrorLogAlarm`, alongside per-function `AWS/Lambda Errors` alarms.
+- **This logger is bespoke** (Vue browser-bundle compatibility via a `process` guard) — NOT a sync consumer of `~/code/family-memory/src/shared/logging.ts`.
+- Conventions (`LogFormat` unset, alert-hub SNS wiring): see `~/.agents/rules/aws.md`.
 
 ## Testing (Project-Specific)
 
 - Tests share DB state — `fileParallelism: false`. Use `registerTestUserForCleanup` for test users.
-- **Do not mock Supabase**: Use real client with seeded data via helpers in `tests/helpers/`.
+- **Use the real Supabase client** with seeded data via helpers in `tests/helpers/`. Exception: `formatPriceAlertSms` (async, hits the URL shortener) — see below.
 - **Console spies**: Tests fail on unexpected `console.warn`/`console.error`. Use `expectConsoleWarning()`/`expectConsoleError()` from `tests/setup.ts`.
 - **Schema version**: When adding migrations, update `app_metadata.schema_version` in SQL and `EXPECTED_DB_SCHEMA_VERSION` in `tests/helpers/constants.ts`.
 - `formatPriceAlertSms` is **async** (shortens Grok link URLs via the `short_urls` table). Mock supabase for it must include a `.from().select().eq().gt().limit().single()` chain for the shortener dedup lookup. All other SMS formatters are sync.
@@ -79,7 +80,7 @@ See `docs/local-supabase.md` for `db:bootstrap`, seed hardening, and Podman setu
 
 ## AWS / SAM Deploy
 
-**SAM deploy required** when committing changes to `aws/template.yaml`, `aws/deploy.sh`, `src/handlers/`, or `src/lib/`. After the commit: `cd aws && npm run deploy` (or `npm run deploy:aws` from repo root).
+**SAM deploy required** when committing changes to `aws/template.yaml`, `aws/deploy.sh`, `src/handlers/`, or `src/lib/`. After the commit: `cd aws && npm run deploy` (or `npm run deploy:aws` from repo root). Cross-repo conventions: `~/.agents/rules/aws.md`.
 
 ## External APIs
 
@@ -95,25 +96,9 @@ See `docs/ci-with-act.md` for the 7-item pre-push checklist and act limitations 
 - `GitHubActionsDeploymentRole` — OIDC role for GitHub Actions CI (S3, CloudFront, ECR, Lambda, CloudFormation)
 - `stocktextalerts-crons-*` — SAM-managed Lambda execution roles (auto-created)
 
-## Production Supabase
+## Tooling Setup
 
-- Credentials in `.env.local`: `SUPABASE_URL_PROD`, `DATABASE_URL_PROD`, `SUPABASE_SECRET_KEY_PROD`
-- Project ref: `japesagairjvvuebzpvr`
-- **psql**: `psql "$DATABASE_URL_PROD"` (pooler on port 6543)
-- Access token in `.env.local` as `SUPABASE_ACCESS_TOKEN`
-
-## Vercel CLI
-
-Authenticated via `npx vercel` to `jsollys-projects` scope. Useful commands: `npx vercel ls`, `npx vercel inspect <url> --logs`, `npx vercel env ls`.
-
-## Cloudflare CLI
-
-`wrangler` is installed globally. Auth uses Global API Key (`CLOUDFLARE_API_KEY` + `CLOUDFLARE_EMAIL` in `~/.zshrc`). Account: John Solly (`cloudflare@jsolly.com`), Account ID: `fe860aed6545e6e55e2808d66decf186`.
-
-## Dev Environment
-
-- **Prod dev-login account**: `test@jsolly.com` with `DEFAULT_PASSWORD` env var. This is the only place a real inbox is allowed to appear by name, and it exists as a row in production Supabase for interactive login during local dev against prod. It is **not** used by the test harness — `tests/helpers/constants.ts:PRESERVED_TEST_EMAIL` is `preserved-test@example.com`, deliberately non-routable.
-- **Mailpit for dev email**: `.env.local` sets `EMAIL_SMTP_HOST=localhost` and `EMAIL_SMTP_PORT=1025` so any email the dev server would otherwise send through SES lands in Mailpit at http://localhost:54324 instead. Requires local Supabase running (`npm run db:start`). `tests/run-vitest.ts` strips both env vars under plain `npm test` so unit tests stay on the in-process mock sender, and re-exports them when `--live=email` is passed.
+See `docs/tooling-setup.md` for Production Supabase access (psql, env vars, project ref), Vercel CLI scope, Cloudflare CLI auth, and Mailpit dev email routing.
 
 ## Deploy gotchas
 
