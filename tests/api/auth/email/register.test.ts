@@ -57,7 +57,7 @@ describe("A visitor registers for a new account with email and password.", () =>
 				user.id,
 			);
 			expect(authError).toBeNull();
-			if (!authUserData || !authUserData.user) throw new Error("No auth user found");
+			if (!authUserData?.user) throw new Error("No auth user found");
 			expect(authUserData.user.email).toBe(payload.email);
 		} finally {
 			if (userId) {
@@ -185,7 +185,7 @@ describe("A visitor registers for a new account with email and password.", () =>
 				user.id,
 			);
 			expect(authError).toBeNull();
-			if (!authUserData || !authUserData.user) throw new Error("No auth user found");
+			if (!authUserData?.user) throw new Error("No auth user found");
 
 			// Verify email is NOT confirmed initially
 			expect(authUserData.user.email_confirmed_at).toBeUndefined();
@@ -196,7 +196,7 @@ describe("A visitor registers for a new account with email and password.", () =>
 					email_confirm: true,
 				});
 			expect(updateError).toBeNull();
-			if (!updatedUserData || !updatedUserData.user) throw new Error("Failed to update user");
+			if (!updatedUserData?.user) throw new Error("Failed to update user");
 
 			// Verify email is now confirmed
 			const confirmedAt = updatedUserData.user.email_confirmed_at;

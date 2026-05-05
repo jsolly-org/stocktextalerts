@@ -24,7 +24,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1.6.0
+        uses: supabase/setup-cli@v2
         with:
           version: 2.76.9
 
