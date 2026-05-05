@@ -51,7 +51,7 @@ export async function fetchUsersWithRetry<T>(options: {
 
 		// warn for non-final attempts; the retry loop escalates to error and
 		// throws on exhaustion (line ~48), so transient flaps don't alarm
-		// while sustained DB issues do.
+		// while DB failures that survive retries do.
 		logger.warn(
 			`Transient error fetching ${label}, retrying`,
 			{ attempt: attempt + 1, maxRetries: MAX_RETRIES },

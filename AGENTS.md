@@ -48,7 +48,7 @@ Run vitest via `npm test` so the npm script loads `.env.local` via `--env-file-i
 
 - Use `src/lib/logging/` (`createLogger`, `rootLogger`) — structured JSON with `timestamp`, `level`, `message`, `context`. Always pass a named context object.
 - **Env vars:** use `requireEnv()` from `src/lib/db/env.ts` at point-of-use.
-- **Lambdas (`src/handlers/*.ts`)** import `createLogger` from `src/lib/logging`. Each Lambda log group has an `AWS::Logs::MetricFilter` on `{ $.level = "error" }` feeding `stocktextalerts-crons/ErrorLogCount` + `ErrorLogAlarm`, alongside per-function `AWS/Lambda Errors` alarms.
+- **Lambdas (`src/handlers/*.ts`)** import `createLogger` from `src/lib/logging`. Each Lambda log group has an `AWS::Logs::MetricFilter` on `{ $.level = "error" }` feeding `stocktextalerts/ErrorLogCount` + `ErrorLogAlarm` (fires on any single error log line in a 1-minute window), alongside per-function `AWS/Lambda Errors` alarms.
 - **This logger is bespoke** (Vue browser-bundle compatibility via a `process` guard) — NOT a sync consumer of `~/code/family-memory/src/shared/logging.ts`.
 - Conventions (`LogFormat` unset, alert-hub SNS wiring): see `~/.agents/rules/aws.md`.
 

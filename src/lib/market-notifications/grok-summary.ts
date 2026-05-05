@@ -204,8 +204,8 @@ export async function generatePriceAlertSummary(options: {
 			// 429 is an expected rejection (info). Everything else terminates
 			// this single-attempt call with no retry, so it's either upstream
 			// outage (5xx) or misconfiguration (4xx) — both error-level so
-			// sustained Grok failures surface via ErrorLogAlarm rather than
-			// silently stripping AI summaries from price alerts.
+			// Grok failures surface via ErrorLogAlarm rather than silently
+			// stripping AI summaries from price alerts.
 			if (response.status === 429) {
 				rootLogger.info("Grok price alert summary rate limited", context);
 			} else {
@@ -218,8 +218,8 @@ export async function generatePriceAlertSummary(options: {
 		return parseGrokPriceAlertResponse(data);
 	} catch (error) {
 		const isTimeout = error instanceof Error && error.name === "TimeoutError";
-		// Single attempt with no retry — log at error so sustained Grok
-		// unreachability surfaces rather than silently stripping summaries.
+		// Single attempt with no retry — log at error so Grok unreachability
+		// surfaces rather than silently stripping summaries.
 		rootLogger.error(
 			"Grok price alert summary error",
 			{

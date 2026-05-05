@@ -448,7 +448,7 @@ async function callGrokApi(options: {
 		const isLastAttempt = attempt === MAX_RETRIES;
 		// warn for non-final attempts because they will escalate to error on
 		// exhaustion; the alarm metric filter only fires on error so transient
-		// retry churn doesn't page, but a sustained outage does.
+		// retry churn doesn't page, but a real outage does.
 		const log = isLastAttempt
 			? rootLogger.error.bind(rootLogger)
 			: rootLogger.warn.bind(rootLogger);
@@ -477,8 +477,8 @@ async function callGrokApi(options: {
 					status: response.status,
 					statusText: response.statusText,
 				};
-				// 429 is an expected rejection even on exhaustion — sustained
-				// rate limiting isn't pageable. Other final-attempt failures
+				// 429 is an expected rejection even on exhaustion — rate
+				// limiting isn't pageable. Other final-attempt failures
 				// log at error so genuine outages surface.
 				if (response.status === 429 && isLastAttempt) {
 					rootLogger.info("Grok request rate limited (retries exhausted)", failureContext);

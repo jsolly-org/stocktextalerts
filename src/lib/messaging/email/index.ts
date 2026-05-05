@@ -17,6 +17,7 @@ export async function sendUserEmail(
 			body: message.text,
 			html: message.html,
 			idempotencyKey,
+			userId: user.id,
 		});
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);

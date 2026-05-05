@@ -21,7 +21,9 @@ Parameters:
     Type: String
     NoEcho: true
   EmailFrom:
-    Type: String
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /stocktextalerts/email-from
+    Description: "SSM key whose value is the SES From: header (display name + address)"
   TwilioAccountSid:
     Type: String
     NoEcho: true
@@ -386,13 +388,13 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: stocktextalerts-error-logs
-      AlarmDescription: ERROR logged in stocktextalerts Lambda functions (sustained)
+      AlarmDescription: ERROR logged in stocktextalerts Lambda functions
       Namespace: stocktextalerts
       MetricName: ErrorLogCount
       Statistic: Sum
-      Period: 300
-      EvaluationPeriods: 3
-      DatapointsToAlarm: 3
+      Period: 60
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
       Threshold: 1
       ComparisonOperator: GreaterThanOrEqualToThreshold
       TreatMissingData: notBreaching

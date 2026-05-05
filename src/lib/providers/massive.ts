@@ -99,10 +99,10 @@ export async function marketDataFetch(
 	const query = new URLSearchParams({ ...params, apiKey });
 	const url = `${MASSIVE_BASE_URL}${endpoint}?${query.toString()}`;
 
-	// Per-attempt failures log at info (transient retry churn). Final-attempt
-	// failures escalate: 429 stays info (rate limiting is an expected rejection),
-	// non-429 errors and exception paths log at error so the ErrorLogAlarm
-	// catches sustained Massive outages that take the price feed down.
+	// Per-attempt failures log at warn (transient — next retry may recover).
+	// Final-attempt failures escalate: 429 stays info (rate limiting is an
+	// expected rejection), non-429 errors and exception paths log at error so
+	// ErrorLogAlarm catches Massive outages that take the price feed down.
 	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
 		const isLastAttempt = attempt === MAX_RETRIES;
 
@@ -113,16 +113,18 @@ export async function marketDataFetch(
 
 			if (response.status === 429) {
 				const retryAfterMs = parseRetryAfterMs(response.headers.get("Retry-After"));
-				rootLogger.info(`Massive ${label} rate limited (429)`, {
+				const rateLimitContext = {
 					endpoint,
 					attempt,
 					status: 429,
 					...logContext,
-				});
+				};
 				if (!isLastAttempt) {
+					rootLogger.warn(`Massive ${label} rate limited (429)`, rateLimitContext);
 					await realDelay(computeRetryDelayMs(attempt, retryAfterMs));
 					continue;
 				}
+				rootLogger.info(`Massive ${label} rate limited (429)`, rateLimitContext);
 				return null;
 			}
 
@@ -146,7 +148,7 @@ export async function marketDataFetch(
 					rootLogger.error(`Massive ${label} exhausted retries`, apiErrorContext);
 					return null;
 				}
-				rootLogger.info(`Massive ${label} API error`, apiErrorContext);
+				rootLogger.warn(`Massive ${label} API error`, apiErrorContext);
 				await realDelay(computeRetryDelayMs(attempt, null));
 				continue;
 			}
@@ -167,7 +169,7 @@ export async function marketDataFetch(
 				);
 				return null;
 			}
-			rootLogger.info(`Massive ${label} request failed`, requestErrorContext);
+			rootLogger.warn(`Massive ${label} request failed`, requestErrorContext);
 			await realDelay(computeRetryDelayMs(attempt, null));
 		}
 	}

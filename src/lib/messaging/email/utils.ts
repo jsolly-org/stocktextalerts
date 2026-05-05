@@ -70,6 +70,7 @@ interface EmailRequest {
 	html?: string;
 	idempotencyKey?: string;
 	replyTo?: string;
+	userId?: string;
 }
 
 export type EmailSender = (request: EmailRequest) => Promise<DeliveryResult>;
@@ -116,7 +117,7 @@ export function createEmailSender(): EmailSender {
 		region: readEnv("AWS_REGION") || "us-east-1",
 	});
 
-	return async ({ to, subject, body, html, replyTo }) => {
+	return async ({ to, subject, body, html, replyTo, userId }) => {
 		try {
 			const replyToValue = replyTo || defaultReplyTo;
 			const command = new SendEmailCommand({
@@ -141,7 +142,11 @@ export function createEmailSender(): EmailSender {
 
 			return { success: true, messageSid: response.MessageId };
 		} catch (error) {
-			rootLogger.error("SES error sending email", { action: "send_email_notification" }, error);
+			rootLogger.error(
+				"SES error sending email",
+				{ action: "send_email_notification", userId },
+				error,
+			);
 			return {
 				success: false,
 				error: error instanceof Error ? error.message : String(error),

@@ -39,7 +39,6 @@ SAM_PARAMS=(
   "MassiveApiKey=$MASSIVE_API_KEY"
   "FinnhubApiKey=$FINNHUB_API_KEY"
   "XaiApiKey=${XAI_API_KEY:-}"
-  "EmailFrom=StockTextAlerts <notifications@stocktextalerts.com>"
   "TwilioAccountSid=$TWILIO_ACCOUNT_SID"
   "TwilioAuthToken=$TWILIO_AUTH_TOKEN"
   "TwilioPhoneNumber=$TWILIO_PHONE_NUMBER"
