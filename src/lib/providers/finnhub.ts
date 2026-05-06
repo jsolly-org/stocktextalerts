@@ -163,6 +163,7 @@ export async function finnhubFetch(
 	if (lastFailure) {
 		const context: Record<string, unknown> = {
 			endpoint,
+			params,
 			attempts: MAX_RETRIES,
 			reason: lastFailure.reason,
 		};
