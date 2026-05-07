@@ -111,6 +111,7 @@ Resources:
           Properties:
             ScheduleExpression: "rate(1 minute)"
             State: ENABLED
+            RoleArn: !GetAtt StockTextAlertsSchedulerRole.Arn
 
   AssetEventsFunction:
     Type: AWS::Serverless::Function
@@ -161,6 +162,7 @@ Resources:
           Properties:
             ScheduleExpression: "cron(0 0 * * ? *)"
             State: ENABLED
+            RoleArn: !GetAtt StockTextAlertsSchedulerRole.Arn
 
   ComputeDailyStatsFunction:
     Type: AWS::Serverless::Function
@@ -193,6 +195,41 @@ Resources:
           Properties:
             ScheduleExpression: "cron(0 22 ? * MON-FRI *)"
             State: ENABLED
+            RoleArn: !GetAtt StockTextAlertsSchedulerRole.Arn
+
+  # Shared by all three ScheduleV2 events. Without an explicit RoleArn,
+  # SAM auto-generates one role per event with identical permissions —
+  # see ~/.agents/rules/aws.md no-sprawl.
+  StockTextAlertsSchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+            # Confused-deputy guard: only schedules in this account can
+            # assume the role. AWS EventBridge Scheduler best-practice.
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      Policies:
+        - PolicyName: InvokeStockTextAlertsLambdas
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                # FunctionNames are fixed literals on each function
+                # resource above; using !Sub avoids a circular dependency
+                # between the functions (which reference this role) and
+                # the role (which would otherwise reference the functions).
+                Resource:
+                  - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:stocktextalerts-schedule
+                  - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:stocktextalerts-asset-events
+                  - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:stocktextalerts-compute-daily-stats
 
   # ---------- CloudWatch Alarms ----------
 
