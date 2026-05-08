@@ -27,7 +27,7 @@ The SES error path logged with no `userId` or `to`. Only the flat-price-alert fl
 ## Resolution
 
 1. Switched the `EmailFrom` CloudFormation parameter to `AWS::SSM::Parameter::Value<String>` with `Default: /stocktextalerts/email-from`. The address (display name + email, with whitespace) lives in SSM Parameter Store; CloudFormation resolves it at deploy time without going through `--parameter-overrides`. This matches the existing pattern for `AlertTopicArn`.
-2. Tightened `ErrorLogAlarm` to `Period: 60, EvaluationPeriods: 1, DatapointsToAlarm: 1` so any single error log line fires within ~1 minute. Per-attempt retry failures stay at `warn` (not `error`), so transient retry churn doesn't page; only final-retry exhaustion alarms.
+2. Tightened `ErrorLogAlarm` to `Period: 60, EvaluationPeriods: 1, DatapointsToAlarm: 1` so any single error log line fires within ~1 minute. Per-attempt retry failures stay at `warn` (not `error`), so transient retry churn doesn't page; only final-retry exhaustion alarms. **(Updated 2026-05-08: vendor retry exhaustion is now tagged with `category: "vendor_retry_exhausted"` and excluded from `ErrorLogAlarm` via metric math; per-Lambda alarms route those instead — `ScheduleVendorRetryAlarm` (sustained, 3-of-10), `AssetEventsVendorRetryAlarm` (1-of-1), `ComputeDailyStatsVendorRetryAlarm` (1-of-1).)**
 3. Threaded `userId` through `EmailRequest` so the SES error path includes it — no more triangulating which user failed via downstream paired logs.
 4. Deleted unused Vercel env vars (`EMAIL_FROM`, `AWS_*`, `VERCEL_PROJECT_PRODUCTION_URL`) — the SES sender is Lambda-only; transactional auth emails on Vercel go through Supabase Auth's SMTP, not our `createEmailSender`.
 

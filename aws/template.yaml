@@ -419,15 +419,155 @@ Resources:
           MetricValue: "1"
           DefaultValue: 0
 
+  # Per-Lambda vendor retry-exhaustion counters (Massive/Finnhub). Each is
+  # subtracted from ErrorLogCount in ErrorLogAlarm so single vendor blips
+  # don't page on the global error alarm; per-Lambda alarms below use
+  # cadence-appropriate thresholds (sustained for the per-minute Schedule,
+  # single-occurrence for the daily AssetEvents and weekday-evening
+  # ComputeDailyStats — where one failure means a whole day of missed data).
+
+  ScheduleVendorRetryFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref ScheduleLogGroup
+      FilterPattern: '{ $.context.category = "vendor_retry_exhausted" }'
+      MetricTransformations:
+        - MetricNamespace: stocktextalerts
+          MetricName: ScheduleVendorRetryCount
+          MetricValue: "1"
+          DefaultValue: 0
+
+  AssetEventsVendorRetryFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref AssetEventsLogGroup
+      FilterPattern: '{ $.context.category = "vendor_retry_exhausted" }'
+      MetricTransformations:
+        - MetricNamespace: stocktextalerts
+          MetricName: AssetEventsVendorRetryCount
+          MetricValue: "1"
+          DefaultValue: 0
+
+  ComputeDailyStatsVendorRetryFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref ComputeDailyStatsLogGroup
+      FilterPattern: '{ $.context.category = "vendor_retry_exhausted" }'
+      MetricTransformations:
+        - MetricNamespace: stocktextalerts
+          MetricName: ComputeDailyStatsVendorRetryCount
+          MetricValue: "1"
+          DefaultValue: 0
+
   # ---------- Aggregate Error Log Alarm ----------
+  # Pages on any error EXCEPT upstream-vendor retry exhaustion. Uses metric
+  # math to subtract the per-Lambda vendor-retry counts from the total.
 
   ErrorLogAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: stocktextalerts-error-logs
-      AlarmDescription: ERROR logged in stocktextalerts Lambda functions
+      AlarmDescription: ERROR logged in stocktextalerts Lambda functions (excluding vendor retry exhaustion)
+      Metrics:
+        - Id: non_vendor_errors
+          Expression: "all_errors - sched_vr - assetev_vr - cds_vr"
+          Label: Non-vendor-retry errors
+          ReturnData: true
+        - Id: all_errors
+          MetricStat:
+            Metric:
+              Namespace: stocktextalerts
+              MetricName: ErrorLogCount
+            Period: 60
+            Stat: Sum
+          ReturnData: false
+        - Id: sched_vr
+          MetricStat:
+            Metric:
+              Namespace: stocktextalerts
+              MetricName: ScheduleVendorRetryCount
+            Period: 60
+            Stat: Sum
+          ReturnData: false
+        - Id: assetev_vr
+          MetricStat:
+            Metric:
+              Namespace: stocktextalerts
+              MetricName: AssetEventsVendorRetryCount
+            Period: 60
+            Stat: Sum
+          ReturnData: false
+        - Id: cds_vr
+          MetricStat:
+            Metric:
+              Namespace: stocktextalerts
+              MetricName: ComputeDailyStatsVendorRetryCount
+            Period: 60
+            Stat: Sum
+          ReturnData: false
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopicArn
+      OKActions:
+        - !Ref AlertTopicArn
+
+  # ScheduleFunction runs every minute. A single 1-min vendor blip is absorbed
+  # cleanly by the retry/degrade design — only sustained outages matter.
+  # ≥3 minute-buckets with errors in the last 10 minutes triggers the alarm.
+  ScheduleVendorRetryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: stocktextalerts-schedule-vendor-retry
+      AlarmDescription: Sustained vendor retry exhaustion in ScheduleFunction (Massive/Finnhub)
       Namespace: stocktextalerts
-      MetricName: ErrorLogCount
+      MetricName: ScheduleVendorRetryCount
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 10
+      DatapointsToAlarm: 3
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopicArn
+      OKActions:
+        - !Ref AlertTopicArn
+
+  # AssetEventsFunction runs once daily at midnight UTC. A single vendor
+  # exhaustion = a whole day of missed earnings/dividend/split notifications.
+  # 1-of-1 in 60s — page on any occurrence.
+  AssetEventsVendorRetryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: stocktextalerts-asset-events-vendor-retry
+      AlarmDescription: Vendor retry exhaustion in AssetEventsFunction (Finnhub earnings calendar)
+      Namespace: stocktextalerts
+      MetricName: AssetEventsVendorRetryCount
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopicArn
+      OKActions:
+        - !Ref AlertTopicArn
+
+  # ComputeDailyStatsFunction runs once each weekday evening. Same rationale
+  # as AssetEvents — a single vendor exhaustion = a missed daily snapshot.
+  ComputeDailyStatsVendorRetryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: stocktextalerts-compute-daily-stats-vendor-retry
+      AlarmDescription: Vendor retry exhaustion in ComputeDailyStatsFunction (Massive OHLCV)
+      Namespace: stocktextalerts
+      MetricName: ComputeDailyStatsVendorRetryCount
       Statistic: Sum
       Period: 60
       EvaluationPeriods: 1

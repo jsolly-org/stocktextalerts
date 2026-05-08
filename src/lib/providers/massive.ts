@@ -100,9 +100,13 @@ export async function marketDataFetch(
 	const url = `${MASSIVE_BASE_URL}${endpoint}?${query.toString()}`;
 
 	// Per-attempt failures log at warn (transient — next retry may recover).
-	// Final-attempt failures escalate: 429 stays info (rate limiting is an
-	// expected rejection), non-429 errors and exception paths log at error so
-	// ErrorLogAlarm catches Massive outages that take the price feed down.
+	// Final-attempt failures: 429 stays info (rate limiting is expected, not
+	// pageable). Non-429 errors and exception paths log at error AND tag the
+	// context with `category: "vendor_retry_exhausted"` — these are excluded
+	// from ErrorLogAlarm (via metric math) and feed per-Lambda vendor-retry
+	// alarms instead, with cadence-appropriate thresholds (sustained for the
+	// per-minute Schedule, single-occurrence for daily Lambdas). See
+	// aws/template.yaml for the alarm split.
 	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
 		const isLastAttempt = attempt === MAX_RETRIES;
 
@@ -145,7 +149,10 @@ export async function marketDataFetch(
 					...logContext,
 				};
 				if (isLastAttempt) {
-					rootLogger.error(`Massive ${label} exhausted retries`, apiErrorContext);
+					rootLogger.error(`Massive ${label} exhausted retries`, {
+						...apiErrorContext,
+						category: "vendor_retry_exhausted",
+					});
 					return null;
 				}
 				rootLogger.warn(`Massive ${label} API error`, apiErrorContext);
@@ -164,7 +171,7 @@ export async function marketDataFetch(
 			if (isLastAttempt) {
 				rootLogger.error(
 					`Massive ${label} exhausted retries`,
-					requestErrorContext,
+					{ ...requestErrorContext, category: "vendor_retry_exhausted" },
 					error instanceof Error ? error : new Error(String(error)),
 				);
 				return null;

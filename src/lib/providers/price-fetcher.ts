@@ -182,7 +182,10 @@ export async function fetchMarketStatus(): Promise<boolean> {
 	}
 
 	const data = await marketDataFetch("/v1/marketstatus/now", {}, "market-status");
-	if (typeof data !== "object" || data === null) {
+	// null = marketDataFetch already logged the failure (rate-limit info or
+	// retry-exhausted error). Don't double-log; default to "closed".
+	if (data === null) return false;
+	if (typeof data !== "object") {
 		rootLogger.error("Invalid Massive market status payload shape", {
 			payloadType: typeof data,
 		});

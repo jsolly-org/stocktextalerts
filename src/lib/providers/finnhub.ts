@@ -176,8 +176,10 @@ export async function finnhubFetch(
 			rootLogger.info(`Finnhub ${label} exhausted retries (rate limited)`, context);
 		} else if (lastFailure.reason === "api_error") {
 			context.status = lastFailure.status;
+			context.category = "vendor_retry_exhausted";
 			rootLogger.error(`Finnhub ${label} exhausted retries`, context);
 		} else {
+			context.category = "vendor_retry_exhausted";
 			rootLogger.error(`Finnhub ${label} exhausted retries`, context, lastFailure.error);
 		}
 	}
