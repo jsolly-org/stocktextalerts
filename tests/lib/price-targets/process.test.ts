@@ -4,7 +4,7 @@ import { expectConsoleError } from "../../setup";
 
 // Mock external dependencies
 vi.mock("../../../src/lib/providers/price-fetcher", () => ({
-	fetchMarketStatus: vi.fn(),
+	getCurrentMarketSession: vi.fn(),
 	fetchExtendedQuotes: vi.fn(),
 }));
 
@@ -24,9 +24,9 @@ vi.mock("../../../src/lib/price-targets/delivery", () => ({
 
 import { deliverPriceTargetAlert } from "../../../src/lib/price-targets/delivery";
 import { processPriceTargets } from "../../../src/lib/price-targets/process";
-import { fetchMarketStatus } from "../../../src/lib/providers/price-fetcher";
+import { getCurrentMarketSession } from "../../../src/lib/providers/price-fetcher";
 
-const mockFetchMarketStatus = vi.mocked(fetchMarketStatus);
+const mockGetCurrentMarketSession = vi.mocked(getCurrentMarketSession);
 const mockDeliverPriceTargetAlert = vi.mocked(deliverPriceTargetAlert);
 
 function makeQuote(price: number): ExtendedAssetQuote {
@@ -126,7 +126,7 @@ beforeEach(() => {
 
 describe("Price target processing", () => {
 	it("No targets are checked when the market is closed", async () => {
-		mockFetchMarketStatus.mockResolvedValue(false);
+		mockGetCurrentMarketSession.mockResolvedValue("closed");
 
 		const totals = await processPriceTargets({
 			supabase: makeSupabaseMock({ targets: [] }),
@@ -137,7 +137,7 @@ describe("Price target processing", () => {
 	});
 
 	it("A user receives an alert when price reaches their above target", async () => {
-		mockFetchMarketStatus.mockResolvedValue(true);
+		mockGetCurrentMarketSession.mockResolvedValue("regular");
 
 		const quoteMap = new Map([["AAPL", makeQuote(205)]]);
 		const supabase = makeSupabaseMock({
@@ -163,7 +163,7 @@ describe("Price target processing", () => {
 	});
 
 	it("A user receives an alert when price reaches their below target", async () => {
-		mockFetchMarketStatus.mockResolvedValue(true);
+		mockGetCurrentMarketSession.mockResolvedValue("regular");
 
 		const quoteMap = new Map([["TSLA", makeQuote(145)]]);
 		const supabase = makeSupabaseMock({
@@ -188,7 +188,7 @@ describe("Price target processing", () => {
 	});
 
 	it("No alert is sent when price has not reached the target", async () => {
-		mockFetchMarketStatus.mockResolvedValue(true);
+		mockGetCurrentMarketSession.mockResolvedValue("regular");
 
 		const quoteMap = new Map([["AAPL", makeQuote(195)]]);
 		const supabase = makeSupabaseMock({
@@ -214,7 +214,7 @@ describe("Price target processing", () => {
 	});
 
 	it("An alert is sent when price exactly equals the above target", async () => {
-		mockFetchMarketStatus.mockResolvedValue(true);
+		mockGetCurrentMarketSession.mockResolvedValue("regular");
 
 		const quoteMap = new Map([["AAPL", makeQuote(200)]]);
 		const supabase = makeSupabaseMock({
@@ -238,7 +238,7 @@ describe("Price target processing", () => {
 	});
 
 	it("A triggered target is still cleared when delivery throws unexpectedly", async () => {
-		mockFetchMarketStatus.mockResolvedValue(true);
+		mockGetCurrentMarketSession.mockResolvedValue("regular");
 		mockDeliverPriceTargetAlert.mockRejectedValueOnce(new Error("Unexpected delivery failure"));
 
 		let deleted = false;
@@ -281,7 +281,7 @@ describe("Price target processing", () => {
 	});
 
 	it("No targets are checked when none exist", async () => {
-		mockFetchMarketStatus.mockResolvedValue(true);
+		mockGetCurrentMarketSession.mockResolvedValue("regular");
 
 		const supabase = makeSupabaseMock({ targets: [], users: [] });
 

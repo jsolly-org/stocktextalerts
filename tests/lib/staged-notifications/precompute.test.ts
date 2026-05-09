@@ -2,12 +2,15 @@ import { DateTime } from "luxon";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { precomputeDailyDigest } from "../../../src/lib/staged-notifications/precompute";
 
-const { dispatchDailyDigestUserMock, fetchUpcomingDailyDigestUsersMock, fetchMarketStatusMock } =
-	vi.hoisted(() => ({
-		dispatchDailyDigestUserMock: vi.fn(),
-		fetchUpcomingDailyDigestUsersMock: vi.fn(),
-		fetchMarketStatusMock: vi.fn(),
-	}));
+const {
+	dispatchDailyDigestUserMock,
+	fetchUpcomingDailyDigestUsersMock,
+	getCurrentMarketSessionMock,
+} = vi.hoisted(() => ({
+	dispatchDailyDigestUserMock: vi.fn(),
+	fetchUpcomingDailyDigestUsersMock: vi.fn(),
+	getCurrentMarketSessionMock: vi.fn(),
+}));
 
 vi.mock("../../../src/lib/daily-digest/dispatch", () => ({
 	dispatchDailyDigestUser: dispatchDailyDigestUserMock,
@@ -18,10 +21,12 @@ vi.mock("../../../src/lib/daily-digest/query-upcoming", () => ({
 }));
 
 vi.mock("../../../src/lib/providers/price-fetcher", async () => {
-	const actual = await vi.importActual("../../../src/lib/providers/price-fetcher");
+	const actual = await vi.importActual<typeof import("../../../src/lib/providers/price-fetcher")>(
+		"../../../src/lib/providers/price-fetcher",
+	);
 	return {
 		...actual,
-		fetchMarketStatus: fetchMarketStatusMock,
+		getCurrentMarketSession: getCurrentMarketSessionMock,
 	};
 });
 
@@ -43,7 +48,7 @@ describe("A cron job precomputes daily digest content for upcoming users.", () =
 			{ id: "10000000-0000-4000-a000-000000000001" },
 			{ id: "10000000-0000-4000-a000-000000000002" },
 		]);
-		fetchMarketStatusMock.mockResolvedValue(false);
+		getCurrentMarketSessionMock.mockResolvedValue("closed");
 		dispatchDailyDigestUserMock.mockResolvedValue({
 			skipped: 0,
 			logFailures: 0,

@@ -17,8 +17,8 @@ import { fetchSnapshotQuotes, fetchTopMovers, type TopMover } from "../providers
 import {
 	type AssetPriceMap,
 	fetchAssetPrices,
-	fetchMarketStatus,
 	fetchSparklines,
+	getCurrentMarketSession,
 } from "../providers/price-fetcher";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { loadUserAssets } from "../schedule/helpers";
@@ -439,7 +439,10 @@ export async function processDailyDigestUser(options: {
 				? marketClosureInfoParam
 				: await getUsMarketClosureInfoForInstant(closureRefInstant);
 
-		const marketOpen = marketOpenParam !== undefined ? marketOpenParam : await fetchMarketStatus();
+		const marketOpen =
+			marketOpenParam !== undefined
+				? marketOpenParam
+				: (await getCurrentMarketSession()) === "regular";
 
 		/* =============
 		Fetch Finnhub data (non-blocking — failures omit that section)

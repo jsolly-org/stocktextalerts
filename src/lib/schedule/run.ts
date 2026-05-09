@@ -49,7 +49,7 @@ import {
 	type AssetPriceMap,
 	type ExtendedQuoteMap,
 	fetchAssetPrices,
-	fetchMarketStatus,
+	getCurrentMarketSession,
 } from "../providers/price-fetcher";
 import { deliverStagedNotifications } from "../staged-notifications/deliver";
 import {
@@ -209,7 +209,7 @@ async function runPass(options: {
 	let priceMap: AssetPriceMap = new Map();
 	const hasAnyUsers =
 		fallbackMarketUsers.length > 0 || fallbackDailyUsers.length > 0 || assetEventsUsers.length > 0;
-	const marketStatusPromise = hasAnyUsers ? fetchMarketStatus() : null;
+	const marketStatusPromise = hasAnyUsers ? getCurrentMarketSession() : null;
 
 	if (fallbackMarketUsers.length > 0) {
 		const uniqueSymbols = [
@@ -245,7 +245,7 @@ async function runPass(options: {
 		}
 	}
 
-	const marketOpen = marketStatusPromise ? await marketStatusPromise : false;
+	const marketOpen = marketStatusPromise ? (await marketStatusPromise) === "regular" : false;
 
 	// Fetch market closure once for market-scheduled banners and asset-events.
 	// Daily digests derive weekend/holiday labels from each user's scheduled send

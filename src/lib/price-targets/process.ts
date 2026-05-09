@@ -4,7 +4,7 @@ import { createLogoCache } from "../messaging/logo-fetcher";
 import {
 	type ExtendedQuoteMap,
 	fetchExtendedQuotes,
-	fetchMarketStatus,
+	getCurrentMarketSession,
 } from "../providers/price-fetcher";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 import { createSmsSenderProvider } from "../schedule/sms-sender";
@@ -67,7 +67,7 @@ export async function processPriceTargets(options: {
 	};
 
 	// Only process during market hours (use pre-fetched status when available)
-	const isMarketOpen = options.isMarketOpen ?? (await fetchMarketStatus());
+	const isMarketOpen = options.isMarketOpen ?? (await getCurrentMarketSession()) === "regular";
 	if (!isMarketOpen) {
 		return totals;
 	}

@@ -16,8 +16,8 @@ import {
 import {
 	fetchAssetPrices,
 	fetchExtendedQuotes,
-	fetchMarketStatus,
 	fetchSparklines,
+	getCurrentMarketSession,
 } from "../../src/lib/providers/price-fetcher";
 import { assertLiveProviderKey, isLiveProviderEnabled } from "../helpers/live-api";
 import { expectConsoleError } from "../setup";
@@ -69,9 +69,19 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 		}
 	});
 
-	it("returns market open or closed from fetchMarketStatus", async () => {
-		const isOpen = await fetchMarketStatus();
-		expect(typeof isOpen).toBe("boolean");
+	it("getCurrentMarketSession returns a valid MarketSession value from live Massive", async () => {
+		const session = await getCurrentMarketSession();
+		expect(["pre", "regular", "after", "closed"]).toContain(session);
+	});
+
+	it("Massive /v1/marketstatus/now payload includes earlyHours and afterHours boolean fields", async () => {
+		const payload = await marketDataFetch("/v1/marketstatus/now", {}, "live-market-status-shape");
+		expect(payload).toBeTruthy();
+		expect(typeof payload).toBe("object");
+
+		const record = payload as Record<string, unknown>;
+		expect(typeof record.earlyHours).toBe("boolean");
+		expect(typeof record.afterHours).toBe("boolean");
 	});
 
 	it("returns extended quotes (day high/low/open/volume) for symbols via fetchExtendedQuotes", async () => {

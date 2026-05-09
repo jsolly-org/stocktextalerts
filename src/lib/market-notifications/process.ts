@@ -12,7 +12,7 @@ import {
 	type ExtendedAssetQuote,
 	type ExtendedQuoteMap,
 	fetchExtendedQuotes,
-	fetchMarketStatus,
+	getCurrentMarketSession,
 } from "../providers/price-fetcher";
 import { SECTOR_ETF_MAP } from "../providers/sector-mapping";
 import type { SupabaseAdminClient } from "../schedule/helpers";
@@ -176,7 +176,8 @@ export async function processPriceAlerts(options: { supabase: SupabaseAdminClien
 		isMarketOpen: false,
 	};
 
-	const isMarketOpen = await fetchMarketStatus();
+	const session = await getCurrentMarketSession();
+	const isMarketOpen = session === "regular";
 	if (!isMarketOpen) {
 		return emptyResult;
 	}

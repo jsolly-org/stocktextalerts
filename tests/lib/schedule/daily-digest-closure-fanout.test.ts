@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const dispatchDailyDigestUserMock = vi.fn();
 const fetchDailyDigestUsersMock = vi.fn();
-const fetchMarketStatusMock = vi.fn();
+const getCurrentMarketSessionMock = vi.fn();
 const fetchMarketScheduledUsersMock = vi.fn();
 const fetchAssetEventsUsersMock = vi.fn();
 const processPriceAlertsMock = vi.fn();
@@ -26,11 +26,13 @@ vi.mock("../../../src/lib/asset-events/query", () => ({
 }));
 
 vi.mock("../../../src/lib/providers/price-fetcher", async () => {
-	const actual = await vi.importActual("../../../src/lib/providers/price-fetcher");
+	const actual = await vi.importActual<typeof import("../../../src/lib/providers/price-fetcher")>(
+		"../../../src/lib/providers/price-fetcher",
+	);
 	return {
 		...actual,
 		fetchAssetPrices: vi.fn().mockResolvedValue(new Map()),
-		fetchMarketStatus: fetchMarketStatusMock,
+		getCurrentMarketSession: getCurrentMarketSessionMock,
 	};
 });
 
@@ -109,7 +111,7 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 		fetchDailyDigestUsersMock.mockReset();
 		fetchMarketScheduledUsersMock.mockReset();
 		fetchAssetEventsUsersMock.mockReset();
-		fetchMarketStatusMock.mockReset();
+		getCurrentMarketSessionMock.mockReset();
 		processPriceAlertsMock.mockReset();
 		processPriceTargetsMock.mockReset();
 		getUsMarketClosureInfoForInstantMock.mockReset();
@@ -152,7 +154,7 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 		fetchAssetEventsUsersMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
 		fetchDailyDigestUsersMock.mockResolvedValueOnce([]);
 		fetchMarketScheduledUsersMock.mockResolvedValueOnce([]);
-		fetchMarketStatusMock.mockResolvedValue(false);
+		getCurrentMarketSessionMock.mockResolvedValue("closed");
 		getUsMarketClosureInfoForInstantMock.mockResolvedValue({
 			reason: "weekend",
 		});

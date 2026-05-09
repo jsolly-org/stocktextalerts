@@ -22,7 +22,7 @@ import { createEmailSender } from "../messaging/email/utils";
 import {
 	type AssetPriceMap,
 	fetchAssetPrices,
-	fetchMarketStatus,
+	getCurrentMarketSession,
 } from "../providers/price-fetcher";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { batchLoadUserAssets, USER_PROCESS_BATCH_SIZE } from "../schedule/helpers";
@@ -111,7 +111,7 @@ export async function precomputeMarketScheduled(options: {
 		return stats;
 	}
 
-	const marketOpen = await fetchMarketStatus();
+	const marketOpen = (await getCurrentMarketSession()) === "regular";
 	let marketClosureInfo: Awaited<ReturnType<typeof getUsMarketClosureInfoForInstant>> = null;
 	if (!marketOpen) {
 		try {
@@ -210,7 +210,7 @@ export async function precomputeDailyDigest(options: {
 	// digest formatter must classify closures from each user's scheduled send
 	// instant, not the scheduler's current clock time. Near US midnight those can
 	// land on different market dates.
-	const marketOpen = await fetchMarketStatus();
+	const marketOpen = (await getCurrentMarketSession()) === "regular";
 	const sendEmail = createEmailSender();
 	const getSmsSender = createSmsSenderProvider();
 
