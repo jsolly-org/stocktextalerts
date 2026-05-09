@@ -22,3 +22,4 @@ fi
 npm run check:ts
 npm run test
 npm run test:smoke
+npm run test:e2e
