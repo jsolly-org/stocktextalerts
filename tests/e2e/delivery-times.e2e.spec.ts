@@ -5,12 +5,13 @@ import { TEST_PASSWORD } from "../helpers/constants";
 import { adminClient } from "../helpers/test-env";
 import { cleanupTestUser, createTestUser } from "../helpers/test-user";
 
-// Chicago user: extended-hours window = 3:30 AM – 6:30 PM CT = 210–1110 minutes
-// (4:30 AM – 7:30 PM ET, both during DST). Auto-pack steps at 60-min
-// increments (shrinking near close), so packing 8 slots stays within bounds.
-const CHICAGO_LOWER_MINUTES = 210; // 4:30 AM ET = 3:30 AM CT (in EDT/CDT)
-const CHICAGO_UPPER_MINUTES = 1110; // 7:30 PM ET = 6:30 PM CT (in EDT/CDT)
-const CHICAGO_AFTER_OPEN_MINUTES = 540; // 10:00 AM ET = 9:00 AM CT (default preset is unchanged)
+// `users.market_scheduled_asset_price_times` is ET-canonical post-extended-
+// hours migration, so DB-read assertions use ET-minutes. Window = [270, 1170]
+// = 4:30 AM – 7:30 PM ET. Auto-pack steps at 60-min increments (shrinking
+// near close), so packing 8 slots stays within bounds.
+const ET_LOWER_MINUTES = 270; // 4:30 AM ET
+const ET_UPPER_MINUTES = 1170; // 7:30 PM ET
+const ET_AFTER_OPEN_MINUTES = 600; // 10:00 AM ET (default "After open" preset)
 const MAX_DELIVERY_TIMES = 8;
 const OUTSIDE_HOURS_TOOLTIP = "Outside US extended-hours window (4:30 AM – 7:30 PM ET)";
 const UPDATE_URL_MATCH = "/api/notification-preferences/update";
@@ -183,7 +184,7 @@ test.describe("delivery times and timepicker", () => {
 		await expect(form.getByRole("button", { name: "Add time" })).toBeVisible();
 
 		const times = await getScheduledTimes(userId as string);
-		expect(times).toEqual([CHICAGO_AFTER_OPEN_MINUTES]);
+		expect(times).toEqual([ET_AFTER_OPEN_MINUTES]);
 	});
 
 	test("n=1 → n=many: 'Add time' packs market hours until max reached", async () => {
@@ -204,8 +205,8 @@ test.describe("delivery times and timepicker", () => {
 		expect(times).toHaveLength(MAX_DELIVERY_TIMES);
 		const slots = times as number[];
 		for (const value of slots) {
-			expect(value).toBeGreaterThanOrEqual(CHICAGO_LOWER_MINUTES);
-			expect(value).toBeLessThanOrEqual(CHICAGO_UPPER_MINUTES);
+			expect(value).toBeGreaterThanOrEqual(ET_LOWER_MINUTES);
+			expect(value).toBeLessThanOrEqual(ET_UPPER_MINUTES);
 		}
 		// Auto-packed slots must be strictly increasing (normalized + deduped).
 		for (let i = 1; i < slots.length; i += 1) {
