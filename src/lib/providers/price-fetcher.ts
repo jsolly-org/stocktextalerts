@@ -25,6 +25,49 @@ export type AssetPriceMap = Map<string, AssetPrice | null>;
 /** Map of extended quotes keyed by symbol. */
 export type ExtendedQuoteMap = Map<string, ExtendedAssetQuote | null>;
 
+export type MarketSession = "pre" | "regular" | "after" | "closed";
+
+export function parseMarketSession(payload: unknown): MarketSession {
+	if (typeof payload !== "object" || payload === null) {
+		rootLogger.warn("Massive market-status payload is not an object", { payload });
+		return "closed";
+	}
+
+	const record = payload as Record<string, unknown>;
+	const market = typeof record.market === "string" ? record.market : null;
+
+	if (market === null) {
+		rootLogger.warn("Massive market-status payload missing 'market' field", { payload });
+		return "closed";
+	}
+
+	// Authoritative: market === "open" means regular session, regardless of other flags.
+	if (market === "open") return "regular";
+
+	const earlyHours = record.earlyHours === true;
+	const afterHours = record.afterHours === true;
+
+	// Corrupt-payload guard: only fires when market !== "open" AND both flags set.
+	if (earlyHours && afterHours) {
+		rootLogger.warn("Massive market-status returned both earlyHours and afterHours true", {
+			payload,
+		});
+		return "closed";
+	}
+
+	if (earlyHours) return "pre";
+	if (afterHours) return "after";
+	return "closed";
+}
+
+export async function getCurrentMarketSession(): Promise<MarketSession> {
+	if (isTest() && !isLiveMassiveEnabledInTests()) {
+		return "regular";
+	}
+	const data = await marketDataFetch("/v1/marketstatus/now", {}, "market-status");
+	return parseMarketSession(data);
+}
+
 function isLiveMassiveEnabledInTests(): boolean {
 	const enabled = process.env.LIVE_API_PROVIDERS ?? process.env.TEST_LIVE_PROVIDERS;
 	if (!enabled) return false;
