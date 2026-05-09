@@ -13,8 +13,9 @@ vi.mock("../../../src/lib/time/market-calendar", () => ({
 	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
 }));
 
-const { getCurrentMarketSessionMock } = vi.hoisted(() => ({
+const { getCurrentMarketSessionMock, fetchTodaysRegularClosesMock } = vi.hoisted(() => ({
 	getCurrentMarketSessionMock: vi.fn(),
+	fetchTodaysRegularClosesMock: vi.fn(),
 }));
 
 vi.mock("../../../src/lib/providers/price-fetcher", async () => {
@@ -24,6 +25,7 @@ vi.mock("../../../src/lib/providers/price-fetcher", async () => {
 	return {
 		...actual,
 		getCurrentMarketSession: getCurrentMarketSessionMock,
+		fetchTodaysRegularCloses: fetchTodaysRegularClosesMock,
 	};
 });
 
@@ -67,6 +69,14 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		// keep their prior behavior. Individual tests override per scenario.
 		getCurrentMarketSessionMock.mockReset();
 		getCurrentMarketSessionMock.mockResolvedValue("regular");
+		// Default fetchTodaysRegularCloses to return today's close = 148.5 for
+		// each requested symbol — matches the price-fetcher test stub.
+		fetchTodaysRegularClosesMock.mockReset();
+		fetchTodaysRegularClosesMock.mockImplementation(async (symbols: string[]) => {
+			const result = new Map<string, number | null>();
+			for (const s of symbols) result.set(s, 148.5);
+			return result;
+		});
 	});
 
 	afterEach(() => {
@@ -165,7 +175,7 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		expect(emailLog?.message).toContain("1.25%");
 	});
 
-	it("A user with a 5:00 PM ET after-hours scheduled time receives a message labeled 'After-hours' with change-% emitted", async () => {
+	it("A user with a 5:00 PM ET after-hours scheduled time receives a message labeled 'After-hours' with change-% recomputed vs. today's regular close", async () => {
 		const timezone = "America/New_York";
 		// 5:00 PM ET on a winter weekday (EST = UTC-5) → 22:00 UTC.
 		const fixedDueAt = DateTime.fromISO("2026-01-12T22:00:00.000Z", {
@@ -211,7 +221,167 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		expect(emailLog).toBeDefined();
 		expect(emailLog?.message_delivered).toBe(true);
 		expect(emailLog?.message).toMatch(/^After-hours — /);
-		expect(emailLog?.message).toContain("1.25%");
+		// After-hours change-% recomputed vs today's 4:00 PM close.
+		// Test stubs: price=150.0, dayCloseRegular=148.5 → (150 - 148.5) / 148.5 * 100 = 1.01%.
+		// The original Massive `todaysChangePerc` of 1.25% would have been against yesterday's close.
+		expect(emailLog?.message).toContain("1.01%");
+		expect(emailLog?.message).not.toMatch(/\(\+1\.25%\)/);
+	});
+
+	it("An after-hours message includes the close anchor in the header when first-asset day-close is available", async () => {
+		const timezone = "America/New_York";
+		const fixedDueAt = DateTime.fromISO("2026-01-12T22:00:00.000Z", {
+			zone: "utc",
+		});
+		const scheduledUpdateTime = 17 * 60;
+
+		const { id } = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			scheduledUpdateTimes: [scheduledUpdateTime],
+			trackedAssets: ["AAPL"],
+		});
+		registerTestUserForCleanup(id);
+
+		const { error: updateError } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: fixedDueAt.toISO(),
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", id);
+		expect(updateError).toBeNull();
+
+		getCurrentMarketSessionMock.mockResolvedValue("after");
+
+		const logger = {
+			debug: vi.fn(),
+			info: vi.fn(),
+			warn: vi.fn(),
+			error: vi.fn(),
+		};
+
+		await runScheduledNotifications({
+			supabase: adminClient,
+			logger: logger as never,
+		});
+
+		const logs = await fetchMarketLogs(id);
+		const emailLog = logs.find((l) => l.delivery_method === "email");
+		expect(emailLog).toBeDefined();
+		// Header first line includes the prior close anchor.
+		expect(emailLog?.message).toMatch(
+			/^After-hours — \d+:\d{2} (AM|PM) ET \(vs\. 4:00 PM close \$\d+\.\d{2}\)/,
+		);
+	});
+
+	it("An after-hours message with missing today's-close falls back to prev-day baseline with a † footnote", async () => {
+		const timezone = "America/New_York";
+		const fixedDueAt = DateTime.fromISO("2026-01-12T22:00:00.000Z", {
+			zone: "utc",
+		});
+		const scheduledUpdateTime = 17 * 60;
+
+		const { id } = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			scheduledUpdateTimes: [scheduledUpdateTime],
+			trackedAssets: ["AAPL"],
+		});
+		registerTestUserForCleanup(id);
+
+		const { error: updateError } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: fixedDueAt.toISO(),
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", id);
+		expect(updateError).toBeNull();
+
+		getCurrentMarketSessionMock.mockResolvedValue("after");
+
+		// Override fetchTodaysRegularCloses for this scenario only — return null
+		// for the symbol so the renderer falls back to prev-day baseline.
+		fetchTodaysRegularClosesMock.mockResolvedValueOnce(new Map([["AAPL", null]]));
+
+		const logger = {
+			debug: vi.fn(),
+			info: vi.fn(),
+			warn: vi.fn(),
+			error: vi.fn(),
+		};
+
+		await runScheduledNotifications({
+			supabase: adminClient,
+			logger: logger as never,
+		});
+
+		const logs = await fetchMarketLogs(id);
+		const emailLog = logs.find((l) => l.delivery_method === "email");
+		expect(emailLog).toBeDefined();
+		// Falls back to Massive's todaysChangePerc (1.25%) and appends the † marker.
+		expect(emailLog?.message).toContain("1.25%†");
+		// Footnote text appears in the body.
+		expect(emailLog?.message).toContain("using prior close");
+		// Header close anchor omitted when first-asset day-close is null.
+		expect(emailLog?.message).toMatch(/^After-hours — \d+:\d{2} (AM|PM) ET\n/);
+	});
+
+	it("An SMS-only user receives an after-hours SMS with change-% recomputed against today's close and the close anchor in the header", async () => {
+		const timezone = "America/New_York";
+		const fixedDueAt = DateTime.fromISO("2026-01-12T22:00:00.000Z", {
+			zone: "utc",
+		});
+		const scheduledUpdateTime = 17 * 60;
+
+		const { id } = await createTestUser({
+			timezone,
+			emailNotificationsEnabled: false,
+			smsNotificationsEnabled: true,
+			phoneVerified: true,
+			scheduledUpdateTimes: [scheduledUpdateTime],
+			trackedAssets: ["AAPL"],
+		});
+		registerTestUserForCleanup(id);
+
+		const { error: updateError } = await adminClient
+			.from("users")
+			.update({
+				market_scheduled_asset_price_next_send_at: fixedDueAt.toISO(),
+				market_scheduled_asset_price_enabled: true,
+			})
+			.eq("id", id);
+		expect(updateError).toBeNull();
+
+		getCurrentMarketSessionMock.mockResolvedValue("after");
+
+		const logger = {
+			debug: vi.fn(),
+			info: vi.fn(),
+			warn: vi.fn(),
+			error: vi.fn(),
+		};
+
+		await runScheduledNotifications({
+			supabase: adminClient,
+			logger: logger as never,
+		});
+
+		const logs = await fetchMarketLogs(id);
+		const smsLog = logs.find((l) => l.delivery_method === "sms");
+		expect(smsLog).toBeDefined();
+		expect(smsLog?.message_delivered).toBe(true);
+		// Header includes session label + close anchor.
+		expect(smsLog?.message).toMatch(
+			/After-hours — \d+:\d{2} (AM|PM) ET \(vs\. 4:00 PM close \$\d+\.\d{2}\)/,
+		);
+		// Change-% recomputed vs today's close (148.5): (150-148.5)/148.5 = 1.01%.
+		expect(smsLog?.message).toContain("1.01%");
+		// No fallback marker when today's close is available.
+		expect(smsLog?.message).not.toContain("1.25%†");
 	});
 
 	it("A scheduled time on a half-day in the after-hours dead zone is skipped at delivery (runtime session = 'closed'), logged at 'info', next_send_at advances", async () => {

@@ -19,7 +19,12 @@ import {
 } from "../../market-notifications/scheduled/session-label";
 import type { AssetPriceMap, MarketSession } from "../../providers/price-fetcher";
 import { isProduction } from "../../runtime/mode";
-import { escapeHtml, formatAssetsHtmlList } from "../asset-formatting";
+import {
+	escapeHtml,
+	formatAssetsHtmlList,
+	hasAfterHoursFallback,
+	SESSION_CHANGE_FALLBACK_FOOTNOTE_TEXT,
+} from "../asset-formatting";
 import { buildMarketClosedBannerHtml, buildMarketClosedBannerText } from "../market-closure-banner";
 import type { DeliveryResult, EmailFormatContext, EmailUser, UserAssetRow } from "../types";
 
@@ -295,11 +300,30 @@ export function formatEmailMessage(
 					sessionFirstLine.priorRegularClose,
 				)
 			: "";
-	const text = `${sessionFirstLineText}Your tracked assets:\n${delayText}${marketDisclaimer}${assetsList}${textFooter}`;
+	// Include the after-hours fallback footnote inline before the standard
+	// footer when at least one asset's change-% was computed against the
+	// prev-day close (today's 4:00 PM ET close unavailable).
+	const showsFallbackFootnote =
+		marketOpen &&
+		marketSession === "after" &&
+		hasAfterHoursFallback(userAssets, (symbol) => priceMap.get(symbol) ?? undefined, marketSession);
+	const fallbackFootnoteText = showsFallbackFootnote
+		? `\n\n${SESSION_CHANGE_FALLBACK_FOOTNOTE_TEXT}`
+		: "";
+	const fallbackFootnoteHtml = showsFallbackFootnote
+		? `<p style="font-size: 0.875em; color: #6b7280; margin: 16px 0 0;">${escapeHtml(SESSION_CHANGE_FALLBACK_FOOTNOTE_TEXT)}</p>`
+		: "";
+
+	const text = `${sessionFirstLineText}Your tracked assets:\n${delayText}${marketDisclaimer}${assetsList}${fallbackFootnoteText}${textFooter}`;
 	const escapedAssetsListHtml = formatAssetsHtmlList(
 		userAssets,
 		(symbol) => priceMap.get(symbol) ?? undefined,
-		{ getSparkline, getLogoHtml, showChangePercent: marketSession !== "closed" },
+		{
+			getSparkline,
+			getLogoHtml,
+			showChangePercent: marketSession !== "closed",
+			marketSession: marketOpen ? marketSession : undefined,
+		},
 	);
 	const marketClosedBannerHtml = marketOpen
 		? ""
@@ -324,6 +348,7 @@ export function formatEmailMessage(
 			<p style="color: #1f2937; font-size: 18px; font-weight: 600; margin: 0; font-family: 'Courier New', monospace;">
 				${escapedAssetsListHtml}
 			</p>
+			${fallbackFootnoteHtml}
 		</div>
 		<div style="text-align: center; margin-top: 30px;">
 			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">

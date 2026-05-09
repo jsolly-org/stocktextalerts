@@ -2,12 +2,22 @@ import { US_MARKET_TIMEZONE } from "../constants";
 import { rootLogger } from "../logging";
 import { type SparklineMap, toSparkline } from "../messaging/sparkline";
 import { isTest } from "../runtime/mode";
-import { fetchDailyCloses, fetchPrevDayBar, fetchSnapshotQuotes, marketDataFetch } from "./massive";
+import {
+	fetchDailyCloses,
+	fetchPrevDayBar,
+	fetchSnapshotQuotes,
+	fetchTodaysRegularClose,
+	marketDataFetch,
+} from "./massive";
 
 interface AssetPrice {
 	price: number;
 	changePercent: number;
 	timestamp?: number | null;
+	/** Yesterday's close (Massive `prevDay.c`). Used for session-aware change-% on extended hours. */
+	prevClose?: number | null;
+	/** Today's 4:00 PM ET regular-session close. Populated for after-hours sessions only. */
+	dayCloseRegular?: number | null;
 }
 
 /** Quote fields used by movement alerts and snapshot persistence. */
@@ -80,7 +90,17 @@ function isLiveMassiveEnabledInTests(): boolean {
 /** Fetch quotes for a list of symbols and return a map keyed by symbol. */
 export async function fetchAssetPrices(symbols: string[]): Promise<AssetPriceMap> {
 	if (isTest() && !isLiveMassiveEnabledInTests()) {
-		return new Map(symbols.map((s) => [s, { price: 150.0, changePercent: 1.25 }]));
+		return new Map(
+			symbols.map((s) => [
+				s,
+				{
+					price: 150.0,
+					changePercent: 1.25,
+					prevClose: 148.5,
+					dayCloseRegular: null,
+				},
+			]),
+		);
 	}
 	const snapshot = await fetchSnapshotQuotes(symbols);
 	const session = await getCurrentMarketSession();
@@ -155,6 +175,56 @@ async function fillSnapshotMissesWithPrevDayBar(
 			);
 		}
 	}
+}
+
+/**
+ * Fetch today's regular-session close for a list of symbols (concurrency 5).
+ *
+ * Used by the after-hours scheduled-notification path so the renderer can
+ * compute change-% vs. today's 4:00 PM ET close instead of yesterday's close.
+ *
+ * Map values are `null` for symbols whose daily bar isn't available (e.g.,
+ * called before the regular close, on a non-trading day, or when Massive
+ * returns no aggregate row for the symbol).
+ */
+export async function fetchTodaysRegularCloses(
+	symbols: string[],
+): Promise<Map<string, number | null>> {
+	const result = new Map<string, number | null>();
+	if (symbols.length === 0) return result;
+
+	if (isTest() && !isLiveMassiveEnabledInTests()) {
+		for (const s of symbols) result.set(s, 148.5);
+		return result;
+	}
+
+	const CONCURRENCY = 5;
+	const queue = [...symbols];
+
+	async function worker(): Promise<void> {
+		while (true) {
+			const symbol = queue.shift();
+			if (symbol === undefined) break;
+			try {
+				const close = await fetchTodaysRegularClose(symbol);
+				result.set(symbol, close);
+			} catch (error) {
+				rootLogger.error(
+					"Today's regular-close fetch failed",
+					{ symbol },
+					error instanceof Error ? error : new Error(String(error)),
+				);
+				result.set(symbol, null);
+			}
+		}
+	}
+
+	const pending: Promise<void>[] = [];
+	for (let i = 0; i < Math.min(CONCURRENCY, symbols.length); i++) {
+		pending.push(worker());
+	}
+	await Promise.all(pending);
+	return result;
 }
 
 /** Fetch 7-point sparklines for the last ~week of closes. */

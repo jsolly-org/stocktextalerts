@@ -233,16 +233,23 @@ export async function processMarketScheduledUser(options: {
 			(symbol) => priceMap.get(symbol) ?? undefined,
 			getAsciiSparkline,
 			true,
+			marketSession,
 		);
 
 		const shouldAttemptSms = shouldSendSms(user);
 
-		// Session-aware first body line. After-hours close anchor is left null
-		// for now — wiring `priorRegularClose` from the snapshot is deferred.
+		// Session-aware first body line. For after-hours, anchor on the first
+		// asset's today-regular-close; multi-asset watchlists don't have a
+		// canonical anchor, so the first asset is the pragmatic choice.
+		const firstAssetSymbol = userAssets[0]?.symbol;
+		const firstAssetDayClose =
+			marketSession === "after" && firstAssetSymbol
+				? (priceMap.get(firstAssetSymbol)?.dayCloseRegular ?? null)
+				: null;
 		const sessionFirstLine = {
 			scheduledEtMinutes: userLocalToEtMinute(scheduledMinutes, user.timezone),
 			is24: user.use_24_hour_time,
-			priorRegularClose: null as number | null,
+			priorRegularClose: firstAssetDayClose,
 		};
 
 		/* ============= Process Email ============= */

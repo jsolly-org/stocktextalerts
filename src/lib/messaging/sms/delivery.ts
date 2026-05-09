@@ -3,7 +3,11 @@ import type { AppSupabaseClient } from "../../db/supabase";
 import { buildSessionFirstLine } from "../../market-notifications/scheduled/session-label";
 import type { MarketSession } from "../../providers/price-fetcher";
 import type { MarketClosureInfo } from "../../time/market-calendar";
-import { NO_TRACKED_ASSETS_MESSAGE } from "../asset-formatting";
+import {
+	NO_TRACKED_ASSETS_MESSAGE,
+	SESSION_CHANGE_FALLBACK_FOOTNOTE_TEXT,
+	SESSION_CHANGE_FALLBACK_MARKER,
+} from "../asset-formatting";
 import { buildMarketClosedBannerText } from "../market-closure-banner";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
 import type { ProcessingStats, SmsUser } from "../types";
@@ -79,12 +83,22 @@ export function formatSmsMessage(
 				)
 			: "";
 
+	// After-hours fallback footnote: appended when at least one asset's
+	// change-% used the prev-day baseline (today's regular close unavailable).
+	// `formatAssetsTextList` injects the † marker per-line; here we surface
+	// the explanatory text once at the bottom.
+	const fallbackFootnote =
+		marketOpen && marketSession === "after" && assetsList.includes(SESSION_CHANGE_FALLBACK_MARKER)
+			? SESSION_CHANGE_FALLBACK_FOOTNOTE_TEXT
+			: "";
+
 	const sections = [
 		header,
 		sessionFirstLineText,
 		delayBanner || "",
 		marketDisclaimer,
 		assetsList,
+		fallbackFootnote,
 		extrasBlock,
 		`Manage your notifications: ${dashboardUrl}`,
 		optOutSuffix,

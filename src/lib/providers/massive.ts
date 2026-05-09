@@ -493,6 +493,27 @@ export async function fetchDailyCloses(
 	return extractClosesFromBars(data);
 }
 
+/**
+ * Fetch today's regular-session close for a symbol via Massive's daily-bar aggregate.
+ *
+ * Used by the after-hours scheduled-notification path to compute change-%
+ * vs. today's 4:00 PM ET close (rather than vs. yesterday's close, which is
+ * what `todaysChangePerc` returns during after-hours).
+ *
+ * Returns `null` when the daily bar for today isn't available yet (e.g.,
+ * called before the close at 4:00 PM ET, or on a non-trading day) or on API failure.
+ */
+export async function fetchTodaysRegularClose(symbol: string): Promise<number | null> {
+	const todayET = new Date().toLocaleDateString("en-CA", {
+		timeZone: US_MARKET_TIMEZONE,
+	});
+	const closes = await fetchDailyCloses(symbol, todayET, todayET);
+	if (!closes || closes.length === 0) return null;
+	const close = closes[0];
+	if (typeof close !== "number" || !Number.isFinite(close) || close === 0) return null;
+	return close;
+}
+
 /** Single daily OHLCV bar extracted from Massive aggregates. */
 export interface DailyOHLCVBar {
 	open: number;

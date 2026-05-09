@@ -49,6 +49,7 @@ import {
 	type AssetPriceMap,
 	type ExtendedQuoteMap,
 	fetchAssetPrices,
+	fetchTodaysRegularCloses,
 	getCurrentMarketSession,
 	type MarketSession,
 } from "../providers/price-fetcher";
@@ -209,8 +210,9 @@ async function runPass(options: {
 		fallbackMarketUsers.length > 0 || fallbackDailyUsers.length > 0 || assetEventsUsers.length > 0;
 	const marketStatusPromise = hasAnyUsers ? getCurrentMarketSession() : null;
 
+	let marketUserSymbols: string[] = [];
 	if (fallbackMarketUsers.length > 0) {
-		const uniqueSymbols = [
+		marketUserSymbols = [
 			...new Set(
 				fallbackMarketUsers.flatMap((u) => {
 					const assets = userAssetsMap.get(u.id);
@@ -219,11 +221,11 @@ async function runPass(options: {
 			),
 		];
 
-		if (uniqueSymbols.length > 0) {
+		if (marketUserSymbols.length > 0) {
 			// Reuse quotes from price alerts when available to avoid duplicate API calls
 			if (priceAlertQuoteMap && priceAlertQuoteMap.size > 0) {
 				const missingSymbols: string[] = [];
-				for (const symbol of uniqueSymbols) {
+				for (const symbol of marketUserSymbols) {
 					const cached = priceAlertQuoteMap.get(symbol);
 					if (cached) {
 						priceMap.set(symbol, cached);
@@ -238,13 +240,37 @@ async function runPass(options: {
 					}
 				}
 			} else {
-				priceMap = await fetchAssetPrices(uniqueSymbols);
+				priceMap = await fetchAssetPrices(marketUserSymbols);
 			}
 		}
 	}
 
 	const marketSession: MarketSession = marketStatusPromise ? await marketStatusPromise : "closed";
 	const marketOpen = marketSession === "regular";
+
+	// After-hours: fetch today's 4:00 PM ET regular close so the renderer can
+	// compute change-% vs. today's close instead of vs. yesterday's close.
+	// Adds ~one Massive round-trip per ticker (concurrency 5) to the after-hours
+	// hot path; bounded by the number of unique market-user symbols.
+	if (marketSession === "after" && marketUserSymbols.length > 0) {
+		try {
+			const dayCloseMap = await fetchTodaysRegularCloses(marketUserSymbols);
+			for (const symbol of marketUserSymbols) {
+				const price = priceMap.get(symbol);
+				if (!price) continue;
+				priceMap.set(symbol, {
+					...price,
+					dayCloseRegular: dayCloseMap.get(symbol) ?? null,
+				});
+			}
+		} catch (error) {
+			logger.error(
+				"Today's regular-close batch fetch failed (continuing with prev-day baseline)",
+				{ action: "fetch_todays_regular_closes", symbolCount: marketUserSymbols.length },
+				error,
+			);
+		}
+	}
 
 	// Fetch market closure once for market-scheduled banners and asset-events.
 	// Daily digests derive weekend/holiday labels from each user's scheduled send
