@@ -222,33 +222,14 @@ export function getSecondsUntilNextSend(options: {
 	return null;
 }
 
-/* =============
-Use Eastern-market baseline so local conversions stay aligned with exchange hours
-============= */
-function getEasternTimeAsLocalMinutes(easternMinutes: number, userTimezone: string): number {
-	const hour = Math.floor(easternMinutes / 60);
-	const minute = easternMinutes % 60;
-	const eastern = DateTime.now().setZone(US_MARKET_TIMEZONE).set({
-		hour,
-		minute,
-		second: 0,
-		millisecond: 0,
-	});
-	const local = eastern.setZone(userTimezone);
-	if (!local.isValid) {
-		return easternMinutes; // fallback to Eastern
-	}
-	return local.hour * 60 + local.minute;
-}
-
 /** 30 min before US market open (9:00 AM ET) converted to the user's local timezone. */
 export function getUsBeforeOpenLocalMinutes(userTimezone: string): number {
-	return getEasternTimeAsLocalMinutes(US_BEFORE_OPEN_EASTERN_MINUTES, userTimezone);
+	return etMinuteToUserLocal(US_BEFORE_OPEN_EASTERN_MINUTES, userTimezone);
 }
 
 /** 30 min after US market open (10:00 AM ET) converted to the user's local timezone. */
 export function getUsAfterOpenLocalMinutes(userTimezone: string): number {
-	return getEasternTimeAsLocalMinutes(US_AFTER_OPEN_EASTERN_MINUTES, userTimezone);
+	return etMinuteToUserLocal(US_AFTER_OPEN_EASTERN_MINUTES, userTimezone);
 }
 
 /**
