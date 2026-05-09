@@ -1,6 +1,7 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { DateTime } from "luxon";
 import type { TablesInsert } from "../../src/lib/db/generated/database.types";
+import { userLocalToEtMinute } from "../../src/lib/time/format";
 import { calculateNextSendAtFromTimes } from "../../src/lib/time/scheduled-times";
 import { getAssetData } from "./asset-data";
 import { PRESERVED_TEST_EMAIL, TEST_RUN_ID } from "./constants";
@@ -164,7 +165,9 @@ export async function createTestUser(options: CreateTestUserOptions = {}): Promi
 		}
 
 		// Create Profile in 'users' table
-		// "Enabled" is derived from having times — default to [540] (9:00 AM) unless explicitly null
+		// "Enabled" is derived from having times — default to [540] (9:00 AM) unless explicitly null.
+		// Test callers pass user-local minutes; storage is ET-canonical (matches API
+		// boundary in notification-preferences-update.ts).
 		const rawNotificationTimes = options.scheduledUpdateTimes ?? null;
 		const normalizedTimes =
 			rawNotificationTimes == null
@@ -176,10 +179,15 @@ export async function createTestUser(options: CreateTestUserOptions = {}): Promi
 								.map((value) => Math.floor(Math.max(0, Math.min(1439, value)) / 15) * 15),
 						),
 					].sort((a, b) => a - b);
-		const finalMarketScheduledPriceTimes =
-			normalizedTimes && normalizedTimes.length > 0 ? normalizedTimes : null;
+		const etCanonicalTimes =
+			normalizedTimes && normalizedTimes.length > 0
+				? [...new Set(normalizedTimes.map((m) => userLocalToEtMinute(m, timezone)))].sort(
+						(a, b) => a - b,
+					)
+				: [];
+		const finalMarketScheduledPriceTimes = etCanonicalTimes.length > 0 ? etCanonicalTimes : null;
 		const nextSendAt = finalMarketScheduledPriceTimes
-			? calculateNextSendAtFromTimes(finalMarketScheduledPriceTimes, timezone, DateTime.utc())
+			? calculateNextSendAtFromTimes(finalMarketScheduledPriceTimes, DateTime.utc())
 			: null;
 		const nextSendAtIso = nextSendAt?.toISO() ?? null;
 		if (finalMarketScheduledPriceTimes) {

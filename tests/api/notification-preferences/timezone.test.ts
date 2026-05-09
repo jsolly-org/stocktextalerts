@@ -85,7 +85,7 @@ describe("A signed-in user updates their timezone.", () => {
 		expect(updatedUser.timezone).toBe("Etc/UTC");
 	});
 
-	it("Timezone change recomputes market_scheduled and daily_digest next_send_at and returns them in the response.", async () => {
+	it("Timezone change leaves ET-canonical market_scheduled invariant and shifts daily_digest to the new local time.", async () => {
 		const testUser = await createTestUser({
 			email: `test-timezone-next-send-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
@@ -96,6 +96,8 @@ describe("A signed-in user updates their timezone.", () => {
 		});
 		registerTestUserForCleanup(testUser.id);
 
+		// daily_digest_time stays as user-local minutes (per spec non-goal):
+		// changing the user's timezone shifts when 9:00 AM local lands in UTC.
 		const { error: dailyDigestError } = await adminClient
 			.from("users")
 			.update({
@@ -138,9 +140,14 @@ describe("A signed-in user updates their timezone.", () => {
 			.single();
 
 		expect(afterUpdate?.timezone).toBe("America/Los_Angeles");
-		expect(afterUpdate?.market_scheduled_asset_price_next_send_at).not.toBe(
+		// Market scheduled times are ET-canonical; the absolute UTC instant of
+		// the next send is independent of user-timezone — recompute is a no-op
+		// that lands on the same instant.
+		expect(afterUpdate?.market_scheduled_asset_price_next_send_at).toBe(
 			beforeUpdate?.market_scheduled_asset_price_next_send_at,
 		);
+		// Daily digest times are user-local; switching from ET to PT pushes
+		// 9:00 AM "local" three hours later in UTC.
 		expect(afterUpdate?.daily_digest_next_send_at).not.toBe(
 			beforeUpdate?.daily_digest_next_send_at,
 		);

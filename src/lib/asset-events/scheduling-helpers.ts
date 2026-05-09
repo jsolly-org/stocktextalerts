@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 import type { User, UserUpdateInput } from "../db";
+import { userLocalToEtMinute } from "../time/format";
 import { calculateNextSendAt } from "../time/scheduled-times";
 
 /** User columns that enable an asset-events notification option (used for next-send-at and timezone updates). */
@@ -43,7 +44,9 @@ export function computeAssetEventsNextSendAt(
 		(timezoneChanged || dailyTimeChanged || assetEventsOptionsChanged || needsRepair) &&
 		hasAnyAssetEventsOption
 	) {
-		const nextUtc = calculateNextSendAt(finalDailyTime ?? 540, finalTimezone, DateTime.utc());
+		const baseLocal = finalDailyTime ?? 540;
+		const etMinutes = userLocalToEtMinute(baseLocal, finalTimezone);
+		const nextUtc = calculateNextSendAt(etMinutes, DateTime.utc());
 		updates.asset_events_next_send_at = nextUtc?.toISO() ?? null;
 	} else if (assetEventsOptionsChanged && !hasAnyAssetEventsOption) {
 		updates.asset_events_next_send_at = null;

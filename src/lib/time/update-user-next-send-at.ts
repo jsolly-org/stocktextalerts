@@ -2,6 +2,7 @@ import type { DateTime } from "luxon";
 import type { Logger } from "../logging";
 import type { UserRecord } from "../messaging/types";
 import type { SupabaseAdminClient } from "../schedule/helpers";
+import { userLocalToEtMinute } from "./format";
 import { calculateNextSendAt } from "./scheduled-times";
 
 /**
@@ -41,7 +42,8 @@ export async function updateUserNextSendAtSingleTime(options: {
 		return;
 	}
 
-	const nextSendAt = calculateNextSendAt(localMinutes, user.timezone, currentTime);
+	const etMinutes = userLocalToEtMinute(localMinutes, user.timezone);
+	const nextSendAt = calculateNextSendAt(etMinutes, currentTime);
 	const nextSendAtIso = nextSendAt?.toISO() ?? null;
 
 	const setUpdate =

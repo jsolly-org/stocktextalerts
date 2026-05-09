@@ -14,10 +14,10 @@ export async function updateUserMarketScheduledNextSendAt(options: {
 	const { user, supabase, logger, currentTime } = options;
 
 	// Query filters out null market_scheduled_asset_price_times with .not()
+	// Stored values are ET-canonical minutes (post-Phase-9).
 	const scheduledTimes = user.market_scheduled_asset_price_times as number[];
 	const { nextSendAt, delayReasons } = await calculateNextMarketScheduledSendAtFromTimes({
-		localMinutesList: scheduledTimes,
-		timezone: user.timezone,
+		etMinutesList: scheduledTimes,
 		now: currentTime,
 	});
 	const nextSendAtIso = nextSendAt ? nextSendAt.toISO() : null;

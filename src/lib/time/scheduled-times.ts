@@ -1,4 +1,5 @@
 import { DateTime } from "luxon";
+import { US_MARKET_TIMEZONE } from "../constants";
 import type { Logger } from "../logging";
 import { parseTimeToMinutes } from "./format";
 
@@ -34,22 +35,22 @@ function pickLaterOffset(candidate: DateTime): DateTime {
 }
 
 /**
- * Compute the next UTC send time for a local minute-of-day in a user's timezone.
+ * Compute the next UTC send time for an ET minute-of-day.
  *
- * Handles DST ambiguity by preferring the later offset on fall-back days.
- * Returns `null` when inputs are invalid or the timezone cannot be resolved.
+ * Operates on ET-canonical minutes (minutes since midnight in
+ * America/New_York). DST ambiguity is handled for ET's own transitions by
+ * preferring the later offset on fall-back days. Callers convert from
+ * user-local minutes via `userLocalToEtMinute` at the boundary.
+ *
+ * Returns `null` when inputs are invalid or the ET zone cannot be resolved.
  */
-export function calculateNextSendAt(
-	localMinutes: number,
-	timezone: string,
-	now: DateTime,
-): DateTime | null {
-	if (!Number.isFinite(localMinutes)) {
+export function calculateNextSendAt(etMinutes: number, now: DateTime): DateTime | null {
+	if (!Number.isFinite(etMinutes)) {
 		return null;
 	}
 
-	const hours = Math.floor(localMinutes / 60);
-	const minutes = localMinutes % 60;
+	const hours = Math.floor(etMinutes / 60);
+	const minutes = etMinutes % 60;
 	if (
 		!Number.isInteger(hours) ||
 		!Number.isInteger(minutes) ||
@@ -61,14 +62,14 @@ export function calculateNextSendAt(
 		return null;
 	}
 
-	const current = now.setZone(timezone);
+	const current = now.setZone(US_MARKET_TIMEZONE);
 	if (!current.isValid) {
 		return null;
 	}
 
 	let candidate = buildLocalDateTime({
 		date: current,
-		zone: timezone,
+		zone: US_MARKET_TIMEZONE,
 		hour: hours,
 		minute: minutes,
 	});
@@ -90,25 +91,24 @@ export function calculateNextSendAt(
 }
 
 /**
- * Compute the next UTC send time across multiple local minute-of-day candidates.
+ * Compute the next UTC send time across multiple ET minute-of-day candidates.
  *
  * Returns the earliest next send time, or `null` when no valid candidates exist.
  */
 export function calculateNextSendAtFromTimes(
-	localMinutesList: number[],
-	timezone: string,
+	etMinutesList: number[],
 	now: DateTime,
 ): DateTime | null {
-	if (!Array.isArray(localMinutesList) || localMinutesList.length === 0) {
+	if (!Array.isArray(etMinutesList) || etMinutesList.length === 0) {
 		return null;
 	}
 
 	let nextSend: DateTime | null = null;
-	for (const localMinutes of localMinutesList) {
-		if (!Number.isFinite(localMinutes)) {
+	for (const etMinutes of etMinutesList) {
+		if (!Number.isFinite(etMinutes)) {
 			continue;
 		}
-		const candidate = calculateNextSendAt(localMinutes, timezone, now);
+		const candidate = calculateNextSendAt(etMinutes, now);
 		if (!candidate) {
 			continue;
 		}
@@ -170,11 +170,10 @@ export function serializeTimes(times: number[] | null | undefined): string {
  */
 export function computeNextSendAtIso(
 	times: number[],
-	timezone: string,
 	context: Record<string, unknown>,
 	logger?: Logger,
 ): string {
-	const nextSendAt = calculateNextSendAtFromTimes(times, timezone, DateTime.utc());
+	const nextSendAt = calculateNextSendAtFromTimes(times, DateTime.utc());
 	if (!nextSendAt) {
 		logger?.error("calculateNextSendAtFromTimes returned null", context);
 		throw new Error(

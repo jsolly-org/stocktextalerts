@@ -182,14 +182,15 @@ export function getSecondsUntilNextSend(options: {
 	}
 
 	if (Array.isArray(options.timeInputs) && options.timeInputs.length > 0) {
-		const minutes = options.timeInputs
+		const localMinutes = options.timeInputs
 			.map((value) => parseTimeToMinutes(value))
 			.filter((value): value is number => value !== null);
-		if (minutes.length === 0) {
+		if (localMinutes.length === 0) {
 			return null;
 		}
 
-		const nextSendAt = calculateNextSendAtFromTimes(minutes, options.timezone, now);
+		const etMinutes = localMinutes.map((m) => userLocalToEtMinute(m, options.timezone));
+		const nextSendAt = calculateNextSendAtFromTimes(etMinutes, now);
 		if (!nextSendAt) {
 			return null;
 		}
@@ -202,12 +203,13 @@ export function getSecondsUntilNextSend(options: {
 	}
 
 	if (typeof options.timeInput === "string" && options.timeInput !== "") {
-		const deliveryMinutes = parseTimeToMinutes(options.timeInput);
-		if (deliveryMinutes === null) {
+		const localDeliveryMinutes = parseTimeToMinutes(options.timeInput);
+		if (localDeliveryMinutes === null) {
 			return null;
 		}
 
-		const nextSendAt = calculateNextSendAt(deliveryMinutes, options.timezone, now);
+		const etMinutes = userLocalToEtMinute(localDeliveryMinutes, options.timezone);
+		const nextSendAt = calculateNextSendAt(etMinutes, now);
 		if (!nextSendAt) {
 			return null;
 		}

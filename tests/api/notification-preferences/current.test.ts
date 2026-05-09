@@ -9,6 +9,9 @@ import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 describe("A signed-in user loads their current notification settings.", () => {
 	it("Returns the saved notification preferences snapshot for dashboard hydration.", async () => {
+		// Helper takes user-local minutes and converts to ET-canonical at the
+		// boundary (matches the API behavior). 555 CST = 9:15 AM CST = 10:15 AM
+		// ET = 615; 900 CST = 3:00 PM CST = 4:00 PM ET = 960.
 		const testUser = await createTestUser({
 			email: `pref-current-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
@@ -47,7 +50,7 @@ describe("A signed-in user loads their current notification settings.", () => {
 		expect(payload.notificationPreferences.email_notifications_enabled).toBe(true);
 		expect(payload.notificationPreferences.sms_notifications_enabled).toBe(false);
 		expect(payload.notificationPreferences.timezone).toBe("America/Chicago");
-		expect(payload.notificationPreferences.market_scheduled_asset_price_times).toEqual([555, 900]);
+		expect(payload.notificationPreferences.market_scheduled_asset_price_times).toEqual([615, 960]);
 	});
 
 	it("Rejects a logged-out request.", async () => {

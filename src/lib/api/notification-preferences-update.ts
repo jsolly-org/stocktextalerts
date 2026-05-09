@@ -5,6 +5,7 @@ import {
 } from "../asset-events/scheduling-helpers";
 import { omitUndefined, type User, type UserUpdateInput } from "../db";
 import type { Logger } from "../logging";
+import { userLocalToEtMinute } from "../time/format";
 import {
 	calculateNextSendAt,
 	computeNextSendAtIso,
@@ -49,11 +50,11 @@ interface ParsedNotificationPreferencesForm {
  * Compute `market_scheduled_asset_price_next_send_at` for scheduled update notifications when timezone or schedule changes.
  *
  * Mutates `updates` in-place so callers can compose a single `users` table update payload.
+ * Times are ET-canonical minutes; timezone is informational context only.
  */
 function computeScheduledNextSendAt(
 	updates: UserUpdateInput,
 	dbUser: User,
-	finalTimezone: string,
 	finalTimes: number[] | null,
 	timezoneChanged: boolean,
 	timeChanged: boolean,
@@ -68,8 +69,7 @@ function computeScheduledNextSendAt(
 	if ((timezoneChanged || timeChanged || needsRepair) && hasTimes) {
 		updates.market_scheduled_asset_price_next_send_at = computeNextSendAtIso(
 			finalTimes,
-			finalTimezone,
-			{ userId: dbUser.id, finalTimes, finalTimezone },
+			{ userId: dbUser.id, finalTimes },
 			logger,
 		);
 	} else if (timeChanged && !hasTimes) {
@@ -97,7 +97,8 @@ function computeDailyNextSendAt(
 		updates.daily_digest_next_send_at === undefined;
 
 	if ((timezoneChanged || dailyTimeChanged || needsRepair) && hasDailyTime) {
-		const nextDailyUtc = calculateNextSendAt(finalDailyTime, finalTimezone, DateTime.utc());
+		const etMinutes = userLocalToEtMinute(finalDailyTime, finalTimezone);
+		const nextDailyUtc = calculateNextSendAt(etMinutes, DateTime.utc());
 		updates.daily_digest_next_send_at = nextDailyUtc?.toISO() ?? null;
 	} else if (dailyTimeChanged && !hasDailyTime) {
 		updates.daily_digest_next_send_at = null;
@@ -155,6 +156,22 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 	}
 
 	/* =============
+	Form supplies user-local minutes; storage is ET-canonical. Convert at the
+	API boundary so downstream code (cron, formatters) treats stored values
+	as ET-minutes uniformly. Apply unique+sort after conversion since two
+	distinct local minutes can collapse to the same ET minute (e.g. across
+	timezones with sub-hour offsets) — though the common case is a 1:1 map.
+	============= */
+	const formTimezone = parsedData.timezone ?? dbUser.timezone;
+	let etNormalizedTimes: number[] | null | undefined = normalizedTimes;
+	if (Array.isArray(normalizedTimes) && normalizedTimes.length > 0) {
+		const converted = normalizedTimes.map((localMin) =>
+			userLocalToEtMinute(localMin, formTimezone),
+		);
+		etNormalizedTimes = [...new Set(converted)].sort((a, b) => a - b);
+	}
+
+	/* =============
 	Only persist booleans the form actually submitted (unchecked controls are often omitted).
 	Build imperatively to avoid a union-type explosion from too many spread expressions.
 	============= */
@@ -197,7 +214,7 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 
 	const safeNotificationPreferenceUpdates: UserUpdateInput = omitUndefined({
 		timezone: parsedData.timezone,
-		market_scheduled_asset_price_times: normalizedTimes,
+		market_scheduled_asset_price_times: etNormalizedTimes,
 		...boolUpdates,
 		...(formData.has("daily_digest_time")
 			? { daily_digest_time: parsedData.daily_digest_time ?? null }
@@ -242,7 +259,6 @@ export function buildNotificationPreferencesUpdatePayload(options: {
 	computeScheduledNextSendAt(
 		safeNotificationPreferenceUpdates,
 		dbUser,
-		finalTimezone,
 		finalTimes,
 		timezoneChanged,
 		timeChanged,
@@ -296,7 +312,10 @@ export function computeTimezoneUpdatePayload(
 	}
 
 	/* =============
-	No schedule: timezone changes don't require recomputing market_scheduled_asset_price_next_send_at
+	Market scheduled times are ET-canonical; the absolute moment of next
+	send is invariant under user-timezone changes. We still recompute (vs.
+	leaving the stale ISO) on timezone change for consistency with the
+	prior behavior — it's a cheap idempotent advance.
 	============= */
 	if (
 		dbUser.market_scheduled_asset_price_times &&
@@ -304,10 +323,8 @@ export function computeTimezoneUpdatePayload(
 	) {
 		payload.market_scheduled_asset_price_next_send_at = computeNextSendAtIso(
 			dbUser.market_scheduled_asset_price_times,
-			newTimezone,
 			{
 				userId: dbUser.id,
-				timezone: newTimezone,
 				timesCount: dbUser.market_scheduled_asset_price_times.length,
 			},
 			logger,
@@ -315,7 +332,8 @@ export function computeTimezoneUpdatePayload(
 	}
 
 	if (dbUser.daily_digest_time != null) {
-		const nextDailyUtc = calculateNextSendAt(dbUser.daily_digest_time, newTimezone, DateTime.utc());
+		const etMinutes = userLocalToEtMinute(dbUser.daily_digest_time, newTimezone);
+		const nextDailyUtc = calculateNextSendAt(etMinutes, DateTime.utc());
 		payload.daily_digest_next_send_at = nextDailyUtc?.toISO() ?? null;
 	}
 
@@ -323,11 +341,9 @@ export function computeTimezoneUpdatePayload(
 		(field) => dbUser[field as keyof typeof dbUser],
 	);
 	if (hasAnyAssetEvents) {
-		const nextUtc = calculateNextSendAt(
-			dbUser.daily_digest_time ?? 540,
-			newTimezone,
-			DateTime.utc(),
-		);
+		const baseLocal = dbUser.daily_digest_time ?? 540;
+		const etMinutes = userLocalToEtMinute(baseLocal, newTimezone);
+		const nextUtc = calculateNextSendAt(etMinutes, DateTime.utc());
 		payload.asset_events_next_send_at = nextUtc?.toISO() ?? null;
 	}
 

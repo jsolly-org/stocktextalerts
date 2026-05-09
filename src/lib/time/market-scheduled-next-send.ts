@@ -15,17 +15,16 @@ interface NextMarketScheduledSendResult {
  * Compute the next scheduled send time that lands on an open US market day.
  */
 export async function calculateNextMarketScheduledSendAtFromTimes(options: {
-	localMinutesList: number[];
-	timezone: string;
+	etMinutesList: number[];
 	now: DateTime;
 }): Promise<NextMarketScheduledSendResult> {
-	const { localMinutesList, timezone, now } = options;
+	const { etMinutesList, now } = options;
 	let cursor = now;
 	const delayReasonSet = new Set<MarketClosureReason>();
 	let holidayName: string | undefined;
 
 	for (let i = 0; i < MAX_CANDIDATE_ITERATIONS; i++) {
-		const candidate = calculateNextSendAtFromTimes(localMinutesList, timezone, cursor);
+		const candidate = calculateNextSendAtFromTimes(etMinutesList, cursor);
 		if (!candidate) {
 			return {
 				nextSendAt: null,

@@ -225,6 +225,7 @@ import {
 import {
 	formatCountdownWithSeconds,
 	formatMinutesAsLocalTime,
+	userLocalToEtMinute,
 } from "../../../lib/time/format";
 import { calculateNextSendAt } from "../../../lib/time/scheduled-times";
 import {
@@ -462,7 +463,8 @@ const nextAssetEventsDeliveryText = computed(() => {
 	}
 	const tz = user.value.timezone;
 	if (!tz) return null;
-	const nextDelivery = calculateNextSendAt(assetEventsDeliveryTimeMinutes.value, tz, now);
+	const etMinutes = userLocalToEtMinute(assetEventsDeliveryTimeMinutes.value, tz);
+	const nextDelivery = calculateNextSendAt(etMinutes, now);
 	if (!nextDelivery) return null;
 	const fallbackSeconds = Math.ceil(nextDelivery.diff(now, "seconds").seconds);
 	if (fallbackSeconds <= 0) return null;

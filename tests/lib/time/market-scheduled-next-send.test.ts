@@ -29,8 +29,7 @@ describe("calculateNextMarketScheduledSendAtFromTimes", () => {
 
 		const now = DateTime.fromISO("2026-02-14T14:00:00Z"); // Saturday 9:00 AM ET
 		const result = await calculateNextMarketScheduledSendAtFromTimes({
-			localMinutesList: [9 * 60 + 30],
-			timezone: "America/New_York",
+			etMinutesList: [9 * 60 + 30],
 			now,
 		});
 
@@ -55,8 +54,7 @@ describe("calculateNextMarketScheduledSendAtFromTimes", () => {
 
 		const now = DateTime.fromISO("2027-01-18T13:00:00Z"); // Monday 8:00 AM ET (holiday)
 		const result = await calculateNextMarketScheduledSendAtFromTimes({
-			localMinutesList: [9 * 60 + 30],
-			timezone: "America/New_York",
+			etMinutesList: [9 * 60 + 30],
 			now,
 		});
 
@@ -83,8 +81,7 @@ describe("calculateNextMarketScheduledSendAtFromTimes", () => {
 		// Saturday — next candidate is Sunday (weekend), then Monday (holiday)
 		const now = DateTime.fromISO("2026-02-14T14:00:00Z"); // Saturday 9:00 AM ET
 		const result = await calculateNextMarketScheduledSendAtFromTimes({
-			localMinutesList: [9 * 60 + 30],
-			timezone: "America/New_York",
+			etMinutesList: [9 * 60 + 30],
 			now,
 		});
 
@@ -107,8 +104,7 @@ describe("calculateNextMarketScheduledSendAtFromTimes", () => {
 
 		const now = DateTime.fromISO("2027-01-18T13:00:00Z");
 		const result = await calculateNextMarketScheduledSendAtFromTimes({
-			localMinutesList: [9 * 60 + 30],
-			timezone: "America/New_York",
+			etMinutesList: [9 * 60 + 30],
 			now,
 		});
 

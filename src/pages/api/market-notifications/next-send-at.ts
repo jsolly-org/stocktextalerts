@@ -4,6 +4,7 @@ import { jsonResponse } from "../../../lib/api/json-response";
 import { createUserService } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
+import { userLocalToEtMinute } from "../../../lib/time/format";
 import { calculateNextMarketScheduledSendAtFromTimes } from "../../../lib/time/market-scheduled-next-send";
 import { parseScheduledTimes } from "../../../lib/time/scheduled-times";
 
@@ -66,10 +67,11 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		return jsonResponse(400, { ok: false, message: "invalid_form" });
 	}
 
+	// Form supplies user-local-minutes; storage and computation are ET-canonical.
+	const etMinutesList = parsedTimes.times.map((m) => userLocalToEtMinute(m, timezone));
 	const { nextSendAt, delayReasons, holidayName } =
 		await calculateNextMarketScheduledSendAtFromTimes({
-			localMinutesList: parsedTimes.times,
-			timezone,
+			etMinutesList,
 			now: DateTime.utc(),
 		});
 
