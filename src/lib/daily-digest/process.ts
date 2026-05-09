@@ -19,6 +19,7 @@ import {
 	fetchAssetPrices,
 	fetchSparklines,
 	getCurrentMarketSession,
+	type MarketSession,
 } from "../providers/price-fetcher";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { loadUserAssets } from "../schedule/helpers";
@@ -326,10 +327,21 @@ export async function processDailyDigestUser(options: {
 		const includePricesSms = user.daily_digest_include_prices_sms;
 		const needsPrices = (includePricesEmail && emailEnabled) || (includePricesSms && smsEnabled);
 
+		// Resolve the market session once for this user so fetchAssetPrices
+		// (below) and the marketOpen derivation later in this function share
+		// a single /v1/marketstatus/now round-trip. When the orchestrator
+		// pre-fetched and passed marketOpenParam, reuse it.
+		const session: MarketSession =
+			marketOpenParam === true
+				? "regular"
+				: marketOpenParam === false
+					? "closed"
+					: await getCurrentMarketSession();
+
 		let assetPrices: AssetPriceMap = new Map();
 		if (needsPrices && tickers.length > 0) {
 			try {
-				assetPrices = await fetchAssetPrices(tickers);
+				assetPrices = await fetchAssetPrices(tickers, session);
 			} catch (error) {
 				logger.error("Failed to fetch daily digest prices", {
 					action: "daily_run",
@@ -439,10 +451,7 @@ export async function processDailyDigestUser(options: {
 				? marketClosureInfoParam
 				: await getUsMarketClosureInfoForInstant(closureRefInstant);
 
-		const marketOpen =
-			marketOpenParam !== undefined
-				? marketOpenParam
-				: (await getCurrentMarketSession()) === "regular";
+		const marketOpen = session === "regular";
 
 		/* =============
 		Fetch Finnhub data (non-blocking — failures omit that section)

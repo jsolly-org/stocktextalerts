@@ -248,7 +248,7 @@ export async function processPriceAlerts(options: { supabase: SupabaseAdminClien
 	];
 
 	const [quoteMap, earningsSymbols, dailyStatsMap] = await Promise.all([
-		fetchExtendedQuotes(symbolsWithBenchmarks),
+		fetchExtendedQuotes(symbolsWithBenchmarks, session),
 		fetchEarningsSymbols(supabase),
 		fetchDailyStats(supabase, uniqueSymbols).catch((err) => {
 			rootLogger.error(

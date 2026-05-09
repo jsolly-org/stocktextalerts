@@ -13,6 +13,7 @@ vi.mock("../../../src/lib/db", () => ({
 
 vi.mock("../../../src/lib/providers/price-fetcher", () => ({
 	fetchAssetPrices: vi.fn(),
+	getCurrentMarketSession: vi.fn().mockResolvedValue("regular"),
 }));
 
 import { createUserService, getUserAssets } from "../../../src/lib/db";

@@ -5,6 +5,7 @@ import {
 	type ExtendedQuoteMap,
 	fetchExtendedQuotes,
 	getCurrentMarketSession,
+	type MarketSession,
 } from "../providers/price-fetcher";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 import { createSmsSenderProvider } from "../schedule/sms-sender";
@@ -67,7 +68,10 @@ export async function processPriceTargets(options: {
 	};
 
 	// Only process during market hours (use pre-fetched status when available)
-	const isMarketOpen = options.isMarketOpen ?? (await getCurrentMarketSession()) === "regular";
+	// price-targets only fires in regular hours; resolve session once and reuse
+	// for fetchExtendedQuotes below to avoid a second /v1/marketstatus/now call.
+	const session: MarketSession = options.isMarketOpen ? "regular" : await getCurrentMarketSession();
+	const isMarketOpen = session === "regular";
 	if (!isMarketOpen) {
 		return totals;
 	}
@@ -130,13 +134,13 @@ export async function processPriceTargets(options: {
 		const existingMap = quoteMap;
 		const missingSymbols = uniqueSymbols.filter((s) => !existingMap.has(s));
 		if (missingSymbols.length > 0) {
-			const additionalQuotes = await fetchExtendedQuotes(missingSymbols);
+			const additionalQuotes = await fetchExtendedQuotes(missingSymbols, session);
 			for (const [symbol, quote] of additionalQuotes) {
 				quoteMap.set(symbol, quote);
 			}
 		}
 	} else {
-		quoteMap = await fetchExtendedQuotes(uniqueSymbols);
+		quoteMap = await fetchExtendedQuotes(uniqueSymbols, session);
 	}
 
 	// Fetch icon URLs for triggered symbols (for email logos)

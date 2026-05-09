@@ -5,7 +5,7 @@ import { createUserService, getUserAssets } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
 import { extractErrorMessage } from "../../../lib/logging/errors";
-import { fetchAssetPrices } from "../../../lib/providers/price-fetcher";
+import { fetchAssetPrices, getCurrentMarketSession } from "../../../lib/providers/price-fetcher";
 
 /**
  * POST /api/price-targets/save
@@ -109,7 +109,8 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		}
 
 		// Fetch current price to infer direction
-		const priceMap = await fetchAssetPrices([normalizedSymbol]);
+		const session = await getCurrentMarketSession();
+		const priceMap = await fetchAssetPrices([normalizedSymbol], session);
 		const currentQuote = priceMap.get(normalizedSymbol);
 		if (!currentQuote) {
 			return jsonResponse(400, {

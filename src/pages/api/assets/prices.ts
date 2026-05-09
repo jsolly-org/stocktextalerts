@@ -3,7 +3,7 @@ import { jsonResponse } from "../../../lib/api/json-response";
 import { createUserService, getUserAssets } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
-import { fetchExtendedQuotes } from "../../../lib/providers/price-fetcher";
+import { fetchExtendedQuotes, getCurrentMarketSession } from "../../../lib/providers/price-fetcher";
 
 /**
  * GET /api/assets/prices
@@ -36,7 +36,8 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 			return Response.json({ ok: true, assets: {} });
 		}
 
-		const quoteMap = await fetchExtendedQuotes(symbols);
+		const session = await getCurrentMarketSession();
+		const quoteMap = await fetchExtendedQuotes(symbols, session);
 
 		// Load existing sector values from assets table
 		const { data: assetRows, error: assetRowsError } = await supabase

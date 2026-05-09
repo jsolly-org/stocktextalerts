@@ -1,15 +1,9 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
 describe("market-times migration: post-conversion bounds and idempotency", () => {
-	const cleanup: (() => Promise<void>)[] = [];
-
-	afterAll(async () => {
-		for (const fn of cleanup) await fn();
-	});
-
 	it("The CHECK constraint accepts the lower extended-hours bound (270 = 4:30 AM ET).", async () => {
 		const { id } = await createTestUser({ confirmed: true });
 		registerTestUserForCleanup(id);
@@ -44,7 +38,7 @@ describe("market-times migration: post-conversion bounds and idempotency", () =>
 			.eq("id", id);
 
 		expect(error).not.toBeNull();
-		expect(error?.message ?? "").toMatch(/check/i);
+		expect(error?.message ?? "").toMatch(/violates check constraint/i);
 	});
 
 	it("The CHECK constraint rejects a minute above the upper bound (1171).", async () => {
@@ -57,7 +51,7 @@ describe("market-times migration: post-conversion bounds and idempotency", () =>
 			.eq("id", id);
 
 		expect(error).not.toBeNull();
-		expect(error?.message ?? "").toMatch(/check/i);
+		expect(error?.message ?? "").toMatch(/violates check constraint/i);
 	});
 
 	it("The migration sentinel is in place after db:reset (idempotency guard ready for re-runs).", async () => {

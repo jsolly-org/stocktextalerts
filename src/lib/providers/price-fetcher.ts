@@ -87,8 +87,20 @@ function isLiveMassiveEnabledInTests(): boolean {
 		.includes("massive");
 }
 
-/** Fetch quotes for a list of symbols and return a map keyed by symbol. */
-export async function fetchAssetPrices(symbols: string[]): Promise<AssetPriceMap> {
+/**
+ * Fetch quotes for a list of symbols and return a map keyed by symbol.
+ *
+ * `session` is required so the prev-day-bar fallback in
+ * `fillSnapshotMissesWithPrevDayBar` reuses the session the orchestrator
+ * already fetched at the top of its loop — avoiding a second
+ * `/v1/marketstatus/now` round-trip per cron tick. Spec: "Session is
+ * fetched once at the top of the user-processing loop and passed as a
+ * parameter to anything downstream."
+ */
+export async function fetchAssetPrices(
+	symbols: string[],
+	session: MarketSession,
+): Promise<AssetPriceMap> {
 	if (isTest() && !isLiveMassiveEnabledInTests()) {
 		return new Map(
 			symbols.map((s) => [
@@ -103,13 +115,20 @@ export async function fetchAssetPrices(symbols: string[]): Promise<AssetPriceMap
 		);
 	}
 	const snapshot = await fetchSnapshotQuotes(symbols);
-	const session = await getCurrentMarketSession();
 	await fillSnapshotMissesWithPrevDayBar(symbols, snapshot, session);
 	return snapshot as AssetPriceMap;
 }
 
-/** Fetch extended quotes for symbols (day high/low/open/prevClose + volume). */
-export async function fetchExtendedQuotes(symbols: string[]): Promise<ExtendedQuoteMap> {
+/**
+ * Fetch extended quotes for symbols (day high/low/open/prevClose + volume).
+ *
+ * `session` is required for the same reason as `fetchAssetPrices` —
+ * single source of truth, no redundant API calls.
+ */
+export async function fetchExtendedQuotes(
+	symbols: string[],
+	session: MarketSession,
+): Promise<ExtendedQuoteMap> {
 	if (isTest() && !isLiveMassiveEnabledInTests()) {
 		return new Map(
 			symbols.map((s) => [
@@ -128,7 +147,6 @@ export async function fetchExtendedQuotes(symbols: string[]): Promise<ExtendedQu
 		);
 	}
 	const snapshot = await fetchSnapshotQuotes(symbols);
-	const session = await getCurrentMarketSession();
 	await fillSnapshotMissesWithPrevDayBar(symbols, snapshot, session);
 	return snapshot as ExtendedQuoteMap;
 }
@@ -209,11 +227,16 @@ export async function fetchTodaysRegularCloses(
 				const close = await fetchTodaysRegularClose(symbol);
 				result.set(symbol, close);
 			} catch (error) {
-				rootLogger.error(
-					"Today's regular-close fetch failed",
-					{ symbol },
-					error instanceof Error ? error : new Error(String(error)),
-				);
+				// Per-symbol catch falls back to null; renderer uses prev-day
+				// baseline with †-footnote. This is the *expected* path before
+				// 4:00 PM ET on every after-hours tick (no daily bar yet).
+				// Spec: "day.close missing or zero in after-hours — fallback
+				// applied; log at info." marketDataFetch already logs error
+				// on retry exhaustion, so info here avoids double-noise.
+				rootLogger.info("Today's regular-close fetch failed; falling back to prev-day baseline", {
+					symbol,
+					error: error instanceof Error ? error.message : String(error),
+				});
 				result.set(symbol, null);
 			}
 		}

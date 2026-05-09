@@ -3,7 +3,7 @@ import { jsonResponse } from "../../../lib/api/json-response";
 import { createUserService, getUserAssets } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
-import { fetchAssetPrices } from "../../../lib/providers/price-fetcher";
+import { fetchAssetPrices, getCurrentMarketSession } from "../../../lib/providers/price-fetcher";
 
 /**
  * GET /api/price-targets
@@ -48,7 +48,8 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 
 		if (symbols.length > 0) {
 			try {
-				const priceMap = await fetchAssetPrices(symbols);
+				const session = await getCurrentMarketSession();
+				const priceMap = await fetchAssetPrices(symbols, session);
 				for (const symbol of symbols) {
 					prices[symbol] = priceMap.get(symbol)?.price ?? null;
 				}

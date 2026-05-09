@@ -94,7 +94,10 @@ AS $$
 		);
 $$;
 
--- Bump schema version.
+-- Bump schema version. Scoped to the previous expected version so a re-run
+-- (e.g., db:reset replaying all migrations after a later migration has
+-- bumped the version further) is a no-op rather than a clobber.
 UPDATE public.app_metadata
 	SET value = '20260509161208_migrate_market_times_to_et'
-	WHERE key = 'schema_version';
+	WHERE key = 'schema_version'
+		AND value = '20260418130000_add_daily_digest_include_top_movers_sms';

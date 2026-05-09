@@ -301,7 +301,6 @@ interface TimezoneUpdatePayload {
 export function computeTimezoneUpdatePayload(
 	newTimezone: string,
 	dbUser: User,
-	logger?: Logger,
 ): TimezoneUpdatePayload {
 	const payload: TimezoneUpdatePayload = {
 		timezone: newTimezone,
@@ -311,25 +310,11 @@ export function computeTimezoneUpdatePayload(
 		return payload;
 	}
 
-	/* =============
-	Market scheduled times are ET-canonical; the absolute moment of next
-	send is invariant under user-timezone changes. We still recompute (vs.
-	leaving the stale ISO) on timezone change for consistency with the
-	prior behavior — it's a cheap idempotent advance.
-	============= */
-	if (
-		dbUser.market_scheduled_asset_price_times &&
-		dbUser.market_scheduled_asset_price_times.length > 0
-	) {
-		payload.market_scheduled_asset_price_next_send_at = computeNextSendAtIso(
-			dbUser.market_scheduled_asset_price_times,
-			{
-				userId: dbUser.id,
-				timesCount: dbUser.market_scheduled_asset_price_times.length,
-			},
-			logger,
-		);
-	}
+	// Market scheduled times are ET-canonical; the absolute UTC moment of
+	// next_send_at is invariant under user-timezone changes. The stored
+	// ISO is still correct, so don't recompute / write it.
+	// (Spec: "stored values are ET-minutes — invariant under timezone
+	// changes... the call site drops the newTimezone argument.")
 
 	if (dbUser.daily_digest_time != null) {
 		const etMinutes = userLocalToEtMinute(dbUser.daily_digest_time, newTimezone);

@@ -208,7 +208,13 @@ async function runPass(options: {
 	let priceMap: AssetPriceMap = new Map();
 	const hasAnyUsers =
 		fallbackMarketUsers.length > 0 || fallbackDailyUsers.length > 0 || assetEventsUsers.length > 0;
-	const marketStatusPromise = hasAnyUsers ? getCurrentMarketSession() : null;
+	// Resolve market session ONCE per cron tick. fetchAssetPrices /
+	// fetchExtendedQuotes / processMarketScheduledUser all consume this value;
+	// the spec requires a single source of truth for session ("fetched once at
+	// the top of the user-processing loop and passed as a parameter to anything
+	// downstream").
+	const marketSession: MarketSession = hasAnyUsers ? await getCurrentMarketSession() : "closed";
+	const marketOpen = marketSession === "regular";
 
 	let marketUserSymbols: string[] = [];
 	if (fallbackMarketUsers.length > 0) {
@@ -234,19 +240,16 @@ async function runPass(options: {
 					}
 				}
 				if (missingSymbols.length > 0) {
-					const extraPrices = await fetchAssetPrices(missingSymbols);
+					const extraPrices = await fetchAssetPrices(missingSymbols, marketSession);
 					for (const [symbol, price] of extraPrices) {
 						priceMap.set(symbol, price);
 					}
 				}
 			} else {
-				priceMap = await fetchAssetPrices(marketUserSymbols);
+				priceMap = await fetchAssetPrices(marketUserSymbols, marketSession);
 			}
 		}
 	}
-
-	const marketSession: MarketSession = marketStatusPromise ? await marketStatusPromise : "closed";
-	const marketOpen = marketSession === "regular";
 
 	// After-hours: fetch today's 4:00 PM ET regular close so the renderer can
 	// compute change-% vs. today's close instead of vs. yesterday's close.
@@ -264,7 +267,12 @@ async function runPass(options: {
 				});
 			}
 		} catch (error) {
-			logger.error(
+			// Graceful degradation: per-symbol failures are absorbed inside
+			// fetchTodaysRegularCloses and don't bubble; only a structural
+			// throw reaches here. Renderer falls back to prev-day baseline
+			// with the † footnote — no operator action needed, so warn (not
+			// error) avoids tripping alarm-hub on a benign fallback path.
+			logger.warn(
 				"Today's regular-close batch fetch failed (continuing with prev-day baseline)",
 				{ action: "fetch_todays_regular_closes", symbolCount: marketUserSymbols.length },
 				error,

@@ -58,7 +58,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 
 	let updatePayload: ReturnType<typeof computeTimezoneUpdatePayload>;
 	try {
-		updatePayload = computeTimezoneUpdatePayload(parsed.data.timezone, dbUser, logger);
+		updatePayload = computeTimezoneUpdatePayload(parsed.data.timezone, dbUser);
 	} catch (error) {
 		logger.error(
 			"Failed to compute timezone update payload",
