@@ -30,6 +30,7 @@ node_modules/
 auth.json
 .tmp/
 .playwright-cli/
+.playwright-mcp/
 auth.json
 plans/
 scripts/one-off-testing/preview-digest.html
