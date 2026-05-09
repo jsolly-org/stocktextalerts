@@ -13,6 +13,7 @@ vi.mock("../../../src/lib/time/market-scheduled-next-send", () => ({
 		nextSendAt: DateTime.fromISO("2026-02-16T14:30:00.000Z"),
 		delayReasons: [],
 		holidayName: undefined,
+		dstShift: null,
 	}),
 }));
 
@@ -54,6 +55,7 @@ describe("An authenticated user requests the next market notification send time.
 			nextSendAtIso: string | null;
 			delayReasons: unknown[];
 			holidayName?: string;
+			dstShift: "spring-forward" | "fall-back" | null;
 		};
 		expect(payload.ok).toBe(true);
 		expect(payload.message).toBe("ok");
@@ -64,5 +66,6 @@ describe("An authenticated user requests the next market notification send time.
 			DateTime.fromISO("2026-02-16T14:30:00.000Z").toMillis(),
 		);
 		expect(payload.delayReasons).toEqual([]);
+		expect(payload.dstShift).toBeNull();
 	});
 });

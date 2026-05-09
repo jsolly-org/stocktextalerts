@@ -19,6 +19,7 @@ export function useScheduledUpdateTiming(options: {
 	const adjustedNextSendAtIso = ref<string | null>(null);
 	const delayReasons = ref<Array<"weekend" | "holiday">>([]);
 	const holidayName = ref<string | null>(null);
+	const dstShift = ref<"spring-forward" | "fall-back" | null>(null);
 	const refreshRequestId = ref(0);
 
 	const refreshAdjustedNextSendAt = async () => {
@@ -31,6 +32,7 @@ export function useScheduledUpdateTiming(options: {
 			adjustedNextSendAtIso.value = null;
 			delayReasons.value = [];
 			holidayName.value = null;
+			dstShift.value = null;
 			return;
 		}
 
@@ -42,6 +44,7 @@ export function useScheduledUpdateTiming(options: {
 			adjustedNextSendAtIso.value = null;
 			delayReasons.value = [];
 			holidayName.value = null;
+			dstShift.value = null;
 		};
 
 		try {
@@ -62,6 +65,7 @@ export function useScheduledUpdateTiming(options: {
 				nextSendAtIso?: string | null;
 				delayReasons?: Array<"weekend" | "holiday">;
 				holidayName?: string | null;
+				dstShift?: "spring-forward" | "fall-back" | null;
 			};
 			if (refreshRequestId.value !== requestId) {
 				return;
@@ -74,6 +78,10 @@ export function useScheduledUpdateTiming(options: {
 				typeof payload.nextSendAtIso === "string" ? payload.nextSendAtIso : null;
 			delayReasons.value = Array.isArray(payload.delayReasons) ? payload.delayReasons : [];
 			holidayName.value = typeof payload.holidayName === "string" ? payload.holidayName : null;
+			dstShift.value =
+				payload.dstShift === "spring-forward" || payload.dstShift === "fall-back"
+					? payload.dstShift
+					: null;
 		} catch {
 			clearAdjustedIfActive();
 			// Best-effort enhancement only; countdown will fall back to persisted next_send_at.
@@ -141,11 +149,13 @@ export function useScheduledUpdateTiming(options: {
 
 	const countdownDelayReasons = computed(() => delayReasons.value);
 	const countdownHolidayName = computed(() => holidayName.value);
+	const countdownDstShift = computed(() => dstShift.value);
 
 	return {
 		currentTimeInTimezone,
 		countdownText,
 		countdownDelayReasons,
 		countdownHolidayName,
+		countdownDstShift,
 	};
 }

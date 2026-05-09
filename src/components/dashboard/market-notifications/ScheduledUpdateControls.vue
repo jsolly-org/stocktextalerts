@@ -131,6 +131,9 @@
 			Delayed to the next slot because the market is closed for
 			{{ delayReasonLabel }}.
 		</p>
+		<p v-if="countdownDstShift" class="mt-1 text-xs text-body-secondary">
+			{{ dstShiftLabel }}
+		</p>
 	</div>
 </template>
 
@@ -165,6 +168,7 @@ interface Props {
 	countdownText: string | null;
 	countdownDelayReasons: Array<"weekend" | "holiday">;
 	countdownHolidayName: string | null;
+	countdownDstShift: "spring-forward" | "fall-back" | null;
 	/** Minimum selectable time for the picker (local timezone). */
 	minTime: { hours: number; minutes: number } | null;
 	/** Maximum selectable time for the picker (local timezone). */
@@ -229,5 +233,15 @@ const delayReasonLabel = computed(() => {
 		return holidayLabel;
 	}
 	return "the weekend";
+});
+
+const dstShiftLabel = computed(() => {
+	if (props.countdownDstShift === "spring-forward") {
+		return "Daylight saving time begins before then — clocks spring forward 1 hour.";
+	}
+	if (props.countdownDstShift === "fall-back") {
+		return "Daylight saving time ends before then — clocks fall back 1 hour.";
+	}
+	return "";
 });
 </script>

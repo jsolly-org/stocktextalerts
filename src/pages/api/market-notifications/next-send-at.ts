@@ -59,6 +59,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			message: "ok",
 			nextSendAtIso: null,
 			delayReasons: [],
+			dstShift: null,
 		});
 	}
 
@@ -69,7 +70,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 
 	// Form supplies user-local-minutes; storage and computation are ET-canonical.
 	const etMinutesList = parsedTimes.times.map((m) => userLocalToEtMinute(m, timezone));
-	const { nextSendAt, delayReasons, holidayName } =
+	const { nextSendAt, delayReasons, holidayName, dstShift } =
 		await calculateNextMarketScheduledSendAtFromTimes({
 			etMinutesList,
 			now: DateTime.utc(),
@@ -81,5 +82,6 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		nextSendAtIso: nextSendAt?.toISO() ?? null,
 		delayReasons,
 		holidayName,
+		dstShift,
 	});
 };

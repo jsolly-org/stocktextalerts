@@ -131,6 +131,7 @@ describe("calculateNextMarketScheduledSendAtFromTimes", () => {
 		});
 
 		expect(result.delayReasons).toEqual(["weekend"]);
+		expect(result.dstShift).toBe("spring-forward");
 		expect(result.nextSendAt?.toISO()).toBe("2026-03-09T13:30:00.000Z"); // Mon 09:30 EDT
 		const elapsedHours = result.nextSendAt ? result.nextSendAt.diff(now, "hours").hours : null;
 		expect(elapsedHours).toBeCloseTo(60.5, 5);
@@ -155,8 +156,30 @@ describe("calculateNextMarketScheduledSendAtFromTimes", () => {
 		});
 
 		expect(result.delayReasons).toEqual(["weekend"]);
+		expect(result.dstShift).toBe("fall-back");
 		expect(result.nextSendAt?.toISO()).toBe("2026-11-02T14:30:00.000Z"); // Mon 09:30 EST
 		const elapsedHours = result.nextSendAt ? result.nextSendAt.diff(now, "hours").hours : null;
 		expect(elapsedHours).toBeCloseTo(62.5, 5);
+	});
+
+	it("When the gap between now and next_send_at does not straddle a US DST transition, dstShift is null.", async () => {
+		// Plain Saturday → Monday with no DST event. Confirms the shift detector
+		// doesn't fire on every weekend, only on actual transitions.
+		mockedGetClosure.mockImplementation(async (instant) => {
+			const eastern = instant.setZone("America/New_York");
+			if (eastern.weekday === 6 || eastern.weekday === 7) {
+				return { reason: "weekend" };
+			}
+			return null;
+		});
+
+		const now = DateTime.fromISO("2026-02-14T14:00:00Z"); // Saturday 9:00 AM ET (winter)
+		const result = await calculateNextMarketScheduledSendAtFromTimes({
+			etMinutesList: [9 * 60 + 30],
+			now,
+		});
+
+		expect(result.delayReasons).toEqual(["weekend"]);
+		expect(result.dstShift).toBeNull();
 	});
 });

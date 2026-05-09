@@ -245,6 +245,7 @@
 							:countdownText="countdownText"
 							:countdownDelayReasons="countdownDelayReasons"
 							:countdownHolidayName="countdownHolidayName"
+							:countdownDstShift="countdownDstShift"
 							:minTime="marketMinTime"
 							:maxTime="marketMaxTime"
 							:marketHoursCrossMidnightHint="marketHoursCrossMidnightHint"
@@ -883,7 +884,12 @@ const nextSendAt = computed(
 			null,
 );
 const is24 = computed(() => user.value.use_24_hour_time);
-const { countdownText, countdownDelayReasons, countdownHolidayName } = useScheduledUpdateTiming({
+const {
+	countdownText,
+	countdownDelayReasons,
+	countdownHolidayName,
+	countdownDstShift,
+} = useScheduledUpdateTiming({
 	timezone,
 	nextSendAtIso: nextSendAt,
 	timeInputs: scheduledUpdateTimes,
