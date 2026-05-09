@@ -2,6 +2,14 @@
 -- from user-local-minutes to ET-canonical minutes, and widen the valid
 -- window from RTH (10:00–3:59 PM ET = [600, 959]) to extended-hours
 -- (4:30 AM – 7:30 PM ET = [270, 1170]).
+--
+-- DST timing note: this migration runs against CURRENT_DATE. The spec
+-- recommends deploying during EST (winter) so non-US-TZ users converge
+-- on EST-anchored ET-minutes; the documented seasonal drift is then
+-- "1 hour earlier in EDT summer." This deploy ran during EDT (May 2026),
+-- so non-US-TZ users will see "1 hour later in EST winter" instead.
+-- Functionally equivalent — the seasonal drift is a one-direction-or-
+-- the-other ±1 hour effect for non-US-TZ users, accepted per the spec.
 
 DO $$
 DECLARE

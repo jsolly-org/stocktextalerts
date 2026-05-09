@@ -327,6 +327,7 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 	});
 
 	it.skip("On a half-day after 1:00 PM ET, if Massive returns 'after', behavior is TBD pending live verification", () => {
+		// TODO(half-day-verification): resolve before final commit, by 2026-05-15.
 		// Open question: on early-close days, does Massive flip to
 		// `afterHours: true` immediately at the 1:00 PM close, or do they
 		// honor the regular 4:00 PM after-hours boundary? Resolving this
