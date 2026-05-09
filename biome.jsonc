@@ -1,5 +1,6 @@
 {
 	"$schema": "https://biomejs.dev/schemas/2.4.10/schema.json",
+	"root": true,
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
@@ -12,7 +13,10 @@
 			"src/**/*.{ts,tsx,json,css,html,md,vue}",
 			"tests/**/*.{ts,tsx,json}",
 			"{package.json,tsconfig.json,vercel.json,biome.jsonc,vitest.config.ts,vite.config.ts,playwright.config.ts,astro.config.ts,*.md}",
-			"!src/lib/db/generated/database.types.ts"
+			"!src/lib/db/generated/database.types.ts",
+			"!**/.claude",
+			"!**/.worktrees",
+			"!**/worktrees"
 		]
 	},
 	"html": {
