@@ -92,6 +92,20 @@ See `docs/external-apis.md` for Massive (prices/reference) and Finnhub (earnings
 
 See `docs/ci-with-act.md` for the 7-item pre-push checklist and act limitations (Podman socket, VM memory, deploy workflow rejection).
 
+## `/review-fix-push` must run E2E (project-specific)
+
+The pre-commit hook runs `check:ts`, `check:biome`, full vitest, and `test:smoke` — but NOT `test:e2e`. CI on push to `main` runs E2E inside `Deploy Website`, and an E2E failure halts the deploy *before* the migration push and Vercel deploy steps. So the cost of pushing without local E2E is "production stays on the old commit until you fix and re-push."
+
+When `/review-fix-push` is invoked from this repo, run E2E locally as part of the smoke step:
+
+```bash
+npm run test:e2e
+```
+
+If E2E touches storage shapes, picker bounds, or any DB-read fixture: also run after every fix-loop iteration, not just at the start. Local Playwright is faster than CI iterations and avoids burning a CI cycle on a fixture mismatch.
+
+This applies regardless of which agent / skill is doing the push.
+
 ## AWS IAM
 
 - `stocktextalerts-ses` — SES send-only, keys used in Vercel + .env.local for email sending
