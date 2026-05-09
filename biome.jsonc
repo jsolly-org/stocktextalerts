@@ -14,9 +14,9 @@
 			"tests/**/*.{ts,tsx,json}",
 			"{package.json,tsconfig.json,vercel.json,biome.jsonc,vitest.config.ts,vite.config.ts,playwright.config.ts,astro.config.ts,*.md}",
 			"!src/lib/db/generated/database.types.ts",
-			"!**/.claude",
-			"!**/.worktrees",
-			"!**/worktrees"
+			"!.claude",
+			"!.worktrees",
+			"!worktrees"
 		]
 	},
 	"html": {
