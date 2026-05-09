@@ -251,35 +251,66 @@ export function getUsAfterOpenLocalMinutes(userTimezone: string): number {
 	return getEasternTimeAsLocalMinutes(US_AFTER_OPEN_EASTERN_MINUTES, userTimezone);
 }
 
-export function isOutsideMarketHours(timeMinutes: number, userTimezone: string): boolean {
-	if (!Number.isInteger(timeMinutes) || timeMinutes < 0 || timeMinutes > 23 * 60 + 59) {
-		return true;
+/**
+ * Convert an ET-minute (minutes since midnight in America/New_York) to the
+ * user's local minute-of-day. Anchored to the current calendar date so DST
+ * is applied correctly via Luxon's zone conversion.
+ *
+ * For non-US timezones the result may exceed 23:59 — wrap by computing
+ * `((result % 1440) + 1440) % 1440` if a same-day value is required.
+ */
+export function etMinuteToUserLocal(etMinute: number, userTimezone: string): number {
+	const hour = Math.floor(etMinute / 60);
+	const minute = etMinute % 60;
+	const eastern = DateTime.now().setZone(US_MARKET_TIMEZONE).set({
+		hour,
+		minute,
+		second: 0,
+		millisecond: 0,
+	});
+	const local = eastern.setZone(userTimezone);
+	if (!local.isValid) {
+		return etMinute;
 	}
-
-	const { min, max } = getMarketNotificationLocalRange(userTimezone);
-
-	// When min < max (same calendar day), valid range is [min, max].
-	// When min > max (crosses midnight, e.g. far-east timezones),
-	// valid range wraps: [min, 1440) ∪ [0, max].
-	if (min <= max) {
-		return timeMinutes < min || timeMinutes > max;
-	}
-	return timeMinutes > max && timeMinutes < min;
+	return local.hour * 60 + local.minute;
 }
 
-/** Returns the valid local-minute range for scheduled price notifications.
- *  Maps the 10:00 AM – 3:59 PM ET window into the user's timezone. */
-export function getMarketNotificationLocalRange(userTimezone: string): {
-	min: number;
-	max: number;
-} {
-	return {
-		min: getEasternTimeAsLocalMinutes(
-			US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES,
-			userTimezone,
-		),
-		max: getEasternTimeAsLocalMinutes(US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES, userTimezone),
-	};
+/**
+ * Convert a user-local minute-of-day to an ET-minute. Inverse of
+ * `etMinuteToUserLocal`. Anchored to the current calendar date so DST
+ * is applied correctly.
+ */
+export function userLocalToEtMinute(localMinute: number, userTimezone: string): number {
+	const hour = Math.floor(localMinute / 60);
+	const minute = localMinute % 60;
+	const local = DateTime.now().setZone(userTimezone).set({
+		hour,
+		minute,
+		second: 0,
+		millisecond: 0,
+	});
+	if (!local.isValid) {
+		return localMinute;
+	}
+	const eastern = local.setZone(US_MARKET_TIMEZONE);
+	return eastern.hour * 60 + eastern.minute;
+}
+
+/**
+ * True when the given ET-minute is outside the allowed market notification
+ * window (4:30 AM – 7:30 PM ET, i.e. [270, 1170]).
+ *
+ * Operates on ET-minutes directly — callers convert from user-local at the
+ * boundary via `userLocalToEtMinute` if needed.
+ */
+export function isOutsideMarketHours(etMinutes: number): boolean {
+	if (!Number.isInteger(etMinutes) || etMinutes < 0 || etMinutes > 1439) {
+		return true;
+	}
+	return (
+		etMinutes < US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES ||
+		etMinutes > US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES
+	);
 }
 
 /* =============

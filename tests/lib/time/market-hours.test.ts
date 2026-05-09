@@ -1,61 +1,80 @@
 import { describe, expect, it } from "vitest";
-import { isOutsideMarketHours } from "../../../src/lib/time/format";
+import {
+	etMinuteToUserLocal,
+	isOutsideMarketHours,
+	userLocalToEtMinute,
+} from "../../../src/lib/time/format";
 
 describe("isOutsideMarketHours", () => {
-	// Notification window: 10:00 AM – 3:59 PM ET
+	// Notification window: 4:30 AM – 7:30 PM ET (ET-minutes [270, 1170])
 
-	it("A time during market hours in Eastern timezone is treated as inside the window.", () => {
-		const noon = 12 * 60; // 12:00 PM
-		expect(isOutsideMarketHours(noon, "America/New_York")).toBe(false);
+	it("Noon ET is treated as inside the extended-hours window.", () => {
+		const noon = 12 * 60;
+		expect(isOutsideMarketHours(noon)).toBe(false);
 	});
 
-	it("Earliest allowed time (10:00 AM ET) is treated as inside the window.", () => {
-		const earliest = 10 * 60; // 10:00 AM
-		expect(isOutsideMarketHours(earliest, "America/New_York")).toBe(false);
+	it("4:30 AM ET (lower bound) is treated as inside the window.", () => {
+		expect(isOutsideMarketHours(270)).toBe(false);
 	});
 
-	it("Latest allowed time (3:59 PM ET) is treated as inside the window.", () => {
-		const latest = 15 * 60 + 59; // 3:59 PM
-		expect(isOutsideMarketHours(latest, "America/New_York")).toBe(false);
+	it("7:30 PM ET (upper bound) is treated as inside the window.", () => {
+		expect(isOutsideMarketHours(1170)).toBe(false);
 	});
 
-	it("9:30 AM ET (before notification window) is treated as outside the window.", () => {
-		const marketOpen = 9 * 60 + 30; // 9:30 AM
-		expect(isOutsideMarketHours(marketOpen, "America/New_York")).toBe(true);
+	it("4:29 AM ET (one minute before lower bound) is treated as outside the window.", () => {
+		expect(isOutsideMarketHours(269)).toBe(true);
 	});
 
-	it("Market close (4:00 PM ET) is treated as outside the window.", () => {
-		const marketClose = 16 * 60; // 4:00 PM
-		expect(isOutsideMarketHours(marketClose, "America/New_York")).toBe(true);
+	it("7:31 PM ET (one minute after upper bound) is treated as outside the window.", () => {
+		expect(isOutsideMarketHours(1171)).toBe(true);
 	});
 
-	it("A time before market open in Eastern timezone is treated as outside the window.", () => {
-		const earlyMorning = 7 * 60; // 7:00 AM
-		expect(isOutsideMarketHours(earlyMorning, "America/New_York")).toBe(true);
+	it("9:30 AM ET (regular open) is treated as inside the extended-hours window.", () => {
+		const marketOpen = 9 * 60 + 30;
+		expect(isOutsideMarketHours(marketOpen)).toBe(false);
 	});
 
-	it("A time after market close in Eastern timezone is treated as outside the window.", () => {
-		const evening = 20 * 60; // 8:00 PM
-		expect(isOutsideMarketHours(evening, "America/New_York")).toBe(true);
+	it("4:00 PM ET (regular close) is treated as inside the extended-hours window.", () => {
+		const marketClose = 16 * 60;
+		expect(isOutsideMarketHours(marketClose)).toBe(false);
 	});
 
-	it("A US Pacific timezone user sees correct in-window and outside-window behavior.", () => {
-		// Notification window in Pacific: 7:00 AM – 12:59 PM
-		const nineAmPacific = 9 * 60; // 9:00 AM Pacific = 12:00 PM ET (in window)
-		expect(isOutsideMarketHours(nineAmPacific, "America/Los_Angeles")).toBe(false);
-
-		const twoAmPacific = 2 * 60; // 2:00 AM Pacific = 5:00 AM ET (outside window)
-		expect(isOutsideMarketHours(twoAmPacific, "America/Los_Angeles")).toBe(true);
+	it("Midnight (0 ET-minutes) is treated as outside the window.", () => {
+		expect(isOutsideMarketHours(0)).toBe(true);
 	});
 
-	it("A timezone where market hours cross midnight (e.g. Tokyo) is handled correctly.", () => {
-		// Tokyo is UTC+9; ET shifts with DST (-5/-4), so the local window can vary seasonally.
-		// 1:00 AM JST should remain inside the mapped notification window.
-		const oneAmTokyo = 1 * 60;
-		expect(isOutsideMarketHours(oneAmTokyo, "Asia/Tokyo")).toBe(false);
+	it("11:59 PM ET (1439 minutes) is treated as outside the window.", () => {
+		expect(isOutsideMarketHours(1439)).toBe(true);
+	});
 
-		// 12:00 PM JST should be outside notification window
-		const noonTokyo = 12 * 60;
-		expect(isOutsideMarketHours(noonTokyo, "Asia/Tokyo")).toBe(true);
+	it("Negative input is treated as outside the window.", () => {
+		expect(isOutsideMarketHours(-1)).toBe(true);
+	});
+
+	it("Out-of-range input (>= 1440) is treated as outside the window.", () => {
+		expect(isOutsideMarketHours(1440)).toBe(true);
+	});
+
+	it("Non-integer input is treated as outside the window.", () => {
+		expect(isOutsideMarketHours(12.5)).toBe(true);
+	});
+});
+
+describe("etMinuteToUserLocal / userLocalToEtMinute round-trip", () => {
+	it("A US-Eastern user round-trips ET-minute 600 (10:00 AM ET) to itself.", () => {
+		const local = etMinuteToUserLocal(600, "America/New_York");
+		expect(local).toBe(600);
+		expect(userLocalToEtMinute(local, "America/New_York")).toBe(600);
+	});
+
+	it("A US-Pacific user sees ET-minute 600 (10:00 AM ET) as 7:00 AM PT (420).", () => {
+		const local = etMinuteToUserLocal(600, "America/Los_Angeles");
+		expect(local).toBe(420);
+		expect(userLocalToEtMinute(420, "America/Los_Angeles")).toBe(600);
+	});
+
+	it("A Tokyo user sees ET-minute 540 (9:00 AM ET) as a wall-clock time that round-trips.", () => {
+		const local = etMinuteToUserLocal(540, "Asia/Tokyo");
+		expect(userLocalToEtMinute(local, "Asia/Tokyo")).toBe(540);
 	});
 });

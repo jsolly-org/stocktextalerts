@@ -23,7 +23,7 @@ import { loadUserAssets } from "../../schedule/helpers";
 import type { SmsSenderProvider } from "../../schedule/sms-sender";
 import { upsertStagedNotification } from "../../staged-notifications/db";
 import type { StagedMarketData } from "../../staged-notifications/types";
-import { isOutsideMarketHours } from "../../time/format";
+import { isOutsideMarketHours, userLocalToEtMinute } from "../../time/format";
 import type { MarketClosureInfo } from "../../time/market-calendar";
 import { getUsMarketClosureInfoForInstant } from "../../time/market-calendar";
 import { getLocalMinutesFromDateTime } from "../../time/scheduled-times";
@@ -145,8 +145,8 @@ export async function processMarketScheduledUser(options: {
 
 		/* ============= Guard: skip if scheduled time is outside market hours
 		(can happen when a DST shift makes a previously-valid local time
-		fall outside the 10:00 AM – 3:59 PM ET window) ============= */
-		if (isOutsideMarketHours(scheduledMinutes, user.timezone)) {
+		fall outside the 4:30 AM – 7:30 PM ET extended-hours window) ============= */
+		if (isOutsideMarketHours(userLocalToEtMinute(scheduledMinutes, user.timezone))) {
 			logger.info(
 				"Skipping scheduled market delivery — time outside market hours (possible DST drift)",
 				{

@@ -499,6 +499,8 @@ import {
 	DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID,
 	DASHBOARD_SECTION_IDS,
 	DEFAULT_MARKET_UPDATE_TIME_MINUTES,
+	US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES,
+	US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES,
 	US_MARKET_TIMEZONE,
 } from "../../../lib/constants";
 import {
@@ -506,9 +508,9 @@ import {
 	normalizeMoveSize,
 } from "../../../lib/market-notifications/alert-profile";
 import {
+	etMinuteToUserLocal,
 	formatMinutesAsLocalTime,
 	getLastMarketClose,
-	getMarketNotificationLocalRange,
 	getUsAfterOpenLocalMinutes,
 	isMarketCurrentlyOpen,
 	minutesToTimeInputValue,
@@ -776,7 +778,10 @@ const canAddAfterOpen = computed(
 const marketLocalRange = computed(() => {
 	const tz = timezone.value;
 	if (tz === "") return null;
-	return getMarketNotificationLocalRange(tz);
+	return {
+		min: etMinuteToUserLocal(US_MARKET_EARLIEST_NOTIFICATION_EASTERN_MINUTES, tz),
+		max: etMinuteToUserLocal(US_MARKET_LATEST_NOTIFICATION_EASTERN_MINUTES, tz),
+	};
 });
 
 const marketMinTime = computed<{ hours: number; minutes: number } | null>(() => {
@@ -791,11 +796,11 @@ const marketMaxTime = computed<{ hours: number; minutes: number } | null>(() => 
 	return { hours: Math.floor(r.max / 60), minutes: r.max % 60 };
 });
 
-/** When the market window crosses midnight locally, show this hint so users know only 10:00 AM–3:59 PM ET is accepted. */
+/** When the market window crosses midnight locally, show this hint so users know only 4:30 AM–7:30 PM ET is accepted. */
 const marketHoursCrossMidnightHint = computed<string | null>(() => {
 	const r = marketLocalRange.value;
 	if (!r || r.min <= r.max) return null;
-	return "In your timezone the valid window (10:00 AM–3:59 PM ET) crosses midnight. Only times within that ET window are accepted.";
+	return "In your timezone the valid window (4:30 AM–7:30 PM ET) crosses midnight. Only times within that ET window are accepted.";
 });
 
 /** Sync a user preference into a local ref so UI and server stay aligned. */
