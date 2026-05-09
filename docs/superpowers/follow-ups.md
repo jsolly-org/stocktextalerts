@@ -2,26 +2,6 @@
 
 Items deferred from completed work. Each entry: short context + when it surfaced. Pick up when the relevant adjacent work is fresh in mind.
 
-## Create a skill for alert-hub integration
-
-**Surfaced:** during backup-schedule brainstorm (2026-05-08), while reviewing whether the new `BackupFunction` Lambda properly leverages alert-hub.
-
-**Why:** wiring a new Lambda to alert-hub correctly requires getting ~7 non-obvious things right, spread across files in two repos (`~/code/alert-hub/docs/` + `~/code/stocktextalerts/aws/template.yaml` + `~/.agents/rules/errors-and-logging.md` + the canonical logger in `src/lib/logging`). Missing any single point silently degrades enrichment without an obvious failure mode (e.g., forgetting to declare an explicit `AWS::Logs::LogGroup` means alarm emails arrive unenriched). Every future Lambda repeats this re-derivation work.
-
-**Shape (rough):**
-
-- Lives at `~/.agents/skills/alert-hub-integration/SKILL.md` (per AGENTS.md skill location).
-- Description targets phrases like "add a new Lambda", "wire alarms", "alert-hub integration".
-- Content:
-  - Short prose summary of the contract (cross-reference `~/code/alert-hub/docs/adding-a-project.md`, don't duplicate).
-  - Canonical SAM snippet template — `<Name>LogGroup` + `<Name>ErrorLogFilter` (feeds shared `<namespace>/ErrorLogCount`) + `<Name>FunctionErrorAlarm` (`AWS/Lambda Errors`, with both `AlarmActions` and `OKActions`) + `<Name>FunctionScheduleFailureAlarm` (`AWS/Scheduler TargetErrorCount`).
-  - 7-point integration checklist (SSM lookup, both alarm-action lists, explicit log group, namespace = function family, logger field shape with `error.name`/`error.message` at top level, infrastructure-namespace passthrough behavior, recursion-guard naming).
-  - Reminder that the project-level rule file `~/.agents/rules/errors-and-logging.md` is *separate concerns* (errors-and-logging philosophy) — the skill cross-references it but doesn't replace it.
-
-**Why defer until after backup-schedule ships:** the backup work adds a second concrete example (alongside the three existing Lambdas in this repo's template) of "Lambda wired to alert-hub." Two examples make it easier to factor out reusable boilerplate vs. project-specific incidentals when writing the skill.
-
----
-
 ## Decide where git worktrees should live
 
 **Surfaced:** 2026-05-08, while patching `biome.jsonc` to stop scanning into worktrees. Reinforced 2026-05-09 when the same `biome.jsonc` patch was found to break biome auto-discovery from *inside* a worktree (the dual-direction trap of nested-config tooling).
