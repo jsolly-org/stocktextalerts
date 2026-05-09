@@ -681,8 +681,26 @@ function normalizeScheduledTimes(times: number[]): number[] {
 	return [...new Set(filtered)].sort((a, b) => a - b);
 }
 
+/**
+ * Stored `market_scheduled_asset_price_times` are ET-canonical minutes (Phase 9
+ * migration). The picker UI works in user-local minutes — convert at the
+ * hydration boundary. Submit converts back via `userLocalToEtMinute` in the
+ * API handler, so the input → submit path stays in user-local space.
+ *
+ * When the user has no timezone yet (rare; pre-onboarding), pass values
+ * through unchanged so we don't silently shift the displayed time before the
+ * user has selected a timezone.
+ */
+function hydrateScheduledTimesFromEt(stored: number[] | null | undefined): number[] {
+	const tz = user.value.timezone ?? "";
+	const raw = stored ?? [];
+	if (tz === "") return normalizeScheduledTimes(raw);
+	const local = raw.map((et) => etMinuteToUserLocal(et, tz));
+	return normalizeScheduledTimes(local);
+}
+
 const scheduledUpdateTimesMinutes = ref<number[]>(
-	normalizeScheduledTimes(user.value.market_scheduled_asset_price_times ?? []),
+	hydrateScheduledTimesFromEt(user.value.market_scheduled_asset_price_times),
 );
 
 const phoneVerificationSectionId = `${DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID}-phone-verification-section`;
@@ -854,7 +872,7 @@ watch(
 watch(
 	() => user.value.market_scheduled_asset_price_times,
 	(value) => {
-		scheduledUpdateTimesMinutes.value = normalizeScheduledTimes(value ?? []);
+		scheduledUpdateTimesMinutes.value = hydrateScheduledTimesFromEt(value);
 	},
 );
 

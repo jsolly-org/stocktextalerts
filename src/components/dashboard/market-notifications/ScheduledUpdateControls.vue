@@ -14,10 +14,15 @@
 				<legend class="block text-base font-semibold text-heading mb-1">
 					Delivery times
 					<span class="block text-sm font-normal text-body-secondary mt-0.5">
-						Choose up to {{ maxTimes }} time slots. Notifications are only sent during US market hours (10:00 AM – 3:59 PM ET).
+						Choose up to {{ maxTimes }} time slots. Notifications send anytime US markets are trading
+						(pre-market, regular, or after-hours). Pick any time between 4:30 AM and 7:30 PM ET. Sends are
+						skipped if markets aren't trading at your scheduled time — this includes early-close days
+						(~3 per year), full-day holidays, and the 30-minute gaps between sessions (9:00–9:30 AM and
+						4:00–4:30 PM ET). Notifications send within ~10 seconds of your scheduled time.
 					</span>
 					<span
 						v-if="marketHoursCrossMidnightHint"
+						:id="MARKET_HOURS_HINT_ID"
 						class="block text-sm font-normal text-warning-text mt-1"
 						role="status"
 					>
@@ -38,6 +43,7 @@
 						:initialTime="null"
 						placeholder="Select notification time"
 						inputAriaLabel="Pick a delivery time"
+						:inputAriaDescribedby="marketHoursCrossMidnightHint ? MARKET_HOURS_HINT_ID : undefined"
 						:disabled="timePickerDisabled"
 						:is24="is24"
 						:minTimeOverride="props.minTime ?? undefined"
@@ -68,6 +74,7 @@
 					:initialTime="time"
 					placeholder="Select notification time"
 					:inputAriaLabel="`Delivery time ${index + 1}`"
+					:inputAriaDescribedby="marketHoursCrossMidnightHint ? MARKET_HOURS_HINT_ID : undefined"
 					:disabled="timePickerDisabled"
 					clearable
 					:clearAriaLabel="`Remove delivery time ${index + 1}`"
@@ -137,8 +144,14 @@ import PresentationChartLineIcon from "../../../icons/presentation-chart-line.sv
 import StatusMessage from "../../StatusMessage.vue";
 import TimePicker from "../shared/TimePicker.vue";
 
-const DISABLED_RANGE_TOOLTIP =
-	"Outside US market hours (10:00 AM – 3:59 PM ET)";
+const DISABLED_RANGE_TOOLTIP = "Outside US extended-hours window (4:30 AM – 7:30 PM ET)";
+
+/**
+ * Stable DOM ID for the cross-midnight hint span. Wired into each
+ * TimePicker via `inputAriaDescribedby` so screen readers announce the
+ * constraint when the input gains focus.
+ */
+const MARKET_HOURS_HINT_ID = "scheduled-update-market-hours-hint";
 
 interface Props {
 	scheduledUpdateTimes: string[];
@@ -158,7 +171,7 @@ interface Props {
 	maxTime: { hours: number; minutes: number } | null;
 	/** Force 24-hour / 12-hour display on time pickers. */
 	is24?: boolean;
-	/** When set, the market window crosses midnight in the user's timezone; show this hint so they know only 10:00 AM–3:59 PM ET is accepted. */
+	/** When set, the market window crosses midnight in the user's timezone; show this hint so they know only 4:30 AM–7:30 PM ET is accepted. */
 	marketHoursCrossMidnightHint?: string | null;
 }
 

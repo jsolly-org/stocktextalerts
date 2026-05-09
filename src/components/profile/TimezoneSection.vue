@@ -12,8 +12,13 @@
 				</div>
 				<h2 id="timezone-heading" class="text-2xl font-bold text-heading">Timezone</h2>
 			</div>
-			<p class="text-body-secondary text-sm mb-6">
+			<p class="text-body-secondary text-sm mb-2">
 				Set the timezone used for scheduling notifications.
+			</p>
+			<p class="text-body-secondary text-sm mb-6">
+				<strong>Note:</strong> Your scheduled price-update times are anchored to US market hours.
+				Changing your timezone updates the displayed time only — it does not change when the
+				notification fires.
 			</p>
 
 			<StatusMessage v-if="timezoneLoadError" tone="warning" class="mb-4">

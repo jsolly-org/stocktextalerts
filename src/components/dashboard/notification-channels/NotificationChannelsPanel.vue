@@ -113,6 +113,7 @@ import {
 	formatMessage,
 } from "../../../lib/constants";
 import {
+	etMinuteToUserLocal,
 	formatCountdownWithSeconds,
 	formatMinutesAsLocalTime,
 	getSecondsUntilNextSend,
@@ -303,10 +304,19 @@ watch(phoneVerified, (isVerified) => {
 
 /* ============= Daily Delivery Time ============= */
 
+/**
+ * Stored `market_scheduled_asset_price_times` are ET-canonical minutes (Phase 9
+ * migration). Convert each to user-local before deriving the earliest, so the
+ * fallback delivery-time display matches what the user sees in the market
+ * notifications picker.
+ */
 function getEarliestMarketNotificationTime(): number | null {
 	const times = user.value.market_scheduled_asset_price_times;
 	if (!times || times.length === 0) return null;
-	return Math.min(...times);
+	const tz = user.value.timezone ?? "";
+	if (tz === "") return Math.min(...times);
+	const local = times.map((et) => etMinuteToUserLocal(et, tz));
+	return Math.min(...local);
 }
 
 const dailyDeliveryTimeMinutes = ref<number | null>(

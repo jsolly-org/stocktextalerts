@@ -297,6 +297,7 @@ import {
 	DASHBOARD_SECTION_IDS,
 } from "../../../lib/constants";
 import {
+	etMinuteToUserLocal,
 	formatCountdownWithSeconds,
 	getSecondsUntilNextSend,
 	minutesToTimeInputValue,
@@ -446,10 +447,19 @@ const dailyDeliveryTimeInput = computed(() => {
 		: null;
 });
 
+/**
+ * Stored `market_scheduled_asset_price_times` are ET-canonical minutes (Phase 9
+ * migration). Convert each to user-local before deriving the earliest, so the
+ * fallback `daily_digest_time` submitted from this form stays in user-local
+ * space — the API converts to ET at the boundary on save.
+ */
 function getEarliestMarketNotificationTime(): number | null {
 	const times = user.value.market_scheduled_asset_price_times;
 	if (!times || times.length === 0) return null;
-	return Math.min(...times);
+	const tz = user.value.timezone ?? "";
+	if (tz === "") return Math.min(...times);
+	const local = times.map((et) => etMinuteToUserLocal(et, tz));
+	return Math.min(...local);
 }
 
 /**

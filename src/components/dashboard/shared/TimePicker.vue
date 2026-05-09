@@ -97,6 +97,8 @@ const props = withDefaults(
 		maxTimeOverride?: { hours: number; minutes: number };
 		/** Tooltip text shown when hovering a time outside the allowed range. */
 		disabledRangeTooltip?: string;
+		/** ID of an element describing the input (for `aria-describedby`, e.g. a constraint hint). */
+		inputAriaDescribedby?: string;
 	}>(),
 	{ placeholder: "Select time" },
 );
@@ -198,8 +200,13 @@ function applyDisabledTooltips(root: ParentNode) {
 	if (!tooltip) return;
 	const nodes = root.querySelectorAll(DISABLED_SELECTORS);
 	for (const node of nodes) {
-		if (node instanceof HTMLElement && node.getAttribute("title") !== tooltip) {
+		if (!(node instanceof HTMLElement)) continue;
+		if (node.getAttribute("title") !== tooltip) {
 			node.setAttribute("title", tooltip);
+		}
+		node.setAttribute("aria-disabled", "true");
+		if (node.getAttribute("aria-label") !== tooltip) {
+			node.setAttribute("aria-label", tooltip);
 		}
 	}
 }
@@ -265,6 +272,9 @@ const inputAttributes = computed(() => {
 		id: props.inputId,
 		class: `input cursor-pointer ${paddingClass}`.trim(),
 		"aria-label": props.inputAriaLabel,
+		...(props.inputAriaDescribedby
+			? { "aria-describedby": props.inputAriaDescribedby }
+			: {}),
 		// vue-datepicker v12 clear button is controlled by inputAttrs, not a top-level prop.
 		clearable: false,
 		alwaysClearable: false,
