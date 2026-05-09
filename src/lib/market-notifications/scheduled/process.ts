@@ -72,12 +72,23 @@ export async function processMarketScheduledUser(options: {
 			dueAt: user.market_scheduled_asset_price_next_send_at,
 		});
 		stats.skipped++;
-		await updateUserMarketScheduledNextSendAt({
-			user,
-			supabase,
-			logger,
-			currentTime,
-		});
+		// Defensive try/catch: a transient failure advancing next_send_at
+		// (e.g., calculateNextMarketScheduledSendAtFromTimes throwing on malformed
+		// data) should not abort the entire batch via Promise.all rejection.
+		try {
+			await updateUserMarketScheduledNextSendAt({
+				user,
+				supabase,
+				logger,
+				currentTime,
+			});
+		} catch (error) {
+			logger.error(
+				"Failed to advance market_scheduled_asset_price_next_send_at after closed-session skip",
+				{ userId: user.id },
+				error instanceof Error ? error : new Error(String(error)),
+			);
+		}
 		return stats;
 	}
 

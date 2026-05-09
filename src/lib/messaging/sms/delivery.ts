@@ -67,14 +67,17 @@ export function formatSmsMessage(
 
 	const marketDisclaimer = marketOpen ? "" : buildMarketClosedBannerText(marketClosureInfo ?? null);
 	const extrasBlock = formatSmsExtras(extras);
-	const sessionFirstLineText = sessionFirstLine
-		? buildSessionFirstLine(
-				marketSession,
-				sessionFirstLine.scheduledEtMinutes,
-				sessionFirstLine.is24,
-				sessionFirstLine.priorRegularClose,
-			)
-		: "";
+	// Session-first-line is only rendered for active sessions. `marketOpen`
+	// narrows `marketSession` to ActiveMarketSession (excludes "closed").
+	const sessionFirstLineText =
+		sessionFirstLine && marketOpen
+			? buildSessionFirstLine(
+					marketSession,
+					sessionFirstLine.scheduledEtMinutes,
+					sessionFirstLine.is24,
+					sessionFirstLine.priorRegularClose,
+				)
+			: "";
 
 	const sections = [
 		header,

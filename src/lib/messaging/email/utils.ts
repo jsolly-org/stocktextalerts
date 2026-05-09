@@ -275,22 +275,26 @@ export function formatEmailMessage(
 	const marketDisclaimer = marketOpen
 		? ""
 		: `\n${buildMarketClosedBannerText(marketClosureInfo ?? null)}\n`;
-	const sessionFirstLineText = sessionFirstLine
-		? `${buildSessionFirstLine(
-				marketSession,
-				sessionFirstLine.scheduledEtMinutes,
-				sessionFirstLine.is24,
-				sessionFirstLine.priorRegularClose,
-			)}\n\n`
-		: "";
-	const sessionFirstLineHtml = sessionFirstLine
-		? buildSessionFirstLineHtml(
-				marketSession,
-				sessionFirstLine.scheduledEtMinutes,
-				sessionFirstLine.is24,
-				sessionFirstLine.priorRegularClose,
-			)
-		: "";
+	// Session-first-line is only rendered for active sessions. `marketOpen`
+	// narrows `marketSession` to ActiveMarketSession (excludes "closed").
+	const sessionFirstLineText =
+		sessionFirstLine && marketOpen
+			? `${buildSessionFirstLine(
+					marketSession,
+					sessionFirstLine.scheduledEtMinutes,
+					sessionFirstLine.is24,
+					sessionFirstLine.priorRegularClose,
+				)}\n\n`
+			: "";
+	const sessionFirstLineHtml =
+		sessionFirstLine && marketOpen
+			? buildSessionFirstLineHtml(
+					marketSession,
+					sessionFirstLine.scheduledEtMinutes,
+					sessionFirstLine.is24,
+					sessionFirstLine.priorRegularClose,
+				)
+			: "";
 	const text = `${sessionFirstLineText}Your tracked assets:\n${delayText}${marketDisclaimer}${assetsList}${textFooter}`;
 	const escapedAssetsListHtml = formatAssetsHtmlList(
 		userAssets,
