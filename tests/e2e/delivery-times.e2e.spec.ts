@@ -5,14 +5,14 @@ import { TEST_PASSWORD } from "../helpers/constants";
 import { adminClient } from "../helpers/test-env";
 import { cleanupTestUser, createTestUser } from "../helpers/test-user";
 
-// Chicago user: market window = 9:00 AM – 2:59 PM CT = 540–899 minutes.
-// Afterward, auto-add steps at 60-min increments (shrinking near close), so
-// packing 8 slots reaches 14:56 CT (896 minutes) and never exceeds 899.
-const CHICAGO_LOWER_MINUTES = 540;
-const CHICAGO_UPPER_MINUTES = 899;
-const CHICAGO_AFTER_OPEN_MINUTES = 540; // 10:00 AM ET = 9:00 AM CT
+// Chicago user: extended-hours window = 3:30 AM – 6:30 PM CT = 210–1110 minutes
+// (4:30 AM – 7:30 PM ET, both during DST). Auto-pack steps at 60-min
+// increments (shrinking near close), so packing 8 slots stays within bounds.
+const CHICAGO_LOWER_MINUTES = 210; // 4:30 AM ET = 3:30 AM CT (in EDT/CDT)
+const CHICAGO_UPPER_MINUTES = 1110; // 7:30 PM ET = 6:30 PM CT (in EDT/CDT)
+const CHICAGO_AFTER_OPEN_MINUTES = 540; // 10:00 AM ET = 9:00 AM CT (default preset is unchanged)
 const MAX_DELIVERY_TIMES = 8;
-const OUTSIDE_HOURS_TOOLTIP = "Outside US market hours (10:00 AM – 3:59 PM ET)";
+const OUTSIDE_HOURS_TOOLTIP = "Outside US extended-hours window (4:30 AM – 7:30 PM ET)";
 const UPDATE_URL_MATCH = "/api/notification-preferences/update";
 
 async function signIn(page: Page, email: string, password: string) {
