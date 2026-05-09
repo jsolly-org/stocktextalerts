@@ -83,7 +83,8 @@ export async function fetchAssetPrices(symbols: string[]): Promise<AssetPriceMap
 		return new Map(symbols.map((s) => [s, { price: 150.0, changePercent: 1.25 }]));
 	}
 	const snapshot = await fetchSnapshotQuotes(symbols);
-	await fillSnapshotMissesWithPrevDayBar(symbols, snapshot);
+	const session = await getCurrentMarketSession();
+	await fillSnapshotMissesWithPrevDayBar(symbols, snapshot, session);
 	return snapshot as AssetPriceMap;
 }
 
@@ -107,7 +108,8 @@ export async function fetchExtendedQuotes(symbols: string[]): Promise<ExtendedQu
 		);
 	}
 	const snapshot = await fetchSnapshotQuotes(symbols);
-	await fillSnapshotMissesWithPrevDayBar(symbols, snapshot);
+	const session = await getCurrentMarketSession();
+	await fillSnapshotMissesWithPrevDayBar(symbols, snapshot, session);
 	return snapshot as ExtendedQuoteMap;
 }
 
@@ -119,25 +121,23 @@ export async function fetchExtendedQuotes(symbols: string[]): Promise<ExtendedQu
  * hasn't cleaned up yet, or (b) a truly OTC ticker Massive's snapshot doesn't
  * cover (rare, but historically why the Finnhub fallback existed).
  *
- * **Market-hours guard**: during trading hours we intentionally skip this
- * fallback. A snapshot miss during RTH is more likely transient (rate limit,
- * brief Massive outage) than structural, and serving yesterday's bar labeled
- * as "current" would mislead users whose alerts compare against live price.
- * When the market is closed, the prev-day bar is the freshest data available
- * and serving it is the right call. This preserves the semantic the old
- * `fetchPrevClose` fallback had before the Finnhub removal refactor.
+ * **Session guard**: any active session (pre / regular / after) leaves the
+ * miss as null — serving yesterday's bar labeled as "current price" during a
+ * trading session would mislead users whose alerts compare against live price.
+ * Only when the market is fully closed do we fall back to the prev-day bar,
+ * which is the freshest data available.
  */
 async function fillSnapshotMissesWithPrevDayBar(
 	symbols: string[],
 	snapshot: Map<string, unknown>,
+	session: MarketSession,
 ): Promise<void> {
 	const missing = symbols.filter((symbol) => snapshot.get(symbol) === null);
 	if (missing.length === 0) return;
 
-	const isMarketOpen = await fetchMarketStatus();
-	if (isMarketOpen) {
-		// Leave misses as null rather than serving stale data during RTH —
-		// downstream callers already handle null quotes gracefully.
+	if (session !== "closed") {
+		// Any active session: leave misses as null rather than serving stale data.
+		// Downstream callers already handle null quotes gracefully.
 		return;
 	}
 
