@@ -1,5 +1,7 @@
 import { getSiteUrl } from "../../db/env";
 import type { AppSupabaseClient } from "../../db/supabase";
+import { buildSessionFirstLine } from "../../market-notifications/scheduled/session-label";
+import type { MarketSession } from "../../providers/price-fetcher";
 import type { MarketClosureInfo } from "../../time/market-calendar";
 import { NO_TRACKED_ASSETS_MESSAGE } from "../asset-formatting";
 import { buildMarketClosedBannerText } from "../market-closure-banner";
@@ -39,14 +41,21 @@ function formatSmsExtras(extras?: SmsExtras): string {
 /** Format the SMS body for a scheduled asset update. */
 export function formatSmsMessage(
 	assetsList: string,
-	marketOpen: boolean,
+	marketSession: MarketSession,
 	extras?: SmsExtras,
 	marketClosureInfo?: MarketClosureInfo | null,
 	/** Optional delay banner text (inserted after header when notification is late). */
 	delayBanner?: string | null,
+	/** Session-aware first body line metadata (pre/regular/after/closed). */
+	sessionFirstLine?: {
+		scheduledEtMinutes: number;
+		is24: boolean;
+		priorRegularClose: number | null;
+	},
 ): string {
 	const optOutSuffix = "Reply STOP to opt out.";
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
+	const marketOpen = marketSession !== "closed";
 
 	const header = "StockTextAlerts — Your scheduled price notification 📈";
 
@@ -58,9 +67,18 @@ export function formatSmsMessage(
 
 	const marketDisclaimer = marketOpen ? "" : buildMarketClosedBannerText(marketClosureInfo ?? null);
 	const extrasBlock = formatSmsExtras(extras);
+	const sessionFirstLineText = sessionFirstLine
+		? buildSessionFirstLine(
+				marketSession,
+				sessionFirstLine.scheduledEtMinutes,
+				sessionFirstLine.is24,
+				sessionFirstLine.priorRegularClose,
+			)
+		: "";
 
 	const sections = [
 		header,
+		sessionFirstLineText,
 		delayBanner || "",
 		marketDisclaimer,
 		assetsList,
@@ -78,18 +96,25 @@ export async function processSmsUpdate(
 	user: SmsUser,
 	assetsList: string,
 	sendSms: SmsSender,
-	marketOpen: boolean,
+	marketSession: MarketSession,
 	extras?: SmsExtras,
 	marketClosureInfo?: MarketClosureInfo | null,
 	/** Optional delay banner text for late notifications. */
 	delayBanner?: string | null,
+	/** Session-aware first body line metadata. */
+	sessionFirstLine?: {
+		scheduledEtMinutes: number;
+		is24: boolean;
+		priorRegularClose: number | null;
+	},
 ): Promise<ProcessingStats> {
 	const smsMessage = formatSmsMessage(
 		assetsList,
-		marketOpen,
+		marketSession,
 		extras,
 		marketClosureInfo,
 		delayBanner,
+		sessionFirstLine,
 	);
 
 	const result = await sendUserSms(user, smsMessage, sendSms, supabase);

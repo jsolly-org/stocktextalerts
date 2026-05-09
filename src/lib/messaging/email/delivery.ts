@@ -1,5 +1,5 @@
 import type { AppSupabaseClient } from "../../db/supabase";
-import type { AssetPriceMap } from "../../providers/price-fetcher";
+import type { AssetPriceMap, MarketSession } from "../../providers/price-fetcher";
 import { deliveryResultToLogFields, recordNotification } from "../shared";
 import type { EmailFormatContext, EmailUser, ProcessingStats, UserAssetRow } from "../types";
 import { sendUserEmail } from "./index";
@@ -15,19 +15,25 @@ export async function processEmailUpdate(
 	assetsList: string,
 	sendEmail: EmailSender,
 	priceMap: AssetPriceMap,
-	marketOpen: boolean,
+	marketSession: MarketSession,
 	idempotencyKey?: string,
 	context?: EmailFormatContext,
 	delayBanners?: { text?: string | null; html?: string | null },
+	sessionFirstLine?: {
+		scheduledEtMinutes: number;
+		is24: boolean;
+		priorRegularClose: number | null;
+	},
 ): Promise<ProcessingStats> {
 	const message = formatEmailMessage(
 		user,
 		userAssets,
 		assetsList,
 		priceMap,
-		marketOpen,
+		marketSession,
 		context,
 		delayBanners,
+		sessionFirstLine,
 	);
 	const result = await sendUserEmail(
 		user,

@@ -67,14 +67,6 @@ vi.mock("../../../src/lib/staged-notifications/deliver", () => ({
 }));
 
 vi.mock("../../../src/lib/staged-notifications/precompute", () => ({
-	precomputeMarketScheduled: vi.fn().mockResolvedValue({
-		skipped: 0,
-		logFailures: 0,
-		emailsSent: 0,
-		emailsFailed: 0,
-		smsSent: 0,
-		smsFailed: 0,
-	}),
 	precomputeDailyDigest: vi.fn().mockResolvedValue({
 		skipped: 0,
 		logFailures: 0,

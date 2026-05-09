@@ -13,7 +13,11 @@ import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import nodemailer, { type Transporter } from "nodemailer";
 import { readEnv, requireEnv } from "../../db/env";
 import { rootLogger } from "../../logging";
-import type { AssetPriceMap } from "../../providers/price-fetcher";
+import {
+	buildSessionFirstLine,
+	buildSessionFirstLineHtml,
+} from "../../market-notifications/scheduled/session-label";
+import type { AssetPriceMap, MarketSession } from "../../providers/price-fetcher";
 import { isProduction } from "../../runtime/mode";
 import { escapeHtml, formatAssetsHtmlList } from "../asset-formatting";
 import { buildMarketClosedBannerHtml, buildMarketClosedBannerText } from "../market-closure-banner";
@@ -209,15 +213,22 @@ export function formatEmailMessage(
 	userAssets: UserAssetRow[],
 	assetsList: string,
 	priceMap: AssetPriceMap,
-	marketOpen: boolean,
+	marketSession: MarketSession,
 	context?: EmailFormatContext,
 	/** Optional delay banners for late notifications. */
 	delayBanners?: {
 		text?: string | null;
 		html?: string | null;
 	},
+	/** Session-aware first body line metadata (pre/regular/after/closed). */
+	sessionFirstLine?: {
+		scheduledEtMinutes: number;
+		is24: boolean;
+		priorRegularClose: number | null;
+	},
 ): { text: string; html: string } {
 	const { getSparkline, marketClosureInfo, getLogoHtml } = context ?? {};
+	const marketOpen = marketSession !== "closed";
 	const urls = buildEmailUrls(user.id, user.email, "marketNotifications");
 	const textFooter = `\n\nManage your delivery schedule: ${urls.scheduleUrl}\nUnsubscribe from all emails: ${urls.unsubscribeUrl}`;
 	const htmlFooter = `
@@ -264,11 +275,27 @@ export function formatEmailMessage(
 	const marketDisclaimer = marketOpen
 		? ""
 		: `\n${buildMarketClosedBannerText(marketClosureInfo ?? null)}\n`;
-	const text = `Your tracked assets:\n${delayText}${marketDisclaimer}${assetsList}${textFooter}`;
+	const sessionFirstLineText = sessionFirstLine
+		? `${buildSessionFirstLine(
+				marketSession,
+				sessionFirstLine.scheduledEtMinutes,
+				sessionFirstLine.is24,
+				sessionFirstLine.priorRegularClose,
+			)}\n\n`
+		: "";
+	const sessionFirstLineHtml = sessionFirstLine
+		? buildSessionFirstLineHtml(
+				marketSession,
+				sessionFirstLine.scheduledEtMinutes,
+				sessionFirstLine.is24,
+				sessionFirstLine.priorRegularClose,
+			)
+		: "";
+	const text = `${sessionFirstLineText}Your tracked assets:\n${delayText}${marketDisclaimer}${assetsList}${textFooter}`;
 	const escapedAssetsListHtml = formatAssetsHtmlList(
 		userAssets,
 		(symbol) => priceMap.get(symbol) ?? undefined,
-		{ getSparkline, getLogoHtml, showChangePercent: marketOpen !== false },
+		{ getSparkline, getLogoHtml, showChangePercent: marketSession !== "closed" },
 	);
 	const marketClosedBannerHtml = marketOpen
 		? ""
@@ -285,6 +312,7 @@ export function formatEmailMessage(
 		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Scheduled Price Update</h1>
 	</div>
 	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+		${sessionFirstLineHtml}
 		${delayBanners?.html || ""}
 		${marketClosedBannerHtml}
 		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Your Scheduled Price Notification</h2>

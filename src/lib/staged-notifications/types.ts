@@ -11,15 +11,6 @@ export interface StagedEmailContent {
 	html: string;
 }
 
-export interface StagedMarketData {
-	type: "market";
-	scheduledDate: string;
-	scheduledMinutes: number;
-	marketOpen: boolean;
-	email: StagedEmailContent | null;
-	sms: { message: string } | null;
-}
-
 export interface StagedDailyData {
 	type: "daily";
 	scheduledDate: string;
@@ -37,9 +28,9 @@ export interface StagedDailyData {
 	analystMonth: string | null;
 }
 
-export type StagedData = StagedMarketData | StagedDailyData;
+export type StagedData = StagedDailyData;
 
-export type StagedNotificationType = "market" | "daily";
+export type StagedNotificationType = "daily";
 
 export interface StagedNotificationRow {
 	id: string;

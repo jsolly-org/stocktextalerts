@@ -4,14 +4,12 @@ import { extractErrorMessage } from "../../logging/errors";
 import { formatAssetsTextList } from "../../messaging/asset-formatting";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../../messaging/delay-banner";
 import type { EmailSender } from "../../messaging/email/utils";
-import { formatEmailMessage } from "../../messaging/email/utils";
 import { safePrefetchLogos } from "../../messaging/logo-fetcher";
 import { recordNotification } from "../../messaging/shared";
 import { shouldSendSms } from "../../messaging/sms";
-import { formatSmsMessage } from "../../messaging/sms/delivery";
 import type { SparklineMap } from "../../messaging/sparkline";
 import type { UserRecord } from "../../messaging/types";
-import type { AssetPriceMap } from "../../providers/price-fetcher";
+import type { AssetPriceMap, MarketSession } from "../../providers/price-fetcher";
 import { fetchSparklines } from "../../providers/price-fetcher";
 import type {
 	DeliveryMethod,
@@ -21,8 +19,6 @@ import type {
 } from "../../schedule/helpers";
 import { loadUserAssets } from "../../schedule/helpers";
 import type { SmsSenderProvider } from "../../schedule/sms-sender";
-import { upsertStagedNotification } from "../../staged-notifications/db";
-import type { StagedMarketData } from "../../staged-notifications/types";
 import { isOutsideMarketHours, userLocalToEtMinute } from "../../time/format";
 import type { MarketClosureInfo } from "../../time/market-calendar";
 import { getUsMarketClosureInfoForInstant } from "../../time/market-calendar";
@@ -39,11 +35,9 @@ export async function processMarketScheduledUser(options: {
 	sendEmail: EmailSender;
 	getSmsSender: SmsSenderProvider;
 	priceMap: AssetPriceMap;
-	marketOpen: boolean;
-	/** Market closure info for banner when marketOpen is false. */
+	marketSession: MarketSession;
+	/** Market closure info for banner when session is "closed". */
 	marketClosureInfo?: MarketClosureInfo | null;
-	/** When true, stage content for later delivery instead of sending now. */
-	stageOnly?: boolean;
 	/** Pre-fetched user assets (avoids N+1 when batch processing). */
 	userAssetsMap?: UserAssetsMap;
 }): Promise<ScheduledNotificationTotals> {
@@ -64,11 +58,28 @@ export async function processMarketScheduledUser(options: {
 		currentTime,
 		getSmsSender,
 		priceMap,
-		marketOpen,
+		marketSession,
 		marketClosureInfo,
-		stageOnly,
 		userAssetsMap,
 	} = options;
+
+	// Skip when no active session — session resolution happens at delivery time
+	// so off-hours users (closed market) advance their schedule without sending.
+	if (marketSession === "closed") {
+		logger.info("Skipping scheduled market delivery — no active session", {
+			userId: user.id,
+			scheduledEtMinutes: user.market_scheduled_asset_price_times,
+			dueAt: user.market_scheduled_asset_price_next_send_at,
+		});
+		stats.skipped++;
+		await updateUserMarketScheduledNextSendAt({
+			user,
+			supabase,
+			logger,
+			currentTime,
+		});
+		return stats;
+	}
 
 	try {
 		/* =============
@@ -205,79 +216,23 @@ export async function processMarketScheduledUser(options: {
 			logContext: { action: "market_notifications_run", userId: user.id },
 		});
 
+		// Past the early return, the session is always pre/regular/after — show change%.
 		const assetsList = formatAssetsTextList(
 			userAssets,
 			(symbol) => priceMap.get(symbol) ?? undefined,
 			getAsciiSparkline,
-			marketOpen !== false,
+			true,
 		);
 
 		const shouldAttemptSms = shouldSendSms(user);
 
-		/* ============= Stage-only: write to staging table and return ============= */
-		// Pre-compute path: render the notification content now and store it in
-		// the staged_notifications table for near-instant delivery when the user's
-		// scheduled time arrives. We intentionally do NOT advance next_send_at or
-		// record delivery here — the delivery phase (deliver.ts) handles both so
-		// the user's schedule only advances after the message is actually sent.
-		if (stageOnly) {
-			const scheduledForIso = user.market_scheduled_asset_price_next_send_at ?? dueAt.toISO();
-			if (!scheduledForIso) {
-				logger.error("Cannot determine scheduled_for for staging", {
-					userId: user.id,
-				});
-				stats.skipped++;
-				return stats;
-			}
-
-			const wantsEmail =
-				user.email_notifications_enabled && user.market_scheduled_asset_price_include_email;
-			const wantsSms = shouldAttemptSms && user.market_scheduled_asset_price_include_sms;
-
-			const emailContent = wantsEmail
-				? (() => {
-						const msg = formatEmailMessage(user, userAssets, assetsList, priceMap, marketOpen, {
-							getSparkline,
-							marketClosureInfo,
-							getLogoHtml,
-						});
-						return {
-							subject: "Your Scheduled Price Notification",
-							text: msg.text,
-							html: msg.html,
-						};
-					})()
-				: null;
-
-			const smsContent = wantsSms
-				? {
-						message: formatSmsMessage(assetsList, marketOpen, undefined, marketClosureInfo),
-					}
-				: null;
-
-			const stagedData: StagedMarketData = {
-				type: "market",
-				scheduledDate,
-				scheduledMinutes,
-				marketOpen,
-				email: emailContent,
-				sms: smsContent,
-			};
-
-			const { error: stageError } = await upsertStagedNotification(supabase, {
-				userId: user.id,
-				notificationType: "market",
-				scheduledFor: scheduledForIso,
-				stagedData,
-			});
-
-			if (stageError) {
-				logger.error("Failed to stage market notification", { userId: user.id }, stageError);
-				stats.skipped++;
-			}
-
-			return stats;
-		}
+		// Session-aware first body line. After-hours close anchor is left null
+		// for now — wiring `priorRegularClose` from the snapshot is deferred.
+		const sessionFirstLine = {
+			scheduledEtMinutes: userLocalToEtMinute(scheduledMinutes, user.timezone),
+			is24: user.use_24_hour_time,
+			priorRegularClose: null as number | null,
+		};
 
 		/* ============= Process Email ============= */
 		if (user.email_notifications_enabled && user.market_scheduled_asset_price_include_email) {
@@ -292,7 +247,7 @@ export async function processMarketScheduledUser(options: {
 				assetsList,
 				sendEmail,
 				priceMap,
-				marketOpen,
+				marketSession,
 				marketClosureInfo,
 				stats,
 				getSparkline,
@@ -301,6 +256,7 @@ export async function processMarketScheduledUser(options: {
 					text: delayBannerText,
 					html: delayBannerHtml,
 				},
+				sessionFirstLine,
 			});
 		}
 
@@ -316,10 +272,11 @@ export async function processMarketScheduledUser(options: {
 				userAssets,
 				assetsList,
 				getSmsSender,
-				marketOpen,
+				marketSession,
 				marketClosureInfo,
 				stats,
 				delayBanner: delayBannerText,
+				sessionFirstLine,
 			});
 		}
 

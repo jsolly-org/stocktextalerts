@@ -217,32 +217,3 @@ export async function fetchSparklines(symbols: string[]): Promise<SparklineMap> 
 
 	return result;
 }
-
-/** Return whether the US market is currently open (best-effort; defaults to closed). */
-export async function fetchMarketStatus(): Promise<boolean> {
-	if (isTest() && !isLiveMassiveEnabledInTests()) {
-		return true;
-	}
-
-	const data = await marketDataFetch("/v1/marketstatus/now", {}, "market-status");
-	// null = marketDataFetch already logged the failure (rate-limit info or
-	// retry-exhausted error). Don't double-log; default to "closed".
-	if (data === null) return false;
-	if (typeof data !== "object") {
-		rootLogger.error("Invalid Massive market status payload shape", {
-			payloadType: typeof data,
-		});
-		return false;
-	}
-
-	const market = (data as Record<string, unknown>).market;
-	if (typeof market !== "string") {
-		rootLogger.error("Invalid Massive market status field types", {
-			market,
-			payload: data,
-		});
-		return false;
-	}
-
-	return market === "open";
-}

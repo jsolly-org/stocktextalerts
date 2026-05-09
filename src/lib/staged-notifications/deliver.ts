@@ -7,16 +7,15 @@
  * bookkeeping (claim idempotency, notifications_log, next_send_at advancement,
  * Grok counter updates, analyst month tracking).
  *
- * The delivery logic intentionally mirrors the existing delivery functions in
- * market-notifications/scheduled/delivery.ts and daily-digest/delivery.ts, but
- * operates on pre-rendered content instead of formatting on the spot.
+ * The delivery logic intentionally mirrors the existing daily-digest delivery
+ * functions in daily-digest/delivery.ts, but operates on pre-rendered content
+ * instead of formatting on the spot.
  */
 
 import { DateTime } from "luxon";
 import { updateUserAssetEventsNextSendAt } from "../asset-events/next-send-at";
 import { updateUserDailyDigestNextSendAt } from "../daily-digest/next-send-at";
 import type { Logger } from "../logging";
-import { updateUserMarketScheduledNextSendAt } from "../market-notifications/scheduled/next-send-at";
 import {
 	buildDelayBannerHtml,
 	buildDelayBannerText,
@@ -33,7 +32,7 @@ import { claimNotification, updateScheduledNotificationRow } from "../schedule/h
 import type { SmsSenderProvider } from "../schedule/sms-sender";
 import { toIsoOrThrow } from "../time/format";
 import { deleteStagedNotification, fetchDueStagedNotifications, purgeStaleStaged } from "./db";
-import type { StagedDailyData, StagedMarketData, StagedNotificationRow } from "./types";
+import type { StagedDailyData, StagedNotificationRow } from "./types";
 
 const STALE_MAX_AGE_MINUTES = 5;
 
@@ -81,32 +80,24 @@ export async function deliverStagedNotifications(options: {
 
 	const currentTimeIso = toIsoOrThrow(currentTime, "Failed to format currentTime ISO");
 
-	// Fetch due staged rows for both types
-	let marketRows: StagedNotificationRow[] = [];
+	// Fetch due staged rows
 	let dailyRows: StagedNotificationRow[] = [];
 	try {
-		[marketRows, dailyRows] = await Promise.all([
-			fetchDueStagedNotifications(supabase, {
-				cutoffTimeIso: currentTimeIso,
-				notificationType: "market",
-			}),
-			fetchDueStagedNotifications(supabase, {
-				cutoffTimeIso: currentTimeIso,
-				notificationType: "daily",
-			}),
-		]);
+		dailyRows = await fetchDueStagedNotifications(supabase, {
+			cutoffTimeIso: currentTimeIso,
+			notificationType: "daily",
+		});
 	} catch (error) {
 		logger.error("Failed to fetch due staged notifications", { action: "staged_deliver" }, error);
 		return { stats, deliveredUserTypes };
 	}
 
-	const allRows = [...marketRows, ...dailyRows];
-	if (allRows.length === 0) {
+	if (dailyRows.length === 0) {
 		return { stats, deliveredUserTypes };
 	}
 
 	// Batch-fetch user records
-	const userIds = [...new Set(allRows.map((r) => r.user_id))];
+	const userIds = [...new Set(dailyRows.map((r) => r.user_id))];
 	const { data: users, error: usersError } = await supabase
 		.from("users")
 		.select(
@@ -168,7 +159,7 @@ export async function deliverStagedNotifications(options: {
 		(users ?? []).map((u) => [u.id, u as unknown as UserRecord]),
 	);
 
-	for (const row of allRows) {
+	for (const row of dailyRows) {
 		const user = userMap.get(row.user_id);
 		if (!user) {
 			logger.error("User not found for staged delivery, deleting row", {
@@ -189,33 +180,18 @@ export async function deliverStagedNotifications(options: {
 		}
 
 		try {
-			if (row.notification_type === "market") {
-				await deliverStagedMarket({
-					row,
-					stagedData: row.staged_data as StagedMarketData,
-					user,
-					supabase,
-					logger,
-					currentTime,
-					sendEmail,
-					getSmsSender,
-					deliveredUserTypes,
-					stats,
-				});
-			} else {
-				await deliverStagedDaily({
-					row,
-					stagedData: row.staged_data as StagedDailyData,
-					user,
-					supabase,
-					logger,
-					currentTime,
-					sendEmail,
-					getSmsSender,
-					deliveredUserTypes,
-					stats,
-				});
-			}
+			await deliverStagedDaily({
+				row,
+				stagedData: row.staged_data as StagedDailyData,
+				user,
+				supabase,
+				logger,
+				currentTime,
+				sendEmail,
+				getSmsSender,
+				deliveredUserTypes,
+				stats,
+			});
 		} catch (error) {
 			logger.error(
 				"Error delivering staged notification",
@@ -243,212 +219,6 @@ export async function deliverStagedNotifications(options: {
 	}
 
 	return { stats, deliveredUserTypes };
-}
-
-/** Deliver a single staged market-notification row. */
-async function deliverStagedMarket(options: {
-	row: StagedNotificationRow;
-	stagedData: StagedMarketData;
-	user: UserRecord;
-	supabase: SupabaseAdminClient;
-	logger: Logger;
-	currentTime: DateTime;
-	sendEmail: EmailSender;
-	getSmsSender: SmsSenderProvider;
-	deliveredUserTypes: Set<string>;
-	stats: ScheduledNotificationTotals;
-}): Promise<void> {
-	const {
-		row,
-		stagedData,
-		user,
-		supabase,
-		logger,
-		currentTime,
-		sendEmail,
-		getSmsSender,
-		deliveredUserTypes,
-		stats,
-	} = options;
-	const { scheduledDate, scheduledMinutes } = stagedData;
-	const deliveredKey = `${row.user_id}:market`;
-
-	// Detect delay for staged content delivered after scheduled time
-	const scheduledFor = DateTime.fromISO(row.scheduled_for, { zone: "utc" });
-	const delayBannerOpts = scheduledFor.isValid
-		? {
-				scheduledFor,
-				now: currentTime,
-				userTimezone: user.timezone,
-				use24Hour: user.use_24_hour_time,
-			}
-		: null;
-	const delayText = delayBannerOpts ? buildDelayBannerText(delayBannerOpts) : null;
-	const delayHtml = delayBannerOpts ? buildDelayBannerHtml(delayBannerOpts) : null;
-
-	// Email delivery
-	if (stagedData.email) {
-		const emailContent =
-			delayText && delayHtml
-				? prependDelayBannerToEmail(
-						stagedData.email.text,
-						stagedData.email.html,
-						delayText,
-						delayHtml,
-					)
-				: { text: stagedData.email.text, html: stagedData.email.html };
-
-		const claim = await claimNotification({
-			supabase,
-			userId: user.id,
-			notificationType: "market",
-			scheduledDate,
-			scheduledMinutes,
-			channel: "email",
-			logger,
-		});
-
-		if (claim.status === "claimed") {
-			const idempotencyKey = `scheduled-update/${user.id}/${scheduledDate}/${scheduledMinutes}/email`;
-			const result = await sendUserEmail(
-				user,
-				stagedData.email.subject,
-				{ text: emailContent.text, html: emailContent.html },
-				sendEmail,
-				idempotencyKey,
-			);
-
-			// IMPORTANT: mark this user/type as delivered immediately after a successful send
-			// so fallback doesn't reprocess if later bookkeeping fails.
-			if (result.success) {
-				deliveredUserTypes.add(deliveredKey);
-			}
-
-			const logged = await recordNotification(supabase, {
-				user_id: user.id,
-				type: "market",
-				delivery_method: "email",
-				message_delivered: result.success,
-				message: emailContent.text,
-				...deliveryResultToLogFields(result),
-			});
-			if (!logged) stats.logFailures++;
-
-			if (result.success) {
-				stats.emailsSent++;
-			} else {
-				stats.emailsFailed++;
-			}
-
-			await updateScheduledNotificationRow({
-				supabase,
-				userId: user.id,
-				notificationType: "market",
-				scheduledDate,
-				scheduledMinutes,
-				channel: "email",
-				status: result.success ? "sent" : "failed",
-				error: result.success ? undefined : result.error,
-				logger,
-			});
-		} else if (claim.status === "claim_error") {
-			stats.emailsFailed++;
-		} else {
-			// Already claimed elsewhere → treat as delivered for fallback-skipping.
-			deliveredUserTypes.add(deliveredKey);
-			stats.skipped++;
-		}
-	}
-
-	// SMS delivery
-	if (stagedData.sms) {
-		const smsMessage = delayText
-			? prependDelayBannerToSms(stagedData.sms.message, delayText)
-			: stagedData.sms.message;
-
-		const smsEnabled = shouldSendSms(user);
-		if (smsEnabled) {
-			const claim = await claimNotification({
-				supabase,
-				userId: user.id,
-				notificationType: "market",
-				scheduledDate,
-				scheduledMinutes,
-				channel: "sms",
-				logger,
-			});
-
-			if (claim.status === "claimed") {
-				try {
-					const { sender } = getSmsSender();
-					const result = await sendUserSms(user, smsMessage, sender, supabase);
-
-					// Mark this user/type as delivered immediately after a successful send
-					// so fallback doesn't reprocess if later bookkeeping fails.
-					if (result.success) {
-						deliveredUserTypes.add(deliveredKey);
-					}
-
-					const logged = await recordNotification(supabase, {
-						user_id: user.id,
-						type: "market",
-						delivery_method: "sms",
-						message_delivered: result.success,
-						message: smsMessage,
-						...deliveryResultToLogFields(result),
-					});
-					if (!logged) stats.logFailures++;
-
-					if (result.success) {
-						stats.smsSent++;
-					} else {
-						stats.smsFailed++;
-					}
-
-					await updateScheduledNotificationRow({
-						supabase,
-						userId: user.id,
-						notificationType: "market",
-						scheduledDate,
-						scheduledMinutes,
-						channel: "sms",
-						status: result.success ? "sent" : "failed",
-						error: result.success ? undefined : result.error,
-						logger,
-					});
-				} catch (error) {
-					stats.smsFailed++;
-					logger.error(
-						"Failed to resolve SMS sender for staged market delivery",
-						{ userId: user.id },
-						error,
-					);
-				}
-			} else if (claim.status === "claim_error") {
-				stats.smsFailed++;
-			} else {
-				// Already claimed elsewhere → treat as delivered for fallback-skipping.
-				deliveredUserTypes.add(deliveredKey);
-				stats.skipped++;
-			}
-		}
-	}
-
-	// Advance next_send_at
-	try {
-		await updateUserMarketScheduledNextSendAt({
-			user,
-			supabase,
-			logger,
-			currentTime,
-		});
-	} catch (error) {
-		logger.error(
-			"Failed to advance next_send_at for staged market delivery",
-			{ userId: user.id },
-			error,
-		);
-	}
 }
 
 /** Deliver a single staged daily-digest row. */

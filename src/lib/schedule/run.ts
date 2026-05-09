@@ -50,12 +50,10 @@ import {
 	type ExtendedQuoteMap,
 	fetchAssetPrices,
 	getCurrentMarketSession,
+	type MarketSession,
 } from "../providers/price-fetcher";
 import { deliverStagedNotifications } from "../staged-notifications/deliver";
-import {
-	precomputeDailyDigest,
-	precomputeMarketScheduled,
-} from "../staged-notifications/precompute";
+import { precomputeDailyDigest } from "../staged-notifications/precompute";
 import { toIsoOrThrow } from "../time/format";
 import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market-calendar";
 import {
@@ -245,7 +243,8 @@ async function runPass(options: {
 		}
 	}
 
-	const marketOpen = marketStatusPromise ? (await marketStatusPromise) === "regular" : false;
+	const marketSession: MarketSession = marketStatusPromise ? await marketStatusPromise : "closed";
+	const marketOpen = marketSession === "regular";
 
 	// Fetch market closure once for market-scheduled banners and asset-events.
 	// Daily digests derive weekend/holiday labels from each user's scheduled send
@@ -284,7 +283,7 @@ async function runPass(options: {
 					sendEmail,
 					getSmsSender,
 					priceMap,
-					marketOpen,
+					marketSession,
 					userAssetsMap,
 					marketClosureInfo,
 				}),
@@ -356,17 +355,12 @@ async function runPass(options: {
 		...EMPTY_TOTALS,
 	});
 
-	/* ============= Phase 3: PRE-COMPUTE for upcoming users ============= */
+	/* ============= Phase 3: PRE-COMPUTE for upcoming daily-digest users ============= */
 	try {
-		const [preMarket, preDaily] = await Promise.all([
-			precomputeMarketScheduled({ supabase, logger, currentTime }),
-			precomputeDailyDigest({ supabase, logger, currentTime }),
-		]);
-		// Pre-compute stats are informational only (no actual delivery)
-		if (preMarket.skipped > 0 || preDaily.skipped > 0) {
+		const preDaily = await precomputeDailyDigest({ supabase, logger, currentTime });
+		if (preDaily.skipped > 0) {
 			logger.info("Pre-compute phase completed", {
 				action: "precompute",
-				marketSkipped: preMarket.skipped,
 				dailySkipped: preDaily.skipped,
 			});
 		}

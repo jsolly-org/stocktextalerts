@@ -6,7 +6,7 @@ import { recordNotification } from "../../messaging/shared";
 import { processSmsUpdate } from "../../messaging/sms/delivery";
 import type { SparklineData } from "../../messaging/sparkline";
 import type { UserAssetRow, UserRecord } from "../../messaging/types";
-import type { AssetPriceMap } from "../../providers/price-fetcher";
+import type { AssetPriceMap, MarketSession } from "../../providers/price-fetcher";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../../schedule/helpers";
 import { claimNotification, updateScheduledNotificationRow } from "../../schedule/helpers";
 import type { SmsSenderProvider } from "../../schedule/sms-sender";
@@ -28,12 +28,17 @@ export async function processMarketScheduledEmailDelivery(options: {
 	assetsList: string;
 	sendEmail: EmailSender;
 	priceMap: AssetPriceMap;
-	marketOpen: boolean;
+	marketSession: MarketSession;
 	marketClosureInfo?: MarketClosureInfo | null;
 	stats: ScheduledNotificationTotals;
 	getSparkline?: (symbol: string) => SparklineData | null | undefined;
 	getLogoHtml?: (symbol: string) => string | undefined;
 	delayBanners?: { text?: string | null; html?: string | null };
+	sessionFirstLine?: {
+		scheduledEtMinutes: number;
+		is24: boolean;
+		priorRegularClose: number | null;
+	};
 }): Promise<void> {
 	const {
 		user,
@@ -45,11 +50,12 @@ export async function processMarketScheduledEmailDelivery(options: {
 		assetsList,
 		sendEmail,
 		priceMap,
-		marketOpen,
+		marketSession,
 		marketClosureInfo,
 		stats,
 		getSparkline,
 		getLogoHtml,
+		sessionFirstLine,
 	} = options;
 
 	const claim = await claimNotification({
@@ -78,10 +84,11 @@ export async function processMarketScheduledEmailDelivery(options: {
 		assetsList,
 		sendEmail,
 		priceMap,
-		marketOpen,
+		marketSession,
 		emailIdempotencyKey,
 		{ getSparkline, marketClosureInfo, getLogoHtml },
 		options.delayBanners,
+		sessionFirstLine,
 	);
 
 	if (sent) {
@@ -122,11 +129,16 @@ export async function processMarketScheduledSmsDelivery(options: {
 	userAssets: UserAssetRow[];
 	assetsList: string;
 	getSmsSender: SmsSenderProvider;
-	marketOpen: boolean;
+	marketSession: MarketSession;
 	marketClosureInfo?: MarketClosureInfo | null;
 	stats: ScheduledNotificationTotals;
 	/** Optional delay banner text for late notifications. */
 	delayBanner?: string | null;
+	sessionFirstLine?: {
+		scheduledEtMinutes: number;
+		is24: boolean;
+		priorRegularClose: number | null;
+	};
 }): Promise<void> {
 	const {
 		user,
@@ -136,9 +148,10 @@ export async function processMarketScheduledSmsDelivery(options: {
 		scheduledMinutes,
 		assetsList,
 		getSmsSender,
-		marketOpen,
+		marketSession,
 		marketClosureInfo,
 		stats,
+		sessionFirstLine,
 	} = options;
 
 	const claim = await claimNotification({
@@ -210,10 +223,11 @@ export async function processMarketScheduledSmsDelivery(options: {
 		user,
 		assetsList,
 		smsSender,
-		marketOpen,
+		marketSession,
 		undefined,
 		marketClosureInfo,
 		options.delayBanner,
+		sessionFirstLine,
 	);
 
 	if (sent) {
