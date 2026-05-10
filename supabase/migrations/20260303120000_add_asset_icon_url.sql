@@ -1,5 +1,5 @@
 -- Add icon_url column to assets for company logo branding images.
--- Stores the Massive (Polygon) branding icon URL; served to clients via a
+-- Stores the Massive branding icon URL; served to clients via a
 -- server-side proxy so the API key stays secret.
 
 ALTER TABLE public.assets

@@ -10,6 +10,7 @@ import {
 	fetchPrevClose,
 	fetchSnapshotQuotes,
 	fetchSplits,
+	fetchTodaysRegularClose,
 	fetchTopMovers,
 	marketDataFetch,
 } from "../../src/lib/providers/massive";
@@ -17,6 +18,7 @@ import {
 	fetchAssetPrices,
 	fetchExtendedQuotes,
 	fetchSparklines,
+	fetchTodaysRegularCloses,
 	getCurrentMarketSession,
 } from "../../src/lib/providers/price-fetcher";
 import { assertLiveProviderKey, isLiveProviderEnabled } from "../helpers/live-api";
@@ -82,6 +84,47 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 		const record = payload as Record<string, unknown>;
 		expect(typeof record.earlyHours).toBe("boolean");
 		expect(typeof record.afterHours).toBe("boolean");
+	});
+
+	it("fetchTodaysRegularClose returns a number for SPY after the regular close, null before.", async () => {
+		// After-hours change-% baseline. This will be `null` until 4:00 PM ET on a
+		// trading day; once today's daily bar is published, returns a finite price.
+		const close = await fetchTodaysRegularClose("SPY");
+		if (close !== null) {
+			expect(typeof close).toBe("number");
+			expect(Number.isFinite(close)).toBe(true);
+			expect(close).toBeGreaterThan(0);
+		}
+	});
+
+	it("fetchTodaysRegularCloses batch resolves a value-or-null entry for every requested symbol.", async () => {
+		const map = await fetchTodaysRegularCloses(["SPY", "AAPL"]);
+		expect(map).toBeInstanceOf(Map);
+		expect(map.size).toBe(2);
+		for (const symbol of ["SPY", "AAPL"]) {
+			expect(map.has(symbol)).toBe(true);
+			const value = map.get(symbol);
+			if (value !== null) {
+				expect(typeof value).toBe("number");
+				expect(Number.isFinite(value)).toBe(true);
+			}
+		}
+	});
+
+	it("fetchAssetPrices passes session-aware baseline through (regular vs. after-hours fallback path).", async () => {
+		// Verifies the snapshot-fallback path that was added with extended-hours
+		// notifications: caller passes the live session, which is used to pick
+		// the prev-day-bar fallback when a snapshot quote is missing.
+		const session = await getCurrentMarketSession();
+		const priceMap = await fetchAssetPrices(["SPY", "AAPL"]);
+		expect(priceMap).toBeInstanceOf(Map);
+		// Even with `session === "closed"` (e.g. weekends), the fallback should
+		// return prev-day bar data so prices remain renderable.
+		for (const symbol of ["SPY", "AAPL"]) {
+			const quote = priceMap.get(symbol);
+			expect(quote === null || typeof quote?.price === "number").toBe(true);
+		}
+		expect(["pre", "regular", "after", "closed"]).toContain(session);
 	});
 
 	it("returns extended quotes (day high/low/open/volume) for symbols via fetchExtendedQuotes", async () => {

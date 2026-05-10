@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	etMinuteToUserLocal,
+	getScheduledMarketSession,
 	isOutsideMarketHours,
 	userLocalToEtMinute,
 } from "../../../src/lib/time/format";
@@ -76,5 +77,43 @@ describe("etMinuteToUserLocal / userLocalToEtMinute round-trip", () => {
 	it("A Tokyo user sees ET-minute 540 (9:00 AM ET) as a wall-clock time that round-trips.", () => {
 		const local = etMinuteToUserLocal(540, "Asia/Tokyo");
 		expect(userLocalToEtMinute(local, "Asia/Tokyo")).toBe(540);
+	});
+});
+
+describe("getScheduledMarketSession", () => {
+	it("4:30 AM ET (earliest pickable time) is classified as pre-market.", () => {
+		expect(getScheduledMarketSession(270)).toBe("pre");
+	});
+
+	it("9:29 AM ET (one minute before regular open) is classified as pre-market.", () => {
+		expect(getScheduledMarketSession(569)).toBe("pre");
+	});
+
+	it("9:30 AM ET (regular open boundary) is classified as regular session.", () => {
+		expect(getScheduledMarketSession(570)).toBe("regular");
+	});
+
+	it("9:31 AM ET (just after regular open) is classified as regular session.", () => {
+		expect(getScheduledMarketSession(571)).toBe("regular");
+	});
+
+	it("Noon ET is classified as regular session.", () => {
+		expect(getScheduledMarketSession(720)).toBe("regular");
+	});
+
+	it("3:59 PM ET (one minute before regular close) is classified as regular session.", () => {
+		expect(getScheduledMarketSession(959)).toBe("regular");
+	});
+
+	it("4:00 PM ET (regular close boundary) is classified as after-hours.", () => {
+		expect(getScheduledMarketSession(960)).toBe("after");
+	});
+
+	it("4:01 PM ET (just after regular close) is classified as after-hours.", () => {
+		expect(getScheduledMarketSession(961)).toBe("after");
+	});
+
+	it("7:30 PM ET (latest pickable time) is classified as after-hours.", () => {
+		expect(getScheduledMarketSession(1170)).toBe("after");
 	});
 });

@@ -14,11 +14,11 @@
 				<legend class="block text-base font-semibold text-heading mb-1">
 					Delivery times
 					<span class="block text-sm font-normal text-body-secondary mt-0.5">
-						Choose up to {{ maxTimes }} time slots. Notifications send anytime US markets are trading
-						(pre-market, regular, or after-hours). Pick any time between 4:30 AM and 7:30 PM ET. Sends are
-						skipped if markets aren't trading at your scheduled time — this includes early-close days
-						(~3 per year), full-day holidays, and the 30-minute gaps between sessions (9:00–9:30 AM and
-						4:00–4:30 PM ET). Notifications send within ~10 seconds of your scheduled time.
+						Choose up to {{ maxTimes }} time slots. Times shown in
+						<a href="/profile#timezone-heading" class="link-primary">your local timezone</a>, anchored to
+						US market hours (4:30 AM – 7:30 PM ET). Notifications send whenever US markets are trading
+						(pre-market, regular, or after-hours). Sends are skipped on weekends, full-day holidays, and
+						after early-close days (~3 per year).
 					</span>
 					<span
 						v-if="marketHoursCrossMidnightHint"
@@ -65,26 +65,31 @@
 					</button>
 				</div>
 			<div
-				v-for="(time, index) in scheduledUpdateTimes"
-				:key="`${index}-${time}`"
+				v-for="item in chipItems"
+				:key="`${item.index}-${item.time}`"
 			>
 				<TimePicker
-					:inputId="`scheduled_update_time_${index}`"
-					:inputName="`scheduled_update_time_${index}`"
-					:initialTime="time"
+					:inputId="`scheduled_update_time_${item.index}`"
+					:inputName="`scheduled_update_time_${item.index}`"
+					:initialTime="item.time"
 					placeholder="Select notification time"
-					:inputAriaLabel="`Delivery time ${index + 1}`"
+					:inputAriaLabel="item.ariaLabel"
 					:inputAriaDescribedby="marketHoursCrossMidnightHint ? MARKET_HOURS_HINT_ID : undefined"
 					:disabled="timePickerDisabled"
 					clearable
-					:clearAriaLabel="`Remove delivery time ${index + 1}`"
+					:clearAriaLabel="`Remove delivery time ${item.index + 1}`"
 					:is24="is24"
 					:minTimeOverride="props.minTime ?? undefined"
 					:maxTimeOverride="props.maxTime ?? undefined"
 					:disabledRangeTooltip="DISABLED_RANGE_TOOLTIP"
-					@time-change="emit('time-change', index, $event)"
-					@clear="emit('remove-time', index)"
-				/>
+					:hasTrailingContent="item.hasBadge"
+					@time-change="emit('time-change', item.index, $event)"
+					@clear="emit('remove-time', item.index)"
+				>
+					<template v-if="item.hasBadge" #trailing>
+						<SessionBadge :session="item.session as 'pre' | 'after'" />
+					</template>
+				</TimePicker>
 			</div>
 				</div>
 			<div class="flex flex-col gap-2">
@@ -144,8 +149,15 @@ import { computed, onMounted, ref } from "vue";
 import BellAlertIcon from "../../../icons/bell-alert.svg?component";
 import PlusIcon from "../../../icons/plus.svg?component";
 import PresentationChartLineIcon from "../../../icons/presentation-chart-line.svg?component";
+import {
+	getScheduledMarketSession,
+	parseTimeToMinutes,
+	type ScheduledMarketSession,
+	userLocalToEtMinute,
+} from "../../../lib/time/format";
 import StatusMessage from "../../StatusMessage.vue";
 import TimePicker from "../shared/TimePicker.vue";
+import SessionBadge from "./SessionBadge.vue";
 
 const DISABLED_RANGE_TOOLTIP = "Outside US extended-hours window (4:30 AM – 7:30 PM ET)";
 
@@ -177,6 +189,8 @@ interface Props {
 	is24?: boolean;
 	/** When set, the market window crosses midnight in the user's timezone; show this hint so they know only 4:30 AM–7:30 PM ET is accepted. */
 	marketHoursCrossMidnightHint?: string | null;
+	/** IANA timezone for classifying each scheduled time as pre-market / regular / after-hours. */
+	userTimezone: string;
 }
 
 const props = defineProps<Props>();
@@ -196,6 +210,39 @@ onMounted(() => {
 });
 
 const serializedTimes = computed(() => JSON.stringify(props.scheduledUpdateTimes));
+
+function sessionFor(time: string): ScheduledMarketSession | null {
+	if (!props.userTimezone) return null;
+	const localMin = parseTimeToMinutes(time);
+	if (localMin === null) return null;
+	const etMin = userLocalToEtMinute(localMin, props.userTimezone);
+	return getScheduledMarketSession(etMin);
+}
+
+type ChipItem = {
+	time: string;
+	index: number;
+	session: ScheduledMarketSession | null;
+	hasBadge: boolean;
+	ariaLabel: string;
+};
+
+const chipItems = computed<ChipItem[]>(() =>
+	props.scheduledUpdateTimes.map((time, index) => {
+		const session = sessionFor(time);
+		const hasBadge = session === "pre" || session === "after";
+		const sessionSuffix = hasBadge
+			? `, ${session === "pre" ? "pre-market" : "after-hours"} session`
+			: "";
+		return {
+			time,
+			index,
+			session,
+			hasBadge,
+			ariaLabel: `Delivery time ${index + 1}${sessionSuffix}`,
+		};
+	}),
+);
 
 const maxTimesReachedTitle = computed<string | undefined>(() =>
 	props.maxTimesReached

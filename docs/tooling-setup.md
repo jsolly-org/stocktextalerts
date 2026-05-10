@@ -37,3 +37,14 @@ npx vercel env ls
 `.env.local` sets `EMAIL_SMTP_HOST=localhost` and `EMAIL_SMTP_PORT=1025` so any email the dev server would otherwise send through SES lands in Mailpit at `http://localhost:54324` instead. Requires local Supabase running (`npm run db:start`).
 
 `tests/run-vitest.ts` strips both env vars under plain `npm test` so unit tests stay on the in-process mock sender, and re-exports them when `--live=email` is passed.
+
+## Worktrees
+
+Worktrees live at `.claude/worktrees/<branch>/` — the location `EnterWorktree` defaults to. The directory is gitignored (`.gitignore` line 38). `EnterWorktree`'s base path is hardcoded; `worktree.baseRef` in `~/.claude/settings.json` only controls which branch is forked.
+
+When adopting any tool that descends into worktrees and tries to load nested config (biome 2.x was the first case — `nested root configuration` startup error), add a root-anchored exclude. The canonical shape is in `biome.jsonc`:
+
+- **Use `!.claude`, not `!**/.claude`.** The over-broad form silently turns `biome ci .` into a no-op when run from inside a worktree, which silently disables the pre-commit gate.
+- **Mirror the alt-locations** (`!.worktrees`, `!worktrees`) — the `superpowers:using-git-worktrees` skill uses these names if `EnterWorktree` is unavailable.
+
+Other tools to watch when adopted: eslint, jest, tsserver — anything with config-discovery that walks subdirectories.

@@ -296,6 +296,24 @@ export function isOutsideMarketHours(etMinutes: number): boolean {
 	);
 }
 
+export type ScheduledMarketSession = "pre" | "regular" | "after";
+
+/**
+ * Classify an ET-minute against the regular session boundaries
+ * (9:30 AM and 4:00 PM ET). Used to label scheduled-time chips with a
+ * session badge.
+ *
+ * Boundary semantics: 9:30 AM ET (570) is "regular"; 4:00 PM ET (960)
+ * is "after". Any minute below 570 returns "pre", including out-of-window
+ * times (< 270) — callers either gate on `isOutsideMarketHours` first or
+ * ignore the result for invalid inputs.
+ */
+export function getScheduledMarketSession(etMinutes: number): ScheduledMarketSession {
+	if (etMinutes < US_MARKET_OPEN_EASTERN_MINUTES) return "pre";
+	if (etMinutes >= US_MARKET_CLOSE_EASTERN_MINUTES) return "after";
+	return "regular";
+}
+
 /* =============
 Format minute-of-day for UI display in the runtime locale
 ============= */

@@ -36,10 +36,14 @@
 		/>
 		<!-- Overlay icons inside the right edge of the input -->
 		<div
-			v-if="clearable"
-			class="absolute inset-y-0 right-0 flex items-center gap-0.5 pr-2 pointer-events-none"
+			v-if="clearable || hasTrailingContent"
+			class="absolute inset-y-0 right-0 flex items-center gap-1.5 pr-2 pointer-events-none"
 		>
+			<span v-if="hasTrailingContent" class="pointer-events-auto">
+				<slot name="trailing" />
+			</span>
 			<button
+				v-if="clearable"
 				type="button"
 				class="pointer-events-auto btn-icon-danger p-1.5"
 				:aria-label="clearAriaLabel ?? 'Clear time'"
@@ -99,6 +103,8 @@ const props = withDefaults(
 		disabledRangeTooltip?: string;
 		/** ID of an element describing the input (for `aria-describedby`, e.g. a constraint hint). */
 		inputAriaDescribedby?: string;
+		/** Reserve right-edge padding for the `#trailing` slot when it will render visible content. */
+		hasTrailingContent?: boolean;
 	}>(),
 	{ placeholder: "Select time" },
 );
@@ -109,6 +115,7 @@ const emit = defineEmits<{
 }>();
 
 const PADDING_ONE_ICON = "!pr-9";
+const PADDING_BADGE_AND_ICON = "!pr-36";
 
 const minutesIncrement = 1;
 
@@ -267,7 +274,11 @@ function handleBackdropPointerCancel() {
 }
 
 const inputAttributes = computed(() => {
-	const paddingClass = props.clearable ? PADDING_ONE_ICON : "";
+	const paddingClass = props.hasTrailingContent
+		? PADDING_BADGE_AND_ICON
+		: props.clearable
+			? PADDING_ONE_ICON
+			: "";
 	return {
 		id: props.inputId,
 		class: `input cursor-pointer ${paddingClass}`.trim(),

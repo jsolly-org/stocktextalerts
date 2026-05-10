@@ -250,6 +250,7 @@
 							:maxTime="marketMaxTime"
 							:marketHoursCrossMidnightHint="marketHoursCrossMidnightHint"
 							:is24="is24"
+							:userTimezone="timezone"
 							@time-change="handleTimeChange"
 							@add-time="handleAddTime"
 							@add-initial-time="handleAddInitialTime"

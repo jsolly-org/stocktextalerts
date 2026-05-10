@@ -347,6 +347,18 @@ export function buildPublicUserSql(userId: string, user: SeedUser): string {
     updateFields.push("email_notifications_enabled = EXCLUDED.email_notifications_enabled");
   }
 
+  const marketScheduledIncludeEmail = validateOptionalBoolean(
+    user.market_scheduled_asset_price_include_email,
+    "market_scheduled_asset_price_include_email",
+  );
+  if (marketScheduledIncludeEmail !== undefined) {
+    insertColumns.push("market_scheduled_asset_price_include_email");
+    insertValues.push(String(marketScheduledIncludeEmail));
+    updateFields.push(
+      "market_scheduled_asset_price_include_email = EXCLUDED.market_scheduled_asset_price_include_email",
+    );
+  }
+
   return `
 INSERT INTO public.users (
   ${insertColumns.join(",\n  ")}

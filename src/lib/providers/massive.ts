@@ -370,7 +370,7 @@ Daily Aggregates
 ============= */
 
 /**
- * Extract closing prices from a Polygon/Massive bars API response.
+ * Extract closing prices from a Massive bars API response.
  *
  * Expects a payload with a `results` array of bar objects, each with an optional `c` (close) field.
  * Returns `null` for non-object payloads, missing or invalid `results`, or when no valid bars exist.
@@ -406,7 +406,7 @@ export interface IntradayBarsResult {
 }
 
 /**
- * Extract closing prices and bar timestamps from a Polygon/Massive bars API response.
+ * Extract closing prices and bar timestamps from a Massive bars API response.
  *
  * Expects bar objects with `c` (close) and `t` (timestamp in ms). Returns `null` when
  * no valid bars exist. Preserves per-bar timestamps so downstream can place points on
