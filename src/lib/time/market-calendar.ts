@@ -1,8 +1,8 @@
-import type { DateTime } from "luxon";
+import { DateTime } from "luxon";
 import { US_MARKET_TIMEZONE } from "../constants";
 import { marketDataFetch } from "../providers/massive";
 
-export type MarketClosureReason = "weekend" | "holiday";
+export type MarketClosureReason = "weekend" | "holiday" | "half-day-after-close";
 
 export interface MarketClosureInfo {
 	reason: MarketClosureReason;
@@ -10,23 +10,32 @@ export interface MarketClosureInfo {
 	holidayName?: string;
 }
 
-const HOLIDAY_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
-let holidayCache: {
+type CalendarRecord =
+	| { kind: "closed"; name?: string }
+	| { kind: "early-close"; closeUtc: DateTime; name?: string };
+
+const CALENDAR_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+let calendarCache: {
 	expiresAt: number;
-	holidays: Map<string, string | undefined>;
+	records: Map<string, CalendarRecord>;
 } | null = null;
 
-/** Fetch and cache upcoming full-day US market closures (NYSE/NASDAQ). */
-async function fetchUsMarketHolidays(): Promise<Map<string, string | undefined>> {
+/**
+ * Fetch upcoming US market calendar (NYSE/NASDAQ): full closures AND half-days.
+ * Half-days are required for the `getCurrentMarketSession` override that forces
+ * "closed" past the early-close on days when Massive's `/v1/marketstatus/now`
+ * may flip to `afterHours: true` even though no extended trading session exists.
+ */
+async function fetchUsMarketCalendar(): Promise<Map<string, CalendarRecord>> {
 	const now = Date.now();
-	if (holidayCache && holidayCache.expiresAt > now) {
-		return holidayCache.holidays;
+	if (calendarCache && calendarCache.expiresAt > now) {
+		return calendarCache.records;
 	}
 
 	const payload = await marketDataFetch("/v1/marketstatus/upcoming", {}, "market-holidays");
 
-	const holidays = new Map<string, string | undefined>();
-	if (!Array.isArray(payload)) return holidays;
+	const records = new Map<string, CalendarRecord>();
+	if (!Array.isArray(payload)) return records;
 
 	for (const row of payload) {
 		if (typeof row !== "object" || row === null) continue;
@@ -37,27 +46,54 @@ async function fetchUsMarketHolidays(): Promise<Map<string, string | undefined>>
 		const date = typeof record.date === "string" ? record.date : "";
 		const name = typeof record.name === "string" ? record.name.trim() : "";
 
-		// Only include NYSE/NASDAQ full closures
 		if (
 			!(exchange.includes("NYSE") || exchange.includes("NASDAQ")) ||
-			status !== "closed" ||
 			!/^\d{4}-\d{2}-\d{2}$/.test(date)
 		) {
 			continue;
 		}
 
-		holidays.set(date, name || undefined);
+		if (status === "closed") {
+			// Full-day closure trumps any concurrent early-close record from
+			// another exchange — if either reports "closed", treat the day as closed.
+			records.set(date, { kind: "closed", name: name || undefined });
+		} else if (status === "early-close") {
+			if (records.get(date)?.kind === "closed") continue;
+
+			const closeRaw = typeof record.close === "string" ? record.close : "";
+			const closeDt = closeRaw ? DateTime.fromISO(closeRaw, { zone: "utc" }) : null;
+			if (!closeDt?.isValid) continue;
+
+			const existing = records.get(date);
+			// Prefer the LATEST close among multiple exchanges' early-close
+			// records — implausibly different times resolve in favor of the
+			// later threshold (more conservative override window).
+			if (!existing || existing.kind !== "early-close" || closeDt > existing.closeUtc) {
+				records.set(date, {
+					kind: "early-close",
+					closeUtc: closeDt,
+					name: name || undefined,
+				});
+			}
+		}
 	}
 
-	holidayCache = {
-		expiresAt: now + HOLIDAY_CACHE_TTL_MS,
-		holidays,
+	calendarCache = {
+		expiresAt: now + CALENDAR_CACHE_TTL_MS,
+		records,
 	};
-	return holidays;
+	return records;
 }
 
 /**
- * Return whether a UTC instant falls on a US market-closed date (full-day closure only).
+ * Return whether a UTC instant falls on a US market-closed period.
+ *  - `weekend` — Sat/Sun.
+ *  - `holiday` — full-day exchange closure.
+ *  - `half-day-after-close` — past the early-close on a half-day. Exists so
+ *    callers don't deliver scheduled notifications during the half-day "dead
+ *    zone" between the early close and the regular close, where Massive's
+ *    session detection is undocumented and may incorrectly flag `afterHours: true`.
+ *  - `null` — ordinary trading instants (including mornings of half-days).
  */
 export async function getUsMarketClosureInfoForInstant(
 	utcInstant: DateTime,
@@ -76,9 +112,17 @@ export async function getUsMarketClosureInfoForInstant(
 		return null;
 	}
 
-	const holidays = await fetchUsMarketHolidays();
-	if (holidays.has(isoDate)) {
-		return { reason: "holiday", holidayName: holidays.get(isoDate) };
+	const calendar = await fetchUsMarketCalendar();
+	const record = calendar.get(isoDate);
+	if (!record) return null;
+
+	if (record.kind === "closed") {
+		return { reason: "holiday", holidayName: record.name };
 	}
+
+	if (utcInstant >= record.closeUtc) {
+		return { reason: "half-day-after-close", holidayName: record.name };
+	}
+
 	return null;
 }

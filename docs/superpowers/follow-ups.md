@@ -15,14 +15,17 @@ Items deferred from completed work. Each entry: short context + when it surfaced
 
 The case-insensitive `waitForEmail` matcher and the `token_hash=` || `token=` filter relaxation already landed in this commit so the test stops failing on the *email lookup* step — once the verify-page accepts the legacy param, removing the skip should be a one-line revert.
 
-## Verify Massive's half-day after-hours behavior
+---
 
-**Surfaced:** during extended-hours-notifications design (2026-05-08) and again at implementation (2026-05-09).
+## Investigate per-worktree Supabase isolation (beyond the test lock)
 
-**Why:** on US half-days (regular trading ends at 1:00 PM ET, no after-hours session), Massive's `/v1/marketstatus/now` *should* return `market: "closed"` from 1:00 PM ET onward. We didn't live-verify this. If Massive instead returns `afterHours: true` between 1:00 PM and 4:00 PM ET on those days, the new runtime session detection in `getCurrentMarketSession` would classify the session as `"after"` and fire scheduled notifications with a `day.close` baseline — likely the wrong number, since the regular close just happened minutes earlier.
+**Surfaced:** 2026-05-09, while implementing the half-day override (FU#3) inside a worktree. Hit a wall: the local Supabase DB is shared across main and all worktrees, and a mid-flight migration on main broke the schema_version check from inside the worktree.
 
-**Tracked as:** `tests/lib/schedule/run.test.ts` has an `it.skip("On a half-day after 1:00 PM ET, if Massive returns 'after', behavior is TBD pending live verification", ...)` with a `// TODO(half-day-verification): resolve before final commit, by 2026-05-15` comment. The skipped test serves as the placeholder; resolving it requires either (a) live observation on a real half-day or (b) Massive support clarification.
+**Status:** the cross-worktree test concurrency lock (`tests/lock.ts`, shipped 2026-05-09) addresses the *concurrent test run* class of collisions by serializing test runs across worktrees. It does NOT isolate DB state — a `db:reset` from any worktree still affects the shared DB, and an in-flight migration on main still bleeds into worktrees.
 
-**Half-days in 2026 to watch:** day before Thanksgiving (Wed Nov 25), Christmas Eve (Thu Dec 24), day after Thanksgiving (Fri Nov 27 — 1:00 PM close).
+**Why pursue further:** with weekly+ worktree usage AND ongoing migration work on main, the lock covers serial-test-run collisions but not parallel-dev state divergence. Two options remain if the lock proves insufficient:
 
-**If Massive does return `"after"` during the half-day dead zone:** the simplest mitigation is a pre-check in `getCurrentMarketSession` against `getUsMarketClosureInfoForInstant` — if the calendar says it's a half-day and current ET time is past the early close, override the session to `"closed"`. This stays in the runtime session-detection layer and avoids per-asset adjustments downstream.
+1. **Per-worktree DATABASE within shared Supabase stack** — each worktree's `.env.local` points to a unique DB (e.g. `postgres_<branch>`). One Postgres process, many DBs. Apply migrations per worktree. Requires: (a) a `scripts/db/init-worktree-db.sh` that does `psql -c "CREATE DATABASE \"stocktextalerts_$(git branch --show-current)\""` then runs migrations + seed; (b) per-worktree `.env.local` overriding `SUPABASE_URL`/`DATABASE_URL`; (c) cleanup hook on `git worktree remove`. Open question: can the local stack's GoTrue / PostgREST containers be configured to point at multiple DBs simultaneously, or do we need per-worktree containers?
+2. **Per-worktree FULL stack** — separate `supabase/config.toml` with unique `project_id` + port range per worktree. Perfect isolation, ~1-2 GB RAM + port shuffle per worktree.
+
+Pick when the lock proves insufficient (e.g., next time a worktree's test run is materially blocked by main's DB state).

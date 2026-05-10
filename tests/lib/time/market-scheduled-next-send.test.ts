@@ -92,6 +92,46 @@ describe("calculateNextMarketScheduledSendAtFromTimes", () => {
 		);
 	});
 
+	it("On a half-day past the early close (e.g. 2pm ET on day after Thanksgiving), the slot is skipped and the next trading-day slot is returned", async () => {
+		// Day after Thanksgiving 2026 (Fri Nov 27): NYSE early-close at 1pm ET.
+		// User has 2pm ET scheduled — that slot lands in the dead zone.
+		mockedGetClosure.mockImplementation(async (instant) => {
+			const eastern = instant.setZone("America/New_York");
+			if (eastern.weekday === 6 || eastern.weekday === 7) {
+				return { reason: "weekend" };
+			}
+			const isoDate = eastern.toISODate();
+			if (
+				isoDate === "2026-11-27" &&
+				instant.toMillis() >= DateTime.fromISO("2026-11-27T18:00:00Z").toMillis()
+			) {
+				return {
+					reason: "half-day-after-close",
+					holidayName: "Day after Thanksgiving",
+				};
+			}
+			return null;
+		});
+
+		// Friday Nov 27 2026 at 1:30pm ET (after the 1pm close, before the 2pm slot).
+		const now = DateTime.fromISO("2026-11-27T18:30:00Z");
+		const result = await calculateNextMarketScheduledSendAtFromTimes({
+			etMinutesList: [14 * 60], // 2:00 PM ET
+			now,
+		});
+
+		// Both reasons accumulate: half-day skips the Fri 2pm slot, then weekend
+		// skips Sat + Sun. Final landing is Mon Nov 30 at 2pm ET (EST = -05:00).
+		expect(result.delayReasons).toEqual(
+			expect.arrayContaining(["half-day-after-close", "weekend"]),
+		);
+		expect(result.delayReasons).toHaveLength(2);
+		expect(result.holidayName).toBe("Day after Thanksgiving");
+		expect(result.nextSendAt?.setZone("America/New_York").toISO()).toBe(
+			"2026-11-30T14:00:00.000-05:00",
+		);
+	});
+
 	it("returns no holiday name when API omits name", async () => {
 		mockedGetClosure.mockImplementation(async (instant) => {
 			const eastern = instant.setZone("America/New_York");

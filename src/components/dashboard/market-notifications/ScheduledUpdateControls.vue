@@ -178,7 +178,7 @@ interface Props {
 	maxTimes: number;
 	maxTimesReached: boolean;
 	countdownText: string | null;
-	countdownDelayReasons: Array<"weekend" | "holiday">;
+	countdownDelayReasons: Array<"weekend" | "holiday" | "half-day-after-close">;
 	countdownHolidayName: string | null;
 	countdownDstShift: "spring-forward" | "fall-back" | null;
 	/** Minimum selectable time for the picker (local timezone). */
@@ -267,6 +267,7 @@ const delayReasonLabel = computed(() => {
 	const reasons = props.countdownDelayReasons;
 	const hasWeekend = reasons.includes("weekend");
 	const hasHoliday = reasons.includes("holiday");
+	const hasHalfDay = reasons.includes("half-day-after-close");
 	const name = props.countdownHolidayName;
 	const emoji = name ? HOLIDAY_EMOJIS[name] : undefined;
 	const holidayLabel = name
@@ -278,6 +279,9 @@ const delayReasonLabel = computed(() => {
 	}
 	if (hasHoliday) {
 		return holidayLabel;
+	}
+	if (hasHalfDay) {
+		return name ? `${name} early close${emoji ? ` ${emoji}` : ""}` : "an early close";
 	}
 	return "the weekend";
 });

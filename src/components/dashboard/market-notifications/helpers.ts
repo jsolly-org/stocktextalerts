@@ -17,7 +17,7 @@ export function useScheduledUpdateTiming(options: {
 	const tick = ref(0);
 	const intervalId = ref<number | null>(null);
 	const adjustedNextSendAtIso = ref<string | null>(null);
-	const delayReasons = ref<Array<"weekend" | "holiday">>([]);
+	const delayReasons = ref<Array<"weekend" | "holiday" | "half-day-after-close">>([]);
 	const holidayName = ref<string | null>(null);
 	const dstShift = ref<"spring-forward" | "fall-back" | null>(null);
 	const refreshRequestId = ref(0);
@@ -63,7 +63,7 @@ export function useScheduledUpdateTiming(options: {
 			const payload = (await response.json()) as {
 				ok?: boolean;
 				nextSendAtIso?: string | null;
-				delayReasons?: Array<"weekend" | "holiday">;
+				delayReasons?: Array<"weekend" | "holiday" | "half-day-after-close">;
 				holidayName?: string | null;
 				dstShift?: "spring-forward" | "fall-back" | null;
 			};
