@@ -580,3 +580,34 @@ Resources:
       OKActions:
         - !Ref AlertTopicArn
 
+  # Prod database backups. No formal retention policy yet; manual uploads
+  # via `aws s3 cp` after pg_dump. Versioning is on so an accidental
+  # overwrite is recoverable. Retain on stack delete to avoid losing data.
+  ProdBackupsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub "stocktextalerts-prod-backups-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      VersioningConfiguration:
+        Status: Enabled
+
+Outputs:
+  ProdBackupsBucketName:
+    Description: S3 bucket for production database backups
+    Value: !Ref ProdBackupsBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-ProdBackupsBucketName"
+
