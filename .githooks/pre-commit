@@ -21,5 +21,6 @@ if git diff --cached --name-only | grep -q '^aws/template\.yaml$'; then
 fi
 npm run check:ts
 npm run check:knip
+npm run check:sql
 npm run test
 npm run test:e2e

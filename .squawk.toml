@@ -7,3 +7,4 @@ excluded_rules = [
   "prefer-bigint-over-int",
   "prefer-bigint-over-smallint",
 ]
+

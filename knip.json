@@ -8,6 +8,6 @@
 		"playwright.preview.config.ts"
 	],
 	"ignore": ["src/lib/db/generated/**"],
-	"ignoreDependencies": ["lint-staged"],
+	"ignoreDependencies": ["lint-staged", "squawk-cli"],
 	"ignoreBinaries": ["vercel", "printf", "scripts/ci/run-local-actions.sh"]
 }

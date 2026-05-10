@@ -27,6 +27,7 @@
 		"check:ts": "astro check",
 		"check:biome": "biome check --write --no-errors-on-unmatched",
 		"check:knip": "knip",
+		"check:sql": "bash scripts/db/check-sql.sh",
 		"check:yaml": "yamllint '.github/**/*.yml'",
 		"db:start": "supabase start",
 		"db:stop": "supabase stop",
@@ -51,7 +52,7 @@
 			"yamllint"
 		],
 		"supabase/migrations/*.sql": [
-			"squawk"
+			"bash scripts/db/check-sql.sh"
 		]
 	},
 	"dependencies": {
