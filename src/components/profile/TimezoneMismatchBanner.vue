@@ -52,7 +52,7 @@
 <script lang="ts" setup>
 import { DateTime } from "luxon";
 import { computed, ref, toRefs, watch } from "vue";
-import { updateNotificationTimezonePreference } from "../../lib/api/notification-preferences";
+import { updateProfileTimezone } from "../../lib/api/profile";
 import {
 	isUnauthorizedResponse,
 	redirectToSignIn,
@@ -172,9 +172,7 @@ async function handleUpdateTimezone() {
 	errorMessage.value = null;
 
 	try {
-		const prefs = await updateNotificationTimezonePreference(
-			detectedTimezone.value,
-		);
+		const prefs = await updateProfileTimezone(detectedTimezone.value);
 		if (!prefs) {
 			errorMessage.value = "Failed to update timezone. Please try again.";
 			return;
@@ -202,7 +200,7 @@ async function handleDismissPermanently() {
 	errorMessage.value = null;
 	try {
 		const response = await fetch(
-			"/api/notification-preferences/dismiss-timezone-banner",
+			"/api/profile/dismiss-timezone-banner",
 			{
 				method: "POST",
 				credentials: "same-origin",

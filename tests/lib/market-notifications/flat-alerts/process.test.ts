@@ -188,35 +188,46 @@ describe("processFlatPriceAlerts", () => {
 	});
 
 	it("Re-trigger 27 minutes after first alert on a further 5% move", async () => {
-		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
-		registerTestUserForCleanup(testUser.id);
-		await enableFlatAlerts(testUser.id);
+		// Pin to a known mid-trading-day ET time so the 27-min-ago seed and
+		// the implementation's "today in ET" check land on the same calendar
+		// day — without this, the test flakes when run within ~30 min after
+		// ET midnight (seed lands on yesterday ET → first-of-day, not re-trigger).
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime(new Date("2026-05-09T18:00:00.000Z")); // 14:00 ET
 
-		// Seed first-of-day state as if it fired 27 minutes ago at $195.86
-		const twentySevenMinAgo = new Date(Date.now() - 27 * 60_000).toISOString();
-		await adminClient.from("price_move_alert_state").insert({
-			user_id: testUser.id,
-			symbol: "AAPL",
-			last_notification_price: 195.86,
-			last_notification_at: twentySevenMinAgo,
-		});
+		try {
+			const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
+			registerTestUserForCleanup(testUser.id);
+			await enableFlatAlerts(testUser.id);
 
-		// Price moves another 5.2% from $195.86 to $206.04
-		const quoteMap = new Map([["AAPL", makeQuote({ price: 206.04 })]]);
+			// Seed first-of-day state as if it fired 27 minutes ago at $195.86
+			const twentySevenMinAgo = new Date(Date.now() - 27 * 60_000).toISOString();
+			await adminClient.from("price_move_alert_state").insert({
+				user_id: testUser.id,
+				symbol: "AAPL",
+				last_notification_price: 195.86,
+				last_notification_at: twentySevenMinAgo,
+			});
 
-		const totals = await processFlatPriceAlerts({
-			supabase: adminClient,
-			quoteMap,
-			isMarketOpen: true,
-		});
+			// Price moves another 5.2% from $195.86 to $206.04
+			const quoteMap = new Map([["AAPL", makeQuote({ price: 206.04 })]]);
 
-		expect(totals.alertsTriggered).toBe(1);
-		expect(totals.firstOfDayAlerts).toBe(0);
-		expect(totals.reTriggerAlerts).toBe(1);
-		expect(totals.emailsSent).toBe(1);
+			const totals = await processFlatPriceAlerts({
+				supabase: adminClient,
+				quoteMap,
+				isMarketOpen: true,
+			});
 
-		const state = await getStateRow(testUser.id, "AAPL");
-		expect(Number(state?.last_notification_price)).toBeCloseTo(206.04, 2);
+			expect(totals.alertsTriggered).toBe(1);
+			expect(totals.firstOfDayAlerts).toBe(0);
+			expect(totals.reTriggerAlerts).toBe(1);
+			expect(totals.emailsSent).toBe(1);
+
+			const state = await getStateRow(testUser.id, "AAPL");
+			expect(Number(state?.last_notification_price)).toBeCloseTo(206.04, 2);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it("User with alerts disabled receives no email even on a 10% move", async () => {

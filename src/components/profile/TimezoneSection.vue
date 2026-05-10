@@ -62,10 +62,8 @@ import { DateTime } from "luxon";
 import { onMounted, ref, toRefs, watch } from "vue";
 
 import GlobeAltIcon from "../../icons/globe-alt.svg?component";
-import {
-	fetchCurrentNotificationPreferences,
-	updateNotificationTimezonePreference,
-} from "../../lib/api/notification-preferences";
+import { fetchCurrentNotificationPreferences } from "../../lib/api/notification-preferences";
+import { updateProfileTimezone } from "../../lib/api/profile";
 import { CARD_GRADIENT_ACCENTS, DEFAULT_TIMEZONE } from "../../lib/constants";
 import type { NotificationPreferencesSnapshot, User } from "../../lib/db";
 import { rootLogger } from "../../lib/logging";
@@ -215,7 +213,7 @@ async function saveTimezone(nextTimezone: string) {
 	isSaving.value = true;
 
 	try {
-		const prefs = await updateNotificationTimezonePreference(nextTimezone);
+		const prefs = await updateProfileTimezone(nextTimezone);
 		if (!prefs) {
 			statusMessage.value = "Failed to update timezone. Please try again.";
 			statusTone.value = "error";

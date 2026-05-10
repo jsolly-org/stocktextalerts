@@ -507,9 +507,7 @@ test.describe("sanity tests", () => {
 
 		await Promise.all([
 			page.waitForResponse(
-				(response) =>
-					response.url().includes("/api/notification-preferences/timezone") &&
-					response.status() === 200,
+				(response) => response.url().includes("/api/profile/timezone") && response.status() === 200,
 				{ timeout: 15_000 },
 			),
 			timezoneSelect.selectOption(targetTimezone),

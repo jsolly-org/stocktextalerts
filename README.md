@@ -309,8 +309,9 @@ Notes:
 The canonical endpoint for fetching current user preferences is `GET /api/notification-preferences/current`.
 - `GET /api/notification-preferences/current`
 - `POST /api/notification-preferences/update`
-- `POST /api/notification-preferences/timezone`
-- `POST /api/notification-preferences/dismiss-timezone-banner`
+- `POST /api/profile/timezone`
+- `POST /api/profile/dismiss-timezone-banner`
+- `POST /api/profile/time-format`
 - `GET /api/price-targets`
 - `POST /api/price-targets/save`
 - `POST /api/messaging/inbound` (Twilio webhook for STOP/START/STOP EMAIL/STOP ALL/HELP)

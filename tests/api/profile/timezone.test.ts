@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { POST as POSTDismissBanner } from "../../../src/pages/api/notification-preferences/dismiss-timezone-banner";
-import { POST as POSTTimezone } from "../../../src/pages/api/notification-preferences/timezone";
+import { POST as POSTDismissBanner } from "../../../src/pages/api/profile/dismiss-timezone-banner";
+import { POST as POSTTimezone } from "../../../src/pages/api/profile/timezone";
 import { createApiContext } from "../../helpers/api-context";
 import { TEST_PASSWORD } from "../../helpers/constants";
 import { adminClient, createAuthenticatedCookies } from "../../helpers/test-env";
@@ -20,12 +20,9 @@ describe("A signed-in user dismisses the timezone mismatch banner.", () => {
 
 		const cookies = await createAuthenticatedCookies(testUser.email, TEST_PASSWORD);
 
-		const request = new Request(
-			"http://localhost/api/notification-preferences/dismiss-timezone-banner",
-			{
-				method: "POST",
-			},
-		);
+		const request = new Request("http://localhost/api/profile/dismiss-timezone-banner", {
+			method: "POST",
+		});
 
 		const response = await POSTDismissBanner(createApiContext({ request, cookies }));
 
@@ -61,7 +58,7 @@ describe("A signed-in user updates their timezone.", () => {
 		const formData = new FormData();
 		formData.append("timezone", "Etc/UTC");
 
-		const request = new Request("http://localhost/api/notification-preferences/timezone", {
+		const request = new Request("http://localhost/api/profile/timezone", {
 			method: "POST",
 			body: formData,
 		});
@@ -119,7 +116,7 @@ describe("A signed-in user updates their timezone.", () => {
 		const formData = new FormData();
 		formData.append("timezone", "America/Los_Angeles");
 
-		const request = new Request("http://localhost/api/notification-preferences/timezone", {
+		const request = new Request("http://localhost/api/profile/timezone", {
 			method: "POST",
 			body: formData,
 		});
