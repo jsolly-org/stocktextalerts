@@ -9,7 +9,7 @@ Run Act locally before pushing changes that affect CI, workflows, tests, or dev 
 
 ## Common runs
 
-- **Full test-and-build job locally** (composite action: migrations, npm test, test:smoke, build):
+- **Full test-and-build job locally** (composite action: migrations, npm test, test:e2e, build):
   ```bash
   npm run gha:local:test-build
   ```
@@ -31,7 +31,7 @@ Run Act locally before pushing changes that affect CI, workflows, tests, or dev 
 2. Any change to `tests/**` that isn't purely additive (moving/renaming tests, changing setup/teardown, test helpers, vitest config, playwright config).
 3. Any change to `tests/run-vitest.ts`, `playwright.config.ts`, `tests/setup.ts`, `tests/helpers/live-api.ts`, or anything else that gates test behavior on env vars.
 4. Any change to `supabase/config.toml` (service toggles, migration loader, SMTP settings).
-5. Any change to `package.json` scripts that CI calls (`test`, `test:ci`, `test:smoke`, `test:e2e`, `build`).
+5. Any change to `package.json` scripts that CI calls (`test`, `test:ci`, `test:e2e`, `build`).
 6. Any change to core build tooling: `astro.config.mjs`, `vitest.config.ts`, `tsconfig*.json`.
 7. Any change that adds/removes a `@*/`-scoped dependency or shifts dev deps to runtime deps (or vice versa).
 

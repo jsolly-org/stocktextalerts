@@ -14,7 +14,7 @@ import type { SupabaseAdminClient } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
 
 /** Dependencies injected into `runDelistingSweep`. */
-export interface DelistingSweepDeps {
+interface DelistingSweepDeps {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
 	sendEmail: EmailSender;
@@ -28,7 +28,7 @@ export interface DelistingSweepDeps {
 }
 
 /** Summary counters returned by `runDelistingSweep`. */
-export interface DelistingSweepResult {
+interface DelistingSweepResult {
 	symbolsChecked: number;
 	newlyDetectedDelistings: number;
 	reprocessedDelistings: number;

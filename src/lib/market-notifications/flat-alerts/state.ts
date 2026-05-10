@@ -2,7 +2,7 @@ import { rootLogger } from "../../logging";
 import type { SupabaseAdminClient } from "../../schedule/helpers";
 
 /** Row from price_move_alert_state — the per-(user, symbol) flat-alert state. */
-export interface FlatPriceAlertStateRow {
+interface FlatPriceAlertStateRow {
 	userId: string;
 	symbol: string;
 	lastNotificationPrice: number;

@@ -38,7 +38,7 @@ export const SESSION_CHANGE_FALLBACK_FOOTNOTE_TEXT =
  *
  * For pre/regular sessions, returns the change-% as-returned by Massive.
  */
-export function computeSessionChangePercent(
+function computeSessionChangePercent(
 	price: AssetPrice,
 	session: ActiveMarketSession,
 ): { changePercent: number; usedFallback: boolean } {

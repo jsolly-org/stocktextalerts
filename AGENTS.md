@@ -7,8 +7,8 @@ npm run dev                # Dev server at http://localhost:4321
 npm run build              # Production build
 npm test                   # Vitest (requires local Supabase running)
 npm run test:e2e           # Playwright E2E tests
-npm run test:smoke         # Quick smoke tests
 npm run check:ts           # TypeScript check
+npm run check:knip         # Find unused exports / files / dependencies
 npm run check:biome        # Biome format + lint check
 npm run db:start           # Start local Supabase (Docker/Podman)
 npm run db:reset           # Reset DB: regenerate seed, apply migrations, regen types

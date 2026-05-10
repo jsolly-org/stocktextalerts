@@ -31,7 +31,7 @@ type MailpitMessageResponse = {
 	To?: MailpitRecipient[];
 };
 
-export type MailpitMessage = {
+type MailpitMessage = {
 	id: string;
 	subject: string;
 	to: string[];
@@ -40,7 +40,7 @@ export type MailpitMessage = {
 };
 
 /** List all messages currently in Mailpit. */
-export async function listMailpitMessages(): Promise<MailpitListRow[]> {
+async function listMailpitMessages(): Promise<MailpitListRow[]> {
 	const response = await fetch(`${MAILPIT_BASE}/api/v1/messages`);
 	if (!response.ok) {
 		throw new Error(`Mailpit list failed: ${response.status} ${await response.text()}`);
@@ -50,7 +50,7 @@ export async function listMailpitMessages(): Promise<MailpitListRow[]> {
 }
 
 /** Fetch a single rendered message by ID. */
-export async function getMailpitMessage(id: string): Promise<MailpitMessage> {
+async function getMailpitMessage(id: string): Promise<MailpitMessage> {
 	const response = await fetch(`${MAILPIT_BASE}/api/v1/message/${encodeURIComponent(id)}`);
 	if (!response.ok) {
 		throw new Error(`Mailpit fetch failed: ${response.status} ${await response.text()}`);
@@ -91,7 +91,7 @@ type WaitOptions = {
  * first unlucky request. The timeout still bounds total wall time; the
  * last error is included in the timeout message for debuggability.
  */
-export async function waitForMailpitMessage(
+async function waitForMailpitMessage(
 	predicate: (row: MailpitListRow) => boolean,
 	options: WaitOptions = {},
 ): Promise<MailpitMessage> {

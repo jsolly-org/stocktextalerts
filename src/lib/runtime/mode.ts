@@ -8,9 +8,9 @@
  * belt-and-suspenders fallback for any runtime that skips NODE_ENV.
  */
 
-export type RuntimeMode = "production" | "development" | "test";
+type RuntimeMode = "production" | "development" | "test";
 
-export function currentMode(): RuntimeMode {
+function currentMode(): RuntimeMode {
 	const mode = process.env.NODE_ENV ?? process.env.MODE;
 	if (mode === "production" || mode === "test") {
 		return mode;

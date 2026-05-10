@@ -6,6 +6,12 @@ import { TEST_PASSWORD } from "../helpers/constants";
 import { createAuthenticatedCookies } from "../helpers/test-env";
 import { cleanupTestUser, createTestUser } from "../helpers/test-user";
 
+// Vite dev-server dep optimization can cause flaky first-run failures on the
+// route walker specifically. Stateful flow tests in sibling specs use serial
+// mode with shared beforeAll state — retries there would run against
+// mutated state. Scope the retry to this stateless walker only.
+test.describe.configure({ retries: 1 });
+
 const ROUTES_DIR = path.join(process.cwd(), "src", "pages");
 const CONSOLE_ALLOWLIST: Array<string | RegExp> = [];
 

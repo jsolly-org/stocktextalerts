@@ -17,7 +17,7 @@ const VOLUME_GATE_PCT = 0.5;
 Types
 ============= */
 
-export interface SignalBreakdown {
+interface SignalBreakdown {
 	name: string;
 	points: number;
 	maxPoints: number;
@@ -25,7 +25,7 @@ export interface SignalBreakdown {
 	detail: string;
 }
 
-export interface AnomalyResult {
+interface AnomalyResult {
 	score: number;
 	signals: SignalBreakdown[];
 	summary: string;

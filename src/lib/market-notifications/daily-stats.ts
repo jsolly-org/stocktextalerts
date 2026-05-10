@@ -10,7 +10,7 @@ const logger = createLogger({ module: "daily-stats" });
 Types
 ============= */
 
-export interface DailyAssetStats {
+interface DailyAssetStats {
 	symbol: string;
 	avgVolume20d: number | null;
 	atr14: number | null;

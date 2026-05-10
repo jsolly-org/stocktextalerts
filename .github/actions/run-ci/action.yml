@@ -194,9 +194,9 @@ runs:
     - name: Test
       shell: bash
       run: npm run test:ci
-    - name: Smoke tests
+    - name: E2E tests
       shell: bash
-      run: npm run test:smoke
+      run: npm run test:e2e
     - name: Build application
       shell: bash
       run: npm run build

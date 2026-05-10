@@ -5,7 +5,7 @@ import { type SparklineTimeLabel, toSvgSparklineImg } from "../svg-sparkline";
 
 /** Format minutes-from-midnight as compact time for sparkline axis labels.
  *  12h: "9:30a", "2p", "12:45p"   24h: "9:30", "14:00", "12:45" */
-export function formatCompactTime(totalMinutes: number, is24: boolean): string {
+function formatCompactTime(totalMinutes: number, is24: boolean): string {
 	const h24 = Math.floor(totalMinutes / 60);
 	const m = totalMinutes % 60;
 	if (is24) {
@@ -17,7 +17,7 @@ export function formatCompactTime(totalMinutes: number, is24: boolean): string {
 }
 
 /** Market-open timestamp (ms) for the calendar day of the given timestamp, in ET. */
-export function getMarketOpenTimestampMs(referenceMs: number): number {
+function getMarketOpenTimestampMs(referenceMs: number): number {
 	const marketOpenHour = Math.floor(US_MARKET_OPEN_EASTERN_MINUTES / 60);
 	const marketOpenMinute = US_MARKET_OPEN_EASTERN_MINUTES % 60;
 	return DateTime.fromMillis(referenceMs)
@@ -39,7 +39,7 @@ function getMinutesFromMidnightET(ms: number): number {
 
 /** Build time-axis labels for an intraday sparkline anchored to market open (9:30 ET).
  *  Returns empty when endTimestampMs is missing. Axis spans market-open to end (not first-bar to end). */
-export function buildIntradayTimeLabels(
+function buildIntradayTimeLabels(
 	is24: boolean,
 	endTimestampMs: number | null | undefined,
 ): SparklineTimeLabel[] {

@@ -5,7 +5,7 @@ import { calculateNextSendAtFromTimes } from "./scheduled-times";
 
 const MAX_CANDIDATE_ITERATIONS = 400;
 
-export type DstShift = "spring-forward" | "fall-back";
+type DstShift = "spring-forward" | "fall-back";
 
 interface NextMarketScheduledSendResult {
 	nextSendAt: DateTime | null;
@@ -25,7 +25,7 @@ interface NextMarketScheduledSendResult {
  * Returns `"spring-forward"` if ET moved EST → EDT (offset increased),
  * `"fall-back"` if ET moved EDT → EST (offset decreased), `null` otherwise.
  */
-export function detectUsDstShiftBetween(from: DateTime, to: DateTime): DstShift | null {
+function detectUsDstShiftBetween(from: DateTime, to: DateTime): DstShift | null {
 	if (to <= from) return null;
 	const fromOffset = from.setZone(US_MARKET_TIMEZONE).offset;
 	const toOffset = to.setZone(US_MARKET_TIMEZONE).offset;

@@ -20,6 +20,6 @@ if git diff --cached --name-only | grep -q '^aws/template\.yaml$'; then
   sam validate --lint --template-file aws/template.yaml
 fi
 npm run check:ts
+npm run check:knip
 npm run test
-npm run test:smoke
 npm run test:e2e

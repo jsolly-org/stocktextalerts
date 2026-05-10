@@ -161,7 +161,7 @@ function downsample(values: number[], target: number): number[] {
 }
 
 /** Build the SMS body for a flat price alert. */
-export function formatFlatPriceAlertSms(options: {
+function formatFlatPriceAlertSms(options: {
 	user: FlatPriceAlertUser;
 	symbol: string;
 	quote: ExtendedAssetQuote;
@@ -249,7 +249,7 @@ function buildSubject(options: {
 }
 
 /** Build both text and HTML representations of the flat price alert email. */
-export function formatFlatPriceAlertEmail(options: {
+function formatFlatPriceAlertEmail(options: {
 	user: FlatPriceAlertUser;
 	symbol: string;
 	companyName: string;
@@ -546,6 +546,3 @@ export async function deliverFlatPriceAlert(options: {
 		}
 	}
 }
-
-// Export for test access
-export { buildSubject };

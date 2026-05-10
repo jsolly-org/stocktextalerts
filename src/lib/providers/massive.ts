@@ -824,7 +824,7 @@ Previous-day bar + reference lookup
  * `changePercent` is always 0 for this path — it represents stale data
  * from the last trading day, not today's change.
  */
-export interface PrevDayBar {
+interface PrevDayBar {
 	price: number;
 	changePercent: number;
 	dayHigh: number | null;
@@ -929,7 +929,7 @@ export type TickerReferenceStatus =
  * row has `active === false` AND a `delisted_utc` string of length ≥ 10.
  * Everything else is `unknown` — never infer a delisting from absence.
  */
-export async function fetchTickerReference(symbol: string): Promise<TickerReferenceStatus> {
+async function fetchTickerReference(symbol: string): Promise<TickerReferenceStatus> {
 	const data = await marketDataFetch(
 		"/v3/reference/tickers",
 		{ ticker: symbol, active: "false", limit: "1" },
