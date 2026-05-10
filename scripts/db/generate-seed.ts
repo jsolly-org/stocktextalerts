@@ -606,6 +606,11 @@ async function main() {
   Be careful applying this seed to production.
 */
 
+-- The squashed migration ends with \`set_config('search_path', '', false)\`
+-- (pg_dump default). Restore a sane search_path that includes \`extensions\`
+-- so calls like crypt()/gen_salt() resolve without per-callsite qualification.
+SET search_path = public, extensions, pg_catalog;
+
 ${sections.join('\n\n')}
 `;
 

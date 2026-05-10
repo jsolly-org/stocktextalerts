@@ -122,6 +122,10 @@ runs:
       if: inputs.skip-lint != 'true'
       shell: bash
       run: npm run check:ts
+    - name: Squawk migrations
+      if: inputs.skip-lint != 'true'
+      shell: bash
+      run: npm run check:sql
     - name: Cache Playwright browsers
       id: playwright-cache
       uses: actions/cache@v5

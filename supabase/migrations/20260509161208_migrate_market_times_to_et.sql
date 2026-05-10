@@ -3286,3 +3286,14 @@ INSERT INTO public.timezones (value, label, display_order, active) VALUES ('Afri
 INSERT INTO public.timezones (value, label, display_order, active) VALUES ('Africa/Lagos', 'West Africa Time (WAT)', 122, true);
 INSERT INTO public.timezones (value, label, display_order, active) VALUES ('Africa/Nairobi', 'East Africa Time (EAT)', 123, true);
 INSERT INTO public.timezones (value, label, display_order, active) VALUES ('Africa/Casablanca', 'Western European Time - Casablanca (WET)', 124, true);
+
+
+-- Advance IDENTITY sequence past seeded market_events ids; without this, fresh
+-- environments (db:reset) hit a primary-key collision the first time the cron
+-- upserts an IPO event, since the sequence still starts at 1 while seeded ids
+-- already occupy 36-265.
+SELECT pg_catalog.setval(
+  'public.market_events_id_seq',
+  (SELECT COALESCE(MAX(id), 0) FROM public.market_events),
+  true
+);

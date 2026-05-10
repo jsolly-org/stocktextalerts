@@ -580,9 +580,14 @@ Resources:
       OKActions:
         - !Ref AlertTopicArn
 
-  # Prod database backups. No formal retention policy yet; manual uploads
-  # via `aws s3 cp` after pg_dump. Versioning is on so an accidental
-  # overwrite is recoverable. Retain on stack delete to avoid losing data.
+  # Prod database backups. Manual uploads via `aws s3 cp` after pg_dump.
+  # Versioning is on so an accidental overwrite is recoverable.
+  # Retain on stack delete to avoid losing data.
+  #
+  # Lifecycle:
+  #   - Current versions: transition to Glacier IR after 30 days, expire at 365.
+  #   - Non-current versions (overwrites): expire at 90 days.
+  #   - Aborted multipart uploads: clean up after 7 days.
   ProdBackupsBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
@@ -603,6 +608,22 @@ Resources:
           - ObjectOwnership: BucketOwnerEnforced
       VersioningConfiguration:
         Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: TransitionAndExpireCurrent
+            Status: Enabled
+            Transitions:
+              - StorageClass: GLACIER_IR
+                TransitionInDays: 30
+            ExpirationInDays: 365
+          - Id: ExpireNonCurrent
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 90
+          - Id: AbortIncompleteUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
 
 Outputs:
   ProdBackupsBucketName:

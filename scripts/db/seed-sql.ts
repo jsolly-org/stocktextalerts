@@ -207,7 +207,7 @@ BEGIN
       'authenticated',
       'authenticated',
       '${escapedEmail}',
-      extensions.crypt('${escapedPassword}', extensions.gen_salt('bf')),
+      crypt('${escapedPassword}', gen_salt('bf')),
       now(),
       now(),
       now(),

@@ -33,7 +33,7 @@ jobs:
         run: npm run check:yaml
       - name: Type check
         run: npm run check:ts
-      - name: Squawk migrations (all)
+      - name: Squawk migrations
         run: npm run check:sql
 
   test-and-build:
