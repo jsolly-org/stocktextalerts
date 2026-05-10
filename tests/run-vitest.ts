@@ -1,5 +1,6 @@
 #!/usr/bin/env npx tsx
 import { spawnSync } from "node:child_process";
+import { acquireTestLock, formatContentionMessage, TestLockHeldError } from "./lock";
 
 interface ParsedArgs {
 	liveProviders: string | null;
@@ -79,6 +80,16 @@ function main() {
 	// their shell rc would silently route real Twilio/SES calls during
 	// tests (the 2026-04-11 incident class).
 	process.env.NODE_ENV = "test";
+
+	try {
+		acquireTestLock("vitest");
+	} catch (err) {
+		if (err instanceof TestLockHeldError) {
+			process.stderr.write(formatContentionMessage(err));
+			process.exit(1);
+		}
+		throw err;
+	}
 
 	const { liveProviders, vitestArgs } = parseArgs(process.argv.slice(2));
 	const filtered = liveProviders !== null ? filterLiveProviders(liveProviders) : "";
