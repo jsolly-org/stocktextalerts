@@ -64,7 +64,7 @@ describe("fetchCompanyNews", () => {
 
 		const items = await fetchCompanyNews("MSFT", "2025-06-08", "2025-06-15");
 
-		expect(items[0].datetime).toBe(Math.floor(Date.parse("2025-06-15T14:00:00Z") / 1000));
+		expect(items[0]?.datetime).toBe(Math.floor(Date.parse("2025-06-15T14:00:00Z") / 1000));
 	});
 
 	it("returns empty array when response has no results", async () => {
@@ -116,7 +116,7 @@ describe("fetchCompanyNews", () => {
 		const items = await fetchCompanyNews("NVDA", "2026-02-07", "2026-02-14");
 
 		expect(items).toHaveLength(1);
-		expect(items[0].headline).toBe("Good headline");
+		expect(items[0]?.headline).toBe("Good headline");
 	});
 
 	it("defaults optional fields when publisher/description/url are missing", async () => {
@@ -196,8 +196,8 @@ describe("fetchCompanyNews", () => {
 		const items = await fetchCompanyNews("AVGO", "2026-02-07", "2026-02-14");
 
 		expect(items).toHaveLength(2);
-		expect(items[0].headline).toBe("AVGO beats earnings expectations");
-		expect(items[1].headline).toBe("Chip sector update");
+		expect(items[0]?.headline).toBe("AVGO beats earnings expectations");
+		expect(items[1]?.headline).toBe("Chip sector update");
 	});
 
 	it("filters out items with invalid published_utc", async () => {
@@ -217,6 +217,6 @@ describe("fetchCompanyNews", () => {
 		const items = await fetchCompanyNews("NVDA", "2026-02-07", "2026-02-14");
 
 		expect(items).toHaveLength(1);
-		expect(items[0].headline).toBe("Good headline");
+		expect(items[0]?.headline).toBe("Good headline");
 	});
 });

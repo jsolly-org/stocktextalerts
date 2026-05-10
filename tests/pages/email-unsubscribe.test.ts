@@ -23,7 +23,6 @@ describe("A user clicks the email unsubscribe link.", () => {
 			emailNotificationsEnabled: true,
 			smsNotificationsEnabled: true,
 			phoneVerified: true,
-			scheduledUpdatesEnabled: true,
 			phoneCountryCode: "+1",
 			phoneNumber: generateUniquePhoneNumber(),
 		});

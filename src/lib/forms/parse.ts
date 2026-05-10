@@ -30,20 +30,22 @@ export function parseWithSchema<TSchema extends FormSchema, TResult>(
 ): ParseOutcome<InferSchema<TSchema> | TResult> {
 	const { keys, rawData, validationErrors } = readRawSchemaData(formData, schema);
 
-	if (validationErrors.length > 0) {
+	const [firstValidationError] = validationErrors;
+	if (firstValidationError) {
 		return {
 			ok: false,
-			error: validationErrors[0],
+			error: firstValidationError,
 			allErrors: validationErrors,
 		};
 	}
 
 	const { errors, output } = processFields(keys, rawData, schema);
 
-	if (errors.length > 0) {
+	const [firstError] = errors;
+	if (firstError) {
 		return {
 			ok: false,
-			error: errors[0],
+			error: firstError,
 			allErrors: errors,
 		};
 	}

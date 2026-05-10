@@ -8,6 +8,8 @@ import { DateTime } from "luxon";
 import { describe, expect, it, vi } from "vitest";
 import { processDailyDigestUser } from "../../../src/lib/daily-digest/process";
 import { rootLogger } from "../../../src/lib/logging";
+import type { EmailSender } from "../../../src/lib/messaging/email/utils";
+import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import type { UserRecord } from "../../../src/lib/messaging/types";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
@@ -72,8 +74,10 @@ describe("Daily digest process scenarios", () => {
 			supabase: adminClient,
 			logger: rootLogger,
 			currentTime: now,
-			sendEmail: async () => ({ success: true }),
-			getSmsSender: () => ({ sender: "+15555550000" }),
+			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
+			getSmsSender: () => ({
+				sender: vi.fn<SmsSender>(async () => ({ success: true })),
+			}),
 		});
 
 		expect(stats.skipped).toBe(1);
@@ -134,8 +138,8 @@ describe("Daily digest process scenarios", () => {
 		expect(selectError).toBeNull();
 		expect(userRow).not.toBeNull();
 
-		const sendEmail = vi.fn(async () => ({ success: true }));
-		const smsSender = vi.fn(async () => ({ success: true }));
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
+		const smsSender = vi.fn<SmsSender>(async () => ({ success: true }));
 		const stats = await processDailyDigestUser({
 			user: userRow as UserRecord,
 			supabase: adminClient,

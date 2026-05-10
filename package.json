@@ -13,7 +13,7 @@
 		"build:preview": "ASTRO_ADAPTER=node node --env-file-if-exists=.env.local ./node_modules/.bin/astro build",
 		"deploy:aws": "npm --prefix aws run deploy",
 		"preview": "ASTRO_ADAPTER=node node --env-file-if-exists=.env.local ./node_modules/.bin/astro preview --port 4323",
-		"prepare": "if [ -z \"$CI\" ]; then husky; fi",
+		"prepare": "if [ -z \"$CI\" ]; then git config core.hooksPath .githooks; fi",
 		"pretest": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/doctor.ts",
 		"test": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-vitest.ts",
 		"test:ci": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-vitest.ts",
@@ -24,7 +24,7 @@
 		"gha:local:lint": "scripts/ci/run-local-actions.sh --job lint",
 		"gha:local:test-build": "scripts/ci/run-local-actions.sh --job test-and-build",
 		"gha:local:e2e": "scripts/ci/run-local-actions.sh --job e2e",
-		"check:ts": "tsc --noEmit --skipLibCheck",
+		"check:ts": "astro check",
 		"check:biome": "biome check --write --no-errors-on-unmatched",
 		"check:knip": "knip",
 		"check:yaml": "yamllint '.github/**/*.yml'",
@@ -65,6 +65,7 @@
 		"vue": "^3.5.32"
 	},
 	"devDependencies": {
+		"@astrojs/check": "^0.9.9",
 		"@astrojs/node": "^10.0.4",
 		"@astrojs/sitemap": "^3.7.2",
 		"@astrojs/ts-plugin": "^1.10.7",
@@ -78,7 +79,7 @@
 		"@types/nodemailer": "^8.0.0",
 		"@types/pg": "^8.20.0",
 		"astro": "^6.1.9",
-		"husky": "^9.1.7",
+		"chrome-launcher": "^1.2.1",
 		"knip": "^6.2.0",
 		"lighthouse": "^13.0.3",
 		"lint-staged": "^16.4.0",
@@ -87,6 +88,7 @@
 		"tailwindcss": "^4.2.2",
 		"tsx": "^4.21.0",
 		"typescript": "^5.9.3",
+		"vite": "^7.3.2",
 		"vite-svg-loader": "^5.1.1",
 		"vitest": "^4.1.2",
 		"yaml-lint": "^1.7.0"

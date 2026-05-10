@@ -38,8 +38,7 @@ describe("A signed-in user dismisses the timezone mismatch banner.", () => {
 			.single();
 
 		expect(error).toBeNull();
-		expect(updatedUser).not.toBeNull();
-		expect(updatedUser.dismiss_timezone_mismatch_prompts).toBe(true);
+		expect(updatedUser?.dismiss_timezone_mismatch_prompts).toBe(true);
 	});
 });
 
@@ -78,8 +77,7 @@ describe("A signed-in user updates their timezone.", () => {
 			.single();
 
 		expect(error).toBeNull();
-		expect(updatedUser).not.toBeNull();
-		expect(updatedUser.timezone).toBe("Etc/UTC");
+		expect(updatedUser?.timezone).toBe("Etc/UTC");
 	});
 
 	it("Timezone change leaves ET-canonical market_scheduled invariant and shifts daily_digest to the new local time.", async () => {

@@ -210,7 +210,7 @@ test.describe("delivery times and timepicker", () => {
 		}
 		// Auto-packed slots must be strictly increasing (normalized + deduped).
 		for (let i = 1; i < slots.length; i += 1) {
-			expect(slots[i]).toBeGreaterThan(slots[i - 1]);
+			expect(slots[i]).toBeGreaterThan(slots[i - 1] as number);
 		}
 	});
 

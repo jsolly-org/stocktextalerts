@@ -39,7 +39,7 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 		expect(payload).toBeTruthy();
 		expect(typeof payload).toBe("object");
 
-		const results = (payload as { results?: unknown }).results;
+		const results = (payload as { results?: unknown[] }).results;
 		expect(Array.isArray(results)).toBe(true);
 		expect(results?.length ?? 0).toBeGreaterThan(0);
 
@@ -57,7 +57,8 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 	});
 
 	it("returns asset prices for symbols via fetchAssetPrices", async () => {
-		const priceMap = await fetchAssetPrices(["SPY", "AAPL"]);
+		const session = await getCurrentMarketSession();
+		const priceMap = await fetchAssetPrices(["SPY", "AAPL"], session);
 		expect(priceMap).toBeInstanceOf(Map);
 		expect(priceMap.size).toBe(2);
 
@@ -116,7 +117,7 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 		// notifications: caller passes the live session, which is used to pick
 		// the prev-day-bar fallback when a snapshot quote is missing.
 		const session = await getCurrentMarketSession();
-		const priceMap = await fetchAssetPrices(["SPY", "AAPL"]);
+		const priceMap = await fetchAssetPrices(["SPY", "AAPL"], session);
 		expect(priceMap).toBeInstanceOf(Map);
 		// Even with `session === "closed"` (e.g. weekends), the fallback should
 		// return prev-day bar data so prices remain renderable.
@@ -128,7 +129,8 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 	});
 
 	it("returns extended quotes (day high/low/open/volume) for symbols via fetchExtendedQuotes", async () => {
-		const quoteMap = await fetchExtendedQuotes(["SPY", "AAPL"]);
+		const session = await getCurrentMarketSession();
+		const quoteMap = await fetchExtendedQuotes(["SPY", "AAPL"], session);
 		expect(quoteMap).toBeInstanceOf(Map);
 		expect(quoteMap.size).toBe(2);
 
@@ -237,9 +239,9 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 		expect(result.data.length).toBeGreaterThan(0);
 
 		const first = result.data[0];
-		expect(typeof first.ticker).toBe("string");
-		expect(typeof first.exDividendDate).toBe("string");
-		expect(typeof first.cashAmount).toBe("number");
+		expect(typeof first?.ticker).toBe("string");
+		expect(typeof first?.exDividendDate).toBe("string");
+		expect(typeof first?.cashAmount).toBe("number");
 	});
 
 	it("returns splits data from the /v3/reference/splits endpoint", async () => {
@@ -269,9 +271,9 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 		expect(Array.isArray(result.data)).toBe(true);
 		if (result.data.length > 0) {
 			const first = result.data[0];
-			expect(typeof first.ticker).toBe("string");
-			expect(typeof first.date).toBe("string");
-			expect(first.date.length).toBeGreaterThanOrEqual(10);
+			expect(typeof first?.ticker).toBe("string");
+			expect(typeof first?.date).toBe("string");
+			expect((first?.date ?? "").length).toBeGreaterThanOrEqual(10);
 		}
 	});
 
@@ -295,9 +297,9 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 		expect((payload as unknown[]).length).toBeGreaterThan(0);
 
 		const first = (payload as Record<string, unknown>[])[0];
-		expect(typeof first.exchange).toBe("string");
-		expect(typeof first.date).toBe("string");
-		expect(typeof first.status).toBe("string");
+		expect(typeof first?.exchange).toBe("string");
+		expect(typeof first?.date).toBe("string");
+		expect(typeof first?.status).toBe("string");
 	});
 
 	it("returns company news from the /v2/reference/news endpoint", async () => {
@@ -310,8 +312,8 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 		expect(items.length).toBeGreaterThan(0);
 
 		const first = items[0];
-		expect(typeof first.headline).toBe("string");
-		expect(typeof first.datetime).toBe("number");
+		expect(typeof first?.headline).toBe("string");
+		expect(typeof first?.datetime).toBe("number");
 	});
 
 	it("returns gainers and losers from the /v2/snapshot/.../{direction} endpoint", async () => {
@@ -387,12 +389,12 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 			expect(spitRaw.updated).toBe(0);
 		} else {
 			// SPIT now has valid trading data; verify the quote is well-formed.
-			expect(spitQuote.price).toBeGreaterThan(0);
+			expect(spitQuote?.price).toBeGreaterThan(0);
 		}
 
 		// When market is closed, production pricing should backfill missing snapshot rows via prev-close.
 		if (market === "closed") {
-			const productionAssetPrices = await fetchAssetPrices(["SPIT", "SPY"]);
+			const productionAssetPrices = await fetchAssetPrices(["SPIT", "SPY"], "closed");
 			expect(productionAssetPrices.get("SPIT")).not.toBeNull();
 			expect(productionAssetPrices.get("SPY")).not.toBeNull();
 		}
@@ -475,8 +477,8 @@ describeFinnhubLive("Finnhub live API (opt-in)", () => {
 		const aaplNews = result.news.get("AAPL");
 		expect(Array.isArray(aaplNews)).toBe(true);
 		if (aaplNews && aaplNews.length > 0) {
-			expect(typeof aaplNews[0].headline).toBe("string");
-			expect(typeof aaplNews[0].datetime).toBe("number");
+			expect(typeof aaplNews[0]?.headline).toBe("string");
+			expect(typeof aaplNews[0]?.datetime).toBe("number");
 		}
 	});
 });

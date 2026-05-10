@@ -4,13 +4,16 @@ import {
 	ROBOTS_ONLY_DISALLOW_PREFIXES,
 } from "../../src/lib/seo/excluded-routes";
 import { GET as getRobotsTxt } from "../../src/pages/robots.txt";
+import { createApiContext } from "../helpers/api-context";
 
 describe("SEO exclusion lists stay in sync.", () => {
 	it("robots.txt output contains Disallow lines for all excluded prefixes.", async () => {
 		const previousVercelUrl = process.env.VERCEL_URL;
 		process.env.VERCEL_URL ??= "https://example.com";
 		try {
-			const response = await getRobotsTxt();
+			const response = await getRobotsTxt(
+				createApiContext({ request: new Request("http://localhost/robots.txt") }),
+			);
 			const body = await response.text();
 
 			const expectedDisallowLines = [

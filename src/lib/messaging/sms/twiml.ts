@@ -21,6 +21,6 @@ function escapeForXml(message: string): string {
 	};
 
 	return message.replace(/[&<>"']/g, (character) => {
-		return replacements[character];
+		return replacements[character] ?? character;
 	});
 }

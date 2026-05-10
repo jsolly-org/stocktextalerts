@@ -5,7 +5,7 @@ import type { AssetPriceMap } from "../../../src/lib/providers/price-fetcher";
 
 describe("Email scheduled update includes asset price data.", () => {
 	const testUser = { id: "test-user-id", email: "test@example.com" };
-	const testAssets: UserAssetRow[] = [
+	const testAssets: [UserAssetRow, UserAssetRow] = [
 		{ symbol: "AAPL", name: "Apple Inc." },
 		{ symbol: "MSFT", name: "Microsoft Corporation" },
 	];

@@ -594,9 +594,8 @@ test.describe("sanity tests", () => {
 		await expect(page.getByRole("button", { name: "Remove GOOGL" })).toBeVisible();
 	});
 
-	test("TC-BADGE-001: Asset badges show logo, Stock, or ETF", {
-		timeout: 60_000,
-	}, async () => {
+	test("TC-BADGE-001: Asset badges show logo, Stock, or ETF", async () => {
+		test.setTimeout(60_000);
 		if (!testUserId) {
 			throw new Error("testUserId not set before TC-BADGE-001");
 		}
@@ -953,6 +952,8 @@ test.describe("sanity tests", () => {
 		if (!authToken) {
 			throw new Error("TWILIO_AUTH_TOKEN is required for inbound signature");
 		}
+		// Re-bind explicitly so the closure below captures the narrowed string.
+		const authTokenStr: string = authToken;
 
 		// The server validates Twilio signatures against the canonical site URL
 		// (VERCEL_URL from .env.local, e.g. http://localhost:4321), not the
@@ -974,7 +975,7 @@ test.describe("sanity tests", () => {
 				Body: bodyValue,
 			};
 			const signatureParams = buildInboundSignatureParams(formParams);
-			const signature = computeTwilioSignature(authToken, signatureUrl, signatureParams);
+			const signature = computeTwilioSignature(authTokenStr, signatureUrl, signatureParams);
 			const body = new URLSearchParams(formParams);
 			return fetch(requestUrl, {
 				method: "POST",

@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { EmailSender } from "../../../../src/lib/messaging/email/utils";
+import type { SmsSender } from "../../../../src/lib/messaging/sms/twilio-utils";
 import type { ExtendedAssetQuote } from "../../../../src/lib/providers/price-fetcher";
 import { adminClient } from "../../../helpers/test-env";
 import { createTestUser } from "../../../helpers/test-user";
@@ -42,7 +44,7 @@ vi.mock("../../../../src/lib/providers/price-fetcher", async () => {
 	};
 });
 
-const mockEmailSender = vi.fn(async () => ({ success: true }));
+const mockEmailSender = vi.fn<EmailSender>(async () => ({ success: true }));
 vi.mock("../../../../src/lib/messaging/email/utils", async () => {
 	const actual = await vi.importActual<typeof import("../../../../src/lib/messaging/email/utils")>(
 		"../../../../src/lib/messaging/email/utils",
@@ -53,7 +55,7 @@ vi.mock("../../../../src/lib/messaging/email/utils", async () => {
 	};
 });
 
-const mockSmsSender = vi.fn(async () => ({ success: true }));
+const mockSmsSender = vi.fn<SmsSender>(async () => ({ success: true }));
 vi.mock("../../../../src/lib/schedule/sms-sender", () => ({
 	createSmsSenderProvider: () => () => ({ sender: mockSmsSender }),
 }));
@@ -310,7 +312,7 @@ describe("processFlatPriceAlerts", () => {
 		// Inspect the rendered email body to confirm both time-horizon rows reflect
 		// the overnight gap vs. the intraday recovery
 		expect(mockEmailSender).toHaveBeenCalledOnce();
-		const callArgs = mockEmailSender.mock.calls[0]?.[0] as {
+		const callArgs = mockEmailSender.mock.calls[0]![0] as {
 			subject: string;
 			body: string;
 		};
@@ -469,7 +471,7 @@ describe("processFlatPriceAlerts", () => {
 		expect(mockEmailSender).not.toHaveBeenCalled();
 		expect(mockSmsSender).toHaveBeenCalledOnce();
 
-		const smsCall = mockSmsSender.mock.calls[0]?.[0] as { body: string };
+		const smsCall = mockSmsSender.mock.calls[0]![0] as { body: string };
 		expect(smsCall.body).toContain("AAPL");
 		expect(smsCall.body).toContain("5% Price Move");
 		expect(smsCall.body).toContain("Reply STOP");

@@ -154,7 +154,8 @@ export async function handleInboundSms(
 		};
 	}
 
-	if (users.length === 0) {
+	const [user] = users;
+	if (!user) {
 		return {
 			status: 200,
 			body: wrapInTwiml(""),
@@ -162,10 +163,10 @@ export async function handleInboundSms(
 		};
 	}
 
-	const userId = users[0].id;
-	const phoneVerified = users[0].phone_verified;
-	const emailNotificationsEnabled = users[0].email_notifications_enabled;
-	const smsNotificationsEnabled = users[0].sms_notifications_enabled;
+	const userId = user.id;
+	const phoneVerified = user.phone_verified;
+	const emailNotificationsEnabled = user.email_notifications_enabled;
+	const smsNotificationsEnabled = user.sms_notifications_enabled;
 	// Use pre-update channel state for STOP copy; reflects prior SMS enablement.
 	const hasBothChannelsEnabled = emailNotificationsEnabled && smsNotificationsEnabled;
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();

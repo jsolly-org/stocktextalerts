@@ -69,16 +69,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		const { data: updated } = await adminClient
 			.from("users")
 			.select(
-				[
-					"sms_opted_out",
-					"sms_notifications_enabled",
-					"market_scheduled_asset_price_include_sms",
-					"asset_events_include_calendar_sms",
-					"asset_events_include_ipo_sms",
-					"asset_events_include_analyst_sms",
-					"asset_events_include_insider_sms",
-					"market_asset_price_alerts_include_sms",
-				].join(","),
+				"sms_opted_out,sms_notifications_enabled,market_scheduled_asset_price_include_sms,asset_events_include_calendar_sms,asset_events_include_ipo_sms,asset_events_include_analyst_sms,asset_events_include_insider_sms,market_asset_price_alerts_include_sms",
 			)
 			.eq("id", testUser.id)
 			.single();
@@ -285,16 +276,7 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 		const { data: updated } = await adminClient
 			.from("users")
 			.select(
-				[
-					"sms_opted_out",
-					"sms_notifications_enabled",
-					"market_scheduled_asset_price_include_sms",
-					"asset_events_include_calendar_sms",
-					"asset_events_include_ipo_sms",
-					"asset_events_include_analyst_sms",
-					"asset_events_include_insider_sms",
-					"market_asset_price_alerts_include_sms",
-				].join(","),
+				"sms_opted_out,sms_notifications_enabled,market_scheduled_asset_price_include_sms,asset_events_include_calendar_sms,asset_events_include_ipo_sms,asset_events_include_analyst_sms,asset_events_include_insider_sms,market_asset_price_alerts_include_sms",
 			)
 			.eq("id", testUser.id)
 			.single();
@@ -406,8 +388,9 @@ describe("A user manages SMS notifications by replying to messages.", () => {
 			.eq("id", testUser.id)
 			.single();
 		expect(updated).not.toBeNull();
-		expect(updated?.sms_opted_out).toBe(false);
-		expect(updated?.sms_notifications_enabled).toBe(true);
+		if (!updated) throw new Error("expected user row");
+		expect(updated.sms_opted_out).toBe(false);
+		expect(updated.sms_notifications_enabled).toBe(true);
 	});
 
 	it("When an unknown phone number texts STOP, the response is empty and no error is returned.", async () => {

@@ -128,7 +128,7 @@ describe("When the app fetches or renders asset logos for email", () => {
 				cache,
 			);
 
-			const fetchedUrl = fetchSpy.mock.calls[0][0] as string;
+			const fetchedUrl = fetchSpy.mock.calls[0]![0] as string;
 			expect(fetchedUrl).toContain("apiKey=test-api-key");
 		});
 	});

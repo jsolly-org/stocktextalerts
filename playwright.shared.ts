@@ -1,7 +1,4 @@
-import type {
-	PlaywrightTestConfig,
-	PlaywrightTestOptions,
-} from "@playwright/test";
+import type { PlaywrightTestConfig } from "@playwright/test";
 import { loadEnv } from "vite";
 
 // Load .env / .env.local so Playwright helpers (plain Node) can use process.env.
@@ -12,7 +9,7 @@ for (const [key, value] of Object.entries(env)) {
 	}
 }
 
-export const sharedUse: PlaywrightTestOptions = {
+const sharedUse: PlaywrightTestConfig["use"] = {
 	trace: "retain-on-failure",
 	browserName: "chromium",
 };

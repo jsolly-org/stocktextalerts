@@ -16,7 +16,7 @@ export function processFields(
 		}
 		const raw = rawData[key];
 
-		if (raw === null) {
+		if (raw == null) {
 			if (spec.type === "boolean") {
 				// HTML checkboxes submit no value when unchecked, which we treat as `false`
 				// for optional boolean fields. Required booleans still enforce presence.

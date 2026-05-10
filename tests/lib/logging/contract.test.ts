@@ -13,7 +13,7 @@ describe("logging contract", () => {
 				new Error("kaboom"),
 			);
 
-			const [first] = spy.mock.calls[0];
+			const [first] = spy.mock.calls[0] ?? [];
 			const parsed = JSON.parse(first as string);
 			expect(parsed.level).toBe("error");
 			expect(parsed.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
@@ -37,7 +37,7 @@ describe("logging contract", () => {
 			};
 			createLogger({ job: "contract-test" }).error("db error", undefined, postgrestLike);
 
-			const serialized = spy.mock.calls[0][0] as string;
+			const serialized = spy.mock.calls[0]![0] as string;
 			expect(serialized).not.toContain("sk-live-abcdef1234567890");
 			expect(serialized).toContain("[REDACTED]");
 

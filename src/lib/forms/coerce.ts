@@ -52,16 +52,16 @@ export function coerceValue(spec: FieldSpec, raw: string): { value: unknown; err
 				return { value: undefined };
 			}
 
-			if (!TIME_PATTERN.test(raw)) {
+			const match = raw.match(TIME_PATTERN);
+			if (!match) {
 				return {
 					value: undefined,
 					error: { reason: "invalid_time", key: "", value: raw },
 				};
 			}
 
-			const [hoursStr, minutesStr] = raw.split(":");
-			const hours = Number.parseInt(hoursStr, 10);
-			const minutes = Number.parseInt(minutesStr, 10);
+			const hours = Number.parseInt(match[1] ?? "", 10);
+			const minutes = Number.parseInt(match[2] ?? "", 10);
 			const totalMinutes = hours * 60 + minutes;
 
 			return { value: totalMinutes };

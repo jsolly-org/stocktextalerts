@@ -7,6 +7,8 @@ import {
 import type { EnrichedAlert } from "../../../src/lib/market-notifications/enrichment";
 import type { PriceAlertGrokResult } from "../../../src/lib/market-notifications/grok-summary";
 import type { PriceAlertUser } from "../../../src/lib/market-notifications/users";
+import type { EmailSender } from "../../../src/lib/messaging/email/utils";
+import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import type { DeliveryResult } from "../../../src/lib/messaging/types";
 
 function makeSupabaseMock(): AppSupabaseClient {
@@ -97,7 +99,7 @@ describe("deliverPriceAlert SMS eligibility", () => {
 		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
 			async () => ({ success: true }),
 		);
-		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		await deliverPriceAlert({
@@ -118,7 +120,7 @@ describe("deliverPriceAlert SMS eligibility", () => {
 		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
 			async () => ({ success: true }),
 		);
-		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		await deliverPriceAlert({
@@ -139,7 +141,7 @@ describe("deliverPriceAlert SMS eligibility", () => {
 		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
 			async () => ({ success: true }),
 		);
-		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		await deliverPriceAlert({
@@ -160,7 +162,7 @@ describe("deliverPriceAlert SMS eligibility", () => {
 		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
 			async () => ({ success: true }),
 		);
-		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		await deliverPriceAlert({
@@ -183,7 +185,7 @@ describe("A user with price alerts enabled receives Grok-enriched move context",
 		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
 			async () => ({ success: true }),
 		);
-		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		await deliverPriceAlert({
@@ -196,7 +198,7 @@ describe("A user with price alerts enabled receives Grok-enriched move context",
 		});
 
 		expect(sendSms).toHaveBeenCalledOnce();
-		const smsBody = sendSms.mock.calls[0][0].body;
+		const smsBody = sendSms.mock.calls[0]![0].body;
 		expect(smsBody).toContain("weaker-than-expected guidance");
 		// URLs should be present (shortened or original)
 		expect(smsBody).toMatch(/https?:\/\//);
@@ -206,7 +208,7 @@ describe("A user with price alerts enabled receives Grok-enriched move context",
 		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
 			async () => ({ success: true }),
 		);
-		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		await deliverPriceAlert({
@@ -225,7 +227,7 @@ describe("A user with price alerts enabled receives Grok-enriched move context",
 		});
 
 		expect(sendSms).toHaveBeenCalledOnce();
-		const smsBody = sendSms.mock.calls[0][0].body;
+		const smsBody = sendSms.mock.calls[0]![0].body;
 		expect(smsBody).toContain("weaker-than-expected guidance");
 		expect(smsBody).not.toContain("reuters.com");
 	});
@@ -234,7 +236,7 @@ describe("A user with price alerts enabled receives Grok-enriched move context",
 		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
 			async () => ({ success: true }),
 		);
-		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		await deliverPriceAlert({
@@ -247,14 +249,14 @@ describe("A user with price alerts enabled receives Grok-enriched move context",
 		});
 
 		expect(sendSms).toHaveBeenCalledOnce();
-		const smsBody = sendSms.mock.calls[0][0].body;
+		const smsBody = sendSms.mock.calls[0]![0].body;
 		expect(smsBody).not.toContain("guidance");
 		expect(smsBody).toContain("LDOS is down");
 		expect(smsBody).toContain("broader market");
 	});
 
 	it("email HTML includes a why-moving section with source labels", async () => {
-		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		await deliverPriceAlert({
@@ -265,12 +267,12 @@ describe("A user with price alerts enabled receives Grok-enriched move context",
 			alert: makeAlert({ grokResult: makeGrokResult() }),
 			supabase: makeSupabaseMock(),
 			sendEmail,
-			sendSms: vi.fn(async () => ({ success: true })),
+			sendSms: vi.fn<SmsSender>(async () => ({ success: true })),
 			stats,
 		});
 
 		expect(sendEmail).toHaveBeenCalledOnce();
-		const emailCall = sendEmail.mock.calls[0][0] as {
+		const emailCall = sendEmail.mock.calls[0]![0] as {
 			html: string;
 			body: string;
 		};
@@ -284,7 +286,7 @@ describe("A user with price alerts enabled receives Grok-enriched move context",
 	});
 
 	it("email plaintext includes the why-moving section", async () => {
-		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		await deliverPriceAlert({
@@ -295,19 +297,19 @@ describe("A user with price alerts enabled receives Grok-enriched move context",
 			alert: makeAlert({ grokResult: makeGrokResult() }),
 			supabase: makeSupabaseMock(),
 			sendEmail,
-			sendSms: vi.fn(async () => ({ success: true })),
+			sendSms: vi.fn<SmsSender>(async () => ({ success: true })),
 			stats,
 		});
 
 		expect(sendEmail).toHaveBeenCalledOnce();
-		const emailCall = sendEmail.mock.calls[0][0] as { body: string };
+		const emailCall = sendEmail.mock.calls[0]![0] as { body: string };
 		expect(emailCall.body).toContain("Why it's moving");
 		expect(emailCall.body).toContain("via Reuters");
 		expect(emailCall.body).toContain("via @analyst123 on X");
 	});
 
 	it("email omits why-moving section when Grok result is unavailable", async () => {
-		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		await deliverPriceAlert({
@@ -318,12 +320,12 @@ describe("A user with price alerts enabled receives Grok-enriched move context",
 			alert: makeAlert({ grokResult: null }),
 			supabase: makeSupabaseMock(),
 			sendEmail,
-			sendSms: vi.fn(async () => ({ success: true })),
+			sendSms: vi.fn<SmsSender>(async () => ({ success: true })),
 			stats,
 		});
 
 		expect(sendEmail).toHaveBeenCalledOnce();
-		const emailCall = sendEmail.mock.calls[0][0] as { html: string };
+		const emailCall = sendEmail.mock.calls[0]![0] as { html: string };
 		expect(emailCall.html).not.toContain("Why it");
 	});
 });
@@ -335,7 +337,7 @@ describe("deliverPriceAlert intraday sparklines", () => {
 		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
 			async () => ({ success: true }),
 		);
-		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		await deliverPriceAlert({
@@ -348,7 +350,7 @@ describe("deliverPriceAlert intraday sparklines", () => {
 		});
 
 		expect(sendSms).toHaveBeenCalledOnce();
-		const smsBody = sendSms.mock.calls[0][0].body;
+		const smsBody = sendSms.mock.calls[0]![0].body;
 		expect(smsBody).toContain("Today:");
 		// Unicode block characters are in the range U+2581–U+2588
 		expect(smsBody).toMatch(/[▁▂▃▄▅▆▇█]/);
@@ -358,7 +360,7 @@ describe("deliverPriceAlert intraday sparklines", () => {
 		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
 			async () => ({ success: true }),
 		);
-		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		await deliverPriceAlert({
@@ -371,7 +373,7 @@ describe("deliverPriceAlert intraday sparklines", () => {
 		});
 
 		expect(sendSms).toHaveBeenCalledOnce();
-		const smsBody = sendSms.mock.calls[0][0].body;
+		const smsBody = sendSms.mock.calls[0]![0].body;
 		expect(smsBody).not.toContain("Today:");
 	});
 
@@ -379,7 +381,7 @@ describe("deliverPriceAlert intraday sparklines", () => {
 		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
 			async () => ({ success: true }),
 		);
-		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		await deliverPriceAlert({
@@ -396,7 +398,7 @@ describe("deliverPriceAlert intraday sparklines", () => {
 
 		expect(sendEmail).toHaveBeenCalledOnce();
 		// sendEmail receives { to, subject, body, html }
-		const emailCall = sendEmail.mock.calls[0][0] as { html: string };
+		const emailCall = sendEmail.mock.calls[0]![0] as { html: string };
 		expect(emailCall.html).toContain("<img");
 		expect(emailCall.html).toContain("Today since open:");
 	});
@@ -405,7 +407,7 @@ describe("deliverPriceAlert intraday sparklines", () => {
 		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
 			async () => ({ success: true }),
 		);
-		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		await deliverPriceAlert({
@@ -421,7 +423,7 @@ describe("deliverPriceAlert intraday sparklines", () => {
 		});
 
 		expect(sendEmail).toHaveBeenCalledOnce();
-		const emailCall = sendEmail.mock.calls[0][0] as { html: string };
+		const emailCall = sendEmail.mock.calls[0]![0] as { html: string };
 		expect(emailCall.html).not.toContain("Today since open:");
 	});
 
@@ -432,7 +434,7 @@ describe("deliverPriceAlert intraday sparklines", () => {
 		];
 		// 2025-02-25 10:40 ET (EST = UTC-5)
 		const endTs = Date.UTC(2025, 1, 25, 15, 40, 0);
-		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		await deliverPriceAlert({
@@ -447,12 +449,12 @@ describe("deliverPriceAlert intraday sparklines", () => {
 			}),
 			supabase: makeSupabaseMock(),
 			sendEmail: sendEmail,
-			sendSms: vi.fn(async () => ({ success: true })),
+			sendSms: vi.fn<SmsSender>(async () => ({ success: true })),
 			stats,
 		});
 
 		expect(sendEmail).toHaveBeenCalledOnce();
-		const emailCall = sendEmail.mock.calls[0][0] as { html: string };
+		const emailCall = sendEmail.mock.calls[0]![0] as { html: string };
 		expect(emailCall.html).toContain("Today since open:");
 		// Labels are inside the base64-encoded SVG image payload.
 		const svgBase64 = emailCall.html.match(/data:image\/svg\+xml;base64,([^"]+)/)?.[1] ?? "";

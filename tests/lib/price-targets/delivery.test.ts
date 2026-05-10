@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AppSupabaseClient } from "../../../src/lib/db/supabase";
+import type { EmailSender } from "../../../src/lib/messaging/email/utils";
 import type { DeliveryResult } from "../../../src/lib/messaging/types";
 import {
 	deliverPriceTargetAlert,
@@ -63,7 +64,7 @@ describe("Price target SMS body", () => {
 
 describe("Price target alert delivery", () => {
 	it("A user with email alerts enabled receives the price target email", async () => {
-		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		await deliverPriceTargetAlert({
@@ -83,7 +84,7 @@ describe("Price target alert delivery", () => {
 		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
 			async () => ({ success: true }),
 		);
-		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		await deliverPriceTargetAlert({
@@ -103,7 +104,7 @@ describe("Price target alert delivery", () => {
 		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
 			async () => ({ success: true }),
 		);
-		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		await deliverPriceTargetAlert({
@@ -123,7 +124,7 @@ describe("Price target alert delivery", () => {
 		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
 			async () => ({ success: true }),
 		);
-		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		await deliverPriceTargetAlert({
@@ -143,7 +144,7 @@ describe("Price target alert delivery", () => {
 	});
 
 	it("SMS failure is counted when user has SMS enabled but sender is unavailable", async () => {
-		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		// Suppress expected error log when SMS sender is unavailable
@@ -165,7 +166,7 @@ describe("Price target alert delivery", () => {
 	});
 
 	it("A user sees direction and target in the price target email", async () => {
-		const sendEmail = vi.fn(async () => ({ success: true }) as const);
+		const sendEmail = vi.fn<EmailSender>(async () => ({ success: true }));
 		const stats = makeStats();
 
 		await deliverPriceTargetAlert({
@@ -182,7 +183,7 @@ describe("Price target alert delivery", () => {
 		});
 
 		expect(sendEmail).toHaveBeenCalledOnce();
-		const callArgs = sendEmail.mock.calls[0][0] as {
+		const callArgs = sendEmail.mock.calls[0]![0] as {
 			subject: string;
 			body: string;
 		};

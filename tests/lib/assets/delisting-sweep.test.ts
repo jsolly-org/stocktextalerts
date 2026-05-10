@@ -189,7 +189,7 @@ describe("runDelistingSweep", () => {
 
 		// Email captured with the right shape
 		expect(fakeEmail.captured).toHaveLength(1);
-		const sent = fakeEmail.captured[0];
+		const sent = fakeEmail.captured[0]!;
 		expect(sent.to).toBe(user.email);
 		expect(sent.subject).toContain(delistedSymbol);
 		expect(sent.subject).toContain("delisted");
@@ -284,7 +284,7 @@ describe("runDelistingSweep", () => {
 		expect(result.emailsDelivered).toBe(1);
 		expect(fakeEmail.captured).toHaveLength(1);
 
-		const sent = fakeEmail.captured[0];
+		const sent = fakeEmail.captured[0]!;
 		expect(sent.subject).toContain("3 of your tracked stocks");
 		for (const s of symbolsToDelist) {
 			expect(sent.html).toContain(s);
@@ -612,7 +612,7 @@ describe("runDelistingSweep", () => {
 		expect(result.reprocessedDelistings).toBeGreaterThanOrEqual(1);
 		expect(result.usersNotified).toBe(1);
 		expect(fakeEmail.captured).toHaveLength(1);
-		expect(fakeEmail.captured[0].subject).toContain(preFlaggedSymbol);
+		expect(fakeEmail.captured[0]!.subject).toContain(preFlaggedSymbol);
 
 		const { data: ua } = await adminClient
 			.from("user_assets")
@@ -664,7 +664,7 @@ describe("runDelistingSweep", () => {
 
 		expect(fakeEmail.captured).toHaveLength(0);
 		expect(fakeSms.captured).toHaveLength(1);
-		expect(fakeSms.captured[0].body).toContain(delistedSymbol);
+		expect(fakeSms.captured[0]!.body).toContain(delistedSymbol);
 		expect(result.emailsSkippedOptOut).toBe(1);
 		expect(result.smsDelivered).toBe(1);
 		expect(result.usersNotified).toBe(1);

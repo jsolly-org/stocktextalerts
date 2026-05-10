@@ -58,7 +58,7 @@ describe("A signed-in user updates their notification channels.", () => {
 			.eq("id", testUser.id)
 			.single();
 
-		expect(updatedUser.market_asset_price_alert_move_size).toBe("extreme");
+		expect(updatedUser?.market_asset_price_alert_move_size).toBe("extreme");
 	});
 
 	it("The API rejects invalid price-alert move size with 400.", async () => {
@@ -91,7 +91,6 @@ describe("A signed-in user updates their notification channels.", () => {
 			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
-			scheduledUpdatesEnabled: false,
 			emailNotificationsEnabled: false,
 			smsNotificationsEnabled: false,
 		});
@@ -129,10 +128,10 @@ describe("A signed-in user updates their notification channels.", () => {
 			.eq("id", testUser.id)
 			.single();
 
-		expect(updatedUser.market_scheduled_asset_price_times).toEqual([
+		expect(updatedUser?.market_scheduled_asset_price_times).toEqual([
 			DEFAULT_MARKET_UPDATE_TIME_MINUTES,
 		]);
-		expect(updatedUser.market_scheduled_asset_price_next_send_at).toBeTruthy();
+		expect(updatedUser?.market_scheduled_asset_price_next_send_at).toBeTruthy();
 	});
 
 	it("The user updates the notification time to a new hour.", async () => {
@@ -197,7 +196,7 @@ describe("A signed-in user updates their notification channels.", () => {
 			.eq("id", testUser.id)
 			.single();
 
-		expect(updatedUser.market_scheduled_asset_price_times).toEqual([600, 660, 840]);
+		expect(updatedUser?.market_scheduled_asset_price_times).toEqual([600, 660, 840]);
 	});
 
 	it("When all notification times are removed, scheduled updates are cleared.", async () => {
@@ -205,7 +204,6 @@ describe("A signed-in user updates their notification channels.", () => {
 			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
 			confirmed: true,
-			scheduledUpdatesEnabled: true,
 			scheduledUpdateTimes: [480],
 		});
 		registerTestUserForCleanup(testUser.id);

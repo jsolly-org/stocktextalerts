@@ -1,21 +1,11 @@
 {
+	"extends": "../tsconfig.json",
 	"compilerOptions": {
 		"target": "ES2024",
 		"lib": ["ES2024"],
 		"module": "Preserve",
-		"moduleResolution": "Bundler",
-		"isolatedModules": true,
-		"verbatimModuleSyntax": true,
-		"noEmit": true,
-		"strict": true,
-		"noUncheckedIndexedAccess": true,
-		"noImplicitOverride": true,
-		"noFallthroughCasesInSwitch": true,
-		"esModuleInterop": true,
-		"resolveJsonModule": true,
-		"skipLibCheck": true,
-		"baseUrl": "..",
-		"types": ["node", "aws-lambda"]
+		"types": ["node", "aws-lambda"],
+		"noFallthroughCasesInSwitch": true
 	},
 	"include": ["../src/handlers/**/*.ts"]
 }

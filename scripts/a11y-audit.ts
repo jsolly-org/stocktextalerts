@@ -16,7 +16,7 @@ import { readdir } from "node:fs/promises";
 import { writeFileSync } from "node:fs";
 import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
-import { chromium } from "playwright";
+import { chromium } from "@playwright/test";
 
 /* ------------------------------------------------------------------ */
 /*  Configuration                                                      */

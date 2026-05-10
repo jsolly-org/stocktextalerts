@@ -10,7 +10,7 @@ import type { AssetPriceMap } from "../../src/lib/providers/price-fetcher";
 
 describe("Daily digest email prices", () => {
 	const user = { id: "user-1", email: "test@example.com" };
-	const userAssets: UserAssetRow[] = [
+	const userAssets: [UserAssetRow, UserAssetRow] = [
 		{ symbol: "AAPL", name: "Apple Inc" },
 		{ symbol: "MSFT", name: "Microsoft Corp" },
 	];

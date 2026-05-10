@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildAssetEventsContent } from "../../../src/lib/asset-events/content";
-import type { UserRecord } from "../../../src/lib/messaging/types";
 import { fetchFinnhubExtras } from "../../../src/lib/providers/finnhub";
+import { makeUserRecord as makeUser } from "../../helpers/user-record-fixture";
 
 vi.mock("../../../src/lib/providers/finnhub", async () => {
 	const actual = await vi.importActual("../../../src/lib/providers/finnhub");
@@ -102,43 +102,6 @@ function buildQueryChain<T extends { event_date: string }>(
 	};
 }
 
-function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {
-	return {
-		id: "user-1",
-		email: "test@example.com",
-		phone_country_code: "1",
-		phone_number: "5551112222",
-		phone_verified: false,
-		timezone: "UTC",
-		market_scheduled_asset_price_next_send_at: null,
-		email_notifications_enabled: true,
-		sms_notifications_enabled: false,
-		sms_opted_out: false,
-		market_scheduled_asset_price_enabled: false,
-		market_scheduled_asset_price_include_email: false,
-		market_scheduled_asset_price_include_sms: false,
-		market_scheduled_asset_price_times: null,
-		daily_digest_time: null,
-		daily_digest_next_send_at: null,
-		asset_events_include_calendar_email: false,
-		asset_events_include_calendar_sms: false,
-		asset_events_include_ipo_email: false,
-		asset_events_include_ipo_sms: false,
-		asset_events_include_analyst_email: false,
-		asset_events_include_analyst_sms: false,
-		asset_events_include_insider_email: false,
-		asset_events_include_insider_sms: false,
-		asset_events_next_send_at: null,
-		asset_events_last_analyst_sent_month: null,
-		daily_digest_include_news_email: false,
-		daily_digest_include_rumors_email: false,
-		last_grok_rumors_at: null,
-		grok_window_start: null,
-		grok_sends_in_window: 0,
-		...overrides,
-	};
-}
-
 const logger = {
 	info: vi.fn(),
 	warn: vi.fn(),
@@ -170,9 +133,9 @@ describe("buildAssetEventsContent", () => {
 			],
 		);
 		vi.mocked(fetchFinnhubExtras).mockResolvedValue({
-			news: [],
-			analyst: [],
-			insider: [],
+			news: new Map(),
+			analyst: new Map(),
+			insider: new Map(),
 		});
 
 		const result = await buildAssetEventsContent({

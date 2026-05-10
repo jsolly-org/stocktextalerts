@@ -24,7 +24,7 @@ describe("Structured errors from library clients are logged readably.", () => {
 
 		rootLogger.error("Failed to fetch daily users after retries", { attempts: 3 }, postgrestError);
 
-		const [raw] = errorSpy.mock.calls[0];
+		const [raw] = errorSpy.mock.calls[0] ?? [];
 		const payload = JSON.parse(raw as string);
 
 		expect(payload.error.message).toBe("canceling statement due to statement timeout");
@@ -44,7 +44,7 @@ describe("Structured errors from library clients are logged readably.", () => {
 
 		rootLogger.error("Upstream auth call failed", { userId: "u_1" }, upstreamError);
 
-		const [raw] = errorSpy.mock.calls[0];
+		const [raw] = errorSpy.mock.calls[0] ?? [];
 		const payload = JSON.parse(raw as string);
 
 		expect(payload.error.raw.access_token).toBe("[REDACTED]");
@@ -58,7 +58,7 @@ describe("Structured errors from library clients are logged readably.", () => {
 
 		rootLogger.error("Unexpected throw", { source: "legacy-path" }, 42);
 
-		const [raw] = errorSpy.mock.calls[0];
+		const [raw] = errorSpy.mock.calls[0] ?? [];
 		const payload = JSON.parse(raw as string);
 
 		expect(payload.error.message).toBe("Non-Error thrown");

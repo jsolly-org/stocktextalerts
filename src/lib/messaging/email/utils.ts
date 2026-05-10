@@ -72,7 +72,7 @@ async function waitForRateLimit(): Promise<void> {
 
 import { buildEmailUrls } from "./layout";
 
-interface EmailRequest {
+export interface EmailRequest {
 	to: string;
 	subject: string;
 	body: string;

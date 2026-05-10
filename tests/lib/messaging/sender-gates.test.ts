@@ -47,8 +47,7 @@ describe("sender gates — no real SES/Twilio in tests", () => {
 				subject: "gate",
 				body: "should not reach SES",
 			});
-			expect(result.success).toBe(true);
-			expect(result.messageSid).toBe("mock");
+			expect(result).toMatchObject({ success: true, messageSid: "mock" });
 		});
 
 		it("routes through Mailpit via SMTP when EMAIL_SMTP_HOST is set", async () => {
@@ -85,12 +84,11 @@ describe("sender gates — no real SES/Twilio in tests", () => {
 				to: "+15005550001",
 				body: "Stock alert: AAPL up 5.3% to $195.86",
 			});
-			expect(result.success).toBe(true);
 			// Mock sender's default messageSid is "mock". "test" was the
 			// legacy value from the removed LIVE_API_PROVIDERS-gated branch —
 			// if a regression renames it, assertions in dependent tests will
 			// fail loudly.
-			expect(result.messageSid).toBe("mock");
+			expect(result).toMatchObject({ success: true, messageSid: "mock" });
 		});
 	});
 

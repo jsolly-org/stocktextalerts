@@ -401,7 +401,7 @@ import phoneFrameLight from "../../assets/phone-frame.svg?url";
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !animationInProgress) {
+        if (entries[0]?.isIntersecting && !animationInProgress) {
           animateMessages();
         }
       },

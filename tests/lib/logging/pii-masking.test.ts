@@ -33,7 +33,7 @@ describe("Sensitive user data is masked in logs.", () => {
 
 		rootLogger.warn("Contact test@example.com", { phone: "+1 (415) 555-1234" });
 
-		const [raw] = warnSpy.mock.calls[0];
+		const [raw] = warnSpy.mock.calls[0] ?? [];
 		const payload = JSON.parse(raw as string);
 
 		expect(payload.message).toBe("Contact [REDACTED]");
@@ -49,7 +49,7 @@ describe("Sensitive user data is masked in logs.", () => {
 			phone: "+1 (415) 555-1234",
 		});
 
-		const [raw] = errorSpy.mock.calls[0];
+		const [raw] = errorSpy.mock.calls[0] ?? [];
 		const payload = JSON.parse(raw as string);
 
 		expect(payload.message).toBe("Contact [REDACTED]");

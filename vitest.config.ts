@@ -1,5 +1,6 @@
 import { getViteConfig } from "astro/config";
 import { loadEnv } from "vite";
+import type {} from "vitest/config";
 
 // Force NODE_ENV=test so sender hard-gates (isProduction() in
 // src/lib/runtime/mode.ts) correctly mock out Twilio/SES even when the

@@ -30,7 +30,7 @@ const isProd = import.meta.env.PROD;
 const requestHost = Astro.url.host;
 const isVercelPreviewByHost =
 	requestHost.endsWith(".vercel.app") &&
-	requestHost.split(".")[0].includes("-");
+	(requestHost.split(".")[0] ?? "").includes("-");
 const omitManifestOnVercel =
 	(process.env.VERCEL === "1" && process.env.VERCEL_ENV !== "production") ||
 	isVercelPreviewByHost;

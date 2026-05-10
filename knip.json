@@ -1,8 +1,13 @@
 {
 	"$schema": "https://unpkg.com/knip@6/schema.json",
-	"entry": ["src/pages/**/*.astro", "src/components/**/*.vue", "src/handlers/**/*.ts", "scripts/**/*.ts", "tests/run-vitest.ts", "tests/run-playwright.ts", "tests/lock.ts", "tests/**/*.test.ts", "tests/**/*.e2e.spec.ts"],
-	"project": ["src/**/*.{ts,astro,vue}", "scripts/**/*.ts", "tests/**/*.ts"],
+	"entry": [
+		"src/handlers/**/*.ts",
+		"scripts/**/*.ts",
+		"tests/run-vitest.ts",
+		"tests/run-playwright.ts",
+		"playwright.preview.config.ts"
+	],
 	"ignore": ["src/lib/db/generated/**"],
-	"ignoreDependencies": ["vite", "playwright", "chrome-launcher", "tailwindcss"],
+	"ignoreDependencies": ["lint-staged"],
 	"ignoreBinaries": ["vercel", "printf", "scripts/ci/run-local-actions.sh"]
 }
