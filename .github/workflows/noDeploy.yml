@@ -20,6 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
+        with:
+          # Need history so squawk can diff changed migrations against the previous push.
+          fetch-depth: 0
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version-file: .nvmrc
@@ -33,6 +36,26 @@ jobs:
         run: npm run check:yaml
       - name: Type check
         run: npm run check:ts
+      - name: Squawk migrations (changed files only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.before || '' }}"
+          if [[ -z "$BASE" || "$BASE" =~ ^0+$ ]]; then
+            BASE="HEAD~1"
+          fi
+          if ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            echo "Base $BASE unavailable; skipping squawk."
+            exit 0
+          fi
+          mapfile -t CHANGED < <(git diff --name-only --diff-filter=AM "$BASE" HEAD -- 'supabase/migrations/*.sql')
+          if [[ ${#CHANGED[@]} -eq 0 || -z "${CHANGED[0]:-}" ]]; then
+            echo "No migration changes."
+            exit 0
+          fi
+          echo "Linting changed migrations:"
+          printf '  %s\n' "${CHANGED[@]}"
+          npx squawk "${CHANGED[@]}"
 
   test-and-build:
     runs-on: ubuntu-latest

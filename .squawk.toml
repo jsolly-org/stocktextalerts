@@ -1,0 +1,9 @@
+assume_in_transaction = true
+
+excluded_rules = [
+  "require-timeout-settings",
+  "prefer-robust-stmts",
+  "prefer-text-field",
+  "prefer-bigint-over-int",
+  "prefer-bigint-over-smallint",
+]
