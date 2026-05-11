@@ -9,7 +9,9 @@
     "MD024": { "siblings_only": true } // duplicate headings OK across different parent sections
   },
   "ignores": [
-    "node_modules/**", // dependency READMEs
-    ".claude/**" // worktree noise — lint the source, not worktree copies
+    "**/node_modules/**", // dependency READMEs (including nested packages like aws/)
+    ".claude/**", // worktree noise — lint the source, not worktree copies
+    ".npm-cache/**", // npx scratch (gitignored); not our markdown to police
+    "plans/**" // scratch-plan workspace; not part of the published docs surface
   ]
 }
