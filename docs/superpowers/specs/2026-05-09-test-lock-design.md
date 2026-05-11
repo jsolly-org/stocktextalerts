@@ -120,7 +120,7 @@ Wait for that run to finish, or:
                        rm /Users/johnsolly/code/stocktextalerts/.git/test.lock
 ```
 
-The `✗` is red to match the existing `.husky/pre-commit` `error_handler` styling. `Running` is computed from `Date.now() - Date.parse(startedAt)`.
+The `✗` is red to match the existing `.githooks/pre-commit` `error_handler` styling. `Running` is computed from `Date.now() - Date.parse(startedAt)`.
 
 **Stale takeover** (single line to stderr, before tests start):
 
@@ -140,7 +140,7 @@ Only one line — this is informational, not a problem. If users see it routinel
 
 No changes to:
 
-- `.husky/pre-commit` — locking happens at the script level.
+- `.githooks/pre-commit` — locking happens at the script level.
 - `playwright.config.ts` / `vitest.config.ts` — the lock lives outside test framework hooks for reliability (a wrapper script process is harder to kill before release than a globalSetup).
 - CI workflows — see Non-goals.
 

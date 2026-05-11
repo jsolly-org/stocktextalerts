@@ -9,7 +9,17 @@ on:
     paths:
       - '**.md'
       - '.markdownlint-cli2.jsonc'
+      - '.github/workflows/markdown.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '**.md'
+      - '.markdownlint-cli2.jsonc'
+      - '.github/workflows/markdown.yml'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: markdown-${{ github.ref }}
