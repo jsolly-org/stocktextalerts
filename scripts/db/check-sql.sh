@@ -36,4 +36,9 @@ if [ "${#files[@]}" -eq 0 ]; then
   exit 0
 fi
 
-exec "$SQUAWK" "${files[@]}"
+args=()
+if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
+  args+=(--reporter=gcc)
+fi
+
+exec "$SQUAWK" "${args[@]}" "${files[@]}"

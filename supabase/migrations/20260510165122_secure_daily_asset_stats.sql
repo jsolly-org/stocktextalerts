@@ -7,6 +7,9 @@
 -- service_role bypasses RLS, so existing handler writes/reads continue to
 -- work without any policy.
 
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '30s';
+
 ALTER TABLE public.daily_asset_stats ENABLE ROW LEVEL SECURITY;
 
 UPDATE public.app_metadata
