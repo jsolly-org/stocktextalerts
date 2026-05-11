@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+	formatAssetHtmlLine,
 	formatAssetsHtmlList,
 	formatAssetTextLine,
 	getSafeHrefUrl,
 } from "../../../src/lib/messaging/asset-formatting";
+import type { SparklineData } from "../../../src/lib/messaging/sparkline";
 
 describe("getSafeHrefUrl prevents XSS via dangerous URL schemes.", () => {
 	it("Returns trimmed URL for valid https URLs.", () => {
@@ -93,6 +95,60 @@ describe("A subscriber receives email asset rows with logos when logo data is av
 
 		expect(result).toContain("<strong>AAPL</strong>");
 		expect(result).not.toContain("<img");
+	});
+});
+
+describe("A subscriber receiving a notification sees a label naming the sparkline's time window", () => {
+	const asset = { symbol: "AAPL", name: "Apple Inc." };
+	const price = { price: 187.42, changePercent: 1.23 };
+
+	it("A 7-day sparkline in SMS is prefixed with `7d:` so the reader knows the window", () => {
+		const sparkline: SparklineData = {
+			values: [180, 182, 183, 185, 187, 189, 190],
+			ascii: "▁▂▃▄▅▆▇",
+			window: "7-trading-days",
+		};
+		const line = formatAssetTextLine(asset, price, sparkline);
+		expect(line).toBe("AAPL — $187.42 (+1.23%) 7d: ▁▂▃▄▅▆▇");
+	});
+
+	it("An intraday sparkline in SMS is prefixed with `today:` so the reader knows it's this session", () => {
+		const sparkline: SparklineData = {
+			values: [180, 181, 184, 187, 188, 187, 188],
+			ascii: "▁▂▄▆▇▆▇",
+			window: "intraday-since-open",
+		};
+		const line = formatAssetTextLine(asset, price, sparkline);
+		expect(line).toBe("AAPL — $187.42 (+1.23%) today: ▁▂▄▆▇▆▇");
+	});
+
+	it("A 7-day sparkline in email HTML carries a `Past 7 trading days:` label next to the SVG", () => {
+		const sparkline: SparklineData = {
+			values: [180, 182, 183, 185, 187, 189, 190],
+			ascii: "▁▂▃▄▅▆▇",
+			window: "7-trading-days",
+		};
+		const html = formatAssetHtmlLine(asset, price, sparkline);
+		expect(html).toContain("Past 7 trading days:");
+		expect(html).toContain("data:image/svg+xml;base64,");
+	});
+
+	it("An intraday sparkline in email HTML carries a `Today since open:` label next to the SVG", () => {
+		const sparkline: SparklineData = {
+			values: [180, 181, 184, 187, 188, 187, 188],
+			ascii: "▁▂▄▆▇▆▇",
+			window: "intraday-since-open",
+		};
+		const html = formatAssetHtmlLine(asset, price, sparkline);
+		expect(html).toContain("Today since open:");
+		expect(html).toContain("data:image/svg+xml;base64,");
+	});
+
+	it("No sparkline data → no label appears in SMS", () => {
+		const line = formatAssetTextLine(asset, price, null);
+		expect(line).toBe("AAPL — $187.42 (+1.23%)");
+		expect(line).not.toContain("7d:");
+		expect(line).not.toContain("today:");
 	});
 });
 

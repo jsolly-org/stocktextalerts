@@ -47,6 +47,7 @@ vi.mock("../../../../src/lib/providers/price-fetcher", async () => {
 				map.set(symbol, {
 					values: [180, 182, 183, 185, 187, 190, 195],
 					ascii: "▁▂▃▄▅▆▇",
+					window: "7-trading-days",
 				});
 			}
 			return map;

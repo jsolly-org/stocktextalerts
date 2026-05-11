@@ -24,6 +24,7 @@ describe("Daily digest email prices", () => {
 	const sparklineData: SparklineData = {
 		values: [1, 2, 3, 5, 7, 5, 3],
 		ascii: "▁▂▃▅▇▅▃",
+		window: "7-trading-days",
 	};
 
 	beforeEach(() => {
@@ -90,15 +91,16 @@ describe("Daily digest email prices", () => {
 			sparklines,
 		});
 
-		// Plaintext keeps ASCII sparkline
-		expect(message.text).toContain("▁▂▃▅▇▅▃");
+		// Plaintext keeps ASCII sparkline, labeled with the 7-day window
+		expect(message.text).toContain("7d: ▁▂▃▅▇▅▃");
 		expect(message.text).toContain("+1.23%");
-		// HTML gets SVG sparkline <img>
+		// HTML gets SVG sparkline <img> plus an inline label
 		expect(message.html).toContain("data:image/svg+xml;base64,");
 		expect(message.html).toContain("<img ");
+		expect(message.html).toContain("Past 7 trading days:");
 	});
 
-	it("SMS uses ASCII sparklines, not SVG", () => {
+	it("SMS uses ASCII sparklines, not SVG, and labels the window", () => {
 		const assetPrices: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
 		const sparklines = new Map([["AAPL", sparklineData]]);
 
@@ -109,7 +111,7 @@ describe("Daily digest email prices", () => {
 			sparklines,
 		});
 
-		expect(message).toContain("▁▂▃▅▇▅▃");
+		expect(message).toContain("7d: ▁▂▃▅▇▅▃");
 		expect(message).not.toContain("data:image/svg+xml;base64,");
 	});
 

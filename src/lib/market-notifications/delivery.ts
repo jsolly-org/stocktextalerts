@@ -13,39 +13,30 @@ import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import type { SmsSender } from "../messaging/sms/twilio-utils";
 import { shortenUrls } from "../messaging/sms/url-shortener";
-import { toSparkline } from "../messaging/sparkline";
+import {
+	downsampleEvenly,
+	EMAIL_SPARKLINE_LABEL,
+	SMS_SPARKLINE_LABEL,
+	toSparkline,
+} from "../messaging/sparkline";
 import type { EnrichedAlert } from "./enrichment";
 import type { PriceAlertUser } from "./users";
 
-/** Max sparkline length for SMS. Unicode blocks use UCS-2 (70 chars/segment). Truncating reduces segment count and cost. */
-const SMS_SPARKLINE_MAX_LENGTH = 12;
 /** Cap Grok summary length in SMS to avoid segment/cost spikes from long model output. */
 const MAX_SMS_SUMMARY_CHARS = 280;
 
 function formatPriceContextWithSparkline(
 	priceContext: string,
 	intradayCloses: number[] | null,
-	maxSparklineLength?: number,
+	downsampleForSms = false,
 ): string {
 	if (!intradayCloses) return priceContext;
 
-	let values = intradayCloses;
-	if (maxSparklineLength !== undefined && maxSparklineLength < 2) {
-		return priceContext;
-	}
-	if (maxSparklineLength !== undefined && values.length > maxSparklineLength) {
-		// Downsample to preserve full-day shape; truncating would drop recent price data
-		const sampled: number[] = [];
-		for (let i = 0; i < maxSparklineLength; i++) {
-			const idx = Math.round((i / (maxSparklineLength - 1)) * (values.length - 1));
-			const v = values[idx];
-			if (v !== undefined) sampled.push(v);
-		}
-		values = sampled;
-	}
-
+	const values = downsampleForSms ? downsampleEvenly(intradayCloses) : intradayCloses;
 	const sparkline = toSparkline(values);
-	return sparkline ? `${priceContext} Today: ${sparkline}` : priceContext;
+	return sparkline
+		? `${priceContext} ${SMS_SPARKLINE_LABEL["intraday-since-open"]}: ${sparkline}`
+		: priceContext;
 }
 
 /** Per-run delivery counters for price alerts (email/SMS success/fail and log failures). */
@@ -70,7 +61,7 @@ async function formatPriceAlertSms(
 	const priceContextLine = formatPriceContextWithSparkline(
 		alert.priceContext,
 		alert.intradayCloses,
-		SMS_SPARKLINE_MAX_LENGTH,
+		true,
 	);
 
 	const sections = ["StockTextAlerts — Unusual Price Move 🚨", priceContextLine];
@@ -109,7 +100,7 @@ function renderHtmlSparklineForAlert(alert: EnrichedAlert, is24: boolean): strin
 	});
 	if (!sparklineImg) return "";
 	return `
-			<p style="color: #92400e; font-size: 12px; margin: 8px 0 0 0;">Today since open:</p>
+			<p style="color: #92400e; font-size: 12px; margin: 8px 0 0 0;">${EMAIL_SPARKLINE_LABEL["intraday-since-open"]}:</p>
 			<div style="margin-top: 4px;">${sparklineImg}</div>`;
 }
 

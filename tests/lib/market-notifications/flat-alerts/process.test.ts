@@ -37,6 +37,7 @@ vi.mock("../../../../src/lib/providers/price-fetcher", async () => {
 				map.set(s, {
 					values: [180, 182, 183, 185, 187, 190, 195],
 					ascii: "▁▂▃▄▅▆▇",
+					window: "7-trading-days",
 				});
 			}
 			return map;
@@ -315,12 +316,16 @@ describe("processFlatPriceAlerts", () => {
 		const callArgs = mockEmailSender.mock.calls[0]![0] as {
 			subject: string;
 			body: string;
+			html?: string;
 		};
 		expect(callArgs.subject).toContain("↓");
 		expect(callArgs.subject).toContain("TSLA");
 		// Text body contains both framings
 		expect(callArgs.body).toMatch(/Since today's open/);
 		expect(callArgs.body).toMatch(/Since prev close/);
+		// Email HTML labels the intraday sparkline; the 7-day chart is labeled by its row title.
+		expect(callArgs.html).toContain("Today since open:");
+		expect(callArgs.html).toContain("Past 7 trading days");
 	});
 
 	it("Email delivery failure still upserts state row (via atomic claim)", async () => {

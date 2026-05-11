@@ -9,6 +9,7 @@ export interface PreviewAsset {
 }
 
 import { type AssetPrice, formatAssetsTextList } from "../../../../lib/messaging/asset-formatting";
+import type { SparklineData } from "../../../../lib/messaging/sparkline";
 
 /** Stable demo assets used to render previews without a live API call. */
 export const DEMO_ASSETS: PreviewAsset[] = [
@@ -48,8 +49,17 @@ export function formatPreviewAssetsList(assets: PreviewAsset[]): string {
 			{ price: asset.price, changePercent: asset.changePercent },
 		]),
 	);
-	const sparklines = new Map<string, string | null>(
-		assets.map((asset) => [asset.symbol, asset.sparkline ?? null]),
+	const sparklines = new Map<string, SparklineData | null>(
+		assets.map((asset) => [
+			asset.symbol,
+			asset.sparkline && asset.sparklineValues
+				? {
+						ascii: asset.sparkline,
+						values: asset.sparklineValues,
+						window: "7-trading-days",
+					}
+				: null,
+		]),
 	);
 	return formatAssetsTextList(
 		assets,

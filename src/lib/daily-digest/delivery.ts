@@ -172,12 +172,7 @@ function formatDailyDigestPriceLine(
 	sparkline?: SparklineData | null,
 	showChangePercent = true,
 ): string {
-	return formatAssetTextLine(
-		asset,
-		quote ?? undefined,
-		sparkline?.ascii ?? null,
-		showChangePercent,
-	);
+	return formatAssetTextLine(asset, quote ?? undefined, sparkline, showChangePercent);
 }
 
 /** Format a single asset price line for the HTML digest. */

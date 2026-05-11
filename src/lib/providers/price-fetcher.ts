@@ -1,11 +1,12 @@
 import { DateTime } from "luxon";
 import { US_MARKET_TIMEZONE } from "../constants";
 import { rootLogger } from "../logging";
-import { type SparklineMap, toSparkline } from "../messaging/sparkline";
+import { downsampleEvenly, type SparklineMap, toSparkline } from "../messaging/sparkline";
 import { isTest } from "../runtime/mode";
 import { getUsMarketClosureInfoForInstant } from "../time/market-calendar";
 import {
 	fetchDailyCloses,
+	fetchIntradayBars,
 	fetchPrevDayBar,
 	fetchSnapshotQuotes,
 	fetchTodaysRegularClose,
@@ -272,7 +273,7 @@ export async function fetchSparklines(symbols: string[]): Promise<SparklineMap> 
 	if (isTest() && !isLiveMassiveEnabledInTests()) {
 		const stubValues = [1, 2, 3, 5, 7, 5, 3];
 		for (const s of symbols) {
-			result.set(s, { values: stubValues, ascii: "▁▂▃▅▇▅▃" });
+			result.set(s, { values: stubValues, ascii: "▁▂▃▅▇▅▃", window: "7-trading-days" });
 		}
 		return result;
 	}
@@ -298,10 +299,75 @@ export async function fetchSparklines(symbols: string[]): Promise<SparklineMap> 
 			}
 			const last7 = closes.slice(-7);
 			const ascii = toSparkline(last7);
-			result.set(symbol, ascii ? { values: last7, ascii } : null);
+			result.set(symbol, ascii ? { values: last7, ascii, window: "7-trading-days" } : null);
 		} catch (error) {
 			rootLogger.error(
 				"Sparkline fetch failed",
+				{ symbol },
+				error instanceof Error ? error : new Error(String(error)),
+			);
+			result.set(symbol, null);
+		}
+	}
+
+	async function worker(): Promise<void> {
+		while (true) {
+			const symbol = queue.shift();
+			if (symbol === undefined) break;
+			await processSymbol(symbol);
+		}
+	}
+
+	for (let i = 0; i < Math.min(CONCURRENCY, symbols.length); i++) {
+		pending.push(worker());
+	}
+	await Promise.all(pending);
+
+	return result;
+}
+
+/**
+ * Fetch intraday sparklines (today's 5-minute bars since open) for the given symbols.
+ *
+ * `values` holds the full series for SVG rendering; `ascii` is downsampled to
+ * `SMS_SPARKLINE_LENGTH` blocks so SMS bodies stay within their UCS-2 budget.
+ */
+export async function fetchIntradaySparklines(symbols: string[]): Promise<SparklineMap> {
+	const result: SparklineMap = new Map();
+	if (symbols.length === 0) return result;
+
+	if (isTest() && !isLiveMassiveEnabledInTests()) {
+		const stubValues = [100, 100.5, 101.2, 100.8, 101.5, 102.1, 101.9, 102.4];
+		for (const s of symbols) {
+			result.set(s, {
+				values: stubValues,
+				ascii: toSparkline(downsampleEvenly(stubValues)),
+				window: "intraday-since-open",
+			});
+		}
+		return result;
+	}
+
+	const CONCURRENCY = 5;
+	const queue = [...symbols];
+	const pending: Promise<void>[] = [];
+
+	async function processSymbol(symbol: string): Promise<void> {
+		try {
+			const bars = await fetchIntradayBars(symbol);
+			const closes = bars?.closes;
+			if (!closes || closes.length < 2) {
+				result.set(symbol, null);
+				return;
+			}
+			const ascii = toSparkline(downsampleEvenly(closes));
+			result.set(symbol, ascii ? { values: closes, ascii, window: "intraday-since-open" } : null);
+		} catch (error) {
+			// Transient Massive failure — next scheduled invocation retries. `warn` keeps the
+			// ErrorLogAlarm quiet on degraded-but-functional delivery (user still gets the
+			// notification, just without this symbol's sparkline).
+			rootLogger.warn(
+				"Intraday sparkline fetch failed",
 				{ symbol },
 				error instanceof Error ? error : new Error(String(error)),
 			);

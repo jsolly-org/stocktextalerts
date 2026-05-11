@@ -11,7 +11,13 @@ import { deliveryResultToLogFields, recordNotification } from "../../messaging/s
 import { sendUserSms, shouldSendSms } from "../../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../../messaging/sms/segment-utils";
 import type { SmsSender } from "../../messaging/sms/twilio-utils";
-import { type SparklineData, toSparkline } from "../../messaging/sparkline";
+import {
+	downsampleEvenly,
+	EMAIL_SPARKLINE_LABEL,
+	SMS_SPARKLINE_LABEL,
+	type SparklineData,
+	toSparkline,
+} from "../../messaging/sparkline";
 import { toSvgSparklineImg } from "../../messaging/svg-sparkline";
 import type { IntradayBarsResult } from "../../providers/massive";
 import type { ExtendedAssetQuote } from "../../providers/price-fetcher";
@@ -28,7 +34,6 @@ export interface FlatPriceAlertDeliveryStats {
 
 /** Unicode-block sparkline cap for SMS. UCS-2 segments fit 70 chars; keep the
  *  sparkline short so it + price rows stay within 1–2 segments. */
-const SMS_SPARKLINE_LENGTH = 10;
 
 /** Format an elapsed duration in minutes/hours as "27 min ago", "1h 23m ago".
  *  Floors to a minimum of "1 min ago" — we never run sub-minute cadence. */
@@ -149,17 +154,6 @@ function buildPriceChangeRows(options: {
 	return rows;
 }
 
-function downsample(values: number[], target: number): number[] {
-	if (values.length <= target || target < 2) return values;
-	const out: number[] = [];
-	for (let i = 0; i < target; i++) {
-		const idx = Math.round((i / (target - 1)) * (values.length - 1));
-		const v = values[idx];
-		if (v !== undefined) out.push(v);
-	}
-	return out;
-}
-
 /** Build the SMS body for a flat price alert. */
 function formatFlatPriceAlertSms(options: {
 	user: FlatPriceAlertUser;
@@ -211,7 +205,7 @@ function formatFlatPriceAlertSms(options: {
 	const intradayCloses = intraday?.closes ?? null;
 	const sparkline =
 		intradayCloses && intradayCloses.length >= 2
-			? toSparkline(downsample(intradayCloses, SMS_SPARKLINE_LENGTH))
+			? toSparkline(downsampleEvenly(intradayCloses))
 			: "";
 
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
@@ -221,7 +215,9 @@ function formatFlatPriceAlertSms(options: {
 		(row) =>
 			`${row.label}: ${formatDollarChange(row.dollarChange)} (${formatPercentChange(row.percentChange)})`,
 	);
-	const sparklineLine = sparkline ? `Today: ${sparkline}` : null;
+	const sparklineLine = sparkline
+		? `${SMS_SPARKLINE_LABEL["intraday-since-open"]}: ${sparkline}`
+		: null;
 
 	const sections = [
 		"StockTextAlerts — 5% Price Move 🚨",
@@ -356,7 +352,7 @@ function formatFlatPriceAlertEmail(options: {
 	const intradayBlock = intradaySvg
 		? `
 			<div style="margin-top: 20px;">
-				<p style="color: #4b5563; font-size: 12px; margin: 0 0 6px 0;">Today since open:</p>
+				<p style="color: #4b5563; font-size: 12px; margin: 0 0 6px 0;">${EMAIL_SPARKLINE_LABEL["intraday-since-open"]}:</p>
 				<div>${intradaySvg}</div>
 			</div>`
 		: "";

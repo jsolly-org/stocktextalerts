@@ -1,5 +1,5 @@
 import type { ActiveMarketSession } from "../market-notifications/scheduled/session-label";
-import type { SparklineData } from "./sparkline";
+import { EMAIL_SPARKLINE_LABEL, SMS_SPARKLINE_LABEL, type SparklineData } from "./sparkline";
 import { toSvgSparklineImg } from "./svg-sparkline";
 import type { EmailFormatContext } from "./types";
 
@@ -78,7 +78,7 @@ export function escapeHtml(value: string): string {
 
 function formatAssetPriceText(
 	price: AssetPrice,
-	sparkline?: string | null,
+	sparkline?: SparklineData | null,
 	showChangePercent = true,
 	marketSession?: ActiveMarketSession,
 ): string {
@@ -91,8 +91,8 @@ function formatAssetPriceText(
 		const fallbackMarker = computed.usedFallback ? SESSION_CHANGE_FALLBACK_MARKER : "";
 		base += ` (${sign}${computed.changePercent.toFixed(2)}%${fallbackMarker})`;
 	}
-	if (sparkline) {
-		return `${base} ${sparkline}`;
+	if (sparkline?.ascii) {
+		return `${base} ${SMS_SPARKLINE_LABEL[sparkline.window]}: ${sparkline.ascii}`;
 	}
 	return base;
 }
@@ -107,7 +107,7 @@ function formatAssetPriceText(
 export function formatAssetTextLine(
 	asset: AssetWithName,
 	price: AssetPrice | undefined,
-	sparkline?: string | null,
+	sparkline?: SparklineData | null,
 	showChangePercent = true,
 	marketSession?: ActiveMarketSession,
 ): string {
@@ -152,7 +152,10 @@ export function formatAssetHtmlLine(
 
 	let sparklineHtml = "";
 	if (sparkline?.values && sparkline.values.length >= 2) {
-		sparklineHtml = ` ${toSvgSparklineImg(sparkline.values, color)}`;
+		const label = EMAIL_SPARKLINE_LABEL[sparkline.window];
+		const labelHtml = ` <span style="color: #6b7280; font-size: 11px; margin-left: 6px;">${escapeHtml(`${label}:`)}</span>`;
+		const altText = `${label} price trend`;
+		sparklineHtml = `${labelHtml} ${toSvgSparklineImg(sparkline.values, color, 120, 30, altText)}`;
 	}
 
 	return `<strong>${assetInfo}</strong> &mdash; ${priceStr}${changeHtml}${sparklineHtml}`;
@@ -161,7 +164,7 @@ export function formatAssetHtmlLine(
 export function formatAssetsTextList(
 	assets: AssetWithName[],
 	getPrice: (symbol: string) => AssetPrice | undefined,
-	getSparkline?: (symbol: string) => string | null | undefined,
+	getSparkline?: (symbol: string) => SparklineData | null | undefined,
 	showChangePercent = true,
 	marketSession?: ActiveMarketSession,
 ): string {

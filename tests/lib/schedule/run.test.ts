@@ -173,6 +173,9 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		expect(emailLog?.message).toMatch(/^Pre-market — /);
 		// Change-% line emitted for the test's stub price (changePercent: 1.25).
 		expect(emailLog?.message).toContain("1.25%");
+		// Pre-market sessions show the 7-day sparkline (no actionable intraday yet).
+		// The logged message is the plaintext body, which uses the terse SMS-style label.
+		expect(emailLog?.message).toContain("7d:");
 	});
 
 	it("A user with a 5:00 PM ET after-hours scheduled time receives a message labeled 'After-hours' with change-% recomputed vs. today's regular close", async () => {
@@ -226,6 +229,10 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		// The original Massive `todaysChangePerc` of 1.25% would have been against yesterday's close.
 		expect(emailLog?.message).toContain("1.01%");
 		expect(emailLog?.message).not.toMatch(/\(\+1\.25%\)/);
+		// After-hours session shows the intraday-since-open sparkline so the chart
+		// matches the live price line; 7-day closes would end at yesterday's close.
+		// The logged message is the plaintext body, which uses the terse SMS-style label.
+		expect(emailLog?.message).toContain("today:");
 	});
 
 	it("An after-hours message includes the close anchor in the header when first-asset day-close is available", async () => {

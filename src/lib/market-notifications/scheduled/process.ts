@@ -10,7 +10,7 @@ import { shouldSendSms } from "../../messaging/sms";
 import type { SparklineMap } from "../../messaging/sparkline";
 import type { UserRecord } from "../../messaging/types";
 import type { AssetPriceMap, MarketSession } from "../../providers/price-fetcher";
-import { fetchSparklines } from "../../providers/price-fetcher";
+import { fetchIntradaySparklines, fetchSparklines } from "../../providers/price-fetcher";
 import type {
 	DeliveryMethod,
 	ScheduledNotificationTotals,
@@ -201,21 +201,31 @@ export async function processMarketScheduledUser(options: {
 			userAssetsMap?.get(user.id) ??
 			(await loadUserAssets(supabase, user.id, { includeLogoData: true }));
 		const tickers = userAssets.map((a) => a.symbol);
+		// Intraday-since-open during active sessions (RTH/after-hours) shows
+		// today's live movement — matches the live price line. Pre/closed have
+		// no actionable intraday to show, so we fall back to 7-day closes.
+		const useIntraday = marketSession === "regular" || marketSession === "after";
 		let sparklines: SparklineMap = new Map();
 		if (tickers.length > 0) {
 			try {
-				sparklines = await fetchSparklines(tickers);
+				sparklines = useIntraday
+					? await fetchIntradaySparklines(tickers)
+					: await fetchSparklines(tickers);
 			} catch (error) {
-				logger.error("Failed to fetch sparklines for scheduled market notification", {
-					action: "market_notifications_run",
-					userId: user.id,
-					tickerCount: tickers.length,
-					error: extractErrorMessage(error),
-				});
+				logger.error(
+					"Failed to fetch sparklines for scheduled market notification",
+					{
+						action: "market_notifications_run",
+						userId: user.id,
+						tickerCount: tickers.length,
+						marketSession,
+						sparklineWindow: useIntraday ? "intraday-since-open" : "7-trading-days",
+					},
+					error instanceof Error ? error : new Error(String(error)),
+				);
 			}
 		}
 		const getSparkline = (symbol: string) => sparklines.get(symbol) ?? null;
-		const getAsciiSparkline = (symbol: string) => sparklines.get(symbol)?.ascii;
 
 		const shouldPrepareEmail =
 			user.email_notifications_enabled && user.market_scheduled_asset_price_include_email;
@@ -231,7 +241,7 @@ export async function processMarketScheduledUser(options: {
 		const assetsList = formatAssetsTextList(
 			userAssets,
 			(symbol) => priceMap.get(symbol) ?? undefined,
-			getAsciiSparkline,
+			getSparkline,
 			true,
 			marketSession,
 		);

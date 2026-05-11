@@ -38,11 +38,52 @@ export function toSparkline(values: number[]): string {
 		.join("");
 }
 
+/**
+ * Which price window a sparkline represents. The label rendered next to the
+ * sparkline (in SMS and email) is derived from this discriminator.
+ */
+export type SparklineWindow = "intraday-since-open" | "7-trading-days";
+
+/**
+ * Max sparkline chars for SMS. Unicode blocks force UCS-2 (70 chars/segment);
+ * 12 fits comfortably with the surrounding price line. Used as the downsample
+ * target for any series longer than this (e.g., intraday 5-min bars ~78/day).
+ */
+const SMS_SPARKLINE_LENGTH = 12;
+
+/**
+ * Downsample to at most `maxLength` evenly spaced points, preserving endpoints.
+ * Returns the input unchanged when it already fits, or when `maxLength < 2`.
+ */
+export function downsampleEvenly(values: number[], maxLength = SMS_SPARKLINE_LENGTH): number[] {
+	if (maxLength < 2 || values.length <= maxLength) return values;
+	const out: number[] = [];
+	for (let i = 0; i < maxLength; i++) {
+		const idx = Math.round((i / (maxLength - 1)) * (values.length - 1));
+		const v = values[idx];
+		if (v !== undefined) out.push(v);
+	}
+	return out;
+}
+
 /** Numeric values plus the precomputed Unicode block-character sparkline string. */
 export interface SparklineData {
 	values: number[];
 	ascii: string;
+	window: SparklineWindow;
 }
 
-/** Map of symbol to sparkline data (values + ASCII) or null when unavailable. */
+/** Map of symbol to sparkline data (values + ASCII + window) or null when unavailable. */
 export type SparklineMap = Map<string, SparklineData | null>;
+
+/** Terse per-line label rendered before a sparkline in SMS. UCS-2 keeps these short. */
+export const SMS_SPARKLINE_LABEL: Record<SparklineWindow, string> = {
+	"intraday-since-open": "today",
+	"7-trading-days": "7d",
+};
+
+/** Verbose label rendered inline before a sparkline in email HTML. */
+export const EMAIL_SPARKLINE_LABEL: Record<SparklineWindow, string> = {
+	"intraday-since-open": "Today since open",
+	"7-trading-days": "Past 7 trading days",
+};
