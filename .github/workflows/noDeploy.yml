@@ -9,6 +9,7 @@ on:
       - '**.md'
       - 'docs/**'
       - 'LICENSE'
+      - '.markdownlint-cli2.jsonc'
   workflow_dispatch:
 
 concurrency:

@@ -31,17 +31,14 @@ cli2) were considered and rejected.
 {
   "config": {
     "default": true,
-    "MD013": false,                       // line length — too noisy for prose
-    "MD033": false,                       // inline HTML — used for <details>, badges
-    "MD041": false,                       // first-line h1 — some files start with @-transclude
-    "MD024": { "siblings_only": true }    // duplicate headings OK across different sections
+    "MD013": false, // line length — too noisy for prose
+    "MD033": false, // inline HTML — used for <details>, badges
+    "MD041": false, // first-line h1 — some files start with @-transclude
+    "MD024": { "siblings_only": true } // duplicate headings OK across different sections
   },
   "ignores": [
-    "node_modules/**",
-    "dist/**",
-    "test-results/**",
-    ".claude/**",
-    "CLAUDE.md"
+    "node_modules/**", // dependency READMEs
+    ".claude/**" // worktree noise
   ]
 }
 ```
@@ -69,10 +66,9 @@ Everything else in the default ruleset stays on, including:
 
 ### Ignored paths — rationale
 
-- `node_modules/**`, `dist/**`, `test-results/**`: build artifacts.
+- `node_modules/**`: dependency READMEs.
 - `.claude/**`: worktree noise (this project places worktrees at
   `.claude/worktrees/<branch>`). Lint the source files, not their worktree copies.
-- `CLAUDE.md`: symlink to `AGENTS.md`. Lint the source, not the alias.
 
 ## Integration
 
@@ -101,10 +97,14 @@ Final state:
   "**/*.md": [
     "markdownlint-cli2 --fix"
   ],
-  ".github/**/*.{yml,yaml}": ["yamllint"],
   "supabase/migrations/*.sql": ["bash scripts/db/check-sql.sh"]
 }
 ```
+
+YAML linting in lint-staged was dropped on upstream `main` (commit `adfe00f2`)
+when `check:yaml` in pre-commit moved to `yamllint . && actionlint` running
+repo-wide — covering staged files transitively, so the lint-staged entry was
+redundant.
 
 ### Pre-commit hook (`.githooks/pre-commit`)
 
@@ -152,11 +152,15 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
-      - run: npm ci
-      - run: npm run check:md
+      - name: Install dependencies
+        run: npm ci
+      - name: Markdown lint
+        run: npm run check:md
 ```
 
-`noDeploy.yml` is **not** modified.
+`noDeploy.yml`'s `paths-ignore` gets `.markdownlint-cli2.jsonc` added alongside
+`**.md`, `docs/**`, and `LICENSE`, so config-only changes to the linter don't
+trigger the full test-and-build pipeline.
 
 ## Layered defense
 
@@ -180,7 +184,9 @@ separate commit from the tooling change so the diff is readable.
 - Vale or any prose-style linter (different category; not requested).
 - Markdown linting via Biome (Biome doesn't support markdown yet; revisit if
   they add it).
-- Modifying `noDeploy.yml`'s `paths-ignore` (preserves docs-only PR speed).
+- Removing the `**.md`/`docs/**` entries from `noDeploy.yml`'s `paths-ignore`
+  (preserves docs-only PR speed); only `.markdownlint-cli2.jsonc` is added to
+  the ignore list.
 - Adding markdown linting to any of the Lambda/SAM deploy workflows (out of
   scope for these path filters).
 
