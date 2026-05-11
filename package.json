@@ -92,7 +92,7 @@
 		"markdownlint-cli2": "^0.22.1",
 		"pg": "^8.20.0",
 		"squawk-cli": "^2.51.0",
-		"supabase": "^2.84.8",
+		"supabase": "^2.98.2",
 		"tailwindcss": "^4.2.2",
 		"tsx": "^4.21.0",
 		"typescript": "^5.9.3",
