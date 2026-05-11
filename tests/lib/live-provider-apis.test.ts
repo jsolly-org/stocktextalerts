@@ -358,10 +358,9 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 				: null;
 
 		// SPY should have a valid snapshot quote during any active session — the
-		// parser now falls through day.c → min.c → prevDay.c + todaysChange so
-		// pre-market and after-hours both produce a non-null quote for liquid
-		// names. On weekends/holidays day.c is 0 AND min.c is 0 AND todaysChange
-		// is 0, so parseSnapshotTicker correctly returns null.
+		// parser falls through day.c → min.c so pre-market and after-hours both
+		// produce a non-null quote for liquid names. On weekends/holidays both
+		// day.c and min.c are 0, so parseSnapshotTicker correctly returns null.
 		const earlyHours = (marketStatus as { earlyHours?: unknown })?.earlyHours === true;
 		const afterHours = (marketStatus as { afterHours?: unknown })?.afterHours === true;
 		if (market === "open" || earlyHours || afterHours) {
@@ -369,9 +368,8 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 		}
 
 		// SPIT may have a null or valid snapshot depending on current market data.
-		// When null: ALL price-source paths must have failed — day.c, min.c, and
-		// the prevDay.c + todaysChange derivation. When valid: at least one
-		// path resolved.
+		// When null: both day.c and min.c must be zero. When valid: at least
+		// one price source resolved.
 		if (spitQuote === null) {
 			const rawSnapshot = await marketDataFetch(
 				"/v2/snapshot/locale/us/markets/stocks/tickers",
@@ -386,13 +384,11 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 			const spitRaw = tickers?.[0] as {
 				day?: { c?: unknown };
 				min?: { c?: unknown };
-				todaysChange?: unknown;
 				todaysChangePerc?: unknown;
 				updated?: unknown;
 			};
 			expect(spitRaw.day?.c).toBe(0);
 			expect(spitRaw.min?.c ?? 0).toBe(0);
-			expect(spitRaw.todaysChange ?? 0).toBe(0);
 		} else {
 			// SPIT now has valid trading data; verify the quote is well-formed.
 			expect(spitQuote?.price).toBeGreaterThan(0);

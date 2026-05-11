@@ -29,7 +29,6 @@ describe("fetchSnapshotQuotes during pre-market hours", () => {
 				{
 					ticker: "RTX",
 					todaysChangePerc: -0.1817252541314062,
-					todaysChange: -0.32,
 					updated: 1778495760000000000,
 					day: { o: 0, h: 0, l: 0, c: 0, v: 0 },
 					min: { c: 175.77 },
@@ -38,7 +37,6 @@ describe("fetchSnapshotQuotes during pre-market hours", () => {
 				{
 					ticker: "PLTR",
 					todaysChangePerc: -1.843251088534122,
-					todaysChange: -2.54,
 					updated: 1778496660000000000,
 					day: { o: 0, h: 0, l: 0, c: 0, v: 0 },
 					min: { c: 135.26 },
@@ -61,11 +59,13 @@ describe("fetchSnapshotQuotes during pre-market hours", () => {
 		expect(pltr?.prevClose).toBe(137.8);
 	});
 
-	it("derives the pre-market price from prevDay + todaysChange when the min bar is also zero", async () => {
+	it("returns null when Massive reports a change but no live minute bar yet", async () => {
 		vi.stubEnv("MASSIVE_API_KEY", "test-key");
 		// Real-world edge case (BAH at 07:00 ET): the snapshot reports a non-zero
-		// `todaysChange` (so the API knows the ticker has moved in pre-market)
-		// while `day` and `min` are still flat at zero.
+		// `todaysChange` (so Massive thinks the ticker has moved in pre-market)
+		// while `day` and `min` are still flat at zero. We don't derive a price
+		// from prevDay + change — without a live minute bar, the SMS renders
+		// "price unavailable" instead of a synthetic figure.
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			snapshotResponse([
 				{
@@ -81,14 +81,10 @@ describe("fetchSnapshotQuotes during pre-market hours", () => {
 		);
 
 		const quotes = await fetchSnapshotQuotes(["BAH"]);
-
-		const bah = quotes.get("BAH");
-		expect(bah).not.toBeNull();
-		expect(bah?.price).toBeCloseTo(77.67, 2);
-		expect(bah?.changePercent).toBeCloseTo(0.82, 2);
+		expect(quotes.get("BAH")).toBeNull();
 	});
 
-	it("returns null for tickers with no pre-market activity (day, min, and todaysChange all zero)", async () => {
+	it("returns null for tickers with no pre-market activity (day and min both zero)", async () => {
 		vi.stubEnv("MASSIVE_API_KEY", "test-key");
 		// CACI/GD/SAIC at 07:00 ET: thinly-traded names with no pre-market prints yet.
 		// Preserves existing behavior — caller renders "price unavailable".
@@ -97,7 +93,6 @@ describe("fetchSnapshotQuotes during pre-market hours", () => {
 				{
 					ticker: "CACI",
 					todaysChangePerc: 0,
-					todaysChange: 0,
 					updated: 0,
 					day: { o: 0, h: 0, l: 0, c: 0, v: 0 },
 					min: { c: 0 },
@@ -108,39 +103,6 @@ describe("fetchSnapshotQuotes during pre-market hours", () => {
 
 		const quotes = await fetchSnapshotQuotes(["CACI"]);
 		expect(quotes.get("CACI")).toBeNull();
-	});
-
-	it("rejects derived prices that fall to zero or below from a catastrophic todaysChange", async () => {
-		vi.stubEnv("MASSIVE_API_KEY", "test-key");
-		// Defends the derived-price arm: if a stock's reported todaysChange
-		// would push the price to <= 0 (delisted/halted edge case), return
-		// null rather than emit a $0.00 or negative price downstream.
-		vi.spyOn(globalThis, "fetch").mockResolvedValue(
-			snapshotResponse([
-				{
-					ticker: "ZERO",
-					todaysChangePerc: -100,
-					todaysChange: -50,
-					updated: 1_778_500_000_000_000_000,
-					day: { o: 0, h: 0, l: 0, c: 0, v: 0 },
-					min: { c: 0 },
-					prevDay: { o: 50, h: 50, l: 50, c: 50, v: 1_000 },
-				},
-				{
-					ticker: "NEGATIVE",
-					todaysChangePerc: -110,
-					todaysChange: -55,
-					updated: 1_778_500_000_000_000_000,
-					day: { o: 0, h: 0, l: 0, c: 0, v: 0 },
-					min: { c: 0 },
-					prevDay: { o: 50, h: 50, l: 50, c: 50, v: 1_000 },
-				},
-			]),
-		);
-
-		const quotes = await fetchSnapshotQuotes(["ZERO", "NEGATIVE"]);
-		expect(quotes.get("ZERO")).toBeNull();
-		expect(quotes.get("NEGATIVE")).toBeNull();
 	});
 
 	it("uses the regular-session day.c during after-hours and ignores the later min.c bar", async () => {
@@ -154,7 +116,6 @@ describe("fetchSnapshotQuotes during pre-market hours", () => {
 				{
 					ticker: "MSFT",
 					todaysChangePerc: 1.0,
-					todaysChange: 4.0,
 					updated: 1_778_530_000_000_000_000,
 					day: { o: 396, h: 416, l: 395, c: 415.2, v: 25_000_000 },
 					min: { c: 416.5 },
@@ -179,7 +140,6 @@ describe("fetchSnapshotQuotes during pre-market hours", () => {
 				{
 					ticker: "SPY",
 					todaysChangePerc: 0.5,
-					todaysChange: 2.5,
 					updated: 1778500000000000000,
 					day: { o: 497.5, h: 501.25, l: 497.0, c: 500.5, v: 50_000_000 },
 					min: { c: 500.4 },
