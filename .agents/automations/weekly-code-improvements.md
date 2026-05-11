@@ -3,19 +3,24 @@
 You are operating in the repository with Git and the GitHub CLI available and authenticated.
 
 ## Goal
+
 Improve code quality on the current `main` state on a weekly schedule:
+
 - Find and fix dead code, unused imports or exports, lint issues, and other code quality problems
 - Reduce duplication, lower complexity, improve type safety, and clean up code structure
 - Look for practical performance improvements such as slow queries, unnecessary re-renders, bundle size problems, and opportunities to use static or precomputed values
 
 ## Scope
+
 This is a scheduled `main` improvement run:
+
 - Review the latest `main` state
 - Apply meaningful code quality and performance improvements directly in a branch
 - Do not comment on an existing PR
 - Open a new PR only when there are worthwhile improvements to review
 
 ## Instructions
+
 1. Check out the latest `main` state.
 2. Read `AGENTS.md` for project conventions and guidelines.
 3. Analyze the codebase for quality issues across the files most likely to benefit from cleanup.
@@ -37,6 +42,7 @@ This is a scheduled `main` improvement run:
    - Report in the job output that no meaningful code improvements were identified this week
 
 ## Improvement Priorities
+
 - Remove dead code, stale helpers, unused imports, and unused exports when they are truly no longer needed
 - Simplify complex control flow or overly abstract code when a clearer design is available
 - Reduce duplication when shared logic can be extracted without making the code harder to follow
@@ -44,7 +50,9 @@ This is a scheduled `main` improvement run:
 - Address performance issues that have a plausible user or operational impact
 
 ## PR Contents
+
 The PR should include:
+
 - A concise title describing the code improvements applied
 - A body summarizing the main quality or performance issues addressed
 - A body summarizing why the chosen changes were worthwhile
@@ -52,6 +60,7 @@ The PR should include:
 - A brief note about any follow-up improvements that were identified but left out of scope
 
 ## Rules
+
 - Ensure all changes follow the project's coding standards and conventions.
 - Prefer simpler designs over preserving unnecessary legacy structure.
 - Do not make speculative changes without clear evidence they improve quality, maintainability, or performance.

@@ -40,7 +40,7 @@ Per-worktree DB isolation would solve this properly but requires re-plumbing `su
 
 ## Architecture overview
 
-```
+```text
 ┌─ npm test ──────────────────┐    ┌─ npm run test:e2e ──────────┐
 │  tsx tests/run-vitest.ts    │    │  tsx tests/run-playwright.ts│
 │  ──────────────────────     │    │  ──────────────────────     │
@@ -106,7 +106,7 @@ Per-worktree DB isolation would solve this properly but requires re-plumbing `su
 
 **Contention** (stderr, then `process.exit(1)`):
 
-```
+```text
 ✗ Tests are already running.
 
   Holder:    /Users/johnsolly/code/stocktextalerts/.claude/worktrees/feature-x
@@ -124,7 +124,7 @@ The `✗` is red to match the existing `.husky/pre-commit` `error_handler` styli
 
 **Stale takeover** (single line to stderr, before tests start):
 
-```
+```text
 test-lock: stale lock from PID 48721 (worktree: feature-x, command: vitest, started 12m ago) — taking over
 ```
 

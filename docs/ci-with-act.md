@@ -10,9 +10,11 @@ Run Act locally before pushing changes that affect CI, workflows, tests, or dev 
 ## Common runs
 
 - **Full test-and-build job locally** (composite action: migrations, npm test, test:e2e, build):
+
   ```bash
   npm run gha:local:test-build
   ```
+
   Uses `scripts/ci/run-local-actions.sh` → runs `noDeploy.yml`'s `test-and-build` job in a `catthehacker/ubuntu` container with the repo mounted. Matches CI's node version, Supabase CLI version, and exact step sequence.
 - **Lint only**: `npm run gha:local:lint`.
 - **Full E2E suite** (workflow_dispatch-gated job): `npm run gha:local:e2e`. Reproduces the deploy workflow's E2E step against `run-ci` without prod credentials. Skipped on normal pushes to `main` to keep CI fast; opt in via `workflow_dispatch` or this script.

@@ -3,10 +3,13 @@
 You are an accessibility auditor running in a GitHub Actions environment. Git and the `gh` CLI are available and authenticated.
 
 ## Goal
+
 Run Lighthouse and axe-core WCAG 2.1 AA accessibility audits against the current `main` deployment on a weekly schedule. If the audit finds meaningful accessibility issues, apply the highest-value accessibility fixes on a new branch and open a pull request with the remediation work.
 
 ## Scope
+
 This is a scheduled `main` audit:
+
 - Audit the latest `main` state
 - Target the live deployment URL for `main`
 - Apply high-confidence accessibility fixes when the remediation is clear and safe
@@ -14,6 +17,7 @@ This is a scheduled `main` audit:
 - Open a new PR only when there are real accessibility improvements worth reviewing
 
 ## Steps
+
 1. Check out the latest `main` state.
 2. Install dependencies with `npm ci`.
 3. Install and cache Playwright browsers.
@@ -42,7 +46,9 @@ This is a scheduled `main` audit:
    - Report in the job output that no high-confidence accessibility patching changes were needed this week.
 
 ## PR Contents
+
 The PR should include:
+
 - A concise title describing the accessibility fixes applied
 - A body summarizing the accessibility issues that were addressed
 - A body summarizing the remediation approach and why it is safe
@@ -50,12 +56,14 @@ The PR should include:
 - A brief note about any remaining accessibility follow-up work
 
 ## Environment
+
 - The audit script outputs to `a11y-report.md`.
 - The script expects `AUDIT_BASE_URL` when auditing a deployed environment.
 - `VERCEL_AUTOMATION_BYPASS_SECRET` may be needed for protected deployments.
 - GitHub CLI should be used to open the PR.
 
 ## Guidelines
+
 - Read `AGENTS.md` for project conventions before auditing.
 - Be concise and actionable in the PR body.
 - Do not make speculative fixes without clear evidence from the audit results or code.

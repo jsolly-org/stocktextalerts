@@ -3,22 +3,28 @@
 You are running a weekly documentation update job in the repository with Git and the GitHub CLI available and authenticated.
 
 ## Goal
+
 Review the current state of the `main` branch codebase and update user-facing docs to accurately reflect it. Create a PR with changes only if documentation updates are needed.
 
 ## Scope
+
 This is a scheduled `main` documentation patching run:
+
 - Review the latest `main` state
 - Update user-facing documentation so it matches the current product behavior
 - Modify only the explicitly allowed files
 - Open a new PR only when there are real documentation updates to make
 
 ## Allowed Files
+
 ONLY these files may be modified:
+
 - `README.md` - project documentation
 - `src/pages/faq.astro` - FAQ page, limited to the `faqs` array entries and surrounding page copy
 - `src/components/landing/HowItWorks.astro` - "How it works" section, limited to the `steps` array entries and surrounding section copy
 
 ## Instructions
+
 1. Check out the latest `main` state.
 2. Read `AGENTS.md` for project conventions and guidance.
 3. Review the current codebase and identify user-facing documentation that is out of date, missing, or misleading.
@@ -43,6 +49,7 @@ ONLY these files may be modified:
    - Do not open a PR
 
 ## Rules
+
 - Do not modify any file outside the allowed list.
 - Do not change code, tests, styles, component structure, imports, or layout logic while doing documentation updates.
 - Keep wording aligned with the current product behavior and repository style.

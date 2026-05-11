@@ -44,7 +44,7 @@ Recorded for reproducibility. Versions are `<14-digit-timestamp>` matching
 the original filenames. If you need to inspect the original migration
 content, check git history before commit `4bb137a3`.
 
-```
+```text
 20250101000000  20260209141004  20260209223746  20260210104707
 20260211134253  20260211165536  20260211173315  20260211200000
 20260211205930  20260211210000  20260212000000  20260212205148

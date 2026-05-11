@@ -9,6 +9,7 @@ Items deferred from completed work. Each entry: short context + when it surfaced
 **Why:** `tests/e2e/sanity.e2e.spec.ts:TC-PROF-001` (password + email change) is currently `test.skip`. The local Supabase auth-email-change template sends links with `token=...&type=email_change&...`, but our `/auth/verified` page only reads `token_hash=` from the URL. Clicking the verify link lands on a tokenless `/auth/verified`, the "Verify my email" button never renders, and the test times out at 180s. The test was already failing on `main` before the badge work; pre-existing infra bug, not a regression.
 
 **Fix paths to consider:**
+
 1. Update `supabase/auth-email-change.html` (and any equivalent recover/confirmation templates) to use `{{ .TokenHash }}` and emit `token_hash=` in the link.
 2. Or extend `src/pages/auth/verified.astro` to accept either `token_hash=` (preferred) or legacy `token=` and call `verifyOtp` accordingly.
 3. After the template/page fix, drop the `test.skip` on TC-PROF-001 and run E2E to confirm the password→email-change→re-signin flow stays green end-to-end.

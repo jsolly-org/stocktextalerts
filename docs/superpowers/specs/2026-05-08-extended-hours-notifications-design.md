@@ -31,7 +31,7 @@ The original clamp at 10:00 AM ET (30 min after regular open) was deliberate: av
 
 ## Architecture overview
 
-```
+```text
 ┌─ Schedule time (notification-preferences update) ────────┐
 │  Form sends user-local-minutes; API converts to          │
 │  ET-minutes via users.timezone before storing.           │
@@ -370,7 +370,7 @@ This addresses the timezone-change semantic gap: a user moving from PT to ET kee
 Today's email subject line stays `"Your Scheduled Price Notification"` (preserves mailbox threading). The **first body line** of email and the **first line of SMS** include a session label:
 
 | Session | First line |
-|---|---|
+| --- | --- |
 | `pre` | `Pre-market — 7:00 AM ET` |
 | `regular` | `Regular hours — 12:00 PM ET` |
 | `after` | `After-hours — 5:00 PM ET (vs. 4:00 PM close $X.XX)` |
@@ -380,7 +380,7 @@ For after-hours, include the prior regular close as a reference anchor. The HTML
 ### Change baseline
 
 | Session | Baseline | Source field |
-|---|---|---|
+| --- | --- | --- |
 | `pre` | yesterday's close | `prevClose` |
 | `regular` | yesterday's close (unchanged) | `prevClose` |
 | `after` | today's regular close | `day.close` from snapshot |
@@ -465,7 +465,7 @@ The existing `marketClosure` short-circuit at update-time (which pre-computes `n
 ## Logging
 
 | Event | Level | Context |
-|---|---|---|
+| --- | --- | --- |
 | Skipping send because no session active at delivery | `info` | `userId`, `scheduledEtMinutes`, `dueAt`, `session: "closed"` |
 | `parseMarketSession` rejects payload (bad shape, both flags set, missing `market`) | `warn` | full payload |
 | `day.close` missing or zero in after-hours — fallback used | `info` | `userId`, `symbol`, `session: "after"` |

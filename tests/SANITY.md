@@ -371,7 +371,7 @@ Verify HELP, STOP, and START SMS keyword handling and dashboard state synchroniz
 The tests above are designed to run sequentially in a single session:
 
 | Order | Test ID | Description | Depends On |
-|-------|---------|-------------|------------|
+| --- | --- | --- | --- |
 | 1 | TC-REG-001 | Register new account | - |
 | 2 | TC-AUTH-001 | Sign out + sign in | TC-REG-001 |
 | 3 | TC-TZ-001 | Configure timezone | TC-REG-001 |
@@ -392,12 +392,14 @@ The tests above are designed to run sequentially in a single session:
 **PASS:** All checkboxes marked. No critical or high-severity bugs found.
 
 **FAIL (block release):**
+
 - Any TC-REG, TC-AST, TC-EMAIL, or TC-SMS test fails (P0 tests)
 - Notification email or SMS never arrives
 - Account cannot be created or deleted
 - Security issue discovered (e.g., dashboard accessible after deletion)
 
 **CONDITIONAL:**
+
 - Minor UI inconsistencies (e.g., timezone display quirks)
 - Non-blocking warnings in the console
 - Notification arrives but with minor formatting issues

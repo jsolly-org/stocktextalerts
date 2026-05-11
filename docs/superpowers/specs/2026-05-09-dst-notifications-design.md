@@ -39,7 +39,7 @@ No new opt-out toggle. The cadence (twice a year) is low enough that the existin
 
 ## Architecture overview
 
-```
+```text
 ┌─ Two EventBridge cron schedules ──────────────────────────┐
 │  Spring: cron(0 12 ? 3 1#1 *)  → 1st Sun of March 12 UTC  │
 │  Fall:   cron(0 12 ? 10 1L *)  → last Sun of Oct  12 UTC  │
@@ -390,6 +390,7 @@ export async function handler(
 The manual force path skips the date check, trusts the payload, and logs at `warn`. Production cron is unaffected.
 
 Manual smoke test:
+
 ```bash
 aws lambda invoke --function-name stocktextalerts-dst-notifications \
   --payload '{"force":true,"shiftDate":"2026-03-08","kind":"spring"}' \
@@ -469,6 +470,7 @@ Add `DstNotificationsLogGroup`, `DstNotificationsFunctionErrorAlarm` (Lambda Err
 ### Pure function tests — `tests/lib/dst-notifications/dst-dates.test.ts`
 
 Scenario-framed:
+
 - "In early March, the next US DST shift is the upcoming 2nd Sunday of March"
 - "In late March, the next US DST shift is the 1st Sunday of November"
 - "In late October, the next US DST shift is the upcoming 1st Sunday of November"
