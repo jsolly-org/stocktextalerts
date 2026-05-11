@@ -27,6 +27,8 @@
 		"check:ts": "astro check",
 		"check:biome": "biome check --write --no-errors-on-unmatched",
 		"check:knip": "knip",
+		"check:md": "markdownlint-cli2 \"**/*.md\"",
+		"check:md:fix": "markdownlint-cli2 --fix \"**/*.md\"",
 		"check:sql": "bash scripts/db/check-sql.sh",
 		"check:yaml": "yamllint . && actionlint",
 		"db:start": "supabase start",
@@ -45,8 +47,11 @@
 		"test:live:all": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-vitest.ts --live=all"
 	},
 	"lint-staged": {
-		"**/*.{ts,tsx,json,css,md,astro,html,vue}": [
+		"**/*.{ts,tsx,json,css,astro,html,vue}": [
 			"biome check --write --no-errors-on-unmatched --files-ignore-unknown=true"
+		],
+		"**/*.md": [
+			"markdownlint-cli2 --fix"
 		],
 		"supabase/migrations/*.sql": [
 			"bash scripts/db/check-sql.sh"
@@ -84,6 +89,7 @@
 		"knip": "^6.2.0",
 		"lighthouse": "^13.0.3",
 		"lint-staged": "^16.4.0",
+		"markdownlint-cli2": "^0.22.1",
 		"pg": "^8.20.0",
 		"squawk-cli": "^2.51.0",
 		"supabase": "^2.84.8",

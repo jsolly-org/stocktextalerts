@@ -1,0 +1,31 @@
+# CI gate — runs markdownlint-cli2 on the repo.
+# Triggers only on markdown changes (or config changes) so docs-only pushes
+# don't pull in the full test-and-build pipeline from noDeploy.yml.
+name: Markdown
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**.md'
+      - '.markdownlint-cli2.jsonc'
+  workflow_dispatch:
+
+concurrency:
+  group: markdown-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Markdown lint
+        run: npm run check:md
