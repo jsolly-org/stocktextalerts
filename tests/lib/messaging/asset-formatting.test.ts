@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { formatAssetsHtmlList, getSafeHrefUrl } from "../../../src/lib/messaging/asset-formatting";
+import {
+	formatAssetsHtmlList,
+	formatAssetTextLine,
+	getSafeHrefUrl,
+} from "../../../src/lib/messaging/asset-formatting";
 
 describe("getSafeHrefUrl prevents XSS via dangerous URL schemes.", () => {
 	it("Returns trimmed URL for valid https URLs.", () => {
@@ -89,5 +93,47 @@ describe("A subscriber receives email asset rows with logos when logo data is av
 
 		expect(result).toContain("<strong>AAPL</strong>");
 		expect(result).not.toContain("<img");
+	});
+});
+
+describe("After-hours change-% rendering", () => {
+	it("A subscriber receiving a 6 PM ET SMS sees the live after-hours move, not 0.00%", () => {
+		// User-visible regression guard for the after-hours staleness bug.
+		// Before the parser + dayCloseRegular fix: price=415.20 (locked 4 PM
+		// close) and change-% = (415.20 - 415.20) / 415.20 = +0.00%.
+		// After: price=416.50 (live after-hours min.c) and change-% =
+		// (416.50 - 415.20) / 415.20 ≈ +0.31%.
+		const line = formatAssetTextLine(
+			{ symbol: "MSFT", name: "Microsoft" },
+			{
+				price: 416.5,
+				changePercent: 1.5, // Massive's todaysChangePerc (vs prevDay) — must be overridden after-hours.
+				prevClose: 410.0,
+				dayCloseRegular: 415.2,
+			},
+			null,
+			true,
+			"after",
+		);
+		expect(line).toBe("MSFT — $416.50 (+0.31%)");
+	});
+
+	it("Falls back to prev-day baseline with the † footnote marker when today's regular close is unavailable", () => {
+		// When fetchTodaysRegularCloses can't get today's 4 PM close (e.g.,
+		// fired before the daily aggregate is ready or the API errors), the
+		// renderer uses the prev-day baseline and signals the fallback via †.
+		const line = formatAssetTextLine(
+			{ symbol: "MSFT", name: "Microsoft" },
+			{
+				price: 416.5,
+				changePercent: 1.5,
+				prevClose: 410.0,
+				dayCloseRegular: null,
+			},
+			null,
+			true,
+			"after",
+		);
+		expect(line).toBe("MSFT — $416.50 (+1.50%†)");
 	});
 });

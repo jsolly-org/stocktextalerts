@@ -18,6 +18,7 @@ import {
 	type AssetPriceMap,
 	fetchAssetPrices,
 	fetchSparklines,
+	fetchTodaysRegularCloses,
 	getCurrentMarketSession,
 	type MarketSession,
 } from "../providers/price-fetcher";
@@ -351,6 +352,37 @@ export async function processDailyDigestUser(options: {
 				});
 			}
 		}
+
+		// After-hours digests: fetch today's 4:00 PM ET regular close so the
+		// renderer computes change-% vs. today's close rather than yesterday's
+		// (which would conflate the regular-session move with the after-hours
+		// move). Mirrors the schedule/run.ts after-hours enrichment.
+		if (session === "after" && needsPrices && tickers.length > 0 && assetPrices.size > 0) {
+			try {
+				const dayCloseMap = await fetchTodaysRegularCloses(tickers);
+				for (const symbol of tickers) {
+					const price = assetPrices.get(symbol);
+					if (!price) continue;
+					assetPrices.set(symbol, {
+						...price,
+						dayCloseRegular: dayCloseMap.get(symbol) ?? null,
+					});
+				}
+			} catch (error) {
+				// Per-symbol failures absorbed inside fetchTodaysRegularCloses;
+				// only a structural throw reaches here. Renderer falls back to
+				// prev-day baseline with the † footnote — benign.
+				logger.warn(
+					"Daily digest today's regular-close fetch failed (continuing with prev-day baseline)",
+					{
+						action: "daily_run",
+						userId: user.id,
+						tickerCount: tickers.length,
+						error: extractErrorMessage(error),
+					},
+				);
+			}
+		}
 		let sparklines: SparklineMap = new Map();
 		if (needsPrices && tickers.length > 0) {
 			try {
@@ -396,7 +428,7 @@ export async function processDailyDigestUser(options: {
 
 			if (missingTickers.length > 0) {
 				try {
-					const retrySnapshot = await fetchSnapshotQuotes(missingTickers);
+					const retrySnapshot = await fetchSnapshotQuotes(missingTickers, session);
 					const recoveredTickers: string[] = [];
 					const stillMissingTickers: string[] = [];
 					for (const ticker of missingTickers) {

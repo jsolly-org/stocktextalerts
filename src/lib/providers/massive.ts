@@ -3,6 +3,7 @@ import { US_MARKET_TIMEZONE } from "../constants";
 import { requireEnv } from "../db/env";
 import { rootLogger } from "../logging";
 import { finnhubFetch } from "./finnhub";
+import type { MarketSession } from "./price-fetcher";
 
 type DeliveryChannel = "sms" | "email";
 
@@ -663,27 +664,34 @@ interface SnapshotQuote {
 	volume: number | null;
 }
 
-function parseSnapshotTicker(t: SnapshotTicker): SnapshotQuote | null {
+function parseSnapshotTicker(t: SnapshotTicker, session: MarketSession): SnapshotQuote | null {
 	const isPositive = (v: unknown): v is number =>
 		typeof v === "number" && Number.isFinite(v) && v !== 0;
 
-	// Pre/after-market: day.c is 0 (regular session not running), but min.c
-	// carries the latest extended-hours minute bar. If neither is positive,
-	// we have no live trade data and the caller renders "price unavailable".
+	// Pick the freshest live-trade source given the session. During regular
+	// hours `day.c` is the rolling close (authoritative). During pre/after
+	// `day.c` is unrepresentative (zero pre-market; locked at the 4 PM close
+	// after the bell), so `min.c` (latest extended-hours minute bar) wins.
+	// During `closed`, day.c carries the last regular session's close — what
+	// the user expects to see on a weekend.
+	const preferMinFirst = session === "pre" || session === "after";
 	let price: number | null = null;
-	if (isPositive(t.day?.c)) {
-		price = t.day.c;
-	} else if (isPositive(t.min?.c)) {
-		price = t.min.c;
+	if (preferMinFirst) {
+		if (isPositive(t.min?.c)) price = t.min.c;
+		else if (isPositive(t.day?.c)) price = t.day.c;
+	} else {
+		if (isPositive(t.day?.c)) price = t.day.c;
+		else if (isPositive(t.min?.c)) price = t.min.c;
 	}
 	if (price === null) return null;
 
 	let changePercent = t.todaysChangePerc;
 	if (typeof changePercent !== "number" || !Number.isFinite(changePercent)) return null;
 
-	// When the market is closed, todaysChangePerc is 0 because there are no
-	// trades today. Fall back to the last trading day's change
-	// (price vs prevDay.c) so notifications don't confusingly show +(0.00%).
+	// When todaysChangePerc is 0 (typically because the market is closed —
+	// weekend or holiday — but also for thinly-traded names that simply
+	// haven't moved), derive change-% from (price vs prevDay.c) so the
+	// notification doesn't confusingly show +(0.00%) when price ≠ prevClose.
 	const prevClose = t.prevDay?.c;
 	if (
 		changePercent === 0 &&
@@ -724,6 +732,7 @@ function parseSnapshotTicker(t: SnapshotTicker): SnapshotQuote | null {
  */
 export async function fetchSnapshotQuotes(
 	symbols: string[],
+	session: MarketSession,
 ): Promise<Map<string, SnapshotQuote | null>> {
 	const result = new Map<string, SnapshotQuote | null>();
 	if (symbols.length === 0) return result;
@@ -748,7 +757,7 @@ export async function fetchSnapshotQuotes(
 		const t = raw as SnapshotTicker;
 		if (typeof t.ticker !== "string") continue;
 
-		const quote = parseSnapshotTicker(t);
+		const quote = parseSnapshotTicker(t, session);
 		if (quote) {
 			result.set(t.ticker, quote);
 		}

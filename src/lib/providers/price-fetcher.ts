@@ -128,7 +128,7 @@ export async function fetchAssetPrices(
 			]),
 		);
 	}
-	const snapshot = await fetchSnapshotQuotes(symbols);
+	const snapshot = await fetchSnapshotQuotes(symbols, session);
 	await fillSnapshotMissesWithPrevDayBar(symbols, snapshot, session);
 	return snapshot as AssetPriceMap;
 }
@@ -160,7 +160,7 @@ export async function fetchExtendedQuotes(
 			]),
 		);
 	}
-	const snapshot = await fetchSnapshotQuotes(symbols);
+	const snapshot = await fetchSnapshotQuotes(symbols, session);
 	await fillSnapshotMissesWithPrevDayBar(symbols, snapshot, session);
 	return snapshot as ExtendedQuoteMap;
 }

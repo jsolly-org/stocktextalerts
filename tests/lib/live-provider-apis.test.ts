@@ -347,7 +347,8 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 	});
 
 	it("handles SPIT snapshot correctly (null-snapshot vs valid-snapshot)", async () => {
-		const productionSnapshot = await fetchSnapshotQuotes(["SPIT", "SPY"]);
+		const liveSession = await getCurrentMarketSession();
+		const productionSnapshot = await fetchSnapshotQuotes(["SPIT", "SPY"], liveSession);
 		const spitQuote = productionSnapshot.get("SPIT");
 		const spyQuote = productionSnapshot.get("SPY");
 
@@ -358,9 +359,10 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 				: null;
 
 		// SPY should have a valid snapshot quote during any active session — the
-		// parser falls through day.c → min.c so pre-market and after-hours both
-		// produce a non-null quote for liquid names. On weekends/holidays both
-		// day.c and min.c are 0, so parseSnapshotTicker correctly returns null.
+		// parser is session-aware: pre/after prefer min.c (latest extended-hours
+		// minute bar), regular/closed prefer day.c (rolling/last regular close).
+		// On weekends/holidays both day.c and min.c are typically 0, so
+		// parseSnapshotTicker correctly returns null.
 		const earlyHours = (marketStatus as { earlyHours?: unknown })?.earlyHours === true;
 		const afterHours = (marketStatus as { afterHours?: unknown })?.afterHours === true;
 		if (market === "open" || earlyHours || afterHours) {

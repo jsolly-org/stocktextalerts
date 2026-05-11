@@ -13,7 +13,7 @@ function snapshotResponse(tickers: unknown[]) {
 	});
 }
 
-describe("fetchSnapshotQuotes during pre-market hours", () => {
+describe("fetchSnapshotQuotes session-aware price resolution", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 		vi.unstubAllEnvs();
@@ -45,7 +45,7 @@ describe("fetchSnapshotQuotes during pre-market hours", () => {
 			]),
 		);
 
-		const quotes = await fetchSnapshotQuotes(["RTX", "PLTR"]);
+		const quotes = await fetchSnapshotQuotes(["RTX", "PLTR"], "pre");
 
 		const rtx = quotes.get("RTX");
 		const pltr = quotes.get("PLTR");
@@ -80,7 +80,7 @@ describe("fetchSnapshotQuotes during pre-market hours", () => {
 			]),
 		);
 
-		const quotes = await fetchSnapshotQuotes(["BAH"]);
+		const quotes = await fetchSnapshotQuotes(["BAH"], "pre");
 		expect(quotes.get("BAH")).toBeNull();
 	});
 
@@ -101,16 +101,17 @@ describe("fetchSnapshotQuotes during pre-market hours", () => {
 			]),
 		);
 
-		const quotes = await fetchSnapshotQuotes(["CACI"]);
+		const quotes = await fetchSnapshotQuotes(["CACI"], "pre");
 		expect(quotes.get("CACI")).toBeNull();
 	});
 
-	it("uses the regular-session day.c during after-hours and ignores the later min.c bar", async () => {
+	it("uses the latest after-hours minute bar instead of the locked 4:00 PM day.c", async () => {
 		vi.stubEnv("MASSIVE_API_KEY", "test-key");
-		// Regression guard for the after-hours path. The displayed "current
-		// price" comes from day.c (the 4:00 PM regular close); change-% is
-		// computed elsewhere against fetchTodaysRegularCloses. The fallback
-		// chain must NOT promote min.c to the price field after-hours.
+		// During after-hours `day.c` is the regular-session 4:00 PM close (locked
+		// and stale to the user). `min.c` carries the latest extended-hours minute
+		// bar, which is what the user expects to see in a 6 PM ET notification.
+		// Without this, the displayed change-% (computed against today's regular
+		// close) would always read 0.00% after hours.
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			snapshotResponse([
 				{
@@ -124,17 +125,43 @@ describe("fetchSnapshotQuotes during pre-market hours", () => {
 			]),
 		);
 
-		const quotes = await fetchSnapshotQuotes(["MSFT"]);
+		const quotes = await fetchSnapshotQuotes(["MSFT"], "after");
 		const msft = quotes.get("MSFT");
 		expect(msft).not.toBeNull();
-		expect(msft?.price).toBe(415.2);
+		expect(msft?.price).toBe(416.5);
+	});
+
+	it("falls back to the locked 4:00 PM close when no after-hours trades have printed", async () => {
+		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		// Illiquid name at 4:15 PM ET: no after-hours minute bar yet. We still
+		// want to surface a price (the regular-session close) rather than null.
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(
+			snapshotResponse([
+				{
+					ticker: "SAIC",
+					todaysChangePerc: 0.5,
+					updated: 1_778_530_000_000_000_000,
+					day: { o: 92, h: 94, l: 91, c: 93.93, v: 477144 },
+					min: { c: 0 },
+					prevDay: { o: 92.5, h: 93.5, l: 91.2, c: 93.46, v: 500000 },
+				},
+			]),
+		);
+
+		const quotes = await fetchSnapshotQuotes(["SAIC"], "after");
+		const saic = quotes.get("SAIC");
+		expect(saic).not.toBeNull();
+		expect(saic?.price).toBe(93.93);
+		// Pin todaysChangePerc passthrough; the renderer's session-aware
+		// change-% override is exercised in asset-formatting.test.ts.
+		expect(saic?.changePercent).toBeCloseTo(0.5, 2);
 	});
 
 	it("keeps using day.c during the regular session", async () => {
 		vi.stubEnv("MASSIVE_API_KEY", "test-key");
 		// Regular session: day.c is the rolling close and is the authoritative
-		// price. Guards against accidentally regressing the regular-hours path
-		// while fixing the pre-market path.
+		// price even when a slightly-stale min bar disagrees. Guards against
+		// regressions in the regular-hours path while fixing pre/after.
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			snapshotResponse([
 				{
@@ -148,7 +175,7 @@ describe("fetchSnapshotQuotes during pre-market hours", () => {
 			]),
 		);
 
-		const quotes = await fetchSnapshotQuotes(["SPY"]);
+		const quotes = await fetchSnapshotQuotes(["SPY"], "regular");
 		const spy = quotes.get("SPY");
 		expect(spy).not.toBeNull();
 		expect(spy?.price).toBe(500.5);
@@ -156,5 +183,36 @@ describe("fetchSnapshotQuotes during pre-market hours", () => {
 		expect(spy?.dayOpen).toBe(497.5);
 		expect(spy?.dayHigh).toBe(501.25);
 		expect(spy?.dayLow).toBe(497.0);
+	});
+
+	it("uses day.c during a closed session so weekend SMS shows the last regular close", async () => {
+		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		// Saturday/holiday: day.c is the last trading day's regular close (Friday).
+		// Even if min.c happens to carry a stale extended-hours bar from Friday
+		// night, the user expects to see the regular close, not an after-hours
+		// flicker. Pairs with the "Market Closed — Prices below reflect the last
+		// market close" banner in src/lib/messaging/market-closure-banner.ts.
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(
+			snapshotResponse([
+				{
+					ticker: "AAPL",
+					todaysChangePerc: 0,
+					updated: 1_778_300_000_000_000_000,
+					day: { o: 178, h: 180, l: 177, c: 179.5, v: 50_000_000 },
+					min: { c: 179.8 },
+					prevDay: { o: 176, h: 178, l: 175, c: 177, v: 60_000_000 },
+				},
+			]),
+		);
+
+		const quotes = await fetchSnapshotQuotes(["AAPL"], "closed");
+		const aapl = quotes.get("AAPL");
+		expect(aapl).not.toBeNull();
+		expect(aapl?.price).toBe(179.5);
+		expect(aapl?.prevClose).toBe(177);
+		// todaysChangePerc=0 triggers the prev-day recalculation branch:
+		// (179.5 - 177) / 177 * 100 ≈ +1.41%. Pins the math so an off-by-one
+		// in the closed-session change-% derivation surfaces immediately.
+		expect(aapl?.changePercent).toBeCloseTo(1.41, 2);
 	});
 });
