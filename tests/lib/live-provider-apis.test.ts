@@ -357,18 +357,22 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 				? (marketStatus as { market?: unknown }).market
 				: null;
 
-		// SPY should have a valid snapshot quote when the market is open.
-		// On weekends/holidays, day.c is 0 so parseSnapshotTicker returns null.
-		// During pre-market extended-hours, day.c is also 0 (no regular trades yet).
-		if (market === "open") {
+		// SPY should have a valid snapshot quote during any active session — the
+		// parser now falls through day.c → min.c → prevDay.c + todaysChange so
+		// pre-market and after-hours both produce a non-null quote for liquid
+		// names. On weekends/holidays day.c is 0 AND min.c is 0 AND todaysChange
+		// is 0, so parseSnapshotTicker correctly returns null.
+		const earlyHours = (marketStatus as { earlyHours?: unknown })?.earlyHours === true;
+		const afterHours = (marketStatus as { afterHours?: unknown })?.afterHours === true;
+		if (market === "open" || earlyHours || afterHours) {
 			expect(spyQuote).not.toBeNull();
 		}
 
 		// SPIT may have a null or valid snapshot depending on current market data.
-		// When null: the parser correctly filters zero-valued snapshots.
-		// When valid: the ticker now has real trading activity.
+		// When null: ALL price-source paths must have failed — day.c, min.c, and
+		// the prevDay.c + todaysChange derivation. When valid: at least one
+		// path resolved.
 		if (spitQuote === null) {
-			// Validate upstream snapshot payload shape that leads to the null.
 			const rawSnapshot = await marketDataFetch(
 				"/v2/snapshot/locale/us/markets/stocks/tickers",
 				{ tickers: "SPIT" },
@@ -381,12 +385,14 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 
 			const spitRaw = tickers?.[0] as {
 				day?: { c?: unknown };
+				min?: { c?: unknown };
+				todaysChange?: unknown;
 				todaysChangePerc?: unknown;
 				updated?: unknown;
 			};
 			expect(spitRaw.day?.c).toBe(0);
-			expect(spitRaw.todaysChangePerc).toBe(0);
-			expect(spitRaw.updated).toBe(0);
+			expect(spitRaw.min?.c ?? 0).toBe(0);
+			expect(spitRaw.todaysChange ?? 0).toBe(0);
 		} else {
 			// SPIT now has valid trading data; verify the quote is well-formed.
 			expect(spitQuote?.price).toBeGreaterThan(0);

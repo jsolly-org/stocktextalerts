@@ -636,6 +636,7 @@ Snapshot Quotes
 interface SnapshotTicker {
 	ticker: string;
 	todaysChangePerc?: number;
+	todaysChange?: number;
 	updated?: number; // nanoseconds
 	day?: {
 		o: number;
@@ -643,6 +644,9 @@ interface SnapshotTicker {
 		l: number;
 		c: number;
 		v: number;
+	};
+	min?: {
+		c: number;
 	};
 	prevDay?: {
 		c: number;
@@ -661,15 +665,36 @@ interface SnapshotQuote {
 }
 
 function parseSnapshotTicker(t: SnapshotTicker): SnapshotQuote | null {
-	const price = t.day?.c;
-	if (typeof price !== "number" || !Number.isFinite(price) || price === 0) return null;
+	const isPositive = (v: unknown): v is number =>
+		typeof v === "number" && Number.isFinite(v) && v !== 0;
+
+	// Pre-market: day.c is 0 until the regular session opens, but min.c carries
+	// the latest extended-hours minute bar. For thinly-traded names that have
+	// moved without a min bar yet, derive price = prevDay.c + todaysChange.
+	let price: number | null = null;
+	if (isPositive(t.day?.c)) {
+		price = t.day.c;
+	} else if (isPositive(t.min?.c)) {
+		price = t.min.c;
+	} else if (
+		isPositive(t.prevDay?.c) &&
+		typeof t.todaysChange === "number" &&
+		Number.isFinite(t.todaysChange) &&
+		t.todaysChange !== 0
+	) {
+		// Reject derived values <= 0 (e.g., catastrophic pre-market gap-down where
+		// reported todaysChange would push the price to zero or negative).
+		const derived = t.prevDay.c + t.todaysChange;
+		if (derived > 0) price = derived;
+	}
+	if (price === null) return null;
 
 	let changePercent = t.todaysChangePerc;
 	if (typeof changePercent !== "number" || !Number.isFinite(changePercent)) return null;
 
-	// When market is closed, todaysChangePerc is 0 because there are no trades
-	// today. Fall back to the last trading day's change (day.c vs prevDay.c)
-	// so notifications don't confusingly show +(0.00%).
+	// When the market is closed (or pre-market with no extended-hours trades
+	// yet), todaysChangePerc is 0. Fall back to the last trading day's change
+	// (price vs prevDay.c) so notifications don't confusingly show +(0.00%).
 	const prevClose = t.prevDay?.c;
 	if (
 		changePercent === 0 &&
