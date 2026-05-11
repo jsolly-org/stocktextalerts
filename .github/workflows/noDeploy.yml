@@ -27,6 +27,12 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Install dependencies
         run: npm ci
+      - name: Install YAML linters
+        shell: bash
+        run: |
+          pipx install yamllint==1.38.0
+          bash <(curl -sSf https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.7
+          sudo mv actionlint /usr/local/bin/actionlint
       - name: Run Biome
         run: npx biome ci . --error-on-warnings
       - name: Lint YAML

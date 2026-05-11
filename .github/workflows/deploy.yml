@@ -45,7 +45,7 @@ jobs:
 
           orphaned=()
           for version in $remote_versions; do
-            if ! ls supabase/migrations/${version}_*.sql 1>/dev/null 2>&1; then
+            if ! ls supabase/migrations/"${version}"_*.sql 1>/dev/null 2>&1; then
               orphaned+=("$version")
             fi
           done
@@ -132,9 +132,11 @@ jobs:
               --query 'StackResourceDetail.PhysicalResourceId' \
               --output text
           }
-          echo "schedule=$(get_physical_id ScheduleFunction)" >> "$GITHUB_OUTPUT"
-          echo "asset_events=$(get_physical_id AssetEventsFunction)" >> "$GITHUB_OUTPUT"
-          echo "daily_stats=$(get_physical_id ComputeDailyStatsFunction)" >> "$GITHUB_OUTPUT"
+          {
+            echo "schedule=$(get_physical_id ScheduleFunction)"
+            echo "asset_events=$(get_physical_id AssetEventsFunction)"
+            echo "daily_stats=$(get_physical_id ComputeDailyStatsFunction)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Zip Lambda bundles
         working-directory: aws/.aws-sam/build

@@ -631,4 +631,3 @@ Outputs:
     Value: !Ref ProdBackupsBucket
     Export:
       Name: !Sub "${AWS::StackName}-ProdBackupsBucketName"
-

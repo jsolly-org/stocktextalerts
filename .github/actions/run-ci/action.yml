@@ -106,6 +106,13 @@ runs:
     - name: Install dependencies
       shell: bash
       run: npm ci
+    - name: Install YAML linters
+      if: inputs.skip-lint != 'true'
+      shell: bash
+      run: |
+        pipx install yamllint==1.38.0
+        bash <(curl -sSf https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.7
+        sudo mv actionlint /usr/local/bin/actionlint
     - name: Setup Supabase CLI
       uses: supabase/setup-cli@v2
       with:

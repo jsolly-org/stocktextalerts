@@ -26,6 +26,21 @@ npx vercel env ls
 - Account: John Solly (`cloudflare@jsolly.com`)
 - Account ID: `fe860aed6545e6e55e2808d66decf186`
 
+## YAML linting
+
+`npm run check:yaml` runs two tools — both required, both invoked from the pre-commit hook and CI:
+
+- **yamllint** (Python) — rule-based YAML linter, configured via `.yamllint` (`extends: relaxed`, `line-length` disabled).
+- **actionlint** (Go) — validates GitHub Actions semantics (expression syntax, action refs) and runs shellcheck on `run:` blocks. Surfaces things yamllint can't.
+
+Install both via Homebrew:
+
+```bash
+brew install yamllint actionlint
+```
+
+CI installs them per-run (yamllint via `pipx`, actionlint via the upstream `download-actionlint.bash` script). Versions are pinned in `.github/workflows/noDeploy.yml` and `.github/actions/run-ci/action.yml` — bump them together if you upgrade locally.
+
 ## Dev Environment
 
 ### Prod dev-login account

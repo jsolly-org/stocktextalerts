@@ -28,7 +28,7 @@
 		"check:biome": "biome check --write --no-errors-on-unmatched",
 		"check:knip": "knip",
 		"check:sql": "bash scripts/db/check-sql.sh",
-		"check:yaml": "yamllint '.github/**/*.yml'",
+		"check:yaml": "yamllint . && actionlint",
 		"db:start": "supabase start",
 		"db:stop": "supabase stop",
 		"db:bootstrap": "node ./node_modules/.bin/tsx scripts/db/link-worktree-data.ts && npm run db:start && npm run db:reset && npm run db:doctor",
@@ -47,9 +47,6 @@
 	"lint-staged": {
 		"**/*.{ts,tsx,json,css,md,astro,html,vue}": [
 			"biome check --write --no-errors-on-unmatched --files-ignore-unknown=true"
-		],
-		".github/**/*.{yml,yaml}": [
-			"yamllint"
 		],
 		"supabase/migrations/*.sql": [
 			"bash scripts/db/check-sql.sh"
@@ -95,7 +92,6 @@
 		"typescript": "^5.9.3",
 		"vite": "^7.3.2",
 		"vite-svg-loader": "^5.1.1",
-		"vitest": "^4.1.2",
-		"yaml-lint": "^1.7.0"
+		"vitest": "^4.1.2"
 	}
 }
