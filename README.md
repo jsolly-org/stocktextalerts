@@ -216,18 +216,18 @@ If you want Twilio inbound SMS webhooks (STOP/START/HELP) to hit your local dev 
 1. Install ngrok and authenticate (see [ngrok setup](https://ngrok.com/docs/getting-started/)).
 2. Start a tunnel to your local dev server:
 
-```bash
-ngrok http 4321
-```
+    ```bash
+    ngrok http 4321
+    ```
 
-1. Copy the `https://...ngrok-free.app` (or similar) forwarding URL and set it as `VERCEL_URL` in `.env.local`:
+3. Copy the `https://...ngrok-free.app` (or similar) forwarding URL and set it as `VERCEL_URL` in `.env.local`:
 
-```env
-VERCEL_URL=https://YOUR_NGROK_HOSTNAME
-```
+    ```env
+    VERCEL_URL=https://YOUR_NGROK_HOSTNAME
+    ```
 
-1. Restart `npm run dev` so the app uses the new base URL.
-2. In Twilio Console → Phone Numbers → Messaging, set the inbound webhook to:
+4. Restart `npm run dev` so the app uses the new base URL.
+5. In Twilio Console → Phone Numbers → Messaging, set the inbound webhook to:
    - `https://YOUR_NGROK_HOSTNAME/api/messaging/inbound`
 
 ## Testing
@@ -462,15 +462,15 @@ See `scripts/data/us-assets.json` for the canonical schema and example data.
 1. Run `npm run db:fetch-assets` to fetch updated asset data from Finnhub, or update `scripts/data/us-assets.json` manually
 2. Regenerate the seed file:
 
-```bash
-npm run db:generate-seed
-```
+    ```bash
+    npm run db:generate-seed
+    ```
 
-1. Reset the local database to apply the new seed data:
+3. Reset the local database to apply the new seed data:
 
-```bash
-npm run db:reset
-```
+    ```bash
+    npm run db:reset
+    ```
 
 ### Data Reset Warning
 
