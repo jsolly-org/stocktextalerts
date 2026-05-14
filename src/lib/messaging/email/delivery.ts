@@ -22,8 +22,8 @@ export async function processEmailUpdate(
 	sessionFirstLine?: {
 		scheduledEtMinutes: number;
 		is24: boolean;
-		priorRegularClose: number | null;
 	},
+	noSessionTrade?: Set<string>,
 ): Promise<ProcessingStats> {
 	const message = formatEmailMessage(
 		user,
@@ -34,6 +34,7 @@ export async function processEmailUpdate(
 		context,
 		delayBanners,
 		sessionFirstLine,
+		noSessionTrade,
 	);
 	const result = await sendUserEmail(
 		user,

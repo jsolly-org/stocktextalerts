@@ -48,8 +48,7 @@ import { type PriceTargetTotals, processPriceTargets } from "../price-targets/pr
 import {
 	type AssetPriceMap,
 	type ExtendedQuoteMap,
-	fetchAssetPrices,
-	fetchTodaysRegularCloses,
+	fetchAssetPricesWithSessionState,
 	getCurrentMarketSession,
 	type MarketSession,
 } from "../providers/price-fetcher";
@@ -206,6 +205,11 @@ async function runPass(options: {
 
 	// Collect unique asset symbols across scheduled users and fetch prices in batch
 	let priceMap: AssetPriceMap = new Map();
+	// Symbols Massive recognized but had no live trade in the current session
+	// (typical for illiquid pre/after-hours tickers). The scheduled-notification
+	// renderer uses this to show "no pre-market trades" / "no after-hours trades"
+	// instead of the generic "price unavailable".
+	let marketNoSessionTrade: Set<string> = new Set();
 	const hasAnyUsers =
 		fallbackMarketUsers.length > 0 || fallbackDailyUsers.length > 0 || assetEventsUsers.length > 0;
 	// Resolve market session ONCE per cron tick. fetchAssetPrices /
@@ -228,7 +232,13 @@ async function runPass(options: {
 		];
 
 		if (marketUserSymbols.length > 0) {
-			// Reuse quotes from price alerts when available to avoid duplicate API calls
+			// Reuse quotes from price alerts when available to avoid duplicate API calls.
+			// Invariant: price alerts only fire during regular session
+			// (`market-notifications/process.ts` early-returns if session !== "regular"),
+			// so when this reuse branch runs, marketSession is "regular" and
+			// noSessionTrade is empty by definition — Massive's `day.c` is always
+			// populated during RTH. The set we capture from the missing-symbol fetch
+			// is therefore complete for the renderer.
 			if (priceAlertQuoteMap && priceAlertQuoteMap.size > 0) {
 				const missingSymbols: string[] = [];
 				for (const symbol of marketUserSymbols) {
@@ -240,43 +250,17 @@ async function runPass(options: {
 					}
 				}
 				if (missingSymbols.length > 0) {
-					const extraPrices = await fetchAssetPrices(missingSymbols, marketSession);
-					for (const [symbol, price] of extraPrices) {
+					const extra = await fetchAssetPricesWithSessionState(missingSymbols, marketSession);
+					for (const [symbol, price] of extra.prices) {
 						priceMap.set(symbol, price);
 					}
+					marketNoSessionTrade = extra.noSessionTrade;
 				}
 			} else {
-				priceMap = await fetchAssetPrices(marketUserSymbols, marketSession);
+				const fetched = await fetchAssetPricesWithSessionState(marketUserSymbols, marketSession);
+				priceMap = fetched.prices;
+				marketNoSessionTrade = fetched.noSessionTrade;
 			}
-		}
-	}
-
-	// After-hours: fetch today's 4:00 PM ET regular close so the renderer can
-	// compute change-% vs. today's close instead of vs. yesterday's close.
-	// Adds ~one Massive round-trip per ticker (concurrency 5) to the after-hours
-	// hot path; bounded by the number of unique market-user symbols.
-	if (marketSession === "after" && marketUserSymbols.length > 0) {
-		try {
-			const dayCloseMap = await fetchTodaysRegularCloses(marketUserSymbols);
-			for (const symbol of marketUserSymbols) {
-				const price = priceMap.get(symbol);
-				if (!price) continue;
-				priceMap.set(symbol, {
-					...price,
-					dayCloseRegular: dayCloseMap.get(symbol) ?? null,
-				});
-			}
-		} catch (error) {
-			// Graceful degradation: per-symbol failures are absorbed inside
-			// fetchTodaysRegularCloses and don't bubble; only a structural
-			// throw reaches here. Renderer falls back to prev-day baseline
-			// with the † footnote — no operator action needed, so warn (not
-			// error) avoids tripping alarm-hub on a benign fallback path.
-			logger.warn(
-				"Today's regular-close batch fetch failed (continuing with prev-day baseline)",
-				{ action: "fetch_todays_regular_closes", symbolCount: marketUserSymbols.length },
-				error,
-			);
 		}
 	}
 
@@ -317,6 +301,7 @@ async function runPass(options: {
 					sendEmail,
 					getSmsSender,
 					priceMap,
+					noSessionTrade: marketNoSessionTrade,
 					marketSession,
 					userAssetsMap,
 					marketClosureInfo,

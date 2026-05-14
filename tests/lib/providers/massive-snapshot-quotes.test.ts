@@ -13,6 +13,13 @@ function snapshotResponse(tickers: unknown[]) {
 	});
 }
 
+/** Narrow a snapshot map entry to its live-quote variant, failing the test otherwise. */
+function expectQuote<T>(entry: T | "no_session_trade" | null | undefined): T {
+	expect(entry).not.toBeNull();
+	expect(entry).not.toBe("no_session_trade");
+	return entry as T;
+}
+
 describe("fetchSnapshotQuotes session-aware price resolution", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
@@ -47,25 +54,24 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 
 		const quotes = await fetchSnapshotQuotes(["RTX", "PLTR"], "pre");
 
-		const rtx = quotes.get("RTX");
-		const pltr = quotes.get("PLTR");
-		expect(rtx).not.toBeNull();
-		expect(pltr).not.toBeNull();
-		expect(rtx?.price).toBe(175.77);
-		expect(rtx?.changePercent).toBeCloseTo(-0.18, 2);
-		expect(rtx?.prevClose).toBe(176.09);
-		expect(pltr?.price).toBe(135.26);
-		expect(pltr?.changePercent).toBeCloseTo(-1.84, 2);
-		expect(pltr?.prevClose).toBe(137.8);
+		const rtx = expectQuote(quotes.get("RTX"));
+		const pltr = expectQuote(quotes.get("PLTR"));
+		expect(rtx.price).toBe(175.77);
+		expect(rtx.changePercent).toBeCloseTo(-0.18, 2);
+		expect(rtx.prevClose).toBe(176.09);
+		expect(pltr.price).toBe(135.26);
+		expect(pltr.changePercent).toBeCloseTo(-1.84, 2);
+		expect(pltr.prevClose).toBe(137.8);
 	});
 
-	it("returns null when Massive reports a change but no live minute bar yet", async () => {
+	it("flags no_session_trade when Massive reports a change but no live minute bar yet", async () => {
 		vi.stubEnv("MASSIVE_API_KEY", "test-key");
 		// Real-world edge case (BAH at 07:00 ET): the snapshot reports a non-zero
 		// `todaysChange` (so Massive thinks the ticker has moved in pre-market)
-		// while `day` and `min` are still flat at zero. We don't derive a price
-		// from prevDay + change — without a live minute bar, the SMS renders
-		// "price unavailable" instead of a synthetic figure.
+		// while `day` and `min` are still flat at zero. Massive returned the
+		// ticker entry — we know it's a tradable symbol — but there's no live
+		// trade in this session. Renderer should distinguish this from a true
+		// fetch miss.
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			snapshotResponse([
 				{
@@ -81,13 +87,14 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		);
 
 		const quotes = await fetchSnapshotQuotes(["BAH"], "pre");
-		expect(quotes.get("BAH")).toBeNull();
+		expect(quotes.get("BAH")).toBe("no_session_trade");
 	});
 
-	it("returns null for tickers with no pre-market activity (day and min both zero)", async () => {
+	it("flags no_session_trade for tickers with no pre-market activity (day and min both zero)", async () => {
 		vi.stubEnv("MASSIVE_API_KEY", "test-key");
 		// CACI/GD/SAIC at 07:00 ET: thinly-traded names with no pre-market prints yet.
-		// Preserves existing behavior — caller renders "price unavailable".
+		// Caller renders "no pre-market trades" rather than the generic
+		// "price unavailable" used for fetch failures.
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			snapshotResponse([
 				{
@@ -102,7 +109,18 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		);
 
 		const quotes = await fetchSnapshotQuotes(["CACI"], "pre");
-		expect(quotes.get("CACI")).toBeNull();
+		expect(quotes.get("CACI")).toBe("no_session_trade");
+	});
+
+	it("returns null for tickers Massive didn't include in the response (delisted / unknown)", async () => {
+		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		// Distinguishes the no_session_trade case above from a true miss:
+		// when Massive doesn't return a ticker entry at all, the map value
+		// stays null so the renderer falls back to "price unavailable".
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(snapshotResponse([]));
+
+		const quotes = await fetchSnapshotQuotes(["DELISTED"], "pre");
+		expect(quotes.get("DELISTED")).toBeNull();
 	});
 
 	it("uses the latest after-hours minute bar instead of the locked 4:00 PM day.c", async () => {
@@ -126,9 +144,8 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		);
 
 		const quotes = await fetchSnapshotQuotes(["MSFT"], "after");
-		const msft = quotes.get("MSFT");
-		expect(msft).not.toBeNull();
-		expect(msft?.price).toBe(416.5);
+		const msft = expectQuote(quotes.get("MSFT"));
+		expect(msft.price).toBe(416.5);
 	});
 
 	it("falls back to the locked 4:00 PM close when no after-hours trades have printed", async () => {
@@ -149,12 +166,11 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		);
 
 		const quotes = await fetchSnapshotQuotes(["SAIC"], "after");
-		const saic = quotes.get("SAIC");
-		expect(saic).not.toBeNull();
-		expect(saic?.price).toBe(93.93);
+		const saic = expectQuote(quotes.get("SAIC"));
+		expect(saic.price).toBe(93.93);
 		// Pin todaysChangePerc passthrough; the renderer's session-aware
 		// change-% override is exercised in asset-formatting.test.ts.
-		expect(saic?.changePercent).toBeCloseTo(0.5, 2);
+		expect(saic.changePercent).toBeCloseTo(0.5, 2);
 	});
 
 	it("keeps using day.c during the regular session", async () => {
@@ -176,13 +192,12 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		);
 
 		const quotes = await fetchSnapshotQuotes(["SPY"], "regular");
-		const spy = quotes.get("SPY");
-		expect(spy).not.toBeNull();
-		expect(spy?.price).toBe(500.5);
-		expect(spy?.changePercent).toBeCloseTo(0.5, 2);
-		expect(spy?.dayOpen).toBe(497.5);
-		expect(spy?.dayHigh).toBe(501.25);
-		expect(spy?.dayLow).toBe(497.0);
+		const spy = expectQuote(quotes.get("SPY"));
+		expect(spy.price).toBe(500.5);
+		expect(spy.changePercent).toBeCloseTo(0.5, 2);
+		expect(spy.dayOpen).toBe(497.5);
+		expect(spy.dayHigh).toBe(501.25);
+		expect(spy.dayLow).toBe(497.0);
 	});
 
 	it("uses day.c during a closed session so weekend SMS shows the last regular close", async () => {
@@ -206,13 +221,12 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		);
 
 		const quotes = await fetchSnapshotQuotes(["AAPL"], "closed");
-		const aapl = quotes.get("AAPL");
-		expect(aapl).not.toBeNull();
-		expect(aapl?.price).toBe(179.5);
-		expect(aapl?.prevClose).toBe(177);
+		const aapl = expectQuote(quotes.get("AAPL"));
+		expect(aapl.price).toBe(179.5);
+		expect(aapl.prevClose).toBe(177);
 		// todaysChangePerc=0 triggers the prev-day recalculation branch:
 		// (179.5 - 177) / 177 * 100 ≈ +1.41%. Pins the math so an off-by-one
 		// in the closed-session change-% derivation surfaces immediately.
-		expect(aapl?.changePercent).toBeCloseTo(1.41, 2);
+		expect(aapl.changePercent).toBeCloseTo(1.41, 2);
 	});
 });

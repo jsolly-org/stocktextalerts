@@ -10,7 +10,6 @@ import {
 	fetchPrevClose,
 	fetchSnapshotQuotes,
 	fetchSplits,
-	fetchTodaysRegularClose,
 	fetchTopMovers,
 	marketDataFetch,
 } from "../../src/lib/providers/massive";
@@ -18,7 +17,6 @@ import {
 	fetchAssetPrices,
 	fetchExtendedQuotes,
 	fetchSparklines,
-	fetchTodaysRegularCloses,
 	getCurrentMarketSession,
 } from "../../src/lib/providers/price-fetcher";
 import { assertLiveProviderKey, isLiveProviderEnabled } from "../helpers/live-api";
@@ -85,31 +83,6 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 		const record = payload as Record<string, unknown>;
 		expect(typeof record.earlyHours).toBe("boolean");
 		expect(typeof record.afterHours).toBe("boolean");
-	});
-
-	it("fetchTodaysRegularClose returns a number for SPY after the regular close, null before.", async () => {
-		// After-hours change-% baseline. This will be `null` until 4:00 PM ET on a
-		// trading day; once today's daily bar is published, returns a finite price.
-		const close = await fetchTodaysRegularClose("SPY");
-		if (close !== null) {
-			expect(typeof close).toBe("number");
-			expect(Number.isFinite(close)).toBe(true);
-			expect(close).toBeGreaterThan(0);
-		}
-	});
-
-	it("fetchTodaysRegularCloses batch resolves a value-or-null entry for every requested symbol.", async () => {
-		const map = await fetchTodaysRegularCloses(["SPY", "AAPL"]);
-		expect(map).toBeInstanceOf(Map);
-		expect(map.size).toBe(2);
-		for (const symbol of ["SPY", "AAPL"]) {
-			expect(map.has(symbol)).toBe(true);
-			const value = map.get(symbol);
-			if (value !== null) {
-				expect(typeof value).toBe("number");
-				expect(Number.isFinite(value)).toBe(true);
-			}
-		}
 	});
 
 	it("fetchAssetPrices passes session-aware baseline through (regular vs. after-hours fallback path).", async () => {
@@ -391,9 +364,9 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 			};
 			expect(spitRaw.day?.c).toBe(0);
 			expect(spitRaw.min?.c ?? 0).toBe(0);
-		} else {
+		} else if (spitQuote !== undefined && spitQuote !== "no_session_trade") {
 			// SPIT now has valid trading data; verify the quote is well-formed.
-			expect(spitQuote?.price).toBeGreaterThan(0);
+			expect(spitQuote.price).toBeGreaterThan(0);
 		}
 
 		// When market is closed, production pricing should backfill missing snapshot rows via prev-close.

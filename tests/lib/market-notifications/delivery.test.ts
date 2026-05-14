@@ -351,7 +351,7 @@ describe("deliverPriceAlert intraday sparklines", () => {
 
 		expect(sendSms).toHaveBeenCalledOnce();
 		const smsBody = sendSms.mock.calls[0]![0].body;
-		expect(smsBody).toContain("today:");
+		expect(smsBody).toContain("since open:");
 		// Unicode block characters are in the range U+2581–U+2588
 		expect(smsBody).toMatch(/[▁▂▃▄▅▆▇█]/);
 	});
@@ -374,7 +374,7 @@ describe("deliverPriceAlert intraday sparklines", () => {
 
 		expect(sendSms).toHaveBeenCalledOnce();
 		const smsBody = sendSms.mock.calls[0]![0].body;
-		expect(smsBody).not.toContain("today:");
+		expect(smsBody).not.toContain("since open:");
 	});
 
 	it("email HTML contains sparkline img when intradayCloses has data", async () => {

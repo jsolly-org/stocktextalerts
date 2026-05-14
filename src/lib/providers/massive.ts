@@ -494,27 +494,6 @@ export async function fetchDailyCloses(
 	return extractClosesFromBars(data);
 }
 
-/**
- * Fetch today's regular-session close for a symbol via Massive's daily-bar aggregate.
- *
- * Used by the after-hours scheduled-notification path to compute change-%
- * vs. today's 4:00 PM ET close (rather than vs. yesterday's close, which is
- * what `todaysChangePerc` returns during after-hours).
- *
- * Returns `null` when the daily bar for today isn't available yet (e.g.,
- * called before the close at 4:00 PM ET, or on a non-trading day) or on API failure.
- */
-export async function fetchTodaysRegularClose(symbol: string): Promise<number | null> {
-	const todayET = new Date().toLocaleDateString("en-CA", {
-		timeZone: US_MARKET_TIMEZONE,
-	});
-	const closes = await fetchDailyCloses(symbol, todayET, todayET);
-	if (!closes || closes.length === 0) return null;
-	const close = closes[0];
-	if (typeof close !== "number" || !Number.isFinite(close) || close === 0) return null;
-	return close;
-}
-
 /** Single daily OHLCV bar extracted from Massive aggregates. */
 export interface DailyOHLCVBar {
 	open: number;
@@ -664,7 +643,21 @@ interface SnapshotQuote {
 	volume: number | null;
 }
 
-function parseSnapshotTicker(t: SnapshotTicker, session: MarketSession): SnapshotQuote | null {
+/**
+ * Sentinel emitted by `parseSnapshotTicker` when Massive returned the ticker
+ * entry but no live trade exists for the current session (both `day.c` and
+ * `min.c` are zero/missing). Distinct from `null`, which means the ticker
+ * wasn't in the response at all. Renderers use this to differentiate
+ * "no pre-market trades" (illiquid ticker, session is normal) from
+ * "price unavailable" (fetch failure or delisting).
+ */
+export const NO_SESSION_TRADE = "no_session_trade" as const;
+export type NoSessionTrade = typeof NO_SESSION_TRADE;
+
+function parseSnapshotTicker(
+	t: SnapshotTicker,
+	session: MarketSession,
+): SnapshotQuote | NoSessionTrade | null {
 	const isPositive = (v: unknown): v is number =>
 		typeof v === "number" && Number.isFinite(v) && v !== 0;
 
@@ -683,7 +676,8 @@ function parseSnapshotTicker(t: SnapshotTicker, session: MarketSession): Snapsho
 		if (isPositive(t.day?.c)) price = t.day.c;
 		else if (isPositive(t.min?.c)) price = t.min.c;
 	}
-	if (price === null) return null;
+	// Massive returned this ticker entry, just no live trade in this session.
+	if (price === null) return NO_SESSION_TRADE;
 
 	let changePercent = t.todaysChangePerc;
 	if (typeof changePercent !== "number" || !Number.isFinite(changePercent)) return null;
@@ -728,13 +722,21 @@ function parseSnapshotTicker(t: SnapshotTicker, session: MarketSession): Snapsho
  * Batch-fetch snapshot quotes for a list of symbols via a single Massive API call.
  *
  * Uses `/v2/snapshot/locale/us/markets/stocks/tickers?tickers=A,B,C`.
- * Returns a Map keyed by symbol; missing/invalid tickers map to `null`.
+ *
+ * Map value semantics:
+ * - `SnapshotQuote` — Massive returned the ticker and a live trade exists.
+ * - `"no_session_trade"` — Massive returned the ticker entry but `day.c` and
+ *   `min.c` are both zero/missing (typical for illiquid names during
+ *   pre/after-hours). Distinct so renderers can show "no pre-market trades"
+ *   instead of the generic "price unavailable".
+ * - `null` — Massive did not include the ticker in the response (fetch
+ *   failure, delisting, OTC pre-listing, etc.).
  */
 export async function fetchSnapshotQuotes(
 	symbols: string[],
 	session: MarketSession,
-): Promise<Map<string, SnapshotQuote | null>> {
-	const result = new Map<string, SnapshotQuote | null>();
+): Promise<Map<string, SnapshotQuote | NoSessionTrade | null>> {
+	const result = new Map<string, SnapshotQuote | NoSessionTrade | null>();
 	if (symbols.length === 0) return result;
 
 	// Pre-fill with null so callers always see every requested symbol
@@ -757,9 +759,9 @@ export async function fetchSnapshotQuotes(
 		const t = raw as SnapshotTicker;
 		if (typeof t.ticker !== "string") continue;
 
-		const quote = parseSnapshotTicker(t, session);
-		if (quote) {
-			result.set(t.ticker, quote);
+		const entry = parseSnapshotTicker(t, session);
+		if (entry !== null) {
+			result.set(t.ticker, entry);
 		}
 	}
 

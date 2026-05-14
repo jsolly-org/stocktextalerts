@@ -76,10 +76,12 @@ export interface SparklineData {
 /** Map of symbol to sparkline data (values + ASCII + window) or null when unavailable. */
 export type SparklineMap = Map<string, SparklineData | null>;
 
-/** Terse per-line label rendered before a sparkline in SMS. UCS-2 keeps these short. */
+/** Per-line label rendered before a sparkline in SMS. Names the anchor window
+ *  unambiguously — earlier "today" / "7d" left readers guessing whether the
+ *  chart started at the open, prev close, or 7 days back. */
 export const SMS_SPARKLINE_LABEL: Record<SparklineWindow, string> = {
-	"intraday-since-open": "today",
-	"7-trading-days": "7d",
+	"intraday-since-open": "since open",
+	"7-trading-days": "past 7 days",
 };
 
 /** Verbose label rendered inline before a sparkline in email HTML. */

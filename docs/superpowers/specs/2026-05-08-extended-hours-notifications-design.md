@@ -373,26 +373,21 @@ Today's email subject line stays `"Your Scheduled Price Notification"` (preserve
 | --- | --- |
 | `pre` | `Pre-market — 7:00 AM ET` |
 | `regular` | `Regular hours — 12:00 PM ET` |
-| `after` | `After-hours — 5:00 PM ET (vs. 4:00 PM close $X.XX)` |
+| `after` | `After-hours — 5:00 PM ET` |
 
-For after-hours, include the prior regular close as a reference anchor. The HTML markup is `<p>` with `font-weight: bold` and explicit color tokens meeting WCAG SC 1.4.3 (4.5:1 contrast).
+The header carries only the session label and time — no close-anchor parenthetical. The HTML markup is `<p>` with `font-weight: bold` and explicit color tokens meeting WCAG SC 1.4.3 (4.5:1 contrast).
 
 ### Change baseline
 
+All sessions use yesterday's close (Massive `todaysChangePerc` / `prevDay.c`) — the convention used by Robinhood, Yahoo Finance, and Apple Stocks. This means the after-hours headline change-% reads "where are we today total" rather than "what moved post-close." It also keeps the intraday-since-open sparkline anchor aligned with the headline.
+
 | Session | Baseline | Source field |
 | --- | --- | --- |
-| `pre` | yesterday's close | `prevClose` |
-| `regular` | yesterday's close (unchanged) | `prevClose` |
-| `after` | today's regular close | `day.close` from snapshot |
+| `pre` | yesterday's close | `todaysChangePerc` |
+| `regular` | yesterday's close | `todaysChangePerc` |
+| `after` | yesterday's close | `todaysChangePerc` |
 
-For tickers with no activity in the current session, this naturally produces `0.0%` change (because `lastTrade.price === baseline`). Correct and informative.
-
-### `day.close` fallback for after-hours
-
-- **Present and nonzero** → use as baseline.
-- **Missing or zero** → fall back to `prevClose`, label change-% with a `†` and footnote `"† using prior close — no regular close available"`.
-
-Treats zero same as missing (no observed evidence of valid `day.close === 0` distinct from no-data). If a real fixture later shows zero-with-trades exists, revisit.
+Earlier drafts of this spec called for an after-hours-only anchor (today's 4 PM close) and a `†` fallback footnote when today's regular close was unavailable. That approach was reverted on 2026-05-14: it created a contradiction between the (post-close-only) headline and the (since-open) sparkline, and casual traders' mental model of "today" matches the prev-close convention rather than the regular-close convention. See commit history for `src/lib/messaging/asset-formatting.ts` for the removed `computeSessionChangePercent` machinery.
 
 ### No staleness annotation, no row dropping
 

@@ -92,7 +92,7 @@ describe("Daily digest email prices", () => {
 		});
 
 		// Plaintext keeps ASCII sparkline, labeled with the 7-day window
-		expect(message.text).toContain("7d: ▁▂▃▅▇▅▃");
+		expect(message.text).toContain("past 7 days: ▁▂▃▅▇▅▃");
 		expect(message.text).toContain("+1.23%");
 		// HTML gets SVG sparkline <img> plus an inline label
 		expect(message.html).toContain("data:image/svg+xml;base64,");
@@ -111,7 +111,7 @@ describe("Daily digest email prices", () => {
 			sparklines,
 		});
 
-		expect(message).toContain("7d: ▁▂▃▅▇▅▃");
+		expect(message).toContain("past 7 days: ▁▂▃▅▇▅▃");
 		expect(message).not.toContain("data:image/svg+xml;base64,");
 	});
 

@@ -9,18 +9,19 @@ import {
 	fetchIntradayBars,
 	fetchPrevDayBar,
 	fetchSnapshotQuotes,
-	fetchTodaysRegularClose,
 	marketDataFetch,
 } from "./massive";
+
+// Re-exported so messaging-layer consumers don't reach into `providers/massive`
+// directly — `price-fetcher` is the public abstraction over the snapshot API.
+export { NO_SESSION_TRADE, type NoSessionTrade } from "./massive";
 
 interface AssetPrice {
 	price: number;
 	changePercent: number;
 	timestamp?: number | null;
-	/** Yesterday's close (Massive `prevDay.c`). Used for session-aware change-% on extended hours. */
+	/** Yesterday's close (Massive `prevDay.c`). */
 	prevClose?: number | null;
-	/** Today's 4:00 PM ET regular-session close. Populated for after-hours sessions only. */
-	dayCloseRegular?: number | null;
 }
 
 /** Quote fields used by movement alerts and snapshot persistence. */
@@ -33,10 +34,25 @@ export interface ExtendedAssetQuote extends AssetPrice {
 	volume: number | null;
 }
 
-/** Map of simple price quotes keyed by symbol. */
+/** Map of simple price quotes keyed by symbol. `null` = ticker missing (fetch fail / no live trade). */
 export type AssetPriceMap = Map<string, AssetPrice | null>;
 /** Map of extended quotes keyed by symbol. */
 export type ExtendedQuoteMap = Map<string, ExtendedAssetQuote | null>;
+
+/**
+ * Price map plus a side-channel set of symbols whose ticker entry was
+ * returned by Massive but had no live trade in the current session.
+ *
+ * Only the scheduled-notification renderer consumes `noSessionTrade` (to
+ * show "no pre-market trades" instead of the generic "price unavailable").
+ * Movement alerts, snapshot persistence, the daily digest, etc. don't
+ * distinguish — a `null` entry in `prices` is treated the same regardless
+ * of cause, so they use `fetchAssetPrices` / `fetchExtendedQuotes` directly.
+ */
+export interface AssetPricesWithSessionState {
+	prices: AssetPriceMap;
+	noSessionTrade: Set<string>;
+}
 
 export type MarketSession = "pre" | "regular" | "after" | "closed";
 
@@ -124,14 +140,60 @@ export async function fetchAssetPrices(
 					price: 150.0,
 					changePercent: 1.25,
 					prevClose: 148.5,
-					dayCloseRegular: null,
 				},
 			]),
 		);
 	}
 	const snapshot = await fetchSnapshotQuotes(symbols, session);
 	await fillSnapshotMissesWithPrevDayBar(symbols, snapshot, session);
-	return snapshot as AssetPriceMap;
+	return narrowSnapshotToPriceMap(snapshot);
+}
+
+/**
+ * Like `fetchAssetPrices`, but also returns the set of symbols Massive
+ * recognized but had no live trade for in the current session. Used by the
+ * scheduled-notification renderer to show "no pre-market trades" instead
+ * of the generic "price unavailable" for illiquid tickers.
+ */
+export async function fetchAssetPricesWithSessionState(
+	symbols: string[],
+	session: MarketSession,
+): Promise<AssetPricesWithSessionState> {
+	if (isTest() && !isLiveMassiveEnabledInTests()) {
+		return {
+			prices: await fetchAssetPrices(symbols, session),
+			noSessionTrade: new Set(),
+		};
+	}
+	const snapshot = await fetchSnapshotQuotes(symbols, session);
+	await fillSnapshotMissesWithPrevDayBar(symbols, snapshot, session);
+	return splitSnapshotByNoSessionTrade(snapshot);
+}
+
+function narrowSnapshotToPriceMap<T extends AssetPrice>(
+	snapshot: Map<string, T | "no_session_trade" | null>,
+): Map<string, T | null> {
+	const result = new Map<string, T | null>();
+	for (const [symbol, entry] of snapshot) {
+		result.set(symbol, entry === "no_session_trade" ? null : entry);
+	}
+	return result;
+}
+
+function splitSnapshotByNoSessionTrade<T extends AssetPrice>(
+	snapshot: Map<string, T | "no_session_trade" | null>,
+): { prices: Map<string, T | null>; noSessionTrade: Set<string> } {
+	const prices = new Map<string, T | null>();
+	const noSessionTrade = new Set<string>();
+	for (const [symbol, entry] of snapshot) {
+		if (entry === "no_session_trade") {
+			prices.set(symbol, null);
+			noSessionTrade.add(symbol);
+		} else {
+			prices.set(symbol, entry);
+		}
+	}
+	return { prices, noSessionTrade };
 }
 
 /**
@@ -163,7 +225,7 @@ export async function fetchExtendedQuotes(
 	}
 	const snapshot = await fetchSnapshotQuotes(symbols, session);
 	await fillSnapshotMissesWithPrevDayBar(symbols, snapshot, session);
-	return snapshot as ExtendedQuoteMap;
+	return narrowSnapshotToPriceMap(snapshot) as ExtendedQuoteMap;
 }
 
 /**
@@ -208,61 +270,6 @@ async function fillSnapshotMissesWithPrevDayBar(
 			);
 		}
 	}
-}
-
-/**
- * Fetch today's regular-session close for a list of symbols (concurrency 5).
- *
- * Used by the after-hours scheduled-notification path so the renderer can
- * compute change-% vs. today's 4:00 PM ET close instead of yesterday's close.
- *
- * Map values are `null` for symbols whose daily bar isn't available (e.g.,
- * called before the regular close, on a non-trading day, or when Massive
- * returns no aggregate row for the symbol).
- */
-export async function fetchTodaysRegularCloses(
-	symbols: string[],
-): Promise<Map<string, number | null>> {
-	const result = new Map<string, number | null>();
-	if (symbols.length === 0) return result;
-
-	if (isTest() && !isLiveMassiveEnabledInTests()) {
-		for (const s of symbols) result.set(s, 148.5);
-		return result;
-	}
-
-	const CONCURRENCY = 5;
-	const queue = [...symbols];
-
-	async function worker(): Promise<void> {
-		while (true) {
-			const symbol = queue.shift();
-			if (symbol === undefined) break;
-			try {
-				const close = await fetchTodaysRegularClose(symbol);
-				result.set(symbol, close);
-			} catch (error) {
-				// Per-symbol catch falls back to null; renderer uses prev-day
-				// baseline with †-footnote. This is the *expected* path before
-				// 4:00 PM ET on every after-hours tick (no daily bar yet).
-				// Spec: "day.close missing or zero in after-hours — fallback
-				// applied; log at info." marketDataFetch already logs error
-				// on retry exhaustion, so info here avoids double-noise.
-				rootLogger.info("Today's regular-close fetch failed; falling back to prev-day baseline", {
-					symbol,
-					error: error instanceof Error ? error.message : String(error),
-				});
-				result.set(symbol, null);
-			}
-		}
-	}
-
-	const pending: Promise<void>[] = [];
-	for (let i = 0; i < Math.min(CONCURRENCY, symbols.length); i++) {
-		pending.push(worker());
-	}
-	await Promise.all(pending);
-	return result;
 }
 
 /** Fetch 7-point sparklines for the last ~week of closes. */

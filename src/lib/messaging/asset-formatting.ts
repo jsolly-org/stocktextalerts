@@ -1,4 +1,5 @@
 import type { ActiveMarketSession } from "../market-notifications/scheduled/session-label";
+import type { NoSessionTrade } from "../providers/price-fetcher";
 import { EMAIL_SPARKLINE_LABEL, SMS_SPARKLINE_LABEL, type SparklineData } from "./sparkline";
 import { toSvgSparklineImg } from "./svg-sparkline";
 import type { EmailFormatContext } from "./types";
@@ -8,52 +9,20 @@ export type AssetPrice = {
 	changePercent: number;
 	/** Yesterday's close (Massive `prevDay.c`). Available on snapshot quotes. */
 	prevClose?: number | null;
-	/** Today's 4:00 PM ET regular-session close. Populated for after-hours sessions only. */
-	dayCloseRegular?: number | null;
 };
+
+/**
+ * Value a renderer can receive for a single asset:
+ * - `AssetPrice` — live quote, render the price line.
+ * - `"no_session_trade"` — ticker is in the snapshot but had no trade in
+ *   the current session; render "no pre-market trades" / "no after-hours
+ *   trades" when the session is pre/after, otherwise fall back to
+ *   "price unavailable".
+ * - `undefined` — ticker missing from the snapshot entirely (fetch
+ *   failure / delisting); always render "price unavailable".
+ */
+type AssetPriceLookup = AssetPrice | NoSessionTrade | undefined;
 type AssetWithName = { symbol: string; name: string };
-
-/**
- * Footnote marker appended to a change-% string when the after-hours session
- * fell back to Massive's `todaysChangePerc` (vs. prev-day close) because
- * today's 4:00 PM ET close wasn't available.
- */
-export const SESSION_CHANGE_FALLBACK_MARKER = "†";
-
-/**
- * Footnote text shown at the bottom of a message body when any asset's change-%
- * was computed against the prior-day close instead of today's regular close.
- */
-export const SESSION_CHANGE_FALLBACK_FOOTNOTE_TEXT =
-	"† using prior close — no regular close available";
-
-/**
- * Compute the session-aware change-% for a quote.
- *
- * For after-hours sessions, change-% is computed against TODAY's 4:00 PM ET
- * regular close (so it reflects only the post-close move). When today's close
- * isn't available, falls back to Massive's `todaysChangePerc` (vs. prev-day
- * close) and signals to the caller via `usedFallback: true` so the renderer
- * can append a footnote marker.
- *
- * For pre/regular sessions, returns the change-% as-returned by Massive.
- */
-function computeSessionChangePercent(
-	price: AssetPrice,
-	session: ActiveMarketSession,
-): { changePercent: number; usedFallback: boolean } {
-	if (session === "after") {
-		const dayClose = price.dayCloseRegular;
-		if (typeof dayClose === "number" && Number.isFinite(dayClose) && dayClose !== 0) {
-			return {
-				changePercent: ((price.price - dayClose) / dayClose) * 100,
-				usedFallback: false,
-			};
-		}
-		return { changePercent: price.changePercent, usedFallback: true };
-	}
-	return { changePercent: price.changePercent, usedFallback: false };
-}
 
 export const NO_TRACKED_ASSETS_MESSAGE = "You don't have any tracked assets";
 
@@ -80,16 +49,11 @@ function formatAssetPriceText(
 	price: AssetPrice,
 	sparkline?: SparklineData | null,
 	showChangePercent = true,
-	marketSession?: ActiveMarketSession,
 ): string {
 	let base = `$${price.price.toFixed(2)}`;
 	if (showChangePercent) {
-		const computed = marketSession
-			? computeSessionChangePercent(price, marketSession)
-			: { changePercent: price.changePercent, usedFallback: false };
-		const sign = computed.changePercent >= 0 ? "+" : "";
-		const fallbackMarker = computed.usedFallback ? SESSION_CHANGE_FALLBACK_MARKER : "";
-		base += ` (${sign}${computed.changePercent.toFixed(2)}%${fallbackMarker})`;
+		const sign = price.changePercent >= 0 ? "+" : "";
+		base += ` (${sign}${price.changePercent.toFixed(2)}%)`;
 	}
 	if (sparkline?.ascii) {
 		return `${base} ${SMS_SPARKLINE_LABEL[sparkline.window]}: ${sparkline.ascii}`;
@@ -98,23 +62,38 @@ function formatAssetPriceText(
 }
 
 /**
- * Format a single asset line for plaintext contexts (email text / SMS / previews).
+ * Plain-text label when a ticker has no live trade in the current session.
  *
- * When `marketSession` is provided, change-% is computed via
- * `computeSessionChangePercent` (after-hours uses today's 4:00 PM ET close
- * when available; appends a footnote marker on fallback).
+ * Returns null when `marketSession` isn't pre/after — the caller should fall
+ * back to the generic "price unavailable" string for regular/closed sessions
+ * since the distinction only matters in extended-hours windows.
  */
+function getNoSessionTradeText(
+	symbol: string,
+	marketSession: ActiveMarketSession | undefined,
+): string | null {
+	if (marketSession === "pre") return `${symbol} — no pre-market trades`;
+	if (marketSession === "after") return `${symbol} — no after-hours trades`;
+	return null;
+}
+
+/** Format a single asset line for plaintext contexts (email text / SMS / previews). */
 export function formatAssetTextLine(
 	asset: AssetWithName,
-	price: AssetPrice | undefined,
+	price: AssetPriceLookup,
 	sparkline?: SparklineData | null,
 	showChangePercent = true,
 	marketSession?: ActiveMarketSession,
 ): string {
+	if (price === "no_session_trade") {
+		const label = getNoSessionTradeText(asset.symbol, marketSession);
+		if (label) return label;
+		return `${asset.symbol} — price unavailable`;
+	}
 	if (!price) {
 		return `${asset.symbol} — price unavailable`;
 	}
-	return `${asset.symbol} — ${formatAssetPriceText(price, sparkline, showChangePercent, marketSession)}`;
+	return `${asset.symbol} — ${formatAssetPriceText(price, sparkline, showChangePercent)}`;
 }
 
 // WCAG 2.1 AA 4.5:1 on light bg.
@@ -124,7 +103,7 @@ export function getChangeColor(changePercent: number): string {
 
 export function formatAssetHtmlLine(
 	asset: AssetWithName,
-	price: AssetPrice | undefined,
+	price: AssetPriceLookup,
 	sparkline?: SparklineData | null,
 	logoHtml?: string,
 	showChangePercent = true,
@@ -132,21 +111,26 @@ export function formatAssetHtmlLine(
 ): string {
 	const assetInfo = `${logoHtml ?? ""}${escapeHtml(asset.symbol)}`;
 
+	if (price === "no_session_trade") {
+		const sessionLabel =
+			marketSession === "pre"
+				? "no pre-market trades"
+				: marketSession === "after"
+					? "no after-hours trades"
+					: "price unavailable";
+		return `<strong>${assetInfo}</strong> &mdash; <span style="color: #6b7280;">${sessionLabel}</span>`;
+	}
 	if (!price) {
 		return `<strong>${assetInfo}</strong> &mdash; <span style="color: #6b7280;">price unavailable</span>`;
 	}
 
 	const priceStr = escapeHtml(`$${price.price.toFixed(2)}`);
-	const computed = marketSession
-		? computeSessionChangePercent(price, marketSession)
-		: { changePercent: price.changePercent, usedFallback: false };
-	const color = getChangeColor(computed.changePercent);
+	const color = getChangeColor(price.changePercent);
 
 	let changeHtml = "";
 	if (showChangePercent) {
-		const sign = computed.changePercent >= 0 ? "+" : "";
-		const fallbackMarker = computed.usedFallback ? SESSION_CHANGE_FALLBACK_MARKER : "";
-		const changeStr = escapeHtml(`(${sign}${computed.changePercent.toFixed(2)}%${fallbackMarker})`);
+		const sign = price.changePercent >= 0 ? "+" : "";
+		const changeStr = escapeHtml(`(${sign}${price.changePercent.toFixed(2)}%)`);
 		changeHtml = ` <span style="color: ${color};">${changeStr}</span>`;
 	}
 
@@ -163,7 +147,7 @@ export function formatAssetHtmlLine(
 
 export function formatAssetsTextList(
 	assets: AssetWithName[],
-	getPrice: (symbol: string) => AssetPrice | undefined,
+	getPrice: (symbol: string) => AssetPriceLookup,
 	getSparkline?: (symbol: string) => SparklineData | null | undefined,
 	showChangePercent = true,
 	marketSession?: ActiveMarketSession,
@@ -187,7 +171,7 @@ export function formatAssetsTextList(
 
 export function formatAssetsHtmlList(
 	assets: AssetWithName[],
-	getPrice: (symbol: string) => AssetPrice | undefined,
+	getPrice: (symbol: string) => AssetPriceLookup,
 	context?: Pick<EmailFormatContext, "getSparkline" | "getLogoHtml"> & {
 		showChangePercent?: boolean;
 		marketSession?: ActiveMarketSession;
@@ -210,28 +194,4 @@ export function formatAssetsHtmlList(
 			),
 		)
 		.join("<br>");
-}
-
-/**
- * Returns true when at least one asset will fall back to prev-day close for
- * its after-hours change-% (because `dayCloseRegular` is null/undefined).
- *
- * Used by the email/SMS renderers to conditionally add a `† using prior close`
- * footnote at the bottom of the message body.
- */
-export function hasAfterHoursFallback(
-	assets: AssetWithName[],
-	getPrice: (symbol: string) => AssetPrice | undefined,
-	marketSession: ActiveMarketSession,
-): boolean {
-	if (marketSession !== "after") return false;
-	for (const asset of assets) {
-		const price = getPrice(asset.symbol);
-		if (!price) continue;
-		const dayClose = price.dayCloseRegular;
-		if (typeof dayClose !== "number" || !Number.isFinite(dayClose) || dayClose === 0) {
-			return true;
-		}
-	}
-	return false;
 }

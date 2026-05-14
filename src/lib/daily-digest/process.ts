@@ -18,9 +18,9 @@ import {
 	type AssetPriceMap,
 	fetchAssetPrices,
 	fetchSparklines,
-	fetchTodaysRegularCloses,
 	getCurrentMarketSession,
 	type MarketSession,
+	NO_SESSION_TRADE,
 } from "../providers/price-fetcher";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { loadUserAssets } from "../schedule/helpers";
@@ -353,36 +353,6 @@ export async function processDailyDigestUser(options: {
 			}
 		}
 
-		// After-hours digests: fetch today's 4:00 PM ET regular close so the
-		// renderer computes change-% vs. today's close rather than yesterday's
-		// (which would conflate the regular-session move with the after-hours
-		// move). Mirrors the schedule/run.ts after-hours enrichment.
-		if (session === "after" && needsPrices && tickers.length > 0 && assetPrices.size > 0) {
-			try {
-				const dayCloseMap = await fetchTodaysRegularCloses(tickers);
-				for (const symbol of tickers) {
-					const price = assetPrices.get(symbol);
-					if (!price) continue;
-					assetPrices.set(symbol, {
-						...price,
-						dayCloseRegular: dayCloseMap.get(symbol) ?? null,
-					});
-				}
-			} catch (error) {
-				// Per-symbol failures absorbed inside fetchTodaysRegularCloses;
-				// only a structural throw reaches here. Renderer falls back to
-				// prev-day baseline with the † footnote — benign.
-				logger.warn(
-					"Daily digest today's regular-close fetch failed (continuing with prev-day baseline)",
-					{
-						action: "daily_run",
-						userId: user.id,
-						tickerCount: tickers.length,
-						error: extractErrorMessage(error),
-					},
-				);
-			}
-		}
 		let sparklines: SparklineMap = new Map();
 		if (needsPrices && tickers.length > 0) {
 			try {
@@ -430,10 +400,17 @@ export async function processDailyDigestUser(options: {
 				try {
 					const retrySnapshot = await fetchSnapshotQuotes(missingTickers, session);
 					const recoveredTickers: string[] = [];
+					// "no_session_trade" means Massive responded normally but the ticker
+					// hasn't traded in this session yet (illiquid pre/after-hours name).
+					// Keep these separate from true fetch misses so we don't fire
+					// ErrorLogAlarm on the expected-illiquid path.
+					const noSessionTradeTickers: string[] = [];
 					const stillMissingTickers: string[] = [];
 					for (const ticker of missingTickers) {
 						const snap = retrySnapshot.get(ticker);
-						if (snap) {
+						if (snap === NO_SESSION_TRADE) {
+							noSessionTradeTickers.push(ticker);
+						} else if (snap) {
 							assetPrices.set(ticker, {
 								price: snap.price,
 								changePercent: snap.changePercent,
@@ -450,6 +427,15 @@ export async function processDailyDigestUser(options: {
 							userId: user.id,
 							recoveredCount: recoveredTickers.length,
 							recoveredTickers,
+						});
+					}
+					if (noSessionTradeTickers.length > 0) {
+						logger.info("Daily digest tickers had no live session trade", {
+							action: "daily_run",
+							userId: user.id,
+							noSessionTradeCount: noSessionTradeTickers.length,
+							noSessionTradeTickers,
+							session,
 						});
 					}
 					if (stillMissingTickers.length > 0) {

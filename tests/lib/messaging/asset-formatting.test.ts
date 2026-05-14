@@ -102,24 +102,24 @@ describe("A subscriber receiving a notification sees a label naming the sparklin
 	const asset = { symbol: "AAPL", name: "Apple Inc." };
 	const price = { price: 187.42, changePercent: 1.23 };
 
-	it("A 7-day sparkline in SMS is prefixed with `7d:` so the reader knows the window", () => {
+	it("A 7-day sparkline in SMS is prefixed with `past 7 days:` so the reader knows the window", () => {
 		const sparkline: SparklineData = {
 			values: [180, 182, 183, 185, 187, 189, 190],
 			ascii: "▁▂▃▄▅▆▇",
 			window: "7-trading-days",
 		};
 		const line = formatAssetTextLine(asset, price, sparkline);
-		expect(line).toBe("AAPL — $187.42 (+1.23%) 7d: ▁▂▃▄▅▆▇");
+		expect(line).toBe("AAPL — $187.42 (+1.23%) past 7 days: ▁▂▃▄▅▆▇");
 	});
 
-	it("An intraday sparkline in SMS is prefixed with `today:` so the reader knows it's this session", () => {
+	it("An intraday sparkline in SMS is prefixed with `since open:` so the reader knows it's this session", () => {
 		const sparkline: SparklineData = {
 			values: [180, 181, 184, 187, 188, 187, 188],
 			ascii: "▁▂▄▆▇▆▇",
 			window: "intraday-since-open",
 		};
 		const line = formatAssetTextLine(asset, price, sparkline);
-		expect(line).toBe("AAPL — $187.42 (+1.23%) today: ▁▂▄▆▇▆▇");
+		expect(line).toBe("AAPL — $187.42 (+1.23%) since open: ▁▂▄▆▇▆▇");
 	});
 
 	it("A 7-day sparkline in email HTML carries a `Past 7 trading days:` label next to the SVG", () => {
@@ -147,49 +147,61 @@ describe("A subscriber receiving a notification sees a label naming the sparklin
 	it("No sparkline data → no label appears in SMS", () => {
 		const line = formatAssetTextLine(asset, price, null);
 		expect(line).toBe("AAPL — $187.42 (+1.23%)");
-		expect(line).not.toContain("7d:");
-		expect(line).not.toContain("today:");
+		expect(line).not.toContain("past 7 days:");
+		expect(line).not.toContain("since open:");
+	});
+});
+
+describe("No-session-trade rendering distinguishes inactive tickers from fetch failures", () => {
+	const asset = { symbol: "CACI", name: "CACI International" };
+
+	it("Pre-market SMS row reads `no pre-market trades` when ticker has no live extended-hours bar", () => {
+		const line = formatAssetTextLine(asset, "no_session_trade", null, true, "pre");
+		expect(line).toBe("CACI — no pre-market trades");
+	});
+
+	it("After-hours SMS row reads `no after-hours trades` when ticker has no live extended-hours bar", () => {
+		const line = formatAssetTextLine(asset, "no_session_trade", null, true, "after");
+		expect(line).toBe("CACI — no after-hours trades");
+	});
+
+	it("Pre-market SMS row still reads `price unavailable` when the snapshot fetch missed the ticker entirely", () => {
+		const line = formatAssetTextLine(asset, undefined, null, true, "pre");
+		expect(line).toBe("CACI — price unavailable");
+	});
+
+	it("Pre-market email row reads `no pre-market trades` in muted grey when ticker has no live bar", () => {
+		const html = formatAssetHtmlLine(asset, "no_session_trade", null, undefined, true, "pre");
+		expect(html).toContain("no pre-market trades");
+		expect(html).toContain("color: #6b7280;");
+		expect(html).toContain("<strong>CACI</strong>");
+	});
+
+	it("After-hours email row reads `no after-hours trades` in muted grey when ticker has no live bar", () => {
+		const html = formatAssetHtmlLine(asset, "no_session_trade", null, undefined, true, "after");
+		expect(html).toContain("no after-hours trades");
+		expect(html).toContain("color: #6b7280;");
 	});
 });
 
 describe("After-hours change-% rendering", () => {
-	it("A subscriber receiving a 6 PM ET SMS sees the live after-hours move, not 0.00%", () => {
-		// User-visible regression guard for the after-hours staleness bug.
-		// Before the parser + dayCloseRegular fix: price=415.20 (locked 4 PM
-		// close) and change-% = (415.20 - 415.20) / 415.20 = +0.00%.
-		// After: price=416.50 (live after-hours min.c) and change-% =
-		// (416.50 - 415.20) / 415.20 ≈ +0.31%.
-		const line = formatAssetTextLine(
-			{ symbol: "MSFT", name: "Microsoft" },
-			{
-				price: 416.5,
-				changePercent: 1.5, // Massive's todaysChangePerc (vs prevDay) — must be overridden after-hours.
-				prevClose: 410.0,
-				dayCloseRegular: 415.2,
-			},
-			null,
-			true,
-			"after",
-		);
-		expect(line).toBe("MSFT — $416.50 (+0.31%)");
-	});
-
-	it("Falls back to prev-day baseline with the † footnote marker when today's regular close is unavailable", () => {
-		// When fetchTodaysRegularCloses can't get today's 4 PM close (e.g.,
-		// fired before the daily aggregate is ready or the API errors), the
-		// renderer uses the prev-day baseline and signals the fallback via †.
+	it("A subscriber receiving a 6 PM ET SMS sees the day's prev-close-anchored move (Robinhood-style)", () => {
+		// Headline change-% during after-hours is anchored to yesterday's close
+		// (Massive's todaysChangePerc), matching the convention used by
+		// Robinhood/Yahoo/Apple Stocks. This is the same anchor used during
+		// regular hours, so the intraday-since-open sparkline tells the same
+		// story as the change-%.
 		const line = formatAssetTextLine(
 			{ symbol: "MSFT", name: "Microsoft" },
 			{
 				price: 416.5,
 				changePercent: 1.5,
 				prevClose: 410.0,
-				dayCloseRegular: null,
 			},
 			null,
 			true,
 			"after",
 		);
-		expect(line).toBe("MSFT — $416.50 (+1.50%†)");
+		expect(line).toBe("MSFT — $416.50 (+1.50%)");
 	});
 });

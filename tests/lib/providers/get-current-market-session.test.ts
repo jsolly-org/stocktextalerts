@@ -10,7 +10,6 @@ vi.mock("../../../src/lib/providers/massive", () => ({
 	fetchDailyCloses: vi.fn(),
 	fetchPrevDayBar: vi.fn(),
 	fetchSnapshotQuotes: vi.fn(),
-	fetchTodaysRegularClose: vi.fn(),
 }));
 
 const isTestMock = vi.hoisted(() => vi.fn(() => false));

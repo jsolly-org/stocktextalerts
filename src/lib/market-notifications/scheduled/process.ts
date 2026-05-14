@@ -10,7 +10,11 @@ import { shouldSendSms } from "../../messaging/sms";
 import type { SparklineMap } from "../../messaging/sparkline";
 import type { UserRecord } from "../../messaging/types";
 import type { AssetPriceMap, MarketSession } from "../../providers/price-fetcher";
-import { fetchIntradaySparklines, fetchSparklines } from "../../providers/price-fetcher";
+import {
+	fetchIntradaySparklines,
+	fetchSparklines,
+	NO_SESSION_TRADE,
+} from "../../providers/price-fetcher";
 import type {
 	DeliveryMethod,
 	ScheduledNotificationTotals,
@@ -35,6 +39,10 @@ export async function processMarketScheduledUser(options: {
 	sendEmail: EmailSender;
 	getSmsSender: SmsSenderProvider;
 	priceMap: AssetPriceMap;
+	/** Symbols Massive recognized but had no live trade in the current session.
+	 *  The renderer emits "no pre-market trades" / "no after-hours trades" for
+	 *  these (vs. the generic "price unavailable" used for fetch misses). */
+	noSessionTrade?: Set<string>;
 	marketSession: MarketSession;
 	/** Market closure info for banner when session is "closed". */
 	marketClosureInfo?: MarketClosureInfo | null;
@@ -58,6 +66,7 @@ export async function processMarketScheduledUser(options: {
 		currentTime,
 		getSmsSender,
 		priceMap,
+		noSessionTrade,
 		marketSession,
 		marketClosureInfo,
 		userAssetsMap,
@@ -238,9 +247,11 @@ export async function processMarketScheduledUser(options: {
 		});
 
 		// Past the early return, the session is always pre/regular/after — show change%.
+		const getPrice = (symbol: string) =>
+			noSessionTrade?.has(symbol) ? NO_SESSION_TRADE : (priceMap.get(symbol) ?? undefined);
 		const assetsList = formatAssetsTextList(
 			userAssets,
-			(symbol) => priceMap.get(symbol) ?? undefined,
+			getPrice,
 			getSparkline,
 			true,
 			marketSession,
@@ -248,18 +259,9 @@ export async function processMarketScheduledUser(options: {
 
 		const shouldAttemptSms = shouldSendSms(user);
 
-		// Session-aware first body line. For after-hours, anchor on the first
-		// asset's today-regular-close; multi-asset watchlists don't have a
-		// canonical anchor, so the first asset is the pragmatic choice.
-		const firstAssetSymbol = userAssets[0]?.symbol;
-		const firstAssetDayClose =
-			marketSession === "after" && firstAssetSymbol
-				? (priceMap.get(firstAssetSymbol)?.dayCloseRegular ?? null)
-				: null;
 		const sessionFirstLine = {
 			scheduledEtMinutes: userLocalToEtMinute(scheduledMinutes, user.timezone),
 			is24: user.use_24_hour_time,
-			priorRegularClose: firstAssetDayClose,
 		};
 
 		/* ============= Process Email ============= */
@@ -275,6 +277,7 @@ export async function processMarketScheduledUser(options: {
 				assetsList,
 				sendEmail,
 				priceMap,
+				noSessionTrade,
 				marketSession,
 				marketClosureInfo,
 				stats,

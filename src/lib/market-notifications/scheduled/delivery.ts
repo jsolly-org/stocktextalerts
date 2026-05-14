@@ -28,6 +28,7 @@ export async function processMarketScheduledEmailDelivery(options: {
 	assetsList: string;
 	sendEmail: EmailSender;
 	priceMap: AssetPriceMap;
+	noSessionTrade?: Set<string>;
 	marketSession: MarketSession;
 	marketClosureInfo?: MarketClosureInfo | null;
 	stats: ScheduledNotificationTotals;
@@ -37,7 +38,6 @@ export async function processMarketScheduledEmailDelivery(options: {
 	sessionFirstLine?: {
 		scheduledEtMinutes: number;
 		is24: boolean;
-		priorRegularClose: number | null;
 	};
 }): Promise<void> {
 	const {
@@ -50,6 +50,7 @@ export async function processMarketScheduledEmailDelivery(options: {
 		assetsList,
 		sendEmail,
 		priceMap,
+		noSessionTrade,
 		marketSession,
 		marketClosureInfo,
 		stats,
@@ -89,6 +90,7 @@ export async function processMarketScheduledEmailDelivery(options: {
 		{ getSparkline, marketClosureInfo, getLogoHtml },
 		options.delayBanners,
 		sessionFirstLine,
+		noSessionTrade,
 	);
 
 	if (sent) {
@@ -137,7 +139,6 @@ export async function processMarketScheduledSmsDelivery(options: {
 	sessionFirstLine?: {
 		scheduledEtMinutes: number;
 		is24: boolean;
-		priorRegularClose: number | null;
 	};
 }): Promise<void> {
 	const {
