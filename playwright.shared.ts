@@ -16,5 +16,6 @@ const sharedUse: PlaywrightTestConfig["use"] = {
 
 export const sharedDefaults = {
 	workers: 1,
+	outputDir: ".playwright-mcp/cli",
 	use: sharedUse,
-} satisfies Pick<PlaywrightTestConfig, "workers" | "use">;
+} satisfies Pick<PlaywrightTestConfig, "workers" | "outputDir" | "use">;
