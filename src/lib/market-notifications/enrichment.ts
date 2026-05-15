@@ -16,6 +16,10 @@ export interface EnrichedAlert {
 	intradayTimestamps: (number | null)[] | null;
 	/** Last bar timestamp (ms) for sparkline axis; null when bars lack timestamps. */
 	intradayEndTimestamp: number | null;
+	/** Yesterday's close, prepended to the chart so its first-to-last delta
+	 *  equals the prev-close-anchored headline %. Null when Massive didn't
+	 *  return a prevDay bar (delisted / fresh listing). */
+	prevClose: number | null;
 	/** True when price moved up (changePercent >= 0). Used for subject-line direction. */
 	isPositiveMove: boolean;
 	/** Logo URL from the assets table (fetched at delivery time). */
@@ -76,6 +80,7 @@ export async function enrichAlert(options: {
 		intradayCloses,
 		intradayTimestamps,
 		intradayEndTimestamp,
+		prevClose: quote.prevClose,
 		isPositiveMove: quote.changePercent >= 0,
 		iconUrl,
 		iconBase64,

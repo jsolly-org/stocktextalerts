@@ -17,6 +17,7 @@ import {
 	downsampleEvenly,
 	EMAIL_SPARKLINE_LABEL,
 	SMS_SPARKLINE_LABEL,
+	type SparklineWindow,
 	toSparkline,
 } from "../messaging/sparkline";
 import type { EnrichedAlert } from "./enrichment";
@@ -25,17 +26,38 @@ import type { PriceAlertUser } from "./users";
 /** Cap Grok summary length in SMS to avoid segment/cost spikes from long model output. */
 const MAX_SMS_SUMMARY_CHARS = 280;
 
+/** Prepend yesterday's close so the chart's first-to-last delta tracks
+ *  the prev-close-anchored "up X% today" headline. Skips the prepend when
+ *  prevClose is missing or non-positive (fresh listing / delisted). */
+type ChartValues =
+	| { values: null }
+	| {
+			values: number[];
+			window: Extract<SparklineWindow, "intraday-since-prev-close" | "intraday-since-open">;
+	  };
+function buildChartValues(intradayCloses: number[] | null, prevClose: number | null): ChartValues {
+	if (!intradayCloses || intradayCloses.length === 0) {
+		return { values: null };
+	}
+	if (prevClose !== null && Number.isFinite(prevClose) && prevClose > 0) {
+		return { values: [prevClose, ...intradayCloses], window: "intraday-since-prev-close" };
+	}
+	return { values: intradayCloses, window: "intraday-since-open" };
+}
+
 function formatPriceContextWithSparkline(
 	priceContext: string,
 	intradayCloses: number[] | null,
+	prevClose: number | null,
 	downsampleForSms = false,
 ): string {
-	if (!intradayCloses) return priceContext;
+	const chart = buildChartValues(intradayCloses, prevClose);
+	if (!chart.values) return priceContext;
 
-	const values = downsampleForSms ? downsampleEvenly(intradayCloses) : intradayCloses;
-	const sparkline = toSparkline(values);
+	const downsampled = downsampleForSms ? downsampleEvenly(chart.values) : chart.values;
+	const sparkline = toSparkline(downsampled);
 	return sparkline
-		? `${priceContext} ${SMS_SPARKLINE_LABEL["intraday-since-open"]}: ${sparkline}`
+		? `${priceContext} ${SMS_SPARKLINE_LABEL[chart.window]}: ${sparkline}`
 		: priceContext;
 }
 
@@ -61,6 +83,7 @@ async function formatPriceAlertSms(
 	const priceContextLine = formatPriceContextWithSparkline(
 		alert.priceContext,
 		alert.intradayCloses,
+		alert.prevClose,
 		true,
 	);
 
@@ -92,15 +115,21 @@ async function formatPriceAlertSms(
 }
 
 function renderHtmlSparklineForAlert(alert: EnrichedAlert, is24: boolean): string {
+	const chart = buildChartValues(alert.intradayCloses, alert.prevClose);
+	if (!chart.values) return "";
 	const sparklineImg = renderIntradaySparklineImg({
-		intradayCloses: alert.intradayCloses,
+		intradayCloses: chart.values,
 		is24,
 		endTimestampMs: alert.intradayEndTimestamp,
 		timestamps: alert.intradayTimestamps,
+		// Time axis labels are anchored to today's 9:30 ET open. When we prepend
+		// prev close at the leftmost position, those labels become misleading
+		// (the line's leftmost point is prev close, not 9:30), so drop them.
+		showTimeAxis: chart.window === "intraday-since-open",
 	});
 	if (!sparklineImg) return "";
 	return `
-			<p style="color: #92400e; font-size: 12px; margin: 8px 0 0 0;">${EMAIL_SPARKLINE_LABEL["intraday-since-open"]}:</p>
+			<p style="color: #92400e; font-size: 12px; margin: 8px 0 0 0;">${EMAIL_SPARKLINE_LABEL[chart.window]}:</p>
 			<div style="margin-top: 4px;">${sparklineImg}</div>`;
 }
 
@@ -136,6 +165,7 @@ function formatPriceAlertEmail(
 	const textPriceContextLine = formatPriceContextWithSparkline(
 		alert.priceContext,
 		alert.intradayCloses,
+		alert.prevClose,
 	);
 
 	const textSections = [`Unusual Price Move: ${alert.symbol}`, textPriceContextLine];

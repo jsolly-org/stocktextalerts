@@ -10,11 +10,7 @@ import { shouldSendSms } from "../../messaging/sms";
 import type { SparklineMap } from "../../messaging/sparkline";
 import type { UserRecord } from "../../messaging/types";
 import type { AssetPriceMap, MarketSession } from "../../providers/price-fetcher";
-import {
-	fetchIntradaySparklines,
-	fetchSparklines,
-	NO_SESSION_TRADE,
-} from "../../providers/price-fetcher";
+import { fetchIntradaySparklines, NO_SESSION_TRADE } from "../../providers/price-fetcher";
 import type {
 	DeliveryMethod,
 	ScheduledNotificationTotals,
@@ -210,16 +206,19 @@ export async function processMarketScheduledUser(options: {
 			userAssetsMap?.get(user.id) ??
 			(await loadUserAssets(supabase, user.id, { includeLogoData: true }));
 		const tickers = userAssets.map((a) => a.symbol);
-		// Intraday-since-open during active sessions (RTH/after-hours) shows
-		// today's live movement — matches the live price line. Pre/closed have
-		// no actionable intraday to show, so we fall back to 7-day closes.
-		const useIntraday = marketSession === "regular" || marketSession === "after";
+		// All active sessions (pre/regular/after) use the same intraday-since-prev-close
+		// sparkline so the chart's first-to-last delta equals Massive's
+		// `todaysChangePerc` — keeping shape, color, and headline % in lockstep.
+		// Massive's 5-minute bars endpoint returns extended-hours data, so the
+		// pre-market chart includes 4:00 AM ET onward.
+		const prevCloseMap = new Map<string, number | null | undefined>();
+		for (const [symbol, quote] of priceMap) {
+			if (quote) prevCloseMap.set(symbol, quote.prevClose);
+		}
 		let sparklines: SparklineMap = new Map();
 		if (tickers.length > 0) {
 			try {
-				sparklines = useIntraday
-					? await fetchIntradaySparklines(tickers)
-					: await fetchSparklines(tickers);
+				sparklines = await fetchIntradaySparklines(tickers, prevCloseMap);
 			} catch (error) {
 				logger.error(
 					"Failed to fetch sparklines for scheduled market notification",
@@ -228,7 +227,7 @@ export async function processMarketScheduledUser(options: {
 						userId: user.id,
 						tickerCount: tickers.length,
 						marketSession,
-						sparklineWindow: useIntraday ? "intraday-since-open" : "7-trading-days",
+						sparklineWindow: "intraday-since-prev-close",
 					},
 					error instanceof Error ? error : new Error(String(error)),
 				);

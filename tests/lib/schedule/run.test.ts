@@ -163,9 +163,12 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		expect(emailLog?.message).toMatch(/^Pre-market — /);
 		// Change-% line emitted for the test's stub price (changePercent: 1.25).
 		expect(emailLog?.message).toContain("1.25%");
-		// Pre-market sessions show the 7-day sparkline (no actionable intraday yet).
-		// The logged message is the plaintext body, which uses the SMS-style label.
-		expect(emailLog?.message).toContain("past 7 days:");
+		// Pre-market sessions use the same prev-close-anchored intraday chart as
+		// RTH/AH — Massive's 5-minute bars endpoint returns pre-market bars from
+		// 4 AM ET, and prepending prev close makes the chart's first-to-last
+		// delta agree with the headline change-%. SMS-style label is "today".
+		expect(emailLog?.message).toContain("today:");
+		expect(emailLog?.message).not.toContain("past 7 days:");
 	});
 
 	it("A user with a 5:00 PM ET after-hours scheduled time receives a message labeled 'After-hours' with prev-close-anchored change-%", async () => {
@@ -214,13 +217,14 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		expect(emailLog).toBeDefined();
 		expect(emailLog?.message_delivered).toBe(true);
 		expect(emailLog?.message).toMatch(/^After-hours — /);
-		// Header has no anchor — change-% is anchored to yesterday's close (the
-		// retail-app convention), matching what the intraday-since-open sparkline
-		// depicts. Massive's `todaysChangePerc` (1.25%) is what the renderer shows.
+		// Header is anchored to yesterday's close (retail-app convention). The
+		// sparkline now prepends yesterday's close to today's bars so its
+		// first-to-last delta equals that headline change-%. Massive's
+		// `todaysChangePerc` (1.25%) is what the renderer shows.
 		expect(emailLog?.message).toContain("1.25%");
-		// After-hours session shows the intraday-since-open sparkline so the chart
-		// matches the live price line; the SMS-style label is "since open".
-		expect(emailLog?.message).toContain("since open:");
+		// After-hours session shows the today (prev-close-anchored) sparkline so
+		// shape and color always agree with the headline %; SMS label is "today".
+		expect(emailLog?.message).toContain("today:");
 		// No legacy 4 PM-close anchor in the header.
 		expect(emailLog?.message).not.toContain("vs. 4:00 PM close");
 	});

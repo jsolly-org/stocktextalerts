@@ -75,25 +75,31 @@ function buildIntradayTimeLabels(
 
 /** Render an intraday sparkline as an inline SVG <img> string. Returns empty
  *  string if data is missing or invalid. Callers wrap the returned string in
- *  their own themed container. */
+ *  their own themed container.
+ *
+ *  Set `showTimeAxis: false` when `intradayCloses` is prepended with a value
+ *  outside the today-since-open window (e.g., yesterday's close) — the axis
+ *  labels are anchored to 9:30 ET and become misleading in that case. */
 export function renderIntradaySparklineImg(options: {
 	intradayCloses: number[] | null;
 	is24: boolean;
 	endTimestampMs?: number | null;
 	timestamps?: (number | null)[] | null;
+	showTimeAxis?: boolean;
 }): string {
-	const { intradayCloses, is24, endTimestampMs, timestamps } = options;
+	const { intradayCloses, is24, endTimestampMs, timestamps, showTimeAxis = true } = options;
 	if (!intradayCloses || intradayCloses.length < 2) return "";
 	if (intradayCloses.some((v) => !Number.isFinite(v))) return "";
 
-	const openPrice = intradayCloses[0];
+	const firstPrice = intradayCloses[0];
 	const lastPrice = intradayCloses[intradayCloses.length - 1];
-	if (openPrice === undefined || lastPrice === undefined) return "";
-	const changePercent = openPrice === 0 ? 0 : ((lastPrice - openPrice) / openPrice) * 100;
+	if (firstPrice === undefined || lastPrice === undefined) return "";
+	const changePercent = firstPrice === 0 ? 0 : ((lastPrice - firstPrice) / firstPrice) * 100;
 	const color = getChangeColor(changePercent);
-	const timeLabels = buildIntradayTimeLabels(is24, endTimestampMs);
+	const timeLabels = showTimeAxis ? buildIntradayTimeLabels(is24, endTimestampMs) : [];
 	const marketOpenMs = endTimestampMs != null ? getMarketOpenTimestampMs(endTimestampMs) : null;
 	const timeAxis =
+		showTimeAxis &&
 		timestamps &&
 		timestamps.length === intradayCloses.length &&
 		marketOpenMs != null &&
@@ -105,13 +111,8 @@ export function renderIntradaySparklineImg(options: {
 				}
 			: undefined;
 
-	return toSvgSparklineImg(
-		intradayCloses,
-		color,
-		200,
-		40,
-		"Intraday price chart since market open",
-		timeLabels,
-		timeAxis,
-	);
+	const altText = showTimeAxis
+		? "Intraday price chart since market open"
+		: "Intraday price chart since prev close";
+	return toSvgSparklineImg(intradayCloses, color, 200, 40, altText, timeLabels, timeAxis);
 }

@@ -72,6 +72,7 @@ function makeAlert(overrides: Partial<EnrichedAlert> = {}): EnrichedAlert {
 		intradayCloses: null,
 		intradayTimestamps: null,
 		intradayEndTimestamp: null,
+		prevClose: 194.42,
 		isPositiveMove: false,
 		...overrides,
 	};
@@ -331,7 +332,10 @@ describe("A user with price alerts enabled receives Grok-enriched move context",
 });
 
 describe("deliverPriceAlert intraday sparklines", () => {
-	const intradayCloses = [100, 102, 105, 103, 108, 110, 107];
+	// Bars frame an LDOS-style selloff: opened down ~10% from prev close
+	// ($194.42) and continued lower through the session. Plausible alongside
+	// the priceContext fixture ("LDOS is down 11.1% today ($173.00)").
+	const intradayCloses = [175.6, 174.8, 174.1, 173.7, 173.2, 172.9, 173.0];
 
 	it("SMS body contains Unicode sparkline when intradayCloses has data", async () => {
 		const sendSms = vi.fn<(_: { to: string; body: string }) => Promise<DeliveryResult>>(
@@ -351,7 +355,9 @@ describe("deliverPriceAlert intraday sparklines", () => {
 
 		expect(sendSms).toHaveBeenCalledOnce();
 		const smsBody = sendSms.mock.calls[0]![0].body;
-		expect(smsBody).toContain("since open:");
+		// Sparkline anchors at prev close (Robinhood "1D") so its first-to-last
+		// delta matches the prev-close-anchored headline %; SMS label is "today".
+		expect(smsBody).toContain("today:");
 		// Unicode block characters are in the range U+2581–U+2588
 		expect(smsBody).toMatch(/[▁▂▃▄▅▆▇█]/);
 	});
@@ -374,6 +380,7 @@ describe("deliverPriceAlert intraday sparklines", () => {
 
 		expect(sendSms).toHaveBeenCalledOnce();
 		const smsBody = sendSms.mock.calls[0]![0].body;
+		expect(smsBody).not.toContain("today:");
 		expect(smsBody).not.toContain("since open:");
 	});
 
@@ -400,7 +407,9 @@ describe("deliverPriceAlert intraday sparklines", () => {
 		// sendEmail receives { to, subject, body, html }
 		const emailCall = sendEmail.mock.calls[0]![0] as { html: string };
 		expect(emailCall.html).toContain("<img");
-		expect(emailCall.html).toContain("Today since open:");
+		// Email label is "Today" (Robinhood-style "1D") since chart is anchored
+		// to prev close.
+		expect(emailCall.html).toContain("Today:");
 	});
 
 	it("email HTML has no sparkline when intradayCloses is null", async () => {
@@ -424,11 +433,14 @@ describe("deliverPriceAlert intraday sparklines", () => {
 
 		expect(sendEmail).toHaveBeenCalledOnce();
 		const emailCall = sendEmail.mock.calls[0]![0] as { html: string };
+		expect(emailCall.html).not.toContain("Today:");
 		expect(emailCall.html).not.toContain("Today since open:");
 	});
 
-	it("email HTML sparkline uses 24-hour time labels when use_24_hour_time is true", async () => {
-		// Use real bar timestamps: 9:30 ET → 10:40 ET so hourly tick "10:00" appears
+	it("email HTML falls back to the intraday-since-open chart with time axis when prev close is unavailable (delisted/fresh listing)", async () => {
+		// Without a prev close to prepend, the renderer keeps the today's-open
+		// time axis so the reader still sees hourly ticks. Use real bar
+		// timestamps: 9:30 ET → 10:40 ET so the hourly "10:00" tick appears.
 		const intradayWithHourlyTick = [
 			100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114,
 		];
@@ -446,6 +458,7 @@ describe("deliverPriceAlert intraday sparklines", () => {
 			alert: makeAlert({
 				intradayCloses: intradayWithHourlyTick,
 				intradayEndTimestamp: endTs,
+				prevClose: null,
 			}),
 			supabase: makeSupabaseMock(),
 			sendEmail: sendEmail,

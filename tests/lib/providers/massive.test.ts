@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { extractOHLCVFromBars } from "../../../src/lib/providers/massive";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { extractOHLCVFromBars, fetchPrevDayBar } from "../../../src/lib/providers/massive";
 
 describe("Massive OHLCV bar extraction", () => {
 	it("extracts full OHLCV bars from a valid aggregates response", () => {
@@ -44,5 +44,33 @@ describe("Massive OHLCV bar extraction", () => {
 
 		const bars = extractOHLCVFromBars(payload);
 		expect(bars).toHaveLength(2);
+	});
+});
+
+describe("Daily digest fallback for an illiquid ticker missing from the live snapshot", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("surfaces Massive's prev-day `t` (milliseconds) as Unix seconds so the digest banner renders the actual close", async () => {
+		// Wed May 13, 2026 16:00 ET = 20:00 UTC. Polygon-style daily-bar `t`
+		// is milliseconds; the digest's `formatQuoteTimestamp` multiplies by
+		// 1000 to convert seconds→ms before `new Date(...)`. Returning ms
+		// raw (the pre-fix bug) pushes the banner's "as of" date to year
+		// ~58000 — fetchPrevDayBar must normalize to seconds at the source.
+		const closeMs = Date.UTC(2026, 4, 13, 20, 0);
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(
+			new Response(
+				JSON.stringify({
+					results: [{ o: 175.0, h: 178.5, l: 174.2, c: 177.3, v: 12_345_678, t: closeMs }],
+				}),
+				{ status: 200, headers: { "content-type": "application/json" } },
+			),
+		);
+
+		const bar = await fetchPrevDayBar("AAPL");
+
+		expect(bar).not.toBeNull();
+		expect(bar?.timestamp).toBe(Math.floor(closeMs / 1000));
 	});
 });

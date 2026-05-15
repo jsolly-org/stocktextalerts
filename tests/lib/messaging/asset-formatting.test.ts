@@ -112,7 +112,18 @@ describe("A subscriber receiving a notification sees a label naming the sparklin
 		expect(line).toBe("AAPL — $187.42 (+1.23%) past 7 days: ▁▂▃▄▅▆▇");
 	});
 
-	it("An intraday sparkline in SMS is prefixed with `since open:` so the reader knows it's this session", () => {
+	it("An intraday-since-prev-close sparkline in SMS is prefixed with `today:` (Robinhood-style)", () => {
+		const sparkline: SparklineData = {
+			// First value is yesterday's close; the rest are today's bars.
+			values: [180, 181, 184, 187, 188, 187, 188],
+			ascii: "▁▂▄▆▇▆▇",
+			window: "intraday-since-prev-close",
+		};
+		const line = formatAssetTextLine(asset, price, sparkline);
+		expect(line).toBe("AAPL — $187.42 (+1.23%) today: ▁▂▄▆▇▆▇");
+	});
+
+	it("A flat-alert intraday-since-open sparkline in SMS is prefixed with `since open:` to disambiguate from the prev-close-anchored default", () => {
 		const sparkline: SparklineData = {
 			values: [180, 181, 184, 187, 188, 187, 188],
 			ascii: "▁▂▄▆▇▆▇",
@@ -133,7 +144,19 @@ describe("A subscriber receiving a notification sees a label naming the sparklin
 		expect(html).toContain("data:image/svg+xml;base64,");
 	});
 
-	it("An intraday sparkline in email HTML carries a `Today since open:` label next to the SVG", () => {
+	it("An intraday-since-prev-close sparkline in email HTML carries a `Today:` label next to the SVG", () => {
+		const sparkline: SparklineData = {
+			// First value is yesterday's close; the rest are today's bars.
+			values: [180, 181, 184, 187, 188, 187, 188],
+			ascii: "▁▂▄▆▇▆▇",
+			window: "intraday-since-prev-close",
+		};
+		const html = formatAssetHtmlLine(asset, price, sparkline);
+		expect(html).toContain("Today:");
+		expect(html).toContain("data:image/svg+xml;base64,");
+	});
+
+	it("A flat-alert intraday-since-open sparkline in email HTML keeps its disambiguating `Today since open:` label", () => {
 		const sparkline: SparklineData = {
 			values: [180, 181, 184, 187, 188, 187, 188],
 			ascii: "▁▂▄▆▇▆▇",
@@ -149,6 +172,7 @@ describe("A subscriber receiving a notification sees a label naming the sparklin
 		expect(line).toBe("AAPL — $187.42 (+1.23%)");
 		expect(line).not.toContain("past 7 days:");
 		expect(line).not.toContain("since open:");
+		expect(line).not.toContain("today:");
 	});
 });
 
@@ -188,9 +212,9 @@ describe("After-hours change-% rendering", () => {
 	it("A subscriber receiving a 6 PM ET SMS sees the day's prev-close-anchored move (Robinhood-style)", () => {
 		// Headline change-% during after-hours is anchored to yesterday's close
 		// (Massive's todaysChangePerc), matching the convention used by
-		// Robinhood/Yahoo/Apple Stocks. This is the same anchor used during
-		// regular hours, so the intraday-since-open sparkline tells the same
-		// story as the change-%.
+		// Robinhood/Yahoo/Apple Stocks. The sparkline is anchored to the same
+		// yesterday's close (prev close prepended to today's bars) so chart
+		// shape and change-% always agree on direction.
 		const line = formatAssetTextLine(
 			{ symbol: "MSFT", name: "Microsoft" },
 			{

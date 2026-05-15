@@ -17,6 +17,7 @@ import { fetchSnapshotQuotes, fetchTopMovers, type TopMover } from "../providers
 import {
 	type AssetPriceMap,
 	fetchAssetPrices,
+	fetchIntradaySparklines,
 	fetchSparklines,
 	getCurrentMarketSession,
 	type MarketSession,
@@ -353,15 +354,44 @@ export async function processDailyDigestUser(options: {
 			}
 		}
 
+		// Sparkline window mirrors what we headline next to it. When the digest
+		// shows today's % (any active session), the chart is intraday-since-prev-close
+		// so its first-to-last delta equals that %. When the market is closed
+		// (weekend/holiday) the digest hides change-% entirely; fall back to
+		// the 7-trading-day chart to give the reader a weekly trend at a glance.
 		let sparklines: SparklineMap = new Map();
 		if (needsPrices && tickers.length > 0) {
 			try {
-				sparklines = await fetchSparklines(tickers);
+				if (session === "closed") {
+					sparklines = await fetchSparklines(tickers);
+				} else {
+					const prevCloseMap = new Map<string, number | null | undefined>();
+					for (const [symbol, quote] of assetPrices) {
+						if (quote) prevCloseMap.set(symbol, quote.prevClose);
+					}
+					// A preceding fetchAssetPrices error (line 348) leaves assetPrices
+					// empty, which means every sparkline silently falls back to the
+					// since-open window. Surface the degradation here so the chain
+					// shows up in alert-hub triage, not just the upstream error.
+					if (prevCloseMap.size === 0) {
+						logger.warn(
+							"Daily digest sparklines defaulting to intraday-since-open: no prev closes available",
+							{
+								action: "daily_run",
+								userId: user.id,
+								tickerCount: tickers.length,
+								session,
+							},
+						);
+					}
+					sparklines = await fetchIntradaySparklines(tickers, prevCloseMap);
+				}
 			} catch (error) {
 				logger.error("Failed to fetch sparklines for daily digest", {
 					action: "daily_run",
 					userId: user.id,
 					tickerCount: tickers.length,
+					session,
 					error: extractErrorMessage(error),
 				});
 			}

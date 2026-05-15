@@ -41,8 +41,18 @@ export function toSparkline(values: number[]): string {
 /**
  * Which price window a sparkline represents. The label rendered next to the
  * sparkline (in SMS and email) is derived from this discriminator.
+ *
+ * `intraday-since-prev-close` starts at yesterday's close (so its first-to-last
+ * delta equals Massive's `todaysChangePerc`) and is the default for scheduled
+ * notifications, triggered price alerts, and daily digests — anywhere the
+ * headline change-% is prev-close-anchored. `intraday-since-open` starts at
+ * today's 9:30 AM open and is used only by flat-alerts, whose chart pairs
+ * with the table's "Since today's open" row.
  */
-export type SparklineWindow = "intraday-since-open" | "7-trading-days";
+export type SparklineWindow =
+	| "intraday-since-prev-close"
+	| "intraday-since-open"
+	| "7-trading-days";
 
 /**
  * Max sparkline chars for SMS. Unicode blocks force UCS-2 (70 chars/segment);
@@ -77,15 +87,19 @@ export interface SparklineData {
 export type SparklineMap = Map<string, SparklineData | null>;
 
 /** Per-line label rendered before a sparkline in SMS. Names the anchor window
- *  unambiguously — earlier "today" / "7d" left readers guessing whether the
- *  chart started at the open, prev close, or 7 days back. */
+ *  unambiguously — bare "today" / "7d" left readers guessing whether the
+ *  chart started at the open, prev close, or 7 days back. `today` is reserved
+ *  for charts anchored at yesterday's close (so the chart's net move equals
+ *  the prev-close-anchored headline %, Robinhood/Yahoo convention). */
 export const SMS_SPARKLINE_LABEL: Record<SparklineWindow, string> = {
+	"intraday-since-prev-close": "today",
 	"intraday-since-open": "since open",
 	"7-trading-days": "past 7 days",
 };
 
 /** Verbose label rendered inline before a sparkline in email HTML. */
 export const EMAIL_SPARKLINE_LABEL: Record<SparklineWindow, string> = {
+	"intraday-since-prev-close": "Today",
 	"intraday-since-open": "Today since open",
 	"7-trading-days": "Past 7 trading days",
 };

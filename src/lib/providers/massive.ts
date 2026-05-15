@@ -894,8 +894,11 @@ export async function fetchPrevDayBar(symbol: string): Promise<PrevDayBar | null
 		typeof v === "number" && Number.isFinite(v) && v !== 0 ? v : null;
 	const numVolume = (v: unknown): number | null =>
 		typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : null;
-	const numTimestamp = (v: unknown): number | null =>
-		typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null;
+	// Massive `/v2/aggs` daily-bar `t` is milliseconds; AssetPrice.timestamp is
+	// Unix seconds elsewhere (snapshot path converts ns→s; digest formatter
+	// multiplies s→ms). Normalize here to keep the invariant.
+	const numTimestampSeconds = (v: unknown): number | null =>
+		typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.floor(v / 1000) : null;
 
 	return {
 		price: close,
@@ -909,7 +912,7 @@ export async function fetchPrevDayBar(symbol: string): Promise<PrevDayBar | null
 		// vs today's price"; reusing `close` here would display the same
 		// number twice to end users.
 		prevClose: null,
-		timestamp: numTimestamp(row.t),
+		timestamp: numTimestampSeconds(row.t),
 		volume: numVolume(row.v),
 	};
 }
