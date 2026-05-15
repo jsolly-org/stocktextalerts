@@ -5,7 +5,7 @@ import type { Logger } from "../logging";
 import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
 import {
 	escapeHtml,
-	formatAssetHtmlLine,
+	formatAssetsHtmlList,
 	formatAssetTextLine,
 } from "../messaging/asset-formatting";
 import { renderEmailSection } from "../messaging/email/html-section";
@@ -175,24 +175,6 @@ function formatDailyDigestPriceLine(
 	return formatAssetTextLine(asset, quote ?? undefined, sparkline, showChangePercent);
 }
 
-/** Format a single asset price line for the HTML digest. */
-function formatDailyDigestPriceLineHtml(
-	asset: UserAssetRow,
-	quote: { price: number; changePercent: number } | null | undefined,
-	sparkline?: SparklineData | null,
-	logoHtml?: string,
-	showChangePercent = true,
-): string {
-	const innerHtml = formatAssetHtmlLine(
-		asset,
-		quote ?? undefined,
-		sparkline,
-		logoHtml,
-		showChangePercent,
-	);
-	return `<div style="margin-bottom: 8px; color: #374151;">${innerHtml}</div>`;
-}
-
 /** Build the plain-text "Your Assets" section for the digest. */
 function buildDailyDigestPricesSummary(
 	userAssets: UserAssetRow[],
@@ -227,17 +209,11 @@ function buildDailyDigestPricesHtml(
 	if (userAssets.length === 0) {
 		return "";
 	}
-	return userAssets
-		.map((asset) =>
-			formatDailyDigestPriceLineHtml(
-				asset,
-				assetPrices.get(asset.symbol),
-				sparklines?.get(asset.symbol),
-				getLogoHtml?.(asset.symbol),
-				showChangePercent,
-			),
-		)
-		.join("");
+	return formatAssetsHtmlList(userAssets, (symbol) => assetPrices.get(symbol) ?? undefined, {
+		getSparkline: (symbol) => sparklines?.get(symbol),
+		getLogoHtml,
+		showChangePercent,
+	});
 }
 
 /** Format the daily digest payload for email delivery. */
@@ -336,7 +312,7 @@ export function formatDailyDigestEmail(options: {
 		${
 			pricesHtml
 				? `<h2 style="margin: 0 0 8px; font-size: 18px;">💰 Your Assets</h2>
-		<div style="margin: 0 0 16px; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;">${pricesHtml}</div>`
+		<div style="margin: 0 0 16px; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px; color: #374151;">${pricesHtml}</div>`
 				: ""
 		}
 		${renderEmailSection("🗞️", "News", news, { showGrokLogo: true, showMassiveLogo: true })}

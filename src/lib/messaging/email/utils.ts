@@ -325,10 +325,8 @@ export function formatEmailMessage(
 		${delayBanners?.html || ""}
 		${marketClosedBannerHtml}
 		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Your Scheduled Price Notification</h2>
-		<div style="background: #f9fafb; padding: 20px; border-radius: 6px; margin-bottom: 30px;">
-			<p style="color: #1f2937; font-size: 18px; font-weight: 600; margin: 0; font-family: 'Courier New', monospace;">
-				${escapedAssetsListHtml}
-			</p>
+		<div style="background: #f9fafb; padding: 20px; border-radius: 6px; margin-bottom: 30px; color: #1f2937; font-size: 18px; font-weight: 600; font-family: 'Courier New', monospace;">
+			${escapedAssetsListHtml}
 		</div>
 		<div style="text-align: center; margin-top: 30px;">
 			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">

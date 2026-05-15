@@ -59,6 +59,10 @@ describe("Daily digest email prices", () => {
 		expect(message.html).toContain("(+1.23%)");
 		expect(message.html).toContain("$412.10");
 		expect(message.html).toContain("(-0.31%)");
+		// Asset list renders as a <table> so columns line up across rows; the
+		// sans-serif daily-digest font needs tabular-nums to keep prices aligned.
+		expect(message.html).toContain('<table role="presentation"');
+		expect(message.html).toContain("font-variant-numeric: tabular-nums");
 	});
 
 	it("colors positive change green and negative change red in HTML", () => {

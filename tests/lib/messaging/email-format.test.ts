@@ -95,9 +95,11 @@ describe("Email scheduled update includes asset price data.", () => {
 
 		// AAPL has price in HTML
 		expect(html).toContain("$187.42");
-		// MSFT appears without price (no mdash separator)
-		expect(html).toContain("MSFT");
-		expect(html).not.toContain("MSFT &mdash;");
+		// MSFT renders a "price unavailable" row, never a price figure
+		expect(html).toContain(">MSFT</td>");
+		expect(html).toContain("price unavailable");
+		expect(html).not.toContain("$0.00");
+		expect(html).not.toContain("$412.10");
 	});
 
 	it("A scheduled-email recipient sees an inline AAPL logo while symbols without logos remain text-only.", () => {
@@ -118,8 +120,9 @@ describe("Email scheduled update includes asset price data.", () => {
 		});
 
 		expect(html).toContain("base64,aapllogo");
-		expect(html).toContain(
-			'<img src="data:image/png;base64,aapllogo" alt="" width="20" height="20" />AAPL',
+		// Logo lives in the cell immediately before the AAPL ticker cell.
+		expect(html).toMatch(
+			/<td[^>]*>\s*<img src="data:image\/png;base64,aapllogo"[^>]*\/>\s*<\/td>\s*<td[^>]*>AAPL<\/td>/,
 		);
 		// MSFT should not have a logo img
 		expect(html).not.toContain("msftlogo");

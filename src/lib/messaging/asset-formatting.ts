@@ -101,6 +101,10 @@ export function getChangeColor(changePercent: number): string {
 	return changePercent >= 0 ? "#166534" : "#b91c1c";
 }
 
+const ROW_CELL = "padding: 4px 0; vertical-align: middle; white-space: nowrap;";
+const NUM_CELL = `${ROW_CELL} font-variant-numeric: tabular-nums;`;
+const ASSET_ROW_COLS = 7;
+
 export function formatAssetHtmlLine(
 	asset: AssetWithName,
 	price: AssetPriceLookup,
@@ -109,40 +113,45 @@ export function formatAssetHtmlLine(
 	showChangePercent = true,
 	marketSession?: ActiveMarketSession,
 ): string {
-	const assetInfo = `${logoHtml ?? ""}${escapeHtml(asset.symbol)}`;
+	const symbol = escapeHtml(asset.symbol);
+	const logoCell = `<td style="${ROW_CELL} padding-right: 4px;">${logoHtml ?? ""}</td>`;
+	const tickerCell = `<td style="${ROW_CELL} font-weight: 700;">${symbol}</td>`;
+	const dashCell = `<td style="${ROW_CELL} padding: 4px 8px;">&mdash;</td>`;
 
-	if (price === "no_session_trade") {
-		const sessionLabel =
-			marketSession === "pre"
+	if (price === "no_session_trade" || !price) {
+		const label =
+			price === "no_session_trade" && marketSession === "pre"
 				? "no pre-market trades"
-				: marketSession === "after"
+				: price === "no_session_trade" && marketSession === "after"
 					? "no after-hours trades"
 					: "price unavailable";
-		return `<strong>${assetInfo}</strong> &mdash; <span style="color: #6b7280;">${sessionLabel}</span>`;
-	}
-	if (!price) {
-		return `<strong>${assetInfo}</strong> &mdash; <span style="color: #6b7280;">price unavailable</span>`;
+		// Keep dash in its own column so the row aligns with priced rows; remaining
+		// cells (price/change/label/sparkline) collapse into one labelled span.
+		const labelSpan = ASSET_ROW_COLS - 3;
+		return `<tr>${logoCell}${tickerCell}${dashCell}<td colspan="${labelSpan}" style="${ROW_CELL} color: #6b7280;">${label}</td></tr>`;
 	}
 
 	const priceStr = escapeHtml(`$${price.price.toFixed(2)}`);
 	const color = getChangeColor(price.changePercent);
+	const priceCell = `<td style="${NUM_CELL} font-weight: 700;">${priceStr}</td>`;
 
-	let changeHtml = "";
+	let changeCell = `<td style="${ROW_CELL}"></td>`;
 	if (showChangePercent) {
 		const sign = price.changePercent >= 0 ? "+" : "";
 		const changeStr = escapeHtml(`(${sign}${price.changePercent.toFixed(2)}%)`);
-		changeHtml = ` <span style="color: ${color};">${changeStr}</span>`;
+		changeCell = `<td style="${NUM_CELL} padding-left: 8px; color: ${color};">${changeStr}</td>`;
 	}
 
-	let sparklineHtml = "";
+	let labelCell = `<td style="${ROW_CELL}"></td>`;
+	let sparklineCell = `<td style="${ROW_CELL}"></td>`;
 	if (sparkline?.values && sparkline.values.length >= 2) {
 		const label = EMAIL_SPARKLINE_LABEL[sparkline.window];
-		const labelHtml = ` <span style="color: #6b7280; font-size: 11px; margin-left: 6px;">${escapeHtml(`${label}:`)}</span>`;
+		labelCell = `<td style="${ROW_CELL} padding-left: 16px; color: #6b7280; font-size: 11px;">${escapeHtml(`${label}:`)}</td>`;
 		const altText = `${label} price trend`;
-		sparklineHtml = `${labelHtml} ${toSvgSparklineImg(sparkline.values, color, 120, 30, altText)}`;
+		sparklineCell = `<td style="${ROW_CELL} padding-left: 6px;">${toSvgSparklineImg(sparkline.values, color, 120, 30, altText)}</td>`;
 	}
 
-	return `<strong>${assetInfo}</strong> &mdash; ${priceStr}${changeHtml}${sparklineHtml}`;
+	return `<tr>${logoCell}${tickerCell}${dashCell}${priceCell}${changeCell}${labelCell}${sparklineCell}</tr>`;
 }
 
 export function formatAssetsTextList(
@@ -182,7 +191,7 @@ export function formatAssetsHtmlList(
 	}
 
 	const showChange = context?.showChangePercent ?? true;
-	return assets
+	const rows = assets
 		.map((asset) =>
 			formatAssetHtmlLine(
 				asset,
@@ -193,5 +202,7 @@ export function formatAssetsHtmlList(
 				context?.marketSession,
 			),
 		)
-		.join("<br>");
+		.join("");
+
+	return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse;">${rows}</table>`;
 }

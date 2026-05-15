@@ -80,20 +80,19 @@ describe("A subscriber receives email asset rows with logos when logo data is av
 			getLogoHtml,
 		});
 
-		const [aaplLine, msftLine] = result.split("<br>");
-		// AAPL should have the logo img before its symbol
-		expect(aaplLine).toContain(
-			'<img src="data:image/png;base64,abc" alt="" width="20" height="20" />AAPL',
+		expect(result).toMatch(
+			/<td[^>]*>\s*<img src="data:image\/png;base64,abc"[^>]*\/>\s*<\/td>\s*<td[^>]*>AAPL<\/td>/,
 		);
-		// MSFT should not have any img tag (getLogoHtml returned undefined for MSFT)
-		expect(msftLine).not.toContain("<img");
-		expect(msftLine).toContain("<strong>MSFT</strong>");
+		expect(result).toMatch(/<td[^>]*>\s*<\/td>\s*<td[^>]*>MSFT<\/td>/);
+		expect(result).toContain("<table");
 	});
 
 	it("A subscriber still sees standard asset rows when no logo is available.", () => {
 		const result = formatAssetsHtmlList(assets, getPrice);
 
-		expect(result).toContain("<strong>AAPL</strong>");
+		// Empty logo cell sits directly before the AAPL ticker cell — preserves
+		// column alignment with rows that *do* have a logo.
+		expect(result).toMatch(/<td[^>]*>\s*<\/td>\s*<td[^>]*>AAPL<\/td>/);
 		expect(result).not.toContain("<img");
 	});
 });
@@ -198,13 +197,21 @@ describe("No-session-trade rendering distinguishes inactive tickers from fetch f
 		const html = formatAssetHtmlLine(asset, "no_session_trade", null, undefined, true, "pre");
 		expect(html).toContain("no pre-market trades");
 		expect(html).toContain("color: #6b7280;");
-		expect(html).toContain("<strong>CACI</strong>");
+		expect(html).toContain(">CACI</td>");
 	});
 
 	it("After-hours email row reads `no after-hours trades` in muted grey when ticker has no live bar", () => {
 		const html = formatAssetHtmlLine(asset, "no_session_trade", null, undefined, true, "after");
 		expect(html).toContain("no after-hours trades");
 		expect(html).toContain("color: #6b7280;");
+	});
+
+	it("Regular-session email row falls back to `price unavailable` when ticker is in snapshot but had no trade", () => {
+		const html = formatAssetHtmlLine(asset, "no_session_trade", null, undefined, true, undefined);
+		expect(html).toContain("price unavailable");
+		expect(html).toContain(">CACI</td>");
+		expect(html).not.toContain("no pre-market");
+		expect(html).not.toContain("no after-hours");
 	});
 });
 
