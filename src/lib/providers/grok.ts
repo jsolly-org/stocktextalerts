@@ -471,11 +471,18 @@ async function callGrokApi(options: {
 			});
 
 			if (!response.ok) {
+				let bodyPreview: string | undefined;
+				try {
+					bodyPreview = (await response.text()).slice(0, 500);
+				} catch {
+					// Body read failed; continue with status-only context.
+				}
 				const failureContext = {
 					...options.logContext,
 					attempt,
 					status: response.status,
 					statusText: response.statusText,
+					...(bodyPreview !== undefined ? { bodyPreview } : {}),
 				};
 				// 429 is an expected rejection even on exhaustion — rate
 				// limiting isn't pageable. Other final-attempt failures
