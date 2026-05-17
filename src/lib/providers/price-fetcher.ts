@@ -137,18 +137,6 @@ export async function fetchAssetPrices(
 	symbols: string[],
 	session: MarketSession,
 ): Promise<AssetPriceMap> {
-	if (isTest() && !isLiveMassiveEnabledInTests()) {
-		return new Map(
-			symbols.map((s) => [
-				s,
-				{
-					price: 150.0,
-					changePercent: 1.25,
-					prevClose: 148.5,
-				},
-			]),
-		);
-	}
 	const snapshot = await fetchSnapshotQuotes(symbols, session);
 	await fillSnapshotMissesWithPrevDayBar(symbols, snapshot, session);
 	return narrowSnapshotToPriceMap(snapshot);
@@ -164,12 +152,6 @@ export async function fetchAssetPricesWithSessionState(
 	symbols: string[],
 	session: MarketSession,
 ): Promise<AssetPricesWithSessionState> {
-	if (isTest() && !isLiveMassiveEnabledInTests()) {
-		return {
-			prices: await fetchAssetPrices(symbols, session),
-			noSessionTrade: new Set(),
-		};
-	}
 	const snapshot = await fetchSnapshotQuotes(symbols, session);
 	await fillSnapshotMissesWithPrevDayBar(symbols, snapshot, session);
 	return splitSnapshotByNoSessionTrade(snapshot);
@@ -211,23 +193,6 @@ export async function fetchExtendedQuotes(
 	symbols: string[],
 	session: MarketSession,
 ): Promise<ExtendedQuoteMap> {
-	if (isTest() && !isLiveMassiveEnabledInTests()) {
-		return new Map(
-			symbols.map((s) => [
-				s,
-				{
-					price: 150.0,
-					changePercent: 1.25,
-					dayHigh: 152.0,
-					dayLow: 148.0,
-					dayOpen: 149.0,
-					prevClose: 148.5,
-					timestamp: Math.floor(Date.now() / 1000),
-					volume: null,
-				},
-			]),
-		);
-	}
 	const snapshot = await fetchSnapshotQuotes(symbols, session);
 	await fillSnapshotMissesWithPrevDayBar(symbols, snapshot, session);
 	return narrowSnapshotToPriceMap(snapshot) as ExtendedQuoteMap;
@@ -236,45 +201,80 @@ export async function fetchExtendedQuotes(
 /**
  * Fill snapshot misses with Massive's previous-day bar.
  *
- * Fires only for symbols Massive's live snapshot doesn't return. In practice
- * that means either (a) a legitimately delisted ticker that the daily sweep
- * hasn't cleaned up yet, or (b) a truly OTC ticker Massive's snapshot doesn't
- * cover (rare, but historically why the Finnhub fallback existed).
- *
  * **Session guard**: any active session (pre / regular / after) leaves the
  * miss as null — serving yesterday's bar labeled as "current price" during a
  * trading session would mislead users whose alerts compare against live price.
  * Only when the market is fully closed do we fall back to the prev-day bar,
  * which is the freshest data available.
+ *
+ * On a fully-closed market, `"no_session_trade"` (Massive recognized the symbol
+ * but no session-bound trade exists) is semantically equivalent to a miss —
+ * there is no current session that could have produced a trade — so those
+ * entries get the prev-day-bar fallback too. On active sessions
+ * `"no_session_trade"` keeps its illiquid-in-this-session meaning and we don't
+ * backfill (those tickers are intentionally surfaced as "no pre/after-market
+ * trade" rather than as stale prev-day data).
+ *
+ * When the prev-day-bar fetch returns null or throws on a closed session, the
+ * entry is overwritten with `null` (not left as `"no_session_trade"`). This
+ * preserves the page-worthy "prices missing" signal in `splitSnapshotByNoSessionTrade`
+ * downstream — a delisted ticker on a Saturday should surface as a real miss,
+ * not be bucketed as "expected illiquid in current session" (there is no
+ * current session).
+ *
+ * Fetches run in parallel with a small worker pool (mirrors
+ * `fetchSparklines`), bounding Massive load when many tickers need backfilling.
  */
-async function fillSnapshotMissesWithPrevDayBar(
+export async function fillSnapshotMissesWithPrevDayBar(
 	symbols: string[],
 	snapshot: Map<string, unknown>,
 	session: MarketSession,
 ): Promise<void> {
-	const missing = symbols.filter((symbol) => snapshot.get(symbol) === null);
-	if (missing.length === 0) return;
-
 	if (session !== "closed") {
-		// Any active session: leave misses as null rather than serving stale data.
+		// Active session: leave snapshot misses as null rather than serving stale data.
 		// Downstream callers already handle null quotes gracefully.
 		return;
 	}
 
-	for (const symbol of missing) {
-		try {
-			const bar = await fetchPrevDayBar(symbol);
-			if (bar !== null) {
+	const missing = symbols.filter((symbol) => {
+		const entry = snapshot.get(symbol);
+		return entry === null || entry === "no_session_trade";
+	});
+	if (missing.length === 0) return;
+
+	const CONCURRENCY = 5;
+	const queue = [...missing];
+
+	async function worker(): Promise<void> {
+		while (true) {
+			const symbol = queue.shift();
+			if (symbol === undefined) break;
+			try {
+				const bar = await fetchPrevDayBar(symbol);
+				// On a closed session, an entry that started as "no_session_trade"
+				// but couldn't be backfilled (delisted / OTC / vendor outage on the
+				// prev-bar endpoint) gets overwritten with null. Otherwise
+				// `splitSnapshotByNoSessionTrade` would bucket it as "expected
+				// illiquid" and the daily-digest classifier would suppress the
+				// page-worthy "prices missing" error — there's no session for it
+				// to be illiquid in.
 				snapshot.set(symbol, bar);
+			} catch (error) {
+				snapshot.set(symbol, null);
+				rootLogger.error(
+					"Prev-day-bar fallback failed",
+					{ symbol },
+					error instanceof Error ? error : new Error(String(error)),
+				);
 			}
-		} catch (error) {
-			rootLogger.error(
-				"Prev-day-bar fallback failed",
-				{ symbol },
-				error instanceof Error ? error : new Error(String(error)),
-			);
 		}
 	}
+
+	const workers: Promise<void>[] = [];
+	for (let i = 0; i < Math.min(CONCURRENCY, missing.length); i++) {
+		workers.push(worker());
+	}
+	await Promise.all(workers);
 }
 
 /** Fetch 7-point sparklines for the last ~week of closes. */

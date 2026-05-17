@@ -13,15 +13,14 @@ import type { UserRecord } from "../messaging/types";
 import { buildNewsContextForGrok, fetchFinnhubExtras } from "../providers/finnhub";
 import type { GrokSectionResult } from "../providers/grok";
 import { generateNewsWithGrok, generateRumorsWithGrok } from "../providers/grok";
-import { fetchSnapshotQuotes, fetchTopMovers, type TopMover } from "../providers/massive";
+import { fetchTopMovers, type TopMover } from "../providers/massive";
 import {
 	type AssetPriceMap,
-	fetchAssetPrices,
+	fetchAssetPricesWithSessionState,
 	fetchIntradaySparklines,
 	fetchSparklines,
 	getCurrentMarketSession,
 	type MarketSession,
-	NO_SESSION_TRADE,
 } from "../providers/price-fetcher";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { loadUserAssets } from "../schedule/helpers";
@@ -329,10 +328,10 @@ export async function processDailyDigestUser(options: {
 		const includePricesSms = user.daily_digest_include_prices_sms;
 		const needsPrices = (includePricesEmail && emailEnabled) || (includePricesSms && smsEnabled);
 
-		// Resolve the market session once for this user so fetchAssetPrices
-		// (below) and the marketOpen derivation later in this function share
-		// a single /v1/marketstatus/now round-trip. When the orchestrator
-		// pre-fetched and passed marketOpenParam, reuse it.
+		// Resolve the market session once for this user so the price fetch
+		// below and the marketOpen derivation later share a single
+		// /v1/marketstatus/now round-trip. When the orchestrator pre-fetched
+		// and passed marketOpenParam, reuse it.
 		const session: MarketSession =
 			marketOpenParam === true
 				? "regular"
@@ -341,9 +340,12 @@ export async function processDailyDigestUser(options: {
 					: await getCurrentMarketSession();
 
 		let assetPrices: AssetPriceMap = new Map();
+		let noSessionTradeTickers: Set<string> = new Set();
 		if (needsPrices && tickers.length > 0) {
 			try {
-				assetPrices = await fetchAssetPrices(tickers, session);
+				const result = await fetchAssetPricesWithSessionState(tickers, session);
+				assetPrices = result.prices;
+				noSessionTradeTickers = result.noSessionTrade;
 			} catch (error) {
 				logger.error("Failed to fetch daily digest prices", {
 					action: "daily_run",
@@ -369,10 +371,10 @@ export async function processDailyDigestUser(options: {
 					for (const [symbol, quote] of assetPrices) {
 						if (quote) prevCloseMap.set(symbol, quote.prevClose);
 					}
-					// A preceding fetchAssetPrices error (line 348) leaves assetPrices
-					// empty, which means every sparkline silently falls back to the
-					// since-open window. Surface the degradation here so the chain
-					// shows up in alert-hub triage, not just the upstream error.
+					// A preceding price-fetch error leaves assetPrices empty, which
+					// means every sparkline silently falls back to the since-open
+					// window. Surface the degradation here so the chain shows up
+					// in alert-hub triage, not just the upstream error.
 					if (prevCloseMap.size === 0) {
 						logger.warn(
 							"Daily digest sparklines defaulting to intraday-since-open: no prev closes available",
@@ -405,86 +407,38 @@ export async function processDailyDigestUser(options: {
 			logContext: { action: "daily_run", userId: user.id },
 		});
 
+		// Classify tickers without prices into two buckets:
+		//  - noSessionTradeTickers: Massive recognized the symbol but no trade
+		//    exists for the active session yet (illiquid pre/after-hours name).
+		//    On closed sessions this set is always empty because
+		//    fetchAssetPricesWithSessionState either backfills the entry with a
+		//    prev-day bar or downgrades it to null when the bar fetch fails —
+		//    the null path then surfaces as a real miss below.
+		//  - missingTickers: real fetch miss (delisted, OTC, vendor outage on
+		//    the snapshot or prev-day-bar endpoint). Page-worthy regardless of
+		//    session — a missing price means the digest can't render its
+		//    headline number for that asset.
 		if (tickers.length > 0 && needsPrices) {
-			const missingTickers = tickers.filter((ticker) => assetPrices.get(ticker) === null);
-			if (missingTickers.length === tickers.length) {
-				logger.error("No price data available for daily digest tickers", {
-					action: "daily_run",
-					userId: user.id,
-					tickerCount: tickers.length,
-					tickers: missingTickers,
-				});
-			} else if (missingTickers.length > 0) {
-				// warn because the snapshot retry below escalates to error if
-				// any tickers remain missing — keeps transient partial gaps
-				// from alarming while data loss after retry surfaces.
-				logger.warn("Partial price data missing for daily digest tickers", {
+			const missingTickers = tickers.filter(
+				(ticker) => assetPrices.get(ticker) === null && !noSessionTradeTickers.has(ticker),
+			);
+			if (missingTickers.length > 0) {
+				logger.error("Daily digest prices missing after fetch", {
 					action: "daily_run",
 					userId: user.id,
 					missingCount: missingTickers.length,
 					missingTickers,
+					session,
 				});
 			}
-
-			if (missingTickers.length > 0) {
-				try {
-					const retrySnapshot = await fetchSnapshotQuotes(missingTickers, session);
-					const recoveredTickers: string[] = [];
-					// "no_session_trade" means Massive responded normally but the ticker
-					// hasn't traded in this session yet (illiquid pre/after-hours name).
-					// Keep these separate from true fetch misses so we don't fire
-					// ErrorLogAlarm on the expected-illiquid path.
-					const noSessionTradeTickers: string[] = [];
-					const stillMissingTickers: string[] = [];
-					for (const ticker of missingTickers) {
-						const snap = retrySnapshot.get(ticker);
-						if (snap === NO_SESSION_TRADE) {
-							noSessionTradeTickers.push(ticker);
-						} else if (snap) {
-							assetPrices.set(ticker, {
-								price: snap.price,
-								changePercent: snap.changePercent,
-							});
-							recoveredTickers.push(ticker);
-						} else {
-							stillMissingTickers.push(ticker);
-						}
-					}
-
-					if (recoveredTickers.length > 0) {
-						logger.info("Recovered daily digest prices via snapshot retry", {
-							action: "daily_run",
-							userId: user.id,
-							recoveredCount: recoveredTickers.length,
-							recoveredTickers,
-						});
-					}
-					if (noSessionTradeTickers.length > 0) {
-						logger.info("Daily digest tickers had no live session trade", {
-							action: "daily_run",
-							userId: user.id,
-							noSessionTradeCount: noSessionTradeTickers.length,
-							noSessionTradeTickers,
-							session,
-						});
-					}
-					if (stillMissingTickers.length > 0) {
-						logger.error("Snapshot retry missing daily digest prices", {
-							action: "daily_run",
-							userId: user.id,
-							missingCount: stillMissingTickers.length,
-							missingTickers: stillMissingTickers,
-						});
-					}
-				} catch (error) {
-					logger.error("Failed snapshot retry for daily digest prices", {
-						action: "daily_run",
-						userId: user.id,
-						missingCount: missingTickers.length,
-						missingTickers,
-						error: extractErrorMessage(error),
-					});
-				}
+			if (noSessionTradeTickers.size > 0) {
+				logger.info("Daily digest tickers had no live session trade", {
+					action: "daily_run",
+					userId: user.id,
+					noSessionTradeCount: noSessionTradeTickers.size,
+					noSessionTradeTickers: Array.from(noSessionTradeTickers),
+					session,
+				});
 			}
 		}
 

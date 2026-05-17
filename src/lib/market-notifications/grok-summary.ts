@@ -162,7 +162,7 @@ export async function generatePriceAlertSummary(options: {
 }): Promise<PriceAlertGrokResult | null> {
 	const apiKey = readEnv("XAI_API_KEY");
 	if (!apiKey) {
-		rootLogger.error("XAI_API_KEY is not set; skipping Grok price alert summary", {
+		rootLogger.warn("XAI_API_KEY is not set; skipping Grok price alert summary", {
 			symbol: options.symbol,
 			reason: "missing_api_key",
 		});
@@ -190,7 +190,7 @@ export async function generatePriceAlertSummary(options: {
 					"You write brief, neutral asset price alert summaries with source links. No buy/sell advice.",
 				input: prompt,
 				temperature: 0.3,
-				max_tokens: 400,
+				max_output_tokens: 400,
 				tools: [{ type: "web_search" }, { type: "x_search" }],
 			}),
 			signal: AbortSignal.timeout(GROK_TIMEOUT_MS),

@@ -384,7 +384,7 @@ async function runPass(options: {
 			});
 		}
 	} catch (error) {
-		logger.error("Pre-compute phase failed (non-fatal)", { action: "precompute" }, error);
+		logger.warn("Pre-compute phase failed (non-fatal)", { action: "precompute" }, error);
 	}
 
 	return mergeTotals(stagedStats, fallbackTotals);
@@ -415,7 +415,7 @@ export async function runScheduledNotifications(options: {
 			});
 		}
 	} catch (error) {
-		logger.error(
+		logger.warn(
 			"Failed to purge old asset snapshots (non-fatal)",
 			{ action: "purge_asset_snapshots" },
 			error,
@@ -440,7 +440,7 @@ export async function runScheduledNotifications(options: {
 			});
 		}
 	} catch (error) {
-		logger.error("Price alerts processing failed (non-fatal)", { action: "price_alerts" }, error);
+		logger.warn("Price alerts processing failed (non-fatal)", { action: "price_alerts" }, error);
 	}
 
 	// Run price target checks — piggybacks on the same market-hours window.
@@ -460,7 +460,7 @@ export async function runScheduledNotifications(options: {
 			});
 		}
 	} catch (error) {
-		logger.error("Price targets processing failed (non-fatal)", { action: "price_targets" }, error);
+		logger.warn("Price targets processing failed (non-fatal)", { action: "price_targets" }, error);
 	}
 
 	// Run flat price alerts — own state, own users, own emails; shares the
@@ -482,7 +482,7 @@ export async function runScheduledNotifications(options: {
 				...flatPriceAlertTotals,
 			});
 		} catch (error) {
-			logger.error(
+			logger.warn(
 				"Flat price alerts processing failed (non-fatal)",
 				{ action: "flat_price_alerts" },
 				error,

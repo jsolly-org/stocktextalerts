@@ -9,6 +9,40 @@ vi.mock("../../../src/lib/time/market-calendar", () => ({
 	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
 }));
 
+vi.mock("../../../src/lib/providers/price-fetcher", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/providers/price-fetcher")>(
+		"../../../src/lib/providers/price-fetcher",
+	);
+	return {
+		...actual,
+		getCurrentMarketSession: vi.fn().mockResolvedValue("regular"),
+		fetchAssetPricesWithSessionState: vi.fn(async (symbols: string[]) => ({
+			prices: new Map(
+				symbols.map((s) => [s, { price: 150.0, changePercent: 1.25, prevClose: 148.5 }]),
+			),
+			noSessionTrade: new Set<string>(),
+		})),
+		fetchExtendedQuotes: vi.fn(
+			async (symbols: string[]) =>
+				new Map(
+					symbols.map((s) => [
+						s,
+						{
+							price: 150.0,
+							changePercent: 1.25,
+							dayHigh: 152.0,
+							dayLow: 148.0,
+							dayOpen: 149.0,
+							prevClose: 148.5,
+							timestamp: Math.floor(Date.now() / 1000),
+							volume: null,
+						},
+					]),
+				),
+		),
+	};
+});
+
 import { runScheduledNotifications } from "../../../src/lib/schedule/run";
 import * as deliverModule from "../../../src/lib/staged-notifications/deliver";
 import { adminClient } from "../../helpers/test-env";

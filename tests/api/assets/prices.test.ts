@@ -1,5 +1,34 @@
 import { randomUUID } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("../../../src/lib/providers/price-fetcher", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/providers/price-fetcher")>(
+		"../../../src/lib/providers/price-fetcher",
+	);
+	return {
+		...actual,
+		getCurrentMarketSession: vi.fn().mockResolvedValue("regular"),
+		fetchExtendedQuotes: vi.fn(
+			async (symbols: string[]) =>
+				new Map(
+					symbols.map((s) => [
+						s,
+						{
+							price: 150.0,
+							changePercent: 1.25,
+							dayHigh: 152.0,
+							dayLow: 148.0,
+							dayOpen: 149.0,
+							prevClose: 148.5,
+							timestamp: Math.floor(Date.now() / 1000),
+							volume: null,
+						},
+					]),
+				),
+		),
+	};
+});
+
 import { GET as getAssetPrices } from "../../../src/pages/api/assets/prices";
 import { createApiContext } from "../../helpers/api-context";
 import { TEST_PASSWORD } from "../../helpers/constants";

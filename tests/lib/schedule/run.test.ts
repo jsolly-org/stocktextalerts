@@ -24,6 +24,35 @@ vi.mock("../../../src/lib/providers/price-fetcher", async () => {
 	return {
 		...actual,
 		getCurrentMarketSession: getCurrentMarketSessionMock,
+		// Synthetic happy-path quotes for run-test scenarios (these tests
+		// assert on session-aware labeling/headers, not on the Massive call
+		// itself). Only the functions run.ts actually calls are mocked —
+		// fetchAssetPricesWithSessionState and fetchExtendedQuotes; the
+		// fetchAssetPrices entry point is unused in this Lambda path.
+		fetchAssetPricesWithSessionState: vi.fn(async (symbols: string[]) => ({
+			prices: new Map(
+				symbols.map((s) => [s, { price: 150.0, changePercent: 1.25, prevClose: 148.5 }]),
+			),
+			noSessionTrade: new Set<string>(),
+		})),
+		fetchExtendedQuotes: vi.fn(
+			async (symbols: string[]) =>
+				new Map(
+					symbols.map((s) => [
+						s,
+						{
+							price: 150.0,
+							changePercent: 1.25,
+							dayHigh: 152.0,
+							dayLow: 148.0,
+							dayOpen: 149.0,
+							prevClose: 148.5,
+							timestamp: Math.floor(Date.now() / 1000),
+							volume: null,
+						},
+					]),
+				),
+		),
 	};
 });
 

@@ -16,7 +16,7 @@ type ResponsesRequest = {
 	input: string;
 	instructions: string;
 	temperature?: number;
-	max_tokens?: number;
+	max_output_tokens?: number;
 	tools?: Array<{ type: "web_search" | "x_search" }>;
 	include?: string[];
 };
@@ -435,7 +435,7 @@ async function callGrokApi(options: {
 }): Promise<GrokSectionResult | null> {
 	const apiKey = readEnv("XAI_API_KEY");
 	if (!apiKey || apiKey.trim() === "") {
-		rootLogger.error("XAI_API_KEY is not set; skipping Grok call", {
+		rootLogger.warn("XAI_API_KEY is not set; skipping Grok call", {
 			...options.logContext,
 			reason: "missing_api_key",
 		});
@@ -477,7 +477,7 @@ async function callGrokApi(options: {
 				} catch {
 					// Body read failed; continue with status-only context.
 				}
-				const failureContext = {
+				const failureContext: Record<string, unknown> = {
 					...options.logContext,
 					attempt,
 					status: response.status,
@@ -486,10 +486,16 @@ async function callGrokApi(options: {
 				};
 				// 429 is an expected rejection even on exhaustion — rate
 				// limiting isn't pageable. Other final-attempt failures
-				// log at error so genuine outages surface.
+				// log at error so genuine outages surface; tag with
+				// `vendor_retry_exhausted` so the ScheduleVendorRetryCount
+				// metric filter nets transient Grok exhaustion out of the
+				// page-worthy ErrorLogAlarm (matches massive.ts/finnhub.ts).
 				if (response.status === 429 && isLastAttempt) {
 					rootLogger.info("Grok request rate limited (retries exhausted)", failureContext);
 					return null;
+				}
+				if (isLastAttempt) {
+					failureContext.category = "vendor_retry_exhausted";
 				}
 				log("Grok request failed", failureContext);
 				if (!isLastAttempt) {
@@ -502,10 +508,14 @@ async function callGrokApi(options: {
 			const data = (await response.json()) as ResponsesResponse;
 			const { text, citations } = extractTextAndCitationsFromXaiResponse(data);
 			if (!text) {
-				log("Grok returned empty content", {
+				const emptyContext: Record<string, unknown> = {
 					...options.logContext,
 					attempt,
-				});
+				};
+				if (isLastAttempt) {
+					emptyContext.category = "vendor_retry_exhausted";
+				}
+				log("Grok returned empty content", emptyContext);
 				if (!isLastAttempt) {
 					await delay(attempt);
 					continue;
@@ -517,7 +527,15 @@ async function callGrokApi(options: {
 		} catch (error) {
 			const reason =
 				error instanceof Error && error.name === "TimeoutError" ? "timeout" : "request_failed";
-			log("Grok request errored", { ...options.logContext, attempt, reason }, error);
+			const errorContext: Record<string, unknown> = {
+				...options.logContext,
+				attempt,
+				reason,
+			};
+			if (isLastAttempt) {
+				errorContext.category = "vendor_retry_exhausted";
+			}
+			log("Grok request errored", errorContext, error);
 			if (!isLastAttempt) {
 				await delay(attempt);
 				continue;
@@ -552,7 +570,7 @@ export async function generateNewsWithGrok(options: {
 			instructions: system,
 			input: user,
 			temperature: 0.4,
-			max_tokens: 800,
+			max_output_tokens: 800,
 			tools: [{ type: "web_search" }],
 		},
 		logContext: {
@@ -586,7 +604,7 @@ export async function generateRumorsWithGrok(options: {
 			instructions: system,
 			input: user,
 			temperature: 0.4,
-			max_tokens: 800,
+			max_output_tokens: 800,
 			tools: [{ type: "x_search" }],
 		},
 		logContext: {
