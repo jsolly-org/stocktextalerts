@@ -19,25 +19,51 @@ afterEach(() => {
 	fetchPrevDayBarMock.mockReset();
 });
 
+/**
+ * Build a realistic prev-day-bar fixture matching what `fetchPrevDayBar`
+ * actually returns: `changePercent` is always 0 (no current-vs-prev delta
+ * available from a single daily bar) and `prevClose` is always null (the
+ * function deliberately doesn't make a second /aggs call to fill it — see
+ * massive.ts:910-914). Tests use real values for `price`/`day*` so the
+ * mocked shape stays a faithful proxy for production.
+ */
+function makePrevDayBar(symbol: string, price: number) {
+	return {
+		price,
+		changePercent: 0,
+		prevClose: null,
+		timestamp: 1_715_817_600,
+		dayHigh: price * 1.01,
+		dayLow: price * 0.99,
+		dayOpen: price * 0.995,
+		volume: 1_234_567,
+		symbol,
+	};
+}
+
 describe("fillSnapshotMissesWithPrevDayBar closed-session backfill", () => {
 	it("Weekend digest: snapshot returns no_session_trade for blue-chip tickers; backfill fills every entry with prev-day bars", async () => {
 		// Saturday for 10-ticker user — exactly the production case that fired
 		// stocktextalerts-error-logs at 22:29 UTC on 2026-05-16.
 		const tickers = ["NVDA", "AMZN", "BA", "MSTR", "GOOGL", "UNH", "JPM", "PG", "FIG", "TSLA"];
+		const closes: Record<string, number> = {
+			NVDA: 952.83,
+			AMZN: 222.71,
+			BA: 189.45,
+			MSTR: 412.06,
+			GOOGL: 186.93,
+			UNH: 543.18,
+			JPM: 273.94,
+			PG: 165.22,
+			FIG: 78.41,
+			TSLA: 358.6,
+		};
 		const snapshot = new Map<string, "no_session_trade" | null | object>(
 			tickers.map((t) => [t, "no_session_trade"]),
 		);
-		fetchPrevDayBarMock.mockImplementation(async (symbol: string) => ({
-			price: 100,
-			changePercent: 1.25,
-			prevClose: 98.77,
-			timestamp: 1_715_817_600,
-			dayHigh: 101.5,
-			dayLow: 98.5,
-			dayOpen: 99.0,
-			volume: 1_234_567,
-			symbol,
-		}));
+		fetchPrevDayBarMock.mockImplementation(async (symbol: string) =>
+			makePrevDayBar(symbol, closes[symbol] ?? 100),
+		);
 
 		await fillSnapshotMissesWithPrevDayBar(tickers, snapshot, "closed");
 
@@ -46,7 +72,7 @@ describe("fillSnapshotMissesWithPrevDayBar closed-session backfill", () => {
 			const entry = snapshot.get(t);
 			expect(entry).not.toBe("no_session_trade");
 			expect(entry).not.toBeNull();
-			expect(entry).toMatchObject({ symbol: t, prevClose: 98.77 });
+			expect(entry).toMatchObject({ symbol: t, price: closes[t], prevClose: null });
 		}
 	});
 
@@ -59,25 +85,13 @@ describe("fillSnapshotMissesWithPrevDayBar closed-session backfill", () => {
 			["DELISTED", null],
 		]);
 		fetchPrevDayBarMock.mockImplementation(async (symbol: string) =>
-			symbol === "DELISTED"
-				? null
-				: {
-						symbol,
-						price: 200,
-						prevClose: 198.5,
-						changePercent: 0.75,
-						timestamp: 1,
-						dayHigh: 201,
-						dayLow: 199,
-						dayOpen: 199.5,
-						volume: 500,
-					},
+			symbol === "DELISTED" ? null : makePrevDayBar(symbol, 222.71),
 		);
 
 		await fillSnapshotMissesWithPrevDayBar(tickers, snapshot, "closed");
 
 		expect(snapshot.get("NVDA")).toEqual(liveQuote);
-		expect(snapshot.get("AMZN")).toMatchObject({ symbol: "AMZN", price: 200 });
+		expect(snapshot.get("AMZN")).toMatchObject({ symbol: "AMZN", price: 222.71, prevClose: null });
 		expect(snapshot.get("DELISTED")).toBeNull();
 		expect(fetchPrevDayBarMock).toHaveBeenCalledTimes(2);
 	});

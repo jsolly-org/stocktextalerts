@@ -95,6 +95,10 @@ export function parseMarketSession(payload: unknown): MarketSession {
 }
 
 export async function getCurrentMarketSession(): Promise<MarketSession> {
+	// Retained session short-circuit — tests that call this transitively
+	// (without explicitly mocking) rely on the synthetic "regular" return.
+	// Migration would need to thread session mocks through every test path
+	// that triggers Massive's /v1/marketstatus/now — separate cleanup.
 	if (isTest() && !isLiveMassiveEnabledInTests()) {
 		return "regular";
 	}
@@ -282,6 +286,10 @@ export async function fetchSparklines(symbols: string[]): Promise<SparklineMap> 
 	const result: SparklineMap = new Map();
 	if (symbols.length === 0) return result;
 
+	// Retained sparkline short-circuit (different bug class than the snapshot
+	// pipeline). Removing this requires migrating tests that transitively call
+	// fetchSparklines but mock at the price-fetcher level rather than at
+	// fetchDailyCloses — not worth bundling with the closed-session fix.
 	if (isTest() && !isLiveMassiveEnabledInTests()) {
 		const stubValues = [1, 2, 3, 5, 7, 5, 3];
 		for (const s of symbols) {
@@ -363,6 +371,10 @@ export async function fetchIntradaySparklines(
 	const result: SparklineMap = new Map();
 	if (symbols.length === 0) return result;
 
+	// Retained intraday-sparkline short-circuit — same migration cost story as
+	// fetchSparklines above; safe to defer because the closed-session bug class
+	// doesn't apply here (intraday bars are explicitly session-relative and
+	// callers pass prevCloseMap directly).
 	if (isTest() && !isLiveMassiveEnabledInTests()) {
 		const stubBars = [100, 100.5, 101.2, 100.8, 101.5, 102.1, 101.9, 102.4];
 		for (const s of symbols) {
