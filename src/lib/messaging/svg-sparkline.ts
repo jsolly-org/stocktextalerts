@@ -122,5 +122,8 @@ export function toSvgSparklineImg(
 	const svg = svgParts.join("");
 
 	const base64 = typeof btoa === "function" ? btoa(svg) : Buffer.from(svg).toString("base64");
-	return `<img src="data:image/svg+xml;base64,${base64}" alt="${escapeHtml(alt)}" width="${width}" height="${totalHeight}" style="vertical-align: middle;" />`;
+	// `max-width: 100%; height: auto;` lets mobile email clients shrink the
+	// sparkline when the row's container is narrower than `width`. Without it,
+	// the row overflows its container on iOS Mail and the right edge is clipped.
+	return `<img src="data:image/svg+xml;base64,${base64}" alt="${escapeHtml(alt)}" width="${width}" height="${totalHeight}" style="vertical-align: middle; max-width: 100%; height: auto;" />`;
 }

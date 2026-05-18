@@ -15,6 +15,16 @@ describe("toSvgSparklineImg", () => {
 		expect(result).toContain('alt="sparkline"');
 	});
 
+	it("Sparkline img scales down on mobile email so a narrow column doesn't push the row off the right edge", () => {
+		// The asset-row table renders inside a ~230px-wide container on iOS Mail.
+		// Without max-width:100% the 120px sparkline forces horizontal overflow and
+		// the right side of the row disappears. height:auto preserves aspect ratio
+		// when the img scales — Outlook, Gmail, and Apple Mail all honor both.
+		const result = toSvgSparklineImg([1, 2, 3, 5, 7, 5, 3], "#15803d");
+		expect(result).toContain("max-width: 100%");
+		expect(result).toContain("height: auto");
+	});
+
 	it("returns empty string for fewer than 2 values", () => {
 		expect(toSvgSparklineImg([], "#15803d")).toBe("");
 		expect(toSvgSparklineImg([42], "#15803d")).toBe("");

@@ -101,8 +101,12 @@ export function getChangeColor(changePercent: number): string {
 	return changePercent >= 0 ? "#166534" : "#b91c1c";
 }
 
-const ROW_CELL = "padding: 4px 0; vertical-align: middle; white-space: nowrap;";
-const NUM_CELL = `${ROW_CELL} font-variant-numeric: tabular-nums;`;
+// Base cell style: no `white-space: nowrap` so individual cells can shrink on
+// narrow mobile viewports. Cells that must stay on one line (ticker, price,
+// change%) opt back into nowrap explicitly via NOWRAP_CELL / NUM_CELL.
+const ROW_CELL = "padding: 4px 0; vertical-align: middle;";
+const NOWRAP_CELL = `${ROW_CELL} white-space: nowrap;`;
+const NUM_CELL = `${NOWRAP_CELL} font-variant-numeric: tabular-nums;`;
 const ASSET_ROW_COLS = 7;
 
 export function formatAssetHtmlLine(
@@ -114,9 +118,9 @@ export function formatAssetHtmlLine(
 	marketSession?: ActiveMarketSession,
 ): string {
 	const symbol = escapeHtml(asset.symbol);
-	const logoCell = `<td style="${ROW_CELL} padding-right: 4px;">${logoHtml ?? ""}</td>`;
-	const tickerCell = `<td style="${ROW_CELL} font-weight: 700;">${symbol}</td>`;
-	const dashCell = `<td style="${ROW_CELL} padding: 4px 8px;">&mdash;</td>`;
+	const logoCell = `<td style="${NOWRAP_CELL} padding-right: 4px;">${logoHtml ?? ""}</td>`;
+	const tickerCell = `<td style="${NOWRAP_CELL} font-weight: 700;">${symbol}</td>`;
+	const dashCell = `<td style="${NOWRAP_CELL} padding: 4px 8px;">&mdash;</td>`;
 
 	if (price === "no_session_trade" || !price) {
 		const label =
@@ -146,8 +150,10 @@ export function formatAssetHtmlLine(
 	let sparklineCell = `<td style="${ROW_CELL}"></td>`;
 	if (sparkline?.values && sparkline.values.length >= 2) {
 		const label = EMAIL_SPARKLINE_LABEL[sparkline.window];
-		labelCell = `<td style="${ROW_CELL} padding-left: 16px; color: #6b7280; font-size: 11px;">${escapeHtml(`${label}:`)}</td>`;
+		labelCell = `<td style="${NOWRAP_CELL} padding-left: 16px; color: #6b7280; font-size: 11px;">${escapeHtml(`${label}:`)}</td>`;
 		const altText = `${label} price trend`;
+		// Sparkline cell stays wrap-allowed so the image can shrink on narrow
+		// (mobile email) viewports — see toSvgSparklineImg's `max-width: 100%`.
 		sparklineCell = `<td style="${ROW_CELL} padding-left: 6px;">${toSvgSparklineImg(sparkline.values, color, 120, 30, altText)}</td>`;
 	}
 
@@ -204,5 +210,8 @@ export function formatAssetsHtmlList(
 		)
 		.join("");
 
-	return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse;">${rows}</table>`;
+	// `width: 100%` + `max-width: 100%` constrain the table to its wrapper so
+	// the cells (especially the sparkline) actually shrink on mobile rather
+	// than overflowing the right edge of the email body.
+	return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse; width: 100%; max-width: 100%;">${rows}</table>`;
 }
