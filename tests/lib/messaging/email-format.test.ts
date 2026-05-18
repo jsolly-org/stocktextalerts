@@ -50,6 +50,23 @@ describe("Email scheduled update includes asset price data.", () => {
 		expect(html).toContain("color: #b91c1c;");
 	});
 
+	it("Scheduled-email asset wrapper uses readable sans-serif at mobile-friendly size, not the legacy 18px Courier scoreboard", () => {
+		// Courier New at 18px bold pushed every row past the ~230px-wide asset
+		// list container on iOS Mail — the right side (sparkline, then label)
+		// was clipped. Inherit the body's sans-serif at a smaller size so rows
+		// fit common mobile viewports.
+		const priceMap: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
+		const { html } = formatEmailMessage(
+			testUser,
+			[testAssets[0]],
+			"AAPL — $187.42",
+			priceMap,
+			"regular",
+		);
+		expect(html).not.toContain("'Courier New', monospace");
+		expect(html).not.toContain("font-size: 18px");
+	});
+
 	it("Market-closed disclaimer appears when market is closed.", () => {
 		const priceMap: AssetPriceMap = new Map([["AAPL", { price: 187.42, changePercent: 1.23 }]]);
 		const assetsList = "AAPL - Apple Inc. — $187.42 (+1.23%)";
