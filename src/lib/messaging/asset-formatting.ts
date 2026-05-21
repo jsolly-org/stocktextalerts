@@ -107,6 +107,10 @@ export function getChangeColor(changePercent: number): string {
 const ROW_CELL = "padding: 4px 0; vertical-align: middle;";
 const NOWRAP_CELL = `${ROW_CELL} white-space: nowrap;`;
 const NUM_CELL = `${NOWRAP_CELL} font-variant-numeric: tabular-nums;`;
+// Light divider between asset blocks. Applied to every cell of an asset's
+// last row so the rule is unbroken across nowrap and colspan'd cells; the
+// table's `border-collapse: collapse` keeps it a single 1px line.
+const ROW_DIVIDER = "border-bottom: 1px solid #e5e7eb;";
 // Five price-columns: logo · ticker · dash · price · change. Sparklines render
 // on a second `<tr>` directly under the price line (colspan'd across price +
 // change cells) so the chart sits right next to its ticker on mobile clients
@@ -122,9 +126,6 @@ export function formatAssetHtmlLine(
 	marketSession?: ActiveMarketSession,
 ): string {
 	const symbol = escapeHtml(asset.symbol);
-	const logoCell = `<td style="${NOWRAP_CELL} padding-right: 4px;">${logoHtml ?? ""}</td>`;
-	const tickerCell = `<td style="${NOWRAP_CELL} font-weight: 700;">${symbol}</td>`;
-	const dashCell = `<td style="${NOWRAP_CELL} padding: 4px 8px;">&mdash;</td>`;
 
 	if (price === "no_session_trade" || !price) {
 		const label =
@@ -135,24 +136,40 @@ export function formatAssetHtmlLine(
 					: "price unavailable";
 		// Keep dash in its own column so the row aligns with priced rows; the
 		// remaining cells (price + change) collapse into one labelled span.
+		// The no-trade row is the only row for this asset, so it carries the
+		// inter-asset divider.
 		const labelSpan = ASSET_ROW_COLS - 3;
-		return `<tr>${logoCell}${tickerCell}${dashCell}<td colspan="${labelSpan}" style="${ROW_CELL} color: #6b7280;">${label}</td></tr>`;
+		const logo = `<td style="${NOWRAP_CELL} padding-right: 4px; ${ROW_DIVIDER}">${logoHtml ?? ""}</td>`;
+		const ticker = `<td style="${NOWRAP_CELL} font-weight: 700; ${ROW_DIVIDER}">${symbol}</td>`;
+		const dash = `<td style="${NOWRAP_CELL} padding: 4px 8px; ${ROW_DIVIDER}">&mdash;</td>`;
+		const labelCell = `<td colspan="${labelSpan}" style="${ROW_CELL} color: #6b7280; ${ROW_DIVIDER}">${label}</td>`;
+		return `<tr>${logo}${ticker}${dash}${labelCell}</tr>`;
 	}
 
+	// Priced asset: a price row followed (when sparkline data exists) by a
+	// trend row. The divider goes on whichever of the two is the asset's last
+	// row so adjacent assets get one visible 1px line between them.
 	const priceStr = escapeHtml(`$${price.price.toFixed(2)}`);
 	const color = getChangeColor(price.changePercent);
-	const priceCell = `<td style="${NUM_CELL} font-weight: 700;">${priceStr}</td>`;
 
-	let changeCell = `<td style="${ROW_CELL}"></td>`;
+	const hasSparkline = !!(sparkline?.values && sparkline.values.length >= 2);
+	const priceRowDivider = hasSparkline ? "" : ROW_DIVIDER;
+
+	const logoCell = `<td style="${NOWRAP_CELL} padding-right: 4px; ${priceRowDivider}">${logoHtml ?? ""}</td>`;
+	const tickerCell = `<td style="${NOWRAP_CELL} font-weight: 700; ${priceRowDivider}">${symbol}</td>`;
+	const dashCell = `<td style="${NOWRAP_CELL} padding: 4px 8px; ${priceRowDivider}">&mdash;</td>`;
+	const priceCell = `<td style="${NUM_CELL} font-weight: 700; ${priceRowDivider}">${priceStr}</td>`;
+
+	let changeCell = `<td style="${ROW_CELL} ${priceRowDivider}"></td>`;
 	if (showChangePercent) {
 		const sign = price.changePercent >= 0 ? "+" : "";
 		const changeStr = escapeHtml(`(${sign}${price.changePercent.toFixed(2)}%)`);
-		changeCell = `<td style="${NUM_CELL} padding-left: 8px; color: ${color};">${changeStr}</td>`;
+		changeCell = `<td style="${NUM_CELL} padding-left: 8px; color: ${color}; ${priceRowDivider}">${changeStr}</td>`;
 	}
 
 	const priceRow = `<tr>${logoCell}${tickerCell}${dashCell}${priceCell}${changeCell}</tr>`;
 
-	if (!sparkline?.values || sparkline.values.length < 2) {
+	if (!hasSparkline) {
 		return priceRow;
 	}
 
@@ -167,7 +184,9 @@ export function formatAssetHtmlLine(
 	const trendLabel = `<span style="color: #6b7280; font-size: 11px; padding-right: 6px;">${escapeHtml(`${label}:`)}</span>`;
 	const trendImg = toSvgSparklineImg(sparkline.values, color, 120, 30, altText);
 	const trendSpan = ASSET_ROW_COLS - 2;
-	const trendRow = `<tr><td style="${ROW_CELL}"></td><td style="${ROW_CELL}"></td><td colspan="${trendSpan}" style="padding: 0 0 8px 0; vertical-align: middle;">${trendLabel}${trendImg}</td></tr>`;
+	const trendEmpty = `<td style="${ROW_CELL} ${ROW_DIVIDER}"></td>`;
+	const trendCell = `<td colspan="${trendSpan}" style="padding: 0 0 8px 0; vertical-align: middle; ${ROW_DIVIDER}">${trendLabel}${trendImg}</td>`;
+	const trendRow = `<tr>${trendEmpty}${trendEmpty}${trendCell}</tr>`;
 
 	return priceRow + trendRow;
 }
