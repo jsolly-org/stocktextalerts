@@ -107,7 +107,10 @@ export function getChangeColor(changePercent: number): string {
 const ROW_CELL = "padding: 4px 0; vertical-align: middle;";
 const NOWRAP_CELL = `${ROW_CELL} white-space: nowrap;`;
 const NUM_CELL = `${NOWRAP_CELL} font-variant-numeric: tabular-nums;`;
-const ASSET_ROW_COLS = 7;
+// Six columns: logo · ticker · dash · price · change · trend (label+sparkline).
+// The trend column wraps internally so the label and sparkline stack on narrow
+// (mobile) viewports rather than fighting the nowrap cells for column width.
+const ASSET_ROW_COLS = 6;
 
 export function formatAssetHtmlLine(
 	asset: AssetWithName,
@@ -146,18 +149,21 @@ export function formatAssetHtmlLine(
 		changeCell = `<td style="${NUM_CELL} padding-left: 8px; color: ${color};">${changeStr}</td>`;
 	}
 
-	let labelCell = `<td style="${ROW_CELL}"></td>`;
-	let sparklineCell = `<td style="${ROW_CELL}"></td>`;
+	let trendCell = `<td style="${ROW_CELL}"></td>`;
 	if (sparkline?.values && sparkline.values.length >= 2) {
 		const label = EMAIL_SPARKLINE_LABEL[sparkline.window];
-		labelCell = `<td style="${NOWRAP_CELL} padding-left: 16px; color: #6b7280; font-size: 11px;">${escapeHtml(`${label}:`)}</td>`;
 		const altText = `${label} price trend`;
-		// Sparkline cell stays wrap-allowed so the image can shrink on narrow
-		// (mobile email) viewports — see toSvgSparklineImg's `max-width: 100%`.
-		sparklineCell = `<td style="${ROW_CELL} padding-left: 6px;">${toSvgSparklineImg(sparkline.values, color, 120, 30, altText)}</td>`;
+		// Single column carrying both the label and the sparkline, so the auto-
+		// layout table can't allocate a separate fixed-width "Today:" column
+		// that eats the sparkline's space. The cell stays wrap-allowed, so on
+		// narrow viewports the label sits above the sparkline instead of
+		// pushing the row off the right edge.
+		const labelSpan = `<span style="color: #6b7280; font-size: 11px; padding-right: 6px;">${escapeHtml(`${label}:`)}</span>`;
+		const sparklineImg = toSvgSparklineImg(sparkline.values, color, 80, 30, altText);
+		trendCell = `<td style="${ROW_CELL} padding-left: 12px;">${labelSpan}${sparklineImg}</td>`;
 	}
 
-	return `<tr>${logoCell}${tickerCell}${dashCell}${priceCell}${changeCell}${labelCell}${sparklineCell}</tr>`;
+	return `<tr>${logoCell}${tickerCell}${dashCell}${priceCell}${changeCell}${trendCell}</tr>`;
 }
 
 export function formatAssetsTextList(

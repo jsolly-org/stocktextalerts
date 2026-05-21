@@ -146,8 +146,8 @@ describe("A subscriber receiving a notification sees a label naming the sparklin
 	it("Mobile-viewport email: the asset table fits its container and the sparkline cell can shrink", () => {
 		// Email clients render the asset list inside a ~230px-wide container on
 		// iOS Mail. The table needs width:100% so it never expands past its
-		// wrapper, and the sparkline cell must NOT pin itself at 120px via
-		// white-space:nowrap — otherwise the row overflows the right edge.
+		// wrapper, and the trend cell (label + sparkline) must NOT be nowrap —
+		// otherwise the row overflows the right edge.
 		const sparkline: SparklineData = {
 			values: [180, 182, 183, 185, 187, 189, 190],
 			ascii: "▁▂▃▄▅▆▇",
@@ -158,12 +158,14 @@ describe("A subscriber receiving a notification sees a label naming the sparklin
 		});
 		expect(result).toContain("<table");
 		expect(result).toContain("width: 100%");
-		// Find the sparkline cell (the one wrapping the svg img) and confirm it
-		// is NOT nowrap. We grep for the cell that contains the img.
-		const sparklineCellMatch = result.match(/<td[^>]*>\s*<img src="data:image\/svg\+xml;base64/);
-		expect(sparklineCellMatch).not.toBeNull();
-		const sparklineCell = sparklineCellMatch?.[0] ?? "";
-		expect(sparklineCell).not.toContain("white-space: nowrap");
+		// Find the trend cell (the one wrapping the svg img). It now also
+		// contains the inline `Today:` label span before the img.
+		const trendCellMatch = result.match(
+			/<td[^>]*>(?:[^<]|<(?!\/td))*<img src="data:image\/svg\+xml;base64/,
+		);
+		expect(trendCellMatch).not.toBeNull();
+		const trendCell = trendCellMatch?.[0] ?? "";
+		expect(trendCell).not.toContain("white-space: nowrap");
 	});
 
 	it("An intraday-since-prev-close sparkline in email HTML carries a `Today:` label next to the SVG", () => {

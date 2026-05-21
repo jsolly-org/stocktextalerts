@@ -16,11 +16,14 @@ describe("toSvgSparklineImg", () => {
 	});
 
 	it("Sparkline img scales down on mobile email so a narrow column doesn't push the row off the right edge", () => {
-		// The asset-row table renders inside a ~230px-wide container on iOS Mail.
-		// Without max-width:100% the 120px sparkline forces horizontal overflow and
-		// the right side of the row disappears. height:auto preserves aspect ratio
-		// when the img scales — Outlook, Gmail, and Apple Mail all honor both.
+		// The asset-row table renders inside a ~230-300px-wide container on iOS
+		// Mail / Fastmail. The HTML `width`/`height` attributes used to pin the
+		// auto-layout cell to the img's natural size, defeating CSS shrinkage
+		// entirely on Fastmail (which strips most inline CSS). Dropping those
+		// attributes plus a smaller 80px SVG keeps the row inside the body.
 		const result = toSvgSparklineImg([1, 2, 3, 5, 7, 5, 3], "#15803d");
+		expect(result).not.toMatch(/<img[^>]*\swidth="/);
+		expect(result).not.toMatch(/<img[^>]*\sheight="/);
 		expect(result).toContain("max-width: 100%");
 		expect(result).toContain("height: auto");
 	});
@@ -46,8 +49,9 @@ describe("toSvgSparklineImg", () => {
 
 	it("respects custom width and height", () => {
 		const result = toSvgSparklineImg([1, 2, 3], "#15803d", 200, 50);
-		expect(result).toContain('width="200"');
-		expect(result).toContain('height="50"');
+		const svg = decodeSvg(result);
+		expect(svg).toContain('width="200"');
+		expect(svg).toContain('height="50"');
 	});
 
 	it("handles flat values without error", () => {
@@ -68,17 +72,17 @@ describe("toSvgSparklineImg", () => {
 		expect(svg).toContain("<text");
 		expect(svg).toContain("<line");
 		// Total height should increase by axis height (14)
-		expect(result).toContain('height="54"');
+		expect(svg).toContain('height="54"');
 	});
 
 	it("does not add axis when timeLabels is undefined", () => {
 		const result = toSvgSparklineImg([1, 2, 3], "#15803d", 120, 30);
-		expect(result).toContain('height="30"');
+		expect(decodeSvg(result)).toContain('height="30"');
 	});
 
 	it("does not add axis when timeLabels is empty", () => {
 		const result = toSvgSparklineImg([1, 2, 3], "#15803d", 120, 30, "sparkline", []);
-		expect(result).toContain('height="30"');
+		expect(decodeSvg(result)).toContain('height="30"');
 	});
 
 	it("renders intermediate hourly labels with correct text-anchor", () => {

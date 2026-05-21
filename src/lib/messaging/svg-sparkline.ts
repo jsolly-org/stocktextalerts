@@ -35,7 +35,7 @@ interface SparklineTimeAxisOptions {
 export function toSvgSparklineImg(
 	values: number[],
 	color: string,
-	width = 120,
+	width = 80,
 	height = 30,
 	alt = "sparkline",
 	timeLabels?: SparklineTimeLabel[],
@@ -122,8 +122,11 @@ export function toSvgSparklineImg(
 	const svg = svgParts.join("");
 
 	const base64 = typeof btoa === "function" ? btoa(svg) : Buffer.from(svg).toString("base64");
-	// `max-width: 100%; height: auto;` lets mobile email clients shrink the
-	// sparkline when the row's container is narrower than `width`. Without it,
-	// the row overflows its container on iOS Mail and the right edge is clipped.
-	return `<img src="data:image/svg+xml;base64,${base64}" alt="${escapeHtml(alt)}" width="${width}" height="${totalHeight}" style="vertical-align: middle; max-width: 100%; height: auto;" />`;
+	// No HTML width/height attributes: in an auto-layout email table they would
+	// pin the cell to the img's natural size, defeating any CSS shrinkage.
+	// CSS `width` gives the cell a preferred size; `max-width: 100%` lets the
+	// img shrink when the container is narrower. The SVG's own `width`/`height`
+	// attributes carry the intrinsic size as a fallback for clients that strip
+	// inline CSS (e.g. Fastmail).
+	return `<img src="data:image/svg+xml;base64,${base64}" alt="${escapeHtml(alt)}" style="vertical-align: middle; width: ${width}px; max-width: 100%; height: auto;" />`;
 }
