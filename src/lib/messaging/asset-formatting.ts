@@ -107,10 +107,11 @@ export function getChangeColor(changePercent: number): string {
 const ROW_CELL = "padding: 4px 0; vertical-align: middle;";
 const NOWRAP_CELL = `${ROW_CELL} white-space: nowrap;`;
 const NUM_CELL = `${NOWRAP_CELL} font-variant-numeric: tabular-nums;`;
-// Six columns: logo · ticker · dash · price · change · trend (label+sparkline).
-// The trend column wraps internally so the label and sparkline stack on narrow
-// (mobile) viewports rather than fighting the nowrap cells for column width.
-const ASSET_ROW_COLS = 6;
+// Five price-columns: logo · ticker · dash · price · change. Sparklines render
+// on a second `<tr>` directly under the price line (colspan'd across price +
+// change cells) so the chart sits right next to its ticker on mobile clients
+// instead of competing with nowrap cells for column width.
+const ASSET_ROW_COLS = 5;
 
 export function formatAssetHtmlLine(
 	asset: AssetWithName,
@@ -132,8 +133,8 @@ export function formatAssetHtmlLine(
 				: price === "no_session_trade" && marketSession === "after"
 					? "no after-hours trades"
 					: "price unavailable";
-		// Keep dash in its own column so the row aligns with priced rows; remaining
-		// cells (price/change/label/sparkline) collapse into one labelled span.
+		// Keep dash in its own column so the row aligns with priced rows; the
+		// remaining cells (price + change) collapse into one labelled span.
 		const labelSpan = ASSET_ROW_COLS - 3;
 		return `<tr>${logoCell}${tickerCell}${dashCell}<td colspan="${labelSpan}" style="${ROW_CELL} color: #6b7280;">${label}</td></tr>`;
 	}
@@ -149,21 +150,26 @@ export function formatAssetHtmlLine(
 		changeCell = `<td style="${NUM_CELL} padding-left: 8px; color: ${color};">${changeStr}</td>`;
 	}
 
-	let trendCell = `<td style="${ROW_CELL}"></td>`;
-	if (sparkline?.values && sparkline.values.length >= 2) {
-		const label = EMAIL_SPARKLINE_LABEL[sparkline.window];
-		const altText = `${label} price trend`;
-		// Single column carrying both the label and the sparkline, so the auto-
-		// layout table can't allocate a separate fixed-width "Today:" column
-		// that eats the sparkline's space. The cell stays wrap-allowed, so on
-		// narrow viewports the label sits above the sparkline instead of
-		// pushing the row off the right edge.
-		const labelSpan = `<span style="color: #6b7280; font-size: 11px; padding-right: 6px;">${escapeHtml(`${label}:`)}</span>`;
-		const sparklineImg = toSvgSparklineImg(sparkline.values, color, 80, 30, altText);
-		trendCell = `<td style="${ROW_CELL} padding-left: 12px;">${labelSpan}${sparklineImg}</td>`;
+	const priceRow = `<tr>${logoCell}${tickerCell}${dashCell}${priceCell}${changeCell}</tr>`;
+
+	if (!sparkline?.values || sparkline.values.length < 2) {
+		return priceRow;
 	}
 
-	return `<tr>${logoCell}${tickerCell}${dashCell}${priceCell}${changeCell}${trendCell}</tr>`;
+	// Sparkline lives on its own `<tr>` directly beneath the price line so the
+	// chart is unambiguously associated with its ticker on narrow viewports
+	// (iOS Mail, Fastmail's message column) where a same-row sparkline drifts
+	// off to the right and the label-to-ticker mapping breaks down. Two empty
+	// leading cells indent the chart so it sits under the dash/price columns,
+	// visibly nested beneath its ticker rather than as a separate paragraph.
+	const label = EMAIL_SPARKLINE_LABEL[sparkline.window];
+	const altText = `${label} price trend`;
+	const trendLabel = `<span style="color: #6b7280; font-size: 11px; padding-right: 6px;">${escapeHtml(`${label}:`)}</span>`;
+	const trendImg = toSvgSparklineImg(sparkline.values, color, 120, 30, altText);
+	const trendSpan = ASSET_ROW_COLS - 2;
+	const trendRow = `<tr><td style="${ROW_CELL}"></td><td style="${ROW_CELL}"></td><td colspan="${trendSpan}" style="padding: 0 0 8px 0; vertical-align: middle;">${trendLabel}${trendImg}</td></tr>`;
+
+	return priceRow + trendRow;
 }
 
 export function formatAssetsTextList(
@@ -216,8 +222,10 @@ export function formatAssetsHtmlList(
 		)
 		.join("");
 
-	// `width: 100%` + `max-width: 100%` constrain the table to its wrapper so
-	// the cells (especially the sparkline) actually shrink on mobile rather
-	// than overflowing the right edge of the email body.
-	return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse; width: 100%; max-width: 100%;">${rows}</table>`;
+	// `max-width: 100%` keeps the table inside the email body on narrow
+	// viewports without forcing it to expand on wide ones (width: 100% pulled
+	// the price and change% columns apart on desktop, leaving a confusing gap).
+	// Sparklines stack on their own row beneath each price line, so the table
+	// no longer carries cells wide enough to overflow the wrapper.
+	return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse; max-width: 100%;">${rows}</table>`;
 }
