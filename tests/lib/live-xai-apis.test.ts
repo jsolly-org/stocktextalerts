@@ -22,6 +22,34 @@ const MARKDOWN_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
 const MARKDOWN_BOLD_RE = /\*\*[^*\n]+\*\*/;
 
 /**
+ * X-post markdown link with @handle as the visible link text and a
+ * `x.com/<handle>/status/<id>` (or twitter.com equivalent) URL. Catches the
+ * "every X-post citation must use @handle as link text" rumors-section rule.
+ *
+ * Anonymous `/i/status/` URLs don't qualify — those lose attribution and
+ * should be paired with a real handle by the parser before reaching here.
+ */
+const X_HANDLE_LINK_RE =
+	/\[@[A-Za-z0-9_]+\]\(https?:\/\/(?:x|twitter)\.com\/[A-Za-z0-9_]+\/status\/\d+\)/;
+
+/**
+ * Split a Grok News/Rumors section into per-ticker bullet lines. Each bullet
+ * starts with a ticker prefix at the line start (e.g. `AAPL: …`). Blank lines
+ * and stray prose without a ticker prefix are dropped.
+ */
+function splitIntoBullets(content: string): string[] {
+	return content
+		.split("\n")
+		.map((line) => line.trim())
+		.filter((line) => /^[A-Z][A-Z0-9.-]{0,9}:/.test(line));
+}
+
+/** Count `[text](http(s)://…)` markdown inline links in a single line. */
+function countMarkdownLinks(line: string): number {
+	return [...line.matchAll(/\[[^\]]+\]\(https?:\/\/[^)]+\)/g)].length;
+}
+
+/**
  * Validate the digest News/Rumors render invariant: every `<strong>` tag in the
  * output wraps a bare ticker prefix only (e.g. `<strong>LDOS:</strong>`), never
  * a full sentence. This is what was broken when a non-reasoning Grok model
@@ -166,6 +194,20 @@ describeXaiLive("xAI live API (opt-in)", () => {
 				? ""
 				: `News section has <strong> tags wrapping non-ticker content (whole-bullet bolding regression):\n  - ${newsOffenders.join("\n  - ")}`,
 		).toEqual([]);
+
+		// Citation invariant: every news bullet must include at least one
+		// `[Source](url)` markdown link. Non-reasoning models tend to skip
+		// citations unless explicitly required — this catches that regression
+		// before users see linkless digests.
+		const bullets = splitIntoBullets(result?.content ?? "");
+		expect(bullets.length, "News content has no ticker-prefixed bullets").toBeGreaterThan(0);
+		const newsLinklessBullets = bullets.filter((b) => countMarkdownLinks(b) === 0);
+		expect(
+			newsLinklessBullets,
+			newsLinklessBullets.length === 0
+				? ""
+				: `News bullets missing required citation links (every bullet needs ≥1 [Source](url) link):\n  - ${newsLinklessBullets.join("\n  - ")}`,
+		).toEqual([]);
 	});
 
 	it("A user receives a price-alert summary with text and no more than three source links", {
@@ -309,5 +351,28 @@ describeXaiLive("xAI live API (opt-in)", () => {
 				? ""
 				: `Rumors section has <strong> tags wrapping non-ticker content (whole-bullet bolding regression):\n  - ${rumorsOffenders.join("\n  - ")}`,
 		).toEqual([]);
+
+		// Citation invariant: every rumors bullet must include at least one
+		// `[…](url)` markdown link. Catches the same model-skips-citations
+		// regression as the news test.
+		const bullets = splitIntoBullets(result?.content ?? "");
+		expect(bullets.length, "Rumors content has no ticker-prefixed bullets").toBeGreaterThan(0);
+		const rumorsLinklessBullets = bullets.filter((b) => countMarkdownLinks(b) === 0);
+		expect(
+			rumorsLinklessBullets,
+			rumorsLinklessBullets.length === 0
+				? ""
+				: `Rumors bullets missing required citation links (every bullet needs ≥1 link):\n  - ${rumorsLinklessBullets.join("\n  - ")}`,
+		).toEqual([]);
+
+		// X-attribution invariant: rumors are sourced from X posts, so the
+		// content must include at least one `[@handle](x.com/<handle>/status/<id>)`
+		// link — anonymous `/i/status/` URLs lose attribution and don't count.
+		// This catches the case where the model includes news-style links but
+		// fails to attribute X posts to their actual posters.
+		expect(
+			result?.content ?? "",
+			"Rumors content has no `[@handle](x.com/<handle>/status/<id>)` link — every X-post citation must use the poster's @handle as link text",
+		).toMatch(X_HANDLE_LINK_RE);
 	});
 });

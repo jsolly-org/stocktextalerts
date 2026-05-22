@@ -373,9 +373,11 @@ function buildNewsPrompt(options: {
 		"You write factual financial news summaries for daily email digests. " +
 		"Be descriptive, neutral, and cautious. " +
 		"Do not give buy/sell advice. " +
-		"Do NOT include links, URLs, or citation numbers in your text — " +
-		"source links are added automatically from search metadata. " +
-		"Output plain text only — no markdown formatting (no **bold**, no *italic*, no headings, no bullets like `-` or `*`).";
+		"Cite every claim with a markdown source link `[Source](https://...)` using the " +
+		"publication's short name as link text (e.g. `[CNBC](url)`, `[Reuters](url)`, `[Bloomberg](url)`). " +
+		"Use real URLs from your search results — do not invent URLs. " +
+		"Plain text otherwise — no markdown formatting beyond citation links " +
+		"(no **bold**, no *italic*, no headings, no bullets like `-` or `*`).";
 
 	const newsContextBlock = options.finnhubNewsContext
 		? `\nHere are recent headlines for context (use these as your primary source):\n${options.finnhubNewsContext}\n`
@@ -389,11 +391,11 @@ function buildNewsPrompt(options: {
 		"\nRules:\n" +
 		`- One bullet per ticker, up to ${bulletCount}. Skip tickers with nothing noteworthy.\n` +
 		"- Each bullet starts with the ticker (e.g. 'AAPL: ...').\n" +
-		"- Do NOT include links or citation markers — they are added automatically.\n" +
+		"- Each bullet must include at least one source citation as `[Source](https://...)` using a real URL from search results.\n" +
 		"- Output the bullets directly — no wrappers, tags, or preamble.\n" +
 		"\nExample output:\n" +
-		"AAPL: Apple shares fell 3% after the FTC opened an inquiry into App Store practices, adding to concerns over slowing services revenue.\n" +
-		"NVDA: Nvidia declined 2% as competition from AMD accelerators intensified ahead of next week's earnings report.";
+		"AAPL: Apple shares fell 3% after the FTC opened an inquiry into App Store practices, adding to concerns over slowing services revenue [CNBC](https://www.cnbc.com/2026/02/14/apple-ftc-inquiry.html).\n" +
+		"NVDA: Nvidia declined 2% as competition from AMD accelerators intensified ahead of next week's earnings report [Bloomberg](https://www.bloomberg.com/news/articles/2026-02-14/nvda-amd-competition).";
 
 	return { system, user };
 }
@@ -409,9 +411,11 @@ function buildRumorsPrompt(options: {
 		"You summarize social media chatter and unverified rumors about stocks. " +
 		"Use hedge words like 'chatter', 'unconfirmed', and 'reportedly'. " +
 		"Do not give buy/sell advice. " +
-		"Attribute claims to specific X posters by their @handle. " +
-		"Do NOT include full URLs — just @handles. " +
-		"Output plain text only — no markdown formatting (no **bold**, no *italic*, no headings, no bullets like `-` or `*`).";
+		"Attribute every claim to a specific X poster using a markdown link with the @handle as link text: " +
+		"`[@handle](https://x.com/handle/status/POST_ID)` — use the poster's real handle and the actual X post URL " +
+		"from your search results. Do NOT use anonymous `/i/status/` URLs and do not invent URLs. " +
+		"Plain text otherwise — no markdown formatting beyond citation links " +
+		"(no **bold**, no *italic*, no headings, no bullets like `-` or `*`).";
 
 	const bulletCount = Math.min(options.tickers.length, 10);
 	const user =
@@ -420,12 +424,12 @@ function buildRumorsPrompt(options: {
 		"\nRules:\n" +
 		`- One bullet per ticker, up to ${bulletCount}. Skip tickers with nothing noteworthy.\n` +
 		"- Each bullet starts with the ticker (e.g. 'AAPL: ...').\n" +
-		"- Attribute claims to specific X posters using their @handle.\n" +
-		"- Do NOT include full URLs or citation markers — they are added automatically.\n" +
+		"- Every @handle attribution must be a markdown link to the actual X post: `[@handle](https://x.com/handle/status/POST_ID)`.\n" +
+		"- Use real handles and post URLs from your search results — do not invent them, and do not use anonymous `/i/status/` URLs.\n" +
 		"- Output the bullets directly — no wrappers, tags, or preamble.\n" +
 		"\nExample output:\n" +
-		"AAPL: Chatter about Siri delays pressuring shares, with @TechBullish flagging supply chain friction and @MarketWatcher noting strong China sales as an offset.\n" +
-		"NVDA: @ChipAnalyst reports UBS raising PT to $245 ahead of earnings, while @OptionsFlow highlights aggressive upside bets.";
+		"AAPL: Chatter about Siri delays pressuring shares, with [@TechBullish](https://x.com/TechBullish/status/1758000000000000001) flagging supply chain friction and [@MarketWatcher](https://x.com/MarketWatcher/status/1758000000000000002) noting strong China sales as an offset.\n" +
+		"NVDA: [@ChipAnalyst](https://x.com/ChipAnalyst/status/1758000000000000003) reports UBS raising PT to $245 ahead of earnings, while [@OptionsFlow](https://x.com/OptionsFlow/status/1758000000000000004) highlights aggressive upside bets.";
 
 	return { system, user };
 }
