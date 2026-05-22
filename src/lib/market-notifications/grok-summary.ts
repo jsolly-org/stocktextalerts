@@ -109,8 +109,11 @@ function parseGrokPriceAlertResponse(data: ResponsesResponse): PriceAlertGrokRes
 	// the annotation pipeline converts markers to markdown links but leaves
 	// the raw URL text in place (e.g. "https://url [[source]](url)").
 	// The lookbehind (?<!\]\() preserves URLs inside markdown link syntax.
+	// Also strip stray markdown bold markers — the renderer doesn't expect
+	// them and non-reasoning Grok models occasionally wrap content in `**…**`.
 	summary = summary
 		.replace(/(?<!\]\()https?:\/\/[^\s)[\]]+/g, "")
+		.replace(/\*\*([^*\n]+)\*\*/g, "$1")
 		.replace(/\n{2,}/g, "\n")
 		.replace(/\s{2,}/g, " ")
 		.trim();
@@ -187,7 +190,8 @@ export async function generatePriceAlertSummary(options: {
 			body: JSON.stringify({
 				model: "grok-4.20-non-reasoning",
 				instructions:
-					"You write brief, neutral asset price alert summaries with source links. No buy/sell advice.",
+					"You write brief, neutral asset price alert summaries with source links. No buy/sell advice. " +
+					"Output plain text only — no markdown formatting (no **bold**, no *italic*).",
 				input: prompt,
 				temperature: 0.3,
 				max_output_tokens: 400,

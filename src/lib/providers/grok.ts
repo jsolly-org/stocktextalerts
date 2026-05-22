@@ -297,7 +297,11 @@ function extractTextAndCitationsFromXaiResponse(response: ResponsesResponse): {
 		const annotated = Array.isArray(annotations)
 			? applyAnnotationsInline(trimmed, annotations as XaiAnnotation[])
 			: trimmed;
-		texts.push(annotated);
+		// Strip stray markdown bold markers — the email renderer owns ticker
+		// bolding, and non-reasoning Grok models tend to wrap whole bullets in
+		// `**...**` which would turn entire News/Rumors lines bold downstream.
+		const stripped = annotated.replace(/\*\*([^*\n]+)\*\*/g, "$1");
+		texts.push(stripped);
 
 		// Collect any annotation URLs that lack position data as fallback citations.
 		if (Array.isArray(annotations)) {
@@ -370,7 +374,8 @@ function buildNewsPrompt(options: {
 		"Be descriptive, neutral, and cautious. " +
 		"Do not give buy/sell advice. " +
 		"Do NOT include links, URLs, or citation numbers in your text — " +
-		"source links are added automatically from search metadata.";
+		"source links are added automatically from search metadata. " +
+		"Output plain text only — no markdown formatting (no **bold**, no *italic*, no headings, no bullets like `-` or `*`).";
 
 	const newsContextBlock = options.finnhubNewsContext
 		? `\nHere are recent headlines for context (use these as your primary source):\n${options.finnhubNewsContext}\n`
@@ -405,7 +410,8 @@ function buildRumorsPrompt(options: {
 		"Use hedge words like 'chatter', 'unconfirmed', and 'reportedly'. " +
 		"Do not give buy/sell advice. " +
 		"Attribute claims to specific X posters by their @handle. " +
-		"Do NOT include full URLs — just @handles.";
+		"Do NOT include full URLs — just @handles. " +
+		"Output plain text only — no markdown formatting (no **bold**, no *italic*, no headings, no bullets like `-` or `*`).";
 
 	const bulletCount = Math.min(options.tickers.length, 10);
 	const user =

@@ -6,6 +6,7 @@ import {
 } from "../../src/lib/market-notifications/grok-summary";
 import {
 	markdownLinksToHtml,
+	renderEmailSection,
 	stripMarkdownLinks,
 } from "../../src/lib/messaging/email/html-section";
 import { generateNewsWithGrok, generateRumorsWithGrok } from "../../src/lib/providers/grok";
@@ -16,6 +17,28 @@ const BARE_URL_RE = /(?<!\(|"|=)https?:\/\/[^\s)<"]+/;
 
 /** Markdown inline link pattern — `[text](url)`. */
 const MARKDOWN_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
+
+/** Markdown bold pair — must not survive Grok parsing into rendered content. */
+const MARKDOWN_BOLD_RE = /\*\*[^*\n]+\*\*/;
+
+/**
+ * Validate the digest News/Rumors render invariant: every `<strong>` tag in the
+ * output wraps a bare ticker prefix only (e.g. `<strong>LDOS:</strong>`), never
+ * a full sentence. This is what was broken when a non-reasoning Grok model
+ * started wrapping each bullet in `**…**` and the renderer dutifully converted
+ * the whole bullet into `<strong>…</strong>`.
+ */
+function findNonTickerStrongTags(html: string): string[] {
+	const offenders: string[] = [];
+	for (const match of html.matchAll(/<strong>([^<]*)<\/strong>/g)) {
+		const inner = match[1] ?? "";
+		// Ticker prefix shape per renderEmailSection regex: ^[A-Z][A-Z0-9.-]{0,9}:$
+		if (!/^[A-Z][A-Z0-9.-]{0,9}:$/.test(inner)) {
+			offenders.push(inner);
+		}
+	}
+	return offenders;
+}
 
 /**
  * Runtime shape validator for `PriceAlertGrokResult`. Returns an array of
@@ -115,12 +138,34 @@ describeXaiLive("xAI live API (opt-in)", () => {
 		).toBe(true);
 		expect(Array.isArray(result?.citations)).toBe(true);
 
+		// Parsed content should never carry stray markdown bold — the renderer
+		// owns ticker bolding; `**…**` in News content would wrap entire
+		// bullets in <strong> at render time (real prod regression May 2026).
+		expect(
+			result?.content ?? "",
+			"Parsed News content contains markdown bold `**…**` — Grok parser strip regression",
+		).not.toMatch(MARKDOWN_BOLD_RE);
+
 		// HTML rendering: inline markdown links become <a> tags, no bare URLs
 		const html = markdownLinksToHtml(result?.content ?? "");
 		expect(
 			html,
 			"HTML-rendered Grok news still contains a bare URL — markdownLinksToHtml regression",
 		).not.toMatch(BARE_URL_RE);
+
+		// Section-render invariant: only ticker prefixes get bolded, never
+		// the body text. Catches whole-bullet bolding regressions end-to-end.
+		const sectionHtml = renderEmailSection("🗞️", "News", result?.content ?? "", {
+			showGrokLogo: true,
+			showMassiveLogo: true,
+		});
+		const newsOffenders = findNonTickerStrongTags(sectionHtml);
+		expect(
+			newsOffenders,
+			newsOffenders.length === 0
+				? ""
+				: `News section has <strong> tags wrapping non-ticker content (whole-bullet bolding regression):\n  - ${newsOffenders.join("\n  - ")}`,
+		).toEqual([]);
 	});
 
 	it("A user receives a price-alert summary with text and no more than three source links", {
@@ -142,6 +187,14 @@ describeXaiLive("xAI live API (opt-in)", () => {
 			result.summary.toUpperCase().includes("AAPL"),
 			"Price-alert summary does not mention the requested ticker (AAPL)",
 		).toBe(true);
+
+		// Parsed summary should never carry stray markdown bold — the renderer
+		// converts `**…**` into <strong>, which on a one-sentence summary would
+		// bold the entire price-alert email body (real prod regression May 2026).
+		expect(
+			result.summary,
+			"Parsed price-alert summary contains markdown bold `**…**` — parseGrokPriceAlertResponse strip regression",
+		).not.toMatch(MARKDOWN_BOLD_RE);
 
 		// --- Link-pipeline checks ---
 		const { summary, links } = result;
@@ -229,11 +282,32 @@ describeXaiLive("xAI live API (opt-in)", () => {
 		).toBe(true);
 		expect(Array.isArray(result?.citations)).toBe(true);
 
+		// Parsed content should never carry stray markdown bold — the renderer
+		// owns ticker bolding; `**…**` in Rumors content would wrap entire
+		// bullets in <strong> at render time (real prod regression May 2026).
+		expect(
+			result?.content ?? "",
+			"Parsed Rumors content contains markdown bold `**…**` — Grok parser strip regression",
+		).not.toMatch(MARKDOWN_BOLD_RE);
+
 		// HTML rendering: inline markdown links become <a> tags, no bare URLs
 		const html = markdownLinksToHtml(result?.content ?? "");
 		expect(
 			html,
 			"HTML-rendered Grok rumors still contains a bare URL — markdownLinksToHtml regression",
 		).not.toMatch(BARE_URL_RE);
+
+		// Section-render invariant: only ticker prefixes get bolded, never
+		// the body text. Catches whole-bullet bolding regressions end-to-end.
+		const sectionHtml = renderEmailSection("🤫", "Rumors", result?.content ?? "", {
+			showGrokLogo: true,
+		});
+		const rumorsOffenders = findNonTickerStrongTags(sectionHtml);
+		expect(
+			rumorsOffenders,
+			rumorsOffenders.length === 0
+				? ""
+				: `Rumors section has <strong> tags wrapping non-ticker content (whole-bullet bolding regression):\n  - ${rumorsOffenders.join("\n  - ")}`,
+		).toEqual([]);
 	});
 });
