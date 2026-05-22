@@ -561,7 +561,7 @@ export async function generateNewsWithGrok(options: {
 }): Promise<GrokSectionResult | null> {
 	if (options.tickers.length === 0) return null;
 
-	const model = "grok-4-1-fast-non-reasoning";
+	const model = "grok-4.20-non-reasoning";
 	const { system, user } = buildNewsPrompt(options);
 
 	return callGrokApi({
@@ -595,7 +595,7 @@ export async function generateRumorsWithGrok(options: {
 }): Promise<GrokSectionResult | null> {
 	if (options.tickers.length === 0) return null;
 
-	const model = "grok-4-1-fast-non-reasoning";
+	const model = "grok-4.20-non-reasoning";
 	const { system, user } = buildRumorsPrompt(options);
 
 	return callGrokApi({

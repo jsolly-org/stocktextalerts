@@ -185,7 +185,7 @@ export async function generatePriceAlertSummary(options: {
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({
-				model: "grok-4-1-fast-non-reasoning",
+				model: "grok-4.20-non-reasoning",
 				instructions:
 					"You write brief, neutral asset price alert summaries with source links. No buy/sell advice.",
 				input: prompt,
