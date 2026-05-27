@@ -31,11 +31,14 @@ if [ -z "$matched" ]; then
   exit 0
 fi
 
-warning="SAM deploy required after this commit (cd aws && npm run deploy). Staged Lambda-related files: $matched"
+warning="SAM deploy required after this commit (cd aws && npm run deploy). Staged Lambda-related files: $(echo "$matched" | tr '\n' ' ' | sed 's/  */ /g' | xargs)"
 
 if [ -n "$cmd" ]; then
-  # Cursor format
-  printf '{"permission": "ask", "user_message": "%s", "agent_message": "%s"}' "$warning" "$warning"
+  # Cursor format — build JSON safely so newlines in $matched don't break parsing
+  jq -n \
+    --arg permission "ask" \
+    --arg msg "$warning" \
+    '{permission: $permission, user_message: $msg, agent_message: $msg}'
 else
   # Claude Code format
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":"WARNING: %s"}}' "$warning"
