@@ -52,8 +52,9 @@ function formatAssetPriceText(
 ): string {
 	let base = `$${price.price.toFixed(2)}`;
 	if (showChangePercent) {
-		const sign = price.changePercent >= 0 ? "+" : "";
-		base += ` (${sign}${price.changePercent.toFixed(2)}%)`;
+		const changePercent = resolveDisplayChangePercent(price, sparkline);
+		const sign = changePercent >= 0 ? "+" : "";
+		base += ` (${sign}${changePercent.toFixed(2)}%)`;
 	}
 	if (sparkline?.ascii) {
 		return `${base} ${SMS_SPARKLINE_LABEL[sparkline.window]}: ${sparkline.ascii}`;
@@ -99,6 +100,23 @@ export function formatAssetTextLine(
 // WCAG 2.1 AA 4.5:1 on light bg.
 export function getChangeColor(changePercent: number): string {
 	return changePercent >= 0 ? "#166534" : "#b91c1c";
+}
+
+/** Net percent move from first to last sparkline point — matches chart shape. */
+function getSparklineDirectionPercent(values: number[]): number {
+	if (values.length < 2) return 0;
+	const first = values[0];
+	const last = values[values.length - 1];
+	if (first === undefined || last === undefined || first === 0) return 0;
+	return ((last - first) / first) * 100;
+}
+
+/** Change % to show next to price — uses the sparkline window when labeled 7-day. */
+function resolveDisplayChangePercent(price: AssetPrice, sparkline?: SparklineData | null): number {
+	if (sparkline?.window === "7-trading-days" && sparkline.values.length >= 2) {
+		return getSparklineDirectionPercent(sparkline.values);
+	}
+	return price.changePercent;
 }
 
 // Base cell style: no `white-space: nowrap` so individual cells can shrink on
@@ -150,7 +168,8 @@ export function formatAssetHtmlLine(
 	// trend row. The divider goes on whichever of the two is the asset's last
 	// row so adjacent assets get one visible 1px line between them.
 	const priceStr = escapeHtml(`$${price.price.toFixed(2)}`);
-	const color = getChangeColor(price.changePercent);
+	const displayChangePercent = resolveDisplayChangePercent(price, sparkline);
+	const displayColor = getChangeColor(displayChangePercent);
 
 	const hasSparkline = !!(sparkline?.values && sparkline.values.length >= 2);
 	const priceRowDivider = hasSparkline ? "" : ROW_DIVIDER;
@@ -162,9 +181,9 @@ export function formatAssetHtmlLine(
 
 	let changeCell = `<td style="${ROW_CELL} ${priceRowDivider}"></td>`;
 	if (showChangePercent) {
-		const sign = price.changePercent >= 0 ? "+" : "";
-		const changeStr = escapeHtml(`(${sign}${price.changePercent.toFixed(2)}%)`);
-		changeCell = `<td style="${NUM_CELL} padding-left: 8px; color: ${color}; ${priceRowDivider}">${changeStr}</td>`;
+		const sign = displayChangePercent >= 0 ? "+" : "";
+		const changeStr = escapeHtml(`(${sign}${displayChangePercent.toFixed(2)}%)`);
+		changeCell = `<td style="${NUM_CELL} padding-left: 8px; color: ${displayColor}; ${priceRowDivider}">${changeStr}</td>`;
 	}
 
 	const priceRow = `<tr>${logoCell}${tickerCell}${dashCell}${priceCell}${changeCell}</tr>`;
@@ -182,7 +201,8 @@ export function formatAssetHtmlLine(
 	const label = EMAIL_SPARKLINE_LABEL[sparkline.window];
 	const altText = `${label} price trend`;
 	const trendLabel = `<span style="color: #6b7280; font-size: 11px; padding-right: 6px;">${escapeHtml(`${label}:`)}</span>`;
-	const trendImg = toSvgSparklineImg(sparkline.values, color, 120, 30, altText);
+	const sparklineColor = getChangeColor(getSparklineDirectionPercent(sparkline.values));
+	const trendImg = toSvgSparklineImg(sparkline.values, sparklineColor, 120, 30, altText);
 	const trendSpan = ASSET_ROW_COLS - 2;
 	const trendEmpty = `<td style="${ROW_CELL} ${ROW_DIVIDER}"></td>`;
 	const trendCell = `<td colspan="${trendSpan}" style="padding: 0 0 8px 0; vertical-align: middle; ${ROW_DIVIDER}">${trendLabel}${trendImg}</td>`;
@@ -220,6 +240,7 @@ export function formatAssetsHtmlList(
 	getPrice: (symbol: string) => AssetPriceLookup,
 	context?: Pick<EmailFormatContext, "getSparkline" | "getLogoHtml"> & {
 		showChangePercent?: boolean;
+		getShowChangePercent?: (symbol: string) => boolean;
 		marketSession?: ActiveMarketSession;
 	},
 ): string {
@@ -227,18 +248,19 @@ export function formatAssetsHtmlList(
 		return escapeHtml(NO_TRACKED_ASSETS_MESSAGE);
 	}
 
-	const showChange = context?.showChangePercent ?? true;
+	const defaultShowChange = context?.showChangePercent ?? true;
 	const rows = assets
-		.map((asset) =>
-			formatAssetHtmlLine(
+		.map((asset) => {
+			const showChange = context?.getShowChangePercent?.(asset.symbol) ?? defaultShowChange;
+			return formatAssetHtmlLine(
 				asset,
 				getPrice(asset.symbol),
 				context?.getSparkline?.(asset.symbol),
 				context?.getLogoHtml?.(asset.symbol),
 				showChange,
 				context?.marketSession,
-			),
-		)
+			);
+		})
 		.join("");
 
 	// `max-width: 100%` keeps the table inside the email body on narrow

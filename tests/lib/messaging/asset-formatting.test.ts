@@ -108,7 +108,7 @@ describe("A subscriber receiving a notification sees a label naming the sparklin
 			window: "7-trading-days",
 		};
 		const line = formatAssetTextLine(asset, price, sparkline);
-		expect(line).toBe("AAPL — $187.42 (+1.23%) past 7 days: ▁▂▃▄▅▆▇");
+		expect(line).toBe("AAPL — $187.42 (+5.56%) past 7 days: ▁▂▃▄▅▆▇");
 	});
 
 	it("An intraday-since-prev-close sparkline in SMS is prefixed with `today:` (Robinhood-style)", () => {
@@ -141,6 +141,23 @@ describe("A subscriber receiving a notification sees a label naming the sparklin
 		const html = formatAssetHtmlLine(asset, price, sparkline);
 		expect(html).toContain("Past 7 trading days:");
 		expect(html).toContain("data:image/svg+xml;base64,");
+	});
+
+	it("A 7-day sparkline is colored by its own first-to-last move, not today's headline change-%", () => {
+		// Market-closed digests show 7-day change-% aligned with the chart.
+		const sparkline: SparklineData = {
+			values: [75, 76, 77, 78, 79, 79.5],
+			ascii: "▁▂▃▄▅▇",
+			window: "7-trading-days",
+		};
+		const downToday = { price: 79.5, changePercent: -1.2 };
+		const html = formatAssetHtmlLine(asset, downToday, sparkline, undefined, true);
+		expect(html).toContain("(+6.00%)");
+		expect(html).toContain("color: #166534");
+		const base64 = html.match(/base64,([^"]+)/)?.[1] ?? "";
+		const svg = Buffer.from(base64, "base64").toString("utf-8");
+		expect(svg).toContain("#166534");
+		expect(svg).not.toContain("#b91c1c");
 	});
 
 	it("Mobile-viewport email: the asset table fits its container and the sparkline cell can shrink", () => {

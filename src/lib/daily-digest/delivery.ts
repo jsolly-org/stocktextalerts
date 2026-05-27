@@ -118,6 +118,15 @@ function buildDigestMarketClosedHtml(content: DigestMarketClosedContent): string
 
 type AssetEventsResult = Awaited<ReturnType<typeof buildAssetEventsContent>> | null;
 
+/** Show change % on closed-market digests only when a 7-day sparkline anchors it. */
+function shouldShowDigestChangePercent(
+	marketOpen: boolean | undefined,
+	sparkline?: SparklineData | null,
+): boolean {
+	if (marketOpen !== false) return true;
+	return sparkline?.window === "7-trading-days" && sparkline.values.length >= 2;
+}
+
 /** Format the daily digest message body for SMS delivery. */
 export function formatDailyDigestSmsMessage(options: {
 	userAssets: UserAssetRow[];
@@ -132,13 +141,12 @@ export function formatDailyDigestSmsMessage(options: {
 }): string {
 	const optOutSuffix = "Reply STOP to opt out.";
 	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
-	const showChangePercent = options.marketOpen !== false;
 	const prices = buildDailyDigestPricesSummary(
 		options.userAssets,
 		options.assetPrices,
 		options.sparklines,
 		"\n\n",
-		showChangePercent,
+		options.marketOpen,
 	);
 
 	const marketDisclaimer =
@@ -181,20 +189,21 @@ function buildDailyDigestPricesSummary(
 	assetPrices: AssetPriceMap,
 	sparklines?: SparklineMap,
 	separator = "\n",
-	showChangePercent = true,
+	marketOpen?: boolean,
 ): string {
 	if (userAssets.length === 0) {
 		return "";
 	}
 	return userAssets
-		.map((asset) =>
-			formatDailyDigestPriceLine(
+		.map((asset) => {
+			const sparkline = sparklines?.get(asset.symbol);
+			return formatDailyDigestPriceLine(
 				asset,
 				assetPrices.get(asset.symbol),
-				sparklines?.get(asset.symbol),
-				showChangePercent,
-			),
-		)
+				sparkline,
+				shouldShowDigestChangePercent(marketOpen, sparkline),
+			);
+		})
 		.join(separator);
 }
 
@@ -204,7 +213,7 @@ function buildDailyDigestPricesHtml(
 	assetPrices: AssetPriceMap,
 	sparklines?: SparklineMap,
 	getLogoHtml?: (symbol: string) => string | undefined,
-	showChangePercent = true,
+	marketOpen?: boolean,
 ): string {
 	if (userAssets.length === 0) {
 		return "";
@@ -212,7 +221,8 @@ function buildDailyDigestPricesHtml(
 	return formatAssetsHtmlList(userAssets, (symbol) => assetPrices.get(symbol) ?? undefined, {
 		getSparkline: (symbol) => sparklines?.get(symbol),
 		getLogoHtml,
-		showChangePercent,
+		getShowChangePercent: (symbol) =>
+			shouldShowDigestChangePercent(marketOpen, sparklines?.get(symbol)),
 	});
 }
 
@@ -245,20 +255,19 @@ export function formatDailyDigestEmail(options: {
 	const analyst = (ae?.analystSection ?? "").trim();
 	const insider = (ae?.insiderSection ?? "").trim();
 	const topMovers = (options.extras.topMovers ?? "").trim();
-	const showChangePercent = options.marketOpen !== false;
 	const prices = buildDailyDigestPricesSummary(
 		options.userAssets,
 		options.assetPrices,
 		options.sparklines,
 		"\n",
-		showChangePercent,
+		options.marketOpen,
 	);
 	const pricesHtml = buildDailyDigestPricesHtml(
 		options.userAssets,
 		options.assetPrices,
 		options.sparklines,
 		options.getLogoHtml,
-		showChangePercent,
+		options.marketOpen,
 	);
 	const closureInfo = options.marketClosureInfo ?? null;
 	const showClosureBanner = options.marketOpen === false;

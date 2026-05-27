@@ -97,7 +97,7 @@ describe("Daily digest email prices", () => {
 
 		// Plaintext keeps ASCII sparkline, labeled with the 7-day window
 		expect(message.text).toContain("past 7 days: ▁▂▃▅▇▅▃");
-		expect(message.text).toContain("+1.23%");
+		expect(message.text).toContain("+200.00%");
 		// HTML gets SVG sparkline <img> plus an inline label
 		expect(message.html).toContain("data:image/svg+xml;base64,");
 		expect(message.html).toContain("<img ");
@@ -148,9 +148,39 @@ describe("Daily digest email prices", () => {
 		expect(message).toContain("Market Closed");
 		expect(message).toContain("Weekend");
 		expect(message).toContain("Prices below reflect the last market close.");
-		// Change percent is omitted outside market hours
+		// Without a sparkline, change % stays hidden on closed-market digests
 		expect(message).toContain("AAPL — $187.42");
 		expect(message).not.toContain("(+1.23%)");
+	});
+
+	it("closed-market digest shows 7-day change % aligned with the sparkline", () => {
+		const assetPrices: AssetPriceMap = new Map([["AAPL", { price: 79.5, changePercent: -1.2 }]]);
+		const sparklines = new Map<string, SparklineData>([
+			[
+				"AAPL",
+				{
+					values: [75, 76, 77, 78, 79, 79.5],
+					ascii: "▁▂▃▄▅▇",
+					window: "7-trading-days",
+				},
+			],
+		]);
+
+		const message = formatDailyDigestEmail({
+			user,
+			userAssets: [userAssets[0]],
+			assetPrices,
+			extras,
+			sparklines,
+			marketOpen: false,
+			marketClosureInfo: { reason: "weekend" },
+		});
+
+		expect(message.text).toContain("Market Closed");
+		expect(message.text).toContain("AAPL — $79.50 (+6.00%)");
+		expect(message.text).not.toContain("(-1.20%)");
+		expect(message.html).toContain("(+6.00%)");
+		expect(message.html).toContain("color: #166534");
 	});
 
 	it("SMS omits market closed banner when marketOpen is true", () => {
