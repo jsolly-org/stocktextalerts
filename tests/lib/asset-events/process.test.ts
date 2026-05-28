@@ -1,7 +1,10 @@
 import { DateTime } from "luxon";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildAssetEventsContent } from "../../../src/lib/asset-events/content";
-import { processAssetEventsEmailDelivery } from "../../../src/lib/asset-events/delivery";
+import { buildAssetEventsContentForChannels } from "../../../src/lib/asset-events/content";
+import {
+	processAssetEventsEmailDelivery,
+	processAssetEventsSmsDelivery,
+} from "../../../src/lib/asset-events/delivery";
 import { processAssetEventsUser } from "../../../src/lib/asset-events/process";
 import { loadUserAssets } from "../../../src/lib/schedule/helpers";
 
@@ -17,7 +20,7 @@ vi.mock("../../../src/lib/asset-events/content", async () => {
 	const actual = await vi.importActual("../../../src/lib/asset-events/content");
 	return {
 		...actual,
-		buildAssetEventsContent: vi.fn(),
+		buildAssetEventsContentForChannels: vi.fn(),
 	};
 });
 
@@ -49,17 +52,21 @@ describe("processAssetEventsUser", () => {
 
 	it("continues processing IPO notifications even with zero tracked assets", async () => {
 		vi.mocked(loadUserAssets).mockResolvedValue([]);
-		vi.mocked(buildAssetEventsContent).mockResolvedValue({
-			eventsSection: {
-				earnings: null,
-				dividends: null,
-				splits: null,
-				ipos: "ACME: IPO tomorrow",
+		vi.mocked(buildAssetEventsContentForChannels).mockResolvedValue({
+			email: {
+				eventsSection: {
+					earnings: null,
+					dividends: null,
+					splits: null,
+					ipos: "ACME: IPO tomorrow",
+				},
+				insiderSection: null,
+				analystSection: null,
+				hasAnyContent: true,
 			},
-			insiderSection: null,
-			analystSection: null,
+			sms: null,
+			analystFetchAttempted: false,
 			shouldUpdateAnalystMonth: false,
-			hasAnyContent: true,
 		});
 		vi.mocked(processAssetEventsEmailDelivery).mockResolvedValue();
 
@@ -88,10 +95,69 @@ describe("processAssetEventsUser", () => {
 			getSmsSender: vi.fn(() => ({ sender: "+15555550123" })) as never,
 		});
 
-		expect(vi.mocked(buildAssetEventsContent)).toHaveBeenCalledWith(
-			expect.objectContaining({ tickers: [] }),
+		expect(vi.mocked(buildAssetEventsContentForChannels)).toHaveBeenCalledOnce();
+		expect(vi.mocked(buildAssetEventsContentForChannels)).toHaveBeenCalledWith(
+			expect.objectContaining({ tickers: [], channels: ["email"] }),
 		);
 		expect(vi.mocked(processAssetEventsEmailDelivery)).toHaveBeenCalledOnce();
 		expect(stats.skipped).toBe(0);
+	});
+
+	it("loads asset events once when both email and SMS are enabled", async () => {
+		vi.mocked(loadUserAssets).mockResolvedValue([{ symbol: "AAPL" } as never]);
+		vi.mocked(buildAssetEventsContentForChannels).mockResolvedValue({
+			email: {
+				eventsSection: null,
+				insiderSection: "AAPL: insider",
+				analystSection: null,
+				hasAnyContent: true,
+			},
+			sms: {
+				eventsSection: null,
+				insiderSection: "AAPL: insider",
+				analystSection: null,
+				hasAnyContent: true,
+			},
+			analystFetchAttempted: false,
+			shouldUpdateAnalystMonth: false,
+		});
+		vi.mocked(processAssetEventsEmailDelivery).mockResolvedValue();
+		vi.mocked(processAssetEventsSmsDelivery).mockResolvedValue();
+
+		const user = makeUser({
+			sms_opted_out: false,
+			sms_notifications_enabled: true,
+			phone_verified: true,
+			asset_events_include_insider_email: true,
+			asset_events_include_insider_sms: true,
+		});
+		const supabase = {
+			from() {
+				return {
+					update() {
+						return {
+							eq() {
+								return Promise.resolve({ error: null });
+							},
+						};
+					},
+				};
+			},
+		};
+		const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+		await processAssetEventsUser({
+			user,
+			supabase: supabase as never,
+			logger: logger as never,
+			currentTime: DateTime.fromISO("2026-02-10T10:00:00.000Z"),
+			sendEmail: vi.fn(async () => ({ success: true })) as never,
+			getSmsSender: vi.fn(() => ({ sender: "+15555550123" })) as never,
+		});
+
+		expect(vi.mocked(buildAssetEventsContentForChannels)).toHaveBeenCalledOnce();
+		expect(vi.mocked(buildAssetEventsContentForChannels)).toHaveBeenCalledWith(
+			expect.objectContaining({ channels: ["email", "sms"], tickers: ["AAPL"] }),
+		);
 	});
 });

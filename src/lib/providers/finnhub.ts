@@ -3,6 +3,11 @@ import { FINNHUB_BASE_URL } from "../constants";
 import { requireEnv } from "../db/env";
 import { rootLogger } from "../logging";
 import { type CompanyNewsItem, fetchCompanyNews } from "./company-news";
+import {
+	VENDOR_FETCH_MAX_RETRIES as MAX_RETRIES,
+	VENDOR_FETCH_REQUEST_TIMEOUT_MS as REQUEST_TIMEOUT_MS,
+	VENDOR_FETCH_RETRY_DELAY_MS as RETRY_DELAY_MS,
+} from "./vendor-fetch";
 
 type DeliveryChannel = "sms" | "email";
 
@@ -32,18 +37,15 @@ interface FinnhubExtrasData {
 	news: Map<string, CompanyNewsItem[]>;
 	analyst: Map<string, RecommendationTrend | null>;
 	insider: Map<string, InsiderTransaction[]>;
+	/** True when analyst was requested and at least one symbol got an HTTP response (not retry exhaustion). */
+	analystFetchSucceeded: boolean;
 }
 
 /* =============
 Constants
 ============= */
 
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 2_000;
 const INTER_REQUEST_DELAY_MS = 100;
-// Finnhub's /calendar/earnings regularly takes >10s at 00:00 UTC; 25s matches
-// Massive and eliminates systematic attempt-1 timeouts observed in production.
-const REQUEST_TIMEOUT_MS = 25_000;
 
 /* =============
 Helpers
@@ -191,9 +193,17 @@ Individual Fetchers
 ============= */
 
 /** Fetch the latest analyst recommendation trend for a ticker (or `null`). */
-async function fetchRecommendationTrends(symbol: string): Promise<RecommendationTrend | null> {
+async function fetchRecommendationTrends(symbol: string): Promise<{
+	trend: RecommendationTrend | null;
+	httpSucceeded: boolean;
+}> {
 	const data = await finnhubFetch("/stock/recommendation", { symbol }, "recommendation");
-	if (!Array.isArray(data) || data.length === 0) return null;
+	if (data === null) {
+		return { trend: null, httpSucceeded: false };
+	}
+	if (!Array.isArray(data) || data.length === 0) {
+		return { trend: null, httpSucceeded: true };
+	}
 
 	// Most recent recommendation period is first
 	const latest = data[0] as Record<string, unknown>;
@@ -216,10 +226,13 @@ async function fetchRecommendationTrends(symbol: string): Promise<Recommendation
 			symbol,
 			payload: latest,
 		});
-		return null;
+		return { trend: null, httpSucceeded: true };
 	}
 
-	return { buy, hold, sell, strongBuy, strongSell, period };
+	return {
+		trend: { buy, hold, sell, strongBuy, strongSell, period },
+		httpSucceeded: true,
+	};
 }
 
 /** Fetch recent insider transactions for a ticker (validated and capped). */
@@ -290,6 +303,7 @@ export async function fetchFinnhubExtras(
 		news: new Map(),
 		analyst: new Map(),
 		insider: new Map(),
+		analystFetchSucceeded: false,
 	};
 
 	if (symbols.length === 0) return result;
@@ -299,6 +313,8 @@ export async function fetchFinnhubExtras(
 	const now = new Date();
 	const to = now.toISOString().slice(0, 10);
 	const from = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+	let analystHttpFailures = 0;
 
 	// Fetch sequentially per symbol with small delays to stay within rate limits
 	for (const symbol of symbols) {
@@ -314,8 +330,11 @@ export async function fetchFinnhubExtras(
 
 		if (options.includeAnalyst) {
 			fetches.push(
-				fetchRecommendationTrends(symbol).then((data) => {
-					result.analyst.set(symbol, data);
+				fetchRecommendationTrends(symbol).then(({ trend, httpSucceeded }) => {
+					result.analyst.set(symbol, trend);
+					if (!httpSucceeded) {
+						analystHttpFailures++;
+					}
 				}),
 			);
 		}
@@ -331,6 +350,10 @@ export async function fetchFinnhubExtras(
 		// Parallel fetches for the same symbol, sequential across symbols
 		await Promise.all(fetches);
 		await realDelay(INTER_REQUEST_DELAY_MS);
+	}
+
+	if (options.includeAnalyst && symbols.length > 0) {
+		result.analystFetchSucceeded = analystHttpFailures < symbols.length;
 	}
 
 	return result;

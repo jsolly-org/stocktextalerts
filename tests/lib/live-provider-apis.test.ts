@@ -19,6 +19,7 @@ import {
 	fetchSparklines,
 	getCurrentMarketSession,
 } from "../../src/lib/providers/price-fetcher";
+import { vendorFetchLiveTestTimeoutMs } from "../../src/lib/providers/vendor-fetch";
 import { assertLiveProviderKey, isLiveProviderEnabled } from "../helpers/live-api";
 import { expectConsoleError } from "../setup";
 
@@ -233,7 +234,9 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 	});
 
 	// fetchEarnings delegates to Finnhub; skip when only Massive is enabled.
-	it("Upcoming earnings events are available through the canonical earnings feed.", async () => {
+	it("Upcoming earnings events are available through the canonical earnings feed.", {
+		timeout: vendorFetchLiveTestTimeoutMs(),
+	}, async () => {
 		if (!isLiveProviderEnabled("finnhub")) return;
 		const from = new Date().toISOString().slice(0, 10);
 		const to = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -414,7 +417,9 @@ describeFinnhubLive("Finnhub live API (opt-in)", () => {
 		expect(typeof analystData?.period).toBe("string");
 	});
 
-	it("returns insider transactions without error", async () => {
+	it("returns insider transactions without error", {
+		timeout: vendorFetchLiveTestTimeoutMs(),
+	}, async () => {
 		const result = await fetchFinnhubExtras(["AAPL"], {
 			includeNews: false,
 			includeAnalyst: false,
@@ -426,7 +431,9 @@ describeFinnhubLive("Finnhub live API (opt-in)", () => {
 		// Insider transactions may be empty for recent 24h window; just verify no error
 	});
 
-	it("returns an earnings calendar payload for current date range", async () => {
+	it("returns an earnings calendar payload for current date range", {
+		timeout: vendorFetchLiveTestTimeoutMs(),
+	}, async () => {
 		const from = new Date().toISOString().slice(0, 10);
 		const to = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 

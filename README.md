@@ -153,7 +153,7 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 
 - **Vercel-managed/injected:** `VERCEL_URL` is set automatically on hosted deployments. If you use the Vercel Supabase integration, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SECRET_KEY` come from that integration instead of a committed/shared env file. AWS credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`) must be set manually in Vercel for SES email sending.
 - **Local-only values:** `DATABASE_URL` and `DEFAULT_PASSWORD` are for local Supabase + seed generation and should not be added to Vercel.
-- **GitHub Actions repository secrets:** `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `POSTGRES_PASSWORD`, `GH_AGENT_TOKEN`, and `ALERT_PHONE_NUMBER`.
+- **GitHub Actions repository secrets:** `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `POSTGRES_PASSWORD`, and `GH_AGENT_TOKEN`. Live provider test failures notify via **alert-hub** (SES email); `GitHubActionsDeploymentRole` needs `sns:Publish` on the shared topic (see [docs/deploy-gotchas.md](docs/deploy-gotchas.md)).
 - **GitHub Actions repository variables:** `PRODUCTION_SITE_URL`.
 
 ### 4. Generate Seed File
@@ -354,7 +354,7 @@ If you use marketplace/integration-managed credentials, you also do **not** manu
 
 These are repository-level GitHub settings used by workflows and should not go in `.env.local`:
 
-- **Secrets:** `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `POSTGRES_PASSWORD`, `GH_AGENT_TOKEN`, `ALERT_PHONE_NUMBER`
+- **Secrets:** `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `POSTGRES_PASSWORD`, `GH_AGENT_TOKEN`
 - **Variables:** `PRODUCTION_SITE_URL`
 
 ### 2. Deploy

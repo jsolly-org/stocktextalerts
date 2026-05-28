@@ -13,7 +13,7 @@ import { loadUserAssets } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
 import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market-calendar";
 import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
-import { buildAssetEventsContent } from "./content";
+import { buildAssetEventsContentForChannels } from "./content";
 import { processAssetEventsEmailDelivery, processAssetEventsSmsDelivery } from "./delivery";
 import { updateUserAssetEventsNextSendAt } from "./next-send-at";
 
@@ -165,29 +165,27 @@ export async function processAssetEventsUser(options: {
 				user.asset_events_include_analyst_sms ||
 				user.asset_events_include_insider_sms);
 
-		let emailContent: Awaited<ReturnType<typeof buildAssetEventsContent>> | null = null;
-		let smsContent: Awaited<ReturnType<typeof buildAssetEventsContent>> | null = null;
+		let emailContent: Awaited<ReturnType<typeof buildAssetEventsContentForChannels>>["email"] =
+			null;
+		let smsContent: Awaited<ReturnType<typeof buildAssetEventsContentForChannels>>["sms"] = null;
+		let shouldUpdateAnalystMonth = false;
 
-		if (wantsEmail) {
-			emailContent = await buildAssetEventsContent({
+		const channels: Array<"email" | "sms"> = [];
+		if (wantsEmail) channels.push("email");
+		if (wantsSms) channels.push("sms");
+
+		if (channels.length > 0) {
+			const built = await buildAssetEventsContentForChannels({
 				user,
 				supabase,
 				logger,
 				localDate,
 				tickers,
-				channel: "email",
+				channels,
 			});
-		}
-
-		if (wantsSms) {
-			smsContent = await buildAssetEventsContent({
-				user,
-				supabase,
-				logger,
-				localDate,
-				tickers,
-				channel: "sms",
-			});
+			emailContent = built.email;
+			smsContent = built.sms;
+			shouldUpdateAnalystMonth = built.shouldUpdateAnalystMonth;
 		}
 
 		if (wantsEmail && emailContent?.hasAnyContent) {
@@ -231,10 +229,7 @@ export async function processAssetEventsUser(options: {
 			});
 		}
 
-		// Update analyst month tracking if analyst was included
-		const shouldUpdateAnalyst =
-			emailContent?.shouldUpdateAnalystMonth || smsContent?.shouldUpdateAnalystMonth;
-		if (shouldUpdateAnalyst) {
+		if (shouldUpdateAnalystMonth) {
 			const currentMonth = localDate.slice(0, 7); // YYYY-MM
 			const { error } = await supabase
 				.from("users")

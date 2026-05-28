@@ -441,7 +441,6 @@ describe("Daily digest email prices", () => {
 				},
 				insiderSection: null,
 				analystSection: null,
-				shouldUpdateAnalystMonth: false,
 				hasAnyContent: true,
 			},
 		});

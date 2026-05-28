@@ -9,14 +9,9 @@ import {
 import { formatAssetEventsSection } from "../providers/massive";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 
-export async function buildAssetEventsContent(options: {
-	user: UserRecord;
-	supabase: SupabaseAdminClient;
-	logger: Logger;
-	localDate: string; // YYYY-MM-DD (user's local date)
-	tickers: readonly string[];
-	channel: "email" | "sms";
-}): Promise<{
+type DeliveryChannel = "email" | "sms";
+
+export type AssetEventsContent = {
 	eventsSection: {
 		earnings: string | null;
 		dividends: string | null;
@@ -25,18 +20,135 @@ export async function buildAssetEventsContent(options: {
 	} | null;
 	insiderSection: string | null;
 	analystSection: string | null;
-	shouldUpdateAnalystMonth: boolean;
 	hasAnyContent: boolean;
-}> {
-	const { user, supabase, logger, localDate, tickers, channel } = options;
+};
 
-	const nullResult = {
-		eventsSection: null,
-		insiderSection: null,
-		analystSection: null,
-		shouldUpdateAnalystMonth: false,
-		hasAnyContent: false,
+const emptyContent = (): AssetEventsContent => ({
+	eventsSection: null,
+	insiderSection: null,
+	analystSection: null,
+	hasAnyContent: false,
+});
+
+function channelWantsCalendar(user: UserRecord, channel: DeliveryChannel): boolean {
+	return channel === "email"
+		? user.asset_events_include_calendar_email
+		: user.asset_events_include_calendar_sms;
+}
+
+function channelWantsIpos(user: UserRecord, channel: DeliveryChannel): boolean {
+	return channel === "email"
+		? user.asset_events_include_ipo_email
+		: user.asset_events_include_ipo_sms;
+}
+
+function channelWantsInsider(user: UserRecord, channel: DeliveryChannel): boolean {
+	return channel === "email"
+		? user.asset_events_include_insider_email
+		: user.asset_events_include_insider_sms;
+}
+
+function channelWantsAnalyst(
+	user: UserRecord,
+	channel: DeliveryChannel,
+	currentMonth: string,
+): boolean {
+	return (
+		(channel === "email"
+			? user.asset_events_include_analyst_email
+			: user.asset_events_include_analyst_sms) &&
+		user.asset_events_last_analyst_sent_month !== currentMonth
+	);
+}
+
+type RawEvent = {
+	symbol: string;
+	event_type: "earnings" | "dividend" | "split" | "ipo";
+	event_date: string;
+	data: Record<string, unknown>;
+};
+
+function filterEventsForChannel(
+	events: RawEvent[],
+	user: UserRecord,
+	channel: DeliveryChannel,
+): RawEvent[] {
+	return events.filter((event) => {
+		if (event.event_type === "ipo") {
+			return channelWantsIpos(user, channel);
+		}
+		return channelWantsCalendar(user, channel);
+	});
+}
+
+function formatContentForChannel(options: {
+	channel: DeliveryChannel;
+	user: UserRecord;
+	eventsWithDaysUntil: Array<{
+		symbol: string;
+		event_type: "earnings" | "dividend" | "split" | "ipo";
+		event_date: string;
+		data: Record<string, unknown>;
+		daysUntil: number;
+	}>;
+	finnhubData: Awaited<ReturnType<typeof fetchFinnhubExtras>>;
+	includeInsider: boolean;
+	includeAnalyst: boolean;
+}): AssetEventsContent {
+	const { channel, user, eventsWithDaysUntil, finnhubData, includeInsider, includeAnalyst } =
+		options;
+
+	const channelEvents = filterEventsForChannel(eventsWithDaysUntil, user, channel);
+	const eventsSection =
+		channelEvents.length > 0 ? formatAssetEventsSection(channelEvents, channel) : null;
+
+	let insiderSection: string | null = null;
+	let analystSection: string | null = null;
+
+	if (includeInsider) {
+		insiderSection = formatInsiderSection(finnhubData.insider, channel);
+	}
+
+	if (includeAnalyst) {
+		analystSection = formatAnalystSection(finnhubData.analyst, channel);
+	}
+
+	const hasAnyContent =
+		eventsSection !== null || insiderSection !== null || analystSection !== null;
+
+	return {
+		eventsSection,
+		insiderSection,
+		analystSection,
+		hasAnyContent,
 	};
+}
+
+/** Build asset-events content for one or more delivery channels with a single upstream load. */
+export async function buildAssetEventsContentForChannels(options: {
+	user: UserRecord;
+	supabase: SupabaseAdminClient;
+	logger: Logger;
+	localDate: string;
+	tickers: readonly string[];
+	channels: readonly DeliveryChannel[];
+}): Promise<{
+	email: AssetEventsContent | null;
+	sms: AssetEventsContent | null;
+	analystFetchAttempted: boolean;
+	shouldUpdateAnalystMonth: boolean;
+}> {
+	const { user, supabase, logger, localDate, tickers, channels } = options;
+	const noChannels = {
+		email: null,
+		sms: null,
+		analystFetchAttempted: false,
+		shouldUpdateAnalystMonth: false,
+	};
+
+	if (channels.length === 0) {
+		return noChannels;
+	}
 
 	const localDt = DateTime.fromISO(localDate);
 	if (!localDt.isValid) {
@@ -44,9 +156,9 @@ export async function buildAssetEventsContent(options: {
 			localDate,
 			localDtInvalidReason: localDt.invalidReason,
 		});
-		return nullResult;
+		return noChannels;
 	}
-	// "Next 3 days" inclusive: localDate, localDate+1, localDate+2
+
 	const endDate = localDt.plus({ days: 2 }).toISODate() ?? "";
 	if (!endDate) {
 		logger.error("Failed to format endDate for asset events content", {
@@ -54,18 +166,15 @@ export async function buildAssetEventsContent(options: {
 			localDt: localDt.toString(),
 			localDtIsValid: localDt.isValid,
 		});
-		return nullResult;
+		return noChannels;
 	}
 
-	const includeCalendar =
-		channel === "email"
-			? user.asset_events_include_calendar_email
-			: user.asset_events_include_calendar_sms;
-	const includeIpos =
-		channel === "email" ? user.asset_events_include_ipo_email : user.asset_events_include_ipo_sms;
+	const currentMonth = localDt.toFormat("yyyy-MM");
+	const includeCalendar = channels.some((ch) => channelWantsCalendar(user, ch));
+	const includeIpos = channels.some((ch) => channelWantsIpos(user, ch));
+	const includeInsiderUnion = channels.some((ch) => channelWantsInsider(user, ch));
+	const includeAnalystUnion = channels.some((ch) => channelWantsAnalyst(user, ch, currentMonth));
 
-	// Query asset_events table for the relevant date range (pre-populated by weekly cron).
-	// Calendar events are watchlist-scoped; IPOs are global for all users.
 	const calendarPromise =
 		includeCalendar && tickers.length > 0
 			? supabase
@@ -92,90 +201,110 @@ export async function buildAssetEventsContent(options: {
 			calendarError: calendarResult.error?.message ?? null,
 			ipoError: ipoResult.error?.message ?? null,
 		});
-		return nullResult;
+		return noChannels;
 	}
 
-	const calendarRows = calendarResult.error ? [] : (calendarResult.data ?? []);
-	const ipoRows = ipoResult.error ? [] : (ipoResult.data ?? []);
+	const calendarRows = calendarResult.data ?? [];
+	const ipoRows = ipoResult.data ?? [];
 
-	const rawEvents = [
-		...(calendarRows as Array<{
-			symbol: string;
-			event_type: "earnings" | "dividend" | "split";
-			event_date: string;
-			data: Record<string, unknown> | null;
-		}>),
+	const rawEvents: RawEvent[] = [
+		...(
+			calendarRows as Array<{
+				symbol: string;
+				event_type: "earnings" | "dividend" | "split";
+				event_date: string;
+				data: Record<string, unknown> | null;
+			}>
+		).map((row) => ({
+			symbol: row.symbol,
+			event_type: row.event_type,
+			event_date: row.event_date,
+			data: (row.data ?? {}) as Record<string, unknown>,
+		})),
 		...ipoRows.map((row) => ({
 			symbol: row.symbol,
 			event_type: "ipo" as const,
 			event_date: row.event_date,
-			data: row.data as Record<string, unknown> | null,
+			data: (row.data ?? {}) as Record<string, unknown>,
 		})),
 	];
 
-	// Events already filtered at query time via includeCalendar/includeIpos
-	const filteredEvents = rawEvents;
-
-	// 4. Compute daysUntil for each event
-	const eventsWithDaysUntil = filteredEvents.map((event) => ({
+	const eventsWithDaysUntil = rawEvents.map((event) => ({
 		symbol: event.symbol,
 		event_type: event.event_type,
 		event_date: event.event_date,
-		data: (event.data ?? {}) as Record<string, unknown>,
+		data: event.data,
 		daysUntil: Math.round(DateTime.fromISO(event.event_date).diff(localDt, "days").days),
 	}));
 
-	// 5. Format asset events section
-	const eventsSection =
-		eventsWithDaysUntil.length > 0 ? formatAssetEventsSection(eventsWithDaysUntil, channel) : null;
+	let finnhubData: Awaited<ReturnType<typeof fetchFinnhubExtras>> = {
+		news: new Map(),
+		analyst: new Map(),
+		insider: new Map(),
+		analystFetchSucceeded: false,
+	};
 
-	// 6. Determine if insider should be fetched
-	const includeInsider =
-		channel === "email"
-			? user.asset_events_include_insider_email
-			: user.asset_events_include_insider_sms;
-
-	// 7. Determine if analyst should be fetched (channel-specific)
-	const currentMonth = localDt.toFormat("yyyy-MM");
-	const includeAnalyst =
-		(channel === "email"
-			? user.asset_events_include_analyst_email
-			: user.asset_events_include_analyst_sms) &&
-		user.asset_events_last_analyst_sent_month !== currentMonth;
-
-	// Fetch finnhub extras - combine into one call when both needed
-	let insiderSection: string | null = null;
-	let analystSection: string | null = null;
-
-	if ((includeInsider || includeAnalyst) && tickers.length > 0) {
-		const finnhubData = await fetchFinnhubExtras([...tickers], {
+	if ((includeInsiderUnion || includeAnalystUnion) && tickers.length > 0) {
+		finnhubData = await fetchFinnhubExtras([...tickers], {
 			includeNews: false,
-			includeAnalyst,
-			includeInsider,
+			includeAnalyst: includeAnalystUnion,
+			includeInsider: includeInsiderUnion,
 		});
-
-		if (includeInsider) {
-			insiderSection = formatInsiderSection(finnhubData.insider, channel);
-		}
-
-		if (includeAnalyst) {
-			analystSection = formatAnalystSection(finnhubData.analyst, channel);
-		}
 	}
 
-	// 8. Set shouldUpdateAnalystMonth if analyst was fetched and formatted
-	const shouldUpdateAnalystMonth = analystSection !== null;
+	const analystFetchAttempted = includeAnalystUnion && tickers.length > 0;
+	const shouldUpdateAnalystMonth = analystFetchAttempted && finnhubData.analystFetchSucceeded;
 
-	// 9. Compute hasAnyContent
-	const hasAnyContent =
-		eventsSection !== null || insiderSection !== null || analystSection !== null;
+	let email: AssetEventsContent | null = null;
+	let sms: AssetEventsContent | null = null;
 
-	// 10. Return all sections
+	if (channels.includes("email")) {
+		email = formatContentForChannel({
+			channel: "email",
+			user,
+			eventsWithDaysUntil,
+			finnhubData,
+			includeInsider: channelWantsInsider(user, "email"),
+			includeAnalyst: channelWantsAnalyst(user, "email", currentMonth),
+		});
+	}
+
+	if (channels.includes("sms")) {
+		sms = formatContentForChannel({
+			channel: "sms",
+			user,
+			eventsWithDaysUntil,
+			finnhubData,
+			includeInsider: channelWantsInsider(user, "sms"),
+			includeAnalyst: channelWantsAnalyst(user, "sms", currentMonth),
+		});
+	}
+
 	return {
-		eventsSection,
-		insiderSection,
-		analystSection,
+		email,
+		sms,
+		analystFetchAttempted,
 		shouldUpdateAnalystMonth,
-		hasAnyContent,
 	};
+}
+
+/** Build asset-events content for a single delivery channel. */
+export async function buildAssetEventsContent(options: {
+	user: UserRecord;
+	supabase: SupabaseAdminClient;
+	logger: Logger;
+	localDate: string;
+	tickers: readonly string[];
+	channel: DeliveryChannel;
+}): Promise<AssetEventsContent> {
+	const built = await buildAssetEventsContentForChannels({
+		user: options.user,
+		supabase: options.supabase,
+		logger: options.logger,
+		localDate: options.localDate,
+		tickers: options.tickers,
+		channels: [options.channel],
+	});
+	const content = options.channel === "email" ? built.email : built.sms;
+	return content ?? emptyContent();
 }

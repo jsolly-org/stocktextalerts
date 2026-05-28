@@ -1,5 +1,8 @@
 import { DateTime } from "luxon";
-import { buildAssetEventsContent } from "../asset-events/content";
+import {
+	type AssetEventsContent,
+	buildAssetEventsContentForChannels,
+} from "../asset-events/content";
 import { updateUserAssetEventsNextSendAt } from "../asset-events/next-send-at";
 import type { Logger } from "../logging";
 import { extractErrorMessage } from "../logging/errors";
@@ -456,18 +459,17 @@ export async function processDailyDigestUser(options: {
 		const marketOpen = session === "regular";
 
 		/* =============
-		Fetch Finnhub data (non-blocking — failures omit that section)
+		Fetch Finnhub/Massive news for Grok (email-only; skip when not opted in)
 		============= */
-		const finnhubData = await fetchFinnhubExtras(tickers, {
-			includeNews: user.daily_digest_include_news_email,
-			includeAnalyst: false,
-			includeInsider: false,
-		});
-
-		// Build news context for Grok from Finnhub headlines
-		const newsContext = user.daily_digest_include_news_email
-			? buildNewsContextForGrok(finnhubData.news)
-			: undefined;
+		let newsContext: string | undefined;
+		if (user.daily_digest_include_news_email && tickers.length > 0) {
+			const finnhubNews = await fetchFinnhubExtras(tickers, {
+				includeNews: true,
+				includeAnalyst: false,
+				includeInsider: false,
+			});
+			newsContext = buildNewsContextForGrok(finnhubNews.news) || undefined;
+		}
 
 		// Grok news/rumors are email-only (SMS body can exceed Twilio's 1600-char limit)
 		let newsResult: GrokSectionResult | null = null;
@@ -520,8 +522,9 @@ export async function processDailyDigestUser(options: {
 		).setZone(user.timezone);
 		const localDate = dueAtLocal.toISODate() ?? "";
 
-		let emailAssetEvents: Awaited<ReturnType<typeof buildAssetEventsContent>> | null = null;
-		let smsAssetEvents: Awaited<ReturnType<typeof buildAssetEventsContent>> | null = null;
+		let emailAssetEvents: AssetEventsContent | null = null;
+		let smsAssetEvents: AssetEventsContent | null = null;
+		let shouldUpdateAnalystMonth = false;
 
 		if (hasAnyAssetEventsOption) {
 			const wantsAssetEventsEmail =
@@ -536,25 +539,23 @@ export async function processDailyDigestUser(options: {
 					user.asset_events_include_ipo_sms ||
 					user.asset_events_include_analyst_sms ||
 					user.asset_events_include_insider_sms);
-			if (wantsAssetEventsEmail) {
-				emailAssetEvents = await buildAssetEventsContent({
+
+			const assetEventChannels: Array<"email" | "sms"> = [];
+			if (wantsAssetEventsEmail) assetEventChannels.push("email");
+			if (wantsAssetEventsSms) assetEventChannels.push("sms");
+
+			if (assetEventChannels.length > 0) {
+				const built = await buildAssetEventsContentForChannels({
 					user,
 					supabase,
 					logger,
 					localDate,
 					tickers,
-					channel: "email",
+					channels: assetEventChannels,
 				});
-			}
-			if (wantsAssetEventsSms) {
-				smsAssetEvents = await buildAssetEventsContent({
-					user,
-					supabase,
-					logger,
-					localDate,
-					tickers,
-					channel: "sms",
-				});
+				emailAssetEvents = built.email;
+				smsAssetEvents = built.sms;
+				shouldUpdateAnalystMonth = built.shouldUpdateAnalystMonth;
 			}
 		}
 
@@ -669,9 +670,7 @@ export async function processDailyDigestUser(options: {
 						}
 					: null;
 
-			const shouldUpdateAnalyst = !!(
-				emailAssetEvents?.shouldUpdateAnalystMonth || smsAssetEvents?.shouldUpdateAnalystMonth
-			);
+			const shouldUpdateAnalyst = shouldUpdateAnalystMonth;
 
 			const stagedData: StagedDailyData = {
 				type: "daily",
@@ -763,10 +762,7 @@ export async function processDailyDigestUser(options: {
 			});
 		}
 
-		// Update analyst sent month if analyst content was included
-		const shouldUpdateAnalyst =
-			emailAssetEvents?.shouldUpdateAnalystMonth || smsAssetEvents?.shouldUpdateAnalystMonth;
-		if (shouldUpdateAnalyst) {
+		if (shouldUpdateAnalystMonth) {
 			const currentMonth = dueAtLocal.toFormat("yyyy-MM");
 			const { error: analystError } = await supabase
 				.from("users")

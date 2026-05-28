@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildAssetEventsContent } from "../../../src/lib/asset-events/content";
+import {
+	buildAssetEventsContent,
+	buildAssetEventsContentForChannels,
+} from "../../../src/lib/asset-events/content";
 import { fetchFinnhubExtras } from "../../../src/lib/providers/finnhub";
 import { makeUserRecord as makeUser } from "../../helpers/user-record-fixture";
 
@@ -136,6 +139,7 @@ describe("buildAssetEventsContent", () => {
 			news: new Map(),
 			analyst: new Map(),
 			insider: new Map(),
+			analystFetchSucceeded: false,
 		});
 
 		const result = await buildAssetEventsContent({
@@ -151,5 +155,148 @@ describe("buildAssetEventsContent", () => {
 		expect(result.eventsSection?.ipos).toContain("ACME: IPO tomorrow");
 		expect(result.eventsSection?.earnings).toBeNull();
 		expect(vi.mocked(fetchFinnhubExtras)).not.toHaveBeenCalled();
+	});
+
+	it("calls fetchFinnhubExtras once when email and SMS insider are both enabled", async () => {
+		const supabase = createAssetEventsSupabase([], []);
+		vi.mocked(fetchFinnhubExtras).mockResolvedValue({
+			news: new Map(),
+			analyst: new Map(),
+			insider: new Map([
+				["AAPL", []],
+				["MSFT", []],
+			]),
+			analystFetchSucceeded: false,
+		});
+
+		await buildAssetEventsContentForChannels({
+			user: makeUser({
+				asset_events_include_insider_email: true,
+				asset_events_include_insider_sms: true,
+			}),
+			supabase: supabase as never,
+			logger: logger as never,
+			localDate: "2026-02-10",
+			tickers: ["AAPL", "MSFT"],
+			channels: ["email", "sms"],
+		});
+
+		expect(vi.mocked(fetchFinnhubExtras)).toHaveBeenCalledOnce();
+		expect(vi.mocked(fetchFinnhubExtras)).toHaveBeenCalledWith(["AAPL", "MSFT"], {
+			includeNews: false,
+			includeAnalyst: false,
+			includeInsider: true,
+		});
+	});
+
+	it("formats insider only on the channel that opted in", async () => {
+		const supabase = createAssetEventsSupabase([], []);
+		const insiderTx = [
+			{
+				name: "Jane Doe",
+				share: 1000,
+				change: 500,
+				transactionType: "P",
+				transactionDate: "2026-02-10",
+			},
+		];
+		vi.mocked(fetchFinnhubExtras).mockResolvedValue({
+			news: new Map(),
+			analyst: new Map(),
+			insider: new Map([["AAPL", insiderTx]]),
+			analystFetchSucceeded: false,
+		});
+
+		const result = await buildAssetEventsContentForChannels({
+			user: makeUser({
+				asset_events_include_insider_email: true,
+				asset_events_include_insider_sms: false,
+			}),
+			supabase: supabase as never,
+			logger: logger as never,
+			localDate: "2026-02-10",
+			tickers: ["AAPL"],
+			channels: ["email", "sms"],
+		});
+
+		expect(result.email?.insiderSection).toContain("AAPL");
+		expect(result.sms?.insiderSection).toBeNull();
+		expect(result.sms?.hasAnyContent).toBe(false);
+	});
+
+	it("sets shouldUpdateAnalystMonth when analyst fetch succeeds with no formatted section", async () => {
+		const supabase = createAssetEventsSupabase([], []);
+		vi.mocked(fetchFinnhubExtras).mockResolvedValue({
+			news: new Map(),
+			analyst: new Map([["AAPL", null]]),
+			insider: new Map(),
+			analystFetchSucceeded: true,
+		});
+
+		const result = await buildAssetEventsContentForChannels({
+			user: makeUser({
+				asset_events_include_analyst_email: true,
+				asset_events_last_analyst_sent_month: null,
+			}),
+			supabase: supabase as never,
+			logger: logger as never,
+			localDate: "2026-02-10",
+			tickers: ["AAPL"],
+			channels: ["email"],
+		});
+
+		expect(result.shouldUpdateAnalystMonth).toBe(true);
+		expect(result.email?.analystSection).toBeNull();
+	});
+
+	it("does not set shouldUpdateAnalystMonth when analyst fetch exhausts retries", async () => {
+		const supabase = createAssetEventsSupabase([], []);
+		vi.mocked(fetchFinnhubExtras).mockResolvedValue({
+			news: new Map(),
+			analyst: new Map([["AAPL", null]]),
+			insider: new Map(),
+			analystFetchSucceeded: false,
+		});
+
+		const result = await buildAssetEventsContentForChannels({
+			user: makeUser({
+				asset_events_include_analyst_email: true,
+				asset_events_last_analyst_sent_month: null,
+			}),
+			supabase: supabase as never,
+			logger: logger as never,
+			localDate: "2026-02-10",
+			tickers: ["AAPL"],
+			channels: ["email"],
+		});
+
+		expect(result.shouldUpdateAnalystMonth).toBe(false);
+	});
+
+	it("sets shouldUpdateAnalystMonth when at least one symbol analyst fetch succeeds", async () => {
+		const supabase = createAssetEventsSupabase([], []);
+		vi.mocked(fetchFinnhubExtras).mockResolvedValue({
+			news: new Map(),
+			analyst: new Map([
+				["AAPL", null],
+				["MSFT", null],
+			]),
+			insider: new Map(),
+			analystFetchSucceeded: true,
+		});
+
+		const result = await buildAssetEventsContentForChannels({
+			user: makeUser({
+				asset_events_include_analyst_email: true,
+				asset_events_last_analyst_sent_month: null,
+			}),
+			supabase: supabase as never,
+			logger: logger as never,
+			localDate: "2026-02-10",
+			tickers: ["AAPL", "MSFT"],
+			channels: ["email"],
+		});
+
+		expect(result.shouldUpdateAnalystMonth).toBe(true);
 	});
 });

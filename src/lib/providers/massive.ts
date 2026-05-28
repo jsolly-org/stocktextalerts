@@ -4,6 +4,11 @@ import { requireEnv } from "../db/env";
 import { rootLogger } from "../logging";
 import { finnhubFetch } from "./finnhub";
 import type { MarketSession } from "./price-fetcher";
+import {
+	VENDOR_FETCH_MAX_RETRIES as MAX_RETRIES,
+	VENDOR_FETCH_REQUEST_TIMEOUT_MS as REQUEST_TIMEOUT_MS,
+	VENDOR_FETCH_RETRY_DELAY_MS as RETRY_DELAY_MS,
+} from "./vendor-fetch";
 
 type DeliveryChannel = "sms" | "email";
 
@@ -51,10 +56,6 @@ interface IpoEvent {
 /* =============
 Constants
 ============= */
-
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 2_000;
-const REQUEST_TIMEOUT_MS = 25_000;
 
 /* =============
 Helpers
