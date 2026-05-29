@@ -1,0 +1,9 @@
+{
+  "install": "npm ci || npm install && (test -f .env || cp .env.example .env 2>/dev/null || true)",
+  "terminals": [
+    {
+      "name": "dev",
+      "command": "npm run dev"
+    }
+  ]
+}
