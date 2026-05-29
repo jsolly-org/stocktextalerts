@@ -56,7 +56,7 @@ Cloud agents: see `docs/cloud-agents.md` (fleet layout, subtree updates). After 
 - **Env vars:** use `requireEnv()` from `src/lib/db/env.ts` at point-of-use.
 - **Lambdas (`src/handlers/*.ts`)** import `createLogger` from `src/lib/logging`. Each Lambda log group has an `AWS::Logs::MetricFilter` on `{ $.level = "error" }` feeding `stocktextalerts/ErrorLogCount` + `ErrorLogAlarm` (fires on any single error log line in a 1-minute window), alongside per-function `AWS/Lambda Errors` alarms.
 - **This logger is bespoke** (Vue browser-bundle compatibility via a `process` guard) — NOT a sync consumer of `~/code/family-memory/src/shared/logging.ts`.
-- Conventions (`LogFormat` unset, alert-hub SNS wiring): see `~/.agents/rules/aws.md`.
+- Conventions (`LogFormat` unset, alert-hub SNS wiring): see `~/code/alert-hub/docs/adding-a-project.md`.
 
 ## Testing (Project-Specific)
 
@@ -87,7 +87,7 @@ See `docs/local-supabase.md` for `db:bootstrap`, seed hardening, and Podman setu
 
 ## AWS / SAM Deploy
 
-**SAM deploy required** when committing changes to `aws/template.yaml`, `aws/deploy.sh`, `src/handlers/`, or `src/lib/`. After the commit: `cd aws && npm run deploy` (or `npm run deploy:aws` from repo root). Copy `aws/samconfig.toml.example` → gitignored `aws/samconfig.toml`; use `AWS_PROFILE` locally. Cross-repo conventions: `~/.agents/rules/aws.md`.
+**SAM deploy required** when committing changes to `aws/template.yaml`, `aws/deploy.sh`, `src/handlers/`, or `src/lib/`. After the commit: `cd aws && npm run deploy` (or `npm run deploy:aws` from repo root). Copy `aws/samconfig.toml.example` → gitignored `aws/samconfig.toml`; use `AWS_PROFILE` locally. Never commit AWS profile names in tracked files.
 
 ## External APIs
 

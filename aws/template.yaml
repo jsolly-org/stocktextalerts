@@ -199,7 +199,7 @@ Resources:
 
   # Shared by all three ScheduleV2 events. Without an explicit RoleArn,
   # SAM auto-generates one role per event with identical permissions —
-  # see ~/.agents/rules/aws.md no-sprawl.
+  # see IAM no-sprawl — reuse explicit scheduler roles instead of SAM auto-generated duplicates.
   StockTextAlertsSchedulerRole:
     Type: AWS::IAM::Role
     Properties:
