@@ -36,6 +36,10 @@ Run vitest via `npm test` so the npm script loads `.env.local` via `--env-file-i
 - `supabase/migrations/` — SQL migrations (source of truth; CI pushes to production)
 - `tests/helpers/` — `test-user.ts`, `test-env.ts`, `asset-data.ts`
 
+## Cursor Cloud
+
+Cloud agents: see `docs/cloud-agents.md` (fleet layout, subtree updates). After the first successful cloud boot, pin the VM snapshot per **Snapshot bootstrap (agent-run)** in that doc (`./scripts/pin-cloud-snapshot.sh`).
+
 ## Project-Specific Style
 
 - **Biome** for all formatting/linting. `noConsole` is an error — use `src/lib/logging/` instead.
