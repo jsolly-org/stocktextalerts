@@ -12,6 +12,7 @@
     "**/node_modules/**", // dependency READMEs (including nested packages like aws/)
     ".claude/**", // worktree noise — lint the source, not worktree copies
     ".npm-cache/**", // npx scratch (gitignored); not our markdown to police
-    "plans/**" // scratch-plan workspace; not part of the published docs surface
+    "plans/**", // scratch-plan workspace; not part of the published docs surface
+    ".playwright-mcp/**" // Playwright MCP failure artifacts (gitignored)
   ]
 }
