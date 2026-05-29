@@ -109,13 +109,13 @@ TWILIO_VERIFY_SERVICE_SID=your-verify-service-sid
 # Email unsubscribe token signing
 UNSUBSCRIBE_TOKEN_SECRET=your-random-secret-string  # Minimum 12 characters; use `openssl rand -hex 32`
 
-# Email (AWS SES)
-# AWS credentials for SES email sending. In Lambda, the execution role provides these automatically.
-AWS_ACCESS_KEY_ID=your-aws-access-key-id
-AWS_SECRET_ACCESS_KEY=your-aws-secret-access-key
-AWS_REGION=us-east-1
-
+# Email (local dev / tests)
+# Dev routes through Mailpit when EMAIL_SMTP_HOST is set (see docs/tooling-setup.md).
+# Production notification email is sent by AWS Lambda (SES via execution role), not Vercel.
+# Lambda reads the From header from SSM (/stocktextalerts/email-from); keep EMAIL_FROM aligned.
 EMAIL_FROM="Your Project Name <notifications@updates.example.com>"
+EMAIL_SMTP_HOST=localhost
+EMAIL_SMTP_PORT=1025
 
 # Massive (asset prices / dividends / splits / news)
 MASSIVE_API_KEY=your-massive-api-key
@@ -140,8 +140,8 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - `DATABASE_URL`: Supabase Dashboard → Project Settings → Database → Connection String → Transaction mode (pooler)
 - Twilio credentials: Twilio Console → Account Dashboard
 - `UNSUBSCRIBE_TOKEN_SECRET`: Generate a random string (minimum 12 characters; e.g., `openssl rand -hex 32`)
-- `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`: AWS IAM credentials with SES send permissions
-- `EMAIL_FROM`: A verified sender address/domain in AWS SES
+- `EMAIL_FROM`: Verified SES sender; keep in sync with SSM `/stocktextalerts/email-from` (Lambda uses SSM at deploy time)
+- `EMAIL_SMTP_HOST` / `EMAIL_SMTP_PORT`: Local Mailpit routing for dev and live email tests — not used in production Lambda
 - Massive credentials: Massive Dashboard → API Keys
 - Finnhub credentials: Finnhub Dashboard → API Keys
 - xAI credentials: xAI Console → API Keys
@@ -151,7 +151,9 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 
 **Platform-only config (not part of `.env.local`):**
 
-- **Vercel-managed/injected:** `VERCEL_URL` is set automatically on hosted deployments. If you use the Vercel Supabase integration, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SECRET_KEY` come from that integration instead of a committed/shared env file. AWS credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`) must be set manually in Vercel for SES email sending.
+- **Vercel-managed/injected:** `VERCEL_URL` is set automatically on hosted deployments. If you use the Vercel Supabase integration, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SECRET_KEY` come from that integration instead of a committed/shared env file.
+- **Vercel (SSR + webhooks):** `TWILIO_*`, `UNSUBSCRIBE_TOKEN_SECRET` (must match Lambda — signs email unsubscribe links), and `MASSIVE_API_KEY` (asset logo proxy). Outbound notification email/SMS is sent by **AWS Lambda**, not Vercel — do not add `AWS_*`, `EMAIL_FROM`, `FINNHUB_API_KEY`, or `XAI_API_KEY` to Vercel.
+- **AWS Lambda (SAM deploy from `.env.local` via `aws/sam-params.sh`):** Supabase prod keys, Twilio, `UNSUBSCRIBE_TOKEN_SECRET`, Massive, Finnhub, optional `XAI_API_KEY`. `EmailFrom` is **not** passed on the CLI — the template defaults to SSM `/stocktextalerts/email-from`. SES auth is the Lambda execution role, not static `AWS_*` keys.
 - **Local-only values:** `DATABASE_URL` and `DEFAULT_PASSWORD` are for local Supabase + seed generation and should not be added to Vercel.
 - **Account-level (local shell, not repo secrets):** `CURSOR_API_KEY` — Cursor User API Key for SDK/CLI; set in `~/.zshrc`. See [docs/cloud-agents.md](docs/cloud-agents.md#secrets-and-tokens).
 - **GitHub Actions repository secrets:** `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `POSTGRES_PASSWORD`, `GH_AGENT_TOKEN`, and `FLEET_SYNC_TOKEN` (read-only dotagents access for weekly fleet sync). Live provider test failures notify via **alert-hub** (SES email); `GitHubActionsDeploymentRole` needs `sns:Publish` on the shared topic (see [docs/deploy-gotchas.md](docs/deploy-gotchas.md)).
@@ -332,23 +334,23 @@ The canonical endpoint for fetching current user preferences is `GET /api/notifi
 
 Do not mirror `.env.local` into Vercel 1:1.
 
-Add the runtime app variables your hosted app needs in Vercel project settings (Settings → Environment Variables), such as `TWILIO_*`, `UNSUBSCRIBE_TOKEN_SECRET`, `EMAIL_FROM`, `MASSIVE_API_KEY`, `FINNHUB_API_KEY`, and optional `XAI_API_KEY`.
+Add the runtime variables your **Vercel SSR app** needs (Settings → Environment Variables):
 
-Do **not** add these local-only values to Vercel:
+- `TWILIO_*` — SMS verification and inbound webhooks
+- `UNSUBSCRIBE_TOKEN_SECRET` — verify `/email/unsubscribe` links (must match the Lambda value)
+- `MASSIVE_API_KEY` — asset logo proxy (`/api/assets/logo/...`)
+- Supabase integration vars (if not using the Vercel Supabase integration)
 
-- `VERCEL_URL` (Vercel sets this automatically)
-- `DATABASE_URL`
-- `DEFAULT_PASSWORD`
+Do **not** add to Vercel (Lambda-only via `aws/` SAM deploy):
 
-If you use marketplace/integration-managed credentials, you also do **not** manually add:
+- `FINNHUB_API_KEY`, `XAI_API_KEY` — provider calls in scheduled handlers
+- `DATABASE_URL`, `DEFAULT_PASSWORD`, `VERCEL_URL`
 
-- `SUPABASE_URL`
-- `SUPABASE_PUBLISHABLE_KEY`
-- `SUPABASE_SECRET_KEY`
+SES notification sending runs on Lambda (`EMAIL_FROM` from SSM `/stocktextalerts/email-from`; no `AWS_*` keys on Vercel or in SAM parameter overrides).
 
 **Important for Astro SSR:**
 
-- Ensure variables are available for **Production**, **Preview**, and **Development**
+- Ensure variables are available for **Production** and **Preview** (sensitive secrets cannot target Vercel Development — use `.env.local` / `vercel env pull` locally)
 - Enable "Available during Build" so `import.meta.env` works in serverless functions
 
 ### 1a. GitHub Actions Secrets And Variables

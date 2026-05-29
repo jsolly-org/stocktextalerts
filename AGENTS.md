@@ -99,9 +99,8 @@ See `docs/ci-with-act.md` for the 7-item pre-push checklist and act limitations 
 
 ## AWS IAM
 
-- `stocktextalerts-ses` — SES send-only, keys used in Vercel + .env.local for email sending
 - `GitHubActionsDeploymentRole` — OIDC role for GitHub Actions CI (S3, CloudFront, ECR, Lambda, CloudFormation)
-- `stocktextalerts-crons-*` — SAM-managed Lambda execution roles (auto-created)
+- `stocktextalerts-crons-*` — SAM-managed Lambda execution roles (auto-created; SES send via execution role, not static keys)
 
 ## Tooling Setup
 

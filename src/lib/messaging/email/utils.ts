@@ -115,9 +115,7 @@ export function createEmailSender(): EmailSender {
 		});
 	}
 
-	// 3. Production: real SES.
-	// In Lambda, the default credential chain uses the execution role automatically.
-	// On Vercel, AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY must be set.
+	// 3. Production: real SES via the default credential chain (Lambda execution role).
 	const sesClient = new SESv2Client({
 		region: readEnv("AWS_REGION") || "us-east-1",
 	});
