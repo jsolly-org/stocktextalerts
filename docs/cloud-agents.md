@@ -36,6 +36,20 @@ See `.cursor/environment.json`. New repos ship with `"agentCanUpdateSnapshot": t
 
 **Project-local paths (never overwritten by fleet subtree pull):** `.agents/hooks/`, `.agents/automations/` — commit these in the child repo only; they are not in the dotagents `fleet` branch.
 
+## Secrets and tokens
+
+Three credentials — do not conflate names or reuse the wrong token:
+
+| Name | Type | Where to set | Purpose |
+| --- | --- | --- | --- |
+| `CURSOR_API_KEY` | Cursor User API Key (`crsr_...` or `key_...`) | [Dashboard → Integrations](https://cursor.com/dashboard/integrations) User API Keys; export in `~/.zshrc` for local SDK/CLI | Programmatic access to Cursor (Agent CLI, Cloud Agent API, SDK) |
+| `GH_AGENT_TOKEN` | GitHub fine-grained PAT (`github_pat_...`) | Cursor Cloud Agent **repo secrets**; GitHub Actions repo secret where needed | Cross-repo git push from cloud agents; `gh`/git in Actions when `GITHUB_TOKEN` lacks permission (e.g. workflow file edits) |
+| `FLEET_SYNC_TOKEN` | GitHub fine-grained PAT (read-only) | GitHub Actions **repo secret** only | Weekly `sync-agent-fleet.yml` pull from private `jsolly/dotagents` |
+
+- Do **not** put `CURSOR_API_KEY` in GitHub repo secrets unless a workflow explicitly calls the Cursor API.
+- Do **not** reuse `GH_AGENT_TOKEN` for `FLEET_SYNC_TOKEN` — fleet sync only needs read access to dotagents.
+- Cloud agent VMs authenticate via Cursor; they do not read `~/.zshrc` or local `.env.local`.
+
 ## Snapshot bootstrap (agent-run)
 
 Run this **once per repo** (or again after dependency/toolchain changes) when you are a **Cursor Cloud agent** and `.cursor/environment.json` has no `snapshot` field, has a stale snapshot, or the user asked you to refresh the cloud environment.
@@ -94,6 +108,18 @@ git subtree push --prefix=.agents dotagents fleet
 ```
 
 Then merge `origin/fleet` into `fleet/` on dotagents `main` (or re-run `refresh-fleet.sh` there to reconcile).
+
+### GitHub Actions weekly sync
+
+Repos with `.github/workflows/sync-agent-fleet.yml` pull fleet automatically (Monday 6am UTC) or via **Actions → Sync agent fleet → Run workflow**.
+
+Because `dotagents` is private, each repo needs a **repository secret**:
+
+| Secret | Value |
+| --- | --- |
+| `FLEET_SYNC_TOKEN` | Fine-grained PAT: **read-only** access to `jsolly/dotagents` (Contents) |
+
+Do **not** reuse `GH_AGENT_TOKEN` for fleet sync — use `FLEET_SYNC_TOKEN` (read-only dotagents access). The workflow push back to the same repo uses the built-in `GITHUB_TOKEN`. See [Secrets and tokens](#secrets-and-tokens) above.
 
 ## Project-only vs fleet
 
