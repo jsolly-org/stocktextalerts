@@ -31,7 +31,7 @@ See [docs/incidents/2026-05-email-from-mangling.md](incidents/2026-05-email-from
 `GitHubActionsDeploymentRole` must allow reading that SSM parameter and publishing to the topic. One-time attach (adjust if the topic ARN changes):
 
 ```bash
-TOPIC_ARN="$(aws ssm get-parameter --name /alert-hub/alert-topic-arn --query Parameter.Value --output text --profile prod-admin)"
+TOPIC_ARN="$(aws ssm get-parameter --name /alert-hub/alert-topic-arn --query Parameter.Value --output text)"
 aws iam put-role-policy \
   --role-name GitHubActionsDeploymentRole \
   --policy-name stocktextalerts-alert-hub-publish \
@@ -49,6 +49,7 @@ aws iam put-role-policy \
         Resource: $topic
       }
     ]
-  }')" \
-  --profile prod-admin
+  }')"
 ```
+
+Run with production credentials (`export AWS_PROFILE=...` locally).

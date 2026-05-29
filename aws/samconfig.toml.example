@@ -13,5 +13,7 @@ confirm_changeset = false
 capabilities = "CAPABILITY_IAM"
 resolve_s3 = true
 s3_prefix = "stocktextalerts-crons"
-profile = "prod-admin"
 image_repositories = []
+
+# Copy to aws/samconfig.toml (gitignored). Local credentials: export AWS_PROFILE in shell or .env.local.
+# Cursor cloud: CURSOR_AWS_ASSUME_IAM_ROLE_ARN + SAMCONFIG_TOML secret (no profile=). See docs/cloud-agents.md.

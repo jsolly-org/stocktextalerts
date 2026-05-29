@@ -395,7 +395,7 @@ Manual smoke test:
 aws lambda invoke --function-name stocktextalerts-dst-notifications \
   --payload '{"force":true,"shiftDate":"2026-03-08","kind":"spring"}' \
   --cli-binary-format raw-in-base64-out \
-  --profile prod-admin /tmp/dst.json
+  /tmp/dst.json
 ```
 
 ## SAM template additions

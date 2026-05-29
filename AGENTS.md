@@ -87,7 +87,7 @@ See `docs/local-supabase.md` for `db:bootstrap`, seed hardening, and Podman setu
 
 ## AWS / SAM Deploy
 
-**SAM deploy required** when committing changes to `aws/template.yaml`, `aws/deploy.sh`, `src/handlers/`, or `src/lib/`. After the commit: `cd aws && npm run deploy` (or `npm run deploy:aws` from repo root). Cross-repo conventions: `~/.agents/rules/aws.md`.
+**SAM deploy required** when committing changes to `aws/template.yaml`, `aws/deploy.sh`, `src/handlers/`, or `src/lib/`. After the commit: `cd aws && npm run deploy` (or `npm run deploy:aws` from repo root). Copy `aws/samconfig.toml.example` → gitignored `aws/samconfig.toml`; use `AWS_PROFILE` locally. Cross-repo conventions: `~/.agents/rules/aws.md`.
 
 ## External APIs
 
