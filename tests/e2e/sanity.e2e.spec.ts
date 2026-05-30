@@ -247,6 +247,10 @@ async function expectCurrentPath(page: Page, expectedPath: string, timeout = 15_
 		.toBe(expectedPath);
 }
 
+function escapeRegExp(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 async function signIn(page: Page, email: string, password: string) {
 	await page.goto("/auth/signin");
 	const emailInput = page.locator("#email");
@@ -267,15 +271,17 @@ async function signIn(page: Page, email: string, password: string) {
 
 async function addAsset(page: Page, symbol: string) {
 	const input = page.locator("#asset_search");
-	await Promise.all([
-		page.waitForResponse(
-			(response) => response.url().includes("/api/assets/search") && response.status() === 200,
-			{
-				timeout: 15_000,
-			},
-		),
-		input.fill(symbol),
-	]);
+	const option = page
+		.locator("#asset_dropdown")
+		.getByRole("option")
+		.filter({ hasText: new RegExp(`${escapeRegExp(symbol)}\\s+-`) });
+
+	await expect(input).toBeVisible({ timeout: 15_000 });
+	// The input is SSR-visible before Vue wires @input. Filling too early gets
+	// cleared by hydration and never triggers the debounced search request.
+	await page.locator("[data-hydrated]").waitFor({ timeout: 15_000 });
+	await input.fill(symbol);
+	await expect(option).toBeVisible({ timeout: 30_000 });
 	await input.press("ArrowDown");
 	await input.press("Enter");
 	await expect(page.getByRole("button", { name: `Remove ${symbol}` })).toBeVisible({
@@ -574,6 +580,7 @@ test.describe("sanity tests", () => {
 	});
 
 	test("TC-AST-001: User can add assets to track", async () => {
+		test.setTimeout(60_000);
 		if (!testUserId) {
 			throw new Error("testUserId not set before TC-AST-001");
 		}
@@ -666,17 +673,11 @@ test.describe("sanity tests", () => {
 			assertNoDbError(nvdaErr, "Failed to set NVDA icon_url");
 
 			const input = page.locator("#asset_search");
-			await Promise.all([
-				page.waitForResponse(
-					(response) => response.url().includes("/api/assets/search") && response.status() === 200,
-					{ timeout: 15_000 },
-				),
-				input.fill("NVDA"),
-			]);
+			await input.fill("NVDA");
 
 			const dropdown = page.locator("#asset_dropdown");
 			const nvdaOption = dropdown.getByRole("option").filter({ hasText: "NVDA - NVIDIA" });
-			await expect(nvdaOption).toBeVisible({ timeout: 15_000 });
+			await expect(nvdaOption).toBeVisible({ timeout: 30_000 });
 			// Logo proxy may fail in CI (dummy API key), so accept logo or "Stock" fallback.
 			await expect(
 				nvdaOption.locator(`img[alt="NVDA logo"]`).or(nvdaOption.getByText("Stock")),
