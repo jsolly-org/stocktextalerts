@@ -4,9 +4,10 @@ import type { AppSupabaseClient, createSupabaseAdminClient } from "../db/supabas
 import type { Logger } from "../logging";
 import { recordNotification } from "../messaging/shared";
 import type { UserAssetRow } from "../messaging/types";
+import { computeDeliveryRetryDelayMs } from "../providers/vendor-fault-tolerance";
 import { toIsoOrThrow } from "../time/format";
 
-const MAX_NOTIFICATION_RETRIES = 3;
+export const MAX_NOTIFICATION_RETRIES = 3;
 /** Number of users to process concurrently in scheduled-delivery jobs. */
 export const USER_PROCESS_BATCH_SIZE = 5;
 
@@ -163,6 +164,48 @@ export async function batchLoadUserAssets(
 	return map;
 }
 
+/** Read attempt_count for a scheduled notification row (0 when missing). */
+async function getScheduledNotificationAttemptCount(options: {
+	supabase: SupabaseAdminClient;
+	userId: string;
+	notificationType: ScheduledNotificationType;
+	scheduledDate: string;
+	scheduledMinutes: number;
+	channel: DeliveryMethod;
+}): Promise<number> {
+	const { data, error } = await options.supabase
+		.from("scheduled_notifications")
+		.select("attempt_count")
+		.eq("user_id", options.userId)
+		.eq("notification_type", options.notificationType)
+		.eq("scheduled_date", options.scheduledDate)
+		.eq("scheduled_minutes", options.scheduledMinutes)
+		.eq("channel", options.channel)
+		.maybeSingle();
+
+	if (error || !data) return 0;
+	return data.attempt_count;
+}
+
+/** Max attempt_count across channels for a daily digest slot. */
+export async function getMaxDailyDigestSlotAttempts(options: {
+	supabase: SupabaseAdminClient;
+	userId: string;
+	scheduledDate: string;
+	scheduledMinutes: number;
+}): Promise<number> {
+	const { data, error } = await options.supabase
+		.from("scheduled_notifications")
+		.select("attempt_count")
+		.eq("user_id", options.userId)
+		.eq("notification_type", "daily")
+		.eq("scheduled_date", options.scheduledDate)
+		.eq("scheduled_minutes", options.scheduledMinutes);
+
+	if (error || !data || data.length === 0) return 0;
+	return data.reduce((max, row) => Math.max(max, row.attempt_count), 0);
+}
+
 /**
  * Update the status/error fields for a specific scheduled notification row.
  *
@@ -184,14 +227,27 @@ export async function updateScheduledNotificationRow(options: {
 		eq: (column: string, value: unknown) => UpdateChain;
 	};
 
-	const update: Database["public"]["Tables"]["scheduled_notifications"]["Update"] =
-		options.status === "sent"
-			? {
-					status: "sent",
-					sent_at: toIsoOrThrow(DateTime.utc(), "Failed to format UTC ISO string"),
-					error: null,
-				}
-			: { status: "failed", error: options.error ?? "Unknown error" };
+	const nowIso = toIsoOrThrow(DateTime.utc(), "Failed to format UTC ISO string");
+	let update: Database["public"]["Tables"]["scheduled_notifications"]["Update"];
+	if (options.status === "sent") {
+		update = {
+			status: "sent",
+			sent_at: nowIso,
+			error: null,
+			next_retry_at: null,
+		};
+	} else {
+		const attemptCount = await getScheduledNotificationAttemptCount(options);
+		const retryAt = DateTime.fromISO(nowIso, { zone: "utc" }).plus({
+			milliseconds: computeDeliveryRetryDelayMs(attemptCount),
+		});
+		const retryAtIso = retryAt.isValid ? retryAt.toISO() : null;
+		update = {
+			status: "failed",
+			error: options.error ?? "Unknown error",
+			next_retry_at: retryAtIso,
+		};
+	}
 
 	const scheduledNotifications = options.supabase.from("scheduled_notifications") as unknown as {
 		update: (
@@ -221,7 +277,8 @@ export async function updateScheduledNotificationRow(options: {
 type ClaimResult =
 	| { status: "claimed" }
 	| { status: "claim_error" }
-	| { status: "retries_exhausted" };
+	| { status: "retries_exhausted" }
+	| { status: "not_ready" };
 
 /**
  * Claim a scheduled notification via the `claim_scheduled_notification` RPC.
@@ -263,16 +320,39 @@ export async function claimNotification(options: {
 	}
 
 	if (!claimed) {
-		await logRetriesExhausted({
-			supabase,
-			userId,
-			notificationType,
-			scheduledDate,
-			scheduledMinutes,
-			channel,
-			logger,
-		});
-		return { status: "retries_exhausted" };
+		const { data: row, error: rowError } = await supabase
+			.from("scheduled_notifications")
+			.select("attempt_count, status")
+			.eq("user_id", userId)
+			.eq("notification_type", notificationType)
+			.eq("scheduled_date", scheduledDate)
+			.eq("scheduled_minutes", scheduledMinutes)
+			.eq("channel", channel)
+			.maybeSingle();
+
+		if (rowError) {
+			logger.error(
+				`Failed to read ${notificationType} notification row after claim denied (${channel})`,
+				{ userId },
+				rowError,
+			);
+			return { status: "claim_error" };
+		}
+
+		if (row && row.attempt_count >= MAX_NOTIFICATION_RETRIES) {
+			await logRetriesExhausted({
+				supabase,
+				userId,
+				notificationType,
+				scheduledDate,
+				scheduledMinutes,
+				channel,
+				logger,
+			});
+			return { status: "retries_exhausted" };
+		}
+
+		return { status: "not_ready" };
 	}
 
 	return { status: "claimed" };

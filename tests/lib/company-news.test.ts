@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchCompanyNews } from "../../src/lib/providers/company-news";
+import {
+	recordOptionalVendorFailure,
+	resetOptionalVendorCircuitsForTests,
+} from "../../src/lib/providers/vendor-fault-tolerance";
 
 // Mock retry delays so error/retry tests don't wait real seconds
 vi.mock("node:timers/promises", () => ({
@@ -8,8 +12,21 @@ vi.mock("node:timers/promises", () => ({
 
 describe("fetchCompanyNews", () => {
 	afterEach(() => {
+		resetOptionalVendorCircuitsForTests();
 		vi.restoreAllMocks();
 		vi.unstubAllEnvs();
+	});
+
+	it("returns empty array without calling fetch when circuit is open", async () => {
+		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		const fetchSpy = vi.spyOn(globalThis, "fetch");
+		recordOptionalVendorFailure("company-news");
+		recordOptionalVendorFailure("company-news");
+
+		const items = await fetchCompanyNews("AAPL", "2026-02-01", "2026-02-14");
+
+		expect(items).toEqual([]);
+		expect(fetchSpy).not.toHaveBeenCalled();
 	});
 
 	it("maps Massive fields to CompanyNewsItem shape", async () => {

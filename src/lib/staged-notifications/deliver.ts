@@ -15,6 +15,7 @@
 import { DateTime } from "luxon";
 import { updateUserAssetEventsNextSendAt } from "../asset-events/next-send-at";
 import { updateUserDailyDigestNextSendAt } from "../daily-digest/next-send-at";
+import { shouldAdvanceDailyDigestSchedule } from "../daily-digest/schedule-state";
 import type { Logger } from "../logging";
 import {
 	buildDelayBannerHtml,
@@ -27,11 +28,21 @@ import type { EmailSender } from "../messaging/email/utils";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import type { UserRecord } from "../messaging/types";
+import { computeDeliveryRetryDelayMs } from "../providers/vendor-fault-tolerance";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
-import { claimNotification, updateScheduledNotificationRow } from "../schedule/helpers";
+import {
+	claimNotification,
+	getMaxDailyDigestSlotAttempts,
+	updateScheduledNotificationRow,
+} from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
 import { toIsoOrThrow } from "../time/format";
-import { deleteStagedNotification, fetchDueStagedNotifications, purgeStaleStaged } from "./db";
+import {
+	deleteStagedNotification,
+	fetchDueStagedNotifications,
+	purgeStaleStaged,
+	rescheduleStagedNotification,
+} from "./db";
 import type { StagedDailyData, StagedNotificationRow } from "./types";
 
 const STALE_MAX_AGE_MINUTES = 5;
@@ -205,17 +216,6 @@ export async function deliverStagedNotifications(options: {
 			);
 			stats.skipped++;
 		}
-
-		// Always delete the staged row after processing (success or failure)
-		try {
-			await deleteStagedNotification(supabase, row.id);
-		} catch (error) {
-			logger.error(
-				"Failed to delete staged notification row after processing",
-				{ action: "staged_deliver", stagedId: row.id, userId: row.user_id },
-				error,
-			);
-		}
 	}
 
 	return { stats, deliveredUserTypes };
@@ -334,9 +334,9 @@ async function deliverStagedDaily(options: {
 			});
 		} else if (claim.status === "claim_error") {
 			stats.emailsFailed++;
+		} else if (claim.status === "retries_exhausted") {
+			stats.skipped++;
 		} else {
-			// Already claimed elsewhere → treat as delivered for fallback-skipping.
-			deliveredUserTypes.add(deliveredKey);
 			stats.skipped++;
 		}
 	}
@@ -405,12 +405,24 @@ async function deliverStagedDaily(options: {
 						{ userId: user.id },
 						error,
 					);
+					await updateScheduledNotificationRow({
+						supabase,
+						userId: user.id,
+						notificationType: "daily",
+						scheduledDate,
+						scheduledMinutes,
+						channel: "sms",
+						status: "failed",
+						error: error instanceof Error ? error.message : String(error),
+						logger,
+					});
 				}
 			} else if (claim.status === "claim_error") {
 				stats.smsFailed++;
+			} else if (claim.status === "retries_exhausted") {
+				stats.skipped++;
 			} else {
-				// Already claimed elsewhere → treat as delivered for fallback-skipping.
-				deliveredUserTypes.add(deliveredKey);
+				// Claim held by another worker or backoff pending — do not suppress fallback.
 				stats.skipped++;
 			}
 		}
@@ -454,26 +466,30 @@ async function deliverStagedDaily(options: {
 		}
 	}
 
-	// Advance next_send_at for daily digest
-	try {
-		await updateUserDailyDigestNextSendAt({
-			user,
-			supabase,
-			logger,
-			currentTime,
-		});
-	} catch (error) {
-		logger.error(
-			"Failed to advance next_send_at for staged daily delivery",
-			{ userId: user.id },
-			error,
-		);
-	}
+	const emailRequired = stagedData.email !== null;
+	const smsRequired = stagedData.sms !== null;
+	const canAdvance = await shouldAdvanceDailyDigestSchedule({
+		supabase,
+		user,
+		scheduledDate,
+		scheduledMinutes,
+		emailRequired,
+		smsRequired,
+	});
 
-	// Advance next_send_at for asset events if applicable
-	if (stagedData.hasAnyAssetEventsOption) {
+	if (canAdvance) {
 		try {
-			await updateUserAssetEventsNextSendAt({
+			await deleteStagedNotification(supabase, row.id);
+		} catch (error) {
+			logger.error(
+				"Failed to delete staged notification row after delivery",
+				{ action: "staged_deliver", stagedId: row.id, userId: row.user_id },
+				error,
+			);
+		}
+
+		try {
+			await updateUserDailyDigestNextSendAt({
 				user,
 				supabase,
 				logger,
@@ -481,15 +497,61 @@ async function deliverStagedDaily(options: {
 			});
 		} catch (error) {
 			logger.error(
-				"Failed to advance asset_events next_send_at for staged daily delivery",
+				"Failed to advance next_send_at for staged daily delivery",
 				{ userId: user.id },
+				error,
+			);
+		}
+
+		if (stagedData.hasAnyAssetEventsOption) {
+			try {
+				await updateUserAssetEventsNextSendAt({
+					user,
+					supabase,
+					logger,
+					currentTime,
+				});
+			} catch (error) {
+				logger.error(
+					"Failed to advance asset_events next_send_at for staged daily delivery",
+					{ userId: user.id },
+					error,
+				);
+			}
+		}
+	} else {
+		const priorAttempts = await getMaxDailyDigestSlotAttempts({
+			supabase,
+			userId: user.id,
+			scheduledDate,
+			scheduledMinutes,
+		});
+		const retryAt = currentTime.plus({
+			milliseconds: computeDeliveryRetryDelayMs(priorAttempts),
+		});
+		const retryAtIso = toIsoOrThrow(retryAt, "Failed to format staged retry time");
+		try {
+			await rescheduleStagedNotification(supabase, {
+				id: row.id,
+				scheduledForIso: retryAtIso,
+			});
+			logger.info("Rescheduled staged daily digest for delivery retry", {
+				action: "staged_deliver",
+				userId: user.id,
+				stagedId: row.id,
+				retryAtIso,
+			});
+		} catch (error) {
+			logger.error(
+				"Failed to reschedule staged notification for retry",
+				{ userId: user.id, stagedId: row.id },
 				error,
 			);
 		}
 	}
 
 	// Update analyst sent month if applicable
-	if (stagedData.shouldUpdateAnalyst && stagedData.analystMonth) {
+	if (canAdvance && stagedData.shouldUpdateAnalyst && stagedData.analystMonth) {
 		const { error: analystError } = await supabase
 			.from("users")
 			.update({

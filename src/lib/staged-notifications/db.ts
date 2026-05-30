@@ -73,6 +73,18 @@ export async function deleteStagedNotification(
 	if (error) throw error;
 }
 
+/** Push back staged delivery for a retry without deleting rendered content. */
+export async function rescheduleStagedNotification(
+	supabase: SupabaseAdminClient,
+	options: { id: string; scheduledForIso: string },
+): Promise<void> {
+	const { error } = await supabase
+		.from("staged_notifications")
+		.update({ scheduled_for: options.scheduledForIso })
+		.eq("id", options.id);
+	if (error) throw error;
+}
+
 /** Purge staged notification rows older than the specified number of minutes. */
 export async function purgeStaleStaged(
 	supabase: SupabaseAdminClient,

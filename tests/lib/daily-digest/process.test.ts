@@ -16,7 +16,7 @@ import type { UserRecord } from "../../../src/lib/messaging/types";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
-import { errorSpy } from "../../setup";
+import { errorSpy, expectConsoleWarning } from "../../setup";
 
 // Mock market calendar to avoid real Massive API calls with test keys.
 vi.mock("../../../src/lib/time/market-calendar", () => ({
@@ -59,6 +59,25 @@ fetchAssetPricesWithSessionStateMock.mockResolvedValue({
 getCurrentMarketSessionMock.mockResolvedValue("regular");
 fetchIntradaySparklinesMock.mockResolvedValue(new Map());
 fetchSparklinesMock.mockResolvedValue(new Map());
+
+const fetchFinnhubExtrasMock = vi.hoisted(() => vi.fn());
+
+vi.mock("../../../src/lib/providers/finnhub", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/providers/finnhub")>(
+		"../../../src/lib/providers/finnhub",
+	);
+	return {
+		...actual,
+		fetchFinnhubExtras: fetchFinnhubExtrasMock,
+	};
+});
+
+fetchFinnhubExtrasMock.mockResolvedValue({
+	news: new Map(),
+	analyst: new Map(),
+	insider: new Map(),
+	analystFetchSucceeded: false,
+});
 
 // Mock Massive top-movers to avoid the live call.
 vi.mock("../../../src/lib/providers/massive", async () => {
@@ -303,5 +322,217 @@ describe("Daily digest process scenarios", () => {
 		// check; relying on the implicit setup.ts afterEach is fragile if the
 		// test ever moves to a runner config that doesn't load setup.ts.
 		expect(errorSpy.mock.calls.length).toBe(errorCallsBefore);
+	});
+
+	it("SMS-only user with news email preference does not fetch Finnhub news extras.", async () => {
+		const now = DateTime.utc();
+		const nowIso = now.toISO();
+		expect(nowIso).toBeTruthy();
+
+		fetchFinnhubExtrasMock.mockClear();
+
+		const { id } = await createTestUser({
+			timezone: "America/New_York",
+			emailNotificationsEnabled: false,
+			smsNotificationsEnabled: true,
+			phoneVerified: true,
+			trackedAssets: ["AAPL"],
+			confirmed: true,
+		});
+		registerTestUserForCleanup(id);
+
+		await adminClient
+			.from("users")
+			.update({
+				daily_digest_time: 9 * 60,
+				daily_digest_include_prices_sms: true,
+				daily_digest_include_news_email: true,
+				daily_digest_next_send_at: nowIso,
+			})
+			.eq("id", id);
+
+		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
+			prices: new Map([["AAPL", { price: 100, changePercent: 1, prevClose: 99 }]]),
+			noSessionTrade: new Set<string>(),
+		});
+
+		const { data: userRow } = await adminClient.from("users").select("*").eq("id", id).single();
+		expect(userRow).not.toBeNull();
+
+		await processDailyDigestUser({
+			user: userRow as UserRecord,
+			supabase: adminClient,
+			logger: rootLogger,
+			currentTime: now,
+			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
+			getSmsSender: () => ({
+				sender: vi.fn<SmsSender>(async () => ({ success: true })),
+			}),
+		});
+
+		expect(fetchFinnhubExtrasMock).not.toHaveBeenCalled();
+	});
+
+	it("Email-enabled user with news preference fetches Finnhub extras for company news.", async () => {
+		expectConsoleWarning(/XAI_API_KEY is not set/);
+		const now = DateTime.utc();
+		const nowIso = now.toISO();
+		expect(nowIso).toBeTruthy();
+
+		fetchFinnhubExtrasMock.mockClear();
+
+		const { id } = await createTestUser({
+			timezone: "America/New_York",
+			emailNotificationsEnabled: true,
+			smsNotificationsEnabled: false,
+			trackedAssets: ["AAPL"],
+			confirmed: true,
+		});
+		registerTestUserForCleanup(id);
+
+		await adminClient
+			.from("users")
+			.update({
+				daily_digest_time: 9 * 60,
+				daily_digest_include_prices_email: true,
+				daily_digest_include_news_email: true,
+				daily_digest_next_send_at: nowIso,
+				grok_sends_in_window: 0,
+			})
+			.eq("id", id);
+
+		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
+			prices: new Map([["AAPL", { price: 100, changePercent: 1, prevClose: 99 }]]),
+			noSessionTrade: new Set<string>(),
+		});
+
+		const { data: userRow } = await adminClient.from("users").select("*").eq("id", id).single();
+		expect(userRow).not.toBeNull();
+
+		await processDailyDigestUser({
+			user: userRow as UserRecord,
+			supabase: adminClient,
+			logger: rootLogger,
+			currentTime: now,
+			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
+			getSmsSender: () => ({
+				sender: vi.fn<SmsSender>(async () => ({ success: true })),
+			}),
+		});
+
+		expect(fetchFinnhubExtrasMock).toHaveBeenCalledWith(
+			["AAPL"],
+			expect.objectContaining({ includeNews: true }),
+		);
+	});
+
+	it("Failed SMS delivery does not advance daily_digest_next_send_at.", async () => {
+		const now = DateTime.utc();
+		const nowIso = now.toISO();
+		expect(nowIso).toBeTruthy();
+
+		const { id } = await createTestUser({
+			timezone: "America/New_York",
+			emailNotificationsEnabled: false,
+			smsNotificationsEnabled: true,
+			phoneVerified: true,
+			trackedAssets: ["AAPL"],
+			confirmed: true,
+		});
+		registerTestUserForCleanup(id);
+
+		await adminClient
+			.from("users")
+			.update({
+				daily_digest_time: 9 * 60,
+				daily_digest_include_prices_sms: true,
+				daily_digest_next_send_at: nowIso,
+			})
+			.eq("id", id);
+
+		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
+			prices: new Map([["AAPL", { price: 100, changePercent: 1, prevClose: 99 }]]),
+			noSessionTrade: new Set<string>(),
+		});
+
+		const { data: userRow } = await adminClient.from("users").select("*").eq("id", id).single();
+		expect(userRow).not.toBeNull();
+
+		const { data: before } = await adminClient
+			.from("users")
+			.select("daily_digest_next_send_at")
+			.eq("id", id)
+			.single();
+
+		await processDailyDigestUser({
+			user: userRow as UserRecord,
+			supabase: adminClient,
+			logger: rootLogger,
+			currentTime: now,
+			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
+			getSmsSender: () => ({
+				sender: vi.fn<SmsSender>(async () => ({
+					success: false,
+					error: "simulated SMS failure",
+				})),
+			}),
+		});
+
+		const { data: after } = await adminClient
+			.from("users")
+			.select("daily_digest_next_send_at")
+			.eq("id", id)
+			.single();
+
+		expect(after?.daily_digest_next_send_at).toBe(before?.daily_digest_next_send_at);
+	});
+
+	it("Grok limit reached skips Finnhub news fetch even when email news is enabled.", async () => {
+		const now = DateTime.utc();
+		const nowIso = now.toISO();
+		expect(nowIso).toBeTruthy();
+
+		fetchFinnhubExtrasMock.mockClear();
+
+		const { id } = await createTestUser({
+			timezone: "America/New_York",
+			emailNotificationsEnabled: true,
+			trackedAssets: ["AAPL"],
+			confirmed: true,
+		});
+		registerTestUserForCleanup(id);
+
+		await adminClient
+			.from("users")
+			.update({
+				daily_digest_time: 9 * 60,
+				daily_digest_include_prices_email: true,
+				daily_digest_include_news_email: true,
+				daily_digest_next_send_at: nowIso,
+				grok_sends_in_window: 999,
+				grok_window_start: nowIso,
+			})
+			.eq("id", id);
+
+		fetchAssetPricesWithSessionStateMock.mockResolvedValueOnce({
+			prices: new Map([["AAPL", { price: 100, changePercent: 1, prevClose: 99 }]]),
+			noSessionTrade: new Set<string>(),
+		});
+
+		const { data: userRow } = await adminClient.from("users").select("*").eq("id", id).single();
+		expect(userRow).not.toBeNull();
+
+		await processDailyDigestUser({
+			user: userRow as UserRecord,
+			supabase: adminClient,
+			logger: rootLogger,
+			currentTime: now,
+			sendEmail: vi.fn<EmailSender>(async () => ({ success: true })),
+			getSmsSender: () => ({
+				sender: vi.fn<SmsSender>(async () => ({ success: true })),
+			}),
+		});
+
+		expect(fetchFinnhubExtrasMock).not.toHaveBeenCalled();
 	});
 });

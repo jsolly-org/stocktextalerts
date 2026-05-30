@@ -4,6 +4,11 @@ import { requireEnv } from "../db/env";
 import { rootLogger } from "../logging";
 import { type CompanyNewsItem, fetchCompanyNews } from "./company-news";
 import {
+	COMPANY_NEWS_USER_BUDGET_MS,
+	isOptionalVendorUnavailable,
+	withOptionalVendorBudget,
+} from "./vendor-fault-tolerance";
+import {
 	VENDOR_FETCH_MAX_RETRIES as MAX_RETRIES,
 	VENDOR_FETCH_REQUEST_TIMEOUT_MS as REQUEST_TIMEOUT_MS,
 	VENDOR_FETCH_RETRY_DELAY_MS as RETRY_DELAY_MS,
@@ -315,17 +320,27 @@ export async function fetchFinnhubExtras(
 	const from = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
 	let analystHttpFailures = 0;
+	let newsBudgetRemainingMs = options.includeNews ? COMPANY_NEWS_USER_BUDGET_MS : 0;
 
 	// Fetch sequentially per symbol with small delays to stay within rate limits
 	for (const symbol of symbols) {
 		const fetches: Promise<void>[] = [];
 
 		if (options.includeNews) {
-			fetches.push(
-				fetchCompanyNews(symbol, from, to).then((data) => {
-					result.news.set(symbol, data);
-				}),
+			if (newsBudgetRemainingMs <= 0 || isOptionalVendorUnavailable("company-news")) {
+				break;
+			}
+			const budgetForSymbol = Math.min(newsBudgetRemainingMs, COMPANY_NEWS_USER_BUDGET_MS);
+			const newsStart = Date.now();
+			const newsResult = await withOptionalVendorBudget("company-news", budgetForSymbol, () =>
+				fetchCompanyNews(symbol, from, to),
 			);
+			newsBudgetRemainingMs -= Date.now() - newsStart;
+			if (newsResult.status === "ok") {
+				result.news.set(symbol, newsResult.value);
+			} else {
+				break;
+			}
 		}
 
 		if (options.includeAnalyst) {
@@ -348,7 +363,9 @@ export async function fetchFinnhubExtras(
 		}
 
 		// Parallel fetches for the same symbol, sequential across symbols
-		await Promise.all(fetches);
+		if (fetches.length > 0) {
+			await Promise.all(fetches);
+		}
 		await realDelay(INTER_REQUEST_DELAY_MS);
 	}
 

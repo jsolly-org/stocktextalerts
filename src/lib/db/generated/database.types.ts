@@ -399,6 +399,7 @@ export type Database = {
           created_at: string
           error: string | null
           last_attempt_at: string | null
+          next_retry_at: string | null
           notification_type: Database["public"]["Enums"]["scheduled_notification_type"]
           scheduled_date: string
           scheduled_minutes: number
@@ -413,6 +414,7 @@ export type Database = {
           created_at?: string
           error?: string | null
           last_attempt_at?: string | null
+          next_retry_at?: string | null
           notification_type: Database["public"]["Enums"]["scheduled_notification_type"]
           scheduled_date: string
           scheduled_minutes: number
@@ -427,6 +429,7 @@ export type Database = {
           created_at?: string
           error?: string | null
           last_attempt_at?: string | null
+          next_retry_at?: string | null
           notification_type?: Database["public"]["Enums"]["scheduled_notification_type"]
           scheduled_date?: string
           scheduled_minutes?: number

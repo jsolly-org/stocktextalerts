@@ -1,6 +1,7 @@
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { createSupabaseAdminClient } from "../lib/db/supabase";
 import { createLogger } from "../lib/logging";
+import { getAndResetOptionalVendorSkipCount } from "../lib/providers/vendor-fault-tolerance";
 import { runScheduledNotifications } from "../lib/schedule/run";
 
 export async function handler(_event: ScheduledEvent, _context: Context): Promise<void> {
@@ -31,9 +32,11 @@ export async function handler(_event: ScheduledEvent, _context: Context): Promis
 			logger.error("Failed to purge expired short URLs", { action: "purge_short_urls" }, error);
 		}
 
+		const optionalVendorSkips = getAndResetOptionalVendorSkipCount();
 		logger.info("Schedule complete", {
 			action: "schedule_complete",
 			...totals,
+			...(optionalVendorSkips > 0 ? { optionalVendorSkips } : {}),
 		});
 	} catch (error) {
 		logger.error("Schedule failed", { action: "schedule_error" }, error);

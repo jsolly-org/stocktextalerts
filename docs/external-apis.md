@@ -20,3 +20,37 @@ Free tier only. Used for:
 - **"Extras" bundle** (analyst recommendations + insider transactions via `fetchFinnhubExtras` in `src/lib/providers/finnhub.ts`).
 
 **Never used for live quotes** — the quote path is Massive-only, falling back to prev-day bars for snapshot misses.
+
+## Vendor fault tolerance
+
+Scheduled notifications treat third-party calls in three tiers. Implementation lives in `src/lib/providers/vendor-fault-tolerance.ts`, `src/lib/providers/vendor-fetch.ts`, and `src/lib/schedule/helpers.ts`.
+
+### Critical (must succeed or retry with backoff)
+
+Failures log `category: "vendor_retry_exhausted"` and feed CloudWatch vendor-retry alarms.
+
+| Vendor | Routes / use |
+| --- | --- |
+| Massive | Market status, snapshot quotes, prev-day bars, daily OHLCV (`compute-daily-stats`) |
+| Finnhub | Earnings calendar (`/calendar/earnings`) in the daily asset-events ingest |
+| SES / Twilio | Outbound email/SMS delivery via `scheduled_notifications` claim + exponential `next_retry_at` |
+
+### Optional (degrade — omit section, do not block send)
+
+Failures log `category: "optional_vendor_degraded"` at warn. In-process circuit opens after repeated failures (15 min). Per-user time budgets cap slow optional work.
+
+| Vendor | Routes / use |
+| --- | --- |
+| Massive | Company news (`/v2/reference/news`), top movers, intraday/daily sparklines, logo fetch |
+| Finnhub | Analyst recommendations, insider transactions at send time |
+| xAI Grok | Daily digest news/rumors, price-alert summaries |
+
+### Gating rules (daily digest)
+
+- Company news and Grok news context run only when **email is enabled**, the user opted into **news email**, and **Grok quota** allows it.
+- SMS-only users never call Massive company-news for digest context.
+- Optional news uses an **8s per-user budget** and a **8s per-request** timeout (not the 25s critical default).
+
+### Delivery retries
+
+`scheduled_notifications.next_retry_at` gates `claim_scheduled_notification`. Backoff after failure: 5m → 15m → 30m → 60m (cap). `daily_digest_next_send_at` advances only after all enabled channels for the slot are **sent** or **retries exhausted**.

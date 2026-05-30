@@ -1,4 +1,11 @@
 import { marketDataFetch } from "./massive";
+import {
+	COMPANY_NEWS_REQUEST_TIMEOUT_MS,
+	isOptionalVendorUnavailable,
+	noteOptionalVendorSkip,
+	recordOptionalVendorFailure,
+	recordOptionalVendorSuccess,
+} from "./vendor-fault-tolerance";
 
 /** Minimal company-news item fields used in digests/sections. */
 export interface CompanyNewsItem {
@@ -24,6 +31,11 @@ export async function fetchCompanyNews(
 	from: string,
 	to: string,
 ): Promise<CompanyNewsItem[]> {
+	if (isOptionalVendorUnavailable("company-news")) {
+		noteOptionalVendorSkip();
+		return [];
+	}
+
 	const data = await marketDataFetch(
 		"/v2/reference/news",
 		{
@@ -35,8 +47,19 @@ export async function fetchCompanyNews(
 			order: "desc",
 		},
 		"company-news",
+		{ symbol },
+		{
+			maxRetries: 1,
+			requestTimeoutMs: COMPANY_NEWS_REQUEST_TIMEOUT_MS,
+			optional: true,
+		},
 	);
-	if (typeof data !== "object" || data === null) return [];
+	if (typeof data !== "object" || data === null) {
+		recordOptionalVendorFailure("company-news");
+		return [];
+	}
+
+	recordOptionalVendorSuccess("company-news");
 
 	const results = (data as Record<string, unknown>).results;
 	if (!Array.isArray(results)) return [];

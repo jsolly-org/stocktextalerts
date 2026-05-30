@@ -25,6 +25,7 @@ import {
 	getCurrentMarketSession,
 	type MarketSession,
 } from "../providers/price-fetcher";
+import { withOptionalVendorBudget } from "../providers/vendor-fault-tolerance";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { loadUserAssets } from "../schedule/helpers";
 import type { SmsSenderProvider } from "../schedule/sms-sender";
@@ -39,6 +40,13 @@ import {
 	processDailyDigestSmsDelivery,
 } from "./delivery";
 import { updateUserDailyDigestNextSendAt } from "./next-send-at";
+import {
+	deferDailyDigestProcessingRetry,
+	getMaxDailyDigestSlotAttempts,
+	MAX_NOTIFICATION_RETRIES,
+	recordDailyDigestProcessingFailure,
+	shouldAdvanceDailyDigestSchedule,
+} from "./schedule-state";
 
 const GROK_WINDOW_HOURS = 24;
 const GROK_MAX_SENDS_PER_WINDOW = 10;
@@ -54,12 +62,17 @@ function formatMoverLine(mover: TopMover): string {
  * or all tickers filtered out) — callers skip the section in that case.
  */
 async function buildTopMoversSection(): Promise<string | null> {
-	// `fetchTopMovers` never throws — `marketDataFetch` catches transport errors
-	// and returns `null`, which `fetchTopMovers` maps to `[]`. No try/catch needed.
-	const [gainers, losers] = await Promise.all([
-		fetchTopMovers("gainers"),
-		fetchTopMovers("losers"),
-	]);
+	const moversResult = await withOptionalVendorBudget("top-movers", 10_000, async () => {
+		const [gainers, losers] = await Promise.all([
+			fetchTopMovers("gainers", { optional: true }),
+			fetchTopMovers("losers", { optional: true }),
+		]);
+		return { gainers, losers };
+	});
+	if (moversResult.status !== "ok") {
+		return null;
+	}
+	const { gainers, losers } = moversResult.value;
 	const lines: string[] = [];
 	if (gainers.length > 0) {
 		lines.push("Gainers:");
@@ -296,8 +309,12 @@ export async function processDailyDigestUser(options: {
 		});
 		const tickers = userAssets.map((s) => s.symbol);
 
+		const emailEnabled = user.email_notifications_enabled;
+		const smsEnabled = shouldSendSms(user);
+
 		const needsGrok =
-			user.daily_digest_include_news_email || user.daily_digest_include_rumors_email;
+			emailEnabled &&
+			(user.daily_digest_include_news_email || user.daily_digest_include_rumors_email);
 		const { grokAllowed } = resolveGrokEligibility(
 			user,
 			needsGrok,
@@ -306,9 +323,6 @@ export async function processDailyDigestUser(options: {
 			scheduledDate,
 			scheduledMinutes,
 		);
-
-		const emailEnabled = user.email_notifications_enabled;
-		const smsEnabled = shouldSendSms(user);
 
 		const wantsTopMoversEmail = user.daily_digest_include_top_movers_email && emailEnabled;
 		const wantsTopMoversSms = user.daily_digest_include_top_movers_sms && smsEnabled;
@@ -462,7 +476,9 @@ export async function processDailyDigestUser(options: {
 		Fetch Finnhub/Massive news for Grok (email-only; skip when not opted in)
 		============= */
 		let newsContext: string | undefined;
-		if (user.daily_digest_include_news_email && tickers.length > 0) {
+		const wantsNewsContext =
+			emailEnabled && grokAllowed && user.daily_digest_include_news_email && tickers.length > 0;
+		if (wantsNewsContext) {
 			const finnhubNews = await fetchFinnhubExtras(tickers, {
 				includeNews: true,
 				includeAnalyst: false,
@@ -744,25 +760,47 @@ export async function processDailyDigestUser(options: {
 		await updateGrokSendCounter(user, supabase, grokAllowed, stats, currentTime, logger);
 
 		/* =============
-		Advance next-send-at for daily + asset events
+		Advance next-send-at for daily + asset events (only when delivery is terminal)
 		============= */
-		await updateUserDailyDigestNextSendAt({
-			user,
+		const emailRequired = hasEmailContent && emailEnabled;
+		const smsRequired = hasSmsContent && smsEnabled;
+		const canAdvance = await shouldAdvanceDailyDigestSchedule({
 			supabase,
-			logger,
-			currentTime,
+			user,
+			scheduledDate,
+			scheduledMinutes,
+			emailRequired,
+			smsRequired,
 		});
 
-		if (hasAnyAssetEventsOption) {
-			await updateUserAssetEventsNextSendAt({
+		if (canAdvance) {
+			await updateUserDailyDigestNextSendAt({
 				user,
 				supabase,
 				logger,
 				currentTime,
 			});
+
+			if (hasAnyAssetEventsOption) {
+				await updateUserAssetEventsNextSendAt({
+					user,
+					supabase,
+					logger,
+					currentTime,
+				});
+			}
+		} else {
+			logger.info("Deferring daily digest schedule advance pending delivery retries", {
+				action: "daily_run",
+				userId: user.id,
+				scheduledDate,
+				scheduledMinutes,
+				emailRequired,
+				smsRequired,
+			});
 		}
 
-		if (shouldUpdateAnalystMonth) {
+		if (shouldUpdateAnalystMonth && canAdvance) {
 			const currentMonth = dueAtLocal.toFormat("yyyy-MM");
 			const { error: analystError } = await supabase
 				.from("users")
@@ -781,23 +819,44 @@ export async function processDailyDigestUser(options: {
 	} catch (error) {
 		stats.skipped++;
 		logger.error("Error processing daily digest user", { userId: user.id }, error);
-		/* =============
-		Best-effort reschedule to avoid retry storms on persistent failures.
-		============= */
-		if (!stageOnly) {
-			try {
-				await updateUserDailyDigestNextSendAt({
-					user,
+		const scheduleCtxOnError = parseDailyScheduleContext(user, currentTime, logger);
+		if (!stageOnly && scheduleCtxOnError) {
+			await recordDailyDigestProcessingFailure({
+				supabase,
+				userId: user.id,
+				scheduledDate: scheduleCtxOnError.scheduledDate,
+				scheduledMinutes: scheduleCtxOnError.scheduledMinutes,
+				logger,
+			});
+			const priorAttempts = await getMaxDailyDigestSlotAttempts({
+				supabase,
+				userId: user.id,
+				scheduledDate: scheduleCtxOnError.scheduledDate,
+				scheduledMinutes: scheduleCtxOnError.scheduledMinutes,
+			});
+			if (priorAttempts >= MAX_NOTIFICATION_RETRIES) {
+				try {
+					await updateUserDailyDigestNextSendAt({
+						user,
+						supabase,
+						logger,
+						currentTime,
+					});
+				} catch (updateError) {
+					logger.error(
+						"Failed to update daily_digest_next_send_at after daily digest error",
+						{ userId: user.id },
+						updateError,
+					);
+				}
+			} else {
+				await deferDailyDigestProcessingRetry({
 					supabase,
+					user,
 					logger,
 					currentTime,
+					deferralCount: priorAttempts,
 				});
-			} catch (updateError) {
-				logger.error(
-					"Failed to update daily_digest_next_send_at after daily digest error",
-					{ userId: user.id },
-					updateError,
-				);
 			}
 		}
 		return stats;

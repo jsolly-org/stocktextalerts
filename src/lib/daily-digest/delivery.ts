@@ -399,7 +399,7 @@ export async function processDailyDigestEmailDelivery(options: {
 		stats.emailsFailed++;
 		return;
 	}
-	if (claim.status === "retries_exhausted") {
+	if (claim.status === "retries_exhausted" || claim.status === "not_ready") {
 		stats.skipped++;
 		return;
 	}
@@ -507,7 +507,7 @@ export async function processDailyDigestSmsDelivery(options: {
 		stats.smsFailed++;
 		return;
 	}
-	if (claim.status === "retries_exhausted") {
+	if (claim.status === "retries_exhausted" || claim.status === "not_ready") {
 		stats.skipped++;
 		return;
 	}

@@ -1,12 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CompanyNewsItem } from "../../src/lib/providers/company-news";
 import {
 	buildNewsContextForGrok,
+	fetchFinnhubExtras,
 	formatAnalystSection,
 	formatInsiderSection,
 	type InsiderTransaction,
 	type RecommendationTrend,
 } from "../../src/lib/providers/finnhub";
+import {
+	isOptionalVendorUnavailable,
+	recordOptionalVendorFailure,
+	resetOptionalVendorCircuitsForTests,
+} from "../../src/lib/providers/vendor-fault-tolerance";
 
 describe("buildNewsContextForGrok formats Finnhub headlines into a Grok context string.", () => {
 	it("Builds context lines from multiple tickers with headlines.", () => {
@@ -214,5 +220,30 @@ describe("formatInsiderSection formats insider transactions per ticker.", () => 
 		const result = formatInsiderSection(data, "sms");
 
 		expect(result).toBeNull();
+	});
+});
+
+describe("fetchFinnhubExtras company-news degradation", () => {
+	afterEach(() => {
+		resetOptionalVendorCircuitsForTests();
+		vi.restoreAllMocks();
+	});
+
+	it("stops fetching news when company-news circuit is open", async () => {
+		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+		recordOptionalVendorFailure("company-news");
+		recordOptionalVendorFailure("company-news");
+		expect(isOptionalVendorUnavailable("company-news")).toBe(true);
+
+		const result = await fetchFinnhubExtras(["AAPL", "MSFT"], {
+			includeNews: true,
+			includeAnalyst: false,
+			includeInsider: false,
+		});
+
+		expect(result.news.size).toBe(0);
+		expect(fetchSpy).not.toHaveBeenCalled();
 	});
 });

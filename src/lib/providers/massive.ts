@@ -4,9 +4,10 @@ import { requireEnv } from "../db/env";
 import { rootLogger } from "../logging";
 import { finnhubFetch } from "./finnhub";
 import type { MarketSession } from "./price-fetcher";
+import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "./vendor-fault-tolerance";
 import {
-	VENDOR_FETCH_MAX_RETRIES as MAX_RETRIES,
-	VENDOR_FETCH_REQUEST_TIMEOUT_MS as REQUEST_TIMEOUT_MS,
+	VENDOR_FETCH_MAX_RETRIES as DEFAULT_MAX_RETRIES,
+	VENDOR_FETCH_REQUEST_TIMEOUT_MS as DEFAULT_REQUEST_TIMEOUT_MS,
 	VENDOR_FETCH_RETRY_DELAY_MS as RETRY_DELAY_MS,
 } from "./vendor-fetch";
 
@@ -85,6 +86,14 @@ function parseRetryAfterMs(headerValue: string | null): number | null {
 	return null;
 }
 
+/** Policy override for optional Massive routes (news, top movers, etc.). */
+type MarketDataFetchPolicy = {
+	maxRetries?: number;
+	requestTimeoutMs?: number;
+	/** When true, exhausted retries log as optional degradation (warn), not vendor_retry_exhausted. */
+	optional?: boolean;
+};
+
 /**
  * Low-level Massive fetch wrapper with retries, rate-limit handling, and timeouts.
  *
@@ -95,7 +104,13 @@ export async function marketDataFetch(
 	params: Record<string, string>,
 	label: string,
 	logContext?: Record<string, unknown>,
+	policy?: MarketDataFetchPolicy,
 ): Promise<unknown> {
+	const maxRetries = policy?.maxRetries ?? DEFAULT_MAX_RETRIES;
+	const requestTimeoutMs = policy?.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+	const optional = policy?.optional === true;
+	const failureCategory = optional ? OPTIONAL_VENDOR_DEGRADED_CATEGORY : "vendor_retry_exhausted";
+
 	const apiKey = getMassiveApiKey();
 
 	const query = new URLSearchParams({ ...params, apiKey });
@@ -109,12 +124,12 @@ export async function marketDataFetch(
 	// alarms instead, with cadence-appropriate thresholds (sustained for the
 	// per-minute Schedule, single-occurrence for daily Lambdas). See
 	// aws/template.yaml for the alarm split.
-	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-		const isLastAttempt = attempt === MAX_RETRIES;
+	for (let attempt = 1; attempt <= maxRetries; attempt++) {
+		const isLastAttempt = attempt === maxRetries;
 
 		try {
 			const response = await fetch(url, {
-				signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+				signal: AbortSignal.timeout(requestTimeoutMs),
 			});
 
 			if (response.status === 429) {
@@ -151,9 +166,12 @@ export async function marketDataFetch(
 					...logContext,
 				};
 				if (isLastAttempt) {
-					rootLogger.error(`Massive ${label} exhausted retries`, {
+					const logFn = optional
+						? rootLogger.warn.bind(rootLogger)
+						: rootLogger.error.bind(rootLogger);
+					logFn(`Massive ${label} exhausted retries`, {
 						...apiErrorContext,
-						category: "vendor_retry_exhausted",
+						category: failureCategory,
 					});
 					return null;
 				}
@@ -171,11 +189,18 @@ export async function marketDataFetch(
 				...logContext,
 			};
 			if (isLastAttempt) {
-				rootLogger.error(
-					`Massive ${label} exhausted retries`,
-					{ ...requestErrorContext, category: "vendor_retry_exhausted" },
-					error instanceof Error ? error : new Error(String(error)),
-				);
+				if (optional) {
+					rootLogger.warn(`Massive ${label} exhausted retries`, {
+						...requestErrorContext,
+						category: failureCategory,
+					});
+				} else {
+					rootLogger.error(
+						`Massive ${label} exhausted retries`,
+						{ ...requestErrorContext, category: failureCategory },
+						error instanceof Error ? error : new Error(String(error)),
+					);
+				}
 				return null;
 			}
 			rootLogger.warn(`Massive ${label} request failed`, requestErrorContext);
@@ -794,15 +819,20 @@ export interface TopMover {
  */
 export async function fetchTopMovers(
 	direction: "gainers" | "losers",
-	options?: { limit?: number; minPrice?: number },
+	options?: { limit?: number; minPrice?: number; optional?: boolean },
 ): Promise<TopMover[]> {
 	const limit = options?.limit ?? 5;
 	const minPrice = options?.minPrice ?? 5;
+	const policy = options?.optional
+		? { optional: true, maxRetries: 1, requestTimeoutMs: 10_000 }
+		: undefined;
 
 	const data = await marketDataFetch(
 		`/v2/snapshot/locale/us/markets/stocks/${direction}`,
 		{},
 		`top-${direction}`,
+		undefined,
+		policy,
 	);
 	if (typeof data !== "object" || data === null) return [];
 

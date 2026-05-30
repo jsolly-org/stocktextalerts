@@ -7,10 +7,20 @@
  */
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
+import { computeDeliveryRetryDelayMs } from "../../../src/lib/providers/vendor-fault-tolerance";
 import { batchLoadUserAssets } from "../../../src/lib/schedule/helpers";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
+
+describe("computeDeliveryRetryDelayMs", () => {
+	it("returns exponential backoff steps capped at 60 minutes", () => {
+		expect(computeDeliveryRetryDelayMs(1)).toBe(5 * 60 * 1000);
+		expect(computeDeliveryRetryDelayMs(2)).toBe(15 * 60 * 1000);
+		expect(computeDeliveryRetryDelayMs(3)).toBe(30 * 60 * 1000);
+		expect(computeDeliveryRetryDelayMs(4)).toBe(60 * 60 * 1000);
+	});
+});
 
 describe("batchLoadUserAssets delisted-asset filter", () => {
 	const createdSymbols: string[] = [];
