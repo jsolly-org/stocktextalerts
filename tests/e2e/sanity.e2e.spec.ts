@@ -251,6 +251,18 @@ function escapeRegExp(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+const NOTIFICATION_PREFERENCES_UPDATE_URL = "/api/notification-preferences/update";
+
+async function waitForAutosave(page: Page, action: () => Promise<void>): Promise<void> {
+	const responsePromise = page.waitForResponse(
+		(response) =>
+			response.url().includes(NOTIFICATION_PREFERENCES_UPDATE_URL) && response.status() === 200,
+		{ timeout: 15_000 },
+	);
+	await action();
+	await responsePromise;
+}
+
 async function signIn(page: Page, email: string, password: string) {
 	await page.goto("/auth/signin");
 	const emailInput = page.locator("#email");
@@ -698,32 +710,45 @@ test.describe("sanity tests", () => {
 	});
 
 	test("TC-EMAIL-001: User can enable email notifications via dashboard", async () => {
+		test.setTimeout(60_000);
+
 		if (!testUserId) {
 			throw new Error("testUserId not set before TC-EMAIL-001");
 		}
 
 		await page.goto("/dashboard");
+		await page
+			.locator('form[aria-label="Notification preferences"][data-hydrated]')
+			.waitFor({ timeout: 15_000 });
+
 		const emailSwitch = page.getByRole("switch", {
 			name: "Email notifications",
 		});
 		if ((await emailSwitch.getAttribute("aria-checked")) !== "true") {
-			await emailSwitch.click();
+			await waitForAutosave(page, async () => {
+				await emailSwitch.click();
+			});
+			await waitForEmailNotificationsEnabled(testUserId, true);
 		}
 
 		const marketNotificationsForm = page.locator('form[aria-label="Market notifications"]');
-		const scheduledEmailCheckbox = marketNotificationsForm
-			.getByRole("checkbox", { name: "Email" })
-			.nth(1);
+		const scheduledEmailCheckbox = marketNotificationsForm.getByRole("checkbox", {
+			name: "Enable email for scheduled price notifications",
+		});
 		if (!(await scheduledEmailCheckbox.isChecked())) {
-			await scheduledEmailCheckbox.click();
+			await waitForAutosave(page, async () => {
+				await scheduledEmailCheckbox.click();
+			});
 		}
 
 		const marketOpenButton = marketNotificationsForm.getByRole("button", {
 			name: /Set delivery time to after US market open/i,
 		});
-		if ((await marketOpenButton.isVisible()) && (await marketOpenButton.isEnabled())) {
+		await expect(marketOpenButton).toBeVisible({ timeout: 15_000 });
+		await expect(marketOpenButton).toBeEnabled();
+		await waitForAutosave(page, async () => {
 			await marketOpenButton.click();
-		}
+		});
 
 		await expect
 			.poll(
