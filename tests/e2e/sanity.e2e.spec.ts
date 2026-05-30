@@ -685,10 +685,13 @@ test.describe("sanity tests", () => {
 			assertNoDbError(nvdaErr, "Failed to set NVDA icon_url");
 
 			const input = page.locator("#asset_search");
+			await page.locator("[data-hydrated]").waitFor({ timeout: 15_000 });
 			await input.fill("NVDA");
 
 			const dropdown = page.locator("#asset_dropdown");
-			const nvdaOption = dropdown.getByRole("option").filter({ hasText: "NVDA - NVIDIA" });
+			const nvdaOption = dropdown
+				.getByRole("option")
+				.filter({ hasText: new RegExp(`${escapeRegExp("NVDA")}\\s+-`) });
 			await expect(nvdaOption).toBeVisible({ timeout: 30_000 });
 			// Logo proxy may fail in CI (dummy API key), so accept logo or "Stock" fallback.
 			await expect(
