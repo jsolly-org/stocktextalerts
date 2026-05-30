@@ -42,8 +42,8 @@ Cloud agents: see `docs/cloud-agents.md` (fleet layout, subtree updates). Supaba
 
 ## Cursor Cloud specific instructions
 
-- **First boot:** `.cursor/environment.json` runs `bash scripts/cloud-agent-install.sh` (Node 24 via nvm, `npm ci`, Docker/Supabase, Playwright Chromium, `.env.local`, `db:reset`, `db:doctor`). See `docs/cloud-supabase-bootstrap.md` for Docker/iptables gotchas.
-- **Node on PATH:** Cloud VMs ship Node 22 on PATH; install adds an `~/.bashrc` marker so interactive shells prefer Node 24 from nvm. Non-interactive commands should `source ~/.nvm/nvm.sh && nvm use 24` (or rely on a new shell after install).
+- **First boot:** `.cursor/environment.json` runs `bash scripts/cloud-agent-install.sh` (Node 24 via nvm, `npm ci`, Docker/Supabase, Playwright via `install_playwright_browsers_for_e2e`, `.env.local`, `db:reset`, `db:doctor`). See `docs/cloud-supabase-bootstrap.md` for Docker/iptables gotchas. Node PATH / Playwright troubleshooting: `.agents/docs/cloud-agents.md`.
+- **Node on PATH:** Cloud VMs ship Node 22 on PATH; install adds an `~/.bashrc` marker so interactive shells prefer Node 24 from nvm. Non-interactive commands should `source ~/.nvm/nvm.sh && nvm use 24` (or rely on a new shell after install). Fleet doc: `.agents/docs/cloud-agents.md` → **Node on PATH**.
 - **Docker socket:** If `docker info` fails with permission denied after install, run `sudo chmod 666 /var/run/docker.sock` once, then `npm run db:start` if Supabase containers are down.
 - **Services for dev/test:** Local Supabase (Postgres + Auth + Mailpit at <http://127.0.0.1:54324>) must be running before `npm test` / `npm run dev` ( `predev` / `pretest` call `db:doctor`). Start or repair with `npm run db:bootstrap`. Astro dev server: `npm run dev` → <http://localhost:4321> (`.cursor/environment.json` may auto-start a `dev` terminal).
 - **E2E:** Playwright uses port **4322** (`MODE=test npm run dev -- --port 4322`); cloud install sets `VERCEL_URL=http://localhost:4322` in `.env.local` for that path. Ordinary browsing uses 4321.

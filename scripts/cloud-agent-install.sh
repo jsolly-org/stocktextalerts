@@ -25,7 +25,7 @@ if [[ ! -x "$SUPABASE_BIN" ]]; then
 fi
 export PATH="$REPO_ROOT/node_modules/.bin:${PATH}"
 
-npx playwright install chromium --with-deps
+install_playwright_browsers_for_e2e
 
 supabase_start_for_cloud "$SUPABASE_BIN"
 
