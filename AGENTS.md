@@ -38,7 +38,7 @@ Run vitest via `npm test` so the npm script loads `.env.local` via `--env-file-i
 
 ## Cursor Cloud
 
-Cloud agents: see `docs/cloud-agents.md` (fleet layout, subtree updates). Supabase/Docker bootstrap on cloud VMs: `docs/cloud-supabase-bootstrap.md`.
+Cloud agents: see `.agents/docs/cloud-agents.md` (fleet layout, subtree updates). Supabase/Docker bootstrap on cloud VMs: `docs/cloud-supabase-bootstrap.md`.
 
 ## Cursor Cloud specific instructions
 
