@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cursor Cloud environment bootstrap — see docs/cloud-agents.md and .cursor/environment.json.
+# Cursor Cloud environment bootstrap — see .agents/docs/cloud-agents.md and .cursor/environment.json.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"

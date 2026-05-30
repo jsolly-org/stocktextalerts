@@ -21,4 +21,4 @@ After fleet helpers (`npm ci`, YAML/Actionlint, SAM), the app script:
 
 If `supabase start` fails at **Initialising schema** with a Realtime `DBConnection.ConnectionError`, the VM likely started `dockerd` before **iptables-legacy** was set. Re-run the environment install (`bash scripts/cloud-agent-install.sh`) so `install_docker_for_supabase` forces a daemon restart after networking changes.
 
-Fleet layout and subtree sync: [`docs/cloud-agents.md`](cloud-agents.md).
+Fleet layout and subtree sync: [`.agents/docs/cloud-agents.md`](../.agents/docs/cloud-agents.md).

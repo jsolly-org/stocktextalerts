@@ -155,7 +155,7 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - **Vercel (SSR + webhooks):** `TWILIO_*`, `UNSUBSCRIBE_TOKEN_SECRET` (must match Lambda — signs email unsubscribe links), and `MASSIVE_API_KEY` (asset logo proxy). Outbound notification email/SMS is sent by **AWS Lambda**, not Vercel — do not add `AWS_*`, `EMAIL_FROM`, `FINNHUB_API_KEY`, or `XAI_API_KEY` to Vercel.
 - **AWS Lambda (SAM deploy from `.env.local` via `aws/sam-params.sh`):** Supabase prod keys, Twilio, `UNSUBSCRIBE_TOKEN_SECRET`, Massive, Finnhub, optional `XAI_API_KEY`. `EmailFrom` is **not** passed on the CLI — the template defaults to SSM `/stocktextalerts/email-from`. SES auth is the Lambda execution role, not static `AWS_*` keys.
 - **Local-only values:** `DATABASE_URL` and `DEFAULT_PASSWORD` are for local Supabase + seed generation and should not be added to Vercel.
-- **Account-level (local shell, not repo secrets):** `CURSOR_API_KEY` — Cursor User API Key for SDK/CLI; set in `~/.zshrc`. See [docs/cloud-agents.md](docs/cloud-agents.md#secrets-and-tokens).
+- **Account-level (local shell, not repo secrets):** `CURSOR_API_KEY` — Cursor User API Key for SDK/CLI; set in `~/.zshrc`. See [.agents/docs/cloud-agents.md](.agents/docs/cloud-agents.md#secrets-summary).
 - **GitHub Actions repository secrets:** `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `POSTGRES_PASSWORD`, `GH_AGENT_TOKEN`, and `FLEET_SYNC_TOKEN` (read-only dotagents access for weekly fleet sync). Live provider test failures notify via **alert-hub** (SES email); `GitHubActionsDeploymentRole` needs `sns:Publish` on the shared topic (see [docs/deploy-gotchas.md](docs/deploy-gotchas.md)).
 - **GitHub Actions repository variables:** `PRODUCTION_SITE_URL`.
 
@@ -357,7 +357,7 @@ SES notification sending runs on Lambda (`EMAIL_FROM` from SSM `/stocktextalerts
 
 These are repository-level GitHub settings used by workflows and should not go in `.env.local`:
 
-- **Account-level (local shell):** `CURSOR_API_KEY` — see [docs/cloud-agents.md](docs/cloud-agents.md#secrets-and-tokens)
+- **Account-level (local shell):** `CURSOR_API_KEY` — see [.agents/docs/cloud-agents.md](.agents/docs/cloud-agents.md#secrets-summary)
 - **Secrets:** `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `POSTGRES_PASSWORD`, `GH_AGENT_TOKEN`, `FLEET_SYNC_TOKEN`
 - **Variables:** `PRODUCTION_SITE_URL`
 
