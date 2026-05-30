@@ -85,8 +85,6 @@ jobs:
     runs-on: ubuntu-24.04-arm
     needs: deploy
     if: ${{ github.actor != 'nektos/act' }}
-    env:
-      STACK_NAME: stocktextalerts-crons
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
@@ -122,22 +120,6 @@ jobs:
           role-to-assume: arn:aws:iam::730335616323:role/GitHubActionsDeploymentRole
           aws-region: us-east-1
 
-      - name: Get Lambda function names from CloudFormation
-        id: functions
-        run: |
-          get_physical_id() {
-            aws cloudformation describe-stack-resource \
-              --stack-name "$STACK_NAME" \
-              --logical-resource-id "$1" \
-              --query 'StackResourceDetail.PhysicalResourceId' \
-              --output text
-          }
-          {
-            echo "schedule=$(get_physical_id ScheduleFunction)"
-            echo "asset_events=$(get_physical_id AssetEventsFunction)"
-            echo "daily_stats=$(get_physical_id ComputeDailyStatsFunction)"
-          } >> "$GITHUB_OUTPUT"
-
       - name: Zip Lambda bundles
         working-directory: aws/.aws-sam/build
         run: |
@@ -148,23 +130,23 @@ jobs:
       - name: Deploy ScheduleFunction
         run: |
           aws lambda update-function-code \
-            --function-name "${{ steps.functions.outputs.schedule }}" \
+            --function-name "stocktextalerts-schedule" \
             --zip-file fileb://aws/.aws-sam/schedule.zip
           aws lambda wait function-updated-v2 \
-            --function-name "${{ steps.functions.outputs.schedule }}"
+            --function-name "stocktextalerts-schedule"
 
       - name: Deploy AssetEventsFunction
         run: |
           aws lambda update-function-code \
-            --function-name "${{ steps.functions.outputs.asset_events }}" \
+            --function-name "stocktextalerts-asset-events" \
             --zip-file fileb://aws/.aws-sam/asset-events.zip
           aws lambda wait function-updated-v2 \
-            --function-name "${{ steps.functions.outputs.asset_events }}"
+            --function-name "stocktextalerts-asset-events"
 
       - name: Deploy ComputeDailyStatsFunction
         run: |
           aws lambda update-function-code \
-            --function-name "${{ steps.functions.outputs.daily_stats }}" \
+            --function-name "stocktextalerts-compute-daily-stats" \
             --zip-file fileb://aws/.aws-sam/compute-daily-stats.zip
           aws lambda wait function-updated-v2 \
-            --function-name "${{ steps.functions.outputs.daily_stats }}"
+            --function-name "stocktextalerts-compute-daily-stats"
