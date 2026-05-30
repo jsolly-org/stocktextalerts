@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cursor Cloud environment bootstrap — see docs/cloud-agents.md and .cursor/environment.json.
+# Cursor Cloud environment bootstrap — see .agents/docs/cloud-agents.md and .cursor/environment.json.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -25,7 +25,7 @@ if [[ ! -x "$SUPABASE_BIN" ]]; then
 fi
 export PATH="$REPO_ROOT/node_modules/.bin:${PATH}"
 
-npx playwright install chromium --with-deps
+install_playwright_browsers_for_e2e
 
 supabase_start_for_cloud "$SUPABASE_BIN"
 
