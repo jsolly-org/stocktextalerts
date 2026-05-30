@@ -106,6 +106,10 @@ runs:
     - name: Install dependencies
       shell: bash
       run: npm ci
+    - name: Guard Biome rules contract
+      if: inputs.skip-lint != 'true'
+      shell: bash
+      run: bash .agents/scripts/check-biome-rules.sh biome.jsonc
     - name: Install YAML linters
       if: inputs.skip-lint != 'true'
       shell: bash

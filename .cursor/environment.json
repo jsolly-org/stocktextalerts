@@ -1,5 +1,5 @@
 {
-  "install": "npm ci || npm install && (test -f .env || cp .env.example .env 2>/dev/null || true)",
+  "install": "bash scripts/cloud-agent-install.sh",
   "terminals": [
     {
       "name": "dev",
