@@ -7,6 +7,8 @@ cd "$REPO_ROOT"
 
 # shellcheck source=/dev/null
 source "$REPO_ROOT/.agents/scripts/cloud-install-lib.sh"
+# shellcheck source=/dev/null
+source "$REPO_ROOT/scripts/cloud-install-supabase.sh"
 
 use_node_for_cursor_cloud
 npm ci
