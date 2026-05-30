@@ -81,7 +81,17 @@ If `dotagents` remote is missing, `update-agents-subtree.sh` adds it.
 
 ## Environment
 
-See `.cursor/environment.json`. New repos ship with `"agentCanUpdateSnapshot": true` so Cursor may let the agent refresh the pinned snapshot when the platform supports it (see [environment schema](https://www.cursor.com/schemas/environment.schema.json)).
+See `.cursor/environment.json`. The `install` command runs `scripts/cloud-agent-install.sh`, which:
+
+1. Installs Node 24 (nvm), runs `npm ci`, YAML/Actionlint tooling, and SAM CLI.
+2. Installs **Docker** (`docker.io`) and **jq** when missing — Supabase local dev requires both.
+3. Configures the engine for Cursor Cloud VMs: **iptables-legacy** (bridge networking between containers), **vfs** storage driver when `/etc/docker/daemon.json` is absent (overlay2 often fails here), starts `dockerd` if systemd did not.
+4. Runs `supabase start` with the same `-x …` excludes as CI (no studio/realtime sidecars in the long-running stack).
+5. Writes `.env.local` from `supabase status`, then `npm run db:reset` and `npm run db:doctor` so `npm test` works on first agent turn.
+
+If `supabase start` fails at **Initialising schema** with a Realtime `DBConnection.ConnectionError`, the VM likely needs a fresh install boot (iptables-legacy must be set before `dockerd` starts). Re-run the environment install or pin a new snapshot after a green `bash scripts/cloud-agent-install.sh`.
+
+New repos ship with `"agentCanUpdateSnapshot": true` so Cursor may let the agent refresh the pinned snapshot when the platform supports it (see [environment schema](https://www.cursor.com/schemas/environment.schema.json)).
 
 **Project-local paths (never overwritten by fleet subtree pull):** extra files under `.agents/hooks/` (e.g. deploy checks) and `.agents/automations/` — commit these in the child repo only. Fleet ships `block-git-no-verify.sh` and `merge-cursor-git-guard.sh` via subtree.
 

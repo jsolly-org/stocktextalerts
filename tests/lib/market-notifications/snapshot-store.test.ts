@@ -37,7 +37,7 @@ describe("snapshot-store purge", () => {
 			const now = new Date();
 			const recentCapturedAt = now.toISOString();
 			const staleCapturedAt = new Date(
-				now.getTime() - (RETENTION_MINUTES + 10) * 60 * 1000,
+				now.getTime() - (RETENTION_MINUTES * 2 + 60) * 60 * 1000,
 			).toISOString();
 
 			const { data: insertedRows, error: insertError } = await adminClient
@@ -77,13 +77,15 @@ describe("snapshot-store purge", () => {
 			expect(staleRow).toBeDefined();
 
 			const purged = await purgeOldAssetSnapshots(adminClient);
-			expect(purged).toBeGreaterThanOrEqual(0);
+			expect(purged).toBeGreaterThanOrEqual(1);
 
-			// Recent snapshot should remain
+			const insertedIds = (insertedRows ?? []).map((row) => row.id);
+
+			// Scope to rows this test inserted (shared DB can retain other rows for the symbol).
 			const { data: remaining, error: selectError } = await adminClient
 				.from("asset_snapshots")
 				.select("id,symbol,captured_at")
-				.eq("symbol", asset.symbol);
+				.in("id", insertedIds);
 
 			expect(selectError).toBeNull();
 			expect(remaining).toHaveLength(1);

@@ -227,16 +227,15 @@ describe("A signed-in user requests an SMS verification code.", () => {
 		});
 
 		try {
-			// Stay far outside the cooldown window to avoid boundary flakiness between
-			// test runtime timing and DB timing.
-			const oldTimestamp = new Date(Date.now() - VERIFICATION_RESEND_COOLDOWN_MS * 3).toISOString();
-
-			await adminClient
-				.from("users")
-				.update({ verification_sent_at: oldTimestamp })
-				.eq("id", testUser.id);
-
 			const cookies = await createAuthenticatedCookies(testUser.email, "TestPassword123!");
+
+			// NULL satisfies reserve_sms_verification's "never sent" path — avoids JS/DB clock
+			// boundary flakiness when subtracting cooldown offsets from Date.now().
+			const { error: clearSentAtError } = await adminClient
+				.from("users")
+				.update({ verification_sent_at: null })
+				.eq("id", testUser.id);
+			expect(clearSentAtError).toBeNull();
 
 			sendVerificationMock.mockResolvedValue({ success: true });
 
