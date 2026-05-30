@@ -1,6 +1,6 @@
 # Cursor Cloud Agents — stocktextalerts
 
-This repo is configured for **cloud-only development**: agents, skills, and rules are self-contained in git (no `~/.agents/` on the VM).
+This repo is configured for **cloud-only development**: agents, skills, and rules are self-contained in git (no `.agents/` on the VM).
 
 ## Layout
 
@@ -11,14 +11,14 @@ This repo is configured for **cloud-only development**: agents, skills, and rule
 │   ├── AGENTS.md                     # fleet persona + collaboration
 │   ├── agents/                       # review-fix-push subagent prompts
 │   ├── skills/                       # review-fix, review-fix-push
-│   ├── rules/                        # canonical guideline markdown
-│   └── .cursor/rules/                # Cursor auto-apply rules (.mdc symlinks)
+│   ├── rules/                        # canonical guidelines (.md, Cursor frontmatter)
+│   └── scripts/
+│       └── link-fleet-rules.sh       # wire .agents/rules into .cursor/rules/ (fleet-vendored)
 ├── .cursor/
 │   ├── environment.json              # cloud VM install (+ optional terminals)
-│   └── rules/                        # fleet symlinks + project-only rules
+│   └── rules/                        # fleet symlinks (.mdc) + project-only rules
 └── scripts/
     ├── update-agents-subtree.sh      # pull fleet updates from dotagents
-    ├── link-fleet-rules.sh           # wire .agents rules into .cursor/rules/
     └── pin-cloud-snapshot.sh         # commit snapshot ID after first green cloud boot
 ```
 
@@ -28,27 +28,13 @@ Cloud agents discover:
 - **Rules** at `.cursor/rules/` (fleet + project)
 - **Instructions** from root `AGENTS.md`
 
-They do **not** see `~/.agents/`, `~/.cursor/skills/`, or local symlinks outside the repo.
+They do **not** see `.agents/`, `~/.cursor/skills/`, or local symlinks outside the repo.
 
 ## Environment
 
 See `.cursor/environment.json`. New repos ship with `"agentCanUpdateSnapshot": true` so Cursor may let the agent refresh the pinned snapshot when the platform supports it (see [environment schema](https://www.cursor.com/schemas/environment.schema.json)).
 
 **Project-local paths (never overwritten by fleet subtree pull):** `.agents/hooks/`, `.agents/automations/` — commit these in the child repo only; they are not in the dotagents `fleet` branch.
-
-## Secrets and tokens
-
-Three credentials — do not conflate names or reuse the wrong token:
-
-| Name | Type | Where to set | Purpose |
-| --- | --- | --- | --- |
-| `CURSOR_API_KEY` | Cursor User API Key (`crsr_...` or `key_...`) | [Dashboard → Integrations](https://cursor.com/dashboard/integrations) User API Keys; export in `~/.zshrc` for local SDK/CLI | Programmatic access to Cursor (Agent CLI, Cloud Agent API, SDK) |
-| `GH_AGENT_TOKEN` | GitHub fine-grained PAT (`github_pat_...`) | Cursor Cloud Agent **repo secrets**; GitHub Actions repo secret where needed | Cross-repo git push from cloud agents; `gh`/git in Actions when `GITHUB_TOKEN` lacks permission (e.g. workflow file edits) |
-| `FLEET_SYNC_TOKEN` | GitHub fine-grained PAT (read-only) | GitHub Actions **repo secret** only | Weekly `sync-agent-fleet.yml` pull from private `jsolly/dotagents` |
-
-- Do **not** put `CURSOR_API_KEY` in GitHub repo secrets unless a workflow explicitly calls the Cursor API.
-- Do **not** reuse `GH_AGENT_TOKEN` for `FLEET_SYNC_TOKEN` — fleet sync only needs read access to dotagents.
-- Cloud agent VMs authenticate via Cursor; they do not read `~/.zshrc` or local `.env.local`.
 
 ## Snapshot bootstrap (agent-run)
 
@@ -89,25 +75,17 @@ Fleet config is vendored from [dotagents](https://github.com/jsolly/dotagents) `
 ./scripts/update-agents-subtree.sh
 ```
 
-**Edit fleet canonical copy** (on a machine with `~/.agents/`):
+**Edit fleet canonical copy** (on a machine with a `~/.agents` checkout):
 
 ```bash
 cd ~/.agents
 # edit agents/, skills/, rules/
-./scripts/refresh-fleet.sh
-git add fleet/ && git commit -m "..."
-./scripts/refresh-fleet.sh --push
+git add -A && git commit -m "..." && git push   # CI rebuilds + publishes the fleet branch
 ```
 
-Then in this repo: `./scripts/update-agents-subtree.sh`
+Then in this repo: `./scripts/update-agents-subtree.sh` (or wait for the weekly sync).
 
-**Push repo edits back to dotagents** (e.g. improved a skill in cloud):
-
-```bash
-git subtree push --prefix=.agents dotagents fleet
-```
-
-Then merge `origin/fleet` into `fleet/` on dotagents `main` (or re-run `refresh-fleet.sh` there to reconcile).
+**Note:** `.agents/` in this repo is **read-only** — pull-only. The `fleet` branch is published by dotagents CI from `.agents/`; editing `.agents/` here and pushing back upstream does not round-trip (the next CI publish overwrites it). Make fleet changes in `.agents/`.
 
 ### GitHub Actions weekly sync
 
@@ -119,7 +97,7 @@ Because `dotagents` is private, each repo needs a **repository secret**:
 | --- | --- |
 | `FLEET_SYNC_TOKEN` | Fine-grained PAT: **read-only** access to `jsolly/dotagents` (Contents) |
 
-Do **not** reuse `GH_AGENT_TOKEN` for fleet sync — use `FLEET_SYNC_TOKEN` (read-only dotagents access). The workflow push back to the same repo uses the built-in `GITHUB_TOKEN`. See [Secrets and tokens](#secrets-and-tokens) above.
+Do **not** reuse `GH_AGENT_TOKEN` (Cursor cloud agents) — that token has broader cross-repo scope and should stay in Cursor secrets only. The workflow push back to the same repo uses the built-in `GITHUB_TOKEN`.
 
 ## Project-only vs fleet
 
