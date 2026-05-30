@@ -38,7 +38,7 @@ Run vitest via `npm test` so the npm script loads `.env.local` via `--env-file-i
 
 ## Cursor Cloud
 
-Cloud agents: see `docs/cloud-agents.md` (fleet layout, subtree updates). After the first successful cloud boot, pin the VM snapshot per **Snapshot bootstrap (agent-run)** in that doc (`./scripts/pin-cloud-snapshot.sh`).
+Cloud agents: see `docs/cloud-agents.md` (fleet layout, subtree updates).
 
 ## Project-Specific Style
 

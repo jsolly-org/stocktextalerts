@@ -7,42 +7,7 @@ cd "$REPO_ROOT"
 # shellcheck source=/dev/null
 source "$REPO_ROOT/.agents/scripts/cloud-install-lib.sh"
 
-# Cursor VMs put exec-daemon Node 22 ahead of nvm on PATH — ensure_node_version alone is not enough.
-ensure_node_version
-if [[ -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]]; then
-	# shellcheck source=/dev/null
-	. "${NVM_DIR:-$HOME/.nvm}/nvm.sh"
-	export PATH="$(dirname "$(nvm which "$(tr -d '[:space:]' < .nvmrc 2>/dev/null || echo 24)")"):$PATH"
-fi
-if ! node -v | grep -qE '^v24\.'; then
-	echo "Expected Node 24 after nvm setup, got: $(node -v)" >&2
-	exit 1
-fi
-
-persist_node_24_shell() {
-	local marker="cursor-cloud-agent-node24"
-	local profile="$HOME/.bashrc"
-
-	if [[ ! -f "$profile" ]] || grep -q "$marker" "$profile" 2>/dev/null; then
-		return 0
-	fi
-
-	cat >>"$profile" <<'EOF'
-
-# --- cursor-cloud-agent-node24 (repo cloud-agent-install.sh) ---
-export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
-[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-nvm install 24 >/dev/null 2>&1 || true
-nvm use 24 >/dev/null 2>&1 || true
-if nvm which 24 >/dev/null 2>&1; then
-  export PATH="$(dirname "$(nvm which 24)"):$PATH"
-fi
-# --- end cursor-cloud-agent-node24 ---
-EOF
-}
-
-persist_node_24_shell
-
+use_node_for_cursor_cloud
 npm ci
 install_yaml_linters
 install_sam

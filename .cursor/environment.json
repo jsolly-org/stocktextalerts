@@ -5,6 +5,5 @@
       "name": "dev",
       "command": "npm run dev"
     }
-  ],
-  "agentCanUpdateSnapshot": true
+  ]
 }
