@@ -1,9 +1,0 @@
-pg_version = "17.0"
-assume_in_transaction = true
-
-excluded_rules = [
-  "prefer-text-field",
-  "prefer-bigint-over-int",
-  "prefer-bigint-over-smallint",
-]
-
