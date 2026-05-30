@@ -10,8 +10,23 @@ trap error_handler ERR
 echo "Ensuring staged files are linted/formatted..."
 npx lint-staged
 
+staged=$(git diff --cached --name-only)
+non_agent=0
+while IFS= read -r f; do
+  [[ -z "$f" ]] && continue
+  case "$f" in
+    .cursor/hooks.json | .githooks/pre-commit) ;;
+    *) non_agent=1; break ;;
+  esac
+done <<< "$staged"
+
+if [[ "$non_agent" -eq 0 && -n "$staged" ]]; then
+  echo "Agent hooks/config only — skipping app test suite."
+  exit 0
+fi
+
 echo "Running checks..."
-bash "$HOME/code/family-memory/scripts/check-biome-rules.sh" biome.jsonc
+bash .agents/scripts/check-biome-rules.sh biome.jsonc
 # Strict Biome gate: unresolved warnings or errors must block the commit.
 npx biome ci . --error-on-warnings
 npm run check:yaml
