@@ -114,7 +114,7 @@ jobs:
         working-directory: aws
         # Prepend repo node_modules/.bin so SAM's esbuild integration finds
         # the pinned esbuild binary (it resolves via walk-up from base_dir).
-        run: PATH="$GITHUB_WORKSPACE/node_modules/.bin:$PATH" sam build
+        run: PATH="$GITHUB_WORKSPACE/node_modules/.bin:$PATH" sam build --base-dir ..
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@6.1.3
