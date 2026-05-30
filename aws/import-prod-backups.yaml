@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  One-off CloudFormation IMPORT shell used to re-adopt the retained
+  ProdBackupsBucket into a freshly recreated stocktextalerts-crons stack.
+  Pairs with resources-to-import.json. The ProdBackupsBucket block below is a
+  verbatim copy of the resource in template.yaml so the subsequent full
+  `sam deploy` sees no diff on the bucket. After import completes, run
+  `./deploy.sh` to layer on the Lambdas, schedules, alarms, log groups, and
+  metric filters via a normal stack UPDATE.
+
+Resources:
+  # Prod database backups. Manual uploads via `aws s3 cp` after pg_dump.
+  # Versioning is on so an accidental overwrite is recoverable.
+  # Retain on stack delete to avoid losing data.
+  #
+  # Lifecycle:
+  #   - Current versions: transition to Glacier IR after 30 days, expire at 365.
+  #   - Non-current versions (overwrites): expire at 90 days.
+  #   - Aborted multipart uploads: clean up after 7 days.
+  ProdBackupsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub "stocktextalerts-prod-backups-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: TransitionAndExpireCurrent
+            Status: Enabled
+            Transitions:
+              - StorageClass: GLACIER_IR
+                TransitionInDays: 30
+            ExpirationInDays: 365
+          - Id: ExpireNonCurrent
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 90
+          - Id: AbortIncompleteUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
