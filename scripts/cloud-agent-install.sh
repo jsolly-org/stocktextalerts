@@ -9,6 +9,8 @@ cd "$REPO_ROOT"
 source "$REPO_ROOT/.agents/scripts/cloud-install-lib.sh"
 # shellcheck source=/dev/null
 source "$REPO_ROOT/scripts/cloud-install-supabase.sh"
+# shellcheck source=/dev/null
+source "$REPO_ROOT/scripts/cloud-install-playwright.sh"
 
 # Set CLOUD_INSTALL_DEBUG=1 for bash -x trace (e.g. in environment.json install command).
 if [[ "${CLOUD_INSTALL_DEBUG:-}" == "1" ]]; then
@@ -53,9 +55,7 @@ if [[ ! -x "$SUPABASE_BIN" ]]; then
 fi
 export PATH="$REPO_ROOT/node_modules/.bin:${PATH}"
 
-cloud_install_phase "Playwright browsers (E2E)"
-install_playwright_browsers_for_e2e
-
+# Supabase + db:reset before Playwright — unit tests need the DB; E2E browsers must not block boot.
 cloud_install_phase "Supabase start + .env.local"
 supabase_start_for_cloud "$SUPABASE_BIN"
 
@@ -70,5 +70,8 @@ cloud_install_phase "db:reset + db:doctor"
 npm run db:reset
 npm run db:doctor
 
+cloud_install_phase "Playwright browsers (E2E)"
+install_playwright_browsers_for_cloud
+
 trap - ERR
-cloud_install_log "complete — Supabase up, .env.local written, db:reset + db:doctor ok"
+cloud_install_log "complete — Supabase up, .env.local written, db:reset + db:doctor ok; Playwright attempted"
