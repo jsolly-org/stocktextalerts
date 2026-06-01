@@ -1,5 +1,6 @@
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { DateTime } from "luxon";
+import { fetchAndStoreFinnhubEnrichment } from "../lib/asset-events/enrichment-store";
 import { fetchAndStoreAssetEvents } from "../lib/asset-events/fetch";
 import { runDelistingSweep } from "../lib/assets/delisting-sweep";
 import { createSupabaseAdminClient } from "../lib/db/supabase";
@@ -66,12 +67,28 @@ export async function handler(_event: ScheduledEvent, _context: Context): Promis
 		results.push({ weekStart, weekEnd, ...result });
 	}
 
+	let enrichmentResult: Awaited<ReturnType<typeof fetchAndStoreFinnhubEnrichment>> = {
+		analystUpserted: 0,
+		insiderUpserted: 0,
+		enrichmentFailures: [],
+	};
+	try {
+		enrichmentResult = await fetchAndStoreFinnhubEnrichment({ supabase, logger });
+	} catch (error) {
+		logger.error(
+			"Finnhub enrichment ingest failed (continuing with delisting sweep)",
+			{ action: "fetch_finnhub_enrichment" },
+			error,
+		);
+	}
+
 	const hasFailures = results.some((r) => r.failedProviders.length > 0);
 
 	logger.info("Daily asset events fetch complete", {
 		action: "daily_asset_events_cron",
 		results,
 		hasFailures,
+		finnhubEnrichment: enrichmentResult,
 	});
 
 	if (hasFailures) {

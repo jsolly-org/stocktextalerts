@@ -17,7 +17,7 @@ Approx universe size: ~5,257 CS + ~378 ADRC = ~5,635 stocks; ~5,021 ETFs.
 Free tier only. Used for:
 
 - **Earnings calendar** (`/calendar/earnings` via `fetchFinnhubEarnings` in `src/lib/providers/massive.ts`, because Massive's earnings endpoint isn't entitled on our plan).
-- **"Extras" bundle** (analyst recommendations + insider transactions via `fetchFinnhubExtras` in `src/lib/providers/finnhub.ts`).
+- **Analyst recommendations + insider transactions** (persisted during the daily asset-events ingest; read at send time from `asset_analyst_consensus` / `asset_insider_transactions`).
 
 **Never used for live quotes** — the quote path is Massive-only, falling back to prev-day bars for snapshot misses.
 
@@ -42,7 +42,7 @@ Failures log `category: "optional_vendor_degraded"` at warn. In-process circuit 
 | Vendor | Routes / use |
 | --- | --- |
 | Massive | Company news (`/v2/reference/news`), top movers, intraday/daily sparklines, logo fetch |
-| Finnhub | Analyst recommendations, insider transactions at send time |
+| Finnhub | Analyst recommendations, insider transactions (daily ingest; omit section when stale/missing at send time) |
 | xAI Grok | Daily digest news/rumors, price-alert summaries |
 
 ### Gating rules (daily digest)

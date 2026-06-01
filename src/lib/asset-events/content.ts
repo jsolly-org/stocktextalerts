@@ -1,13 +1,10 @@
 import { DateTime } from "luxon";
 import type { Logger } from "../logging";
 import type { UserRecord } from "../messaging/types";
-import {
-	fetchFinnhubExtras,
-	formatAnalystSection,
-	formatInsiderSection,
-} from "../providers/finnhub";
+import { formatAnalystSection, formatInsiderSection } from "../providers/finnhub";
 import { formatAssetEventsSection } from "../providers/massive";
 import type { SupabaseAdminClient } from "../schedule/helpers";
+import { loadStoredFinnhubExtras } from "./enrichment-store";
 
 type DeliveryChannel = "email" | "sms";
 
@@ -91,7 +88,7 @@ function formatContentForChannel(options: {
 		data: Record<string, unknown>;
 		daysUntil: number;
 	}>;
-	finnhubData: Awaited<ReturnType<typeof fetchFinnhubExtras>>;
+	finnhubData: Awaited<ReturnType<typeof loadStoredFinnhubExtras>>;
 	includeInsider: boolean;
 	includeAnalyst: boolean;
 }): AssetEventsContent {
@@ -237,16 +234,18 @@ export async function buildAssetEventsContentForChannels(options: {
 		daysUntil: Math.round(DateTime.fromISO(event.event_date).diff(localDt, "days").days),
 	}));
 
-	let finnhubData: Awaited<ReturnType<typeof fetchFinnhubExtras>> = {
-		news: new Map(),
+	let finnhubData: Awaited<ReturnType<typeof loadStoredFinnhubExtras>> = {
 		analyst: new Map(),
 		insider: new Map(),
 		analystFetchSucceeded: false,
 	};
 
 	if ((includeInsiderUnion || includeAnalystUnion) && tickers.length > 0) {
-		finnhubData = await fetchFinnhubExtras([...tickers], {
-			includeNews: false,
+		finnhubData = await loadStoredFinnhubExtras({
+			supabase,
+			logger,
+			tickers,
+			localDate,
 			includeAnalyst: includeAnalystUnion,
 			includeInsider: includeInsiderUnion,
 		});

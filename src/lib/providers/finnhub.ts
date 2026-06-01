@@ -6,6 +6,7 @@ import { type CompanyNewsItem, fetchCompanyNews } from "./company-news";
 import {
 	COMPANY_NEWS_USER_BUDGET_MS,
 	isOptionalVendorUnavailable,
+	OPTIONAL_VENDOR_DEGRADED_CATEGORY,
 	withOptionalVendorBudget,
 } from "./vendor-fault-tolerance";
 import {
@@ -98,12 +99,20 @@ type FinnhubFailure =
 	| { reason: "timeout"; error: Error }
 	| { reason: "request_failed"; error: Error };
 
+type FinnhubFetchPolicy = {
+	/** When true, terminal failures log as optional degradation (warn), not vendor_retry_exhausted. */
+	optional?: boolean;
+};
+
 /** Low-level Finnhub fetch wrapper with retries, timeouts, and rate-limit handling. */
 export async function finnhubFetch(
 	endpoint: string,
 	params: Record<string, string>,
 	label: string,
+	policy?: FinnhubFetchPolicy,
 ): Promise<unknown> {
+	const optional = policy?.optional === true;
+	const failureCategory = optional ? OPTIONAL_VENDOR_DEGRADED_CATEGORY : "vendor_retry_exhausted";
 	const apiKey = getFinnhubApiKey();
 
 	const query = new URLSearchParams({ ...params, token: apiKey });
@@ -183,11 +192,16 @@ export async function finnhubFetch(
 			rootLogger.info(`Finnhub ${label} exhausted retries (rate limited)`, context);
 		} else if (lastFailure.reason === "api_error") {
 			context.status = lastFailure.status;
-			context.category = "vendor_retry_exhausted";
-			rootLogger.error(`Finnhub ${label} exhausted retries`, context);
+			context.category = failureCategory;
+			const logFn = optional ? rootLogger.warn.bind(rootLogger) : rootLogger.error.bind(rootLogger);
+			logFn(`Finnhub ${label} exhausted retries`, context);
 		} else {
-			context.category = "vendor_retry_exhausted";
-			rootLogger.error(`Finnhub ${label} exhausted retries`, context, lastFailure.error);
+			context.category = failureCategory;
+			if (optional) {
+				rootLogger.warn(`Finnhub ${label} exhausted retries`, context);
+			} else {
+				rootLogger.error(`Finnhub ${label} exhausted retries`, context, lastFailure.error);
+			}
 		}
 	}
 	return null;
@@ -198,11 +212,14 @@ Individual Fetchers
 ============= */
 
 /** Fetch the latest analyst recommendation trend for a ticker (or `null`). */
-async function fetchRecommendationTrends(symbol: string): Promise<{
+export async function fetchRecommendationTrends(
+	symbol: string,
+	policy?: FinnhubFetchPolicy,
+): Promise<{
 	trend: RecommendationTrend | null;
 	httpSucceeded: boolean;
 }> {
-	const data = await finnhubFetch("/stock/recommendation", { symbol }, "recommendation");
+	const data = await finnhubFetch("/stock/recommendation", { symbol }, "recommendation", policy);
 	if (data === null) {
 		return { trend: null, httpSucceeded: false };
 	}
@@ -240,17 +257,13 @@ async function fetchRecommendationTrends(symbol: string): Promise<{
 	};
 }
 
-/** Fetch recent insider transactions for a ticker (validated and capped). */
-async function fetchInsiderTransactions(symbol: string): Promise<InsiderTransaction[]> {
-	const data = await finnhubFetch(
-		"/stock/insider-transactions",
-		{ symbol },
-		"insider-transactions",
-	);
-	// `null` means finnhubFetch already logged the failure; don't double-log.
-	if (data === null) return [];
-
-	if (typeof data !== "object") {
+function parseInsiderTransactionsPayload(
+	symbol: string,
+	data: unknown,
+	cutoffDate: string | null,
+	maxResults = 5,
+): InsiderTransaction[] {
+	if (typeof data !== "object" || data === null) {
 		rootLogger.error("Invalid Finnhub insider-transactions payload shape", {
 			symbol,
 			payloadType: typeof data,
@@ -267,9 +280,6 @@ async function fetchInsiderTransactions(symbol: string): Promise<InsiderTransact
 		return [];
 	}
 
-	// Only include transactions from the last 24 hours
-	const cutoffDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-
 	return transactions
 		.filter(
 			(item: unknown) =>
@@ -278,9 +288,10 @@ async function fetchInsiderTransactions(symbol: string): Promise<InsiderTransact
 				typeof (item as Record<string, unknown>).name === "string" &&
 				typeof (item as Record<string, unknown>).change === "number" &&
 				typeof (item as Record<string, unknown>).transactionDate === "string" &&
-				((item as Record<string, unknown>).transactionDate as string) >= cutoffDate,
+				(cutoffDate === null ||
+					((item as Record<string, unknown>).transactionDate as string) >= cutoffDate),
 		)
-		.slice(0, 5)
+		.slice(0, maxResults)
 		.map((item: Record<string, unknown>) => ({
 			name: item.name as string,
 			share: typeof item.share === "number" ? (item.share as number) : 0,
@@ -289,6 +300,28 @@ async function fetchInsiderTransactions(symbol: string): Promise<InsiderTransact
 				typeof item.transactionType === "string" ? (item.transactionType as string) : "",
 			transactionDate: item.transactionDate as string,
 		}));
+}
+
+/** Fetch insider transactions for a ticker (validated; optional date cutoff). */
+export async function fetchInsiderTransactions(
+	symbol: string,
+	options?: { cutoffDate?: string | null; policy?: FinnhubFetchPolicy; maxResults?: number },
+): Promise<InsiderTransaction[]> {
+	const data = await finnhubFetch(
+		"/stock/insider-transactions",
+		{ symbol },
+		"insider-transactions",
+		options?.policy,
+	);
+	// `null` means finnhubFetch already logged the failure; don't double-log.
+	if (data === null) return [];
+
+	const cutoffDate =
+		options?.cutoffDate === undefined
+			? new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+			: options.cutoffDate;
+
+	return parseInsiderTransactionsPayload(symbol, data, cutoffDate, options?.maxResults ?? 5);
 }
 
 /* =============

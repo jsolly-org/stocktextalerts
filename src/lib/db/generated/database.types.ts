@@ -30,6 +30,53 @@ export type Database = {
         }
         Relationships: []
       }
+      asset_analyst_consensus: {
+        Row: {
+          buy: number | null
+          fetch_succeeded: boolean
+          fetched_at: string
+          hold: number | null
+          id: number
+          period: string | null
+          sell: number | null
+          strong_buy: number | null
+          strong_sell: number | null
+          symbol: string
+        }
+        Insert: {
+          buy?: number | null
+          fetch_succeeded?: boolean
+          fetched_at?: string
+          hold?: number | null
+          id?: number
+          period?: string | null
+          sell?: number | null
+          strong_buy?: number | null
+          strong_sell?: number | null
+          symbol: string
+        }
+        Update: {
+          buy?: number | null
+          fetch_succeeded?: boolean
+          fetched_at?: string
+          hold?: number | null
+          id?: number
+          period?: string | null
+          sell?: number | null
+          strong_buy?: number | null
+          strong_sell?: number | null
+          symbol?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_analyst_consensus_symbol_fkey"
+            columns: ["symbol"]
+            isOneToOne: true
+            referencedRelation: "assets"
+            referencedColumns: ["symbol"]
+          },
+        ]
+      }
       asset_events: {
         Row: {
           data: Json
@@ -61,6 +108,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "asset_events_symbol_fkey"
+            columns: ["symbol"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["symbol"]
+          },
+        ]
+      }
+      asset_insider_transactions: {
+        Row: {
+          change: number
+          fetched_at: string
+          id: number
+          name: string
+          share: number
+          symbol: string
+          transaction_date: string
+          transaction_type: string
+        }
+        Insert: {
+          change: number
+          fetched_at?: string
+          id?: number
+          name: string
+          share: number
+          symbol: string
+          transaction_date: string
+          transaction_type?: string
+        }
+        Update: {
+          change?: number
+          fetched_at?: string
+          id?: number
+          name?: string
+          share?: number
+          symbol?: string
+          transaction_date?: string
+          transaction_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_insider_transactions_symbol_fkey"
             columns: ["symbol"]
             isOneToOne: false
             referencedRelation: "assets"

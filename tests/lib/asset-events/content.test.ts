@@ -3,16 +3,7 @@ import {
 	buildAssetEventsContent,
 	buildAssetEventsContentForChannels,
 } from "../../../src/lib/asset-events/content";
-import { fetchFinnhubExtras } from "../../../src/lib/providers/finnhub";
 import { makeUserRecord as makeUser } from "../../helpers/user-record-fixture";
-
-vi.mock("../../../src/lib/providers/finnhub", async () => {
-	const actual = await vi.importActual("../../../src/lib/providers/finnhub");
-	return {
-		...actual,
-		fetchFinnhubExtras: vi.fn(),
-	};
-});
 
 type CalendarEventRow = {
 	symbol: string;
@@ -28,10 +19,38 @@ type MarketEventRow = {
 	data: Record<string, unknown> | null;
 };
 
-function createAssetEventsSupabase(
-	calendarEvents: CalendarEventRow[],
-	marketEvents: MarketEventRow[],
-) {
+type AnalystConsensusRow = {
+	symbol: string;
+	period: string | null;
+	buy: number | null;
+	hold: number | null;
+	sell: number | null;
+	strong_buy: number | null;
+	strong_sell: number | null;
+	fetch_succeeded: boolean;
+	fetched_at: string;
+};
+
+type InsiderTransactionRow = {
+	symbol: string;
+	transaction_date: string;
+	name: string;
+	share: number;
+	change: number;
+	transaction_type: string;
+};
+
+function createAssetEventsSupabase(options: {
+	calendarEvents?: CalendarEventRow[];
+	marketEvents?: MarketEventRow[];
+	analystConsensus?: AnalystConsensusRow[];
+	insiderTransactions?: InsiderTransactionRow[];
+}) {
+	const calendarEvents = options.calendarEvents ?? [];
+	const marketEvents = options.marketEvents ?? [];
+	const analystConsensus = options.analystConsensus ?? [];
+	const insiderTransactions = options.insiderTransactions ?? [];
+
 	return {
 		from(table: string) {
 			if (table === "asset_events") {
@@ -47,6 +66,51 @@ function createAssetEventsSupabase(
 					if (filters.eventTypeEq && row.event_type !== filters.eventTypeEq) return false;
 					return true;
 				});
+			}
+
+			if (table === "asset_analyst_consensus") {
+				return {
+					select() {
+						return {
+							in(_column: string, symbols: string[]) {
+								const rows = analystConsensus.filter((row) => symbols.includes(row.symbol));
+								return Promise.resolve({ data: rows, error: null });
+							},
+						};
+					},
+				};
+			}
+
+			if (table === "asset_insider_transactions") {
+				return {
+					select() {
+						const query = {
+							in(_column: string, symbols: string[]) {
+								query.symbolFilter = symbols;
+								return query;
+							},
+							gte(_column: string, cutoff: string) {
+								query.cutoff = cutoff;
+								return query;
+							},
+							order() {
+								const rows = insiderTransactions.filter((row) => {
+									if (query.symbolFilter && !query.symbolFilter.includes(row.symbol)) {
+										return false;
+									}
+									if (query.cutoff && row.transaction_date < query.cutoff) {
+										return false;
+									}
+									return true;
+								});
+								return Promise.resolve({ data: rows, error: null });
+							},
+							symbolFilter: undefined as string[] | undefined,
+							cutoff: undefined as string | undefined,
+						};
+						return query;
+					},
+				};
 			}
 
 			throw new Error(`Unexpected table: ${table}`);
@@ -111,14 +175,16 @@ const logger = {
 	error: vi.fn(),
 };
 
+const freshFetchedAt = new Date().toISOString();
+
 describe("buildAssetEventsContent", () => {
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
 
 	it("includes IPO content even when user has no tracked assets", async () => {
-		const supabase = createAssetEventsSupabase(
-			[
+		const supabase = createAssetEventsSupabase({
+			calendarEvents: [
 				{
 					symbol: "AAPL",
 					event_type: "earnings",
@@ -126,7 +192,7 @@ describe("buildAssetEventsContent", () => {
 					data: {},
 				},
 			],
-			[
+			marketEvents: [
 				{
 					symbol: "ACME",
 					event_type: "ipo",
@@ -134,12 +200,6 @@ describe("buildAssetEventsContent", () => {
 					data: { issuerName: "Acme Corp" },
 				},
 			],
-		);
-		vi.mocked(fetchFinnhubExtras).mockResolvedValue({
-			news: new Map(),
-			analyst: new Map(),
-			insider: new Map(),
-			analystFetchSucceeded: false,
 		});
 
 		const result = await buildAssetEventsContent({
@@ -154,22 +214,31 @@ describe("buildAssetEventsContent", () => {
 		expect(result.hasAnyContent).toBe(true);
 		expect(result.eventsSection?.ipos).toContain("ACME: IPO tomorrow");
 		expect(result.eventsSection?.earnings).toBeNull();
-		expect(vi.mocked(fetchFinnhubExtras)).not.toHaveBeenCalled();
 	});
 
-	it("calls fetchFinnhubExtras once when email and SMS insider are both enabled", async () => {
-		const supabase = createAssetEventsSupabase([], []);
-		vi.mocked(fetchFinnhubExtras).mockResolvedValue({
-			news: new Map(),
-			analyst: new Map(),
-			insider: new Map([
-				["AAPL", []],
-				["MSFT", []],
-			]),
-			analystFetchSucceeded: false,
+	it("loads insider from DB once when email and SMS insider are both enabled", async () => {
+		const supabase = createAssetEventsSupabase({
+			insiderTransactions: [
+				{
+					symbol: "AAPL",
+					transaction_date: "2026-02-10",
+					name: "Jane Doe",
+					share: 1000,
+					change: 500,
+					transaction_type: "P",
+				},
+				{
+					symbol: "MSFT",
+					transaction_date: "2026-02-10",
+					name: "Satya Nadella",
+					share: 2000,
+					change: -100,
+					transaction_type: "S",
+				},
+			],
 		});
 
-		await buildAssetEventsContentForChannels({
+		const result = await buildAssetEventsContentForChannels({
 			user: makeUser({
 				asset_events_include_insider_email: true,
 				asset_events_include_insider_sms: true,
@@ -181,30 +250,22 @@ describe("buildAssetEventsContent", () => {
 			channels: ["email", "sms"],
 		});
 
-		expect(vi.mocked(fetchFinnhubExtras)).toHaveBeenCalledOnce();
-		expect(vi.mocked(fetchFinnhubExtras)).toHaveBeenCalledWith(["AAPL", "MSFT"], {
-			includeNews: false,
-			includeAnalyst: false,
-			includeInsider: true,
-		});
+		expect(result.email?.insiderSection).toContain("AAPL");
+		expect(result.sms?.insiderSection).toContain("MSFT");
 	});
 
 	it("formats insider only on the channel that opted in", async () => {
-		const supabase = createAssetEventsSupabase([], []);
-		const insiderTx = [
-			{
-				name: "Jane Doe",
-				share: 1000,
-				change: 500,
-				transactionType: "P",
-				transactionDate: "2026-02-10",
-			},
-		];
-		vi.mocked(fetchFinnhubExtras).mockResolvedValue({
-			news: new Map(),
-			analyst: new Map(),
-			insider: new Map([["AAPL", insiderTx]]),
-			analystFetchSucceeded: false,
+		const supabase = createAssetEventsSupabase({
+			insiderTransactions: [
+				{
+					symbol: "AAPL",
+					transaction_date: "2026-02-10",
+					name: "Jane Doe",
+					share: 1000,
+					change: 500,
+					transaction_type: "P",
+				},
+			],
 		});
 
 		const result = await buildAssetEventsContentForChannels({
@@ -224,13 +285,21 @@ describe("buildAssetEventsContent", () => {
 		expect(result.sms?.hasAnyContent).toBe(false);
 	});
 
-	it("sets shouldUpdateAnalystMonth when analyst fetch succeeds with no formatted section", async () => {
-		const supabase = createAssetEventsSupabase([], []);
-		vi.mocked(fetchFinnhubExtras).mockResolvedValue({
-			news: new Map(),
-			analyst: new Map([["AAPL", null]]),
-			insider: new Map(),
-			analystFetchSucceeded: true,
+	it("sets shouldUpdateAnalystMonth when analyst fetch succeeded with no formatted section", async () => {
+		const supabase = createAssetEventsSupabase({
+			analystConsensus: [
+				{
+					symbol: "AAPL",
+					period: null,
+					buy: null,
+					hold: null,
+					sell: null,
+					strong_buy: null,
+					strong_sell: null,
+					fetch_succeeded: true,
+					fetched_at: freshFetchedAt,
+				},
+			],
 		});
 
 		const result = await buildAssetEventsContentForChannels({
@@ -249,14 +318,8 @@ describe("buildAssetEventsContent", () => {
 		expect(result.email?.analystSection).toBeNull();
 	});
 
-	it("does not set shouldUpdateAnalystMonth when analyst fetch exhausts retries", async () => {
-		const supabase = createAssetEventsSupabase([], []);
-		vi.mocked(fetchFinnhubExtras).mockResolvedValue({
-			news: new Map(),
-			analyst: new Map([["AAPL", null]]),
-			insider: new Map(),
-			analystFetchSucceeded: false,
-		});
+	it("does not set shouldUpdateAnalystMonth when analyst data is missing from DB", async () => {
+		const supabase = createAssetEventsSupabase({});
 
 		const result = await buildAssetEventsContentForChannels({
 			user: makeUser({
@@ -273,16 +336,21 @@ describe("buildAssetEventsContent", () => {
 		expect(result.shouldUpdateAnalystMonth).toBe(false);
 	});
 
-	it("sets shouldUpdateAnalystMonth when at least one symbol analyst fetch succeeds", async () => {
-		const supabase = createAssetEventsSupabase([], []);
-		vi.mocked(fetchFinnhubExtras).mockResolvedValue({
-			news: new Map(),
-			analyst: new Map([
-				["AAPL", null],
-				["MSFT", null],
-			]),
-			insider: new Map(),
-			analystFetchSucceeded: true,
+	it("sets shouldUpdateAnalystMonth when at least one symbol has fresh analyst data", async () => {
+		const supabase = createAssetEventsSupabase({
+			analystConsensus: [
+				{
+					symbol: "MSFT",
+					period: "2026-02-01",
+					buy: 10,
+					hold: 5,
+					sell: 1,
+					strong_buy: 2,
+					strong_sell: 0,
+					fetch_succeeded: true,
+					fetched_at: freshFetchedAt,
+				},
+			],
 		});
 
 		const result = await buildAssetEventsContentForChannels({
@@ -298,5 +366,33 @@ describe("buildAssetEventsContent", () => {
 		});
 
 		expect(result.shouldUpdateAnalystMonth).toBe(true);
+		expect(result.email?.analystSection).toContain("MSFT");
+	});
+
+	it("omits insider transactions older than the last-day window", async () => {
+		const supabase = createAssetEventsSupabase({
+			insiderTransactions: [
+				{
+					symbol: "AAPL",
+					transaction_date: "2026-02-08",
+					name: "Old Trade",
+					share: 100,
+					change: 50,
+					transaction_type: "P",
+				},
+			],
+		});
+
+		const result = await buildAssetEventsContentForChannels({
+			user: makeUser({ asset_events_include_insider_email: true }),
+			supabase: supabase as never,
+			logger: logger as never,
+			localDate: "2026-02-10",
+			tickers: ["AAPL"],
+			channels: ["email"],
+		});
+
+		expect(result.email?.insiderSection).toBeNull();
+		expect(result.email?.hasAnyContent).toBe(false);
 	});
 });
