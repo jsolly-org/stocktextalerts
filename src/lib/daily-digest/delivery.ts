@@ -23,7 +23,7 @@ import { formatExtrasSection } from "../messaging/sms/formatting";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import type { SparklineData, SparklineMap } from "../messaging/sparkline";
-import type { UserAssetRow, UserRecord } from "../messaging/types";
+import type { DeliveryResult, UserAssetRow, UserRecord } from "../messaging/types";
 import type { AssetPriceMap } from "../providers/price-fetcher";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { claimNotification, updateScheduledNotificationRow } from "../schedule/helpers";
@@ -150,6 +150,39 @@ export function formatDailyDigestSmsMessages(options: DailyDigestSmsFormatOption
 	return packSmsBlocks(buildDailyDigestSmsBlocks(options)).map((message) =>
 		padUrlsToSegmentBoundaries(message),
 	);
+}
+
+/** Format one notification_log message for a single-part or multipart SMS attempt. */
+function formatDailyDigestSmsLogMessage(messages: string[]): string {
+	if (messages.length === 1) {
+		return messages[0] ?? "";
+	}
+
+	return messages
+		.map((message, index) => `--- SMS part ${index + 1}/${messages.length} ---\n${message}`)
+		.join("\n\n");
+}
+
+/** Collapse per-part SMS delivery results into one attempt-level result. */
+function summarizeDailyDigestSmsResults(
+	results: DeliveryResult[],
+	totalParts: number,
+): DeliveryResult {
+	if (results.length === totalParts && results.every((result) => result.success)) {
+		return { success: true };
+	}
+
+	const failedIndex = results.findIndex((result) => !result.success);
+	const failed = failedIndex >= 0 ? results[failedIndex] : null;
+	const failedPartNumber = failedIndex >= 0 ? failedIndex + 1 : results.length + 1;
+	const error = failed?.success === false ? failed.error : "Unknown error";
+	const errorCode = failed?.success === false ? failed.errorCode : undefined;
+
+	return {
+		success: false,
+		error: `SMS part ${failedPartNumber}/${totalParts} failed: ${error}`,
+		...(errorCode !== undefined ? { errorCode } : {}),
+	};
 }
 
 /** Build the daily digest SMS as ordered blocks for body packing. */
@@ -596,7 +629,7 @@ export async function processDailyDigestSmsDelivery(options: {
 		return;
 	}
 
-	const smsMessage = formatDailyDigestSmsMessage({
+	const smsMessages = formatDailyDigestSmsMessages({
 		userAssets,
 		assetPrices,
 		extras,
@@ -606,13 +639,33 @@ export async function processDailyDigestSmsDelivery(options: {
 		marketClosureInfo: options.marketClosureInfo,
 		delayBanner: options.delayBanner,
 	});
-	const result = await sendUserSms(user, smsMessage, smsSenderResult.sender, supabase);
+	const partResults: DeliveryResult[] = [];
+	for (const [index, smsMessage] of smsMessages.entries()) {
+		const partResult = await sendUserSms(user, smsMessage, smsSenderResult.sender, supabase);
+		partResults.push(partResult);
+
+		if (!partResult.success) {
+			logger.error("Failed to send Daily Digest SMS part", {
+				userId: user.id,
+				scheduledDate,
+				scheduledMinutes,
+				partNumber: index + 1,
+				totalParts: smsMessages.length,
+				partLength: smsMessage.length,
+				error: partResult.error,
+				errorCode: partResult.errorCode ?? null,
+			});
+			break;
+		}
+	}
+
+	const result = summarizeDailyDigestSmsResults(partResults, smsMessages.length);
 	const logged = await recordNotification(supabase, {
 		user_id: user.id,
 		type: "daily",
 		delivery_method: "sms",
 		message_delivered: result.success,
-		message: smsMessage,
+		message: formatDailyDigestSmsLogMessage(smsMessages),
 		...deliveryResultToLogFields(result),
 	});
 	if (!logged) {
