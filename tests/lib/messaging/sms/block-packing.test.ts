@@ -43,6 +43,25 @@ describe("packSmsBlocks", () => {
 		}
 	});
 
+	it("packs splittable children into remaining space after an atomic prefix", () => {
+		const prefix = `Market update ${"A".repeat(22)}`;
+		const firstChild = `AAPL ${"B".repeat(20)}`;
+		const secondChild = `MSFT ${"C".repeat(20)}`;
+		const splittableBlock: SplittableSmsBlock = {
+			id: "assets",
+			boundary: "split-between-children",
+			header: "Assets",
+			children: [firstChild, secondChild],
+		};
+
+		const messages = packSmsBlocks(
+			[{ id: "summary", boundary: "atomic", text: prefix }, splittableBlock],
+			80,
+		);
+
+		expect(messages).toEqual([`${prefix}\n\nAssets\n${firstChild}`, `Assets\n${secondChild}`]);
+	});
+
 	it("drops empty atomic and splittable blocks before packing", () => {
 		const messages = packSmsBlocks([
 			{ id: "empty-atomic", boundary: "atomic", text: "   " },

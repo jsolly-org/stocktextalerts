@@ -22,24 +22,37 @@ export function packSmsBlocks(blocks: SmsBlock[], maxChars = SMS_BODY_CHAR_BUDGE
 	const messages: string[] = [];
 	let currentBody = "";
 
+	const flushCurrentBody = () => {
+		if (!currentBody) {
+			return;
+		}
+
+		messages.push(currentBody.trim());
+		currentBody = "";
+	};
+
+	const canAppendBlock = (text: string) => {
+		if (!currentBody) {
+			return text.length <= maxChars;
+		}
+
+		return `${currentBody}${BODY_BLOCK_SEPARATOR}${text}`.length <= maxChars;
+	};
+
 	const appendBlock = (text: string) => {
 		const normalizedText = text.trim();
 		if (!normalizedText) {
 			return;
 		}
 
-		if (!currentBody) {
-			currentBody = normalizedText;
+		if (canAppendBlock(normalizedText)) {
+			currentBody = currentBody
+				? `${currentBody}${BODY_BLOCK_SEPARATOR}${normalizedText}`
+				: normalizedText;
 			return;
 		}
 
-		const combinedBody = `${currentBody}${BODY_BLOCK_SEPARATOR}${normalizedText}`;
-		if (combinedBody.length <= maxChars) {
-			currentBody = combinedBody;
-			return;
-		}
-
-		messages.push(currentBody.trim());
+		flushCurrentBody();
 		currentBody = normalizedText;
 	};
 
@@ -57,9 +70,18 @@ export function packSmsBlocks(blocks: SmsBlock[], maxChars = SMS_BODY_CHAR_BUDGE
 		const childSeparator = block.childSeparator ?? "\n";
 		let chunkChildren: string[] = [];
 
+		const startChunk = (child: string) => {
+			const singleChildChunk = renderSplittableChunk(block.header, [child], childSeparator);
+			if (!canAppendBlock(singleChildChunk)) {
+				flushCurrentBody();
+			}
+
+			chunkChildren = [child];
+		};
+
 		for (const child of children) {
 			if (chunkChildren.length === 0) {
-				chunkChildren = [child];
+				startChunk(child);
 				continue;
 			}
 
@@ -68,13 +90,13 @@ export function packSmsBlocks(blocks: SmsBlock[], maxChars = SMS_BODY_CHAR_BUDGE
 				[...chunkChildren, child],
 				childSeparator,
 			);
-			if (candidateChunk.length <= maxChars) {
+			if (canAppendBlock(candidateChunk)) {
 				chunkChildren.push(child);
 				continue;
 			}
 
 			appendBlock(renderSplittableChunk(block.header, chunkChildren, childSeparator));
-			chunkChildren = [child];
+			startChunk(child);
 		}
 
 		appendBlock(renderSplittableChunk(block.header, chunkChildren, childSeparator));
