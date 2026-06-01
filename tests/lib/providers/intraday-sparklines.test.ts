@@ -84,3 +84,58 @@ describe("A subscriber in early pre-market receives a notification before any 5-
 		expect(result.get("GHOST")).toBeNull();
 	});
 });
+
+describe("Pre-market snapshot quote is fresher than the latest 5-minute aggregate bar", () => {
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("Appends the live snapshot price so sparkline direction matches the displayed change-%", async () => {
+		// Production NOC @ 2026-06-01 07:00 ET: snapshot showed $564.21 (+0.09%)
+		// vs prev close $563.68, but 5-minute aggregates still ended on a lower bar.
+		vi.mocked(fetchIntradayBars).mockResolvedValueOnce({
+			closes: [565.5, 564.8, 564.0, 564.5, 563.2],
+			timestamps: [
+				Date.UTC(2026, 5, 1, 11, 0),
+				Date.UTC(2026, 5, 1, 11, 5),
+				Date.UTC(2026, 5, 1, 11, 10),
+				Date.UTC(2026, 5, 1, 11, 15),
+				Date.UTC(2026, 5, 1, 11, 20),
+			],
+			startTimestamp: Date.UTC(2026, 5, 1, 11, 0),
+			endTimestamp: Date.UTC(2026, 5, 1, 11, 20),
+		});
+
+		const prevCloseMap = new Map<string, number | null | undefined>([["NOC", 563.68]]);
+		const currentPriceMap = new Map<string, number | null | undefined>([["NOC", 564.21]]);
+		const result = await fetchIntradaySparklines(["NOC"], prevCloseMap, currentPriceMap);
+
+		const entry = result.get("NOC");
+		expect(entry).not.toBeNull();
+		expect(entry?.values).toEqual([563.68, 565.5, 564.8, 564.0, 564.5, 563.2, 564.21]);
+		expect(entry?.window).toBe("intraday-since-prev-close");
+		const first = entry?.values[0];
+		const last = entry?.values[entry.values.length - 1];
+		expect(first).toBeDefined();
+		expect(last).toBeDefined();
+		if (first !== undefined && last !== undefined) {
+			expect(last).toBeGreaterThan(first);
+		}
+	});
+
+	it("Leaves values unchanged when the latest aggregate close already matches the snapshot price", async () => {
+		vi.mocked(fetchIntradayBars).mockResolvedValueOnce({
+			closes: [565.5, 564.21],
+			timestamps: [Date.UTC(2026, 5, 1, 11, 0), Date.UTC(2026, 5, 1, 11, 5)],
+			startTimestamp: Date.UTC(2026, 5, 1, 11, 0),
+			endTimestamp: Date.UTC(2026, 5, 1, 11, 5),
+		});
+
+		const prevCloseMap = new Map<string, number | null | undefined>([["NOC", 563.68]]);
+		const currentPriceMap = new Map<string, number | null | undefined>([["NOC", 564.21]]);
+		const result = await fetchIntradaySparklines(["NOC"], prevCloseMap, currentPriceMap);
+
+		const entry = result.get("NOC");
+		expect(entry?.values).toEqual([563.68, 565.5, 564.21]);
+	});
+});

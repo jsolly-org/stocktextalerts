@@ -212,13 +212,17 @@ export async function processMarketScheduledUser(options: {
 		// Massive's 5-minute bars endpoint returns extended-hours data, so the
 		// pre-market chart includes 4:00 AM ET onward.
 		const prevCloseMap = new Map<string, number | null | undefined>();
+		const currentPriceMap = new Map<string, number | null | undefined>();
 		for (const [symbol, quote] of priceMap) {
-			if (quote) prevCloseMap.set(symbol, quote.prevClose);
+			if (quote) {
+				prevCloseMap.set(symbol, quote.prevClose);
+				currentPriceMap.set(symbol, quote.price);
+			}
 		}
 		let sparklines: SparklineMap = new Map();
 		if (tickers.length > 0) {
 			try {
-				sparklines = await fetchIntradaySparklines(tickers, prevCloseMap);
+				sparklines = await fetchIntradaySparklines(tickers, prevCloseMap, currentPriceMap);
 			} catch (error) {
 				logger.error(
 					"Failed to fetch sparklines for scheduled market notification",
