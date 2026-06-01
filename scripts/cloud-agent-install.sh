@@ -67,7 +67,7 @@ if [[ ! -f .env ]] && [[ -f env.example ]]; then
 fi
 
 cloud_install_phase "db:reset + db:doctor"
-npm run db:reset
+db_reset_for_cloud
 npm run db:doctor
 
 cloud_install_phase "Playwright browsers (E2E)"

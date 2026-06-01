@@ -215,12 +215,93 @@ ensure_docker_daemon_running() {
 	exit 1
 }
 
+# Resolve the local Postgres container name (e.g. supabase_db_stocktextalerts).
+supabase_db_container_name() {
+	docker ps --filter "name=supabase_db_" --format '{{.Names}}' 2>/dev/null | head -n1
+}
+
+# Poll until Postgres accepts connections. Cloud VMs often fail db:reset with
+# "failed to create migration table: unexpected EOF" when migrations run while
+# the DB container is still health: starting after a recreate.
+wait_for_supabase_postgres_healthy() {
+	local timeout="${1:-120}" attempt=0 container health
+	container="$(supabase_db_container_name)"
+	if [[ -z "$container" ]]; then
+		cloud_install_log "Postgres — no supabase_db_* container yet (will retry)"
+	fi
+
+	while [[ $attempt -lt $timeout ]]; do
+		container="$(supabase_db_container_name)"
+		if [[ -n "$container" ]]; then
+			health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container" 2>/dev/null || echo unknown)"
+			if [[ "$health" == "healthy" ]]; then
+				cloud_install_log "Postgres — $container is healthy"
+				return 0
+			fi
+			if [[ "$health" == "none" ]] && docker exec "$container" pg_isready -U postgres -q 2>/dev/null; then
+				cloud_install_log "Postgres — $container accepts connections (pg_isready)"
+				return 0
+			fi
+		fi
+		attempt=$((attempt + 2))
+		sleep 2
+	done
+
+	cloud_install_log "Postgres — not healthy within ${timeout}s"
+	return 1
+}
+
+# db:reset recreates the DB; retry transient EOF / not-ready failures on cloud VMs.
+db_reset_for_cloud() {
+	local max_attempts=3 attempt=1 backoff=5 output rc
+
+	while [[ $attempt -le $max_attempts ]]; do
+		cloud_install_log "db:reset — attempt $attempt/$max_attempts"
+		if ! wait_for_supabase_postgres_healthy 120; then
+			cloud_install_log "db:reset — Postgres not ready before attempt $attempt"
+		fi
+
+		set +e
+		output="$(npm run db:reset 2>&1)"
+		rc=$?
+		set -e
+		printf '%s\n' "$output"
+
+		if [[ $rc -eq 0 ]]; then
+			cloud_install_log "db:reset — ok"
+			return 0
+		fi
+
+		if [[ "$output" != *"unexpected EOF"* && "$output" != *"not ready"* && "$output" != *"starting"* ]]; then
+			cloud_install_log "db:reset — non-retryable failure (exit $rc)"
+			return "$rc"
+		fi
+
+		if [[ $attempt -eq $max_attempts ]]; then
+			cloud_install_log "db:reset — exhausted retries (exit $rc)"
+			dump_supabase_diagnostics "${SUPABASE_BIN:-supabase}" || true
+			return "$rc"
+		fi
+
+		cloud_install_log "db:reset — transient failure, retrying in ${backoff}s"
+		sleep "$backoff"
+		backoff=$((backoff * 2))
+		attempt=$((attempt + 1))
+	done
+
+	return 1
+}
+
 # Same exclude list as .github/actions/run-ci/action.yml (Podman/cloud-friendly).
 supabase_start_for_cloud() {
 	local supabase_bin="$1"
 	cloud_install_log "Supabase — starting (cloud service excludes)"
 	if ! "$supabase_bin" start -x studio,imgproxy,logflare,vector,postgres-meta,edge-runtime,realtime,storage-api; then
 		echo "supabase start failed" >&2
+		dump_supabase_diagnostics "$supabase_bin"
+		exit 1
+	fi
+	if ! wait_for_supabase_postgres_healthy 120; then
 		dump_supabase_diagnostics "$supabase_bin"
 		exit 1
 	fi
