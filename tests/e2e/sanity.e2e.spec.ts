@@ -263,6 +263,22 @@ async function waitForAutosave(page: Page, action: () => Promise<void>): Promise
 	await responsePromise;
 }
 
+async function waitForAuthSignInReady(email: string, password: string): Promise<void> {
+	await expect
+		.poll(
+			async () => {
+				const { data, error } = await adminClient.auth.signInWithPassword({ email, password });
+				return !error && Boolean(data.session);
+			},
+			{
+				timeout: 30_000,
+				message: "Auth user not ready for password sign-in",
+			},
+		)
+		.toBe(true);
+	await adminClient.auth.signOut();
+}
+
 async function signIn(page: Page, email: string, password: string) {
 	await page.goto("/auth/signin");
 	const emailInput = page.locator("#email");
@@ -277,8 +293,19 @@ async function signIn(page: Page, email: string, password: string) {
 		)
 		.toBe(email);
 	await page.locator("#password").fill(password);
+	const signInResponse = page.waitForResponse(
+		(response) =>
+			response.request().method() === "POST" && response.url().includes("/api/auth/signin"),
+		{ timeout: 30_000 },
+	);
 	await page.getByRole("button", { name: "Sign In" }).click();
-	await expectCurrentPath(page, "/dashboard");
+	const response = await signInResponse;
+	const status = response.status();
+	expect(
+		status >= 300 && status < 400,
+		`Sign-in POST expected redirect, got status ${status}`,
+	).toBe(true);
+	await expectCurrentPath(page, "/dashboard", 30_000);
 }
 
 async function addAsset(page: Page, symbol: string) {
@@ -437,6 +464,7 @@ test.describe("sanity tests", () => {
 				marketScheduledAssetPriceIncludeEmail: false,
 			});
 			testUserId = user.id;
+			await waitForAuthSignInReady(testEmail, testPassword);
 			await signIn(page, testEmail, testPassword);
 			return;
 		}

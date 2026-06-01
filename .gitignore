@@ -33,9 +33,10 @@ auth.json
 .playwright-cli/
 .playwright-mcp/
 auth.json
-plans/
+/plans/
 scripts/one-off-testing/preview-digest.html
 scheduled_tasks.lock
+.worktrees/
 .claude/worktrees/
 
 # Test results

@@ -13,6 +13,7 @@ import {
 	VENDOR_FETCH_MAX_RETRIES as MAX_RETRIES,
 	VENDOR_FETCH_REQUEST_TIMEOUT_MS as REQUEST_TIMEOUT_MS,
 	VENDOR_FETCH_RETRY_DELAY_MS as RETRY_DELAY_MS,
+	shouldSkipVendorHttpInTestMode,
 } from "./vendor-fetch";
 
 type DeliveryChannel = "sms" | "email";
@@ -111,6 +112,10 @@ export async function finnhubFetch(
 	label: string,
 	policy?: FinnhubFetchPolicy,
 ): Promise<unknown> {
+	if (shouldSkipVendorHttpInTestMode("finnhub")) {
+		return null;
+	}
+
 	const optional = policy?.optional === true;
 	const failureCategory = optional ? OPTIONAL_VENDOR_DEGRADED_CATEGORY : "vendor_retry_exhausted";
 	const apiKey = getFinnhubApiKey();

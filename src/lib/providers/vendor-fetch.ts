@@ -1,5 +1,7 @@
 /** Shared retry/timeout policy for third-party market-data HTTP (Finnhub, Massive). */
 
+import { readEnv } from "../db/env";
+
 export const VENDOR_FETCH_MAX_RETRIES = 3;
 export const VENDOR_FETCH_RETRY_DELAY_MS = 2_000;
 /** Per-attempt abort; Finnhub earnings/insider can exceed 10s under load. */
@@ -22,4 +24,23 @@ function vendorFetchWorstCaseMs(): number {
 /** Vitest timeout for a single live call that may exhaust vendor retries. */
 export function vendorFetchLiveTestTimeoutMs(): number {
 	return vendorFetchWorstCaseMs() + 5_000;
+}
+
+/** True when `npm test -- --live=<provider>` or `TEST_LIVE_PROVIDERS` includes the provider. */
+export function isLiveProviderEnabledInTests(provider: string): boolean {
+	const enabled = process.env.LIVE_API_PROVIDERS ?? process.env.TEST_LIVE_PROVIDERS ?? "";
+	if (!enabled) return false;
+	return enabled
+		.split(",")
+		.map((entry) => entry.trim().toLowerCase())
+		.includes(provider.trim().toLowerCase());
+}
+
+/**
+ * Skip real vendor HTTP during CI E2E (dummy API keys in run-ci STATIC_VARS).
+ * Vitest keeps calling through to mocked `fetch`; only set
+ * `SKIP_VENDOR_HTTP_IN_TEST=1` in the Playwright webServer environment.
+ */
+export function shouldSkipVendorHttpInTestMode(_provider: string): boolean {
+	return readEnv("SKIP_VENDOR_HTTP_IN_TEST") === "1";
 }
