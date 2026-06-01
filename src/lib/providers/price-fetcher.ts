@@ -350,6 +350,20 @@ function isFinitePositive(v: unknown): v is number {
 	return typeof v === "number" && Number.isFinite(v) && v > 0;
 }
 
+/** Append the live snapshot quote when it differs from the latest bar close. */
+function appendCurrentPriceIfStale(
+	values: number[],
+	symbol: string,
+	currentPriceMap: Map<string, number | null | undefined> | undefined,
+): number[] {
+	if (!currentPriceMap) return values;
+	const rawCurrent = currentPriceMap.get(symbol);
+	if (!isFinitePositive(rawCurrent)) return values;
+	const last = values[values.length - 1];
+	if (last === undefined || last === rawCurrent) return values;
+	return [...values, rawCurrent];
+}
+
 /**
  * Fetch intraday sparklines (prev close + today's 5-minute bars to now) for the given symbols.
  *
@@ -361,12 +375,18 @@ function isFinitePositive(v: unknown): v is number {
  * Symbols without a valid prev close (delisted / fetch miss) get a sparkline
  * built from today's bars only — better than dropping the chart entirely.
  *
+ * When `currentPriceMap` is supplied, the live snapshot quote is appended as
+ * the final point whenever it differs from the latest aggregate close. Snapshot
+ * `min.c` can move ahead of the 5-minute bar endpoint during pre/after-hours,
+ * which otherwise leaves the chart red while the headline change-% is green.
+ *
  * `values` holds the full series for SVG rendering; `ascii` is downsampled to
  * `SMS_SPARKLINE_LENGTH` blocks so SMS bodies stay within their UCS-2 budget.
  */
 export async function fetchIntradaySparklines(
 	symbols: string[],
 	prevCloseMap: Map<string, number | null | undefined>,
+	currentPriceMap?: Map<string, number | null | undefined>,
 ): Promise<SparklineMap> {
 	const result: SparklineMap = new Map();
 	if (symbols.length === 0) return result;
@@ -380,7 +400,8 @@ export async function fetchIntradaySparklines(
 		for (const s of symbols) {
 			const rawPrev = prevCloseMap.get(s);
 			const prevClose = isFinitePositive(rawPrev) ? rawPrev : null;
-			const values = prevClose !== null ? [prevClose, ...stubBars] : stubBars;
+			let values = prevClose !== null ? [prevClose, ...stubBars] : stubBars;
+			values = appendCurrentPriceIfStale(values, s, currentPriceMap);
 			const window: SparklineWindow =
 				prevClose !== null ? "intraday-since-prev-close" : "intraday-since-open";
 			result.set(s, {
@@ -402,10 +423,11 @@ export async function fetchIntradaySparklines(
 			const todayCloses = bars?.closes ?? null;
 			const rawPrev = prevCloseMap.get(symbol);
 			const prevClose = isFinitePositive(rawPrev) ? rawPrev : null;
-			const values =
+			let values =
 				prevClose !== null && todayCloses && todayCloses.length > 0
 					? [prevClose, ...todayCloses]
 					: (todayCloses ?? []);
+			values = appendCurrentPriceIfStale(values, symbol, currentPriceMap);
 			if (values.length < 2) {
 				result.set(symbol, null);
 				return;

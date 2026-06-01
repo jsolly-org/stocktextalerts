@@ -385,8 +385,12 @@ export async function processDailyDigestUser(options: {
 					sparklines = await fetchSparklines(tickers);
 				} else {
 					const prevCloseMap = new Map<string, number | null | undefined>();
+					const currentPriceMap = new Map<string, number | null | undefined>();
 					for (const [symbol, quote] of assetPrices) {
-						if (quote) prevCloseMap.set(symbol, quote.prevClose);
+						if (quote) {
+							prevCloseMap.set(symbol, quote.prevClose);
+							currentPriceMap.set(symbol, quote.price);
+						}
 					}
 					// A preceding price-fetch error leaves assetPrices empty, which
 					// means every sparkline silently falls back to the since-open
@@ -403,7 +407,7 @@ export async function processDailyDigestUser(options: {
 							},
 						);
 					}
-					sparklines = await fetchIntradaySparklines(tickers, prevCloseMap);
+					sparklines = await fetchIntradaySparklines(tickers, prevCloseMap, currentPriceMap);
 				}
 			} catch (error) {
 				logger.error("Failed to fetch sparklines for daily digest", {
