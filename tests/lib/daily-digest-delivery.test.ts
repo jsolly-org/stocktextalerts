@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	formatDailyDigestEmail,
 	formatDailyDigestSmsMessage,
+	formatDailyDigestSmsMessages,
 } from "../../src/lib/daily-digest/delivery";
 import type { SmsExtras } from "../../src/lib/messaging/sms/delivery";
 import type { SparklineData } from "../../src/lib/messaging/sparkline";
@@ -26,6 +27,31 @@ describe("Daily digest email prices", () => {
 		ascii: "▁▂▃▅▇▅▃",
 		window: "7-trading-days",
 	};
+
+	function buildAssetFixtures(
+		count: number,
+		prefix = "STK",
+	): {
+		userAssets: UserAssetRow[];
+		assetPrices: AssetPriceMap;
+		lines: string[];
+	} {
+		const userAssets = Array.from({ length: count }, (_, index) => {
+			const symbol = `${prefix}${String(index + 1).padStart(3, "0")}`;
+			return { symbol, name: `Boundary Asset ${index + 1}` };
+		});
+		const assetPrices: AssetPriceMap = new Map(
+			userAssets.map((asset, index) => [
+				asset.symbol,
+				{ price: 100 + index + 0.12, changePercent: 1.23 },
+			]),
+		);
+		const lines = userAssets.map(
+			(asset, index) => `${asset.symbol} — $${(100 + index + 0.12).toFixed(2)} (+1.23%)`,
+		);
+
+		return { userAssets, assetPrices, lines };
+	}
 
 	beforeEach(() => {
 		vi.stubEnv("UNSUBSCRIBE_TOKEN_SECRET", "test-secret-key");
@@ -215,6 +241,108 @@ describe("Daily digest email prices", () => {
 		expect(message).not.toContain("💵 Prices");
 		expect(message).toContain("AAPL — $187.42 (+1.23%)");
 		expect(message).toContain("MSFT — $412.10 (-0.31%)");
+	});
+
+	it("keeps analyst consensus counts with their section heading across SMS bodies", () => {
+		const { userAssets, assetPrices } = buildAssetFixtures(65, "AC");
+
+		const messages = formatDailyDigestSmsMessages({
+			userAssets,
+			assetPrices,
+			extras,
+			assetEvents: {
+				eventsSection: {
+					earnings: "RTX: earnings expected tomorrow before market open",
+					dividends: "AAPL: ex-dividend date lands this week",
+					splits: null,
+					ipos: null,
+				},
+				analystSection: "LDOS: 8 Buy, 11 Hold, 0 Sell",
+				insiderSection: null,
+				hasAnyContent: true,
+			},
+		});
+
+		expect(messages.length).toBeGreaterThan(1);
+		const analystMessage = messages.find((message) => message.includes("📊 Analyst Consensus"));
+		expect(analystMessage).toContain("📊 Analyst Consensus\nLDOS: 8 Buy, 11 Hold, 0 Sell");
+		for (const message of messages.filter((message) => !message.includes("📊 Analyst Consensus"))) {
+			expect(message).not.toContain("LDOS: 8 Buy, 11 Hold, 0 Sell");
+		}
+	});
+
+	it("keeps the SMS footer opt-out text with the dashboard link in the final body", () => {
+		const { userAssets, assetPrices } = buildAssetFixtures(85, "FT");
+
+		const messages = formatDailyDigestSmsMessages({
+			userAssets,
+			assetPrices,
+			extras,
+		});
+
+		expect(messages.length).toBeGreaterThan(1);
+		const finalBody = messages.at(-1);
+		expect(finalBody).toContain("Manage your notifications:");
+		expect(finalBody).toContain("Reply STOP to opt out.");
+		expect(finalBody?.indexOf("Manage your notifications:")).toBeLessThan(
+			finalBody?.indexOf("Reply STOP to opt out.") ?? -1,
+		);
+		for (const message of messages.slice(0, -1)) {
+			expect(message).not.toContain("Reply STOP to opt out.");
+		}
+	});
+
+	it("pads the dashboard URL after each final SMS body is packed", () => {
+		vi.stubEnv("SITE_URL", "http://localhost:4321");
+		const { userAssets, assetPrices } = buildAssetFixtures(53, "URL");
+		const footerPrefix = "Manage your notifications: ";
+		const insiderBlockPrefix = "🏦 Insider Trades\n";
+		const minimumInsiderFiller = 1250;
+		const targetUrlRemainder = 60;
+		const baseUrlIndex = insiderBlockPrefix.length + minimumInsiderFiller + 2 + footerPrefix.length;
+		const insiderFillerLength =
+			minimumInsiderFiller + ((targetUrlRemainder - (baseUrlIndex % 67) + 67) % 67);
+
+		const messages = formatDailyDigestSmsMessages({
+			userAssets,
+			assetPrices,
+			extras,
+			assetEvents: {
+				eventsSection: { earnings: null, dividends: null, splits: null, ipos: null },
+				analystSection: null,
+				insiderSection: "I".repeat(insiderFillerLength),
+				hasAnyContent: true,
+			},
+		});
+
+		expect(messages.length).toBeGreaterThan(1);
+		const finalBody = messages.at(-1) ?? "";
+		const dashboardUrlMatch = finalBody.match(/https?:\/\/\S+\/dashboard/);
+		expect(dashboardUrlMatch?.index).toBeGreaterThan(-1);
+		expect((dashboardUrlMatch?.index ?? -1) % 67).toBe(0);
+	});
+
+	it("splits long asset lists only between complete asset entries", () => {
+		const { userAssets, assetPrices, lines } = buildAssetFixtures(90, "AS");
+
+		const messages = formatDailyDigestSmsMessages({
+			userAssets,
+			assetPrices,
+			extras,
+		});
+		const joined = messages.join("\n\n");
+
+		expect(messages.length).toBeGreaterThan(1);
+		expect(joined).toContain(lines[0]);
+		expect(joined).toContain(lines.at(-1));
+		for (const line of lines) {
+			expect(messages.filter((message) => message.includes(line))).toHaveLength(1);
+		}
+		for (const message of messages.filter((message) =>
+			lines.some((line) => message.includes(line)),
+		)) {
+			expect(message).toMatch(/(?:^|\n\n)💰 Your Assets\n/);
+		}
 	});
 
 	it("formats rumor ticker sections with blank lines between tickers", () => {
