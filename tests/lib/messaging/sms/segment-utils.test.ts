@@ -88,4 +88,19 @@ describe("padUrlsToSegmentBoundaries", () => {
 		// Should not be modified since URL is too long to fix
 		expect(result).toBe(msg);
 	});
+
+	it("pads line-start URLs at end of previous line, not before the URL", () => {
+		// Position second URL so it straddles a UCS-2 segment boundary.
+		const prefix = "A".repeat(50);
+		const url1 = "https://stocktextalerts.com/r/AAAAA";
+		const url2 = "https://stocktextalerts.com/r/BBBBB";
+		const msg = `${prefix}${url1}\n${url2}`;
+
+		const result = padUrlsToSegmentBoundaries(msg);
+		const url2Index = result.indexOf(url2);
+
+		expect(url2Index).toBeGreaterThan(0);
+		expect(result[url2Index - 1]).toBe("\n");
+		expect(result).not.toMatch(/\n\s+https:\/\/stocktextalerts\.com\/r\/BBBBB/);
+	});
 });

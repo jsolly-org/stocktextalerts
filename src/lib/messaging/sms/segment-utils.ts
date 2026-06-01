@@ -17,6 +17,24 @@ export function findUrls(message: string): UrlSpan[] {
 	return spans;
 }
 
+/**
+ * Where to insert segment-boundary padding so line-start URLs stay left-aligned.
+ * When the URL follows a newline, pad the end of the previous line instead.
+ */
+function getPaddingInsertPosition(message: string, urlStart: number): number {
+	if (urlStart === 0) {
+		return 0;
+	}
+	if (message[urlStart - 1] === "\n") {
+		let insertAt = urlStart - 1;
+		while (insertAt > 0 && message[insertAt - 1] === "\n") {
+			insertAt--;
+		}
+		return insertAt;
+	}
+	return urlStart;
+}
+
 /** Check if a URL straddles a UCS-2 segment boundary. */
 export function urlStraddlesBoundary(start: number, end: number): boolean {
 	const segStart = Math.floor(start / SMS_UCS2_SEGMENT_SIZE);
@@ -49,7 +67,8 @@ export function padUrlsToSegmentBoundaries(message: string): string {
 				(Math.floor(adjustedStart / SMS_UCS2_SEGMENT_SIZE) + 1) * SMS_UCS2_SEGMENT_SIZE;
 			const padding = nextSegmentStart - adjustedStart;
 			const pad = " ".repeat(padding);
-			result = result.slice(0, adjustedStart) + pad + result.slice(adjustedStart);
+			const insertAt = getPaddingInsertPosition(result, adjustedStart);
+			result = result.slice(0, insertAt) + pad + result.slice(insertAt);
 			offset += padding;
 		}
 	}
