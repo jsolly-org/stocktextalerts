@@ -14,6 +14,10 @@
 
 import { DateTime } from "luxon";
 import { updateUserAssetEventsNextSendAt } from "../asset-events/next-send-at";
+import {
+	formatDailyDigestSmsLogMessage,
+	summarizeDailyDigestSmsResults,
+} from "../daily-digest/delivery";
 import { updateUserDailyDigestNextSendAt } from "../daily-digest/next-send-at";
 import { shouldAdvanceDailyDigestSchedule } from "../daily-digest/schedule-state";
 import type { Logger } from "../logging";
@@ -27,7 +31,7 @@ import { sendUserEmail } from "../messaging/email/index";
 import type { EmailSender } from "../messaging/email/utils";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
-import type { UserRecord } from "../messaging/types";
+import type { DeliveryResult, UserRecord } from "../messaging/types";
 import { computeDeliveryRetryDelayMs } from "../providers/vendor-fault-tolerance";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import {
@@ -343,9 +347,13 @@ async function deliverStagedDaily(options: {
 
 	// SMS delivery
 	if (stagedData.sms) {
-		const dailySmsMessage = dailyDelayText
-			? prependDelayBannerToSms(stagedData.sms.message, dailyDelayText)
-			: stagedData.sms.message;
+		const dailySmsMessages =
+			dailyDelayText && stagedData.sms.messages.length > 0
+				? [
+						prependDelayBannerToSms(stagedData.sms.messages[0] ?? "", dailyDelayText),
+						...stagedData.sms.messages.slice(1),
+					]
+				: stagedData.sms.messages;
 
 		const smsEnabled = shouldSendSms(user);
 		if (smsEnabled) {
@@ -362,7 +370,27 @@ async function deliverStagedDaily(options: {
 			if (claim.status === "claimed") {
 				try {
 					const { sender } = getSmsSender();
-					const result = await sendUserSms(user, dailySmsMessage, sender, supabase);
+					const partResults: DeliveryResult[] = [];
+					for (const [index, smsMessage] of dailySmsMessages.entries()) {
+						const partResult = await sendUserSms(user, smsMessage, sender, supabase);
+						partResults.push(partResult);
+
+						if (!partResult.success) {
+							logger.error("Failed to send staged Daily Digest SMS part", {
+								userId: user.id,
+								scheduledDate,
+								scheduledMinutes,
+								partNumber: index + 1,
+								totalParts: dailySmsMessages.length,
+								partLength: smsMessage.length,
+								error: partResult.error,
+								errorCode: partResult.errorCode ?? null,
+							});
+							break;
+						}
+					}
+
+					const result = summarizeDailyDigestSmsResults(partResults, dailySmsMessages.length);
 
 					// Mark as delivered immediately after a successful send so fallback doesn't
 					// reprocess if later bookkeeping fails.
@@ -376,7 +404,7 @@ async function deliverStagedDaily(options: {
 						type: "daily",
 						delivery_method: "sms",
 						message_delivered: result.success,
-						message: dailySmsMessage,
+						message: formatDailyDigestSmsLogMessage(dailySmsMessages),
 						...deliveryResultToLogFields(result),
 					});
 					if (!logged) stats.logFailures++;

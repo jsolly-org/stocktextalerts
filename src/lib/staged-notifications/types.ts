@@ -16,7 +16,7 @@ export interface StagedDailyData {
 	scheduledDate: string;
 	scheduledMinutes: number;
 	email: StagedEmailContent | null;
-	sms: { message: string } | null;
+	sms: { messages: string[] } | null;
 
 	// Post-delivery metadata: these fields capture decisions made during
 	// the pre-compute phase so the delivery phase can perform cleanup

@@ -153,7 +153,7 @@ export function formatDailyDigestSmsMessages(options: DailyDigestSmsFormatOption
 }
 
 /** Format one notification_log message for a single-part or multipart SMS attempt. */
-function formatDailyDigestSmsLogMessage(messages: string[]): string {
+export function formatDailyDigestSmsLogMessage(messages: string[]): string {
 	if (messages.length === 1) {
 		return messages[0] ?? "";
 	}
@@ -164,7 +164,7 @@ function formatDailyDigestSmsLogMessage(messages: string[]): string {
 }
 
 /** Collapse per-part SMS delivery results into one attempt-level result. */
-function summarizeDailyDigestSmsResults(
+export function summarizeDailyDigestSmsResults(
 	results: DeliveryResult[],
 	totalParts: number,
 ): DeliveryResult {
