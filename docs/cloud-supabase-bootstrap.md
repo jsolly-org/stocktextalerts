@@ -15,7 +15,7 @@ After fleet helpers (`npm ci`, YAML/Actionlint, SAM), the app script:
 
 1. Installs **Docker** (`docker.io`) and **jq** when missing.
 2. Configures the engine for Cursor Cloud VMs: **iptables-legacy** (bridge networking between containers), **vfs** storage driver when `/etc/docker/daemon.json` is absent (overlay2 often fails here), then **restarts dockerd** when iptables or `daemon.json` changed so a pre-started systemd dockerd does not keep stale nft rules.
-3. Runs `supabase start` with the same `-x …` excludes as CI (no studio/realtime sidecars in the long-running stack).
+3. Settles Docker after restart, cleans stale Supabase containers/networks, then runs `supabase start` (with retries on transient network/name conflicts) using the same `-x …` excludes as CI.
 4. Writes `.env.local` from `supabase status`, waits for Postgres health, then runs `db:reset` (with retries on transient EOF) and `npm run db:doctor` so `npm test` works on first agent turn.
 5. **Last:** installs Playwright browsers for E2E via [`scripts/cloud-install-playwright.sh`](../scripts/cloud-install-playwright.sh). Supabase runs first so a Playwright hang does not block database setup.
 
@@ -38,6 +38,34 @@ If `supabase start` fails at **Initialising schema** with a Realtime `DBConnecti
 If install fails with `dockerd failed to restart/start` but the dumped `/tmp/dockerd.log` shows the daemon booted (`API listen on /var/run/docker.sock`), the real failure is client-side: `docker info` hits `permission denied` because the socket is `root:docker` `0660` and the agent user isn't in the `docker` group. `ensure_docker_client_access` adds the user to `docker` (new shells) and chmods the socket for the current session; wait loops also retry after each daemon restart. If it still fails, run `sudo chmod 666 /var/run/docker.sock` once, then `npm run db:start`. The diagnostics block (`user/groups`, `socket`, `docker info error`) printed on failure tells you which case you're in.
 
 If `supabase start` fails for other reasons, check the automatic `--- supabase diagnostics ---` block (status + `docker ps` for `supabase*` containers) or re-run with `CLOUD_INSTALL_DEBUG=1`.
+
+Environment install logs (Cursor VM boot): `/tmp/cursor/async-install/install-user.log` (exit code in `install-user.status`).
+
+### `supabase start` fails with missing Docker network or container name conflict
+
+Symptom (often on first VM boot, in `install-user.log`):
+
+```text
+failed to set up container networking: network supabase_network_stocktextalerts not found
+```
+
+or on retry:
+
+```text
+The container name "/supabase_db_stocktextalerts" is already in use
+```
+
+Cause: a partial `supabase start` after a fresh `dockerd` restart — Postgres container or name left behind without the project bridge network, or cgroup errors on nested cloud VMs.
+
+The install script now settles Docker, runs `supabase_clean_docker_state_for_cloud` before start, and retries transient failures. If install still fails:
+
+```bash
+source scripts/cloud-install-supabase.sh
+supabase_clean_docker_state_for_cloud ./node_modules/.bin/supabase
+./node_modules/.bin/supabase start
+# then write .env.local + db:reset, or:
+bash scripts/cloud-agent-install.sh
+```
 
 ### `db:reset` fails with `unexpected EOF` during install
 

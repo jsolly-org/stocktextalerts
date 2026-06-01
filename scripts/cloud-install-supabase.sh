@@ -292,20 +292,92 @@ db_reset_for_cloud() {
 	return 1
 }
 
+# After a fresh dockerd restart, give the engine a moment before Supabase creates networks.
+cloud_install_settle_docker_before_supabase() {
+	cloud_install_log "Docker — settling before Supabase (post-restart)"
+	sleep 3
+	if ! wait_for_docker_ready 30; then
+		cloud_install_log "Docker — not ready after settle wait"
+		dump_docker_diagnostics
+		exit 1
+	fi
+}
+
+# Remove orphaned Supabase containers/networks from a partial `supabase start` (common on cloud VMs).
+supabase_clean_docker_state_for_cloud() {
+	local supabase_bin="${1:-supabase}"
+	cloud_install_log "Supabase — cleaning stale Docker containers/networks"
+	"$supabase_bin" stop --no-backup 2>/dev/null || true
+	local ids
+	ids="$(docker ps -aq --filter name=supabase 2>/dev/null || true)"
+	if [[ -n "$ids" ]]; then
+		# shellcheck disable=SC2086
+		docker rm -f $ids 2>/dev/null || true
+	fi
+	local networks
+	networks="$(docker network ls --filter name=supabase_network -q 2>/dev/null || true)"
+	if [[ -n "$networks" ]]; then
+		# shellcheck disable=SC2086
+		docker network rm $networks 2>/dev/null || true
+	fi
+}
+
+supabase_start_error_is_retryable() {
+	local output="$1"
+	[[ "$output" == *"network supabase_network"* && "$output" == *"not found"* ]] && return 0
+	[[ "$output" == *"already in use"* ]] && return 0
+	[[ "$output" == *"Conflict."* || "$output" == *"Conflict:"* ]] && return 0
+	[[ "$output" == *"Postgres not healthy after supabase start"* ]] && return 0
+	return 1
+}
+
 # Same exclude list as .github/actions/run-ci/action.yml (Podman/cloud-friendly).
 supabase_start_for_cloud() {
 	local supabase_bin="$1"
-	cloud_install_log "Supabase — starting (cloud service excludes)"
-	if ! "$supabase_bin" start -x studio,imgproxy,logflare,vector,postgres-meta,edge-runtime,realtime,storage-api; then
-		echo "supabase start failed" >&2
-		dump_supabase_diagnostics "$supabase_bin"
-		exit 1
-	fi
-	if ! wait_for_supabase_postgres_healthy 120; then
-		dump_supabase_diagnostics "$supabase_bin"
-		exit 1
-	fi
-	cloud_install_log "Supabase — started"
+	local max_attempts=3 attempt=1 backoff=5 output rc
+
+	cloud_install_settle_docker_before_supabase
+	supabase_clean_docker_state_for_cloud "$supabase_bin"
+
+	while [[ $attempt -le $max_attempts ]]; do
+		cloud_install_log "Supabase — start attempt $attempt/$max_attempts (cloud service excludes)"
+		set +e
+		output="$("$supabase_bin" start -x studio,imgproxy,logflare,vector,postgres-meta,edge-runtime,realtime,storage-api 2>&1)"
+		rc=$?
+		set -e
+		printf '%s\n' "$output"
+
+		if [[ $rc -eq 0 ]]; then
+			if wait_for_supabase_postgres_healthy 120; then
+				cloud_install_log "Supabase — started"
+				return 0
+			fi
+			output="${output}"$'\n'"Postgres not healthy after supabase start"
+			rc=1
+		fi
+
+		if ! supabase_start_error_is_retryable "$output"; then
+			cloud_install_log "Supabase — non-retryable start failure (exit $rc)"
+			echo "supabase start failed" >&2
+			dump_supabase_diagnostics "$supabase_bin"
+			exit 1
+		fi
+
+		if [[ $attempt -eq $max_attempts ]]; then
+			cloud_install_log "Supabase — exhausted start retries (exit $rc)"
+			echo "supabase start failed" >&2
+			dump_supabase_diagnostics "$supabase_bin"
+			exit 1
+		fi
+
+		cloud_install_log "Supabase — transient start failure, cleaning and retrying in ${backoff}s"
+		supabase_clean_docker_state_for_cloud "$supabase_bin"
+		sleep "$backoff"
+		backoff=$((backoff * 2))
+		attempt=$((attempt + 1))
+	done
+
+	return 1
 }
 
 # Writes .env.local from `supabase status -o json` plus caller-provided static lines (CI/cloud dummy creds).
