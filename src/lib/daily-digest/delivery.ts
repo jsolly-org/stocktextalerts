@@ -168,6 +168,10 @@ export function summarizeDailyDigestSmsResults(
 	results: DeliveryResult[],
 	totalParts: number,
 ): DeliveryResult {
+	if (totalParts === 0) {
+		return { success: false, error: "No SMS parts to send" };
+	}
+
 	if (results.length === totalParts && results.every((result) => result.success)) {
 		return { success: true };
 	}

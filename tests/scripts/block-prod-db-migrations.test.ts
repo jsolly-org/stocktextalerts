@@ -72,6 +72,14 @@ describe("block-prod-db-migrations hook", () => {
 		expect(stdout).toMatch(/"permission":\s*"deny"/);
 	});
 
+	it("blocks supabase db push inside bash -c quoted command", () => {
+		const { exitCode, stdout } = runHook({
+			command: 'bash -c "supabase db push --yes"',
+		});
+		expect(exitCode).toBe(0);
+		expect(stdout).toMatch(/"permission":\s*"deny"/);
+	});
+
 	it("blocks compound commands when any segment is forbidden", () => {
 		const { exitCode, stdout } = runHook({
 			command: "npm run check:ts && supabase db push",

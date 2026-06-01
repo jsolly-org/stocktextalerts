@@ -11,7 +11,7 @@ mkdir -p .cursor
 
 GIT_WRAPPER="bash scripts/agent-guards/wrap-block-git-no-verify.sh"
 PROD_GUARD="bash scripts/agent-guards/block-prod-db-migrations.sh"
-GIT_MATCHER='^git (push|commit) '
+GIT_MATCHER='git +(push|commit)'
 PROD_MATCHER='supabase|psql|DATABASE_URL_PROD|SUPABASE_URL_PROD|SUPABASE_SECRET_KEY_PROD|japesagairjvvuebzpvr'
 
 merge_hooks() {

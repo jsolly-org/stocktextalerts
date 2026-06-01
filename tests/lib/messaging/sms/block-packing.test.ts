@@ -41,6 +41,10 @@ describe("packSmsBlocks", () => {
 			expect(message).toMatch(/^💰 Your Assets\n/);
 			expect(message).not.toContain("AAPL — $187.42 (+1.23%) past 7 days: ▁▂\n\n▃");
 		}
+		for (let index = 0; index < block.children.length; index += 1) {
+			const childLine = `${child} ${index + 1}`;
+			expect(messages.filter((message) => message.includes(childLine))).toHaveLength(1);
+		}
 	});
 
 	it("packs splittable children into remaining space after an atomic prefix", () => {

@@ -46,11 +46,14 @@ segment_has_prod_markers() {
 segment_is_blocked() {
 	local segment="$1"
 	local stripped
+	local check
 	stripped=$(strip_quoted "$segment")
-	segment_has_supabase_db_push "$stripped" && return 0
-	segment_has_supabase_migration_repair "$stripped" && return 0
-	segment_has_psql "$stripped" && return 0
-	segment_has_prod_markers "$stripped" && return 0
+	for check in "$segment" "$stripped"; do
+		segment_has_supabase_db_push "$check" && return 0
+		segment_has_supabase_migration_repair "$check" && return 0
+		segment_has_psql "$check" && return 0
+		segment_has_prod_markers "$check" && return 0
+	done
 	return 1
 }
 
