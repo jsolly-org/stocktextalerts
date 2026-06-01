@@ -30,7 +30,9 @@ import {
 import { sendUserEmail } from "../messaging/email/index";
 import type { EmailSender } from "../messaging/email/utils";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
+import { SMS_BODY_CHAR_BUDGET } from "../messaging/sms/block-packing";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
+import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import type { DeliveryResult, UserRecord } from "../messaging/types";
 import { computeDeliveryRetryDelayMs } from "../providers/vendor-fault-tolerance";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
@@ -47,9 +49,49 @@ import {
 	purgeStaleStaged,
 	rescheduleStagedNotification,
 } from "./db";
-import type { StagedDailyData, StagedNotificationRow } from "./types";
+import type { StagedDailyData, StagedNotificationRow, StagedSmsContent } from "./types";
 
 const STALE_MAX_AGE_MINUTES = 5;
+const TWILIO_SMS_HARD_LIMIT = 1600;
+
+function normalizeStagedSmsMessages(sms: StagedSmsContent): string[] {
+	if ("messages" in sms) {
+		return sms.messages.map((message) => padUrlsToSegmentBoundaries(message));
+	}
+
+	return [padUrlsToSegmentBoundaries(sms.message)];
+}
+
+function buildFinalStagedSmsMessages(
+	sms: StagedSmsContent,
+	delayText: string | null,
+	logger: Logger,
+	context: { userId: string; scheduledDate: string; scheduledMinutes: number },
+): string[] {
+	const messages = normalizeStagedSmsMessages(sms);
+	if (!delayText || messages.length === 0) {
+		return messages;
+	}
+
+	const delayedFirst = padUrlsToSegmentBoundaries(
+		prependDelayBannerToSms(messages[0] ?? "", delayText),
+	);
+	if (delayedFirst.length <= TWILIO_SMS_HARD_LIMIT) {
+		return [delayedFirst, ...messages.slice(1)];
+	}
+
+	logger.warn(
+		"Delayed staged Daily Digest SMS first part exceeds Twilio limit; sending delay notice separately",
+		{
+			...context,
+			partLength: delayedFirst.length,
+			budget: SMS_BODY_CHAR_BUDGET,
+			hardLimit: TWILIO_SMS_HARD_LIMIT,
+		},
+	);
+
+	return [padUrlsToSegmentBoundaries(delayText), ...messages];
+}
 
 /** Deliver all staged notifications that are due (scheduled_for <= now). */
 export async function deliverStagedNotifications(options: {
@@ -347,13 +389,11 @@ async function deliverStagedDaily(options: {
 
 	// SMS delivery
 	if (stagedData.sms) {
-		const dailySmsMessages =
-			dailyDelayText && stagedData.sms.messages.length > 0
-				? [
-						prependDelayBannerToSms(stagedData.sms.messages[0] ?? "", dailyDelayText),
-						...stagedData.sms.messages.slice(1),
-					]
-				: stagedData.sms.messages;
+		const dailySmsMessages = buildFinalStagedSmsMessages(stagedData.sms, dailyDelayText, logger, {
+			userId: user.id,
+			scheduledDate,
+			scheduledMinutes,
+		});
 
 		const smsEnabled = shouldSendSms(user);
 		if (smsEnabled) {
@@ -372,6 +412,38 @@ async function deliverStagedDaily(options: {
 					const { sender } = getSmsSender();
 					const partResults: DeliveryResult[] = [];
 					for (const [index, smsMessage] of dailySmsMessages.entries()) {
+						if (smsMessage.length > SMS_BODY_CHAR_BUDGET) {
+							logger.warn("Staged Daily Digest SMS part exceeds preferred body budget", {
+								userId: user.id,
+								scheduledDate,
+								scheduledMinutes,
+								partNumber: index + 1,
+								totalParts: dailySmsMessages.length,
+								partLength: smsMessage.length,
+								budget: SMS_BODY_CHAR_BUDGET,
+								hardLimit: TWILIO_SMS_HARD_LIMIT,
+							});
+						}
+
+						if (smsMessage.length > TWILIO_SMS_HARD_LIMIT) {
+							const partResult: DeliveryResult = {
+								success: false,
+								error: `SMS body exceeds Twilio hard limit (${smsMessage.length}/${TWILIO_SMS_HARD_LIMIT})`,
+								errorCode: "SMS_BODY_TOO_LONG",
+							};
+							partResults.push(partResult);
+							logger.error("Staged Daily Digest SMS part exceeds Twilio hard limit", {
+								userId: user.id,
+								scheduledDate,
+								scheduledMinutes,
+								partNumber: index + 1,
+								totalParts: dailySmsMessages.length,
+								partLength: smsMessage.length,
+								hardLimit: TWILIO_SMS_HARD_LIMIT,
+							});
+							break;
+						}
+
 						const partResult = await sendUserSms(user, smsMessage, sender, supabase);
 						partResults.push(partResult);
 

@@ -13,7 +13,12 @@ vi.mock("../../../src/lib/time/market-calendar", () => ({
 }));
 
 import type { Logger } from "../../../src/lib/logging";
+import {
+	buildDelayBannerText,
+	prependDelayBannerToSms,
+} from "../../../src/lib/messaging/delay-banner";
 import { createEmailSender, type EmailSender } from "../../../src/lib/messaging/email/utils";
+import { findUrls, urlStraddlesBoundary } from "../../../src/lib/messaging/sms/segment-utils";
 import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import {
 	createSmsSenderProvider,
@@ -103,7 +108,7 @@ describe("deliverStagedNotifications", () => {
 		scheduledForIso: string;
 		scheduledDate?: string;
 		scheduledMinutes?: number;
-		messages: string[];
+		sms: { messages: string[] } | { message: string };
 	}) {
 		const { error } = await adminClient.from("staged_notifications").insert({
 			user_id: options.userId,
@@ -114,7 +119,7 @@ describe("deliverStagedNotifications", () => {
 				scheduledDate: options.scheduledDate ?? "2026-06-01",
 				scheduledMinutes: options.scheduledMinutes ?? 9 * 60,
 				email: null,
-				sms: { messages: options.messages },
+				sms: options.sms,
 				grokAllowed: false,
 				hasAnyAssetEventsOption: false,
 				shouldUpdateAnalyst: false,
@@ -122,6 +127,34 @@ describe("deliverStagedNotifications", () => {
 			},
 		});
 		expect(error).toBeNull();
+	}
+
+	function buildMessageWithUrlStraddlingAfterDelay(options: {
+		scheduledFor: DateTime;
+		currentTime: DateTime;
+	}) {
+		const header = "StockTextAlerts — Your daily digest 🗓️";
+		const url = "http://localhost/dashboard";
+		const prefix = `${header}\n\n`;
+		const banner = buildDelayBannerText({
+			scheduledFor: options.scheduledFor,
+			now: options.currentTime,
+			userTimezone: "America/New_York",
+			use24Hour: false,
+		});
+		if (!banner) throw new Error("Expected delayed banner text");
+		const urlPrefix = "Manage your notifications: ";
+
+		for (let fillerLength = 0; fillerLength < 200; fillerLength++) {
+			const message = `${prefix}${"A".repeat(fillerLength)}\n${urlPrefix}${url}`;
+			const delayed = prependDelayBannerToSms(message, banner);
+			const span = findUrls(delayed)[0];
+			if (span && urlStraddlesBoundary(span.start, span.end)) {
+				return message;
+			}
+		}
+
+		throw new Error("Failed to build URL boundary fixture");
 	}
 
 	it("returns empty deliveredUserTypes when no staged rows are due", async () => {
@@ -152,7 +185,7 @@ describe("deliverStagedNotifications", () => {
 			"Second staged body",
 			"Final staged body",
 		];
-		await insertStagedDailySms({ userId, scheduledForIso, messages });
+		await insertStagedDailySms({ userId, scheduledForIso, sms: { messages } });
 		const smsSender = vi.fn<SmsSender>(async () => ({ success: true }));
 
 		const result = await deliverStagedNotifications({
@@ -201,7 +234,7 @@ describe("deliverStagedNotifications", () => {
 			"Second staged body",
 			"Final staged body",
 		];
-		await insertStagedDailySms({ userId, scheduledForIso, messages });
+		await insertStagedDailySms({ userId, scheduledForIso, sms: { messages } });
 		const smsSender = vi
 			.fn<SmsSender>()
 			.mockResolvedValueOnce({ success: true })
@@ -264,7 +297,7 @@ describe("deliverStagedNotifications", () => {
 			"Second staged body",
 			"Final staged body",
 		];
-		await insertStagedDailySms({ userId, scheduledForIso, messages });
+		await insertStagedDailySms({ userId, scheduledForIso, sms: { messages } });
 		const smsSender = vi.fn<SmsSender>(async () => ({ success: true }));
 
 		await deliverStagedNotifications({
@@ -281,5 +314,87 @@ describe("deliverStagedNotifications", () => {
 		expect(sentBodies[0]).toContain("First staged body");
 		expect(sentBodies[1]).toBe(messages[1]);
 		expect(sentBodies[2]).toBe(messages[2]);
+	});
+
+	it("repads a delayed one-part staged SMS when the dashboard URL shifts near a segment boundary", async () => {
+		await clearStagedNotifications();
+		const scheduledFor = DateTime.fromISO("2026-06-01T13:00:00.000Z", { zone: "utc" });
+		const currentTime = scheduledFor.plus({ minutes: 12 });
+		const scheduledForIso = scheduledFor.toISO();
+		if (!scheduledForIso) throw new Error("Expected valid scheduled_for timestamp");
+		const userId = await createSmsDigestUser({ scheduledForIso });
+		const message = buildMessageWithUrlStraddlingAfterDelay({ scheduledFor, currentTime });
+		const smsSender = vi.fn<SmsSender>(async () => ({ success: true }));
+		await insertStagedDailySms({ userId, scheduledForIso, sms: { messages: [message] } });
+
+		await deliverStagedNotifications({
+			supabase: adminClient,
+			logger,
+			currentTime,
+			sendEmail,
+			getSmsSender: () => ({ sender: smsSender }),
+		});
+
+		expect(smsSender).toHaveBeenCalledTimes(1);
+		const sentBody = smsSender.mock.calls[0]?.[0].body ?? "";
+		const span = findUrls(sentBody)[0];
+		expect(span).toBeDefined();
+		expect(urlStraddlesBoundary(span?.start ?? -1, span?.end ?? -1)).toBe(false);
+	});
+
+	it("delivers an old-shape staged SMS row with one message", async () => {
+		await clearStagedNotifications();
+		const currentTime = DateTime.fromISO("2026-06-01T13:00:00.000Z", { zone: "utc" });
+		const scheduledForIso = currentTime.toISO();
+		if (!scheduledForIso) throw new Error("Expected valid scheduled_for timestamp");
+		const userId = await createSmsDigestUser({ scheduledForIso });
+		const message = "StockTextAlerts — Your daily digest 🗓️\n\nLegacy staged body";
+		const smsSender = vi.fn<SmsSender>(async () => ({ success: true }));
+		await insertStagedDailySms({ userId, scheduledForIso, sms: { message } });
+
+		const result = await deliverStagedNotifications({
+			supabase: adminClient,
+			logger,
+			currentTime,
+			sendEmail,
+			getSmsSender: () => ({ sender: smsSender }),
+		});
+
+		expect(smsSender).toHaveBeenCalledOnce();
+		expect(smsSender.mock.calls[0]?.[0].body).toBe(message);
+		expect(result.stats.smsSent).toBe(1);
+		expect(result.stats.smsFailed).toBe(0);
+	});
+
+	it("keeps delayed staged SMS bodies within Twilio's hard character limit", async () => {
+		await clearStagedNotifications();
+		const scheduledFor = DateTime.fromISO("2026-06-01T13:00:00.000Z", { zone: "utc" });
+		const currentTime = scheduledFor.plus({ minutes: 12 });
+		const scheduledForIso = scheduledFor.toISO();
+		if (!scheduledForIso) throw new Error("Expected valid scheduled_for timestamp");
+		const userId = await createSmsDigestUser({ scheduledForIso });
+		const nearLimitBody = `StockTextAlerts — Your daily digest 🗓️\n\n${"A".repeat(1538)}`;
+		expect(nearLimitBody.length).toBeLessThanOrEqual(1600);
+		const smsSender = vi.fn<SmsSender>(async () => ({ success: true }));
+		await insertStagedDailySms({
+			userId,
+			scheduledForIso,
+			sms: { messages: [nearLimitBody, "Second staged body"] },
+		});
+
+		await deliverStagedNotifications({
+			supabase: adminClient,
+			logger,
+			currentTime,
+			sendEmail,
+			getSmsSender: () => ({ sender: smsSender }),
+		});
+
+		const sentBodies = smsSender.mock.calls.map(([request]) => request.body);
+		expect(sentBodies.length).toBeGreaterThan(2);
+		expect(sentBodies.every((body) => body.length <= 1600)).toBe(true);
+		expect(sentBodies[0]).toContain("Delayed");
+		expect(sentBodies[1]).toBe(nearLimitBody);
+		expect(sentBodies[2]).toBe("Second staged body");
 	});
 });
