@@ -32,7 +32,7 @@ import type { EmailSender } from "../messaging/email/utils";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
 import { SMS_BODY_CHAR_BUDGET } from "../messaging/sms/block-packing";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
-import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
+import { padDailyDigestSmsSegmentBoundaries } from "../messaging/sms/segment-utils";
 import type { DeliveryResult, UserRecord } from "../messaging/types";
 import { computeDeliveryRetryDelayMs } from "../providers/vendor-fault-tolerance";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
@@ -56,10 +56,14 @@ const TWILIO_SMS_HARD_LIMIT = 1600;
 
 function normalizeStagedSmsMessages(sms: StagedSmsContent): string[] {
 	if ("messages" in sms) {
-		return sms.messages.map((message) => padUrlsToSegmentBoundaries(message));
+		return sms.messages;
 	}
 
-	return [padUrlsToSegmentBoundaries(sms.message)];
+	return [sms.message];
+}
+
+function padStagedDailyDigestSmsMessages(messages: string[]): string[] {
+	return messages.map((message) => padDailyDigestSmsSegmentBoundaries(message));
 }
 
 function buildFinalStagedSmsMessages(
@@ -70,14 +74,14 @@ function buildFinalStagedSmsMessages(
 ): string[] {
 	const messages = normalizeStagedSmsMessages(sms);
 	if (!delayText || messages.length === 0) {
-		return messages;
+		return padStagedDailyDigestSmsMessages(messages);
 	}
 
-	const delayedFirst = padUrlsToSegmentBoundaries(
+	const delayedFirst = padDailyDigestSmsSegmentBoundaries(
 		prependDelayBannerToSms(messages[0] ?? "", delayText),
 	);
 	if (delayedFirst.length <= TWILIO_SMS_HARD_LIMIT) {
-		return [delayedFirst, ...messages.slice(1)];
+		return [delayedFirst, ...padStagedDailyDigestSmsMessages(messages.slice(1))];
 	}
 
 	logger.warn(
@@ -90,7 +94,10 @@ function buildFinalStagedSmsMessages(
 		},
 	);
 
-	return [padUrlsToSegmentBoundaries(delayText), ...messages];
+	return [
+		padDailyDigestSmsSegmentBoundaries(delayText),
+		...padStagedDailyDigestSmsMessages(messages),
+	];
 }
 
 /** Deliver all staged notifications that are due (scheduled_for <= now). */

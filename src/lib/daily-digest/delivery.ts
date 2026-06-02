@@ -21,7 +21,7 @@ import { packSmsBlocks, type SmsBlock } from "../messaging/sms/block-packing";
 import type { SmsExtras } from "../messaging/sms/delivery";
 import { formatExtrasSection } from "../messaging/sms/formatting";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
-import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
+import { padDailyDigestSmsSegmentBoundaries } from "../messaging/sms/segment-utils";
 import type { SparklineData, SparklineMap } from "../messaging/sparkline";
 import type { DeliveryResult, UserAssetRow, UserRecord } from "../messaging/types";
 import type { AssetPriceMap } from "../providers/price-fetcher";
@@ -145,10 +145,15 @@ export function formatDailyDigestSmsMessage(options: DailyDigestSmsFormatOptions
 	return formatDailyDigestSmsMessages(options).join("\n\n");
 }
 
+/** Format packed daily digest SMS bodies before segment-boundary padding. */
+export function formatDailyDigestSmsMessageBodies(options: DailyDigestSmsFormatOptions): string[] {
+	return packSmsBlocks(buildDailyDigestSmsBlocks(options));
+}
+
 /** Format the daily digest SMS payload as one or more boundary-aware bodies. */
 export function formatDailyDigestSmsMessages(options: DailyDigestSmsFormatOptions): string[] {
-	return packSmsBlocks(buildDailyDigestSmsBlocks(options)).map((message) =>
-		padUrlsToSegmentBoundaries(message),
+	return formatDailyDigestSmsMessageBodies(options).map((message) =>
+		padDailyDigestSmsSegmentBoundaries(message),
 	);
 }
 

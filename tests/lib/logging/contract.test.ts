@@ -50,4 +50,59 @@ describe("logging contract", () => {
 			spy.mockRestore();
 		}
 	});
+
+	it("vendor retry exhaustion includes category and top-level error for alert-hub", () => {
+		const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+		try {
+			createLogger({ category: "schedule" }).error(
+				"Finnhub insider-transactions exhausted retries",
+				{ category: "vendor_retry_exhausted", reason: "timeout" },
+				new Error("The operation was aborted due to timeout"),
+			);
+			const parsed = JSON.parse(spy.mock.calls[0]![0] as string);
+			expect(parsed.message).toBe("Finnhub insider-transactions exhausted retries");
+			expect(parsed.context).toMatchObject({ category: "vendor_retry_exhausted" });
+			expect(parsed.error).toMatchObject({
+				name: "Error",
+				message: "The operation was aborted due to timeout",
+			});
+		} finally {
+			spy.mockRestore();
+		}
+	});
+
+	it("schema failures surface readable error.message for alert-hub", () => {
+		const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+		try {
+			createLogger({ action: "load_insider_transactions" }).error(
+				"Failed to load asset_insider_transactions",
+				{ action: "load_insider_transactions" },
+				new Error("Could not find the table 'public.asset_insider_transactions'"),
+			);
+			const parsed = JSON.parse(spy.mock.calls[0]![0] as string);
+			expect(parsed.message).toBe("Failed to load asset_insider_transactions");
+			expect(parsed.error.message).toContain("Could not find the table");
+		} finally {
+			spy.mockRestore();
+		}
+	});
+
+	it("context.error fallback when no throwable exists", () => {
+		const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+		try {
+			createLogger({ action: "load_insider_transactions" }).error(
+				"Failed to load asset_insider_transactions",
+				{
+					action: "load_insider_transactions",
+					error: "Could not find the table 'public.asset_insider_transactions'",
+				},
+			);
+			const parsed = JSON.parse(spy.mock.calls[0]![0] as string);
+			expect(parsed.message).toBe("Failed to load asset_insider_transactions");
+			expect(parsed.context.error).toContain("Could not find the table");
+			expect(parsed.error).toBeUndefined();
+		} finally {
+			spy.mockRestore();
+		}
+	});
 });

@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { SMS_UCS2_SEGMENT_SIZE } from "../../../../src/lib/constants";
 import {
+	findDailyDigestProtectedSpans,
+	findLineSpans,
 	findUrls,
+	padDailyDigestSmsSegmentBoundaries,
+	padSpansToSegmentBoundaries,
 	padUrlsToSegmentBoundaries,
+	spanStraddlesBoundary,
 	urlStraddlesBoundary,
 } from "../../../../src/lib/messaging/sms/segment-utils";
 
@@ -25,6 +31,12 @@ describe("findUrls", () => {
 	it("finds http URLs", () => {
 		const spans = findUrls("Visit http://example.com now");
 		expect(spans).toHaveLength(1);
+	});
+});
+
+describe("spanStraddlesBoundary", () => {
+	it("matches urlStraddlesBoundary alias", () => {
+		expect(spanStraddlesBoundary(60, 80)).toBe(urlStraddlesBoundary(60, 80));
 	});
 });
 
@@ -102,5 +114,119 @@ describe("padUrlsToSegmentBoundaries", () => {
 		expect(url2Index).toBeGreaterThan(0);
 		expect(result[url2Index - 1]).toBe("\n");
 		expect(result).not.toMatch(/\n\s+https:\/\/stocktextalerts\.com\/r\/BBBBB/);
+	});
+});
+
+describe("findLineSpans", () => {
+	it("finds each non-empty line", () => {
+		const message = "Header\n\nINIO: IPO in 2 days (06-04)";
+		expect(findLineSpans(message)).toEqual([
+			{ start: 0, end: 6 },
+			{ start: 8, end: 35 },
+		]);
+	});
+});
+
+describe("padSpansToSegmentBoundaries", () => {
+	it("pads a protected line that straddles a segment boundary", () => {
+		const prefix = "A".repeat(650);
+		const line = "INIO: IPO in 2 days (06-04)";
+		const message = `${prefix}\n${line}`;
+
+		expect(spanStraddlesBoundary(message.indexOf(line), message.indexOf(line) + line.length)).toBe(
+			true,
+		);
+
+		const result = padSpansToSegmentBoundaries(
+			message,
+			findLineSpans(message),
+			"newlines-before-span-start",
+		);
+		const lineIndex = result.indexOf(line);
+
+		expect(lineIndex).toBeGreaterThan(-1);
+		expect(spanStraddlesBoundary(lineIndex, lineIndex + line.length)).toBe(false);
+		expect(result[lineIndex - 1]).toBe("\n");
+	});
+
+	it("skips spans longer than one segment", () => {
+		const longLine = "L".repeat(SMS_UCS2_SEGMENT_SIZE + 5);
+		const prefix = "A".repeat(60);
+		const message = `${prefix}\n${longLine}`;
+
+		expect(padSpansToSegmentBoundaries(message, findLineSpans(message))).toBe(message);
+	});
+
+	it("is idempotent after padding", () => {
+		const prefix = "A".repeat(650);
+		const line = "INIO: IPO in 2 days (06-04)";
+		const message = `${prefix}\n${line}`;
+		const once = padSpansToSegmentBoundaries(
+			message,
+			findLineSpans(message),
+			"newlines-before-span-start",
+		);
+		const twice = padSpansToSegmentBoundaries(
+			once,
+			findLineSpans(once),
+			"newlines-before-span-start",
+		);
+
+		expect(twice).toBe(once);
+	});
+});
+
+describe("padDailyDigestSmsSegmentBoundaries", () => {
+	it("pads IPO rows and dashboard URLs without double-padding on rerun", () => {
+		const prefix = "A".repeat(650);
+		const ipoLine = "INIO: IPO in 2 days (06-04)";
+		const footer = "Manage your notifications: https://stocktextalerts.com/dashboard";
+		const message = `${prefix}\n🆕 Upcoming IPOs\n${ipoLine}\n\n${footer}`;
+
+		const once = padDailyDigestSmsSegmentBoundaries(message);
+		const twice = padDailyDigestSmsSegmentBoundaries(once);
+
+		expect(twice).toBe(once);
+		const ipoIndex = once.indexOf(ipoLine);
+		expect(ipoIndex).toBeGreaterThan(-1);
+		expect(spanStraddlesBoundary(ipoIndex, ipoIndex + ipoLine.length)).toBe(false);
+
+		const url = findUrls(once)[0];
+		expect(url).toBeDefined();
+		expect(spanStraddlesBoundary(url?.start ?? -1, url?.end ?? -1)).toBe(false);
+	});
+
+	it("dedupes URL spans nested inside footer line spans", () => {
+		const message = "Manage your notifications: https://stocktextalerts.com/dashboard";
+		const spans = findDailyDigestProtectedSpans(message);
+		const urlOnlySpans = spans.filter((span) =>
+			message.slice(span.start, span.end).startsWith("https://"),
+		);
+
+		expect(urlOnlySpans).toHaveLength(0);
+		expect(spans).toHaveLength(1);
+	});
+
+	it("includes a section heading with its first protectable line when they share one newline", () => {
+		const message = "🆕 Upcoming IPOs\nINIO: IPO in 2 days (06-04)";
+		const spans = findDailyDigestProtectedSpans(message);
+
+		expect(spans).toHaveLength(1);
+		expect(message.slice(spans[0]?.start ?? 0, spans[0]?.end ?? 0)).toBe(
+			"🆕 Upcoming IPOs\nINIO: IPO in 2 days (06-04)",
+		);
+	});
+
+	it("falls back to the line span when heading plus line exceeds one segment", () => {
+		const heading = "🏦 Insider Trades";
+		const line = "LDOS: 8 Buy, 11 Hold, 0 Sell — extra context for boundary test";
+		const message = `${heading}\n${line}`;
+		const spans = findDailyDigestProtectedSpans(message);
+
+		expect(spans).toHaveLength(1);
+		expect(message.slice(spans[0]?.start ?? 0, spans[0]?.end ?? 0)).toBe(line);
+		expect((spans[0]?.end ?? 0) - (spans[0]?.start ?? 0)).toBeLessThanOrEqual(
+			SMS_UCS2_SEGMENT_SIZE,
+		);
 	});
 });

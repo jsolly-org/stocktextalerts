@@ -237,6 +237,7 @@ Resources:
   ScheduleFunctionErrorAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
+      AlarmName: stocktextalerts-schedule-lambda-errors
       AlarmDescription: ScheduleFunction threw / timed out / OOMed
       Namespace: AWS/Lambda
       MetricName: Errors
@@ -257,6 +258,7 @@ Resources:
   AssetEventsFunctionErrorAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
+      AlarmName: stocktextalerts-asset-events-lambda-errors
       AlarmDescription: AssetEventsFunction threw / timed out / OOMed
       Namespace: AWS/Lambda
       MetricName: Errors
@@ -277,6 +279,7 @@ Resources:
   ComputeDailyStatsFunctionErrorAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
+      AlarmName: stocktextalerts-compute-daily-stats-lambda-errors
       AlarmDescription: ComputeDailyStatsFunction threw / timed out / OOMed
       Namespace: AWS/Lambda
       MetricName: Errors
@@ -298,6 +301,7 @@ Resources:
   ScheduleFunctionEveryMinuteFailureAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
+      AlarmName: stocktextalerts-schedule-invocation-failures
       AlarmDescription: ScheduleFunctionEveryMinute failed to invoke target
       Namespace: AWS/Scheduler
       MetricName: TargetErrorCount
@@ -320,6 +324,7 @@ Resources:
   AssetEventsFunctionDailyMidnightFailureAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
+      AlarmName: stocktextalerts-asset-events-invocation-failures
       AlarmDescription: AssetEventsFunctionDailyMidnight failed to invoke target
       Namespace: AWS/Scheduler
       MetricName: TargetErrorCount
@@ -342,6 +347,7 @@ Resources:
   ComputeDailyStatsFunctionWeekdayEveningFailureAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
+      AlarmName: stocktextalerts-compute-daily-stats-invocation-failures
       AlarmDescription: ComputeDailyStatsFunctionWeekdayEvening failed to invoke target
       Namespace: AWS/Scheduler
       MetricName: TargetErrorCount

@@ -24,6 +24,10 @@ Set the actual value once via `aws ssm put-parameter`. CloudFormation resolves i
 
 See [docs/incidents/2026-05-email-from-mangling.md](incidents/2026-05-email-from-mangling.md) for the outage that motivated this.
 
+## Explicit CloudWatch `AlarmName` may replace alarms on deploy
+
+SAM updates that add `AlarmName` to previously auto-named alarms can replace the underlying CloudWatch alarm resource. You may get a one-off state transition email during deploy. See [docs/alert-hub.md](alert-hub.md).
+
 ## Live provider CI alerts use alert-hub
 
 `.github/workflows/live-provider-tests.yml` publishes a synthetic CloudWatch alarm JSON to the shared alert-hub SNS topic (`/alert-hub/alert-topic-arn` in SSM) on first failure in a streak. The enricher Lambda sends the usual SES email.

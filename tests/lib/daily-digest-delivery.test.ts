@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SMS_UCS2_SEGMENT_SIZE } from "../../src/lib/constants";
 import {
 	formatDailyDigestEmail,
 	formatDailyDigestSmsMessage,
@@ -7,6 +8,10 @@ import {
 } from "../../src/lib/daily-digest/delivery";
 import type { Logger } from "../../src/lib/logging";
 import type { SmsExtras } from "../../src/lib/messaging/sms/delivery";
+import {
+	findDailyDigestProtectedSpans,
+	spanStraddlesBoundary,
+} from "../../src/lib/messaging/sms/segment-utils";
 import type { SmsSender } from "../../src/lib/messaging/sms/twilio-utils";
 import type { SparklineData } from "../../src/lib/messaging/sparkline";
 import type { UserAssetRow, UserRecord } from "../../src/lib/messaging/types";
@@ -562,7 +567,66 @@ describe("Daily digest email prices", () => {
 		const finalBody = messages.at(-1) ?? "";
 		const dashboardUrlMatch = finalBody.match(/https?:\/\/\S+\/dashboard/);
 		expect(dashboardUrlMatch?.index).toBeGreaterThan(-1);
-		expect((dashboardUrlMatch?.index ?? -1) % 67).toBe(0);
+		const urlSpan = findDailyDigestProtectedSpans(finalBody).find((span) => {
+			const text = finalBody.slice(span.start, span.end);
+			return text.includes("/dashboard");
+		});
+		expect(urlSpan).toBeDefined();
+		expect(spanStraddlesBoundary(urlSpan?.start ?? -1, urlSpan?.end ?? -1)).toBe(false);
+	});
+
+	it("keeps upcoming IPO rows off UCS-2 segment boundaries in typical closed-market digests", () => {
+		const symbols = ["LDOS", "BAH", "CACI", "SAIC", "ACN", "PLTR", "RTX", "GD", "LMT", "NOC"];
+		const userAssets: UserAssetRow[] = symbols.map((symbol) => ({
+			symbol,
+			name: `${symbol} Inc`,
+		}));
+		const assetPrices: AssetPriceMap = new Map(
+			symbols.map((symbol, index) => [
+				symbol,
+				{ price: 100 + index, changePercent: index % 2 === 0 ? -0.31 : 5.18 },
+			]),
+		);
+		const sparklines = new Map(symbols.map((symbol) => [symbol, sparklineData]));
+		const ipos = [
+			"SFPT: IPO in 2 days (06-04)",
+			"SSMR: IPO in 2 days (06-04)",
+			"QNT: IPO in 2 days (06-04)",
+			"INIO: IPO in 2 days (06-04)",
+			"AESPU: IPO tomorrow",
+			"AADX: IPO tomorrow",
+		].join("\n");
+
+		const messages = formatDailyDigestSmsMessages({
+			userAssets,
+			assetPrices,
+			extras,
+			sparklines,
+			marketOpen: false,
+			marketClosureInfo: { reason: "weekend" },
+			assetEvents: {
+				eventsSection: { earnings: null, dividends: null, splits: null, ipos },
+				analystSection: null,
+				insiderSection: null,
+				hasAnyContent: true,
+			},
+		});
+
+		const joined = messages.join("\n\n");
+		const inioLine = "INIO: IPO in 2 days (06-04)";
+		expect(joined).toContain(inioLine);
+
+		const inioIndex = joined.indexOf(inioLine);
+		expect(spanStraddlesBoundary(inioIndex, inioIndex + inioLine.length)).toBe(false);
+
+		for (const message of messages) {
+			for (const span of findDailyDigestProtectedSpans(message)) {
+				const spanLength = span.end - span.start;
+				if (spanLength <= SMS_UCS2_SEGMENT_SIZE) {
+					expect(spanStraddlesBoundary(span.start, span.end)).toBe(false);
+				}
+			}
+		}
 	});
 
 	it("splits long asset lists only between complete asset entries", () => {
