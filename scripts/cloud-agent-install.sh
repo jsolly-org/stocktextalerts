@@ -38,7 +38,11 @@ cloud_install_phase() {
 
 cloud_install_phase "Node 24 + npm ci"
 use_node_for_cursor_cloud
-npm ci
+npm ci --include=dev --foreground-scripts --ignore-scripts=false
+
+SUPABASE_BIN="$REPO_ROOT/node_modules/.bin/supabase"
+ensure_supabase_cli_for_cloud "$REPO_ROOT"
+export PATH="$REPO_ROOT/node_modules/.bin:${PATH}"
 
 ensure_user_local_bin_on_path
 cloud_install_phase "YAML linters + SAM"
@@ -47,13 +51,6 @@ install_sam
 
 cloud_install_phase "Docker for Supabase"
 install_docker_for_supabase
-
-SUPABASE_BIN="$REPO_ROOT/node_modules/.bin/supabase"
-if [[ ! -x "$SUPABASE_BIN" ]]; then
-	echo "Error: Supabase CLI not found at $SUPABASE_BIN (expected npm devDependency after npm ci)." >&2
-	exit 1
-fi
-export PATH="$REPO_ROOT/node_modules/.bin:${PATH}"
 
 # Supabase + db:reset before Playwright — unit tests need the DB; E2E browsers must not block boot.
 cloud_install_phase "Supabase start + .env.local"

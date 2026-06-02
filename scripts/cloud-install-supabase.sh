@@ -113,11 +113,69 @@ dump_docker_diagnostics() {
 dump_supabase_diagnostics() {
 	local supabase_bin="${1:-supabase}"
 	echo "--- supabase diagnostics ---" >&2
+	dump_supabase_cli_diagnostics "$supabase_bin"
 	dump_docker_diagnostics
 	echo "supabase status:" >&2
 	"$supabase_bin" status 2>&1 >&2 || true
 	echo "docker containers (supabase*):" >&2
 	docker ps -a --filter name=supabase --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' 2>&1 >&2 || true
+}
+
+dump_supabase_cli_diagnostics() {
+	local supabase_bin="${1:-supabase}"
+	local repo_root="${REPO_ROOT:-$(pwd)}"
+	echo "--- supabase cli diagnostics ---" >&2
+	echo "node: $(node -v 2>&1 || true)" >&2
+	echo "npm: $(npm -v 2>&1 || true)" >&2
+	echo "NODE_ENV=${NODE_ENV:-}" >&2
+	echo "npm_config_omit=${npm_config_omit:-}" >&2
+	echo "npm config ignore-scripts: $(npm config get ignore-scripts 2>&1 || true)" >&2
+	echo "npm config omit: $(npm config get omit 2>&1 || true)" >&2
+	echo "supabase_bin: $supabase_bin" >&2
+	ls -la "$supabase_bin" "$repo_root/node_modules/supabase/bin" 2>&1 >&2 || true
+}
+
+supabase_cli_ready_for_cloud() {
+	local repo_root="${1:-${REPO_ROOT:-$(pwd)}}"
+	local supabase_bin="${2:-$repo_root/node_modules/.bin/supabase}"
+	local supabase_real_bin="$repo_root/node_modules/supabase/bin/supabase"
+
+	[[ -x "$supabase_bin" && -x "$supabase_real_bin" ]] || return 1
+	"$supabase_bin" --version >/dev/null 2>&1
+}
+
+ensure_supabase_cli_for_cloud() {
+	local repo_root="${1:-${REPO_ROOT:-$(pwd)}}"
+	local supabase_bin="$repo_root/node_modules/.bin/supabase"
+	local max_attempts=3 attempt=1 backoff=2 version
+
+	if supabase_cli_ready_for_cloud "$repo_root" "$supabase_bin"; then
+		version="$("$supabase_bin" --version 2>/dev/null || true)"
+		cloud_install_log "Supabase CLI — ready ($version)"
+		return 0
+	fi
+
+	cloud_install_log "Supabase CLI — missing or not executable after npm ci"
+	while [[ $attempt -le $max_attempts ]]; do
+		cloud_install_log "Supabase CLI — npm rebuild attempt $attempt/$max_attempts"
+		if (cd "$repo_root" && npm rebuild supabase --foreground-scripts --ignore-scripts=false); then
+			if supabase_cli_ready_for_cloud "$repo_root" "$supabase_bin"; then
+				version="$("$supabase_bin" --version 2>/dev/null || true)"
+				cloud_install_log "Supabase CLI — ready ($version)"
+				return 0
+			fi
+		fi
+
+		if [[ $attempt -lt $max_attempts ]]; then
+			sleep "$backoff"
+			backoff=$((backoff * 2))
+		fi
+		attempt=$((attempt + 1))
+	done
+
+	echo "Error: Supabase CLI not found or not executable at $supabase_bin after npm rebuild." >&2
+	dump_supabase_cli_diagnostics "$supabase_bin"
+	exit 1
 }
 
 # Group membership does not apply until a new login; chmod the socket so this install
@@ -307,7 +365,11 @@ cloud_install_settle_docker_before_supabase() {
 supabase_clean_docker_state_for_cloud() {
 	local supabase_bin="${1:-supabase}"
 	cloud_install_log "Supabase — cleaning stale Docker containers/networks"
-	"$supabase_bin" stop --no-backup 2>/dev/null || true
+	if supabase_cli_ready_for_cloud "${REPO_ROOT:-$(pwd)}" "$supabase_bin"; then
+		"$supabase_bin" stop --no-backup 2>/dev/null || true
+	else
+		cloud_install_log "Supabase CLI — not available for stop ($supabase_bin); skipping supabase stop"
+	fi
 	local ids
 	ids="$(docker ps -aq --filter name=supabase 2>/dev/null || true)"
 	if [[ -n "$ids" ]]; then
@@ -335,6 +397,12 @@ supabase_start_error_is_retryable() {
 supabase_start_for_cloud() {
 	local supabase_bin="$1"
 	local max_attempts=3 attempt=1 backoff=5 output rc
+
+	if ! supabase_cli_ready_for_cloud "${REPO_ROOT:-$(pwd)}" "$supabase_bin"; then
+		echo "Error: Supabase CLI missing or unusable before supabase start: $supabase_bin" >&2
+		dump_supabase_cli_diagnostics "$supabase_bin"
+		exit 1
+	fi
 
 	cloud_install_settle_docker_before_supabase
 	supabase_clean_docker_state_for_cloud "$supabase_bin"

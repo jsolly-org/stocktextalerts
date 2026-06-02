@@ -41,6 +41,26 @@ If `supabase start` fails for other reasons, check the automatic `--- supabase d
 
 Environment install logs (Cursor VM boot): `/tmp/cursor/async-install/install-user.log` (exit code in `install-user.status`).
 
+### `supabase start` fails with `/workspace/node_modules/.bin/supabase: No such file or directory`
+
+Symptom:
+
+```text
+/workspace/scripts/cloud-install-supabase.sh: line 345: /workspace/node_modules/.bin/supabase: No such file or directory
+cloud-install: Supabase — non-retryable start failure (exit 127)
+```
+
+Cause: the npm `supabase` package is a thin wrapper. Its registry tarball does **not** include the native CLI; npm downloads and links the real binary from GitHub during `postinstall`. If lifecycle scripts are skipped, dev dependencies are omitted, or the GitHub release download flakes, `npm ci` can finish without leaving a runnable `node_modules/.bin/supabase`.
+
+Docker diagnostics may still look healthy in this case because Docker is not the failing layer. The install script now runs `supabase --version` immediately after `npm ci`, retries `npm rebuild supabase`, and fails before Docker work if the CLI cannot be repaired.
+
+Manual recovery:
+
+```bash
+npm rebuild supabase --foreground-scripts --ignore-scripts=false
+CLOUD_INSTALL_PLAYWRIGHT=0 bash scripts/cloud-agent-install.sh
+```
+
 ### `supabase start` fails with missing Docker network or container name conflict
 
 Symptom (often on first VM boot, in `install-user.log`):
