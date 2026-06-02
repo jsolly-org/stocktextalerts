@@ -174,10 +174,12 @@ export async function marketDataFetch(
 					const logFn = optional
 						? rootLogger.warn.bind(rootLogger)
 						: rootLogger.error.bind(rootLogger);
-					logFn(`Massive ${label} exhausted retries`, {
-						...apiErrorContext,
-						category: failureCategory,
-					});
+					const statusDetail = apiStatus ? ` (${apiStatus})` : "";
+					logFn(
+						`Massive ${label} exhausted retries`,
+						{ ...apiErrorContext, category: failureCategory },
+						new Error(`Massive HTTP ${response.status}${statusDetail}`),
+					);
 					return null;
 				}
 				rootLogger.warn(`Massive ${label} API error`, apiErrorContext);

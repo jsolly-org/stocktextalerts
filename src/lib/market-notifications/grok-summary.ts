@@ -213,7 +213,11 @@ export async function generatePriceAlertSummary(options: {
 			if (response.status === 429) {
 				rootLogger.info("Grok price alert summary rate limited", context);
 			} else {
-				rootLogger.error("Grok price alert summary failed", context);
+				rootLogger.error(
+					"Grok price alert summary failed",
+					context,
+					new Error(`Grok HTTP ${response.status}`),
+				);
 			}
 			return null;
 		}

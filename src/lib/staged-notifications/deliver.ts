@@ -226,11 +226,11 @@ export async function deliverStagedNotifications(options: {
 	for (const row of dailyRows) {
 		const user = userMap.get(row.user_id);
 		if (!user) {
-			logger.error("User not found for staged delivery, deleting row", {
-				action: "staged_deliver",
-				stagedId: row.id,
-				userId: row.user_id,
-			});
+			logger.error(
+				"User not found for staged delivery, deleting row",
+				{ action: "staged_deliver", stagedId: row.id, userId: row.user_id },
+				new Error("User not found for staged delivery"),
+			);
 			try {
 				await deleteStagedNotification(supabase, row.id);
 			} catch (error) {
@@ -439,15 +439,19 @@ async function deliverStagedDaily(options: {
 								errorCode: "SMS_BODY_TOO_LONG",
 							};
 							partResults.push(partResult);
-							logger.error("Staged Daily Digest SMS part exceeds Twilio hard limit", {
-								userId: user.id,
-								scheduledDate,
-								scheduledMinutes,
-								partNumber: index + 1,
-								totalParts: dailySmsMessages.length,
-								partLength: smsMessage.length,
-								hardLimit: TWILIO_SMS_HARD_LIMIT,
-							});
+							logger.error(
+								"Staged Daily Digest SMS part exceeds Twilio hard limit",
+								{
+									userId: user.id,
+									scheduledDate,
+									scheduledMinutes,
+									partNumber: index + 1,
+									totalParts: dailySmsMessages.length,
+									partLength: smsMessage.length,
+									hardLimit: TWILIO_SMS_HARD_LIMIT,
+								},
+								new Error(partResult.error),
+							);
 							break;
 						}
 
@@ -455,16 +459,19 @@ async function deliverStagedDaily(options: {
 						partResults.push(partResult);
 
 						if (!partResult.success) {
-							logger.error("Failed to send staged Daily Digest SMS part", {
-								userId: user.id,
-								scheduledDate,
-								scheduledMinutes,
-								partNumber: index + 1,
-								totalParts: dailySmsMessages.length,
-								partLength: smsMessage.length,
-								error: partResult.error,
-								errorCode: partResult.errorCode ?? null,
-							});
+							logger.error(
+								"Failed to send staged Daily Digest SMS part",
+								{
+									userId: user.id,
+									scheduledDate,
+									scheduledMinutes,
+									partNumber: index + 1,
+									totalParts: dailySmsMessages.length,
+									partLength: smsMessage.length,
+									errorCode: partResult.errorCode ?? null,
+								},
+								new Error(partResult.error ?? "Staged Daily Digest SMS part failed"),
+							);
 							break;
 						}
 					}

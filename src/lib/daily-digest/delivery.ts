@@ -654,16 +654,19 @@ export async function processDailyDigestSmsDelivery(options: {
 		partResults.push(partResult);
 
 		if (!partResult.success) {
-			logger.error("Failed to send Daily Digest SMS part", {
-				userId: user.id,
-				scheduledDate,
-				scheduledMinutes,
-				partNumber: index + 1,
-				totalParts: smsMessages.length,
-				partLength: smsMessage.length,
-				error: partResult.error,
-				errorCode: partResult.errorCode ?? null,
-			});
+			logger.error(
+				"Failed to send Daily Digest SMS part",
+				{
+					userId: user.id,
+					scheduledDate,
+					scheduledMinutes,
+					partNumber: index + 1,
+					totalParts: smsMessages.length,
+					partLength: smsMessage.length,
+					errorCode: partResult.errorCode ?? null,
+				},
+				new Error(partResult.error ?? "Daily Digest SMS part failed"),
+			);
 			break;
 		}
 	}

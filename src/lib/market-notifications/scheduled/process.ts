@@ -110,46 +110,59 @@ export async function processMarketScheduledUser(options: {
 				})
 			: currentTime;
 		if (!dueAt.isValid) {
-			logger.error("Invalid market_scheduled_asset_price_next_send_at timestamp", {
-				userId: user.id,
-				market_scheduled_asset_price_next_send_at: user.market_scheduled_asset_price_next_send_at,
-			});
+			logger.error(
+				"Invalid market_scheduled_asset_price_next_send_at timestamp",
+				{
+					userId: user.id,
+					market_scheduled_asset_price_next_send_at: user.market_scheduled_asset_price_next_send_at,
+				},
+				new Error("Invalid market_scheduled_asset_price_next_send_at timestamp"),
+			);
 			stats.skipped++;
 			return stats;
 		}
 		const dueAtLocal = dueAt.setZone(user.timezone);
 		if (!dueAtLocal.isValid) {
-			logger.error("Failed to format local date for timezone", {
-				userId: user.id,
-				timezone: user.timezone,
-			});
+			logger.error(
+				"Failed to format local date for timezone",
+				{ userId: user.id, timezone: user.timezone },
+				new Error("Failed to format local date for timezone"),
+			);
 			stats.skipped++;
 			return stats;
 		}
 		const scheduledDate = dueAtLocal.toISODate();
 		if (!scheduledDate) {
-			logger.error("Failed to format scheduled date", {
-				userId: user.id,
-				timezone: user.timezone,
-				market_scheduled_asset_price_next_send_at: user.market_scheduled_asset_price_next_send_at,
-				dueAt: dueAt.toISO(),
-				dueAtLocalIso: dueAtLocal.toISO(),
-			});
+			logger.error(
+				"Failed to format scheduled date",
+				{
+					userId: user.id,
+					timezone: user.timezone,
+					market_scheduled_asset_price_next_send_at: user.market_scheduled_asset_price_next_send_at,
+					dueAt: dueAt.toISO(),
+					dueAtLocalIso: dueAtLocal.toISO(),
+				},
+				new Error("Failed to format scheduled date"),
+			);
 			stats.skipped++;
 			return stats;
 		}
 		const scheduledMinutes = getLocalMinutesFromDateTime(user.timezone, dueAt);
 		if (scheduledMinutes === null) {
-			logger.error("Failed to calculate scheduled minutes", {
-				action: "market_notifications_run",
-				phase: "getLocalMinutesFromDateTime",
-				userId: user.id,
-				timezone: user.timezone,
-				market_scheduled_asset_price_next_send_at: user.market_scheduled_asset_price_next_send_at,
-				dueAt: dueAt.toISO(),
-				dueAtLocalIso: dueAtLocal.toISO(),
-				scheduledDate,
-			});
+			logger.error(
+				"Failed to calculate scheduled minutes",
+				{
+					action: "market_notifications_run",
+					phase: "getLocalMinutesFromDateTime",
+					userId: user.id,
+					timezone: user.timezone,
+					market_scheduled_asset_price_next_send_at: user.market_scheduled_asset_price_next_send_at,
+					dueAt: dueAt.toISO(),
+					dueAtLocalIso: dueAtLocal.toISO(),
+					scheduledDate,
+				},
+				new Error("Failed to calculate scheduled minutes"),
+			);
 			stats.skipped++;
 			return stats;
 		}

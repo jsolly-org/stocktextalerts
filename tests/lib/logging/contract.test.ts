@@ -87,6 +87,27 @@ describe("logging contract", () => {
 		}
 	});
 
+	it("passes Postgrest-like errors as the third argument for alert-hub", () => {
+		const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+		try {
+			const postgrestLike = {
+				message: "Could not find the table 'public.asset_insider_transactions'",
+				code: "PGRST205",
+			};
+			createLogger({ action: "load_finnhub_enrichment" }).error(
+				"Failed to load asset_insider_transactions",
+				{ action: "load_finnhub_enrichment" },
+				postgrestLike,
+			);
+			const parsed = JSON.parse(spy.mock.calls[0]![0] as string);
+			expect(parsed.message).toBe("Failed to load asset_insider_transactions");
+			expect(parsed.error.message).toContain("Could not find the table");
+			expect(parsed.context?.error).toBeUndefined();
+		} finally {
+			spy.mockRestore();
+		}
+	});
+
 	it("context.error fallback when no throwable exists", () => {
 		const spy = vi.spyOn(console, "error").mockImplementation(() => {});
 		try {

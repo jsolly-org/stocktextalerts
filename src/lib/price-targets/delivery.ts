@@ -169,9 +169,11 @@ export async function deliverPriceTargetAlert(options: {
 	// SMS delivery
 	if (user.price_targets_include_sms) {
 		if (!sendSms) {
-			rootLogger.error("Price target SMS sender unavailable", {
-				userId: user.id,
-			});
+			rootLogger.error(
+				"Price target SMS sender unavailable",
+				{ userId: user.id },
+				new Error("Price target SMS sender unavailable"),
+			);
 			stats.smsFailed++;
 		} else if (!isSmsChannelUsable(user)) {
 			rootLogger.info("Price target SMS skipped: user not eligible", {

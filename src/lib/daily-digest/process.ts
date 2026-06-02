@@ -123,38 +123,51 @@ function parseDailyScheduleContext(
 		? DateTime.fromISO(user.daily_digest_next_send_at, { zone: "utc" })
 		: currentTime;
 	if (!dueAt.isValid) {
-		logger.error("Invalid daily_digest_next_send_at timestamp", {
-			userId: user.id,
-			daily_digest_next_send_at: user.daily_digest_next_send_at,
-		});
+		logger.error(
+			"Invalid daily_digest_next_send_at timestamp",
+			{
+				userId: user.id,
+				daily_digest_next_send_at: user.daily_digest_next_send_at,
+			},
+			new Error("Invalid daily_digest_next_send_at timestamp"),
+		);
 		return null;
 	}
 	const dueAtLocal = dueAt.setZone(user.timezone);
 	if (!dueAtLocal.isValid) {
-		logger.error("Failed to format local date for timezone (daily)", {
-			userId: user.id,
-			timezone: user.timezone,
-		});
+		logger.error(
+			"Failed to format local date for timezone (daily)",
+			{ userId: user.id, timezone: user.timezone },
+			new Error("Failed to format local date for timezone"),
+		);
 		return null;
 	}
 	const scheduledDate = dueAtLocal.toISODate();
 	if (!scheduledDate) {
-		logger.error("Failed to format scheduled date (daily)", {
-			userId: user.id,
-			timezone: user.timezone,
-			daily_digest_next_send_at: user.daily_digest_next_send_at,
-		});
+		logger.error(
+			"Failed to format scheduled date (daily)",
+			{
+				userId: user.id,
+				timezone: user.timezone,
+				daily_digest_next_send_at: user.daily_digest_next_send_at,
+			},
+			new Error("Failed to format scheduled date"),
+		);
 		return null;
 	}
 	const scheduledMinutes = getLocalMinutesFromDateTime(user.timezone, dueAt);
 	if (scheduledMinutes === null) {
-		logger.error("Failed to calculate scheduled minutes (daily)", {
-			action: "daily_run",
-			userId: user.id,
-			timezone: user.timezone,
-			daily_digest_next_send_at: user.daily_digest_next_send_at,
-			scheduledDate,
-		});
+		logger.error(
+			"Failed to calculate scheduled minutes (daily)",
+			{
+				action: "daily_run",
+				userId: user.id,
+				timezone: user.timezone,
+				daily_digest_next_send_at: user.daily_digest_next_send_at,
+				scheduledDate,
+			},
+			new Error("Failed to calculate scheduled minutes"),
+		);
 		return null;
 	}
 	return { scheduledDate, scheduledMinutes };
@@ -364,12 +377,11 @@ export async function processDailyDigestUser(options: {
 				assetPrices = result.prices;
 				noSessionTradeTickers = result.noSessionTrade;
 			} catch (error) {
-				logger.error("Failed to fetch daily digest prices", {
-					action: "daily_run",
-					userId: user.id,
-					tickerCount: tickers.length,
-					error: extractErrorMessage(error),
-				});
+				logger.error(
+					"Failed to fetch daily digest prices",
+					{ action: "daily_run", userId: user.id, tickerCount: tickers.length },
+					error instanceof Error ? error : new Error(extractErrorMessage(error)),
+				);
 			}
 		}
 
@@ -410,13 +422,11 @@ export async function processDailyDigestUser(options: {
 					sparklines = await fetchIntradaySparklines(tickers, prevCloseMap, currentPriceMap);
 				}
 			} catch (error) {
-				logger.error("Failed to fetch sparklines for daily digest", {
-					action: "daily_run",
-					userId: user.id,
-					tickerCount: tickers.length,
-					session,
-					error: extractErrorMessage(error),
-				});
+				logger.error(
+					"Failed to fetch sparklines for daily digest",
+					{ action: "daily_run", userId: user.id, tickerCount: tickers.length, session },
+					error instanceof Error ? error : new Error(extractErrorMessage(error)),
+				);
 			}
 		}
 
@@ -444,13 +454,17 @@ export async function processDailyDigestUser(options: {
 				(ticker) => assetPrices.get(ticker) === null && !noSessionTradeTickers.has(ticker),
 			);
 			if (missingTickers.length > 0) {
-				logger.error("Daily digest prices missing after fetch", {
-					action: "daily_run",
-					userId: user.id,
-					missingCount: missingTickers.length,
-					missingTickers,
-					session,
-				});
+				logger.error(
+					"Daily digest prices missing after fetch",
+					{
+						action: "daily_run",
+						userId: user.id,
+						missingCount: missingTickers.length,
+						missingTickers,
+						session,
+					},
+					new Error(`Missing prices for tickers: ${missingTickers.join(", ")}`),
+				);
 			}
 			if (noSessionTradeTickers.size > 0) {
 				logger.info("Daily digest tickers had no live session trade", {
@@ -653,9 +667,11 @@ export async function processDailyDigestUser(options: {
 		if (stageOnly) {
 			const scheduledForIso = user.daily_digest_next_send_at ?? currentTime.toISO();
 			if (!scheduledForIso) {
-				logger.error("Cannot determine scheduled_for for daily staging", {
-					userId: user.id,
-				});
+				logger.error(
+					"Cannot determine scheduled_for for daily staging",
+					{ userId: user.id },
+					new Error("Cannot determine scheduled_for for daily staging"),
+				);
 				stats.skipped++;
 				return stats;
 			}

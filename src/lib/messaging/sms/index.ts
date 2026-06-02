@@ -70,10 +70,7 @@ async function autoOptOutUser(supabase: AppSupabaseClient, userId: string): Prom
 		.update({ sms_opted_out: true, sms_notifications_enabled: false })
 		.eq("id", userId);
 	if (error) {
-		rootLogger.error("Failed to auto opt-out user after 21610", {
-			userId,
-			error: error.message,
-		});
+		rootLogger.error("Failed to auto opt-out user after 21610", { userId }, error);
 	} else {
 		rootLogger.info("Auto opted-out user due to Twilio 21610", { userId });
 	}

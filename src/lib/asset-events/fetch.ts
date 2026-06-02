@@ -29,10 +29,7 @@ export async function fetchAndStoreAssetEvents(options: {
 		.select("symbol");
 
 	if (symbolsError) {
-		logger.error("Failed to load tracked symbols", {
-			action: "fetch_asset_events",
-			error: symbolsError.message,
-		});
+		logger.error("Failed to load tracked symbols", { action: "fetch_asset_events" }, symbolsError);
 		throw new Error(`Failed to load tracked symbols: ${symbolsError.message}`);
 	}
 
@@ -62,10 +59,11 @@ export async function fetchAndStoreAssetEvents(options: {
 	if (iposResult.failed) failedProviders.push("ipos");
 
 	if (failedProviders.length > 0) {
-		logger.error("One or more asset event providers failed", {
-			action: "fetch_asset_events",
-			failedProviders,
-		});
+		logger.error(
+			"One or more asset event providers failed",
+			{ action: "fetch_asset_events", failedProviders },
+			new Error(`Failed providers: ${failedProviders.join(", ")}`),
+		);
 	}
 
 	logger.info("Provider responses received", {
@@ -162,12 +160,11 @@ export async function fetchAndStoreAssetEvents(options: {
 		});
 
 		if (insertError) {
-			logger.error("Failed to insert asset_events", {
-				action: "fetch_asset_events",
-				weekStart,
-				rowCount: rows.length,
-				error: insertError.message,
-			});
+			logger.error(
+				"Failed to insert asset_events",
+				{ action: "fetch_asset_events", weekStart, rowCount: rows.length },
+				insertError,
+			);
 			throw new Error(`Failed to insert asset_events for ${weekStart}: ${insertError.message}`);
 		}
 	}
@@ -179,12 +176,11 @@ export async function fetchAndStoreAssetEvents(options: {
 		});
 
 		if (ipoError) {
-			logger.error("Failed to insert market_events (IPOs)", {
-				action: "fetch_asset_events",
-				weekStart,
-				rowCount: ipoRows.length,
-				error: ipoError.message,
-			});
+			logger.error(
+				"Failed to insert market_events (IPOs)",
+				{ action: "fetch_asset_events", weekStart, rowCount: ipoRows.length },
+				ipoError,
+			);
 			throw new Error(`Failed to insert market_events for ${weekStart}: ${ipoError.message}`);
 		}
 	}
@@ -208,19 +204,19 @@ export async function fetchAndStoreAssetEvents(options: {
 	]);
 
 	if (assetDeleteResult.error) {
-		logger.error("Failed to clean up old asset_events rows", {
-			action: "fetch_asset_events",
-			cutoffDate,
-			error: assetDeleteResult.error.message,
-		});
+		logger.error(
+			"Failed to clean up old asset_events rows",
+			{ action: "fetch_asset_events", cutoffDate },
+			assetDeleteResult.error,
+		);
 	}
 
 	if (marketDeleteResult.error) {
-		logger.error("Failed to clean up old market_events rows", {
-			action: "fetch_asset_events",
-			cutoffDate,
-			error: marketDeleteResult.error.message,
-		});
+		logger.error(
+			"Failed to clean up old market_events rows",
+			{ action: "fetch_asset_events", cutoffDate },
+			marketDeleteResult.error,
+		);
 	}
 
 	return { upserted: totalUpserted, failedProviders };

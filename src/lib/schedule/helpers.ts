@@ -414,10 +414,11 @@ async function logRetriesExhausted(options: {
 		// Terminal delivery failure for today (any cause: Twilio outage, DB
 		// error, sustained rate limit). Next-day cron tick reattempts, but
 		// the user missed today's notification — alarm should see this.
-		options.logger.error("Retries exhausted; will retry next local day", {
-			userId: options.userId,
-			channel: options.channel,
-		});
+		options.logger.error(
+			"Retries exhausted; will retry next local day",
+			{ userId: options.userId, channel: options.channel },
+			new Error(`scheduled_notifications attempt_count >= ${MAX_NOTIFICATION_RETRIES}`),
+		);
 
 		await recordNotification(options.supabase, {
 			user_id: options.userId,

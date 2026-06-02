@@ -279,6 +279,7 @@ describe("fetchAndStoreAssetEvents", () => {
 		expect(logger.error).toHaveBeenCalledWith(
 			"One or more asset event providers failed",
 			expect.objectContaining({ failedProviders: ["earnings"] }),
+			expect.objectContaining({ message: "Failed providers: earnings" }),
 		);
 	});
 
@@ -305,6 +306,9 @@ describe("fetchAndStoreAssetEvents", () => {
 			"One or more asset event providers failed",
 			expect.objectContaining({
 				failedProviders: ["earnings", "dividends", "splits", "ipos"],
+			}),
+			expect.objectContaining({
+				message: "Failed providers: earnings, dividends, splits, ipos",
 			}),
 		);
 	});

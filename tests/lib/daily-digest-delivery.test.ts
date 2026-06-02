@@ -285,9 +285,9 @@ describe("Daily digest email prices", () => {
 				partNumber: 2,
 				totalParts: expectedMessages.length,
 				partLength: expectedMessages[1]?.length,
-				error: "Twilio timeout",
 				errorCode: "ETIMEDOUT",
 			}),
+			expect.objectContaining({ message: "Twilio timeout" }),
 		);
 		expect(notificationLogInserts).toHaveLength(1);
 		expect(notificationLogInserts[0]?.message).toContain(

@@ -22,17 +22,22 @@ export async function updateUserMarketScheduledNextSendAt(options: {
 	});
 	const nextSendAtIso = nextSendAt ? nextSendAt.toISO() : null;
 	if (nextSendAt && !nextSendAtIso) {
-		logger.error("Failed to format market_scheduled_asset_price_next_send_at ISO string", {
-			userId: user.id,
-			timezone: user.timezone,
-		});
+		logger.error(
+			"Failed to format market_scheduled_asset_price_next_send_at ISO string",
+			{ userId: user.id, timezone: user.timezone },
+			new Error("Failed to format market_scheduled_asset_price_next_send_at ISO string"),
+		);
 	}
 	if (!nextSendAt) {
-		logger.error("calculateNextMarketScheduledSendAtFromTimes returned null", {
-			userId: user.id,
-			market_scheduled_asset_price_times: user.market_scheduled_asset_price_times,
-			timezone: user.timezone,
-		});
+		logger.error(
+			"calculateNextMarketScheduledSendAtFromTimes returned null",
+			{
+				userId: user.id,
+				market_scheduled_asset_price_times: user.market_scheduled_asset_price_times,
+				timezone: user.timezone,
+			},
+			new Error("calculateNextMarketScheduledSendAtFromTimes returned null"),
+		);
 	}
 	if (delayReasons.length > 0) {
 		logger.info("Advanced scheduled market next_send_at due to market closure", {

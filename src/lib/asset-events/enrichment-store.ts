@@ -88,10 +88,11 @@ export async function fetchAndStoreFinnhubEnrichment(options: {
 		.select("symbol");
 
 	if (symbolsError) {
-		logger.error("Failed to load tracked symbols for Finnhub enrichment", {
-			action: "fetch_finnhub_enrichment",
-			error: symbolsError.message,
-		});
+		logger.error(
+			"Failed to load tracked symbols for Finnhub enrichment",
+			{ action: "fetch_finnhub_enrichment" },
+			symbolsError,
+		);
 		throw new Error(`Failed to load tracked symbols: ${symbolsError.message}`);
 	}
 
@@ -129,11 +130,11 @@ export async function fetchAndStoreFinnhubEnrichment(options: {
 					{ onConflict: "symbol" },
 				);
 				if (error) {
-					logger.error("Failed to upsert asset_analyst_consensus", {
-						action: "fetch_finnhub_enrichment",
-						symbol,
-						error: error.message,
-					});
+					logger.error(
+						"Failed to upsert asset_analyst_consensus",
+						{ action: "fetch_finnhub_enrichment", symbol },
+						error,
+					);
 					enrichmentFailures.push(`analyst_upsert:${symbol}`);
 				} else {
 					analystUpserted++;
@@ -146,11 +147,11 @@ export async function fetchAndStoreFinnhubEnrichment(options: {
 					.eq("symbol", symbol)
 					.maybeSingle();
 				if (selectError) {
-					logger.error("Failed to read asset_analyst_consensus before empty-success update", {
-						action: "fetch_finnhub_enrichment",
-						symbol,
-						error: selectError.message,
-					});
+					logger.error(
+						"Failed to read asset_analyst_consensus before empty-success update",
+						{ action: "fetch_finnhub_enrichment", symbol },
+						selectError,
+					);
 					enrichmentFailures.push(`analyst_upsert:${symbol}`);
 				} else if (existing) {
 					const { error } = await supabase
@@ -158,11 +159,11 @@ export async function fetchAndStoreFinnhubEnrichment(options: {
 						.update({ fetch_succeeded: true, fetched_at: fetchedAt })
 						.eq("symbol", symbol);
 					if (error) {
-						logger.error("Failed to update asset_analyst_consensus (empty trend)", {
-							action: "fetch_finnhub_enrichment",
-							symbol,
-							error: error.message,
-						});
+						logger.error(
+							"Failed to update asset_analyst_consensus (empty trend)",
+							{ action: "fetch_finnhub_enrichment", symbol },
+							error,
+						);
 						enrichmentFailures.push(`analyst_upsert:${symbol}`);
 					} else {
 						analystUpserted++;
@@ -180,11 +181,11 @@ export async function fetchAndStoreFinnhubEnrichment(options: {
 						fetched_at: fetchedAt,
 					});
 					if (error) {
-						logger.error("Failed to insert asset_analyst_consensus (empty trend)", {
-							action: "fetch_finnhub_enrichment",
-							symbol,
-							error: error.message,
-						});
+						logger.error(
+							"Failed to insert asset_analyst_consensus (empty trend)",
+							{ action: "fetch_finnhub_enrichment", symbol },
+							error,
+						);
 						enrichmentFailures.push(`analyst_upsert:${symbol}`);
 					} else {
 						analystUpserted++;
@@ -215,11 +216,11 @@ export async function fetchAndStoreFinnhubEnrichment(options: {
 				onConflict: "symbol,transaction_date,name,change",
 			});
 			if (error) {
-				logger.error("Failed to upsert asset_insider_transactions", {
-					action: "fetch_finnhub_enrichment",
-					symbol,
-					error: error.message,
-				});
+				logger.error(
+					"Failed to upsert asset_insider_transactions",
+					{ action: "fetch_finnhub_enrichment", symbol },
+					error,
+				);
 				enrichmentFailures.push(`insider_upsert:${symbol}`);
 			} else {
 				insiderUpserted += rows.length;
@@ -236,11 +237,11 @@ export async function fetchAndStoreFinnhubEnrichment(options: {
 			.delete()
 			.lt("transaction_date", retentionCutoff);
 		if (deleteError) {
-			logger.error("Failed to prune old asset_insider_transactions", {
-				action: "fetch_finnhub_enrichment",
-				retentionCutoff,
-				error: deleteError.message,
-			});
+			logger.error(
+				"Failed to prune old asset_insider_transactions",
+				{ action: "fetch_finnhub_enrichment", retentionCutoff },
+				deleteError,
+			);
 		}
 	}
 
@@ -295,10 +296,11 @@ export async function loadStoredFinnhubExtras(options: {
 			.in("symbol", [...tickers]);
 
 		if (error) {
-			logger.error("Failed to load asset_analyst_consensus", {
-				action: "load_finnhub_enrichment",
-				error: error.message,
-			});
+			logger.error(
+				"Failed to load asset_analyst_consensus",
+				{ action: "load_finnhub_enrichment" },
+				error,
+			);
 		} else {
 			let freshSuccessCount = 0;
 			for (const symbol of tickers) {
@@ -328,10 +330,11 @@ export async function loadStoredFinnhubExtras(options: {
 			.order("transaction_date", { ascending: false });
 
 		if (error) {
-			logger.error("Failed to load asset_insider_transactions", {
-				action: "load_finnhub_enrichment",
-				error: error.message,
-			});
+			logger.error(
+				"Failed to load asset_insider_transactions",
+				{ action: "load_finnhub_enrichment" },
+				error,
+			);
 		} else {
 			for (const symbol of tickers) {
 				result.insider.set(symbol, []);

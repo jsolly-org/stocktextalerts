@@ -31,17 +31,23 @@ export async function handler(_event: ScheduledEvent, _context: Context): Promis
 		!nextMondayStart ||
 		!nextMondayEnd
 	) {
-		logger.error("Failed to compute week date range", {
-			action: "daily_asset_events_cron",
-			thisMonday: {
-				isValid: thisMonday.isValid,
-				invalidReason: thisMonday.invalidReason,
+		logger.error(
+			"Failed to compute week date range",
+			{
+				action: "daily_asset_events_cron",
+				thisMonday: {
+					isValid: thisMonday.isValid,
+					invalidReason: thisMonday.invalidReason,
+				},
+				nextMonday: {
+					isValid: nextMonday.isValid,
+					invalidReason: nextMonday.invalidReason,
+				},
 			},
-			nextMonday: {
-				isValid: nextMonday.isValid,
-				invalidReason: nextMonday.invalidReason,
-			},
-		});
+			new Error(
+				`Invalid Luxon week range: ${thisMonday.invalidReason ?? nextMonday.invalidReason ?? "unknown"}`,
+			),
+		);
 		throw new Error("Invalid date range for asset events");
 	}
 
@@ -92,10 +98,12 @@ export async function handler(_event: ScheduledEvent, _context: Context): Promis
 	});
 
 	if (hasFailures) {
-		logger.error("Some asset event providers failed", {
-			action: "daily_asset_events_cron",
-			failedProviders: results.flatMap((r) => r.failedProviders),
-		});
+		const failedProviders = results.flatMap((r) => r.failedProviders);
+		logger.error(
+			"Some asset event providers failed",
+			{ action: "daily_asset_events_cron", failedProviders },
+			new Error(`Failed providers: ${failedProviders.join(", ")}`),
+		);
 	}
 
 	// Independent try/catch so sweep failures never invalidate the calendar-

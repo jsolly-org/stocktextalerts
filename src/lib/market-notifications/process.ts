@@ -50,9 +50,11 @@ async function fetchEarningsSymbols(supabase: SupabaseAdminClient): Promise<Set<
 			.gte("event_date", from)
 			.lte("event_date", to);
 		if (error) {
-			rootLogger.error("Failed to query asset_events for price alerts", {
-				error: error.message,
-			});
+			rootLogger.error(
+				"Failed to query asset_events for price alerts",
+				{ action: "fetch_earnings_symbols" },
+				error,
+			);
 			return new Set();
 		}
 		return new Set((data ?? []).map((e) => e.symbol));

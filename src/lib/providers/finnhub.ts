@@ -199,7 +199,11 @@ export async function finnhubFetch(
 			context.status = lastFailure.status;
 			context.category = failureCategory;
 			const logFn = optional ? rootLogger.warn.bind(rootLogger) : rootLogger.error.bind(rootLogger);
-			logFn(`Finnhub ${label} exhausted retries`, context);
+			logFn(
+				`Finnhub ${label} exhausted retries`,
+				context,
+				new Error(`Finnhub HTTP ${lastFailure.status}`),
+			);
 		} else {
 			context.category = failureCategory;
 			if (optional) {
@@ -249,10 +253,11 @@ export async function fetchRecommendationTrends(
 		typeof strongSell !== "number" ||
 		typeof period !== "string"
 	) {
-		rootLogger.error("Invalid Finnhub recommendation fields", {
-			symbol,
-			payload: latest,
-		});
+		rootLogger.error(
+			"Invalid Finnhub recommendation fields",
+			{ symbol },
+			new Error("Invalid Finnhub recommendation fields in API response"),
+		);
 		return { trend: null, httpSucceeded: true };
 	}
 
@@ -269,19 +274,21 @@ function parseInsiderTransactionsPayload(
 	maxResults = 5,
 ): InsiderTransaction[] {
 	if (typeof data !== "object" || data === null) {
-		rootLogger.error("Invalid Finnhub insider-transactions payload shape", {
-			symbol,
-			payloadType: typeof data,
-		});
+		rootLogger.error(
+			"Invalid Finnhub insider-transactions payload shape",
+			{ symbol, payloadType: typeof data },
+			new Error("Invalid Finnhub insider-transactions payload shape"),
+		);
 		return [];
 	}
 
 	const transactions = (data as Record<string, unknown>).data;
 	if (!Array.isArray(transactions)) {
-		rootLogger.error("Invalid Finnhub insider-transactions data field", {
-			symbol,
-			dataType: typeof transactions,
-		});
+		rootLogger.error(
+			"Invalid Finnhub insider-transactions data field",
+			{ symbol, dataType: typeof transactions },
+			new Error("Invalid Finnhub insider-transactions data field"),
+		);
 		return [];
 	}
 
