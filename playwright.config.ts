@@ -15,5 +15,9 @@ export default defineConfig({
 		timeout: 120 * 1000,
 		// Use 4322 to avoid clashing with default Astro dev (4321). Reuse server on 4322 when present.
 		reuseExistingServer: true,
+		env: {
+			// CI uses placeholder API keys; avoid vendor retry storms during E2E (vendor-fetch.ts).
+			SKIP_VENDOR_HTTP_IN_TEST: "1",
+		},
 	},
 });

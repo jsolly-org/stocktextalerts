@@ -17,6 +17,8 @@ for (const [key, value] of Object.entries(env)) {
 		process.env[key] = value;
 	}
 }
+// CI writes this into .env.local for E2E/build; Vitest mocks vendor HTTP instead.
+delete process.env.SKIP_VENDOR_HTTP_IN_TEST;
 
 export default getViteConfig(
 	{

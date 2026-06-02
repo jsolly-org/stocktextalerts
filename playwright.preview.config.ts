@@ -28,5 +28,8 @@ export default defineConfig({
 		// Build + start is slower than dev server.
 		timeout: 180 * 1000,
 		reuseExistingServer: true,
+		env: {
+			SKIP_VENDOR_HTTP_IN_TEST: "1",
+		},
 	},
 });
