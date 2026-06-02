@@ -5,7 +5,7 @@ import {
 } from "../asset-events/content";
 import { updateUserAssetEventsNextSendAt } from "../asset-events/next-send-at";
 import type { Logger } from "../logging";
-import { extractErrorMessage } from "../logging/errors";
+import { createErrorForLogging } from "../logging/errors";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../messaging/delay-banner";
 import type { EmailSender } from "../messaging/email/utils";
 import { safePrefetchLogos } from "../messaging/logo-fetcher";
@@ -380,7 +380,7 @@ export async function processDailyDigestUser(options: {
 				logger.error(
 					"Failed to fetch daily digest prices",
 					{ action: "daily_run", userId: user.id, tickerCount: tickers.length },
-					error instanceof Error ? error : new Error(extractErrorMessage(error)),
+					createErrorForLogging(error),
 				);
 			}
 		}
@@ -425,7 +425,7 @@ export async function processDailyDigestUser(options: {
 				logger.error(
 					"Failed to fetch sparklines for daily digest",
 					{ action: "daily_run", userId: user.id, tickerCount: tickers.length, session },
-					error instanceof Error ? error : new Error(extractErrorMessage(error)),
+					createErrorForLogging(error),
 				);
 			}
 		}

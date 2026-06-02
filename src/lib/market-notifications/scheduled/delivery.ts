@@ -186,7 +186,6 @@ export async function processMarketScheduledSmsDelivery(options: {
 				scheduledDate,
 				scheduledMinutes,
 				channel: "sms",
-				errorMessage,
 				stats,
 			},
 			createErrorForLogging(error),

@@ -1,7 +1,7 @@
 import { requireEnv } from "../db/env";
 import type { AppSupabaseClient } from "../db/supabase";
 import { type Logger, rootLogger } from "../logging";
-import { extractErrorMessage } from "../logging/errors";
+import { createErrorForLogging } from "../logging/errors";
 
 /** In-memory cache of fetched logo base64 data URIs (or null on failure). */
 type LogoCache = Map<string, string | null>;
@@ -147,7 +147,7 @@ export async function fetchLogoBase64(
 				rootLogger.error(
 					"Failed to fetch logo for asset",
 					{ symbol },
-					error instanceof Error ? error : new Error(extractErrorMessage(error)),
+					createErrorForLogging(error),
 				);
 				cache.set(symbol, null);
 				return null;
@@ -237,7 +237,7 @@ export async function safePrefetchLogos(options: {
 			options.logger.error(
 				"Failed to prefetch logos",
 				{ ...options.logContext, assetCount: options.assets.length },
-				error instanceof Error ? error : new Error(extractErrorMessage(error)),
+				createErrorForLogging(error),
 			);
 		}
 	}

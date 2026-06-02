@@ -1,3 +1,4 @@
+/** Human-readable message for API responses and DB columns — not for logger.error context. */
 export function extractErrorMessage(error: unknown): string {
 	if (error instanceof Error) {
 		return error.message;
@@ -13,6 +14,7 @@ export function extractErrorMessage(error: unknown): string {
 	return String(error);
 }
 
+/** Third argument to logger.error — preserves Postgrest-like plain objects. */
 export function createErrorForLogging(error: unknown): unknown {
 	if (error instanceof Error) {
 		return error;

@@ -85,10 +85,7 @@ export const POST: APIRoute = async ({ url, request, redirect, locals }) => {
 	});
 
 	if (updateError) {
-		logger.error("Password update failed", {
-			error: updateError.message,
-			errorCode: updateError.code,
-		});
+		logger.error("Password update failed", { errorCode: updateError.code }, updateError);
 
 		// If update fails with weak_password, the token is already consumed
 		// We redirect without the token since it can't be reused

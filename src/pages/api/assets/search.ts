@@ -99,11 +99,7 @@ export const GET: APIRoute = async ({ url, request, cookies, locals }) => {
 			.limit(candidateLimit);
 
 		if (error) {
-			logger.error("Asset search query failed", {
-				userId: user.id,
-				query,
-				error: error.message,
-			});
+			logger.error("Asset search query failed", { userId: user.id, query }, error);
 			return jsonResponse(500, {
 				ok: false,
 				message: "search_failed",

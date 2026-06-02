@@ -6,7 +6,7 @@ import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
 import { createLogger } from "../../../lib/logging";
-import { createErrorForLogging, extractErrorMessage } from "../../../lib/logging/errors";
+import { createErrorForLogging } from "../../../lib/logging/errors";
 import { isOutsideMarketHours, userLocalToEtMinute } from "../../../lib/time/format";
 import { parseScheduledTimes } from "../../../lib/time/scheduled-times";
 
@@ -267,7 +267,6 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			{
 				userId: user.id,
 				notificationPreferences: safeNotificationPreferenceUpdates,
-				error: extractErrorMessage(error),
 			},
 			createErrorForLogging(error),
 		);

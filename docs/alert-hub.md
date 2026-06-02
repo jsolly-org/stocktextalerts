@@ -16,13 +16,13 @@ All alarms use explicit `AlarmName` values in `aws/template.yaml` so email subje
 
 ## Logging fields alert-hub reads
 
-Page-worthy failures should call `logger.error(message, context, err)` so the serialized line includes top-level `error.name` and `error.message`. alert-hub also falls back to `context.error` when no throwable exists.
+Page-worthy failures must call `logger.error(message, context, err)` so the serialized line includes top-level `error.name` and `error.message`. Use `createErrorForLogging(unknown)` from `src/lib/logging/errors.ts` for caught values; pass Postgrest-like objects through unchanged (do not wrap in `new Error(...)`). Do not put the failure text in `context.error` — alert-hub ignores it.
 
 Representative shapes (see `tests/lib/logging/contract.test.ts`):
 
 - **Vendor retry exhaustion** — `message` + `context.category: "vendor_retry_exhausted"` + `error` object
-- **Database / schema** — `message` + `error.message` from PostgREST or `Error`
-- **No throwable** — readable `context.error` string only when nothing can be passed as the third argument
+- **Database / schema** — `message` + `error.message` from PostgREST or `Error` as the third argument
+- **Deterministic validation** — `new Error("…")` as the third argument when nothing was thrown
 
 ## Deploy note
 

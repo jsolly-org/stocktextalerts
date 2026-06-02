@@ -621,7 +621,7 @@ export async function processDailyDigestSmsDelivery(options: {
 		const errorMessage = extractErrorMessage(error);
 		logger.error(
 			"Failed to resolve SMS sender for daily digest",
-			{ userId: user.id, scheduledDate, scheduledMinutes, errorMessage },
+			{ userId: user.id, scheduledDate, scheduledMinutes },
 			createErrorForLogging(error),
 		);
 		await updateScheduledNotificationRow({

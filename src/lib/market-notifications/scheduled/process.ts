@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
 import type { Logger } from "../../logging";
-import { extractErrorMessage } from "../../logging/errors";
+import { createErrorForLogging, extractErrorMessage } from "../../logging/errors";
 import { formatAssetsTextList } from "../../messaging/asset-formatting";
 import { buildDelayBannerHtml, buildDelayBannerText } from "../../messaging/delay-banner";
 import type { EmailSender } from "../../messaging/email/utils";
@@ -91,7 +91,7 @@ export async function processMarketScheduledUser(options: {
 			logger.error(
 				"Failed to advance market_scheduled_asset_price_next_send_at after closed-session skip",
 				{ userId: user.id },
-				error instanceof Error ? error : new Error(String(error)),
+				createErrorForLogging(error),
 			);
 		}
 		return stats;
@@ -246,7 +246,7 @@ export async function processMarketScheduledUser(options: {
 						marketSession,
 						sparklineWindow: "intraday-since-prev-close",
 					},
-					error instanceof Error ? error : new Error(String(error)),
+					createErrorForLogging(error),
 				);
 			}
 		}

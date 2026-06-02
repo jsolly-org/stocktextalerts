@@ -1,6 +1,7 @@
 import twilio, { type RestException } from "twilio";
 import { requireEnv } from "../db/env";
 import { rootLogger } from "../logging";
+import { createErrorForLogging, extractErrorMessage } from "../logging/errors";
 import { isProduction } from "../runtime/mode";
 
 function handleTwilioError(
@@ -28,16 +29,9 @@ function handleTwilioError(
 		};
 	}
 
-	const errorMessage = error instanceof Error ? error.message : defaultMessage;
+	const errorMessage = extractErrorMessage(error) || defaultMessage;
 	const errorType = error?.constructor?.name || typeof error;
-	rootLogger.error(
-		logPrefix,
-		{
-			errorType,
-			message: errorMessage,
-		},
-		error instanceof Error ? error : undefined,
-	);
+	rootLogger.error(logPrefix, { errorType }, createErrorForLogging(error));
 	return {
 		success: false,
 		error: errorMessage,

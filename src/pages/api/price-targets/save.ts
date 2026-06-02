@@ -4,7 +4,7 @@ import { ASSET_SYMBOL_MAX_LENGTH } from "../../../lib/constants";
 import { createUserService, getUserAssets } from "../../../lib/db";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { createLogger } from "../../../lib/logging";
-import { extractErrorMessage } from "../../../lib/logging/errors";
+import { createErrorForLogging } from "../../../lib/logging/errors";
 import { fetchAssetPrices, getCurrentMarketSession } from "../../../lib/providers/price-fetcher";
 
 /**
@@ -83,11 +83,11 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 
 			return jsonResponse(200, { ok: true, message: "target_removed" });
 		} catch (error) {
-			logger.error("Failed to delete price target", {
-				userId: user.id,
-				symbol: normalizedSymbol,
-				error: extractErrorMessage(error),
-			});
+			logger.error(
+				"Failed to delete price target",
+				{ userId: user.id, symbol: normalizedSymbol },
+				createErrorForLogging(error),
+			);
 			return jsonResponse(500, { ok: false, message: "failed_to_save" });
 		}
 	}
@@ -155,11 +155,11 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			direction,
 		});
 	} catch (error) {
-		logger.error("Failed to save price target", {
-			userId: user.id,
-			symbol: normalizedSymbol,
-			error: extractErrorMessage(error),
-		});
+		logger.error(
+			"Failed to save price target",
+			{ userId: user.id, symbol: normalizedSymbol },
+			createErrorForLogging(error),
+		);
 		return jsonResponse(500, { ok: false, message: "failed_to_save" });
 	}
 };

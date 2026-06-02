@@ -5,7 +5,7 @@ import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
 import { createLogger } from "../../../lib/logging";
-import { createErrorForLogging, extractErrorMessage } from "../../../lib/logging/errors";
+import { createErrorForLogging } from "../../../lib/logging/errors";
 
 const TIME_FORMAT_SCHEMA = {
 	use_24_hour_time: { type: "boolean" },
@@ -78,11 +78,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			use_24_hour_time: updatedUser.use_24_hour_time,
 		});
 	} catch (error) {
-		logger.error(
-			"Failed to update time-format",
-			{ userId: user.id, error: extractErrorMessage(error) },
-			createErrorForLogging(error),
-		);
+		logger.error("Failed to update time-format", { userId: user.id }, createErrorForLogging(error));
 
 		return jsonResponse(500, {
 			ok: false,

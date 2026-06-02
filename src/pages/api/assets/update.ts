@@ -42,7 +42,6 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 			"Tracked assets update rejected due to malformed request body",
 			{
 				userId: user.id,
-				error: extractErrorMessage(error),
 				contentType: request.headers.get("content-type"),
 			},
 			createErrorForLogging(error),
@@ -95,7 +94,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		if (delistedErr) {
 			logger.error(
 				"Failed to check for delisted symbols",
-				{ userId: user.id, error: extractErrorMessage(delistedErr) },
+				{ userId: user.id },
 				createErrorForLogging(delistedErr),
 			);
 			return jsonResponse(500, {
@@ -137,11 +136,7 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		} else {
 			logger.error(
 				"Failed to update tracked assets",
-				{
-					userId: user.id,
-					symbols: uniqueSymbols,
-					error: errorMessage,
-				},
+				{ userId: user.id, symbols: uniqueSymbols },
 				createErrorForLogging(error),
 			);
 		}

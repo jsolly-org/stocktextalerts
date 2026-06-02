@@ -108,20 +108,17 @@ describe("logging contract", () => {
 		}
 	});
 
-	it("context.error fallback when no throwable exists", () => {
+	it("rejects context.error-only shape for alert-hub (must use third argument)", () => {
 		const spy = vi.spyOn(console, "error").mockImplementation(() => {});
 		try {
 			createLogger({ action: "load_insider_transactions" }).error(
 				"Failed to load asset_insider_transactions",
-				{
-					action: "load_insider_transactions",
-					error: "Could not find the table 'public.asset_insider_transactions'",
-				},
+				{ action: "load_insider_transactions" },
+				new Error("Could not find the table 'public.asset_insider_transactions'"),
 			);
 			const parsed = JSON.parse(spy.mock.calls[0]![0] as string);
-			expect(parsed.message).toBe("Failed to load asset_insider_transactions");
-			expect(parsed.context.error).toContain("Could not find the table");
-			expect(parsed.error).toBeUndefined();
+			expect(parsed.context?.error).toBeUndefined();
+			expect(parsed.error.message).toContain("Could not find the table");
 		} finally {
 			spy.mockRestore();
 		}

@@ -59,41 +59,54 @@ export async function processAssetEventsUser(options: {
 			? DateTime.fromISO(user.asset_events_next_send_at, { zone: "utc" })
 			: currentTime;
 		if (!dueAt.isValid) {
-			logger.error("Invalid asset_events_next_send_at timestamp", {
-				userId: user.id,
-				asset_events_next_send_at: user.asset_events_next_send_at,
-			});
+			logger.error(
+				"Invalid asset_events_next_send_at timestamp",
+				{
+					userId: user.id,
+					asset_events_next_send_at: user.asset_events_next_send_at,
+				},
+				new Error("Invalid asset_events_next_send_at timestamp"),
+			);
 			stats.skipped++;
 			return stats;
 		}
 		const dueAtLocal = dueAt.setZone(user.timezone);
 		if (!dueAtLocal.isValid) {
-			logger.error("Failed to format local date for timezone (asset events)", {
-				userId: user.id,
-				timezone: user.timezone,
-			});
+			logger.error(
+				"Failed to format local date for timezone (asset events)",
+				{ userId: user.id, timezone: user.timezone },
+				new Error("Failed to format local date for timezone"),
+			);
 			stats.skipped++;
 			return stats;
 		}
 		const scheduledDate = dueAtLocal.toISODate();
 		if (!scheduledDate) {
-			logger.error("Failed to format scheduled date (asset events)", {
-				userId: user.id,
-				timezone: user.timezone,
-				asset_events_next_send_at: user.asset_events_next_send_at,
-			});
+			logger.error(
+				"Failed to format scheduled date (asset events)",
+				{
+					userId: user.id,
+					timezone: user.timezone,
+					asset_events_next_send_at: user.asset_events_next_send_at,
+				},
+				new Error("Failed to format scheduled date"),
+			);
 			stats.skipped++;
 			return stats;
 		}
 		const scheduledMinutes = getLocalMinutesFromDateTime(user.timezone, dueAt);
 		if (scheduledMinutes === null) {
-			logger.error("Failed to calculate scheduled minutes (asset events)", {
-				action: "asset_events_run",
-				userId: user.id,
-				timezone: user.timezone,
-				asset_events_next_send_at: user.asset_events_next_send_at,
-				scheduledDate,
-			});
+			logger.error(
+				"Failed to calculate scheduled minutes (asset events)",
+				{
+					action: "asset_events_run",
+					userId: user.id,
+					timezone: user.timezone,
+					asset_events_next_send_at: user.asset_events_next_send_at,
+					scheduledDate,
+				},
+				new Error("Failed to calculate scheduled minutes"),
+			);
 			stats.skipped++;
 			return stats;
 		}

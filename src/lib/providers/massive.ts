@@ -2,6 +2,7 @@ import { setTimeout as realDelay } from "node:timers/promises";
 import { US_MARKET_TIMEZONE } from "../constants";
 import { requireEnv } from "../db/env";
 import { rootLogger } from "../logging";
+import { createErrorForLogging } from "../logging/errors";
 import { finnhubFetch } from "./finnhub";
 import type { MarketSession } from "./price-fetcher";
 import { OPTIONAL_VENDOR_DEGRADED_CATEGORY } from "./vendor-fault-tolerance";
@@ -192,7 +193,6 @@ export async function marketDataFetch(
 			const requestErrorContext = {
 				endpoint,
 				attempt,
-				error: error instanceof Error ? error.message : String(error),
 				...logContext,
 			};
 			if (isLastAttempt) {
@@ -205,7 +205,7 @@ export async function marketDataFetch(
 					rootLogger.error(
 						`Massive ${label} exhausted retries`,
 						{ ...requestErrorContext, category: failureCategory },
-						error instanceof Error ? error : new Error(String(error)),
+						createErrorForLogging(error),
 					);
 				}
 				return null;

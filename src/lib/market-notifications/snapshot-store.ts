@@ -1,4 +1,5 @@
 import { rootLogger } from "../logging";
+import { createErrorForLogging } from "../logging/errors";
 import type { ExtendedQuoteMap } from "../providers/price-fetcher";
 import type { SupabaseAdminClient } from "../schedule/helpers";
 
@@ -65,7 +66,7 @@ export async function storeSnapshots(
 		rootLogger.error(
 			"Failed to insert asset snapshots",
 			{ count: rows.length },
-			error instanceof Error ? error : new Error(String(error)),
+			createErrorForLogging(error),
 		);
 	}
 }

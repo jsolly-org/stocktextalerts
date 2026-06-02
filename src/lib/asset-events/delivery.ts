@@ -376,7 +376,7 @@ export async function processAssetEventsSmsDelivery(options: {
 		const errorMessage = extractErrorMessage(error);
 		logger.error(
 			"Failed to resolve SMS sender for asset events",
-			{ userId: user.id, scheduledDate, scheduledMinutes, errorMessage },
+			{ userId: user.id, scheduledDate, scheduledMinutes },
 			createErrorForLogging(error),
 		);
 		await updateScheduledNotificationRow({

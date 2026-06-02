@@ -149,20 +149,21 @@ export async function buildAssetEventsContentForChannels(options: {
 
 	const localDt = DateTime.fromISO(localDate);
 	if (!localDt.isValid) {
-		logger.error("Invalid localDate for asset events content", {
-			localDate,
-			localDtInvalidReason: localDt.invalidReason,
-		});
+		logger.error(
+			"Invalid localDate for asset events content",
+			{ localDate, localDtInvalidReason: localDt.invalidReason },
+			new Error(`Invalid localDate: ${localDt.invalidReason ?? "unknown"}`),
+		);
 		return noChannels;
 	}
 
 	const endDate = localDt.plus({ days: 2 }).toISODate() ?? "";
 	if (!endDate) {
-		logger.error("Failed to format endDate for asset events content", {
-			localDate,
-			localDt: localDt.toString(),
-			localDtIsValid: localDt.isValid,
-		});
+		logger.error(
+			"Failed to format endDate for asset events content",
+			{ localDate, localDt: localDt.toString(), localDtIsValid: localDt.isValid },
+			new Error("Failed to format endDate for asset events content"),
+		);
 		return noChannels;
 	}
 
@@ -194,10 +195,12 @@ export async function buildAssetEventsContentForChannels(options: {
 	const [calendarResult, ipoResult] = await Promise.all([calendarPromise, ipoPromise]);
 
 	if (calendarResult.error || ipoResult.error) {
-		logger.error("Failed to query asset/market events", {
-			calendarError: calendarResult.error?.message ?? null,
-			ipoError: ipoResult.error?.message ?? null,
-		});
+		const queryError = calendarResult.error ?? ipoResult.error;
+		logger.error(
+			"Failed to query asset/market events",
+			{ localDate },
+			queryError ?? new Error("asset/market events query failed"),
+		);
 		return noChannels;
 	}
 

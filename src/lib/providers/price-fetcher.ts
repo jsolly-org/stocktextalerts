@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 import { US_MARKET_TIMEZONE } from "../constants";
 import { rootLogger } from "../logging";
+import { createErrorForLogging } from "../logging/errors";
 import {
 	downsampleEvenly,
 	type SparklineMap,
@@ -257,11 +258,7 @@ export async function fillSnapshotMissesWithPrevDayBar(
 				snapshot.set(symbol, bar);
 			} catch (error) {
 				snapshot.set(symbol, null);
-				rootLogger.error(
-					"Prev-day-bar fallback failed",
-					{ symbol },
-					error instanceof Error ? error : new Error(String(error)),
-				);
+				rootLogger.error("Prev-day-bar fallback failed", { symbol }, createErrorForLogging(error));
 			}
 		}
 	}
@@ -313,11 +310,7 @@ export async function fetchSparklines(symbols: string[]): Promise<SparklineMap> 
 			const ascii = toSparkline(last7);
 			result.set(symbol, ascii ? { values: last7, ascii, window: "7-trading-days" } : null);
 		} catch (error) {
-			rootLogger.error(
-				"Sparkline fetch failed",
-				{ symbol },
-				error instanceof Error ? error : new Error(String(error)),
-			);
+			rootLogger.error("Sparkline fetch failed", { symbol }, createErrorForLogging(error));
 			result.set(symbol, null);
 		}
 	}
@@ -432,11 +425,7 @@ export async function fetchIntradaySparklines(
 			// Transient Massive failure — next scheduled invocation retries. `warn` keeps the
 			// ErrorLogAlarm quiet on degraded-but-functional delivery (user still gets the
 			// notification, just without this symbol's sparkline).
-			rootLogger.warn(
-				"Intraday sparkline fetch failed",
-				{ symbol },
-				error instanceof Error ? error : new Error(String(error)),
-			);
+			rootLogger.warn("Intraday sparkline fetch failed", { symbol }, createErrorForLogging(error));
 			result.set(symbol, null);
 		}
 	}
