@@ -38,7 +38,7 @@ cloud_install_phase() {
 
 cloud_install_phase "Node 24 + npm ci"
 use_node_for_cursor_cloud
-npm ci --include=dev --foreground-scripts --ignore-scripts=false
+npm_ci_for_cloud "$REPO_ROOT"
 
 SUPABASE_BIN="$REPO_ROOT/node_modules/.bin/supabase"
 ensure_supabase_cli_for_cloud "$REPO_ROOT"

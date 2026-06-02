@@ -23,6 +23,50 @@ function runBash(script: string): string {
 }
 
 describe("Cursor Cloud Supabase CLI bootstrap", () => {
+	it("retries npm ci when dependency lifecycle downloads fail transiently", () => {
+		const tempDir = mkdtempSync(path.join(os.tmpdir(), "supabase-npm-ci-"));
+		try {
+			const output = runBash(`
+				set -euo pipefail
+				repo=${JSON.stringify(tempDir)}
+				mkdir -p "$repo/fake-bin"
+				cat > "$repo/fake-bin/npm" <<'NPM'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" == "ci" ]]; then
+	attempts_file="$PWD/attempts"
+	attempts=0
+	if [[ -f "$attempts_file" ]]; then
+		attempts="$(<"$attempts_file")"
+	fi
+	attempts=$((attempts + 1))
+	printf '%s\\n' "$attempts" > "$attempts_file"
+	if [[ "$attempts" -eq 1 ]]; then
+		echo "simulated postinstall download failure" >&2
+		exit 42
+	fi
+	exit 0
+fi
+echo "unexpected npm invocation: $*" >&2
+exit 1
+NPM
+				chmod +x "$repo/fake-bin/npm"
+				PATH="$repo/fake-bin:$PATH"
+				cd "$repo"
+				source ${JSON.stringify(path.join(projectRoot, "scripts/cloud-install-supabase.sh"))}
+				npm_ci_for_cloud "$repo"
+				printf 'attempts=%s\\n' "$(<"$repo/attempts")"
+			`);
+
+			expect(output).toContain("npm ci — attempt 1/3");
+			expect(output).toContain("npm ci — transient failure, retrying");
+			expect(output).toContain("npm ci — attempt 2/3");
+			expect(output).toContain("attempts=2");
+		} finally {
+			rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
 	it("rebuilds the npm Supabase CLI when postinstall left no runnable binary", () => {
 		const tempDir = mkdtempSync(path.join(os.tmpdir(), "supabase-cli-bootstrap-"));
 		try {

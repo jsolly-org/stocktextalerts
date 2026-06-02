@@ -135,6 +135,36 @@ dump_supabase_cli_diagnostics() {
 	ls -la "$supabase_bin" "$repo_root/node_modules/supabase/bin" 2>&1 >&2 || true
 }
 
+npm_ci_for_cloud() {
+	local repo_root="${1:-${REPO_ROOT:-$(pwd)}}"
+	local max_attempts=3 attempt=1 backoff=2 rc
+
+	while [[ $attempt -le $max_attempts ]]; do
+		cloud_install_log "npm ci — attempt $attempt/$max_attempts"
+		set +e
+		(cd "$repo_root" && npm ci --include=dev --foreground-scripts --ignore-scripts=false)
+		rc=$?
+		set -e
+
+		if [[ $rc -eq 0 ]]; then
+			return 0
+		fi
+
+		if [[ $attempt -eq $max_attempts ]]; then
+			echo "Error: npm ci failed after $max_attempts attempts (exit $rc)." >&2
+			dump_supabase_cli_diagnostics "$repo_root/node_modules/.bin/supabase"
+			exit "$rc"
+		fi
+
+		cloud_install_log "npm ci — transient failure, retrying in ${backoff}s"
+		sleep "$backoff"
+		backoff=$((backoff * 2))
+		attempt=$((attempt + 1))
+	done
+
+	return 1
+}
+
 supabase_cli_ready_for_cloud() {
 	local repo_root="${1:-${REPO_ROOT:-$(pwd)}}"
 	local supabase_bin="${2:-$repo_root/node_modules/.bin/supabase}"
