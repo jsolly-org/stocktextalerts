@@ -42,7 +42,6 @@ npm_ci_for_cloud "$REPO_ROOT"
 
 SUPABASE_BIN="$REPO_ROOT/node_modules/.bin/supabase"
 ensure_supabase_cli_for_cloud "$REPO_ROOT"
-export PATH="$REPO_ROOT/node_modules/.bin:${PATH}"
 
 ensure_user_local_bin_on_path
 cloud_install_phase "YAML linters + SAM"
@@ -51,6 +50,8 @@ install_sam
 
 cloud_install_phase "Docker for Supabase"
 install_docker_for_supabase
+
+export PATH="$REPO_ROOT/node_modules/.bin:${PATH}"
 
 # Supabase + db:reset before Playwright — unit tests need the DB; E2E browsers must not block boot.
 cloud_install_phase "Supabase start + .env.local"

@@ -142,7 +142,7 @@ npm_ci_for_cloud() {
 	while [[ $attempt -le $max_attempts ]]; do
 		cloud_install_log "npm ci — attempt $attempt/$max_attempts"
 		set +e
-		(cd "$repo_root" && npm ci --include=dev --foreground-scripts --ignore-scripts=false)
+		(cd "$repo_root" && npm ci --include=dev --foreground-scripts)
 		rc=$?
 		set -e
 

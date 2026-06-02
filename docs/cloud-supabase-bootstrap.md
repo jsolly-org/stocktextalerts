@@ -82,7 +82,7 @@ The install script now settles Docker, runs `supabase_clean_docker_state_for_clo
 ```bash
 source scripts/cloud-install-supabase.sh
 supabase_clean_docker_state_for_cloud ./node_modules/.bin/supabase
-./node_modules/.bin/supabase start
+supabase_start_for_cloud ./node_modules/.bin/supabase
 # then write .env.local + db:reset, or:
 bash scripts/cloud-agent-install.sh
 ```

@@ -23,6 +23,23 @@ function runBash(script: string): string {
 }
 
 describe("Cursor Cloud Supabase CLI bootstrap", () => {
+	it("keeps the main install sequence before privileged Docker setup", () => {
+		const script = readFileSync(path.join(projectRoot, "scripts/cloud-agent-install.sh"), "utf8");
+		const npmCiIndex = script.indexOf('npm_ci_for_cloud "$REPO_ROOT"');
+		const ensureCliIndex = script.indexOf('ensure_supabase_cli_for_cloud "$REPO_ROOT"');
+		const dockerIndex = script.indexOf("install_docker_for_supabase");
+		const pathExportIndex = script.indexOf(
+			'export PATH="$REPO_ROOT/node_modules/.bin:$' + '{PATH}"',
+		);
+		const startIndex = script.indexOf('supabase_start_for_cloud "$SUPABASE_BIN"');
+
+		expect(npmCiIndex).toBeGreaterThanOrEqual(0);
+		expect(ensureCliIndex).toBeGreaterThan(npmCiIndex);
+		expect(dockerIndex).toBeGreaterThan(ensureCliIndex);
+		expect(pathExportIndex).toBeGreaterThan(dockerIndex);
+		expect(startIndex).toBeGreaterThan(pathExportIndex);
+	});
+
 	it("retries npm ci when dependency lifecycle downloads fail transiently", () => {
 		const tempDir = mkdtempSync(path.join(os.tmpdir(), "supabase-npm-ci-"));
 		try {
@@ -34,6 +51,10 @@ describe("Cursor Cloud Supabase CLI bootstrap", () => {
 #!/usr/bin/env bash
 set -euo pipefail
 if [[ "$1" == "ci" ]]; then
+	if [[ "$*" != "ci --include=dev --foreground-scripts" ]]; then
+		echo "unexpected npm ci invocation: $*" >&2
+		exit 2
+	fi
 	attempts_file="$PWD/attempts"
 	attempts=0
 	if [[ -f "$attempts_file" ]]; then
@@ -78,6 +99,10 @@ NPM
 #!/usr/bin/env bash
 set -euo pipefail
 if [[ "$1" == "rebuild" && "$2" == "supabase" ]]; then
+	if [[ "$*" != "rebuild supabase --foreground-scripts --ignore-scripts=false" ]]; then
+		echo "unexpected npm rebuild invocation: $*" >&2
+		exit 2
+	fi
 	mkdir -p "$PWD/node_modules/supabase/bin" "$PWD/node_modules/.bin"
 	cat > "$PWD/node_modules/supabase/bin/supabase" <<'SUPABASE'
 #!/usr/bin/env bash
