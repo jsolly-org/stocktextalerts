@@ -144,6 +144,11 @@ function main() {
 		process.env.EMAIL_SMTP_PORT = "";
 	}
 
+	// CI sets SKIP_VENDOR_HTTP_IN_TEST for E2E/build (dummy API keys). Vitest
+	// unit tests mock global fetch instead — leaving the flag set makes
+	// marketDataFetch/finnhubFetch return null before fetch runs.
+	delete process.env.SKIP_VENDOR_HTTP_IN_TEST;
+
 	const args = ensureNoWatch(vitestArgs);
 
 	const child = spawnSync("./node_modules/.bin/vitest", args, {
