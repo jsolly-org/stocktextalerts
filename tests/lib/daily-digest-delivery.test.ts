@@ -2,11 +2,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	formatDailyDigestEmail,
 	formatDailyDigestSmsMessage,
+	formatDailyDigestSmsMessages,
+	processDailyDigestSmsDelivery,
 } from "../../src/lib/daily-digest/delivery";
+import type { Logger } from "../../src/lib/logging";
 import type { SmsExtras } from "../../src/lib/messaging/sms/delivery";
+import type { SmsSender } from "../../src/lib/messaging/sms/twilio-utils";
 import type { SparklineData } from "../../src/lib/messaging/sparkline";
-import type { UserAssetRow } from "../../src/lib/messaging/types";
+import type { UserAssetRow, UserRecord } from "../../src/lib/messaging/types";
 import type { AssetPriceMap } from "../../src/lib/providers/price-fetcher";
+import type {
+	ScheduledNotificationTotals,
+	SupabaseAdminClient,
+} from "../../src/lib/schedule/helpers";
 
 describe("Daily digest email prices", () => {
 	const user = { id: "user-1", email: "test@example.com" };
@@ -26,6 +34,146 @@ describe("Daily digest email prices", () => {
 		ascii: "▁▂▃▅▇▅▃",
 		window: "7-trading-days",
 	};
+	const scheduledDate = "2026-06-01";
+	const scheduledMinutes = 9 * 60;
+
+	function makeDailyDigestSmsUser(): UserRecord {
+		return {
+			id: "00000000-0000-0000-0000-000000000001",
+			email: "sarah.chen@example.com",
+			phone_country_code: "+1",
+			phone_number: "5551234567",
+			phone_verified: true,
+			timezone: "America/New_York",
+			use_24_hour_time: false,
+			market_scheduled_asset_price_next_send_at: null,
+			email_notifications_enabled: false,
+			sms_notifications_enabled: true,
+			sms_opted_out: false,
+			market_scheduled_asset_price_enabled: false,
+			market_scheduled_asset_price_include_email: false,
+			market_scheduled_asset_price_include_sms: false,
+			market_scheduled_asset_price_times: null,
+			daily_digest_time: scheduledMinutes,
+			daily_digest_next_send_at: null,
+			daily_digest_include_prices_email: false,
+			daily_digest_include_prices_sms: true,
+			daily_digest_include_top_movers_email: false,
+			daily_digest_include_top_movers_sms: false,
+			asset_events_include_calendar_email: false,
+			asset_events_include_calendar_sms: false,
+			asset_events_include_ipo_email: false,
+			asset_events_include_ipo_sms: false,
+			asset_events_include_analyst_email: false,
+			asset_events_include_analyst_sms: false,
+			asset_events_include_insider_email: false,
+			asset_events_include_insider_sms: false,
+			asset_events_next_send_at: null,
+			asset_events_last_analyst_sent_month: null,
+			market_asset_price_alerts_include_sms: false,
+			price_move_alerts_include_email: false,
+			price_move_alerts_include_sms: false,
+			daily_digest_include_news_email: false,
+			daily_digest_include_rumors_email: false,
+			last_grok_rumors_at: null,
+			grok_window_start: null,
+			grok_sends_in_window: 0,
+		};
+	}
+
+	function makeStats(): ScheduledNotificationTotals {
+		return {
+			skipped: 0,
+			logFailures: 0,
+			emailsSent: 0,
+			emailsFailed: 0,
+			smsSent: 0,
+			smsFailed: 0,
+		};
+	}
+
+	function makeLogger(): Logger {
+		return {
+			debug: vi.fn(),
+			info: vi.fn(),
+			warn: vi.fn(),
+			error: vi.fn(),
+		};
+	}
+
+	function makeDeliverySupabaseMock() {
+		const notificationLogInserts: Record<string, unknown>[] = [];
+		const scheduledUpdates: Record<string, unknown>[] = [];
+
+		function makeEqChain(result: Record<string, unknown>) {
+			const chain = {
+				...result,
+				eq: vi.fn(() => chain),
+			};
+			return chain;
+		}
+
+		function makeSelectChain(data: Record<string, unknown> | null) {
+			const chain = {
+				eq: vi.fn(() => chain),
+				maybeSingle: vi.fn(async () => ({ data, error: null })),
+			};
+			return chain;
+		}
+
+		const supabase = {
+			rpc: vi.fn(async () => ({ data: true, error: null })),
+			from: vi.fn((table: string) => {
+				if (table === "notification_log") {
+					return {
+						insert: vi.fn(async (insert: Record<string, unknown>) => {
+							notificationLogInserts.push(insert);
+							return { error: null };
+						}),
+					};
+				}
+
+				if (table === "scheduled_notifications") {
+					return {
+						select: vi.fn(() => makeSelectChain({ attempt_count: 1, status: "claimed" })),
+						update: vi.fn((update: Record<string, unknown>) => {
+							scheduledUpdates.push(update);
+							return makeEqChain({ error: null });
+						}),
+					};
+				}
+
+				throw new Error(`Unexpected table ${table}`);
+			}),
+		} as unknown as SupabaseAdminClient;
+
+		return { supabase, notificationLogInserts, scheduledUpdates };
+	}
+
+	function buildAssetFixtures(
+		count: number,
+		prefix = "STK",
+	): {
+		userAssets: UserAssetRow[];
+		assetPrices: AssetPriceMap;
+		lines: string[];
+	} {
+		const userAssets = Array.from({ length: count }, (_, index) => {
+			const symbol = `${prefix}${String(index + 1).padStart(3, "0")}`;
+			return { symbol, name: `Boundary Asset ${index + 1}` };
+		});
+		const assetPrices: AssetPriceMap = new Map(
+			userAssets.map((asset, index) => [
+				asset.symbol,
+				{ price: 100 + index + 0.12, changePercent: 1.23 },
+			]),
+		);
+		const lines = userAssets.map(
+			(asset, index) => `${asset.symbol} — $${(100 + index + 0.12).toFixed(2)} (+1.23%)`,
+		);
+
+		return { userAssets, assetPrices, lines };
+	}
 
 	beforeEach(() => {
 		vi.stubEnv("UNSUBSCRIBE_TOKEN_SECRET", "test-secret-key");
@@ -34,6 +182,127 @@ describe("Daily digest email prices", () => {
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
+	});
+
+	it("sends multipart daily digest SMS bodies in order and records one successful attempt", async () => {
+		const { userAssets, assetPrices } = buildAssetFixtures(90, "MS");
+		const expectedMessages = formatDailyDigestSmsMessages({
+			userAssets,
+			assetPrices,
+			extras,
+		});
+		expect(expectedMessages.length).toBeGreaterThan(1);
+		const smsSender = vi.fn<SmsSender>(async () => ({ success: true }));
+		const stats = makeStats();
+		const logger = makeLogger();
+		const { supabase, notificationLogInserts, scheduledUpdates } = makeDeliverySupabaseMock();
+
+		await processDailyDigestSmsDelivery({
+			user: makeDailyDigestSmsUser(),
+			supabase,
+			logger,
+			scheduledDate,
+			scheduledMinutes,
+			userAssets,
+			assetPrices,
+			extras,
+			getSmsSender: () => ({ sender: smsSender }),
+			stats,
+		});
+
+		expect(smsSender).toHaveBeenCalledTimes(expectedMessages.length);
+		expect(smsSender.mock.calls.map(([request]) => request.body)).toEqual(expectedMessages);
+		expect(stats.smsSent).toBe(1);
+		expect(stats.smsFailed).toBe(0);
+		expect(notificationLogInserts).toHaveLength(1);
+		expect(notificationLogInserts[0]).toMatchObject({
+			type: "daily",
+			delivery_method: "sms",
+			message_delivered: true,
+		});
+		expect(notificationLogInserts[0]?.message).toContain(
+			`--- SMS part 1/${expectedMessages.length} ---`,
+		);
+		expect(notificationLogInserts[0]?.message).toContain(
+			`--- SMS part ${expectedMessages.length}/${expectedMessages.length} ---`,
+		);
+		expect(scheduledUpdates).toHaveLength(1);
+		expect(scheduledUpdates[0]).toMatchObject({
+			status: "sent",
+			error: null,
+			next_retry_at: null,
+		});
+	});
+
+	it("stops after a later daily digest SMS part fails and records one failed attempt", async () => {
+		const { userAssets, assetPrices } = buildAssetFixtures(90, "MF");
+		const expectedMessages = formatDailyDigestSmsMessages({
+			userAssets,
+			assetPrices,
+			extras,
+		});
+		expect(expectedMessages.length).toBeGreaterThan(1);
+		const smsSender = vi
+			.fn<SmsSender>()
+			.mockResolvedValueOnce({ success: true })
+			.mockResolvedValueOnce({
+				success: false,
+				error: "Twilio timeout",
+				errorCode: "ETIMEDOUT",
+			});
+		const stats = makeStats();
+		const logger = makeLogger();
+		const user = makeDailyDigestSmsUser();
+		const { supabase, notificationLogInserts, scheduledUpdates } = makeDeliverySupabaseMock();
+
+		await processDailyDigestSmsDelivery({
+			user,
+			supabase,
+			logger,
+			scheduledDate,
+			scheduledMinutes,
+			userAssets,
+			assetPrices,
+			extras,
+			getSmsSender: () => ({ sender: smsSender }),
+			stats,
+		});
+
+		expect(smsSender).toHaveBeenCalledTimes(2);
+		expect(stats.smsSent).toBe(0);
+		expect(stats.smsFailed).toBe(1);
+		expect(logger.error).toHaveBeenCalledWith(
+			"Failed to send Daily Digest SMS part",
+			expect.objectContaining({
+				userId: user.id,
+				scheduledDate,
+				scheduledMinutes,
+				partNumber: 2,
+				totalParts: expectedMessages.length,
+				partLength: expectedMessages[1]?.length,
+				error: "Twilio timeout",
+				errorCode: "ETIMEDOUT",
+			}),
+		);
+		expect(notificationLogInserts).toHaveLength(1);
+		expect(notificationLogInserts[0]?.message).toContain(
+			`--- SMS part 1/${expectedMessages.length} ---`,
+		);
+		expect(notificationLogInserts[0]?.message).toContain(
+			`--- SMS part ${expectedMessages.length}/${expectedMessages.length} ---`,
+		);
+		expect(notificationLogInserts[0]?.error).toContain(`SMS part 2/${expectedMessages.length}`);
+		expect(notificationLogInserts[0]?.error).toContain("Twilio timeout");
+		expect(notificationLogInserts[0]).toMatchObject({
+			message_delivered: false,
+			error_code: "ETIMEDOUT",
+		});
+		expect(scheduledUpdates).toHaveLength(1);
+		expect(scheduledUpdates[0]).toMatchObject({
+			status: "failed",
+		});
+		expect(scheduledUpdates[0]?.error).toContain(`SMS part 2/${expectedMessages.length}`);
+		expect(scheduledUpdates[0]?.error).toContain("Twilio timeout");
 	});
 
 	it("applies change % preferences in daily digest email", () => {
@@ -215,6 +484,108 @@ describe("Daily digest email prices", () => {
 		expect(message).not.toContain("💵 Prices");
 		expect(message).toContain("AAPL — $187.42 (+1.23%)");
 		expect(message).toContain("MSFT — $412.10 (-0.31%)");
+	});
+
+	it("keeps analyst consensus counts with their section heading across SMS bodies", () => {
+		const { userAssets, assetPrices } = buildAssetFixtures(65, "AC");
+
+		const messages = formatDailyDigestSmsMessages({
+			userAssets,
+			assetPrices,
+			extras,
+			assetEvents: {
+				eventsSection: {
+					earnings: "RTX: earnings expected tomorrow before market open",
+					dividends: "AAPL: ex-dividend date lands this week",
+					splits: null,
+					ipos: null,
+				},
+				analystSection: "LDOS: 8 Buy, 11 Hold, 0 Sell",
+				insiderSection: null,
+				hasAnyContent: true,
+			},
+		});
+
+		expect(messages.length).toBeGreaterThan(1);
+		const analystMessage = messages.find((message) => message.includes("📊 Analyst Consensus"));
+		expect(analystMessage).toContain("📊 Analyst Consensus\nLDOS: 8 Buy, 11 Hold, 0 Sell");
+		for (const message of messages.filter((message) => !message.includes("📊 Analyst Consensus"))) {
+			expect(message).not.toContain("LDOS: 8 Buy, 11 Hold, 0 Sell");
+		}
+	});
+
+	it("keeps the SMS footer opt-out text with the dashboard link in the final body", () => {
+		const { userAssets, assetPrices } = buildAssetFixtures(85, "FT");
+
+		const messages = formatDailyDigestSmsMessages({
+			userAssets,
+			assetPrices,
+			extras,
+		});
+
+		expect(messages.length).toBeGreaterThan(1);
+		const finalBody = messages.at(-1);
+		expect(finalBody).toContain("Manage your notifications:");
+		expect(finalBody).toContain("Reply STOP to opt out.");
+		expect(finalBody?.indexOf("Manage your notifications:")).toBeLessThan(
+			finalBody?.indexOf("Reply STOP to opt out.") ?? -1,
+		);
+		for (const message of messages.slice(0, -1)) {
+			expect(message).not.toContain("Reply STOP to opt out.");
+		}
+	});
+
+	it("pads the dashboard URL after each final SMS body is packed", () => {
+		vi.stubEnv("SITE_URL", "http://localhost:4321");
+		const { userAssets, assetPrices } = buildAssetFixtures(53, "URL");
+		const footerPrefix = "Manage your notifications: ";
+		const insiderBlockPrefix = "🏦 Insider Trades\n";
+		const minimumInsiderFiller = 1250;
+		const targetUrlRemainder = 60;
+		const baseUrlIndex = insiderBlockPrefix.length + minimumInsiderFiller + 2 + footerPrefix.length;
+		const insiderFillerLength =
+			minimumInsiderFiller + ((targetUrlRemainder - (baseUrlIndex % 67) + 67) % 67);
+
+		const messages = formatDailyDigestSmsMessages({
+			userAssets,
+			assetPrices,
+			extras,
+			assetEvents: {
+				eventsSection: { earnings: null, dividends: null, splits: null, ipos: null },
+				analystSection: null,
+				insiderSection: "I".repeat(insiderFillerLength),
+				hasAnyContent: true,
+			},
+		});
+
+		expect(messages.length).toBeGreaterThan(1);
+		const finalBody = messages.at(-1) ?? "";
+		const dashboardUrlMatch = finalBody.match(/https?:\/\/\S+\/dashboard/);
+		expect(dashboardUrlMatch?.index).toBeGreaterThan(-1);
+		expect((dashboardUrlMatch?.index ?? -1) % 67).toBe(0);
+	});
+
+	it("splits long asset lists only between complete asset entries", () => {
+		const { userAssets, assetPrices, lines } = buildAssetFixtures(90, "AS");
+
+		const messages = formatDailyDigestSmsMessages({
+			userAssets,
+			assetPrices,
+			extras,
+		});
+		const joined = messages.join("\n\n");
+
+		expect(messages.length).toBeGreaterThan(1);
+		expect(joined).toContain(lines[0]);
+		expect(joined).toContain(lines.at(-1));
+		for (const line of lines) {
+			expect(messages.filter((message) => message.includes(line))).toHaveLength(1);
+		}
+		for (const message of messages.filter((message) =>
+			lines.some((line) => message.includes(line)),
+		)) {
+			expect(message).toMatch(/(?:^|\n\n)💰 Your Assets\n/);
+		}
 	});
 
 	it("formats rumor ticker sections with blank lines between tickers", () => {

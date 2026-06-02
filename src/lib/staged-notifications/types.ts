@@ -11,12 +11,17 @@ export interface StagedEmailContent {
 	html: string;
 }
 
+export type StagedSmsContent =
+	| { messages: string[] }
+	// Short-lived persisted JSON compatibility for rows staged before multipart SMS shipped.
+	| { message: string };
+
 export interface StagedDailyData {
 	type: "daily";
 	scheduledDate: string;
 	scheduledMinutes: number;
 	email: StagedEmailContent | null;
-	sms: { message: string } | null;
+	sms: StagedSmsContent | null;
 
 	// Post-delivery metadata: these fields capture decisions made during
 	// the pre-compute phase so the delivery phase can perform cleanup

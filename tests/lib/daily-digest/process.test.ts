@@ -16,7 +16,7 @@ import type { UserRecord } from "../../../src/lib/messaging/types";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
-import { errorSpy, expectConsoleWarning } from "../../setup";
+import { errorSpy, expectConsoleError, expectConsoleWarning } from "../../setup";
 
 // Mock market calendar to avoid real Massive API calls with test keys.
 vi.mock("../../../src/lib/time/market-calendar", () => ({
@@ -427,6 +427,7 @@ describe("Daily digest process scenarios", () => {
 	});
 
 	it("Failed SMS delivery does not advance daily_digest_next_send_at.", async () => {
+		expectConsoleError("Failed to send Daily Digest SMS part");
 		const now = DateTime.utc();
 		const nowIso = now.toISO();
 		expect(nowIso).toBeTruthy();

@@ -10,6 +10,27 @@
             "command": "bash .agents/hooks/check-sam-deploy.sh",
             "timeout": 5,
             "statusMessage": "Checking for Lambda-related changes..."
+          },
+          {
+            "type": "command",
+            "if": "Bash(supabase db push:*)",
+            "command": "bash scripts/agent-guards/block-prod-db-migrations.sh",
+            "timeout": 5,
+            "statusMessage": "Checking for production DB migration commands..."
+          },
+          {
+            "type": "command",
+            "if": "Bash(supabase migration repair:*)",
+            "command": "bash scripts/agent-guards/block-prod-db-migrations.sh",
+            "timeout": 5,
+            "statusMessage": "Checking for production DB migration commands..."
+          },
+          {
+            "type": "command",
+            "if": "Bash(psql:*)",
+            "command": "bash scripts/agent-guards/block-prod-db-migrations.sh",
+            "timeout": 5,
+            "statusMessage": "Checking for production DB migration commands..."
           }
         ]
       }
@@ -24,7 +45,14 @@
       "Write(/.agents/**)",
       "Write(/.github/workflows/fleet-lock-guard.yml)",
       "Write(/scripts/cloud-fleet-sync-if-stale.sh)",
-      "Write(/scripts/update-agents-subtree.sh)"
+      "Write(/scripts/update-agents-subtree.sh)",
+      "Bash(supabase db push *)",
+      "Bash(supabase migration repair *)",
+      "Bash(psql *)",
+      "mcp__plugin-supabase-supabase__apply_migration",
+      "mcp__plugin-supabase-supabase__execute_sql",
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__execute_sql"
     ]
   }
 }

@@ -1,0 +1,34 @@
+# Forbidden production database operations for agents.
+# Production migrations run only in GitHub Actions (supabase db push after merge).
+
+prefix_rule(
+    pattern = ["supabase", "db", "push"],
+    decision = "forbidden",
+    justification = "Production Supabase migrations must run only in GitHub Actions CI.",
+    match = [
+        ["supabase", "db", "push"],
+        ["supabase", "db", "push", "--include-all", "--yes"],
+    ],
+    not_match = [
+        ["supabase", "db", "reset"],
+        ["supabase", "migration", "new", "add_column"],
+    ],
+)
+
+prefix_rule(
+    pattern = ["supabase", "migration", "repair"],
+    decision = "forbidden",
+    justification = "Production migration metadata repair requires a human runbook, not an agent.",
+    match = [
+        ["supabase", "migration", "repair", "20260501000000", "--status", "reverted", "--linked"],
+    ],
+)
+
+prefix_rule(
+    pattern = ["psql"],
+    decision = "forbidden",
+    justification = "Agents must not connect directly to production Postgres. Use committed migrations and CI.",
+    match = [
+        ["psql", "$DATABASE_URL_PROD"],
+    ],
+)

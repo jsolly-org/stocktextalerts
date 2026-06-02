@@ -35,7 +35,7 @@ import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../tim
 import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
 import {
 	formatDailyDigestEmail,
-	formatDailyDigestSmsMessage,
+	formatDailyDigestSmsMessages,
 	processDailyDigestEmailDelivery,
 	processDailyDigestSmsDelivery,
 } from "./delivery";
@@ -678,7 +678,7 @@ export async function processDailyDigestUser(options: {
 			const smsContent =
 				hasSmsContent && smsExtras
 					? {
-							message: formatDailyDigestSmsMessage({
+							messages: formatDailyDigestSmsMessages({
 								userAssets: smsPriceAssets,
 								assetPrices: smsPriceMap,
 								extras: smsExtras,

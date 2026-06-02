@@ -1,0 +1,5 @@
+# Project Codex policy — loads when this repository is marked trusted in Codex.
+# See AGENTS.md → Production DB agent block.
+
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"

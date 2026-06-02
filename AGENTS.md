@@ -86,6 +86,23 @@ See `docs/testing.md` for the production-credential gating model and Mailpit dev
 - After creating/modifying a migration: `npm run db:gen-types`.
 - **Regenerate `src/lib/db/generated/database.types.ts` via `npm run db:gen-types`** — it's overwritten on every run.
 
+### Production DB agent block (enforced)
+
+Agents (Cursor, Claude Code, Codex) **must not** change production Supabase schema or data directly. Runtime guards in `.cursor/`, `.claude/`, and `.codex/` block the dangerous paths; policy text alone is not enough.
+
+**Never run or invoke:**
+
+- `supabase db push` (production apply is only in `.github/workflows/deploy.yml` after merge to `main`)
+- `supabase migration repair` against linked/production (human runbook only — see `docs/incidents/2026-05-migration-squash.md`)
+- `psql` using production credentials (`DATABASE_URL_PROD`, `SUPABASE_URL_PROD`, project ref `japesagairjvvuebzpvr`, etc.)
+- Supabase MCP `apply_migration` or `execute_sql` against production
+
+**Allowed agent workflow:** `supabase migration new <name>` → edit `supabase/migrations/*.sql` → `npm run db:reset` / `db:gen-types` → commit → merge → CI `supabase db push`.
+
+**Codex:** mark this repo as a **trusted** project so `.codex/config.toml` and `.codex/execpolicy.rules` load (see [Codex config basics](https://developers.openai.com/codex/config-basic)).
+
+**Cursor hooks:** `.cursor/hooks.json` uses matchers so guards do not run on every shell command. After a fleet subtree sync, re-apply repo guard wiring if hooks regress: `bash scripts/merge-cursor-agent-guards.sh`.
+
 See `docs/local-supabase.md` for `db:bootstrap`, seed hardening, and Podman setup.
 
 ## Supabase Auth OTP

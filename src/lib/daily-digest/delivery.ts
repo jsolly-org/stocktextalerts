@@ -17,12 +17,13 @@ import {
 	buildMarketClosureLabel,
 } from "../messaging/market-closure-banner";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
+import { packSmsBlocks, type SmsBlock } from "../messaging/sms/block-packing";
 import type { SmsExtras } from "../messaging/sms/delivery";
 import { formatExtrasSection } from "../messaging/sms/formatting";
 import { sendUserSms, shouldSendSms } from "../messaging/sms/index";
 import { padUrlsToSegmentBoundaries } from "../messaging/sms/segment-utils";
 import type { SparklineData, SparklineMap } from "../messaging/sparkline";
-import type { UserAssetRow, UserRecord } from "../messaging/types";
+import type { DeliveryResult, UserAssetRow, UserRecord } from "../messaging/types";
 import type { AssetPriceMap } from "../providers/price-fetcher";
 import type { ScheduledNotificationTotals, SupabaseAdminClient } from "../schedule/helpers";
 import { claimNotification, updateScheduledNotificationRow } from "../schedule/helpers";
@@ -118,6 +119,18 @@ function buildDigestMarketClosedHtml(content: DigestMarketClosedContent): string
 
 type AssetEventsResult = Awaited<ReturnType<typeof buildAssetEventsContent>> | null;
 
+type DailyDigestSmsFormatOptions = {
+	userAssets: UserAssetRow[];
+	assetPrices: AssetPriceMap;
+	extras: SmsExtras;
+	assetEvents?: AssetEventsResult;
+	sparklines?: SparklineMap;
+	marketOpen?: boolean;
+	marketClosureInfo?: MarketClosureInfo | null;
+	/** Optional delay banner text (inserted after header when notification is late). */
+	delayBanner?: string | null;
+};
+
 /** Show change % on closed-market digests only when a 7-day sparkline anchors it. */
 function shouldShowDigestChangePercent(
 	marketOpen: boolean | undefined,
@@ -128,49 +141,119 @@ function shouldShowDigestChangePercent(
 }
 
 /** Format the daily digest message body for SMS delivery. */
-export function formatDailyDigestSmsMessage(options: {
-	userAssets: UserAssetRow[];
-	assetPrices: AssetPriceMap;
-	extras: SmsExtras;
-	assetEvents?: AssetEventsResult;
-	sparklines?: SparklineMap;
-	marketOpen?: boolean;
-	marketClosureInfo?: MarketClosureInfo | null;
-	/** Optional delay banner text (inserted after header when notification is late). */
-	delayBanner?: string | null;
-}): string {
-	const optOutSuffix = "Reply STOP to opt out.";
-	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
-	const prices = buildDailyDigestPricesSummary(
-		options.userAssets,
-		options.assetPrices,
-		options.sparklines,
-		"\n\n",
-		options.marketOpen,
-	);
+export function formatDailyDigestSmsMessage(options: DailyDigestSmsFormatOptions): string {
+	return formatDailyDigestSmsMessages(options).join("\n\n");
+}
 
+/** Format the daily digest SMS payload as one or more boundary-aware bodies. */
+export function formatDailyDigestSmsMessages(options: DailyDigestSmsFormatOptions): string[] {
+	return packSmsBlocks(buildDailyDigestSmsBlocks(options)).map((message) =>
+		padUrlsToSegmentBoundaries(message),
+	);
+}
+
+/** Format one notification_log message for a single-part or multipart SMS attempt. */
+export function formatDailyDigestSmsLogMessage(messages: string[]): string {
+	if (messages.length === 1) {
+		return messages[0] ?? "";
+	}
+
+	return messages
+		.map((message, index) => `--- SMS part ${index + 1}/${messages.length} ---\n${message}`)
+		.join("\n\n");
+}
+
+/** Collapse per-part SMS delivery results into one attempt-level result. */
+export function summarizeDailyDigestSmsResults(
+	results: DeliveryResult[],
+	totalParts: number,
+): DeliveryResult {
+	if (totalParts === 0) {
+		return { success: false, error: "No SMS parts to send" };
+	}
+
+	if (results.length === totalParts && results.every((result) => result.success)) {
+		return { success: true };
+	}
+
+	const failedIndex = results.findIndex((result) => !result.success);
+	const failed = failedIndex >= 0 ? results[failedIndex] : null;
+	const failedPartNumber = failedIndex >= 0 ? failedIndex + 1 : results.length + 1;
+	const error = failed?.success === false ? failed.error : "Unknown error";
+	const errorCode = failed?.success === false ? failed.errorCode : undefined;
+
+	return {
+		success: false,
+		error: `SMS part ${failedPartNumber}/${totalParts} failed: ${error}`,
+		...(errorCode !== undefined ? { errorCode } : {}),
+	};
+}
+
+/** Build the daily digest SMS as ordered blocks for body packing. */
+function buildDailyDigestSmsBlocks(options: DailyDigestSmsFormatOptions): SmsBlock[] {
+	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
 	const marketDisclaimer =
 		options.marketOpen === false ? buildMarketClosedBannerText(options.marketClosureInfo) : "";
 	const ae = options.assetEvents;
-	const sections = [
-		"StockTextAlerts — Your daily digest 🗓️",
-		options.delayBanner || "",
-		marketDisclaimer,
-		prices ? `💰 Your Assets\n${prices}` : "",
-		formatExtrasSection("🚀 Top Movers", options.extras.topMovers),
-		formatExtrasSection("🗞️ News", options.extras.news),
-		formatExtrasSection("🤫 Rumors", options.extras.rumors),
-		formatExtrasSection("📈 Earnings", ae?.eventsSection?.earnings),
-		formatExtrasSection("💰 Dividends", ae?.eventsSection?.dividends),
-		formatExtrasSection("✂️ Splits", ae?.eventsSection?.splits),
-		formatExtrasSection("🆕 Upcoming IPOs", ae?.eventsSection?.ipos),
-		formatExtrasSection("📊 Analyst Consensus", ae?.analystSection),
-		formatExtrasSection("🏦 Insider Trades", ae?.insiderSection),
-		`Manage your notifications: ${dashboardUrl}`,
-		optOutSuffix,
-	].filter((value) => Boolean(value));
 
-	return padUrlsToSegmentBoundaries(sections.join("\n\n"));
+	return [
+		{ id: "header", boundary: "atomic", text: "StockTextAlerts — Your daily digest 🗓️" },
+		{ id: "delayBanner", boundary: "atomic", text: options.delayBanner },
+		{ id: "marketDisclaimer", boundary: "atomic", text: marketDisclaimer },
+		{
+			id: "assets",
+			boundary: "split-between-children",
+			header: "💰 Your Assets",
+			children: buildDailyDigestPriceLines(options),
+			childSeparator: "\n\n",
+		},
+		{
+			id: "topMovers",
+			boundary: "atomic",
+			text: formatExtrasSection("🚀 Top Movers", options.extras.topMovers),
+		},
+		{ id: "news", boundary: "atomic", text: formatExtrasSection("🗞️ News", options.extras.news) },
+		{
+			id: "rumors",
+			boundary: "atomic",
+			text: formatExtrasSection("🤫 Rumors", options.extras.rumors),
+		},
+		{
+			id: "earnings",
+			boundary: "atomic",
+			text: formatExtrasSection("📈 Earnings", ae?.eventsSection?.earnings),
+		},
+		{
+			id: "dividends",
+			boundary: "atomic",
+			text: formatExtrasSection("💰 Dividends", ae?.eventsSection?.dividends),
+		},
+		{
+			id: "splits",
+			boundary: "atomic",
+			text: formatExtrasSection("✂️ Splits", ae?.eventsSection?.splits),
+		},
+		{
+			id: "ipos",
+			boundary: "atomic",
+			text: formatExtrasSection("🆕 Upcoming IPOs", ae?.eventsSection?.ipos),
+		},
+		{
+			id: "analystConsensus",
+			boundary: "atomic",
+			text: formatExtrasSection("📊 Analyst Consensus", ae?.analystSection),
+		},
+		{
+			id: "insiderTrades",
+			boundary: "atomic",
+			text: formatExtrasSection("🏦 Insider Trades", ae?.insiderSection),
+		},
+		{
+			id: "footer",
+			boundary: "atomic",
+			text: `Manage your notifications: ${dashboardUrl}\n\nReply STOP to opt out.`,
+		},
+	];
 }
 
 /** Format a single asset price line for the SMS/plain-text digest. */
@@ -181,6 +264,19 @@ function formatDailyDigestPriceLine(
 	showChangePercent = true,
 ): string {
 	return formatAssetTextLine(asset, quote ?? undefined, sparkline, showChangePercent);
+}
+
+/** Build per-asset SMS price lines so the asset block can split between entries. */
+function buildDailyDigestPriceLines(options: DailyDigestSmsFormatOptions): string[] {
+	return options.userAssets.map((asset) => {
+		const sparkline = options.sparklines?.get(asset.symbol);
+		return formatDailyDigestPriceLine(
+			asset,
+			options.assetPrices.get(asset.symbol),
+			sparkline,
+			shouldShowDigestChangePercent(options.marketOpen, sparkline),
+		);
+	});
 }
 
 /** Build the plain-text "Your Assets" section for the digest. */
@@ -537,7 +633,7 @@ export async function processDailyDigestSmsDelivery(options: {
 		return;
 	}
 
-	const smsMessage = formatDailyDigestSmsMessage({
+	const smsMessages = formatDailyDigestSmsMessages({
 		userAssets,
 		assetPrices,
 		extras,
@@ -547,13 +643,33 @@ export async function processDailyDigestSmsDelivery(options: {
 		marketClosureInfo: options.marketClosureInfo,
 		delayBanner: options.delayBanner,
 	});
-	const result = await sendUserSms(user, smsMessage, smsSenderResult.sender, supabase);
+	const partResults: DeliveryResult[] = [];
+	for (const [index, smsMessage] of smsMessages.entries()) {
+		const partResult = await sendUserSms(user, smsMessage, smsSenderResult.sender, supabase);
+		partResults.push(partResult);
+
+		if (!partResult.success) {
+			logger.error("Failed to send Daily Digest SMS part", {
+				userId: user.id,
+				scheduledDate,
+				scheduledMinutes,
+				partNumber: index + 1,
+				totalParts: smsMessages.length,
+				partLength: smsMessage.length,
+				error: partResult.error,
+				errorCode: partResult.errorCode ?? null,
+			});
+			break;
+		}
+	}
+
+	const result = summarizeDailyDigestSmsResults(partResults, smsMessages.length);
 	const logged = await recordNotification(supabase, {
 		user_id: user.id,
 		type: "daily",
 		delivery_method: "sms",
 		message_delivered: result.success,
-		message: smsMessage,
+		message: formatDailyDigestSmsLogMessage(smsMessages),
 		...deliveryResultToLogFields(result),
 	});
 	if (!logged) {
