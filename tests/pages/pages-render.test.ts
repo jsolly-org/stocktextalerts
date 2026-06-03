@@ -10,6 +10,7 @@ vi.mock("../../src/lib/constants", async (importOriginal) => {
 
 import { rootLogger } from "../../src/lib/logging";
 import AuthForgotPage from "../../src/pages/auth/forgot.astro";
+import AuthPendingApprovalPage from "../../src/pages/auth/pending-approval.astro";
 import AuthRecoverPage from "../../src/pages/auth/recover.astro";
 import AuthRegisterPage from "../../src/pages/auth/register.astro";
 import SignInPage from "../../src/pages/auth/signin.astro";
@@ -78,11 +79,32 @@ describe("Users can load pages without unexpected errors.", () => {
 		expect(response.headers.get("Location")).toBe("/auth/signin?redirect=%2Fdashboard");
 	});
 
+	it("An unapproved signed-in user is redirected to pending approval from the dashboard.", async () => {
+		await withTestUser(
+			{
+				email: createTestEmail("pending"),
+				password: TEST_PASSWORD,
+				confirmed: true,
+				approved: false,
+			},
+			async (_user, cookies) => {
+				const container = await AstroContainer.create({ renderers });
+				const response = await container.renderToResponse(DashboardPage, {
+					request: buildRequest("/dashboard", cookies),
+				});
+
+				expect(response.status).toBe(302);
+				expect(response.headers.get("Location")).toBe("/auth/pending-approval");
+			},
+		);
+	});
+
 	async function withTestUser<T>(
 		options: {
 			email: string;
 			password: string;
 			confirmed: boolean;
+			approved?: boolean;
 		},
 		callback: (user: { id: string; email: string }, cookies: Map<string, string>) => Promise<T>,
 	): Promise<T> {
@@ -140,6 +162,7 @@ describe("Users can load pages without unexpected errors.", () => {
 	const authPages = [
 		{ component: SignInPage, path: "/auth/signin" },
 		{ component: AuthRegisterPage, path: "/auth/register" },
+		{ component: AuthPendingApprovalPage, path: "/auth/pending-approval" },
 		{ component: AuthForgotPage, path: "/auth/forgot" },
 		{ component: AuthRecoverPage, path: "/auth/recover" },
 		{ component: AuthUnconfirmedPage, path: "/auth/unconfirmed" },
@@ -159,7 +182,7 @@ describe("Users can load pages without unexpected errors.", () => {
 		expect(response.status).toBe(200);
 	});
 
-	it("The register page shows the registration password field and DM instructions.", async () => {
+	it("The register page does not require a registration password.", async () => {
 		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(AuthRegisterPage, {
 			request: buildRequest("/auth/register"),
@@ -167,11 +190,20 @@ describe("Users can load pages without unexpected errors.", () => {
 
 		expect(response.status).toBe(200);
 		const html = await response.text();
-		expect(html).toContain('name="registration_password"');
-		expect(html).toContain("Registration password");
-		expect(html).toContain("DM");
-		expect(html).toContain("@_jsolly");
-		expect(html).toContain("registration password");
+		expect(html).not.toContain('name="registration_password"');
+		expect(html).not.toContain("DM");
+		expect(html).not.toContain("@_jsolly");
+	});
+
+	it("The pending approval page explains the account status.", async () => {
+		const container = await AstroContainer.create({ renderers });
+		const response = await container.renderToResponse(AuthPendingApprovalPage, {
+			request: buildRequest("/auth/pending-approval"),
+		});
+
+		expect(response.status).toBe(200);
+		const html = await response.text();
+		expect(html).toContain("Your account is pending approval");
 	});
 
 	it.each(staticPages)("A visitor can access static page $path.", async ({ component, path }) => {

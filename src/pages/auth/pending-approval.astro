@@ -1,0 +1,36 @@
+---
+import { Icon } from "astro-icon/components";
+import Footer from "../../components/Footer.astro";
+import Layout from "../../layouts/Layout.astro";
+import { createUserService } from "../../lib/db";
+import { createSupabaseServerClient } from "../../lib/db/supabase";
+
+const supabase = createSupabaseServerClient();
+const users = createUserService(supabase, Astro.cookies);
+const authUser = await users.getCurrentUser({ requireApproval: false });
+---
+<Layout title="Account Pending Approval | StockTextAlerts" description="Your StockTextAlerts account is pending approval." noindex>
+  <main id="main-content" class="min-h-screen bg-surface-alt flex flex-col justify-center px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
+    <section class="card max-w-md mx-auto p-8 text-center">
+      <div class="mx-auto flex size-12 items-center justify-center rounded-full bg-primary-soft text-primary">
+        <Icon name="clock" class="size-6" aria-hidden="true" />
+      </div>
+      <h1 class="mt-6 text-2xl font-extrabold text-heading">Your account is pending approval</h1>
+      <p class="mt-3 text-sm text-body-secondary">
+        Thanks for signing up. I review new StockTextAlerts accounts manually before enabling dashboard access.
+        Please check back later.
+      </p>
+      <div class="mt-6 flex flex-col gap-3">
+        {authUser ? (
+          <form action="/api/auth/signout" method="post">
+            <button type="submit" class="btn btn-lg btn-secondary w-full">Sign out</button>
+          </form>
+        ) : (
+          <a href="/auth/signin" class="btn btn-lg btn-primary w-full">Sign in</a>
+        )}
+        <a href="/" class="link-primary">Back to home</a>
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Layout>

@@ -6,7 +6,7 @@ Registration Gate
 ============= */
 
 /** Set to true to allow new account registrations. */
-export const REGISTRATION_ENABLED = false;
+export const REGISTRATION_ENABLED = true;
 
 /* =============
 Dashboard Form IDs
@@ -248,8 +248,6 @@ const MESSAGE_ALLOWLIST = {
 	assets_limit: `Maximum ${MAX_TRACKED_ASSETS} assets allowed`,
 	delisted_symbols: "One or more symbols have been delisted and can no longer be tracked.",
 	registration_closed: "Registration is currently closed.",
-	invalid_registration_password: "Registration password is incorrect.",
-	registration_unavailable: "Registration is temporarily unavailable. Please try again later.",
 } as const;
 
 type MessageKey = keyof typeof MESSAGE_ALLOWLIST;

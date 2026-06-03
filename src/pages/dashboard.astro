@@ -3,6 +3,7 @@
 import DashboardPanels from "../components/dashboard/DashboardPanels.vue";
 import Navigation from "../components/Navigation.astro";
 import Layout from "../layouts/Layout.astro";
+import { isUserApproved } from "../lib/auth/approval";
 import { buildSigninRedirectUrl } from "../lib/auth/redirects";
 import { createUserService, getUserAssets } from "../lib/db";
 import { createSupabaseServerClient } from "../lib/db/supabase";
@@ -12,7 +13,7 @@ import { formatPhoneFromE164 } from "../lib/messaging/format-phone";
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
-const authUser = await users.getCurrentUser();
+const authUser = await users.getCurrentUser({ requireApproval: false });
 if (!authUser) {
 	rootLogger.info("Dashboard access attempted without authenticated user", {
 		page: "dashboard",
@@ -32,6 +33,13 @@ if (!dbUser) {
 		page: "dashboard",
 	});
 	return Astro.redirect("/?error=user_not_found");
+}
+if (!isUserApproved(dbUser)) {
+	rootLogger.info("Dashboard access attempted before user approval", {
+		userId: authUser.id,
+		page: "dashboard",
+	});
+	return Astro.redirect("/auth/pending-approval");
 }
 const user = dbUser;
 const initialAssets = userAssets.map((asset) => ({ symbol: asset.symbol, name: asset.name, type: asset.type, icon_url: asset.icon_url }));

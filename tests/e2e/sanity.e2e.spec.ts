@@ -469,15 +469,7 @@ test.describe("sanity tests", () => {
 			return;
 		}
 
-		const registrationSecret = process.env.REGISTRATION_SECRET_PASSWORD;
-		if (!registrationSecret) {
-			throw new Error(
-				"REGISTRATION_SECRET_PASSWORD must be set in .env.local when REGISTRATION_ENABLED is true",
-			);
-		}
-
 		await page.goto("/auth/register");
-		await page.locator("#registration_password").fill(registrationSecret);
 		await page.locator("#email").fill(testEmail);
 		await page.locator("#password").fill(testPassword);
 		await page.locator("#confirm").fill(testPassword);
@@ -500,8 +492,6 @@ test.describe("sanity tests", () => {
 		await page.getByRole("button", { name: "Verify my email" }).click();
 		await expect(page.getByText("Email Verified!")).toBeVisible();
 
-		await signIn(page, testEmail, testPassword);
-
 		const { data, error } = await adminClient
 			.from("users")
 			.select("id")
@@ -512,6 +502,18 @@ test.describe("sanity tests", () => {
 		}
 		expect(data?.id).toBeTruthy();
 		testUserId = data?.id ?? null;
+		if (testUserId) {
+			const { error: approvalError } = await adminClient
+				.from("users")
+				.update({
+					approved_at: new Date().toISOString(),
+					approved_by: "e2e",
+				})
+				.eq("id", testUserId);
+			expect(approvalError).toBeNull();
+		}
+
+		await signIn(page, testEmail, testPassword);
 	});
 
 	test("TC-AUTH-001: User can sign out and sign back in", async () => {

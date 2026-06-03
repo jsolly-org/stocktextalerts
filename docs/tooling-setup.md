@@ -43,12 +43,14 @@ CI installs them per-run (yamllint via `pipx`, actionlint via the upstream `down
 
 ## Dev Environment
 
-### Registration gate
+### Registration approval
 
-When `REGISTRATION_ENABLED` is `true` in `src/lib/constants.ts`, new signups also require
-`REGISTRATION_SECRET_PASSWORD` in `.env.local` (and in Vercel for production). Set a shared
-password you distribute out of band (e.g. via X DM). Registration fails closed if the flag is
-on but the env var is missing.
+When `REGISTRATION_ENABLED` is `true` in `src/lib/constants.ts`, visitors can create accounts.
+New users are unapproved by default and cannot access the dashboard until `users.approved_at`
+is set manually in Supabase. After a user profile is created, the web app sends a best-effort
+admin notification email to `EMAIL_FROM`; local dev routes that email to Mailpit when
+`EMAIL_SMTP_HOST` is set, while Vercel needs `EMAIL_FROM` and the existing email sender
+prerequisites configured for this notification path.
 
 ### Prod dev-login account
 

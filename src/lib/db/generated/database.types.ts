@@ -648,6 +648,8 @@ export type Database = {
       }
       users: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           asset_events_include_analyst_email: boolean
           asset_events_include_analyst_sms: boolean
           asset_events_include_calendar_email: boolean
@@ -699,6 +701,8 @@ export type Database = {
           verification_sent_at: string | null
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           asset_events_include_analyst_email?: boolean
           asset_events_include_analyst_sms?: boolean
           asset_events_include_calendar_email?: boolean
@@ -750,6 +754,8 @@ export type Database = {
           verification_sent_at?: string | null
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           asset_events_include_analyst_email?: boolean
           asset_events_include_analyst_sms?: boolean
           asset_events_include_calendar_email?: boolean
@@ -858,6 +864,7 @@ export type Database = {
         Returns: boolean
       }
       has_no_whitespace: { Args: { value: string }; Returns: boolean }
+      is_approved: { Args: never; Returns: boolean }
       is_valid_market_scheduled_asset_price_times: {
         Args: { times: number[] }
         Returns: boolean

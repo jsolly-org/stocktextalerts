@@ -8,6 +8,7 @@ import TimeFormatSection from "../components/profile/TimeFormatSection.vue";
 import TimezoneSection from "../components/profile/TimezoneSection.vue";
 import StatusMessage from "../components/StatusMessage.astro";
 import Layout from "../layouts/Layout.astro";
+import { isUserApproved } from "../lib/auth/approval";
 import { getAuthErrorMessage } from "../lib/auth/messages";
 import { buildSigninRedirectUrl } from "../lib/auth/redirects";
 import { CARD_GRADIENT_ACCENTS, formatMessage } from "../lib/constants";
@@ -18,7 +19,7 @@ import { getTimezoneOptions } from "../lib/time/cache";
 
 const supabase = createSupabaseServerClient();
 const users = createUserService(supabase, Astro.cookies);
-const authUser = await users.getCurrentUser();
+const authUser = await users.getCurrentUser({ requireApproval: false });
 if (!authUser) {
 	rootLogger.info("Profile access attempted without authenticated user", {
 		page: "profile",
@@ -35,6 +36,13 @@ if (!user) {
 		page: "profile",
 	});
 	return Astro.redirect("/?error=user_not_found");
+}
+if (!isUserApproved(user)) {
+	rootLogger.info("Profile access attempted before user approval", {
+		userId: authUser.id,
+		page: "profile",
+	});
+	return Astro.redirect("/auth/pending-approval");
 }
 let timezones: Awaited<ReturnType<typeof getTimezoneOptions>>;
 let timezoneLoadError = false;

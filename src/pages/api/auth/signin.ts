@@ -1,11 +1,12 @@
 import type { APIRoute } from "astro";
+import { isUserApproved } from "../../../lib/auth/approval";
 import { setAuthCookies } from "../../../lib/auth/cookies";
 import {
 	buildSigninRedirectUrl,
 	getPostSigninRedirect,
 	getSafeRedirectPath,
 } from "../../../lib/auth/redirects";
-import { createSupabaseServerClient } from "../../../lib/db/supabase";
+import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import { createLogger } from "../../../lib/logging";
 
@@ -106,5 +107,21 @@ export const POST: APIRoute = async ({ url, request, cookies, redirect, locals }
 
 	const { access_token, refresh_token } = data.session;
 	setAuthCookies(cookies, access_token, refresh_token);
+
+	const adminSupabase = createSupabaseAdminClient();
+	const { data: dbUser, error: dbUserError } = await adminSupabase
+		.from("users")
+		.select("approved_at")
+		.eq("id", data.user.id)
+		.maybeSingle();
+	if (dbUserError) {
+		logger.error("Sign-in approval lookup failed", { userId: data.user.id }, dbUserError);
+		return redirect(buildSigninErrorRedirect("failed", { email, redirectPath }));
+	}
+	if (!dbUser || !isUserApproved(dbUser)) {
+		logger.info("Sign-in redirected for pending approval", { userId: data.user.id });
+		return redirect("/auth/pending-approval");
+	}
+
 	return redirect(getPostSigninRedirect(redirectPath));
 };

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { POST } from "../../../../src/pages/api/auth/email/register";
 import { createApiContext } from "../../../helpers/api-context";
-import { TEST_PASSWORD, TEST_REGISTRATION_SECRET } from "../../../helpers/constants";
+import { TEST_PASSWORD } from "../../../helpers/constants";
 
 vi.mock("../../../../src/lib/constants", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("../../../../src/lib/constants")>();
@@ -14,7 +14,6 @@ describe("Registration is closed when the product flag is disabled.", () => {
 		const request = new Request("http://localhost/api/auth/email/register", {
 			method: "POST",
 			body: new URLSearchParams({
-				registration_password: TEST_REGISTRATION_SECRET,
 				email: `test-closed-${randomUUID()}@example.com`,
 				password: TEST_PASSWORD,
 				confirm: TEST_PASSWORD,

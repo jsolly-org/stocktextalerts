@@ -2,20 +2,35 @@ import { randomUUID } from "node:crypto";
 import { DateTime } from "luxon";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_TIMEZONE } from "../../../../src/lib/constants";
+import type { EmailSender } from "../../../../src/lib/messaging/email/utils";
 import { POST } from "../../../../src/pages/api/auth/email/register";
 import { createApiContext } from "../../../helpers/api-context";
-import { TEST_PASSWORD, TEST_REGISTRATION_SECRET } from "../../../helpers/constants";
+import { TEST_PASSWORD } from "../../../helpers/constants";
 import { adminClient } from "../../../helpers/test-env";
 import { cleanupTestUser } from "../../../helpers/test-user";
+
+const mockEmailSender = vi.hoisted(() =>
+	vi.fn<EmailSender>(async () => ({
+		success: true,
+		messageSid: "mock-admin-registration-email",
+	})),
+);
 
 vi.mock("../../../../src/lib/constants", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("../../../../src/lib/constants")>();
 	return { ...actual, REGISTRATION_ENABLED: true };
 });
 
+vi.mock("../../../../src/lib/messaging/email/utils", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../../../../src/lib/messaging/email/utils")>();
+	return {
+		...actual,
+		createEmailSender: () => mockEmailSender,
+	};
+});
+
 function buildRegistrationPayload(
 	overrides: Partial<{
-		registration_password: string;
 		email: string;
 		password: string;
 		confirm: string;
@@ -23,7 +38,6 @@ function buildRegistrationPayload(
 	}> = {},
 ) {
 	return {
-		registration_password: TEST_REGISTRATION_SECRET,
 		email: `test-${randomUUID()}@example.com`,
 		password: TEST_PASSWORD,
 		confirm: TEST_PASSWORD,
@@ -34,7 +48,8 @@ function buildRegistrationPayload(
 
 describe("A visitor registers for a new account with email and password.", () => {
 	beforeEach(() => {
-		vi.stubEnv("REGISTRATION_SECRET_PASSWORD", TEST_REGISTRATION_SECRET);
+		mockEmailSender.mockClear();
+		vi.stubEnv("EMAIL_FROM", "admin@example.com");
 	});
 
 	afterEach(() => {
@@ -72,6 +87,16 @@ describe("A visitor registers for a new account with email and password.", () =>
 			userId = user.id;
 			expect(user.email).toBe(payload.email);
 			expect(user.timezone).toBe(payload.timezone);
+			expect(user.approved_at).toBeNull();
+			expect(mockEmailSender).toHaveBeenCalledOnce();
+			expect(mockEmailSender).toHaveBeenCalledWith(
+				expect.objectContaining({
+					to: "admin@example.com",
+					subject: "New StockTextAlerts registration pending approval",
+					body: expect.stringContaining(payload.email),
+					userId: user.id,
+				}),
+			);
 
 			// Verify user was created in auth
 			const { data: authUserData, error: authError } = await adminClient.auth.admin.getUserById(

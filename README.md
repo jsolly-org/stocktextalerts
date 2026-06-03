@@ -140,7 +140,7 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - `DATABASE_URL`: Supabase Dashboard → Project Settings → Database → Connection String → Transaction mode (pooler)
 - Twilio credentials: Twilio Console → Account Dashboard
 - `UNSUBSCRIBE_TOKEN_SECRET`: Generate a random string (minimum 12 characters; e.g., `openssl rand -hex 32`)
-- `EMAIL_FROM`: Verified SES sender; keep in sync with SSM `/stocktextalerts/email-from` (Lambda uses SSM at deploy time)
+- `EMAIL_FROM`: Verified SES sender; keep in sync with SSM `/stocktextalerts/email-from`. Lambda uses SSM at deploy time; Vercel also reads this for registration admin notification emails.
 - `EMAIL_SMTP_HOST` / `EMAIL_SMTP_PORT`: Local Mailpit routing for dev and live email tests — not used in production Lambda
 - Massive credentials: Massive Dashboard → API Keys
 - Finnhub credentials: Finnhub Dashboard → API Keys
@@ -152,7 +152,7 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 **Platform-only config (not part of `.env.local`):**
 
 - **Vercel-managed/injected:** `VERCEL_URL` is set automatically on hosted deployments. If you use the Vercel Supabase integration, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SECRET_KEY` come from that integration instead of a committed/shared env file.
-- **Vercel (SSR + webhooks):** `TWILIO_*`, `UNSUBSCRIBE_TOKEN_SECRET` (must match Lambda — signs email unsubscribe links), and `MASSIVE_API_KEY` (asset logo proxy). Outbound notification email/SMS is sent by **AWS Lambda**, not Vercel — do not add `AWS_*`, `EMAIL_FROM`, `FINNHUB_API_KEY`, or `XAI_API_KEY` to Vercel.
+- **Vercel (SSR + webhooks):** `TWILIO_*`, `UNSUBSCRIBE_TOKEN_SECRET` (must match Lambda — signs email unsubscribe links), `MASSIVE_API_KEY` (asset logo proxy), and `EMAIL_FROM` (registration admin notification recipient/sender). Outbound notification email/SMS is sent by **AWS Lambda**, not Vercel — do not add Lambda-only `FINNHUB_API_KEY` or `XAI_API_KEY` to Vercel.
 - **AWS Lambda (SAM deploy from `.env.local` via `aws/sam-params.sh`):** Supabase prod keys, Twilio, `UNSUBSCRIBE_TOKEN_SECRET`, Massive, Finnhub, optional `XAI_API_KEY`. `EmailFrom` is **not** passed on the CLI — the template defaults to SSM `/stocktextalerts/email-from`. SES auth is the Lambda execution role, not static `AWS_*` keys.
 - **Local-only values:** `DATABASE_URL` and `DEFAULT_PASSWORD` are for local Supabase + seed generation and should not be added to Vercel.
 - **Account-level (local shell, not repo secrets):** `CURSOR_API_KEY` — Cursor User API Key for SDK/CLI; set in `~/.zshrc`. See [.agents/docs/cloud-agents.md](.agents/docs/cloud-agents.md#secrets-summary).

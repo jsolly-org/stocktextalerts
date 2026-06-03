@@ -93,7 +93,8 @@ export function createUserService(supabase: AppSupabaseClient, cookies: AstroCoo
 		 * Refreshes the Supabase session and updates cookies when tokens rotate.
 		 * Returns `null` when unauthenticated or when tokens are invalid/expired.
 		 */
-		async getCurrentUser() {
+		async getCurrentUser(options: { requireApproval?: boolean } = {}) {
+			const requireApproval = options.requireApproval ?? true;
 			const accessToken = cookies.get("sb-access-token");
 			const refreshToken = cookies.get("sb-refresh-token");
 
@@ -140,7 +141,29 @@ export function createUserService(supabase: AppSupabaseClient, cookies: AstroCoo
 				setAuthCookies(cookies, newAccessToken, newRefreshToken);
 			}
 
-			return sessionResponse.data.user ?? null;
+			const authUser = sessionResponse.data.user ?? null;
+			if (!authUser || !requireApproval) {
+				return authUser;
+			}
+
+			const { data: dbUser, error: dbUserError } = await supabase
+				.from("users")
+				.select("approved_at")
+				.eq("id", authUser.id)
+				.maybeSingle();
+			if (dbUserError) {
+				rootLogger.error("approval lookup failed", {
+					error: dbUserError.message,
+					userId: authUser.id,
+				});
+				return null;
+			}
+
+			if (!dbUser?.approved_at) {
+				return null;
+			}
+
+			return authUser;
 		},
 
 		/**

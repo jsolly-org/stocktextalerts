@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { APIContext } from "astro";
-import { checkRegistrationSecret } from "../../../../lib/auth/registration-secret";
+import { sendRegistrationAdminEmail } from "../../../../lib/auth/registration-admin-email";
 import { MIN_PASSWORD_LENGTH, REGISTRATION_ENABLED } from "../../../../lib/constants";
 import { getSiteUrl } from "../../../../lib/db/env";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../../lib/db/supabase";
@@ -36,7 +36,6 @@ export async function POST({ url, request, redirect, locals }: APIContext): Prom
 
 	const formData = await request.formData();
 	const parsed = parseWithSchema(formData, {
-		registration_password: { type: "string", required: true, trim: false },
 		email: { type: "string", required: true },
 		password: { type: "string", required: true, trim: false },
 		confirm: { type: "string", required: true, trim: false },
@@ -50,12 +49,7 @@ export async function POST({ url, request, redirect, locals }: APIContext): Prom
 		return redirect("/auth/register?error=invalid_form");
 	}
 
-	const { registration_password, email: rawEmail, password, confirm, timezone } = parsed.data;
-
-	const registrationSecretError = checkRegistrationSecret(registration_password, logger);
-	if (registrationSecretError) {
-		return redirect(`/auth/register?error=${registrationSecretError}`);
-	}
+	const { email: rawEmail, password, confirm, timezone } = parsed.data;
 
 	const supabase = createSupabaseServerClient();
 
@@ -76,6 +70,7 @@ export async function POST({ url, request, redirect, locals }: APIContext): Prom
 	// Supabase Auth doesn't enforce this constraint (external service owns its storage/constraints),
 	// so we normalize at the application level before sending.
 	const trimmedEmail = rawEmail.trim();
+	const adminSupabase = createSupabaseAdminClient();
 
 	const userTimezone = await resolveTimezone({
 		supabase,
@@ -109,9 +104,6 @@ export async function POST({ url, request, redirect, locals }: APIContext): Prom
 	}
 
 	if (data.user) {
-		// Use admin client to bypass RLS for user profile creation
-		const adminSupabase = createSupabaseAdminClient();
-
 		const userProfileData = {
 			id: data.user.id,
 			email: trimmedEmail,
@@ -131,6 +123,8 @@ export async function POST({ url, request, redirect, locals }: APIContext): Prom
 			await cleanupOrphanedAuthUser(adminSupabase, data.user.id, logger);
 			return redirect("/auth/register?error=profile_creation_failed");
 		}
+
+		await sendRegistrationAdminEmail(userProfileData, logger);
 	}
 
 	return redirect(`/auth/unconfirmed?email=${encodeURIComponent(trimmedEmail)}`);

@@ -73,6 +73,23 @@ describe("Sign in with correct email and password.", () => {
 
 		await signInAndAssertRedirect(testUser.email, "TestPassword123!", "/profile", "/profile");
 	});
+
+	it("A confirmed but unapproved user is redirected to pending approval.", async () => {
+		const testUser = await createTestUser({
+			email: `test-${randomUUID()}@example.com`,
+			password: "TestPassword123!",
+			confirmed: true,
+			approved: false,
+		});
+		registerTestUserForCleanup(testUser.id);
+
+		await signInAndAssertRedirect(
+			testUser.email,
+			"TestPassword123!",
+			undefined,
+			"/auth/pending-approval",
+		);
+	});
 });
 
 describe("Sign in with incorrect credentials.", () => {
