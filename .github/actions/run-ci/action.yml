@@ -143,7 +143,7 @@ runs:
       with:
         path: ~/.cache/ms-playwright
         key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-    - name: Start Supabase and install Playwright
+    - name: Start Supabase
       shell: bash
       run: |
         set -euo pipefail
@@ -151,26 +151,21 @@ runs:
         echo "Node: $(node -v)"
         echo "Supabase CLI: $(supabase --version)"
         echo "Starting local Supabase (timeout ${SUPABASE_START_TIMEOUT_SEC}s)..."
-        timeout "${SUPABASE_START_TIMEOUT_SEC}" supabase start -x studio,imgproxy,logflare,vector,postgres-meta,edge-runtime,realtime,storage-api &
-        SB_PID=$!
-        if [[ "${{ steps.playwright-cache.outputs.cache-hit }}" == "true" ]]; then
-          echo "Installing Playwright system deps (browser cache hit)..."
-          npx playwright install-deps chromium &
-        else
-          echo "Installing Playwright chromium with deps..."
-          npx playwright install chromium --with-deps &
-        fi
-        PW_PID=$!
-        echo "Waiting for Supabase start (pid=${SB_PID})..."
-        if ! wait "${SB_PID}"; then
-          echo "::error::Supabase start failed or timed out after ${SUPABASE_START_TIMEOUT_SEC}s"
-          exit 1
-        fi
+        # Foreground + timeout: backgrounding can leave Docker children running and stall wait.
+        timeout --foreground "${SUPABASE_START_TIMEOUT_SEC}" \
+          supabase start -x studio,imgproxy,logflare,vector,postgres-meta,edge-runtime,realtime,storage-api
         echo "Supabase start finished."
-        echo "Waiting for Playwright install (pid=${PW_PID})..."
-        if ! wait "${PW_PID}"; then
-          echo "::error::Playwright install failed"
-          exit 1
+    - name: Install Playwright
+      shell: bash
+      run: |
+        set -euo pipefail
+        PW_INSTALL_TIMEOUT_SEC="${PW_INSTALL_TIMEOUT_SEC:-600}"
+        if [[ "${{ steps.playwright-cache.outputs.cache-hit }}" == "true" ]]; then
+          echo "Installing Playwright system deps (browser cache hit, timeout ${PW_INSTALL_TIMEOUT_SEC}s)..."
+          timeout --foreground "${PW_INSTALL_TIMEOUT_SEC}" npx playwright install-deps chromium
+        else
+          echo "Installing Playwright chromium with deps (timeout ${PW_INSTALL_TIMEOUT_SEC}s)..."
+          timeout --foreground "${PW_INSTALL_TIMEOUT_SEC}" npx playwright install chromium --with-deps
         fi
         echo "Playwright install finished."
     - name: Load Supabase env
