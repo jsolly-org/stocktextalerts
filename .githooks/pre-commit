@@ -25,6 +25,21 @@ if [[ "$non_agent" -eq 0 && -n "$staged" ]]; then
   exit 0
 fi
 
+github_only=1
+while IFS= read -r f; do
+  [[ -z "$f" ]] && continue
+  case "$f" in
+    .github/* | .githooks/pre-commit) ;;
+    *) github_only=0; break ;;
+  esac
+done <<< "$staged"
+
+if [[ "$github_only" -eq 1 && -n "$staged" ]]; then
+  echo "GitHub workflow changes only — running check:yaml, skipping app test suite."
+  npm run check:yaml
+  exit 0
+fi
+
 echo "Running checks..."
 bash .agents/scripts/check-biome-rules.sh biome.jsonc
 # Strict Biome gate: unresolved warnings or errors must block the commit.

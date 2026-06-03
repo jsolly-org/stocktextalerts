@@ -10,6 +10,10 @@ inputs:
     description: 'Canonical production URL (e.g. https://stocktextalerts.com). When set, the build uses it for site, sitemap, canonicals, and OG URLs so prebuilt deploys are correct.'
     required: false
     default: ''
+  skip-e2e:
+    description: 'Skip Playwright install and E2E tests (unit tests + build only)'
+    required: false
+    default: 'false'
 
 runs:
   using: composite
@@ -138,6 +142,7 @@ runs:
       shell: bash
       run: npm run check:sql
     - name: Cache Playwright browsers
+      if: inputs.skip-e2e != 'true'
       id: playwright-cache
       uses: actions/cache@v5
       with:
@@ -156,16 +161,20 @@ runs:
           supabase start -x studio,imgproxy,logflare,vector,postgres-meta,edge-runtime,realtime,storage-api
         echo "Supabase start finished."
     - name: Install Playwright
+      if: inputs.skip-e2e != 'true'
       shell: bash
       run: |
         set -euo pipefail
-        PW_INSTALL_TIMEOUT_SEC="${PW_INSTALL_TIMEOUT_SEC:-600}"
+        PW_DEPS_TIMEOUT_SEC="${PW_DEPS_TIMEOUT_SEC:-300}"
+        PW_BROWSER_TIMEOUT_SEC="${PW_BROWSER_TIMEOUT_SEC:-900}"
         if [[ "${{ steps.playwright-cache.outputs.cache-hit }}" == "true" ]]; then
-          echo "Installing Playwright system deps (browser cache hit, timeout ${PW_INSTALL_TIMEOUT_SEC}s)..."
-          timeout --foreground "${PW_INSTALL_TIMEOUT_SEC}" npx playwright install-deps chromium
+          echo "Installing Playwright system deps (browser cache hit, timeout ${PW_DEPS_TIMEOUT_SEC}s)..."
+          timeout --foreground "${PW_DEPS_TIMEOUT_SEC}" npx playwright install-deps chromium
         else
-          echo "Installing Playwright chromium with deps (timeout ${PW_INSTALL_TIMEOUT_SEC}s)..."
-          timeout --foreground "${PW_INSTALL_TIMEOUT_SEC}" npx playwright install chromium --with-deps
+          echo "Installing Playwright system deps (timeout ${PW_DEPS_TIMEOUT_SEC}s)..."
+          timeout --foreground "${PW_DEPS_TIMEOUT_SEC}" npx playwright install-deps chromium
+          echo "Installing Playwright chromium browser (timeout ${PW_BROWSER_TIMEOUT_SEC}s)..."
+          timeout --foreground "${PW_BROWSER_TIMEOUT_SEC}" npx playwright install chromium
         fi
         echo "Playwright install finished."
     - name: Load Supabase env
@@ -222,6 +231,7 @@ runs:
       shell: bash
       run: npm run test:ci
     - name: E2E tests
+      if: inputs.skip-e2e != 'true'
       shell: bash
       run: npm run test:e2e
     - name: Build application

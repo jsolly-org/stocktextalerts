@@ -62,6 +62,7 @@ jobs:
       - uses: ./.github/actions/run-ci
         with:
           skip-lint: 'true'
+          skip-e2e: 'true'
 
   # Full Playwright E2E suite. Skipped on normal pushes to keep CI fast;
   # only runs on manual workflow_dispatch or under local `act` (so
