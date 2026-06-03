@@ -256,7 +256,7 @@ function buildDailyDigestSmsBlocks(options: DailyDigestSmsFormatOptions): SmsBlo
 		{
 			id: "footer",
 			boundary: "atomic",
-			text: `Manage your notifications: ${dashboardUrl}\n\nReply STOP to opt out.`,
+			text: `Manage your notifications:\n${dashboardUrl}\n\nReply STOP to opt out.`,
 		},
 	];
 }

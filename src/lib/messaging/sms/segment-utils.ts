@@ -105,6 +105,37 @@ function expandDailyDigestSpansWithSectionHeadings(message: string, spans: TextS
 	});
 }
 
+/** Keep the manage-footer label with its dashboard URL when they fit in one segment. */
+function findManageFooterUrlSpans(message: string): TextSpan[] {
+	const lines = findLineSpans(message);
+	const spans: TextSpan[] = [];
+
+	for (let index = 0; index < lines.length - 1; index += 1) {
+		const labelLine = lines[index];
+		const urlLine = lines[index + 1];
+		if (!labelLine || !urlLine) {
+			continue;
+		}
+
+		const labelText = message.slice(labelLine.start, labelLine.end).trim();
+		if (labelText !== "Manage your notifications:") {
+			continue;
+		}
+
+		const urlText = message.slice(urlLine.start, urlLine.end).trim();
+		if (!/^https?:\/\/\S+$/.test(urlText)) {
+			continue;
+		}
+
+		const span = { start: labelLine.start, end: urlLine.end };
+		if (span.end - span.start <= SMS_UCS2_SEGMENT_SIZE) {
+			spans.push(span);
+		}
+	}
+
+	return spans;
+}
+
 /**
  * Merge spans so a URL fully contained in a line span does not get padded twice.
  * Keeps the outer span when one span fully contains another.
@@ -135,30 +166,82 @@ function dedupeNestedSpans(spans: TextSpan[]): TextSpan[] {
 export function findDailyDigestProtectedSpans(message: string): TextSpan[] {
 	const lineSpans = findDailyDigestProtectableLineSpans(message);
 	const expanded = expandDailyDigestSpansWithSectionHeadings(message, lineSpans);
+	const footerSpans = findManageFooterUrlSpans(message);
 
-	return dedupeNestedSpans([...findUrls(message), ...expanded]);
+	return dedupeNestedSpans([...findUrls(message), ...expanded, ...footerSpans]);
 }
 
 /**
- * Where to insert segment-boundary padding so line-start URLs stay left-aligned.
- * When the URL follows a newline, pad the end of the previous line instead.
+ * Where to insert segment-boundary padding without creating visible blank gaps.
+ * Keep line-start URLs on their own line; pad other line-start spans before the newline.
  */
 function getPaddingInsertPosition(message: string, spanStart: number): number {
 	if (spanStart === 0) {
 		return 0;
 	}
-	if (message[spanStart - 1] === "\n") {
-		let insertAt = spanStart - 1;
-		while (insertAt > 0 && message[insertAt - 1] === "\n") {
-			insertAt--;
-		}
-		return insertAt;
+	if (message[spanStart - 1] !== "\n") {
+		return spanStart;
 	}
-	return spanStart;
+
+	// Pad URL lines in place so the previous line (e.g. manage label) stays clean.
+	if (message.startsWith("https://", spanStart) || message.startsWith("http://", spanStart)) {
+		return spanStart;
+	}
+
+	// Section gap is a blank line (\n\n) before this span — pad the prior line's end.
+	if (spanStart >= 2 && message[spanStart - 2] === "\n") {
+		return spanStart - 2;
+	}
+
+	return spanStart - 1;
+}
+
+function getNextSegmentBoundary(index: number): number {
+	return (Math.floor(index / SMS_UCS2_SEGMENT_SIZE) + 1) * SMS_UCS2_SEGMENT_SIZE;
+}
+
+/**
+ * Preserve footer spacing unless a segment boundary lands inside the newline gap.
+ * In that case, remove only the newline(s) that would make the next bubble start blank.
+ */
+function removeSegmentLeadingNewlinesBeforeManageFooter(message: string): string {
+	let result = message;
+	let searchStart = 0;
+
+	while (searchStart < result.length) {
+		const footerStart = result.indexOf("Manage your notifications:", searchStart);
+		if (footerStart === -1) {
+			break;
+		}
+
+		let gapStart = footerStart;
+		while (gapStart > 0 && result[gapStart - 1] === "\n") {
+			gapStart -= 1;
+		}
+
+		if (gapStart === footerStart) {
+			searchStart = footerStart + 1;
+			continue;
+		}
+
+		const boundary = gapStart > 0 ? getNextSegmentBoundary(gapStart - 1) : 0;
+		if (boundary >= gapStart && boundary < footerStart && result[boundary] === "\n") {
+			result = result.slice(0, boundary) + result.slice(footerStart);
+			searchStart = boundary + "Manage your notifications:".length;
+			continue;
+		}
+
+		searchStart = footerStart + 1;
+	}
+
+	return result;
 }
 
 /** Check if a span straddles a UCS-2 segment boundary. */
 export function spanStraddlesBoundary(start: number, end: number): boolean {
+	if (start >= end) {
+		return false;
+	}
 	const segStart = Math.floor(start / SMS_UCS2_SEGMENT_SIZE);
 	const segEnd = Math.floor((end - 1) / SMS_UCS2_SEGMENT_SIZE);
 	return segStart !== segEnd;
@@ -225,9 +308,42 @@ export function padUrlsToSegmentBoundaries(message: string): string {
 
 /** Pad Daily Digest SMS so URLs and digest lines do not straddle UCS-2 segments. */
 export function padDailyDigestSmsSegmentBoundaries(message: string): string {
-	return padSpansToSegmentBoundaries(
-		message,
-		findDailyDigestProtectedSpans(message),
-		"newlines-before-span-start",
-	);
+	return padSpansToSegmentBoundaries(message, findDailyDigestProtectedSpans(message), "spaces");
+}
+
+const DAILY_DIGEST_SMS_MARKER = "StockTextAlerts — Your daily digest";
+
+/**
+ * Final UCS-2 segment padding for the exact SMS body sent to Twilio.
+ * Daily digests use digest line rules; all other SMS types pad URLs only.
+ * Safe to call more than once (for example after format-time padding).
+ * Repeats until no protectable span straddles a segment (prefixes can require >1 pass).
+ */
+export function finalizeSmsBodyForUcs2Segments(body: string): string {
+	const pad = body.includes(DAILY_DIGEST_SMS_MARKER)
+		? padDailyDigestSmsSegmentBoundaries
+		: padUrlsToSegmentBoundaries;
+
+	let result = body;
+	for (let outerAttempt = 0; outerAttempt < 4; outerAttempt += 1) {
+		for (let attempt = 0; attempt < 8; attempt += 1) {
+			const next = pad(result);
+			if (next === result) {
+				break;
+			}
+			result = next;
+		}
+
+		if (!body.includes(DAILY_DIGEST_SMS_MARKER)) {
+			break;
+		}
+
+		const adjusted = removeSegmentLeadingNewlinesBeforeManageFooter(result);
+		if (adjusted === result) {
+			break;
+		}
+		result = adjusted;
+	}
+
+	return result;
 }

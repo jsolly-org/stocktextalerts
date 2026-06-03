@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { SMS_UCS2_SEGMENT_SIZE } from "../../../../src/lib/constants";
+import { formatDailyDigestSmsMessages } from "../../../../src/lib/daily-digest/delivery";
 import {
+	finalizeSmsBodyForUcs2Segments,
 	findDailyDigestProtectedSpans,
 	findLineSpans,
 	findUrls,
@@ -37,6 +39,11 @@ describe("findUrls", () => {
 describe("spanStraddlesBoundary", () => {
 	it("matches urlStraddlesBoundary alias", () => {
 		expect(spanStraddlesBoundary(60, 80)).toBe(urlStraddlesBoundary(60, 80));
+	});
+
+	it("does not treat zero-length spans as straddling a segment", () => {
+		expect(spanStraddlesBoundary(0, 0)).toBe(false);
+		expect(spanStraddlesBoundary(SMS_UCS2_SEGMENT_SIZE, SMS_UCS2_SEGMENT_SIZE)).toBe(false);
 	});
 });
 
@@ -101,7 +108,17 @@ describe("padUrlsToSegmentBoundaries", () => {
 		expect(result).toBe(msg);
 	});
 
-	it("pads line-start URLs at end of previous line, not before the URL", () => {
+	it("ignores zero-length spans instead of adding padding", () => {
+		const msg = "A".repeat(SMS_UCS2_SEGMENT_SIZE);
+
+		expect(
+			padSpansToSegmentBoundaries(msg, [
+				{ start: SMS_UCS2_SEGMENT_SIZE, end: SMS_UCS2_SEGMENT_SIZE },
+			]),
+		).toBe(msg);
+	});
+
+	it("pads line-start URLs on the URL line so the previous line stays clean", () => {
 		// Position second URL so it straddles a UCS-2 segment boundary.
 		const prefix = "A".repeat(50);
 		const url1 = "https://stocktextalerts.com/r/AAAAA";
@@ -112,8 +129,21 @@ describe("padUrlsToSegmentBoundaries", () => {
 		const url2Index = result.indexOf(url2);
 
 		expect(url2Index).toBeGreaterThan(0);
-		expect(result[url2Index - 1]).toBe("\n");
-		expect(result).not.toMatch(/\n\s+https:\/\/stocktextalerts\.com\/r\/BBBBB/);
+		expect(result.slice(0, url2Index)).toMatch(/\n +$/);
+		expect(result).not.toContain(`${url1} `);
+	});
+
+	it("pads line-start http URLs on the URL line too", () => {
+		const prefix = "A".repeat(59);
+		const url2 = "http://localhost/dashboard";
+		const msg = `${prefix}\n${url2}`;
+
+		const result = padUrlsToSegmentBoundaries(msg);
+		const url2Index = result.indexOf(url2);
+
+		expect(url2Index).toBeGreaterThan(0);
+		expect(result.slice(0, url2Index)).toMatch(/\n +$/);
+		expect(result.startsWith(`${prefix}\n`)).toBe(true);
 	});
 });
 
@@ -176,7 +206,86 @@ describe("padSpansToSegmentBoundaries", () => {
 	});
 });
 
+describe("finalizeSmsBodyForUcs2Segments", () => {
+	it("keeps IPO rows intact when a sample label shifts segment boundaries (4/10 shape)", () => {
+		const sparkline = { values: [1, 2, 3], ascii: "▆▆█", window: "7-trading-days" as const };
+		const ipos = Array.from({ length: 14 }, (_, index) => {
+			const sym = `IPO${String(index + 1).padStart(2, "0")}`;
+			return `${sym}: IPO in ${(index % 3) + 1} days (06-0${(index % 9) + 1})`;
+		}).join("\n");
+
+		const [body] = formatDailyDigestSmsMessages({
+			userAssets: [
+				{ symbol: "I01", name: "One" },
+				{ symbol: "I02", name: "Two" },
+			],
+			assetPrices: new Map([
+				["I01", { price: 100.12, changePercent: -3.65 }],
+				["I02", { price: 101.12, changePercent: -3.65 }],
+			]),
+			sparklines: new Map([
+				["I01", sparkline],
+				["I02", sparkline],
+			]),
+			extras: { news: null, rumors: null, analyst: null, insider: null },
+			marketOpen: false,
+			marketClosureInfo: { reason: "holiday" },
+			assetEvents: {
+				eventsSection: { earnings: null, dividends: null, splits: null, ipos },
+				analystSection: null,
+				insiderSection: null,
+				hasAnyContent: true,
+			},
+		});
+
+		const wrapped = finalizeSmsBodyForUcs2Segments(
+			`[STA padding sample]\n4/10 IPO-heavy — few assets, many IPO rows\n\n${body}`,
+		);
+
+		for (const line of ipos.split("\n")) {
+			const lineIndex = wrapped.indexOf(line);
+			expect(lineIndex).toBeGreaterThan(-1);
+			expect(spanStraddlesBoundary(lineIndex, lineIndex + line.length)).toBe(false);
+		}
+		expect(wrapped).not.toMatch(/\n{3,}/);
+	});
+
+	it("re-pads daily digest bodies when a prefix shifts the dashboard URL across a segment", () => {
+		const prefix = "A".repeat(620);
+		const footer = "Manage your notifications: https://stocktextalerts.com/dashboard";
+		const digest = `StockTextAlerts — Your daily digest 🗓️\n\n${prefix}\n\n${footer}\n\nReply STOP to opt out.`;
+		const wrapped = `[STA padding sample]\n8/10 sample label\n\n${digest}`;
+
+		const url = findUrls(wrapped)[0];
+		expect(url).toBeDefined();
+		expect(spanStraddlesBoundary(url?.start ?? -1, url?.end ?? -1)).toBe(true);
+
+		const finalized = finalizeSmsBodyForUcs2Segments(wrapped);
+		const finalizedUrl = findUrls(finalized)[0];
+		expect(finalizedUrl).toBeDefined();
+		expect(spanStraddlesBoundary(finalizedUrl?.start ?? -1, finalizedUrl?.end ?? -1)).toBe(false);
+		expect(finalized).not.toMatch(/\n{3,}/);
+		expect(finalized.indexOf("dashboard")).toBeGreaterThan(-1);
+		expect(finalized).not.toContain("dashboar\nd");
+	});
+});
+
 describe("padDailyDigestSmsSegmentBoundaries", () => {
+	it("keeps protected line-start content left-aligned without visible newline padding", () => {
+		const prefix = "A".repeat(650);
+		const ipoLine = "INIO: IPO in 2 days (06-04)";
+		const message = `${prefix}\n${ipoLine}`;
+
+		const padded = padDailyDigestSmsSegmentBoundaries(message);
+		const ipoIndex = padded.indexOf(ipoLine);
+
+		expect(ipoIndex).toBeGreaterThan(-1);
+		expect(spanStraddlesBoundary(ipoIndex, ipoIndex + ipoLine.length)).toBe(false);
+		expect(padded).not.toMatch(/\n{3,}/);
+		expect(padded.slice(ipoIndex - 1, ipoIndex)).toBe("\n");
+		expect(padded.slice(ipoIndex, ipoIndex + ipoLine.length)).toBe(ipoLine);
+	});
+
 	it("pads IPO rows and dashboard URLs without double-padding on rerun", () => {
 		const prefix = "A".repeat(650);
 		const ipoLine = "INIO: IPO in 2 days (06-04)";
@@ -205,6 +314,39 @@ describe("padDailyDigestSmsSegmentBoundaries", () => {
 
 		expect(urlOnlySpans).toHaveLength(0);
 		expect(spans).toHaveLength(1);
+	});
+
+	it("preserves the blank-line gap before the manage footer after finalize", () => {
+		const prefix = "A".repeat(620);
+		const digest = `StockTextAlerts — Your daily digest 🗓️\n\n${prefix}\n\n📊 Analyst Consensus\nRTX: 8 Buy, 11 Hold, 0 Sell\n\nManage your notifications:\nhttps://stocktextalerts.com/dashboard\n\nReply STOP to opt out.`;
+		const finalized = finalizeSmsBodyForUcs2Segments(digest);
+
+		expect(finalized).toMatch(/\n\nManage your notifications:\nhttps:\/\//);
+	});
+
+	it("does not let a segment start on the newline before the manage footer", () => {
+		const header = "StockTextAlerts — Your daily digest 🗓️\n";
+		const fillerLength =
+			(SMS_UCS2_SEGMENT_SIZE - ((header.length + 1) % SMS_UCS2_SEGMENT_SIZE)) %
+			SMS_UCS2_SEGMENT_SIZE;
+		const digest = `${header}${"A".repeat(fillerLength)}\n\nManage your notifications:\nhttps://stocktextalerts.com/dashboard\n\nReply STOP to opt out.`;
+		const finalized = finalizeSmsBodyForUcs2Segments(digest);
+		const footerStart = finalized.indexOf("Manage your notifications:");
+
+		expect(footerStart % SMS_UCS2_SEGMENT_SIZE).toBe(0);
+		expect(finalized[footerStart]).toBe("M");
+		expect(finalized).not.toMatch(/\n\nManage your notifications:/);
+	});
+
+	it("protects split footer label and URL as one span", () => {
+		const message =
+			"Manage your notifications:\nhttps://stocktextalerts.com/dashboard\n\nReply STOP to opt out.";
+		const spans = findDailyDigestProtectedSpans(message);
+		const texts = spans.map((span) => message.slice(span.start, span.end));
+
+		expect(texts).toContain("Manage your notifications:\nhttps://stocktextalerts.com/dashboard");
+		expect(texts.some((text) => text.startsWith("https://"))).toBe(false);
+		expect(texts).toContain("Reply STOP to opt out.");
 	});
 
 	it("includes a section heading with its first protectable line when they share one newline", () => {

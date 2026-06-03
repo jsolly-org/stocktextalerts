@@ -1,6 +1,7 @@
 import type { AppSupabaseClient } from "../../db/supabase";
 import { rootLogger } from "../../logging";
 import type { DeliveryResult, SmsUser, UserRecord } from "../types";
+import { finalizeSmsBodyForUcs2Segments } from "./segment-utils";
 import type { SmsSender } from "./twilio-utils";
 
 type SmsEligibilityUser = Pick<
@@ -35,12 +36,13 @@ export async function sendUserSms(
 	}
 
 	const fullPhone = `${user.phone_country_code}${user.phone_number}`;
+	const body = finalizeSmsBodyForUcs2Segments(message);
 
 	let result: DeliveryResult;
 	try {
 		result = await sendSms({
 			to: fullPhone,
-			body: message,
+			body,
 		});
 	} catch (error) {
 		// sendSms (from createSmsSender) already catches Twilio RestException errors

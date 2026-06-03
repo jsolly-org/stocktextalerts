@@ -9,6 +9,7 @@ import {
 import type { Logger } from "../../src/lib/logging";
 import type { SmsExtras } from "../../src/lib/messaging/sms/delivery";
 import {
+	finalizeSmsBodyForUcs2Segments,
 	findDailyDigestProtectedSpans,
 	spanStraddlesBoundary,
 } from "../../src/lib/messaging/sms/segment-utils";
@@ -187,6 +188,53 @@ describe("Daily digest email prices", () => {
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
+	});
+
+	it("sends a single daily digest SMS body without multipart log markers", async () => {
+		const { userAssets, assetPrices } = buildAssetFixtures(2, "SS");
+		const expectedMessages = formatDailyDigestSmsMessages({
+			userAssets,
+			assetPrices,
+			extras,
+		});
+		expect(expectedMessages).toHaveLength(1);
+		const expectedBody = finalizeSmsBodyForUcs2Segments(expectedMessages[0] ?? "");
+		const smsSender = vi.fn<SmsSender>(async () => ({ success: true }));
+		const stats = makeStats();
+		const logger = makeLogger();
+		const { supabase, notificationLogInserts, scheduledUpdates } = makeDeliverySupabaseMock();
+
+		await processDailyDigestSmsDelivery({
+			user: makeDailyDigestSmsUser(),
+			supabase,
+			logger,
+			scheduledDate,
+			scheduledMinutes,
+			userAssets,
+			assetPrices,
+			extras,
+			getSmsSender: () => ({ sender: smsSender }),
+			stats,
+		});
+
+		expect(smsSender).toHaveBeenCalledTimes(1);
+		expect(smsSender.mock.calls[0]?.[0].body).toBe(expectedBody);
+		expect(stats.smsSent).toBe(1);
+		expect(stats.smsFailed).toBe(0);
+		expect(notificationLogInserts).toHaveLength(1);
+		expect(notificationLogInserts[0]).toMatchObject({
+			type: "daily",
+			delivery_method: "sms",
+			message: expectedMessages[0],
+			message_delivered: true,
+		});
+		expect(notificationLogInserts[0]?.message).not.toContain("--- SMS part");
+		expect(scheduledUpdates).toHaveLength(1);
+		expect(scheduledUpdates[0]).toMatchObject({
+			status: "sent",
+			error: null,
+			next_retry_at: null,
+		});
 	});
 
 	it("sends multipart daily digest SMS bodies in order and records one successful attempt", async () => {
@@ -543,11 +591,11 @@ describe("Daily digest email prices", () => {
 	it("pads the dashboard URL after each final SMS body is packed", () => {
 		vi.stubEnv("SITE_URL", "http://localhost:4321");
 		const { userAssets, assetPrices } = buildAssetFixtures(53, "URL");
-		const footerPrefix = "Manage your notifications: ";
+		const footerLabel = "Manage your notifications:\n";
 		const insiderBlockPrefix = "🏦 Insider Trades\n";
 		const minimumInsiderFiller = 1250;
 		const targetUrlRemainder = 60;
-		const baseUrlIndex = insiderBlockPrefix.length + minimumInsiderFiller + 2 + footerPrefix.length;
+		const baseUrlIndex = insiderBlockPrefix.length + minimumInsiderFiller + 2 + footerLabel.length;
 		const insiderFillerLength =
 			minimumInsiderFiller + ((targetUrlRemainder - (baseUrlIndex % 67) + 67) % 67);
 
@@ -573,6 +621,103 @@ describe("Daily digest email prices", () => {
 		});
 		expect(urlSpan).toBeDefined();
 		expect(spanStraddlesBoundary(urlSpan?.start ?? -1, urlSpan?.end ?? -1)).toBe(false);
+	});
+
+	it("puts the dashboard URL on its own line so iOS cannot split inside notifications", () => {
+		const userAssets: UserAssetRow[] = [{ symbol: "A01", name: "Sample A01" }];
+		const assetPrices: AssetPriceMap = new Map([["A01", { price: 100.12, changePercent: -3.65 }]]);
+		const analystSection = ["LDOS", "BAH", "CACI", "PLTR", "ACN", "RTX"]
+			.map((symbol) => `${symbol}: 8 Buy, 11 Hold, 0 Sell`)
+			.join("\n");
+
+		const [body] = formatDailyDigestSmsMessages({
+			userAssets,
+			assetPrices,
+			extras,
+			marketOpen: true,
+			assetEvents: {
+				eventsSection: { earnings: null, dividends: null, splits: null, ipos: null },
+				analystSection,
+				insiderSection: null,
+				hasAnyContent: true,
+			},
+		});
+		const wrapped = finalizeSmsBodyForUcs2Segments(
+			`[STA padding sample]\n5/10 analyst — consensus block\n\n${body}`,
+		);
+
+		expect(wrapped).not.toContain("Manage your notifications: http://");
+		expect(wrapped).toMatch(/Manage your notifications:\nhttp:\/\/localhost\/dashboard/);
+		const footerStart = wrapped.indexOf("Manage your notifications:");
+		const footerEnd =
+			wrapped.indexOf("http://localhost/dashboard") + "http://localhost/dashboard".length;
+		expect(spanStraddlesBoundary(footerStart, footerEnd)).toBe(false);
+	});
+
+	it("keeps reported closed-market SMS digest spacing compact after segment padding", () => {
+		const userAssets: UserAssetRow[] = [
+			{ symbol: "LMT", name: "Lockheed Martin" },
+			{ symbol: "NOC", name: "Northrop Grumman" },
+		];
+		const assetPrices: AssetPriceMap = new Map([
+			["LMT", { price: 511, changePercent: -3.65 }],
+			["NOC", { price: 536.5, changePercent: -3.63 }],
+		]);
+		const sparklines = new Map<string, SparklineData>([
+			[
+				"LMT",
+				{
+					values: [100, 99, 102, 98, 96.35],
+					ascii: "▆▆█▆▁▁",
+					window: "7-trading-days",
+				},
+			],
+			[
+				"NOC",
+				{
+					values: [100, 98, 101, 103, 96.37],
+					ascii: "▆▄▆█▁▁",
+					window: "7-trading-days",
+				},
+			],
+		]);
+		const ipos = [
+			"LFTO: IPO tomorrow",
+			"WHK: IPO in 2 days (06-05)",
+			"SSMR: IPO tomorrow",
+			"QNT: IPO tomorrow",
+			"SFPT: IPO tomorrow",
+			"INIO: IPO tomorrow",
+			"AESPU: IPO today",
+			"AADX: IPO today",
+		].join("\n");
+
+		const messages = formatDailyDigestSmsMessages({
+			userAssets,
+			assetPrices,
+			extras,
+			sparklines,
+			marketOpen: false,
+			marketClosureInfo: { reason: "weekend" },
+			assetEvents: {
+				eventsSection: { earnings: null, dividends: null, splits: null, ipos },
+				analystSection: null,
+				insiderSection: null,
+				hasAnyContent: true,
+			},
+		});
+		const joined = messages.join("\n\n");
+
+		expect(joined).toContain("LMT — $511.00 (-3.65%) past 7 days: ▆▆█▆▁▁");
+		expect(joined).toContain("NOC — $536.50 (-3.63%) past 7 days: ▆▄▆█▁▁");
+		expect(joined).toContain("🆕 Upcoming IPOs\nLFTO: IPO tomorrow");
+		expect(joined).toMatch(
+			/AADX: IPO today *\n\nManage your notifications:\nhttp:\/\/localhost\/dashboard/,
+		);
+		expect(joined).toContain("Manage your notifications:\nhttp://localhost/dashboard");
+		for (const message of messages) {
+			expect(message).not.toMatch(/\n{3,}/);
+		}
 	});
 
 	it("keeps upcoming IPO rows off UCS-2 segment boundaries in typical closed-market digests", () => {
