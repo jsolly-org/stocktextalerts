@@ -9,11 +9,5 @@
 	],
 	"ignore": ["src/lib/db/generated/**"],
 	"ignoreDependencies": ["lint-staged", "squawk-cli"],
-	"ignoreBinaries": [
-		"vercel",
-		"printf",
-		"scripts/ci/run-local-actions.sh",
-		"yamllint",
-		"actionlint"
-	]
+	"ignoreBinaries": ["vercel", "printf", "yamllint", "actionlint"]
 }

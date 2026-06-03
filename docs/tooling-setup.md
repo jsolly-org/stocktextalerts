@@ -39,7 +39,7 @@ Install both via Homebrew:
 brew install yamllint actionlint
 ```
 
-CI installs them per-run (yamllint via `pipx`, actionlint via the upstream `download-actionlint.bash` script). Versions are pinned in `.github/workflows/noDeploy.yml` and `.github/actions/run-ci/action.yml` — bump them together if you upgrade locally.
+CI installs them per-run (yamllint via `pipx`, actionlint via the upstream `download-actionlint.bash` script). Versions are pinned in `.github/actions/run-ci/action.yml` — bump them together if you upgrade locally.
 
 ## Dev Environment
 

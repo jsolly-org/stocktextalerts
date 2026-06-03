@@ -151,7 +151,7 @@ ensure_user_local_bin_on_path() {
 
 install_yaml_linters() {
 	ensure_user_local_bin_on_path
-	# Pin versions to match stocktextalerts CI (noDeploy.yml).
+	# Pin versions to match stocktextalerts CI (run-ci composite in deploy.yml).
 	if ! command -v yamllint >/dev/null 2>&1; then
 		if command -v pipx >/dev/null 2>&1; then
 			pipx install yamllint==1.38.0

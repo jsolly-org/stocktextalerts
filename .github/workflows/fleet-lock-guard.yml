@@ -1,7 +1,12 @@
 name: Fleet lock guard
 
 on:
-  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - ".agents/**"
+      - ".github/workflows/fleet-lock-guard.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -11,7 +16,7 @@ jobs:
     name: Fleet lock guard
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
 

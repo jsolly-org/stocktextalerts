@@ -245,22 +245,9 @@ npm run test:e2e
 
 For local development, run `npm run db:reset` before `npm run test` to ensure your Supabase DB matches the current migrations and seed data.
 
-### GitHub Actions (Local)
+### CI before push to main
 
-Run the pull request CI workflow locally with `act`:
-
-```bash
-npm run gha:local
-```
-
-Run only a single CI job:
-
-```bash
-npm run gha:local:lint
-npm run gha:local:test-build
-```
-
-Requires a Docker-compatible container runtime (Podman works via `DOCKER_HOST`; see `AGENTS.md`) and `act` (`brew install act`). Defaults are in `.actrc`.
+Pre-commit hooks (`.githooks/pre-commit`) run the same checks as the deploy workflow’s `run-ci` step. See [docs/ci-with-act.md](docs/ci-with-act.md) for the full command list and when to run it before `git push`.
 
 ### Optional: Live Provider Tests (Massive/Finnhub/xAI)
 
