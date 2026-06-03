@@ -33,6 +33,10 @@ vi.mock("../../../src/lib/asset-events/delivery", async () => {
 	};
 });
 
+vi.mock("../../../src/lib/time/market-calendar", () => ({
+	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
+}));
+
 import type { UserRecord } from "../../../src/lib/messaging/types";
 import { makeUserRecord } from "../../helpers/user-record-fixture";
 
@@ -91,6 +95,7 @@ describe("processAssetEventsUser", () => {
 			supabase: supabase as never,
 			logger: logger as never,
 			currentTime: DateTime.fromISO("2026-02-10T10:00:00.000Z"),
+			marketClosureInfo: null,
 			sendEmail: vi.fn(async () => ({ success: true })) as never,
 			getSmsSender: vi.fn(() => ({ sender: "+15555550123" })) as never,
 		});
@@ -151,6 +156,7 @@ describe("processAssetEventsUser", () => {
 			supabase: supabase as never,
 			logger: logger as never,
 			currentTime: DateTime.fromISO("2026-02-10T10:00:00.000Z"),
+			marketClosureInfo: null,
 			sendEmail: vi.fn(async () => ({ success: true })) as never,
 			getSmsSender: vi.fn(() => ({ sender: "+15555550123" })) as never,
 		});
