@@ -257,6 +257,11 @@ export async function deliverStagedNotifications(options: {
 				stats,
 			});
 		} catch (error) {
+			const stagedRaw = row.staged_data;
+			const stagedKeys =
+				typeof stagedRaw === "object" && stagedRaw !== null ? Object.keys(stagedRaw as object) : [];
+			const staged = stagedRaw as StagedDailyData | null;
+			const smsPartCount = staged?.sms ? normalizeStagedSmsMessages(staged.sms).length : 0;
 			logger.error(
 				"Error delivering staged notification",
 				{
@@ -264,6 +269,13 @@ export async function deliverStagedNotifications(options: {
 					stagedId: row.id,
 					userId: row.user_id,
 					type: row.notification_type,
+					scheduledFor: row.scheduled_for,
+					stagedDataKeys: stagedKeys,
+					hasEmail: Boolean(staged?.email),
+					hasSms: Boolean(staged?.sms),
+					smsPartCount,
+					emailHtmlLength: staged?.email?.html?.length ?? 0,
+					emailSubjectLength: staged?.email?.subject?.length ?? 0,
 				},
 				error,
 			);

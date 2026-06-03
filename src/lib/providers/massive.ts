@@ -157,8 +157,13 @@ export async function marketDataFetch(
 
 			if (!response.ok) {
 				let apiStatus: string | null = null;
+				let bodyPreview: string | undefined;
 				try {
-					const payload = (await response.json()) as Record<string, unknown>;
+					const text = await response.text();
+					if (isLastAttempt) {
+						bodyPreview = text.slice(0, 500);
+					}
+					const payload = JSON.parse(text) as Record<string, unknown>;
 					apiStatus = typeof payload.status === "string" ? payload.status : null;
 				} catch {
 					// Ignore malformed/non-JSON error bodies.
@@ -169,6 +174,7 @@ export async function marketDataFetch(
 					attempt,
 					status: response.status,
 					apiStatus,
+					...(bodyPreview ? { bodyPreview } : {}),
 					...logContext,
 				};
 				if (isLastAttempt) {

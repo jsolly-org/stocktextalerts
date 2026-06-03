@@ -99,6 +99,150 @@ describe("fetchAndStoreFinnhubEnrichment", () => {
 		expect(fetchRecommendationTrends).toHaveBeenCalledWith("AAPL", { optional: true });
 	});
 
+	it("dedupes duplicate insider rows before upsert", async () => {
+		vi.mocked(fetchRecommendationTrends).mockResolvedValue({
+			trend: null,
+			httpSucceeded: true,
+		});
+		vi.mocked(fetchInsiderTransactions).mockResolvedValue([
+			{
+				name: "Jane Doe",
+				share: 1000,
+				change: 500,
+				transactionType: "P",
+				transactionDate: "2026-02-10",
+			},
+			{
+				name: "Jane Doe",
+				share: 2000,
+				change: 500,
+				transactionType: "S",
+				transactionDate: "2026-02-10",
+			},
+		]);
+
+		const insiderRows: Array<Record<string, unknown>> = [];
+
+		const supabase = {
+			from(table: string) {
+				if (table === "user_assets") {
+					return {
+						select() {
+							return Promise.resolve({ data: [{ symbol: "AAPL" }], error: null });
+						},
+					};
+				}
+				if (table === "asset_analyst_consensus") {
+					return {
+						select() {
+							return {
+								eq() {
+									return { maybeSingle: () => Promise.resolve({ data: null, error: null }) };
+								},
+							};
+						},
+						insert() {
+							return Promise.resolve({ error: null });
+						},
+					};
+				}
+				if (table === "asset_insider_transactions") {
+					return {
+						upsert(rows: Record<string, unknown>[]) {
+							insiderRows.push(...rows);
+							return Promise.resolve({ error: null });
+						},
+						delete() {
+							return { lt: () => Promise.resolve({ error: null }) };
+						},
+					};
+				}
+				throw new Error(`Unexpected table: ${table}`);
+			},
+		};
+
+		const result = await fetchAndStoreFinnhubEnrichment({
+			supabase: supabase as never,
+			logger: logger as never,
+		});
+
+		expect(result.insiderUpserted).toBe(1);
+		expect(result.enrichmentFailures).not.toContain("insider_upsert:AAPL");
+		expect(insiderRows).toHaveLength(1);
+		expect(insiderRows[0]?.share).toBe(2000);
+		expect(insiderRows[0]?.transaction_type).toBe("S");
+	});
+
+	it("logs bounded payload context when insider upsert fails", async () => {
+		vi.mocked(fetchRecommendationTrends).mockResolvedValue({
+			trend: null,
+			httpSucceeded: true,
+		});
+		vi.mocked(fetchInsiderTransactions).mockResolvedValue([
+			{
+				name: "Jane Doe",
+				share: 1000,
+				change: 500,
+				transactionType: "P",
+				transactionDate: "2026-02-10",
+			},
+		]);
+
+		const upsertError = {
+			code: "21000",
+			message: "ON CONFLICT DO UPDATE command cannot affect row a second time",
+		};
+
+		const supabase = {
+			from(table: string) {
+				if (table === "user_assets") {
+					return {
+						select() {
+							return Promise.resolve({ data: [{ symbol: "AAPL" }], error: null });
+						},
+					};
+				}
+				if (table === "asset_analyst_consensus") {
+					return {
+						select() {
+							return {
+								eq() {
+									return { maybeSingle: () => Promise.resolve({ data: null, error: null }) };
+								},
+							};
+						},
+						insert() {
+							return Promise.resolve({ error: null });
+						},
+					};
+				}
+				if (table === "asset_insider_transactions") {
+					return {
+						upsert() {
+							return Promise.resolve({ error: upsertError });
+						},
+						delete() {
+							return { lt: () => Promise.resolve({ error: null }) };
+						},
+					};
+				}
+				throw new Error(`Unexpected table: ${table}`);
+			},
+		};
+
+		await fetchAndStoreFinnhubEnrichment({
+			supabase: supabase as never,
+			logger: logger as never,
+		});
+
+		expect(logger.error).toHaveBeenCalled();
+		const errorContext = vi.mocked(logger.error).mock.calls[0]?.[1] as Record<string, unknown>;
+		expect(errorContext.symbol).toBe("AAPL");
+		expect(errorContext.rawRowCount).toBe(1);
+		expect(errorContext.dedupedRowCount).toBe(1);
+		expect(errorContext.proposedRowsMode).toBe("full");
+	});
+
 	it("records enrichment failure when analyst HTTP does not succeed", async () => {
 		vi.mocked(fetchRecommendationTrends).mockResolvedValue({
 			trend: null,

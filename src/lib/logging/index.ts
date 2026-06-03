@@ -35,6 +35,7 @@ const SENSITIVE_KEY_PATTERNS = [
 	"auth_token",
 	"access_token",
 	"refresh_token",
+	"authorization",
 ];
 
 function isSensitiveKey(key: string): boolean {
@@ -167,6 +168,13 @@ function safeJsonStringify(value: unknown, maskPiiEnabled: boolean): string {
 	});
 }
 
+let resolveAmbientRequestId: (() => string | undefined) | undefined;
+
+/** Wire AsyncLocalStorage request IDs into log lines (Lambda handlers import `request-context.ts`). */
+export function bindAmbientRequestId(getter: () => string | undefined): void {
+	resolveAmbientRequestId = getter;
+}
+
 function buildEntry(
 	level: LogLevel,
 	message: string,
@@ -182,8 +190,10 @@ function buildEntry(
 		message,
 	};
 
-	if (requestId) {
-		entry.requestId = requestId;
+	const ambientRequestId = resolveAmbientRequestId?.();
+	const effectiveRequestId = requestId ?? ambientRequestId;
+	if (effectiveRequestId) {
+		entry.requestId = effectiveRequestId;
 	}
 	if (Object.keys(rest).length > 0) {
 		entry.context = rest;

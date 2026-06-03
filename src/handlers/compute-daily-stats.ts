@@ -1,6 +1,7 @@
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { createSupabaseAdminClient } from "../lib/db/supabase";
 import { createLogger } from "../lib/logging";
+import { runWithRequestContext } from "../lib/logging/request-context";
 import { computeADV, computeATR } from "../lib/market-notifications/daily-stats";
 import { fetchDailyOHLCV } from "../lib/providers/massive";
 
@@ -13,108 +14,126 @@ const BATCH_DELAY_MS = 600;
 /** Calendar days to fetch for ~20 trading days of data. */
 const LOOKBACK_DAYS = 35;
 
-export async function handler(_event: ScheduledEvent, _context: Context): Promise<void> {
-	const logger = createLogger({
-		source: "lambda",
-		function: "compute-daily-stats",
-	});
-	const supabase = createSupabaseAdminClient();
-
-	// Get all unique tracked symbols
-	const { data: allUserAssets, error: assetsError } = await supabase
-		.from("user_assets")
-		.select("symbol");
-
-	if (assetsError) {
-		logger.error(
-			"Failed to load user_assets for daily stats",
-			{ action: "compute_daily_stats" },
-			assetsError,
-		);
-		throw new Error("Failed to load user assets");
-	}
-
-	const symbols = [...new Set((allUserAssets ?? []).map((a) => a.symbol))];
-	if (symbols.length === 0) {
-		logger.info("No symbols to compute daily stats for", {
-			action: "compute_daily_stats",
+export async function handler(event: ScheduledEvent, context: Context): Promise<void> {
+	return runWithRequestContext(context.awsRequestId, async () => {
+		const logger = createLogger({
+			source: "lambda",
+			function: "compute-daily-stats",
+			gitSha: process.env.GIT_SHA,
 		});
-		return;
-	}
+		logger.info("Lambda invoke", {
+			action: "lambda_invoke",
+			eventId: event.id,
+			eventTime: event.time,
+		});
+		const supabase = createSupabaseAdminClient();
 
-	// Date range: LOOKBACK_DAYS calendar days back to ensure ~20 trading days
-	const to = new Date().toISOString().slice(0, 10);
-	const from = new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000)
-		.toISOString()
-		.slice(0, 10);
+		// Get all unique tracked symbols
+		const { data: allUserAssets, error: assetsError } = await supabase
+			.from("user_assets")
+			.select("symbol");
 
-	let computed = 0;
-	let failed = 0;
-	const rows: Array<{
-		symbol: string;
-		computed_at: string;
-		avg_volume_20d: number | null;
-		atr_14: number | null;
-	}> = [];
+		if (assetsError) {
+			logger.error(
+				"Failed to load user_assets for daily stats",
+				{ action: "compute_daily_stats" },
+				assetsError,
+			);
+			throw new Error("Failed to load user assets");
+		}
 
-	for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
-		const batch = symbols.slice(i, i + BATCH_SIZE);
+		const symbols = [...new Set((allUserAssets ?? []).map((a) => a.symbol))];
+		if (symbols.length === 0) {
+			logger.info("No symbols to compute daily stats for", {
+				action: "compute_daily_stats",
+			});
+			return;
+		}
 
-		const results = await Promise.allSettled(
-			batch.map(async (symbol) => {
-				const bars = await fetchDailyOHLCV(symbol, from, to);
-				if (!bars || bars.length < 2) return null;
-				return { symbol, bars };
-			}),
-		);
+		// Date range: LOOKBACK_DAYS calendar days back to ensure ~20 trading days
+		const to = new Date().toISOString().slice(0, 10);
+		const from = new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000)
+			.toISOString()
+			.slice(0, 10);
 
-		for (const result of results) {
-			if (result.status === "rejected" || result.value === null) {
-				if (result.status === "rejected") {
-					logger.debug("Failed to fetch OHLCV for symbol", {
-						action: "compute_daily_stats",
-						reason: (result.reason as Error)?.message ?? "unknown",
-					});
+		let computed = 0;
+		let failed = 0;
+		const rows: Array<{
+			symbol: string;
+			computed_at: string;
+			avg_volume_20d: number | null;
+			atr_14: number | null;
+		}> = [];
+
+		for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
+			const batch = symbols.slice(i, i + BATCH_SIZE);
+
+			const results = await Promise.allSettled(
+				batch.map(async (symbol) => {
+					const bars = await fetchDailyOHLCV(symbol, from, to);
+					if (!bars || bars.length < 2) return null;
+					return { symbol, bars };
+				}),
+			);
+
+			for (const result of results) {
+				if (result.status === "rejected" || result.value === null) {
+					if (result.status === "rejected") {
+						logger.debug("Failed to fetch OHLCV for symbol", {
+							action: "compute_daily_stats",
+							reason: (result.reason as Error)?.message ?? "unknown",
+						});
+					}
+					failed++;
+					continue;
 				}
-				failed++;
-				continue;
+
+				const { symbol, bars } = result.value;
+				const adv = computeADV(bars);
+				const atr = computeATR(bars);
+
+				rows.push({
+					symbol,
+					computed_at: to,
+					avg_volume_20d: adv !== null ? Math.round(adv) : null,
+					atr_14: atr !== null ? Math.round(atr * 10000) / 10000 : null,
+				});
+				computed++;
 			}
 
-			const { symbol, bars } = result.value;
-			const adv = computeADV(bars);
-			const atr = computeATR(bars);
-
-			rows.push({
-				symbol,
-				computed_at: to,
-				avg_volume_20d: adv !== null ? Math.round(adv) : null,
-				atr_14: atr !== null ? Math.round(atr * 10000) / 10000 : null,
-			});
-			computed++;
+			// Delay between batches to avoid rate limits
+			if (i + BATCH_SIZE < symbols.length) {
+				await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
+			}
 		}
 
-		// Delay between batches to avoid rate limits
-		if (i + BATCH_SIZE < symbols.length) {
-			await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
+		// Upsert all rows
+		if (rows.length > 0) {
+			const { error: upsertError } = await supabase
+				.from("daily_asset_stats")
+				.upsert(rows, { onConflict: "symbol" });
+
+			if (upsertError) {
+				const sampleRow = rows[0];
+				logger.error(
+					"Failed to upsert daily_asset_stats",
+					{
+						action: "compute_daily_stats",
+						rowCount: rows.length,
+						sampleSymbol: sampleRow?.symbol,
+						sampleComputedAt: sampleRow?.computed_at,
+					},
+					upsertError,
+				);
+				throw new Error("Upsert failed");
+			}
 		}
-	}
 
-	// Upsert all rows
-	if (rows.length > 0) {
-		const { error: upsertError } = await supabase
-			.from("daily_asset_stats")
-			.upsert(rows, { onConflict: "symbol" });
-
-		if (upsertError) {
-			logger.error("Failed to upsert daily_asset_stats", { rowCount: rows.length }, upsertError);
-			throw new Error("Upsert failed");
-		}
-	}
-
-	logger.info("Daily stats computed", {
-		action: "compute_daily_stats",
-		total: symbols.length,
-		computed,
-		failed,
+		logger.info("Daily stats computed", {
+			action: "compute_daily_stats",
+			total: symbols.length,
+			computed,
+			failed,
+		});
 	});
 }

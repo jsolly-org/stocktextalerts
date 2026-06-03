@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createLogger } from "../../../src/lib/logging";
+import { runWithRequestContext } from "../../../src/lib/logging/request-context";
 
 describe("logging contract", () => {
 	it("emits level=error JSON that metric filters and alert-hub accept", () => {
@@ -103,6 +104,25 @@ describe("logging contract", () => {
 			expect(parsed.message).toBe("Failed to load asset_insider_transactions");
 			expect(parsed.error.message).toContain("Could not find the table");
 			expect(parsed.context?.error).toBeUndefined();
+		} finally {
+			spy.mockRestore();
+		}
+	});
+
+	it("propagates awsRequestId through runWithRequestContext", async () => {
+		const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+		try {
+			const log = createLogger({ job: "contract-test" });
+			const requestId = "326a1f6e-8038-45c4-af6d-459c24280033";
+			await runWithRequestContext(requestId, async () => {
+				log.error("downstream failed", undefined, new Error("upstream 500"));
+				await Promise.resolve();
+				log.error("retry exhausted", undefined, new Error("giving up"));
+			});
+			const calls = spy.mock.calls.map(([chunk]) => JSON.parse(chunk as string));
+			expect(calls).toHaveLength(2);
+			expect(calls[0]?.requestId).toBe(requestId);
+			expect(calls[1]?.requestId).toBe(requestId);
 		} finally {
 			spy.mockRestore();
 		}

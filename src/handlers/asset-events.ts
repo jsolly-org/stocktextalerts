@@ -5,123 +5,135 @@ import { fetchAndStoreAssetEvents } from "../lib/asset-events/fetch";
 import { runDelistingSweep } from "../lib/assets/delisting-sweep";
 import { createSupabaseAdminClient } from "../lib/db/supabase";
 import { createLogger } from "../lib/logging";
+import { runWithRequestContext } from "../lib/logging/request-context";
 import { createEmailSender } from "../lib/messaging/email/utils";
 import { createSmsSenderProvider } from "../lib/schedule/sms-sender";
 
-export async function handler(_event: ScheduledEvent, _context: Context): Promise<void> {
-	const logger = createLogger({ source: "lambda", function: "asset-events" });
-	const supabase = createSupabaseAdminClient();
-
-	// Fetch two weeks: this week + next week.
-	// This ensures users with late-week (Thu/Fri) deliveries whose 3-day
-	// lookahead window extends into the following week still see those events.
-	const thisMonday = DateTime.utc().startOf("week");
-	const nextMonday = thisMonday.plus({ weeks: 1 });
-
-	const thisMondayStart = thisMonday.toISODate();
-	const thisMondayEnd = thisMonday.plus({ days: 4 }).toISODate();
-	const nextMondayStart = nextMonday.toISODate();
-	const nextMondayEnd = nextMonday.plus({ days: 4 }).toISODate();
-
-	if (
-		!thisMonday.isValid ||
-		!nextMonday.isValid ||
-		!thisMondayStart ||
-		!thisMondayEnd ||
-		!nextMondayStart ||
-		!nextMondayEnd
-	) {
-		logger.error(
-			"Failed to compute week date range",
-			{
-				action: "daily_asset_events_cron",
-				thisMonday: {
-					isValid: thisMonday.isValid,
-					invalidReason: thisMonday.invalidReason,
-				},
-				nextMonday: {
-					isValid: nextMonday.isValid,
-					invalidReason: nextMonday.invalidReason,
-				},
-			},
-			new Error(
-				`Invalid Luxon week range: ${thisMonday.invalidReason ?? nextMonday.invalidReason ?? "unknown"}`,
-			),
-		);
-		throw new Error("Invalid date range for asset events");
-	}
-
-	const weeks = [
-		{ weekStart: thisMondayStart, weekEnd: thisMondayEnd },
-		{ weekStart: nextMondayStart, weekEnd: nextMondayEnd },
-	];
-
-	const results: Array<{
-		weekStart: string;
-		weekEnd: string;
-		upserted: number;
-		failedProviders: string[];
-	}> = [];
-
-	for (const { weekStart, weekEnd } of weeks) {
-		const result = await fetchAndStoreAssetEvents({
-			supabase,
-			weekStart,
-			weekEnd,
-			logger,
+export async function handler(event: ScheduledEvent, context: Context): Promise<void> {
+	return runWithRequestContext(context.awsRequestId, async () => {
+		const logger = createLogger({
+			source: "lambda",
+			function: "asset-events",
+			gitSha: process.env.GIT_SHA,
 		});
-		results.push({ weekStart, weekEnd, ...result });
-	}
+		logger.info("Lambda invoke", {
+			action: "lambda_invoke",
+			eventId: event.id,
+			eventTime: event.time,
+		});
+		const supabase = createSupabaseAdminClient();
 
-	let enrichmentResult: Awaited<ReturnType<typeof fetchAndStoreFinnhubEnrichment>> = {
-		analystUpserted: 0,
-		insiderUpserted: 0,
-		enrichmentFailures: [],
-	};
-	try {
-		enrichmentResult = await fetchAndStoreFinnhubEnrichment({ supabase, logger });
-	} catch (error) {
-		logger.error(
-			"Finnhub enrichment ingest failed (continuing with delisting sweep)",
-			{ action: "fetch_finnhub_enrichment" },
-			error,
-		);
-	}
+		// Fetch two weeks: this week + next week.
+		// This ensures users with late-week (Thu/Fri) deliveries whose 3-day
+		// lookahead window extends into the following week still see those events.
+		const thisMonday = DateTime.utc().startOf("week");
+		const nextMonday = thisMonday.plus({ weeks: 1 });
 
-	const hasFailures = results.some((r) => r.failedProviders.length > 0);
+		const thisMondayStart = thisMonday.toISODate();
+		const thisMondayEnd = thisMonday.plus({ days: 4 }).toISODate();
+		const nextMondayStart = nextMonday.toISODate();
+		const nextMondayEnd = nextMonday.plus({ days: 4 }).toISODate();
 
-	logger.info("Daily asset events fetch complete", {
-		action: "daily_asset_events_cron",
-		results,
-		hasFailures,
-		finnhubEnrichment: enrichmentResult,
+		if (
+			!thisMonday.isValid ||
+			!nextMonday.isValid ||
+			!thisMondayStart ||
+			!thisMondayEnd ||
+			!nextMondayStart ||
+			!nextMondayEnd
+		) {
+			logger.error(
+				"Failed to compute week date range",
+				{
+					action: "daily_asset_events_cron",
+					thisMonday: {
+						isValid: thisMonday.isValid,
+						invalidReason: thisMonday.invalidReason,
+					},
+					nextMonday: {
+						isValid: nextMonday.isValid,
+						invalidReason: nextMonday.invalidReason,
+					},
+				},
+				new Error(
+					`Invalid Luxon week range: ${thisMonday.invalidReason ?? nextMonday.invalidReason ?? "unknown"}`,
+				),
+			);
+			throw new Error("Invalid date range for asset events");
+		}
+
+		const weeks = [
+			{ weekStart: thisMondayStart, weekEnd: thisMondayEnd },
+			{ weekStart: nextMondayStart, weekEnd: nextMondayEnd },
+		];
+
+		const results: Array<{
+			weekStart: string;
+			weekEnd: string;
+			upserted: number;
+			failedProviders: string[];
+		}> = [];
+
+		for (const { weekStart, weekEnd } of weeks) {
+			const result = await fetchAndStoreAssetEvents({
+				supabase,
+				weekStart,
+				weekEnd,
+				logger,
+			});
+			results.push({ weekStart, weekEnd, ...result });
+		}
+
+		let enrichmentResult: Awaited<ReturnType<typeof fetchAndStoreFinnhubEnrichment>> = {
+			analystUpserted: 0,
+			insiderUpserted: 0,
+			enrichmentFailures: [],
+		};
+		try {
+			enrichmentResult = await fetchAndStoreFinnhubEnrichment({ supabase, logger });
+		} catch (error) {
+			logger.error(
+				"Finnhub enrichment ingest failed (continuing with delisting sweep)",
+				{ action: "fetch_finnhub_enrichment" },
+				error,
+			);
+		}
+
+		const hasFailures = results.some((r) => r.failedProviders.length > 0);
+
+		logger.info("Daily asset events fetch complete", {
+			action: "daily_asset_events_cron",
+			results,
+			hasFailures,
+			finnhubEnrichment: enrichmentResult,
+		});
+
+		if (hasFailures) {
+			const failedProviders = results.flatMap((r) => r.failedProviders);
+			logger.error(
+				"Some asset event providers failed",
+				{ action: "daily_asset_events_cron", failedProviders },
+				new Error(`Failed providers: ${failedProviders.join(", ")}`),
+			);
+		}
+
+		// Independent try/catch so sweep failures never invalidate the calendar-
+		// events job's success — the sweep runs again tomorrow.
+		try {
+			const sendEmail = createEmailSender();
+			const getSmsSender = createSmsSenderProvider();
+			const sweepResult = await runDelistingSweep({
+				supabase,
+				logger,
+				sendEmail,
+				getSmsSender,
+			});
+			logger.info("Delisting sweep complete", {
+				action: "daily_delisting_sweep",
+				...sweepResult,
+			});
+		} catch (error) {
+			logger.error("Delisting sweep failed", { action: "daily_delisting_sweep" }, error);
+		}
 	});
-
-	if (hasFailures) {
-		const failedProviders = results.flatMap((r) => r.failedProviders);
-		logger.error(
-			"Some asset event providers failed",
-			{ action: "daily_asset_events_cron", failedProviders },
-			new Error(`Failed providers: ${failedProviders.join(", ")}`),
-		);
-	}
-
-	// Independent try/catch so sweep failures never invalidate the calendar-
-	// events job's success — the sweep runs again tomorrow.
-	try {
-		const sendEmail = createEmailSender();
-		const getSmsSender = createSmsSenderProvider();
-		const sweepResult = await runDelistingSweep({
-			supabase,
-			logger,
-			sendEmail,
-			getSmsSender,
-		});
-		logger.info("Delisting sweep complete", {
-			action: "daily_delisting_sweep",
-			...sweepResult,
-		});
-	} catch (error) {
-		logger.error("Delisting sweep failed", { action: "daily_delisting_sweep" }, error);
-	}
 }

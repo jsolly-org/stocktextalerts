@@ -96,7 +96,7 @@ function computeRetryDelayMs(attempt: number, retryAfterMs: number | null): numb
 
 type FinnhubFailure =
 	| { reason: "rate_limited"; status: 429 }
-	| { reason: "api_error"; status: number }
+	| { reason: "api_error"; status: number; bodyPreview?: string }
 	| { reason: "timeout"; error: Error }
 	| { reason: "request_failed"; error: Error };
 
@@ -147,7 +147,16 @@ export async function finnhubFetch(
 			}
 
 			if (!response.ok) {
-				lastFailure = { reason: "api_error", status: response.status };
+				let bodyPreview: string | undefined;
+				if (isLastAttempt) {
+					try {
+						const text = await response.text();
+						bodyPreview = text.slice(0, 500);
+					} catch {
+						bodyPreview = undefined;
+					}
+				}
+				lastFailure = { reason: "api_error", status: response.status, bodyPreview };
 				if (!isLastAttempt) {
 					await realDelay(computeRetryDelayMs(attempt, null));
 					continue;
@@ -184,7 +193,7 @@ export async function finnhubFetch(
 	if (lastFailure) {
 		const context: Record<string, unknown> = {
 			endpoint,
-			params,
+			paramKeys: Object.keys(params),
 			attempts: MAX_RETRIES,
 			reason: lastFailure.reason,
 		};
@@ -197,6 +206,9 @@ export async function finnhubFetch(
 			rootLogger.info(`Finnhub ${label} exhausted retries (rate limited)`, context);
 		} else if (lastFailure.reason === "api_error") {
 			context.status = lastFailure.status;
+			if (lastFailure.bodyPreview) {
+				context.bodyPreview = lastFailure.bodyPreview;
+			}
 			context.category = failureCategory;
 			const logFn = optional ? rootLogger.warn.bind(rootLogger) : rootLogger.error.bind(rootLogger);
 			logFn(

@@ -1,6 +1,7 @@
 import { setTimeout as realDelay } from "node:timers/promises";
 import { DateTime } from "luxon";
 import type { Logger } from "../logging";
+import { payloadLogFields, preparePayloadForLog } from "../logging/log-payload";
 import {
 	fetchInsiderTransactions,
 	fetchRecommendationTrends,
@@ -71,6 +72,32 @@ function rowToRecommendationTrend(row: AnalystConsensusRow): RecommendationTrend
 function isAnalystRowFresh(fetchedAtIso: string, nowMs: number): boolean {
 	const fetchedAt = Date.parse(fetchedAtIso);
 	return Number.isFinite(fetchedAt) && nowMs - fetchedAt <= ANALYST_FRESHNESS_MS;
+}
+
+function insiderConflictKey(row: InsiderTransactionRow): string {
+	return `${row.symbol}\0${row.transaction_date}\0${row.name}\0${row.change}`;
+}
+
+function dedupeInsiderRows(rows: InsiderTransactionRow[]): {
+	rows: InsiderTransactionRow[];
+	duplicateConflictKeys: string[];
+	dedupeDroppedCount: number;
+} {
+	const byKey = new Map<string, InsiderTransactionRow>();
+	const duplicateConflictKeys: string[] = [];
+	for (const row of rows) {
+		const key = insiderConflictKey(row);
+		if (byKey.has(key)) {
+			duplicateConflictKeys.push(key);
+		}
+		byKey.set(key, row);
+	}
+	const dedupedRows = [...byKey.values()];
+	return {
+		rows: dedupedRows,
+		duplicateConflictKeys: [...new Set(duplicateConflictKeys)],
+		dedupeDroppedCount: rows.length - dedupedRows.length,
+	};
 }
 
 /**
@@ -204,7 +231,7 @@ export async function fetchAndStoreFinnhubEnrichment(options: {
 		}
 
 		if (insiderTx.length > 0) {
-			const rows: InsiderTransactionRow[] = insiderTx.map((tx) => ({
+			const rawRows: InsiderTransactionRow[] = insiderTx.map((tx) => ({
 				symbol,
 				transaction_date: tx.transactionDate,
 				name: tx.name,
@@ -212,13 +239,23 @@ export async function fetchAndStoreFinnhubEnrichment(options: {
 				change: tx.change,
 				transaction_type: tx.transactionType,
 			}));
+			const { rows, duplicateConflictKeys, dedupeDroppedCount } = dedupeInsiderRows(rawRows);
 			const { error } = await supabase.from("asset_insider_transactions").upsert(rows, {
 				onConflict: "symbol,transaction_date,name,change",
 			});
 			if (error) {
+				const proposedPayload = preparePayloadForLog(rows);
 				logger.error(
 					"Failed to upsert asset_insider_transactions",
-					{ action: "fetch_finnhub_enrichment", symbol },
+					{
+						action: "fetch_finnhub_enrichment",
+						symbol,
+						rawRowCount: rawRows.length,
+						dedupedRowCount: rows.length,
+						dedupeDroppedCount,
+						duplicateConflictKeys,
+						...payloadLogFields(proposedPayload, "proposedRows"),
+					},
 					error,
 				);
 				enrichmentFailures.push(`insider_upsert:${symbol}`);

@@ -1,6 +1,6 @@
 # alert-hub operator emails
 
-StockTextAlerts routes CloudWatch alarms through the shared [alert-hub](https://github.com/jsolly/alert-hub) SNS topic. The enricher formats plaintext emails with `error:`, `log:` or `log-search:`, `alarm:`, and `state:` — not raw SNS JSON. See `~/code/alert-hub/docs/architecture.md` for the full contract.
+StockTextAlerts routes CloudWatch alarms through the shared [alert-hub](https://github.com/jsolly/alert-hub) SNS topic. The enricher formats plaintext emails with `error:`, `log:` or structured `log-search:` handles, `alarm:`, and `state:` — not raw SNS JSON. See `~/code/alert-hub/docs/architecture.md` for the full contract and agent log lookup playbook.
 
 ## Alarm categories
 
@@ -8,21 +8,60 @@ StockTextAlerts routes CloudWatch alarms through the shared [alert-hub](https://
 | --- | --- |
 | `stocktextalerts-error-logs` | Logs Insights across `/aws/lambda/stocktextalerts-*` (metric math; vendor-retry metrics subtracted) |
 | `stocktextalerts-*-vendor-retry` | Same namespace discovery → schedule / asset-events / compute-daily-stats log groups |
-| `stocktextalerts-*-lambda-errors` | `FunctionName` dimension → that Lambda’s log group; `log:` when a recent structured error exists, else `log-search:` |
+| `stocktextalerts-*-lambda-errors` | `FunctionName` dimension → that Lambda’s log group; `log:` when a recent structured error exists, else structured `log-search:` |
 | `stocktextalerts-*-invocation-failures` | Passthrough only (`AWS/Scheduler`) — short CloudWatch reason |
 | `stocktextalerts-live-provider-tests` | Passthrough — reason may include a GitHub Actions run URL |
 
 All alarms use explicit `AlarmName` values in `aws/template.yaml` so email subjects stay stable.
 
+## Email lookup handles (agent-oriented)
+
+When log groups are discovered, ALARM emails may also include machine-readable lines such as:
+
+- `region:`, `account:`, `alarm-name:`
+- `log-group:` (repeat of the primary group)
+- `request-id:` and `request-id-source:` (`lambda-runtime` or `json`)
+- `time-start:`, `time-end:`, `time-start-epoch:`, `time-end-epoch:`
+- `insights-query:` (standard error query including `@logStream`)
+- `insights-query-request:` (optional, filters by request id)
+- `action:` (optional, from `context.action` in the primary error log)
+- `related-log-1:`, `related-log-2:`, `related-more:`
+
+Use these lines to run CloudWatch Logs Insights without opening the console. Full payloads and stacks stay in CloudWatch logs, not in the email.
+
+Example follow-up query after pasting an email:
+
+```bash
+aws logs start-query \
+  --region us-east-1 \
+  --log-group-name "/aws/lambda/stocktextalerts-asset-events" \
+  --start-time <time-start-epoch> \
+  --end-time <time-end-epoch> \
+  --query-string 'fields @timestamp, @message, @logStream | filter @message like /<request-id>/ | sort @timestamp asc | limit 100'
+```
+
 ## Logging fields alert-hub reads
 
 Page-worthy failures must call `logger.error(message, context, err)` so the serialized line includes top-level `error.name` and `error.message`. Use `createErrorForLogging(unknown)` from `src/lib/logging/errors.ts` for caught values; pass Postgrest-like objects through unchanged (do not wrap in `new Error(...)`). Do not put the failure text in `context.error` — alert-hub ignores it.
+
+Lambda handlers import `runWithRequestContext` from `src/lib/logging/request-context.ts` (Node-only) so JSON logs include `requestId` matching the runtime tab-prefix.
 
 Representative shapes (see `tests/lib/logging/contract.test.ts`):
 
 - **Vendor retry exhaustion** — `message` + `context.category: "vendor_retry_exhausted"` + `error` object
 - **Database / schema** — `message` + `error.message` from PostgREST or `Error` as the third argument
 - **Deterministic validation** — `new Error("…")` as the third argument when nothing was thrown
+- **Finnhub enrichment** — `action: "fetch_finnhub_enrichment"` or `load_finnhub_enrichment` on read failures
+
+## Bounded payload logging
+
+Use `preparePayloadForLog` and `payloadLogFields` from `src/lib/logging/log-payload.ts` on rare error paths:
+
+- Log full redacted payloads when serialized size ≤ 4 KiB (`payloadMode: "full"`).
+- Log previews with byte counts when larger (`payloadMode: "preview"`, `truncated: true`).
+- Standard preview keys: `bodyPreview`, `payloadSummary`, `proposedRowsPreview`.
+
+Never log: SMS/email bodies, staged HTML, passwords, auth headers, Twilio signatures, provider URLs with API keys, or full Finnhub insider names in bulk previews.
 
 ## Deploy note
 
