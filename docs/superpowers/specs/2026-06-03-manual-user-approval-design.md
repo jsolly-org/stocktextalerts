@@ -40,6 +40,13 @@ Manual approval is done in Supabase by setting `approved_at` and `approved_by`.
 A database trigger blocks non-service-role inserts or updates that try to set or
 change those fields, so users cannot self-approve through the public API.
 
+**Existing users (production deploy):** migration
+`20260603180728_manual_user_approval.sql` backfills every row with
+`approved_at IS NULL` to `approved_at = now()` and `approved_by = 'migration'`
+*before* the self-approval trigger is created. That is SQL-only — no application
+code runs, and there is no user-facing “you were approved” email (only new
+registrations notify the admin via `sendRegistrationAdminEmail`).
+
 ## Runtime behavior
 
 Registration keeps the existing email/password/timezone flow. After the `users`

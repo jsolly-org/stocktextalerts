@@ -114,6 +114,9 @@ UNSUBSCRIBE_TOKEN_SECRET=your-random-secret-string  # Minimum 12 characters; use
 # Production notification email is sent by AWS Lambda (SES via execution role), not Vercel.
 # Lambda reads the From header from SSM (/stocktextalerts/email-from); keep EMAIL_FROM aligned.
 EMAIL_FROM="Your Project Name <notifications@updates.example.com>"
+# Comma-separated email allowlist for the minimal pending-user approval page.
+# Include test@jsolly.com locally if you use the seeded dev-login account.
+APPROVAL_ADMIN_EMAILS=test@jsolly.com
 EMAIL_SMTP_HOST=localhost
 EMAIL_SMTP_PORT=1025
 
@@ -141,6 +144,7 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - Twilio credentials: Twilio Console → Account Dashboard
 - `UNSUBSCRIBE_TOKEN_SECRET`: Generate a random string (minimum 12 characters; e.g., `openssl rand -hex 32`)
 - `EMAIL_FROM`: Verified SES sender; keep in sync with SSM `/stocktextalerts/email-from`. Lambda uses SSM at deploy time; Vercel also reads this for registration admin notification emails.
+- `APPROVAL_ADMIN_EMAILS`: Comma-separated allowlist for `/admin/users` (pending-user approval UI). Include `test@jsolly.com` locally when using the seeded dev-login account.
 - `EMAIL_SMTP_HOST` / `EMAIL_SMTP_PORT`: Local Mailpit routing for dev and live email tests — not used in production Lambda
 - Massive credentials: Massive Dashboard → API Keys
 - Finnhub credentials: Finnhub Dashboard → API Keys

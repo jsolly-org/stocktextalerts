@@ -13,6 +13,7 @@ import {
 	type ExtendedQuoteMap,
 	fetchExtendedQuotes,
 	getCurrentMarketSession,
+	type MarketSession,
 } from "../providers/price-fetcher";
 import { SECTOR_ETF_MAP } from "../providers/sector-mapping";
 import type { SupabaseAdminClient } from "../schedule/helpers";
@@ -156,12 +157,16 @@ function buildSignalContexts(options: {
  * (INSERT ... ON CONFLICT DO UPDATE), enrich with news and intraday bars,
  * then deliver via email/SMS. Only runs when US market is open.
  */
-export async function processPriceAlerts(options: { supabase: SupabaseAdminClient }): Promise<{
+export async function processPriceAlerts(options: {
+	supabase: SupabaseAdminClient;
+	marketSession?: MarketSession;
+}): Promise<{
 	totals: PriceAlertTotals;
 	quoteMap: ExtendedQuoteMap;
 	isMarketOpen: boolean;
+	marketSession: MarketSession;
 }> {
-	const { supabase } = options;
+	const { supabase, marketSession: marketSessionOverride } = options;
 	const totals: PriceAlertTotals = {
 		symbolsChecked: 0,
 		alertsTriggered: 0,
@@ -176,12 +181,13 @@ export async function processPriceAlerts(options: { supabase: SupabaseAdminClien
 		totals,
 		quoteMap: new Map<string, null>(),
 		isMarketOpen: false,
+		marketSession: "closed" as MarketSession,
 	};
 
-	const session = await getCurrentMarketSession();
+	const session = marketSessionOverride ?? (await getCurrentMarketSession());
 	const isMarketOpen = session === "regular";
 	if (!isMarketOpen) {
-		return emptyResult;
+		return { ...emptyResult, marketSession: session };
 	}
 
 	const { data: allUserAssets, error: assetsError } = await supabase
@@ -293,7 +299,7 @@ export async function processPriceAlerts(options: { supabase: SupabaseAdminClien
 		for (const symbol of uniqueSymbols) {
 			filteredQuoteMap.set(symbol, quoteMap.get(symbol) ?? null);
 		}
-		return { totals, quoteMap: filteredQuoteMap, isMarketOpen: true };
+		return { totals, quoteMap: filteredQuoteMap, isMarketOpen: true, marketSession: session };
 	}
 
 	const { data: userAssetRows, error: userAssetsError } = await supabase
@@ -314,7 +320,7 @@ export async function processPriceAlerts(options: { supabase: SupabaseAdminClien
 		for (const symbol of uniqueSymbols) {
 			filteredQuoteMap.set(symbol, quoteMap.get(symbol) ?? null);
 		}
-		return { totals, quoteMap: filteredQuoteMap, isMarketOpen: true };
+		return { totals, quoteMap: filteredQuoteMap, isMarketOpen: true, marketSession: session };
 	}
 
 	const userSymbolMap = new Map<string, Set<string>>();
@@ -524,5 +530,5 @@ export async function processPriceAlerts(options: { supabase: SupabaseAdminClien
 		filteredQuoteMap.set(symbol, quoteMap.get(symbol) ?? null);
 	}
 
-	return { totals, quoteMap: filteredQuoteMap, isMarketOpen: true };
+	return { totals, quoteMap: filteredQuoteMap, isMarketOpen: true, marketSession: session };
 }

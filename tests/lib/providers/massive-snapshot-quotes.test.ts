@@ -229,4 +229,46 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		// in the closed-session change-% derivation surfaces immediately.
 		expect(aapl.changePercent).toBeCloseTo(1.41, 2);
 	});
+
+	it("splits large symbol lists into multiple Massive snapshot requests", async () => {
+		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		const fetchSpy = vi.spyOn(globalThis, "fetch");
+		const symbols = Array.from({ length: 251 }, (_, index) => `SYM${index}`);
+		fetchSpy.mockImplementation(async () => snapshotResponse([]));
+
+		await fetchSnapshotQuotes(symbols, "regular");
+
+		expect(fetchSpy).toHaveBeenCalledTimes(2);
+		const urls = fetchSpy.mock.calls.map(([input]) => String(input));
+		expect(urls.some((url) => url.includes("SYM0"))).toBe(true);
+		expect(urls.some((url) => url.includes("SYM250"))).toBe(true);
+	});
+
+	it("keeps successful chunk quotes when another chunk fails", async () => {
+		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		const fetchSpy = vi.spyOn(globalThis, "fetch");
+		const symbols = ["AAA", ...Array.from({ length: 250 }, (_, index) => `SYM${index}`)];
+
+		fetchSpy.mockImplementation(async (input) => {
+			const url = String(input);
+			if (url.includes("AAA") && !url.includes("SYM249")) {
+				return snapshotResponse([
+					{
+						ticker: "AAA",
+						todaysChangePerc: 1.2,
+						updated: 1778500000000000000,
+						day: { o: 10, h: 11, l: 9.5, c: 10.5, v: 1000 },
+						min: { c: 10.5 },
+						prevDay: { o: 9.8, h: 10.2, l: 9.5, c: 10, v: 900 },
+					},
+				]);
+			}
+			return new Response("gateway timeout", { status: 504 });
+		});
+
+		const quotes = await fetchSnapshotQuotes(symbols, "regular");
+		const aaa = expectQuote(quotes.get("AAA"));
+		expect(aaa.price).toBe(10.5);
+		expect(quotes.get("SYM0")).toBeNull();
+	});
 });

@@ -1022,17 +1022,12 @@ test.describe("sanity tests", () => {
 		// Re-bind explicitly so the closure below captures the narrowed string.
 		const authTokenStr: string = authToken;
 
-		// The server validates Twilio signatures against the canonical site URL
-		// (VERCEL_URL from .env.local, e.g. http://localhost:4321), not the
-		// E2E dev-server URL (e.g. http://localhost:4322). Compute the signature
-		// with the canonical URL but send the request to the actual server.
-		const siteUrl = (
-			process.env.VERCEL_PROJECT_PRODUCTION_URL ||
-			process.env.VERCEL_URL ||
-			baseOrigin
-		).replace(/\/+$/, "");
-		const signatureUrl = `${siteUrl}/api/messaging/inbound`;
-		const requestUrl = `${baseOrigin}/api/messaging/inbound`;
+		// Inbound validates Twilio signatures against getSiteUrl() (SITE_URL, then
+		// VERCEL_*). Playwright's E2E dev server sets SITE_URL to baseOrigin (4322),
+		// so sign and POST against the same origin the server expects.
+		const webhookOrigin = baseOrigin.replace(/\/+$/, "");
+		const signatureUrl = `${webhookOrigin}/api/messaging/inbound`;
+		const requestUrl = signatureUrl;
 		async function postInbound(bodyValue: string) {
 			const formParams = {
 				MessageSid: `SM${randomUUID().replaceAll("-", "").slice(0, 16)}`,

@@ -1,5 +1,5 @@
 import { DateTime } from "luxon";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const marketDataFetchMock = vi.hoisted(() => vi.fn());
 
@@ -19,6 +19,10 @@ describe("getUsMarketClosureInfoForInstant", () => {
 		// modules between tests forces a fresh fetch with each test's mock state.
 		vi.resetModules();
 		calendar = await import("../../../src/lib/time/market-calendar");
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
 	});
 
 	it("On Saturday, returns { reason: 'weekend' } regardless of holidays endpoint state", async () => {
@@ -84,5 +88,49 @@ describe("getUsMarketClosureInfoForInstant", () => {
 		const regularWeekdayMorningEt = DateTime.fromISO("2026-01-12T15:00:00.000Z", { zone: "utc" });
 		const result = await calendar.getUsMarketClosureInfoForInstant(regularWeekdayMorningEt);
 		expect(result).toBeNull();
+	});
+
+	it("When Massive returns null on a weekday, a second lookup within the failure TTL does not refetch", async () => {
+		marketDataFetchMock.mockResolvedValue(null);
+		const mondayMorningEt = DateTime.fromISO("2026-01-12T15:00:00.000Z", { zone: "utc" });
+
+		const first = await calendar.getUsMarketClosureInfoForInstant(mondayMorningEt);
+		const second = await calendar.getUsMarketClosureInfoForInstant(mondayMorningEt);
+
+		expect(first).toBeNull();
+		expect(second).toBeNull();
+		expect(marketDataFetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	it("When a refresh fails after a successful holiday fetch, stale closure records are retained briefly", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-11-26T15:00:00.000Z"));
+
+		marketDataFetchMock.mockResolvedValueOnce([
+			{
+				exchange: "NYSE",
+				date: "2026-11-26",
+				status: "closed",
+				name: "Thanksgiving",
+			},
+		]);
+		const thanksgivingMorningEt = DateTime.fromISO("2026-11-26T15:00:00.000Z", { zone: "utc" });
+		const first = await calendar.getUsMarketClosureInfoForInstant(thanksgivingMorningEt);
+		expect(first).toEqual({ reason: "holiday", holidayName: "Thanksgiving" });
+		expect(marketDataFetchMock).toHaveBeenCalledTimes(1);
+
+		vi.advanceTimersByTime(12 * 60 * 60 * 1000 + 1);
+		marketDataFetchMock.mockResolvedValueOnce(null);
+		const second = await calendar.getUsMarketClosureInfoForInstant(thanksgivingMorningEt);
+		expect(second).toEqual({ reason: "holiday", holidayName: "Thanksgiving" });
+		expect(marketDataFetchMock).toHaveBeenCalledTimes(2);
+	});
+
+	it("On Saturday, does not call Massive even when the holidays endpoint would fail", async () => {
+		marketDataFetchMock.mockResolvedValue(null);
+		const saturdayNoonEt = DateTime.fromISO("2026-01-10T17:00:00.000Z", { zone: "utc" });
+		const result = await calendar.getUsMarketClosureInfoForInstant(saturdayNoonEt);
+		expect(result).toEqual({ reason: "weekend" });
+		expect(marketDataFetchMock).not.toHaveBeenCalled();
 	});
 });

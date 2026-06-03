@@ -8,7 +8,7 @@ StockTextAlerts routes CloudWatch alarms through the shared [alert-hub](https://
 | --- | --- |
 | `stocktextalerts-error-logs` | Logs Insights across `/aws/lambda/stocktextalerts-*` (metric math; vendor-retry metrics subtracted) |
 | `stocktextalerts-*-vendor-retry` | Same namespace discovery → schedule / asset-events / compute-daily-stats log groups |
-| `stocktextalerts-*-lambda-errors` | `FunctionName` dimension → that Lambda’s log group; `log:` when a recent structured error exists, else structured `log-search:` |
+| `stocktextalerts-*-lambda-errors` | Lambda runtime **`Errors`** metric (`AWS/Lambda`, `FunctionName` dimension) — invocation threw, timed out, or OOM; not the same as vendor-retry log metrics |
 | `stocktextalerts-*-invocation-failures` | Passthrough only (`AWS/Scheduler`) — short CloudWatch reason |
 | `stocktextalerts-live-provider-tests` | Passthrough — reason may include a GitHub Actions run URL |
 
@@ -39,6 +39,40 @@ aws logs start-query \
   --end-time <time-end-epoch> \
   --query-string 'fields @timestamp, @message, @logStream | filter @message like /<request-id>/ | sort @timestamp asc | limit 100'
 ```
+
+## Massive vendor timeout triage (schedule Lambda)
+
+When `stocktextalerts-schedule-vendor-retry` or `stocktextalerts-schedule-lambda-errors` fires during a Massive REST outage:
+
+1. Check [Massive status](https://massive-status.com/) for REST latency/timeout incidents.
+2. Distinguish the alarms:
+   - **`stocktextalerts-schedule-vendor-retry`** — sustained `context.category = "vendor_retry_exhausted"` in schedule logs (Massive/Finnhub critical routes exhausted retries). Absorbs brief blips; pages on ≥3 minute-buckets in 10 minutes.
+   - **`stocktextalerts-schedule-lambda-errors`** — Lambda runtime **`Errors`** metric for `stocktextalerts-schedule` (threw, **timed out** at 300s, or OOM). Vendor retry log lines may appear in the same window without being the alarm source.
+   - **`stocktextalerts-error-logs`** — app errors **excluding** vendor retry exhaustion (metric math in `aws/template.yaml`).
+3. Find vendor retry lines for the window:
+
+```text
+fields @timestamp, @message, @logStream
+| filter level = "error"
+| filter context.category = "vendor_retry_exhausted"
+| sort @timestamp desc
+| limit 50
+```
+
+1. Check whether the invocation also failed (timeout vs clean completion):
+
+```text
+fields @timestamp, @message, @logStream
+| filter @message like /REPORT RequestId: <request-id>/
+   or @message like /Task timed out/
+   or @message like /Schedule failed/
+| sort @timestamp asc
+| limit 20
+```
+
+1. Look for `action: "schedule_complete"` vs elevated `skipped` counts in fallback delivery when snapshot quotes returned all-null maps.
+
+See also `docs/external-apis.md` for critical vs optional Massive routes and retry policy defaults (25s × 3 attempts).
 
 ## Logging fields alert-hub reads
 

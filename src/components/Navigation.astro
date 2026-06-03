@@ -2,6 +2,7 @@
 
 import type { User } from "@supabase/supabase-js";
 import { Icon } from "astro-icon/components";
+import { isApprovalAdminEmail } from "../lib/auth/approval-admin";
 import { REGISTRATION_ENABLED } from "../lib/constants";
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
 const { user } = Astro.props;
 const currentPage = Astro.url.pathname;
 const isLanding = currentPage === "/";
+const isApprovalAdmin = user ? isApprovalAdminEmail(user.email) : false;
 ---
 <nav
   aria-label="Main navigation"
@@ -36,18 +38,34 @@ const isLanding = currentPage === "/";
             </li>
           )}
           {user && (
-            <li>
-              <a
-                href="/dashboard"
-                aria-current={currentPage === "/dashboard" ? "page" : undefined}
-                class:list={[
-                  "text-sm font-medium transition-colors px-3 py-1.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-                  currentPage === "/dashboard" ? "text-primary bg-primary/10" : "text-body-secondary hover:text-heading hover:bg-surface-active"
-                ]}
-              >
-                Dashboard
-              </a>
-            </li>
+            <>
+              <li>
+                <a
+                  href="/dashboard"
+                  aria-current={currentPage === "/dashboard" ? "page" : undefined}
+                  class:list={[
+                    "text-sm font-medium transition-colors px-3 py-1.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                    currentPage === "/dashboard" ? "text-primary bg-primary/10" : "text-body-secondary hover:text-heading hover:bg-surface-active"
+                  ]}
+                >
+                  Dashboard
+                </a>
+              </li>
+              {isApprovalAdmin && (
+                <li>
+                  <a
+                    href="/admin/users"
+                    aria-current={currentPage === "/admin/users" ? "page" : undefined}
+                    class:list={[
+                      "text-sm font-medium transition-colors px-3 py-1.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                      currentPage === "/admin/users" ? "text-primary bg-primary/10" : "text-body-secondary hover:text-heading hover:bg-surface-active"
+                    ]}
+                  >
+                    Admin
+                  </a>
+                </li>
+              )}
+            </>
           )}
         </ul>
       </div>
@@ -121,6 +139,18 @@ const isLanding = currentPage === "/";
                 >
                   Dashboard
                 </a>
+                {isApprovalAdmin && (
+                  <a
+                    href="/admin/users"
+                    aria-current={currentPage === "/admin/users" ? "page" : undefined}
+                    class:list={[
+                      "rounded-md px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                      currentPage === "/admin/users" ? "text-primary bg-primary/10" : "text-label hover:bg-surface-alt"
+                    ]}
+                  >
+                    Admin
+                  </a>
+                )}
                 <a
                   href="/profile"
                   aria-current={currentPage === "/profile" ? "page" : undefined}

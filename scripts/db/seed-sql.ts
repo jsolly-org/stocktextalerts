@@ -290,9 +290,20 @@ export function buildPublicUserSql(userId: string, user: SeedUser): string {
   );
   const phoneNumber = validatePhoneNumber(user.phone_number, "phone_number");
 
-  const insertColumns: string[] = ["id", "email", "timezone"];
-  const insertValues: string[] = [`'${userId}'::uuid`, `'${email}'`, `'${timezone}'`];
-  const updateFields: string[] = ["email = EXCLUDED.email", "timezone = EXCLUDED.timezone"];
+  const insertColumns: string[] = ["id", "email", "timezone", "approved_at", "approved_by"];
+  const insertValues: string[] = [
+    `'${userId}'::uuid`,
+    `'${email}'`,
+    `'${timezone}'`,
+    "now()",
+    "'seed'",
+  ];
+  const updateFields: string[] = [
+    "email = EXCLUDED.email",
+    "timezone = EXCLUDED.timezone",
+    "approved_at = EXCLUDED.approved_at",
+    "approved_by = EXCLUDED.approved_by",
+  ];
 
   if ((phoneCountryCode === null) !== (phoneNumber === null)) {
     throw new Error(

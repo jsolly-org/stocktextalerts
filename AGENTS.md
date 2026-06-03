@@ -88,14 +88,19 @@ See `docs/testing.md` for the production-credential gating model and Mailpit dev
 
 ### Production DB agent block (enforced)
 
-Agents (Cursor, Claude Code, Codex) **must not** change production Supabase schema or data directly. Runtime guards in `.cursor/`, `.claude/`, and `.codex/` block the dangerous paths; policy text alone is not enough.
+Agents (Cursor, Claude Code, Codex) **must not** apply production Supabase schema migrations manually. Read-only production inspection is allowed when the user asks for it. Direct production data writes are not forbidden, but they require explicit user approval for the exact operation and should be narrow, auditable, and preferably reversible. Runtime guards in `.cursor/`, `.claude/`, and `.codex/` block the dangerous paths; policy text alone is not enough.
 
 **Never run or invoke:**
 
 - `supabase db push` (production apply is only in `.github/workflows/deploy.yml` after merge to `main`)
 - `supabase migration repair` against linked/production (human runbook only — see `docs/incidents/2026-05-migration-squash.md`)
-- `psql` using production credentials (`DATABASE_URL_PROD`, `SUPABASE_URL_PROD`, project ref `japesagairjvvuebzpvr`, etc.)
-- Supabase MCP `apply_migration` or `execute_sql` against production
+- `psql` using production credentials for writes, DDL, migrations, repairs, or ad hoc data fixes (`DATABASE_URL_PROD`, `SUPABASE_URL_PROD`, project ref `japesagairjvvuebzpvr`, etc.)
+- Supabase MCP `apply_migration` against production
+- Supabase MCP `execute_sql` against production for writes, DDL, migrations, repairs, or ad hoc data fixes
+
+**Allowed production DB inspection:** read-only `SELECT` queries through approved tooling (Supabase MCP `execute_sql` or `psql`) when the user explicitly asks for production verification. Keep these queries narrow, avoid selecting secrets or unnecessary user PII, and never mutate data.
+
+**Allowed production data fixes:** direct `UPDATE` / `INSERT` / `DELETE` only when the user explicitly approves the exact statement or well-scoped operation in the current conversation. Prefer a transaction, include a preflight `SELECT`, report affected row counts, and avoid broad predicates. Never use this path for schema changes or migration history changes.
 
 **Allowed agent workflow:** `supabase migration new <name>` → edit `supabase/migrations/*.sql` → `npm run db:reset` / `db:gen-types` → commit → merge → CI `supabase db push`.
 

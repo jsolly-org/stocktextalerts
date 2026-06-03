@@ -9,6 +9,7 @@ vi.mock("../../src/lib/constants", async (importOriginal) => {
 });
 
 import { rootLogger } from "../../src/lib/logging";
+import AdminUsersPage from "../../src/pages/admin/users.astro";
 import AuthForgotPage from "../../src/pages/auth/forgot.astro";
 import AuthPendingApprovalPage from "../../src/pages/auth/pending-approval.astro";
 import AuthRecoverPage from "../../src/pages/auth/recover.astro";
@@ -49,6 +50,7 @@ describe("Users can load pages without unexpected errors.", () => {
 
 	afterEach(() => {
 		expectConsoleWarning(/^Cleanup failed/);
+		vi.unstubAllEnvs();
 	});
 
 	it("A visitor can view the landing page.", async () => {
@@ -300,6 +302,69 @@ describe("Users can load pages without unexpected errors.", () => {
 					request: buildRequest("/profile", cookies),
 				});
 				expect(profileResponse.status).toBe(200);
+			},
+		);
+	});
+
+	it("A logged-out visitor is redirected to sign-in when opening the admin users page.", async () => {
+		const container = await AstroContainer.create({ renderers });
+		const response = await container.renderToResponse(AdminUsersPage, {
+			request: buildRequest("/admin/users"),
+		});
+
+		expect(response.status).toBe(302);
+		expect(response.headers.get("Location")).toBe("/auth/signin?redirect=%2Fadmin%2Fusers");
+	});
+
+	it("A non-admin signed-in user cannot view the admin users page.", async () => {
+		vi.stubEnv("APPROVAL_ADMIN_EMAILS", "test@jsolly.com");
+		await withTestUser(
+			{
+				email: createTestEmail("not-admin"),
+				password: TEST_PASSWORD,
+				confirmed: true,
+				approved: true,
+			},
+			async (_user, cookies) => {
+				const container = await AstroContainer.create({ renderers });
+				const response = await container.renderToResponse(AdminUsersPage, {
+					request: buildRequest("/admin/users", cookies),
+				});
+
+				expect(response.status).toBe(403);
+			},
+		);
+	});
+
+	it("An allowlisted admin can view pending users.", async () => {
+		vi.stubEnv("APPROVAL_ADMIN_EMAILS", "admin@example.com");
+		await withTestUser(
+			{
+				email: "admin@example.com",
+				password: TEST_PASSWORD,
+				confirmed: true,
+				approved: true,
+			},
+			async (_admin, cookies) => {
+				const pending = await createTestUser({
+					email: createTestEmail("pending-admin-list"),
+					password: TEST_PASSWORD,
+					confirmed: true,
+					approved: false,
+				});
+				try {
+					const container = await AstroContainer.create({ renderers });
+					const response = await container.renderToResponse(AdminUsersPage, {
+						request: buildRequest("/admin/users", cookies),
+					});
+					const html = await response.text();
+
+					expect(response.status).toBe(200);
+					expect(html).toContain(pending.email);
+					expect(html).toContain("/api/admin/users/approve");
+				} finally {
+					await cleanupTestUser(pending.id);
+				}
 			},
 		);
 	});

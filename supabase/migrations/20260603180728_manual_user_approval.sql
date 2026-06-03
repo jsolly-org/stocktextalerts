@@ -12,6 +12,8 @@ COMMENT ON COLUMN public.users.approved_at IS
 COMMENT ON COLUMN public.users.approved_by IS
   'Free-form operator identifier for the person or process that approved the user.';
 
+-- Grandfather existing production users before the approval trigger exists.
+-- Runs as postgres during CI db push; does not invoke the app or send email.
 UPDATE public.users
 SET approved_at = COALESCE(approved_at, now()),
     approved_by = COALESCE(approved_by, 'migration')

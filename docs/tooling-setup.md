@@ -46,15 +46,25 @@ CI installs them per-run (yamllint via `pipx`, actionlint via the upstream `down
 ### Registration approval
 
 When `REGISTRATION_ENABLED` is `true` in `src/lib/constants.ts`, visitors can create accounts.
-New users are unapproved by default and cannot access the dashboard until `users.approved_at`
-is set manually in Supabase. After a user profile is created, the web app sends a best-effort
-admin notification email to `EMAIL_FROM`; local dev routes that email to Mailpit when
-`EMAIL_SMTP_HOST` is set, while Vercel needs `EMAIL_FROM` and the existing email sender
-prerequisites configured for this notification path.
+New users are unapproved by default and cannot access the dashboard until an admin
+approves them. The manual-approval migration grandfathers everyone who already existed
+at deploy time (`approved_by = 'migration'`); that step does not send email. After a
+user profile is created, the web app sends a best-effort admin notification email to
+`EMAIL_FROM`; local dev routes that email to Mailpit when `EMAIL_SMTP_HOST` is set,
+while Vercel needs `EMAIL_FROM` and the existing email sender prerequisites configured
+for this notification path.
+
+User-facing approval emails are sent only when an allowlisted admin approves a pending
+user through `/admin/users`. Configure `APPROVAL_ADMIN_EMAILS` as a comma-separated
+allowlist. For local development, include `test@jsolly.com`. Grandfathered users
+approved by migration and users changed directly in Supabase Table Editor are not
+emailed.
 
 ### Prod dev-login account
 
 `test@jsolly.com` with `DEFAULT_PASSWORD` env var. This is the only place a real inbox is allowed to appear by name; it exists as a row in production Supabase for interactive login during local dev against prod. **Not used by the test harness** — `tests/helpers/constants.ts:PRESERVED_TEST_EMAIL` is `preserved-test@example.com` (deliberately non-routable).
+
+Local Supabase seed (`scripts/data/users.json`) creates this user with `approved_at` set so sign-in reaches the dashboard without manual approval. After changing seed approval behavior, run `npm run db:reset`.
 
 ### Mailpit for dev email
 

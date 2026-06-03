@@ -1,4 +1,5 @@
 <template>
+	<div class="flex flex-col gap-6">
 	<form
 		ref="notificationPreferencesFormElement"
 		:id="DASHBOARD_NOTIFICATION_PREFERENCES_FORM_ID"
@@ -96,6 +97,7 @@
 			</div>
 		</div>
 	</section>
+	</div>
 </template>
 
 <script lang="ts" setup>

@@ -36,6 +36,8 @@ export async function precomputeDailyDigest(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
 	currentTime: DateTime;
+	/** When provided by the scheduler, avoids a redundant `/v1/marketstatus/now` call. */
+	marketOpen?: boolean;
 }): Promise<ScheduledNotificationTotals> {
 	const { supabase, logger, currentTime } = options;
 	const stats: ScheduledNotificationTotals = {
@@ -80,13 +82,13 @@ export async function precomputeDailyDigest(options: {
 		window: `${afterTimeIso} → ${beforeTimeIso}`,
 	});
 
-	// Fetch market status once for fan-out.
+	// Fetch market status once for fan-out when the scheduler did not already resolve it.
 	//
 	// Do not precompute and pass a shared market-closure label here: the daily
 	// digest formatter must classify closures from each user's scheduled send
 	// instant, not the scheduler's current clock time. Near US midnight those can
 	// land on different market dates.
-	const marketOpen = (await getCurrentMarketSession()) === "regular";
+	const marketOpen = options.marketOpen ?? (await getCurrentMarketSession()) === "regular";
 	const sendEmail = createEmailSender();
 	const getSmsSender = createSmsSenderProvider();
 

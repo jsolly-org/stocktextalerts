@@ -15,6 +15,8 @@ type CalendarRecord =
 	| { kind: "early-close"; closeUtc: DateTime; name?: string };
 
 const CALENDAR_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+/** Brief negative cache when Massive `/v1/marketstatus/upcoming` fails — avoids hammering the API. */
+const CALENDAR_FAILURE_CACHE_TTL_MS = 5 * 60 * 1000;
 let calendarCache: {
 	expiresAt: number;
 	records: Map<string, CalendarRecord>;
@@ -34,8 +36,16 @@ async function fetchUsMarketCalendar(): Promise<Map<string, CalendarRecord>> {
 
 	const payload = await marketDataFetch("/v1/marketstatus/upcoming", {}, "market-holidays");
 
+	if (!Array.isArray(payload)) {
+		const staleRecords = calendarCache?.records ?? new Map<string, CalendarRecord>();
+		calendarCache = {
+			expiresAt: now + CALENDAR_FAILURE_CACHE_TTL_MS,
+			records: staleRecords,
+		};
+		return staleRecords;
+	}
+
 	const records = new Map<string, CalendarRecord>();
-	if (!Array.isArray(payload)) return records;
 
 	for (const row of payload) {
 		if (typeof row !== "object" || row === null) continue;

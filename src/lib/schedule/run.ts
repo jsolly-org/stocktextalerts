@@ -103,17 +103,55 @@ function mergeTotals(
 	};
 }
 
+/** Per-invocation cache of successful Massive quotes reused across both scheduler passes. */
+type SchedulerQuoteCache = {
+	prices: AssetPriceMap;
+	noSessionTrade: Set<string>;
+};
+
+function createSchedulerQuoteCache(priceAlertQuoteMap?: ExtendedQuoteMap): SchedulerQuoteCache {
+	const cache: SchedulerQuoteCache = {
+		prices: new Map(),
+		noSessionTrade: new Set(),
+	};
+	if (!priceAlertQuoteMap) {
+		return cache;
+	}
+	for (const [symbol, quote] of priceAlertQuoteMap) {
+		if (quote !== null) {
+			cache.prices.set(symbol, quote);
+		}
+	}
+	return cache;
+}
+
+/** Merge only meaningful quote results — vendor-failure nulls stay out of the cache. */
+function mergeSuccessfulQuotesIntoCache(
+	cache: SchedulerQuoteCache,
+	fetched: Awaited<ReturnType<typeof fetchAssetPricesWithSessionState>>,
+): void {
+	for (const [symbol, price] of fetched.prices) {
+		if (price !== null) {
+			cache.prices.set(symbol, price);
+		}
+	}
+	for (const symbol of fetched.noSessionTrade) {
+		cache.noSessionTrade.add(symbol);
+	}
+}
+
 /** Run a single pass: deliver staged → fallback → pre-compute. */
 async function runPass(options: {
 	supabase: SupabaseAdminClient;
 	logger: Logger;
 	sendEmail: ReturnType<typeof createEmailSender>;
 	getSmsSender: ReturnType<typeof createSmsSenderProvider>;
-	priceAlertQuoteMap?: ExtendedQuoteMap;
+	marketSession: MarketSession;
+	schedulerQuoteCache: SchedulerQuoteCache;
 	/** When true, run asset events processing (only in the first pass). */
 	includeAssetEvents: boolean;
 }): Promise<ScheduledNotificationTotals> {
-	const { supabase, logger, sendEmail, getSmsSender, priceAlertQuoteMap } = options;
+	const { supabase, logger, sendEmail, getSmsSender, marketSession, schedulerQuoteCache } = options;
 
 	// Use actual UTC time — NOT rounded to end-of-minute like the old single-pass approach.
 	// Users set times at minute granularity so next_send_at is always at :00 seconds.
@@ -204,20 +242,12 @@ async function runPass(options: {
 	}
 
 	// Collect unique asset symbols across scheduled users and fetch prices in batch
-	let priceMap: AssetPriceMap = new Map();
+	const priceMap: AssetPriceMap = new Map();
 	// Symbols Massive recognized but had no live trade in the current session
 	// (typical for illiquid pre/after-hours tickers). The scheduled-notification
 	// renderer uses this to show "no pre-market trades" / "no after-hours trades"
 	// instead of the generic "price unavailable".
-	let marketNoSessionTrade: Set<string> = new Set();
-	const hasAnyUsers =
-		fallbackMarketUsers.length > 0 || fallbackDailyUsers.length > 0 || assetEventsUsers.length > 0;
-	// Resolve market session ONCE per cron tick. fetchAssetPrices /
-	// fetchExtendedQuotes / processMarketScheduledUser all consume this value;
-	// the spec requires a single source of truth for session ("fetched once at
-	// the top of the user-processing loop and passed as a parameter to anything
-	// downstream").
-	const marketSession: MarketSession = hasAnyUsers ? await getCurrentMarketSession() : "closed";
+	const marketNoSessionTrade: Set<string> = new Set();
 	const marketOpen = marketSession === "regular";
 
 	let marketUserSymbols: string[] = [];
@@ -232,34 +262,29 @@ async function runPass(options: {
 		];
 
 		if (marketUserSymbols.length > 0) {
-			// Reuse quotes from price alerts when available to avoid duplicate API calls.
-			// Invariant: price alerts only fire during regular session
-			// (`market-notifications/process.ts` early-returns if session !== "regular"),
-			// so when this reuse branch runs, marketSession is "regular" and
-			// noSessionTrade is empty by definition — Massive's `day.c` is always
-			// populated during RTH. The set we capture from the missing-symbol fetch
-			// is therefore complete for the renderer.
-			if (priceAlertQuoteMap && priceAlertQuoteMap.size > 0) {
-				const missingSymbols: string[] = [];
-				for (const symbol of marketUserSymbols) {
-					const cached = priceAlertQuoteMap.get(symbol);
-					if (cached) {
-						priceMap.set(symbol, cached);
-					} else {
-						missingSymbols.push(symbol);
-					}
+			const missingSymbols: string[] = [];
+			for (const symbol of marketUserSymbols) {
+				if (schedulerQuoteCache.noSessionTrade.has(symbol)) {
+					priceMap.set(symbol, null);
+					marketNoSessionTrade.add(symbol);
+					continue;
 				}
-				if (missingSymbols.length > 0) {
-					const extra = await fetchAssetPricesWithSessionState(missingSymbols, marketSession);
-					for (const [symbol, price] of extra.prices) {
-						priceMap.set(symbol, price);
-					}
-					marketNoSessionTrade = extra.noSessionTrade;
+				const cached = schedulerQuoteCache.prices.get(symbol);
+				if (cached !== undefined) {
+					priceMap.set(symbol, cached);
+					continue;
 				}
-			} else {
-				const fetched = await fetchAssetPricesWithSessionState(marketUserSymbols, marketSession);
-				priceMap = fetched.prices;
-				marketNoSessionTrade = fetched.noSessionTrade;
+				missingSymbols.push(symbol);
+			}
+			if (missingSymbols.length > 0) {
+				const extra = await fetchAssetPricesWithSessionState(missingSymbols, marketSession);
+				for (const [symbol, price] of extra.prices) {
+					priceMap.set(symbol, price);
+				}
+				for (const symbol of extra.noSessionTrade) {
+					marketNoSessionTrade.add(symbol);
+				}
+				mergeSuccessfulQuotesIntoCache(schedulerQuoteCache, extra);
 			}
 		}
 	}
@@ -376,7 +401,12 @@ async function runPass(options: {
 
 	/* ============= Phase 3: PRE-COMPUTE for upcoming daily-digest users ============= */
 	try {
-		const preDaily = await precomputeDailyDigest({ supabase, logger, currentTime });
+		const preDaily = await precomputeDailyDigest({
+			supabase,
+			logger,
+			currentTime,
+			marketOpen,
+		});
 		if (preDaily.skipped > 0) {
 			logger.info("Pre-compute phase completed", {
 				action: "precompute",
@@ -422,13 +452,30 @@ export async function runScheduledNotifications(options: {
 		);
 	}
 
+	// Resolve market session once per scheduler invocation — passed to price alerts,
+	// both fallback passes, and precompute to avoid redundant Massive status calls.
+	let schedulerMarketSession: MarketSession = "closed";
+	try {
+		schedulerMarketSession = await getCurrentMarketSession();
+	} catch (error) {
+		logger.error(
+			"Failed to resolve market session (aborting schedule run)",
+			{ action: "market_session" },
+			error,
+		);
+		throw error;
+	}
+
 	// Run price alerts first — this also returns an extended quote map
 	// that could be reused by scheduled notifications to avoid duplicate API calls.
 	let priceAlertTotals: PriceAlertTotals | undefined;
 	let priceAlertQuoteMap: ExtendedQuoteMap | undefined;
 	let priceAlertIsMarketOpen: boolean | undefined;
 	try {
-		const priceAlertResult = await processPriceAlerts({ supabase });
+		const priceAlertResult = await processPriceAlerts({
+			supabase,
+			marketSession: schedulerMarketSession,
+		});
 		priceAlertTotals = priceAlertResult.totals;
 		priceAlertQuoteMap = priceAlertResult.quoteMap;
 		priceAlertIsMarketOpen = priceAlertResult.isMarketOpen;
@@ -501,6 +548,7 @@ export async function runScheduledNotifications(options: {
 
 	const sendEmail = createEmailSender();
 	const getSmsSender = createSmsSenderProvider();
+	const schedulerQuoteCache = createSchedulerQuoteCache(priceAlertQuoteMap);
 
 	/* ============= Two-pass execution ============= */
 	const passStartTime = Date.now();
@@ -511,7 +559,8 @@ export async function runScheduledNotifications(options: {
 		logger,
 		sendEmail,
 		getSmsSender,
-		priceAlertQuoteMap,
+		marketSession: schedulerMarketSession,
+		schedulerQuoteCache,
 		includeAssetEvents: true,
 	});
 
@@ -530,6 +579,8 @@ export async function runScheduledNotifications(options: {
 		logger,
 		sendEmail,
 		getSmsSender,
+		marketSession: schedulerMarketSession,
+		schedulerQuoteCache,
 		includeAssetEvents: false,
 	});
 

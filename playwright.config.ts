@@ -18,6 +18,13 @@ export default defineConfig({
 		env: {
 			// CI uses placeholder API keys; avoid vendor retry storms during E2E (vendor-fetch.ts).
 			SKIP_VENDOR_HTTP_IN_TEST: "1",
+			// Deterministic admin allowlist for tests/e2e/admin-users.e2e.spec.ts,
+			// independent of whatever .env.local / CI static vars contain.
+			APPROVAL_ADMIN_EMAILS: "admin-e2e@example.com",
+			EMAIL_FROM: "StockTextAlerts <notifications@example.com>",
+			EMAIL_SMTP_HOST: "localhost",
+			EMAIL_SMTP_PORT: "1025",
+			SITE_URL: "http://localhost:4322",
 		},
 	},
 });

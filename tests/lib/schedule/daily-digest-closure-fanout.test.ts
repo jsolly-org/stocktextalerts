@@ -2,12 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const dispatchDailyDigestUserMock = vi.fn();
 const fetchDailyDigestUsersMock = vi.fn();
+const fetchUpcomingDailyDigestUsersMock = vi.fn();
 const getCurrentMarketSessionMock = vi.fn();
 const fetchMarketScheduledUsersMock = vi.fn();
 const fetchAssetEventsUsersMock = vi.fn();
 const processPriceAlertsMock = vi.fn();
 const processPriceTargetsMock = vi.fn();
 const getUsMarketClosureInfoForInstantMock = vi.fn();
+const fetchAssetPricesWithSessionStateMock = vi.fn();
+const batchLoadUserAssetsMock = vi.fn();
 
 vi.mock("../../../src/lib/daily-digest/dispatch", () => ({
 	dispatchDailyDigestUser: dispatchDailyDigestUserMock,
@@ -15,6 +18,10 @@ vi.mock("../../../src/lib/daily-digest/dispatch", () => ({
 
 vi.mock("../../../src/lib/daily-digest/query", () => ({
 	fetchDailyDigestUsers: fetchDailyDigestUsersMock,
+}));
+
+vi.mock("../../../src/lib/daily-digest/query-upcoming", () => ({
+	fetchUpcomingDailyDigestUsers: fetchUpcomingDailyDigestUsersMock,
 }));
 
 vi.mock("../../../src/lib/market-notifications/scheduled/query", () => ({
@@ -31,7 +38,7 @@ vi.mock("../../../src/lib/providers/price-fetcher", async () => {
 	);
 	return {
 		...actual,
-		fetchAssetPrices: vi.fn().mockResolvedValue(new Map()),
+		fetchAssetPricesWithSessionState: fetchAssetPricesWithSessionStateMock,
 		getCurrentMarketSession: getCurrentMarketSessionMock,
 	};
 });
@@ -45,7 +52,14 @@ vi.mock("../../../src/lib/time/market-calendar", async () => {
 });
 
 vi.mock("../../../src/lib/market-notifications/scheduled/process", () => ({
-	processMarketScheduledUser: vi.fn(),
+	processMarketScheduledUser: vi.fn().mockResolvedValue({
+		skipped: 0,
+		logFailures: 0,
+		emailsSent: 0,
+		emailsFailed: 0,
+		smsSent: 0,
+		smsFailed: 0,
+	}),
 }));
 
 vi.mock("../../../src/lib/asset-events/process", () => ({
@@ -97,6 +111,16 @@ vi.mock("../../../src/lib/market-notifications/snapshot-store", () => ({
 	purgeOldAssetSnapshots: vi.fn().mockResolvedValue(0),
 }));
 
+vi.mock("../../../src/lib/schedule/helpers", async () => {
+	const actual = await vi.importActual<typeof import("../../../src/lib/schedule/helpers")>(
+		"../../../src/lib/schedule/helpers",
+	);
+	return {
+		...actual,
+		batchLoadUserAssets: batchLoadUserAssetsMock,
+	};
+});
+
 describe("A cron fallback pass fans out daily digests without a shared closure label.", () => {
 	beforeEach(() => {
 		dispatchDailyDigestUserMock.mockReset();
@@ -107,6 +131,14 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 		processPriceAlertsMock.mockReset();
 		processPriceTargetsMock.mockReset();
 		getUsMarketClosureInfoForInstantMock.mockReset();
+		fetchAssetPricesWithSessionStateMock.mockReset();
+		batchLoadUserAssetsMock.mockReset();
+		fetchUpcomingDailyDigestUsersMock.mockResolvedValue([]);
+		batchLoadUserAssetsMock.mockResolvedValue(new Map());
+		fetchAssetPricesWithSessionStateMock.mockResolvedValue({
+			prices: new Map(),
+			noSessionTrade: new Set(),
+		});
 		vi.stubEnv("SCHEDULE_PASS_DELAY_MS", "0");
 
 		processPriceAlertsMock.mockResolvedValue({
@@ -121,7 +153,8 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 				logFailures: 0,
 			},
 			quoteMap: new Map(),
-			isMarketOpen: undefined,
+			isMarketOpen: false,
+			marketSession: "closed",
 		});
 		processPriceTargetsMock.mockResolvedValue({
 			targetsChecked: 0,
@@ -180,5 +213,38 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 			}),
 		);
 		expect(getUsMarketClosureInfoForInstantMock).toHaveBeenCalled();
+		expect(getCurrentMarketSessionMock).toHaveBeenCalledTimes(1);
+	});
+
+	it("reuses successful market quotes across both scheduler passes without refetching", async () => {
+		const { runScheduledNotifications } = await import("../../../src/lib/schedule/run");
+		const marketUser = { id: "market-user-1" };
+
+		fetchMarketScheduledUsersMock
+			.mockResolvedValueOnce([marketUser])
+			.mockResolvedValueOnce([marketUser])
+			.mockResolvedValue([]);
+		fetchDailyDigestUsersMock.mockResolvedValue([]);
+		fetchAssetEventsUsersMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+		getCurrentMarketSessionMock.mockResolvedValue("regular");
+		batchLoadUserAssetsMock.mockResolvedValue(
+			new Map([["market-user-1", [{ symbol: "AAPL", name: "Apple", type: "stock" }]]]),
+		);
+		fetchAssetPricesWithSessionStateMock.mockResolvedValue({
+			prices: new Map([["AAPL", { price: 190, changePercent: 1.1, prevClose: 188 }]]),
+			noSessionTrade: new Set(),
+		});
+
+		await runScheduledNotifications({
+			supabase: {} as never,
+			logger: {
+				info: vi.fn(),
+				warn: vi.fn(),
+				error: vi.fn(),
+			} as never,
+		});
+
+		expect(fetchAssetPricesWithSessionStateMock).toHaveBeenCalledTimes(1);
+		expect(getCurrentMarketSessionMock).toHaveBeenCalledTimes(1);
 	});
 });

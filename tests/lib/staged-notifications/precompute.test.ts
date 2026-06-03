@@ -173,4 +173,31 @@ describe("A cron job precomputes daily digest content for upcoming users.", () =
 			expect(args).not.toHaveProperty("marketClosureInfo");
 		}
 	});
+
+	it("uses scheduler-provided marketOpen without calling Massive market status again", async () => {
+		const currentTime = DateTime.fromISO("2026-06-01T13:55:00.000Z", { zone: "utc" });
+		fetchUpcomingDailyDigestUsersMock.mockResolvedValue([
+			{ id: "10000000-0000-4000-a000-000000000004" },
+		]);
+		dispatchDailyDigestUserMock.mockResolvedValue({
+			skipped: 0,
+			logFailures: 0,
+			emailsSent: 0,
+			emailsFailed: 0,
+			smsSent: 0,
+			smsFailed: 0,
+		});
+
+		await precomputeDailyDigest({
+			supabase: {} as never,
+			logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } as never,
+			currentTime,
+			marketOpen: true,
+		});
+
+		expect(getCurrentMarketSessionMock).not.toHaveBeenCalled();
+		expect(dispatchDailyDigestUserMock).toHaveBeenCalledWith(
+			expect.objectContaining({ marketOpen: true, precompute: true }),
+		);
+	});
 });

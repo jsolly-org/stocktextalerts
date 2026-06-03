@@ -757,6 +757,78 @@ function parseSnapshotTicker(
 	};
 }
 
+const SNAPSHOT_QUOTES_MAX_TICKERS_PER_REQUEST = 250;
+const SNAPSHOT_QUOTES_LARGE_BATCH_TIMEOUT_MS = 35_000;
+const SNAPSHOT_QUOTES_CHUNK_CONCURRENCY = 2;
+
+function chunkSymbols(symbols: string[], chunkSize: number): string[][] {
+	const chunks: string[][] = [];
+	for (let index = 0; index < symbols.length; index += chunkSize) {
+		chunks.push(symbols.slice(index, index + chunkSize));
+	}
+	return chunks;
+}
+
+function mergeSnapshotChunkIntoResult(
+	target: Map<string, SnapshotQuote | NoSessionTrade | null>,
+	chunk: Map<string, SnapshotQuote | NoSessionTrade | null>,
+): void {
+	for (const [symbol, entry] of chunk) {
+		if (entry !== null) {
+			target.set(symbol, entry);
+		}
+	}
+}
+
+async function fetchSnapshotQuotesChunk(options: {
+	symbols: string[];
+	session: MarketSession;
+	chunkIndex: number;
+	chunkCount: number;
+	totalTickerCount: number;
+}): Promise<Map<string, SnapshotQuote | NoSessionTrade | null>> {
+	const { symbols, session, chunkIndex, chunkCount, totalTickerCount } = options;
+	const chunkResult = new Map<string, SnapshotQuote | NoSessionTrade | null>();
+	for (const symbol of symbols) {
+		chunkResult.set(symbol, null);
+	}
+
+	const policy =
+		symbols.length >= SNAPSHOT_QUOTES_MAX_TICKERS_PER_REQUEST
+			? { requestTimeoutMs: SNAPSHOT_QUOTES_LARGE_BATCH_TIMEOUT_MS }
+			: undefined;
+
+	const data = await marketDataFetch(
+		"/v2/snapshot/locale/us/markets/stocks/tickers",
+		{ tickers: symbols.join(",") },
+		"snapshot-quotes",
+		{ tickerCount: totalTickerCount, chunkIndex, chunkCount },
+		policy,
+	);
+
+	if (typeof data !== "object" || data === null) {
+		return chunkResult;
+	}
+
+	const tickers = (data as Record<string, unknown>).tickers;
+	if (!Array.isArray(tickers)) {
+		return chunkResult;
+	}
+
+	for (const raw of tickers) {
+		if (typeof raw !== "object" || raw === null) continue;
+		const t = raw as SnapshotTicker;
+		if (typeof t.ticker !== "string") continue;
+
+		const entry = parseSnapshotTicker(t, session);
+		if (entry !== null) {
+			chunkResult.set(t.ticker, entry);
+		}
+	}
+
+	return chunkResult;
+}
+
 /**
  * Batch-fetch snapshot quotes for a list of symbols via a single Massive API call.
  *
@@ -781,28 +853,30 @@ export async function fetchSnapshotQuotes(
 	// Pre-fill with null so callers always see every requested symbol
 	for (const s of symbols) result.set(s, null);
 
-	const data = await marketDataFetch(
-		"/v2/snapshot/locale/us/markets/stocks/tickers",
-		{ tickers: symbols.join(",") },
-		"snapshot-quotes",
-		{ tickerCount: symbols.length },
-	);
+	const chunks = chunkSymbols(symbols, SNAPSHOT_QUOTES_MAX_TICKERS_PER_REQUEST);
+	const chunkCount = chunks.length;
+	const queue = chunks.map((chunk, index) => ({ chunk, chunkIndex: index + 1 }));
+	const pending: Promise<void>[] = [];
 
-	if (typeof data !== "object" || data === null) return result;
-
-	const tickers = (data as Record<string, unknown>).tickers;
-	if (!Array.isArray(tickers)) return result;
-
-	for (const raw of tickers) {
-		if (typeof raw !== "object" || raw === null) continue;
-		const t = raw as SnapshotTicker;
-		if (typeof t.ticker !== "string") continue;
-
-		const entry = parseSnapshotTicker(t, session);
-		if (entry !== null) {
-			result.set(t.ticker, entry);
+	async function worker(): Promise<void> {
+		while (true) {
+			const next = queue.shift();
+			if (next === undefined) break;
+			const chunkResult = await fetchSnapshotQuotesChunk({
+				symbols: next.chunk,
+				session,
+				chunkIndex: next.chunkIndex,
+				chunkCount,
+				totalTickerCount: symbols.length,
+			});
+			mergeSnapshotChunkIntoResult(result, chunkResult);
 		}
 	}
+
+	for (let i = 0; i < Math.min(SNAPSHOT_QUOTES_CHUNK_CONCURRENCY, queue.length); i++) {
+		pending.push(worker());
+	}
+	await Promise.all(pending);
 
 	return result;
 }

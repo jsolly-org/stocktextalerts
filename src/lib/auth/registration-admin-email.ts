@@ -24,7 +24,7 @@ export async function sendRegistrationAdminEmail(
 			`Timezone: ${user.timezone}`,
 			`Created at: ${createdAt}`,
 			"",
-			"Approve this user by setting approved_at on their users row in Supabase.",
+			"Approve this user at /admin/users (requires APPROVAL_ADMIN_EMAILS).",
 		].join("\n");
 
 		const result = await sendEmail({
