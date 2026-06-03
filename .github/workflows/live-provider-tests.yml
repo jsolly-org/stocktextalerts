@@ -29,7 +29,7 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v2
         with:
-          version: 2.76.9
+          version: 2.98.2
 
       - name: Install dependencies and start Supabase
         run: |

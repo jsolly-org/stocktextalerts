@@ -98,7 +98,7 @@ runs:
         echo "Migration guard passed."
 
     - name: Setup Node.js
-      uses: actions/setup-node@v6.3.0
+      uses: actions/setup-node@v6.4.0
       with:
         node-version-file: .nvmrc
         cache: npm
@@ -120,7 +120,7 @@ runs:
     - name: Setup Supabase CLI
       uses: supabase/setup-cli@v2
       with:
-        version: 2.76.9
+        version: 2.98.2
     - name: Run Biome
       if: inputs.skip-lint != 'true'
       shell: bash
@@ -146,16 +146,33 @@ runs:
     - name: Start Supabase and install Playwright
       shell: bash
       run: |
-        supabase start -x studio,imgproxy,logflare,vector,postgres-meta,edge-runtime,realtime,storage-api &
+        set -euo pipefail
+        SUPABASE_START_TIMEOUT_SEC="${SUPABASE_START_TIMEOUT_SEC:-600}"
+        echo "Node: $(node -v)"
+        echo "Supabase CLI: $(supabase --version)"
+        echo "Starting local Supabase (timeout ${SUPABASE_START_TIMEOUT_SEC}s)..."
+        timeout "${SUPABASE_START_TIMEOUT_SEC}" supabase start -x studio,imgproxy,logflare,vector,postgres-meta,edge-runtime,realtime,storage-api &
         SB_PID=$!
         if [[ "${{ steps.playwright-cache.outputs.cache-hit }}" == "true" ]]; then
+          echo "Installing Playwright system deps (browser cache hit)..."
           npx playwright install-deps chromium &
         else
+          echo "Installing Playwright chromium with deps..."
           npx playwright install chromium --with-deps &
         fi
         PW_PID=$!
-        wait $SB_PID
-        wait $PW_PID
+        echo "Waiting for Supabase start (pid=${SB_PID})..."
+        if ! wait "${SB_PID}"; then
+          echo "::error::Supabase start failed or timed out after ${SUPABASE_START_TIMEOUT_SEC}s"
+          exit 1
+        fi
+        echo "Supabase start finished."
+        echo "Waiting for Playwright install (pid=${PW_PID})..."
+        if ! wait "${PW_PID}"; then
+          echo "::error::Playwright install failed"
+          exit 1
+        fi
+        echo "Playwright install finished."
     - name: Load Supabase env
       shell: bash
       run: |
