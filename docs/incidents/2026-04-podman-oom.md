@@ -18,6 +18,6 @@ podman machine set podman-machine-default --memory 6144
 podman machine start podman-machine-default
 ```
 
-`scripts/ci/run-local-actions.sh` now preflight-checks the `podman-machine-default` VM and fails loudly with the fix command if it's undersized. It also prunes stale `act-*` containers from prior runs that would otherwise keep the VM under memory pressure.
+Local pre-commit runs Vitest on the host by default. If you use Podman-backed containers for tests, keep the `podman-machine-default` VM at ≥ 6144 MB to avoid OOM kills.
 
 See [docs/local-supabase.md](../local-supabase.md) and [docs/ci-with-act.md](../ci-with-act.md).

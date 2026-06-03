@@ -32,7 +32,7 @@ export DOCKER_HOST="unix://$(/opt/podman/bin/podman machine inspect podman-machi
 
 The `DOCKER_HOST` value resolves at shell-startup time to the current Podman machine's socket — it's `/var/folders/.../T/podman/podman-machine-default-api.sock` and changes if the machine is recreated.
 
-**Podman VM needs ≥ 6144 MB of memory** for Vitest to complete without the in-VM OOM killer issuing `SIGKILL`. `scripts/ci/run-local-actions.sh` preflight-checks the `podman-machine-default` VM and fails with the fix command if it's undersized. See [docs/incidents/2026-04-podman-oom.md](incidents/2026-04-podman-oom.md).
+**Podman VM needs ≥ 6144 MB of memory** if you run Vitest inside a container. See [docs/incidents/2026-04-podman-oom.md](incidents/2026-04-podman-oom.md) for VM sizing notes.
 
 ## Gotchas
 

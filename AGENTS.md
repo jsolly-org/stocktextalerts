@@ -119,9 +119,9 @@ See `docs/local-supabase.md` for `db:bootstrap`, seed hardening, and Podman setu
 
 See `docs/external-apis.md` for Massive (prices/reference) and Finnhub (earnings calendar + extras).
 
-## CI: Reproduce CI locally with Act
+## CI before push to main
 
-See `docs/ci-with-act.md` for the 7-item pre-push checklist and act limitations (Podman socket, VM memory, deploy workflow rejection).
+Pre-commit hooks (`.githooks/pre-commit`) mirror the deploy workflow `run-ci` step. See `docs/ci-with-act.md` for the full local command list and the 7-item pre-push checklist. Deploy on `main` is the GitHub guard (production creds); it is not runnable locally.
 
 ## AWS IAM
 
