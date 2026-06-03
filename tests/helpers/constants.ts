@@ -13,5 +13,7 @@ export const PRESERVED_USER_ID = "00000000-0000-0000-0000-000000000000";
 // AGENTS.md#dev-environment).
 export const PRESERVED_TEST_EMAIL = "preserved-test@example.com";
 export const TEST_PASSWORD = "TestPassword123!";
+/** Matches `REGISTRATION_SECRET_PASSWORD` used in register API tests. */
+export const TEST_REGISTRATION_SECRET = "test-registration-secret";
 export const NEW_PASSWORD = "NewPassword123!";
 export const TEST_RUN_ID = process.env.TEST_RUN_ID ?? randomUUID();

@@ -43,6 +43,13 @@ CI installs them per-run (yamllint via `pipx`, actionlint via the upstream `down
 
 ## Dev Environment
 
+### Registration gate
+
+When `REGISTRATION_ENABLED` is `true` in `src/lib/constants.ts`, new signups also require
+`REGISTRATION_SECRET_PASSWORD` in `.env.local` (and in Vercel for production). Set a shared
+password you distribute out of band (e.g. via X DM). Registration fails closed if the flag is
+on but the env var is missing.
+
 ### Prod dev-login account
 
 `test@jsolly.com` with `DEFAULT_PASSWORD` env var. This is the only place a real inbox is allowed to appear by name; it exists as a row in production Supabase for interactive login during local dev against prod. **Not used by the test harness** — `tests/helpers/constants.ts:PRESERVED_TEST_EMAIL` is `preserved-test@example.com` (deliberately non-routable).

@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { DateTime } from "luxon";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_TIMEZONE } from "../../../../src/lib/constants";
 import { POST } from "../../../../src/pages/api/auth/email/register";
 import { createApiContext } from "../../../helpers/api-context";
-import { TEST_PASSWORD } from "../../../helpers/constants";
+import { TEST_PASSWORD, TEST_REGISTRATION_SECRET } from "../../../helpers/constants";
 import { adminClient } from "../../../helpers/test-env";
 import { cleanupTestUser } from "../../../helpers/test-user";
 
@@ -13,14 +13,35 @@ vi.mock("../../../../src/lib/constants", async (importOriginal) => {
 	return { ...actual, REGISTRATION_ENABLED: true };
 });
 
+function buildRegistrationPayload(
+	overrides: Partial<{
+		registration_password: string;
+		email: string;
+		password: string;
+		confirm: string;
+		timezone: string;
+	}> = {},
+) {
+	return {
+		registration_password: TEST_REGISTRATION_SECRET,
+		email: `test-${randomUUID()}@example.com`,
+		password: TEST_PASSWORD,
+		confirm: TEST_PASSWORD,
+		timezone: "America/New_York",
+		...overrides,
+	};
+}
+
 describe("A visitor registers for a new account with email and password.", () => {
+	beforeEach(() => {
+		vi.stubEnv("REGISTRATION_SECRET_PASSWORD", TEST_REGISTRATION_SECRET);
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
 	it("The account is created, stored with the chosen timezone, and the user is redirected to the unconfirmed email page.", async () => {
-		const payload = {
-			email: `test-${randomUUID()}@example.com`,
-			password: TEST_PASSWORD,
-			confirm: TEST_PASSWORD,
-			timezone: "America/New_York",
-		};
+		const payload = buildRegistrationPayload();
 		let userId: string | undefined;
 
 		const request = new Request("http://localhost/api/auth/email/register", {
@@ -67,12 +88,10 @@ describe("A visitor registers for a new account with email and password.", () =>
 	});
 
 	it("When the detected timezone is invalid, the account is created with the default timezone.", async () => {
-		const payload = {
+		const payload = buildRegistrationPayload({
 			email: `test-fallback-${randomUUID()}@example.com`,
-			password: TEST_PASSWORD,
-			confirm: TEST_PASSWORD,
 			timezone: "Fake/Zone",
-		};
+		});
 		let userId: string | undefined;
 
 		const request = new Request("http://localhost/api/auth/email/register", {
@@ -110,12 +129,10 @@ describe("A visitor registers for a new account with email and password.", () =>
 
 	it("User's timezone is detected, but they choose a different one. It is saved based on their choice.", async () => {
 		const chosenTimezone = "America/Chicago";
-		const payload = {
+		const payload = buildRegistrationPayload({
 			email: `test-chosen-${randomUUID()}@example.com`,
-			password: TEST_PASSWORD,
-			confirm: TEST_PASSWORD,
 			timezone: chosenTimezone,
-		};
+		});
 		let userId: string | undefined;
 
 		const request = new Request("http://localhost/api/auth/email/register", {
@@ -150,12 +167,9 @@ describe("A visitor registers for a new account with email and password.", () =>
 	});
 
 	it("After registering, the email remains unverified until confirmation is completed.", async () => {
-		const payload = {
+		const payload = buildRegistrationPayload({
 			email: `test-verify-${randomUUID()}@example.com`,
-			password: TEST_PASSWORD,
-			confirm: TEST_PASSWORD,
-			timezone: "America/New_York",
-		};
+		});
 		let userId: string | undefined;
 
 		const request = new Request("http://localhost/api/auth/email/register", {

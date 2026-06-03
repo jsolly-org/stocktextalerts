@@ -82,6 +82,21 @@ if (error === "user_already_exists") {
         <form class="space-y-6" action="/api/auth/email/register" method="post" id="register-form">
           <fieldset class="space-y-4">
             <legend class="sr-only">Account information</legend>
+            <p class="text-sm text-body-secondary">
+              Want access? DM <a href="https://x.com/_jsolly" class="link-primary" rel="noopener noreferrer" target="_blank">@_jsolly</a> on X for the registration password.
+            </p>
+            <div>
+              <label for="registration_password" class="block text-sm font-medium text-label mb-2">Registration password</label>
+              <input
+                type="password"
+                name="registration_password"
+                id="registration_password"
+                required
+                autocomplete="off"
+                spellcheck="false"
+                class="input input-lg"
+              />
+            </div>
             <div>
               <label for="email" class="block text-sm font-medium text-label mb-2">Email</label>
               <EmailInput

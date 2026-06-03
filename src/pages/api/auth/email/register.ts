@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { APIContext } from "astro";
+import { checkRegistrationSecret } from "../../../../lib/auth/registration-secret";
 import { MIN_PASSWORD_LENGTH, REGISTRATION_ENABLED } from "../../../../lib/constants";
 import { getSiteUrl } from "../../../../lib/db/env";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "../../../../lib/db/supabase";
@@ -37,6 +38,7 @@ export async function POST({ url, request, redirect, locals }: APIContext): Prom
 
 	const formData = await request.formData();
 	const parsed = parseWithSchema(formData, {
+		registration_password: { type: "string", required: true, trim: false },
 		email: { type: "string", required: true },
 		password: { type: "string", required: true, trim: false },
 		confirm: { type: "string", required: true, trim: false },
@@ -50,7 +52,12 @@ export async function POST({ url, request, redirect, locals }: APIContext): Prom
 		return redirect("/auth/register?error=invalid_form");
 	}
 
-	const { email: rawEmail, password, confirm, timezone } = parsed.data;
+	const { registration_password, email: rawEmail, password, confirm, timezone } = parsed.data;
+
+	const registrationSecretError = checkRegistrationSecret(registration_password, logger);
+	if (registrationSecretError) {
+		return redirect(`/auth/register?error=${registrationSecretError}`);
+	}
 
 	if (password.length < MIN_PASSWORD_LENGTH) {
 		logger.info("Registration rejected: password too short", {

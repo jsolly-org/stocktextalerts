@@ -469,7 +469,15 @@ test.describe("sanity tests", () => {
 			return;
 		}
 
+		const registrationSecret = process.env.REGISTRATION_SECRET_PASSWORD;
+		if (!registrationSecret) {
+			throw new Error(
+				"REGISTRATION_SECRET_PASSWORD must be set in .env.local when REGISTRATION_ENABLED is true",
+			);
+		}
+
 		await page.goto("/auth/register");
+		await page.locator("#registration_password").fill(registrationSecret);
 		await page.locator("#email").fill(testEmail);
 		await page.locator("#password").fill(testPassword);
 		await page.locator("#confirm").fill(testPassword);

@@ -159,6 +159,21 @@ describe("Users can load pages without unexpected errors.", () => {
 		expect(response.status).toBe(200);
 	});
 
+	it("The register page shows the registration password field and DM instructions.", async () => {
+		const container = await AstroContainer.create({ renderers });
+		const response = await container.renderToResponse(AuthRegisterPage, {
+			request: buildRequest("/auth/register"),
+		});
+
+		expect(response.status).toBe(200);
+		const html = await response.text();
+		expect(html).toContain('name="registration_password"');
+		expect(html).toContain("Registration password");
+		expect(html).toContain("DM");
+		expect(html).toContain("@_jsolly");
+		expect(html).toContain("registration password");
+	});
+
 	it.each(staticPages)("A visitor can access static page $path.", async ({ component, path }) => {
 		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(component, {

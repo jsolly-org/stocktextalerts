@@ -1,21 +1,29 @@
 import { randomUUID } from "node:crypto";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MIN_PASSWORD_LENGTH } from "../../../../src/lib/constants";
 import { POST } from "../../../../src/pages/api/auth/email/register";
+import { createApiContext } from "../../../helpers/api-context";
+import { TEST_REGISTRATION_SECRET } from "../../../helpers/constants";
 
 vi.mock("../../../../src/lib/constants", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("../../../../src/lib/constants")>();
 	return { ...actual, REGISTRATION_ENABLED: true };
 });
 
-import { createApiContext } from "../../../helpers/api-context";
-
 describe("A visitor attempts to register with an invalid password.", () => {
+	beforeEach(() => {
+		vi.stubEnv("REGISTRATION_SECRET_PASSWORD", TEST_REGISTRATION_SECRET);
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
 	it("The request is rejected when the password is shorter than the minimum length.", async () => {
 		const shortPassword = "a".repeat(MIN_PASSWORD_LENGTH - 1);
 		const request = new Request("http://localhost/api/auth/email/register", {
 			method: "POST",
 			body: new URLSearchParams({
+				registration_password: TEST_REGISTRATION_SECRET,
 				email: `test-${randomUUID()}@example.com`,
 				password: shortPassword,
 				confirm: shortPassword,
@@ -34,6 +42,7 @@ describe("A visitor attempts to register with an invalid password.", () => {
 		const request = new Request("http://localhost/api/auth/email/register", {
 			method: "POST",
 			body: new URLSearchParams({
+				registration_password: TEST_REGISTRATION_SECRET,
 				email: `test-${randomUUID()}@example.com`,
 				password,
 				confirm: `${password}DIFFERENT`,
