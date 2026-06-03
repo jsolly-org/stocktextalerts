@@ -9,6 +9,7 @@ export function checkRegistrationSecret(
 	submitted: string,
 	logger: Logger,
 ): "registration_unavailable" | "invalid_registration_password" | null {
+	// readEnv (not requireEnv): missing secret is a user-facing unavailable state, not a boot failure.
 	const expected = readEnv("REGISTRATION_SECRET_PASSWORD");
 	if (!expected) {
 		logger.error("Registration secret password is not configured", {
@@ -17,8 +18,10 @@ export function checkRegistrationSecret(
 		return "registration_unavailable";
 	}
 
-	if (submitted.trim() !== expected) {
-		logger.info("Registration rejected: invalid registration password");
+	if (submitted.trim() !== expected.trim()) {
+		logger.info("Registration rejected: invalid registration password", {
+			action: "register",
+		});
 		return "invalid_registration_password";
 	}
 

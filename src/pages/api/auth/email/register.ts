@@ -34,8 +34,6 @@ export async function POST({ url, request, redirect, locals }: APIContext): Prom
 		return redirect("/auth/signin?error=registration_closed");
 	}
 
-	const supabase = createSupabaseServerClient();
-
 	const formData = await request.formData();
 	const parsed = parseWithSchema(formData, {
 		registration_password: { type: "string", required: true, trim: false },
@@ -58,6 +56,8 @@ export async function POST({ url, request, redirect, locals }: APIContext): Prom
 	if (registrationSecretError) {
 		return redirect(`/auth/register?error=${registrationSecretError}`);
 	}
+
+	const supabase = createSupabaseServerClient();
 
 	if (password.length < MIN_PASSWORD_LENGTH) {
 		logger.info("Registration rejected: password too short", {
