@@ -166,7 +166,7 @@ runs:
       run: |
         set -euo pipefail
         PW_DEPS_TIMEOUT_SEC="${PW_DEPS_TIMEOUT_SEC:-300}"
-        PW_BROWSER_TIMEOUT_SEC="${PW_BROWSER_TIMEOUT_SEC:-900}"
+        PW_BROWSER_TIMEOUT_SEC="${PW_BROWSER_TIMEOUT_SEC:-1800}"
         if [[ "${{ steps.playwright-cache.outputs.cache-hit }}" == "true" ]]; then
           echo "Installing Playwright system deps (browser cache hit, timeout ${PW_DEPS_TIMEOUT_SEC}s)..."
           timeout --foreground "${PW_DEPS_TIMEOUT_SEC}" npx playwright install-deps chromium
