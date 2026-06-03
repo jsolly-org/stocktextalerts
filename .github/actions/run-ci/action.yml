@@ -148,6 +148,8 @@ runs:
       with:
         path: ~/.cache/ms-playwright
         key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+        restore-keys: |
+          playwright-${{ runner.os }}-
     - name: Start Supabase
       shell: bash
       run: |
@@ -166,15 +168,30 @@ runs:
       run: |
         set -euo pipefail
         PW_DEPS_TIMEOUT_SEC="${PW_DEPS_TIMEOUT_SEC:-300}"
-        PW_BROWSER_TIMEOUT_SEC="${PW_BROWSER_TIMEOUT_SEC:-1800}"
+        PW_BROWSER_ATTEMPT_TIMEOUT_SEC="${PW_BROWSER_ATTEMPT_TIMEOUT_SEC:-600}"
+        PW_BROWSER_MAX_ATTEMPTS="${PW_BROWSER_MAX_ATTEMPTS:-3}"
+        export PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT="${PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT:-120000}"
         if [[ "${{ steps.playwright-cache.outputs.cache-hit }}" == "true" ]]; then
           echo "Installing Playwright system deps (browser cache hit, timeout ${PW_DEPS_TIMEOUT_SEC}s)..."
           timeout --foreground "${PW_DEPS_TIMEOUT_SEC}" npx playwright install-deps chromium
         else
           echo "Installing Playwright system deps (timeout ${PW_DEPS_TIMEOUT_SEC}s)..."
           timeout --foreground "${PW_DEPS_TIMEOUT_SEC}" npx playwright install-deps chromium
-          echo "Installing Playwright chromium browser (timeout ${PW_BROWSER_TIMEOUT_SEC}s)..."
-          timeout --foreground "${PW_BROWSER_TIMEOUT_SEC}" npx playwright install chromium
+          echo "Installing Playwright chromium headless shell (${PW_BROWSER_MAX_ATTEMPTS} attempts, ${PW_BROWSER_ATTEMPT_TIMEOUT_SEC}s each)..."
+          installed=0
+          for attempt in $(seq 1 "${PW_BROWSER_MAX_ATTEMPTS}"); do
+            echo "Playwright browser install attempt ${attempt}/${PW_BROWSER_MAX_ATTEMPTS}..."
+            if DEBUG=pw:install timeout --foreground "${PW_BROWSER_ATTEMPT_TIMEOUT_SEC}" \
+              npx playwright install chromium --only-shell; then
+              installed=1
+              break
+            fi
+            echo "Playwright install attempt ${attempt} failed or timed out."
+          done
+          if [[ "${installed}" -ne 1 ]]; then
+            echo "Playwright browser install failed after ${PW_BROWSER_MAX_ATTEMPTS} attempts." >&2
+            exit 1
+          fi
         fi
         echo "Playwright install finished."
     - name: Load Supabase env
