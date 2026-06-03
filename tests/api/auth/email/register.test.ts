@@ -8,6 +8,7 @@ import { createApiContext } from "../../../helpers/api-context";
 import { TEST_PASSWORD } from "../../../helpers/constants";
 import { adminClient } from "../../../helpers/test-env";
 import { cleanupTestUser } from "../../../helpers/test-user";
+import { expectConsoleError } from "../../../setup";
 
 const mockEmailSender = vi.hoisted(() =>
 	vi.fn<EmailSender>(async () => ({
@@ -105,6 +106,45 @@ describe("A visitor registers for a new account with email and password.", () =>
 			expect(authError).toBeNull();
 			if (!authUserData?.user) throw new Error("No auth user found");
 			expect(authUserData.user.email).toBe(payload.email);
+		} finally {
+			if (userId) {
+				await cleanupTestUser(userId);
+			}
+		}
+	});
+
+	it("When the admin notification email fails, registration still completes.", async () => {
+		expectConsoleError("Failed to send registration admin email");
+		mockEmailSender.mockResolvedValueOnce({
+			success: false,
+			error: "SMTP down",
+			errorCode: "smtp_error",
+		});
+
+		const payload = buildRegistrationPayload();
+		let userId: string | undefined;
+
+		try {
+			const response = await POST(
+				createApiContext({
+					request: new Request("http://localhost/api/auth/email/register", {
+						method: "POST",
+						body: new URLSearchParams(payload),
+					}),
+				}),
+			);
+
+			expect(response.status).toBe(302);
+			expect(response.headers.get("Location")).toContain("/auth/unconfirmed");
+
+			const { data: users, error: usersError } = await adminClient
+				.from("users")
+				.select("id, approved_at")
+				.eq("email", payload.email);
+			expect(usersError).toBeNull();
+			expect(users).toHaveLength(1);
+			userId = users?.[0]?.id;
+			expect(users?.[0]?.approved_at).toBeNull();
 		} finally {
 			if (userId) {
 				await cleanupTestUser(userId);

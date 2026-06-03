@@ -31,7 +31,7 @@ async function createUserClient(accessToken: string, refreshToken: string) {
 }
 
 describe("Manual user approval enforcement", () => {
-	it("An unapproved user cannot read protected user-owned rows via RLS.", async () => {
+	it("An unapproved user can read their profile but not owned assets via RLS.", async () => {
 		const testUser = await createTestUser({
 			email: `test-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,

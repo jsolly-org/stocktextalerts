@@ -1,4 +1,5 @@
 import type { AstroCookies } from "astro";
+import { isApprovedAtValue } from "../auth/approval";
 import { setAuthCookies } from "../auth/cookies";
 import { rootLogger } from "../logging";
 import type { Database } from "./generated/database.types";
@@ -159,7 +160,7 @@ export function createUserService(supabase: AppSupabaseClient, cookies: AstroCoo
 				return null;
 			}
 
-			if (!dbUser?.approved_at) {
+			if (!isApprovedAtValue(dbUser?.approved_at ?? null)) {
 				return null;
 			}
 

@@ -12,6 +12,11 @@ COMMENT ON COLUMN public.users.approved_at IS
 COMMENT ON COLUMN public.users.approved_by IS
   'Free-form operator identifier for the person or process that approved the user.';
 
+UPDATE public.users
+SET approved_at = COALESCE(approved_at, now()),
+    approved_by = COALESCE(approved_by, 'migration')
+WHERE approved_at IS NULL;
+
 CREATE OR REPLACE FUNCTION public.prevent_user_approval_self_change()
 RETURNS trigger
   LANGUAGE plpgsql
@@ -48,11 +53,6 @@ CREATE TRIGGER prevent_user_approval_self_change
   BEFORE INSERT OR UPDATE ON public.users
   FOR EACH ROW
   EXECUTE FUNCTION public.prevent_user_approval_self_change();
-
-UPDATE public.users
-SET approved_at = COALESCE(approved_at, now()),
-    approved_by = COALESCE(approved_by, 'migration')
-WHERE approved_at IS NULL;
 
 CREATE OR REPLACE FUNCTION public.is_approved()
 RETURNS boolean
@@ -267,6 +267,8 @@ BEGIN
     AND price_move_alert_state.symbol <> ALL(sanitized_symbols);
 END;
 $$;
+
+REVOKE EXECUTE ON FUNCTION public.replace_user_assets(uuid, text[]) FROM anon;
 
 UPDATE public.app_metadata
 SET value = '20260603180728_manual_user_approval'

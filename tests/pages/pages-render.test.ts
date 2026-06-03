@@ -99,6 +99,26 @@ describe("Users can load pages without unexpected errors.", () => {
 		);
 	});
 
+	it("An unapproved signed-in user is redirected to pending approval from the profile page.", async () => {
+		await withTestUser(
+			{
+				email: createTestEmail("pending-profile"),
+				password: TEST_PASSWORD,
+				confirmed: true,
+				approved: false,
+			},
+			async (_user, cookies) => {
+				const container = await AstroContainer.create({ renderers });
+				const response = await container.renderToResponse(ProfilePage, {
+					request: buildRequest("/profile", cookies),
+				});
+
+				expect(response.status).toBe(302);
+				expect(response.headers.get("Location")).toBe("/auth/pending-approval");
+			},
+		);
+	});
+
 	async function withTestUser<T>(
 		options: {
 			email: string;

@@ -70,7 +70,6 @@ export async function POST({ url, request, redirect, locals }: APIContext): Prom
 	// Supabase Auth doesn't enforce this constraint (external service owns its storage/constraints),
 	// so we normalize at the application level before sending.
 	const trimmedEmail = rawEmail.trim();
-	const adminSupabase = createSupabaseAdminClient();
 
 	const userTimezone = await resolveTimezone({
 		supabase,
@@ -104,6 +103,7 @@ export async function POST({ url, request, redirect, locals }: APIContext): Prom
 	}
 
 	if (data.user) {
+		const adminSupabase = createSupabaseAdminClient();
 		const userProfileData = {
 			id: data.user.id,
 			email: trimmedEmail,
