@@ -78,7 +78,7 @@
 		"@astrojs/vue": "^6.0.1",
 		"@axe-core/playwright": "^4.11.1",
 		"@biomejs/biome": "2.4.10",
-		"@playwright/test": "^1.59.1",
+		"@playwright/test": "^1.60.0",
 		"@tailwindcss/vite": "^4.2.2",
 		"@types/aws-lambda": "^8.10.161",
 		"@types/luxon": "^3.7.1",
