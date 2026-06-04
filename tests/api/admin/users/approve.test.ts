@@ -46,8 +46,8 @@ describe("admin user approval API", () => {
 		);
 	});
 
-	it("rejects signed-in users outside APPROVAL_ADMIN_EMAILS.", async () => {
-		vi.stubEnv("APPROVAL_ADMIN_EMAILS", "test@jsolly.com");
+	it("rejects signed-in users outside ADMIN_EMAILS.", async () => {
+		vi.stubEnv("ADMIN_EMAILS", "test@jsolly.com");
 		const user = await createTestUser({
 			email: `not-admin-${randomUUID()}@example.com`,
 			password: TEST_PASSWORD,
@@ -64,7 +64,7 @@ describe("admin user approval API", () => {
 	});
 
 	it("approves a pending user and redirects with success.", async () => {
-		vi.stubEnv("APPROVAL_ADMIN_EMAILS", "admin@example.com");
+		vi.stubEnv("ADMIN_EMAILS", "admin@example.com");
 		vi.stubEnv("EMAIL_FROM", "StockTextAlerts <notify@example.com>");
 		const admin = await createTestUser({
 			email: "admin@example.com",
@@ -90,7 +90,7 @@ describe("admin user approval API", () => {
 	});
 
 	it("does not email an already-approved user.", async () => {
-		vi.stubEnv("APPROVAL_ADMIN_EMAILS", "admin@example.com");
+		vi.stubEnv("ADMIN_EMAILS", "admin@example.com");
 		const admin = await createTestUser({
 			email: "admin@example.com",
 			password: TEST_PASSWORD,
@@ -121,7 +121,7 @@ describe("admin user approval API", () => {
 			error: "SMTP down",
 			errorCode: "smtp_error",
 		});
-		vi.stubEnv("APPROVAL_ADMIN_EMAILS", "admin@example.com");
+		vi.stubEnv("ADMIN_EMAILS", "admin@example.com");
 		const admin = await createTestUser({
 			email: "admin@example.com",
 			password: TEST_PASSWORD,

@@ -7,7 +7,7 @@ import { clearMailpit, waitForMailpitMessageTo } from "../helpers/mailpit";
 import { adminClient } from "../helpers/test-env";
 import { cleanupTestUser, createTestUser } from "../helpers/test-user";
 
-// Must match APPROVAL_ADMIN_EMAILS injected into the dev server in
+// Must match ADMIN_EMAILS injected into the dev server in
 // playwright.config.ts (webServer.env). @example.com keeps it non-routable.
 const ADMIN_EMAIL = "admin-e2e@example.com";
 
@@ -24,14 +24,41 @@ async function signIn(page: Page, email: string, password: string) {
 		)
 		.toBe(email);
 	await page.locator("#password").fill(password);
+	const signInResponse = page.waitForResponse(
+		(response) =>
+			response.request().method() === "POST" && response.url().includes("/api/auth/signin"),
+		{ timeout: 30_000 },
+	);
 	await page.getByRole("button", { name: "Sign In" }).click();
-	await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
+	const response = await signInResponse;
+	const status = response.status();
+	expect(
+		status >= 300 && status < 400,
+		`Sign-in POST expected redirect, got status ${status}`,
+	).toBe(true);
+	await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
 }
 
 async function deleteUserByEmail(email: string): Promise<void> {
 	const { data } = await adminClient.from("users").select("id").eq("email", email).maybeSingle();
 	if (data?.id) {
 		await cleanupTestUser(data.id);
+	}
+	const { data: authUsers, error } = await adminClient.auth.admin.listUsers({
+		page: 1,
+		perPage: 1000,
+	});
+	if (error) {
+		throw new Error(`Failed to list auth users: ${error.message}`);
+	}
+	const matchingAuthUsers = authUsers.users.filter(
+		(user) => user.email?.toLowerCase() === email.toLowerCase(),
+	);
+	for (const user of matchingAuthUsers) {
+		const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id);
+		if (deleteError) {
+			throw new Error(`Failed to delete auth user ${user.id}: ${deleteError.message}`);
+		}
 	}
 }
 
@@ -109,6 +136,7 @@ test.describe("admin pending-user approval", () => {
 			await signIn(page, nonAdmin.email, TEST_PASSWORD);
 			const response = await page.goto("/admin/users");
 			expect(response?.status()).toBe(403);
+			await expect(page).toHaveURL(/\/admin\/users$/, { timeout: 5_000 });
 		} finally {
 			await cleanupTestUser(nonAdmin.id);
 		}

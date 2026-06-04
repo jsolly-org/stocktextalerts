@@ -15,7 +15,7 @@ interface ImportMetaEnv {
 	readonly EMAIL_FROM: string;
 	readonly EMAIL_DISPATCH_URL?: string;
 	readonly EMAIL_DISPATCH_SECRET?: string;
-	readonly APPROVAL_ADMIN_EMAILS?: string;
+	readonly ADMIN_EMAILS?: string;
 	readonly UNSUBSCRIBE_TOKEN_SECRET: string;
 	readonly VERCEL_URL?: string;
 	readonly VERCEL_PROJECT_PRODUCTION_URL?: string;

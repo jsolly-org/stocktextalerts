@@ -19,7 +19,7 @@
 - Create `src/lib/auth/approve-user.ts` for the approval transaction-ish workflow shared by the API and tests.
 - Create `src/pages/admin/users.astro` for the minimal pending-user approval page.
 - Create `src/pages/api/admin/users/approve.ts` for the approve POST action.
-- Modify `src/types/env.d.ts`, `env.example`, `README.md`, and `docs/tooling-setup.md` to document `APPROVAL_ADMIN_EMAILS`.
+- Modify `src/types/env.d.ts`, `env.example`, `README.md`, and `docs/tooling-setup.md` to document `ADMIN_EMAILS`.
 - Add tests in:
   - `tests/lib/auth/approval-admin.test.ts`
   - `tests/lib/auth/approval-user-email.test.ts`
@@ -41,9 +41,9 @@ Create `tests/lib/auth/approval-admin.test.ts`:
 ```ts
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
- getApprovalAdminEmails,
+ getAdminEmails,
  isApprovalAdminEmail,
- parseApprovalAdminEmails,
+ parseAdminEmails,
 } from "../../../src/lib/auth/approval-admin";
 
 describe("approval admin allowlist", () => {
@@ -52,25 +52,25 @@ describe("approval admin allowlist", () => {
  });
 
  it("parses comma-separated emails case-insensitively and trims whitespace.", () => {
-  expect(parseApprovalAdminEmails(" test@jsolly.com, ADMIN@example.com ,, ")).toEqual(
+  expect(parseAdminEmails(" test@jsolly.com, ADMIN@example.com ,, ")).toEqual(
    new Set(["test@jsolly.com", "admin@example.com"]),
   );
  });
 
  it("returns an empty set when the env value is missing or blank.", () => {
-  expect(parseApprovalAdminEmails(undefined)).toEqual(new Set());
-  expect(parseApprovalAdminEmails("   ")).toEqual(new Set());
+  expect(parseAdminEmails(undefined)).toEqual(new Set());
+  expect(parseAdminEmails("   ")).toEqual(new Set());
  });
 
  it("recognizes test@jsolly.com when configured for local development.", () => {
-  vi.stubEnv("APPROVAL_ADMIN_EMAILS", "test@jsolly.com");
+  vi.stubEnv("ADMIN_EMAILS", "test@jsolly.com");
 
-  expect(getApprovalAdminEmails()).toEqual(new Set(["test@jsolly.com"]));
+  expect(getAdminEmails()).toEqual(new Set(["test@jsolly.com"]));
   expect(isApprovalAdminEmail("test@jsolly.com")).toBe(true);
  });
 
  it("rejects missing emails and emails not in the allowlist.", () => {
-  vi.stubEnv("APPROVAL_ADMIN_EMAILS", "test@jsolly.com");
+  vi.stubEnv("ADMIN_EMAILS", "test@jsolly.com");
 
   expect(isApprovalAdminEmail(null)).toBe(false);
   expect(isApprovalAdminEmail(undefined)).toBe(false);
@@ -96,9 +96,9 @@ Create `src/lib/auth/approval-admin.ts`:
 ```ts
 import { readEnv } from "../db/env";
 
-const APPROVAL_ADMIN_EMAILS_ENV = "APPROVAL_ADMIN_EMAILS";
+const ADMIN_EMAILS_ENV = "ADMIN_EMAILS";
 
-export function parseApprovalAdminEmails(value: string | undefined): Set<string> {
+export function parseAdminEmails(value: string | undefined): Set<string> {
  return new Set(
   (value ?? "")
    .split(",")
@@ -107,13 +107,13 @@ export function parseApprovalAdminEmails(value: string | undefined): Set<string>
  );
 }
 
-export function getApprovalAdminEmails(): Set<string> {
- return parseApprovalAdminEmails(readEnv(APPROVAL_ADMIN_EMAILS_ENV));
+export function getAdminEmails(): Set<string> {
+ return parseAdminEmails(readEnv(ADMIN_EMAILS_ENV));
 }
 
 export function isApprovalAdminEmail(email: string | null | undefined): boolean {
  if (!email) return false;
- return getApprovalAdminEmails().has(email.trim().toLowerCase());
+ return getAdminEmails().has(email.trim().toLowerCase());
 }
 ```
 
@@ -586,8 +586,8 @@ describe("admin user approval API", () => {
   );
  });
 
- it("rejects signed-in users outside APPROVAL_ADMIN_EMAILS.", async () => {
-  vi.stubEnv("APPROVAL_ADMIN_EMAILS", "test@jsolly.com");
+ it("rejects signed-in users outside ADMIN_EMAILS.", async () => {
+  vi.stubEnv("ADMIN_EMAILS", "test@jsolly.com");
   const user = await createTestUser({
    email: `not-admin-${randomUUID()}@example.com`,
    password: TEST_PASSWORD,
@@ -604,7 +604,7 @@ describe("admin user approval API", () => {
  });
 
  it("approves a pending user and redirects with success.", async () => {
-  vi.stubEnv("APPROVAL_ADMIN_EMAILS", "admin@example.com");
+  vi.stubEnv("ADMIN_EMAILS", "admin@example.com");
   vi.stubEnv("EMAIL_FROM", "StockTextAlerts <notify@example.com>");
   const admin = await createTestUser({
    email: "admin@example.com",
@@ -630,7 +630,7 @@ describe("admin user approval API", () => {
  });
 
  it("does not email an already-approved user.", async () => {
-  vi.stubEnv("APPROVAL_ADMIN_EMAILS", "admin@example.com");
+  vi.stubEnv("ADMIN_EMAILS", "admin@example.com");
   const admin = await createTestUser({
    email: "admin@example.com",
    password: TEST_PASSWORD,
@@ -661,7 +661,7 @@ describe("admin user approval API", () => {
    error: "SMTP down",
    errorCode: "smtp_error",
   });
-  vi.stubEnv("APPROVAL_ADMIN_EMAILS", "admin@example.com");
+  vi.stubEnv("ADMIN_EMAILS", "admin@example.com");
   const admin = await createTestUser({
    email: "admin@example.com",
    password: TEST_PASSWORD,
@@ -806,7 +806,7 @@ it("A logged-out visitor is redirected to sign-in when opening the admin users p
 });
 
 it("A non-admin signed-in user cannot view the admin users page.", async () => {
- vi.stubEnv("APPROVAL_ADMIN_EMAILS", "test@jsolly.com");
+ vi.stubEnv("ADMIN_EMAILS", "test@jsolly.com");
  await withTestUser(
   {
    email: createTestEmail("not-admin"),
@@ -826,7 +826,7 @@ it("A non-admin signed-in user cannot view the admin users page.", async () => {
 });
 
 it("An allowlisted admin can view pending users.", async () => {
- vi.stubEnv("APPROVAL_ADMIN_EMAILS", "admin@example.com");
+ vi.stubEnv("ADMIN_EMAILS", "admin@example.com");
  await withTestUser(
   {
    email: "admin@example.com",
@@ -996,14 +996,14 @@ Expected: PASS.
 Modify `src/types/env.d.ts`:
 
 ```ts
-readonly APPROVAL_ADMIN_EMAILS?: string;
+readonly ADMIN_EMAILS?: string;
 ```
 
 Place it near the auth/email env vars:
 
 ```ts
 readonly EMAIL_FROM: string;
-readonly APPROVAL_ADMIN_EMAILS?: string;
+readonly ADMIN_EMAILS?: string;
 readonly UNSUBSCRIBE_TOKEN_SECRET: string;
 ```
 
@@ -1014,7 +1014,7 @@ Modify `env.example` and the README environment block to include:
 ```env
 # Comma-separated email allowlist for the minimal pending-user approval page.
 # Include test@jsolly.com locally if you use the seeded dev-login account.
-APPROVAL_ADMIN_EMAILS=test@jsolly.com
+ADMIN_EMAILS=test@jsolly.com
 ```
 
 - [ ] **Step 3: Document production behavior**
@@ -1023,7 +1023,7 @@ In `docs/tooling-setup.md`, under registration approval, add:
 
 ```md
 User-facing approval emails are sent only when an allowlisted admin approves a
-pending user through `/admin/users`. Configure `APPROVAL_ADMIN_EMAILS` as a
+pending user through `/admin/users`. Configure `ADMIN_EMAILS` as a
 comma-separated allowlist. For local development, include `test@jsolly.com`.
 Grandfathered users approved by migration and users changed directly in
 Supabase Table Editor are not emailed.
@@ -1077,7 +1077,7 @@ Expected: PASS. `check:ts` may print existing warnings, but it must report `0 er
 
 If you want to manually verify the flow:
 
-1. Ensure `.env.local` contains `APPROVAL_ADMIN_EMAILS=test@jsolly.com`.
+1. Ensure `.env.local` contains `ADMIN_EMAILS=test@jsolly.com`.
 2. Run `npm run db:reset`.
 3. Run `npm run dev`.
 4. Sign in as `test@jsolly.com`.

@@ -27,7 +27,7 @@ Parameters:
   EmailDispatchSecret:
     Type: String
     NoEcho: true
-  ApprovalAdminEmails:
+  AdminEmails:
     Type: String
     Description: Comma-separated admin email allowlist used by the approval UI and email dispatch Lambda
   TwilioAccountSid:
@@ -205,7 +205,7 @@ Resources:
           SITE_URL: !Ref SiteUrl
           EMAIL_FROM: !Ref EmailFrom
           EMAIL_DISPATCH_SECRET: !Ref EmailDispatchSecret
-          APPROVAL_ADMIN_EMAILS: !Ref ApprovalAdminEmails
+          ADMIN_EMAILS: !Ref AdminEmails
 
   EmailDispatchFunctionUrl:
     Type: AWS::Lambda::Url

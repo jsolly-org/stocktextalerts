@@ -3,7 +3,7 @@ import type {
 	APIGatewayProxyStructuredResultV2,
 	Context,
 } from "aws-lambda";
-import { parseApprovalAdminEmails } from "../lib/auth/approval-admin";
+import { parseAdminEmails } from "../lib/auth/approval-admin";
 import { readEnv, requireEnv } from "../lib/db/env";
 import { createSupabaseAdminClient } from "../lib/db/supabase";
 import { createLogger } from "../lib/logging";
@@ -83,7 +83,7 @@ function rememberDispatchKey(key: string, now = Date.now()): boolean {
 }
 
 async function isAuthorizedRecipient(request: EmailDispatchRequest): Promise<boolean> {
-	const adminRecipients = parseApprovalAdminEmails(readEnv("APPROVAL_ADMIN_EMAILS"));
+	const adminRecipients = parseAdminEmails(readEnv("ADMIN_EMAILS"));
 	if (adminRecipients.has(request.to.trim().toLowerCase())) return true;
 	if (!request.userId) return false;
 

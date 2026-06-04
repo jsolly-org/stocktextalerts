@@ -50,13 +50,13 @@ New users are unapproved by default and cannot access the dashboard until an adm
 approves them. The manual-approval migration grandfathers everyone who already existed
 at deploy time (`approved_by = 'migration'`); that step does not send email. After a
 user profile is created, the web app sends a best-effort admin notification email to
-every address in `APPROVAL_ADMIN_EMAILS`. Local dev routes that email to Mailpit when
+every address in `ADMIN_EMAILS`. Local dev routes that email to Mailpit when
 `EMAIL_SMTP_HOST` is set. Production Vercel dispatches app-triggered emails to the AWS
 email dispatch Lambda via `EMAIL_DISPATCH_URL` + `EMAIL_DISPATCH_SECRET`; do not add
 AWS access keys or `EMAIL_FROM` to Vercel.
 
 User-facing approval emails are sent only when an allowlisted admin approves a pending
-user through `/admin/users`. Configure `APPROVAL_ADMIN_EMAILS` as a comma-separated
+user through `/admin/users`. Configure `ADMIN_EMAILS` as a comma-separated
 allowlist. For local development, include `test@jsolly.com`. Grandfathered users
 approved by migration and users changed directly in Supabase Table Editor are not
 emailed.

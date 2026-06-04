@@ -36,7 +36,7 @@ function routeFromFile(filePath: string): string | null {
 	const parts = relative.split(path.sep);
 
 	if (parts[0] === "api") return null;
-	// Admin routes require an APPROVAL_ADMIN_EMAILS allowlist match; the walker's
+	// Admin routes require an ADMIN_EMAILS allowlist match; the walker's
 	// generic signed-in user is intentionally not an admin and would 403 here.
 	// Admin auth is covered by tests/e2e/admin-users.e2e.spec.ts instead.
 	if (parts[0] === "admin") return null;

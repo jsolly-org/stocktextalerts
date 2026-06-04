@@ -32,7 +32,7 @@ through the new app-owned admin action send user-facing approval email.
 ## Admin authorization
 
 Admin access is controlled by an environment allowlist, for example
-`APPROVAL_ADMIN_EMAILS`, containing comma-separated email addresses. The server
+`ADMIN_EMAILS`, containing comma-separated email addresses. The server
 checks the signed-in user's authenticated email against this list before showing
 pending users or approving accounts.
 
@@ -107,4 +107,4 @@ If the database update fails, do not send email.
   warning.
 - Already-approved users are not emailed again.
 - `test@jsolly.com` works as a local admin when included in
-  `APPROVAL_ADMIN_EMAILS`.
+  `ADMIN_EMAILS`.

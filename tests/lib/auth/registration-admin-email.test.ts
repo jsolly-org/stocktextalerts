@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { EmailSender } from "../../../src/lib/messaging/email/utils";
-import { expectConsoleError, expectConsoleWarning } from "../../setup";
+import { expectConsoleError } from "../../setup";
 
 const mockEmailSender = vi.hoisted(() =>
 	vi.fn<EmailSender>(async () => ({
@@ -24,7 +24,7 @@ describe("sendRegistrationAdminEmail", () => {
 	});
 
 	it("sends one admin notification to each configured approval admin.", async () => {
-		vi.stubEnv("APPROVAL_ADMIN_EMAILS", "admin@example.com, second@example.com");
+		vi.stubEnv("ADMIN_EMAILS", "admin@example.com, second@example.com");
 		const { sendRegistrationAdminEmail } = await import(
 			"../../../src/lib/auth/registration-admin-email"
 		);
@@ -54,10 +54,8 @@ describe("sendRegistrationAdminEmail", () => {
 	});
 
 	it("skips sending when no approval admins are configured.", async () => {
-		expectConsoleWarning(
-			"Skipping registration admin email because no approval admins are configured",
-		);
-		vi.stubEnv("APPROVAL_ADMIN_EMAILS", "");
+		expectConsoleError("Skipping registration admin email because no admin emails are configured");
+		vi.stubEnv("ADMIN_EMAILS", "");
 		const { sendRegistrationAdminEmail } = await import(
 			"../../../src/lib/auth/registration-admin-email"
 		);
@@ -73,7 +71,7 @@ describe("sendRegistrationAdminEmail", () => {
 
 	it("logs per-recipient failures without throwing when one admin email fails.", async () => {
 		expectConsoleError("Failed to send registration admin email");
-		vi.stubEnv("APPROVAL_ADMIN_EMAILS", "admin@example.com, second@example.com");
+		vi.stubEnv("ADMIN_EMAILS", "admin@example.com, second@example.com");
 		mockEmailSender
 			.mockResolvedValueOnce({ success: true, messageSid: "registration-admin-email" })
 			.mockResolvedValueOnce({

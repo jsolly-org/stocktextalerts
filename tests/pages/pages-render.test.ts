@@ -317,7 +317,7 @@ describe("Users can load pages without unexpected errors.", () => {
 	});
 
 	it("A non-admin signed-in user cannot view the admin users page.", async () => {
-		vi.stubEnv("APPROVAL_ADMIN_EMAILS", "test@jsolly.com");
+		vi.stubEnv("ADMIN_EMAILS", "test@jsolly.com");
 		await withTestUser(
 			{
 				email: createTestEmail("not-admin"),
@@ -337,7 +337,7 @@ describe("Users can load pages without unexpected errors.", () => {
 	});
 
 	it("An allowlisted admin can view pending users.", async () => {
-		vi.stubEnv("APPROVAL_ADMIN_EMAILS", "admin@example.com");
+		vi.stubEnv("ADMIN_EMAILS", "admin@example.com");
 		await withTestUser(
 			{
 				email: "admin@example.com",

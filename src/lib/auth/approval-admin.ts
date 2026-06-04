@@ -1,8 +1,8 @@
 import { readEnv } from "../db/env";
 
-const APPROVAL_ADMIN_EMAILS_ENV = "APPROVAL_ADMIN_EMAILS";
+const ADMIN_EMAILS_ENV = "ADMIN_EMAILS";
 
-export function parseApprovalAdminEmails(value: string | undefined): Set<string> {
+export function parseAdminEmails(value: string | undefined): Set<string> {
 	return new Set(
 		(value ?? "")
 			.split(",")
@@ -11,11 +11,11 @@ export function parseApprovalAdminEmails(value: string | undefined): Set<string>
 	);
 }
 
-export function getApprovalAdminEmails(): Set<string> {
-	return parseApprovalAdminEmails(readEnv(APPROVAL_ADMIN_EMAILS_ENV));
+export function getAdminEmails(): Set<string> {
+	return parseAdminEmails(readEnv(ADMIN_EMAILS_ENV));
 }
 
 export function isApprovalAdminEmail(email: string | null | undefined): boolean {
 	if (!email) return false;
-	return getApprovalAdminEmails().has(email.trim().toLowerCase());
+	return getAdminEmails().has(email.trim().toLowerCase());
 }

@@ -1,7 +1,7 @@
 import { getSiteUrl } from "../db/env";
 import type { Logger } from "../logging";
 import { sendAppTransactionalEmail } from "../messaging/email/dispatch-client";
-import { getApprovalAdminEmails } from "./approval-admin";
+import { getAdminEmails } from "./approval-admin";
 
 type RegisteredUserProfile = {
 	id: string;
@@ -14,10 +14,11 @@ export async function sendRegistrationAdminEmail(
 	logger: Logger,
 ): Promise<void> {
 	try {
-		const recipients = [...getApprovalAdminEmails()];
+		const recipients = [...getAdminEmails()];
 		if (recipients.length === 0) {
-			logger.warn("Skipping registration admin email because no approval admins are configured", {
+			logger.error("Skipping registration admin email because no admin emails are configured", {
 				userId: user.id,
+				envVar: "ADMIN_EMAILS",
 			});
 			return;
 		}
