@@ -4,7 +4,7 @@ import { rootLogger } from "../../logging";
 import { escapeHtml, getChangeColor } from "../../messaging/asset-formatting";
 import { sendUserEmail } from "../../messaging/email/index";
 import { renderIntradaySparklineImg } from "../../messaging/email/intraday-sparkline";
-import { buildEmailUrls } from "../../messaging/email/layout";
+import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../../messaging/email/layout";
 import type { EmailSender } from "../../messaging/email/utils";
 import { type createLogoCache, fetchLogoBase64, renderLogoImg } from "../../messaging/logo-fetcher";
 import { deliveryResultToLogFields, recordNotification } from "../../messaging/shared";
@@ -357,35 +357,18 @@ function formatFlatPriceAlertEmail(options: {
 			</div>`
 		: "";
 
-	const html = `
-<!DOCTYPE html>
-<html>
-<head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-	<div style="background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); padding: 28px; border-radius: 8px 8px 0 0; text-align: center;">
-		<h1 style="color: white; margin: 0; font-size: 24px; font-weight: 600;">Price Move Alert</h1>
-	</div>
-	<div style="background: #ffffff; padding: 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-		<h2 style="color: #1f2937; margin-top: 0; font-size: 22px; font-weight: 600; display: flex; align-items: center; gap: 8px;">${logoBlock}<span>${escapeHtml(symbol)} <span style="color: #6b7280; font-size: 16px; font-weight: 400;">— ${escapeHtml(companyName)}</span></span></h2>
+	const html = renderEmailShell({
+		bodyHtml: `<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600; display: flex; align-items: center; gap: 8px;">Price Move Alert: ${logoBlock}<span>${escapeHtml(symbol)} <span style="color: #6b7280; font-size: 16px; font-weight: 400;">— ${escapeHtml(companyName)}</span></span></h2>
 		<p style="color: #111827; font-size: 32px; font-weight: 700; margin: 16px 0 12px 0; font-variant-numeric: tabular-nums;">$${escapeHtml(currentPrice.toFixed(2))}</p>
 		<table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
 			<tbody>${rowsHtml}
 			</tbody>
 		</table>${intradayBlock}
 		<div style="text-align: center; margin-top: 28px;">
-			<a href="${urls.escapedDashboardUrl}" style="color: #3b82f6; text-decoration: none; font-size: 14px; font-weight: 500;">View Dashboard →</a>
-		</div>
-		<p style="color: #6b7280; font-size: 12px; margin-top: 28px; padding-top: 18px; border-top: 1px solid #e5e7eb;">
-			<a href="${urls.escapedScheduleUrl}" style="color: #3b82f6; text-decoration: none;">Manage alerts</a>
-			<span style="color: #d1d5db; padding: 0 8px;">•</span>
-			<a href="${urls.escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe from all emails</a>
-		</p>
-	</div>
-</body>
-</html>`;
+			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">View Dashboard →</a>
+		</div>`,
+		footerHtml: renderEmailFooter(urls),
+	});
 
 	return { text, html };
 }

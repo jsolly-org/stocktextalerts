@@ -110,6 +110,7 @@ describe("email-dispatch Lambda handler", () => {
 				to: "new-user@example.com",
 				subject: "Approved",
 				body: "You are approved.",
+				html: "<p>You are approved.</p>",
 				userId: "user-1",
 				idempotencyKey: "approved-user-1",
 			}),
@@ -125,6 +126,7 @@ describe("email-dispatch Lambda handler", () => {
 			expect.objectContaining({
 				to: "new-user@example.com",
 				subject: "Approved",
+				html: "<p>You are approved.</p>",
 				userId: "user-1",
 			}),
 		);

@@ -63,6 +63,7 @@ function parseRequest(body: string): EmailDispatchRequest | null {
 			to: request.to,
 			subject: request.subject,
 			body: request.body,
+			...(typeof request.html === "string" ? { html: request.html } : {}),
 			...(typeof request.idempotencyKey === "string"
 				? { idempotencyKey: request.idempotencyKey }
 				: {}),

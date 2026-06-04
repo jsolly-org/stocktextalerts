@@ -2,6 +2,7 @@ export type EmailDispatchRequest = {
 	to: string;
 	subject: string;
 	body: string;
+	html?: string;
 	idempotencyKey?: string;
 	userId?: string;
 };

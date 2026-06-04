@@ -1,10 +1,9 @@
-import { DASHBOARD_SECTION_HASHES } from "../constants";
 import { getSiteUrl } from "../db/env";
 import type { AppSupabaseClient } from "../db/supabase";
 import { rootLogger } from "../logging";
 import { escapeHtml } from "../messaging/asset-formatting";
 import { sendUserEmail } from "../messaging/email/index";
-import { createEmailUnsubscribeUrl } from "../messaging/email/unsubscribe";
+import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
 import { createLogoCache, fetchLogoBase64, renderLogoImg } from "../messaging/logo-fetcher";
 import { recordNotification } from "../messaging/shared";
@@ -51,43 +50,24 @@ function formatPriceTargetEmail(
 	target: TriggeredPriceTarget,
 	logoHtml?: string,
 ): { text: string; html: string } {
-	const dashboardUrl = new URL("/dashboard", getSiteUrl()).toString();
-	const scheduleUrl = `${dashboardUrl}${DASHBOARD_SECTION_HASHES.marketNotifications}`;
-	const unsubscribeUrl = createEmailUnsubscribeUrl({
-		userId: user.id,
-		email: user.email,
-	});
+	const urls = buildEmailUrls(user.id, user.email, "marketNotifications");
 
 	// Plaintext
 	const textSections = [
 		`Price Target Hit: ${target.symbol}`,
 		`${target.symbol} hit your price target of ${formatPrice(target.targetPrice)} (currently ${formatPrice(target.currentPrice)}).`,
 		`Your ${target.direction === "above" ? "upward" : "downward"} price target has been triggered and automatically cleared.`,
-		`Manage your notifications: ${scheduleUrl}`,
-		`Unsubscribe from all emails: ${unsubscribeUrl}`,
+		`Manage your notifications: ${urls.scheduleUrl}`,
+		`Unsubscribe from all emails: ${urls.unsubscribeUrl}`,
 	];
 	const text = textSections.join("\n\n");
 
 	// HTML
 	const directionLabel = target.direction === "above" ? "rose to" : "fell to";
 	const escapedSymbol = escapeHtml(target.symbol);
-	const escapedScheduleUrl = escapeHtml(scheduleUrl);
-	const escapedDashboardUrl = escapeHtml(dashboardUrl);
-	const escapedUnsubscribeUrl = escapeHtml(unsubscribeUrl);
 
-	const html = `
-<!DOCTYPE html>
-<html>
-<head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-	<div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 30px; border-radius: 8px 8px 0 0; text-align: center;">
-		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Price Target Hit</h1>
-	</div>
-	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">${logoHtml ?? ""}${escapedSymbol}</h2>
+	const html = renderEmailShell({
+		bodyHtml: `<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Price Target Hit: ${logoHtml ?? ""}${escapedSymbol}</h2>
 		<div style="background: #eef2ff; padding: 16px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #c7d2fe;">
 			<p style="color: #4338ca; font-size: 16px; font-weight: 500; margin: 0;">
 				${escapedSymbol} ${directionLabel} ${formatPrice(target.currentPrice)}, hitting your target of ${formatPrice(target.targetPrice)}.
@@ -97,18 +77,12 @@ function formatPriceTargetEmail(
 			This price target has been automatically cleared. You can set a new target from the dashboard.
 		</p>
 		<div style="text-align: center; margin-top: 30px;">
-			<a href="${escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
+			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
 				View Dashboard &rarr;
 			</a>
-		</div>
-		<p style="color: #6b7280; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-			<a href="${escapedScheduleUrl}" style="color: #667eea; text-decoration: none;">Manage alerts</a>
-			<span style="color: #d1d5db; padding: 0 8px;">&bull;</span>
-			<a href="${escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe from all emails</a>
-		</p>
-	</div>
-</body>
-</html>`;
+		</div>`,
+		footerHtml: renderEmailFooter(urls),
+	});
 
 	return { text, html };
 }

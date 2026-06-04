@@ -41,6 +41,7 @@ describe("sendRegistrationAdminEmail", () => {
 				to: "admin@example.com",
 				subject: "New StockTextAlerts registration pending approval",
 				body: expect.stringContaining("new-user@example.com"),
+				html: expect.stringContaining("📈 StockTextAlerts"),
 				idempotencyKey: "registration-admin-user-1-admin@example.com",
 				userId: "user-1",
 			}),
@@ -49,6 +50,7 @@ describe("sendRegistrationAdminEmail", () => {
 			expect.objectContaining({
 				to: "second@example.com",
 				body: expect.stringContaining("http://localhost/admin/users"),
+				html: expect.stringContaining("http://localhost/admin/users"),
 			}),
 		);
 	});

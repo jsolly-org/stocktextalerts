@@ -46,6 +46,7 @@ describe("sendAppTransactionalEmail", () => {
 				to: "admin@example.com",
 				subject: "New signup",
 				body: "A user signed up.",
+				html: "<p>A user signed up.</p>",
 				userId: "user-1",
 				idempotencyKey: "registration-admin-user-1",
 			},
@@ -62,6 +63,9 @@ describe("sendAppTransactionalEmail", () => {
 		const signature = headers.get(EMAIL_DISPATCH_SIGNATURE_HEADER);
 		const body = init?.body;
 		expect(typeof body).toBe("string");
+		expect(JSON.parse(body as string)).toMatchObject({
+			html: "<p>A user signed up.</p>",
+		});
 		expect(
 			verifyEmailDispatchSignature({
 				body: body as string,

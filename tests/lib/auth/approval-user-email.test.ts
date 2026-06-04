@@ -40,10 +40,13 @@ describe("sendUserApprovalEmail", () => {
 				to: "new-user@example.com",
 				subject: "Your StockTextAlerts account is approved",
 				body: expect.stringContaining(`${getSiteUrl()}/auth/signin`),
+				html: expect.stringContaining("📈 StockTextAlerts"),
 				userId: "user-1",
 				idempotencyKey: "user-approved-user-1",
 			}),
 		);
+		const callArgs = mockEmailSender.mock.calls[0]?.[0];
+		expect(callArgs?.html).toContain(`${getSiteUrl()}/auth/signin`);
 	});
 
 	it("returns failure and logs when the email sender fails.", async () => {

@@ -5,7 +5,7 @@ import { escapeHtml, getSafeHrefUrl } from "../messaging/asset-formatting";
 import { markdownLinksToHtml, stripMarkdownLinks } from "../messaging/email/html-section";
 import { sendUserEmail } from "../messaging/email/index";
 import { renderIntradaySparklineImg } from "../messaging/email/intraday-sparkline";
-import { buildEmailUrls } from "../messaging/email/layout";
+import { buildEmailUrls, renderEmailFooter, renderEmailShell } from "../messaging/email/layout";
 import type { EmailSender } from "../messaging/email/utils";
 import { createLogoCache, fetchLogoBase64, renderLogoImg } from "../messaging/logo-fetcher";
 import { deliveryResultToLogFields, recordNotification } from "../messaging/shared";
@@ -198,19 +198,8 @@ function formatPriceAlertEmail(
 
 	const whyMovingHtml = buildWhyMovingHtml(alert.grokResult);
 
-	const html = `
-<!DOCTYPE html>
-<html>
-<head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-	<div style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); padding: 30px; border-radius: 8px 8px 0 0; text-align: center;">
-		<h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Unusual Price Move</h1>
-	</div>
-	<div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-		<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">${logoHtml ?? ""}${escapeHtml(alert.symbol)}</h2>
+	const html = renderEmailShell({
+		bodyHtml: `<h2 style="color: #1f2937; margin-top: 0; font-size: 24px; font-weight: 600;">Unusual Price Move: ${logoHtml ?? ""}${escapeHtml(alert.symbol)}</h2>
 		<div style="background: #fffbeb; padding: 16px 20px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #fde68a;">
 			<p style="color: #92400e; font-size: 16px; font-weight: 500; margin: 0;">${escapeHtml(alert.priceContext)}</p>${renderHtmlSparklineForAlert(alert, user.use_24_hour_time)}
 		</div>
@@ -226,15 +215,9 @@ function formatPriceAlertEmail(
 			<a href="${urls.escapedDashboardUrl}" style="color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;">
 				View Dashboard →
 			</a>
-		</div>
-		<p style="color: #6b7280; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-			<a href="${urls.escapedScheduleUrl}" style="color: #667eea; text-decoration: none;">Manage alerts</a>
-			<span style="color: #d1d5db; padding: 0 8px;">•</span>
-			<a href="${urls.escapedUnsubscribeUrl}" style="color: #6b7280; text-decoration: none;">Unsubscribe from all emails</a>
-		</p>
-	</div>
-</body>
-</html>`;
+		</div>`,
+		footerHtml: renderEmailFooter(urls),
+	});
 
 	return { text, html };
 }
