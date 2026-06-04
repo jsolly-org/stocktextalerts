@@ -3,7 +3,7 @@
   "hooks": {
     "beforeShellExecution": [
       {
-        "command": "bash .agents/hooks/check-sam-deploy.sh",
+        "command": "bash hooks/check-sam-deploy.sh",
         "timeout": 5,
         "matcher": "git commit"
       },

@@ -23,7 +23,8 @@ non_agent=0
 while IFS= read -r f; do
   [[ -z "$f" ]] && continue
   case "$f" in
-    .cursor/hooks.json | .githooks/pre-commit) ;;
+    .claude/settings.json | .cursor/hooks.json | .githooks/pre-commit | hooks/check-sam-deploy.sh) ;;
+    automations/*) ;;
     *)
       [[ "$f" =~ ^\.agents/ ]] && continue
       non_agent=1

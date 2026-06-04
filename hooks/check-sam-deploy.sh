@@ -34,7 +34,7 @@ fi
 warning="SAM deploy required after this commit (cd aws && npm run deploy). Staged Lambda-related files: $(echo "$matched" | tr '\n' ' ' | sed 's/  */ /g' | xargs)"
 
 if [ -n "$cmd" ]; then
-  # Cursor format — build JSON safely so newlines in $matched don't break parsing
+  # Cursor format - build JSON safely so newlines in $matched don't break parsing
   jq -n \
     --arg permission "ask" \
     --arg msg "$warning" \

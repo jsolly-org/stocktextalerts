@@ -7,7 +7,7 @@
           {
             "type": "command",
             "if": "Bash(git commit:*)",
-            "command": "bash .agents/hooks/check-sam-deploy.sh",
+            "command": "bash hooks/check-sam-deploy.sh",
             "timeout": 5,
             "statusMessage": "Checking for Lambda-related changes..."
           },
