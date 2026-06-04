@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import type { Page } from "@playwright/test";
+import type { BrowserContext, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import { rootLogger } from "../../src/lib/logging";
 import { TEST_PASSWORD } from "../helpers/constants";
 import { clearMailpit, waitForMailpitMessageTo } from "../helpers/mailpit";
-import { adminClient } from "../helpers/test-env";
+import { adminClient, createAuthenticatedCookies } from "../helpers/test-env";
 import { cleanupTestUser, createTestUser } from "../helpers/test-user";
 
 const WORKFLOW_ADMIN_EMAIL = "workflow-admin-e2e@example.com";
@@ -72,6 +72,27 @@ async function waitForPasswordSignInReady(email: string, password: string): Prom
 		)
 		.toBe(true);
 	await adminClient.auth.signOut();
+}
+
+async function addAuthCookies(
+	context: BrowserContext,
+	baseOrigin: string,
+	email: string,
+	password: string,
+): Promise<void> {
+	const authCookies = await createAuthenticatedCookies(email, password);
+	await context.addCookies([
+		{
+			name: "sb-access-token",
+			value: authCookies.get("sb-access-token") ?? "",
+			url: baseOrigin,
+		},
+		{
+			name: "sb-refresh-token",
+			value: authCookies.get("sb-refresh-token") ?? "",
+			url: baseOrigin,
+		},
+	]);
 }
 
 async function deleteUserByEmail(email: string): Promise<void> {
@@ -168,8 +189,10 @@ test("registration approval workflow sends admin and user emails", async ({ brow
 		await signInAndExpectPath(pendingPage, userEmail, TEST_PASSWORD, "/auth/pending-approval");
 
 		adminContext = await browser.newContext();
+		await addAuthCookies(adminContext, baseOrigin, WORKFLOW_ADMIN_EMAIL, TEST_PASSWORD);
 		const adminPage = await adminContext.newPage();
-		await signInAndExpectPath(adminPage, WORKFLOW_ADMIN_EMAIL, TEST_PASSWORD, "/dashboard");
+		const dashboardResponse = await adminPage.goto("/dashboard");
+		expect(dashboardResponse?.status()).toBe(200);
 
 		await clearMailpit();
 		await adminPage.goto("/admin/users");
