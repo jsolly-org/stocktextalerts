@@ -24,6 +24,12 @@ Parameters:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /stocktextalerts/email-from
     Description: "SSM key whose value is the SES From: header (display name + address)"
+  EmailDispatchSecret:
+    Type: String
+    NoEcho: true
+  ApprovalAdminEmails:
+    Type: String
+    Description: Comma-separated admin email allowlist used by the approval UI and email dispatch Lambda
   TwilioAccountSid:
     Type: String
     NoEcho: true
@@ -93,7 +99,7 @@ Resources:
               Action:
                 - ses:SendEmail
                 - ses:SendRawEmail
-              Resource: "arn:aws:ses:us-east-1:730335616323:identity/stocktextalerts.com"
+              Resource: !Sub "arn:aws:ses:us-east-1:${AWS::AccountId}:identity/stocktextalerts.com"
       Environment:
         Variables:
           SITE_URL: !Ref SiteUrl
@@ -145,7 +151,7 @@ Resources:
               Action:
                 - ses:SendEmail
                 - ses:SendRawEmail
-              Resource: "arn:aws:ses:us-east-1:730335616323:identity/stocktextalerts.com"
+              Resource: !Sub "arn:aws:ses:us-east-1:${AWS::AccountId}:identity/stocktextalerts.com"
       Environment:
         Variables:
           SITE_URL: !Ref SiteUrl
@@ -163,6 +169,66 @@ Resources:
             ScheduleExpression: "cron(0 0 * * ? *)"
             State: ENABLED
             RoleArn: !GetAtt StockTextAlertsSchedulerRole.Arn
+
+  EmailDispatchFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        # Minify: false — SAM's esbuild integration minifies by default,
+        # which mangles function names in CloudWatch stack traces. This
+        # function is operator-facing, so readable traces matter.
+        Minify: false
+        Format: cjs
+        Target: node24
+        Sourcemap: true
+        EntryPoints:
+          - email-dispatch.ts
+    Properties:
+      FunctionName: stocktextalerts-email-dispatch
+      Handler: email-dispatch.handler
+      CodeUri: src/handlers
+      Timeout: 30
+      MemorySize: 128
+      LoggingConfig:
+        LogGroup: !Ref EmailDispatchLogGroup
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: !Sub "arn:aws:ses:us-east-1:${AWS::AccountId}:identity/stocktextalerts.com"
+      Environment:
+        Variables:
+          SITE_URL: !Ref SiteUrl
+          EMAIL_FROM: !Ref EmailFrom
+          EMAIL_DISPATCH_SECRET: !Ref EmailDispatchSecret
+          APPROVAL_ADMIN_EMAILS: !Ref ApprovalAdminEmails
+
+  EmailDispatchFunctionUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      AuthType: NONE
+      InvokeMode: BUFFERED
+      TargetFunctionArn: !GetAtt EmailDispatchFunction.Arn
+
+  EmailDispatchFunctionUrlPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunctionUrl
+      FunctionName: !Ref EmailDispatchFunction
+      FunctionUrlAuthType: NONE
+      Principal: "*"
+
+  EmailDispatchFunctionInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref EmailDispatchFunction
+      Principal: "*"
+      InvokedViaFunctionUrl: true
 
   ComputeDailyStatsFunction:
     Type: AWS::Serverless::Function
@@ -265,6 +331,27 @@ Resources:
       Dimensions:
         - Name: FunctionName
           Value: !Ref AssetEventsFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopicArn
+      OKActions:
+        - !Ref AlertTopicArn
+
+  EmailDispatchFunctionErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: stocktextalerts-email-dispatch-lambda-errors
+      AlarmDescription: EmailDispatchFunction threw / timed out / OOMed
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref EmailDispatchFunction
       Statistic: Sum
       Period: 300
       EvaluationPeriods: 1
@@ -384,6 +471,12 @@ Resources:
       LogGroupName: /aws/lambda/stocktextalerts-asset-events
       RetentionInDays: 30
 
+  EmailDispatchLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/stocktextalerts-email-dispatch
+      RetentionInDays: 30
+
   ComputeDailyStatsLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -407,6 +500,17 @@ Resources:
     Type: AWS::Logs::MetricFilter
     Properties:
       LogGroupName: !Ref AssetEventsLogGroup
+      FilterPattern: '{ $.level = "error" }'
+      MetricTransformations:
+        - MetricNamespace: stocktextalerts
+          MetricName: ErrorLogCount
+          MetricValue: "1"
+          DefaultValue: 0
+
+  EmailDispatchErrorLogFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref EmailDispatchLogGroup
       FilterPattern: '{ $.level = "error" }'
       MetricTransformations:
         - MetricNamespace: stocktextalerts
@@ -632,6 +736,9 @@ Resources:
               DaysAfterInitiation: 7
 
 Outputs:
+  EmailDispatchFunctionUrl:
+    Description: Function URL for Vercel-to-AWS transactional email dispatch
+    Value: !GetAtt EmailDispatchFunctionUrl.FunctionUrl
   ProdBackupsBucketName:
     Description: S3 bucket for production database backups
     Value: !Ref ProdBackupsBucket

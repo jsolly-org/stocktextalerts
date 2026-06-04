@@ -13,6 +13,8 @@ interface ImportMetaEnv {
 	readonly AWS_SECRET_ACCESS_KEY?: string;
 	readonly AWS_REGION?: string;
 	readonly EMAIL_FROM: string;
+	readonly EMAIL_DISPATCH_URL?: string;
+	readonly EMAIL_DISPATCH_SECRET?: string;
 	readonly APPROVAL_ADMIN_EMAILS?: string;
 	readonly UNSUBSCRIBE_TOKEN_SECRET: string;
 	readonly VERCEL_URL?: string;

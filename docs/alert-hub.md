@@ -80,6 +80,11 @@ Page-worthy failures must call `logger.error(message, context, err)` so the seri
 
 Lambda handlers import `runWithRequestContext` from `src/lib/logging/request-context.ts` (Node-only) so JSON logs include `requestId` matching the runtime tab-prefix.
 
+`stocktextalerts-email-dispatch` is invoked by Vercel through a Lambda Function URL. It
+uses HMAC request authentication and SES execution-role permissions to send app-triggered
+registration/approval emails without AWS credentials in Vercel. Its errors are covered by
+`stocktextalerts-email-dispatch-lambda-errors` and the aggregate `stocktextalerts-error-logs`.
+
 Representative shapes (see `tests/lib/logging/contract.test.ts`):
 
 - **Vendor retry exhaustion** — `message` + `context.category: "vendor_retry_exhausted"` + `error` object

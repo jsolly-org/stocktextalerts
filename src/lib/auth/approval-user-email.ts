@@ -1,6 +1,6 @@
 import { getSiteUrl } from "../db/env";
 import type { Logger } from "../logging";
-import { createEmailSender } from "../messaging/email/utils";
+import { sendAppTransactionalEmail } from "../messaging/email/dispatch-client";
 import type { DeliveryResult } from "../messaging/types";
 
 type ApprovedUser = {
@@ -20,13 +20,16 @@ export async function sendUserApprovalEmail(
 		signInUrl,
 	].join("\n");
 
-	const result = await createEmailSender()({
-		to: user.email,
-		subject: "Your StockTextAlerts account is approved",
-		body,
-		idempotencyKey: `user-approved-${user.id}`,
-		userId: user.id,
-	});
+	const result = await sendAppTransactionalEmail(
+		{
+			to: user.email,
+			subject: "Your StockTextAlerts account is approved",
+			body,
+			idempotencyKey: `user-approved-${user.id}`,
+			userId: user.id,
+		},
+		logger,
+	);
 
 	if (!result.success) {
 		logger.error("Failed to send user approval email", {

@@ -50,7 +50,7 @@ function buildRegistrationPayload(
 describe("A visitor registers for a new account with email and password.", () => {
 	beforeEach(() => {
 		mockEmailSender.mockClear();
-		vi.stubEnv("EMAIL_FROM", "admin@example.com");
+		vi.stubEnv("APPROVAL_ADMIN_EMAILS", "admin@example.com");
 	});
 
 	afterEach(() => {

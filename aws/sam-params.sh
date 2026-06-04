@@ -29,6 +29,8 @@ done < "$_ENV_FILE"
 : "${TWILIO_AUTH_TOKEN:?TWILIO_AUTH_TOKEN not set in .env.local}"
 : "${TWILIO_PHONE_NUMBER:?TWILIO_PHONE_NUMBER not set in .env.local}"
 : "${UNSUBSCRIBE_TOKEN_SECRET:?UNSUBSCRIBE_TOKEN_SECRET not set in .env.local}"
+: "${EMAIL_DISPATCH_SECRET:?EMAIL_DISPATCH_SECRET not set in .env.local}"
+: "${APPROVAL_ADMIN_EMAILS:?APPROVAL_ADMIN_EMAILS not set in .env.local}"
 
 _GIT_SHA="$(git -C "$_PARAMS_DIR/.." rev-parse --short HEAD 2>/dev/null || echo unknown)"
 
@@ -43,6 +45,8 @@ SAM_PARAMS=(
   "TwilioAuthToken=$TWILIO_AUTH_TOKEN"
   "TwilioPhoneNumber=$TWILIO_PHONE_NUMBER"
   "UnsubscribeTokenSecret=$UNSUBSCRIBE_TOKEN_SECRET"
+  "EmailDispatchSecret=$EMAIL_DISPATCH_SECRET"
+  "ApprovalAdminEmails=$APPROVAL_ADMIN_EMAILS"
   "LogMaskPii=${LOG_MASK_PII:-true}"
   "GitSha=$_GIT_SHA"
 )

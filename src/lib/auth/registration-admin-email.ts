@@ -1,6 +1,7 @@
-import { requireEnv } from "../db/env";
+import { getSiteUrl } from "../db/env";
 import type { Logger } from "../logging";
-import { createEmailSender } from "../messaging/email/utils";
+import { sendAppTransactionalEmail } from "../messaging/email/dispatch-client";
+import { getApprovalAdminEmails } from "./approval-admin";
 
 type RegisteredUserProfile = {
 	id: string;
@@ -13,8 +14,13 @@ export async function sendRegistrationAdminEmail(
 	logger: Logger,
 ): Promise<void> {
 	try {
-		const recipient = requireEnv("EMAIL_FROM");
-		const sendEmail = createEmailSender();
+		const recipients = [...getApprovalAdminEmails()];
+		if (recipients.length === 0) {
+			logger.warn("Skipping registration admin email because no approval admins are configured", {
+				userId: user.id,
+			});
+			return;
+		}
 		const createdAt = new Date().toISOString();
 		const body = [
 			"New StockTextAlerts registration pending approval.",
@@ -24,23 +30,33 @@ export async function sendRegistrationAdminEmail(
 			`Timezone: ${user.timezone}`,
 			`Created at: ${createdAt}`,
 			"",
-			"Approve this user at /admin/users (requires APPROVAL_ADMIN_EMAILS).",
+			`Approve this user at ${getSiteUrl()}/admin/users`,
 		].join("\n");
 
-		const result = await sendEmail({
-			to: recipient,
-			subject: "New StockTextAlerts registration pending approval",
-			body,
-			idempotencyKey: `registration-admin-${user.id}`,
-			userId: user.id,
-		});
+		const results = await Promise.all(
+			recipients.map((recipient) =>
+				sendAppTransactionalEmail(
+					{
+						to: recipient,
+						subject: "New StockTextAlerts registration pending approval",
+						body,
+						idempotencyKey: `registration-admin-${user.id}-${recipient}`,
+						userId: user.id,
+					},
+					logger,
+				),
+			),
+		);
 
-		if (!result.success) {
-			logger.error("Failed to send registration admin email", {
-				userId: user.id,
-				error: result.error,
-				errorCode: result.errorCode,
-			});
+		for (const [index, result] of results.entries()) {
+			if (!result.success) {
+				logger.error("Failed to send registration admin email", {
+					userId: user.id,
+					recipient: recipients[index],
+					error: result.error,
+					errorCode: result.errorCode,
+				});
+			}
 		}
 	} catch (error) {
 		logger.error(
