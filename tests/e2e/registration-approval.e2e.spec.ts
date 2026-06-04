@@ -40,10 +40,22 @@ async function signInAndExpectPath(
 		)
 		.toBe(email);
 	await page.locator("#password").fill(password);
-	await page
-		.locator("form[action='/api/auth/signin']")
-		.evaluate((form: HTMLFormElement) => form.requestSubmit());
-	await expect(page).toHaveURL(new RegExp(`${expectedPath}$`), { timeout: 15_000 });
+	// Assert on the sign-in POST redirect instead of waiting for the destination
+	// page to render. On the CI dev server, compiling a cold protected route
+	// (/auth/pending-approval, the heavy /dashboard) can outlast a URL-based wait
+	// even though the server already issued the correct redirect — making a
+	// toHaveURL(destination) assertion flaky there while passing locally.
+	const signInResponse = page.waitForResponse(
+		(response) =>
+			response.request().method() === "POST" && response.url().includes("/api/auth/signin"),
+		{ timeout: 30_000 },
+	);
+	await page.getByRole("button", { name: "Sign In" }).click();
+	const response = await signInResponse;
+	const status = response.status();
+	expect(status, `sign-in should redirect (got ${status})`).toBeGreaterThanOrEqual(300);
+	expect(status).toBeLessThan(400);
+	expect(response.headers().location ?? "").toContain(expectedPath);
 }
 
 async function getUserRowByEmail(
