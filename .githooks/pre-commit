@@ -67,3 +67,5 @@ npm run check:knip
 npm run check:sql
 npm run test
 npm run test:e2e
+
+# fleet pre-commit smoke verified 2026-06-04
