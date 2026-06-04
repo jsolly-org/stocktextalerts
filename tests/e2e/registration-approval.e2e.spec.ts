@@ -56,6 +56,22 @@ async function getUserRowByEmail(
 	return data;
 }
 
+async function waitForPasswordSignInReady(email: string, password: string): Promise<void> {
+	await expect
+		.poll(
+			async () => {
+				const { data, error } = await adminClient.auth.signInWithPassword({ email, password });
+				return !error && Boolean(data.session);
+			},
+			{
+				timeout: 30_000,
+				message: "Auth user not ready for password sign-in",
+			},
+		)
+		.toBe(true);
+	await adminClient.auth.signOut();
+}
+
 async function deleteUserByEmail(email: string): Promise<void> {
 	const { data } = await adminClient.from("users").select("id").eq("email", email).maybeSingle();
 	if (data?.id) {
@@ -142,6 +158,7 @@ test("registration approval workflow sends admin and user emails", async ({ brow
 		const createdUser = await getUserRowByEmail(userEmail);
 		userId = createdUser.id;
 		expect(createdUser.approved_at).toBeNull();
+		await waitForPasswordSignInReady(userEmail, TEST_PASSWORD);
 
 		approvedUserContext = await browser.newContext();
 		const pendingPage = await approvedUserContext.newPage();
