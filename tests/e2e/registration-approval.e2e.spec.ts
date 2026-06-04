@@ -28,30 +28,14 @@ async function signInAndExpectPath(
 	password: string,
 	expectedPath: string,
 ) {
-	await page.goto("/auth/signin");
-	const emailInput = page.locator("#email");
-	await expect
-		.poll(
-			async () => {
-				await emailInput.fill(email);
-				return emailInput.inputValue();
-			},
-			{ timeout: 10_000, message: "Email value cleared by hydration" },
-		)
-		.toBe(email);
-	await page.locator("#password").fill(password);
-	// Assert on the sign-in POST redirect instead of waiting for the destination
-	// page to render. On the CI dev server, compiling a cold protected route
-	// (/auth/pending-approval, the heavy /dashboard) can outlast a URL-based wait
-	// even though the server already issued the correct redirect — making a
-	// toHaveURL(destination) assertion flaky there while passing locally.
-	const signInResponse = page.waitForResponse(
-		(response) =>
-			response.request().method() === "POST" && response.url().includes("/api/auth/signin"),
-		{ timeout: 30_000 },
-	);
-	await page.getByRole("button", { name: "Sign In" }).click();
-	const response = await signInResponse;
+	// Drive the sign-in endpoint directly and assert its approval-gated redirect
+	// target. Browser-level sign-in is already covered by sanity.e2e.spec.ts; this
+	// workflow spec only needs to verify that an (un)approved user is routed to the
+	// right place after the surrounding registration and approval state changes.
+	const response = await page.request.post("/api/auth/signin", {
+		form: { email, password },
+		maxRedirects: 0,
+	});
 	const status = response.status();
 	expect(status, `sign-in should redirect (got ${status})`).toBeGreaterThanOrEqual(300);
 	expect(status).toBeLessThan(400);
