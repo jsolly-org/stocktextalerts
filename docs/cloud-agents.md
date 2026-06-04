@@ -2,7 +2,7 @@
 
 <!-- fleet-doc-version: 10 -->
 
-This repo is configured for **cloud-only development**: agents, skills, and rules are self-contained in git (no developer-home agents checkout on the VM).
+This repo is configured for **cloud agents and local desktop agents**. Skills, rules, and fleet guards are self-contained in git. **Cursor Cloud VMs** have no developer-home checkout — only the committed subtree applies. **Local desktop** Cursor / Claude / Codex use the same subtree per repo plus optional machine-local hooks from [dotagents](https://github.com/jsolly/dotagents) (`docs/setup-local-machine.md` in the canonical repo).
 
 ## Layout
 
