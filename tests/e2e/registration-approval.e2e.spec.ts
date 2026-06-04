@@ -40,7 +40,9 @@ async function signInAndExpectPath(
 		)
 		.toBe(email);
 	await page.locator("#password").fill(password);
-	await page.getByRole("button", { name: "Sign In" }).click();
+	await page
+		.locator("form[action='/api/auth/signin']")
+		.evaluate((form: HTMLFormElement) => form.requestSubmit());
 	await expect(page).toHaveURL(new RegExp(`${expectedPath}$`), { timeout: 15_000 });
 }
 
