@@ -117,6 +117,7 @@ test("registration approval workflow sends admin and user emails", async ({ brow
 			approved: true,
 		});
 		adminId = admin.id;
+		await waitForPasswordSignInReady(WORKFLOW_ADMIN_EMAIL, TEST_PASSWORD);
 
 		userContext = await browser.newContext();
 		const userPage = await userContext.newPage();
