@@ -72,7 +72,9 @@ const error = Astro.url.searchParams.get("error");
                   </div>
                   <form action="/api/admin/users/approve" method="post">
                     <input type="hidden" name="user_id" value={user.id} />
-                    <button type="submit" class="btn btn-primary">Approve</button>
+                    <button type="submit" class="btn btn-md btn-primary" data-submit-loading>
+                      <span>Approve</span>
+                    </button>
                   </form>
                 </li>
               ))}
