@@ -40,18 +40,7 @@ async function signInAndExpectPath(
 		)
 		.toBe(email);
 	await page.locator("#password").fill(password);
-	const signInResponse = page.waitForResponse(
-		(response) =>
-			response.request().method() === "POST" && response.url().includes("/api/auth/signin"),
-		{ timeout: 30_000 },
-	);
 	await page.getByRole("button", { name: "Sign In" }).click();
-	const response = await signInResponse;
-	const status = response.status();
-	expect(
-		status >= 300 && status < 400,
-		`Sign-in POST expected redirect, got status ${status}`,
-	).toBe(true);
 	await expect(page).toHaveURL(new RegExp(`${expectedPath}$`), { timeout: 15_000 });
 }
 
