@@ -9,7 +9,7 @@
       },
       {
         "command": "bash scripts/agent-guards/wrap-block-git-no-verify.sh",
-        "matcher": "git +(push|commit)"
+        "matcher": "git +(push|commit)",
         "failClosed": true,
         "timeout": 10
       },

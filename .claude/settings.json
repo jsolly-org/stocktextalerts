@@ -38,6 +38,9 @@
   },
   "permissions": {
     "deny": [
+      "Bash(psql *)",
+      "Bash(supabase db push *)",
+      "Bash(supabase migration repair *)",
       "Edit(/.agents/**)",
       "Edit(/.github/workflows/fleet-lock-guard.yml)",
       "Edit(/scripts/cloud-fleet-sync-if-stale.sh)",
@@ -46,9 +49,6 @@
       "Write(/.github/workflows/fleet-lock-guard.yml)",
       "Write(/scripts/cloud-fleet-sync-if-stale.sh)",
       "Write(/scripts/update-agents-subtree.sh)",
-      "Bash(supabase db push *)",
-      "Bash(supabase migration repair *)",
-      "Bash(psql *)",
       "mcp__plugin-supabase-supabase__apply_migration",
       "mcp__plugin-supabase-supabase__execute_sql",
       "mcp__supabase__apply_migration",
