@@ -51,7 +51,7 @@ For small changes (a single file or two with trivial diffs), review inline witho
 ## Reference files
 
 - `references/orchestration.md` — full step-by-step body, including D.1, D.2, D.3, E.1, E.2 wiring.
-- `references/agent-fleet.md` — always-run + extension-gated tables, model rationale, the `guidelines-auditor ×2` pattern.
+- `references/agent-fleet.md` — always-run + extension-gated tables, `model: inherit`, the `guidelines-auditor ×2` pattern.
 - `references/output-contract.md` — canonical reviewer output schema (every agent inlines this).
 - `references/dispatch-prompt.md` — the prompt template each agent receives via Task.
 - `references/deploy-rules.md` — per-project post-commit deploy patterns (SAM, Terraform, Lambda code updates).

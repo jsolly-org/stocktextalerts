@@ -83,7 +83,7 @@ Don't leave it blank — agents read absent context as "not provided" and may co
 
 For small changes (a few files), review inline — no agents needed.
 
-For larger changes, launch parallel agents simultaneously. Fleet composition (always-run + extension-gated), the `guidelines-auditor ×2` voting pattern, and per-agent model selection are documented in `references/agent-fleet.md`.
+For larger changes, launch parallel agents simultaneously. Fleet composition (always-run + extension-gated), the `guidelines-auditor ×2` voting pattern, and `model: inherit` on all agents are documented in `references/agent-fleet.md`.
 
 Each agent receives the dispatch prompt template from `references/dispatch-prompt.md` with these placeholders filled in:
 

@@ -1,3 +1,10 @@
+# BEGIN dotagents fleet pre-commit guard
+ROOT="$(git rev-parse --show-toplevel)"
+if [[ -x "$ROOT/.agents/scripts/fleet-precommit-check.sh" ]]; then
+  bash "$ROOT/.agents/scripts/fleet-precommit-check.sh" || exit 1
+fi
+# END dotagents fleet pre-commit guard
+
 #!/usr/bin/env bash
 set -e
 
@@ -16,7 +23,11 @@ while IFS= read -r f; do
   [[ -z "$f" ]] && continue
   case "$f" in
     .cursor/hooks.json | .githooks/pre-commit) ;;
-    *) non_agent=1; break ;;
+    *)
+      [[ "$f" =~ ^\.agents/ ]] && continue
+      non_agent=1
+      break
+      ;;
   esac
 done <<< "$staged"
 
