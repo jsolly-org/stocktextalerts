@@ -138,7 +138,7 @@ Resources:
       Handler: asset-events.handler
       CodeUri: src/handlers
       Timeout: 300
-      MemorySize: 256
+      MemorySize: 512
       LoggingConfig:
         LogGroup: !Ref AssetEventsLogGroup
       Policies:
@@ -189,7 +189,7 @@ Resources:
       Handler: email-dispatch.handler
       CodeUri: src/handlers
       Timeout: 30
-      MemorySize: 128
+      MemorySize: 256
       LoggingConfig:
         LogGroup: !Ref EmailDispatchLogGroup
       Policies:

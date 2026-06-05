@@ -99,6 +99,38 @@ describe("fetchAndStoreAssetEvents", () => {
 		vi.clearAllMocks();
 	});
 
+	it("fetches Finnhub earnings before Massive calendar routes", async () => {
+		const { supabase } = createSupabaseStub(["AAPL"]);
+		const callOrder: string[] = [];
+
+		vi.mocked(fetchEarnings).mockImplementation(async () => {
+			callOrder.push("earnings");
+			return { data: [], failed: false };
+		});
+		vi.mocked(fetchDividends).mockImplementation(async () => {
+			callOrder.push("dividends");
+			return { data: [], failed: false };
+		});
+		vi.mocked(fetchSplits).mockImplementation(async () => {
+			callOrder.push("splits");
+			return { data: [], failed: false };
+		});
+		vi.mocked(fetchIpos).mockImplementation(async () => {
+			callOrder.push("ipos");
+			return { data: [], failed: false };
+		});
+
+		await fetchAndStoreAssetEvents({
+			supabase: supabase as never,
+			weekStart: "2026-02-16",
+			weekEnd: "2026-02-20",
+			logger: logger as never,
+		});
+
+		expect(callOrder[0]).toBe("earnings");
+		expect(callOrder.slice(1).sort()).toEqual(["dividends", "ipos", "splits"]);
+	});
+
 	it("stores IPO events in market_events even when no symbols are tracked", async () => {
 		const { supabase, state } = createSupabaseStub([]);
 

@@ -36,12 +36,13 @@ export async function fetchAndStoreAssetEvents(options: {
 	const symbolSet = new Set((trackedSymbols ?? []).map((row) => row.symbol));
 	const hasTrackedSymbols = symbolSet.size > 0;
 
-	// Fetch all four event types from providers:
-	// - earnings from Finnhub
-	// - dividends/splits/IPOs from Massive
+	// Earnings (Finnhub) first — it can block ~80s on retry exhaustion. Massive
+	// responses (up to 1000 dividends) are large; fetching them in parallel with
+	// a stalled Finnhub call pinned memory at 256 MB and OOM'd the Lambda.
 	const emptyResult: ProviderResult<never> = { data: [], failed: false };
-	const [earningsResult, dividendsResult, splitsResult, iposResult] = await Promise.all([
-		hasTrackedSymbols ? fetchEarnings(weekStart, weekEnd) : Promise.resolve(emptyResult),
+	const earningsResult = hasTrackedSymbols ? await fetchEarnings(weekStart, weekEnd) : emptyResult;
+
+	const [dividendsResult, splitsResult, iposResult] = await Promise.all([
 		hasTrackedSymbols ? fetchDividends(weekStart, weekEnd) : Promise.resolve(emptyResult),
 		hasTrackedSymbols ? fetchSplits(weekStart, weekEnd) : Promise.resolve(emptyResult),
 		fetchIpos(weekStart, weekEnd),
