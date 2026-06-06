@@ -111,30 +111,6 @@ if (error === "user_already_exists") {
               />
               <p id="password-help" class="mt-1.5 text-sm text-muted">At least {MIN_PASSWORD_LENGTH} characters</p>
             </div>
-            <div>
-              <label for="confirm" class="block text-sm font-medium text-label mb-2">Confirm password</label>
-              <input
-                type="password"
-                name="confirm"
-                id="confirm"
-                required
-                minlength={MIN_PASSWORD_LENGTH}
-                autocomplete="new-password"
-                spellcheck="false"
-                class="input input-lg"
-                placeholder="••••••••"
-                aria-describedby="confirm-match-feedback"
-              />
-              <p
-                id="confirm-match-feedback"
-                class="mt-1.5 hidden items-center gap-1 text-sm"
-                role="status"
-                aria-live="polite"
-              >
-                <Icon id="confirm-match-icon" name="check-circle-20" class="h-4 w-4" aria-hidden="true" />
-                <span id="confirm-match-text"></span>
-              </p>
-            </div>
           </fieldset>
 
           <fieldset>
@@ -180,80 +156,9 @@ if (error === "user_already_exists") {
 </Layout>
 
 <script>
-import { DEFAULT_TIMEZONE, MIN_PASSWORD_LENGTH } from "../../lib/constants";
+import { DEFAULT_TIMEZONE } from "../../lib/constants";
 	import { setupDetectedTimezoneOption } from "../../lib/time/detected-timezone";
 
 	// Ensure register form preselects a detected timezone even before user profile exists.
 	setupDetectedTimezoneOption({ defaultTimezone: DEFAULT_TIMEZONE });
-
-	(() => {
-		const passwordInput = document.getElementById("password");
-		const confirmInput = document.getElementById("confirm");
-		const feedback = document.getElementById("confirm-match-feedback");
-		const feedbackIcon = document.getElementById("confirm-match-icon");
-		const feedbackText = document.getElementById("confirm-match-text");
-
-		if (
-			!(passwordInput instanceof HTMLInputElement) ||
-			!(confirmInput instanceof HTMLInputElement) ||
-			!feedback ||
-			!feedbackIcon ||
-			!feedbackText
-		) {
-			return;
-		}
-
-		const pwInput: HTMLInputElement = passwordInput;
-		const confInput: HTMLInputElement = confirmInput;
-		const fb: HTMLElement = feedback;
-		const fbIcon: HTMLElement = feedbackIcon;
-		const fbText: HTMLElement = feedbackText;
-
-		function hideFeedback() {
-			fb.classList.add("hidden");
-			fb.classList.remove("flex", "text-success-text", "text-error-text");
-			fbIcon.classList.add("hidden");
-			fbIcon.classList.remove("text-success-text", "text-error-text");
-			fbText.textContent = "";
-		}
-
-		function showFeedback(matches: boolean) {
-			fb.classList.remove("hidden");
-			fb.classList.add("flex");
-			fb.classList.remove("text-success-text", "text-error-text");
-			fbIcon.classList.remove("hidden", "text-success-text", "text-error-text");
-
-			if (matches) {
-				fb.classList.add("text-success-text");
-				fbIcon.classList.add("text-success-text");
-				fbText.textContent = "Passwords match.";
-				return;
-			}
-
-			fb.classList.add("text-error-text");
-			fbIcon.classList.add("hidden");
-			fbText.textContent = "Passwords do not match.";
-		}
-
-		function updateMatchFeedback() {
-			const confirmValue = confInput.value;
-			const passwordValue = pwInput.value;
-
-			if (!confirmValue.length) {
-				hideFeedback();
-				return;
-			}
-
-			if (passwordValue.length < MIN_PASSWORD_LENGTH) {
-				showFeedback(false);
-				fbText.textContent = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
-				return;
-			}
-
-			showFeedback(passwordValue === confirmValue);
-		}
-
-		pwInput.addEventListener("input", updateMatchFeedback);
-		confInput.addEventListener("input", updateMatchFeedback);
-	})();
 </script>

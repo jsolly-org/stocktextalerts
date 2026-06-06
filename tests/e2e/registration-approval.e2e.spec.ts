@@ -145,7 +145,6 @@ test("registration approval workflow sends admin and user emails", async ({ brow
 		await userPage.goto("/auth/register");
 		await userPage.locator("#email").fill(userEmail);
 		await userPage.locator("#password").fill(TEST_PASSWORD);
-		await userPage.locator("#confirm").fill(TEST_PASSWORD);
 		await userPage.getByRole("button", { name: "Create account" }).click();
 		await expect(userPage).toHaveURL(/\/auth\/unconfirmed/, { timeout: 15_000 });
 

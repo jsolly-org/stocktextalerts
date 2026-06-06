@@ -34,14 +34,12 @@ function buildRegistrationPayload(
 	overrides: Partial<{
 		email: string;
 		password: string;
-		confirm: string;
 		timezone: string;
 	}> = {},
 ) {
 	return {
 		email: `test-${randomUUID()}@example.com`,
 		password: TEST_PASSWORD,
-		confirm: TEST_PASSWORD,
 		timezone: "America/New_York",
 		...overrides,
 	};

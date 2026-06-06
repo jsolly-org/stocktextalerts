@@ -85,7 +85,6 @@ const { email } = Astro.props;
 				class="space-y-4 border-t border-edge pt-6"
 				action="/api/auth/change-password"
 				method="post"
-				data-min-length={MIN_PASSWORD_LENGTH}
 			>
 				<input type="hidden" name="email" autocomplete="username" value={email} />
 				<fieldset class="space-y-4">
@@ -108,37 +107,10 @@ const { email } = Astro.props;
 							minlength={MIN_PASSWORD_LENGTH}
 							class="input input-lg"
 							placeholder="••••••••"
-							aria-describedby="password-change-help password-match-feedback"
+							aria-describedby="password-change-help"
 						/>
 						<p id="password-change-help" class="mt-2 text-sm text-muted">
 							Use at least {MIN_PASSWORD_LENGTH} characters.
-						</p>
-					</div>
-					<div>
-						<label
-							for="confirm-password"
-							class="block text-sm font-medium text-label mb-1"
-						>
-							Confirm new password
-						</label>
-						<input
-							type="password"
-							id="confirm-password"
-							name="confirm"
-							autocomplete="new-password"
-							required
-							minlength={MIN_PASSWORD_LENGTH}
-							class="input input-lg"
-							placeholder="••••••••"
-							aria-describedby="password-match-feedback"
-						/>
-						<p
-							id="password-match-feedback"
-							class="mt-2 text-sm text-warning-text hidden"
-							role="status"
-							aria-live="polite"
-						>
-							Passwords do not match.
 						</p>
 					</div>
 				</fieldset>
@@ -183,36 +155,4 @@ const { email } = Astro.props;
 		}
 	}
 
-	const passwordForm = document.querySelector(
-		'form[action="/api/auth/change-password"]',
-	) as HTMLFormElement | null;
-	if (passwordForm) {
-		const passwordInput =
-			passwordForm.querySelector<HTMLInputElement>("#new-password");
-		const confirmInput =
-			passwordForm.querySelector<HTMLInputElement>("#confirm-password");
-		const submitBtn =
-			passwordForm.querySelector<HTMLButtonElement>("#save-password-btn");
-		const mismatchFeedback =
-			passwordForm.querySelector<HTMLParagraphElement>(
-				"#password-match-feedback",
-			);
-
-		if (passwordInput && confirmInput && submitBtn && mismatchFeedback) {
-			const minLength = Number(passwordForm.dataset.minLength ?? "8");
-			const updatePasswordState = () => {
-				const password = passwordInput.value;
-				const confirm = confirmInput.value;
-				const isComplete =
-					password.length >= minLength && confirm.length >= minLength;
-				const mismatch = confirm.length > 0 && password !== confirm;
-
-				mismatchFeedback.classList.toggle("hidden", !mismatch);
-				submitBtn.disabled = !isComplete || mismatch;
-			};
-			passwordInput.addEventListener("input", updatePasswordState);
-			confirmInput.addEventListener("input", updatePasswordState);
-			updatePasswordState();
-		}
-	}
 </script>

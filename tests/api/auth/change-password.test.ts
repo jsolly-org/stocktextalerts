@@ -23,7 +23,6 @@ describe("A signed-in user changes their password from profile.", () => {
 			method: "POST",
 			body: new URLSearchParams({
 				password: NEW_PASSWORD,
-				confirm: NEW_PASSWORD,
 			}),
 		});
 
@@ -35,31 +34,6 @@ describe("A signed-in user changes their password from profile.", () => {
 		const newPasswordCookies = await createAuthenticatedCookies(testUser.email, NEW_PASSWORD);
 		expect(newPasswordCookies.get("sb-access-token")).toBeTruthy();
 		expect(newPasswordCookies.get("sb-refresh-token")).toBeTruthy();
-	});
-
-	it("Mismatched passwords are rejected.", async () => {
-		const originalPassword = "TestPassword123!";
-		const testUser = await createTestUser({
-			email: `test-${randomUUID()}@example.com`,
-			password: originalPassword,
-			confirmed: true,
-		});
-		registerTestUserForCleanup(testUser.id);
-
-		const cookies = await createAuthenticatedCookies(testUser.email, originalPassword);
-
-		const request = new Request("http://localhost/api/auth/change-password", {
-			method: "POST",
-			body: new URLSearchParams({
-				password: NEW_PASSWORD,
-				confirm: "DifferentPassword123!",
-			}),
-		});
-
-		const response = await POST(createApiContext({ request, cookies }));
-
-		expect(response.status).toBe(302);
-		expect(response.headers.get("Location")).toBe("/profile?error=password_mismatch");
 	});
 
 	it("Weak passwords are rejected.", async () => {
@@ -77,7 +51,6 @@ describe("A signed-in user changes their password from profile.", () => {
 			method: "POST",
 			body: new URLSearchParams({
 				password: "short",
-				confirm: "short",
 			}),
 		});
 

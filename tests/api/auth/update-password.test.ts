@@ -32,7 +32,6 @@ describe("A user resets their password from the recovery flow.", () => {
 				method: "POST",
 				body: new URLSearchParams({
 					password: NEW_PASSWORD,
-					confirm: NEW_PASSWORD,
 					token_hash: tokenHash,
 				}),
 			});
@@ -52,30 +51,11 @@ describe("A user resets their password from the recovery flow.", () => {
 		}
 	});
 
-	it("If the passwords do not match, the user sees a mismatch error.", async () => {
-		const request = new Request("http://localhost/api/auth/update-password", {
-			method: "POST",
-			body: new URLSearchParams({
-				password: "Mismatch123!",
-				confirm: "Different123!",
-				token_hash: "token_hash_value",
-			}),
-		});
-
-		const response = await POST(createApiContext({ request }));
-
-		expect(response.status).toBe(303);
-		const location = response.headers.get("Location");
-		expect(location).toContain("error=password_mismatch");
-		expect(location).toContain("token_hash=token_hash_value");
-	});
-
 	it("If the new password is too short, the user sees a strength error.", async () => {
 		const request = new Request("http://localhost/api/auth/update-password", {
 			method: "POST",
 			body: new URLSearchParams({
 				password: "short",
-				confirm: "short",
 				token_hash: "token_hash_value",
 			}),
 		});

@@ -13,7 +13,6 @@ describe("Password change endpoint enforces authentication, form validation, and
 			method: "POST",
 			body: new URLSearchParams({
 				password: NEW_PASSWORD,
-				confirm: NEW_PASSWORD,
 			}),
 		});
 
@@ -38,7 +37,6 @@ describe("Password change endpoint enforces authentication, form validation, and
 			method: "POST",
 			body: new URLSearchParams({
 				password: "",
-				confirm: "",
 			}),
 		});
 
@@ -75,7 +73,6 @@ describe("Password change endpoint enforces rate limiting.", () => {
 			method: "POST",
 			body: new URLSearchParams({
 				password: NEW_PASSWORD,
-				confirm: NEW_PASSWORD,
 			}),
 		});
 

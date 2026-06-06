@@ -22,7 +22,6 @@ export const POST: APIRoute = async ({ url, request, redirect, locals }) => {
 	const formData = await request.formData();
 	const parsed = parseWithSchema(formData, {
 		password: { type: "string", required: true, trim: false },
-		confirm: { type: "string", required: true, trim: false },
 		token_hash: { type: "string", required: true },
 	} as const);
 
@@ -33,14 +32,7 @@ export const POST: APIRoute = async ({ url, request, redirect, locals }) => {
 		return redirect(buildRecoverRedirect("invalid_form"), 303);
 	}
 
-	const { password, confirm, token_hash: tokenHash } = parsed.data;
-
-	if (password !== confirm) {
-		logger.info("Password reset rejected: password mismatch", {
-			tokenProvided: !!tokenHash,
-		});
-		return redirect(buildRecoverRedirect("password_mismatch", tokenHash), 303);
-	}
+	const { password, token_hash: tokenHash } = parsed.data;
 
 	// Validate password strength before consuming the token
 	// This prevents token consumption if password is obviously too weak

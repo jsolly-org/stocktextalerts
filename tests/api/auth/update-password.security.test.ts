@@ -8,7 +8,6 @@ describe("A user submits the password recovery form.", () => {
 			method: "POST",
 			body: new URLSearchParams({
 				password: "",
-				confirm: "",
 				token_hash: "",
 			}),
 		});

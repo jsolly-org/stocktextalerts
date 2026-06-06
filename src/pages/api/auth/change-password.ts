@@ -36,7 +36,6 @@ export const POST: APIRoute = async ({ url, request, redirect, locals, cookies }
 	const formData = await request.formData();
 	const parsed = parseWithSchema(formData, {
 		password: { type: "string", required: true, trim: false },
-		confirm: { type: "string", required: true, trim: false },
 	} as const);
 
 	if (!parsed.ok) {
@@ -47,13 +46,7 @@ export const POST: APIRoute = async ({ url, request, redirect, locals, cookies }
 		return redirect("/profile?error=invalid_form");
 	}
 
-	const { password, confirm } = parsed.data;
-	if (password !== confirm) {
-		logger.info("Password change request rejected due to password mismatch", {
-			userId: authUser.id,
-		});
-		return redirect("/profile?error=password_mismatch");
-	}
+	const { password } = parsed.data;
 
 	if (password.length < MIN_PASSWORD_LENGTH) {
 		logger.info("Password change request rejected due to weak password", {

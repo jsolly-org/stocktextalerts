@@ -16,7 +16,6 @@ describe("Registration is closed when the product flag is disabled.", () => {
 			body: new URLSearchParams({
 				email: `test-closed-${randomUUID()}@example.com`,
 				password: TEST_PASSWORD,
-				confirm: TEST_PASSWORD,
 			}),
 		});
 

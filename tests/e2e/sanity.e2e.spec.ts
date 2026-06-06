@@ -472,7 +472,6 @@ test.describe("sanity tests", () => {
 		await page.goto("/auth/register");
 		await page.locator("#email").fill(testEmail);
 		await page.locator("#password").fill(testPassword);
-		await page.locator("#confirm").fill(testPassword);
 		await page.getByRole("button", { name: "Create account" }).click();
 		await expectCurrentPath(page, "/auth/unconfirmed");
 
@@ -908,11 +907,84 @@ test.describe("sanity tests", () => {
 		);
 	});
 
+	test("TC-REC-001: User can reset password via forgot and recover flow", async () => {
+		test.slow();
+		test.setTimeout(120_000);
+
+		const recoverEmail = `recover-${randomUUID()}@example.com`;
+		const recoverUser = await createTestUser({
+			email: recoverEmail,
+			password: testPassword,
+			confirmed: true,
+			approved: true,
+		});
+
+		try {
+			await page.goto("/auth/forgot");
+			await page.locator("#email").fill(recoverEmail);
+			await page.getByRole("button", { name: "Send Reset Link" }).click();
+			await expectCurrentPath(page, "/auth/forgot");
+
+			const resetEmail = await waitForEmail(recoverEmail, "Reset your password", 60_000);
+			const recoveryLink = extractLinks(resetEmail).find(
+				(link) => link.includes("token_hash=") && link.includes("type=recovery"),
+			);
+			expect(recoveryLink).toBeTruthy();
+			if (!recoveryLink) {
+				throw new Error("Password reset email link not found");
+			}
+
+			await page.goto(rewriteLinkOrigin(recoveryLink, baseOrigin));
+			await expect(page.locator("#password")).toBeVisible();
+			await expect(page.locator("#confirm")).toHaveCount(0);
+			await page.locator("#password").fill(newPassword);
+			await page.getByRole("button", { name: "Update password" }).click();
+			// verifySupabaseOtp during reset establishes a session; signed-in users skip sign-in.
+			await expect
+				.poll(() => new URL(page.url()).pathname, {
+					message: "Expected post-reset redirect to sign-in or dashboard",
+					timeout: 15_000,
+				})
+				.toMatch(/^\/(auth\/signin|dashboard)$/);
+			const postResetPath = new URL(page.url()).pathname;
+
+			if (postResetPath === "/dashboard") {
+				await page.getByRole("button", { name: "Sign Out" }).click();
+				await expectCurrentPath(page, "/");
+			}
+
+			await signIn(page, recoverEmail, newPassword);
+			await page.getByRole("button", { name: "Sign Out" }).click();
+			await expectCurrentPath(page, "/");
+
+			if (testEmail) {
+				await signIn(page, testEmail, testPassword);
+			}
+		} finally {
+			await cleanupTestUser(recoverUser.id);
+		}
+	});
+
+	test("TC-PROF-PW-001: User can change password from profile", async () => {
+		test.slow();
+
+		await page.goto("/profile");
+		await page.locator("#new-password").fill(newPassword);
+		await page.getByRole("button", { name: "Update password" }).click();
+		await expectCurrentPath(page, "/profile");
+		await expect(page.getByText("Password updated successfully!")).toBeVisible();
+
+		await page.getByRole("button", { name: "Sign Out" }).click();
+		await expectCurrentPath(page, "/");
+		await signIn(page, testEmail, newPassword);
+	});
+
 	// TODO(supabase-email-templates): Re-enable once auth-email-change templates
 	// emit `token_hash=` (matching what `verified.astro` reads). Today Supabase
 	// sends legacy `token=` params, so clicking the verify link lands on
 	// `/auth/verified` with no token, the "Verify my email" button never renders,
 	// and the test times out. Tracked in `docs/superpowers/follow-ups.md`.
+	// Password change is covered by TC-PROF-PW-001 above.
 	test.skip("TC-PROF-001: User can change password and update email", async () => {
 		test.slow();
 		test.setTimeout(180_000);
@@ -923,7 +995,6 @@ test.describe("sanity tests", () => {
 
 		await page.goto("/profile");
 		await page.locator("#new-password").fill(newPassword);
-		await page.locator("#confirm-password").fill(newPassword);
 		await page.getByRole("button", { name: "Update password" }).click();
 		await expectCurrentPath(page, "/profile");
 		await expect(page.getByText("Password updated successfully!")).toBeVisible();

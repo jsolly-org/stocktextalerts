@@ -213,8 +213,22 @@ describe("Users can load pages without unexpected errors.", () => {
 		expect(response.status).toBe(200);
 		const html = await response.text();
 		expect(html).not.toContain('name="registration_password"');
+		expect(html).toContain('name="password"');
+		expect(html).not.toContain('name="confirm"');
 		expect(html).not.toContain("DM");
 		expect(html).not.toContain("@_jsolly");
+	});
+
+	it("The recover page with a valid token shows a single password field.", async () => {
+		const container = await AstroContainer.create({ renderers });
+		const response = await container.renderToResponse(AuthRecoverPage, {
+			request: buildRequest("/auth/recover?token_hash=test-token&type=recovery"),
+		});
+
+		expect(response.status).toBe(200);
+		const html = await response.text();
+		expect(html).toContain('name="password"');
+		expect(html).not.toContain('name="confirm"');
 	});
 
 	it("The pending approval page explains the account status.", async () => {
@@ -302,6 +316,11 @@ describe("Users can load pages without unexpected errors.", () => {
 					request: buildRequest("/profile", cookies),
 				});
 				expect(profileResponse.status).toBe(200);
+				const html = await profileResponse.text();
+				expect(html).toContain('id="new-password"');
+				expect(html).toContain('name="password"');
+				expect(html).not.toContain('id="confirm-password"');
+				expect(html).not.toContain('name="confirm"');
 			},
 		);
 	});

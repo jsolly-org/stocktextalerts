@@ -208,7 +208,6 @@ const MESSAGE_ALLOWLIST = {
 	profile_creation_failed: "Failed to create user profile. Please try again or contact support.",
 	failed: "Request failed. Please try again.",
 	rate_limit: "You've made too many requests. Please try again later.",
-	password_mismatch: "Passwords do not match.",
 	weak_password: "Password does not meet security requirements. Please choose a stronger password.",
 	expired: "This password reset link has expired.",
 	invalid_token: "This password reset link is invalid.",
