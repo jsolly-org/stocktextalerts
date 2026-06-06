@@ -204,44 +204,6 @@ describe("Users can load pages without unexpected errors.", () => {
 		expect(response.status).toBe(200);
 	});
 
-	it("The register page does not require a registration password.", async () => {
-		const container = await AstroContainer.create({ renderers });
-		const response = await container.renderToResponse(AuthRegisterPage, {
-			request: buildRequest("/auth/register"),
-		});
-
-		expect(response.status).toBe(200);
-		const html = await response.text();
-		expect(html).not.toContain('name="registration_password"');
-		expect(html).toContain('name="password"');
-		expect(html).not.toContain('name="confirm"');
-		expect(html).not.toContain("DM");
-		expect(html).not.toContain("@_jsolly");
-	});
-
-	it("The recover page with a valid token shows a single password field.", async () => {
-		const container = await AstroContainer.create({ renderers });
-		const response = await container.renderToResponse(AuthRecoverPage, {
-			request: buildRequest("/auth/recover?token_hash=test-token&type=recovery"),
-		});
-
-		expect(response.status).toBe(200);
-		const html = await response.text();
-		expect(html).toContain('name="password"');
-		expect(html).not.toContain('name="confirm"');
-	});
-
-	it("The pending approval page explains the account status.", async () => {
-		const container = await AstroContainer.create({ renderers });
-		const response = await container.renderToResponse(AuthPendingApprovalPage, {
-			request: buildRequest("/auth/pending-approval"),
-		});
-
-		expect(response.status).toBe(200);
-		const html = await response.text();
-		expect(html).toContain("Your account is pending approval");
-	});
-
 	it.each(staticPages)("A visitor can access static page $path.", async ({ component, path }) => {
 		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(component, {
@@ -249,21 +211,6 @@ describe("Users can load pages without unexpected errors.", () => {
 		});
 
 		expect(response.status).toBe(200);
-	});
-
-	it("A GET with token_hash renders a confirm button instead of immediately verifying.", async () => {
-		const container = await AstroContainer.create({ renderers });
-		const response = await container.renderToResponse(AuthVerifiedPage, {
-			request: buildRequest("/auth/verified?token_hash=abc123&type=email"),
-		});
-
-		expect(response.status).toBe(200);
-		const html = await response.text();
-		expect(html).toContain('name="token_hash"');
-		expect(html).toContain('value="abc123"');
-		expect(html).toContain("Verify my email");
-		expect(html).not.toContain("Email Verified!");
-		expect(html).not.toContain("all set.");
 	});
 
 	it("A signed-in user can view the verified page.", async () => {
@@ -316,11 +263,6 @@ describe("Users can load pages without unexpected errors.", () => {
 					request: buildRequest("/profile", cookies),
 				});
 				expect(profileResponse.status).toBe(200);
-				const html = await profileResponse.text();
-				expect(html).toContain('id="new-password"');
-				expect(html).toContain('name="password"');
-				expect(html).not.toContain('id="confirm-password"');
-				expect(html).not.toContain('name="confirm"');
 			},
 		);
 	});

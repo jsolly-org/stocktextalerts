@@ -2,6 +2,8 @@ import type { BrowserContext, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import { rootLogger } from "../../src/lib/logging";
 import { TEST_PASSWORD } from "../helpers/constants";
+import { signIn } from "../helpers/e2e/auth";
+import { waitForAutosave } from "../helpers/e2e/dashboard";
 import { adminClient } from "../helpers/test-env";
 import { cleanupTestUser, createTestUser } from "../helpers/test-user";
 
@@ -14,34 +16,6 @@ const ET_UPPER_MINUTES = 1170; // 7:30 PM ET
 const ET_AFTER_OPEN_MINUTES = 600; // 10:00 AM ET (default "After open" preset)
 const MAX_DELIVERY_TIMES = 8;
 const OUTSIDE_HOURS_TOOLTIP = "Outside US extended-hours window (4:30 AM – 7:30 PM ET)";
-const UPDATE_URL_MATCH = "/api/notification-preferences/update";
-
-async function signIn(page: Page, email: string, password: string) {
-	await page.goto("/auth/signin");
-	const emailInput = page.locator("#email");
-	await expect
-		.poll(
-			async () => {
-				await emailInput.fill(email);
-				return emailInput.inputValue();
-			},
-			{ timeout: 10_000, message: "Email value cleared by hydration" },
-		)
-		.toBe(email);
-	await page.locator("#password").fill(password);
-	await page.getByRole("button", { name: "Sign In" }).click();
-	await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
-}
-
-async function waitForAutosave(page: Page, action: () => Promise<void>): Promise<void> {
-	const responsePromise = page.waitForResponse(
-		(response) => response.url().includes(UPDATE_URL_MATCH) && response.status() === 200,
-		{ timeout: 15_000 },
-	);
-	await action();
-	await responsePromise;
-}
-
 async function getScheduledTimes(userId: string): Promise<number[] | null> {
 	const { data, error } = await adminClient
 		.from("users")

@@ -1,46 +1,16 @@
 import { randomUUID } from "node:crypto";
-import type { BrowserContext, Page } from "@playwright/test";
+import type { BrowserContext } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import { rootLogger } from "../../src/lib/logging";
 import { TEST_PASSWORD } from "../helpers/constants";
+import { addAuthCookies, signInAndExpectPath } from "../helpers/e2e/auth";
+import { waitForPasswordSignInReady } from "../helpers/e2e/fixtures";
+import { extractLinks, rewriteLinkOrigin } from "../helpers/e2e/mail";
 import { clearMailpit, waitForMailpitMessageTo } from "../helpers/mailpit";
-import { adminClient, createAuthenticatedCookies } from "../helpers/test-env";
+import { adminClient } from "../helpers/test-env";
 import { cleanupTestUser, createTestUser } from "../helpers/test-user";
 
 const WORKFLOW_ADMIN_EMAIL = "workflow-admin-e2e@example.com";
-
-function extractLinks(text: string): string[] {
-	const matches = text.match(/https?:\/\/[^\s"'<>]+/g) ?? [];
-	return [...new Set(matches.map((match) => match.replaceAll("&amp;", "&")))];
-}
-
-function rewriteLinkOrigin(link: string, baseOrigin: string): string {
-	const rewritten = new URL(link);
-	const base = new URL(baseOrigin);
-	rewritten.protocol = base.protocol;
-	rewritten.host = base.host;
-	return rewritten.toString();
-}
-
-async function signInAndExpectPath(
-	page: Page,
-	email: string,
-	password: string,
-	expectedPath: string,
-) {
-	// Drive the sign-in endpoint directly and assert its approval-gated redirect
-	// target. Browser-level sign-in is already covered by sanity.e2e.spec.ts; this
-	// workflow spec only needs to verify that an (un)approved user is routed to the
-	// right place after the surrounding registration and approval state changes.
-	const response = await page.request.post("/api/auth/signin", {
-		form: { email, password },
-		maxRedirects: 0,
-	});
-	const status = response.status();
-	expect(status, `sign-in should redirect (got ${status})`).toBeGreaterThanOrEqual(300);
-	expect(status).toBeLessThan(400);
-	expect(response.headers().location ?? "").toContain(expectedPath);
-}
 
 async function getUserRowByEmail(
 	email: string,
@@ -52,43 +22,6 @@ async function getUserRowByEmail(
 		.single();
 	if (error) throw new Error(`Failed to load user row: ${error.message}`);
 	return data;
-}
-
-async function waitForPasswordSignInReady(email: string, password: string): Promise<void> {
-	await expect
-		.poll(
-			async () => {
-				const { data, error } = await adminClient.auth.signInWithPassword({ email, password });
-				return !error && Boolean(data.session);
-			},
-			{
-				timeout: 30_000,
-				message: "Auth user not ready for password sign-in",
-			},
-		)
-		.toBe(true);
-	await adminClient.auth.signOut();
-}
-
-async function addAuthCookies(
-	context: BrowserContext,
-	baseOrigin: string,
-	email: string,
-	password: string,
-): Promise<void> {
-	const authCookies = await createAuthenticatedCookies(email, password);
-	await context.addCookies([
-		{
-			name: "sb-access-token",
-			value: authCookies.get("sb-access-token") ?? "",
-			url: baseOrigin,
-		},
-		{
-			name: "sb-refresh-token",
-			value: authCookies.get("sb-refresh-token") ?? "",
-			url: baseOrigin,
-		},
-	]);
 }
 
 async function deleteUserByEmail(email: string): Promise<void> {
@@ -121,9 +54,9 @@ test("registration approval workflow sends admin and user emails", async ({ brow
 	const userEmail = `approval-workflow-${randomUUID()}@example.com`;
 	let adminId: string | null = null;
 	let userId: string | null = null;
-	let adminContext: Awaited<ReturnType<typeof browser.newContext>> | null = null;
-	let userContext: Awaited<ReturnType<typeof browser.newContext>> | null = null;
-	let approvedUserContext: Awaited<ReturnType<typeof browser.newContext>> | null = null;
+	let adminContext: BrowserContext | null = null;
+	let userContext: BrowserContext | null = null;
+	let approvedUserContext: BrowserContext | null = null;
 
 	try {
 		await deleteUserByEmail(WORKFLOW_ADMIN_EMAIL);

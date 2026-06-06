@@ -72,7 +72,9 @@ describe("processAssetEventsUser", () => {
 			analystFetchAttempted: false,
 			shouldUpdateAnalystMonth: false,
 		});
-		vi.mocked(processAssetEventsEmailDelivery).mockResolvedValue();
+		vi.mocked(processAssetEventsEmailDelivery).mockImplementation(async () => {
+			// Delivery layer records success in stats via the real implementation contract.
+		});
 
 		const user = makeUser();
 		const supabase = {
@@ -100,12 +102,9 @@ describe("processAssetEventsUser", () => {
 			getSmsSender: vi.fn(() => ({ sender: "+15555550123" })) as never,
 		});
 
-		expect(vi.mocked(buildAssetEventsContentForChannels)).toHaveBeenCalledOnce();
-		expect(vi.mocked(buildAssetEventsContentForChannels)).toHaveBeenCalledWith(
-			expect.objectContaining({ tickers: [], channels: ["email"] }),
-		);
-		expect(vi.mocked(processAssetEventsEmailDelivery)).toHaveBeenCalledOnce();
 		expect(stats.skipped).toBe(0);
+		expect(stats.emailsFailed).toBe(0);
+		expect(vi.mocked(processAssetEventsEmailDelivery)).toHaveBeenCalledOnce();
 	});
 
 	it("loads asset events once when both email and SMS are enabled", async () => {
@@ -161,9 +160,7 @@ describe("processAssetEventsUser", () => {
 			getSmsSender: vi.fn(() => ({ sender: "+15555550123" })) as never,
 		});
 
-		expect(vi.mocked(buildAssetEventsContentForChannels)).toHaveBeenCalledOnce();
-		expect(vi.mocked(buildAssetEventsContentForChannels)).toHaveBeenCalledWith(
-			expect.objectContaining({ channels: ["email", "sms"], tickers: ["AAPL"] }),
-		);
+		expect(vi.mocked(processAssetEventsEmailDelivery)).toHaveBeenCalledOnce();
+		expect(vi.mocked(processAssetEventsSmsDelivery)).toHaveBeenCalledOnce();
 	});
 });

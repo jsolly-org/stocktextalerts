@@ -25,3 +25,29 @@ The harness hard-gates real-delivery paths so no test can reach prod SES or prod
 ## Test recipients
 
 **Always `@example.com`.** `tests/helpers/test-user.ts:createTestEmail` generates `<prefix>-<runId>-<uuid>@example.com`.
+
+## Test categories
+
+| Category | Location | What it proves |
+| --- | --- | --- |
+| **Product scenario (browser)** | `tests/e2e/*.e2e.spec.ts` | Real user journeys: sign-in, dashboard, profile, approval, inbound SMS. Each file owns its users via `tests/helpers/e2e/fixtures.ts`. |
+| **HTTP integration** | `tests/api-http/*.test.ts` | Form posts against a running Astro dev server (`tests/helpers/http/`). Reuses port 4322 when E2E is up; otherwise starts a dedicated server on 4325. |
+| **Direct handler / API** | `tests/api/**/*.test.ts` | Precise handler behavior, security edges, and DB seeding that HTTP tests do not need to repeat. |
+| **Library integration** | `tests/lib/**` (e.g. `schedule/run.test.ts`, `flat-alerts/process.test.ts`) | Scheduled jobs and notification pipelines with real Supabase rows; provider HTTP stubbed. |
+| **Pure unit** | `tests/lib/**` formatters, parsers, time math | No DB; fast logic checks only. |
+| **Live provider (opt-in)** | `npm run test:live:*` | Real Massive, Finnhub, xAI, Mailpit SMTP, or Twilio test credentials — never run in default `npm test`. |
+| **Infra guardrails** | `tests/scripts/`, hook/guard tests | Scripts, agent guards, sender gates — not product scenarios. |
+
+### E2E helpers
+
+Shared Playwright helpers live under `tests/helpers/e2e/` (`auth.ts`, `mail.ts`, `dashboard.ts`, `fixtures.ts`). Prefer browser sign-in over `page.request.post("/api/auth/signin")` in user-flow specs. Admin cookie injection is limited to setup via `addAuthCookies()`.
+
+### Vitest parallelism (not enabled)
+
+`vitest.config.ts` sets `fileParallelism: false` because tests share one local Supabase database. `tests/setup.ts` runs global cleanup after each file; `registerTestUserForCleanup` and `createTestEmail` scope data by `TEST_RUN_ID` (`tests/helpers/constants.ts`). Before enabling parallelism, trial `fileParallelism: true` in a worktree and watch for:
+
+- Tests that mutate preserved seed users (`PRESERVED_USER_ID`, `PRESERVED_TEST_EMAIL`)
+- Tests assuming no concurrent users with the same email prefix
+- Global Mailpit clears racing with parallel email assertions
+
+Per-repo test locking (`tests/run-vitest.ts` / `tests/run-playwright.ts`) prevents concurrent `npm test` and `npm run test:e2e` across worktrees; parallelism would be within a single Vitest invocation only.

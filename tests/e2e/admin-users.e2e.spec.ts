@@ -3,6 +3,7 @@ import type { BrowserContext, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import { rootLogger } from "../../src/lib/logging";
 import { TEST_PASSWORD } from "../helpers/constants";
+import { signIn } from "../helpers/e2e/auth";
 import { clearMailpit, waitForMailpitMessageTo } from "../helpers/mailpit";
 import { adminClient } from "../helpers/test-env";
 import { cleanupTestUser, createTestUser } from "../helpers/test-user";
@@ -10,34 +11,6 @@ import { cleanupTestUser, createTestUser } from "../helpers/test-user";
 // Must match ADMIN_EMAILS injected into the dev server in
 // playwright.config.ts (webServer.env). @example.com keeps it non-routable.
 const ADMIN_EMAIL = "admin-e2e@example.com";
-
-async function signIn(page: Page, email: string, password: string) {
-	await page.goto("/auth/signin");
-	const emailInput = page.locator("#email");
-	await expect
-		.poll(
-			async () => {
-				await emailInput.fill(email);
-				return emailInput.inputValue();
-			},
-			{ timeout: 10_000, message: "Email value cleared by hydration" },
-		)
-		.toBe(email);
-	await page.locator("#password").fill(password);
-	const signInResponse = page.waitForResponse(
-		(response) =>
-			response.request().method() === "POST" && response.url().includes("/api/auth/signin"),
-		{ timeout: 30_000 },
-	);
-	await page.getByRole("button", { name: "Sign In" }).click();
-	const response = await signInResponse;
-	const status = response.status();
-	expect(
-		status >= 300 && status < 400,
-		`Sign-in POST expected redirect, got status ${status}`,
-	).toBe(true);
-	await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
-}
 
 async function deleteUserByEmail(email: string): Promise<void> {
 	const { data } = await adminClient.from("users").select("id").eq("email", email).maybeSingle();

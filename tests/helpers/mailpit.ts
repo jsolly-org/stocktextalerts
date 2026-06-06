@@ -130,3 +130,19 @@ export async function waitForMailpitMessageTo(
 		options,
 	);
 }
+
+/** Wait for a message to `recipient` whose subject contains `subjectContains`. */
+export async function waitForMailpitMessageWithSubject(
+	recipient: string,
+	subjectContains: string,
+	options?: WaitOptions,
+): Promise<MailpitMessage> {
+	const target = recipient.toLowerCase();
+	const needle = subjectContains.toLowerCase();
+	return waitForMailpitMessage(
+		(row) =>
+			(row.To ?? []).some((to) => (to.Address ?? "").toLowerCase() === target) &&
+			(row.Subject ?? "").toLowerCase().includes(needle),
+		options,
+	);
+}

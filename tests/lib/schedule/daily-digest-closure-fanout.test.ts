@@ -186,13 +186,13 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 		dispatchDailyDigestUserMock.mockResolvedValue({
 			skipped: 0,
 			logFailures: 0,
-			emailsSent: 0,
+			emailsSent: 1,
 			emailsFailed: 0,
 			smsSent: 0,
 			smsFailed: 0,
 		});
 
-		await runScheduledNotifications({
+		const totals = await runScheduledNotifications({
 			supabase: {} as never,
 			logger: {
 				info: vi.fn(),
@@ -201,6 +201,7 @@ describe("A cron fallback pass fans out daily digests without a shared closure l
 			} as never,
 		});
 
+		expect(totals.emailsSent).toBe(1);
 		expect(dispatchDailyDigestUserMock).toHaveBeenCalledWith(
 			expect.objectContaining({
 				userId: "daily-user-1",

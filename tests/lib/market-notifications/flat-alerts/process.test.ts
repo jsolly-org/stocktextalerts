@@ -1,3 +1,8 @@
+/**
+ * Integration-style flat price alert tests: real Supabase rows and
+ * notification_log / price_move_alert_state assertions. Provider HTTP stays
+ * stubbed; delivery uses test-mode email/SMS senders.
+ */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EmailSender } from "../../../../src/lib/messaging/email/utils";
 import type { SmsSender } from "../../../../src/lib/messaging/sms/twilio-utils";
