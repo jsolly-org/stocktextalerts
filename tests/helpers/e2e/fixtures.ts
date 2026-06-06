@@ -3,7 +3,7 @@ import { expect } from "@playwright/test";
 import { TEST_PASSWORD } from "../constants";
 import { adminClient } from "../test-env";
 import { cleanupTestUser, createTestEmail, createTestUser } from "../test-user";
-import { signIn } from "./auth";
+import { addAuthCookies, expectCurrentPath } from "./auth";
 
 type ApprovedE2eUser = {
 	id: string;
@@ -49,7 +49,9 @@ export async function openSignedInPage(
 	const page = await context.newPage();
 	await page.goto("/");
 	const baseOrigin = new URL(page.url()).origin;
-	await signIn(page, user.email, user.password);
+	await addAuthCookies(context, baseOrigin, user.email, user.password);
+	await page.goto("/dashboard");
+	await expectCurrentPath(page, "/dashboard");
 	return {
 		page,
 		baseOrigin,

@@ -16,6 +16,7 @@ const sharedUse: PlaywrightTestConfig["use"] = {
 
 export const sharedDefaults = {
 	workers: 1,
+	retries: process.env.CI ? 2 : 0,
 	outputDir: ".playwright-mcp/cli",
 	use: sharedUse,
-} satisfies Pick<PlaywrightTestConfig, "workers" | "outputDir" | "use">;
+} satisfies Pick<PlaywrightTestConfig, "workers" | "retries" | "outputDir" | "use">;

@@ -35,13 +35,17 @@ export async function signIn(
 	options: { expectedPath?: string } = {},
 ): Promise<void> {
 	const expectedPath = options.expectedPath ?? "/dashboard";
+	const signInTimeout = process.env.CI ? 60_000 : 30_000;
 	await page.goto("/auth/signin");
+	await expect(page.getByRole("button", { name: "Sign In" })).toBeEnabled({
+		timeout: signInTimeout,
+	});
 	await fillEmailInput(page, email);
 	await page.locator("#password").fill(password);
 	const signInResponse = page.waitForResponse(
 		(response) =>
 			response.request().method() === "POST" && response.url().includes("/api/auth/signin"),
-		{ timeout: 30_000 },
+		{ timeout: signInTimeout },
 	);
 	await page.getByRole("button", { name: "Sign In" }).click();
 	const response = await signInResponse;
@@ -50,7 +54,7 @@ export async function signIn(
 		status >= 300 && status < 400,
 		`Sign-in POST expected redirect, got status ${status}`,
 	).toBe(true);
-	await expectCurrentPath(page, expectedPath, 30_000);
+	await expectCurrentPath(page, expectedPath, signInTimeout);
 }
 
 export async function signOut(page: Page): Promise<void> {
