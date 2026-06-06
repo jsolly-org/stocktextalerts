@@ -44,7 +44,8 @@ Shared Playwright helpers live under `tests/helpers/e2e/` (`auth.ts`, `mail.ts`,
 
 | Helper | Use when |
 | --- | --- |
-| `openSignedInPage()` | Scenario **setup** — injects session cookies and opens `/dashboard`. Fast and stable under CI load. |
+| `createE2eSpecContext()` + `beforeAll` | Multi-test spec files — resolves `baseOrigin` once, opens sessions via Playwright `storageState`. |
+| `openSignedInPage()` | Single-test setup — same `storageState` path without a shared `beforeAll` harness. |
 | `signIn()` / `signOut()` | The **behavior under test** is the auth UI (TC-AUTH-001, TC-REC-001, TC-AUTH-002, registration, etc.). |
 | `addAuthCookies()` | Admin or workflow setup where the sign-in form is not the subject (admin-users, registration-approval). |
 

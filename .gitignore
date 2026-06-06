@@ -49,6 +49,9 @@ precommit-*.log
 # Generated seed file (contains passwords from DEFAULT_PASSWORD env var)
 supabase/seed.sql
 
+# Per-worktree local Supabase config (linked git worktrees only)
+supabase/.worktree/
+
 # User seed data (may contain real email addresses)
 scripts/data/users.json
 .vercel

@@ -2,19 +2,27 @@ import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { NEW_PASSWORD } from "../helpers/constants";
 import { expectCurrentPath, signIn, signOut } from "../helpers/e2e/auth";
-import { createApprovedE2eUser, openSignedInPage } from "../helpers/e2e/fixtures";
+import { createApprovedE2eUser } from "../helpers/e2e/fixtures";
 import {
+	confirmEmailChangeLinks,
 	extractLinks,
 	maybeWaitForEmail,
-	rewriteLinkOrigin,
+	uniqueEmailChangeLinksByToken,
 	waitForEmail,
 } from "../helpers/e2e/mail";
+import { createE2eSpecContext, type E2eSpecContext } from "../helpers/e2e/spec-context";
 import { adminClient } from "../helpers/test-env";
 
 test.describe("profile settings", () => {
+	let e2e: E2eSpecContext;
+
+	test.beforeAll(async ({ browser }) => {
+		e2e = await createE2eSpecContext(browser);
+	});
+
 	test("TC-TZ-001: User can configure timezone", async ({ browser }) => {
 		const user = await createApprovedE2eUser("profile-tz");
-		const session = await openSignedInPage(browser, user);
+		const session = await e2e.openSignedInPage(browser, user);
 		try {
 			await session.page.goto("/profile");
 			await expectCurrentPath(session.page, "/profile");
@@ -46,7 +54,7 @@ test.describe("profile settings", () => {
 
 	test("TC-TIME-001: User can toggle 24-hour time format", async ({ browser }) => {
 		const user = await createApprovedE2eUser("profile-time");
-		const session = await openSignedInPage(browser, user);
+		const session = await e2e.openSignedInPage(browser, user);
 		try {
 			await session.page.goto("/profile");
 			await session.page.locator("[data-hydrated]").waitFor({ timeout: 15_000 });
@@ -79,7 +87,7 @@ test.describe("profile settings", () => {
 	test("TC-PROF-PW-001: User can change password from profile", async ({ browser }) => {
 		test.slow();
 		const user = await createApprovedE2eUser("profile-pw");
-		const session = await openSignedInPage(browser, user);
+		const session = await e2e.openSignedInPage(browser, user);
 		try {
 			await session.page.goto("/profile");
 			await expect(session.page.getByLabel("New password")).toBeVisible();
@@ -102,7 +110,7 @@ test.describe("profile settings", () => {
 
 		const user = await createApprovedE2eUser("profile-email");
 		const secondEmail = `profile-second-${randomUUID()}@example.com`;
-		const session = await openSignedInPage(browser, user);
+		const session = await e2e.openSignedInPage(browser, user);
 		try {
 			await session.page.goto("/profile");
 			await session.page.locator("#new-password").fill(NEW_PASSWORD);
@@ -128,20 +136,16 @@ test.describe("profile settings", () => {
 				...extractLinks(newEmailMessage),
 				...(oldEmailMessage ? extractLinks(oldEmailMessage) : []),
 			];
-			const emailChangeLinks = [...new Set(candidateLinks)].filter(
-				(link) =>
-					(link.includes("token_hash=") || link.includes("token=")) &&
-					link.includes("type=email_change"),
+			const emailChangeLinks = uniqueEmailChangeLinksByToken(
+				[...new Set(candidateLinks)].filter(
+					(link) =>
+						(link.includes("token_hash=") || link.includes("token=")) &&
+						link.includes("type=email_change"),
+				),
 			);
 			expect(emailChangeLinks.length).toBeGreaterThan(0);
 
-			for (const link of emailChangeLinks) {
-				await session.page.goto(rewriteLinkOrigin(link, session.baseOrigin));
-				const verifyButton = session.page.getByRole("button", { name: "Verify my email" });
-				if (await verifyButton.isVisible({ timeout: 5_000 }).catch(() => false)) {
-					await verifyButton.click();
-				}
-			}
+			await confirmEmailChangeLinks(session.page, emailChangeLinks, session.baseOrigin);
 
 			await expect
 				.poll(

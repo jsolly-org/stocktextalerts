@@ -10,6 +10,8 @@
  * the main worktree does, symlink the worktree path to the main file.
  * Symlinks (vs copies) so edits flow both ways — these files change rarely
  * and developers expect their personal seed/env to follow them around.
+ * Linked worktrees: `db:worktree-setup` later replaces a symlinked `.env.local`
+ * with a copied, port-patched file for isolated Supabase stacks.
  *
  * No-ops in three cases:
  *   1. Not running in a linked worktree (GIT_DIR == GIT_COMMON_DIR).

@@ -12,7 +12,7 @@ npm run check:knip         # Find unused exports / files / dependencies
 npm run check:biome        # Biome format + lint check
 npm run db:start           # Start local Supabase (Docker/Podman)
 npm run db:reset           # Reset DB: regenerate seed, apply migrations, regen types
-npm run db:bootstrap       # Canonical first-run / "reset everything": db:start + db:reset + db:doctor
+npm run db:bootstrap       # Canonical first-run / "reset everything": link-worktree-data + worktree-setup + db:start + db:reset + db:doctor
 npm run db:doctor          # Preflight: auth reachable + seed user login probe (~300ms)
 npm run db:gen-types       # Regenerate src/lib/db/generated/database.types.ts
 supabase migration new <name>  # Create new migration (never rename timestamps)

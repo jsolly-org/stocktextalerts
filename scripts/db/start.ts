@@ -14,6 +14,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { rootLogger } from "../../src/lib/logging";
+import { supabaseCliArgs } from "./supabase-cli-args";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, "..", "..");
@@ -54,7 +55,8 @@ export function isStaleSupabaseState(output: string): boolean {
 }
 
 function main(): void {
-	const firstStart = runSupabase(["start"]);
+	const configArgs = supabaseCliArgs();
+	const firstStart = runSupabase(["start", ...configArgs]);
 	if (firstStart.status === 0) return;
 
 	if (!isStaleSupabaseState(firstStart.output)) {
@@ -66,7 +68,7 @@ function main(): void {
 		reason: "podman_machine_restart_left_supabase_containers_exited",
 	});
 
-	const stop = runSupabase(["stop"]);
+	const stop = runSupabase(["stop", ...configArgs]);
 	if (stop.status !== 0) {
 		rootLogger.warn("db:start — supabase stop reported a non-zero exit before retry", {
 			action: "db_start_recover_stale_state",
@@ -74,7 +76,7 @@ function main(): void {
 		});
 	}
 
-	const secondStart = runSupabase(["start"]);
+	const secondStart = runSupabase(["start", ...configArgs]);
 	process.exit(secondStart.status);
 }
 

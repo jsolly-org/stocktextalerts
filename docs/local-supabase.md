@@ -4,11 +4,24 @@ Local Supabase runs in containers via **Podman** (not Docker Desktop). The `db:b
 
 ## Bootstrap
 
-Canonical bootstrap is `npm run db:bootstrap` — runs `db:start`, `db:reset`, then `db:doctor`. Reach for this (not ad-hoc psql) whenever the local stack looks wedged: ECONNREFUSED from `@supabase/auth-js`, `invalid_credentials` on a known-good password, empty `auth.users`, etc. `supabase start` can silently skip half the seed; `db:reset` re-runs `seed.sql` through a fresh session and is reliable. See [docs/incidents/2026-04-seed-regression.md](incidents/2026-04-seed-regression.md) for the regression that motivated this.
+Canonical bootstrap is `npm run db:bootstrap` — runs `db:link-worktree-data`, `db:worktree-setup`, `db:start`, `db:reset`, then `db:doctor`. Reach for this (not ad-hoc psql) whenever the local stack looks wedged: ECONNREFUSED from `@supabase/auth-js`, `invalid_credentials` on a known-good password, empty `auth.users`, etc. `supabase start` can silently skip half the seed; `db:reset` re-runs `seed.sql` through a fresh session and is reliable. See [docs/incidents/2026-04-seed-regression.md](incidents/2026-04-seed-regression.md) for the regression that motivated this.
 
 `npm test` auto-runs `db:doctor` via `pretest`; `npm run dev` runs it via `predev` (non-blocking — a failure prints a hint and still starts the dev server so frontend-only work isn't gated on Supabase being up). CI calls `npm run test:ci`, which does **not** trigger `pretest` (npm lifecycle hooks are per-script name), so CI is unaffected.
 
 After machine reinstalls, Podman upgrades, or Supabase CLI upgrades, run `scripts/ci/verify-local-supabase.sh` once to confirm the full bootstrap still works end-to-end (wraps `db:bootstrap` + `db:doctor`).
+
+## Linked worktree isolation
+
+Linked git worktrees (`git worktree add …`) each get an isolated local Supabase stack so `db:reset` in one worktree does not wipe another's `auth.users` / seed state.
+
+On first bootstrap in a worktree, `scripts/db/worktree-supabase.ts`:
+
+1. Assigns a stable `project_id` and port block derived from the branch name (`supabase/.worktree/config.toml`, gitignored).
+2. Materializes a worktree-local `.env.local` with matching `SUPABASE_URL`, `DATABASE_URL`, and `EMAIL_SMTP_PORT` (replacing any symlink from `db:link-worktree-data`).
+
+Main worktree behavior is unchanged. Re-run `npm run db:bootstrap` (or `npm run db:worktree-setup && npm run db:start && npm run db:reset`) after creating a new worktree.
+
+To tear down a worktree stack: `supabase stop --config supabase/.worktree/config.toml` before `git worktree remove`.
 
 ## Seed hardening
 

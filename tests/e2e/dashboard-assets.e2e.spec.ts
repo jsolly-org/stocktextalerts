@@ -9,7 +9,8 @@ import {
 	waitForEmailNotificationsEnabled,
 	waitForTrackedAssets,
 } from "../helpers/e2e/dashboard";
-import { createApprovedE2eUser, openSignedInPage } from "../helpers/e2e/fixtures";
+import { createApprovedE2eUser } from "../helpers/e2e/fixtures";
+import { createE2eSpecContext, type E2eSpecContext } from "../helpers/e2e/spec-context";
 import { adminClient } from "../helpers/test-env";
 
 function toBase64Url(buffer: Buffer): string {
@@ -28,9 +29,15 @@ function createEmailUnsubscribeToken(userId: string, email: string): string {
 }
 
 test.describe("dashboard and assets", () => {
+	let e2e: E2eSpecContext;
+
+	test.beforeAll(async ({ browser }) => {
+		e2e = await createE2eSpecContext(browser);
+	});
+
 	test("TC-DASH-001: New user dashboard has correct initial state", async ({ browser }) => {
 		const user = await createApprovedE2eUser("dash-init");
-		const session = await openSignedInPage(browser, user);
+		const session = await e2e.openSignedInPage(browser, user);
 		try {
 			await session.page.goto("/dashboard");
 			await expectCurrentPath(session.page, "/dashboard");
@@ -50,7 +57,7 @@ test.describe("dashboard and assets", () => {
 	test("TC-AST-001: User can add assets to track", async ({ browser }) => {
 		test.setTimeout(60_000);
 		const user = await createApprovedE2eUser("dash-assets");
-		const session = await openSignedInPage(browser, user);
+		const session = await e2e.openSignedInPage(browser, user);
 		try {
 			await ensureAssetsExist(["AAPL", "MSFT", "GOOGL"]);
 			await session.page.goto("/dashboard");
@@ -71,7 +78,7 @@ test.describe("dashboard and assets", () => {
 	test("TC-BADGE-001: Asset badges show logo, Stock, or ETF", async ({ browser }) => {
 		test.setTimeout(60_000);
 		const user = await createApprovedE2eUser("dash-badges");
-		const session = await openSignedInPage(browser, user);
+		const session = await e2e.openSignedInPage(browser, user);
 		const msftIconUrl =
 			"https://api.massive.com/v1/reference/company-branding/d3d3Lm1pY3Jvc29mdC5jb20/images/2022-01-10_icon.png";
 		const symbolsToRestore = ["AAPL", "MSFT", "GOOGL", "NVDA"] as const;
@@ -169,7 +176,7 @@ test.describe("dashboard and assets", () => {
 	test("TC-EMAIL-001: User can enable email notifications via dashboard", async ({ browser }) => {
 		test.setTimeout(90_000);
 		const user = await createApprovedE2eUser("dash-email");
-		const session = await openSignedInPage(browser, user);
+		const session = await e2e.openSignedInPage(browser, user);
 		try {
 			await ensureAssetsExist(["AAPL"]);
 			await session.page.goto("/dashboard");
@@ -274,7 +281,7 @@ test.describe("dashboard and assets", () => {
 
 	test("TC-NOTIF-001: Notification preferences persist on reload", async ({ browser }) => {
 		const user = await createApprovedE2eUser("dash-notif");
-		const session = await openSignedInPage(browser, user);
+		const session = await e2e.openSignedInPage(browser, user);
 		try {
 			await session.page.goto("/dashboard");
 			await session.page
@@ -296,7 +303,7 @@ test.describe("dashboard and assets", () => {
 
 	test("TC-UNSUB-001: User can unsubscribe via email link", async ({ browser }) => {
 		const user = await createApprovedE2eUser("dash-unsub");
-		const session = await openSignedInPage(browser, user);
+		const session = await e2e.openSignedInPage(browser, user);
 		try {
 			const token = createEmailUnsubscribeToken(user.id, user.email);
 			const unsubscribeUrl = `${session.baseOrigin}/email/unsubscribe?user=${encodeURIComponent(user.id)}&token=${encodeURIComponent(token)}`;
@@ -315,7 +322,7 @@ test.describe("dashboard and assets", () => {
 	test("TC-AUTH-002: Dashboard state persists across sign-out and sign-in", async ({ browser }) => {
 		test.setTimeout(60_000);
 		const user = await createApprovedE2eUser("dash-persist");
-		const session = await openSignedInPage(browser, user);
+		const session = await e2e.openSignedInPage(browser, user);
 		try {
 			await ensureAssetsExist(["AAPL"]);
 			await session.page.goto("/dashboard");

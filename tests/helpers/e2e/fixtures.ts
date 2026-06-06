@@ -3,9 +3,10 @@ import { expect } from "@playwright/test";
 import { TEST_PASSWORD } from "../constants";
 import { adminClient } from "../test-env";
 import { cleanupTestUser, createTestEmail, createTestUser } from "../test-user";
-import { addAuthCookies, expectCurrentPath } from "./auth";
+import { expectCurrentPath } from "./auth";
+import { buildAuthStorageState } from "./storage-state";
 
-type ApprovedE2eUser = {
+export type ApprovedE2eUser = {
 	id: string;
 	email: string;
 	password: string;
@@ -49,12 +50,20 @@ export async function waitForPasswordSignInReady(email: string, password: string
 export async function openSignedInPage(
 	browser: Browser,
 	user: ApprovedE2eUser,
+	options: { baseOrigin?: string } = {},
 ): Promise<{ page: Page; baseOrigin: string; cleanup: () => Promise<void> }> {
-	const context = await browser.newContext();
+	let baseOrigin = options.baseOrigin;
+	if (!baseOrigin) {
+		const probeContext = await browser.newContext();
+		const probePage = await probeContext.newPage();
+		await probePage.goto("/");
+		baseOrigin = new URL(probePage.url()).origin;
+		await probeContext.close();
+	}
+
+	const storageState = await buildAuthStorageState(baseOrigin, user.email, user.password);
+	const context = await browser.newContext({ storageState });
 	const page = await context.newPage();
-	await page.goto("/");
-	const baseOrigin = new URL(page.url()).origin;
-	await addAuthCookies(context, baseOrigin, user.email, user.password);
 	await page.goto("/dashboard");
 	await expectCurrentPath(page, "/dashboard");
 	return {

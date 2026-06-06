@@ -4,6 +4,7 @@ import { Icon } from "astro-icon/components";
 import Layout from "../../layouts/Layout.astro";
 import {
 	type SupabaseEmailOtpType,
+	isConsumedEmailOtpError,
 	verifySupabaseOtp,
 } from "../../lib/auth/supabase-otp";
 import { clearAuthCookies } from "../../lib/auth/cookies";
@@ -51,12 +52,33 @@ if (Astro.request.method === "POST") {
 	});
 
 	if (error || !data?.user) {
+		const errorCode = error?.code ?? "unknown";
+		const benignEmailChangeFailure =
+			type === "email_change" &&
+			!data?.user &&
+			(isConsumedEmailOtpError(error) || error == null);
+		if (benignEmailChangeFailure) {
+			// Double-confirm flows may POST a consumed link or return no user shape.
+			rootLogger.info("Email change confirmation link already used or expired", {
+				type,
+				errorCode,
+			});
+			return Astro.redirect("/auth/signin?success=email_updated");
+		}
+		if (type === "email" && isConsumedEmailOtpError(error)) {
+			rootLogger.info("Signup confirmation link already used or expired", {
+				type,
+				errorCode,
+			});
+			return Astro.redirect("/auth/signin?error=invalid_verification");
+		}
 		rootLogger.error(
 			"Email verification token validation failed",
 			{
 				tokenHashPresent: true,
 				type,
 				hasUser: Boolean(data?.user),
+				errorCode,
 			},
 			error,
 		);

@@ -36,3 +36,20 @@ export async function verifySupabaseOtp(
 
 	return auth.verifyOtp(params);
 }
+
+/** True when Supabase reports a single-use OTP was already consumed or expired. */
+export function isConsumedEmailOtpError(
+	error: { code?: string; message: string } | null | undefined,
+): boolean {
+	if (!error) return false;
+	const code = error.code ?? "";
+	if (code === "otp_expired" || code === "otp_disabled") {
+		return true;
+	}
+	const message = error.message.toLowerCase();
+	return (
+		message.includes("expired") ||
+		message.includes("already been used") ||
+		message.includes("non-error thrown")
+	);
+}
