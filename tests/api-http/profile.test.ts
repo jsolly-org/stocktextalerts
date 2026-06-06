@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { NEW_PASSWORD, TEST_PASSWORD } from "../helpers/constants";
+import { getHttpTestBase } from "../helpers/http/base-url";
 import { locationPath, postForm } from "../helpers/http/client";
-import { ensureHttpTestServer } from "../helpers/http/server";
 import { createTestEmail, createTestUser } from "../helpers/test-user";
 import { registerTestUserForCleanup } from "../helpers/test-user-cleanup";
 
@@ -9,7 +9,7 @@ describe("Profile password form posts over HTTP", () => {
 	let baseUrl = "";
 
 	beforeAll(async () => {
-		baseUrl = await ensureHttpTestServer();
+		baseUrl = await getHttpTestBase();
 	}, 130_000);
 
 	it("change-password without a session redirects to sign-in", async () => {

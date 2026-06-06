@@ -204,6 +204,50 @@ describe("Users can load pages without unexpected errors.", () => {
 		expect(response.status).toBe(200);
 	});
 
+	it("Password entry pages render a single password field without confirm.", async () => {
+		const container = await AstroContainer.create({ renderers });
+		const registerResponse = await container.renderToResponse(AuthRegisterPage, {
+			request: buildRequest("/auth/register"),
+		});
+		expect(registerResponse.status).toBe(200);
+		const registerHtml = await registerResponse.text();
+		expect(registerHtml).toContain('name="password"');
+		expect(registerHtml).not.toContain('name="confirm"');
+
+		const recoverResponse = await container.renderToResponse(AuthRecoverPage, {
+			request: buildRequest("/auth/recover?token_hash=test-token&type=recovery"),
+		});
+		expect(recoverResponse.status).toBe(200);
+		const recoverHtml = await recoverResponse.text();
+		expect(recoverHtml).toContain('name="password"');
+		expect(recoverHtml).not.toContain('name="confirm"');
+	});
+
+	it("The pending approval page explains the account status.", async () => {
+		const container = await AstroContainer.create({ renderers });
+		const response = await container.renderToResponse(AuthPendingApprovalPage, {
+			request: buildRequest("/auth/pending-approval"),
+		});
+
+		expect(response.status).toBe(200);
+		const html = await response.text();
+		expect(html).toContain("Your account is pending approval");
+	});
+
+	it("A GET with token_hash renders a confirm button instead of immediately verifying.", async () => {
+		const container = await AstroContainer.create({ renderers });
+		const response = await container.renderToResponse(AuthVerifiedPage, {
+			request: buildRequest("/auth/verified?token_hash=abc123&type=email"),
+		});
+
+		expect(response.status).toBe(200);
+		const html = await response.text();
+		expect(html).toContain('name="token_hash"');
+		expect(html).toContain('value="abc123"');
+		expect(html).toContain("Verify my email");
+		expect(html).not.toContain("Email Verified!");
+	});
+
 	it.each(staticPages)("A visitor can access static page $path.", async ({ component, path }) => {
 		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(component, {

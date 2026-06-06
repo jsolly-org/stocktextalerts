@@ -40,7 +40,19 @@ The harness hard-gates real-delivery paths so no test can reach prod SES or prod
 
 ### E2E helpers
 
-Shared Playwright helpers live under `tests/helpers/e2e/` (`auth.ts`, `mail.ts`, `dashboard.ts`, `fixtures.ts`). Prefer browser sign-in over `page.request.post("/api/auth/signin")` in user-flow specs. Admin cookie injection is limited to setup via `addAuthCookies()`.
+Shared Playwright helpers live under `tests/helpers/e2e/` (`auth.ts`, `mail.ts`, `dashboard.ts`, `fixtures.ts`).
+
+| Helper | Use when |
+| --- | --- |
+| `openSignedInPage()` | Scenario **setup** — injects session cookies and opens `/dashboard`. Fast and stable under CI load. |
+| `signIn()` / `signOut()` | The **behavior under test** is the auth UI (TC-AUTH-001, TC-REC-001, TC-AUTH-002, registration, etc.). |
+| `addAuthCookies()` | Admin or workflow setup where the sign-in form is not the subject (admin-users, registration-approval). |
+
+Do not use `page.request.post("/api/auth/signin")` in E2E — that bypasses CSRF/origin checks the browser enforces. HTTP form posts belong in `tests/api-http/`.
+
+### HTTP integration server
+
+`tests/helpers/http/server.ts` keeps Astro dev state on `globalThis` so multiple `tests/api-http/*.test.ts` files in the same Vitest worker share one process. `getHttpTestBase()` dedupes startup; `tests/setup.ts` tears the dedicated server down in `afterAll`. When Playwright is already running on port 4322, HTTP tests reuse it instead of starting 4325.
 
 ### Vitest parallelism (not enabled)
 

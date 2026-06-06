@@ -5,8 +5,27 @@ const HTTP_TEST_HOST = "127.0.0.1";
 const HTTP_TEST_PORT = 4325;
 const HTTP_TEST_BASE = `http://${HTTP_TEST_HOST}:${HTTP_TEST_PORT}`;
 
-let dedicatedServer: ChildProcess | null = null;
-let resolvedBase: string | null = null;
+const RUNTIME_KEY = "__stocktextalertsHttpTestRuntime__";
+
+type HttpTestRuntime = {
+	dedicatedServer: ChildProcess | null;
+	resolvedBase: string | null;
+	startPromise: Promise<string> | null;
+};
+
+function runtime(): HttpTestRuntime {
+	const globalState = globalThis as typeof globalThis & {
+		[RUNTIME_KEY]?: HttpTestRuntime;
+	};
+	if (!globalState[RUNTIME_KEY]) {
+		globalState[RUNTIME_KEY] = {
+			dedicatedServer: null,
+			resolvedBase: null,
+			startPromise: null,
+		};
+	}
+	return globalState[RUNTIME_KEY];
+}
 
 async function probe(baseUrl: string): Promise<boolean> {
 	try {
@@ -32,10 +51,14 @@ async function waitForProbe(baseUrl: string, timeoutMs: number): Promise<void> {
 }
 
 function stopDedicatedServer(): void {
-	if (dedicatedServer && !dedicatedServer.killed) {
-		dedicatedServer.kill("SIGTERM");
+	const state = runtime();
+	if (state.dedicatedServer && !state.dedicatedServer.killed) {
+		state.dedicatedServer.kill("SIGTERM");
 	}
-	dedicatedServer = null;
+	state.dedicatedServer = null;
+	if (state.resolvedBase === HTTP_TEST_BASE) {
+		state.resolvedBase = null;
+	}
 }
 
 function startDedicatedServer(): ChildProcess {
@@ -58,11 +81,12 @@ function startDedicatedServer(): ChildProcess {
 		},
 	);
 	child.on("exit", () => {
-		if (dedicatedServer === child) {
-			dedicatedServer = null;
+		const state = runtime();
+		if (state.dedicatedServer === child) {
+			state.dedicatedServer = null;
 		}
-		if (resolvedBase === HTTP_TEST_BASE) {
-			resolvedBase = null;
+		if (state.resolvedBase === HTTP_TEST_BASE) {
+			state.resolvedBase = null;
 		}
 	});
 	return child;
@@ -77,23 +101,42 @@ async function resolveLiveBase(candidates: string[]): Promise<string | null> {
 	return null;
 }
 
-/** Resolve a running Astro dev server for HTTP integration tests. */
-export async function ensureHttpTestServer(): Promise<string> {
-	if (resolvedBase && (await probe(resolvedBase))) {
-		return resolvedBase;
+async function startHttpTestServer(): Promise<string> {
+	const state = runtime();
+
+	if (state.resolvedBase && (await probe(state.resolvedBase))) {
+		return state.resolvedBase;
 	}
 
-	resolvedBase = null;
+	state.resolvedBase = null;
 	stopDedicatedServer();
 
 	const existing = await resolveLiveBase([E2E_DEV_BASE, HTTP_TEST_BASE]);
 	if (existing) {
-		resolvedBase = existing;
-		return resolvedBase;
+		state.resolvedBase = existing;
+		return existing;
 	}
 
-	dedicatedServer = startDedicatedServer();
+	state.dedicatedServer = startDedicatedServer();
 	await waitForProbe(HTTP_TEST_BASE, 120_000);
-	resolvedBase = HTTP_TEST_BASE;
-	return resolvedBase;
+	state.resolvedBase = HTTP_TEST_BASE;
+	return HTTP_TEST_BASE;
+}
+
+/** Resolve a running Astro dev server for HTTP integration tests. */
+export async function ensureHttpTestServer(): Promise<string> {
+	const state = runtime();
+	if (!state.startPromise) {
+		state.startPromise = startHttpTestServer().finally(() => {
+			state.startPromise = null;
+		});
+	}
+	return state.startPromise;
+}
+
+/** Stop a dedicated HTTP test server started by this Vitest worker. */
+export function shutdownHttpTestServer(): void {
+	const state = runtime();
+	state.startPromise = null;
+	stopDedicatedServer();
 }

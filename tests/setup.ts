@@ -10,6 +10,7 @@ import {
 	PRESERVED_TEST_EMAIL,
 	PRESERVED_USER_ID,
 } from "./helpers/constants";
+import { shutdownHttpTestServer } from "./helpers/http/server";
 import { assertLiveProviderKey, isLiveProviderEnabled } from "./helpers/live-api";
 import { adminClient } from "./helpers/test-env";
 import { cleanupTestUser } from "./helpers/test-user";
@@ -313,6 +314,7 @@ afterEach(() => {
 afterAll(() => {
 	warnSpy.mockRestore();
 	errorSpy.mockRestore();
+	shutdownHttpTestServer();
 });
 
 beforeAll(async () => {

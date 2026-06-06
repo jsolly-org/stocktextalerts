@@ -138,21 +138,32 @@ test.describe("profile settings", () => {
 			for (const link of emailChangeLinks) {
 				await session.page.goto(rewriteLinkOrigin(link, session.baseOrigin));
 				const verifyButton = session.page.getByRole("button", { name: "Verify my email" });
-				await expect(verifyButton).toBeVisible({ timeout: 15_000 });
-				await verifyButton.click();
+				if (await verifyButton.isVisible({ timeout: 5_000 }).catch(() => false)) {
+					await verifyButton.click();
+				}
 			}
+
+			await expect
+				.poll(
+					async () => {
+						const { data, error } = await adminClient
+							.from("users")
+							.select("email")
+							.eq("id", user.id)
+							.single();
+						if (error) {
+							throw new Error(`Failed to validate updated email: ${error.message}`);
+						}
+						return data.email;
+					},
+					{
+						timeout: 30_000,
+						message: "Email change did not sync to users.email after confirming inbox links",
+					},
+				)
+				.toBe(secondEmail);
 
 			await signIn(session.page, secondEmail, NEW_PASSWORD);
-
-			const { data, error } = await adminClient
-				.from("users")
-				.select("email")
-				.eq("id", user.id)
-				.single();
-			if (error) {
-				throw new Error(`Failed to validate updated email: ${error.message}`);
-			}
-			expect(data.email).toBe(secondEmail);
 		} finally {
 			await session.cleanup();
 		}

@@ -41,6 +41,11 @@ export async function waitForPasswordSignInReady(email: string, password: string
 	await adminClient.auth.signOut();
 }
 
+/**
+ * Open an authenticated dashboard session via cookie injection.
+ * Use for scenario setup only — browser sign-in belongs in auth-flow specs
+ * (TC-AUTH-001, TC-REC-001, TC-AUTH-002, etc.).
+ */
 export async function openSignedInPage(
 	browser: Browser,
 	user: ApprovedE2eUser,
