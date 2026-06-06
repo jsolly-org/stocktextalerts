@@ -1,8 +1,9 @@
 import { type ChildProcess, spawn } from "node:child_process";
 
-const E2E_DEV_BASE = "http://localhost:4322";
+const E2E_DEV_BASE = "http://127.0.0.1:4322";
+const HTTP_TEST_HOST = "127.0.0.1";
 const HTTP_TEST_PORT = 4325;
-const HTTP_TEST_BASE = `http://localhost:${HTTP_TEST_PORT}`;
+const HTTP_TEST_BASE = `http://${HTTP_TEST_HOST}:${HTTP_TEST_PORT}`;
 
 let dedicatedServer: ChildProcess | null = null;
 let resolvedBase: string | null = null;
@@ -30,40 +31,64 @@ async function waitForProbe(baseUrl: string, timeoutMs: number): Promise<void> {
 	throw new Error(`HTTP test server did not become ready at ${baseUrl}`);
 }
 
+function stopDedicatedServer(): void {
+	if (dedicatedServer && !dedicatedServer.killed) {
+		dedicatedServer.kill("SIGTERM");
+	}
+	dedicatedServer = null;
+}
+
 function startDedicatedServer(): ChildProcess {
-	const child = spawn("npm", ["run", "dev", "--", "--port", String(HTTP_TEST_PORT)], {
-		cwd: process.cwd(),
-		env: {
-			...process.env,
-			MODE: "test",
-			SKIP_VENDOR_HTTP_IN_TEST: "1",
-			SITE_URL: HTTP_TEST_BASE,
-			EMAIL_SMTP_HOST: process.env.EMAIL_SMTP_HOST ?? "localhost",
-			EMAIL_SMTP_PORT: process.env.EMAIL_SMTP_PORT ?? "1025",
+	const child = spawn(
+		"npm",
+		["run", "dev", "--", "--port", String(HTTP_TEST_PORT), "--host", HTTP_TEST_HOST],
+		{
+			cwd: process.cwd(),
+			env: {
+				...process.env,
+				MODE: "test",
+				SKIP_VENDOR_HTTP_IN_TEST: "1",
+				SITE_URL: HTTP_TEST_BASE,
+				EMAIL_SMTP_HOST: process.env.EMAIL_SMTP_HOST ?? "localhost",
+				EMAIL_SMTP_PORT: process.env.EMAIL_SMTP_PORT ?? "1025",
+			},
+			// Avoid pipe backpressure killing the dev server in CI.
+			stdio: "ignore",
+			detached: false,
 		},
-		stdio: "pipe",
-	});
+	);
 	child.on("exit", () => {
 		if (dedicatedServer === child) {
 			dedicatedServer = null;
+		}
+		if (resolvedBase === HTTP_TEST_BASE) {
+			resolvedBase = null;
 		}
 	});
 	return child;
 }
 
+async function resolveLiveBase(candidates: string[]): Promise<string | null> {
+	for (const baseUrl of candidates) {
+		if (await probe(baseUrl)) {
+			return baseUrl;
+		}
+	}
+	return null;
+}
+
 /** Resolve a running Astro dev server for HTTP integration tests. */
 export async function ensureHttpTestServer(): Promise<string> {
-	if (resolvedBase) {
+	if (resolvedBase && (await probe(resolvedBase))) {
 		return resolvedBase;
 	}
 
-	if (await probe(E2E_DEV_BASE)) {
-		resolvedBase = E2E_DEV_BASE;
-		return resolvedBase;
-	}
+	resolvedBase = null;
+	stopDedicatedServer();
 
-	if (await probe(HTTP_TEST_BASE)) {
-		resolvedBase = HTTP_TEST_BASE;
+	const existing = await resolveLiveBase([E2E_DEV_BASE, HTTP_TEST_BASE]);
+	if (existing) {
+		resolvedBase = existing;
 		return resolvedBase;
 	}
 
