@@ -20,6 +20,7 @@ Either way, the goal is the same: integrate, validate, push the result to `main`
 The orchestration is documented in `references/orchestration.md` — read it before each step. Summary:
 
 1. **Inspect changes** — `git status`, `git diff`. → see `references/orchestration.md`
+1a. **Fleet freshness gate** — in app repos, sync stale `.agents/FLEET.lock` before any WIP commit (stash if dirty). → see `references/fleet-sync-gate.md`
 2. **Sync main into the working branch** — fetch, compare, merge or rebase, resolve conflicts. → see `references/orchestration.md` and `references/conflict-resolution.md`
 3. **Load project guidelines + locate plan/spec** — read AGENTS.md files; locate `<repo-root>/docs/superpowers/plans/*.md` (or `docs/superpowers/specs/*.md`) for D.1 plan-injection per the specs-and-plans convention. → see `references/orchestration.md`
 4. **Smoke check** — tests, type checker, CI reproduction via `act` if applicable. → see `references/orchestration.md` and `references/conflict-resolution.md`
@@ -42,6 +43,7 @@ The orchestration is documented in `references/orchestration.md` — read it bef
 - **Never `git push --force` / `--force-with-lease` / `git reset --hard`** — also blocked by deny rules.
 - **Never `git add -A` or `git add .`** — stage by name to avoid sweeping in untracked secrets, large binaries, or probe artifacts.
 - **Never weaken CI** — do not disable checks, skip workflows, or make unrelated changes to turn CI green.
+- **Fleet sync only via the explicit gate (step 1a)** — run `./scripts/cloud-fleet-sync-if-stale.sh` when stale; never use `--no-verify` or pre-push auto-sync to bypass fleet freshness.
 
 ## Cycle bounds
 
@@ -56,6 +58,7 @@ For small changes (a single file or two with trivial diffs), review inline witho
 ## Reference files
 
 - `references/orchestration.md` — full step-by-step body, including D.1, D.2, D.3, E.1, E.2 wiring.
+- `references/fleet-sync-gate.md` — fleet freshness check and stale sync before step 2 (app repos only).
 - `references/ci-babysit.md` — post-push GitHub Actions monitoring, fix/push loop, bounds.
 - `references/agent-fleet.md` — always-run + extension-gated tables, `model: inherit`, the `guidelines-auditor ×2` pattern.
 - `references/output-contract.md` — canonical reviewer output schema (every agent inlines this).
