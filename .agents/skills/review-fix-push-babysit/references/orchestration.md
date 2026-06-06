@@ -10,6 +10,23 @@ This is the operational body of `/review-fix-push-babysit`. The skill's `SKILL.m
 - After fetch (step 2), run `git diff --name-only origin/main...HEAD` to get the changed files for review.
 - Note whether you're in a worktree: `git rev-parse --git-common-dir` and `git rev-parse --git-dir` differ in worktrees. The current branch may not exist on the remote, and the push target is `main` regardless of the current branch name.
 
+## 1a. Fleet freshness gate
+
+**Read `references/fleet-sync-gate.md` first** — it holds the full procedure.
+
+App repos with `.agents/FLEET.lock` must sync fleet **before** step 2's WIP commit. The fleet pre-commit guard blocks any commit when the lock is behind `dotagents/fleet`; running this gate here avoids hitting that guard mid-merge with uncommitted work still in the tree.
+
+Summary:
+
+1. If `.agents/FLEET.lock` is absent, skip — dotagents and non-fleet repos are not subtree consumers.
+2. Run `bash .agents/scripts/fleet-precommit-check.sh` to detect current vs stale vs fetch failure.
+3. When stale, run `./scripts/cloud-fleet-sync-if-stale.sh`. If the working tree is dirty, stash with `git stash push -u`, sync, then `git stash pop --index` per `references/fleet-sync-gate.md`.
+4. Keep any `chore(fleet): …` sync commit on the branch being shipped.
+5. On stash conflicts, fetch failures, or sync errors — **stop**; do not commit or push. Report recovery state (`git status`, stash list).
+6. Re-run `git status` and continue to step 2.
+
+Hooks remain fail-only — this gate is explicit sync on the shipping path, not pre-push auto-sync.
+
 ## 2. Sync main into the working branch
 
 The review and tests below are only meaningful against the *merged* state — local feature work on a stale base is the most common source of regressions this skill needs to catch.
