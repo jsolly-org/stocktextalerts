@@ -398,7 +398,7 @@ export async function deliverFlatPriceAlert(options: {
 	sendSms: SmsSender | null;
 	logoCache: ReturnType<typeof createLogoCache>;
 	stats: FlatPriceAlertDeliveryStats;
-}): Promise<void> {
+}): Promise<boolean> {
 	const {
 		user,
 		symbol,
@@ -420,6 +420,8 @@ export async function deliverFlatPriceAlert(options: {
 		logoCache,
 		stats,
 	} = options;
+
+	let delivered = false;
 
 	// Email
 	if (user.price_move_alerts_include_email && user.email_notifications_enabled) {
@@ -459,6 +461,7 @@ export async function deliverFlatPriceAlert(options: {
 
 		if (result.success) {
 			stats.emailsSent++;
+			delivered = true;
 		} else {
 			stats.emailsFailed++;
 			rootLogger.error(
@@ -504,6 +507,7 @@ export async function deliverFlatPriceAlert(options: {
 
 			if (result.success) {
 				stats.smsSent++;
+				delivered = true;
 			} else {
 				stats.smsFailed++;
 				rootLogger.error(
@@ -524,4 +528,6 @@ export async function deliverFlatPriceAlert(options: {
 			if (!logged) stats.logFailures++;
 		}
 	}
+
+	return delivered;
 }

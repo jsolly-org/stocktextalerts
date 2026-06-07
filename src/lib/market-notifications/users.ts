@@ -49,25 +49,21 @@ export async function fetchPriceAlertUsers(
 }
 
 /**
- * Atomically claim per-symbol eligibility for the current US trading day via
- * `claim_market_asset_price_alert_slot` (single RPC with INSERT ... ON CONFLICT
- * DO UPDATE). Prevents duplicate alerts when overlapping cron ticks or retries
- * race.
- *
- * @returns true when alert delivery should proceed; false when already sent today.
+ * Atomically reserve per-symbol eligibility for the current US trading day.
+ * Blocks overlapping cron ticks until delivery finalizes or the reservation is released.
  */
-export async function claimCooldown(
+export async function reserveCooldownSlot(
 	supabase: SupabaseAdminClient,
 	userId: string,
 	symbol: string,
 	absMovePercent: number,
 	absMoveDollar: number,
 ): Promise<boolean> {
-	const { data: claimed, error } = await (
+	const { data: reserved, error } = await (
 		supabase as unknown as {
 			rpc: (fn: string, args: unknown) => Promise<{ data: unknown; error: unknown }>;
 		}
-	).rpc("claim_market_asset_price_alert_slot", {
+	).rpc("reserve_market_asset_price_alert_slot", {
 		p_user_id: userId,
 		p_symbol: symbol,
 		p_abs_move_percent: absMovePercent,
@@ -75,9 +71,47 @@ export async function claimCooldown(
 	});
 
 	if (error) {
-		rootLogger.error("Failed to claim price alert trading-day cap", { userId, symbol }, error);
-		return true; // Allow alerting on error (fail open)
+		rootLogger.error("Failed to reserve price alert trading-day slot", { userId, symbol }, error);
+		return true;
 	}
 
-	return Boolean(claimed);
+	return Boolean(reserved);
+}
+
+export async function finalizeCooldownSlot(
+	supabase: SupabaseAdminClient,
+	userId: string,
+	symbol: string,
+): Promise<void> {
+	const { error } = await (
+		supabase as unknown as {
+			rpc: (fn: string, args: unknown) => Promise<{ data: unknown; error: unknown }>;
+		}
+	).rpc("finalize_market_asset_price_alert_slot", {
+		p_user_id: userId,
+		p_symbol: symbol,
+	});
+
+	if (error) {
+		rootLogger.error("Failed to finalize price alert trading-day slot", { userId, symbol }, error);
+	}
+}
+
+export async function releaseCooldownSlot(
+	supabase: SupabaseAdminClient,
+	userId: string,
+	symbol: string,
+): Promise<void> {
+	const { error } = await (
+		supabase as unknown as {
+			rpc: (fn: string, args: unknown) => Promise<{ data: unknown; error: unknown }>;
+		}
+	).rpc("release_market_asset_price_alert_slot", {
+		p_user_id: userId,
+		p_symbol: symbol,
+	});
+
+	if (error) {
+		rootLogger.error("Failed to release price alert trading-day slot", { userId, symbol }, error);
+	}
 }

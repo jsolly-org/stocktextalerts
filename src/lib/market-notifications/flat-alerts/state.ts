@@ -70,7 +70,7 @@ export async function fetchFlatPriceAlertState(
  * still delivered — matches the behavior of `claimCooldown` in the anomaly
  * path. A lost alert is worse than a duplicate in this system.
  */
-export async function claimFlatPriceAlert(
+export async function reserveFlatPriceAlert(
 	supabase: SupabaseAdminClient,
 	options: {
 		userId: string;
@@ -82,11 +82,11 @@ export async function claimFlatPriceAlert(
 ): Promise<boolean> {
 	const { userId, symbol, baselinePrice, newPrice, thresholdPercent } = options;
 
-	const { data: claimed, error } = await (
+	const { data: reserved, error } = await (
 		supabase as unknown as {
 			rpc: (fn: string, args: unknown) => Promise<{ data: unknown; error: unknown }>;
 		}
-	).rpc("claim_flat_price_alert", {
+	).rpc("reserve_flat_price_alert", {
 		p_user_id: userId,
 		p_symbol: symbol,
 		p_baseline_price: baselinePrice,
@@ -95,9 +95,47 @@ export async function claimFlatPriceAlert(
 	});
 
 	if (error) {
-		rootLogger.error("Failed to claim flat price alert slot", { userId, symbol }, error);
-		return true; // Fail open
+		rootLogger.error("Failed to reserve flat price alert slot", { userId, symbol }, error);
+		return true;
 	}
 
-	return Boolean(claimed);
+	return Boolean(reserved);
+}
+
+export async function finalizeFlatPriceAlert(
+	supabase: SupabaseAdminClient,
+	userId: string,
+	symbol: string,
+): Promise<void> {
+	const { error } = await (
+		supabase as unknown as {
+			rpc: (fn: string, args: unknown) => Promise<{ data: unknown; error: unknown }>;
+		}
+	).rpc("finalize_flat_price_alert", {
+		p_user_id: userId,
+		p_symbol: symbol,
+	});
+
+	if (error) {
+		rootLogger.error("Failed to finalize flat price alert slot", { userId, symbol }, error);
+	}
+}
+
+export async function releaseFlatPriceAlert(
+	supabase: SupabaseAdminClient,
+	userId: string,
+	symbol: string,
+): Promise<void> {
+	const { error } = await (
+		supabase as unknown as {
+			rpc: (fn: string, args: unknown) => Promise<{ data: unknown; error: unknown }>;
+		}
+	).rpc("release_flat_price_alert", {
+		p_user_id: userId,
+		p_symbol: symbol,
+	});
+
+	if (error) {
+		rootLogger.error("Failed to release flat price alert slot", { userId, symbol }, error);
+	}
 }

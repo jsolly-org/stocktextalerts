@@ -280,6 +280,37 @@ export async function deliverStagedNotifications(options: {
 				error,
 			);
 			stats.skipped++;
+
+			if (staged?.scheduledDate && staged.scheduledMinutes !== undefined) {
+				try {
+					const priorAttempts = await getMaxDailyDigestSlotAttempts({
+						supabase,
+						userId: row.user_id,
+						scheduledDate: staged.scheduledDate,
+						scheduledMinutes: staged.scheduledMinutes,
+					});
+					const retryAt = currentTime.plus({
+						milliseconds: computeDeliveryRetryDelayMs(priorAttempts),
+					});
+					const retryAtIso = toIsoOrThrow(retryAt, "Failed to format staged outer retry time");
+					await rescheduleStagedNotification(supabase, {
+						id: row.id,
+						scheduledForIso: retryAtIso,
+					});
+					logger.info("Rescheduled staged daily digest after outer delivery error", {
+						action: "staged_deliver",
+						userId: row.user_id,
+						stagedId: row.id,
+						retryAtIso,
+					});
+				} catch (rescheduleError) {
+					logger.error(
+						"Failed to reschedule staged notification after outer delivery error",
+						{ userId: row.user_id, stagedId: row.id },
+						rescheduleError,
+					);
+				}
+			}
 		}
 	}
 

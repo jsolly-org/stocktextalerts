@@ -6,11 +6,11 @@ import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 /**
  * Verifies that concurrent cooldown claims for the same user+symbol are atomic:
  * only one caller succeeds, preventing duplicate alerts under overlapping cron ticks.
- * Exercises `claim_market_asset_price_alert_slot` RPC (INSERT ... ON CONFLICT DO UPDATE)
- * with five parallel calls sharing identical params; exactly one must return true.
+ * Exercises `reserve_market_asset_price_alert_slot` RPC with five parallel calls;
+ * exactly one must return true until finalized.
  */
-describe("Claim cooldown atomicity under concurrency", () => {
-	it("Concurrent claims for same user+symbol: exactly one succeeds (first_only)", async () => {
+describe("Reserve cooldown atomicity under concurrency", () => {
+	it("Concurrent reserves for same user+symbol: exactly one succeeds (first_only)", async () => {
 		const testUser = await createTestUser({
 			trackedAssets: ["AAPL"],
 		});
@@ -26,7 +26,7 @@ describe("Claim cooldown atomicity under concurrency", () => {
 
 		const results = await Promise.all(
 			Array.from({ length: concurrency }, () =>
-				adminClient.rpc("claim_market_asset_price_alert_slot", args),
+				adminClient.rpc("reserve_market_asset_price_alert_slot", args),
 			),
 		);
 

@@ -42,6 +42,8 @@ interface PriceTargetRow {
 	symbol: string;
 	target_price: number;
 	direction: string;
+	triggered_at: string | null;
+	triggered_price: number | null;
 }
 
 /**
@@ -79,7 +81,9 @@ export async function processPriceTargets(options: {
 	// Fetch all active price targets joined with user preferences
 	const { data: targetRows, error: targetsError } = await (supabase
 		.from("price_targets")
-		.select("user_id, symbol, target_price, direction") as unknown as Promise<{
+		.select(
+			"user_id, symbol, target_price, direction, triggered_at, triggered_price",
+		) as unknown as Promise<{
 		data: PriceTargetRow[] | null;
 		error: unknown;
 	}>);
@@ -180,29 +184,90 @@ export async function processPriceTargets(options: {
 	for (const target of activeTargets) {
 		totals.targetsChecked++;
 
-		const quote = quoteMap.get(target.symbol);
-		if (!quote) continue;
-
-		const currentPrice = quote.price;
-		const isTriggered =
-			(target.direction === "above" && currentPrice >= target.target_price) ||
-			(target.direction === "below" && currentPrice <= target.target_price);
-
-		if (!isTriggered) continue;
-
-		totals.targetsTriggered++;
-
 		const user = userMap.get(target.user_id);
 		if (!user) continue;
 
-		const triggeredTarget: TriggeredPriceTarget = {
-			symbol: target.symbol,
-			targetPrice: target.target_price,
-			currentPrice,
-			direction: target.direction as "above" | "below",
-			iconUrl: iconUrlMap.get(target.symbol) ?? null,
-			iconBase64: iconBase64Map.get(target.symbol) ?? null,
-		};
+		const pendingDelivery = target.triggered_at != null && target.triggered_price != null;
+		let currentPrice: number;
+		let triggeredTarget: TriggeredPriceTarget;
+
+		if (pendingDelivery) {
+			currentPrice = target.triggered_price as number;
+			triggeredTarget = {
+				symbol: target.symbol,
+				targetPrice: target.target_price,
+				currentPrice,
+				direction: target.direction as "above" | "below",
+				iconUrl: iconUrlMap.get(target.symbol) ?? null,
+				iconBase64: iconBase64Map.get(target.symbol) ?? null,
+			};
+		} else {
+			const quote = quoteMap.get(target.symbol);
+			if (!quote) continue;
+
+			currentPrice = quote.price;
+			const isTriggered =
+				(target.direction === "above" && currentPrice >= target.target_price) ||
+				(target.direction === "below" && currentPrice <= target.target_price);
+
+			if (!isTriggered) continue;
+
+			totals.targetsTriggered++;
+
+			triggeredTarget = {
+				symbol: target.symbol,
+				targetPrice: target.target_price,
+				currentPrice,
+				direction: target.direction as "above" | "below",
+				iconUrl: iconUrlMap.get(target.symbol) ?? null,
+				iconBase64: iconBase64Map.get(target.symbol) ?? null,
+			};
+		}
+
+		const hasEnabledChannel =
+			user.price_targets_include_email ||
+			(user.price_targets_include_sms && user.sms_notifications_enabled && !user.sms_opted_out);
+
+		if (!hasEnabledChannel) {
+			const { error: deleteError } = await supabase
+				.from("price_targets")
+				.delete()
+				.eq("user_id", target.user_id)
+				.eq("symbol", target.symbol);
+			if (deleteError) {
+				rootLogger.error(
+					"Failed to delete price target with no enabled channels",
+					{ userId: target.user_id, symbol: target.symbol },
+					deleteError,
+				);
+			}
+			continue;
+		}
+
+		if (!pendingDelivery) {
+			const { error: markPendingError } = await supabase
+				.from("price_targets")
+				.update({
+					triggered_at: new Date().toISOString(),
+					triggered_price: currentPrice,
+				})
+				.eq("user_id", target.user_id)
+				.eq("symbol", target.symbol)
+				.eq("target_price", target.target_price)
+				.eq("direction", target.direction)
+				.is("triggered_at", null);
+
+			if (markPendingError) {
+				rootLogger.error(
+					"Failed to mark price target as pending delivery",
+					{ userId: target.user_id, symbol: target.symbol },
+					markPendingError,
+				);
+				continue;
+			}
+		} else {
+			totals.targetsTriggered++;
+		}
 
 		// Initialize SMS sender lazily
 		if (user.price_targets_include_sms && !smsSender) {
@@ -217,8 +282,9 @@ export async function processPriceTargets(options: {
 			}
 		}
 
+		let delivered = false;
 		try {
-			await deliverPriceTargetAlert({
+			delivered = await deliverPriceTargetAlert({
 				user,
 				target: triggeredTarget,
 				supabase,
@@ -236,23 +302,22 @@ export async function processPriceTargets(options: {
 			totals.logFailures++;
 		}
 
-		// Always clear the triggered target so it is not re-triggered on every cron run.
-		// Clear even when no channel was enabled (user had both email and SMS off), so
-		// the row does not accumulate and loop indefinitely.
-		const { error: deleteError } = await supabase
-			.from("price_targets")
-			.delete()
-			.eq("user_id", target.user_id)
-			.eq("symbol", target.symbol)
-			.eq("target_price", target.target_price)
-			.eq("direction", target.direction);
+		if (delivered) {
+			const { error: deleteError } = await supabase
+				.from("price_targets")
+				.delete()
+				.eq("user_id", target.user_id)
+				.eq("symbol", target.symbol)
+				.eq("target_price", target.target_price)
+				.eq("direction", target.direction);
 
-		if (deleteError) {
-			rootLogger.error(
-				"Failed to delete triggered price target",
-				{ userId: target.user_id, symbol: target.symbol },
-				deleteError,
-			);
+			if (deleteError) {
+				rootLogger.error(
+					"Failed to delete triggered price target after delivery",
+					{ userId: target.user_id, symbol: target.symbol },
+					deleteError,
+				);
+			}
 		}
 	}
 

@@ -16,6 +16,7 @@ import { getLocalMinutesFromDateTime } from "../time/scheduled-times";
 import { buildAssetEventsContentForChannels } from "./content";
 import { processAssetEventsEmailDelivery, processAssetEventsSmsDelivery } from "./delivery";
 import { updateUserAssetEventsNextSendAt } from "./next-send-at";
+import { shouldAdvanceAssetEventsSchedule } from "./schedule-state";
 
 /**
  * Process a single user's standalone asset events notification.
@@ -257,31 +258,39 @@ export async function processAssetEventsUser(options: {
 			}
 		}
 
-		await updateUserAssetEventsNextSendAt({
-			user,
+		const emailRequired = wantsEmail && Boolean(emailContent?.hasAnyContent);
+		const smsRequired = wantsSms && Boolean(smsContent?.hasAnyContent);
+		const canAdvance = await shouldAdvanceAssetEventsSchedule({
 			supabase,
-			logger,
-			currentTime,
+			user,
+			scheduledDate,
+			scheduledMinutes,
+			emailRequired,
+			smsRequired,
 		});
 
-		return stats;
-	} catch (error) {
-		stats.skipped++;
-		logger.error("Error processing asset events user", { userId: user.id }, error);
-		try {
+		if (canAdvance) {
 			await updateUserAssetEventsNextSendAt({
 				user,
 				supabase,
 				logger,
 				currentTime,
 			});
-		} catch (updateError) {
-			logger.error(
-				"Failed to update asset_events_next_send_at after asset events error",
-				{ userId: user.id },
-				updateError,
-			);
+		} else {
+			logger.info("Deferring asset events schedule advance pending delivery retries", {
+				action: "asset_events_run",
+				userId: user.id,
+				scheduledDate,
+				scheduledMinutes,
+				emailRequired,
+				smsRequired,
+			});
 		}
+
+		return stats;
+	} catch (error) {
+		stats.skipped++;
+		logger.error("Error processing asset events user", { userId: user.id }, error);
 		return stats;
 	}
 }

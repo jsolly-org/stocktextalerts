@@ -333,7 +333,7 @@ describe("processFlatPriceAlerts", () => {
 		expect(callArgs.html).toContain("Past 7 trading days");
 	});
 
-	it("Email delivery failure still upserts state row (via atomic claim)", async () => {
+	it("Email delivery failure releases the reserved slot without committing baseline", async () => {
 		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
 		registerTestUserForCleanup(testUser.id);
 		await enableFlatAlerts(testUser.id);
@@ -358,10 +358,8 @@ describe("processFlatPriceAlerts", () => {
 		expect(totals.emailsSent).toBe(0);
 		expect(totals.emailsFailed).toBe(1);
 
-		// State row was upserted by the claim RPC before delivery
 		const state = await getStateRow(testUser.id, "AAPL");
-		expect(state).not.toBeNull();
-		expect(Number(state?.last_notification_price)).toBeCloseTo(195.86, 2);
+		expect(state).toBeNull();
 	});
 
 	it("Thinly-traded asset with null prev_close is skipped on first-of-day", async () => {

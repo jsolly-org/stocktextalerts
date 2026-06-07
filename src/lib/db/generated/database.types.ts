@@ -296,27 +296,33 @@ export type Database = {
       market_asset_price_alert_cooldowns: {
         Row: {
           alerts_sent_count: number
+          delivery_status: string
           last_alerted_at: string
           max_abs_move_dollar: number
           max_abs_move_percent: number
+          reserved_at: string | null
           symbol: string
           trading_day_key: string
           user_id: string
         }
         Insert: {
           alerts_sent_count?: number
+          delivery_status?: string
           last_alerted_at?: string
           max_abs_move_dollar?: number
           max_abs_move_percent?: number
+          reserved_at?: string | null
           symbol: string
           trading_day_key?: string
           user_id: string
         }
         Update: {
           alerts_sent_count?: number
+          delivery_status?: string
           last_alerted_at?: string
           max_abs_move_dollar?: number
           max_abs_move_percent?: number
+          reserved_at?: string | null
           symbol?: string
           trading_day_key?: string
           user_id?: string
@@ -417,20 +423,32 @@ export type Database = {
       }
       price_move_alert_state: {
         Row: {
+          first_of_day_reservation: boolean
           last_notification_at: string
           last_notification_price: number
+          pending_delivery: boolean
+          pending_new_price: number | null
+          reserved_at: string | null
           symbol: string
           user_id: string
         }
         Insert: {
+          first_of_day_reservation?: boolean
           last_notification_at?: string
           last_notification_price: number
+          pending_delivery?: boolean
+          pending_new_price?: number | null
+          reserved_at?: string | null
           symbol: string
           user_id: string
         }
         Update: {
+          first_of_day_reservation?: boolean
           last_notification_at?: string
           last_notification_price?: number
+          pending_delivery?: boolean
+          pending_new_price?: number | null
+          reserved_at?: string | null
           symbol?: string
           user_id?: string
         }
@@ -457,6 +475,8 @@ export type Database = {
           direction: string
           symbol: string
           target_price: number
+          triggered_at: string | null
+          triggered_price: number | null
           user_id: string
         }
         Insert: {
@@ -464,6 +484,8 @@ export type Database = {
           direction: string
           symbol: string
           target_price: number
+          triggered_at?: string | null
+          triggered_price?: number | null
           user_id: string
         }
         Update: {
@@ -471,6 +493,8 @@ export type Database = {
           direction?: string
           symbol?: string
           target_price?: number
+          triggered_at?: string | null
+          triggered_price?: number | null
           user_id?: string
         }
         Relationships: [
@@ -902,6 +926,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      finalize_flat_price_alert: {
+        Args: { p_symbol: string; p_user_id: string }
+        Returns: boolean
+      }
+      finalize_market_asset_price_alert_slot: {
+        Args: { p_symbol: string; p_user_id: string }
+        Returns: boolean
+      }
       has_no_whitespace: { Args: { value: string }; Returns: boolean }
       is_approved: { Args: never; Returns: boolean }
       is_valid_market_scheduled_asset_price_times: {
@@ -921,9 +953,36 @@ export type Database = {
         Args: { p_retention_minutes?: number }
         Returns: number
       }
+      release_flat_price_alert: {
+        Args: { p_symbol: string; p_user_id: string }
+        Returns: boolean
+      }
+      release_market_asset_price_alert_slot: {
+        Args: { p_symbol: string; p_user_id: string }
+        Returns: boolean
+      }
       replace_user_assets: {
         Args: { symbols: string[]; user_id: string }
         Returns: undefined
+      }
+      reserve_flat_price_alert: {
+        Args: {
+          p_baseline_price: number
+          p_new_price: number
+          p_symbol: string
+          p_threshold_percent: number
+          p_user_id: string
+        }
+        Returns: boolean
+      }
+      reserve_market_asset_price_alert_slot: {
+        Args: {
+          p_abs_move_dollar?: number
+          p_abs_move_percent?: number
+          p_symbol: string
+          p_user_id: string
+        }
+        Returns: boolean
       }
       reserve_sms_verification: {
         Args: {

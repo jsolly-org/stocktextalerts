@@ -24,7 +24,12 @@ import { fetchDailyStats } from "./daily-stats";
 import { deliverPriceAlert, type PriceAlertDeliveryStats } from "./delivery";
 import { type EnrichedAlert, enrichAlert } from "./enrichment";
 import { getSnapshotsForSymbols, storeSnapshots } from "./snapshot-store";
-import { claimCooldown, fetchPriceAlertUsers } from "./users";
+import {
+	fetchPriceAlertUsers,
+	finalizeCooldownSlot,
+	releaseCooldownSlot,
+	reserveCooldownSlot,
+} from "./users";
 
 const MARKET_BENCHMARK_SYMBOL = "SPY";
 
@@ -420,7 +425,7 @@ export async function processPriceAlerts(options: {
 				continue;
 			}
 
-			const claimed = await claimCooldown(
+			const claimed = await reserveCooldownSlot(
 				supabase,
 				user.id,
 				symbol,
@@ -497,6 +502,9 @@ export async function processPriceAlerts(options: {
 				{ symbol, eligibleUserCount: eligibleUsers.length },
 				err,
 			);
+			for (const user of eligibleUsers) {
+				await releaseCooldownSlot(supabase, user.id, symbol);
+			}
 			continue;
 		}
 
@@ -513,7 +521,7 @@ export async function processPriceAlerts(options: {
 				}
 			}
 
-			await deliverPriceAlert({
+			const delivered = await deliverPriceAlert({
 				user,
 				alert: enrichedAlert,
 				supabase,
@@ -522,6 +530,12 @@ export async function processPriceAlerts(options: {
 				stats: totals,
 				logoCache,
 			});
+
+			if (delivered) {
+				await finalizeCooldownSlot(supabase, user.id, symbol);
+			} else {
+				await releaseCooldownSlot(supabase, user.id, symbol);
+			}
 		}
 	}
 

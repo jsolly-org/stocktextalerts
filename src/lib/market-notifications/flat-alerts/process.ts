@@ -10,7 +10,13 @@ import type { SupabaseAdminClient } from "../../schedule/helpers";
 import { createSmsSenderProvider } from "../../schedule/sms-sender";
 import { FLAT_PRICE_ALERT_THRESHOLD_PERCENT } from "./constants";
 import { deliverFlatPriceAlert, type FlatPriceAlertDeliveryStats } from "./delivery";
-import { claimFlatPriceAlert, fetchFlatPriceAlertState, stateKey } from "./state";
+import {
+	fetchFlatPriceAlertState,
+	finalizeFlatPriceAlert,
+	releaseFlatPriceAlert,
+	reserveFlatPriceAlert,
+	stateKey,
+} from "./state";
 import { type FlatPriceAlertUser, fetchFlatPriceAlertUsers } from "./users";
 
 const logger = createLogger({ module: "flat-price-alerts" });
@@ -208,7 +214,7 @@ export async function processFlatPriceAlerts(options: {
 		}
 
 		// Atomic claim via RPC (handles races across concurrent ticks)
-		const claimed = await claimFlatPriceAlert(supabase, {
+		const claimed = await reserveFlatPriceAlert(supabase, {
 			userId: user.id,
 			symbol,
 			baselinePrice: baseline,
@@ -293,7 +299,7 @@ export async function processFlatPriceAlerts(options: {
 		const quote = quoteMap.get(alert.symbol);
 		if (!quote) continue; // Should never happen given the earlier check, but satisfy TS
 
-		await deliverFlatPriceAlert({
+		const delivered = await deliverFlatPriceAlert({
 			user: alert.user,
 			symbol: alert.symbol,
 			companyName: alert.companyName,
@@ -314,6 +320,12 @@ export async function processFlatPriceAlerts(options: {
 			logoCache,
 			stats: totals,
 		});
+
+		if (delivered) {
+			await finalizeFlatPriceAlert(supabase, alert.user.id, alert.symbol);
+		} else {
+			await releaseFlatPriceAlert(supabase, alert.user.id, alert.symbol);
+		}
 	}
 
 	logger.info("Flat price alerts run complete", { ...totals });

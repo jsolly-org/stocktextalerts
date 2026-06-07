@@ -224,6 +224,7 @@ function formatPriceAlertEmail(
 
 /**
  * Deliver a price alert to a user via their preferred channels.
+ * @returns true when at least one enabled channel delivered successfully.
  */
 export async function deliverPriceAlert(options: {
 	user: PriceAlertUser;
@@ -233,8 +234,9 @@ export async function deliverPriceAlert(options: {
 	sendSms: SmsSender | null;
 	stats: PriceAlertDeliveryStats;
 	logoCache?: ReturnType<typeof createLogoCache>;
-}): Promise<void> {
+}): Promise<boolean> {
 	const { user, alert, supabase, sendEmail, sendSms, stats, logoCache } = options;
+	let delivered = false;
 
 	// Email delivery
 	if (user.market_asset_price_alerts_include_email) {
@@ -257,6 +259,7 @@ export async function deliverPriceAlert(options: {
 
 		if (result.success) {
 			stats.emailsSent++;
+			delivered = true;
 		} else {
 			stats.emailsFailed++;
 		}
@@ -290,6 +293,7 @@ export async function deliverPriceAlert(options: {
 
 			if (result.success) {
 				stats.smsSent++;
+				delivered = true;
 			} else {
 				stats.smsFailed++;
 			}
@@ -305,4 +309,6 @@ export async function deliverPriceAlert(options: {
 			if (!logged) stats.logFailures++;
 		}
 	}
+
+	return delivered;
 }

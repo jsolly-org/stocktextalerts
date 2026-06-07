@@ -25,6 +25,7 @@ import { getUsMarketClosureInfoForInstant } from "../../time/market-calendar";
 import { getLocalMinutesFromDateTime } from "../../time/scheduled-times";
 import { processMarketScheduledEmailDelivery, processMarketScheduledSmsDelivery } from "./delivery";
 import { updateUserMarketScheduledNextSendAt } from "./next-send-at";
+import { shouldAdvanceMarketScheduledSchedule } from "./schedule-state";
 
 /** Process a single user's scheduled market asset update notification. */
 export async function processMarketScheduledUser(options: {
@@ -331,12 +332,35 @@ export async function processMarketScheduledUser(options: {
 			});
 		}
 
-		await updateUserMarketScheduledNextSendAt({
-			user,
+		const emailRequired =
+			user.email_notifications_enabled && user.market_scheduled_asset_price_include_email;
+		const smsRequired = shouldAttemptSms && user.market_scheduled_asset_price_include_sms;
+		const canAdvance = await shouldAdvanceMarketScheduledSchedule({
 			supabase,
-			logger,
-			currentTime,
+			user,
+			scheduledDate,
+			scheduledMinutes,
+			emailRequired,
+			smsRequired,
 		});
+
+		if (canAdvance) {
+			await updateUserMarketScheduledNextSendAt({
+				user,
+				supabase,
+				logger,
+				currentTime,
+			});
+		} else {
+			logger.info("Deferring market schedule advance pending delivery retries", {
+				action: "market_notifications_run",
+				userId: user.id,
+				scheduledDate,
+				scheduledMinutes,
+				emailRequired,
+				smsRequired,
+			});
+		}
 
 		return stats;
 	} catch (error) {

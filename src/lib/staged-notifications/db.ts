@@ -85,17 +85,19 @@ export async function rescheduleStagedNotification(
 	if (error) throw error;
 }
 
-/** Purge staged notification rows older than the specified number of minutes. */
+/** Purge staged rows whose original staging time is stale and are not waiting on a future retry. */
 export async function purgeStaleStaged(
 	supabase: SupabaseAdminClient,
 	maxAgeMinutes: number,
 ): Promise<number> {
-	const cutoff = new Date(Date.now() - maxAgeMinutes * 60 * 1000).toISOString();
+	const stagedCutoff = new Date(Date.now() - maxAgeMinutes * 60 * 1000).toISOString();
+	const nowIso = new Date().toISOString();
 
 	const { data, error } = await supabase
 		.from("staged_notifications")
 		.delete()
-		.lt("staged_at", cutoff)
+		.lt("staged_at", stagedCutoff)
+		.lte("scheduled_for", nowIso)
 		.select("id");
 
 	if (error) {

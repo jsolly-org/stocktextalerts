@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ExtendedAssetQuote } from "../../../src/lib/providers/price-fetcher";
-import { expectConsoleError } from "../../setup";
 
 // Mock external dependencies
 vi.mock("../../../src/lib/providers/price-fetcher", () => ({
@@ -19,7 +18,7 @@ vi.mock("../../../src/lib/schedule/sms-sender", () => ({
 }));
 
 vi.mock("../../../src/lib/price-targets/delivery", () => ({
-	deliverPriceTargetAlert: vi.fn(async () => {}),
+	deliverPriceTargetAlert: vi.fn(async () => true),
 }));
 
 import { deliverPriceTargetAlert } from "../../../src/lib/price-targets/delivery";
@@ -48,6 +47,8 @@ function makeSupabaseMock(options: {
 		symbol: string;
 		target_price: number;
 		direction: string;
+		triggered_at?: string | null;
+		triggered_price?: number | null;
 	}>;
 	users?: Array<{
 		id: string;
@@ -61,13 +62,28 @@ function makeSupabaseMock(options: {
 		price_targets_include_sms: boolean;
 	}>;
 	onDelete?: () => void;
+	onUpdate?: () => void;
 }) {
-	const { targets = [], users = [], onDelete } = options;
+	const { targets = [], users = [], onDelete, onUpdate } = options;
 	return {
 		from: (table: string) => {
 			if (table === "price_targets") {
 				return {
 					select: () => Promise.resolve({ data: targets, error: null }),
+					update: () => ({
+						eq: () => ({
+							eq: () => ({
+								eq: () => ({
+									eq: () => ({
+										is: () => {
+											onUpdate?.();
+											return Promise.resolve({ error: null });
+										},
+									}),
+								}),
+							}),
+						}),
+					}),
 					delete: () => ({
 						eq: () => ({
 							eq: () => ({
@@ -237,11 +253,12 @@ describe("Price target processing", () => {
 		expect(totals.targetsTriggered).toBe(1);
 	});
 
-	it("A triggered target is still cleared when delivery throws unexpectedly", async () => {
+	it("keeps a triggered target when delivery fails so it can retry", async () => {
 		mockGetCurrentMarketSession.mockResolvedValue("regular");
-		mockDeliverPriceTargetAlert.mockRejectedValueOnce(new Error("Unexpected delivery failure"));
+		mockDeliverPriceTargetAlert.mockResolvedValueOnce(false);
 
 		let deleted = false;
+		let markedPending = false;
 		const supabase = makeSupabaseMock({
 			targets: [
 				{
@@ -249,6 +266,8 @@ describe("Price target processing", () => {
 					symbol: "AAPL",
 					target_price: 150,
 					direction: "above",
+					triggered_at: null,
+					triggered_price: null,
 				},
 			],
 			users: [
@@ -267,17 +286,18 @@ describe("Price target processing", () => {
 			onDelete: () => {
 				deleted = true;
 			},
+			onUpdate: () => {
+				markedPending = true;
+			},
 		});
 
 		const quoteMap = new Map<string, ExtendedAssetQuote>([["AAPL", makeQuote(160)]]);
 
-		expectConsoleError(/Failed to deliver price target alert/);
-
 		const totals = await processPriceTargets({ supabase, quoteMap });
 
 		expect(totals.targetsTriggered).toBe(1);
-		expect(totals.logFailures).toBe(1);
-		expect(deleted).toBe(true);
+		expect(markedPending).toBe(true);
+		expect(deleted).toBe(false);
 	});
 
 	it("No targets are checked when none exist", async () => {

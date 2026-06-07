@@ -37,6 +37,10 @@ vi.mock("../../../src/lib/time/market-calendar", () => ({
 	getUsMarketClosureInfoForInstant: vi.fn().mockResolvedValue(null),
 }));
 
+vi.mock("../../../src/lib/asset-events/schedule-state", () => ({
+	shouldAdvanceAssetEventsSchedule: vi.fn().mockResolvedValue(true),
+}));
+
 import type { UserRecord } from "../../../src/lib/messaging/types";
 import { makeUserRecord } from "../../helpers/user-record-fixture";
 
