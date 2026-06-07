@@ -7,7 +7,7 @@ inputs:
     required: false
     default: 'false'
   production-site-url:
-    description: 'Canonical production URL (e.g. https://stocktextalerts.com). When set, the build uses it for site, sitemap, canonicals, and OG URLs so prebuilt deploys are correct.'
+    description: 'Canonical production URL (e.g. https://www.stocktextalerts.com). When set, the build uses it for site, sitemap, canonicals, and OG URLs so prebuilt deploys are correct.'
     required: false
     default: ''
   skip-e2e:

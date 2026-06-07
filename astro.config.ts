@@ -6,13 +6,13 @@ import { defineConfig } from "astro/config";
 import icon from "astro-icon";
 import { loadEnv } from "vite";
 import svgLoader from "vite-svg-loader";
-import { EXCLUDED_ROUTE_PREFIXES } from "./src/lib/seo/excluded-routes";
+import { isExcludedFromSitemap } from "./src/lib/seo/excluded-routes";
 
 // Config runs before Vite loads .env*; loadEnv makes .env / .env.local available here.
 const mode = process.env.NODE_ENV || process.env.MODE || "development";
 const env = loadEnv(mode, process.cwd(), "");
 // Prefer loaded env (.env.local), then process.env (shell, Vercel).
-// VERCEL_PROJECT_PRODUCTION_URL is the canonical production domain (e.g. "stocktextalerts.com").
+// VERCEL_PROJECT_PRODUCTION_URL is the canonical production domain (e.g. "www.stocktextalerts.com").
 // VERCEL_URL is the per-deployment URL (e.g. "my-app-abc123.vercel.app") which may be
 // blocked by Deployment Protection, breaking OG images and canonical URLs for crawlers.
 const vercelProductionUrl =
@@ -72,8 +72,8 @@ if (!vercelUrl) {
  * These routes have no SEO value and are better left out of crawl budgets.
  */
 function sitemapFilter(page: string): boolean {
-	const pathname = new URL(page).pathname.replace(/\/$/, "") || "/";
-	return !EXCLUDED_ROUTE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+	const pathname = new URL(page).pathname;
+	return !isExcludedFromSitemap(pathname);
 }
 
 // https://astro.build/config

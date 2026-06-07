@@ -22,7 +22,7 @@ jobs:
       - name: Require production site URL for prebuilt deploy
         run: |
           if [[ -z "${{ vars.PRODUCTION_SITE_URL }}" ]]; then
-            echo "::error::PRODUCTION_SITE_URL repo variable is not set. Set it (e.g. https://stocktextalerts.com) so the prebuilt build bakes the correct domain into prerendered pages, sitemap, canonicals, and OG/JSON-LD."
+            echo "::error::PRODUCTION_SITE_URL repo variable is not set. Set it (e.g. https://www.stocktextalerts.com) so the prebuilt build bakes the correct domain into prerendered pages, sitemap, canonicals, and OG/JSON-LD."
             exit 1
           fi
       - uses: ./.github/actions/run-ci

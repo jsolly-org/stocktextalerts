@@ -31,13 +31,14 @@ done < "$_ENV_FILE"
 : "${UNSUBSCRIBE_TOKEN_SECRET:?UNSUBSCRIBE_TOKEN_SECRET not set in .env.local}"
 : "${EMAIL_DISPATCH_SECRET:?EMAIL_DISPATCH_SECRET not set in .env.local}"
 : "${ADMIN_EMAILS:?ADMIN_EMAILS not set in .env.local}"
+: "${PRODUCTION_SITE_URL:?PRODUCTION_SITE_URL not set in .env.local}"
 
 _GIT_SHA="$(git -C "$_PARAMS_DIR/.." rev-parse --short HEAD 2>/dev/null || echo unknown)"
 
 SAM_PARAMS=(
   "SupabaseUrl=$SUPABASE_URL_PROD"
   "SupabaseSecretKey=$SUPABASE_SECRET_KEY_PROD"
-  "SiteUrl=https://stocktextalerts.com"
+  "SiteUrl=$PRODUCTION_SITE_URL"
   "MassiveApiKey=$MASSIVE_API_KEY"
   "FinnhubApiKey=$FINNHUB_API_KEY"
   "XaiApiKey=${XAI_API_KEY:-}"
