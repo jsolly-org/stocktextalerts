@@ -19,6 +19,7 @@ describe("Massive OHLCV bar extraction", () => {
 			low: 95,
 			close: 102,
 			volume: 1_000_000,
+			tradingDate: "2023-11-14",
 		});
 	});
 

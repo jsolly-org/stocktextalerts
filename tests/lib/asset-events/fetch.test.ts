@@ -374,4 +374,27 @@ describe("fetchAndStoreAssetEvents", () => {
 		expect(result).toEqual({ upserted: 1, failedProviders: [] });
 		expect(logger.error).not.toHaveBeenCalled();
 	});
+
+	it("retries only requested providers when providers filter is set", async () => {
+		const { supabase } = createSupabaseStub(["AAPL"]);
+
+		vi.mocked(fetchEarnings).mockResolvedValue({ data: [], failed: true });
+		vi.mocked(fetchDividends).mockResolvedValue({ data: [], failed: false });
+		vi.mocked(fetchSplits).mockResolvedValue({ data: [], failed: false });
+		vi.mocked(fetchIpos).mockResolvedValue({ data: [], failed: false });
+
+		const result = await fetchAndStoreAssetEvents({
+			supabase: supabase as never,
+			weekStart: "2026-02-16",
+			weekEnd: "2026-02-20",
+			logger: logger as never,
+			providers: ["earnings"],
+		});
+
+		expect(fetchEarnings).toHaveBeenCalledOnce();
+		expect(fetchDividends).not.toHaveBeenCalled();
+		expect(fetchSplits).not.toHaveBeenCalled();
+		expect(fetchIpos).not.toHaveBeenCalled();
+		expect(result.failedProviders).toEqual(["earnings"]);
+	});
 });

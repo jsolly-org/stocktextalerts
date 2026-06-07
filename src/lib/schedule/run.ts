@@ -39,6 +39,11 @@ import {
 	type FlatPriceAlertTotals,
 	processFlatPriceAlerts,
 } from "../market-notifications/flat-alerts/process";
+import {
+	getPriceCacheSymbols,
+	purgeOldPriceHistoryCache,
+	storePriceHistoryMinuteSnapshots,
+} from "../market-notifications/price-history-cache";
 import { type PriceAlertTotals, processPriceAlerts } from "../market-notifications/process";
 import { processMarketScheduledUser } from "../market-notifications/scheduled/process";
 import { fetchMarketScheduledUsers } from "../market-notifications/scheduled/query";
@@ -49,6 +54,7 @@ import {
 	type AssetPriceMap,
 	type ExtendedQuoteMap,
 	fetchAssetPricesWithSessionState,
+	fetchExtendedQuotes,
 	getCurrentMarketSession,
 	type MarketSession,
 } from "../providers/price-fetcher";
@@ -56,6 +62,7 @@ import { deliverStagedNotifications } from "../staged-notifications/deliver";
 import { precomputeDailyDigest } from "../staged-notifications/precompute";
 import { toIsoOrThrow } from "../time/format";
 import { getUsMarketClosureInfoForInstant, type MarketClosureInfo } from "../time/market-calendar";
+import { enqueuePriceHistoryStoreRetry } from "../vendor-backfill/queue";
 import {
 	batchLoadUserAssets,
 	type ScheduledNotificationTotals,
@@ -488,6 +495,63 @@ export async function runScheduledNotifications(options: {
 		}
 	} catch (error) {
 		logger.warn("Price alerts processing failed (non-fatal)", { action: "price_alerts" }, error);
+	}
+
+	if (schedulerMarketSession !== "closed") {
+		try {
+			let captureQuoteMap = priceAlertQuoteMap;
+			const cacheSymbols = await getPriceCacheSymbols(supabase);
+			const missingSymbols = cacheSymbols.filter((symbol) => {
+				const quote = captureQuoteMap?.get(symbol);
+				return quote === undefined || quote === null;
+			});
+			if (missingSymbols.length > 0) {
+				const extraQuotes = await fetchExtendedQuotes(missingSymbols, schedulerMarketSession);
+				captureQuoteMap = new Map(captureQuoteMap ?? []);
+				for (const [symbol, quote] of extraQuotes) {
+					captureQuoteMap.set(symbol, quote);
+				}
+			}
+			if (captureQuoteMap && captureQuoteMap.size > 0) {
+				const failedRows = await storePriceHistoryMinuteSnapshots(supabase, captureQuoteMap);
+				if (failedRows) {
+					const enqueued = await enqueuePriceHistoryStoreRetry({
+						rows: failedRows,
+						reason: "minute_snapshot_store_failed",
+					});
+					if (!enqueued) {
+						logger.error(
+							"Failed to enqueue price-history-store retry",
+							{ action: "price_history_capture", rowCount: failedRows.length },
+							new Error("SQS enqueue failed"),
+						);
+					}
+				}
+			}
+		} catch (error) {
+			logger.warn(
+				"Price history minute capture failed (non-fatal)",
+				{ action: "price_history_capture" },
+				error,
+			);
+		}
+	}
+
+	try {
+		const purgedCache = await purgeOldPriceHistoryCache(supabase);
+		if (purgedCache.minutePurged > 0 || purgedCache.dailyPurged > 0) {
+			logger.info("Purged old price history cache rows", {
+				action: "purge_price_history_cache",
+				minutePurged: purgedCache.minutePurged,
+				dailyPurged: purgedCache.dailyPurged,
+			});
+		}
+	} catch (error) {
+		logger.warn(
+			"Failed to purge old price history cache (non-fatal)",
+			{ action: "purge_price_history_cache" },
+			error,
+		);
 	}
 
 	// Run price target checks — piggybacks on the same market-hours window.

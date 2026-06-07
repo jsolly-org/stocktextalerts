@@ -77,6 +77,24 @@ export type Database = {
           },
         ]
       }
+      asset_daily_closes: {
+        Row: {
+          close: number
+          symbol: string
+          trading_date: string
+        }
+        Insert: {
+          close: number
+          symbol: string
+          trading_date: string
+        }
+        Update: {
+          close?: number
+          symbol?: string
+          trading_date?: string
+        }
+        Relationships: []
+      }
       asset_events: {
         Row: {
           data: Json
@@ -155,6 +173,27 @@ export type Database = {
             referencedColumns: ["symbol"]
           },
         ]
+      }
+      asset_price_history: {
+        Row: {
+          captured_at: string
+          id: string
+          price: number
+          symbol: string
+        }
+        Insert: {
+          captured_at?: string
+          id?: string
+          price: number
+          symbol: string
+        }
+        Update: {
+          captured_at?: string
+          id?: string
+          price?: number
+          symbol?: string
+        }
+        Relationships: []
       }
       asset_snapshots: {
         Row: {
@@ -870,6 +909,14 @@ export type Database = {
         Returns: boolean
       }
       purge_expired_short_urls: { Args: never; Returns: number }
+      purge_old_asset_daily_closes: {
+        Args: { p_retention_days?: number }
+        Returns: number
+      }
+      purge_old_asset_price_history: {
+        Args: { p_retention_hours?: number }
+        Returns: number
+      }
       purge_old_asset_snapshots: {
         Args: { p_retention_minutes?: number }
         Returns: number

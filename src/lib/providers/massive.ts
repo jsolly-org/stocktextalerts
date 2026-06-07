@@ -540,6 +540,16 @@ export interface DailyOHLCVBar {
 	low: number;
 	close: number;
 	volume: number;
+	/** ET trading date (YYYY-MM-DD) from the bar timestamp when available. */
+	tradingDate?: string;
+}
+
+function barTimestampToTradingDate(timestampMs: number): string | undefined {
+	if (!Number.isFinite(timestampMs)) return undefined;
+	const date = new Date(timestampMs).toLocaleDateString("en-CA", {
+		timeZone: US_MARKET_TIMEZONE,
+	});
+	return date || undefined;
 }
 
 /**
@@ -562,6 +572,7 @@ export function extractOHLCVFromBars(payload: unknown): DailyOHLCVBar[] | null {
 		const l = rec.l;
 		const c = rec.c;
 		const v = rec.v;
+		const t = rec.t;
 		if (
 			typeof o === "number" &&
 			Number.isFinite(o) &&
@@ -574,7 +585,15 @@ export function extractOHLCVFromBars(payload: unknown): DailyOHLCVBar[] | null {
 			typeof v === "number" &&
 			Number.isFinite(v)
 		) {
-			bars.push({ open: o, high: h, low: l, close: c, volume: v });
+			const tradingDate = typeof t === "number" ? barTimestampToTradingDate(t) : undefined;
+			bars.push({
+				open: o,
+				high: h,
+				low: l,
+				close: c,
+				volume: v,
+				...(tradingDate ? { tradingDate } : {}),
+			});
 		}
 	}
 	return bars.length > 0 ? bars : null;

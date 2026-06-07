@@ -3,7 +3,13 @@ import { createSupabaseAdminClient } from "../lib/db/supabase";
 import { createLogger } from "../lib/logging";
 import { runWithRequestContext } from "../lib/logging/request-context";
 import { computeADV, computeATR } from "../lib/market-notifications/daily-stats";
+import {
+	dailyBarsToCloseRows,
+	getBenchmarkCacheSymbols,
+	storeDailyCloseRows,
+} from "../lib/market-notifications/price-history-cache";
 import { fetchDailyOHLCV } from "../lib/providers/massive";
+import { enqueueDailyCloseBackfill } from "../lib/vendor-backfill/queue";
 
 /** Batch size for Massive API calls to stay under ~100 req/s. */
 const BATCH_SIZE = 50;
@@ -42,7 +48,9 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			throw new Error("Failed to load user assets");
 		}
 
-		const symbols = [...new Set((allUserAssets ?? []).map((a) => a.symbol))];
+		const symbols = [
+			...new Set([...(allUserAssets ?? []).map((a) => a.symbol), ...getBenchmarkCacheSymbols()]),
+		];
 		if (symbols.length === 0) {
 			logger.info("No symbols to compute daily stats for", {
 				action: "compute_daily_stats",
@@ -58,6 +66,7 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 
 		let computed = 0;
 		let failed = 0;
+		const failedDailyCloseSymbols: string[] = [];
 		const rows: Array<{
 			symbol: string;
 			computed_at: string;
@@ -99,6 +108,12 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 					atr_14: atr !== null ? Math.round(atr * 10000) / 10000 : null,
 				});
 				computed++;
+
+				const closeRows = dailyBarsToCloseRows(symbol, bars);
+				const storedCloses = await storeDailyCloseRows(supabase, closeRows);
+				if (!storedCloses) {
+					failedDailyCloseSymbols.push(symbol);
+				}
 			}
 
 			// Delay between batches to avoid rate limits
@@ -134,6 +149,50 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			total: symbols.length,
 			computed,
 			failed,
+			failedDailyCloseSymbols,
 		});
+
+		if (failedDailyCloseSymbols.length > 0) {
+			const enqueued = await enqueueDailyCloseBackfill({
+				symbols: failedDailyCloseSymbols,
+				from,
+				to,
+				reason: "daily_close_cache_store_failed",
+			});
+			if (!enqueued) {
+				logger.error(
+					"Failed to enqueue daily-closes vendor backfill",
+					{
+						action: "compute_daily_stats",
+						symbols: failedDailyCloseSymbols,
+					},
+					new Error("SQS enqueue failed"),
+				);
+			}
+		}
+
+		if (failed > 0) {
+			const failedSymbols = symbols.filter((symbol) => {
+				return !rows.some((row) => row.symbol === symbol);
+			});
+			if (failedSymbols.length > 0) {
+				const enqueued = await enqueueDailyCloseBackfill({
+					symbols: failedSymbols,
+					from,
+					to,
+					reason: "daily_ohlcv_fetch_failed",
+				});
+				if (!enqueued) {
+					logger.error(
+						"Failed to enqueue daily-closes vendor backfill for fetch failures",
+						{
+							action: "compute_daily_stats",
+							symbols: failedSymbols,
+						},
+						new Error("SQS enqueue failed"),
+					);
+				}
+			}
+		}
 	});
 }

@@ -235,7 +235,11 @@ export async function processMarketScheduledUser(options: {
 		let sparklines: SparklineMap = new Map();
 		if (tickers.length > 0) {
 			try {
-				sparklines = await fetchIntradaySparklines(tickers, prevCloseMap, currentPriceMap);
+				sparklines = await fetchIntradaySparklines(tickers, prevCloseMap, currentPriceMap, {
+					supabase,
+					timezone: user.timezone,
+					use24HourTime: user.use_24_hour_time,
+				});
 			} catch (error) {
 				logger.error(
 					"Failed to fetch sparklines for scheduled market notification",

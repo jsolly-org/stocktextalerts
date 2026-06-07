@@ -6,6 +6,10 @@ import type { SupabaseAdminClient } from "../schedule/helpers";
 /** Number of weeks to retain in the asset_events / market_events tables. */
 const RETENTION_WEEKS = 4;
 
+export type AssetEventProvider = "earnings" | "dividends" | "splits" | "ipos";
+
+const ALL_ASSET_EVENT_PROVIDERS: AssetEventProvider[] = ["earnings", "dividends", "splits", "ipos"];
+
 /**
  * Fetch earnings (Finnhub) plus dividends/splits/IPOs (Massive) for the given week,
  * filter calendar events to symbols tracked by any user, and upsert into the
@@ -20,8 +24,11 @@ export async function fetchAndStoreAssetEvents(options: {
 	weekStart: string; // YYYY-MM-DD (Monday)
 	weekEnd: string; // YYYY-MM-DD (Friday)
 	logger: Logger;
+	providers?: AssetEventProvider[];
 }): Promise<{ upserted: number; failedProviders: string[] }> {
-	const { supabase, weekStart, weekEnd, logger } = options;
+	const { supabase, weekStart, weekEnd, logger, providers } = options;
+	const requestedProviders = providers ?? ALL_ASSET_EVENT_PROVIDERS;
+	const shouldFetch = (provider: AssetEventProvider) => requestedProviders.includes(provider);
 
 	// Get distinct symbols tracked by any user
 	const { data: trackedSymbols, error: symbolsError } = await supabase
@@ -40,12 +47,19 @@ export async function fetchAndStoreAssetEvents(options: {
 	// responses (up to 1000 dividends) are large; fetching them in parallel with
 	// a stalled Finnhub call pinned memory at 256 MB and OOM'd the Lambda.
 	const emptyResult: ProviderResult<never> = { data: [], failed: false };
-	const earningsResult = hasTrackedSymbols ? await fetchEarnings(weekStart, weekEnd) : emptyResult;
+	const earningsResult =
+		hasTrackedSymbols && shouldFetch("earnings")
+			? await fetchEarnings(weekStart, weekEnd)
+			: emptyResult;
 
 	const [dividendsResult, splitsResult, iposResult] = await Promise.all([
-		hasTrackedSymbols ? fetchDividends(weekStart, weekEnd) : Promise.resolve(emptyResult),
-		hasTrackedSymbols ? fetchSplits(weekStart, weekEnd) : Promise.resolve(emptyResult),
-		fetchIpos(weekStart, weekEnd),
+		hasTrackedSymbols && shouldFetch("dividends")
+			? fetchDividends(weekStart, weekEnd)
+			: Promise.resolve(emptyResult),
+		hasTrackedSymbols && shouldFetch("splits")
+			? fetchSplits(weekStart, weekEnd)
+			: Promise.resolve(emptyResult),
+		shouldFetch("ipos") ? fetchIpos(weekStart, weekEnd) : Promise.resolve(emptyResult),
 	]);
 
 	const earnings = earningsResult.data;

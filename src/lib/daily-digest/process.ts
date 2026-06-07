@@ -394,7 +394,11 @@ export async function processDailyDigestUser(options: {
 		if (needsPrices && tickers.length > 0) {
 			try {
 				if (session === "closed") {
-					sparklines = await fetchSparklines(tickers);
+					sparklines = await fetchSparklines(tickers, {
+						supabase,
+						timezone: user.timezone,
+						use24HourTime: user.use_24_hour_time,
+					});
 				} else {
 					const prevCloseMap = new Map<string, number | null | undefined>();
 					const currentPriceMap = new Map<string, number | null | undefined>();
@@ -419,7 +423,11 @@ export async function processDailyDigestUser(options: {
 							},
 						);
 					}
-					sparklines = await fetchIntradaySparklines(tickers, prevCloseMap, currentPriceMap);
+					sparklines = await fetchIntradaySparklines(tickers, prevCloseMap, currentPriceMap, {
+						supabase,
+						timezone: user.timezone,
+						use24HourTime: user.use_24_hour_time,
+					});
 				}
 			} catch (error) {
 				logger.error(

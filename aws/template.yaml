@@ -141,17 +141,6 @@ Resources:
       MemorySize: 512
       LoggingConfig:
         LogGroup: !Ref AssetEventsLogGroup
-      Policies:
-        # Required by the daily delisting sweep, which emails affected
-        # users when one of their holdings gets delisted. SMS is delivered
-        # via Twilio REST so no additional IAM permissions are needed.
-        - Version: "2012-10-17"
-          Statement:
-            - Effect: Allow
-              Action:
-                - ses:SendEmail
-                - ses:SendRawEmail
-              Resource: !Sub "arn:aws:ses:us-east-1:${AWS::AccountId}:identity/stocktextalerts.com"
       Environment:
         Variables:
           SITE_URL: !Ref SiteUrl
@@ -162,6 +151,19 @@ Resources:
           TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
           TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
           TWILIO_PHONE_NUMBER: !Ref TwilioPhoneNumber
+          VENDOR_BACKFILL_QUEUE_URL: !Ref VendorBackfillQueue
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: !Sub "arn:aws:ses:us-east-1:${AWS::AccountId}:identity/stocktextalerts.com"
+            - Effect: Allow
+              Action:
+                - sqs:SendMessage
+              Resource: !GetAtt VendorBackfillQueue.Arn
       Events:
         DailyMidnight:
           Type: ScheduleV2
@@ -252,9 +254,17 @@ Resources:
       MemorySize: 256
       LoggingConfig:
         LogGroup: !Ref ComputeDailyStatsLogGroup
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - sqs:SendMessage
+              Resource: !GetAtt VendorBackfillQueue.Arn
       Environment:
         Variables:
           MASSIVE_API_KEY: !Ref MassiveApiKey
+          VENDOR_BACKFILL_QUEUE_URL: !Ref VendorBackfillQueue
       Events:
         WeekdayEvening:
           Type: ScheduleV2
@@ -262,6 +272,63 @@ Resources:
             ScheduleExpression: "cron(0 22 ? * MON-FRI *)"
             State: ENABLED
             RoleArn: !GetAtt StockTextAlertsSchedulerRole.Arn
+
+  VendorBackfillDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: stocktextalerts-vendor-backfill-dlq
+      MessageRetentionPeriod: 1209600
+
+  VendorBackfillQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: stocktextalerts-vendor-backfill
+      VisibilityTimeout: 600
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt VendorBackfillDLQ.Arn
+        maxReceiveCount: 5
+
+  VendorBackfillFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Format: cjs
+        Target: node24
+        Sourcemap: true
+        EntryPoints:
+          - vendor-backfill.ts
+    Properties:
+      FunctionName: stocktextalerts-vendor-backfill
+      Handler: vendor-backfill.handler
+      CodeUri: src/handlers
+      Timeout: 600
+      MemorySize: 512
+      LoggingConfig:
+        LogGroup: !Ref VendorBackfillLogGroup
+      Policies:
+        - SQSPollerPolicy:
+            QueueName: !GetAtt VendorBackfillQueue.QueueName
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - sqs:ChangeMessageVisibility
+              Resource: !GetAtt VendorBackfillQueue.Arn
+      Environment:
+        Variables:
+          MASSIVE_API_KEY: !Ref MassiveApiKey
+          FINNHUB_API_KEY: !Ref FinnhubApiKey
+          VENDOR_BACKFILL_QUEUE_URL: !Ref VendorBackfillQueue
+      Events:
+        VendorBackfillQueueEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt VendorBackfillQueue.Arn
+            BatchSize: 5
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
 
   # Shared by all three ScheduleV2 events. Without an explicit RoleArn,
   # SAM auto-generates one role per event with identical permissions —
@@ -483,6 +550,12 @@ Resources:
       LogGroupName: /aws/lambda/stocktextalerts-compute-daily-stats
       RetentionInDays: 30
 
+  VendorBackfillLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/stocktextalerts-vendor-backfill
+      RetentionInDays: 30
+
   # ---------- Error Log Metric Filters ----------
 
   ScheduleErrorLogFilter:
@@ -522,6 +595,17 @@ Resources:
     Type: AWS::Logs::MetricFilter
     Properties:
       LogGroupName: !Ref ComputeDailyStatsLogGroup
+      FilterPattern: '{ $.level = "error" }'
+      MetricTransformations:
+        - MetricNamespace: stocktextalerts
+          MetricName: ErrorLogCount
+          MetricValue: "1"
+          DefaultValue: 0
+
+  VendorBackfillErrorLogFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref VendorBackfillLogGroup
       FilterPattern: '{ $.level = "error" }'
       MetricTransformations:
         - MetricNamespace: stocktextalerts
@@ -569,6 +653,17 @@ Resources:
           MetricValue: "1"
           DefaultValue: 0
 
+  VendorBackfillVendorRetryFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref VendorBackfillLogGroup
+      FilterPattern: '{ $.context.category = "vendor_retry_exhausted" }'
+      MetricTransformations:
+        - MetricNamespace: stocktextalerts
+          MetricName: VendorBackfillVendorRetryCount
+          MetricValue: "1"
+          DefaultValue: 0
+
   # ---------- Aggregate Error Log Alarm ----------
   # Pages on any error EXCEPT upstream-vendor retry exhaustion. Uses metric
   # math to subtract the per-Lambda vendor-retry counts from the total.
@@ -580,7 +675,7 @@ Resources:
       AlarmDescription: ERROR logged in stocktextalerts Lambda functions (excluding vendor retry exhaustion)
       Metrics:
         - Id: non_vendor_errors
-          Expression: "all_errors - sched_vr - assetev_vr - cds_vr"
+          Expression: "all_errors - sched_vr - assetev_vr - cds_vr - vb_vr"
           Label: Non-vendor-retry errors
           ReturnData: true
         - Id: all_errors
@@ -612,6 +707,14 @@ Resources:
             Metric:
               Namespace: stocktextalerts
               MetricName: ComputeDailyStatsVendorRetryCount
+            Period: 60
+            Stat: Sum
+          ReturnData: false
+        - Id: vb_vr
+          MetricStat:
+            Metric:
+              Namespace: stocktextalerts
+              MetricName: VendorBackfillVendorRetryCount
             Period: 60
             Stat: Sum
           ReturnData: false
@@ -682,6 +785,48 @@ Resources:
       Period: 60
       EvaluationPeriods: 1
       DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopicArn
+      OKActions:
+        - !Ref AlertTopicArn
+
+  VendorBackfillDLQAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: stocktextalerts-vendor-backfill-dlq
+      AlarmDescription: Poison messages in VendorBackfillDLQ require operator attention
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt VendorBackfillDLQ.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopicArn
+      OKActions:
+        - !Ref AlertTopicArn
+
+  VendorBackfillFunctionErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: stocktextalerts-vendor-backfill-lambda-errors
+      AlarmDescription: VendorBackfillFunction threw / timed out / OOMed
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref VendorBackfillFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
       Threshold: 1
       ComparisonOperator: GreaterThanOrEqualToThreshold
       TreatMissingData: notBreaching

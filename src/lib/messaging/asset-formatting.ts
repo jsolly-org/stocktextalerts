@@ -57,7 +57,8 @@ function formatAssetPriceText(
 		base += ` (${sign}${changePercent.toFixed(2)}%)`;
 	}
 	if (sparkline?.ascii) {
-		return `${base} ${SMS_SPARKLINE_LABEL[sparkline.window]}: ${sparkline.ascii}`;
+		const label = sparkline.cacheAsOfLabel ?? SMS_SPARKLINE_LABEL[sparkline.window];
+		return `${base} ${label}: ${sparkline.ascii}`;
 	}
 	return base;
 }
@@ -198,7 +199,7 @@ export function formatAssetHtmlLine(
 	// off to the right and the label-to-ticker mapping breaks down. Two empty
 	// leading cells indent the chart so it sits under the dash/price columns,
 	// visibly nested beneath its ticker rather than as a separate paragraph.
-	const label = EMAIL_SPARKLINE_LABEL[sparkline.window];
+	const label = sparkline.cacheAsOfLabel ?? EMAIL_SPARKLINE_LABEL[sparkline.window];
 	const altText = `${label} price trend`;
 	const trendLabel = `<span style="color: #6b7280; font-size: 11px; padding-right: 6px;">${escapeHtml(`${label}:`)}</span>`;
 	const sparklineColor = getChangeColor(getSparklineDirectionPercent(sparkline.values));

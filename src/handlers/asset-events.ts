@@ -1,6 +1,7 @@
 import type { Context, ScheduledEvent } from "aws-lambda";
 import { DateTime } from "luxon";
 import { fetchAndStoreFinnhubEnrichment } from "../lib/asset-events/enrichment-store";
+import type { AssetEventProvider } from "../lib/asset-events/fetch";
 import { fetchAndStoreAssetEvents } from "../lib/asset-events/fetch";
 import { runDelistingSweep } from "../lib/assets/delisting-sweep";
 import { createSupabaseAdminClient } from "../lib/db/supabase";
@@ -8,6 +9,7 @@ import { createLogger } from "../lib/logging";
 import { runWithRequestContext } from "../lib/logging/request-context";
 import { createEmailSender } from "../lib/messaging/email/utils";
 import { createSmsSenderProvider } from "../lib/schedule/sms-sender";
+import { enqueueAssetEventsIngestRetry } from "../lib/vendor-backfill/queue";
 
 export async function handler(event: ScheduledEvent, context: Context): Promise<void> {
 	return runWithRequestContext(context.awsRequestId, async () => {
@@ -115,6 +117,28 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 				{ action: "daily_asset_events_cron", failedProviders },
 				new Error(`Failed providers: ${failedProviders.join(", ")}`),
 			);
+
+			for (const result of results) {
+				if (result.failedProviders.length === 0) continue;
+				const enqueued = await enqueueAssetEventsIngestRetry({
+					weekStart: result.weekStart,
+					weekEnd: result.weekEnd,
+					providers: result.failedProviders as AssetEventProvider[],
+					reason: "daily_asset_events_partial_failure",
+				});
+				if (!enqueued) {
+					logger.error(
+						"Failed to enqueue asset-events vendor backfill",
+						{
+							action: "daily_asset_events_cron",
+							weekStart: result.weekStart,
+							weekEnd: result.weekEnd,
+							providers: result.failedProviders,
+						},
+						new Error("SQS enqueue failed"),
+					);
+				}
+			}
 		}
 
 		// Independent try/catch so sweep failures never invalidate the calendar-

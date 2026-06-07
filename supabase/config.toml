@@ -33,6 +33,11 @@ content_path = "./supabase/auth-recovery.html"
 subject = "Confirm your email change — StockTextAlerts"
 content_path = "./supabase/auth-email-change.html"
 
+[auth.email.notification.password_changed]
+enabled = true
+subject = "Your password has been changed — StockTextAlerts"
+content_path = "./auth-password-changed.html"
+
 [inbucket]
 enabled = true
 port = 54324

@@ -81,6 +81,8 @@ export interface SparklineData {
 	values: number[];
 	ascii: string;
 	window: SparklineWindow;
+	/** Present when the chart was rendered from local cache instead of Massive. */
+	cacheAsOfLabel?: string;
 }
 
 /** Map of symbol to sparkline data (values + ASCII + window) or null when unavailable. */

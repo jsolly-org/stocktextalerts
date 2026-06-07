@@ -1,17 +1,19 @@
 import type { APIRoute } from "astro";
 import { jsonResponse } from "../../../lib/api/json-response";
-import { createUserService } from "../../../lib/db";
+import { createUserService, getUserAssets } from "../../../lib/db";
 import {
 	isAssetsLimitError,
 	isAssetsWhitespaceError,
 	MAX_TRACKED_ASSETS,
 } from "../../../lib/db/database-errors";
+import { readEnv } from "../../../lib/db/env";
 import { createSupabaseServerClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
 import { createLogger } from "../../../lib/logging";
 import { createErrorForLogging, extractErrorMessage } from "../../../lib/logging/errors";
 import { isValidAssetSymbol } from "../../../lib/validation";
+import { enqueueNewSymbolWarmup } from "../../../lib/vendor-backfill/queue";
 
 const ASSETS_SCHEMA = {
 	tracked_assets: { type: "json_string_array", required: true },
@@ -117,6 +119,18 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		}
 	}
 
+	let previousSymbols: string[] = [];
+	try {
+		const previousAssets = await getUserAssets(supabase, user.id);
+		previousSymbols = previousAssets.map((asset) => asset.symbol);
+	} catch (error) {
+		logger.warn(
+			"Failed to load previous tracked assets before update",
+			{ userId: user.id },
+			createErrorForLogging(error),
+		);
+	}
+
 	try {
 		const { error } = await supabase.rpc("replace_user_assets", {
 			user_id: user.id,
@@ -150,6 +164,24 @@ export const POST: APIRoute = async ({ url, request, cookies, locals }) => {
 		}
 
 		return jsonResponse(500, { ok: false, message: "failed_to_update_assets" });
+	}
+
+	const previousSymbolSet = new Set(previousSymbols);
+	if (readEnv("VENDOR_BACKFILL_QUEUE_URL")) {
+		for (const symbol of uniqueSymbols) {
+			if (previousSymbolSet.has(symbol)) continue;
+			const enqueued = await enqueueNewSymbolWarmup({
+				symbol,
+				reason: "user_added_tracked_symbol",
+			});
+			if (!enqueued) {
+				logger.error(
+					"Failed to enqueue new-symbol warmup",
+					{ userId: user.id, symbol },
+					new Error("SQS enqueue failed"),
+				);
+			}
+		}
 	}
 
 	return jsonResponse(200, { ok: true, message: "assets_updated" });

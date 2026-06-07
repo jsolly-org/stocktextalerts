@@ -221,6 +221,7 @@ This repo includes a styled confirmation email template that matches the app’s
 - `supabase/auth-confirmation.html` (wired up via `[auth.email.template.confirmation]`)
 - `supabase/auth-recovery.html` (wired up via `[auth.email.template.recovery]`)
 - `supabase/auth-email-change.html` (wired up via `[auth.email.template.email_change]`)
+- `supabase/auth-password-changed.html` (wired up via `[auth.email.notification.password_changed]`)
 
 ### 6. Expose Local Webhooks (ngrok)
 

@@ -3,12 +3,17 @@ import { US_MARKET_TIMEZONE } from "../constants";
 import { rootLogger } from "../logging";
 import { createErrorForLogging } from "../logging/errors";
 import {
+	getIntradaySparklineFromCache,
+	getSevenDaySparklineFromCache,
+} from "../market-notifications/price-history-cache";
+import {
 	downsampleEvenly,
 	type SparklineMap,
 	type SparklineWindow,
 	toSparkline,
 } from "../messaging/sparkline";
 import { isTest } from "../runtime/mode";
+import type { SupabaseAdminClient } from "../schedule/helpers";
 import { getUsMarketClosureInfoForInstant } from "../time/market-calendar";
 import {
 	fetchDailyCloses,
@@ -62,6 +67,12 @@ export interface AssetPricesWithSessionState {
 }
 
 export type MarketSession = "pre" | "regular" | "after" | "closed";
+
+export type SparklineCacheOptions = {
+	supabase: SupabaseAdminClient;
+	timezone?: string;
+	use24HourTime?: boolean;
+};
 
 export function parseMarketSession(payload: unknown): MarketSession {
 	if (typeof payload !== "object" || payload === null) {
@@ -271,7 +282,10 @@ export async function fillSnapshotMissesWithPrevDayBar(
 }
 
 /** Fetch 7-point sparklines for the last ~week of closes. */
-export async function fetchSparklines(symbols: string[]): Promise<SparklineMap> {
+export async function fetchSparklines(
+	symbols: string[],
+	cacheOptions?: SparklineCacheOptions,
+): Promise<SparklineMap> {
 	const result: SparklineMap = new Map();
 	if (symbols.length === 0) return result;
 
@@ -328,6 +342,19 @@ export async function fetchSparklines(symbols: string[]): Promise<SparklineMap> 
 	}
 	await Promise.all(pending);
 
+	if (cacheOptions?.supabase) {
+		for (const symbol of symbols) {
+			if (result.get(symbol)) continue;
+			const cached = await getSevenDaySparklineFromCache(cacheOptions.supabase, symbol, {
+				timezone: cacheOptions.timezone,
+				use24HourTime: cacheOptions.use24HourTime,
+			});
+			if (cached) {
+				result.set(symbol, cached);
+			}
+		}
+	}
+
 	return result;
 }
 
@@ -372,6 +399,7 @@ export async function fetchIntradaySparklines(
 	symbols: string[],
 	prevCloseMap: Map<string, number | null | undefined>,
 	currentPriceMap?: Map<string, number | null | undefined>,
+	cacheOptions?: SparklineCacheOptions,
 ): Promise<SparklineMap> {
 	const result: SparklineMap = new Map();
 	if (symbols.length === 0) return result;
@@ -442,6 +470,19 @@ export async function fetchIntradaySparklines(
 		pending.push(worker());
 	}
 	await Promise.all(pending);
+
+	if (cacheOptions?.supabase) {
+		for (const symbol of symbols) {
+			if (result.get(symbol)) continue;
+			const cached = await getIntradaySparklineFromCache(cacheOptions.supabase, symbol, {
+				timezone: cacheOptions.timezone,
+				use24HourTime: cacheOptions.use24HourTime,
+			});
+			if (cached) {
+				result.set(symbol, cached);
+			}
+		}
+	}
 
 	return result;
 }
