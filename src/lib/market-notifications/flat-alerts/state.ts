@@ -66,9 +66,8 @@ export async function fetchFlatPriceAlertState(
  * row's current `last_notification_price` no longer matches on re-trigger,
  * another cron tick already updated it and we back off.
  *
- * On unexpected errors, **fails open** and returns `true` so the alert is
- * still delivered — matches the behavior of `claimCooldown` in the anomaly
- * path. A lost alert is worse than a duplicate in this system.
+ * On unexpected errors, fails closed. If the delivery-state RPC is unavailable,
+ * sending would bypass idempotency and can duplicate SMS on every cron tick.
  */
 export async function reserveFlatPriceAlert(
 	supabase: SupabaseAdminClient,
@@ -96,7 +95,7 @@ export async function reserveFlatPriceAlert(
 
 	if (error) {
 		rootLogger.error("Failed to reserve flat price alert slot", { userId, symbol }, error);
-		return true;
+		return false;
 	}
 
 	return Boolean(reserved);

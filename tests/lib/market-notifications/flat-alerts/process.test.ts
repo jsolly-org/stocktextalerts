@@ -460,6 +460,52 @@ describe("processFlatPriceAlerts", () => {
 		expect(await getStateRow(testUser.id, "AAPL")).toBeNull();
 	});
 
+	it("Reserve RPC permission error skips delivery instead of sending without idempotency", async () => {
+		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
+		registerTestUserForCleanup(testUser.id);
+		await enableFlatAlerts(testUser.id, { email: true, sms: true });
+
+		const failingSupabase = new Proxy(adminClient, {
+			get(target, prop, receiver) {
+				if (prop === "rpc") {
+					return (fn: string, args: unknown) => {
+						if (fn === "reserve_flat_price_alert") {
+							return Promise.resolve({
+								data: null,
+								error: {
+									code: "42501",
+									message: "permission denied for function reserve_flat_price_alert",
+								},
+							});
+						}
+						return Reflect.get(target, prop, receiver).call(target, fn, args);
+					};
+				}
+				return Reflect.get(target, prop, receiver);
+			},
+		});
+
+		const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
+
+		const { expectConsoleError } = await import("../../../setup");
+		expectConsoleError("Failed to reserve flat price alert slot");
+
+		const totals = await processFlatPriceAlerts({
+			supabase: failingSupabase as typeof adminClient,
+			quoteMap,
+			isMarketOpen: true,
+		});
+
+		expect(totals.claimLost).toBe(1);
+		expect(totals.alertsTriggered).toBe(0);
+		expect(totals.emailsSent).toBe(0);
+		expect(totals.smsSent).toBe(0);
+		expect(mockEmailSender).not.toHaveBeenCalled();
+		expect(mockSmsSender).not.toHaveBeenCalled();
+		expect(await getNotificationLogCount(testUser.id)).toBe(0);
+		expect(await getStateRow(testUser.id, "AAPL")).toBeNull();
+	});
+
 	it("User with SMS-only opt-in receives SMS but no email on AAPL 5% gap", async () => {
 		const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
 		registerTestUserForCleanup(testUser.id);

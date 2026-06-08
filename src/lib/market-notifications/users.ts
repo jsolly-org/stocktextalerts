@@ -72,7 +72,7 @@ export async function reserveCooldownSlot(
 
 	if (error) {
 		rootLogger.error("Failed to reserve price alert trading-day slot", { userId, symbol }, error);
-		return true;
+		return false;
 	}
 
 	return Boolean(reserved);
