@@ -58,6 +58,10 @@ runs:
       if: inputs.skip-lint != 'true'
       shell: bash
       run: npm run check:sql
+    - name: Check migration grants (static)
+      if: inputs.skip-lint != 'true'
+      shell: bash
+      run: npm run check:migration-grants
     - name: Cache Playwright browsers
       if: inputs.skip-e2e != 'true'
       id: playwright-cache
@@ -161,6 +165,9 @@ runs:
         STATIC_VARS=$'UNSUBSCRIBE_TOKEN_SECRET=ci-unsubscribe-secret\nVERCEL_URL=http://localhost:4322\nTWILIO_ACCOUNT_SID=AC00000000000000000000000000000000\nTWILIO_AUTH_TOKEN=ci-twilio-auth-token\nTWILIO_PHONE_NUMBER=+15555550100\nTWILIO_VERIFY_SERVICE_SID=VA00000000000000000000000000000000\nAWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE\nAWS_SECRET_ACCESS_KEY=ci-dummy-secret\nAWS_REGION=us-east-1\nEMAIL_FROM=ci@example.com\nMASSIVE_API_KEY=ci-massive-api-key\nFINNHUB_API_KEY=ci-finnhub-api-key'
         printf '%s\n%s\n' "$DB_VARS" "$STATIC_VARS" > .env.local
         printf '%s\n%s\n' "$DB_VARS" "$STATIC_VARS" >> $GITHUB_ENV
+    - name: Check DB privileges
+      shell: bash
+      run: npm run check:db-privileges
     - name: Test
       shell: bash
       run: npm run test:ci

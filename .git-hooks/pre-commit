@@ -22,7 +22,7 @@ non_agent=0
 while IFS= read -r f; do
   [[ -z "$f" ]] && continue
   case "$f" in
-    .claude/settings.json | .cursor/hooks.json | .githooks/pre-commit | hooks/check-sam-deploy.sh) ;;
+    .claude/settings.json | .cursor/hooks.json | .git-hooks/pre-commit | hooks/check-sam-deploy.sh) ;;
     automations/*) ;;
     *)
       [[ "$f" =~ ^\.agents/ ]] && continue
@@ -41,7 +41,7 @@ github_only=1
 while IFS= read -r f; do
   [[ -z "$f" ]] && continue
   case "$f" in
-    .github/* | .githooks/pre-commit) ;;
+    .github/* | .git-hooks/pre-commit) ;;
     *) github_only=0; break ;;
   esac
 done <<< "$staged"

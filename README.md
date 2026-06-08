@@ -258,7 +258,7 @@ For local development, run `npm run db:reset` before `npm run test` to ensure yo
 
 ### CI before push to main
 
-Pre-commit hooks (`.githooks/pre-commit`) run the same checks as the deploy workflow’s `run-ci` step. See [docs/ci-with-act.md](docs/ci-with-act.md) for the full command list and when to run it before `git push`.
+Pre-commit hooks (`.git-hooks/pre-commit`) run the same checks as the deploy workflow’s `run-ci` step. See [docs/ci-with-act.md](docs/ci-with-act.md) for the full command list and when to run it before `git push`.
 
 ### Optional: Live Provider Tests (Massive/Finnhub/xAI)
 

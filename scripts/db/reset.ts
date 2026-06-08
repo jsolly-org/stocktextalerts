@@ -42,6 +42,12 @@ function main(): void {
 	if (run("npm", ["run", "db:gen-types"]) !== 0) {
 		process.exit(1);
 	}
+
+	// Fail a fresh reset immediately on permission drift so missing service_role
+	// grants / accidental client exposure surface here, not in production.
+	if (run("npm", ["run", "check:db-privileges"]) !== 0) {
+		process.exit(1);
+	}
 }
 
 const invokedDirectly =

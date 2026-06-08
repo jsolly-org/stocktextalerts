@@ -47,6 +47,39 @@ The `DOCKER_HOST` value resolves at shell-startup time to the current Podman mac
 
 **Podman VM needs ≥ 6144 MB of memory** if you run Vitest inside a container. See [docs/incidents/2026-04-podman-oom.md](incidents/2026-04-podman-oom.md) for VM sizing notes.
 
+## Function privilege parity
+
+Local `db:reset` used to apply `ALTER DEFAULT PRIVILEGES ... GRANT ALL ON
+FUNCTIONS TO anon, authenticated, service_role` (from the squashed baseline), so
+**every** `public` function was executable by **every** role locally. Hosted
+production has empty `public` default privileges, so a function that forgot an
+explicit `GRANT EXECUTE ... TO service_role` (or that left an accidental
+client-role grant in place) behaved differently in prod than in tests. That gap
+shipped the duplicate-SMS incident: the delivery-state RPCs were callable in
+tests but `service_role` could not call them in prod.
+
+To keep local/CI honest about production grants:
+
+- **`scripts/db/privilege-contract.ts`** is the explicit source of truth for
+  which roles may `EXECUTE` each PostgREST-exposed (`.rpc(...)`) function.
+- **`npm run check:db-privileges`** (runtime, needs a live local DB) fails on a
+  missing `service_role` grant, accidental `anon`/`authenticated` exposure of a
+  server-only RPC, broad function default privileges, or an unclassified
+  app-owned function. It runs automatically at the end of `db:reset` and in CI.
+- **`npm run check:migration-grants`** (static, offline) fails when a migration
+  creates a `public` function but never grants it `EXECUTE` — the cheap PR-time
+  guard against the incident pattern.
+- The `20260608180652_tighten_function_privileges` migration revokes the broad
+  future-function defaults and normalizes every app-called RPC to its intended
+  roles.
+
+**Rule for new RPCs:** every migration that creates a `public` function callable
+via the Data API must include an explicit `GRANT EXECUTE ON FUNCTION ... TO
+<role>` for each intended role (server-only RPCs → `service_role`;
+session-scoped RPCs → `authenticated` and `service_role`). Add the function to
+`privilege-contract.ts`. Note that `supabase db diff` does **not** surface
+`ALTER DEFAULT PRIVILEGES`, so grants must be reviewed manually.
+
 ## Gotchas
 
 - **Vector / Logflare analytics is disabled** in `supabase/config.toml` (`[analytics] enabled = false`). Supabase's `vector` container tries to read Docker logs from `/var/run/docker.sock` inside its own container, which Podman's Docker-compat shim doesn't plumb the same way — `supabase start` hangs on *"vector container is not ready: starting"* otherwise. We don't use the local analytics UI so this is a net win, not a workaround.

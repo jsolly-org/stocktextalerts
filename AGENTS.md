@@ -85,6 +85,7 @@ See `docs/testing.md` for the production-credential gating model and Mailpit dev
 - **Apply migrations to production only via CI's `supabase db push`.** Local-only paths: `supabase migration new <name>` then commit. (No MCP against prod, no `db push` locally, no dashboard DDL.)
 - After creating/modifying a migration: `npm run db:gen-types`.
 - **Regenerate `src/lib/db/generated/database.types.ts` via `npm run db:gen-types`** — it's overwritten on every run.
+- **Explicit function grants required.** Local default privileges are broad, but hosted production has empty `public` defaults — a function created without an explicit `GRANT EXECUTE` is callable by nobody in prod (this caused the duplicate-SMS incident). Every migration that creates a Data-API (`.rpc(...)`) function must include `GRANT EXECUTE ON FUNCTION ... TO <role>` (server-only → `service_role`; session-scoped → `authenticated`, `service_role`) and the function must be classified in `scripts/db/privilege-contract.ts`. `npm run check:db-privileges` (in `db:reset` + CI) and `npm run check:migration-grants` enforce this. `supabase db diff` does not surface `ALTER DEFAULT PRIVILEGES`; review grants manually. See `docs/local-supabase.md` → "Function privilege parity".
 
 ### Production DB agent block (enforced)
 
@@ -126,7 +127,7 @@ See `docs/external-apis.md` for Massive (prices/reference) and Finnhub (earnings
 
 ## CI before push to main
 
-Pre-commit hooks (`.githooks/pre-commit`) mirror the deploy workflow `run-ci` step. See `docs/ci-with-act.md` for the full local command list and the 7-item pre-push checklist. Deploy on `main` is the GitHub guard (production creds); it is not runnable locally.
+Pre-commit hooks (`.git-hooks/pre-commit`) mirror the deploy workflow `run-ci` step. See `docs/ci-with-act.md` for the full local command list and the 7-item pre-push checklist. Deploy on `main` is the GitHub guard (production creds); it is not runnable locally.
 
 ## AWS IAM
 

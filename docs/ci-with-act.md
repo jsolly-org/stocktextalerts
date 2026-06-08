@@ -1,12 +1,12 @@
 # CI before push to main
 
-There is no separate GitHub Actions test workflow on `main`. **`.githooks/pre-commit`** runs the same checks as **[`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)** via the shared **[`run-ci`](../.github/actions/run-ci)** composite (lint, typecheck, Supabase, unit tests, E2E, build). Push to `main` runs deploy, which repeats that guard then ships to production.
+There is no separate GitHub Actions test workflow on `main`. **`.git-hooks/pre-commit`** runs the same checks as **[`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)** via the shared **[`run-ci`](../.github/actions/run-ci)** composite (lint, typecheck, migration-grant lint, Supabase + DB-privilege check, unit tests, E2E, build). Push to `main` runs deploy, which repeats that guard then ships to production.
 
 ## Local guard (run before every commit)
 
 ```bash
 # Hooks install once per clone (package.json prepare sets core.hooksPath)
-git commit   # runs .githooks/pre-commit
+git commit   # runs .git-hooks/pre-commit
 
 # Or run the same stack manually:
 bash .agents/scripts/check-biome-rules.sh biome.jsonc
@@ -16,6 +16,8 @@ npm run check:md
 npm run check:ts
 npm run check:knip
 npm run check:sql
+npm run check:migration-grants   # static: migrations grant EXECUTE on new functions
+npm run check:db-privileges      # needs local Supabase up: grants match privilege-contract
 npm run test
 npm run test:e2e
 npm run build

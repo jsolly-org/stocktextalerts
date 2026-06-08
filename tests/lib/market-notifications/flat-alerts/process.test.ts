@@ -117,7 +117,7 @@ async function getNotificationLogCount(userId: string): Promise<number> {
 async function getStateRow(userId: string, symbol: string) {
 	const { data, error } = await adminClient
 		.from("price_move_alert_state")
-		.select("last_notification_price, last_notification_at")
+		.select("last_notification_price, last_notification_at, pending_delivery")
 		.eq("user_id", userId)
 		.eq("symbol", symbol)
 		.maybeSingle();
@@ -529,6 +529,63 @@ describe("processFlatPriceAlerts", () => {
 		expect(smsCall.body).toContain("AAPL");
 		expect(smsCall.body).toContain("5% Price Move");
 		expect(smsCall.body).toContain("Reply STOP");
+	});
+
+	it("Two consecutive runs with an unchanged 5% quote send exactly one SMS (idempotent)", async () => {
+		// Regression for the duplicate-SMS incident: in prod `finalize` could not
+		// run (missing service_role grant), so the baseline never advanced and
+		// every cron tick re-alerted. This test pins the incident's actual
+		// mechanism — after run 1 we assert `finalize` COMMITTED the new baseline
+		// (last_notification_price advanced to the quote, pending_delivery
+		// cleared). Only with that committed baseline is run 2 a 0% move that
+		// skips before reserving. If `finalize` regressed, run 1's state would
+		// keep the old baseline + pending_delivery=true and this would fail here,
+		// not silently pass. SMS-only because SMS spammed in production.
+		//
+		// Clock pinned to mid-trading-day ET so run 1's `last_notification_at`
+		// and run 2's "today in ET" check land on the same calendar day (matches
+		// the re-trigger test's guard against the ET-midnight flake window).
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime(new Date("2026-05-09T18:00:00.000Z")); // 14:00 ET
+
+		try {
+			const testUser = await createTestUser({ trackedAssets: ["AAPL"] });
+			registerTestUserForCleanup(testUser.id);
+			await enableFlatAlerts(testUser.id, { email: false, sms: true });
+
+			const quoteMap = new Map([["AAPL", makeQuote({ price: 195.86 })]]);
+
+			const first = await processFlatPriceAlerts({
+				supabase: adminClient,
+				quoteMap,
+				isMarketOpen: true,
+			});
+			expect(first.alertsTriggered).toBe(1);
+			expect(first.smsSent).toBe(1);
+
+			// `finalize` must have committed: baseline advanced to the sent price
+			// and the pending flag cleared. This is the exact state the incident
+			// failed to reach, so it is what makes run 2 idempotent.
+			const committed = await getStateRow(testUser.id, "AAPL");
+			expect(Number(committed?.last_notification_price)).toBeCloseTo(195.86, 2);
+			expect(committed?.pending_delivery).toBe(false);
+
+			// Same quote — the move vs. the committed 195.86 baseline is 0%, below
+			// threshold, so this run skips before ever reserving a slot.
+			const second = await processFlatPriceAlerts({
+				supabase: adminClient,
+				quoteMap,
+				isMarketOpen: true,
+			});
+			expect(second.alertsTriggered).toBe(0);
+			expect(second.smsSent).toBe(0);
+
+			// Exactly one SMS send and one flat_price_alert log row across both runs.
+			expect(mockSmsSender).toHaveBeenCalledOnce();
+			expect(await getNotificationLogCount(testUser.id)).toBe(1);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it("User with both channels on receives both email and SMS on a 5% gap", async () => {
