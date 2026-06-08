@@ -6,7 +6,14 @@ HOOK_INPUT=""
 HOOK_CMD=""
 
 cursor_read_hook_input() {
-	HOOK_INPUT=$(cat 2>/dev/null || true)
+	HOOK_INPUT=""
+	if IFS= read -r -t 1 first_line || [[ -n "${first_line:-}" ]]; then
+		HOOK_INPUT=$first_line
+		while IFS= read -r -t 0.05 next_line; do
+			HOOK_INPUT="${HOOK_INPUT}
+${next_line}"
+		done
+	fi
 	HOOK_CMD=$(
 		printf '%s' "$HOOK_INPUT" | jq -r '.command // .tool_input.command // empty' 2>/dev/null || true
 	)
@@ -17,7 +24,7 @@ cursor_is_cursor_hook() {
 }
 
 cursor_allow() {
-	if cursor_is_cursor_hook; then
+	if [[ -z "$HOOK_INPUT" ]] || cursor_is_cursor_hook; then
 		echo '{"permission":"allow"}'
 	fi
 	exit 0

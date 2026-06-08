@@ -8,7 +8,14 @@
 # Cursor sends {"command":"..."} on stdin; Claude Code uses the `if` filter instead.
 # We detect the caller by checking stdin for a JSON command field.
 
-input=$(cat 2>/dev/null)
+input=""
+if IFS= read -r -t 1 first_line || [ -n "${first_line:-}" ]; then
+  input=$first_line
+  while IFS= read -r -t 0.05 next_line; do
+    input="${input}
+${next_line}"
+  done
+fi
 cmd=$(echo "$input" | jq -r '.command // empty' 2>/dev/null)
 
 # Cursor path: check if the command is a git commit
