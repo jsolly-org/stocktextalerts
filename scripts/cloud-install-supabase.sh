@@ -116,9 +116,9 @@ dump_supabase_diagnostics() {
 	dump_supabase_cli_diagnostics "$supabase_bin"
 	dump_docker_diagnostics
 	echo "supabase status:" >&2
-	"$supabase_bin" status 2>&1 >&2 || true
+	"$supabase_bin" status >&2 2>&1 || true
 	echo "docker containers (supabase*):" >&2
-	docker ps -a --filter name=supabase --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' 2>&1 >&2 || true
+	docker ps -a --filter name=supabase --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' >&2 2>&1 || true
 }
 
 dump_supabase_cli_diagnostics() {
@@ -132,7 +132,12 @@ dump_supabase_cli_diagnostics() {
 	echo "npm config ignore-scripts: $(npm config get ignore-scripts 2>&1 || true)" >&2
 	echo "npm config omit: $(npm config get omit 2>&1 || true)" >&2
 	echo "supabase_bin: $supabase_bin" >&2
-	ls -la "$supabase_bin" "$repo_root/node_modules/supabase/bin" 2>&1 >&2 || true
+	# Supabase CLI >= 2.x ships a JS wrapper (node_modules/supabase/dist/supabase.js)
+	# and resolves the native binary from @supabase/cli-<platform> optional packages.
+	# The legacy node_modules/supabase/bin path no longer exists, so list the current
+	# layout instead of an always-missing path.
+	ls -la "$supabase_bin" "$repo_root/node_modules/supabase/dist/supabase.js" >&2 2>&1 || true
+	ls -la "$repo_root"/node_modules/@supabase/cli-*/bin/supabase >&2 2>&1 || true
 }
 
 npm_ci_for_cloud() {
@@ -168,9 +173,13 @@ npm_ci_for_cloud() {
 supabase_cli_ready_for_cloud() {
 	local repo_root="${1:-${REPO_ROOT:-$(pwd)}}"
 	local supabase_bin="${2:-$repo_root/node_modules/.bin/supabase}"
-	local supabase_real_bin="$repo_root/node_modules/supabase/bin/supabase"
 
-	[[ -x "$supabase_bin" && -x "$supabase_real_bin" ]] || return 1
+	# Supabase CLI >= 2.x ships a JS wrapper (node_modules/supabase/dist/supabase.js)
+	# that resolves the real binary from per-platform packages
+	# (@supabase/cli-<platform>/bin/supabase) rather than the old
+	# node_modules/supabase/bin/supabase layout. Treat the CLI as ready when the
+	# wrapper bin exists and `--version` resolves+runs the underlying binary.
+	[[ -x "$supabase_bin" ]] || return 1
 	"$supabase_bin" --version >/dev/null 2>&1
 }
 

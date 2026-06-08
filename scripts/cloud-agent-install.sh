@@ -36,6 +36,29 @@ cloud_install_phase() {
 	cloud_install_log "phase — $1"
 }
 
+# pip --user / pipx tools (yamllint, etc.) install to ~/.local/bin. The fleet helper
+# ensure_user_local_bin_on_path only exports PATH for this install process, so later
+# interactive shells (e.g. the pre-commit check:yaml step) cannot find them. Persist the
+# entry to ~/.bashrc, mirroring persist_cursor_node_shell from cloud-install-lib.sh.
+persist_user_local_bin_on_path() {
+	local marker="cursor-cloud-agent-local-bin"
+	local profile="$HOME/.bashrc"
+
+	if [[ ! -f "$profile" ]] || grep -q "$marker" "$profile" 2>/dev/null; then
+		return 0
+	fi
+
+	cat >>"$profile" <<'EOF'
+
+# --- cursor-cloud-agent-local-bin (scripts/cloud-agent-install.sh) ---
+case ":$PATH:" in
+  *":$HOME/.local/bin:"*) ;;
+  *) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
+# --- end cursor-cloud-agent-local-bin ---
+EOF
+}
+
 cloud_install_phase "Node 24 + npm ci"
 use_node_for_cursor_cloud
 npm_ci_for_cloud "$REPO_ROOT"
@@ -44,6 +67,7 @@ SUPABASE_BIN="$REPO_ROOT/node_modules/.bin/supabase"
 ensure_supabase_cli_for_cloud "$REPO_ROOT"
 
 ensure_user_local_bin_on_path
+persist_user_local_bin_on_path
 cloud_install_phase "YAML linters + SAM"
 install_yaml_linters
 install_sam

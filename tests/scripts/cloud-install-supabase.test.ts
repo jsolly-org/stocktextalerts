@@ -133,6 +133,56 @@ NPM
 		}
 	});
 
+	it("treats the v2.x wrapper layout (no legacy bin) as ready when --version works", () => {
+		const tempDir = mkdtempSync(path.join(os.tmpdir(), "supabase-cli-v2-ready-"));
+		try {
+			const output = runBash(`
+				set -euo pipefail
+				repo=${JSON.stringify(tempDir)}
+				mkdir -p "$repo/node_modules/.bin" "$repo/node_modules/supabase/dist"
+				# Supabase CLI >= 2.x: the .bin wrapper resolves a native binary from a
+				# per-platform package. node_modules/supabase/bin/supabase is never created.
+				cat > "$repo/node_modules/.bin/supabase" <<'WRAP'
+#!/usr/bin/env bash
+echo "2.105.0"
+WRAP
+				chmod +x "$repo/node_modules/.bin/supabase"
+				cloud_install_log() { echo "cloud-install: $*"; }
+				source ${JSON.stringify(path.join(projectRoot, "scripts/cloud-install-supabase.sh"))}
+				if supabase_cli_ready_for_cloud "$repo"; then echo "READY_OK"; else echo "READY_FAIL"; fi
+			`);
+
+			expect(output).toContain("READY_OK");
+		} finally {
+			rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
+	it("treats a wrapper whose --version fails as not ready", () => {
+		const tempDir = mkdtempSync(path.join(os.tmpdir(), "supabase-cli-v2-broken-"));
+		try {
+			const output = runBash(`
+				set -euo pipefail
+				repo=${JSON.stringify(tempDir)}
+				mkdir -p "$repo/node_modules/.bin"
+				# Wrapper present but the underlying platform binary cannot run.
+				cat > "$repo/node_modules/.bin/supabase" <<'WRAP'
+#!/usr/bin/env bash
+echo "no matching Supabase CLI binary package found" >&2
+exit 1
+WRAP
+				chmod +x "$repo/node_modules/.bin/supabase"
+				cloud_install_log() { echo "cloud-install: $*"; }
+				source ${JSON.stringify(path.join(projectRoot, "scripts/cloud-install-supabase.sh"))}
+				if supabase_cli_ready_for_cloud "$repo"; then echo "READY_OK"; else echo "READY_FAIL"; fi
+			`);
+
+			expect(output).toContain("READY_FAIL");
+		} finally {
+			rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
 	it("reports a missing CLI during cleanup and still removes stale Docker containers and networks", () => {
 		const tempDir = mkdtempSync(path.join(os.tmpdir(), "supabase-cleanup-"));
 		try {
