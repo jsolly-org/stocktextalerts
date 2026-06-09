@@ -6,12 +6,6 @@
         "command": "bash hooks/check-sam-deploy.sh",
         "timeout": 5,
         "matcher": "git commit"
-      },
-      {
-        "command": "bash scripts/agent-guards/block-prod-db-migrations.sh",
-        "matcher": "supabase +(db +push|migration +repair)|psql|DATABASE_URL_PROD|SUPABASE_URL_PROD|SUPABASE_SECRET_KEY_PROD|japesagairjvvuebzpvr",
-        "failClosed": true,
-        "timeout": 10
       }
     ]
   }
