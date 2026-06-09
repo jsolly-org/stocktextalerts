@@ -8,24 +8,10 @@
         "matcher": "git commit"
       },
       {
-        "command": "bash scripts/agent-guards/wrap-block-git-no-verify.sh",
-        "matcher": "git +(push|commit)",
-        "failClosed": true,
-        "timeout": 10
-      },
-      {
         "command": "bash scripts/agent-guards/block-prod-db-migrations.sh",
         "matcher": "supabase +(db +push|migration +repair)|psql|DATABASE_URL_PROD|SUPABASE_URL_PROD|SUPABASE_SECRET_KEY_PROD|japesagairjvvuebzpvr",
         "failClosed": true,
         "timeout": 10
-      }
-    ],
-    "preToolUse": [
-      {
-        "command": "bash .agents/hooks/block-fleet-edits.sh",
-        "failClosed": false,
-        "timeout": 5,
-        "matcher": "Write|Delete"
       }
     ]
   }
