@@ -166,8 +166,8 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - **AWS Lambda (SAM deploy from `.env.local` via `aws/sam-params.sh`):** Supabase prod keys, Twilio, `UNSUBSCRIBE_TOKEN_SECRET`, Massive, Finnhub, optional `XAI_API_KEY`. `EmailFrom` is **not** passed on the CLI — the template defaults to SSM `/stocktextalerts/email-from`. SES auth is the Lambda execution role, not static `AWS_*` keys.
 - **Local-only values:** `DATABASE_URL` and `DEFAULT_PASSWORD` are for local Supabase + seed generation and should not be added to Vercel.
 - **Account-level (local shell, not repo secrets):** `CURSOR_API_KEY` — Cursor User API Key for SDK/CLI; set in `~/.zshrc`. See [.agents/docs/cloud-agents.md](.agents/docs/cloud-agents.md#secrets-summary).
-- **GitHub Actions repository secrets:** `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `POSTGRES_PASSWORD`, `GH_AGENT_TOKEN`, and `FLEET_SYNC_TOKEN` (read-only dotagents access for weekly fleet sync). Live provider test failures notify via **alert-hub** (SES email); `GitHubActionsDeploymentRole` needs `sns:Publish` on the shared topic (see [docs/deploy-gotchas.md](docs/deploy-gotchas.md)).
-- **GitHub Actions repository variables:** `PRODUCTION_SITE_URL`.
+- **Local deploy creds (gitignored `.env.local`):** `PRODUCTION_SITE_URL`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `POSTGRES_PASSWORD`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, and `AWS_PROFILE` (= `fleet-deploy`, the scoped assume-role profile). The local pre-push deploy (`aws/deploy-web.sh`) reads these — deploys no longer run in GitHub Actions.
+- **GitHub Actions repository secrets** (only the surviving `live-provider-tests.yml` cron monitor uses these): `MASSIVE_API_KEY`, `FINNHUB_API_KEY`. Test failures notify via **alert-hub** (SES email); `GitHubActionsDeploymentRole` needs `sns:Publish` on the shared topic (see [docs/deploy-gotchas.md](docs/deploy-gotchas.md)). `FLEET_SYNC_TOKEN` remains for the cloud `.dotagents` bootstrap.
 
 ### 4. Generate Seed File
 
@@ -250,15 +250,14 @@ If you want Twilio inbound SMS webhooks (STOP/START/HELP) to hit your local dev 
 npm run db:start
 npm run db:reset
 npm run test
-npm run test:ci
 npm run test:e2e
 ```
 
 For local development, run `npm run db:reset` before `npm run test` to ensure your Supabase DB matches the current migrations and seed data.
 
-### CI before push to main
+### CI on push to main (local pre-push gate)
 
-Pre-commit hooks (`.git-hooks/pre-commit`) run the same checks as the deploy workflow’s `run-ci` step. See [docs/ci-with-act.md](docs/ci-with-act.md) for the full command list and when to run it before `git push`.
+The pre-push hook (`.git-hooks/pre-push` → `scripts/prepush.sh`) runs the full CI battery on push to `main` — biome, yaml, types, markdown, knip, SQL/squawk, migration grants, db privileges, unit + E2E — then deploys (the production build runs inside the deploy, `aws/deploy-web.sh`). There is no GitHub Actions CI. See [docs/ci-with-act.md](docs/ci-with-act.md) for the command list (the gate needs local Supabase up: `npm run db:start`).
 
 ### Optional: Live Provider Tests (Massive/Finnhub/xAI)
 
@@ -351,13 +350,11 @@ SES notification sending runs on Lambda (`EMAIL_FROM` from SSM `/stocktextalerts
 - Ensure variables are available for **Production** and **Preview** (sensitive secrets cannot target Vercel Development — use `.env.local` / `vercel env pull` locally)
 - Enable "Available during Build" so `import.meta.env` works in serverless functions
 
-### 1a. GitHub Actions Secrets And Variables
+### 1a. Deploy creds and GitHub Actions secrets
 
-These are repository-level GitHub settings used by workflows and should not go in `.env.local`:
-
+- **Local deploy creds (gitignored `.env.local`):** `PRODUCTION_SITE_URL`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `POSTGRES_PASSWORD`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `AWS_PROFILE=fleet-deploy`. Read by the pre-push deploy (`aws/deploy-web.sh`).
+- **GitHub Actions secrets** (only `live-provider-tests.yml`): `MASSIVE_API_KEY`, `FINNHUB_API_KEY`. Plus `FLEET_SYNC_TOKEN` for the cloud `.dotagents` bootstrap.
 - **Account-level (local shell):** `CURSOR_API_KEY` — see [.agents/docs/cloud-agents.md](.agents/docs/cloud-agents.md#secrets-summary)
-- **Secrets:** `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `POSTGRES_PASSWORD`, `GH_AGENT_TOKEN`, `FLEET_SYNC_TOKEN`
-- **Variables:** `PRODUCTION_SITE_URL`
 
 ### 2. Deploy
 
@@ -390,7 +387,7 @@ Notification crons run as AWS Lambda functions deployed via SAM (see `aws/`). Ev
 
 **Local testing:** `cd aws && npm run local:test-all` builds and invokes all three functions locally via `sam local invoke` (requires Podman or Docker — SAM CLI uses `DOCKER_HOST`). To test a single function: `npm run local:schedule`, `npm run local:asset-events`, or `npm run local:daily-stats`. Run `npm run local:gen-env` first to generate `env.json` from `.env.local` with per-function env var scoping.
 
-**Deploying:** `cd aws && npm run deploy` (uses `deploy.sh` which reads `.env.local`). **A SAM deploy is required whenever `aws/template.yaml` or `aws/deploy.sh` changes** (infrastructure/config updates). For code-only updates to `src/handlers/` or `src/lib/` used by handlers, GitHub Actions now deploys Lambda code via the `Deploy Website` workflow's `deploy-lambdas` job after migrations + Vercel deploy.
+**Deploying:** push to `main` — the pre-push hook runs `npm run deploy` (`aws/deploy-web.sh`): Supabase migrations → Vercel (prebuilt prod) → Lambda code via `update-function-code` (code-only, under the scoped `fleet-deploy` role). **A full SAM deploy (`npm run deploy:aws`) is still required whenever `aws/template.yaml` or `aws/deploy.sh` changes** (infrastructure/config) — that stays a manual admin step, not part of the hook.
 
 ## Project Structure
 

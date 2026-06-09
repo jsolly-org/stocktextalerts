@@ -17,7 +17,6 @@
 		"prepare": "if [ -z \"$CI\" ] && git rev-parse --git-dir >/dev/null 2>&1; then git config core.hooksPath .git-hooks; fi",
 		"pretest": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/doctor.ts",
 		"test": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-vitest.ts",
-		"test:ci": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-vitest.ts",
 		"test:e2e": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-playwright.ts",
 		"test:e2e:preview": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx tests/run-playwright.ts --config playwright.preview.config.ts",
 		"test:all": "npm run test && npm run test:e2e",

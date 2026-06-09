@@ -6,7 +6,7 @@ Local Supabase runs in containers via **Podman** (not Docker Desktop). The `db:b
 
 Canonical bootstrap is `npm run db:bootstrap` — runs `db:link-worktree-data`, `db:worktree-setup`, `db:start`, `db:reset`, then `db:doctor`. Reach for this (not ad-hoc psql) whenever the local stack looks wedged: ECONNREFUSED from `@supabase/auth-js`, `invalid_credentials` on a known-good password, empty `auth.users`, etc. `supabase start` can silently skip half the seed; `db:reset` re-runs `seed.sql` through a fresh session and is reliable. See [docs/incidents/2026-04-seed-regression.md](incidents/2026-04-seed-regression.md) for the regression that motivated this.
 
-`npm test` auto-runs `db:doctor` via `pretest`; `npm run dev` runs it via `predev` (non-blocking — a failure prints a hint and still starts the dev server so frontend-only work isn't gated on Supabase being up). CI calls `npm run test:ci`, which does **not** trigger `pretest` (npm lifecycle hooks are per-script name), so CI is unaffected.
+`npm test` auto-runs `db:doctor` via `pretest`; `npm run dev` runs it via `predev` (non-blocking — a failure prints a hint and still starts the dev server so frontend-only work isn't gated on Supabase being up). The pre-push gate calls `npm test`, so the `db:doctor` preflight runs there too.
 
 After machine reinstalls, Podman upgrades, or Supabase CLI upgrades, run `scripts/ci/verify-local-supabase.sh` once to confirm the full bootstrap still works end-to-end (wraps `db:bootstrap` + `db:doctor`).
 

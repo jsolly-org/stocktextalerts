@@ -12,7 +12,7 @@
 # a manual `npm run deploy:aws` (full SAM, admin).
 #
 # Only acts on a non-deleting push to main/master; feature-branch pushes stay
-# fast. Escape hatch: FLEET_SKIP_PREPUSH=1 git push (audited).
+# fast. Escape hatch: FLEET_SKIP_PREPUSH=1 git push.
 set -euo pipefail
 
 if [ "${FLEET_SKIP_PREPUSH:-}" = "1" ]; then
@@ -40,8 +40,34 @@ done
 [ -z "$push_to_main" ] && exit 0
 
 echo "▶ pre-push gate (stocktextalerts) → $push_to_main"
+trap 'echo "✗ pre-push gate failed — nothing deployed; push aborted" >&2' ERR
 
-# --- Quality gate (mirrors run-ci / docs/ci-with-act.md) ---
+# The gate and deploy validate the WORKING TREE — refuse if it differs from
+# the pushed commit, or prod would ship code that never lands on main.
+if [ -n "$(git status --porcelain)" ]; then
+  echo "✗ working tree dirty — commit or stash so the gate tests exactly what ships" >&2
+  exit 1
+fi
+if [ "$LOCAL_SHA" != "$(git rev-parse HEAD)" ]; then
+  echo "✗ pushed SHA is not HEAD — push from the checkout being validated" >&2
+  exit 1
+fi
+# Non-fast-forward guard: git rejects the push only AFTER this hook, so a
+# stale clone would deploy prod and then have its push bounced.
+if [ -n "$REMOTE_SHA" ] && [ "$REMOTE_SHA" != "$ZERO" ] && git cat-file -e "$REMOTE_SHA" 2>/dev/null; then
+  if ! git merge-base --is-ancestor "$REMOTE_SHA" "$LOCAL_SHA"; then
+    echo "✗ remote main advanced (non-fast-forward) — pull/rebase before pushing" >&2
+    exit 1
+  fi
+fi
+
+# Cheap preflights — fail in seconds, not after the 15-minute battery.
+echo "• deploy creds preflight"
+bash aws/deploy-web.sh --preflight
+echo "• db doctor (needs local Supabase up — npm run db:start)"
+npm run db:doctor
+
+# --- Quality gate (the old run-ci battery — see docs/ci-with-act.md) ---
 echo "• biome ci"
 npx biome ci . --error-on-warnings
 echo "• yaml lint"
@@ -64,12 +90,17 @@ echo "• E2E tests"
 npm run test:e2e
 
 # --- Deploy: code-only production deploy (Supabase → Vercel → Lambda code) ---
+infra_changed=""
 if [ -n "$REMOTE_SHA" ] && [ "$REMOTE_SHA" != "$ZERO" ] && git cat-file -e "$REMOTE_SHA" 2>/dev/null; then
-  if git diff --name-only "$REMOTE_SHA" "$LOCAL_SHA" | grep -q '^aws/template\.yaml$'; then
-    echo "⚠ aws/template.yaml changed — Lambda infra is NOT auto-deployed by this hook."
-    echo "  Apply infra manually with admin creds:  npm run deploy:aws   (full SAM)"
+  if git diff --name-only "$REMOTE_SHA" "$LOCAL_SHA" | grep -qE '^aws/(template\.yaml|deploy\.sh)$'; then
+    infra_changed=1
   fi
 fi
 echo "• production deploy"
+trap 'echo "✗ deploy failed — production may be PARTIALLY updated (see phase above); push aborted. Fix and re-run: npm run deploy" >&2' ERR
 bash aws/deploy-web.sh
 echo "✓ pre-push gate + deploy complete"
+if [ -n "$infra_changed" ]; then
+  echo "⚠ aws/template.yaml or aws/deploy.sh changed — Lambda INFRA is NOT auto-deployed by this hook."
+  echo "  Apply infra manually with admin creds:  npm run deploy:aws   (full SAM)"
+fi

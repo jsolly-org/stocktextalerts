@@ -1,48 +1,53 @@
 # CI before push to main
 
-There is no separate GitHub Actions test workflow on `main`. **`.git-hooks/pre-commit`** runs the same checks as **[`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)** via the shared **[`run-ci`](../.github/actions/run-ci)** composite (lint, typecheck, migration-grant lint, Supabase + DB-privilege check, unit tests, E2E, build). Push to `main` runs deploy, which repeats that guard then ships to production.
+There is no GitHub Actions CI. The **pre-push gate** — `.git-hooks/pre-push` →
+[`scripts/prepush.sh`](../scripts/prepush.sh) — runs the full battery on push to `main`, then
+deploys (`aws/deploy-web.sh`: Supabase migrations → Vercel prebuilt prod → Lambda code). A failing
+check aborts the push, so nothing ships ungated.
 
-## Local guard (run before every commit)
+## The gate (runs automatically on push to `main`)
 
 ```bash
-# Hooks install once per clone (package.json prepare sets core.hooksPath)
-git commit   # runs .git-hooks/pre-commit
+git push origin main   # runs .git-hooks/pre-push → scripts/prepush.sh
 
-# Or run the same stack manually:
-bash .agents/scripts/check-biome-rules.sh biome.jsonc
+# The same battery, to run by hand while iterating:
 npx biome ci . --error-on-warnings
 npm run check:yaml
-npm run check:md
 npm run check:ts
+npm run check:md
 npm run check:knip
 npm run check:sql
 npm run check:migration-grants   # static: migrations grant EXECUTE on new functions
 npm run check:db-privileges      # needs local Supabase up: grants match privilege-contract
 npm run test
 npm run test:e2e
-npm run build
 ```
 
-See [docs/incidents/2026-04-ci-race.md](incidents/2026-04-ci-race.md) for why local-only `npm test` is not enough when changing workflows, test harness, or Supabase config.
+(The production build is not a gate step — it runs inside the deploy,
+`aws/deploy-web.sh` Phase 1, with the prod site URL baked in.)
+
+The gate needs **local Supabase up** (`npm run db:start`) for `check:db-privileges`, `test`, and
+`test:e2e`. See [docs/incidents/2026-04-ci-race.md](incidents/2026-04-ci-race.md) for why a bare
+`npm test` isn't enough when changing the test harness or Supabase config.
 
 ## GitHub workflows on `main`
 
 | Workflow | When |
 | --- | --- |
-| `deploy.yml` | Every push — `run-ci` + production Supabase/Vercel/Lambda |
-| `live-provider-tests.yml` | Scheduled + manual — live vendor APIs (not in pre-commit) |
-| `fleet-lock-guard.yml` | Push when `.agents/**` changes |
+| `live-provider-tests.yml` | Scheduled (market hours) + manual — live vendor APIs (not in the gate) |
 
-`deploy.yml` is **not** runnable with [act](https://github.com/nektos/act); it uses production credentials. Reproduce its CI steps locally with the commands above.
+This is the only surviving workflow. Deploy and CI moved to the local pre-push gate.
 
-## When to run the full local stack (checklist before `git push`)
+## When the full local stack matters most (iterate before pushing)
 
-1. Any change to `.github/workflows/**` or `.github/actions/**`.
-2. Any change to `tests/**` that isn't purely additive (moving/renaming tests, changing setup/teardown, test helpers, vitest config, playwright config).
-3. Any change to `tests/run-vitest.ts`, `playwright.config.ts`, `tests/setup.ts`, `tests/helpers/live-api.ts`, or anything else that gates test behavior on env vars.
-4. Any change to `supabase/config.toml` (service toggles, migration loader, SMTP settings).
-5. Any change to `package.json` scripts that deploy calls (`test`, `test:ci`, `test:e2e`, `build`).
-6. Any change to core build tooling: `astro.config.mjs`, `vitest.config.ts`, `tsconfig*.json`.
-7. Any change that adds/removes a `@*/`-scoped dependency or shifts dev deps to runtime deps (or vice versa).
+The gate always runs everything on push, but run it manually first when touching:
 
-For pure `src/lib/**` or `src/pages/**` changes that don't touch any of the above, local `npm test` / `npm run test:e2e` are sufficient.
+1. `tests/**` non-additively (moving/renaming, setup/teardown, helpers, vitest/playwright config).
+2. `tests/run-vitest.ts`, `playwright.config.ts`, `tests/setup.ts`, `tests/helpers/live-api.ts`, or anything gating test behavior on env vars.
+3. `supabase/config.toml` (service toggles, migration loader, SMTP settings).
+4. `package.json` scripts the gate/deploy call (`test`, `test:e2e`, `build`).
+5. Core build tooling: `astro.config.mjs`, `vitest.config.ts`, `tsconfig*.json`.
+6. Any add/remove of a `@*/`-scoped dependency or dev↔runtime dep shift.
+
+For pure `src/lib/**` or `src/pages/**` changes, local `npm test` / `npm run test:e2e` are enough
+to iterate before the push runs the rest.

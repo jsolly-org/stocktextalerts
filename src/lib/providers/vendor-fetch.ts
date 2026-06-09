@@ -37,7 +37,7 @@ export function isLiveProviderEnabledInTests(provider: string): boolean {
 }
 
 /**
- * Skip real vendor HTTP during CI E2E (dummy API keys in run-ci STATIC_VARS).
+ * Skip real vendor HTTP during E2E runs (dummy API keys in the test env).
  * Vitest keeps calling through to mocked `fetch`; only set
  * `SKIP_VENDOR_HTTP_IN_TEST=1` in the Playwright webServer environment.
  */

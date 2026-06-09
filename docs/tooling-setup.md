@@ -28,7 +28,7 @@ npx vercel env ls
 
 ## YAML linting
 
-`npm run check:yaml` runs two tools — both required, both invoked from the pre-commit hook and CI:
+`npm run check:yaml` runs two tools — both required, both invoked by the pre-push gate (`scripts/prepush.sh`):
 
 - **yamllint** (Python) — rule-based YAML linter, configured via `.yamllint` (`extends: relaxed`, `line-length` disabled).
 - **actionlint** (Go) — validates GitHub Actions semantics (expression syntax, action refs) and runs shellcheck on `run:` blocks. Surfaces things yamllint can't.
@@ -39,7 +39,7 @@ Install both via Homebrew:
 brew install yamllint actionlint
 ```
 
-CI installs them per-run (yamllint via `pipx`, actionlint via the upstream `download-actionlint.bash` script). Versions are pinned in `.github/actions/run-ci/action.yml` — bump them together if you upgrade locally.
+`npm run check:yaml` (part of the pre-push gate) runs `yamllint` + `actionlint`; install both locally — `pipx install yamllint` and actionlint via Homebrew or the upstream `download-actionlint.bash` script.
 
 ## Dev Environment
 

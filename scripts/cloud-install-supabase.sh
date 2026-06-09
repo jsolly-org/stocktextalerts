@@ -432,7 +432,7 @@ supabase_start_error_is_retryable() {
 	return 1
 }
 
-# Same exclude list as .github/actions/run-ci/action.yml (Podman/cloud-friendly).
+# Supabase service exclude list for gate/test runs (Podman/cloud-friendly).
 supabase_start_for_cloud() {
 	local supabase_bin="$1"
 	local max_attempts=3 attempt=1 backoff=5 output rc
