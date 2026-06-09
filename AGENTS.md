@@ -36,12 +36,12 @@ Run vitest via `npm test` so the npm script loads `.env.local` via `--env-file-i
 
 ## Cursor Cloud
 
-Cloud agents: see `.agents/docs/cloud-agents.md` (fleet layout, subtree updates). Supabase/Docker bootstrap on cloud VMs: `docs/cloud-supabase-bootstrap.md`.
+Supabase/Docker bootstrap on cloud VMs: `docs/cloud-supabase-bootstrap.md`.
 
 ## Cursor Cloud specific instructions
 
-- **First boot:** `.cursor/environment.json` runs `bash scripts/cloud-agent-install.sh` (Node 24 via nvm, `npm ci`, Docker, Supabase, `.env.local`, `db:reset`, `db:doctor`, then Playwright E2E browsers). Supabase runs before Playwright so unit tests work even when browser install stalls. See `docs/cloud-supabase-bootstrap.md` for Docker/iptables/Playwright gotchas. Node PATH: `.agents/docs/cloud-agents.md`.
-- **Node on PATH:** Cloud VMs ship Node 22 on PATH; install adds an `~/.bashrc` marker so interactive shells prefer Node 24 from nvm. Non-interactive commands should `source ~/.nvm/nvm.sh && nvm use 24` (or rely on a new shell after install). Fleet doc: `.agents/docs/cloud-agents.md` → **Node on PATH**.
+- **First boot:** `.cursor/environment.json` runs `bash scripts/cloud-agent-install.sh` (Node 24 via nvm, `npm ci`, Docker, Supabase, `.env.local`, `db:reset`, `db:doctor`, then Playwright E2E browsers). Supabase runs before Playwright so unit tests work even when browser install stalls. See `docs/cloud-supabase-bootstrap.md` for Docker/iptables/Playwright gotchas.
+- **Node on PATH:** Cloud VMs ship Node 22 on PATH; install adds an `~/.bashrc` marker so interactive shells prefer Node 24 from nvm. Non-interactive commands should `source ~/.nvm/nvm.sh && nvm use 24` (or rely on a new shell after install).
 - **Docker socket:** If `docker info` fails with permission denied after install, run `sudo chmod 666 /var/run/docker.sock` once, then `npm run db:start` if Supabase containers are down.
 - **Services for dev/test:** Local Supabase (Postgres + Auth + Mailpit at <http://127.0.0.1:54324>) must be running before `npm test` / `npm run dev` ( `predev` / `pretest` call `db:doctor`). Start or repair with `npm run db:bootstrap`. Astro dev server: `npm run dev` → <http://localhost:4321> (`.cursor/environment.json` may auto-start a `dev` terminal).
 - **E2E:** Playwright uses port **4322** (`MODE=test npm run dev -- --port 4322`); cloud install sets `VERCEL_URL=http://localhost:4322` in `.env.local` for that path. Ordinary browsing uses 4321.
@@ -104,8 +104,6 @@ Agents (Cursor, Claude Code, Codex) **must not** apply production Supabase schem
 **Allowed agent workflow:** `supabase migration new <name>` → edit `supabase/migrations/*.sql` → `npm run db:reset` / `db:gen-types` → commit → merge → CI `supabase db push`.
 
 **Codex:** mark this repo as a **trusted** project so `.codex/config.toml` and `.codex/execpolicy.rules` load (see [Codex config basics](https://developers.openai.com/codex/config-basic)).
-
-**Cursor hooks:** `.cursor/hooks.json` uses matchers so guards do not run on every shell command. After a fleet subtree sync, re-apply repo guard wiring if hooks regress: `bash scripts/merge-cursor-agent-guards.sh`.
 
 See `docs/local-supabase.md` for `db:bootstrap`, seed hardening, and Podman setup.
 
