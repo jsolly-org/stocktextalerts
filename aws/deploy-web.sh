@@ -113,7 +113,9 @@ supabase db push --include-all --yes
 # injection into the prebuilt config is needed anymore.)
 phase="vercel deploy"
 echo "• vercel deploy --prebuilt --prod"
-npx vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+# Pinned devDependency — never let npx fetch an unpinned CLI at deploy time.
+[ -x node_modules/.bin/vercel ] || { echo "✗ vercel CLI missing — run npm ci" >&2; exit 1; }
+node_modules/.bin/vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
 
 # --- Phase 4: Lambda code update (code-only, scoped role) ---
 phase="lambda code update"
