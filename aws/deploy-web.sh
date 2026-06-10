@@ -54,6 +54,11 @@ echo "▶ stocktextalerts production deploy"
 phase="init"
 trap 'echo "✗ deploy failed during: $phase — completed phases remain LIVE (no rollback). Fix and re-run: npm run deploy" >&2' ERR
 
+# Repo-pinned CLIs (supabase, sam helpers) resolve from the lockfile, never
+# from whatever happens to be on the global PATH.
+export PATH="$REPO_ROOT/node_modules/.bin:$PATH"
+command -v supabase >/dev/null || { echo "✗ supabase CLI missing — run npm ci" >&2; exit 1; }
+
 # --- Phase 1: Supabase migrations (ONE-WAY — guard hard) ---
 # Connects straight to prod Postgres via --db-url: no `supabase link` (which
 # would leave the clone persistently linked to prod), no management-API token.
@@ -96,7 +101,6 @@ supabase db push --include-all --yes --db-url "$DB_URL"
 # --- Phase 2: Lambda code update (code-only, scoped role) ---
 phase="lambda code update"
 echo "• build + deploy Lambda code  (AWS_PROFILE=$AWS_PROFILE)"
-export PATH="$REPO_ROOT/node_modules/.bin:$PATH"
 (cd aws && sam build --base-dir ..)
 build="aws/.aws-sam/build"
 deploy_code() { # <build-dir> <physical-name>
