@@ -8,6 +8,6 @@
 		"playwright.preview.config.ts"
 	],
 	"ignore": [".agents/**", ".cursor/skills/**", "src/lib/db/generated/**"],
-	"ignoreDependencies": ["lint-staged", "squawk-cli", "vercel"],
-	"ignoreBinaries": ["vercel", "printf", "yamllint", "actionlint"]
+	"ignoreDependencies": ["lint-staged", "squawk-cli"],
+	"ignoreBinaries": ["printf", "yamllint", "actionlint"]
 }

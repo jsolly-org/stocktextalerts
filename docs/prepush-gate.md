@@ -2,8 +2,9 @@
 
 There is no GitHub Actions CI. The **pre-push gate** — `.git-hooks/pre-push` →
 [`scripts/prepush.sh`](../scripts/prepush.sh) — runs the full battery on push to `main`, then
-deploys (`aws/deploy-web.sh`: Supabase migrations → Vercel prebuilt prod → Lambda code). A failing
-check aborts the push, so nothing ships ungated.
+deploys (`aws/deploy-web.sh`: Supabase migrations → Lambda code). A failing check aborts the
+push, so nothing ships ungated. The web tier deploys via Vercel's git integration, which
+auto-builds `main` once the push lands.
 
 ## The gate (runs automatically on push to `main`)
 
@@ -23,8 +24,9 @@ npm run test
 npm run test:e2e
 ```
 
-(The production build is not a gate step — it runs inside the deploy,
-`aws/deploy-web.sh` Phase 1, with the prod site URL baked in.)
+(The production web build is not a gate step — Vercel builds `main` on its own
+infrastructure after the push lands, with `VERCEL_PROJECT_PRODUCTION_URL` set by
+the platform.)
 
 The gate needs **local Supabase up** (`npm run db:start`) for `check:db-privileges`, `test`, and
 `test:e2e`. See [docs/incidents/2026-04-ci-race.md](incidents/2026-04-ci-race.md) for why a bare

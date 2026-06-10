@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Code-only production deploy for stocktextalerts: Supabase migrations → Vercel
-# (prebuilt) → Lambda code. Ports both jobs of the old .github/workflows/deploy.yml.
+# Code-only production deploy for stocktextalerts: Supabase migrations →
+# Lambda code. The WEB tier is NOT deployed here — Vercel's git integration
+# auto-builds `main` once the push lands (Vercel sets
+# VERCEL_PROJECT_PRODUCTION_URL itself, so the prod site URL is always right).
 #
 # Runs from the pre-push hook (scripts/prepush.sh) on push to main, and is also
 # wired as `npm run deploy` for manual use. NO CloudFormation/SAM infra changes
@@ -8,8 +10,8 @@
 # changes stay a manual `npm run deploy:aws` (full SAM, admin creds).
 #
 # Credentials (gitignored .env.local; chmod 600):
-#   PRODUCTION_SITE_URL, SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF,
-#   POSTGRES_PASSWORD, VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID,
+#   DATABASE_URL_PROD (full prod Postgres URL — migrations connect with it
+#   directly; no supabase link / access token / separate password needed),
 #   AWS_PROFILE (scoped assume-role profile — see AGENTS.md).
 set -euo pipefail
 
@@ -19,9 +21,8 @@ cd "$REPO_ROOT"
 # --- Phase 0: load + validate credentials ---
 # Allowlist-load ONLY the deploy creds from .env.local — never `set -a` the
 # whole file: the rest of it (prod service keys, Twilio, vendor keys) must not
-# reach the deploy's child processes (sam/zip/aws/vercel).
-DEPLOY_VARS=(PRODUCTION_SITE_URL SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_REF
-  POSTGRES_PASSWORD VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID AWS_PROFILE)
+# reach the deploy's child processes (sam/zip/aws).
+DEPLOY_VARS=(DATABASE_URL_PROD AWS_PROFILE)
 if [ -f .env.local ]; then
   for _var in "${DEPLOY_VARS[@]}"; do
     if [ -z "${!_var:-}" ]; then
@@ -36,15 +37,11 @@ fi
 # Static AWS env keys outrank AWS_PROFILE in the CLI credential chain — never
 # let them leak into the scoped-role deploy.
 unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
-: "${PRODUCTION_SITE_URL:?set PRODUCTION_SITE_URL in .env.local (e.g. https://www.stocktextalerts.com)}"
-: "${SUPABASE_ACCESS_TOKEN:?set SUPABASE_ACCESS_TOKEN in .env.local}"
-: "${SUPABASE_PROJECT_REF:?set SUPABASE_PROJECT_REF in .env.local}"
-: "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.local}"
-: "${VERCEL_TOKEN:?set VERCEL_TOKEN in .env.local}"
-: "${VERCEL_ORG_ID:?set VERCEL_ORG_ID in .env.local}"
-: "${VERCEL_PROJECT_ID:?set VERCEL_PROJECT_ID in .env.local}"
+: "${DATABASE_URL_PROD:?set DATABASE_URL_PROD in .env.local (full prod Postgres URL)}"
 : "${AWS_PROFILE:?set AWS_PROFILE in .env.local (scoped fleet-deploy profile)}"
-export VERCEL_ORG_ID VERCEL_PROJECT_ID
+# Migrations must NOT run through the transaction-mode pooler (port 6543) —
+# DDL wants a session connection. Same pooler host serves session mode on 5432.
+DB_URL="${DATABASE_URL_PROD/:6543\//:5432/}"
 
 # `--preflight`: validate creds only (the pre-push gate calls this before the
 # battery so a missing credential fails in seconds, not after 15 minutes).
@@ -57,27 +54,15 @@ echo "▶ stocktextalerts production deploy"
 phase="init"
 trap 'echo "✗ deploy failed during: $phase — completed phases remain LIVE (no rollback). Fix and re-run: npm run deploy" >&2' ERR
 
-# --- Phase 1: prebuilt production build ---
-# astro.config.ts derives `site` from VERCEL_PROJECT_PRODUCTION_URL (the old
-# deploy.yml passed PRODUCTION_SITE_URL under that name — keep the mapping or
-# prod pages bake .env.local's localhost VERCEL_URL into canonicals/sitemap).
-# SKIP_VENDOR_HTTP_IN_TEST=1 preserves the old CI build's behavior: no live
-# vendor HTTP during prerender, so deploys stay deterministic and vendor
-# outages can't block a push.
-phase="build"
-echo "• build (prebuilt, site=$PRODUCTION_SITE_URL)"
-VERCEL_PROJECT_PRODUCTION_URL="$PRODUCTION_SITE_URL" SKIP_VENDOR_HTTP_IN_TEST=1 npm run build
-
-# --- Phase 2: Supabase migrations (ONE-WAY — guard hard) ---
+# --- Phase 1: Supabase migrations (ONE-WAY — guard hard) ---
+# Connects straight to prod Postgres via --db-url: no `supabase link` (which
+# would leave the clone persistently linked to prod), no management-API token.
 phase="supabase migrations"
-echo "• supabase link"
-SUPABASE_DB_PASSWORD="$POSTGRES_PASSWORD" \
-  supabase link --project-ref "$SUPABASE_PROJECT_REF"
 
-# Fail CLOSED: a failed `migration list` (expired token, network) must abort,
+# Fail CLOSED: a failed `migration list` (bad URL, network) must abort,
 # not vacuously pass the drift check in front of a one-way prod db push.
 echo "• migration drift check"
-if ! migration_list=$(supabase migration list); then
+if ! migration_list=$(supabase migration list --db-url "$DB_URL"); then
   echo "ERROR: could not list remote migrations — refusing to push" >&2
   exit 1
 fi
@@ -100,24 +85,15 @@ if [ ${#orphaned[@]} -gt 0 ]; then
 fi
 
 if [ -t 0 ]; then
-  read -r -p "Push migrations to PRODUCTION ($SUPABASE_PROJECT_REF)? [y/N] " ans
+  read -r -p "Push migrations to the PRODUCTION database? [y/N] " ans
   [ "$ans" = "y" ] || [ "$ans" = "Y" ] || { echo "aborted"; exit 1; }
 else
-  echo "• non-interactive (hook) — pushing migrations to PRODUCTION ($SUPABASE_PROJECT_REF) without prompt"
+  echo "• non-interactive (hook) — pushing migrations to the PRODUCTION database without prompt"
 fi
 echo "• supabase db push"
-supabase db push --include-all --yes
+supabase db push --include-all --yes --db-url "$DB_URL"
 
-# --- Phase 3: Vercel production deploy (prebuilt) ---
-# (Vercel crons were migrated to Lambda/EventBridge in #404 — no cron
-# injection into the prebuilt config is needed anymore.)
-phase="vercel deploy"
-echo "• vercel deploy --prebuilt --prod"
-# Pinned devDependency — never let npx fetch an unpinned CLI at deploy time.
-[ -x node_modules/.bin/vercel ] || { echo "✗ vercel CLI missing — run npm ci" >&2; exit 1; }
-node_modules/.bin/vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
-
-# --- Phase 4: Lambda code update (code-only, scoped role) ---
+# --- Phase 2: Lambda code update (code-only, scoped role) ---
 phase="lambda code update"
 echo "• build + deploy Lambda code  (AWS_PROFILE=$AWS_PROFILE)"
 export PATH="$REPO_ROOT/node_modules/.bin:$PATH"
@@ -139,4 +115,4 @@ deploy_code EmailDispatchFunction stocktextalerts-email-dispatch
 deploy_code ComputeDailyStatsFunction stocktextalerts-compute-daily-stats
 deploy_code VendorBackfillFunction stocktextalerts-vendor-backfill
 
-echo "✓ stocktextalerts production deploy complete"
+echo "✓ stocktextalerts production deploy complete (web tier follows via Vercel git auto-deploy once the push lands)"

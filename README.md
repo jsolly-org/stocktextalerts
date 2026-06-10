@@ -166,7 +166,7 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - **AWS Lambda (SAM deploy from `.env.local` via `aws/sam-params.sh`):** Supabase prod keys, Twilio, `UNSUBSCRIBE_TOKEN_SECRET`, Massive, Finnhub, optional `XAI_API_KEY`. `EmailFrom` is **not** passed on the CLI — the template defaults to SSM `/stocktextalerts/email-from`. SES auth is the Lambda execution role, not static `AWS_*` keys.
 - **Local-only values:** `DATABASE_URL` and `DEFAULT_PASSWORD` are for local Supabase + seed generation and should not be added to Vercel.
 - **Account-level (local shell, not repo secrets):** `CURSOR_API_KEY` — Cursor User API Key for SDK/CLI; set in `~/.zshrc`. See [.agents/docs/cloud-agents.md](.agents/docs/cloud-agents.md#secrets-summary).
-- **Local deploy creds (gitignored `.env.local`):** `PRODUCTION_SITE_URL`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `POSTGRES_PASSWORD`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, and `AWS_PROFILE` (= `fleet-deploy`, the scoped assume-role profile). The local pre-push deploy (`aws/deploy-web.sh`) reads these — deploys no longer run in GitHub Actions.
+- **Local deploy creds (gitignored `.env.local`):** `DATABASE_URL_PROD` (full prod Postgres URL — migrations connect with it directly) and `AWS_PROFILE` (= `fleet-deploy`, the scoped assume-role profile). The local pre-push deploy (`aws/deploy-web.sh`) reads these — deploys no longer run in GitHub Actions. The web tier needs no local creds: Vercel auto-builds `main` via its git integration.
 - **GitHub Actions repository secrets** (only the surviving `live-provider-tests.yml` cron monitor uses these): `MASSIVE_API_KEY`, `FINNHUB_API_KEY`. Test failures notify via **alert-hub** (SES email); `GitHubActionsDeploymentRole` needs `sns:Publish` on the shared topic (see [docs/deploy-gotchas.md](docs/deploy-gotchas.md)). `FLEET_SYNC_TOKEN` remains for the cloud `.dotagents` bootstrap.
 
 ### 4. Generate Seed File
@@ -352,7 +352,7 @@ SES notification sending runs on Lambda (`EMAIL_FROM` from SSM `/stocktextalerts
 
 ### 1a. Deploy creds and GitHub Actions secrets
 
-- **Local deploy creds (gitignored `.env.local`):** `PRODUCTION_SITE_URL`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `POSTGRES_PASSWORD`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `AWS_PROFILE=fleet-deploy`. Read by the pre-push deploy (`aws/deploy-web.sh`).
+- **Local deploy creds (gitignored `.env.local`):** `DATABASE_URL_PROD`, `AWS_PROFILE=fleet-deploy`. Read by the pre-push deploy (`aws/deploy-web.sh`). Web tier: Vercel git auto-deploy, no local creds.
 - **GitHub Actions secrets** (only `live-provider-tests.yml`): `MASSIVE_API_KEY`, `FINNHUB_API_KEY`. Plus `FLEET_SYNC_TOKEN` for the cloud `.dotagents` bootstrap.
 - **Account-level (local shell):** `CURSOR_API_KEY` — see [.agents/docs/cloud-agents.md](.agents/docs/cloud-agents.md#secrets-summary)
 
@@ -387,7 +387,7 @@ Notification crons run as AWS Lambda functions deployed via SAM (see `aws/`). Ev
 
 **Local testing:** `cd aws && npm run local:test-all` builds and invokes all three functions locally via `sam local invoke` (requires Podman or Docker — SAM CLI uses `DOCKER_HOST`). To test a single function: `npm run local:schedule`, `npm run local:asset-events`, or `npm run local:daily-stats`. Run `npm run local:gen-env` first to generate `env.json` from `.env.local` with per-function env var scoping.
 
-**Deploying:** push to `main` — the pre-push hook runs `npm run deploy` (`aws/deploy-web.sh`): Supabase migrations → Vercel (prebuilt prod) → Lambda code via `update-function-code` (code-only, under the scoped `fleet-deploy` role). **A full SAM deploy (`npm run deploy:aws`) is still required whenever `aws/template.yaml` or `aws/deploy.sh` changes** (infrastructure/config) — that stays a manual admin step, not part of the hook.
+**Deploying:** push to `main` — the pre-push hook runs `npm run deploy` (`aws/deploy-web.sh`): Supabase migrations → Lambda code via `update-function-code` (code-only, under the scoped `fleet-deploy` role). The web tier ships separately: Vercel's git integration auto-builds `main` once the push lands. **A full SAM deploy (`npm run deploy:aws`) is still required whenever `aws/template.yaml` or `aws/deploy.sh` changes** (infrastructure/config) — that stays a manual admin step, not part of the hook.
 
 ## Project Structure
 
