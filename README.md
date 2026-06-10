@@ -167,7 +167,7 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - **Local-only values:** `DATABASE_URL` and `DEFAULT_PASSWORD` are for local Supabase + seed generation and should not be added to Vercel.
 - **Account-level (local shell, not repo secrets):** `CURSOR_API_KEY` — Cursor User API Key for SDK/CLI; set in `~/.zshrc`. See [.agents/docs/cloud-agents.md](.agents/docs/cloud-agents.md#secrets-summary).
 - **Local deploy creds (gitignored `.env.local`):** `DATABASE_URL_PROD` (full prod Postgres URL — migrations connect with it directly) and `AWS_PROFILE` (= `fleet-deploy`, the scoped assume-role profile). The local pre-push deploy (`aws/deploy-web.sh`) reads these — deploys no longer run in GitHub Actions. The web tier needs no local creds: Vercel auto-builds `main` via its git integration.
-- **GitHub Actions repository secrets** (only the surviving `live-provider-tests.yml` cron monitor uses these): `MASSIVE_API_KEY`, `FINNHUB_API_KEY`. Test failures notify via **shared-infra** (SES email); `agent-deploy` needs `sns:Publish` on the shared topic (see [docs/deploy-gotchas.md](docs/deploy-gotchas.md)). `FLEET_SYNC_TOKEN` remains for the cloud `.dotagents` bootstrap.
+- **GitHub Actions repository secrets** (only the surviving `live-provider-tests.yml` cron monitor uses these): `MASSIVE_API_KEY`, `FINNHUB_API_KEY`. Test failures notify via **shared-infra** (SES email); `agent-deploy` needs `sns:Publish` on the shared topic (see [docs/deploy-gotchas.md](docs/deploy-gotchas.md)).
 
 ### 4. Generate Seed File
 
@@ -353,7 +353,7 @@ SES notification sending runs on Lambda (`EMAIL_FROM` from SSM `/stocktextalerts
 ### 1a. Deploy creds and GitHub Actions secrets
 
 - **Local deploy creds (gitignored `.env.local`):** `DATABASE_URL_PROD`, `AWS_PROFILE=fleet-deploy`. Read by the pre-push deploy (`aws/deploy-web.sh`). Web tier: Vercel git auto-deploy, no local creds.
-- **GitHub Actions secrets** (only `live-provider-tests.yml`): `MASSIVE_API_KEY`, `FINNHUB_API_KEY`. Plus `FLEET_SYNC_TOKEN` for the cloud `.dotagents` bootstrap.
+- **GitHub Actions secrets** (only `live-provider-tests.yml`): `MASSIVE_API_KEY`, `FINNHUB_API_KEY`.
 - **Account-level (local shell):** `CURSOR_API_KEY` — see [.agents/docs/cloud-agents.md](.agents/docs/cloud-agents.md#secrets-summary)
 
 ### 2. Deploy
