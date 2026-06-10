@@ -13,7 +13,6 @@
 	"ignoreDependencies": [
 		"lint-staged",
 		"squawk-cli",
-		"twilio-cli",
 		"vercel",
 		"wrangler"
 	],
