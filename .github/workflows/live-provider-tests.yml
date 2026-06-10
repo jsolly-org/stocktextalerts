@@ -15,7 +15,7 @@ jobs:
   live-data-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6.0.3
         with:
           ref: main
 
@@ -70,7 +70,7 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6.0.3
         with:
           ref: main
           fetch-depth: 0
@@ -93,7 +93,7 @@ jobs:
       actions: read
       contents: read
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6.0.3
         with:
           ref: main
 
