@@ -7,7 +7,19 @@
 		"tests/run-playwright.ts",
 		"playwright.preview.config.ts"
 	],
-	"ignore": [".agents/**", ".cursor/skills/**", "src/lib/db/generated/**"],
-	"ignoreDependencies": ["lint-staged", "squawk-cli"],
-	"ignoreBinaries": ["printf", "yamllint", "actionlint"]
+	"ignore": [
+		"src/lib/db/generated/**"
+	],
+	"ignoreDependencies": [
+		"lint-staged",
+		"squawk-cli",
+		"twilio-cli",
+		"vercel",
+		"wrangler"
+	],
+	"ignoreBinaries": [
+		"printf",
+		"uvx",
+		"actionlint"
+	]
 }
