@@ -1,4 +1,4 @@
-# CI before push to main
+# The pre-push gate on `main`
 
 There is no GitHub Actions CI. The **pre-push gate** — `.git-hooks/pre-push` →
 [`scripts/prepush.sh`](../scripts/prepush.sh) — runs the full battery on push to `main`, then

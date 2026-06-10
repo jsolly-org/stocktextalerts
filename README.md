@@ -257,7 +257,7 @@ For local development, run `npm run db:reset` before `npm run test` to ensure yo
 
 ### CI on push to main (local pre-push gate)
 
-The pre-push hook (`.git-hooks/pre-push` → `scripts/prepush.sh`) runs the full CI battery on push to `main` — biome, yaml, types, markdown, knip, SQL/squawk, migration grants, db privileges, unit + E2E — then deploys (the production build runs inside the deploy, `aws/deploy-web.sh`). There is no GitHub Actions CI. See [docs/ci-with-act.md](docs/ci-with-act.md) for the command list (the gate needs local Supabase up: `npm run db:start`).
+The pre-push hook (`.git-hooks/pre-push` → `scripts/prepush.sh`) runs the full CI battery on push to `main` — biome, yaml, types, markdown, knip, SQL/squawk, migration grants, db privileges, unit + E2E — then deploys (the production build runs inside the deploy, `aws/deploy-web.sh`). There is no GitHub Actions CI. See [docs/prepush-gate.md](docs/prepush-gate.md) for the command list (the gate needs local Supabase up: `npm run db:start`).
 
 ### Optional: Live Provider Tests (Massive/Finnhub/xAI)
 

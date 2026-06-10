@@ -6,7 +6,7 @@
 # full CI battery and the production deploy now run locally on push to main.
 # The cron monitor live-provider-tests.yml is the only surviving workflow.
 #
-# The gate mirrors docs/ci-with-act.md's local battery and needs local Supabase
+# The gate mirrors docs/prepush-gate.md's local battery and needs local Supabase
 # running (db-privileges + test + test:e2e) — start it with `npm run db:start`.
 # Deploy is code-only (Lambda update-function-code); infra/template changes stay
 # a manual `npm run deploy:aws` (full SAM, admin).
@@ -67,7 +67,7 @@ bash aws/deploy-web.sh --preflight
 echo "• db doctor (needs local Supabase up — npm run db:start)"
 npm run db:doctor
 
-# --- Quality gate (the old run-ci battery — see docs/ci-with-act.md) ---
+# --- Quality gate (the old run-ci battery — see docs/prepush-gate.md) ---
 echo "• biome ci"
 npx biome ci . --error-on-warnings
 echo "• yaml lint"

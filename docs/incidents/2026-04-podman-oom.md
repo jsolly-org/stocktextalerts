@@ -20,4 +20,4 @@ podman machine start podman-machine-default
 
 Local pre-commit runs Vitest on the host by default. If you use Podman-backed containers for tests, keep the `podman-machine-default` VM at ≥ 6144 MB to avoid OOM kills.
 
-See [docs/local-supabase.md](../local-supabase.md) and [docs/ci-with-act.md](../ci-with-act.md).
+See [docs/local-supabase.md](../local-supabase.md) and [docs/prepush-gate.md](../prepush-gate.md).
