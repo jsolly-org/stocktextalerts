@@ -84,7 +84,7 @@
 		"@types/luxon": "^3.7.1",
 		"@types/nodemailer": "^8.0.0",
 		"@types/pg": "^8.20.0",
-		"astro": "^6.1.9",
+		"astro": "^6.4.5",
 		"chrome-launcher": "^1.2.1",
 		"knip": "^6.2.0",
 		"lighthouse": "^13.0.3",
