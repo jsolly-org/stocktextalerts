@@ -411,7 +411,7 @@ export async function processDailyDigestUser(options: {
 					// A preceding price-fetch error leaves assetPrices empty, which
 					// means every sparkline silently falls back to the since-open
 					// window. Surface the degradation here so the chain shows up
-					// in alert-hub triage, not just the upstream error.
+					// in shared-infra triage, not just the upstream error.
 					if (prevCloseMap.size === 0) {
 						logger.warn(
 							"Daily digest sparklines defaulting to intraday-since-open: no prev closes available",

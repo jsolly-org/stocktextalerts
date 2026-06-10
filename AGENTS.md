@@ -63,7 +63,7 @@ Supabase/Docker bootstrap on cloud VMs: `docs/cloud-supabase-bootstrap.md`.
 - **Env vars:** use `requireEnv()` from `src/lib/db/env.ts` at point-of-use.
 - **Lambdas (`src/handlers/*.ts`)** import `createLogger` from `src/lib/logging`. Each Lambda log group has an `AWS::Logs::MetricFilter` on `{ $.level = "error" }` feeding `stocktextalerts/ErrorLogCount` + `ErrorLogAlarm` (fires on any single error log line in a 1-minute window), alongside per-function `AWS/Lambda Errors` alarms.
 - **This logger is bespoke** (Vue browser-bundle compatibility via a `process` guard) — NOT a sync consumer of `~/code/family-memory/src/shared/logging.ts`.
-- Conventions (`LogFormat` unset, alert-hub SNS wiring): see `~/code/alert-hub/docs/adding-a-project.md`.
+- Conventions (`LogFormat` unset, shared-infra SNS wiring): see `~/code/shared-infra/docs/adding-a-project.md`.
 
 ## Testing (Project-Specific)
 
@@ -129,7 +129,7 @@ The pre-push hook (`.git-hooks/pre-push` → `scripts/prepush.sh`) runs the full
 
 ## AWS IAM
 
-- `GitHubActionsDeploymentRole` — scoped deploy role (S3, CloudFront, ECR, `lambda:UpdateFunctionCode`, `cloudformation:DescribeStackResource`). Assumed by GitHub OIDC (the `live-provider-tests.yml` alert-hub publish) **and** locally via the `fleet-deploy` profile for code-only deploys.
+- `agent-deploy` — scoped deploy role (S3, CloudFront, ECR, `lambda:UpdateFunctionCode`, `cloudformation:DescribeStackResource`). Assumed by GitHub OIDC (the `live-provider-tests.yml` shared-infra publish) **and** locally via the `fleet-deploy` profile for code-only deploys.
 - `stocktextalerts-crons-*` — SAM-managed Lambda execution roles (auto-created; SES send via execution role, not static keys)
 
 ## Tooling Setup

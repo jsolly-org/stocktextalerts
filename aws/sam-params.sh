@@ -36,6 +36,7 @@ done < "$_ENV_FILE"
 _GIT_SHA="$(git -C "$_PARAMS_DIR/.." rev-parse --short HEAD 2>/dev/null || echo unknown)"
 
 SAM_PARAMS=(
+  "AlertTopicArn=/shared-infra/alert-topic-arn"
   "SupabaseUrl=$SUPABASE_URL_PROD"
   "SupabaseSecretKey=$SUPABASE_SECRET_KEY_PROD"
   "SiteUrl=$PRODUCTION_SITE_URL"

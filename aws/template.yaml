@@ -48,8 +48,8 @@ Parameters:
     Default: "false"
   AlertTopicArn:
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /alert-hub/alert-topic-arn
-    Description: Alert-hub SNS topic ARN
+    Default: /shared-infra/alert-topic-arn
+    Description: Shared-infra SNS topic ARN
   GitSha:
     Type: String
     Default: unknown
@@ -523,7 +523,7 @@ Resources:
 
   # ---------- Lambda Log Groups ----------
   # Explicit log groups with 30-day retention, named after each Lambda's
-  # FunctionName so the alert-hub enricher's prefix discovery
+  # FunctionName so the shared-infra enricher's prefix discovery
   # (describe_log_groups prefix=/aws/lambda/<namespace>) finds them.
 
   ScheduleLogGroup:

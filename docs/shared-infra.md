@@ -1,6 +1,6 @@
-# alert-hub operator emails
+# shared-infra operator emails
 
-StockTextAlerts routes CloudWatch alarms through the shared [alert-hub](https://github.com/jsolly/alert-hub) SNS topic. The enricher formats plaintext emails with `error:`, `log:` or structured `log-search:` handles, `alarm:`, and `state:` — not raw SNS JSON. See `~/code/alert-hub/docs/architecture.md` for the full contract and agent log lookup playbook.
+StockTextAlerts routes CloudWatch alarms through the shared [shared-infra](https://github.com/jsolly/shared-infra) SNS topic. The enricher formats plaintext emails with `error:`, `log:` or structured `log-search:` handles, `alarm:`, and `state:` — not raw SNS JSON. See `~/code/shared-infra/docs/architecture.md` for the full contract and agent log lookup playbook.
 
 ## Alarm categories
 
@@ -74,9 +74,9 @@ fields @timestamp, @message, @logStream
 
 See also `docs/external-apis.md` for critical vs optional Massive routes and retry policy defaults (25s × 3 attempts).
 
-## Logging fields alert-hub reads
+## Logging fields shared-infra reads
 
-Page-worthy failures must call `logger.error(message, context, err)` so the serialized line includes top-level `error.name` and `error.message`. Use `createErrorForLogging(unknown)` from `src/lib/logging/errors.ts` for caught values; pass Postgrest-like objects through unchanged (do not wrap in `new Error(...)`). Do not put the failure text in `context.error` — alert-hub ignores it.
+Page-worthy failures must call `logger.error(message, context, err)` so the serialized line includes top-level `error.name` and `error.message`. Use `createErrorForLogging(unknown)` from `src/lib/logging/errors.ts` for caught values; pass Postgrest-like objects through unchanged (do not wrap in `new Error(...)`). Do not put the failure text in `context.error` — shared-infra ignores it.
 
 Lambda handlers import `runWithRequestContext` from `src/lib/logging/request-context.ts` (Node-only) so JSON logs include `requestId` matching the runtime tab-prefix.
 

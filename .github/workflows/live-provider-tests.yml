@@ -82,7 +82,7 @@ jobs:
             "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/live-provider-tests.yml/runs?per_page=2&status=completed" \
             | jq -r '.workflow_runs[1].conclusion')
           if [ "$PREV" = "failure" ]; then
-            echo "Previous run also failed — skipping alert-hub notification"
+            echo "Previous run also failed — skipping shared-infra notification"
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
@@ -94,10 +94,10 @@ jobs:
         if: steps.dedup.outputs.skip != 'true'
         uses: aws-actions/configure-aws-credentials@v6.2.0
         with:
-          role-to-assume: arn:aws:iam::730335616323:role/GitHubActionsDeploymentRole
+          role-to-assume: arn:aws:iam::730335616323:role/agent-deploy
           aws-region: us-east-1
 
-      - name: Publish failure alert via alert-hub
+      - name: Publish failure alert via shared-infra
         if: steps.dedup.outputs.skip != 'true'
         run: bash scripts/ci/publish-live-test-failure-alert.sh
         env:

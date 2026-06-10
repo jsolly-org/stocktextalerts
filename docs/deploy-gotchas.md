@@ -33,26 +33,26 @@ See [docs/incidents/2026-05-email-from-mangling.md](incidents/2026-05-email-from
 
 ## Explicit CloudWatch `AlarmName` may replace alarms on deploy
 
-SAM updates that add `AlarmName` to previously auto-named alarms can replace the underlying CloudWatch alarm resource. You may get a one-off state transition email during deploy. See [docs/alert-hub.md](alert-hub.md).
+SAM updates that add `AlarmName` to previously auto-named alarms can replace the underlying CloudWatch alarm resource. You may get a one-off state transition email during deploy. See [docs/shared-infra.md](shared-infra.md).
 
-## Live provider CI alerts use alert-hub
+## Live provider CI alerts use shared-infra
 
-`.github/workflows/live-provider-tests.yml` publishes a synthetic CloudWatch alarm JSON to the shared alert-hub SNS topic (`/alert-hub/alert-topic-arn` in SSM) on first failure in a streak. The enricher Lambda sends the usual SES email.
+`.github/workflows/live-provider-tests.yml` publishes a synthetic CloudWatch alarm JSON to the shared shared-infra SNS topic (`/shared-infra/alert-topic-arn` in SSM) on first failure in a streak. The enricher Lambda sends the usual SES email.
 
-`GitHubActionsDeploymentRole` must allow reading that SSM parameter and publishing to the topic. One-time attach (adjust if the topic ARN changes):
+`agent-deploy` must allow reading that SSM parameter and publishing to the topic. One-time attach (adjust if the topic ARN changes):
 
 ```bash
-TOPIC_ARN="$(aws ssm get-parameter --name /alert-hub/alert-topic-arn --query Parameter.Value --output text)"
+TOPIC_ARN="$(aws ssm get-parameter --name /shared-infra/alert-topic-arn --query Parameter.Value --output text)"
 aws iam put-role-policy \
-  --role-name GitHubActionsDeploymentRole \
-  --policy-name stocktextalerts-alert-hub-publish \
+  --role-name agent-deploy \
+  --policy-name stocktextalerts-shared-infra-publish \
   --policy-document "$(jq -n --arg topic "$TOPIC_ARN" '{
     Version: "2012-10-17",
     Statement: [
       {
         Effect: "Allow",
         Action: "ssm:GetParameter",
-        Resource: "arn:aws:ssm:us-east-1:730335616323:parameter/alert-hub/alert-topic-arn"
+        Resource: "arn:aws:ssm:us-east-1:730335616323:parameter/shared-infra/alert-topic-arn"
       },
       {
         Effect: "Allow",

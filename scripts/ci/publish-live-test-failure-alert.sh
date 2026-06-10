@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publish a synthetic CloudWatch alarm to the alert-hub SNS topic so the
+# Publish a synthetic CloudWatch alarm to the shared-infra SNS topic so the
 # enricher delivers a formatted email (same path as Lambda alarms).
 set -euo pipefail
 
@@ -12,7 +12,7 @@ RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
 STATE_CHANGE_TIME="$(date -u +"%Y-%m-%dT%H:%M:%S.000+0000")"
 
 TOPIC_ARN="$(aws ssm get-parameter \
-  --name /alert-hub/alert-topic-arn \
+  --name /shared-infra/alert-topic-arn \
   --query Parameter.Value \
   --output text \
   --region "$AWS_REGION")"

@@ -28,7 +28,7 @@
 		"check:sql": "bash scripts/db/check-sql.sh",
 		"check:db-privileges": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/check-privileges.ts",
 		"check:migration-grants": "node --env-file-if-exists=.env.local ./node_modules/.bin/tsx scripts/db/check-migration-grants.ts",
-		"check:yaml": "yamllint . && actionlint",
+		"check:yaml": "uvx yamllint@1.38.0 . && actionlint",
 		"db:start": "node ./node_modules/.bin/tsx scripts/db/start.ts",
 		"db:stop": "supabase stop",
 		"db:bootstrap": "node ./node_modules/.bin/tsx scripts/db/link-worktree-data.ts && node ./node_modules/.bin/tsx scripts/db/worktree-supabase.ts && npm run db:start && npm run db:reset && npm run db:doctor",
@@ -95,9 +95,12 @@
 		"supabase": "^2.105.0",
 		"tailwindcss": "^4.2.2",
 		"tsx": "^4.21.0",
+		"twilio-cli": "^6.2.4",
 		"typescript": "^5.9.3",
+		"vercel": "^54.10.3",
 		"vite": "^7.3.2",
 		"vite-svg-loader": "^5.1.1",
-		"vitest": "^4.1.2"
+		"vitest": "^4.1.2",
+		"wrangler": "^4.99.0"
 	}
 }

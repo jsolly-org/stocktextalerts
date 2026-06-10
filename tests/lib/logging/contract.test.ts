@@ -3,7 +3,7 @@ import { createLogger } from "../../../src/lib/logging";
 import { runWithRequestContext } from "../../../src/lib/logging/request-context";
 
 describe("logging contract", () => {
-	it("emits level=error JSON that metric filters and alert-hub accept", () => {
+	it("emits level=error JSON that metric filters and shared-infra accept", () => {
 		vi.stubEnv("LOG_MASK_PII", "true");
 		const spy = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -52,7 +52,7 @@ describe("logging contract", () => {
 		}
 	});
 
-	it("vendor retry exhaustion includes category and top-level error for alert-hub", () => {
+	it("vendor retry exhaustion includes category and top-level error for shared-infra", () => {
 		const spy = vi.spyOn(console, "error").mockImplementation(() => {});
 		try {
 			createLogger({ category: "schedule" }).error(
@@ -72,7 +72,7 @@ describe("logging contract", () => {
 		}
 	});
 
-	it("schema failures surface readable error.message for alert-hub", () => {
+	it("schema failures surface readable error.message for shared-infra", () => {
 		const spy = vi.spyOn(console, "error").mockImplementation(() => {});
 		try {
 			createLogger({ action: "load_insider_transactions" }).error(
@@ -88,7 +88,7 @@ describe("logging contract", () => {
 		}
 	});
 
-	it("passes Postgrest-like errors as the third argument for alert-hub", () => {
+	it("passes Postgrest-like errors as the third argument for shared-infra", () => {
 		const spy = vi.spyOn(console, "error").mockImplementation(() => {});
 		try {
 			const postgrestLike = {
@@ -128,7 +128,7 @@ describe("logging contract", () => {
 		}
 	});
 
-	it("rejects context.error-only shape for alert-hub (must use third argument)", () => {
+	it("rejects context.error-only shape for shared-infra (must use third argument)", () => {
 		const spy = vi.spyOn(console, "error").mockImplementation(() => {});
 		try {
 			createLogger({ action: "load_insider_transactions" }).error(
