@@ -9,6 +9,7 @@ import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { computeDeliveryRetryDelayMs } from "../../../src/lib/providers/vendor-fault-tolerance";
 import { batchLoadUserAssets } from "../../../src/lib/schedule/helpers";
+import { deleteAssets, upsertAssets } from "../../helpers/asset-db";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
@@ -26,10 +27,11 @@ describe("batchLoadUserAssets delisted-asset filter", () => {
 	const createdSymbols: string[] = [];
 
 	afterEach(async () => {
-		for (const symbol of createdSymbols.splice(0, createdSymbols.length)) {
+		const symbols = createdSymbols.splice(0, createdSymbols.length);
+		for (const symbol of symbols) {
 			await adminClient.from("user_assets").delete().eq("symbol", symbol);
-			await adminClient.from("assets").delete().eq("symbol", symbol);
 		}
+		await deleteAssets(symbols);
 	});
 
 	it("skips delisted rows and only returns listed holdings.", async () => {
@@ -37,7 +39,7 @@ describe("batchLoadUserAssets delisted-asset filter", () => {
 		const delisted = `ZDL${randomUUID().replace(/-/g, "").slice(0, 4).toUpperCase()}`;
 		createdSymbols.push(listed, delisted);
 
-		const { error: insertErr } = await adminClient.from("assets").upsert([
+		await upsertAssets([
 			{ symbol: listed, name: "Listed Test Co", type: "stock" },
 			{
 				symbol: delisted,
@@ -46,7 +48,6 @@ describe("batchLoadUserAssets delisted-asset filter", () => {
 				delisted_at: "2026-03-27T00:00:00+00:00",
 			},
 		]);
-		expect(insertErr).toBeNull();
 
 		const user = await createTestUser({
 			email: `loader-filter-${randomUUID()}@example.com`,

@@ -2,8 +2,9 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { GET as GETAssetSearch } from "../../../src/pages/api/assets/search";
 import { createApiContext } from "../../helpers/api-context";
+import { deleteAssets, upsertAssets } from "../../helpers/asset-db";
 import { TEST_PASSWORD } from "../../helpers/constants";
-import { adminClient, createAuthenticatedCookies } from "../../helpers/test-env";
+import { createAuthenticatedCookies } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
 
@@ -42,10 +43,7 @@ describe("Asset search ranking", () => {
 		];
 
 		try {
-			const { error: seedError } = await adminClient
-				.from("assets")
-				.upsert(seedAssets, { onConflict: "symbol" });
-			expect(seedError).toBeNull();
+			await upsertAssets(seedAssets);
 
 			const response = await searchAssets("ZXQ10", cookies);
 			expect(response.status).toBe(200);
@@ -54,14 +52,7 @@ describe("Asset search ranking", () => {
 			expect(payload.ok).toBe(true);
 			expect(payload.results[0].symbol).toBe("ZXQ10");
 		} finally {
-			const { error: cleanupError } = await adminClient
-				.from("assets")
-				.delete()
-				.in(
-					"symbol",
-					seedAssets.map((asset) => asset.symbol),
-				);
-			expect(cleanupError).toBeNull();
+			await deleteAssets(seedAssets.map((asset) => asset.symbol));
 		}
 	});
 
@@ -81,10 +72,7 @@ describe("Asset search ranking", () => {
 		];
 
 		try {
-			const { error: seedError } = await adminClient
-				.from("assets")
-				.upsert(seedAssets, { onConflict: "symbol" });
-			expect(seedError).toBeNull();
+			await upsertAssets(seedAssets);
 
 			const response = await searchAssets("QRT", cookies);
 			expect(response.status).toBe(200);
@@ -93,14 +81,7 @@ describe("Asset search ranking", () => {
 			expect(payload.ok).toBe(true);
 			expect(payload.results[0].symbol).toBe("QRTZ");
 		} finally {
-			const { error: cleanupError } = await adminClient
-				.from("assets")
-				.delete()
-				.in(
-					"symbol",
-					seedAssets.map((asset) => asset.symbol),
-				);
-			expect(cleanupError).toBeNull();
+			await deleteAssets(seedAssets.map((asset) => asset.symbol));
 		}
 	});
 });

@@ -3,6 +3,7 @@ import type { NotificationPreferences } from "../../src/lib/db";
 import { POST as assetsUpdatePost } from "../../src/pages/api/assets/update";
 import { createApiContext } from "./api-context";
 import { getAssetData } from "./asset-data";
+import { upsertAssets } from "./asset-db";
 import { TEST_PASSWORD } from "./constants";
 import { adminClient, createAuthenticatedCookies } from "./test-env";
 import type { CreateTestUserOptions, TestUser } from "./test-user";
@@ -19,10 +20,7 @@ async function ensureAssetsExist(symbols: string[]): Promise<void> {
 			type: assetData.type,
 		};
 	});
-	const { error } = await adminClient.from("assets").upsert(assetRecords, { onConflict: "symbol" });
-	if (error) {
-		throw new Error(`Failed to ensure assets exist: ${error.message}`);
-	}
+	await upsertAssets(assetRecords);
 }
 
 export async function updateTrackedAssets(

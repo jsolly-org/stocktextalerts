@@ -5,6 +5,7 @@ import {
 	RETENTION_MINUTES,
 } from "../../../src/lib/market-notifications/snapshot-store";
 import { getAssetData } from "../../helpers/asset-data";
+import { upsertAssets } from "../../helpers/asset-db";
 import { adminClient } from "../../helpers/test-env";
 
 describe("snapshot-store purge", () => {
@@ -19,12 +20,7 @@ describe("snapshot-store purge", () => {
 
 		try {
 			// Ensure asset exists (required for FK)
-			await adminClient
-				.from("assets")
-				.upsert(
-					{ symbol: asset.symbol, name: asset.name, type: asset.type },
-					{ onConflict: "symbol" },
-				);
+			await upsertAssets([{ symbol: asset.symbol, name: asset.name, type: asset.type }]);
 
 			// Clean up any pre-existing snapshots for this symbol (from other tests)
 			const { error: cleanupError } = await adminClient

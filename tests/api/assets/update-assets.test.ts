@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { MAX_TRACKED_ASSETS } from "../../../src/lib/db/database-errors";
-import { rootLogger } from "../../../src/lib/logging";
 import { POST } from "../../../src/pages/api/assets/update";
 import { createApiContext } from "../../helpers/api-context";
 import { getAssetData, getRealAssetSymbols } from "../../helpers/asset-data";
+import { deleteAssets, upsertAssets } from "../../helpers/asset-db";
 import { updateTrackedAssets } from "../../helpers/asset-update";
 import { TEST_PASSWORD } from "../../helpers/constants";
 import { adminClient, createAuthenticatedCookies } from "../../helpers/test-env";
@@ -33,12 +33,7 @@ describe("A signed-in user updates their tracked assets.", () => {
 			};
 		});
 
-		if (seedRecords.length > 0) {
-			const { error: insertError } = await adminClient
-				.from("assets")
-				.upsert(seedRecords, { onConflict: "symbol" });
-			expect(insertError).toBeNull();
-		}
+		await upsertAssets(seedRecords);
 
 		try {
 			const initialAssets = seedSymbols.slice(0, MAX_TRACKED_ASSETS);
@@ -57,17 +52,7 @@ describe("A signed-in user updates their tracked assets.", () => {
 
 			expect(trackedAssets).toHaveLength(MAX_TRACKED_ASSETS);
 		} finally {
-			if (symbolsToInsert.length > 0) {
-				const { error: assetDeleteError } = await adminClient
-					.from("assets")
-					.delete()
-					.in("symbol", symbolsToInsert);
-				if (assetDeleteError) {
-					rootLogger.warn("Cleanup failed (assets)", {
-						error: assetDeleteError,
-					});
-				}
-			}
+			await deleteAssets(symbolsToInsert);
 		}
 	});
 
@@ -265,16 +250,14 @@ describe("A signed-in user updates their tracked assets.", () => {
 		// Seed a unique delisted asset row. Using a Z-prefix keeps us clear of
 		// real tickers in the shared local DB.
 		const delistedSymbol = `ZDEL${randomUUID().replace(/-/g, "").slice(0, 4).toUpperCase()}`;
-		const { error: insertErr } = await adminClient.from("assets").upsert(
+		await upsertAssets([
 			{
 				symbol: delistedSymbol,
 				name: "Test Delisted Inc",
 				type: "stock",
 				delisted_at: "2026-03-27T00:00:00+00:00",
 			},
-			{ onConflict: "symbol" },
-		);
-		expect(insertErr).toBeNull();
+		]);
 
 		try {
 			const testUser = await createTestUser({
@@ -317,7 +300,7 @@ describe("A signed-in user updates their tracked assets.", () => {
 				.eq("user_id", testUser.id);
 			expect(trackedAssets?.map((s) => s.symbol)).toEqual(["AAPL"]);
 		} finally {
-			await adminClient.from("assets").delete().eq("symbol", delistedSymbol);
+			await deleteAssets([delistedSymbol]);
 		}
 	});
 });

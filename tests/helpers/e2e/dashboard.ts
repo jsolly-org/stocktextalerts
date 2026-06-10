@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 import { getAssetData } from "../asset-data";
+import { upsertAssets } from "../asset-db";
 import { adminClient } from "../test-env";
 
 const NOTIFICATION_PREFERENCES_UPDATE_URL = "/api/notification-preferences/update";
@@ -51,10 +52,7 @@ export async function ensureAssetsExist(symbols: string[]): Promise<void> {
 			type: assetData.type,
 		};
 	});
-	const { error } = await adminClient.from("assets").upsert(assetRecords, { onConflict: "symbol" });
-	if (error) {
-		throw new Error(`Failed to ensure assets exist: ${error.message}`);
-	}
+	await upsertAssets(assetRecords);
 }
 
 export async function waitForTrackedAssets(

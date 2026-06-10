@@ -62,6 +62,23 @@ describe("Supabase function privileges match the explicit contract", () => {
 		expect(grantees).not.toContain("PUBLIC");
 	});
 
+	it("default privileges no longer auto-grant access on future tables/sequences to client roles", async () => {
+		const { rows } = await client.query<{ objtype: string; grantee: string }>(`
+			SELECT d.defaclobjtype::text AS objtype,
+			       CASE WHEN (a).grantee = 0 THEN 'PUBLIC' ELSE pg_get_userbyid((a).grantee) END AS grantee
+			FROM pg_default_acl d
+			JOIN pg_namespace n ON n.oid = d.defaclnamespace
+			CROSS JOIN LATERAL aclexplode(d.defaclacl) AS a
+			WHERE n.nspname = 'public'
+			  AND d.defaclobjtype IN ('r', 'S')
+			  AND pg_get_userbyid(d.defaclrole) = 'postgres'
+		`);
+		const offending = rows.filter((r) =>
+			["anon", "authenticated", "service_role", "PUBLIC"].includes(r.grantee),
+		);
+		expect(offending).toEqual([]);
+	});
+
 	it.each(
 		ENFORCED_FUNCTIONS,
 	)("$signature ($class) is executable by exactly its contracted roles", async (entry) => {

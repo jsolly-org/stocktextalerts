@@ -4,6 +4,7 @@ import type { TablesInsert } from "../../src/lib/db/generated/database.types";
 import { userLocalToEtMinute } from "../../src/lib/time/format";
 import { calculateNextSendAtFromTimes } from "../../src/lib/time/scheduled-times";
 import { getAssetData } from "./asset-data";
+import { upsertAssets } from "./asset-db";
 import { PRESERVED_TEST_EMAIL, TEST_RUN_ID } from "./constants";
 import { adminClient } from "./test-env";
 
@@ -241,13 +242,7 @@ export async function createTestUser(options: CreateTestUserOptions = {}): Promi
 				};
 			});
 
-			const { error: assetsTableError } = await adminClient
-				.from("assets")
-				.upsert(assetRecords, { onConflict: "symbol" });
-
-			if (assetsTableError) {
-				throw new Error(`Assets table setup failed: ${assetsTableError.message}`);
-			}
+			await upsertAssets(assetRecords);
 
 			const assetInserts: DbUserAssetInsert[] = assetRecords.map((asset) => ({
 				user_id: userId,

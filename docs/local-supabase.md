@@ -47,16 +47,17 @@ The `DOCKER_HOST` value resolves at shell-startup time to the current Podman mac
 
 **Podman VM needs ≥ 6144 MB of memory** if you run Vitest inside a container. See [docs/incidents/2026-04-podman-oom.md](incidents/2026-04-podman-oom.md) for VM sizing notes.
 
-## Function privilege parity
+## Function & table privilege parity
 
 Local `db:reset` used to apply `ALTER DEFAULT PRIVILEGES ... GRANT ALL ON
-FUNCTIONS TO anon, authenticated, service_role` (from the squashed baseline), so
-**every** `public` function was executable by **every** role locally. Hosted
-production has empty `public` default privileges, so a function that forgot an
-explicit `GRANT EXECUTE ... TO service_role` (or that left an accidental
-client-role grant in place) behaved differently in prod than in tests. That gap
-shipped the duplicate-SMS incident: the delivery-state RPCs were callable in
-tests but `service_role` could not call them in prod.
+TABLES/SEQUENCES/FUNCTIONS TO anon, authenticated, service_role` (from the
+squashed baseline, which was a `pg_dump` of an already-widened **local** DB), so
+**every** `public` object was accessible to **every** client role locally.
+Hosted production has **zero** `public` default privileges and a narrow curated
+grant set per table (verified by a 2026-06-10 read-only catalog audit), so an
+object that forgot an explicit `GRANT` behaved differently in prod than in
+tests. That gap shipped the duplicate-SMS incident: the delivery-state RPCs were
+callable in tests but `service_role` could not call them in prod.
 
 To keep local/CI honest about production grants:
 
@@ -64,14 +65,24 @@ To keep local/CI honest about production grants:
   which roles may `EXECUTE` each PostgREST-exposed (`.rpc(...)`) function.
 - **`npm run check:db-privileges`** (runtime, needs a live local DB) fails on a
   missing `service_role` grant, accidental `anon`/`authenticated` exposure of a
-  server-only RPC, broad function default privileges, or an unclassified
-  app-owned function. It runs automatically at the end of `db:reset` and in CI.
+  server-only RPC, broad default privileges on future functions, tables, or
+  sequences, or an unclassified app-owned function. It runs automatically at
+  the end of `db:reset` and in CI.
 - **`npm run check:migration-grants`** (static, offline) fails when a migration
   creates a `public` function but never grants it `EXECUTE` — the cheap PR-time
   guard against the incident pattern.
 - The `20260608180652_tighten_function_privileges` migration revokes the broad
   future-function defaults and normalizes every app-called RPC to its intended
-  roles.
+  roles. The `20260610182813_tighten_table_privileges` migration completes the
+  job: it empties the future-table/sequence defaults and normalizes every table,
+  sequence, and trigger/check function to production's exact grant set.
+- **`npm run audit:db-parity`** (read-only; needs `DATABASE_URL_PROD` in
+  `.env.local`) dumps the full permission structure of local and production and
+  diffs them, failing on any residual drift. A small accepted-noise allowlist
+  (documented in `scripts/db/dump-permissions.ts`) covers what a postgres-run
+  migration cannot change: `supabase_admin`-owned default ACLs in the local
+  image, pg_trgm extension-function grants, and the `public` schema
+  owner-layout difference.
 
 **Rule for new RPCs:** every migration that creates a `public` function callable
 via the Data API must include an explicit `GRANT EXECUTE ON FUNCTION ... TO
@@ -79,6 +90,15 @@ via the Data API must include an explicit `GRANT EXECUTE ON FUNCTION ... TO
 session-scoped RPCs → `authenticated` and `service_role`). Add the function to
 `privilege-contract.ts`. Note that `supabase db diff` does **not** surface
 `ALTER DEFAULT PRIVILEGES`, so grants must be reviewed manually.
+
+**Rule for new tables/sequences:** default privileges are now empty in both
+environments, so a migration that creates a table or sequence without explicit
+`GRANT`s yields an object **no client role can touch** — locally and in prod
+alike, which means tests catch the omission immediately. Grant only what the
+code needs (server-only tables → `service_role`; session-visible tables →
+`authenticated` and/or `anon` as appropriate). Test fixtures that need writes
+beyond production's grants (e.g. seeding `assets`) must use the direct `pg`
+connection (`tests/helpers/asset-db.ts` pattern), not `adminClient`.
 
 ## Gotchas
 

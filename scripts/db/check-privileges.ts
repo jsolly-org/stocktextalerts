@@ -13,8 +13,11 @@
  * is in neither `RPC_PRIVILEGES`/`LEGACY_SERVER_ONLY` nor `INTERNAL_FUNCTIONS`,
  * forcing new RPCs to be classified.
  *
- * Table/sequence default-privilege drift is reported as a WARNING only; tables
- * have their own RLS/API-surface review and are out of scope here.
+ * Table/sequence default-privilege drift is an ERROR too: hosted production has
+ * ZERO default ACLs on `public` (verified 2026-06-10), so any broad future-table
+ * or future-sequence grant is local-only behavior that masks prod
+ * permission-denied failures — the table-shaped twin of the incident above.
+ * The 20260610182813_tighten_table_privileges migration established parity.
  *
  * This script only runs `SELECT` / catalog functions — it never mutates. It is
  * local-only by default (mirrors `db:doctor`); set
@@ -44,7 +47,6 @@ const DB_STATEMENT_TIMEOUT_MS = 10_000;
 
 export type PrivilegeReport = {
 	errors: string[];
-	warnings: string[];
 };
 
 type CatalogFunction = {
@@ -140,19 +142,17 @@ function checkForUnclassified(appFns: Map<string, CatalogFunction>, errors: stri
 }
 
 /**
- * Checks `public` default privileges. Hard-fails when `postgres`-owned function
- * defaults grant EXECUTE to a client role (or PUBLIC) — that is the local-only
- * behavior that hid the incident. Table/sequence drift is a warning only.
+ * Checks `public` default privileges. Hard-fails when `postgres`-owned
+ * defaults grant access on FUTURE functions, tables, or sequences to a client
+ * role (or PUBLIC) — hosted production has zero `public` default ACLs, so any
+ * such grant is local-only behavior that masks prod permission-denied
+ * failures.
  *
  * `supabase_admin`-owned defaults are intentionally ignored: app migrations
- * create functions as `postgres`, so only `postgres` defaults govern app
+ * create objects as `postgres`, so only `postgres` defaults govern app
  * objects, and Supabase manages the `supabase_admin` defaults.
  */
-async function checkDefaultPrivileges(
-	client: Client,
-	errors: string[],
-	warnings: string[],
-): Promise<void> {
+async function checkDefaultPrivileges(client: Client, errors: string[]): Promise<void> {
 	const { rows } = await client.query<DefaultAclRow>(`
 		SELECT pg_get_userbyid(d.defaclrole) AS owner_role,
 		       d.defaclobjtype AS objtype,
@@ -165,8 +165,8 @@ async function checkDefaultPrivileges(
 	`);
 
 	const clientGrantees = new Set<string>(["anon", "authenticated", "service_role", "PUBLIC"]);
-	// Aggregate non-function drift into one grantee set per object kind so the
-	// out-of-scope table/sequence warnings stay to two lines, not dozens.
+	// Aggregate table/sequence drift into one grantee set per object kind so
+	// the errors stay to two lines, not dozens.
 	const tableGrantees = new Set<string>();
 	const sequenceGrantees = new Set<string>();
 
@@ -188,15 +188,17 @@ async function checkDefaultPrivileges(
 	}
 
 	if (tableGrantees.size > 0) {
-		warnings.push(
+		errors.push(
 			`Default privileges grant access on FUTURE tables to [${[...tableGrantees].sort().join(", ")}] ` +
-				`(owner postgres). Out of scope for the function-grant check; tables have their own RLS/API review.`,
+				`(owner postgres). Hosted prod has no public default ACLs — new tables need explicit ` +
+				`GRANTs in their migration. Run db:reset to apply the tighten-table-privileges migration.`,
 		);
 	}
 	if (sequenceGrantees.size > 0) {
-		warnings.push(
+		errors.push(
 			`Default privileges grant access on FUTURE sequences to [${[...sequenceGrantees].sort().join(", ")}] ` +
-				`(owner postgres). Out of scope for the function-grant check; review separately.`,
+				`(owner postgres). Hosted prod has no public default ACLs — new sequences need explicit ` +
+				`GRANTs in their migration. Run db:reset to apply the tighten-table-privileges migration.`,
 		);
 	}
 }
@@ -204,7 +206,6 @@ async function checkDefaultPrivileges(
 /** Runs all checks against an already-connected client. Exported for Vitest. */
 export async function collectPrivilegeViolations(client: Client): Promise<PrivilegeReport> {
 	const errors: string[] = [];
-	const warnings: string[] = [];
 
 	const appFns = await loadAppFunctions(client);
 
@@ -212,9 +213,9 @@ export async function collectPrivilegeViolations(client: Client): Promise<Privil
 		await checkFunction(client, appFns, entry, errors);
 	}
 	checkForUnclassified(appFns, errors);
-	await checkDefaultPrivileges(client, errors, warnings);
+	await checkDefaultPrivileges(client, errors);
 
-	return { errors, warnings };
+	return { errors };
 }
 
 async function main(): Promise<void> {
@@ -271,14 +272,7 @@ async function main(): Promise<void> {
 	}
 
 	try {
-		const { errors, warnings } = await collectPrivilegeViolations(client);
-
-		for (const warning of warnings) {
-			rootLogger.warn("check:db-privileges — warning", {
-				action: "check_db_privileges",
-				warning,
-			});
-		}
+		const { errors } = await collectPrivilegeViolations(client);
 
 		if (errors.length > 0) {
 			rootLogger.error("check:db-privileges — contract violations found", {
@@ -293,7 +287,6 @@ async function main(): Promise<void> {
 		rootLogger.info("check:db-privileges — ok (function grants match contract)", {
 			action: "check_db_privileges",
 			enforcedFunctions: ENFORCED_FUNCTIONS.length,
-			warningCount: warnings.length,
 		});
 	} finally {
 		await client.end().catch(() => {

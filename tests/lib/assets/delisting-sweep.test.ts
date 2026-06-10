@@ -14,6 +14,7 @@ import type { SmsSender } from "../../../src/lib/messaging/sms/twilio-utils";
 import type { DeliveryResult } from "../../../src/lib/messaging/types";
 import type { TickerReferenceStatus } from "../../../src/lib/providers/massive";
 import type { SmsSenderProvider } from "../../../src/lib/schedule/sms-sender";
+import { deleteAssets, upsertAssets } from "../../helpers/asset-db";
 import { adminClient } from "../../helpers/test-env";
 import { createTestUser } from "../../helpers/test-user";
 import { registerTestUserForCleanup } from "../../helpers/test-user-cleanup";
@@ -104,16 +105,13 @@ function makeFakeSmsSender(): {
 const TEST_PREFIX = `Z${randomUUID().replace(/-/g, "").slice(0, 4).toUpperCase()}`;
 
 async function insertAsset(symbol: string, name: string): Promise<void> {
-	const { error } = await adminClient
-		.from("assets")
-		.upsert({ symbol, name, type: "stock" }, { onConflict: "symbol" });
-	if (error) throw new Error(`insertAsset failed: ${error.message}`);
+	await upsertAssets([{ symbol, name, type: "stock" }]);
 }
 
 async function deleteAsset(symbol: string): Promise<void> {
 	await adminClient.from("price_targets").delete().eq("symbol", symbol);
 	await adminClient.from("user_assets").delete().eq("symbol", symbol);
-	await adminClient.from("assets").delete().eq("symbol", symbol);
+	await deleteAssets([symbol]);
 }
 
 async function attachUserAsset(userId: string, symbol: string): Promise<void> {
