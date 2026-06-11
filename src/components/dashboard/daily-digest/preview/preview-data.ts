@@ -17,7 +17,9 @@ export const DEMO_ASSETS: PreviewAsset[] = [
 		symbol: "AAPL",
 		name: "Apple Inc",
 		price: 195.5,
-		changePercent: 2.4,
+		// Matches the sparkline's first→last delta ((195−188)/188), which is what
+		// the preview actually displays via resolveDisplayChangePercent.
+		changePercent: 3.72,
 		sparkline: "▁▂▃▅▇▅▆",
 		sparklineValues: [188, 190, 191, 193, 196, 194, 195],
 	},
@@ -25,7 +27,8 @@ export const DEMO_ASSETS: PreviewAsset[] = [
 		symbol: "GOOGL",
 		name: "Alphabet Inc",
 		price: 178.2,
-		changePercent: 1.8,
+		// (178−174)/174
+		changePercent: 2.3,
 		sparkline: "▃▂▁▃▅▆▇",
 		sparklineValues: [174, 173, 172, 174, 176, 177, 178],
 	},
@@ -33,7 +36,8 @@ export const DEMO_ASSETS: PreviewAsset[] = [
 		symbol: "TSLA",
 		name: "Tesla Inc",
 		price: 248.3,
-		changePercent: -0.5,
+		// (248−255)/255
+		changePercent: -2.75,
 		sparkline: "▇▆▅▃▂▃▁",
 		sparklineValues: [255, 253, 252, 250, 249, 250, 248],
 	},
