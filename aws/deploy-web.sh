@@ -43,10 +43,27 @@ unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
 # DDL wants a session connection. Same pooler host serves session mode on 5432.
 DB_URL="${DATABASE_URL_PROD/:6543\//:5432/}"
 
-# `--preflight`: validate creds only (the pre-push gate calls this before the
-# battery so a missing credential fails in seconds, not after 15 minutes).
+# `--preflight`: validate BOTH deploy credentials only (the pre-push gate calls
+# this before the battery so a credential problem fails in seconds, not after 15
+# minutes). Each check exercises the SAME path the deploy later uses, so it
+# catches the failures the `:?` presence checks above cannot:
+#   - AWS: `sts get-caller-identity` over the exported AWS_PROFILE (no explicit
+#     --profile) → catches an expired SSO token before Phase 2's Lambda update.
+#   - prod DB: `supabase migration list` over DB_URL → catches a stale/rotated
+#     DATABASE_URL_PROD before Phase 1's one-way `supabase db push`. Uses the
+#     repo-pinned binary by path (PATH isn't exported until the deploy body).
 if [ "${1:-}" = "--preflight" ]; then
-  echo "✓ deploy credentials present"
+  if ! aws sts get-caller-identity >/dev/null 2>&1; then
+    echo "✗ AWS credentials for profile '$AWS_PROFILE' do not resolve (likely an expired SSO token)." >&2
+    echo "  Refresh your SSO session and retry the push, e.g.:  aws sso login --sso-session <your-session>" >&2
+    exit 1
+  fi
+  if ! "$REPO_ROOT/node_modules/.bin/supabase" migration list --db-url "$DB_URL" >/dev/null 2>&1; then
+    echo "✗ production database unreachable — check DATABASE_URL_PROD (host/password) and network." >&2
+    echo "  (If the supabase CLI is missing, run npm ci.)" >&2
+    exit 1
+  fi
+  echo "✓ deploy credentials valid (AWS $AWS_PROFILE + prod DB)"
   exit 0
 fi
 
