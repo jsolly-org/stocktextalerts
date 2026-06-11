@@ -221,8 +221,8 @@ export async function processMarketScheduledUser(options: {
 			(await loadUserAssets(supabase, user.id, { includeLogoData: true }));
 		const tickers = userAssets.map((a) => a.symbol);
 		// All active sessions (pre/regular/after) use the same intraday-since-prev-close
-		// sparkline so the chart's first-to-last delta equals Massive's
-		// `todaysChangePerc` — keeping shape, color, and headline % in lockstep.
+		// sparkline so the chart's first-to-last delta equals the prev-close-anchored
+		// headline change-% — keeping shape, color, and headline % in lockstep.
 		// Massive's 5-minute bars endpoint returns extended-hours data, so the
 		// pre-market chart includes 4:00 AM ET onward.
 		const prevCloseMap = new Map<string, number | null | undefined>();

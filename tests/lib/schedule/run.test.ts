@@ -190,8 +190,9 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		expect(emailLog).toBeDefined();
 		expect(emailLog?.message_delivered).toBe(true);
 		expect(emailLog?.message).toMatch(/^Pre-market — /);
-		// Change-% line emitted for the test's stub price (changePercent: 1.25).
-		expect(emailLog?.message).toContain("1.25%");
+		// Change-% derives from the sparkline endpoints (prevClose 148.5 →
+		// appended live price 150 = +1.01%), keeping it in lockstep with the chart.
+		expect(emailLog?.message).toContain("1.01%");
 		// Pre-market sessions use the same prev-close-anchored intraday chart as
 		// RTH/AH — Massive's 5-minute bars endpoint returns pre-market bars from
 		// 4 AM ET, and prepending prev close makes the chart's first-to-last
@@ -247,10 +248,10 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		expect(emailLog?.message_delivered).toBe(true);
 		expect(emailLog?.message).toMatch(/^After-hours — /);
 		// Header is anchored to yesterday's close (retail-app convention). The
-		// sparkline now prepends yesterday's close to today's bars so its
-		// first-to-last delta equals that headline change-%. Massive's
-		// `todaysChangePerc` (1.25%) is what the renderer shows.
-		expect(emailLog?.message).toContain("1.25%");
+		// sparkline prepends yesterday's close and appends the live price, and
+		// the headline change-% derives from those same endpoints
+		// (148.5 → 150 = +1.01%), so chart and % can never disagree.
+		expect(emailLog?.message).toContain("1.01%");
 		// After-hours session shows the today (prev-close-anchored) sparkline so
 		// shape and color always agree with the headline %; SMS label is "today".
 		expect(emailLog?.message).toContain("today:");
@@ -305,8 +306,9 @@ describe("runScheduledNotifications: fallback pipeline", () => {
 		// Header has session label only — no 4 PM-close anchor parenthetical.
 		expect(smsLog?.message).toMatch(/After-hours — \d+:\d{2} (AM|PM) ET/);
 		expect(smsLog?.message).not.toContain("vs. 4:00 PM close");
-		// Change-% is Massive's todaysChangePerc (prev-close anchored): 1.25%.
-		expect(smsLog?.message).toContain("1.25%");
+		// Change-% derives from the sparkline endpoints (prev-close anchored):
+		// 148.5 → 150 = +1.01%.
+		expect(smsLog?.message).toContain("1.01%");
 	});
 
 	it("A scheduled time on a half-day in the after-hours dead zone is skipped at delivery (runtime session = 'closed'), logged at 'info', next_send_at advances", async () => {

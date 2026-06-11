@@ -737,22 +737,22 @@ function parseSnapshotTicker(
 	// Massive returned this ticker entry, just no live trade in this session.
 	if (price === null) return NO_SESSION_TRADE;
 
-	let changePercent = t.todaysChangePerc;
-	if (typeof changePercent !== "number" || !Number.isFinite(changePercent)) return null;
-
-	// When todaysChangePerc is 0 (typically because the market is closed —
-	// weekend or holiday — but also for thinly-traded names that simply
-	// haven't moved), derive change-% from (price vs prevDay.c) so the
-	// notification doesn't confusingly show +(0.00%) when price ≠ prevClose.
+	// Derive change-% from the price we surface (day.c / min.c) against
+	// prevDay.c — the same two numbers that anchor the intraday sparkline.
+	// Massive's todaysChangePerc comes from its own trade feed, which updates
+	// on a different cadence than the aggregates; near-flat days the two can
+	// disagree in sign (LDOS 2026-06-11: todaysChangePerc -0.06% while
+	// day.c vs prevDay.c read +0.45%, so a red headline % sat beside a green
+	// prev-close-anchored chart). todaysChangePerc remains only as a fallback
+	// for tickers without a usable prevDay bar (fresh listings).
 	const prevClose = t.prevDay?.c;
-	if (
-		changePercent === 0 &&
-		typeof prevClose === "number" &&
-		Number.isFinite(prevClose) &&
-		prevClose !== 0 &&
-		price !== prevClose
-	) {
+	let changePercent: number;
+	if (typeof prevClose === "number" && Number.isFinite(prevClose) && prevClose > 0) {
 		changePercent = ((price - prevClose) / prevClose) * 100;
+	} else if (typeof t.todaysChangePerc === "number" && Number.isFinite(t.todaysChangePerc)) {
+		changePercent = t.todaysChangePerc;
+	} else {
+		return null;
 	}
 
 	const numPrice = (v: unknown): number | null =>
@@ -916,9 +916,9 @@ export interface TopMover {
  * Uses `/v2/snapshot/locale/us/markets/stocks/{gainers|losers}`, which
  * returns tickers already sorted by `todaysChangePerc`. Sub-$5 names are
  * filtered out to cut penny-stock / warrant noise, and tickers showing
- * `todaysChangePerc === 0` are skipped — `parseSnapshotTicker` would
- * otherwise fall back to the prior session's change, which misrepresents
- * why a ticker appeared on today's movers list.
+ * `todaysChangePerc === 0` are skipped — on the movers endpoint a 0% entry
+ * means the ticker genuinely hasn't moved today, so it doesn't belong on a
+ * gainers/losers list.
  *
  * Returns up to `limit` results. Fewer may be returned if the upstream
  * response is small or most tickers fail the price filter.
@@ -951,9 +951,9 @@ export async function fetchTopMovers(
 		const t = raw as SnapshotTicker;
 		if (typeof t.ticker !== "string") continue;
 
-		// Use the raw todaysChangePerc directly rather than parseSnapshotTicker's
-		// prev-day fallback: on the gainers/losers endpoint a 0% entry means the
-		// ticker genuinely hasn't moved today, not that the market is closed.
+		// Use the endpoint's own todaysChangePerc (what it sorts by) directly,
+		// not parseSnapshotTicker's prev-close derivation: a 0% entry here means
+		// the ticker genuinely hasn't moved today, not that the market is closed.
 		const changePercent = t.todaysChangePerc;
 		if (
 			typeof changePercent !== "number" ||

@@ -30,7 +30,8 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		vi.stubEnv("MASSIVE_API_KEY", "test-key");
 		// Captured live at 07:00 ET pre-market: Polygon-compatible snapshot returns
 		// `day: {c: 0}` because the regular session has not opened, but `min.c`
-		// carries the most recent pre-market minute bar.
+		// carries the most recent pre-market minute bar. change-% is derived from
+		// that price vs prevDay.c (here it coincides with todaysChangePerc).
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(
 			snapshotResponse([
 				{
@@ -168,8 +169,7 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		const quotes = await fetchSnapshotQuotes(["SAIC"], "after");
 		const saic = expectQuote(quotes.get("SAIC"));
 		expect(saic.price).toBe(93.93);
-		// Pin todaysChangePerc passthrough; the renderer's session-aware
-		// change-% override is exercised in asset-formatting.test.ts.
+		// Derived from the surfaced price vs prevDay.c: (93.93 - 93.46) / 93.46.
 		expect(saic.changePercent).toBeCloseTo(0.5, 2);
 	});
 
@@ -200,6 +200,79 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		expect(spy.dayLow).toBe(497.0);
 	});
 
+	it("derives change-% from day.c vs prevDay.c when Massive's todaysChangePerc lags the day bar", async () => {
+		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		// 2026-06-11 LDOS incident at ~10:20 ET: Massive computes todaysChangePerc
+		// from its own trade feed, which updates on a different cadence than the
+		// day aggregate. The snapshot carried todaysChangePerc = -0.06% while
+		// day.c (122.24) vs prevDay.c (121.69) said +0.45% — opposite signs, so
+		// the red headline % contradicted the green prev-close-anchored chart.
+		// The change-% must be derived from the same price we display and chart.
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(
+			snapshotResponse([
+				{
+					ticker: "LDOS",
+					todaysChangePerc: -0.06,
+					updated: 1_781_188_800_000_000_000,
+					day: { o: 121.8, h: 122.3, l: 121.4, c: 122.24, v: 350_000 },
+					min: { c: 122.24 },
+					prevDay: { o: 122.1, h: 122.6, l: 121.3, c: 121.69, v: 1_100_000 },
+				},
+			]),
+		);
+
+		const quotes = await fetchSnapshotQuotes(["LDOS"], "regular");
+		const ldos = expectQuote(quotes.get("LDOS"));
+		expect(ldos.price).toBe(122.24);
+		expect(ldos.changePercent).toBeCloseTo(0.45, 2);
+		expect(ldos.changePercent).toBeGreaterThan(0);
+	});
+
+	it("falls back to todaysChangePerc when the snapshot has no usable prevDay close", async () => {
+		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		// Fresh listing: prevDay is all zeros, so the only change signal Massive
+		// offers is todaysChangePerc itself.
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(
+			snapshotResponse([
+				{
+					ticker: "NEWIPO",
+					todaysChangePerc: 3.2,
+					updated: 1_781_188_800_000_000_000,
+					day: { o: 24, h: 26, l: 23.5, c: 25.8, v: 9_000_000 },
+					min: { c: 25.8 },
+					prevDay: { o: 0, h: 0, l: 0, c: 0, v: 0 },
+				},
+			]),
+		);
+
+		const quotes = await fetchSnapshotQuotes(["NEWIPO"], "regular");
+		const ipo = expectQuote(quotes.get("NEWIPO"));
+		expect(ipo.price).toBe(25.8);
+		expect(ipo.changePercent).toBeCloseTo(3.2, 2);
+	});
+
+	it("drops the quote when a live price exists but neither prevDay close nor todaysChangePerc is usable", async () => {
+		vi.stubEnv("MASSIVE_API_KEY", "test-key");
+		// Degenerate snapshot: a real day.c but prevDay all-zeros AND a missing
+		// todaysChangePerc. With no anchor to compute a change-% against, we drop
+		// the quote (→ "price unavailable") rather than surface a price with a
+		// fabricated 0%. Guards the final `return null` branch in parseSnapshotTicker.
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(
+			snapshotResponse([
+				{
+					ticker: "WEIRD",
+					updated: 1_781_188_800_000_000_000,
+					day: { o: 12, h: 12.5, l: 11.8, c: 12.1, v: 4000 },
+					min: { c: 12.1 },
+					prevDay: { o: 0, h: 0, l: 0, c: 0, v: 0 },
+				},
+			]),
+		);
+
+		const quotes = await fetchSnapshotQuotes(["WEIRD"], "regular");
+		expect(quotes.get("WEIRD")).toBeNull();
+	});
+
 	it("uses day.c during a closed session so weekend SMS shows the last regular close", async () => {
 		vi.stubEnv("MASSIVE_API_KEY", "test-key");
 		// Saturday/holiday: day.c is the last trading day's regular close (Friday).
@@ -224,9 +297,9 @@ describe("fetchSnapshotQuotes session-aware price resolution", () => {
 		const aapl = expectQuote(quotes.get("AAPL"));
 		expect(aapl.price).toBe(179.5);
 		expect(aapl.prevClose).toBe(177);
-		// todaysChangePerc=0 triggers the prev-day recalculation branch:
-		// (179.5 - 177) / 177 * 100 ≈ +1.41%. Pins the math so an off-by-one
-		// in the closed-session change-% derivation surfaces immediately.
+		// Derived from price vs prevDay.c: (179.5 - 177) / 177 * 100 ≈ +1.41%
+		// (Massive reports todaysChangePerc = 0 on closed sessions). Pins the
+		// math so an off-by-one in the change-% derivation surfaces immediately.
 		expect(aapl.changePercent).toBeCloseTo(1.41, 2);
 	});
 

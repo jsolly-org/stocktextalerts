@@ -43,7 +43,7 @@ export function toSparkline(values: number[]): string {
  * sparkline (in SMS and email) is derived from this discriminator.
  *
  * `intraday-since-prev-close` starts at yesterday's close (so its first-to-last
- * delta equals Massive's `todaysChangePerc`) and is the default for scheduled
+ * delta equals the prev-close-anchored headline change-%) and is the default for scheduled
  * notifications, triggered price alerts, and daily digests — anywhere the
  * headline change-% is prev-close-anchored. `intraday-since-open` starts at
  * today's 9:30 AM open and is used only by flat-alerts, whose chart pairs

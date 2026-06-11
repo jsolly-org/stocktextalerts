@@ -112,9 +112,15 @@ function getSparklineDirectionPercent(values: number[]): number {
 	return ((last - first) / first) * 100;
 }
 
-/** Change % to show next to price — uses the sparkline window when labeled 7-day. */
+/** Change % to show next to price — derived from the rendered sparkline's own
+ *  endpoints whenever a chart is shown, so the headline % and the chart can
+ *  never disagree on direction (the chart color uses the same computation).
+ *  Vendor change fields update on a different cadence than the prices we
+ *  chart; near-flat days they flip sign against each other (LDOS 2026-06-11:
+ *  Massive todaysChangePerc -0.06% vs prev-close-anchored chart +0.45%).
+ *  Without a sparkline, falls back to the quote's change-%. */
 function resolveDisplayChangePercent(price: AssetPrice, sparkline?: SparklineData | null): number {
-	if (sparkline?.window === "7-trading-days" && sparkline.values.length >= 2) {
+	if (sparkline && sparkline.values.length >= 2) {
 		return getSparklineDirectionPercent(sparkline.values);
 	}
 	return price.changePercent;

@@ -119,7 +119,8 @@ describe("A subscriber receiving a notification sees a label naming the sparklin
 			window: "intraday-since-prev-close",
 		};
 		const line = formatAssetTextLine(asset, price, sparkline);
-		expect(line).toBe("AAPL — $187.42 (+1.23%) today: ▁▂▄▆▇▆▇");
+		// Change-% is chart-derived (180 → 188 = +4.44%), not the quote's +1.23%.
+		expect(line).toBe("AAPL — $187.42 (+4.44%) today: ▁▂▄▆▇▆▇");
 	});
 
 	it("A flat-alert intraday-since-open sparkline in SMS is prefixed with `since open:` to disambiguate from the prev-close-anchored default", () => {
@@ -129,7 +130,9 @@ describe("A subscriber receiving a notification sees a label naming the sparklin
 			window: "intraday-since-open",
 		};
 		const line = formatAssetTextLine(asset, price, sparkline);
-		expect(line).toBe("AAPL — $187.42 (+1.23%) since open: ▁▂▄▆▇▆▇");
+		// Change-% follows the since-open chart (180 → 188 = +4.44%) so the
+		// number beside the chart always matches its direction.
+		expect(line).toBe("AAPL — $187.42 (+4.44%) since open: ▁▂▄▆▇▆▇");
 	});
 
 	it("A 7-day sparkline in email HTML carries a `Past 7 trading days:` label next to the SVG", () => {
@@ -206,6 +209,12 @@ describe("A subscriber receiving a notification sees a label naming the sparklin
 		const html = formatAssetHtmlLine(asset, price, sparkline);
 		expect(html).toContain("Today since open:");
 		expect(html).toContain("data:image/svg+xml;base64,");
+		// Display % follows the since-open chart (180 → 188 = +4.44%) in green,
+		// not the quote's +1.23% — the email path must stay in lockstep with the
+		// chart for this window too (hit in production when prevClose is missing).
+		expect(html).toContain("(+4.44%)");
+		expect(html).not.toContain("1.23%");
+		expect(html).toContain("color: #166534");
 	});
 
 	it("No sparkline data → no label appears in SMS", () => {
@@ -257,13 +266,54 @@ describe("No-session-trade rendering distinguishes inactive tickers from fetch f
 	});
 });
 
+describe("Change-% beside an intraday chart derives from the chart itself, never a diverging vendor field", () => {
+	// 2026-06-11 LDOS incident: Massive's `todaysChangePerc` (-0.06%, computed
+	// from its own lagging trade feed) disagreed in sign with the displayed
+	// price vs prev close (122.24 vs 121.69 = +0.45%). The chart — anchored at
+	// prev close and ending at the live price — rendered green while the
+	// headline % rendered red. The % shown next to a chart must come from the
+	// same series endpoints that color the chart.
+	const asset = { symbol: "LDOS", name: "Leidos Holdings" };
+	const quote = { price: 122.24, changePercent: -0.06, prevClose: 121.69 };
+	const sparkline: SparklineData = {
+		// [prev close, ...today's 5-min bars, live snapshot price]
+		values: [121.69, 121.62, 121.95, 121.55, 121.58, 122.24],
+		ascii: "▂▁▅▁▁█",
+		window: "intraday-since-prev-close",
+	};
+
+	it("Email row shows the prev-close-anchored +0.45% in green, matching the green chart", () => {
+		const html = formatAssetHtmlLine(asset, quote, sparkline);
+		expect(html).toContain("(+0.45%)");
+		expect(html).not.toContain("-0.06%");
+		// Headline % cell is green.
+		expect(html).toContain("color: #166534");
+		expect(html).not.toContain("color: #b91c1c");
+		// Chart stroke is the same green.
+		const base64 = html.match(/base64,([^"]+)/)?.[1] ?? "";
+		const svg = Buffer.from(base64, "base64").toString("utf-8");
+		expect(svg).toContain("#166534");
+		expect(svg).not.toContain("#b91c1c");
+	});
+
+	it("SMS row shows the same chart-derived +0.45% beside the ascii sparkline", () => {
+		const line = formatAssetTextLine(asset, quote, sparkline);
+		expect(line).toBe("LDOS — $122.24 (+0.45%) today: ▂▁▅▁▁█");
+	});
+
+	it("Without a sparkline the row falls back to the quote's change-%", () => {
+		const line = formatAssetTextLine(asset, quote, null);
+		expect(line).toBe("LDOS — $122.24 (-0.06%)");
+	});
+});
+
 describe("After-hours change-% rendering", () => {
 	it("A subscriber receiving a 6 PM ET SMS sees the day's prev-close-anchored move (Robinhood-style)", () => {
-		// Headline change-% during after-hours is anchored to yesterday's close
-		// (Massive's todaysChangePerc), matching the convention used by
-		// Robinhood/Yahoo/Apple Stocks. The sparkline is anchored to the same
-		// yesterday's close (prev close prepended to today's bars) so chart
-		// shape and change-% always agree on direction.
+		// Headline change-% during after-hours is anchored to yesterday's close,
+		// matching the convention used by Robinhood/Yahoo/Apple Stocks. The
+		// sparkline is anchored to the same yesterday's close (prev close
+		// prepended to today's bars) so chart shape and change-% always agree
+		// on direction.
 		const line = formatAssetTextLine(
 			{ symbol: "MSFT", name: "Microsoft" },
 			{

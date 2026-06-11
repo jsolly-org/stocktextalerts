@@ -379,10 +379,10 @@ function appendCurrentPriceIfStale(
 /**
  * Fetch intraday sparklines (prev close + today's 5-minute bars to now) for the given symbols.
  *
- * Prepending prev close anchors the chart's first-to-last delta to Massive's
- * `todaysChangePerc` (the prev-close-anchored % we headline in
- * scheduled/digest/price-alert notifications), so the chart's shape and color
- * always agree with the headline %.
+ * Prepending prev close anchors the chart's first-to-last delta to the
+ * prev-close-anchored change-% we headline in scheduled/digest/price-alert
+ * notifications (derived from price vs prevDay.c in `parseSnapshotTicker`),
+ * so the chart's shape and color always agree with the headline %.
  *
  * Symbols without a valid prev close (delisted / fetch miss) get a sparkline
  * built from today's bars only — better than dropping the chart entirely.
