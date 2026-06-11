@@ -34,6 +34,7 @@ import { Client } from "pg";
 
 import { rootLogger } from "../../src/lib/logging";
 import { isLocalHost } from "./is-local-host";
+import { pgSsl } from "./pg-ssl";
 import {
 	CLIENT_ROLES,
 	ENFORCED_FUNCTIONS,
@@ -257,6 +258,7 @@ async function main(): Promise<void> {
 		connectionString: databaseUrl,
 		statement_timeout: DB_STATEMENT_TIMEOUT_MS,
 		connectionTimeoutMillis: DB_STATEMENT_TIMEOUT_MS,
+		ssl: pgSsl(databaseUrl),
 	});
 
 	try {

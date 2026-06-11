@@ -82,7 +82,10 @@ To keep local/CI honest about production grants:
   (documented in `scripts/db/dump-permissions.ts`) covers what a postgres-run
   migration cannot change: `supabase_admin`-owned default ACLs in the local
   image, pg_trgm extension-function grants, and the `public` schema
-  owner-layout difference.
+  owner-layout difference. The prod connection validates TLS against the
+  pinned Supabase CA at `scripts/db/supabase-prod-ca-2021.crt` (root expires
+  2031-04-26); if validation suddenly fails, refresh the cert from Dashboard →
+  Project Settings → Database → SSL Configuration.
 
 **Rule for new RPCs:** every migration that creates a `public` function callable
 via the Data API must include an explicit `GRANT EXECUTE ON FUNCTION ... TO

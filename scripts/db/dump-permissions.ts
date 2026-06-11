@@ -10,11 +10,14 @@
  *
  *   tsx scripts/db/dump-permissions.ts --diff-prod
  *     Dump local (DATABASE_URL) and production (DATABASE_URL_PROD), diff the
- *     two, filter the accepted-noise allowlist below, and exit 1 on residual
+ *     two, filter the accepted-noise rules below, and exit 1 on residual
  *     drift. This is `npm run audit:db-parity`.
  *
  * Accepted noise (cannot be fixed by a postgres-run migration; semantically
- * inert for app objects — see docs/local-supabase.md):
+ * inert for app objects — see docs/local-supabase.md). Each rule is scoped to
+ * the diff side it originates on — `isLocalOnlyNoise` filters local-only lines,
+ * `isProdOnlyNoise` filters prod-only lines — so a noise rule for one side can
+ * never swallow a genuine one-sided grant on the other:
  *   - `default_acl|supabase_admin|...` rows: the local Supabase image ships
  *     broad supabase_admin-owned default ACLs that hosted prod lacks. App
  *     migrations create objects as `postgres`, so these never govern app
@@ -27,6 +30,7 @@
  *     `postgres` directly. Equivalent effective privileges.
  */
 import { Client } from "pg";
+import { pgSsl } from "./pg-ssl";
 
 const QUERIES: string[] = [
 	// 1. public schema ACL (NULL expanded to implicit default)
@@ -153,12 +157,20 @@ const PG_TRGM_FUNCTIONS = [
 	"word_similarity_op",
 ];
 
-function isAcceptedNoise(line: string): boolean {
+// Accepted-noise rules are scoped to the side they are documented for. A rule
+// must only filter the diff side it actually originates on — applying a
+// local-image rule to prodOnly (or vice versa) could silently swallow a genuine
+// one-sided grant that happens to match the prefix, a false-negative in the one
+// gate built to catch privilege drift.
+
+// LOCAL-image artifacts: present locally, absent in hosted prod (see header).
+// `schema|public|postgres|USAGE` is the local half of the public-schema
+// ownership equivalence: local holds CREATE via `pg_database_owner`, so the
+// `postgres` grantee line carries USAGE only.
+function isLocalOnlyNoise(line: string): boolean {
 	if (line.startsWith("default_acl|supabase_admin|")) return true;
 	if (line.startsWith("schema|public|pg_database_owner|")) return true;
-	if (line === "schema|public|postgres|USAGE" || line === "schema|public|postgres|CREATE,USAGE") {
-		return true;
-	}
+	if (line === "schema|public|postgres|USAGE") return true;
 	if (line.startsWith("func|")) {
 		const name = line.slice("func|".length).split("(")[0] ?? "";
 		if (PG_TRGM_FUNCTIONS.includes(name)) return true;
@@ -166,12 +178,20 @@ function isAcceptedNoise(line: string): boolean {
 	return false;
 }
 
+// PROD-side artifact: the prod half of the same equivalence — hosted prod owns
+// `public` via `postgres` directly, so the `postgres` grantee line carries
+// CREATE,USAGE. Exact-match (not prefix) so a genuine prod-only grant can't hide
+// behind it.
+function isProdOnlyNoise(line: string): boolean {
+	return line === "schema|public|postgres|CREATE,USAGE";
+}
+
 async function dump(connectionString: string): Promise<string[]> {
 	const client = new Client({
 		connectionString,
 		statement_timeout: 15_000,
 		connectionTimeoutMillis: 15_000,
-		ssl: connectionString.includes("127.0.0.1") ? undefined : { rejectUnauthorized: false },
+		ssl: pgSsl(connectionString),
 	});
 	await client.connect();
 	try {
@@ -201,8 +221,8 @@ async function diffProd(): Promise<void> {
 	const localSet = new Set(localLines);
 	const prodSet = new Set(prodLines);
 
-	const localOnly = localLines.filter((line) => !prodSet.has(line) && !isAcceptedNoise(line));
-	const prodOnly = prodLines.filter((line) => !localSet.has(line) && !isAcceptedNoise(line));
+	const localOnly = localLines.filter((line) => !prodSet.has(line) && !isLocalOnlyNoise(line));
+	const prodOnly = prodLines.filter((line) => !localSet.has(line) && !isProdOnlyNoise(line));
 
 	if (localOnly.length === 0 && prodOnly.length === 0) {
 		process.stdout.write(
