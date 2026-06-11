@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchCompanyNews } from "../../src/lib/providers/company-news";
 import { fetchFinnhubExtras, finnhubFetch } from "../../src/lib/providers/finnhub";
 import {
@@ -21,13 +21,31 @@ import {
 } from "../../src/lib/providers/price-fetcher";
 import { vendorFetchLiveTestTimeoutMs } from "../../src/lib/providers/vendor-fetch";
 import { assertLiveProviderKey, isLiveProviderEnabled } from "../helpers/live-api";
-import { expectConsoleError } from "../setup";
+import { expectConsoleError, expectConsoleWarning } from "../setup";
 
 const describeMassiveLive = isLiveProviderEnabled("massive") ? describe : describe.skip;
 const describeFinnhubLive = isLiveProviderEnabled("finnhub") ? describe : describe.skip;
 
+// Emulate the prod path. A live vendor call retries up to the worst-case budget
+// (~89s) before giving up, so give every test in this file that same budget —
+// otherwise a slow-but-recoverable attempt trips vitest's default 30s timeout
+// before the retry that would have succeeded. Per-test `timeout:` overrides are
+// no longer needed; this is the single source of truth.
+vi.setConfig({ testTimeout: vendorFetchLiveTestTimeoutMs() });
+
 describeMassiveLive("Massive live API (opt-in)", () => {
 	assertLiveProviderKey({ provider: "massive", envVar: "MASSIVE_API_KEY" });
+
+	// Emulate the prod path: transient per-attempt failures log at `warn` and the
+	// client retries (the next attempt may recover), so a transient retry warn is
+	// benign and must not fail the test. Scope this to the retry messages only —
+	// `parseMarketSession` also emits `Massive …` warns for corrupt market-status
+	// payloads, which are real upstream contract drift the live suite must still
+	// catch. A final-retry `error` still fails too — via the console-error guard
+	// and the assertions below.
+	beforeEach(() => {
+		expectConsoleWarning(/^Massive .+ (request failed|API error|rate limited \(429\))$/);
+	});
 
 	it("returns a real SPIT price from the prev-close endpoint", async () => {
 		const payload = await marketDataFetch(
@@ -234,9 +252,7 @@ describeMassiveLive("Massive live API (opt-in)", () => {
 	});
 
 	// fetchEarnings delegates to Finnhub; skip when only Massive is enabled.
-	it("Upcoming earnings events are available through the canonical earnings feed.", {
-		timeout: vendorFetchLiveTestTimeoutMs(),
-	}, async () => {
+	it("Upcoming earnings events are available through the canonical earnings feed.", async () => {
 		if (!isLiveProviderEnabled("finnhub")) return;
 		const from = new Date().toISOString().slice(0, 10);
 		const to = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -417,9 +433,7 @@ describeFinnhubLive("Finnhub live API (opt-in)", () => {
 		expect(typeof analystData?.period).toBe("string");
 	});
 
-	it("returns insider transactions without error", {
-		timeout: vendorFetchLiveTestTimeoutMs(),
-	}, async () => {
+	it("returns insider transactions without error", async () => {
 		const result = await fetchFinnhubExtras(["AAPL"], {
 			includeNews: false,
 			includeAnalyst: false,
@@ -431,9 +445,7 @@ describeFinnhubLive("Finnhub live API (opt-in)", () => {
 		// Insider transactions may be empty for recent 24h window; just verify no error
 	});
 
-	it("returns an earnings calendar payload for current date range", {
-		timeout: vendorFetchLiveTestTimeoutMs(),
-	}, async () => {
+	it("returns an earnings calendar payload for current date range", async () => {
 		const from = new Date().toISOString().slice(0, 10);
 		const to = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
