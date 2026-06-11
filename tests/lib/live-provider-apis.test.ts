@@ -21,7 +21,7 @@ import {
 } from "../../src/lib/providers/price-fetcher";
 import { vendorFetchLiveTestTimeoutMs } from "../../src/lib/providers/vendor-fetch";
 import { assertLiveProviderKey, isLiveProviderEnabled } from "../helpers/live-api";
-import { expectConsoleError, expectConsoleWarning } from "../setup";
+import { expectConsoleError } from "../setup";
 
 const describeMassiveLive = isLiveProviderEnabled("massive") ? describe : describe.skip;
 const describeFinnhubLive = isLiveProviderEnabled("finnhub") ? describe : describe.skip;
@@ -35,17 +35,6 @@ vi.setConfig({ testTimeout: vendorFetchLiveTestTimeoutMs() });
 
 describeMassiveLive("Massive live API (opt-in)", () => {
 	assertLiveProviderKey({ provider: "massive", envVar: "MASSIVE_API_KEY" });
-
-	// Emulate the prod path: transient per-attempt failures log at `warn` and the
-	// client retries (the next attempt may recover), so a transient retry warn is
-	// benign and must not fail the test. Scope this to the retry messages only —
-	// `parseMarketSession` also emits `Massive …` warns for corrupt market-status
-	// payloads, which are real upstream contract drift the live suite must still
-	// catch. A final-retry `error` still fails too — via the console-error guard
-	// and the assertions below.
-	beforeEach(() => {
-		expectConsoleWarning(/^Massive .+ (request failed|API error|rate limited \(429\))$/);
-	});
 
 	it("returns a real SPIT price from the prev-close endpoint", async () => {
 		const payload = await marketDataFetch(

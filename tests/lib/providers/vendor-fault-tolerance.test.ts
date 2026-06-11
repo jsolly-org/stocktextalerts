@@ -9,7 +9,6 @@ import {
 	resetOptionalVendorCircuitsForTests,
 	withOptionalVendorBudget,
 } from "../../../src/lib/providers/vendor-fault-tolerance";
-import { expectConsoleWarning } from "../../setup";
 
 describe("vendor-fault-tolerance", () => {
 	afterEach(() => {
@@ -31,7 +30,6 @@ describe("vendor-fault-tolerance", () => {
 	});
 
 	it("withOptionalVendorBudget skips when budget is exceeded", async () => {
-		expectConsoleWarning(/Optional vendor skipped: slow-vendor/);
 		vi.useFakeTimers();
 		const pending = withOptionalVendorBudget("slow-vendor", 10, async () => {
 			await new Promise(() => {});
@@ -46,7 +44,6 @@ describe("vendor-fault-tolerance", () => {
 	});
 
 	it("opens circuit after repeated failures and recovers on success", async () => {
-		expectConsoleWarning(/Optional vendor skipped: circuit-test/);
 		recordOptionalVendorFailure("circuit-test");
 		expect(isOptionalVendorUnavailable("circuit-test")).toBe(false);
 		recordOptionalVendorFailure("circuit-test");

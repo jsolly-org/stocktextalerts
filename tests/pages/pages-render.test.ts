@@ -25,7 +25,6 @@ import TermsPage from "../../src/pages/terms.astro";
 import { TEST_PASSWORD } from "../helpers/constants";
 import { createAuthenticatedCookies } from "../helpers/test-env";
 import { cleanupTestUser, createTestEmail, createTestUser } from "../helpers/test-user";
-import { expectConsoleWarning } from "../setup";
 
 function buildRequest(path: string, cookies?: Map<string, string>) {
 	const headers = new Headers();
@@ -49,7 +48,6 @@ describe("Users can load pages without unexpected errors.", () => {
 	});
 
 	afterEach(() => {
-		expectConsoleWarning(/^Cleanup failed/);
 		vi.unstubAllEnvs();
 	});
 

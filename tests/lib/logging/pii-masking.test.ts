@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { rootLogger } from "../../../src/lib/logging";
-import { errorSpy, expectConsoleError, expectConsoleWarning, warnSpy } from "../../setup";
+import { errorSpy, expectConsoleError, warnSpy } from "../../setup";
 
 describe("Sensitive user data is masked in logs.", () => {
 	let infoSpy: ReturnType<typeof vi.spyOn>;
@@ -28,7 +28,6 @@ describe("Sensitive user data is masked in logs.", () => {
 
 	it("When masking is enabled, email and phone are redacted in warning logs.", () => {
 		vi.stubEnv("LOG_MASK_PII", "true");
-		expectConsoleWarning(/^Contact/);
 		warnSpy.mockClear();
 
 		rootLogger.warn("Contact test@example.com", { phone: "+1 (415) 555-1234" });

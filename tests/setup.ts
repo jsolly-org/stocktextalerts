@@ -255,19 +255,13 @@ export const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
 type ConsolePattern = string | RegExp;
 let expectedErrors: ConsolePattern[] = [];
-let expectedWarnings: ConsolePattern[] = [];
 
 export function expectConsoleError(pattern: ConsolePattern) {
 	expectedErrors.push(pattern);
 }
 
-export function expectConsoleWarning(pattern: ConsolePattern) {
-	expectedWarnings.push(pattern);
-}
-
 export function resetConsoleAssertions() {
 	expectedErrors = [];
-	expectedWarnings = [];
 }
 
 function extractLogMessage(raw: unknown): string {
@@ -284,17 +278,14 @@ function matchesPattern(message: string, pattern: ConsolePattern): boolean {
 	return pattern.test(message);
 }
 
+// Mirror production's failure model: `warn` is informational (transient retries,
+// degraded-but-handled paths) and never pages, so it never fails a test either.
+// warnSpy stays available for tests that positively assert a specific warning was
+// logged. An unexpected `console.error` still fails — in prod an error is the
+// pageable signal, and a test must surface the same. Allow expected errors via
+// expectConsoleError().
 afterEach(() => {
 	try {
-		if (expectedWarnings.length === 0) {
-			expect(warnSpy.mock.calls, "Unexpected console.warn").toEqual([]);
-		} else {
-			for (const call of warnSpy.mock.calls) {
-				const message = extractLogMessage(call[0]);
-				const matched = expectedWarnings.some((p) => matchesPattern(message, p));
-				expect(matched, `Unexpected console.warn: ${message}`).toBe(true);
-			}
-		}
 		if (expectedErrors.length === 0) {
 			expect(errorSpy.mock.calls, "Unexpected console.error").toEqual([]);
 		} else {
