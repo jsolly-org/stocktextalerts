@@ -43,7 +43,6 @@
 					sr-label="Use 24-hour time"
 					aria-labelledby="use_24_hour_time_label"
 					aria-describedby="use_24_hour_time_description"
-					:disabled="isSaving"
 				/>
 			</div>
 		</div>
@@ -51,9 +50,10 @@
 </template>
 
 <script lang="ts" setup>
-import { nextTick, ref, watch } from "vue";
+import { ref, watch } from "vue";
 
 import ClockIcon from "../../icons/clock.svg?component";
+import { createSaveSequencer, type SequencedResult } from "../../lib/async/save-sequencer";
 import { CARD_GRADIENT_ACCENTS } from "../../lib/constants";
 import type { User } from "../../lib/db";
 import { rootLogger } from "../../lib/logging";
@@ -67,57 +67,69 @@ interface Props {
 const props = defineProps<Props>();
 
 const use24HourTime = ref(props.user.use_24_hour_time ?? false);
-const isSaving = ref(false);
-const isReverting = ref(false);
+// Last value the server acknowledged — the revert target if a save fails.
+let confirmedValue = props.user.use_24_hour_time ?? false;
+// Suppresses the watch while we programmatically revert the toggle.
+let applyingProgrammaticValue = false;
 const statusMessage = ref<string | null>(null);
 const statusTone = ref<"success" | "error">("success");
 
+// Last-write-wins: a newer toggle aborts and supersedes the in-flight save, so a
+// stale/out-of-order response can never flip the switch back to an old value.
+const sequencer = createSaveSequencer();
+
 watch(use24HourTime, () => {
-	if (isReverting.value) return;
+	if (applyingProgrammaticValue) return;
 	void saveTimeFormat();
 });
 
 async function saveTimeFormat() {
-	isSaving.value = true;
+	const intended = use24HourTime.value;
 	statusMessage.value = null;
 
+	let outcome: SequencedResult<{ ok: boolean }>;
 	try {
-		const formData = new FormData();
-		formData.set("use_24_hour_time", use24HourTime.value ? "on" : "off");
-
-		const response = await fetch("/api/profile/time-format", {
-			method: "POST",
-			body: formData,
+		outcome = await sequencer.run(async (signal) => {
+			const formData = new FormData();
+			formData.set("use_24_hour_time", intended ? "on" : "off");
+			const response = await fetch("/api/profile/time-format", {
+				method: "POST",
+				body: formData,
+				signal,
+			});
+			const data = await response.json();
+			return { ok: response.ok && data.ok };
 		});
-
-		const data = await response.json();
-
-		if (!response.ok || !data.ok) {
-			statusMessage.value = "Failed to update time format. Please try again.";
-			statusTone.value = "error";
-			isReverting.value = true;
-			use24HourTime.value = !use24HourTime.value;
-			await nextTick();
-			isReverting.value = false;
-			return;
-		}
-
-		statusMessage.value = "Time format updated.";
-		statusTone.value = "success";
 	} catch (error) {
+		// Only the latest request's genuine failure reaches here — superseded
+		// saves resolve to "aborted"/"superseded" instead of throwing.
 		rootLogger.error(
 			"Failed to update time format from profile",
 			{ action: "update_time_format" },
 			error,
 		);
-		statusMessage.value = "Failed to update time format. Please try again.";
-		statusTone.value = "error";
-		isReverting.value = true;
-		use24HourTime.value = !use24HourTime.value;
-		await nextTick();
-		isReverting.value = false;
-	} finally {
-		isSaving.value = false;
+		revertTo(confirmedValue, "Failed to update time format. Please try again.");
+		return;
 	}
+
+	// A newer toggle superseded this save — it owns the final state; do nothing.
+	if (outcome.status !== "applied") return;
+
+	if (outcome.value.ok) {
+		confirmedValue = intended;
+		statusMessage.value = "Time format updated.";
+		statusTone.value = "success";
+	} else {
+		revertTo(confirmedValue, "Failed to update time format. Please try again.");
+	}
+}
+
+/** Programmatically set the toggle without re-triggering a save, and show an error. */
+function revertTo(value: boolean, message: string) {
+	applyingProgrammaticValue = true;
+	use24HourTime.value = value;
+	applyingProgrammaticValue = false;
+	statusMessage.value = message;
+	statusTone.value = "error";
 }
 </script>
