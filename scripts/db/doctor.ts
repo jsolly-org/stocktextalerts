@@ -35,6 +35,12 @@ import { Client } from "pg";
 
 import { rootLogger } from "../../src/lib/logging";
 import { isLocalHost } from "./is-local-host";
+import {
+	isLinkedWorktree,
+	symlinkedNodeModulesMessage,
+	unprovisionedWorktreeMessage,
+	worktreeSupabaseProvisioned,
+} from "./worktree";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, "..", "..");
@@ -173,6 +179,21 @@ async function checkSeedUsersExist(
 }
 
 async function main(): Promise<void> {
+	// Worktree provisioning preflight — fail early with an actionable hint rather than letting a
+	// symlinked node_modules or an unprovisioned worktree surface as a Vite 403 / confusing seed error.
+	const nodeModules = path.join(projectRoot, "node_modules");
+	const nodeModulesIsSymlink =
+		fs.existsSync(nodeModules) && fs.lstatSync(nodeModules).isSymbolicLink();
+	const provisioningError =
+		symlinkedNodeModulesMessage(nodeModulesIsSymlink) ??
+		unprovisionedWorktreeMessage(isLinkedWorktree(), worktreeSupabaseProvisioned());
+	if (provisioningError !== null) {
+		rootLogger.error("db:doctor — worktree not provisioned", { action: "db_doctor" });
+		process.stderr.write(`${provisioningError}\n`);
+		process.exitCode = 1;
+		return;
+	}
+
 	const supabaseUrl = process.env.SUPABASE_URL;
 
 	if (!supabaseUrl) {

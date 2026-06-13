@@ -15,6 +15,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parse, stringify } from "smol-toml";
 
 import { rootLogger } from "../../src/lib/logging";
+import { findMainWorktreeRoot } from "./worktree";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, "..", "..");
@@ -45,30 +46,6 @@ type WorktreeMeta = {
 	projectId: string;
 	ports: WorktreePorts;
 };
-
-function findMainWorktreeRoot(): string | null {
-	let gitDir: string;
-	let gitCommonDir: string;
-	try {
-		gitDir = execFileSync("git", ["rev-parse", "--git-dir"], {
-			cwd: projectRoot,
-			encoding: "utf8",
-		}).trim();
-		gitCommonDir = execFileSync("git", ["rev-parse", "--git-common-dir"], {
-			cwd: projectRoot,
-			encoding: "utf8",
-		}).trim();
-	} catch {
-		return null;
-	}
-
-	const absoluteGitDir = path.resolve(projectRoot, gitDir);
-	const absoluteCommonDir = path.resolve(projectRoot, gitCommonDir);
-	if (absoluteGitDir === absoluteCommonDir) {
-		return null;
-	}
-	return path.dirname(absoluteCommonDir);
-}
 
 function worktreeSlug(): string {
 	const branch = execFileSync("git", ["branch", "--show-current"], {

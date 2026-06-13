@@ -21,44 +21,17 @@
  * Wired into `db:bootstrap` so it runs once per worktree on first setup.
  */
 
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { rootLogger } from "../../src/lib/logging";
+import { findMainWorktreeRoot } from "./worktree";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, "..", "..");
 
 const FILES_TO_LINK = [".env.local", "scripts/data/users.json"];
-
-function findMainWorktreeRoot(): string | null {
-	let gitDir: string;
-	let gitCommonDir: string;
-	try {
-		gitDir = execFileSync("git", ["rev-parse", "--git-dir"], {
-			cwd: projectRoot,
-			encoding: "utf8",
-		}).trim();
-		gitCommonDir = execFileSync("git", ["rev-parse", "--git-common-dir"], {
-			cwd: projectRoot,
-			encoding: "utf8",
-		}).trim();
-	} catch {
-		return null;
-	}
-
-	const absoluteGitDir = path.resolve(projectRoot, gitDir);
-	const absoluteCommonDir = path.resolve(projectRoot, gitCommonDir);
-	if (absoluteGitDir === absoluteCommonDir) {
-		// Not in a linked worktree — git-dir IS the main repo's .git.
-		return null;
-	}
-
-	// Common-dir is the main repo's .git/; its parent is the main worktree root.
-	return path.dirname(absoluteCommonDir);
-}
 
 function alreadyExists(targetPath: string): boolean {
 	try {

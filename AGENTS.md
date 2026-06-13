@@ -11,6 +11,7 @@ npm run check:biome        # Biome format + lint check
 npm run db:start           # Start local Supabase (Docker/Podman)
 npm run db:reset           # Reset DB: regenerate seed, apply migrations, regen types
 npm run db:bootstrap       # Canonical first-run / "reset everything": link-worktree-data + worktree-setup + db:start + db:reset + db:doctor
+npm run worktree:init      # FIRST thing in a fresh worktree: real npm ci ($TMPDIR cache) + db:bootstrap
 npm run db:doctor          # Preflight: auth reachable + seed user login probe (~300ms)
 npm run db:gen-types       # Regenerate src/lib/db/generated/database.types.ts
 supabase migration new <name>  # Create new migration (never rename timestamps)
@@ -74,6 +75,7 @@ Supabase/Docker bootstrap on cloud VMs: `docs/cloud-supabase-bootstrap.md`.
 - `formatPriceAlertSms` is **async** (shortens Grok link URLs via the `short_urls` table). Mock supabase for it must include a `.from().select().eq().gt().limit().single()` chain for the shortener dedup lookup. All other SMS formatters are sync.
 - **Live API tests**: `npm run test:live:email`, `test:live:data`, `test:live:xai`, `test:live:all`. Always reproduce live test failures locally before fixing.
 - **Test concurrency lock:** `npm test` and `npm run test:e2e` acquire a per-repo lock at `<git-common-dir>/test.lock` (cross-worktree). If another worktree is already running tests, the second invocation fails fast with a message identifying the holder. Stale locks (dead PID) are taken over silently. Force-clear with `rm $(git rev-parse --git-common-dir)/test.lock` if you're sure the holder is dead.
+- **Fresh worktree?** Run `npm run worktree:init` before anything else — a new worktree branches from `origin/main` and lacks gitignored `.env.local` + `scripts/data/users.json` and `node_modules`. It does a real `npm ci` (never symlink `node_modules` — Vite `server.fs.allow` 403s on a symlink) and `db:bootstrap` (isolated Supabase stack written into the worktree's own `config.toml`, `skip-worktree`'d). `db:reset`/`db:doctor` **fail closed** until the worktree is provisioned. Tear down with `supabase stop --workdir <path>` before `git worktree remove`. See `docs/local-supabase.md`.
 
 See `docs/testing.md` for the production-credential gating model and Mailpit dev/test routing.
 

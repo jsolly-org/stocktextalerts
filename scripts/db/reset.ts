@@ -11,6 +11,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { isLinkedWorktree, unsafeResetMessage, worktreeSupabaseProvisioned } from "./worktree";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, "..", "..");
 const localSupabaseCli = path.join(projectRoot, "node_modules", ".bin", "supabase");
@@ -26,6 +28,13 @@ function run(command: string, args: string[]): number {
 }
 
 function main(): void {
+	// Fail closed: never let `db:reset` in an unprovisioned linked worktree wipe the shared stack.
+	const refusal = unsafeResetMessage(isLinkedWorktree(), worktreeSupabaseProvisioned());
+	if (refusal !== null) {
+		process.stderr.write(`${refusal}\n`);
+		process.exit(1);
+	}
+
 	const status = run(supabaseExecutable, ["status"]);
 	if (status !== 0) {
 		process.exit(status);

@@ -14,14 +14,16 @@ After machine reinstalls, Podman upgrades, or Supabase CLI upgrades, run `script
 
 Linked git worktrees (`git worktree add …`) each get an isolated local Supabase stack so `db:reset` in one worktree does not wipe another's `auth.users` / seed state.
 
+**Provision a fresh worktree with one command: `npm run worktree:init`** — it does a real `npm ci` (with the cache redirected to `$TMPDIR` so it works inside the command sandbox; never symlink `node_modules` — a symlink resolves outside the worktree root and Vite's `server.fs.allow` then 403s on `@astrojs/vue/dist/client.js`, breaking island hydration) and then `db:bootstrap`.
+
 On first bootstrap in a worktree, `scripts/db/worktree-supabase.ts`:
 
-1. Assigns a stable `project_id` and port block derived from the branch name (`supabase/.worktree/config.toml`, gitignored).
-2. Materializes a worktree-local `.env.local` with matching `SUPABASE_URL`, `DATABASE_URL`, and `EMAIL_SMTP_PORT` (replacing any symlink from `db:link-worktree-data`).
+1. Assigns a stable `project_id` and port block derived from the branch name, written **in-place into the worktree's own `supabase/config.toml`** (via `smol-toml`) and `git update-index --skip-worktree`'d so the edit never diffs or commits. Supabase CLI ≥ 2.105 reads it with **no flag** (the old `--config supabase/.worktree/config.toml` overlay is gone — see `docs/superpowers/plans/2026-06-13-worktree-supabase-cli-fix.md`). A gitignored `supabase/.worktree/meta.json` is the "provisioned" sentinel.
+2. Materializes a worktree-local `.env.local` with matching `SUPABASE_URL`, `DATABASE_URL`, and `EMAIL_SMTP_PORT`.
 
-Main worktree behavior is unchanged. Re-run `npm run db:bootstrap` (or `npm run db:worktree-setup && npm run db:start && npm run db:reset`) after creating a new worktree.
+**Fail-closed in unprovisioned worktrees:** `db:reset` refuses to run (and `db:doctor` errors) in a linked worktree that has no `meta.json` sentinel — otherwise reset would target the shared/main stack (port 54322) and wipe its seed. Run `npm run worktree:init` first.
 
-To tear down a worktree stack: `supabase stop --config supabase/.worktree/config.toml` before `git worktree remove`.
+Main worktree behavior is unchanged. To tear down a worktree stack: `supabase stop --workdir <worktree-path>` (the `--config` flag was removed in CLI 2.105) before `git worktree remove`. Because `config.toml` is `skip-worktree`'d in the worktree, it won't pick up upstream `config.toml` changes there — re-run `npm run db:worktree-setup` after a long-lived worktree merges such a change.
 
 ## Seed hardening
 
