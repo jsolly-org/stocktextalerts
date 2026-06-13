@@ -53,6 +53,26 @@ vi.mock("../../../src/lib/providers/price-fetcher", async () => {
 					]),
 				),
 		),
+		// Deterministic intraday sparkline so the prev-close-anchored headline
+		// change-% (the sparkline's first->last delta) is stable in every mode.
+		// Endpoints 148.5 -> 150 = +1.01%, matching the mocked prevClose/price
+		// above. Without this, --live=all leaks the real Massive bar fetch in
+		// here: it throws for a simulated pre/after session at the current
+		// wall-clock time, the chart goes empty, and the headline % falls back to
+		// the quote's change-% — breaking the "1.01%" assertions.
+		fetchIntradaySparklines: vi.fn(
+			async (symbols: string[]) =>
+				new Map(
+					symbols.map((s) => [
+						s,
+						{
+							values: [148.5, 149.0, 149.5, 150.0],
+							ascii: "▁▃▅▇",
+							window: "intraday-since-prev-close" as const,
+						},
+					]),
+				),
+		),
 	};
 });
 
