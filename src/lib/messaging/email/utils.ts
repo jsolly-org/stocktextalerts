@@ -21,6 +21,7 @@ import type { AssetPriceMap, MarketSession } from "../../providers/price-fetcher
 import { NO_SESSION_TRADE } from "../../providers/price-fetcher";
 import { isProduction } from "../../runtime/mode";
 import { escapeHtml, formatAssetsHtmlList } from "../asset-formatting";
+import { withDeliveryRetry } from "../delivery-retry";
 import { buildMarketClosedBannerHtml, buildMarketClosedBannerText } from "../market-closure-banner";
 import type { DeliveryResult, EmailFormatContext, EmailUser, UserAssetRow } from "../types";
 
@@ -116,47 +117,47 @@ export function createEmailSender(): EmailSender {
 	}
 
 	// 3. Production: real SES via the default credential chain (Lambda execution role).
+	// maxAttempts: 1 — retries are delegated to withDeliveryRetry so they aren't multiplied.
 	const sesClient = new SESv2Client({
 		region: readEnv("AWS_REGION") || "us-east-1",
+		maxAttempts: 1,
 	});
 
-	return async ({ to, subject, body, html, replyTo, userId }) => {
-		try {
-			const replyToValue = replyTo || defaultReplyTo;
-			const command = new SendEmailCommand({
-				FromEmailAddress: fromEmail,
-				Destination: { ToAddresses: [to] },
-				ReplyToAddresses: replyToValue ? [replyToValue] : undefined,
-				Content: {
-					Simple: {
-						Subject: { Data: subject, Charset: "UTF-8" },
-						Body: {
-							Text: { Data: body, Charset: "UTF-8" },
-							Html: {
-								Data: html ?? escapeHtml(body),
-								Charset: "UTF-8",
+	return async ({ to, subject, body, html, replyTo }) =>
+		withDeliveryRetry(
+			async () => {
+				try {
+					const replyToValue = replyTo || defaultReplyTo;
+					const command = new SendEmailCommand({
+						FromEmailAddress: fromEmail,
+						Destination: { ToAddresses: [to] },
+						ReplyToAddresses: replyToValue ? [replyToValue] : undefined,
+						Content: {
+							Simple: {
+								Subject: { Data: subject, Charset: "UTF-8" },
+								Body: {
+									Text: { Data: body, Charset: "UTF-8" },
+									Html: { Data: html ?? escapeHtml(body), Charset: "UTF-8" },
+								},
 							},
 						},
-					},
-				},
-			});
-			await waitForRateLimit();
-			const response = await sesClient.send(command);
-
-			return { success: true, messageSid: response.MessageId };
-		} catch (error) {
-			rootLogger.error(
-				"SES error sending email",
-				{ action: "send_email_notification", userId },
-				error,
-			);
-			return {
-				success: false,
-				error: error instanceof Error ? error.message : String(error),
-				errorCode: error instanceof Error ? error.name : undefined,
-			};
-		}
-	};
+					});
+					await waitForRateLimit();
+					// Per-attempt abort: a hung SES socket can otherwise park the Lambda.
+					const response = await sesClient.send(command, {
+						abortSignal: AbortSignal.timeout(30_000),
+					});
+					return { success: true, messageSid: response.MessageId };
+				} catch (error) {
+					return {
+						success: false,
+						error: error instanceof Error ? error.message : String(error),
+						errorCode: error instanceof Error ? error.name : undefined,
+					};
+				}
+			},
+			{ channel: "email" },
+		);
 }
 
 /**

@@ -7,6 +7,7 @@ import { requireEnv } from "../../db/env";
 import { rootLogger } from "../../logging";
 import { isProduction } from "../../runtime/mode";
 
+import { withDeliveryRetry } from "../delivery-retry";
 import type { DeliveryResult } from "../types";
 
 interface TwilioConfig {
@@ -40,7 +41,9 @@ export function readTwilioConfig(): TwilioConfig {
  * Create a Twilio REST client from validated config.
  */
 export function createTwilioClient(config: TwilioConfig): TwilioClient {
-	return twilio(config.accountSid, config.authToken);
+	// 30s per-request timeout so a hung Twilio API can't park the Lambda.
+	// Retries are handled by withDeliveryRetry, not the SDK.
+	return twilio(config.accountSid, config.authToken, { timeout: 30_000, autoRetry: false });
 }
 
 /**
@@ -86,39 +89,40 @@ export function createSmsSender(client: TwilioClient, defaultFromNumber: string)
 	return async (request: SmsRequest): Promise<DeliveryResult> => {
 		const from = request.from ?? defaultFromNumber;
 
-		try {
-			const message = await client.messages.create({
-				body: request.body,
-				from,
-				to: request.to,
-			});
+		return withDeliveryRetry(
+			async () => {
+				try {
+					const message = await client.messages.create({
+						body: request.body,
+						from,
+						to: request.to,
+					});
+					return { success: true, messageSid: message.sid };
+				} catch (error) {
+					const maskedTo = request.to.slice(-4).padStart(request.to.length, "*");
+					rootLogger.warn("Twilio SMS send attempt failed", {
+						action: "send_sms",
+						from,
+						to: maskedTo,
+						error: error instanceof Error ? error.message : String(error),
+					});
 
-			return {
-				success: true,
-				messageSid: message.sid,
-			};
-		} catch (error) {
-			const maskedTo = request.to.slice(-4).padStart(request.to.length, "*");
-			rootLogger.error("Twilio SMS send error", { action: "send_sms", from, to: maskedTo }, error);
+					if (error instanceof Error && "status" in error && "code" in error) {
+						const twilioError = error as RestException;
+						return {
+							success: false,
+							error: twilioError.message,
+							errorCode: twilioError.code ? String(twilioError.code) : undefined,
+						};
+					}
 
-			// Twilio SDK throws RestException for API errors (HTTP 400-5xx).
-			// RestException has: status (HTTP status), code (numeric Twilio error code),
-			// message, and moreInfo.
-			if (error instanceof Error && "status" in error && "code" in error) {
-				const twilioError = error as RestException;
-				return {
-					success: false,
-					error: twilioError.message,
-					errorCode: twilioError.code ? String(twilioError.code) : undefined,
-				};
-			}
-
-			const errorMessage = error instanceof Error ? error.message : "Failed to send SMS";
-
-			return {
-				success: false,
-				error: errorMessage,
-			};
-		}
+					return {
+						success: false,
+						error: error instanceof Error ? error.message : "Failed to send SMS",
+					};
+				}
+			},
+			{ channel: "sms" },
+		);
 	};
 }
