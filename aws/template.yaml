@@ -54,6 +54,10 @@ Parameters:
     Type: String
     Default: unknown
     Description: Git SHA (short) baked into each Lambda at deploy time
+  BackupConnectionSsmParam:
+    Type: String
+    Default: /stocktextalerts/backup/connection-string
+    Description: SSM SecureString param name holding the backup_readonly connection string
 
 Globals:
   Function:
@@ -521,6 +525,53 @@ Resources:
       OKActions:
         - !Ref AlertTopicArn
 
+  BackupUserSettingsFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Format: cjs
+        Target: node24
+        Sourcemap: true
+        EntryPoints:
+          - backup-user-settings.ts
+    Properties:
+      FunctionName: stocktextalerts-backup-user-settings
+      Handler: backup-user-settings.handler
+      CodeUri: src/handlers
+      Timeout: 120
+      MemorySize: 256
+      LoggingConfig:
+        LogGroup: !Ref BackupUserSettingsLogGroup
+      Environment:
+        Variables:
+          BACKUP_BUCKET: !Ref ProdBackupsBucket
+          BACKUP_CONNECTION_SSM_PARAM: !Ref BackupConnectionSsmParam
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub "${ProdBackupsBucket.Arn}/user-settings/*"
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${BackupConnectionSsmParam}"
+            - Effect: Allow
+              Action: kms:Decrypt
+              Resource: !Sub "arn:aws:kms:${AWS::Region}:${AWS::AccountId}:alias/aws/ssm"
+            - Effect: Allow
+              Action: cloudwatch:PutMetricData
+              Resource: "*"
+      Events:
+        FiveTimesDaily:
+          Type: ScheduleV2
+          Properties:
+            # 02:00, 07:00, 12:00, 17:00, 22:00 UTC
+            ScheduleExpression: "cron(0 2,7,12,17,22 * * ? *)"
+            State: ENABLED
+            RoleArn: !GetAtt StockTextAlertsSchedulerRole.Arn
+
   # ---------- Lambda Log Groups ----------
   # Explicit log groups with 30-day retention, named after each Lambda's
   # FunctionName so the shared-infra enricher's prefix discovery
@@ -554,6 +605,12 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: /aws/lambda/stocktextalerts-vendor-backfill
+      RetentionInDays: 30
+
+  BackupUserSettingsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/stocktextalerts-backup-user-settings
       RetentionInDays: 30
 
   # ---------- Error Log Metric Filters ----------
@@ -606,6 +663,17 @@ Resources:
     Type: AWS::Logs::MetricFilter
     Properties:
       LogGroupName: !Ref VendorBackfillLogGroup
+      FilterPattern: '{ $.level = "error" }'
+      MetricTransformations:
+        - MetricNamespace: stocktextalerts
+          MetricName: ErrorLogCount
+          MetricValue: "1"
+          DefaultValue: 0
+
+  BackupUserSettingsErrorLogFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref BackupUserSettingsLogGroup
       FilterPattern: '{ $.level = "error" }'
       MetricTransformations:
         - MetricNamespace: stocktextalerts
@@ -835,6 +903,45 @@ Resources:
       OKActions:
         - !Ref AlertTopicArn
 
+  BackupUserSettingsFunctionErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: stocktextalerts-backup-user-settings-lambda-errors
+      AlarmDescription: BackupUserSettingsFunction threw / timed out / OOMed
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref BackupUserSettingsFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopicArn
+      OKActions:
+        - !Ref AlertTopicArn
+
+  BackupUserSettingsStaleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: stocktextalerts-backup-user-settings-stale
+      AlarmDescription: No successful user-settings backup in the last 6 hours
+      Namespace: stocktextalerts/Backup
+      MetricName: BackupSuccess
+      Statistic: Sum
+      Period: 21600
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions:
+        - !Ref AlertTopicArn
+      OKActions:
+        - !Ref AlertTopicArn
+
   # Prod database backups. Manual uploads via `aws s3 cp` after pg_dump.
   # Versioning is on so an accidental overwrite is recoverable.
   # Retain on stack delete to avoid losing data.
@@ -879,6 +986,10 @@ Resources:
             Status: Enabled
             AbortIncompleteMultipartUpload:
               DaysAfterInitiation: 7
+          - Id: ExpireUserSettings30Days
+            Status: Enabled
+            Prefix: user-settings/
+            ExpirationInDays: 30
 
 Outputs:
   EmailDispatchFunctionUrl:
