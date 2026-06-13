@@ -2,6 +2,7 @@ import type { AstroCookies } from "astro";
 import { isApprovedAtValue } from "../auth/approval";
 import { setAuthCookies } from "../auth/cookies";
 import { rootLogger } from "../logging";
+import { getApprovalCached } from "./approval-cache";
 import type { Database } from "./generated/database.types";
 import type { AppSupabaseClient } from "./supabase";
 
@@ -147,20 +148,23 @@ export function createUserService(supabase: AppSupabaseClient, cookies: AstroCoo
 				return authUser;
 			}
 
-			const { data: dbUser, error: dbUserError } = await supabase
-				.from("users")
-				.select("approved_at")
-				.eq("id", authUser.id)
-				.maybeSingle();
-			if (dbUserError) {
-				rootLogger.error("approval lookup failed", {
-					error: dbUserError.message,
-					userId: authUser.id,
-				});
-				return null;
-			}
+			const approved = await getApprovalCached(authUser.id, async () => {
+				const { data: dbUser, error: dbUserError } = await supabase
+					.from("users")
+					.select("approved_at")
+					.eq("id", authUser.id)
+					.maybeSingle();
+				if (dbUserError) {
+					rootLogger.error("approval lookup failed", {
+						error: dbUserError.message,
+						userId: authUser.id,
+					});
+					return false;
+				}
+				return isApprovedAtValue(dbUser?.approved_at ?? null);
+			});
 
-			if (!isApprovedAtValue(dbUser?.approved_at ?? null)) {
+			if (!approved) {
 				return null;
 			}
 
