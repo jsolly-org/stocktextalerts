@@ -55,7 +55,6 @@ import {
 	type ExtendedQuoteMap,
 	fetchAssetPricesWithSessionState,
 	fetchExtendedQuotes,
-	getCurrentMarketSession,
 	type MarketSession,
 } from "../providers/price-fetcher";
 import { deliverStagedNotifications } from "../staged-notifications/deliver";
@@ -70,6 +69,7 @@ import {
 	USER_PROCESS_BATCH_SIZE,
 	type UserAssetsMap,
 } from "./helpers";
+import { resolveMarketSessionWithFallback } from "./market-session";
 import { createSmsSenderProvider } from "./sms-sender";
 
 /** Daily fan-out batch size for dispatching digest processing. */
@@ -461,16 +461,15 @@ export async function runScheduledNotifications(options: {
 
 	// Resolve market session once per scheduler invocation — passed to price alerts,
 	// both fallback passes, and precompute to avoid redundant Massive status calls.
-	let schedulerMarketSession: MarketSession = "closed";
-	try {
-		schedulerMarketSession = await getCurrentMarketSession();
-	} catch (error) {
-		logger.error(
-			"Failed to resolve market session (aborting schedule run)",
-			{ action: "market_session" },
-			error,
-		);
-		throw error;
+	// Degrades to the last-known-good session (or "closed") on a Massive blip so a
+	// transient vendor failure can't abort the entire per-minute run.
+	const { session: schedulerMarketSession, degraded: marketSessionDegraded } =
+		await resolveMarketSessionWithFallback();
+	if (marketSessionDegraded) {
+		logger.warn("Market session resolution degraded (using cached/closed fallback)", {
+			action: "market_session",
+			session: schedulerMarketSession,
+		});
 	}
 
 	// Run price alerts first — this also returns an extended quote map
