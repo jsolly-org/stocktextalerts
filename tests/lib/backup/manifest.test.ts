@@ -1,0 +1,16 @@
+import { describe, expect, it } from "vitest";
+import { buildManifest } from "../../../src/lib/backup/manifest";
+
+describe("buildManifest", () => {
+	it("captures timestamp, schema version, and per-table row counts", () => {
+		const m = buildManifest({
+			takenAt: "2026-06-13T12:00:00.000Z",
+			schemaVersion: "20260613121934_email_dispatch_idempotency",
+			rowCounts: { "public.users": 3, "public.user_assets": 7 },
+		});
+		expect(m.taken_at).toBe("2026-06-13T12:00:00.000Z");
+		expect(m.schema_version).toBe("20260613121934_email_dispatch_idempotency");
+		expect(m.row_counts["public.users"]).toBe(3);
+		expect(m.format).toBe("pg-copy-text-v1");
+	});
+});
