@@ -1,12 +1,11 @@
 import type { APIRoute } from "astro";
 import twilio from "twilio";
-import { getSiteUrl } from "../../../lib/db/env";
+import { getSiteUrl, requireEnv } from "../../../lib/db/env";
 import { createSupabaseAdminClient } from "../../../lib/db/supabase";
 import { parseWithSchema } from "../../../lib/forms/parse";
 import type { FormSchema } from "../../../lib/forms/schema";
 import { createLogger } from "../../../lib/logging";
 import { handleInboundSms } from "../../../lib/messaging/sms/inbound-utils";
-import { readTwilioConfig } from "../../../lib/messaging/sms/twilio-utils";
 
 const MEDIA_SLOT_COUNT = 10;
 
@@ -102,7 +101,10 @@ export const POST: APIRoute = async ({ url, request, locals }) => {
 		}
 
 		const supabase = createSupabaseAdminClient();
-		const twilioConfig = readTwilioConfig();
+		// Inbound webhook signature validation is HMAC-keyed on the account
+		// Auth Token — there is no Restricted-key equivalent, so this path
+		// keeps the Auth Token while the senders use a scoped API key.
+		const authToken = requireEnv("TWILIO_AUTH_TOKEN");
 
 		const webhookUrl = buildWebhookUrl(url);
 
@@ -113,7 +115,7 @@ export const POST: APIRoute = async ({ url, request, locals }) => {
 				params: rawParams,
 			},
 			{
-				authToken: twilioConfig.authToken,
+				authToken,
 				validateRequest: twilio.validateRequest,
 				supabase,
 			},

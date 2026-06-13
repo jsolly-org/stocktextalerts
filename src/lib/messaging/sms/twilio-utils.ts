@@ -10,9 +10,10 @@ import { isProduction } from "../../runtime/mode";
 import { withDeliveryRetry } from "../delivery-retry";
 import type { DeliveryResult } from "../types";
 
-interface TwilioConfig {
+interface TwilioSenderConfig {
 	accountSid: string;
-	authToken: string;
+	apiKeySid: string;
+	apiKeySecret: string;
 	phoneNumber: string;
 }
 
@@ -27,23 +28,34 @@ export type SmsSender = (request: SmsRequest) => Promise<DeliveryResult>;
 type TwilioClient = ReturnType<typeof twilio>;
 
 /**
- * Read validated Twilio credentials from environment variables.
+ * Read validated Twilio SENDER credentials from environment variables.
+ *
+ * Uses a Restricted API key (scoped to messages/create), NOT the account
+ * Auth Token. The Auth Token is reserved for inbound webhook signature
+ * validation (see pages/api/messaging/inbound.ts) and is intentionally
+ * absent from sender runtimes (e.g. the Lambda crons).
  */
-export function readTwilioConfig(): TwilioConfig {
+export function readTwilioSenderConfig(): TwilioSenderConfig {
 	return {
 		accountSid: requireEnv("TWILIO_ACCOUNT_SID"),
-		authToken: requireEnv("TWILIO_AUTH_TOKEN"),
+		apiKeySid: requireEnv("TWILIO_API_KEY_SID"),
+		apiKeySecret: requireEnv("TWILIO_API_KEY_SECRET"),
 		phoneNumber: requireEnv("TWILIO_PHONE_NUMBER"),
 	};
 }
 
 /**
- * Create a Twilio REST client from validated config.
+ * Create a Twilio REST client authenticated with a Restricted API key.
  */
-export function createTwilioClient(config: TwilioConfig): TwilioClient {
+export function createTwilioClient(config: TwilioSenderConfig): TwilioClient {
 	// 30s per-request timeout so a hung Twilio API can't park the Lambda.
 	// Retries are handled by withDeliveryRetry, not the SDK.
-	return twilio(config.accountSid, config.authToken, { timeout: 30_000, autoRetry: false });
+	// Restricted API key auth: twilio(apiKeySid, apiKeySecret, { accountSid }).
+	return twilio(config.apiKeySid, config.apiKeySecret, {
+		accountSid: config.accountSid,
+		timeout: 30_000,
+		autoRetry: false,
+	});
 }
 
 /**

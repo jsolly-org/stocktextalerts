@@ -111,8 +111,8 @@ connection (`tests/helpers/asset-db.ts` pattern), not `adminClient`.
 - **`supabase stop` may emit** `failed to prune volumes: "all" is an invalid volume filter`. It's a warning from Podman's Docker-compat shim not recognizing Docker's `all=true` volume filter; safe to ignore.
 - **`podman` on PATH**: the `/opt/podman/bin` install location isn't in the default shell PATH. Add the export above or the `supabase` CLI won't find the podman binary for its auxiliary commands.
 
-## CI stays on Docker
+## Local container runtime
 
-GitHub Actions Ubuntu runners ship with Docker preinstalled, and `.github/workflows/live-provider-tests.yml` already passes `supabase start -x studio,imgproxy,logflare,vector,postgres-meta,edge-runtime,realtime,storage-api`. Switching CI to Podman would add setup time for zero benefit.
+There is no GitHub Actions CI; the live vendor-API health check runs as the `stocktextalerts-live-provider-check` Lambda (no local DB needed — it calls the provider APIs directly). Locally, the Supabase stack runs under Docker or Podman.
 
-**SAM CLI (`sam local invoke`)** also honors `DOCKER_HOST`, so `cd aws && npm run local:all` works under Podman with the same setup.
+**SAM CLI (`sam local invoke`)** honors `DOCKER_HOST`, so `cd aws && npm run local:all` works under Podman with the same setup.

@@ -102,7 +102,9 @@ DATABASE_URL=postgresql://postgres:password@host:5432/database
 
 # Twilio
 TWILIO_ACCOUNT_SID=your-twilio-account-sid
-TWILIO_AUTH_TOKEN=your-twilio-auth-token
+TWILIO_API_KEY_SID=your-twilio-restricted-api-key-sid          # senders + Verify (scoped Restricted key)
+TWILIO_API_KEY_SECRET=your-twilio-restricted-api-key-secret
+TWILIO_AUTH_TOKEN=your-twilio-auth-token                       # inbound webhook signature validation only
 TWILIO_PHONE_NUMBER=+1234567890
 TWILIO_VERIFY_SERVICE_SID=your-verify-service-sid
 
@@ -167,7 +169,7 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - **Local-only values:** `DATABASE_URL` and `DEFAULT_PASSWORD` are for local Supabase + seed generation and should not be added to Vercel.
 - **Account-level (local shell, not repo secrets):** `CURSOR_API_KEY` — Cursor User API Key for SDK/CLI; set in `~/.zshrc`. See [.agents/docs/cloud-agents.md](.agents/docs/cloud-agents.md#secrets-summary).
 - **Local deploy creds (gitignored `.env.local`):** `DATABASE_URL_PROD` (full prod Postgres URL — migrations connect with it directly) and `AWS_PROFILE` (= `fleet-deploy`, the scoped assume-role profile). The local pre-push deploy (`aws/deploy-web.sh`) reads these — deploys no longer run in GitHub Actions. The web tier needs no local creds: Vercel auto-builds `main` via its git integration.
-- **GitHub Actions repository secrets** (only the surviving `live-provider-tests.yml` cron monitor uses these): `MASSIVE_API_KEY`, `FINNHUB_API_KEY`. Test failures notify via **shared-infra** (SES email); `agent-deploy` needs `sns:Publish` on the shared topic (see [docs/deploy-gotchas.md](docs/deploy-gotchas.md)).
+- **Live provider keys** (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`): SAM parameters in gitignored `.env.local` (via `aws/sam-params.sh`), consumed by the runtime Lambdas and the scheduled `stocktextalerts-live-provider-check` Lambda (weekday mid-session live vendor health check). Failures fire `stocktextalerts-live-provider-check-lambda-errors` → **shared-infra** (SES email). No GitHub Actions.
 
 ### 4. Generate Seed File
 
@@ -350,10 +352,10 @@ SES notification sending runs on Lambda (`EMAIL_FROM` from SSM `/stocktextalerts
 - Ensure variables are available for **Production** and **Preview** (sensitive secrets cannot target Vercel Development — use `.env.local` / `vercel env pull` locally)
 - Enable "Available during Build" so `import.meta.env` works in serverless functions
 
-### 1a. Deploy creds and GitHub Actions secrets
+### 1a. Deploy creds and live provider keys
 
 - **Local deploy creds (gitignored `.env.local`):** `DATABASE_URL_PROD`, `AWS_PROFILE=fleet-deploy`. Read by the pre-push deploy (`aws/deploy-web.sh`). Web tier: Vercel git auto-deploy, no local creds.
-- **GitHub Actions secrets** (only `live-provider-tests.yml`): `MASSIVE_API_KEY`, `FINNHUB_API_KEY`.
+- **Live provider keys** (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`): SAM params (gitignored `.env.local`), used by the runtime + `stocktextalerts-live-provider-check` Lambdas. No GitHub Actions.
 - **Account-level (local shell):** `CURSOR_API_KEY` — see [.agents/docs/cloud-agents.md](.agents/docs/cloud-agents.md#secrets-summary)
 
 ### 2. Deploy

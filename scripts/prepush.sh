@@ -4,7 +4,8 @@
 # Invoked by .git-hooks/pre-push (core.hooksPath=.git-hooks, wired by `npm run
 # prepare`). Replaces .github/workflows/deploy.yml and its run-ci composite: the
 # full CI battery and the production deploy now run locally on push to main.
-# The cron monitor live-provider-tests.yml is the only surviving workflow.
+# There are no GitHub Actions workflows: the live-provider-tests.yml cron was
+# replaced by the scheduled stocktextalerts-live-provider-check Lambda.
 #
 # The gate mirrors docs/prepush-gate.md's local battery and needs local Supabase
 # running (db-privileges + test + test:e2e) — start it with `npm run db:start`.

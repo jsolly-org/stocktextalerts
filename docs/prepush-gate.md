@@ -32,13 +32,9 @@ The gate needs **local Supabase up** (`npm run db:start`) for `check:db-privileg
 `test:e2e`. See [docs/incidents/2026-04-ci-race.md](incidents/2026-04-ci-race.md) for why a bare
 `npm test` isn't enough when changing the test harness or Supabase config.
 
-## GitHub workflows on `main`
+## No GitHub workflows
 
-| Workflow | When |
-| --- | --- |
-| `live-provider-tests.yml` | Scheduled (market hours) + manual — live vendor APIs (not in the gate) |
-
-This is the only surviving workflow. Deploy and CI moved to the local pre-push gate.
+There are no GitHub Actions workflows. The live vendor-API health check (formerly `live-provider-tests.yml`) now runs as the scheduled `stocktextalerts-live-provider-check` Lambda (weekday mid-session, `aws/template.yaml`); failures fire `stocktextalerts-live-provider-check-lambda-errors` → shared-infra. Deploy and CI run in the local pre-push gate.
 
 ## When the full local stack matters most (iterate before pushing)
 

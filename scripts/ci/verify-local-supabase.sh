@@ -4,10 +4,9 @@
 # or any change that touches `supabase/config.toml`, `scripts/db/generate-seed.ts`,
 # `scripts/db/doctor.ts`, or the `db:*` scripts in `package.json`.
 #
-# It intentionally does NOT run in CI — CI starts Supabase with a trimmed
-# service list (see .github/workflows/live-provider-tests.yml) and doesn't
-# need the seeded dev user. This script exists so that regressions in the
-# full local flow show up locally before someone hits them on a fresh clone.
+# It's a local-only helper (there is no GitHub Actions CI). This script exists
+# so that regressions in the full local flow show up locally before someone
+# hits them on a fresh clone.
 #
 # Usage:
 #   scripts/ci/verify-local-supabase.sh

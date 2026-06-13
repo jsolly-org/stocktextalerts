@@ -56,11 +56,13 @@ function createVerificationClient(): {
 	serviceSid: string;
 } {
 	const twilioAccountSid = requireEnv("TWILIO_ACCOUNT_SID");
-	const twilioAuthToken = requireEnv("TWILIO_AUTH_TOKEN");
+	const twilioApiKeySid = requireEnv("TWILIO_API_KEY_SID");
+	const twilioApiKeySecret = requireEnv("TWILIO_API_KEY_SECRET");
 	const twilioVerifyServiceSid = requireEnv("TWILIO_VERIFY_SERVICE_SID");
 
 	return {
-		client: twilio(twilioAccountSid, twilioAuthToken),
+		// Restricted API key auth, scoped to verify/verification[-check]/create.
+		client: twilio(twilioApiKeySid, twilioApiKeySecret, { accountSid: twilioAccountSid }),
 		serviceSid: twilioVerifyServiceSid,
 	};
 }

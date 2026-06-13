@@ -7,6 +7,8 @@ interface ImportMetaEnv {
 	readonly SUPABASE_SECRET_KEY: string;
 	readonly TWILIO_ACCOUNT_SID: string;
 	readonly TWILIO_AUTH_TOKEN: string;
+	readonly TWILIO_API_KEY_SID: string;
+	readonly TWILIO_API_KEY_SECRET: string;
 	readonly TWILIO_PHONE_NUMBER: string;
 	readonly TWILIO_VERIFY_SERVICE_SID: string;
 	readonly AWS_ACCESS_KEY_ID?: string;

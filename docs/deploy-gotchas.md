@@ -35,32 +35,8 @@ See [docs/incidents/2026-05-email-from-mangling.md](incidents/2026-05-email-from
 
 SAM updates that add `AlarmName` to previously auto-named alarms can replace the underlying CloudWatch alarm resource. You may get a one-off state transition email during deploy. See [docs/shared-infra.md](shared-infra.md).
 
-## Live provider CI alerts use shared-infra
+## Live provider health-check alerts use shared-infra
 
-`.github/workflows/live-provider-tests.yml` publishes a synthetic CloudWatch alarm JSON to the shared shared-infra SNS topic (`/shared-infra/alert-topic-arn` in SSM) on first failure in a streak. The enricher Lambda sends the usual SES email.
+The scheduled `stocktextalerts-live-provider-check` Lambda (weekday mid-session) throws when a live Massive/Finnhub round-trip fails. Its `AWS/Lambda Errors` metric trips `stocktextalerts-live-provider-check-lambda-errors`, whose alarm action publishes **directly** to the shared-infra SNS topic (`/shared-infra/alert-topic-arn`) — the enricher Lambda sends the usual SES email.
 
-`agent-deploy` must allow reading that SSM parameter and publishing to the topic. One-time attach (adjust if the topic ARN changes):
-
-```bash
-TOPIC_ARN="$(aws ssm get-parameter --name /shared-infra/alert-topic-arn --query Parameter.Value --output text)"
-aws iam put-role-policy \
-  --role-name agent-deploy \
-  --policy-name stocktextalerts-shared-infra-publish \
-  --policy-document "$(jq -n --arg topic "$TOPIC_ARN" '{
-    Version: "2012-10-17",
-    Statement: [
-      {
-        Effect: "Allow",
-        Action: "ssm:GetParameter",
-        Resource: "arn:aws:ssm:us-east-1:730335616323:parameter/shared-infra/alert-topic-arn"
-      },
-      {
-        Effect: "Allow",
-        Action: "sns:Publish",
-        Resource: $topic
-      }
-    ]
-  }')"
-```
-
-Run with production credentials (`export AWS_PROFILE=...` locally).
+No extra IAM is needed: CloudWatch publishes to the topic via the alarm action. The old `agent-deploy` `stocktextalerts-shared-infra-publish` inline policy (added for the GitHub Actions OIDC publish path) is now obsolete and can be removed.

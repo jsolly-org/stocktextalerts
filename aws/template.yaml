@@ -33,7 +33,10 @@ Parameters:
   TwilioAccountSid:
     Type: String
     NoEcho: true
-  TwilioAuthToken:
+  TwilioApiKeySid:
+    Type: String
+    NoEcho: true
+  TwilioApiKeySecret:
     Type: String
     NoEcho: true
   TwilioPhoneNumber:
@@ -112,7 +115,8 @@ Resources:
           XAI_API_KEY: !Ref XaiApiKey
           EMAIL_FROM: !Ref EmailFrom
           TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
-          TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
+          TWILIO_API_KEY_SID: !Ref TwilioApiKeySid
+          TWILIO_API_KEY_SECRET: !Ref TwilioApiKeySecret
           TWILIO_PHONE_NUMBER: !Ref TwilioPhoneNumber
           UNSUBSCRIBE_TOKEN_SECRET: !Ref UnsubscribeTokenSecret
       Events:
@@ -153,7 +157,8 @@ Resources:
           EMAIL_FROM: !Ref EmailFrom
           UNSUBSCRIBE_TOKEN_SECRET: !Ref UnsubscribeTokenSecret
           TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
-          TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
+          TWILIO_API_KEY_SID: !Ref TwilioApiKeySid
+          TWILIO_API_KEY_SECRET: !Ref TwilioApiKeySecret
           TWILIO_PHONE_NUMBER: !Ref TwilioPhoneNumber
           VENDOR_BACKFILL_QUEUE_URL: !Ref VendorBackfillQueue
       Policies:
@@ -334,7 +339,40 @@ Resources:
             FunctionResponseTypes:
               - ReportBatchItemFailures
 
-  # Shared by all three ScheduleV2 events. Without an explicit RoleArn,
+  LiveProviderCheckFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Format: cjs
+        Target: node24
+        Sourcemap: true
+        EntryPoints:
+          - live-provider-check.ts
+    Properties:
+      FunctionName: stocktextalerts-live-provider-check
+      Handler: live-provider-check.handler
+      CodeUri: src/handlers
+      Timeout: 300
+      MemorySize: 256
+      LoggingConfig:
+        LogGroup: !Ref LiveProviderCheckLogGroup
+      Environment:
+        Variables:
+          MASSIVE_API_KEY: !Ref MassiveApiKey
+          FINNHUB_API_KEY: !Ref FinnhubApiKey
+      Events:
+        WeekdayMidSession:
+          Type: ScheduleV2
+          Properties:
+            # 16:00 UTC = 12:00 ET — mid-session, snapshot data fresh. Mon-Fri.
+            # Replaces the deleted live-provider-tests.yml GitHub Actions cron.
+            ScheduleExpression: "cron(0 16 ? * MON-FRI *)"
+            State: ENABLED
+            RoleArn: !GetAtt StockTextAlertsSchedulerRole.Arn
+
+  # Shared by all four ScheduleV2 events. Without an explicit RoleArn,
   # SAM auto-generates one role per event with identical permissions —
   # see IAM no-sprawl — reuse explicit scheduler roles instead of SAM auto-generated duplicates.
   StockTextAlertsSchedulerRole:
@@ -367,6 +405,7 @@ Resources:
                   - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:stocktextalerts-schedule
                   - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:stocktextalerts-asset-events
                   - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:stocktextalerts-compute-daily-stats
+                  - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:stocktextalerts-live-provider-check
 
   # ---------- CloudWatch Alarms ----------
 
@@ -444,6 +483,27 @@ Resources:
       Dimensions:
         - Name: FunctionName
           Value: !Ref ComputeDailyStatsFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopicArn
+      OKActions:
+        - !Ref AlertTopicArn
+
+  LiveProviderCheckFunctionErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: stocktextalerts-live-provider-check-lambda-errors
+      AlarmDescription: Live Massive/Finnhub provider health check failed (or the Lambda threw / timed out / OOMed)
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref LiveProviderCheckFunction
       Statistic: Sum
       Period: 300
       EvaluationPeriods: 1
@@ -601,6 +661,12 @@ Resources:
       LogGroupName: /aws/lambda/stocktextalerts-compute-daily-stats
       RetentionInDays: 30
 
+  LiveProviderCheckLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/stocktextalerts-live-provider-check
+      RetentionInDays: 30
+
   VendorBackfillLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -652,6 +718,17 @@ Resources:
     Type: AWS::Logs::MetricFilter
     Properties:
       LogGroupName: !Ref ComputeDailyStatsLogGroup
+      FilterPattern: '{ $.level = "error" }'
+      MetricTransformations:
+        - MetricNamespace: stocktextalerts
+          MetricName: ErrorLogCount
+          MetricValue: "1"
+          DefaultValue: 0
+
+  LiveProviderCheckErrorLogFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref LiveProviderCheckLogGroup
       FilterPattern: '{ $.level = "error" }'
       MetricTransformations:
         - MetricNamespace: stocktextalerts

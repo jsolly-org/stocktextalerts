@@ -131,7 +131,7 @@ The pre-push hook (`.git-hooks/pre-push` → `scripts/prepush.sh`) runs the full
 
 ## AWS IAM
 
-- `agent-deploy` — scoped deploy role (S3, CloudFront, ECR, `lambda:UpdateFunctionCode`, `cloudformation:DescribeStackResource`). Assumed by GitHub OIDC (the `live-provider-tests.yml` shared-infra publish) **and** locally via the `fleet-deploy` profile for code-only deploys.
+- `agent-deploy` — scoped deploy role (S3, CloudFront, ECR, `lambda:UpdateFunctionCode`, `cloudformation:DescribeStackResource`). Used locally via the `fleet-deploy` profile for code-only deploys. (No longer assumed by GitHub OIDC — the `live-provider-tests.yml` workflow was replaced by the scheduled `stocktextalerts-live-provider-check` Lambda; there are no GitHub Actions workflows.)
 - `stocktextalerts-crons-*` — SAM-managed Lambda execution roles (auto-created; SES send via execution role, not static keys)
 
 ## Tooling Setup

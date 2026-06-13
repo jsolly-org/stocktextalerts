@@ -1,7 +1,7 @@
 import {
 	createSmsSender,
 	createTwilioClient,
-	readTwilioConfig,
+	readTwilioSenderConfig,
 } from "../messaging/sms/twilio-utils";
 import { isProduction } from "../runtime/mode";
 
@@ -23,7 +23,7 @@ export type SmsSenderProvider = () => SmsSenderResult;
  * in tests — `requireEnv("TWILIO_ACCOUNT_SID")` never fires.
  */
 export function createSmsSenderProvider(): SmsSenderProvider {
-	let twilioConfig: ReturnType<typeof readTwilioConfig> | null = null;
+	let twilioConfig: ReturnType<typeof readTwilioSenderConfig> | null = null;
 	let sendSms: ReturnType<typeof createSmsSender> | null = null;
 
 	return () => {
@@ -43,7 +43,7 @@ export function createSmsSenderProvider(): SmsSenderProvider {
 		}
 
 		if (!twilioConfig) {
-			twilioConfig = readTwilioConfig();
+			twilioConfig = readTwilioSenderConfig();
 		}
 		const twilioClient = createTwilioClient(twilioConfig);
 		sendSms = createSmsSender(twilioClient, twilioConfig.phoneNumber);
