@@ -23,9 +23,7 @@ export function createSaveSequencer() {
 	let latest = 0;
 	let activeController: AbortController | null = null;
 
-	async function run<T>(
-		task: (signal: AbortSignal) => Promise<T>,
-	): Promise<SequencedResult<T>> {
+	async function run<T>(task: (signal: AbortSignal) => Promise<T>): Promise<SequencedResult<T>> {
 		const token = ++latest;
 		// Supersede any in-flight request.
 		activeController?.abort();

@@ -1,4 +1,5 @@
 import { onBeforeUnmount, type Ref, ref, watch } from "vue";
+import { createSaveSequencer, type SequencedResult } from "../../../lib/async/save-sequencer";
 import { isUnauthorizedResponse, redirectToSignIn } from "../../../lib/auth/session-expired";
 import { formatMessage } from "../../../lib/constants";
 import { rootLogger } from "../../../lib/logging";
@@ -77,9 +78,14 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 
 	const debounceMs = options.debounceMs ?? 450;
 	let debounceHandle: number | null = null;
-	let pendingSave = false;
 	const lastSavedSignature = ref<string | null>(null);
 	const dirtySignal = ref(0);
+
+	// Serializes saves as last-write-wins: a newer save aborts and supersedes any
+	// in-flight one, and a response is committed to local state only when it is
+	// still the latest. This stops a stale/out-of-order response from flipping a
+	// toggle back to a value the user has since changed.
+	const sequencer = createSaveSequencer();
 
 	/** Update the inline status message shown in the UI. */
 	function setStatus(message: string | null, tone: "error" | "info" = "info") {
@@ -89,10 +95,18 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 		}
 	}
 
+	/** Discriminated result of the in-flight save task handed to the sequencer. */
+	type SaveTaskResult =
+		| { kind: "unauthorized" }
+		| { kind: "json"; ok: boolean; payload: FormSaveResponse };
+
 	/**
-	 * POST the current form data to the server and update local state from the JSON response.
+	 * POST the current form data through the sequencer and update local state from
+	 * the JSON response.
 	 *
-	 * When another save is requested while a save is in-flight, the latest state is queued.
+	 * The response is applied only when this save is still the latest one in
+	 * flight (`status === "applied"`). A superseded or aborted save drops its
+	 * response silently and leaves `isSaving` to the newer save that owns it.
 	 */
 	async function sendUpdate(form: HTMLFormElement, formData: FormData, submittedSignature: string) {
 		isSaving.value = true;
@@ -104,71 +118,83 @@ export function useAutoSaveFormBase<T = unknown>(options: AutoSaveFormOptions) {
 			setStatus("Saving...", "info");
 		}, 200);
 
+		let outcome: SequencedResult<SaveTaskResult>;
 		try {
-			const response = await fetch(form.action, {
-				method: "POST",
-				body: formData,
-				credentials: "same-origin",
-				headers: { Accept: "application/json" },
-				signal: AbortSignal.timeout(10_000),
+			outcome = await sequencer.run(async (supersedeSignal) => {
+				const response = await fetch(form.action, {
+					method: "POST",
+					body: formData,
+					credentials: "same-origin",
+					headers: { Accept: "application/json" },
+					// Abort when superseded by a newer save OR after the 10s timeout.
+					signal: AbortSignal.any([supersedeSignal, AbortSignal.timeout(10_000)]),
+				});
+
+				if (isUnauthorizedResponse(response)) {
+					redirectToSignIn();
+					return { kind: "unauthorized" };
+				}
+
+				const payload = (await response.json()) as FormSaveResponse;
+				return { kind: "json", ok: response.ok, payload };
 			});
-
-			if (isUnauthorizedResponse(response)) {
-				redirectToSignIn();
-				return;
-			}
-
-			const payload = (await response.json()) as FormSaveResponse;
-
-			if (!response.ok || !payload.ok) {
-				const formattedMessage =
-					payload && typeof payload.message === "string" ? formatMessage(payload.message) : "";
-				const errorMessage = formattedMessage || "Could not save changes. Please try again.";
-				setStatus(errorMessage, "error");
-				return;
-			}
-
-			lastSavedSignature.value = submittedSignature;
-			setStatus(null);
-			const payloadData = payload[options.payloadKey] as T | undefined;
-			savedData.value = payloadData ?? null;
 		} catch (error) {
+			window.clearTimeout(savingIndicatorHandle);
+			isSaving.value = false;
 			const reason =
 				error instanceof Error && error.name === "TimeoutError" ? "timeout" : "request_failed";
-			if (reason === "timeout") {
-				setStatus("Save timed out. Please try again.", "error");
-			} else {
-				setStatus("Could not save changes. Please try again.", "error");
-			}
+			setStatus(
+				reason === "timeout"
+					? "Save timed out. Please try again."
+					: "Could not save changes. Please try again.",
+				"error",
+			);
 			rootLogger.error(
 				"Autosave failed for dashboard form",
 				{ action: options.logAction, reason },
 				error,
 			);
-		} finally {
-			window.clearTimeout(savingIndicatorHandle);
-			isSaving.value = false;
-			if (pendingSave) {
-				pendingSave = false;
-				const currentForm = options.formRef.value;
-				if (currentForm) {
-					void triggerSave(currentForm);
-				}
-			}
+			return;
 		}
+
+		window.clearTimeout(savingIndicatorHandle);
+
+		// A newer save superseded (and aborted) this one — it owns the UI and the
+		// saving indicator. Drop this stale response without touching state.
+		if (outcome.status !== "applied") {
+			return;
+		}
+
+		isSaving.value = false;
+		const result = outcome.value;
+		if (result.kind === "unauthorized") {
+			return;
+		}
+
+		const { ok, payload } = result;
+		if (!ok || !payload.ok) {
+			const formattedMessage =
+				payload && typeof payload.message === "string" ? formatMessage(payload.message) : "";
+			setStatus(formattedMessage || "Could not save changes. Please try again.", "error");
+			return;
+		}
+
+		lastSavedSignature.value = submittedSignature;
+		setStatus(null);
+		const payloadData = payload[options.payloadKey] as T | undefined;
+		savedData.value = payloadData ?? null;
 	}
 
 	/**
-	 * Trigger a save immediately unless the form is unchanged or a save is currently running.
+	 * Trigger a save immediately unless the form is unchanged.
+	 *
+	 * A save started while another is in flight does not queue — it supersedes the
+	 * in-flight one via the sequencer, so the latest user intent always wins.
 	 */
 	async function triggerSave(form: HTMLFormElement) {
 		const formData = new FormData(form);
 		const currentSignature = serializeFormData(formData);
 		if (currentSignature === lastSavedSignature.value) {
-			return;
-		}
-		if (isSaving.value) {
-			pendingSave = true;
 			return;
 		}
 
