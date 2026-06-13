@@ -32,7 +32,13 @@ The restore asserts the manifest `schema_version` matches the target; a mismatch
 
 ## Rehearsal log
 
-- **2026-06-13** — First end-to-end rehearsal (local). Dumped seeded DB (1 user,
-  7 user_assets), deleted all `user_assets`, restored from the gzipped object:
-  all 7 recovered, user intact, 0 orphaned FK rows, schema-version assertion
-  exercised. Pipeline verified: COPY-in-transaction → gzip envelope → restore.
+- **2026-06-13** — First end-to-end rehearsal (local), run **as the `backup_readonly`
+  role** (not the superuser) so the real production privilege path was exercised.
+  This surfaced two production-blocking bugs before deploy: (1) the role lacked
+  `SELECT` on `app_metadata` (the export's first query), and (2) RLS on the tables
+  filtered every row to zero for a plain SELECT role → the role now has `BYPASSRLS`.
+  After both fixes: dumped seeded DB (1 user, 7 user_assets), deleted all
+  `user_assets`, restored from the gzipped object — all 7 recovered, user intact,
+  0 orphaned FK rows, schema-version + per-table row-count assertions exercised.
+  **Always rehearse as `backup_readonly`, never the superuser** — the superuser
+  masks both RLS filtering and missing grants.

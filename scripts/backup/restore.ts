@@ -8,9 +8,23 @@ import { sslFor } from "../../src/lib/backup/export";
 import type { BackupPayload } from "../../src/lib/backup/storage";
 import { BACKUP_TABLES } from "../../src/lib/backup/tables";
 
+/** True for a local/scratch target (loopback host). */
+function isLocalTarget(connectionString: string): boolean {
+	return /@(localhost|127\.0\.0\.1|\[::1\])[:/]/.test(connectionString);
+}
+
 async function main() {
 	const [, , file, targetUrl] = process.argv;
 	if (!file || !targetUrl) throw new Error("usage: restore.ts <file.json.gz> <DATABASE_URL>");
+
+	// This script TRUNCATEs before loading — pointing it at production wipes live
+	// data. Default to refusing any non-local target; a real DR restore must opt in
+	// explicitly with RESTORE_ALLOW_REMOTE=1 so a stray $DATABASE_URL can't nuke prod.
+	if (!isLocalTarget(targetUrl) && process.env.RESTORE_ALLOW_REMOTE !== "1") {
+		throw new Error(
+			"refusing to restore into a non-local target (TRUNCATEs data); set RESTORE_ALLOW_REMOTE=1 to override",
+		);
+	}
 
 	const payload = JSON.parse(gunzipSync(readFileSync(file)).toString("utf8")) as BackupPayload;
 
@@ -34,18 +48,27 @@ async function main() {
 		for (const table of [...BACKUP_TABLES].reverse()) {
 			await client.query(`TRUNCATE ${table} CASCADE`);
 		}
-		// Load parent-first so FKs are satisfied as rows land.
+		// Load parent-first so FKs are satisfied as rows land. Verify each table
+		// ingested exactly the manifest's row count — the design's completeness
+		// check — and abort (rolling back) on any mismatch before COMMIT.
 		for (const table of BACKUP_TABLES) {
 			const text = payload.tables[table] ?? "";
 			const ingest = client.query(copyFrom(`COPY ${table} FROM STDIN`));
 			await pipeline(Readable.from([text]), ingest);
+			const expected = payload.manifest.row_counts[table] ?? 0;
+			if (ingest.rowCount !== expected) {
+				throw new Error(
+					`row-count mismatch for ${table}: manifest=${expected} ingested=${ingest.rowCount}`,
+				);
+			}
 		}
 		await client.query("COMMIT");
 
 		process.stdout.write(`restored ${file} -> ${target}\n`);
 		process.stdout.write(`${JSON.stringify(payload.manifest.row_counts)}\n`);
 	} catch (err) {
-		await client.query("ROLLBACK");
+		// Never let a failed ROLLBACK mask the original error.
+		await client.query("ROLLBACK").catch(() => {});
 		throw err;
 	} finally {
 		await client.end();

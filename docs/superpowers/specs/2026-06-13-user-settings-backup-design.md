@@ -93,6 +93,16 @@ recovered from — without paying for Supabase Pro/PITR.
 
 ## As-built notes (deviations discovered during implementation)
 
+- **The backup role needs `BYPASSRLS` (critical).** Every backed-up table has row-level security
+  enabled. A plain SELECT-granted role sees **zero rows** through RLS — silently, no error — so the
+  Lambda would write empty backups while reporting success and firing no alarm. Caught only by
+  rehearsing *as `backup_readonly`* (not the superuser, which the first rehearsal mistakenly used).
+  Fix: the role is created `BYPASSRLS` (as Supabase's own `service_role` is), still SELECT-only on
+  the 5 tables (`users`, `user_assets`, `price_targets`, `scheduled_notifications`, `app_metadata`).
+  The role also needed `SELECT` on `app_metadata` (the export reads the schema version there first).
+  **Deploy risk:** setting `BYPASSRLS` requires the migration's executing role (hosted `postgres`)
+  to be able to confer it; if `supabase db push` rejects it, the fallback is per-table permissive
+  RLS policies (`CREATE POLICY ... TO backup_readonly USING (true)`), which need only table ownership.
 - **Reused the existing `ProdBackupsBucket`, did not create a new bucket.** The SAM template
   already defined `stocktextalerts-prod-backups-<acct>` (Block Public Access, SSE-S3,
   `BucketOwnerEnforced`, versioning, `DeletionPolicy: Retain`) — purpose-built for DB backups but
