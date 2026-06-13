@@ -293,6 +293,21 @@ export type Database = {
         }
         Relationships: []
       }
+      email_dispatch_idempotency: {
+        Row: {
+          created_at: string
+          idempotency_key: string
+        }
+        Insert: {
+          created_at?: string
+          idempotency_key: string
+        }
+        Update: {
+          created_at?: string
+          idempotency_key?: string
+        }
+        Relationships: []
+      }
       market_asset_price_alert_cooldowns: {
         Row: {
           alerts_sent_count: number

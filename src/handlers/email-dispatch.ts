@@ -15,10 +15,8 @@ import {
 	type EmailDispatchRequest,
 	type EmailDispatchResponse,
 } from "../lib/messaging/email/dispatch-contract";
+import { claimEmailDispatchKey } from "../lib/messaging/email/dispatch-idempotency";
 import { createEmailSender } from "../lib/messaging/email/utils";
-
-const seenDispatchKeys = new Map<string, number>();
-const REPLAY_TTL_MS = 5 * 60 * 1000;
 
 function jsonResponse(
 	statusCode: number,
@@ -72,15 +70,6 @@ function parseRequest(body: string): EmailDispatchRequest | null {
 	} catch {
 		return null;
 	}
-}
-
-function rememberDispatchKey(key: string, now = Date.now()): boolean {
-	for (const [storedKey, expiresAt] of seenDispatchKeys.entries()) {
-		if (expiresAt <= now) seenDispatchKeys.delete(storedKey);
-	}
-	if (seenDispatchKeys.has(key)) return false;
-	seenDispatchKeys.set(key, now + REPLAY_TTL_MS);
-	return true;
 }
 
 async function isAuthorizedRecipient(request: EmailDispatchRequest): Promise<boolean> {
@@ -151,8 +140,21 @@ export async function handler(
 			});
 		}
 
-		const dispatchKey = request.idempotencyKey ?? signature ?? `${Date.now()}-${Math.random()}`;
-		if (!rememberDispatchKey(dispatchKey)) {
+		const dispatchKey = request.idempotencyKey ?? signature;
+		if (!dispatchKey) {
+			logger.warn("Rejected email dispatch request with no idempotency key or signature", {
+				action: "email_dispatch_replay",
+				userId: request.userId,
+			});
+			return jsonResponse(400, {
+				success: false,
+				error: "Missing idempotency key",
+				errorCode: "missing_idempotency_key",
+			});
+		}
+
+		const claim = await claimEmailDispatchKey(createSupabaseAdminClient(), dispatchKey);
+		if (claim === "duplicate") {
 			logger.warn("Rejected replayed email dispatch request", {
 				action: "email_dispatch_replay",
 				userId: request.userId,
