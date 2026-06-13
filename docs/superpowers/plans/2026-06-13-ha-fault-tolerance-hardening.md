@@ -1129,6 +1129,15 @@ git commit -m "perf(auth): short-TTL approval cache to cut per-load DB lookups"
 
 ## Task 7: Reserved concurrency on high-fan-out Lambdas (infra)
 
+> **STATUS: BLOCKED / REVERTED (2026-06-13).** The SAM deploy of this change failed:
+> the AWS account's Lambda *Concurrent executions* limit is **10**, so reserving any
+> concurrency violates `"decreases account's UnreservedConcurrentExecution below its
+> minimum value of [10]"` and CloudFormation rolls back. Reserved concurrency is not
+> usable on this account until the limit is raised (AWS Service Quotas → Lambda →
+> "Concurrent executions"). The `ReservedConcurrentExecutions` lines were reverted from
+> `aws/template.yaml`. To enable later: raise the account limit, re-add the lines,
+> then `npm run deploy:aws`.
+
 **Honest scope:** Modest value — the per-minute schedule cron is a single invocation, so reserved concurrency mainly guarantees it can always run even if other functions saturate the account's concurrency pool. No unit test applies; this is an infra change verified by `sam validate` and requires a **full SAM deploy** (`npm run deploy:aws` with admin creds — code-only pushes don't apply `template.yaml` changes; see AGENTS.md → "AWS / SAM Deploy").
 
 **Files:**
