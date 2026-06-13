@@ -9,8 +9,11 @@ Design: `docs/superpowers/specs/2026-06-13-user-settings-backup-design.md`.
 
 1. Set the role password against production (human runbook; not in committed SQL):
    `ALTER ROLE backup_readonly LOGIN PASSWORD '<generated>';`
-2. Build the pooler connection string (IPv4 transaction pooler, 6543, sslmode=require):
-   `postgresql://backup_readonly:<pw>@aws-1-us-east-2.pooler.supabase.com:6543/postgres?sslmode=require`
+2. Build the **session pooler** connection string (IPv4-compatible, port **5432** on the pooler
+   host, `sslmode=require`). Supabase routes backup/restore to the session pooler or direct
+   connection, not the transaction pooler (6543). Supavisor requires the project ref in the
+   username (`backup_readonly.<project-ref>`):
+   `postgresql://backup_readonly.<ref>:<pw>@aws-1-us-east-2.pooler.supabase.com:5432/postgres?sslmode=require`
 3. Store it once in SSM SecureString:
    `aws ssm put-parameter --name /stocktextalerts/backup/connection-string --type SecureString --value '<conn>'`
 4. Deploy infra (adds the Lambda, schedule, alarms, lifecycle rule): `npm run deploy:aws`.
@@ -25,10 +28,14 @@ Design: `docs/superpowers/specs/2026-06-13-user-settings-backup-design.md`.
 
 The restore asserts the manifest `schema_version` matches the target; a mismatch aborts.
 
-> Note: restore `TRUNCATE ... CASCADE`s the 4 tables before loading. The cascade
-> from `users` clears dependent non-backed-up tables (e.g. `notification_log`) too —
-> expected for a disaster restore into a scratch/fresh DB, where those tables are
-> empty or regenerable.
+> Note: restore runs under `SET LOCAL session_replication_role = 'replica'`, so triggers and FK
+> checks are disabled during the load and rows are restored byte-faithfully (the `users`
+> approval-guard trigger and `updated_at` triggers do not fire). It then `TRUNCATE ... CASCADE`s
+> the 4 tables before loading. The cascade from `users` also clears these non-backed-up dependent
+> tables: `notification_log`, `rate_limit_log`, `market_asset_price_alert_cooldowns`,
+> `price_move_alert_state`, `staged_notifications` — expected for a disaster restore into a
+> scratch/fresh DB, where those are empty or regenerable. The script refuses non-local targets
+> unless `RESTORE_ALLOW_REMOTE=1`.
 
 ## Rehearsal log
 
@@ -42,3 +49,9 @@ The restore asserts the manifest `schema_version` matches the target; a mismatch
   0 orphaned FK rows, schema-version + per-table row-count assertions exercised.
   **Always rehearse as `backup_readonly`, never the superuser** — the superuser
   masks both RLS filtering and missing grants.
+- **2026-06-13 (hardening pass)** — Re-rehearsed as `backup_readonly` with
+  representative data in all 4 tables (enum, numeric, and array columns). Confirmed
+  enum (`notification_type=daily`, `channel=email`, `status=sent`) and numeric
+  (`target_price=150.5000`) values round-trip byte-faithfully through COPY, restore
+  runs cleanly under `session_replication_role=replica`, counts match, 0 orphans.
+  Backed by a deep-research pass (see `docs/superpowers/plans/2026-06-13-backup-hardening.md`).

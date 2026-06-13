@@ -46,7 +46,7 @@ recovered from — without paying for Supabase Pro/PITR.
 | No event sourcing | **Rejected** | The valuable writes originate in the **web/API tier** (Vercel SSR: `auth/register`, `price-targets/save`, `notification-preferences/update`, `profile/*`), **not** the Lambdas. App-code logging would capture the wrong half, suffer dual-write drift, and is a worse reimplementation of the WAL. (A trigger-based audit table would be correct, but only justified as a *feature*, not a backup — not pursued.) |
 | Host | **SAM-managed Lambda** on EventBridge, **5×/day** | ~150 invocations/month of a few-second function is well inside Lambda's free tier — **$0**, same as GitHub Actions. The "Lambda costs money" premise was false. Lambda keeps DB creds in AWS (off GitHub), inherits the existing error-alarm→SNS infra, and uses a reliable scheduler. |
 | DB credential | Dedicated **`backup_readonly`** role, `SELECT` on the 4 tables only; connection string in **SSM SecureString** | Least privilege. A leak yields read-only access to 4 tables, never the `postgres` super-role. No prod cred in GitHub. |
-| Connection path | **Transaction pooler, port 6543 (IPv4)** | Direct 5432 is IPv6-only on current Supabase projects; a non-VPC Lambda has no IPv6 egress. The pooler is IPv4 and pins one backend for the lifetime of a single transaction, so the snapshot transaction holds. Avoids VPC/NAT entirely. |
+| Connection path | **Session pooler, port 5432 (IPv4)** | Direct 5432 is IPv6-only (no VPC IPv6 egress from Lambda). Both poolers are IPv4 and pin one backend per transaction, so the snapshot holds either way — but Supabase routes pg_dump/backup-restore to the **session** pooler (or direct), not the transaction pooler (6543). Username is `backup_readonly.<ref>` (Supavisor tenant suffix). *(Revised from the transaction pooler after research — see As-built notes.)* |
 | Export format | **`COPY <table> TO STDOUT`** (Postgres text), all 4 tables in **one `REPEATABLE READ` transaction** | COPY is the DB's own serialization — `jsonb`, `numeric`, `timestamptz`, nulls round-trip exactly; restore is `COPY FROM STDIN`. A single repeatable-read transaction prevents a torn snapshot (orphaned FK rows). `SELECT → JSON` was rejected: the `pg` driver coerces types, pushing lossy re-encoding onto restore. |
 | Manifest | JSON sidecar: `taken_at`, `schema_version`, per-table row counts | Decouples data from schema (restore asserts `schema_version` matches the migration state); row counts double as the completeness/corruption check. |
 | Packaging | 4 COPY files + manifest → **gzip → one S3 object** per run | Atomic upload, trivial lifecycle, self-contained restore unit. |
@@ -117,3 +117,13 @@ recovered from — without paying for Supabase Pro/PITR.
 - **`app_metadata` is a key/value table.** Schema version lives in `value` keyed by
   `key = 'schema_version'`, not a `schema_version` column — corrected in the migration, the export
   query, and the restore assertion.
+- **Research-driven hardening** (`docs/superpowers/plans/2026-06-13-backup-hardening.md`). A
+  deep-research pass (25 primary-source claims, 0 refuted) validated BYPASSRLS, rehearse-as-role,
+  and pooler snapshot consistency, and drove four changes: (1) restore runs under
+  `SET LOCAL session_replication_role = 'replica'` so triggers/FK checks don't rewrite or reject
+  restored rows; (2) a sequence-guard test fails loud if a future `BACKUP_TABLES` member uses a
+  sequence/identity PK (data-only COPY does not restore sequence high-water marks — moot today, all
+  PKs are UUID/natural); (3) connection moved to the session pooler (above); (4) rehearsal now seeds
+  all 4 tables (enum/numeric/array coverage). **Kept node-COPY over `pg_dump`-in-a-layer** — our
+  schema has no sequences, so pg_dump's main edge is moot, and the trigger/FK concern is one
+  `session_replication_role` line.

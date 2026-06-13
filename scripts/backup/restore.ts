@@ -44,6 +44,11 @@ async function main() {
 		}
 
 		await client.query("BEGIN");
+		// Disable triggers + FK enforcement for the load so COPY FROM restores rows
+		// byte-faithfully: no BEFORE INSERT trigger can rewrite or reject them, and
+		// FK ordering can't bite. SET LOCAL auto-resets on COMMIT/ROLLBACK. Requires
+		// the restore role to be privileged (postgres) — which a real restore is.
+		await client.query("SET LOCAL session_replication_role = 'replica'");
 		// Truncate child-first (reverse of the parent-first BACKUP_TABLES order).
 		for (const table of [...BACKUP_TABLES].reverse()) {
 			await client.query(`TRUNCATE ${table} CASCADE`);
