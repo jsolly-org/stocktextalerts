@@ -5,17 +5,18 @@
 SET lock_timeout = '5s';
 SET statement_timeout = '30s';
 
-create table public.email_dispatch_idempotency (
+create table if not exists public.email_dispatch_idempotency (
 	idempotency_key text primary key,
 	created_at timestamptz not null default now()
 );
+alter table public.email_dispatch_idempotency owner to postgres;
 
 -- Deny-all RLS: only service_role (which bypasses RLS) may touch this table.
 alter table public.email_dispatch_idempotency enable row level security;
 
 -- Index reserved for a future/deferred TTL-cleanup follow-up (not yet
 -- implemented); no automated table-growth cleanup exists today.
-create index email_dispatch_idempotency_created_at_idx
+create index if not exists email_dispatch_idempotency_created_at_idx
 	on public.email_dispatch_idempotency (created_at);
 
 grant select, insert, delete on public.email_dispatch_idempotency to service_role;
