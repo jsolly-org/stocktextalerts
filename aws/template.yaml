@@ -942,6 +942,31 @@ Resources:
       OKActions:
         - !Ref AlertTopicArn
 
+  # EventBridge Scheduler failed to INVOKE the backup Lambda (perms/throttle) —
+  # distinct from the function erroring once invoked. Passthrough (AWS/Scheduler).
+  BackupUserSettingsFunctionFiveTimesDailyFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: stocktextalerts-backup-user-settings-invocation-failures
+      AlarmDescription: BackupUserSettingsFunctionFiveTimesDaily failed to invoke target
+      Namespace: AWS/Scheduler
+      MetricName: TargetErrorCount
+      Dimensions:
+        - Name: ScheduleGroup
+          Value: default
+        - Name: ScheduleName
+          Value: BackupUserSettingsFunctionFiveTimesDaily
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertTopicArn
+      OKActions:
+        - !Ref AlertTopicArn
+
   # Prod database backups. Manual uploads via `aws s3 cp` after pg_dump.
   # Versioning is on so an accidental overwrite is recoverable.
   # Retain on stack delete to avoid losing data.

@@ -10,6 +10,7 @@ StockTextAlerts routes CloudWatch alarms through the shared [shared-infra](https
 | `stocktextalerts-*-vendor-retry` | Same namespace discovery → schedule / asset-events / compute-daily-stats log groups |
 | `stocktextalerts-*-lambda-errors` | Lambda runtime **`Errors`** metric (`AWS/Lambda`, `FunctionName` dimension) — invocation threw, timed out, or OOM; not the same as vendor-retry log metrics |
 | `stocktextalerts-*-invocation-failures` | Passthrough only (`AWS/Scheduler`) — short CloudWatch reason |
+| `stocktextalerts-backup-user-settings-stale` | Passthrough — custom metric (`stocktextalerts/Backup` namespace, `BackupSuccess` heartbeat); fires when no successful user-settings backup in 6h. The alarm body ("no backup in 6h") is the whole signal — no log enrichment. |
 | `stocktextalerts-live-provider-tests` | Passthrough — reason may include a GitHub Actions run URL |
 
 All alarms use explicit `AlarmName` values in `aws/template.yaml` so email subjects stay stable.

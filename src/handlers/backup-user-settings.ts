@@ -3,6 +3,7 @@ import { exportSnapshot } from "../lib/backup/export";
 import { emitHeartbeat, getConnectionString, putBackup } from "../lib/backup/storage";
 import { requireEnv } from "../lib/db/env";
 import { createLogger } from "../lib/logging";
+import { createErrorForLogging } from "../lib/logging/errors";
 import { runWithRequestContext } from "../lib/logging/request-context";
 
 export async function handler(event: ScheduledEvent, context: Context): Promise<void> {
@@ -18,19 +19,27 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			eventTime: event.time,
 		});
 
-		const bucket = requireEnv("BACKUP_BUCKET");
-		const ssmParam = requireEnv("BACKUP_CONNECTION_SSM_PARAM");
+		try {
+			const bucket = requireEnv("BACKUP_BUCKET");
+			const ssmParam = requireEnv("BACKUP_CONNECTION_SSM_PARAM");
 
-		const connectionString = await getConnectionString(ssmParam);
-		const snapshot = await exportSnapshot({ connectionString });
-		const key = await putBackup({ bucket, payload: snapshot });
-		await emitHeartbeat();
+			const connectionString = await getConnectionString(ssmParam);
+			const snapshot = await exportSnapshot({ connectionString });
+			const key = await putBackup({ bucket, payload: snapshot });
+			await emitHeartbeat();
 
-		logger.info("Backup written", {
-			action: "backup_written",
-			key,
-			rowCounts: snapshot.manifest.row_counts,
-			schemaVersion: snapshot.manifest.schema_version,
-		});
+			logger.info("Backup written", {
+				action: "backup_written",
+				key,
+				rowCounts: snapshot.manifest.row_counts,
+				schemaVersion: snapshot.manifest.schema_version,
+			});
+		} catch (err) {
+			// Emit a structured level=error line so the shared-infra enricher surfaces
+			// the cause in the alarm email and the aggregate ErrorLogCount counts it,
+			// then rethrow so the AWS/Lambda Errors alarm also fires.
+			logger.error("Backup failed", { action: "backup_failed" }, createErrorForLogging(err));
+			throw err;
+		}
 	});
 }
