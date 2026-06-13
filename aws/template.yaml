@@ -90,6 +90,7 @@ Resources:
       CodeUri: src/handlers
       Timeout: 300
       MemorySize: 512
+      ReservedConcurrentExecutions: 5
       LoggingConfig:
         LogGroup: !Ref ScheduleLogGroup
       Policies:
@@ -139,6 +140,7 @@ Resources:
       CodeUri: src/handlers
       Timeout: 300
       MemorySize: 512
+      ReservedConcurrentExecutions: 2
       LoggingConfig:
         LogGroup: !Ref AssetEventsLogGroup
       Environment:
