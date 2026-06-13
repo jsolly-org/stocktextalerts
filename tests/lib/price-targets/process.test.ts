@@ -63,8 +63,16 @@ function makeSupabaseMock(options: {
 	}>;
 	onDelete?: () => void;
 	onUpdate?: () => void;
+	/** Rows returned by the CAS claim's .select(). Empty = another run won the claim. */
+	claimedRows?: Array<{ user_id: string }>;
 }) {
-	const { targets = [], users = [], onDelete, onUpdate } = options;
+	const {
+		targets = [],
+		users = [],
+		onDelete,
+		onUpdate,
+		claimedRows = [{ user_id: "user-1" }],
+	} = options;
 	return {
 		from: (table: string) => {
 			if (table === "price_targets") {
@@ -75,10 +83,12 @@ function makeSupabaseMock(options: {
 							eq: () => ({
 								eq: () => ({
 									eq: () => ({
-										is: () => {
-											onUpdate?.();
-											return Promise.resolve({ error: null });
-										},
+										is: () => ({
+											select: () => {
+												onUpdate?.();
+												return Promise.resolve({ data: claimedRows, error: null });
+											},
+										}),
 									}),
 								}),
 							}),
@@ -156,6 +166,7 @@ describe("Price target processing", () => {
 		mockGetCurrentMarketSession.mockResolvedValue("regular");
 
 		const quoteMap = new Map([["AAPL", makeQuote(205)]]);
+		let deleted = false;
 		const supabase = makeSupabaseMock({
 			targets: [
 				{
@@ -166,6 +177,9 @@ describe("Price target processing", () => {
 				},
 			],
 			users: [testUser],
+			onDelete: () => {
+				deleted = true;
+			},
 		});
 
 		const totals = await processPriceTargets({
@@ -176,6 +190,38 @@ describe("Price target processing", () => {
 		expect(totals.targetsChecked).toBe(1);
 		expect(totals.targetsTriggered).toBe(1);
 		expect(mockDeliverPriceTargetAlert).toHaveBeenCalledOnce();
+		// After a successful delivery the target is removed so it can't re-alert.
+		expect(deleted).toBe(true);
+	});
+
+	it("A second overlapping scheduler run that loses the triggered_at claim does not deliver a duplicate alert", async () => {
+		mockGetCurrentMarketSession.mockResolvedValue("regular");
+
+		const quoteMap = new Map([["AAPL", makeQuote(205)]]);
+		const supabase = makeSupabaseMock({
+			targets: [
+				{
+					user_id: "user-1",
+					symbol: "AAPL",
+					target_price: 200,
+					direction: "above",
+					triggered_at: null,
+					triggered_price: null,
+				},
+			],
+			users: [testUser],
+			// The CAS UPDATE ... WHERE triggered_at IS NULL matched zero rows:
+			// another invocation already claimed this target this tick.
+			claimedRows: [],
+		});
+
+		const totals = await processPriceTargets({ supabase, quoteMap });
+
+		expect(totals.targetsChecked).toBe(1);
+		// Lost the CAS: not delivered AND not counted as triggered, so the
+		// targetsTriggered metric isn't inflated by the duplicate scheduler run.
+		expect(totals.targetsTriggered).toBe(0);
+		expect(mockDeliverPriceTargetAlert).not.toHaveBeenCalled();
 	});
 
 	it("A user receives an alert when price reaches their below target", async () => {

@@ -212,8 +212,6 @@ export async function processPriceTargets(options: {
 
 			if (!isTriggered) continue;
 
-			totals.targetsTriggered++;
-
 			triggeredTarget = {
 				symbol: target.symbol,
 				targetPrice: target.target_price,
@@ -245,7 +243,7 @@ export async function processPriceTargets(options: {
 		}
 
 		if (!pendingDelivery) {
-			const { error: markPendingError } = await supabase
+			const { data: claimedRows, error: markPendingError } = await supabase
 				.from("price_targets")
 				.update({
 					triggered_at: new Date().toISOString(),
@@ -255,7 +253,8 @@ export async function processPriceTargets(options: {
 				.eq("symbol", target.symbol)
 				.eq("target_price", target.target_price)
 				.eq("direction", target.direction)
-				.is("triggered_at", null);
+				.is("triggered_at", null)
+				.select("user_id");
 
 			if (markPendingError) {
 				rootLogger.error(
@@ -265,9 +264,25 @@ export async function processPriceTargets(options: {
 				);
 				continue;
 			}
-		} else {
-			totals.targetsTriggered++;
+
+			// Zero rows means a concurrent scheduler invocation already claimed
+			// this target (the .is("triggered_at", null) guard held). Skip to
+			// avoid a duplicate "price target hit" alert. PostgREST returns
+			// error: null whether the UPDATE matched 1 row or 0, so the row
+			// count is the only reliable signal that this run won the CAS.
+			if (!claimedRows || claimedRows.length === 0) {
+				rootLogger.info("Price target already claimed by another run; skipping", {
+					userId: target.user_id,
+					symbol: target.symbol,
+				});
+				continue;
+			}
 		}
+
+		// This run owns the target now — it either won the CAS above or is
+		// resuming a prior claim (pendingDelivery). Count it once, after the
+		// claim check, so a run that lost the CAS doesn't inflate the metric.
+		totals.targetsTriggered++;
 
 		// Initialize SMS sender lazily
 		if (user.price_targets_include_sms && !smsSender) {
