@@ -1,4 +1,4 @@
-import { type MarketSession, getCurrentMarketSession } from "../providers/price-fetcher";
+import { getCurrentMarketSession, type MarketSession } from "../providers/price-fetcher";
 
 /**
  * Last successfully resolved market session. Persists across warm Lambda
@@ -11,7 +11,7 @@ let cached: { session: MarketSession; atMs: number } | null = null;
 /** Max age of a cached session we're willing to reuse during an outage. */
 const MAX_STALE_MS = 10 * 60 * 1000;
 
-export interface ResolvedMarketSession {
+interface ResolvedMarketSession {
 	session: MarketSession;
 	/** True when the value came from cache/default because the live call failed. */
 	degraded: boolean;

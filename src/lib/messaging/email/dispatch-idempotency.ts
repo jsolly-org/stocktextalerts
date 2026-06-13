@@ -3,7 +3,7 @@ import type { Database } from "../../db/generated/database.types";
 
 type AdminClient = SupabaseClient<Database>;
 
-export type DispatchClaimResult = "claimed" | "duplicate";
+type DispatchClaimResult = "claimed" | "duplicate";
 
 /** Postgres unique-violation. */
 const UNIQUE_VIOLATION = "23505";

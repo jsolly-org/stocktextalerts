@@ -31,7 +31,7 @@ export function isTransientDeliveryError(result: DeliveryResult): boolean {
 	return result.errorCode !== undefined && TRANSIENT_DELIVERY_ERROR_CODES.has(result.errorCode);
 }
 
-export interface DeliveryRetryOptions {
+interface DeliveryRetryOptions {
 	channel: "email" | "sms";
 	/** Total attempts including the first. Default 3. */
 	maxAttempts?: number;
