@@ -22,6 +22,11 @@ describe("exportSnapshot", () => {
 			expect(snap.manifest.row_counts[table]).toBe(lines);
 		}
 		expect(snap.manifest.schema_version).toBe(EXPECTED_DB_SCHEMA_VERSION);
-		expect(snap.manifest.format).toBe("pg-copy-text-v1");
+		expect(snap.manifest.format).toBe("pg-copy-text-v2");
+		// Every backed-up table carries an explicit, non-empty column list so the
+		// restore aligns by name rather than physical column order.
+		for (const table of Object.keys(snap.tables)) {
+			expect(snap.manifest.columns[table]?.length ?? 0).toBeGreaterThan(0);
+		}
 	});
 });

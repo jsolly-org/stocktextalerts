@@ -103,6 +103,15 @@ recovered from — without paying for Supabase Pro/PITR.
   **Deploy risk:** setting `BYPASSRLS` requires the migration's executing role (hosted `postgres`)
   to be able to confer it; if `supabase db push` rejects it, the fallback is per-table permissive
   RLS policies (`CREATE POLICY ... TO backup_readonly USING (true)`), which need only table ownership.
+  (Confirmed deployable: prod `postgres` has `rolbypassrls` + `rolcreaterole`.)
+- **Real-deploy fixes (found by the first live prod→local restore).** Two bugs local-only rehearsals
+  structurally could not catch: (1) **explicit COPY column lists** — `COPY` without a column list
+  aligns by physical position, and prod's column order differs from a fresh-from-migrations DB
+  (squash baseline), so a real restore mis-mapped columns (`malformed array literal`). The manifest
+  now stores a per-table column list (format `pg-copy-text-v2`) and restore COPYs by name, as
+  `pg_dump` does. (2) **TLS** — the Supabase pooler's cert isn't in Node's trust store; `sslFor`
+  always uses `rejectUnauthorized: false` for remote hosts and the connection string omits
+  `sslmode=require` (which would force chain verification and fail).
 - **Reused the existing `ProdBackupsBucket`, did not create a new bucket.** The SAM template
   already defined `stocktextalerts-prod-backups-<acct>` (Block Public Access, SSE-S3,
   `BucketOwnerEnforced`, versioning, `DeletionPolicy: Retain`) — purpose-built for DB backups but

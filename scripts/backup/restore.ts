@@ -58,7 +58,15 @@ async function main() {
 		// check — and abort (rolling back) on any mismatch before COMMIT.
 		for (const table of BACKUP_TABLES) {
 			const text = payload.tables[table] ?? "";
-			const ingest = client.query(copyFrom(`COPY ${table} FROM STDIN`));
+			// Use the manifest's explicit column list so data aligns by name, not by
+			// physical column order (which can differ between the source and the
+			// restore target — e.g. a fresh-from-migrations or squash-baseline DB).
+			const cols = payload.manifest.columns[table];
+			if (!cols || cols.length === 0) {
+				throw new Error(`manifest missing column list for ${table}`);
+			}
+			const colList = cols.map((c) => `"${c.replace(/"/g, '""')}"`).join(", ");
+			const ingest = client.query(copyFrom(`COPY ${table} (${colList}) FROM STDIN`));
 			await pipeline(Readable.from([text]), ingest);
 			const expected = payload.manifest.row_counts[table] ?? 0;
 			if (ingest.rowCount !== expected) {

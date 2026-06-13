@@ -13,10 +13,11 @@ describe("packBackup", () => {
 	it("gzips a JSON envelope of manifest + tables", () => {
 		const buf = packBackup({
 			manifest: {
-				format: "pg-copy-text-v1",
+				format: "pg-copy-text-v2",
 				taken_at: "2026-06-13T12:00:00.000Z",
 				schema_version: "v1",
 				row_counts: { "public.users": 1 },
+				columns: { "public.users": ["id", "email"] },
 			},
 			tables: { "public.users": "1\tjohn@x.com\n" },
 		});

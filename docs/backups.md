@@ -10,10 +10,12 @@ Design: `docs/superpowers/specs/2026-06-13-user-settings-backup-design.md`.
 1. Set the role password against production (human runbook; not in committed SQL):
    `ALTER ROLE backup_readonly LOGIN PASSWORD '<generated>';`
 2. Build the **session pooler** connection string (IPv4-compatible, port **5432** on the pooler
-   host, `sslmode=require`). Supabase routes backup/restore to the session pooler or direct
-   connection, not the transaction pooler (6543). Supavisor requires the project ref in the
-   username (`backup_readonly.<project-ref>`):
-   `postgresql://backup_readonly.<ref>:<pw>@aws-1-us-east-2.pooler.supabase.com:5432/postgres?sslmode=require`
+   host). Supabase routes backup/restore to the session pooler or direct connection, not the
+   transaction pooler (6543). Supavisor requires the project ref in the username
+   (`backup_readonly.<project-ref>`). Do **not** append `sslmode=require` — the code connects with
+   TLS but without CA verification (the pooler's cert isn't in Node's trust store), and a
+   `sslmode=require` in the string makes node-postgres verify the chain and fail:
+   `postgresql://backup_readonly.<ref>:<pw>@aws-1-us-east-2.pooler.supabase.com:5432/postgres`
 3. Store it once in SSM SecureString:
    `aws ssm put-parameter --name /stocktextalerts/backup/connection-string --type SecureString --value '<conn>'`
 4. Deploy infra (adds the Lambda, schedule, alarms, lifecycle rule): `npm run deploy:aws`.
