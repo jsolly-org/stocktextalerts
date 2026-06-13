@@ -17,7 +17,7 @@ This plan implements the findings from the conversational audit on 2026-06-13. T
 Findings → tasks:
 
 | # | Finding | Task | Phase |
-|---|---------|------|-------|
+| --- | --- | --- | --- |
 | 1 | Twilio + SES sends have no app-level retry; SES has no request timeout ([twilio-utils.ts:90](../../../src/lib/messaging/sms/twilio-utils.ts), [email/utils.ts:144](../../../src/lib/messaging/email/utils.ts)) | Task 1 | 1 |
 | 2 | Per-minute schedule cron hard-aborts on market-session lookup ([schedule/run.ts:465](../../../src/lib/schedule/run.ts)) | Task 2 | 1 |
 | 3 | Email-dispatch dedup is in-memory only ([email-dispatch.ts:77](../../../src/handlers/email-dispatch.ts)) | Task 3 | 1 |
@@ -32,11 +32,12 @@ Findings → tasks:
 
 ---
 
-# Phase 1 — Highest value, lowest effort
+## Phase 1 — Highest value, lowest effort
 
 ## Task 1: Shared delivery retry + per-attempt timeout for SES and Twilio
 
 **Files:**
+
 - Create: `src/lib/messaging/delivery-retry.ts`
 - Test: `tests/lib/messaging/delivery-retry.test.ts`
 - Modify: `src/lib/messaging/email/utils.ts` (production SES branch, ~lines 118-159)
@@ -49,61 +50,61 @@ Create `tests/lib/messaging/delivery-retry.test.ts`:
 ```ts
 import { describe, expect, it, vi } from "vitest";
 import {
-	isTransientDeliveryError,
-	withDeliveryRetry,
+ isTransientDeliveryError,
+ withDeliveryRetry,
 } from "../../../src/lib/messaging/delivery-retry";
 import type { DeliveryResult } from "../../../src/lib/messaging/types";
 
 const noSleep = () => Promise.resolve();
 
 describe("withDeliveryRetry", () => {
-	it("A transient SES throttle succeeds on the second attempt", async () => {
-		const results: DeliveryResult[] = [
-			{ success: false, error: "throttled", errorCode: "ThrottlingException" },
-			{ success: true, messageSid: "ses-msg-1" },
-		];
-		const send = vi.fn(async () => results.shift() as DeliveryResult);
+ it("A transient SES throttle succeeds on the second attempt", async () => {
+  const results: DeliveryResult[] = [
+   { success: false, error: "throttled", errorCode: "ThrottlingException" },
+   { success: true, messageSid: "ses-msg-1" },
+  ];
+  const send = vi.fn(async () => results.shift() as DeliveryResult);
 
-		const result = await withDeliveryRetry(send, { channel: "email", sleep: noSleep });
+  const result = await withDeliveryRetry(send, { channel: "email", sleep: noSleep });
 
-		expect(result).toEqual({ success: true, messageSid: "ses-msg-1" });
-		expect(send).toHaveBeenCalledTimes(2);
-	});
+  expect(result).toEqual({ success: true, messageSid: "ses-msg-1" });
+  expect(send).toHaveBeenCalledTimes(2);
+ });
 
-	it("A permanent 400 is not retried", async () => {
-		const send = vi.fn(async (): Promise<DeliveryResult> => ({
-			success: false,
-			error: "bad recipient",
-			errorCode: "InvalidParameterValue",
-		}));
+ it("A permanent 400 is not retried", async () => {
+  const send = vi.fn(async (): Promise<DeliveryResult> => ({
+   success: false,
+   error: "bad recipient",
+   errorCode: "InvalidParameterValue",
+  }));
 
-		const result = await withDeliveryRetry(send, { channel: "email", sleep: noSleep });
+  const result = await withDeliveryRetry(send, { channel: "email", sleep: noSleep });
 
-		expect(result.success).toBe(false);
-		expect(send).toHaveBeenCalledTimes(1);
-	});
+  expect(result.success).toBe(false);
+  expect(send).toHaveBeenCalledTimes(1);
+ });
 
-	it("A vendor down for the whole window exhausts maxAttempts and returns the last failure", async () => {
-		const send = vi.fn(async (): Promise<DeliveryResult> => ({
-			success: false,
-			error: "service unavailable",
-			errorCode: "503",
-		}));
+ it("A vendor down for the whole window exhausts maxAttempts and returns the last failure", async () => {
+  const send = vi.fn(async (): Promise<DeliveryResult> => ({
+   success: false,
+   error: "service unavailable",
+   errorCode: "503",
+  }));
 
-		const result = await withDeliveryRetry(send, {
-			channel: "sms",
-			maxAttempts: 3,
-			sleep: noSleep,
-		});
+  const result = await withDeliveryRetry(send, {
+   channel: "sms",
+   maxAttempts: 3,
+   sleep: noSleep,
+  });
 
-		expect(result.success).toBe(false);
-		expect(send).toHaveBeenCalledTimes(3);
-	});
+  expect(result.success).toBe(false);
+  expect(send).toHaveBeenCalledTimes(3);
+ });
 
-	it("classifies Twilio rate-limit code 20429 as transient", () => {
-		expect(isTransientDeliveryError({ success: false, error: "x", errorCode: "20429" })).toBe(true);
-		expect(isTransientDeliveryError({ success: false, error: "x", errorCode: "21211" })).toBe(false);
-	});
+ it("classifies Twilio rate-limit code 20429 as transient", () => {
+  expect(isTransientDeliveryError({ success: false, error: "x", errorCode: "20429" })).toBe(true);
+  expect(isTransientDeliveryError({ success: false, error: "x", errorCode: "21211" })).toBe(false);
+ });
 });
 ```
 
@@ -127,38 +128,38 @@ import type { DeliveryResult } from "./types";
  * permanent and must NOT be retried.
  */
 const TRANSIENT_DELIVERY_ERROR_CODES = new Set<string>([
-	"TimeoutError",
-	"AbortError",
-	"ThrottlingException",
-	"TooManyRequestsException",
-	"ServiceUnavailable",
-	"ServiceUnavailableException",
-	"InternalFailure",
-	"InternalServerError",
-	"500",
-	"502",
-	"503",
-	"504",
-	"20429", // Twilio: too many requests
-	"20500", // Twilio: internal server error
-	"20503", // Twilio: service unavailable
+ "TimeoutError",
+ "AbortError",
+ "ThrottlingException",
+ "TooManyRequestsException",
+ "ServiceUnavailable",
+ "ServiceUnavailableException",
+ "InternalFailure",
+ "InternalServerError",
+ "500",
+ "502",
+ "503",
+ "504",
+ "20429", // Twilio: too many requests
+ "20500", // Twilio: internal server error
+ "20503", // Twilio: service unavailable
 ]);
 
 /** True when a failed delivery result is worth retrying. */
 export function isTransientDeliveryError(result: DeliveryResult): boolean {
-	if (result.success) return false;
-	return result.errorCode !== undefined && TRANSIENT_DELIVERY_ERROR_CODES.has(result.errorCode);
+ if (result.success) return false;
+ return result.errorCode !== undefined && TRANSIENT_DELIVERY_ERROR_CODES.has(result.errorCode);
 }
 
 export interface DeliveryRetryOptions {
-	channel: "email" | "sms";
-	/** Total attempts including the first. Default 3. */
-	maxAttempts?: number;
-	/** Base backoff; attempt N waits baseDelayMs * 2^(N-1). Default 500ms. */
-	baseDelayMs?: number;
-	isTransient?: (result: DeliveryResult) => boolean;
-	/** Injected in tests so we don't sleep against real timers. */
-	sleep?: (ms: number) => Promise<void>;
+ channel: "email" | "sms";
+ /** Total attempts including the first. Default 3. */
+ maxAttempts?: number;
+ /** Base backoff; attempt N waits baseDelayMs * 2^(N-1). Default 500ms. */
+ baseDelayMs?: number;
+ isTransient?: (result: DeliveryResult) => boolean;
+ /** Injected in tests so we don't sleep against real timers. */
+ sleep?: (ms: number) => Promise<void>;
 }
 
 const defaultSleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
@@ -169,42 +170,42 @@ const defaultSleep = (ms: number): Promise<void> => new Promise((resolve) => set
  * Logs `warn` per retry, `error` only when all attempts are exhausted.
  */
 export async function withDeliveryRetry(
-	send: () => Promise<DeliveryResult>,
-	options: DeliveryRetryOptions,
+ send: () => Promise<DeliveryResult>,
+ options: DeliveryRetryOptions,
 ): Promise<DeliveryResult> {
-	const maxAttempts = options.maxAttempts ?? 3;
-	const baseDelayMs = options.baseDelayMs ?? 500;
-	const isTransient = options.isTransient ?? isTransientDeliveryError;
-	const sleep = options.sleep ?? defaultSleep;
+ const maxAttempts = options.maxAttempts ?? 3;
+ const baseDelayMs = options.baseDelayMs ?? 500;
+ const isTransient = options.isTransient ?? isTransientDeliveryError;
+ const sleep = options.sleep ?? defaultSleep;
 
-	let lastResult: DeliveryResult = { success: false, error: "no delivery attempt made" };
+ let lastResult: DeliveryResult = { success: false, error: "no delivery attempt made" };
 
-	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-		lastResult = await send();
-		if (lastResult.success) return lastResult;
+ for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  lastResult = await send();
+  if (lastResult.success) return lastResult;
 
-		const retriable = isTransient(lastResult) && attempt < maxAttempts;
-		if (!retriable) {
-			rootLogger.error("Delivery failed", {
-				channel: options.channel,
-				attempts: attempt,
-				errorCode: lastResult.errorCode,
-				error: lastResult.error,
-			});
-			return lastResult;
-		}
+  const retriable = isTransient(lastResult) && attempt < maxAttempts;
+  if (!retriable) {
+   rootLogger.error("Delivery failed", {
+    channel: options.channel,
+    attempts: attempt,
+    errorCode: lastResult.errorCode,
+    error: lastResult.error,
+   });
+   return lastResult;
+  }
 
-		const delayMs = baseDelayMs * 2 ** (attempt - 1);
-		rootLogger.warn("Transient delivery failure; retrying", {
-			channel: options.channel,
-			attempt,
-			nextDelayMs: delayMs,
-			errorCode: lastResult.errorCode,
-		});
-		await sleep(delayMs);
-	}
+  const delayMs = baseDelayMs * 2 ** (attempt - 1);
+  rootLogger.warn("Transient delivery failure; retrying", {
+   channel: options.channel,
+   attempt,
+   nextDelayMs: delayMs,
+   errorCode: lastResult.errorCode,
+  });
+  await sleep(delayMs);
+ }
 
-	return lastResult;
+ return lastResult;
 }
 ```
 
@@ -226,52 +227,52 @@ import { withDeliveryRetry } from "../delivery-retry";
 Change the production SES client construction (line ~119) to disable SDK retry (our wrapper owns retries):
 
 ```ts
-	// 3. Production: real SES via the default credential chain (Lambda execution role).
-	// maxAttempts: 1 — retries are delegated to withDeliveryRetry so they aren't multiplied.
-	const sesClient = new SESv2Client({
-		region: readEnv("AWS_REGION") || "us-east-1",
-		maxAttempts: 1,
-	});
+ // 3. Production: real SES via the default credential chain (Lambda execution role).
+ // maxAttempts: 1 — retries are delegated to withDeliveryRetry so they aren't multiplied.
+ const sesClient = new SESv2Client({
+  region: readEnv("AWS_REGION") || "us-east-1",
+  maxAttempts: 1,
+ });
 ```
 
 Replace the returned sender (lines ~123-159) with a wrapped version that adds a 30s abort timeout per attempt:
 
 ```ts
-	return async ({ to, subject, body, html, replyTo, userId }) =>
-		withDeliveryRetry(
-			async () => {
-				try {
-					const replyToValue = replyTo || defaultReplyTo;
-					const command = new SendEmailCommand({
-						FromEmailAddress: fromEmail,
-						Destination: { ToAddresses: [to] },
-						ReplyToAddresses: replyToValue ? [replyToValue] : undefined,
-						Content: {
-							Simple: {
-								Subject: { Data: subject, Charset: "UTF-8" },
-								Body: {
-									Text: { Data: body, Charset: "UTF-8" },
-									Html: { Data: html ?? escapeHtml(body), Charset: "UTF-8" },
-								},
-							},
-						},
-					});
-					await waitForRateLimit();
-					// Per-attempt abort: a hung SES socket can otherwise park the Lambda.
-					const response = await sesClient.send(command, {
-						abortSignal: AbortSignal.timeout(30_000),
-					});
-					return { success: true, messageSid: response.MessageId };
-				} catch (error) {
-					return {
-						success: false,
-						error: error instanceof Error ? error.message : String(error),
-						errorCode: error instanceof Error ? error.name : undefined,
-					};
-				}
-			},
-			{ channel: "email" },
-		);
+ return async ({ to, subject, body, html, replyTo, userId }) =>
+  withDeliveryRetry(
+   async () => {
+    try {
+     const replyToValue = replyTo || defaultReplyTo;
+     const command = new SendEmailCommand({
+      FromEmailAddress: fromEmail,
+      Destination: { ToAddresses: [to] },
+      ReplyToAddresses: replyToValue ? [replyToValue] : undefined,
+      Content: {
+       Simple: {
+        Subject: { Data: subject, Charset: "UTF-8" },
+        Body: {
+         Text: { Data: body, Charset: "UTF-8" },
+         Html: { Data: html ?? escapeHtml(body), Charset: "UTF-8" },
+        },
+       },
+      },
+     });
+     await waitForRateLimit();
+     // Per-attempt abort: a hung SES socket can otherwise park the Lambda.
+     const response = await sesClient.send(command, {
+      abortSignal: AbortSignal.timeout(30_000),
+     });
+     return { success: true, messageSid: response.MessageId };
+    } catch (error) {
+     return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+      errorCode: error instanceof Error ? error.name : undefined,
+     };
+    }
+   },
+   { channel: "email" },
+  );
 ```
 
 (The per-attempt `rootLogger.error` is removed; `withDeliveryRetry` logs the final failure with `userId`-free context. The `userId` is still available in the dispatch/delivery layer logs.)
@@ -290,54 +291,54 @@ Change `createTwilioClient` (line 42-44) to set a 30s timeout:
 
 ```ts
 export function createTwilioClient(config: TwilioConfig): TwilioClient {
-	// 30s per-request timeout so a hung Twilio API can't park the Lambda.
-	// Retries are handled by withDeliveryRetry, not the SDK.
-	return twilio(config.accountSid, config.authToken, { timeout: 30_000, autoRetry: false });
+ // 30s per-request timeout so a hung Twilio API can't park the Lambda.
+ // Retries are handled by withDeliveryRetry, not the SDK.
+ return twilio(config.accountSid, config.authToken, { timeout: 30_000, autoRetry: false });
 }
 ```
 
 Wrap the production sender branch (lines 86-124) — keep the existing error mapping, wrap it:
 
 ```ts
-	return async (request: SmsRequest): Promise<DeliveryResult> => {
-		const from = request.from ?? defaultFromNumber;
+ return async (request: SmsRequest): Promise<DeliveryResult> => {
+  const from = request.from ?? defaultFromNumber;
 
-		return withDeliveryRetry(
-			async () => {
-				try {
-					const message = await client.messages.create({
-						body: request.body,
-						from,
-						to: request.to,
-					});
-					return { success: true, messageSid: message.sid };
-				} catch (error) {
-					const maskedTo = request.to.slice(-4).padStart(request.to.length, "*");
-					rootLogger.warn("Twilio SMS send attempt failed", {
-						action: "send_sms",
-						from,
-						to: maskedTo,
-						error: error instanceof Error ? error.message : String(error),
-					});
+  return withDeliveryRetry(
+   async () => {
+    try {
+     const message = await client.messages.create({
+      body: request.body,
+      from,
+      to: request.to,
+     });
+     return { success: true, messageSid: message.sid };
+    } catch (error) {
+     const maskedTo = request.to.slice(-4).padStart(request.to.length, "*");
+     rootLogger.warn("Twilio SMS send attempt failed", {
+      action: "send_sms",
+      from,
+      to: maskedTo,
+      error: error instanceof Error ? error.message : String(error),
+     });
 
-					if (error instanceof Error && "status" in error && "code" in error) {
-						const twilioError = error as RestException;
-						return {
-							success: false,
-							error: twilioError.message,
-							errorCode: twilioError.code ? String(twilioError.code) : undefined,
-						};
-					}
+     if (error instanceof Error && "status" in error && "code" in error) {
+      const twilioError = error as RestException;
+      return {
+       success: false,
+       error: twilioError.message,
+       errorCode: twilioError.code ? String(twilioError.code) : undefined,
+      };
+     }
 
-					return {
-						success: false,
-						error: error instanceof Error ? error.message : "Failed to send SMS",
-					};
-				}
-			},
-			{ channel: "sms" },
-		);
-	};
+     return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to send SMS",
+     };
+    }
+   },
+   { channel: "sms" },
+  );
+ };
 ```
 
 - [ ] **Step 7: Type-check (verifies Twilio/SES SDK options exist) and run the messaging suite**
@@ -357,7 +358,7 @@ Expected: PASS.
 
 ```bash
 git add src/lib/messaging/delivery-retry.ts tests/lib/messaging/delivery-retry.test.ts \
-	src/lib/messaging/email/utils.ts src/lib/messaging/sms/twilio-utils.ts
+ src/lib/messaging/email/utils.ts src/lib/messaging/sms/twilio-utils.ts
 git commit -m "feat(messaging): retry transient SES/Twilio sends + per-attempt timeout"
 ```
 
@@ -366,6 +367,7 @@ git commit -m "feat(messaging): retry transient SES/Twilio sends + per-attempt t
 ## Task 2: Market-session fallback — remove the per-minute cron SPOF
 
 **Files:**
+
 - Create: `src/lib/schedule/market-session.ts`
 - Test: `tests/lib/schedule/market-session.test.ts`
 - Modify: `src/lib/schedule/run.ts` (lines 462-474)
@@ -378,52 +380,52 @@ Create `tests/lib/schedule/market-session.test.ts`:
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../src/lib/providers/price-fetcher", () => ({
-	getCurrentMarketSession: vi.fn(),
+ getCurrentMarketSession: vi.fn(),
 }));
 
 import { getCurrentMarketSession } from "../../../src/lib/providers/price-fetcher";
 import {
-	__resetMarketSessionCacheForTests,
-	resolveMarketSessionWithFallback,
+ __resetMarketSessionCacheForTests,
+ resolveMarketSessionWithFallback,
 } from "../../../src/lib/schedule/market-session";
 
 const mockGet = vi.mocked(getCurrentMarketSession);
 
 describe("resolveMarketSessionWithFallback", () => {
-	beforeEach(() => {
-		__resetMarketSessionCacheForTests();
-		mockGet.mockReset();
-	});
+ beforeEach(() => {
+  __resetMarketSessionCacheForTests();
+  mockGet.mockReset();
+ });
 
-	it("A successful resolve returns the live session and is not degraded", async () => {
-		mockGet.mockResolvedValue("regular");
-		const result = await resolveMarketSessionWithFallback(1_000);
-		expect(result).toEqual({ session: "regular", degraded: false });
-	});
+ it("A successful resolve returns the live session and is not degraded", async () => {
+  mockGet.mockResolvedValue("regular");
+  const result = await resolveMarketSessionWithFallback(1_000);
+  expect(result).toEqual({ session: "regular", degraded: false });
+ });
 
-	it("A Massive blip within 10 minutes reuses the last good session, marked degraded", async () => {
-		mockGet.mockResolvedValueOnce("after");
-		await resolveMarketSessionWithFallback(1_000); // seeds cache at t=1s
+ it("A Massive blip within 10 minutes reuses the last good session, marked degraded", async () => {
+  mockGet.mockResolvedValueOnce("after");
+  await resolveMarketSessionWithFallback(1_000); // seeds cache at t=1s
 
-		mockGet.mockRejectedValueOnce(new Error("Massive 503"));
-		const result = await resolveMarketSessionWithFallback(60_000); // 59s later
-		expect(result).toEqual({ session: "after", degraded: true });
-	});
+  mockGet.mockRejectedValueOnce(new Error("Massive 503"));
+  const result = await resolveMarketSessionWithFallback(60_000); // 59s later
+  expect(result).toEqual({ session: "after", degraded: true });
+ });
 
-	it("A failure with no fresh cache defaults to closed (safe: skips price capture, no crash)", async () => {
-		mockGet.mockRejectedValueOnce(new Error("Massive 503"));
-		const result = await resolveMarketSessionWithFallback(1_000);
-		expect(result).toEqual({ session: "closed", degraded: true });
-	});
+ it("A failure with no fresh cache defaults to closed (safe: skips price capture, no crash)", async () => {
+  mockGet.mockRejectedValueOnce(new Error("Massive 503"));
+  const result = await resolveMarketSessionWithFallback(1_000);
+  expect(result).toEqual({ session: "closed", degraded: true });
+ });
 
-	it("A stale cache older than 10 minutes is not reused", async () => {
-		mockGet.mockResolvedValueOnce("regular");
-		await resolveMarketSessionWithFallback(1_000);
+ it("A stale cache older than 10 minutes is not reused", async () => {
+  mockGet.mockResolvedValueOnce("regular");
+  await resolveMarketSessionWithFallback(1_000);
 
-		mockGet.mockRejectedValueOnce(new Error("Massive 503"));
-		const result = await resolveMarketSessionWithFallback(1_000 + 11 * 60_000);
-		expect(result).toEqual({ session: "closed", degraded: true });
-	});
+  mockGet.mockRejectedValueOnce(new Error("Massive 503"));
+  const result = await resolveMarketSessionWithFallback(1_000 + 11 * 60_000);
+  expect(result).toEqual({ session: "closed", degraded: true });
+ });
 });
 ```
 
@@ -451,14 +453,14 @@ let cached: { session: MarketSession; atMs: number } | null = null;
 const MAX_STALE_MS = 10 * 60 * 1000;
 
 export interface ResolvedMarketSession {
-	session: MarketSession;
-	/** True when the value came from cache/default because the live call failed. */
-	degraded: boolean;
+ session: MarketSession;
+ /** True when the value came from cache/default because the live call failed. */
+ degraded: boolean;
 }
 
 /** Reset module cache (tests only). */
 export function __resetMarketSessionCacheForTests(): void {
-	cached = null;
+ cached = null;
 }
 
 /**
@@ -467,21 +469,21 @@ export function __resetMarketSessionCacheForTests(): void {
  * a vendor blip must not take down the per-minute scheduler.
  */
 export async function resolveMarketSessionWithFallback(
-	now: number = Date.now(),
+ now: number = Date.now(),
 ): Promise<ResolvedMarketSession> {
-	try {
-		const session = await getCurrentMarketSession();
-		cached = { session, atMs: now };
-		return { session, degraded: false };
-	} catch {
-		if (cached && now - cached.atMs <= MAX_STALE_MS) {
-			return { session: cached.session, degraded: true };
-		}
-		// No fresh cache: "closed" is the safe default — price-history capture is
-		// gated on session !== "closed", and scheduled renders degrade to
-		// "price unavailable" rather than crashing.
-		return { session: "closed", degraded: true };
-	}
+ try {
+  const session = await getCurrentMarketSession();
+  cached = { session, atMs: now };
+  return { session, degraded: false };
+ } catch {
+  if (cached && now - cached.atMs <= MAX_STALE_MS) {
+   return { session: cached.session, degraded: true };
+  }
+  // No fresh cache: "closed" is the safe default — price-history capture is
+  // gated on session !== "closed", and scheduled renders degrade to
+  // "price unavailable" rather than crashing.
+  return { session: "closed", degraded: true };
+ }
 }
 ```
 
@@ -501,18 +503,18 @@ import { resolveMarketSessionWithFallback } from "./market-session";
 Replace the throw-on-failure block (lines 462-474):
 
 ```ts
-	// Resolve market session once per scheduler invocation — passed to price alerts,
-	// both fallback passes, and precompute to avoid redundant Massive status calls.
-	// Degrades to the last-known-good session (or "closed") on a Massive blip so a
-	// transient vendor failure can't abort the entire per-minute run.
-	const { session: schedulerMarketSession, degraded: marketSessionDegraded } =
-		await resolveMarketSessionWithFallback();
-	if (marketSessionDegraded) {
-		logger.warn("Market session resolution degraded (using cached/closed fallback)", {
-			action: "market_session",
-			session: schedulerMarketSession,
-		});
-	}
+ // Resolve market session once per scheduler invocation — passed to price alerts,
+ // both fallback passes, and precompute to avoid redundant Massive status calls.
+ // Degrades to the last-known-good session (or "closed") on a Massive blip so a
+ // transient vendor failure can't abort the entire per-minute run.
+ const { session: schedulerMarketSession, degraded: marketSessionDegraded } =
+  await resolveMarketSessionWithFallback();
+ if (marketSessionDegraded) {
+  logger.warn("Market session resolution degraded (using cached/closed fallback)", {
+   action: "market_session",
+   session: schedulerMarketSession,
+  });
+ }
 ```
 
 Remove the now-unused `MarketSession` local annotation line `let schedulerMarketSession: MarketSession = "closed";` and the surrounding `try/catch`. Confirm `MarketSession` is still imported only where used elsewhere in the file (it is, at line 59).
@@ -536,6 +538,7 @@ git commit -m "fix(schedule): degrade market-session lookup instead of aborting 
 Replaces the in-memory `seenDispatchKeys` map (lost on cold start, not shared across instances) with a Postgres-backed claim that survives restarts and concurrent invocations.
 
 **Files:**
+
 - Create: `supabase/migrations/<generated>_email_dispatch_idempotency.sql`
 - Create: `src/lib/messaging/email/dispatch-idempotency.ts`
 - Test: `tests/api/messaging/email-dispatch-idempotency.test.ts`
@@ -555,8 +558,8 @@ Note the generated filename (e.g. `supabase/migrations/20260613XXXXXX_email_disp
 -- concurrent Lambda instances. service_role only (Lambda uses the secret key).
 
 create table public.email_dispatch_idempotency (
-	idempotency_key text primary key,
-	created_at timestamptz not null default now()
+ idempotency_key text primary key,
+ created_at timestamptz not null default now()
 );
 
 -- Deny-all RLS: only service_role (which bypasses RLS) may touch this table.
@@ -564,7 +567,7 @@ alter table public.email_dispatch_idempotency enable row level security;
 
 -- Index supports the opportunistic TTL cleanup below.
 create index email_dispatch_idempotency_created_at_idx
-	on public.email_dispatch_idempotency (created_at);
+ on public.email_dispatch_idempotency (created_at);
 
 grant select, insert, delete on public.email_dispatch_idempotency to service_role;
 
@@ -601,22 +604,22 @@ import { claimEmailDispatchKey } from "../../../src/lib/messaging/email/dispatch
 const TEST_KEY = "scheduled-update/test-user-abc/2026-06-13/540/email";
 
 afterEach(async () => {
-	await createSupabaseAdminClient()
-		.from("email_dispatch_idempotency")
-		.delete()
-		.eq("idempotency_key", TEST_KEY);
+ await createSupabaseAdminClient()
+  .from("email_dispatch_idempotency")
+  .delete()
+  .eq("idempotency_key", TEST_KEY);
 });
 
 describe("claimEmailDispatchKey", () => {
-	it("A first dispatch claims the key; an identical retry is rejected as a duplicate", async () => {
-		const supabase = createSupabaseAdminClient();
+ it("A first dispatch claims the key; an identical retry is rejected as a duplicate", async () => {
+  const supabase = createSupabaseAdminClient();
 
-		const first = await claimEmailDispatchKey(supabase, TEST_KEY);
-		expect(first).toBe("claimed");
+  const first = await claimEmailDispatchKey(supabase, TEST_KEY);
+  expect(first).toBe("claimed");
 
-		const second = await claimEmailDispatchKey(supabase, TEST_KEY);
-		expect(second).toBe("duplicate");
-	});
+  const second = await claimEmailDispatchKey(supabase, TEST_KEY);
+  expect(second).toBe("duplicate");
+ });
 });
 ```
 
@@ -647,16 +650,16 @@ const UNIQUE_VIOLATION = "23505";
  * in-memory map.
  */
 export async function claimEmailDispatchKey(
-	supabase: AdminClient,
-	idempotencyKey: string,
+ supabase: AdminClient,
+ idempotencyKey: string,
 ): Promise<DispatchClaimResult> {
-	const { error } = await supabase
-		.from("email_dispatch_idempotency")
-		.insert({ idempotency_key: idempotencyKey });
+ const { error } = await supabase
+  .from("email_dispatch_idempotency")
+  .insert({ idempotency_key: idempotencyKey });
 
-	if (!error) return "claimed";
-	if (error.code === UNIQUE_VIOLATION) return "duplicate";
-	throw error;
+ if (!error) return "claimed";
+ if (error.code === UNIQUE_VIOLATION) return "duplicate";
+ throw error;
 }
 ```
 
@@ -680,31 +683,31 @@ import { claimEmailDispatchKey } from "../lib/messaging/email/dispatch-idempoten
 Replace the dedup block (lines 154-165). Note the dispatch key must be deterministic for durable dedup — drop the `Date.now()-Math.random()` fallback (it defeats dedup) and require either `idempotencyKey` or `signature`:
 
 ```ts
-			const dispatchKey = request.idempotencyKey ?? signature;
-			if (!dispatchKey) {
-				logger.warn("Rejected email dispatch request with no idempotency key or signature", {
-					action: "email_dispatch_replay",
-					userId: request.userId,
-				});
-				return jsonResponse(400, {
-					success: false,
-					error: "Missing idempotency key",
-					errorCode: "missing_idempotency_key",
-				});
-			}
+   const dispatchKey = request.idempotencyKey ?? signature;
+   if (!dispatchKey) {
+    logger.warn("Rejected email dispatch request with no idempotency key or signature", {
+     action: "email_dispatch_replay",
+     userId: request.userId,
+    });
+    return jsonResponse(400, {
+     success: false,
+     error: "Missing idempotency key",
+     errorCode: "missing_idempotency_key",
+    });
+   }
 
-			const claim = await claimEmailDispatchKey(createSupabaseAdminClient(), dispatchKey);
-			if (claim === "duplicate") {
-				logger.warn("Rejected replayed email dispatch request", {
-					action: "email_dispatch_replay",
-					userId: request.userId,
-				});
-				return jsonResponse(409, {
-					success: false,
-					error: "Duplicate email dispatch request",
-					errorCode: "duplicate_request",
-				});
-			}
+   const claim = await claimEmailDispatchKey(createSupabaseAdminClient(), dispatchKey);
+   if (claim === "duplicate") {
+    logger.warn("Rejected replayed email dispatch request", {
+     action: "email_dispatch_replay",
+     userId: request.userId,
+    });
+    return jsonResponse(409, {
+     success: false,
+     error: "Duplicate email dispatch request",
+     errorCode: "duplicate_request",
+    });
+   }
 ```
 
 - [ ] **Step 9: Type-check, run the messaging API suite, build**
@@ -716,9 +719,9 @@ Expected: PASS. `check:knip` confirms no dead exports left behind by the deleted
 
 ```bash
 git add supabase/migrations/ src/lib/db/generated/database.types.ts \
-	src/lib/messaging/email/dispatch-idempotency.ts \
-	tests/api/messaging/email-dispatch-idempotency.test.ts \
-	src/handlers/email-dispatch.ts tests/helpers/constants.ts
+ src/lib/messaging/email/dispatch-idempotency.ts \
+ tests/api/messaging/email-dispatch-idempotency.test.ts \
+ src/handlers/email-dispatch.ts tests/helpers/constants.ts
 git commit -m "feat(email-dispatch): durable Postgres-backed idempotency for replays"
 ```
 
@@ -726,13 +729,14 @@ git commit -m "feat(email-dispatch): durable Postgres-backed idempotency for rep
 
 ---
 
-# Phase 2 — Remove all-or-nothing batch loss; add observability
+## Phase 2 — Remove all-or-nothing batch loss; add observability
 
 ## Task 4: Chunked daily-stats upsert
 
 Stops a single upsert failure from discarding a full day of computed stats across every symbol.
 
 **Files:**
+
 - Create: `src/lib/market-notifications/daily-stats-upsert.ts`
 - Test: `tests/lib/market-notifications/daily-stats-upsert.test.ts`
 - Modify: `src/handlers/compute-daily-stats.ts` (lines 125-145)
@@ -744,36 +748,36 @@ Create `tests/lib/market-notifications/daily-stats-upsert.test.ts`:
 ```ts
 import { describe, expect, it, vi } from "vitest";
 import {
-	type DailyStatsRow,
-	upsertDailyStatsInChunks,
+ type DailyStatsRow,
+ upsertDailyStatsInChunks,
 } from "../../../src/lib/market-notifications/daily-stats-upsert";
 
 function row(symbol: string): DailyStatsRow {
-	return { symbol, computed_at: "2026-06-13", avg_volume_20d: 1_000_000, atr_14: 1.2345 };
+ return { symbol, computed_at: "2026-06-13", avg_volume_20d: 1_000_000, atr_14: 1.2345 };
 }
 
 describe("upsertDailyStatsInChunks", () => {
-	it("A clean run upserts every chunk and reports zero failures", async () => {
-		const rows = ["AAPL", "MSFT", "NVDA", "TSLA", "AMD"].map(row);
-		const upsert = vi.fn(async () => ({ error: null }));
+ it("A clean run upserts every chunk and reports zero failures", async () => {
+  const rows = ["AAPL", "MSFT", "NVDA", "TSLA", "AMD"].map(row);
+  const upsert = vi.fn(async () => ({ error: null }));
 
-		const result = await upsertDailyStatsInChunks(rows, upsert, 2);
+  const result = await upsertDailyStatsInChunks(rows, upsert, 2);
 
-		expect(result).toEqual({ upserted: 5, failedChunks: 0, failedRows: 0 });
-		expect(upsert).toHaveBeenCalledTimes(3); // 2 + 2 + 1
-	});
+  expect(result).toEqual({ upserted: 5, failedChunks: 0, failedRows: 0 });
+  expect(upsert).toHaveBeenCalledTimes(3); // 2 + 2 + 1
+ });
 
-	it("A single failing chunk does not discard the chunks that succeeded", async () => {
-		const rows = ["AAPL", "MSFT", "NVDA", "TSLA"].map(row);
-		const upsert = vi
-			.fn()
-			.mockResolvedValueOnce({ error: null })
-			.mockResolvedValueOnce({ error: { message: "deadlock" } });
+ it("A single failing chunk does not discard the chunks that succeeded", async () => {
+  const rows = ["AAPL", "MSFT", "NVDA", "TSLA"].map(row);
+  const upsert = vi
+   .fn()
+   .mockResolvedValueOnce({ error: null })
+   .mockResolvedValueOnce({ error: { message: "deadlock" } });
 
-		const result = await upsertDailyStatsInChunks(rows, upsert, 2);
+  const result = await upsertDailyStatsInChunks(rows, upsert, 2);
 
-		expect(result).toEqual({ upserted: 2, failedChunks: 1, failedRows: 2 });
-	});
+  expect(result).toEqual({ upserted: 2, failedChunks: 1, failedRows: 2 });
+ });
 });
 ```
 
@@ -788,21 +792,21 @@ Create `src/lib/market-notifications/daily-stats-upsert.ts`:
 
 ```ts
 export interface DailyStatsRow {
-	symbol: string;
-	computed_at: string;
-	avg_volume_20d: number | null;
-	atr_14: number | null;
+ symbol: string;
+ computed_at: string;
+ avg_volume_20d: number | null;
+ atr_14: number | null;
 }
 
 export interface DailyStatsUpsertResult {
-	upserted: number;
-	failedChunks: number;
-	failedRows: number;
+ upserted: number;
+ failedChunks: number;
+ failedRows: number;
 }
 
 /** Executor matches `supabase.from(...).upsert(rows, { onConflict: "symbol" })`. */
 export type DailyStatsUpsertExecutor = (
-	rows: DailyStatsRow[],
+ rows: DailyStatsRow[],
 ) => Promise<{ error: { message: string } | null }>;
 
 /**
@@ -811,26 +815,26 @@ export type DailyStatsUpsertExecutor = (
  * per-chunk failure counts for alarm logging; never throws.
  */
 export async function upsertDailyStatsInChunks(
-	rows: DailyStatsRow[],
-	upsert: DailyStatsUpsertExecutor,
-	chunkSize = 500,
+ rows: DailyStatsRow[],
+ upsert: DailyStatsUpsertExecutor,
+ chunkSize = 500,
 ): Promise<DailyStatsUpsertResult> {
-	let upserted = 0;
-	let failedChunks = 0;
-	let failedRows = 0;
+ let upserted = 0;
+ let failedChunks = 0;
+ let failedRows = 0;
 
-	for (let i = 0; i < rows.length; i += chunkSize) {
-		const chunk = rows.slice(i, i + chunkSize);
-		const { error } = await upsert(chunk);
-		if (error) {
-			failedChunks++;
-			failedRows += chunk.length;
-		} else {
-			upserted += chunk.length;
-		}
-	}
+ for (let i = 0; i < rows.length; i += chunkSize) {
+  const chunk = rows.slice(i, i + chunkSize);
+  const { error } = await upsert(chunk);
+  if (error) {
+   failedChunks++;
+   failedRows += chunk.length;
+  } else {
+   upserted += chunk.length;
+  }
+ }
 
-	return { upserted, failedChunks, failedRows };
+ return { upserted, failedChunks, failedRows };
 }
 ```
 
@@ -850,26 +854,26 @@ import { upsertDailyStatsInChunks } from "../lib/market-notifications/daily-stat
 Replace the all-or-nothing upsert block (lines 125-145):
 
 ```ts
-		// Upsert all rows in independent chunks so a single chunk failure doesn't
-		// discard a full day of computed stats across every symbol.
-		if (rows.length > 0) {
-			const upsertResult = await upsertDailyStatsInChunks(rows, (chunk) =>
-				supabase.from("daily_asset_stats").upsert(chunk, { onConflict: "symbol" }),
-			);
-			if (upsertResult.failedChunks > 0) {
-				// Still an error (alarms fire) but the successful chunks persisted.
-				logger.error(
-					"Some daily_asset_stats chunks failed to upsert",
-					{
-						action: "compute_daily_stats",
-						upserted: upsertResult.upserted,
-						failedChunks: upsertResult.failedChunks,
-						failedRows: upsertResult.failedRows,
-					},
-					new Error("Partial upsert failure"),
-				);
-			}
-		}
+  // Upsert all rows in independent chunks so a single chunk failure doesn't
+  // discard a full day of computed stats across every symbol.
+  if (rows.length > 0) {
+   const upsertResult = await upsertDailyStatsInChunks(rows, (chunk) =>
+    supabase.from("daily_asset_stats").upsert(chunk, { onConflict: "symbol" }),
+   );
+   if (upsertResult.failedChunks > 0) {
+    // Still an error (alarms fire) but the successful chunks persisted.
+    logger.error(
+     "Some daily_asset_stats chunks failed to upsert",
+     {
+      action: "compute_daily_stats",
+      upserted: upsertResult.upserted,
+      failedChunks: upsertResult.failedChunks,
+      failedRows: upsertResult.failedRows,
+     },
+     new Error("Partial upsert failure"),
+    );
+   }
+  }
 ```
 
 - [ ] **Step 6: Type-check and run the test + build**
@@ -881,8 +885,8 @@ Expected: PASS.
 
 ```bash
 git add src/lib/market-notifications/daily-stats-upsert.ts \
-	tests/lib/market-notifications/daily-stats-upsert.test.ts \
-	src/handlers/compute-daily-stats.ts
+ tests/lib/market-notifications/daily-stats-upsert.test.ts \
+ src/handlers/compute-daily-stats.ts
 git commit -m "fix(daily-stats): chunk the upsert so one failure doesn't lose the batch"
 ```
 
@@ -893,6 +897,7 @@ git commit -m "fix(daily-stats): chunk the upsert so one failure doesn't lose th
 Gives the platform something to probe (Vercel currently shows green while Supabase is down).
 
 **Files:**
+
 - Create: `src/pages/api/health.ts`
 - Test: `tests/api/health.test.ts`
 
@@ -905,12 +910,12 @@ import { describe, expect, it } from "vitest";
 import { GET } from "../../src/pages/api/health";
 
 describe("GET /api/health", () => {
-	it("Returns 200 with db ok when Supabase is reachable", async () => {
-		const response = await GET();
-		expect(response.status).toBe(200);
-		const body = await response.json();
-		expect(body).toMatchObject({ status: "ok", checks: { db: "ok" } });
-	});
+ it("Returns 200 with db ok when Supabase is reachable", async () => {
+  const response = await GET();
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  expect(body).toMatchObject({ status: "ok", checks: { db: "ok" } });
+ });
 });
 ```
 
@@ -936,22 +941,22 @@ export const prerender = false;
  * waiting for a user to hit an authenticated page.
  */
 export async function GET(): Promise<Response> {
-	let db: "ok" | "error" = "ok";
-	try {
-		const { error } = await createSupabaseAdminClient()
-			.from("app_metadata")
-			.select("schema_version", { head: true, count: "exact" });
-		if (error) db = "error";
-	} catch (error) {
-		db = "error";
-		rootLogger.warn("Health check DB ping failed", { action: "health_check" }, error);
-	}
+ let db: "ok" | "error" = "ok";
+ try {
+  const { error } = await createSupabaseAdminClient()
+   .from("app_metadata")
+   .select("schema_version", { head: true, count: "exact" });
+  if (error) db = "error";
+ } catch (error) {
+  db = "error";
+  rootLogger.warn("Health check DB ping failed", { action: "health_check" }, error);
+ }
 
-	const status = db === "ok" ? "ok" : "degraded";
-	return new Response(JSON.stringify({ status, checks: { db } }), {
-		status: db === "ok" ? 200 : 503,
-		headers: { "content-type": "application/json", "cache-control": "no-store" },
-	});
+ const status = db === "ok" ? "ok" : "degraded";
+ return new Response(JSON.stringify({ status, checks: { db } }), {
+  status: db === "ok" ? 200 : 503,
+  headers: { "content-type": "application/json", "cache-control": "no-store" },
+ });
 }
 ```
 
@@ -978,13 +983,14 @@ git commit -m "feat(api): add /api/health readiness probe for DB"
 
 ---
 
-# Phase 3 — Lower value / infra (honest caveats)
+## Phase 3 — Lower value / infra (honest caveats)
 
 ## Task 6: Short-TTL approval cache
 
 **Honest scope:** This reduces redundant `approved_at` lookups on every page load and smooths a *brief* DB blip. It does **not** keep the app up during a full Supabase outage — `getCurrentUser` still calls `supabase.auth.setSession` ([db/index.ts:108](../../../src/lib/db/index.ts)), which needs Supabase Auth. It also means a revoked approval lingers up to the TTL. Keep the TTL short (30s) and treat this as load reduction + minor resilience, not a failover.
 
 **Files:**
+
 - Create: `src/lib/db/approval-cache.ts`
 - Test: `tests/lib/db/approval-cache.test.ts`
 - Modify: `src/lib/db/index.ts` (approval lookup, lines 150-165)
@@ -996,28 +1002,28 @@ Create `tests/lib/db/approval-cache.test.ts`:
 ```ts
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-	__resetApprovalCacheForTests,
-	getApprovalCached,
+ __resetApprovalCacheForTests,
+ getApprovalCached,
 } from "../../../src/lib/db/approval-cache";
 
 describe("getApprovalCached", () => {
-	beforeEach(() => __resetApprovalCacheForTests());
+ beforeEach(() => __resetApprovalCacheForTests());
 
-	it("A repeated lookup within the TTL hits cache and does not re-query", async () => {
-		const lookup = vi.fn(async () => true);
+ it("A repeated lookup within the TTL hits cache and does not re-query", async () => {
+  const lookup = vi.fn(async () => true);
 
-		expect(await getApprovalCached("user-1", lookup, 1_000)).toBe(true);
-		expect(await getApprovalCached("user-1", lookup, 1_500)).toBe(true);
-		expect(lookup).toHaveBeenCalledTimes(1);
-	});
+  expect(await getApprovalCached("user-1", lookup, 1_000)).toBe(true);
+  expect(await getApprovalCached("user-1", lookup, 1_500)).toBe(true);
+  expect(lookup).toHaveBeenCalledTimes(1);
+ });
 
-	it("A lookup after the TTL expires re-queries", async () => {
-		const lookup = vi.fn(async () => true);
+ it("A lookup after the TTL expires re-queries", async () => {
+  const lookup = vi.fn(async () => true);
 
-		await getApprovalCached("user-1", lookup, 1_000);
-		await getApprovalCached("user-1", lookup, 1_000 + 31_000);
-		expect(lookup).toHaveBeenCalledTimes(2);
-	});
+  await getApprovalCached("user-1", lookup, 1_000);
+  await getApprovalCached("user-1", lookup, 1_000 + 31_000);
+  expect(lookup).toHaveBeenCalledTimes(2);
+ });
 });
 ```
 
@@ -1042,7 +1048,7 @@ const cache = new Map<string, { approved: boolean; atMs: number }>();
 
 /** Reset cache (tests only). */
 export function __resetApprovalCacheForTests(): void {
-	cache.clear();
+ cache.clear();
 }
 
 /**
@@ -1051,18 +1057,18 @@ export function __resetApprovalCacheForTests(): void {
  * approved user may wait up to TTL_MS — acceptable for a 30s window.
  */
 export async function getApprovalCached(
-	userId: string,
-	lookup: () => Promise<boolean>,
-	now: number = Date.now(),
-	ttlMs: number = TTL_MS,
+ userId: string,
+ lookup: () => Promise<boolean>,
+ now: number = Date.now(),
+ ttlMs: number = TTL_MS,
 ): Promise<boolean> {
-	const hit = cache.get(userId);
-	if (hit && now - hit.atMs <= ttlMs) {
-		return hit.approved;
-	}
-	const approved = await lookup();
-	cache.set(userId, { approved, atMs: now });
-	return approved;
+ const hit = cache.get(userId);
+ if (hit && now - hit.atMs <= ttlMs) {
+  return hit.approved;
+ }
+ const approved = await lookup();
+ cache.set(userId, { approved, atMs: now });
+ return approved;
 }
 ```
 
@@ -1082,27 +1088,27 @@ import { getApprovalCached } from "./approval-cache";
 Wrap the approval query (lines 150-165). The lookup callback preserves the existing error semantics (a DB error logs and is treated as not-approved → returns false, which surfaces as `null` user — unchanged behavior, just cached):
 
 ```ts
-				const approved = await getApprovalCached(authUser.id, async () => {
-					const { data: dbUser, error: dbUserError } = await supabase
-						.from("users")
-						.select("approved_at")
-						.eq("id", authUser.id)
-						.maybeSingle();
-					if (dbUserError) {
-						rootLogger.error("approval lookup failed", {
-							error: dbUserError.message,
-							userId: authUser.id,
-						});
-						return false;
-					}
-					return isApprovedAtValue(dbUser?.approved_at ?? null);
-				});
+    const approved = await getApprovalCached(authUser.id, async () => {
+     const { data: dbUser, error: dbUserError } = await supabase
+      .from("users")
+      .select("approved_at")
+      .eq("id", authUser.id)
+      .maybeSingle();
+     if (dbUserError) {
+      rootLogger.error("approval lookup failed", {
+       error: dbUserError.message,
+       userId: authUser.id,
+      });
+      return false;
+     }
+     return isApprovedAtValue(dbUser?.approved_at ?? null);
+    });
 
-				if (!approved) {
-					return null;
-				}
+    if (!approved) {
+     return null;
+    }
 
-				return authUser;
+    return authUser;
 ```
 
 > Note: caching a `false` from a transient DB error for 30s is a deliberate trade — it prevents a thundering herd of failed lookups during a blip. If you'd rather never cache the error path, return early without caching by throwing inside the callback and catching outside; keep it simple unless review objects.
@@ -1126,6 +1132,7 @@ git commit -m "perf(auth): short-TTL approval cache to cut per-load DB lookups"
 **Honest scope:** Modest value — the per-minute schedule cron is a single invocation, so reserved concurrency mainly guarantees it can always run even if other functions saturate the account's concurrency pool. No unit test applies; this is an infra change verified by `sam validate` and requires a **full SAM deploy** (`npm run deploy:aws` with admin creds — code-only pushes don't apply `template.yaml` changes; see AGENTS.md → "AWS / SAM Deploy").
 
 **Files:**
+
 - Modify: `aws/template.yaml` (`ScheduleFunction` ~line 87, `AssetEventsFunction` ~line 136)
 
 - [ ] **Step 1: Add reserved concurrency to ScheduleFunction**

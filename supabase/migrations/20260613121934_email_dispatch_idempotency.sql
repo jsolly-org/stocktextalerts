@@ -2,6 +2,9 @@
 -- in-memory map so duplicate sends are blocked across cold starts and
 -- concurrent Lambda instances. service_role only (Lambda uses the secret key).
 
+SET lock_timeout = '5s';
+SET statement_timeout = '30s';
+
 create table public.email_dispatch_idempotency (
 	idempotency_key text primary key,
 	created_at timestamptz not null default now()
