@@ -67,4 +67,3 @@ scripts/data/users.json
 
 
 # Materialized agent config (fetched by .dotagents/bootstrap.sh; not committed)
-/.agents/
