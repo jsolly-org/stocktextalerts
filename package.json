@@ -71,7 +71,7 @@
 		"astro-icon": "^1.1.5",
 		"libphonenumber-js": "^1.12.40",
 		"luxon": "^3.7.2",
-		"nodemailer": "^8.0.5",
+		"nodemailer": "^8.0.11",
 		"pg-copy-streams": "^7.0.0",
 		"twilio": "^5.13.1",
 		"vue": "^3.5.32"
@@ -88,7 +88,7 @@
 		"@tailwindcss/vite": "^4.2.2",
 		"@types/aws-lambda": "^8.10.161",
 		"@types/luxon": "^3.7.1",
-		"@types/nodemailer": "^8.0.0",
+		"@types/nodemailer": "^8.0.1",
 		"@types/pg": "^8.20.0",
 		"@types/pg-copy-streams": "^1.2.5",
 		"astro": "~6.1.10",
