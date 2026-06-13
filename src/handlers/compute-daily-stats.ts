@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from "../lib/db/supabase";
 import { createLogger } from "../lib/logging";
 import { runWithRequestContext } from "../lib/logging/request-context";
 import { computeADV, computeATR } from "../lib/market-notifications/daily-stats";
+import { upsertDailyStatsInChunks } from "../lib/market-notifications/daily-stats-upsert";
 import {
 	dailyBarsToCloseRows,
 	getBenchmarkCacheSymbols,
@@ -122,25 +123,27 @@ export async function handler(event: ScheduledEvent, context: Context): Promise<
 			}
 		}
 
-		// Upsert all rows
+		// Upsert all rows in independent chunks so a single chunk failure doesn't
+		// discard a full day of computed stats across every symbol.
 		if (rows.length > 0) {
-			const { error: upsertError } = await supabase
-				.from("daily_asset_stats")
-				.upsert(rows, { onConflict: "symbol" });
-
-			if (upsertError) {
-				const sampleRow = rows[0];
+			const upsertResult = await upsertDailyStatsInChunks(rows, async (chunk) => {
+				const { error } = await supabase
+					.from("daily_asset_stats")
+					.upsert(chunk, { onConflict: "symbol" });
+				return { error };
+			});
+			if (upsertResult.failedChunks > 0) {
+				// Still an error (alarms fire) but the successful chunks persisted.
 				logger.error(
-					"Failed to upsert daily_asset_stats",
+					"Some daily_asset_stats chunks failed to upsert",
 					{
 						action: "compute_daily_stats",
-						rowCount: rows.length,
-						sampleSymbol: sampleRow?.symbol,
-						sampleComputedAt: sampleRow?.computed_at,
+						upserted: upsertResult.upserted,
+						failedChunks: upsertResult.failedChunks,
+						failedRows: upsertResult.failedRows,
 					},
-					upsertError,
+					new Error("Partial upsert failure"),
 				);
-				throw new Error("Upsert failed");
 			}
 		}
 
