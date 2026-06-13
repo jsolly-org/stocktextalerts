@@ -98,6 +98,7 @@
 		"lint-staged": "^16.4.0",
 		"markdownlint-cli2": "^0.22.1",
 		"pg": "^8.20.0",
+		"smol-toml": "^1.6.1",
 		"squawk-cli": "^2.51.0",
 		"supabase": "^2.105.0",
 		"tailwindcss": "^4.2.2",

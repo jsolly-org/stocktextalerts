@@ -1,13 +1,15 @@
 /**
- * scripts/db/reset.ts — db:reset with optional per-worktree Supabase config.
+ * scripts/db/reset.ts — db:reset against the worktree's own supabase/config.toml.
+ *
+ * Per-worktree isolation lives in the worktree's config.toml (written + skip-worktree'd by
+ * worktree-supabase.ts), which the Supabase CLI reads directly — no `--config` flag (removed in
+ * CLI 2.105). See docs/superpowers/plans/2026-06-13-worktree-supabase-cli-fix.md.
  */
 
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-
-import { supabaseCliArgs } from "./supabase-cli-args";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, "..", "..");
@@ -24,9 +26,7 @@ function run(command: string, args: string[]): number {
 }
 
 function main(): void {
-	const supabaseArgs = supabaseCliArgs();
-
-	const status = run(supabaseExecutable, ["status", ...supabaseArgs]);
+	const status = run(supabaseExecutable, ["status"]);
 	if (status !== 0) {
 		process.exit(status);
 	}
@@ -35,7 +35,7 @@ function main(): void {
 		process.exit(1);
 	}
 
-	if (run(supabaseExecutable, ["db", "reset", ...supabaseArgs]) !== 0) {
+	if (run(supabaseExecutable, ["db", "reset"]) !== 0) {
 		process.exit(1);
 	}
 
