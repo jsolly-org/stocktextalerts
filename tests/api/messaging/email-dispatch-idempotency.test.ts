@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createSupabaseAdminClient } from "../../../src/lib/db/supabase";
-import { claimEmailDispatchKey } from "../../../src/lib/messaging/email/dispatch-idempotency";
+import {
+	claimEmailDispatchKey,
+	releaseEmailDispatchKey,
+} from "../../../src/lib/messaging/email/dispatch-idempotency";
 
 const TEST_KEY = "scheduled-update/test-user-abc/2026-06-13/540/email";
 
@@ -20,5 +23,26 @@ describe("claimEmailDispatchKey", () => {
 
 		const second = await claimEmailDispatchKey(supabase, TEST_KEY);
 		expect(second).toBe("duplicate");
+	});
+
+	it("A failed dispatch releases its key so a retry can re-claim and deliver", async () => {
+		const supabase = createSupabaseAdminClient();
+		const key = "daily-digest/test-user-xyz/2026-06-13/540/email";
+		try {
+			expect(await claimEmailDispatchKey(supabase, key)).toBe("claimed");
+			// Simulate the handler's release-on-failure:
+			await releaseEmailDispatchKey(supabase, key);
+			// A retry must be able to re-claim (NOT be blocked as a duplicate):
+			expect(await claimEmailDispatchKey(supabase, key)).toBe("claimed");
+		} finally {
+			await supabase.from("email_dispatch_idempotency").delete().eq("idempotency_key", key);
+		}
+	});
+
+	it("Releasing a key that was never claimed is a safe no-op", async () => {
+		const supabase = createSupabaseAdminClient();
+		await expect(
+			releaseEmailDispatchKey(supabase, "daily-digest/never-claimed/2026-06-13/540/email"),
+		).resolves.toBeUndefined();
 	});
 });

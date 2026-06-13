@@ -15,7 +15,10 @@ import {
 	type EmailDispatchRequest,
 	type EmailDispatchResponse,
 } from "../lib/messaging/email/dispatch-contract";
-import { claimEmailDispatchKey } from "../lib/messaging/email/dispatch-idempotency";
+import {
+	claimEmailDispatchKey,
+	releaseEmailDispatchKey,
+} from "../lib/messaging/email/dispatch-idempotency";
 import { createEmailSender } from "../lib/messaging/email/utils";
 
 function jsonResponse(
@@ -153,7 +156,8 @@ export async function handler(
 			});
 		}
 
-		const claim = await claimEmailDispatchKey(createSupabaseAdminClient(), dispatchKey);
+		const supabase = createSupabaseAdminClient();
+		const claim = await claimEmailDispatchKey(supabase, dispatchKey);
 		if (claim === "duplicate") {
 			logger.warn("Rejected replayed email dispatch request", {
 				action: "email_dispatch_replay",
@@ -166,47 +170,56 @@ export async function handler(
 			});
 		}
 
+		// The key is now claimed. It must persist only if the email is actually
+		// delivered; every non-delivery path releases it so the deterministic
+		// upstream key can be re-claimed on a retry.
+		let delivered = false;
 		try {
-			const authorizedRecipient = await isAuthorizedRecipient(request);
-			if (!authorizedRecipient) {
-				logger.warn("Rejected email dispatch request for unauthorized recipient", {
-					action: "email_dispatch_authorization",
-					userId: request.userId,
-				});
-				return jsonResponse(403, {
+			try {
+				const authorizedRecipient = await isAuthorizedRecipient(request);
+				if (!authorizedRecipient) {
+					logger.warn("Rejected email dispatch request for unauthorized recipient", {
+						action: "email_dispatch_authorization",
+						userId: request.userId,
+					});
+					return jsonResponse(403, {
+						success: false,
+						error: "Unauthorized recipient",
+						errorCode: "unauthorized_recipient",
+					});
+				}
+			} catch (error) {
+				logger.error(
+					"Failed to authorize email dispatch recipient",
+					{ action: "email_dispatch_authorization", userId: request.userId },
+					error,
+				);
+				return jsonResponse(500, {
 					success: false,
-					error: "Unauthorized recipient",
-					errorCode: "unauthorized_recipient",
+					error: "Recipient authorization failed",
+					errorCode: "authorization_failed",
 				});
 			}
-		} catch (error) {
-			logger.error(
-				"Failed to authorize email dispatch recipient",
-				{ action: "email_dispatch_authorization", userId: request.userId },
-				error,
-			);
-			return jsonResponse(500, {
-				success: false,
-				error: "Recipient authorization failed",
-				errorCode: "authorization_failed",
-			});
-		}
 
-		const result = await createEmailSender()(request);
-		if (!result.success) {
-			logger.error("Email dispatch delivery failed", {
+			const result = await createEmailSender()(request);
+			if (!result.success) {
+				logger.error("Email dispatch delivery failed", {
+					action: "email_dispatch_send",
+					userId: request.userId,
+					error: result.error,
+					errorCode: result.errorCode,
+				});
+				return jsonResponse(502, result);
+			}
+
+			delivered = true;
+			logger.info("Email dispatch delivered", {
 				action: "email_dispatch_send",
 				userId: request.userId,
-				error: result.error,
-				errorCode: result.errorCode,
 			});
-			return jsonResponse(502, result);
+			return jsonResponse(200, result);
+		} finally {
+			if (!delivered) await releaseEmailDispatchKey(supabase, dispatchKey);
 		}
-
-		logger.info("Email dispatch delivered", {
-			action: "email_dispatch_send",
-			userId: request.userId,
-		});
-		return jsonResponse(200, result);
 	});
 }

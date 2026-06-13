@@ -30,7 +30,32 @@ const mockEq = vi.hoisted(() => {
 	return query.eq;
 });
 const mockSelect = vi.hoisted(() => vi.fn(() => ({ eq: mockEq, maybeSingle: mockMaybeSingle })));
-const mockFrom = vi.hoisted(() => vi.fn(() => ({ select: mockSelect })));
+
+// Durable idempotency lives in `email_dispatch_idempotency`; the handler now
+// reuses a single admin client for claim (INSERT) and release (DELETE). This
+// fake tracks claimed keys in-memory so a duplicate INSERT reports a unique
+// violation and a DELETE actually frees the key for a re-claim.
+const idempotencyKeys = vi.hoisted(() => new Set<string>());
+const mockIdempotencyTable = vi.hoisted(() => ({
+	insert: vi.fn(async ({ idempotency_key }: { idempotency_key: string }) => {
+		if (idempotencyKeys.has(idempotency_key)) {
+			return { error: { code: "23505", message: "duplicate key" } };
+		}
+		idempotencyKeys.add(idempotency_key);
+		return { error: null };
+	}),
+	delete: vi.fn(() => ({
+		eq: vi.fn(async (_column: string, value: string) => {
+			idempotencyKeys.delete(value);
+			return { error: null };
+		}),
+	})),
+}));
+const mockFrom = vi.hoisted(() =>
+	vi.fn((table: string) =>
+		table === "email_dispatch_idempotency" ? mockIdempotencyTable : { select: mockSelect },
+	),
+);
 
 vi.mock("../../src/lib/messaging/email/utils", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("../../src/lib/messaging/email/utils")>();
@@ -98,6 +123,7 @@ describe("email-dispatch Lambda handler", () => {
 	afterEach(() => {
 		vi.unstubAllEnvs();
 		vi.clearAllMocks();
+		idempotencyKeys.clear();
 		mockMaybeSingle.mockResolvedValue({ data: { id: "user-1" }, error: null });
 	});
 
@@ -244,6 +270,57 @@ describe("email-dispatch Lambda handler", () => {
 
 		expect(first.statusCode).toBe(200);
 		expect(second.statusCode).toBe(409);
+		expect(mockEmailSender).toHaveBeenCalledOnce();
+	});
+
+	it("releases the idempotency key when delivery fails so a retry can re-send.", async () => {
+		expectConsoleError("Email dispatch delivery failed");
+		vi.stubEnv("EMAIL_DISPATCH_SECRET", "dispatch-secret");
+		const request = {
+			to: "new-user@example.com",
+			subject: "Approved",
+			body: "You are approved.",
+			userId: "user-1",
+			idempotencyKey: "daily-digest/user-1/2026-06-13/540/email",
+		};
+		const { handler } = await import("../../src/handlers/email-dispatch");
+
+		// First attempt: SES is down -> 502, and the key must be released.
+		mockEmailSender.mockResolvedValueOnce({
+			success: false,
+			error: "SES down",
+			errorCode: "ses_error",
+		});
+		const failed = await handler(makeEvent(request), context);
+		expect(failed.statusCode).toBe(502);
+
+		// Retry of the SAME deterministic key must NOT be blocked as a duplicate;
+		// it re-claims and delivers.
+		const retried = await handler(makeEvent(request), context);
+		expect(retried.statusCode).toBe(200);
+		expect(mockEmailSender).toHaveBeenCalledTimes(2);
+	});
+
+	it("releases the idempotency key when the recipient is unauthorized so a fixed retry can send.", async () => {
+		vi.stubEnv("EMAIL_DISPATCH_SECRET", "dispatch-secret");
+		const request = {
+			to: "new-user@example.com",
+			subject: "Approved",
+			body: "You are approved.",
+			userId: "user-1",
+			idempotencyKey: "user-approved-user-1",
+		};
+		const { handler } = await import("../../src/handlers/email-dispatch");
+
+		// First attempt: authorization lookup misses -> 403, key released.
+		mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
+		const forbidden = await handler(makeEvent(request), context);
+		expect(forbidden.statusCode).toBe(403);
+		expect(mockEmailSender).not.toHaveBeenCalled();
+
+		// Retry once the user exists must re-claim and deliver.
+		const retried = await handler(makeEvent(request), context);
+		expect(retried.statusCode).toBe(200);
 		expect(mockEmailSender).toHaveBeenCalledOnce();
 	});
 });

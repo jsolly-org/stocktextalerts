@@ -10,7 +10,8 @@ create table public.email_dispatch_idempotency (
 -- Deny-all RLS: only service_role (which bypasses RLS) may touch this table.
 alter table public.email_dispatch_idempotency enable row level security;
 
--- Index supports the opportunistic TTL cleanup below.
+-- Index reserved for a future/deferred TTL-cleanup follow-up (not yet
+-- implemented); no automated table-growth cleanup exists today.
 create index email_dispatch_idempotency_created_at_idx
 	on public.email_dispatch_idempotency (created_at);
 

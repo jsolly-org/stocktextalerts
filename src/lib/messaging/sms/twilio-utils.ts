@@ -100,7 +100,7 @@ export function createSmsSender(client: TwilioClient, defaultFromNumber: string)
 					return { success: true, messageSid: message.sid };
 				} catch (error) {
 					const maskedTo = request.to.slice(-4).padStart(request.to.length, "*");
-					rootLogger.warn("Twilio SMS send attempt failed", {
+					rootLogger.debug("Twilio SMS send attempt failed", {
 						action: "send_sms",
 						from,
 						to: maskedTo,
