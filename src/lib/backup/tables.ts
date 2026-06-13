@@ -9,5 +9,3 @@ export const BACKUP_TABLES = [
 	"public.price_targets",
 	"public.scheduled_notifications",
 ] as const;
-
-export type BackupTable = (typeof BACKUP_TABLES)[number];

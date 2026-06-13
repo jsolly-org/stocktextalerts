@@ -12,7 +12,7 @@ export function packBackup(payload: BackupPayload): Buffer {
 	return gzipSync(Buffer.from(JSON.stringify(payload), "utf8"));
 }
 
-export function objectKey(takenAt: string): string {
+function objectKey(takenAt: string): string {
 	return `user-settings/${takenAt}.json.gz`;
 }
 

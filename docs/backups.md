@@ -24,3 +24,15 @@ Design: `docs/superpowers/specs/2026-06-13-user-settings-backup-design.md`.
 4. Verify printed row counts match the manifest and spot-check one user's settings.
 
 The restore asserts the manifest `schema_version` matches the target; a mismatch aborts.
+
+> Note: restore `TRUNCATE ... CASCADE`s the 4 tables before loading. The cascade
+> from `users` clears dependent non-backed-up tables (e.g. `notification_log`) too —
+> expected for a disaster restore into a scratch/fresh DB, where those tables are
+> empty or regenerable.
+
+## Rehearsal log
+
+- **2026-06-13** — First end-to-end rehearsal (local). Dumped seeded DB (1 user,
+  7 user_assets), deleted all `user_assets`, restored from the gzipped object:
+  all 7 recovered, user intact, 0 orphaned FK rows, schema-version assertion
+  exercised. Pipeline verified: COPY-in-transaction → gzip envelope → restore.

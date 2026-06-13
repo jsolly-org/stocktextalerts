@@ -3,7 +3,7 @@ import { to as copyTo } from "pg-copy-streams";
 import { type BackupManifest, buildManifest } from "./manifest";
 import { BACKUP_TABLES } from "./tables";
 
-export type Snapshot = {
+type Snapshot = {
 	tables: Record<string, string>;
 	manifest: BackupManifest;
 };
