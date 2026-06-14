@@ -74,4 +74,31 @@ describe("createSaveSequencer — last write wins", () => {
 		expect(await p2).toEqual({ status: "applied", value: "v2" });
 		expect(await p1).toEqual({ status: "stale" });
 	});
+
+	it("supersede() aborts an in-flight save and marks its response stale", async () => {
+		const seq = createSaveSequencer();
+		let inFlightSignal: AbortSignal | undefined;
+		const inFlight = deferred<string>();
+
+		// A dropdown save is in flight when a sibling path (e.g. the mismatch
+		// banner) persists the value itself and supersedes the in-flight save.
+		const p1 = seq.run((signal) => {
+			inFlightSignal = signal;
+			return inFlight.promise;
+		});
+		expect(inFlightSignal?.aborted).toBe(false);
+
+		seq.supersede();
+		expect(inFlightSignal?.aborted).toBe(true); // in-flight save was aborted
+
+		inFlight.resolve("late"); // even a successful late resolve is dropped
+		expect(await p1).toEqual({ status: "stale" });
+	});
+
+	it("supersede() does not strand the next save — it still applies", async () => {
+		const seq = createSaveSequencer();
+		seq.supersede(); // claim latest with nothing in flight (safe no-op abort)
+		const result = await seq.run(async () => "next");
+		expect(result).toEqual({ status: "applied", value: "next" });
+	});
 });

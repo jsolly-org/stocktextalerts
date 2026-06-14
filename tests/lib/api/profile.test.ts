@@ -58,6 +58,26 @@ describe("Profile timezone client helper", () => {
 		expect(redirectToSignInMock).toHaveBeenCalledTimes(1);
 	});
 
+	it("Aborts the request when the caller's signal aborts (sequencer supersede).", async () => {
+		const fetchMock = vi.mocked(fetch);
+		let capturedSignal: AbortSignal | undefined;
+		fetchMock.mockImplementationOnce((_input, init) => {
+			capturedSignal = init?.signal ?? undefined;
+			return new Promise<Response>((_resolve, reject) => {
+				capturedSignal?.addEventListener("abort", () =>
+					reject(new DOMException("Aborted", "AbortError")),
+				);
+			});
+		});
+
+		const controller = new AbortController();
+		const pending = updateProfileTimezone("America/Chicago", controller.signal);
+		controller.abort();
+
+		await expect(pending).rejects.toThrow();
+		expect(capturedSignal?.aborted).toBe(true);
+	});
+
 	it("Returns null without redirecting when the server responds with 500.", async () => {
 		const fetchMock = vi.mocked(fetch);
 		fetchMock.mockResolvedValueOnce(

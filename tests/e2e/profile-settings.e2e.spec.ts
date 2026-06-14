@@ -52,6 +52,87 @@ test.describe("profile settings", () => {
 		}
 	});
 
+	test("TC-TZ-002: a superseded timezone save is cancelled and never clobbers the latest value", async ({
+		browser,
+	}) => {
+		const user = await createApprovedE2eUser("profile-tz-race");
+		const session = await e2e.openSignedInPage(browser, user);
+		try {
+			await session.page.goto("/profile");
+			await expectCurrentPath(session.page, "/profile");
+			await session.page.locator("[data-hydrated]").waitFor({ timeout: 15_000 });
+
+			const timezoneSelect = session.page.locator("#profile-timezone");
+			const currentTimezone = await timezoneSelect.inputValue();
+			// Two distinct active zones, both different from the starting value, so the
+			// two selections produce two genuinely separate saves rather than
+			// collapsing into one net-unchanged request.
+			const [firstTarget, secondTarget] = [
+				"America/New_York",
+				"America/Chicago",
+				"America/Los_Angeles",
+			].filter((value) => value !== currentTimezone);
+			if (!firstTarget || !secondTarget) {
+				throw new Error(`Expected two timezone targets distinct from ${currentTimezone}`);
+			}
+
+			// Stall the FIRST save's response so it is still in flight when the second
+			// selection arrives. The save-sequencer aborts the in-flight first request
+			// (last-write-wins by cancellation), so its response can never land late
+			// and clobber the user's final choice. The pre-refactor queue instead
+			// serialized saves and left the first request running, so this scenario is
+			// what distinguishes the sequencer's behavior.
+			let callIndex = 0;
+			await session.page.route("**/api/profile/timezone", async (route) => {
+				callIndex += 1;
+				if (callIndex === 1) {
+					await new Promise((resolve) => setTimeout(resolve, 1500));
+				}
+				try {
+					await route.continue();
+				} catch {
+					// A superseded first save is aborted client-side, so its route can
+					// no longer be continued — swallow that. The abort itself is
+					// asserted below via `firstRequest.failure()`.
+				}
+			});
+
+			// Select firstTarget and wait until save #1 is actually in flight, then
+			// select secondTarget while #1's response is still stalled so the two
+			// genuinely overlap.
+			const firstRequestPromise = session.page.waitForRequest("**/api/profile/timezone");
+			await timezoneSelect.selectOption(firstTarget); // save #1 (response stalled)
+			const firstRequest = await firstRequestPromise;
+			await Promise.all([
+				session.page.waitForResponse(
+					(response) =>
+						response.url().includes("/api/profile/timezone") && response.status() === 200,
+					{ timeout: 15_000 },
+				),
+				timezoneSelect.selectOption(secondTarget), // save #2 supersedes #1
+			]);
+			await expect(session.page.getByText("Timezone updated.")).toBeVisible({ timeout: 10_000 });
+			await expect(timezoneSelect).toHaveValue(secondTarget);
+
+			// The defining sequencer behavior: the superseded first request was
+			// cancelled (net::ERR_ABORTED), not left to complete. The pre-refactor
+			// queue never aborts, so this assertion fails on the old code.
+			expect(firstRequest.failure()).not.toBeNull();
+
+			// Give any late first-save settling a window to (incorrectly) touch the UI.
+			await session.page.waitForTimeout(500);
+			await expect(timezoneSelect).toHaveValue(secondTarget);
+
+			// …and the persisted value agrees after a reload.
+			await session.page.unroute("**/api/profile/timezone");
+			await session.page.reload();
+			await expectCurrentPath(session.page, "/profile");
+			await expect(session.page.locator("#profile-timezone")).toHaveValue(secondTarget);
+		} finally {
+			await session.cleanup();
+		}
+	});
+
 	test("TC-TIME-001: User can toggle 24-hour time format", async ({ browser }) => {
 		const user = await createApprovedE2eUser("profile-time");
 		const session = await e2e.openSignedInPage(browser, user);

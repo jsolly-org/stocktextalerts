@@ -39,7 +39,7 @@
 					id="profile-timezone"
 					v-model="selectedTimezone"
 					:timezones="timezones"
-					:disabled="timezoneLoadError || isSaving"
+					:disabled="timezoneLoadError"
 					@change="handleTimezoneChange"
 				/>
 
@@ -64,6 +64,7 @@ import { onMounted, ref, toRefs, watch } from "vue";
 import GlobeAltIcon from "../../icons/globe-alt.svg?component";
 import { fetchCurrentNotificationPreferences } from "../../lib/api/notification-preferences";
 import { updateProfileTimezone } from "../../lib/api/profile";
+import { createSaveSequencer, type SequencedResult } from "../../lib/async/save-sequencer";
 import { CARD_GRADIENT_ACCENTS, DEFAULT_TIMEZONE } from "../../lib/constants";
 import type { NotificationPreferencesSnapshot, User } from "../../lib/db";
 import { rootLogger } from "../../lib/logging";
@@ -146,10 +147,12 @@ const savedNotificationPreferences =
 
 const selectedTimezone = ref(user.value.timezone);
 const isClient = ref(false);
-const isSaving = ref(false);
-const pendingTimezoneSave = ref<string | null>(null);
 const statusMessage = ref<string | null>(null);
 const statusTone = ref<"success" | "error" | "warning" | "info">("info");
+
+// Last-write-wins: a newer selection aborts and supersedes the in-flight save,
+// so a stale/out-of-order response can never reset the dropdown to an old value.
+const sequencer = createSaveSequencer();
 
 /**
  * Ensure `selectedTimezone` is set to a valid value available in the options list.
@@ -198,82 +201,96 @@ async function refreshNotificationPreferences() {
 	}
 }
 
+/** The last timezone the server acknowledged \u2014 the revert target when a save fails. */
+function confirmedTimezone(): string {
+	return savedNotificationPreferences.value?.timezone ?? user.value.timezone;
+}
+
+/** Programmatically reset the dropdown to its confirmed value and surface an error. */
+function revertTimezone(message: string) {
+	// Setting `selectedTimezone` does not dispatch the native `<select>` change
+	// event, so this revert never re-triggers `handleTimezoneChange` \u2014 no
+	// suppression flag needed.
+	selectedTimezone.value = confirmedTimezone();
+	statusMessage.value = message;
+	statusTone.value = "error";
+}
+
+type TimezoneUpdateResult = Awaited<ReturnType<typeof updateProfileTimezone>>;
+
+/**
+ * Merge a resolved timezone and any server-recomputed scheduling fields onto a
+ * base snapshot. Only `*_next_send_at` fields the server actually returned are
+ * overwritten, so unchanged derived times are preserved.
+ */
+function mergeResolvedTimezone(
+	base: NotificationPreferencesSnapshot,
+	resolvedTimezone: string,
+	prefs: NonNullable<TimezoneUpdateResult>,
+): NotificationPreferencesSnapshot {
+	return {
+		...base,
+		timezone: resolvedTimezone,
+		...(prefs.market_scheduled_asset_price_next_send_at !== undefined && {
+			market_scheduled_asset_price_next_send_at: prefs.market_scheduled_asset_price_next_send_at,
+		}),
+		...(prefs.daily_digest_next_send_at !== undefined && {
+			daily_digest_next_send_at: prefs.daily_digest_next_send_at,
+		}),
+		...(prefs.asset_events_next_send_at !== undefined && {
+			asset_events_next_send_at: prefs.asset_events_next_send_at,
+		}),
+	};
+}
+
 /**
  * Persist timezone changes and update UI + cached snapshot.
  *
- * If a new change is requested while a save is in-flight, it is queued and saved next.
+ * Each save runs through the sequencer: a newer selection supersedes (and aborts)
+ * the in-flight request, and only the latest request's `applied` outcome is
+ * committed \u2014 an out-of-order/stale response is dropped, so the dropdown can
+ * never settle on a value the user has already moved past.
  */
 async function saveTimezone(nextTimezone: string) {
 	if (!nextTimezone) {
 		return;
 	}
 
+	const intended = nextTimezone;
 	statusMessage.value = "Saving timezone\u2026";
 	statusTone.value = "info";
-	isSaving.value = true;
 
+	let outcome: SequencedResult<TimezoneUpdateResult>;
 	try {
-		const prefs = await updateProfileTimezone(nextTimezone);
-		if (!prefs) {
-			statusMessage.value = "Failed to update timezone. Please try again.";
-			statusTone.value = "error";
-			selectedTimezone.value =
-				savedNotificationPreferences.value?.timezone ?? user.value.timezone;
-			return;
-		}
-
-		const resolvedTimezone = prefs.timezone ?? nextTimezone;
-		selectedTimezone.value = resolvedTimezone;
-		statusMessage.value = "Timezone updated.";
-		statusTone.value = "success";
-		savedNotificationPreferences.value = savedNotificationPreferences.value
-			? {
-					...savedNotificationPreferences.value,
-					timezone: resolvedTimezone,
-					...(prefs.market_scheduled_asset_price_next_send_at !== undefined && {
-						market_scheduled_asset_price_next_send_at: prefs.market_scheduled_asset_price_next_send_at,
-					}),
-					...(prefs.daily_digest_next_send_at !== undefined && {
-						daily_digest_next_send_at: prefs.daily_digest_next_send_at,
-					}),
-					...(prefs.asset_events_next_send_at !== undefined && {
-						asset_events_next_send_at: prefs.asset_events_next_send_at,
-					}),
-				}
-			: buildSavedNotificationPreferences({
-					...user.value,
-					timezone: resolvedTimezone,
-					...(prefs.market_scheduled_asset_price_next_send_at !== undefined && {
-						market_scheduled_asset_price_next_send_at: prefs.market_scheduled_asset_price_next_send_at,
-					}),
-					...(prefs.daily_digest_next_send_at !== undefined && {
-						daily_digest_next_send_at: prefs.daily_digest_next_send_at,
-					}),
-					...(prefs.asset_events_next_send_at !== undefined && {
-						asset_events_next_send_at: prefs.asset_events_next_send_at,
-					}),
-				});
+		outcome = await sequencer.run((signal) => updateProfileTimezone(intended, signal));
 	} catch (error) {
+		// Only the latest request's genuine failure reaches here \u2014 superseded
+		// saves resolve to "stale" instead of throwing.
 		rootLogger.error(
 			"Failed to update timezone from profile",
-			{
-				action: "update_timezone_from_profile",
-				timezone: nextTimezone,
-			},
+			{ action: "update_timezone_from_profile", timezone: intended },
 			error,
 		);
-		statusMessage.value = "Failed to update timezone. Please try again.";
-		statusTone.value = "error";
-		selectedTimezone.value =
-			savedNotificationPreferences.value?.timezone ?? user.value.timezone;
-	} finally {
-		isSaving.value = false;
-		const next = pendingTimezoneSave.value;
-		if (next != null) {
-			pendingTimezoneSave.value = null;
-			void saveTimezone(next);
-		}
+		revertTimezone("Failed to update timezone. Please try again.");
+		return;
 	}
+
+	// A newer selection superseded this save \u2014 it owns the final state; do nothing.
+	if (outcome.status !== "applied") return;
+
+	const prefs = outcome.value;
+	if (!prefs) {
+		revertTimezone("Failed to update timezone. Please try again.");
+		return;
+	}
+
+	const resolvedTimezone = prefs.timezone ?? intended;
+	selectedTimezone.value = resolvedTimezone;
+	statusMessage.value = "Timezone updated.";
+	statusTone.value = "success";
+	const base =
+		savedNotificationPreferences.value ?? buildSavedNotificationPreferences(user.value);
+	savedNotificationPreferences.value = mergeResolvedTimezone(base, resolvedTimezone, prefs);
 }
 
 /** Handle timezone selection changes initiated from `TimezoneSelect`. */
@@ -281,19 +298,16 @@ function handleTimezoneChange() {
 	if (timezoneLoadError.value) {
 		return;
 	}
-	if (isSaving.value) {
-		pendingTimezoneSave.value = selectedTimezone.value;
-		return;
-	}
 	void saveTimezone(selectedTimezone.value);
 }
 
 /** Handle timezone updates emitted by `TimezoneMismatchBanner`. */
 function handleTimezoneUpdated(newTimezone: string) {
+	// The banner persisted this timezone itself. Supersede any in-flight dropdown
+	// save (claims the latest token and aborts it) so a stale dropdown response
+	// can't clobber the banner's freshly-saved value.
+	sequencer.supersede();
 	selectedTimezone.value = newTimezone;
-	if (isSaving.value) {
-		pendingTimezoneSave.value = newTimezone;
-	}
 	statusMessage.value = "Timezone updated.";
 	statusTone.value = "success";
 	savedNotificationPreferences.value = savedNotificationPreferences.value

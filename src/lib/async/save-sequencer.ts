@@ -46,5 +46,17 @@ export function createSaveSequencer() {
 		}
 	}
 
-	return { run };
+	/**
+	 * Claim the latest token without running a task: bumps the sequence and aborts
+	 * any in-flight `run`, so that request settles as `stale` and its response is
+	 * dropped. Use when a sibling path has already persisted the value and an
+	 * in-flight save must not clobber it.
+	 */
+	function supersede(): void {
+		latest++;
+		activeController?.abort();
+		activeController = null;
+	}
+
+	return { run, supersede };
 }

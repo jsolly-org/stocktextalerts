@@ -11,17 +11,25 @@ type TimezoneUpdate = {
  * Update the user's timezone and return any derived scheduling fields the server updated.
  *
  * Returns `null` on failure; redirects to sign-in when the session is unauthorized.
+ *
+ * An optional `signal` lets a caller abort the request (e.g. a save sequencer
+ * superseding it). It is combined with the built-in 10s timeout, so whichever
+ * fires first cancels the fetch.
  */
-export async function updateProfileTimezone(nextTimezone: string): Promise<TimezoneUpdate | null> {
+export async function updateProfileTimezone(
+	nextTimezone: string,
+	signal?: AbortSignal,
+): Promise<TimezoneUpdate | null> {
 	const formData = new FormData();
 	formData.set("timezone", nextTimezone);
 
+	const timeoutSignal = AbortSignal.timeout(10_000);
 	const response = await fetch("/api/profile/timezone", {
 		method: "POST",
 		body: formData,
 		credentials: "same-origin",
 		headers: { Accept: "application/json" },
-		signal: AbortSignal.timeout(10_000),
+		signal: signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal,
 	});
 
 	if (!response.ok) {
