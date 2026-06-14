@@ -1,23 +1,24 @@
 /**
  * Result of a sequenced save attempt.
- * - `applied`    — this was still the latest request when it resolved; caller should commit `value`.
- * - `superseded` — a newer request started before this one resolved; caller must drop the result.
- * - `aborted`    — this request's signal was aborted (because a newer request superseded it).
+ * - `applied` — this was still the latest request when it settled; caller should commit `value`.
+ * - `stale`   — a newer request superseded this one before it settled; caller must drop the result.
  */
-export type SequencedResult<T> =
-	| { status: "applied"; value: T }
-	| { status: "superseded" }
-	| { status: "aborted" };
+export type SequencedResult<T> = { status: "applied"; value: T } | { status: "stale" };
 
 /**
  * Serializes "last write wins" for idempotent saves.
  *
  * Each `run` gets a monotonic token and a fresh AbortSignal; starting a new
  * `run` aborts the previous one. A task's result is only `applied` if its token
- * is still the latest when it resolves, so an out-of-order/stale response can
- * never clobber newer user intent. Aborting is a best-effort complement: because
- * abort is async and downstream work may still run, the token check — not the
- * abort — is the actual correctness guarantee.
+ * is still the latest when it settles, so an out-of-order/stale response can
+ * never clobber newer user intent. Aborting is a best-effort complement —
+ * because abort is async and downstream work may still run, the token check, not
+ * the abort, is the actual correctness guarantee.
+ *
+ * A superseded request that rejects (e.g. its fetch aborts) is reported `stale`
+ * and its error swallowed, because the caller no longer cares. Only the latest
+ * request's genuine failure propagates, so real errors (timeouts, network
+ * failures) still reach the caller to be surfaced and logged.
  */
 export function createSaveSequencer() {
 	let latest = 0;
@@ -32,18 +33,13 @@ export function createSaveSequencer() {
 
 		try {
 			const value = await task(controller.signal);
-			if (token !== latest) return { status: "superseded" };
+			if (token !== latest) return { status: "stale" };
 			return { status: "applied", value };
 		} catch (error) {
-			// Classify by the error, not `controller.signal.aborted`: supersession
-			// always aborts the prior signal, so the signal can't distinguish an
-			// abort-caused rejection from a stale request that failed on its own.
-			// A real aborted fetch rejects with a DOMException named "AbortError".
-			if (error instanceof Error && error.name === "AbortError") {
-				return { status: "aborted" };
-			}
-			// A stale request that failed for any other reason is still stale.
-			if (token !== latest) return { status: "superseded" };
+			// A superseded request is stale regardless of how it failed (its abort
+			// surfaces here as a rejection). Only the latest request's genuine
+			// failure propagates to the caller.
+			if (token !== latest) return { status: "stale" };
 			throw error;
 		} finally {
 			if (activeController === controller) activeController = null;

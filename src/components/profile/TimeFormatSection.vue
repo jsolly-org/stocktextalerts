@@ -78,10 +78,19 @@ const statusTone = ref<"success" | "error">("success");
 // stale/out-of-order response can never flip the switch back to an old value.
 const sequencer = createSaveSequencer();
 
-watch(use24HourTime, () => {
-	if (applyingProgrammaticValue) return;
-	void saveTimeFormat();
-});
+watch(
+	use24HourTime,
+	() => {
+		if (applyingProgrammaticValue) return;
+		void saveTimeFormat();
+	},
+	// Sync flush so `revertTo` (which flips the value with the suppression flag
+	// set, then clears it) is observed within the same tick. With the default
+	// async flush the flag would already be cleared when the watcher runs, so a
+	// failed save's revert would re-trigger a spurious save that overwrites its
+	// own error message.
+	{ flush: "sync" },
+);
 
 async function saveTimeFormat() {
 	const intended = use24HourTime.value;
@@ -102,7 +111,7 @@ async function saveTimeFormat() {
 		});
 	} catch (error) {
 		// Only the latest request's genuine failure reaches here — superseded
-		// saves resolve to "aborted"/"superseded" instead of throwing.
+		// saves resolve to "stale" instead of throwing.
 		rootLogger.error(
 			"Failed to update time format from profile",
 			{ action: "update_time_format" },
