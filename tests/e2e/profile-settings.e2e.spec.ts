@@ -84,6 +84,66 @@ test.describe("profile settings", () => {
 		}
 	});
 
+	test("TC-TIME-002: rapid toggling never leaves the switch on a stale value", async ({
+		browser,
+	}) => {
+		const user = await createApprovedE2eUser("profile-time-race");
+		const session = await e2e.openSignedInPage(browser, user);
+		try {
+			await session.page.goto("/profile");
+			await session.page.locator("[data-hydrated]").waitFor({ timeout: 15_000 });
+
+			// Make the FIRST save (turning ON) fail ~700ms late, while the SECOND
+			// save (turning back OFF) succeeds. On the pre-fix code, the late
+			// failure blindly reverted the switch to the *current* value, flipping
+			// it back to ON even though the user's final, persisted choice is OFF —
+			// a frontend/backend mismatch. The save-sequencer supersedes (aborts)
+			// the first save, so its late outcome can no longer touch the UI.
+			let callIndex = 0;
+			await session.page.route("**/api/profile/time-format", async (route) => {
+				callIndex += 1;
+				if (callIndex === 1) {
+					await new Promise((resolve) => setTimeout(resolve, 700));
+					try {
+						await route.fulfill({
+							status: 500,
+							contentType: "application/json",
+							body: JSON.stringify({ ok: false, message: "boom" }),
+						});
+					} catch {
+						// Superseded saves are aborted client-side; the route can no
+						// longer be fulfilled, which is exactly the fixed behavior.
+					}
+				} else {
+					await route.continue();
+				}
+			});
+
+			const timeSwitch = session.page.getByRole("switch", { name: "Use 24-hour time" });
+			await expect(timeSwitch).toHaveAttribute("aria-checked", "false");
+
+			await timeSwitch.click(); // -> ON  (save #1, fails ~700ms later)
+			await timeSwitch.click(); // -> OFF (save #2, succeeds; supersedes #1)
+
+			// Wait past save #1's failure window so any buggy revert has fired.
+			await session.page.waitForTimeout(1500);
+
+			// The switch must reflect the user's last intent (OFF), not save #1's
+			// superseded, late-failing ON.
+			await expect(timeSwitch).toHaveAttribute("aria-checked", "false");
+
+			// …and the persisted value agrees after a reload.
+			await session.page.unroute("**/api/profile/time-format");
+			await session.page.reload();
+			await session.page.locator("[data-hydrated]").waitFor({ timeout: 15_000 });
+			await expect(
+				session.page.getByRole("switch", { name: "Use 24-hour time" }),
+			).toHaveAttribute("aria-checked", "false");
+		} finally {
+			await session.cleanup();
+		}
+	});
+
 	test("TC-PROF-PW-001: User can change password from profile", async ({ browser }) => {
 		test.slow();
 		const user = await createApprovedE2eUser("profile-pw");
