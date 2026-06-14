@@ -93,17 +93,23 @@ test.describe("profile settings", () => {
 			await session.page.goto("/profile");
 			await session.page.locator("[data-hydrated]").waitFor({ timeout: 15_000 });
 
-			// Make the FIRST save (turning ON) fail ~700ms late, while the SECOND
-			// save (turning back OFF) succeeds. On the pre-fix code, the late
-			// failure blindly reverted the switch to the *current* value, flipping
-			// it back to ON even though the user's final, persisted choice is OFF —
-			// a frontend/backend mismatch. The save-sequencer supersedes (aborts)
-			// the first save, so its late outcome can no longer touch the UI.
+			// Hold the FIRST save (turning ON) open until we explicitly release it
+			// to fail, while the SECOND save (turning back OFF) succeeds first. On
+			// the pre-fix code, the first save's late failure blindly reverted the
+			// switch to the *current* value, flipping it back to ON even though the
+			// user's final, persisted choice is OFF — a frontend/backend mismatch.
+			// The save-sequencer supersedes (aborts) the first save, so its late
+			// outcome can no longer touch the UI. Releasing explicitly (rather than
+			// racing a timer) keeps the ordering deterministic.
+			let releaseFirstSave!: () => void;
+			const firstSaveReleased = new Promise<void>((resolve) => {
+				releaseFirstSave = resolve;
+			});
 			let callIndex = 0;
 			await session.page.route("**/api/profile/time-format", async (route) => {
 				callIndex += 1;
 				if (callIndex === 1) {
-					await new Promise((resolve) => setTimeout(resolve, 700));
+					await firstSaveReleased;
 					try {
 						await route.fulfill({
 							status: 500,
@@ -122,11 +128,29 @@ test.describe("profile settings", () => {
 			const timeSwitch = session.page.getByRole("switch", { name: "Use 24-hour time" });
 			await expect(timeSwitch).toHaveAttribute("aria-checked", "false");
 
-			await timeSwitch.click(); // -> ON  (save #1, fails ~700ms later)
-			await timeSwitch.click(); // -> OFF (save #2, succeeds; supersedes #1)
+			// Click ON and wait until save #1 is actually in flight before clicking
+			// OFF, so the two saves genuinely overlap (otherwise they could collapse
+			// into a single net-unchanged save and the race would never occur).
+			const firstRequest = session.page.waitForRequest("**/api/profile/time-format");
+			await timeSwitch.click(); // -> ON  (save #1, held open)
+			await firstRequest;
+			await Promise.all([
+				session.page.waitForResponse(
+					(response) =>
+						response.url().includes("/api/profile/time-format") && response.status() === 200,
+					{ timeout: 15_000 },
+				),
+				timeSwitch.click(), // -> OFF (save #2, succeeds and supersedes #1)
+			]);
+			// Save #2 has applied on both the pre-fix and fixed code at this point.
+			await expect(session.page.getByText("Time format updated.")).toBeVisible({ timeout: 10_000 });
 
-			// Wait past save #1's failure window so any buggy revert has fired.
-			await session.page.waitForTimeout(1500);
+			// Now let save #1 fail. On pre-fix code this drives the buggy revert
+			// (flipping the switch back to ON); with the fix, save #1 was already
+			// aborted by save #2 and its failure is ignored. The release is ordered
+			// after save #2's success, so the settle below is bounded, not a race.
+			releaseFirstSave();
+			await session.page.waitForTimeout(500);
 
 			// The switch must reflect the user's last intent (OFF), not save #1's
 			// superseded, late-failing ON.
@@ -136,9 +160,66 @@ test.describe("profile settings", () => {
 			await session.page.unroute("**/api/profile/time-format");
 			await session.page.reload();
 			await session.page.locator("[data-hydrated]").waitFor({ timeout: 15_000 });
+			await expect(session.page.getByRole("switch", { name: "Use 24-hour time" })).toHaveAttribute(
+				"aria-checked",
+				"false",
+			);
+		} finally {
+			await session.cleanup();
+		}
+	});
+
+	test("TC-TIME-003: a failed save reverts the switch and surfaces the error without a phantom resave", async ({
+		browser,
+	}) => {
+		const user = await createApprovedE2eUser("profile-time-fail");
+		const session = await e2e.openSignedInPage(browser, user);
+		try {
+			await session.page.goto("/profile");
+			await session.page.locator("[data-hydrated]").waitFor({ timeout: 15_000 });
+
+			// Fail only the first save (the ON attempt); any later save would
+			// succeed. The reverting write must NOT re-trigger the save watcher —
+			// otherwise a phantom second POST fires and overwrites the error with a
+			// false "Time format updated." (the exact desync the suppression guards).
+			let postCount = 0;
+			await session.page.route("**/api/profile/time-format", async (route) => {
+				postCount += 1;
+				if (postCount === 1) {
+					await route.fulfill({
+						status: 500,
+						contentType: "application/json",
+						body: JSON.stringify({ ok: false, message: "boom" }),
+					});
+				} else {
+					await route.continue();
+				}
+			});
+
+			const timeSwitch = session.page.getByRole("switch", { name: "Use 24-hour time" });
+			await expect(timeSwitch).toHaveAttribute("aria-checked", "false");
+
+			await Promise.all([
+				session.page.waitForResponse(
+					(response) =>
+						response.url().includes("/api/profile/time-format") && response.status() === 500,
+					{ timeout: 15_000 },
+				),
+				timeSwitch.click(), // -> ON (save fails)
+			]);
+
+			// Settle window for any (buggy) phantom resave triggered by the revert.
+			await session.page.waitForTimeout(500);
+
+			// Exactly one POST: the revert must not re-enter the save path.
+			expect(postCount).toBe(1);
+			// The switch reverted to its confirmed value, the error is surfaced, and
+			// no false success message replaced it.
+			await expect(timeSwitch).toHaveAttribute("aria-checked", "false");
 			await expect(
-				session.page.getByRole("switch", { name: "Use 24-hour time" }),
-			).toHaveAttribute("aria-checked", "false");
+				session.page.getByText("Failed to update time format. Please try again."),
+			).toBeVisible();
+			await expect(session.page.getByText("Time format updated.")).toHaveCount(0);
 		} finally {
 			await session.cleanup();
 		}

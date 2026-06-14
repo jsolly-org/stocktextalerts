@@ -12,29 +12,31 @@ function deferred<T>() {
 	return { promise, resolve, reject };
 }
 
-describe("createSaveSequencer", () => {
-	it("applies a lone request's result", async () => {
+// These tests stand in for the rapid-toggle race: a slow in-flight save must
+// never overwrite a newer one, no matter the response order.
+describe("createSaveSequencer — last write wins", () => {
+	it("applies the result when nothing supersedes it", async () => {
 		const seq = createSaveSequencer();
 		const result = await seq.run(async () => "ok");
 		expect(result).toEqual({ status: "applied", value: "ok" });
 	});
 
-	it("drops an out-of-order (superseded) response — older resolves last", async () => {
+	it("discards a stale response that resolves after a newer save", async () => {
 		const seq = createSaveSequencer();
 		const first = deferred<string>();
 		const second = deferred<string>();
 
-		const p1 = seq.run(() => first.promise); // request 1 (older)
-		const p2 = seq.run(() => second.promise); // request 2 (newer) supersedes 1
+		const p1 = seq.run(() => first.promise); // save 1 (older)
+		const p2 = seq.run(() => second.promise); // save 2 (newer) supersedes 1
 
 		second.resolve("v2"); // newer resolves first...
 		first.resolve("v1"); // ...older resolves last (out of order)
 
 		expect(await p2).toEqual({ status: "applied", value: "v2" });
-		expect(await p1).toEqual({ status: "superseded" }); // older result discarded
+		expect(await p1).toEqual({ status: "stale" }); // older result discarded
 	});
 
-	it("aborts the prior in-flight request's signal when a newer run starts", async () => {
+	it("aborts the prior in-flight save's signal when a newer save starts", async () => {
 		const seq = createSaveSequencer();
 		let firstSignal: AbortSignal | undefined;
 		const first = deferred<string>();
@@ -46,14 +48,15 @@ describe("createSaveSequencer", () => {
 		expect(firstSignal?.aborted).toBe(false);
 
 		const p2 = seq.run(async () => "v2");
-		expect(firstSignal?.aborted).toBe(true); // superseded request was aborted
+		expect(firstSignal?.aborted).toBe(true); // superseded save was aborted
 
+		// The aborted fetch rejects with an AbortError; it is reported stale.
 		first.reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
-		expect(await p1).toEqual({ status: "aborted" });
+		expect(await p1).toEqual({ status: "stale" });
 		expect(await p2).toEqual({ status: "applied", value: "v2" });
 	});
 
-	it("reports a genuine error from the latest request (not superseded/aborted)", async () => {
+	it("propagates a genuine failure from the latest save so it can be surfaced", async () => {
 		const seq = createSaveSequencer();
 		await expect(
 			seq.run(async () => {
@@ -62,13 +65,13 @@ describe("createSaveSequencer", () => {
 		).rejects.toThrow("boom");
 	});
 
-	it("swallows a thrown error from a superseded request as 'superseded'", async () => {
+	it("swallows a late failure from a superseded save as stale, not an error", async () => {
 		const seq = createSaveSequencer();
 		const first = deferred<string>();
 		const p1 = seq.run(() => first.promise);
 		const p2 = seq.run(async () => "v2");
 		first.reject(new Error("late failure of stale request"));
 		expect(await p2).toEqual({ status: "applied", value: "v2" });
-		expect(await p1).toEqual({ status: "superseded" });
+		expect(await p1).toEqual({ status: "stale" });
 	});
 });
