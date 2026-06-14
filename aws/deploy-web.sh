@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Code-only production deploy for stocktextalerts: Supabase migrations →
-# Lambda code. The WEB tier is NOT deployed here — Vercel's git integration
-# auto-builds `main` once the push lands (Vercel sets
-# VERCEL_PROJECT_PRODUCTION_URL itself, so the prod site URL is always right).
+# Production deploy for stocktextalerts: Supabase migrations → Lambda code →
+# Vercel web. The WEB tier is deployed here via the pinned Vercel CLI because the
+# Vercel↔GitHub git integration is disconnected — the push is now the deploy
+# trigger. The project link travels as non-secret env vars (VERCEL_ORG_ID /
+# VERCEL_PROJECT_ID) so the gitignored .vercel/ dir needn't exist in the worktree.
 #
 # Runs from the pre-push hook (scripts/prepush.sh) on push to main, and is also
 # wired as `npm run deploy` for manual use. NO CloudFormation/SAM infra changes
@@ -63,7 +64,13 @@ if [ "${1:-}" = "--preflight" ]; then
     echo "  (If the supabase CLI is missing, run npm ci.)" >&2
     exit 1
   fi
-  echo "✓ deploy credentials valid (AWS $AWS_PROFILE + prod DB)"
+  # Vercel auth — catch a logged-out CLI now, before Phase 1 migrates prod, so
+  # the web deploy (Phase 3, after the one-way migration) can't be what fails.
+  if ! "$REPO_ROOT/node_modules/.bin/vercel" whoami >/dev/null 2>&1; then
+    echo "✗ Vercel CLI not authenticated — run:  vercel login" >&2
+    exit 1
+  fi
+  echo "✓ deploy credentials valid (AWS $AWS_PROFILE + prod DB + Vercel)"
   exit 0
 fi
 
@@ -136,4 +143,13 @@ deploy_code EmailDispatchFunction stocktextalerts-email-dispatch
 deploy_code ComputeDailyStatsFunction stocktextalerts-compute-daily-stats
 deploy_code VendorBackfillFunction stocktextalerts-vendor-backfill
 
-echo "✓ stocktextalerts production deploy complete (web tier follows via Vercel git auto-deploy once the push lands)"
+# --- Phase 3: Vercel web deploy (remote build) ---
+# Last, so the web tier ships against the freshly migrated DB + updated Lambdas.
+# Link via non-secret env vars (the gitignored .vercel/ may be absent in a worktree).
+phase="vercel web deploy"
+echo "• vercel deploy --prod"
+VERCEL_ORG_ID=team_T8yHg0aDz7nCbyBgJh5a2saR \
+VERCEL_PROJECT_ID=prj_wrSGjuWe4w82AdjlQAI3b60PSypJ \
+  vercel deploy --prod --yes
+
+echo "✓ stocktextalerts production deploy complete (Supabase + Lambda + Vercel web)"
