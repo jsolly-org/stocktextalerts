@@ -1,6 +1,6 @@
 # Cursor Cloud — Supabase bootstrap (stocktextalerts)
 
-App-local Docker and Supabase setup for Cursor Cloud VMs. Not part of the dotagents fleet subtree — safe across `update-agents-subtree.sh`.
+App-local Docker and Supabase setup for Cursor Cloud VMs. These scripts and this doc are repo-local — a normal part of this repo, not synced from a shared agent subtree.
 
 | Piece | Location |
 | --- | --- |

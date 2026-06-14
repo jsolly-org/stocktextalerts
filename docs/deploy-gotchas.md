@@ -39,4 +39,11 @@ SAM updates that add `AlarmName` to previously auto-named alarms can replace the
 
 The scheduled `stocktextalerts-live-provider-check` Lambda (weekday mid-session) throws when a live Massive/Finnhub round-trip fails. Its `AWS/Lambda Errors` metric trips `stocktextalerts-live-provider-check-lambda-errors`, whose alarm action publishes **directly** to the shared-infra SNS topic (`/shared-infra/alert-topic-arn`) — the enricher Lambda sends the usual SES email.
 
-No extra IAM is needed: CloudWatch publishes to the topic via the alarm action. The old `agent-deploy` `stocktextalerts-shared-infra-publish` inline policy (added for the GitHub Actions OIDC publish path) is now obsolete and can be removed.
+No extra IAM is needed: CloudWatch publishes to the topic via the alarm action.
+
+**TODO (manual AWS cleanup):** the `agent-deploy` role's `stocktextalerts-shared-infra-publish` inline policy was added for the GitHub Actions OIDC publish path, which has since been removed (no `.github/workflows/` remain), so the policy is obsolete. `agent-deploy` is a manually-managed IAM role — not SAM-managed and not in this repo's IaC — so it can't be cleaned up by a deploy. Remove it by hand once confirmed unused:
+
+```bash
+aws iam list-role-policies --role-name agent-deploy   # confirm it's still attached
+aws iam delete-role-policy --role-name agent-deploy --policy-name stocktextalerts-shared-infra-publish
+```
