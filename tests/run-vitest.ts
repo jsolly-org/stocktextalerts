@@ -141,7 +141,11 @@ function main() {
 		process.env.EMAIL_SMTP_PORT = process.env.EMAIL_SMTP_PORT ?? "1025";
 	} else {
 		process.env.EMAIL_SMTP_HOST = "";
-		process.env.EMAIL_SMTP_PORT = "";
+		// Keep EMAIL_SMTP_PORT from .env.local (default 1025; isolated worktree
+		// stacks offset it, e.g. 1028). Only EMAIL_SMTP_HOST causes the
+		// fake-timer deadlock, so clearing the host alone is enough to keep the
+		// mock sender for ordinary tests — while letting tests that explicitly
+		// opt into SMTP (e.g. sender-gates) reach the correct Mailpit port.
 	}
 
 	// CI sets SKIP_VENDOR_HTTP_IN_TEST for E2E/build (dummy API keys). Vitest

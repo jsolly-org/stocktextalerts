@@ -52,10 +52,12 @@ describe("sender gates — no real SES/Twilio in tests", () => {
 
 		it("routes through Mailpit via SMTP when EMAIL_SMTP_HOST is set", async () => {
 			// This is the live-email path that replaces real SES. Supabase's
-			// Inbucket container exposes Mailpit at localhost:1025 for SMTP
-			// and localhost:54324 for the HTTP API. Requires `supabase start`.
+			// Inbucket container exposes Mailpit for SMTP and an HTTP API; the
+			// ports come from the running stack — default 1025/54324, or a
+			// worktree's offset (e.g. 1028/54354) — via EMAIL_SMTP_PORT (kept
+			// from .env.local by run-vitest) and SUPABASE_URL (see mailpit.ts).
+			// Never hardcode them. Requires `supabase start`.
 			vi.stubEnv("EMAIL_SMTP_HOST", "localhost");
-			vi.stubEnv("EMAIL_SMTP_PORT", "1025");
 
 			await clearMailpit();
 			const send = createEmailSender();

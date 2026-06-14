@@ -1,7 +1,10 @@
 /**
  * Mailpit (Supabase's bundled Inbucket container) helpers for tests that
- * need to assert against a rendered email. The container's HTTP API is
- * reachable at http://localhost:54324 whenever local Supabase is running.
+ * need to assert against a rendered email. The container's HTTP API sits at
+ * the Supabase API port + 3 (default 54321 → 54324; isolated worktree stacks
+ * offset every port, e.g. 54351 → 54354), so derive it from `SUPABASE_URL`
+ * rather than hardcoding the default — otherwise email tests fail in any
+ * worktree whose stack isn't on the default ports.
  *
  * Mailpit is the only approved destination for test email delivery —
  * tests never hit real SES. See `AGENTS.md#testing-philosophy`. Routing
@@ -11,7 +14,10 @@
  * the env var and returns a nodemailer-backed sender instead of SES.
  */
 
-const MAILPIT_BASE = "http://localhost:54324";
+const SUPABASE_API_PORT = Number(
+	new URL(process.env.SUPABASE_URL ?? "http://127.0.0.1:54321").port || "54321",
+);
+const MAILPIT_BASE = `http://localhost:${SUPABASE_API_PORT + 3}`;
 
 /** Minimal Mailpit `/api/v1/messages` list-row shape. */
 type MailpitRecipient = { Address?: string };
