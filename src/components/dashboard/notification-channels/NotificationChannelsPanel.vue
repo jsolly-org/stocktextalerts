@@ -27,14 +27,19 @@
 			<div :class="`card-accent ${CARD_GRADIENT_ACCENTS.primary}`"></div>
 			<div class="card-body">
 
-			<div v-if="flashMessages.length" class="space-y-2 mb-4">
-				<StatusMessage
-					v-for="(flash, index) in flashMessages"
-					:key="index"
-					:tone="flash.tone"
-				>
-					{{ flash.message }}
-				</StatusMessage>
+			<!-- Persistent live region: always mounted so newly-pushed flash messages
+			     announce. Items use live="false" to avoid a nested live region. -->
+			<div role="status" aria-live="polite" aria-atomic="false">
+				<div v-if="flashMessages.length" class="space-y-2 mb-4">
+					<StatusMessage
+						v-for="(flash, index) in flashMessages"
+						:key="index"
+						:tone="flash.tone"
+						:live="false"
+					>
+						{{ flash.message }}
+					</StatusMessage>
+				</div>
 			</div>
 
 			<NotificationChannelsFieldset

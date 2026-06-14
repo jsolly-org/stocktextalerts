@@ -309,6 +309,40 @@ describe("Users can load pages without unexpected errors.", () => {
 		);
 	});
 
+	it("Profile status messages render an empty live region up front, so screen readers announce later changes.", async () => {
+		await withTestUser(
+			{
+				email: createTestEmail("live-region"),
+				password: TEST_PASSWORD,
+				confirmed: true,
+				approved: true,
+			},
+			async (_user, cookies) => {
+				const container = await AstroContainer.create({ renderers });
+				const response = await container.renderToResponse(ProfilePage, {
+					request: buildRequest("/profile", cookies),
+				});
+				const html = await response.text();
+
+				// Scope to the time-format card specifically — a regression that
+				// reverted only this section to `v-if="statusMessage"` must fail here,
+				// so the assertion can't be satisfied by the sibling timezone region.
+				const cardStart = html.indexOf('aria-labelledby="time-format-heading"');
+				const timeFormatCard = html.slice(cardStart, html.indexOf("</section>", cardStart));
+				expect(cardStart).toBeGreaterThan(-1);
+
+				// The save-status live region is mounted up front (no message yet) so AT
+				// can announce a later success/revert. Attribute-order-independent: both
+				// live-region attributes are present, and no status text has rendered.
+				expect(timeFormatCard).toMatch(/aria-live="polite"/);
+				expect(timeFormatCard).toMatch(/aria-atomic="true"/);
+				expect(timeFormatCard).not.toContain("Time format updated.");
+				// No status box is rendered before any interaction (the region is empty).
+				expect(timeFormatCard).not.toMatch(/rounded-lg border p-4/);
+			},
+		);
+	});
+
 	it("A logged-out visitor is redirected to sign-in when opening the admin users page.", async () => {
 		const container = await AstroContainer.create({ renderers });
 		const response = await container.renderToResponse(AdminUsersPage, {

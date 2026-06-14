@@ -26,13 +26,17 @@
 				available. Please refresh the page to try again.
 			</StatusMessage>
 
-			<StatusMessage
-				v-if="statusMessage"
-				:tone="statusTone"
-				class="mb-4"
-			>
-				{{ statusMessage }}
-			</StatusMessage>
+			<!-- Persistent, static live region: always mounted with a fixed
+			     politeness so a save-status change (success OR the silent error
+			     revert) reliably announces. Only the visual tone varies inside. -->
+			<div role="status" aria-live="polite" aria-atomic="true">
+				<StatusMessage
+					:message="statusMessage ?? ''"
+					:tone="statusTone"
+					:live="false"
+					class="mb-4"
+				/>
+			</div>
 
 			<div class="space-y-6" role="group" aria-label="Timezone settings">
 				<TimezoneSelect

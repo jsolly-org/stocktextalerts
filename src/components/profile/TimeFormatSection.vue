@@ -15,13 +15,17 @@
 				Choose how times are displayed throughout the app.
 			</p>
 
-			<StatusMessage
-				v-if="statusMessage"
-				:tone="statusTone"
-				class="mb-4"
-			>
-				{{ statusMessage }}
-			</StatusMessage>
+			<!-- Persistent, static live region: always mounted with a fixed
+			     politeness so a save-status change (success OR the silent error
+			     revert) reliably announces. Only the visual tone varies inside. -->
+			<div role="status" aria-live="polite" aria-atomic="true">
+				<StatusMessage
+					:message="statusMessage ?? ''"
+					:tone="statusTone"
+					:live="false"
+					class="mb-4"
+				/>
+			</div>
 
 			<div class="flex items-center justify-between gap-3 py-3">
 				<div class="min-w-0">

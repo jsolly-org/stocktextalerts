@@ -306,6 +306,72 @@ test.describe("profile settings", () => {
 		}
 	});
 
+	test("TC-TIME-004: time-format status announces via a persistent live region on success and failure", async ({
+		browser,
+	}) => {
+		const user = await createApprovedE2eUser("profile-time-live");
+		const session = await e2e.openSignedInPage(browser, user);
+		try {
+			await session.page.goto("/profile");
+			await session.page.locator("[data-hydrated]").waitFor({ timeout: 15_000 });
+
+			// The live region is the always-mounted aria-atomic wrapper inside the
+			// time-format card. It must pre-exist (empty) so screen readers announce
+			// text that appears later — AT listens for mutations inside an existing
+			// region, not for the region's insertion.
+			const liveRegion = session.page.locator(
+				'[aria-labelledby="time-format-heading"] [aria-atomic="true"]',
+			);
+			await expect(liveRegion).toHaveCount(1);
+			await expect(liveRegion).toBeEmpty();
+			// Politeness is static — it must NOT mutate with tone, or the attribute
+			// change would race the text and the announcement could be dropped.
+			await expect(liveRegion).toHaveAttribute("aria-live", "polite");
+
+			const timeSwitch = session.page.getByRole("switch", { name: "Use 24-hour time" });
+			await expect(timeSwitch).toHaveAttribute("aria-checked", "false");
+
+			// Success: the message lands inside the same persistent region.
+			await Promise.all([
+				session.page.waitForResponse(
+					(response) =>
+						response.url().includes("/api/profile/time-format") && response.status() === 200,
+					{ timeout: 15_000 },
+				),
+				timeSwitch.click(),
+			]);
+			await expect(timeSwitch).toHaveAttribute("aria-checked", "true");
+			await expect(liveRegion).toContainText("Time format updated.");
+
+			// Failure: force the save to fail. The control must silently revert AND
+			// the same region must announce the failure (the AT-desync this guards).
+			// A 500 with a JSON body takes the non-throwing branch (no error log), so
+			// no console.error noise is produced.
+			await session.page.route("**/api/profile/time-format", (route) =>
+				route.fulfill({
+					status: 500,
+					contentType: "application/json",
+					body: JSON.stringify({ ok: false }),
+				}),
+			);
+			await Promise.all([
+				session.page.waitForResponse(
+					(response) =>
+						response.url().includes("/api/profile/time-format") && response.status() === 500,
+					{ timeout: 15_000 },
+				),
+				timeSwitch.click(),
+			]);
+			await expect(liveRegion).toContainText("Failed to update time format");
+			await expect(timeSwitch).toHaveAttribute("aria-checked", "true");
+			// The region's politeness stayed stable across the success→error tone flip.
+			await expect(liveRegion).toHaveAttribute("aria-live", "polite");
+		} finally {
+			await session.page.unroute("**/api/profile/time-format").catch(() => {});
+			await session.cleanup();
+		}
+	});
+
 	test("TC-PROF-PW-001: User can change password from profile", async ({ browser }) => {
 		test.slow();
 		const user = await createApprovedE2eUser("profile-pw");
