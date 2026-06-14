@@ -13,6 +13,7 @@
 ## Spec (source: in-conversation investigation + /deep-research, 2026-06-13)
 
 ### Symptom
+
 Rapidly toggling a setting on/off sometimes makes the toggle visibly flip back to a stale value before settling.
 
 ### Root causes (two confirmed sites)
@@ -29,12 +30,15 @@ Rapidly toggling a setting on/off sometimes makes the toggle visibly flip back t
 - **Toggle stays fully interactive** (user decision): no disable-during-flight. Remove the existing `:disabled="isSaving"` on TimeFormatSection. The sequencer handles rapid flips.
 
 ### Server-side: explicitly out of scope (and why)
+
 ETag/`If-Match`, version columns, and idempotency keys are **not** needed here. A user editing their own settings is effectively single-writer, the writes are idempotent ("set value to X"), and last-write-wins *is* the desired semantic. Those mechanisms solve *multi-client concurrent-edit conflict detection*, which is not the failure mode. Same-user-two-devices is a real but low-value edge; deferred. Idempotency keys matter for non-idempotent writes (charge, send SMS), not toggles.
 
 ### Known residual (documented, not fixed here)
+
 The notification panels (`NotificationChannelsPanel`, `DailyNotificationsPanel`, `AssetEventsPanel`, `MarketNotificationsPanel`) all POST to `/api/notification-preferences/update` and each merges a curated slice of the full snapshot. The *overlap* is server-derived scheduling fields (`daily_digest_time`, `*_next_send_at`). A stale cross-panel response could momentarily show an out-of-date **countdown** (not a toggle). The per-composable seq guard narrows but does not fully coordinate cross-panel ordering of these derived fields. This is a lesser, separate issue (countdown freshness, not toggle desync); noted in Task 5 notes with a follow-up option.
 
 ### Acceptance
+
 - A Playwright E2E repro that **reorders responses** (delays request 1 past request 2) drives the toggle flip on `main` and passes after the fix.
 - `createSaveSequencer` has Vitest unit tests pinning applied/superseded/aborted semantics.
 - `npm run check:biome`, `npm run check:ts`, `npm run check:knip`, `npm test`, `npm run build` all pass.
@@ -60,6 +64,7 @@ The notification panels (`NotificationChannelsPanel`, `DailyNotificationsPanel`,
 ## Task 1: `createSaveSequencer` primitive + unit tests
 
 **Files:**
+
 - Create: `src/lib/async/save-sequencer.ts`
 - Create: `tests/lib/async/save-sequencer.test.ts`
 
@@ -227,6 +232,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 2: Integrate the sequencer into `useAutoSaveFormBase`
 
 **Files:**
+
 - Modify: `src/components/dashboard/composables/useAutoSaveFormBase.ts`
 
 **Approach:** Wrap the fetch in `sequencer.run`. Apply state (`savedData`, `lastSavedSignature`, `setStatus(null)`) **only** on `status === "applied"`. Drop the `isSaving`/`pendingSave` serialization entirely — with the sequencer, a newer save simply supersedes the in-flight one; the existing 450ms debounce already coalesces rapid input, and the trailing change is re-sent through the debounce path. `isSaving` remains *only* for the "Saving…" badge and is cleared only by the latest request.
@@ -364,6 +370,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 3: Refactor `TimeFormatSection` onto the sequencer
 
 **Files:**
+
 - Modify: `src/components/profile/TimeFormatSection.vue`
 
 **Approach:** Track `confirmedValue` (last server-acked value, init from props). On user toggle: optimistic flip, then `sequencer.run(fetch)`. On `applied + ok` → `confirmedValue = sent value`. On `applied + error` → revert the toggle to `confirmedValue` (the last known-good), show error. On `superseded`/`aborted` → do nothing (a newer toggle owns the truth). Remove the `isReverting`/`nextTick` hack and the `:disabled="isSaving"` (user decision: stay interactive). A single `applyingProgrammaticValue` guard prevents the revert's programmatic write from re-triggering the watch.
@@ -468,6 +475,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 4: Playwright E2E repro — reordered responses
 
 **Files:**
+
 - Extend: `tests/e2e/profile-settings.e2e.spec.ts` (time-format toggle) — confirm with the grep above.
 - Add: notification-toggle reorder test (extend `tests/e2e/delivery-times.e2e.spec.ts` or create `tests/e2e/notification-toggle.e2e.spec.ts`), modeled on the `page.route` usage already in `tests/e2e/routes.e2e.spec.ts` / `delivery-times.e2e.spec.ts`.
 
@@ -508,7 +516,7 @@ Adjust selector/`aria` attributes to `ToggleSwitch.vue`'s actual ARIA (it's a `b
 
 - [ ] **Step 2: Run on the fix branch**
 
-Run: `npm run test:e2e -- tests/e2e/profile-settings.e2e.spec.ts` (needs Playwright + Supabase + dev on 4322; see AGENTS.md). 
+Run: `npm run test:e2e -- tests/e2e/profile-settings.e2e.spec.ts` (needs Playwright + Supabase + dev on 4322; see AGENTS.md).
 Expected after Tasks 1+3: PASS. To prove it's a real repro, `git stash` the Task 3 change and rerun — expected FAIL (toggle flips to stale ON). Then restore.
 
 - [ ] **Step 3: Add the notification-toggle reorder test**
@@ -545,4 +553,3 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 - **`AbortSignal.any` baseline:** available in Node 24 and all modern browsers (matches the project's modern-web-baseline rule; the code already uses `AbortSignal.timeout`). No polyfill.
 - **Cross-panel scheduling-field residual (documented above):** if a stale countdown is ever reported, the follow-up is a per-field "don't overwrite if a newer change to this field is pending" guard, or routing all four panels' saves to the same endpoint through one shared sequencer keyed per-field (NOT per-endpoint — a per-endpoint sequencer would wrongly abort concurrent writes to *different* fields). Out of scope for the toggle-flip fix.
 - **No server changes.** If same-user-multi-device conflict ever becomes a real requirement, revisit with `If-Match`/version columns — but that is a different problem than this bug.
-```
