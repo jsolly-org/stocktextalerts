@@ -1,6 +1,7 @@
 {
   // Markdown lint configuration. Docs: https://github.com/DavidAnson/markdownlint-cli2
   // Rule reference: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+  "gitignore": true, // skip generated/gitignored markdown (dist/, .astro/, .vercel/, .venv/, MEMORY.md, generated seeds, node_modules, etc.)
   "config": {
     "default": true,
     "MD013": false, // line length — prose is hand-wrapped; rule produces too much noise
