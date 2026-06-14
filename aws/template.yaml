@@ -71,8 +71,10 @@ Globals:
     Environment:
       Variables:
         NODE_ENV: production
-        SUPABASE_URL: !Ref SupabaseUrl
-        SUPABASE_SECRET_KEY: !Ref SupabaseSecretKey
+        # SUPABASE_URL / SUPABASE_SECRET_KEY are set per-function (only on the
+        # five functions that construct a Supabase client) rather than globally,
+        # so live-provider-check and backup-user-settings don't carry the
+        # service-role secret they never use (least privilege).
         LOG_MASK_PII: !Ref LogMaskPii
         GIT_SHA: !Ref GitSha
 
@@ -113,6 +115,8 @@ Resources:
           MASSIVE_API_KEY: !Ref MassiveApiKey
           FINNHUB_API_KEY: !Ref FinnhubApiKey
           XAI_API_KEY: !Ref XaiApiKey
+          SUPABASE_URL: !Ref SupabaseUrl
+          SUPABASE_SECRET_KEY: !Ref SupabaseSecretKey
           EMAIL_FROM: !Ref EmailFrom
           TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
           TWILIO_API_KEY_SID: !Ref TwilioApiKeySid
@@ -156,6 +160,8 @@ Resources:
           FINNHUB_API_KEY: !Ref FinnhubApiKey
           EMAIL_FROM: !Ref EmailFrom
           UNSUBSCRIBE_TOKEN_SECRET: !Ref UnsubscribeTokenSecret
+          SUPABASE_URL: !Ref SupabaseUrl
+          SUPABASE_SECRET_KEY: !Ref SupabaseSecretKey
           TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
           TWILIO_API_KEY_SID: !Ref TwilioApiKeySid
           TWILIO_API_KEY_SECRET: !Ref TwilioApiKeySecret
@@ -217,6 +223,8 @@ Resources:
           EMAIL_FROM: !Ref EmailFrom
           EMAIL_DISPATCH_SECRET: !Ref EmailDispatchSecret
           ADMIN_EMAILS: !Ref AdminEmails
+          SUPABASE_URL: !Ref SupabaseUrl
+          SUPABASE_SECRET_KEY: !Ref SupabaseSecretKey
 
   EmailDispatchFunctionUrl:
     Type: AWS::Lambda::Url
@@ -274,6 +282,8 @@ Resources:
         Variables:
           MASSIVE_API_KEY: !Ref MassiveApiKey
           VENDOR_BACKFILL_QUEUE_URL: !Ref VendorBackfillQueue
+          SUPABASE_URL: !Ref SupabaseUrl
+          SUPABASE_SECRET_KEY: !Ref SupabaseSecretKey
       Events:
         WeekdayEvening:
           Type: ScheduleV2
@@ -330,6 +340,8 @@ Resources:
           MASSIVE_API_KEY: !Ref MassiveApiKey
           FINNHUB_API_KEY: !Ref FinnhubApiKey
           VENDOR_BACKFILL_QUEUE_URL: !Ref VendorBackfillQueue
+          SUPABASE_URL: !Ref SupabaseUrl
+          SUPABASE_SECRET_KEY: !Ref SupabaseSecretKey
       Events:
         VendorBackfillQueueEvent:
           Type: SQS

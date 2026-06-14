@@ -1,6 +1,8 @@
 // Live provider toggles for the test harness. Note:
 // - `email` routes through local Mailpit via SMTP, not real SES.
-// - `twilio` uses Twilio *test credentials* only (no real delivery, no charges).
+// - `twilio` uses Twilio *test credentials* for the send smoke test, and the
+//   real `stocktextalerts-runtime` Restricted key for scope-enforcement checks
+//   (invalid-input + out-of-scope probes only — no real delivery, no charges).
 type LiveProvider = "massive" | "finnhub" | "xai" | "email" | "twilio";
 
 const ALLOWED_PROVIDERS: LiveProvider[] = ["massive", "finnhub", "xai", "email", "twilio"];

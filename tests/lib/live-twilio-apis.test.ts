@@ -2,6 +2,25 @@ import twilio from "twilio";
 import { describe, expect, it } from "vitest";
 import { assertLiveProviderKey, isLiveProviderEnabled } from "../helpers/live-api";
 
+/**
+ * Twilio `--live=twilio` is split across two files by design — a consequence of
+ * Twilio's testing model (see https://www.twilio.com/docs/iam/test-credentials):
+ *
+ *   - THIS file uses account-level TEST CREDENTIALS + magic numbers. That is the
+ *     only no-charge / no-real-delivery path Twilio offers, but magic numbers
+ *     ONLY work under test credentials — they do NOT work with a live Restricted
+ *     key. So this file canaries request/response SHAPE and error codes, not the
+ *     production credential. (Verify isn't supported under test creds at all —
+ *     non-SMS/Call/Lookup resources return 403 with test creds.)
+ *   - live-twilio-scope.test.ts uses the real PRODUCTION Restricted key to
+ *     canary the credential itself (auth + exact scope), with no billable send
+ *     (invalid-input → 400 for in-scope; 401/70051 for out-of-scope).
+ *
+ * The two together remove the credential skew on auth/scope while staying free.
+ * End-to-end DELIVERY is verified by production monitoring (the every-minute
+ * schedule Lambda + ErrorLogAlarm), per Twilio's guidance — not a billable test.
+ */
+
 function requireEnv(name: string): string {
 	const value = process.env[name]?.trim();
 	if (!value) {
