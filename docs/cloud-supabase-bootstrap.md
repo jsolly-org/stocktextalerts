@@ -11,7 +11,7 @@ App-local Docker and Supabase setup for Cursor Cloud VMs. Not part of the dotage
 
 ## What `cloud-agent-install.sh` does
 
-After fleet helpers (`npm ci`, YAML/Actionlint, SAM), the app script:
+After fleet helpers (`npm ci`, YAML lint, SAM), the app script:
 
 1. Installs **Docker** (`docker.io`) and **jq** when missing.
 2. Configures the engine for Cursor Cloud VMs: **iptables-legacy** (bridge networking between containers), **vfs** storage driver when `/etc/docker/daemon.json` is absent (overlay2 often fails here), then **restarts dockerd** when iptables or `daemon.json` changed so a pre-started systemd dockerd does not keep stale nft rules.
