@@ -4,7 +4,7 @@
 >
 > **DECISION REQUIRED before Task 0 implementation** — the mechanism (skip-worktree vs config-template) is laid out in the Spec. Steps below are written for the **recommended skip-worktree approach**; get sign-off (or switch) before executing.
 
-**Goal:** Restore per-worktree local Supabase isolation under Supabase CLI ≥ 2.105.0, which removed the `--config <file>` flag the current design depends on. This is the **prerequisite** that unblocks (a) the in-flight `toggle-state-desync` worktree's DB tests and (b) worktree-provisioning Tasks 4–7 (`docs/superpowers/plans/2026-06-13-worktree-provisioning.md`).
+**Goal:** Restore per-worktree local Supabase isolation under Supabase CLI ≥ 2.105.0, which removed the `--config <file>` flag the current design depends on. This is the **prerequisite** that unblocks (a) the in-flight `toggle-state-desync` worktree's DB tests and (b) worktree-provisioning Tasks 4–7 (`docs/plans/2026-06-13-worktree-provisioning.md`).
 
 **Architecture:** Today, `scripts/db/worktree-supabase.ts` writes an *overlay* config to `supabase/.worktree/config.toml` and `scripts/db/supabase-cli-args.ts` injects `--config <that file>` into every supabase command. CLI 2.105.0 has only `--workdir <project-dir>` (no `--config`), so `db:start`/`db:reset` fail in every isolated worktree. The fix: stop using a separate overlay file + flag. Instead, write the isolated `project_id` + ports **directly into the worktree's own `supabase/config.toml`** (each worktree is its own checkout) using the already-present `smol-toml` parser, and `git update-index --skip-worktree` it so the local edit never appears as a diff or gets committed. Supabase then reads the isolated config with **no CLI flag**, and `supabaseCliArgs()` is deleted. A gitignored `supabase/.worktree/meta.json` sentinel remains as the "is this worktree provisioned?" marker for the fail-closed guards.
 
@@ -277,7 +277,7 @@ Running step 4 *before* steps 1–3 will appear to "re-provision" but stay broke
 
 ## Alignment with worktree-provisioning (Tasks 4–7)
 
-`docs/superpowers/plans/2026-06-13-worktree-provisioning.md` stays the source of truth for Tasks 4–7, **with these deltas now that Task 0 changed the isolation mechanism:**
+`docs/plans/2026-06-13-worktree-provisioning.md` stays the source of truth for Tasks 4–7, **with these deltas now that Task 0 changed the isolation mechanism:**
 
 - **Provisioned-detection (Tasks 4 & 5).** The fail-closed `db:reset` guard and the `db:doctor` early check must key off **`worktreeSupabaseProvisioned()`** (from `scripts/db/worktree-state.ts`, the `meta.json` sentinel), **not** the deleted `worktreeSupabaseConfigPath()` / `.worktree/config.toml` path. Update the plan's `unsafeResetMessage` / `unprovisionedWorktreeMessage` wiring to import the new helper.
 - **Task 6 `worktree:init`.** Already updated to `npm_config_cache="${TMPDIR:-/tmp}/…" npm ci && npm run db:bootstrap` (online; never `--offline`). `db:bootstrap` already chains `db:worktree-setup` (now CLI-2.105-compatible) → `db:start` → `db:reset` → `db:doctor`, so it works end-to-end once Task 0 lands.

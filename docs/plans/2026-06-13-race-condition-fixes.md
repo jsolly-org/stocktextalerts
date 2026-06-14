@@ -164,7 +164,7 @@ Expected: PASS (the new test and all existing tests — existing tests use the d
 git add src/lib/price-targets/process.ts tests/lib/price-targets/process.test.ts
 git commit -m "fix(price-targets): check CAS rows-affected to prevent double-send
 
-Implements docs/superpowers/plans/2026-06-13-race-condition-fixes.md (Task 1)
+Implements docs/plans/2026-06-13-race-condition-fixes.md (Task 1)
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ```
@@ -242,7 +242,7 @@ Expected: PASS — phone verified, SMS stays disabled when opted out.
 git add src/pages/api/auth/sms/verify-code.ts tests/
 git commit -m "fix(auth): guard SMS re-enable against concurrent STOP opt-out
 
-Implements docs/superpowers/plans/2026-06-13-race-condition-fixes.md (Task 2)
+Implements docs/plans/2026-06-13-race-condition-fixes.md (Task 2)
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ```
@@ -420,7 +420,7 @@ Expected: PASS for both.
 git add supabase/migrations src/lib/messaging/sms/url-shortener.ts scripts/db/privilege-contract.ts tests/lib/messaging/sms/url-shortener.test.ts tests/helpers/constants.ts src/lib/db/generated/database.types.ts
 git commit -m "fix(short-urls): atomic get-or-create with UNIQUE(original_url)
 
-Implements docs/superpowers/plans/2026-06-13-race-condition-fixes.md (Task 3)
+Implements docs/plans/2026-06-13-race-condition-fixes.md (Task 3)
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ```
@@ -578,7 +578,7 @@ Expected: PASS.
 git add supabase/migrations src/lib/daily-digest/process.ts src/lib/staged-notifications/deliver.ts scripts/db/privilege-contract.ts tests/ tests/helpers/constants.ts src/lib/db/generated/database.types.ts
 git commit -m "fix(grok): atomic reset-or-increment counter via RPC, dedup copies
 
-Implements docs/superpowers/plans/2026-06-13-race-condition-fixes.md (Task 4)
+Implements docs/plans/2026-06-13-race-condition-fixes.md (Task 4)
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ```
@@ -953,7 +953,7 @@ git commit -m "feat(price-alerts): per-channel retry for instant alerts
 Finalize only when all enabled channels deliver; mixed outcome becomes
 'partial' and retries the missing channel on the next eligible tick.
 
-Implements docs/superpowers/plans/2026-06-13-race-condition-fixes.md (Task 5)
+Implements docs/plans/2026-06-13-race-condition-fixes.md (Task 5)
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ```
@@ -999,7 +999,7 @@ Above the `reserveCooldownSlot` call in `src/lib/market-notifications/process.ts
 git add docs/ src/lib/market-notifications/process.ts
 git commit -m "docs(price-alerts): document reserved-slot at-least-once tradeoff
 
-Implements docs/superpowers/plans/2026-06-13-race-condition-fixes.md (Task 6)
+Implements docs/plans/2026-06-13-race-condition-fixes.md (Task 6)
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ```

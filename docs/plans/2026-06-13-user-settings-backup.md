@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Spec:** docs/superpowers/specs/2026-06-13-user-settings-backup-design.md
+**Spec:** docs/specs/2026-06-13-user-settings-backup-design.md
 
 **Goal:** A 5×/day SAM-managed Lambda that exports 4 user-authored tables via Postgres `COPY` inside one `REPEATABLE READ` transaction, gzips them with a manifest, and writes one object to a private S3 bucket — with least-privilege creds and failure + staleness alarms.
 
@@ -78,7 +78,7 @@ Write into the new file:
 -- Least-privilege role for the user-settings backup Lambda.
 -- Created with NO password and NOLOGIN here: it cannot authenticate until a
 -- human sets a password out-of-band (ALTER ROLE ... PASSWORD), per
--- docs/superpowers/specs/2026-06-13-user-settings-backup-design.md.
+-- docs/specs/2026-06-13-user-settings-backup-design.md.
 -- This migration is the source of truth for the role's PRIVILEGES only.
 
 do $$
@@ -176,7 +176,7 @@ Create `src/lib/backup/tables.ts`:
 /**
  * The user-authored tables this backup preserves. Source of truth for both the
  * export (Task 4) and restore (Task 8). Order is parent-before-child so a naive
- * restore satisfies FKs. See docs/superpowers/specs/2026-06-13-user-settings-backup-design.md.
+ * restore satisfies FKs. See docs/specs/2026-06-13-user-settings-backup-design.md.
  */
 export const BACKUP_TABLES = [
   "public.users",
@@ -882,7 +882,7 @@ Create `docs/backups.md`:
 
 Backs up 4 user-authored tables (`users`, `user_assets`, `price_targets`,
 `scheduled_notifications`) 5×/day to a private S3 bucket. Design:
-`docs/superpowers/specs/2026-06-13-user-settings-backup-design.md`.
+`docs/specs/2026-06-13-user-settings-backup-design.md`.
 
 ## One-time setup (human only — never via an agent)
 
@@ -967,7 +967,7 @@ git commit -m "docs(backup): record first restore rehearsal"
 
 ## Execution Handoff
 
-Plan complete and saved to `docs/superpowers/plans/2026-06-13-user-settings-backup.md`. Two execution options:
+Plan complete and saved to `docs/plans/2026-06-13-user-settings-backup.md`. Two execution options:
 
 1. **Subagent-Driven (recommended)** — one fresh subagent per task, review between tasks.
 2. **Inline Execution** — execute tasks in this session with checkpoints.

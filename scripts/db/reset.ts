@@ -3,7 +3,7 @@
  *
  * Per-worktree isolation lives in the worktree's config.toml (written + skip-worktree'd by
  * worktree-supabase.ts), which the Supabase CLI reads directly — no `--config` flag (removed in
- * CLI 2.105). See docs/superpowers/plans/2026-06-13-worktree-supabase-cli-fix.md.
+ * CLI 2.105). See docs/plans/2026-06-13-worktree-supabase-cli-fix.md.
  */
 
 import { spawnSync } from "node:child_process";

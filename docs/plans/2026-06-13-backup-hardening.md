@@ -1,7 +1,7 @@
 # Backup Hardening Plan (post-research)
 
-> Follow-up to `docs/superpowers/plans/2026-06-13-user-settings-backup.md`.
-> **Spec:** docs/superpowers/specs/2026-06-13-user-settings-backup-design.md (see its "As-built notes").
+> Follow-up to `docs/plans/2026-06-13-user-settings-backup.md`.
+> **Spec:** docs/specs/2026-06-13-user-settings-backup-design.md (see its "As-built notes").
 
 **Driver:** a deep-research pass (25 primary-source claims, 0 refuted) on COPY-based logical
 backup/restore of Supabase, cross-checked against this repo's actual schema. Decision: **keep the
@@ -52,7 +52,7 @@ transaction pooler (6543). Snapshot consistency holds either way, but the sessio
 recommended, IPv4-compatible choice for a Lambda. No code change (the connection string is the
 human-set SSM value) — runbook + spec doc update only.
 
-- **Files:** `docs/backups.md`, `docs/superpowers/specs/2026-06-13-user-settings-backup-design.md`
+- **Files:** `docs/backups.md`, `docs/specs/2026-06-13-user-settings-backup-design.md`
 - **Change:** connection string → session pooler host, **port 5432**, username
   `backup_readonly.<project-ref>` (Supavisor requires the tenant suffix), IPv4.
 

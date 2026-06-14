@@ -1,7 +1,7 @@
 -- Least-privilege role for the user-settings backup Lambda.
 -- Created with NO password and NOLOGIN here: it cannot authenticate until a
 -- human sets a password out-of-band (ALTER ROLE ... PASSWORD), per
--- docs/superpowers/specs/2026-06-13-user-settings-backup-design.md.
+-- docs/specs/2026-06-13-user-settings-backup-design.md.
 -- This migration is the source of truth for the role's PRIVILEGES only.
 
 -- BYPASSRLS is REQUIRED, not a nicety: every backed-up table has row-level

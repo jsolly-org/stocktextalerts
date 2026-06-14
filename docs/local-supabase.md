@@ -18,7 +18,7 @@ Linked git worktrees (`git worktree add …`) each get an isolated local Supabas
 
 On first bootstrap in a worktree, `scripts/db/worktree-supabase.ts`:
 
-1. Assigns a stable `project_id` and port block derived from the branch name, written **in-place into the worktree's own `supabase/config.toml`** (via `smol-toml`) and `git update-index --skip-worktree`'d so the edit never diffs or commits. Supabase CLI ≥ 2.105 reads it with **no flag** (the old `--config supabase/.worktree/config.toml` overlay is gone — see `docs/superpowers/plans/2026-06-13-worktree-supabase-cli-fix.md`). A gitignored `supabase/.worktree/meta.json` is the "provisioned" sentinel.
+1. Assigns a stable `project_id` and port block derived from the branch name, written **in-place into the worktree's own `supabase/config.toml`** (via `smol-toml`) and `git update-index --skip-worktree`'d so the edit never diffs or commits. Supabase CLI ≥ 2.105 reads it with **no flag** (the old `--config supabase/.worktree/config.toml` overlay is gone — see `docs/plans/2026-06-13-worktree-supabase-cli-fix.md`). A gitignored `supabase/.worktree/meta.json` is the "provisioned" sentinel.
 2. Materializes a worktree-local `.env.local` with matching `SUPABASE_URL`, `DATABASE_URL`, and `EMAIL_SMTP_PORT`.
 
 **Fail-closed in unprovisioned worktrees:** `db:reset` refuses to run (and `db:doctor` errors) in a linked worktree that has no `meta.json` sentinel — otherwise reset would target the shared/main stack (port 54322) and wipe its seed. Run `npm run worktree:init` first.

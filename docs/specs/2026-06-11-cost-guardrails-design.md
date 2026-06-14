@@ -147,7 +147,7 @@ The stale-flush is **load-bearing, not hygiene**: concurrency=0 stalls rather th
 
 Layers 0–2 are independently shippable now and remove most of the risk: Layer 0 is **already done**, Layer 1 is a stocktextalerts migration + send-path check, Layer 2 is five lines of SAM template. Layers 3–4 (metric, topic, breaker, IAM, dry-run, drill) are the bigger build across both repos and are gated by the weekend drill. Layer 5's scripts/runbook land with Layer 4.
 
-Implementation plans (per repo convention): `docs/superpowers/plans/2026-06-11-cost-guardrails-app-layers.md` (stocktextalerts, Layers 1–3) and a shared-infra counterpart for the breaker (Layer 4–5), each referencing this spec.
+Implementation plans (per repo convention): `docs/plans/2026-06-11-cost-guardrails-app-layers.md` (stocktextalerts, Layers 1–3) and a shared-infra counterpart for the breaker (Layer 4–5), each referencing this spec.
 
 ## Sources
 

@@ -3,7 +3,7 @@
 Backs up 4 user-authored tables (`users`, `user_assets`, `price_targets`,
 `scheduled_notifications`) 5×/day to the existing private S3 bucket
 `stocktextalerts-prod-backups-<acct>` under the `user-settings/` prefix.
-Design: `docs/superpowers/specs/2026-06-13-user-settings-backup-design.md`.
+Design: `docs/specs/2026-06-13-user-settings-backup-design.md`.
 
 ## One-time setup (human only — never via an agent)
 
@@ -56,4 +56,4 @@ The restore asserts the manifest `schema_version` matches the target; a mismatch
   enum (`notification_type=daily`, `channel=email`, `status=sent`) and numeric
   (`target_price=150.5000`) values round-trip byte-faithfully through COPY, restore
   runs cleanly under `session_replication_role=replica`, counts match, 0 orphans.
-  Backed by a deep-research pass (see `docs/superpowers/plans/2026-06-13-backup-hardening.md`).
+  Backed by a deep-research pass (see `docs/plans/2026-06-13-backup-hardening.md`).

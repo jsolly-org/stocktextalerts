@@ -12,7 +12,7 @@ import { BACKUP_TABLES } from "../../../src/lib/backup/tables";
  * This test fails loud if a future table added to BACKUP_TABLES introduces a
  * sequence-backed column — forcing whoever adds it to implement setval() on
  * restore (or pick a non-sequence key) rather than shipping silently-broken
- * restores. See docs/superpowers/plans/2026-06-13-backup-hardening.md (P1.2).
+ * restores. See docs/plans/2026-06-13-backup-hardening.md (P1.2).
  */
 describe("backup tables have no sequence-backed columns", () => {
 	it("none of BACKUP_TABLES use identity/serial/nextval defaults", async () => {

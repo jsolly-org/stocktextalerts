@@ -140,7 +140,7 @@ export function applyWorktreePorts(
 // worktree is a separate checkout), then mark it skip-worktree so the local edit never shows as a
 // diff or gets committed. Supabase CLI >= 2.105 dropped the `--config <file>` flag, so the CLI must
 // read the worktree's config.toml directly with no flag — see
-// docs/superpowers/plans/2026-06-13-worktree-supabase-cli-fix.md.
+// docs/plans/2026-06-13-worktree-supabase-cli-fix.md.
 function writeWorktreeConfig(meta: WorktreeMeta): void {
 	const base = fs.readFileSync(CONFIG, "utf8");
 	fs.writeFileSync(CONFIG, applyWorktreePorts(base, meta), "utf8");

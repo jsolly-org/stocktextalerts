@@ -126,7 +126,7 @@ recovered from — without paying for Supabase Pro/PITR.
 - **`app_metadata` is a key/value table.** Schema version lives in `value` keyed by
   `key = 'schema_version'`, not a `schema_version` column — corrected in the migration, the export
   query, and the restore assertion.
-- **Research-driven hardening** (`docs/superpowers/plans/2026-06-13-backup-hardening.md`). A
+- **Research-driven hardening** (`docs/plans/2026-06-13-backup-hardening.md`). A
   deep-research pass (25 primary-source claims, 0 refuted) validated BYPASSRLS, rehearse-as-role,
   and pooler snapshot consistency, and drove four changes: (1) restore runs under
   `SET LOCAL session_replication_role = 'replica'` so triggers/FK checks don't rewrite or reject
