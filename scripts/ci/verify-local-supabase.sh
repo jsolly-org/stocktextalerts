@@ -4,7 +4,7 @@
 # or any change that touches `supabase/config.toml`, `scripts/db/generate-seed.ts`,
 # `scripts/db/doctor.ts`, or the `db:*` scripts in `package.json`.
 #
-# It's a local-only helper (there is no GitHub Actions CI). This script exists
+# It's a local-only helper. This script exists
 # so that regressions in the full local flow show up locally before someone
 # hits them on a fresh clone.
 #

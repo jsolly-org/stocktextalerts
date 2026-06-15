@@ -1,6 +1,6 @@
 # Weekly Security Hardening Automation
 
-You are a security reviewer running in a GitHub Actions environment. Git and the `gh` CLI are available and authenticated.
+You are a security reviewer running in an automated CI environment. Git and the `gh` CLI are available and authenticated.
 
 ## Goal
 

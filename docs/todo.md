@@ -12,7 +12,7 @@ Context: made the save-status live regions announce reliably. The reactive cases
 
 ## Least-privilege / Twilio / live-checks (surfaced 2026-06-13)
 
-Context: cutover of the SMS senders + Verify to a scoped Twilio Restricted API key, replacement of the `live-provider-tests.yml` GitHub Actions workflow with the `live-provider-check` Lambda, and the fleet least-privilege pass. Deploy is done and verified (senders carry only the Restricted key; webhook validators keep the Auth Token); these are the residual items.
+Context: cutover of the SMS senders + Verify to a scoped Twilio Restricted API key, replacement of the previous live vendor-API CI cron with the `live-provider-check` Lambda, and the fleet least-privilege pass. Deploy is done and verified (senders carry only the Restricted key; webhook validators keep the Auth Token); these are the residual items.
 
 ### Done (2026-06-13 credential audit)
 

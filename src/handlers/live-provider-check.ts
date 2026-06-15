@@ -7,14 +7,13 @@ import { fetchAssetPrices, getCurrentMarketSession } from "../lib/providers/pric
 /**
  * Scheduled live data-provider health check (Massive + Finnhub).
  *
- * Replaces the GitHub Actions `live-provider-tests.yml` cron. Runs the same
- * provider round-trips the `test:live:data` suite exercises — against the real
- * Massive/Finnhub APIs during market hours, when snapshot data is fresh — and
- * throws on any failure. The thrown error surfaces on the `AWS/Lambda Errors`
- * metric, which `LiveProviderCheckFunctionErrorAlarm` routes to the shared-infra
- * SNS topic (same enriched-email path as every other function alarm). No
- * GitHub secrets, no OIDC: provider keys come from the function's env (SAM
- * params), exactly like the other scheduled Lambdas.
+ * Runs the same provider round-trips the `test:live:data` suite exercises —
+ * against the real Massive/Finnhub APIs during market hours, when snapshot data
+ * is fresh — and throws on any failure. The thrown error surfaces on the
+ * `AWS/Lambda Errors` metric, which `LiveProviderCheckFunctionErrorAlarm` routes
+ * to the shared-infra SNS topic (same enriched-email path as every other
+ * function alarm). Provider keys come from the function's env (SAM params),
+ * exactly like the other scheduled Lambdas.
  */
 
 interface CheckResult {

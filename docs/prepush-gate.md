@@ -1,6 +1,6 @@
 # The pre-push gate on `main`
 
-There is no GitHub Actions CI. The **pre-push gate** — `.git-hooks/pre-push` →
+The **pre-push gate** — `.git-hooks/pre-push` →
 [`scripts/prepush.sh`](../scripts/prepush.sh) — runs the full battery on push to `main`, then
 deploys (`aws/deploy-web.sh`: Supabase migrations → Lambda code). A failing check aborts the
 push, so nothing ships ungated. The web tier deploys via Vercel's git integration, which
@@ -32,9 +32,9 @@ The gate needs **local Supabase up** (`npm run db:start`) for `check:db-privileg
 `test:e2e`. See [docs/incidents/2026-04-ci-race.md](incidents/2026-04-ci-race.md) for why a bare
 `npm test` isn't enough when changing the test harness or Supabase config.
 
-## No GitHub workflows
+## Live vendor-API health check
 
-There are no GitHub Actions workflows. The live vendor-API health check (formerly `live-provider-tests.yml`) now runs as the scheduled `stocktextalerts-live-provider-check` Lambda (weekday mid-session, `aws/template.yaml`); failures fire `stocktextalerts-live-provider-check-lambda-errors` → shared-infra. Deploy and CI run in the local pre-push gate.
+The live vendor-API health check runs as the scheduled `stocktextalerts-live-provider-check` Lambda (weekday mid-session, `aws/template.yaml`); failures fire `stocktextalerts-live-provider-check-lambda-errors` → shared-infra. Deploy and CI run in the local pre-push gate.
 
 ## When the full local stack matters most (iterate before pushing)
 

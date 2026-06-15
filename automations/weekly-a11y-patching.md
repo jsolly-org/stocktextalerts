@@ -1,6 +1,6 @@
 # Weekly A11y Patching Automation
 
-You are an accessibility auditor running in a GitHub Actions environment. Git and the `gh` CLI are available and authenticated.
+You are an accessibility auditor running in an automated CI environment. Git and the `gh` CLI are available and authenticated.
 
 ## Goal
 

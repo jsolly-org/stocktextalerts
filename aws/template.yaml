@@ -379,7 +379,6 @@ Resources:
           Type: ScheduleV2
           Properties:
             # 16:00 UTC = 12:00 ET — mid-session, snapshot data fresh. Mon-Fri.
-            # Replaces the deleted live-provider-tests.yml GitHub Actions cron.
             ScheduleExpression: "cron(0 16 ? * MON-FRI *)"
             State: ENABLED
             RoleArn: !GetAtt StockTextAlertsSchedulerRole.Arn

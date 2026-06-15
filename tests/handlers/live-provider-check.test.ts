@@ -37,7 +37,7 @@ function stubHealthyProviders(): void {
 	} as Awaited<ReturnType<typeof fetchEarnings>>);
 }
 
-describe("live-provider-check Lambda (replaces the live-provider-tests.yml cron)", () => {
+describe("live-provider-check Lambda", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		stubHealthyProviders();

@@ -41,7 +41,7 @@ The scheduled `stocktextalerts-live-provider-check` Lambda (weekday mid-session)
 
 No extra IAM is needed: CloudWatch publishes to the topic via the alarm action.
 
-**TODO (manual AWS cleanup):** the `agent-deploy` role's `stocktextalerts-shared-infra-publish` inline policy was added for the GitHub Actions OIDC publish path, which has since been removed (no `.github/workflows/` remain), so the policy is obsolete. `agent-deploy` is a manually-managed IAM role — not SAM-managed and not in this repo's IaC — so it can't be cleaned up by a deploy. Remove it by hand once confirmed unused:
+**TODO (manual AWS cleanup):** the `agent-deploy` role's `stocktextalerts-shared-infra-publish` inline policy backed a CI publish path that has since been removed, so the policy is obsolete. `agent-deploy` is a manually-managed IAM role — not SAM-managed and not in this repo's IaC — so it can't be cleaned up by a deploy. Remove it by hand once confirmed unused:
 
 ```bash
 aws iam list-role-policies --role-name agent-deploy   # confirm it's still attached

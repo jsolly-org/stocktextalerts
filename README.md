@@ -168,8 +168,8 @@ DEFAULT_PASSWORD=your-strong-local-seed-password
 - **AWS Lambda (SAM deploy from `.env.local` via `aws/sam-params.sh`):** Supabase prod keys, Twilio, `UNSUBSCRIBE_TOKEN_SECRET`, Massive, Finnhub, optional `XAI_API_KEY`. `EmailFrom` is **not** passed on the CLI — the template defaults to SSM `/stocktextalerts/email-from`. SES auth is the Lambda execution role, not static `AWS_*` keys.
 - **Local-only values:** `DATABASE_URL` and `DEFAULT_PASSWORD` are for local Supabase + seed generation and should not be added to Vercel.
 - **Account-level (local shell, not repo secrets):** `CURSOR_API_KEY` — Cursor User API Key for SDK/CLI; set in `~/.zshrc`. See [.agents/docs/cloud-agents.md](.agents/docs/cloud-agents.md#secrets-summary).
-- **Local deploy creds (gitignored `.env.local`):** `DATABASE_URL_PROD` (full prod Postgres URL — migrations connect with it directly) and `AWS_PROFILE` (= `fleet-deploy`, the scoped assume-role profile). The local pre-push deploy (`aws/deploy-web.sh`) reads these — deploys no longer run in GitHub Actions. The web tier needs no local creds: Vercel auto-builds `main` via its git integration.
-- **Live provider keys** (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`): SAM parameters in gitignored `.env.local` (via `aws/sam-params.sh`), consumed by the runtime Lambdas and the scheduled `stocktextalerts-live-provider-check` Lambda (weekday mid-session live vendor health check). Failures fire `stocktextalerts-live-provider-check-lambda-errors` → **shared-infra** (SES email). No GitHub Actions.
+- **Local deploy creds (gitignored `.env.local`):** `DATABASE_URL_PROD` (full prod Postgres URL — migrations connect with it directly) and `AWS_PROFILE` (= `fleet-deploy`, the scoped assume-role profile). The local pre-push deploy (`aws/deploy-web.sh`) reads these. The web tier needs no local creds: Vercel auto-builds `main` via its git integration.
+- **Live provider keys** (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`): SAM parameters in gitignored `.env.local` (via `aws/sam-params.sh`), consumed by the runtime Lambdas and the scheduled `stocktextalerts-live-provider-check` Lambda (weekday mid-session live vendor health check). Failures fire `stocktextalerts-live-provider-check-lambda-errors` → **shared-infra** (SES email).
 
 ### 4. Generate Seed File
 
@@ -259,7 +259,7 @@ For local development, run `npm run db:reset` before `npm run test` to ensure yo
 
 ### CI on push to main (local pre-push gate)
 
-The pre-push hook (`.git-hooks/pre-push` → `scripts/prepush.sh`) runs the full CI battery on push to `main` — biome, yaml, types, markdown, knip, SQL/squawk, migration grants, db privileges, unit + E2E — then deploys (the production build runs inside the deploy, `aws/deploy-web.sh`). There is no GitHub Actions CI. See [docs/prepush-gate.md](docs/prepush-gate.md) for the command list (the gate needs local Supabase up: `npm run db:start`).
+The pre-push hook (`.git-hooks/pre-push` → `scripts/prepush.sh`) runs the full CI battery on push to `main` — biome, yaml, types, markdown, knip, SQL/squawk, migration grants, db privileges, unit + E2E — then deploys (the production build runs inside the deploy, `aws/deploy-web.sh`). See [docs/prepush-gate.md](docs/prepush-gate.md) for the command list (the gate needs local Supabase up: `npm run db:start`).
 
 ### Optional: Live Provider Tests (Massive/Finnhub/xAI)
 
@@ -355,7 +355,7 @@ SES notification sending runs on Lambda (`EMAIL_FROM` from SSM `/stocktextalerts
 ### 1a. Deploy creds and live provider keys
 
 - **Local deploy creds (gitignored `.env.local`):** `DATABASE_URL_PROD`, `AWS_PROFILE=fleet-deploy`. Read by the pre-push deploy (`aws/deploy-web.sh`). Web tier: Vercel git auto-deploy, no local creds.
-- **Live provider keys** (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`): SAM params (gitignored `.env.local`), used by the runtime + `stocktextalerts-live-provider-check` Lambdas. No GitHub Actions.
+- **Live provider keys** (`MASSIVE_API_KEY`, `FINNHUB_API_KEY`): SAM params (gitignored `.env.local`), used by the runtime + `stocktextalerts-live-provider-check` Lambdas.
 - **Account-level (local shell):** `CURSOR_API_KEY` — see [.agents/docs/cloud-agents.md](.agents/docs/cloud-agents.md#secrets-summary)
 
 ### 2. Deploy

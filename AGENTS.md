@@ -125,13 +125,13 @@ See `docs/external-apis.md` for Massive (prices/reference) and Finnhub (earnings
 
 ## CI on push to main (local pre-push gate)
 
-The pre-push hook (`.git-hooks/pre-push` → `scripts/prepush.sh`) runs the full CI battery and then the deploy on push to `main`; there is no GitHub Actions CI. See `docs/prepush-gate.md` for the command list. The gate needs local Supabase up (`npm run db:start`).
+The pre-push hook (`.git-hooks/pre-push` → `scripts/prepush.sh`) runs the full CI battery and then the deploy on push to `main`. See `docs/prepush-gate.md` for the command list. The gate needs local Supabase up (`npm run db:start`).
 
 **The gate only runs on local pushes.** Server-side merges (GitHub UI merge button, Dependabot merges) bypass CI and deploy entirely — merge PRs locally and push instead. Cloud VMs have no deploy credentials: push feature branches only from cloud; pushes to `main` happen from a credentialed laptop.
 
 ## AWS IAM
 
-- `agent-deploy` — scoped deploy role (S3, CloudFront, ECR, `lambda:UpdateFunctionCode`, `cloudformation:DescribeStackResource`). Used locally via the `fleet-deploy` profile for code-only deploys. (No longer assumed by GitHub OIDC — the `live-provider-tests.yml` workflow was replaced by the scheduled `stocktextalerts-live-provider-check` Lambda; there are no GitHub Actions workflows.)
+- `agent-deploy` — scoped deploy role (S3, CloudFront, ECR, `lambda:UpdateFunctionCode`, `cloudformation:DescribeStackResource`). Used locally via the `fleet-deploy` profile for code-only deploys.
 - `stocktextalerts-crons-*` — SAM-managed Lambda execution roles (auto-created; SES send via execution role, not static keys)
 
 ## Tooling Setup

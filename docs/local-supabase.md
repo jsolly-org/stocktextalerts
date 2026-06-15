@@ -113,6 +113,6 @@ connection (`tests/helpers/asset-db.ts` pattern), not `adminClient`.
 
 ## Local container runtime
 
-There is no GitHub Actions CI; the live vendor-API health check runs as the `stocktextalerts-live-provider-check` Lambda (no local DB needed — it calls the provider APIs directly). Locally, the Supabase stack runs under Docker or Podman.
+The live vendor-API health check runs as the `stocktextalerts-live-provider-check` Lambda (no local DB needed — it calls the provider APIs directly). Locally, the Supabase stack runs under Docker or Podman.
 
 **SAM CLI (`sam local invoke`)** honors `DOCKER_HOST`, so `cd aws && npm run local:all` works under Podman with the same setup.

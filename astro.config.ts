@@ -19,7 +19,7 @@ const vercelProductionUrl =
 	env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL;
 const vercelUrl = vercelProductionUrl || env.VERCEL_URL || process.env.VERCEL_URL;
 
-// CI is set by the runner (e.g. GitHub Actions), not .env.local.
+// CI is set by the runner, not .env.local.
 const isCI = process.env.CI === "true";
 
 /**
