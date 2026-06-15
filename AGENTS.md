@@ -125,7 +125,7 @@ See `docs/external-apis.md` for Massive (prices/reference) and Finnhub (earnings
 
 ## CI on push to main (local pre-push gate)
 
-The pre-push hook (`.git-hooks/pre-push` → `scripts/prepush.sh`) runs the full CI battery and then the deploy on push to `main`. See `docs/prepush-gate.md` for the command list. The gate needs local Supabase up (`npm run db:start`).
+The pre-push hook (`.git-hooks/pre-push`, the committed gate) runs the full CI battery and then the deploy on push to `main`. See `docs/prepush-gate.md` for the command list. The gate needs local Supabase up (`npm run db:start`).
 
 **The gate only runs on local pushes.** Server-side merges (GitHub UI merge button, Dependabot merges) bypass CI and deploy entirely — merge PRs locally and push instead. Cloud VMs have no deploy credentials: push feature branches only from cloud; pushes to `main` happen from a credentialed laptop.
 

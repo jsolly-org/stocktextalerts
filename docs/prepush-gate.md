@@ -1,7 +1,6 @@
 # The pre-push gate on `main`
 
-The **pre-push gate** — `.git-hooks/pre-push` →
-[`scripts/prepush.sh`](../scripts/prepush.sh) — runs the full battery on push to `main`, then
+The **pre-push gate** — [`.git-hooks/pre-push`](../.git-hooks/pre-push), the committed hook — runs the full battery on push to `main`, then
 deploys (`aws/deploy-web.sh`: Supabase migrations → Lambda code). A failing check aborts the
 push, so nothing ships ungated. The web tier deploys via Vercel's git integration, which
 auto-builds `main` once the push lands.
@@ -9,7 +8,7 @@ auto-builds `main` once the push lands.
 ## The gate (runs automatically on push to `main`)
 
 ```bash
-git push origin main   # runs .git-hooks/pre-push → scripts/prepush.sh
+git push origin main   # runs .git-hooks/pre-push (the committed gate)
 
 # The same battery, to run by hand while iterating:
 npx biome ci . --error-on-warnings

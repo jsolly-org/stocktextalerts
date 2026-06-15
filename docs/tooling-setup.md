@@ -28,7 +28,7 @@ npx vercel env ls
 
 ## YAML linting
 
-`npm run check:yaml` runs yamllint, invoked by the pre-push gate (`scripts/prepush.sh`):
+`npm run check:yaml` runs yamllint, invoked by the pre-push gate (`.git-hooks/pre-push`):
 
 - **yamllint** (Python) — rule-based YAML linter, configured via `.yamllint` (`extends: relaxed`, `line-length` disabled). No install needed: `check:yaml` runs it as `uvx yamllint@<version>` (version pinned in `package.json`), fetched and cached by `uv` (`brew install uv`).
 

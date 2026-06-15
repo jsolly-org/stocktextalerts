@@ -5,7 +5,7 @@
 # trigger. The project link travels as non-secret env vars (VERCEL_ORG_ID /
 # VERCEL_PROJECT_ID) so the gitignored .vercel/ dir needn't exist in the worktree.
 #
-# Runs from the pre-push hook (scripts/prepush.sh) on push to main, and is also
+# Runs from the pre-push hook (.git-hooks/pre-push) on push to main, and is also
 # wired as `npm run deploy` for manual use. NO CloudFormation/SAM infra changes
 # happen here — `aws lambda update-function-code` is code-only. Infra/template
 # changes stay a manual `npm run deploy:aws` (full SAM, admin creds).
