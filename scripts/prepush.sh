@@ -12,13 +12,8 @@
 # a manual `npm run deploy:aws` (full SAM, admin).
 #
 # Only acts on a non-deleting push to main/master; feature-branch pushes stay
-# fast. Escape hatch: FLEET_SKIP_PREPUSH=1 git push.
+# fast.
 set -euo pipefail
-
-if [ "${FLEET_SKIP_PREPUSH:-}" = "1" ]; then
-  echo "⚠ FLEET_SKIP_PREPUSH=1 — skipping pre-push gate + deploy" >&2
-  exit 0
-fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
