@@ -139,7 +139,7 @@ The pre-push hook (`.git-hooks/pre-push`, the committed gate) runs the full CI b
 
 ## Tooling Setup
 
-See `docs/tooling-setup.md` for Production Supabase access (psql, env vars, project ref), Vercel CLI scope, Cloudflare CLI auth, and Mailpit dev email routing.
+See `docs/tooling-setup.md` for Production Supabase access (psql, env vars, project ref), Vercel CLI scope, and Mailpit dev email routing.
 
 ## Deploy gotchas
 

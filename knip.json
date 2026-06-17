@@ -13,8 +13,7 @@
 	"ignoreDependencies": [
 		"lint-staged",
 		"squawk-cli",
-		"vercel",
-		"wrangler"
+		"vercel"
 	],
 	"ignoreBinaries": [
 		"printf",

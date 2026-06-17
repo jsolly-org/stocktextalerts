@@ -19,13 +19,6 @@ npx vercel inspect <url> --logs
 npx vercel env ls
 ```
 
-## Cloudflare CLI
-
-`wrangler` is installed globally. Auth uses Global API Key (`CLOUDFLARE_API_KEY` + `CLOUDFLARE_EMAIL` in `~/.zshrc`).
-
-- Account: John Solly (`cloudflare@jsolly.com`)
-- Account ID: `fe860aed6545e6e55e2808d66decf186`
-
 ## YAML linting
 
 `npm run check:yaml` runs yamllint, invoked by the pre-push gate (`.git-hooks/pre-push`):
